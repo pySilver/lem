@@ -14,14 +14,12 @@ printed, and `WORKTREE` its `worktree`.
   the seat names one, and the prompt `Read BRIEF and follow it. Your reply is the review, and nothing
   else.` The `Plan` agent has no edit or write tool. Write its reply into `ANSWER` word for word,
   without the indent Claude Code puts before each line of a subagent's report.
-- `agent` is `codex`: the `Bash` tool with `run_in_background`, `-m MODEL` only when the seat names a
-  model and `-c model_reasoning_effort=EFFORT` only when it names an effort:
+- `agent` is `codex`: the `Bash` tool with `run_in_background`, on the `codex exec` line of
+  `ask-experts` (`ask-experts.md`), with its quotes, this seat's `-m "MODEL"` only when it names a
+  model and `-c "model_reasoning_effort=EFFORT"` only when it names an effort, and this step's
+  `WORKTREE`, `ANSWER` and `BRIEF`. A non-zero exit, or no answer file, is a merge agent that did
+  not answer: start it once more, and after a second such end tell the owner in one line that the
+  task waits for his read.
 
-  ```bash
-  codex exec -m MODEL -c model_reasoning_effort=EFFORT -s read-only --skip-git-repo-check --ephemeral -C WORKTREE -o ANSWER - < BRIEF > ANSWER.log 2>&1
-  ```
-
-  A non-zero exit, or no answer file, is a merge agent that did not answer: start it once more, and
-  after a second such end tell the owner in one line that the task waits for his read.
-
-Then `lem land merge-review SLUG --file ANSWER`.
+Then `lem land merge-review SLUG --file "ANSWER" --tip TIP`, TIP being the `tip` the step printed
+with the brief.

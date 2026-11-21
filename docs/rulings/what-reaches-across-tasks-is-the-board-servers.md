@@ -23,14 +23,3 @@ Its wake-up is an agterm pane message, and the session acts on the files, never 
 Section 7: "no session" is a row only when something is stuck, and every task with no live
 session has "Open a session"; `bin/lem` starts the server after a cheap look; a task's session
 sits on `seats.session` when one is set.
-
-With Q11 as the new fact, this replaces "One Lem session for each repository, and no global Lem"
-(2026-11-19) and the coordinating Lem of "One Lem for one repository" (2026-11-14); "A companion
-opens only when something waits for him" and "A companion tells Lem with an agterm pane message"
-(2026-11-19); Lem's watch in "His away status is one mark of the machine" (2026-11-19), now the
-shape's session's; and the companions of "The plan talk is a pair in a companion that closes after
-it" (2026-11-16) and of "Lem asks through its question page" (2026-11-15), now the task's session.
-"A companion is a fresh agent, with the talk copied in" (2026-11-19) stays as `lem session talk`.
-The server takes over the session's decision "The status knows what merged" (2026-11-17), and types
-no line as "The board is served, and the server draws it" (2026-11-20) has it; in "A task that ended
-stays ended" (2026-11-17), `prompts/session.md` takes the place of `stages/stopped.md`.

@@ -9,8 +9,9 @@
 GRD=$WORK/guards
 git init -q -b main "$GRD" && ident "$GRD"
 project --repo "$GRD" init --base main >/dev/null
-# grd_settings COMMANDS: the settings with these gate commands, a TOML list's items; HISTORY=squash for one commit, SERIAL for checks.serial
-grd_settings() { printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' "history = \"${HISTORY:-keep}\"" '[checks]' "commands = [$1]" "serial = [${SERIAL:-}]" > "$GRD/.lem/project.toml"; }
+# grd_settings COMMANDS: the settings with these gate commands, a TOML list's items; HISTORY=squash for one commit, SERIAL for checks.serial,
+# PROTECTED for branch.protected
+grd_settings() { printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' "history = \"${HISTORY:-keep}\"" "protected = [${PROTECTED:-}]" '[checks]' "commands = [$1]" "serial = [${SERIAL:-}]" > "$GRD/.lem/project.toml"; }
 grd_settings '"true"'
 mkdir -p "$GRD/tests" && printf '%s\n' 'def test_old():' '    assert 1 + 1 == 2' > "$GRD/tests/test_old.py"
 git -C "$GRD" add -A && git -C "$GRD" commit -q -m "chore: start" && on_github "$GRD"
@@ -22,7 +23,7 @@ set_kept() {
     "$GRD/.lem/state/tasks/$1/landing.json" "$2" "$3"
 }
 to_proposed() {
-  g start "$1" >/dev/null && g base "$1" >/dev/null && g checks "$1" >/dev/null && g read "$1" --record "$(clean 1)" >/dev/null \
+  g start "$1" >/dev/null && g base "$1" >/dev/null && g checks "$1" >/dev/null && g read "$1" --record "$(clean "$1" 1)" >/dev/null \
     && g propose "$1" --title "fix: $1" --notes "$NOTES" >/dev/null
 }
 
@@ -68,6 +69,42 @@ else
   fail "a gate of no command: $empty / $(kept_in "$GRD" no-gate gated)"
 fi
 project --repo "$GRD" state no-gate dropped "the test is over" >/dev/null
+
+# A green result holds for the commands that ran: the main checkout's settings that lose them all, or that add
+# one, after the checks passed ask for the checks again; the same commands as before let the proposal go.
+small_task_in "$GRD" new-command c.txt c
+g start new-command >/dev/null && g base new-command >/dev/null && g checks new-command >/dev/null && g read new-command --record "$(clean new-command 1)" >/dev/null
+grd_settings ''
+none=$(g propose new-command --title "fix: c" --notes "$NOTES" 2>&1 || true)
+grd_settings '"true", "test -d tests"'
+added=$(g propose new-command --title "fix: c" --notes "$NOTES" 2>&1 || true)
+grd_settings '"true"'
+same=$(g propose new-command --title "fix: c" --notes "$NOTES" 2>/dev/null | field 'd["green"]' || true)
+changed="the commands of the checks are not the ones that passed"
+if grep -qF "$changed" <<<"$none" && grep -qF "\`lem land checks new-command\` comes first" <<<"$none" && grep -qF "$changed" <<<"$added" && [ "$same" = True ]; then
+  pass "a green result is for the commands that ran: with none left, or one more, in the main checkout's settings, propose asks for the checks again; with the same, it proposes"
+else
+  fail "a green result after the commands changed: $none / $added / $same"
+fi
+project --repo "$GRD" state new-command dropped "the test is over" >/dev/null
+
+# A branch the owner protects after the task's worktree was made: propose pushes nothing to it, and clean removes nothing of
+# it, the worktree neither, until the name leaves branch.protected.
+small_task_in "$GRD" kept-name k.txt k
+g start kept-name >/dev/null && g base kept-name >/dev/null && g checks kept-name >/dev/null && g read kept-name --record "$(clean kept-name 1)" >/dev/null
+PROTECTED='"fix/kept-name"' grd_settings '"true"'
+pushed=$(g propose kept-name --title "fix: k" --notes "$NOTES" 2>&1 || true)
+remote=$(git -C "$GRD" ls-remote origin refs/heads/fix/kept-name)
+project --repo "$GRD" state kept-name dropped "the test is over" >/dev/null
+cleaned=$(g clean kept-name 2>&1 || true)
+grd_settings '"true"'
+if grep -qF "fix/kept-name is in branch.protected of .lem/project.toml: Lem pushes nothing to it" <<<"$pushed" && grep -qF "nothing was pushed" <<<"$pushed" && [ -z "$remote" ] \
+  && grep -qF "fix/kept-name is in branch.protected of .lem/project.toml: Lem deletes nothing of it" <<<"$cleaned" && [ -d "$(wt kept-name)" ] \
+  && git -C "$GRD" rev-parse -q --verify refs/heads/fix/kept-name >/dev/null && [ "$(g clean kept-name | field 'd["worktree"]')" = True ]; then
+  pass "a task branch the owner protected after its worktree was made gets no push from propose, and clean removes neither it nor the worktree until the name leaves branch.protected"
+else
+  fail "a protected task branch: $pushed / $remote / $cleaned"
+fi
 
 # A task whose worktree was removed by hand while it lands: another task starts its landing beside it, and the task's own step names the way out.
 small_task_in "$GRD" stuck s.txt s
@@ -174,7 +211,7 @@ project --repo "$GRD" state gate-writes dropped "the test is over" >/dev/null
 # checked by land. The record is edited here; a run of the steps the refusal names lands the new tip.
 small_task_in "$GRD" guarded y.txt y
 tree=$(wt guarded)
-g start guarded >/dev/null && g base guarded >/dev/null && g checks guarded >/dev/null && g read guarded --record "$(clean 1)" >/dev/null
+g start guarded >/dev/null && g base guarded >/dev/null && g checks guarded >/dev/null && g read guarded --record "$(clean guarded 1)" >/dev/null
 no_notes=$(g propose guarded --title "fix: y" --notes "$WORK/no-such-notes.md" 2>&1 || true)
 two_lines=$(g propose guarded --title $'fix: y\nand more' --notes "$NOTES" 2>&1 || true)
 unwritten=$([ -e "$GRD/.lem/state/tasks/guarded/pr.md" ] && echo written || echo none)
@@ -189,7 +226,7 @@ echo more > "$tree/y2.txt" && git -C "$tree" add -A && git -C "$tree" commit -q 
 main_was=$(git -C "$GRD" rev-parse main)
 c2=$(g merge guarded --by owner 2>&1 || true)
 unlanded=$(git -C "$GRD" rev-parse main)
-g start guarded >/dev/null && g base guarded >/dev/null && g checks guarded >/dev/null && g read guarded --record "$(clean 2)" >/dev/null \
+g start guarded >/dev/null && g base guarded >/dev/null && g checks guarded >/dev/null && g read guarded --record "$(clean guarded 2)" >/dev/null \
   && g propose guarded --title "fix: y" --notes "$NOTES" >/dev/null && g merge guarded --by owner >/dev/null || true
 if grep -qF "is not a file; --notes names a file" <<<"$no_notes" && grep -qF -- "--title is one line" <<<"$two_lines" && [ "$unwritten" = none ] \
   && grep -qF "no green check is on record for this tip" <<<"$c3" \
@@ -385,7 +422,8 @@ fi
 # during the criteria's tests, with no process of it left, no worktree of the criteria's check, no result, the lock free and
 # a gate.end of stopped. With no run it stops nothing and is no error.
 idle_stop=$(g checks one-step --stop | field 'd["stopped"]')
-grd_settings "\"sleep 64 > /dev/null 2>&1 & echo \$! > $WORK/stop.pid; wait\""
+# the command writes a file git neither tracks nor ignores before it sleeps: the stop removes it too
+grd_settings "\"echo left > stop-left.out; sleep 64 > /dev/null 2>&1 & echo \$! > $WORK/stop.pid; wait\""
 "$PY" -B "$LAND" --repo "$GRD" checks one-step > "$WORK/stop.out" 2>&1 &
 stop_pid=$!
 soon test -s "$WORK/stop.pid"
@@ -394,6 +432,7 @@ wait "$stop_pid" || true
 gone_soon "$(cat "$WORK/stop.pid")"
 plain_left=$(kill -0 "$(cat "$WORK/stop.pid")" 2>/dev/null && echo alive || echo ended)
 plain_gated=$(kept_in "$GRD" one-step gated)
+plain_left_files=$(git -C "$(wt one-step)" status --porcelain --untracked-files=all)
 # a serial command that ignores a term: its wrapper kills it after three seconds, and the checks wait for that wrapper
 SERIAL="\"trap '' TERM; sleep 65 & echo \$! > $WORK/serial.pid; wait\"" grd_settings '"true"'
 "$PY" -B "$LAND" --repo "$GRD" checks one-step > "$WORK/serial.out" 2>&1 &
@@ -422,14 +461,15 @@ crit_left=$(kill -0 "$(cat "$WORK/crit.pid")" 2>/dev/null && echo alive || echo 
 red_trees=$(find "$(dirname "$ctree")" -maxdepth 1 -name 'crit-stop.red-*' | grep -c '' || true)
 crit_free=$(g checks crit-stop --status | field '(d["running"], d["ended"]["say"])')
 if [ "$idle_stop" = False ] && [ "$stopped_plain" = "(True, 'stopped')" ] && [ "$plain_left" = ended ] && [ "$plain_gated" = None ] \
+  && [ -z "$plain_left_files" ] && grep -qF '"stop-left.out"' "$WORK/stop.out" \
   && grep -qF "one-step: the checks were stopped; the landing waits for your word" "$WORK/stop.out" && grep -qF "the checks were stopped" "$WORK/stop.out" \
   && [ "$stopped_serial" = True ] && [ "$serial_left" = ended ] \
   && [ "$stopped_crit" = "(True, 'stopped')" ] && [ "$crit_left" = ended ] && [ "$red_trees" = 0 ] && [ "$(kept_in "$GRD" crit-stop gated)" = None ] \
   && [ "$crit_free" = "(False, 'crit-stop: the checks were stopped; the landing waits for your word')" ] \
   && [ "$(gate_ends crit-stop)" = "[('stopped', True, 'crit-stop: the checks were stopped; the landing waits for your word')]" ] && [ "$base_free" = free ]; then
-  pass "--stop ends the checks during a command, during a serial command that takes its wrapper's cleanup to end, and during the criteria's tests, with no process left, no worktree of the criteria's check, no result kept, the lock free and a gate.end of stopped; with no run it stops nothing"
+  pass "--stop ends the checks during a command, during a serial command that takes its wrapper's cleanup to end, and during the criteria's tests, with no process left, no file the command left untracked, no worktree of the criteria's check, no result kept, the lock free and a gate.end of stopped; with no run it stops nothing"
 else
-  fail "the stop of the checks: $idle_stop / $stopped_plain $plain_left $plain_gated / $stopped_serial $serial_left $base_free / $stopped_crit $crit_left $red_trees $crit_free / $(cat "$WORK/stop.out" "$WORK/serial.out" "$WORK/crit.out")"
+  fail "the stop of the checks: $idle_stop / $stopped_plain $plain_left $plain_gated [$plain_left_files] / $stopped_serial $serial_left $base_free / $stopped_crit $crit_left $red_trees $crit_free / $(cat "$WORK/stop.out" "$WORK/serial.out" "$WORK/crit.out")"
 fi
 kill "$(cat "$WORK/stop.pid")" "$(cat "$WORK/serial.pid")" "$(cat "$WORK/crit.pid")" 2>/dev/null || true
 project --repo "$GRD" state crit-stop dropped "the test is over" >/dev/null

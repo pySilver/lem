@@ -99,8 +99,10 @@ they are, what they want, what they notice, what they never see.
 
 The panel's files live in one directory, `PANEL_DIR`: the folder
 `lem cast run-dir <slug>` makes and prints,
-`runs/<YYYY-MM-DD>-<slug>/` beside the personas folder, which git ignores without any
-rule in the project. It is inside Codex's workspace, so Codex can write the Sol answers there.
+`panels/<YYYY-MM-DD>-<slug>/` in Lem's state folder (`.lem/state/` of the main checkout), which
+git never shows. A `codex exec` seat writes its answer there through `-o`. A paired Codex writes
+the Sol answers there itself, so its sandbox has to reach the main checkout: one started in another
+worktree may not, and then it replies with what stopped it, as the "Sol panel" message asks.
 
 ### 1. Evidence first
 

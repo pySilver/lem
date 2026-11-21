@@ -112,7 +112,8 @@ owner watch --seen N` for the watch of the owner's mark, `lem land checks SLUG` 
 checks, `lem session wait SLUG --until STATE,...` for the end of another session's work (it looks
 every 10 seconds, a guess; it also ends when that task's session is gone from agterm's tree, with
 `"gone": true`, its `session`, the task's `status` and a `say` that names `lem session open SLUG
---why dead`, and its other ends print `"gone": false`), and the `lem session close` line that `lem session next` prints. Keep
+--why dead`; with `--companion ID` it ends too when that companion is gone, with `"gone": true`
+and its `companion`; its other ends print `"gone": false`), and the `lem session close` line that `lem session next` prints. Keep
 the name of each background task you started, and while one runs start no second of its kind. The tool names the background task
 and tells you when the command exits, also while the session waits between two of the owner's
 messages: the Bash tool's description in Claude Code 2.1.328 (read 2026-11-19) says that it

@@ -5,7 +5,7 @@ area: What Lem is, and who it is for
 
 # Lem is for experienced developers, and every change is measured against that
 
-Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A quote is his words.
+His ruling of 2026-11-16. It is reopened only by asking him. A quote is his words.
 
 **Lem is for experienced developers, and every change is measured against that** (2026-11-16):
 "it is crucial not to forget that this tool is for experienced developers, so it has to be: 1.

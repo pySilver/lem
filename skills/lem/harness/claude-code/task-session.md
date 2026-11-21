@@ -49,7 +49,8 @@ rerun mode, which starts each session's command again: the agent then starts fro
 message, and `prompts/session.md` reads the state before anything else, so it goes on or stops.
 
 `lem session close SLUG [--session ID] --why ...` logs the close and then runs `agtermctl session
-close --target ID --undoable`. It refuses a session the owner has selected; with
+close --target ID --undoable`. An `ID` is refused unless a `session.open` of that task names it (an
+older session of the task counts). It refuses a session the owner has selected; with
 `--when-unselected` it looks every 5 seconds (a guess) and closes it once he left it, so it runs in
 the background; a wake of that session meanwhile ends the wait with no close (`closed: false`,
 `woken: true`). `lem session list` gives each task's newest session: whether it lives, runs an

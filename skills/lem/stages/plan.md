@@ -202,11 +202,18 @@ with each of its lines and that one. Your report says the same. A task he named 
       `seats.planner`, and write the state `building` with the lines `the plan talk runs`, `lead:
       session` and `defender: MODEL, EFFORT`, as the pair's status line shows them (the harness
       file says how to read them).
-   3. `run-in-background` with `lem session wait SLUG --until planned,held`. Its end wakes you:
-      close the pair (`open-task-session`). On `planned` with `the plan talk is done`, write the
-      state `building` with the line `lead: builder`, and go on at step 3, which now finds the
-      record. On `held`, the defender tripped the breaker: take it up as `stages/breaker.md`
-      says under "After it".
+   3. `run-in-background` with `lem session wait SLUG --until planned,held --companion ID`, `ID`
+      the pair's id from its open. Its end wakes you: close the pair (`open-task-session`). On
+      `planned` with `the plan talk is done`, write the state `building` with the line `lead:
+      builder`, and go on at step 3, which now finds the record. On `held`, the defender tripped
+      the breaker: take it up as `stages/breaker.md` says under "After it". On `"companion"`, the
+      pair is gone and no state came: read `talk` in `lem project --repo WORKTREE tasks` and the
+      plan's `## Plan talk` first. A record there means the talk ended and its defender stopped
+      before its state: go on as on `planned`. No record: open the pair once more at step 2; when
+      that one is gone with no record too, write the state `held` with the line `the plan talk's
+      pair ended twice with no record: its screen is the owner's to read`. A defender that stops
+      but stays live in its pane (a usage limit, a question on its screen) ends no wait: the board
+      shows `the plan talk runs` until the owner looks at the pair.
    A task that becomes careful after its plan, by the owner's word, by the review's call or
    by an edit of `.lem/project.toml`, gets no talk afterwards: the landing's full
    review reads the code that exists.
@@ -220,7 +227,9 @@ with each of its lines and that one. Your report says the same. A task he named 
    plan (a layer over a decision with no cite, a decision two questions named, or a changed
    decision that brought issues of its own) is an honest comparison of both sides: one option is
    the kept decision with each mechanism that guards it, the other the reversed decision with the
-   tasks and the criteria it changes and each issue the reviewer raised against it. Both are the
+   tasks and the criteria it changes and each issue the reviewer raised against it. The kept
+   decision is the one the plan holds as the talk left it, after its repairs, never the one the
+   plan held before them. Both are the
    ladder's options, and the pick of level 1 is the kept decision: the plan stands until a level
    settles otherwise, and the defender is one of the two positions that did not settle. The pick
    is taken: the defender writes the reversed decision into the plan when a level picks it, and

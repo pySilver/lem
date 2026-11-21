@@ -15,7 +15,7 @@ The title is the rule as it stands. Where the paragraph below says otherwise, th
 
 ## As ruled on 2026-11-15, changed in part since
 
-Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A quote is his words.
+His ruling of 2026-11-15. It is reopened only by asking him. A quote is his words.
 
 **webrev is the recommended way to mark up a plan or a document**, before plannotator
 ("`/webrev` is awesome and needs to be recommended to use over plannotator"), and it is not a

@@ -156,6 +156,11 @@ class Overview(unittest.TestCase):
         alone = one(state(0, "queued", "it waits", "then: the lead"))
         self.assertEqual((bm.now_head(alone), spans(alone, "lem")[0][3]), ("Waits to start", "Queued: it waits to start"))
 
+    def test_an_interview_whose_criteria_the_personas_read_waits_for_nothing_of_his(self):
+        m = model(state(0, "held", "the interview waits for the owner"), ev(1, "interview.start"), ev(10, "criteria.read.start", by="lem"))
+        self.assertEqual(bm.waits_for(m.tasks[0], bm.waits_of(m)), None)
+        self.assertEqual(pages.summary_of(m), "1 with the personas’ read of its criteria")
+
     def test_the_large_card_says_how_a_stopped_run_ended_and_never_that_the_checks_run(self):
         t = one(state(0, "landing", "the checks start"), ev(1, "gate.start", tip="4c1d2e3f5", commands=2), ev(2, "gate.end", result="stopped", seconds=60))
         self.assertEqual(bm.now_head(t), "The checks were stopped")
@@ -270,6 +275,21 @@ class Map(unittest.TestCase):
                          [("Records with no document", ["decisions.jsonl"]), ("Review round 01-initial", ["reviews/t/01-initial/findings.json"])])
         self.assertIn("notes-of-mine.txt", [f["path"] for w in m["work"] for f in w["files"]])
         self.assertEqual(m["count"], 2)
+
+    def test_a_task_loses_only_its_working_files_and_keeps_its_state_and_every_record(self):
+        with tempfile.TemporaryDirectory() as folder:
+            task = Path(folder) / "gift-note"
+            files = {"ask.txt": "Add a gift note.", "state.md": "2026-11-20T10:00Z landed: main a..b", "ticket-steps.txt": "started landed",
+                     "resumed-from.txt": "gift", "decisions.jsonl": "{}", "report.md": "# Report\n\n![the note](media/a.png)\n",
+                     "media/a.png": "a", "media/b.png": "b", "reviews/t/01-initial/report.md": "# Round", "reviews/t/01-initial/agents/a.jsonl": "{}",
+                     "scratch.txt": "notes", "look/x.png": "x"}
+            for path, text in files.items():
+                (task / path).parent.mkdir(parents=True, exist_ok=True)
+                (task / path).write_text(text)
+            self.assertEqual(sorted(e["path"] for e in lem_artifacts.working(task, "gift-note")),
+                             ["look/x.png", "media/b.png", "reviews/t/01-initial/agents/a.jsonl", "scratch.txt"])
+            self.assertEqual({p: lem_artifacts.place(p)["role"] for p in ("state.md", "ticket-steps.txt", "resumed-from.txt")},
+                             {"state.md": "record", "ticket-steps.txt": "record", "resumed-from.txt": "record"})
 
     def test_a_picture_is_one_by_its_name_and_its_first_bytes(self):
         png = b"\x89PNG\r\n\x1a\n" + bytes(8)

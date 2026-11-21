@@ -27,7 +27,7 @@ with open(state_file + ".log", "a") as log:
     log.write(json.dumps(args) + "\n")
 def opt(name): return args[args.index(name) + 1] if name in args else None
 def rev(ref): return subprocess.run(["git", "-C", origin, "rev-parse", "--verify", "-q", ref], capture_output=True, text=True).stdout.strip()
-def shown(n, pr): return {"number": int(n), "url": pr["url"], "state": pr["state"], "mergeable": pr.get("mergeable", "MERGEABLE"),
+def shown(n, pr): return {"number": int(n), "url": pr["url"], "state": pr["state"], "mergeable": pr.get("mergeable", "MERGEABLE"), "baseRefName": pr["base"],
                           "headRefOid": rev("refs/heads/" + pr["head"]), "mergeCommit": {"oid": pr["merge"]} if pr["merge"] else None}
 def save():
     state["calls"].append(args)
@@ -53,7 +53,11 @@ elif args[:2] == ["pr", "create"]:
     out = state["prs"][n]["url"]
     save()
 elif args[:2] == ["pr", "edit"]:
-    state["prs"][args[2]].update(title=opt("--title"), body=open(opt("--body-file")).read())
+    # --base changes the branch the pull request goes into, as a person can on GitHub
+    if opt("--base"):
+        state["prs"][args[2]]["base"] = opt("--base")
+    if opt("--title"):
+        state["prs"][args[2]].update(title=opt("--title"), body=open(opt("--body-file")).read())
     save()
 elif args[:2] == ["pr", "view"]:
     out = json.dumps(shown(args[2], state["prs"][args[2]]))
@@ -77,7 +81,7 @@ gh_set() { "$PY" -c 'import json, os, sys; d = json.load(open(sys.argv[2])); exe
 gh_checked() { gh_land start "$1" >/dev/null && gh_land base "$1" >/dev/null && gh_land checks "$1" >/dev/null; }
 small_task_in "$GHS" pr-change p.txt nine
 out=$(gh_land start pr-change)
-gh_land base pr-change >/dev/null && gh_land checks pr-change >/dev/null && gh_land read pr-change --record "$(clean 1)" >/dev/null
+gh_land base pr-change >/dev/null && gh_land checks pr-change >/dev/null && gh_land read pr-change --record "$(clean pr-change 1)" >/dev/null
 proposed=$(gh_land propose pr-change --title "fix: nine" --notes "$NOTES")
 tip=$(git -C "$GHS/.lem/worktrees/pr-change" rev-parse HEAD)
 if [ "$(field 'd["forge"]' <<<"$out")" = github ] && [ "$(field 'd["pull_request"]' <<<"$proposed")" = "{'number': 7, 'url': 'https://github.com/acme/shop/pull/7'}" ] \
@@ -92,7 +96,7 @@ fi
 project --repo "$GHS" state pr-change ready --start-over "the landing starts over" >/dev/null
 gh_checked pr-change
 again=$(kept_in "$GHS" pr-change pr)/$(kept_in "$GHS" pr-change reads)
-gh_land read pr-change --record "$(clean 1)" >/dev/null && gh_land propose pr-change --title "fix: nine, again" --notes "$NOTES" >/dev/null
+gh_land read pr-change --record "$(clean pr-change 1)" >/dev/null && gh_land propose pr-change --title "fix: nine, again" --notes "$NOTES" >/dev/null
 "$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); d.pop("pr"); json.dump(d, open(sys.argv[1], "w"))' "$GHS/.lem/state/tasks/pr-change/landing.json"
 # with the record of the pull request lost, a merge does not go past the forge
 main_before=$(git -C "$GHO" rev-parse main)
@@ -108,13 +112,18 @@ else
   fail "a second proposal: $no_pr / $(cat "$WORK/gh.json")"
 fi
 merge_read "$GHS" pr-change >/dev/null
-out=$(gh_land merge pr-change --by merger)
+# a merge for another commit than the one proposed now (the one a confirm step or a review saw before) merges nothing and keeps nothing
+seen=$(git -C "$GHS" rev-parse main)
+stale=$(gh_land merge pr-change --by merger --tip "$seen" 2>&1 || true)
+stale_kept=$(kept_in "$GHS" pr-change merge_refused)
+out=$(gh_land merge pr-change --by merger --tip "$tip")
 if [ "$(field '(d["merged"], d["pull_request"]["number"], d["left_behind"])' <<<"$out")" = "('$tip', 7, None)" ] && [ "$(status_in "$GHS" pr-change)" = landed ] \
+  && grep -qF "the merge was asked for ${seen:0:9}, and the proposal is ${tip:0:9} now" <<<"$stale" && grep -qF "nothing was merged" <<<"$stale" && [ "$stale_kept" = None ] \
   && [ "$(gh_state '[c for c in d["calls"] if c[:2] == ["pr", "merge"]]')" = "[['pr', 'merge', '7', '--match-head-commit', '$tip', '--rebase']]" ] \
   && [ "$(git -C "$GHS" rev-parse main)" = "$tip" ] && [ -f "$GHS/p.txt" ]; then
-  pass "a pull request is merged through the forge, only at the commit that was proposed, and the main checkout follows"
+  pass "a pull request is merged through the forge, only at the commit that was proposed and that the caller saw, and the main checkout follows"
 else
-  fail "merging a pull request: $out"
+  fail "merging a pull request: $stale / $out"
 fi
 out=$(gh_land clean pr-change)
 if [ "$(field '(d["worktree"], d["branch"])' <<<"$out")" = "(True, 'fix/pr-change')" ] && [ -z "$(git -C "$GHO" branch --list fix/pr-change)" ]; then
@@ -124,7 +133,7 @@ else
 fi
 # The base moves before the merge; then the owner merges on the forge himself, as one commit.
 small_task_in "$GHS" pr-squashed q.txt ten
-gh_checked pr-squashed && gh_land read pr-squashed --record "$(clean 1)" >/dev/null && gh_land propose pr-squashed --title "fix: ten" --notes "$NOTES" >/dev/null
+gh_checked pr-squashed && gh_land read pr-squashed --record "$(clean pr-squashed 1)" >/dev/null && gh_land propose pr-squashed --title "fix: ten" --notes "$NOTES" >/dev/null
 gh_other=$WORK/gh-other
 git clone -q "$GHO" "$gh_other" && ident "$gh_other"
 echo late > "$gh_other/late.txt" && git -C "$gh_other" add -A && git -C "$gh_other" commit -q -m "feat: late" && git -C "$gh_other" push -q origin main
@@ -178,7 +187,7 @@ fi
 # tip and a merge of the base after it, which this checkout never fetched. clean says so, and the one command that removes
 # the branch; it guesses nothing.
 small_task_in "$GHS" pr-updated u.txt eleven
-gh_checked pr-updated && gh_land read pr-updated --record "$(clean 1)" >/dev/null && gh_land propose pr-updated --title "fix: eleven" --notes "$NOTES" >/dev/null
+gh_checked pr-updated && gh_land read pr-updated --record "$(clean pr-updated 1)" >/dev/null && gh_land propose pr-updated --title "fix: eleven" --notes "$NOTES" >/dev/null
 updated_pr=$(gh_state 'next(n for n, pr in d["prs"].items() if pr["head"] == "fix/pr-updated")')
 git -C "$gh_other" pull -q origin main
 echo base-later > "$gh_other/base-later.txt" && git -C "$gh_other" add -A && git -C "$gh_other" commit -q -m "feat: base later" && git -C "$gh_other" push -q origin main
@@ -202,7 +211,7 @@ fi
 # A proposal the forge's step refused is none: no `proposed` event, and the task keeps the landing line.
 # With no `gh` on PATH the refusal names the command; a forge that fails is said with what it said.
 small_task_in "$GHS" pr-guards r.txt twelve
-gh_checked pr-guards && gh_land read pr-guards --record "$(clean 1)" >/dev/null
+gh_checked pr-guards && gh_land read pr-guards --record "$(clean pr-guards 1)" >/dev/null
 mkdir -p "$WORK/no-gh" "$WORK/bad-bin"
 ln -s "$(command -v git)" "$WORK/no-gh/git"
 printf '%s\n' '#!/bin/sh' 'echo "HTTP 502: the forge is down" >&2' 'exit 1' > "$WORK/bad-bin/gh" && chmod +x "$WORK/bad-bin/gh"
@@ -224,6 +233,19 @@ pushed=$(git -C "$GHO" -c user.name=t -c user.email=t@t commit-tree -p "$tip" -m
 git -C "$GHO" update-ref refs/heads/fix/pr-guards "$pushed"
 moved_head=$(gh_land merge pr-guards --by owner 2>&1 || true)
 git -C "$GHO" update-ref refs/heads/fix/pr-guards "$tip"
+# Someone changed the pull request's base on GitHub: Lem merges nothing into that branch, and a merge made there is no landing.
+gh_set "d['prs']['$number']['base'] = 'release'"
+other_base=$(gh_land merge pr-guards --by owner 2>&1 || true)
+gh_set "d['prs']['$number'].update(state='MERGED', merge='$tip')"
+other_merged=$(gh_land merged pr-guards 2>&1 || true)
+gh_set "d['prs']['$number'].update(base='main', state='OPEN', merge=None)"
+if grep -qF "is on release on GitHub, not on main, the base of the task's settings" <<<"$other_base" && grep -qF "(\`gh pr edit $number --base main\`)" <<<"$other_base" \
+  && grep -qF "was merged into release on GitHub, not into main" <<<"$other_merged" && grep -qF "\`lem project state pr-guards dropped \"WHY\"\`" <<<"$other_merged" \
+  && [ "$(gh_state "sum(c[:3] == ['pr', 'merge', '$number'] for c in d['calls'])")" = 0 ] && [ "$(status_in "$GHS" pr-guards)" = open ]; then
+  pass "a pull request whose base was changed on GitHub is not merged, with the branch it has named and the command that puts the base back, and a merge into that branch is not written down as landed"
+else
+  fail "a pull request on another base: $other_base / $other_merged / $(status_in "$GHS" pr-guards)"
+fi
 gh_set "d['prs']['$number']['state'] = 'CLOSED'"
 closed_land=$(gh_land merge pr-guards --by owner 2>&1 || true)
 if grep -qF "the pull request's head is not the tip that was proposed; run \`lem land start\`, \`lem land base\`, \`lem land checks\`, \`lem land read\` and \`lem land propose\` again" <<<"$moved_head" \
@@ -248,7 +270,7 @@ fi
 # after a plain fetch moved the remote-tracking branch to it: base refuses before its rebase and names the commit. Once
 # the worktree holds it, it is part of the change, with the checks and a read, and the push keeps it.
 small_task_in "$GHS" pr-mate t.txt thirteen
-gh_checked pr-mate && gh_land read pr-mate --record "$(clean 1)" >/dev/null
+gh_checked pr-mate && gh_land read pr-mate --record "$(clean pr-mate 1)" >/dev/null
 pr_mate=$(gh_land propose pr-mate --title "fix: thirteen" --notes "$NOTES" | field 'd["pull_request"]["number"]')
 mate=$WORK/gh-mate
 git clone -q "$GHO" "$mate" && git -C "$mate" config user.name "Ania Mate" && git -C "$mate" config user.email ania@example.com
@@ -264,7 +286,7 @@ tree=$GHS/.lem/worktrees/pr-mate
 git -C "$tree" pull -q --rebase origin fix/pr-mate
 gh_land base pr-mate >/dev/null && gh_land checks pr-mate >/dev/null
 due_mate=$(gh_land read pr-mate | field '(d["due"], d["why"])')
-gh_land read pr-mate --record "$(clean 2)" >/dev/null
+gh_land read pr-mate --record "$(clean pr-mate 2)" >/dev/null
 again=$(gh_land propose pr-mate --title "fix: thirteen" --notes "$NOTES" 2>&1 || true)
 if grep -qF "${suggestion:0:9} Ania Mate \"fix: a suggestion\"" <<<"$kept_out" && grep -qF "git -C $tree pull --rebase origin fix/pr-mate" <<<"$kept_out" \
   && [ "$on_forge" = "$suggestion" ] && [ "$due_mate" = "('review', 'nothing asks for more than one read: the diff and what each profile is for decide')" ] \
@@ -277,7 +299,7 @@ fi
 # A first push onto a branch of the same name that a teammate pushed meanwhile is refused, and so is the adoption of an
 # open pull request whose head is no commit Lem pushed for this task: the teammate's commits and pull request stay his.
 small_task_in "$GHS" pr-first u.txt fourteen
-gh_checked pr-first && gh_land read pr-first --record "$(clean 1)" >/dev/null
+gh_checked pr-first && gh_land read pr-first --record "$(clean pr-first 1)" >/dev/null
 git -C "$mate" fetch -q origin && git -C "$mate" switch -q -c fix/pr-first origin/main
 echo his > "$mate/u2.txt" && git -C "$mate" add -A && git -C "$mate" commit -q -m "feat: his own work" && git -C "$mate" push -q origin fix/pr-first
 his=$(git -C "$mate" rev-parse HEAD)
@@ -285,7 +307,7 @@ first=$(gh_land propose pr-first --title "fix: fourteen" --notes "$NOTES" 2>&1 |
 first_forge=$(git -C "$GHO" rev-parse refs/heads/fix/pr-first)
 project --repo "$GHS" state pr-first dropped "the test is over" >/dev/null
 small_task_in "$GHS" pr-foreign v.txt fifteen
-gh_checked pr-foreign && gh_land read pr-foreign --record "$(clean 1)" >/dev/null
+gh_checked pr-foreign && gh_land read pr-foreign --record "$(clean pr-foreign 1)" >/dev/null
 # his pull request from a branch of the same name, which holds nothing beyond main yet
 git -C "$GHO" update-ref refs/heads/fix/pr-foreign "$(git -C "$GHO" rev-parse refs/heads/main)"
 gh_set "d['prs']['99'] = {'url': 'https://github.com/acme/shop/pull/99', 'head': 'fix/pr-foreign', 'base': 'main', 'title': 'his title', 'body': 'his text', 'state': 'OPEN', 'merge': None, 'author': 'ania'}"
@@ -351,7 +373,7 @@ no_file=$([ -e "$GLS/.lem/project.toml" ] && echo written || echo none)
 mkdir -p "$GLS/.lem" && printf '%s\n' '[branch]' 'base = "main"' '[checks]' 'commands = ["true"]' > "$GLS/.lem/project.toml"
 git -C "$GLS" add -A && git -C "$GLS" commit -q -m "chore: start" && git -C "$GLS" push -q origin main
 small_task_in "$GLS" gl-change g.txt one
-land --repo "$GLS" start gl-change >/dev/null && land --repo "$GLS" base gl-change >/dev/null && land --repo "$GLS" checks gl-change >/dev/null && land --repo "$GLS" read gl-change --record "$(clean 1)" >/dev/null
+land --repo "$GLS" start gl-change >/dev/null && land --repo "$GLS" base gl-change >/dev/null && land --repo "$GLS" checks gl-change >/dev/null && land --repo "$GLS" read gl-change --record "$(clean gl-change 1)" >/dev/null
 gl_proposed=$(land --repo "$GLS" propose gl-change --title "fix: one" --notes "$NOTES" 2>&1 || true)
 # shellcheck disable=SC2016  # the backticks are the message's own marks
 if grep -qF "origin is git@gitlab.com:acme/shop.git, and Lem lands through GitHub pull requests only" <<<"$refused_init" \
@@ -401,7 +423,7 @@ line_task() {
 proposed() {
   gw_land start "$1" >/dev/null && gw_land base "$1" >/dev/null
   if [ -e "$GWS/docs/plans/2026-11-15-$1.md" ] || [ -e "$GWS/.lem/worktrees/$1/docs/plans/2026-11-15-$1.md" ]; then polish_in_gw "$1"; fi
-  gw_land checks "$1" >/dev/null && gw_land read "$1" --record "$(clean 1)" >/dev/null && gw_land propose "$1" --title "fix: $1" --notes "$NOTES" >/dev/null
+  gw_land checks "$1" >/dev/null && gw_land read "$1" --record "$(clean "$1" 1)" >/dev/null && gw_land propose "$1" --title "fix: $1" --notes "$NOTES" >/dev/null
 }
 polish_in_gw() {
   local started
@@ -465,7 +487,7 @@ resolved=$(gw_land base w-four 2>&1 || true)
 polished=$(gw_land polish w-four 2>&1 || true)
 gw_land checks w-four >/dev/null 2>&1 || true
 due_read=$(gw_land read w-four 2>&1 || true)
-recorded=$(gw_land read w-four --record "$(clean 2)" 2>&1 || true)
+recorded=$(gw_land read w-four --record "$(clean w-four 2)" 2>&1 || true)
 due_after=$(gw_land read w-four 2>&1 || true)
 again=$(gw_land propose w-four --title "fix: w-four" --notes "$NOTES" 2>&1 || true)
 text=$GWS/.lem/state/tasks/w-four/pr.md
@@ -501,7 +523,7 @@ git -C "$tree" rebase -q origin/main >/dev/null 2>&1 || true
 git -C "$tree" add shop.txt && GIT_EDITOR=true git -C "$tree" rebase --continue >/dev/null 2>&1
 gw_land base w-six >/dev/null 2>&1 || true
 gw_land checks w-six >/dev/null 2>&1 || true
-gw_land read w-six --record "$(clean 2)" >/dev/null 2>&1 || true
+gw_land read w-six --record "$(clean w-six 2)" >/dev/null 2>&1 || true
 synced=$(gw_land propose w-six --title "fix: w-six" --notes "$NOTES" 2>&1 | field '(d["pull_request"]["number"], d["synced"])' 2>&1 || true)
 gh_set "d['prs']['11']['mergeable'] = 'MERGEABLE'" "$GW"
 if grep -qF "the forge calls the pull request conflicting with main: the branch is brought onto it again" "$GWS/.lem/state/tasks/w-six/state.md" \
@@ -549,7 +571,7 @@ line_task w-care small 7 care
 printf '%s\n' 'slug: w-care' 'careful: the owner says so' > "$GWS/.lem/state/tasks/w-care/brief.md"
 full_read='{"kind": "full", "ran": [{"name": "default", "why": "the owner calls it careful"}], "answered": ["codex"]}'
 gw_land start w-care >/dev/null && gw_land base w-care >/dev/null && gw_land checks w-care >/dev/null
-gw_land read w-care --record "$(record 1 "$full_read")" >/dev/null && gw_land propose w-care --title "fix: w-care" --notes "$MIG" >/dev/null
+gw_land read w-care --record "$(record w-care 1 "$full_read")" >/dev/null && gw_land propose w-care --title "fix: w-care" --notes "$MIG" >/dev/null
 git -C "$pusher" fetch -q origin && git -C "$pusher" merge -q --ff-only origin/main
 echo other > "$pusher/other.txt" && git -C "$pusher" add -A && git -C "$pusher" commit -q -m "docs: another file" && git -C "$pusher" push -q origin main
 gw_land start w-care >/dev/null && gw_land base w-care >/dev/null && gw_land checks w-care >/dev/null

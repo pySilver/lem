@@ -21,9 +21,9 @@ sends it to a big model instead.
 
 The key is JEV_API_KEY from the environment, and the address JEV_API_URL, OpenRouter's by default
 (the owner, 2026-11-18: "jev lib only care about API url and API token - we can use any
-provider"). A machine set up before with OPENROUTER_API_KEY goes on: that key is read when
-JEV_API_KEY is not set. The key is in no settings file: a settings file is in the repository's
-folder, and no secret goes into a file. A process keeps the values it started with, so a key
+provider"). JEV_API_KEY is the one name of the key: with no JEV_API_KEY nothing is sent, and the
+refusal says so. The key is in no settings file: a settings file is in the repository's folder,
+and no secret goes into a file. A process keeps the values it started with, so a key
 changed later reaches only processes started after the change.
 
 The request and the reply are Jev's own form, the same at every provider: a POST of state, model
@@ -35,7 +35,7 @@ to that provider's name of the model.
 
 Exit codes: 0 answered; 1 a bad spec, no key, or a failed request (the error names which);
 3 the input is over LIMIT_BYTES.
-Environment: JEV_API_KEY (required; OPENROUTER_API_KEY when it is not set), JEV_API_URL (the
+Environment: JEV_API_KEY (required), JEV_API_URL (the
 address of the decisions endpoint, default URL), JEV_MODEL (default model), JEV_TIMEOUT (seconds).
 """
 
@@ -49,8 +49,8 @@ from pathlib import Path
 
 # OpenRouter's address of Jev's decisions, the default of JEV_API_URL
 URL = "https://openrouter.ai/api/alpha/decisions"
-# The variables of the key: Lem's, then the one a machine set up before has
-KEYS = ("JEV_API_KEY", "OPENROUTER_API_KEY")
+# The one variable of the key
+KEY = "JEV_API_KEY"
 DEFAULT_MODEL = os.environ.get("JEV_MODEL", "typesafe/jev-1.14")
 LIMIT_BYTES = 32_000
 # the default of JEV_TIMEOUT; main() reads the variable, so a wrong value is a message, not a traceback at import
@@ -124,10 +124,10 @@ def build(spec: dict) -> dict:
 
 
 def key() -> str:
-    """The key: JEV_API_KEY, or OPENROUTER_API_KEY when it is not set."""
-    found = next((os.environ[name] for name in KEYS if os.environ.get(name)), "")
+    """The key: JEV_API_KEY, the one name Lem reads for it."""
+    found = os.environ.get(KEY, "")
     if not found:
-        raise RuntimeError("JEV_API_KEY is not set in this process's environment (nor OPENROUTER_API_KEY); put the key of the Jev model's provider there")
+        raise RuntimeError(f"{KEY} is not set in this process's environment, and it is the one name Lem reads for the key; put the key of the Jev model's provider there")
     return found
 
 
@@ -179,7 +179,7 @@ def main(argv: list[str]) -> int:
         body = build(load(args[0]))
         if check:
             # what a request would use, and no key's value: the address, and which variable gives the key
-            given = next((name for name in KEYS if os.environ.get(name)), None)
+            given = KEY if os.environ.get(KEY) else None
             print(json.dumps({"ok": True, "model": body["model"], "questions": sorted(body["questions"]), "url": address(), "key_from": given}))
             return 0
         print(json.dumps(ask(body, timeout)))

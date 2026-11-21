@@ -253,6 +253,7 @@ and open to him. Each sentence is the text of a link to its file in `.lem/decisi
 ### What Lem is, and who it is for
 
 - [Lem is a companion, not a gate](.lem/decisions/lem-is-a-companion-not-a-gate.md)
+- [Two rulings that say one rule are merged when one of them next changes, not before](.lem/decisions/two-rulings-that-say-one-rule-are-merged-when-one-of-them-next-changes-not-before.md)
 
 ### What Lem needs on the machine
 
@@ -278,11 +279,13 @@ and open to him. Each sentence is the text of a link to its file in `.lem/decisi
 - [A plan talk's record is taken as it ran.](.lem/decisions/a-plan-talks-record-is-taken-as-it-ran.md)
 - [A plan never makes a change small](.lem/decisions/a-plan-never-makes-a-change-small.md)
 - [The checks remove what their own commands leave](.lem/decisions/the-checks-remove-what-their-own-commands-leave.md)
+- [Two builders of one plan that run at one moment commit only their own paths](.lem/decisions/two-builders-of-one-plan-that-run-at-one-moment-commit-only-their-own-paths.md)
 
 ### A decision without him: the ladder, the experts and the breaker
 
 - [A decision of the plan does not hold the task: `held` keeps what has no options, the criteria that wait for his yes, one more fact for an investigation and a step that is his to do.](.lem/decisions/a-decision-of-the-plan-does-not-hold-the-task-held-keeps-what-has-no-options-the-criteria-that-wait-for-his-yes-one-more-fact-for-an-investigation-and-a-step-that-is-his-to-do.md)
 - [The mode and the ladder are built in the smaller of two designs](.lem/decisions/the-mode-and-the-ladder-are-built-in-the-smaller-of-two-designs.md)
+- [A machine failure stops a task as `blocked`, with one line that names what to do, and with no breaker's document](.lem/decisions/a-machine-failure-stops-a-task-as-blocked-with-one-line-that-names-what-to-do-and-with-no-breakers-document.md)
 
 ### The review, the pull request and the merge
 
@@ -401,8 +404,9 @@ Each script's module docstring says what it does and why; this list says where e
   `interview.md` (the interview and the criteria) and `investigate.md` (a bug, a question) are the
   rest of the shape. `start.md` starts the build, `plan.md` and `build.md` are the lead's, `talk.md`
   is the plan talk, which only its defender reads, `ladder.md` a decision in doubt and `breaker.md`
-  the circuit breaker. `land.md` is the land phase, and `polish.md` its step 3, on the standard
-  track only. `status.md`, `away.md`, `correct.md`, `park.md`, `night.md`, `init.md`, `learn.md`
+  the circuit breaker. `land.md` is the land phase, `polish.md` its step 3, on the standard
+  track only, and `conflict.md` what an open pull request takes when GitHub calls it conflicting.
+  `status.md`, `away.md`, `correct.md`, `park.md`, `night.md`, `init.md`, `learn.md`
   and `nap.md` are the owner's other commands and the scheduled ones.
 - `skills/lem/prompts/`: the standing briefs: `session.md` (a task's session: what it reads, a
   change of phase, a wake-up, what it never does), `lead.md`, `defender.md` and `reviewer.md` (the
@@ -417,8 +421,9 @@ Each script's module docstring says what it does and why; this list says where e
 - `skills/lem/scripts/`, each a command of `lem` or a module the commands share:
   - `project.py` (`lem project`): a repository's settings and the one place of each file Lem reads
     beside them (`PLACES`), a task's state and directory, the event log, the owner's status and its
-    watch, `waiting` (the one list of what waits for the owner), and the machine's `load` and
-    `handoff` numbers.
+    watch, `waiting` (the one list of what waits for the owner), `prune` (what the state folder
+    keeps, `state.keep_days`, which one machine's `.lem/project.local.toml` may set for itself), and
+    the machine's `load` and `handoff` numbers.
   - `session.py` (`lem session`): a task's own session in agterm, its change of phase, its wake-up,
     the handoff's check and the copy of the talk; `session_hook.py`: the plugin's `PreCompact` and
     `SessionStart` hooks of a task's session (every source: the record of each Claude Code session of
@@ -431,7 +436,8 @@ Each script's module docstring says what it does and why; this list says where e
     tests pass on the branch and fail on the base. `decisions.py` (`lem decisions`): a task's
     decisions, each taken without the owner, and its breakers.
   - `serve.py` (`lem serve`): the machine's one board server, with the owner's acts, the jump to a
-    session, the tailnet door and the duties across tasks; `serve_hook.py`: the SessionStart hook
+    session, the tailnet door and the duties across tasks, the hourly `lem project prune` of each
+    workspace among them; `serve_hook.py`: the SessionStart hook
     that starts it. Its parts: `lem_board_model.py` (the model, pure functions over the files),
     `lem_board_pages.py` (the pages of a workspace), `lem_board_task.py` (the board of one task),
     `lem_artifacts.py` (a task's files on one map), `lem_html.py` (`h()`, which escapes every text),
@@ -463,8 +469,10 @@ Each script's module docstring says what it does and why; this list says where e
   Its `decisions/` holds the maintaining session's decisions and designs, one file for each, each
   linked by its sentence in "Decisions the maintaining session took", and a replaced one marked and
   linked by what replaced it. Its `state/`, which git ignores, is the state of a repository's Lem: the tasks, the event log,
-  the night reports, the naps, the experts' folders, a panel's copies, and `forge.json`, the board
-  server's last look at GitHub. `.lem/worktrees/` holds
+  the night reports, the naps, the experts' folders, a panel's copies, the panels' folders
+  (`panels/`, which `lem cast run-dir` makes), and `forge.json`, the board
+  server's last look at GitHub. `lem project prune` removes from it what is older than
+  `state.keep_days`. `.lem/worktrees/` holds
   the tasks' worktrees. `.revmux/` is the review tool's configuration for this repository.
 - The naps, an optional part: `prompts/nap.md` is written after the owner's own nap routine and
   keeps its voice (a change is tried with one real nap, and its dream is read: a brief that makes a
@@ -512,7 +520,8 @@ Each script's module docstring says what it does and why; this list says where e
   skills Lem names and ships. `lem-ask-expert` is Lem's own, with `scripts/experts.py` (`lem
   experts`: the brief of a question in words and the record of the experts' answers, in a folder of
   `.lem/state/experts/`). `lem-panel`'s `scripts/cast.py` (`lem cast`) finds the cast, copies it
-  into a project, and keeps the copies a panel read in Lem's state folder. `NOTICE` says where each
+  into a project, keeps the copies a panel read in Lem's state folder, and makes each panel's own
+  folder there, in `.lem/state/panels/`. `NOTICE` says where each
   came from.
 
 ## The shipped skills are copies, not yet under the rules above

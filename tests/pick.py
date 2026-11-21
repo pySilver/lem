@@ -79,7 +79,9 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     (("tests/pick.py",), ("pick",)),
     # The short AGENTS.md and the files its rulings and decisions link, which tests/unit/test_agents_md.py reads
     (("AGENTS.md", "docs/rulings/*", ".lem/decisions/*"), ("unit",)),
-    # What no suite reads, except docs/rulings/ and .lem/decisions/, which the row above gives the unit level;
+    # The install guide's table of tools, whose tier words tests/unit/test_doctor.py checks against doctor.py
+    (("docs/install.md",), ("unit",)),
+    # What no suite reads, except docs/rulings/, .lem/decisions/ and docs/install.md, which the rows above give the unit level;
     # tests/clock/ is a late clock that a criterion's command puts on PYTHONPATH, and tools/ is the maintainer's build of the board's kit, whose built files are under skills/lem/assets/.
     (("tools/*", "docs/*", "README.md", "CLAUDE.md", "LICENSE", "NOTICE", ".gitignore", ".lem/*", ".revmux/*", ".github/*",
       "assets/*", "tests/board-cdp.mjs", "tests/clock/*"), ()),

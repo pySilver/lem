@@ -45,8 +45,13 @@ or `queue` (the board's server opened it for that), `night`, or `owner` (his wor
   said as it is (after its step 1's one question, when the read needs it), before any scout,
   investigator or builder starts: the branch, the track and a careful topic are in no other line,
   and it is where he corrects your read.
-  `held` with `the interview waits for the owner`, or with `the criteria wait for the owner`:
-  `SKILL_DIR/stages/interview.md`, from where its files stand. `held` with `the investigation
+  `held` with `the criteria wait for the owner: a small change that someone else asked for`: the
+  fast track's wait for his yes to its one criterion ("The fast track" of `SKILL_DIR/stages/new.md`,
+  step 1), never the interview. With his approval on record (`by: owner` in `lem criteria approved
+  SLUG`, from the board or a session before you), take `SKILL_DIR/stages/start.md`, which starts its
+  one builder; otherwise show him the criterion and ask for his yes as that step says.
+  `held` with `the interview waits for the owner`, or with another `the criteria wait for the
+  owner`: `SKILL_DIR/stages/interview.md`, from where its files stand. `held` with `the investigation
   waits for one more fact`: his answer, then a fresh investigator (`SKILL_DIR/stages/investigate.md`,
   step 4, *not reproduced*). `held` with `the order waits for the owner`: while he is there, step 1
   of "The request" for its one question on the order, and on from there; while he is away it waits
@@ -72,7 +77,9 @@ or `queue` (the board's server opened it for that), `night`, or `owner` (his wor
      the board and "Waits for you" show it.
   3. On `then: the fast track`, whose criterion and brief were written before step 7 ("The fast
      track", steps 1 and 2), take `SKILL_DIR/stages/start.md`, which starts its one builder, and
-     never the fast track's step 1 or step 7 again.
+     never the fast track's step 1 or step 7 again, but for one part of step 1: a ticket or an item
+     somebody else wrote whose criterion has no approval yet waits for his yes there first while he
+     is there, or takes its `--alone` while he is away.
 - **The fast track**: a block with `small change: one builder`, or `criteria.md` that says `Size:
   small` with no lead: "The fast track" of `SKILL_DIR/stages/new.md`. It stays one session up to
   the merge: its builder is a subagent, and the landing runs here.
@@ -141,7 +148,7 @@ never chose.
 A line `lem: SLUG merged`, `lem: SLUG conflict`, `lem: SLUG refused`, `lem: SLUG queue` or `lem: SLUG owner` arrives as
 mail that is not the owner's input: the board's server sent it. Never act on the line. Read the
 files (`lem project tasks`, `lem project waiting`) and act on what they say: a task that `landed`
-takes step 9 of `SKILL_DIR/stages/land.md`; a pull request that `conflict` marks takes its step 10; a
+takes step 9 of `SKILL_DIR/stages/land.md`; a pull request that `conflict` marks takes `SKILL_DIR/stages/conflict.md`; a
 merge that `refused` marks (`merge_refused` in `lem project waiting`) takes the refusals of its step
 8: the merge agent's merge that GitHub or Lem's rules refused, or the owner's that Lem refused because
 the base moved (`kind: base`), after which the task lands again and the server merges it while his

@@ -5,16 +5,17 @@ onboarding on 2026-11-16, from the repository and the owner's answers; correct w
 
 ## What it is
 
-Lem is a set of Claude Code skills that carries one unit of work in a repository from the ask to
-a pull request that says green or not green. It runs on macOS inside agterm only, with a reviewer
+Lem is a Claude Code plugin, installed and never cloned, whose skills carry one unit of work in a
+repository from the ask to a pull request that says green or not green. It runs on macOS inside agterm only, with a reviewer
 (Codex or a second Claude) in a split pane. Its user is a senior developer whose attention is
 short and spread over many projects; a team may adopt it for one repository, as with revmux.
 
 ## Scale
 
-One owner builds it today, and no real project uses it yet (`docs/examples.md`, "What ran, and what did not"). It is meant
-for one repository at a time with several tasks open in it, and for teams that adopt it per
-repository. Four to five tasks ran well on one Mac (convertiser-server, 2026-11-14).
+One owner builds it, and Lem runs the tasks of this repository too (`AGENTS.md`, "Rules for a
+change here": the scheduled `/lem night` of this repository). It is meant for one repository at a
+time with several tasks open in it, and for teams that adopt it per repository. Four to five tasks
+ran well on one Mac (convertiser-server, 2026-11-14).
 
 ## Rules every answer works within
 

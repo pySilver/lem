@@ -139,7 +139,7 @@ runs, and follow it. Do not read the others. In a task's session, `be-careful`, 
 | `serve join HOST`, `serve leave HOST`, `serve peers` | another computer's boards on this one's address, under its name: `lem serve --join HOST`, `--leave HOST`, or `--peers`, the computers joined and whether each answers; say the JSON's `said` | `stages/status.md`, "The board's server" |
 | `serve stop` | ends the server (`lem serve --stop`); the next `lem` command of any session starts it again | `stages/status.md`, "The board's server" |
 | `read <ticket>` | reads one ticket of the tracker, by its id (`/lem read MBZ-12`) or its URL, and says what it holds; it opens no task and writes nothing to the ticket. With no tracker in `lem project show`, say that the project has none | the tracker's skill (`load-skill` the one `tracker.kind` names), its "read" |
-| `reviewer AGENT/MODEL:EFFORT`, `reviewer default` | who sits in the reviewer's pane on this machine for now, as one seat (`/lem reviewer codex/gpt-6.2-sol:high`; the effort, or the model and the effort, may be left out for the agent's own default), and the project's own reviewer again: `lem project reviewer` with the same words. Say what `lem project show` then gives as the seat | the harness file, `second-opinion` |
+| `reviewer AGENT/MODEL:EFFORT`, `reviewer default` | who sits in the reviewer's pane on this machine for now, as one whole seat (`/lem reviewer codex/gpt-6.2-sol:high`; a seat with no model or no effort is refused), and the project's own reviewer again: `lem project reviewer` with the same words. Say what `lem project show` then gives as the seat | the harness file, `second-opinion` |
 | a helper | `/lem interview-me` loads `lem-interview-me` (`load-skill`): read `SKILL_DIR/../lem-interview-me/SKILL.md` by its path and follow it, with the rest of the line as its arguments. Plain words start one too, with or without `/lem`: "let's brainstorm this" or "interview me about X" (`interview-me`), "argue both sides of ..." (`dialectic`), "why does this keep breaking" (`root-cause`), "what would the experts say" (`ask-expert`), "how would the users take this" (`panel`). Outside a session where `/lem` was typed a shipped skill never starts by itself. Lem's stages load `ask-expert`, `panel`, `linear`, `lem-ask` and `lem-gate` themselves: Lem opens its question page each time it asks him, and the gate is the first level of the ladder | that skill |
 | anything else | an ask in plain words: `/lem the report dates must stay whole` is `new` with that sentence, also in another task's session. Words that plainly say one of the rows above go there | `stages/new.md` |
 
@@ -283,7 +283,8 @@ shared by every worktree, never committed and not removed with a worktree. It ho
   task on the standard track from a complete request the lead's read freezes them there too (`by: read`), which is never his yes. Only `lem criteria approve` writes it; `lem criteria approved SLUG` prints it, and the
   plan's criteria must be those, with the test lines added.
 - `criteria.md`: the criteria as the interview writes them for his yes. On the fast track it is the one
-  criterion, approved in his name, with the test line its builder adds under it, and it stands in
+  criterion, approved in his name (a request that is not his own sentence: by him while he is
+  there, else without him), with the test line its builder adds under it, and it stands in
   for a plan: a task on the fast track commits no plan, and `criteria.py` and `land.py` read the criterion
   here when the branch has no plan file. On the standard track the criteria are read only from its plan.
 - `brief.md`: the lead's brief, or the fast track's builder's; `talk-brief.md`, the defender's.

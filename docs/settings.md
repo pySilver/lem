@@ -23,12 +23,14 @@ Paths are relative to the root of the repository.
 | `branch.base` | `/lem init` writes the default branch | the branch that a task starts from and lands on |
 | `branch.land` | `"agent"` | who merges. A merge agent reads each pull request first and writes its review. `"agent"`: the merge agent merges a green pull request that is not careful, and calls you for each other one. `"owner"`: you merge each pull request |
 | `branch.history` | `"squash"` | what lands. `"squash"`: one commit. `"keep"`: the commits of the branch |
-| `branch.protected` | `[]` | the branches where Lem lands nothing and pushes nothing |
+| `branch.protected` | `[]` | the branches where Lem lands nothing, pushes nothing and deletes nothing, also a task's own branch that you add here later |
 
 ## `[checks]`
 
 During the build, each builder runs only the tests of its own change. Before the pull request, Lem
-runs the commands below one time, in the worktree of the task.
+runs the commands below one time, in the worktree of the task. When you change `checks.commands` or
+`checks.serial`, a task whose checks passed runs them again before its pull request and before its
+merge.
 
 | Setting | Default | Use |
 | --- | --- | --- |
@@ -44,7 +46,9 @@ runs the commands below one time, in the worktree of the task.
 
 ## `[seats]`
 
-A seat is one string, `agent/model:effort`. A part that you leave out takes the default of the agent.
+A seat is one string, `agent/model:effort`. Write all three parts for `seats.reviewer`,
+`seats.planner` and each of `seats.experts`: Lem stops at `"codex"` or `"codex/gpt-6.2-sol"` there.
+In `seats.merger` and `seats.session`, a part that you do not write takes the default of the agent.
 A persona names its own seats in the frontmatter of its file, in the same form:
 `seats: ["claude/opus:high"]`. A persona file without it uses the seats of the panel.
 
@@ -70,6 +74,20 @@ An optional agent that reads the recent tasks and leaves a note for the retro.
 | --- | --- | --- |
 | `naps.on` | `false` | `true` turns the naps on |
 
+## `[state]`
+
+Lem keeps the files of its work in `.lem/state/`, and git does not see this folder. The board
+server removes the old files from it each hour. It removes the working files of a task that ended:
+the notes of an agent, the archive of a review round, a picture that no document shows. It keeps
+the documents and the records of the task. It also removes a question to the experts, the folder
+of a persona panel, a nap and a copy of the personas that nobody used for that number of days. To
+see what a number removes, type `lem project prune --dry-run --days 7`. This command removes
+nothing.
+
+| Setting | Default | Use |
+| --- | --- | --- |
+| `state.keep_days` | `30` | the days after which an old file goes. Lem counts from the last event of a task that ended, and from the last write of a folder. A whole number, `1` or more. A computer can set its own number in `.lem/project.local.toml` |
+
 ## `[tracker]`
 
 Leave this table out with no tracker. [Connect Linear](linear.md) tells you how to fill it.
@@ -84,6 +102,7 @@ Git does not track this file. It holds the settings of one computer, and only th
 
 | Table | What it can say |
 | --- | --- |
-| `[seats]` | a seat for this computer. `/lem reviewer codex/gpt-6.2-sol:high` writes the reviewer, and `/lem reviewer default` removes it |
+| `[seats]` | a seat for this computer, in the same form. `/lem reviewer codex/gpt-6.2-sol:high` writes the reviewer, and `/lem reviewer default` removes it |
 | `[corrections]` | only `collect = false` |
 | `[naps]` | only `on = false` |
+| `[state]` | only `keep_days`: the days for the old files of this computer. Lem uses this number on this computer, also when it is lower or higher than the number of the project |

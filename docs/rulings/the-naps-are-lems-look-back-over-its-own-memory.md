@@ -20,5 +20,5 @@ longer fit and a thing the days keep doing that no lesson holds (`prompts/nap.md
 real nap in a scratch repository, whose dream stayed a dream); a retro checks each lesson against
 the records since it was written and proposes its removal, and proposes as a ruling a choice that
 climbed past the personas and held (`stages/learn.md`); the lessons file stays small, with detail
-moved down and a pointer left; and `docs/backlog/agents-md-read-on-demand.md` is worth yes, for
-the same reason. This file keeps his earlier words on the naps ("Lem naps", 2026-11-17).
+moved down and a pointer left; and the backlog item of AGENTS.md read on demand, built since as
+`docs/plans/2026-11-21-agents-md-read-on-demand.md`, is worth yes, for the same reason. This file keeps his earlier words on the naps ("Lem naps", 2026-11-17).

@@ -16,7 +16,7 @@ The title is the rule as it stands. Where the paragraph below says otherwise, th
 
 ## As ruled on 2026-11-15, changed in part since
 
-Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A quote is his words.
+His ruling of 2026-11-15. It is reopened only by asking him. A quote is his words.
 
 **Lem asks through its question page**, and he does not have to type it: "every question goes
 via huddle, unless its something fixed choice, trivial, without additional context". The page

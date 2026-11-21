@@ -10,6 +10,7 @@ area: A request: its type, its track and its commands
 The title is the rule as it stands. Where the paragraph below says otherwise, the line here holds.
 
 - 2026-11-18, [The commands of his status and of a task are `/lem im-away`, `/lem im-back`, `/lem be-careful [task]`, `/lem standard-track [task]` and `/lem drop [task]`.](the-commands-of-his-status-and-of-a-task-are-lem-im-away-lem-im-back-lem-be-careful-task-lem-standard-track-task-and-lem-drop-task.md): "the command is `/lem standard`": it is `/lem standard-track`
+- 2026-11-18, [No word and no form of a Lem before is kept.](no-word-and-no-form-of-a-lem-before-is-kept.md): "so that a task that is open reads as before": the records' words (`Size: small|full`, `--small`, `prompts/small.md`) are the form Lem writes and reads now, and no older form of a record is read
 
 ## As ruled on 2026-11-18, changed in part since
 

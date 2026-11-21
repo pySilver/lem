@@ -32,7 +32,7 @@ status() { status_in "$SHOP" "$1"; }
 kept() { kept_in "$SHOP" "$@"; }
 # the machine steps with the polish pass, a read that found nothing, and the proposal, for the tests that are about a later step
 checked() { land --repo "$SHOP" start "$1" >/dev/null && land --repo "$SHOP" base "$1" >/dev/null && polish_in "$SHOP" "$1" && land --repo "$SHOP" checks "$1" >/dev/null; }
-read_clean() { land --repo "$SHOP" read "$1" --record "$(clean "${2:-1}")" >/dev/null; }
+read_clean() { land --repo "$SHOP" read "$1" --record "$(clean "$1" "${2:-1}")" >/dev/null; }
 propose() { land --repo "$SHOP" propose "$1" --title "fix: $1" --notes "$NOTES" >/dev/null; }
 
 open_task first-change ok.txt yes
@@ -89,17 +89,20 @@ if grep -q "a review is due before anything is proposed, one read at the least" 
 else
   fail "the read that is due: $err / $out"
 fi
-err=$(land --repo "$SHOP" read first-change --record "$(record 1 '{"kind": "read", "answered": [], "must_fix": 1}')" 2>&1 || true)
-shape=$(land --repo "$SHOP" read first-change --record "$(record 1 '{"kind": "glance", "answered": ["codex"]}')" 2>&1 || true)
-late=$(land --repo "$SHOP" read first-change --record "$(clean 2)" 2>&1 || true)
-out=$(land --repo "$SHOP" read first-change --record "$(record 1 '{"kind": "read", "answered": ["codex"], "should": 1}')")
+err=$(land --repo "$SHOP" read first-change --record "$(record first-change 1 '{"kind": "read", "answered": [], "must_fix": 1}')" 2>&1 || true)
+shape=$(land --repo "$SHOP" read first-change --record "$(record first-change 1 '{"kind": "glance", "answered": ["codex"]}')" 2>&1 || true)
+late=$(land --repo "$SHOP" read first-change --record "$(clean first-change 2)" 2>&1 || true)
+# a review of another tip than the branch's now carries the same attempt: its record names the tip it read, and is refused
+stale=$(land --repo "$SHOP" read first-change --record "$(record first-change 1 '{"kind": "read", "answered": ["codex"], "tip": "'"$base"'"}')" 2>&1 || true)
+out=$(land --repo "$SHOP" read first-change --record "$(record first-change 1 '{"kind": "read", "answered": ["codex"], "should": 1}')")
 if grep -q "findings and no source that answered" <<<"$err" && grep -q ".kind. is one of read, round, full" <<<"$shape" \
   && grep -q "the record says attempt 2, and the next review of this task is attempt 1" <<<"$late" \
+  && grep -qF "the record is of the review of ${base:0:12}, and the branch is at ${tip:0:12} now" <<<"$stale" \
   && [ "$(field '(d["recorded"]["round"], d["recorded"]["kind"], d["recorded"]["verdict"], d["recorded"]["should"], d["next"])' <<<"$out")" = "(1, 'read', 'clean', 1, 'none')" ] \
-  && [ "$(grep -c '"event": "review", "task": "first-change"' "$SHOP/.lem/state/events.jsonl")" = 1 ] && [ "$(status_of land --repo "$SHOP" read first-change --record "$(clean 2)")" = 1 ]; then
-  pass "a review is written down from a file, with its round, its kind, who answered and its counts; a record that does not have the form or the number of this review is refused, and a change that was reviewed clean is not reviewed again"
+  && [ "$(grep -c '"event": "review", "task": "first-change"' "$SHOP/.lem/state/events.jsonl")" = 1 ] && [ "$(status_of land --repo "$SHOP" read first-change --record "$(clean first-change 2)")" = 1 ]; then
+  pass "a review is written down from a file, with its round, its kind, who answered and its counts; a record that does not have the form, the number of this review or the tip it is of is refused, and a change that was reviewed clean is not reviewed again"
 else
-  fail "recording a read: $err / $out"
+  fail "recording a read: $err / $stale / $out"
 fi
 printf '%s\n' '## Decisions' '' 'none' > "$WORK/thin.md"
 err=$(land --repo "$SHOP" propose first-change --title "fix: the file is there" --notes "$WORK/thin.md" 2>&1 || true)
@@ -120,19 +123,23 @@ else
 fi
 # The merge agent reads it: its brief, then its reply written down. With branch.land = "owner" the review still calls him.
 brief=$(land --repo "$SHOP" merge-review first-change)
-unread=$(printf '%s\n' 'A fine change.' > "$WORK/no-verdict.md"; land --repo "$SHOP" merge-review first-change --file "$WORK/no-verdict.md" 2>&1 || true)
+unread=$(printf '%s\n' 'A fine change.' > "$WORK/no-verdict.md"; land --repo "$SHOP" merge-review first-change --file "$WORK/no-verdict.md" --tip "$tip" 2>&1 || true)
+# the answer of a brief of another tip (an earlier proposal) is not written down, and each tip has its own answer file
+superseded=$(printf '%s\n' 'Verdict: merge. A fine change.' > "$WORK/old-answer.md"; land --repo "$SHOP" merge-review first-change --file "$WORK/old-answer.md" --tip "$base" 2>&1 || true)
 called=$(merge_read "$SHOP" first-change)
 err=$(land --repo "$SHOP" merge first-change --by merger 2>&1 || true)
 # shellcheck disable=SC2016  # the backticks are the message's own marks
 if [ "$(field '(d["seat"]["agent"], d["seat"]["from"], d["facts"]["pull_request"]["number"], d["facts"]["green"], d["facts"]["land"], d["facts"]["time"]["seconds"] is not None)' <<<"$brief")" = "('claude', \"the agent's own default\", 1, True, 'owner', True)" ] \
   && grep -qF "prompts/merge.md and follow it" "$SHOP/.lem/state/tasks/first-change/merge-brief.md" && grep -qF '"owner_merges": "branch.land is' "$SHOP/.lem/state/tasks/first-change/merge-brief.md" \
   && grep -qF 'gives no verdict: it is `Verdict: merge.` or `Verdict: call.`' <<<"$unread" \
+  && grep -qF "the merge agent's answer is of ${base:0:12}, and the proposal is ${tip:0:12} now" <<<"$superseded" \
+  && [ "$(field '(d["tip"], d["answer"].rsplit("/", 1)[-1])' <<<"$brief")" = "('$tip', 'merge-answer-${tip:0:12}.md')" ] && grep -qF "\"tip\": \"$tip\"" "$SHOP/.lem/state/tasks/first-change/merge-brief.md" \
   && [ "$(field '(d["verdict"], d["calls"], d["by"])' <<<"$called")" = "('merge', True, 'claude')" ] && grep -q '^Verdict: merge\.' "$SHOP/.lem/state/tasks/first-change/merge-review.md" \
   && grep -q '"event": "merge.review", "task": "first-change", "verdict": "merge", "calls": true, "by": "claude"' "$SHOP/.lem/state/events.jsonl" \
   && grep -qF 'branch.land is "owner"' <<<"$err" && [ "$(git -C "$ORIGIN" rev-parse main)" = "$(git -C "$SHOP" rev-parse main)" ] && [ "$(status first-change)" = open ]; then
-  pass "the merge agent's brief names its standing text, the seat that starts it and the facts of the task; a reply with no verdict is refused, one with it is merge-review.md and an event; where the settings say that the owner merges, the review calls him and the merge agent merges nothing"
+  pass "the merge agent's brief names its standing text, the seat that starts it, the tip and its own answer file, and the facts of the task; a reply with no verdict, or of a brief of another tip, is refused, one with it is merge-review.md and an event; where the settings say that the owner merges, the review calls him and the merge agent merges nothing"
 else
-  fail "the merge review with branch.land = owner: $brief / $unread / $called / $err"
+  fail "the merge review with branch.land = owner: $brief / $unread / $superseded / $called / $err"
 fi
 shop_settings agent keep
 err=$(land --repo "$SHOP" merge first-change --by owner --message "fix: x" 2>&1) && code=0 || code=$?
@@ -256,9 +263,9 @@ git -C "$tree" revert --no-edit HEAD >/dev/null
 shop_settings agent squash
 land --repo "$SHOP" checks second-change >/dev/null
 out=$(land --repo "$SHOP" read second-change)
-under=$(land --repo "$SHOP" read second-change --record "$(record 1 '{"kind": "round", "ran": [{"name": "correctness", "why": "a line of the app changes"}], "answered": ["codex"]}')" 2>&1 || true)
-dropped=$(land --repo "$SHOP" read second-change --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the request is careful"}], "left_out": [{"name": "security", "why": "no input is read"}], "answered": ["codex"]}')" 2>&1 || true)
-next=$(land --repo "$SHOP" read second-change --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the request is careful"}], "answered": ["codex", "claude"], "silent": [{"name": "gemini", "why": "at capacity"}], "must_fix": 1}')" | field '(d["recorded"]["verdict"], d["next"])')
+under=$(land --repo "$SHOP" read second-change --record "$(record second-change 1 '{"kind": "round", "ran": [{"name": "correctness", "why": "a line of the app changes"}], "answered": ["codex"]}')" 2>&1 || true)
+dropped=$(land --repo "$SHOP" read second-change --record "$(record second-change 1 '{"kind": "full", "ran": [{"name": "default", "why": "the request is careful"}], "left_out": [{"name": "security", "why": "no input is read"}], "answered": ["codex"]}')" 2>&1 || true)
+next=$(land --repo "$SHOP" read second-change --record "$(record second-change 1 '{"kind": "full", "ran": [{"name": "default", "why": "the request is careful"}], "answered": ["codex", "claude"], "silent": [{"name": "gemini", "why": "at capacity"}], "must_fix": 1}')" | field '(d["recorded"]["verdict"], d["next"])')
 err=$(land --repo "$SHOP" propose second-change --title x --notes "$NOTES" 2>&1 || true)
 if [ "$(field '(d["due"], d["floor"], d["why"])' <<<"$out")" = "('review', 'full', 'the request is careful: the owner says so')" ] \
   && grep -q "this change gets the project's full set at the least (the request is careful: the owner says so), and the record says a review round with the profiles that fit" <<<"$under" \
@@ -272,8 +279,8 @@ echo '# and no other word' >> "$tree/tests/second-change.sh" && git -C "$tree" c
 err=$(land --repo "$SHOP" read second-change 2>&1 || true)
 land --repo "$SHOP" checks second-change >/dev/null
 out=$(land --repo "$SHOP" read second-change)
-land --repo "$SHOP" read second-change --record "$(record 2 '{"kind": "full", "ran": [{"name": "default", "why": "the request is careful"}], "answered": ["codex", "claude", "gemini"], "nit": 2}')" >/dev/null
-if grep -q "no check is on record for this tip" <<<"$err" && [ "$(field '(d["due"], d["floor"], d["round"], len(d["reads"]))' <<<"$out")" = "('review', 'full', 2, 1)" ]; then
+land --repo "$SHOP" read second-change --record "$(record second-change 2 '{"kind": "full", "ran": [{"name": "default", "why": "the request is careful"}], "answered": ["codex", "claude", "gemini"], "nit": 2}')" >/dev/null
+if grep -q "no green check is on record for this tip" <<<"$err" && [ "$(field '(d["due"], d["floor"], d["round"], len(d["reads"]))' <<<"$out")" = "('review', 'full', 2, 1)" ]; then
   pass "a fix is reviewed only after the machine checks ran on it, and the second round knows the first"
 else
   fail "the second round: $err / $out"
@@ -327,7 +334,7 @@ tree=$(project --repo "$SHOP" worktree-dir four-tasks)
 "$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("1. The change.", "1. The change.\n2. Its test.\n3. Its page.\n4. Its note."))' "$tree/docs/plans/2026-11-15-four-tasks.md"
 git -C "$tree" commit -q -am "docs: four tasks"
 checked four-tasks
-land --repo "$SHOP" read four-tasks --record "$(record 1 '{"kind": "round", "ran": [{"name": "correctness", "why": "four tasks change the app"}], "answered": ["codex"]}')" >/dev/null
+land --repo "$SHOP" read four-tasks --record "$(record four-tasks 1 '{"kind": "round", "ran": [{"name": "correctness", "why": "four tasks change the app"}], "answered": ["codex"]}')" >/dev/null
 # the talk of another task, landed before: a valid event that is not this task's
 project --repo "$SHOP" log second-change plan.talk reviewer=codex turns:=4 questions:=1 settled:=1 open:=0 repaired:=1 design:=0 unargued:=0 root:=1 layer:=0 shared:=0 >/dev/null
 talkless=$(land --repo "$SHOP" propose four-tasks --title "fix: five" --notes "$NOTES" 2>&1 || true)
@@ -398,7 +405,7 @@ tree=$(project --repo "$SHOP" worktree-dir careful-plan)
 "$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("\n## Acceptance criteria", "careful: yes, a price is rounded here.\n\n## Acceptance criteria", 1))' "$tree/docs/plans/2026-11-15-careful-plan.md"
 git -C "$tree" commit -q -am "docs: the plan is careful"
 checked careful-plan
-land --repo "$SHOP" read careful-plan --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the plan says careful"}], "answered": ["codex"]}')" >/dev/null
+land --repo "$SHOP" read careful-plan --record "$(record careful-plan 1 '{"kind": "full", "ran": [{"name": "default", "why": "the plan says careful"}], "answered": ["codex"]}')" >/dev/null
 talkless=$(land --repo "$SHOP" propose careful-plan --title "fix: six" --notes "$MIG" 2>&1 || true)
 if grep -q "the plan says that the request is careful, so its defender and the reviewer talk its plan through in the plan talk's companion before any code (.stages/talk.md.)" <<<"$talkless" \
   && grep -q "the event log has no .plan.talk. of careful-plan. The defender writes it after the talk" <<<"$talkless" \
@@ -475,7 +482,7 @@ CUT=$WORK/cut
 cp -R "$PWD/skills/lem/scripts" "$CUT"
 printf '%s\n' 'import runpy, sys' 'if "review" in sys.argv: sys.exit("project.py: cut off")' \
   "sys.argv[0] = '$PWD/skills/lem/scripts/project.py'" "runpy.run_path(sys.argv[0], run_name='__main__')" > "$CUT/project.py"
-first=$(record 1 '{"kind": "read", "answered": ["codex"], "must_fix": 2}')
+first=$(record not-clean 1 '{"kind": "read", "answered": ["codex"], "must_fix": 2}')
 cut_off=$(status_of "$PY" -B "$CUT/land.py" --repo "$SHOP" read not-clean --record "$first")
 nothing=$(kept not-clean reads)
 land --repo "$SHOP" read not-clean --record "$first" >/dev/null
@@ -490,12 +497,12 @@ tree=$SHOP/.lem/worktrees/not-clean
 echo eight > "$tree/nc2.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: the first read's findings"
 land --repo "$SHOP" checks not-clean >/dev/null
 out=$(land --repo "$SHOP" read not-clean)
-again=$(land --repo "$SHOP" read not-clean --record "$(clean 2)" 2>&1 || true)
-land --repo "$SHOP" read not-clean --record "$(record 2 '{"kind": "round", "ran": [{"name": "correctness", "why": "a file of the app changes"}], "left_out": [{"name": "security", "why": "no input from outside is read"}], "answered": ["codex"], "must_fix": 1}')" >/dev/null
+again=$(land --repo "$SHOP" read not-clean --record "$(clean not-clean 2)" 2>&1 || true)
+land --repo "$SHOP" read not-clean --record "$(record not-clean 2 '{"kind": "round", "ran": [{"name": "correctness", "why": "a file of the app changes"}], "left_out": [{"name": "security", "why": "no input from outside is read"}], "answered": ["codex"], "must_fix": 1}')" >/dev/null
 echo nine > "$tree/nc3.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: the round's finding"
 land --repo "$SHOP" checks not-clean >/dev/null
 third=$(land --repo "$SHOP" read not-clean)
-fourth=$(land --repo "$SHOP" read not-clean --record "$(record 3 '{"kind": "round", "ran": [{"name": "correctness", "why": "a file of the app changes"}], "answered": ["codex"]}')" 2>&1 || true)
+fourth=$(land --repo "$SHOP" read not-clean --record "$(record not-clean 3 '{"kind": "round", "ran": [{"name": "correctness", "why": "a file of the app changes"}], "answered": ["codex"]}')" 2>&1 || true)
 proposed=$(land --repo "$SHOP" propose not-clean --title "fix: not-clean" --notes "$NOTES")
 text=$SHOP/.lem/state/tasks/not-clean/pr.md
 agent=$(land --repo "$SHOP" merge not-clean --by merger 2>&1 || true)
@@ -544,7 +551,7 @@ git -C "$tree" commit -q -am "chore: the checks"
 brought_start=$(land --repo "$FG" start set-up-checks 2>&1 || true)
 brought_gate=$(land --repo "$FG" base set-up-checks >/dev/null 2>&1 && polish_in "$FG" set-up-checks && land --repo "$FG" checks set-up-checks 2>&1 || true)
 brought_floor=$(land --repo "$FG" read set-up-checks | field '(d["floor"], d["why"])' 2>&1 || true)
-land --repo "$FG" read set-up-checks --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the checks come with it"}], "answered": ["codex"]}')" >/dev/null 2>&1 || true
+land --repo "$FG" read set-up-checks --record "$(record set-up-checks 1 '{"kind": "full", "ran": [{"name": "default", "why": "the checks come with it"}], "answered": ["codex"]}')" >/dev/null 2>&1 || true
 land --repo "$FG" propose set-up-checks --title "chore: the checks" --notes "$MIG" >/dev/null 2>&1 || true
 brought_agent=$(land --repo "$FG" merge set-up-checks --by merger 2>&1 || true)
 text=$FG/.lem/state/tasks/set-up-checks/pr.md
@@ -560,7 +567,7 @@ printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[c
 git -C "$tree" commit -q -am "chore: other checks"
 kept_gate=$(land --repo "$FG2" start other-checks >/dev/null 2>&1 && land --repo "$FG2" base other-checks >/dev/null 2>&1 && polish_in "$FG2" other-checks && land --repo "$FG2" checks other-checks 2>&1 || true)
 kept_floor=$(land --repo "$FG2" read other-checks | field '(d["floor"], d["why"])' 2>&1 || true)
-land --repo "$FG2" read other-checks --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the checks change"}], "answered": ["codex"]}')" >/dev/null 2>&1 || true
+land --repo "$FG2" read other-checks --record "$(record other-checks 1 '{"kind": "full", "ran": [{"name": "default", "why": "the checks change"}], "answered": ["codex"]}')" >/dev/null 2>&1 || true
 land --repo "$FG2" propose other-checks --title "chore: other checks" --notes "$MIG" >/dev/null 2>&1 || true
 gate_why="the change edits [checks] of .lem/project.toml, Lem's own settings, which say for every later task what is careful, what the checks run, who merges and where a task lands"
 if [ "$(status_in "$FG" set-up-checks)" = open ] && ! grep -q "no command in its checks" <<<"$brought_start" \

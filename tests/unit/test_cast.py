@@ -149,6 +149,18 @@ class Person(unittest.TestCase):
             self.assertEqual((found["path"], found["person"]), (str(path), str(Path(top) / "copy.md")))
             self.assertEqual([s["seat"] for s in found["seats"]], ["claude/opus:high"])
 
+    def test_a_copy_read_again_takes_the_time_of_the_read(self):
+        """`lem project prune` removes a copy by its last write, so a read writes its time on it."""
+        import os
+        import time
+        with tempfile.TemporaryDirectory() as top:
+            with mock.patch.object(cast, "cache", return_value=Path(top)):
+                copy = cast.state_file(Path(top), "personas-person", "merchant-1.md", b"body")
+                old = time.time() - 40 * 86400
+                os.utime(copy, (old, old))
+                self.assertEqual(cast.state_file(Path(top), "personas-person", "merchant-1.md", b"body"), copy)
+            self.assertGreater(copy.stat().st_mtime, time.time() - 60)
+
 
 if __name__ == "__main__":
     unittest.main()

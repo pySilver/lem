@@ -1,6 +1,7 @@
 """The short AGENTS.md and the files of its rulings and decisions: each sentence of "The owner's
 rulings" and "Decisions the maintaining session took" is the text of a link to one file of
-docs/rulings/ or .lem/decisions/, and the files and the sentences agree.
+docs/rulings/ or .lem/decisions/, and the files and the sentences agree. Each path a ruling names in
+its in-force text is in the repository.
 
 It reads only the repository's own files, so a missing folder or file is a failed case.
 
@@ -23,10 +24,38 @@ HEADS = {"## The owner's rulings": RULINGS, "## Decisions the maintaining sessio
 WORDS = 8000
 LINE = re.compile(r"- \[(?P<text>.*)\]\((?P<path>[^()\s]+)\)")
 LINK = re.compile(r"\]\((?P<path>[^()\s]+\.md)\)")
+CODE = re.compile(r"`([^`]+)`")
+PATH = re.compile(r"[^/\s:@*][^\s:@*]*/[^\s:@*]+")
+PLACEHOLDER = re.compile(r"<[^>]*>|\b[A-Z]{2,}\b")
+QUOTED = re.compile(r'"[^"]*"')
+# A name right after "takes the place of", "in place of" or "replaces", or followed in its clause by
+# "not taken", "is gone" or "was removed", names what is no longer there.
+GONE_BEFORE = re.compile(r"\b(takes the place of|in place of|replaces)\s*$")
+GONE_AFTER = re.compile(r"^[^.;:]*\b(not taken|is gone|was removed)\b")
+# The paths a ruling names in another repository, each with where it is.
+ELSEWHERE = {
+    ".claude/rules": "the folder of rules in a project that adopts Lem (the-rules-of-an-existing-project-stay-where-they-are)",
+    "codex-rs/protocol/src/permissions.rs": "a file of Codex's own repository, read 2026-11-17 (the-state-of-lem-is-not-in-the-git-directory)",
+}
+# The paths git ignores (`.lem/.gitignore`), which a clone never holds: the state folder with all in
+# it, and one machine's settings.
+IGNORED = (".lem/state", ".lem/project.local.toml")
 
 
 def flat(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
+
+
+def in_force(text: str) -> str:
+    """A file's text without its front matter and without the words that no longer hold: the
+    sections `## Replaced, not in force` and `## As ruled on DAY, changed in part since`."""
+    kept, keep = [], True
+    for line in re.sub(r"\A---\n.*?\n---\n", "", text, flags=re.S).split("\n"):
+        if line.startswith("## "):
+            keep = not (line == "## Replaced, not in force" or re.fullmatch(r"## As (ruled|decided) on .+, changed in part since", line))
+        if keep:
+            kept.append(line)
+    return "\n".join(kept)
 
 
 def sentences() -> list[dict]:
@@ -184,6 +213,25 @@ class ShortAgents(unittest.TestCase):
         for name in ("Opinionated and small", "The owner's rulings", "Rules for a change here", "Checks"):
             with self.subTest(name=name):
                 self.assertTrue(name in headings or name in linked, f'"{name}", which docs/free-hour.md cites, is no heading and no sentence of AGENTS.md')
+
+    def test_each_path_a_ruling_names_in_force_exists(self):
+        # A path is a name in backticks with a slash between two names, no space, no `:`, `@` or `*`
+        # (a seat, a glob), no placeholder (`<slug>`, SLUG, YYYY) and no leading `/` (a command or a
+        # route). It counts in the in-force text only, outside his quoted words, and resolves from the
+        # root or from the skill's folder skills/lem/, as the stages name stages/, prompts/ and scripts/.
+        # A name the text says is gone (GONE_BEFORE, GONE_AFTER) claims no file.
+        for path in self.files(RULINGS):
+            for paragraph in re.split(r"\n\s*\n", in_force(path.read_text(encoding="utf-8"))):
+                text = QUOTED.sub('""', flat(paragraph))
+                for match in CODE.finditer(text):
+                    name = match[1]
+                    if not PATH.fullmatch(name) or PLACEHOLDER.search(name) or name.startswith((".lem/state/", "~")) or name in IGNORED or name in ELSEWHERE:
+                        continue
+                    if GONE_BEFORE.search(text[:match.start()]) or GONE_AFTER.search(text[match.end():].lstrip(")")):
+                        continue
+                    with self.subTest(file=path.name, path=name):
+                        self.assertTrue((ROOT / name).exists() or (ROOT / "skills" / "lem" / name).exists(),
+                                        f"{path.name} names `{name}`, which is not in the repository: correct the name, or mark the ruling changed in part")
 
     def test_the_first_line_under_the_decisions_says_none_is_his_ruling(self):
         # Criterion 5: the heading of the session's decisions opens with the line that none of them is the owner's.

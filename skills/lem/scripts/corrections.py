@@ -219,7 +219,7 @@ def last_agent_text(transcript: str) -> str:
         return ""
     with path.open("rb") as handle:
         handle.seek(max(0, path.stat().st_size - TRANSCRIPT_TAIL_BYTES))
-        lines = handle.read().decode("utf-8", errors="replace").splitlines()
+        lines = lem_state.jsonl_lines(handle.read().decode("utf-8", errors="replace"))
     for line in reversed(lines):
         try:
             record = json.loads(line)

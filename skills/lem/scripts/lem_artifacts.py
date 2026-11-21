@@ -22,6 +22,11 @@ A review round of the review tool is one document of "Review", its own `report.m
 its archive is a folder of "Working files". A picture of `media/` belongs to the document whose text
 names it (`shows`).
 
+`working` gives the files a task can lose once it ended long ago (`lem project prune`): the working
+files of the map, and of them only those whose role is `work`. A record stays also where the map
+shows it among the working files because its document is not there, and so does a picture a
+document shows: what a person or a reader of Lem opens after the task ended is a document or a record.
+
 The plan is no file of the task directory: it lives in the task's worktree, on its branch. The caller
 finds it (`project.py`'s `task_plan`) and passes it in, so this file imports nothing of Lem's. A task
 with no worktree or no plan has no plan entry.
@@ -77,6 +82,12 @@ RECORDS = {
     "polish.json": ("report.md", "polish pass", "checks"),
     "landing.json": ("pr.md", "landing", "checks"),
     "read.json": ("pr.md", "review's read", "checks"),
+    # the task's state, newest block first, which `lem project tasks`, the nap and a session read
+    "state.md": ("ask.txt", "state", "timeline"),
+    # what Lem did to the task's ticket, which `lem project tasks` reads to say what is still owed
+    "ticket-steps.txt": ("ticket.txt", "ticket steps", None),
+    # the task a resumed one came from, which a resume and a plan's name follow back
+    "resumed-from.txt": ("ask.txt", "resumed from", None),
 }
 # The tabs, by their key, as a record's line names them.
 TAB_NAMES = {"criteria": "Criteria and decisions", "checks": "Checks and review", "timeline": "Timeline"}
@@ -297,3 +308,13 @@ def pictures_named(directory: Path, entries: list[dict]) -> dict[str, list[str]]
         if found:
             named[e["path"]] = found
     return named
+
+
+def working(directory: Path, slug: str) -> list[dict]:
+    """The entries of the task's files that it can lose once it ended long ago: the map's working files
+    (`arrange`) whose role is `work`. A record the map shows there, for want of its document, stays, and
+    so does a picture a document shows, which the map hangs on that document. Each entry is as `files`
+    gives it, with no text; its `path` is relative to the task directory."""
+    entries = files(directory, slug, read=False)
+    found = arrange(entries, pictures_named(directory, entries))
+    return [e for group in found["work"] for e in group["files"] if e.get("role") == "work"]

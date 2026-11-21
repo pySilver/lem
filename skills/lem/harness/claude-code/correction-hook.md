@@ -23,9 +23,9 @@ from it by hand. Say that in one line, and do not edit the file: it is the owner
 - It needs Python 3.11 or newer as `python3`. Under an older one it judges nothing, and says so
   in its log. It finds `python3` and `git` on the hook's `PATH`, as any hook does; with no `git`
   there it queues nothing and has nowhere to say so, since git names its state folder. The
-  model's client is Lem's own `jev.py`, run by its path. It needs `JEV_API_KEY` in the
-  environment Claude Code starts with (`OPENROUTER_API_KEY` of a machine set up before is read
-  when it is not set), and `JEV_API_URL` there for a provider other than OpenRouter.
+  model's client is Lem's own `jev.py`, run by its path. It needs `JEV_API_KEY`, the one name it
+  reads for the key, in the environment Claude Code starts with, and `JEV_API_URL` there for a
+  provider other than OpenRouter.
 - It prints nothing and does not wait for the model: a detached copy asks it. The hook's own two
   waits, for its input and for each of its git calls, end after two seconds each, a bound chosen by guess
   on 2026-11-15. The `timeout` of 10 seconds in `hooks/hooks.json` is the value its source ran with in one

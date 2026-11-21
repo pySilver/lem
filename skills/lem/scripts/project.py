@@ -99,8 +99,13 @@ a team that adopts Lem may have its own.
                                     the name a ruling takes (`paths.ruling_file`) in the rulings
                                     folder, and the ruling of that slug the folder holds, as JSON
     lem project may-nap             whether a nap may start now, as JSON, and when it may, the nap is
-                                    written down as started; it also removes the naps older than
-                                    30 days (`NAPS_KEEP_DAYS`)
+                                    written down as started
+    lem project prune [--dry-run [--days N]]
+                                    remove what the state folder no longer needs, older than
+                                    `state.keep_days` days, and say what went and where the number
+                                    came from, as JSON; the board server runs it. --dry-run removes
+                                    nothing and says what would go, and --days says it for another
+                                    number than the settings'
 
 Task state is kept in `.lem/state/` of the main checkout, the one folder `lem_state.py` names for
 every script: every worktree writes there, git never tracks it, a worktree's removal does not take
@@ -168,11 +173,12 @@ question; `state` refuses any other, and `tasks` gives the newest as `type`.
 
 `.lem/project.local.toml` is one person's or one day's choice on one machine: who sits in the
 reviewer's pane (the usual reviewer is down, or out of tokens) and on which model the defender of
-a plan talk runs, a no to the correction queue for that one person, and a no
-to the naps, which spend that person's tokens. It
+a plan talk runs, a no to the correction queue for that one person, a no
+to the naps, which spend that person's tokens, and how many days the state folder keeps old files on
+this machine's disk. It
 is not committed (`init` writes `.lem/.gitignore` for it), and it is read from the main checkout,
 because a task's worktree has no copy of a file git does not track. It may hold `[seats]`,
-`[corrections]` with `collect = false` and `[naps]` with `on = false`, and nothing else: the checks, what must
+`[corrections]` with `collect = false`, `[naps]` with `on = false` and `[state]` with `keep_days`, and nothing else: the checks, what must
 never go wrong, the protected branches and who lands are the project's rules, and a file nobody reviews
 must not open them. For the same reason it can switch the correction queue and the naps off
 for its person and never on: nobody's messages are sent, and nobody's tokens spent, because of a
@@ -233,9 +239,12 @@ merger` and `session` in `machine.toml`, `lem_state.machine_file()`), else the a
 `claude`, with no model and no effort, so that Lem's code names no model for them. `show` gives each
 with `from`, which of the three it is. `show` marks each expert `here` when its agent is on this
 machine (Claude Code always, Codex when its command is on PATH): only those answer, so without
-Codex the default's one Claude expert answers alone. `init` writes each of the three whole (the owner, 2026-11-18: "I think
-it should be explicitly `agent/model:effort` in all 3"). The effort may be left out
-(`codex/gpt-6.2-sol`), and so may the model (`codex`, `codex:high`): the part left out is that agent's own default, and Lem passes nothing for it. `show`
+Codex the default's one Claude expert answers alone. The reviewer's, the defender's and each
+expert's seat is written whole, and `show` and `reviewer` refuse one that leaves out its model or its
+effort (the owner, 2026-11-18: "I think it should be explicitly `agent/model:effort` in all 3; not
+simply "claude" or "codex""); `init` writes the three so. The merge agent's and the session's seat
+may leave out the effort (`claude/opus`), and the model too (`claude`, `claude:high`): the part
+left out is that agent's own default, and Lem passes nothing for it. `show`
 gives each seat parsed, as `agent`, `model`, `effort` and the `seat` as written; a file with no
 planner or no experts gets Lem's (`PLANNER`, `EXPERTS`), and one with no reviewer gets none, which
 the stage that needs it asks the owner for.
@@ -285,9 +294,26 @@ state folder, where TIME is the clock's UTC time when the nap started, as `YYYY-
 none. A nap runs from its start until its folder holds `waking.md`, the last file it writes, and
 for an hour at most (`ASLEEP_MINUTES`). Its answer is JSON with exit 0 whether it says yes or
 no, because a no is the usual answer and nothing is wrong; a broken settings file is exit 1. A
-yes writes `naps/.asleep` with the start, so a second call finds the nap that runs. Each call
-removes the nap folders whose time is older than 30 days (`NAPS_KEEP_DAYS`), and names them in
-`removed`; a folder whose name has no such time is never removed.
+yes writes `naps/.asleep` with the start, so a second call finds the nap that runs.
+
+The state folder does not grow without end (`prune`, the owner's word of 2026-11-21). What Lem no
+longer needs goes `state.keep_days` days after it was last needed, 30 unless the settings say
+otherwise. The project's number is the base branch's, in a task's worktree too, so a branch cannot
+lower it. This machine's own file, `.lem/project.local.toml` of the main checkout, may set its own
+number, lower or higher, which wins on this machine and in each of its worktrees: it removes only
+this machine's files. `show` and `prune` say in `from` which file the number came from. A task that ended (`landed`,
+`dropped`, `answered`) and of which the event log holds nothing newer than that loses its working
+files, the ones its map (`lem_artifacts.working`) calls work: an agent's scratch, the review tool's
+archive of a round, a picture no document shows. Its documents and records stay, so its board, its
+pull request's records, the retro, the nap and `tasks` read it as before. A task that is open is never
+touched, and one whose state.md does not read, or whose state the log does not agree with, is named
+in `skipped` and left as it is. Whole entries go from the other folders (PRUNED): a question to the
+experts and a panel's folder after their last write, a nap after the time in its name, and a copy of
+the cast after its last write or read. The event log, the night reports, the retros and the
+correction queue stay. Nothing is removed through a link or outside the state folder, and each
+removal that fails is named in `failed`, with exit 1, while the others go on. The board server runs
+it for each workspace (`serve.py`, the duties across tasks); `--dry-run` says what would go and
+removes nothing, and with `--days N` it says that for another number.
 
 A settings file with an unknown key, a wrong type or a path outside the repository is an error:
 a stage that read half of it would run on defaults nobody chose. Needs Python 3.11 for tomllib.
@@ -309,6 +335,7 @@ import re
 import shlex
 import signal
 import shutil
+import stat
 import subprocess
 import time
 import tomllib
@@ -318,14 +345,15 @@ from pathlib import Path
 # The one place that says where the state is, shared with the scripts that cannot import this file.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import lem_artifacts  # noqa: E402
 import lem_plans  # noqa: E402
 import lem_state  # noqa: E402
 
 SETTINGS = Path(".lem") / "project.toml"
 LOCAL = Path(".lem") / "project.local.toml"
-# the tables one machine may set for itself; of [naps] only `on = false`, and of [corrections] only
-# `collect = false`
-LOCAL_TABLES = ("seats", "corrections", "naps")
+# the tables one machine may set for itself; of [naps] only `on = false`, of [corrections] only
+# `collect = false`, and of [state] its one key, `keep_days`
+LOCAL_TABLES = ("seats", "corrections", "naps", "state")
 # What Lem reads beside its settings, each in one place with no setting (the owner's note of
 # 2026-11-18 on the plan, task 1b of docs/plans/2026-11-18-core-and-two-modes.md): Lem's own files,
 # the rules for the code in the folder Claude Code loads by itself, the review tool's folder, and the
@@ -363,9 +391,12 @@ REVIEWERS = ("claude", "codex")
 # `codex/gpt-6.1-sol:high`"; and 2026-11-18, of the models `init` writes: "Use latest
 # `codex/gpt-6.2-sol:high` and `codex/gpt-6.2-astra:high` (released yesterday)"). A model and an effort are not checked against a list: their names
 # change with each release of an agent's command, and that command refuses a wrong one loudly when
-# it starts. A part left out is the agent's own default, and Lem passes nothing for it.
+# it starts. The three seats of WHOLE_SEATS are written whole (the owner, 2026-11-18: "I think it
+# should be explicitly `agent/model:effort` in all 3; not simply "claude" or "codex""); a part left out
+# of the merge agent's or a task session's seat is the agent's own default, and Lem passes nothing for it.
 SEAT_FORM = "agent/model:effort"
 SEAT_KEYS = ("agent", "model", "effort")
+WHOLE_SEATS = ("reviewer", "planner", "experts")
 # The defender's seat: the agent Lem starts in the companion of a plan talk, which defends the
 # plan against the reviewer. Only Claude Code, because the harness was checked in no other agent.
 PLANNERS = ("claude",)
@@ -460,6 +491,8 @@ RUNNING = ("building", "landing")
 # state folder. Not the landing's `landing.lock`: a builder takes this one too, while another task
 # holds the landing line.
 SERIAL_LOCK = "serial.lock"
+# the lock of one task's state.md, in its task directory (`cmd_state`)
+STATE_LOCK = "state.lock"
 # The first line of a state block: the time in UTC, the status, one line of text.
 STATE_LINE = re.compile(r"(?P<since>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z) (?P<status>[a-z]+): (?P<text>.+)")
 TABLES: dict[str, tuple[str, ...]] = {
@@ -471,6 +504,7 @@ TABLES: dict[str, tuple[str, ...]] = {
     "corrections": ("collect",),
     "tracker": ("kind",),
     "naps": ("on",),
+    "state": ("keep_days",),
 }
 # The trackers Lem has a skill for. The rest is the tracker skill's read, not a setting: the team
 # is in the ticket's id, the server is the one connected in the agent, and the status a ticket
@@ -488,9 +522,21 @@ TICKET = re.compile(r"[A-Za-z][A-Za-z0-9]*-[0-9]+")
 TICKET_STEPS = ("started", "commented", "landed", "dropped", "answered")
 # The ended states that give a task's ticket back: a new task may take it. A landed task keeps it.
 RETURNED = ("dropped", "answered")
-# The naps (`may-nap`). Both numbers are guesses, not measurements: the owner said "a week or a
-# month (?)" of history is worth keeping, and his own nap routine runs three times a day.
-NAPS_KEEP_DAYS = 30
+# How many days the state folder keeps what Lem no longer needs (`prune`, `[state] keep_days`): the
+# owner, 2026-11-21: "I think that `.lem/state` should not grow to gigabytes. Maybe KEEP_DAYS should be
+# configurable and one would configure it to let's say 7 days instead of 30 to keep disk usage in
+# control", a key of the project's settings and not of machine.toml ("Why machines? I thought that
+# those logs are per project and stored in project .lem dir"). One machine's own file may set its own
+# number, which wins there, lower or higher (the same day: "In that case one developer with a smaller
+# disk free space will suffer while for another dev of that project it will be fine. I think
+# `.lem/project.local.toml` should be acceptable"). 30 is the number of the two guesses it replaces,
+# the experts' folders' and the naps'.
+KEEP_DAYS = 30
+# The settings' key of the number, as the messages and the help name it.
+KEEP_KEY = "state.keep_days"
+# Where the number came from when no file names it.
+KEEP_DEFAULT = "Lem's default"
+# The naps (`may-nap`). A guess, not a measurement: the owner's own nap routine runs three times a day.
 NAPS_GAP_HOURS = 6
 # How long a nap that wrote no `waking.md` counts as running. A guess: the owner's own routine
 # leaves a nap "about twenty minutes", and an hour is three of those.
@@ -558,14 +604,16 @@ serial = []
 topics = []
 
 [seats]
-# Who sits where, each as "agent/model:effort". A part left out ("codex/gpt-6.2-sol", "codex")
-# takes that agent's own default.
-# The reviewer: "claude" or "codex". Lem's builders build; this one talks the plan of a careful
-# or large task through with its defender, in the other pane of the pair the task's lead opens for
-# the talk. The same family twice is allowed.
+# Who sits where, each as "agent/model:effort". The reviewer, the planner and each expert are
+# written whole: Lem refuses "codex" or "codex/gpt-6.2-sol" there. A part left out of the merger
+# or the session ("claude", "claude:high") takes that agent's own default.
+# The reviewer, on the agent "claude" or "codex". Lem's builders build; this one talks the plan of
+# a careful or large task through with its defender, in the other pane of the pair the task's lead
+# opens for the talk. The same family twice is allowed.
 reviewer = "{reviewer}"
 # The defender of a careful or large plan in its talk with the reviewer, in the pair the task's
-# lead opens under the task's session for the talk and closes after it. Only "claude" for now.
+# lead opens under the task's session for the talk and closes after it. Only the agent "claude" for
+# now.
 planner = "{planner}"
 # The merge agent, which reads each proposed task and merges it or calls the owner: "claude" or
 # "codex", read-only. Left out, it is the seat the developer names for all his repositories
@@ -594,14 +642,26 @@ collect = false
 # [tracker]
 # kind = "linear"
 """
-# The naps' table, the last of the file.
+# The state's table and the naps' table, the last of the file.
 TEMPLATE += f"""
+[state]
+# How many days Lem keeps what it no longer needs in .lem/state/, the folder git never sees: the
+# working files of a task that ended that many days ago (an agent's scratch, the review tool's
+# archive of a round, a picture no document shows), and a question to the experts, a persona
+# panel's folder, a nap and a copy of the cast that nobody wrote or read in that time. A task's
+# documents and records stay, and so does the event log. The board server removes them, and
+# `lem project prune --dry-run --days 7` shows what 7 would remove. The default, {KEEP_DAYS}, is the
+# owner's word of 2026-11-21, and the two constants it replaces, which were guesses. One person with
+# less free disk, or more, sets a number for their machine alone with `keep_days` under [state] in
+# .lem/project.local.toml, which wins there.
+keep_days = {KEEP_DAYS}
+
 [naps]
 # Now and then, when a task has ended or Lem waits for the owner, Lem takes a nap: a fresh agent
 # reads the recent tasks, dreams, and writes the dream down in .lem/state/naps/, which the retro
 # reads. It costs an agent's session of some minutes, a few times a day while Lem works, and
-# nobody has shown that it helps. {NAPS_GAP_HOURS} hours pass between two naps, and a nap's folder
-# is kept {NAPS_KEEP_DAYS} days: two guesses, from the owner's own nap routine.
+# nobody has shown that it helps. {NAPS_GAP_HOURS} hours pass between two naps: a guess, from the
+# owner's own nap routine. A nap's folder is kept for state.keep_days.
 on = false
 """
 
@@ -777,11 +837,15 @@ def flow_of(raw: dict, name: Path) -> dict:
     return {"topics": strings(raw.get("flow", {}).get("topics", []), "flow.topics")}
 
 
-def parse_seat(text: object, where: str, agents: tuple[str, ...], why: str, example: str) -> dict:
+def parse_seat(text: object, where: str, agents: tuple[str, ...], why: str, example: str, whole: bool = False) -> dict:
     """One seat, `agent/model:effort`, as its parts: the agent, the model and the effort, each None
     when the line leaves it out, and the line as written. The effort is what follows the one `:`
-    after the model, or after the agent when the line names no model; a second `:` is refused."""
-    form = f'one string, "{SEAT_FORM}", as "{example}"; the effort, or the model and the effort, may be left out'
+    after the model, or after the agent when the line names no model; a second `:` is refused. A
+    `whole` seat (WHOLE_SEATS) that leaves out its model or its effort is refused."""
+    if whole:
+        form = f'one string, "{SEAT_FORM}", written whole, as "{example}"'
+    else:
+        form = f'one string, "{SEAT_FORM}", as "{example}"; the effort, or the model and the effort, may be left out'
     if not isinstance(text, str):
         raise SettingsError(f"{where} = {text!r} must be {form}")
     if not text.strip():
@@ -798,6 +862,12 @@ def parse_seat(text: object, where: str, agents: tuple[str, ...], why: str, exam
         model = None
     if not agent:
         raise SettingsError(f"{where} = {text!r} names no agent before the `/`: it is {form}")
+    if whole:
+        if agent not in agents:
+            raise SettingsError(f"{where} = {text!r}: the agent {agent!r} must be {' or '.join(agents)}: {why}")
+        missing = [part for part, value in (("model", model), ("effort", effort)) if not value]
+        if missing:
+            raise SettingsError(f"{where} = {text!r} names no {' and no '.join(missing)}: it is {form}")
     if slash and not model:
         raise SettingsError(f"{where} = {text!r} names no model after the `/`: leave the `/` out with the model, as \"{agent}\", or write {form}")
     if colon and not effort:
@@ -813,7 +883,7 @@ def seat(raw: dict, name: Path, which: str = "reviewer") -> dict | None:
     given = raw.get("seats", {}).get(which)
     if given is None:
         return None
-    return parse_seat(given, f"{name}: seats.{which}", agents, why, example)
+    return parse_seat(given, f"{name}: seats.{which}", agents, why, example, which in WHOLE_SEATS)
 
 
 def machine_seat_of(which: str, named: dict, local: bool, machine: dict) -> dict:
@@ -847,7 +917,7 @@ def experts_of(raw: dict, name: Path) -> list[dict] | None:
             "the ladder asks two experts at most",
         )
     found = [
-        {**parse_seat(one, f"{name}: seats.experts[{number}]", REVIEWERS, "the agents the harness starts an expert with", EXPERTS[number]), "place": place}
+        {**parse_seat(one, f"{name}: seats.experts[{number}]", REVIEWERS, "the agents the harness starts an expert with", EXPERTS[number], True), "place": place}
         for number, (one, place) in enumerate(zip(given, EXPERT_PLACES))
     ]
     return [{**expert, "here": agent_here(expert["agent"])} for expert in found]
@@ -910,6 +980,35 @@ def naps_of(raw: dict, name: Path) -> dict:
     if not isinstance(on, bool):
         raise SettingsError(f"{name}: naps.on = {on!r} must be true or false")
     return {"on": on}
+
+
+def keep_days_of(value: object, where: str, left_out: str = str(KEEP_DAYS)) -> int:
+    """A number of days the state folder keeps what Lem no longer needs, checked: a whole number, 1 or
+    more. 0 would take a task's working files at the first look after it ended, while the owner may
+    still read its board. `left_out` is what the number is without the line."""
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise SettingsError(f"{where} = {value!r} must be a whole number of days, 1 or more, as keep_days = {KEEP_DAYS}; leave the line out for {left_out}")
+    return value
+
+
+def state_of(raw: dict, name: Path) -> dict:
+    """The `[state]` table of one settings file, checked: its one key, `keep_days`, with `from`, the
+    file that names it, or KEEP_DEFAULT when the file names none. `from` is the tracked file's name
+    in a task's worktree too, where the number is the base branch's (`decide`)."""
+    given = raw.get("state", {}).get("keep_days")
+    if given is None:
+        return {"keep_days": KEEP_DAYS, "from": KEEP_DEFAULT}
+    return {"keep_days": keep_days_of(given, f"{name}: {KEEP_KEY}"), "from": str(SETTINGS)}
+
+
+def local_keep_days(local: dict) -> int | None:
+    """The number of days this machine's own file sets for itself, checked; None when it sets none.
+    It wins over the project's number on this machine, lower or higher: one developer's disk is not
+    another's. `[state]` holds no other key (`settings_of` refuses one)."""
+    given = local.get("state", {}).get("keep_days")
+    if given is None:
+        return None
+    return keep_days_of(given, f"{LOCAL}: {KEEP_KEY}", f"the number of {SETTINGS}")
 
 
 def load(root: Path) -> dict:
@@ -1047,6 +1146,17 @@ def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, commit
         if naps["on"]:
             overridden.append("naps.on")
         naps["on"] = False
+    # How long the state folder keeps old files is the base branch's too: a task's branch that lowers it
+    # would remove files of other tasks before anybody agreed to it. The branch's own table is still checked.
+    # This machine's own file, the main checkout's, may set its own number, which wins here, in a
+    # task's worktree too: it removes only this machine's files.
+    state = state_of(raw, SETTINGS)
+    if main.resolve() != root.resolve():
+        state = state_of(on_base, base_file)
+    own_days = local_keep_days(local)
+    if own_days is not None:
+        state = {"keep_days": own_days, "from": str(LOCAL)}
+        overridden.append(KEEP_KEY)
     return {
         "root": str(root),
         # the checkout every worktree hangs off; it is `root` unless this ran in a task's worktree
@@ -1054,7 +1164,7 @@ def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, commit
         "settings": str(file) if file.is_file() or committed else None,
         # where the settings were read: the working tree, or the base branch's commit while another branch is checked out
         "settings_from": (f"{committed['branch']}@{committed['commit'][:9]}" if committed else "the working tree")
-        if main.resolve() == root.resolve() else "this worktree's branch, with [flow] and [naps] from " + (f"{committed['branch']}@{committed['commit'][:9]}" if committed else "the main checkout"),
+        if main.resolve() == root.resolve() else "this worktree's branch, with [flow], [naps] and [state] from " + (f"{committed['branch']}@{committed['commit'][:9]}" if committed else "the main checkout"),
         "paths": paths,
         "places": places,
         "branch": {"base": base, "land": land, "history": history, "protected": protected},
@@ -1069,6 +1179,9 @@ def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, commit
         "corrections": {"collect": collect},
         "tracker": tracker,
         "naps": naps,
+        # read from the main checkout's settings, in a task's worktree too, or from this machine's own
+        # file; `from` names which, as a seat of MACHINE_SEATS does
+        "state": state,
         # what this machine set for itself, so a report can say that the reviewer is not the project's
         "local": {"file": str(local_file) if local_file.is_file() else None, "overrides": overridden},
     }
@@ -1189,6 +1302,7 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
     # refused with its fix, and the file stays as the owner left it.
     local_off(local)
     local_naps_off(local)
+    local_keep_days(local)
     seat(local, LOCAL, "reviewer")
     seat(local, LOCAL, "planner")
     experts_of(local, LOCAL)
@@ -1198,16 +1312,16 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
         if len(words) != 1:
             raise SettingsError(
                 f'reviewer takes one seat, "{SEAT_FORM}", as `reviewer {REVIEWER_SEATS["codex"]}`, or the word default; '
-                f"not {len(words)} words. The effort, or the model and the effort, may be left out",
+                f"not {len(words)} words",
             )
-        parse_seat(words[0], "the reviewer", REVIEWERS, SEATS["reviewer"][1], SEATS["reviewer"][2])
+        parse_seat(words[0], "the reviewer", REVIEWERS, SEATS["reviewer"][1], SEATS["reviewer"][2], True)
         local.setdefault("seats", {})["reviewer"] = words[0]
     lines = ["# This machine's own settings for Lem. Not committed; `lem project reviewer` writes the seat."]
     for table in LOCAL_TABLES:
         body = local.get(table) or {}
         if body:
-            # a value here is a word in quotes, a list of them, or the one `false` the corrections and
-            # the naps tables may hold
+            # a value here is a word in quotes, a list of them, the one `false` the corrections and
+            # the naps tables may hold, or the state table's number of days
             lines += ["", f"[{table}]", *(f"{key} = {toml_value(value)}" for key, value in body.items())]
     if len(lines) == 1:
         file.unlink(missing_ok=True)
@@ -1425,6 +1539,15 @@ def taken_on_remote(root: Path, slug: str, branch: str | None) -> None:
         )
 
 
+def ask_refusal(slug: str, kept: str | None, ask: str) -> str | None:
+    """Why ASK cannot be the words of the task SLUG, whose ask.txt holds KEPT (None when it has none):
+    the same words again are a retry and pass, and other words are another request under the same name."""
+    if kept is None or kept.strip() == ask.strip():
+        return None
+    return (f"the task {slug!r} holds other words already ({kept.strip()!r}), and a task's words are written once: "
+            f"this is another request under the same name, so choose another name for it (add a word to the slug)")
+
+
 def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None, branch: str | None = None, night: str | None = None) -> None:
     if not SLUG.fullmatch(slug):
         raise SettingsError(f"slug {slug!r} must be lower-case words joined by hyphens")
@@ -1462,8 +1585,20 @@ def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None, bra
     (directory / "reports").mkdir(parents=True, exist_ok=True)
     if ask is not None:
         # The owner's words, as given. task.md is a document with headings; the board and the
-        # status show these words, so they have a file of their own that nothing rewrites.
-        (directory / "ask.txt").write_text(ask.strip() + "\n", encoding="utf-8")
+        # status show these words, so they have a file of their own that nothing rewrites: a link
+        # of a finished file claims the name, so of two writers at one moment one writes, and the
+        # other finds its words whole and compares them.
+        file = directory / "ask.txt"
+        fresh = directory / f"ask.txt.{os.getpid()}.new"
+        fresh.write_text(ask.strip() + "\n", encoding="utf-8")
+        try:
+            os.link(fresh, file)
+        except FileExistsError:
+            refused = ask_refusal(slug, text_of(file), ask)
+            if refused:
+                raise SettingsError(refused) from None
+        finally:
+            fresh.unlink(missing_ok=True)
     if ticket is not None:
         (directory / "ticket.txt").write_text(ticket + "\n", encoding="utf-8")
     if night is not None and not any(record.get("task") == slug for record in events_named(root, "task.mode")):
@@ -1686,42 +1821,47 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
     for line in lines:
         type_line(line)
         fixed_form(line)
-    # the status the newest block gives, read from this task's file alone
-    written = text_of(directory / "state.md").strip() if (directory / "state.md").is_file() else ""
-    first = STATE_LINE.fullmatch(written.split("\n\n")[0].splitlines()[0]) if written else None
-    now = first["status"] if first else None
-    if now in ENDED and status != now:
-        raise SettingsError(
-            f"the task {slug!r} is {now}, and an ended task stays ended: new work for it is a new ask (`/lem new`), "
-            f"whose task takes a slug of its own. A reply or a message about {slug} that comes now is a stale wake-up, and nothing is done for it",
-        )
-    if now in WITH_LANDING and status in LEADS_WRITE and not (status == "ready" and start_over):
-        raise SettingsError(
-            f"the task {slug!r} is {now}: it is with its landing, and a reply or a message about {slug} that comes now is a stale wake-up, "
-            f"and no state is written for it; what the landing needs, land.py says itself",
-        )
-    refused = parked_refusal(slug, now, status, resumed)
-    if refused:
-        raise SettingsError(refused)
-    if status == "answered":
-        answered_form(root, directory, slug)
-    # the time is the clock's, never a writer's estimate
-    since = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
-    block = "\n".join([f"{since} {status}: {lines[0].strip()}", *(line.strip() for line in lines[1:])])
-    file = directory / "state.md"
-    older = text_of(file).strip() if file.is_file() else ""
-    # the process's id in the name: two writers at one moment never write one new file
-    fresh = directory / f"state.md.{os.getpid()}.new"
-    fresh.write_text(block + ("\n\n" + older if older else "") + "\n", encoding="utf-8")
-    fresh.replace(file)
-    worktree = task_worktree(root, settings, slug)
-    # the task's first line, for the block that names its path: the session says it, the board shows it,
-    # and the session where he typed the request says its named form (`lem session wait SLUG --first-line`)
-    said = opening_line(root, directory, slug, status, lines, older, worktree.get("branch"))
-    append_event(root, "task.state", slug, {
-        "status": status, "text": lines[0].strip(), "lines": [line.strip() for line in lines[1:]],
-        "ask": ask_of(directory), **worktree, **(said or {}),
-    })
+    # one writer at a time, from the read of the newest status through the event's append: the lead's
+    # `building` and the owner's drop at one moment would else each read the old status, and one block
+    # would be lost or land above the drop
+    with (directory / STATE_LOCK).open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        # the status the newest block gives, read from this task's file alone
+        written = text_of(directory / "state.md").strip() if (directory / "state.md").is_file() else ""
+        first = STATE_LINE.fullmatch(written.split("\n\n")[0].splitlines()[0]) if written else None
+        now = first["status"] if first else None
+        if now in ENDED and status != now:
+            raise SettingsError(
+                f"the task {slug!r} is {now}, and an ended task stays ended: new work for it is a new ask (`/lem new`), "
+                f"whose task takes a slug of its own. A reply or a message about {slug} that comes now is a stale wake-up, and nothing is done for it",
+            )
+        if now in WITH_LANDING and status in LEADS_WRITE and not (status == "ready" and start_over):
+            raise SettingsError(
+                f"the task {slug!r} is {now}: it is with its landing, and a reply or a message about {slug} that comes now is a stale wake-up, "
+                f"and no state is written for it; what the landing needs, land.py says itself",
+            )
+        refused = parked_refusal(slug, now, status, resumed)
+        if refused:
+            raise SettingsError(refused)
+        if status == "answered":
+            answered_form(root, directory, slug)
+        # the time is the clock's, never a writer's estimate
+        since = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
+        block = "\n".join([f"{since} {status}: {lines[0].strip()}", *(line.strip() for line in lines[1:])])
+        file = directory / "state.md"
+        older = text_of(file).strip() if file.is_file() else ""
+        # the process's id in the name: two writers at one moment never write one new file
+        fresh = directory / f"state.md.{os.getpid()}.new"
+        fresh.write_text(block + ("\n\n" + older if older else "") + "\n", encoding="utf-8")
+        fresh.replace(file)
+        worktree = task_worktree(root, settings, slug)
+        # the task's first line, for the block that names its path: the session says it, the board shows it,
+        # and the session where he typed the request says its named form (`lem session wait SLUG --first-line`)
+        said = opening_line(root, directory, slug, status, lines, older, worktree.get("branch"))
+        append_event(root, "task.state", slug, {
+            "status": status, "text": lines[0].strip(), "lines": [line.strip() for line in lines[1:]],
+            "ask": ask_of(directory), **worktree, **(said or {}),
+        })
     return {"slug": slug, "status": status, "since": since, **({"say": said["say"]} if said else {})}
 
 
@@ -1732,8 +1872,9 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
 RESUMED_FILES = ("task.md", "talk.md", "directions.md", "interview-notes.md", "scout.md", "investigation.md", "outside.md",
                  "criteria.md", "criteria-read.md", "criteria.json", "decisions.jsonl", "handoff.md", "ticket.txt")
 RESUMED_GLOBS = ("breaker-*.md",)
-# The events of a dropped task that the new one takes with it, under its own slug and with `from`:
-# what the landing and the board read of its criteria, its decisions, its plan talk and its investigation.
+# The events of a dropped task that the new one takes with it, under its own slug and with `from`, in
+# the log's order and each with its own time as `was_at`: what the landing and the board read of its
+# criteria, its decisions, its plan talk and its investigation.
 RESUMED_EVENTS = ("criteria.read.start", "criteria.read", "criteria.approved", "task.criteria", "plan.talk.start", "plan.talk",
                   "investigation.start", "investigation", "interview.start", "scout.start", "scout")
 # The file of a resumed task that names the task it came from.
@@ -1781,7 +1922,7 @@ def cmd_resume(root: Path, slug: str) -> dict:
             + ("An ended task stays ended, and new work for it is a new ask (`/lem new`)" if now in ENDED else "This one goes on as it is"),
         )
     record = directory / "decisions.jsonl"
-    lines = [json.loads(line) for line in text_of(record).splitlines() if line.strip()] if record.is_file() else []
+    lines = [json.loads(line) for line in lem_state.jsonl_lines(text_of(record)) if line.strip()] if record.is_file() else []
     helped = {line.get("breaker") for line in lines if line.get("kind") == "taken" and "breaker" in line}
     breaker = next((line for line in reversed(lines) if line.get("kind") == "breaker" and line["id"] not in helped), None)
     if breaker is None or not (directory / "handoff.md").is_file():
@@ -1829,9 +1970,13 @@ def cmd_resume(root: Path, slug: str) -> dict:
         rows = [f"{row.split(':', 1)[0]}: {own[row.split(':', 1)[0]]}" if row.split(":", 1)[0] in own else row
                 for row in text_of(directory / "brief.md").splitlines()]
         (target / "brief.md").write_text("\n".join([*rows, f"resumed from: {slug}; read handoff.md and {breaker.get('document') or 'the breaker document'} in the task directory first"]) + "\n", encoding="utf-8")
-    for event in events_named(root, *RESUMED_EVENTS) + [event for event in events_named(root, *(f"decision.{kind}" for kind in ("taken", "breaker", "criterion")))]:
+    # In the log's own order, each with the time it had (`was_at`, the first task's time for a task
+    # resumed twice): the landing compares his approval with a read by those times, and finds his
+    # word to skip a read before the approval that followed it.
+    for event in events_named(root, *RESUMED_EVENTS, *(f"decision.{kind}" for kind in ("taken", "breaker", "criterion"))):
         if event.get("task") == slug:
-            append_event(root, event["event"], new, {**{key: value for key, value in event.items() if key not in ("ts", "event", "task")}, "from": slug})
+            append_event(root, event["event"], new, {**{key: value for key, value in event.items() if key not in ("ts", "event", "task", "was_at")},
+                                                     "from": slug, "was_at": event.get("was_at") or event["ts"]})
     try:
         made_tree = cmd_worktree(root, settings, new, branch)
     except SettingsError as error:
@@ -2144,7 +2289,7 @@ def events_named(root: Path, *events: str) -> list[dict]:
     log, found = state_root(root) / "events.jsonl", []
     if not log.is_file():
         return found
-    for number, line in enumerate(text_of(log).splitlines(), 1):
+    for number, line in enumerate(lem_state.jsonl_lines(text_of(log)), 1):
         if not any(f'"{event}"' in line for event in events):
             continue
         try:
@@ -2193,9 +2338,7 @@ def owner_records() -> list[dict]:
     if not mark.is_file():
         return []
     found = []
-    # split at "\n" alone: str.splitlines also breaks at U+2028, U+2029 and U+0085, which append_owner's
-    # json.dumps(ensure_ascii=False) leaves as they are in the owner's words
-    for number, line in enumerate(text_of(mark).split("\n"), 1):
+    for number, line in enumerate(lem_state.jsonl_lines(text_of(mark)), 1):
         if not line.strip():
             continue
         try:
@@ -2311,6 +2454,9 @@ FAST_GREW = re.compile(r"\bthe small change is a full change$")
 LEAD_LINE = re.compile(r"lead: (builder|session)\b")
 # The state line of a task whose interview waits for the owner (`stages/new.md`, "The request", step 8).
 INTERVIEW_WAIT = "the interview waits for the owner"
+# The state line of a task on the fast track whose one criterion waits for the owner's yes before its
+# builder starts: a request someone else wrote, while he is there (`stages/new.md`, "The fast track", step 1).
+FAST_WAIT = "the criteria wait for the owner: a small change that someone else asked for"
 # The first line of a `held` block whose order names no task Lem can tell, while he is away (step 1 of
 # "The request"), in whatever form the rest of it has: it names no path, so its first line comes with
 # the first block after his answer that names one, which may take its type line from this block.
@@ -2321,16 +2467,16 @@ def track_of(text: str) -> str | None:
     """The track of a task, `fast` or `standard`, from the newest of its state lines that tells it
     (state.md is newest block first); None while nothing has: an investigation before its call, or a
     task queued before its first builder. Criteria that wait for the owner's yes are the standard
-    track's: the fast track's one criterion is approved in his name. So is an interview: only the
-    standard track has one, also for a task that `/lem standard-track` moved off the fast track,
-    whose older block names its one builder."""
+    track's, except the fast track's one criterion of a request someone else wrote (`FAST_WAIT`). So
+    is an interview: only the standard track has one, also for a task that `/lem standard-track` moved
+    off the fast track, whose older block names its one builder."""
     for line in text.splitlines():
         found = STATE_LINE.fullmatch(line.strip())
         said = found["text"] if found else line.strip()
+        if said == FAST_BUILDER or said == FAST_WAIT:
+            return "fast"
         if FAST_GREW.search(said) or LEAD_LINE.match(said) or said.startswith(CRITERIA_WAIT) or said.startswith(INTERVIEW_WAIT):
             return "standard"
-        if said == FAST_BUILDER:
-            return "fast"
     return None
 
 
@@ -2463,6 +2609,8 @@ def opening_line_facts(directory: Path, main: Path, status: str, lines: list[str
     then = next((found["path"] for found in map(THEN_LINE.fullmatch, said) if found), None) if status == "queued" else None
     if status == "held" and said[0] == INTERVIEW_WAIT:
         path = "interview"
+    elif status == "held" and said[0] == FAST_WAIT:
+        path = "fast"
     elif status in ("building", "queued") and investigation:
         path = "investigation"
     elif then:
@@ -2490,6 +2638,8 @@ def opening_line_facts(directory: Path, main: Path, status: str, lines: list[str
         "careful": careful, "after": after, "slug": directory.name,
         "order": order["words"] if order else None, "fits": FITS_LINE in said,
         "plan": "stop after the plan: yes" in brief_rows, "someone_else": "request by: someone else" in brief_rows,
+        # a first block before the builder's: on the fast track his yes to someone else's criterion comes first
+        "before_builder": status != "building",
         "stands_in": ("the ticket" if (directory / "ticket.txt").is_file() else "the backlog item" if item
                       else "the investigation's report" if (directory / "investigation.md").is_file() else "your request"),
         "question": investigation == "question" or typed["type"] == "question",
@@ -2528,10 +2678,13 @@ def compose_opening_line(facts: dict, task: str | None = None) -> str:
         standard = "Then the s" + standard[1:]
     if path == "fast":
         nothing = "Nothing waits for you." if facts.get("order") is None else None
+        if facts.get("someone_else"):
+            # someone else's request: his yes comes before the builder while he is there (`FAST_WAIT`, or a
+            # wait that ends in it); a first block that is the builder's own was approved without him
+            nothing = ("Someone else wrote the request, so its criterion waits for your yes before the builder starts." if facts.get("before_builder")
+                       else "Nothing waits for you but the pull request, which calls you: you did not approve its criterion.")
         steps = "Then the f" + FAST_STEPS[1:] if waiting else FAST_STEPS
-        words += [steps,
-                  "Nothing waits for you but the pull request, which calls you: you did not approve its criterion." if facts.get("someone_else") else nothing,
-                  correction(True, task)]
+        words += [steps, nothing, correction(True, task)]
     elif path == "interview":
         now = "" if waiting else " now"
         words += [f"{standard} an interview {here}{now}, then acceptance criteria for your yes.", then, correction(False, task)]
@@ -3085,22 +3238,18 @@ def hours(seconds: float) -> str:
 
 def cmd_may_nap(root: Path) -> None:
     """Whether a nap may start now, from the settings and the naps folder. A yes writes the nap
-    down as started; every call removes the naps older than `NAPS_KEEP_DAYS`."""
+    down as started. An old nap's folder goes with `prune`."""
     settings = load(root)
     naps = settings["naps"]
     folder = state_root(root) / "naps"
     folder.mkdir(exist_ok=True)
     now = datetime.now(timezone.utc)
-    removed, kept = [], []
+    kept = []
     for entry in sorted(folder.iterdir()):
         when = nap_time(entry.name)
         if when is None or entry.is_symlink() or not entry.is_dir():
             continue
-        if (now - when).total_seconds() > NAPS_KEEP_DAYS * 86400:
-            shutil.rmtree(entry)
-            removed.append(entry.name)
-        else:
-            kept.append((when, entry))
+        kept.append((when, entry))
     marker = folder / ASLEEP
     asleep = None
     if marker.is_file():
@@ -3112,8 +3261,7 @@ def cmd_may_nap(root: Path) -> None:
                 raise ValueError(f"time = {started!r}")
         except (ValueError, KeyError, TypeError) as error:
             raise SettingsError(f"{marker} is not the record may-nap writes ({error}); remove the file, and the next call writes it again") from error
-    answer = {"may": False, "why": "", "folder": str(folder), "time": None, "removed": removed,
-              "newest": max(kept)[1].name if kept else None}
+    answer = {"may": False, "why": "", "folder": str(folder), "time": None, "newest": max(kept)[1].name if kept else None}
     # a nap runs until its folder holds waking.md, the last file it writes, and for an hour at most
     woke = asleep is not None and any((nap / "waking.md").is_file() for _when, nap in kept if nap.name.startswith(started))
     if asleep is not None and not woke and (now - since).total_seconds() < ASLEEP_MINUTES * 60:
@@ -3136,6 +3284,313 @@ def cmd_may_nap(root: Path) -> None:
             staging.write_text(json.dumps(record) + "\n", encoding="utf-8")
             os.replace(staging, marker)
     print(json.dumps(answer, indent=2))
+
+
+# ---- what the state folder keeps (`prune`) ----
+
+# The folders of the state folder whose old entries go whole, each with how an entry's day is told:
+# `written`, its last write, the newest time of anything in it; `named`, the nap's start in its name.
+# An entry of `written` folders that is a folder must start with its day, YYYY-MM-DD-, as a question to
+# the experts and a panel do; the copies of the cast are named by a commit or a blob, and cast.py writes
+# the time of each read on its copy, so a copy that a panel reads stays.
+PRUNED = (
+    ("experts", "experts", "written", True),
+    ("panels", "panels", "written", True),
+    ("naps", "naps", "named", True),
+    ("cast", "personas-cast", "written", False),
+    ("cast", "personas-profile", "written", False),
+    ("cast", "personas-person", "written", False),
+)
+DAY_NAME = re.compile(r"\d{4}-\d{2}-\d{2}-.+")
+
+
+def task_calls(found: list[dict], events: list[dict], cutoff: datetime) -> list[dict]:
+    """What `prune` does with each task: `found` gives each task's `slug` and the text of its state.md
+    (`state`, None with no such file), `events` the event log, oldest first. Each call is `open` (no
+    state yet, or a status that is not ended: never touched), `young` (ended, and its newest event is
+    after `cutoff`), `old` (ended, and nothing of it was logged since `cutoff`: its working files go), or
+    `skip`, with `why`: a state.md that does not read, or a log that does not agree with it, is never
+    guessed at."""
+    newest: dict[str, str] = {}
+    stated: dict[str, str] = {}
+    for record in events:
+        task, ts = record.get("task"), record.get("ts")
+        if not isinstance(task, str) or not isinstance(ts, str):
+            continue
+        newest[task] = max(newest.get(task, ts), ts)
+        if record.get("event") == "task.state":
+            stated[task] = str(record.get("status"))
+    calls = []
+    for task in found:
+        slug, text = task["slug"], task["state"]
+        call = {"task": slug, "status": None, "last_event": newest.get(slug)}
+        if text is None or not text.strip():
+            calls.append({**call, "call": "open"})
+            continue
+        first = STATE_LINE.fullmatch(text.strip().split("\n\n")[0].splitlines()[0])
+        if first is None or first["status"] not in STATES:
+            calls.append({**call, "call": "skip", "why": "its state.md does not read: the first line of its newest block is not `TIME STATUS: TEXT` with a status Lem knows"})
+            continue
+        call["status"] = first["status"]
+        if first["status"] not in ENDED:
+            calls.append({**call, "call": "open"})
+            continue
+        if slug not in newest:
+            calls.append({**call, "call": "skip", "why": f"its state.md says {first['status']}, and the event log holds no event of it, so the day it ended is not known"})
+            continue
+        if stated.get(slug) != first["status"]:
+            calls.append({**call, "call": "skip", "why": f"its state.md says {first['status']}, and the newest state of it in the event log says {stated.get(slug) or 'nothing'}"})
+            continue
+        try:
+            last = datetime.strptime(newest[slug], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        except ValueError:
+            calls.append({**call, "call": "skip", "why": f"the time of its newest event, {newest[slug]!r}, does not read"})
+            continue
+        calls.append({**call, "call": "old" if last <= cutoff else "young"})
+    return calls
+
+
+class Remover:
+    """What `prune` removes, or with `dry` would remove, inside one state folder: a path is touched only
+    when it is no link and its folder resolves inside the state folder. A link is never followed and
+    never removed: it is named in `skipped`. Each removal that fails is named in `failed`, and the others
+    go on."""
+
+    def __init__(self, top: Path, dry: bool) -> None:
+        self.top = top.resolve()
+        self.dry = dry
+        self.skipped: list[dict] = []
+        self.failed: list[dict] = []
+
+    def shown(self, path: Path) -> str:
+        return path.relative_to(self.top).as_posix() if path.is_relative_to(self.top) else str(path)
+
+    def inside(self, path: Path) -> bool:
+        """Whether PATH is no link, and its folder resolves inside the state folder: the one guard of every removal."""
+        try:
+            if path.is_symlink():
+                self.skipped.append({"path": self.shown(path), "why": "a link, which prune never follows and never removes"})
+                return False
+            parent = path.parent.resolve()
+        except OSError as error:
+            self.failed.append({"path": self.shown(path), "error": str(error)})
+            return False
+        if parent != self.top and not parent.is_relative_to(self.top):
+            self.skipped.append({"path": str(path), "why": f"not inside the state folder {self.top}"})
+            return False
+        return True
+
+    def file(self, path: Path) -> int | None:
+        """Remove one file; its bytes, or None when it was not removed."""
+        if not self.inside(path):
+            return None
+        try:
+            facts = path.lstat()
+            if not stat.S_ISREG(facts.st_mode):
+                self.skipped.append({"path": self.shown(path), "why": "not a plain file"})
+                return None
+            if not self.dry:
+                path.unlink()
+        except OSError as error:
+            self.failed.append({"path": self.shown(path), "error": str(error)})
+            return None
+        return facts.st_size
+
+    def empty_folders(self, folder: Path) -> None:
+        """Remove the folders under FOLDER that hold nothing now, deepest first; FOLDER itself stays."""
+        if self.dry:
+            return
+        for at, folders, names in os.walk(folder, topdown=False):
+            for name in folders:
+                path = Path(at) / name
+                try:
+                    if not path.is_symlink() and not any(path.iterdir()):
+                        path.rmdir()
+                except OSError as error:
+                    self.failed.append({"path": self.shown(path), "error": str(error)})
+
+    def tree(self, path: Path) -> int:
+        """Remove a file, or a folder with all it holds, deepest first; the bytes removed. A link inside
+        stays, and so does the folder that holds it."""
+        if not self.inside(path):
+            return 0
+        if not path.is_dir():
+            return self.file(path) or 0
+        removed = 0
+        for at, folders, names in os.walk(path, topdown=False):
+            for name in names:
+                removed += self.file(Path(at) / name) or 0
+            for name in folders:
+                inner = Path(at) / name
+                if inner.is_symlink():
+                    # os.walk lists a link to a folder among the folders, and never goes into it
+                    self.skipped.append({"path": self.shown(inner), "why": "a link, which prune never follows and never removes"})
+                elif not self.dry:
+                    try:
+                        inner.rmdir()
+                    except OSError as error:
+                        self.failed.append({"path": self.shown(inner), "error": str(error)})
+        if not self.dry:
+            try:
+                path.rmdir()
+            except OSError as error:
+                self.failed.append({"path": self.shown(path), "error": str(error)})
+        return removed
+
+
+def last_write(path: Path) -> float:
+    """The newest time of a write to PATH or to anything in it, read with no link followed."""
+    newest = path.lstat().st_mtime
+    if path.is_dir() and not path.is_symlink():
+        for at, folders, names in os.walk(path):
+            for name in [*folders, *names]:
+                try:
+                    newest = max(newest, (Path(at) / name).lstat().st_mtime)
+                except OSError:
+                    continue
+    return newest
+
+
+def stamp_of(seconds: float) -> str:
+    return datetime.fromtimestamp(seconds, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def log_events(root: Path) -> list[dict]:
+    """Every event of the repository's log, oldest first. A line that does not read stops the caller:
+    `prune` dates each ended task by the log, and removes nothing by a guess."""
+    log = state_root(root) / "events.jsonl"
+    if not log.is_file():
+        return []
+    found = []
+    for number, line in enumerate(lem_state.jsonl_lines(text_of(log)), 1):
+        if not line.strip():
+            continue
+        try:
+            record = json.loads(line)
+        except ValueError as error:
+            raise SettingsError(f"{log}:{number} does not read as JSON ({error}), and prune dates each task by the log, so it removed nothing; "
+                                "the log is written by project.py, never by hand: correct or remove that line") from error
+        if isinstance(record, dict):
+            found.append(record)
+    return found
+
+
+def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
+    """Remove what the state folder no longer needs, older than `state.keep_days` (or, in a dry run,
+    --days): the working files of each task that ended (`lem_artifacts.working`), and the old entries
+    of PRUNED. With `dry`, only say what would go. The answer, and the exit: 1 when a removal failed.
+    The answer's `from` says where the number came from: the project's settings, this machine's own
+    file, Lem's default, or `--days N`."""
+    if days is not None and not dry:
+        raise SettingsError(
+            f"--days goes with --dry-run only: a removal keeps what {KEEP_KEY} says, so set the number in {SETTINGS} for the project, "
+            f"or in {LOCAL} for this machine alone",
+        )
+    if days is not None and (isinstance(days, bool) or days < 0):
+        raise SettingsError(f"--days {days} is no number of days: give 0 or more")
+    settings = load(root)
+    keep, source = (settings["state"]["keep_days"], settings["state"]["from"]) if days is None else (days, f"--days {days}")
+    state = state_root(root)
+    if state.is_symlink():
+        raise SettingsError(f"{state} is a link, and prune removes nothing through a link: make the state folder a folder of the main checkout")
+    remover = Remover(state, dry)
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=keep)
+    events = log_events(root)
+    tasks_folder = state / "tasks"
+    found, links = [], []
+    if tasks_folder.is_symlink():
+        remover.skipped.append({"path": "tasks", "why": "a link, which prune never follows and never removes"})
+    elif tasks_folder.is_dir():
+        for directory in sorted(tasks_folder.iterdir()):
+            if directory.is_symlink():
+                links.append(directory)
+                continue
+            if not directory.is_dir():
+                continue
+            state_file = directory / "state.md"
+            if state_file.is_symlink():
+                remover.skipped.append({"path": f"tasks/{directory.name}", "why": "its state.md is a link, which prune never follows"})
+                continue
+            try:
+                text = text_of(state_file) if state_file.is_file() else None
+            except (OSError, SettingsError) as error:
+                remover.skipped.append({"path": f"tasks/{directory.name}", "why": f"its state.md does not read: {error}"})
+                continue
+            found.append({"slug": directory.name, "state": text})
+    for link in links:
+        remover.skipped.append({"path": f"tasks/{link.name}", "why": "a link, which prune never follows and never removes"})
+    calls = task_calls(found, events, cutoff)
+    pruned_tasks, counts = [], {"open": 0, "young": 0, "old": 0}
+    for call in calls:
+        if call["call"] in counts:
+            counts[call["call"]] += 1
+        if call["call"] in ("open", "young"):
+            continue
+        if call["call"] == "skip":
+            remover.skipped.append({"path": f"tasks/{call['task']}", "why": call["why"]})
+            continue
+        directory = tasks_folder / call["task"]
+        gone, size = [], 0
+        for entry in lem_artifacts.working(directory, call["task"]):
+            removed = remover.file(directory / entry["path"])
+            if removed is not None:
+                gone.append(entry["path"])
+                size += removed
+        remover.empty_folders(directory)
+        kept = 0
+        for at, _folders, names in os.walk(directory):
+            for name in names:
+                if (Path(at) / name).relative_to(directory).as_posix() in gone:
+                    continue
+                try:
+                    kept += (Path(at) / name).lstat().st_size
+                except OSError:
+                    continue
+        if gone:
+            pruned_tasks.append({"task": call["task"], "status": call["status"], "last_event": call["last_event"], "files": gone, "bytes": size, "kept_bytes": kept})
+    folders = []
+    for kind, name, dated, day_named in PRUNED:
+        top = state / name
+        if top.is_symlink():
+            remover.skipped.append({"path": name, "why": "a link, which prune never follows and never removes"})
+            continue
+        if not top.is_dir():
+            continue
+        for entry in sorted(top.iterdir()):
+            if entry.name.startswith(".") or entry.name.endswith(".lock"):
+                continue
+            if entry.is_symlink():
+                remover.skipped.append({"path": f"{name}/{entry.name}", "why": "a link, which prune never follows and never removes"})
+                continue
+            if dated == "named":
+                when = nap_time(entry.name)
+                if when is None or not entry.is_dir():
+                    continue
+                last = when.timestamp()
+            else:
+                if day_named and not (entry.is_dir() and DAY_NAME.fullmatch(entry.name)):
+                    continue
+                try:
+                    last = last_write(entry)
+                except OSError as error:
+                    remover.failed.append({"path": f"{name}/{entry.name}", "error": str(error)})
+                    continue
+            if last > cutoff.timestamp():
+                continue
+            size = remover.tree(entry)
+            folders.append({"kind": kind, "path": f"{name}/{entry.name}", "last": stamp_of(last), "bytes": size})
+    total = sum(task["bytes"] for task in pruned_tasks) + sum(folder["bytes"] for folder in folders)
+    files = sum(len(task["files"]) for task in pruned_tasks)
+    verb = "would remove" if dry else "removed"
+    answer = {
+        "dry_run": dry, "keep_days": keep, "from": source, "before": stamp_of(cutoff.timestamp()),
+        "state": str(state), "tasks": pruned_tasks, "folders": folders, "bytes": total,
+        "said": f"{verb} {files} working files of {len(pruned_tasks)} ended tasks with no event since {stamp_of(cutoff.timestamp())[:10]}, and {len(folders)} old folders "
+                f"and copies, {total / 1_000_000:.1f} MB",
+        "open": counts["open"], "young": counts["young"], "old": counts["old"], "skipped": remover.skipped, "failed": remover.failed,
+    }
+    return answer, 1 if remover.failed else 0
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -3194,7 +3649,10 @@ def main(argv: list[str] | None = None) -> None:
     serial = commands.add_parser("serial", help="run one test command that two tasks cannot run at the same time, under the repository's one lock")
     serial.add_argument("words", nargs=argparse.REMAINDER, metavar="-- COMMAND")
     commands.add_parser("may-nap")
-    load_gate = commands.add_parser("load", help="the load average under which the checks of a landing start on this machine, and the load now")
+    prune = commands.add_parser("prune", help=f"remove what the state folder no longer needs, older than {KEEP_KEY} days")
+    prune.add_argument("--dry-run", action="store_true", help="remove nothing: say what would go")
+    prune.add_argument("--days", type=int, metavar="N", help=f"with --dry-run: what would go if {KEEP_KEY} were N")
+    load_gate =commands.add_parser("load", help="the load average under which the checks of a landing start on this machine, and the load now")
     load_gate.add_argument("--start", metavar="N|none", help="set the number for every repository on this machine, or none to take the gate away")
     handoff = commands.add_parser("handoff", help="the number of tokens past which a task's session compacts itself, for every repository on this machine")
     handoff.add_argument("--tokens", metavar="N|default", help="set the number: 0 leaves it to Claude Code, default takes the line out")
@@ -3249,6 +3707,12 @@ def main(argv: list[str] | None = None) -> None:
             sys.exit(cmd_serial(root, args.words))
         if args.command == "may-nap":
             cmd_may_nap(root)
+            return
+        if args.command == "prune":
+            answer, code = cmd_prune(root, args.dry_run, args.days)
+            print(json.dumps(answer, indent=2))
+            if code:
+                sys.exit(code)
             return
         if args.command == "load":
             print(json.dumps(cmd_load(args.start), indent=2))

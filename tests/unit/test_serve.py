@@ -1,6 +1,6 @@
 """serve.py's rules, each called in this process: who the tailnet door lets in, who may ask the main
-listener for an act, the note of a merge that runs, the machine's names in an address, and which duty
-the server owes the tasks. The routes, the stream and the start on demand run in tests/lem-serve.sh, with a server.
+listener for an act, the note of a merge that runs, the machine's names in an address, which duty
+the server owes the tasks, and when it runs `lem project prune`. The routes, the stream and the start on demand run in tests/lem-serve.sh, with a server.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -240,8 +240,15 @@ class Duties(unittest.TestCase):
         self.assertEqual(serve.duties(self.model(*again, stands), {}, set(), {"gift-note"}), [])
         conflicting = {"gift-note": {"mergeable": "CONFLICTING", "head": "def456789aaa"}}
         self.assertEqual(serve.duties(self.model(*again, stands, self.ev(8, "session.wake", session="S1", why="conflict")), conflicting, set()), [])
-        self.assertEqual(serve.merge_args({"history": "squash", "title": "fix: x"}, "gift-note", "owner", True),
-                         ["merge", "gift-note", "--by", "owner", "--via", "server", "--standing", "--message", "fix: x"])
+        self.assertEqual(serve.merge_args({"history": "squash", "title": "fix: x"}, "gift-note", "owner", "def456789" + "0" * 31, True),
+                         ["merge", "gift-note", "--by", "owner", "--via", "server", "--tip", "def456789" + "0" * 31, "--standing", "--message", "fix: x"])
+
+    def test_the_servers_merge_takes_the_tip_that_was_read(self):
+        # the merge agent's merge is of the tip its review read, the owner's that stood of the tip he merged
+        landing = {"proposed": "c" * 40, "merge_review": {"tip": "a" * 40, "verdict": "merge"}, "owner_tap": {"tip": "b" * 40}}
+        self.assertEqual(serve.merge_tip_of(landing, "merger"), "a" * 40)
+        self.assertEqual(serve.merge_tip_of(landing, "owner"), "b" * 40)
+        self.assertEqual(serve.merge_tip_of({"proposed": "c" * 40}, "merger"), "")
 
     def test_a_failed_bookkeeping_of_a_merged_pull_request_is_tried_again(self):
         key = ("gift-note", 41)
@@ -273,6 +280,47 @@ class DutyKey(unittest.TestCase):
         self.assertEqual(serve.duty_key("wake", "gift-note", "merged", {}), ("wake", "gift-note", "merged"))
 
 
+class Prune(unittest.TestCase):
+    """The keeping of the state folder, a duty of the server across tasks: `lem project prune` at the first
+    look and each PRUNE_SECONDS after, never for example tasks, and one log line when it did something."""
+
+    class Place:
+        def __init__(self, demo: bool = False) -> None:
+            self.name, self.path, self.pruned, self.demo = "shop", "/lem-unit/shop", None, demo
+
+        def model(self):
+            return type("Model", (), {"meta": {"demo": True} if self.demo else {}})()
+
+        def settings(self):
+            return {"root": self.path}
+
+    def test_it_runs_at_the_first_look_then_each_period_and_never_for_example_tasks(self):
+        from unittest import mock
+        import subprocess
+        ran = []
+        said = '{"said": "removed 3 working files", "bytes": 120, "skipped": [], "failed": []}'
+
+        def run(workspace, file, *args):
+            ran.append((file, *args))
+            return subprocess.CompletedProcess([], 0, said, "")
+        place = self.Place()
+        with mock.patch.object(serve, "lem_run", run):
+            first = serve.prune_once(place, now=1000.0)
+            self.assertIsNone(serve.prune_once(place, now=1000.0 + serve.PRUNE_SECONDS - 1))
+            again = serve.prune_once(place, now=1000.0 + serve.PRUNE_SECONDS)
+            self.assertIsNone(serve.prune_once(self.Place(demo=True), now=1000.0))
+        self.assertEqual(ran, [("project.py", "prune"), ("project.py", "prune")])
+        self.assertEqual((first["exit"], first["said"], again["bytes"]), (0, "removed 3 working files", 120))
+
+    def test_the_log_says_what_it_removed_skipped_and_failed_and_nothing_else(self):
+        quiet = {"exit": 0, "said": "removed 0 working files", "bytes": 0, "skipped": [], "failed": []}
+        self.assertIsNone(serve.prune_line("shop", quiet))
+        line = serve.prune_line("shop", {**quiet, "exit": 1, "skipped": [{"path": "tasks/x", "why": "its state.md does not read"}],
+                                         "failed": [{"path": "tasks/y/a.log", "error": "Permission denied"}]})
+        self.assertEqual(line, "serve.py: shop: `lem project prune` exited 1: removed 0 working files; skipped tasks/x: its state.md does not read; "
+                               "failed tasks/y/a.log: Permission denied\n")
+
+
 class Look(unittest.TestCase):
     """`bin/lem`'s look for the server: its pid file, and whether that process lives."""
 
@@ -296,6 +344,29 @@ class Look(unittest.TestCase):
             self.assertFalse(command.server_lives(folder), "a process that ended")
             pid_file.write_text("0 4536\n")
             self.assertFalse(command.server_lives(folder), "0 names a process group")
+
+    def test_the_look_starts_the_server_under_the_python_it_found_also_when_the_launchers_own_is_older(self):
+        import importlib.machinery
+        import importlib.util
+        import os
+        import tempfile
+        from unittest import mock
+        path = Path(__file__).resolve().parents[2] / "bin" / "lem"
+        loader = importlib.machinery.SourceFileLoader("lem_command", str(path))
+        command = importlib.util.module_from_spec(importlib.util.spec_from_loader("lem_command", loader))
+        loader.exec_module(command)
+        started = []
+        with tempfile.TemporaryDirectory() as folder:
+            outside = {key: value for key, value in os.environ.items() if key != "LEM_SERVE"}
+            with mock.patch.dict(os.environ, {**outside, "XDG_CONFIG_HOME": folder}, clear=True), \
+                    mock.patch.object(command.subprocess, "Popen", lambda args, **_: started.append(args)), \
+                    mock.patch.object(sys, "version_info", (3, 9, 6)):
+                command.look_for_server("/opt/found/python3.13")
+                os.environ["LEM_SERVE"] = "off"
+                command.look_for_server("/opt/found/python3.13")
+        self.assertEqual(len(started), 1, "one start with no LEM_SERVE, none with LEM_SERVE=off")
+        self.assertEqual(started[0][:2], ["/opt/found/python3.13", "-B"])
+        self.assertEqual(started[0][-1], "--ensure")
 
 
 if __name__ == "__main__":

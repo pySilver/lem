@@ -62,7 +62,7 @@ with open(state_file + ".log", "a") as log:
     log.write(json.dumps(args) + "\n")
 def opt(key): return args[args.index(key) + 1] if key in args else None
 def rev(ref): return git("rev-parse", "--verify", "-q", ref, where=origin)
-def shown(n, pr): return {"number": int(n), "url": pr["url"], "state": pr["state"], "mergeable": pr.get("mergeable", "MERGEABLE"),
+def shown(n, pr): return {"number": int(n), "url": pr["url"], "state": pr["state"], "mergeable": pr.get("mergeable", "MERGEABLE"), "baseRefName": pr["base"],
                           "headRefOid": rev("refs/heads/" + pr["head"]), "mergeCommit": {"oid": pr["merge"]} if pr["merge"] else None}
 def save():
     with open(state_file + ".new", "w") as out:
@@ -81,7 +81,11 @@ elif args[:2] == ["pr", "create"]:
     out = state["prs"][n]["url"]
     save()
 elif args[:2] == ["pr", "edit"]:
-    state["prs"][args[2]].update(title=opt("--title"), body=open(opt("--body-file")).read())
+    # --base changes the branch the pull request goes into, as a person can on GitHub
+    if opt("--base"):
+        state["prs"][args[2]]["base"] = opt("--base")
+    if opt("--title"):
+        state["prs"][args[2]].update(title=opt("--title"), body=open(opt("--body-file")).read())
     save()
 elif args[:2] == ["pr", "view"]:
     out = json.dumps(shown(args[2], state["prs"][args[2]]))
@@ -252,21 +256,35 @@ polish_in() {
 }
 status_in() { project --repo "$1" tasks | field "next(t[\"status\"] for t in d if t[\"slug\"] == \"$2\")"; }
 kept_in() { "$PY" -c 'import json, sys; print(json.load(open(sys.argv[1])).get(sys.argv[2]))' "$1/.lem/state/tasks/$2/landing.json" "$3"; }
-# record N JSON: the file that says what a review was and what it found, as the Nth start of the task's review;
-# its careful call is "not careful" with one sentence of why, unless JSON makes its own
+# tip_of SLUG: the commit the task's worktree is at, the one task of that slug in this run's repositories (refused when
+# there are none or more than one), which a review's record names as the tip it read
+tip_of() {
+  local found
+  found=$(find "$WORK" -maxdepth 4 -type d -path "*/.lem/worktrees/$1" -prune)
+  if [ -z "$found" ] || [ "$(grep -c '' <<<"$found")" != 1 ]; then
+    echo "tip_of: no one worktree of $1 in $WORK: ${found:-none}" >&2
+    return 1
+  fi
+  git -C "$found" rev-parse HEAD
+}
+# record SLUG N JSON: the file that says what a review was and what it found, as the Nth start of the task's review of the
+# tip its worktree is at; its careful call is "not careful" with one sentence of why, unless JSON makes its own
 NOT_CAREFUL="the diff reaches no topic of the settings"
 record() {
-  "$PY" -c 'import json, sys; json.dump({"attempt": int(sys.argv[1]), "careful": False, "careful_why": sys.argv[4], **json.loads(sys.argv[2])}, open(sys.argv[3], "w"))' "$1" "$2" "$WORK/record.json" "$NOT_CAREFUL"
+  local tip
+  tip=$(tip_of "$1") || return 1
+  "$PY" -c 'import json, sys; json.dump({"attempt": int(sys.argv[1]), "tip": sys.argv[5], "careful": False, "careful_why": sys.argv[4], **json.loads(sys.argv[2])}, open(sys.argv[3], "w"))' "$2" "$3" "$WORK/record.json" "$NOT_CAREFUL" "$tip"
   echo "$WORK/record.json"
 }
-# clean N: the record of one read that found nothing
-clean() { record "$1" '{"kind": "read", "answered": ["codex"]}'; }
+# clean SLUG N: the record of one read that found nothing
+clean() { record "$1" "$2" '{"kind": "read", "answered": ["codex"]}'; }
 # merge_read REPO SLUG [VERDICT]: the merge agent's read of a proposed task, its brief and then its reply with VERDICT
 # (merge by default) written down; prints what the step printed
 merge_read() {
-  land --repo "$1" merge-review "$2" >/dev/null || return 1
-  printf 'Verdict: %s. The change does what its criterion says.\n\nIts test proves it, and the task took as long as expected.\n' "${3:-merge}" > "$WORK/merge-answer.md"
-  land --repo "$1" merge-review "$2" --file "$WORK/merge-answer.md"
+  local brief
+  brief=$(land --repo "$1" merge-review "$2") || return 1
+  printf 'Verdict: %s. The change does what its criterion says.\n\nIts test proves it, and the task took as long as expected.\n' "${3:-merge}" > "$(field 'd["answer"]' <<<"$brief")"
+  land --repo "$1" merge-review "$2" --file "$(field 'd["answer"]' <<<"$brief")" --tip "$(field 'd["tip"]' <<<"$brief")"
 }
 # the notes of a pull request, and the same notes with the migration a careful request needs
 NOTES=$WORK/notes.md

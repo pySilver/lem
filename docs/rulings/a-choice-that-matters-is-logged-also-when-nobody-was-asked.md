@@ -12,4 +12,5 @@ Where a note replaces an earlier ruling, this is the ruling now.
 for what was decided without him, "this is different case than "Agent took a decision durign
 implementation without asking". The latter happens all the time. Some important choices needs
 to be logged into our artifact log." The lead logs such a choice with `--by lead`
-(`stages/ladder.md`), and `decisions.md` shows it.
+(`stages/ladder.md`), in the task's `decisions.jsonl`, and the pull request shows it under
+"Decisions of the build" ("Decisions" on the fast track).

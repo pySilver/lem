@@ -37,7 +37,7 @@ column that fits one screen of the large board.
 tasks is empty too. The same rule there keeps the picker and the board alike.
 
 Not in this item: the event log and the task folders grow without end
-(`an-ended-task-s-files-stay-on-the-machine-for-ever.md`). The small record that item keeps of
+(`an-ended-task-s-events-and-records-stay-on-the-machine-for-ever.md`). The small record that item keeps of
 each ended task is what the list of older tasks reads.
 
 Surfaced in the maintainer's session of 2026-11-21, on the owner's question of what 1,000 closed

@@ -226,6 +226,70 @@ class Acts(unittest.TestCase):
         self.assertEqual((said["head"], said["text"]), ("You merged it from the board", "the board, through the tailnet door"))
 
 
+class InterviewRead(unittest.TestCase):
+    """An interview's held block says that it waits for the owner from its first question to his yes; while
+    the personas read the criteria (`criteria.read.start` with no `criteria.read` after it) Lem waits for
+    them, and nothing of the task waits for him (docs/backlog/interview-state-says-who-waits.md, the case
+    of 2026-11-19)."""
+
+    READ = Acts.READ
+    INTERVIEW = (state(0, "held", "the interview waits for the owner", "type: feat, because the export gets a column"),
+                 ev(0.5, "scout.start"), ev(1, "interview.start"), ev(3, "scout"))
+
+    @staticmethod
+    def rows(m) -> list:
+        return [(w["key"], w["kind"]) for w in bm.waits_of(m)]
+
+    def test_the_row_leaves_while_the_personas_read_and_comes_back_when_his_yes_is_what_is_missing(self):
+        asking = model(*self.INTERVIEW)
+        t = asking.tasks[0]
+        self.assertEqual((self.rows(asking), t.for_owner, t.lane, bm.now_head(t)), ([("held:gift-note", "held")], True, "you", "The interview waits for you"))
+
+        reading = model(*self.INTERVIEW, ev(10, "criteria.read.start", by="lem"))
+        t = reading.tasks[0]
+        self.assertEqual(self.rows(reading), [])
+        self.assertEqual((t.for_owner, t.lane, t.info["actor"], bm.who_acts(t), bm.now_head(t)),
+                         (False, "build", "quiet", "Lem acts", "The personas read the criteria"))
+        self.assertEqual(bm.card_line(t, bm.LANE["build"]), "The personas read the criteria: nothing waits for you until their read is in")
+        self.assertEqual(bm.acts_of(t, None), [])
+        self.assertEqual([x.slug for x in reading.for_owner], [])
+
+        read = model(*self.INTERVIEW, ev(10, "criteria.read.start", by="lem"), ev(14, "criteria.read", **self.READ))
+        t = read.tasks[0]
+        self.assertEqual((self.rows(read), t.for_owner, t.lane, bm.now_head(t)), ([("held:gift-note", "held")], True, "you", "The criteria wait for your yes"))
+        self.assertEqual(bm.acts_of(t, None), ["approve"])
+
+    def test_a_read_nobody_answered_and_started_once_more_hides_the_row_again(self):
+        silent = dict(self.READ, answered=0, families=[], silent=[{"name": "Ania, opus", "why": "no answer"}])
+        again = model(*self.INTERVIEW, ev(10, "criteria.read.start", by="lem"), ev(14, "criteria.read", **silent), ev(15, "criteria.read.start", by="lem"))
+        self.assertEqual((self.rows(again), again.tasks[0].for_owner), ([], False))
+
+    def test_the_scouts_read_keeps_the_row_since_the_interview_may_still_ask_him(self):
+        # the log has no end of the interview: while the scout reads, a question may wait for him
+        scouting = model(*self.INTERVIEW[:3])
+        self.assertEqual(self.rows(scouting), [("held:gift-note", "held")])
+
+    def test_a_read_that_started_before_the_newest_block_does_not_hide_it(self):
+        # a start with no end before the held block (one a resumed task carried over) is no read of these criteria
+        stale = model(ev(0, "criteria.read.start", by="lem"), *self.INTERVIEW)
+        self.assertEqual(self.rows(stale), [("held:gift-note", "held")])
+
+    def test_a_session_gone_in_the_read_is_still_a_row(self):
+        reading = model(*self.INTERVIEW, ev(10, "criteria.read.start", by="lem"))
+        reading.sessions = {}
+        self.assertEqual(self.rows(reading), [("session:gift-note", "session")])
+
+    def test_lem_project_waiting_counts_only_the_interview_that_asks_him(self):
+        # the case of 2026-11-19: two interviews, the personas read the criteria of the first; `lem project waiting`
+        # lists the rows of waits_of and counts them, so it counts one, as the board's Waits for you lists one
+        first, second = "landing-in-the-background", "interview-in-a-companion"
+        m = model(state(0, "held", "the interview waits for the owner", task=first), ev(1, "interview.start", task=first),
+                  state(2, "held", "the interview waits for the owner", task=second), ev(3, "interview.start", task=second),
+                  ev(10, "criteria.read.start", task=first, by="lem"))
+        self.assertEqual(self.rows(m), [(f"held:{second}", "held")])
+        self.assertEqual([t.slug for t in m.for_owner], [second])
+
+
 class Sessions(unittest.TestCase):
     """When a task is stuck for want of its session (a row of "Waits for you", which the push sends), and
     when the board offers "Open a session" (plan-task-4.md section 7, item 2)."""

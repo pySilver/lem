@@ -1,6 +1,8 @@
 """What a landing reads of a repository before its step, as calls of the functions it calls with the
 settings it loaded once: `may_land`, which `lem project may-land` prints. Whether the base branch
-exists is a fact only git shows, and tests/lem-settings.sh checks it in a real repository.
+exists is a fact only git shows, and tests/lem-settings.sh checks it in a real repository. And what
+`lem project prune` does with each task (`task_calls`); what it removes from a folder is
+tests/lem-state.sh's.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -56,6 +58,10 @@ class TrackOf(unittest.TestCase):
         self.assertEqual(project.track_of("2026-11-19T09:50Z building: small change: one builder"), "fast")
         self.assertEqual(project.track_of("2026-11-19T09:50Z building: lead: builder\n\n2026-11-19T09:40Z building: small change: one builder"), "standard")
         self.assertIsNone(project.track_of("2026-11-19T09:50Z queued: it waits for a free place"))
+
+    def test_the_fast_tracks_wait_for_his_yes_and_the_standard_tracks(self):
+        self.assertEqual(project.track_of(f"2026-11-19T09:50Z held: {project.FAST_WAIT}\ntype: fix, because a word"), "fast")
+        self.assertEqual(project.track_of("2026-11-19T09:50Z held: the criteria wait for the owner\nnobody confused"), "standard")
 
 
 class QueuedRefusal(unittest.TestCase):
@@ -197,6 +203,27 @@ class FirstLine(unittest.TestCase):
                          'docs: "the README says receive, not recieve". Branch docs/readme-receive-typo. '
                          "Fast track: one builder, the checks, one read, then the pull request. Nothing waits for you. "
                          "Wrong read? /lem standard-track, /lem be-careful.")
+
+    def test_the_fast_track_of_someone_elses_ticket_waits_for_his_yes(self):
+        self.write("ask.txt", "SHOP-14\n")
+        self.write("ticket.txt", "SHOP-14\n")
+        self.write("criteria.md", "## Acceptance criteria\n\nSize: small, because one word.\n\n1. The footer says Terms.\n")
+        self.write("brief.md", "Read SKILL_DIR/prompts/small.md and follow it.\nbranch: fix/shop-14-footer-terms\nrequest by: someone else\n")
+        fast = ('fix: "the footer says Terms". Branch fix/shop-14-footer-terms. Fast track: one builder, the checks, one read, then the pull request. ')
+        # with the owner there, the first block is the wait for his yes, before the builder
+        self.assertEqual(self.say("held", project.FAST_WAIT, "type: fix, because the footer is wrong today"),
+                         fast + "Someone else wrote the request, so its criterion waits for your yes before the builder starts. "
+                                "Wrong read? /lem standard-track, /lem be-careful.")
+        # while he is away, its builder's block is the first, and the criterion was approved without him
+        self.assertEqual(self.say("building", "small change: one builder", "type: fix, because the footer is wrong today"),
+                         fast + "Nothing waits for you but the pull request, which calls you: you did not approve its criterion. "
+                                "Wrong read? /lem standard-track, /lem be-careful.")
+        # queued behind another task, its yes still comes before its builder: the wait comes first, then
+        # the steps of the track, then what waits for him
+        queued = self.say("queued", "it needs the footer's new text", "after: footer-text", "type: fix, because x", "then: the fast track")
+        self.assertIn("It waits for footer-text, and starts when that task lands or is answered. Then the fast track: one builder, the checks, "
+                      "one read, then the pull request. Someone else wrote the request, so its criterion waits for your yes before the builder "
+                      "starts.", queued)
 
     def test_the_standard_track_with_an_interview_quotes_the_outcome(self):
         self.write("ask.txt", "Add the gift note to the CSV export, Ania asked twice\n")
@@ -382,6 +409,123 @@ class FirstLine(unittest.TestCase):
         self.assertIsNone(project.outcome_of("## Outcome\n\n1. Invoice 1042 is 100 EUR.\n2. It shows 70.\n"))
         self.assertEqual(project.outcome_of("## Outcome\n\n**Today:**\n\n1. step\n\nThe invoice shows 70 EUR after the refund.\n"),
                          "The invoice shows 70 EUR after the refund")
+
+
+# Words that hold the three characters str.splitlines breaks at and json.dumps(ensure_ascii=False) keeps.
+SEPARATED = "a\u2028b\u2029c\x85d"
+
+
+class EventLog(unittest.TestCase):
+    """The repository's event log, read back with words that hold a line separator."""
+
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory()
+        self.addCleanup(self.folder.cleanup)
+        self.root = Path(self.folder.name)
+        project.STATE_ROOTS[self.root] = self.root / "state"
+        self.addCleanup(project.STATE_ROOTS.pop, self.root)
+        (self.root / "state").mkdir()
+
+    def test_an_event_whose_words_hold_a_line_separator_reads_as_one_event(self):
+        project.append_event(self.root, "gate.end", "demo", {"say": SEPARATED, "result": "passed"})
+        found = project.events_named(self.root, "gate.end")
+        self.assertEqual([record["say"] for record in found], [SEPARATED])
+
+
+class Words(unittest.TestCase):
+    """A task's words (ask.txt) are written once: the same words again pass, other words are refused."""
+
+    def test_the_same_words_again_and_other_words(self):
+        self.assertIsNone(project.ask_refusal("gift-note", None, "Add the gift note"))
+        self.assertIsNone(project.ask_refusal("gift-note", "Add the gift note\n", "  Add the gift note "))
+        said = project.ask_refusal("gift-note", "Add the gift note\n", "Add the gift note to the slip")
+        self.assertIn("the task 'gift-note' holds other words already", said)
+        self.assertIn("Add the gift note", said)
+        self.assertIn("choose another name", said)
+
+
+class OneWriter(unittest.TestCase):
+    """Two writers of one task's state at one moment: the lead's `building` and the owner's drop."""
+
+    def test_a_drop_that_comes_while_another_write_runs_stays_on_top(self):
+        import threading
+        from unittest import mock
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        directory = Path(folder.name)
+        (directory / "state.md").write_text("2026-11-21T10:00Z building: lead: builder 1\n", encoding="utf-8")
+        events = []
+        lead_read, go = threading.Event(), threading.Event()
+        refusal = project.parked_refusal
+
+        def paused(slug, now, status, resumed=False):
+            # the lead has read `building` and decided; the owner's drop comes now
+            if status == "building":
+                lead_read.set()
+                go.wait(5)
+            return refusal(slug, now, status, resumed)
+        said = {}
+
+        def write(status, line):
+            try:
+                said[status] = project.cmd_state(ROOT, "gift-note", status, [line])
+            except project.SettingsError as error:
+                said[status] = str(error)
+        with mock.patch.object(project, "task_directory", return_value=directory), mock.patch.object(project, "load", return_value={}), \
+                mock.patch.object(project, "task_worktree", return_value={}), mock.patch.object(project, "opening_line", return_value=None), \
+                mock.patch.object(project, "append_event", side_effect=lambda root, name, slug, fields: events.append(fields["status"])), \
+                mock.patch.object(project, "parked_refusal", side_effect=paused):
+            lead = threading.Thread(target=write, args=("building", "lead: builder 2"))
+            lead.start()
+            self.assertTrue(lead_read.wait(5))
+            owner = threading.Thread(target=write, args=("dropped", "the owner dropped it"))
+            owner.start()
+            # the drop has had its moment to write while the lead still holds its read
+            owner.join(0.5)
+            go.set()
+            lead.join(5)
+            owner.join(5)
+        blocks = (directory / "state.md").read_text(encoding="utf-8").split("\n\n")
+        self.assertEqual([block.split()[1] for block in blocks], ["dropped:", "building:", "building:"], blocks)
+        self.assertEqual(events, ["building", "dropped"])
+
+
+class Prune(unittest.TestCase):
+    """What `lem project prune` does with each task, from its state.md and the event log alone: an open
+    task is never touched, an ended one goes once nothing of it was logged for the days, and a state that
+    does not read or that the log does not agree with is skipped with why, never guessed at."""
+
+    CUTOFF = project.datetime(2026, 11, 1, tzinfo=project.timezone.utc)
+
+    @staticmethod
+    def state(status: str) -> str:
+        return f"2026-10-20T10:00Z {status}: the line\n"
+
+    def calls(self, found: list[dict], events: list[dict]) -> dict:
+        return {call["task"]: (call["call"], call.get("why", "")) for call in project.task_calls(found, events, self.CUTOFF)}
+
+    def test_each_call(self):
+        found = [{"slug": slug, "state": text} for slug, text in (
+            ("old-landed", self.state("landed")), ("late-event", self.state("dropped")), ("still-open", self.state("open")),
+            ("no-state-yet", None), ("broken", "not a state line\n"), ("no-event", self.state("answered")),
+            ("log-disagrees", self.state("landed")), ("bad-time", self.state("landed")))]
+        events = [
+            {"ts": "2026-10-20T10:00:00Z", "event": "task.state", "task": "old-landed", "status": "landed"},
+            {"ts": "2026-10-20T10:00:00Z", "event": "task.state", "task": "late-event", "status": "dropped"},
+            # an event after the end, a ticket's step, makes the task young again: its last event is what counts
+            {"ts": "2026-11-02T08:00:00Z", "event": "ticket.step", "task": "late-event"},
+            {"ts": "2026-10-01T10:00:00Z", "event": "task.state", "task": "still-open", "status": "open"},
+            {"ts": "2026-10-20T10:00:00Z", "event": "task.state", "task": "log-disagrees", "status": "open"},
+            {"ts": "yesterday", "event": "task.state", "task": "bad-time", "status": "landed"},
+        ]
+        calls = self.calls(found, events)
+        self.assertEqual({task: call for task, (call, _why) in calls.items()}, {
+            "old-landed": "old", "late-event": "young", "still-open": "open", "no-state-yet": "open", "broken": "skip",
+            "no-event": "skip", "log-disagrees": "skip", "bad-time": "skip"})
+        self.assertIn("does not read", calls["broken"][1])
+        self.assertIn("holds no event of it", calls["no-event"][1])
+        self.assertIn("says landed, and the newest state of it in the event log says open", calls["log-disagrees"][1])
+        self.assertIn("'yesterday'", calls["bad-time"][1])
 
 
 if __name__ == "__main__":

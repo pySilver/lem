@@ -24,6 +24,8 @@ in it, and `covers` says so with the number.
 import json
 from pathlib import Path
 
+import lem_state  # how a JSON-lines file is split into its lines; the scripts' folder is on the path of every importer
+
 EVENT = "session.transcript"
 # the usage's keys, by the name of each sum
 SUMS = {"input": "input_tokens", "output": "output_tokens", "cache_read": "cache_read_input_tokens", "cache_write": "cache_creation_input_tokens"}
@@ -34,7 +36,7 @@ def transcripts_of(state: Path, slug: str) -> list[str]:
     found: list[str] = []
     log = state / "events.jsonl"
     try:
-        lines = log.read_text(encoding="utf-8", errors="replace").splitlines()
+        lines = lem_state.jsonl_lines(log.read_text(encoding="utf-8", errors="replace"))
     except OSError:
         return found
     for line in lines:

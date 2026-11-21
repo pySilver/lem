@@ -108,6 +108,40 @@ else
   fail "artifacts and what is not served: $outside / $raw_headers / ${art:0:300}"
 fi
 
+# The board of a task that ended long ago, after `lem project prune`: the task loses its working files (an agent's
+# scratch, the review tool's archive of a round, a picture no document shows), and its Overview, its tabs, its
+# documents, its records and the picture its report shows read as before. The server prunes no workspace of
+# example tasks, so the prune runs here by hand, after the task's events were moved 400 days back.
+TD=$STATE/tasks/order-date-on-invoice
+mkdir -p "$TD/media" "$TD/reviews/order-date-on-invoice/01-initial/agents"
+"$PY" -c 'import sys; [open(p, "wb").write(b"\x89PNG\r\n\x1a\n" + bytes(8)) for p in sys.argv[1:]]' "$TD/media/a.png" "$TD/media/b.png"
+printf '%s\n' '# Report' '' 'The date under the number: ![the invoice](media/a.png)' > "$TD/report.md"
+printf 'scratch\n' > "$TD/scratch.txt"
+printf '# Round 1\n' > "$TD/reviews/order-date-on-invoice/01-initial/report.md"
+printf '{}\n' > "$TD/reviews/order-date-on-invoice/01-initial/agents/a.jsonl"
+"$PY" -c 'import json, sys
+from datetime import datetime, timedelta, timezone
+old = (datetime.now(timezone.utc) - timedelta(days=400)).strftime("%Y-%m-%dT%H:%M:%SZ")
+lines = open(sys.argv[1], encoding="utf-8").read().split("\n")
+for n, line in enumerate(lines):
+    if line.strip() and json.loads(line).get("task") == "order-date-on-invoice":
+        # the same length, so that the server, which reads the log on from where it stopped, finds whole lines
+        lines[n] = line.replace(json.loads(line)["ts"], old, 1)
+open(sys.argv[1], "w", encoding="utf-8").write("\n".join(lines))' "$STATE/events.jsonl"
+art_before=$(got "$T/artifacts" | words)
+pruned_board=$(project --repo "$DEMO" prune)
+ended_tabs=""
+for tab in "" /criteria /checks /timeline /artifacts /artifacts/report.md/ /artifacts/task.md/ /media/a.png /media/b.png /artifacts/scratch.txt/; do ended_tabs="$ended_tabs $(code "$T$tab")"; done
+art_after=$(got "$T/artifacts" | words)
+if [ "$(field '[(t["task"], sorted(t["files"])) for t in d["tasks"]]' <<<"$pruned_board")" = "[('order-date-on-invoice', ['media/b.png', 'reviews/order-date-on-invoice/01-initial/agents/a.jsonl', 'scratch.txt'])]" ] \
+  && [ "$ended_tabs" = " 200 200 200 200 200 200 200 200 404 404" ] && grep -qF "scratch.txt" <<<"$art_before" && ! grep -qF "scratch.txt" <<<"$art_after" \
+  && grep -qF "The task" <<<"$art_after" && grep -qF "Review round 01-initial" <<<"$art_after" && grep -qF "Report" <<<"$art_after" \
+  && got "$T" | words | grep -qF "What we are building" && [ -f "$TD/state.md" ] && [ -f "$TD/criteria.json" ]; then
+  pass "a task that ended long ago loses its working files to lem project prune, and its Overview, its tabs, its documents, its records and the picture a document shows still read on the board"
+else
+  fail "the board of a pruned task: $ended_tabs / $(field '[(t["task"], t["files"]) for t in d["tasks"]]' <<<"$pruned_board" 2>&1) / ${art_after:0:600}"
+fi
+
 # A task's pictures: a picture of its media folder only, by its name and its first bytes, never another file.
 R=$BASE/tasks/refund-line-on-receipt
 MEDIA=$STATE/tasks/refund-line-on-receipt/media

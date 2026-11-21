@@ -136,13 +136,72 @@ class TaskWorktree(Refuses):
             read("[branch]", 'base = "main"', "[flow]", 'topics = ["a customer is charged the wrong price"]'),
         )
         self.assertEqual((found["flow"]["topics"], found["naps"]["on"], found["branch"]["land"]), (["a customer is charged the wrong price"], False, "agent"))
-        self.assertEqual(found["settings_from"], "this worktree's branch, with [flow] and [naps] from main@012345678")
+        self.assertEqual(found["settings_from"], "this worktree's branch, with [flow], [naps] and [state] from main@012345678")
+
+    def test_the_days_the_state_keeps_come_from_the_base(self):
+        found = self.in_tree(read("[state]", "keep_days = 1"), read("[state]", "keep_days = 14"))
+        self.assertEqual(found["state"], {"keep_days": 14, "from": str(project.SETTINGS)})
+        self.assertEqual(self.in_tree(read("[state]", "keep_days = 1"), {})["state"], {"keep_days": project.KEEP_DAYS, "from": "Lem's default"})
+        self.assertNames(self.refused(self.in_tree, read("[state]", "keep_days = 0"), {}), "state.keep_days")
+
+    def test_the_machines_own_days_hold_in_a_task_worktree_too(self):
+        # the main checkout's local file, as `load` reads it for a worktree as well
+        local = read("[state]", "keep_days = 3", name=project.LOCAL, tables=project.LOCAL_TABLES)
+        found = project.decide(self.TREE, ROOT, read("[state]", "keep_days = 1"), local, read("[state]", "keep_days = 14"), self.COMMITTED)
+        self.assertEqual((found["state"], found["local"]["overrides"]), ({"keep_days": 3, "from": str(project.LOCAL)}, ["state.keep_days"]))
 
     def test_the_branch_own_flow_is_still_checked(self):
         self.assertNames(self.refused(self.in_tree, read("[flow]", 'topics = "money"'), {}), "flow.topics")
 
     def test_a_wrong_naps_switch_on_the_base_names_the_base_commit(self):
         self.assertNames(self.refused(self.in_tree, {}, read("[naps]", 'on = "yes"')), "main:.lem/project.toml", "naps.on")
+
+
+def local(*lines: str) -> dict:
+    """The tables of this machine's own file of these lines, as `load` reads them."""
+    return read(*lines, name=project.LOCAL, tables=project.LOCAL_TABLES)
+
+
+class KeepDays(Refuses):
+    """How long the state folder keeps what Lem no longer needs: one whole number of days of the project's
+    file, 30 by default, and one machine's own file may set its own number, which wins on that machine."""
+
+    def test_the_default_is_the_owners_thirty(self):
+        self.assertEqual((settings()["state"], project.KEEP_DAYS), ({"keep_days": 30, "from": "Lem's default"}, 30))
+        self.assertEqual(settings("[state]", "keep_days = 7")["state"], {"keep_days": 7, "from": str(project.SETTINGS)})
+
+    def test_a_number_that_is_no_whole_number_of_days_is_refused_with_the_fix(self):
+        for value in ("0", "-3", "7.5", '"7"', "true"):
+            self.assertNames(self.refused_settings("[state]", f"keep_days = {value}"), str(project.SETTINGS), "state.keep_days",
+                             "a whole number of days, 1 or more", "keep_days = 30")
+
+    def test_another_key_is_refused_in_either_file(self):
+        self.assertNames(self.refused(read, "[state]", "days = 7"), "unknown key state.days", "keep_days")
+        self.assertNames(self.refused(local, "[state]", "days = 7"), str(project.LOCAL), "unknown key state.days", "keep_days")
+
+    def test_the_machines_own_number_wins_lower_or_higher(self):
+        for project_lines, own, kept in ((("[state]", "keep_days = 30"), 7, 7), (("[state]", "keep_days = 7"), 60, 60), ((), 14, 14)):
+            with self.subTest(own=own):
+                found = settings(*project_lines, local=local("[state]", f"keep_days = {own}"))
+                self.assertEqual(found["state"], {"keep_days": kept, "from": str(project.LOCAL)})
+                self.assertEqual(found["local"]["overrides"], ["state.keep_days"])
+
+    def test_the_machines_file_without_the_key_leaves_the_projects_number(self):
+        found = settings("[state]", "keep_days = 7", local=local("[naps]", "on = false"))
+        self.assertEqual((found["state"], found["local"]["overrides"]), ({"keep_days": 7, "from": str(project.SETTINGS)}, []))
+
+    def test_a_wrong_number_in_the_machines_file_is_refused_by_that_file(self):
+        for value in ("0", "-3", "7.5", '"7"', "true"):
+            with self.subTest(value=value):
+                message = self.refused(lambda: settings("[state]", "keep_days = 7", local=local("[state]", f"keep_days = {value}")))
+                self.assertNames(message, f"{project.LOCAL}: state.keep_days", "a whole number of days, 1 or more", "keep_days = 30",
+                                 f"leave the line out for the number of {project.SETTINGS}")
+
+    def test_the_template_writes_the_key_with_its_source(self):
+        self.assertIn("[state]", project.TEMPLATE)
+        self.assertIn("keep_days = 30", project.TEMPLATE)
+        words = " ".join(project.TEMPLATE.replace("# ", "").split())
+        self.assertIn("The default, 30, is the owner's word of 2026-11-21, and the two constants it replaces, which were guesses.", words)
 
 
 class Paths(Refuses):
@@ -203,13 +262,44 @@ class Tracker(Refuses):
 
 
 class Seats(Refuses):
-    """A seat is one string, agent/model:effort: the effort, or the model and the effort, may be left out."""
+    """A seat is one string, agent/model:effort. The reviewer's, the defender's and each expert's is written
+    whole; the merge agent's and a task session's may leave out the effort, or the model and the effort."""
 
     def test_each_seat_parsed(self):
-        found = settings("[seats]", 'reviewer = "codex/gpt-6.1-sol:high"', 'planner = "claude/opus"', 'experts = ["claude/fable:high", "codex"]')["seats"]
+        found = settings("[seats]", 'reviewer = "codex/gpt-6.1-sol:high"', 'planner = "claude/opus:max"', 'experts = ["claude/fable:high", "codex/gpt-6.2-astra:xhigh"]')["seats"]
         self.assertEqual(found["reviewer"], {"agent": "codex", "model": "gpt-6.1-sol", "effort": "high", "seat": "codex/gpt-6.1-sol:high"})
-        self.assertEqual(found["planner"], {"agent": "claude", "model": "opus", "effort": None, "seat": "claude/opus"})
-        self.assertEqual([(e["agent"], e["model"], e["effort"], e["place"]) for e in found["experts"]], [("claude", "fable", "high", "fable"), ("codex", None, None, "astra")])
+        self.assertEqual(found["planner"], {"agent": "claude", "model": "opus", "effort": "max", "seat": "claude/opus:max"})
+        self.assertEqual([(e["agent"], e["model"], e["effort"], e["place"]) for e in found["experts"]], [("claude", "fable", "high", "fable"), ("codex", "gpt-6.2-astra", "xhigh", "astra")])
+
+    def test_each_of_the_three_is_refused_unless_whole(self):
+        # the owner, 2026-11-18: "I think it should be explicitly `agent/model:effort` in all 3; not simply "claude" or "codex""
+        for which, given, missing, example in (
+            ("reviewer", "codex", "no model and no effort", project.REVIEWER_SEATS["codex"]),
+            ("reviewer", "codex:high", "no model", project.REVIEWER_SEATS["codex"]),
+            ("reviewer", "codex/gpt-6.2-sol", "no effort", project.REVIEWER_SEATS["codex"]),
+            ("reviewer", "codex/", "no model and no effort", project.REVIEWER_SEATS["codex"]),
+            ("reviewer", "codex/gpt:", "no effort", project.REVIEWER_SEATS["codex"]),
+            ("planner", "claude", "no model and no effort", project.PLANNER),
+            ("planner", "claude/opus", "no effort", project.PLANNER),
+        ):
+            for name in (FILE, ROOT / project.LOCAL):
+                with self.subTest(which=which, given=given, name=name):
+                    message = self.refused(project.seat, {"seats": {which: given}}, name, which)
+                    self.assertEqual(message, f'{name}: seats.{which} = {given!r} names {missing}: it is one string, "agent/model:effort", written whole, as "{example}"')
+
+    def test_each_expert_is_refused_unless_whole(self):
+        for given, number, missing in ((["claude/fable:high", "codex"], 1, "no model and no effort"), (["claude/fable"], 0, "no effort")):
+            with self.subTest(given=given):
+                message = self.refused(project.experts_of, {"seats": {"experts": given}}, FILE)
+                self.assertEqual(message, f'{FILE}: seats.experts[{number}] = {given[number]!r} names {missing}: it is one string, "agent/model:effort", written whole, as "{project.EXPERTS[number]}"')
+
+    def test_the_reviewer_command_refuses_a_seat_that_is_not_whole(self):
+        message = self.refused(project.parse_seat, "claude", "the reviewer", project.REVIEWERS, *project.SEATS["reviewer"][1:], True)
+        self.assertEqual(message, f'the reviewer = \'claude\' names no model and no effort: it is one string, "agent/model:effort", written whole, as "{project.REVIEWER_SEATS["codex"]}"')
+
+    def test_a_wrong_agent_is_named_before_the_parts_it_leaves_out(self):
+        message = self.refused(project.seat, {"seats": {"planner": "codex"}}, FILE, "planner")
+        self.assertNames(message, "the agent 'codex' must be claude")
 
     def test_the_merge_agents_seat_from_the_repository_the_machine_or_the_agent(self):
         machine = {"merger": "codex/gpt-6.2-sol:high"}
@@ -228,9 +318,10 @@ class Seats(Refuses):
         message = self.refused(project.decide, ROOT, ROOT, raw, {}, raw, None, {"merger": "gemini/pro"})
         self.assertNames(message, "machine.toml: seats.merger", "the agent 'gemini' must be claude or codex")
 
-    def test_a_seat_with_no_model(self):
-        found = settings("[seats]", 'reviewer = "codex:high"')["seats"]["reviewer"]
-        self.assertEqual((found["agent"], found["model"], found["effort"]), ("codex", None, "high"))
+    def test_the_merge_agents_and_the_sessions_seat_may_leave_out_a_part(self):
+        found = settings("[seats]", 'merger = "codex:high"', 'session = "claude"')["seats"]
+        self.assertEqual((found["merger"]["agent"], found["merger"]["model"], found["merger"]["effort"]), ("codex", None, "high"))
+        self.assertEqual((found["session"]["agent"], found["session"]["model"], found["session"]["effort"]), ("claude", None, None))
 
     def test_lem_defaults_with_no_seat(self):
         found = settings("[branch]", 'base = "master"')["seats"]
@@ -260,12 +351,12 @@ class Seats(Refuses):
             ("reviewer", "", ("seats.reviewer is empty", project.SEAT_FORM)),
             ("reviewer", "codex /gpt", ("holds a space", project.SEAT_FORM)),
             ("reviewer", "gemini/pro:high", ("the agent 'gemini' must be claude or codex",)),
-            ("reviewer", "codex/", ("names no model after the `/`",)),
-            ("reviewer", "codex/gpt:", ("names no effort after the `:`",)),
             ("reviewer", "/gpt:high", ("names no agent before the `/`",)),
             ("reviewer", 3, ("seats.reviewer = 3", project.SEAT_FORM)),
             ("reviewer", "codex:high:max", ("seats.reviewer = 'codex:high:max' holds 2 `:`", "one at most")),
             ("planner", "codex/gpt:high", ("the agent 'codex' must be claude", "checked in Claude Code only")),
+            ("merger", "codex/", ("names no model after the `/`",)),
+            ("merger", "codex/gpt:", ("names no effort after the `:`",)),
         ):
             with self.subTest(which=which, given=given):
                 self.assertNames(self.refused(project.seat, {"seats": {which: given}}, name, which), str(name), *names)
@@ -279,9 +370,9 @@ class Seats(Refuses):
         name = Path(".lem/project.toml")
         for given, names in (
             ([], ("seats.experts = []", "one or two seats")),
-            (["claude", "codex", "claude/opus"], ("seats.experts", "one or two seats")),
-            ("claude/fable", ("seats.experts = 'claude/fable'", "one or two seats")),
-            (["claude/fable", "gemini"], ("seats.experts[1]", "the agent 'gemini' must be claude or codex")),
+            (["claude/fable:high", "codex/gpt:high", "claude/opus:high"], ("seats.experts", "one or two seats")),
+            ("claude/fable:high", ("seats.experts = 'claude/fable:high'", "one or two seats")),
+            (["claude/fable:high", "gemini/pro:high"], ("seats.experts[1]", "the agent 'gemini' must be claude or codex")),
         ):
             with self.subTest(given=given):
                 self.assertNames(self.refused(project.experts_of, {"seats": {"experts": given}}, name), str(name), *names)

@@ -126,7 +126,7 @@ landing up as after a cut-off.
    topic; on an exit 1 with no JSON, a refusal before the run started, say its `land.py:` line.
    Then act by its `result`:
    - `passed`: the step after the checks in the path that ran them: step 5, or, for a task
-     brought onto the base in step 10, that path's read and its `propose`;
+     brought onto the base after a conflict (`stages/conflict.md`), that path's read and its `propose`;
    - `red` or `refused`: the repair builder below;
    - `stopped`: nothing, since the word that stopped them (a drop, a track change, "stop the
      checks") says what comes next.
@@ -171,12 +171,14 @@ landing up as after a cut-off.
      and each one it leaves out; so a change of documentation gets no security or architecture
      check, and nobody decides that by a list of paths. It runs the review, confirms each
      finding against the code, and writes `reviews/review-N.md` and `reviews/review-N.json` in
-     the task directory, N being the `attempt` of `read.json`, and replies with their paths. It
+     the task directory, N being the `attempt` of `read.json`, the record naming the `tip` of
+     `read.json`, and replies with their paths. It
      records nothing: when it replies, you run `lem land read SLUG --record reviews/review-N.json`
      (a relative path the main checkout lacks is read in the task directory), which writes the
      review down. The step refuses a record under the floor, one with no careful call, a careful
-     call with less than the full set, and one whose `attempt` is not the number `read.json`
-     gave: a record that is sent twice counts once. A careful call the plan did not make is
+     call with less than the full set, one whose `attempt` is not the number `read.json`
+     gave (a record that is sent twice counts once), and one whose `tip` is not the branch's now:
+     that review read another change, and `lem land read SLUG` says what is due. A careful call the plan did not make is
      written down as a `careful.missed` event, for the retro.
 
    What the record says decides the next step (`next` and `to_file` in the step's output):
@@ -200,7 +202,11 @@ landing up as after a cut-off.
      record says who answered and who did not, and the pull request shows both. Do not run it
      again for that.
    - *nobody answered*: that is no review. Start the review agent once more. A second such
-     record sends the request on as not reviewed.
+     record sends the request on as not reviewed. A review agent that ended with no files of its
+     own (it died, or hit a limit itself) wrote no record, and with none the attempt is not counted:
+     you write `reviews/review-N.json` from `read.json`, `{"attempt": N, "tip": TIP, "kind": FLOOR,
+     "answered": [], "silent": [{"name": "the review agent", "why": WHAT ENDED IT}]}`, and record it
+     as above. It makes no careful call, and the step takes it without one.
 
    Two rounds at most. After the second nothing is reviewed again: the request is proposed as
    it is. It is green when the second round left no must-fix and nothing changed after it, and
@@ -255,13 +261,15 @@ landing up as after a cut-off.
    own words. Then step 7, at once.
 7. **The merge agent**, for every proposed task, the fast track's too. You read no diff, so the
    read is a fresh agent's. `lem land merge-review SLUG` writes its brief, `merge-brief.md` in the
-   task directory, and prints the brief's path, the answer file and the seat (`seats.merger`).
-   `ask-merger` with those three. The agent reads the task's files, its reviews and its diff,
+   task directory, and prints the brief's path, the answer file, the proposed `tip` and the seat
+   (`seats.merger`). The answer file is named by that tip (`merge-answer-TIP.md`), so a read of an
+   earlier proposal never takes its place. `ask-merger` with the brief, the answer file and the seat. The agent reads the task's files, its reviews and its diff,
    changes nothing, and replies with its review: its verdict first (`Verdict: merge.` or
    `Verdict: call.`), what was built and why as a story, the results, each decision taken without
    the owner with why, and the task's time against what was expected. When it ends, `lem land
-   merge-review SLUG --file ANSWER` writes the reply down as `merge-review.md`, word for word, and
-   prints `calls`:
+   merge-review SLUG --file ANSWER --tip TIP`, TIP being the `tip` printed with that brief, writes the
+   reply down as `merge-review.md`, word for word, and prints `calls`. The answer of a brief of an
+   earlier tip is refused: a new proposal is read again, as below.
    - `calls` is false: the board's server merges it, `lem land merge SLUG --by merger --via
      server` within a minute, and you do not run that merge. Say its `next` in one line ("the merge
      agent read it and found nothing for you; the board's server merges it"), and wait for the
@@ -275,15 +283,17 @@ landing up as after a cut-off.
      would cost a fresh start and buy nothing.
 
    A first line with no verdict is refused: start the agent once more. A proposal made again after a
-   rebase that met no conflict, with no commit after it (the moved base of step 8, or a conflict of
-   step 10 that git rebased by itself), keeps the merge review: `propose` prints `"merge_review":
+   rebase that met no conflict, with no commit after it (the moved base of step 8, or a conflict
+   (`stages/conflict.md`) that git rebased by itself), keeps the merge review: `propose` prints `"merge_review":
    "carried"` and logs a `merge.review` of the new tip with `carried`, its `calls` worked out again
    from the rules as they are now (a request that became not green, or careful, calls the owner),
    and the board's server merges it as after step 7. Start no merge agent then. Any other new
    proposal (a builder's commit, a resolved conflict) prints `"merge_review": null` and is read
    again: a review of an earlier tip counts for nothing.
 8. **The merge.** One route for every merge: `lem land merge SLUG --by owner|merger` merges the
-   pull request through GitHub, at the commit that was proposed, so GitHub's own rules hold. Lem's
+   pull request through GitHub, at the commit that was proposed, so GitHub's own rules hold. The
+   board's server gives it `--tip`, the commit the owner's confirm step showed or the merge agent's
+   review read: a proposal made since is refused, with nothing merged or kept. Lem's
    merge calls go one at a time: a second `lem land merge` waits for the end of the one that runs,
    logs `merge.wait` for the board ("waits for the merge of gift-note"), and reads the base branch
    after the first one merged. When the owner says to land several tasks, run their `merge` steps
@@ -294,8 +304,8 @@ landing up as after a cut-off.
      of the proposed tip whose verdict is `merge`. A refusal by GitHub or by one of Lem's rules is
      kept for its tip (`merge_refused` in `landing.json` and in `lem project waiting`, with `from`,
      `github` or `lem`, and for Lem's a `kind`: `rule`, one of the rules above; `tip`, the tip or
-     the pull request's head is not the one proposed and checked; `base`, the base moved after the
-     checks ran). The server tries that tip no more and wakes you with `lem: SLUG refused`: act on
+     the pull request's head is not the one proposed and checked, or its base on GitHub is not the
+     task's base (someone changed it there); `base`, the base moved after the checks ran). The server tries that tip no more and wakes you with `lem: SLUG refused`: act on
      the line as the refusals below say. A git or `gh` call that failed is no refusal: nothing is
      kept, and the server tries the merge again a few minutes later.
    - `--by owner` when the owner says to land it, in his own words typed in a session. Nobody else's
@@ -328,7 +338,7 @@ landing up as after a cut-off.
      row of "Waits for you". Each new landing of an open task is counted (`relands` in
      `landing.json`, the event `land.again` with `count`), and the merge agent reads the count;
      nothing bounds it. Only a merge call of Lem's
-     meets this: a pull request he merges on GitHub himself is checked by nobody again (step 10).
+     meets this: a pull request he merges on GitHub himself is checked by nobody again (`stages/conflict.md`).
    - *the tip is not the commit that was proposed*: the same steps again.
 
    When its `left_behind` is not null, the checkout that holds the base branch could not follow
@@ -344,23 +354,8 @@ landing up as after a cut-off.
    `lem project may-nap` says one may (`stages/nap.md`), and the close of this session, its last
    act (`prompts/session.md`, "The end"), after the nap's end.
 
-10. **A pull request that became conflicting.** After another task's merge, GitHub may call this
-   task's pull request conflicting: `conflict: true` for it in `lem project waiting`, and the board's
-   server wakes this session (`lem: SLUG conflict`), or opens one for it. Bring it onto the base at
-   once, and tell the owner the `why` in one line first: the settings he approved are his word for
-   this push. A pull request that is not conflicting stays as it is: GitHub merges it as it is, and
-   `/lem land` for it meets the moved base at step 8. The steps:
-   - `lem land start SLUG --conflicting`, then `base`. Its conflict is step 2: a builder resolves
-     it, and `base` runs again, finds the builder's rebase, and keeps the polish pass.
-   - `checks` on the new base; a red one is step 4.
-   - `lem land read SLUG` asks for one read of what the resolution changed (`resolution` in
-     `read.json`), or the full set for a careful request; start it as step 5 says. That read is
-     no round.
-   - `propose`, with the title of the last proposal (`title` in `landing.json`) and `notes.md`:
-     it pushes with a lease and keeps the pull request. Its `synced` is your one line to the
-     owner, as it is. Then step 7, the merge agent's read of the new tip.
-
-   The server wakes the session once for each head that conflicts.
+A pull request that GitHub calls conflicting after another task's merge takes `stages/conflict.md`:
+read it then, and at no other time.
 
 Every way out of this stage writes a state other than `landing`: `open`, `landed`, `dropped` for a
 pull request the owner closed, or `blocked`, or `held` for a task on the fast track that step 4 found

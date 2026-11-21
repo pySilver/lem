@@ -93,9 +93,11 @@ def server_lives(folder: str) -> bool:
 
 
 def look_for_server(python: str) -> None:
-    """Start the board server detached when its pid file names no process that lives. Every failure is
-    silent: the look serves the board, and no command of Lem's waits for it or fails by it."""
-    if os.environ.get("LEM_SERVE") == "off" or sys.version_info < (3, 11):
+    """Start the board server detached under PYTHON, the one `run` found, when its pid file names no
+    process that lives. The look itself needs only `os` and `subprocess`, so it runs under any python3.
+    Every failure is silent: the look serves the board, and no command of Lem's waits for it or fails
+    by it."""
+    if os.environ.get("LEM_SERVE") == "off":
         return
     folder = home()
     if folder is None or server_lives(folder):

@@ -466,6 +466,8 @@ class Task:
     # the criteria wait for the owner's yes and it would count now: the need is the criteria, or an
     # interview whose criteria the personas read (or he skipped the read) after its newest block
     approvable: bool = False
+    # the personas' read of a held task's criteria that runs now (`reading_of`): its `criteria.read.start`
+    reading: dict | None = None
     helped: Decision | None = None
     waits_after: bool = False
     # the task a queued task waited for, which was dropped (`after_dropped`): it waits for the owner's word
@@ -721,6 +723,20 @@ def talked_before(t: Task, ms: int) -> bool:
     return any(x["ts"] <= ms for x in t.talks)
 
 
+def reading_of(t: Task, last: dict) -> dict | None:
+    """The personas' read of the criteria that runs now: the newest `criteria.read.start` after the task's
+    newest block, while no `criteria.read` came after it (stages/interview.md, step 5), else None. A start
+    before the newest block is no read of what that block holds. While the scout reads, the interview may
+    still ask the owner, and the log has no end of the interview, so the scout's read is not one."""
+    start = None
+    for e in t.events[last["order"]:]:
+        if e.get("event") == "criteria.read.start":
+            start = e
+        elif e.get("event") == "criteria.read":
+            start = None
+    return start
+
+
 def settle(t: Task, now: int) -> None:
     """What a task's events add up to, once every one is folded in."""
     last = t.blocks[-1]
@@ -768,8 +784,13 @@ def settle(t: Task, now: int) -> None:
     t.waits_after = t.status == "queued" and waits_for_task(last)
     t.merge_wait = merge_wait(t)
     t.base_red = t.status == "blocked" and BASE_RED in [line.strip() for line in lines_of(last)]
-    t.for_owner = (bool(t.breaker) or (t.status == "held" and not t.approved and not t.helped) or t.merge_wait == "owner"
+    # while the personas read its criteria, a held task waits for their read, not for the owner
+    t.reading = reading_of(t, last) if t.status == "held" and not t.approved and not t.helped and not t.breaker else None
+    t.for_owner = (bool(t.breaker) or (t.status == "held" and not t.approved and not t.helped and not t.reading) or t.merge_wait == "owner"
                    or (t.status == "planned" and bool(re.search(r"\bowner\b", t.text))) or (t.status == "blocked" and not t.base_red))
+    if t.reading:
+        t.info = {"actor": "quiet", "who": "The agent" if t.reading.get("by") == "lead" else "Lem", "label": "The personas read the criteria", "icon": "users", "live": True}
+        t.shown = "nothing waits for you until their read is in"
     if t.merge_wait in MERGE_WAITS:
         t.info = dict(MERGE_WAITS[t.merge_wait])
     if t.approved and not t.for_owner:
@@ -1193,7 +1214,8 @@ def waits_of(m: Model) -> list[dict]:
         # a breaker that waits is its own row, and the held block it wrote is not said again
         if t.breaker:
             rows.append({"kind": "breaker", "key": f"breaker:{t.slug}:{t.breaker.id}", "t": t, "c": t.breaker, "since": t.breaker.ts})
-        elif t.status == "held" and not t.approved and not t.helped:
+        # a held task whose criteria the personas read now waits for their read, and is his again when it is in
+        elif t.status == "held" and not t.approved and not t.helped and not t.reading:
             rows.append({"kind": "criteria" if t.criteria_wait else "held", "key": f"held:{t.slug}", "t": t, "c": None, "since": t.since})
         # a task queued after a task that was dropped: no session runs it, and only his word starts it or ends it
         if after_dropped(t, m):
@@ -1508,6 +1530,9 @@ def now_head(t: Task) -> str:
     if s == "held":
         return ("Approved: its lead has not started yet" if t.approved else "Helped: its lead has not started yet" if t.helped
                 else "The build stopped: its breaker waits for you" if t.breaker
+                else "The personas read the criteria" if t.reading
+                # an interview ends with the personas' read: after it, his yes is what waits
+                else "The criteria wait for your yes" if t.approvable and t.need and t.need["need"] == "interview"
                 else "The interview waits for you" if t.need and t.need["need"] == "interview" else "The criteria wait for your yes" if t.criteria_wait else "Waits for you")
     if s == PARKED:
         return "Parked: nobody works on it until you bring it back"

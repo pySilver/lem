@@ -6,10 +6,11 @@
 # docs/backlog: each has that one place, and no line here.
 plans = "docs/plans"
 # The name of a plan's file in the plans folder: YYYY, MM and DD are the day the plan was
-# written, <slug> is the task's. A plan named YYYYMMDD-<slug>.md is found too.
+# written, <slug> is the task's.
 plan_file = "YYYY-MM-DD-<slug>.md"
 # The folder of the owner's rulings, the decisions about the product that outlive a task, and the
-# name of a ruling's file there, with the same tokens. Lem's own rulings are in AGENTS.md.
+# name of a ruling's file there, with the same tokens. Lem's own rulings are in docs/rulings, and
+# AGENTS.md has a sentence for each.
 rulings = "docs/rulings"
 ruling_file = "<slug>.md"
 
@@ -27,12 +28,13 @@ protected = []
 [checks]
 # During the build, each builder runs only the tests of its own change. Before the pull request,
 # Lem runs these commands one time, at the root of the task's worktree.
-# The unit level comes first: it takes under a second and fails before the suites start. Then
-# every suite of the repository, at the same time (tests/all.sh); its last line says whether all
-# passed. Two landings run it at the same time too: each suite works in its own throwaway folders,
-# so two runs share no state (a subagent's read and a trial of three runs at once, 2026-11-20). The
-# machine's load gate (`lem project load`), not a lock, keeps a run from starting on a loaded machine.
-commands = ["python3 -B -m unittest discover -s tests/unit", "bash tests/all.sh"]
+# One command: every suite of the repository at the same time, the unit level among them
+# (tests/all.sh); its last line says whether all passed. The checks run each command of this list
+# whatever the one before gave, so a unit run before it would only run the unit level twice. Two
+# landings run it at the same time too: each suite works in its own throwaway folders, so two runs
+# share no state (a subagent's read and a trial of three runs at once, 2026-11-20). The machine's
+# load gate (`lem project load`), not a lock, keeps a run from starting on a loaded machine.
+commands = ["bash tests/all.sh"]
 # What a new worktree needs before its tests can run ("uv sync", "npm ci"). Lem runs these one
 # time in each worktree it makes for a task. None here: the tests need only Python and git.
 setup = []
@@ -66,14 +68,16 @@ topics = [
 ]
 
 [seats]
-# Who sits where, each as "agent/model:effort". A part left out ("codex/gpt-6.2-sol", "codex")
-# takes that agent's own default.
-# The reviewer: "claude" or "codex". Lem's builders build; this one talks the plan of a careful
-# or large task through with its defender, in the other pane of the pair the task's lead opens for
-# the talk. The same family twice is allowed.
+# Who sits where, each as "agent/model:effort". The reviewer, the planner and each expert are
+# written whole: Lem refuses "codex" or "codex/gpt-6.2-sol" there. A part left out of the merger
+# or the session ("claude", "claude:high") takes that agent's own default.
+# The reviewer, on the agent "claude" or "codex". Lem's builders build; this one talks the plan of
+# a careful or large task through with its defender, in the other pane of the pair the task's lead
+# opens for the talk. The same family twice is allowed.
 reviewer = "codex/gpt-6.2-sol:high"
 # The defender of a careful or large plan in its talk with the reviewer, in the pair the task's
-# lead opens under the task's session for the talk and closes after it. Only "claude" for now.
+# lead opens under the task's session for the talk and closes after it. Only the agent "claude" for
+# now.
 planner = "claude/opus:high"
 # The experts, the last level of the ladder of a decision in doubt, at the same moment and read-only: two
 # model families, so that their agreement is worth more than two of one. Where the machine has one

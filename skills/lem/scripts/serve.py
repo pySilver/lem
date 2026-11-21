@@ -157,14 +157,20 @@ workspace, one call at a time with the server's other calls into Lem's scripts (
   while it runs). land.py's own rules decide whether it merges; the server only runs the call, since a
   task's session that ran it met a block of Claude Code's auto mode (pySilver/lem-scratch#12,
   2026-11-21). A refusal is kept for its tip by land.py, which ends the duty for that tip, and the
-  task's session gets `wake SLUG --why refused` once; after a merge, `wake … merged` above.
+  task's session gets `wake SLUG --why refused` once; after a merge, `wake … merged` above;
+- the keeping of the state folder (`prune_once`): at its first look and each PRUNE_SECONDS after, it runs
+  `lem project prune`, which removes what the workspace's state folder no longer needs, older than its
+  settings' `state.keep_days`: the working files of the tasks that ended, and old questions to the
+  experts, panels, naps and copies of the cast. It reaches across tasks, so it is the server's and no
+  task's: a task's own cleanup (`lem land clean`) runs once, at its merge, and a dropped or answered
+  task has none. What it removed, skipped or failed is one line in the server's log.
 
 A server started from a session leaves it at its start (`detach_from_session`): `lem session` reads
 agterm's variables as its caller's place, and the server is no part of any session.
 
 The server never types into a session, never selects one without the owner's click, never closes one,
 decides nothing, and writes a task's files only through `lem land merged`, the merge agent's `lem land
-merge` and `lem session`. A workspace
+merge` and `lem session`, and removes them only through `lem project prune`. A workspace
 of example tasks has no forge to ask and no duty, and one whose remote is not GitHub has no forge to ask.
 
 Apart from that, the server reads. Its actions are its own stop, the board's notifications, the owner's
@@ -446,6 +452,8 @@ class Workspace:
         self.kept: set[str] = set()
         self.needs: dict[str, str] = {}
         self.failed: dict[tuple, float] = {}
+        # when the server last ran `lem project prune` here (`prune_once`), on the monotonic clock
+        self.pruned: float | None = None
 
     def model(self) -> "bm.Model":
         found = self.reader.current(board)
@@ -567,7 +575,8 @@ class Workspace:
     def criteria_waiting(self, slug: str) -> dict | None:
         """The criteria of the task directory that wait for the owner's yes, `criteria.md`, as the task's
         session writes them: its path, its text and a digest of its bytes, which the approval's form carries back,
-        so that a yes never takes criteria the page did not show. None when the file is not there."""
+        so that a yes never takes criteria the page did not show: `lem criteria approve --shown` compares it with
+        the bytes it approves, in the same form (criteria.py's `shown_digest`). None when the file is not there."""
         file = self.state / "tasks" / slug / "criteria.md"
         try:
             data = file.read_bytes()
@@ -976,7 +985,8 @@ def act_approve(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
         return {"ok": False, "said": "criteria.md is not in the task directory yet: the task's session writes it. Approve the criteria there."}
     if form.get("digest") != waiting["digest"]:
         return {"ok": False, "said": "The criteria changed since the page showed them. Read them again, then approve."}
-    ran = lem_run(workspace, "criteria.py", "approve", slug, "--file", waiting["path"])
+    # the digest goes with the file, so that the step approves the bytes the page showed or nothing
+    ran = lem_run(workspace, "criteria.py", "approve", slug, "--file", waiting["path"], "--shown", waiting["digest"])
     if ran.returncode != 0:
         return {"ok": False, "said": said_of(ran)}
     asked = asked_from(workspace, slug, "approve", via)
@@ -1109,20 +1119,30 @@ def act_merge(workspace: Workspace, slug: str, form: dict, via: str) -> str:
     tip = str(landing.get("proposed") or "")
     if not tip or form.get("tip") != tip:
         return NOTES.put(task=slug, act="merge", state="refused", said="The branch was proposed again since the confirm step showed it: nothing was merged. Read the confirm step again.")
-    return merge_in_thread(workspace, slug, landing, "owner", lambda: asked_from(workspace, slug, "merge", via))
+    # the tip the confirm step showed goes with the merge: land.py merges that proposal or nothing
+    return merge_in_thread(workspace, slug, landing, "owner", tip, lambda: asked_from(workspace, slug, "merge", via))
 
 
-def merge_args(landing: dict, slug: str, by: str, standing: bool = False) -> list[str]:
-    """land.py's MERGE_STEP for a task, `--by BY --via server`, with the proposal's title as the one
-    commit's subject where the history is squashed, and `--standing` for the owner's merge that a moved
-    base refused and that stood through the new landing."""
-    args = [MERGE_STEP, slug, "--by", by, "--via", "server", *(["--standing"] if standing else [])]
+def merge_tip_of(landing: dict, by: str) -> str:
+    """The tip the server's own merge is for, from the landing record: the merge agent's, the one its
+    review read; the owner's that stood through a new landing, the one his merge stands for. "" when the
+    record has none, which land.py refuses."""
+    kept = landing.get("merge_review" if by == "merger" else "owner_tap")
+    return str(kept.get("tip") or "") if isinstance(kept, dict) else ""
+
+
+def merge_args(landing: dict, slug: str, by: str, tip: str, standing: bool = False) -> list[str]:
+    """land.py's MERGE_STEP for a task, `--by BY --via server --tip TIP`, TIP being the commit the
+    merge is for (the one the owner saw, or the one the merge agent read), with the proposal's title as
+    the one commit's subject where the history is squashed, and `--standing` for the owner's merge that
+    a moved base refused and that stood through the new landing."""
+    args = [MERGE_STEP, slug, "--by", by, "--via", "server", "--tip", tip, *(["--standing"] if standing else [])]
     if landing.get("history") == "squash" and landing.get("title"):
         args += ["--message", str(landing["title"])]
     return args
 
 
-def merge_in_thread(workspace: Workspace, slug: str, landing: dict, by: str, after=None, failed=None, standing: bool = False) -> str:
+def merge_in_thread(workspace: Workspace, slug: str, landing: dict, by: str, tip: str, after=None, failed=None, standing: bool = False) -> str:
     """Run the merge of a task, the owner's or the merge agent's (`merge_args`), in a thread of its own,
     one call at a time with the server's other calls into Lem's scripts (`lem_run`), and the token of its
     note at once: the note says that it runs (NOTES.merging, which the board reads as "Merging…") until
@@ -1132,7 +1152,7 @@ def merge_in_thread(workspace: Workspace, slug: str, landing: dict, by: str, aft
     pr = landing.get("pr") if isinstance(landing.get("pr"), dict) else None
     what = f"pull request #{pr['number']}" if pr and pr.get("number") else f"the branch {landing.get('branch') or slug}"
     base = landing.get("base") or "the base branch"
-    args = merge_args(landing, slug, by, standing)
+    args = merge_args(landing, slug, by, tip, standing)
     token, new = NOTES.start_merge((workspace.name, slug), task=slug, act="merge", state="running",
                                    said=f"Lem merges {what} into {base}. The page shows the result when it ends.")
     if not new:
@@ -2060,7 +2080,8 @@ def run_duties(workspace: Workspace, now: float | None = None) -> list[dict]:
                 # a refusal land.py kept ends the duty for that tip; any other end waits DUTY_RETRY
                 workspace.failed[key] = time.monotonic()
             # `why` is who merges: the merge agent, or the owner whose merge stood through a new landing
-            merge_in_thread(workspace, slug, workspace.landing_of(slug), why, failed=failed, standing=why == "owner")
+            landing = workspace.landing_of(slug)
+            merge_in_thread(workspace, slug, landing, why, merge_tip_of(landing, why), failed=failed, standing=why == "owner")
             ran.append({"verb": verb, "task": slug, "why": why, "exit": None, "said": "started"})
             continue
         # a conflict's wake keeps the head the forge named on its record (`session.wake`), one wake for each head
@@ -2072,6 +2093,41 @@ def run_duties(workspace: Workspace, now: float | None = None) -> list[dict]:
             workspace.failed[key] = now
         ran.append({"verb": verb, "task": slug, "why": why, "exit": result.returncode, "said": said_of(result) if result.returncode else ""})
     return ran
+
+
+# How often the server runs `lem project prune` for one workspace. A guess (2026-11-21): the number it
+# keeps is in days, so an hour late costs nothing, and a run reads the event log and walks the ended
+# tasks' folders, which is quick beside an hour.
+PRUNE_SECONDS = 3600
+
+
+def prune_once(workspace: Workspace, now: float | None = None) -> dict | None:
+    """`lem project prune` for the workspace when it is due: at the server's first look, then each
+    PRUNE_SECONDS. None when it did not run: not due, a workspace of example tasks, or settings that do
+    not read (the board says so already). Else its exit, its own line, and what it skipped and failed."""
+    now = time.monotonic() if now is None else now
+    if workspace.pruned is not None and now - workspace.pruned < PRUNE_SECONDS:
+        return None
+    if workspace.model().meta.get("demo") or not workspace.settings():
+        return None
+    workspace.pruned = now
+    ran = lem_run(workspace, "project.py", "prune")
+    try:
+        answer = json.loads(ran.stdout)
+    except ValueError:
+        return {"exit": ran.returncode or 1, "said": said_of(ran), "skipped": [], "failed": []}
+    return {"exit": ran.returncode, "said": answer.get("said") or said_of(ran), "bytes": answer.get("bytes", 0),
+            "skipped": answer.get("skipped") or [], "failed": answer.get("failed") or []}
+
+
+def prune_line(name: str, ran: dict) -> str | None:
+    """The server's log line for a run of `prune`: none when it removed, skipped and failed nothing."""
+    if ran["exit"] == 0 and not ran.get("bytes") and not ran["skipped"] and not ran["failed"]:
+        return None
+    parts = [f"serve.py: {name}: `lem project prune` exited {ran['exit']}: {ran['said']}"]
+    parts += [f"skipped {one['path']}: {one['why']}" for one in ran["skipped"]]
+    parts += [f"failed {one['path']}: {one['error']}" for one in ran["failed"]]
+    return "; ".join(parts) + "\n"
 
 
 def forge_loop(machine: "Machine") -> None:
@@ -2098,6 +2154,13 @@ def forge_loop(machine: "Machine") -> None:
                                      f"{': ' + one['said'] if one['said'] else ''}\n")
             except Exception as error:  # noqa: BLE001 - as above: one workspace that fails says why
                 workspace.session_problem = f"the board's look at the task sessions failed: {error!r}"
+            try:
+                ran = prune_once(workspace)
+                line = prune_line(workspace.name, ran) if ran else None
+                if line:
+                    sys.stderr.write(line)
+            except Exception as error:  # noqa: BLE001 - as above: one workspace that fails says why
+                sys.stderr.write(f"serve.py: {workspace.name}: `lem project prune` failed: {error!r}\n")
 
 
 def checkout_of(directory: str) -> Path:

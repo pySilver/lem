@@ -9,17 +9,19 @@
                                  name the old one `SLUG · handed off`; `--same` for the owner's
                                  "hand off" inside a phase
     lem session close SLUG [--session ID] --why handoff|ended|owner [--when-unselected]
-                                 log the close, then close the session; never one the owner has selected
+                                 log the close, then close the session; never one the owner has selected,
+                                 and with --session only one a `session.open` of SLUG names
     lem session handoff SLUG --check
                                  check handoff.md against `templates/handoff.md`
     lem session talk SLUG --from TEXT [--leave TEXT ...]
                                  copy the turns of this session about the ask into the task's talk.md
     lem session wake SLUG --why merged|conflict|refused|queue|owner [--head SHA]
                                  a pane message to the task's live session, or a new session
-    lem session wait SLUG --until STATE,... | --event NAME | --first-line
+    lem session wait SLUG --until STATE,... | --event NAME | --first-line [--companion ID]
                                  end when the task's state is one of these, or a new event is logged,
                                  or the task's first line is written, or when the task's session is
-                                 gone (`"gone": true`)
+                                 gone (`"gone": true`), or with --companion when that companion of the
+                                 waiting session is gone (`"gone": true, "companion": ID`)
     lem session list             each task's newest session: live, agent, selected, the phase the task is
                                  in now and the one the session opened in, unanswered
 
@@ -169,8 +171,11 @@ FIRST_LINE_BOUND = 600
 # After how long a wake whose line still waits in the mailbox is `unanswered`: 10 minutes, a guess
 # (the plan's "no session" row says "does not answer" after it).
 UNANSWERED_AFTER = 600
-# the characters that the launch line cannot carry inside its two levels of quotes
-UNQUOTABLE = re.compile(r"['\"\\$`\n]")
+# the characters that the launch line cannot carry inside its two levels of quotes to every login
+# shell: fish reads `\` inside single quotes as an escape, where sh and zsh keep it
+UNQUOTABLE = re.compile(r"[\\\n]")
+# what sh, zsh or fish read inside double quotes, so that a word with one goes in single quotes
+DOUBLE_QUOTED = re.compile(r"[\"$`\\]")
 # how many words of a turn name it, in talk.md
 FIRST_WORDS = 8
 # The first line of handoff.md, and its five parts with what each holds (`templates/handoff.md`).
@@ -407,19 +412,35 @@ def plugin_dir(root: Path, environ: dict) -> str | None:
 def launch_line(shell: str, slug: str, brief: Path, tokens: int | None, seat: dict, plugin: str | None = None) -> str:
     """The command of the task's session: the owner's login shell, so that his PATH finds claude, with
     the task and the compaction number in the environment, since `agtermctl session new` takes none,
-    and with PLUGIN as `--plugin-dir` when this Lem is not the installed plugin (`plugin_dir`)."""
-    # a seat holds no space (`project.parse_seat`), so the quotes are what is left to refuse there
+    and with PLUGIN as `--plugin-dir` when this Lem is not the installed plugin (`plugin_dir`).
+
+    Two levels read it: agterm's, which splits the line into words with their quotes, and the login
+    shell's `-c`. Each word of the inner command is quoted for the login shell, and the whole inner
+    command once more for agterm's level, so a model such as `opus[1m]` or a path with a space or an
+    apostrophe reaches claude whole in bash, zsh and fish alike."""
     for what, value, fix in (("the brief's path", str(brief), "move the checkout to a path without them"),
                              ("the plugin's folder", plugin or "", "move Lem's folder to a path without them"),
                              ("the owner's login shell", shell, "set a login shell at a plain path"),
                              ("the session's model", seat.get("model") or "", "write seats.session again"),
                              ("the session's effort", seat.get("effort") or "", "write seats.session again")):
         if UNQUOTABLE.search(value):
-            raise SessionError(f"{what} {value!r} holds a quote, a backslash, a $ or a line break, which the launch line cannot carry: {fix}")
-    variables = f"LEM_TASK={slug}" + (f" CLAUDE_CODE_AUTO_COMPACT_WINDOW={tokens}" if tokens is not None else "")
-    flags = (f" --model {seat['model']}" if seat.get("model") else "") + (f" --effort {seat['effort']}" if seat.get("effort") else "")
-    flags += f' --plugin-dir "{plugin}"' if plugin else ""
-    return f"{shell} -l -c '{variables} claude{flags} \"Read {brief} and follow it.\"'"
+            raise SessionError(f"{what} {value!r} holds a backslash or a line break, which the launch line cannot carry "
+                               f"to every login shell (fish reads a backslash inside quotes as an escape): {fix}")
+    words = [f"LEM_TASK={slug}"] + ([f"CLAUDE_CODE_AUTO_COMPACT_WINDOW={tokens}"] if tokens is not None else []) + ["claude"]
+    words += [word for flag in ("model", "effort") if seat.get(flag) for word in (f"--{flag}", seat[flag])]
+    words += ["--plugin-dir", plugin] if plugin else []
+    words.append(f"Read {brief} and follow it.")
+    inner = " ".join(shell_word(word) for word in words)
+    return f"{shlex.quote(shell)} -l -c {shlex.quote(inner)}"
+
+
+def shell_word(word: str) -> str:
+    """WORD as one word of sh, zsh and fish alike: bare when it needs no quote, in double quotes when
+    it holds nothing those read inside them (`"`, `$`, a backquote, a backslash), else in single quotes,
+    which keeps the usual launch line readable in agterm's tree."""
+    if shlex.quote(word) == word:
+        return word
+    return f'"{word}"' if not DOUBLE_QUOTED.search(word) else shlex.quote(word)
 
 
 def brief_text(slug: str, phase: str, why: str, directory: Path, main: Path, worktree: Path | None) -> str:
@@ -538,7 +559,8 @@ def cmd_open(root: Path, slug: str, why: str, replacing: str | None = None) -> d
         task, phase = facts["task"], facts["phase"]
         behind = queued_behind(task, facts["tasks"])
         if behind:
-            raise SessionError(f"the task {slug!r} is queued after {behind!r}, which has not ended: it gets its session when {behind} is landed, answered or dropped")
+            raise SessionError(f"the task {slug!r} is queued after {behind!r}, which has not ended: it gets its session when {behind} is landed or answered, "
+                               f"and when {behind} is dropped it waits for the owner's word, which starts it or drops it")
         nodes = tree(where)
         opens = newest_opens(project.events_named(root, *EVENTS))
         newest = opens.get(slug)
@@ -613,6 +635,18 @@ def wakes_of(events: list[dict], session: str) -> int:
     return sum(1 for record in events if record.get("event") == "session.wake" and str(record.get("session", "")).upper() == session.upper())
 
 
+def own_session(events: list[dict], slug: str, session: str) -> None:
+    """Refuse SESSION unless a `session.open` of SLUG names it. Any of the task's sessions counts, an
+    older one too, since a handoff closes the one before it."""
+    opened = [record for record in events if record.get("event") == "session.open" and str(record.get("session", "")).upper() == session.upper()]
+    if any(record.get("task") == slug for record in opened):
+        return
+    owners = sorted({str(record.get("task")) for record in opened})
+    whose = f"its `session.open` names {', '.join(owners)}" if owners else "no `session.open` names it"
+    raise SessionError(f"{session} is no session of {slug}: {whose}. `lem session list` gives each task's session; "
+                       f"close a session under its own task, or leave out --session to close {slug}'s newest")
+
+
 def cmd_close(root: Path, slug: str, session: str | None, why: str, when_unselected: bool, every: float) -> dict:
     where = place()
     project.task_directory(root, slug)
@@ -622,6 +656,8 @@ def cmd_close(root: Path, slug: str, session: str | None, why: str, when_unselec
         if newest is None:
             raise SessionError(f"no session of {slug} is on record: there is nothing to close")
         session = str(newest["session"])
+    else:
+        own_session(events, slug, session)
     logged = any(record.get("event") == "session.close" and str(record.get("session", "")).upper() == session.upper() for record in events)
     woken = wakes_of(events, session)
     while True:
@@ -692,12 +728,24 @@ def gone_session(root: Path, slug: str, where: dict) -> dict | None:
     return None if live(node, newest, datetime.now(timezone.utc)) else newest
 
 
-def cmd_wait(root: Path, slug: str, until: list[str], event: str | None, every: float) -> dict:
+def gone_companion(where: dict, companion: str, since: dict, now: datetime) -> bool:
+    """Whether COMPANION, a session the waiting one opened under itself (the plan talk's pair), is gone:
+    not in agterm's tree, or no agent runs in it once STARTING seconds passed since the wait began
+    (SINCE, a record with its `ts`). False when agterm did not answer, which the next look asks again."""
+    try:
+        node = node_of(tree(where), companion)
+    except SessionError:
+        return False
+    return not live(node, since, now)
+
+
+def cmd_wait(root: Path, slug: str, until: list[str], event: str | None, every: float, companion: str | None = None) -> dict:
     project.task_directory(root, slug)
     unknown = [state for state in until if state not in project.STATES]
     if unknown:
         raise SessionError(f"--until names {', '.join(unknown)}, and a state is one of {', '.join(project.STATES)}")
     where = place()
+    began = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
 
     def mine() -> list[dict]:
         return [record for record in project.events_named(root, event) if record.get("task") == slug]
@@ -716,6 +764,11 @@ def cmd_wait(root: Path, slug: str, until: list[str], event: str | None, every: 
                 task = task_now()
                 if task["status"] in until:
                     return {"task": slug, "status": task["status"], "line": first_line(task), "since": task["since"], "gone": False}
+            if companion and gone_companion(where, companion, began, datetime.now(timezone.utc)):
+                task = task_now()
+                return {"task": slug, "status": task["status"], "line": first_line(task), "since": task["since"], "gone": True, "companion": companion,
+                        "say": f"the companion {companion} of {slug} is gone before the state came, and the task is {task['status'] or 'with no state yet'}: "
+                               f"read the plan's `## Plan talk` and `talk` in `lem project tasks` before anything else"}
             gone = gone_session(root, slug, where)
             if gone is not None:
                 task = task_now()
@@ -990,6 +1043,7 @@ def main(argv: list[str] | None = None) -> None:
     until.add_argument("--until", metavar="STATE,...", help="the states that end the wait, joined by commas")
     until.add_argument("--event", metavar="NAME", help="the event that ends the wait, the first one logged for the task after its start")
     until.add_argument("--first-line", action="store_true", help="end with the task's first line, as this session says it")
+    waiting.add_argument("--companion", metavar="ID", help="with --until or --event: end too when this companion of the waiting session is gone (the plan talk's pair)")
     waiting.add_argument("--every", type=float, default=WAIT_EVERY, help=argparse.SUPPRESS)
     waiting.add_argument("--bound", type=float, default=FIRST_LINE_BOUND, help=argparse.SUPPRESS)
     commands.add_parser("list", help="each task's newest session")
@@ -1009,12 +1063,14 @@ def main(argv: list[str] | None = None) -> None:
         elif args.command == "wake":
             result = cmd_wake(root, args.slug, args.why, args.head)
         elif args.command == "wait" and args.first_line:
+            if args.companion:
+                raise SessionError("--companion goes with --until or --event: the first line comes from the task's own session")
             result = cmd_first_line(root, args.slug, max(0.01, args.every), max(0.0, args.bound))
         elif args.command == "wait":
             states = [state.strip() for state in (args.until or "").split(",") if state.strip()]
             if args.until is not None and not states:
                 raise SessionError("--until names one state or more, joined by commas, as --until open,held,landed")
-            result = cmd_wait(root, args.slug, states, args.event, max(0.01, args.every))
+            result = cmd_wait(root, args.slug, states, args.event, max(0.01, args.every), args.companion)
         else:
             result = cmd_list(root)
     except (SessionError, project.SettingsError) as error:

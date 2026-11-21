@@ -6,19 +6,20 @@ read-only, or one expert alone on a machine with one of their agents. Who they a
 settings' `seats.experts`, one or two seats `agent/model:effort` that `lem project show` prints,
 each that is `here` (its agent is on this machine); `--seat`, once for each expert, names them for
 one call instead. An expert's name is the last word of its model that holds a letter (`opus`,
-`sol`), or its place (`fable` for the first seat, `astra` for the second) when its seat names no
-model. Its answer file carries the name. This script writes the brief and
+`sol`), or its place (`fable` for the first seat, `astra` for the second) when a `--seat` names no
+model: a seat of the settings is written whole. Its answer file carries the name. This script writes the brief and
 reads each answer back; starting the agents is the harness's (`ask-experts`).
 
 A question in words, which the owner asks (`/lem ask-expert ...`) and which a lead's ladder asks at
-its last level (`stages/ladder.md`, the experts), has a folder of its own in Lem's state folder, `experts/DATE-TIME-WORDS/`, with the brief, each expert's answer and `record.json`:
+its last level (`stages/ladder.md`, the experts), has a folder of its own in Lem's state folder, `experts/DATE-TIME-WORDS/`, with the brief, each expert's answer and `record.json`. The folder goes
+`state.keep_days` days after its last write (`lem project prune`):
 
     lem experts brief --question TEXT [--context TEXT] [--option TEXT ...] [--file PATH ...]
                      make the folder and write `brief.md` in it: the question, what is being
                      decided (`--context`), the options word for word when there are any, the
                      files that matter, who the code is for, and the form of an answer. Prints the folder's name, the
                      brief's path, each expert with its seat and its answer file, and the checkout
-                     the experts read. Folders older than KEEP_DAYS are removed first
+                     the experts read
     lem experts record --folder NAME --expert NAME
                      read the expert's answer file, its last message, and write it into the
                      folder's `record.json`. Refused when the answer is not in the brief's form,
@@ -55,7 +56,6 @@ import fcntl
 import json
 import os
 import re
-import shutil
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -66,7 +66,7 @@ SCRIPTS = Path(__file__).resolve().parents[2] / "lem" / "scripts"
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
 # the names of the two seats of the settings' seats.experts, the first and the second, whatever model
-# sits there (project.py's EXPERT_PLACES): an expert whose seat names no model is named by its place
+# sits there (project.py's EXPERT_PLACES): an expert whose `--seat` names no model is named by its place
 PLACES = ("fable", "astra")
 
 # A seat for the error messages, in the form `--seat` takes.
@@ -76,9 +76,6 @@ AGENTS = ("claude", "codex")
 # A seat as `--seat` takes it: the model and the effort may be left out, and are then that agent's
 # own default.
 SEAT = re.compile(r"\A(?P<agent>[a-z]+)(?:/(?P<model>[A-Za-z0-9][A-Za-z0-9._-]*))?(?::(?P<effort>[a-z]+))?\Z")
-# How long the folder of a question in words is kept after its last write. A guess, not a
-# measurement: long enough for the owner to look back at an answer in the same piece of work.
-KEEP_DAYS = 30
 FOLDER = re.compile(r"\A\d{4}-\d{2}-\d{2}-\d{6}-[a-z0-9-]+\Z")
 # The persona panel's script, beside this skill in the same plugin: the one reader of the cast and
 # the profile, which a brief names so that an expert knows who the code is for.
@@ -274,19 +271,6 @@ def questions(repo: Path) -> Path:
     return state_folder(repo) / "experts"
 
 
-def prune(top: Path, now: float) -> list[str]:
-    """Remove the folders of questions whose last write is older than KEEP_DAYS; their names."""
-    removed = []
-    for folder in sorted(top.iterdir()) if top.is_dir() else []:
-        if not folder.is_dir() or not FOLDER.match(folder.name):
-            continue
-        last = max([folder.stat().st_mtime] + [path.stat().st_mtime for path in folder.iterdir()])
-        if now - last > KEEP_DAYS * 86400:
-            shutil.rmtree(folder, ignore_errors=True)
-            removed.append(folder.name)
-    return removed
-
-
 def new_folder(top: Path, question: str, at: datetime) -> Path:
     words = "-".join(re.findall(r"[a-z0-9]+", question.lower())[:6])[:48].strip("-") or "question"
     stem = f"{at.strftime('%Y-%m-%d-%H%M%S')}-{words}"
@@ -371,7 +355,6 @@ def cmd_free_brief(repo: Path, question: str, context: str, options: list[str], 
     who = audience(repo)
     top = questions(repo)
     now = datetime.now(timezone.utc)
-    removed = prune(top, now.timestamp())
     folder = new_folder(top, question, now)
     (folder / "brief.md").write_text(free_brief_text(question, context, options, place, files, len(experts), who), encoding="utf-8")
     record = {
@@ -384,7 +367,7 @@ def cmd_free_brief(repo: Path, question: str, context: str, options: list[str], 
     return {
         "folder": folder.name, "dir": str(folder), "brief": str(folder / "brief.md"), "worktree": str(place),
         "experts": record["experts"], "answers": {expert["name"]: expert["answer"] for expert in record["experts"]},
-        "ask": names_, "removed": removed,
+        "ask": names_,
         "next": f"start {' and '.join(names_)} at once, in the background, with this brief (the harness's `ask-experts`); "
                 f"as each ends, `lem experts record --folder {folder.name} --expert NAME`",
     }
@@ -395,7 +378,7 @@ def cmd_free_record(repo: Path, name: str, expert: str) -> dict:
         raise ExpertError(f"--folder {name!r} is no question's folder: give the name `lem experts brief --question` printed")
     folder = questions(repo) / name
     if not (folder / "record.json").is_file():
-        raise ExpertError(f"no question {name} is in {folder.parent}: give the name `lem experts brief --question` printed; a folder older than {KEEP_DAYS} days is removed")
+        raise ExpertError(f"no question {name} is in {folder.parent}: give the name `lem experts brief --question` printed; a folder goes state.keep_days days after its last write")
     with open(folder / ".lock", "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         record = json.loads((folder / "record.json").read_text(encoding="utf-8"))

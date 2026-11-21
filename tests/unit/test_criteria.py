@@ -122,7 +122,8 @@ class ResumedPlan(unittest.TestCase):
 
 class FastTrackNotHis(unittest.TestCase):
     """The fast track's one criterion is approved in the owner's name only when the request is his own
-    sentence; a night's task, or a request someone else wrote, is approved without him (`--alone`), in any mode."""
+    sentence. A request someone else wrote waits for his own yes while he is there, and is approved
+    without him (`--alone`) only while the task runs without him: a night's task, or his away mark."""
 
     SMALL = "## Acceptance criteria\n\nSize: small, because the request is one sentence.\n\n1. The footer says 2026.\n"
 
@@ -148,10 +149,25 @@ class FastTrackNotHis(unittest.TestCase):
             self.assertIn("--alone", str(refused.exception))
             self.assertEqual(criteria.cmd_approve(task, str(task.small_file), "alone", plan=True)["by"], "alone")
 
-    def test_a_request_someone_else_wrote_is_approved_without_him_while_he_is_there(self) -> None:
+    def test_a_request_someone_else_wrote_waits_for_his_yes_while_he_is_there(self) -> None:
         import tempfile
         with tempfile.TemporaryDirectory() as folder:
             task = self.task(Path(folder), brief="task: footer-year\nrequest by: someone else\n")
+            for by in ("alone", "lem"):
+                with self.subTest(by=by), self.assertRaises(criteria.CriteriaError) as refused:
+                    criteria.cmd_approve(task, str(task.small_file), by, plan=by == "alone")
+                self.assertIn("waits for the owner's yes", str(refused.exception))
+                self.assertIn(f"lem criteria approve footer-year --file {task.small_file}`", str(refused.exception))
+            self.assertFalse(task.approved_file.exists())
+            self.assertEqual(criteria.cmd_approve(task, str(task.small_file), "owner")["by"], "owner")
+
+    def test_a_request_someone_else_wrote_is_approved_without_him_while_he_is_away(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            task = self.task(Path(folder), brief="task: footer-year\nrequest by: someone else\n", mode="alone")
+            with self.assertRaises(criteria.CriteriaError) as refused:
+                criteria.cmd_approve(task, str(task.small_file), "lem")
+            self.assertIn("--alone` approves it without the owner while the task runs without him", str(refused.exception))
             self.assertEqual(criteria.cmd_approve(task, str(task.small_file), "alone", plan=True)["by"], "alone")
 
     def test_his_own_request_is_approved_in_his_name_even_while_he_is_away(self) -> None:
@@ -162,3 +178,115 @@ class FastTrackNotHis(unittest.TestCase):
                 criteria.cmd_approve(task, str(task.small_file), "alone", plan=True)
             self.assertIn("--alone is for a night's task or a request someone else wrote", str(refused.exception))
             self.assertEqual(criteria.cmd_approve(task, str(task.small_file), "lem")["by"], "lem")
+
+
+class ApprovalOfWhatWasShown(unittest.TestCase):
+    """`cmd_approve` with the digest of the bytes the owner's page showed (`--shown`): it approves those
+    bytes or nothing, so a file that changed after the page's check is never approved in his name."""
+
+    FULL = "## Acceptance criteria\n\nSize: full, because the export gets a column.\n\n1. The export holds the gift note.\n"
+
+    def task(self, folder: Path):
+        task = FastTrackNotHis.task(FastTrackNotHis(), folder)
+        task.small_file.write_text(self.FULL)
+        return task
+
+    def test_the_bytes_the_page_showed_are_approved(self) -> None:
+        import hashlib
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            task = self.task(Path(folder))
+            shown = hashlib.sha256(task.small_file.read_bytes()).hexdigest()[:16]
+            self.assertEqual(criteria.cmd_approve(task, str(task.small_file), "owner", shown=shown)["text"], self.FULL)
+
+    def test_a_file_that_changed_after_the_page_is_not_approved(self) -> None:
+        import hashlib
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            task = self.task(Path(folder))
+            shown = hashlib.sha256(task.small_file.read_bytes()).hexdigest()[:16]
+            task.small_file.write_text(self.FULL.replace("gift note", "gift note and its date"))
+            with self.assertRaises(criteria.CriteriaError) as refused:
+                criteria.cmd_approve(task, str(task.small_file), "owner", shown=shown)
+            self.assertIn("changed since the page showed them", str(refused.exception))
+            self.assertFalse(task.approved_file.exists())
+
+
+class Unstarted(unittest.TestCase):
+    """`criteria.unstarted`: a test command that starts a shell or Python on a script file the base
+    commit lacks does not start there, whatever its exit; a module, a text and a file that is there do."""
+
+    def test_python_on_a_file_the_base_lacks(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            where = Path(folder)
+            (where / "tests").mkdir()
+            (where / "tests" / "there.py").write_text("")
+            for command in ("python3 tests/helper.py", "python tests/helper.py -v", "python3.12 -I -B tests/helper.py",
+                            "/usr/bin/python3 -u tests/helper.py", "python3 -W ignore tests/helper.py", "python3 -X dev -- tests/helper.py"):
+                self.assertEqual(criteria.unstarted(command, where), "tests/helper.py", command)
+            for command in ("python3 -m unittest tests.test_helper", "python3 -c 'import helper'", "python3 tests/there.py",
+                            "python3 -", "python3", "pythonista tests/helper.py", "python3 -mpytest tests/helper.py"):
+                self.assertIsNone(criteria.unstarted(command, where), command)
+
+    def test_a_shell_on_a_file_the_base_lacks_is_named(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            self.assertEqual(criteria.unstarted("sh tests/helper.sh", Path(folder)), "tests/helper.sh")
+            self.assertIsNone(criteria.unstarted("sh -c 'exit 1'", Path(folder)))
+
+
+class NightTrackChange(unittest.TestCase):
+    """A night's task on the fast track that turns out to be a full change: its `small` approval by
+    `alone` is replaced by a `full` one by `alone` while it still runs without the owner, and both stay
+    in the history; with the owner there, or after a `full` approval, the second `--alone` is refused."""
+
+    FULL = "## Acceptance criteria\n\nSize: full, because the footer has two places.\n\n1. The footer says 2026.\n2. The page title says 2026.\n"
+
+    def night(self, folder: Path, mode: str = "alone"):
+        task = FastTrackNotHis.task(FastTrackNotHis(), folder, night="2026-11-21", mode="alone")
+        criteria.cmd_approve(task, str(task.small_file), "alone", plan=True)
+        task.mode = mode
+        full = folder / "criteria-full.md"
+        full.write_text(self.FULL)
+        return task, full
+
+    def test_the_full_approval_replaces_the_small_one_while_it_runs_alone(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            task, full = self.night(Path(folder))
+            record = criteria.cmd_approve(task, str(full), "alone", plan=True)
+            self.assertEqual((record["by"], record["size"], record["number"], record["replaces"]), ("alone", "full", 2, 1))
+            self.assertEqual([(old["by"], old["size"]) for old in record["history"]], [("alone", "small")])
+
+    def test_with_the_owner_back_it_waits_for_his_yes(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            task, full = self.night(Path(folder), mode="with-owner")
+            with self.assertRaises(criteria.CriteriaError) as refused:
+                criteria.cmd_approve(task, str(full), "alone", plan=True)
+            self.assertIn("runs with the owner", str(refused.exception))
+
+    def test_a_second_full_approval_alone_is_refused(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            task, full = self.night(Path(folder))
+            criteria.cmd_approve(task, str(full), "alone", plan=True)
+            with self.assertRaises(criteria.CriteriaError) as refused:
+                criteria.cmd_approve(task, str(full), "alone", plan=True)
+            self.assertIn("has approval 2 of its criteria already (by alone)", str(refused.exception))
+
+
+class ReadsOf(unittest.TestCase):
+    """A read of the criteria whose words hold the characters str.splitlines breaks at, read back whole."""
+
+    def test_a_read_whose_words_hold_a_line_separator(self) -> None:
+        import json
+        import tempfile
+        import types
+        words = "a\N{LINE SEPARATOR}b\N{PARAGRAPH SEPARATOR}c\x85d"
+        with tempfile.TemporaryDirectory() as folder:
+            task = types.SimpleNamespace(slug="demo", directory=Path(folder) / "tasks" / "demo")
+            record = {"ts": "2026-11-21T10:00:00Z", "event": "criteria.read", "task": "demo", "silent": [words]}
+            (Path(folder) / "events.jsonl").write_text(json.dumps(record, ensure_ascii=False) + "\n", encoding="utf-8")
+            self.assertEqual([read["silent"] for read in criteria.reads_of(task)], [[words]])

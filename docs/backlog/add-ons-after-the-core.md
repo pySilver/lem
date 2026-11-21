@@ -1,5 +1,5 @@
 ---
-worth: yes
+worth: later
 where: skills/
 added: 2026-11-18
 ---
@@ -14,7 +14,8 @@ adding to backlog now" (2026-11-18).
 
 Open before the first one is built: the form of an add-on (a second plugin in the same
 marketplace, or a folder a project switches on), and how an add-on names the step of the path it
-hangs on. Nothing of this is decided.
+hangs on. Nothing of this is decided. What settles the `later`: the owner's choice of that form;
+until he makes it, no add-on is built.
 
 The candidates, none of them started:
 

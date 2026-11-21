@@ -38,9 +38,18 @@ rm -f "$CALLS"
 first=$(sess open gift-note --why new 2>&1 || true)
 second=$(AS="" sess open gift-note --why dead 2>&1 || true)
 focused=$(sess open gift-note --focus 2>&1; echo "exit $?")
-made=$(calls_of session new)
+# the launch line as its two levels read it: agterm's words, then the login shell's words of the -c string
+made=$(calls_of session new | "$PY" -c 'import json, shlex, sys
+call = json.loads(sys.stdin.read())
+at = call.index("--command") + 1
+outer = shlex.split(call[at])
+call[at] = outer[:3] + [shlex.split(outer[3])]
+print(json.dumps(call))')
 want=$("$PY" -c 'import json, sys; print(json.dumps(sys.argv[1:]))' session new --workspace W-MINE --cwd "$R" --name gift-note --no-select --command \
-  "$SHELL_LINE -l -c 'LEM_TASK=gift-note CLAUDE_CODE_AUTO_COMPACT_WINDOW=600000 claude --plugin-dir \"$PWD\" \"Read $STATE/tasks/gift-note/session.md and follow it.\"'" --json --socket "$WORK/agterm.sock")
+  --json --socket "$WORK/agterm.sock" | "$PY" -c 'import json, sys
+call = json.loads(sys.stdin.read())
+call.insert(call.index("--command") + 1, [sys.argv[1], "-l", "-c", ["LEM_TASK=gift-note", "CLAUDE_CODE_AUTO_COMPACT_WINDOW=600000", "claude", "--plugin-dir", sys.argv[2], f"Read {sys.argv[3]} and follow it."]])
+print(json.dumps(call))' "$SHELL_LINE" "$PWD" "$STATE/tasks/gift-note/session.md")
 brief=$(cat "$STATE/tasks/gift-note/session.md" 2>/dev/null || true)
 if [ "$(field '(d["session"], d["phase"], d["already"])' <<<"$first" 2>&1)" = "('S-1', 'shape', False)" ] \
   && [ "$(field '(d["session"], d["already"])' <<<"$second" 2>&1)" = "('S-1', True)" ] \
@@ -182,7 +191,8 @@ queued=$(sess open csv-dates --why queue 2>&1; echo "exit $?")
 R2=$WORK/lonely && git init -q -b main "$R2" && ident "$R2" && project --repo "$R2" init --base main >/dev/null 2>&1 && project --repo "$R2" task-dir alone-task >/dev/null
 nowhere=$(env CALLS="$CALLS" TREE="$TREE" PATH="$BIN:$PATH" AGTERM_SESSION_ID= AGTERM_SOCKET= AGTERM_WINDOW_ID= "$PY" -B "$SESSION" --repo "$R2" open alone-task 2>&1; echo "exit $?")
 if grep -qF "lem session: the task 'coupon-slug' is parked" <<<"$parked" && [ "$(tail -n 1 <<<"$parked")" = "exit 1" ] \
-  && grep -qF "the task 'csv-dates' is queued after 'gift-note', which has not ended" <<<"$queued" && [ "$(tail -n 1 <<<"$queued")" = "exit 1" ] \
+  && grep -qF "the task 'csv-dates' is queued after 'gift-note', which has not ended: it gets its session when gift-note is landed or answered, and when gift-note is dropped it waits for the owner's word" <<<"$queued" \
+  && [ "$(tail -n 1 <<<"$queued")" = "exit 1" ] \
   && grep -qF "no workspace of agterm is known for alone-task" <<<"$nowhere" && [ "$(tail -n 1 <<<"$nowhere")" = "exit 1" ] && [ "$told" = "(False, False)" ]; then
   pass "open refuses a parked task, a task queued after one that has not ended, and a task whose workspace nothing names, each with exit 1 and the fix; the owner's wake of a parked task opens nothing and refuses nothing"
 else
@@ -201,6 +211,14 @@ pr state gift-note ready "the report is written" >/dev/null
 pr state gift-note landing "the checks run" >/dev/null
 pr state gift-note open "proposed" >/dev/null
 wait "$waiter"
+# a companion the waiting session opened (the plan talk's pair) gone before the state came: the wait ends, and names it
+"$PY" -c 'import json, sys; n = json.load(open(sys.argv[1])); n.append({"id": "C-9", "name": "gift-note · plan talk", "parent": "S-2", "workspace": "W-MINE", "foreground": ["/bin/zsh", "-l", "-c", "claude \"Read b and follow it.\""]}); json.dump(n, open(sys.argv[1], "w"))' "$TREE"
+sess wait gift-note --until landed --companion C-9 --every 0.1 > "$WORK/companion" 2>&1 &
+waiter=$!
+sleep 0.3
+companion_lived=$(jobs -r | wc -l | tr -d ' ')
+"$PY" -c 'import json, sys; n = json.load(open(sys.argv[1])); json.dump([x for x in n if x["id"] != "C-9"], open(sys.argv[1], "w"))' "$TREE"
+wait "$waiter"
 # its session gone from agterm's tree: the wait ends with it, and says so
 sess wait gift-note --until landed --every 0.1 > "$WORK/gone" 2>&1 &
 waiter=$!
@@ -208,10 +226,11 @@ sleep 0.3
 "$PY" -c 'import json, sys; n = json.load(open(sys.argv[1])); json.dump([x for x in n if x["id"] != "S-2"], open(sys.argv[1], "w"))' "$TREE"
 wait "$waiter"
 if [ "$(field '(d["status"], d["line"], d["gone"])' < "$WORK/waited" 2>&1)" = "('open', 'proposed', False)" ] && [ "$(field 'd["event"]["event"]' < "$WORK/talked" 2>&1)" = "plan.talk" ] \
-  && [ "$(field '(d["gone"], d["session"], d["status"])' < "$WORK/gone" 2>&1)" = "(True, 'S-2', 'open')" ] && grep -qF "lem session open gift-note --why dead" "$WORK/gone"; then
-  pass "wait ends when the task's state is one it names, at the first event of its name logged after its start, and when the task's session is gone, which it says"
+  && [ "$(field '(d["gone"], d["session"], d["status"])' < "$WORK/gone" 2>&1)" = "(True, 'S-2', 'open')" ] && grep -qF "lem session open gift-note --why dead" "$WORK/gone" \
+  && [ "$companion_lived" = 1 ] && [ "$(field '(d["gone"], d["companion"], d["status"])' < "$WORK/companion" 2>&1)" = "(True, 'C-9', 'open')" ] && grep -qF "## Plan talk" "$WORK/companion"; then
+  pass "wait ends when the task's state is one it names, at the first event of its name logged after its start, when the task's session is gone, and with --companion when that companion is gone, which it says"
 else
-  fail "wait: $(cat "$WORK/waited") / $(cat "$WORK/talked") / $(cat "$WORK/gone")"
+  fail "wait: $(cat "$WORK/waited") / $(cat "$WORK/talked") / $(cat "$WORK/gone") / $companion_lived $(cat "$WORK/companion")"
 fi
 
 # The first line to the caller: open --why new prints the wait for it, which ends with the line of the task's first

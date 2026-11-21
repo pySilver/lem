@@ -29,7 +29,7 @@ printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the ticket names 
 "$PY" -B "$DECISIONS" --repo "$LOCAL" criterion local-change --changed 1 --was "The file holds the word y." --now "The file holds the word the owner asked for." \
   --why "y is taken by another file." --by personas --said "Both personas picked x." >/dev/null 2>&1 || true
 read_in "$LOCAL" local-change
-local_land start local-change >/dev/null && local_land base local-change >/dev/null && polish_in "$LOCAL" local-change && local_land checks local-change >/dev/null && local_land read local-change --record "$(clean 1)" >/dev/null
+local_land start local-change >/dev/null && local_land base local-change >/dev/null && polish_in "$LOCAL" local-change && local_land checks local-change >/dev/null && local_land read local-change --record "$(clean local-change 1)" >/dev/null
 local_land propose local-change --title "fix: x" --notes "$NOTES" >/dev/null
 err=$(local_land merge local-change --by merger 2>&1 || true)
 # an agent's merge of it would leave nothing for the owner's: that is this check's FAIL, not a stop of the block
@@ -55,7 +55,7 @@ wdec() { "$PY" -B "$DECISIONS" --repo "$LOCAL" "$@"; }
 wdec log waited-change --what "The name of the file" --chose w.txt --why "The other files have one letter." --by lead >/dev/null
 breaker_doc "$LOCAL/.lem/state/tasks/waited-change" && wdec breaker waited-change --cause irreversible --irreversible person >/dev/null
 project --repo "$LOCAL" state waited-change ready "the report is written" >/dev/null
-local_land start waited-change >/dev/null && local_land base waited-change >/dev/null && polish_in "$LOCAL" waited-change && local_land checks waited-change >/dev/null && local_land read waited-change --record "$(clean 1)" >/dev/null
+local_land start waited-change >/dev/null && local_land base waited-change >/dev/null && polish_in "$LOCAL" waited-change && local_land checks waited-change >/dev/null && local_land read waited-change --record "$(clean waited-change 1)" >/dev/null
 waiting=$(local_land propose waited-change --title "fix: w" --notes "$NOTES" 2>&1 || true)
 wdec log waited-change --by owner --breaker 2 --what "Tell the merchants" --chose "send nothing" --why "Nothing they see changes." --words "no email, they read the export" >/dev/null
 wdec log waited-change "${CASE[@]}" --what "Where the word goes" --chose "the first line" --by dialectic --option "the first line" --option "the last line" \
@@ -91,7 +91,7 @@ polish_local() { polish_in "$LOCAL" "$1"; }
 # to_open SLUG: the machine steps with a polish pass, a clean read and the proposal of a task of the local repository
 to_open() {
   local_land start "$1" >/dev/null && local_land base "$1" >/dev/null && polish_local "$1" && local_land checks "$1" >/dev/null \
-    && local_land read "$1" --record "$(clean 1)" >/dev/null && local_land propose "$1" --title "fix: $1" --notes "$NOTES" >/dev/null
+    && local_land read "$1" --record "$(clean "$1" 1)" >/dev/null && local_land propose "$1" --title "fix: $1" --notes "$NOTES" >/dev/null
 }
 approved_day() { "$PY" -c 'import json, sys; print(json.load(open(sys.argv[1]))["at"][:10])' "$LOCAL/.lem/state/tasks/$1/criteria.json" 2>/dev/null || true; }
 task_in "$LOCAL" criterion-departs d.txt d
@@ -113,7 +113,7 @@ ldecide log criterion-departs "${CASE[@]}" --what "The one-line rule" --option "
 nodecision=$(ldecide criterion criterion-departs --removed 2 --was "The file has one line." --why "A second line holds the date now." --decision 7 2>&1 || true)
 ldecide criterion criterion-departs --removed 2 --was "The file has one line." --why "A second line holds the date now." --decision 1 >/dev/null 2>&1 || true
 ldecide criterion criterion-departs --added 2 --now "The file ends with a line break." --why "The importer reads whole lines only." --by lead >/dev/null 2>&1 || true
-polish_local criterion-departs 2>/dev/null && local_land checks criterion-departs >/dev/null 2>&1 && local_land read criterion-departs --record "$(clean 1)" >/dev/null 2>&1 \
+polish_local criterion-departs 2>/dev/null && local_land checks criterion-departs >/dev/null 2>&1 && local_land read criterion-departs --record "$(clean criterion-departs 1)" >/dev/null 2>&1 \
   && local_land propose criterion-departs --title "fix: criterion-departs" --notes "$NOTES" >/dev/null 2>&1 || true
 text=$LOCAL/.lem/state/tasks/criterion-departs/pr.md
 agent=$(local_land merge criterion-departs --by merger 2>&1 || true)
@@ -138,7 +138,7 @@ task_in "$LOCAL" read-doubt r.txt r
 tree=$(project --repo "$LOCAL" worktree-dir read-doubt)
 printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/doubt.md"
 plan_digest=$(lcriteria digest read-doubt 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
-local_land start read-doubt >/dev/null && local_land base read-doubt >/dev/null && polish_local read-doubt && local_land checks read-doubt >/dev/null && local_land read read-doubt --record "$(clean 1)" >/dev/null
+local_land start read-doubt >/dev/null && local_land base read-doubt >/dev/null && polish_local read-doubt && local_land checks read-doubt >/dev/null && local_land read read-doubt --record "$(clean read-doubt 1)" >/dev/null
 unread_feature=$(local_land propose read-doubt --title "fix: r" --notes "$NOTES" 2>&1 || true)
 project --repo "$LOCAL" log read-doubt criteria.read by=lead asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' criteria:=1 flagged:=0 split:=true "digest=$plan_digest" >/dev/null 2>&1 || true
 split_unseen=$(local_land propose read-doubt --title "fix: r" --notes "$NOTES" 2>&1 || true)
@@ -163,6 +163,26 @@ else
   fail "the read before a proposal: $unread_feature / $split_unseen / $freeze_split / $flag_unseen / $(cat "$text" 2>/dev/null)"
 fi
 project --repo "$LOCAL" state read-doubt dropped "the test is over" >/dev/null
+# A request that had an interview ends it with his yes: after a read that found nobody confused, with no approval of his,
+# or with only the lead's freeze of the read, it is not proposed; his approval lets it go, green.
+task_in "$LOCAL" asked-first f.txt f
+project --repo "$LOCAL" log asked-first interview.start >/dev/null
+read_in "$LOCAL" asked-first
+local_land start asked-first >/dev/null && local_land base asked-first >/dev/null && polish_local asked-first && local_land checks asked-first >/dev/null \
+  && local_land read asked-first --record "$(clean asked-first 1)" >/dev/null
+unasked=$(local_land propose asked-first --title "fix: f" --notes "$NOTES" 2>&1 || true)
+lcriteria approve asked-first --read >/dev/null 2>&1 || true
+frozen=$(local_land propose asked-first --title "fix: f" --notes "$NOTES" 2>&1 || true)
+printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/asked.md"
+lcriteria approve asked-first --file "$WORK/asked.md" >/dev/null 2>&1 || true
+yes=$(local_land propose asked-first --title "fix: f" --notes "$NOTES" 2>/dev/null | field 'd["green"]' 2>/dev/null || true)
+if grep -qF "asked-first had an interview (\`interview.start\` in the event log), and its criteria carry no approval of the owner's" <<<"$unasked" \
+  && grep -qF "lem criteria approve asked-first --file FILE" <<<"$unasked" && grep -qF "had an interview" <<<"$frozen" && [ "$yes" = True ] && [ "$(status_in "$LOCAL" asked-first)" = open ]; then
+  pass "a request that had an interview is not proposed without the owner's approval of its criteria, also after a read that found nobody confused and the lead's freeze of it; his approval lets it go, green"
+else
+  fail "an interview with no approval of his: $unasked / $frozen / $yes"
+fi
+project --repo "$LOCAL" state asked-first dropped "the test is over" >/dev/null
 # The read is compared with the criteria as they are now, and the history of criterion changes stays in the pull request:
 # approval 1, the personas change its criterion, a clean read of the changed criterion, then his approval of it.
 task_in "$LOCAL" after-change a.txt a
@@ -268,7 +288,7 @@ digest=$(lcriteria digest their-ticket 2>/dev/null | field 'd["digest"]' 2>/dev/
 project --repo "$LOCAL" log their-ticket criteria.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' criteria:=1 flagged:=0 split:=false "digest=$digest" >/dev/null 2>&1 || true
 lcriteria approve their-ticket --read >/dev/null 2>&1 || true
 local_land start their-ticket >/dev/null && local_land base their-ticket >/dev/null && polish_local their-ticket && local_land checks their-ticket >/dev/null \
-  && local_land read their-ticket --record "$(clean 1)" >/dev/null
+  && local_land read their-ticket --record "$(clean their-ticket 1)" >/dev/null
 by_brief=$(local_land propose their-ticket --title "fix: h" --notes "$NOTES" 2>&1 || true)
 # the same task with the line in a state block and not in the brief
 printf '%s\n' 'slug: their-ticket' > "$LOCAL/.lem/state/tasks/their-ticket/brief.md"
@@ -304,7 +324,7 @@ empty_unnamed=$(empty_with 'families:=[]' 'silent:=[{"name": "the buyer, opus", 
 empty_flagged=$(empty_with 'families:=[]' "$quiet" flagged:=1)
 first_empty=$(empty_with 'families:=[]' "$quiet" flagged:=0)
 local_land start nobody-read >/dev/null && local_land base nobody-read >/dev/null && polish_local nobody-read && local_land checks nobody-read >/dev/null \
-  && local_land read nobody-read --record "$(clean 1)" >/dev/null
+  && local_land read nobody-read --record "$(clean nobody-read 1)" >/dev/null
 once=$(local_land propose nobody-read --title "fix: n" --notes "$NOTES" 2>&1 || true)
 freeze_once=$(lcriteria approve nobody-read --read 2>&1 || true)
 second_empty=$(empty_with 'families:=[]' "$quiet" flagged:=0)
@@ -360,7 +380,7 @@ skip_read() { ldecide log "$1" --by "$2" --what "the personas' read of the crite
 # checked_local SLUG: the machine steps, a polish pass and a clean read, up to the proposal
 checked_local() {
   local_land start "$1" >/dev/null && local_land base "$1" >/dev/null && polish_local "$1" && local_land checks "$1" >/dev/null \
-    && local_land read "$1" --record "$(clean 1)" >/dev/null
+    && local_land read "$1" --record "$(clean "$1" 1)" >/dev/null
 }
 printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/mine.md"
 task_in "$LOCAL" only-me m.txt m
@@ -427,7 +447,8 @@ printf '%s\n' 'slug: gone-out' 'request by: someone else' > "$LOCAL/.lem/state/t
 digest=$(lcriteria digest gone-out 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
 project --repo "$LOCAL" log gone-out criteria.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' criteria:=1 flagged:=1 split:=false "digest=$digest" >/dev/null 2>&1 || true
 with_him=$(lcriteria approve gone-out --file "$WORK/gone.md" --alone 2>&1 || true)
-project --repo "$LOCAL" task-dir gone-out --ask "Put the word into g.txt." --night 2026-11-18 >/dev/null
+# the night's mark on a task that has its words: the same words again, since a task's words are written once
+project --repo "$LOCAL" task-dir gone-out --ask "Put g into g.txt." --night 2026-11-18 >/dev/null
 # the fast track's criterion of the owner's own request is approved in his name, never --alone (a night's or someone else's is: tests/unit/test_criteria.py)
 project --repo "$LOCAL" task-dir own-small --ask "Put the word into o.txt." >/dev/null
 small_file=$(lcriteria approve own-small --file "$WORK/as-correction.md" --alone 2>&1 || true)
@@ -461,7 +482,7 @@ task_in "$LOCAL" settled-out s.txt s
 printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds a word.' > "$WORK/settled-read.md"
 read_digest=$(lcriteria digest settled-out --file "$WORK/settled-read.md" 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
 project --repo "$LOCAL" log settled-out criteria.read by=lem asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' criteria:=1 flagged:=1 split:=false "digest=$read_digest" >/dev/null 2>&1 || true
-project --repo "$LOCAL" task-dir settled-out --ask "Put the word into s.txt." --night 2026-11-18 >/dev/null
+project --repo "$LOCAL" task-dir settled-out --ask "Put s into s.txt." --night 2026-11-18 >/dev/null
 ldecide log settled-out "${CASE[@]}" --what "criterion 1" --option "The file holds a word." --option "The file holds the word the owner asked for." \
   --chose "The file holds the word the owner asked for." --by dialectic --level "personas=one flagged it" --why "no break against the persona's reading" >/dev/null 2>&1 || true
 settled_by=$(lcriteria approve settled-out --file "$WORK/gone.md" --alone 2>&1 | field 'd["by"]' 2>&1 || true)

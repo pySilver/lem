@@ -19,7 +19,10 @@ harness file says whether a builder can start builders in your agent; when your 
 you the start of one, write the state `blocked` with that refusal, and stop.
 
 1. **One builder per task of the plan**, through `spawn-builder`, in the task's worktree, one
-   after the other unless two tasks touch no common file. Its brief names, by path:
+   after the other unless two tasks touch no common file. Two that run at one moment share the
+   worktree and its index, so each brief says so: the line `another builder runs: task N, its
+   files PATH ...`. Once both ended, `git -C WORKTREE status --short` is empty; a file left over
+   goes back to the builder whose task names it. Its brief names, by path:
    - the worktree;
    - the plan file and the task's section, with the acceptance criteria the task serves: the builder
      writes at least one test for each, one that fails without its change, except for a criterion

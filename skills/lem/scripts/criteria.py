@@ -52,12 +52,15 @@ leave them out, and they change with no record. Each criterion in the JSON carri
 and `chart`, the block's text without its fences, and the read carries `how`, the body of `## How it
 works`.
 
-    lem criteria approve SLUG --file FILE
+    lem criteria approve SLUG --file FILE [--shown DIGEST]
     lem criteria approve SLUG --small [--file FILE]
     lem criteria approve SLUG --read
     lem criteria approve SLUG --file FILE --alone
                               keep the criteria the owner approved, as FILE has them: the same
-                              section with no test lines, which the lead adds. --small: Lem
+                              section with no test lines, which the lead adds. --shown: the
+                              digest of FILE's bytes as the owner's page showed them (the board
+                              gives it); FILE is read once, and a file that changed since is
+                              refused with nothing approved. --small: Lem
                               approves the one criterion of a task on the fast track in the owner's name, as the task's
                               first contract only, and the owner may still say "standard"; its file is
                               `criteria.md` in the task directory unless --file names another. --read: the lead of a
@@ -70,10 +73,13 @@ works`.
                               as the owner's yes. --alone: Lem or the lead approves the criteria of a task
                               on the standard track while the task runs without the owner (`lem project owner away`, a night),
                               as `by: alone`; refused while it runs with him and after any approval
-                              but Lem's on the fast track. On the fast track --alone is the one approval
-                              of a request that is not the owner's own sentence (the night's mark, or
-                              `request by: someone else` in its brief or its state), in any mode, and
-                              --small is refused for it. It is never his yes either: the pull
+                              but a fast-track one, Lem's or an `alone` one (a night's task that
+                              grew into a full change: both stay in the history). On the fast track a
+                              request that is not the owner's own sentence (the night's mark, or
+                              `request by: someone else` in its brief or its state) gets no --small:
+                              while the task runs with him its criterion waits for his own approval
+                              (--file), and --alone is refused; while it runs without him --alone
+                              approves it. --alone is never his yes either: the pull
                               request is not green for it, and his own approval after it takes over
     lem criteria approved SLUG the approved criteria of the task, or null when it has none
     lem criteria digest SLUG [--file FILE]
@@ -115,8 +121,10 @@ needs before its tests can start), so that nothing one run writes reaches the ot
 - one at the base commit with only the named test files of the branch laid over it, where each
   test must fail. A command that does not start there is no proof: one that exits 126 or 127,
   the codes a shell gives for a program it cannot find or run, and one that starts a shell
-  (`sh`, `bash`, `dash`, `ksh`, `zsh`) on a script file the base commit lacks, which bash ends
-  with 127 and dash with 2. A helper that a test's own script starts is caught only by the code
+  (`sh`, `bash`, `dash`, `ksh`, `zsh`) or Python (`python`, `python3`, `python3.N`) on a script
+  file the base commit lacks, which bash ends with 127, and dash and Python with 2; the refusal
+  names that file. `python3 -m MODULE` and `-c TEXT` start no script file, and are not looked at.
+  An exit of 2 by itself is no such sign: an assertion may end a test with it. A helper that a test's own script starts is caught only by the code
   its shell gives, so a test starts its helpers by their path (`./tests/helper.sh`): every shell
   ends that with 127 when the file is not there.
 
@@ -164,6 +172,14 @@ sys.path.insert(0, str(SCRIPTS))
 import lem_plans  # noqa: E402
 # How this script calls a sibling: in this process, as one command of it.
 import lem_sibling  # noqa: E402
+import lem_state  # noqa: E402  (how a JSON-lines file is split into its lines)
+# How long a command of the check gets after each signal of a stop, in seconds, and how long a serial
+# test's wrapper (`project.py serial`) gets after its term: its own cleanup sends its command a term,
+# waits 3 s, sends a kill and waits 3 s more (`cmd_serial`), and one second is left for its exit, as
+# land.py's SERIAL_GRACE gives a serial command of the checks. A wrapper killed before its cleanup ends
+# leaves a test that ignores a term running, with the lock free.
+GRACE = 3.0
+SERIAL_GRACE = 7.0
 # The track of a task, as the `Size:` line names it: `full`, the standard track with its plan and lead,
 # or `small`, the fast track of one builder.
 SIZES = ("full", "small")
@@ -180,6 +196,9 @@ STEP = re.compile(r"^\s+\d+[.)]\s+\S")
 HOW = re.compile(r"^##\s+How it works\s*$")
 # The shells a test command may start a script with, by the name of the program.
 SHELLS = ("sh", "bash", "dash", "ksh", "zsh")
+# Python, by the name of the program: `python`, `python3` and `python3.N`, which end with exit 2 when
+# their script file is not there (`python3 -I -B missing.py`, checked on 2026-11-21).
+PYTHON = re.compile(r"python(3(\.\d+)?)?")
 
 
 class CriteriaError(Exception):
@@ -485,32 +504,62 @@ class Task:
         script("project.py", self.repo, "log", self.slug, event, *(f"{key}:={json.dumps(value, ensure_ascii=False)}" for key, value in fields.items()))
 
 
-def unstarted(command: str, where: Path) -> bool:
-    """Whether the command starts a shell on a script file that is not in `where`. Its exit does
-    not say so in every shell: bash ends `sh FILE` with no FILE with 127, dash with 2."""
+def unstarted(command: str, where: Path) -> str | None:
+    """The script file the command starts a shell or Python on, when it is not in `where`; None when
+    the command starts no such file or the file is there. Its exit does not say so: bash ends `sh FILE`
+    with no FILE with 127, dash with 2, and Python with 2, which an assertion's exit may be too."""
     try:
         words = shlex.split(command)
     except ValueError:
-        return False
-    if not words or Path(words[0]).name not in SHELLS:
-        return False
-    rest = iter(words[1:])
+        return None
+    if not words:
+        return None
+    program = Path(words[0]).name
+    file = shell_script(words[1:]) if program in SHELLS else python_script(words[1:]) if PYTHON.fullmatch(program) else None
+    return file if file is not None and not (where / file).is_file() else None
+
+
+def shell_script(words: list[str]) -> str | None:
+    """The script file a shell's arguments start, or None for standard input and `-c TEXT`."""
+    rest = iter(words)
     for word in rest:
         if word in ("-o", "+o"):
             next(rest, None)
         elif word == "--":
-            file = next(rest, None)
-            break
+            return next(rest, None)
         elif word in ("-", "+") or word.startswith("--") or (word.startswith("-") and "c" in word):
             # standard input, a long option of one shell, or `-c TEXT`, whose operand is a command:
             # no script file to look for
-            return False
+            return None
         elif not word.startswith(("-", "+")):
-            file = word
-            break
-    else:
-        return False
-    return file is not None and not (where / file).is_file()
+            return word
+    return None
+
+
+def python_script(words: list[str]) -> str | None:
+    """The script file Python's arguments start, or None for `-m MODULE`, `-c TEXT`, standard input
+    and a long option. Short options may share one word (`-IB`), and `-W` and `-X` take the rest of
+    their word or the next one."""
+    rest = iter(words)
+    for word in rest:
+        if word == "--":
+            return next(rest, None)
+        if word == "--check-hash-based-pycs":
+            next(rest, None)
+            continue
+        if word == "-" or word.startswith("--"):
+            return None
+        if not word.startswith("-"):
+            return word
+        for i, letter in enumerate(word[1:], start=1):
+            if letter in "cm":
+                # the module or the command is the operand: no script file to look for
+                return None
+            if letter in "WX":
+                if i == len(word) - 1:
+                    next(rest, None)
+                break
+    return None
 
 
 def needs_serial(command: str, serial: list[str]) -> bool:
@@ -603,20 +652,23 @@ def cmd_red(task: Task) -> dict:
             if stuck:
                 raise CriteriaError(stuck)
         child: list[subprocess.Popen] = []
+        # the serial wrappers among them, which get the time of their own cleanup after a term
+        wrappers: set[int] = set()
 
         def stop() -> None:
             """End the command that runs and everything it started: each command is a process group of its own."""
             for proc in child:
-                for sign in (signal.SIGTERM, signal.SIGKILL):
+                for sign, wait in ((signal.SIGTERM, SERIAL_GRACE if proc.pid in wrappers else GRACE), (signal.SIGKILL, GRACE)):
                     try:
                         os.killpg(proc.pid, sign)
                     except (ProcessLookupError, PermissionError):
                         break
                     try:
-                        proc.wait(timeout=3)
+                        proc.wait(timeout=wait)
                     except subprocess.TimeoutExpired:
                         continue
             child.clear()
+            wrappers.clear()
 
         serial = task.settings["checks"]["serial"]
 
@@ -628,6 +680,8 @@ def cmd_red(task: Task) -> dict:
                 line = [sys.executable, "-B", str(SCRIPTS / "project.py"), "--repo", str(task.main), "serial", "--", command]
             proc = subprocess.Popen(line, shell=isinstance(line, str), cwd=where, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, start_new_session=True)  # noqa: S602
             child.append(proc)
+            if isinstance(line, list):
+                wrappers.add(proc.pid)
             code = proc.wait()
             # a command that ended may have left a process behind (a server a test started)
             stop()
@@ -651,7 +705,7 @@ def cmd_red(task: Task) -> dict:
 
         before = signal.signal(signal.SIGTERM, ended)
         codes: dict[str, list[int]] = {}
-        absent: list[bool] = []
+        absent: list[str | None] = []
         failure: str | None = None
         try:
             for name, place in places.items():
@@ -690,8 +744,9 @@ def cmd_red(task: Task) -> dict:
             elif red == 0:
                 problem = "passes on the base commit too, so it does not test the change"
             elif red in (126, 127) or lacked:
+                missing = f": its script file {lacked} is not on the base commit" if lacked else ""
                 problem = (
-                    f"does not start on the base commit (exit {red}), so its failure there proves nothing. If a file it needs is a helper of the test, "
+                    f"does not start on the base commit (exit {red}{missing}), so its failure there proves nothing. If a file it needs is a helper of the test, "
                     "name it among the criterion's files; if what is absent is the change itself, make the test fail on it and not stop before it"
                 )
             results.append({"criterion": number, "command": test["command"], "files": test["files"], "on_branch": green, "on_base": red, "problem": problem})
@@ -708,7 +763,7 @@ def reads_of(task: Task) -> list[dict]:
     `criteria.read` events."""
     log = task.directory.parent.parent / "events.jsonl"
     found = []
-    for line in (log.read_text(encoding="utf-8").splitlines() if log.is_file() else []):
+    for line in (lem_state.jsonl_lines(log.read_text(encoding="utf-8")) if log.is_file() else []):
         if '"criteria.read"' in line:
             record = json.loads(line)
             if record.get("event") == "criteria.read" and record.get("task") == task.slug:
@@ -735,15 +790,40 @@ def first_contract(task: Task, by: str) -> None:
         )
 
 
-def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
+def shown_digest(data: bytes) -> str:
+    """The digest of a criteria file's bytes as the owner's page showed them, which the board's form
+    carries back (`serve.py`, `criteria_waiting`): sha256, its first 16 hex digits."""
+    return hashlib.sha256(data).hexdigest()[:16]
+
+
+def waits_for_him(task: Task, other: str, source: Path) -> str:
+    """The refusal of an automatic approval of the fast track's criterion of a request that is not the
+    owner's own sentence, while the task runs with him: the criterion waits for his yes."""
+    return (
+        f"{task.slug} is not the owner's own request ({other}), so its criterion waits for the owner's yes while the task runs with him: "
+        f"show it to him before its builder starts, and on his yes `lem criteria approve {task.slug} --file {source}` keeps it as his "
+        "(`stages/new.md`, \"The fast track\", step 1); --alone is for a task that runs without the owner"
+    )
+
+
+def cmd_approve(task: Task, file: str, by: str, plan: bool = False, shown: str | None = None) -> dict:
     """Keep the criteria that were approved, word for word, with a digest and a number of their own,
     and log the event. Each approval is a new one, also of a text approved before. The check of
     what is approved already and the write are one step under the task's lock, so an approval of
-    his and an automatic one that come at one time never both pass."""
+    his and an automatic one that come at one time never both pass. SHOWN is the digest of the bytes
+    the owner's page showed (`shown_digest`): the file is read once, and those bytes are approved or
+    nothing is."""
     source = Path(file)
     if not source.is_file():
         raise CriteriaError(f"{file} is not a file; --file names the criteria the owner approved, in the form `lem criteria --help` shows")
-    text = source.read_text(encoding="utf-8")
+    data = source.read_bytes()
+    if shown is not None and shown_digest(data) != shown:
+        raise CriteriaError(
+            f"{source.name} changed since the page showed them (the page showed {shown}, the file is {shown_digest(data)} now): nothing was approved. "
+            "Read the criteria again, then approve",
+        )
+    # the line ends a read in text mode gives, from the same bytes
+    text = data.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
     read = parse(text, source.name)
     tested = [criterion["n"] for criterion in read["criteria"] if criterion["tests"] or criterion["no_test"]]
     # the plan's own criteria carry the lead's test lines, which are no part of a criterion's text
@@ -751,18 +831,22 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
         raise CriteriaError(f"criterion {tested[0]} of {source.name} has a test line: the criteria the owner approves have none, and the lead adds them in the plan")
     if by == "lem" and read["size"] != "small":
         raise CriteriaError(f"--small approves the one criterion of a task on the fast track in the owner's name, and {source.name} says `Size: {read['size']}`: the standard track waits for the owner's own yes")
-    # The fast track's criterion is approved in his name only when the request is his own sentence; a
-    # night's task, or a request someone else wrote, is approved without him, and is not green for it.
+    # The fast track's criterion is approved in his name only when the request is his own sentence. A
+    # request someone else wrote waits for his own yes while he is there (the ruling "a complete ticket
+    # that someone else wrote needs his yes to its criteria"); a night's task, and such a request while
+    # he is away, are approved without him, and are not green for it.
     other = task.not_his() if read["size"] == "small" else None
     if by == "lem" and other:
+        if task.read_mode() != "alone":
+            raise CriteriaError(waits_for_him(task, other, source))
         raise CriteriaError(
             f"{task.slug} is not the owner's own request ({other}), so Lem does not approve its criterion in the owner's name: "
-            f"`lem criteria approve {task.slug} --file {source} --alone` approves it without the owner, and its pull request is not green for it",
+            f"`lem criteria approve {task.slug} --file {source} --alone` approves it without the owner while the task runs without him, and its pull request is not green for it",
         )
     if by == "alone" and read["size"] == "small" and not other:
         raise CriteriaError(
             f"{source.name} says `Size: small`, and the request is the owner's own: the fast track's criterion is approved in the owner's name with --small, in either mode; "
-            "--alone is for a night's task or a request someone else wrote",
+            "--alone is for a night's task or a request someone else wrote, while the task runs without the owner",
         )
     criteria = [{key: criterion[key] for key in ("n", "text", "case", "chart")} for criterion in read["criteria"]]
     # one mark for this exact set of approved texts, each with its case; the approval itself is known by its number
@@ -773,13 +857,17 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
         if by in AUTOMATIC:
             first_contract(task, by)
         if by == "alone":
-            # the mode at the approval, under the lock: the owner may have come back since the task was read;
-            # on the fast track the key is the request's author (`not_his`), never the mode
-            if not other and task.read_mode() != "alone":
+            # the mode at the approval, under the lock: the owner may have come back since the task was read
+            if task.read_mode() != "alone":
+                if other:
+                    raise CriteriaError(waits_for_him(task, other, source))
                 raise CriteriaError(f"{task.slug} runs with the owner: the owner's yes approves its criteria (`stages/interview.md`, step 7), and --alone is for a task that runs without the owner")
             kept = task.approved()
-            # a fast-track task that turned out to need the standard track needs that path's approval; any other approval stands
-            if kept is not None and kept["by"] != "lem":
+            # a fast-track task that turned out to need the standard track needs that path's approval, also
+            # when its first was made without the owner (a night's task, a request someone else wrote, while
+            # it still runs without him: the check above); any other approval stands
+            grew = kept is not None and kept["by"] == "alone" and kept.get("size") == "small" and read["size"] == "full"
+            if kept is not None and kept["by"] != "lem" and not grew:
                 raise CriteriaError(
                     f"{task.slug} has approval {kept['number']} of its criteria already (by {kept['by']}): "
                     f"a criterion changes through its record, `lem decisions criterion {task.slug} ...`",
@@ -828,11 +916,14 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--file", help="with approve: the criteria the owner approved, in the form above and with no test lines; with digest: the criteria to mark")
     parser.add_argument("--small", action="store_true", help="with approve: Lem approves the one criterion of a task on the fast track in the owner's name")
     parser.add_argument("--read", action="store_true", help="with approve: the lead of a task on the standard track from a complete request freezes the criteria a read in which nobody was confused read")
-    parser.add_argument("--alone", action="store_true", help="with approve: Lem or the lead approves the criteria of a task on the standard track while the task runs without the owner")
+    parser.add_argument("--alone", action="store_true", help="with approve: Lem or the lead approves the criteria of a task while the task runs without the owner")
+    parser.add_argument("--shown", metavar="DIGEST", help="with approve --file: the digest of the file's bytes as the owner's page showed them (the board's form gives it); the file changed since is approved by nobody")
     args = parser.parse_args(argv)
     try:
         if args.file is not None and args.step not in ("approve", "digest"):
             raise CriteriaError("--file goes with `approve` and `digest`")
+        if args.shown is not None and (args.step != "approve" or args.file is None or args.small or args.read or args.alone):
+            raise CriteriaError("--shown goes with `approve --file FILE`, the owner's own approval of the file his page showed")
         if (args.small or args.read or args.alone) and args.step != "approve":
             raise CriteriaError("--small, --read and --alone go with `approve`")
         if args.small + args.read + args.alone > 1:
@@ -857,7 +948,7 @@ def main(argv: list[str] | None = None) -> None:
                 # the plan's own criteria carry the lead's test lines, which are no part of a criterion's text
                 result = cmd_approve(task, args.file, "alone", plan=True)
             else:
-                result = cmd_approve(task, args.file, "lem" if args.small else "owner")
+                result = cmd_approve(task, args.file, "lem" if args.small else "owner", shown=args.shown)
         elif args.step == "approved":
             kept = task.approved()
             result = {"task": task.slug, "approved": kept} if kept else {

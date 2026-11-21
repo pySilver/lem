@@ -21,7 +21,8 @@ of his text), runs step 3 with his words or the item's path as the ask, and step
    not `dropped` or `answered`, open no second one: say which task it is and where it stands.
 2. **The slug.** Two to five plain words that say what the owner gets ("report-dates-stay-whole"),
    never a code. A slug that a `landed`, an `answered` or a `dropped` task has is taken, since that
-   task's files stay under it: add a word, as `task-dir` says when it refuses.
+   task's files stay under it, and so is the slug of an open task with other words: add a word, as
+   `task-dir` says when it refuses.
 3. **The task directory**, with the ask as the owner gave it:
 
    ```bash
@@ -171,8 +172,9 @@ The task's own session, in the shape, from its first message.
      anyone writes a criterion: at step 8, read `stages/investigate.md` and follow it. For a
      fix, its report then takes one of the paths below; a question ends with its answer.
    - *the fast track*: one builder, the checks, one read and the pull request, with no lead, no
-     plan and no wait for him, as "The fast track" below says: its steps 1 and 2, the criterion and
-     the brief, come before step 7.
+     plan and no wait for him but his yes to the one criterion of a ticket or an item somebody else
+     wrote, as "The fast track" below says: its steps 1 and 2, the criterion and the brief, come
+     before step 7.
    - *the standard track from a complete request*: the whole context and a defined outcome are
      written already: a ticket whose description says what is wanted and how to tell that it is
      done, a backlog item whose options are settled, an investigation's
@@ -180,8 +182,10 @@ The task's own session, in the shape, from its first message.
      and has the personas read them (`stages/plan.md`, step 1). He can say "interview me", and
      then it takes the standard track with an interview. A ticket, an item or a report that asks for one
      plain change takes the fast track all the same: the standard track has a lead and a plan, and a
-     plan is never on the fast track. A ticket or a backlog item that somebody other than the developer at
-     the terminal wrote (its creator as the tracker gives it, or the author of the item's file in
+     plan is never on the fast track. When somebody else wrote it, its one criterion still waits for
+     his yes before the builder starts, while he is there ("The fast track", step 1). A ticket or
+     a backlog item that somebody other than the developer at the terminal wrote (its creator as
+     the tracker gives it, or the author of the item's file in
      `git log`; in doubt it is somebody else's), and every item of the night, is a complete request
      too and gets no interview, and its criteria wait for his yes: its brief carries the line
      `request by: someone else`, and its lead stops for him after the personas' read, also when
@@ -281,7 +285,9 @@ The task's own session, in the shape, from its first message.
 
    - an investigation: step 1 of `stages/investigate.md`, after the worktree, then its step 2;
    - the fast track: steps 1 to 3 of `stages/start.md`, the state `building` with `small change:
-     one builder`, then its step 4 and step 3 of "The fast track" below;
+     one builder`, then its step 4 and step 3 of "The fast track" below. For a ticket or an item
+     somebody else wrote, while he is there, the first block is the wait for his yes of "The fast
+     track", step 1, and the builder's block comes after his yes;
    - the standard track from a complete request: steps 1 to 3 of `stages/start.md`, the state
      `building` with `lead: builder`. This session is the lead: then follow `brief.md`; nothing is
      handed over, since nothing was said yet that the lead would lose;
@@ -318,9 +324,9 @@ The task's own session, in the shape, from its first message.
 
 One criterion, his own sentence made exact, nothing careful and no question open: one builder makes
 it, the landing checks it and one read reviews it, and it waits for nothing but a task that step 7
-puts it after. It stays in this session from the request to the merge, with no fresh agent at a
-phase: a fresh session starts at about 84,000 tokens (a second opinion's median of 10 sessions,
-2026-11-20), which a typo must not pay three times. A task that step 7 queues closes this session
+puts it after and, for a ticket or an item somebody else wrote, his yes to that criterion. It stays
+in this session from the request to the merge, with no fresh agent at a phase: a fresh session
+starts at about 84,000 tokens (a second opinion's median of 10 sessions, 2026-11-20), which a typo must not pay three times. A task that step 7 queues closes this session
 there once he leaves it; when the wait ends, the board's server opens a session for it, or wakes
 this one when it still runs, and that session takes it on at its builder (`prompts/session.md`, "A
 queued task").
@@ -338,11 +344,36 @@ queued task").
    contract: the script refuses it once any approval exists. The personas do not read it; the pull
    request says so.
    A request that is not his own sentence, a task of the night (`night` in `lem project tasks`) or a
-   ticket or an item somebody else wrote, is approved without him instead, in any mode: write the
-   brief of step 2 first, with the line `request by: someone else` for such a ticket or item, then
-   `lem criteria approve SLUG --file TASK_DIR/criteria.md --alone`. The script refuses `--small`
-   for such a task and `--alone` for his own request. Its pull request is then not green, since he
-   did not approve the criterion, and the merge agent calls him.
+   ticket or an item somebody else wrote, gets no approval in his name: write the brief of step 2
+   first, with the line `request by: someone else` for such a ticket or item. The script refuses
+   `--small` for such a task, `--alone` for his own request, and `--alone` while the task runs with
+   him (`mode` in `lem project tasks`):
+   - *While he is there*, the criterion of a ticket or an item somebody else wrote waits for his
+     yes before its builder starts: nobody at the terminal read that request. Its first block, at
+     step 8 of "The request", is this wait, with the type line of step 1:
+
+     ```bash
+     lem project state SLUG held "the criteria wait for the owner: a small change that someone else asked for" "type: fix, because WHY"
+     ```
+
+     Say its `say`, which tells him that the criterion waits for his yes. Then show him the
+     criterion as `criteria.md` has it, its case with it, and ask in one line: "Approve this
+     criterion? (y/n)". A yes to one criterion he can read above it is a fixed choice with no
+     other context, so it stays in the conversation, as a yes to a guess does in the interview
+     (`stages/interview.md`, step 2). The board shows the same wait in "Waits for you", with its
+     approval. While it waits, keep the watch of his mark (`stages/away.md`, "The watch"). On his
+     yes, `lem criteria approve SLUG --file TASK_DIR/criteria.md`: his approval, and the pull
+     request is green for it. A change of his goes into `criteria.md` in his words first, then the
+     same approval. A yes he gave on the board is on record already (`by: owner` in `lem criteria
+     approved SLUG`), and the board's server wakes this session for it. Then `stages/start.md`,
+     whose `building` block carries no type line, since the wait has it: it starts the one
+     builder. His "standard", or a change that makes it more than one plain change, takes the
+     standard track as `/lem standard-track` does.
+   - *A task of the night, and such a ticket or item while he is away*: `lem criteria approve SLUG
+     --file TASK_DIR/criteria.md --alone`, and its builder starts with no wait. Its pull request is
+     then not green, since he did not approve the criterion, and the merge agent calls him. When
+     his away mark comes while the criterion waits for his yes, approve it so and start the builder
+     (`stages/away.md`).
 2. **The brief**, `brief.md` in the task directory, with this and nothing more:
 
    ```
@@ -372,4 +403,6 @@ queued task").
      the report. Write the lead's brief of step 6 of "The request" over the fast track's, then
      take `stages/interview.md` here: it reads the builder's `report.md` as the scout's report,
      and its commits stay on the branch for the lead. His approval of the criteria on the
-     standard track replaces the fast track's.
+     standard track replaces the fast track's. So does an approval with `--alone` while the task
+     still runs without him (a night's task, or his away mark), also over a fast-track approval
+     that was `--alone` itself: both stay in the record, and the pull request is not green for it.

@@ -7,8 +7,9 @@
 2. **A circuit breaker**: a task stops, and leaves a document for you.
 3. **A pull request that the merge agent calls you for**: you read its review, and merge.
 
-On the fast track, only the third touch can come. You answer the first two in the session of the
-task. The build asks you nothing.
+On the fast track, only the third touch can come. One exception: when another person wrote the
+ticket, you say yes to its one acceptance criterion before the build starts. You answer the first
+two in the session of the task. The build asks you nothing.
 
 ## A decision in doubt
 

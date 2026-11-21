@@ -129,5 +129,18 @@ class TheBreaker(unittest.TestCase):
             logged(breaker=1)
 
 
+class TheRecord(unittest.TestCase):
+    """A task's `decisions.jsonl`, read back with words that hold the characters str.splitlines breaks at."""
+
+    def test_a_decision_whose_words_hold_a_line_separator(self) -> None:
+        import json
+        words = "a\N{LINE SEPARATOR}b\N{PARAGRAPH SEPARATOR}c\x85d"
+        with tempfile.TemporaryDirectory() as folder:
+            task = object.__new__(decisions.Task)
+            task.file = Path(folder) / "decisions.jsonl"
+            task.file.write_text(json.dumps({"kind": "taken", "id": 1, "why": words}, ensure_ascii=False) + "\n", encoding="utf-8")
+            self.assertEqual(task.lines(), [{"kind": "taken", "id": 1, "why": words}])
+
+
 if __name__ == "__main__":
     unittest.main()

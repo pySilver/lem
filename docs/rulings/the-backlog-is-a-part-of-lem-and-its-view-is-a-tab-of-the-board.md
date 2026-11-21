@@ -5,7 +5,7 @@ area: The board and the pages for him
 
 # The backlog is a part of Lem, and its view is a tab of the board
 
-Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A quote is his words.
+His ruling of 2026-11-15. It is reopened only by asking him. A quote is his words.
 
 **The backlog is a part of Lem, and its view is a tab of the board**: "Backlog tab - I like
 this idea" (2026-11-15), on the answer that three stages already live on the backlog (the

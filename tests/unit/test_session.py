@@ -261,6 +261,34 @@ class FirstLine(unittest.TestCase):
         self.assertEqual(said["say"], "gift-note · feat.")
 
 
+class Close(unittest.TestCase):
+    OPENS = [{"event": "session.open", "task": SLUG, "session": "S-1"}, {"event": "session.open", "task": "other-task", "session": "S-7"},
+             {"event": "session.open", "task": SLUG, "session": "S-2"}]
+
+    def close(self, session_id: str) -> tuple[dict, list]:
+        closed = []
+        with mock.patch.object(session, "place", return_value={"session": "", "socket": "", "window": ""}), \
+             mock.patch.object(session, "tree", return_value={}), \
+             mock.patch.object(session, "node_of", return_value={"name": "x", "active": False}), \
+             mock.patch.object(session, "ctl", side_effect=lambda where, *args: closed.append(args)), \
+             mock.patch.object(project, "append_event"), \
+             mock.patch.object(project, "task_directory", return_value=Path("/lem-unit/task")), \
+             mock.patch.object(project, "events_named", side_effect=lambda root, *names: [r for r in self.OPENS if r["event"] in names]):
+            return session.cmd_close(ROOT, SLUG, session_id, "handoff", False, 0.01), closed
+
+    def test_a_close_by_id_closes_only_a_session_of_that_task(self):
+        with self.assertRaises(session.SessionError) as raised:
+            self.close("S-7")
+        self.assertIn("S-7 is no session of gift-note", str(raised.exception))
+        self.assertIn("other-task", str(raised.exception))
+        with self.assertRaises(session.SessionError):
+            self.close("S-404")
+        # an older session of the same task is its own: a handoff closes its predecessor, in any case of the id
+        done, closed = self.close("s-1")
+        self.assertTrue(done["closed"])
+        self.assertEqual(closed, [("session", "close", "--target", "s-1", "--undoable")])
+
+
 class Agent(unittest.TestCase):
     def test_an_agent_in_the_left_pane(self):
         self.assertTrue(session.agent_runs({"foreground": ["/usr/local/bin/claude", "--resume", "x"]}))
@@ -311,13 +339,55 @@ class Launch(unittest.TestCase):
         self.assertIsNone(session.plugin_dir(Path("/lem-unit/claude/plugins/cache/lem/lem/1.2.0"), home))
         self.assertEqual(session.plugin_dir(Path("/lem-unit/clones/lem"), home), "/lem-unit/clones/lem")
         line = session.launch_line("/bin/zsh", SLUG, self.BRIEF, None, {}, "/lem-unit/clones/lem")
-        self.assertIn(' claude --plugin-dir "/lem-unit/clones/lem" "Read ', line)
+        self.assertIn(' claude --plugin-dir /lem-unit/clones/lem "Read ', line)
         self.assertNotIn("--plugin-dir", session.launch_line("/bin/zsh", SLUG, self.BRIEF, None, {}, None))
 
     def test_a_path_the_line_cannot_carry_is_refused(self):
+        # fish reads a backslash inside single quotes as an escape, so no quoting carries one to every shell
         with self.assertRaises(session.SessionError) as raised:
-            session.launch_line("/bin/zsh", SLUG, Path("/tmp/o'neil/session.md"), None, {})
+            session.launch_line("/bin/zsh", SLUG, Path("/tmp/o\\neil/session.md"), None, {})
         self.assertIn("move the checkout to a path without them", str(raised.exception))
+
+    # the shells that may read the line: agterm's outer level, and the owner's login shell inside it
+    SHELLS = {"bash": ["--norc", "--noprofile", "-c"], "zsh": ["-f", "-c"], "fish": ["--no-config", "-c"]}
+
+    def through_each_shell(self, seat: dict, folder: str) -> None:
+        """Run the launch line through each shell this machine has, at both of its levels, with a
+        stand-in for the login shell that says its argv and a stand-in claude that says its own."""
+        import shutil
+        root = Path(tempfile.mkdtemp(prefix="lem-launch-"))
+        self.addCleanup(shutil.rmtree, root)
+        tools = root / "bin"
+        tools.mkdir()
+        for name in ("claude", "outer"):
+            (tools / name).write_text(f"#!{sys.executable}\nimport json, os, sys\nprint(json.dumps([os.environ.get('LEM_TASK'), *sys.argv[1:]]))\n")
+            (tools / name).chmod(0o755)
+        brief = root / folder / ".lem" / "state" / "tasks" / SLUG / "session.md"
+        plugin = str(root / folder / "lem")
+        shells = {name: (found, flags) for name, flags in self.SHELLS.items() if (found := shutil.which(name))}
+        self.assertIn("bash", shells, "bash is on every machine the launch line runs on")
+        line = session.launch_line(str(tools / "outer"), SLUG, brief, None, seat, plugin)
+        env = {"PATH": f"{tools}:/usr/bin:/bin", "HOME": str(root)}
+        wanted = [SLUG] + [word for flag in ("model", "effort") if seat.get(flag) for word in (f"--{flag}", seat[flag])]
+        wanted += ["--plugin-dir", plugin, f"Read {brief} and follow it."]
+        for outer, (path, flags) in shells.items():
+            said = subprocess.run([path, *flags, line], capture_output=True, text=True, env=env, cwd=root, check=False)
+            self.assertEqual((said.returncode, said.stderr), (0, ""), f"{outer} at the outer level")
+            got = json.loads(said.stdout)
+            self.assertEqual(got[1:], shlex.split(line)[1:], f"{outer} reads the outer level as the POSIX tokenizer does")
+            self.assertEqual(got[1:3], ["-l", "-c"])
+            for inner, (inner_path, inner_flags) in shells.items():
+                ran = subprocess.run([inner_path, *inner_flags, got[3]], capture_output=True, text=True, env=env, cwd=root, check=False)
+                self.assertEqual((ran.returncode, ran.stderr), (0, ""), f"{inner} inside {outer}")
+                self.assertEqual(json.loads(ran.stdout), wanted, f"{inner} inside {outer}")
+        self.assertTrue(session.agent_runs({"foreground": ["/bin/zsh", "-l", "-c", shlex.split(line)[3]]}))
+
+    def test_a_model_with_brackets_reaches_the_agent_whole_in_every_login_shell(self):
+        # zsh, the default login shell of macOS, stops a bare `opus[1m]` with "no matches found"
+        self.through_each_shell({"agent": "claude", "model": "opus[1m]", "effort": "high"}, "repo")
+
+    def test_a_checkout_path_with_an_apostrophe_and_a_space_reaches_the_agent_whole(self):
+        self.through_each_shell({"agent": "claude", "model": "opus", "effort": None}, "o'neil's work")
 
 
 class Handoff(unittest.TestCase):

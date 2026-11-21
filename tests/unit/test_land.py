@@ -424,3 +424,183 @@ class TaskFile(unittest.TestCase):
         self.assertEqual(land.task_file(str(absolute), "--record", self.directory, self.here), str(absolute))
         with self.assertRaises(land.LandError):
             land.task_file(str(self.here / "missing.json"), "--record", self.directory, self.here)
+
+
+class EventLog(unittest.TestCase):
+    """Each reader of the repository's event log, with an event whose words hold the characters that
+    str.splitlines breaks at and json.dumps(ensure_ascii=False) keeps."""
+
+    WORDS = "a\u2028b\u2029c\x85d"
+
+    def setUp(self) -> None:
+        import json
+        import types
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        state = Path(folder.name)
+        self.task = types.SimpleNamespace(slug="demo", directory=state / "tasks" / "demo")
+        records = [{"ts": "2026-11-21T10:00:00Z", "event": "gate.wait", "task": "demo", "say": self.WORDS},
+                   {"ts": "2026-11-21T10:00:01Z", "event": "gate.end", "task": "demo", "say": self.WORDS, "result": "passed"}]
+        (state / "events.jsonl").write_text("".join(json.dumps(record, ensure_ascii=False) + "\n" for record in records), encoding="utf-8")
+
+    def test_every_reader_reads_the_event_whole(self) -> None:
+        self.assertEqual([record["say"] for record in land.events_of(self.task)], [self.WORDS, self.WORDS])
+        self.assertEqual([record["say"] for record in land.events_all(self.task)], [self.WORDS, self.WORDS])
+        self.assertEqual([record["say"] for record in land.gate_ends(self.task)], [self.WORDS])
+        self.assertEqual((land.waits_of(self.task, "2026-11-21T09:00:00Z") or {}).get("say"), self.WORDS)
+
+
+class ResumedRead(unittest.TestCase):
+    """A read a resumed task copied from the task it came from is compared with his approval by the
+    time it had there (`was_at`), not by the time of the copy."""
+
+    APPROVED = {"approvals": [{"by": "owner", "at": "2026-11-20T10:05:00Z", "digest": "d1", "number": 1}], "history": [], "criteria_digest": "d1"}
+
+    def test_his_approval_after_the_read_it_came_with(self) -> None:
+        copied = {"ts": "2026-11-21T09:00:00Z", "was_at": "2026-11-20T10:00:00Z", "answered": 2, "digest": "d1"}
+        self.assertEqual(land.when(copied), "2026-11-20T10:00:00Z")
+        self.assertTrue(land.approved_after(self.APPROVED, copied))
+
+    def test_a_read_of_the_task_itself_after_his_approval(self) -> None:
+        own = {"ts": "2026-11-21T09:00:00Z", "answered": 2, "digest": "d1"}
+        self.assertFalse(land.approved_after(self.APPROVED, own))
+        self.assertFalse(land.approved_alone({"approvals": [{"by": "alone", "at": "2026-11-20T10:05:00Z"}]}, own))
+
+
+class InterviewApproved(unittest.TestCase):
+    """`land.interview_unapproved`: a task that had an interview is proposed only over criteria the
+    owner approved, or that were approved while it ran without him; a complete request (no interview)
+    and the fast track ask nothing of it."""
+
+    INTERVIEW = [{"event": "interview.start", "task": "gift-note"}, {"event": "criteria.read", "task": "gift-note"}]
+
+    def test_an_interview_with_no_approval_of_his(self) -> None:
+        self.assertTrue(land.interview_unapproved(self.INTERVIEW, [], small=False))
+        self.assertTrue(land.interview_unapproved(self.INTERVIEW, [{"by": "read"}], small=False))
+        self.assertTrue(land.interview_unapproved(self.INTERVIEW, [{"by": "lem"}], small=False))
+
+    def test_his_approval_or_one_without_him(self) -> None:
+        self.assertFalse(land.interview_unapproved(self.INTERVIEW, [{"by": "owner"}], small=False))
+        self.assertFalse(land.interview_unapproved(self.INTERVIEW, [{"by": "lem"}, {"by": "alone"}], small=False))
+
+    def test_a_complete_request_and_the_fast_track(self) -> None:
+        self.assertFalse(land.interview_unapproved([{"event": "criteria.read", "task": "gift-note"}], [], small=False))
+        self.assertFalse(land.interview_unapproved(self.INTERVIEW, [], small=True))
+
+
+class FailedAttempt(unittest.TestCase):
+    """`land.failed_attempt`: the record of a review that got no answer at all, which counts as an
+    attempt with no careful call: nobody answered, a reason for each silent source, no finding."""
+
+    DIED = {"attempt": 1, "tip": "a" * 40, "kind": "read", "answered": [], "silent": [{"name": "the review agent", "why": "it ended with no files"}]}
+
+    def test_a_review_agent_that_died(self) -> None:
+        self.assertTrue(land.failed_attempt(self.DIED))
+        self.assertTrue(land.failed_attempt({**self.DIED, "must_fix": 0, "outside": []}))
+
+    def test_a_review_that_answered_or_found_something_is_none(self) -> None:
+        self.assertFalse(land.failed_attempt({**self.DIED, "answered": ["codex"]}))
+        self.assertFalse(land.failed_attempt({**self.DIED, "must_fix": 1}))
+        self.assertFalse(land.failed_attempt({**self.DIED, "outside": [{"where": "a.py", "title": "t", "what": "w"}]}))
+
+    def test_no_reason_is_none(self) -> None:
+        self.assertFalse(land.failed_attempt({**self.DIED, "silent": []}))
+        self.assertFalse(land.failed_attempt({key: value for key, value in self.DIED.items() if key != "silent"}))
+
+
+class ReadOfATip(unittest.TestCase):
+    """A review's record and a merge agent's answer are of the tip their brief named: the record names
+    it and one of another tip is refused, and each proposed tip has an answer file of its own."""
+
+    def test_the_record_of_the_tip_now(self) -> None:
+        self.assertIsNone(land.record_tip_refusal("a" * 40, "a" * 40, "gift-note"))
+
+    def test_the_record_of_an_earlier_tip_is_refused(self) -> None:
+        said = land.record_tip_refusal("a" * 40, "b" * 40, "gift-note")
+        self.assertIn(f"the record is of the review of {'a' * 12}, and the branch is at {'b' * 12} now", said)
+        self.assertIn("`lem land read gift-note`", said)
+
+    def test_a_tip_that_is_no_whole_commit_is_refused(self) -> None:
+        for said in (None, "a" * 9, "HEAD"):
+            self.assertIn("40 hex digits", land.record_tip_refusal(said, "a" * 40, "gift-note"))
+
+    def test_each_tip_has_its_own_answer_file(self) -> None:
+        import types
+        task = types.SimpleNamespace(directory=Path("/state/tasks/gift-note"))
+        self.assertEqual(land.answer_file(task, "abc123456789" + "0" * 28).name, "merge-answer-abc123456789.md")
+        self.assertNotEqual(land.answer_file(task, "a" * 40), land.answer_file(task, "b" * 40))
+
+
+class ExpectedTip(unittest.TestCase):
+    """`land.expected_refusal`: a merge given the tip its caller saw (`--tip`) merges that proposal only."""
+
+    def test_the_tip_that_was_proposed(self) -> None:
+        self.assertIsNone(land.expected_refusal("a" * 40, "a" * 40, "gift-note"))
+        self.assertIsNone(land.expected_refusal(None, "a" * 40, "gift-note"))
+
+    def test_a_tip_proposed_after_it_is_refused(self) -> None:
+        said = land.expected_refusal("a" * 40, "b" * 40, "gift-note")
+        self.assertIn(f"the merge was asked for {'a' * 9}, and the proposal is {'b' * 9} now", said)
+        self.assertIn("nothing was merged", said)
+
+    def test_an_empty_or_short_tip_is_refused(self) -> None:
+        self.assertIn("the whole commit", land.expected_refusal("", "a" * 40, "gift-note"))
+        self.assertIn("the whole commit", land.expected_refusal("a" * 9, "a" * 40, "gift-note"))
+
+
+class ForgeBase(unittest.TestCase):
+    """`land.base_refusal`: a pull request whose base on GitHub is not the task's base is neither merged
+    nor recorded as landed, and the refusal names the branch GitHub has."""
+
+    VIEW = {"state": "OPEN", "baseRefName": "main", "headRefOid": "a" * 40}
+
+    def test_the_tasks_base(self) -> None:
+        self.assertIsNone(land.base_refusal(self.VIEW, "main", "https://github.com/acme/shop/pull/7", "gift-note"))
+
+    def test_another_base_is_named(self) -> None:
+        said = land.base_refusal({**self.VIEW, "baseRefName": "release-2"}, "main", "https://github.com/acme/shop/pull/7", "gift-note")
+        self.assertIn("is on release-2 on GitHub, not on main", said)
+        self.assertIn("gh pr edit 7 --base main", said)
+
+    def test_no_base_in_the_answer_is_refused(self) -> None:
+        self.assertIn("names no base branch", land.base_refusal({"state": "OPEN"}, "main", "https://github.com/acme/shop/pull/7", "gift-note"))
+
+
+class ProtectedBranch(unittest.TestCase):
+    """`land.protected_refusal`: the name of the branch Lem pushes or deletes, checked against the
+    settings where it does so: the base and each protected branch are refused, with the way out."""
+
+    BRANCH = {"base": "main", "protected": ["release", "fix/gift-note"]}
+
+    def test_a_task_branch_that_is_not_protected(self) -> None:
+        self.assertIsNone(land.protected_refusal("fix/footer", self.BRANCH, "pushes"))
+
+    def test_a_protected_name_is_refused_and_named(self) -> None:
+        said = land.protected_refusal("fix/gift-note", self.BRANCH, "pushes")
+        self.assertIn("fix/gift-note is in branch.protected", said)
+        self.assertIn("Lem pushes nothing to it", said)
+
+    def test_the_base_is_refused(self) -> None:
+        self.assertIn("main is the base branch", land.protected_refusal("main", self.BRANCH, "deletes"))
+
+
+class SameChecks(unittest.TestCase):
+    """`land.same_checks`: a green result holds only for the commands that ran, in their order and with
+    their serial flags; a command added, removed, moved to `serial` or none at all asks for the checks."""
+
+    SAVED = [{"command": "python3 -m unittest", "exit": 0}, {"command": "sh e2e.sh", "exit": 0, "serial": True}]
+
+    def test_the_commands_that_ran(self) -> None:
+        self.assertTrue(land.same_checks(self.SAVED, ["python3 -m unittest"], ["sh e2e.sh"]))
+
+    def test_a_command_added_or_removed(self) -> None:
+        self.assertFalse(land.same_checks(self.SAVED, ["python3 -m unittest", "ruff check"], ["sh e2e.sh"]))
+        self.assertFalse(land.same_checks(self.SAVED, ["python3 -m unittest"], []))
+
+    def test_a_command_moved_to_serial(self) -> None:
+        self.assertFalse(land.same_checks(self.SAVED, [], ["python3 -m unittest", "sh e2e.sh"]))
+
+    def test_no_command_holds_no_result(self) -> None:
+        # docs/settings.md: "With no command, only the task that adds one can land"
+        self.assertFalse(land.same_checks(self.SAVED, [], []))
+        self.assertFalse(land.same_checks([], [], []))

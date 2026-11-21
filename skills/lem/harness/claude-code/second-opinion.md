@@ -7,14 +7,16 @@ A part of `../claude-code.md`, read when a session opens the reviewer's pane.
 The reviewer is a second agent in the split pane of the session that asks (the pair of a plan
 talk, for a careful or large plan); the owner reads both panes. The settings hold the seat as one
 line, `reviewer = "AGENT/MODEL:EFFORT"` under `[seats]`, and `lem project show` gives it parsed as
-`seats.reviewer`: its `agent` (`claude` or `codex`), its `model` and its `effort`, each null when
-the line leaves it out, and `seat`, the line as written. The effort is the one of its pane for the
-plan talk, which is the one thing this pane opens for.
-When `agent` is null, ask the owner once and write the answer into `.lem/project.toml` as that line.
+`seats.reviewer`: its `agent` (`claude` or `codex`), its `model` and its `effort`, and `seat`, the
+line as written. The settings refuse a reviewer's seat with no model or no effort, so a seat that
+is there names all three. The effort is the one of its pane for the plan talk, which is the one
+thing this pane opens for.
+When the settings name no reviewer (each part null), ask the owner once and write the answer into
+`.lem/project.toml` as that line, whole.
 
 The seat may be this machine's own for a while: the usual reviewer is down, or out of tokens.
 `/lem reviewer AGENT/MODEL:EFFORT` (`/lem reviewer codex/gpt-6.2-sol:high`, or `/lem reviewer
-claude` for the agent's own model and effort) runs `lem project reviewer` with that seat, which
+claude/opus:high`) runs `lem project reviewer` with that seat, which
 writes it into `.lem/project.local.toml` in the same form, a file git does not track; `/lem
 reviewer default` removes it. Never change the seat by yourself. When the reviewer does not answer, or
 says it is out of tokens, ask the owner once whether the other agent reviews for now, and write
@@ -29,13 +31,12 @@ every report says that the reviewer is this machine's choice, and "same family" 
      `agtermctl session type --stdin --pane right --target "$AGTERM_SESSION_ID" --socket "$AGTERM_SOCKET" < FILE`.
      The line starts the agent with the reviewer's brief, `prompts/reviewer.md` in this skill's
      directory, by absolute path:
-     - Codex: `codex "$(cat PATH/prompts/reviewer.md)"`. A Codex pane receives mail only after
-       its first prompt, and the brief is that prompt. With a model, add `-m MODEL` before the
-       prompt; with an effort, `-c model_reasoning_effort=EFFORT`.
-     - Claude Code: `claude --append-system-prompt "$(cat PATH/prompts/reviewer.md)" "You are the reviewer. Wait for the first message."`
-       With a model, add `--model MODEL`; with an effort, `--effort EFFORT`.
-     `MODEL` and `EFFORT` are the seat's `model` and `effort` from `lem project show`. Leave a flag
-     out when the seat does not name its value (`null`): the agent's own default holds then.
+     - Codex: `codex -m "MODEL" -c "model_reasoning_effort=EFFORT" "$(cat "PATH/prompts/reviewer.md")"`.
+       A Codex pane receives mail only after its first prompt, and the brief is that prompt.
+     - Claude Code: `claude --model "MODEL" --effort "EFFORT" --append-system-prompt "$(cat "PATH/prompts/reviewer.md")" "You are the reviewer. Wait for the first message."`
+     Keep the quotes around each value you put in: a skill's folder with a space splits a bare
+     path, and zsh stops a bare model such as `opus[1m]` with "no matches found".
+     `MODEL` and `EFFORT` are the seat's `model` and `effort` from `lem project show`.
    - read the model and the effort back from the pane's status line, and name those in the
      report, never the ones you asked for. When the status line shows no model or no effort (a
      status line of the owner's own may hide them), the report says `unread` for each, never the
