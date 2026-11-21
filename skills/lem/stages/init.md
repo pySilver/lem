@@ -319,15 +319,18 @@ as corrections: edit, commit on the same branch, say for each file what changed.
 
 The page and your last message end with the three replies you take, in these words:
 
-- **land**: you bring the branch onto the base branch yourself, by a fast-forward, after a rebase
-  when the base moved, and leave the checkout on the base branch. That holds whatever
-  `branch.land` says: the owner's read was the review and this word is his go-ahead. It does not
-  go through `stages/land.md`, which reads settings the base branch does not have yet. When the
+- **land**: you land the branch on GitHub yourself, where every task starts from origin's base:
+  push it, open its pull request, merge it, and bring the local base branch up to origin's, as the
+  harness file's part for the onboarding says. When origin has no commit of the base branch yet (a
+  new repository), push the base once first, and say so. That is the one push to the base branch that Lem
+  makes itself, here and on his word only: all else reaches it through a merged pull request. It holds whatever `branch.land` says: the owner's read was the
+  review and this word is his go-ahead. It does not go through `stages/land.md`, which reads
+  settings the base branch does not have yet. When the
   settings name commands of the checks, run them on the branch first and do not land on a red result; a
   new project names none, and its onboarding lands without them. Never hand him git commands to
   type. Then write the state `landed` with that line (`lem project state onboarding landed
   "main is at COMMIT: Lem's settings and drafts"`). Open your answer with what you did
-  ("Landed: `main` is at ..."). On the first onboarding
+  ("Landed: pull request #N, `main` is at ..."). On the first onboarding
   the answer to "land it" opened with "It is not a Lem task, so /lem land does not apply", and
   the owner took it for a refusal of a landing that then happened (2026-11-15).
 - **change** and what: you edit, commit, and show the file again.

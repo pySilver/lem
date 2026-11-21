@@ -33,7 +33,7 @@ claude plugin install lem@lem --scope project
 3. Answer three questions: the product and its users, who a change affects, and what must never go
    wrong.
 4. Read the page of assumptions, for example who merges. Type `change land owner` to correct one.
-5. Type `land`. Lem puts its settings on your base branch.
+5. Type `land`. Lem puts its settings on your base branch through a pull request on GitHub.
 6. Type `/lem` and your first request.
 
 Lem assumes auto mode in Claude Code and Codex. A permission prompt stops an agent.
@@ -92,7 +92,8 @@ names another. To say no for yourself, put `collect = false` under `[corrections
 
 ## Update
 
-Run these two commands, then start a new session. It also replaces the board server.
+Run these two commands, then start a new session. It also replaces the board server. Update Lem in
+each repository that uses it: one board server serves all of them.
 
 ```bash
 claude plugin marketplace update lem

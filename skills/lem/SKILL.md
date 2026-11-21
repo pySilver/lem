@@ -188,7 +188,7 @@ so do the end of a command it runs in the background and a wake-up from the boar
   through GitHub. `--by merger` follows the agent's own verdict only, and the board's server runs
   it: a session writes the review down and never runs that merge. `--by owner` follows only the
   owner's own words, typed in a session or given on the board. Nothing else leaves the machine without his word: a push to another
-  branch, a message to a person.
+  branch (the onboarding's push of the base, on his "land", is one), a message to a person.
 - **What must not go wrong takes the careful flow.** The project names it as topics,
   sentences in the owner's words of what must never go wrong (`flow.topics`), and no list of
   paths: a list goes stale as the code moves, misses new code, and a branch can edit the list
