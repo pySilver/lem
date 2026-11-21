@@ -385,7 +385,8 @@ fi
 # during the criteria's tests, with no process of it left, no worktree of the criteria's check, no result, the lock free and
 # a gate.end of stopped. With no run it stops nothing and is no error.
 idle_stop=$(g checks one-step --stop | field 'd["stopped"]')
-grd_settings "\"sleep 64 > /dev/null 2>&1 & echo \$! > $WORK/stop.pid; wait\""
+# the command writes a file git neither tracks nor ignores before it sleeps: the stop removes it too
+grd_settings "\"echo left > stop-left.out; sleep 64 > /dev/null 2>&1 & echo \$! > $WORK/stop.pid; wait\""
 "$PY" -B "$LAND" --repo "$GRD" checks one-step > "$WORK/stop.out" 2>&1 &
 stop_pid=$!
 soon test -s "$WORK/stop.pid"
@@ -394,6 +395,7 @@ wait "$stop_pid" || true
 gone_soon "$(cat "$WORK/stop.pid")"
 plain_left=$(kill -0 "$(cat "$WORK/stop.pid")" 2>/dev/null && echo alive || echo ended)
 plain_gated=$(kept_in "$GRD" one-step gated)
+plain_left_files=$(git -C "$(wt one-step)" status --porcelain --untracked-files=all)
 # a serial command that ignores a term: its wrapper kills it after three seconds, and the checks wait for that wrapper
 SERIAL="\"trap '' TERM; sleep 65 & echo \$! > $WORK/serial.pid; wait\"" grd_settings '"true"'
 "$PY" -B "$LAND" --repo "$GRD" checks one-step > "$WORK/serial.out" 2>&1 &
@@ -422,14 +424,15 @@ crit_left=$(kill -0 "$(cat "$WORK/crit.pid")" 2>/dev/null && echo alive || echo 
 red_trees=$(find "$(dirname "$ctree")" -maxdepth 1 -name 'crit-stop.red-*' | grep -c '' || true)
 crit_free=$(g checks crit-stop --status | field '(d["running"], d["ended"]["say"])')
 if [ "$idle_stop" = False ] && [ "$stopped_plain" = "(True, 'stopped')" ] && [ "$plain_left" = ended ] && [ "$plain_gated" = None ] \
+  && [ -z "$plain_left_files" ] && grep -qF '"stop-left.out"' "$WORK/stop.out" \
   && grep -qF "one-step: the checks were stopped; the landing waits for your word" "$WORK/stop.out" && grep -qF "the checks were stopped" "$WORK/stop.out" \
   && [ "$stopped_serial" = True ] && [ "$serial_left" = ended ] \
   && [ "$stopped_crit" = "(True, 'stopped')" ] && [ "$crit_left" = ended ] && [ "$red_trees" = 0 ] && [ "$(kept_in "$GRD" crit-stop gated)" = None ] \
   && [ "$crit_free" = "(False, 'crit-stop: the checks were stopped; the landing waits for your word')" ] \
   && [ "$(gate_ends crit-stop)" = "[('stopped', True, 'crit-stop: the checks were stopped; the landing waits for your word')]" ] && [ "$base_free" = free ]; then
-  pass "--stop ends the checks during a command, during a serial command that takes its wrapper's cleanup to end, and during the criteria's tests, with no process left, no worktree of the criteria's check, no result kept, the lock free and a gate.end of stopped; with no run it stops nothing"
+  pass "--stop ends the checks during a command, during a serial command that takes its wrapper's cleanup to end, and during the criteria's tests, with no process left, no file the command left untracked, no worktree of the criteria's check, no result kept, the lock free and a gate.end of stopped; with no run it stops nothing"
 else
-  fail "the stop of the checks: $idle_stop / $stopped_plain $plain_left $plain_gated / $stopped_serial $serial_left $base_free / $stopped_crit $crit_left $red_trees $crit_free / $(cat "$WORK/stop.out" "$WORK/serial.out" "$WORK/crit.out")"
+  fail "the stop of the checks: $idle_stop / $stopped_plain $plain_left $plain_gated [$plain_left_files] / $stopped_serial $serial_left $base_free / $stopped_crit $crit_left $red_trees $crit_free / $(cat "$WORK/stop.out" "$WORK/serial.out" "$WORK/crit.out")"
 fi
 kill "$(cat "$WORK/stop.pid")" "$(cat "$WORK/serial.pid")" "$(cat "$WORK/crit.pid")" 2>/dev/null || true
 project --repo "$GRD" state crit-stop dropped "the test is over" >/dev/null

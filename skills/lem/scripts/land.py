@@ -130,8 +130,8 @@ and removes its two worktrees itself. Checks with no command to run are refused,
 whose command changed a tracked file or made a commit on the branch, since its result is then
 about another tree. A file its commands wrote that git neither tracks nor ignores (Python's bytecode
 in a repository with no rule for it) is the run's output, and nothing of it lands: the step notes
-what git does not know before its first command, removes after its last each such file that was
-not there before and each folder that leaves empty, names them in its output (`removed_untracked`)
+what git does not know before its first command, removes after its last, or after a stop, each such
+file that was not there before and each folder that leaves empty, names them in its output (`removed_untracked`)
 and in one line of the last command's output file, and goes on. What the checks keep is the tip they
 ran on and that tip's tree.
 
@@ -2003,18 +2003,19 @@ def checks_body(task: Task, flags: dict, tip: str, found: dict, commands: list[s
     finally:
         # a stop ends the command that runs with its group; a serial command's wrapper gets the time of its own cleanup
         end_group(running, grace)
+        # A file the commands wrote that git neither tracks nor ignores (Python's bytecode in a
+        # repository with no rule for it) is the run's output, and nothing of it lands: it goes, with
+        # the folders it leaves empty, red, green or stopped, so that the next step finds the worktree
+        # clean. The worktree is the task's own, made by Lem.
+        removed = sorted(set(untracked(task)) - set(there))
+        for path in removed:
+            remove_left(task, path)
+        if removed:
+            with output.open("a", encoding="utf-8") as handle:
+                handle.write(f"land.py removed what the commands of the checks left untracked: {', '.join(removed)}\n")
+        result["removed_untracked"] = removed
     green = all(entry["exit"] == 0 for entry in results)
-    # A file the commands wrote that git neither tracks nor ignores (Python's bytecode in a
-    # repository with no rule for it) is the run's output, and nothing of it lands: it goes, with
-    # the folders it leaves empty, red or green, so that the next step finds the worktree clean.
-    # The worktree is the task's own, made by Lem.
-    removed = sorted(set(untracked(task)) - set(there))
-    for path in removed:
-        remove_left(task, path)
-    if removed:
-        with output.open("a", encoding="utf-8") as handle:
-            handle.write(f"land.py removed what the commands of the checks left untracked: {', '.join(removed)}\n")
-    result.update(green=green, removed_untracked=removed, polish=task.kept().get("polish"))
+    result.update(green=green, polish=task.kept().get("polish"))
     # A command of the checks that changed a tracked file, or made a commit, changed the tree it just judged.
     dirty = git(task.worktree, "status", "--porcelain")
     if green and dirty:
