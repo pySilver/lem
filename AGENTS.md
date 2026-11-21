@@ -284,6 +284,7 @@ and open to him. Each sentence is the text of a link to its file in `.lem/decisi
 
 - [A decision of the plan does not hold the task: `held` keeps what has no options, the criteria that wait for his yes, one more fact for an investigation and a step that is his to do.](.lem/decisions/a-decision-of-the-plan-does-not-hold-the-task-held-keeps-what-has-no-options-the-criteria-that-wait-for-his-yes-one-more-fact-for-an-investigation-and-a-step-that-is-his-to-do.md)
 - [The mode and the ladder are built in the smaller of two designs](.lem/decisions/the-mode-and-the-ladder-are-built-in-the-smaller-of-two-designs.md)
+- [A machine failure stops a task as `blocked`, with one line that names what to do, and with no breaker's document](.lem/decisions/a-machine-failure-stops-a-task-as-blocked-with-one-line-that-names-what-to-do-and-with-no-breakers-document.md)
 
 ### The review, the pull request and the merge
 

@@ -5,6 +5,14 @@ area: A decision without him: the ladder, the experts and the breaker
 
 # Only a circuit breaker stops a task, with a document
 
+## Changed in part
+
+The title is the rule as it stands. Where the paragraph below says otherwise, the line here holds.
+
+- 2026-11-21, [A machine failure stops a task as `blocked`, with one line that names what to do, and with no breaker's document](../../.lem/decisions/a-machine-failure-stops-a-task-as-blocked-with-one-line-that-names-what-to-do-and-with-no-breakers-document.md): "the state `parked`": a breaker writes `held` with the line `breaker N waits for the owner`, and `parked` is the state of his `/lem park`
+
+## As ruled on 2026-11-20, changed in part since
+
 His rulings of 2026-11-20 and 2026-11-21, while his interview redesigned how a task runs and the
 board became a served app; a quote is his words. His answers Q7 to Q11 and notes P1 to P9 are in
 `.lem/state/tasks/one-lem-parallel-landings/`, which git ignores. Where a note replaces an earlier
