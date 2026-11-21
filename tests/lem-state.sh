@@ -24,6 +24,19 @@ if [ "$fresh_ignore" = "$(printf 'project.local.toml\nstate/')" ] && [ "$from_wt
 else
   fail "the place of the state: $fresh_ignore / $from_wt / $(cat "$WORK/state.err") / $(git -C "$ST" status --porcelain --untracked-files=all)"
 fi
+# task-dir puts the repository's main checkout into the machine's list of workspaces, once, also from a task's
+# worktree, so that the board server shows it from its first task; a state folder of example tasks stays out.
+listed() { "$PY" -c 'import json, sys; print(json.load(open(sys.argv[1])))' "$XDG_CONFIG_HOME/lem/workspaces.json"; }
+first_list=$(listed)
+project --repo "$ST" task-dir second-task --ask "A second one." >/dev/null
+DM=$WORK/demo-repo
+git init -q -b main "$DM" && ident "$DM" && project --repo "$DM" init --base main >/dev/null && touch "$(project --repo "$DM" state-dir)/demo"
+project --repo "$DM" task-dir an-example --ask "An example." >/dev/null
+if [ "$first_list" = "['$ST']" ] && [ "$(listed)" = "['$ST']" ]; then
+  pass "task-dir puts the main checkout into the machine's list of workspaces once, also from a task's worktree, and a state folder of example tasks stays out"
+else
+  fail "the list of workspaces: $first_list / $(listed)"
+fi
 # Outside a repository there is no state folder, and the script says why.
 mkdir -p "$WORK/no-repo"
 err=$(cd "$WORK/no-repo" && "$PY" -B "$PROJECT" state-dir 2>&1 || true)

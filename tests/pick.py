@@ -42,7 +42,8 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     # Lem's scripts, and the suites that run them, directly or through a script that calls them. The
     # unit level calls their functions, and every file of it is its own.
     (("skills/lem/scripts/*", "tests/unit/*"), ("unit",)),
-    (("skills/lem/scripts/project.py", "skills/lem/scripts/lem_state.py", "skills/lem/scripts/lem_plans.py"),
+    # `lem project waiting` builds the board's model, and asks `lem session list` when the log has a session
+    (("skills/lem/scripts/project.py", "skills/lem/scripts/lem_state.py", "skills/lem/scripts/lem_plans.py", "skills/lem/scripts/lem_board_model.py"),
      ("lem-*", "test-ask-expert", "test-gate-panel")),
     (("skills/lem/scripts/lem_sibling.py", "skills/lem/scripts/decisions.py", "skills/lem/scripts/criteria.py"),
      ("lem-land-*", "lem-decisions", "lem-serial", "lem-settings", "lem-state", "lem-machine", "lem-command", "lem-picker", "test-ask-expert", "lem-board-act")),
@@ -53,7 +54,7 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
       "skills/lem/scripts/lem_artifacts.py", "skills/lem/assets/*", "tests/board-showcase.py"), ("lem-serve", "lem-board-act", "lem-settings", "lem-picker", "lem-command")),
     # two machines under one address: the server that passes another's pages through, and the list of both
     (("skills/lem/scripts/serve.py", "skills/lem/scripts/lem_peers.py", "skills/lem/scripts/lem_board_pages.py"), ("lem-peers",)),
-    (("skills/lem/scripts/picker.py",), ("lem-picker", "lem-command")),
+    (("skills/lem/scripts/picker.py", "skills/lem/scripts/session.py"), ("lem-picker", "lem-command")),
     (("skills/lem/scripts/session.py", "skills/lem/scripts/session_hook.py", "skills/lem/templates/handoff.md"), ("lem-session", "lem-command")),
     (("skills/lem/scripts/corrections.py", "skills/lem/scripts/jev.py", "hooks/*", "bin/lem-jev"), ("lem-machine", "lem-state", "lem-command")),
     (("skills/lem/scripts/doctor.py", "scripts/setup.py", ".claude-plugin/*", "agents/*"), ("lem-machine", "lem-command")),

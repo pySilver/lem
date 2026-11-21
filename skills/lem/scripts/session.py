@@ -17,7 +17,8 @@
     lem session wake SLUG --why merged|conflict|refused|queue|owner [--head SHA]
                                  a pane message to the task's live session, or a new session
     lem session wait SLUG --until STATE,... | --event NAME
-                                 end when the task's state is one of these, or a new event is logged
+                                 end when the task's state is one of these, or a new event is logged,
+                                 or when the task's session is gone (`"gone": true`)
     lem session list             each task's newest session: live, agent, selected, phase, unanswered
 
 The phase comes from the task's state, never from an argument: no state block, or `held` for the
@@ -54,9 +55,21 @@ the caller's, else that of the task its `after:` line names, else the repository
 logs `session.open` with the session, its name, the phase, why and the workspace.
 
 `next` refuses while the state still gives the caller's phase (the leaving agent writes its state
-block first), unless `--same`; it refuses a handoff.md that is not in the form, not from the
-caller's phase, or older than the caller's session. It prints the line that closes the old session
-once the owner has left it, for the background.
+block first), unless `--same`; it refuses a handoff.md that is not in the form, not from the phase
+that ends, or older than the caller's session. The phase that ends is the state's (`phase_left`):
+of the state blocks written after the task's newest `session.open`, the newest before the ones that
+give the phase the task is in now, else the phase that session opened in; so a session that led its
+task from the shape through the build hands off from the build. With `--same` it is the phase the
+task is in. It prints the line
+that closes the old session once the owner has left it, for the background.
+
+`open` puts the repository's main checkout into the machine's list of workspaces (`lem project
+task-dir` does too), so that the board server shows it and runs its duties from its first task.
+
+`wait` also ends when the task's newest session is gone from agterm's tree, or no agent runs in it
+(`live`): then it prints `"gone": true` with the session's id, the task's state, and a `say` that
+names `lem session open SLUG --why dead`. Its other ends print `"gone": false`. An agterm that does
+not answer one look is asked again at the next.
 
 `wake` sends `lem: SLUG WHY` to the left pane of the task's live session and logs `session.wake`
 (with `--head`, the head the pull request had, so that a conflict is woken once for each head); the
@@ -175,6 +188,22 @@ def phase_of(slug: str, status: str | None, line: str | None, track: str | None,
     if status in ("queued", "building", "planned", "blocked"):
         return "build"
     return "land"
+
+
+def phase_left(slug: str, blocks: list[dict], track: str | None, now: str, start: str) -> str:
+    """The phase a change of phase leaves: the phase of the newest state block before the run of blocks
+    that gives NOW, the phase the task is in. BLOCKS are the `task.state` records the caller's session
+    wrote, the ones after its `session.open`, oldest first, each with `status` and `text`; START is the
+    phase that session opened in, which ends when none of its blocks gives another. A block that gives
+    no phase (a park, an ended task's) is passed over."""
+    for block in reversed(blocks):
+        try:
+            phase = phase_of(slug, block.get("status"), block.get("text"), track, True)
+        except SessionError:
+            continue
+        if phase != now:
+            return phase
+    return start
 
 
 def queued_behind(task: dict, tasks: list[dict]) -> str | None:
@@ -429,6 +458,8 @@ def workspace_for(slug: str, task: dict, opens: dict[str, dict], nodes: list[dic
 def cmd_open(root: Path, slug: str, focus: bool, why: str, replacing: str | None = None) -> dict:
     where = place()
     directory = project.task_directory(root, slug)
+    # the board server shows the repository and runs its duties from its first session on
+    project.register_checkout(root)
     with task_lock(directory):
         facts = facts_of(root, slug)
         task, phase = facts["task"], facts["phase"]
@@ -475,8 +506,16 @@ def cmd_next(root: Path, slug: str, same: bool) -> dict:
     newest = opens.get(slug)
     if newest is None:
         raise SessionError(f"no session of {slug} is on record, so there is no phase to hand off: `lem session open {slug}` opens its first")
-    old, was = str(where["session"] or newest["session"]), newest.get("phase")
-    phase = facts_of(root, slug)["phase"]
+    old = str(where["session"] or newest["session"])
+    facts = facts_of(root, slug)
+    phase = facts["phase"]
+    # the phase that ends is the state's, never only the phase this session opened in: a session that led
+    # its task on from the shape into the build hands off from the build. Its blocks are the ones the log
+    # holds after the task's newest session.open.
+    records = [record for record in project.events_named(root, "task.state", "session.open") if record.get("task") == slug]
+    last_open = max((i for i, record in enumerate(records) if record.get("event") == "session.open"), default=-1)
+    blocks = [record for record in records[last_open + 1:] if record.get("event") == "task.state"]
+    was = phase if same else phase_left(slug, blocks, facts["task"]["track"], phase, newest.get("phase"))
     if phase == was and not same:
         raise SessionError(f"the state of {slug} still gives the phase {was}: write the new state block first (`lem project state {slug} ...`), then run this again; "
                            f"for the owner's \"hand off\" inside a phase, `lem session next {slug} --same`")
@@ -485,7 +524,7 @@ def cmd_next(root: Path, slug: str, same: bool) -> dict:
         raise SessionError(f"{file} is not there: write the handoff in the form of `templates/handoff.md` first, after the state block")
     form = handoff_form(file.read_text(encoding="utf-8"), slug)
     if form["from"] != was:
-        raise SessionError(f"{HANDOFF} of {slug} says it is from {form['from']}, and this session's phase is {was}: write it again for the phase that leaves")
+        raise SessionError(f"{HANDOFF} of {slug} says it is from {form['from']}, and the phase that ends, by the task's state, is {was}: write it again for the phase that leaves")
     if form["written"][:16] < newest["ts"][:16]:
         raise SessionError(f"{HANDOFF} of {slug} was written at {form['written']}, before this session opened at {newest['ts']}: it is an older session's; write it again")
     opened = cmd_open(root, slug, False, "handoff", replacing=old)
@@ -557,14 +596,31 @@ def cmd_wake(root: Path, slug: str, why: str, head: str | None) -> dict:
     return {**opened, "why": why, "woke": False, "opened": not opened["already"]}
 
 
+def gone_session(root: Path, slug: str, where: dict) -> dict | None:
+    """The task's newest session when it is gone: on record, and not live in agterm's tree (`live`);
+    None while it lives, while none is on record, or when agterm did not answer, which the next look asks again."""
+    newest = newest_opens(project.events_named(root, *EVENTS)).get(slug)
+    if newest is None:
+        return None
+    try:
+        node = node_of(tree(where), newest.get("session"))
+    except SessionError:
+        return None
+    return None if live(node, newest, datetime.now(timezone.utc)) else newest
+
+
 def cmd_wait(root: Path, slug: str, until: list[str], event: str | None, every: float) -> dict:
     project.task_directory(root, slug)
     unknown = [state for state in until if state not in project.STATES]
     if unknown:
         raise SessionError(f"--until names {', '.join(unknown)}, and a state is one of {', '.join(project.STATES)}")
+    where = place()
 
     def mine() -> list[dict]:
         return [record for record in project.events_named(root, event) if record.get("task") == slug]
+
+    def task_now() -> dict:
+        return next(task for task in project.read_tasks(root) if task["slug"] == slug)
 
     seen = len(mine()) if event else 0
     try:
@@ -572,11 +628,18 @@ def cmd_wait(root: Path, slug: str, until: list[str], event: str | None, every: 
             if event:
                 found = mine()
                 if len(found) > seen:
-                    return {"task": slug, "event": found[-1]}
+                    return {"task": slug, "event": found[-1], "gone": False}
             else:
-                task = next(task for task in project.read_tasks(root) if task["slug"] == slug)
+                task = task_now()
                 if task["status"] in until:
-                    return {"task": slug, "status": task["status"], "line": first_line(task), "since": task["since"]}
+                    return {"task": slug, "status": task["status"], "line": first_line(task), "since": task["since"], "gone": False}
+            gone = gone_session(root, slug, where)
+            if gone is not None:
+                task = task_now()
+                name = gone.get("name") or slug
+                return {"task": slug, "status": task["status"], "line": first_line(task), "since": task["since"], "gone": True, "session": gone.get("session"),
+                        "say": f"the session `{name}` of {slug} is gone, and the task is {task['status'] or 'with no state yet'}: "
+                               f"nothing goes on with it until `lem session open {slug} --why dead` opens a fresh one"}
             time.sleep(every)
     except KeyboardInterrupt:
         raise SessionError(f"the wait for {slug} was stopped") from None

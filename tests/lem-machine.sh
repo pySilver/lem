@@ -155,8 +155,8 @@ ln -s "$PWD/agents/lem-builder.md" "$FAKEHOME/.claude/agents/lem-builder.md"
 home_only=$(doctor | field '(d["ok"], next(t for t in d["tools"] if t["name"] == "lem-builder agent")["found"])' || true)
 rm -r "$FAKEHOME/.claude/agents"
 printf '%s\n' '{"version": 2, "plugins": {"lem@lem": [{"scope": "user"}]}}' > "$FAKEHOME/.claude/plugins/installed_plugins.json"
-# The three recipes of the agterm cookbook that Lem needs are required, each with its guide: webrev and agdoc as
-# skills of the user, the backlog as a skill of the user or of the repository.
+# The recipes of the agterm cookbook: webrev and the backlog are required and agdoc is recommended, each with its guide:
+# webrev and agdoc as skills of the user, the backlog as a skill of the user or of the repository.
 recipes() { (doctor || true) | field '(d["ok"], [(t["name"], t["found"], t["guide"].rsplit("/", 1)[1]) for t in d["tools"] if t["name"] in ("webrev skill", "agdoc skill", "backlog skill")], [t["need"] for t in d["tools"] if t["name"] in ("webrev skill", "agdoc skill", "backlog skill")])'; }
 mv "$FAKEHOME/.claude/skills" "$WORK/skills-away"
 none_yet=$(recipes)
@@ -173,10 +173,10 @@ in_plugin=$( (doctor || true) | row 'backlog skill' detail)
 printf '%s\n' '{"version": 2, "plugins": {"lem@lem": [{"scope": "user"}]}}' > "$FAKEHOME/.claude/plugins/installed_plugins.json"
 mv "$WORK/skills-away/backlog" "$FAKEHOME/.claude/skills/" && rmdir "$WORK/skills-away"
 for_user=$( (doctor || true) | row 'backlog skill' detail)
-if [ "$none_yet" = "(False, [('webrev skill', False, 'annotate-document'), ('agdoc skill', False, 'html-doc-overlay'), ('backlog skill', False, 'backlog-picker')], ['required', 'required', 'required'])" ] \
+if [ "$none_yet" = "(False, [('webrev skill', False, 'annotate-document'), ('agdoc skill', False, 'html-doc-overlay'), ('backlog skill', False, 'backlog-picker')], ['required', 'recommended', 'required'])" ] \
   && [ "$in_project" = "$MACHINE/.claude/skills/backlog" ] && [ "$for_user" = "$FAKEHOME/.claude/skills/backlog" ] \
   && [ "$plugin_elsewhere" = "False" ] && [ "$in_plugin" = "the skill tracking:backlog" ]; then
-  pass "webrev, agdoc and the backlog recipe are required, each with its guide, and the backlog's skill counts for the user or for the repository, in a skills folder or in a plugin of another name"
+  pass "webrev and the backlog recipe are required and agdoc is recommended, each with its guide, and the backlog's skill counts for the user or for the repository, in a skills folder or in a plugin of another name"
 else
   fail "the recipes Lem needs: $none_yet / $in_project / $for_user / $plugin_elsewhere / $in_plugin"
 fi
@@ -185,9 +185,9 @@ if [ "$home_only" = "(False, False)" ] && [ "$(field 'd["ok"]' <<<"$out")" = "Tr
   && [ "$(field '[t["name"] for t in d["tools"] if t["name"] == "plannotator"]' <<<"$out")" = "[]" ] && [ "$(row codex found <<<"$out")" = "False" ] \
   && [ "$(field '[t["name"] for t in d["tools"] if t["name"] == "codex persona agent"]' <<<"$out")" = "[]" ] \
   && [ "$(field '[(t["name"], t["found"], t["guide"].rsplit("/", 1)[1]) for t in d["tools"] if t["need"] == "recommended"]' <<<"$out")" \
-    = "[('plannotator-tui', False, 'annotate-in-plannotator-tui')]" ] \
+    = "[('agdoc skill', True, 'html-doc-overlay'), ('plannotator-tui', False, 'annotate-in-plannotator-tui')]" ] \
   && [ ! -e "$PWD/skills/lem-webrev" ]; then
-  pass "a builder file in the home is not Lem's; with git, the review tool, agterm, the mailbox, the cookbook's recipes, their skills, Claude Code and Lem's plugin the check passes; absent optional tools only change their rows, the recommended tool, no part of Lem, has a row with its guide, and no row speaks of a jev command"
+  pass "a builder file in the home is not Lem's; with git, the review tool, agterm, the mailbox, the cookbook's recipes, their skills, Claude Code and Lem's plugin the check passes; absent optional tools only change their rows, the recommended tools, no part of Lem, have a row with their guide, and no row speaks of a jev command"
 else
   fail "doctor with the required set: $out"
 fi
@@ -625,9 +625,9 @@ matchers = {event: [group.get("matcher") for group in groups] for event, groups 
 ok = ok and commands == {"UserPromptSubmit": [launch + "\"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/corrections.py\" hook"],
                          "SessionStart": [launch + "\"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/serve_hook.py\"", session],
                          "PreCompact": [session]}
-ok = ok and matchers["SessionStart"] == ["startup|resume", "compact"] and matchers["PreCompact"] == ["auto|manual"]
+ok = ok and matchers["SessionStart"] == ["startup|resume", "startup|resume|clear|compact|fork"] and matchers["PreCompact"] == ["auto|manual"]
 sys.exit(not ok)' "$PWD"; then
-  pass "the plugin manifest names lem and a version of three numbers, which is the release; the marketplace file lists the one plugin; bin/ holds the command lem, a file of its own, and the two commands lem-ask and lem-jev as links to it, and no plain jev; there is no setup script; and the hooks that come with the plugin are the correction hook, the start of the board server, and a task session's two hooks of a compaction, each by the plugin's own path and started through lem_python.py"
+  pass "the plugin manifest names lem and a version of three numbers, which is the release; the marketplace file lists the one plugin; bin/ holds the command lem, a file of its own, and the two commands lem-ask and lem-jev as links to it, and no plain jev; there is no setup script; and the hooks that come with the plugin are the correction hook, the start of the board server, and a task session's hooks of a compaction and of each session's start, each by the plugin's own path and started through lem_python.py"
 else
   fail "the plugin files in .claude-plugin and bin"
 fi

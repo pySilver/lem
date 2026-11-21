@@ -216,7 +216,10 @@ fi
 
 # The server's duties, over a repository the server does not show, so that only this process acts on it: a pull
 # request merged on GitHub runs `lem land merged` and then the wake of its task's session; one GitHub calls
-# conflicting is woken once; a task queued after the merged one gets its session opened.
+# conflicting is woken once; a task queued after the merged one gets its session opened. `task-dir` and `lem
+# session open` put a repository into the list of workspaces of Lem's home folder, so the rest of this block has a
+# home folder of its own, whose list the server of this block does not read.
+export XDG_CONFIG_HOME=$WORK/aside
 DUTY=$WORK/duty-shop
 git init -q -b main "$DUTY" && ident "$DUTY" && commit "$DUTY" init && on_github "$DUTY"
 project --repo "$DUTY" init --base main >/dev/null

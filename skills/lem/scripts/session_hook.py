@@ -1,20 +1,29 @@
 """The plugin's two hooks of a task's session (`lem session open`): the form of a compaction's
-summary, and the task's files put back after it.
+summary, the task's files put back after it, and the record of each Claude Code session of the task.
 
     PreCompact (auto|manual)    prints the summary's instructions: the handoff's five headings
     SessionStart (compact)      prints the task's newest state block word for word, then handoff.md
                                 with its time
+    SessionStart (any source)   logs `session.transcript` in the task's event log, once for each
+                                Claude Code session: its id (`claude`), the path of its transcript
+                                (`transcript`) and the source, as the hook's input names them
+                                (`session_id`, `transcript_path`, `source`: the hooks reference,
+                                read 2026-11-21); it prints nothing for a start, a resume, a clear
+                                or a fork
 
 A task's session has `LEM_TASK=SLUG` in its environment, which `lem session open` puts into the
 launch line. Without it, or without the task's directory in the state folder of the repository the
 session runs in, the hook prints nothing and exits 0: a session that is no task's is no business of
 Lem's. Claude Code takes a PreCompact hook's output as the instructions of the summary, and a
 SessionStart hook's for the source `compact` as context after it (its hooks reference, read for the
-shape of task 4, 2026-11-21). No hook reads a transcript. It exits 0 whatever happens, a failure too.
+shape of task 4, 2026-11-21). No hook reads a transcript: `lem_tokens` reads the ones the record names,
+for the tokens of the task. The record is one line appended to `events.jsonl`, in the form `lem project
+log` writes, with no lock, as every writer of the log appends. It exits 0 whatever happens, a failure too.
 
 The plugin starts it through `lem_python.py` beside this file, as the other hooks.
 """
 
+import os
 import sys
 
 # How long git may take to name the main checkout. A guess: it answers in milliseconds, and a stuck
@@ -59,6 +68,38 @@ def newest_phase(log, slug: str) -> str | None:
     return phase
 
 
+def transcript_record(log, slug: str, claude: str, transcript: str) -> bool:
+    """Whether the event log, the lines of LOG, already holds this Claude Code session of the task."""
+    import json
+    for line in log:
+        if f'"{slug}"' not in line or '"session.transcript"' not in line:
+            continue
+        try:
+            record = json.loads(line)
+        except ValueError:
+            continue
+        if record.get("task") == slug and record.get("claude") == claude and record.get("transcript") == transcript:
+            return True
+    return False
+
+
+def keep_transcript(state, slug: str, event: dict) -> None:
+    """Log the task's Claude Code session, its id and its transcript's path from the hook's input, once."""
+    import json
+    from datetime import datetime, timezone
+    claude, transcript = event.get("session_id"), event.get("transcript_path")
+    if not (isinstance(claude, str) and claude and isinstance(transcript, str) and transcript):
+        return
+    log = state / "events.jsonl"
+    with (log.open(encoding="utf-8", errors="replace") if log.is_file() else open(os.devnull)) as lines:
+        if transcript_record(lines, slug, claude, transcript):
+            return
+    record = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": "session.transcript", "task": slug,
+              "claude": claude, "transcript": transcript, "source": str(event.get("source") or "")}
+    with log.open("a", encoding="utf-8") as out:
+        out.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
 def main() -> None:
     import json
     import os
@@ -93,7 +134,9 @@ def main() -> None:
         log = state / "events.jsonl"
         with (log.open(encoding="utf-8", errors="replace") if log.is_file() else open(os.devnull)) as lines:
             print(instructions(slug, newest_phase(lines, slug)))
-    elif name == "SessionStart" and event.get("source") == "compact":
+    elif name == "SessionStart":
+        keep_transcript(state, slug, event)
+    if name == "SessionStart" and event.get("source") == "compact":
         written = (directory / "state.md").read_text(encoding="utf-8", errors="replace") if (directory / "state.md").is_file() else ""
         block = written.strip().split("\n\n")[0] if written.strip() else None
         handoff = directory / "handoff.md"

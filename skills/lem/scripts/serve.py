@@ -40,8 +40,8 @@ The settings of the server are the machine's: `[serve]` in `machine.toml` (`lem_
 `--tailscale-port` write them and then do what `--ensure` does, so that each later start serves the
 way the owner last chose. The foreground server reads them too.
 
-The repositories are the machine's list of workspaces (`lem_state.workspaces_file()`): every run of
-`lem board` puts its repository there, and `--add` and `--remove` change it by hand. The server
+The repositories are the machine's list of workspaces (`lem_state.workspaces_file()`): `lem project
+task-dir`, `lem session open` and every run of `lem board` put their repository there, and `--add` and `--remove` change it by hand. The server
 reads the list at each request of `/` and of `/api/workspaces`, and leaves out an entry whose folder
 or whose `.lem/state` is gone, without a change to the list. A workspace's name in the address is its
 folder's name in lower case, with every other character than a letter, a digit, `.`, `_` and `-` as
@@ -138,8 +138,9 @@ workspace, one call at a time with the server's other calls into Lem's scripts (
 - the look at the forge: while a workspace has a task `open` with a pull request and nobody looked at
   the forge in the last FORGE_SECONDS, it asks `gh` once for all of them (`land.py`'s `forge_look`), and
   for one the forge calls merged or closed it runs the bookkeeping, `lem land merged SLUG`, once for
-  each such task. The record then says `landed` or `dropped`. `gh` missing or signed out is one line on
-  the status bar until it changes;
+  each such task. The record then says `landed` or `dropped`. What it saw of each pull request's merge
+  with the base goes into `forge.json` of the state folder (`keep_forge_look`), which the board's model
+  and `lem project waiting` read. `gh` missing or signed out is one line on the status bar until it changes;
 - the look at the task sessions: `lem session list` (`Workspace.look_sessions`), which says of each
   task whether its session is in agterm, whether an agent runs in it and whether a wake-up waits in it
   unanswered, for the board's row "no session" and its "Open a session";
@@ -184,7 +185,9 @@ a task that never had one; and a new task (`act_start`), from his words on the f
 backlog item's "Start a task": its slug by a fixed rule (an item's file's stem; else the first
 SLUG_WORDS plain words of his text, in lower case, joined by hyphens), `lem project task-dir SLUG --ask
 ASK` (his words, or the item's path as the night gives it), then `lem session open SLUG --why new` with
-no focus, whose agent reads the type and the track itself. Each act the script took is
+no focus, whose agent reads the type and the track itself. A task whose session opened and wrote no
+state yet is on the board as starting (`lem_board_model.NEW`), so its acts and "Open a session" work.
+Each act the script took is
 logged as `board.act` with where he asked (`via`: the board on this Mac, or through the tailnet door),
 never his login. A merge runs in a thread of its own, since it reads the base branch and asks the forge:
 the answer is at once, its page says that it runs, and the stream refreshes the page at its end
@@ -204,7 +207,9 @@ The way from another device is the tailnet door, `serve.tailscale = true`. The s
 listener on 127.0.0.1, the door, at `serve.tailscale_port` (TAILNET_PORT by default), and puts
 `tailscale serve --bg --https=PORT http://127.0.0.1:PORT` in front of it, so that the owner's phone
 opens `https://MAC.TAILNET.ts.net:PORT/` with the tailnet's certificate. The main listener still
-serves this Mac with no check. The door checks every request, a read too (`door_refusal`): Tailscale
+serves this Mac with no login, and reads a request only for a `Host` of its own (`host_refusal`:
+127.0.0.1, localhost, [::1] or the address of `--host`, with its port or without), so that a page of
+another site that points its own name at this machine (DNS rebinding) reads nothing. The door checks every request, a read too (`door_refusal`): Tailscale
 puts the login of the person who asks into `Tailscale-User-Login`, and the door lets in only the
 owner's login, the one this Mac is signed in with (`tailscale status --json`), never a request that
 came through Funnel, and only the Mac's own name in `Host`; a method other than GET and HEAD also
@@ -444,7 +449,9 @@ class Workspace:
     def model(self) -> "bm.Model":
         found = self.reader.current(board)
         found.sessions = self.sessions
-        found.seen = self.forge.get("seen")
+        # the server's own look, once it looked; before it, the last look on file (bm.FORGE_LOOK), which the Reader read
+        if self.forge.get("seen") is not None:
+            found.seen = self.forge["seen"]
         return found
 
     def worktree_of(self, slug: str) -> Path | None:
@@ -479,7 +486,7 @@ class Workspace:
         except ValueError as error:
             self.sessions, self.session_problem = None, f"the board cannot tell which task sessions run: `lem session list` said {error}"
             return
-        self.sessions = {slug: {**entries.get(slug, {}), "worktree": slug in kept} for slug in {*entries, *kept}}
+        self.sessions = bm.sessions_of(entries, kept)
         self.session_problem = None
         model.sessions = self.sessions
         needs = {t.slug: need for t in model.tasks if (need := bm.session_need(t, model))}
@@ -744,6 +751,25 @@ class Door:
 LOOPBACK = ("127.0.0.1", "::1", "::ffff:127.0.0.1")
 
 
+def own_names(port: int, host: str = HOST) -> set[str]:
+    """The `Host` values of the main listener's own: 127.0.0.1, localhost and [::1], and the address of the
+    foreground server's `--host`, each with its port and without it, in lower case."""
+    names = {"127.0.0.1", "localhost", "[::1]"}
+    if host:
+        names.add(f"[{host.lower()}]" if ":" in host else host.lower())
+    return names | {f"{name}:{port}" for name in names}
+
+
+def host_refusal(headers, port: int, host: str = HOST) -> str | None:
+    """Whether the main listener reads a request: None when its one `Host` is a name of its own
+    (`own_names`), else the line its 403 says. A page of another site whose name the site points at this
+    machine (DNS rebinding) carries that site's name, so the board's files never reach that site's script."""
+    seen = [value.strip().lower() for key, value in headers.items() if key.lower() == "host"]
+    if len(seen) != 1 or seen[0] not in own_names(port, host):
+        return "This address is not the board's own on this Mac: open it as http://127.0.0.1:PORT/."
+    return None
+
+
 def stop_refusal(client: str, headers) -> str | None:
     """Whether the main listener takes a request to stop the server: None when it does, else the line
     its 403 says. Only a program on this machine stops it: the request comes from the loopback address,
@@ -904,16 +930,8 @@ def session_run(workspace: Workspace, *args: str) -> subprocess.CompletedProcess
         return lem_sibling.run(script, Path(workspace.path), *args)
 
 
-def session_entries(text: str) -> dict[str, dict]:
-    """What `lem session list` printed, by task: a JSON list of entries, each with its `task` and the
-    facts the board reads (`live`, `agent`, `unanswered`, `session`, `name`); a list under `sessions` or
-    `tasks` is taken too. ValueError for anything else."""
-    data = json.loads(text)
-    if isinstance(data, dict):
-        data = data.get("sessions", data.get("tasks"))
-    if not isinstance(data, list):
-        raise ValueError("`lem session list` printed no list of the tasks' sessions")
-    return {str(e["task"]): {k: e.get(k) for k in ("live", "agent", "unanswered", "session", "name")} for e in data if isinstance(e, dict) and e.get("task")}
+# What `lem session list` printed, by task: the model's one reading of it, which `lem project waiting` shares.
+session_entries = bm.session_entries
 
 
 def asked_from(workspace: Workspace, slug: str, act: str, via: str) -> str:
@@ -924,6 +942,7 @@ def asked_from(workspace: Workspace, slug: str, act: str, via: str) -> str:
 
 
 def task_of(workspace: Workspace, slug: str) -> "bm.Task | None":
+    """The task as the board shows it, also one whose session opened and wrote no state yet (bm.NEW), or None."""
     t = workspace.model().by_slug.get(slug)
     return t if t is not None and t.blocks else None
 
@@ -1266,8 +1285,10 @@ class Handler(BaseHTTPRequestHandler):
     server_version = "lem-serve"
     machine: Machine
     verbose = False
-    # set on the door's own handler only: the main listener serves this Mac with no check
+    # set on the door's own handler only: the main listener serves this Mac, and checks only its `Host` (`host_refusal`)
     door: Door | None = None
+    # the address the main listener serves, for its own names (`own_names`); `listen` sets it
+    listen_host = HOST
     # the machines joined (`lem serve --join`), whose boards pass through; `listen` sets it
     peers: "lem_peers.Peers"
     timeout = REQUEST_TIMEOUT
@@ -1452,13 +1473,15 @@ class Handler(BaseHTTPRequestHandler):
     do_POST = do_PUT = do_PATCH = do_DELETE = do_OPTIONS = act  # noqa: N815 - the base class looks them up by these names
 
     def refused(self, body: bool) -> bool:
-        """At the door, check the request (`door_refusal`) and answer 403 when it is refused; True then."""
+        """Check the request and answer 403 when it is refused; True then. At the door, the whole check
+        (`door_refusal`); on the main listener, its `Host` (`host_refusal`)."""
         door = self.door
         if door is None:
-            return False
-        said = door_refusal(self.headers, self.command, door.owner, door.name, door.port)
-        if said == NOT_THE_OWNER and door.reread():
+            said = host_refusal(self.headers, self.server.server_address[1], self.listen_host)
+        else:
             said = door_refusal(self.headers, self.command, door.owner, door.name, door.port)
+            if said == NOT_THE_OWNER and door.reread():
+                said = door_refusal(self.headers, self.command, door.owner, door.name, door.port)
         if said is None:
             return False
         try:
@@ -1826,6 +1849,7 @@ def forge_once(workspace: Workspace, now: int | None = None) -> list[dict]:
         # an open page shows a conflict that came or went
         workspace.acted += 1
     workspace.forge["seen"] = seen
+    keep_forge_look(workspace.state, seen, now)
     ran = []
     # each bookkeeping that failed, by (task, number): when, and its line, which stays the problem until it runs
     failed = workspace.forge.setdefault("failed", {})
@@ -1862,6 +1886,21 @@ def merged_due(key: tuple, done: set, failed: dict, clock: float) -> bool:
     now: not once it ran (DONE), and not within DUTY_RETRY of a failed try (FAILED, by key: its time
     on CLOCK's scale and its line)."""
     return key not in done and (key not in failed or clock - failed[key][0] >= DUTY_RETRY)
+
+
+def keep_forge_look(state: Path, seen: dict, now: int) -> None:
+    """Write the forge's last look into the state folder (bm.FORGE_LOOK), whole, through a temporary file
+    and a rename, so that the board's model and `lem project waiting` read what the server saw. A write
+    that fails is a line in the server's log: the server's own look still holds in memory."""
+    file = state / bm.FORGE_LOOK
+    looked = datetime.fromtimestamp(now / 1000, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    temporary = file.with_name(f".{file.name}.{os.getpid()}.tmp")
+    try:
+        temporary.write_text(json.dumps({"looked": looked, "seen": seen}, indent=1) + "\n", encoding="utf-8")
+        os.replace(temporary, file)
+    except OSError as error:
+        temporary.unlink(missing_ok=True)
+        sys.stderr.write(f"serve.py: the forge's look was not written to {file}: {error}\n")
 
 
 # ---- the server's duties across tasks ----
@@ -2562,6 +2601,7 @@ def listen(host: str, verbose: bool, settings: dict) -> None:
     Handler.machine = Machine()
     Handler.peers = lem_peers.Peers(tailnet_status)
     Handler.verbose = verbose
+    Handler.listen_host = host
     door = None
     if tailnet_port is not None:
         if tailnet_port == port and host in (HOST, "localhost"):

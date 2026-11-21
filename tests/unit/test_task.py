@@ -55,29 +55,6 @@ class TrackOf(unittest.TestCase):
         self.assertIsNone(project.track_of("2026-11-19T09:50Z queued: it waits for a free place"))
 
 
-class HoldsOf(unittest.TestCase):
-    """The held tasks of `lem project waiting`: a task a breaker holds is named once, under `breakers`."""
-
-    @staticmethod
-    def held(slug: str, line: str) -> dict:
-        return {"slug": slug, "ask": f"The ask of {slug}.", "since": "2026-11-20T01:00Z", "night": None,
-                "state": f"2026-11-20T01:00Z held: {line}\ntype: feat, because the export gets a note"}
-
-    def test_a_task_a_breaker_holds_is_that_breaker(self):
-        breakers = [{"task": "gift-note", "id": 1, "state": "waits"}]
-        found = project.holds_of([self.held("gift-note", "breaker 1 waits for the owner")], breakers)
-        self.assertEqual((found["criteria"], found["held"]), ([], []))
-
-    def test_a_step_of_his_and_his_criteria_stay(self):
-        tasks = [self.held("his-step", "the reviewer's pane waits for the owner's trust of the folder"),
-                 self.held("his-criteria", "the criteria wait for the owner")]
-        found = project.holds_of(tasks, [{"task": "another-task", "id": 2, "state": "waits"}])
-        self.assertEqual([task["task"] for task in found["held"]], ["his-step"])
-        self.assertEqual([task["task"] for task in found["criteria"]], ["his-criteria"])
-        self.assertEqual(found["held"][0]["line"], "the reviewer's pane waits for the owner's trust of the folder")
-
-
-
 class Parked(unittest.TestCase):
     """The owner's park: a task no agent works on is put aside, and it leaves `parked` only by a drop
     or by `resume`, which writes the block the park put aside."""
@@ -102,18 +79,6 @@ class Parked(unittest.TestCase):
         self.assertEqual([block["status"] for block in blocks], ["parked", "held", "building"])
         self.assertEqual(next(block for block in blocks if block["status"] != "parked")["lines"],
                          ["breaker 2 waits for the owner", "The note has no place: no option keeps the approved criteria"])
-
-
-class MergeWaits(unittest.TestCase):
-    """Which open pull request is a row of the owner's list (`lem project waiting`)."""
-
-    def test_only_a_review_that_calls_him_or_a_refused_merge_waits_for_him(self):
-        merge = {"tip": "abc", "verdict": "merge", "calls": False}
-        self.assertFalse(project.merge_waits_for_owner({"merge_review": None, "merge_refused": None}))
-        self.assertFalse(project.merge_waits_for_owner({"merge_review": merge, "merge_refused": None}))
-        self.assertTrue(project.merge_waits_for_owner({"merge_review": {**merge, "calls": True}, "merge_refused": None}))
-        self.assertTrue(project.merge_waits_for_owner({"merge_review": {**merge, "verdict": "call", "calls": True}, "merge_refused": None}))
-        self.assertTrue(project.merge_waits_for_owner({"merge_review": merge, "merge_refused": {"tip": "abc", "from": "github", "said": "no"}}))
 
 
 if __name__ == "__main__":

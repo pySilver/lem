@@ -5,10 +5,10 @@ Onboarding runs it first, so a repository is never set up for a flow its machine
 prints one row per tool as JSON and exits 1 when a required one is absent. An optional tool that
 is absent is not an error: its row says what the skill does without it, and onboarding tells the
 owner that. The key of the Jev model (`JEV_API_KEY`) is optional, and required in a repository whose correction queue is
-on, where without it the queue stays empty and nothing says so. A recipe of the agterm cookbook that Lem needs (webrev, agdoc, the backlog) is
+on, where without it the queue stays empty and nothing says so. A recipe of the agterm cookbook that Lem needs (webrev, the backlog) is
 required, and its row has the guide to install it by. A recommended tool is one Lem does not bring
-and a developer is better off with: its row has the guide too, and Lem installs it only on the
-developer's yes. The optional row `load gate` says under which load average the checks of a
+and a developer is better off with (agdoc, plannotator-tui): its row has the guide too, and Lem
+installs it only on the developer's yes. The optional row `load gate` says under which load average the checks of a
 landing start on this machine, or that no number is set, with the line that sets one. The optional
 row `handoff tokens` says past how many tokens a task's session compacts itself, `handoff tokens:
 600000 (default)` with no number set, and the line that sets one. On a machine with agterm, the optional row `task picker` gives the keymap line
@@ -18,7 +18,9 @@ code installed here, and the line that starts it from a terminal with no agent: 
 Lem's marketplace clone, since the plugin puts `lem` on the PATH of Claude Code's Bash tool only; it
 never starts one. The optional row `board
 notifications` says how many devices get the board's notifications and how the last push went; it
-sends none. Four rows
+sends none. The optional row `installed Lem: NAME` comes for each repository of the server's list whose
+installed Lem (Claude Code's `installed_plugins.json`) is other code than the board server runs, with
+the line that updates the install there and the line that replaces the server. Four rows
 are about the repository it runs in and never fail the check: its personas, the correction hook
 when more than one place registers it there, the permission mode a builder in the background
 meets there, and Lem's plugin when it is installed for the user and so loads in every repository.
@@ -659,6 +661,82 @@ def board_server() -> list[dict]:
              "without_it": None}]
 
 
+def lem_installs(home: Path) -> list[dict]:
+    """Each install of Lem in Claude Code's list in `home`: its key (`lem@MARKETPLACE`), its scope, the real
+    path of its project (None for the user), its version and its folder, as the list names them."""
+    try:
+        listed = json.loads((home / PLUGINS / "installed_plugins.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    plugins = listed.get("plugins") if isinstance(listed, dict) else None
+    found = []
+    for key, installs in plugins.items() if isinstance(plugins, dict) else []:
+        if not isinstance(key, str) or key.split("@")[0] != "lem":
+            continue
+        for entry in installs if isinstance(installs, list) else []:
+            if isinstance(entry, dict) and entry.get("scope") in ("user", "managed", "project", "local"):
+                where = entry.get("projectPath")
+                found.append({"key": key, "scope": entry["scope"], "project": os.path.realpath(where) if isinstance(where, str) else None,
+                              "version": entry.get("version") if isinstance(entry.get("version"), str) else None,
+                              "folder": entry.get("installPath") if isinstance(entry.get("installPath"), str) else None})
+    return found
+
+
+def version_numbers(identity: str) -> tuple[int, ...] | None:
+    """`version 0.1.1` as (0, 1, 1); None for a commit or a time, which have no order."""
+    found = re.fullmatch(r"version (\d+(?:\.\d+)*)", identity or "")
+    return tuple(int(part) for part in found[1].split(".")) if found else None
+
+
+def install_rows(server: str, repositories: list[str], installs: list[dict], identity) -> list[dict]:
+    """A row for each repository of the server's list whose installed Lem is other code than the board
+    server runs (SERVER, `code_version`'s form): a session there runs one Lem and the server's duties
+    another. IDENTITY gives an install's code by its folder and version. The install a repository gets is
+    the one for its project, else the one for the user; a repository with none gets no row here."""
+    rows = []
+    for repository in repositories:
+        real = os.path.realpath(repository)
+        mine = next((entry for entry in installs if entry["project"] == real), None) or next((entry for entry in installs if entry["project"] is None), None)
+        if mine is None:
+            continue
+        theirs = identity(mine)
+        if theirs == server:
+            continue
+        update = f"cd {shlex.quote(repository)} && claude plugin update {mine['key']} --scope {'user' if mine['scope'] == 'managed' else mine['scope']}"
+        older = version_numbers(theirs), version_numbers(server)
+        which = ("the install is the older" if older[0] < older[1] else "the server is the older") if None not in older else "which is the newer is not known"
+        rows.append({"name": f"installed Lem: {Path(repository).name}", "need": "optional", "found": False, "line": update, "lines": [update, "lem serve --ensure"],
+                     "detail": f"{repository} has {theirs} of {mine['key']} installed for the {mine['scope']}, and the board server runs {server}; {which}",
+                     "used_for": "one Lem for a repository's task sessions and for the board server's duties over them",
+                     "without_it": "a task's session runs other code than the server that wakes it and merges for it: run the first line in a terminal "
+                                   "and restart that repository's sessions, or `lem serve --ensure` from the newer Lem to replace the server"})
+    return rows
+
+
+def installed_lem() -> list[dict]:
+    """The rows of `install_rows` for this machine: the server's code from `GET /api/server`, the
+    repositories of its list (`lem_state.workspaces`), and Claude Code's list of installed plugins.
+    Nothing when no server runs or a file does not read: the row `board server` says that."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import serve  # noqa: E402  (beside this file)
+
+    try:
+        found = serve.ask(serve.serve_settings()["port"])
+        repositories = serve.lem_state.workspaces()
+    except (serve.ServeError, serve.lem_state.StateError):
+        return []
+    if not found or not found.get("version"):
+        return []
+
+    def identity(entry: dict) -> str:
+        folder = Path(entry["folder"]) if entry.get("folder") else None
+        if folder is not None and (folder / ".claude-plugin" / "plugin.json").is_file():
+            return serve.code_version(folder)
+        return f"version {entry['version']}" if entry.get("version") else "an unknown version"
+
+    return install_rows(found["version"], repositories, lem_installs(Path.home()), identity)
+
+
 def board_notifications() -> list[dict]:
     """The board's notifications on the owner's devices (lem_push): how many devices turned them on, and
     when the last push went with each push service's answer. It reads Lem's home folder and sends
@@ -727,12 +805,14 @@ def main() -> None:
         skill("webrev", "the owner marks up a plan, a draft or any document as a rendered page, and the notes come back to the agent",
               "Lem cannot open a plan or a document for the owner to mark up; install the recipe from its guide",
               guide=COOKBOOK + "annotate-document"),
-        skill("agdoc", "a page about the issue, the plan or the change in hand, for the owner's own reading",
-              "Lem cannot make a page for the owner to read; install the recipe from its guide", guide=COOKBOOK + "html-doc-overlay"),
+        # agdoc: no step of Lem makes its page since the merge agent's `merge-review.md` took the place of
+        # the owner's page of a task (the owner's ruling of 2026-11-20, AGENTS.md), so it is recommended
+        skill("agdoc", "a page about an issue, a plan or a change that the owner asks for himself, to read in agterm",
+              "no step of Lem needs it; the owner has no page of his own to ask for", need="recommended", guide=COOKBOOK + "html-doc-overlay"),
         skill("backlog", "the owner's own view of the backlog items in docs/backlog/, and the picker that adds and opens them",
               "the owner has no tool of his own for the backlog; install the recipe from its guide, for the user (~/.claude/skills/backlog) "
               "or for this repository (.claude/skills/backlog)", guide=COOKBOOK + "backlog-picker"),
-        # The recommended tool: Lem installs it only on the developer's yes.
+        # A recommended tool: Lem installs it only on the developer's yes.
         {**tool("plannotator-tui", "recommended", "the owner marks up what a pane printed, or an agent's newest reply, from two agterm chords",
                 "no stage needs it", "plannotator-tui", ["--version"]), "guide": COOKBOOK + "annotate-in-plannotator-tui"},
         jev_key(),
@@ -748,6 +828,7 @@ def main() -> None:
         load_gate(),
         handoff_tokens(),
         *board_server(),
+        *installed_lem(),
         *board_notifications(),
         *project(),
         *correction_hook(),

@@ -21,7 +21,8 @@ the merge agent and of a task's session for every repository whose settings name
 `session`, each `"agent/model:effort"`, which he writes by hand, and `[handoff]`, the number of tokens
 past which a task's session compacts itself, which `lem project handoff --tokens N` writes), and the
 repositories whose boards `lem serve` shows
-(`workspaces_file()`, `workspaces.json`, which `lem board` and `lem serve --add` write). A read never
+(`workspaces_file()`, `workspaces.json`, which `lem project task-dir`, `lem session open`, `lem board`
+and `lem serve --add` write). A read never
 makes that folder: only a write of one of the three does, and beside them it holds `load.lock`, which
 spaces the starts of the checks that waited for the load, and the board server's `serve.lock` and
 `serve.log`.

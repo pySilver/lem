@@ -36,7 +36,8 @@ repo() {
 BETA_PORT=$(free_port)
 HOLE_PORT=$(free_port)
 BETA_HOME=$WORK/beta-config
-repo "$WORK/beta/shop" gift-note "Print the gift note on the packing slip, on beta."
+# beta's repository is beta's: its task-dir puts it into beta's list of workspaces, never alpha's
+XDG_CONFIG_HOME=$BETA_HOME repo "$WORK/beta/shop" gift-note "Print the gift note on the packing slip, on beta."
 mkdir -p "$WORK/alpha/shop/.lem/state" && git init -q -b main "$WORK/alpha/shop" && commit "$WORK/alpha/shop" init
 "$PY" -B "$SERVE" --add "$WORK/alpha/shop" >/dev/null
 mkdir -p "$BETA_HOME/lem" && printf '[serve]\nport = %s\n' "$BETA_PORT" > "$BETA_HOME/lem/machine.toml"

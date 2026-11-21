@@ -173,10 +173,17 @@ pr state gift-note ready "the report is written" >/dev/null
 pr state gift-note landing "the checks run" >/dev/null
 pr state gift-note open "proposed" >/dev/null
 wait "$waiter"
-if [ "$(field '(d["status"], d["line"])' < "$WORK/waited" 2>&1)" = "('open', 'proposed')" ] && [ "$(field 'd["event"]["event"]' < "$WORK/talked" 2>&1)" = "plan.talk" ]; then
-  pass "wait ends when the task's state is one it names, and at the first event of its name logged after its start"
+# its session gone from agterm's tree: the wait ends with it, and says so
+sess wait gift-note --until landed --every 0.1 > "$WORK/gone" 2>&1 &
+waiter=$!
+sleep 0.3
+"$PY" -c 'import json, sys; n = json.load(open(sys.argv[1])); json.dump([x for x in n if x["id"] != "S-2"], open(sys.argv[1], "w"))' "$TREE"
+wait "$waiter"
+if [ "$(field '(d["status"], d["line"], d["gone"])' < "$WORK/waited" 2>&1)" = "('open', 'proposed', False)" ] && [ "$(field 'd["event"]["event"]' < "$WORK/talked" 2>&1)" = "plan.talk" ] \
+  && [ "$(field '(d["gone"], d["session"], d["status"])' < "$WORK/gone" 2>&1)" = "(True, 'S-2', 'open')" ] && grep -qF "lem session open gift-note --why dead" "$WORK/gone"; then
+  pass "wait ends when the task's state is one it names, at the first event of its name logged after its start, and when the task's session is gone, which it says"
 else
-  fail "wait: $(cat "$WORK/waited") / $(cat "$WORK/talked")"
+  fail "wait: $(cat "$WORK/waited") / $(cat "$WORK/talked") / $(cat "$WORK/gone")"
 fi
 
 # The copy of the talk: the owner's turns and the agent's, word for word.

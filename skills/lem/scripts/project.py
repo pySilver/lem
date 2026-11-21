@@ -77,10 +77,10 @@ a team that adopts Lem may have its own.
     lem project serial -- COMMAND ...
                                     run one test command that two tasks cannot run at the same
                                     time (checks.serial), under the repository's one lock for them
-    lem project waiting             everything that waits for the owner, as JSON: each breaker of a task,
-                                    each task whose criteria or a step of his hold it, each pull
-                                    request with green or not, each task marked with the night that
-                                    opened it, each retro's proposals, and last night's report
+    lem project waiting             everything that waits for the owner, as JSON: the rows of the board's
+                                    "Waits for you" (a breaker, criteria or a step of his, a blocked task,
+                                    a plan, a merge review, a pull request with green or not, a task with
+                                    no session), each retro's proposals, and last night's report
     lem project plan-file SLUG [--date YYYY-MM-DD]
                                     the name a task's plan takes (`paths.plan_file`), and the plan
                                     of the task the plans folder holds, as JSON
@@ -233,22 +233,31 @@ A ruling's file is named the same way by `paths.ruling_file`, `<slug>.md` unless
 otherwise, in the folder `paths.rulings` (`docs/rulings`), and `ruling-file` prints it. A settings
 folder is a setting as the plans folder is.
 
-`waiting` is the one list of what waits for the owner, which a bare `/lem` says: his status first
-(`owner`: `away`, `since` and his `words`, from the machine's mark, and `seen`, the number of its
-records, from which a watch of the mark starts), then the breakers of `lem decisions pending`
-that wait (`breakers`), the tasks `held` with the line `the criteria wait for the owner`
-(`criteria`) and the other `held` ones, a step of his or one more fact (`held`), each `open`
-task whose merge waits for him, a review of the proposed tip that calls him or a refused merge of it
-(`merge_waits_for_owner`; one that the merge agent still reads, or that the board's server merges after
-a `merge` that calls nobody, is no row), with its proposal (`pull_requests`, with `conflict`: true or false as the forge said it of the
-pushed head at the last `lem land merged`, null when nothing asked or the head moved since;
-`merge_review`, the merge agent's review of the proposed tip with its verdict and whether it calls the
-owner, or null; and `merge_refused`, the line of a refused merge of that tip, GitHub's or, for the
-merge agent's merge, Lem's own (`from`), or null), and each
-file of a retro's proposals in `retros/` of the state folder (`retros`), which a retro started
-with nobody at the terminal writes in the form Lem's question page takes, one question for each
-proposal. `count` adds them up. Each task in the list gives `night`, the date of the night that
-opened it, or null; its report is `night/DATE.md` in the state folder. `night_report` is the
+`waiting` is the one list of what waits for the owner, which a bare `/lem` says. Its rows are the rows
+of the board's "Waits for you" (`lem_board_model.waits_of`, over the model the board server builds:
+the event log, the owner's mark, the forge's last look that the server keeps in `forge.json` of the
+state folder, and the task sessions, from `lem session list`, which it asks itself when the log has a
+`session.open`), so the terminal and the phone list the same. First his status (`owner`: `away`,
+`since` and his `words`, from the machine's mark, and `seen`, the number of its records, from which a
+watch of the mark starts); then one group for each kind of row: the breakers that wait, as `lem
+decisions pending` gives them (`breakers`); the tasks `held` with the line `the criteria wait for
+the owner` (`criteria`) and the other `held` ones, a step of his or one more fact (`held`); a task
+its session stopped as `blocked` on something it cannot settle, not one that waits for the base to be
+green again (`blocked`); a plan that names him (`plans`); the merge agent's review that calls him
+(`reviews`, with its `why` and `tip`); each `open` task whose merge waits for him, a review of the
+proposed tip that calls him, a refused merge of it, or no proposal on record, with its proposal
+(`pull_requests`: `pull_request`, `green`, `not_green`, `conflict`, true or false as the forge said it
+of the pushed head at the last `lem land merged`, null when nothing asked or the head moved since,
+`merge_review` and `merge_refused`, each null when the task has no `landing.json`); and a task stuck
+for want of its session (`no_session`, with `need`: `gone`, no live session, or `deaf`, a wake-up
+unanswered for 10 minutes). Each of these has the task's `task`, `ask`, `since`, `night` and its
+state's first `line`. `rows` is the board's rows in its order, each `{key, kind, task}`. `sessions`
+says whether the sessions are known (`known`) and, when not, why (`said`): then no row of
+`no_session` can show. `forge.looked` is the time of the server's last look at the forge, or null.
+Then each file of a retro's proposals in `retros/` of the state folder (`retros`), which a retro
+started with nobody at the terminal writes in the form Lem's question page takes, one question for
+each proposal. `count` is the rows and the retros' proposals. A task's `night` is the date of the
+night that opened it, or null; its report is `night/DATE.md` in the state folder. `night_report` is the
 report of last night, today's or yesterday's, or null; it waits for no answer and is not counted,
 and neither is `parked`, each task the owner put aside, with the line that says why.
 It reads and writes nothing else.
@@ -277,6 +286,7 @@ if sys.version_info < (3, 11):
 import argparse
 import difflib
 import fcntl
+import importlib
 import json
 import os
 import re
@@ -1438,7 +1448,23 @@ def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None, bra
     if night is not None and not any(record.get("task") == slug for record in events_named(root, "task.mode")):
         # the night's mark
         append_event(root, "task.mode", slug, {"mode": "alone", "by": "lem", "words": f"the night of {night}", "all": False, "was": "with-owner"})
+    register_checkout(root)
     print(directory)
+
+
+def register_checkout(root: Path) -> None:
+    """Put the repository's main checkout into the machine's list of workspaces (`lem_state.register`),
+    so that the board server shows it and runs its duties from its first task: `task-dir` and `lem
+    session open` call it, as `lem board` does. A state folder of example tasks (its `demo` mark,
+    board.py `meta_of`) stays out. A list that cannot be written is one line on stderr with the line
+    that puts the repository there, and the task still opens."""
+    main = main_checkout(root)
+    if (state_root(root) / "demo").is_file():
+        return
+    try:
+        lem_state.register(main)
+    except (OSError, lem_state.StateError) as error:
+        print(f"project.py: {main} is not in the list of workspaces the board server shows ({error}); `lem serve --add {main}` puts it there", file=sys.stderr)
 
 
 def cmd_ticket_step(root: Path, slug: str, step: str) -> None:
@@ -2394,6 +2420,8 @@ CRITERIA_WAIT = "the criteria wait for the owner"
 RETROS = "retros"
 # Where a night keeps its report, `night/YYYY-MM-DD.md` in the state folder (`stages/night.md`).
 NIGHTS = "night"
+# A held block's first line while a breaker holds the task (decisions.py BREAKER_WAIT), which `lem session` reads for its phase.
+BREAKER_WAIT = re.compile(r"breaker ([1-9]\d*) waits for the owner")
 
 
 def retro_proposals(file: Path) -> dict:
@@ -2417,121 +2445,102 @@ def waiting_brief(task: dict) -> dict:
     return {"task": task["slug"], "ask": task["ask"], "since": task["since"], "night": task["night"]}
 
 
-def holds_of(held: list[dict], breakers: list[dict]) -> dict:
-    """The held tasks of the list of what waits: `criteria`, which wait for the owner's yes, and
-    `held`, a step of his. A task a breaker holds (`breaker N waits for the owner`) is that
-    breaker's: `breakers` names it, so `held` does not name it again, as the board's "Waits for
-    you" makes one row of it (`waits_of`)."""
-    stopped = {breaker["task"] for breaker in breakers}
-
-    def line(task: dict) -> str:
-        return STATE_LINE.fullmatch(task["state"].splitlines()[0])["text"]
-
-    return {
-        "criteria": [{**waiting_brief(task), "line": line(task)} for task in held if line(task).startswith(CRITERIA_WAIT)],
-        "held": [{**waiting_brief(task), "line": line(task)} for task in held
-                 if not line(task).startswith(CRITERIA_WAIT) and task["slug"] not in stopped],
-    }
-
-
-# The owner's word to skip the personas' read of the criteria, in the two texts the landing knows it by
-# (land.py READ_SKIP; the board's model keeps the same copy).
-READ_SKIP = {"what": "the personas' read of the criteria", "chose": "no read: the criteria name only the developer"}
-# whose approval answers a wait for the criteria: his own, or one made while the task ran without him
-APPROVERS = ("owner", "alone")
-BREAKER_WAIT = re.compile(r"breaker ([1-9]\d*) waits for the owner")
-
-
-def answered_hold(line: str, held_at: str, approvals: list[dict], reads: list[str], breaker_waits: bool) -> bool:
-    """Whether a `held` block whose first line is LINE, written at HELD_AT, has its answer on record,
-    so that it waits for the start of its lead and not for the owner. An interview is answered by an
-    approval of the criteria by `owner` or `alone` after the newest read of the personas since the
-    wait began (`reads`: each `criteria.read`, and each word of his that skipped it): a yes typed
-    before the read waits for it, so no lead starts before a doubt reaches him. Criteria that wait
-    for his yes are answered by such an approval after the block. A breaker is answered when it no
-    longer waits in the record (`breaker_waits` False). Any other hold waits for him."""
-    if line.startswith(INTERVIEW_WAIT) or FAST_GREW.search(line):
-        since = max((at for at in reads if at >= held_at), default=None)
-    elif line.startswith(CRITERIA_WAIT):
-        since = held_at
-    elif BREAKER_WAIT.fullmatch(line.strip()):
-        return not breaker_waits
-    else:
-        return False
-    return since is not None and any(approval["by"] in APPROVERS and approval["at"] >= since for approval in approvals)
-
-
-def answered_holds(root: Path, tasks: list[dict], waiting: list[dict]) -> set[str]:
-    """The held tasks whose newest block is a wait of the owner's whose answer is on record
-    (`answered_hold`), from the event log, each task's `criteria.json` and `waiting`, the breakers
-    that still wait (`lem decisions pending`)."""
-    events = events_named(root, "task.state", "criteria.approved", "criteria.read", "decision.taken")
+def waiting_model(root: Path, settings: dict):
+    """The board's model of the repository as the board server builds it (`lem_board_model`), for
+    `waiting`: the event log, the owner's mark, the demo mark (board.py `meta_of`), the forge's last look
+    that the server wrote (`lem_board_model.FORGE_LOOK`), and the task sessions, which it asks `lem session
+    list` for itself (`waiting_sessions`). With the model, what the session said of the sessions: None when
+    they are known, else why not."""
+    bm = importlib.import_module("lem_board_model")
     state = state_root(root)
-    found = set()
-    for task in tasks:
-        if task["status"] != "held" or not task["state"]:
-            continue
-        slug = task["slug"]
-        line = STATE_LINE.fullmatch(task["state"].splitlines()[0])["text"]
-        mine = [record for record in events if record.get("task") == slug]
-        # the block's time to the second, from its event when the log has it, else its minute
-        newest = next((record for record in reversed(mine) if record.get("event") == "task.state"), None)
-        held_at = newest["ts"] if newest and newest.get("status") == "held" and newest.get("text") == line else f"{task['since'][:-1]}:00Z"
-        approvals = [{"at": record["ts"], "by": record.get("by")} for record in mine if record.get("event") == "criteria.approved"]
-        kept = state / "tasks" / slug / "criteria.json"
-        if kept.is_file():
-            try:
-                record = json.loads(text_of(kept))
-            except ValueError as error:
-                raise SettingsError(f"{kept} does not read as JSON ({error}); it is written by `lem criteria approve` only") from error
-            approvals += [{"at": one["at"], "by": one.get("by")} for one in [record, *record.get("history", [])] if isinstance(one, dict) and one.get("at")]
-        reads = [record["ts"] for record in mine if record.get("event") == "criteria.read"
-                 or (record.get("event") == "decision.taken" and record.get("by") == "owner"
-                     and record.get("what") == READ_SKIP["what"] and record.get("chose") == READ_SKIP["chose"])]
-        breaker = BREAKER_WAIT.fullmatch(line.strip())
-        waits = bool(breaker) and any(item.get("task") == slug and item.get("id") == int(breaker[1]) for item in waiting)
-        if answered_hold(line, held_at, approvals, reads, waits):
-            found.add(slug)
-    return found
+    reader = bm.Reader(main_checkout(root), state)
+    reader.read_log()
+    if "events" in reader.problems:
+        raise SettingsError(f"{state / 'events.jsonl'}: {reader.problems['events']}; the log is written by project.py, never by hand")
+    model = bm.derive(reader.events, owner_records(), bm.now_ms(), meta={"demo": (state / "demo").is_file()})
+    model.seen = (bm.forge_look(state) or {}).get("seen")
+    said = None
+    if not model.meta["demo"]:
+        model.sessions, said = waiting_sessions(root, settings, model, bm)
+    return model, said
 
 
-def merge_waits_for_owner(proposal: dict) -> bool:
-    """Whether an open task's merge waits for the owner, from its proposal (`proposal_of`): a merge of
-    the proposed tip was refused, or the merge agent's review of it calls him. While no review of that
-    tip is written the merge agent reads it, and after a `merge` that calls nobody the board's server
-    merges it: neither waits for him."""
-    review = proposal.get("merge_review")
-    return bool(proposal.get("merge_refused")) or bool(review and (review.get("calls") or review.get("verdict") != "merge"))
+def waiting_sessions(root: Path, settings: dict, model, bm) -> tuple[dict | None, str | None]:
+    """The task sessions as the board server knows them (`lem_board_model.sessions_of`): what `lem session
+    list` says, with the ended tasks whose worktree is still there; and None with why, when the list
+    cannot be had (no agterm). A log with no `session.open` has no session to ask agterm about."""
+    parent = main_checkout(root) / Path(settings["places"]["worktrees"]["path"]).relative_to(root.resolve())
+    kept = {t.slug for t in model.tasks if t.closed and (parent / t.slug).is_dir()}
+    if not any(t.opened for t in model.tasks):
+        return bm.sessions_of({}, kept), None
+    ran = subprocess.run([sys.executable, "-B", str(Path(__file__).resolve().parent / "session.py"), "--repo", str(root), "list"],
+                         capture_output=True, text=True, check=False, stdin=subprocess.DEVNULL)
+    try:
+        if ran.returncode != 0:
+            lines = [line.strip() for line in (ran.stderr or ran.stdout).splitlines() if line.strip()]
+            raise ValueError(lines[-1] if lines else f"it exited {ran.returncode}")
+        return bm.sessions_of(bm.session_entries(ran.stdout), kept), None
+    except ValueError as error:
+        return None, f"the task sessions are not known: `lem session list` said {error}"
+
+
+def first_line_of(task: dict) -> str | None:
+    found = STATE_LINE.fullmatch(task["state"].splitlines()[0]) if task.get("state") else None
+    return found["text"] if found else None
 
 
 def cmd_waiting(root: Path) -> dict:
-    """Everything that waits for the owner, from the files that hold it: nothing here decides or writes."""
+    """Everything that waits for the owner, from the files that hold it: nothing here decides or writes.
+    Its rows are the rows of the board's "Waits for you" (`lem_board_model.waits_of`), so that the
+    terminal and the phone list the same; each group holds the rows of one kind."""
     # a broken settings file is an error here too
-    load(root)
-    tasks = read_tasks(root)
+    settings = load(root)
+    tasks = {task["slug"]: task for task in read_tasks(root, settings)}
+    model, unknown = waiting_model(root, settings)
+    bm = importlib.import_module("lem_board_model")
+    rows = [row for row in bm.waits_of(model) if row["t"].slug in tasks]
     asked = subprocess.run([sys.executable, "-B", str(Path(__file__).resolve().parent / "decisions.py"), "--repo", str(root), "pending"],
                            capture_output=True, text=True, check=False)
     if asked.returncode != 0:
         raise SettingsError(asked.stderr.strip().removeprefix("decisions.py: ") or "decisions.py pending failed")
     pending = json.loads(asked.stdout)
-    # a wait whose answer is on record waits for the start of its lead, not for him
-    answered = answered_holds(root, tasks, pending["waiting"])
-    held = [task for task in tasks if task["status"] == "held" and task["slug"] not in answered]
+
+    def brief(row: dict, **more) -> dict:
+        task = tasks[row["t"].slug]
+        return {**waiting_brief(task), "line": first_line_of(task), **more}
+
+    def kind(name: str) -> list[dict]:
+        return [row for row in rows if row["kind"] == name]
+
+    def breaker(row: dict) -> dict:
+        number = row["c"].id
+        found = next((item for item in pending["waiting"] if item["task"] == row["t"].slug and item.get("id") == number), None)
+        return found or {"task": row["t"].slug, "id": number, "what": row["c"].what, "status": row["t"].status}
+
+    def pull_request(row: dict) -> dict:
+        task = tasks[row["t"].slug]
+        proposal = task["proposal"] or {}
+        return {**waiting_brief(task), **{key: proposal.get(key) for key in ("pull_request", "green", "not_green", "conflict", "merge_review", "merge_refused")}}
+
     marks = owner_records()
-    # a breaker the owner helped on waits for Lem's start of its lead, as an answered wait does
-    breakers = [breaker for breaker in pending["waiting"] if breaker["task"] not in answered]
     found = {
         # whether the owner said he is away, since when and in which words, from the machine's mark: the list
         # says it first; `seen` is the number of records in the mark, from which a watch of it starts
         "owner": {**owner_now(marks), "seen": len(marks)},
-        "breakers": breakers,
-        **holds_of(held, breakers),
-        "pull_requests": [
-            {**waiting_brief(task), "pull_request": task["proposal"]["pull_request"], "green": task["proposal"]["green"], "not_green": task["proposal"]["not_green"],
-             "conflict": task["proposal"]["conflict"], "merge_review": task["proposal"]["merge_review"], "merge_refused": task["proposal"]["merge_refused"]}
-            for task in tasks if task["status"] == "open" and task["proposal"] and merge_waits_for_owner(task["proposal"])
-        ],
+        "breakers": [breaker(row) for row in kind("breaker")],
+        "criteria": [brief(row) for row in kind("criteria")],
+        "held": [brief(row) for row in kind("held")],
+        "blocked": [brief(row) for row in kind("blocked")],
+        "plans": [brief(row) for row in kind("plan")],
+        "reviews": [brief(row, why=bm.review_why(row["c"]), tip=row["c"].get("tip")) for row in kind("review")],
+        "pull_requests": [pull_request(row) for row in kind("merge")],
+        "no_session": [brief(row, need="deaf" if row.get("deaf") else "gone") for row in kind("session")],
         "retros": [retro_proposals(file) for file in sorted((state_root(root) / RETROS).glob("*.json"))],
+        # the board's rows in its order, each by its key (`waits_of`): the rows the phone shows
+        "rows": [{"key": row["key"], "kind": row["kind"], "task": row["t"].slug} for row in rows],
+        # what the list knows of the task sessions, which the rows of `no_session` need, and the forge's last look
+        "sessions": {"known": unknown is None, "said": unknown},
+        "forge": {"looked": (bm.forge_look(state_root(root)) or {}).get("looked")},
     }
     # the report of last night: a night writes it under the day it started, so today's or yesterday's
     today = datetime.now().date()
@@ -2539,10 +2548,8 @@ def cmd_waiting(root: Path) -> dict:
     report = next((file for file in recent if file.is_file()), None)
     found["night_report"] = {"date": report.stem, "file": str(report)} if report else None
     # the tasks the owner put aside: no row of what waits, and not counted, so a status can name them apart
-    found["parked"] = [{**waiting_brief(task), "line": STATE_LINE.fullmatch(task["state"].splitlines()[0])["text"]} for task in tasks if task["status"] == PARKED]
-    found["count"] = sum(len(found[key]) for key in ("breakers", "criteria", "held", "pull_requests")) + sum(
-        entry["proposals"] or 1 for entry in found["retros"]
-    )
+    found["parked"] = [{**waiting_brief(task), "line": first_line_of(task)} for task in tasks.values() if task["status"] == PARKED]
+    found["count"] = len(rows) + sum(entry["proposals"] or 1 for entry in found["retros"])
     return found
 
 

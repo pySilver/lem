@@ -2,7 +2,7 @@
 one for the workspace, which the pages of `lem_board_pages` draw.
 
     model = derive(facts.events, facts.owner, now_ms(), meta=facts.meta)
-    model.tasks                 every task with a state block, in the order of its first event
+    model.tasks                 every task with a state block or a session, in the order of its first event
     model.lane["you"]           the tasks of one column of the kanban
     waits_of(model)             one row for each thing the owner does
     card_line(task, lane)       what a card says
@@ -24,7 +24,7 @@ The facts come in through the loaders at the end of this file (`Reader`), which 
 when its size or its change time moved, so that a page that renders after a burst of events reads
 the log once: the event log (`events.jsonl`, read on from where the last read stopped), the owner's
 mark (`project.owner_records`), and the settings, the backlog and the meta facts through `board.py`'s
-functions. What the forge says of the open pull requests is the board server's own look (`Model.seen`). What does not read is a problem the
+functions, and the board server's last look at the forge (FORGE_LOOK, `Model.seen`). What does not read is a problem the
 page says, never an empty board.
 """
 
@@ -53,9 +53,18 @@ STATUS = {
     "dropped": {"actor": "quiet", "who": "Nobody", "label": "Dropped", "icon": "x", "live": False},
     "answered": {"actor": "done", "who": "Nobody", "label": "Answered", "icon": "file", "live": False},
     "parked": {"actor": "quiet", "who": "Nobody", "label": "Parked", "icon": "park", "live": False},
+    # the board's own word for a task whose session opened and wrote no state block yet (NEW): no stage writes it
+    "new": {"actor": "lem", "who": "Its session", "label": "Starting", "icon": "play", "live": True},
 }
 STATUS_ORDER = list(STATUS)
 UNKNOWN = {"actor": "bad", "who": "Nobody", "label": "No status", "icon": "alert", "live": False}
+# The status of a task with a `session.open` and no state block: its session reads the request, and the
+# task is on the board from its first minute (`derive`). It is the board's word, never a state of project.py.
+NEW = "new"
+NEW_TEXT = "its session opened and reads the request; it wrote no state yet"
+# The line with which a landing writes `blocked` while the base branch fails a check (stages/land.md
+# step 4): the task's session waits for the task that repairs the base, and nothing waits for the owner.
+BASE_RED = "the base is red"
 # The states a task does not leave (project.py ENDED): nobody acts, and nothing of it waits.
 ENDED = ("landed", "dropped", "answered")
 # The state of a task the owner put aside (`/lem park`, project.py PARKED): nobody acts, and nothing of it
@@ -93,7 +102,7 @@ LANE = {lane["key"]: lane for lane in LANES}
 PHASES = ["Criteria", "Plan", "Build", "Checks", "Review", "Proposed", "Landed"]
 SMALL_PHASES = ["Change", "Checks", "Review", "Proposed", "Landed"]
 # What waits for the owner, the most pressing first.
-OWNER_ORDER = ["breaker", "held", "planned", "open"]
+OWNER_ORDER = ["breaker", "held", "blocked", "planned", "open"]
 BY_WHOM = {"lead": "the agent", "personas": "the personas", "owner": "you", "lem": "Lem", "experts": "the experts",
            "gate": "the question gate", "dialectic": "the dialectic"}
 # Who works on a task, from its state lines, in words a developer needs no glossary for.
@@ -142,7 +151,7 @@ OPENED = {"new": "for a new task", "handoff": "for the next phase", "dead": "in 
 # open to its agent (a guess, plan-task-4.md section 2, 2026-11-21).
 GRACE_MS = 2 * 60 * 1000
 # The merge review that calls the owner comes before the merge it is about.
-WAIT_ORDER = {"breaker": 0, "session": 0, "criteria": 1, "held": 1, "plan": 2, "review": 3, "merge": 4}
+WAIT_ORDER = {"breaker": 0, "session": 0, "criteria": 1, "held": 1, "blocked": 1, "plan": 2, "review": 3, "merge": 4}
 
 
 # ---- formatting ----
@@ -467,6 +476,11 @@ class Task:
     investigated: bool = False
     plan_committed: bool = False
     gate_bad: int = 0
+    # `blocked` while the base branch fails a check (BASE_RED): its session waits for the repair, not for the owner
+    base_red: bool = False
+    # each Claude Code session of the task, as the plugin's SessionStart hook logged it (`session.transcript`):
+    # its id and the path of its transcript, which lem_tokens reads
+    transcripts: list = field(default_factory=list)
 
 
 @dataclass
@@ -490,7 +504,8 @@ class Model:
     events: list
     meta: dict = field(default_factory=dict)
     # what the board server's last look at the forge said of each open task's pull request, by its slug
-    # (`mergeable`, `head`), which serve.py puts here (`forge_once`); None while it has not looked
+    # (`mergeable`, `head`): FORGE_LOOK of the state folder, which serve.py writes at each look (`forge_once`)
+    # and the Reader reads; None while no server has looked
     seen: dict | None = None
     # what the board server's last `lem session list` said of each task's session, by its slug
     # (`live`: the session is in agterm's tree; `agent`: an agent runs in its pane; `unanswered`: a
@@ -580,6 +595,9 @@ def fold(t: Task, e: dict, ts: int) -> None:
         return
     if event == "session.wake":
         t.wakes.append({"ts": ts, "order": len(t.events), "why": e.get("why"), "session": e.get("session")})
+        return
+    if event == "session.transcript":
+        t.transcripts.append({"ts": ts, "claude": e.get("claude"), "transcript": e.get("transcript"), "source": e.get("source")})
         return
     if event == "plan.talk.start":
         t.talk_start = {"ts": ts, "reviewer": e.get("reviewer")}
@@ -732,16 +750,18 @@ def settle(t: Task, now: int) -> None:
     t.approvable = bool(t.need and t.need["need"] in ("criteria", "interview") and not t.approved and (read_in is None or read_in))
     if t.approved:
         t.criteria_wait = False
-        t.shown = "your yes to the criteria is on record: Lem starts its lead" if t.approved["by"] == "owner" else "the criteria were approved without you, as the task runs alone: Lem starts its lead"
+        t.shown = ("your yes to the criteria is on record: the task's session starts its build" if t.approved["by"] == "owner"
+                   else "the criteria were approved without you, as the task runs alone: the task's session starts its build")
     # the owner's help on the breaker that holds the task is on record: it waits for Lem's start of its lead
     held = t.decisions.get(t.need["number"]) if t.need and t.need["need"] == "breaker" else None
     t.helped = held if held and held.kind == "breaker" and held.state == "helped" and t.status == "held" else None
     if t.helped:
-        t.shown = f"your help on breaker {t.helped.id} is on record: Lem starts its lead"
+        t.shown = f"your help on breaker {t.helped.id} is on record: the task's session starts its build again"
     t.waits_after = t.status == "queued" and needs_task(last)
     t.merge_wait = merge_wait(t)
+    t.base_red = t.status == "blocked" and BASE_RED in [line.strip() for line in lines_of(last)]
     t.for_owner = (bool(t.breaker) or (t.status == "held" and not t.approved and not t.helped) or t.merge_wait == "owner"
-                   or (t.status == "planned" and bool(re.search(r"\bowner\b", t.text))))
+                   or (t.status == "planned" and bool(re.search(r"\bowner\b", t.text))) or (t.status == "blocked" and not t.base_red))
     if t.merge_wait in MERGE_WAITS:
         t.info = dict(MERGE_WAITS[t.merge_wait])
     if t.approved and not t.for_owner:
@@ -843,6 +863,10 @@ def derive(events: list[dict], owner: list[dict], now: int, *, meta: dict | None
             t = tasks[slug] = Task(slug=slug, title=title_of(slug))
         t.events.append(e)
         fold(t, e, ts)
+    for t in tasks.values():
+        if not t.blocks and t.opened:
+            # a task whose session opened and wrote no state yet is on the board from its first minute, as NEW
+            t.blocks.append({"ts": t.opened["ts"], "order": t.opened["order"], "status": NEW, "text": NEW_TEXT, "lines": []})
     listed = [t for t in tasks.values() if t.blocks]
     for t in listed:
         settle(t, now)
@@ -961,6 +985,39 @@ def after_dropped(t: Task, m: Model) -> bool:
     after = after_of(t)
     done = m.by_slug.get(after) if after else None
     return t.status == "queued" and done is not None and bool(done.blocks) and done.status == "dropped"
+
+
+def session_entries(text: str) -> dict[str, dict]:
+    """What `lem session list` printed, by task: a JSON list of entries, each with its `task` and the
+    facts the board reads (`live`, `agent`, `unanswered`, `session`, `name`); a list under `sessions` or
+    `tasks` is taken too. ValueError for anything else."""
+    data = json.loads(text)
+    if isinstance(data, dict):
+        data = data.get("sessions", data.get("tasks"))
+    if not isinstance(data, list):
+        raise ValueError("`lem session list` printed no list of the tasks' sessions")
+    return {str(e["task"]): {k: e.get(k) for k in ("live", "agent", "unanswered", "session", "name")} for e in data if isinstance(e, dict) and e.get("task")}
+
+
+def sessions_of(entries: dict[str, dict], kept: set[str]) -> dict[str, dict]:
+    """`Model.sessions` from what `lem session list` said (`session_entries`) and the tasks that ended and
+    whose worktree is still there (KEPT): the one form the server and `lem project waiting` give the model."""
+    return {slug: {**entries.get(slug, {}), "worktree": slug in kept} for slug in {*entries, *kept}}
+
+
+# The board server's last look at the forge, in the state folder: `{"looked": ISO time, "seen": {SLUG:
+# {"mergeable", "head"}}}`, which the server writes at each look (serve.py `forge_once`) and the board's
+# model and `lem project waiting` read (`Model.seen`), so that a page and the terminal say the same.
+FORGE_LOOK = "forge.json"
+
+
+def forge_look(state: Path) -> dict | None:
+    """The forge's last look as the server wrote it, or None when there is none or it does not read."""
+    try:
+        found = json.loads((state / FORGE_LOOK).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return found if isinstance(found, dict) and isinstance(found.get("seen"), dict) else None
 
 
 def live_of(t: Task, m: Model) -> dict | None:
@@ -1118,6 +1175,9 @@ def waits_of(m: Model) -> list[dict]:
             rows.append({"kind": "breaker", "key": f"breaker:{t.slug}:{t.breaker.id}", "t": t, "c": t.breaker, "since": t.breaker.ts})
         elif t.status == "held" and not t.approved and not t.helped:
             rows.append({"kind": "criteria" if t.criteria_wait else "held", "key": f"held:{t.slug}", "t": t, "c": None, "since": t.since})
+        # a task its session stopped with something it cannot settle alone; not one that waits for the base's repair
+        if t.status == "blocked" and not t.base_red:
+            rows.append({"kind": "blocked", "key": f"blocked:{t.slug}", "t": t, "c": None, "since": t.since})
         if t.status == "planned" and re.search(r"\bowner\b", t.text):
             rows.append({"kind": "plan", "key": f"plan:{t.slug}", "t": t, "c": None, "since": t.since})
         # an open task is his only when its merge waits for him (`merge_wait`): not while the merge
@@ -1147,6 +1207,10 @@ def wait_say(w: dict) -> dict:
         return {"verb": "Approve the criteria", "icon": "file", "to": "overview", "note": "in this state"}
     if kind == "held":
         return {"verb": cap(t.shown or t.info["label"]), "icon": "user", "to": "overview", "note": "in this state"}
+    if kind == "blocked":
+        return {"verb": "Its session stopped: tell it what to do", "icon": "alert", "actor": "bad", "to": "overview", "note": "since it stopped",
+                "where": f"The task’s session stopped on something it cannot settle alone: “{t.shown or t.text}”. Tell it what to do in the task’s session, "
+                         f"or type /lem drop {t.slug} there to end the task."}
     if kind == "plan":
         return {"verb": "Read the plan", "icon": "file", "to": "overview", "note": "in this state"}
     if kind == "review":
@@ -1283,6 +1347,9 @@ SAYS = {
     "session.open": lambda e: {"info": {"actor": "lem", "icon": "split"}, "head": "The task’s session opened", "text": e.get("name") or e.get("task") or "",
                                "sub": " · ".join(x for x in (f"the {e['phase']} phase" if e.get("phase") else "", OPENED.get(e.get("why"), e.get("why") or "")) if x)},
     "session.close": lambda e: {"info": {"actor": "quiet", "icon": "split"}, "head": "A session of the task closed", "text": CLOSED.get(e.get("why"), e.get("why") or "")},
+    "session.transcript": lambda e: {"info": {"actor": "quiet", "icon": "split"}, "head": "Claude Code started in the task’s session",
+                                     "text": {"startup": "a new conversation", "resume": "a resumed conversation", "clear": "after a clear", "compact": "after a compaction", "fork": "a forked conversation"}.get(
+                                         e.get("source"), "a conversation")},
     "session.wake": lambda e: {"info": {"actor": "lem", "icon": "split"}, "head": "The board’s server woke the task’s session",
                                "text": {"merged": "the pull request is merged: the session cleans up", "conflict": "GitHub calls the pull request conflicting: the session brings it onto the base",
                                         "queue": "the task it waited for ended"}.get(e.get("why"), e.get("why") or "")},
@@ -1407,7 +1474,7 @@ def now_head(t: Task) -> str:
     if s == "building":
         return "Its investigator examines it, before any criterion" if t.investigating else LEAD[lead_of(t)]["head"]
     if s == "planned":
-        return "The plan waits for you" if t.for_owner else "The plan talk is done: the plan waits for the agent that builds it" if t.talks else "The plan waits for its talk companion"
+        return "The plan waits for you" if t.for_owner else "The plan talk is done: the plan waits for the agent that builds it" if t.talks else "The plan waits for its plan talk"
     if s == "held":
         return ("Approved: its lead has not started yet" if t.approved else "Helped: its lead has not started yet" if t.helped
                 else "The build stopped: its breaker waits for you" if t.breaker
@@ -1415,7 +1482,9 @@ def now_head(t: Task) -> str:
     if s == PARKED:
         return "Parked: nobody works on it until you bring it back"
     if s == "blocked":
-        return "The agent stopped; Lem has to settle it"
+        return "It waits for the base: a task of its own repairs the check that fails there" if t.base_red else "Its session stopped: it waits for your word"
+    if s == NEW:
+        return "Its session opened: it reads the request"
     if s == "ready":
         return "Waits for its checks"
     if s == "landing":
@@ -2124,14 +2193,15 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
             add_block("lead", frm, to, "It plans the task", what, open_)
         elif s == "planned":
             owner = bool(re.search(r"\bowner\b", b["text"]))
-            head = "The plan waits for you" if owner else "The plan talk is done: the plan waits for the agent that builds it" if any(x["ts"] <= b["ts"] for x in t.talks) else "The plan waits for its talk companion"
+            head = "The plan waits for you" if owner else "The plan talk is done: the plan waits for the agent that builds it" if any(x["ts"] <= b["ts"] for x in t.talks) else "The plan waits for its plan talk"
             add_block("you" if owner else "lem", frm, to, head, what, open_)
         elif s == "held":
             head = ("The criteria wait for your yes" if CRITERIA_WAIT.search(what) else "The build stopped: its breaker waits for you"
                     if BREAKER_WAIT.fullmatch(b["text"]) else "It waits for you")
             add_block("you", frm, to, head, what, open_)
         elif s == "blocked":
-            add_block("lem", frm, to, "Blocked: Lem has to settle it", what, open_)
+            red = BASE_RED in [line.strip() for line in lines_of(b)]
+            add_block("lem" if red else "you", frm, to, "Blocked: it waits for the base to be green again" if red else "Blocked: it waits for your word", what, open_)
         elif s == "ready":
             add_block("lem", frm, to, "Ready: it waits for its checks", what, open_)
         elif s == "landing":
@@ -2229,6 +2299,7 @@ class Reader:
         self.problems: dict[str, str] = {}
         self.model_key: tuple | None = None
         self.model: Model | None = None
+        self.forge: dict | None = None
 
     # each loader keeps its last good read, and says what failed in `problems`
 
@@ -2355,4 +2426,7 @@ class Reader:
                 self.model_key = key
             else:
                 self.model.now = now
+            if self.changed("forge", self.state / FORGE_LOOK):
+                self.forge = forge_look(self.state)
+            self.model.seen = (self.forge or {}).get("seen")
             return self.model
