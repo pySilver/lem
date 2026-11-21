@@ -1,6 +1,6 @@
 """serve.py's rules, each called in this process: who the tailnet door lets in, who may ask the main
-listener for an act, the note of a merge that runs, the machine's names in an address, and which duty
-the server owes the tasks. The routes, the stream and the start on demand run in tests/lem-serve.sh, with a server.
+listener for an act, the note of a merge that runs, the machine's names in an address, which duty
+the server owes the tasks, and when it runs `lem project prune`. The routes, the stream and the start on demand run in tests/lem-serve.sh, with a server.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -271,6 +271,47 @@ class DutyKey(unittest.TestCase):
         self.assertNotEqual(old, new)  # the task landed again: the new tip is merged at the next look
         self.assertEqual(old, serve.duty_key("merge", "gift-note", "merger", {"proposed": "aaa111"}))
         self.assertEqual(serve.duty_key("wake", "gift-note", "merged", {}), ("wake", "gift-note", "merged"))
+
+
+class Prune(unittest.TestCase):
+    """The keeping of the state folder, a duty of the server across tasks: `lem project prune` at the first
+    look and each PRUNE_SECONDS after, never for example tasks, and one log line when it did something."""
+
+    class Place:
+        def __init__(self, demo: bool = False) -> None:
+            self.name, self.path, self.pruned, self.demo = "shop", "/lem-unit/shop", None, demo
+
+        def model(self):
+            return type("Model", (), {"meta": {"demo": True} if self.demo else {}})()
+
+        def settings(self):
+            return {"root": self.path}
+
+    def test_it_runs_at_the_first_look_then_each_period_and_never_for_example_tasks(self):
+        from unittest import mock
+        import subprocess
+        ran = []
+        said = '{"said": "removed 3 working files", "bytes": 120, "skipped": [], "failed": []}'
+
+        def run(workspace, file, *args):
+            ran.append((file, *args))
+            return subprocess.CompletedProcess([], 0, said, "")
+        place = self.Place()
+        with mock.patch.object(serve, "lem_run", run):
+            first = serve.prune_once(place, now=1000.0)
+            self.assertIsNone(serve.prune_once(place, now=1000.0 + serve.PRUNE_SECONDS - 1))
+            again = serve.prune_once(place, now=1000.0 + serve.PRUNE_SECONDS)
+            self.assertIsNone(serve.prune_once(self.Place(demo=True), now=1000.0))
+        self.assertEqual(ran, [("project.py", "prune"), ("project.py", "prune")])
+        self.assertEqual((first["exit"], first["said"], again["bytes"]), (0, "removed 3 working files", 120))
+
+    def test_the_log_says_what_it_removed_skipped_and_failed_and_nothing_else(self):
+        quiet = {"exit": 0, "said": "removed 0 working files", "bytes": 0, "skipped": [], "failed": []}
+        self.assertIsNone(serve.prune_line("shop", quiet))
+        line = serve.prune_line("shop", {**quiet, "exit": 1, "skipped": [{"path": "tasks/x", "why": "its state.md does not read"}],
+                                         "failed": [{"path": "tasks/y/a.log", "error": "Permission denied"}]})
+        self.assertEqual(line, "serve.py: shop: `lem project prune` exited 1: removed 0 working files; skipped tasks/x: its state.md does not read; "
+                               "failed tasks/y/a.log: Permission denied\n")
 
 
 class Look(unittest.TestCase):

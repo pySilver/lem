@@ -157,14 +157,20 @@ workspace, one call at a time with the server's other calls into Lem's scripts (
   while it runs). land.py's own rules decide whether it merges; the server only runs the call, since a
   task's session that ran it met a block of Claude Code's auto mode (pySilver/lem-scratch#12,
   2026-11-21). A refusal is kept for its tip by land.py, which ends the duty for that tip, and the
-  task's session gets `wake SLUG --why refused` once; after a merge, `wake … merged` above.
+  task's session gets `wake SLUG --why refused` once; after a merge, `wake … merged` above;
+- the keeping of the state folder (`prune_once`): at its first look and each PRUNE_SECONDS after, it runs
+  `lem project prune`, which removes what the workspace's state folder no longer needs, older than its
+  settings' `state.keep_days`: the working files of the tasks that ended, and old questions to the
+  experts, panels, naps and copies of the cast. It reaches across tasks, so it is the server's and no
+  task's: a task's own cleanup (`lem land clean`) runs once, at its merge, and a dropped or answered
+  task has none. What it removed, skipped or failed is one line in the server's log.
 
 A server started from a session leaves it at its start (`detach_from_session`): `lem session` reads
 agterm's variables as its caller's place, and the server is no part of any session.
 
 The server never types into a session, never selects one without the owner's click, never closes one,
 decides nothing, and writes a task's files only through `lem land merged`, the merge agent's `lem land
-merge` and `lem session`. A workspace
+merge` and `lem session`, and removes them only through `lem project prune`. A workspace
 of example tasks has no forge to ask and no duty, and one whose remote is not GitHub has no forge to ask.
 
 Apart from that, the server reads. Its actions are its own stop, the board's notifications, the owner's
@@ -446,6 +452,8 @@ class Workspace:
         self.kept: set[str] = set()
         self.needs: dict[str, str] = {}
         self.failed: dict[tuple, float] = {}
+        # when the server last ran `lem project prune` here (`prune_once`), on the monotonic clock
+        self.pruned: float | None = None
 
     def model(self) -> "bm.Model":
         found = self.reader.current(board)
@@ -2074,6 +2082,41 @@ def run_duties(workspace: Workspace, now: float | None = None) -> list[dict]:
     return ran
 
 
+# How often the server runs `lem project prune` for one workspace. A guess (2026-11-21): the number it
+# keeps is in days, so an hour late costs nothing, and a run reads the event log and walks the ended
+# tasks' folders, which is quick beside an hour.
+PRUNE_SECONDS = 3600
+
+
+def prune_once(workspace: Workspace, now: float | None = None) -> dict | None:
+    """`lem project prune` for the workspace when it is due: at the server's first look, then each
+    PRUNE_SECONDS. None when it did not run: not due, a workspace of example tasks, or settings that do
+    not read (the board says so already). Else its exit, its own line, and what it skipped and failed."""
+    now = time.monotonic() if now is None else now
+    if workspace.pruned is not None and now - workspace.pruned < PRUNE_SECONDS:
+        return None
+    if workspace.model().meta.get("demo") or not workspace.settings():
+        return None
+    workspace.pruned = now
+    ran = lem_run(workspace, "project.py", "prune")
+    try:
+        answer = json.loads(ran.stdout)
+    except ValueError:
+        return {"exit": ran.returncode or 1, "said": said_of(ran), "skipped": [], "failed": []}
+    return {"exit": ran.returncode, "said": answer.get("said") or said_of(ran), "bytes": answer.get("bytes", 0),
+            "skipped": answer.get("skipped") or [], "failed": answer.get("failed") or []}
+
+
+def prune_line(name: str, ran: dict) -> str | None:
+    """The server's log line for a run of `prune`: none when it removed, skipped and failed nothing."""
+    if ran["exit"] == 0 and not ran.get("bytes") and not ran["skipped"] and not ran["failed"]:
+        return None
+    parts = [f"serve.py: {name}: `lem project prune` exited {ran['exit']}: {ran['said']}"]
+    parts += [f"skipped {one['path']}: {one['why']}" for one in ran["skipped"]]
+    parts += [f"failed {one['path']}: {one['error']}" for one in ran["failed"]]
+    return "; ".join(parts) + "\n"
+
+
 def forge_loop(machine: "Machine") -> None:
     """The server's thread, until the server stops: at each FORGE_TICK, for each workspace, its look at the
     forge (`forge_once`), its look at the task sessions (`Workspace.look_sessions`), and its duties
@@ -2098,6 +2141,13 @@ def forge_loop(machine: "Machine") -> None:
                                      f"{': ' + one['said'] if one['said'] else ''}\n")
             except Exception as error:  # noqa: BLE001 - as above: one workspace that fails says why
                 workspace.session_problem = f"the board's look at the task sessions failed: {error!r}"
+            try:
+                ran = prune_once(workspace)
+                line = prune_line(workspace.name, ran) if ran else None
+                if line:
+                    sys.stderr.write(line)
+            except Exception as error:  # noqa: BLE001 - as above: one workspace that fails says why
+                sys.stderr.write(f"serve.py: {workspace.name}: `lem project prune` failed: {error!r}\n")
 
 
 def checkout_of(directory: str) -> Path:
