@@ -37,6 +37,9 @@ ELSEWHERE = {
     ".claude/rules": "the folder of rules in a project that adopts Lem (the-rules-of-an-existing-project-stay-where-they-are)",
     "codex-rs/protocol/src/permissions.rs": "a file of Codex's own repository, read 2026-11-17 (the-state-of-lem-is-not-in-the-git-directory)",
 }
+# The paths git ignores (`.lem/.gitignore`), which a clone never holds: the state folder with all in
+# it, and one machine's settings.
+IGNORED = (".lem/state", ".lem/project.local.toml")
 
 
 def flat(text: str) -> str:
@@ -222,7 +225,7 @@ class ShortAgents(unittest.TestCase):
                 text = QUOTED.sub('""', flat(paragraph))
                 for match in CODE.finditer(text):
                     name = match[1]
-                    if not PATH.fullmatch(name) or PLACEHOLDER.search(name) or name.startswith((".lem/state/", "~")) or name in ELSEWHERE:
+                    if not PATH.fullmatch(name) or PLACEHOLDER.search(name) or name.startswith((".lem/state/", "~")) or name in IGNORED or name in ELSEWHERE:
                         continue
                     if GONE_BEFORE.search(text[:match.start()]) or GONE_AFTER.search(text[match.end():].lstrip(")")):
                         continue
