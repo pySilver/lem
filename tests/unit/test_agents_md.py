@@ -165,6 +165,22 @@ class ShortAgents(unittest.TestCase):
             self.assertIn(later, changed)
         self.assertIn("**The plan talk is a pair in a companion that closes after it**", old)
 
+    def test_the_names_docs_free_hour_cites_are_headings_or_sentences_of_agents_md(self):
+        # Criterion 9: docs/free-hour.md sends an unattended session to these four by name.
+        text = AGENTS.read_text(encoding="utf-8")
+        headings = {line.lstrip("#").strip() for line in text.split("\n") if line.startswith("#")}
+        linked = {each["text"].rstrip(".") for each in self.links() if each["text"]}
+        for name in ("Opinionated and small", "The owner's rulings", "Rules for a change here", "Checks"):
+            with self.subTest(name=name):
+                self.assertTrue(name in headings or name in linked, f'"{name}", which docs/free-hour.md cites, is no heading and no sentence of AGENTS.md')
+
+    def test_the_first_line_under_the_decisions_says_none_is_his_ruling(self):
+        # Criterion 5: the heading of the session's decisions opens with the line that none of them is the owner's.
+        after = AGENTS.read_text(encoding="utf-8").split("\n## Decisions the maintaining session took\n", 1)
+        self.assertEqual(len(after), 2, 'AGENTS.md has no heading "Decisions the maintaining session took"')
+        first = after[1].lstrip("\n").split("\n", 1)[0]
+        self.assertRegex(first, r"^None of these is (his|the owner's) ruling\b", "the first line under the decisions' heading says that none of these is his ruling")
+
 
 if __name__ == "__main__":
     unittest.main()
