@@ -65,9 +65,8 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     # the experts' brief names the personas through the panel's cast.py; the unit level calls both scripts' functions
     (("skills/lem-panel/scripts/*",), ("test-ask-expert", "unit")),
     (("skills/lem-ask-expert/scripts/*",), ("unit",)),
-    # Texts a suite reads: the stages and the briefs (lem-decisions), and every text under skills/
-    # and agents/, none of which may tell anyone to run a script by its path (lem-command).
-    (("skills/lem/prompts/*", "skills/lem/stages/*"), ("lem-decisions", "lem-command")),
+    # Texts a suite reads: every text under skills/ and agents/, none of which may tell anyone to run
+    # a script by its path (lem-command).
     (("skills/*/SKILL.md",), ("test-gate-panel",)),
     (("skills/*", "agents/*"), ("lem-command",)),
     # Lem's page on GitHub Pages, and the workflow whose copy step the suite runs
