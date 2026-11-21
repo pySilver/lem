@@ -49,9 +49,11 @@ of his text), runs step 3 with his words or the item's path as the ask, and step
    here, and the task's session takes the focus itself when it has a question only he can answer
    (`prompts/session.md`, "While the owner is needed"). `task-dir` and `session open`
    put the repository's main checkout into the machine's list of workspaces, so the board's server
-   shows it from its first task, as "Starting" until its session writes a state. Say its `say` in one line, and
-   go back to what this session was doing. Read no code and choose no type or track: the task's
-   own session does.
+   shows it from its first task, as "Starting" until its session writes a state. Say its `say` in one line,
+   start its `then` (`lem session wait SLUG --first-line`) with `run-in-background`, and go back
+   to what this session was doing. When that command ends, say its `say` as it is, in one line:
+   the task's first line, where the owner corrects its read. When its `say` is null, say nothing.
+   Read no code and choose no type or track: the task's own session does.
 
 ## The request
 

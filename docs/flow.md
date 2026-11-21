@@ -31,7 +31,8 @@ project handoff --tokens N` sets another number for all your repositories.
 
 ## The first line
 
-The task's session first says the type, the track, and what you must do. The type is a
+The task's session first says the type, the track, and what you must do. The session where you
+typed the request says the same line, with the name of the task. The type is a
 Conventional Commits type such as `feat`, or `question`, which commits nothing. In doubt, Lem asks
 one question, with its guess. `/lem standard-track` and `/lem be-careful` correct the line.
 
