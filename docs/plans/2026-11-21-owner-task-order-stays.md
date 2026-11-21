@@ -22,7 +22,7 @@ Size: full, because the rule has two readers, the task's session and the lead, a
    1. The ask of `tests-at-the-unit-level` begins "After one-lem-parallel-landings:", and its lead started all the same.
    2. `one-lem-parallel-landings` is still open.
    3. The lead writes no plan and no code. The task is `queued` with the line `after: one-lem-parallel-landings`, and its state on the board says that it waits by his words, with his words: `the owner's order: "After one-lem-parallel-landings"`. Its report names his words.
-4. Without such an order nothing new waits, and Lem never starts a task against an order that it cannot read. The words that make a task wait are those that put the whole task after another task, named by its name or in the owner's own words; capital letters and a colon do not matter ("After one-lem-parallel-landings: ...", "when the parallel landings task lands, ..."). `/lem after a refund the invoice shows 0` starts at once: its "after" orders no tasks. `/lem the card of tests-at-the-unit-level cuts its title` starts at once: it only names a task. `/lem After picker-test-holds-at-a-minute-edge: the picker shows seconds` starts at once: that task is landed, so his order is met. `/lem After one-lem-paralel-landings: unit cases` names no task, by a typo: Lem asks once, in one line with its guess first: "Queue this after one-lem-parallel-landings? (y/n)". While he is away it asks nothing: when exactly one open task fits his words, the task is queued after that one, and its first line and its state say which task Lem took; when none fits, or more than one, the task is held for him with his words, shows in the list of what waits for him, and nothing of it starts.
+4. Without such an order nothing new waits, and Lem never starts a task against an order that it cannot read. The words that make a task wait are those that put the whole task after another task, named by its name or in the owner's own words; capital letters and a colon do not matter ("After one-lem-parallel-landings: ...", "when the parallel landings task lands, ..."). `/lem after a refund the invoice shows 0` starts at once: its "after" orders no tasks. `/lem the card of tests-at-the-unit-level cuts its title` starts at once: it only names a task. `/lem After picker-test-holds-at-a-minute-edge: the picker shows seconds` starts at once: that task is landed, so his order is met. `/lem After one-lem-paralel-landings: unit cases` names no task, by a typo: Lem asks once, in one line with its guess first: "Queue this after one-lem-parallel-landings, after another task (name it), or no order?". While he is away it asks nothing: when exactly one open task fits his words, the task is queued after that one, and its first line and its state say which task Lem took; when none fits, or more than one, the task is held for him with his words, shows in the list of what waits for him, and nothing of it starts.
 
 ## How it works
 
@@ -40,8 +40,8 @@ flowchart TD
   T -->|"no, and he is there"| K["One question, with Lem's guess first"]
   T -->|"no, he is away, one open task fits"| G["Queued after that task, and Lem says which it took"]
   T -->|"no, he is away, none or several fit"| H["Held for him, with his words"]
-  K -->|"y, or the task he names"| Q
-  K -->|"n"| C
+  K -->|"yes, or the task he names"| Q
+  K -->|"no order"| C
   H -->|"he is back: the one question"| K
   Q -->|"that task ended, or his word: start it now"| R["The task goes on where it stopped: the interview, the fast track, the investigation or the lead"]
 ```
@@ -100,11 +100,15 @@ Read in the code at `7971845`:
      invoice shows 0") are no order. A task that has ended meets his order already: the order adds
      no wait, and the need of step 7 is still read, as for an ask with no order. When the session
      cannot tell which task his words name (a typo, words that fit no task or more than one), it
-     never starts the task against the order: the order is a read of step 1's one question, in one
-     line with its guess first ("Queue this after SLUG? (y/n)"). When the track, the type or careful
-     is unclear too, the one line holds both guesses ("Fast track, and queued after SLUG? (y/n)").
-     His "y", or the task he names in his answer, queues it; his "n" is his word that no order holds,
-     logged with `lem decisions log SLUG --by owner --words`, and the need of step 7 is still read.
+     never starts the task against the order: the order is a read of step 1's one question, in one line
+     with its guess first and its three answers named ("Queue this after SLUG, after another task (name
+     it), or no order?"), so that no answer has two readings. When the track, the type or careful is
+     unclear too, the one line holds that guess beside it, and the order keeps its three answers ("Fast
+     track, and queued after SLUG, after another task (name it), or no order?"). His yes queues it after
+     SLUG; a task he names queues it after that task; his "no order" is his word that no order holds,
+     logged with `lem decisions log SLUG --by owner --words`, and the need of step 7 is still read. An
+     answer that still names no task Lem can tell holds the task for him, as below, with his words
+     (decision 10 of the record, design choice B).
      While he is away it asks nothing: when exactly one open task fits his words, it queues the task
      after that one, says in its first line and in the state which task it took, and logs the read
      (`lem decisions log SLUG --by lem`); when none fits, or more than one, it writes the state
@@ -311,7 +315,8 @@ widened, 7 and 8 new.
    words that name no task Lem can tell, the session asks once with its guess; while the owner is
    away it queues the task after the one open task that fits, or holds it for him when none or
    several fit, with the fixed first line `the order waits for the owner`, which `prompts/session.md`
-   routes to that one question, also in a fresh session. His "n" is his word that no order holds.
+   routes to that one question, also in a fresh session. The question names its three answers (this
+   task, another task by name, no order), so a bare "n" has no reading to take (design choice B).
    The plan's first form started such a task while he is away; the dialectic found that this removes
    his order without his word.
 4. **The board's two texts lose "it needs".** "Another task" is true for a need and for an order, so
