@@ -35,7 +35,8 @@ or `queue` (the board's server opened it for that), `night`, or `owner` (his wor
 
 ## What comes next
 
-- **The shape**: no state block yet, a new request: "The request" of `SKILL_DIR/stages/new.md`.
+- **The shape**: no state block yet, a new request, or `held` with `the request waits for one
+  answer`: "The request" of `SKILL_DIR/stages/new.md`.
   `held` with `the interview waits for the owner`, or with `the criteria wait for the owner`:
   `SKILL_DIR/stages/interview.md`, from where its files stand. `held` with `the investigation
   waits for one more fact`: his answer, then a fresh investigator (`SKILL_DIR/stages/investigate.md`,
@@ -59,7 +60,8 @@ task's newest state block and the file the reply names. A reply that holds the w
 because its agent was refused the write, you write into the report file word for word, with one
 line at the top that says who copied it and why. A builder that ended without its last step
 (no state block, no report) is started once more with the same brief; after a second such end,
-write `blocked` with what its reply showed. A reply for a task that went on without it, or ended,
+write `blocked` with what its reply showed, and say it in one line: the board's row and its push
+tell the owner. A reply for a task that went on without it, or ended,
 is stale: do nothing for it.
 
 ## A change of phase
@@ -71,7 +73,9 @@ Your phase ends when the state you write gives the next one: the owner's yes to 
    sees a subagent, so only you know.
 2. **The state block** that ends your phase.
 3. **`handoff.md`** in the task directory, whole, in the form of `SKILL_DIR/templates/handoff.md`:
-   the line `task: SLUG · from PHASE · written: TIME`, then what is settled, what is open, the next
+   the line `task: SLUG · from PHASE · written: TIME`, PHASE being the phase that ends by the
+   task's state (a session that led its task from the shape through the build writes `from build`
+   at `ready`; `lem session next` refuses another and names the one it wants), then what is settled, what is open, the next
    step, what failed, and each file you changed by its path with its status. Link a plan, a record
    or a commit by its path or its id, and copy no text of it.
 4. `lem session next SLUG`. It opens the next session and prints its `say` and the line that

@@ -303,8 +303,8 @@ as corrections: edit, commit on the same branch, say for each file what changed.
   brings none of them, and installs one only on his yes; a guide copies a skill into the owner's
   own skills folder, so where your agent refuses you the step, give him the guide's commands;
 - **the task picker**, when the check's `task picker` row is not found: a chord in agterm that
-  lists this repository's tasks, what waits for him first, and opens the board of the one he
-  picks. The keymap is agterm's file, and he adds the row's `line` to it himself, as the harness
+  lists this repository's tasks, what waits for him first, and goes to the session of the one he
+  picks, or opens its board when no session runs it. The keymap is agterm's file, and he adds the row's `line` to it himself, as the harness
   file says. A row with no `line` is no offer: its `without_it` says why;
 - **cronn**, when it is installed and not running: through the `cronn` skill when that skill is
   there; its agent starts at login, so it is started only on his yes, and the harness file says

@@ -95,7 +95,7 @@ page, and type "land". Then type your first request.
 | `/lem <request>`, in any session | Lem opens a task in a session of its own, and the task tells you its type and track |
 | `/lem` | the list of what waits for you, and the board |
 | `/lem status <task>` | the board of one task |
-| a chord in agterm (`ctrl+cmd+t`) | pick a task, and its board opens |
+| a chord in agterm (`ctrl+cmd+t`) | pick a task: you go to its session, or its board opens when no session runs it |
 | `/lem serve tailscale` | your phone gets the board, through Tailscale. Lem gives the address |
 | `/lem plan <request>` | a standard-track task that stops after its plan. `/lem build` builds it |
 | `/lem land <task>` | you merge an open pull request yourself |

@@ -9,9 +9,10 @@
 | git, and Python 3.11 or newer: `python3`, a `python3.N` on `PATH`, the Homebrew Python, or a Python that uv has | branches, worktrees, scripts |
 | [revmux](https://github.com/umputun/revmux) and its skill | the review before each pull request |
 | [cronn](https://cronn.umputun.dev) | the scheduled retro and night run |
-| the mailbox chat, webrev, agdoc and the backlog recipe, from the [agterm cookbook](https://github.com/umputun/agterm/tree/master/cookbook) | the wake-up of a task's session, agent messages, and pages to read and mark up |
+| the mailbox chat, webrev and the backlog recipe, from the [agterm cookbook](https://github.com/umputun/agterm/tree/master/cookbook) | the wake-up of a task's session, agent messages, and pages to mark up |
 | a remote on GitHub, and the [GitHub CLI](https://cli.github.com) `gh`, signed in | the pull requests, the one way a task lands |
 | [Codex](https://github.com/openai/codex): optional, highly recommended | a second model family for the review |
+| agdoc, from the agterm cookbook: optional | a page that you ask for, about an issue, a plan or a change |
 | `JEV_API_KEY`, a key for the Jev decision model: optional | [the correction queue](#the-correction-queue) |
 
 `/lem init` checks each tool and says how to install it.
@@ -92,8 +93,8 @@ names another. To say no for yourself, put `collect = false` under `[corrections
 
 ## Update
 
-Run these two commands, then start a new session. It also replaces the board server. Update Lem in
-each repository that uses it: one board server serves all of them.
+Run these two commands, then start a new session, which also replaces the board server. Update
+each repository: one board server serves them all. `lem doctor` shows each one you missed.
 
 ```bash
 claude plugin marketplace update lem

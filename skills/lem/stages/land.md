@@ -56,7 +56,8 @@ landing up as after a cut-off.
 1. **`start`.** The task's landing starts and its state becomes `landing`. Another task in
    `landing` does not stop it. It is refused for a worktree with changes nobody committed. A project
    with no command in its checks cannot land through this skill, because "nothing failed" would then mean
-   "nothing ran": the step writes the task's state as `blocked` instead, and you tell the owner.
+   "nothing ran": the step writes the task's state as `blocked` instead, and you tell the owner in
+   one line: the board's "Waits for you" shows the row, and its push sends it.
    Once the commands are in the settings, `start` again takes the task it blocked.
    The one exception is the task that sets up the checks (`stages/init.md`): when the main
    checkout's settings have no command in `checks.commands` and the task's own branch adds them to its
@@ -142,11 +143,13 @@ landing up as after a cut-off.
    open a task for the failing command ("Open the task" of `stages/new.md`, with no talk and no
    focus), write this task's state as `blocked` with the lines `the base is red` and `after: SLUG`
    of that new task, and `run-in-background` with `lem session wait SLUG --until
-   landed,dropped,answered`, SLUG being the new task. When it ends with that task `landed`, write
+   landed,dropped,answered`, SLUG being the new task. When it ends with `"gone": true`, that task's
+   session is gone: open it again once, `lem session open SLUG --why dead`, and wait again; a second
+   time, tell the owner in one line. When it ends with that task `landed`, write
    this task's state `ready` with the line `the base is green again`, and land again from step 1;
    otherwise tell the owner in one line. Skipping or changing a command of the checks is the owner's
    decision only. After two builders on the same failure, write the state `blocked` and tell
-   the owner.
+   the owner in one line: the row of "Waits for you" and its push tell him too.
 5. **The review**, before anything is proposed. `lem land read SLUG` says whether one is due, the
    least it may be, and what a reviewer gets; keep its output as `read.json` in the task
    directory.

@@ -32,7 +32,10 @@ Nothing asks him. This session keeps no watch of the owner's mark and takes no s
    on both tracks (the fast track's with `lem criteria approve SLUG --file TASK_DIR/criteria.md
    --alone`), and its pull request is not green for them: the merge agent calls the owner.
 4. **Wait until it stops, then the next.** `run-in-background` with `lem session wait SLUG --until
-   open,held,blocked,landed,dropped,answered`; its end wakes this session. The ladder decides each
+   open,held,blocked,landed,dropped,answered`; its end wakes this session. When it ends with
+   `"gone": true`, the task's session is gone: open it again once, `lem session open SLUG --why
+   dead`, and wait again; when it is gone a second time, name the task in the night report and go
+   on with the next item. The ladder decides each
    choice, as by day; a breaker (`stages/breaker.md`) holds its task for the morning, and the
    report names its document. Then the next item. The night ends when the last one is `open`,
    `held`, `blocked` or ended.

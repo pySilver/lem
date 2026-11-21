@@ -54,15 +54,19 @@ review". [The pull request](pull-request.md) tells more.
 
 Type `/lem`. Lem opens the board, and gives one list in this order:
 
-1. the breakers;
+1. the breakers, and each task that needs a session and has none: "Open a session" starts a
+   fresh agent;
 2. the acceptance criteria that wait for your yes;
 3. the tasks that wait for a step of yours, or for one more fact;
-4. the pull requests that the merge agent calls you for, and each merge that GitHub or Lem
-   refused, each green or with its reasons;
-5. the changes that the morning retro proposes.
+4. the tasks that stopped on a problem that they cannot solve alone;
+5. the plans that wait for you to read them;
+6. the merge reviews that call you;
+7. the pull requests that wait for your merge, and each merge that GitHub or Lem refused, each
+   green or with its reasons;
+8. the changes that the morning retro proposes.
 
-The [board](board.md) shows the same list in its view **Waits for you**. A task that needs a
-session and has none shows "no session" there, and "Open a session" starts a fresh agent.
+The [board](board.md) shows the same rows, in the same order, in its view **Waits for you**. When
+Lem cannot read the sessions of agterm, the list says so.
 
 <p align="center">
   <picture>

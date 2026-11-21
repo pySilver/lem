@@ -32,19 +32,28 @@ lem project waiting
 While `owner` says that he is away, the list's first line says so and since when, in his clock,
 and that it holds for the whole machine, since he may have said it in another repository: "You
 are away since 14:05, in every repository on this machine; the tasks go on without you until /lem im-back."
-Then it gives each kind under its key, in this order, and you say them so, in plain names and
-never in task codes, one line each, and leave out a kind that has none:
+Then it gives the board's own rows of "Waits for you", in the board's order (`rows`, each with its
+`kind` and its task), and you say them so, in plain names and never in task codes, one line each,
+with each kind's entry under its key, and leave out a kind that has none:
 
 1. `breakers`: each breaker of a task that waits for him: the task and the document's title;
-2. `criteria`: each task whose acceptance criteria wait for his yes;
-3. `held`: each task that waits for a step of his or one more fact, with that step;
-4. `pull_requests`: each open pull request whose merge waits for him, its address, and green or
+2. `no_session`: each task whose session is gone (`need: gone`) or does not answer a wake-up
+   (`need: deaf`); the board's "Open a session", or `lem session open SLUG --why dead`, opens one;
+3. `criteria`: each task whose acceptance criteria wait for his yes;
+4. `held`: each task that waits for a step of his or one more fact, with that step;
+5. `blocked`: each task its session stopped on something it cannot settle alone, with its `line`;
+   he answers in the task's session or with `/lem drop SLUG`;
+6. `plans`: each plan that waits for him to read it;
+7. `reviews`: each merge review that calls him, "read the merge review" with its `why`;
+8. `pull_requests`: each open pull request whose merge waits for him, its address, and green or
    each reason it is not (one the merge agent still reads, or that the board's server merges after
-   a `merge` verdict, is not in the list); when its `merge_review` calls him, "read the merge
-   review" with its `why`; when `merge_refused` holds GitHub's or Lem's line, that line; a task
-   with a `night` says "of the night";
-5. `retros`: "the retro of DATE proposes N changes" for each file; a file with a `problem` is
+   a `merge` verdict, is not in the list); when `merge_refused` holds GitHub's or Lem's line, that
+   line; a task with a `night` says "of the night";
+9. `retros`: "the retro of DATE proposes N changes" for each file; a file with a `problem` is
    named with it.
+
+When `sessions.known` is false, say in one line that the tasks' sessions are not known, with
+`sessions.said`: no task with no session can show then.
 
 When `count` is 0, say "nothing waits for you" in one line. Then, after the list, what builds and
 what each other task waits on, what landed today, and what was answered today with its answer in

@@ -45,7 +45,9 @@ of his text), runs step 3 with his words or the item's path as the ask, and step
    for each turn of his in between that is another topic. It copies the turns word for word into
    `talk.md` in the task directory, also those from before a compaction, and refuses with the fix
    when no turn of his starts with those words.
-5. **Open its session**: `lem session open SLUG --why new --focus`. Say its `say` in one line, and
+5. **Open its session**: `lem session open SLUG --why new --focus`. `task-dir` and `session open`
+   put the repository's main checkout into the machine's list of workspaces, so the board's server
+   shows it from its first task, as "Starting" until its session writes a state. Say its `say` in one line, and
    go back to what this session was doing. Read no code and choose no type or track: the task's
    own session does.
 
@@ -92,7 +94,9 @@ The task's own session, in the shape, from its first message.
    the diff makes the last.
    **One question when the read is not clear.** When the words and what you looked at do not
    settle the track, the type or whether it is careful, ask once, in one line with your guess
-   first: "I read this as a fix for the fast track: one rule in `shop/dates.py`. Fast track?
+   first, after the state `held` with the line `the request waits for one answer` (`lem project
+   state SLUG held "the request waits for one answer"`), so that the board shows the question as
+   his: "I read this as a fix for the fast track: one rule in `shop/dates.py`. Fast track?
    (y/n)", or "Is the 0 wrong today, a fix, or do you want a new rule for refunds, a feat?" (his
    example of 2026-11-16: "From such input its kinda hard to deduct if we want to investigate the
    bug or its a feature request."). One question at most; his answer settles it, and you go on. A

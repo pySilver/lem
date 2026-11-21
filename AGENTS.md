@@ -1299,6 +1299,24 @@ scratch repository (R1 to R6) and the final audit of `636b24c` (A1 to A15).
   `agent_runs` read only the first two words, so the board said "No session runs this task" and
   the owner opened a second session beside the live one; it now reads the `-c` string as a shell
   would.
+- **Two reviews of the release, and what the session took** (2026-11-21). The owner asked for them:
+  "Spawn a Fable reviewer that should review the lem and detect what's missing in our
+  implementation ... Also spawn an Opus agent that should verify our migration plan". The Fable
+  reviewer found 14 gaps in the code (F1 to F14); the Opus agent checked the plan's 137 promises
+  (O1 to O10). Between them: an onboarding that never reached GitHub, a moved base that ended in a
+  dead end, a night's fast track that came out green, a dropped task that started its follower, a
+  session that did not know it was no longer its task's newest, a terminal and a phone that listed
+  different things, and a harness file that every session read whole.
+  `.lem/state/tasks/one-lem-parallel-landings/review-verdicts.md` holds what was settled with both,
+  in three groups (the landing, the server, the texts), all built that day. Not taken: a second load number and a load gate for a builder's tests
+  (the second number went by the companion's decision, told to the owner, and a builder runs only
+  the tests of the files it changed); a `dnd` word in the command table (his ruling keeps one word
+  for a command, and plain words work); the parity tool and two measurements (the tool lost its
+  subject with the old page, and the look of `bin/lem` measured 0.4 ms, as the
+  redesign plan's status line says); the rule "Lem is not released", the night of Lem's own repository
+  and `start = 8`, which are the owner's; a guard on who wrote the merge verdict, which the Opus
+  reviewer weighed and did not propose; and the day's case of F5, an item an agent filed that the
+  owner starts on the board, where his start is his word.
 
 ## Checks
 
@@ -1398,7 +1416,9 @@ Each script's module docstring says what it does and why; this list says where e
     `handoff` numbers.
   - `session.py` (`lem session`): a task's own session in agterm, its change of phase, its wake-up,
     the handoff's check and the copy of the talk; `session_hook.py`: the plugin's `PreCompact` and
-    `SessionStart` (`compact`) hooks of a task's session.
+    `SessionStart` hooks of a task's session (every source: the record of each Claude Code session of
+    the task, and after a compaction the task's files); `lem_tokens.py`: the tokens a task's Claude
+    Code sessions spent, from their transcripts, for the merge brief.
   - `land.py` (`lem land`): the landing, one refusable step at a time, from `ready` through the
     checks and the review to a pull request on GitHub, the merge agent's read, the merge and the
     cleanup.
@@ -1436,7 +1456,8 @@ Each script's module docstring says what it does and why; this list says where e
   the devices `push.json`.
 - `.lem/`: Lem's own settings, profile, cast and lessons, in the places every repository has them.
   Its `state/`, which git ignores, is the state of a repository's Lem: the tasks, the event log,
-  the night reports, the naps, the experts' folders and a panel's copies. `.lem/worktrees/` holds
+  the night reports, the naps, the experts' folders, a panel's copies, and `forge.json`, the board
+  server's last look at GitHub. `.lem/worktrees/` holds
   the tasks' worktrees. `.revmux/` is the review tool's configuration for this repository.
 - The naps, an optional part: `prompts/nap.md` is written after the owner's own nap routine and
   keeps its voice (a change is tried with one real nap, and its dream is read: a brief that makes a
@@ -1450,7 +1471,8 @@ Each script's module docstring says what it does and why; this list says where e
   `project.py` (`tests/lem-settings.sh` checks it). How Lem works inside is in this file and the
   skill. Beside them: `free-hour.md` (how an unattended maintainer's session may change Lem),
   `backlog/`, Lem's own deferred work, and `plans/`, the plans that built Lem, each finished one
-  with a status line that names its commits and where later decisions changed it.
+  with a status line that names its commits and where later decisions changed it; the redesign of
+  2026-11-20 is `plans/2026-11-20-a-session-for-each-task.md` and its folder.
 - `tests/`: the suites of "Checks". `unit/` is the unit level, a `test_*.py` for each script;
   `lib.sh` is what each `lem-*.sh` block sources, `checks.sh` how every suite counts its checks,
   `suites.sh` and `limit.py` what `all.sh` and `test-lem.sh` share, and `pick.py` the map of which
