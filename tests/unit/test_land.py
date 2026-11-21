@@ -448,3 +448,25 @@ class EventLog(unittest.TestCase):
         self.assertEqual([record["say"] for record in land.events_all(self.task)], [self.WORDS, self.WORDS])
         self.assertEqual([record["say"] for record in land.gate_ends(self.task)], [self.WORDS])
         self.assertEqual((land.waits_of(self.task, "2026-11-21T09:00:00Z") or {}).get("say"), self.WORDS)
+
+
+class SameChecks(unittest.TestCase):
+    """`land.same_checks`: a green result holds only for the commands that ran, in their order and with
+    their serial flags; a command added, removed, moved to `serial` or none at all asks for the checks."""
+
+    SAVED = [{"command": "python3 -m unittest", "exit": 0}, {"command": "sh e2e.sh", "exit": 0, "serial": True}]
+
+    def test_the_commands_that_ran(self) -> None:
+        self.assertTrue(land.same_checks(self.SAVED, ["python3 -m unittest"], ["sh e2e.sh"]))
+
+    def test_a_command_added_or_removed(self) -> None:
+        self.assertFalse(land.same_checks(self.SAVED, ["python3 -m unittest", "ruff check"], ["sh e2e.sh"]))
+        self.assertFalse(land.same_checks(self.SAVED, ["python3 -m unittest"], []))
+
+    def test_a_command_moved_to_serial(self) -> None:
+        self.assertFalse(land.same_checks(self.SAVED, [], ["python3 -m unittest", "sh e2e.sh"]))
+
+    def test_no_command_holds_no_result(self) -> None:
+        # docs/settings.md: "With no command, only the task that adds one can land"
+        self.assertFalse(land.same_checks(self.SAVED, [], []))
+        self.assertFalse(land.same_checks([], [], []))

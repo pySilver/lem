@@ -69,6 +69,24 @@ else
 fi
 project --repo "$GRD" state no-gate dropped "the test is over" >/dev/null
 
+# A green result holds for the commands that ran: the main checkout's settings that lose them all, or that add
+# one, after the checks passed ask for the checks again; the same commands as before let the proposal go.
+small_task_in "$GRD" new-command c.txt c
+g start new-command >/dev/null && g base new-command >/dev/null && g checks new-command >/dev/null && g read new-command --record "$(clean 1)" >/dev/null
+grd_settings ''
+none=$(g propose new-command --title "fix: c" --notes "$NOTES" 2>&1 || true)
+grd_settings '"true", "test -d tests"'
+added=$(g propose new-command --title "fix: c" --notes "$NOTES" 2>&1 || true)
+grd_settings '"true"'
+same=$(g propose new-command --title "fix: c" --notes "$NOTES" 2>/dev/null | field 'd["green"]' || true)
+changed="the commands of the checks are not the ones that passed"
+if grep -qF "$changed" <<<"$none" && grep -qF "\`lem land checks new-command\` comes first" <<<"$none" && grep -qF "$changed" <<<"$added" && [ "$same" = True ]; then
+  pass "a green result is for the commands that ran: with none left, or one more, in the main checkout's settings, propose asks for the checks again; with the same, it proposes"
+else
+  fail "a green result after the commands changed: $none / $added / $same"
+fi
+project --repo "$GRD" state new-command dropped "the test is over" >/dev/null
+
 # A task whose worktree was removed by hand while it lands: another task starts its landing beside it, and the task's own step names the way out.
 small_task_in "$GRD" stuck s.txt s
 g start stuck >/dev/null

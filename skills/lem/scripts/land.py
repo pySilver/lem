@@ -2467,14 +2467,37 @@ def named(value: object, where: str) -> list[dict]:
     return value
 
 
+def same_checks(results: list[dict], commands: list[str], serial: list[str]) -> bool:
+    """Whether a kept result of the checks (its `commands`, each with its `serial` flag) ran the commands
+    the checks have now, in their order: the plain ones, then the serial ones. With no command there is
+    no result to hold: only the task that adds one lands (`docs/settings.md`, `[checks]`)."""
+    ran = [(entry.get("command"), bool(entry.get("serial"))) for entry in results]
+    now = [*((command, False) for command in commands), *((command, True) for command in serial)]
+    return bool(commands) and ran == now
+
+
+def gate_missing(task: Task, tip: str) -> str | None:
+    """Why no result of the checks holds for `tip`, in words for a refusal; None when one holds."""
+    if gate_holds(task, tip):
+        return None
+    kept = task.kept()
+    if kept.get("gated") and not same_checks((kept.get("checks") or {}).get("commands") or [], task.gate()[0], task.settings["checks"]["serial"]):
+        return "the commands of the checks are not the ones that passed (checks.commands and checks.serial of the main checkout's .lem/project.toml changed since), so their green result is not this one's"
+    return "no green check is on record for this tip"
+
+
 def gate_holds(task: Task, tip: str) -> bool:
-    """Whether the result of the checks holds for `tip`: the tip is the commit they passed on, or that commit
+    """Whether the result of the checks holds for `tip`: it ran the commands the checks have now
+    (`same_checks`: the main checkout's settings count at once, an edit nobody committed too), and the
+    tip is the commit they passed on, or that commit
     with commits after it that only add the backlog items `file` wrote for this landing's reviews.
     Those hold no code and no test, so they ask for no checks again; the result is then kept for the
     tip, so that `land` finds what it checks. Any other commit, an item written by hand among them,
     asks for the checks."""
     kept = task.kept()
     gated = kept.get("gated")
+    if gated and not same_checks((kept.get("checks") or {}).get("commands") or [], task.gate()[0], task.settings["checks"]["serial"]):
+        return False
     if gated == tip:
         return True
     if not gated or not holds_commit(task, gated, tip):
@@ -2593,8 +2616,9 @@ def cmd_read(task: Task, record: str | None) -> dict:
     task.need_landing()
     task.need_worktree()
     state = due(task)
-    if not gate_holds(task, state["tip"]):
-        raise LandError(f"the review is of the tip the checks passed on, and no check is on record for this tip; `lem land checks {task.slug}` comes first")
+    missing = gate_missing(task, state["tip"])
+    if missing:
+        raise LandError(f"the review is of the tip the checks passed on, and {missing}; `lem land checks {task.slug}` comes first")
     reads = task.kept().get("reads", [])
     if record is None:
         # The review starts when it is due, and its record ends it. A second `read` of the same
@@ -3169,8 +3193,9 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     if task.forge != "github":
         raise LandError(not_github(task))
     tip = git(task.worktree, "rev-parse", "HEAD")
-    if not gate_holds(task, tip):
-        raise LandError(f"no green check is on record for this tip; `lem land checks {task.slug}` comes first")
+    missing = gate_missing(task, tip)
+    if missing:
+        raise LandError(f"{missing}; `lem land checks {task.slug}` comes first")
     kept = task.kept()
     reads = kept.get("reads", [])
     unfiled = to_file(reads)
@@ -3685,8 +3710,9 @@ def merge_locked(task: Task, by: str, message: str | None, via: str, standing: b
         raise Refusal("tip", f"the branch's tip is not the tip that was proposed; {AGAIN}")
     if view["headRefOid"] != tip:
         raise Refusal("tip", f"the pull request's head is not the tip that was proposed; {AGAIN}")
-    if not gate_holds(task, tip):
-        raise Refusal("tip", f"no green check is on record for this tip; {AGAIN}")
+    missing = gate_missing(task, tip)
+    if missing:
+        raise Refusal("tip", f"{missing}; {AGAIN}")
     if standing and (kept.get("owner_tap") or {}).get("tip") != tip:
         raise Refusal("tip", f"no merge of the owner's stands for the proposed tip: it ended at the proposal (`lem land propose` said why), and the owner merges it again from the board or with `lem land merge {task.slug} --by owner`")
     squash = task.settings["branch"]["history"] == "squash"

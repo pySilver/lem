@@ -28,7 +28,9 @@ Paths are relative to the root of the repository.
 ## `[checks]`
 
 During the build, each builder runs only the tests of its own change. Before the pull request, Lem
-runs the commands below one time, in the worktree of the task.
+runs the commands below one time, in the worktree of the task. When you change `checks.commands` or
+`checks.serial`, a task whose checks passed runs them again before its pull request and before its
+merge.
 
 | Setting | Default | Use |
 | --- | --- | --- |
