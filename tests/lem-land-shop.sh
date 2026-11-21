@@ -273,7 +273,7 @@ err=$(land --repo "$SHOP" read second-change 2>&1 || true)
 land --repo "$SHOP" checks second-change >/dev/null
 out=$(land --repo "$SHOP" read second-change)
 land --repo "$SHOP" read second-change --record "$(record 2 '{"kind": "full", "ran": [{"name": "default", "why": "the request is careful"}], "answered": ["codex", "claude", "gemini"], "nit": 2}')" >/dev/null
-if grep -q "no check is on record for this tip" <<<"$err" && [ "$(field '(d["due"], d["floor"], d["round"], len(d["reads"]))' <<<"$out")" = "('review', 'full', 2, 1)" ]; then
+if grep -q "no green check is on record for this tip" <<<"$err" && [ "$(field '(d["due"], d["floor"], d["round"], len(d["reads"]))' <<<"$out")" = "('review', 'full', 2, 1)" ]; then
   pass "a fix is reviewed only after the machine checks ran on it, and the second round knows the first"
 else
   fail "the second round: $err / $out"
