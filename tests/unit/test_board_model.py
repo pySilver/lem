@@ -322,3 +322,35 @@ class Reader(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MovedBase(unittest.TestCase):
+    """An open task whose merge met a moved base is Lem's to land again, and one whose owner's merge stood
+    through that landing is the server's to merge; a dropped task does not start the task queued behind it."""
+
+    PR = "pull request https://github.com/acme/shop/pull/41"
+
+    def test_a_base_refusal_is_no_row_and_githubs_is_his(self):
+        proposed = (ev(0, "proposed", green=True, not_green=[], tip="abc123456"), state(1, "open", self.PR))
+        base = model(*proposed, ev(2, "merge.refused", by="owner", via="server", **{"from": "lem"}, kind="base", said="origin/main moved after the checks ran", tip="abc123456"))
+        t = base.tasks[0]
+        self.assertEqual((t.merge_wait, t.for_owner, t.info["label"], bm.waits_of(base)), ("relands", False, "Lem lands it again", []))
+        github = model(*proposed, ev(2, "merge.refused", by="owner", via="server", **{"from": "github"}, said="Required status check is expected", tip="abc123456"))
+        self.assertEqual([w["kind"] for w in bm.waits_of(github)], ["merge"])
+
+    def test_a_merge_of_his_that_stands_is_the_servers(self):
+        again = (ev(0, "proposed", green=True, not_green=[], tip="def456789"), state(1, "open", self.PR),
+                 ev(2, "merge.review", verdict="merge", calls=True, why="branch.land is owner", by="claude", tip="def456789", carried="abc123456"),
+                 ev(3, "merge.stands", by="owner", tip="def456789", **{"from": "abc123456"}))
+        t = one(*again)
+        self.assertEqual((t.merge_wait, t.for_owner), ("merges", False))
+        # a stand of an older tip is none
+        older = one(*again[:3], ev(3, "merge.stands", by="owner", tip="fff000111"))
+        self.assertEqual(older.merge_wait, "owner")
+
+    def test_a_dropped_task_leaves_the_task_behind_it_queued(self):
+        queued = state(1, "queued", "it starts after coupon", "after: coupon")
+        for status, ended, dropped in (("landed", True, False), ("answered", True, False), ("dropped", False, True), ("open", False, False)):
+            m = model(state(0, status, "it ended" if status != "open" else self.PR, task="coupon"), queued)
+            t = m.by_slug["gift-note"]
+            self.assertEqual((bm.after_ended(t, m), bm.after_dropped(t, m)), (ended, dropped), status)

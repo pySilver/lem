@@ -2,7 +2,10 @@
 
 The settings' `paths.plan_file` and `paths.ruling_file` are patterns of the tokens `YYYY`, `MM`
 and `DD`, the day the file was written, and `<slug>`, the task's or the ruling's (`project.py`
-checks them). `project.py` and `criteria.py` import this file; it reads nothing and writes nothing.
+checks them). `project.py` and `criteria.py` import this file; it writes nothing, and of the state
+folder it reads only `resumed-from.txt`, the file that names the task a resumed one came from
+(`lem project resume`): a task resumed as SLUG-2 works on a branch cut from the old one's tip, so its
+plan is the old slug's file until its lead writes one of its own name.
 """
 
 import re
@@ -30,16 +33,37 @@ def name(pattern: str, slug: str, day: str) -> str:
     return pattern.replace("<slug>", slug).replace("YYYY", year).replace("MM", month).replace("DD", date_)
 
 
-def found(folder: Path, pattern: str, slug: str) -> Path | None:
+# The file of a resumed task's directory that names the task it came from (project.py's RESUMED_FROM).
+RESUMED_FROM = "resumed-from.txt"
+
+
+def resumed_from(tasks: Path, slug: str) -> list[str]:
+    """The tasks a resumed task came from, the nearest first, from the `resumed-from.txt` of each task
+    directory in TASKS (the state folder's `tasks`); [] for a task that was not resumed."""
+    chain: list[str] = []
+    here = slug
+    while (tasks / here / RESUMED_FROM).is_file():
+        here = (tasks / here / RESUMED_FROM).read_text(encoding="utf-8").strip()
+        if not here or here == slug or here in chain:
+            break
+        chain.append(here)
+    return chain
+
+
+def found(folder: Path, pattern: str, slug: str, before: list[str] | tuple[str, ...] = ()) -> Path | None:
     """The task's plan in the plans folder, or a ruling in the rulings folder: a file of the name the
-    pattern gives. Of several, the one of the newest day."""
+    pattern gives. Of several, the one of the newest day. With BEFORE, the tasks a resumed task came
+    from (`resumed_from`), the plan of the nearest of them that has one when the task has none of its own."""
     if not folder.is_dir():
         return None
-    form = regex(pattern, slug)
-    hits = []
-    for file in folder.iterdir():
-        match = form.fullmatch(file.name)
-        if match and file.is_file():
-            groups = match.groupdict()
-            hits.append(((groups.get("Y") or "", groups.get("M") or "", groups.get("D") or ""), file.name, file))
-    return max(hits)[2] if hits else None
+    for name in (slug, *before):
+        form = regex(pattern, name)
+        hits = []
+        for file in folder.iterdir():
+            match = form.fullmatch(file.name)
+            if match and file.is_file():
+                groups = match.groupdict()
+                hits.append(((groups.get("Y") or "", groups.get("M") or "", groups.get("D") or ""), file.name, file))
+        if hits:
+            return max(hits)[2]
+    return None

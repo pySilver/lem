@@ -70,7 +70,10 @@ works`.
                               as the owner's yes. --alone: Lem or the lead approves the criteria of a task
                               on the standard track while the task runs without the owner (`lem project owner away`, a night),
                               as `by: alone`; refused while it runs with him and after any approval
-                              but Lem's on the fast track. It is never his yes either: the pull
+                              but Lem's on the fast track. On the fast track --alone is the one approval
+                              of a request that is not the owner's own sentence (the night's mark, or
+                              `request by: someone else` in its brief or its state), in any mode, and
+                              --small is refused for it. It is never his yes either: the pull
                               request is not green for it, and his own approval after it takes over
     lem criteria approved SLUG the approved criteria of the task, or null when it has none
     lem criteria digest SLUG [--file FILE]
@@ -164,6 +167,8 @@ import lem_sibling  # noqa: E402
 # The track of a task, as the `Size:` line names it: `full`, the standard track with its plan and lead,
 # or `small`, the fast track of one builder.
 SIZES = ("full", "small")
+# The line of a task's brief, or of a block of its state, that says someone else wrote its complete request (land.py's SOMEONE_ELSE).
+SOMEONE_ELSE = "request by: someone else"
 HEADING = re.compile(r"^##\s+Acceptance criteria\s*$")
 SIZE = re.compile(r"^Size:\s*(\w+)\s*(?:,\s*because|:|—|-)\s*(.+)$", re.IGNORECASE)
 CRITERION = re.compile(r"^(\d+)\.\s+(.+)$")
@@ -376,6 +381,8 @@ class Task:
         if record is None:
             raise CriteriaError(f"no task {slug!r}; the tasks are: {', '.join(task['slug'] for task in tasks) or 'none yet'}")
         self.mode = record.get("mode", "with-owner")
+        # the date of the night that opened the task (its mark), or None for a task of the day
+        self.night = record.get("night")
         self.slug = slug
         self.repo = repo
         self.main = Path(self.settings["main"])
@@ -386,6 +393,17 @@ class Task:
         self.approved_file = self.directory / "criteria.json"
         # the one criterion of a task on the fast track, with its test line: it has no plan, and no commit holds this file
         self.small_file = self.directory / "criteria.md"
+
+    def not_his(self) -> str | None:
+        """Why the task's request is not the owner's own sentence, or None when it is: the night opened
+        it (its mark, `task-dir --night`), or its brief or a block of its state says `request by: someone
+        else`. Never the mode: a request he types while his mark says away is his own."""
+        if self.night:
+            return f"the night of {self.night} opened it"
+        for file in (self.directory / "brief.md", self.directory / "state.md"):
+            if file.is_file() and SOMEONE_ELSE in [line.strip() for line in file.read_text(encoding="utf-8", errors="replace").splitlines()]:
+                return "someone else wrote its request"
+        return None
 
     def read_mode(self) -> str:
         """The task's mode as the state files and the owner's mark say now: another repository's
@@ -414,9 +432,11 @@ class Task:
 
     def criteria(self) -> dict:
         self.need_worktree()
-        # the plan of this task and of no other: the name `paths.plan_file` gives, with the task's whole slug
+        # the plan of this task and of no other: the name `paths.plan_file` gives, with the task's whole
+        # slug, or for a task resumed from a dropped one (`lem project resume`) the old task's plan, which
+        # its branch holds until its lead writes one of its own
         pattern = self.settings["paths"]["plan_file"]["pattern"]
-        found = lem_plans.found(self.plans, pattern, self.slug)
+        found = lem_plans.found(self.plans, pattern, self.slug, lem_plans.resumed_from(self.directory.parent, self.slug))
         small = not found and self.small_file.is_file()
         if not found and not small:
             raise CriteriaError(
@@ -731,8 +751,19 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
         raise CriteriaError(f"criterion {tested[0]} of {source.name} has a test line: the criteria the owner approves have none, and the lead adds them in the plan")
     if by == "lem" and read["size"] != "small":
         raise CriteriaError(f"--small approves the one criterion of a task on the fast track in the owner's name, and {source.name} says `Size: {read['size']}`: the standard track waits for the owner's own yes")
-    if by == "alone" and read["size"] == "small":
-        raise CriteriaError(f"{source.name} says `Size: small`: the fast track's criterion is approved with --small, in either mode")
+    # The fast track's criterion is approved in his name only when the request is his own sentence; a
+    # night's task, or a request someone else wrote, is approved without him, and is not green for it.
+    other = task.not_his() if read["size"] == "small" else None
+    if by == "lem" and other:
+        raise CriteriaError(
+            f"{task.slug} is not the owner's own request ({other}), so Lem does not approve its criterion in the owner's name: "
+            f"`lem criteria approve {task.slug} --file {source} --alone` approves it without the owner, and its pull request is not green for it",
+        )
+    if by == "alone" and read["size"] == "small" and not other:
+        raise CriteriaError(
+            f"{source.name} says `Size: small`, and the request is the owner's own: the fast track's criterion is approved in the owner's name with --small, in either mode; "
+            "--alone is for a night's task or a request someone else wrote",
+        )
     criteria = [{key: criterion[key] for key in ("n", "text", "case", "chart")} for criterion in read["criteria"]]
     # one mark for this exact set of approved texts, each with its case; the approval itself is known by its number
     digest = text_digest(read["size"], [whole(criterion) for criterion in criteria])
@@ -742,8 +773,9 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
         if by in AUTOMATIC:
             first_contract(task, by)
         if by == "alone":
-            # the mode at the approval, under the lock: the owner may have come back since the task was read
-            if task.read_mode() != "alone":
+            # the mode at the approval, under the lock: the owner may have come back since the task was read;
+            # on the fast track the key is the request's author (`not_his`), never the mode
+            if not other and task.read_mode() != "alone":
                 raise CriteriaError(f"{task.slug} runs with the owner: the owner's yes approves its criteria (`stages/interview.md`, step 7), and --alone is for a task that runs without the owner")
             kept = task.approved()
             # a fast-track task that turned out to need the standard track needs that path's approval; any other approval stands

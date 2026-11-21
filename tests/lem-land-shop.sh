@@ -169,19 +169,22 @@ fi
 echo more >> "$other/docs/guide.md" && git -C "$other" add -A && git -C "$other" commit -q -m "docs: more" && git -C "$other" push -q origin main
 docs_err=$(land --repo "$SHOP" merge first-change --by owner 2>&1 || true)
 land --repo "$SHOP" start first-change >/dev/null && land --repo "$SHOP" base first-change >/dev/null && land --repo "$SHOP" checks first-change >/dev/null
-land --repo "$SHOP" read first-change >/dev/null && propose first-change
-# the review of the tip proposed before counts for nothing: the new tip is read again
-stale=$(land --repo "$SHOP" merge first-change --by merger 2>&1 || true)
-read_again=$(merge_read "$SHOP" first-change)
-out=$(land --repo "$SHOP" merge first-change --by merger)
-if grep -q "moved after the checks ran, by files (docs/guide.md)" <<<"$docs_err" && grep -qF "no merge review of the proposed tip is on record" <<<"$stale" \
-  && [ "$(field '(d["verdict"], d["calls"], d["next"].startswith("the board\x27s server merges it") and "lem land merge first-change --by merger --via server" in d["next"])' <<<"$read_again")" = "('merge', False, True)" ] \
+land --repo "$SHOP" read first-change >/dev/null
+again=$(land --repo "$SHOP" propose first-change --title "fix: first-change" --notes "$NOTES")
+# the merge review of the tip before carries onto the new tip, with its call of the owner as the settings say now,
+# and the owner's merge that the moved base refused stands for it: the server's merge runs it after the re-check
+review=$(kept first-change merge_review | "$PY" -c 'import ast, sys; d = ast.literal_eval(sys.stdin.read()); print((d["verdict"], d["calls"], d["tip"] == sys.argv[1], "carried_from" in d))' "$(kept first-change proposed)")
+out=$(land --repo "$SHOP" merge first-change --by owner --via server --standing)
+if grep -q "moved after the checks ran, by files (docs/guide.md)" <<<"$docs_err" && grep -qF "the owner's merge stands while the change and the reasons it is not green stay the same" <<<"$docs_err" \
+  && [ "$(field '(d["merge_review"], d["owner_merge"].startswith("stands"))' <<<"$again")" = "('carried', True)" ] && [ "$review" = "('merge', False, True, True)" ] \
+  && [ "$(kept first-change relands)" = 2 ] && grep -q '"event": "merge.stands", "task": "first-change", "by": "owner"' "$SHOP/.lem/state/events.jsonl" \
   && [ "$(field '(d["pull_request"]["number"], d["left_behind"])' <<<"$out")" = "(1, None)" ] && [ "$(status first-change)" = landed ] \
+  && [ "$(kept first-change merged_by)" = "{'by': 'owner', 'via': 'server', 'after': 'a re-check'}" ] \
   && [ "$(git -C "$ORIGIN" log -1 --format=%s main)" = "fix: first-change" ] && [ "$(git -C "$SHOP" rev-parse main)" = "$(git -C "$ORIGIN" rev-parse main)" ] \
   && [ -f "$SHOP/ok.txt" ] && [ -f "$SHOP/late.txt" ]; then
-  pass "where the settings allow it the merge agent merges a request that is green and not careful after its read of the proposed tip; a base that moved by a document is refused too, and after the checks run again it merges through GitHub: the main checkout fast-forwarded, the state landed"
+  pass "a base that moved by a document is refused too; landed again, the merge review carries onto the new tip and the owner's merge that the base refused stands, so it merges through GitHub after the re-check: the main checkout fast-forwarded, the state landed"
 else
-  fail "land: $out"
+  fail "land: $again / $review / $out"
 fi
 # A clean that was cut off after the worktree went: the next run still knows the branch.
 git -C "$SHOP" worktree remove "$SHOP/.lem/worktrees/first-change"

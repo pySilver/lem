@@ -1092,26 +1092,27 @@ def act_merge(workspace: Workspace, slug: str, form: dict, via: str) -> str:
     return merge_in_thread(workspace, slug, landing, "owner", lambda: asked_from(workspace, slug, "merge", via))
 
 
-def merge_args(landing: dict, slug: str, by: str) -> list[str]:
+def merge_args(landing: dict, slug: str, by: str, standing: bool = False) -> list[str]:
     """land.py's MERGE_STEP for a task, `--by BY --via server`, with the proposal's title as the one
-    commit's subject where the history is squashed."""
-    args = [MERGE_STEP, slug, "--by", by, "--via", "server"]
+    commit's subject where the history is squashed, and `--standing` for the owner's merge that a moved
+    base refused and that stood through the new landing."""
+    args = [MERGE_STEP, slug, "--by", by, "--via", "server", *(["--standing"] if standing else [])]
     if landing.get("history") == "squash" and landing.get("title"):
         args += ["--message", str(landing["title"])]
     return args
 
 
-def merge_in_thread(workspace: Workspace, slug: str, landing: dict, by: str, after=None, failed=None) -> str:
+def merge_in_thread(workspace: Workspace, slug: str, landing: dict, by: str, after=None, failed=None, standing: bool = False) -> str:
     """Run the merge of a task, the owner's or the merge agent's (`merge_args`), in a thread of its own,
     one call at a time with the server's other calls into Lem's scripts (`lem_run`), and the token of its
     note at once: the note says that it runs (NOTES.merging, which the board reads as "Merging…") until
     the step ends. A task whose merge runs already gets that merge's token, and no second one starts.
     AFTER gives what the note adds to a merge that went through; FAILED is called with no argument when
-    the step did not."""
+    the step did not. STANDING runs the owner's merge that stood through a new landing (`merge_args`)."""
     pr = landing.get("pr") if isinstance(landing.get("pr"), dict) else None
     what = f"pull request #{pr['number']}" if pr and pr.get("number") else f"the branch {landing.get('branch') or slug}"
     base = landing.get("base") or "the base branch"
-    args = merge_args(landing, slug, by)
+    args = merge_args(landing, slug, by, standing)
     token, new = NOTES.start_merge((workspace.name, slug), task=slug, act="merge", state="running",
                                    said=f"Lem merges {what} into {base}. The page shows the result when it ends.")
     if not new:
@@ -1826,12 +1827,16 @@ def forge_once(workspace: Workspace, now: int | None = None) -> list[dict]:
         workspace.acted += 1
     workspace.forge["seen"] = seen
     ran = []
+    # each bookkeeping that failed, by (task, number): when, and its line, which stays the problem until it runs
+    failed = workspace.forge.setdefault("failed", {})
+    clock = time.monotonic()
     for pr in prs:
         state = (looked.get(pr["n"]) or {}).get("state")
         key = (pr["task"], pr["n"])
-        if state not in ("MERGED", "CLOSED") or key in workspace.forge["done"]:
+        if state not in ("MERGED", "CLOSED") or not merged_due(key, workspace.forge["done"], failed, clock):
+            if key in failed and key not in workspace.forge["done"]:
+                workspace.forge["problem"] = failed[key][1]
             continue
-        workspace.forge["done"].add(key)
         with SCRIPT_LOCK:
             result = lem_sibling.run(SCRIPTS / "land.py", main, "merged", pr["task"])
         said = result.stderr.strip().splitlines()
@@ -1841,9 +1846,22 @@ def forge_once(workspace: Workspace, now: int | None = None) -> list[dict]:
             except (ValueError, AttributeError):
                 said = ["done"]
         ran.append({"task": pr["task"], "pr": pr["n"], "state": state, "exit": result.returncode, "said": said[-1] if said else ""})
-        if result.returncode != 0:
-            workspace.forge["problem"] = f"`lem land merged {pr['task']}` failed after GitHub called pull request {pr['n']} {state.lower()}: {said[-1] if said else 'no output'}"
+        if result.returncode == 0:
+            # done only once it ran: a failure is tried again after DUTY_RETRY
+            workspace.forge["done"].add(key)
+            failed.pop(key, None)
+        else:
+            line = f"`lem land merged {pr['task']}` failed after GitHub called pull request {pr['n']} {state.lower()}: {said[-1] if said else 'no output'}; the board tries it again in a few minutes"
+            failed[key] = (clock, line)
+            workspace.forge["problem"] = line
     return ran
+
+
+def merged_due(key: tuple, done: set, failed: dict, clock: float) -> bool:
+    """Whether the server runs `lem land merged` for a pull request the forge called merged or closed
+    now: not once it ran (DONE), and not within DUTY_RETRY of a failed try (FAILED, by key: its time
+    on CLOCK's scale and its line)."""
+    return key not in done and (key not in failed or clock - failed[key][0] >= DUTY_RETRY)
 
 
 # ---- the server's duties across tasks ----
@@ -1882,10 +1900,15 @@ def duties(model: "bm.Model", seen: dict, kept: set, merging: set = frozenset())
       each head.
     - `open … queue`: a queued task whose `after:` task ended, that has no live session (`Model.sessions`,
       so never while the server does not know) and no session opened since it was queued.
+    - `merge … owner`: an open task for whose tip Lem proposed last the owner's merge stands, after a
+      moved base refused it and the session landed the task again with the same change and the same
+      reasons (`merge.stands`, `stands_due`): `lem land merge SLUG --by owner --via server --standing`.
     - `merge … merger`: an open task whose merge agent's review of the tip Lem proposed last says
-      `merge` and calls nobody (`merge_due`). land.py's own refusals stay the gate: the server only runs it.
-    - `wake … refused`: an open task whose merge agent's merge was refused on the tip Lem proposed last,
-      by GitHub or by Lem's rules, and no session was woken or opened since the refusal."""
+      `merge` and calls nobody (`merge_due`), also one that `propose` carried onto that tip. land.py's
+      own refusals stay the gate: the server only runs it.
+    - `wake … refused`: an open task whose merge was refused on the tip Lem proposed last, and no
+      session was woken or opened since the refusal: the merge agent's, by GitHub or by Lem's rules, and
+      the owner's when Lem refused it because the base moved (`kind: base`, `refusal_of`)."""
     if model.meta.get("demo"):
         return []
     out = []
@@ -1901,9 +1924,11 @@ def duties(model: "bm.Model", seen: dict, kept: set, merging: set = frozenset())
             woke = any(w["order"] > since and w.get("why") in ("conflict", None) for w in t.wakes) or bool(t.opened and t.opened["order"] > since and t.opened.get("why") == "conflict")
             if look.get("mergeable") == "CONFLICTING" and same_head(look.get("head"), t.proposal.get("tip")) and not woke:
                 out.append(("wake", t.slug, "conflict"))
+            elif stands_due(t, seen, merging):
+                out.append(("merge", t.slug, "owner"))
             elif merge_due(t, seen, merging):
                 out.append(("merge", t.slug, "merger"))
-            elif t.refused and t.refused.get("by") == "merger":
+            elif t.refused and (t.refused.get("by") == "merger" or (refusal_of(t).get("from") == "lem" and refusal_of(t).get("kind") == "base")):
                 after = t.refused["order"]
                 if not any(w["order"] > after for w in t.wakes) and not (t.opened and t.opened["order"] > after):
                     out.append(("wake", t.slug, "refused"))
@@ -1925,6 +1950,26 @@ def merge_due(t: "bm.Task", seen: dict, merging: set) -> bool:
                 and not bm.conflicts(t, seen) and t.slug not in merging)
 
 
+def since_proposal(t: "bm.Task") -> list[dict]:
+    """The task's events after its newest proposal, oldest first; [] with none."""
+    return t.events[t.proposal["order"]:] if t.proposal else []
+
+
+def refusal_of(t: "bm.Task") -> dict:
+    """The newest refusal of a merge of the tip Lem proposed last, as its `merge.refused` event has it
+    (`by`, `via`, `from`, and for Lem's own `kind`), or {}."""
+    return next((e for e in reversed(since_proposal(t)) if e.get("event") == "merge.refused"), {})
+
+
+def stands_due(t: "bm.Task", seen: dict, merging: set) -> bool:
+    """Whether the server runs the owner's merge that stood through a new landing now: `propose` logged
+    `merge.stands` for the tip Lem proposed last, no merge of that tip was refused since, the forge does
+    not call it conflicting, and no merge of it runs in this process (MERGING)."""
+    tip = (t.proposal or {}).get("tip")
+    return bool(t.status == "open" and t.proposal and not t.refused and not bm.conflicts(t, seen) and t.slug not in merging
+                and any(e.get("event") == "merge.stands" and same_head(e.get("tip"), tip) for e in since_proposal(t)))
+
+
 def run_duties(workspace: Workspace, now: float | None = None) -> list[dict]:
     """Run each duty the workspace has now (`duties`), one command at a time, and what ran: a duty whose
     command failed waits DUTY_RETRY before the next try. The merge agent's merge starts in a thread of
@@ -1944,7 +1989,8 @@ def run_duties(workspace: Workspace, now: float | None = None) -> list[dict]:
             def failed(key: tuple = key) -> None:
                 # a refusal land.py kept ends the duty for that tip; any other end waits DUTY_RETRY
                 workspace.failed[key] = time.monotonic()
-            merge_in_thread(workspace, slug, workspace.landing_of(slug), "merger", failed=failed)
+            # `why` is who merges: the merge agent, or the owner whose merge stood through a new landing
+            merge_in_thread(workspace, slug, workspace.landing_of(slug), why, failed=failed, standing=why == "owner")
             ran.append({"verb": verb, "task": slug, "why": why, "exit": None, "said": "started"})
             continue
         # a conflict's wake keeps the head the forge named on its record (`session.wake`), one wake for each head
@@ -1974,7 +2020,9 @@ def forge_loop(machine: "Machine") -> None:
                 workspace.look_sessions()
                 for one in run_duties(workspace):
                     if one["verb"] == "merge":
-                        sys.stderr.write(f"serve.py: {workspace.name}: `lem land merge {one['task']} --by merger --via server` started, after the merge agent's verdict `merge`\n")
+                        owner = one["why"] == "owner"
+                        sys.stderr.write(f"serve.py: {workspace.name}: `lem land merge {one['task']} --by {one['why']} --via server{' --standing' if owner else ''}` started, "
+                                         + ("after the owner's merge stood through a new landing\n" if owner else "after the merge agent's verdict `merge`\n"))
                         continue
                     sys.stderr.write(f"serve.py: {workspace.name}: `lem session {one['verb']} {one['task']} --why {one['why']}` exited {one['exit']}"
                                      f"{': ' + one['said'] if one['said'] else ''}\n")

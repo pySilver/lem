@@ -40,10 +40,11 @@ may-land` about the settings' base branch, so a protected branch is never reache
     lem land merge-review SLUG --file FILE
                            write down the merge agent's reply as merge-review.md: its verdict,
                            merge or call, and whether the owner is called
-    lem land merge SLUG --by owner|merger [--message SUBJECT] [--via session|server]
+    lem land merge SLUG --by owner|merger [--message SUBJECT] [--via session|server] [--standing]
                            merge the pull request through GitHub: the owner's word, or the merge
                            agent's where the settings and the request allow it; `--via server`
-                           when the board's server runs it
+                           when the board's server runs it, `--standing` for the owner's merge
+                           that a moved base refused and that stood through the new landing
     lem land merged SLUG   the owner merged the pull request on the forge: finish the bookkeeping;
                            or he closed it with no merge: the task is dropped
     lem land clean SLUG    remove the task's worktree and its branch after the merge
@@ -132,7 +133,10 @@ ran on and that tip's tree.
 An `open` task lands again when its base moved: after a merge, Lem takes each task whose
 pull request the forge calls conflicting through `start --conflicting`, `base`, the checks, the
 review that is due and `propose`, which keeps its pull request; every other open task waits as it
-is, and `merge` refuses it on a base that moved by files the checks read. The pull request's text
+is, and `merge` refuses it on a base that moved by any file since the checks ran (below), after
+which it lands again the same way, with no `--conflicting`. `start` counts each new landing of an
+open task (`relands` in `landing.json`, a `land.again` event with `count`), for the merge agent's
+facts; nothing bounds the count. The pull request's text
 and the state say in one line what happened ("rebased on main after the forge called it
 conflicting; one conflict in shop/dates.py, resolved by a builder; the checks passed again"). A conflict that `base` meets is kept in `landing.json` with the tip before the rebase and
 whether a review covered the change then; the builder that resolves it rebases the branch itself,
@@ -361,7 +365,8 @@ that does not, writes the reply as `merge-review.md`, keeps `merge_review` in `l
 proposed tip, the verdict, `calls`, `why`, the seat as `by`, and the time) and logs `merge.review`
 with the same. `calls` is true for the verdict `call`, and for a `merge` that `owner_merges` overrules:
 the owner is called, and "Waits for you" shows "Read the merge review". A review of an earlier tip
-counts for nothing.
+counts for nothing, unless `propose` carried it onto the tip after a new landing (below). The facts
+hold `relands` too, how many times the proposal landed again.
 
 `merged` asks GitHub about a pull request the owner may have merged or closed there. A merged one
 finishes as a landing does. A closed one with no merge ends the task: its state becomes `dropped`
@@ -383,11 +388,27 @@ is not green (one that is not reviewed among them), for one whose newest review 
 careful call, and with no merge review of the proposed tip whose verdict is `merge`. A task that ran
 without the owner is merged as any other. The pull request is merged through GitHub, so its own rules
 hold: a merge GitHub refuses keeps its line as `merge_refused` in `landing.json` (`from: github`) and a
-`merge.refused` event, for the row that waits for the owner, and the step exits 1 with that line. A
-`--by merger` call that Lem's own rules refuse under the lock keeps its line the same way, with `from:
-lem`, so that the server tries that tip once and the task's session is woken for what the line names.
+`merge.refused` event, for the row that waits for the owner, and the step exits 1 with that line.
 `merged` is for one the owner merged on GitHub. What lands is the tree the checks passed on: when the
-tip is another tree, or the base moved by any file, `merge` refuses and says which steps run again.
+tip is another tree, or the base moved by any file after the checks ran (`changed` from the base the
+checks ran on to the base now: every file, not only those the checks read), `merge` refuses and says
+which steps run again.
+
+A refusal by Lem's own rules under the lock (`Refusal`, with its `kind`: `rule` for one of the merge
+agent's rules, `tip` for a tip or a head that is not the one proposed and checked, `base` for the
+moved base) keeps its line the same way, with `from: lem` and the `kind`, for every refusal of the
+merge agent's merge and for the owner's when the base moved (`kept_refusal`): the server tries that
+tip no more and wakes the task's session with `lem: SLUG refused`. A git or `gh` call that failed is
+no refusal of the tip and is not kept; the next try runs it again. After a base refusal the session
+lands the task again. A rebase with no conflict carries the review (above) and, with it, what was
+said of the tip at the merge (`rebase_carried`, from the tip before the rebase to the one after it);
+`propose` of that tip, with no commit after the rebase, carries the merge agent's review onto it,
+with its call of the owner as the rules say now, and logs it as a `merge.review` with `carried`, so
+that the server merges it with no second read. The owner's merge that the base refused
+(`owner_tap`) stands the same way, while the reasons the request is not green are the ones he saw:
+`propose` logs `merge.stands`, and the server runs `merge --by owner --via server --standing`, which
+`merge.start` and `merged_by` record as made `after: a re-check`. A commit after the rebase, a
+conflict or other reasons end it, and `propose` says why (`owner_merge`).
 
 A step that was cut off is run again; a merge that GitHub already holds only finishes the bookkeeping.
 `clean` knows the branch from `landing.json`, so it finds it after the worktree is gone. It
@@ -580,6 +601,21 @@ class LandError(Exception):
 class ForgeSaid(LandError):
     """What GitHub said of a merge Lem asked for: its refusal, whose line `merge_locked` has kept
     already, or a merge it took and has not made yet, which is no refusal."""
+
+
+class Refusal(LandError):
+    """A merge that one of Lem's own rules refuses, with the rule's kind (`REFUSALS`). Only such a
+    refusal is kept for the tip (`cmd_merge`): a git or `gh` call that failed is no word on the tip,
+    and the next try runs it again."""
+
+    def __init__(self, kind: str, said: str) -> None:
+        super().__init__(said)
+        self.kind = kind
+
+
+# The kinds of a merge that Lem's rules refuse: one of the merge agent's rules (`merger_refusal`), a
+# tip that is not the one proposed and checked, and a base that moved after the checks ran.
+REFUSALS = ("rule", "tip", "base")
 
 
 def run(args: list[str], cwd: Path | None = None, check: bool = True) -> subprocess.CompletedProcess:
@@ -852,8 +888,12 @@ def start_locked(task: Task, conflicting: bool = False) -> dict:
     if task.record["status"] == "open":
         # An open task brought onto a base that moved: what the pull request's text says of it is
         # kept from here, and a conflict or a resolution of an earlier landing says nothing of this one.
+        # Each new landing of a proposal is counted, for the merge agent's facts: nothing bounds them,
+        # since the checks run outside the merge lock and a busy base can move again meanwhile.
+        relands = int(task.kept().get("relands") or 0) + 1
         task.keep(sync={"conflicting": conflicting, "onto": None, "moved": None, "conflict": None, "resolved": False},
-                  conflict=None, resolution=None)
+                  conflict=None, resolution=None, rebase_carried=None, relands=relands)
+        script("project.py", task.main, "log", task.slug, "land.again", f"count:={relands}", f"conflicting:={json.dumps(conflicting)}")
     if task.record["status"] != "landing":
         # kept here because `clean` needs the branch after the worktree, which names it, is gone
         task.keep(branch=git(task.worktree, "branch", "--show-current"))
@@ -917,7 +957,9 @@ def cmd_base(task: Task) -> dict:
         # the checks still find the pass on the tip they check.
         task.keep(polish=through_rebase(task, task.kept()["polish"], origin, tip, onto))
     now = change(task)
-    updates: dict = {"base": onto, "gated": None, "tree": None, "conflict": None}
+    # the tip a rebase with no conflict made of the tip before it, while the review carried: what was
+    # said of that tip at the merge (the merge agent's review, the owner's merge) is kept for this one
+    updates: dict = {"base": onto, "gated": None, "tree": None, "conflict": None, "rebase_carried": None}
     if resolved:
         # What the review saw is the change before the conflict; what the builder chose where the
         # two sides met is new, and gets one read of its own (`due`).
@@ -932,6 +974,7 @@ def cmd_base(task: Task) -> dict:
         last = max(index for index, read in enumerate(reads) if read["answered"])
         reads[last] = {**reads[last], "carried": [*reads[last].get("carried", []), {"patch": now["patch"], "contents": now["contents"], "onto": onto[:9]}]}
         updates["reads"] = reads
+        updates["rebase_carried"] = {"from": origin, "to": tip}
     if kept.get("sync"):
         updates["sync"] = {**task.kept()["sync"], "onto": onto[:9], "moved": tip != origin, "resolved": resolved or task.kept()["sync"].get("resolved", False)}
     # a new base or a new tip means the last result of the checks is about another tree
@@ -2673,7 +2716,8 @@ def not_green(task: Task, state: dict) -> list[str]:
     # criteria approved without him, which no approval of his took over: the newest approval is the one that holds
     approval = found.get("approved") or {}
     if approval.get("by") == "alone":
-        reasons.append(f"the owner did not approve the criteria: they were approved on {approval['at'][:10]} while the task ran without the owner")
+        how = "while the task ran without the owner" if task.record.get("without_owner") or not someone_elses(task) else "without the owner, since someone else wrote the request"
+        reasons.append(f"the owner did not approve the criteria: they were approved on {approval['at'][:10]} {how}")
     for decision in task.decisions():
         if without_him(decision):
             # past the personas: the dialectic, the experts, or the lead's pick that no level settled
@@ -2878,7 +2922,9 @@ def small_text(task: Task, notes: str, state: dict) -> str:
         out += [moved[0].upper() + moved[1:] + ".", ""]
     out += ["## The request", "", *(f"> {line}" for line in (ask or "(the owner's words were not kept for this task)").splitlines()), ""]
     approval = found.get("approved") or {}
-    by = f" Lem approved it in the owner's name on {approval['at'][:10]}; the personas did not read it." if approval.get("by") == "lem" else ""
+    by = {"lem": f" Lem approved it in the owner's name on {approval.get('at', '')[:10]}; the personas did not read it.",
+          # a night's task, or a request someone else wrote: not the owner's own sentence, so not his approval either
+          "alone": f" Lem approved it on {approval.get('at', '')[:10]} without the owner ({'the night opened the task' if task.record.get('night') else 'someone else wrote the request'}); the personas did not read it."}.get(approval.get("by"), "")
     out += ["## The acceptance criterion", "", f"The fast track, because {reason(found['why'])}.{by}", ""]
     out += criteria_lines(found, held)
     out += [change_line(task, change) for change in found["history"]]
@@ -3244,11 +3290,42 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     script("project.py", task.worktree, "log", task.slug, "proposed", f"green:={json.dumps(not reasons)}", f"not_green:={json.dumps(reasons)}", f"tip={tip[:9]}")
     moved = synced(task)
     task.keep(pr=pr, proposed=tip, title=title, not_green=reasons)
+    carried = carry_merge(task, kept, tip, state, reasons)
     task.state("open", f"pull request {pr['url']}", says, *([moved] if moved else []))
     return {
         "task": task.slug, "text": str(body), "pull_request": pr, "green": not reasons, "not_green": reasons, "branch": branch, "tip": tip,
-        "synced": moved,
+        "synced": moved, **carried,
     }
+
+
+def carry_merge(task: Task, kept: dict, tip: str, state: dict, reasons: list[str]) -> dict:
+    """After a proposal, what was said of the tip proposed before (KEPT, the record before this
+    proposal) at its merge, carried onto TIP where the change is the same (`carried_over`): the merge
+    agent's review, with whether it calls the owner as the rules say now, logged again as a
+    `merge.review` of TIP with `carried`; and the owner's merge that a moved base refused, which stands
+    (`merge.stands`) or ends (`tap_after`). What it gives the output: `merge_review` (carried or
+    null) and `owner_merge` (`stands`, the reason it ended, or null)."""
+    old, rebased = kept.get("proposed"), kept.get("rebase_carried")
+    out: dict = {"merge_review": None, "owner_merge": None}
+    review = kept.get("merge_review")
+    if isinstance(review, dict) and review.get("tip") == old and carried_over(old, tip, rebased):
+        refusal = merger_refusal(task.slug, task.settings["branch"]["land"], state["careful"], reasons, review_call(task) is not None, {"verdict": "merge"})
+        calls = review.get("verdict") == "call" or refusal is not None
+        why = refusal if refusal else (review.get("why") if review.get("verdict") == "call" else None)
+        review = {**review, "tip": tip, "calls": calls, "why": why, "carried_from": old}
+        task.keep(merge_review=review)
+        script("project.py", task.main, "log", task.slug, "merge.review", f"verdict={review['verdict']}", f"calls:={json.dumps(calls)}", f"by={review.get('by')}",
+               f"tip={tip[:9]}", f"carried={str(old)[:9]}", *([f"why={why}"] if why else []))
+        out["merge_review"] = "carried"
+    tap, ended = tap_after(kept.get("owner_tap"), old, tip, rebased, reasons)
+    if tap:
+        task.keep(owner_tap=tap)
+        script("project.py", task.main, "log", task.slug, "merge.stands", "by=owner", f"tip={tip[:9]}", f"from={str(old)[:9]}")
+        out["owner_merge"] = "stands: the board's server merges it after the checks and the reviews were checked again"
+    elif ended:
+        task.keep(owner_tap=None)
+        out["owner_merge"] = f"ended: {ended}; the owner merges it again"
+    return out
 
 
 def follow(task: Task) -> str | None:
@@ -3287,6 +3364,34 @@ def merger_refusal(slug: str, land: str, careful: list[str], reasons: list[str],
     return None
 
 
+def kept_refusal(by: str, kind: str | None) -> bool:
+    """Whether a refused merge is kept for its tip, so that the server tries that tip no more and wakes
+    the task's session: every refusal of the merge agent's merge by Lem's rules, and the owner's when
+    the base moved, which the session repairs by landing the task again. A git or `gh` call that failed
+    (no kind) is never kept: the next try runs it again."""
+    return kind in REFUSALS and (by == "merger" or kind == "base")
+
+
+def carried_over(old: str | None, new: str, rebased: dict | None) -> bool:
+    """Whether what was said of the proposed tip OLD holds for the tip NEW proposed now: the same tip,
+    or the tip that `base` made of it by a rebase with no conflict that kept the code review
+    (`rebase_carried`), with no commit after it."""
+    return bool(old) and (old == new or rebased == {"from": old, "to": new})
+
+
+def tap_after(tap: dict | None, old: str | None, new: str, rebased: dict | None, reasons: list[str]) -> tuple[dict | None, str | None]:
+    """The owner's merge that a moved base refused, after a new proposal: it stands, with the new tip,
+    while the change is the one he merged (`carried_over`) and the reasons it is not green are the same;
+    else it ends, with why. (None, None) when no merge of his waits."""
+    if not tap:
+        return None, None
+    if tap.get("tip") != old or not carried_over(old, new, rebased):
+        return None, "the change is not the one the owner merged: a commit came after the rebase, or the rebase met a conflict"
+    if list(tap.get("not_green") or []) != list(reasons):
+        return None, "the reasons the request is not green are not the ones the owner saw when he merged it"
+    return {**tap, "tip": new}, None
+
+
 def merge_review_of(task: Task) -> dict | None:
     """The merge agent's review of the tip that was proposed, as `merge-review` kept it; None for none,
     or for a review of an earlier tip."""
@@ -3302,7 +3407,7 @@ def may_merge(task: Task, by: str) -> None:
     state = due(task)
     refusal = merger_refusal(task.slug, task.settings["branch"]["land"], state["careful"], not_green(task, state), review_call(task) is not None, merge_review_of(task))
     if refusal:
-        raise LandError(refusal)
+        raise Refusal("rule", refusal)
 
 
 def forge_done(task: Task, view: dict) -> dict:
@@ -3358,7 +3463,7 @@ def forge_look(main: Path, base: str, numbers: list[int]) -> dict[int, dict]:
 
 
 @contextlib.contextmanager
-def merge_lock(task: Task, by: str, via: str):
+def merge_lock(task: Task, by: str, via: str, standing: bool = False):
     """Hold the repository's one lock of Lem's merge calls while this one runs. A call that finds it
     held logs `merge.wait` with the task that holds it and waits; whoever holds it is done in seconds
     (a fetch, a merge on the forge or a push). The call reads the base branch after it takes it."""
@@ -3380,7 +3485,7 @@ def merge_lock(task: Task, by: str, via: str):
         handle.truncate()
         handle.write(json.dumps({"step": "merge", "task": task.slug, "pid": os.getpid(), "since": now_utc()}) + "\n")
         handle.flush()
-        script("project.py", task.main, "log", task.slug, "merge.start", f"by={by}", f"via={via}")
+        script("project.py", task.main, "log", task.slug, "merge.start", f"by={by}", f"via={via}", *(["after=a re-check"] if standing else []))
         try:
             yield
         finally:
@@ -3473,6 +3578,8 @@ def cmd_merge_review(task: Task, record: str | None) -> dict:
             # the call is the owner's whatever the agent finds, when this names why
             "owner_merges": refusal,
             "time": task_time(events_all(task), task.slug),
+            # how many times this proposal landed again (a base that moved, a conflict): nothing bounds them
+            "relands": int(kept.get("relands") or 0),
         }
         brief = task.directory / "merge-brief.md"
         write_whole(brief, "\n".join([
@@ -3502,27 +3609,32 @@ def cmd_merge_review(task: Task, record: str | None) -> dict:
     return {"task": task.slug, "review": str(task.directory / "merge-review.md"), "verdict": verdict, "calls": calls, "why": why, "by": seat["seat"], "next": after}
 
 
-def cmd_merge(task: Task, by: str, message: str | None, via: str) -> dict:
+def cmd_merge(task: Task, by: str, message: str | None, via: str, standing: bool = False) -> dict:
     if task.record["status"] != "open":
         raise LandError(f"the task is {task.record['status']!r}, not `open`; `lem land propose {task.slug}` comes first")
-    with merge_lock(task, by, via):
+    if standing and by != "owner":
+        raise LandError("--standing is the owner's merge that stood through a new landing: it goes with --by owner")
+    with merge_lock(task, by, via, standing):
         # another call may have merged this task, or the owner closed it, while this one waited
         task.read_states()
         try:
-            return merge_locked(task, by, message, via)
-        except ForgeSaid:
-            raise
-        except LandError as error:
-            # The merge agent's merge runs with nobody to read its refusal (the board's server runs
-            # it): its line is kept for that tip, so that the server tries it once and wakes the session.
-            if by == "merger" and task.record["status"] == "open" and task.kept().get("proposed"):
-                tip = task.kept()["proposed"]
-                task.keep(merge_refused={"tip": tip, "by": by, "via": via, "from": "lem", "said": str(error), "at": now_utc()})
-                script("project.py", task.main, "log", task.slug, "merge.refused", f"by={by}", f"via={via}", "from=lem", f"said={error}", f"tip={tip[:9]}")
+            return merge_locked(task, by, message, via, standing)
+        except Refusal as error:
+            # A refusal by Lem's rules is kept for that tip (`kept_refusal`), so that the server tries it
+            # no more and wakes the task's session: the merge agent's, which runs with nobody to read
+            # it, and a moved base's, of the owner's merge too, which the session repairs by landing the
+            # task again. The owner's merge then stands for the next proposal (`tap_after`).
+            if kept_refusal(by, error.kind) and task.record["status"] == "open" and task.kept().get("proposed"):
+                kept = task.kept()
+                tip = kept["proposed"]
+                task.keep(merge_refused={"tip": tip, "by": by, "via": via, "from": "lem", "kind": error.kind, "said": str(error), "at": now_utc()})
+                if by == "owner":
+                    task.keep(owner_tap={"tip": tip, "not_green": kept.get("not_green", []), "via": via, "at": now_utc()})
+                script("project.py", task.main, "log", task.slug, "merge.refused", f"by={by}", f"via={via}", "from=lem", f"kind={error.kind}", f"said={error}", f"tip={tip[:9]}")
             raise
 
 
-def merge_locked(task: Task, by: str, message: str | None, via: str) -> dict:
+def merge_locked(task: Task, by: str, message: str | None, via: str, standing: bool = False) -> dict:
     """The one merge of a task's pull request, the owner's and the merge agent's alike: through
     GitHub, at the commit that was proposed, on the base it was checked on."""
     if task.record["status"] != "open":
@@ -3541,11 +3653,13 @@ def merge_locked(task: Task, by: str, message: str | None, via: str) -> dict:
     may_merge(task, by)
     tip = git(task.worktree, "rev-parse", "HEAD")
     if kept.get("proposed") != tip:
-        raise LandError(f"the branch's tip is not the tip that was proposed; {AGAIN}")
+        raise Refusal("tip", f"the branch's tip is not the tip that was proposed; {AGAIN}")
     if view["headRefOid"] != tip:
-        raise LandError(f"the pull request's head is not the tip that was proposed; {AGAIN}")
+        raise Refusal("tip", f"the pull request's head is not the tip that was proposed; {AGAIN}")
     if not gate_holds(task, tip):
-        raise LandError(f"no green check is on record for this tip; {AGAIN}")
+        raise Refusal("tip", f"no green check is on record for this tip; {AGAIN}")
+    if standing and (kept.get("owner_tap") or {}).get("tip") != tip:
+        raise Refusal("tip", f"no merge of the owner's stands for the proposed tip: it ended at the proposal (`lem land propose` said why), and the owner merges it again from the board or with `lem land merge {task.slug} --by owner`")
     squash = task.settings["branch"]["history"] == "squash"
     if squash and not message:
         raise LandError("branch.history is \"squash\": pass --message with the one commit's subject, from the task's report")
@@ -3556,7 +3670,10 @@ def merge_locked(task: Task, by: str, message: str | None, via: str) -> dict:
     base_now = git(task.worktree, "rev-parse", task.onto)
     moved = changed(task, kept["base"], base_now) if base_now != kept["base"] else []
     if moved:
-        raise LandError(f"{task.onto} moved after the checks ran, by files ({', '.join(moved[:5])}{', ...' if len(moved) > 5 else ''}); {AGAIN}")
+        then = ("the owner's merge stands while the change and the reasons it is not green stay the same, and the board's server merges it after the proposal"
+                if by == "owner" else "the board's server merges it after the proposal when the merge review still says merge")
+        raise Refusal("base", f"{task.onto} moved after the checks ran, by files ({', '.join(moved[:5])}{', ...' if len(moved) > 5 else ''}); {AGAIN}. "
+                              f"The merge review is kept with the review, and {then}")
     how = ["--squash", "--subject", message] if squash else ["--rebase"]
     merged = gh(task, "pr", "merge", str(kept["pr"]["number"]), "--match-head-commit", tip, *how, check=False)
     if merged.returncode != 0:
@@ -3567,8 +3684,9 @@ def merge_locked(task: Task, by: str, message: str | None, via: str) -> dict:
         task.keep(merge_refused={"tip": tip, "by": by, "via": via, "from": "github", "said": line, "at": now_utc()})
         script("project.py", task.main, "log", task.slug, "merge.refused", f"by={by}", f"via={via}", "from=github", f"said={line}", f"tip={tip[:9]}")
         raise ForgeSaid(f"GitHub refused the merge of {kept['pr']['url']}: {line}. It waits for the owner as `open`")
-    # who merged, and who ran the call: the merge agent's merge is the board's server's (`--via server`)
-    task.keep(merged_by={"by": by, "via": via})
+    # who merged, and who ran the call: the merge agent's merge is the board's server's (`--via server`);
+    # the owner's that stood through a new landing ran after the checks and the reviews were checked again
+    task.keep(merged_by={"by": by, "via": via, **({"after": "a re-check"} if standing else {})})
     view = viewed(task)
     if view["state"] != "MERGED":
         raise ForgeSaid("GitHub took the merge and the pull request is not merged yet (a queue, or a check it waits for); run `lem land merged` when it is")
@@ -3668,7 +3786,7 @@ def step(task: Task, args: argparse.Namespace) -> dict:
     if args.command == "merge-review":
         return cmd_merge_review(task, args.file)
     if args.command == "merge":
-        return cmd_merge(task, args.by, args.message, args.via)
+        return cmd_merge(task, args.by, args.message, args.via, args.standing)
     if args.command == "merged":
         return cmd_merged(task)
     return cmd_clean(task)
@@ -3710,6 +3828,7 @@ def main(argv: list[str] | None = None) -> None:
     merge.add_argument("--by", required=True, choices=BY, help="who merges: the owner's word, or the merge agent where the settings and the request allow it")
     merge.add_argument("--message", help="the subject of the one commit, when branch.history is \"squash\"")
     merge.add_argument("--via", choices=("session", "server"), default="session", help="who runs this call: a session (the default), or the board's server, which runs the merge agent's merge and the owner's merge from the board")
+    merge.add_argument("--standing", action="store_true", help="with --by owner: the owner's merge that a moved base refused and that stood through the new landing; the board's server runs it")
     args = parser.parse_args(argv)
     try:
         task = Task(Path(args.repo), args.slug)

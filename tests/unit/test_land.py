@@ -356,3 +356,36 @@ class MergeReview(unittest.TestCase):
         self.assertIn("the median of 2 earlier tasks of the fast track", found["from"])
         self.assertEqual(land.task_time(events, "a")["expected"], None)
         self.assertEqual(land.task_time(events, "nobody")["seconds"], None)
+
+
+class MovedBase(unittest.TestCase):
+    """A merge that the moved base refused: which refusals are kept for the tip, when what was said of
+    the tip at the merge holds for the tip of the new landing, and when the owner's merge stands."""
+
+    def test_only_a_rule_of_lem_is_kept_for_the_tip(self) -> None:
+        self.assertTrue(land.kept_refusal("merger", "rule") and land.kept_refusal("merger", "tip") and land.kept_refusal("merger", "base"))
+        self.assertTrue(land.kept_refusal("owner", "base"))
+        self.assertFalse(land.kept_refusal("owner", "tip") or land.kept_refusal("owner", "rule"))
+        # a git or gh call that failed has no kind: the next try runs it again
+        self.assertFalse(land.kept_refusal("merger", None))
+
+    def test_the_tip_of_a_rebase_with_no_conflict_carries_what_was_said(self) -> None:
+        rebased = {"from": "aaa", "to": "bbb"}
+        self.assertTrue(land.carried_over("aaa", "bbb", rebased))
+        self.assertTrue(land.carried_over("aaa", "aaa", None))
+        # a commit after the rebase, a conflict (no record), or a first proposal carry nothing
+        self.assertFalse(land.carried_over("aaa", "ccc", rebased))
+        self.assertFalse(land.carried_over("aaa", "bbb", None))
+        self.assertFalse(land.carried_over(None, "bbb", rebased))
+
+    def test_the_owners_merge_stands_while_the_change_and_its_reasons_stay(self) -> None:
+        tap = {"tip": "aaa", "not_green": ["the bar is lower"], "via": "server", "at": "2026-11-21T10:00:00Z"}
+        rebased = {"from": "aaa", "to": "bbb"}
+        self.assertEqual(land.tap_after(tap, "aaa", "bbb", rebased, ["the bar is lower"]), ({**tap, "tip": "bbb"}, None))
+        gone, why = land.tap_after(tap, "aaa", "ccc", rebased, ["the bar is lower"])
+        self.assertIsNone(gone)
+        self.assertIn("a commit came after the rebase", why)
+        gone, why = land.tap_after(tap, "aaa", "bbb", rebased, [])
+        self.assertIsNone(gone)
+        self.assertIn("not the ones the owner saw", why)
+        self.assertEqual(land.tap_after(None, "aaa", "bbb", rebased, []), (None, None))

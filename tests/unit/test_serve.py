@@ -174,6 +174,35 @@ class Duties(unittest.TestCase):
         self.assertEqual(serve.duties(self.model(*merged), {}, set()), [])
         self.assertEqual(serve.duties(self.model(*merge, demo=True), {}, set()), [])
 
+    def test_after_a_moved_base_the_session_lands_it_again_and_the_server_merges_the_new_tip(self):
+        proposed = (self.ev(0, "proposed", green=True, not_green=[], tip="abc123456"), self.state(1, "open", self.PR))
+        # the owner's merge from the board met a moved base: Lem kept it, and the task's session is woken once
+        base = (*proposed, self.ev(2, "merge.refused", by="owner", via="server", kind="base", said="origin/main moved after the checks ran", tip="abc123456", **{"from": "lem"}))
+        self.assertEqual(serve.duties(self.model(*base), {}, set()), [("wake", "gift-note", "refused")])
+        self.assertEqual(serve.duties(self.model(*base, self.ev(3, "session.wake", session="S1", why="refused")), {}, set()), [])
+        # GitHub's refusal of his merge is his to read, and wakes nobody
+        github = (*proposed, self.ev(2, "merge.refused", by="owner", via="server", said="Required status check is expected", tip="abc123456", **{"from": "github"}))
+        self.assertEqual(serve.duties(self.model(*github), {}, set()), [])
+        # the new landing's proposal carried the merge agent's review, and his merge stands for its tip
+        again = (*base, self.ev(4, "proposed", green=True, not_green=[], tip="def456789"), self.state(5, "open", self.PR))
+        carried = self.ev(6, "merge.review", verdict="merge", calls=False, by="claude/opus:high", tip="def456789", carried="abc123456")
+        self.assertEqual(serve.duties(self.model(*again, carried), {}, set()), [("merge", "gift-note", "merger")])
+        stands = self.ev(7, "merge.stands", by="owner", tip="def456789", **{"from": "abc123456"})
+        self.assertEqual(serve.duties(self.model(*again, carried, stands), {}, set()), [("merge", "gift-note", "owner")])
+        self.assertEqual(serve.duties(self.model(*again, stands), {}, set(), {"gift-note"}), [])
+        conflicting = {"gift-note": {"mergeable": "CONFLICTING", "head": "def456789aaa"}}
+        self.assertEqual(serve.duties(self.model(*again, stands, self.ev(8, "session.wake", session="S1", why="conflict")), conflicting, set()), [])
+        self.assertEqual(serve.merge_args({"history": "squash", "title": "fix: x"}, "gift-note", "owner", True),
+                         ["merge", "gift-note", "--by", "owner", "--via", "server", "--standing", "--message", "fix: x"])
+
+    def test_a_failed_bookkeeping_of_a_merged_pull_request_is_tried_again(self):
+        key = ("gift-note", 41)
+        self.assertTrue(serve.merged_due(key, set(), {}, 1000.0))
+        self.assertFalse(serve.merged_due(key, {key}, {}, 1000.0))
+        failed = {key: (1000.0, "`lem land merged gift-note` failed")}
+        self.assertFalse(serve.merged_due(key, set(), failed, 1000.0 + serve.DUTY_RETRY - 1))
+        self.assertTrue(serve.merged_due(key, set(), failed, 1000.0 + serve.DUTY_RETRY))
+
     def test_a_demo_workspace_owes_nothing(self):
         merged = (self.state(0, "landed", "main: pull request ... is merged"),)
         self.assertEqual(serve.duties(self.model(*merged, demo=True), {}, {"gift-note"}), [])
