@@ -103,3 +103,63 @@ flowchart TD
   `pytest` and others in `~/.codex/rules/default.rules`. Those rules are his word for every Codex
   session, and the ruling "Another program's settings stay where that program keeps them" keeps
   Lem out of them; task 2's sentence says so.
+
+## Plan talk
+
+Who argued the plan: the reviewer, Codex, GPT 6.2 Sol at high effort (its pane's status line);
+the defender, Claude Code, Opus 5.5 at high effort (the `defender:` line of the task's state).
+Two families. 7 turns over 4 questions (the bound is 4 × 4 + 2 = 18). Agreement carries no
+authority: the review before the pull request reads each settled position as a claim.
+
+The list, as the reviewer gave it, and how each question ended:
+
+1. **What prevents writes outside the named profile?** Two parts. The approval path was
+   repaired: a refused write could go to the automatic approval reviewer the owner's
+   `~/.codex/config.toml` names (line 9), so decision 6 adds `-a never`, and task 1 checks that no
+   request reaches anyone. What held a second time: the owner's `~/.codex/rules/default.rules`
+   allows `git fetch` (line 1) outside the sandbox, which writes `.git/FETCH_HEAD` while `git
+   status` stays clean. A design choice:
+   - kept: the line with the profile and `-a never`, and the harness names a command the
+     developer's own rules allow as outside the profile. The defender's position: criterion 1,
+     step 4, defines its check as `git status` after the reviewer's write to `plan.md`; the send
+     the talk needs runs through the same kind of `allow` rule (line 8), since the sandbox refuses
+     agterm's socket (the backlog item, Sol's probe), so no launch line can switch off line 1 and
+     keep line 8; and the ruling "Another program's settings stay where that program keeps them"
+     (`docs/rulings/rulings.md`, lines 28–30) leaves his rules file to him.
+   - the reviewer's position: criterion 1's opening sentence and the outcome in `task.md` ("can
+     read the whole machine and write only its reply file") cover every repository file, and a
+     fetch's write still breaks them; the ruling is about where Codex keeps its settings and
+     gives no exception to the write limit, so the choice is the line with the exception said, or
+     the approved fallback: the harness file stays and the backlog item says what the talk showed.
+   - the ladder: see below.
+2. **Which directory does Codex start in for the throwaway talk?** Repaired: task 1's pair starts
+   in Lem's main checkout, which Codex trusts (`~/.codex/config.toml`, lines 265–266), as a real
+   talk's pair does (`plan-talk.md`, step 1, `MAIN`), and the message names the throwaway
+   repository as the place to work. Settled by the two, not checked by the review.
+3. **What proves that the write grant covers one file?** Repaired: task 1 tries a second write,
+   to `mailbox-chat-<pane>-probe.txt` in the reply file's folder, and the chart's gate and task 2's
+   condition need it refused. Settled by the two, not checked by the review.
+4. **What happens to the last note in the harness file?** Repaired: task 2 drops "a launch with a
+   model or an effort flag" from the note for Codex and keeps the Claude Code reviewer. Settled by
+   the two, not checked by the review.
+
+The mechanisms the repairs added:
+
+- `-a never` (decision 6): sits on decision 1, the profile on the launch line, which rests on the
+  ruling "Another program's settings stay where that program keeps them" and on the backlog item's
+  settlement; the reviewer: closed, a layer over decision 1.
+
+Raised, not argued: none.
+
+Refused as unpriced: none.
+
+What changed in the plan, by question and by task:
+
+- task 1: the pair starts in the main checkout and works in a throwaway repository there (2); the
+  reviewer asks for approval after the refusal, and the record shows no request and the allow
+  rules at the time (1); a second write beside the reply file (3); `git status` of both
+  repositories (2).
+- task 2: its condition needs both writes refused (3); a sentence on what the profile does not
+  hold (1); the last note of `second-opinion.md` (4).
+- Decisions: decision 6, `-a never` (1). What it will not verify: the developer's own allow rules
+  (1). The chart's gate: both writes (3).
