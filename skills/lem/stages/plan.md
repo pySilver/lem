@@ -17,8 +17,9 @@ lem project --repo WORKTREE state SLUG queued "WHAT THIS TASK NEEDS FROM THE OTH
 
 and `report.md` as `stages/build.md` gives it; then `handoff.md`, and close this session as step 7
 of "The request" (`stages/new.md`) says. `lem project may-start` keeps the task in the queue until
-that task is landed, answered or dropped, and the board's server opens its session then; its lead
-finds the base with the other task's change in it. Two tasks that only touch the same file
+that task is landed or answered, and the board's server opens its session then, or wakes it when
+it still runs; its lead finds the base with the other task's change in it. When that task is
+dropped, it stays queued for the owner's word (step 7 of "The request"). Two tasks that only touch the same file
 each go on: when the first one merges, the later pull request is brought onto the base if the
 forge calls it conflicting.
 
