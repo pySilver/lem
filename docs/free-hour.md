@@ -10,9 +10,9 @@ edits Lem (`skills/lem/stages/learn.md`).
 
 ## Why a branch in a worktree, and never the main checkout
 
-Every repository installs Lem as a plugin from `main` of this repository, and each update of the
-plugin takes the newest commit there. A commit on `main` reaches every project at its next update,
-before any test ran and before anybody read it. A session that loads this clone with
+Every repository installs Lem as a plugin from `main` of this repository, and an update of the
+plugin takes the commit there when the manifest's `version` changed. A commit on `main` that changes
+the version reaches every project at its next update, before anybody else read it. A session that loads this clone with
 `claude --plugin-dir` reads the files of the main checkout as they are saved. So a change of a
 branch in the main checkout changes the running Lem of that session too.
 

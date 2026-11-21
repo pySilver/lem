@@ -36,7 +36,9 @@ works, and this file says how to change it.
 - **Documentation describes the current state.** No changelog paragraphs, no "previously".
 - **A maintainer's session with nobody at the terminal reads `docs/free-hour.md` first.** It works in a
   worktree of this clone, on a branch, and never pushes: `main` of this repository is what every
-  project's next update of the plugin installs.
+  project's next update of the plugin installs. The scheduled
+  `/lem night` of this repository is such a session too: its reports of 2026-11-20 and 2026-11-21 ask
+  the owner whether a night here may open pull requests, and until he says so it opens no task here.
 - **Lem is not released, so a change keeps no reading of the form before it.** A change to the
   settings, a record, an event, a state or a command reads and writes the new form only, and the
   maintaining session corrects the repositories that use Lem by hand. When Lem has users, this
