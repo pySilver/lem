@@ -55,6 +55,88 @@ flowchart TD
 2. **His "start it", and the text of `/lem build`** (criteria 2 and 4, and step 2 of criterion 1). The refusal of `cmd_may_start` in `skills/lem/scripts/project.py` for a task queued behind a dropped task says that the agent runs what follows on the owner's word, and prints the commands of his "start it" whole, composed from the task's own block: for a block whose first line is his order, `lem decisions log SLUG --by owner ... --words "HIS WORDS"` first, then `lem project state SLUG queued` with each line of the block but the `after:` line and with `the owner's order was removed: "HIS WORDS"`; for a need, the one `lem project state` command with each line but the `after:` line. On his word the agent runs `lem project may-start SLUG` once more and runs the commands that it prints then, never ones printed before his word, so that they copy the newest block: a `/lem standard-track SLUG` between the two changed its `then:` line. `cmd_may_start` reads the `after:` line from every line of the newest block, its first line too, as `after_of` in `lem_board_model.py` does: today it skips the first line, so a block whose first line is `after: SLUG` starts past a dropped task while the board would show its row. Every argument of the printed commands is quoted for the shell (`shlex.quote`), each line of the block as it stands, and `HIS WORDS` stands inside single quotes, with the refusal's text saying that a single quote of his is written `'\''` there. The stage texts say the same steps in the same words: step 7 of "The request" in `skills/lem/stages/new.md`, step 1 and "`/lem build`" of `skills/lem/stages/start.md`, "A queued task" of `skills/lem/prompts/session.md` and the paragraph of `skills/lem/stages/correct.md` that names "start it", which also has the line that tells him a task is dropped name each task queued after it as one that now waits for his word. A dropped task is no task to queue behind again: his "start it" starts the task without that task's result (step 7 of "The request": "the owner says whether it starts without that result or is dropped too"), so the rule that queues a need names a task that has not ended (not landed, answered or dropped) in the first paragraph of `skills/lem/stages/plan.md` ("that task is not landed"), in step 1 of `skills/lem/stages/start.md` and in step 1 of "A queued task" of `skills/lem/prompts/session.md` ("another open task"), and each says that what a task started past a dropped task still needs is planned inside it. "`/lem build`" covers "start SLUG now" for a task behind a dropped task too, by order or by need, since the row of task 1 names those words; and its last sentence names no `--focus`: read `cmd_wake` and `cmd_open` in `skills/lem/scripts/session.py` first, and name only what they take and print. Tests: the unit cases of the refusal in `tests/unit/test_task.py`, one of them for a block whose first line is `after: SLUG`, and in `tests/lem-decisions.sh` the check of a task behind a dropped task, whose order is `the owner's order: "After the "gift note" task"` and whose reply holds a double quote and an apostrophe of his, runs each printed command as printed through the shell, with his words put in as the refusal says, then shows the order line, the type line, the `then:` line and the removed line in the state, his word in `lem decisions list`, and a `may-start` that passes.
 3. **The first line after a hold, and the form of the three lines** (criteria 3 and 5). In `skills/lem/scripts/project.py`, a held block whose first line starts with `the order waits for the owner`, in whatever form the rest of it has, names no path, so it does not count as the block that said the first line: the first block after it that names the task's path prints `say` and `say_named`, also when that block carries no type line of its own because the hold has it (`stages/start.md`, step 3, writes the type line only "when no block before it has one"). `cmd_state` refuses, as it refuses a type line in another form, a line that starts as `the owner's order:`, `then:` or `the one open task` and is not in its form, and no other line: criterion 5, step 5, keeps every other line free, the hold's own line and `the owner's order was removed: "HIS WORDS"` among them. `compose_opening_line` names the wait of a queued block with an `after:` line on every path, the interview's too, which leaves it out today when the order line is not in its form, and the words that follow a wait follow the `after:` line, not the order line: no "now" after the interview, and "Then the standard track", "Then the fast track" or "Then an investigator"; only "as you said", "the one open task that fits" and "start SLUG now" follow the order line. A greedy match keeps a double quote inside his words. `first_line_end` in `skills/lem/scripts/session.py` ends the wait of the session where he typed the request at the hold, with no line and a reason that names the hold. The documents say what is true: the list of state lines with a fixed form in `skills/lem/SKILL.md` and the comment of the state lines in `project.py` name the new ones and who reads them; steps 1, 7 and 8 of "The request" in `skills/lem/stages/new.md` say when a held task's first line comes, and step 1 has the one question on the order name each open task that fits; `docs/plans/2026-11-21-owner-task-order-stays.md` gets a status line under its title, in the form of `docs/plans/2026-11-20-a-session-for-each-task.md`, with its commit `74bd242` and what this plan changed in it (its decisions 1 and 7 say that no script reads the order's lines, and its task text names `--focus`); and `.lem/decisions/the-first-line-of-a-task-is-composed-by-lem-project-state-and-its-session-says-it-as-it-is.md` where it lists what the line is read from. Tests: unit cases in `tests/unit/test_task.py` (the first line after the hold for an order and for "no order", once; each refused form with its message; a free line that passes) and in `tests/unit/test_session.py` (the wait's end at the hold), and the refusals with their exit status in the block that holds a task's state, `tests/lem-settings.sh`.
 
+## Plan talk
+
+Who argued the plan: the reviewer, Codex, GPT 6.2 Sol at high effort, as its pane's status line
+showed it; the defender, Claude, Opus 5.5 at high effort, as the `defender:` line of the task's
+state gives it. Two families. 7 turns over 8 questions, within the bound of 34. Agreement carries no
+authority: the review before the pull request reads each settled position as a claim.
+
+The list, numbered as the reviewer gave it:
+
+1. **What keeps a need from putting the task back behind the same dropped task?** After his "start
+   it", the lead's rule in `stages/plan.md` ("that task is not landed") queued a need again behind
+   the dropped task. Repaired at the cause, in task 2: the rule that queues a need names a task that
+   has not ended, in `stages/plan.md`, `stages/start.md` step 1 and `prompts/session.md`, "A queued
+   task", and a need a dropped task would have met is planned inside the task. It held: the rule
+   also lets a lead build past a task dropped before its need came, with no word of his. Refuted
+   with the ruling "The build asks him nothing, and the ladder always decides": a queue behind a
+   dropped task is a wait that only his word ends, and the owner's decision behind a dropped task
+   is the session's design of pull request 13 ("A task order in his words stays": "everything else
+   is the session's design"), which rules on his order, not on a need. Closed, at the cause.
+   Settled by the two, not checked by the review.
+2. **Which block do the printed commands copy when the track changes before his "start it"?** The
+   refusal copied a block with `then: the fast track`; a `/lem standard-track` in another session,
+   then his word, put the fast track back. Repaired in task 2: on his word the agent runs
+   `may-start` once more and runs what it prints then. It held, a layer over task 2's decision to
+   print a copy of the block: a correction can still land between that print and the run. Refuted
+   with criterion 2, steps 2 and 3 (the printed commands, run as printed) and with the input's
+   realism (one person typing in two sessions in the seconds between two tool calls). It held a
+   second time: `stages/correct.md` lets another session write at once, and `cmd_state` takes a
+   queued block over a queued block. A design choice: the copy printed on his word with that
+   interval left, against the copy printed with the first refusal. `stages/plan.md`, step 5, takes
+   it (below).
+3. **Do the row and the refusal read the same `after:` line?** `after_of` reads every line of the
+   newest block, its first too; `cmd_may_start` skipped the first, so a block whose first line is
+   `after: SLUG` started past a dropped task while the board showed its row. Repaired at the cause,
+   in task 2: `cmd_may_start` reads as `after_of` does. It held: a block whose only line is `after:
+   SLUG` gives a rewrite with no line, which `state` refuses (`nargs="+"`). Refuted: no stage writes
+   that block (step 7 of "The request", the first paragraph of `stages/plan.md`), `AGENTS.md` keeps
+   no reading of the form before, and the refusal is loud and writes nothing. Closed, at the cause.
+   Settled by the two, not checked by the review.
+4. **How do the printed commands carry each line and his reply through the shell?** Repaired at
+   the cause, in task 2: each argument quoted with `shlex.quote`, `HIS WORDS` inside single quotes
+   with `'\''` for his own, and a test with criterion 5's double quote and a reply with a double
+   quote and an apostrophe. The reviewer ran a shell check of the quoted forms. Closed. Settled by
+   the two, not checked by the review.
+5. **Which row stays when the queued task has a live session with an unanswered wake-up?** Refuted:
+   no wake-up reaches such a task (`serve.py` wakes a queued task only when `after_ended`; the
+   owner's wake follows the block without `after:`), and where a session row meets a status row
+   today, a held task's, `waits_of` gives both, as two things to do. Closed. Settled by the two, not
+   checked by the review.
+6. **What does the entry of `lem project waiting` carry?** Repaired at the cause, in task 1: the
+   dropped task (`after`) and the row's own words from `wait_say`. Closed. Settled by the two, not
+   checked by the review.
+7. **What does the first line say of the interview when the order line is free?** "an interview
+   here now" came with the wait. Repaired at the cause, in task 3: the words after a wait follow the
+   `after:` line, and only "as you said", "the one open task that fits" and "start SLUG now" follow
+   the order line. Closed. Settled by the two, not checked by the review.
+8. **Where does the check of the hold's line apply?** Repaired at the cause, in task 3: no check of
+   the hold's line, since criterion 5, step 5, keeps every line outside the three prefixes free; the
+   hold is a `held` block whose first line starts with `the order waits for the owner`. Closed.
+   Settled by the two, not checked by the review.
+
+The design choice, decided by the ladder after the talk (the decisions log has it):
+
+- **A. Where the commands of his "start it" are composed** (question 2). The kept decision, which
+  criterion 2 cites: `may-start` prints the commands, and the agent runs `may-start` again on his
+  word and runs what it prints then, with the seconds between the print and the run left open to a
+  correction from another session. The other position: the copy printed with the first refusal,
+  which leaves the whole wait open to it. The decision of the ladder is under "Decisions of the
+  plan".
+
+Each mechanism a repair added: none of a guard, a lock, a flag or a retry. The second read of
+`may-start` on his word (question 2) is a layer over task 2's printed copy, which cites criterion 2;
+it held, and closed as a design choice. Questions 7 and 8 both named Decision 3; both closed at the
+cause, and neither was a layer.
+
+Raised after the first turn, not argued: none. Additions refused as unpriced: none.
+
+What changed in the plan, by question and by task: task 1, the entry of `lem project waiting` (6);
+task 2, the queue rule in `stages/plan.md`, `stages/start.md` and `prompts/session.md` (1), the
+second `may-start` on his word (2), the read of the `after:` line (3), the quoting and its test (4);
+task 3, the words after a wait (7) and no check of the hold's line (8).
+
 ## Decisions of the plan
 
 1. **The row names "start SLUG now" and `/lem drop SLUG`, not "start it" and "drop it".** No session runs for a task that waits behind a dropped task (`session_need` and `opens_session` in `lem_board_model.py` give it none), so he types his word in another session, where "it" names nothing. Both forms exist today: `stages/start.md`, "`/lem build`", and `stages/correct.md`.
