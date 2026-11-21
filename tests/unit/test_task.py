@@ -5,6 +5,7 @@ exists is a fact only git shows, and tests/lem-settings.sh checks it in a real r
     python3 -B -m unittest discover -s tests/unit
 """
 
+import shlex
 import shutil
 import sys
 import tempfile
@@ -68,6 +69,53 @@ class QueuedRefusal(unittest.TestCase):
         self.assertIn("first line says `the owner's order`, only the owner's word removes the order", said)
         self.assertLess(said.index("lem decisions log tests-at-the-unit-level --by owner --words"), said.index("the owner's order was removed"))
         self.assertIn("which is no task:", project.queued_refusal("a", "b", None))
+
+
+class DroppedRefusal(unittest.TestCase):
+    """The refusal of `may-start` for a task queued behind a dropped task prints the commands of the
+    owner's "start SLUG now" whole, from the task's own block, for the agent to run on his word."""
+
+    ORDER = ["the owner's order: \"After the \"gift note\" task\"", "after: gift-note-in-export",
+             "type: feat, because a new order", "then: the interview"]
+    # his reply, with a double quote and an apostrophe of his, put in as the refusal says: '\'' for his '
+    REPLY = 'start it, it\'s "fine"'
+
+    def run_as_printed(self, command: str) -> list[str]:
+        """The arguments the shell gives the command after his words go in where HIS WORDS stands."""
+        return shlex.split(command.replace(project.HIS_WORDS, self.REPLY.replace("'", "'\\''")))
+
+    def test_his_order_is_logged_then_the_block_is_written_again_without_its_after_line(self):
+        logged, written = project.start_commands("export-notes-in-order", self.ORDER)
+        self.assertEqual(self.run_as_printed(logged), [
+            "lem", "decisions", "log", "export-notes-in-order", "--by", "owner", "--what", "the owner's order",
+            "--chose", "start now", "--why", "his word", "--words", self.REPLY])
+        self.assertEqual(self.run_as_printed(written), [
+            "lem", "project", "state", "export-notes-in-order", "queued", "the owner's order: \"After the \"gift note\" task\"",
+            "type: feat, because a new order", "then: the interview", f"the owner's order was removed: \"{self.REPLY}\""])
+
+    def test_a_need_gets_its_block_again_and_no_log(self):
+        need = ["it needs the cache that caches-the-list adds", "after: caches-the-list", "then: the lead"]
+        self.assertEqual([shlex.split(c) for c in project.start_commands("shows-the-list", need)],
+                         [["lem", "project", "state", "shows-the-list", "queued", need[0], "then: the lead"]])
+
+    def test_the_after_line_is_read_from_every_line_its_first_too(self):
+        first = ["after: gift-note-in-export", "type: fix, because the order is lost", "then: the fast track"]
+        self.assertEqual(project.after_in(first), "gift-note-in-export")
+        self.assertEqual(project.after_in(self.ORDER), "gift-note-in-export")
+        self.assertIsNone(project.after_in(["the owner's order was removed: \"start it\"", "then: the interview"]))
+        self.assertEqual([shlex.split(c) for c in project.start_commands("t", first)],
+                         [["lem", "project", "state", "t", "queued", "type: fix, because the order is lost", "then: the fast track"]])
+
+    def test_the_refusal_says_his_word_comes_first_and_prints_each_command_on_its_line(self):
+        said = project.dropped_refusal("export-notes-in-order", "gift-note-in-export", self.ORDER)
+        self.assertTrue(said.startswith("the task 'export-notes-in-order' is queued after 'gift-note-in-export', which was dropped"))
+        self.assertIn("nothing below runs before it", said)
+        self.assertIn("run `lem project may-start export-notes-in-order` once more and run the commands that it prints then, never ones printed before his word", said)
+        self.assertIn("a single quote of his is written '\\''", said)
+        self.assertIn("/lem drop export-notes-in-order", said)
+        printed = [row for row in said.splitlines() if row.startswith("lem ")]
+        self.assertEqual(printed, project.start_commands("export-notes-in-order", self.ORDER))
+        self.assertNotIn(project.HIS_WORDS, project.dropped_refusal("t", "a", ["it needs a", "after: a"]))
 
 
 class Parked(unittest.TestCase):

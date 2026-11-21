@@ -213,8 +213,9 @@ The task's own session, in the shape, from its first message.
    needs a plan to talk about.
 7. **Does it wait for another task?** In two cases, and in no other:
    - *his order*, as step 1 read it, while the task he named has not landed or been answered;
-   - *a need*: the later ask needs what the earlier one changes: it names the earlier one's
-     result, or it makes no sense before that result exists.
+   - *a need*: the later ask needs what the earlier one changes, while the earlier one has not
+     ended (not landed, answered or dropped): it names the earlier one's result, or it makes no
+     sense before that result exists.
    His order queues the task here, on every track. A need is asked here before the fast track's
    builder, an investigator or the lead of a complete request. On the standard track with an
    interview, the interview and his yes come first, while he is there, and `stages/start.md` asks
@@ -242,10 +243,18 @@ The task's own session, in the shape, from its first message.
    runs, and the session goes on where it stopped (`prompts/session.md`, "What comes next"), so it
    builds on what the earlier one changed. When that task is dropped, the result it waited for
    never comes: it stays `queued`, no session opens for it, and the owner says whether it starts
-   without that result or is dropped too. On his "start it", write its `queued` block again with
-   each of its lines but the `after:` line (for his order, log his words first, as for his "start
-   SLUG now"), and go on where it stopped; on his "drop it", `lem project state SLUG dropped
-   "WHY"`. `lem project may-start SLUG` refuses it with those two lines. Only his word removes his
+   without that result or is dropped too. Its row of "Waits for you" names his two words, "start
+   SLUG now" and `/lem drop SLUG`, which he types in any Lem session of this repository. `lem
+   project may-start SLUG` refuses it, and prints the commands of his "start SLUG now", composed
+   from the task's newest block: for his order, the log of his words, then the `queued` block again
+   with each of its lines but the `after:` line and with `the owner's order was removed: "HIS
+   WORDS"`; for a need, that block alone. On his word (his "start it", too, where the talk is about
+   this task), run `lem project may-start SLUG` once more and run the commands it prints then, as
+   printed, with his words in place of `HIS WORDS` as it says; never ones printed before his word,
+   since a `/lem standard-track SLUG` between the two changes the block they copy. Then the task
+   goes on as `stages/start.md`, "`/lem build`", says. On his `/lem drop SLUG`, drop it
+   (`stages/correct.md`, "drop"). A dropped task is no task to queue behind again: what a task
+   started past it still needs is planned inside it. Only his word removes his
    order before that task lands or is answered: his "start SLUG now" (`stages/start.md`, "`/lem
    build`"). Two asks that only name the same thing (the same screen, the same file, the same
    function) each start on their own. Do not read the code to find an overlap the asks do not show;
