@@ -187,7 +187,10 @@ installed, Claude Code 2.1.330) showed:
 When `seats.session` names a model or an effort, `lem session open` puts them on the launch line;
 otherwise the session runs the owner's default Claude. When this Lem is not the installed plugin (its folder is
 outside `~/.claude/plugins/`, or outside `plugins/` of `CLAUDE_CONFIG_DIR`), the line adds
-`--plugin-dir` with that folder, so that the task's session runs the Lem that opened it. Not run yet: a relaunch of agterm in its
+`--plugin-dir` with that folder, so that the task's session runs the Lem that opened it. That holds
+where no Lem is installed: with an older Lem installed for the project, the `lem` on such a session's
+`PATH` is the installed one (lem-scratch, Claude Code 2.1.330, 2026-11-21), so a clone is tried with
+the installed plugin switched off. A launch with `--model` and `--effort` ran (the same day). Not run yet: a relaunch of agterm in its
 rerun mode, which starts each session's command again: the agent then starts from its first
 message, and `prompts/session.md` reads the state before anything else, so it goes on or stops.
 
@@ -215,7 +218,9 @@ read no transcript and do nothing without `LEM_TASK`:
 - `SessionStart` with the source `compact` prints the task's newest state block and `handoff.md`
   with its time, under "the state is the truth; where the handoff is older, follow the state".
 
-Not run yet: a compaction at the number, and the two hooks.
+Both hooks ran in a compaction the owner's `/compact` started, in a landing session that waited for
+a merge: the summary took the handoff's form, and the state came back after it (lem-scratch,
+2026-11-21). Not run yet: a compaction at the number.
 
 ### The plan talk's pair
 
@@ -247,8 +252,7 @@ A companion session of the lead's, `SLUG · plan talk`, which runs Claude Code w
    dropped: `agtermctl session close --target ID --socket "$AGTERM_SOCKET"`. Its experts and the
    reviewer's pane end with it.
 
-Not run yet: a pair opened from a task's session, and the launch line with `--model` or
-`--effort`.
+Not run yet: a pair opened from a task's session.
 
 ## A wake-up
 

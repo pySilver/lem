@@ -769,7 +769,8 @@ him, and they are not his rulings until he says so:
 - **Lem is a Claude Code plugin**, after "can we make it more self contained? lem is aimed to be
   per-project companion" and his "I agree" to a test first. The test ran on 2026-11-15; on
   2026-11-17 he ruled that the plugin is the only form (above). The plugin's files are
-  `.claude-plugin/plugin.json` with no version (so each commit is an update),
+  `.claude-plugin/plugin.json`, whose `version` is the release since 2026-11-21 (an install takes
+  an update when it changes),
   `.claude-plugin/marketplace.json`, `bin/` with `lem`, `lem-ask` and `lem-jev`, and
   `hooks/hooks.json`. The builder is `lem:lem-builder`.
 - **One person can say no to the correction queue, and nobody is switched on by a file git does
