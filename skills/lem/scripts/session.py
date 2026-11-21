@@ -253,14 +253,26 @@ def phase_left(slug: str, blocks: list[dict], track: str | None, now: str, start
 
 
 def queued_behind(task: dict, tasks: list[dict]) -> str | None:
-    """The task a `queued` task waits for (its `after:` line) while that one has not ended, else None."""
+    """The task a `queued` task waits for (its `after:` line) while that one has not landed or been
+    answered, else None. A dropped one holds it too, as `may-start` and the board's `after_ended` hold
+    it: the result it waited for never came, and only the owner's word starts it or drops it."""
     if task["status"] != "queued" or not task["state"]:
         return None
     after = after_of(task)
     if not after:
         return None
     other = next((item["status"] for item in tasks if item["slug"] == after), None)
-    return None if other in project.ENDED else after
+    return None if other in ("landed", "answered") else after
+
+
+def behind_refusal(slug: str, behind: str, other: str | None) -> str:
+    """The refusal of `open` for a task queued after BEHIND, whose status is OTHER."""
+    if other == "dropped":
+        return (f"the task {slug!r} is queued after {behind!r}, which was dropped: it waits for the owner's word, which starts it or drops it, "
+                f"and it gets no session before that word. On his \"start {slug} now\", run the commands `lem project may-start {slug}` prints, "
+                f"which remove the order, and open its session again; on his `/lem drop {slug}`, drop it")
+    return (f"the task {slug!r} is queued after {behind!r}, which has not ended: it gets its session when {behind} is landed or answered, "
+            f"and when {behind} is dropped it waits for the owner's word, which starts it or drops it")
 
 
 def after_of(task: dict) -> str | None:
@@ -559,8 +571,7 @@ def cmd_open(root: Path, slug: str, why: str, replacing: str | None = None) -> d
         task, phase = facts["task"], facts["phase"]
         behind = queued_behind(task, facts["tasks"])
         if behind:
-            raise SessionError(f"the task {slug!r} is queued after {behind!r}, which has not ended: it gets its session when {behind} is landed or answered, "
-                               f"and when {behind} is dropped it waits for the owner's word, which starts it or drops it")
+            raise SessionError(behind_refusal(slug, behind, next((item["status"] for item in facts["tasks"] if item["slug"] == behind), None)))
         nodes = tree(where)
         opens = newest_opens(project.events_named(root, *EVENTS))
         newest = opens.get(slug)
