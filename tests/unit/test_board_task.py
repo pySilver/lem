@@ -146,6 +146,16 @@ class Overview(unittest.TestCase):
         m = model(state(0, "queued", "it waits", "after: card-foot"))
         self.assertEqual(bm.waits_for(m.tasks[0], bm.waits_of(m)), {"you": False, "text": "It starts after “Card foot” ends", "where": None})
 
+    def test_a_queued_task_waits_for_another_task_by_a_need_or_by_the_owners_order(self):
+        # "another task" is true of both: the board reads no line for which of the two it is
+        for first in ("it needs the export's column", 'the owner\'s order: "After card-foot: unit cases"'):
+            with self.subTest(first=first):
+                t = one(state(0, "queued", first, "after: card-foot", "then: the interview"))
+                self.assertEqual(bm.now_head(t), "Waits for another task")
+                self.assertEqual(spans(t, "lem")[0][3], "Queued: it waits for another task")
+        alone = one(state(0, "queued", "it waits", "then: the lead"))
+        self.assertEqual((bm.now_head(alone), spans(alone, "lem")[0][3]), ("Waits to start", "Queued: it waits to start"))
+
     def test_the_large_card_says_how_a_stopped_run_ended_and_never_that_the_checks_run(self):
         t = one(state(0, "landing", "the checks start"), ev(1, "gate.start", tip="4c1d2e3f5", commands=2), ev(2, "gate.end", result="stopped", seconds=60))
         self.assertEqual(bm.now_head(t), "The checks were stopped")

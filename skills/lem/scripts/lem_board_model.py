@@ -1475,7 +1475,8 @@ def now_head(t: Task) -> str:
     """The head of the large card of a task: what it does now, in words."""
     s = t.status
     if s == "queued":
-        return "Waits for the task it needs" if t.waits_after else "Waits to start"
+        # "another task" holds for both reasons of a wait: the task needs its result, or the owner's words put it after it
+        return "Waits for another task" if t.waits_after else "Waits to start"
     if s == "building":
         return "Its investigator examines it, before any criterion" if t.investigating else LEAD[lead_of(t)]["head"]
     if s == "planned":
@@ -2187,7 +2188,7 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
             stage = stage_of(b)
             band(stage, frm, to, open_)
         if s == "queued":
-            add_block("lem", frm, to, "Queued: it waits for the task it needs" if needs_task(b) else "Queued: it waits to start", what, open_)
+            add_block("lem", frm, to, "Queued: it waits for another task" if needs_task(b) else "Queued: it waits to start", what, open_)
         elif s == "building" and task:
             add_block("builders", frm, to, f"Task {task[1]} of {task[2]}", what, open_, "lead")
         elif investigates(b):
