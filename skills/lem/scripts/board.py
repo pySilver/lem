@@ -22,16 +22,13 @@ server the address of the repository's board, `http://127.0.0.1:PORT/HOST/WORKSP
 task, `.../tasks/SLUG`. A server that does not run is a failure that says why: nothing else draws
 the board. `--no-open` prints the address and opens nothing.
 
-A state folder of an older Lem still holds the copies of the page that agterm once opened as a file
-(`OLD_COPIES`): each run removes them, by their names, and nothing else of the folder.
-
 It opens as a page companion of the top session of the asking session's group, as an http page with
 its scripts on and its cookies kept (`--persistent`, so that the folded columns outlive a relaunch of
 agterm): it sits indented under the asking session, or beside it when that session is itself a companion,
 closes with that top session, and covers no pane. A board is known by its address: one companion for
 each workspace under the top session, so the boards of two repositories under one top session stay
 two. A board that is there already is reloaded where it stands, or opened again at the task asked
-for; one that still shows the old page's copy as a file is opened again at the address. agterm never saves a page companion, so after a relaunch of agterm the board is gone until this
+for. agterm never saves a page companion, so after a relaunch of agterm the board is gone until this
 runs again.
 
 It runs from an agent's session, which has the AGTERM_* variables, and from an agterm keymap
@@ -49,7 +46,6 @@ import importlib
 import json
 import os
 import re
-import shutil
 import subprocess
 import urllib.error
 import urllib.request
@@ -71,11 +67,6 @@ BOARD_STYLE = SCRIPTS.parent / "assets" / "board.css"
 VENDOR = SCRIPTS.parent / "assets" / "vendor"
 SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 TINT = "green"
-# What an older Lem copied into a state folder for agterm to open as a file: the page, its looks and
-# scripts, the data files it read, and the copy of each task's files. Removed by these names only.
-OLD_COPIES = ("board.html", "lem.css", "lem.js", "board.css", "meta.js", "overview.js", "backlog.js", "owner.js", "events.js")
-OLD_FOLDERS = ("vendor", "artifacts")
-OLD_TASK_PAGE = re.compile(r"task-[a-z0-9]+(-[a-z0-9]+)*\.html")
 
 
 class BoardError(Exception):
@@ -294,25 +285,6 @@ def state_of(repo: str, slug: str | None, demo: bool) -> tuple[Path, dict]:
     return state, settings
 
 
-def clear_old_copies(state: Path) -> list[str]:
-    """Remove the copies of the page an older Lem left in the state folder (OLD_COPIES, OLD_FOLDERS and
-    each `task-SLUG.html`), and name what went. Nothing else of the folder is touched."""
-    gone = []
-    for name in OLD_COPIES:
-        if (state / name).is_file():
-            (state / name).unlink()
-            gone.append(name)
-    for name in OLD_FOLDERS:
-        if (state / name).is_dir() and not (state / name).is_symlink():
-            shutil.rmtree(state / name)
-            gone.append(f"{name}/")
-    for file in sorted(state.glob("task-*.html")):
-        if OLD_TASK_PAGE.fullmatch(file.name) and file.is_file():
-            file.unlink()
-            gone.append(file.name)
-    return gone
-
-
 def register(state: Path) -> None:
     """Put the repository of the state folder into the machine's list of workspaces, unless the folder
     holds example tasks: the server shows only a workspace of the list."""
@@ -438,20 +410,15 @@ def open_page(page: Path, args: argparse.Namespace, session: str, socket: str) -
                                                     env("AGT_WINDOW_ID", "AGTERM_WINDOW_ID"), args.follow, lambda overlay: False)}
 
 
-def open_board(url: str, base: str, task: bool, name: str, session: str, socket: str, follow: bool, state: Path) -> dict:
+def open_board(url: str, base: str, task: bool, name: str, session: str, socket: str, follow: bool) -> dict:
     """The board as a page companion of the session's group, known by the address of its workspace
     (`base`): the one that shows it is reloaded where it stands, or, for a task's board when it shows
-    another page, opened again at the task's address. A companion of an older Lem that shows the
-    state folder's copy of the old page as a file is the board too, and is opened again at the address."""
-    def old_page(overlay: dict) -> bool:
-        file = Path(str(overlay.get("file") or ""))
-        return bool(overlay.get("file")) and file.parent.resolve() == state.resolve() and (file.name == "board.html" or bool(OLD_TASK_PAGE.fullmatch(file.name)))
-
+    another page, opened again at the task's address."""
     def shows(overlay: dict) -> bool:
-        return old_page(overlay) or any(str(overlay.get(key) or "").startswith(base) for key in ("url", "page"))
+        return any(str(overlay.get(key) or "").startswith(base) for key in ("url", "page"))
 
     def again(overlay: dict) -> bool:
-        return old_page(overlay) or (task and str(overlay.get("page") or overlay.get("url") or "").split("?")[0].rstrip("/") != url.rstrip("/"))
+        return task and str(overlay.get("page") or overlay.get("url") or "").split("?")[0].rstrip("/") != url.rstrip("/")
 
     return show(["--url", url, "--persistent"], shows, name, session, socket, env("AGT_WINDOW_ID", "AGTERM_WINDOW_ID"), follow, again)
 
@@ -477,7 +444,6 @@ def main() -> None:
         if not args.no_open and not (session and socket):
             raise BoardError("not inside an agterm session; --no-open prints the board's address without one")
         state, settings = state_of(args.repo, args.task, args.demo)
-        gone = clear_old_copies(state)
         register(state)
         server = ensure_server()
         main_dir = Path(settings["main"])
@@ -488,10 +454,8 @@ def main() -> None:
         if server.get("tailscale"):
             # the same board through the tailnet door, for the owner's phone
             result["tailnet_url"] = server["tailscale"].rstrip("/") + url.removeprefix(server["url"].rstrip("/"))
-        if gone:
-            result["removed"] = gone
         if not args.no_open:
-            result |= open_board(url, base, args.task is not None, result["name"], session, socket, args.follow, state)
+            result |= open_board(url, base, args.task is not None, result["name"], session, socket, args.follow)
     except BoardError as error:
         sys.exit(f"board.py: {error}")
     print(json.dumps(result, indent=2))

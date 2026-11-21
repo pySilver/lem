@@ -39,13 +39,13 @@ ALIASES = {"lem-ask": "skills/lem-ask/bin/lem-ask", "lem-jev": "skills/lem/scrip
 
 # name -> (the script, relative to the plugin's folder; what it does, in one line)
 COMMANDS = {
-    "project": ("skills/lem/scripts/project.py", "a repository's settings, a task's state and directory, the event log, the queue"),
-    "land": ("skills/lem/scripts/land.py", "the landing, one step at a time: checks, review, pull request, merge, watch"),
+    "project": ("skills/lem/scripts/project.py", "a repository's settings, a task's state and directory, the event log, the queue, and what waits for the owner"),
+    "land": ("skills/lem/scripts/land.py", "the landing, one step at a time: checks, review, pull request, the merge agent's read, the merge and the cleanup"),
     "criteria": ("skills/lem/scripts/criteria.py", "a task's acceptance criteria: approve, show, record, and red on the base"),
-    "decisions": ("skills/lem/scripts/decisions.py", "a task's decisions and the choices that wait for the owner"),
+    "decisions": ("skills/lem/scripts/decisions.py", "a task's decisions, each taken without the owner, and its breakers"),
     "board": ("skills/lem/scripts/board.py", "the board of all tasks, or of one task (--task SLUG)"),
     "serve": ("skills/lem/scripts/serve.py", "the boards of every repository on this machine, and of the machines joined with --join, over HTTP, for a browser on another device: --ensure starts it"),
-    "picker": ("skills/lem/scripts/picker.py", "agterm's picker over the tasks, which opens the board of the one picked (--list prints the rows)"),
+    "picker": ("skills/lem/scripts/picker.py", "agterm's picker over the tasks, which goes to the live session of the one picked, else opens its board (--list prints the rows)"),
     "session": ("skills/lem/scripts/session.py", "a task's own session in agterm: open, next, close, wake, wait, list, its handoff and the copy of the talk"),
     "doctor": ("skills/lem/scripts/doctor.py", "the machine check: the tools Lem needs and recommends"),
     "corrections": ("skills/lem/scripts/corrections.py", "the queue of the owner's corrections, for a retro"),
