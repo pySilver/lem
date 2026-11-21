@@ -73,9 +73,11 @@ a team that adopts Lem may have its own.
                                     dropped task resumes only with a breaker that waits
     lem project may-start SLUG      exit 1 for a task in `landing`, `open`, `parked` or an ended state, which
                                     gets no lead, and for a task `queued` with an `after: OTHER`
-                                    line while OTHER has not landed or been answered (a dropped OTHER
-                                    leaves it queued for the owner's word). No count of tasks stops a start:
-                                    each start by day is the owner's own request
+                                    line while OTHER has not landed or been answered, whether it needs
+                                    OTHER's result or the owner's words put it after OTHER; the refusal
+                                    names the way out of each (a dropped OTHER leaves it queued for the
+                                    owner's word). No count of tasks stops a start: each start by day
+                                    is the owner's own request
     lem project state-dir           the folder that holds every task, the event log and the night reports
     lem project serial -- COMMAND ...
                                     run one test command that two tasks cannot run at the same
@@ -396,7 +398,8 @@ PLAN_TOKENS = lem_plans.TOKENS
 # a task's slug: plain words joined by hyphens, e.g. report-dates-stay-whole
 SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 # What a task's newest state block may say, and who acts next:
-#   queued    the ask is written and no lead runs yet: its `after:` line names the task it needs
+#   queued    the ask is written and no lead runs yet: its `after:` line names the task it waits for,
+#             whose result it needs, or after which the owner's words put it (`the owner's order: "..."`)
 #   building  a lead plans or builds
 #   planned   the plan is committed and nothing builds it: it needs its talk, or a builder after the talk, or the owner reads it
 #   held      it waits for the owner: the criteria, one more fact, a step of his, or a breaker's document
@@ -2568,6 +2571,19 @@ def read_tasks(root: Path, settings: dict | None = None) -> list[dict]:
     return tasks
 
 
+def queued_refusal(slug: str, after: str, other: str | None) -> str:
+    """The refusal of `may-start` for a task queued after AFTER, whose status OTHER is not ended (None for
+    no task of that name; a dropped AFTER has a refusal of its own), with both ways out: a need that went
+    is written away by the agent, and the owner's order only by his word, which is logged first."""
+    return (
+        f"the task {slug!r} is queued after {after!r}, which is {other or 'no task'}: it starts when {after} is landed or answered. "
+        f"When it waits because it needs the result of {after} and no longer does, write its state `queued` again without the `after:` line. "
+        f"When the block's first line says `the owner's order`, only the owner's word removes the order: log his words first "
+        f"(`lem decisions log {slug} --by owner --words \"HIS WORDS\" ...`), then write its state `queued` again without the `after:` line "
+        f"and with the line `the owner's order was removed: \"HIS WORDS\"`"
+    )
+
+
 def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
     """Exit 1 for a task that gets no lead: in the landing, proposed or ended, since a stale wake-up
     must not start one, or queued behind a task that has not landed or been answered. No count of tasks stops a
@@ -2585,9 +2601,11 @@ def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
             f"the task {slug!r} is {status}: its build is done, and it gets no lead. Its landing goes on with `land.py` "
             f"(`stages/land.md`; an open task takes the line again with `lem land start {slug}`), and a change the owner asks for now is a new ask",
         )
-    # A task queued behind another (`after: OTHER`, which Lem writes for an ask that needs another's
-    # result, and a lead for a plan that does) starts when that task has ended, so that it builds on
-    # what the other one changed.
+    # A task queued behind another (`after: OTHER`) starts when that task has ended. Lem writes the line
+    # for an ask that needs another's result, and a lead for a plan that does, so that it builds on what
+    # the other one changed; and Lem or a lead writes it for an ask whose owner's words put it after
+    # another task, whose block's first line is `the owner's order: "HIS WORDS"`. The script reads only
+    # the `after:` line: which of the two it is, the agent that reads the refusal reads in the block.
     mine = next((task for task in tasks if task["slug"] == slug), None)
     after = next((line.split(":", 1)[1].strip() for line in (mine["state"] or "").splitlines()[1:] if line.startswith("after:")), None) if mine and status == "queued" else None
     if after:
@@ -2600,10 +2618,7 @@ def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
                 f"on his \"drop it\", `lem project state {slug} dropped \"WHY\"`",
             )
         if other not in ENDED:
-            raise SettingsError(
-                f"the task {slug!r} is queued after {after!r}, which is {other or 'no task'}: it starts when {after} is landed or answered, "
-                f"so that it builds on what {after} changes; when it no longer needs that, write its state `queued` again without the `after:` line",
-            )
+            raise SettingsError(queued_refusal(slug, after, other))
     running = [task["slug"] for task in tasks if task["status"] in RUNNING and task["slug"] != slug]
     print(json.dumps({"running": running}))
 

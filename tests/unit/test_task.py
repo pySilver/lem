@@ -57,6 +57,19 @@ class TrackOf(unittest.TestCase):
         self.assertIsNone(project.track_of("2026-11-19T09:50Z queued: it waits for a free place"))
 
 
+class QueuedRefusal(unittest.TestCase):
+    """The refusal of `may-start` for a queued task names the way out of a need and of the owner's order."""
+
+    def test_both_ways_out_and_the_owners_word_first(self):
+        said = project.queued_refusal("tests-at-the-unit-level", "one-lem-parallel-landings", "open")
+        self.assertTrue(said.startswith("the task 'tests-at-the-unit-level' is queued after 'one-lem-parallel-landings', which is open: "
+                                        "it starts when one-lem-parallel-landings is landed or answered"))
+        self.assertIn("needs the result of one-lem-parallel-landings and no longer does, write its state `queued` again without the `after:` line", said)
+        self.assertIn("first line says `the owner's order`, only the owner's word removes the order", said)
+        self.assertLess(said.index("lem decisions log tests-at-the-unit-level --by owner --words"), said.index("the owner's order was removed"))
+        self.assertIn("which is no task:", project.queued_refusal("a", "b", None))
+
+
 class Parked(unittest.TestCase):
     """The owner's park: a task no agent works on is put aside, and it leaves `parked` only by a drop
     or by `resume`, which writes the block the park put aside."""
