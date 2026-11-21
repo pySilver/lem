@@ -131,11 +131,11 @@ open(sys.argv[1], "w", encoding="utf-8").write("\n".join(lines))' "$STATE/events
 art_before=$(got "$T/artifacts" | words)
 pruned_board=$(project --repo "$DEMO" prune)
 ended_tabs=""
-for tab in "" /criteria /checks /timeline /artifacts /artifacts/report.md/ /artifacts/criteria.md/ /media/a.png /media/b.png /artifacts/scratch.txt/; do ended_tabs="$ended_tabs $(code "$T$tab")"; done
+for tab in "" /criteria /checks /timeline /artifacts /artifacts/report.md/ /artifacts/task.md/ /media/a.png /media/b.png /artifacts/scratch.txt/; do ended_tabs="$ended_tabs $(code "$T$tab")"; done
 art_after=$(got "$T/artifacts" | words)
 if [ "$(field '[(t["task"], sorted(t["files"])) for t in d["tasks"]]' <<<"$pruned_board")" = "[('order-date-on-invoice', ['media/b.png', 'reviews/order-date-on-invoice/01-initial/agents/a.jsonl', 'scratch.txt'])]" ] \
   && [ "$ended_tabs" = " 200 200 200 200 200 200 200 200 404 404" ] && grep -qF "scratch.txt" <<<"$art_before" && ! grep -qF "scratch.txt" <<<"$art_after" \
-  && grep -qF "Acceptance criteria" <<<"$art_after" && grep -qF "Review round 01-initial" <<<"$art_after" && grep -qF "Report" <<<"$art_after" \
+  && grep -qF "The task" <<<"$art_after" && grep -qF "Review round 01-initial" <<<"$art_after" && grep -qF "Report" <<<"$art_after" \
   && got "$T" | words | grep -qF "What we are building" && [ -f "$TD/state.md" ] && [ -f "$TD/criteria.json" ]; then
   pass "a task that ended long ago loses its working files to lem project prune, and its Overview, its tabs, its documents, its records and the picture a document shows still read on the board"
 else
