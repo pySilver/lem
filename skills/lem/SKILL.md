@@ -282,7 +282,8 @@ shared by every worktree, never committed and not removed with a worktree. It ho
   task on the standard track from a complete request the lead's read freezes them there too (`by: read`), which is never his yes. Only `lem criteria approve` writes it; `lem criteria approved SLUG` prints it, and the
   plan's criteria must be those, with the test lines added.
 - `criteria.md`: the criteria as the interview writes them for his yes. On the fast track it is the one
-  criterion, approved in his name, with the test line its builder adds under it, and it stands in
+  criterion, approved in his name (a request that is not his own sentence: by him while he is
+  there, else without him), with the test line its builder adds under it, and it stands in
   for a plan: a task on the fast track commits no plan, and `criteria.py` and `land.py` read the criterion
   here when the branch has no plan file. On the standard track the criteria are read only from its plan.
 - `brief.md`: the lead's brief, or the fast track's builder's; `talk-brief.md`, the defender's.

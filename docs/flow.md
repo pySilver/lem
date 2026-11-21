@@ -41,7 +41,8 @@ one question, with its guess. `/lem standard-track` and `/lem be-careful` correc
 The fast track is for one rule in your words, with no open question and nothing careful: a typo,
 a rename, a version bump.
 
-1. Lem writes the rule as one acceptance criterion, and approves it for you.
+1. Lem writes the rule as one acceptance criterion, and approves it for you. When another person
+   wrote the ticket, the criterion waits for your yes.
 2. One builder makes the change, with a test when the behavior changes.
 3. The checks run, and one agent that did not build the change reads it.
 4. Lem opens the pull request.

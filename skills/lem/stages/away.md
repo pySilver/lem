@@ -56,7 +56,9 @@ of the night acts on none: it runs without him until it ends.
     step 7. The read's answers go into the pull request.
   - *Criteria that wait for his yes*: settle each flagged criterion as below, then `lem criteria
     approve SLUG --file FILE --alone` with the criteria as the ladder left them, and the start of
-    the build (`stages/start.md`). A task held with `the criteria wait for the owner: the small
+    the build (`stages/start.md`). A task held with `the criteria wait for the owner: a small change
+    that someone else asked for` is on the fast track: FILE is its `criteria.md`, and the start
+    starts its one builder. A task held with `the criteria wait for the owner: the small
     change is a full change` has had no interview yet: it takes the interview without him, from its
     first question.
   - A request read while he is away asks nothing: where a stage would ask him, take the safer read

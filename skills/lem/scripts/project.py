@@ -2423,22 +2423,25 @@ FAST_GREW = re.compile(r"\bthe small change is a full change$")
 LEAD_LINE = re.compile(r"lead: (builder|session)\b")
 # The state line of a task whose interview waits for the owner (`stages/new.md`, "The request", step 8).
 INTERVIEW_WAIT = "the interview waits for the owner"
+# The state line of a task on the fast track whose one criterion waits for the owner's yes before its
+# builder starts: a request someone else wrote, while he is there (`stages/new.md`, "The fast track", step 1).
+FAST_WAIT = "the criteria wait for the owner: a small change that someone else asked for"
 
 
 def track_of(text: str) -> str | None:
     """The track of a task, `fast` or `standard`, from the newest of its state lines that tells it
     (state.md is newest block first); None while nothing has: an investigation before its call, or a
     task queued before its first builder. Criteria that wait for the owner's yes are the standard
-    track's: the fast track's one criterion is approved in his name. So is an interview: only the
-    standard track has one, also for a task that `/lem standard-track` moved off the fast track,
-    whose older block names its one builder."""
+    track's, except the fast track's one criterion of a request someone else wrote (`FAST_WAIT`). So
+    is an interview: only the standard track has one, also for a task that `/lem standard-track` moved
+    off the fast track, whose older block names its one builder."""
     for line in text.splitlines():
         found = STATE_LINE.fullmatch(line.strip())
         said = found["text"] if found else line.strip()
+        if said == FAST_BUILDER or said == FAST_WAIT:
+            return "fast"
         if FAST_GREW.search(said) or LEAD_LINE.match(said) or said.startswith(CRITERIA_WAIT) or said.startswith(INTERVIEW_WAIT):
             return "standard"
-        if said == FAST_BUILDER:
-            return "fast"
     return None
 
 
@@ -2548,6 +2551,8 @@ def opening_line_facts(directory: Path, main: Path, status: str, lines: list[str
     then = next((found["path"] for found in map(THEN_LINE.fullmatch, said) if found), None) if status == "queued" else None
     if status == "held" and said[0] == INTERVIEW_WAIT:
         path = "interview"
+    elif status == "held" and said[0] == FAST_WAIT:
+        path = "fast"
     elif status in ("building", "queued") and investigation:
         path = "investigation"
     elif then:
@@ -2575,6 +2580,8 @@ def opening_line_facts(directory: Path, main: Path, status: str, lines: list[str
         "careful": careful, "after": after, "slug": directory.name,
         "order": order["words"] if order else None, "fits": FITS_LINE in said,
         "plan": "stop after the plan: yes" in brief_rows, "someone_else": "request by: someone else" in brief_rows,
+        # a first block before the builder's: on the fast track his yes to someone else's criterion comes first
+        "before_builder": status != "building",
         "stands_in": ("the ticket" if (directory / "ticket.txt").is_file() else "the backlog item" if item
                       else "the investigation's report" if (directory / "investigation.md").is_file() else "your request"),
         "question": investigation == "question" or typed["type"] == "question",
@@ -2609,10 +2616,13 @@ def compose_opening_line(facts: dict, task: str | None = None) -> str:
         standard = "Then the s" + standard[1:]
     if path == "fast":
         nothing = "Nothing waits for you." if facts.get("order") is None else None
+        if facts.get("someone_else"):
+            # someone else's request: his yes comes before the builder while he is there (`FAST_WAIT`, or a
+            # wait that ends in it); a first block that is the builder's own was approved without him
+            nothing = ("Someone else wrote the request, so its criterion waits for your yes before the builder starts." if facts.get("before_builder")
+                       else "Nothing waits for you but the pull request, which calls you: you did not approve its criterion.")
         steps = FAST_STEPS if facts.get("order") is None else "Then the f" + FAST_STEPS[1:]
-        words += [steps, waits,
-                  "Nothing waits for you but the pull request, which calls you: you did not approve its criterion." if facts.get("someone_else") else nothing,
-                  correction(True, task)]
+        words += [steps, waits, nothing, correction(True, task)]
     elif path == "interview":
         now = " now" if facts.get("order") is None else ""
         words += [f"{standard} an interview {here}{now}, then acceptance criteria for your yes.", then, correction(False, task)]

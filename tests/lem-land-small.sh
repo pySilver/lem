@@ -76,6 +76,46 @@ else
   fail "a small change: $shown / $gated / $due / $proposed / $read_small / $merged / reds $(reds date-nowrap) / $(cat "$text" 2>/dev/null)"
 fi
 
+# A small change that someone else asked for (`request by: someone else` in its brief): while the owner is there, its first
+# block is the wait for his yes, which says so in the first line and is a row of what waits for him; no approval in his
+# name or without him takes its place, and his own approval with --file lets it land green. While he is away, --alone approves it.
+theirs_in() {
+  project --repo "$SMALL" task-dir "$1" --ask "SHOP-14: the date column of the report must never wrap." >/dev/null
+  printf '%s\n' '## Acceptance criteria' '' 'Size: small, because the ticket is one sentence.' '' '1. The date column of the report never wraps: 2026-11-17 stays on one line.' > "$(dir_of "$1")/criteria.md"
+  printf '%s\n' 'Read SKILL_DIR/prompts/small.md and follow it.' "task: $1" "branch: fix/$1" 'request by: someone else' > "$(dir_of "$1")/brief.md"
+}
+theirs_in their-date
+said_first=$(project --repo "$SMALL" state their-date held "the criteria wait for the owner: a small change that someone else asked for" "type: fix, because the column wraps today" | field 'd["say"]' 2>&1 || true)
+waits_him=$(project --repo "$SMALL" waiting | field '[t["task"] for t in d["criteria"]]' 2>&1 || true)
+auto_alone=$(criteria approve their-date --file "$(dir_of their-date)/criteria.md" --alone 2>&1 || true)
+auto_name=$(criteria approve their-date --small 2>&1 || true)
+none_yet=$(criteria approved their-date | field 'd["approved"]' 2>&1 || true)
+his_yes=$(criteria approve their-date --file "$(dir_of their-date)/criteria.md" 2>&1 | field '(d["by"], d["size"])' 2>&1 || true)
+tree=$(project --repo "$SMALL" worktree-dir their-date)
+git -C "$SMALL" worktree add -q "$tree" -b fix/their-date main
+project --repo "$SMALL" state their-date building "small change: one builder" >/dev/null
+built their-date "$tree"
+s start their-date >/dev/null && s base their-date >/dev/null && s checks their-date >/dev/null 2>&1 || true
+s read their-date >/dev/null 2>&1 || true
+s read their-date --record "$(clean their-date 1)" >/dev/null 2>&1 || true
+their_green=$(s propose their-date --title "fix(report): the date column never wraps" --notes "$SHORT" 2>&1 | field 'd["green"]' 2>&1 || true)
+theirs_in their-away
+project --repo "$SMALL" owner away --words "I'm away" >/dev/null
+away_alone=$(criteria approve their-away --file "$(dir_of their-away)/criteria.md" --alone 2>&1 | field 'd["by"]' 2>&1 || true)
+project --repo "$SMALL" owner back --words "I'm back" >/dev/null
+if grep -qF "Someone else wrote the request, so its criterion waits for your yes before the builder starts." <<<"$said_first" \
+  && [ "$waits_him" = "['their-date']" ] \
+  && grep -qF "their-date is not the owner's own request (someone else wrote its request), so its criterion waits for the owner's yes" <<<"$auto_alone" \
+  && grep -qF "its criterion waits for the owner's yes" <<<"$auto_name" && [ "$none_yet" = None ] \
+  && [ "$his_yes" = "('owner', 'small')" ] && [ "$their_green" = True ] && ! grep -q "did not approve" "$(dir_of their-date)/pr.md" \
+  && [ "$away_alone" = alone ]; then
+  pass "a small change someone else asked for waits for the owner's yes while he is there: its first line says so, it is a row of what waits for him, Lem's approval in his name and --alone are refused, and his own approval lets it land green; while he is away --alone approves it"
+else
+  fail "someone else's small change: $said_first / $waits_him / $auto_alone / $auto_name / $none_yet / $his_yes / $their_green / $away_alone / $(cat "$(dir_of their-date)/pr.md" 2>/dev/null)"
+fi
+project --repo "$SMALL" state their-date dropped "the test is over" >/dev/null
+project --repo "$SMALL" state their-away dropped "the test is over" >/dev/null
+
 # The landing logs the start of the checks and of the review itself, so that each has a span: the review's once for its attempt, however often read is asked.
 events_of() { "$PY" -c 'import json, sys; print([(e["event"], {k: v for k, v in e.items() if k in ("tip", "commands", "attempt", "floor")}) for e in map(json.loads, open(sys.argv[1])) if e["task"] == sys.argv[2] and e["event"] in ("gate.start", "gate", "review.start", "review")])' "$SMALL/.lem/state/events.jsonl" "$1"; }
 tip=$(git -C "$SMALL" rev-parse --short=9 fix/date-nowrap)

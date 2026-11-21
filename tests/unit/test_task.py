@@ -58,6 +58,10 @@ class TrackOf(unittest.TestCase):
         self.assertEqual(project.track_of("2026-11-19T09:50Z building: lead: builder\n\n2026-11-19T09:40Z building: small change: one builder"), "standard")
         self.assertIsNone(project.track_of("2026-11-19T09:50Z queued: it waits for a free place"))
 
+    def test_the_fast_tracks_wait_for_his_yes_and_the_standard_tracks(self):
+        self.assertEqual(project.track_of(f"2026-11-19T09:50Z held: {project.FAST_WAIT}\ntype: fix, because a word"), "fast")
+        self.assertEqual(project.track_of("2026-11-19T09:50Z held: the criteria wait for the owner\nnobody confused"), "standard")
+
 
 class QueuedRefusal(unittest.TestCase):
     """The refusal of `may-start` for a queued task names the way out of a need and of the owner's order."""
@@ -124,6 +128,25 @@ class FirstLine(unittest.TestCase):
                          'docs: "the README says receive, not recieve". Branch docs/readme-receive-typo. '
                          "Fast track: one builder, the checks, one read, then the pull request. Nothing waits for you. "
                          "Wrong read? /lem standard-track, /lem be-careful.")
+
+    def test_the_fast_track_of_someone_elses_ticket_waits_for_his_yes(self):
+        self.write("ask.txt", "SHOP-14\n")
+        self.write("ticket.txt", "SHOP-14\n")
+        self.write("criteria.md", "## Acceptance criteria\n\nSize: small, because one word.\n\n1. The footer says Terms.\n")
+        self.write("brief.md", "Read SKILL_DIR/prompts/small.md and follow it.\nbranch: fix/shop-14-footer-terms\nrequest by: someone else\n")
+        fast = ('fix: "the footer says Terms". Branch fix/shop-14-footer-terms. Fast track: one builder, the checks, one read, then the pull request. ')
+        # with the owner there, the first block is the wait for his yes, before the builder
+        self.assertEqual(self.say("held", project.FAST_WAIT, "type: fix, because the footer is wrong today"),
+                         fast + "Someone else wrote the request, so its criterion waits for your yes before the builder starts. "
+                                "Wrong read? /lem standard-track, /lem be-careful.")
+        # while he is away, its builder's block is the first, and the criterion was approved without him
+        self.assertEqual(self.say("building", "small change: one builder", "type: fix, because the footer is wrong today"),
+                         fast + "Nothing waits for you but the pull request, which calls you: you did not approve its criterion. "
+                                "Wrong read? /lem standard-track, /lem be-careful.")
+        # queued behind another task, its yes still comes before its builder
+        queued = self.say("queued", "it needs the footer's new text", "after: footer-text", "type: fix, because x", "then: the fast track")
+        self.assertIn("It waits for footer-text, and starts when that task lands or is answered. Someone else wrote the request, so its criterion "
+                      "waits for your yes before the builder starts.", queued)
 
     def test_the_standard_track_with_an_interview_quotes_the_outcome(self):
         self.write("ask.txt", "Add the gift note to the CSV export, Ania asked twice\n")

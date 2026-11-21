@@ -122,7 +122,8 @@ class ResumedPlan(unittest.TestCase):
 
 class FastTrackNotHis(unittest.TestCase):
     """The fast track's one criterion is approved in the owner's name only when the request is his own
-    sentence; a night's task, or a request someone else wrote, is approved without him (`--alone`), in any mode."""
+    sentence. A request someone else wrote waits for his own yes while he is there, and is approved
+    without him (`--alone`) only while the task runs without him: a night's task, or his away mark."""
 
     SMALL = "## Acceptance criteria\n\nSize: small, because the request is one sentence.\n\n1. The footer says 2026.\n"
 
@@ -148,10 +149,25 @@ class FastTrackNotHis(unittest.TestCase):
             self.assertIn("--alone", str(refused.exception))
             self.assertEqual(criteria.cmd_approve(task, str(task.small_file), "alone", plan=True)["by"], "alone")
 
-    def test_a_request_someone_else_wrote_is_approved_without_him_while_he_is_there(self) -> None:
+    def test_a_request_someone_else_wrote_waits_for_his_yes_while_he_is_there(self) -> None:
         import tempfile
         with tempfile.TemporaryDirectory() as folder:
             task = self.task(Path(folder), brief="task: footer-year\nrequest by: someone else\n")
+            for by in ("alone", "lem"):
+                with self.subTest(by=by), self.assertRaises(criteria.CriteriaError) as refused:
+                    criteria.cmd_approve(task, str(task.small_file), by, plan=by == "alone")
+                self.assertIn("waits for the owner's yes", str(refused.exception))
+                self.assertIn(f"lem criteria approve footer-year --file {task.small_file}`", str(refused.exception))
+            self.assertFalse(task.approved_file.exists())
+            self.assertEqual(criteria.cmd_approve(task, str(task.small_file), "owner")["by"], "owner")
+
+    def test_a_request_someone_else_wrote_is_approved_without_him_while_he_is_away(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            task = self.task(Path(folder), brief="task: footer-year\nrequest by: someone else\n", mode="alone")
+            with self.assertRaises(criteria.CriteriaError) as refused:
+                criteria.cmd_approve(task, str(task.small_file), "lem")
+            self.assertIn("--alone` approves it without the owner while the task runs without him", str(refused.exception))
             self.assertEqual(criteria.cmd_approve(task, str(task.small_file), "alone", plan=True)["by"], "alone")
 
     def test_his_own_request_is_approved_in_his_name_even_while_he_is_away(self) -> None:
