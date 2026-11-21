@@ -9,12 +9,13 @@ Size: full, because the board's server changes how it runs a merge, and its look
 1. While a merge from the board waits for GitHub, the owner's other acts on the board still answer:
    1. The board shows the repository `shop` with the task `word-in-file`, open as pull request 1.
    2. The owner confirms its merge, and GitHub answers `gh pr merge` slowly.
-   3. Meanwhile he gives his yes to the criteria of the task `note-in-readme` on the board.
-   4. His yes is on record, and its page comes back, while the merge of pull request 1 still waits.
-   5. When GitHub answers, pull request 1 is merged and `word-in-file` is landed.
-2. Two merges of one repository still take turns: while the merge of `first-move` holds the repository's merge lock, the merge of `second-move` waits for it, and the record says that it waited for `first-move`.
+   3. Meanwhile he gives his yes to the criteria of the task `note-in-readme` of the repository `docs`, on the same board.
+   4. While it waits, the board shows "Merging…" on `word-in-file`.
+   5. His yes is on record, and its page comes back, while the merge of pull request 1 still waits.
+   6. When GitHub answers, pull request 1 is merged and `word-in-file` is landed.
+2. Two merges of one repository still take turns: while the merge of `first-move` holds the repository's merge lock, the merge of `second-move` waits for it, and the board shows on `second-move` that it waits for the merge of `first-move`.
 3. The board says what came of a merge as it does today: a merge that went through says "Merged: pull request #1 is on main", and one that Lem refused says the refusal's own line, as `lem land merge` gives it.
-4. While a merge from the board runs, the board's look at GitHub shows no false failure for that task: when GitHub already calls pull request 1 merged before the merge's step ends, the status bar shows no line that `lem land merged word-in-file` failed.
+4. While a merge from the board runs, the board's look at GitHub shows no false failure for that task: when GitHub already calls pull request 1 merged before the merge's step ends, the status bar shows no line that `lem land merged word-in-file` failed. A look that finds `lem land merged` failing for a task whose merge does not run still shows its line, as today.
 
 ## Tasks
 
