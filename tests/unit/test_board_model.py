@@ -502,9 +502,11 @@ class AfterDropped(unittest.TestCase):
         # the kanban, the summary's count, the Overview's eyebrow and its "Where you answer" agree with the row
         self.assertEqual((t.for_owner, t.lane, [x.slug for x in m.for_owner], bm.who_acts(t)), (True, "you", [self.ORDER], "You act"))
         self.assertEqual(bm.answer_of(t), say["where"])
+        # the Overview's headline says what the row says, under "You act": it waits for his word, not for a task
+        self.assertEqual(bm.now_head(t), say["verb"])
         # behind a task that still runs, Lem holds it
         runs = model(*self.gift("building"), self.QUEUED).by_slug[self.ORDER]
-        self.assertEqual((runs.for_owner, runs.lane, bm.who_acts(runs)), (False, "build", "Lem acts"))
+        self.assertEqual((runs.for_owner, runs.lane, bm.who_acts(runs), bm.now_head(runs)), (False, "build", "Lem acts", "Waits for another task"))
 
     def test_a_row_of_another_kind_leaves_where_he_answers_to_the_task_state(self):
         # a breaker whose task has no session: the session's row does not take the breaker's words away

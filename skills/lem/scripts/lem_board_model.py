@@ -1235,6 +1235,11 @@ def waits_of(m: Model) -> list[dict]:
     return sorted(rows, key=lambda w: (WAIT_ORDER[w["kind"]], w["since"]))
 
 
+def dropped_head(after: str) -> str:
+    """What a task queued after the dropped task AFTER waits for: the words of its row in "Waits for you" and of its Overview's headline."""
+    return f"{after} was dropped: your word starts or ends this task"
+
+
 def wait_say(w: dict) -> dict:
     """What a row of "Waits for you" says the owner does, its icon, the tab where he acts, and how its time reads."""
     t, kind = w["t"], w["kind"]
@@ -1256,7 +1261,7 @@ def wait_say(w: dict) -> dict:
     if kind == "after_dropped":
         # the two words he types, each with the task's name: no session runs this task, so he types them in another one
         after, start, drop = w["after"], f"start {t.slug} now", f"/lem drop {t.slug}"
-        return {"verb": f"{after} was dropped: your word starts or ends this task", "icon": "user", "to": "overview", "note": f"since {after} was dropped",
+        return {"verb": dropped_head(after), "icon": "user", "to": "overview", "note": f"since {after} was dropped",
                 "start": start, "drop": drop, "where": answer_of(t)}
     if kind == "blocked":
         return {"verb": "Its session stopped: tell it what to do", "icon": "alert", "actor": "bad", "to": "overview", "note": "since it stopped",
@@ -1521,6 +1526,9 @@ def now_head(t: Task) -> str:
     """The head of the large card of a task: what it does now, in words."""
     s = t.status
     if s == "queued":
+        if t.dropped_after:
+            # the task it waited for was dropped, so it waits for his word: the headline says what its row says
+            return dropped_head(t.dropped_after)
         # "another task" holds for both reasons of a wait: the task needs its result, or the owner's words put it after it
         return "Waits for another task" if t.waits_after else "Waits to start"
     if s == "building":
