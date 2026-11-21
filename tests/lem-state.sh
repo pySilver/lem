@@ -251,8 +251,11 @@ for n, line in enumerate(lines):
     if line.strip() and json.loads(line).get("task") in ("old-landed", "old-dropped"):
         lines[n] = line.replace(json.loads(line)["ts"], old, 1)
 open(sys.argv[1], "w", encoding="utf-8").write("\n".join(lines))' "$PS/events.jsonl"
-mkdir -p "$PS/experts/2026-01-02-101010-an-old-question" "$PS/experts/$(date -u +%Y-%m-%d)-101010-a-new-question" "$PS/experts/notes" \
-  "$PS/panels/2026-01-02-an-old-panel" "$PS/naps/2020-01-02-0300-an-old-dream" "$PS/naps/$(date -u +%Y-%m-%d-%H%M)-a-new-dream" "$PS/personas-cast/0123abc" "$PS/personas-cast/4567def"
+# each dated name once, so that a run that crosses a minute or a UTC midnight looks for the folder it made
+new_question=$(date -u +%Y-%m-%d)-101010-a-new-question
+new_dream=$(date -u +%Y-%m-%d-%H%M)-a-new-dream
+mkdir -p "$PS/experts/2026-01-02-101010-an-old-question" "$PS/experts/$new_question" "$PS/experts/notes" \
+  "$PS/panels/2026-01-02-an-old-panel" "$PS/naps/2020-01-02-0300-an-old-dream" "$PS/naps/$new_dream" "$PS/personas-cast/0123abc" "$PS/personas-cast/4567def"
 printf 'q\n' > "$PS/experts/2026-01-02-101010-an-old-question/brief.md" && printf 'p\n' > "$PS/panels/2026-01-02-an-old-panel/answer.md"
 printf 'd\n' > "$PS/naps/2020-01-02-0300-an-old-dream/dream.md" && printf 'c\n' > "$PS/personas-cast/0123abc/merchant.md" && printf 'c\n' > "$PS/personas-cast/4567def/merchant.md"
 ln -s "$WORK" "$PS/panels/2026-01-03-a-link"
@@ -285,9 +288,9 @@ if [ "$before_dry" = "$after_dry" ] && [ "$(field '(d["dry_run"], d["keep_days"]
   && [ -f "$OLD/media/shown.png" ] && [ -f "$OLD/report.md" ] && [ -f "$OLD/reviews/old-landed/01-initial/report.md" ] && [ -f "$OLD/state.md" ] && [ -f "$OLD/ask.txt" ] \
   && [ -f "$OLD/landing.json" ] && [ -f "$OLD/ticket-steps.txt" ] && [ ! -e "$OLD/locked" ] && [ -L "$OLD/link.txt" ] && [ "$(cat "$WORK/outside.txt")" = "kept outside" ] \
   && [ -f "$PS/tasks/young-landed/scratch.txt" ] && [ -f "$PS/tasks/still-open/scratch.txt" ] && [ -f "$PS/tasks/old-dropped/decisions.jsonl" ] \
-  && [ ! -e "$PS/experts/2026-01-02-101010-an-old-question" ] && [ -d "$PS/experts/notes" ] && [ -d "$PS/experts/$(date -u +%Y-%m-%d)-101010-a-new-question" ] \
+  && [ ! -e "$PS/experts/2026-01-02-101010-an-old-question" ] && [ -d "$PS/experts/notes" ] && [ -d "$PS/experts/$new_question" ] \
   && [ ! -e "$PS/panels/2026-01-02-an-old-panel" ] && [ -L "$PS/panels/2026-01-03-a-link" ] && [ -d "$WORK/no-repo" ] \
-  && [ ! -e "$PS/naps/2020-01-02-0300-an-old-dream" ] && [ -d "$PS/naps/$(date -u +%Y-%m-%d-%H%M)-a-new-dream" ] && [ ! -e "$PS/personas-cast/0123abc" ] && [ -d "$PS/personas-cast/4567def" ] \
+  && [ ! -e "$PS/naps/2020-01-02-0300-an-old-dream" ] && [ -d "$PS/naps/$new_dream" ] && [ ! -e "$PS/personas-cast/0123abc" ] && [ -d "$PS/personas-cast/4567def" ] \
   && grep -qF "'tasks/broken-state'" <<<"$(field '[s["path"] for s in d["skipped"]]' <<<"$again")" && grep -qF "'tasks/old-landed/link.txt'" <<<"$(field '[s["path"] for s in d["skipped"]]' <<<"$again")" \
   && grep -qF "'panels/2026-01-03-a-link'" <<<"$(field '[s["path"] for s in d["skipped"]]' <<<"$again")" \
   && [ "$tasks_after" = "[('old-dropped', 'dropped', []), ('old-landed', 'landed', ['started', 'landed'])]" ] && grep -qF "Which name?" <<<"$decided"; then
