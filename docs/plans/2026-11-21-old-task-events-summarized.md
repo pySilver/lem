@@ -9,9 +9,10 @@ Size: full, because `prune` rewrites the event log that five scripts read and tw
 1. Past `state.keep_days`, `lem project prune` replaces all the events of an ended task with one summary event, and leaves every other event of the log as it was:
    1. `state.keep_days` is 30. The task `report-dates` landed on 2026-10-01 with pull request 12, and has 60 events in the log. The task `invoice-fix` landed on 2026-11-01. The task `gift-note` is building.
    2. On 2026-11-05 `lem project prune` runs.
-   3. The log holds one summary event of `report-dates` in place of its 60 events. It keeps the task's status, its end, its first day, its pull request, and the time of its newest event.
+   3. The log holds one summary event of `report-dates` in place of its 60 events. It keeps the task's status, its end, its first day, its last line, its type, green or not green, its pull request, and the time of its newest event.
    4. Every event of `invoice-fix` and of `gift-note` is in the log as it was, in the same order.
    5. A second `lem project prune` leaves the log as it is.
+   6. The task `old-idea`, parked on 2026-09-01, keeps all its events: a parked task, and every task that has not ended, stays whole however old it is. The log is in Lem's state folder, which git never sees: no file in git and no branch changes.
 2. The board and `lem project tasks` show an old ended task the same before its summary and after it:
    1. Before the prune of criterion 1, the card of `report-dates` in Done shows "landed", the time of its end, its last line, its type, "green" and the pull request 12.
    2. After the prune, its card shows the same six things, and its board says the same status, end and pull request.
@@ -25,10 +26,10 @@ Size: full, because `prune` rewrites the event log that five scripts read and tw
    2. `prune` writes the new log. At the same moment, the session of `gift-note` writes the state `ready`, and its Claude Code session logs its transcript.
    3. The new log holds both events of `gift-note`, after its older ones.
    4. At its next look, the open board shows `gift-note` as `ready`, `report-dates` once in Done, and no event twice.
-5. `lem project prune --dry-run` says how many events of how many ended tasks it would replace with a summary, and changes no file: after it, the log of criterion 1 still holds the 60 events of `report-dates`.
+5. `lem project prune --dry-run` names each ended task whose events it would replace with a summary, with the count of its events, and changes no file: after it, the log of criterion 1 still holds the 60 events of `report-dates`.
 6. A dropped task whose events became a summary is not resumed, and Lem says why and what to do instead:
    1. The task `card-foot` was dropped on 2026-10-01. On 2026-11-05 `prune` replaced its events with a summary.
-   2. `lem project resume card-foot` refuses. Its message says that the events of `card-foot` (its approved criteria, the personas' read, its decisions' events) became one summary event past `state.keep_days`, so a resumed task would start with none of them, and that a new task with its ask (`ask.txt` of its task directory) is the way on.
+   2. `lem project resume card-foot` refuses. Its message says that the events of `card-foot` (its approved criteria, the personas' read, its decisions' events) became one summary event past `state.keep_days`, so a resumed task would start with none of them, and that a new task with its ask is the way on. It ends with the line to type, `/lem` followed by the text of `ask.txt` of the dropped task.
    3. A dropped task whose events are whole resumes as before.
 
 ## How it works
@@ -49,10 +50,10 @@ flowchart TD
 1. **The summary in `prune`, under one lock of the log.** Serves criteria 1, 3, 4, 5 and 6.
    - `skills/lem/scripts/project.py`: one lock of the event log, a file `events.lock` beside it in the state folder, taken with `fcntl.flock` by `append_event` for its append, and by `prune` from its read of the log through the `os.replace` of the new one. The new log is written whole to a temporary file in the state folder and put in place with `os.replace`, so it has a new inode: `Reader.read_log` in `lem_board_model.py` and `Look.count` in `serve.py` read a log with a new inode from its start, and need no change for it.
    - `skills/lem/scripts/session_hook.py`: `keep_transcript` appends under the same lock. It is the one other writer of the log (every other event goes through `append_event`; a sweep for `open("a"` over `skills/*/scripts/*.py` on 2026-11-21 found no third).
-   - `cmd_prune`: for each task that `task_calls` calls `old`, the task's events become one `task.summary` event (its form under "The decisions"), in the place of the task's newest event; every other line of the log stays byte for byte, in its order. A task whose events are already its one summary is left alone, so a second prune writes nothing (no rewrite at all when no task changes). The answer gets the count of events and of tasks it summarized, in its JSON and in `said`; `--dry-run` counts the same and writes nothing. `serve.py`'s `prune_line` names the events when there were any.
+   - `cmd_prune`: for each task that `task_calls` calls `old`, the task's events become one `task.summary` event (its form under "The decisions"), in the place of the task's newest event; every other line of the log stays byte for byte, in its order. A task whose events are already its one summary is left alone, so a second prune writes nothing (no rewrite at all when no task changes). The answer names each task it summarized with the count of its events, in its JSON, and gives the totals in `said`; `--dry-run` names the same and writes nothing. `serve.py`'s `prune_line` names the events when there were any.
    - `task_calls`: reads a `task.summary` as the task's stated status and its `ts` as the task's newest event, so an old task stays `old` and its dating does not move.
    - `read_tasks`: the first and newest state of a task, and its night's mark, read from its summary when the task has one, so `lem project tasks` gives the same as before.
-   - `cmd_resume`: refuses a dropped task whose log holds its `task.summary`, with the message of criterion 6, before it makes any folder or branch.
+   - `cmd_resume`: refuses a dropped task whose log holds its `task.summary`, with the message of criterion 6, which ends with `/lem` and the text of the dropped task's `ask.txt`, before it makes any folder or branch.
    - Tests: unit cases in `tests/unit/test_task.py` for the summary of one task among others, a second prune, the dry run, `task_calls` on a summary, the resume refusal and a resume of a whole task; the lock and the race of criterion 4 as a case that holds the lock and shows that an append waits for it, and one that appends from a second process while `prune` writes; one check in `tests/lem-state.sh` that runs `lem project prune` on a throwaway state folder and then `lem project may-start` and `lem project task-dir` (criterion 3).
 2. **The board reads a summary.** Serves criteria 2 and 4.
    - `skills/lem/scripts/lem_board_model.py`: `fold` takes a `task.summary` as the task's whole past: its end block, its first day, its type, its lead, its careful call, its proposal and its night's mark, so that `settle`, the card, `pr_of`, `after_ended` and `after_dropped` read the task as before. The summary's facts are the ones the model's own fold gives for the task's events, so task 1 computes them with this module's `fold` and `settle` and cannot disagree with it.
