@@ -239,7 +239,9 @@ The record of a review is a JSON file:
      "outside": [{"where": PATH OR PATH:SYMBOL, "title": ONE LINE, "what": THE RUN THAT SHOWS IT}],
      "careful": true | false, "careful_why": ONE LINE}
 
-`attempt`, `tip`, `kind`, `answered`, `careful` and `careful_why` are always there. `tip` is the
+`attempt`, `tip`, `kind`, `answered`, `careful` and `careful_why` are always there, but in the record of
+an attempt that got no answer at all (`failed_attempt`: `answered` empty, each silent source with
+what stopped it, no finding), which may leave the careful call out. `tip` is the
 `tip` that `read` printed for the attempt: a record of another tip than the branch's now is refused,
 since the attempt counts the records and a review of an earlier tip carries the same number. `careful` is the
 review's own reading of the diff against each topic, and `careful_why` names the topic the change
@@ -2620,6 +2622,17 @@ def task_file(value: str, flag: str, directory: Path, here: Path) -> str:
     raise LandError(f"{value} is not a file in the working directory ({first}) nor in the task directory ({second}); {flag} names a file by its path, or by its path inside the task directory")
 
 
+def failed_attempt(said: dict) -> bool:
+    """Whether a review's record is of an attempt that got no answer at all: nobody in `answered`, a
+    reason for each source in `silent`, and no finding. The review agent writes it when every source
+    was silent, and the landing session when the review agent itself ended with no files; it counts as
+    an attempt, so a second one in a row sends the request on as not reviewed (`due_of`)."""
+    silent = said.get("silent")
+    return (said.get("answered") == [] and isinstance(silent, list) and bool(silent)
+            and all(isinstance(item, dict) and str(item.get("why") or "").strip() for item in silent)
+            and not any(said.get(key) for key in ("must_fix", "should", "nit", "outside")))
+
+
 def record_tip_refusal(said: object, tip: str, slug: str) -> str | None:
     """Why a review's record whose `tip` is SAID is not the review of the branch at TIP; None when it is.
     The attempt counts the records, so a review of an earlier tip carries the same number."""
@@ -2700,8 +2713,11 @@ def cmd_read(task: Task, record: str | None) -> dict:
         raise LandError(f"this change gets {KIND_SAYS[state['floor']]} at the least ({state['why']}), and the record says {KIND_SAYS[kind]}")
     # The careful call is the review's own reading of the diff against the project's topics, by an
     # agent that did not build it: it is what lets an agent merge, or keeps the merge a person's.
+    # A review that got no answer at all, written down by the session when its agent died, makes none:
+    # it counts as an attempt, and the next one makes the call.
     call, call_why = said.get("careful"), said.get("careful_why")
-    if not isinstance(call, bool) or not isinstance(call_why, str) or not call_why.strip() or "\n" in call_why.strip():
+    failed = failed_attempt(said) and call is None and call_why is None
+    if not failed and (not isinstance(call, bool) or not isinstance(call_why, str) or not call_why.strip() or "\n" in call_why.strip()):
         raise LandError(
             "the record makes the careful call: \"careful\": true or false, the review's own reading of the diff against each of the project's topics "
             "(`topics` in what `lem land read` printed), and \"careful_why\": one line that names the topic the change reaches, or what was checked to say that it reaches none",
@@ -2715,7 +2731,7 @@ def cmd_read(task: Task, record: str | None) -> dict:
     answered = said["answered"]
     if not isinstance(answered, list) or not all(isinstance(source, str) and source.strip() for source in answered):
         raise LandError("`answered` is the list of the sources that answered, by name; an empty list says that none did")
-    if kind != "read" and not ran:
+    if kind != "read" and not ran and not failed:
         raise LandError("a round names each profile it ran in `ran`, with why that profile fits this change")
     if kind == "full" and left_out:
         raise LandError("the project's full set leaves no profile out: a profile may be added to it, never dropped")
@@ -2735,7 +2751,7 @@ def cmd_read(task: Task, record: str | None) -> dict:
         )
     entry = {
         "attempt": state["attempt"], "round": state["round"], "kind": kind, "ran": ran, "left_out": left_out, "answered": answered, "silent": silent, "bar": bar_says, **counts, "outside": outside,
-        "careful": call, "careful_why": call_why.strip(),
+        "careful": call, "careful_why": call_why.strip() if isinstance(call_why, str) else None,
         "date": date.today().isoformat(), "verdict": "not reviewed" if not answered else "must-fix" if counts["must_fix"] else "clean", "tip": state["tip"][:9], "patch": state["patch"],
         # the read of a builder's resolution of a conflict, which is no round of the change
         **({"of": "resolution"} if state["resolution"] else {}),

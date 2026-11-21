@@ -202,7 +202,11 @@ landing up as after a cut-off.
      record says who answered and who did not, and the pull request shows both. Do not run it
      again for that.
    - *nobody answered*: that is no review. Start the review agent once more. A second such
-     record sends the request on as not reviewed.
+     record sends the request on as not reviewed. A review agent that ended with no files of its
+     own (it died, or hit a limit itself) wrote no record, and with none the attempt is not counted:
+     you write `reviews/review-N.json` from `read.json`, `{"attempt": N, "tip": TIP, "kind": FLOOR,
+     "answered": [], "silent": [{"name": "the review agent", "why": WHAT ENDED IT}]}`, and record it
+     as above. It makes no careful call, and the step takes it without one.
 
    Two rounds at most. After the second nothing is reviewed again: the request is proposed as
    it is. It is green when the second round left no must-fix and nothing changed after it, and

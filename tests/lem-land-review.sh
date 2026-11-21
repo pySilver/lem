@@ -138,7 +138,9 @@ out=$(local_land read guide-change)
 early=$(status_of local_land propose guide-change --title "docs: more" --notes "$NOTES")
 quiet='{"kind": "read", "answered": [], "silent": [{"name": "codex", "why": "the model was at capacity"}]}'
 once=$(local_land read guide-change --record "$(record guide-change 1 "$quiet")" | field '(d["recorded"]["verdict"], d["next"])')
-twice=$(local_land read guide-change --record "$(record guide-change 2 "$quiet")" | field 'd["next"]')
+# the second time the review agent itself ended with no files: the session writes the record of the attempt, which makes no careful call
+printf '%s\n' '{"attempt": 2, "tip": "'"$(tip_of guide-change)"'", "kind": "read", "answered": [], "silent": [{"name": "the review agent", "why": "it ended with no files"}]}' > "$WORK/died.json"
+twice=$(local_land read guide-change --record "$WORK/died.json" | field 'd["next"]')
 local_land propose guide-change --title "docs: more" --notes "$NOTES" >/dev/null
 text=$LOCAL/.lem/state/tasks/guide-change/pr.md
 agent=$(local_land merge guide-change --by merger 2>&1 || true)
@@ -149,7 +151,7 @@ if [ "$(field '(d["criteria"]["ok"], [w["criterion"] for w in d["criteria"]["wit
   && grep -q '^   - no test: a sentence of the guide, which a person reads$' "$text" \
   && grep -q "^- the tests of the criteria: 0 pass on the branch and fail on the base commit; 1 criterion has no test$" "$text" \
   && grep -q "the request is not green (not reviewed" <<<"$agent"; then
-  pass "a change of documentation only is not proposed without a review; a review that nobody answered is started once more, and after the second the request is proposed as not reviewed, which the merge agent does not merge"
+  pass "a change of documentation only is not proposed without a review; a review that nobody answered is started once more, and after the second the request is proposed as not reviewed, which the merge agent does not merge; the record of a review agent that ended with no files is the session's, with no careful call"
 else
   fail "a documentation change and a review with no answer: $gate / $out / $once / $twice / $agent / $(cat "$text" 2>/dev/null)"
 fi

@@ -450,6 +450,26 @@ class EventLog(unittest.TestCase):
         self.assertEqual((land.waits_of(self.task, "2026-11-21T09:00:00Z") or {}).get("say"), self.WORDS)
 
 
+class FailedAttempt(unittest.TestCase):
+    """`land.failed_attempt`: the record of a review that got no answer at all, which counts as an
+    attempt with no careful call: nobody answered, a reason for each silent source, no finding."""
+
+    DIED = {"attempt": 1, "tip": "a" * 40, "kind": "read", "answered": [], "silent": [{"name": "the review agent", "why": "it ended with no files"}]}
+
+    def test_a_review_agent_that_died(self) -> None:
+        self.assertTrue(land.failed_attempt(self.DIED))
+        self.assertTrue(land.failed_attempt({**self.DIED, "must_fix": 0, "outside": []}))
+
+    def test_a_review_that_answered_or_found_something_is_none(self) -> None:
+        self.assertFalse(land.failed_attempt({**self.DIED, "answered": ["codex"]}))
+        self.assertFalse(land.failed_attempt({**self.DIED, "must_fix": 1}))
+        self.assertFalse(land.failed_attempt({**self.DIED, "outside": [{"where": "a.py", "title": "t", "what": "w"}]}))
+
+    def test_no_reason_is_none(self) -> None:
+        self.assertFalse(land.failed_attempt({**self.DIED, "silent": []}))
+        self.assertFalse(land.failed_attempt({key: value for key, value in self.DIED.items() if key != "silent"}))
+
+
 class ReadOfATip(unittest.TestCase):
     """A review's record and a merge agent's answer are of the tip their brief named: the record names
     it and one of another tip is refused, and each proposed tip has an answer file of its own."""
