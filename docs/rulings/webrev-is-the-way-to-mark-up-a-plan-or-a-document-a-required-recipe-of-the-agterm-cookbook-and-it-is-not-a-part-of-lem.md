@@ -9,7 +9,7 @@ area: What Lem is, and who it is for
 
 The title is the rule as it stands. Where the paragraph below says otherwise, the line here holds.
 
-- 2026-11-17 and 2026-11-18, [agterm, the mailbox chat and revmux stay required, and agdoc is required too](agterm-the-mailbox-chat-and-revmux-stay-required-and-agdoc-is-required-too.md): "webrev, agdoc and plannotator-tui are recommended tools": agdoc is required
+- 2026-11-17 and 2026-11-18, [agterm, the mailbox chat and revmux stay required](agterm-the-mailbox-chat-and-revmux-stay-required.md): "webrev, agdoc and plannotator-tui are recommended tools": agdoc was required for the page at the end of a task; on 2026-11-20, by [GitHub pull requests are the one way to land](github-pull-requests-are-the-one-way-to-land.md), that page became the merge agent's `merge-review.md`, and agdoc is a recommended tool again
 - 2026-11-18, [Three more commands are no commands of his, and two recipes of the agterm cookbook become required](three-more-commands-are-no-commands-of-his-and-two-recipes-of-the-agterm-cookbook-become-required.md): "recommended": `/webrev` becomes a required recipe, and `/lem annotate` goes
 - 2026-11-18, [Not every section of the settings stays](not-every-section-of-the-settings-stays.md): "`tools.annotate` defaults to `webrev`": the `[tools]` table goes
 

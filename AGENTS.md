@@ -100,7 +100,7 @@ ruling is reopened only by asking him.
 
 - [agterm is a hard dependency](docs/rulings/agterm-is-a-hard-dependency.md)
 - [The question page is a part of Lem, not a tool the machine has or lacks](docs/rulings/the-question-page-is-a-part-of-lem-not-a-tool-the-machine-has-or-lacks.md)
-- [agterm, the mailbox chat and revmux stay required, and agdoc is required too](docs/rulings/agterm-the-mailbox-chat-and-revmux-stay-required-and-agdoc-is-required-too.md)
+- [agterm, the mailbox chat and revmux stay required](docs/rulings/agterm-the-mailbox-chat-and-revmux-stay-required.md)
 - [cronn is required, and Codex is highly recommended](docs/rulings/cronn-is-required-and-codex-is-highly-recommended.md)
 - [Lem assumes auto mode](docs/rulings/lem-assumes-auto-mode.md)
 - [A release is a change of the plugin's `version`](docs/rulings/a-release-is-a-change-of-the-plugins-version.md)

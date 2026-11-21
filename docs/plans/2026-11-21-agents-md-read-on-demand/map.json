@@ -924,9 +924,9 @@
       "changed_by": [
         {
           "line": 443,
-          "part": "\"webrev, agdoc and plannotator-tui are recommended tools\": agdoc is required",
+          "part": "\"webrev, agdoc and plannotator-tui are recommended tools\": agdoc was required for the page at the end of a task; on 2026-11-20, by \"GitHub pull requests are the one way to land\", that page became the merge agent's `merge-review.md`, and agdoc is a recommended tool again",
           "day": "2026-11-17 and 2026-11-18",
-          "sentence": "agterm, the mailbox chat and revmux stay required, and agdoc is required too"
+          "sentence": "agterm, the mailbox chat and revmux stay required"
         },
         {
           "line": 450,
@@ -2068,18 +2068,18 @@
         },
         {
           "bold": "and agdoc is required too",
-          "state": "changed in part"
+          "state": "replaced whole"
         }
       ],
       "day": "2026-11-17 and 2026-11-18",
       "day_source": "opening's days as written",
       "today": "agterm, the mailbox chat and revmux stay required, and agdoc is required too",
-      "sentence": "agterm, the mailbox chat and revmux stay required, and agdoc is required too",
-      "sentence_is_today": true,
+      "sentence": "agterm, the mailbox chat and revmux stay required",
+      "sentence_is_today": false,
       "changed_by": [
         {
           "line": 885,
-          "part": "\"and agdoc is required too\", for the page at the end of a task: that page is the merge agent's `merge-review.md`",
+          "part": "\"and agdoc is required too\": agdoc's requirement went with the page at the end of a task, which is now the merge agent's `merge-review.md`, and agdoc is a recommended tool",
           "day": "2026-11-20",
           "sentence": "GitHub pull requests are the one way to land"
         }
@@ -2088,7 +2088,7 @@
       "replaces": [],
       "holds_unnamed": null,
       "group": "What Lem needs on the machine",
-      "slug": "agterm-the-mailbox-chat-and-revmux-stay-required-and-agdoc-is-required-too"
+      "slug": "agterm-the-mailbox-chat-and-revmux-stay-required"
     },
     {
       "line": 445,

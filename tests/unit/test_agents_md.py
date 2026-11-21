@@ -165,6 +165,17 @@ class ShortAgents(unittest.TestCase):
             self.assertIn(later, changed)
         self.assertIn("**The plan talk is a pair in a companion that closes after it**", old)
 
+    def test_a_sentence_drops_the_part_that_a_later_ruling_took_away(self):
+        # Criterion 4: "and agdoc is required too" went on 2026-11-20 with the page at the end of a
+        # task ("GitHub pull requests are the one way to land"), so no sentence and no title says it.
+        sentence = "agterm, the mailbox chat and revmux stay required"
+        found = [each for each in self.links() if each["text"] == sentence]
+        self.assertEqual(len(found), 1, f'AGENTS.md has no sentence "{sentence}"')
+        self.assertEqual(found[0]["path"], f"{RULINGS}/agterm-the-mailbox-chat-and-revmux-stay-required.md")
+        self.assertNotIn("agdoc is required", "\n".join(each["line"] for each in self.links()))
+        titles = [path.name for path in self.files(RULINGS) if "agdoc is required" in (title(path.read_text(encoding="utf-8")) or "")]
+        self.assertEqual(titles, [], "a title is the rule as it stands, and agdoc is no longer required")
+
     def test_the_names_docs_free_hour_cites_are_headings_or_sentences_of_agents_md(self):
         # Criterion 9: docs/free-hour.md sends an unattended session to these four by name.
         text = AGENTS.read_text(encoding="utf-8")
