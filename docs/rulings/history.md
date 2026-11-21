@@ -16,13 +16,15 @@ bullet.
 ## Held by a test or by the code
 
 - **The question page is a part of Lem, not a tool the machine has or lacks.**
-  `tests/lem-machine.sh: "the check has no row for the question page, which is a part of Lem"`
-  (2026-11-14)
+  `tests/lem-machine.sh: "the check has no row for the question page, which is a part of Lem"`; no
+  page for the owner lists it: `skills/lem/stages/init.md` (step 6, "the question page comes with
+  Lem"). (2026-11-14)
 - **A task has a type and a track, and they are two words.** `tests/lem-settings.sh: "a state line
   that names the type of a request names one of the eight"`;
   `tests/unit/test_task.py::FirstLine.test_the_fast_track_quotes_its_criterion`;
   `tests/lem-settings.sh: "a plan with no criteria section, no size, a small change of two
-  criteria"` (2026-11-17)
+  criteria"`; careful is a mark on top, the line `careful:` of the first state block:
+  `skills/lem/stages/new.md` ("The request", step 1). (2026-11-17)
 - **Every edit of the settings file is careful.** `tests/lem-land-review.sh: "every edit of Lem's
   own settings is careful by the script"` (decided 2026-11-17)
 - **A persona's file names its models.**
@@ -33,7 +35,8 @@ bullet.
 - **Lem brings its own builder agent.** `tests/lem-machine.sh: "the builder's definition names its
   model and effort, and no tool list"`; `tests/lem-machine.sh: "a machine with Claude Code and no
   lem-builder agent fails the check"`; `tests/lem-machine.sh: "in a task's worktree the check finds
-  a project's own builder in the main checkout"` (decided 2026-11-14 and 2026-11-15)
+  a project's own builder in the main checkout"`; on Opus at high effort: `agents/lem-builder.md`
+  (its front matter, `model: opus`, `effort: high`). (decided 2026-11-14 and 2026-11-15)
 - **A plan talk's record is taken as it ran.** `tests/lem-land-shop.sh: "a talk's counts agree: each
   question of the list ends settled or open"`; `tests/lem-land-shop.sh: "after its plan talk a plan
   of four tasks is proposed, and its text holds"` (decided 2026-11-16)
@@ -42,7 +45,9 @@ bullet.
 - **The checks remove what their own commands leave.** `tests/lem-land-guards.sh: "a gate command
   that writes a cache folder and a file git does not know passes"`; `tests/lem-land-guards.sh: "a
   file that was untracked before the gate is not removed"`; `tests/lem-land-guards.sh: "the gate
-  refuses a command that edits a tracked file, one that makes a commit"` (decided 2026-11-17)
+  refuses a command that edits a tracked file, one that makes a commit"`; onboarding proposes the
+  ignore lines for what the commands leave: `skills/lem/stages/init.md` (step 4). (decided
+  2026-11-17)
 - **Without Codex one expert answers alone.** `tests/test-ask-expert.sh: "with no Codex on the
   machine one expert answers alone"`;
   `tests/unit/test_settings.py::Seats.test_an_expert_is_here_when_its_agent_is_on_the_machine`;
@@ -73,9 +78,11 @@ bullet.
   request not green also when the plan gives its reason.** `tests/lem-land-review.sh: "with a reason
   for each file in the plan the gate passes"`;
   `tests/unit/test_land.py::Bar.test_fewer_assertions_in_a_test_file`;
-  `tests/unit/test_land.py::Bar.test_a_deleted_test_file_is_one_entry` (decided 2026-11-16)
+  `tests/unit/test_land.py::Bar.test_a_deleted_test_file_is_one_entry`;
+  `tests/unit/test_land.py::Bar.test_a_skip_of_a_whole_module` (decided 2026-11-16)
 - **A small change never gets a polish pass.** `tests/lem-land-small.sh: "a small change whose
-  builder filed a defect outside it in its own commit has no polish pass"` (decided 2026-11-16,
+  builder filed a defect outside it in its own commit has no polish pass"`; its builder files such a
+  defect and never fixes it: `skills/lem/prompts/small.md` (step 7). (decided 2026-11-16,
   2026-11-17)
 - **His away status is one mark of the machine, and a night task always runs without him.**
   `tests/lem-state.sh: "the owner's status is one mark of the machine: with none he is there"`;
@@ -206,8 +213,8 @@ bullet.
   its first line first, and the onboarding writes no allow rules and commits the plugin's file.**
   `skills/lem/prompts/session.md` ("While the owner is needed", "What comes next");
   `skills/lem/stages/init.md` (steps 4 and 6). (decided 2026-11-21)
-- **A board of example tasks says so on the page.** `skills/lem/scripts/lem_board_pages.py` (the
-  demo notice). (2026-11-14)
+- **A board of example tasks says so on the page, and a line that waits for him says where he
+  answers.** `skills/lem/scripts/lem_board_pages.py` (the demo notice, and `wait_row`). (2026-11-14)
 - **The time card gets exact start times.** `skills/lem/SKILL.md` ("Where a task keeps its state", a
   stage's start is an event); `STARTS` in `skills/lem/scripts/project.py`. (2026-11-17)
 - **What waits for the owner is one list, with a decision for each item.** `skills/lem/SKILL.md`

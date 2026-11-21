@@ -38,6 +38,10 @@ and may move it back.
   when its words disagree with another bullet's ("Stories, flowcharts and pictures, early" against
   "One approved line of a task is an acceptance criterion", which says no text says story; both
   stand as written, for him to settle).
+- A second agent read the list against the 171 files. What it found is corrected: two bent
+  meanings, the rules a bullet had lost, and five bullets where the session's form stood as his
+  ruling. That form left a bullet where the code or the history holds it, and is marked "(the form
+  is the session's)" where the bullet needs it.
 
 ## How to move a file back
 
@@ -57,7 +61,7 @@ against its class.
 | Folder | File | Class | Where its text went | Moved back |
 | --- | --- | --- | --- | --- |
 | `docs/rulings` | `lem-is-for-experienced-developers-and-every-change-is-measured-against-that` | P | the list: "Lem is for experienced developers, and every change is measured against that." | no |
-| `docs/rulings` | `the-user-of-lem-is-a-senior-developer-with-little-attention-to-give` | M | the list, in the bullet "Lem is for experienced developers, and every change is measured against that." (its user, a senior developer with little attention to give, never a business reader) | no |
+| `docs/rulings` | `the-user-of-lem-is-a-senior-developer-with-little-attention-to-give` | M | the list, in the bullet "Lem is for experienced developers, and every change is measured against that." (its user, a senior developer with little attention to give, never a business reader; and its own bullet "What he names in the interview is a direction the plan follows") | no |
 | `docs/rulings` | `one-lem-for-one-repository` | P | the list: "One Lem for one repository." | no |
 | `docs/rulings` | `no-global-lem-and-there-is-no-lem-session` | M | the list, in the bullet "One Lem for one repository." (no global Lem; "there is no Lem session" is in the bullet of each task's session) | no |
 | `docs/rulings` | `claude-code-and-agterm-first-and-codex-for-reviews` | P | the list: "Claude Code and agterm first, and Codex for reviews." | no |
@@ -80,7 +84,7 @@ against its class.
 | `docs/rulings` | `python-3-11-stays-in-the-modern-form` | P | the list: "Python 3.11 stays, in the modern form." | no |
 | `docs/rulings` | `what-must-not-go-wrong-is-named-by-topic-and-an-agent-says-whether-a-task-is-careful` | P | the list: "What must not go wrong is named by topic, and an agent says whether a task is careful." | no |
 | `docs/rulings` | `the-topics-are-proposed-at-the-setup` | M | the list, in the bullet "What must not go wrong is named by topic, and an agent says whether a task is careful." (`/lem init` proposes the topics from the code) | no |
-| `docs/rulings` | `lem-tells-the-type-of-a-request-asks-when-it-is-unclear-and-a-bug-is-investigated-first` | P | the list: "Lem tells the type of a request, asks when it is unclear, and a bug is investigated first." | no |
+| `docs/rulings` | `lem-tells-the-type-of-a-request-asks-when-it-is-unclear-and-a-bug-is-investigated-first` | P | the list: "Lem tells the type of a request, asks when it is unclear, and a bug is investigated first." (its form is marked the session's; the fresh builder of a bug is in `skills/lem/stages/new.md`) | no |
 | `docs/rulings` | `the-first-line-is-where-he-corrects-lems-read-of-a-request` | P | the list: "The first line is where he corrects Lem's read of a request." | no |
 | `docs/rulings` | `the-two-tracks-are-the-fast-track-and-the-standard-track` | P | the list: "The two tracks are the fast track and the standard track." | no |
 | `docs/rulings` | `a-helper-starts-from-plain-words` | P | the list: "A helper starts from plain words." | no |
@@ -117,18 +121,18 @@ against its class.
 | `docs/rulings` | `the-monitor-is-required` | P | the list: "The monitor is required." | no |
 | `docs/rulings` | `lem-asks-through-its-question-page` | S | the list: "Lem asks through its question page." (S: what is left is its own bullet) | no |
 | `docs/rulings` | `a-page-for-the-owner-has-the-boards-look` | P | the list: "A page for the owner has the board's look." | no |
-| `docs/rulings` | `what-reaches-across-tasks-is-the-board-servers` | P | the list: "What reaches across tasks is the board server's." | no |
+| `docs/rulings` | `what-reaches-across-tasks-is-the-board-servers` | P | the list: "What reaches across tasks is the board server's." (its merge of the merge agent's verdict is the session's, in the history's line "The board's server runs the merge agent's merge") | no |
 | `docs/rulings` | `the-board-is-a-served-app` | P | the list: "The board is a served app." | no |
 | `docs/rulings` | `the-boards-icons-are-a-subset-of-font-awesome-pro-in-the-repository-under-his-license` | P | the list: "The board's icons are a subset of Font Awesome Pro, in the repository, under his license." | no |
 | `docs/rulings` | `tailscale-is-the-way-from-his-phone-and-nothing-supervises-the-server` | P | the list: "Tailscale is the way from his phone, and nothing supervises the server." | no |
 | `docs/rulings` | `stories-flowcharts-and-pictures-early` | D, now list | the list: "Stories, flowcharts and pictures, early." (D, kept in the list: its "stories" disagrees with "One approved line of a task is an acceptance criterion") | no |
 | `docs/rulings` | `linear-and-github-issues-and-the-local-backlog-stays-local` | P | the list: "Linear and GitHub Issues, and the local backlog stays local." | no |
 | `docs/rulings` | `no-setting-counts-the-tasks-that-run-a-night-works-its-items-one-after-another` | P | the list: "No setting counts the tasks that run. A night works its items one after another." (a doubt of the classifier: between P and E) | no |
-| `docs/rulings` | `the-done-column-shows-the-newest-ended-tasks-and-one-setting-says-how-long-an-ended-tasks-files-stay` | D, now list | the list: "The Done column shows the newest ended tasks, and one setting says how long an ended task's files stay." (D, back in the list: the Done column's limit is not built (`docs/backlog/the-board-s-done-column-has-no-limit.md`)) | no |
-| `docs/rulings` | `tracker-has-one-key` | E, now list | the list: "`[tracker]` has one key." (E, kept in the list as a doubt of the classifier; the guards hold it (see the report)) | no |
+| `docs/rulings` | `the-done-column-shows-the-newest-ended-tasks-and-one-setting-says-how-long-an-ended-tasks-files-stay` | D, now list | the list: "The Done column shows the newest ended tasks, and one setting says how long an ended task's files stay." (D, back in the list: the Done column's limit is not built (`docs/backlog/the-board-s-done-column-has-no-limit.md`); the name `state.keep_days` is the session's form, in `docs/settings.md`) | no |
+| `docs/rulings` | `tracker-has-one-key` | E, now list | the list: "`[tracker]` has one key." (E, kept in the list as a doubt of the classifier; `tests/unit/test_settings.py::Tracker.test_the_tables_it_takes` and `Tracker.test_a_key_that_went_is_unknown` hold it, so on his word it may move to the history) | no |
 | `docs/rulings` | `the-linear-table-is-short` | M | the list, in the bullet "`[tracker]` has one key." (the team from the ticket's id, the statuses by their type, a failed connection points to Linear's MCP help page) | no |
 | `docs/rulings` | `the-logo-is-the-owners-pick` | P | the list: "The logo is the owner's pick." | no |
-| `docs/rulings` | `the-readme-is-in-asd-ste100-simplified-technical-english` | P | the list: "The README is in ASD-STE100 Simplified Technical English." | no |
+| `docs/rulings` | `the-readme-is-in-asd-ste100-simplified-technical-english` | P | the list: "The README is in ASD-STE100 Simplified Technical English." (and two bullets of its own: "The skill files keep their own voice." and "An example in the README that no run produced says that it is an illustration") | no |
 | `docs/rulings` | `the-readme-is-easy-for-a-reader-who-is-not-a-native-speaker` | M | the list, in the bullet "The README is in ASD-STE100 Simplified Technical English." (easy for a reader who is not a native speaker; no word that only Lem uses as a noun ("ask")) | no |
 | `docs/rulings` | `the-readme-and-the-docs-do-not-report-what-ran` | P | the list: "The README and the docs do not report what ran." | no |
 | `docs/rulings` | `the-readme-shows-the-interaction-and-links-to-no-run` | M | the list, in the bullet "The README and the docs do not report what ran." (the README shows the interaction in short form or a small flowchart, and links to no run) | no |
@@ -136,7 +140,7 @@ against its class.
 | `docs/rulings` | `lems-docs-do-not-speak-for-another-tool` | P | the list: "Lem's docs do not speak for another tool." | no |
 | `docs/rulings` | `the-free-hour-may-edit-lems-skills-on-a-branch-of-the-clone` | P | the list: "The free hour may edit Lem's skills on a branch of the clone." | no |
 | `docs/rulings` | `lem-naps` | P | the list: "Lem naps, and the naps are Lem's look back over its own memory." | no |
-| `docs/rulings` | `the-naps-are-lems-look-back-over-its-own-memory` | M | the list, in the bullet "Lem naps, and the naps are Lem's look back over its own memory." (a nap reads what Lem made of his corrections too) | no |
+| `docs/rulings` | `the-naps-are-lems-look-back-over-its-own-memory` | M | the list, in the bullet "Lem naps, and the naps are Lem's look back over its own memory." (its adjustments, such as a nap that reads what Lem made of his corrections, are the session's form, in `skills/lem/prompts/nap.md`) | no |
 | `docs/rulings` | `the-lessons-the-retro-and-jev-stay-a-night-run-ends-as-a-pull-request-naps-are-not-shown` | P | the list: "The lessons, the retro and Jev stay; a night run ends as a pull request; naps are not shown." | no |
 | `.lem/decisions` | `a-night-ends-as-pull-requests-and-a-task-without-the-owner-covers-what-a-night-was` | M | the list, in the bullet "The lessons, the retro and Jev stay; a night run ends as a pull request; naps are not shown." (its brake is the history's line "A night's brake", kept in `skills/lem/stages/night.md`; its four at most is in "No setting counts the tasks that run") | no |
 | `.lem/decisions` | `lem-is-a-companion-not-a-gate` | P | the list: "Lem is a companion, not a gate. (last part)" | no |
@@ -163,7 +167,7 @@ against its class.
 | `docs/rulings` | `branch-history-is-squash-by-default` | E | the history, held by a test: "`branch.history` is `"squash"` by default." | no |
 | `docs/rulings` | `a-polish-pass-is-a-step-of-the-flow` | E | the history, held by a test: "A polish pass is a step of the flow." | no |
 | `docs/rulings` | `a-partial-review-is-a-review` | E | the history, held by a test: "A partial review is a review." | no |
-| `.lem/decisions` | `a-lowered-bar-a-new-suppression-a-skipped-or-deleted-test-fewer-assertions-makes-a-pull-request-not-green-also-when-the-plan-gives-its-reason` | E | the history, held by a test: "A lowered bar makes a pull request not green also when the plan gives its reason." | no |
+| `.lem/decisions` | `a-lowered-bar-a-new-suppression-a-skipped-or-deleted-test-fewer-assertions-makes-a-pull-request-not-green-also-when-the-plan-gives-its-reason` | E | the history, held by a test: "A lowered bar (a new suppression, a skipped or deleted test, fewer assertions) makes a pull request not green also when the plan gives its reason." | no |
 | `.lem/decisions` | `a-small-change-never-gets-a-polish-pass` | E | the history, held by a test: "A small change never gets a polish pass." | no |
 | `docs/rulings` | `his-away-status-is-one-mark-of-the-machine-and-a-night-task-always-runs-without-him` | E | the history, held by a test: "His away status is one mark of the machine, and a night task always runs without him." | no |
 | `docs/rulings` | `inside-a-phase-a-session-compacts-itself-at-his-number-for-all-his-repositories` | E | the history, held by a test: "Inside a phase a session compacts itself at his number, for all his repositories." | no |
@@ -208,7 +212,7 @@ against its class.
 | `.lem/decisions` | `two-things-a-real-run-showed-on-2026-11-18` | S, now kept | the history, kept in one place: "Nobody else's word is his." (`skills/lem/stages/land.md`, step 8; S: what is left is kept there; the watch it names is now the board server's look at the forge) | no |
 | `.lem/decisions` | `the-first-line-of-a-task-is-composed-by-lem-project-state-and-its-session-says-it-as-it-is` | D | the history, kept in one place: "The first line of a task is composed by `lem project state`, and its session says it as it is." (`skills/lem/scripts/project.py`, `skills/lem/prompts/session.md`) | no |
 | `.lem/decisions` | `the-trials-of-2026-11-21-a-tasks-session-takes-the-focus-only-for-its-own-question-and-says-its-first-line-first-and-the-onboarding-writes-no-allow-rules-and-commits-the-plugins-file` | D | the history, kept in one place: "The trials of 2026-11-21." (`skills/lem/prompts/session.md`, `skills/lem/stages/init.md`) | no |
-| `docs/rulings` | `a-board-of-example-tasks-says-so-on-the-page` | D | the history, kept in one place: "A board of example tasks says so on the page." (`skills/lem/scripts/lem_board_pages.py`) | no |
+| `docs/rulings` | `a-board-of-example-tasks-says-so-on-the-page` | D | the history, kept in one place: "A board of example tasks says so on the page, and a line that waits for him says where he answers." (`skills/lem/scripts/lem_board_pages.py`) | no |
 | `docs/rulings` | `the-time-card-gets-exact-start-times` | D | the history, kept in one place: "The time card gets exact start times." (`skills/lem/SKILL.md`, `skills/lem/scripts/project.py`) | no |
 | `docs/rulings` | `what-waits-for-the-owner-is-one-list-with-a-decision-for-each-item` | D | the history, kept in one place: "What waits for the owner is one list, with a decision for each item." (`skills/lem/SKILL.md`, `skills/lem/stages/status.md`) | no |
 | `docs/rulings` | `a-chord-opens-a-list-of-the-tasks` | D | the history, kept in one place: "A chord opens a list of the tasks." (`skills/lem/scripts/picker.py`) | no |
