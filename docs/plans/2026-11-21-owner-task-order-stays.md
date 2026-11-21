@@ -204,7 +204,17 @@ Read in the code at `7971845`:
      over the check) say both cases.
    - The board's two texts for a queued task with an `after:` line say "Waits for another task" and
      "Queued: it waits for another task", which is true in both cases. One unit case holds each text.
-3. **The documents.** Serves no criterion. Files: `docs/flow.md`, `AGENTS.md`.
+3. **The documents, and the texts the change made false.** Serves no criterion. Files:
+   `docs/flow.md`, `AGENTS.md`, `skills/lem/stages/away.md`, `skills/lem/stages/land.md`,
+   `skills/lem/stages/correct.md`, `skills/lem/stages/new.md`.
+   - Four sentences of stage texts that tasks 1 and 2 made false, which task 1's builder named in its
+     report: `stages/away.md`, "When the watch ends", Away, says that the shape goes on without him
+     and names no task held with `the order waits for the owner`, which waits (criterion 4);
+     `stages/land.md`, step 9's last paragraph, and `stages/correct.md`, `drop`, say that the board's
+     server opens the session of a task queued `after:` this one, where it now also wakes one that
+     still runs; `stages/new.md`, "The fast track", first paragraph, says that the fast track stays in
+     one session, where a fast-track task queued at step 7 closes that session and goes on in the one
+     the server opens.
    - `docs/flow.md`, "Many tasks at once", in its STE: a request that you put after another task in
      your words waits for that task too.
    - `AGENTS.md`: under "His rulings of 2026-11-20 and 2026-11-21", one ruling, "A task order in his
