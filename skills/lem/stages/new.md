@@ -82,16 +82,18 @@ The task's own session, in the shape, from its first message.
    commits (`prompts/small.md`), and stops when the fast track does not fit. An ask that starts with
    `/lem plan` asks for a plan to read, and a plan is the standard track's: the ask takes the
    standard track, with its interview, its criteria, the personas' read and his yes, and the lead
-   stops at the committed plan; the line of step 5 says so ("Standard track, because you asked for
+   stops at the committed plan; the line of step 8 says so ("Standard track, because you asked for
    its plan: ..."). A plan's criteria always say `Size: full`, and `criteria.py` and `land.py`
    refuse a plan that says `Size: small`.
    In the same look, read the ask's words against each topic of `flow.topics` in `lem project
    show`, the sentences of what must never go wrong here. No code matches a topic and no file
    name settles one: the question is whether the change the ask wants could reach that thing.
-   When it could, the line of step 5 names it first. When the investigator's report or the scout's
-   comes in, read its facts against the topics again: a topic it finds in reach that the ask's words
-   did not show is told to the owner in one line, the same way (the scout lists the topics in reach,
-   with the file and symbol that show each). An ask in reach of a topic never takes the fast track.
+   When it could, the task's first state block carries the line `careful: WHAT IT COULD REACH`
+   (`careful: this changes how a customer is charged`), and the line of step 8 names it first.
+   When the investigator's report or the scout's comes in, read its facts against the topics
+   again: a topic it finds in reach that the ask's words did not show is told to the owner in one
+   line, the same way (the scout lists the topics in reach, with the file and symbol that show
+   each). An ask in reach of a topic never takes the fast track.
    The lead makes its own call on the plan (`stages/plan.md`, step 2), and the agent that reviews
    the diff makes the last.
    **One question when the read is not clear.** When the words and what you looked at do not
@@ -105,15 +107,15 @@ The task's own session, in the shape, from its first message.
    clear read asks nothing. While he is away, and for a task of the night (`night` in `lem project
    tasks`), ask nothing: take the standard track, and careful in doubt. The type goes into
    `task.md` with its reason, and as the line `type: TYPE, because WHY` into the task's first state
-   block (step 4); `lem project state` refuses that line in any other form, and `lem project
+   block (step 8); `lem project state` refuses that line in any other form, and `lem project
    tasks` gives it as `type`. When he changes the type later, write a state block with the new
    line.
 2. **The branch** is `<type>/<slug>` with the type of step 1, unless the project's `AGENTS.md`
    gives its own scheme. For a question, choose the type of the change its answer would most likely
-   lead to, and say why in the line of step 5; its branch gets a commit only when the investigator
-   reproduces a bug. The branch's type binds nobody; each commit carries its own. For a ticket,
-   the branch is the name the tracker gives for it, when it gives one: the tracker and its
-   automation find the work by that name.
+   lead to, and say why in one line after the line of step 8; its branch gets a commit only when
+   the investigator reproduces a bug. The branch's type binds nobody; each commit carries its own.
+   For a ticket, the branch is the name the tracker gives for it, when it gives one: the tracker
+   and its automation find the work by that name.
 3. **`task.md`** in the task directory:
    - the ask, verbatim; for a ticket, its id, its link, its title and its description as written;
    - the type, with its reason (step 1);
@@ -131,7 +133,7 @@ The task's own session, in the shape, from its first message.
 4. **Which path.** Choose one:
    - *the investigation first*, for a fix whose cause the ask does not show and for a question:
      a fresh builder reproduces the bug and finds its cause, or answers the question, before
-     anyone writes a criterion: after step 7, read `stages/investigate.md` and follow it. For a
+     anyone writes a criterion: at step 8, read `stages/investigate.md` and follow it. For a
      fix, its report then takes one of the paths below; a question ends with its answer.
    - *the fast track*: one builder, the checks, one read and the pull request, with no lead, no
      plan and no wait for him, as "The fast track" below says.
@@ -151,35 +153,11 @@ The task's own session, in the shape, from its first message.
      it is built. Lem is no filter of the tickets that come in: nothing scans one for an attack,
      since the people who write a team's tickets are the team.
    - *the standard track with an interview*, for every other ask: the interview, then the criteria
-     he approves, here in this session: after step 6, read `stages/interview.md` and follow it.
-   Write the task's first state block now, with the type line of step 1, so that the status and
-   the board show the task from its first moment. With an interview it is `held` with the line
-   `the interview waits for the owner`:
-
-   ```bash
-   lem project state SLUG held "the interview waits for the owner" "type: feat, because WHY"
-   ```
-
-   On the other paths the first block is the one the path's own first step writes, before its
-   builder starts: there is no wait between the two. Whatever the path, step 5 comes before its
-   first step: no scout, investigator or builder starts before that line is said.
-5. **Tell the owner in one line**, your first words to him in this session (after the one question
-   of step 1, when the read needed it), and no more: the type, the criterion or the outcome in his
-   words, the branch, the track with its steps, and what he must do. The track's name stands at its
-   steps, never beside the type. On the fast track: `docs: "the README says receive, not
-   recieve". Branch docs/readme-receive-typo. Fast track: one builder, the checks, one read, then
-   the pull request. Nothing waits for you. Wrong read? /lem standard-track, /lem be-careful.` On the
-   standard track with an interview: `feat: "an export holds the gift note". Branch
-   feat/gift-note-in-export. Standard track: an interview here now, then acceptance criteria for
-   your yes. After that it runs to the pull request without you. Wrong read? /lem be-careful.` A
-   topic in reach goes first: `Careful: this changes how a customer is charged. feat: ...`. A fix
-   investigated first: `fix: "an invoice shows its total after a refund". Branch
-   fix/invoice-total-after-refund. An investigator finds the cause first. Then I tell you what it
-   found: the fast track, the standard track, or no bug.` The standard track from a complete
-   request names what stands in for the interview (`the ticket says what is wanted`).
-   A decision you took for him at step 3 is a second line. Nothing repeats this line later: the
-   next thing he hears is a question of the interview, the criteria, or the pull request. A task
-   of the night tells nobody: the night's report names it.
+     he approves, here in this session: at step 8, read `stages/interview.md` and follow it.
+   Steps 5 to 7 write what the line of step 8 reads, and step 8 writes the task's first state
+   block, which says that line.
+5. **The fast track's criterion and brief**: on the fast track, steps 1 and 2 of "The fast track"
+   below, now, so that the line of step 8 quotes the criterion.
 6. **The brief** of a lead, on the standard track, also one with an interview: write it now, with
    every line the ask already gives, so that a `/lem be-careful` during the interview writes its
    line into it (`stages/correct.md`) and the lead finds the same answers. Write `brief.md` in the
@@ -211,8 +189,9 @@ The task's own session, in the shape, from its first message.
    a base without the earlier task's result: a criterion that the result makes false is a change
    of the criteria, and the pull request is not green for it.
    Then write the later one's state as `queued` with the line `after: SLUG` of the earlier one,
-   and with `investigation: bug` or `investigation: question` when its investigation comes first
-   (step 4); write `handoff.md` (`prompts/session.md`, "A change of phase"), and close this
+   the type line of step 1, and `investigation: bug` or `investigation: question` when its
+   investigation comes first (step 4). It is the task's first block: say its `say` as step 8 says.
+   Write `handoff.md` (`prompts/session.md`, "A change of phase"), and close this
    session, `lem session close SLUG --why handoff --when-unselected` with `run-in-background`. The
    board's server opens the task's session when that task is `landed` or `answered`, so it builds
    on what the earlier one changed. When that task is dropped, the result it waited for never
@@ -224,10 +203,38 @@ The task's own session, in the shape, from its first message.
    screen, the same file, the same function) each start on their own. Do not read the code to find
    an overlap the asks do not show; the landing settles that one, as a conflict at its rebase
    (`stages/land.md`, step 2).
-8. **The path's first step**: `stages/investigate.md`, "The fast track" below, or
-   `stages/interview.md`. On the standard track from a complete request this session is the lead:
-   take `stages/start.md`, and then follow `brief.md`; nothing is handed over, since nothing was
-   said yet that the lead would lose.
+8. **The first state block, and the line.** The task's first state block names its path and
+   carries the type line of step 1, and the `careful:` line of step 1 when a topic is in reach.
+   The path's first step writes it, before anyone starts:
+   - with an interview, here, then `stages/interview.md`:
+
+     ```bash
+     lem project state SLUG held "the interview waits for the owner" "type: feat, because WHY"
+     ```
+
+   - an investigation: step 1 of `stages/investigate.md`, after the worktree, then its step 2;
+   - the fast track: steps 1 to 3 of `stages/start.md`, the state `building` with `small change:
+     one builder`, then its step 4 and step 3 of "The fast track" below;
+   - the standard track from a complete request: steps 1 to 3 of `stages/start.md`, the state
+     `building` with `lead: builder`. This session is the lead: then follow `brief.md`; nothing is
+     handed over, since nothing was said yet that the lead would lose;
+   - a task that waits: the `queued` block of step 7.
+
+   That `lem project state` call prints `say`, the task's first line to the owner, which the script
+   composes from the task's files: the type, the criterion of `criteria.md` or else the outcome of
+   `task.md` (else the ask) in his words, the branch of the brief or of the worktree, the track with
+   its steps, what he must do, and the `careful:` line first. **Say the `say` as it is, as your
+   first words to him in this session** (after the one question of step 1, when the read needed
+   it), and no more. No scout, investigator or builder starts before it is said: the branch, the
+   track and a careful topic are in no other line, and it is where he corrects your read. On the
+   fast track it reads `docs: "the README says receive, not recieve". Branch
+   docs/readme-receive-typo. Fast track: one builder, the checks, one read, then the pull request.
+   Nothing waits for you. Wrong read? /lem standard-track, /lem be-careful.` A call that prints no
+   `say` for a task of the day wrote no first block: look at its lines again. A decision you took
+   for him at step 3 is a second line, in your words. Nothing repeats the first line later: the
+   next thing he hears is a question of the interview, the criteria, or the pull request; the
+   board shows it on the task's Overview until its next block. A task of the night gets no `say`
+   and tells nobody: the night's report names it.
 
 ## The fast track
 
@@ -266,8 +273,9 @@ pay three times.
    ```
 
    For a ticket or an item somebody else wrote, add `request by: someone else`, as step 6 of "The
-   request" says. Then step 7 of "The request", and its builder starts as `stages/start.md` says, with the state
-   `building` and the lines `small change: one builder` and the type line of step 1. There is no
+   request" says. Steps 1 and 2 come at step 5 of "The request". Then its steps 7 and 8: its
+   builder starts as `stages/start.md` says, after the state `building` with the lines `small
+   change: one builder` and the type line of step 1, whose `say` is the first line. There is no
    lead: the one builder is the fresh builder of the one task, as the owner's rule on a fresh
    builder for each task has it.
 3. **When it stops**, its reply is its report, of five lines at most, and you write `report.md`

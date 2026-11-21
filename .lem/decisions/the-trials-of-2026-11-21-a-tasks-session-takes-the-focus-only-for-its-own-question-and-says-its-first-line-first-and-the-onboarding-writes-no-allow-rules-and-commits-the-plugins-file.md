@@ -5,6 +5,14 @@ area: A task's session, and whether he is there
 
 # The trials of 2026-11-21: a task's session takes the focus only for its own question and says its first line first, and the onboarding writes no allow rules and commits the plugin's file
 
+## Changed in part
+
+The title is the rule as it stands. Where the paragraph below says otherwise, the line here holds.
+
+- 2026-11-21, [The first line of a task is composed by `lem project state`, and its session says it as it is](the-first-line-of-a-task-is-composed-by-lem-project-state-and-its-session-says-it-as-it-is.md): "`prompts/session.md` makes that line their first words": the script composes the line, and the session says its `say` as it is
+
+## As decided on 2026-11-21, changed in part since
+
 Real tasks in lem-trial and lem-scratch, on Lem 0.1.3, showed four things. A fast-track session
 opened with the focus could not close after its merge: the owner never left a session he never
 chose, and `lem session close --when-unselected` waited. So no caller gives the focus (`--focus` is

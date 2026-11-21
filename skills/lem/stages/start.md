@@ -26,8 +26,10 @@ the fast track's builder, a queued task whose turn came (the board's server open
    to outlive the worktree.
 3. **The state**: `building`, with the line `lead: builder`, or `small change: one builder` for a
    brief that names `prompts/small.md`, and the type line of step 1 of "The request" when no block
-   before it has one. For a task that came from a ticket, the tracker then marks the ticket as
-   started (its "start"), unless the ticket is there already.
+   before it has one, with its `careful:` line when it found a topic in reach. When the block is
+   the task's first (the fast track, a complete request), its call prints `say`: say it as it is
+   before step 4, as step 8 of "The request" says. For a task that came from a ticket, the
+   tracker then marks the ticket as started (its "start"), unless the ticket is there already.
 4. **Who builds.**
    - *The fast track*: `spawn-builder` with one line, `Read TASK_DIRECTORY/brief.md and follow
      it.`, and as it starts, `lem project log SLUG builder.start "job=the small change"`; its state

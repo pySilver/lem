@@ -17,8 +17,10 @@ task.
    ```
 
    with `an investigator finds the answer`, `investigation: question` and the line `type:
-   question, because WHY` for a question. The
-   board draws a block with an `investigation:` line as the investigation.
+   question, because WHY` for a question, and the `careful:` line of step 1 of "The request" when
+   it found a topic in reach. The board draws a block with an `investigation:` line as the
+   investigation. When this is the task's first block, the call prints `say`: say it as it is
+   before step 2, as step 8 of "The request" (`stages/new.md`) says.
 2. **Start the investigator**, a fresh builder (`spawn-builder`) with the brief
 
    ```
@@ -32,7 +34,7 @@ task.
 
    Log its start as it starts, `lem project log SLUG investigation.start
    type=fix` (or `type=question`); the record of step 3 is its end. Then wait: its reply wakes
-   you, and the line of step 5 of "The request" (`stages/new.md`) told him already. No investigation has been timed yet.
+   you, and the first line of step 1 told him already. No investigation has been timed yet.
 3. **Read its report.** Its reply is the path of `investigation.md` in the task directory. When
    its agent refused it the write, its reply is the whole report: write it into that file word
    for word, with one line at the top that says who copied it and why. The report is knowledge of
@@ -53,8 +55,9 @@ task.
      words made exact, and with nothing careful: read the cause, its place and how far the report
      says it reaches against each topic, as step 1 of "The request" reads an ask. The
      reproducing test is the criterion's test: the fast track's builder names it under the
-     criterion. Tell him in one line, as step 5 of "The request" says, and go on with "The fast
-     track" (`stages/new.md`).
+     criterion. Tell him in one line the criterion and the track, in the first line's words
+     ("Fast track: one builder, the checks, one read, then the pull request."), and go on with
+     "The fast track" (`stages/new.md`).
    - *full*: the standard track with an interview and no scout, whose interview starts from the cause
      ("the total adds the refund as a payment, in `billing/invoice.py:total`; should the refund
      lower the total, or stand as a line of its own?"). Write the state `held` with the line `the

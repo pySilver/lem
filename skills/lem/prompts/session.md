@@ -41,9 +41,10 @@ or `queue` (the board's server opened it for that), `night`, or `owner` (his wor
 
 - **The shape**: no state block yet, a new request, or `held` with `the request waits for one
   answer`: "The request" of `SKILL_DIR/stages/new.md`. Opened because `new`, your first words to
-  the owner are the one line of its step 5 (after its step 1's one question, when the read needs
-  it), in the form that step gives, before any scout, investigator or builder starts: the branch,
-  the track and a careful topic are in no other line, and it is where he corrects your read.
+  the owner are the `say` that `lem project state` prints for the task's first block (its step 8),
+  said as it is (after its step 1's one question, when the read needs it), before any scout,
+  investigator or builder starts: the branch, the track and a careful topic are in no other line,
+  and it is where he corrects your read.
   `held` with `the interview waits for the owner`, or with `the criteria wait for the owner`:
   `SKILL_DIR/stages/interview.md`, from where its files stand. `held` with `the investigation
   waits for one more fact`: his answer, then a fresh investigator (`SKILL_DIR/stages/investigate.md`,
