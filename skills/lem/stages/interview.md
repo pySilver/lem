@@ -150,7 +150,9 @@ Criteria that wait for his yes with no interview (a lead's, of a complete reques
    drops has its own record (`lem decisions criterion`), and the pull request is not green for it.
    Write no `lead:` line before it: the landing reads the first `lead:` line as the end of the
    interview. Then the start of the build, `stages/start.md`: it may queue the task, and otherwise
-   it writes the lead's state and hands the task to a fresh lead. A stop between the approval and
+   it writes the lead's state and hands the task to a fresh lead. Criteria that a lead put to him
+   (a complete request) start nothing here: after his yes that lead builds on, as `stages/plan.md`
+   says. A stop between the approval and
    the hand-over loses nothing: the session opened after it reads the record. The landing refuses a task on the standard track
    whose criteria nobody read and whose read he did not skip (step 5), and one whose read found a
    doubt with no yes of his after it.

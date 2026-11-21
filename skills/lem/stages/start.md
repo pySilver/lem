@@ -31,10 +31,13 @@ the fast track's builder, a queued task whose turn came (the board's server open
      it.`, and as it starts, `lem project log SLUG builder.start "job=the small change"`; its state
      of `ready` or `held` is its end. Its reply wakes this session ("The fast track" of
      `stages/new.md`, step 3).
-   - *After his yes, in the shape's session*: hand the task to a fresh lead, as `prompts/session.md`
-     says under "A change of phase": the build is a phase of its own.
+   - *After his yes to an interview's criteria, in the shape's session*: hand the task to a fresh
+     lead, as `prompts/session.md` says under "A change of phase": the build is a phase of its own.
+     Only an interview's session hands over here.
    - *In a session whose phase is the build, or on the standard track from a complete request*:
-     you are the lead. Read `brief.md` and follow it.
+     you are the lead. Read `brief.md` and follow it. A lead that stopped for his yes after the
+     personas' read (`stages/plan.md`, step 1) goes on as the lead after it: it builds on, and
+     hands nothing over.
 
 ## `/lem build`
 

@@ -16,13 +16,15 @@ The fast track is for one plain change: one acceptance criterion in his own sent
 and no question open, whatever its type (a fix of one rule, a typo, a rename, a version bump, a line
 of a document). One builder makes it and files in the backlog what it saw outside it, the machine
 checks and one read review it, it has no polish pass, and the merge agent reads it and merges it. Every other request takes the standard track, and the flow asks for his attention at
-three touches: the interview, while a scout reads the code around his ask; the criteria, which the
-personas read before he does and which he approves, so that they are the contract in plain
-language and become the tests; and the merge, which is his only when a fresh merge agent, which
+three touches: the shape, an interview while a scout reads the code around his ask, which ends
+with the criteria that the personas read before he does and that he approves, so that they are
+the contract in plain language and become the tests; a circuit breaker, the one stop of a build,
+which asks him nothing else, with a document for him; and the merge, which is his only when a fresh merge agent, which
 reads every proposed task, calls him with its review: for a careful change, for a request that is not
-green, for what it found, or in every task where the settings say `branch.land = "owner"`. The build asks him nothing; only a circuit breaker stops a task, with a document for him.
-He answers the interview, his yes to the criteria and a breaker in the task's own session. A task on the standard track from a complete request (a ticket that says what is wanted, a settled
-backlog item) has no interview, and its criteria wait for him only when a persona doubts them.
+green, for what it found, or in every task where the settings say `branch.land = "owner"`.
+He answers the shape and a breaker in the task's own session. A task on the standard track from a complete request (a ticket that says what is wanted, a settled
+backlog item) has no interview, and its criteria wait for him only when a persona doubts them or
+somebody else wrote the request.
 Lem names the type of each request from its words, a Conventional Commits type (`feat`, `fix`,
 `docs`, `refactor`, `perf`, `test`, `chore`) or `question`, and its track, and says both in one
 line before anything runs. The records name the two tracks by their own words: `small` for the fast
