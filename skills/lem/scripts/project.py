@@ -258,8 +258,8 @@ decisions pending` gives them (`breakers`); the tasks `held` with the line `the 
 the owner` (`criteria`) and the other `held` ones, a step of his or one more fact (`held`); a task
 `queued` after a task that was dropped (`after_dropped`, with that task as `after` and the row's own
 words: `verb`, `start`, "start SLUG now", `drop`, `/lem drop SLUG`, and `where`, which says that he
-types either one in any Lem session of the repository); a task its session stopped as `blocked` on something it cannot settle, not one that waits for the base to be
-green again (`blocked`); a plan that names him (`plans`); the merge agent's review that calls him
+types either one in any Lem session of the repository); a task its session stopped as `blocked` on
+something it cannot settle, not one that waits for the base to be green again (`blocked`); a plan that names him (`plans`); the merge agent's review that calls him
 (`reviews`, with its `why` and `tip`); each `open` task whose merge waits for him, a review of the
 proposed tip that calls him, a refused merge of it, or no proposal on record, with its proposal
 (`pull_requests`: `pull_request`, `green`, `not_green`, `conflict`, true or false as the forge said it
