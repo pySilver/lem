@@ -35,13 +35,20 @@ flowchart TD
   B -->|"no"| C{"Does the ask need the result of an open task?"}
   C -->|"yes"| N["Queued after that task, with what it needs"]
   C -->|"no"| S["The task starts at once"]
-  T -->|"yes, and it ended"| S
+  T -->|"yes, and it ended: the order is met"| C
   T -->|"yes, and it is open"| Q["Queued after that task, with his words"]
   T -->|"no, and he is there"| K["One question, with Lem's guess first"]
   T -->|"no, he is away, one open task fits"| G["Queued after that task, and Lem says which it took"]
   T -->|"no, he is away, none or several fit"| H["Held for him, with his words"]
-  Q -->|"his word: start it now"| S
+  K -->|"y, or the task he names"| Q
+  K -->|"n"| C
+  H -->|"he is back: the one question"| K
+  Q -->|"that task ended, or his word: start it now"| R["The task goes on where it stopped: the interview, the fast track, the investigation or the lead"]
 ```
+
+A queued task goes on where it stopped, not at the build: a task queued at step 7 of "The request"
+has not started its path yet, so it takes step 8, the path its queued block names; a task that its
+lead queued takes the start of the build.
 
 ## What is there today
 
@@ -62,6 +69,17 @@ Read in the code at `7971845`:
 - The board says "Waits for the task it needs" on the large card (`now_head`) and "Queued: it waits
   for the task it needs" in the timeline (`lem_board_model.py`). For an order of the owner's the task
   needs nothing of the other one.
+- A queued task resumes at the build. `prompts/session.md`, "What comes next" and its wake-up
+  paragraph, send a `queued` task whose `after:` task ended to `stages/start.md`, and `phase_of` in
+  `session.py` gives `queued` the phase `build`. That fits a task its lead queued. A task queued at
+  step 7 of "The request" has not taken step 8 yet: on the interview's path its lead would start with
+  no interview, and at the interview's end `lem session next` would refuse, since the phase did not
+  change (`cmd_next`). The fast track writes no state block and no brief before its own steps, so
+  nothing in the files names its path (`stages/new.md`, step 4). An investigation already carries its
+  path, the line `investigation: bug` (`stages/investigate.md`, step 1).
+- `skills/lem/stages/new.md`, step 5, the first line, comes before step 7: a task that waits is told
+  "Nothing waits for you" on the fast track. `stages/correct.md`, `standard-track`, writes `held`
+  over a task, which drops its `after:` line.
 - `skills/lem/SKILL.md`, the status table: `queued` means "it needs the result of the task its
   `after:` line names". `docs/flow.md`, "Many tasks at once": "A request that needs the result of
   another task waits".
@@ -71,48 +89,83 @@ Read in the code at `7971845`:
 ## Tasks
 
 1. **The rule, in the texts an agent follows.** Serves criteria 1, 2, 3 and 4. Files:
-   `skills/lem/stages/new.md`, `skills/lem/stages/plan.md`, `skills/lem/prompts/lead.md`,
-   `skills/lem/stages/start.md`, `skills/lem/SKILL.md`.
-   - `new.md`, step 7: a task waits in two cases. The one of today, word for word in its meaning: the
-     ask needs what the earlier task changes. The new one: the owner's words put the task after
-     another task ("after X", "when X lands", "once X is merged"), whether or not it needs anything
-     of X. The task is named by its name or in his own words, and capital letters and a colon do not
-     matter. The session then writes `queued` with the first line `the owner's order: "HIS WORDS"`,
-     his words as he typed them, and `after: SLUG`; and it tells him in one line that the task waits
-     for X, as he said, and that "start SLUG now" starts it before that. The order is an order of
-     tasks: X is a task `lem project tasks` lists. A task that has ended meets his order already, and
-     the new task starts. Words with "after" that order no tasks ("after a refund the invoice shows
-     0") are no order. When the session cannot tell which task his words name (a typo, words that
-     fit no task or more than one), it never starts the task against the order: it asks once, in one
-     line with its guess first ("Queue this after SLUG? (y/n)"), as the one question of step 1.
+   `skills/lem/stages/new.md`, `skills/lem/prompts/session.md`, `skills/lem/stages/plan.md`,
+   `skills/lem/prompts/lead.md`, `skills/lem/stages/start.md`, `skills/lem/stages/correct.md`,
+   `skills/lem/SKILL.md`.
+   - `new.md`, step 1: in the same look as the track and the type, the session reads whether the
+     owner's words put the whole task after another task ("after X", "when X lands", "once X is
+     merged"), whether or not it needs anything of X. The task is named by its name or in his own
+     words, and capital letters and a colon do not matter. The order is an order of tasks: X is a
+     task `lem project tasks` lists. Words with "after" that order no tasks ("after a refund the
+     invoice shows 0") are no order. A task that has ended meets his order already: the order adds
+     no wait, and the need of step 7 is still read, as for an ask with no order. When the session
+     cannot tell which task his words name (a typo, words that fit no task or more than one), it
+     never starts the task against the order: the order is a read of step 1's one question, in one
+     line with its guess first ("Queue this after SLUG? (y/n)"). When the track, the type or careful
+     is unclear too, the one line holds both guesses ("Fast track, and queued after SLUG? (y/n)").
+     His "y", or the task he names in his answer, queues it; his "n" is his word that no order holds,
+     logged with `lem decisions log SLUG --by owner --words`, and the need of step 7 is still read.
      While he is away it asks nothing: when exactly one open task fits his words, it queues the task
      after that one, says in its first line and in the state which task it took, and logs the read
      (`lem decisions log SLUG --by lem`); when none fits, or more than one, it writes the state
-     `held` with his words in the first line, which puts the task into the list of what waits for
-     him, starts nothing, and asks the one question when he is back. Only his word removes his order
-     (decision 2 below says how). The sentences on two asks that only name the same thing, and on
-     not reading the code for an overlap, stay.
+     `held` with the first line `the order waits for the owner: "HIS WORDS"`, which puts the task
+     into the list of what waits for him, and starts nothing.
+   - `new.md`, step 5: the first line of a task that waits by his order says so on every track, in
+     place of "Nothing waits for you" on the fast track: that it waits for X, as he said, and that
+     "start SLUG now" starts it before that.
+   - `new.md`, step 7: a task waits in two cases. The one of today, word for word in its meaning:
+     the ask needs what the earlier task changes. The new one: the order that step 1 read. The
+     session then writes `queued` with the first line `the owner's order: "HIS WORDS"`, his words as
+     he typed them on one line (a line break becomes a space), and `after: SLUG`. Every `queued`
+     block of this step, of an order or of a need, also carries one line `then: PATH`, the path that
+     step 8 would take: `then: the interview`, `then: the fast track` or `then: the lead`; the
+     investigation keeps its line `investigation: bug` or `investigation: question`. The sentences on
+     two asks that only name the same thing, and on not reading the code for an overlap, stay.
+   - `prompts/session.md`, "What comes next" and the wake-up paragraph: a `queued` task whose wait
+     ended (its `after:` task ended, or its block has no `after:` line) goes on where it stopped. A
+     task no lead started (no block of its state has a `lead:` line) takes step 8 of "The request"
+     in `stages/new.md`, by its `then:` or `investigation:` line; a task its lead queued takes
+     `stages/start.md`. When the task of its `after:` line was dropped, the first state block it
+     writes says so in one line: it starts without the result of that task, which was dropped. A
+     task `held` with `the order waits for the owner` takes step 1 of "The request" for its one
+     question while he is there, and waits for him while he is away; at his back it asks it.
    - `plan.md`, before step 1: an order that the owner gave stays. A lead whose task holds his order
      (the first line of its `queued` block, or his words in the ask of `task.md`) never removes it,
-     also when the code shows that the task needs nothing of the other one: it writes the `queued`
-     block again with one more line, that it sees no need for the order, why, and that "start SLUG
-     now" starts the task, so that the board shows it while the task waits; its report says the
-     same. A lead that finds his order in the ask of a task that started all the same, while the
-     task he named has not ended, writes no plan and no code and queues the task as the paragraph
-     above it does, with `the owner's order: "HIS WORDS"` as the first line, and names his words in
-     its report.
+     also when the code shows that the task needs nothing of the other one, unless his own record
+     removed it (a decision `--by owner` on the order in `lem decisions list SLUG`, decision 2
+     below). It writes the `queued` block again with one more line, that it sees no need for the
+     order, why, and that "start SLUG now" starts the task, so that the board shows it while the
+     task waits; its report says the same. A lead that finds his order in the ask of a task that
+     started all the same, while the task he named has not ended, writes no plan and no code and
+     queues the task as the paragraph above it does, with `the owner's order: "HIS WORDS"` as the
+     first line, and names his words in its report.
    - `prompts/lead.md`, step 3: the one sentence on a queue names both cases.
    - `start.md`, step 1: one clause, that a task which stays `queued` by the owner's order stays so
-     until that task ends or his word removes the order. Step 3: a queued task that starts because
-     the task of its `after:` line was dropped says so in its first state block, in one line: it
-     starts without the result of that task, which was dropped.
-   - `SKILL.md`, the row `queued` of the status table: it needs the result of the task its `after:`
-     line names, or the owner's words put it after that task.
+     until that task ends or his word removes the order. "`/lem build`": one paragraph for his
+     "start SLUG now" on a task queued by his order, in any session. It logs his words (`lem
+     decisions log SLUG --by owner --words`) and writes the `queued` block again with its lines but
+     the `after:` line, and the line `the owner's order was removed: "HIS WORDS"`. Typed in the
+     task's own session, that session goes on as `prompts/session.md` says for a queued task whose
+     wait ended; typed elsewhere, `lem session open SLUG --why owner --focus` takes him there, as for
+     a planned task.
+   - `correct.md`, `standard-track`: a task that is `queued` stays queued. The correction changes
+     only the path its wait ends in: write the `queued` block again with each of its lines, and
+     `then: the interview` in place of `then: the fast track`. The interview starts when the wait
+     ends.
+   - `SKILL.md`: the row `queued` of the status table, it needs the result of the task its `after:`
+     line names, or the owner's words put it after that task; and the row `build [<task>]` of the
+     subcommands, his "start SLUG now" for a task queued by his order (`stages/start.md`,
+     "`/lem build`").
    The commit says which task showed the need: `tests-at-the-unit-level`, 2026-11-20.
-2. **What Lem prints says the same.** Serves criterion 2, its last step. Files:
-   `skills/lem/scripts/project.py`, `skills/lem/scripts/lem_board_model.py`, and their tests in
+2. **What Lem prints, and the phase of a queued task.** Serves criterion 1, its step 5, and
+   criterion 2, its last step. Files: `skills/lem/scripts/project.py`,
+   `skills/lem/scripts/lem_board_model.py`, `skills/lem/scripts/session.py`, and their tests in
    `tests/unit/` (or the may-start checks of `tests/lem-settings.sh`, where the builder finds that
    the rule needs a repository).
+   - `phase_of` in `session.py`: a `queued` task that no lead started (no block of its state has a
+     `lead:` line, the form `LEAD_LINE` in `project.py` reads) is in the phase `shape`, since its
+     session takes step 8 of "The request"; one that its lead queued stays in `build`. Its caller
+     gives it the task's whole state. One unit case for each.
    - The refusal of `lem project may-start` for a task queued after one that has not ended names both
      ways out: a task that waited because it needed the other one's result and no longer does has its
      state `queued` written again without the `after:` line; an order of the owner's (the block's
@@ -142,20 +195,38 @@ Tasks 1 and 2 share no file and run at the same time. Task 3 comes after both.
    free line is enough, and it rests on `lem project state`, which takes any first line, and on the
    three scripts above, which read only `after:`. No new fixed form of a state line and no script
    that reads it: no act of Lem's does harm without one, since the agent that would remove the line
-   reads the block first.
+   reads the block first. His words go on one line: `lem project state` takes one argument for each
+   line, so a line break in his words becomes a space.
 2. **His word removes his order, and nothing else does.** The agent that hears "start X now" logs his
    words (`lem decisions log X --by owner --words`), writes the state `queued` again without the
-   `after:` line, and the task starts as any queued task whose wait ended. It is the way a wait is
-   removed today, with his word as its one condition. No new command of his.
+   `after:` line and with `the owner's order was removed: "HIS WORDS"`, and the task goes on as any
+   queued task whose wait ended. It is the way a wait is removed today, with his word as its one
+   condition. His words reach that agent through the `/lem build` row of `SKILL.md` and its section
+   of `stages/start.md`, which already take a waiting task to its session at his word: no new
+   command of his. A lead reads his record before the ask, so the words in `task.md` do not bring
+   the order back.
 3. **An order that Lem cannot read never starts the task** (decision 7 of the task's record, which
    no level of the ladder settled; the lead's pick stands). A task that ended meets an order. For
    words that name no task Lem can tell, the session asks once with its guess; while the owner is
    away it queues the task after the one open task that fits, or holds it for him when none or
-   several fit. The plan's first form started such a task while he is away; the dialectic found
-   that this removes his order without his word.
+   several fit, with the fixed first line `the order waits for the owner`, which `prompts/session.md`
+   routes to that one question, also in a fresh session. His "n" is his word that no order holds.
+   The plan's first form started such a task while he is away; the dialectic found that this removes
+   his order without his word.
 4. **The board's two texts lose "it needs".** "Another task" is true for a need and for an order, so
    the board needs no read of the block's first line.
 5. **No script reads an ask for an order** (decision 3 of the task's record, taken before the lead).
+7. **A queued task goes on where it stopped.** A task queued at step 7 of "The request" takes step
+   8, by the line `then: PATH` its block carries, and its session is in the shape (`phase_of`); a
+   task its lead queued takes the start of the build, as today. It rests on the existing text: the
+   investigation already carries its path in its queued block (`stages/investigate.md`, step 1),
+   and `cmd_next` already needs a change of phase at the interview's end. The same holds for a task
+   queued by a need, which met the same route before this plan; the plan widens that route's use,
+   since an order comes on any ask. `then:` is a free line, read by the agent: no script reads it.
+   The note of a start after a drop goes with the route, since an investigation and an interview
+   never reach step 3 of `stages/start.md`.
+8. **The order is read with the track and the type** (step 1 of "The request"), so that the first
+   line can say the wait and the one question holds every unclear read at once.
 6. **Criteria 1 to 3 are as the personas expected them** (decisions 4, 5 and 6 of the record, by the
    dialectic, which found no break): the words that start a waiting task early stand in Lem's first
    line and in the state; a start after a drop says so; what an agent has to say about an order goes
