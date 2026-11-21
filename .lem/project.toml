@@ -28,12 +28,13 @@ protected = []
 [checks]
 # During the build, each builder runs only the tests of its own change. Before the pull request,
 # Lem runs these commands one time, at the root of the task's worktree.
-# The unit level comes first: it takes under a second and fails before the suites start. Then
-# every suite of the repository, at the same time (tests/all.sh); its last line says whether all
-# passed. Two landings run it at the same time too: each suite works in its own throwaway folders,
-# so two runs share no state (a subagent's read and a trial of three runs at once, 2026-11-20). The
-# machine's load gate (`lem project load`), not a lock, keeps a run from starting on a loaded machine.
-commands = ["python3 -B -m unittest discover -s tests/unit", "bash tests/all.sh"]
+# One command: every suite of the repository at the same time, the unit level among them
+# (tests/all.sh); its last line says whether all passed. The checks run each command of this list
+# whatever the one before gave, so a unit run before it would only run the unit level twice. Two
+# landings run it at the same time too: each suite works in its own throwaway folders, so two runs
+# share no state (a subagent's read and a trial of three runs at once, 2026-11-20). The machine's
+# load gate (`lem project load`), not a lock, keeps a run from starting on a loaded machine.
+commands = ["bash tests/all.sh"]
 # What a new worktree needs before its tests can run ("uv sync", "npm ci"). Lem runs these one
 # time in each worktree it makes for a task. None here: the tests need only Python and git.
 setup = []
