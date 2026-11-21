@@ -13,8 +13,9 @@ it.
 
 ## Read first
 
-- `AGENTS.md`: the rules of a change here and the owner's rulings. A finding that asks for what a
-  ruling forbids is wrong; a change that bends a ruling is a must-fix.
+- `AGENTS.md`: the rules of a change here and one sentence for each of the owner's rulings, whose
+  full text is in `docs/rulings/`. A finding that asks for what a ruling forbids is wrong; a change
+  that bends a ruling is a must-fix.
 - `.lem/profile.md`: the same project as the personas read it.
 - For a script: its test file in `tests/` (a change to a script comes with its test).
 - For a stage file: `skills/lem/SKILL.md`, which holds what is true in every stage.

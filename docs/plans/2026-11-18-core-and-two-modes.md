@@ -4,7 +4,7 @@
 > the fewer settings and the night as pull requests still hold; the redesign of 2026-11-20 ([2026-11-20-a-session-for-each-task.md](2026-11-20-a-session-for-each-task.md)) replaced the two
 > modes and the cards: the build asks the owner nothing, his away status is one mark of the
 > machine, and a task lives in a session of its own. It follows the owner's interview of
-> 2026-11-17 and 2026-11-18 (`AGENTS.md`, "His interview ... on what stays in Lem").
+> 2026-11-17 and 2026-11-18 (`docs/rulings/`, "His interview ... on what stays in Lem").
 
 ## What the owner gets
 

@@ -9,7 +9,7 @@ fail toward settled." This file wins wherever it and the full design disagree. T
 stays the source for: where each text changes (its T5 list, D:721-734), the file and line cites
 of today's code, the mode's step-by-step (D:98-200), and the old forms that must still read.
 
-## The owner's requirement (his words are in AGENTS.md, "His interview of 2026-11-17 and 2026-11-18")
+## The owner's requirement (his words are in docs/rulings/, "His interview of 2026-11-17 and 2026-11-18")
 
 The switch at any stage; decisions taken without him while he is away, with the panel, the
 dialectic and the experts used "in doubt"; each such decision with its reason in a file at the end;

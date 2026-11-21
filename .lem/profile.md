@@ -18,7 +18,8 @@ repository. Four to five tasks ran well on one Mac (convertiser-server, 2026-11-
 
 ## Rules every answer works within
 
-- The owner's rulings in `AGENTS.md` ("The owner's rulings") are reopened only by asking him.
+- The owner's rulings are reopened only by asking him. Their sentences are in `AGENTS.md` ("The
+  owner's rulings"), and their full text in `docs/rulings/`.
 - The rules of a change in `AGENTS.md` hold: the skill knows no project; a stage names a
   capability, never a tool; a number carries its source and date; scripts are standard-library
   Python 3.11 or newer, print JSON, and refuse a wrong input with exit 1 and the fix.
@@ -41,8 +42,9 @@ and agterm on the owner's machine (`doctor.py`, 2026-11-16).
   change here"). A task works in its own worktree, and nothing edits the main checkout by hand.
 - **The skill files are instructions to agents.** A sentence in a stage file is followed word for
   word by a builder. A vague or wrong sentence is a defect, as a wrong line of code is.
-- **A ruling is not a design.** `AGENTS.md` separates the owner's rulings from the designs a
-  session took after his question. Only the first need him to change.
+- **A ruling is not a design.** `AGENTS.md` separates the sentences of the owner's rulings from
+  those of the decisions and designs a session took, and their full text is in `docs/rulings/` and
+  in `.lem/decisions/`. Only the first need him to change.
 
 ## Who to compare with
 

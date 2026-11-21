@@ -5,8 +5,8 @@
 > agent only writes its review; a task's session opens in the main checkout and reaches its
 > worktree by its path; the load gate has one number, with no second one that stops a run; the
 > parity tool went with the old board page; and the cheap look of `bin/lem` at the server was
-> measured at 0.4 ms (the integration builder's medians of 30 runs). `AGENTS.md` ("His rulings of
-> 2026-11-20 and 2026-11-21", "Decisions the maintaining session took") holds each. The shapes of
+> measured at 0.4 ms (the integration builder's medians of 30 runs). `docs/rulings/` ("His rulings of
+> 2026-11-20 and 2026-11-21") and `AGENTS.md` ("Decisions the maintaining session took") hold each. The shapes of
 > tasks 2 to 4 and the plan of task 4 are in the folder of this name; the files they cite
 > (`interview-notes.md`, `scout.md`, the research) stay in Lem's untracked state folder.
 
