@@ -1,0 +1,68 @@
+# What pull request 13 left open of the owner's task order
+
+careful: yes, because task 2 changes what a queued task's state keeps of the owner's order and of his word, and task 3 changes what `lem project state` refuses, which reach the owner's topics "A task's record is lost or wrong: its state, its decisions and its approved criteria" and "A decision that is the owner's is taken without him": a defect there drops his order from a state block, starts or queues a task against his word, or refuses a state block that is right.
+
+## Acceptance criteria
+
+Size: full, because five promises of pull request 13 change in the scripts and in the stage texts, and the change is careful.
+
+1. A task that waits behind a dropped task is in the list of what waits for the owner, with the two things he can say:
+   1. The task `export-notes-in-order` is queued after `gift-note-in-export`, by his order or by a need.
+   2. He drops `gift-note-in-export`.
+   3. "Waits for you" on the board and `lem project waiting` each show one row for `export-notes-in-order`. The row says that `gift-note-in-export` was dropped, that "start export-notes-in-order now" starts the task, and that `/lem drop export-notes-in-order` ends it.
+   4. After his word, either one, the row is gone.
+   A task queued after a task that still runs has no such row.
+2. His "start it" for a task that waits behind a dropped task starts it, and the task's record keeps his order and his word:
+   1. `export-notes-in-order` is queued with the lines `the owner's order: "After gift-note-in-export"`, `after: gift-note-in-export`, its type line and `then: the interview`. The task `gift-note-in-export` was dropped.
+   2. `lem project may-start export-notes-in-order` refuses, and prints the two commands of his "start it" whole, with the block's own lines: the one that logs his words, and the one that writes the queued block again with each of its lines but `after: gift-note-in-export` and with the line `the owner's order was removed: "HIS WORDS"`.
+   3. He says "start it", and the agent runs the two commands as printed, with his words in them.
+   4. The task's state still shows his order, its type and `then: the interview`, and says that his word removed the order. `lem decisions list export-notes-in-order` holds his word. `lem project may-start export-notes-in-order` passes, and the task goes on with its interview.
+   A task that was queued by a need gets one command: its block again, with each of its lines but the `after:` line.
+3. A task that was held because Lem could not tell which task his order names gets its first line when his answer comes:
+   1. He is away, and his request is `/lem After the gift note: the export keeps the notes in their order`. Two open tasks fit "the gift note".
+   2. The task `export-notes-in-order` is held with `the order waits for the owner: "After the gift note"`, and is in the list of what waits for him. No first line is said.
+   3. He is back and answers "after gift-note-in-export". The task's session writes the queued block, and that command prints the task's first line: its type, his words, the branch, then `It waits for gift-note-in-export, as you said; "start export-notes-in-order now" starts it before that.`, then the track with its steps.
+   4. With the answer "no order" instead, the block of the task's path prints the first line of a task that starts at once: its type, his words, the branch and the track with its steps.
+   The first line is said one time.
+4. The text of `/lem build` names only commands that run: for "start export-notes-in-order now" typed in another session than the task's, it names no `lem session open` with `--focus`, a flag that the command refuses.
+5. A state line that the first line is read from is refused in another form, so that no first line leaves out his order because of how a line was typed:
+   1. A session writes `lem project state export-notes-in-order queued "the owner's order: After gift-note-in-export" "after: gift-note-in-export" "type: feat, because a new order" "then: the interview"`, with no quotes around his words.
+   2. The command exits 1, writes no block, and names the form: `the owner's order: "HIS WORDS"`.
+   3. The same command with `then: an interview` in the place of `then: the interview` exits 1, and names the three paths: `the interview`, `the fast track`, `the lead`.
+   4. The same command with the line `the one open task that fit his words` exits 1, and names the line as it is written: `the one open task that fits his words`.
+   A line that does not start as one of these three is a free line, as today.
+
+## How it works
+
+A task that waits for another task, when that task is dropped (criteria 1 and 2).
+
+```mermaid
+flowchart TD
+  A["export-notes-in-order waits for gift-note-in-export"] --> B{"How does gift-note-in-export end?"}
+  B -->|"it lands or is answered"| C["export-notes-in-order starts"]
+  B -->|"it is dropped"| D["Waits for you: one row for export-notes-in-order"]
+  D --> E{"What does the owner say?"}
+  E -->|"start export-notes-in-order now"| F["Its state keeps his order and his word, and the task starts"]
+  E -->|"/lem drop export-notes-in-order"| G["The task is dropped"]
+  F --> H["The row is gone"]
+  G --> H
+```
+
+## Tasks
+
+1. **The row of a task queued behind a dropped task** (criterion 1). `waits_of` in `skills/lem/scripts/lem_board_model.py` gets a row of a kind of its own for a task that `after_dropped` names, with its place in `WAIT_ORDER` beside `held`, and `wait_say` gives its words: the dropped task by its name, "start SLUG now" and `/lem drop SLUG`. `cmd_waiting` in `skills/lem/scripts/project.py` gives the kind a key of its own, and each reader of a row's kind or of the keys of `lem project waiting` takes it: `skills/lem/scripts/lem_board_pages.py`, `skills/lem/scripts/picker.py`, and `skills/lem/scripts/lem_push.py` if it reads a kind. The documents that list the kinds say the new one: `skills/lem/stages/status.md` (the numbered list of keys), the row of bare `/lem` in `skills/lem/SKILL.md`, and the list of `docs/when-lem-needs-you.md`, which stays in its STE and under 800 words. Tests: unit cases in `tests/unit/test_board_model.py` (the row, its words, no row behind a task that runs, no row after his word), and a check of `lem project waiting` and of the page in the block that holds the board's rows. One picture of the row for the pull request, from a throwaway state folder, never from the demo afternoon, whose six committed pictures stay as they are.
+2. **His "start it", and the text of `/lem build`** (criteria 2 and 4). The refusal of `cmd_may_start` in `skills/lem/scripts/project.py` for a task queued behind a dropped task prints the commands of his "start it" whole, composed from the task's own block: for a block whose first line is his order, `lem decisions log SLUG --by owner ... --words "HIS WORDS"` first, then `lem project state SLUG queued` with each line of the block but the `after:` line and with `the owner's order was removed: "HIS WORDS"`; for a need, the one `lem project state` command with each line but the `after:` line. The stage texts say the same steps in the same words: step 7 of "The request" in `skills/lem/stages/new.md`, step 1 and "`/lem build`" of `skills/lem/stages/start.md`, "A queued task" of `skills/lem/prompts/session.md` and the paragraph of `skills/lem/stages/correct.md` that names "start it". "`/lem build`" covers "start SLUG now" for a task behind a dropped task too, by order or by need, since the row of task 1 names those words; and its last sentence names no `--focus`: read `cmd_wake` and `cmd_open` in `skills/lem/scripts/session.py` first, and name only what they take and print. Tests: the unit case of the refusal in `tests/unit/test_task.py`, and in `tests/lem-decisions.sh` the check of a task behind a dropped task runs each printed command as printed, then shows the order line, the type line, the `then:` line and the removed line in the state, his word in `lem decisions list`, and a `may-start` that passes.
+3. **The first line after a hold, and the form of the three lines** (criteria 3 and 5). In `skills/lem/scripts/project.py`, a held block whose first line is `the order waits for the owner: "HIS WORDS"` names no path, so it does not count as the block that said the first line: the first block after it that names the task's path prints `say` and `say_named`, also when that block carries no type line of its own because the hold has it (`stages/start.md`, step 3, writes the type line only "when no block before it has one"). `cmd_state` refuses, as it refuses a type line in another form, a line that starts as `the owner's order:`, `then:` or `the one open task` and is not in its form, and the hold's own line without his words in quotes; `the owner's order was removed: "HIS WORDS"` is a line of its own and stays free. `first_line_end` in `skills/lem/scripts/session.py` ends the wait of the session where he typed the request at the hold, with no line and a reason that names the hold. The documents say what is true: the list of state lines with a fixed form in `skills/lem/SKILL.md` and the comment of the state lines in `project.py` name the new ones and who reads them; steps 1, 7 and 8 of "The request" in `skills/lem/stages/new.md` say when a held task's first line comes; `docs/plans/2026-11-21-owner-task-order-stays.md` gets a status line under its title, in the form of `docs/plans/2026-11-20-a-session-for-each-task.md`, with its commit `74bd242` and what this plan changed in it (its decisions 1 and 7 say that no script reads the order's lines, and its task text names `--focus`); and `.lem/decisions/the-first-line-of-a-task-is-composed-by-lem-project-state-and-its-session-says-it-as-it-is.md` where it lists what the line is read from. Tests: unit cases in `tests/unit/test_task.py` (the first line after the hold for an order and for "no order", once; each refused form with its message; a free line that passes) and in `tests/unit/test_session.py` (the wait's end at the hold), and the refusals with their exit status in the block that holds a task's state, `tests/lem-settings.sh`.
+
+## Decisions of the plan
+
+1. **The row names "start SLUG now" and `/lem drop SLUG`, not "start it" and "drop it".** No session runs for a task that waits behind a dropped task (`session_need` and `opens_session` in `lem_board_model.py` give it none), so he types his word in another session, where "it" names nothing. Both forms exist today: `stages/start.md`, "`/lem build`", and `stages/correct.md`.
+2. **The first line of a held task comes with his answer, not at the hold.** The hold is written while he is away (`stages/new.md`, step 1), so a line said then reaches nobody; its row in "Waits for you" tells him that it waits. The branch, the track and "start SLUG now" are said when he is there to correct them.
+3. **The three lines get a fixed form in `lem project state`; the script does not stop reading them.** The first line that pull request 13 promises ("It waits for X, as you said") can be composed only from the order's words and the path, and the block is their one place. The act of Lem's that does harm without the check: a session writes the order line without its quotes, and the first line then tells the owner nothing of the wait or of the word that starts the task. Its cost on a small task: none, since only a line that starts as one of the three is checked.
+4. **His word is logged for his order, and not for a need**, as step 7 of "The request" has it today. The change keeps that rule and makes the refusal print it.
+5. **No button on the board for "start it".** The ask names the row; an act of the board is a new part, and he has the two words.
+
+## What the plan will not verify
+
+- That a real session follows the changed stage texts: a stage file's test is a real task (`AGENTS.md`, "Checks"). The commits of task 2 and task 3 name this task as the one that showed the need.
+- A misspelled line that does not start as one of the three checked forms: it is a free line, and no script can tell it from one.
