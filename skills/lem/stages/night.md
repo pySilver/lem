@@ -28,8 +28,9 @@ Nothing asks him. This session keeps no watch of the owner's mark and takes no s
    --why night`. The mark makes it the night's: it runs without the owner until it ends, whatever
    his status, and his `/lem im-back` does not change it. Its session takes the path "The request"
    chooses, as any task that runs without the owner does; its brief carries `request by: someone
-   else`, since nobody at the terminal read the item, so the criteria of a task on the standard
-   track are approved with `--alone` and its pull request is not green for them.
+   else`, since nobody at the terminal read the item, so its criteria are approved with `--alone`
+   on both tracks (the fast track's with `lem criteria approve SLUG --file TASK_DIR/criteria.md
+   --alone`), and its pull request is not green for them: the merge agent calls the owner.
 4. **Wait until it stops, then the next.** `run-in-background` with `lem session wait SLUG --until
    open,held,blocked,landed,dropped,answered`; its end wakes this session. The ladder decides each
    choice, as by day; a breaker (`stages/breaker.md`) holds its task for the morning, and the

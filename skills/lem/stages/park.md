@@ -40,6 +40,8 @@ lem project resume SLUG
   is `held` by the breaker that waited, with the line `resumed from SLUG, which was dropped`. Then
   its session opens as for a parked task, with the new slug. A dropped task with no breaker that waits has no talk
   to go back to, and the command says that a new ask does it; a dropped task resumed once is not
-  resumed again (the command names the task it went on in).
+  resumed again (the command names the task it went on in). The plan comes with the branch under
+  the old slug's name: `lem project plan-file SLUG-2` gives it as `found`, and `lem criteria show
+  SLUG-2` reads it, until its lead writes a plan of the new name.
 
 Say its `say` in one line: what came back, and the session where he talks it through.

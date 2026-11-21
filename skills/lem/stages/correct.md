@@ -65,6 +65,7 @@ none, which the base holds whole, goes (`lem land clean` does both and says whic
 directory stays, `handoff.md` and each breaker's document (`breaker-N.md`) with it, so that `/lem resume SLUG` opens a new task
 from them and from the branch (`stages/park.md`); say so in the line that tells him it is dropped. For a task that came from a ticket, the
 tracker then says so on the ticket (its "drop") and changes no status: tell the owner which status
-the ticket has, since where it goes now is his call. A task queued `after:` this one starts by
-itself: the board's server opens its session. Last, the task's session closes: typed there, as its
+the ticket has, since where it goes now is his call. A task queued `after:` this one does not
+start: it stays `queued`, and the owner says "start it" or "drop it" (step 7 of "The request",
+`stages/new.md`). Last, the task's session closes: typed there, as its
 last act (`prompts/session.md`, "The end"); typed elsewhere, `lem session close SLUG --why owner`.

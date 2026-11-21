@@ -73,7 +73,7 @@ writes down how the talk went, and stops; the lead closes the pair and builds th
 **The board's server**, `lem serve`, holds what reaches across tasks, with no context of its own:
 it notices a merge or a close on GitHub and runs `lem land merged`, wakes the task's session for its
 cleanup, for a pull request that became conflicting, and after the owner's approval or park on the
-board, opens the session of a queued task when the task it waited for ended, opens the session of a
+board, opens the session of a queued task when the task it waited for landed or was answered, opens the session of a
 task he starts on the board ("+" or a backlog item), and shows a task whose session is gone as "no
 session" for the owner. It never types into a session, decides, or closes one.
 
@@ -214,7 +214,8 @@ so do the end of a command it runs in the background and a wake-up from the boar
   as what is careful and what the checks run, and a task rarely edits it.
 - **No count of tasks stops a start.** By day each start is the owner's own request: "Why block
   him?" (2026-11-18). `lem project may-start SLUG` refuses only a task that gets no lead (in
-  `landing`, `open` or ended) and one queued `after:` a task that has not ended.
+  `landing`, `open` or ended) and one queued `after:` a task that has not landed or been answered:
+  behind a dropped one it names the owner's "start it" and "drop it".
 - **What the owner has to understand is told as one run.** A decision you bring and a confusion
   the owner brings ("I thought X did Y", "why is this happening") get the same form: one
   concrete case in numbered steps, with real names and values, and where each step was read. For
@@ -317,7 +318,7 @@ command when it is one. The status says who acts next, and the phase of the task
 
 | Status | Means | Who acts |
 | --- | --- | --- |
-| `queued` | the ask is written and nothing builds it: it needs the result of the task its `after:` line names | the board's server opens its session when that task is `landed` or `answered`; the owner, when it was dropped |
+| `queued` | the ask is written and nothing builds it: it needs the result of the task its `after:` line names | the board's server opens its session when that task is `landed` or `answered`; the owner says "start it" or "drop it" when it was dropped |
 | `building` | a lead plans or builds, or an investigator examines a bug or a question | the task's session |
 | `planned` | the plan is committed and nothing builds it: the plan talk runs, or the owner reads the plan | the defender, or the owner |
 | `held` | it waits for the owner: the interview, the criteria that wait for his yes, one more fact an investigation needs, a step that is his to do, or a breaker's document (`breaker N waits for the owner`); no choice of a build waits for him | the owner, in the task's session |

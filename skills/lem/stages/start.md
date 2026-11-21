@@ -9,7 +9,9 @@ the fast track's builder, a queued task whose turn came (the board's server open
    this session hands over and closes there. Then `lem project may-start SLUG`. No count of tasks
    stops a start. On exit 1 for a task queued `after:` a task that has not ended, it stays
    `queued`: write `handoff.md` and close this session as step 7 of "The request" says; the board's
-   server opens it again when that task is `landed` or `answered`. A task in `landing`, `open`, `parked`, `landed`, `answered` or
+   server opens it again when that task is `landed` or `answered`. Behind a task that was dropped,
+   the refusal names the owner's two words, "start it" and "drop it": say them to him in one line,
+   and do what he picks, as step 7 of "The request" says. A task in `landing`, `open`, `parked`, `landed`, `answered` or
    `dropped` gets no lead at all, and the step says so: it is no task to queue.
 2. **The worktree.** When the task has one, use it. When it has none, make it at the path in the
    brief: from the task's branch when that branch exists (a task whose worktree was removed), otherwise from the settings' base branch. Use the project's own worktree script

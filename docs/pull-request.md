@@ -12,7 +12,8 @@ A pull request is not green when one of these is true:
 - the review left a must-fix after two rounds, or no reviewer answered;
 - a criterion changed during the build;
 - a decision went past the personas: the dialectic or the experts took it;
-- Lem approved the criteria without you: while you were away, or in a night task;
+- Lem approved the criteria without you: while you were away, in a night task, or for a request
+  that someone else wrote;
 - the personas did not answer, two times, when they read the criteria;
 - the change brings the first checks into a project that had none;
 - a task on the fast track turned out to be careful: it can affect what must never go wrong.
@@ -59,7 +60,10 @@ gives the verdict merge, the board server starts the same merge.
 
 - A merge goes through GitHub, under the rules of your base branch. When GitHub refuses it,
   "Waits for you" shows the line that GitHub gave.
-- When the base branch moved, Lem first runs the checks again.
+- When the base branch moved, Lem runs the checks again first. The review and the merge review
+  stay when the rebase has no conflict. Then Lem merges, also after you pressed merge: your merge
+  stays while the change and its reasons stay the same. Otherwise Lem tells you why, and waits for
+  you.
 - With more than one task, `/lem land` merges them one at a time, in your order.
 
 Do not merge the branch of a task by hand: Lem knows only a merge through the pull request. After

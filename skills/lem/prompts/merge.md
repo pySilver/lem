@@ -14,7 +14,8 @@ The brief that named this file holds the facts of the task as JSON: its `worktre
 plan, or `criteria.md` on the fast track), `files` (the pull request's text `pr.md`, the owner's
 words, the request, the report, the notes, an investigation or a breaker's document, where the task
 has them), the `reviews`, the command that lists its `decisions`, whether it is `green` and why not,
-why it is `careful`, `land` (the settings' `branch.land`), `owner_merges` and `time`.
+why it is `careful`, `land` (the settings' `branch.land`), `owner_merges`, `time` and `relands`, how
+many times this proposal landed again (a moved base, a conflict).
 
 ## Read
 
@@ -31,7 +32,8 @@ why it is `careful`, `land` (the settings' `branch.land`), `owner_merges` and `t
 4. The task's time: `time.seconds` against `time.expected`, with `time.from`, which says where the
    expectation comes from. A task that took far longer than expected (three hours where one was
    expected) is worth a look at why: the report and the decisions usually say. An overrun is no
-   defect by itself.
+   defect by itself. Nothing bounds `relands`; more than one or two says that the base moves
+   faster than the checks run.
 
 ## Decide
 

@@ -206,8 +206,12 @@ The task's own session, in the shape, from its first message.
    (step 4); write `handoff.md` (`prompts/session.md`, "A change of phase"), and close this
    session, `lem session close SLUG --why handoff --when-unselected` with `run-in-background`. The
    board's server opens the task's session when that task is `landed` or `answered`, so it builds
-   on what the earlier one changed. When that task is dropped, it stays `queued`, and "Waits for
-   you" asks the owner to start it or to drop it. Two asks that only name the same thing (the same
+   on what the earlier one changed. When that task is dropped, the result it waited for never
+   comes: it stays `queued`, no session opens for it, and the owner says whether it starts without
+   that result or is dropped too. On his "start it", write its state `queued` again with no
+   `after:` line (`lem project state SLUG queued "WHY"`) and take `stages/start.md`; on his "drop
+   it", `lem project state SLUG dropped "WHY"`. `lem project may-start SLUG` refuses it with those
+   two lines. Two asks that only name the same thing (the same
    screen, the same file, the same function) each start on their own. Do not read the code to find
    an overlap the asks do not show; the landing settles that one, as a conflict at its rebase
    (`stages/land.md`, step 2).
@@ -236,6 +240,12 @@ pay three times.
    test line under the criterion in that file. An approval in his name is only ever a task's first
    contract: the script refuses it once any approval exists. The personas do not read it; the pull
    request says so.
+   A request that is not his own sentence, a task of the night (`night` in `lem project tasks`) or a
+   ticket or an item somebody else wrote, is approved without him instead, in any mode: write the
+   brief of step 2 first, with the line `request by: someone else` for such a ticket or item, then
+   `lem criteria approve SLUG --file TASK_DIR/criteria.md --alone`. The script refuses `--small`
+   for such a task and `--alone` for his own request. Its pull request is then not green, since he
+   did not approve the criterion, and the merge agent calls him.
 2. **The brief**, `brief.md` in the task directory, with this and nothing more:
 
    ```
@@ -246,7 +256,8 @@ pay three times.
    task directory: the task directory's absolute path
    ```
 
-   Then step 7 of "The request", and its builder starts as `stages/start.md` says, with the state
+   For a ticket or an item somebody else wrote, add `request by: someone else`, as step 6 of "The
+   request" says. Then step 7 of "The request", and its builder starts as `stages/start.md` says, with the state
    `building` and the lines `small change: one builder` and the type line of step 1. There is no
    lead: the one builder is the fresh builder of the one task, as the owner's rule on a fresh
    builder for each task has it.

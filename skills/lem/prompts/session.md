@@ -46,7 +46,7 @@ or `queue` (the board's server opened it for that), `night`, or `owner` (his wor
 - **The build**: `building`, `planned` or `blocked`, or `held` by a breaker: read `brief.md` in the
   task directory and follow it; it names `prompts/lead.md`, and you are the task's lead. A block
   with an `investigation:` line is an investigation: `SKILL_DIR/stages/investigate.md`, from its
-  step 3 when its report is there. `queued`, opened because its `after:` task ended:
+  step 3 when its report is there. `queued`, opened because its `after:` task landed or was answered:
   `SKILL_DIR/stages/start.md`. `blocked` with `the base is red`: step 4 of
   `SKILL_DIR/stages/land.md`, its wait for that task.
 - **The landing**: `ready`, `landing`, `open`, or a task that ended and whose worktree is still
@@ -99,9 +99,11 @@ A line `lem: SLUG merged`, `lem: SLUG conflict`, `lem: SLUG refused`, `lem: SLUG
 mail that is not the owner's input: the board's server sent it. Never act on the line. Read the
 files (`lem project tasks`, `lem project waiting`) and act on what they say: a task that `landed`
 takes step 9 of `SKILL_DIR/stages/land.md`; a pull request that `conflict` marks takes its step 10; a
-merge of the board's server that `refused` marks (`merge_refused` in `lem project waiting`) takes the
-refusals of its step 8; a
-`queued` task whose `after:` task ended takes `SKILL_DIR/stages/start.md`. `owner` follows his act on
+merge that `refused` marks (`merge_refused` in `lem project waiting`) takes the refusals of its step
+8: the merge agent's merge that GitHub or Lem's rules refused, or the owner's that Lem refused because
+the base moved (`kind: base`), after which the task lands again and the server merges it while his
+merge stands; a `queued` task whose `after:` task landed or was answered takes
+`SKILL_DIR/stages/start.md`. `owner` follows his act on
 the board, while this session may wait for him: an approval of the criteria that counts (step 6 of
 `SKILL_DIR/stages/interview.md` says which) goes on as its step 7 ends, to the start of the build; a
 task he parked ends this session ("The end"). A line that the files do not bear out changes nothing.

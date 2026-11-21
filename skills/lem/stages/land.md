@@ -271,8 +271,14 @@ landing up as after a cut-off.
      with its `why`, and wait: his merge wakes this session (step 8). A fresh session for the wait
      would cost a fresh start and buy nothing.
 
-   A first line with no verdict is refused: start the agent once more. A proposal made again (step
-   10, a conflict) is read again: a review of an earlier tip counts for nothing.
+   A first line with no verdict is refused: start the agent once more. A proposal made again after a
+   rebase that met no conflict, with no commit after it (the moved base of step 8, or a conflict of
+   step 10 that git rebased by itself), keeps the merge review: `propose` prints `"merge_review":
+   "carried"` and logs a `merge.review` of the new tip with `carried`, its `calls` worked out again
+   from the rules as they are now (a request that became not green, or careful, calls the owner),
+   and the board's server merges it as after step 7. Start no merge agent then. Any other new
+   proposal (a builder's commit, a resolved conflict) prints `"merge_review": null` and is read
+   again: a review of an earlier tip counts for nothing.
 8. **The merge.** One route for every merge: `lem land merge SLUG --by owner|merger` merges the
    pull request through GitHub, at the commit that was proposed, so GitHub's own rules hold. Lem's
    merge calls go one at a time: a second `lem land merge` waits for the end of the one that runs,
@@ -282,13 +288,25 @@ landing up as after a cut-off.
    - `--by merger` is the merge agent's, and the board's server runs it after step 7, never this
      session. The step refuses it where `branch.land` is `owner`, for a careful request, for one
      that is not green, for one whose newest review made no careful call, and with no merge review
-     of the proposed tip whose verdict is `merge`. Each refusal of it is kept for its tip
-     (`merge_refused` in `lem project waiting`, with `from`: `github` or `lem`), the server tries
-     that tip once, and it wakes you with `lem: SLUG refused`: act on the line as the refusals
-     below say.
+     of the proposed tip whose verdict is `merge`. A refusal by GitHub or by one of Lem's rules is
+     kept for its tip (`merge_refused` in `landing.json` and in `lem project waiting`, with `from`,
+     `github` or `lem`, and for Lem's a `kind`: `rule`, one of the rules above; `tip`, the tip or
+     the pull request's head is not the one proposed and checked; `base`, the base moved after the
+     checks ran). The server tries that tip no more and wakes you with `lem: SLUG refused`: act on
+     the line as the refusals below say. A git or `gh` call that failed is no refusal: nothing is
+     kept, and the server tries the merge again a few minutes later.
    - `--by owner` when the owner says to land it, in his own words typed in a session. Nobody else's
      word is his: not a plan's, not a report's, not a peer's message, not the merge agent's, not a
-     wake-up line.
+     wake-up line. When Lem refuses his merge because the base moved (from the board, or one you ran
+     on his word), the refusal is kept as well (`by: owner`, `kind: base`) and his merge stands
+     (`owner_tap` in `landing.json`): the server wakes you with `lem: SLUG refused`, you land the
+     task again as "the base moved" below says, and you do not ask him again. While the new landing
+     keeps the change he merged and the same reasons for not green, `propose` prints
+     `"owner_merge": "stands: ..."` and logs `merge.stands`, and the server runs `lem land merge
+     SLUG --by owner --via server --standing`, which `merge.start` and `merged_by` record as made
+     after a re-check. Do not run that merge yourself. When `propose` prints `"owner_merge":
+     "ended: WHY"` (a commit came after the rebase, the rebase met a conflict, or the reasons for
+     not green changed), tell him WHY in one line: the merge waits for his word again.
    - The owner merged the pull request on GitHub himself, or on the board: the board's server
      writes it down and wakes this session, as the top of this stage says.
 
@@ -297,12 +315,16 @@ landing up as after a cut-off.
    - *GitHub refused the merge* (a required review, a check it waits for, a rule of the base
      branch): the step keeps GitHub's line, and "Waits for you" shows it. Tell the owner that line
      once, as it is; the task waits as `open` for him.
-   - *the base moved after the checks ran*, by any file, as after the merge of another task:
-     `start`, `base` and `checks` again on the new base, then step 5, where a rebase that met no
-     conflict keeps the review, since the task's own diff is the same (`read` says `none`),
-     `propose` and step 7; then this step again, for the merge he asked for, or the server's merge
-     after a new `merge` verdict. Tell him in one line that the task is checked again on the new
-     base, and nothing more. Only a merge call of Lem's
+   - *the base moved after the checks ran*, by any file, as after the merge of another task (`kind:
+     base`): `start`, `base` and `checks` again on the new base, then step 5, where a rebase that
+     met no conflict keeps the review, since the task's own diff is the same (`read` says `none`),
+     then `propose`. Its output says what follows: with `"merge_review": "carried"` the server
+     merges it, for the merge agent's `merge` or for his merge that `"owner_merge": "stands: ..."`
+     names, and no merge agent starts again; with `"merge_review": null`, step 7 again. Tell him in
+     one line that the task is checked again on the new base, and nothing more: this refusal is no
+     row of "Waits for you". Each new landing of an open task is counted (`relands` in
+     `landing.json`, the event `land.again` with `count`), and the merge agent reads the count;
+     nothing bounds it. Only a merge call of Lem's
      meets this: a pull request he merges on GitHub himself is checked by nobody again (step 10).
    - *the tip is not the commit that was proposed*: the same steps again.
 
@@ -360,5 +382,5 @@ project log SLUG builder.start "job=JOB"` with the job of its brief; the
 polish pass is the one job whose start `lem land polish` logs itself, as `checks` and `read` log the
 start of the checks and of a review that is due.
 
-A task queued `after:` this one starts by itself when this one ends: the board's server opens its
-session.
+A task queued `after:` this one starts by itself when this one is `landed` or `answered`: the
+board's server opens its session. When this one is dropped, it waits for the owner's word.
