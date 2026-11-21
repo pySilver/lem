@@ -71,6 +71,8 @@ directory stays, `handoff.md` and each breaker's document (`breaker-N.md`) with 
 from them and from the branch (`stages/park.md`); say so in the line that tells him it is dropped. For a task that came from a ticket, the
 tracker then says so on the ticket (its "drop") and changes no status: tell the owner which status
 the ticket has, since where it goes now is his call. A task queued `after:` this one does not
-start: it stays `queued`, and the owner says "start it" or "drop it" (step 7 of "The request",
-`stages/new.md`). Last, the task's session closes: typed there, as its
+start: it stays `queued` for his word (step 7 of "The request", `stages/new.md`). The same line
+that tells him this one is dropped names each such task as one that now waits for his word, "start
+SLUG now" or `/lem drop SLUG`: after the drop, `lem project waiting` lists each under
+`after_dropped`, with this task as its `after`. Last, the task's session closes: typed there, as its
 last act (`prompts/session.md`, "The end"); typed elsewhere, `lem session close SLUG --why owner`.

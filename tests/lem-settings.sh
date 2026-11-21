@@ -719,6 +719,43 @@ if [ "$fast_said" = 'fix: "the footer says '"'"'Terms and conditions'"'"'". Bran
 else
   fail "the task's first line: $first_said / $second_said / $fast_said / $fast_logged / $night_said"
 fi
+# The three lines the first line reads have one form each, and `state` refuses a line that starts as one of them in
+# another, with exit 1 and no block; a line that starts as none of them is free, and the wait stays in the first line.
+project --repo "$FL" task-dir export-notes-in-order --ask 'After gift-note-in-export: the export keeps the notes in their order' >/dev/null
+ordered() { project --repo "$FL" state export-notes-in-order queued "$1" "after: gift-note-in-export" "type: feat, because a new order" "$2" 2>&1; }
+order_form=$(ordered "the owner's order: After gift-note-in-export" "then: the interview" || true)
+order_code=$(status_of ordered "the owner's order: After gift-note-in-export" "then: the interview")
+then_form=$(ordered "the owner's order: \"After gift-note-in-export\"" "then: an interview" || true)
+then_code=$(status_of ordered "the owner's order: \"After gift-note-in-export\"" "then: an interview")
+fits_form=$(project --repo "$FL" state export-notes-in-order queued "the owner's order: \"After gift-note-in-export\"" "after: gift-note-in-export" \
+  "the one open task that fit his words" "type: feat, because a new order" "then: the interview" 2>&1 || true)
+unwritten=$([ -f "$FL/.lem/state/tasks/export-notes-in-order/state.md" ] && echo written || echo none)
+free_said=$(ordered 'the owners order: "After gift-note-in-export"' "then: the interview" | field 'd.get("say")' 2>&1 || true)
+project --repo "$FL" task-dir quoted-order --ask 'After the "gift note" task: the notes keep their order' >/dev/null
+quoted=$(status_of project --repo "$FL" state quoted-order queued "the owner's order: \"After the \"gift note\" task\"" "after: gift-note-in-export" "type: feat, because a new order" "then: the interview")
+if grep -qF "\`the owner's order: \"HIS WORDS\"\`" <<<"$order_form" && [ "$order_code" = 1 ] \
+  && grep -qF "\`then: the interview\`, \`then: the fast track\` or \`then: the lead\`" <<<"$then_form" && [ "$then_code" = 1 ] \
+  && grep -qF "\`the one open task that fits his words\`" <<<"$fits_form" && [ "$unwritten" = none ] && [ "$quoted" = 0 ] \
+  && grep -qF "It waits for gift-note-in-export, and starts when that task lands or is answered. Then the standard track: an interview here, then" <<<"$free_said"; then
+  pass "state refuses the owner's order, a then: line and the line of the one open task that fits in another form, with exit 1, the form and no block; his own double quote is in the form, and a free order line still leaves the wait in the first line"
+else
+  fail "the three lines' form: $order_form ($order_code) / $then_form ($then_code) / $fits_form / $unwritten / $quoted / $free_said"
+fi
+# A task held because his order named no task Lem could tell gets no first line at the hold, and gets it with his answer.
+project --repo "$FL" task-dir notes-held --ask '/lem After the gift note: the export keeps the notes in their order' >/dev/null
+printf '%s\n' 'Read SKILL_DIR/prompts/lead.md and follow it.' 'task: notes-held' 'branch: feat/notes-held' > "$FL/.lem/state/tasks/notes-held/brief.md"
+printf '%s\n' '# Notes in order' '' '## Outcome' '' 'The export keeps the notes in their order.' > "$FL/.lem/state/tasks/notes-held/task.md"
+hold_said=$(project --repo "$FL" state notes-held held 'the order waits for the owner: "After the gift note"' "type: feat, because a new order" | field 'd.get("say")' 2>&1 || true)
+answer_said=$(project --repo "$FL" state notes-held queued "the owner's order: \"After the gift note\"" "after: gift-note-in-export" "then: the interview" | field 'd.get("say")' 2>&1 || true)
+answer_named=$(tail -n 1 "$FL/.lem/state/events.jsonl" | field 'd.get("say_named")' 2>&1 || true)
+again_said=$(project --repo "$FL" state notes-held held "the interview waits for the owner" | field 'd.get("say")' 2>&1 || true)
+if [ "$hold_said" = None ] && [ "$again_said" = None ] \
+  && [ "$answer_said" = 'feat: "the export keeps the notes in their order". Branch feat/notes-held. It waits for gift-note-in-export, as you said; "start notes-held now" starts it before that. Then the standard track: an interview here, then acceptance criteria for your yes. After that it runs to the pull request without you. Wrong read? /lem be-careful.' ] \
+  && grep -qF 'notes-held · feat: "the export keeps the notes in their order". Branch feat/notes-held. It waits for gift-note-in-export, as you said; "start notes-held now"' <<<"$answer_named"; then
+  pass "a task held for an order that names no task gets no first line at the hold, its queued block after his answer prints it with the hold's type, and the block its wait ends in prints none"
+else
+  fail "the first line after the hold: $hold_said / $answer_said / $answer_named / $again_said"
+fi
 # The investigation's record: a fix's call, whether the bug was reproduced and where the cause is; a question's answer.
 inv() { project --repo "$ANS" log zero-after-refund investigation "$@" 2>&1 || true; }
 before=$(grep -c '' "$ANS/.lem/state/events.jsonl")
