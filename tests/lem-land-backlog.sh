@@ -26,7 +26,7 @@ BLG=$WORK/backlog-land
 task_in "$BLG" after-review app.txt two
 tree=$(project --repo "$BLG" worktree-dir after-review)
 checked_in "$BLG" after-review
-land --repo "$BLG" read after-review --record "$(clean 1)" >/dev/null
+land --repo "$BLG" read after-review --record "$(clean after-review 1)" >/dev/null
 reviewed=$(git -C "$tree" rev-parse HEAD)
 # after_review CHANGE: CHANGE run in the reviewed worktree and committed, and the checks again; prints what is
 # due, then puts the worktree back on the reviewed tip
@@ -69,13 +69,13 @@ item_b=docs/backlog/a-quoted-comma-splits-the-field.md
 item_d=$tree/docs/backlog/an-item-from-before-json-parse.md
 # the day before the review and after its filing: an item filed at midnight carries one of the two
 day_from=$(date +%F)
-first=$(land --repo "$BLG" read two-defects --record "$(record 1 "$read_must_fix, $(outside "$A" "$D")")" | field '(d["next"], [(f["round"], f["title"]) for f in d["to_file"]])')
+first=$(land --repo "$BLG" read two-defects --record "$(record two-defects 1 "$read_must_fix, $(outside "$A" "$D")")" | field '(d["next"], [(f["round"], f["title"]) for f in d["to_file"]])')
 filed_a=$(land --repo "$BLG" file two-defects | field '([(f["round"], f["item"]) for f in d["filed"]], d["same"])')
 day_to=$(date +%F)
 commit_a=$(git -C "$tree" show --name-only --format=%s HEAD | tr '\n' '|')
 "$PY" -c 'import sys; p = sys.argv[1]; t = open(p).read().replace("worth: later", "worth: no").replace("\n\nSeen outside", "\n\nThe owner: an empty input never reaches parse, the reader refuses it first.\n\nSeen outside"); open(p, "w").write(t)' "$item_a"
 echo fixed > "$tree/notes.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: the must-fix, and the owner's no" && land --repo "$BLG" checks two-defects >/dev/null
-second=$(land --repo "$BLG" read two-defects --record "$(record 2 "$a_round, $(outside "$B" "$A" "$D" "$E")")" | field '(d["next"], [(f["round"], f["title"]) for f in d["to_file"]])')
+second=$(land --repo "$BLG" read two-defects --record "$(record two-defects 2 "$a_round, $(outside "$B" "$A" "$D" "$E")")" | field '(d["next"], [(f["round"], f["title"]) for f in d["to_file"]])')
 unfiled=$(land --repo "$BLG" propose two-defects --title "fix: two-defects" --notes "$NOTES" 2>&1 >/dev/null || true)
 echo stray > "$tree/stray.txt"
 dirty=$(land --repo "$BLG" file two-defects 2>&1 >/dev/null || true)
@@ -142,7 +142,7 @@ printf '%s\n' '---' 'worth: later' 'where: src/json.py:parse' 'added: 2026-11-17
 git -C "$tree" add -A && git -C "$tree" commit -q -m "docs(backlog): what the builder saw outside the change"
 checked_in "$BLG" builder-filed
 told=$(land --repo "$BLG" read builder-filed | field '[(i["item"], i["where"], i["title"]) for i in d["inputs"]["filed"]]')
-land --repo "$BLG" read builder-filed --record "$(record 1 "$a_read, $(outside "$A" "$B")")" >/dev/null
+land --repo "$BLG" read builder-filed --record "$(record builder-filed 1 "$a_read, $(outside "$A" "$B")")" >/dev/null
 before_file=$(git -C "$tree" rev-parse HEAD)
 filing=$(land --repo "$BLG" file builder-filed | field '([f["item"] for f in d["filed"]], [(n["item"], n["where"]) for n in d["named"]])')
 land --repo "$BLG" checks builder-filed >/dev/null
@@ -164,7 +164,7 @@ project --repo "$BLG" state builder-filed dropped "the test is over" >/dev/null
 blg_task by-hand
 tree=$(project --repo "$BLG" worktree-dir by-hand)
 checked_in "$BLG" by-hand
-land --repo "$BLG" read by-hand --record "$(clean 1)" >/dev/null
+land --repo "$BLG" read by-hand --record "$(clean by-hand 1)" >/dev/null
 echo '# found by hand' > "$tree/docs/backlog/found-by-hand.md" && git -C "$tree" add -A && git -C "$tree" commit -q -m "docs(backlog): found by hand"
 hand=$(land --repo "$BLG" propose by-hand --title "fix: by-hand" --notes "$NOTES" 2>&1 || true)
 project --repo "$BLG" state by-hand dropped "the test is over" >/dev/null
@@ -172,7 +172,7 @@ blg_task filed-only
 tree=$(project --repo "$BLG" worktree-dir filed-only)
 checked_in "$BLG" filed-only
 gated=$(git -C "$tree" rev-parse HEAD)
-land --repo "$BLG" read filed-only --record "$(record 1 "$a_read, $(outside "$A")")" >/dev/null
+land --repo "$BLG" read filed-only --record "$(record filed-only 1 "$a_read, $(outside "$A")")" >/dev/null
 land --repo "$BLG" file filed-only >/dev/null
 filed_tip=$(git -C "$tree" rev-parse HEAD)
 carried=$(land --repo "$BLG" propose filed-only --title "fix: filed-only" --notes "$NOTES" 2>&1 || true)
@@ -195,7 +195,7 @@ task_in "$BLG" hook-form hook.txt three && read_in "$BLG" hook-form
 tree=$(project --repo "$BLG" worktree-dir hook-form)
 checked_in "$BLG" hook-form
 H='{"where": "src/hook.py:check", "title": "A hook defect of its own", "what": "check with no subject returns True, on the base commit too."}'
-land --repo "$BLG" read hook-form --record "$(record 1 "$a_read, $(outside "$H")")" >/dev/null
+land --repo "$BLG" read hook-form --record "$(record hook-form 1 "$a_read, $(outside "$H")")" >/dev/null
 hooks=$(git -C "$BLG" rev-parse --path-format=absolute --git-path hooks)
 mkdir -p "$hooks" && printf '%s\n' '#!/bin/sh' "grep -q '^ABC-[0-9]* ' \"\$1\" || { echo 'commit-msg: a subject starts with its ticket, as in ABC-12 fix' >&2; exit 1; }" > "$hooks/commit-msg" && chmod +x "$hooks/commit-msg"
 refused=$(land --repo "$BLG" file hook-form 2>&1 || true)

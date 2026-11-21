@@ -450,6 +450,29 @@ class EventLog(unittest.TestCase):
         self.assertEqual((land.waits_of(self.task, "2026-11-21T09:00:00Z") or {}).get("say"), self.WORDS)
 
 
+class ReadOfATip(unittest.TestCase):
+    """A review's record and a merge agent's answer are of the tip their brief named: the record names
+    it and one of another tip is refused, and each proposed tip has an answer file of its own."""
+
+    def test_the_record_of_the_tip_now(self) -> None:
+        self.assertIsNone(land.record_tip_refusal("a" * 40, "a" * 40, "gift-note"))
+
+    def test_the_record_of_an_earlier_tip_is_refused(self) -> None:
+        said = land.record_tip_refusal("a" * 40, "b" * 40, "gift-note")
+        self.assertIn(f"the record is of the review of {'a' * 12}, and the branch is at {'b' * 12} now", said)
+        self.assertIn("`lem land read gift-note`", said)
+
+    def test_a_tip_that_is_no_whole_commit_is_refused(self) -> None:
+        for said in (None, "a" * 9, "HEAD"):
+            self.assertIn("40 hex digits", land.record_tip_refusal(said, "a" * 40, "gift-note"))
+
+    def test_each_tip_has_its_own_answer_file(self) -> None:
+        import types
+        task = types.SimpleNamespace(directory=Path("/state/tasks/gift-note"))
+        self.assertEqual(land.answer_file(task, "abc123456789" + "0" * 28).name, "merge-answer-abc123456789.md")
+        self.assertNotEqual(land.answer_file(task, "a" * 40), land.answer_file(task, "b" * 40))
+
+
 class ExpectedTip(unittest.TestCase):
     """`land.expected_refusal`: a merge given the tip its caller saw (`--tip`) merges that proposal only."""
 

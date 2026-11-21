@@ -24,4 +24,5 @@ printed, and `WORKTREE` its `worktree`.
   A non-zero exit, or no answer file, is a merge agent that did not answer: start it once more, and
   after a second such end tell the owner in one line that the task waits for his read.
 
-Then `lem land merge-review SLUG --file ANSWER`.
+Then `lem land merge-review SLUG --file ANSWER --tip TIP`, TIP being the `tip` the step printed with
+the brief.

@@ -56,7 +56,7 @@ s start date-nowrap >/dev/null && s base date-nowrap >/dev/null
 gated=$(s checks date-nowrap 2>&1 | field '(d["green"], d["polish"], d["criteria"]["ok"])' 2>&1 || true)
 due=$(s read date-nowrap 2>&1 | field '(d["due"], d["floor"], d["small"], d["tasks"])' 2>&1 || true)
 s read date-nowrap >/dev/null 2>&1 || true
-s read date-nowrap --record "$(clean 1)" >/dev/null 2>&1 || true
+s read date-nowrap --record "$(clean date-nowrap 1)" >/dev/null 2>&1 || true
 proposed=$(s propose date-nowrap --title "fix(report): the date column never wraps" --notes "$SHORT" 2>&1 | field 'd["green"]' 2>&1 || true)
 read_small=$(merge_read "$SMALL" date-nowrap 2>&1 | field '(d["verdict"], d["calls"])' 2>&1 || true)
 merged=$(s merge date-nowrap --by merger 2>&1 | field 'd["pull_request"]["number"]' 2>&1 || true)
@@ -99,7 +99,7 @@ s start date-outside >/dev/null && s base date-outside >/dev/null
 no_polish=$(s polish date-outside 2>&1 || true)
 outside_gate=$(s checks date-outside 2>&1 | field '(d["green"], d["criteria"]["ok"], d["bar"]["lowered"], d["criteria"]["run_without"])' 2>&1 || true)
 s read date-outside >/dev/null 2>&1 || true
-s read date-outside --record "$(clean 1)" >/dev/null 2>&1 || true
+s read date-outside --record "$(clean date-outside 1)" >/dev/null 2>&1 || true
 outside_due=$(s read date-outside 2>&1 | field '(d["due"], d["to_file"])' 2>&1 || true)
 outside_green=$(s propose date-outside --title "fix(report): the date column never wraps" --notes "$SHORT" 2>&1 | field 'd["green"]' 2>&1 || true)
 text=$(dir_of date-outside)/pr.md
@@ -133,8 +133,8 @@ printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[c
 built gate-edit "$tree"
 s start gate-edit >/dev/null && s base gate-edit >/dev/null && { s checks gate-edit > "$WORK/gate-edit.out" 2>&1 || true; }
 floor=$(s read gate-edit 2>&1 | field '(d["floor"], len(d["careful"]))' 2>&1 || true)
-one_read=$(s read gate-edit --record "$(clean 1)" 2>&1 || true)
-s read gate-edit --record "$(record 1 '{"kind": "full", "ran": [{"name": "full", "why": "the change edits the gate"}], "answered": ["codex"]}')" >/dev/null 2>&1 || true
+one_read=$(s read gate-edit --record "$(clean gate-edit 1)" 2>&1 || true)
+s read gate-edit --record "$(record gate-edit 1 '{"kind": "full", "ran": [{"name": "full", "why": "the change edits the gate"}], "answered": ["codex"]}')" >/dev/null 2>&1 || true
 careful_green=$(s propose gate-edit --title "chore: two gate commands" --notes "$MIG" 2>&1 | field 'd["green"]' 2>&1 || true)
 by_agent=$(s merge gate-edit --by merger 2>&1 || true)
 text=$(dir_of gate-edit)/pr.md

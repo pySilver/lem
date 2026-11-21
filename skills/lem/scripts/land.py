@@ -37,9 +37,10 @@ may-land` about the settings' base branch, so a protected branch is never reache
     lem land merge-review SLUG
                            what the merge agent reads: its brief, merge-brief.md in the task
                            directory, with the facts of the task, and its seat
-    lem land merge-review SLUG --file FILE
+    lem land merge-review SLUG --file FILE --tip COMMIT
                            write down the merge agent's reply as merge-review.md: its verdict,
-                           merge or call, and whether the owner is called
+                           merge or call, and whether the owner is called; COMMIT is the `tip` the
+                           brief named, and the reply of a brief of an earlier proposal is refused
     lem land merge SLUG --by owner|merger [--message SUBJECT] [--via session|server] [--standing] [--tip COMMIT]
                            merge the pull request through GitHub: the owner's word, or the merge
                            agent's where the settings and the request allow it; `--via server`
@@ -64,7 +65,8 @@ the checks: the events `gate`, `gate.start` and `gate.end`, the folder `gate/` o
 A FILE of `read --record`, `propose --notes` and `merge-review --file` is read from the working
 directory, and a relative one that is not there is read from the task's directory (`task_file`): a
 task's session stands in the main checkout, and the files are the task directory's
-(`reviews/review-1.json`, `notes.md`, `merge-answer.md`).
+(`reviews/review-1.json`, `notes.md`, `merge-answer-TIP.md`, the answer file `merge-review` names
+for the tip of its brief).
 
 One step of a task runs at a time. Every step here that names a task takes the task's one step
 lock (`step.lock` in its directory) before anything else it does, and holds it until it ends,
@@ -226,6 +228,7 @@ an agent that did not build it: its record makes the call, and a careful call ta
 The record of a review is a JSON file:
 
     {"attempt": N,
+     "tip": THE WHOLE COMMIT THE REVIEW READ,
      "kind": "read" | "round" | "full",
      "ran": [{"name": PROFILE OR LENS, "why": WHY IT FITS THIS CHANGE}],
      "left_out": [{"name": PROFILE OR LENS, "why": WHY IT DOES NOT}],
@@ -236,7 +239,9 @@ The record of a review is a JSON file:
      "outside": [{"where": PATH OR PATH:SYMBOL, "title": ONE LINE, "what": THE RUN THAT SHOWS IT}],
      "careful": true | false, "careful_why": ONE LINE}
 
-`attempt`, `kind`, `answered`, `careful` and `careful_why` are always there. `careful` is the
+`attempt`, `tip`, `kind`, `answered`, `careful` and `careful_why` are always there. `tip` is the
+`tip` that `read` printed for the attempt: a record of another tip than the branch's now is refused,
+since the attempt counts the records and a review of an earlier tip carries the same number. `careful` is the
 review's own reading of the diff against each topic, and `careful_why` names the topic the change
 reaches, or what was checked to say that it reaches none; `careful: true` comes with `kind: full`. `bar` has one entry for each file in which
 the change lowers the bar, and is left out otherwise. `outside` names each defect the review saw
@@ -2615,6 +2620,17 @@ def task_file(value: str, flag: str, directory: Path, here: Path) -> str:
     raise LandError(f"{value} is not a file in the working directory ({first}) nor in the task directory ({second}); {flag} names a file by its path, or by its path inside the task directory")
 
 
+def record_tip_refusal(said: object, tip: str, slug: str) -> str | None:
+    """Why a review's record whose `tip` is SAID is not the review of the branch at TIP; None when it is.
+    The attempt counts the records, so a review of an earlier tip carries the same number."""
+    if said == tip:
+        return None
+    if not isinstance(said, str) or not re.fullmatch(r"[0-9a-f]{40}", said):
+        return f"`tip` in the record is the whole commit the review read, 40 hex digits, as `lem land read {slug}` printed it, and it is {said!r}"
+    return (f"the record is of the review of {said[:12]}, and the branch is at {tip[:12]} now: that review read another change, and it is not written down. "
+            f"`lem land read {slug}` says what is due for this one")
+
+
 def cmd_read(task: Task, record: str | None) -> dict:
     task.need_landing()
     task.need_worktree()
@@ -2633,8 +2649,9 @@ def cmd_read(task: Task, record: str | None) -> dict:
         rules = json.loads(script("project.py", task.worktree, "rules", "--range", f"{state['base']}..{state['tip']}").stdout)["rules"]
         return {
             "task": task.slug, "due": state["due"], "why": state["why"], "floor": state["floor"], "kinds": KIND_SAYS, "round": state["round"],
-            # the number the record of this review carries, so that the same record is never written down twice
-            "attempt": state["attempt"],
+            # the number the record of this review carries, so that the same record is never written down twice,
+            # and the tip it reads, which the record names too
+            "attempt": state["attempt"], "tip": state["tip"],
             # the defects outside the change that reviews saw and that have no item yet: `land.py file` files them
             "to_file": to_file(reads),
             "careful": state["careful"], "tasks": state["tasks"], "small": state["small"], "lines": state["lines"], "in_parts": state["in_parts"],
@@ -2662,9 +2679,9 @@ def cmd_read(task: Task, record: str | None) -> dict:
         said = json.loads(Path(record).read_text(encoding="utf-8"))
     except (OSError, ValueError) as error:
         raise LandError(f"{record} does not read as JSON ({error}); --record names the file that says what the review was and what it found") from error
-    known = {"attempt", "kind", "ran", "left_out", "answered", "silent", "bar", "must_fix", "should", "nit", "outside", "careful", "careful_why"}
-    if not isinstance(said, dict) or set(said) - known or not {"attempt", "kind", "answered"} <= set(said):
-        raise LandError(f"the record is one object with `attempt`, `kind` and `answered`, and of the others what applies: {', '.join(sorted(known))}")
+    known = {"attempt", "tip", "kind", "ran", "left_out", "answered", "silent", "bar", "must_fix", "should", "nit", "outside", "careful", "careful_why"}
+    if not isinstance(said, dict) or set(said) - known or not {"attempt", "tip", "kind", "answered"} <= set(said):
+        raise LandError(f"the record is one object with `attempt`, `tip`, `kind` and `answered`, and of the others what applies: {', '.join(sorted(known))}")
     # A record that is sent again, after a run that was cut off or by mistake, must not count as
     # a second review: it says which start of the review it is, and only the next one is taken.
     if said["attempt"] != state["attempt"]:
@@ -2672,6 +2689,10 @@ def cmd_read(task: Task, record: str | None) -> dict:
             f"the record says attempt {said['attempt']!r}, and the next review of this task is attempt {state['attempt']}: "
             + ("that review is written down already" if said["attempt"] in [read.get("attempt") for read in reads] else "`lem land read` prints the number a record carries"),
         )
+    # The attempt counts the records, not the tips: the record also names the tip its review read.
+    stale = record_tip_refusal(said["tip"], state["tip"], task.slug)
+    if stale:
+        raise LandError(stale)
     kind = said["kind"]
     if kind not in KINDS:
         raise LandError(f"`kind` is one of {', '.join(KINDS)}: {'; '.join(f'{name} is {says}' for name, says in KIND_SAYS.items())}")
@@ -3431,7 +3452,7 @@ def merger_refusal(slug: str, land: str, careful: list[str], reasons: list[str],
     if not called:
         return "no review that answered made the careful call for this change, so the owner merges it; it waits as `open` for his word"
     if review is None:
-        return f"no merge review of the proposed tip is on record: the merge agent reads the task first, and `lem land merge-review {slug} --file FILE` writes its review down"
+        return f"no merge review of the proposed tip is on record: the merge agent reads the task first, and `lem land merge-review {slug} --file FILE --tip TIP` writes its review down"
     if review.get("verdict") != "merge":
         return "the merge review calls the owner: he reads it, and it waits as `open` for his word"
     return None
@@ -3633,10 +3654,17 @@ def verdict_of(text: str) -> str | None:
     return found.group(1).lower() if found else None
 
 
-def cmd_merge_review(task: Task, record: str | None) -> dict:
+def answer_file(task: Task, tip: str) -> Path:
+    """The file the merge agent's answer goes to, one for each proposed tip, so that the answer of a
+    read of an earlier proposal never takes the place of the newest one's."""
+    return task.directory / f"merge-answer-{tip[:12]}.md"
+
+
+def cmd_merge_review(task: Task, record: str | None, read_tip: str | None = None) -> dict:
     """The merge agent's read of a proposed task. With no record: its brief, `merge-brief.md` in the
-    task directory, and the facts in it. With the agent's reply: the review written down as
-    `merge-review.md`, and whether it merges or calls the owner."""
+    task directory, and the facts in it, the proposed `tip` among them. With the agent's reply and
+    READ_TIP, the tip its brief named: the review written down as `merge-review.md`, and whether it
+    merges or calls the owner; the reply of a brief of another tip than the one proposed now is refused."""
     if task.record["status"] != "open":
         raise LandError(f"the task is {task.record['status']!r}, not `open`: the merge agent reads a proposed task; `lem land propose {task.slug}` comes first")
     task.need_worktree()
@@ -3664,7 +3692,7 @@ def cmd_merge_review(task: Task, record: str | None) -> dict:
             files["breakers"] = [str(path) for path in breakers]
         facts = {
             "task": task.slug, "worktree": str(task.worktree), "task_directory": str(task.directory),
-            "pull_request": kept["pr"], "range": f"{kept['base']}..{tip}", "track": TRACKS.get(found["size"], found["size"]),
+            "pull_request": kept["pr"], "tip": tip, "range": f"{kept['base']}..{tip}", "track": TRACKS.get(found["size"], found["size"]),
             "criteria": found["plan"], "files": files,
             "reviews": sorted(str(file) for file in (task.directory / "reviews").glob("review-*.md")) if (task.directory / "reviews").is_dir() else [],
             "decisions": f"lem decisions list {task.slug}",
@@ -3683,7 +3711,15 @@ def cmd_merge_review(task: Task, record: str | None) -> dict:
             f"Read {SCRIPTS.parent / 'prompts' / 'merge.md'} and follow it. Your reply is the review, in the form that file gives, and nothing else.",
             "", "The facts of this task, as `lem land merge-review` gave them:", "", "```json", json.dumps(facts, indent=2), "```", "",
         ]))
-        return {"task": task.slug, "brief": str(brief), "answer": str(task.directory / "merge-answer.md"), "worktree": str(task.worktree), "seat": seat, "facts": facts}
+        return {"task": task.slug, "brief": str(brief), "answer": str(answer_file(task, tip)), "tip": tip, "worktree": str(task.worktree), "seat": seat, "facts": facts}
+    # The reply is of the brief that named its tip: one of an earlier proposal is no read of this one.
+    if read_tip is None:
+        raise LandError(f"--file goes with --tip, the `tip` that `lem land merge-review {task.slug}` printed for the brief the merge agent read")
+    if read_tip != tip:
+        raise LandError(
+            f"the merge agent's answer is of {read_tip[:12]}, and the proposal is {tip[:12]} now: it read an earlier proposal, and its answer is not written down. "
+            f"`lem land merge-review {task.slug}` writes the brief of this one, and a fresh merge agent reads it",
+        )
     try:
         text = Path(record).read_text(encoding="utf-8")
     except OSError as error:
@@ -3915,7 +3951,9 @@ def step(task: Task, args: argparse.Namespace) -> dict:
     if args.command == "propose":
         return cmd_propose(task, args.title, task_file(args.notes, "--notes", task.directory, here))
     if args.command == "merge-review":
-        return cmd_merge_review(task, args.file and task_file(args.file, "--file", task.directory, here))
+        if args.tip and not args.file:
+            raise LandError("--tip goes with --file: the tip of the brief whose answer is written down")
+        return cmd_merge_review(task, args.file and task_file(args.file, "--file", task.directory, here), args.tip)
     if args.command == "merge":
         return cmd_merge(task, args.by, args.message, args.via, args.standing, args.tip)
     if args.command == "merged":
@@ -3954,6 +3992,7 @@ def main(argv: list[str] | None = None) -> None:
     review = commands.add_parser("merge-review", help="what the merge agent reads, in a brief file; with --file, its review written down")
     review.add_argument("slug")
     review.add_argument("--file", metavar="FILE", help="the merge agent's reply, its review with the verdict on its first line")
+    review.add_argument("--tip", metavar="COMMIT", help="with --file: the `tip` the step printed with the brief the agent read; the answer of another proposal than the one now is refused")
     merge = commands.add_parser("merge")
     merge.add_argument("slug")
     merge.add_argument("--by", required=True, choices=BY, help="who merges: the owner's word, or the merge agent where the settings and the request allow it")

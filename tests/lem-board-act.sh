@@ -62,7 +62,7 @@ printf '%s\n' '[branch]' 'base = "main"' 'land = "owner"' 'history = "squash"' '
 echo one > "$SHOP/app.txt" && git -C "$SHOP" add -A && git -C "$SHOP" commit -q -m "chore: start" && git -C "$SHOP" push -q origin main
 task_in "$SHOP" word-in-file ok.txt yes && read_in "$SHOP" word-in-file
 land --repo "$SHOP" start word-in-file >/dev/null && land --repo "$SHOP" base word-in-file >/dev/null && polish_in "$SHOP" word-in-file
-land --repo "$SHOP" checks word-in-file >/dev/null && land --repo "$SHOP" read word-in-file --record "$(clean 1)" >/dev/null
+land --repo "$SHOP" checks word-in-file >/dev/null && land --repo "$SHOP" read word-in-file --record "$(clean word-in-file 1)" >/dev/null
 land --repo "$SHOP" propose word-in-file --title "fix: the word is in the file" --notes "$NOTES" >/dev/null
 TIP=$(kept_in "$SHOP" word-in-file proposed)
 "$PY" -B "$SERVE" --add "$DEMO" >/dev/null && "$PY" -B "$SERVE" --add "$SHOP" >/dev/null
@@ -228,7 +228,7 @@ git -C "$DUTY" add -A && git -C "$DUTY" commit -q -m "chore: start" && git -C "$
 for slug in first-word second-word; do
   task_in "$DUTY" "$slug" "$slug.txt" yes && read_in "$DUTY" "$slug"
   land --repo "$DUTY" start "$slug" >/dev/null && land --repo "$DUTY" base "$slug" >/dev/null && polish_in "$DUTY" "$slug"
-  land --repo "$DUTY" checks "$slug" >/dev/null && land --repo "$DUTY" read "$slug" --record "$(clean 1)" >/dev/null
+  land --repo "$DUTY" checks "$slug" >/dev/null && land --repo "$DUTY" read "$slug" --record "$(clean "$slug" 1)" >/dev/null
   land --repo "$DUTY" propose "$slug" --title "fix: $slug" --notes "$NOTES" >/dev/null
 done
 project --repo "$DUTY" task-dir third-word --ask "Put the third word into a file." >/dev/null
@@ -275,7 +275,7 @@ printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' 'history = "squash"' '
 git -C "$AUTO" add -A && git -C "$AUTO" commit -q -m "chore: start" && git -C "$AUTO" push -q origin main
 task_in "$AUTO" word-by-agent word.txt yes && read_in "$AUTO" word-by-agent
 land --repo "$AUTO" start word-by-agent >/dev/null && land --repo "$AUTO" base word-by-agent >/dev/null && polish_in "$AUTO" word-by-agent
-land --repo "$AUTO" checks word-by-agent >/dev/null && land --repo "$AUTO" read word-by-agent --record "$(clean 1)" >/dev/null
+land --repo "$AUTO" checks word-by-agent >/dev/null && land --repo "$AUTO" read word-by-agent --record "$(clean word-by-agent 1)" >/dev/null
 land --repo "$AUTO" propose word-by-agent --title "fix: the word by the agent" --notes "$NOTES" >/dev/null
 reviewed=$(merge_read "$AUTO" word-by-agent | field '(d["calls"], d["next"].startswith("the board'"'"'s server merges it"))')
 : > "$AGT/calls"
@@ -317,7 +317,7 @@ git -C "$MOVE" add -A && git -C "$MOVE" commit -q -m "chore: start" && git -C "$
 for slug in first-move second-move; do
   task_in "$MOVE" "$slug" "$slug.txt" yes && read_in "$MOVE" "$slug"
   land --repo "$MOVE" start "$slug" >/dev/null && land --repo "$MOVE" base "$slug" >/dev/null && polish_in "$MOVE" "$slug"
-  land --repo "$MOVE" checks "$slug" >/dev/null && land --repo "$MOVE" read "$slug" --record "$(clean 1)" >/dev/null
+  land --repo "$MOVE" checks "$slug" >/dev/null && land --repo "$MOVE" read "$slug" --record "$(clean "$slug" 1)" >/dev/null
   land --repo "$MOVE" propose "$slug" --title "fix: $slug" --notes "$NOTES" >/dev/null && merge_read "$MOVE" "$slug" >/dev/null
 done
 land --repo "$MOVE" merge first-move --by merger --via server --message "fix: first-move" >/dev/null

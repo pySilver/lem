@@ -23,7 +23,7 @@ set_kept() {
     "$GRD/.lem/state/tasks/$1/landing.json" "$2" "$3"
 }
 to_proposed() {
-  g start "$1" >/dev/null && g base "$1" >/dev/null && g checks "$1" >/dev/null && g read "$1" --record "$(clean 1)" >/dev/null \
+  g start "$1" >/dev/null && g base "$1" >/dev/null && g checks "$1" >/dev/null && g read "$1" --record "$(clean "$1" 1)" >/dev/null \
     && g propose "$1" --title "fix: $1" --notes "$NOTES" >/dev/null
 }
 
@@ -73,7 +73,7 @@ project --repo "$GRD" state no-gate dropped "the test is over" >/dev/null
 # A green result holds for the commands that ran: the main checkout's settings that lose them all, or that add
 # one, after the checks passed ask for the checks again; the same commands as before let the proposal go.
 small_task_in "$GRD" new-command c.txt c
-g start new-command >/dev/null && g base new-command >/dev/null && g checks new-command >/dev/null && g read new-command --record "$(clean 1)" >/dev/null
+g start new-command >/dev/null && g base new-command >/dev/null && g checks new-command >/dev/null && g read new-command --record "$(clean new-command 1)" >/dev/null
 grd_settings ''
 none=$(g propose new-command --title "fix: c" --notes "$NOTES" 2>&1 || true)
 grd_settings '"true", "test -d tests"'
@@ -91,7 +91,7 @@ project --repo "$GRD" state new-command dropped "the test is over" >/dev/null
 # A branch the owner protects after the task's worktree was made: propose pushes nothing to it, and clean removes nothing of
 # it, the worktree neither, until the name leaves branch.protected.
 small_task_in "$GRD" kept-name k.txt k
-g start kept-name >/dev/null && g base kept-name >/dev/null && g checks kept-name >/dev/null && g read kept-name --record "$(clean 1)" >/dev/null
+g start kept-name >/dev/null && g base kept-name >/dev/null && g checks kept-name >/dev/null && g read kept-name --record "$(clean kept-name 1)" >/dev/null
 PROTECTED='"fix/kept-name"' grd_settings '"true"'
 pushed=$(g propose kept-name --title "fix: k" --notes "$NOTES" 2>&1 || true)
 remote=$(git -C "$GRD" ls-remote origin refs/heads/fix/kept-name)
@@ -211,7 +211,7 @@ project --repo "$GRD" state gate-writes dropped "the test is over" >/dev/null
 # checked by land. The record is edited here; a run of the steps the refusal names lands the new tip.
 small_task_in "$GRD" guarded y.txt y
 tree=$(wt guarded)
-g start guarded >/dev/null && g base guarded >/dev/null && g checks guarded >/dev/null && g read guarded --record "$(clean 1)" >/dev/null
+g start guarded >/dev/null && g base guarded >/dev/null && g checks guarded >/dev/null && g read guarded --record "$(clean guarded 1)" >/dev/null
 no_notes=$(g propose guarded --title "fix: y" --notes "$WORK/no-such-notes.md" 2>&1 || true)
 two_lines=$(g propose guarded --title $'fix: y\nand more' --notes "$NOTES" 2>&1 || true)
 unwritten=$([ -e "$GRD/.lem/state/tasks/guarded/pr.md" ] && echo written || echo none)
@@ -226,7 +226,7 @@ echo more > "$tree/y2.txt" && git -C "$tree" add -A && git -C "$tree" commit -q 
 main_was=$(git -C "$GRD" rev-parse main)
 c2=$(g merge guarded --by owner 2>&1 || true)
 unlanded=$(git -C "$GRD" rev-parse main)
-g start guarded >/dev/null && g base guarded >/dev/null && g checks guarded >/dev/null && g read guarded --record "$(clean 2)" >/dev/null \
+g start guarded >/dev/null && g base guarded >/dev/null && g checks guarded >/dev/null && g read guarded --record "$(clean guarded 2)" >/dev/null \
   && g propose guarded --title "fix: y" --notes "$NOTES" >/dev/null && g merge guarded --by owner >/dev/null || true
 if grep -qF "is not a file; --notes names a file" <<<"$no_notes" && grep -qF -- "--title is one line" <<<"$two_lines" && [ "$unwritten" = none ] \
   && grep -qF "no green check is on record for this tip" <<<"$c3" \

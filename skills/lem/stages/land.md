@@ -171,12 +171,14 @@ landing up as after a cut-off.
      and each one it leaves out; so a change of documentation gets no security or architecture
      check, and nobody decides that by a list of paths. It runs the review, confirms each
      finding against the code, and writes `reviews/review-N.md` and `reviews/review-N.json` in
-     the task directory, N being the `attempt` of `read.json`, and replies with their paths. It
+     the task directory, N being the `attempt` of `read.json`, the record naming the `tip` of
+     `read.json`, and replies with their paths. It
      records nothing: when it replies, you run `lem land read SLUG --record reviews/review-N.json`
      (a relative path the main checkout lacks is read in the task directory), which writes the
      review down. The step refuses a record under the floor, one with no careful call, a careful
-     call with less than the full set, and one whose `attempt` is not the number `read.json`
-     gave: a record that is sent twice counts once. A careful call the plan did not make is
+     call with less than the full set, one whose `attempt` is not the number `read.json`
+     gave (a record that is sent twice counts once), and one whose `tip` is not the branch's now:
+     that review read another change, and `lem land read SLUG` says what is due. A careful call the plan did not make is
      written down as a `careful.missed` event, for the retro.
 
    What the record says decides the next step (`next` and `to_file` in the step's output):
@@ -255,13 +257,15 @@ landing up as after a cut-off.
    own words. Then step 7, at once.
 7. **The merge agent**, for every proposed task, the fast track's too. You read no diff, so the
    read is a fresh agent's. `lem land merge-review SLUG` writes its brief, `merge-brief.md` in the
-   task directory, and prints the brief's path, the answer file and the seat (`seats.merger`).
-   `ask-merger` with those three. The agent reads the task's files, its reviews and its diff,
+   task directory, and prints the brief's path, the answer file, the proposed `tip` and the seat
+   (`seats.merger`). The answer file is named by that tip (`merge-answer-TIP.md`), so a read of an
+   earlier proposal never takes its place. `ask-merger` with the brief, the answer file and the seat. The agent reads the task's files, its reviews and its diff,
    changes nothing, and replies with its review: its verdict first (`Verdict: merge.` or
    `Verdict: call.`), what was built and why as a story, the results, each decision taken without
    the owner with why, and the task's time against what was expected. When it ends, `lem land
-   merge-review SLUG --file ANSWER` writes the reply down as `merge-review.md`, word for word, and
-   prints `calls`:
+   merge-review SLUG --file ANSWER --tip TIP`, TIP being the `tip` printed with that brief, writes the
+   reply down as `merge-review.md`, word for word, and prints `calls`. The answer of a brief of an
+   earlier tip is refused: a new proposal is read again, as below.
    - `calls` is false: the board's server merges it, `lem land merge SLUG --by merger --via
      server` within a minute, and you do not run that merge. Say its `next` in one line ("the merge
      agent read it and found nothing for you; the board's server merges it"), and wait for the
