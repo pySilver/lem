@@ -24,7 +24,7 @@ it.
 - A sentence in a skill file that an agent would follow into a wrong act, or that two stage files
   say differently.
 - A number with no source and date; a tool's name in a stage file (it belongs in
-  `skills/lem/harness/claude-code.md`).
+  `skills/lem/harness/claude-code.md` or a part of it in `claude-code/`).
 - A script that falls back without a word, or refuses with no fix in its message.
 - Documentation that describes a past state.
 

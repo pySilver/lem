@@ -233,7 +233,8 @@ so do the end of a command it runs in the background and a wake-up from the boar
   `second-opinion`, `ask-owner`, `ask-experts`, `ask-merger`, `fan-out`, `run-in-background`,
   `start-nap` (for a nap), `show-page` or `load-skill`, and
   names the question gate, the persona panel and the review tool by role. Read, once per session, the file in this skill's `harness/` folder named
-  after the agent you run in (`harness/claude-code.md`); it says what each means there. When
+  after the agent you run in (`harness/claude-code.md`): it says what each means there, or names
+  the part beside it that does, which you read at the first use of that capability. When
   there is no file for your agent, say so and stop: the contract was not checked in it.
 
 ## Where a task keeps its state

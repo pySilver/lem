@@ -38,3 +38,8 @@ A stage may name a skill this repository ships by its id, which is the same in e
 
 Each agent's file answers every row, or says the capability is absent and what the stage does
 then. A file exists only for an agent the contract was checked in.
+
+An agent's file is a core, read once per session, with what every phase needs. A capability or a
+role that only some steps use may have a part of its own, in a folder named after the agent beside
+the core (`claude-code/ask-experts.md`). The core names each part and what it answers, and a session
+reads a part at the first use of what it answers, once.

@@ -1388,7 +1388,8 @@ Each script's module docstring says what it does and why; this list says where e
   the merge agent) and `nap.md`.
 - `skills/lem/templates/`: `profile.md` and `persona.md`, which onboarding fills; `handoff.md`, the
   hand-over between two agents of a task; `breaker.md`, the breaker's document.
-- `skills/lem/harness/`: the capability contract, `README.md`, and one file for each agent.
+- `skills/lem/harness/`: the capability contract, `README.md`, and one file for each agent, a core with
+  its parts in a folder of the agent's name (`claude-code/`).
 - `skills/lem/scripts/`, each a command of `lem` or a module the commands share:
   - `project.py` (`lem project`): a repository's settings and the one place of each file Lem reads
     beside them (`PLACES`), a task's state and directory, the event log, the owner's status and its
