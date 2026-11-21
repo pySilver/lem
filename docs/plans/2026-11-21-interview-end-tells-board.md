@@ -10,19 +10,19 @@ Size: full, because the board's model, two event forms, the time card and the in
    1. The owner answers the last question of the interview of `report-dates-stay-whole`.
    2. Lem writes `task.md` again and logs that the questions ended.
    3. The scout still reads the code; then Lem writes the criteria.
-   4. "Waits for you" has no row for `report-dates-stay-whole`, and its card says that Lem writes the criteria and nothing waits for him.
-2. When Lem asks "Skip the persona read? (y/n)", the task is in "Waits for you" again until he answers:
+   4. "Waits for you" has no row for `report-dates-stay-whole`, and its card says "Lem writes the criteria; then they come to you.", with the name of no helper.
+2. When Lem asks "Skip the persona read? (y/n)", the task is in "Waits for you" again until he answers, and the row says what it asks:
    1. Lem wrote the criteria of `report-dates-stay-whole`, and each names only the developer.
    2. Lem asks "Skip the persona read? (y/n)" in the task's session.
-   3. "Waits for you" lists `report-dates-stay-whole` as his.
+   3. "Waits for you" lists `report-dates-stay-whole` as his: the row says "Lem asks whether to skip the personas' read of the criteria" and opens the task's session in one jump, as the interview's row does.
    4. He answers "n": the personas' read starts, and the row leaves until the read is in.
-   5. Had he answered "y", the row stays, since his yes to the criteria is what is missing.
-3. While the owner is away, an interview, criteria that wait for his yes, or a request that waits for one answer is not in "Waits for you", since Lem goes on without him; an order that waits for him and a breaker stay his:
+   5. Had he answered "y", the row stays and says that the criteria wait for his yes.
+3. While the owner is away, Lem answers an interview's questions with its own guesses and approves the criteria without him, so such a task is not in "Waits for you": its card says that Lem goes on without him, and each guess is in the task's decisions for the pull request. A breaker, and a task that waits for his word on which task it comes after, stay his:
    1. The owner types `/lem im-away` while the interview of `report-dates-stay-whole` waits for his answer.
    2. "Waits for you" has no row for `report-dates-stay-whole`, and its card says that Lem goes on without him.
-   3. Task `export-notes-in-order` waits for his answer on its order: its row stays.
-   4. He types `/lem im-back` while the criteria of `report-dates-stay-whole` still wait for a yes: its row comes back.
-4. The time card's span "The interview" ends when the questions ended, not when the personas' read starts: an interview whose questions ended at 10:05 and whose read started at 10:12 shows a span to 10:05.
+   3. Task `export-notes-in-order` waits for him to say which task it comes after: its row stays.
+   4. He types `/lem im-back` while Lem still has questions for the interview of `report-dates-stay-whole`: its row comes back, and the next question is his.
+4. The time card's span "The interview" ends when the questions ended, not when the personas' read starts, and the time between shows as Lem's span "Lem writes the criteria": an interview whose questions ended at 10:05 and whose read started at 10:12 shows "The interview" to 10:05 and "Lem writes the criteria" from 10:05 to 10:12.
 
 ## How it works
 
@@ -50,9 +50,9 @@ While the owner is away, no state of this chart is his: Lem goes on with its gue
 
 1. **The board's model and the two events.** Serves criteria 1, 2, 3 and 4.
    - Two new event forms in `STARTS` of `skills/lem/scripts/project.py`, each taking nothing: `interview.end` (the questions to the owner ended) and `read.skip.asked` (Lem asked "Skip the persona read? (y/n)"). `lem project log` refuses each with a field, as it refuses `interview.start by=lem`. Add both to `RESUMED_EVENTS` beside `interview.start` when the reason that list gives holds for them (read its comment), and fix the comments that name the interview's end (the comment above `STARTS`, the module docstring near line 127).
-   - In `skills/lem/scripts/lem_board_model.py`, extend what `reading_of` and `settle` do for a held task into one rule of who acts, folded over the events after the newest block, as the chart above shows: after `interview.end` with nothing after it, Lem acts ("Lem writes the criteria", with the card's line that nothing waits for him until the criteria are written, in the words and the form the read already uses); after `read.skip.asked`, the owner; after `criteria.read.start`, the personas, as today; after `criteria.read` or his skip decision, the owner. A held task not his leaves `waits_of`, `m.for_owner` and the lane "you", as the read does today.
+   - In `skills/lem/scripts/lem_board_model.py`, extend what `reading_of` and `settle` do for a held task into one rule of who acts, folded over the events after the newest block, as the chart above shows: after `interview.end` with nothing after it, Lem acts (label "Lem writes the criteria", and the card's line "Lem writes the criteria; then they come to you.", built the way the read's `info` and `shown` are built today); after `read.skip.asked`, the owner, and the row's words (`wait_say` and what the row shows) say "Lem asks whether to skip the personas' read of the criteria" with the same jump to the task's session as the interview's row; after `criteria.read.start`, the personas, as today; after `criteria.read`, or his skip decision, the owner, and the row says that the criteria wait for his yes. A held task not his leaves `waits_of`, `m.for_owner` and the lane "you", as the read does today.
    - While the task runs without the owner now (the machine's mark says away, `m.away`, or the task's own mark of a night, `task.mode`, as `runs_without_owner` in `project.py` reads it), a held task whose need is the interview, the criteria, or the request's one answer (`the request waits for one answer`) is not his, and its card says that Lem goes on without him. A held block of an order (`the order waits for the owner`), of an investigation that waits for a fact, and a breaker stay his.
-   - The time card (`time_of`): the span "The interview" ends at `interview.end`. The timeline (`describe`'s table beside `interview.start`) gets a line for each new event.
+   - The time card (`time_of`): the span "The interview" ends at `interview.end`, and a span of Lem's, "Lem writes the criteria", runs from `interview.end` to the first `read.skip.asked`, `criteria.read.start` or `criteria.approved` after it. The timeline (`describe`'s table beside `interview.start`) gets a line for each new event.
    - Unit cases in `tests/unit/test_board_model.py`, class `InterviewRead` and beside it, one for each criterion, and the case of `test_the_scouts_read_keeps_the_row_since_the_interview_may_still_ask_him` kept true for a log with no `interview.end`. A unit case of the two forms in `tests/unit/test_project.py` (or the block of `tests/lem-settings.sh` that checks the forms of `STARTS` today, near line 839, where its count must change).
 2. **The stage text, the skill and the backlog item.** Serves criteria 1 and 2.
    - `skills/lem/stages/interview.md`: step 3 logs `lem project log SLUG interview.end` once `task.md` is written again after the last question, also when the questions ended with Lem's guesses while he is away; step 5 logs `lem project log SLUG read.skip.asked` as it asks the skip question, and stops calling the read's record "the end of the interview".
