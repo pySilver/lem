@@ -25,10 +25,11 @@ KEEP_DAYS should be configurable and one would configure it to let's say 7 days 
 keep disk usage in control." And, when that session proposed this machine's file for the number:
 "Why machines? I thought that those logs are per project and stored in project .lem dir".
 
-Later the same day: "In that case one
-developer with a smaller disk free space will suffer while for another dev of that project it will
-be fine. I think `.lem/project.local.toml` should be acceptable". So one machine may set its own
-number in its own file, and that number wins on that machine, lower or higher than the project's.
+Later the same day, when that session reported that the key was in `.lem/project.toml` only and
+that one machine's own file refused it: "In that case one developer with a smaller disk free space
+will suffer while for another dev of that project it will be fine. I think
+`.lem/project.local.toml` should be acceptable". So one machine may set its own number in its own
+file, and that number wins on that machine, lower or higher than the project's.
 
 The form is the session's: the setting is `state.keep_days` of `.lem/project.toml`, a whole number
 of 1 or more, 30 by default, read as the base branch has it, so a task's branch cannot lower it.
