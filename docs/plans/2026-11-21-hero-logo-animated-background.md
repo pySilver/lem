@@ -61,6 +61,70 @@ flowchart LR
    - `assets/night.py`'s docstring, when task 1 left it false.
    - Serves no criterion.
 
+## Plan talk
+
+Argued by the reviewer, Codex `gpt-6.2-sol` at high effort as its pane's status line showed them
+("GPT 6.2 Sol high"), and the defender, Claude Opus 5.5 at high effort (the `defender:` line of
+the task's state). Seven turns: the request, the reviewer's list of six questions, one answer of
+each side on each question, a second answer of each side on questions 2 and 3, and the close.
+
+1. **The night aurora's colors through one `NIGHT` map.** The night sample's aurora (`h-aur`,
+   `samples/sky-night.svg:22`) uses `#b5c5c0` and `#c7a95a`, which `NIGHT` turns into
+   `#0e1a21` and `#4b4226` for the mark (`assets/night.py`, `NIGHT` and `main()`;
+   `assets/lem-mark.svg:5-6`). Settled: the night sky's group keeps its colors through
+   `night.py`, and the byte check of `tests/lem-settings.sh` covers both outputs. Settled by the
+   two, not checked by the review.
+2. **The center crop at 390 px.** At a 400 px high hero the 1600 x 640 frame shows x 488 to
+   1112, which cuts the hood (x 405 to 459) and the word (to about 1138), and the first section
+   also holds `.showcase`. Repaired: the scene is a layer behind the hero text only, and its
+   height at 390 px is capped. The repair's formula, 390 x 640 / S with S the span from the hood
+   to the word, gave about 340 px; with the crop fixed at x 800 the window must reach 395 units
+   to each side, so the cap is about 316 px. The defender conceded the number and refuted the
+   failure: Task 2's drawn check at 390 px catches a cut hood. The reviewer held: the plan's
+   prose still gives 340 px. A design choice, decided after the talk (`stages/plan.md`, step 5).
+3. **The contrast bound under moving, overlapping light.** Overlapping bands, a star and a
+   varying shade, the reviewer said, are not bounded by one glow and one shade value. Repaired:
+   one bound color for each theme from the largest (night) or smallest (day) red, green and blue
+   of every color in the file, the shade at its weakest across each text's box, and a static
+   check that refuses what can paint outside that range. The defender refuted the luminance
+   example (the equal mix of `#2f4541` and `#5d3a22` is 0.0508, the bound color `#2f3a22` is
+   0.0375) and the reviewer agreed. Held twice, as a layer over "Contrast is checked against the
+   worst color": the refusal list rejects `feColorMatrix`, which both day shimmer filters of
+   the owner's sample use (`samples/sky-day.svg:30-36`, red, green and blue set to
+   `1 .95 .8`, alpha from the noise), and lets `feTurbulence` paint colors outside the file's
+   hex values. A design choice, decided after the talk (`stages/plan.md`, step 5).
+4. **The stills in the pull request's text.** `pr_text()` in `skills/lem/scripts/land.py` takes
+   the landing's own lines and `notes.md`, and reads nothing from the plan's folder. Settled:
+   `report.md` and `notes.md` carry an image line for each still at the pushed commit; `MEDIA`
+   leaves that address alone and `cmd_propose()` pushes the commit before it sends the text. That
+   the forge draws it is untested. Settled by the two, not checked by the review.
+5. **The suite map for the scene files.** `tests/pick.py` gave only `lem-settings` for the two
+   scene files, though `test-site` reads them. Settled: a row of their own names `lem-settings`
+   and `test-site`, and `CHROME_OWN["test-site"]` lists them; the reviewer ran the map with the
+   change in memory and got both suites. Settled by the two, not checked by the review.
+6. **The lead in the probe of the first screen.** The `screen` probe of `tests/test-site.sh`
+   records `.lead` and `.needs` but not `.sub`. Settled: the probe records `.sub`, and `DRAWN`
+   fails any part below 800 px. Settled by the two, not checked by the review.
+
+Mechanisms a repair added:
+
+- The night sky's group, whose colors `night.py` leaves as written (question 1): a layer over
+  "One day file holds both skies; `night.py` writes the night file", whose cite is existing code,
+  `assets/night.py` and the byte check in `tests/lem-settings.sh`. Closed by the reviewer as that
+  layer; it stays.
+- The static refusal of colors outside the bound (question 3): a layer over "Contrast is checked
+  against the worst color", whose cite is criterion 6. It held, and goes to step 5.
+
+No question was raised after the first turn. No addition was refused as unpriced.
+
+What changed in the plan, by question and by task: task 1 keeps the night sky's colors in a group
+of their own through `night.py` (question 1) and adds `tests/pick.py` to its files (question 5);
+task 2 makes the scene a layer behind the hero text only, with a height cap at 390 px
+(question 2), and records `.sub` in the probe (question 6); the decision on both skies names the
+night sky's group (question 1); the decision on contrast builds one bound color and refuses what
+paints outside it (question 3); the decision on the stills carries them into the pull request by
+link (question 4).
+
 ## Decisions of the plan
 
 - **The scene replaces `assets/lem.svg` and `assets/lem-night.svg` in place.** The README, the page, the Pages step and the check "copied" already name these two files, so the README shows the scene with no edit of its `<picture>` and the Pages step is unchanged. Rests on the owner's answer "The README shows the animated scene too" (decision 2) and the scout's list of every file that names them.
