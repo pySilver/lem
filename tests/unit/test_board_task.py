@@ -161,6 +161,12 @@ class Overview(unittest.TestCase):
         self.assertEqual(bm.waits_for(m.tasks[0], bm.waits_of(m)), None)
         self.assertEqual(pages.summary_of(m), "1 with the personas’ read of its criteria")
 
+    def test_the_bar_counts_an_interview_whose_criteria_lem_writes_and_one_it_shapes_without_him(self):
+        interview = (state(0, "held", "the interview waits for the owner"), ev(1, "interview.start"))
+        self.assertEqual(pages.summary_of(model(*interview, ev(5, "interview.end"))), "1 whose criteria Lem writes")
+        away = {"ts": "2026-11-20T09:02:00Z", "event": "owner", "away": True, "words": "out"}
+        self.assertEqual(pages.summary_of(model(*interview, owner=[away])), "1 that Lem shapes without you")
+
     def test_the_large_card_says_how_a_stopped_run_ended_and_never_that_the_checks_run(self):
         t = one(state(0, "landing", "the checks start"), ev(1, "gate.start", tip="4c1d2e3f5", commands=2), ev(2, "gate.end", result="stopped", seconds=60))
         self.assertEqual(bm.now_head(t), "The checks were stopped")

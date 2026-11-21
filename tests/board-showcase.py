@@ -370,6 +370,7 @@ def afternoon(shop: Shop) -> None:
     s.log(t, 149.5, "scout.start")
     s.log(t, 149, "interview.start")
     s.log(t, 147, "scout")
+    s.log(t, 141, "interview.end")
     gift = s.criteria_file(t, "full", "the export gets a new column and two readers of it.",
                         'An order with the gift note "for Ania" has that text in the last column of its row.',
                         "An order with no gift note has an empty cell, not the word None.")
@@ -415,6 +416,7 @@ def afternoon(shop: Shop) -> None:
     s.log(t, 30.5, "scout.start")
     s.log(t, 30, "interview.start")
     s.log(t, 28, "scout")
+    s.log(t, 22, "interview.end")
     stock = s.criteria_file(t, "full", "the product page gets a new line.",
                          'A product with 3 in stock says "3 left" under its price.',
                          'A product with none in stock says "Sold out" and no number.')
@@ -430,6 +432,7 @@ def afternoon(shop: Shop) -> None:
     s.session(t, 95.5, "shape", "new")
     s.state(t, 95, "held", "the interview waits for the owner", "type: feat, because refunds get a new rule")
     s.log(t, 94.5, "interview.start")
+    s.log(t, 86, "interview.end")
     refund = s.criteria_file(t, "full", "refunds get a new rule.", "A refund of 10.005 EUR pays back 10.01 EUR, as the provider rounds it.")
     s.log(t, 82, "criteria.read.start", "by=lem")
     s.read(t, 78, refund, 0)
@@ -461,6 +464,7 @@ def afternoon(shop: Shop) -> None:
     s.log(t, 329.5, "scout.start")
     s.log(t, 329, "interview.start")
     s.log(t, 327, "scout")
+    s.log(t, 321, "interview.end")
     date = s.criteria_file(t, "full", "the invoice gets a new line.", 'The invoice of order 1042, placed on 3 May, says "Ordered 3 May 2026" under its number.')
     s.log(t, 318, "criteria.read.start", "by=lem")
     s.read(t, 314, date, 0)

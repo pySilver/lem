@@ -90,6 +90,23 @@ CRITERIA_WAIT = re.compile(r"\bcriteria wait\b")
 APPROVERS = ("owner", "alone")
 # The owner's word to skip the personas' read of the criteria (land.py READ_SKIP).
 READ_SKIP = {"what": "the personas' read of the criteria", "chose": "no read: the criteria name only the developer"}
+# Who acts on a held task's criteria, from the events after its newest block (`turn_of`): the owner
+# answers the interview's questions (`asks`), Lem writes the criteria once they ended (`writes`), the
+# owner says whether to skip the personas' read (`skip`), the personas read them (`reads`), and the
+# owner gives his yes once the read is in or he skipped it (`yes`). The three that are his:
+OWNER_TURNS = ("asks", "skip", "yes")
+# The words of Lem's turn and of the skip question, on the card and in the row of "Waits for you".
+WRITES_SAYS = "Lem writes the criteria; then they come to you."
+SKIP_SAYS = "Lem asks whether to skip the personas' read of the criteria"
+# The first line of a held block whose request waits for the owner's one answer (`stages/new.md`, "The request").
+ANSWER_WAIT = "the request waits for one answer"
+# What Lem does for a held task's need while the task runs without the owner (`stages/away.md`): the
+# need is the interview, the criteria, or the request's one answer.
+GOES_ON = {
+    "interview": "Lem answers the interview with its own guesses, each in the task's decisions for the pull request, and approves the criteria without you",
+    "criteria": "Lem settles the criteria and approves them without you, each step in the task's decisions for the pull request",
+    "answer": "Lem takes the safer read of the request and goes on without you, the read in the task's decisions for the pull request",
+}
 # The lanes are who acts: the owner, a lead and its builders, the machine checks and the review.
 LANES = [
     {"key": "you", "title": "Waits for you", "actor": "you", "empty": "Nothing waits for you"},
@@ -470,8 +487,13 @@ class Task:
     # the criteria wait for the owner's yes and it would count now: the need is the criteria, or an
     # interview whose criteria the personas read (or he skipped the read) after its newest block
     approvable: bool = False
-    # the personas' read of a held task's criteria that runs now (`reading_of`): its `criteria.read.start`
+    # the personas' read of a held task's criteria that runs now (`turn_of`): its `criteria.read.start`
     reading: dict | None = None
+    # who acts on a held task's criteria now (`turn_of`, OWNER_TURNS), None for any other task
+    turn: str | None = None
+    # the need of a held task that Lem settles without the owner, since the task runs without him now
+    # (his mark says away, or a night's mark): `interview`, `criteria` or `answer` (GOES_ON), else None
+    goes_on: str | None = None
     helped: Decision | None = None
     waits_after: bool = False
     # the task a queued task waited for, which was dropped (`after_dropped`): it waits for the owner's word
@@ -727,22 +749,51 @@ def talked_before(t: Task, ms: int) -> bool:
     return any(x["ts"] <= ms for x in t.talks)
 
 
-def reading_of(t: Task, last: dict) -> dict | None:
-    """The personas' read of the criteria that runs now: the newest `criteria.read.start` after the task's
-    newest block, while no `criteria.read` came after it (stages/interview.md, step 5), else None. A start
-    before the newest block is no read of what that block holds. While the scout reads, the interview may
-    still ask the owner, and the log has no end of the interview, so the scout's read is not one."""
-    start = None
+def skips_read(e: dict) -> bool:
+    """Whether an event is the owner's word to skip the personas' read of the criteria (READ_SKIP)."""
+    return e.get("event") == "decision.taken" and e.get("by") == "owner" and e.get("what") == READ_SKIP["what"] and e.get("chose") == READ_SKIP["chose"]
+
+
+def turn_of(t: Task, last: dict) -> tuple[str, dict | None]:
+    """Who acts on a held task's criteria now (OWNER_TURNS), folded over the events after its newest
+    block, and the personas' read that runs now, its `criteria.read.start`, or None. The owner answers
+    the interview's questions until they ended (`interview.end`), and the scout's read changes nothing
+    of that; then Lem writes the criteria, until it asks him whether to skip the read
+    (`read.skip.asked`) or the read starts; after the read (`criteria.read`) or his word to skip it, his
+    yes is what is missing (stages/interview.md, steps 3 and 5). A held block with criteria and no
+    interview has no end of questions, and only its read is not his. A read that started before the
+    newest block is no read of what that block holds."""
+    turn, read = "asks", None
     for e in t.events[last["order"]:]:
-        if e.get("event") == "criteria.read.start":
-            start = e
-        elif e.get("event") == "criteria.read":
-            start = None
-    return start
+        event = e.get("event")
+        if event == "interview.end":
+            turn = "writes"
+        elif event == "read.skip.asked":
+            turn = "skip"
+        elif event == "criteria.read.start":
+            turn, read = "reads", e
+        elif event == "criteria.read" or skips_read(e):
+            turn, read = "yes", None
+    return turn, read
 
 
-def settle(t: Task, now: int) -> None:
-    """What a task's events add up to, once every one is folded in."""
+def goes_on_of(t: Task, last: dict, away: bool) -> str | None:
+    """The need of a held task that Lem settles without the owner now (GOES_ON), else None: the task runs
+    without him while his mark says away (`away`), and from a night's own mark (`task.mode`) until it
+    ends, as project.py `runs_without_owner` reads them. Its interview goes on with Lem's guesses, its
+    criteria are approved without him, and its one question takes the safer read (stages/away.md). An
+    order that names no task Lem can tell, an investigation's wait for one more fact and a breaker stay
+    his."""
+    if t.status != "held" or t.breaker or not (away or any(e.get("event") == "task.mode" for e in t.events)):
+        return None
+    if t.need and t.need["need"] in ("interview", "criteria"):
+        return t.need["need"]
+    return "answer" if last["text"].startswith(ANSWER_WAIT) else None
+
+
+def settle(t: Task, now: int, away: bool = False) -> None:
+    """What a task's events add up to, once every one is folded in; `away` when the owner's mark says
+    that he is away."""
     last = t.blocks[-1]
     t.status = last["status"]
     t.info = dict(STATUS.get(t.status, UNKNOWN))
@@ -773,7 +824,7 @@ def settle(t: Task, now: int) -> None:
             d.ts for d in t.decisions.values() if d.kind == "taken" and d.by == "owner" and d.what == READ_SKIP["what"] and d.chose == READ_SKIP["chose"] and d.ts >= last["ts"]]
     floor = float("-inf") if read_in is None else max(read_in) if read_in else float("inf")
     t.approved = None
-    if t.need and t.need["need"] != "breaker":
+    if t.need and t.need["need"] in ("criteria", "interview"):
         t.approved = next((a for a in reversed(t.approvals) if a["by"] in APPROVERS and a["order"] > last["order"] and a["ts"] >= floor), None)
     t.approvable = bool(t.need and t.need["need"] in ("criteria", "interview") and not t.approved and (read_in is None or read_in))
     if t.approved:
@@ -788,13 +839,26 @@ def settle(t: Task, now: int) -> None:
     t.waits_after = t.status == "queued" and waits_for_task(last)
     t.merge_wait = merge_wait(t)
     t.base_red = t.status == "blocked" and BASE_RED in [line.strip() for line in lines_of(last)]
-    # while the personas read its criteria, a held task waits for their read, not for the owner
-    t.reading = reading_of(t, last) if t.status == "held" and not t.approved and not t.helped and not t.breaker else None
-    t.for_owner = (bool(t.breaker) or (t.status == "held" and not t.approved and not t.helped and not t.reading) or t.merge_wait == "owner"
+    # who acts on a held task's criteria: while Lem writes them or the personas read them, it waits for
+    # nothing of the owner's; and while it runs without him, Lem settles its need without him
+    t.turn, t.reading = turn_of(t, last) if t.status == "held" and not t.approved and not t.helped and not t.breaker else (None, None)
+    t.goes_on = goes_on_of(t, last, away) if t.turn else None
+    t.for_owner = (bool(t.breaker) or (t.turn in OWNER_TURNS and not t.goes_on) or t.merge_wait == "owner"
                    or (t.status == "planned" and bool(re.search(r"\bowner\b", t.text))) or (t.status == "blocked" and not t.base_red))
-    if t.reading:
+    interview = bool(t.need and t.need["need"] == "interview")
+    if t.goes_on:
+        t.info = {"actor": "lem", "who": "Lem", "label": "Lem goes on without you", "icon": "play", "live": True}
+        t.shown = GOES_ON[t.goes_on]
+    elif t.reading:
         t.info = {"actor": "quiet", "who": "The agent" if t.reading.get("by") == "lead" else "Lem", "label": "The personas read the criteria", "icon": "users", "live": True}
         t.shown = "nothing waits for you until their read is in"
+    elif t.turn == "writes":
+        t.info = {"actor": "lem", "who": "Lem", "label": "Lem writes the criteria", "icon": "file", "live": True}
+        t.shown = WRITES_SAYS
+    elif t.turn == "skip" and interview:
+        t.shown = SKIP_SAYS
+    elif t.turn == "yes" and interview:
+        t.shown = "the criteria wait for your yes"
     if t.merge_wait in MERGE_WAITS:
         t.info = dict(MERGE_WAITS[t.merge_wait])
     if t.approved and not t.for_owner:
@@ -902,7 +966,7 @@ def derive(events: list[dict], owner: list[dict], now: int, *, meta: dict | None
             t.blocks.append({"ts": t.opened["ts"], "order": t.opened["order"], "status": NEW, "text": NEW_TEXT, "lines": []})
     listed = [t for t in tasks.values() if t.blocks]
     for t in listed:
-        settle(t, now)
+        settle(t, now, away is not None)
 
     def by(status: str) -> list:
         return sorted((t for t in listed if t.status == status), key=lambda t: t.since)
@@ -962,10 +1026,11 @@ def card_line(t: Task, lane: dict) -> str:
         return waits_say(t.waits)
     if t.status == "answered" and t.investigation:
         return f"{CALLS.get(t.investigation['call'], {}).get('card', t.investigation['call'])}: {t.investigation['line']}"
-    label = "" if t.info["label"] == lane["title"] or t.checks_stop else t.info["label"]
     if not t.shown:
         return t.info["label"]
     said_ = PULL.sub(r"#\1", t.shown)
+    # the label is not said again where the line says it first (WRITES_SAYS)
+    label = "" if t.info["label"] == lane["title"] or t.checks_stop or said_.lower().startswith(t.info["label"].lower()) else t.info["label"]
     return f"{label}: {said_}" if label else cap(said_)
 
 
@@ -999,6 +1064,10 @@ def answer_of(t: Task) -> str:
                 f"Or type /lem park {t.slug} to put the task aside, or /lem drop {t.slug} to end it.")
     if t.status == "open":
         return "Merge the pull request on GitHub or on this board."
+    if t.need and t.need["need"] == "interview" and t.turn == "skip":
+        return "Lem asks in the task’s session whether to skip the personas’ read of the criteria, since each names only you. Answer y or n there."
+    if t.need and t.need["need"] == "interview" and t.turn == "yes":
+        return "The criteria wait for your yes in the task’s session. Approve or change them there, or approve them on this board."
     if t.need and t.need["need"] == "interview":
         return "The interview runs in the task’s session. Answer its questions there, and approve the criteria at its end."
     if t.criteria_wait and t.reads and t.reads[-1]["answered"] == 0:
@@ -1223,8 +1292,9 @@ def waits_of(m: Model) -> list[dict]:
         # a breaker that waits is its own row, and the held block it wrote is not said again
         if t.breaker:
             rows.append({"kind": "breaker", "key": f"breaker:{t.slug}:{t.breaker.id}", "t": t, "c": t.breaker, "since": t.breaker.ts})
-        # a held task whose criteria the personas read now waits for their read, and is his again when it is in
-        elif t.status == "held" and not t.approved and not t.helped and not t.reading:
+        # a held task is his while its turn is (`turn_of`): not while Lem writes its criteria or the personas
+        # read them, nor while Lem settles its need without him (`goes_on_of`)
+        elif t.turn in OWNER_TURNS and not t.goes_on:
             rows.append({"kind": "criteria" if t.criteria_wait else "held", "key": f"held:{t.slug}", "t": t, "c": None, "since": t.since})
         # a task queued after a task that was dropped: no session runs it, and only his word starts it or ends it
         if after_dropped(t, m):
@@ -1389,6 +1459,9 @@ SAYS = {
                          "text": f"{plural(e.get('commits') or 0, 'commit')}, {plural(len(e['filed']), 'item') if e.get('filed') else 'no item'} filed in the backlog",
                          "sub": " · ".join([f"{e.get('before') or '?'} → {e.get('after') or '?'}", *map(str, e.get("filed") or [])])},
     "interview.start": lambda e: {"info": {"actor": "you", "icon": "user"}, "head": "The interview started", "text": "Lem asks you one question at a time"},
+    "interview.end": lambda e: {"info": {"actor": "lem", "icon": "file"}, "head": "The interview’s questions ended", "text": "Lem writes the criteria from the answers"},
+    "read.skip.asked": lambda e: {"info": {"actor": "you", "icon": "users"}, "head": "Lem asked whether to skip the personas’ read",
+                                  "text": "the criteria name only you: your y or n"},
     "scout.start": lambda e: {"info": {"actor": "lead", "icon": "eye"}, "head": "The scout started", "text": "it reads the code for the facts the criteria need"},
     "scout": lambda e: {"info": {"actor": "lead", "icon": "file"}, "head": "The scout’s report is in", "text": ""},
     "criteria.read.start": lambda e: {"info": {"actor": "quiet", "icon": "users"}, "head": "The personas’ read of the criteria started", "text": f"run by {'the agent' if e.get('by') == 'lead' else 'Lem'}"},
@@ -1551,8 +1624,11 @@ def now_head(t: Task) -> str:
     if s == "held":
         return ("Approved: its lead has not started yet" if t.approved else "Helped: its lead has not started yet" if t.helped
                 else "The build stopped: its breaker waits for you" if t.breaker
+                else "Lem goes on without you" if t.goes_on
                 else "The personas read the criteria" if t.reading
-                # an interview ends with the personas' read: after it, his yes is what waits
+                else "Lem writes the criteria" if t.turn == "writes"
+                else "Lem asks you whether to skip the personas’ read" if t.turn == "skip" and t.need and t.need["need"] == "interview"
+                # after the personas' read of an interview's criteria, or his word to skip it, his yes is what waits
                 else "The criteria wait for your yes" if t.approvable and t.need and t.need["need"] == "interview"
                 else "The interview waits for you" if t.need and t.need["need"] == "interview" else "The criteria wait for your yes" if t.criteria_wait else "Waits for you")
     if s == PARKED:
@@ -1991,10 +2067,10 @@ def time_end(t: Task, now: int) -> int:
 def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
     """The spans of one task, each on the row of who held the work (ROWS), the marks of what logged only
     its end, and the bands of the stages behind them, up to `end`. A state block starts a span and the next
-    one ends it; a stage whose start is logged (the interview, the scout, the personas' read, the
-    investigation, a builder, the polish pass, the checks, the review: SKILL.md) runs from its start to the
-    event that ends it; the criteria wait for the owner from the personas' read to his approval; a breaker
-    holds the task for him in its held block, and a parked task holds nobody; a plan talk runs from its
+    one ends it; a stage whose start is logged (the interview, Lem's writing of the criteria after it, the
+    scout, the personas' read, the investigation, a builder, the polish pass, the checks, the review:
+    SKILL.md) runs from its start to the event that ends it; the criteria wait for the owner from the
+    personas' read to his approval; a breaker holds the task for him in its held block, and a parked task holds nobody; a plan talk runs from its
     start to its record. A stage whose start is not in the log is a mark where it ended. A dropped task's
     events that a resumed task carried over (`from`) ran in the dropped task, so its time leaves them out.
     Nothing here is a guess at a time no event holds.
@@ -2047,7 +2123,10 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
         if e.get("from"):
             continue
         if ev == "interview.start":
-            pair(i, e, "you", "The interview", "Lem asks you one question at a time", lambda x: x.get("event") in ("criteria.read.start", "criteria.approved"))
+            pair(i, e, "you", "The interview", "Lem asks you one question at a time", lambda x: x.get("event") == "interview.end")
+        elif ev == "interview.end":
+            pair(i, e, "lem", "Lem writes the criteria", "from your answers and what the code says",
+                 lambda x: x.get("event") in ("read.skip.asked", "criteria.read.start", "criteria.approved"))
         elif ev == "scout.start":
             pair(i, e, "builders", "The scout reads the code", "for the facts the criteria need", lambda x: x.get("event") == "scout")
         elif ev == "criteria.read.start":

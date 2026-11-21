@@ -124,10 +124,12 @@ line to the owner as `say` (`opening_line`), which `state` prints too, and `say_
 line as the session where he typed the request says it, with the task named and in its commands
 (`lem session wait SLUG --first-line` prints it). `log` writes any other
 event: `key=value` stores a string and `key:=value` parses JSON, so a commit made only of digits stays a string and an exit code stays a number. The start
-of each stage that logs its end has a fixed form (`STARTS`: `interview.start`, `scout.start` and
-`scout`, `criteria.read.start`, `investigation.start`, `builder.start`, and the three `land.py`
-writes, `polish.start`, `gate.start` (the start of the checks) and `review.start`), so that the board draws each span from
-its start to its end. Four more events have a fixed form. `plan.talk.start`, which the defender of a careful or large plan writes when
+of each stage that logs its end has a fixed form (`STARTS`: `interview.start` and `interview.end`,
+the end of the questions to the owner, `scout.start` and `scout`, `read.skip.asked`, the question
+whether he skips the personas' read, `criteria.read.start`, `investigation.start`, `builder.start`,
+and the three `land.py` writes, `polish.start`, `gate.start` (the start of the checks) and
+`review.start`), so that the board draws each span from its start to its end, and tells who acts
+on a held interview from them. Four more events have a fixed form. `plan.talk.start`, which the defender of a careful or large plan writes when
 the reviewer's seat opens, as `reviewer=AGENT`, so that the board draws the talk from its start.
 `plan.talk`, which the landing reads and the plan's defender writes after the talk, as
 `reviewer=AGENT turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N
@@ -1873,9 +1875,9 @@ RESUMED_FILES = ("task.md", "talk.md", "directions.md", "interview-notes.md", "s
 RESUMED_GLOBS = ("breaker-*.md",)
 # The events of a dropped task that the new one takes with it, under its own slug and with `from`, in
 # the log's order and each with its own time as `was_at`: what the landing and the board read of its
-# criteria, its decisions, its plan talk and its investigation.
+# criteria, its decisions, its plan talk and its investigation, each stage's start with its end.
 RESUMED_EVENTS = ("criteria.read.start", "criteria.read", "criteria.approved", "task.criteria", "plan.talk.start", "plan.talk",
-                  "investigation.start", "investigation", "interview.start", "scout.start", "scout")
+                  "investigation.start", "investigation", "interview.start", "interview.end", "read.skip.asked", "scout.start", "scout")
 # The file of a resumed task that names the task it came from.
 RESUMED_FROM = lem_plans.RESUMED_FROM
 
@@ -2138,17 +2140,21 @@ def read_form(fields: dict) -> None:
 # The start of each stage that logs its end and had no start, so that the board draws a span from
 # the one to the other (the owner's pick of 2026-11-17: "each stage logs its start, and the card
 # becomes exact"). Event -> (its form, the fields it takes, the values each may have). An agent logs
-# the first six where its stage text says; land.py logs the last three itself. The end of each:
-# `interview.start` ends at the first `criteria.read.start` or `criteria.approved` after it, the
-# scout at `scout`, the read at `criteria.read`, an investigation at `investigation`, a builder's
-# job at the next state block or step of the landing after it, the polish pass at `polish`, the
-# checks at `gate.end`, and the review at `review`.
+# the first eight where its stage text says; land.py logs the last three itself. The end of each:
+# the interview at `interview.end`, the end of its questions, which starts Lem's writing of the
+# criteria, which ends at the first `read.skip.asked`, `criteria.read.start` or `criteria.approved`
+# after it; the skip question at his decision or at `criteria.read.start`; the scout at `scout`, the
+# read at `criteria.read`, an investigation at `investigation`, a builder's job at the next state
+# block or step of the landing after it, the polish pass at `polish`, the checks at `gate.end`, and
+# the review at `review`.
 BUILDER_JOBS = ("the small change", "the repair of a conflict with the base", "the repair of a failed check", "the fix of a review's findings")
 TASK_JOB = re.compile(r"task [1-9]\d* of [1-9]\d*")
 STARTS: dict[str, tuple[str, dict[str, tuple[str, ...] | None]]] = {
     "interview.start": ("interview.start takes nothing", {}),
+    "interview.end": ("interview.end, the end of the questions to the owner, takes nothing", {}),
     "scout.start": ("scout.start takes nothing", {}),
     "scout": ("scout, the end of the scout's read, takes nothing", {}),
+    "read.skip.asked": ("read.skip.asked, the question whether the owner skips the personas' read, takes nothing", {}),
     "criteria.read.start": ("criteria.read.start takes by=lem|lead, and nothing else", {"by": ("lem", "lead")}),
     "investigation.start": ("investigation.start takes type=fix|question, and nothing else", {"type": ("fix", "question")}),
     "builder.start": (
