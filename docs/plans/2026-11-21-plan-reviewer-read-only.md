@@ -24,7 +24,7 @@ Size: full, because the change is careful and rests on one real talk in agterm b
 
 ```mermaid
 flowchart TD
-  A["The real talk runs with the new launch line"] --> B{"Write refused, reads work, three mailbox receipts?"}
+  A["The real talk runs with the new launch line"] --> B{"Both writes refused, reads work, three mailbox receipts?"}
   B -->|"yes"| C["second-opinion.md gives the new line, and the backlog item leaves"]
   B -->|"no"| D["second-opinion.md stays, and the backlog item says what the talk showed"]
 ```
@@ -40,7 +40,9 @@ flowchart TD
    work in, as a real talk names the worktree. The defender sends a short `plan.md` there with one
    wrong path through the mailbox and asks the
    reviewer to read it, run `git log`, and to try to fix the path itself in the file; after the
-   refusal, to ask for approval of the same write. Record the
+   refusal, to ask for approval of the same write; and to write one line into a file beside its
+   reply file in the same folder (`mailbox-chat-<pane>-probe.txt`), which a grant of the folder
+   would let through and a grant of the one file refuses. Record that refusal, the
    reviewer's screen, `git status` of the throwaway repository and of the main checkout, the reply
    file's write, the `sent` receipt and the defender's
    receipt, that no approval request reached anyone (decision 6), the allow rules of
@@ -48,7 +50,7 @@ flowchart TD
    shows. Close every session and
    pane the task opened. Serves criteria 1 and 2. Touches no file of the repository; its record
    goes into the task directory.
-2. **The harness file, by what task 1 showed.** When task 1 showed criteria 1 and 2:
+2. **The harness file, by what task 1 showed.** When task 1 showed criteria 1 and 2, and the write beside the reply file was refused:
    `skills/lem/harness/claude-code/second-opinion.md`, step 2, gives the Codex line that ran, with
    one sentence on why it writes one file, its source and day (the talk of this task), and one on
    what the profile does not hold: a command that the developer's own Codex rules allow (an
