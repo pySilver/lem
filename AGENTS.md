@@ -420,7 +420,8 @@ Each script's module docstring says what it does and why; this list says where e
   - `project.py` (`lem project`): a repository's settings and the one place of each file Lem reads
     beside them (`PLACES`), a task's state and directory, the event log, the owner's status and its
     watch, `waiting` (the one list of what waits for the owner), `prune` (what the state folder
-    keeps, `state.keep_days`), and the machine's `load` and `handoff` numbers.
+    keeps, `state.keep_days`, which one machine's `.lem/project.local.toml` may set for itself), and
+    the machine's `load` and `handoff` numbers.
   - `session.py` (`lem session`): a task's own session in agterm, its change of phase, its wake-up,
     the handoff's check and the copy of the talk; `session_hook.py`: the plugin's `PreCompact` and
     `SessionStart` hooks of a task's session (every source: the record of each Claude Code session of
