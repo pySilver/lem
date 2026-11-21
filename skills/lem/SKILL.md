@@ -340,7 +340,11 @@ because the board reads them: `lead: builder` (a lead plans or builds) or `lead:
 talk's pair runs), `small change: one builder` (the fast track's one builder, which is no lead),
 `plan committed` with `N tasks`, `task N of M`, `investigation: bug` or `investigation: question`
 (an investigator works before any lead), and `type: TYPE, because WHY`, which `state` refuses in
-another form. No state line names a session: `lem session` logs `session.open`, `session.close`
+another form. Three more lines of a `queued` block have a fixed form, because `lem project state`
+reads them for the task's first line (`stages/new.md`, steps 7 and 8 of "The request"): `the
+owner's order: "HIS WORDS"`, `then: the interview`, `then: the fast track` or `then: the lead`, and
+`the one open task that fits his words`. `state` refuses a line that starts as one of the three in
+another form; every other line is free. No state line names a session: `lem session` logs `session.open`, `session.close`
 and `session.wake`, and the board knows each task's session from them.
 
 A stage's start is an event too, so that the board's time card has a start and an end for each

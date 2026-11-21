@@ -117,12 +117,14 @@ The task's own session, in the shape, from its first message.
    question as his: "I read this as a fix for the fast track: one rule in `shop/dates.py`. Fast track?
    (y/n)", or "Is the 0 wrong today, a fix, or do you want a new rule for refunds, a feat?" (his
    example of 2026-11-16: "From such input its kinda hard to deduct if we want to investigate the
-   bug or its a feature request."). A question on the order names its three answers, so that no
-   answer has two readings: "Queue this after gift-note-in-export, after another task (name it), or
-   no order?". When another read is unclear too, the one line holds that guess beside it, and the
-   order keeps its three answers: "Fast track, and queued after gift-note-in-export, after another
-   task (name it), or no order?". His yes queues the task after the task you guessed, and a task he
-   names queues it after that one. His "no order" is his word that no order holds: log it, `lem
+   bug or its a feature request."). A question on the order names each answer, so that no answer
+   has two readings: each open task that fits his words, and "no order": "Queue this after
+   gift-note-in-export, after gift-note-on-invoice, or no order?". When one task fits, or none,
+   it names your guess, another task and "no order": "Queue this after gift-note-in-export, after
+   another task (name it), or no order?". When another read is unclear too, the one line holds that
+   guess beside it, and the order keeps its answers: "Fast track, and queued after
+   gift-note-in-export, after another task (name it), or no order?". His yes queues the task after
+   the task you guessed, and a task he names queues it after that one. His "no order" is his word that no order holds: log it, `lem
    decisions log SLUG --by owner --what "the order of the ask" --chose "no order" --why "his
    answer" --words "HIS WORDS"`, and step 7 still reads the need. An answer that still names no
    task you can tell holds the task for him, as below. One question at most; his answer settles
@@ -133,8 +135,12 @@ The task's own session, in the shape, from its first message.
    `lem decisions log SLUG --by lem`. When none fits, or more than one, write the state `held` with
    the first line `the order waits for the owner: "HIS WORDS"`, the words of his that give the
    order on one line, and the type line; it puts the task into the list of what waits for him (`lem
-   project waiting`). Say so in one line, and start nothing: the task waits for his answer to the
-   one question (`prompts/session.md`, "What comes next"). The type goes into
+   project waiting`). That block names no path, so it prints no `say`: the task gets its first line
+   when he answers, since a line said while he is away reaches nobody, and its row in "Waits for
+   you" tells him that it waits. Start nothing: the task waits for his answer to the one question
+   (`prompts/session.md`, "What comes next"). Then the first block that names its path prints the
+   first line, with the type line of the hold when it has none: the `queued` block of step 7 for a
+   task he names, or the first block of step 8 for "no order". The type goes into
    `task.md` with its reason, and as the line `type: TYPE, because WHY` into the task's first state
    block (step 8); `lem project state` refuses that line in any other form, and `lem project
    tasks` gives it as `type`. When he changes the type later, write a state block with the new
@@ -225,13 +231,16 @@ The task's own session, in the shape, from its first message.
    Then write the later one's state as `queued`. Its first line is his order, `the owner's order:
    "HIS WORDS"`, the words of his that give the order as he typed them, on one line (a line break
    becomes a space), or for a need what the task needs from the earlier one, in one line. Then the
-   line `after: SLUG` of the earlier one, the type line of step 1, the `careful:` line of step 1
-   when a topic is in reach, and the line of the path that step 8 takes when the wait ends: `then:
-   the interview`, `then: the fast track` or `then: the lead`, or for an investigation that comes
-   first (step 4) its line `investigation: bug` or `investigation: question` in its place. A task
-   you put after the one open task that fits his words, while he was away (step 1), gets the line
-   `the one open task that fits his words`. It is the task's first block: say its `say` as step 8
-   says.
+   line `after: SLUG` of the earlier one, the type line of step 1 and the `careful:` line of step 1
+   when a topic is in reach (each when no block before it has one: the hold of step 1 has them),
+   and the line of the path that step 8 takes when the wait ends: `then: the interview`, `then: the
+   fast track` or `then: the lead`, or for an investigation that comes first (step 4) its line
+   `investigation: bug` or `investigation: question` in its place. A task you put after the one
+   open task that fits his words, while he was away (step 1), gets the line `the one open task that
+   fits his words`. The first line is read from the order, the `then:` line and that line, so `lem
+   project state` refuses a line that starts as one of them in another form, with the form in its
+   message. It is the first block that names the task's path, also after the hold of step 1: say
+   its `say` as step 8 says.
 
    ```bash
    lem project state SLUG queued "the owner's order: \"After gift-note-in-export\"" "after: gift-note-in-export" "type: feat, because WHY" "then: the interview"
@@ -261,6 +270,8 @@ The task's own session, in the shape, from its first message.
    the landing settles that one, as a conflict at its rebase (`stages/land.md`, step 2).
 8. **The first state block, and the line.** The task's first state block names its path and
    carries the type line of step 1, and the `careful:` line of step 1 when a topic is in reach.
+   After the hold of an order that named no task (step 1), it is the first block after his answer
+   that names the path, and the hold's type and `careful:` lines stand for its own.
    The path's first step writes it, before anyone starts:
    - with an interview, here, then `stages/interview.md`:
 
@@ -295,8 +306,10 @@ The task's own session, in the shape, from its first message.
    here, then acceptance criteria for your yes. After that it runs to the pull request without you.
    Wrong read? /lem be-careful.` One you put after the one open task that fits his words, while he
    was away, says which: `It waits for gift-note-in-export, the one open task that fits "when the
-   gift note lands"; ...`. A call that prints no `say` for a task of the day wrote no first block:
-   look at its lines again. A decision you took for him at step 3 is a second line, in your words.
+   gift note lands"; ...`. A task that waits by a need says `It waits for gift-note-in-export, and
+   starts when that task lands or is answered.` in the same place. The first line of a task held
+   for his order comes with his answer, one time. A call that prints no `say` for a task of the
+   day, other than that hold, wrote no first block: look at its lines again. A decision you took for him at step 3 is a second line, in your words.
    Nothing repeats the first line later: the next thing he hears is a question of the interview,
    the criteria, or the pull request; the board shows it on the task's Overview until its next
    block. A task of the night gets no `say` and tells nobody: the night's report names it.
