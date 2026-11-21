@@ -54,5 +54,13 @@ Both probes checked the file rules, and Sol's checked the mailbox's trusted send
 started a reviewer in agterm. One real plan talk with the chosen line comes before the harness
 file changes: the reply file's write, the live `sent` receipt and the defender's receipt.
 
+Settled by the maintaining session on 2026-11-22 (the owner gave it the design on 2026-11-16): the
+first option, the named permission profile on the launch line. It changes no file of the user's,
+and the second option needs a file in Codex's own settings, which the ruling "Another program's
+settings stay where that program keeps them" leaves to the owner. The task runs one real plan talk
+with that line in agterm (a pair of its own, in a throwaway repository) and changes
+`second-opinion.md` only when the three receipts above show; when they do not, it leaves the
+harness file as it is and rewrites this item with what the talk showed.
+
 Where it surfaced: the outside review of 2026-11-21 (Astra, tip 3, and its answer, point 7; Sol,
 finding 9, and its answer, point 5).

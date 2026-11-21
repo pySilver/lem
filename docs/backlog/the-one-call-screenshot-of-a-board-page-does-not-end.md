@@ -1,5 +1,5 @@
 ---
-worth: later
+worth: yes
 where: skills/lem/harness/claude-code/take-screenshot.md
 added: 2026-11-21
 ---
@@ -12,3 +12,8 @@ throwaway state folder, and it did not end in 3 minutes. The likely cause is the
 stream, which keeps the load from ending; that is unmeasured. The DevTools driver
 `tests/board-cdp.mjs` took the same picture. The harness file names the one call for every page, the
 board's among them, which Lem's own agents photograph most.
+
+Settled: an agent that follows `take-screenshot.md` gets a picture of a board page in one bounded
+step. The task measures the cause first, then either gives a call that ends on a page with an open
+event stream (checked with the installed Chrome) or names the DevTools driver for such a page.
+Each way the file names carries the day and the Chrome version it was checked with.

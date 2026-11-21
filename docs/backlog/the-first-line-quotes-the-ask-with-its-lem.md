@@ -1,5 +1,5 @@
 ---
-worth: later
+worth: yes
 where: skills/lem/scripts/project.py:opening_line_facts
 added: 2026-11-21
 ---

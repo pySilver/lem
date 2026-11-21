@@ -32,5 +32,11 @@ The options:
   wait, does not remove it; the limit would be a guess until a slow call is measured.
 - **Both**: the merge leaves the lock, and the forge look and the merge are bounded.
 
+Settled by the maintaining session on 2026-11-22 (the owner gave it the design on 2026-11-16): the
+first option. The board's merge runs as a child process outside `SCRIPT_LOCK`, and keeps the task's
+step lock and the repository's `merge.lock`. It removes the wait for every other act at the cost of
+one local process for each merge. No time limit on `gh`: until a slow call is measured, its value
+would be a guess, and the refusal it brings would be an act of the owner's.
+
 Where it surfaced: the outside review of 2026-11-21 (Astra, tip 4, and its answer to finding 3;
 the second reader's check of Sol's finding 1, which named the `gh` call with no time limit).
