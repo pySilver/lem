@@ -650,8 +650,8 @@
       "day": "2026-11-15",
       "day_source": "paragraph",
       "today": "Lem asks through its question page",
-      "sentence": "Lem asks through its question page, in the task's session, and he does not have to type it; the build asks him nothing.",
-      "sentence_is_today": false,
+      "sentence": "Lem asks through its question page",
+      "sentence_is_today": true,
       "changed_by": [
         {
           "line": 450,
@@ -682,7 +682,7 @@
       "replaces": [],
       "holds_unnamed": "the command `lem-ask`",
       "group": "The board and the pages for him",
-      "slug": "lem-asks-through-its-question-page-in-the-tasks-session-and-he-does-not-have-to-type-it-the-build-asks-him-nothing"
+      "slug": "lem-asks-through-its-question-page"
     },
     {
       "line": 152,
@@ -1246,8 +1246,8 @@
       "day": "2026-11-16",
       "day_source": "paragraph",
       "today": "The plan talk is a pair in a companion that closes after it",
-      "sentence": "The plan talk is a pair in the task's session, under rules that disallow endless discussion, and the ladder decides a choice it leaves.",
-      "sentence_is_today": false,
+      "sentence": "The plan talk is a pair in a companion that closes after it",
+      "sentence_is_today": true,
       "changed_by": [
         {
           "line": 730,
@@ -1263,7 +1263,7 @@
         },
         {
           "line": 898,
-          "part": "the companion: the talk runs in the task's session (the note at line 924)",
+          "part": "the companion: the talk is a companion of the task's session, where it was a companion of Lem's session, and the companion of a choice's card is gone (the note at line 924)",
           "day": "2026-11-20",
           "sentence": "Each task lives in a session of its own, from its shape to its merge, and there is no Lem session."
         }
@@ -1272,7 +1272,7 @@
       "replaces": [],
       "holds_unnamed": "the defender on the seat `[seats.planner]` builds nothing; the check for a layer of patches (`at the cause` or `layer over D`, and `plan.talk` counts `root`, `layer` and `shared`)",
       "group": "The plan, the build and the tests",
-      "slug": "the-plan-talk-is-a-pair-in-the-tasks-session-under-rules-that-disallow-endless-discussion-and-the-ladder-decides-a-choice-it-leaves"
+      "slug": "the-plan-talk-is-a-pair-in-a-companion-that-closes-after-it"
     },
     {
       "line": 293,
@@ -2168,8 +2168,8 @@
       "day": "2026-11-17 and 2026-11-18",
       "day_source": "opening's days as written",
       "today": "A task runs with him or alone, and he can let go at any stage.",
-      "sentence": "A task runs with him or alone, and he can let go at any stage with `/lem im-away`; his away status changes nothing in a build.",
-      "sentence_is_today": false,
+      "sentence": "A task runs with him or alone, and he can let go at any stage.",
+      "sentence_is_today": true,
       "changed_by": [
         {
           "line": 496,
@@ -2212,7 +2212,7 @@
       "replaces": [],
       "holds_unnamed": "the two artifacts at the end: what was decided and why, and what was built and why; a step a later \"no\" cannot reverse is a big red flag in them",
       "group": "A task's session, and whether he is there",
-      "slug": "a-task-runs-with-him-or-alone-and-he-can-let-go-at-any-stage-with-lem-im-away-his-away-status-changes-nothing-in-a-build"
+      "slug": "a-task-runs-with-him-or-alone-and-he-can-let-go-at-any-stage"
     },
     {
       "line": 476,
@@ -4857,7 +4857,7 @@
       "day": "2026-11-16",
       "day_source": "opening",
       "today": "Every decision that is the owner's takes one path",
-      "sentence": "A decision of the plan no longer holds the task: `held` keeps what has no options, the criteria that wait for his yes, one more fact for an investigation and a step that is his to do.",
+      "sentence": "A decision of the plan does not hold the task: `held` keeps what has no options, the criteria that wait for his yes, one more fact for an investigation and a step that is his to do.",
       "sentence_is_today": false,
       "changed_by": [
         {
@@ -4883,7 +4883,7 @@
       "replaces": [],
       "holds_unnamed": null,
       "group": "A decision without him: the ladder, the experts and the breaker",
-      "slug": "a-decision-of-the-plan-no-longer-holds-the-task-held-keeps-what-has-no-options-the-criteria-that-wait-for-his-yes-one-more-fact-for-an-investigation-and-a-step-that-is-his-to-do"
+      "slug": "a-decision-of-the-plan-does-not-hold-the-task-held-keeps-what-has-no-options-the-criteria-that-wait-for-his-yes-one-more-fact-for-an-investigation-and-a-step-that-is-his-to-do"
     },
     {
       "line": 1020,
