@@ -38,9 +38,12 @@ directory, the new agent's first read, and runs
     agtermctl session new --workspace WS --cwd DIR --name SLUG --no-select --command \\
       "SHELL -l -c 'LEM_TASK=SLUG CLAUDE_CODE_AUTO_COMPACT_WINDOW=N claude \\"Read TASK_DIR/session.md and follow it.\\"'"
 
-then `session move --to top`, and with `--focus` `session select`. DIR is the task's worktree,
-else the main checkout: Claude Code asks no trust for a new worktree inside a checkout it trusts
-(lem-scratch, Claude Code 2.1.330, 2026-11-21). N is `[handoff] tokens` of the machine
+then `session move --to top`, and with `--focus` `session select`. DIR is the main checkout in every
+phase, and the agent works in the task's worktree by its path (`worktree:` of `session.md`): the
+developer's Claude Code setup belongs to the main checkout's folder (a plugin installed for the
+project, `.claude/settings.local.json`, the folder's trust), and a session started in a worktree has
+none of it. In lem-scratch on 2026-11-21 a landing session opened in its worktree found no `lem`
+command and no builder agent, and stopped as `blocked`. N is `[handoff] tokens` of the machine
 (`lem project handoff`); with 0 the variable is left out. `--model` and `--effort` follow only
 when `seats.session` names them. `--plugin-dir ROOT` follows when this Lem is not the installed
 plugin, ROOT being the folder of the plugin these scripts are in, so that the task's session runs
@@ -451,7 +454,7 @@ def cmd_open(root: Path, slug: str, focus: bool, why: str, replacing: str | None
         line = launch_line(login_shell(), slug, brief, tokens, facts["settings"]["seats"]["session"], plugin_dir(PLUGIN, os.environ))
         main = project.main_checkout(root)
         brief.write_text(brief_text(slug, phase, why, directory, main, worktree), encoding="utf-8")
-        made = ctl(where, "session", "new", "--workspace", workspace, "--cwd", str(worktree or main), "--name", slug, "--no-select", "--command", line, "--json")
+        made = ctl(where, "session", "new", "--workspace", workspace, "--cwd", str(main), "--name", slug, "--no-select", "--command", line, "--json")
         try:
             session = str(json.loads(made)["result"]["id"])
         except (ValueError, KeyError, TypeError) as error:

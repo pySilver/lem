@@ -53,7 +53,7 @@ else
 fi
 
 # The change of phase: the lead's state and handoff.md, then next from the shape session: a fresh session for
-# the build in the worktree, the old one named handed off, and the line that closes it once he left it.
+# the build in the main checkout, the old one named handed off, and the line that closes it once he left it.
 pr state gift-note building "lead: session" >/dev/null
 printf '%s\n' 'task: gift-note' '' '## Settled' '' '- the criteria' > "$STATE/tasks/gift-note/handoff.md"
 early=$(AS=S-1 sess next gift-note 2>&1; echo "exit $?")
@@ -65,9 +65,9 @@ rm -f "$CALLS"
 handed=$(AS=S-1 sess next gift-note 2>&1 || true)
 if grep -qF "is not in the form of \`templates/handoff.md\`" <<<"$early" && [ "$(tail -n 1 <<<"$early")" = "exit 1" ] \
   && [ "$(field '(d["session"], d["phase"], d["old"], d["from"], d["close"])' <<<"$handed" 2>&1)" = "('S-2', 'build', 'S-1', 'shape', 'lem session close gift-note --session S-1 --why handoff --when-unselected')" ] \
-  && grep -qF "\"--cwd\", \"$tree_dir\"" <<<"$(calls_of session new)" && grep -qF '"rename", "gift-note \u00b7 handed off", "--target", "S-1"' "$CALLS" \
+  && ! grep -qF "\"--cwd\", \"$tree_dir\"" <<<"$(calls_of session new)" && grep -qxF "worktree: $tree_dir" "$(pr task-dir gift-note)/session.md" && grep -qF '"rename", "gift-note \u00b7 handed off", "--target", "S-1"' "$CALLS" \
   && [ "$(events)" = "[('session.open', 'S-1', 'shape', 'new'), ('session.open', 'S-2', 'build', 'handoff')]" ]; then
-  pass "next refuses a handoff.md that is not in its form, then opens a fresh session for the build in the task's worktree, names the old one handed off, logs it and prints the line that closes the old one"
+  pass "next refuses a handoff.md that is not in its form, then opens a fresh session for the build in the main checkout, with the task's worktree named in session.md, names the old one handed off, logs it and prints the line that closes the old one"
 else
   fail "next: $early / $handed / $(cat "$CALLS") / $(events)"
 fi
