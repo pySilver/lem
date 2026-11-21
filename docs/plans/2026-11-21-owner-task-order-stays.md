@@ -129,7 +129,15 @@ Read in the code at `7971845`:
      ended (its `after:` task ended, or its block has no `after:` line) goes on where it stopped. A
      task no lead started (no block of its state has a `lead:` line) takes step 8 of "The request"
      in `stages/new.md`, by its `then:` or `investigation:` line; a task its lead queued takes
-     `stages/start.md`. When the task of its `after:` line was dropped, the first state block it
+     `stages/start.md`. Before step 8 it does three things (the issues the plan talk raised, design
+     choice A). It reads step 7's need again, and the need only, since the order ended with its task
+     or his word: a need for another open task queues it again behind that task, before a scout or
+     an investigator reads the code. On `then: the interview` it writes the first block of step 4
+     again, `held` with `the interview waits for the owner` and the type line, so that the interview
+     finds the block it expects and the board and "Waits for you" show it. On `then: the fast
+     track`, whose criterion and brief were written before step 7 ("The fast track", step 2), it
+     takes `stages/start.md`, which starts its one builder, and never the fast track's step 1 or step
+     7 again. When the task of its `after:` line was dropped, the first state block it
      writes says so in one line: it starts without the result of that task, which was dropped. A
      task `held` with `the order waits for the owner` takes step 1 of "The request" for its one
      question while he is there, and waits for him while he is away; at his back it asks it.
@@ -154,8 +162,9 @@ Read in the code at `7971845`:
      a planned task.
    - `correct.md`, `standard-track`: a task that is `queued` stays queued. The correction changes
      only the path its wait ends in: write the `queued` block again with each of its lines, and
-     `then: the interview` in place of `then: the fast track`. The interview starts when the wait
-     ends.
+     `then: the interview` in place of `then: the fast track`, and write the lead's brief of step 6
+     of "The request" over the fast track's, as the correction does today. The interview starts when
+     the wait ends.
    - `SKILL.md`: the row `queued` of the status table, it needs the result of the task its `after:`
      line names, or the owner's words put it after that task; and the row `build [<task>]` of the
      subcommands, his "start SLUG now" for a task queued by his order (`stages/start.md`,
@@ -330,7 +339,14 @@ widened, 7 and 8 new.
    queued by a need, which met the same route before this plan; the plan widens that route's use,
    since an order comes on any ask. `then:` is a free line, read by the agent: no script reads it.
    The note of a start after a drop goes with the route, since an investigation and an interview
-   never reach step 3 of `stages/start.md`.
+   never reach step 3 of `stages/start.md`. This is design choice A of the plan talk, decision 11 of
+   the record: no level of the ladder settled it, so the lead's pick stands, the plan as the talk
+   left it, with the route's own issues fixed in its text (the need read again before step 8, step
+   4's block written again for the interview, the fast track resumed at its builder, the lead's
+   brief in the correction). The personas and one expert (Fable) wanted the interview to run at once
+   and only the build to wait; the dialectic confirmed a break of that option (the owner's yes went
+   to a proposal that queues at step 7), and the other expert (Astra) picked this one. The pull
+   request is not green for it.
 8. **The order is read with the track and the type** (step 1 of "The request"), so that the first
    line can say the wait and the one question holds every unclear read at once.
 6. **Criteria 1 to 3 are as the personas expected them** (decisions 4, 5 and 6 of the record, by the
