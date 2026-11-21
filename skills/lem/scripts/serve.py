@@ -2009,6 +2009,13 @@ def stands_due(t: "bm.Task", seen: dict, merging: set) -> bool:
                 and any(e.get("event") == "merge.stands" and same_head(e.get("tip"), tip) for e in since_proposal(t)))
 
 
+def duty_key(verb: str, slug: str, why: str, landing: dict) -> tuple:
+    """What a failed duty waits DUTY_RETRY under. A merge is of one proposed tip, so its wait is that
+    tip's: a task that landed again after a refused merge is merged at the next look, not after the
+    old tip's wait (lem-scratch, 2026-11-21: a carried review waited 4 minutes for its merge)."""
+    return (verb, slug, why, str(landing.get("proposed") or "")) if verb == "merge" else (verb, slug, why)
+
+
 def run_duties(workspace: Workspace, now: float | None = None) -> list[dict]:
     """Run each duty the workspace has now (`duties`), one command at a time, and what ran: a duty whose
     command failed waits DUTY_RETRY before the next try. The merge agent's merge starts in a thread of
@@ -2021,7 +2028,7 @@ def run_duties(workspace: Workspace, now: float | None = None) -> list[dict]:
     seen = workspace.forge.get("seen") or {}
     ran = []
     for verb, slug, why in duties(model, seen, workspace.kept, NOTES.running(workspace.name)):
-        key = (verb, slug, why)
+        key = duty_key(verb, slug, why, workspace.landing_of(slug) if verb == "merge" else {})
         if key in workspace.failed and now - workspace.failed[key] < DUTY_RETRY:
             continue
         if verb == "merge":

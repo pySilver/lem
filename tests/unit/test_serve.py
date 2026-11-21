@@ -229,6 +229,15 @@ class Duties(unittest.TestCase):
 
 
 
+class DutyKey(unittest.TestCase):
+    def test_a_failed_merge_waits_for_its_own_tip_only(self) -> None:
+        old = serve.duty_key("merge", "gift-note", "merger", {"proposed": "aaa111"})
+        new = serve.duty_key("merge", "gift-note", "merger", {"proposed": "bbb222"})
+        self.assertNotEqual(old, new)  # the task landed again: the new tip is merged at the next look
+        self.assertEqual(old, serve.duty_key("merge", "gift-note", "merger", {"proposed": "aaa111"}))
+        self.assertEqual(serve.duty_key("wake", "gift-note", "merged", {}), ("wake", "gift-note", "merged"))
+
+
 class Look(unittest.TestCase):
     """`bin/lem`'s look for the server: its pid file, and whether that process lives."""
 
