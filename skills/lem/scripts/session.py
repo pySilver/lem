@@ -525,7 +525,8 @@ def cmd_open(root: Path, slug: str, why: str, replacing: str | None = None) -> d
         task, phase = facts["task"], facts["phase"]
         behind = queued_behind(task, facts["tasks"])
         if behind:
-            raise SessionError(f"the task {slug!r} is queued after {behind!r}, which has not ended: it gets its session when {behind} is landed, answered or dropped")
+            raise SessionError(f"the task {slug!r} is queued after {behind!r}, which has not ended: it gets its session when {behind} is landed or answered, "
+                               f"and when {behind} is dropped it waits for the owner's word, which starts it or drops it")
         nodes = tree(where)
         opens = newest_opens(project.events_named(root, *EVENTS))
         newest = opens.get(slug)

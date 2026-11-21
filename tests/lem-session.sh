@@ -182,7 +182,8 @@ queued=$(sess open csv-dates --why queue 2>&1; echo "exit $?")
 R2=$WORK/lonely && git init -q -b main "$R2" && ident "$R2" && project --repo "$R2" init --base main >/dev/null 2>&1 && project --repo "$R2" task-dir alone-task >/dev/null
 nowhere=$(env CALLS="$CALLS" TREE="$TREE" PATH="$BIN:$PATH" AGTERM_SESSION_ID= AGTERM_SOCKET= AGTERM_WINDOW_ID= "$PY" -B "$SESSION" --repo "$R2" open alone-task 2>&1; echo "exit $?")
 if grep -qF "lem session: the task 'coupon-slug' is parked" <<<"$parked" && [ "$(tail -n 1 <<<"$parked")" = "exit 1" ] \
-  && grep -qF "the task 'csv-dates' is queued after 'gift-note', which has not ended" <<<"$queued" && [ "$(tail -n 1 <<<"$queued")" = "exit 1" ] \
+  && grep -qF "the task 'csv-dates' is queued after 'gift-note', which has not ended: it gets its session when gift-note is landed or answered, and when gift-note is dropped it waits for the owner's word" <<<"$queued" \
+  && [ "$(tail -n 1 <<<"$queued")" = "exit 1" ] \
   && grep -qF "no workspace of agterm is known for alone-task" <<<"$nowhere" && [ "$(tail -n 1 <<<"$nowhere")" = "exit 1" ] && [ "$told" = "(False, False)" ]; then
   pass "open refuses a parked task, a task queued after one that has not ended, and a task whose workspace nothing names, each with exit 1 and the fix; the owner's wake of a parked task opens nothing and refuses nothing"
 else
