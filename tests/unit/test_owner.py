@@ -114,6 +114,16 @@ class Spans(unittest.TestCase):
         records = project.merged([], [mark("2026-11-19T10:00:00Z", True, "away"), mark("2026-11-19T11:00:00Z", False, "back")])
         self.assertEqual(project.runs_without_owner(SLUG, records, "2026-11-19T12:00:00Z"), [])
 
+    def test_a_back_in_the_second_the_task_opens_is_no_span_of_it(self):
+        records = project.merged([], [mark("2026-11-19T15:10:00Z", True, "/lem im-away"), mark("2026-11-19T15:30:00Z", False, "/lem im-back")])
+        self.assertEqual(project.runs_without_owner(SLUG, records, "2026-11-19T15:30:00Z"), [])
+
+    def test_an_away_and_a_back_in_one_second_after_the_opening_are_no_span(self):
+        records = project.merged([], [mark("2026-11-19T15:40:00Z", True, "/lem im-away"), mark("2026-11-19T15:40:00Z", False, "/lem im-back"),
+                                      mark("2026-11-19T16:00:00Z", True, "/lem im-away")])
+        spans = project.runs_without_owner(SLUG, records, "2026-11-19T15:30:00Z")
+        self.assertEqual([(span["from"], span["to"]) for span in spans], [("2026-11-19T16:00:00Z", None)])
+
 
 if __name__ == "__main__":
     unittest.main()

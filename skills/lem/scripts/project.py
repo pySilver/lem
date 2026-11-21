@@ -2267,8 +2267,9 @@ def runs_without_owner(slug: str, records: list[dict], first: str | None) -> lis
         if start and (not spans or spans[-1]["to"] is not None):
             spans.append({"from": max(start["ts"], first or start["ts"]), "to": None, "started": said(start), "ended": None})
         elif not start and spans and spans[-1]["to"] is None:
-            if first and record["ts"] < first:
-                # an away and a back that both came before the task opened are no span of it
+            if record["ts"] <= spans[-1]["from"]:
+                # a back that came before the span's start or in its second leaves a span of no length, which
+                # is none: an away and a back before the task opened, or a back in the second it opened
                 spans.pop()
             else:
                 spans[-1].update(to=max(record["ts"], spans[-1]["from"]), ended=said(record))
