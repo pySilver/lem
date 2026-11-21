@@ -219,7 +219,7 @@ ruling is reopened only by asking him.
 - [Four places are settings](docs/rulings/four-places-are-settings.md)
 - [`[tracker]` has one key](docs/rulings/tracker-has-one-key.md)
 - [`/lem read KEY` shows a ticket](docs/rulings/lem-read-key-shows-a-ticket.md)
-- [One number of days in the project's settings keeps the state folder small](docs/rulings/one-number-of-days-in-the-projects-settings-keeps-the-state-folder-small.md)
+- [The Done column shows the newest ended tasks, and one setting says how long an ended task's files stay](docs/rulings/the-done-column-shows-the-newest-ended-tasks-and-one-setting-says-how-long-an-ended-tasks-files-stay.md)
 
 ### The README, the guides and the logo
 
