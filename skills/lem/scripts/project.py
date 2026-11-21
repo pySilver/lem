@@ -2455,6 +2455,8 @@ def compose_opening_line(facts: dict, task: str | None = None) -> str:
     if facts.get("branch"):
         words.append(f"Branch {facts['branch']}.")
     path = facts["path"]
+    # another session speaks of the task's session, where the interview runs and the answer comes
+    here, teller = ("in its own session", "Then its session tells you") if task else ("here", "Then I tell you")
     standard = "Standard track, because you asked for its plan:" if facts.get("plan") else "Standard track:"
     then = "After that a lead writes the plan and stops for you to read it." if facts.get("plan") else "After that it runs to the pull request without you."
     waits = f"It waits for {facts['after']}, and starts when that task lands or is answered." if facts.get("after") else None
@@ -2463,14 +2465,14 @@ def compose_opening_line(facts: dict, task: str | None = None) -> str:
                   "Nothing waits for you but the pull request, which calls you: you did not approve its criterion." if facts.get("someone_else") else "Nothing waits for you.",
                   correction(True, task)]
     elif path == "interview":
-        words += [f"{standard} an interview here now, then acceptance criteria for your yes.", then, correction(False, task)]
+        words += [f"{standard} an interview {here} now, then acceptance criteria for your yes.", then, correction(False, task)]
     elif path == "complete":
         read = ("a lead writes acceptance criteria, the personas read them, and they wait for your yes." if facts.get("someone_else")
                 else "a lead writes acceptance criteria, and the personas read them.")
         words += [f"{standard.rstrip(':')}, with no interview, since {facts['stands_in']} says what is wanted: {read}", waits, then, correction(False, task)]
     else:
-        words += (["An investigator finds the answer first.", waits, "Then I tell you the answer."] if facts.get("question")
-                  else ["An investigator finds the cause first.", waits, "Then I tell you what it found: the fast track, the standard track, or no bug."])
+        words += (["An investigator finds the answer first.", waits, f"{teller} the answer."] if facts.get("question")
+                  else ["An investigator finds the cause first.", waits, f"{teller} what it found: the fast track, the standard track, or no bug."])
     return " ".join(word for word in words if word)
 
 

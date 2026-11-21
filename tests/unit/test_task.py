@@ -191,6 +191,11 @@ class FirstLine(unittest.TestCase):
                                        "careful: this changes how a customer is charged"], "", None, False, task="card-fee")
         self.assertTrue(said.startswith("card-fee · Careful: this changes how a customer is charged. fix:"), said)
         self.assertTrue(said.endswith("Wrong read? /lem be-careful card-fee."), said)
+        # the interview and the investigator's answer are the task's session's, never the caller's
+        self.assertIn("Standard track: an interview in its own session now,", said)
+        found = project.opening_line_of(self.task, self.main, "building", ["an investigator finds the cause", "investigation: bug", "type: fix, because x"],
+                                        "", None, False, task="card-fee")
+        self.assertTrue(found.endswith("Then its session tells you what it found: the fast track, the standard track, or no bug."), found)
         self.assertIsNone(project.opening_line_of(self.task, self.main, *lines[:4], True, task="footer-terms"))
 
     def test_the_words_it_quotes(self):
