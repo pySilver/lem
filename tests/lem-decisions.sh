@@ -274,7 +274,7 @@ wq state night-closed dropped "the pull request was closed on the forge" >/dev/n
 other_form=$(wq task-dir night-other --ask "The backlog item of night-other." --night "the night run" 2>&1 || true)
 nightly=$(wq waiting | field '([(t["task"], t["green"], t["night"]) for t in d["pull_requests"]], sum(1 for t in d["pull_requests"] if t["night"]))' 2>&1 || true)
 marked=$(wq tasks | field '[(t["slug"], t["night"]) for t in d if t["slug"].startswith("night-") or t["slug"] == "proposed-one"]' 2>&1 || true)
-if [ "$nightly" = "([('night-full', False, '2026-11-18'), ('night-small', True, '2026-11-18'), ('proposed-one', False, None)], 2)" ] \
+if [ "$nightly" = "([('proposed-one', False, None), ('night-small', True, '2026-11-18'), ('night-full', False, '2026-11-18')], 2)" ] \
   && [ "$marked" = "[('night-closed', '2026-11-18'), ('night-full', '2026-11-18'), ('night-merged', '2026-11-18'), ('night-small', '2026-11-18'), ('proposed-one', None)]" ] \
   && grep -qF -- "--night is the night's date, YYYY-MM-DD, not 'the night run'" <<<"$other_form" && [ "$night_mode" = alone ] \
   && [ "$(wq tasks | field '[t["mode"] for t in d if t["slug"] == "night-small"][0]')" = alone ] && [ "$back_again" = "(False, [])" ]; then
@@ -295,7 +295,7 @@ last_night=$WQ/.lem/state/night/$(date +%F).md
 printf '%s\n' '# The night' '- night-small: pull request 8, green' '- night-full: pull request 9, not green' '- night-held: the reviewer pane waits for the owner' > "$last_night"
 morning=$(wq waiting | field '([(t["task"], t["night"]) for t in d["held"]], [(t["task"], t["night"]) for t in d["pull_requests"]], d["night_report"]["file"])' 2>&1 || true)
 if [ "$no_report" = None ] && [ "$before" = None ] \
-  && [ "$morning" = "([('his-step', None), ('night-held', '2026-11-18')], [('night-full', '2026-11-18'), ('night-small', '2026-11-18'), ('proposed-one', None)], '$last_night')" ]; then
+  && [ "$morning" = "([('his-step', None), ('night-held', '2026-11-18')], [('proposed-one', None), ('night-small', '2026-11-18'), ('night-full', '2026-11-18')], '$last_night')" ]; then
   pass "in the morning the list marks a task the night held and the night's pull requests with the night, beside a day's, and names last night's report and no older one"
 else
   fail "the morning: $no_report / $before / $morning"
