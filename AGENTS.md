@@ -14,7 +14,8 @@ works, and this file says how to change it.
   `ask-owner`, `fan-out`, `show-page`, `load-skill`; the question gate, the persona panel, the
   review tool. `skills/lem/harness/README.md` is the contract. A tool's name belongs in the one
   harness file of its agent. A skill this repository ships is named by its name, which is the
-  same in every agent.
+  same in every agent: `lem-NAME`, which the owner calls as `/lem NAME`. Every skill, agent and
+  command of the plugin carries Lem's name, so that none meets a developer's own.
 - **A harness file exists only for an agent the contract was checked in.** Do not write one from
   another project's notes about an agent.
 - **A number in a skill file carries its source and date.** A rule that rests on a measurement
@@ -31,9 +32,13 @@ works, and this file says how to change it.
 - **Scripts are standard-library Python, 3.11 or newer**, print JSON for an agent to read, and
   refuse a wrong input with exit 1 and a message that names the fix. No silent default for a
   choice that is the owner's (`project.py init` with no base it can tell asks for `--base`).
+  Every string a script prints or writes for a person, its `--help` too, says "the owner";
+  comments, function docstrings and the stage files keep their voice.
 - **A change is measured by what it costs a developer on a small task** (the touches it asks of
   him, the waits, the agents it starts) as well as by what it guards.
-- **Documentation describes the current state.** No changelog paragraphs, no "previously".
+- **Documentation describes the current state.** No changelog paragraphs, no "previously". A
+  chart in `README.md` or `docs/` writes each node's and each edge's text in double quotes, and is
+  drawn once before it is committed.
 - **A maintainer's session with nobody at the terminal reads `docs/free-hour.md` first.** It works in a
   worktree of this clone, on a branch, and never pushes: `main` of this repository is what every
   project's next update of the plugin installs. The scheduled
@@ -339,7 +344,7 @@ the journey it changes; the blocks that `tests/pick.py` names once for a task, a
 `tests/all.sh` once before `main` moves. A block is never run before a change to count it: the
 counts of the last full run are the before. A rule that takes facts and returns a result is a
 unit case, a call of its function; a fact only git can show is a check in a block, in a throwaway
-repository.
+repository. A journey is run once, not once for each input.
 
 Each suite says how many checks it holds (`collected N`, `tests/checks.sh`), and a check that
 cannot run here prints a `SKIP` line of its own. A suite whose `ok` and `SKIP` lines do not add up

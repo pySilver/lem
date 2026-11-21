@@ -326,7 +326,7 @@ command when it is one. The status says who acts next, and the phase of the task
 | `building` | a lead plans or builds, or an investigator examines a bug or a question | the task's session |
 | `planned` | the plan is committed and nothing builds it: the plan talk runs, or the owner reads the plan | the defender, or the owner |
 | `held` | it waits for the owner: the interview, the criteria that wait for his yes, one more fact an investigation needs, a step that is his to do, or a breaker's document (`breaker N waits for the owner`); no choice of a build waits for him | the owner, in the task's session |
-| `blocked` | the task's session stopped on something it could not settle (a builder that ended twice with no report, a refused start), or the base is red (`the base is red`) and it waits for the task that repairs it | the owner, from "Waits for you" or in the task's session; for `the base is red`, the task that repairs the base |
+| `blocked` | the task's session stopped on something it could not settle (a builder that ended twice with no report, a refused start), or the base is red (`the base is red`) and it waits for the task that repairs it; a failure of the machinery and no choice, so its one line names what to do and it leaves no breaker's document | the owner, from "Waits for you" or in the task's session; for `the base is red`, the task that repairs the base |
 | `ready` | the report is written and the branch waits for its checks | the landing's session |
 | `landing` | the checks and the review run on it, or a builder repairs what they showed | the landing's session |
 | `open` | it is proposed: its pull request is open on GitHub | the merge agent reads it and merges it; the owner, when it calls him |
