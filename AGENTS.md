@@ -219,6 +219,7 @@ ruling is reopened only by asking him.
 - [Four places are settings](docs/rulings/four-places-are-settings.md)
 - [`[tracker]` has one key](docs/rulings/tracker-has-one-key.md)
 - [`/lem read KEY` shows a ticket](docs/rulings/lem-read-key-shows-a-ticket.md)
+- [One number of days in the project's settings keeps the state folder small](docs/rulings/one-number-of-days-in-the-projects-settings-keeps-the-state-folder-small.md)
 
 ### The README, the guides and the logo
 
@@ -416,8 +417,8 @@ Each script's module docstring says what it does and why; this list says where e
 - `skills/lem/scripts/`, each a command of `lem` or a module the commands share:
   - `project.py` (`lem project`): a repository's settings and the one place of each file Lem reads
     beside them (`PLACES`), a task's state and directory, the event log, the owner's status and its
-    watch, `waiting` (the one list of what waits for the owner), and the machine's `load` and
-    `handoff` numbers.
+    watch, `waiting` (the one list of what waits for the owner), `prune` (what the state folder
+    keeps, `state.keep_days`), and the machine's `load` and `handoff` numbers.
   - `session.py` (`lem session`): a task's own session in agterm, its change of phase, its wake-up,
     the handoff's check and the copy of the talk; `session_hook.py`: the plugin's `PreCompact` and
     `SessionStart` hooks of a task's session (every source: the record of each Claude Code session of
@@ -430,7 +431,8 @@ Each script's module docstring says what it does and why; this list says where e
     tests pass on the branch and fail on the base. `decisions.py` (`lem decisions`): a task's
     decisions, each taken without the owner, and its breakers.
   - `serve.py` (`lem serve`): the machine's one board server, with the owner's acts, the jump to a
-    session, the tailnet door and the duties across tasks; `serve_hook.py`: the SessionStart hook
+    session, the tailnet door and the duties across tasks, the hourly `lem project prune` of each
+    workspace among them; `serve_hook.py`: the SessionStart hook
     that starts it. Its parts: `lem_board_model.py` (the model, pure functions over the files),
     `lem_board_pages.py` (the pages of a workspace), `lem_board_task.py` (the board of one task),
     `lem_artifacts.py` (a task's files on one map), `lem_html.py` (`h()`, which escapes every text),
@@ -464,7 +466,8 @@ Each script's module docstring says what it does and why; this list says where e
   linked by what replaced it. Its `state/`, which git ignores, is the state of a repository's Lem: the tasks, the event log,
   the night reports, the naps, the experts' folders, a panel's copies, the panels' folders
   (`panels/`, which `lem cast run-dir` makes), and `forge.json`, the board
-  server's last look at GitHub. `.lem/worktrees/` holds
+  server's last look at GitHub. `lem project prune` removes from it what is older than
+  `state.keep_days`. `.lem/worktrees/` holds
   the tasks' worktrees. `.revmux/` is the review tool's configuration for this repository.
 - The naps, an optional part: `prompts/nap.md` is written after the owner's own nap routine and
   keeps its voice (a change is tried with one real nap, and its dream is read: a brief that makes a
