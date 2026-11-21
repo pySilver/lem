@@ -197,6 +197,91 @@ Read in the code at `7971845`:
 
 Tasks 1 and 2 share no file and run at the same time. Task 3 comes after both.
 
+## Plan talk
+
+Who argued the plan: the reviewer, Codex, GPT 6.2 Sol at high effort, as its pane's status line
+showed it; the defender, Claude, Opus 5.5 at high effort, as the `defender:` line of the task's
+state gives it. Two families. 7 turns over 8 questions, within the bound of 34. Agreement carries no
+authority: the review before the pull request reads each settled position as a claim.
+
+The list, numbered as the reviewer gave it:
+
+1. **Where does the task resume after its wait?** A task queued at step 7 of "The request" resumed
+   at the build (`prompts/session.md`, "What comes next"; `phase_of` in `session.py`), so on the
+   interview's path a lead started with no interview. Repaired at the cause (Decision 7): it goes on
+   at step 8 by a line `then: PATH`, in the phase `shape`. It held on the repair's own text: the
+   interview assumes the `held` block of step 4 (`stages/interview.md`, its first paragraph), so the
+   board shows `queued` through the interview and "Waits for you" has no row
+   (`lem_board_model.py`, `settle`, `waits_of`). A design choice, design choice A below. The
+   defender added one issue to its facts: on `then: the fast track` the route passes "The fast
+   track" step 1 again, where `lem criteria approve --small` refuses a second approval.
+2. **What carries "start SLUG now" through to work?** Repaired: Decision 2 names the route, the
+   `/lem build` row of `SKILL.md` and its section of `stages/start.md`, and the lead keeps his
+   release record. It held: from another session, `cmd_open` selects a live session and returns
+   `already: true` with no wake (refuted: `stages/start.md`, "`/lem build`", already tells him to
+   type in that session); and "The fast track" step 2 ends "Then step 7 of The request", so a resumed
+   fast-track task reads step 7 again, and only the lead knows his release (not refuted). The same
+   decision as 1: design choice A.
+3. **When does Lem check a separate need?** Repaired: an order that is met falls to the need check
+   (the chart). It held: after the wait the route goes straight to step 8. Refuted with
+   `stages/plan.md`'s opening and "The fast track" step 2, which read the need again; it held a
+   second time: an interview's scout and an investigation run before either check, so a question
+   ("After X: what does the new duty of Y do ...") can end `answered` from the old code while Y is
+   open (`stages/investigate.md`, steps 1 and 4). The same decision as 1: design choice A.
+4. **How does Lem resolve a held order?** Repaired: the hold has the fixed first line `the order
+   waits for the owner`, which `prompts/session.md` routes, and his "n" is his word that no order
+   holds. It held: a bare "n" to "Queue this after X?" also means "not that task", which then starts
+   the task against Decision 3. A design choice, design choice B.
+5. **How does step 7 affect the first line and the one question?** Repaired at the cause (Decision
+   8): the order is read in step 1, the first line says the wait on every track, and one line holds
+   both guesses. It held: "Fast track, and queued after SLUG? (y/n)" mixes two choices, and its "n"
+   reads as in 4. The same decision as 4: design choice B.
+6. **What starts the task while its queued session stays selected?** Refuted first: the close
+   `--when-unselected` and the duty `open … queue` start it once he leaves the session. It held:
+   criterion 1 asks for the start when the predecessor ends. Repaired, a layer over the duty's rule
+   "no live session" (existing code): the server wakes a live session once. It held a second time:
+   the wake resumes the session while its background close still waits, and `cmd_close` closes it
+   once it is not selected and reads no state (checked by the defender in `session.py`), so the
+   resumed build is closed mid-work. A design choice, design choice C.
+7. **What keeps the order when the owner changes only the track?** Repaired at the cause: the
+   correction keeps the task queued and changes only its `then:` line. It held: the fast track's
+   brief (`prompts/small.md`) stays, and the build after the interview reads `brief.md` as the lead's
+   (`prompts/session.md`, "The build"; `stages/correct.md`, `standard-track`, writes the lead's brief).
+   The same decision as 1: design choice A.
+8. **A two-line order in a one-line state line.** Repaired: a line break becomes a space (Decision
+   1). Closed. Settled by the two, not checked by the review.
+
+The design choices, each decided by the ladder after the talk (the decisions log has each):
+
+- **A. Decision 7, where a queued task goes on** (questions 1, 2, 3, 7). The kept decision: a queued
+  task resumes at the build (`prompts/session.md`, `phase_of`), which fits a lead's queue and skips
+  the interview of a task queued at step 7. The changed one: it goes on at step 8 by its `then:`
+  line in the phase `shape`, with the issues raised against it: the stale `queued` block through the
+  interview, the second pass through "The fast track" steps 1 and 2 and step 7, the correction's
+  fast-track brief, and a scout or an investigation that runs before any need check.
+- **B. The one question and its "n"** (questions 4, 5). The plan: his "n" is his word that no order
+  holds, and one line holds every unclear read. Against it: a bare "n" is ambiguous, so it starts a
+  task he may have wanted queued after another task.
+- **C. The queue duty for a live session** (question 6). The kept rule: no live session, so the task
+  starts when he leaves its session. The layer: a wake of the live session, which the pending close
+  then ends mid-work.
+
+Each mechanism a repair added: the `then:` line and the phase `shape` of a queued task (on Decision
+7, at the cause, held); the release route through `/lem build` (on Decision 2, held); the fixed line
+`the order waits for the owner` (on Decision 3, held); the read of the order in step 1 (Decision 8,
+at the cause, held); the wake of a live queued session (a layer over the duty's rule "no live
+session" in `serve.py`, held); the queued block that a correction keeps (on Decision 7, at the
+cause, held).
+
+Raised after the first turn, not argued: none. Additions refused as unpriced: none.
+
+What changed in the plan, by question and by task: the chart and "What is there today" (1, 3, 4,
+5); Task 1 rewritten: the order read in step 1 and the first line of step 5 (5), the `then:` line
+and one-line words of step 7 (1, 8), the route of `prompts/session.md` and the drop note there (1,
+4), the release in `plan.md`, `start.md` and `SKILL.md` (2), the correction in `correct.md` (7);
+Task 2: `phase_of` (1) and the server's wake of a live queued session (6); Decisions 1, 2 and 3
+widened, 7 and 8 new.
+
 ## Decisions
 
 1. **How a reader tells his order from a need: the first line of the `queued` block.** `the owner's
