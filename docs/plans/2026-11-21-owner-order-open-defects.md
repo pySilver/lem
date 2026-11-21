@@ -130,7 +130,14 @@ Each mechanism a repair added: none of a guard, a lock, a flag or a retry. The s
 it held, and closed as a design choice. Questions 7 and 8 both named Decision 3; both closed at the
 cause, and neither was a layer.
 
-Raised after the first turn, not argued: none. Additions refused as unpriced: none.
+Raised after the first turn, not argued: none in the talk. After it, the check of the panel's
+brief for design choice A found one, not argued here: when the race of question 2 happens, the
+rewrite puts `then: the fast track` back while `/lem standard-track` already wrote the lead's
+brief over the fast track's (`stages/correct.md`, "standard-track"), so `stages/start.md`, step 3,
+starts a lead with no interview from a record that names two tracks (`track_of` gives
+`standard`). Its place: task 2, the rewrite of the queued block, and `prompts/session.md`, "A
+queued task", step 3. The review before the pull request checks it as a claim. Additions refused
+as unpriced: none.
 
 What changed in the plan, by question and by task: task 1, the entry of `lem project waiting` (6);
 task 2, the queue rule in `stages/plan.md`, `stages/start.md` and `prompts/session.md` (1), the
