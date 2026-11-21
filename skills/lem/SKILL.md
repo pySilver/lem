@@ -132,7 +132,7 @@ runs, and follow it. Do not read the others. In a task's session, `be-careful`, 
 | `learn`, `retro` | a correction becomes an edit of the file that owns the step | `stages/learn.md` |
 | `init` | onboarding: checks the machine, examines the project, interviews the owner, writes the settings and the draft profiles | `stages/init.md` |
 | `night` | unattended: takes backlog items, the smallest first, four at most (`/lem night N` takes N), and opens them one after another, each in its own session that runs it without the owner to its pull request | `stages/night.md` |
-| bare `/lem`, `status` | the one list of what waits for the owner, the board's own rows of "Waits for you" in the board's order: each breaker of a task, each task with no session, each task whose criteria wait for his yes, each step of his, each blocked task, each plan to read, each merge review that calls him, each pull request with green or not, those of the night with the night's report, each retro's proposals, and where he answers each, with one line when the sessions are not known; and the board of all tasks. In a task's session, that task's line first. A retro's proposal he answers with approve, reject or later, all on one page | `stages/status.md` |
+| bare `/lem`, `status` | the one list of what waits for the owner, the board's own rows of "Waits for you" in the board's order: each breaker of a task, each task with no session, each task whose criteria wait for his yes, each step of his, each task queued after a dropped task with "start SLUG now" and `/lem drop SLUG`, each blocked task, each plan to read, each merge review that calls him, each pull request with green or not, those of the night with the night's report, each retro's proposals, and where he answers each, with one line when the sessions are not known; and the board of all tasks. In a task's session, that task's line first. A retro's proposal he answers with approve, reject or later, all on one page | `stages/status.md` |
 | `status <task>` | the board of one task, and its session when something of it waits for him and none runs | `stages/status.md` |
 | `serve` | the board's server: `lem serve --ensure` starts it when none runs, and you say where the board is, its `url`, and its `tailscale` address when the door is open | `stages/status.md`, "The board's server" |
 | `serve tailscale`, or "put the board on my phone" | opens the tailnet door from now on (`lem serve --tailscale`) and says the address the phone opens; `serve tailscale off` closes it (`--tailscale-off`) | `stages/status.md`, "The board's server" |
@@ -217,7 +217,8 @@ so do the end of a command it runs in the background and a wake-up from the boar
 - **No count of tasks stops a start.** By day each start is the owner's own request: "Why block
   him?" (2026-11-18). `lem project may-start SLUG` refuses only a task that gets no lead (in
   `landing`, `open` or ended) and one queued `after:` a task that has not landed or been answered:
-  behind a dropped one it names the owner's "start it" and "drop it".
+  behind a dropped one it prints the commands of his "start SLUG now", which an agent runs only as
+  a `may-start` printed them after his word.
 - **What the owner has to understand is told as one run.** A decision you bring and a confusion
   the owner brings ("I thought X did Y", "why is this happening") get the same form: one
   concrete case in numbered steps, with real names and values, and where each step was read. For
@@ -320,7 +321,7 @@ command when it is one. The status says who acts next, and the phase of the task
 
 | Status | Means | Who acts |
 | --- | --- | --- |
-| `queued` | the ask is written and nothing builds it: it needs the result of the task its `after:` line names, or the owner's words put it after that task | the board's server opens its session when that task is `landed` or `answered`, or wakes it when it still runs; the owner says "start it" or "drop it" when it was dropped |
+| `queued` | the ask is written and nothing builds it: it needs the result of the task its `after:` line names, or the owner's words put it after that task | the board's server opens its session when that task is `landed` or `answered`, or wakes it when it still runs; the owner, when that task was dropped: the queued task's row of "Waits for you" names "start SLUG now" and `/lem drop SLUG` |
 | `building` | a lead plans or builds, or an investigator examines a bug or a question | the task's session |
 | `planned` | the plan is committed and nothing builds it: the plan talk runs, or the owner reads the plan | the defender, or the owner |
 | `held` | it waits for the owner: the interview, the criteria that wait for his yes, one more fact an investigation needs, a step that is his to do, or a breaker's document (`breaker N waits for the owner`); no choice of a build waits for him | the owner, in the task's session |
@@ -339,7 +340,11 @@ because the board reads them: `lead: builder` (a lead plans or builds) or `lead:
 talk's pair runs), `small change: one builder` (the fast track's one builder, which is no lead),
 `plan committed` with `N tasks`, `task N of M`, `investigation: bug` or `investigation: question`
 (an investigator works before any lead), and `type: TYPE, because WHY`, which `state` refuses in
-another form. No state line names a session: `lem session` logs `session.open`, `session.close`
+another form. Three more lines of a `queued` block have a fixed form, because `lem project state`
+reads them for the task's first line (`stages/new.md`, steps 7 and 8 of "The request"): `the
+owner's order: "HIS WORDS"`, `then: the interview`, `then: the fast track` or `then: the lead`, and
+`the one open task that fits his words`. `state` refuses a line that starts as one of the three in
+another form; every other line is free. No state line names a session: `lem session` logs `session.open`, `session.close`
 and `session.wake`, and the board knows each task's session from them.
 
 A stage's start is an event too, so that the board's time card has a start and an end for each

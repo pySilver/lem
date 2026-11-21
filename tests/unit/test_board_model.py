@@ -399,3 +399,54 @@ class MovedBase(unittest.TestCase):
             m = model(state(0, status, "it ended" if status != "open" else self.PR, task="coupon"), queued)
             t = m.by_slug["gift-note"]
             self.assertEqual((bm.after_ended(t, m), bm.after_dropped(t, m)), (ended, dropped), status)
+
+
+class AfterDropped(unittest.TestCase):
+    """A task queued after a task that was dropped is one row of "Waits for you", with the two words that
+    start it or end it, until his word (criterion 1 of docs/plans/2026-11-21-owner-order-open-defects.md)."""
+
+    GIFT = "gift-note-in-export"
+    ORDER = "export-notes-in-order"
+    # his order, its type and its path, as step 7 of "The request" writes a queued block
+    QUEUED = state(5, "queued", "the owner's order: \"After gift-note-in-export\"", "after: gift-note-in-export", "type: feat, because a new order",
+                   "then: the interview", task=ORDER)
+
+    def gift(self, status: str, minute: float = 30) -> tuple:
+        return (state(0, "building", "lead: builder", task=self.GIFT), state(minute, status, "the owner dropped it" if status == "dropped" else "task 2 of 3", task=self.GIFT))
+
+    def test_a_task_queued_after_a_dropped_task_is_one_row_with_his_two_words(self):
+        m = model(*self.gift("dropped"), self.QUEUED)
+        m.sessions = {}
+        rows = bm.waits_of(m)
+        self.assertEqual([(w["kind"], w["key"], w["after"]) for w in rows], [("after_dropped", f"after_dropped:{self.ORDER}", self.GIFT)])
+        # since the drop, which came after the task was queued
+        self.assertEqual(rows[0]["since"], bm.at(ev(30, "x")["ts"]))
+        say = bm.wait_say(rows[0])
+        self.assertEqual((say["verb"], say["start"], say["drop"]),
+                         ("gift-note-in-export was dropped: your word starts or ends this task", f"start {self.ORDER} now", f"/lem drop {self.ORDER}"))
+        self.assertEqual(say["where"], "It waited for gift-note-in-export, which was dropped, so the result it waited for never came. "
+                                       f"Type “start {self.ORDER} now” to start it without that result, or /lem drop {self.ORDER} to end it, "
+                                       "in any Lem session of this repository.")
+        # the task's own card says where he answers as the row does, not "tell the task's session", since none runs
+        self.assertEqual(bm.waits_for(m.by_slug[self.ORDER], rows)["where"], say["where"])
+
+    def test_a_need_gets_the_same_row(self):
+        need = state(5, "queued", "it needs the gift note column that gift-note-in-export adds", "after: gift-note-in-export", task=self.ORDER)
+        rows = bm.waits_of(model(*self.gift("dropped"), need))
+        self.assertEqual([(w["key"], bm.wait_say(w)["start"]) for w in rows], [(f"after_dropped:{self.ORDER}", f"start {self.ORDER} now")])
+
+    def test_no_row_behind_a_task_that_runs_or_ended_with_its_result(self):
+        for status in ("building", "landed", "answered"):
+            m = model(*self.gift(status), self.QUEUED)
+            self.assertEqual([w["key"] for w in bm.waits_of(m) if w["t"].slug == self.ORDER], [], status)
+
+    def test_the_row_is_gone_after_his_word(self):
+        # "start it": the queued block again with each line but `after:` (task 2 of the plan writes it), then the start
+        started = state(40, "queued", "the owner's order: \"After gift-note-in-export\"", "type: feat, because a new order", "then: the interview",
+                        "the owner's order was removed: \"start export-notes-in-order now\"", task=self.ORDER)
+        building = state(41, "building", "the interview runs", task=self.ORDER)
+        dropped = state(40, "dropped", "the owner dropped it", task=self.ORDER)
+        for word in ((started,), (started, building), (dropped,)):
+            m = model(*self.gift("dropped"), self.QUEUED, *word)
+            m.sessions = {}
+            self.assertEqual([w["key"] for w in bm.waits_of(m) if w["kind"] == "after_dropped"], [], word[-1]["status"])

@@ -180,6 +180,36 @@ else
   fail "the switcher: $(grep -o '<details class="ws".*</details>' <<<"$switcher" | head -c 800)"
 fi
 
+# A task queued by his order after a task he dropped is one row of "Waits for you", in the sidebar and in the view, with
+# the dropped task and the two words he types in any Lem session; it is the row lem project waiting gives, and after
+# his word it is gone. A workspace of its own, so the demo afternoon and its pictures stay as they are.
+ORD=$WORK/orders
+git init -q -b main "$ORD" && commit "$ORD" init && project --repo "$ORD" init --base main >/dev/null
+project --repo "$ORD" task-dir gift-note-in-export --ask "Add the gift note to the CSV export." >/dev/null
+project --repo "$ORD" state gift-note-in-export building "lead: builder" >/dev/null
+project --repo "$ORD" task-dir export-notes-in-order --ask "After gift-note-in-export: the export keeps the notes in their order." >/dev/null
+project --repo "$ORD" state export-notes-in-order queued "the owner's order: \"After gift-note-in-export\"" "after: gift-note-in-export" "type: feat, because a new order" "then: the interview" >/dev/null
+project --repo "$ORD" state gift-note-in-export dropped "the owner dropped it" >/dev/null
+"$PY" -B "$SERVE" --add "$ORD" >/dev/null
+OB=$SERVER/$HOST/orders
+order_page=$(got "$OB/waits")
+order_said=$(words <<<"$order_page")
+order_side=$(got "$OB/")
+order_rows=$("$PY" -c 'import re, sys; print(re.findall(r"<article class=\"wrow [^\"]*\" id=\"wait-([a-z0-9_-]+)\"", sys.stdin.read()))' <<<"$order_page")
+order_list=$(project --repo "$ORD" waiting | field '([r["key"].replace(":", "-") for r in d["rows"]], [(t["task"], t["after"]) for t in d["after_dropped"]], d["count"])')
+project --repo "$ORD" state export-notes-in-order dropped "the owner dropped it: /lem drop export-notes-in-order" >/dev/null
+order_after=$(got "$OB/waits" | "$PY" -c 'import re, sys; print(re.findall(r"<article class=\"wrow [^\"]*\" id=\"wait-([a-z0-9_-]+)\"", sys.stdin.read()))')
+"$PY" -B "$SERVE" --remove "$ORD" >/dev/null
+if [ "$order_rows" = "['after_dropped-export-notes-in-order']" ] && [ "$order_list" = "(['after_dropped-export-notes-in-order'], [('export-notes-in-order', 'gift-note-in-export')], 1)" ] \
+  && grep -qF "gift-note-in-export was dropped: your word starts or ends this task" <<<"$order_said" \
+  && grep -qF "Where you answer: It waited for gift-note-in-export, which was dropped, so the result it waited for never came. Type " <<<"$order_said" \
+  && grep -qF "start export-notes-in-order now" <<<"$order_said" && grep -qF "to start it without that result, or /lem drop export-notes-in-order to end it, in any Lem session of this repository." <<<"$order_said" \
+  && grep -qF 'id="w-after_dropped-export-notes-in-order"' <<<"$order_side" && [ "$order_after" = "[]" ]; then
+  pass "a task queued by his order after a task he dropped is one row of Waits for you, in the sidebar and the view, with the dropped task, \"start SLUG now\" and /lem drop SLUG in any Lem session, the same row lem project waiting gives, and after his word it is gone"
+else
+  fail "the row of a task queued after a dropped task: $order_rows / $order_list / $order_after / ${order_said:0:1200}"
+fi
+
 # Another name of the machine, and an address with no machine's name in it, reach the same page.
 alias=$(field '(d["aliases"] or [""])[0]' <<<"$server")
 moved=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$SERVER/shop/backlog")

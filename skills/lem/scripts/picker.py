@@ -11,8 +11,9 @@ The repository is the one the session sits in (`AGT_SESSION_PWD`), so the same c
 session lists that session's tasks.
 
 The rows come in the order a developer reads them: first what waits for the owner (a breaker's
-document, the criteria for his yes, a step of his, a task its session stopped, a plan to read, a pull
-request to merge, a task with no session), in the groups of `lem project waiting`; then the tasks that build (ACTIVE), the newest first, with a parked one after them; then the tasks that ended in the
+document, the criteria for his yes, a step of his, a task queued after a dropped one, a task its
+session stopped, a plan to read, a pull request to merge, a task with no session), in the groups of
+`lem project waiting`; then the tasks that build (ACTIVE), the newest first, with a parked one after them; then the tasks that ended in the
 last ENDED_DAYS days, the newest first; and last a row for the board of all tasks. A row's label is
 the task's ask in the owner's words, and its subtitle the state in the board's words, the track,
 the age of the newest state, and the pull request's number with green or not green.
@@ -93,7 +94,9 @@ def label(task: dict) -> str:
 def state_words(task: dict, waits: str | None) -> str:
     if waits:
         return waits
-    if task["status"] == "building" and any(line.startswith("investigation:") for line in (task["state"] or "").splitlines()[1:]):
+    # every line of the newest block, its first too, as `lem project state` writes it
+    newest = project.blocks_of(task["state"] or "")
+    if task["status"] == "building" and newest and any(line.strip().startswith("investigation:") for line in newest[0]["lines"]):
         return INVESTIGATING
     return WORDS.get(task["status"], UNKNOWN)
 
@@ -134,7 +137,11 @@ def rows(root: Path, now: datetime) -> list[dict]:
         add(breaker["task"], breaker_words(breaker["id"]))
     for entry in waiting["criteria"]:
         add(entry["task"], "Waits for you: the acceptance criteria")
-    for key in ("held", "blocked", "plans", "pull_requests", "no_session"):
+    for entry in waiting["held"]:
+        add(entry["task"])
+    for entry in waiting["after_dropped"]:
+        add(entry["task"], f"Waits for you: {entry['after']} was dropped")
+    for key in ("blocked", "plans", "pull_requests", "no_session"):
         for entry in waiting[key]:
             add(entry["task"])
     def newest(task: dict) -> str:
