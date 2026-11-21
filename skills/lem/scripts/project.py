@@ -75,9 +75,11 @@ a team that adopts Lem may have its own.
                                     gets no lead, and for a task `queued` with an `after: OTHER`
                                     line while OTHER has not landed or been answered, whether it needs
                                     OTHER's result or the owner's words put it after OTHER; the refusal
-                                    names the way out of each (a dropped OTHER leaves it queued for the
-                                    owner's word). No count of tasks stops a start: each start by day
-                                    is the owner's own request
+                                    names the way out of each. A dropped OTHER leaves it queued for the
+                                    owner's word, and the refusal prints the commands of his "start
+                                    SLUG now", from the task's newest block, which the agent runs only
+                                    when it printed them after his word. No count of tasks stops a
+                                    start: each start by day is the owner's own request
     lem project state-dir           the folder that holds every task, the event log and the night reports
     lem project serial -- COMMAND ...
                                     run one test command that two tasks cannot run at the same
@@ -300,6 +302,7 @@ import importlib
 import json
 import os
 import re
+import shlex
 import signal
 import shutil
 import subprocess
@@ -2609,6 +2612,53 @@ def queued_refusal(slug: str, after: str, other: str | None) -> str:
     )
 
 
+# The owner's words in the commands that the refusal of a task behind a dropped task prints: the agent
+# puts the words of his "start SLUG now" in their place, inside the single quotes that hold them.
+HIS_WORDS = "HIS WORDS"
+# The line of a block that is the owner's order (`stages/new.md`, step 7 of "The request"), in whatever form the rest has.
+ORDER_START = "the owner's order:"
+
+
+def after_in(lines: list[str]) -> str | None:
+    """The task that the `after:` line of a block names, read from each of its LINES, its first among
+    them, as `after_of` of the board's model reads the newest block: the refusal of `may-start` and the
+    row of "Waits for you" name the same task. None for a block with no such line."""
+    return next((found["slug"] for found in map(AFTER_LINE.fullmatch, lines) if found), None)
+
+
+def start_commands(slug: str, lines: list[str]) -> list[str]:
+    """The commands of the owner's "start SLUG now" for a task queued behind a dropped task, from the
+    LINES of its newest block, each argument quoted for the shell. A block with his order (a line that
+    starts as ORDER_START) gets the log of his words, then the block again with each of its lines but
+    the `after:` line and with the line that says his word removed the order; a need gets that block
+    alone, and no log, as step 7 of "The request" has it. HIS_WORDS stands inside single quotes."""
+    kept = [line for line in lines if not AFTER_LINE.fullmatch(line)]
+    if not any(line.startswith(ORDER_START) for line in lines):
+        return [shlex.join(["lem", "project", "state", slug, "queued", *kept])]
+    return [
+        shlex.join(["lem", "decisions", "log", slug, "--by", "owner", "--what", "the owner's order", "--chose", "start now",
+                    "--why", "his word", "--words", HIS_WORDS]),
+        shlex.join(["lem", "project", "state", slug, "queued", *kept, f'the owner\'s order was removed: "{HIS_WORDS}"']),
+    ]
+
+
+def dropped_refusal(slug: str, after: str, lines: list[str]) -> str:
+    """The refusal of `may-start` for a task queued after AFTER, which was dropped: it waits for the
+    owner's word, and the commands of his "start SLUG now", composed from the LINES of its newest block,
+    are printed whole, one to a line, for the agent to run on his word."""
+    commands = start_commands(slug, lines)
+    how = (f"Run them as printed, one command to a line, with his words as he typed them, on one line, in place of {HIS_WORDS}, "
+           f"inside its single quotes, where a single quote of his is written '\\'':" if len(commands) > 1 else "Run it as printed:")
+    return (
+        f"the task {slug!r} is queued after {after!r}, which was dropped, so the result it waited for never came: it stays queued for the owner's word, "
+        f"\"start {slug} now\" or `/lem drop {slug}`, and nothing below runs before it. On his \"start {slug} now\", or his \"start it\" for this task, "
+        f"run `lem project may-start {slug}` once more and run the commands that it prints then, never ones printed before his word: "
+        f"a correction between the two (`/lem standard-track {slug}`) changes the block they copy. {how}\n"
+        + "\n".join(commands)
+        + f"\nThen the task starts, as `stages/start.md`, \"`/lem build`\", says. On his `/lem drop {slug}`, drop it as `stages/correct.md`, \"drop\", says"
+    )
+
+
 def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
     """Exit 1 for a task that gets no lead: in the landing, proposed or ended, since a stale wake-up
     must not start one, or queued behind a task that has not landed or been answered. No count of tasks stops a
@@ -2629,19 +2679,17 @@ def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
     # A task queued behind another (`after: OTHER`) starts when that task has ended. Lem writes the line
     # for an ask that needs another's result, and a lead for a plan that does, so that it builds on what
     # the other one changed; and Lem or a lead writes it for an ask whose owner's words put it after
-    # another task, whose block's first line is `the owner's order: "HIS WORDS"`. The script reads only
-    # the `after:` line: which of the two it is, the agent that reads the refusal reads in the block.
+    # another task, whose block's first line is `the owner's order: "HIS WORDS"`. The script reads the
+    # `after:` line to tell whether it waits, from every line of the newest block as the board reads it,
+    # and behind a dropped task the order line too, to print the commands of the owner's word.
     mine = next((task for task in tasks if task["slug"] == slug), None)
-    after = next((line.split(":", 1)[1].strip() for line in (mine["state"] or "").splitlines()[1:] if line.startswith("after:")), None) if mine and status == "queued" else None
+    lines = blocks_of(mine["state"])[0]["lines"] if mine and status == "queued" and mine["state"] else []
+    after = after_in(lines)
     if after:
         other = next((task["status"] for task in tasks if task["slug"] == after), None)
         if other == "dropped":
             # what it waited for never came: whether it starts without it is the owner's word
-            raise SettingsError(
-                f"the task {slug!r} is queued after {after!r}, which was dropped, so the result it waited for never came: it stays queued for the owner's word. "
-                f"On his \"start it\", write its state `queued` again without the `after:` line (`lem project state {slug} queued \"WHY\"`) and start it; "
-                f"on his \"drop it\", `lem project state {slug} dropped \"WHY\"`",
-            )
+            raise SettingsError(dropped_refusal(slug, after, lines))
         if other not in ENDED:
             raise SettingsError(queued_refusal(slug, after, other))
     running = [task["slug"] for task in tasks if task["status"] in RUNNING and task["slug"] != slug]

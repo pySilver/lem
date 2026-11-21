@@ -7,8 +7,9 @@ a list of questions that closes with the reviewer's first turn, by its defender 
 (`stages/talk.md`).
 
 Before the plan, look at the other tasks (`lem project tasks`). When the code you read shows that
-this task builds on what another task changes and that task is not landed (its plan names the
-function, the table or the file this task needs, and the base does not have it yet), the plan
+this task builds on what another task changes and that task has not ended (it is not landed,
+answered or dropped; its plan names the function, the table or the file this task needs, and the
+base does not have it yet), the plan
 would be written against code that does not exist. Then write no plan: stop with the state
 
 ```bash
@@ -19,9 +20,10 @@ and `report.md` as `stages/build.md` gives it; then `handoff.md`, and close this
 of "The request" (`stages/new.md`) says. `lem project may-start` keeps the task in the queue until
 that task is landed or answered, and the board's server opens its session then, or wakes it when
 it still runs; its lead finds the base with the other task's change in it. When that task is
-dropped, it stays queued for the owner's word (step 7 of "The request"). Two tasks that only touch the same file
-each go on: when the first one merges, the later pull request is brought onto the base if the
-forge calls it conflicting.
+dropped, it stays queued for the owner's word (step 7 of "The request"). A dropped task is no task
+to queue behind again: what a task started past a dropped task still needs of it, its plan builds
+inside it. Two tasks that only touch the same file each go on: when the first one merges, the
+later pull request is brought onto the base if the forge calls it conflicting.
 
 An order that the owner gave stays. His order is the first line of a `queued` block of this task,
 `the owner's order: "HIS WORDS"`, or his words in the ask of `task.md` that put the whole task

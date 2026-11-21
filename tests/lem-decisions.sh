@@ -253,6 +253,50 @@ else
   fail "a task queued after a dropped task: $orphans / $answered"
 fi
 
+# His "start it" for a task queued behind a dropped task: may-start, run again on his word, prints the commands of his
+# word from the task's own block, and each runs as printed through the shell, from the repository, with his words put
+# in as the refusal says ('\'' for a single quote of his). The state then keeps his order, its type and its path, says
+# that his word removed the order, his word is on record, and the task may start. A need, here one whose first line
+# is its `after:` line, gets its block again with no log.
+WS=$WORK/start-it-repo
+LEMBIN=$PWD/bin
+git init -q -b main "$WS" && ident "$WS" && commit "$WS" start && project --repo "$WS" init --base main >/dev/null
+for slug in gift-note-in-export export-notes-in-order shows-the-note; do project --repo "$WS" task-dir "$slug" --ask "The ask of $slug." >/dev/null; done
+project --repo "$WS" state gift-note-in-export building "lead: builder" >/dev/null
+ORDER='the owner'\''s order: "After the "gift note" task"'
+REPLY='start it, it'\''s the "gift note" one'
+project --repo "$WS" state export-notes-in-order queued "$ORDER" "after: gift-note-in-export" "type: feat, because a new order" "then: the interview" >/dev/null
+project --repo "$WS" state shows-the-note queued "after: gift-note-in-export" "it needs the note that gift-note-in-export adds" "then: the lead" >/dev/null
+project --repo "$WS" state gift-note-in-export dropped "the owner dropped it" >/dev/null
+# start_it TASK: may-start on his word, then each command it printed, as printed, with his words where HIS WORDS stands
+start_it() {
+  local refusal line
+  refusal=$(project --repo "$WS" may-start "$1" 2>&1 || true)
+  while IFS= read -r line; do
+    (cd "$WS" && PATH="$LEMBIN:$PATH" bash -c "$line") >/dev/null || return 1
+  done < <("$PY" -c 'import sys; q = chr(39); [print(r.replace("HIS WORDS", sys.argv[2].replace(q, q + "\\" + q + q))) for r in sys.argv[1].splitlines() if r.startswith("lem ")]' "$refusal" "$REPLY")
+  echo "$refusal"
+}
+ordered=$(start_it export-notes-in-order 2>&1 || true)
+needed=$(start_it shows-the-note 2>&1 || true)
+# the newest block's lines, its first without the time and the status
+newest() { project --repo "$WS" tasks | field "'\n'.join([r.split(': ', 1)[1] if i == 0 else r for i, r in enumerate(next(t['state'] for t in d if t['slug'] == '$1').split('\n'))])"; }
+kept=$(newest export-notes-in-order 2>&1 || true)
+need_kept=$(newest shows-the-note 2>&1 || true)
+his_word=$("$PY" -B "$DECISIONS" --repo "$WS" list export-notes-in-order | field '"\n".join(" | ".join([c["by"], c["what"], c["chose"], c["words"]]) for c in d)' 2>&1 || true)
+no_word=$("$PY" -B "$DECISIONS" --repo "$WS" list shows-the-note | field 'len(d)' 2>&1 || true)
+may=$(project --repo "$WS" may-start export-notes-in-order 2>&1 | field 'd["running"]' 2>&1 || true)
+need_may=$(project --repo "$WS" may-start shows-the-note 2>&1 | field 'd["running"]' 2>&1 || true)
+if grep -qF "nothing below runs before it" <<<"$ordered" && grep -qF "lem project may-start export-notes-in-order\` once more" <<<"$ordered" \
+  && [ "$kept" = "$(printf '%s\n' "$ORDER" "type: feat, because a new order" "then: the interview" "the owner's order was removed: \"$REPLY\"")" ] \
+  && [ "$his_word" = "owner | the owner's order | start now | $REPLY" ] && [ "$may" = "[]" ] \
+  && grep -qF "queued after 'gift-note-in-export', which was dropped" <<<"$needed" \
+  && [ "$need_kept" = "$(printf '%s\n' "it needs the note that gift-note-in-export adds" "then: the lead")" ] && [ "$no_word" = 0 ] && [ "$need_may" = "[]" ]; then
+  pass "his \"start it\" for a task queued behind a dropped task runs the commands may-start prints on his word, as printed through the shell, with a double quote and an apostrophe of his: the state keeps his order, its type and its path and says his word removed the order, his word is on record and the task may start; a need, whose first line is its after: line, gets its block again with no log"
+else
+  fail "his start of a task behind a dropped task: $ordered / $needed / $kept / $need_kept / $his_word / $no_word / $may / $need_may"
+fi
+
 # The one list of what waits for the owner: a breaker, criteria that wait for his yes, a step of his, a pull
 # request with green or not whose merge review calls him, and a retro's proposals.
 wq() { project --repo "$WQ" "$@"; }

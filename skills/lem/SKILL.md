@@ -217,7 +217,8 @@ so do the end of a command it runs in the background and a wake-up from the boar
 - **No count of tasks stops a start.** By day each start is the owner's own request: "Why block
   him?" (2026-11-18). `lem project may-start SLUG` refuses only a task that gets no lead (in
   `landing`, `open` or ended) and one queued `after:` a task that has not landed or been answered:
-  behind a dropped one it names the owner's "start it" and "drop it".
+  behind a dropped one it prints the commands of his "start SLUG now", which an agent runs only as
+  a `may-start` printed them after his word.
 - **What the owner has to understand is told as one run.** A decision you bring and a confusion
   the owner brings ("I thought X did Y", "why is this happening") get the same form: one
   concrete case in numbered steps, with real names and values, and where each step was read. For
