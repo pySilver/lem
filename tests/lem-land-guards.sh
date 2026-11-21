@@ -191,7 +191,7 @@ c2=$(g merge guarded --by owner 2>&1 || true)
 unlanded=$(git -C "$GRD" rev-parse main)
 g start guarded >/dev/null && g base guarded >/dev/null && g checks guarded >/dev/null && g read guarded --record "$(clean 2)" >/dev/null \
   && g propose guarded --title "fix: y" --notes "$NOTES" >/dev/null && g merge guarded --by owner >/dev/null || true
-if grep -qF "is not a file; --notes names the notes" <<<"$no_notes" && grep -qF -- "--title is one line" <<<"$two_lines" && [ "$unwritten" = none ] \
+if grep -qF "is not a file; --notes names a file" <<<"$no_notes" && grep -qF -- "--title is one line" <<<"$two_lines" && [ "$unwritten" = none ] \
   && grep -qF "no green check is on record for this tip" <<<"$c3" \
   && grep -qF "no green check is on record for this tip" <<<"$ungated" \
   && grep -qF "the branch's tip is not the tip that was proposed" <<<"$c2" \

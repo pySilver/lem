@@ -6,6 +6,7 @@ repositories; here a rule gets the text git gave and is asked for its result.
 
 import importlib
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -389,3 +390,37 @@ class MovedBase(unittest.TestCase):
         self.assertIsNone(gone)
         self.assertIn("not the ones the owner saw", why)
         self.assertEqual(land.tap_after(None, "aaa", "bbb", rebased, []), (None, None))
+
+
+class TaskFile(unittest.TestCase):
+    """A file a step names: from the working directory, else by its path inside the task directory."""
+
+    def setUp(self) -> None:
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.here = Path(folder.name) / "main"
+        self.directory = Path(folder.name) / "state" / "tasks" / "gift-note"
+        (self.directory / "reviews").mkdir(parents=True)
+        self.here.mkdir()
+        (self.directory / "reviews" / "review-1.json").write_text("{}", encoding="utf-8")
+
+    def test_a_relative_path_that_the_working_directory_lacks_is_the_task_directorys(self) -> None:
+        found = land.task_file("reviews/review-1.json", "--record", self.directory, self.here)
+        self.assertEqual(found, str(self.directory / "reviews" / "review-1.json"))
+
+    def test_the_working_directory_comes_first(self) -> None:
+        (self.here / "reviews").mkdir()
+        (self.here / "reviews" / "review-1.json").write_text("{}", encoding="utf-8")
+        self.assertEqual(land.task_file("reviews/review-1.json", "--record", self.directory, self.here), str(self.here / "reviews" / "review-1.json"))
+
+    def test_a_file_in_neither_place_is_refused_with_both(self) -> None:
+        with self.assertRaises(land.LandError) as caught:
+            land.task_file("notes.md", "--notes", self.directory, self.here)
+        self.assertIn(str(self.here / "notes.md"), str(caught.exception))
+        self.assertIn(str(self.directory / "notes.md"), str(caught.exception))
+
+    def test_an_absolute_path_is_taken_as_it_is(self) -> None:
+        absolute = self.directory / "reviews" / "review-1.json"
+        self.assertEqual(land.task_file(str(absolute), "--record", self.directory, self.here), str(absolute))
+        with self.assertRaises(land.LandError):
+            land.task_file(str(self.here / "missing.json"), "--record", self.directory, self.here)

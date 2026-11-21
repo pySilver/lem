@@ -140,8 +140,7 @@ landing up as after a cut-off.
    lower) and the task's plan. For a red command of the checks the builder runs the same command on the
    base. A failure the change caused, it fixes and commits, and the landing goes on from step
    2. A failure the base already has is not this task's to carry and not these checks' to hide:
-   open a task for the failing command ("Open the task" of `stages/new.md`, with no talk and no
-   focus), write this task's state as `blocked` with the lines `the base is red` and `after: SLUG`
+   open a task for the failing command ("Open the task" of `stages/new.md`, with no talk), write this task's state as `blocked` with the lines `the base is red` and `after: SLUG`
    of that new task, and `run-in-background` with `lem session wait SLUG --until
    landed,dropped,answered`, SLUG being the new task. When it ends with `"gone": true`, that task's
    session is gone: open it again once, `lem session open SLUG --why dead`, and wait again; a second
@@ -173,8 +172,9 @@ landing up as after a cut-off.
      check, and nobody decides that by a list of paths. It runs the review, confirms each
      finding against the code, and writes `reviews/review-N.md` and `reviews/review-N.json` in
      the task directory, N being the `attempt` of `read.json`, and replies with their paths. It
-     records nothing: when it replies, you run `lem land read SLUG --record reviews/review-N.json`,
-     which writes the review down. The step refuses a record under the floor, one with no careful call, a careful
+     records nothing: when it replies, you run `lem land read SLUG --record reviews/review-N.json`
+     (a relative path the main checkout lacks is read in the task directory), which writes the
+     review down. The step refuses a record under the floor, one with no careful call, a careful
      call with less than the full set, and one whose `attempt` is not the number `read.json`
      gave: a record that is sent twice counts once. A careful call the plan did not make is
      written down as a `careful.missed` event, for the retro.
@@ -206,8 +206,8 @@ landing up as after a cut-off.
    it is. It is green when the second round left no must-fix and nothing changed after it, and
    not green otherwise.
 6. **`propose`**, with `--title` and `--notes`. The title is the report's commit subject. The
-   notes are a file you write in the task directory, `notes.md`, from `report.md` and the last
-   review's file. The fast track's notes are the should findings the review left, one line each
+   notes are a file you write in the task directory, `notes.md` (`--notes notes.md`), from
+   `report.md` and the last review's file. The fast track's notes are the should findings the review left, one line each
    with its file, or the one word `none`, and `## Migration` when it is careful. Every other
    request's have these headings, each holding what is true of this task or the one word `none`:
    - `## Decisions`: what the record of the task's decisions does not hold, one line each: what

@@ -59,6 +59,11 @@ and `read --record` are their ends. The checks keep the names their step had bef
 the checks: the events `gate`, `gate.start` and `gate.end`, the folder `gate/` of a task's directory and
 `gated` in `landing.json`, which open tasks and the board read.
 
+A FILE of `read --record`, `propose --notes` and `merge-review --file` is read from the working
+directory, and a relative one that is not there is read from the task's directory (`task_file`): a
+task's session stands in the main checkout, and the files are the task directory's
+(`reviews/review-1.json`, `notes.md`, `merge-answer.md`).
+
 One step of a task runs at a time. Every step here that names a task takes the task's one step
 lock (`step.lock` in its directory) before anything else it does, and holds it until it ends,
 however it ends; the first thing it writes there is its name, its process id and its start. A step
@@ -2562,6 +2567,22 @@ def cmd_file(task: Task, again: bool) -> dict:
     return {"task": task.slug, "filed": filed, "same": same, "named": named, "gone": gone, "tip": tip}
 
 
+def task_file(value: str, flag: str, directory: Path, here: Path) -> str:
+    """The file a step's FLAG names: VALUE from the working directory HERE (or an absolute path), else a
+    relative VALUE in the task's DIRECTORY. A LandError that names each place it looked when neither
+    has it."""
+    given = Path(value)
+    first = given if given.is_absolute() else here / given
+    if first.is_file():
+        return str(first)
+    if given.is_absolute():
+        raise LandError(f"{value} is not a file; {flag} names a file, by its path or by its name in the task directory {directory}")
+    second = directory / given
+    if second.is_file():
+        return str(second)
+    raise LandError(f"{value} is not a file in the working directory ({first}) nor in the task directory ({second}); {flag} names a file by its path, or by its path inside the task directory")
+
+
 def cmd_read(task: Task, record: str | None) -> dict:
     task.need_landing()
     task.need_worktree()
@@ -3781,14 +3802,15 @@ def step(task: Task, args: argparse.Namespace) -> dict:
         return cmd_polish(task, args.done)
     if args.command == "checks":
         return cmd_checks(task)
+    here = Path.cwd()
     if args.command == "read":
-        return cmd_read(task, args.record)
+        return cmd_read(task, args.record and task_file(args.record, "--record", task.directory, here))
     if args.command == "file":
         return cmd_file(task, args.again)
     if args.command == "propose":
-        return cmd_propose(task, args.title, args.notes)
+        return cmd_propose(task, args.title, task_file(args.notes, "--notes", task.directory, here))
     if args.command == "merge-review":
-        return cmd_merge_review(task, args.file)
+        return cmd_merge_review(task, args.file and task_file(args.file, "--file", task.directory, here))
     if args.command == "merge":
         return cmd_merge(task, args.by, args.message, args.via, args.standing)
     if args.command == "merged":
