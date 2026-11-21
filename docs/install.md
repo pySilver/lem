@@ -19,8 +19,8 @@
 
 ## Install
 
-Run these two commands at the root of your repository. Commit `.claude/settings.json` to give Lem
-to your team.
+Run these two commands at the root of your repository. `/lem init` commits `.claude/settings.json`
+for your team.
 
 ```bash
 claude plugin marketplace add pySilver/lem --scope project
@@ -108,8 +108,8 @@ claude plugin update lem@lem --scope project
 3. If no other repository uses Lem, type `/lem serve tailscale off` and `/lem serve stop`.
 4. Run `claude plugin uninstall lem@lem --scope project`.
 5. Run `claude plugin marketplace remove lem --scope project`.
-6. Remove Lem's allow rules from `.claude/settings.json`.
-7. Run `git rm -r .lem`, and commit with step 6.
+6. Remove Lem's allow rules from `.claude/settings.local.json`.
+7. Run `git rm -r .lem`, and commit.
 8. Delete the folder `.lem/`.
 9. If no other repository uses Lem, delete `~/.config/lem/`, `~/.cache/lem-ask/` and
    `$TMPDIR/lem-ask/`.

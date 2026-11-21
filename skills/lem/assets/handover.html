@@ -285,22 +285,15 @@
       <li>THE ASSUMPTION AND ITS VALUE <span class="dim">(<code>WHERE IT WAS READ</code>, OR THE DEFAULT)</span>: <code>change WORDS</code></li>
       <!-- always, this line word for word: "land" approves it -->
       <li>Lem pushes each task's branch and opens its pull request on GitHub without asking</li>
-      <!-- always: how Lem asks, the three models, and the allow list -->
+      <!-- always: how Lem asks, the three models, and the plugin's file -->
       <li>Lem asks with its own page, <code>lem-ask</code>, with the options side by side, and opens a text for you to mark up with webrev</li>
       <li>a task runs on three models: the builder on Opus at high effort, and the experts, the newest Fable of Anthropic and the newest Astra of OpenAI through Codex <span class="dim">(<code>agents/lem-builder.md</code>, <code>seats.experts</code>)</span>: <code>change experts SEAT SEAT</code></li>
       <!-- only when the machine check found no Codex -->
       <li>no Codex here: one expert answers alone and its pick settles a choice the experts take, not green, and the panel's second family does not answer <span class="dim">(the machine check's <code>codex</code> row)</span></li>
       <li>Lem assumes that Claude Code and Codex run in auto mode: a builder works in the background, and a permission prompt stops it until you answer <span class="dim">(the machine check's <code>permission mode</code> row)</span></li>
-      <li>N rules in <code>.claude/settings.json</code> let a builder in the background run Lem's commands, git's and the checks' without a question; a new session here starts in MODE <span class="dim">(<code>permissions.allow</code>)</span>: <code>change allow none</code>
-        <ul class="dim mono">
-          <li>Bash(lem *), Bash(lem-ask *), Bash(lem-jev *)</li>
-          <li>Bash(git worktree add *), Bash(git add *), Bash(git commit *), Bash(git rm *), Bash(git mv *)</li>
-          <li>Bash(agtermctl msg send *), Bash(agtermctl session overlay open *), Bash(agtermctl session new *), Bash(agtermctl session split *), Bash(agtermctl session type *), Bash(agtermctl session close *), Bash(agtermctl session rename *), Bash(agtermctl session context *), Bash(agtermctl session text *), Bash(agtermctl tree *)</li>
-          <li>Bash(mailbox-chat.py *), Bash(revmux *), Bash(codex exec *)</li>
-          <li>Edit(/.lem/worktrees/**)</li>
-          <li>Bash(COMMAND), one for each command of checks.commands, checks.serial and checks.setup</li>
-        </ul>
-      </li>
+      <!-- one of the two: the onboarding's commit holds the plugin's file, or the file is the developer's -->
+      <li>the plugin is installed for everyone who clones this repository <span class="dim">(<code>.claude/settings.json</code>, in the commit)</span>: <code>change plugin mine</code></li>
+      <li><code>.claude/settings.json</code> holds KEYS beside the plugin's, so it stays out of the commit: commit it yourself to give Lem to everyone who clones this repository</li>
       <!-- one of the two, as branch.land says: who merges here -->
       <li>a fresh merge agent reads each proposed task and merges a green one that is not careful; a careful one, or one that is not green, waits for your merge with its review <span class="dim">(<code>branch.land = "agent"</code>)</span>: <code>change land owner</code></li>
       <li>a fresh merge agent reads each proposed task and writes its review, and you merge each one <span class="dim">(<code>branch.land = "owner"</code>)</span>: <code>change land agent</code></li>
@@ -317,7 +310,8 @@
     <!-- one line each, none a question: the correction queue with what a yes sends where (a yes
          puts corrections.collect = true into the settings draft; the hook comes with the plugin), each
          recommended tool that is absent with its guide, cronn, the scheduled jobs, the paragraph
-         for AGENTS.md -->
+         for AGENTS.md, and the allow rules when a new session here starts in no auto mode, with the
+         line that takes them: ! cp .lem/state/tasks/onboarding/settings.proposed.json .claude/settings.local.json -->
     <ul>
       <li><b>NAME</b> WHAT IT GIVES, AND WHAT A YES DOES</li>
       <li><b>naps</b> now and then, after a task ends, an agent reads the recent tasks and leaves a note for the retro. It costs an agent's session of some minutes, a few times a day while Lem works, and nobody has shown that it helps. A yes sets <code>naps.on = true</code>.</li>

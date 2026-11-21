@@ -161,13 +161,15 @@ Then edit `.lem/project.toml` with the three answers and the assumptions of step
   spend the builders'; otherwise a second Claude. Keep the three lines as written;
 
 Lem assumes that Claude Code and Codex run in auto mode: a builder works in the background, and a
-permission prompt stops it until someone answers. Then the allow list, in the repository's tracked
-`.claude/settings.json` on the onboarding's branch: in auto mode a rule that allows a command
-skips the classifier, which once blocked a landing step (2026-11-18), and in the `default` or
-`acceptEdits` mode each command that no rule allows asks for permission in the task's session, where
-the task waits, at night with nobody to answer (the machine check's `permission mode` row says
-which mode a new session starts in here). Add these rules to `permissions.allow`, each one that is not there yet, and never take
-one out or change another key of the file:
+permission prompt stops it until someone answers. Lem never writes `.claude/settings.json` or any
+other file of permission rules: an agent does not write its own permissions, and auto mode refuses
+the write (a scratch repository, 2026-11-21). In the `default` or `acceptEdits` mode each command
+that no rule allows asks for permission in the task's session, where the task waits, at night with
+nobody to answer (the machine check's `permission mode` row says which mode a new session starts in
+here). For a developer in such a mode the rules are an offer of step 6: write
+`settings.proposed.json` in the onboarding's directory, his `.claude/settings.local.json` as it is
+(`{}` when there is none) with these rules added to `permissions.allow`, each one that is not there
+yet, and no rule taken out and no other key changed:
 
 - `Bash(lem *)`, `Bash(lem-ask *)`, `Bash(lem-jev *)`;
 - `Bash(git worktree add *)`, `Bash(git add *)`, `Bash(git commit *)`, `Bash(git rm *)`, `Bash(git mv *)`;
@@ -183,10 +185,9 @@ one out or change another key of the file:
   as written: `Bash(COMMAND)`. A command joined with `&&` needs each of its parts allowed, so
   write one rule for each part.
 
-The rules are the owner's to change on the page like any assumption ("change allow none" takes
-them all out again). They allow no push, no merge and no command of the project beyond its
-checks. No rule asks the owner at a merge: every merge goes through the task's pull request on GitHub,
-under GitHub's own rules.
+They allow no push, no merge and no command of the project beyond its checks. No rule asks the
+owner at a merge: every merge goes through the task's pull request on GitHub, under GitHub's own
+rules.
 
 Run each command of the checks once, at the root, for the last line the hand-over page shows, and each
 `checks.serial` command through `lem project serial -- COMMAND`. Then look at
@@ -241,6 +242,13 @@ persona file that is there is overwritten.
 Commit the settings and the generated files on a branch of their own, `chore/lem-onboarding`.
 It is not landed yet: the owner's read of the drafts is the review.
 
+`.claude/settings.json` goes into that commit when git does not track it yet and it holds only what
+`claude plugin marketplace add` and `claude plugin install lem@lem --scope project` wrote there:
+`extraKnownMarketplaces` with the one entry `lem`, and `enabledPlugins` with the one entry
+`lem@lem`. With it in git, everyone who clones the repository gets Lem. A file that holds anything
+else, or that git tracks already, is the developer's: leave it out of the commit, and name it on the
+page with the keys it holds beside the plugin's. He commits it himself, and nothing waits for it.
+
 `show-page` one page to the owner, a companion beside the session, built from the pattern `SKILL_DIR/assets/handover.html`: copy
 that file, `SKILL_DIR/assets/lem.css` and `SKILL_DIR/assets/lem.js` into the onboarding's directory, put the facts in the
 place of its words in capitals and of its example rows, repeat a block as the content needs and
@@ -267,8 +275,10 @@ which one holds. The three models a task runs on: the builder on Opus at high ef
 the experts, the newest Fable of Anthropic through Claude Code and the newest Astra of OpenAI
 through Codex (`seats.experts`; "change experts SEAT SEAT"), with a word when the machine check
 found no Codex: then one expert answers alone and its pick settles a decision the experts take, not
-green, and the panel's second family does not answer. And the allow list: the rules written into `.claude/settings.json`,
-in one line with their count and the mode a new session starts in ("change allow none"). With git hooks, one line says, in these words, why the
+green, and the panel's second family does not answer. And the plugin's file: "the plugin is installed for
+everyone who clones this repository" (`.claude/settings.json`, in the commit; "change plugin mine"
+takes it out of the commit and leaves it untracked), or the line that names the file as his to
+commit. With git hooks, one line says, in these words, why the
 checks have only tests: "the git hooks run the rest at each commit of a builder" (the hook files;
 "change checks add COMMAND"). With a sign of a suite that needs the machine to itself, one line
 names your guess for `checks.serial` with the file the sign is in ("change serial COMMAND", "change
@@ -312,6 +322,10 @@ as corrections: edit, commit on the same branch, say for each file what changed.
   step 1 stopped for it;
 - **the scheduled jobs** of step 7, when cronn runs;
 - **a paragraph for the project's agent document** (step 5);
+- **the allow rules**, only when the `permission mode` row shows no auto mode: their count, what they
+  let a builder run with no question, and the one line he types to take them, with the path of
+  `settings.proposed.json` from the root:
+  `! cp .lem/state/tasks/onboarding/settings.proposed.json .claude/settings.local.json`;
 - **naps**: now and then, after a task ends, a fresh agent reads the recent tasks, dreams, and
   writes the dream down for the retro (`stages/nap.md`). What it
   costs: an agent's session of some minutes, a few times a day while Lem works. Nobody has shown
@@ -335,7 +349,9 @@ The page and your last message end with the three replies you take, in these wor
   the owner took it for a refusal of a landing that then happened (2026-11-15).
 - **change** and what: you edit, commit, and show the file again.
 - **drop**: you remove the branch and the onboarding's directory, and say what stays on the
-  machine: Lem's plugin and a scheduled job.
+  machine: Lem's plugin and a scheduled job. When the branch holds `.claude/settings.json`, the file
+  leaves the working tree as the base branch is checked out: write it back as it was, untracked, so
+  that the plugin stays installed here.
 
 The first onboarding ended on "Read these three first" over a list of paths and on a
 `git switch` and `git merge` line for the owner, in a project whose settings said the agent

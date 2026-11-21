@@ -492,7 +492,7 @@ def permission_mode() -> list[dict]:
             "a builder asks nobody" + ("; the classifier may still refuse a step, which the owner then runs himself" if mode == "auto" else "")
             if silent else
             f"{meets}. {TO_AUTO}. "
-            "Until then the allow list that /lem init proposes for the repository's .claude/settings.json holds Lem's commands, git's and the checks'"
+            "Until then, the allow rules that /lem init offers for .claude/settings.local.json hold Lem's commands, git's and the checks'"
         ),
     }]
 
