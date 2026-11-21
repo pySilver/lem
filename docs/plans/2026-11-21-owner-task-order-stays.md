@@ -278,13 +278,20 @@ The design choices, each decided by the ladder after the talk (the decisions log
   the interview of a task queued at step 7. The changed one: it goes on at step 8 by its `then:`
   line in the phase `shape`, with the issues raised against it: the stale `queued` block through the
   interview, the second pass through "The fast track" steps 1 and 2 and step 7, the correction's
-  fast-track brief, and a scout or an investigation that runs before any need check.
+  fast-track brief, and a scout or an investigation that runs before any need check. The gate's
+  judge added a third option: the shape runs at once and only the build waits. Decided: the changed
+  decision with its issues fixed in the route's text, decision 11, by the lead, unsettled (gate held;
+  personas both for the third option; the dialectic confirmed a break of it; the experts split).
 - **B. The one question and its "n"** (questions 4, 5). The plan: his "n" is his word that no order
   holds, and one line holds every unclear read. Against it: a bare "n" is ambiguous, so it starts a
-  task he may have wanted queued after another task.
+  task he may have wanted queued after another task. Decided: a question that names its three
+  answers (this task, another task by name, no order), decision 10, by the dialectic, with the
+  change of criterion 4's example recorded (gate held; personas both for it; no break).
 - **C. The queue duty for a live session** (question 6). The kept rule: no live session, so the task
   starts when he leaves its session. The layer: a wake of the live session, which the pending close
-  then ends mid-work.
+  then ends mid-work. Decided: the wake, and a close that gives up on a session woken after it
+  started, decision 9, by the gate (checkable: criterion 1, step 5, and the server's ruling in
+  `AGENTS.md`).
 
 Each mechanism a repair added: the `then:` line and the phase `shape` of a queued task (on Decision
 7, at the cause, held); the release route through `/lem build` (on Decision 2, held); the fixed line
