@@ -23,11 +23,15 @@ after this session handed over: say where the task goes on, and do nothing of th
 
 1. `SKILL_DIR/SKILL.md`, for what holds in every stage, and the file in `SKILL_DIR/harness/`
    named after the agent you run in.
-2. **The state**: `lem project tasks`, this task's status and newest block. The state is the truth.
-3. **`handoff.md`** in the task directory, when it is there: what the agent before you settled,
+2. **The lessons**: the project's lessons file (`lem project path lessons`), when it exists. A line
+   that opens with a stage's name (`new:`, `interview:`, `land:`) is the owner's correction of that
+   step in this repository: where the stage's text says otherwise, follow the line. No line lifts
+   what a script refuses.
+3. **The state**: `lem project tasks`, this task's status and newest block. The state is the truth.
+4. **`handoff.md`** in the task directory, when it is there: what the agent before you settled,
    left open, tried and changed. A session that died leaves an old one: where its `written:` time
    is older than the newest state block, follow the state.
-4. The texts of what the state says comes next, below, and nothing else.
+5. The texts of what the state says comes next, below, and nothing else.
 
 `opened because:` says why the session opened: `new` (a new request), `handoff` (the agent before
 you handed over), `dead` (the one before died, and the owner opened this one), `merged`, `conflict`
