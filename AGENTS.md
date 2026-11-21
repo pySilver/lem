@@ -55,11 +55,14 @@ works, and this file says how to change it.
 - **A ruling that replaces another takes its bullet's place**, and git keeps the old one. A ruling
   that changes a part of another changes that bullet's words. A bullet leaves the list only on the
   owner's word.
-- **A rule that a test now holds may move to `docs/rulings/history.md`, on his word**, as one line
-  with the test's name, which `tests/unit/test_agents_md.py` finds or fails.
-- **A choice of the maintaining session that no code and no test can show is a bullet of the
-  list's last part**, "Choices of the maintaining session", with `decided` before its day. Every
-  other choice of the session is in the message of the commit that made it.
+- **A rule that a test or one place now holds may move to `docs/rulings/history.md`, on his
+  word**: a line of its first part with the test's name, which `tests/unit/test_agents_md.py` finds
+  or fails, or a line of its second part with the place's path. A rule goes back to the list when
+  its test or its place no longer holds it: the session that sees it moves it at once and tells him.
+- **A new choice of the maintaining session is a bullet of the list's last part**, "Choices of the
+  maintaining session", with `decided` before its day, **when no code, test or text can show it**;
+  otherwise it is in the message of the commit that made it. The `decided` lines of the history are
+  the choices that were files until 2026-11-21 and that a test or one place holds.
 
 ## The owner's rulings
 
