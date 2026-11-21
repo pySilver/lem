@@ -182,6 +182,19 @@ class Phase(unittest.TestCase):
         queued = {"slug": SLUG, "status": "queued", "state": "2026-11-21T10:00Z queued: needs the column\nafter: coupon"}
         self.assertEqual(session.queued_behind(queued, [queued, {"slug": "coupon", "status": "open"}]), "coupon")
         self.assertIsNone(session.queued_behind(queued, [queued, {"slug": "coupon", "status": "landed"}]))
+        self.assertIsNone(session.queued_behind(queued, [queued, {"slug": "coupon", "status": "answered"}]))
+
+    def test_a_task_queued_behind_a_dropped_task_waits_for_the_owners_word(self):
+        queued = {"slug": "export-notes-in-order", "status": "queued",
+                  "state": "2026-11-22T10:00Z queued: needs the gift note\nafter: gift-note-in-export"}
+        dropped = {"slug": "gift-note-in-export", "status": "dropped"}
+        self.assertEqual(session.queued_behind(queued, [queued, dropped]), "gift-note-in-export")
+        said = session.behind_refusal("export-notes-in-order", "gift-note-in-export", "dropped")
+        self.assertIn("'gift-note-in-export', which was dropped: it waits for the owner's word, which starts it or drops it", said)
+        self.assertIn("lem project may-start export-notes-in-order", said)
+        # his "start export-notes-in-order now" writes it queued again without the `after:` line
+        started = dict(queued, state="2026-11-22T11:00Z queued: the owner's order was removed: \"start export-notes-in-order now\"\n\n" + queued["state"])
+        self.assertIsNone(session.queued_behind(started, [started, dropped]))
 
     def test_the_after_line_is_read_from_every_line_its_first_too(self):
         # as `may-start` and the board read it: a block whose first line is `after: coupon`
