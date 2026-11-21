@@ -26,7 +26,9 @@ or `queue` (the board's server opened it for that), `night`, or `owner` (his wor
 
 - **The shape**: no state block yet, a new request: "The request" of `SKILL_DIR/stages/new.md`.
   `held` with `the interview waits for the owner`, or with `the criteria wait for the owner`:
-  `SKILL_DIR/stages/interview.md`, from where its files stand.
+  `SKILL_DIR/stages/interview.md`, from where its files stand. `held` with `the investigation
+  waits for one more fact`: his answer, then a fresh investigator (`SKILL_DIR/stages/investigate.md`,
+  step 4, *not reproduced*).
 - **The fast track**: a block with `small change: one builder`, or `criteria.md` that says `Size:
   small` with no lead: "The fast track" of `SKILL_DIR/stages/new.md`. It stays one session up to
   the merge: its builder is a subagent, and the landing runs here.

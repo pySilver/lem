@@ -158,10 +158,11 @@ owner reads.
   small ones in place and files the others in the backlog (`stages/land.md`, step 3), with those
   of the interview's `outside.md`;
 - **worth a look**: up to three places of the change a person's eye is worth, each with why;
-  and, for a careful task, whether the change holds a migration and how to revert it. Lem
-  copies these into the pull request;
-- **the commit subject**: one semantic line for the whole task (`type(scope): subject`). Lem
-  uses it when the project lands a task as one commit;
+  and, for a careful task, whether the change holds a migration and how to revert it. The
+  landing puts these into the pull request's notes (`stages/land.md`, step 6);
+- **the commit subject**: one semantic line for the whole task (`type(scope): subject`). The
+  landing makes it the pull request's title, and the one commit's subject where
+  `branch.history` is `"squash"` (`stages/land.md`, steps 6 and 8);
 - **the branch and its tip**: the branch's name and the commit `git -C WORKTREE rev-parse HEAD` prints.
 
 Then write the state: `ready`, and the landing comes, a phase of its own (`prompts/session.md`,
