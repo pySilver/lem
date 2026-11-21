@@ -11,9 +11,14 @@ A companion session of the lead's, `SLUG · plan talk`, which runs Claude Code w
 1. **Open it**:
 
    ```bash
-   agtermctl session new --parent "$AGTERM_SESSION_ID" --cwd MAIN --name "SLUG · plan talk" --no-select \
-     --command "LOGIN_SHELL -l -c 'claude --model MODEL --effort EFFORT \"Read BRIEF and follow it.\"'" --socket "$AGTERM_SOCKET"
+   agtermctl session new --parent "$AGTERM_SESSION_ID" --cwd "MAIN" --name "SLUG · plan talk" --no-select \
+     --command "LOGIN_SHELL -l -c 'claude --model \"MODEL\" --effort \"EFFORT\" \"Read BRIEF and follow it.\"'" --socket "$AGTERM_SOCKET"
    ```
+
+   Keep every quote of the line: the login shell reads the inner command, and zsh stops a bare
+   model such as `opus[1m]` with "no matches found". A path with a quote, a `$`, a backquote or a
+   backslash breaks the line; then tell the owner in one line that the pair cannot open from that
+   checkout, and hold the task.
 
    `MAIN` is the main checkout, where the task's session stands too: the pair has the plugin and
    the folder's own Claude Code settings there, and reaches the task's worktree by its path, as

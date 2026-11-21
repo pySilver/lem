@@ -38,9 +38,18 @@ rm -f "$CALLS"
 first=$(sess open gift-note --why new 2>&1 || true)
 second=$(AS="" sess open gift-note --why dead 2>&1 || true)
 focused=$(sess open gift-note --focus 2>&1; echo "exit $?")
-made=$(calls_of session new)
+# the launch line as its two levels read it: agterm's words, then the login shell's words of the -c string
+made=$(calls_of session new | "$PY" -c 'import json, shlex, sys
+call = json.loads(sys.stdin.read())
+at = call.index("--command") + 1
+outer = shlex.split(call[at])
+call[at] = outer[:3] + [shlex.split(outer[3])]
+print(json.dumps(call))')
 want=$("$PY" -c 'import json, sys; print(json.dumps(sys.argv[1:]))' session new --workspace W-MINE --cwd "$R" --name gift-note --no-select --command \
-  "$SHELL_LINE -l -c 'LEM_TASK=gift-note CLAUDE_CODE_AUTO_COMPACT_WINDOW=600000 claude --plugin-dir \"$PWD\" \"Read $STATE/tasks/gift-note/session.md and follow it.\"'" --json --socket "$WORK/agterm.sock")
+  --json --socket "$WORK/agterm.sock" | "$PY" -c 'import json, sys
+call = json.loads(sys.stdin.read())
+call.insert(call.index("--command") + 1, [sys.argv[1], "-l", "-c", ["LEM_TASK=gift-note", "CLAUDE_CODE_AUTO_COMPACT_WINDOW=600000", "claude", "--plugin-dir", sys.argv[2], f"Read {sys.argv[3]} and follow it."]])
+print(json.dumps(call))' "$SHELL_LINE" "$PWD" "$STATE/tasks/gift-note/session.md")
 brief=$(cat "$STATE/tasks/gift-note/session.md" 2>/dev/null || true)
 if [ "$(field '(d["session"], d["phase"], d["already"])' <<<"$first" 2>&1)" = "('S-1', 'shape', False)" ] \
   && [ "$(field '(d["session"], d["already"])' <<<"$second" 2>&1)" = "('S-1', True)" ] \

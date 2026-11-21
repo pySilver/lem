@@ -169,8 +169,11 @@ FIRST_LINE_BOUND = 600
 # After how long a wake whose line still waits in the mailbox is `unanswered`: 10 minutes, a guess
 # (the plan's "no session" row says "does not answer" after it).
 UNANSWERED_AFTER = 600
-# the characters that the launch line cannot carry inside its two levels of quotes
-UNQUOTABLE = re.compile(r"['\"\\$`\n]")
+# the characters that the launch line cannot carry inside its two levels of quotes to every login
+# shell: fish reads `\` inside single quotes as an escape, where sh and zsh keep it
+UNQUOTABLE = re.compile(r"[\\\n]")
+# what sh, zsh or fish read inside double quotes, so that a word with one goes in single quotes
+DOUBLE_QUOTED = re.compile(r"[\"$`\\]")
 # how many words of a turn name it, in talk.md
 FIRST_WORDS = 8
 # The first line of handoff.md, and its five parts with what each holds (`templates/handoff.md`).
@@ -394,19 +397,35 @@ def plugin_dir(root: Path, environ: dict) -> str | None:
 def launch_line(shell: str, slug: str, brief: Path, tokens: int | None, seat: dict, plugin: str | None = None) -> str:
     """The command of the task's session: the owner's login shell, so that his PATH finds claude, with
     the task and the compaction number in the environment, since `agtermctl session new` takes none,
-    and with PLUGIN as `--plugin-dir` when this Lem is not the installed plugin (`plugin_dir`)."""
-    # a seat holds no space (`project.parse_seat`), so the quotes are what is left to refuse there
+    and with PLUGIN as `--plugin-dir` when this Lem is not the installed plugin (`plugin_dir`).
+
+    Two levels read it: agterm's, which splits the line into words with their quotes, and the login
+    shell's `-c`. Each word of the inner command is quoted for the login shell, and the whole inner
+    command once more for agterm's level, so a model such as `opus[1m]` or a path with a space or an
+    apostrophe reaches claude whole in bash, zsh and fish alike."""
     for what, value, fix in (("the brief's path", str(brief), "move the checkout to a path without them"),
                              ("the plugin's folder", plugin or "", "move Lem's folder to a path without them"),
                              ("the owner's login shell", shell, "set a login shell at a plain path"),
                              ("the session's model", seat.get("model") or "", "write seats.session again"),
                              ("the session's effort", seat.get("effort") or "", "write seats.session again")):
         if UNQUOTABLE.search(value):
-            raise SessionError(f"{what} {value!r} holds a quote, a backslash, a $ or a line break, which the launch line cannot carry: {fix}")
-    variables = f"LEM_TASK={slug}" + (f" CLAUDE_CODE_AUTO_COMPACT_WINDOW={tokens}" if tokens is not None else "")
-    flags = (f" --model {seat['model']}" if seat.get("model") else "") + (f" --effort {seat['effort']}" if seat.get("effort") else "")
-    flags += f' --plugin-dir "{plugin}"' if plugin else ""
-    return f"{shell} -l -c '{variables} claude{flags} \"Read {brief} and follow it.\"'"
+            raise SessionError(f"{what} {value!r} holds a backslash or a line break, which the launch line cannot carry "
+                               f"to every login shell (fish reads a backslash inside quotes as an escape): {fix}")
+    words = [f"LEM_TASK={slug}"] + ([f"CLAUDE_CODE_AUTO_COMPACT_WINDOW={tokens}"] if tokens is not None else []) + ["claude"]
+    words += [word for flag in ("model", "effort") if seat.get(flag) for word in (f"--{flag}", seat[flag])]
+    words += ["--plugin-dir", plugin] if plugin else []
+    words.append(f"Read {brief} and follow it.")
+    inner = " ".join(shell_word(word) for word in words)
+    return f"{shlex.quote(shell)} -l -c {shlex.quote(inner)}"
+
+
+def shell_word(word: str) -> str:
+    """WORD as one word of sh, zsh and fish alike: bare when it needs no quote, in double quotes when
+    it holds nothing those read inside them (`"`, `$`, a backquote, a backslash), else in single quotes,
+    which keeps the usual launch line readable in agterm's tree."""
+    if shlex.quote(word) == word:
+        return word
+    return f'"{word}"' if not DOUBLE_QUOTED.search(word) else shlex.quote(word)
 
 
 def brief_text(slug: str, phase: str, why: str, directory: Path, main: Path, worktree: Path | None) -> str:
