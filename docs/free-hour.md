@@ -34,7 +34,7 @@ worktree.
 
 - **One change, with what showed the need.** A session that went wrong, a measurement, a
   correction that came back: name it in the commit message, with its date. A change nobody needed
-  is not made (`AGENTS.md`, "Opinionated and small").
+  is not made (`docs/rulings/rulings.md`, "Opinionated and small").
 - **The rules of a change here hold** (`AGENTS.md`): a number carries its source and date, a
   stage names a capability and never a tool, a change to a script comes with its test.
 - **Run the checks** in the worktree before the commit: `bash tests/all.sh`, the one command
@@ -42,8 +42,8 @@ worktree.
 - **Commit on the branch, and stop there.** Never push. Never merge. Never check out another
   branch in the main checkout, and never commit, stash or reset there.
 - **The owner's rulings are not the hour's to change** (`AGENTS.md`, "The owner's rulings").
-- **This page adds its own limit**: the hour also leaves alone the designs `AGENTS.md` lists as
-  open to the owner, the builder agent's model and effort, and the defaults of the settings
+- **This page adds its own limit**: the hour also leaves alone the choices of the maintaining
+  session that `docs/rulings/rulings.md` lists as open to the owner, the builder agent's model and effort, and the defaults of the settings
   template. Those are not rulings. They are choices a person should see being made, and the hour
   runs with nobody there. A doubt about one is a line in the hour's own notes for the owner.
 - **Leave the worktree.** The session that merges removes it.

@@ -7,8 +7,8 @@ added: 2026-11-21
 
 `lem project prune` removes the working files of a task that ended more than `state.keep_days`
 ago, and the old folders of the experts, the panels, the naps and the cast's copies (the owner's
-ruling of 2026-11-21,
-`docs/rulings/the-done-column-shows-the-newest-ended-tasks-and-one-setting-says-how-long-an-ended-tasks-files-stay.md`).
+ruling of 2026-11-21, "The Done column shows the newest ended tasks, and one setting says how long
+an ended task's files stay", `docs/rulings/rulings.md`).
 Two parts of that ruling are not built.
 
 **The events.** No script shortens `.lem/state/events.jsonl`. The board's `derive` reads every

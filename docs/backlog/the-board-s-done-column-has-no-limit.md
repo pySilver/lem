@@ -21,7 +21,8 @@ Measured on 2026-11-21 at 74bd242: the real log of this repository, then its 17 
 A month of tasks on a phone over the tailnet gets 3.3 MB at each event of a landing, and a Done tab
 of a thousand cards.
 
-The owner's ruling (2026-11-21, `docs/rulings/the-done-column-shows-the-newest-ended-tasks-and-one-setting-says-how-long-an-ended-tasks-files-stay.md`):
+The owner's ruling (2026-11-21, "The Done column shows the newest ended tasks, and one setting says how
+long an ended task's files stay", `docs/rulings/rulings.md`):
 keep the last N ended tasks, or a time limit; the last N works better for a project that is not in
 constant development. A time limit alone empties Done on a
 quiet project: a repository that landed three tasks a month ago shows none. The last N shows the
