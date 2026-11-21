@@ -3,7 +3,7 @@
 > **Status: built**, in the commits from `93c63a0` to `715d0d3` (2026-11-15 and 2026-11-16).
 > Later decisions changed parts of it: the small change, care by topics in place of paths, one
 > approval of a feature, the plan talk as a stage of its own, and onboarding in three questions.
-> `AGENTS.md` ("The owner's rulings" and "Decisions the maintaining session took") holds each,
+> `docs/rulings/rulings.md` (its bullets, and its last part for the session's choices) or `docs/rulings/history.md` holds each,
 > and [docs/flow.md](../flow.md) describes the flow as it is now.
 
 Written 2026-11-15 by the Lem design session (mybaze checkout) for the session that builds Lem,

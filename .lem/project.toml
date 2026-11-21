@@ -9,9 +9,11 @@ plans = "docs/plans"
 # written, <slug> is the task's.
 plan_file = "YYYY-MM-DD-<slug>.md"
 # The folder of the owner's rulings, the decisions about the product that outlive a task, and the
-# name of a ruling's file there, with the same tokens. Lem's own rulings are in docs/rulings, and
-# AGENTS.md has a sentence for each.
+# name of a ruling's file there, with the same tokens. Lem's own rulings are one list in that
+# folder, docs/rulings/rulings.md, with docs/rulings/history.md for what a test or one place holds.
 rulings = "docs/rulings"
+# Unused in this repository: a new ruling is a bullet of the list, never a file of its own (the line
+# for learn in .lem/lessons.md).
 ruling_file = "<slug>.md"
 
 [branch]
@@ -57,7 +59,7 @@ topics = [
   "A developer's typed messages leave the machine without his yes: the correction hook sends them to the Jev model's provider.",
   "Lem writes over something of the developer's: a file in his home or his repository that was there, his settings, his own command or skill of the same name.",
   "A task's record is lost or wrong: its state, its decisions and its approved criteria, which nothing rebuilds and the pull request reads.",
-  "A change bends a ruling of the owner: a ruling in AGENTS.md is reopened only by asking him.",
+  "A change bends a ruling of the owner: a ruling in docs/rulings/rulings.md is reopened only by asking him.",
   "The landing lets through a change that should not land: one the checks or the review did not pass, one a person should merge, or one aimed at a protected branch.",
   "A criterion's test is taken as its proof when it is not: it passes on the base commit too, or it holds another criterion than its own.",
   "A decision that is the owner's is taken without him, or one taken for him is missing from the pull request he reads.",

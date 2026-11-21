@@ -56,7 +56,7 @@ With A2 he sees more cards than today.
    decided without him is green, and one line says that it ran without him. A "not green" that names
    nothing would teach him to merge past "not green". This is a story that ends with nobody worse
    off: the same pull request as with him at the desk. So it is decided, not asked.
-5. **Experts "at the start of every wait" (his pick of 2026-11-16, the ruling "Two experts answer a choice that waits for him", now under "Replaced, not in force" in [The build asks him nothing, and the ladder always decides](../../rulings/the-build-asks-him-nothing-and-the-ladder-always-decides.md)).** The plan
+5. **Experts "at the start of every wait" (his pick of 2026-11-16, the ruling "Two experts answer a choice that waits for him", now under "Replaced, not in force" in "The build asks him nothing, and the ladder always decides" (`docs/rulings/rulings.md`)).** The plan
    moves the experts to level 4, before the card ("This replaces the card with the experts' advice
    at the start of the wait"). The second half of that ruling stays: a choice the experts decided
    without him is not green.
@@ -64,7 +64,7 @@ With A2 he sees more cards than today.
    plan stops at the decision (`stages/plan.md:194-198`, `stages/night.md:29-39`). The design leaves
    both as they are. Task 5 replaces them with the mode (see "A night run").
 7. **Not in any task of the plan:** his ruling "the plan talk ... may cancel further execution if
-   there are signs that the design is wrong" ([The plan talk stays as one plan, one reviewer and a closed list, and it can stop a task](../../rulings/the-plan-talk-stays-as-one-plan-one-reviewer-and-a-closed-list-and-it-can-stop-a-task.md)). `stages/talk.md` has no such
+   there are signs that the design is wrong" ("The plan talk stays as one plan, one reviewer and a closed list, and it can stop a task", now in the bullet "The plan talk is a pair in a companion that closes after it, and it can stop a task" of `docs/rulings/rulings.md`). `stages/talk.md` has no such
    stop. The ladder does not cover it. This is a note for the orchestrator.
 8. **Not in scope, seen on the way:** `skills/lem-gate/references/judge.md` says "no shopper, merchant
    or operator would notice it" and "a probe on the test stack". Those are one project's words in a
@@ -176,7 +176,7 @@ as the end, so each choice has one outcome.
 The session's decision on a flagged criterion: Lem keeps it as written. The rejected alternative, a
 flagged criterion takes the ladder: the personas answered it already, so level 2 would repeat
 itself, and the stages forbid an agent's rewrite of his contract before he reads it
-(the session's decision [Where the stages keep what the amendment of 2026-11-16 says otherwise](../../../.lem/decisions/where-the-stages-keep-what-the-amendment-of-2026-11-16-says-otherwise.md)).
+(the session's decision "Where the stages keep what the amendment of 2026-11-16 says otherwise", whose parts are in `docs/rulings/history.md`).
 
 What alone never changes: a step that a later "no" cannot reverse waits for him in both modes, and
 `branch.land` decides who merges in both modes.
@@ -262,7 +262,7 @@ pick, as if the task ran without him for that one decision, and the pull request
 
 "Alone" covers the part of `night: yes` that is about decisions, and changes it as he asked: a night
 no longer ends its draft on a decision, it takes it by the ladder, and the pull request is not green
-for it ("Yes this is what I want", [The lessons, the retro and Jev stay; a night run ends as a pull request; naps are not shown](../../rulings/the-lessons-the-retro-and-jev-stay-a-night-run-ends-as-a-pull-request-naps-are-not-shown.md)). The differences that stay task 5's:
+for it ("Yes this is what I want", "The lessons, the retro and Jev stay; a night run ends as a pull request; naps are not shown", `docs/rulings/rulings.md`). The differences that stay task 5's:
 
 1. What the night picks (no item in reach of a topic, no item another branch holds,
    `stages/night.md:11-24`) is not the mode's. A task by day may run alone and be careful.
@@ -323,7 +323,7 @@ judges a level's result. The "pick" is the lead's pick at level 1 (`recommended`
 **Level 0.** A verdict of a judge that did not write the question, as the gate is today
 (`skills/lem-gate/SKILL.md:38-58`). A ruling decides because it is his. A check decides because it
 is a fact. "Cheap" decides because the gate's own rule says so, and he kept the gate as a part that
-"may decide" ([The question gate stays, hidden, and may decide](../../rulings/the-question-gate-stays-hidden-and-may-decide.md)).
+"may decide" ("The question gate stays, hidden, and may decide", `docs/rulings/rulings.md`).
 
 **Level 2, a vote.** A vote is an answer whose last lines are `pick: OPTION` (word for word) and
 `sure: sure` or `sure: leaning`. `sure: no preference` and `not affected` are no vote. `none fits` is a
@@ -371,7 +371,7 @@ built, and no lead should take that on its own; an option for which no agent can
 no clear result. The tolerance of 2 lines and the cap of 5 are guesses, not measurements.
 
 The two agents are started with `fan-out`, read-only, on the model the harness file names (Opus at
-high, his own example, in [In doubt, a decision climbs a ladder of opinions, and a count decides, not a model.](../../rulings/in-doubt-a-decision-climbs-a-ladder-of-opinions-and-a-count-decides-not-a-model.md)). They run as subagents of the lead, as he left it for
+high, his own example, in "In doubt, a decision climbs a ladder of opinions, and a count decides, not a model." (`docs/rulings/rulings.md`)). They run as subagents of the lead, as he left it for
 now.
 
 **Level 4.** Today's rule for the experts' agreement (`shared`, `decisions.py:358-364`): both
@@ -411,7 +411,7 @@ personas are better than two experts").
   line, `by: gate` when it settles. For `checkable` the lead runs the check that the judge named, then
   gives `--chose OPTION --shown "WHAT THE CHECK SHOWED"`.
 - **Shadow mode goes.** He ruled that the gate "should stay as hidden feature" and that its decisions
-  land in `decisions.md` ([The question gate stays, hidden, and may decide](../../rulings/the-question-gate-stays-hidden-and-may-decide.md)). A gate in shadow mode decides nothing, which is the
+  land in `decisions.md` ("The question gate stays, hidden, and may decide", `docs/rulings/rulings.md`). A gate in shadow mode decides nothing, which is the
   opposite.
 - **Its log goes.** `skills/lem-gate/scripts/gate-log.py` (164 lines), its row in `bin/lem:36`, and its
   part of `tests/test-gate-panel.sh` (lines 11-47) go. The verdict is a line of `decisions.jsonl`
