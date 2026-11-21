@@ -1778,8 +1778,9 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
 RESUMED_FILES = ("task.md", "talk.md", "directions.md", "interview-notes.md", "scout.md", "investigation.md", "outside.md",
                  "criteria.md", "criteria-read.md", "criteria.json", "decisions.jsonl", "handoff.md", "ticket.txt")
 RESUMED_GLOBS = ("breaker-*.md",)
-# The events of a dropped task that the new one takes with it, under its own slug and with `from`:
-# what the landing and the board read of its criteria, its decisions, its plan talk and its investigation.
+# The events of a dropped task that the new one takes with it, under its own slug and with `from`, in
+# the log's order and each with its own time as `was_at`: what the landing and the board read of its
+# criteria, its decisions, its plan talk and its investigation.
 RESUMED_EVENTS = ("criteria.read.start", "criteria.read", "criteria.approved", "task.criteria", "plan.talk.start", "plan.talk",
                   "investigation.start", "investigation", "interview.start", "scout.start", "scout")
 # The file of a resumed task that names the task it came from.
@@ -1875,9 +1876,13 @@ def cmd_resume(root: Path, slug: str) -> dict:
         rows = [f"{row.split(':', 1)[0]}: {own[row.split(':', 1)[0]]}" if row.split(":", 1)[0] in own else row
                 for row in text_of(directory / "brief.md").splitlines()]
         (target / "brief.md").write_text("\n".join([*rows, f"resumed from: {slug}; read handoff.md and {breaker.get('document') or 'the breaker document'} in the task directory first"]) + "\n", encoding="utf-8")
-    for event in events_named(root, *RESUMED_EVENTS) + [event for event in events_named(root, *(f"decision.{kind}" for kind in ("taken", "breaker", "criterion")))]:
+    # In the log's own order, each with the time it had (`was_at`, the first task's time for a task
+    # resumed twice): the landing compares his approval with a read by those times, and finds his
+    # word to skip a read before the approval that followed it.
+    for event in events_named(root, *RESUMED_EVENTS, *(f"decision.{kind}" for kind in ("taken", "breaker", "criterion"))):
         if event.get("task") == slug:
-            append_event(root, event["event"], new, {**{key: value for key, value in event.items() if key not in ("ts", "event", "task")}, "from": slug})
+            append_event(root, event["event"], new, {**{key: value for key, value in event.items() if key not in ("ts", "event", "task", "was_at")},
+                                                     "from": slug, "was_at": event.get("was_at") or event["ts"]})
     try:
         made_tree = cmd_worktree(root, settings, new, branch)
     except SettingsError as error:

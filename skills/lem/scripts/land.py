@@ -2386,16 +2386,22 @@ def interview_unapproved(events: list[dict], approvals: list[dict], small: bool)
     return not any(approval.get("by") in ("owner", "alone") for approval in approvals)
 
 
+def when(event: dict) -> str:
+    """The time an event happened: its own, or for one a resumed task copied from the task it came
+    from (`lem project resume`), the time it had there (`was_at`), which an approval's `at` keeps too."""
+    return event.get("was_at") or event["ts"]
+
+
 def approved_after(found: dict, read: dict) -> bool:
     """Whether the owner himself approved the criteria at the read's time or after it. A freeze of
     a read (`by: read`) and Lem's approval on the fast track are not his yes."""
-    return any(approval["by"] == "owner" and approval["at"] >= read["ts"] for approval in found.get("approvals", []))
+    return any(approval["by"] == "owner" and approval["at"] >= when(read) for approval in found.get("approvals", []))
 
 
 def approved_alone(found: dict, read: dict) -> bool:
     """Whether Lem or the lead approved the criteria at the read's time or after it while the task ran
     without the owner (`lem criteria approve --alone`): enough to propose, never green."""
-    return any(approval["by"] == "alone" and approval["at"] >= read["ts"] for approval in found.get("approvals", []))
+    return any(approval["by"] == "alone" and approval["at"] >= when(read) for approval in found.get("approvals", []))
 
 
 def criteria_waited(events: list[dict]) -> dict | None:
@@ -2473,8 +2479,8 @@ def unread(read: dict | None, found: dict) -> str | None:
     if read is None or not read["answered"] or found["criteria_digest"] == read["digest"]:
         return None
     # an approval of his after the read changed the criteria only when it holds other criteria than the read did
-    his = [approval for approval in found.get("approvals", []) if approval["by"] == "owner" and approval["at"] >= read["ts"] and approval["digest"] != read["digest"]]
-    what = [*([f"by the owner's approval {his[-1]['number']}"] if his else []), *(["by a change of the build"] if any(change["at"] >= read["ts"] for change in found.get("history", [])) else [])]
+    his = [approval for approval in found.get("approvals", []) if approval["by"] == "owner" and approval["at"] >= when(read) and approval["digest"] != read["digest"]]
+    what = [*([f"by the owner's approval {his[-1]['number']}"] if his else []), *(["by a change of the build"] if any(change["at"] >= when(read) for change in found.get("history", [])) else [])]
     return f"- the criteria changed after the personas' read{', ' + ' and '.join(what) if what else ''}, and the change was not read"
 
 

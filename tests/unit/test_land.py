@@ -450,6 +450,23 @@ class EventLog(unittest.TestCase):
         self.assertEqual((land.waits_of(self.task, "2026-11-21T09:00:00Z") or {}).get("say"), self.WORDS)
 
 
+class ResumedRead(unittest.TestCase):
+    """A read a resumed task copied from the task it came from is compared with his approval by the
+    time it had there (`was_at`), not by the time of the copy."""
+
+    APPROVED = {"approvals": [{"by": "owner", "at": "2026-11-20T10:05:00Z", "digest": "d1", "number": 1}], "history": [], "criteria_digest": "d1"}
+
+    def test_his_approval_after_the_read_it_came_with(self) -> None:
+        copied = {"ts": "2026-11-21T09:00:00Z", "was_at": "2026-11-20T10:00:00Z", "answered": 2, "digest": "d1"}
+        self.assertEqual(land.when(copied), "2026-11-20T10:00:00Z")
+        self.assertTrue(land.approved_after(self.APPROVED, copied))
+
+    def test_a_read_of_the_task_itself_after_his_approval(self) -> None:
+        own = {"ts": "2026-11-21T09:00:00Z", "answered": 2, "digest": "d1"}
+        self.assertFalse(land.approved_after(self.APPROVED, own))
+        self.assertFalse(land.approved_alone({"approvals": [{"by": "alone", "at": "2026-11-20T10:05:00Z"}]}, own))
+
+
 class InterviewApproved(unittest.TestCase):
     """`land.interview_unapproved`: a task that had an interview is proposed only over criteria the
     owner approved, or that were approved while it ran without him; a complete request (no interview)

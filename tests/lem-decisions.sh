@@ -340,4 +340,57 @@ else
   fail "the owner's status across two repositories: $night_mode / at the lock: $waited / $(cat "$WORK/late-approve.out")"
 fi
 
+# A resumed task keeps the owner's approvals. One task's read flagged a criterion and he approved the criteria after it;
+# another's read he skipped by his word, and approved after it. A breaker stops each, he drops it and resumes it, helps
+# the breaker of the new task, and the new task is proposed with no second question to him.
+RS=$WORK/resume-repo
+git init -q -b main "$RS" && ident "$RS" && project --repo "$RS" init --base main >/dev/null
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[checks]' 'commands = ["true"]' > "$RS/.lem/project.toml"
+git -C "$RS" add -A && git -C "$RS" commit -q -m "chore: start" && on_github "$RS"
+rs_criteria() { printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/$1-approved.md"; }
+# rs_resume SLUG: a breaker stops the task, the owner drops it and resumes it, helps the new task's breaker, and the new
+# task lands as far as its proposal; prints what the proposal said
+rs_resume() {
+  local dir=$RS/.lem/state/tasks/$1 new number
+  project --repo "$RS" state "$1" building "lead: builder" >/dev/null
+  breaker_doc "$dir" && number=$("$PY" -B "$DECISIONS" --repo "$RS" breaker "$1" --cause criteria | field 'd["id"]')
+  project --repo "$RS" state "$1" dropped "the owner dropped it" >/dev/null
+  new=$(project --repo "$RS" resume "$1" | field 'd["task"]')
+  "$PY" -B "$DECISIONS" --repo "$RS" log "$new" --by owner --breaker "$number" --what "Where the word goes" --chose "the first line" --why "a reader sees it at once" >/dev/null
+  project --repo "$RS" state "$new" ready "the report is written" >/dev/null
+  land --repo "$RS" start "$new" >/dev/null && land --repo "$RS" base "$new" >/dev/null && polish_in "$RS" "$new" && land --repo "$RS" checks "$new" >/dev/null \
+    && land --repo "$RS" read "$new" --record "$(clean "$new" 1)" >/dev/null && land --repo "$RS" propose "$new" --title "fix: $new" --notes "$NOTES" 2>&1
+}
+task_in "$RS" flagged-word f.txt f
+rs_criteria flagged-word
+flag_digest=$("$PY" -B "$CRITERIA" --repo "$RS" digest flagged-word | field 'd["digest"]')
+project --repo "$RS" log flagged-word criteria.read by=lem asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' criteria:=1 flagged:=1 split:=false "digest=$flag_digest" >/dev/null
+"$PY" -B "$CRITERIA" --repo "$RS" approve flagged-word --file "$WORK/flagged-word-approved.md" >/dev/null
+# the read and his approval a day before the resume, as their times in the log and in criteria.json say
+"$PY" -c '
+import json, sys
+log, kept = sys.argv[1], sys.argv[2]
+day = {"criteria.read": "2026-11-20T10:00:00Z", "criteria.approved": "2026-11-20T10:05:00Z"}
+rows = [json.loads(line) for line in open(log)]
+rows = [{**r, "ts": day[r["event"]]} if r.get("task") == "flagged-word" and r.get("event") in day else r for r in rows]
+open(log, "w").write("".join(json.dumps(r) + "\n" for r in rows))
+record = json.load(open(kept))
+record["at"] = day["criteria.approved"]
+json.dump(record, open(kept, "w"))
+' "$RS/.lem/state/events.jsonl" "$RS/.lem/state/tasks/flagged-word/criteria.json"
+flagged=$(rs_resume flagged-word || true)
+task_in "$RS" skipped-word s.txt s
+rs_criteria skipped-word
+"$PY" -B "$DECISIONS" --repo "$RS" log skipped-word --by owner --what "the personas' read of the criteria" --chose "no read: the criteria name only the developer" --why "the criteria name only the developer" >/dev/null
+"$PY" -B "$CRITERIA" --repo "$RS" approve skipped-word --file "$WORK/skipped-word-approved.md" >/dev/null
+skipped=$(rs_resume skipped-word || true)
+copied=$("$PY" -c 'import json, sys; rows = [json.loads(line) for line in open(sys.argv[1]) if json.loads(line).get("task") == "skipped-word-2"]; print([(r["event"], "was_at" in r) for r in rows[:2]])' "$RS/.lem/state/events.jsonl")
+if [ "$(field '(d["task"], d["pull_request"]["number"])' <<<"$flagged" 2>/dev/null)" = "('flagged-word-2', 1)" ] \
+  && [ "$(field '(d["task"], d["pull_request"]["number"])' <<<"$skipped" 2>/dev/null)" = "('skipped-word-2', 2)" ] \
+  && [ "$copied" = "[('decision.taken', True), ('criteria.approved', True)]" ] && [ "$(status_in "$RS" skipped-word-2)" = open ]; then
+  pass "a resumed task keeps the owner's approval after a read that flagged a criterion, and after his word to skip the read: each copied event keeps its time and its order, and the new task is proposed with no second question"
+else
+  fail "the proposal of a resumed task: $flagged / $skipped / $copied"
+fi
+
 finish
