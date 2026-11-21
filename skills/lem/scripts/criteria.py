@@ -164,6 +164,7 @@ sys.path.insert(0, str(SCRIPTS))
 import lem_plans  # noqa: E402
 # How this script calls a sibling: in this process, as one command of it.
 import lem_sibling  # noqa: E402
+import lem_state  # noqa: E402  (how a JSON-lines file is split into its lines)
 # The track of a task, as the `Size:` line names it: `full`, the standard track with its plan and lead,
 # or `small`, the fast track of one builder.
 SIZES = ("full", "small")
@@ -708,7 +709,7 @@ def reads_of(task: Task) -> list[dict]:
     `criteria.read` events."""
     log = task.directory.parent.parent / "events.jsonl"
     found = []
-    for line in (log.read_text(encoding="utf-8").splitlines() if log.is_file() else []):
+    for line in (lem_state.jsonl_lines(log.read_text(encoding="utf-8")) if log.is_file() else []):
         if '"criteria.read"' in line:
             record = json.loads(line)
             if record.get("event") == "criteria.read" and record.get("task") == task.slug:

@@ -162,3 +162,18 @@ class FastTrackNotHis(unittest.TestCase):
                 criteria.cmd_approve(task, str(task.small_file), "alone", plan=True)
             self.assertIn("--alone is for a night's task or a request someone else wrote", str(refused.exception))
             self.assertEqual(criteria.cmd_approve(task, str(task.small_file), "lem")["by"], "lem")
+
+
+class ReadsOf(unittest.TestCase):
+    """A read of the criteria whose words hold the characters str.splitlines breaks at, read back whole."""
+
+    def test_a_read_whose_words_hold_a_line_separator(self) -> None:
+        import json
+        import tempfile
+        import types
+        words = "a\N{LINE SEPARATOR}b\N{PARAGRAPH SEPARATOR}c\x85d"
+        with tempfile.TemporaryDirectory() as folder:
+            task = types.SimpleNamespace(slug="demo", directory=Path(folder) / "tasks" / "demo")
+            record = {"ts": "2026-11-21T10:00:00Z", "event": "criteria.read", "task": "demo", "silent": [words]}
+            (Path(folder) / "events.jsonl").write_text(json.dumps(record, ensure_ascii=False) + "\n", encoding="utf-8")
+            self.assertEqual([read["silent"] for read in criteria.reads_of(task)], [[words]])

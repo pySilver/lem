@@ -1750,7 +1750,7 @@ def gate_ends(task: Task) -> list[dict]:
     """Every end of a run of the checks in the repository's event log, of any task, oldest first."""
     log = task.directory.parent.parent / "events.jsonl"
     found = []
-    for line in log.read_text(encoding="utf-8").splitlines() if log.is_file() else []:
+    for line in lem_state.jsonl_lines(log.read_text(encoding="utf-8")) if log.is_file() else []:
         if '"gate.end"' not in line:
             continue
         try:
@@ -1767,7 +1767,7 @@ def waits_of(task: Task, since: str) -> dict | None:
     `gate.start` came after it: the run waits for the load."""
     log = task.directory.parent.parent / "events.jsonl"
     found = None
-    for line in log.read_text(encoding="utf-8").splitlines() if log.is_file() else []:
+    for line in lem_state.jsonl_lines(log.read_text(encoding="utf-8")) if log.is_file() else []:
         if f'"{task.slug}"' not in line or '"gate.' not in line:
             continue
         try:
@@ -2204,7 +2204,7 @@ def events_of(task: Task) -> list[dict]:
     """The task's events in the log `project.py` writes, oldest first."""
     log = task.directory.parent.parent / "events.jsonl"
     found = []
-    lines = log.read_text(encoding="utf-8").splitlines() if log.is_file() else []
+    lines = lem_state.jsonl_lines(log.read_text(encoding="utf-8")) if log.is_file() else []
     for number, line in enumerate(lines, start=1):
         if f'"task": {json.dumps(task.slug)}' not in line:
             continue
@@ -2221,7 +2221,7 @@ def events_all(task: Task) -> list[dict]:
     """Every event of the log `project.py` writes, oldest first; a line that does not read is passed over."""
     log = task.directory.parent.parent / "events.jsonl"
     found = []
-    for line in log.read_text(encoding="utf-8").splitlines() if log.is_file() else []:
+    for line in lem_state.jsonl_lines(log.read_text(encoding="utf-8")) if log.is_file() else []:
         try:
             record = json.loads(line)
         except ValueError:

@@ -424,3 +424,27 @@ class TaskFile(unittest.TestCase):
         self.assertEqual(land.task_file(str(absolute), "--record", self.directory, self.here), str(absolute))
         with self.assertRaises(land.LandError):
             land.task_file(str(self.here / "missing.json"), "--record", self.directory, self.here)
+
+
+class EventLog(unittest.TestCase):
+    """Each reader of the repository's event log, with an event whose words hold the characters that
+    str.splitlines breaks at and json.dumps(ensure_ascii=False) keeps."""
+
+    WORDS = "a\u2028b\u2029c\x85d"
+
+    def setUp(self) -> None:
+        import json
+        import types
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        state = Path(folder.name)
+        self.task = types.SimpleNamespace(slug="demo", directory=state / "tasks" / "demo")
+        records = [{"ts": "2026-11-21T10:00:00Z", "event": "gate.wait", "task": "demo", "say": self.WORDS},
+                   {"ts": "2026-11-21T10:00:01Z", "event": "gate.end", "task": "demo", "say": self.WORDS, "result": "passed"}]
+        (state / "events.jsonl").write_text("".join(json.dumps(record, ensure_ascii=False) + "\n" for record in records), encoding="utf-8")
+
+    def test_every_reader_reads_the_event_whole(self) -> None:
+        self.assertEqual([record["say"] for record in land.events_of(self.task)], [self.WORDS, self.WORDS])
+        self.assertEqual([record["say"] for record in land.events_all(self.task)], [self.WORDS, self.WORDS])
+        self.assertEqual([record["say"] for record in land.gate_ends(self.task)], [self.WORDS])
+        self.assertEqual((land.waits_of(self.task, "2026-11-21T09:00:00Z") or {}).get("say"), self.WORDS)

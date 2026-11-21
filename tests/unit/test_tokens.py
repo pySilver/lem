@@ -71,6 +71,17 @@ class Tokens(unittest.TestCase):
         self.assertEqual((found["output"], found["sessions"], found["missing"]), (2, 1, 1))
         self.assertIn("1 transcript the log names is gone", found["covers"])
 
+    def test_a_log_whose_words_hold_a_line_separator_still_names_the_transcript(self):
+        kept = self.projects / "aaa.jsonl"
+        write(kept, reply("m1", 1, 2))
+        self.log((SLUG, str(kept)))
+        # a folder's name may hold the characters str.splitlines breaks at, and the log keeps them as they are
+        named = str(self.projects / "a\N{LINE SEPARATOR}b\N{PARAGRAPH SEPARATOR}c\x85d.jsonl")
+        with (self.state / "events.jsonl").open("a", encoding="utf-8") as log:
+            log.write(json.dumps({"ts": "2026-11-21T10:00:02Z", "event": "session.transcript", "task": SLUG, "claude": "bbb",
+                                  "transcript": named, "source": "resume"}, ensure_ascii=False) + "\n")
+        self.assertEqual(lem_tokens.transcripts_of(self.state, SLUG), [str(kept), named])
+
 
 if __name__ == "__main__":
     unittest.main()

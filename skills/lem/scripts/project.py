@@ -1768,7 +1768,7 @@ def cmd_resume(root: Path, slug: str) -> dict:
             + ("An ended task stays ended, and new work for it is a new ask (`/lem new`)" if now in ENDED else "This one goes on as it is"),
         )
     record = directory / "decisions.jsonl"
-    lines = [json.loads(line) for line in text_of(record).splitlines() if line.strip()] if record.is_file() else []
+    lines = [json.loads(line) for line in lem_state.jsonl_lines(text_of(record)) if line.strip()] if record.is_file() else []
     helped = {line.get("breaker") for line in lines if line.get("kind") == "taken" and "breaker" in line}
     breaker = next((line for line in reversed(lines) if line.get("kind") == "breaker" and line["id"] not in helped), None)
     if breaker is None or not (directory / "handoff.md").is_file():
@@ -2131,7 +2131,7 @@ def events_named(root: Path, *events: str) -> list[dict]:
     log, found = state_root(root) / "events.jsonl", []
     if not log.is_file():
         return found
-    for number, line in enumerate(text_of(log).splitlines(), 1):
+    for number, line in enumerate(lem_state.jsonl_lines(text_of(log)), 1):
         if not any(f'"{event}"' in line for event in events):
             continue
         try:
@@ -2180,9 +2180,7 @@ def owner_records() -> list[dict]:
     if not mark.is_file():
         return []
     found = []
-    # split at "\n" alone: str.splitlines also breaks at U+2028, U+2029 and U+0085, which append_owner's
-    # json.dumps(ensure_ascii=False) leaves as they are in the owner's words
-    for number, line in enumerate(text_of(mark).split("\n"), 1):
+    for number, line in enumerate(lem_state.jsonl_lines(text_of(mark)), 1):
         if not line.strip():
             continue
         try:

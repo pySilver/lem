@@ -247,5 +247,25 @@ class FirstLine(unittest.TestCase):
                          "The invoice shows 70 EUR after the refund")
 
 
+# Words that hold the three characters str.splitlines breaks at and json.dumps(ensure_ascii=False) keeps.
+SEPARATED = "a\u2028b\u2029c\x85d"
+
+
+class EventLog(unittest.TestCase):
+    """The repository's event log, read back with words that hold a line separator."""
+
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory()
+        self.addCleanup(self.folder.cleanup)
+        self.root = Path(self.folder.name)
+        project.STATE_ROOTS[self.root] = self.root / "state"
+        self.addCleanup(project.STATE_ROOTS.pop, self.root)
+        (self.root / "state").mkdir()
+
+    def test_an_event_whose_words_hold_a_line_separator_reads_as_one_event(self):
+        project.append_event(self.root, "gate.end", "demo", {"say": SEPARATED, "result": "passed"})
+        found = project.events_named(self.root, "gate.end")
+        self.assertEqual([record["say"] for record in found], [SEPARATED])
+
 if __name__ == "__main__":
     unittest.main()

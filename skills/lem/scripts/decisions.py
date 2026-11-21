@@ -130,6 +130,7 @@ SCRIPTS = Path(__file__).resolve().parent
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
 import lem_sibling  # noqa: E402
+import lem_state  # noqa: E402  (how a JSON-lines file is split into its lines)
 
 # Who took a decision: the lead, a level of the ladder (`stages/ladder.md`), the owner, or Lem.
 BY = ("lead", "gate", "personas", "dialectic", "experts", "owner", "lem")
@@ -232,7 +233,7 @@ class Task:
             written = self.file.read_text(encoding="utf-8")
         except UnicodeDecodeError as error:
             raise DecisionError(f"{self.file} is not UTF-8 text (byte {error.start} does not read); the file is written by this script only") from error
-        for number, line in enumerate(written.splitlines(), start=1):
+        for number, line in enumerate(lem_state.jsonl_lines(written), start=1):
             if line.strip():
                 try:
                     out.append(json.loads(line))

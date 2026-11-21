@@ -42,6 +42,13 @@ class StateError(Exception):
     pass
 
 
+def jsonl_lines(text: str) -> list[str]:
+    """The lines of a JSON-lines text, split at "\\n" alone. Every reader of such a file splits with
+    this: str.splitlines also breaks at U+2028, U+2029 and U+0085, which json.dumps(ensure_ascii=False)
+    and Claude Code's transcripts keep as they are inside a string, and a record cut there is no JSON."""
+    return text.split("\n")
+
+
 def git(start: Path, args: list, timeout: float | None) -> str | None:
     try:
         ran = subprocess.run(["git", "-C", str(start), *args], capture_output=True, text=True, check=False, timeout=timeout)
