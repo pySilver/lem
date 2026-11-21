@@ -18,7 +18,7 @@ ruling_file = "<slug>.md"
 base = "main"
 # Who merges a task's pull request: "agent", the merge agent, which reads each one and merges a green
 # one that is not careful, or "owner", who merges each one after the merge agent's review.
-land = "owner"
+land = "agent"
 # What lands: "squash" lands one commit for the whole task, "keep" lands the branch's own commits.
 history = "squash"
 # Branches nothing lands on and nothing is pushed to through this skill, whoever asks.
