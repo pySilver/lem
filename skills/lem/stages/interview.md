@@ -21,7 +21,7 @@ Criteria that wait for his yes with no interview (a lead's, of a complete reques
    reads the code around the ask and returns facts, not a plan: `spawn-builder` with the brief
 
    ```
-   Read SKILL_DIR/prompts/scout.md and follow it.
+   Read `skills/lem/prompts/scout.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.
    request: TASK_DIRECTORY/ask.txt
    checkout: the main checkout's absolute path
    task directory: TASK_DIRECTORY

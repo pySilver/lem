@@ -191,7 +191,7 @@ with each of its lines and that one. Your report says the same. A task he named 
       word, or the count), and `talk-brief.md` in the task directory, with this and nothing more:
 
       ```
-      Read SKILL_DIR/prompts/defender.md and follow it.
+      Read `skills/lem/prompts/defender.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.
       task: SLUG
       branch: the task's branch
       worktree: the worktree's absolute path

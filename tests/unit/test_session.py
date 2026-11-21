@@ -1,7 +1,8 @@
 """A task's own session (session.py) and its two hooks (session_hook.py), as calls of the functions
 that hold the rules: the phase from the state, the handoff's form, the launch line with the seat and
-`[handoff] tokens`, and the hooks with and without `LEM_TASK`. What agterm does with a session is in
-tests/lem-session.sh, with a stand-in for agtermctl.
+`[handoff] tokens`, and the hooks with and without `LEM_TASK`; and the first line of `session.md`
+and of every brief a stage text or a script writes, which names its standing text through `lem
+version`. What agterm does with a session is in tests/lem-session.sh, with a stand-in for agtermctl.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -9,7 +10,9 @@ tests/lem-session.sh, with a stand-in for agtermctl.
 import importlib
 import json
 import os
+import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -401,6 +404,89 @@ class Launch(unittest.TestCase):
 
     def test_a_checkout_path_with_an_apostrophe_and_a_space_reaches_the_agent_whole(self):
         self.through_each_shell({"agent": "claude", "model": "opus", "effort": None}, "o'neil's work")
+
+
+# The first line of every brief, as the stage texts and the scripts write it.
+BRIEF_LINE = re.compile(r"Read `skills/lem/prompts/(?P<name>[\w-]+)\.md` in the folder that `lem version` prints as `root`, "
+                        r"and (?:follow it|do the job named here); when `lem version` fails, stop and say that `lem` is not on "
+                        r"the PATH, with `lem doctor` as the check\.")
+
+
+class SessionBrief(unittest.TestCase):
+    """`session.md` sends its session to the texts of the Lem installed when it starts: Lem in
+    `.../lem/0.2.0` writes it, the plugin updates to `.../lem/0.2.1`, and the session reads 0.2.1."""
+
+    def written_by(self, plugin: Path) -> str:
+        skill = plugin / "skills" / "lem"
+        with mock.patch.multiple(session, SCRIPTS=skill / "scripts", SKILL=skill, PLUGIN=plugin):
+            return session.brief_text(SLUG, "shape", "new", ROOT / ".lem/state/tasks" / SLUG, ROOT, None)
+
+    def test_the_text_names_no_folder_of_the_lem_that_wrote_it(self):
+        text = self.written_by(Path("/lem-unit/claude/plugins/cache/lem/lem/0.2.0"))
+        self.assertNotIn("0.2.0", text)
+        self.assertNotIn("/plugins/", text)
+        first = text.splitlines()[0]
+        self.assertRegex(first, BRIEF_LINE)
+        self.assertEqual(BRIEF_LINE.fullmatch(first)["name"], "session")
+
+    def test_after_an_update_the_first_line_leads_to_the_new_folder(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = Path(tmp).resolve() / "plugins/cache/lem/lem"
+            for version in ("0.2.0", "0.2.1"):
+                plugin = cache / version
+                (plugin / "bin").mkdir(parents=True)
+                (plugin / "bin/lem").write_bytes((SCRIPTS.parents[2] / "bin/lem").read_bytes())
+                (plugin / "bin/lem").chmod(0o755)
+                (plugin / "skills/lem/prompts").mkdir(parents=True)
+                (plugin / "skills/lem/prompts/session.md").write_text(f"Lem {version}\n")
+            text = self.written_by(cache / "0.2.0")
+            # the update: the session's PATH holds the bin/ of 0.2.1, the plugin loaded now
+            lem = shutil.which("lem", path=str(cache / "0.2.1/bin"))
+            ran = subprocess.run([lem, "version"], capture_output=True, text=True, check=True, env={**os.environ, "LEM_SERVE": "off"})
+            root = Path(json.loads(ran.stdout)["root"])
+            first = text.splitlines()[0]
+            self.assertRegex(first, BRIEF_LINE)
+            self.assertEqual((root / f"skills/lem/prompts/{BRIEF_LINE.match(first)['name']}.md").read_text(), "Lem 0.2.1\n")
+
+
+class EveryBrief(unittest.TestCase):
+    """Every brief a stage tells a session to write or send, and every one a script writes, names its
+    standing text by its place in the plugin through `lem version`, never by a folder of Lem. A line
+    that only tells the reader of a stage to read a prompt (`Read SKILL_DIR/prompts/writing.md
+    first`) is no brief: that reader runs from the installed Lem already."""
+
+    PLACES = ("skills", "agents")
+    TEXTS = {".md", ".py", ".sh", ".toml", ".json", ".txt", ""}
+    # a brief's first line by its shape, and what it reads: a Lem text when it names one by a path
+    SHAPE = re.compile(r"Read (?P<what>.+?),? and (?:follow it|do the job named here)")
+    LEM_TEXT = re.compile(r"prompts|SKILL|skills/lem|plugins/")
+
+    def old_lines(self, text: str) -> list[str]:
+        return [line.strip() for line in text.splitlines() for found in self.SHAPE.finditer(line)
+                if self.LEM_TEXT.search(found["what"]) and not BRIEF_LINE.match(line, found.start())]
+
+    def test_no_brief_names_a_lem_text_by_a_folder(self):
+        root = SCRIPTS.parents[2]
+        wrong, briefs = [], 0
+        for place in self.PLACES:
+            for path in sorted((root / place).rglob("*")):
+                if not path.is_file() or path.suffix not in self.TEXTS or "vendor" in path.parts:
+                    continue
+                text = path.read_text(encoding="utf-8", errors="replace")
+                briefs += len(BRIEF_LINE.findall(text))
+                wrong += [f"{path.relative_to(root)}: {line}" for line in self.old_lines(text)]
+        self.assertEqual(wrong, [])
+        # the lead's, the fast track's, the talk's, the scout's, the investigator's, the review's, a
+        # landing builder's, session.md's and merge-brief.md's
+        self.assertGreaterEqual(briefs, 9)
+
+    def test_the_old_forms_are_found_and_a_stage_readers_line_is_not(self):
+        self.assertEqual(len(self.old_lines("   Read SKILL_DIR/prompts/lead.md and follow it.")), 1)
+        self.assertEqual(len(self.old_lines("Read SKILL_DIR/prompts/landing.md and do the job named here.")), 1)
+        self.assertEqual(len(self.old_lines("        f\"Read {SKILL / 'prompts' / 'session.md'} and follow it.\", \"\",")), 1)
+        self.assertEqual(len(self.old_lines("Read /x/plugins/cache/lem/lem/0.2.0/skills/lem/prompts/merge.md and follow it.")), 1)
+        self.assertEqual(self.old_lines("   `SKILL_DIR/prompts/writing.md` first: the story. Read `brief.md` and follow it."), [])
+        self.assertEqual(self.old_lines("claude \"Read TASK_DIR/session.md and follow it.\""), [])
 
 
 class Handoff(unittest.TestCase):

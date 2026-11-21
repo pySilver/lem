@@ -3748,7 +3748,8 @@ def cmd_merge_review(task: Task, record: str | None, read_tip: str | None = None
         }
         brief = task.directory / "merge-brief.md"
         write_whole(brief, "\n".join([
-            f"Read {SCRIPTS.parent / 'prompts' / 'merge.md'} and follow it. Your reply is the review, in the form that file gives, and nothing else.",
+            # by its place in the plugin, never by this Lem's folder, which an update of the plugin replaces
+            "Read `skills/lem/prompts/merge.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check. Your reply is the review, in the form that file gives, and nothing else.",
             "", "The facts of this task, as `lem land merge-review` gave them:", "", "```json", json.dumps(facts, indent=2), "```", "",
         ]))
         return {"task": task.slug, "brief": str(brief), "answer": str(answer_file(task, tip)), "tip": tip, "worktree": str(task.worktree), "seat": seat, "facts": facts}
