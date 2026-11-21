@@ -246,6 +246,34 @@ class FirstLine(unittest.TestCase):
         self.assertEqual(said["say"], "gift-note · feat.")
 
 
+class Close(unittest.TestCase):
+    OPENS = [{"event": "session.open", "task": SLUG, "session": "S-1"}, {"event": "session.open", "task": "other-task", "session": "S-7"},
+             {"event": "session.open", "task": SLUG, "session": "S-2"}]
+
+    def close(self, session_id: str) -> tuple[dict, list]:
+        closed = []
+        with mock.patch.object(session, "place", return_value={"session": "", "socket": "", "window": ""}), \
+             mock.patch.object(session, "tree", return_value={}), \
+             mock.patch.object(session, "node_of", return_value={"name": "x", "active": False}), \
+             mock.patch.object(session, "ctl", side_effect=lambda where, *args: closed.append(args)), \
+             mock.patch.object(project, "append_event"), \
+             mock.patch.object(project, "task_directory", return_value=Path("/lem-unit/task")), \
+             mock.patch.object(project, "events_named", side_effect=lambda root, *names: [r for r in self.OPENS if r["event"] in names]):
+            return session.cmd_close(ROOT, SLUG, session_id, "handoff", False, 0.01), closed
+
+    def test_a_close_by_id_closes_only_a_session_of_that_task(self):
+        with self.assertRaises(session.SessionError) as raised:
+            self.close("S-7")
+        self.assertIn("S-7 is no session of gift-note", str(raised.exception))
+        self.assertIn("other-task", str(raised.exception))
+        with self.assertRaises(session.SessionError):
+            self.close("S-404")
+        # an older session of the same task is its own: a handoff closes its predecessor, in any case of the id
+        done, closed = self.close("s-1")
+        self.assertTrue(done["closed"])
+        self.assertEqual(closed, [("session", "close", "--target", "s-1", "--undoable")])
+
+
 class Agent(unittest.TestCase):
     def test_an_agent_in_the_left_pane(self):
         self.assertTrue(session.agent_runs({"foreground": ["/usr/local/bin/claude", "--resume", "x"]}))

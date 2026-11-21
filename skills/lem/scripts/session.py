@@ -9,7 +9,8 @@
                                  name the old one `SLUG · handed off`; `--same` for the owner's
                                  "hand off" inside a phase
     lem session close SLUG [--session ID] --why handoff|ended|owner [--when-unselected]
-                                 log the close, then close the session; never one the owner has selected
+                                 log the close, then close the session; never one the owner has selected,
+                                 and with --session only one a `session.open` of SLUG names
     lem session handoff SLUG --check
                                  check handoff.md against `templates/handoff.md`
     lem session talk SLUG --from TEXT [--leave TEXT ...]
@@ -620,6 +621,18 @@ def wakes_of(events: list[dict], session: str) -> int:
     return sum(1 for record in events if record.get("event") == "session.wake" and str(record.get("session", "")).upper() == session.upper())
 
 
+def own_session(events: list[dict], slug: str, session: str) -> None:
+    """Refuse SESSION unless a `session.open` of SLUG names it. Any of the task's sessions counts, an
+    older one too, since a handoff closes the one before it."""
+    opened = [record for record in events if record.get("event") == "session.open" and str(record.get("session", "")).upper() == session.upper()]
+    if any(record.get("task") == slug for record in opened):
+        return
+    owners = sorted({str(record.get("task")) for record in opened})
+    whose = f"its `session.open` names {', '.join(owners)}" if owners else "no `session.open` names it"
+    raise SessionError(f"{session} is no session of {slug}: {whose}. `lem session list` gives each task's session; "
+                       f"close a session under its own task, or leave out --session to close {slug}'s newest")
+
+
 def cmd_close(root: Path, slug: str, session: str | None, why: str, when_unselected: bool, every: float) -> dict:
     where = place()
     project.task_directory(root, slug)
@@ -629,6 +642,8 @@ def cmd_close(root: Path, slug: str, session: str | None, why: str, when_unselec
         if newest is None:
             raise SessionError(f"no session of {slug} is on record: there is nothing to close")
         session = str(newest["session"])
+    else:
+        own_session(events, slug, session)
     logged = any(record.get("event") == "session.close" and str(record.get("session", "")).upper() == session.upper() for record in events)
     woken = wakes_of(events, session)
     while True:
