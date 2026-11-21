@@ -12,17 +12,24 @@ Size: full, because the rule has two readers, the task's session and the lead, a
    3. Lem's first line for the new task, `tests-at-the-unit-level`, says that it waits for `one-lem-parallel-landings`, as he said, and that "start tests-at-the-unit-level now" starts it before that.
    4. The task is `queued`, with his words and the line `after: one-lem-parallel-landings`, and no lead starts.
    5. When `one-lem-parallel-landings` is landed or answered, the task's session opens and the task starts.
-   6. When `one-lem-parallel-landings` is dropped, the task starts too, and its first state on the board says that it starts without the result of `one-lem-parallel-landings`, which was dropped.
+   6. When `one-lem-parallel-landings` is dropped, the task stays `queued`, and "Waits for you" asks the owner to start it or to drop it.
+   - test: `python3 -B -m unittest tests.unit.test_serve -k a_queued_task_whose_session_lives_is_woken_once` in `tests/unit/test_serve.py`
+   - test: `python3 -B -m unittest tests.unit.test_session -k a_task_queued_in_the_shape -k a_task_its_lead_queued` in `tests/unit/test_session.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_task -k waits_for_another_task` in `tests/unit/test_board_task.py`
+   - test: `bash tests/lem-session.sh` in `tests/lem-session.sh`
 2. Only the owner's word removes his order. An agent that sees no need for the order keeps it, and says so where the owner sees it:
    1. The task `tests-at-the-unit-level` waits after `one-lem-parallel-landings`, by his words.
    2. An agent of the task finds that the task needs no code of `one-lem-parallel-landings`.
    3. The task still waits. Its state on the board says that the agent sees no need for the order, why, and that "start tests-at-the-unit-level now" starts it. The agent's report says the same.
    4. The owner says "start tests-at-the-unit-level now". His words go into the task's record, the order is removed, and the task starts.
+   - test: `python3 -B -m unittest tests.unit.test_task.QueuedRefusal` in `tests/unit/test_task.py`
 3. A lead that finds his order in the ask of a task that already started queues the task, before it writes a plan or any code:
    1. The ask of `tests-at-the-unit-level` begins "After one-lem-parallel-landings:", and its lead started all the same.
    2. `one-lem-parallel-landings` is still open.
    3. The lead writes no plan and no code. The task is `queued` with the line `after: one-lem-parallel-landings`, and its state on the board says that it waits by his words, with his words: `the owner's order: "After one-lem-parallel-landings"`. Its report names his words.
+   - no test: the criterion is a rule of a stage text, `skills/lem/stages/plan.md`, which an agent follows; its test is a real task
 4. Without such an order nothing new waits, and Lem never starts a task against an order that it cannot read. The words that make a task wait are those that put the whole task after another task, named by its name or in the owner's own words; capital letters and a colon do not matter ("After one-lem-parallel-landings: ...", "when the parallel landings task lands, ..."). `/lem after a refund the invoice shows 0` starts at once: its "after" orders no tasks. `/lem the card of tests-at-the-unit-level cuts its title` starts at once: it only names a task. `/lem After picker-test-holds-at-a-minute-edge: the picker shows seconds` starts at once: that task is landed, so his order is met. `/lem After one-lem-paralel-landings: unit cases` names no task, by a typo: Lem asks once, in one line with its guess first: "Queue this after one-lem-parallel-landings, after another task (name it), or no order?". While he is away it asks nothing: when exactly one open task fits his words, the task is queued after that one, and its first line and its state say which task Lem took; when none fits, or more than one, the task is held for him with his words, shows in the list of what waits for him, and nothing of it starts.
+   - no test: the criterion is a rule of a stage text, `skills/lem/stages/new.md`, which an agent follows; its test is a real task
 
 ## How it works
 
@@ -35,7 +42,7 @@ flowchart TD
   B -->|"no"| C{"Does the ask need the result of an open task?"}
   C -->|"yes"| N["Queued after that task, with what it needs"]
   C -->|"no"| S["The task starts at once"]
-  T -->|"yes, and it ended: the order is met"| C
+  T -->|"yes, and it landed or was answered: the order is met"| C
   T -->|"yes, and it is open"| Q["Queued after that task, with his words"]
   T -->|"no, and he is there"| K["One question, with Lem's guess first"]
   T -->|"no, he is away, one open task fits"| G["Queued after that task, and Lem says which it took"]
@@ -43,7 +50,7 @@ flowchart TD
   K -->|"yes, or the task he names"| Q
   K -->|"no order"| C
   H -->|"he is back: the one question"| K
-  Q -->|"that task ended, or his word: start it now"| R["The task goes on where it stopped: the interview, the fast track, the investigation or the lead"]
+  Q -->|"that task landed or was answered, or his word: start it now"| R["The task goes on where it stopped: the interview, the fast track, the investigation or the lead"]
 ```
 
 A queued task goes on where it stopped, not at the build: a task queued at step 7 of "The request"
@@ -62,7 +69,9 @@ Read in the code at `7971845`:
 - A `queued` block is free lines plus `after: SLUG`. Three scripts read the `after:` line and nothing
   else of the block: `cmd_may_start` in `project.py`, `queued_behind` in `session.py`, and
   `needs_task` and `after_ended` in `lem_board_model.py`. The board's server opens the task's session
-  when the named task is landed, answered or dropped (`serve.py`). None of that changes.
+  when the named task is landed or answered (`serve.py`); a task queued behind a dropped one stays
+  queued for the owner's word (`after_dropped`, `cmd_may_start`), the base's rule since c28ca79 and
+  decision 18 of the record. None of that changes.
 - The refusal of `lem project may-start` for a queued task ends "when it no longer needs that, write
   its state `queued` again without the `after:` line". It is the one text that tells an agent how to
   remove a wait, and it knows no order of the owner's.
@@ -137,10 +146,11 @@ Read in the code at `7971845`:
      finds the block it expects and the board and "Waits for you" show it. On `then: the fast
      track`, whose criterion and brief were written before step 7 ("The fast track", step 2), it
      takes `stages/start.md`, which starts its one builder, and never the fast track's step 1 or step
-     7 again. When the task of its `after:` line was dropped, the first state block it
-     writes says so in one line: it starts without the result of that task, which was dropped. A
-     task `held` with `the order waits for the owner` takes step 1 of "The request" for its one
-     question while he is there, and waits for him while he is away; at his back it asks it.
+     7 again. When the task of its `after:` line was dropped, the task stays `queued`, and "Waits
+     for you" asks the owner to start it or to drop it (the base's rule, decision 18 of the record);
+     his "start it" writes the block again without the `after:` line, and the task goes on where it
+     stopped. A task `held` with `the order waits for the owner` takes step 1 of "The request" for
+     its one question while he is there, and waits for him while he is away; at his back it asks it.
    - `plan.md`, before step 1: an order that the owner gave stays. A lead whose task holds his order
      (the first line of its `queued` block, or his words in the ask of `task.md`) never removes it,
      also when the code shows that the task needs nothing of the other one, unless his own record
@@ -148,13 +158,13 @@ Read in the code at `7971845`:
      below). It writes the `queued` block again with one more line, that it sees no need for the
      order, why, and that "start SLUG now" starts the task, so that the board shows it while the
      task waits; its report says the same. A lead that finds his order in the ask of a task that
-     started all the same, while the task he named has not ended, writes no plan and no code and
-     queues the task as the paragraph above it does, with `the owner's order: "HIS WORDS"` as the
-     first line, and names his words in its report.
+     started all the same, while the task he named has not landed or been answered, writes no plan
+     and no code and queues the task as the paragraph above it does, with `the owner's order: "HIS
+     WORDS"` as the first line, and names his words in its report.
    - `prompts/lead.md`, step 3: the one sentence on a queue names both cases.
    - `start.md`, step 1: one clause, that a task which stays `queued` by the owner's order stays so
-     until that task ends or his word removes the order. "`/lem build`": one paragraph for his
-     "start SLUG now" on a task queued by his order, in any session. It logs his words (`lem
+     until that task is landed or answered, or his word removes the order. "`/lem build`": one
+     paragraph for his "start SLUG now" on a task queued by his order, in any session. It logs his words (`lem
      decisions log SLUG --by owner --words`) and writes the `queued` block again with its lines but
      the `after:` line, and the line `the owner's order was removed: "HIS WORDS"`. Typed in the
      task's own session, that session goes on as `prompts/session.md` says for a queued task whose
@@ -355,9 +365,11 @@ widened, 7 and 8 new.
    and `cmd_next` already needs a change of phase at the interview's end. The same holds for a task
    queued by a need, which met the same route before this plan; the plan widens that route's use,
    since an order comes on any ask. `then:` is a free line, read by the agent: no script reads it.
-   The note of a start after a drop goes with the route, since an investigation and an interview
-   never reach step 3 of `stages/start.md`. This is design choice A of the plan talk, decision 11 of
-   the record: no level of the ladder settled it, so the lead's pick stands, the plan as the talk
+   A task queued behind a dropped task stays queued for the owner's word, the base's rule (decision
+   18 of the record), and his "start it" sends it on by the same route. A need on the standard track
+   with an interview is asked after the interview and his yes (`stages/start.md`, step 1, the base's
+   rule since c28ca79); his order still queues the task at step 7, before the interview. This is
+   design choice A of the plan talk, decision 11 of the record: no level of the ladder settled it, so the lead's pick stands, the plan as the talk
    left it, with the route's own issues fixed in its text (the need read again before step 8, step
    4's block written again for the interview, the fast track resumed at its builder, the lead's
    brief in the correction). The personas and one expert (Fable) wanted the interview to run at once
@@ -368,8 +380,9 @@ widened, 7 and 8 new.
    line can say the wait and the one question holds every unclear read at once.
 6. **Criteria 1 to 3 are as the personas expected them** (decisions 4, 5 and 6 of the record, by the
    dialectic, which found no break): the words that start a waiting task early stand in Lem's first
-   line and in the state; a start after a drop says so; what an agent has to say about an order goes
-   into the state the board shows, and into its report.
+   line and in the state; a task queued behind a dropped one waits for the owner's word, as step 6
+   of criterion 1 says since decision 18 of the record took the base's rule; what an agent has to
+   say about an order goes into the state the board shows, and into its report.
 
 The owner was away for the criteria. Lem approved them without him, so the pull request is not green.
 
