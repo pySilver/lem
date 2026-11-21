@@ -17,10 +17,11 @@
                                  copy the turns of this session about the ask into the task's talk.md
     lem session wake SLUG --why merged|conflict|refused|queue|owner [--head SHA]
                                  a pane message to the task's live session, or a new session
-    lem session wait SLUG --until STATE,... | --event NAME | --first-line
+    lem session wait SLUG --until STATE,... | --event NAME | --first-line [--companion ID]
                                  end when the task's state is one of these, or a new event is logged,
                                  or the task's first line is written, or when the task's session is
-                                 gone (`"gone": true`)
+                                 gone (`"gone": true`), or with --companion when that companion of the
+                                 waiting session is gone (`"gone": true, "companion": ID`)
     lem session list             each task's newest session: live, agent, selected, the phase the task is
                                  in now and the one the session opened in, unanswered
 
@@ -714,12 +715,24 @@ def gone_session(root: Path, slug: str, where: dict) -> dict | None:
     return None if live(node, newest, datetime.now(timezone.utc)) else newest
 
 
-def cmd_wait(root: Path, slug: str, until: list[str], event: str | None, every: float) -> dict:
+def gone_companion(where: dict, companion: str, since: dict, now: datetime) -> bool:
+    """Whether COMPANION, a session the waiting one opened under itself (the plan talk's pair), is gone:
+    not in agterm's tree, or no agent runs in it once STARTING seconds passed since the wait began
+    (SINCE, a record with its `ts`). False when agterm did not answer, which the next look asks again."""
+    try:
+        node = node_of(tree(where), companion)
+    except SessionError:
+        return False
+    return not live(node, since, now)
+
+
+def cmd_wait(root: Path, slug: str, until: list[str], event: str | None, every: float, companion: str | None = None) -> dict:
     project.task_directory(root, slug)
     unknown = [state for state in until if state not in project.STATES]
     if unknown:
         raise SessionError(f"--until names {', '.join(unknown)}, and a state is one of {', '.join(project.STATES)}")
     where = place()
+    began = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
 
     def mine() -> list[dict]:
         return [record for record in project.events_named(root, event) if record.get("task") == slug]
@@ -738,6 +751,11 @@ def cmd_wait(root: Path, slug: str, until: list[str], event: str | None, every: 
                 task = task_now()
                 if task["status"] in until:
                     return {"task": slug, "status": task["status"], "line": first_line(task), "since": task["since"], "gone": False}
+            if companion and gone_companion(where, companion, began, datetime.now(timezone.utc)):
+                task = task_now()
+                return {"task": slug, "status": task["status"], "line": first_line(task), "since": task["since"], "gone": True, "companion": companion,
+                        "say": f"the companion {companion} of {slug} is gone before the state came, and the task is {task['status'] or 'with no state yet'}: "
+                               f"read the plan's `## Plan talk` and `talk` in `lem project tasks` before anything else"}
             gone = gone_session(root, slug, where)
             if gone is not None:
                 task = task_now()
@@ -1012,6 +1030,7 @@ def main(argv: list[str] | None = None) -> None:
     until.add_argument("--until", metavar="STATE,...", help="the states that end the wait, joined by commas")
     until.add_argument("--event", metavar="NAME", help="the event that ends the wait, the first one logged for the task after its start")
     until.add_argument("--first-line", action="store_true", help="end with the task's first line, as this session says it")
+    waiting.add_argument("--companion", metavar="ID", help="with --until or --event: end too when this companion of the waiting session is gone (the plan talk's pair)")
     waiting.add_argument("--every", type=float, default=WAIT_EVERY, help=argparse.SUPPRESS)
     waiting.add_argument("--bound", type=float, default=FIRST_LINE_BOUND, help=argparse.SUPPRESS)
     commands.add_parser("list", help="each task's newest session")
@@ -1031,12 +1050,14 @@ def main(argv: list[str] | None = None) -> None:
         elif args.command == "wake":
             result = cmd_wake(root, args.slug, args.why, args.head)
         elif args.command == "wait" and args.first_line:
+            if args.companion:
+                raise SessionError("--companion goes with --until or --event: the first line comes from the task's own session")
             result = cmd_first_line(root, args.slug, max(0.01, args.every), max(0.0, args.bound))
         elif args.command == "wait":
             states = [state.strip() for state in (args.until or "").split(",") if state.strip()]
             if args.until is not None and not states:
                 raise SessionError("--until names one state or more, joined by commas, as --until open,held,landed")
-            result = cmd_wait(root, args.slug, states, args.event, max(0.01, args.every))
+            result = cmd_wait(root, args.slug, states, args.event, max(0.01, args.every), args.companion)
         else:
             result = cmd_list(root)
     except (SessionError, project.SettingsError) as error:

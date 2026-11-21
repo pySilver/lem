@@ -200,11 +200,18 @@ with each of its lines and that one. Your report says the same. A task he named 
       `seats.planner`, and write the state `building` with the lines `the plan talk runs`, `lead:
       session` and `defender: MODEL, EFFORT`, as the pair's status line shows them (the harness
       file says how to read them).
-   3. `run-in-background` with `lem session wait SLUG --until planned,held`. Its end wakes you:
-      close the pair (`open-task-session`). On `planned` with `the plan talk is done`, write the
-      state `building` with the line `lead: builder`, and go on at step 3, which now finds the
-      record. On `held`, the defender tripped the breaker: take it up as `stages/breaker.md`
-      says under "After it".
+   3. `run-in-background` with `lem session wait SLUG --until planned,held --companion ID`, `ID`
+      the pair's id from its open. Its end wakes you: close the pair (`open-task-session`). On
+      `planned` with `the plan talk is done`, write the state `building` with the line `lead:
+      builder`, and go on at step 3, which now finds the record. On `held`, the defender tripped
+      the breaker: take it up as `stages/breaker.md` says under "After it". On `"companion"`, the
+      pair is gone and no state came: read `talk` in `lem project --repo WORKTREE tasks` and the
+      plan's `## Plan talk` first. A record there means the talk ended and its defender stopped
+      before its state: go on as on `planned`. No record: open the pair once more at step 2; when
+      that one is gone with no record too, write the state `held` with the line `the plan talk's
+      pair ended twice with no record: its screen is the owner's to read`. A defender that stops
+      but stays live in its pane (a usage limit, a question on its screen) ends no wait: the board
+      shows `the plan talk runs` until the owner looks at the pair.
    A task that becomes careful after its plan, by the owner's word, by the review's call or
    by an edit of `.lem/project.toml`, gets no talk afterwards: the landing's full
    review reads the code that exists.

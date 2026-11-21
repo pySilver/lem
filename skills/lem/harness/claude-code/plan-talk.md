@@ -27,7 +27,8 @@ A companion session of the lead's, `SLUG · plan talk`, which runs Claude Code w
    `lem project show` gives parsed from its one line, `claude/MODEL:EFFORT`. Leave a flag out when
    the seat does not name its value (`null`): the agent's own default holds then. The seat's
    `agent` can only be `claude`, since this agent's file is the only one the contract was checked in.
-2. **Confirm it runs**: the command prints the new session's id; keep it. In `agtermctl tree
+2. **Confirm it runs**: the command prints the new session's id; keep it, since the lead's wait
+   takes it (`lem session wait SLUG --until planned,held --companion ID`). In `agtermctl tree
    --json` the node with that id has a `foreground` that ends in the `claude` line, and its
    `parent` is this session. Only a node that is gone at once means the command failed; then open
    it again with `--wait` and read its screen with `agtermctl session text --target ID`. Never
