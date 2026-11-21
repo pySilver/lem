@@ -48,7 +48,7 @@ Size: full, because every ruling of `AGENTS.md` moves into a file of its own and
    (2026-11-16) the list has one line: today's sentence, the sentence of the short file, and each
    ruling that changed a part of it: the rulings of 2026-11-19 on where he answers Lem, "The build
    asks him nothing, and the ladder always decides" (2026-11-20) and "Each task lives in a session
-   of its own" (2026-11-21). A pull request with no such sentence says that its list is empty.
+   of its own" (2026-11-20). A pull request with no such sentence says that its list is empty.
 5. A decision of the maintaining session, and a design that is open to the owner, has its file in
    `.lem/decisions/`, a folder of Lem's own in this repository beside `.lem/lessons.md`, and never
    in `docs/`, and its sentence in `AGENTS.md` stands under a heading whose first line says that
@@ -449,6 +449,17 @@ Each is the lead's, with what it rests on. The task's record holds them after th
     their own. Both personas asked voted for the heading, and the dialectic found no break of it in
     `docs/rulings/`; its one break, the word "ruled" over a decision of the session, is answered by
     the decision's own heading (decision 17 of the task's record).
+11. **A ruling changed in part keeps today's bold sentence when that sentence is still true as
+    written**, and only its file says what changed. A new sentence is written only where the bold
+    sentence is false today. Task 1 showed the need: its builder wrote "a pair in the task's
+    session" for the plan talk, which runs in a companion under the task's session that closes
+    after it (decision 24 of the task's record).
+12. **A later paragraph that says the opposite of a clause of an earlier ruling changes that ruling
+    in part, also when it does not name it.** The map names each such ruling, and the pull request
+    lists it (decision 23 of the task's record).
+13. **The day of "Each task lives in a session of its own" is 2026-11-20**, from the source its
+    opening names, and the example of criterion 4 says so: change 1 of the criteria, led by
+    decision 16 of the task's record.
 
 ## Left to the landing
 
