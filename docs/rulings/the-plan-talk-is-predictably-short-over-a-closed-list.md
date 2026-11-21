@@ -5,6 +5,14 @@ area: The plan, the build and the tests
 
 # The plan talk is predictably short, over a closed list
 
+## Changed in part
+
+The title is the rule as it stands. Where the paragraph below says otherwise, the line here holds.
+
+- 2026-11-20, [The build asks him nothing, and the ladder always decides](the-build-asks-him-nothing-and-the-ladder-always-decides.md): "a question that holds a second time is a design choice, asked and never settled by an edit": the design choice is still never settled by an edit, and it is asked of nobody: it goes up the ladder after the talk, which decides it (`stages/talk.md`, `stages/plan.md`, step 5)
+
+## As ruled on 2026-11-16, changed in part since
+
 Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A quote is his words.
 
 **The plan talk is predictably short, over a closed list**: he asked "What makes it
