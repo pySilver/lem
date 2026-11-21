@@ -7,17 +7,17 @@ careful: yes, because the change sets what the plan talk's reviewer may write, w
 Size: full, because the change is careful and rests on one real talk in agterm before any file changes.
 
 1. A plan talk's Codex reviewer reads the repository and cannot change a file of it:
-   1. A talk opens in a throwaway repository, with the reviewer `codex/gpt-6.2-sol:high`.
+   1. A talk opens in a throwaway repository on this Mac, with the owner's own Codex settings and the reviewer `codex/gpt-6.2-sol:high`.
    2. The reviewer reads `plan.md` and runs `git log` there.
    3. The reviewer tries to write a line into `plan.md`.
    4. Codex refuses the write, and `git status` in the repository shows no change.
    - no test: one real talk in agterm shows it; its screens and `git status` go into the builder's report, since no suite starts agterm and Codex
 2. The reviewer still answers through the mailbox:
-   1. In the same talk, the reviewer writes its answer to its reply file.
+   1. In the same talk, the reviewer writes its answer to its reply file, `/tmp/mailbox-chat-<pane>.txt`, outside the repository.
    2. It sends the file with `mailbox-chat.py say --file`, and the send prints `sent`.
    3. The answer reaches the defender's pane.
    - no test: the same real talk shows it, with the three receipts in the builder's report
-3. `skills/lem/harness/claude-code/second-opinion.md` gives the launch line that the talk showed, and only that one: its Codex line starts Codex with the seat's model and effort and a permission profile that reads everything and writes only the reply file. When the talk did not show criteria 1 and 2, the harness file stays as it is, and the backlog item says what the talk showed.
+3. `skills/lem/harness/claude-code/second-opinion.md` gives the launch line that the talk showed, and only that one: its Codex line starts Codex with the seat's model and effort and a permission profile that reads everything and writes only the reply file. The profile is only on the launch line: Lem writes no file in the developer's Codex settings and none in the repository. When the talk did not show criteria 1 and 2, the harness file stays as it is, the backlog item in Lem's own `docs/backlog/` says what the talk showed, and the pull request says that the reviewer can still write.
    - no test: a sentence of the harness file
 
 ## How it works
