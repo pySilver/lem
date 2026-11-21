@@ -220,13 +220,19 @@ has it. The script is a working file of the task directory and is not committed.
   changed in part, `## Changed in part` next, before any word of the paragraph, opening with the
   line "The title is the rule as it stands. Where the paragraph below says otherwise, the line here
   holds." and then one line for each later ruling: its day, its sentence as a link, and the part it
-  changed; each opening under which the paragraph stood at the base commit, word for word; then the
-  paragraph, word for word, without its list mark and its indent. Last, where the map says so,
+  changed; for a ruling changed in part, the heading `## As ruled on DAY, changed in part since`,
+  with the ruling's day as `ruled:` gives it (decision 10 of the plan); each opening under which the
+  paragraph stood at the base commit, word for word; then the paragraph, word for word, without its
+  list mark and its indent. So the old words of a ruling changed in part stand under a heading of
+  their own that says they changed, and a cite of a match in them names that heading. Last, where
+  the map says so,
   `## Replaced, not in force` holds each ruling this one replaced: its sentence, its day, its
   openings and its paragraph, word for word. So a reader of the file, the question gate's judge
   among them, meets what changed before the words it changed.
 - **A file of a decision or of a design that is open to him**, in `.lem/decisions/`: the same
-  form, with `decided:` where a ruling has `ruled:`.
+  form, with `decided:` where a ruling has `ruled:`, and `## As decided on DAY, changed in part
+  since` where a ruling has `## As ruled on DAY, changed in part since`: no heading of a decision's
+  file says "ruled".
 - **A decision of the session that was replaced whole** keeps a file of its own in
   `.lem/decisions/`, whose first line under the title says "Replaced, not in force", with the day
   and the link of what replaced it. It has no sentence in `AGENTS.md`, and the file of what
@@ -323,8 +329,9 @@ The list, numbered as the reviewer gave it in its first turn:
    once: the judge's `decided` must cite the heading (judge.md, lines 25 and 26), and the headings
    above the old paragraph are the title and `## Changed in part`; at the base the same line stands
    in `AGENTS.md` with no change mark. Held a second time: the cite of the heading does not make the
-   judge read the note, and the old paragraph has no heading of its own. **A design choice**, which
-   "Decisions of the talk" below takes up the ladder.
+   judge read the note, and the old paragraph has no heading of its own. **A design choice**: the
+   ladder took it after the talk, and the dialectic settled it for a heading of the old words' own
+   (decision 10 of the plan; decision 17 of the task's record).
 2. **How the short index tells a builder which file to read.** "Opinionated and small" holds the
    out-of-scope list (base 83 to 86), which its sentence does not name, so a builder that adds a
    skill-activation hook reads the index and skips the file. Repaired: the map's field "what it
@@ -342,9 +349,10 @@ The list, numbered as the reviewer gave it in its first turn:
    opening of two days gives no one day. Repaired once: a state for each span, and the opening's
    days as written. Held: the GitHub ruling's paragraph (base 885 to 893) names only the days of the
    rulings it replaces, its opening (base 842) names "2026-11-20 and 2026-11-21", and criterion 2
-   wants `ruled: 2026-11-20`. Not refuted: the defender agreed. **A design choice**, which
-   "Decisions of the talk" below takes up the ladder. The part of the repair on the two spans
-   closed.
+   wants `ruled: 2026-11-20`. Not refuted: the defender agreed. **A design choice**: the ladder
+   took it after the talk, and the question gate settled it by criterion 2 for the day the opening's
+   source gives (decision 9 of the plan; decision 16 of the task's record). The part of the repair
+   on the two spans closed.
 5. **What happens when a replacement is itself replaced.** The chain at base 71 to 78 and 885 to
    893. Repaired: the entry in force at the end of the chain takes the text, a replacing ruling takes
    the replaced file whole, each link to it moves in the same commit, and the unit test checks the
@@ -434,6 +442,13 @@ Each is the lead's, with what it rests on. The task's record holds them after th
    question 4 closed as a design choice; the question gate settled it as checkable by criterion 2,
    whose case says `ruled: 2026-11-20` for "GitHub pull requests are the one way to land" (decision
    16 of the task's record).
+10. **The old words of a ruling changed in part stand under a heading of their own,** `## As
+    ruled on DAY, changed in part since`, after `## Changed in part` (in a decision's file, `## As
+    decided on DAY, changed in part since`). The plan talk's question 1 closed as a design choice
+    against the plan's first form, the old words under `## Changed in part` with no heading of
+    their own. Both personas asked voted for the heading, and the dialectic found no break of it in
+    `docs/rulings/`; its one break, the word "ruled" over a decision of the session, is answered by
+    the decision's own heading (decision 17 of the task's record).
 
 ## Left to the landing
 
