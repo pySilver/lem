@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Pick a task of the repository in agterm's picker, and open the board of that task.
+"""Pick a task of the repository in agterm's picker, and go to that task's session, or its board.
 
-    lem picker [--repo DIR]           open agterm's picker over the tasks; a pick opens its board
+    lem picker [--repo DIR]           open agterm's picker over the tasks; a pick selects the task's
+                                      live session, else opens its board
     lem picker [--repo DIR] --list    print the rows the picker shows, as JSON, and open nothing
 
 An agterm keymap command starts it with a chord. The keymap is agterm's file and Lem never writes
@@ -10,15 +11,17 @@ The repository is the one the session sits in (`AGT_SESSION_PWD`), so the same c
 session lists that session's tasks.
 
 The rows come in the order a developer reads them: first what waits for the owner (a breaker's
-document, the criteria for his yes, a step of his, a pull request to merge), in the order of `lem
-project waiting`; then the tasks that build (ACTIVE), the newest first, with a parked one after them; then the tasks that ended in the
+document, the criteria for his yes, a step of his, a task its session stopped, a plan to read, a pull
+request to merge, a task with no session), in the groups of `lem project waiting`; then the tasks that build (ACTIVE), the newest first, with a parked one after them; then the tasks that ended in the
 last ENDED_DAYS days, the newest first; and last a row for the board of all tasks. A row's label is
 the task's ask in the owner's words, and its subtitle the state in the board's words, the track,
 the age of the newest state, and the pull request's number with green or not green.
 
-A pick runs `lem board --task SLUG --follow` (the board of all tasks for the last row), which is
-what `/lem status SLUG` opens: the board server's page of that task, which needs no agent, and
-nothing is typed into a pane. Escape opens nothing. Every failure exits 1 with one line on stderr,
+A pick of a task whose newest session lives in agterm's tree with an agent in it (`lem session`'s
+`live`) selects that session (`agtermctl session select`), where the task's agent is. A task with
+none, and the last row, runs `lem board --task SLUG --follow` (the board of all tasks for the last
+row), which is what `/lem status SLUG` opens: the board server's page of that task, which needs no
+agent. Nothing is typed into a pane. Escape opens nothing. Every failure exits 1 with one line on stderr,
 which agterm shows when the keymap line carries `--error-hud`: no repository of Lem in the session, no
 task yet, no `agtermctl`, or a picker or a board that failed (a board server that does not run among
 them).
@@ -31,6 +34,7 @@ if sys.version_info < (3, 11):
     sys.exit(f"picker.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; name a newer one in the keymap line")
 
 import argparse
+import importlib
 import json
 import os
 import re
@@ -130,7 +134,7 @@ def rows(root: Path, now: datetime) -> list[dict]:
         add(breaker["task"], breaker_words(breaker["id"]))
     for entry in waiting["criteria"]:
         add(entry["task"], "Waits for you: the acceptance criteria")
-    for key in ("held", "pull_requests"):
+    for key in ("held", "blocked", "plans", "pull_requests", "no_session"):
         for entry in waiting[key]:
             add(entry["task"])
     def newest(task: dict) -> str:
@@ -187,6 +191,34 @@ def pick(found: list[dict]) -> str | None:
     return chosen
 
 
+def live_session(root: Path, slug: str) -> str | None:
+    """The id of the task's newest session when it lives in agterm's tree with an agent in it, else None.
+    agterm's whole tree is read, every window's, since a task's session may sit in any of them."""
+    session = importlib.import_module("session")
+    newest = session.newest_opens(project.events_named(root, *session.EVENTS)).get(slug)
+    if newest is None:
+        return None
+    try:
+        node = session.node_of(session.tree(chord_place()), newest.get("session"))
+    except session.SessionError as error:
+        raise PickerError(str(error)) from error
+    return str(newest["session"]) if session.live(node, newest, datetime.now(timezone.utc)) else None
+
+
+def chord_place() -> dict:
+    """Where the chord was pressed, as `lem session` takes a place: agterm's socket, and no window, so that
+    the whole tree answers."""
+    return {"session": os.environ.get("AGT_SESSION_ID", ""), "socket": os.environ.get("AGT_SOCKET", ""), "window": ""}
+
+
+def select_session(target: str) -> None:
+    session = importlib.import_module("session")
+    try:
+        session.ctl(chord_place(), "session", "select", "--target", target)
+    except session.SessionError as error:
+        raise PickerError(str(error)) from error
+
+
 def open_board(root: Path, chosen: str) -> None:
     """The board of the task picked, or of all tasks, as `lem board` opens it."""
     ran = subprocess.run([sys.executable, "-B", str(SCRIPTS / "board.py"), "--repo", str(root), "--follow", *([] if chosen == ALL else ["--task", chosen])],
@@ -210,7 +242,12 @@ def main(argv: list[str] | None = None) -> None:
             print(json.dumps(found, indent=2, ensure_ascii=False))
             return
         chosen = pick(found)
-        if chosen is not None:
+        if chosen is None:
+            return
+        live = live_session(root, chosen) if chosen != ALL else None
+        if live:
+            select_session(live)
+        else:
             open_board(root, chosen)
     except (PickerError, project.SettingsError) as error:
         sys.exit(f"lem picker: {error}")
