@@ -402,8 +402,9 @@ Each script's module docstring says what it does and why; this list says where e
   `interview.md` (the interview and the criteria) and `investigate.md` (a bug, a question) are the
   rest of the shape. `start.md` starts the build, `plan.md` and `build.md` are the lead's, `talk.md`
   is the plan talk, which only its defender reads, `ladder.md` a decision in doubt and `breaker.md`
-  the circuit breaker. `land.md` is the land phase, and `polish.md` its step 3, on the standard
-  track only. `status.md`, `away.md`, `correct.md`, `park.md`, `night.md`, `init.md`, `learn.md`
+  the circuit breaker. `land.md` is the land phase, `polish.md` its step 3, on the standard
+  track only, and `conflict.md` what an open pull request takes when GitHub calls it conflicting.
+  `status.md`, `away.md`, `correct.md`, `park.md`, `night.md`, `init.md`, `learn.md`
   and `nap.md` are the owner's other commands and the scheduled ones.
 - `skills/lem/prompts/`: the standing briefs: `session.md` (a task's session: what it reads, a
   change of phase, a wake-up, what it never does), `lead.md`, `defender.md` and `reviewer.md` (the

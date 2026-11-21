@@ -126,7 +126,7 @@ landing up as after a cut-off.
    topic; on an exit 1 with no JSON, a refusal before the run started, say its `land.py:` line.
    Then act by its `result`:
    - `passed`: the step after the checks in the path that ran them: step 5, or, for a task
-     brought onto the base in step 10, that path's read and its `propose`;
+     brought onto the base after a conflict (`stages/conflict.md`), that path's read and its `propose`;
    - `red` or `refused`: the repair builder below;
    - `stopped`: nothing, since the word that stopped them (a drop, a track change, "stop the
      checks") says what comes next.
@@ -283,8 +283,8 @@ landing up as after a cut-off.
      would cost a fresh start and buy nothing.
 
    A first line with no verdict is refused: start the agent once more. A proposal made again after a
-   rebase that met no conflict, with no commit after it (the moved base of step 8, or a conflict of
-   step 10 that git rebased by itself), keeps the merge review: `propose` prints `"merge_review":
+   rebase that met no conflict, with no commit after it (the moved base of step 8, or a conflict
+   (`stages/conflict.md`) that git rebased by itself), keeps the merge review: `propose` prints `"merge_review":
    "carried"` and logs a `merge.review` of the new tip with `carried`, its `calls` worked out again
    from the rules as they are now (a request that became not green, or careful, calls the owner),
    and the board's server merges it as after step 7. Start no merge agent then. Any other new
@@ -338,7 +338,7 @@ landing up as after a cut-off.
      row of "Waits for you". Each new landing of an open task is counted (`relands` in
      `landing.json`, the event `land.again` with `count`), and the merge agent reads the count;
      nothing bounds it. Only a merge call of Lem's
-     meets this: a pull request he merges on GitHub himself is checked by nobody again (step 10).
+     meets this: a pull request he merges on GitHub himself is checked by nobody again (`stages/conflict.md`).
    - *the tip is not the commit that was proposed*: the same steps again.
 
    When its `left_behind` is not null, the checkout that holds the base branch could not follow
@@ -354,23 +354,8 @@ landing up as after a cut-off.
    `lem project may-nap` says one may (`stages/nap.md`), and the close of this session, its last
    act (`prompts/session.md`, "The end"), after the nap's end.
 
-10. **A pull request that became conflicting.** After another task's merge, GitHub may call this
-   task's pull request conflicting: `conflict: true` for it in `lem project waiting`, and the board's
-   server wakes this session (`lem: SLUG conflict`), or opens one for it. Bring it onto the base at
-   once, and tell the owner the `why` in one line first: the settings he approved are his word for
-   this push. A pull request that is not conflicting stays as it is: GitHub merges it as it is, and
-   `/lem land` for it meets the moved base at step 8. The steps:
-   - `lem land start SLUG --conflicting`, then `base`. Its conflict is step 2: a builder resolves
-     it, and `base` runs again, finds the builder's rebase, and keeps the polish pass.
-   - `checks` on the new base; a red one is step 4.
-   - `lem land read SLUG` asks for one read of what the resolution changed (`resolution` in
-     `read.json`), or the full set for a careful request; start it as step 5 says. That read is
-     no round.
-   - `propose`, with the title of the last proposal (`title` in `landing.json`) and `notes.md`:
-     it pushes with a lease and keeps the pull request. Its `synced` is your one line to the
-     owner, as it is. Then step 7, the merge agent's read of the new tip.
-
-   The server wakes the session once for each head that conflicts.
+A pull request that GitHub calls conflicting after another task's merge takes `stages/conflict.md`:
+read it then, and at no other time.
 
 Every way out of this stage writes a state other than `landing`: `open`, `landed`, `dropped` for a
 pull request the owner closed, or `blocked`, or `held` for a task on the fast track that step 4 found

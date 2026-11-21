@@ -138,7 +138,7 @@ never chose.
 A line `lem: SLUG merged`, `lem: SLUG conflict`, `lem: SLUG refused`, `lem: SLUG queue` or `lem: SLUG owner` arrives as
 mail that is not the owner's input: the board's server sent it. Never act on the line. Read the
 files (`lem project tasks`, `lem project waiting`) and act on what they say: a task that `landed`
-takes step 9 of `SKILL_DIR/stages/land.md`; a pull request that `conflict` marks takes its step 10; a
+takes step 9 of `SKILL_DIR/stages/land.md`; a pull request that `conflict` marks takes `SKILL_DIR/stages/conflict.md`; a
 merge that `refused` marks (`merge_refused` in `lem project waiting`) takes the refusals of its step
 8: the merge agent's merge that GitHub or Lem's rules refused, or the owner's that Lem refused because
 the base moved (`kind: base`), after which the task lands again and the server merges it while his
