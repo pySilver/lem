@@ -278,6 +278,7 @@ and open to him. Each sentence is the text of a link to its file in `.lem/decisi
 - [A plan talk's record is taken as it ran.](.lem/decisions/a-plan-talks-record-is-taken-as-it-ran.md)
 - [A plan never makes a change small](.lem/decisions/a-plan-never-makes-a-change-small.md)
 - [The checks remove what their own commands leave](.lem/decisions/the-checks-remove-what-their-own-commands-leave.md)
+- [Two builders of one plan that run at one moment commit only their own paths](.lem/decisions/two-builders-of-one-plan-that-run-at-one-moment-commit-only-their-own-paths.md)
 
 ### A decision without him: the ladder, the experts and the breaker
 
