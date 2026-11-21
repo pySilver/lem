@@ -43,8 +43,40 @@ works, and this file says how to change it.
   settings, a record, an event, a state or a command reads and writes the new form only, and the
   maintaining session corrects the repositories that use Lem by hand. When Lem has users, this
   rule changes.
+- **Before a change that reaches what a sentence of the two lists below names, read that
+  sentence's file**, in whatever group it stands. A sentence names its ruling, and the sentences of
+  "What Lem is, and who it is for" name what Lem holds and leaves out, so a change that adds a part
+  to Lem (a skill, a hook, a command, a key of the settings, a tool it needs) reaches each of them.
+- **A new ruling of the owner is a file of `docs/rulings/` and one sentence in `AGENTS.md`.**
+  `lem project ruling-file SLUG` names the file, from the words of the sentence in lower case with
+  hyphens. The file opens with a front matter block of `ruled:` (his day) and `area:` (the heading
+  of its group), then the sentence as its `#` title, then the ruling in his words. The sentence is
+  the text of a link to the file, alone on its line under the heading of its group. The file and
+  the sentence change in the same commit.
+- **A ruling that replaces another takes that ruling's file whole**, with its own `## Changed in
+  part` and `## Replaced, not in force`, into its own `## Replaced, not in force`: a `###` heading
+  of the replaced sentence, the line `Ruled on DAY.`, then its text. The replaced file and its
+  sentence leave, and each link to the removed file, in `AGENTS.md` and in the two folders, names
+  the new file in the same commit.
+- **A ruling that changes a part of another changes that ruling's sentence and title where they
+  are no longer true**, and adds one line to that ruling's `## Changed in part`: the day, the new
+  ruling's sentence as a link, and the part it changed. A file with no `## Changed in part` yet
+  gets one under its title, opening with "The title is the rule as it stands. Where the paragraph
+  below says otherwise, the line here holds.", and its old words go under `## As ruled on DAY,
+  changed in part since`.
+- **A new decision of the maintaining session is a file of `.lem/decisions/`**, named as a
+  ruling's file is, with `decided:` in place of `ruled:`, and one sentence under the heading of
+  its group in "Decisions the maintaining session took". A decision changes as a ruling does, and
+  no line of its file says "ruled": `Decided on DAY.` and `## As decided on DAY, changed in part
+  since` take the place of a ruling's words. A decision that a ruling replaces keeps its file,
+  whose first line under the title is `Replaced, not in force: on DAY, by` and the link of that
+  ruling, and the ruling's `## Replaced, not in force` links it back.
 
 ## The owner's rulings
+
+Each sentence below is a ruling of the owner in force, and the text of a link to its file in
+`docs/rulings/`, which holds his words, the day, what changed it since and what it replaced. A
+ruling is reopened only by asking him.
 
 ### What Lem is, and who it is for
 
@@ -211,6 +243,9 @@ works, and this file says how to change it.
 - [The naps are Lem's look back over its own memory](docs/rulings/the-naps-are-lems-look-back-over-its-own-memory.md)
 
 ## Decisions the maintaining session took
+
+None of these is his ruling: each is a decision or a design of the session that maintains Lem,
+and open to him. Each sentence is the text of a link to its file in `.lem/decisions/`.
 
 ### What Lem is, and who it is for
 
@@ -420,7 +455,9 @@ Each script's module docstring says what it does and why; this list says where e
   and the checks keep there: `serve.lock`, `serve.log`, `load.lock`, the push key `push-key.pem` and
   the devices `push.json`.
 - `.lem/`: Lem's own settings, profile, cast and lessons, in the places every repository has them.
-  Its `state/`, which git ignores, is the state of a repository's Lem: the tasks, the event log,
+  Its `decisions/` holds the maintaining session's decisions and designs, one file for each, each
+  linked by its sentence in "Decisions the maintaining session took", and a replaced one marked and
+  linked by what replaced it. Its `state/`, which git ignores, is the state of a repository's Lem: the tasks, the event log,
   the night reports, the naps, the experts' folders, a panel's copies, and `forge.json`, the board
   server's last look at GitHub. `.lem/worktrees/` holds
   the tasks' worktrees. `.revmux/` is the review tool's configuration for this repository.
@@ -435,7 +472,8 @@ Each script's module docstring says what it does and why; this list says where e
   `settings.md`, the reference, one table for each table of the settings, one to one with
   `project.py` (`tests/lem-settings.sh` checks it). How Lem works inside is in this file and the
   skill. Beside them: `free-hour.md` (how an unattended maintainer's session may change Lem),
-  `backlog/`, Lem's own deferred work, and `plans/`, the plans that built Lem, each finished one
+  `rulings/`, the owner's rulings, one file for each ruling in force, linked by its sentence in
+  "The owner's rulings", with the rulings it replaced inside it, `backlog/`, Lem's own deferred work, and `plans/`, the plans that built Lem, each finished one
   with a status line that names its commits and where later decisions changed it; the redesign of
   2026-11-20 is `plans/2026-11-20-a-session-for-each-task.md` and its folder.
 - `tests/`: the suites of "Checks". `unit/` is the unit level, a `test_*.py` for each script;

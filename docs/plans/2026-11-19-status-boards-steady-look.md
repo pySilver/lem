@@ -271,7 +271,7 @@ The list, as the reviewer gave it in its first turn:
    choice**: the plan's rule (`CONFLICTING` in `watch.js`), against the reviewer's (only when
    the entry's `head` is the head of the newest proposal, the `tip` of its `proposed` event).
    Taken up after the talk by `stages/plan.md`, step 5: the gate found it checkable ("Lem owns
-   the truth of its words … each state on the board", `AGENTS.md`) and took the reviewer's rule
+   the truth of its words … each state on the board", `.lem/decisions/`) and took the reviewer's rule
    (decision 3 of the task's record); decision 5 of the plan says it.
 3. **Decision 3, the palette's cutoff.** The middle of relative luminance does not match
    agterm's own light or dark: the installed Desert Morning, `#d8b590`, falls under it while
