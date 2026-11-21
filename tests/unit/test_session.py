@@ -16,6 +16,7 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest import mock
 
 sys.dont_write_bytecode = True
 SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts"
@@ -181,6 +182,51 @@ class Phase(unittest.TestCase):
         self.assertEqual(session.phase_left(SLUG, [], "standard", "build", "build"), "build")
         # a park in between gives no phase
         self.assertEqual(session.phase_left(SLUG, [block("building", "x"), block("parked", "aside"), block("ready", "y")], "standard", "land", "build"), "build")
+
+class FirstLine(unittest.TestCase):
+    """`wait --first-line`: the task's first line for the session where the owner typed the request,
+    or null with the reason."""
+
+    def state(self, status: str, text: str, *lines: str, **more) -> dict:
+        return {"event": "task.state", "task": SLUG, "status": status, "text": text, "lines": list(lines), **more}
+
+    def test_the_line_in_the_form_for_another_session(self):
+        said = self.state("building", "small change: one builder", "type: fix, because x", say="fix: x.", say_named="gift-note · fix: x.")
+        asked = self.state("held", "the request waits for one answer")
+        self.assertEqual(session.first_line_end(SLUG, [asked, said], False), {"task": SLUG, "say": "gift-note · fix: x.", "gone": False})
+        # the one question of the request has no type and no line: the wait goes on
+        self.assertIsNone(session.first_line_end(SLUG, [asked], False))
+        self.assertIsNone(session.first_line_end(SLUG, [], False))
+
+    def test_a_block_no_line_will_follow(self):
+        typed = self.state("building", "small change: one builder", "type: docs, because a line")
+        night = session.first_line_end(SLUG, [typed], True)
+        self.assertEqual((night["say"], night["gone"]), (None, False))
+        self.assertIn("a task of the night", night["why"])
+        self.assertIn("has no line", session.first_line_end(SLUG, [typed], False)["why"])
+        for status in ("dropped", "answered", "landed", "parked"):
+            ended = session.first_line_end(SLUG, [self.state("held", "the request waits for one answer"), self.state(status, "the owner dropped it")], False)
+            self.assertEqual(ended["say"], None, status)
+            self.assertIn(f"{SLUG} is {status} before its first line", ended["why"])
+
+    def run_wait(self, records: list[dict], gone: dict | None, bound: float) -> dict:
+        with mock.patch.object(session, "place", return_value={"session": "", "socket": "", "window": ""}), \
+             mock.patch.object(session, "gone_session", return_value=gone), \
+             mock.patch.object(project, "task_directory", return_value=Path("/lem-unit/task")), \
+             mock.patch.object(project, "events_named", side_effect=lambda root, *names: [r for r in records if r["event"] in names]):
+            return session.cmd_first_line(ROOT, SLUG, 0.01, bound)
+
+    def test_a_gone_session_and_the_bound(self):
+        gone = self.run_wait([], {"session": "S-9", "name": SLUG}, 60)
+        self.assertEqual((gone["say"], gone["gone"], gone["session"]), (None, True, "S-9"))
+        self.assertIn(f"`lem session open {SLUG} --why dead`", gone["why"])
+        late = self.run_wait([self.state("held", "the request waits for one answer")], None, 0.05)
+        self.assertEqual((late["say"], late["gone"]), (None, False))
+        self.assertIn(f"no first line of {SLUG} came in", late["why"])
+        self.assertEqual(session.FIRST_LINE_BOUND, 600)
+        said = self.run_wait([self.state("held", "the interview waits", "type: feat, because y", say="feat.", say_named="gift-note · feat.")], None, 60)
+        self.assertEqual(said["say"], "gift-note · feat.")
+
 
 class Agent(unittest.TestCase):
     def test_an_agent_in_the_left_pane(self):

@@ -16,9 +16,10 @@
                                  copy the turns of this session about the ask into the task's talk.md
     lem session wake SLUG --why merged|conflict|refused|queue|owner [--head SHA]
                                  a pane message to the task's live session, or a new session
-    lem session wait SLUG --until STATE,... | --event NAME
+    lem session wait SLUG --until STATE,... | --event NAME | --first-line
                                  end when the task's state is one of these, or a new event is logged,
-                                 or when the task's session is gone (`"gone": true`)
+                                 or the task's first line is written, or when the task's session is
+                                 gone (`"gone": true`)
     lem session list             each task's newest session: live, agent, selected, the phase the task is
                                  in now and the one the session opened in, unanswered
 
@@ -67,6 +68,16 @@ that closes the old session once the owner has left it, for the background.
 
 `open` puts the repository's main checkout into the machine's list of workspaces (`lem project
 task-dir` does too), so that the board server shows it and runs its duties from its first task.
+With `--why new`, a session it opens prints `then` too, `lem session wait SLUG --first-line`: the
+line the session where the owner typed the request runs in the background, to say the task's first
+line there (`stages/new.md`, "Open the task", step 5).
+
+`wait --first-line` ends when the task's log holds a `task.state` event with a `say`, and prints
+`{"task": SLUG, "say": LINE, "gone": false}`, LINE being the event's `say_named`: the line as a
+session other than the task's says it, with the task named and in its commands. It ends with
+`"say": null` and `why`, one sentence, when a state block comes that will never be followed by a
+line (a block with a type and no line, a night's task among them, or a task parked or ended before
+it), when the task's session is gone, and after FIRST_LINE_BOUND.
 
 `wait` also ends when the task's newest session is gone from agterm's tree, or no agent runs in it
 (`live`): then it prints `"gone": true` with the session's id, the task's state, and a `say` that
@@ -144,6 +155,10 @@ STARTING = 60
 CLOSE_EVERY = 5
 # How often `wait` reads the task's state or the event log. A guess (the plan).
 WAIT_EVERY = 10
+# How long `wait --first-line` waits for the task's first line: 10 minutes, a guess (2026-11-21). In
+# the real tasks of that day the first block came about a minute after the open; the fast track
+# makes its worktree and runs `checks.setup` before it, and the interview may ask one question first.
+FIRST_LINE_BOUND = 600
 # After how long a wake whose line still waits in the mailbox is `unanswered`: 10 minutes, a guess
 # (the plan's "no session" row says "does not answer" after it).
 UNANSWERED_AFTER = 600
@@ -224,6 +239,23 @@ def queued_behind(task: dict, tasks: list[dict]) -> str | None:
 def first_line(task: dict) -> str | None:
     found = project.STATE_LINE.fullmatch(task["state"].splitlines()[0]) if task.get("state") else None
     return found["text"] if found else None
+
+
+def first_line_end(slug: str, records: list[dict], night: bool) -> dict | None:
+    """The end of `wait --first-line` from the task's `task.state` events, oldest first: its first
+    line as another session says it, or None with the reason when a block came that no line will
+    follow (a block with a type and no line, or a task parked or ended first); None while it waits."""
+    for record in records:
+        if record.get("say"):
+            return {"task": slug, "say": record["say_named"], "gone": False}
+        status = record.get("status")
+        if status in project.ENDED or status == "parked":
+            return {"task": slug, "say": None, "gone": False, "why": f"{slug} is {status} before its first line, so there is no line to say"}
+        if project.type_of("\n".join([str(record.get("text", "")), *map(str, record.get("lines", []))])):
+            why = (f"{slug} is a task of the night: it gets no first line, and the night's report names it" if night
+                   else f"the first state block of {slug} that names its type has no line, so there is none to say; the board shows its state")
+            return {"task": slug, "say": None, "gone": False, "why": why}
+    return None
 
 
 def command_agent(text: str) -> bool:
@@ -496,7 +528,9 @@ def cmd_open(root: Path, slug: str, why: str, replacing: str | None = None) -> d
         project.append_event(root, "session.open", slug, {"session": session, "name": slug, "phase": phase, "why": why, "workspace": workspace})
         ctl(where, "session", "move", "--to", "top", "--target", session)
     return {"task": slug, "session": session, "name": slug, "phase": phase, "already": False,
-            "say": f"{slug} is open in its own session `{slug}`, phase {phase}, at the top of the workspace"}
+            "say": f"{slug} is open in its own session `{slug}`, phase {phase}, at the top of the workspace",
+            # the caller runs it in the background, and says the task's first line when it ends
+            **({"then": f"lem session wait {slug} --first-line"} if why == "new" else {})}
 
 
 def cmd_next(root: Path, slug: str, same: bool) -> dict:
@@ -643,6 +677,30 @@ def cmd_wait(root: Path, slug: str, until: list[str], event: str | None, every: 
             time.sleep(every)
     except KeyboardInterrupt:
         raise SessionError(f"the wait for {slug} was stopped") from None
+
+
+def cmd_first_line(root: Path, slug: str, every: float, bound: float) -> dict:
+    project.task_directory(root, slug)
+    where = place()
+    end = time.monotonic() + bound
+    try:
+        while True:
+            records = [record for record in project.events_named(root, "task.state") if record.get("task") == slug]
+            night = bool(project.nights(project.events_named(root, "task.mode")).get(slug))
+            found = first_line_end(slug, records, night)
+            if found is not None:
+                return found
+            gone = gone_session(root, slug, where)
+            if gone is not None:
+                return {"task": slug, "say": None, "gone": True, "session": gone.get("session"),
+                        "why": f"the session `{gone.get('name') or slug}` of {slug} is gone before its first line: `lem session open {slug} --why dead` opens a fresh one"}
+            left = end - time.monotonic()
+            if left <= 0:
+                return {"task": slug, "say": None, "gone": False,
+                        "why": f"no first line of {slug} came in {bound / 60:g} minutes: the board shows it when its session writes it"}
+            time.sleep(min(every, left))
+    except KeyboardInterrupt:
+        raise SessionError(f"the wait for the first line of {slug} was stopped") from None
 
 
 def cmd_list(root: Path) -> list[dict]:
@@ -875,12 +933,14 @@ def main(argv: list[str] | None = None) -> None:
     waking.add_argument("slug")
     waking.add_argument("--why", required=True, choices=WAKES)
     waking.add_argument("--head", metavar="SHA", help="the pull request's head the wake is for, kept on its record")
-    waiting = commands.add_parser("wait", help="end when the task's state is one of these, or a new event of its own is logged")
+    waiting = commands.add_parser("wait", help="end when the task's state is one of these, a new event of its own is logged, or its first line is written")
     waiting.add_argument("slug")
     until = waiting.add_mutually_exclusive_group(required=True)
     until.add_argument("--until", metavar="STATE,...", help="the states that end the wait, joined by commas")
     until.add_argument("--event", metavar="NAME", help="the event that ends the wait, the first one logged for the task after its start")
+    until.add_argument("--first-line", action="store_true", help="end with the task's first line, as this session says it")
     waiting.add_argument("--every", type=float, default=WAIT_EVERY, help=argparse.SUPPRESS)
+    waiting.add_argument("--bound", type=float, default=FIRST_LINE_BOUND, help=argparse.SUPPRESS)
     commands.add_parser("list", help="each task's newest session")
     args = parser.parse_args(argv)
     try:
@@ -897,6 +957,8 @@ def main(argv: list[str] | None = None) -> None:
             result = cmd_talk(root, args.slug, args.start, args.leave)
         elif args.command == "wake":
             result = cmd_wake(root, args.slug, args.why, args.head)
+        elif args.command == "wait" and args.first_line:
+            result = cmd_first_line(root, args.slug, max(0.01, args.every), max(0.0, args.bound))
         elif args.command == "wait":
             states = [state.strip() for state in (args.until or "").split(",") if state.strip()]
             if args.until is not None and not states:

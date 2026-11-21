@@ -175,6 +175,24 @@ class FirstLine(unittest.TestCase):
         self.assertIn("Fast track: one builder", said)
         self.assertIn("It waits for gift-note-in-export, and starts when that task lands or is answered.", said)
 
+    def test_another_session_names_the_task_and_its_commands(self):
+        self.write("ask.txt", "the footer says Terms, not Terms and Conditions\n")
+        self.write("criteria.md", "## Acceptance criteria\n\nSize: small, because one word.\n\n1. The footer says Terms.\n")
+        self.write("brief.md", "Read SKILL_DIR/prompts/small.md and follow it.\nbranch: fix/footer-terms\n")
+        lines = ("building", ["small change: one builder", "type: fix, because the footer is wrong today"], "", None, False)
+        self.assertEqual(project.opening_line_of(self.task, self.main, *lines, task="footer-terms"),
+                         'footer-terms · fix: "the footer says Terms". Branch fix/footer-terms. '
+                         "Fast track: one builder, the checks, one read, then the pull request. Nothing waits for you. "
+                         "Wrong read? /lem standard-track footer-terms, /lem be-careful footer-terms.")
+        # the task's own session keeps the form without the name
+        self.assertTrue(project.opening_line_of(self.task, self.main, *lines).endswith("Wrong read? /lem standard-track, /lem be-careful."))
+        self.write("brief.md", "branch: fix/card-fee\n")
+        said = project.opening_line_of(self.task, self.main, "held", ["the interview waits for the owner", "type: fix, because the fee",
+                                       "careful: this changes how a customer is charged"], "", None, False, task="card-fee")
+        self.assertTrue(said.startswith("card-fee · Careful: this changes how a customer is charged. fix:"), said)
+        self.assertTrue(said.endswith("Wrong read? /lem be-careful card-fee."), said)
+        self.assertIsNone(project.opening_line_of(self.task, self.main, *lines[:4], True, task="footer-terms"))
+
     def test_the_words_it_quotes(self):
         self.assertEqual(project.first_sentence("The footer says Terms.  It is wrong."), "The footer says Terms")
         self.assertEqual(project.in_his_words("README says it"), "README says it")

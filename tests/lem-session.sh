@@ -191,6 +191,24 @@ else
   fail "wait: $(cat "$WORK/waited") / $(cat "$WORK/talked") / $(cat "$WORK/gone")"
 fi
 
+# The first line to the caller: open --why new prints the wait for it, which ends with the line of the task's first
+# block, written while it runs, in the form for another session.
+pr task-dir footer-terms --ask "the footer says Terms, not Terms and Conditions" >/dev/null
+opened=$(sess open footer-terms --why new 2>&1 || true)
+sess wait footer-terms --first-line --every 0.1 > "$WORK/first-line" 2>&1 &
+waiter=$!
+sleep 0.3
+printf '%s\n' '## Acceptance criteria' '' 'Size: small, because one word.' '' '1. The footer says Terms.' > "$STATE/tasks/footer-terms/criteria.md"
+printf '%s\n' 'Read SKILL_DIR/prompts/small.md and follow it.' 'task: footer-terms' 'branch: fix/footer-terms' > "$STATE/tasks/footer-terms/brief.md"
+pr state footer-terms building "small change: one builder" "type: fix, because the footer is wrong today" >/dev/null
+wait "$waiter"
+if [ "$(field 'd["then"]' <<<"$opened" 2>&1)" = "lem session wait footer-terms --first-line" ] && [ "$(field 'd["gone"]' < "$WORK/first-line" 2>&1)" = False ] \
+  && [ "$(field 'd["say"]' < "$WORK/first-line" 2>&1)" = 'footer-terms · fix: "the footer says Terms". Branch fix/footer-terms. Fast track: one builder, the checks, one read, then the pull request. Nothing waits for you. Wrong read? /lem standard-track footer-terms, /lem be-careful footer-terms.' ]; then
+  pass "open --why new prints the wait for the first line, which ends when the task's first block is written, with the line that names the task and its commands"
+else
+  fail "the first line to the caller: $opened / $(cat "$WORK/first-line")"
+fi
+
 # The copy of the talk: the owner's turns and the agent's, word for word.
 SID=4f1e2d3c-0000-4000-8000-00000000a11c
 mkdir -p "$WORK/home/.claude/projects/-shop"

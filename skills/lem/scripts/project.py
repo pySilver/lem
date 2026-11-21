@@ -107,7 +107,9 @@ object per line: `ts` (UTC to the second), `event`, `task`, then the event's fie
 (`lem serve`) reads it as it grows. `state` writes `task.state` with the status, the lines, the ask and
 the branch and newest commit of the task's worktree, so the board needs no agent to remember a
 second command, and for the block that names a day's task's path with its type, the task's first
-line to the owner as `say` (`opening_line`), which `state` prints too. `log` writes any other
+line to the owner as `say` (`opening_line`), which `state` prints too, and `say_named`, the same
+line as the session where he typed the request says it, with the task named and in its commands
+(`lem session wait SLUG --first-line` prints it). `log` writes any other
 event: `key=value` stores a string and `key:=value` parses JSON, so a commit made only of digits stays a string and an exit code stays a number. The start
 of each stage that logs its end has a fixed form (`STARTS`: `interview.start`, `scout.start` and
 `scout`, `criteria.read.start`, `investigation.start`, `builder.start`, and the three `land.py`
@@ -1697,13 +1699,14 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
     fresh.write_text(block + ("\n\n" + older if older else "") + "\n", encoding="utf-8")
     fresh.replace(file)
     worktree = task_worktree(root, settings, slug)
-    # the task's first line, for the block that names its path: the session says it, the board shows it
-    say = opening_line(root, directory, slug, status, lines, older, worktree.get("branch"))
+    # the task's first line, for the block that names its path: the session says it, the board shows it,
+    # and the session where he typed the request says its named form (`lem session wait SLUG --first-line`)
+    said = opening_line(root, directory, slug, status, lines, older, worktree.get("branch"))
     append_event(root, "task.state", slug, {
         "status": status, "text": lines[0].strip(), "lines": [line.strip() for line in lines[1:]],
-        "ask": ask_of(directory), **worktree, **({"say": say} if say else {}),
+        "ask": ask_of(directory), **worktree, **(said or {}),
     })
-    return {"slug": slug, "status": status, "since": since, **({"say": say} if say else {})}
+    return {"slug": slug, "status": status, "since": since, **({"say": said["say"]} if said else {})}
 
 
 # What `resume` copies from a dropped task into the new one: the documents a fresh agent goes on
@@ -2323,8 +2326,14 @@ CAREFUL_LINE = re.compile(r"careful:\s*(?P<why>.+)", re.IGNORECASE)
 BRANCH_NAME = re.compile(r"[\w][\w./+-]*")
 SENTENCE = re.compile(r"(.+?[.!?])(?=\s|$)")
 FAST_STEPS = "Fast track: one builder, the checks, one read, then the pull request."
-CORRECT_FAST = "Wrong read? /lem standard-track, /lem be-careful."
-CORRECT_STANDARD = "Wrong read? /lem be-careful."
+
+
+def correction(fast: bool, task: str | None) -> str:
+    """The commands that correct the read, the fast track's two or the standard track's one. In the
+    task's own session they need no task; in another session (`task`) each names it."""
+    named = f" {task}" if task else ""
+    commands = [f"/lem standard-track{named}"] if fast else []
+    return "Wrong read? " + ", ".join([*commands, f"/lem be-careful{named}"]) + "."
 
 
 def first_sentence(text: str) -> str:
@@ -2433,9 +2442,10 @@ def opening_line_facts(directory: Path, main: Path, status: str, lines: list[str
     }
 
 
-def compose_opening_line(facts: dict) -> str:
-    """The first line itself, in the forms of `stages/new.md`, "The request", step 8."""
-    words = []
+def compose_opening_line(facts: dict, task: str | None = None) -> str:
+    """The first line itself, in the forms of `stages/new.md`, "The request", step 8. With `task`, the
+    line as another session says it: the task named first, and its name in each command."""
+    words = [f"{task} ·"] if task else []
     if facts.get("careful"):
         why = facts["careful"].rstrip(".")
         words.append(f"Careful: {why}.")
@@ -2451,35 +2461,40 @@ def compose_opening_line(facts: dict) -> str:
     if path == "fast":
         words += [FAST_STEPS, waits,
                   "Nothing waits for you but the pull request, which calls you: you did not approve its criterion." if facts.get("someone_else") else "Nothing waits for you.",
-                  CORRECT_FAST]
+                  correction(True, task)]
     elif path == "interview":
-        words += [f"{standard} an interview here now, then acceptance criteria for your yes.", then, CORRECT_STANDARD]
+        words += [f"{standard} an interview here now, then acceptance criteria for your yes.", then, correction(False, task)]
     elif path == "complete":
         read = ("a lead writes acceptance criteria, the personas read them, and they wait for your yes." if facts.get("someone_else")
                 else "a lead writes acceptance criteria, and the personas read them.")
-        words += [f"{standard.rstrip(':')}, with no interview, since {facts['stands_in']} says what is wanted: {read}", waits, then, CORRECT_STANDARD]
+        words += [f"{standard.rstrip(':')}, with no interview, since {facts['stands_in']} says what is wanted: {read}", waits, then, correction(False, task)]
     else:
         words += (["An investigator finds the answer first.", waits, "Then I tell you the answer."] if facts.get("question")
                   else ["An investigator finds the cause first.", waits, "Then I tell you what it found: the fast track, the standard track, or no bug."])
     return " ".join(word for word in words if word)
 
 
-def opening_line_of(directory: Path, main: Path, status: str, lines: list[str], older: str, branch: str | None, night: bool) -> str | None:
+def opening_line_of(directory: Path, main: Path, status: str, lines: list[str], older: str, branch: str | None, night: bool,
+                    task: str | None = None) -> str | None:
     """The `say` of a state block: the task's first line when this block is the first that names its
     path with its type (no OLDER block of state.md names a type), and the task is no night's, whose
-    report names it. None for every other block."""
+    report names it. None for every other block. With `task`, the form for another session."""
     if night or type_of(older) is not None:
         return None
     facts = opening_line_facts(directory, main, status, lines, branch)
-    return compose_opening_line(facts) if facts else None
+    return compose_opening_line(facts, task) if facts else None
 
 
-def opening_line(root: Path, directory: Path, slug: str, status: str, lines: list[str], older: str, branch: str | None) -> str | None:
-    """`opening_line_of` for a task of this repository, with its night's mark read from the log."""
+def opening_line(root: Path, directory: Path, slug: str, status: str, lines: list[str], older: str, branch: str | None) -> dict | None:
+    """`opening_line_of` for a task of this repository, with its night's mark read from the log: the
+    `say` of the task's own session and the `say_named` of the session the owner typed the request in,
+    both from the same facts, or None."""
     if type_of(older) is not None:
         return None
     night = bool(nights(events_named(root, "task.mode")).get(slug))
-    return opening_line_of(directory, main_checkout(root), status, lines, older, branch, night)
+    main = main_checkout(root)
+    say = opening_line_of(directory, main, status, lines, older, branch, night)
+    return {"say": say, "say_named": opening_line_of(directory, main, status, lines, older, branch, night, slug)} if say else None
 
 
 def read_tasks(root: Path, settings: dict | None = None) -> list[dict]:
