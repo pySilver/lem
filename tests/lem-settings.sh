@@ -690,8 +690,8 @@ before=$(grep -c '' "$ANS/.lem/state/events.jsonl" 2>/dev/null || echo 0)
 unknown=$(project --repo "$ANS" state zero-after-refund building "an investigator reproduces the bug and finds its cause" "investigation: bug" "type: defect, because the total is wrong" 2>&1 || true)
 unsaid=$(project --repo "$ANS" state zero-after-refund building "an investigator reproduces the bug and finds its cause" "investigation: bug" "type: fix" 2>&1 || true)
 after_refusals=$(grep -c '' "$ANS/.lem/state/events.jsonl" 2>/dev/null || echo 0)
-project --repo "$ANS" state zero-after-refund building "an investigator reproduces the bug and finds its cause" "investigation: bug" "type: fix, because the ask says the total is wrong today" >/dev/null
-project --repo "$ANS" state zero-after-refund building "the test that reproduces the bug is committed" "investigation: bug" >/dev/null
+first_said=$(project --repo "$ANS" state zero-after-refund building "an investigator reproduces the bug and finds its cause" "investigation: bug" "type: fix, because the ask says the total is wrong today")
+second_said=$(project --repo "$ANS" state zero-after-refund building "the test that reproduces the bug is committed" "investigation: bug")
 kind=$(project --repo "$ANS" tasks | field 'next(t["type"] for t in d if t["slug"] == "zero-after-refund")' 2>&1 || true)
 if grep -qF "'defect' is not a type of request" <<<"$unknown" && grep -qF "feat, fix, docs, refactor, perf, test, chore, question" <<<"$unknown" \
   && grep -qF "write it as \`type: fix, because ...\`" <<<"$unsaid" && [ "$after_refusals" = "$before" ] \
@@ -699,6 +699,25 @@ if grep -qF "'defect' is not a type of request" <<<"$unknown" && grep -qF "feat,
   pass "a state line that names the type of a request names one of the eight with its reason, and tasks gives the newest type also when a later block says nothing of it"
 else
   fail "the type of a request: $unknown / $unsaid / $before $after_refusals / $kind"
+fi
+# The task's first line: `state` composes it for the block that names the task's path, from the task's files, and logs it
+# with the block; a later block, and a task of the night, get none.
+FL=$WORK/first-line
+git init -q -b main "$FL"
+project --repo "$FL" init --base main >/dev/null
+project --repo "$FL" task-dir footer-terms-typo --ask 'The footer says "Terms and condtions"' >/dev/null
+printf '%s\n' '## Acceptance criteria' '' 'Size: small, because one word.' '' '1. The footer says "Terms and conditions".' > "$FL/.lem/state/tasks/footer-terms-typo/criteria.md"
+printf '%s\n' 'Read SKILL_DIR/prompts/small.md and follow it.' 'task: footer-terms-typo' 'branch: fix/footer-terms-typo' > "$FL/.lem/state/tasks/footer-terms-typo/brief.md"
+fast_said=$(project --repo "$FL" state footer-terms-typo building "small change: one builder" "type: fix, because the footer shows a typo today" | field 'd.get("say")' 2>&1 || true)
+fast_logged=$(tail -n 1 "$FL/.lem/state/events.jsonl" | field 'd.get("say")' 2>&1 || true)
+project --repo "$FL" task-dir night-note --ask docs/backlog/night-note.md --night 2026-11-21 >/dev/null
+night_said=$(project --repo "$FL" state night-note building "small change: one builder" "type: docs, because a line of a document" | field 'd.get("say")' 2>&1 || true)
+if [ "$fast_said" = 'fix: "the footer says '"'"'Terms and conditions'"'"'". Branch fix/footer-terms-typo. Fast track: one builder, the checks, one read, then the pull request. Nothing waits for you. Wrong read? /lem standard-track, /lem be-careful.' ] \
+  && [ "$fast_logged" = "$fast_said" ] && [ "$(field 'd.get("say")' <<<"$second_said")" = None ] && [ "$night_said" = None ] \
+  && [ "$(field 'd["say"]' <<<"$first_said")" = 'fix: "invoices show 0 after a refund". An investigator finds the cause first. Then I tell you what it found: the fast track, the standard track, or no bug.' ]; then
+  pass "state prints the task's first line as say for the block that names its path, with its criterion and its branch from the task's files, and logs it with the block; a later block and a task of the night get none"
+else
+  fail "the task's first line: $first_said / $second_said / $fast_said / $fast_logged / $night_said"
 fi
 # The investigation's record: a fix's call, whether the bug was reproduced and where the cause is; a question's answer.
 inv() { project --repo "$ANS" log zero-after-refund investigation "$@" 2>&1 || true; }

@@ -5,7 +5,9 @@ exists is a fact only git shows, and tests/lem-settings.sh checks it in a real r
     python3 -B -m unittest discover -s tests/unit
 """
 
+import shutil
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -79,6 +81,108 @@ class Parked(unittest.TestCase):
         self.assertEqual([block["status"] for block in blocks], ["parked", "held", "building"])
         self.assertEqual(next(block for block in blocks if block["status"] != "parked")["lines"],
                          ["breaker 2 waits for the owner", "The note has no place: no option keeps the approved criteria"])
+
+
+class FirstLine(unittest.TestCase):
+    """The task's first line to the owner (`stages/new.md`, "The request", step 7), which `state` prints
+    as `say` for the block that names the task's path, composed from the files of its directory."""
+
+    def setUp(self):
+        self.dir = Path(tempfile.mkdtemp(prefix="lem-first-line-"))
+        self.addCleanup(shutil.rmtree, self.dir)
+        self.main = self.dir / "repo"
+        self.main.mkdir()
+        self.task = self.dir / "task"
+        self.task.mkdir()
+
+    def write(self, name: str, text: str) -> None:
+        (self.task / name).write_text(text)
+
+    def say(self, status: str, *lines: str, older: str = "", branch: str | None = None, night: bool = False) -> str | None:
+        return project.opening_line_of(self.task, self.main, status, list(lines), older, branch, night)
+
+    def test_the_fast_track_quotes_its_criterion(self):
+        self.write("ask.txt", "fix the typo recieve in the README\n")
+        self.write("criteria.md", "## Acceptance criteria\n\nSize: small, because one word.\n\n1. The README says receive, not recieve.\n")
+        self.write("brief.md", "Read SKILL_DIR/prompts/small.md and follow it.\ntask: readme-receive-typo\nbranch: docs/readme-receive-typo\n")
+        self.assertEqual(self.say("building", "small change: one builder", "type: docs, because a word of the README"),
+                         'docs: "the README says receive, not recieve". Branch docs/readme-receive-typo. '
+                         "Fast track: one builder, the checks, one read, then the pull request. Nothing waits for you. "
+                         "Wrong read? /lem standard-track, /lem be-careful.")
+
+    def test_the_standard_track_with_an_interview_quotes_the_outcome(self):
+        self.write("ask.txt", "Add the gift note to the CSV export, Ania asked twice\n")
+        self.write("task.md", "# Gift note\n\n## Outcome\n\nAn export holds the gift note. The shop reads it.\n\n## Done when\n\n- a row\n")
+        self.write("brief.md", "Read SKILL_DIR/prompts/lead.md and follow it.\nbranch: feat/gift-note-in-export\nstop after the plan: no\n")
+        self.assertEqual(self.say("held", "the interview waits for the owner", "type: feat, because the export gets a column"),
+                         'feat: "an export holds the gift note". Branch feat/gift-note-in-export. Standard track: an interview here now, '
+                         "then acceptance criteria for your yes. After that it runs to the pull request without you. Wrong read? /lem be-careful.")
+
+    def test_a_plan_asked_for_says_so(self):
+        self.write("ask.txt", "/lem plan the gift note in the export\n")
+        self.write("brief.md", "branch: feat/gift-note\nstop after the plan: yes\n")
+        said = self.say("held", "the interview waits for the owner", "type: feat, because a new column")
+        self.assertIn("Standard track, because you asked for its plan: an interview here now", said)
+        self.assertIn("After that a lead writes the plan and stops for you to read it.", said)
+
+    def test_an_investigation_names_no_track(self):
+        self.write("ask.txt", "Invoices show 0 after a refund since yesterday. Anna saw it on 1042.\n")
+        self.assertEqual(self.say("building", "an investigator reproduces the bug and finds its cause", "investigation: bug",
+                                  "type: fix, because the total is wrong today", branch="fix/invoice-total-after-refund"),
+                         'fix: "invoices show 0 after a refund since yesterday". Branch fix/invoice-total-after-refund. '
+                         "An investigator finds the cause first. Then I tell you what it found: the fast track, the standard track, or no bug.")
+        said = self.say("building", "an investigator finds the answer", "investigation: question", "type: question, because a report")
+        self.assertTrue(said.endswith("An investigator finds the answer first. Then I tell you the answer."), said)
+
+    def test_a_complete_request_names_what_stands_in_for_the_interview(self):
+        self.write("ask.txt", "Export the gift note\n")
+        self.write("ticket.txt", "SHOP-12\n")
+        self.write("brief.md", "Read SKILL_DIR/prompts/lead.md and follow it.\nbranch: shop-12-export-the-gift-note\nrequest by: someone else\n")
+        said = self.say("building", "lead: builder", "type: feat, because a new column")
+        self.assertEqual(said, 'feat: "export the gift note". Branch shop-12-export-the-gift-note. Standard track, with no interview, since the ticket '
+                               "says what is wanted: a lead writes acceptance criteria, the personas read them, and they wait for your yes. "
+                               "After that it runs to the pull request without you. Wrong read? /lem be-careful.")
+
+    def test_careful_comes_first(self):
+        self.write("ask.txt", "Round the card fee up\n")
+        said = self.say("held", "the interview waits for the owner", "type: fix, because the fee is wrong",
+                        "careful: this changes how a customer is charged")
+        self.assertTrue(said.startswith('Careful: this changes how a customer is charged. fix: "round the card fee up".'), said)
+        self.write("brief.md", "branch: fix/card-fee\ncareful: the owner says so\n")
+        self.assertTrue(self.say("held", "the interview waits for the owner", "type: fix, because the fee").startswith("Careful: the owner says so. fix:"))
+
+    def test_a_night_task_gets_none(self):
+        self.write("ask.txt", "docs/backlog/export-note.md\n")
+        self.assertIsNone(self.say("building", "small change: one builder", "type: docs, because a line", night=True))
+
+    def test_no_branch_yet_leaves_the_branch_out(self):
+        self.write("ask.txt", "Add the gift note to the export\n")
+        said = self.say("held", "the interview waits for the owner", "type: feat, because a new column")
+        self.assertNotIn("Branch", said)
+        self.assertTrue(said.startswith('feat: "add the gift note to the export". Standard track:'), said)
+
+    def test_a_second_block_gets_none(self):
+        self.write("ask.txt", "Add the gift note\n")
+        older = "2026-11-21T10:00Z held: the interview waits for the owner\ntype: feat, because a new column"
+        self.assertIsNone(self.say("building", "lead: builder", "type: feat, because a new column", older=older))
+        self.assertIsNone(self.say("held", "the criteria wait for the owner"))
+        self.assertIsNone(self.say("held", "breaker 1 waits for the owner", "type: feat, because a new column"))
+
+    def test_a_queued_task_says_what_it_waits_for(self):
+        self.write("ask.txt", "Put the gift note on the label too\n")
+        self.write("brief.md", "Read SKILL_DIR/prompts/small.md and follow it.\nbranch: feat/note-on-label\n")
+        said = self.say("queued", "it waits for the export", "after: gift-note-in-export", "type: feat, because a new line")
+        self.assertIn("Fast track: one builder", said)
+        self.assertIn("It waits for gift-note-in-export, and starts when that task lands or is answered.", said)
+
+    def test_the_words_it_quotes(self):
+        self.assertEqual(project.first_sentence("The footer says Terms.  It is wrong."), "The footer says Terms")
+        self.assertEqual(project.in_his_words("README says it"), "README says it")
+        self.assertEqual(project.in_his_words("I see 0"), "I see 0")
+        self.assertEqual(project.criterion_of("1. A refund lowers the total,\n   never below 0:\n   1. Invoice 1042\n"), "A refund lowers the total, never below 0")
+        self.assertIsNone(project.outcome_of("## Outcome\n\n1. Invoice 1042 is 100 EUR.\n2. It shows 70.\n"))
+        self.assertEqual(project.outcome_of("## Outcome\n\n**Today:**\n\n1. step\n\nThe invoice shows 70 EUR after the refund.\n"),
+                         "The invoice shows 70 EUR after the refund")
 
 
 if __name__ == "__main__":

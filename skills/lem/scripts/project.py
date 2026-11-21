@@ -46,7 +46,10 @@ a team that adopts Lem may have its own.
                                     does not answer), with no upstream; then run checks.setup in
                                     it one time, so that its tests can run
     lem project state SLUG STATUS LINE...
-                                    put a new block at the top of the task's state.md, with the time
+                                    put a new block at the top of the task's state.md, with the time.
+                                    For the block that names the task's path with its type line, the
+                                    first of a day's task, it prints `say` too: the task's first line
+                                    to the owner, which its session says as it is
     lem project tasks               every task's ask, status and newest state block, as JSON
     lem project owner away|back --words TEXT
                                     the owner says that he is away, or back again: his words as typed,
@@ -103,8 +106,9 @@ Every state block is also an event. `events.jsonl` in the state folder is the re
 object per line: `ts` (UTC to the second), `event`, `task`, then the event's fields; the board server
 (`lem serve`) reads it as it grows. `state` writes `task.state` with the status, the lines, the ask and
 the branch and newest commit of the task's worktree, so the board needs no agent to remember a
-second command. `log` writes any other event: `key=value` stores a string and `key:=value` parses
-JSON, so a commit made only of digits stays a string and an exit code stays a number. The start
+second command, and for the block that names a day's task's path with its type, the task's first
+line to the owner as `say` (`opening_line`), which `state` prints too. `log` writes any other
+event: `key=value` stores a string and `key:=value` parses JSON, so a commit made only of digits stays a string and an exit code stays a number. The start
 of each stage that logs its end has a fixed form (`STARTS`: `interview.start`, `scout.start` and
 `scout`, `criteria.read.start`, `investigation.start`, `builder.start`, and the three `land.py`
 writes, `polish.start`, `gate.start` (the start of the checks) and `review.start`), so that the board draws each span from
@@ -1692,11 +1696,14 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
     fresh = directory / f"state.md.{os.getpid()}.new"
     fresh.write_text(block + ("\n\n" + older if older else "") + "\n", encoding="utf-8")
     fresh.replace(file)
+    worktree = task_worktree(root, settings, slug)
+    # the task's first line, for the block that names its path: the session says it, the board shows it
+    say = opening_line(root, directory, slug, status, lines, older, worktree.get("branch"))
     append_event(root, "task.state", slug, {
         "status": status, "text": lines[0].strip(), "lines": [line.strip() for line in lines[1:]],
-        "ask": ask_of(directory), **task_worktree(root, settings, slug),
+        "ask": ask_of(directory), **worktree, **({"say": say} if say else {}),
     })
-    return {"slug": slug, "status": status, "since": since}
+    return {"slug": slug, "status": status, "since": since, **({"say": say} if say else {})}
 
 
 # What `resume` copies from a dropped task into the new one: the documents a fresh agent goes on
@@ -2283,7 +2290,7 @@ def type_of(text: str) -> dict | None:
 FAST_BUILDER = "small change: one builder"
 FAST_GREW = re.compile(r"\bthe small change is a full change$")
 LEAD_LINE = re.compile(r"lead: (builder|session)\b")
-# The state line of a task whose interview waits for the owner (`stages/new.md`, step 4).
+# The state line of a task whose interview waits for the owner (`stages/new.md`, "The request", step 8).
 INTERVIEW_WAIT = "the interview waits for the owner"
 
 
@@ -2302,6 +2309,177 @@ def track_of(text: str) -> str | None:
         if said == FAST_BUILDER:
             return "fast"
     return None
+
+
+# The first line of a task's session to the owner (`stages/new.md`, "The request", step 8): the
+# type, the criterion or the outcome in his words, the branch, the track with its steps and what he
+# must do, composed here from the task's records and printed by `state` as `say` for the block that
+# names the task's path. A session says it as it is: in three of four real tasks on 2026-11-21
+# (lem-trial and lem-scratch) a session told to say the line in a form the stage gave said "The
+# builder runs now" instead, also after the text said it more strongly.
+INVESTIGATION_LINE = re.compile(r"investigation: (bug|question)")
+AFTER_LINE = re.compile(r"after: (?P<slug>[a-z0-9][a-z0-9-]*)")
+CAREFUL_LINE = re.compile(r"careful:\s*(?P<why>.+)", re.IGNORECASE)
+BRANCH_NAME = re.compile(r"[\w][\w./+-]*")
+SENTENCE = re.compile(r"(.+?[.!?])(?=\s|$)")
+FAST_STEPS = "Fast track: one builder, the checks, one read, then the pull request."
+CORRECT_FAST = "Wrong read? /lem standard-track, /lem be-careful."
+CORRECT_STANDARD = "Wrong read? /lem be-careful."
+
+
+def first_sentence(text: str) -> str:
+    """The first sentence of TEXT on one line, without its closing period or colon; the whole text
+    when it has no sentence's end."""
+    flat = " ".join(text.split())
+    found = SENTENCE.match(flat)
+    said = (found[1] if found else flat).strip()
+    return said[:-1].rstrip() if said.endswith((".", ":")) else said
+
+
+def in_his_words(text: str) -> str:
+    """A sentence as the middle of a line: its first word lower-cased when it is an ordinary word
+    with a capital ("The footer says" reads "the footer says"), never a name such as README or I."""
+    word = text.split(" ", 1)[0]
+    if len(word) > 1 and word[0].isupper() and word[1:].isalpha() and word[1:].islower():
+        return word[0].lower() + text[1:]
+    return text
+
+
+def criterion_of(text: str) -> str | None:
+    """The sentence of the first criterion of a criteria.md (`lem criteria --help`), or None."""
+    rows = text.splitlines()
+    for at, row in enumerate(rows):
+        found = re.match(r"1\.\s+(.+)", row)
+        if not found:
+            continue
+        said = [found[1]]
+        for more in rows[at + 1:]:
+            # its sentence goes on on the lines indented under it, up to its case, a test line or a chart
+            if not more.strip() or not more.startswith((" ", "\t")) or re.match(r"\s*(\d+\.|[-*+]|```)", more):
+                break
+            said.append(more.strip())
+        return first_sentence(" ".join(said)) or None
+    return None
+
+
+def outcome_of(text: str) -> str | None:
+    """The first sentence of prose under `## Outcome` in a task.md, or None: a numbered story, a list,
+    a chart or a label of a few words ("Today:") is no sentence to quote."""
+    found = re.search(r"(?m)^##[ \t]+Outcome[ \t]*$", text)
+    if not found:
+        return None
+    paragraph: list[str] = []
+    fenced = False
+    for row in text[found.end():].splitlines():
+        line = row.strip()
+        if line.startswith("```"):
+            fenced = not fenced
+            continue
+        if line.startswith("#"):
+            break
+        prose = line and not fenced and not re.match(r"(\d+\.|[-*+>|!]|\*\*)", line)
+        if prose:
+            paragraph.append(line)
+            continue
+        if paragraph and len(" ".join(paragraph).split()) > 3:
+            break
+        paragraph = []
+    return first_sentence(" ".join(paragraph)) if paragraph and len(" ".join(paragraph).split()) > 3 else None
+
+
+def opening_line_facts(directory: Path, main: Path, status: str, lines: list[str], branch: str | None) -> dict | None:
+    """What the first line of a task says, from its records at the moment its first block is written,
+    or None for a block that names no path. `lines` are the block's lines, its first among them;
+    `branch` is the branch of the task's worktree, when it has one."""
+    def file(name: str) -> str:
+        return text_of(directory / name) if (directory / name).is_file() else ""
+
+    typed = next((found for found in map(type_line, lines) if found), None)
+    if typed is None:
+        return None
+    brief = file("brief.md")
+    said = [line.strip() for line in lines]
+    investigation = next((found[1] for found in map(INVESTIGATION_LINE.fullmatch, said) if found), None)
+    after = next((found["slug"] for found in map(AFTER_LINE.fullmatch, said) if found), None)
+    if status == "held" and said[0] == INTERVIEW_WAIT:
+        path = "interview"
+    elif status in ("building", "queued") and investigation:
+        path = "investigation"
+    elif status in ("building", "queued") and FAST_BUILDER in said or status == "queued" and "prompts/small.md" in brief:
+        path = "fast"
+    elif status == "building" and any(LEAD_LINE.match(line) for line in said) or status == "queued" and "prompts/lead.md" in brief:
+        path = "complete"
+    else:
+        return None
+    brief_rows = [row.strip() for row in brief.splitlines()]
+    named = next((row.split(":", 1)[1].strip() for row in brief_rows if row.startswith("branch:")), "")
+    careful = next((found["why"].strip() for found in map(CAREFUL_LINE.fullmatch, [*said, *brief_rows]) if found), None)
+    ask = " ".join(file("ask.txt").split())
+    item = re.fullmatch(r"\S*backlog/\S+\.md", ask)
+    quote = criterion_of(file("criteria.md")) if path == "fast" else None
+    quote = quote or outcome_of(file("task.md"))
+    if not quote and item and (main / ask).is_file():
+        title = next((row.lstrip("# ").strip() for row in text_of(main / ask).splitlines() if row.startswith("# ")), None)
+        quote = title and first_sentence(title)
+    quote = quote or (first_sentence(ask) if ask else None)
+    return {
+        "type": typed["type"], "path": path, "quote": quote and in_his_words(quote),
+        "branch": named if BRANCH_NAME.fullmatch(named) else branch,
+        "careful": careful, "after": after,
+        "plan": "stop after the plan: yes" in brief_rows, "someone_else": "request by: someone else" in brief_rows,
+        "stands_in": ("the ticket" if (directory / "ticket.txt").is_file() else "the backlog item" if item
+                      else "the investigation's report" if (directory / "investigation.md").is_file() else "your request"),
+        "question": investigation == "question" or typed["type"] == "question",
+    }
+
+
+def compose_opening_line(facts: dict) -> str:
+    """The first line itself, in the forms of `stages/new.md`, "The request", step 8."""
+    words = []
+    if facts.get("careful"):
+        why = facts["careful"].rstrip(".")
+        words.append(f"Careful: {why}.")
+    # his words between double quotes, with a double quote of his own as a single one
+    quote = facts["quote"].replace('"', "'") if facts.get("quote") else None
+    words.append(f"{facts['type']}: \"{quote}\"." if quote else f"{facts['type']}.")
+    if facts.get("branch"):
+        words.append(f"Branch {facts['branch']}.")
+    path = facts["path"]
+    standard = "Standard track, because you asked for its plan:" if facts.get("plan") else "Standard track:"
+    then = "After that a lead writes the plan and stops for you to read it." if facts.get("plan") else "After that it runs to the pull request without you."
+    waits = f"It waits for {facts['after']}, and starts when that task lands or is answered." if facts.get("after") else None
+    if path == "fast":
+        words += [FAST_STEPS, waits,
+                  "Nothing waits for you but the pull request, which calls you: you did not approve its criterion." if facts.get("someone_else") else "Nothing waits for you.",
+                  CORRECT_FAST]
+    elif path == "interview":
+        words += [f"{standard} an interview here now, then acceptance criteria for your yes.", then, CORRECT_STANDARD]
+    elif path == "complete":
+        read = ("a lead writes acceptance criteria, the personas read them, and they wait for your yes." if facts.get("someone_else")
+                else "a lead writes acceptance criteria, and the personas read them.")
+        words += [f"{standard.rstrip(':')}, with no interview, since {facts['stands_in']} says what is wanted: {read}", waits, then, CORRECT_STANDARD]
+    else:
+        words += (["An investigator finds the answer first.", waits, "Then I tell you the answer."] if facts.get("question")
+                  else ["An investigator finds the cause first.", waits, "Then I tell you what it found: the fast track, the standard track, or no bug."])
+    return " ".join(word for word in words if word)
+
+
+def opening_line_of(directory: Path, main: Path, status: str, lines: list[str], older: str, branch: str | None, night: bool) -> str | None:
+    """The `say` of a state block: the task's first line when this block is the first that names its
+    path with its type (no OLDER block of state.md names a type), and the task is no night's, whose
+    report names it. None for every other block."""
+    if night or type_of(older) is not None:
+        return None
+    facts = opening_line_facts(directory, main, status, lines, branch)
+    return compose_opening_line(facts) if facts else None
+
+
+def opening_line(root: Path, directory: Path, slug: str, status: str, lines: list[str], older: str, branch: str | None) -> str | None:
+    """`opening_line_of` for a task of this repository, with its night's mark read from the log."""
+    if type_of(older) is not None:
+        return None
+    night = bool(nights(events_named(root, "task.mode")).get(slug))
+    return opening_line_of(directory, main_checkout(root), status, lines, older, branch, night)
 
 
 def read_tasks(root: Path, settings: dict | None = None) -> list[dict]:
