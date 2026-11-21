@@ -62,7 +62,7 @@ with open(state_file + ".log", "a") as log:
     log.write(json.dumps(args) + "\n")
 def opt(key): return args[args.index(key) + 1] if key in args else None
 def rev(ref): return git("rev-parse", "--verify", "-q", ref, where=origin)
-def shown(n, pr): return {"number": int(n), "url": pr["url"], "state": pr["state"], "mergeable": pr.get("mergeable", "MERGEABLE"),
+def shown(n, pr): return {"number": int(n), "url": pr["url"], "state": pr["state"], "mergeable": pr.get("mergeable", "MERGEABLE"), "baseRefName": pr["base"],
                           "headRefOid": rev("refs/heads/" + pr["head"]), "mergeCommit": {"oid": pr["merge"]} if pr["merge"] else None}
 def save():
     with open(state_file + ".new", "w") as out:
@@ -81,7 +81,11 @@ elif args[:2] == ["pr", "create"]:
     out = state["prs"][n]["url"]
     save()
 elif args[:2] == ["pr", "edit"]:
-    state["prs"][args[2]].update(title=opt("--title"), body=open(opt("--body-file")).read())
+    # --base changes the branch the pull request goes into, as a person can on GitHub
+    if opt("--base"):
+        state["prs"][args[2]]["base"] = opt("--base")
+    if opt("--title"):
+        state["prs"][args[2]].update(title=opt("--title"), body=open(opt("--body-file")).read())
     save()
 elif args[:2] == ["pr", "view"]:
     out = json.dumps(shown(args[2], state["prs"][args[2]]))

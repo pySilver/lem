@@ -450,6 +450,24 @@ class EventLog(unittest.TestCase):
         self.assertEqual((land.waits_of(self.task, "2026-11-21T09:00:00Z") or {}).get("say"), self.WORDS)
 
 
+class ForgeBase(unittest.TestCase):
+    """`land.base_refusal`: a pull request whose base on GitHub is not the task's base is neither merged
+    nor recorded as landed, and the refusal names the branch GitHub has."""
+
+    VIEW = {"state": "OPEN", "baseRefName": "main", "headRefOid": "a" * 40}
+
+    def test_the_tasks_base(self) -> None:
+        self.assertIsNone(land.base_refusal(self.VIEW, "main", "https://github.com/acme/shop/pull/7", "gift-note"))
+
+    def test_another_base_is_named(self) -> None:
+        said = land.base_refusal({**self.VIEW, "baseRefName": "release-2"}, "main", "https://github.com/acme/shop/pull/7", "gift-note")
+        self.assertIn("is on release-2 on GitHub, not on main", said)
+        self.assertIn("gh pr edit 7 --base main", said)
+
+    def test_no_base_in_the_answer_is_refused(self) -> None:
+        self.assertIn("names no base branch", land.base_refusal({"state": "OPEN"}, "main", "https://github.com/acme/shop/pull/7", "gift-note"))
+
+
 class ProtectedBranch(unittest.TestCase):
     """`land.protected_refusal`: the name of the branch Lem pushes or deletes, checked against the
     settings where it does so: the base and each protected branch are refused, with the way out."""

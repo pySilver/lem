@@ -294,8 +294,8 @@ landing up as after a cut-off.
      of the proposed tip whose verdict is `merge`. A refusal by GitHub or by one of Lem's rules is
      kept for its tip (`merge_refused` in `landing.json` and in `lem project waiting`, with `from`,
      `github` or `lem`, and for Lem's a `kind`: `rule`, one of the rules above; `tip`, the tip or
-     the pull request's head is not the one proposed and checked; `base`, the base moved after the
-     checks ran). The server tries that tip no more and wakes you with `lem: SLUG refused`: act on
+     the pull request's head is not the one proposed and checked, or its base on GitHub is not the
+     task's base (someone changed it there); `base`, the base moved after the checks ran). The server tries that tip no more and wakes you with `lem: SLUG refused`: act on
      the line as the refusals below say. A git or `gh` call that failed is no refusal: nothing is
      kept, and the server tries the merge again a few minutes later.
    - `--by owner` when the owner says to land it, in his own words typed in a session. Nobody else's

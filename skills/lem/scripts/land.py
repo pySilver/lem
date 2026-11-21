@@ -620,7 +620,8 @@ class Refusal(LandError):
 
 
 # The kinds of a merge that Lem's rules refuse: one of the merge agent's rules (`merger_refusal`), a
-# tip that is not the one proposed and checked, and a base that moved after the checks ran.
+# tip that is not the one proposed and checked (or a pull request whose base on GitHub is not the
+# task's), and a base that moved after the checks ran.
 REFUSALS = ("rule", "tip", "base")
 
 
@@ -3480,9 +3481,29 @@ def may_merge(task: Task, by: str) -> None:
         raise Refusal("rule", refusal)
 
 
+def base_refusal(view: dict, base: str, url: str, slug: str) -> str | None:
+    """Why a pull request as GitHub shows it (VIEW, with `baseRefName`) is not the task's: its base on
+    GitHub is not BASE, the settings' base branch, as after a change of its base there. None when it is."""
+    there = view.get("baseRefName")
+    if not there:
+        return f"GitHub's answer for the pull request {url} names no base branch, so Lem cannot tell that it goes into {base}; nothing was merged or recorded. Run this step again"
+    if there == base:
+        return None
+    number = url.rstrip("/").rsplit("/", 1)[-1]
+    if view.get("state") == "MERGED":
+        return (f"the pull request {url} was merged into {there} on GitHub, not into {base}, the base of the task's settings, so the task did not land, "
+                f"and nothing was recorded: the owner ends it with `lem project state {slug} dropped \"WHY\"`, or a new task brings the change onto {base}")
+    return (f"the pull request {url} is on {there} on GitHub, not on {base}, the base of the task's settings: its base was changed there. "
+            f"Nothing was merged or recorded. Its base goes back to {base} on GitHub (`gh pr edit {number} --base {base}`), then this step runs again")
+
+
 def forge_done(task: Task, view: dict) -> dict:
-    task.fetch()
     pr = task.kept()["pr"]
+    # a merge into another branch than the base is no landing: the task stays as it is, and the owner reads why
+    wrong = base_refusal(view, task.base, pr["url"], task.slug)
+    if wrong:
+        raise LandError(wrong)
+    task.fetch()
     merged = (view.get("mergeCommit") or {}).get("oid")
     # the commit of the branch that the forge merged: `clean` removes the branch only when it holds nothing after it
     task.keep(merged=merged or True, merged_head=view["headRefOid"])
@@ -3493,7 +3514,8 @@ def forge_done(task: Task, view: dict) -> dict:
 
 def viewed(task: Task, pr: dict | None = None) -> dict:
     pr = pr or task.kept()["pr"]
-    return json.loads(gh(task, "pr", "view", str(pr["number"]), "--json", "state,headRefOid,mergeCommit,mergeable").stdout)
+    # the base too, which anyone may change on GitHub: a merge there goes into whatever base the pull request has then
+    return json.loads(gh(task, "pr", "view", str(pr["number"]), "--json", "state,headRefOid,mergeCommit,mergeable,baseRefName").stdout)
 
 
 def cmd_merged(task: Task) -> dict:
@@ -3723,6 +3745,10 @@ def merge_locked(task: Task, by: str, message: str | None, via: str, standing: b
         return forge_done(task, view)
     if view["state"] != "OPEN":
         raise LandError(f"the pull request was closed without a merge: `lem land merged {task.slug}` writes the task dropped, and its branch keeps its commits")
+    # GitHub merges into the base the pull request has now, which is not always the one it was proposed on
+    wrong = base_refusal(view, task.base, kept["pr"]["url"], task.slug)
+    if wrong:
+        raise Refusal("tip", wrong)
     may_merge(task, by)
     tip = git(task.worktree, "rev-parse", "HEAD")
     if kept.get("proposed") != tip:

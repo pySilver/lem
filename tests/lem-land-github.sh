@@ -27,7 +27,7 @@ with open(state_file + ".log", "a") as log:
     log.write(json.dumps(args) + "\n")
 def opt(name): return args[args.index(name) + 1] if name in args else None
 def rev(ref): return subprocess.run(["git", "-C", origin, "rev-parse", "--verify", "-q", ref], capture_output=True, text=True).stdout.strip()
-def shown(n, pr): return {"number": int(n), "url": pr["url"], "state": pr["state"], "mergeable": pr.get("mergeable", "MERGEABLE"),
+def shown(n, pr): return {"number": int(n), "url": pr["url"], "state": pr["state"], "mergeable": pr.get("mergeable", "MERGEABLE"), "baseRefName": pr["base"],
                           "headRefOid": rev("refs/heads/" + pr["head"]), "mergeCommit": {"oid": pr["merge"]} if pr["merge"] else None}
 def save():
     state["calls"].append(args)
@@ -53,7 +53,11 @@ elif args[:2] == ["pr", "create"]:
     out = state["prs"][n]["url"]
     save()
 elif args[:2] == ["pr", "edit"]:
-    state["prs"][args[2]].update(title=opt("--title"), body=open(opt("--body-file")).read())
+    # --base changes the branch the pull request goes into, as a person can on GitHub
+    if opt("--base"):
+        state["prs"][args[2]]["base"] = opt("--base")
+    if opt("--title"):
+        state["prs"][args[2]].update(title=opt("--title"), body=open(opt("--body-file")).read())
     save()
 elif args[:2] == ["pr", "view"]:
     out = json.dumps(shown(args[2], state["prs"][args[2]]))
@@ -224,6 +228,19 @@ pushed=$(git -C "$GHO" -c user.name=t -c user.email=t@t commit-tree -p "$tip" -m
 git -C "$GHO" update-ref refs/heads/fix/pr-guards "$pushed"
 moved_head=$(gh_land merge pr-guards --by owner 2>&1 || true)
 git -C "$GHO" update-ref refs/heads/fix/pr-guards "$tip"
+# Someone changed the pull request's base on GitHub: Lem merges nothing into that branch, and a merge made there is no landing.
+gh_set "d['prs']['$number']['base'] = 'release'"
+other_base=$(gh_land merge pr-guards --by owner 2>&1 || true)
+gh_set "d['prs']['$number'].update(state='MERGED', merge='$tip')"
+other_merged=$(gh_land merged pr-guards 2>&1 || true)
+gh_set "d['prs']['$number'].update(base='main', state='OPEN', merge=None)"
+if grep -qF "is on release on GitHub, not on main, the base of the task's settings" <<<"$other_base" && grep -qF "(\`gh pr edit $number --base main\`)" <<<"$other_base" \
+  && grep -qF "was merged into release on GitHub, not into main" <<<"$other_merged" && grep -qF "\`lem project state pr-guards dropped \"WHY\"\`" <<<"$other_merged" \
+  && [ "$(gh_state "sum(c[:3] == ['pr', 'merge', '$number'] for c in d['calls'])")" = 0 ] && [ "$(status_in "$GHS" pr-guards)" = open ]; then
+  pass "a pull request whose base was changed on GitHub is not merged, with the branch it has named and the command that puts the base back, and a merge into that branch is not written down as landed"
+else
+  fail "a pull request on another base: $other_base / $other_merged / $(status_in "$GHS" pr-guards)"
+fi
 gh_set "d['prs']['$number']['state'] = 'CLOSED'"
 closed_land=$(gh_land merge pr-guards --by owner 2>&1 || true)
 if grep -qF "the pull request's head is not the tip that was proposed; run \`lem land start\`, \`lem land base\`, \`lem land checks\`, \`lem land read\` and \`lem land propose\` again" <<<"$moved_head" \
