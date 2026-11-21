@@ -58,7 +58,7 @@
   <p class="intro">The board puts each task in a column by who acts next, and it updates by itself. The same board opens in agterm, in a browser and on your phone.</p>
   <ul class="views">
     <li class="v-tasks"><b>Tasks</b> <span>Each task in the column of who acts next: you, a builder, the checks, or done.</span></li>
-    <li class="v-you"><b>Waits for you</b> <span>One row for each thing that you do: read a breaker, approve the criteria, read a merge review, merge.</span></li>
+    <li class="v-you"><b>Waits for you</b> <span>One row for each thing that you do, for example: read a breaker, approve the criteria, read a merge review, merge.</span></li>
     <li class="v-backlog"><b>Backlog</b> <span>The work for later, in groups by its worth.</span></li>
     <li class="v-activity"><b>Activity</b> <span>Where the time went, and every event.</span></li>
   </ul>
@@ -96,8 +96,8 @@
   </div>
   <div class="columns">
     <div class="text">
-      <p>Each request opens a task in an agterm session of its own. <b>The fast track</b> is for one plain change with no open question: a typo, a rename, the fix of one rule. One builder makes it, and nothing waits for you.</p>
-      <p><b>The standard track</b> is for every other request. The interview runs in the session of the task, one question at a time, each with its guess. Nothing builds before your yes to the acceptance criteria.</p>
+      <p>Each request opens a task in an agterm session of its own. <b>The fast track</b> is for one plain change with no open question: a typo, a rename, the fix of one rule. One builder makes it, and nothing waits for you. When another person wrote the ticket, its one criterion waits for your yes first.</p>
+      <p><b>The standard track</b> is for every other request. The interview runs in the session of the task, one question at a time, each with its guess. Nothing builds before your yes to the acceptance criteria, unless you are away or the task runs at night. Then the pull request is not green.</p>
       <p>The build asks you nothing. A ladder of agents decides each choice, and the pull request lists each one with its reason. Only a circuit breaker stops a task, with a document for you.</p>
       <p>A fresh merge agent reads each pull request. It merges a green one that is not careful, and calls you for the rest.</p>
     </div>
@@ -140,6 +140,7 @@
       <p class="eyebrow">Set it up one time</p>
       <ol>
         <li><span>Install Tailscale on the computer and on the phone, with one account.</span></li>
+        <li><span>In the Tailscale admin console, turn on MagicDNS and HTTPS.</span></li>
         <li><span>Type <code>/lem serve tailscale</code> in Claude Code.</span></li>
         <li><span>On the phone, open the address that Lem gives, and select "Add to Home Screen".</span></li>
         <li><span>Open Lem from the Home Screen, and turn on notifications with one tap.</span></li>
@@ -152,7 +153,7 @@
 <section id="parallel">
   <p class="eyebrow">04 · Many tasks at once</p>
   <h2>Many tasks build and land at the same time</h2>
-  <p class="intro">Each task has its own worktree. No task waits until another task lands.</p>
+  <p class="intro">Each task has its own worktree. A task waits for another task only when it needs the result of that task, or when you put that task first.</p>
   <ul class="cards">
     <li><b>A session for each task</b> <span>Type your next request in any session. It opens a session of its own, while the other tasks build.</span></li>
     <li><b>Checks under your load limit</b> <span>When you set a limit, the checks start only while the load of your computer is below it.</span></li>
