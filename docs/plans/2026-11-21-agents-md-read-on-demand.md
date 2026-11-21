@@ -18,6 +18,7 @@ Size: full, because every ruling of `AGENTS.md` moves into a file of its own and
    2026-11-18" keeps its date. No sentence of it is stale: each says the rule as it stands today
    (criterion 4), and a later change of a ruling changes its sentence and its file together
    (criterion 8).
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_agents_md.py -k agents_md_is_short` in `tests/unit/test_agents_md.py`
 2. A ruling of the owner that is in force keeps one sentence in `AGENTS.md`, the rule an agent
    follows, with a link to one file of `docs/rulings/`, and that file holds the ruling whole:
    1. Today "GitHub pull requests are the one way to land" (2026-11-20) is a paragraph of
@@ -29,6 +30,7 @@ Size: full, because every ruling of `AGENTS.md` moves into a file of its own and
    3. The file starts with the lines `ruled: 2026-11-20` and `area:` with the name of the group its
       sentence stands in (criterion 7), in the same words, then the paragraph as it is today.
    4. `lem project show` says that the rulings folder exists.
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_agents_md.py -k each_sentence -k rulings_file_starts` in `tests/unit/test_agents_md.py`
 3. A ruling that a later ruling replaced whole has no sentence in `AGENTS.md` and no file of its
    own. Its text is inside the file of the ruling that replaced it, under a heading that says
    "Replaced, not in force", with its date, and the pull request lists each such ruling with the
@@ -41,6 +43,7 @@ Size: full, because every ruling of `AGENTS.md` moves into a file of its own and
    5. A search for "Codex in each role" in `docs/rulings/` finds that one file and no other.
    6. The pull request's list has the line: "Codex in each role is wanted" (2026-11-17), replaced by
       "Claude Code and agterm first, and Codex for reviews" (2026-11-20).
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_agents_md.py -k replaced` in `tests/unit/test_agents_md.py`
 4. A sentence of the short `AGENTS.md` is today's bold sentence word for word, unless a later
    ruling changed a part of that ruling: then the sentence says the rule as it stands today, its
    file says which part changed, when and by which ruling, for each such ruling, and the pull
@@ -49,6 +52,7 @@ Size: full, because every ruling of `AGENTS.md` moves into a file of its own and
    ruling that changed a part of it: the rulings of 2026-11-19 on where he answers Lem, "The build
    asks him nothing, and the ladder always decides" (2026-11-20) and "Each task lives in a session
    of its own" (2026-11-20). A pull request with no such sentence says that its list is empty.
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_agents_md.py -k changed_in_part` in `tests/unit/test_agents_md.py`
 5. A decision of the maintaining session, and a design that is open to the owner, has its file in
    `.lem/decisions/`, a folder of Lem's own in this repository beside `.lem/lessons.md`, and never
    in `docs/`, and its sentence in `AGENTS.md` stands under a heading whose first line says that
@@ -60,6 +64,7 @@ Size: full, because every ruling of `AGENTS.md` moves into a file of its own and
    question of the owner's", "The session's answers to his notes that asked a question" and the
    paragraph "A lowered bar" are open to him, in `.lem/decisions/`. The rulings stay in
    `docs/rulings/`, the place the settings name.
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_agents_md.py -k decision` in `tests/unit/test_agents_md.py`
 6. No word is lost. Each paragraph of "The owner's rulings" and "Decisions the maintaining session
    took", as `AGENTS.md` has them on the base commit, is found word for word in a file of
    `docs/rulings/` or `.lem/decisions/`. A file may add lines of its own (`ruled:`, `area:`, a
@@ -67,6 +72,8 @@ Size: full, because every ruling of `AGENTS.md` moves into a file of its own and
    owner's pick" is whole in one file of `docs/rulings/`, with "The Line in the Field" in it. The
    pull request says how this was checked: the command that compared each paragraph of the base
    commit's two sections with the new files, and its count of the paragraphs compared and found.
+   - test: `python3 -B docs/plans/2026-11-21-agents-md-read-on-demand/moved.py --base 479bef6` in `docs/plans/2026-11-21-agents-md-read-on-demand/moved.py`
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_agents_md.py -k logos_paragraph` in `tests/unit/test_agents_md.py`
 7. An agent finds the ruling its change reaches from the short `AGENTS.md` alone. It reads every
    sentence, since the file is short. The sentences stand in groups by what they are about, each
    group under a heading, so that the ones near a change stand together, and a sentence stands in
@@ -79,6 +86,7 @@ Size: full, because every ruling of `AGENTS.md` moves into a file of its own and
       merge, and the file of "The board's server runs the merge agent's merge, and the agent only
       writes its review" among the session's decisions, since its change reaches both.
    4. It opens no file of a sentence that its change does not reach.
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_agents_md.py -k group_the_files_area` in `tests/unit/test_agents_md.py`
 8. "Rules for a change here" says where a new ruling goes: a file of `docs/rulings/` and one
    sentence with its link in `AGENTS.md`. A ruling that replaces another takes that ruling's text
    into its own file under "Replaced, not in force", and the replaced sentence leaves `AGENTS.md`.
@@ -89,11 +97,13 @@ Size: full, because every ruling of `AGENTS.md` moves into a file of its own and
    heading. A session that records a ruling on the naps that changes no other ruling writes the
    file `lem project ruling-file` names and one sentence in the group of the naps, and `AGENTS.md`
    grows by that sentence only.
+   - no test: the rules are sentences of a document, "Rules for a change here" of `AGENTS.md`.
 9. A text of the repository that sends a reader to a section of `AGENTS.md`, or to a ruling by its
    title, still finds it. `docs/free-hour.md` names "Opinionated and small", "The owner's rulings",
    "Rules for a change here" and "Checks", and each is a heading or a sentence of the short
    `AGENTS.md`. `.lem/profile.md` and `.revmux/profile.md`, which say that the owner's rulings are
    in `AGENTS.md`, say that their sentences are there and their full text in `docs/rulings/`.
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_agents_md.py -k free_hour` in `tests/unit/test_agents_md.py`
 
 ## How it works
 
