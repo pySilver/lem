@@ -55,7 +55,9 @@ flowchart TD
    one sentence on why it writes one file, its source and day (the talk of this task), and one on
    what the profile does not hold: a command that the developer's own Codex rules allow (an
    `allow` prefix rule in `~/.codex/rules/`) runs outside the sandbox, by Codex's design and by his
-   word for every Codex session; `git rm` of
+   word for every Codex session. Its last note, "Not run yet", loses "a launch with a model or an
+   effort flag" for Codex, since task 1's launch ran with both and its status line showed them, and
+   keeps the Claude Code reviewer, which no task started; `git rm` of
    `docs/backlog/the-plan-talks-codex-reviewer-starts-with-the-users-default-sandbox.md`. Otherwise:
    `second-opinion.md` stays, and the backlog item is rewritten with what the talk showed. Serves
    criterion 3.
