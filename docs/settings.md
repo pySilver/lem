@@ -21,9 +21,8 @@ Paths are relative to the root of the repository.
 | Setting | Default | Use |
 | --- | --- | --- |
 | `branch.base` | `/lem init` writes the default branch | the branch that a task starts from and lands on |
-| `branch.land` | `"owner"` | who merges. `"owner"`: you. `"agent"`: Lem, only a green pull request that the review called not careful, and never while you are away |
+| `branch.land` | `"agent"` | who merges. A merge agent reads each pull request first and writes its review. `"agent"`: the merge agent merges a green pull request that is not careful, and calls you for each other one. `"owner"`: you merge each pull request |
 | `branch.history` | `"squash"` | what lands. `"squash"`: one commit. `"keep"`: the commits of the branch |
-| `branch.propose` | `"pull-request"` | how a task ends with a remote on GitHub. `"pull-request"`: Lem opens a pull request, with no question. `"merge"`: Lem merges into the base branch, with no pull request |
 | `branch.protected` | `[]` | the branches where Lem lands nothing and pushes nothing |
 
 ## `[checks]`
@@ -53,6 +52,8 @@ A persona names its own seats in the frontmatter of its file, in the same form:
 | --- | --- | --- |
 | `seats.reviewer` | `"codex/gpt-6.2-sol:high"`, or `"claude/opus:high"` without Codex | the reviewer of the plan talk |
 | `seats.planner` | `"claude/opus:high"` | the defender of the plan in the plan talk: only `claude` |
+| `seats.merger` | the seat in `~/.config/lem/machine.toml`, else `"claude"` | the merge agent: `claude` or `codex`. Without a seat in the repository, Lem uses `merger` under `[seats]` in `~/.config/lem/machine.toml`, the file for all your repositories. Without that, the agent uses its own default model |
+| `seats.session` | the seat in `~/.config/lem/machine.toml`, else `"claude"` | the agent of the session of each task: only `claude`. The sources are the same as for `seats.merger`. Without a seat, the session uses your default model of Claude Code |
 | `seats.experts` | `["claude/fable:high", "codex/gpt-6.2-astra:high"]` | the experts of a decision in doubt. Without Codex, one answers alone |
 
 ## `[corrections]`

@@ -56,16 +56,16 @@ class TrackOf(unittest.TestCase):
 
 
 class HoldsOf(unittest.TestCase):
-    """The held tasks of `lem project waiting`: one choice of one held task is named once, under `choices`."""
+    """The held tasks of `lem project waiting`: a task a breaker holds is named once, under `breakers`."""
 
     @staticmethod
     def held(slug: str, line: str) -> dict:
         return {"slug": slug, "ask": f"The ask of {slug}.", "since": "2026-11-20T01:00Z", "night": None,
                 "state": f"2026-11-20T01:00Z held: {line}\ntype: feat, because the export gets a note"}
 
-    def test_a_held_task_whose_choice_waits_is_that_choice(self):
-        choices = [{"task": "gift-note", "id": 1, "state": "waits"}]
-        found = project.holds_of([self.held("gift-note", "choice 1 waits for the owner")], choices)
+    def test_a_task_a_breaker_holds_is_that_breaker(self):
+        breakers = [{"task": "gift-note", "id": 1, "state": "waits"}]
+        found = project.holds_of([self.held("gift-note", "breaker 1 waits for the owner")], breakers)
         self.assertEqual((found["criteria"], found["held"]), ([], []))
 
     def test_a_step_of_his_and_his_criteria_stay(self):
@@ -75,6 +75,33 @@ class HoldsOf(unittest.TestCase):
         self.assertEqual([task["task"] for task in found["held"]], ["his-step"])
         self.assertEqual([task["task"] for task in found["criteria"]], ["his-criteria"])
         self.assertEqual(found["held"][0]["line"], "the reviewer's pane waits for the owner's trust of the folder")
+
+
+
+class Parked(unittest.TestCase):
+    """The owner's park: a task no agent works on is put aside, and it leaves `parked` only by a drop
+    or by `resume`, which writes the block the park put aside."""
+
+    def test_only_a_task_no_agent_works_on_is_parked(self):
+        for now in project.PARKABLE:
+            self.assertIsNone(project.parked_refusal("t", now, "parked"), now)
+        self.assertIn("its lead or its investigator works now", project.parked_refusal("t", "building", "parked"))
+        self.assertIn("its build is done", project.parked_refusal("t", "landing", "parked"))
+
+    def test_a_parked_task_takes_a_drop_and_resume_only(self):
+        self.assertIn("`lem project resume t` brings it back", project.parked_refusal("t", "parked", "building"))
+        self.assertIn("is parked", project.parked_refusal("t", "parked", "held"))
+        self.assertIsNone(project.parked_refusal("t", "parked", "dropped"))
+        self.assertIsNone(project.parked_refusal("t", "parked", "held", resumed=True))
+
+    def test_resume_finds_the_block_before_the_park(self):
+        state = ("2026-11-20T02:00Z parked: the owner parked it: wait for the merchants\n\n"
+                 "2026-11-20T01:00Z held: breaker 2 waits for the owner\nThe note has no place: no option keeps the approved criteria\n\n"
+                 "2026-11-20T00:00Z building: task 2 of 3")
+        blocks = project.blocks_of(state)
+        self.assertEqual([block["status"] for block in blocks], ["parked", "held", "building"])
+        self.assertEqual(next(block for block in blocks if block["status"] != "parked")["lines"],
+                         ["breaker 2 waits for the owner", "The note has no place: no option keeps the approved criteria"])
 
 
 if __name__ == "__main__":

@@ -1,0 +1,16 @@
+{
+  "name": "lem-board-kit",
+  "private": true,
+  "description": "Builds skills/lem/assets/vendor/board-app.js and board-icons.json: Turbo, Stimulus, the board's controllers and its markdown reader in one classic script, and the board's icons.",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@hotwired/stimulus": "3.2.2",
+    "@hotwired/turbo": "8.0.23",
+    "esbuild": "0.28.2",
+    "marked": "11.2.0",
+    "mermaid": "11.12.0"
+  }
+}

@@ -2,14 +2,16 @@
 """Take one task's branch from `ready` to a pull request and to the base branch, one step at a time.
 
 Nothing reaches the base branch without the machine checks and a review by an agent that did not
-build it, and a task ends as a pull request where there is a forge and the project wants one.
+build it, and a task ends as a pull request on GitHub, the one way Lem lands; a fresh merge agent
+reads each proposed task, and merges it or calls the owner.
 Each step here is one command, prints JSON, and refuses with exit 1 and the reason when the step
 may not run; nothing is retried and nothing is forced. Every step first asks `lem project
 may-land` about the settings' base branch, so a protected branch is never reached, whoever asks.
 
     lem land start SLUG [--conflicting]
-                           the task takes the landing line: its state becomes `landing`; an `open`
-                           task the forge calls conflicting says so with --conflicting
+                           the task's landing starts: its state becomes `landing`, also while other
+                           tasks land; an `open` task the forge calls conflicting says so with
+                           --conflicting
     lem land base SLUG     bring the base branch in by a rebase; a conflict is reported, not resolved
     lem land polish SLUG   the polish pass starts: what its builder gets, and the tip it starts at
     lem land polish SLUG --done
@@ -30,19 +32,20 @@ may-land` about the settings' base branch, so a protected branch is never reache
                            backlog, and commit the items on the task's branch; a defect whose
                            place an item of the branch already names is that item
     lem land propose SLUG --title SUBJECT --notes FILE
-                           open the pull request, or mark the branch ready where the remote is not
-                           GitHub or `branch.propose` is `merge`: the state becomes `open`. A task
-                           on the standard track also gets built.md and decisions.md in its task directory, for
-                           the owner: what was built and why, and each decision with who took it
-    lem land land SLUG --by owner|agent [--message SUBJECT]
-                           merge the pull request, or put a ready branch on the base branch
+                           push the branch and open its pull request on GitHub, or update the one
+                           that is there: the state becomes `open`
+    lem land merge-review SLUG
+                           what the merge agent reads: its brief, merge-brief.md in the task
+                           directory, with the facts of the task, and its seat
+    lem land merge-review SLUG --file FILE
+                           write down the merge agent's reply as merge-review.md: its verdict,
+                           merge or call, and whether the owner is called
+    lem land merge SLUG --by owner|merger [--message SUBJECT]
+                           merge the pull request through GitHub: the owner's word, or the merge
+                           agent's where the settings and the request allow it
     lem land merged SLUG   the owner merged the pull request on the forge: finish the bookkeeping;
                            or he closed it with no merge: the task is dropped
     lem land clean SLUG    remove the task's worktree and its branch after the merge
-    lem land watch [--every SECONDS]
-                           look at the forge for the pull requests of the open tasks, and end when
-                           one of them is merged or closed, or newly conflicting; it looks every
-                           60 seconds (`WATCH_SECONDS`), and --every is for a test that cannot wait
 
 What each step keeps for the next is in `landing.json` in the task's directory: the task's
 branch, the base it was rebased on, the commit and tree the checks passed on, each review, and
@@ -52,7 +55,7 @@ second start of the same pass), `checks` logs `gate.start` before its first comm
 logs `review.start` once for the attempt that is due; `polish --done`, the checks' `gate.end`
 and `read --record` are their ends. The checks keep the names their step had before it was called
 the checks: the events `gate`, `gate.start` and `gate.end`, the folder `gate/` of a task's directory and
-`gated` in `landing.json`, which open tasks, the board and `meta.js` read.
+`gated` in `landing.json`, which open tasks and the board read.
 
 One step of a task runs at a time. Every step here that names a task takes the task's one step
 lock (`step.lock` in its directory) before anything else it does, and holds it until it ends,
@@ -60,7 +63,7 @@ however it ends; the first thing it writes there is its name, its process id and
 of the same task meanwhile exits 1 and names the step that holds the lock, since when and in which
 process. While the checks hold it, a second `checks` is refused because they already run, and any
 other step says that their end comes first, so that nothing is proposed, read or rebased while they
-run. `checks --status`, `checks --stop` and `watch` take no lock: the first two look at the file
+run. `checks --status` and `checks --stop` take no lock: they look at the file
 and at the process it names, never at the lock, so a look never makes a real start fail. The
 commands a step runs do not get the lock's file, so a server one of them left behind does not hold
 it.
@@ -125,10 +128,10 @@ not there before and each folder that leaves empty, names them in its output (`r
 and in one line of the last command's output file, and goes on. What the checks keep is the tip they
 ran on and that tip's tree.
 
-An `open` task takes the line again when its base moved: after a merge, Lem takes each task whose
+An `open` task lands again when its base moved: after a merge, Lem takes each task whose
 pull request the forge calls conflicting through `start --conflicting`, `base`, the checks, the
 review that is due and `propose`, which keeps its pull request; every other open task waits as it
-is, and `land` refuses it on a base that moved by files the checks read. The pull request's text
+is, and `merge` refuses it on a base that moved by files the checks read. The pull request's text
 and the state say in one line what happened ("rebased on main after the forge called it
 conflicting; one conflict in shop/dates.py, resolved by a builder; the checks passed again"). A conflict that `base` meets is kept in `landing.json` with the tip before the rebase and
 whether a review covered the change then; the builder that resolves it rebases the branch itself,
@@ -141,11 +144,23 @@ for a careful request; that read is no round, and anything committed after the r
 reviewed as a change like any other.
 
 `start` refuses a worktree on no branch: `propose` pushes the task's branch and `clean` deletes
-it. Two `start`s at one moment take turns: each reads the tasks' states and writes `landing` under a
-lock of the state folder (`landing.lock`), so the second finds the first in `landing` and is
-refused. With no command of the checks it writes the task's state `blocked`, and a later `start` takes that task
-back once the commands are there. A task in `landing` holds the line for every other; each
-refusal on the way names the step out, also when its worktree is gone.
+it. Any number of tasks land at the same time, each in its own worktree and under its own step
+lock: a feature waits for no other task's landing. Two `start`s at one moment take turns only to
+read the tasks' states and write `landing`, under a lock of the state folder (`landing.lock`). With
+no command of the checks it writes the task's state `blocked`, and a later `start` takes that task
+back once the commands are there; each refusal on the way names the step out, also when its
+worktree is gone.
+
+What two landings share is the machine and the base branch, and each has one rule. The checks start
+only while the machine's load average is below the start number the developer set for this machine
+(`[load] start` in `machine.toml`, beside the owner's mark): a run waits before its first command,
+logs `gate.wait` with the load and the number while it waits, and starts when the load is below the
+number. Two runs that wait start at least `LOAD_SPACING` seconds apart, so that the load average
+shows the first before the second reads it. A machine with no number has no gate; Lem picks none
+(`lem doctor` gives the line that sets one). And Lem's own merge calls (`merge`) go one at a time,
+under `merge.lock` of the state folder: a second call logs `merge.wait` with the task that holds
+it, waits, and reads the base branch after it takes the lock, so that it meets the merge before it.
+The commands of `checks.serial` still take the repository's one lock for them; nothing else does.
 
 The checks are the main checkout's. One task may bring its own: when the main checkout's settings
 name no command of the checks and the task's branch adds them to its `.lem/project.toml` (they are not on
@@ -236,7 +251,7 @@ commits the new items on the task's branch, one commit for each round, and keeps
 each defect's item in `landing.json`. A second run files nothing new. Those commits ask for no
 check again: `read` and `propose` take the checks' result for a tip whose commits after the checked
 one only add items whose paths `landing.json` keeps, and keep the result for that tip, so that
-`land` finds what it checks. An item written by hand is a commit like any other. `read` names
+`merge` finds what it checks. An item written by hand is a commit like any other. `read` names
 the defects that have no item yet (`to_file`), and `propose` refuses while one has none or while an item is
 gone from the tip; the owner's "not wanted" is `worth: no` in the item, never its deletion.
 The file name is the slug of the title. A file of that name that holds the same defect (the same
@@ -264,20 +279,21 @@ without an answer of the owner's. A criterion changed, added or removed after th
 record (`lem decisions criterion`), with what it was, what it is and why. The text lists every
 criterion change of the task, under every approval; one that a later approval of the owner's took over says
 so and is no cause of not green, since that approval made it the owner's. A lowered bar is not
-green with a reason either: its line holds the builder's reason and what the review said of it. A choice
-taken without the owner (when he said he is away, or the task is a night's) is a line of
-its own, and so is a choice the experts took, with their pick and both their reasons; so is an
-answer of the owner's that came after either and differs. So is a
-decision of the ladder that went past the personas without him (`by: dialectic`, `by: experts`)
-or that no level settled (`unsettled`), and criteria approved while the task ran without him
-(`by: alone`) that no approval of his followed. A decision the gate or the personas settled is no
-cause of not green: its line says the gate's cite, or how many personas voted for it and in how
-many model families. A task that ran without the owner (his `lem project owner away`, a night's
+green with a reason either: its line holds the builder's reason and what the review said of it. A
+decision of the ladder that went past the personas (`by: dialectic`, `by: experts`) or that no
+level settled (`unsettled`) is a line of its own: the ladder decides every choice of the build at
+once, with the owner there or away, and he reads its pick here. So are criteria approved while the
+task ran without him (`by: alone`) that no approval of his followed. A decision the gate or the
+personas settled is no cause of not green: its line says the gate's cite, or how many personas
+voted for it and in how many model families. Nor is the owner's help on a breaker
+(`--by owner --breaker N`), or a criterion change that it led to: his decision made it his. Each
+time the circuit breaker stopped the build is a line before the decisions, with its cause and the
+decision of his that settled it. A task that ran without the owner (his `lem project owner away`, a night's
 mark) says so in the line after green or not green, with when and the words; nothing else about it
 is a cause of not green.
 Each reason a request is not
 green stands before everything else, one line each; each decision of the record is one line
-before the notes. `propose` is refused while a choice of the task waits for the owner. A plan
+before the notes. `propose` is refused while a breaker of the task waits for the owner. A plan
 that calls itself careful (`careful: yes`) or has more than three tasks was talked through by
 its defender and the reviewer in the plan talk's companion before any code, and the defender
 wrote it down as one `plan.talk` event in the log `project.py` keeps: `propose` refuses such a
@@ -325,15 +341,28 @@ row, so that the read is started once more, and after the second in a row the re
 green, with "the criteria were not read" first, and its checks say so in place of the read's line. A
 change the review calls careful and the plan did not is a lesson about the plan's call: `read
 --record` writes one `careful.missed` event with the round and the review's reason, the first time
-a review finds it, for the retro. With a GitHub remote `propose` pushes the task's branch
-and opens the pull request with the `gh` command; a second run updates it. The `proposed` event
-is written after that step: a proposal that the push or the forge refused is none. With any other
-remote, or none, the branch is marked ready. So it is with a GitHub remote when the settings'
-`branch.propose` is `merge`, for a developer who wants no pull requests: the remote is then one
-like any other, no task branch is pushed, and `merged` is refused. GitLab is not built: nobody
-checked its command.
+a review finds it, for the retro. `propose` pushes the task's branch and opens the pull request
+on GitHub with the `gh` command; a second run updates it. The `proposed` event is written after
+that step: a proposal that the push or GitHub refused is none. A repository whose origin is not on
+GitHub, or that has none, is refused before anything is written, with the line that points origin
+at GitHub: a GitHub pull request is the one way a task lands.
 
-`merged` asks the forge about a pull request the owner may have merged or closed there. A merged one
+The merge agent reads every proposed task, the fast track's too, after `propose`. `merge-review`
+with no record writes its brief, `merge-brief.md` in the task directory: the line that names
+`prompts/merge.md`, and the facts as JSON (the pull request, the range, the files of the task
+directory there are, the reviews, green or why not, why careful, `branch.land`, `owner_merges`, the
+reason the owner merges whatever the agent finds, or null, and `time`, the task's seconds from its
+first event to its first proposal against the median of the earlier tasks of its track in the
+event log). It prints the brief, the answer file the agent's reply goes to, and the seat that
+starts it, `seats.merger` as `lem project show` resolves it. The agent changes nothing. Its reply
+opens with its verdict, `Verdict: merge.` or `Verdict: call.`; `merge-review --file FILE` refuses one
+that does not, writes the reply as `merge-review.md`, keeps `merge_review` in `landing.json` (the
+proposed tip, the verdict, `calls`, `why`, the seat as `by`, and the time) and logs `merge.review`
+with the same. `calls` is true for the verdict `call`, and for a `merge` that `owner_merges` overrules:
+the owner is called, and "Waits for you" shows "Read the merge review". A review of an earlier tip
+counts for nothing.
+
+`merged` asks GitHub about a pull request the owner may have merged or closed there. A merged one
 finishes as a landing does. A closed one with no merge ends the task: its state becomes `dropped`
 with the line "the pull request was closed on the forge", so nothing of it waits and nobody cleans
 it by hand; `clean` then removes the worktree, and the branch keeps its commits, with how to delete
@@ -341,45 +370,28 @@ it. A task that goes on after all is a new request. One that is still open is "n
 (exit 1), and `merged` keeps what the forge said of it, its mergeable state on its head
 (`forge` in `landing.json`), so that `lem project waiting` says whether it conflicts with the base.
 
-`watch` is the one step that names no task. It reads the main checkout's settings, and once every
-60 seconds (`WATCH_SECONDS`) it lists the pull requests of the base branch with one call of `gh` and reads
-from it each task that is `open` with a pull request (a number that list does not hold is asked for
-alone). It ends with exit 0 and JSON when one of them is merged or closed: `ended` names each such
-task with what happened, and `open` the others, the ones the forge calls conflicting first, then by
-the time of their state. It ends the same way when the forge calls a pull request conflicting that
-it did not call so at the look before, on the same head: `conflicting` names each such task with
-its pull request and why. The look before is the newest one any watch wrote to `watch.js` (`seen`,
-each task's mergeable state and head), so a conflict at a watch's first look ends it once, and a
-watch started again while the task cannot take the line yet does not end again for it. It ends at once, with exit 1 and what to do, when no task is open with a
-pull request, when `gh` is not on PATH or not signed in, when the project has no forge to watch
-(`branch.propose = "merge"`, or a remote that is not GitHub), and when it is stopped. Each look, and
-each such end with its reason, is written whole to `watch.js` in the state folder, for the board. It
-takes no lock and changes no task: Lem runs `merged` and what follows for each task it names.
+`merge` is the one route to the base branch, the owner's and the merge agent's alike: `merge --by
+owner` is his word (the board's merge and his `/lem land` run it), and `merge --by merger` is the merge
+agent's, after its review. Both run under the merge lock and read the base after they take it. `--by
+merger` is refused where the settings' `branch.land` is `owner`, for a careful request, for one that
+is not green (one that is not reviewed among them), for one whose newest review that answered made no
+careful call, and with no merge review of the proposed tip whose verdict is `merge`. A task that ran
+without the owner is merged as any other. The pull request is merged through GitHub, so its own rules
+hold: a merge GitHub refuses keeps its line as `merge_refused` in `landing.json` and a `merge.refused`
+event, for the row that waits for the owner, and the step exits 1 with that line. `merged` is for one
+the owner merged on GitHub. What lands is the tree the checks passed on: when the tip is another tree,
+or the base moved by any file, `merge` refuses and says which steps run again.
 
-`land --by owner` is the owner's word. `land --by agent` is refused while the task runs without
-the owner, whatever the settings say, and unless the settings'
-`branch.land` is `agent`, and then still for a careful request, for one that is not green (one
-that is not reviewed among them), and for one whose newest review that answered made no careful
-call. A
-pull request is merged through the forge, so the forge's own rules hold; `merged` is for one the
-owner merged by hand. What lands is the tree the checks passed on: when the tip is another tree,
-or the base moved by any file, `land` refuses and says which steps run again.
-
-A step that was cut off is run again. `land` writes down the commit it is about to put on the base
-before it does, so a second run that finds that commit on the base only finishes the bookkeeping.
+A step that was cut off is run again; a merge that GitHub already holds only finishes the bookkeeping.
 `clean` knows the branch from `landing.json`, so it finds it after the worktree is gone. It
 takes a landed, a dropped or an answered task. The branch of the last two goes when the base
 holds it whole, and stays when it has commits of its own, with what it holds and how to delete
-it. `landing.json`, `pr.md` and each item of the backlog are written whole, through a new file
-that takes the old one's place, so that a run cut off in the middle leaves no half of one.
+it. `landing.json`, `pr.md`, `merge-review.md` and each item of the backlog are written whole, through
+a new file that takes the old one's place, so that a run cut off in the middle leaves no half of one.
 
-The landing of a ready branch is a fast-forward and nothing else. With a remote named `origin`
-the tip is pushed to the base branch there with a plain push, which the remote refuses when
-someone else pushed first;
-then the checkout that holds the base branch is fast-forwarded when it is clean, and left alone
-with a note when it is not. With no remote, the base branch itself is fast-forwarded. The base
-branch is never force-pushed and a ref is never moved behind a checkout's back. The task's own
-branch on the forge is the one ref pushed with force, and with a lease that names the commit the
+After a merge the checkout that holds the base branch is fast-forwarded when it is clean, and left
+alone with a note when it is not. The base branch is never pushed to and a ref is never moved behind
+a checkout's back. The task's own branch on GitHub is the one ref pushed with force, and with a lease that names the commit the
 push may replace: the one Lem pushed last (`pushed` in `landing.json`), or a head of origin's whose
 commits the branch took in (`taken`), or no branch at all for a first push. Origin is asked with
 `ls-remote` before `base` rebases and before `propose` pushes, never through the remote-tracking
@@ -389,8 +401,6 @@ pull it into the task's worktree, after which it is part of the change, with its
 A pull request on the task's branch name is taken as the task's own only when its head is the
 commit Lem pushed; any other is somebody's, and `propose` refuses with its number and author.
 """
-
-from __future__ import annotations
 
 import sys
 
@@ -407,6 +417,7 @@ import os
 import re
 import shutil
 import signal
+import statistics
 import subprocess
 import tempfile
 import tomllib
@@ -419,8 +430,14 @@ SCRIPTS = Path(__file__).resolve().parent
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
 import lem_sibling  # noqa: E402
+import lem_state  # noqa: E402
 
-BY = ("owner", "agent")
+# Who merges: the owner's word, or the merge agent, where the settings and the request allow it.
+BY = ("owner", "merger")
+# A GitHub remote, as the repository writes its address: a task ends as a pull request there.
+GITHUB = re.compile(r"(https://|ssh://git@|git@)github\.com[:/]")
+# The merge agent's verdict, the first line of its review: it merges, or it calls the owner.
+VERDICT = re.compile(r"Verdict:\s*(merge|call)\b", re.IGNORECASE)
 # The review a change gets, from the least to the most: one read by one agent, a round of the
 # project's review tool with the profiles that fit the change, the project's full set.
 KINDS = ("read", "round", "full")
@@ -434,7 +451,7 @@ SOMEONE_ELSE = "request by: someone else"
 NO_GATE = "the project has no command in its checks"
 # The steps that take a tip from the start to a proposal, which a refusal of `land` names when the
 # tip, the base or the tree is not the one on record.
-AGAIN = "run `lem land start`, `lem land base`, `lem land checks` and `lem land propose` again"
+AGAIN = "run `lem land start`, `lem land base`, `lem land checks`, `lem land read` and `lem land propose` again (a rebase with no conflict keeps the review)"
 # How many changed lines one reader takes as one piece; a larger change is read task by task, in
 # the plan's own cuts. A guess (2026-11-15), not a measurement.
 READ_AT = 800
@@ -491,10 +508,9 @@ TALK_SAYS = {
 # bound of turns its rules give, which `project.py log` adds and the line names only when the talk went over it.
 TALK_FIRST = ("ts", "event", "task", "reviewer", "turns", "settled", "open", "bound")
 # Who took a decision of the record, as the text of a pull request names them.
-TAKEN_BY = {"lead": "the lead", "gate": "the gate", "personas": "the personas", "dialectic": "the dialectic", "owner": "the owner", "lem": "Lem", "timeout": "the timeout", "experts": "the experts"}
-# Who took a choice that waited for the owner and was taken without him: the recommended option at
-# the owner's "away", or at once in a task that runs without him.
-EARLY_BY = "the ladder's pick, taken without the owner"
+TAKEN_BY = {"lead": "the lead", "gate": "the gate", "personas": "the personas", "dialectic": "the dialectic", "owner": "the owner", "lem": "Lem", "experts": "the experts"}
+# The two causes of the circuit breaker, as a line of the pull request says them (`decisions.py` CAUSES).
+BREAKER_SAYS = {"irreversible": "the next step could not be reversed by a later no", "criteria": "no option of the ladder kept the approved criteria"}
 # The levels of the ladder whose decision, taken without the owner, is never green: past the personas.
 PAST_PERSONAS = ("dialectic", "experts")
 # The name of each track, by the word of the `Size:` line that the criteria keep.
@@ -647,20 +663,16 @@ class Task:
         self.plan_said: bool | None = None
         self.branch_gate: list[str] | None = None
         # The address as the repository has it, before any rewrite of it: the forge is known by its host.
-        # A project that wants no pull requests (`branch.propose = "merge"`) has no forge here: its
-        # remote is one like any other, and its task lands on the remote's base branch.
+        # A task ends as a GitHub pull request, the one way Lem lands; `propose` refuses another remote.
         url = git(self.main, "config", "--get", "remote.origin.url", check=False)
-        github = re.match(r"(https://|ssh://git@|git@)github\.com[:/]", url)
-        self.merges = self.settings["branch"]["propose"] == "merge"
-        self.forge = "github" if github and not self.merges else None
+        self.forge = "github" if GITHUB.match(url) else None
 
     def read_states(self, tasks: list[dict] | None = None) -> None:
-        """This task's record and the other tasks in `landing`, as the state files say now."""
+        """This task's record, as the state files say now."""
         tasks = tasks if tasks is not None else json.loads(script("project.py", self.repo, "tasks").stdout)
         self.record = next((task for task in tasks if task["slug"] == self.slug), None)
         if self.record is None:
             raise LandError(f"no task {self.slug!r}; the tasks are: {', '.join(task['slug'] for task in tasks) or 'none yet'}")
-        self.others_landing = [task["slug"] for task in tasks if task["status"] == "landing" and task["slug"] != self.slug]
 
     def need_worktree(self) -> None:
         if not (self.worktree / ".git").exists():
@@ -703,11 +715,19 @@ class Task:
     def state(self, status: str, *lines: str) -> None:
         script("project.py", self.worktree if self.worktree.exists() else self.main, "state", self.slug, status, *lines)
 
-    def decisions(self) -> list[dict]:
-        """Each decision of the task as it stands, through the one script that writes them."""
+    def logged(self) -> list[dict]:
+        """Each decision and breaker of the task as it stands, through the one script that writes them."""
         if self.recorded is None:
             self.recorded = json.loads(script("decisions.py", self.main, "list", self.slug).stdout)
         return self.recorded
+
+    def decisions(self) -> list[dict]:
+        """Each decision of the task: taken by a level of the ladder, by the lead, or by the owner."""
+        return [decision for decision in self.logged() if decision["kind"] == "taken"]
+
+    def breakers(self) -> list[dict]:
+        """Each time the circuit breaker stopped the task, with whether the owner's help settled it."""
+        return [breaker for breaker in self.logged() if breaker["kind"] == "breaker"]
 
     def gate(self) -> tuple[list[str], bool]:
         """The commands of this task's checks, and whether its own branch brought them: the main
@@ -766,9 +786,9 @@ class Task:
 
 
 def cmd_start(task: Task, conflicting: bool = False) -> dict:
-    # One start at a time: the check of who holds the line and the write of `landing` are one step
-    # under the lock of the state folder, so two starts at one moment never both take the line. The
-    # lock is the kernel's, and it goes with the process, however that ends.
+    # Two starts at one moment take turns to read the tasks' states and write `landing`, under the
+    # lock of the state folder. The lock is the kernel's, and it goes with the process, however
+    # that ends. It holds no task back: any number of tasks are in `landing` at once.
     path = task.directory.parent.parent / "landing.lock"
     try:
         lock = path.open("w")
@@ -785,16 +805,10 @@ def cmd_start(task: Task, conflicting: bool = False) -> dict:
 
 
 def start_locked(task: Task, conflicting: bool = False) -> dict:
-    if task.others_landing:
-        other = task.others_landing[0]
-        raise LandError(
-            f"{other} is in `landing`: one branch lands at a time, so finish that one first. When it cannot go on (its worktree or its work is gone), "
-            f"`lem project state {other} ready --start-over \"WHY\"` gives the line back and its landing starts over, or `lem project state {other} dropped \"WHY\"` ends it",
-        )
     # a task `start` blocked for want of a command of the checks is taken back as a `ready` one
     again = task.blocked_by_start()
     if task.record["status"] not in ("ready", "landing", "open") and not again:
-        raise LandError(f"the task is {task.record['status']!r}; only a `ready` task, or an `open` one whose base moved, takes the landing line")
+        raise LandError(f"the task is {task.record['status']!r}; only a `ready` task, or an `open` one whose base moved, starts a landing")
     if conflicting and task.record["status"] != "open":
         raise LandError(f"--conflicting is for an `open` task whose pull request the forge calls conflicting, and {task.slug} is {task.record['status']!r}")
     if not task.gate()[0]:
@@ -1459,6 +1473,75 @@ SERIAL_GRACE = 7.0
 GRACE = 1.0
 
 
+# How often a run of the checks that waits for the load looks at it again, how often it logs a new
+# `gate.wait` while it waits, and the least time between two starts of the checks under the gate on
+# one machine. The spacing is a guess, not a measurement: the load average of one minute needs about
+# a minute to show a run that started, so that the next reader sees it.
+LOAD_LOOK = 15
+LOAD_SAY = 300
+LOAD_SPACING = 60
+# Lem's own merge calls go one at a time, under this lock of the state folder.
+MERGE_LOCK = "merge.lock"
+
+
+def load_now() -> float:
+    """The machine's load average of the last minute, as `uptime` gives it."""
+    return round(os.getloadavg()[0], 1)
+
+
+def wait_say(slug: str, load: float, start: float, after: str | None = None) -> str:
+    """The one line of a run of the checks that waits, for the owner and the board."""
+    if after:
+        return f"{slug}: the checks wait a minute after the checks of {after} started, so that the load shows them; then they start below {start:g}"
+    return f"{slug}: the checks wait for the load: {load:g}, they start below {start:g}"
+
+
+def wait_for_load(task: Task) -> dict | None:
+    """Wait, before the first command of the checks, until the machine's load average is below the start
+    number the developer set for this machine, and until LOAD_SPACING seconds passed since the last start
+    under the gate on this machine, of any repository. Logs `gate.wait` when it waits, again each
+    LOAD_SAY seconds while it waits. None when the machine has no number: then there is no gate. The
+    number is read again at each look, so that a run that waits takes the developer's new number, or
+    starts at once when he took the gate away."""
+    path = lem_state.machine_file().parent / lem_state.LOAD_LOCK
+    said: tuple[str, float] | None = None
+    waited = False
+    while True:
+        try:
+            start = lem_state.load_start()
+        except lem_state.StateError as error:
+            raise LandError(str(error)) from error
+        if start is None:
+            return {"start": None, "waited": waited} if waited else None
+        load = load_now()
+        after = None
+        if load < start:
+            with path.open("a+", encoding="utf-8") as handle:
+                # held for a read and a write only, so that two runs that wait take turns
+                fcntl.flock(handle, fcntl.LOCK_EX)
+                handle.seek(0)
+                try:
+                    last = json.loads(handle.read() or "null")
+                except ValueError:
+                    last = None
+                gap = time.time() - last["at"] if isinstance(last, dict) and isinstance(last.get("at"), (int, float)) else None
+                if gap is None or gap >= LOAD_SPACING or gap < 0:
+                    handle.seek(0)
+                    handle.truncate()
+                    handle.write(json.dumps({"at": time.time(), "task": task.slug, "repo": str(task.main)}) + "\n")
+                    handle.flush()
+                    return {"start": start, "load": load, "waited": waited}
+                after = str(last.get("task") or "another task")
+        # a new line when the reason changed, or after LOAD_SAY seconds of the same one
+        reason = "after" if after else "load"
+        if said is None or said[0] != reason or time.monotonic() - said[1] >= LOAD_SAY:
+            script("project.py", task.worktree, "log", task.slug, "gate.wait", f"load:={load}", f"start:={start:g}",
+                   *([f"after={after}"] if after else []), f"say={wait_say(task.slug, load, start, after)}")
+            said = (reason, time.monotonic())
+            waited = True
+        time.sleep(LOAD_LOOK if not after else min(LOAD_LOOK, max(1.0, LOAD_SPACING - gap)))
+
+
 def now_utc() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -1618,18 +1701,47 @@ def gate_ends(task: Task) -> list[dict]:
     return found
 
 
+def waits_of(task: Task, since: str) -> dict | None:
+    """The newest `gate.wait` of the task's run that holds the step lock since `since`, while no
+    `gate.start` came after it: the run waits for the load."""
+    log = task.directory.parent.parent / "events.jsonl"
+    found = None
+    for line in log.read_text(encoding="utf-8").splitlines() if log.is_file() else []:
+        if f'"{task.slug}"' not in line or '"gate.' not in line:
+            continue
+        try:
+            record = json.loads(line)
+        except ValueError:
+            continue
+        if record.get("task") != task.slug or str(record.get("ts", "")) < since:
+            continue
+        if record.get("event") == "gate.wait":
+            found = record
+        elif record.get("event") == "gate.start":
+            found = {"started": record["ts"]}
+    return found
+
+
 def checks_status(task: Task) -> dict:
-    """Whether the task's checks run, for how long, against their last finished run, and how the last run ended."""
+    """Whether the task's checks run, for how long, against their last finished run, and how the last
+    run ended. A run that waits for the load says so in `waits`, and its time counts from its start."""
     holder = running_checks(task)
     ends = gate_ends(task)
     last = last_seconds(ends)
     since = holder.get("since") if holder else None
-    seconds = seconds_since(since) if isinstance(since, str) else None
+    seen = waits_of(task, since) if isinstance(since, str) else None
+    waits = None
+    if seen and "started" in seen:
+        since = seen["started"]
+    elif seen:
+        # the run holds the lock and waits for the load: none of its commands started yet
+        waits = {key: seen[key] for key in ("load", "start", "after", "say") if key in seen}
+    seconds = seconds_since(since) if isinstance(since, str) and not waits else None
     overdue = holder is not None and is_overdue(seconds, last)
     own = [end for end in ends if end.get("task") == task.slug]
     lock_holder = holder_of(task.directory / STEP_LOCK)
     return {
-        "task": task.slug, "running": holder is not None, "pid": holder["pid"] if holder else None, "since": since, "seconds": seconds,
+        "task": task.slug, "running": holder is not None, "pid": holder["pid"] if holder else None, "since": since, "seconds": seconds, "waits": waits,
         # the step that holds the lock when it is not the checks: a step of the task waits for it too
         "step": lock_holder["step"] if lock_holder and lock_holder["step"] != "checks" and alive(lock_holder["pid"]) else None,
         "last_seconds": last, "overdue": overdue, "say": overdue_say(task.slug, seconds, last) if overdue else None,
@@ -1710,6 +1822,9 @@ def cmd_checks(task: Task) -> dict:
 def checks_run(task: Task, flags: dict) -> dict:
     try:
         tip, found, commands = checks_ready(task)
+        # the load gate, after every refusal the step makes before it runs anything, so that a run
+        # that would be refused does not wait first
+        gated = wait_for_load(task)
     except KeyboardInterrupt:
         raise LandError(f"the checks were stopped before their first command; `lem land checks {task.slug}` runs them again") from None
     logs = task.directory / "gate"
@@ -1733,7 +1848,7 @@ def checks_run(task: Task, flags: dict) -> dict:
     task.keep(gated=None, tree=None)
     # the start of the checks: the board draws them from here to their last result
     script("project.py", task.worktree, "log", task.slug, "gate.start", f"tip={tip[:9]}", f"commands:={len(commands) + len(serial)}")
-    result: dict = {"task": task.slug, "tip": tip, "green": None, "commands": []}
+    result: dict = {"task": task.slug, "tip": tip, "green": None, "commands": [], "load": gated}
     try:
         outcome, refusal = checks_body(task, flags, tip, found, commands, serial, logs, result)
         flags["done"] = True
@@ -2037,6 +2152,20 @@ def events_of(task: Task) -> list[dict]:
         except ValueError as error:
             raise LandError(f"line {number} of {log} is not JSON ({error}); the log is written by `lem project log`, never by hand") from error
         if record.get("task") == task.slug:
+            found.append(record)
+    return found
+
+
+def events_all(task: Task) -> list[dict]:
+    """Every event of the log `project.py` writes, oldest first; a line that does not read is passed over."""
+    log = task.directory.parent.parent / "events.jsonl"
+    found = []
+    for line in log.read_text(encoding="utf-8").splitlines() if log.is_file() else []:
+        try:
+            record = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(record, dict):
             found.append(record)
     return found
 
@@ -2527,45 +2656,32 @@ def not_green(task: Task, state: dict) -> list[str]:
         reasons.append(f"the bar is lower in `{entry['file']}` ({entry['what']}). The builder: {entry['reason']} {review}")
     # a change that a later approval of his took over is his, and no cause of not green
     found = criteria_of(task)
-    for change in (change for change in found["history"] if change["taken_over_by"] is None):
+    for change in (change for change in found["history"] if change["taken_over_by"] is None and not owners_change(task, change)):
         reasons.append(f"criterion {change['criterion']} {CHANGE_HOW[change['how']]} during the build: {change_why(task, change)}")
     # criteria approved without him, which no approval of his took over: the newest approval is the one that holds
     approval = found.get("approved") or {}
     if approval.get("by") == "alone":
         reasons.append(f"the owner did not approve the criteria: they were approved on {approval['at'][:10]} while the task ran without the owner")
     for decision in task.decisions():
-        if not without_him(decision):
-            continue
-        if decision["state"] == "taken":
-            # past the personas, with no answer of his: the dialectic, the experts, or the lead's pick that no level settled
+        if without_him(decision):
+            # past the personas: the dialectic, the experts, or the lead's pick that no level settled
             who = "the lead's pick, which no level of the ladder settled" if decision.get("unsettled") else f"by {taken_by(decision)}"
             reasons.append(f"decision {decision['id']} was taken without the owner ({decision['what']}): \"{decision['chose']}\", {who}")
-        # the experts' shared pick, taken when he went away or at once in a task that ran without him
-        elif decision.get("by") == "experts":
-            reasons.append(
-                f"choice {decision['id']} was taken by {taken_by(decision)} ({decision['what']}): \"{decision['chose']}\", {picked(decision)}, {waited(decision)}. "
-                f"{experts_said(decision)}{later(decision, '; the owner answered later with')}",
-            )
-        else:
-            reasons.append(
-                f"choice {decision['id']} was taken without the owner ({decision['what']}): \"{decision['chose']}\", the recommended option, "
-                f"{waited(decision)}{later(decision, '; the owner answered later with')}",
-            )
     return reasons
 
 
 def without_him(decision: dict) -> bool:
     """Whether a decision is the owner's and was taken without him, so that the request is not green
-    for it: past the personas (the dialectic, the experts), a pick that no level settled, or a
-    choice that waited for him and was taken while the task ran without him."""
-    if decision["state"] == "taken":
-        return decision.get("by") in PAST_PERSONAS or bool(decision.get("unsettled"))
-    return decision["state"] == "timeout"
+    for it: past the personas (the dialectic, the experts), or a pick that no level settled. The
+    ladder decides each one at once, and he reads it here."""
+    return decision.get("by") in PAST_PERSONAS or bool(decision.get("unsettled"))
 
 
-def waited(decision: dict) -> str:
-    """When a choice that waited for the owner was taken without his answer."""
-    return "at once, as the task ran without the owner"
+def owners_change(task: Task, change: dict) -> bool:
+    """Whether a criterion change came from the owner's own help on a breaker: his decision makes it
+    his, as a later approval of his does."""
+    led = next((decision for decision in task.decisions() if decision["id"] == change.get("decision")), None)
+    return bool(led and led.get("by") == "owner" and "breaker" in led)
 
 
 def without_owner(task: Task) -> str | None:
@@ -2587,22 +2703,24 @@ def utc(stamp: str) -> str:
 
 
 def change_why(task: Task, change: dict) -> str:
-    """Why a criterion changed: the reason the record gives, and the choice that led to it, when one did."""
-    if "choice" not in change:
+    """Why a criterion changed: the reason the record gives, and the decision that led to it, when one did."""
+    if "decision" not in change:
         return change["why"]
-    choice = next(decision for decision in task.decisions() if decision["id"] == change["choice"])
-    how = "which the owner settled with" if choice.get("instead") else f"where {TAKEN_BY[choice['by']]} took"
-    return f"{reason(change['why'])}, after choice {choice['id']} ({choice['what']}), {how} \"{choice['chose']}\""
+    led = next(decision for decision in task.decisions() if decision["id"] == change["decision"])
+    how = f"the owner's help on breaker {led['breaker']}, which took" if owners_change(task, change) else f"where {taken_by(led)} took"
+    return f"{reason(change['why'])}, after decision {led['id']} ({led['what']}), {how} \"{led['chose']}\""
 
 
 def change_line(task: Task, change: dict) -> str:
     """One recorded change of a criterion as one line of the pull request: what it was, what it is, why, and who."""
+    # a criterion with a case is its sentence and its steps, one to a line: here one line
+    was, now = (" ".join(str(change.get(key)).split()) for key in ("was", "now"))
     said = {
-        "changed": f"was \"{change.get('was')}\", now \"{change.get('now')}\"",
-        "added": f"added, \"{change.get('now')}\"",
-        "removed": f"removed, was \"{change.get('was')}\"",
+        "changed": f"was \"{was}\", now \"{now}\"",
+        "added": f"added, \"{now}\"",
+        "removed": f"removed, was \"{was}\"",
     }[change["how"]]
-    who = "" if "choice" in change else " By the lead." if change["by"] == "lead" else f" By the personas: {change['said']}"
+    who = "" if "decision" in change else " By the lead." if change["by"] == "lead" else f" By the personas: {change['said']}"
     later = f" Approved by the owner afterwards (approval {change['taken_over_by']})." if change.get("taken_over_by") else ""
     return f"- criterion {change['criterion']}: {said}. {reason(change_why(task, change))}.{who}{later}"
 
@@ -2612,15 +2730,9 @@ def reason(text: str) -> str:
     return text.rstrip(".")
 
 
-def experts_said(decision: dict) -> str:
-    """Each expert's reason for the pick, as the record keeps them: both, or the one expert's."""
-    return ". ".join(f"{name.capitalize()}: {reason(why)}" for name, why in decision["experts"].items())
-
-
 def one_expert(decision: dict) -> bool:
-    """Whether one expert answered alone: the machine had one of the agents (`advisers`), or the
-    record of the pick holds one reason."""
-    return len(decision.get("advisers") or decision.get("experts") or "ab") == 1
+    """Whether one expert answered alone: the machine had one of the agents (`advisers`)."""
+    return len(decision.get("advisers") or "ab") == 1
 
 
 def taken_by(decision: dict) -> str:
@@ -2628,57 +2740,30 @@ def taken_by(decision: dict) -> str:
     return "one expert" if decision.get("by") == "experts" and one_expert(decision) else TAKEN_BY[decision["by"]]
 
 
-def picked(decision: dict) -> str:
-    """The pick of the experts: the option both picked, or the one expert's."""
-    return "the one expert's pick" if one_expert(decision) else "the option both picked"
-
-
-def later(decision: dict, lead: str) -> str:
-    """What the owner answered after the timeout or the experts' pick, when he did: the same or what differs, with his
-    own words when they are not the option's text, and his reason, whichever it is."""
-    if "late" not in decision:
-        return ""
-    late = decision["late"]
-    said = []
-    if late.get("words", late["chose"]) != late["chose"]:
-        said.append(f"the owner's words: \"{late['words']}\"")
-    if "why" in late:
-        said.append(f"the owner's reason: {reason(late['why'])}")
-    told = f" ({'; '.join(said)})" if said else ""
-    if late.get("instead"):
-        return f"{lead} \"{late['chose']}\", none of the options{told}"
-    if late["chose"] == decision["chose"]:
-        return f"{lead} the same{told}"
-    return f"{lead} \"{late['chose']}\", which differs{told}"
+def breaker_lines(task: Task) -> list[str]:
+    """One line for each time the circuit breaker stopped the build: its cause and how it ended."""
+    out = []
+    for breaker in task.breakers():
+        cause = BREAKER_SAYS[breaker["cause"]] + (f" ({breaker['irreversible']})" if breaker.get("irreversible") else "")
+        ended = f"the owner helped, decision {breaker['help']}" if breaker["state"] == "helped" else "it waits for the owner"
+        out.append(f"- the build stopped at breaker {breaker['id']}, {utc(breaker['at'])}: {breaker['what']}. Why it stopped: {cause}; {ended}.")
+    return out
 
 
 def decided(decision: dict) -> str:
     """One decision of the record as one line of the pull request: what, what was chosen, by whom, why."""
-    head = f"- {decision['what']}: "
-    if decision["state"] == "waits":
-        return head + "waits for the owner."
-    line = head + f"\"{decision['chose']}\", by {taken_by(decision)}"
+    return f"- {decision['what']}: \"{decision['chose']}\"" + after(decision)
+
+
+def after(decision: dict) -> str:
+    """What follows the option a decision took in its line: by whom, why, and what each level and the
+    owner said. It opens with ", " or "."."""
+    line = f", by {taken_by(decision)}"
     if decision.get("unsettled"):
-        line = head + f"\"{decision['chose']}\", the lead's pick, which no level of the ladder settled"
-    if decision["state"] == "answered" and decision.get("instead"):
-        # his own decision, which none of the options says: the recommendation is named as such
-        line += f", none of the options; the recommended was \"{decision['recommended']}\" (recommended because: {reason(decision['why'])})."
-        line += "" if "owner_why" in decision else " The owner gave no reason."
-    elif decision["state"] == "answered" and decision["chose"] == decision["recommended"]:
-        # the recommendation's reason is the reason of the option he took; his own, when he gave one, follows
-        line += f", as recommended. {decision['why']}"
-    elif decision["state"] == "answered":
-        # the recommendation's reason is about the option he did not take: it is named as such, never as his
-        line += f", over the recommended \"{decision['recommended']}\" (recommended because: {reason(decision['why'])})."
-        line += "" if "owner_why" in decision else " The owner gave no reason."
-    elif decision["by"] == "experts" and decision["state"] == "timeout":
-        # their reasons are the reasons of the option taken; the recommendation's is about another one, or the same
-        when = waited(decision)
-        also = "it is also the recommended" if decision["chose"] == decision["recommended"] else f"the recommended was \"{decision['recommended']}\""
-        line += f", {picked(decision)}, {when}; {also}. {experts_said(decision)}." + (f" {later(decision, 'The owner answered later with')}." if "late" in decision else "")
-    elif decision["state"] == "timeout":
-        line = head + f"\"{decision['chose']}\", the ladder's pick, taken {waited(decision)}. {decision['why']}"
-        line += f" {later(decision, 'The owner answered later with')}." if "late" in decision else ""
+        line = ", the lead's pick, which no level of the ladder settled"
+    if decision["by"] == "owner" and "breaker" in decision:
+        # his help on a breaker: the build stopped and he decided; nothing of it is a cause of not green
+        line += f", his help on breaker {decision['breaker']}. {decision['why']}"
     elif decision["by"] == "personas":
         # the one stop of the ladder past the gate that is green: how many voted, in how many model families
         votes = decision["votes"]
@@ -2690,10 +2775,8 @@ def decided(decision: dict) -> str:
         line += f". {decision['why']}"
     if decision.get("levels"):
         line += " Each level: " + "; ".join(f"{name}: {said}" for name, said in decision["levels"].items()) + "."
-    if decision.get("owner_words", decision["chose"]) != decision["chose"]:
-        line += f" The owner's words: \"{decision['owner_words']}\""
-    if "owner_why" in decision:
-        line += f" The owner's reason: {decision['owner_why']}"
+    if decision.get("words", decision["chose"]) != decision["chose"]:
+        line += f" The owner's words: \"{decision['words']}\""
     return line
 
 
@@ -2703,11 +2786,20 @@ def checked_criteria(checks: dict) -> dict:
     return {**kept, "tests": kept.get("tests", [])}
 
 
-def criteria_lines(found: dict, held: dict) -> list[str]:
-    """Each criterion of the text, with each of its tests and what the check gave, or its line of no test."""
+def criterion_lines(criterion: dict, chart: bool = False) -> list[str]:
+    """One criterion as a numbered item: its sentence, the steps of its case under it, and its chart
+    when `chart` (the pull request leaves the chart to the owner's page)."""
+    out = [f"{criterion['n']}. {criterion['text']}", *(f"   {step}" for step in criterion.get("case", []))]
+    if chart and criterion.get("chart"):
+        out += ["", "   ```mermaid", *(f"   {row}" if row else "" for row in criterion["chart"].splitlines()), "   ```", ""]
+    return out
+
+
+def criteria_lines(found: dict, held: dict, chart: bool = False) -> list[str]:
+    """Each criterion of the text, with its case, each of its tests and what the check gave, or its line of no test."""
     out = []
     for criterion in found["criteria"]:
-        out.append(f"{criterion['n']}. {criterion['text']}")
+        out += criterion_lines(criterion, chart)
         for test in criterion["tests"]:
             proof = held.get((criterion["n"], test["command"]))
             out.append(f"   - `{test['command']}`: {'passes on the branch, fails on the base commit' if proof and not proof['problem'] else 'not checked'}")
@@ -2768,7 +2860,7 @@ def small_text(task: Task, notes: str, state: dict) -> str:
     reasons = not_green(task, state)
     out = ["**Not green.**", "", *(f"- {why}" for why in reasons), ""] if reasons else [GREEN, ""]
     if state["careful"]:
-        out += [f"**Careful**, so a person merges it: {'; '.join(reason(why) for why in state['careful'])}.", ""]
+        out += [f"**Careful**, so the owner merges it: {'; '.join(reason(why) for why in state['careful'])}.", ""]
     moved = synced(task)
     if moved:
         out += [moved[0].upper() + moved[1:] + ".", ""]
@@ -2801,10 +2893,10 @@ def small_text(task: Task, notes: str, state: dict) -> str:
             said += "; filed outside the change: " + ", ".join(f"`{defect['item']}`" for defect in defects)
         out.append(f"- the review, round {read['round']} ({KIND_SAYS[read['kind']]}; {who}): {said}")
     out.append(careful_line(task, state))
-    decisions = [decided(decision) for decision in task.decisions()]
+    decisions = [*breaker_lines(task), *(decided(decision) for decision in task.decisions())]
     if decisions:
         out += ["", "## Decisions", "", *decisions]
-    rest = notes.strip()
+    rest = no_media(notes).strip()
     return "\n".join(out) + ("\n\n" + rest if rest and rest.lower() != "none" else "") + "\n"
 
 
@@ -2829,7 +2921,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
         out += [alone, ""]
     if state["careful"]:
         # a careful request is a person's to merge, green or not, and he reads why first
-        out += [f"**Careful**, so a person merges it: {'; '.join(reason(why) for why in state['careful'])}.", ""]
+        out += [f"**Careful**, so the owner merges it: {'; '.join(reason(why) for why in state['careful'])}.", ""]
     moved = synced(task)
     if moved:
         # an open task brought onto a base that a merge moved: what happened to it since the owner last read it
@@ -2889,187 +2981,79 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
         # careful after its plan: the full set ran and a person merges, so this is no cause of not green
         out.append(untalked(task, state))
     out.append(careful_line(task, state))
-    out += ["", "## Decisions of the build", "", *([decided(decision) for decision in task.decisions()] or ["none"])]
-    return "\n".join(out) + "\n\n" + notes.strip() + "\n"
+    out += ["", "## Decisions of the build", "", *([*breaker_lines(task), *(decided(decision) for decision in task.decisions())] or ["none"])]
+    out += folded_stories(task)
+    return "\n".join(out) + "\n\n" + no_media(notes).strip() + "\n"
 
 
-# The two files a task on the standard track leaves for the owner at its proposal, in its task directory and in no
-# commit: what was built and why, and each decision with who took it and why. Lem makes one page of
-# the two (`stages/pages.md`). The fast track has neither: its pull request's text is short enough.
-# Each is written from the records the pull request's text reads, and a part that no record holds is
-# left out.
-PAGES = ("built.md", "decisions.md")
-# Who took a decision, in the order of decisions.md: the ones the owner most likely wants to change first.
-WHO = {
-    "waits": "waits for the owner", "unsettled": "no level: the lead's pick stands", "away": EARLY_BY,
-    "experts": "two expert models", "expert": "one expert model", "dialectic": "the dialectic", "personas": "the personas", "lead": "the lead", "lem": "Lem",
-    "gate": "the gate", "owner": "the owner",
-}
-# Who approved the criteria, for the line above them; the fast track's `lem` has no page.
-APPROVED_BY = {
-    "owner": "The owner approved them.",
-    "alone": "Lem approved them while the task ran without the owner; the owner did not.",
-    "read": "The personas read them and nobody was confused, so the lead took them; the owner did not approve them.",
-}
+# A picture of a task's `media/` folder, linked from a document: the task directory is in no
+# commit, so the pull request names the picture and links nothing.
+MEDIA = re.compile(r"(!?)\[([^\]]*)\]\(\s*(?:[^)\s]*/)?media/([^)\s]+)(?:\s+\"[^\"]*\")?\s*\)")
 
 
-def text_of(file: Path) -> str:
-    return file.read_text(encoding="utf-8") if file.is_file() else ""
+def no_media(text: str) -> str:
+    """The text with each link to a file of `media/` replaced by its caption: the forge has no such file."""
+    return MEDIA.sub(lambda found: f"{found.group(2) or found.group(3)} (a picture on the task's board)", text)
 
 
-def part(text: str, name: str) -> str | None:
-    """The body of the part of a markdown text whose heading starts with NAME, case aside, up to the
-    next heading of its level or above; none when there is no such part, or it holds only `none`. A
-    line in a code fence is never a heading."""
-    body: list[str] = []
-    fence, level = None, 0
-    for line in text.splitlines():
-        mark = re.match(r" {0,3}(`{3,}|~{3,})", line)
-        heading = re.match(r"(#{1,6})\s+(.*\S)", line) if fence is None and not mark else None
-        if mark:
-            fence = None if fence == mark.group(1)[0] else fence or mark.group(1)[0]
-        if level and heading and len(heading.group(1)) <= level:
-            break
-        if level:
-            body.append(line)
-        elif heading and heading.group(2).lower().startswith(name):
-            level = len(heading.group(1))
-    found = "\n".join(body).strip()
-    return found if found and found.lower() != "none" else None
+def folded_stories(task: Task) -> list[str]:
+    """The story and the chart of each important decision that has one, folded under the list of the
+    pull request, which the forge draws; nothing for a task with none, so its text stays as short."""
+    out = []
+    for decision in task.decisions():
+        if not important(decision) or not (decision.get("case") or decision.get("chart")):
+            continue
+        out += ["", f"<details><summary>Decision {decision['id']}, its story: {one_line(decision['what'])}</summary>", ""]
+        out += story_lines(decision)
+        out += chart_lines(decision)
+        out += ["</details>"]
+    return out
 
 
-def title_of(task: Task, title: str) -> str:
-    """The task's title: the first heading of its task.md, or the pull request's title without one."""
-    found = re.search(r"(?m)^#\s+(.*\S)", text_of(task.directory / "task.md"))
-    return found.group(1) if found else title
+# The longest text of a decision's summary in the pull request, in characters: one line at the width
+# of a laptop's window. A guess, not a measurement.
+CELL = 80
 
 
-def flags(reasons: list[str]) -> list[str]:
-    """The red block that opens both files, one item for each reason the request is not green: each
-    is a thing of the owner's that was decided without him, or a line he reads before the merge.
-    Nothing when the request is green."""
-    if not reasons:
+def one_line(text: str, most: int = CELL) -> str:
+    """A text in one line of at most MOST characters, cut at a word, with an ellipsis when cut."""
+    flat = " ".join(text.split())
+    if len(flat) <= most:
+        return flat
+    return flat[:most].rsplit(" ", 1)[0].rstrip(",;:.") + "…"
+
+
+def label(option: str) -> str:
+    """An option's label: its text before the first colon, as `lem decisions log --option` asks an option to
+    be written ("LABEL: what the person sees after it"), or the whole option in one line."""
+    head, colon, _ = option.partition(":")
+    # a colon inside a quote is no end of a label: "the say 'the checks refused: ...'"
+    opened = len(re.findall(r"(?:^|\s)['\"]", head)) > len(re.findall(r"\w['\"](?:\s|$|[.,;])", head))
+    labelled = colon and head.strip() and len(head) <= CELL and not opened
+    return one_line(head if labelled else option)
+
+
+def important(decision: dict) -> bool:
+    """Whether a decision is important, the ones whose story `stages/ladder.md` asks for: one the
+    request is not green for (past the personas, or unsettled), or the owner's help on a breaker."""
+    return without_him(decision) or (decision["by"] == "owner" and "breaker" in decision)
+
+
+def story_lines(decision: dict) -> list[str]:
+    """The story of a decision as its record keeps it: the case in its numbered steps, how it is known,
+    and the cause. Nothing when the record has no case."""
+    if not decision.get("case"):
         return []
-    many = len(reasons) > 1
-    out = ["> [!CAUTION]", f"> **{len(reasons)} things wait for the owner.**" if many else "> **One thing waits for the owner.**", ">"]
-    out += [f"> {number}. {why[0].upper()}{reason(why)[1:]}." for number, why in enumerate(reasons, start=1)]
-    return [*out, ">", f"> The pull request is not green for {'these' if many else 'it'}. The owner reads {'each' if many else 'it'} before the merge.", ""]
+    known = {"reproduced": "reproduced", "derived": "derived from the code, not run"}.get(decision.get("case_was"), decision.get("case_was"))
+    out = [f"**The case**{f' ({known})' if known else ''}:", "", *decision["case"].splitlines(), ""]
+    if decision.get("cause"):
+        out += [f"**Why it could happen:** {decision['cause']}", ""]
+    return out
 
 
-def where_line(task: Task, branch: str, pr: dict | None, reasons: list[str]) -> list[str]:
-    """The line under the title: the pull request or the branch, green or not, and when the task ran without the owner."""
-    where = f"Pull request [#{pr['number']}]({pr['url']}), branch `{branch}`." if pr else f"Branch `{branch}`, ready to land on `{task.base}`."
-    said = "Not green: the block above says why." if reasons else f"Green. It waits for the owner's {'merge' if pr else 'word to land it'}."
-    alone = without_owner(task)
-    return [" ".join([where, said, *([alone] if alone else [])]), ""]
-
-
-def kind_of(decision: dict) -> str:
-    """Which key of WHO took a decision."""
-    if decision["state"] == "waits" or decision.get("unsettled"):
-        return "waits" if decision["state"] == "waits" else "unsettled"
-    if decision["state"] == "timeout":
-        return ("expert" if one_expert(decision) else "experts") if decision["by"] == "experts" else "away"
-    if decision["state"] == "taken" and decision["by"] == "experts" and one_expert(decision):
-        return "expert"
-    return "owner" if decision["state"] == "answered" else decision["by"]
-
-
-def built_text(task: Task, name: str, notes: str, reasons: list[str], branch: str, pr: dict | None, files: list[str], items: list[dict]) -> str:
-    """built.md: what the owner asked, what was built, why he wants it, and what was not built;
-    `files` are the paths the change touches, as `changed` gives them, and `items` what
-    `branch_items` gives."""
-    found = criteria_of(task)
-    kept = task.kept()
-    task_md = text_of(task.directory / "task.md")
-    held = {(test["criterion"], test["command"]): test for test in checked_criteria(kept.get("checks") or {})["tests"]}
-    out = [f"# What was built: {name}", "", *flags(reasons), *where_line(task, branch, pr, reasons)]
-    ask = text_of(task.directory / "ask.txt").strip()
-    if ask:
-        out += ["## What the owner asked", "", *(f"> {line}" for line in ask.splitlines()), ""]
-    named = [line.strip().removeprefix("- ") for line in text_of(task.directory / "directions.md").splitlines() if line.strip() and not line.startswith("#")]
-    if named:
-        out += ["In the interview the owner also named:", "", *(f"- {line}" for line in named), ""]
-    out += ["## What was built", ""]
-    gets = part(text_of(task.directory / "report.md"), "what the owner gets")
-    if gets:
-        out += [gets, ""]
-    proven = all(
-        criterion["tests"] and all((proof := held.get((criterion["n"], test["command"]))) and not proof["problem"] for test in criterion["tests"])
-        for criterion in found["criteria"]
-    )
-    approval = (found.get("approved") or {}).get("by")
-    said = ["The acceptance criteria that the change holds.", *([APPROVED_BY[approval]] if approval in APPROVED_BY else [])]
-    said += ["Each one has a test that fails on the base commit and passes on the branch."] if proven else []
-    out += [" ".join(said), ""]
-    out += [f"{criterion['n']}. {criterion['text']}" for criterion in found["criteria"]] if proven else criteria_lines(found, held)
-    if found["history"]:
-        out += ["", "Criteria that changed during the build:", "", *(change_line(task, change) for change in found["history"])]
-    shown = ", ".join(f"`{file}`" for file in files[:12]) + (f", and {len(files) - 12} more" if len(files) > 12 else "")
-    out += ["", f"The change touches {len(files)} file{'' if len(files) == 1 else 's'}: {shown}.", ""]
-    why = part(task_md, "outcome")
-    if why:
-        out += ["## Why the owner wants it", "", why, ""]
-    filed = [f"- `{item['item']}`" + (f": {item['title']}" if item["title"] else "") for item in items]
-    filed += [f"- `{defect['item']}`: {defect['title']}" for read in kept.get("reads", []) if read["answered"] for defect in outside_of(read) if defect.get("item")]
-    missing = [
-        (label, body) for label, body in (
-            ("Out of scope", part(task_md, "out of scope")), ("Not done", part(notes, "not done")),
-            ("Left open by the review", part(notes, "left open")), ("Filed in the backlog", "\n".join(filed) or None),
-        ) if body
-    ]
-    if missing:
-        out += ["## What was not built", ""]
-        for label, body in missing:
-            out += [f"**{label}**", "", body, ""]
-    return "\n".join(out).rstrip() + "\n"
-
-
-def decisions_text(task: Task, name: str, reasons: list[str], branch: str, pr: dict | None) -> str:
-    """decisions.md: each decision of the record, the ones the owner most likely wants to change first,
-    each with who took it, what it chose over what, why, and how to change it."""
-    order = list(WHO)
-    decisions = sorted(task.decisions(), key=lambda decision: (order.index(kind_of(decision)), decision["id"]))
-    out = [f"# Decisions: {name}", "", *flags(reasons)]
-    where = f"Pull request [#{pr['number']}]({pr['url']})." if pr else f"Branch `{branch}`."
-    if not decisions:
-        return "\n".join([*out, f"{where} No decision is on record."]) + "\n"
-    counts = {kind: sum(kind_of(decision) == kind for decision in decisions) for kind in order}
-    said = {"waits": "that {} for the owner", "unsettled": "that no level settled"}
-    by = "; ".join(
-        f"{count} " + (said[kind].format("waits" if count == 1 else "wait") if kind in said else f"by {WHO[kind]}")
-        for kind, count in counts.items() if count
-    )
-    many = len(decisions) > 1
-    out += [f"{where} {len(decisions)} decision{'s' if many else ''}: {by}." + (" The ones the owner most likely wants to change come first." if many else ""), ""]
-    out += ["| # | The decision | Taken | Who decided |", "| --- | --- | --- | --- |"]
-    for decision in decisions:
-        taken = decision["chose"] if decision["state"] != "waits" else "nothing yet"
-        mark = "; **not green**" if without_him(decision) else ""
-        row = [str(decision["id"]), decision["what"], taken, WHO[kind_of(decision)] + mark]
-        out.append("| " + " | ".join(value.replace("|", "\\|") for value in row) + " |")
-    for decision in decisions:
-        out += ["", f"## {decision['id']}. {decision['what']}", ""]
-        if without_him(decision):
-            out += ["**Not green.** The decision was the owner's, and it was taken without him.", ""]
-        head = f"- {decision['what']}: "
-        out.append(f"- **Taken:** {decided(decision).removeprefix(head)}")
-        others = [option for option in decision.get("options", []) if option != decision.get("chose")]
-        if others:
-            out.append(f"- **The other option{'s' if len(others) > 1 else ''}:** " + "; ".join(f"\"{option}\"" for option in others))
-        if decision.get("undo"):
-            out.append(f"- **To change it:** {decision['undo']}")
-    return "\n".join(out) + "\n"
-
-
-def write_pages(task: Task, title: str, notes: str, reasons: list[str], branch: str, pr: dict | None) -> list[str]:
-    """Write both files into the task directory, whole, at each proposal of a task on the standard track."""
-    built, decisions = (task.directory / file for file in PAGES)
-    name = title_of(task, title)
-    files = changed(task, git(task.worktree, "merge-base", "HEAD", task.onto), "HEAD")
-    write_whole(built, built_text(task, name, notes, reasons, branch, pr, files, branch_items(task)))
-    write_whole(decisions, decisions_text(task, name, reasons, branch, pr))
-    return [str(built), str(decisions)]
+def chart_lines(decision: dict) -> list[str]:
+    """A decision's chart as a fenced mermaid block, which the board and the forge draw."""
+    return ["```mermaid", *decision["chart"].splitlines(), "```", ""] if decision.get("chart") else []
 
 
 def gh(task: Task, *args: str, check: bool = True) -> subprocess.CompletedProcess:
@@ -3086,9 +3070,20 @@ def gh_in(where: Path, *args: str, check: bool = True) -> subprocess.CompletedPr
     return ran
 
 
+def not_github(task: Task) -> str:
+    """The refusal of a step that needs the pull request, where origin is not on GitHub."""
+    return (
+        f"origin of {task.main} is not a repository on GitHub, or there is none: a task ends as a GitHub pull request, the one way Lem lands. "
+        f"Point origin at the repository on GitHub (`git -C {task.main} remote add origin git@github.com:OWNER/REPO.git`, "
+        f"or `remote set-url` for one that is there), push {task.base} there, then run this step again"
+    )
+
+
 def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     task.need_landing()
     task.need_worktree()
+    if task.forge != "github":
+        raise LandError(not_github(task))
     tip = git(task.worktree, "rev-parse", "HEAD")
     if not gate_holds(task, tip):
         raise LandError(f"no green check is on record for this tip; `lem land checks {task.slug}` comes first")
@@ -3107,7 +3102,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
         raise LandError(
             f"{needs_talk}, so its defender and the reviewer talk its plan through in the plan talk's companion before any code (`stages/talk.md`), "
             f"and the event log has no `plan.talk` of {task.slug}. The defender writes it after the talk: "
-            f"`lem project log {task.slug} plan.talk {TALK_FORM}`; for a plan that had no talk, Lem opens the companion first, as for `needs a session` (`stages/stopped.md`)",
+            f"`lem project log {task.slug} plan.talk {TALK_FORM}`; for a plan that had no talk, the task's lead opens the talk first, as `stages/talk.md` says",
         )
     if talk is not None and not (
         isinstance(talk.get("reviewer"), str) and talk["reviewer"].strip()
@@ -3172,17 +3167,12 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
             + f": a builder puts it back with `lem land file {task.slug} --again`, then this step runs again; when the owner does not want it, "
             "the item stays with `worth: no` and the owner's reason in it, never deleted",
         )
-    # A request is never proposed over an open question of the owner's.
-    waiting = next((decision for decision in task.decisions() if decision["state"] == "waits"), None)
+    # A request is never proposed over a breaker that stopped its build and that the owner did not help on.
+    waiting = next((breaker for breaker in task.breakers() if breaker["state"] == "waits"), None)
     if waiting:
-        ends = (
-            "it is a step that a later \"no\" cannot reverse, so only the owner's answer ends it"
-            if waiting["irreversible"] else "or, when the owner says he is away, `lem project owner away` takes the ladder's pick, and the request is not green for it"
-        )
         raise LandError(
-            f"choice {waiting['id']} of {task.slug} waits for the owner ({waiting['what']}): a request is never proposed over an open question of the owner's. "
-            f"Lem writes the owner's answer with `lem decisions answer {task.slug} {waiting['id']} --chose OPTION --words TEXT`, the option word for word and the owner's own words beside it, or `--instead TEXT` "
-            f"for a decision of the owner's that is none of the options; {ends}",
+            f"breaker {waiting['id']} of {task.slug} waits for the owner ({waiting['what']}): its build stopped there, and a request is never proposed over it. "
+            f"The owner reads its document and helps (`lem decisions log {task.slug} --by owner --breaker {waiting['id']} ...`), parks the task or drops it",
         )
     notes = Path(notes_file).read_text(encoding="utf-8") if Path(notes_file).is_file() else None
     if notes is None:
@@ -3201,59 +3191,51 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     says = "green" if not reasons else f"not green: {'; '.join(reasons)}"
     branch = git(task.worktree, "branch", "--show-current")
     pr = kept.get("pr")
-    if task.forge == "github":
-        # What origin's copy of the branch holds may be replaced only when it is Lem's push or the
-        # branch holds it: the lease names that commit, or no branch at all for a first push.
-        lease = task.own_remote(branch)
-        if not pr:
-            # A run that was cut off after the forge made the pull request wrote none down: the
-            # forge knows it. Only a pull request whose head is the commit Lem pushed for this task
-            # is its own; any other on the same branch name is somebody's, and is not taken.
-            there = json.loads(gh(task, "pr", "list", "--head", branch, "--base", str(task.base), "--state", "open", "--json", "number,url,headRefOid,author").stdout)
-            pushed = task.kept().get("pushed")
-            mine = [found for found in there if pushed and found.get("headRefOid") == pushed]
-            others = [found for found in there if found not in mine]
-            if others:
-                other = others[0]
-                raise LandError(
-                    f"pull request #{other['number']} by {(other.get('author') or {}).get('login') or 'someone'} is open on {branch}, and its head is no commit Lem pushed for this task: "
-                    f"it is somebody else's, and Lem does not push over it or rewrite its text. Give the task a branch of its own "
-                    f"(`git -C {task.worktree} branch -m NEW-NAME`), then run this step again",
-                )
-            pr = {"number": mine[0]["number"], "url": mine[0]["url"]} if mine else None
-        elif (state_now := viewed(task, pr)["state"]) != "OPEN":
+    # What origin's copy of the branch holds may be replaced only when it is Lem's push or the
+    # branch holds it: the lease names that commit, or no branch at all for a first push.
+    lease = task.own_remote(branch)
+    if not pr:
+        # A run that was cut off after the forge made the pull request wrote none down: the
+        # forge knows it. Only a pull request whose head is the commit Lem pushed for this task
+        # is its own; any other on the same branch name is somebody's, and is not taken.
+        there = json.loads(gh(task, "pr", "list", "--head", branch, "--base", str(task.base), "--state", "open", "--json", "number,url,headRefOid,author").stdout)
+        pushed = task.kept().get("pushed")
+        mine = [found for found in there if pushed and found.get("headRefOid") == pushed]
+        others = [found for found in there if found not in mine]
+        if others:
+            other = others[0]
             raise LandError(
-                f"the pull request {pr['url']} is {state_now.lower()}: `lem land merged {task.slug}` "
-                + ("finishes the task" if state_now == "MERGED" else "writes the task dropped, and its branch keeps its commits"),
+                f"pull request #{other['number']} by {(other.get('author') or {}).get('login') or 'someone'} is open on {branch}, and its head is no commit Lem pushed for this task: "
+                f"it is somebody else's, and Lem does not push over it or rewrite its text. Give the task a branch of its own "
+                f"(`git -C {task.worktree} branch -m NEW-NAME`), then run this step again",
             )
-        # With the lease of the one commit the push may replace: a commit that came in between stops it.
-        git(task.worktree, "push", f"--force-with-lease=refs/heads/{branch}:{lease}", "origin", f"HEAD:refs/heads/{branch}")
-        # kept before the forge's step, so that a run cut off after it knows the push as its own
-        task.keep(pushed=tip)
-        if pr:
-            gh(task, "pr", "edit", str(pr["number"]), "--title", title, "--body-file", str(body))
-        else:
-            url = gh(task, "pr", "create", "--base", str(task.base), "--head", branch, "--title", title, "--body-file", str(body)).stdout.strip().splitlines()[-1]
-            number = url.rstrip("/").rsplit("/", 1)[-1]
-            if not number.isdigit():
-                raise LandError(f"gh pr create printed no pull request address: {url!r}")
-            pr = {"number": int(number), "url": url}
-    # what was built and each decision, for the owner's own read before the merge: the standard track's only
-
-    pages = None if found["small"] else write_pages(task, title, notes, reasons, branch, pr)
+        pr = {"number": mine[0]["number"], "url": mine[0]["url"]} if mine else None
+    elif (state_now := viewed(task, pr)["state"]) != "OPEN":
+        raise LandError(
+            f"the pull request {pr['url']} is {state_now.lower()}: `lem land merged {task.slug}` "
+            + ("finishes the task" if state_now == "MERGED" else "writes the task dropped, and its branch keeps its commits"),
+        )
+    # With the lease of the one commit the push may replace: a commit that came in between stops it.
+    git(task.worktree, "push", f"--force-with-lease=refs/heads/{branch}:{lease}", "origin", f"HEAD:refs/heads/{branch}")
+    # kept before the forge's step, so that a run cut off after it knows the push as its own
+    task.keep(pushed=tip)
+    if pr:
+        gh(task, "pr", "edit", str(pr["number"]), "--title", title, "--body-file", str(body))
+    else:
+        url = gh(task, "pr", "create", "--base", str(task.base), "--head", branch, "--title", title, "--body-file", str(body)).stdout.strip().splitlines()[-1]
+        number = url.rstrip("/").rsplit("/", 1)[-1]
+        if not number.isdigit():
+            raise LandError(f"gh pr create printed no pull request address: {url!r}")
+        pr = {"number": int(number), "url": url}
     # The events come after the forge's step: a proposal that the forge or the push refused is none.
     # for the retro: how often a request is not green, and for which reason
     script("project.py", task.worktree, "log", task.slug, "proposed", f"green:={json.dumps(not reasons)}", f"not_green:={json.dumps(reasons)}", f"tip={tip[:9]}")
     moved = synced(task)
-    if task.forge == "github":
-        task.keep(pr=pr, proposed=tip, title=title, not_green=reasons)
-        task.state("open", f"pull request {pr['url']}", says, *([moved] if moved else []))
-    else:
-        task.keep(proposed=tip, title=title, not_green=reasons)
-        task.state("open", f"ready to land on {task.base} at {tip[:9]}", says, *([moved] if moved else []))
+    task.keep(pr=pr, proposed=tip, title=title, not_green=reasons)
+    task.state("open", f"pull request {pr['url']}", says, *([moved] if moved else []))
     return {
         "task": task.slug, "text": str(body), "pull_request": pr, "green": not reasons, "not_green": reasons, "branch": branch, "tip": tip,
-        "synced": moved, "pages": pages,
+        "synced": moved,
     }
 
 
@@ -3271,38 +3253,44 @@ def follow(task: Task) -> str | None:
     return f"{task.base_checkout} did not follow origin/{task.base}, and nothing in it was changed. git said: {why[-1] if why else 'nothing'}"
 
 
-def finish(task: Task, tip: str, landed: str, arrived: list[str]) -> dict:
-    """The bookkeeping after the base holds the tip: the base checkout follows, the state says landed."""
-    left_behind = follow(task)
-    task.keep(landed=landed)
-    task.state("landed", f"{task.base} {landed}")
-    # Dropped last: until the state says `landed`, a run that is cut off must find the record again.
-    task.keep(intent=None)
-    return {"task": task.slug, "base": task.base, "range": landed, "tip": tip, "pushed": task.remote, "arrived": arrived, "left_behind": left_behind}
+def merger_refusal(slug: str, land: str, careful: list[str], reasons: list[str], called: bool, review: dict | None) -> str | None:
+    """Why the merge agent may not merge a request, or None when it may. The facts: the settings'
+    `branch.land`, why the request is careful (none when it is not), why it is not green (none when it
+    is), whether the newest review that answered made the careful call, and the merge agent's review
+    of the proposed tip (its `verdict`), or None. The owner's merge asks none of this; a task that ran
+    without him is merged as any other."""
+    if land != "agent":
+        return 'branch.land is "owner" in .lem/project.toml: the owner merges every task, after the merge review; it waits as `open` for his word'
+    if careful:
+        return f"a careful request is merged by the owner, whatever the settings say ({careful[0]}); it waits as `open` for his word"
+    if reasons:
+        return f"the request is not green ({'; '.join(reasons)}), so the owner merges it; it waits as `open` for his word"
+    # The merge agent merges only on the newest review's "not careful": a record with no call is no such word.
+    if not called:
+        return "no review that answered made the careful call for this change, so the owner merges it; it waits as `open` for his word"
+    if review is None:
+        return f"no merge review of the proposed tip is on record: the merge agent reads the task first, and `lem land merge-review {slug} --file FILE` writes its review down"
+    if review.get("verdict") != "merge":
+        return "the merge review calls the owner: he reads it, and it waits as `open` for his word"
+    return None
+
+
+def merge_review_of(task: Task) -> dict | None:
+    """The merge agent's review of the tip that was proposed, as `merge-review` kept it; None for none,
+    or for a review of an earlier tip."""
+    kept = task.kept()
+    review = kept.get("merge_review")
+    return review if isinstance(review, dict) and kept.get("proposed") and review.get("tip") == kept["proposed"] else None
 
 
 def may_merge(task: Task, by: str) -> None:
-    """Who may merge. The owner's word is enough; an agent merges only what nobody has a reason to look at first."""
+    """Who may merge. The owner's word is enough; the merge agent merges only what nobody has a reason to look at first."""
     if by == "owner":
         return
-    # The mode at the merge, read again after the forge's answer: another repository's session may
-    # have marked the owner away since this command read the task.
-    task.read_states()
-    # without him, the merge is the one step that waits for him in every case
-    if task.record.get("mode") == "alone":
-        raise LandError(f"{task.slug} runs without the owner: an agent never merges it, whatever the settings say; it waits as `open` for the owner's word")
-    if task.settings["branch"]["land"] != "agent":
-        raise LandError("branch.land is \"owner\" in .lem/project.toml: a person merges; the task waits as `open` for the owner's word")
     state = due(task)
-    if state["careful"]:
-        raise LandError(f"a careful request is merged by a person, whatever the settings say ({state['careful'][0]}); it waits as `open` for the owner's word")
-    reasons = not_green(task, state)
-    if reasons:
-        raise LandError(f"the request is not green ({'; '.join(reasons)}), so a person merges it, whatever the settings say; it waits as `open` for the owner's word")
-    # An agent merges only on the newest review's "not careful": a record with no call, as one
-    # written before the call was asked, is no such word.
-    if review_call(task) is None:
-        raise LandError("no review that answered made the careful call for this change, so a person merges it, whatever the settings say; it waits as `open` for the owner's word")
+    refusal = merger_refusal(task.slug, task.settings["branch"]["land"], state["careful"], not_green(task, state), review_call(task) is not None, merge_review_of(task))
+    if refusal:
+        raise LandError(refusal)
 
 
 def forge_done(task: Task, view: dict) -> dict:
@@ -3322,11 +3310,6 @@ def viewed(task: Task, pr: dict | None = None) -> dict:
 
 
 def cmd_merged(task: Task) -> dict:
-    if task.merges:
-        raise LandError(
-            f'branch.propose is "merge" in .lem/project.toml: no pull request is opened, so none is merged on the forge; '
-            f"`lem land land {task.slug} --by owner|agent` puts the ready branch on the base branch",
-        )
     # `landing` too: the owner may merge on the forge while an open task runs its checks again
     if task.record["status"] not in ("open", "landing") or not task.kept().get("pr"):
         raise LandError(f"the task is {task.record['status']!r} and has {'a' if task.kept().get('pr') else 'no'} pull request; this step is for a task whose pull request the owner merged")
@@ -3346,38 +3329,11 @@ def cmd_merged(task: Task) -> dict:
     raise LandError("the pull request is not merged yet" + (f", and the forge calls it conflicting with {task.base}" if view.get("mergeable") == "CONFLICTING" else ""))
 
 
-# The fields of a pull request one look of the watch reads, for all the open tasks at once.
+# The fields of a pull request one look at the forge reads (the board's server, `forge_look`), for all the open tasks at once.
 WATCHED = "number,state,mergeable,headRefOid,mergeCommit"
 # How many pull requests of the base branch one look lists, the newest first. A task's pull request
 # that is not among them (more than this many were opened after it) is asked for by its number.
 WATCH_LIST = 100
-# How many seconds the watch waits between two looks at the forge. A guess (2026-11-17), not a
-# measurement: a merge shows on the board within a minute, and one call of the forge a minute stays
-# far under its limits.
-WATCH_SECONDS = 60
-# A look older than this many times the watch's interval means that nobody watches: the board says so.
-# Three, so that one slow call of the forge does not make the board say it (a guess, 2026-11-17).
-STALE_LOOKS = 3
-
-
-def open_with_pr(main: Path, state: Path) -> list[dict]:
-    """Each task that is `open` with a pull request, as the state files say now: its slug, its pull
-    request, and the time of its state, for the order Lem takes them in."""
-    found = []
-    for task in json.loads(script("project.py", main, "tasks").stdout):
-        if task["status"] != "open":
-            continue
-        kept_file = state / "tasks" / task["slug"] / "landing.json"
-        try:
-            pr = json.loads(kept_file.read_text(encoding="utf-8")).get("pr") if kept_file.is_file() else None
-        except ValueError:
-            # `tasks` read the same file a moment ago and refuses one that does not read: written in between
-            pr = None
-        if pr:
-            found.append({"task": task["slug"], "pr": pr, "since": task["since"]})
-    return found
-
-
 def forge_look(main: Path, base: str, numbers: list[int]) -> dict[int, dict]:
     """What the forge says of each pull request: one call that lists the base branch's newest ones,
     and one more for each number that list does not hold."""
@@ -3389,216 +3345,209 @@ def forge_look(main: Path, base: str, numbers: list[int]) -> dict[int, dict]:
     return seen
 
 
-def watch_file(state: Path, record: dict) -> None:
-    """The newest look of the watch, for the board: a file:// page loads a script and cannot read a file."""
-    write_whole(state / "watch.js", f"lemWatch({json.dumps(record, ensure_ascii=False)});\n")
-
-
-def seen_before(state: Path) -> dict[str, dict]:
-    """What the newest look of any watch saw of each task's pull request: its mergeable state and
-    its head. A watch.js with no `seen`, or none, holds nothing, and the first look is then the
-    look before nothing."""
-    file = state / "watch.js"
+@contextlib.contextmanager
+def merge_lock(task: Task):
+    """Hold the repository's one lock of Lem's merge calls while this one runs. A call that finds it
+    held logs `merge.wait` with the task that holds it and waits; whoever holds it is done in seconds
+    (a fetch, a merge on the forge or a push). The call reads the base branch after it takes it."""
+    path = task.directory.parent.parent / MERGE_LOCK
     try:
-        text = file.read_text(encoding="utf-8").strip() if file.is_file() else ""
-        record = json.loads(text.removeprefix("lemWatch(").removesuffix(";").removesuffix(")")) if text else {}
-    except (OSError, ValueError):
-        return {}
-    seen = record.get("seen") if isinstance(record, dict) else None
-    return {task: one for task, one in seen.items() if isinstance(one, dict)} if isinstance(seen, dict) else {}
+        handle = path.open("a+", encoding="utf-8")
+    except OSError as error:
+        raise LandError(f"the merge lock {path} cannot be opened ({error.strerror}); it holds no state, so remove it (`rm -r {path}`) and run `lem land merge {task.slug}` again") from error
+    with handle:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            holder = holder_of(path)
+            other = holder.get("task") if holder else None
+            script("project.py", task.main, "log", task.slug, "merge.wait", f"after={other or 'another task'}",
+                   f"say={task.slug}: waits for the merge of {other or 'another task'}")
+            fcntl.flock(handle, fcntl.LOCK_EX)
+        handle.seek(0)
+        handle.truncate()
+        handle.write(json.dumps({"step": "merge", "task": task.slug, "pid": os.getpid(), "since": now_utc()}) + "\n")
+        handle.flush()
+        script("project.py", task.main, "log", task.slug, "merge.start")
+        try:
+            yield
+        finally:
+            handle.seek(0)
+            handle.truncate()
+            handle.flush()
 
 
-def cmd_watch(repo: Path, every: int = WATCH_SECONDS) -> dict:
-    """Look at the forge once every EVERY seconds for the pull requests of the open tasks, and
-    end when one of them is merged or closed. It takes no lock and changes no task: Lem acts on its result."""
-    settings = json.loads(script("project.py", repo, "show").stdout)
-    main = Path(settings["main"])
-    if Path(settings["root"]).resolve() != main.resolve():
-        settings = json.loads(script("project.py", main, "show").stdout)
-    if settings["settings"] is None:
-        raise LandError("this repository has no .lem/project.toml; `/lem init` writes it")
-    state = Path(script("project.py", main, "state-dir").stdout.strip())
-    base = str(settings["branch"]["base"])
-    started = time.time()
+def stamp_seconds(stamp: str) -> float:
+    """A time of the event log, `YYYY-MM-DDTHH:MM:SSZ`, as seconds since the epoch."""
+    return datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
 
-    def stamp() -> str:
-        return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
-    # What the look before saw of each pull request, by any watch: a conflict ends a watch once for one head.
-    seen = seen_before(state)
+def task_time(events: list[dict], slug: str) -> dict:
+    """How long the task took from its first event to its first proposal, against what was expected:
+    the median of the same span of every task of the same track proposed before it, from the event
+    log (`EVENTS` of every task, oldest first). The track is the size of a task's criteria (`small`
+    or `full`); a task whose track the log does not say is compared with every earlier task. None
+    where the log cannot tell."""
+    first: dict[str, str] = {}
+    proposed: dict[str, str] = {}
+    track: dict[str, str] = {}
+    for event in events:
+        name, stamp = event.get("task"), event.get("ts")
+        if not isinstance(name, str) or not isinstance(stamp, str):
+            continue
+        first.setdefault(name, stamp)
+        if event.get("event") == "proposed":
+            proposed.setdefault(name, stamp)
+        if event.get("event") in ("task.criteria", "criteria.approved") and event.get("size") in TRACKS:
+            track[name] = event["size"]
 
-    def ended(why: str) -> LandError:
-        # the board says at once that nobody watches, with this reason; what was seen stays for the next watch
-        watch_file(state, {"checked": None, "every": every, "ended": stamp(), "why": why, "pid": os.getpid(), "seen": seen})
-        return LandError(why)
+    def span(name: str) -> int:
+        return round(stamp_seconds(proposed[name]) - stamp_seconds(first[name]))
 
-    if settings["branch"]["propose"] == "merge":
-        raise ended('branch.propose is "merge" in .lem/project.toml: no task opens a pull request, so there is none to watch; Lem lands a ready branch with `lem land land`')
-    url = git(main, "config", "--get", "remote.origin.url", check=False)
-    if not re.match(r"(https://|ssh://git@|git@)github\.com[:/]", url):
-        raise ended("the remote is not GitHub, or there is none: a task ends as a branch ready to land, with no pull request on a forge to watch")
-    if not shutil.which("gh"):
-        raise ended("the remote is GitHub and the `gh` command is not on PATH: install it and sign in (`gh auth login`), then Lem starts the watch again")
-    signed = subprocess.run(["gh", "auth", "status", "--hostname", "github.com"], cwd=main, capture_output=True, text=True, check=False, stdin=subprocess.DEVNULL)
-    if signed.returncode != 0:
-        said = [line.strip() for line in (signed.stderr or signed.stdout).splitlines() if line.strip()]
-        raise ended(f"the `gh` command is not signed in to github.com ({said[-1] if said else 'gh auth status failed'}): `gh auth login` signs it in, then Lem starts the watch again")
+    if slug not in proposed:
+        return {"seconds": None, "expected": None, "from": "the task was not proposed"}
+    mine = track.get(slug)
+    earlier = [name for name in proposed if name != slug and proposed[name] < proposed[slug] and (mine is None or track.get(name) == mine)]
+    which = f"the {TRACKS[mine]} track" if mine else "both tracks"
+    if not earlier:
+        return {"seconds": span(slug), "expected": None, "from": f"no task of {which} was proposed before it, so nothing says what to expect"}
+    return {"seconds": span(slug), "expected": round(statistics.median(span(name) for name in earlier)),
+            "from": f"the median of {len(earlier)} earlier task{'' if len(earlier) == 1 else 's'} of {which}, from the first event to the proposal, in the event log"}
 
-    def stopped(*_: object) -> None:
-        raise KeyboardInterrupt
 
-    before = (signal.signal(signal.SIGTERM, stopped), signal.signal(signal.SIGINT, stopped))
-    looks = 0
+def verdict_of(text: str) -> str | None:
+    """The merge agent's verdict, from the first line of its review: `merge` or `call`, or None."""
+    first = next((line for line in text.splitlines() if line.strip()), "")
+    found = VERDICT.match(first.strip().lstrip("#*> ").strip())
+    return found.group(1).lower() if found else None
+
+
+def cmd_merge_review(task: Task, record: str | None) -> dict:
+    """The merge agent's read of a proposed task. With no record: its brief, `merge-brief.md` in the
+    task directory, and the facts in it. With the agent's reply: the review written down as
+    `merge-review.md`, and whether it merges or calls the owner."""
+    if task.record["status"] != "open":
+        raise LandError(f"the task is {task.record['status']!r}, not `open`: the merge agent reads a proposed task; `lem land propose {task.slug}` comes first")
+    task.need_worktree()
+    kept = task.kept()
+    tip = kept.get("proposed")
+    if not tip or not kept.get("pr"):
+        raise LandError(f"{task.slug} has no pull request on record; `lem land propose {task.slug}` comes first")
+    if git(task.worktree, "rev-parse", "HEAD") != tip:
+        raise LandError(f"the branch's tip is not the tip that was proposed; {AGAIN}")
+    state = due(task)
+    reasons = not_green(task, state)
+    land = task.settings["branch"]["land"]
+    seat = task.settings["seats"]["merger"]
+    # whether the merge agent may merge when it finds nothing: every rule but its own verdict
+    refusal = merger_refusal(task.slug, land, state["careful"], reasons, review_call(task) is not None, {"verdict": "merge"})
+    if record is None:
+        found = criteria_of(task)
+        files = {name: str(task.directory / file) for name, file in (
+            ("pull_request_text", "pr.md"), ("words", "ask.txt"), ("request", "task.md"), ("report", "report.md"), ("notes", "notes.md"),
+            ("investigation", "investigation.md"),
+        ) if (task.directory / file).is_file()}
+        # each breaker's document, the newest last (decisions.py keeps them as breaker-N.md)
+        breakers = sorted(task.directory.glob("breaker-*.md"), key=lambda path: int(re.sub(r"\D", "", path.stem) or 0))
+        if breakers:
+            files["breakers"] = [str(path) for path in breakers]
+        facts = {
+            "task": task.slug, "worktree": str(task.worktree), "task_directory": str(task.directory),
+            "pull_request": kept["pr"], "range": f"{kept['base']}..{tip}", "track": TRACKS.get(found["size"], found["size"]),
+            "criteria": found["plan"], "files": files,
+            "reviews": sorted(str(file) for file in (task.directory / "reviews").glob("review-*.md")) if (task.directory / "reviews").is_dir() else [],
+            "decisions": f"lem decisions list {task.slug}",
+            "green": not reasons, "not_green": reasons, "careful": state["careful"], "land": land,
+            # the call is the owner's whatever the agent finds, when this names why
+            "owner_merges": refusal,
+            "time": task_time(events_all(task), task.slug),
+        }
+        brief = task.directory / "merge-brief.md"
+        write_whole(brief, "\n".join([
+            f"Read {SCRIPTS.parent / 'prompts' / 'merge.md'} and follow it. Your reply is the review, in the form that file gives, and nothing else.",
+            "", "The facts of this task, as `lem land merge-review` gave them:", "", "```json", json.dumps(facts, indent=2), "```", "",
+        ]))
+        return {"task": task.slug, "brief": str(brief), "answer": str(task.directory / "merge-answer.md"), "worktree": str(task.worktree), "seat": seat, "facts": facts}
     try:
-        while True:
-            watched = open_with_pr(main, state)
-            if not watched:
-                raise ended("nothing to watch: no task is open with a pull request" + (" any more" if looks else "") + "; Lem starts the watch after its next proposal")
-            looked = forge_look(main, base, [entry["pr"]["number"] for entry in watched])
-            looks += 1
-            report = [
-                {"task": entry["task"], "pr": entry["pr"]["number"], "url": entry["pr"]["url"], "state": looked[entry["pr"]["number"]].get("state"),
-                 "mergeable": looked[entry["pr"]["number"]].get("mergeable"), "head": looked[entry["pr"]["number"]].get("headRefOid"), "since": entry["since"]}
-                for entry in watched
-            ]
-            done = [{**entry, "what": "merged" if entry["state"] == "MERGED" else "closed"} for entry in report if entry["state"] in ("MERGED", "CLOSED")]
-            still = [entry for entry in report if entry["state"] not in ("MERGED", "CLOSED")]
-            # the conflicting ones first, then by the time of their state, the oldest first: the order Lem brings them onto the new base
-            still.sort(key=lambda entry: (entry["mergeable"] != "CONFLICTING", entry["since"] or ""))
-            # A pull request that is conflicting now and was not at the look before, on this head: a
-            # commit on the base that no task's merge made met its change, and Lem brings it onto the base.
-            newly = [
-                {"task": entry["task"], "pr": entry["pr"], "url": entry["url"], "why": (
-                    f"the forge calls pull request #{entry['pr']} conflicting with {base}, "
-                    + ("and it did not at the look before" if entry["task"] in seen else "at the first look of the watch")
-                    + ": a commit on the base met its change"
-                )}
-                for entry in still
-                if entry["mergeable"] == "CONFLICTING" and seen.get(entry["task"]) != {"mergeable": "CONFLICTING", "head": entry["head"]}
-            ]
-            seen = {entry["task"]: {"mergeable": entry["mergeable"], "head": entry["head"]} for entry in still}
-            watch_file(state, {"checked": stamp(), "every": every, "looks": looks, "open": still, "ended": None, "pid": os.getpid(), "seen": seen})
-            if done or newly:
-                return {"ended": done, "conflicting": newly, "open": still, "looks": looks, "seconds": round(time.time() - started), "every": every}
-            time.sleep(every)
-    except KeyboardInterrupt:
-        raise ended("the watch was stopped; Lem starts it again while a task is open with a pull request") from None
-    finally:
-        signal.signal(signal.SIGTERM, before[0])
-        signal.signal(signal.SIGINT, before[1])
+        text = Path(record).read_text(encoding="utf-8")
+    except OSError as error:
+        raise LandError(f"{record} cannot be read ({error.strerror}); --file names the merge agent's reply") from error
+    verdict = verdict_of(text)
+    if verdict is None:
+        raise LandError(f"the first line of {record} gives no verdict: it is `Verdict: merge.` or `Verdict: call.`, then one sentence, as `prompts/merge.md` asks; the merge agent is asked again")
+    calls = verdict == "call" or refusal is not None
+    why = refusal if refusal else (next(line for line in text.splitlines() if line.strip()).strip().lstrip("#*> ").strip() if verdict == "call" else None)
+    write_whole(task.directory / "merge-review.md", text if text.endswith("\n") else text + "\n")
+    review = {"tip": tip, "verdict": verdict, "calls": calls, "why": why, "by": seat["seat"], "at": now_utc()}
+    task.keep(merge_review=review)
+    script("project.py", task.main, "log", task.slug, "merge.review", f"verdict={verdict}", f"calls:={json.dumps(calls)}", f"by={seat['seat']}",
+           f"tip={tip[:9]}", *([f"why={why}"] if why else []))
+    if calls:
+        after = "it calls the owner: \"Read the merge review\" waits for him, and only his merge lands it"
+    else:
+        squash = task.settings["branch"]["history"] == "squash"
+        after = f"`lem land merge {task.slug} --by merger" + (" --message SUBJECT`, with the report's commit subject" if squash else "`")
+    return {"task": task.slug, "review": str(task.directory / "merge-review.md"), "verdict": verdict, "calls": calls, "why": why, "by": seat["seat"], "next": after}
 
 
-def cmd_land(task: Task, by: str, message: str | None) -> dict:
+def cmd_merge(task: Task, by: str, message: str | None) -> dict:
+    if task.record["status"] != "open":
+        raise LandError(f"the task is {task.record['status']!r}, not `open`; `lem land propose {task.slug}` comes first")
+    with merge_lock(task):
+        # another call may have merged this task, or the owner closed it, while this one waited
+        task.read_states()
+        return merge_locked(task, by, message)
+
+
+def merge_locked(task: Task, by: str, message: str | None) -> dict:
+    """The one merge of a task's pull request, the owner's and the merge agent's alike: through
+    GitHub, at the commit that was proposed, on the base it was checked on."""
     if task.record["status"] != "open":
         raise LandError(f"the task is {task.record['status']!r}, not `open`; `lem land propose {task.slug}` comes first")
     task.need_worktree()
     kept = task.kept()
-    intent = kept.get("intent")
-    if intent and not kept.get("pr"):
-        task.fetch()
-        if run(["git", "-C", str(task.worktree), "merge-base", "--is-ancestor", intent["tip"], task.onto], check=False).returncode == 0:
-            # An earlier run put this commit on the base and was cut off before the bookkeeping. Who
-            # may merge was settled by that run, so this one only finishes.
-            if git(task.worktree, "rev-parse", "HEAD") == intent["tip"]:
-                return finish(task, intent["tip"], intent["range"], intent["arrived"])
-            # The branch got more work since. What landed then is written down, and what the branch
-            # holds now lands like any tip: through its own base, checks and read.
-            task.keep(intent=None, landed_before=[*kept.get("landed_before", []), intent["range"]])
-            raise LandError(f"{intent['range']} is on {task.onto} from a landing that was cut off, and the branch has more work since: {AGAIN} for it")
-    view = viewed(task) if kept.get("pr") else None
-    if task.forge == "github" and not view:
-        # with pull requests every merge goes through the forge: a branch is never pushed onto the base past it
-        raise LandError(f"the project lands through pull requests and {task.slug} has none on record; `lem land propose {task.slug}` opens it or finds it, and the merge goes through it")
-    if view and view["state"] == "MERGED":
-        # the forge already holds the merge, whoever made it: only the bookkeeping is left
+    if not kept.get("pr"):
+        # every merge goes through the pull request: a branch is never pushed onto the base past it
+        raise LandError(f"{task.slug} has no pull request on record; `lem land propose {task.slug}` opens it or finds it, and the merge goes through it")
+    view = viewed(task)
+    if view["state"] == "MERGED":
+        # GitHub already holds the merge, whoever made it: only the bookkeeping is left
         return forge_done(task, view)
+    if view["state"] != "OPEN":
+        raise LandError(f"the pull request was closed without a merge: `lem land merged {task.slug}` writes the task dropped, and its branch keeps its commits")
     may_merge(task, by)
-    if not kept.get("gated"):
+    tip = git(task.worktree, "rev-parse", "HEAD")
+    if kept.get("proposed") != tip:
+        raise LandError(f"the branch's tip is not the tip that was proposed; {AGAIN}")
+    if view["headRefOid"] != tip:
+        raise LandError(f"the pull request's head is not the tip that was proposed; {AGAIN}")
+    if not gate_holds(task, tip):
         raise LandError(f"no green check is on record for this tip; {AGAIN}")
     squash = task.settings["branch"]["history"] == "squash"
     if squash and not message:
         raise LandError("branch.history is \"squash\": pass --message with the one commit's subject, from the task's report")
     if not squash and message:
         raise LandError("branch.history is \"keep\": the branch's own commits land, so --message has nothing to name")
-    if view:
-        # A pull request is merged by the forge, under the forge's own rules, and only at the commit that was proposed.
-        if view["state"] != "OPEN":
-            raise LandError(f"the pull request was closed without a merge: `lem land merged {task.slug}` writes the task dropped, and its branch keeps its commits")
-        tip = git(task.worktree, "rev-parse", "HEAD")
-        if view["headRefOid"] != tip or kept.get("proposed") != tip:
-            raise LandError(f"the pull request's head is not the tip that was proposed; {AGAIN}")
-        task.fetch()
-        base_now = git(task.worktree, "rev-parse", task.onto)
-        moved = changed(task, kept["base"], base_now) if base_now != kept["base"] else []
-        if moved:
-            raise LandError(
-                f"{task.onto} moved after the checks ran, by files ({', '.join(moved[:5])}{', ...' if len(moved) > 5 else ''}); {AGAIN}",
-            )
-        how = ["--squash", "--subject", message] if squash else ["--rebase"]
-        gh(task, "pr", "merge", str(kept["pr"]["number"]), "--match-head-commit", tip, *how)
-        view = viewed(task)
-        if view["state"] != "MERGED":
-            raise LandError("the forge took the merge and the pull request is not merged yet (a queue, or a check it waits for); run `lem land merged` when it is")
-        return forge_done(task, view)
-    if kept.get("proposed") != git(task.worktree, "rev-parse", "HEAD"):
-        raise LandError(f"the branch's tip is not the tip that was proposed; {AGAIN}")
-
+    # The base is read after the lock is taken, so that a merge just before this one is met here.
     task.fetch()
     base_now = git(task.worktree, "rev-parse", task.onto)
-    arrived: list[str] = []
-    if base_now != kept["base"]:
-        # The base moved after the checks ran. The result stands only when no file arrived (a commit
-        # that changed nothing); any file means the checks run again.
-        arrived = changed(task, kept["base"], base_now)
-        if arrived:
-            raise LandError(
-                f"{task.onto} moved after the checks ran, by files ({', '.join(arrived[:5])}"
-                f"{', ...' if len(arrived) > 5 else ''}); {AGAIN}",
-            )
-        if run(["git", "-C", str(task.worktree), "rebase", task.onto], check=False).returncode != 0:
-            git(task.worktree, "rebase", "--abort", check=False)
-            raise LandError(f"{task.onto} moved after the checks ran and the rebase onto it stopped, and the branch is as it was; {AGAIN}, where `base` names the files that meet")
-    elif git(task.worktree, "rev-parse", "HEAD") != kept["gated"]:
-        raise LandError(f"the branch's tip is not the commit the checks passed on; {AGAIN}")
-    # What lands is the tree the checks saw.
-    differs = changed(task, kept["tree"], "HEAD^{tree}")
-    if not set(differs) <= set(arrived):
-        raise LandError(f"the tree that would land differs from the tree the checks passed on in {', '.join(differs[:5])}; {AGAIN}")
-
-    if squash:
-        # A commit runs the project's hooks, and a hook may change what is committed. The one commit
-        # must hold the tree that was just checked, so the branch is put back when it does not.
-        before = git(task.worktree, "rev-parse", "HEAD")
-        checked = git(task.worktree, "rev-parse", "HEAD^{tree}")
-        git(task.worktree, "reset", "--soft", base_now)
-        made = run(["git", "-C", str(task.worktree), "commit", "-m", message], check=False)
-        if made.returncode != 0:
-            git(task.worktree, "reset", "--soft", before)
-            raise LandError(
-                f"the one commit was refused, and the branch is as it was: {(made.stderr or made.stdout).strip()}. "
-                f"A hook that refused the subject takes another --message to `lem land land {task.slug}`; one that refused the files, "
-                f"a commit on the branch that meets it, then {AGAIN}",
-            )
-        if git(task.worktree, "rev-parse", "HEAD^{tree}") != checked:
-            git(task.worktree, "reset", "--hard", before)
-            raise LandError(
-                "a commit hook changed the files of the one commit, so it is not the tree the checks passed on; the branch is as it was. "
-                f"Commit what the hook changes on the branch, then {AGAIN}",
-            )
-    tip = git(task.worktree, "rev-parse", "HEAD")
-    landed = f"{base_now[:9]}..{tip[:9]}"
-    # Written before the base moves: a run that is cut off after it finds this and only finishes.
-    task.keep(intent={"tip": tip, "range": landed, "arrived": arrived})
-    if task.remote:
-        # A plain push: the remote refuses it when someone else pushed first, which is the answer wanted.
-        git(task.worktree, "push", "origin", f"HEAD:{task.base}")
-    elif task.base_checkout is not None:
-        # A fast-forward in the checkout that holds the base: git refuses it when a file there is in the way.
-        git(task.base_checkout, "merge", "--ff-only", tip)
-    else:
-        # No checkout holds the base branch, so its ref may move; without `+` git allows a fast-forward only.
-        git(task.worktree, "fetch", ".", f"HEAD:{task.base}")
-    return finish(task, tip, landed, arrived)
+    moved = changed(task, kept["base"], base_now) if base_now != kept["base"] else []
+    if moved:
+        raise LandError(f"{task.onto} moved after the checks ran, by files ({', '.join(moved[:5])}{', ...' if len(moved) > 5 else ''}); {AGAIN}")
+    how = ["--squash", "--subject", message] if squash else ["--rebase"]
+    merged = gh(task, "pr", "merge", str(kept["pr"]["number"]), "--match-head-commit", tip, *how, check=False)
+    if merged.returncode != 0:
+        # GitHub's own rules hold (a required review, a check it waits for, a protected branch): its
+        # line is kept for "Waits for you", and the owner acts on GitHub or asks Lem for a change.
+        said = [line.strip() for line in (merged.stderr or merged.stdout).splitlines() if line.strip()]
+        line = said[-1] if said else f"gh pr merge exited {merged.returncode}"
+        task.keep(merge_refused={"tip": tip, "by": by, "said": line, "at": now_utc()})
+        script("project.py", task.main, "log", task.slug, "merge.refused", f"by={by}", f"said={line}", f"tip={tip[:9]}")
+        raise LandError(f"GitHub refused the merge of {kept['pr']['url']}: {line}. It waits for the owner as `open`")
+    view = viewed(task)
+    if view["state"] != "MERGED":
+        raise LandError("GitHub took the merge and the pull request is not merged yet (a queue, or a check it waits for); run `lem land merged` when it is")
+    return forge_done(task, view)
 
 
 def cmd_clean(task: Task) -> dict:
@@ -3691,8 +3640,10 @@ def step(task: Task, args: argparse.Namespace) -> dict:
         return cmd_file(task, args.again)
     if args.command == "propose":
         return cmd_propose(task, args.title, args.notes)
-    if args.command == "land":
-        return cmd_land(task, args.by, args.message)
+    if args.command == "merge-review":
+        return cmd_merge_review(task, args.file)
+    if args.command == "merge":
+        return cmd_merge(task, args.by, args.message)
     if args.command == "merged":
         return cmd_merged(task)
     return cmd_clean(task)
@@ -3713,8 +3664,6 @@ def main(argv: list[str] | None = None) -> None:
     start = commands.add_parser("start")
     start.add_argument("slug")
     start.add_argument("--conflicting", action="store_true", help="for an open task the forge calls conflicting, with no merge of a task to name")
-    watch = commands.add_parser("watch", help="look at the forge for the open tasks' pull requests until one is merged or closed")
-    watch.add_argument("--every", type=int, default=WATCH_SECONDS, metavar="SECONDS", help=f"seconds between two looks (default {WATCH_SECONDS}); for a test that cannot wait")
     polish = commands.add_parser("polish")
     polish.add_argument("slug")
     polish.add_argument("--done", action="store_true", help="after the polish builder: check what it committed, and log the pass")
@@ -3728,15 +3677,15 @@ def main(argv: list[str] | None = None) -> None:
     propose.add_argument("slug")
     propose.add_argument("--title", required=True, help="the subject of the change, one semantic line")
     propose.add_argument("--notes", required=True, metavar="FILE", help="the notes of the pull request: decisions, what is left open, what is worth a look, what was filed, what was not done")
-    land = commands.add_parser("land")
-    land.add_argument("slug")
-    land.add_argument("--by", required=True, choices=BY, help="who merges: the owner's word, or the agent where the settings and the request allow it")
-    land.add_argument("--message", help="the subject of the one commit, when branch.history is \"squash\"")
+    review = commands.add_parser("merge-review", help="what the merge agent reads, in a brief file; with --file, its review written down")
+    review.add_argument("slug")
+    review.add_argument("--file", metavar="FILE", help="the merge agent's reply, its review with the verdict on its first line")
+    merge = commands.add_parser("merge")
+    merge.add_argument("slug")
+    merge.add_argument("--by", required=True, choices=BY, help="who merges: the owner's word, or the merge agent where the settings and the request allow it")
+    merge.add_argument("--message", help="the subject of the one commit, when branch.history is \"squash\"")
     args = parser.parse_args(argv)
     try:
-        if args.command == "watch":
-            print(json.dumps(cmd_watch(Path(args.repo), max(1, args.every)), indent=2))
-            return
         task = Task(Path(args.repo), args.slug)
         if args.command == "checks" and (args.status or args.stop):
             # a look and a stop take no lock: they are about the run that holds it

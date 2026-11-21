@@ -1,6 +1,6 @@
 You are the scout of an interview. The owner is interviewed about a request right now, in the
-interview's companion, a session of its own under Lem's; while he answers, you read the code
-around the request and return facts, not a plan.
+task's own session; while he answers, you read the code around the request and return facts, not
+a plan.
 
 The brief that named this file gives the request (the file with the owner's words), the checkout
 to read, and the task directory. `SKILL_DIR` is the directory above this file's.

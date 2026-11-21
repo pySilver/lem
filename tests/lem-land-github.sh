@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The landing with a GitHub remote, through a stand-in for `gh`, and with no pull requests.
+# The landing with a GitHub remote, through a stand-in for `gh`, and a remote elsewhere, which lands nothing.
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
@@ -22,7 +22,7 @@ state_file, origin = os.environ["GH_STATE"], os.environ["GH_ORIGIN"]
 state = json.load(open(state_file)) if os.path.exists(state_file) else {"prs": {}, "calls": []}
 args = sys.argv[1:]
 # every call, one JSON line each, in a log of its own: a call that only reads writes no state, so that a
-# test that changes a pull request while a watch reads them is never undone by a write of the stand-in
+# test that changes a pull request while a landing step reads them is never undone by a write of the stand-in
 with open(state_file + ".log", "a") as log:
     log.write(json.dumps(args) + "\n")
 def opt(name): return args[args.index(name) + 1] if name in args else None
@@ -72,7 +72,7 @@ PY
 printf '%s\n' '#!/bin/sh' "exec '$PY' -I '$WORK/gh.py' \"\$@\"" > "$WORK/bin/gh" && chmod +x "$WORK/bin/gh"
 gh_land() { PATH="$WORK/bin:$PATH" GH_STATE="$WORK/gh.json" GH_ORIGIN="$GHO" "$PY" -B "$LAND" --repo "$GHS" "$@"; }
 gh_state() { "$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print(eval(sys.argv[2], {"d": d}))' "$WORK/gh.json" "$1"; }
-# gh_set PYTHON [FILE]: change the stand-in's pull requests as the forge would, written whole, since a watch may read them at that moment
+# gh_set PYTHON [FILE]: change the stand-in's pull requests as the forge would, written whole, since a landing step may read them at that moment
 gh_set() { "$PY" -c 'import json, os, sys; d = json.load(open(sys.argv[2])); exec(sys.argv[1]); json.dump(d, open(sys.argv[2] + ".set", "w")); os.replace(sys.argv[2] + ".set", sys.argv[2])' "$1" "${2:-$WORK/gh.json}"; }
 gh_checked() { gh_land start "$1" >/dev/null && gh_land base "$1" >/dev/null && gh_land checks "$1" >/dev/null; }
 small_task_in "$GHS" pr-change p.txt nine
@@ -96,18 +96,19 @@ gh_land read pr-change --record "$(clean 1)" >/dev/null && gh_land propose pr-ch
 "$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); d.pop("pr"); json.dump(d, open(sys.argv[1], "w"))' "$GHS/.lem/state/tasks/pr-change/landing.json"
 # with the record of the pull request lost, a merge does not go past the forge
 main_before=$(git -C "$GHO" rev-parse main)
-no_pr=$(gh_land land pr-change --by owner 2>&1 || true)
+no_pr=$(gh_land merge pr-change --by owner 2>&1 || true)
 main_after=$(git -C "$GHO" rev-parse main)
 gh_checked pr-change && gh_land propose pr-change --title "fix: nine, a third time" --notes "$NOTES" >/dev/null
 if [ "$(gh_state '(len(d["prs"]), d["prs"]["7"]["title"], sum(c[:2] == ["pr", "create"] for c in d["calls"]), sum(c[:2] == ["pr", "edit"] for c in d["calls"]))')" = "(1, 'fix: nine, a third time', 1, 2)" ] \
   && [ "$(kept_in "$GHS" pr-change pr)" = "{'number': 7, 'url': 'https://github.com/acme/shop/pull/7'}" ] \
   && [ "$again" = "{'number': 7, 'url': 'https://github.com/acme/shop/pull/7'}/None" ] \
-  && grep -qF "the project lands through pull requests and pr-change has none on record" <<<"$no_pr" && [ "$main_after" = "$main_before" ]; then
+  && grep -qF "pr-change has no pull request on record" <<<"$no_pr" && [ "$main_after" = "$main_before" ]; then
   pass "a task whose landing starts over starts its reviews over and keeps its pull request; a second proposal changes the one that is there, also when the record of it was lost: the forge is asked, and no second one is opened; a merge with no pull request on record is refused, and nothing reaches the base past the forge"
 else
   fail "a second proposal: $no_pr / $(cat "$WORK/gh.json")"
 fi
-out=$(gh_land land pr-change --by agent)
+merge_read "$GHS" pr-change >/dev/null
+out=$(gh_land merge pr-change --by merger)
 if [ "$(field '(d["merged"], d["pull_request"]["number"], d["left_behind"])' <<<"$out")" = "('$tip', 7, None)" ] && [ "$(status_in "$GHS" pr-change)" = landed ] \
   && [ "$(gh_state '[c for c in d["calls"] if c[:2] == ["pr", "merge"]]')" = "[['pr', 'merge', '7', '--match-head-commit', '$tip', '--rebase']]" ] \
   && [ "$(git -C "$GHS" rev-parse main)" = "$tip" ] && [ -f "$GHS/p.txt" ]; then
@@ -127,7 +128,7 @@ gh_checked pr-squashed && gh_land read pr-squashed --record "$(clean 1)" >/dev/n
 gh_other=$WORK/gh-other
 git clone -q "$GHO" "$gh_other" && ident "$gh_other"
 echo late > "$gh_other/late.txt" && git -C "$gh_other" add -A && git -C "$gh_other" commit -q -m "feat: late" && git -C "$gh_other" push -q origin main
-err=$(gh_land land pr-squashed --by agent 2>&1 || true)
+err=$(gh_land merge pr-squashed --by owner 2>&1 || true)
 early=$(gh_land merged pr-squashed 2>&1 || true)
 # the checks start again for the base that moved, and the owner merges on the forge meanwhile
 gh_land start pr-squashed >/dev/null
@@ -221,14 +222,14 @@ fi
 tip=$(git -C "$GHS/.lem/worktrees/pr-guards" rev-parse HEAD)
 pushed=$(git -C "$GHO" -c user.name=t -c user.email=t@t commit-tree -p "$tip" -m "fix: pushed by someone else" "$tip^{tree}")
 git -C "$GHO" update-ref refs/heads/fix/pr-guards "$pushed"
-moved_head=$(gh_land land pr-guards --by agent 2>&1 || true)
+moved_head=$(gh_land merge pr-guards --by owner 2>&1 || true)
 git -C "$GHO" update-ref refs/heads/fix/pr-guards "$tip"
 gh_set "d['prs']['$number']['state'] = 'CLOSED'"
-closed_land=$(gh_land land pr-guards --by agent 2>&1 || true)
-if grep -qF "the pull request's head is not the tip that was proposed; run \`lem land start\`, \`lem land base\`, \`lem land checks\` and \`lem land propose\` again" <<<"$moved_head" \
+closed_land=$(gh_land merge pr-guards --by owner 2>&1 || true)
+if grep -qF "the pull request's head is not the tip that was proposed; run \`lem land start\`, \`lem land base\`, \`lem land checks\`, \`lem land read\` and \`lem land propose\` again" <<<"$moved_head" \
   && grep -qF "the pull request was closed without a merge: \`lem land merged pr-guards\` writes the task dropped" <<<"$closed_land" \
   && [ "$(gh_state "sum(c[:3] == ['pr', 'merge', '$number'] for c in d['calls'])")" = 0 ] && [ "$(status_in "$GHS" pr-guards)" = open ]; then
-  pass "land merges no pull request whose head on the forge is not the proposed tip, nor a closed one, and names the step for a closed one"
+  pass "merge merges no pull request whose head on the forge is not the proposed tip, nor a closed one, and names the step for a closed one"
 else
   fail "a moved head and a closed pull request: $moved_head / $closed_land"
 fi
@@ -337,45 +338,33 @@ else
   fail "a new task's worktree: $fresh / $second / $upstream / $local_tree / $away / $(cat "$WORK/away.err")"
 fi
 
-# A GitHub remote, and a developer who wants no pull requests (`branch.propose = "merge"`): the task
-# lands on the remote's base branch as a ready branch does, so the next task starts from it, and the
-# forge is never asked. The stand-in `gh` here only writes down that it was called.
-GMO=$WORK/gm-origin.git
-GMS=$WORK/gm-shop
-git init -q --bare -b main "$GMO"
-git clone -q "$GMO" "$GMS" 2>/dev/null && ident "$GMS"
-git -C "$GMS" config remote.origin.url git@github.com:acme/solo.git
-git -C "$GMS" config "url.$GMO.insteadOf" git@github.com:acme/solo.git
-project --repo "$GMS" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' 'propose = "merge"' '[checks]' 'commands = ["true"]' > "$GMS/.lem/project.toml"
-git -C "$GMS" add -A && git -C "$GMS" commit -q -m "chore: start" && git -C "$GMS" push -q origin main
-mkdir -p "$WORK/gm-bin"
-printf '%s\n' '#!/bin/sh' "echo \"\$*\" >> '$WORK/gm-gh-calls'" 'exit 1' > "$WORK/gm-bin/gh" && chmod +x "$WORK/gm-bin/gh"
-gm_land() { PATH="$WORK/gm-bin:$PATH" "$PY" -B "$LAND" --repo "$GMS" "$@"; }
-small_task_in "$GMS" solo-change s.txt eleven
-out=$(gm_land start solo-change)
-gm_land base solo-change >/dev/null && gm_land checks solo-change >/dev/null && gm_land read solo-change --record "$(clean 1)" >/dev/null
-proposed=$(gm_land propose solo-change --title "fix: eleven" --notes "$NOTES" 2>&1 || true)
-tip=$(git -C "$GMS/.lem/worktrees/solo-change" rev-parse HEAD)
-opened=$(cat "$GMS/.lem/state/tasks/solo-change/state.md")
-pushed_branch=$(git -C "$GMO" branch --list fix/solo-change)
-merged=$(gm_land merged solo-change 2>&1 || true)
-landed=$(gm_land land solo-change --by agent 2>&1 || true)
-cleaned=$(gm_land clean solo-change 2>&1 || true)
-if [ "$(field 'd["forge"]' <<<"$out")" = None ] && [ "$(field '(d["pull_request"], d["green"])' <<<"$proposed")" = "(None, True)" ] \
-  && head -1 "$GMS/.lem/state/tasks/solo-change/pr.md" | grep -q '^\*\*Green\.\*\*' && grep -q "ready to land on main at ${tip:0:9}" <<<"$opened" && [ -z "$pushed_branch" ] \
-  && grep -qF 'branch.propose is "merge"' <<<"$merged" && grep -qF "lem land land solo-change" <<<"$merged" \
-  && [ "$(field '(d["tip"], d["pushed"], d["left_behind"])' <<<"$landed")" = "('$tip', True, None)" ] && [ "$(git -C "$GMO" rev-parse main)" = "$tip" ] \
-  && [ "$(git -C "$GMS" rev-parse main)" = "$tip" ] && [ "$(status_in "$GMS" solo-change)" = landed ] \
-  && [ "$(field '(d["worktree"], d["branch"], d["remote"])' <<<"$cleaned")" = "(True, 'fix/solo-change', None)" ] && [ -z "$(git -C "$GMS" branch --list fix/solo-change)" ] \
-  && [ ! -e "$WORK/gm-gh-calls" ]; then
-  pass "with a GitHub remote and branch.propose = merge, no pull request is opened and no task branch is pushed; the branch lands on origin's base branch, merged is refused with the step that lands, and clean removes the worktree and the branch, with no call of gh"
+# A remote that is not on GitHub: a task ends as a GitHub pull request, the one way Lem lands. init refuses such an origin
+# with the line that points it at GitHub, and a repository whose settings came before its origin moved proposes nothing.
+GLO=$WORK/gl-origin.git
+GLS=$WORK/gl-shop
+git init -q --bare -b main "$GLO"
+git clone -q "$GLO" "$GLS" 2>/dev/null && ident "$GLS"
+git -C "$GLS" config remote.origin.url git@gitlab.com:acme/shop.git
+git -C "$GLS" config "url.$GLO.insteadOf" git@gitlab.com:acme/shop.git
+refused_init=$(project --repo "$GLS" init --base main 2>&1 || true)
+no_file=$([ -e "$GLS/.lem/project.toml" ] && echo written || echo none)
+mkdir -p "$GLS/.lem" && printf '%s\n' '[branch]' 'base = "main"' '[checks]' 'commands = ["true"]' > "$GLS/.lem/project.toml"
+git -C "$GLS" add -A && git -C "$GLS" commit -q -m "chore: start" && git -C "$GLS" push -q origin main
+small_task_in "$GLS" gl-change g.txt one
+land --repo "$GLS" start gl-change >/dev/null && land --repo "$GLS" base gl-change >/dev/null && land --repo "$GLS" checks gl-change >/dev/null && land --repo "$GLS" read gl-change --record "$(clean 1)" >/dev/null
+gl_proposed=$(land --repo "$GLS" propose gl-change --title "fix: one" --notes "$NOTES" 2>&1 || true)
+# shellcheck disable=SC2016  # the backticks are the message's own marks
+if grep -qF "origin is git@gitlab.com:acme/shop.git, and Lem lands through GitHub pull requests only" <<<"$refused_init" \
+  && grep -qF '`git remote set-url origin git@github.com:OWNER/REPO.git`' <<<"$refused_init" && [ "$no_file" = none ] \
+  && grep -qF "is not a repository on GitHub, or there is none: a task ends as a GitHub pull request, the one way Lem lands" <<<"$gl_proposed" \
+  && [ "$(status_in "$GLS" gl-change)" = landing ] && [ ! -e "$GLS/.lem/state/tasks/gl-change/pr.md" ] && [ -z "$(git -C "$GLO" branch --list fix/gl-change)" ]; then
+  pass "an origin that is not on GitHub: init refuses it with the line that points it there, and propose refuses before it writes or pushes anything"
 else
-  fail "a GitHub remote with no pull requests: $out / $proposed / $opened / $merged / $landed / $cleaned / $(cat "$WORK/gm-gh-calls" 2>/dev/null)"
+  fail "a remote elsewhere: $refused_init / $no_file / $gl_proposed"
 fi
 
-# The watch of the open pull requests, which looks once a second here (`--every 1`; Lem's own call waits 60); the owner merges
-# and closes on the forge, here by the stand-in's file, and the watch ends and names the task.
+# Open pull requests after a merge: the owner merges and closes on the forge, here by the stand-in's file, and
+# `lem land merged`, which the board's server runs for such a pull request, finishes the bookkeeping.
 GWO=$WORK/gw-origin.git
 GWS=$WORK/gw-shop
 git init -q --bare -b main "$GWO"
@@ -389,12 +378,6 @@ git -C "$GWS" add -A && git -C "$GWS" commit -q -m "chore: start" && git -C "$GW
 GW=$WORK/gw.json
 gw_land() { PATH="$WORK/bin:$PATH" GH_STATE="$GW" GH_ORIGIN="$GWO" "$PY" -B "$LAND" --repo "$GWS" "$@"; }
 gw_state() { "$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print(eval(sys.argv[2], {"d": d}))' "$GW" "$1"; }
-# gw_watch: the watch in the background, the command itself (exec), so that $! is its own process and a TERM reaches it;
-# the function's subshell would take the TERM in its place and leave the watch running with no parent
-gw_watch() { PATH="$WORK/bin:$PATH" GH_STATE="$GW" GH_ORIGIN="$GWO" exec "$PY" -B "$LAND" --repo "$GWS" watch --every 1; }
-watched() { "$PY" -c 'import json, re, sys; print(eval(sys.argv[2], {"d": json.loads(re.fullmatch(r"lemWatch\((.*)\);\n", open(sys.argv[1]).read(), re.S).group(1))}))' "$GWS/.lem/state/watch.js" "$1" 2>/dev/null; }
-# looked N: the watch this test started ($wpid), and no other, looked N times
-looked() { [ "$(watched 'd.get("looks") or 0 if d.get("pid") == '"$wpid"' else 0')" -ge "$1" ] 2>/dev/null; }
 # line_task SLUG small|full LINE TEXT: a task that writes TEXT on line LINE of shop.txt, with the test `grep -q TEXT shop.txt`, `ready`
 line_task() {
   local tree directory
@@ -433,49 +416,16 @@ forge_merge() {
   gh_set "d['prs']['$1'].update(state='MERGED', merge='$head'); ${2:-pass}" "$GW"
 }
 
-# What ends a watch at once, with what to do: nothing open, no gh, gh signed out, and a project with no pull requests.
-none=$(gw_land watch 2>&1 || true)
-none_code=$(status_of gw_land watch)
-none_file=$(watched '(d["checked"], d["ended"] is not None, d["why"])')
 line_task w-one small 1 one
 line_task w-two full 9 nine
 proposed w-one && proposed w-two
-no_gh=$(PATH="$WORK/no-gh" GH_STATE="$GW" GH_ORIGIN="$GWO" "$PY" -B "$LAND" --repo "$GWS" watch 2>&1 || true)
-signed_out=$(GH_SIGNED_OUT=1 gw_land watch 2>&1 || true)
-merge_mode=$(PATH="$WORK/gm-bin:$PATH" "$PY" -B "$LAND" --repo "$GMS" watch 2>&1 || true)
-if grep -qF "land.py: nothing to watch: no task is open with a pull request; Lem starts the watch after its next proposal" <<<"$none" && [ "$none_code" = 1 ] \
-  && [ "$none_file" = "(None, True, 'nothing to watch: no task is open with a pull request; Lem starts the watch after its next proposal')" ] \
-  && grep -qF "the \`gh\` command is not on PATH" <<<"$no_gh" && grep -qF "the \`gh\` command is not signed in to github.com (You are not logged into any GitHub hosts. To log in, run: gh auth login): \`gh auth login\` signs it in" <<<"$signed_out" \
-  && grep -qF 'branch.propose is "merge" in .lem/project.toml: no task opens a pull request, so there is none to watch' <<<"$merge_mode" \
-  && [ "$(gw_state '(sorted(d["prs"]), [p["head"] for p in d["prs"].values()])')" = "(['7', '8'], ['fix/w-one', 'fix/w-two'])" ]; then
-  pass "a watch with nothing open, with no gh, with gh signed out or in a project that opens no pull requests ends at once with exit 1 and what to do, and the board's file says that it ended and why"
-else
-  fail "the ends of a watch: $none / $none_file / $no_gh / $signed_out / $merge_mode"
-fi
-# A watch that looks while nothing changed (each watch starts with no file of an earlier one, so that its own looks are waited for), one call of the forge for both pull requests at each look, and ends on a merge.
-: > "$GW.log"
-rm -f "$GWS/.lem/state/watch.js"
-gw_watch > "$WORK/watch.out" 2> "$WORK/watch.err" &
-wpid=$!
-soon looked 3
-alive=$(kill -0 "$wpid" 2>/dev/null && echo yes || echo no)
-looks_before=$(watched 'd["looks"]')
-calls_before=$("$PY" -c 'import json, sys; c = [json.loads(l) for l in open(sys.argv[1])]; print((sum(x[:2] == ["pr", "list"] for x in c), sum(x[:2] == ["pr", "view"] for x in c), sum(x[:2] == ["auth", "status"] for x in c)))' "$GW.log")
 forge_merge 7
-set +e; wait "$wpid"; wcode=$?; set -e
-if [ "$alive" = yes ] && [ "$wcode" = 0 ] && [ "$calls_before" = "($looks_before, 0, 1)" ] \
-  && [ "$(field '([(e["task"], e["pr"], e["what"]) for e in d["ended"]], [(e["task"], e["pr"], e["state"]) for e in d["open"]], d["every"], d["looks"] > 3)' < "$WORK/watch.out")" = "([('w-one', 7, 'merged')], [('w-two', 8, 'OPEN')], 1, True)" ] \
-  && [ "$(watched '([e["task"] for e in d["open"]], d["ended"], d["every"])')" = "(['w-two'], None, 1)" ] && [ "$(status_in "$GWS" w-one)" = open ]; then
-  pass "the watch looks at the forge once a second while nothing changes, with one call for every open task's pull request, writes each look for the board, and ends with exit 0 when the owner merged one, naming the task; it changes no task"
-else
-  fail "a watch to a merge: alive=$alive code=$wcode looks=$looks_before calls=$calls_before / $(cat "$WORK/watch.out" "$WORK/watch.err")"
-fi
 # After the merge the other open task waits as it is. The owner's word to land it meets the moved base, and the steps
 # the refusal names bring it onto the new base: the same file in other lines, a rebase with no conflict, so the review
 # stands; the checks run again, and the proposal keeps its pull request.
 gw_land merged w-one >/dev/null
 waited=$(status_in "$GWS" w-two)
-refused=$(gw_land land w-two --by owner 2>&1 || true)
+refused=$(gw_land merge w-two --by owner 2>&1 || true)
 started=$(gw_land start w-two 2>&1 || true)
 based=$(gw_land base w-two 2>&1 || true)
 polished=$(gw_land polish w-two 2>&1 || true)
@@ -498,18 +448,12 @@ if [ "$(status_in "$GWS" w-one)" = landed ] && [ "$waited" = open ] && grep -qF 
 else
   fail "an open task after a merge: $waited / $refused / $started / $based / $polished / $due_after / $again"
 fi
-# A conflict: the owner merges #9, which changed the line #10 changes too. The watch names #10 as conflicting, base stops,
+# A conflict: the owner merges #9, which changed the line #10 changes too, and the forge calls #10 conflicting. base stops,
 # a builder (here the test) rebases and keeps both, and the resolution gets one read of its own.
 line_task w-three small 5 three
 line_task w-four full 5 four
 proposed w-three && proposed w-four
-rm -f "$GWS/.lem/state/watch.js"
-gw_watch > "$WORK/watch.out" 2>&1 &
-wpid=$!
-soon looked 1
 forge_merge 9 "d['prs']['10']['mergeable'] = 'CONFLICTING'"
-set +e; wait "$wpid"; wcode=$?; set -e
-conflicted=$(field '([(e["task"], e["what"]) for e in d["ended"]], [(e["task"], e["mergeable"]) for e in d["open"]])' < "$WORK/watch.out" 2>&1)
 gw_land merged w-three >/dev/null
 gw_land start w-four --conflicting >/dev/null
 stopped=$(gw_land base w-four 2>/dev/null || true)
@@ -527,8 +471,7 @@ again=$(gw_land propose w-four --title "fix: w-four" --notes "$NOTES" 2>&1 || tr
 text=$GWS/.lem/state/tasks/w-four/pr.md
 # the forge works out again that the pushed head merges with no conflict
 gh_set "d['prs']['10']['mergeable'] = 'MERGEABLE'" "$GW"
-if [ "$wcode" = 0 ] && [ "$conflicted" = "([('w-three', 'merged')], [('w-four', 'CONFLICTING'), ('w-two', 'MERGEABLE')])" ] \
-  && [ "$(field 'd["conflict"]' <<<"$stopped" 2>&1)" = "['shop.txt']" ] && [ "$(field '(d["resolved"], d["moved"])' <<<"$resolved" 2>&1)" = "(['shop.txt'], False)" ] \
+if [ "$(status_in "$GWS" w-three)" = landed ] && [ "$(field 'd["conflict"]' <<<"$stopped" 2>&1)" = "['shop.txt']" ] && [ "$(field '(d["resolved"], d["moved"])' <<<"$resolved" 2>&1)" = "(['shop.txt'], False)" ] \
   && [ "$(field 'd["done"]' <<<"$polished" 2>&1)" = True ] \
   && [ "$(field '(d["due"], d["floor"], d["round"], d["resolution"]["files"], d["resolution"]["range_diff"].startswith("git range-diff "))' <<<"$due_read" 2>&1)" = "('review', 'read', 1, ['shop.txt'], True)" ] \
   && grep -qF "a builder resolved a conflict with the base in shop.txt: one read of what the resolution changed" <<<"$due_read" \
@@ -537,51 +480,19 @@ if [ "$wcode" = 0 ] && [ "$conflicted" = "([('w-three', 'merged')], [('w-four', 
   && grep -qxF -- "- the read of the conflict's resolution (one read; answered: codex): clean, 0 must-fix, 0 should, 0 nit" "$text" \
   && grep -qxF "Rebased on main after the forge called it conflicting; one conflict in shop.txt, resolved by a builder; the checks passed again." "$text" \
   && [ "$(git -C "$GWO" rev-parse refs/heads/fix/w-four)" = "$(git -C "$tree" rev-parse HEAD)" ] && [ "$(status_in "$GWS" w-four)" = open ]; then
-  pass "a conflict after a merge: the watch names the conflicting pull request first, base stops on its files, and after a builder's resolution base keeps the polish pass by its new names; the resolution gets one read that is no round, and propose keeps the pull request, whose text says that a builder resolved the conflict"
+  pass "a conflict after a merge: base stops on the files of the pull request the forge calls conflicting, and after a builder's resolution base keeps the polish pass by its new names; the resolution gets one read that is no round, and propose keeps the pull request, whose text says that a builder resolved the conflict"
 else
-  fail "a conflict after a merge: code=$wcode $conflicted / $stopped / $resolved / $polished / $due_read / $recorded / $due_after / $again"
-fi
-# A pull request the owner closed with no merge ends the watch too, and names what happened.
-line_task w-five small 2 five
-proposed w-five
-rm -f "$GWS/.lem/state/watch.js"
-gw_watch > "$WORK/watch.out" 2>&1 &
-wpid=$!
-soon looked 1
-gh_set "d['prs']['11']['state'] = 'CLOSED'" "$GW"
-set +e; wait "$wpid"; wcode=$?; set -e
-closed=$(field '[(e["task"], e["pr"], e["what"]) for e in d["ended"]]' < "$WORK/watch.out" 2>&1)
-dropped=$(gw_land merged w-five 2>&1 || true)
-if [ "$wcode" = 0 ] && [ "$closed" = "[('w-five', 11, 'closed')]" ] && [ "$(field '(d["closed"], d["state"])' <<<"$dropped" 2>&1)" = "(True, 'dropped')" ] && [ "$(status_in "$GWS" w-five)" = dropped ]; then
-  pass "the watch ends when the owner closed a pull request with no merge, and names it as closed; merged then writes the task dropped"
-else
-  fail "a watch to a close: code=$wcode $closed / $dropped / $(cat "$WORK/watch.out")"
+  fail "a conflict after a merge: $stopped / $resolved / $polished / $due_read / $recorded / $due_after / $again"
 fi
 # A commit on the base that is no task's merge (here a push of the owner's) makes an open pull request conflicting:
-# the watch ends and names it, once for one head; a watch started again while it waits does not end for it again,
-# and a watch with no look before ends at its first look. start --conflicting brings it onto the base, and the
-# pull request's text says why in one line.
+# start --conflicting brings it onto the base, and the pull request's text says why in one line.
 line_task w-six small 3 six
 proposed w-six
-rm -f "$GWS/.lem/state/watch.js"
-gw_watch > "$WORK/watch.out" 2>&1 &
-wpid=$!
-soon looked 1
 pusher=$WORK/gw-pusher
 git clone -q "$GWO" "$pusher" && ident "$pusher"
 "$PY" -I -c 'import sys; p = sys.argv[1]; lines = open(p).read().splitlines(); lines[2] = "the owner"; open(p, "w").write("\n".join(lines) + "\n")' "$pusher/shop.txt"
 git -C "$pusher" commit -q -am "docs: the owner's own line" && git -C "$pusher" push -q origin main
-gh_set "d['prs']['12']['mergeable'] = 'CONFLICTING'" "$GW"
-set +e; wait "$wpid"; wcode=$?; set -e
-newly=$(field '(d["ended"], [(e["task"], e["pr"], e["why"]) for e in d["conflicting"]], [e["task"] for e in d["open"]][0])' < "$WORK/watch.out" 2>&1)
-gw_watch > "$WORK/watch-again.out" 2>&1 &
-wpid=$!
-soon looked 2
-again_alive=$(kill -0 "$wpid" 2>/dev/null && echo yes || echo no)
-kill -TERM "$wpid" 2>/dev/null || true
-set +e; wait "$wpid" 2>/dev/null; set -e
-rm -f "$GWS/.lem/state/watch.js"
-first=$(gw_land watch 2>&1 | field '[(e["task"], e["why"]) for e in d["conflicting"]]' 2>&1 || true)
+gh_set "d['prs']['11']['mergeable'] = 'CONFLICTING'" "$GW"
 gw_land start w-six --conflicting >/dev/null
 stopped=$(gw_land base w-six 2>/dev/null || true)
 tree=$GWS/.lem/worktrees/w-six
@@ -592,21 +503,18 @@ gw_land base w-six >/dev/null 2>&1 || true
 gw_land checks w-six >/dev/null 2>&1 || true
 gw_land read w-six --record "$(clean 2)" >/dev/null 2>&1 || true
 synced=$(gw_land propose w-six --title "fix: w-six" --notes "$NOTES" 2>&1 | field '(d["pull_request"]["number"], d["synced"])' 2>&1 || true)
-gh_set "d['prs']['12']['mergeable'] = 'MERGEABLE'" "$GW"
-why12="the forge calls pull request #12 conflicting with main"
-if [ "$wcode" = 0 ] && [ "$newly" = "([], [('w-six', 12, '$why12, and it did not at the look before: a commit on the base met its change')], 'w-six')" ] \
-  && [ "$again_alive" = yes ] && [ "$first" = "[('w-six', '$why12, at the first look of the watch: a commit on the base met its change')]" ] \
-  && grep -qF "the forge calls the pull request conflicting with main: the branch is brought onto it again" "$GWS/.lem/state/tasks/w-six/state.md" \
+gh_set "d['prs']['11']['mergeable'] = 'MERGEABLE'" "$GW"
+if grep -qF "the forge calls the pull request conflicting with main: the branch is brought onto it again" "$GWS/.lem/state/tasks/w-six/state.md" \
   && [ "$(field 'd["conflict"]' <<<"$stopped" 2>&1)" = "['shop.txt']" ] \
-  && [ "$synced" = "(12, 'rebased on main after the forge called it conflicting; one conflict in shop.txt, resolved by a builder; the checks passed again')" ] \
+  && [ "$synced" = "(11, 'rebased on main after the forge called it conflicting; one conflict in shop.txt, resolved by a builder; the checks passed again')" ] \
   && grep -qxF "Rebased on main after the forge called it conflicting; one conflict in shop.txt, resolved by a builder; the checks passed again." "$GWS/.lem/state/tasks/w-six/pr.md"; then
-  pass "a pull request a commit on the base made conflicting ends the watch, which names it and why, once for one head: a watch started again does not end for it, one with no look before ends at its first look; start --conflicting brings it onto the base, and its text says why"
+  pass "a pull request a commit on the base made conflicting: start --conflicting brings it onto the base, and its text says why"
 else
-  fail "a pull request that became conflicting: code=$wcode $newly / $again_alive / $first / $stopped / $synced"
+  fail "a pull request that became conflicting: $stopped / $synced"
 fi
 
 # The status asks merged for each open task: a pull request still open is "not merged yet", and merged keeps what the
-# forge says of a conflict on the pushed head, so the list of what waits says it beside green without the watch.
+# forge says of a conflict on the pushed head, so the list of what waits says it beside green.
 line_task w-seven small 8 seven
 proposed w-seven
 seven=$(gw_state 'next(n for n, p in d["prs"].items() if p["head"] == "fix/w-seven")')
@@ -653,19 +561,6 @@ if [ "$care_alone" = none ] && [ "$care_meet" = "('none', 'round 1 reviewed this
   pass "a careful change keeps its review through a rebase with no conflict, onto a base that left its files alone and onto one that changed one of them in other lines"
 else
   fail "a careful change after a rebase with no conflict: $care_alone / $care_meet"
-fi
-
-# A watch that is stopped ends the forge's calls, says so, and leaves the board's file saying that nobody watches.
-rm -f "$GWS/.lem/state/watch.js"
-gw_watch > "$WORK/watch.out" 2> "$WORK/watch.err" &
-wpid=$!
-soon looked 1
-kill -TERM "$wpid"
-set +e; wait "$wpid"; wcode=$?; set -e
-if [ "$wcode" = 1 ] && grep -qF "land.py: the watch was stopped" "$WORK/watch.err" && [ "$(watched '(d["ended"] is not None, d["why"].startswith("the watch was stopped"))')" = "(True, True)" ]; then
-  pass "a watch that is stopped exits 1, says so, and its file for the board says that it ended"
-else
-  fail "a stopped watch: code=$wcode / $(cat "$WORK/watch.err")"
 fi
 
 finish

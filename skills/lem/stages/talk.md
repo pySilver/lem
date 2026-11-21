@@ -1,11 +1,11 @@
 # talk
 
 The plan talk of a careful or large plan, before any code. This is the defender's stage: the
-agent in the companion session Lem opens for the talk (`prompts/defender.md`). It takes this
-stage and `stages/plan.md`, step 5, for the questions the talk leaves open, and nothing else of
-the lead's; a lead never reads this file. A builder wrote the plan and stopped at
-`stages/plan.md`, step 3, and the builder that leads after the talk reads the record this stage
-leaves in the plan, its `## Plan talk` section.
+agent of the pair the task's lead opens under its session for the talk (`prompts/defender.md`). It
+takes this stage and `stages/plan.md`, step 5, for the questions the talk leaves open, and nothing
+else of the lead's; a lead never reads this file. The lead wrote the plan and waits at
+`stages/plan.md`, step 4, and then reads the record this stage leaves in the plan, its `## Plan
+talk` section.
 
 The defender and the reviewer argue the plan through the mailbox to find the obstacle
 the planner did not see and a better design. The owner asked for the talk in a pair: "two
@@ -46,8 +46,10 @@ rules:
   when your first answer was a refutation; never a second repair. A refutation of the repair's
   own new text is the same question, not a new one.
 - **A question that holds a second time stops.** It closes as a design choice: the plan's
-  design against the smallest option it was priced against. Do not edit the plan to settle it:
-  it goes to `stages/plan.md`, step 5, as a numbered choice, with both positions in `--said`.
+  design against the smallest option it was priced against. Do not edit the plan to settle it in
+  the talk: it goes to `stages/plan.md`, step 5, as a decision in doubt with both positions as
+  its facts, and the ladder decides it after the talk; only the breaker (`stages/breaker.md`)
+  takes it to the owner.
 - **A question after the first turn is not argued.** It goes into the record as "raised, not
   argued", with its mechanism and place, and the review before the pull request checks it as a
   claim (`prompts/review.md`).
@@ -83,7 +85,7 @@ rules:
     case on 2026-11-16: "whether it will catch an issue where fix should be applied at root
     level (whatever it calls) and that change would trigger number of other issues (sign that
     such change is probably not the best solution)";
-  - the owner's card of such a design choice compares both sides honestly (`stages/plan.md`, step 5): the kept
+  - the ladder's options of such a design choice compare both sides honestly (`stages/plan.md`, step 5): the kept
     decision with each mechanism that guards it, against the reversed decision with the tasks
     and the criteria it changes and each issue the reviewer raised against it;
   - no root-cause run: Fable advised against one here, because it examines a failure that
@@ -101,10 +103,10 @@ Commit every repair before any code. Then write the record into the plan, as a s
 
 - who argued the plan: the reviewer's agent, and its model and effort as its pane's status
   line shows them; and you, with the model and effort the `defender:` line of the task's
-  state gives, which Lem read from your pane's status line;
+  state gives, which the lead read from your pane's status line;
 - the list, numbered as the reviewer gave it, each question with how it ended: settled, with
   its cite and after it the words "settled by the two, not checked by the review"; a design
-  choice, with the two positions, each with its cite, and the choice `stages/plan.md`, step 5, asks; or open, with
+  choice, with the two positions, each with its cite, and the decision `stages/plan.md`, step 5, logs; or open, with
   the two positions and where it went (`stages/plan.md`, step 5, takes it);
 - each mechanism a repair added, with the decision it sits on and the reviewer's word: at the
   cause, or a layer over that decision and its cite;
@@ -138,7 +140,7 @@ question, and the close. That bound is derived from these rules in a Fable secon
 second question on a decision did not close as a design choice, is still a fact: write it down
 as it ran. The script takes the record and adds the bound to it as `bound`, and the pull
 request's line of the talk and the board say that the talk went over. A record the script
-refused would leave the companion open and the request unproposed for ever. The landing refuses a request whose plan says `careful: yes` or has more than three
+refused would leave the pair open and the request unproposed for ever. The landing refuses a request whose plan says `careful: yes` or has more than three
 tasks with no such event, and the pull request's checks show the newest one. A task that becomes
 careful after its plan, by the owner's word, by the review's call or by an edit of
 `.lem/project.toml`, gets no talk afterwards: the landing's full review reads the code that

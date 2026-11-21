@@ -14,9 +14,9 @@ NEW=$WORK/new
 git init -q -b main "$NEW"
 out=$(project --repo "$NEW" show)
 if [ "$(field 'd["settings"]' <<<"$out")" = "None" ] && [ "$(field 'd["places"]["rules"]["path"]' <<<"$out")" = "$NEW/.claude/rules" ] \
-  && [ "$(field 'd["branch"]["land"]' <<<"$out")" = "owner" ] && [ "$(field 'sorted(d["paths"])' <<<"$out")" = "['plan_file', 'plans', 'ruling_file', 'rulings']" ] \
+  && [ "$(field 'd["branch"]["land"]' <<<"$out")" = "agent" ] && [ "$(field 'sorted(d["paths"])' <<<"$out")" = "['plan_file', 'plans', 'ruling_file', 'rulings']" ] \
   && [ "$(field '(d["paths"]["rulings"]["path"], d["paths"]["ruling_file"]["pattern"])' <<<"$out")" = "('$NEW/docs/rulings', '<slug>.md')" ]; then
-  pass "with no settings file, show answers from Lem's own places, the paths are the plans and the rulings folders and the name of a file in each, docs/rulings and <slug>.md for a ruling, and the owner lands"
+  pass "with no settings file, show answers from Lem's own places, the paths are the plans and the rulings folders and the name of a file in each, docs/rulings and <slug>.md for a ruling, and the merge agent merges"
 else
   fail "defaults: $out"
 fi
@@ -46,8 +46,8 @@ for line in open(sys.argv[1], encoding="utf-8"):
 print(sorted(found))' "$NEW/.lem/project.toml")
 # shellcheck disable=SC2016  # the backticks are the refusal's or the page's own marks
 paged=$("$PY" -I -c 'import re, sys; print(sorted(set(re.findall(r"^\| `(\w+\.\w+)` \|", open(sys.argv[1], encoding="utf-8").read(), re.M))))' "$PWD/docs/settings.md")
-if [ "$shown" = "$written" ] && [ "$shown" = "$paged" ] && [ "$("$PY" -c 'import sys; print(len(eval(sys.argv[1])))' "$shown")" = 19 ]; then
-  pass "the settings are 19 keys, the same in show, in the file init writes and on the settings page"
+if [ "$shown" = "$written" ] && [ "$shown" = "$paged" ] && [ "$("$PY" -c 'import sys; print(len(eval(sys.argv[1])))' "$shown")" = 20 ]; then
+  pass "the settings are 20 keys, the same in show, in the file init writes and on the settings page"
 else
   fail "the keys of the settings: show $shown / the file $written / the page $paged"
 fi
@@ -55,11 +55,11 @@ out=$(project --repo "$NEW" show)
 if [ "$(field 'd["branch"]["base"]' <<<"$out")" = "main" ] && [ "$(field 'd["places"]["personas"]["path"]' <<<"$out")" = "$NEW/.lem/personas" ] \
   && [ "$(field '(d["seats"]["reviewer"]["agent"], d["seats"]["reviewer"]["model"])' <<<"$out")" = "('codex', 'gpt-6.2-sol')" ] \
   && [ "$(cat "$NEW/.lem/.gitignore")" = "$(printf 'project.local.toml\nstate/')" ] && [ "$(field 'd["local"]' <<<"$out")" = "{'file': None, 'overrides': []}" ] \
-  && grep -qxF 'propose = "pull-request"' "$NEW/.lem/project.toml" && grep -qxF 'history = "squash"' "$NEW/.lem/project.toml" \
+  && grep -qxF 'land = "agent"' "$NEW/.lem/project.toml" && grep -qxF 'history = "squash"' "$NEW/.lem/project.toml" \
   && grep -qxF 'plan_file = "YYYY-MM-DD-<slug>.md"' "$NEW/.lem/project.toml" && grep -qxF 'reviewer = "codex/gpt-6.2-sol:high"' "$NEW/.lem/project.toml" \
   && grep -qxF 'planner = "claude/opus:high"' "$NEW/.lem/project.toml" \
   && grep -qxF 'experts = ["claude/fable:high", "codex/gpt-6.2-astra:high"]' "$NEW/.lem/project.toml"; then
-  pass "init in a new project writes Lem's own places, the given base, a pull request and one commit for each task, the three seats whole, and ignore rules for the machine's own settings and for Lem's state"
+  pass "init in a new project writes Lem's own places, the given base, the merge agent's merge and one commit for each task, the three seats whole, and ignore rules for the machine's own settings and for Lem's state"
 else
   fail "init in a new project: $out"
 fi
@@ -316,8 +316,8 @@ rm -r "$OLD/.lem/state/tasks/from-a-ticket" "$OLD/.lem/state/tasks/the-same-tick
 rm -rf "$OLD/.lem/state/tasks/after-the-answer"
 none=$(project --repo "$OLD" tasks | field '[t["proposal"] for t in d]')
 echo '{"proposed": "0123", "pr": {"number": 7, "url": "https://github.com/acme/shop/pull/7"}, "not_green": ["criterion 1 changed during the build: y is taken."]}' > "$dir/landing.json"
-if [ "$none" = "[None]" ] && [ "$(project --repo "$OLD" tasks | field '[t["proposal"] for t in d]')" = "[{'pull_request': 'https://github.com/acme/shop/pull/7', 'green': False, 'not_green': ['criterion 1 changed during the build: y is taken.'], 'conflict': None}]" ]; then
-  pass "tasks says what a landing proposed: the pull request's address, green or each reason it is not, and no conflict while nothing asked the forge"
+if [ "$none" = "[None]" ] && [ "$(project --repo "$OLD" tasks | field '[t["proposal"] for t in d]')" = "[{'pull_request': 'https://github.com/acme/shop/pull/7', 'green': False, 'not_green': ['criterion 1 changed during the build: y is taken.'], 'conflict': None, 'merge_review': None, 'merge_refused': None}]" ]; then
+  pass "tasks says what a landing proposed: the pull request's address, green or each reason it is not, no conflict while nothing asked the forge, and no merge review before the merge agent read it"
 else
   fail "the proposal in tasks: $(project --repo "$OLD" tasks)"
 fi
@@ -471,12 +471,12 @@ else
   fail "a checkout path with a line break: $(project --repo "$WORK/odd-wt" show | field '(d["main"], d["local"])')"
 fi
 
-# The event log: every state block is an event the board can load, with the worktree's newest commit.
+# The event log: every state block is an event, with the worktree's newest commit.
 events() { "$PY" -c 'import json, sys; d = [json.loads(line) for line in open(sys.argv[1])]; print(eval(sys.argv[2], {"d": d}))' "$OLD/.lem/state/events.jsonl" "$1"; }
 if [ "$(events '[(e["event"], e["task"], e["status"], e["text"], e["lines"]) for e in d[:2]]')" = "[('task.state', 'report-dates-stay-whole', 'queued', 'waits for a free place', []), ('task.state', 'report-dates-stay-whole', 'building', 'task 2 of 3', ['next: the report'])]" ] \
   && [ "$(events 'len(d)')" = 2 ] && [ "$(events 'd[1]["ask"], "limit" in d[1], "head" in d[1]')" = "('Keep report dates whole.', False, False)" ] \
-  && [ "$(sed -n 2p "$OLD/.lem/state/events.js")" = "lemEvent($(sed -n 2p "$OLD/.lem/state/events.jsonl"));" ]; then
-  pass "each state block is one event with the ask, a refused one is none, and the board's copy holds the same record"
+  && [ ! -e "$OLD/.lem/state/events.js" ]; then
+  pass "each state block is one event with the ask, a refused one is none, and the log is the one record"
 else
   fail "events: $(cat "$OLD/.lem/state/events.jsonl")"
 fi
@@ -544,7 +544,7 @@ fi
 FLOW=$WORK/flow
 git init -q -b main "$FLOW" && ident "$FLOW"
 project --repo "$FLOW" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' '[flow]' 'topics = ["a customer is charged the wrong price"]' > "$FLOW/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'land = "owner"' '[flow]' 'topics = ["a customer is charged the wrong price"]' > "$FLOW/.lem/project.toml"
 git -C "$FLOW" add -A && git -C "$FLOW" commit -q -m "chore: start"
 git -C "$FLOW" worktree add -q "$WORK/flow-tree" -b feat/lift main
 printf '%s\n' '[branch]' 'base = "main"' '[flow]' 'topics = []' > "$WORK/flow-tree/.lem/project.toml"
@@ -742,9 +742,8 @@ if [ "$good" = "builder.start criteria.read.start interview.start investigation.
 else
   fail "the forms of the starts: $good / $added / $with_field / $no_by / $odd_by / $odd_kind / $odd_job / $task_zero / $script_start"
 fi
-# a choice the investigation asked while the task built, which nobody answered before the task ended
-"$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ANS" ask zero-after-refund "${CASE[@]}" --what "Keep the test" --option "keep it" --option "drop it" --recommended "keep it" \
-  --why "it pins the behavior" --said "The two personas split." >/dev/null
+# a breaker that stopped the investigation while the task built, which nobody helped on before the task ended
+breaker_doc "$ans_dir" && "$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ANS" breaker zero-after-refund --cause irreversible --irreversible data >/dev/null
 # `answered` needs the report and a record whose call ends the task; it takes no place and keeps its slug.
 no_report=$(project --repo "$ANS" state zero-after-refund answered "not a bug: a refund is a credit note" 2>&1 || true)
 printf '%s\n' '# Investigation' '' 'Reproduced: yes.' > "$ans_dir/investigation.md"
@@ -770,15 +769,14 @@ if grep -qF "investigation.md" <<<"$no_report" && grep -qF "not-a-bug or answer"
 else
   fail "the state answered: $no_report / $goes_on / $answered / $places / $unreported / $free / $taken"
 fi
-# A choice of an answered task waits for nobody, and the task takes no new one.
-ended=$("$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ANS" pending | field '(d["waiting"], [(e["task"], e["status"]) for e in d["ended"]])' 2>&1 || true)
-again=$("$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ANS" ask zero-after-refund "${CASE[@]}" --what "Keep the test" --option "keep it" --option "drop it" --recommended "keep it" \
-  --why "it pins the behavior" --said "The two personas split." 2>&1 || true)
-if [ "$ended" = "([], [('zero-after-refund', 'answered')])" ] && grep -qF "zero-after-refund is answered" <<<"$again" \
+# A breaker of an answered task waits for nobody, and the task takes no new decision.
+ended=$("$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ANS" pending | field '(d["waiting"], [(e["task"], e["status"], e["breakers"]) for e in d["ended"]])' 2>&1 || true)
+again=$("$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ANS" log zero-after-refund --by lead --what "Keep the test" --chose "keep it" --why "it pins the behavior" 2>&1 || true)
+if [ "$ended" = "([], [('zero-after-refund', 'answered', [1])])" ] && grep -qF "zero-after-refund is answered" <<<"$again" \
   && [ "$(grep -c '' "$ANS/.lem/state/tasks/zero-after-refund/decisions.jsonl")" = 1 ]; then
-  pass "an answered task has no choice that waits: pending puts it with the tasks that ended, and a new choice of it is refused"
+  pass "an answered task has no breaker that waits: pending puts it with the tasks that ended, and a new decision of it is refused"
 else
-  fail "the choices of an answered task: $ended / $again"
+  fail "the breaker of an answered task: $ended / $again"
 fi
 
 # A task that was reviewed and proposed and is not green: it waits for the owner's merge, and it does not go back a phase.
@@ -918,7 +916,7 @@ criteria record export-has-the-gift-note >/dev/null
 if [ "$(field '(d["size"], d["why"], [(s["n"], s["text"].split(" of an order")[0].split(",")[0], [t["command"] for t in s["tests"]], [t["files"] for t in s["tests"]]) for s in d["criteria"]])' <<<"$shown")" \
   = "('full', 'the export gets a new column and an empty cell.', [(1, 'A CSV export holds the gift note', ['sh tests/gift.sh'], [['tests/gift.sh']]), (2, 'An order with no gift note has an empty cell', ['sh tests/none.sh'], [['tests/none.sh', 'tests/helper.sh']])])" ] \
   && [ "$(field 'd["criteria"][0]["text"].endswith("has that text in its row.")' <<<"$shown")" = True ] \
-  && [ "$(grep -c '"event": "task.criteria"' "$ST/.lem/state/events.jsonl")" = 1 ] && grep -q '"size": "full"' "$ST/.lem/state/events.js"; then
+  && [ "$(grep -c '"event": "task.criteria"' "$ST/.lem/state/events.jsonl")" = 1 ] && grep -q '"event": "task.criteria".*"size": "full"' "$ST/.lem/state/events.jsonl"; then
   pass "the criteria are read from the top of the task's plan, each with its text over two lines and its tests, and record puts them into the event log for the board"
 else
   fail "criteria show and record: $shown"
@@ -1178,13 +1176,13 @@ wrong_was=$(adecide criterion approved-note --removed 2 --was "An order with no 
 adecide criterion approved-note --removed 2 --was "$t2" --why "Every order has a note now." --by personas --said "The merchant and the accountant both dropped it." >/dev/null 2>&1 || true
 removed_now=$(criteria show approved-note 2>/dev/null | field '(d["changes"][-1]["how"], d["changes"][-1]["by"], d["changes"][-1]["said"])' 2>&1 || true)
 expected=$(adecide changes approved-note 2>/dev/null | field 'd["expected"]' 2>&1 || true)
-# The command takes one change, its reason, and who made it: a choice of the build, or the lead or the personas.
+# The command takes one change, its reason, and who made it: a decision of the record, or the lead or the personas.
 neither=$(adecide criterion approved-note --added 2 --now "x" --why "w" 2>&1 || true)
-both=$(adecide criterion approved-note --added 2 --now "x" --why "w" --choice 1 --by lead 2>&1 || true)
+both=$(adecide criterion approved-note --added 2 --now "x" --why "w" --decision 1 --by lead 2>&1 || true)
 nosaid=$(adecide criterion approved-note --added 2 --now "x" --why "w" --by personas 2>&1 || true)
 twoways=$(adecide criterion approved-note --changed 1 --added 2 --now "x" --why "w" --by lead 2>&1 || true)
 added_was=$(adecide criterion approved-note --added 2 --now "x" --was "y" --why "w" --by lead 2>&1 || true)
-nochoice=$(adecide criterion approved-note --added 2 --now "x" --why "w" --choice 9 2>&1 || true)
+nochoice=$(adecide criterion approved-note --added 2 --now "x" --why "w" --decision 9 2>&1 || true)
 not_approved=$(adecide criterion export-has-the-gift-note --changed 1 --was "x" --now "y" --why "w" --by lead 2>&1 || true)
 log_story=$(status_of adecide log approved-note --what x --chose y --why z --by lead --criterion 1 --was "$t1")
 records=$(grep -c '"kind": "criterion"' "$ST/.lem/state/tasks/approved-note/decisions.jsonl" || true)
@@ -1198,10 +1196,10 @@ if grep -qF "criterion 1 of 2026-11-16-approved-note.md says '$c1', and the expe
   && grep -qF "2026-11-16-approved-note.md lacks criterion 2, '$t2', which the expected criteria hold" <<<"$dropped" \
   && grep -qF "criterion 2 is '$t2' after every earlier change, and --was says 'An order with no gift note has the line 1043.'" <<<"$wrong_was" \
   && [ "$removed_now" = "('removed', 'personas', 'The merchant and the accountant both dropped it.')" ] && [ "$expected" = "['$c2']" ] \
-  && grep -qF "names --choice ID, the choice of the build that led to it, or --by lead|personas when no choice did: one of the two" <<<"$neither" \
+  && grep -qF "names --decision ID, the decision of the record that led to it, or --by lead|personas when none did: one of the two" <<<"$neither" \
   && grep -qF "one of the two" <<<"$both" && grep -qF -- "--by personas needs --said" <<<"$nosaid" \
   && grep -qF "a criterion change is one of --changed N, --added N or --removed N" <<<"$twoways" && grep -qF -- "--added takes no --was: an added criterion had no text before" <<<"$added_was" \
-  && grep -qF "no choice 9 went to the owner in approved-note" <<<"$nochoice" \
+  && grep -qF "no decision 9 in approved-note" <<<"$nochoice" \
   && grep -qF "export-has-the-gift-note has no approved criteria, so no change of them is recorded" <<<"$not_approved" && [ "$log_story" = 2 ] \
   && [ "$records" = 5 ] && [ "$plain" = "(None, [])" ]; then
   pass "a plan whose criteria are not the approved ones with each recorded change applied is refused by show and red: an earlier change lets no later one pass, a criterion the build added can leave again, and a change whose text before is not the criterion as it stands is refused when it is recorded; the command takes one change with its reason and who made it; a task with no approved criteria records none and keeps the plan as the source"
@@ -1279,12 +1277,12 @@ else
   fail "approvals under one lock: $while_held / $after_lock / $late_freeze / $(cat "$WORK/his-approval.out")"
 fi
 
-# The backlog tab of the board: board.py writes the items for the page, with what each needs beside its text.
+# The backlog of the board: board.py reads the items for its view, with what each needs beside its text.
 BKB=$WORK/backlog-board
 git init -q -b main "$BKB" && mkdir -p "$BKB/docs/backlog" "$BKB/app" && printf 'def export_rows():\n    return []\n' > "$BKB/app/export.py"
 bitem() { printf '%s\n' '---' "worth: $2" "where: $3" "added: $4" '---' "# $5" '' "$6" > "$BKB/docs/backlog/$1.md"; }
 # shellcheck disable=SC2016  # the backticks are markdown in an item's title
-bitem export-drops-columns yes app/export.py:export_rows 2026-11-02 'The export drops `custom` columns' 'A merchant does not find the gift note. </script><b>not markup</b>'
+bitem export-drops-columns yes app/export.py:export_rows 2026-11-02 'The export drops `custom` columns' 'A merchant does not find the gift note.'
 bitem slow-report later app/report.py:monthly 2026-10-20 'The monthly report takes nine seconds' 'It reads each order one by one.'
 bitem which-currency yes app/export.py:no_such_name 2026-11-14 'Which currency rounds half up' 'Nobody decided for PLN.'
 printf '%s\n' '---' 'worth: no' '---' '# A dark theme' '' 'Decided against.' > "$BKB/docs/backlog/dark-theme.md"
@@ -1293,99 +1291,61 @@ bitem new-from-a-landing maybe app/export.py 2026-11-15 'A new item' 'Not commit
 : > "$BKB/docs/backlog/a b;c.md"
 ln -s moved-away.md "$BKB/docs/backlog/broken-link.md" && mkdir "$BKB/docs/backlog/folder-item.md"
 project --repo "$BKB" init --base main >/dev/null
-# one task with a state, so that the page has an event log to read
-project --repo "$BKB" task-dir a-first-task >/dev/null && project --repo "$BKB" state a-first-task building 'lead: builder' >/dev/null
-"$PY" -B "$PWD/skills/lem/scripts/board.py" --repo "$BKB" --no-open >/dev/null
-feed() { "$PY" -c 'import json, re, sys; d = json.loads(re.fullmatch(r"lemBacklog\((.*)\);\n", open(sys.argv[1], encoding="utf-8").read().replace("<\\/", "</"), re.S).group(1)); print(eval(sys.argv[2], {"d": d, "by": {i["slug"]: i for i in d["items"]}}))' "$BKB/.lem/state/backlog.js" "$1"; }
+# backlog_of REPO: the items as the board reads them (board.backlog), as JSON in $WORK/backlog.json
+backlog_of() {
+  project --repo "$1" show > "$WORK/settings.json"
+  "$PY" -B -c 'import json, sys; sys.path.insert(0, sys.argv[1]); import board; print(json.dumps(board.backlog(json.load(open(sys.argv[2])))))' \
+    "$PWD/skills/lem/scripts" "$WORK/settings.json" > "$WORK/backlog.json"
+}
+feed() { "$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print(eval(sys.argv[2], {"d": d, "by": {i["slug"]: i for i in d["items"]}}))' "$WORK/backlog.json" "$1"; }
+backlog_of "$BKB"
 if [ "$(feed '(d["folder"], "judged" in d, sorted(by))')" = "('docs/backlog', False, ['a b;c', 'broken-link', 'dark-theme', 'export-drops-columns', 'folder-item', 'new-from-a-landing', 'slow-report', 'which-currency'])" ] \
   && [ "$(feed '(by["export-drops-columns"]["title"], by["export-drops-columns"]["worth"], by["export-drops-columns"]["where_problem"], by["export-drops-columns"]["state"], by["export-drops-columns"]["path"])')" = "('The export drops custom columns', 'yes', '', '', 'docs/backlog/export-drops-columns.md')" ] \
   && [ "$(feed '(by["slow-report"]["where_problem"], by["which-currency"]["where_problem"], by["dark-theme"]["worth"], by["dark-theme"]["where"])')" = "('the file is not there', 'not in the file: no_such_name', 'no', '')" ] \
   && [ "$(feed '(by["new-from-a-landing"]["worth"], by["new-from-a-landing"]["state"], by["a b;c"]["title"])')" = "('unset', 'new', 'a b;c')" ] \
-  && [ "$(feed '(by["broken-link"]["state"], by["folder-item"]["state"], "cannot be read" in by["broken-link"]["body"])')" = "('unreadable', 'unreadable', True)" ] \
-  && ! grep -q '</script>' "$BKB/.lem/state/backlog.js" && [ "$(feed '"</script><b>not markup</b>" in by["export-drops-columns"]["body"]')" = True ]; then
-  pass "the board's backlog file has each item with its worth, whether its place in the code is still there and whether git has it; an item that cannot be read is listed as such; and no text of an item can end the script that carries it"
+  && [ "$(feed '(by["broken-link"]["state"], by["folder-item"]["state"], "cannot be read" in by["broken-link"]["body"])')" = "('unreadable', 'unreadable', True)" ]; then
+  pass "the board's backlog has each item with its worth, whether its place in the code is still there and whether git has it, and an item that cannot be read is listed as such"
 else
-  fail "backlog.js: $(head -c 600 "$BKB/.lem/state/backlog.js")"
+  fail "the backlog: $(head -c 600 "$WORK/backlog.json")"
 fi
 # A backlog folder that git does not know yet: its first item is new, though git names only the folder.
 FIRST=$WORK/backlog-first
 git init -q -b main "$FIRST" && commit "$FIRST" start && project --repo "$FIRST" init --base main >/dev/null && mkdir -p "$FIRST/docs/backlog"
 printf '%s\n' '# The first item' '' 'No frontmatter at all.' > "$FIRST/docs/backlog/first.md"
-# A run that opens nothing keeps the session the board names: the page types an ask into it.
-env AGTERM_SESSION_ID=LEM-SESSION AGTERM_SOCKET=/nowhere "$PY" -B "$PWD/skills/lem/scripts/board.py" --repo "$FIRST" --no-open >/dev/null
-env AGTERM_SESSION_ID=A-LEAD-SESSION AGTERM_SOCKET=/nowhere "$PY" -B "$PWD/skills/lem/scripts/board.py" --repo "$FIRST" --no-open >/dev/null
-env -u AGTERM_SESSION_ID -u AGT_SESSION_ID "$PY" -B "$PWD/skills/lem/scripts/board.py" --repo "$FIRST" --no-open >/dev/null
-if grep -q '"state": "new"' "$FIRST/.lem/state/backlog.js" && grep -q '"title": "The first item"' "$FIRST/.lem/state/backlog.js" && grep -q '"session": "LEM-SESSION"' "$FIRST/.lem/state/meta.js"; then
-  pass "the first item of a backlog folder that git does not know yet is new, and a run that opens nothing keeps the session the board named before"
+backlog_of "$FIRST"
+if [ "$(feed '(by["first"]["state"], by["first"]["title"])')" = "('new', 'The first item')" ]; then
+  pass "the first item of a backlog folder that git does not know yet is new"
 else
-  fail "a first backlog item, and the session after --no-open: $(cat "$FIRST/.lem/state/backlog.js" "$FIRST/.lem/state/meta.js" | head -c 500)"
+  fail "a first backlog item: $(head -c 500 "$WORK/backlog.json")"
 fi
-# The board: board.py writes the page and what it reads beside the events, and the page draws them.
+# lem board: what it refuses before it asks the board server (tests/lem-serve.sh opens the board, with a server).
 BOARD=$PWD/skills/lem/scripts/board.py
 board() { env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGT_SESSION_ID -u AGT_SOCKET "$PY" -B "$BOARD" "$@"; }
-# The test's settings file is not committed, so a worktree has none: the worktree run shows where
-# the page goes and whose name it carries, the run in the main checkout shows the base.
-out=$(board --repo "$WORK/wt" --no-open)
-named=$(cat "$OLD/.lem/state/meta.js")
-board --repo "$OLD" --no-open >/dev/null
-if [ "$(field 'd["page"]' <<<"$out")" = "$OLD/.lem/state/board.html" ] && cmp -s "$OLD/.lem/state/board.html" "$PWD/skills/lem/assets/board.html" \
-  && cmp -s "$OLD/.lem/state/lem.css" "$PWD/skills/lem/assets/lem.css" && cmp -s "$OLD/.lem/state/lem.js" "$PWD/skills/lem/assets/lem.js" \
-  && [ "$named" = 'lemMeta({"repo": "old", "base": null, "session": "", "gates": 0, "serial": 0});' ] \
-  && [ "$(cat "$OLD/.lem/state/meta.js")" = 'lemMeta({"repo": "old", "base": "master", "session": "", "gates": 0, "serial": 0});' ]; then
-  pass "board --no-open writes the page, the stylesheet it links and the script of its palette into the shared state folder, from a worktree too, with the repository's name and its base"
-else
-  fail "board --no-open: $out / $named / $(cat "$OLD/.lem/state/meta.js" 2>&1)"
-fi
-out=$(board --repo "$OLD" --no-open --task with-a-worktree)
 err=$(board --repo "$OLD" --no-open --task no-such-task 2>&1 || true)
-if [ "$(field 'd["page"]' <<<"$out")" = "$OLD/.lem/state/task-with-a-worktree.html" ] && [ "$(field 'd["name"]' <<<"$out")" = "with-a-worktree board" ] \
-  && [ "$(status_of board --repo "$OLD" --no-open --task no-such-task)" = 1 ] && grep -q "the tasks are: .*second-task" <<<"$err" && [ ! -e "$OLD/.lem/state/task-no-such-task.html" ]; then
-  pass "a task's board is a copy named after the task, and an unknown task is refused with the names of the known ones"
+if [ "$(status_of board --repo "$OLD" --no-open --task no-such-task)" = 1 ] && grep -q "the tasks are: .*second-task" <<<"$err" \
+  && [ "$(status_of board --repo "$OLD")" = 1 ] && grep -qF "not inside an agterm session" <<<"$(board --repo "$OLD" 2>&1 || true)"; then
+  pass "an unknown task is refused with the names of the known ones, and outside an agterm session lem board opens nothing and says so"
 else
-  fail "board --task: $out / $err"
+  fail "board's refusals: $err"
 fi
-if [ "$(status_of board --repo "$OLD")" = 1 ]; then pass "outside an agterm session board opens nothing and says so"; else fail "board outside agterm"; fi
-board --repo "$OLD" --no-open --demo >/dev/null
-board --repo "$OLD" --no-open --task with-a-worktree >/dev/null
-if grep -q '"demo": true' "$OLD/.lem/state/meta.js" && [ -f "$OLD/.lem/state/demo" ]; then
-  pass "board --demo marks the state folder's tasks as examples, and a later open with no flag keeps the mark"
+board --repo "$OLD" --no-open --demo >/dev/null 2>&1 || true
+board --repo "$OLD" --no-open >/dev/null 2>&1 || true
+if [ -f "$OLD/.lem/state/demo" ] && [ "$(project --repo "$OLD" show | "$PY" -B -c 'import json, sys; from pathlib import Path; sys.path.insert(0, sys.argv[1]); import board; s = json.load(sys.stdin); print(board.meta_of(s, Path(sys.argv[2]))["demo"])' "$PWD/skills/lem/scripts" "$OLD/.lem/state")" = True ]; then
+  pass "board --demo marks the state folder's tasks as examples, and a later run with no flag keeps the mark"
 else
-  fail "board --demo: $(cat "$OLD/.lem/state/meta.js")"
+  fail "board --demo: no mark in $OLD/.lem/state"
 fi
 rm "$OLD/.lem/state/demo"
-board --repo "$OLD" --no-open >/dev/null
 
-# A board is known by the file it shows. Two repositories' Lems may be companions of one top session
-# (AAA here has this repository's board, PA, and another repository's, PX, both with the old name),
-# and a third Lem has its own top session (BBB). A board reloads its own and touches no other.
+# Any page of Lem to read opens as a page companion of the session's group, and the same file shown again reloads its
+# companion. No overlay covers the session; a file that is no page and a call outside agterm are refused.
 # agtermctl is a stand-in that prints a tree and records its calls.
 FAKE=$WORK/fake
 mkdir -p "$FAKE"
 # shellcheck disable=SC2016  # the stand-in's own variables, expanded when it runs
 printf '%s\n' '#!/bin/sh' 'echo "$*" >> "$AGT_CALLS"' 'case "$1" in tree) cat "$AGT_TREE" ;; *) echo "{\"result\": {\"id\": \"NEW\"}}" ;; esac' > "$FAKE/agtermctl"
 chmod +x "$FAKE/agtermctl"
-printf '%s\n' '{"result": {"tree": {"workspaces": [{"sessions": [' \
-  '{"id": "AAA", "name": "lem a"}, {"id": "BBB", "name": "lem b"}, {"id": "CCC", "name": "lem c"},' \
-  '{"id": "PX", "name": "Lem board", "content": "page", "parent": "AAA", "htmlOverlays": [{"file": "/elsewhere/.lem/state/board.html"}]},' \
-  "{\"id\": \"PA\", \"name\": \"Lem board\", \"content\": \"page\", \"parent\": \"AAA\", \"htmlOverlays\": [{\"file\": \"$OLD/.lem/state/board.html\"}]}," \
-  "{\"id\": \"PB\", \"name\": \"Lem board\", \"content\": \"page\", \"parent\": \"BBB\", \"htmlOverlays\": [{\"file\": \"$OLD/.lem/state/board.html\"}]}]}]}}}" > "$WORK/tree.json"
-opened() { : > "$WORK/calls"; env PATH="$FAKE:$PATH" AGT_CALLS="$WORK/calls" AGT_TREE="$WORK/tree.json" AGTERM_SESSION_ID="$1" AGTERM_SOCKET=/none "$PY" -B "$BOARD" --repo "$OLD"; }
-out=$(opened AAA)
-if [ "$(field '(d["companion"], d["reloaded"], d["name"])' <<<"$out")" = "('PA', True, 'Lem board · old')" ] && grep -q "session overlay reload --target PA" "$WORK/calls" \
-  && grep -q "session rename Lem board · old --target PA" "$WORK/calls" && ! grep -q "session close" "$WORK/calls" && ! grep -q "PX\|PB" "$WORK/calls"; then
-  pass "a board is known by the file it shows: this repository's is reloaded and gets the repository's name, and another repository's board under the same top session is left alone"
-else
-  fail "board reload: $out / $(cat "$WORK/calls")"
-fi
-out=$(opened CCC)
-if [ "$(field '(d["companion"], d["reloaded"], d["parent"])' <<<"$out")" = "('NEW', False, 'CCC')" ] && grep -q "session overlay open --html $OLD/.lem/state/board.html .* --companion --target CCC" "$WORK/calls" \
-  && ! grep -q "session close" "$WORK/calls"; then
-  pass "a session with no board opens one as its own page companion and closes nobody's"
-else
-  fail "board open: $out / $(cat "$WORK/calls")"
-fi
-# Any page of Lem to read opens the same way: a page companion of the session's group, and the same file shown again
-# reloads its companion. No overlay covers the session; a file that is no page and a call outside agterm are refused.
+printf '%s\n' '{"result": {"tree": {"workspaces": [{"sessions": [{"id": "CCC", "name": "lem c"}]}]}}}' > "$WORK/tree.json"
 mkdir -p "$WORK/pages" && echo '<html><body>built</body></html>' > "$WORK/pages/page.html" && echo 'text' > "$WORK/pages/notes.md"
 showpage() { : > "$WORK/calls"; env PATH="$FAKE:$PATH" AGT_CALLS="$WORK/calls" AGT_TREE="$WORK/tree.json" AGTERM_SESSION_ID=CCC AGTERM_SOCKET=/none "$PY" -B "$BOARD" "$@"; }
 first=$(showpage --page "$WORK/pages/page.html" --name "gift-note page")
@@ -1399,7 +1359,7 @@ outside=$(env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGT_SESSION_ID -u AGT_SOC
 if [ "$(field '(d["companion"], d["reloaded"], d["parent"], d["name"])' <<<"$first")" = "('NEW', False, 'CCC', 'gift-note page')" ] \
   && grep -q "session overlay open --html $WORK/pages/page.html --cwd $WORK/pages --js --companion --target CCC" <<<"$first_calls" \
   && ! grep -q "overlay open --html [^ ]* --cwd [^ ]* --target" <<<"$first_calls" \
-  && [ "$(field '(d["companion"], d["reloaded"])' <<<"$again")" = "('PP', True)" ] && grep -q "session overlay reload --target PP" <<<"$again_calls" \
+  && [ "$(field '(d["companion"], d["reloaded"])' <<<"$again")" = "('PP', True)" ] && grep -q "session overlay reload --current --target PP" <<<"$again_calls" \
   && ! grep -q "overlay open" <<<"$again_calls" && grep -qF "is not an HTML file" <<<"$not_page" && grep -qF "not inside an agterm session" <<<"$outside"; then
   pass "a page of Lem to read opens as a page companion of the session's group, never over the session, and the same file shown again reloads its companion; a file that is no page and a call outside agterm are refused"
 else
@@ -1414,232 +1374,28 @@ if [ "$night" = 0 ]; then
 else
   fail "a night logo differs from what assets/night.py writes from the day file: run it again"
 fi
-# Each page's header carries the two marks, the day one and then the night one, each its logo file line for line.
+# The onboarding page's header carries the two marks, the day one and then the night one, each its logo file line for
+# line. The board's pages read the two files themselves (lem_board_pages.marks).
 marks=()
-for page in board handover; do
-  sed -n '/^<!-- lem-mark:/,/^<!-- \/lem-mark -->/p' "$PWD/skills/lem/assets/$page.html" | sed '1d;$d' | cmp -s - "$PWD/assets/lem-mark.svg" || marks+=("$page: the day mark")
-  sed -n '/^<!-- lem-mark-night:/,/^<!-- \/lem-mark-night -->/p' "$PWD/skills/lem/assets/$page.html" | sed '1d;$d' | cmp -s - "$PWD/assets/lem-mark-night.svg" || marks+=("$page: the night mark")
-  [ "$(grep -n '^<!-- lem-mark' "$PWD/skills/lem/assets/$page.html" | head -2 | cut -d' ' -f2 | tr '\n' ' ')" = "lem-mark: lem-mark-night: " ] || marks+=("$page: the day mark is not first")
-done
+HANDOVER=$PWD/skills/lem/assets/handover.html
+sed -n '/^<!-- lem-mark:/,/^<!-- \/lem-mark -->/p' "$HANDOVER" | sed '1d;$d' | cmp -s - "$PWD/assets/lem-mark.svg" || marks+=("the day mark")
+sed -n '/^<!-- lem-mark-night:/,/^<!-- \/lem-mark-night -->/p' "$HANDOVER" | sed '1d;$d' | cmp -s - "$PWD/assets/lem-mark-night.svg" || marks+=("the night mark")
+[ "$(grep -n '^<!-- lem-mark' "$HANDOVER" | head -2 | cut -d' ' -f2 | tr '\n' ' ')" = "lem-mark: lem-mark-night: " ] || marks+=("the day mark is not first")
 if [ "${#marks[@]}" -eq 0 ]; then
-  pass "the header of the board and of the onboarding page carries the day mark and then the night mark, each the logo's own file, line for line"
+  pass "the header of the onboarding page carries the day mark and then the night mark, each the logo's own file, line for line"
 else
   fail "the marks inside the pages differ from assets/lem-mark.svg and assets/lem-mark-night.svg (copy each file between its two comments again): ${marks[*]}"
 fi
-# Every page of Lem has one look: the pattern of the onboarding's page links the board's stylesheet and its palette's script
-# and brings no style of its own, and no page takes a color of agterm's theme.
+# Every page of Lem has one look: the pattern of the onboarding's page links the shared stylesheet and its palette's
+# script and brings no style of its own, the board's own stylesheet holds no color of Lem's, and no page takes a color
+# of agterm's theme.
 PATTERN=$PWD/skills/lem/assets/handover.html
-if [ "$(grep -c '<link rel="stylesheet" href="lem.css">' "$PATTERN")" = 1 ] && [ "$(grep -c '<link rel="stylesheet" href="lem.css">' "$PWD/skills/lem/assets/board.html")" = 1 ] \
-  && [ "$(grep -c '<script src="lem.js"></script>' "$PATTERN")" = 1 ] && [ "$(grep -c '<script src="lem.js"></script>' "$PWD/skills/lem/assets/board.html")" = 1 ] \
+if [ "$(grep -c '<link rel="stylesheet" href="lem.css">' "$PATTERN")" = 1 ] && [ "$(grep -c '<script src="lem.js"></script>' "$PATTERN")" = 1 ] \
   && ! grep -q '<style\| style="' "$PATTERN" && grep -q '^\.doc \.box {' "$PWD/skills/lem/assets/lem.css" && grep -q -- '--you: #' "$PWD/skills/lem/assets/lem.css" \
-  && ! grep -q -- '--you: #' "$PWD/skills/lem/assets/board.html" && ! grep -q -- '--agterm-' "$PWD/skills/lem/assets/lem.css" "$PWD/skills/lem/assets/board.html" "$PATTERN"; then
-  pass "the onboarding's page pattern and the board link one stylesheet, which alone holds Lem's colors, and one script for its palette; the pattern brings no style of its own, and no page reads agterm's colors"
+  && ! grep -q -- '--you: #' "$PWD/skills/lem/assets/board.css" && ! grep -q -- '--agterm-' "$PWD/skills/lem/assets/lem.css" "$PWD/skills/lem/assets/board.css" "$PATTERN"; then
+  pass "the onboarding's page pattern links one stylesheet, which alone holds Lem's colors, and one script for its palette, and brings no style of its own; the board's stylesheet holds none of those colors, and no page reads agterm's colors"
 else
   fail "the pattern of the onboarding's page, the shared stylesheet and its script"
-fi
-
-SHOWN=$(cat <<'PY'
-import sys
-from html.parser import HTMLParser
-class P(HTMLParser):
-    def __init__(self):
-        super().__init__(); self.skip = 0; self.text = []; self.title = ""; self.in_title = False
-    def handle_starttag(self, tag, attrs):
-        self.skip += tag in ("script", "style"); self.in_title = tag == "title" and not self.skip
-    def handle_endtag(self, tag):
-        self.skip -= tag in ("script", "style"); self.in_title = False
-    def handle_data(self, data):
-        if self.in_title and not self.title: self.title = data
-        elif not self.skip: self.text.append(data)
-p = P(); p.feed(open(sys.argv[1], encoding="utf-8").read())
-shown = " ".join(" ".join(p.text).split())
-missing = [want for want in sys.argv[2:] if not want.startswith("!") and want not in shown and want not in p.title]
-missing += [f"no {want[1:]!r}" for want in sys.argv[2:] if want.startswith("!") and (want[1:] in shown or want[1:] in p.title)]
-if "PROBLEM" in p.title or "does not parse" in shown: missing.append(f"no problem on the page (title {p.title!r})")
-print("; ".join(missing))
-sys.exit(bool(missing))
-PY
-)
-chrome=""
-for c in google-chrome chromium chromium-browser "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"; do
-  if command -v "$c" >/dev/null 2>&1 || [ -x "$c" ]; then chrome=$c; break; fi
-done
-# Chrome's temporary folders go into the work folder, which the run removes: each run of Chrome left a
-# com.google.Chrome.* folder in the user's temporary folder. On macOS Chrome reads MAC_CHROMIUM_TMPDIR,
-# not TMPDIR (measured on 2026-11-17); elsewhere it reads TMPDIR.
-chrome_run() { mkdir -p "$WORK/chrome-tmp" && TMPDIR="$WORK/chrome-tmp" MAC_CHROMIUM_TMPDIR="$WORK/chrome-tmp" "$chrome" "$@"; }
-if [ -n "$chrome" ]; then
-  draw() {
-    chrome_run --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
-      --virtual-time-budget=5000 --dump-dom "file://$OLD/.lem/state/$1.html" > "$WORK/$1.dom" 2>/dev/null || true
-  }
-  draw board
-  if [ ! -s "$WORK/board.dom" ]; then
-    # A Chrome that cannot start (a sandbox that forbids it) says nothing about the page.
-    printf 'SKIP the board pages: %s printed no page\n' "$chrome"
-  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "Lem · old" "1 waits for you, 1 builds, 1 in checks and review" "Report dates stay whole" \
-    "Owner lands it" "Tell Lem in its session to land it." "!Demo data" "Keep report dates whole." \
-    "Task 2 of 3" "Second task" "Ready for its checks: the gate was cut off" "!places" "1 proposed · 1 not green" "tasks land on master" "!Review queue"); then
-    pass "the board draws each task in its lane from the events, with what waits for the merge and whether it is green"
-  else
-    fail "the board: missing $why"
-  fi
-  draw task-with-a-worktree
-  if [ ! -s "$WORK/task-with-a-worktree.dom" ]; then
-    printf 'SKIP the board of one task: %s printed no page\n' "$chrome"
-  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-with-a-worktree.dom" "With a worktree · Dropped" "fix/with-a-worktree" "fix: 0123 is a string" \
-    "make test" "5 passed in 0.1s" "the test is over" "All tasks" "checks green: 1" "!checks red"); then
-    pass "a task's board draws its state blocks, its newest commit and the gate's newest result, not a failure a later run repaired"
-  else
-    fail "a task's board: missing $why"
-  fi
-  board --repo "$OLD" --no-open --task owner-lands-it >/dev/null
-  draw task-owner-lands-it
-  if [ -s "$WORK/task-owner-lands-it.dom" ] && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-owner-lands-it.dom" "Owner lands it · Waits for the merge" "3/3" "Where you answer:" "!2/3" \
-    "round 1, one read: clean, 0 must-fix, 1 should, 0 nit" "answered: codex" "Proposed: not green" "criterion 1 changed during the build: y is taken."); then
-    pass "a task that waits for the merge keeps the phase and the plan tasks it reached, and its board shows its review and why it is not green"
-  elif [ -s "$WORK/task-owner-lands-it.dom" ]; then
-    fail "a task that waits for the merge: missing $why"
-  fi
-  # A closed task looked at much later: its time axis ends at its last block and has no line for now.
-  mkdir -p "$WORK/aged" && cp "$OLD/.lem/state/task-with-a-worktree.html" "$OLD/.lem/state/meta.js" "$WORK/aged/"
-  "$PY" -c 'import json, sys
-rows = [json.loads(line) for line in open(sys.argv[1]) if line.strip()]
-mine = [r for r in rows if r["task"] == "with-a-worktree"]
-for i, r in enumerate(mine): r["ts"] = "2026-01-10T12:00:%02dZ" % i
-open(sys.argv[2], "w").write("".join("lemEvent(%s);\n" % json.dumps(r) for r in mine))' "$OLD/.lem/state/events.jsonl" "$WORK/aged/events.js"
-  chrome_run --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
-    --virtual-time-budget=5000 --dump-dom "file://$WORK/aged/task-with-a-worktree.html" > "$WORK/aged.dom" 2>/dev/null || true
-  if [ -s "$WORK/aged.dom" ] && "$PY" -c 'import re, sys
-dom = open(sys.argv[1], encoding="utf-8").read()
-labels = re.findall(r"<text class=\"axis\"[^>]*>([^<]*)</text>", dom)
-days = {label.rsplit(" ", 1)[0] for label in labels}
-sys.exit(not (len(labels) >= 2 and len(days) == 1 and all(" " in label for label in labels) and "class=\"nowline\"" not in dom))' "$WORK/aged.dom"; then
-    pass "the board of a task that closed long ago draws its own interval, on its own day, with no line for now"
-  elif [ -s "$WORK/aged.dom" ]; then
-    fail "a closed task's time axis: $(grep -o '<text class="axis"[^>]*>[^<]*' "$WORK/aged.dom" | sed 's/.*>//' | tr '\n' '|') nowline: $(grep -c 'class="nowline"' "$WORK/aged.dom")"
-  fi
-  # A file that does not parse is a problem on the page, never a quiet default.
-  printf 'lemMeta({"repo": \n' > "$OLD/.lem/state/meta.js"
-  draw board
-  if [ -s "$WORK/board.dom" ] && grep -q "<title>PROBLEM" "$WORK/board.dom" && grep -q "meta.js does not parse" "$WORK/board.dom"; then
-    pass "a meta.js that does not parse is shown as a problem"
-  elif [ -s "$WORK/board.dom" ]; then
-    fail "a broken meta.js shows no problem: $(grep -o '<title>[^<]*' "$WORK/board.dom")"
-  fi
-  board --repo "$OLD" --no-open >/dev/null
-  # The board of one task shows its criteria, each with its tests and what the last check gave.
-  "$PY" -B "$BOARD" --repo "$ST" --task export-has-the-gift-note --no-open >/dev/null
-  chrome_run --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
-    --virtual-time-budget=5000 --dump-dom "file://$ST/.lem/state/task-export-has-the-gift-note.html" > "$WORK/criteria.dom" 2>/dev/null || true
-  if [ ! -s "$WORK/criteria.dom" ]; then
-    printf 'SKIP the criteria on the board: %s printed no page\n' "$chrome"
-  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/criteria.dom" "Acceptance criteria" "standard track, because the export gets a new column and an empty cell." \
-    'A CSV export holds the gift note of an order: order 1042 with the note "for Ania" has that text in its row.' "sh tests/gift.sh" \
-    "passes on the branch, fails on the base commit (checked on " "held by its tests" "An order with no gift note has an empty cell"); then
-    pass "the board of one task shows its criteria as the plan has them, each with its tests and the result of the last check"
-  else
-    fail "the criteria on the board: missing $why"
-  fi
-  # A criterion that changed after the check has no check: the old result is not shown for it.
-  "$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("has that text in its row.", "has that text in the third cell of its row."))' "$stw/docs/plans/2026-11-15-export-has-the-gift-note.md"
-  criteria record export-has-the-gift-note >/dev/null && git -C "$stw" checkout -q -- docs
-  chrome_run --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
-    --virtual-time-budget=5000 --dump-dom "file://$ST/.lem/state/task-export-has-the-gift-note.html" > "$WORK/criteria-changed.dom" 2>/dev/null || true
-  if [ -s "$WORK/criteria-changed.dom" ] && why=$("$PY" -I -B -c "$SHOWN" "$WORK/criteria-changed.dom" "in the third cell of its row" "not checked yet" "!held by its tests"); then
-    pass "after a criterion changed, the board shows no result of the older check for any criterion"
-  elif [ -s "$WORK/criteria-changed.dom" ]; then
-    fail "the criteria on the board after a change: missing $why"
-  fi
-  # The backlog tab: drawn from backlog.js, and its one action types the item into Lem's session.
-  chrome_run --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
-    --virtual-time-budget=5000 --dump-dom "file://$BKB/.lem/state/board.html#backlog" > "$WORK/backlog.dom" 2>/dev/null || true
-  if [ ! -s "$WORK/backlog.dom" ]; then
-    printf 'SKIP the backlog tab: %s printed no page\n' "$chrome"
-  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/backlog.dom" "Backlog · backlog-board" "8 items in docs/backlog" "2 items name a place that is gone or cannot be read" "2 cannot be read" "sorted by the worth of each item" \
-    "Worth doing" "Later" "No verdict in the item" "Decided against" "The export drops custom columns" \
-    "app/report.py:monthly · the file is not there" "new, not committed" "!Needs you" "!An agent can take it" "!0.86"); then
-    pass "the backlog tab draws the items in groups by their worth, each with its word and its count, and shows a place that is gone"
-  else
-    fail "the backlog tab: missing $why"
-  fi
-  cat > "$BKB/.lem/state/probe.html" <<'PROBE'
-<!doctype html><meta charset="utf-8"><iframe id="f" src="board.html#backlog" style="width:1280px;height:900px;border:0"></iframe><pre id="out"></pre>
-<script>
-const wait = ms => new Promise(r => setTimeout(r, ms));
-(async () => {
-  await wait(1500);
-  const d = document.getElementById('f').contentDocument, w = document.getElementById('f').contentWindow, log = {};
-  const key = (code, key) => d.body.dispatchEvent(new w.KeyboardEvent('keydown', {code, key, bubbles: true}));
-  const actions = () => d.querySelector('.bl-item.cur .bl-actions')?.textContent ?? '';
-  const pickItem = title => { for (let i = 0; i < 16 && d.querySelector('.bl-item.cur .bl-title')?.textContent !== title; i++) key('KeyJ', 'j'); };
-  const on = (node, code, key) => node.dispatchEvent(new w.KeyboardEvent('keydown', {code, key, bubbles: true}));
-  pickItem('Which currency rounds half up'); key('Enter', 'Enter');
-  log.noAgterm = actions();
-  w.eval("globalThis.typed = []; globalThis.fg = []; globalThis.hold = null; globalThis.agterm = {request: async (cmd, o) => { if (cmd === 'tree') return {tree: {workspaces: [{sessions: [{id: 'LEM1', foreground: globalThis.fg}]}]}}; globalThis.typed.push([cmd, o]); if (globalThis.hold) await globalThis.hold; return {}; }};");
-  await wait(3500);
-  log.shellOnly = actions();
-  w.eval("globalThis.fg = ['/usr/bin/less', '/tmp/claude']"); await wait(3500);
-  key('KeyS', 's'); log.otherProgram = actions();
-  w.eval("globalThis.fg = ['/usr/bin/vim', 'claude']"); await wait(3500);
-  key('KeyS', 's'); log.otherProgram += ' // ' + actions();
-  w.eval("globalThis.fg = ['/opt/homebrew/bin/fish', '-l', '-c', 'claude (cat brief.md)']"); await wait(3500);
-  key('KeyS', 's'); log.confirm = actions(); log.focusOnStart = d.activeElement?.dataset?.blStart ?? null;
-  key('Enter', 'Enter'); await wait(200); log.enterElsewhere = w.typed.length;
-  const cancel = d.querySelector('[data-bl-cancel]'); cancel.focus(); on(cancel, 'Enter', 'Enter'); await wait(200); log.enterOnCancel = w.typed.length;
-  cancel.click(); log.afterCancel = actions();
-  // agterm is slow to answer: a second S and Start in that time must not type a second line
-  w.eval("globalThis.hold = new Promise(done => { globalThis.release = done; })");
-  key('KeyS', 's'); d.querySelector('[data-bl-start]').click(); await wait(200);
-  key('KeyS', 's'); log.whilePending = [w.typed.length, d.querySelector('[data-bl-start]') === null, actions().startsWith('Typing into')];
-  w.eval("globalThis.release(); globalThis.hold = null"); await wait(300);
-  log.typed = w.typed; log.sent = actions();
-  key('KeyS', 's'); key('Enter', 'Enter'); await wait(200); log.secondTry = [w.typed.length, d.querySelector('[data-bl-start]') === null];
-  pickItem('a b;c'); key('KeyS', 's'); await wait(100);
-  log.unsafe = actions(); log.typedAfterUnsafe = w.typed.length;
-  const q = d.getElementById('bl-q'); q.value = 'gift note'; q.dispatchEvent(new w.Event('input', {bubbles: true}));
-  log.filtered = [...d.querySelectorAll('.bl-title')].map(n => n.textContent);
-  d.getElementById('bl-read').click(); await wait(600); log.afterRead = d.getElementById('bl-sum').textContent.startsWith('reading');
-  key('KeyT', 't'); log.tasksTab = [d.getElementById('backlog').hidden, d.getElementById('lanes-section').hidden];
-  document.getElementById('out').textContent = JSON.stringify(log);
-})().catch(e => { document.getElementById('out').textContent = JSON.stringify({error: String(e)}); });
-</script>
-PROBE
-  "$PY" -c 'import json, re, sys; s = open(sys.argv[1]).read(); d = json.loads(re.fullmatch(r"lemMeta\((.*)\);\n", s, re.S).group(1)); d["session"] = "LEM1"; open(sys.argv[1], "w").write("lemMeta(%s);\n" % json.dumps(d))' "$BKB/.lem/state/meta.js"
-  chrome_run --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" --allow-file-access-from-files \
-    --virtual-time-budget=40000 --dump-dom "file://$BKB/.lem/state/probe.html" > "$WORK/probe.dom" 2>/dev/null || true
-  rm -f "$BKB/.lem/state/probe.html"
-  acted=$("$PY" -c 'import html, json, re, sys
-found = re.search(r"<pre id=\"out\">(.*?)</pre>", open(sys.argv[1], encoding="utf-8").read(), re.S)
-d = json.loads(html.unescape(found.group(1))) if found and found.group(1) else {"error": "the probe printed nothing"}
-cmd = "/lem new docs/backlog/which-currency.md"
-wrong = [name for name, ok in {
-    "an error": "error" not in d,
-    "no agterm: the command to type, and nothing typed": "not open in this window" in d.get("noAgterm", "") and cmd in d.get("noAgterm", ""),
-    "a shell and no agent: nothing typed": "No agent runs" in d.get("shellOnly", ""),
-    "a pager or an editor that shows a file named claude is no agent": d.get("otherProgram", "").count("No agent runs") == 2,
-    "S asks first, and the Start button has the focus": "This types" in d.get("confirm", "") and d.get("focusOnStart") == "which-currency",
-    "Enter away from the button types nothing": d.get("enterElsewhere") == 0,
-    "Enter on Cancel types nothing": d.get("enterOnCancel") == 0 and "Start a task" in d.get("afterCancel", ""),
-    "Start types the one line into Lem": d.get("typed") == [["session.type", {"target": "LEM1", "args": {"text": cmd + "\n"}}]],
-    "while agterm has not answered, the item is taken": d.get("whilePending") == [1, True, True],
-    "the item says that it was sent": "Typed into" in d.get("sent", ""),
-    "a sent item is not asked about or sent again": d.get("secondTry") == [1, True],
-    "an unsafe file name is never typed": "is not typed into a session" in d.get("unsafe", "") and d.get("typedAfterUnsafe") == 1,
-    "the filter reads the text of an item": d.get("filtered") == ["The export drops custom columns"],
-    "a second read of the same file ends its note": d.get("afterRead") is False,
-    "T goes back to the tasks": d.get("tasksTab") == [True, False],
-}.items() if not ok]
-print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d)[:900])' "$WORK/probe.dom" 2>&1 || true)
-  if [ ! -s "$WORK/probe.dom" ]; then
-    printf 'SKIP the keys of the backlog tab: %s printed no page\n' "$chrome"
-  elif [ "$acted" = "ok " ]; then
-    pass "on the backlog tab a key moves, opens and filters; S asks first and only the Start button types one line into Lem's session, one time, only where the agent runs, and never a file name with a character a shell could read"
-  else
-    fail "the keys of the backlog tab: $acted"
-  fi
-else
-  printf 'SKIP the board pages: no Chrome or Chromium found\n'
 fi
 
 finish

@@ -108,13 +108,6 @@ if [ "$(field '[(c["command"], c["exit"], c["last"], c.get("serial", False)) for
 else
   fail "the gate's serial commands: $gated"
 fi
-# The board knows how many commands one run of the checks has, and how many of them are serial.
-"$PY" -B "$PWD/skills/lem/scripts/board.py" --repo "$AL" --no-open >/dev/null
-if grep -qF '"gates": 2, "serial": 1' "$AL/.lem/state/meta.js"; then
-  pass "the board's meta.js counts the serial commands in one run of the checks, and says how many there are"
-else
-  fail "the board's count of the checks: $(cat "$AL/.lem/state/meta.js")"
-fi
 # A red checks.commands leaves the serial commands out: they run only after the others passed.
 printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' '[checks]' 'commands = ["echo 1 failed; exit 1"]' "serial = [\"sh e2e.sh\"]" > "$AL/.lem/project.toml"
 red=$(land --repo "$AL" checks serial-change 2>/dev/null || true)

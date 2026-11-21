@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The landing's guards and refusals: what keeps a tree the checks did not pass on off the base
-# branch, and each refusal that names the step after it, run as it names it. No remote here, but
-# for the one check that needs a base that moves.
+# branch, and each refusal that names the step after it, run as it names it, on an origin that the
+# stand-in for `gh` answers for (lib.sh).
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
@@ -13,7 +13,7 @@ project --repo "$GRD" init --base main >/dev/null
 grd_settings() { printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' "history = \"${HISTORY:-keep}\"" '[checks]' "commands = [$1]" "serial = [${SERIAL:-}]" > "$GRD/.lem/project.toml"; }
 grd_settings '"true"'
 mkdir -p "$GRD/tests" && printf '%s\n' 'def test_old():' '    assert 1 + 1 == 2' > "$GRD/tests/test_old.py"
-git -C "$GRD" add -A && git -C "$GRD" commit -q -m "chore: start"
+git -C "$GRD" add -A && git -C "$GRD" commit -q -m "chore: start" && on_github "$GRD"
 g() { land --repo "$GRD" "$@"; }
 wt() { project --repo "$GRD" worktree-dir "$1"; }
 # set_kept SLUG KEY JSON: one value of the landing's record, as a hand or a bug of another tool would write it
@@ -69,24 +69,25 @@ else
 fi
 project --repo "$GRD" state no-gate dropped "the test is over" >/dev/null
 
-# A task whose worktree was removed by hand while it held the landing line: every message on the way names the step out.
+# A task whose worktree was removed by hand while it lands: another task starts its landing beside it, and the task's own step names the way out.
 small_task_in "$GRD" stuck s.txt s
 g start stuck >/dev/null
 stuck_tree=$(wt stuck)
 rm -rf "$stuck_tree"
 small_task_in "$GRD" waiting w.txt w
-line=$(g start waiting 2>&1 || true)
+started=$(status_in "$GRD" waiting)
+g start waiting >/dev/null 2>&1 || true
+started="$started $(status_in "$GRD" waiting)"
 gone=$(g base stuck 2>&1 || true)
 git -C "$GRD" worktree prune && git -C "$GRD" worktree add -q "$stuck_tree" fix/stuck
 back=$(g base stuck 2>/dev/null | field 'd["ahead"]' 2>/dev/null || true)
 project --repo "$GRD" state stuck ready --start-over "the landing starts over" >/dev/null
-g start waiting >/dev/null 2>&1 || true
-if grep -qF "stuck is in \`landing\`" <<<"$line" && grep -qF "\`lem project state stuck ready --start-over \"WHY\"\`" <<<"$line" && grep -qF "\`lem project state stuck dropped \"WHY\"\`" <<<"$line" \
+if [ "$started" = "ready landing" ] \
   && grep -qF "the task has no worktree at $stuck_tree" <<<"$gone" && grep -qF "\`git -C $GRD worktree prune\`" <<<"$gone" \
   && grep -qF "\`git -C $GRD worktree add $stuck_tree fix/stuck\`" <<<"$gone" && [ "$back" = 1 ] && [ "$(status_in "$GRD" waiting)" = landing ]; then
-  pass "a landing task whose worktree is gone holds the line: the refusal of another start names the two states that give it back, the task's own step names the git commands that put the worktree back, and each works as named"
+  pass "a landing task whose worktree is gone holds no other task back: another task starts its landing beside it, and the task's own step names the git commands that put the worktree back, and each works as named"
 else
-  fail "a landing task with no worktree: $line / $gone / $back / $(status_in "$GRD" waiting)"
+  fail "a landing task with no worktree: $started / $gone / $back / $(status_in "$GRD" waiting)"
 fi
 project --repo "$GRD" state stuck dropped "the test is over" >/dev/null
 project --repo "$GRD" state waiting dropped "the test is over" >/dev/null
@@ -179,55 +180,29 @@ two_lines=$(g propose guarded --title $'fix: y\nand more' --notes "$NOTES" 2>&1 
 unwritten=$([ -e "$GRD/.lem/state/tasks/guarded/pr.md" ] && echo written || echo none)
 g propose guarded --title "fix: y" --notes "$NOTES" >/dev/null
 gated_was=$(kept_in "$GRD" guarded gated)
-tree_was=$(kept_in "$GRD" guarded tree)
-set_kept guarded tree "\"$(git -C "$GRD" rev-parse 'main^{tree}')\""
-c1=$(g land guarded --by owner 2>&1 || true)
-set_kept guarded tree "\"$tree_was\""
 set_kept guarded gated "\"$(git -C "$GRD" rev-parse main)\""
-c3=$(g land guarded --by owner 2>&1 || true)
+c3=$(g merge guarded --by owner 2>&1 || true)
 set_kept guarded gated null
-ungated=$(g land guarded --by owner 2>&1 || true)
+ungated=$(g merge guarded --by owner 2>&1 || true)
 set_kept guarded gated "\"$gated_was\""
 echo more > "$tree/y2.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: after the proposal"
 main_was=$(git -C "$GRD" rev-parse main)
-c2=$(g land guarded --by owner 2>&1 || true)
+c2=$(g merge guarded --by owner 2>&1 || true)
 unlanded=$(git -C "$GRD" rev-parse main)
 g start guarded >/dev/null && g base guarded >/dev/null && g checks guarded >/dev/null && g read guarded --record "$(clean 2)" >/dev/null \
-  && g propose guarded --title "fix: y" --notes "$NOTES" >/dev/null && g land guarded --by owner >/dev/null || true
+  && g propose guarded --title "fix: y" --notes "$NOTES" >/dev/null && g merge guarded --by owner >/dev/null || true
 if grep -qF "is not a file; --notes names the notes" <<<"$no_notes" && grep -qF -- "--title is one line" <<<"$two_lines" && [ "$unwritten" = none ] \
-  && grep -qF "the tree that would land differs from the tree the checks passed on" <<<"$c1" \
-  && grep -qF "the branch's tip is not the commit the checks passed on" <<<"$c3" \
+  && grep -qF "no green check is on record for this tip" <<<"$c3" \
   && grep -qF "no green check is on record for this tip" <<<"$ungated" \
   && grep -qF "the branch's tip is not the tip that was proposed" <<<"$c2" \
-  && grep -qF "run \`lem land start\`, \`lem land base\`, \`lem land checks\` and \`lem land propose\` again" <<<"$c2" \
+  && grep -qF "run \`lem land start\`, \`lem land base\`, \`lem land checks\`, \`lem land read\` and \`lem land propose\` again" <<<"$c2" \
   && [ "$unlanded" = "$main_was" ] \
   && [ "$(status_in "$GRD" guarded)" = landed ] && [ "$(git -C "$GRD" show main:y2.txt)" = more ]; then
-  pass "propose refuses notes that are no file and a title of two lines before it writes anything; land refuses a tree, a gated commit and a tip other than the ones on record, and no record of a gate; after a commit past the proposal the steps the refusal names land the new tip"
+  pass "propose refuses notes that are no file and a title of two lines before it writes anything; merge refuses a gated commit and a tip other than the ones on record, and no record of a gate; after a commit past the proposal the steps the refusal names land the new tip"
 else
-  fail "the guards of land: $no_notes / $two_lines / $unwritten / $c1 / $c3 / $ungated / $c2 / $(status_in "$GRD" guarded)"
+  fail "the guards of land: $no_notes / $two_lines / $unwritten / $c3 / $ungated / $c2 / $(status_in "$GRD" guarded)"
 fi
 land --repo "$GRD" clean guarded >/dev/null 2>&1 || true
-
-# One commit for the branch, refused by a commit hook: the branch stays as it was, and the next run lands it.
-HISTORY=squash grd_settings '"true"'
-small_task_in "$GRD" squashed z.txt z
-tree=$(wt squashed)
-to_proposed squashed
-before=$(git -C "$tree" rev-parse HEAD)
-printf '%s\n' '#!/bin/sh' 'echo "no commit here" >&2' 'exit 1' > "$GRD/.git/hooks/pre-commit" && chmod +x "$GRD/.git/hooks/pre-commit"
-hooked=$(g land squashed --by owner --message "fix: z" 2>&1 || true)
-hooked_tip=$(git -C "$tree" rev-parse HEAD)
-rm "$GRD/.git/hooks/pre-commit"
-g land squashed --by owner --message "fix: z" >/dev/null 2>&1 || true
-if grep -qF "the one commit was refused, and the branch is as it was: no commit here" <<<"$hooked" && grep -qF "another --message to \`lem land land squashed\`" <<<"$hooked" \
-  && [ "$hooked_tip" = "$before" ] && [ -z "$(git -C "$tree" status --porcelain)" ] && [ "$(status_in "$GRD" squashed)" = landed ] \
-  && [ "$(git -C "$GRD" log -1 --format=%s main)" = "fix: z" ]; then
-  pass "a commit hook that refuses the one commit leaves the branch as the gate saw it, and the run after it lands"
-else
-  fail "a refused one commit: $hooked / $hooked_tip / $before / $(status_in "$GRD" squashed)"
-fi
-grd_settings '"true"'
-land --repo "$GRD" clean squashed >/dev/null 2>&1 || true
 
 # The bar: a test file moved out of the tests is one the tests lose, and a focus mark runs one test alone.
 small_task_in "$GRD" bar-moves m.txt m
@@ -258,7 +233,7 @@ printf '%s\n' 'jobs:' '  test:' '    steps:' '      - run: ruff check .' '      
 printf '%s\n' 'from shop import add' 'def test_add():' '    assert add(1, 2) == 3' > "$GRD/tests/test_calc.py"
 printf '%s\n' 'exports["total"] = "3";' > "$GRD/tests/__snapshots__/total.snap"
 printf '%s\n' 'def add(a, b):' '    return a + b' > "$GRD/shop.py"
-git -C "$GRD" add -A && git -C "$GRD" commit -q -m "chore: a suite with thresholds and a workflow"
+git -C "$GRD" add -A && git -C "$GRD" commit -q -m "chore: a suite with thresholds and a workflow" && git -C "$GRD" push -q origin main
 small_task_in "$GRD" bar-weaker w.txt w
 tree=$(wt bar-weaker)
 printf '%s\n' '[tool.coverage.report]' 'fail_under = 10' '[tool.pytest.ini_options]' "addopts = \"--deselect tests/test_calc.py::test_add -k 'not slow' --reruns 3\"" > "$tree/pyproject.toml"
@@ -290,16 +265,15 @@ else
   fail "two writers of one file: $code_a $code_b / $(cat "$WORK/whole-a.out" "$WORK/whole-b.out")"
 fi
 
-# One start at a time: three starts at one moment, and one of them takes the landing line while the others are refused.
+# Landings in parallel: three starts at one moment take turns under the lock of the state folder, and each task starts its landing.
 for slug in race-one race-two race-three; do small_task_in "$GRD" "$slug" "$slug.txt" r; done
 for slug in race-one race-two race-three; do "$PY" -B "$LAND" --repo "$GRD" start "$slug" > "$WORK/$slug.start" 2>&1 & done
 wait
 raced=$(project --repo "$GRD" tasks | field 'sorted(t["status"] for t in d if t["slug"].startswith("race-"))')
-refused=$(grep -l "is in \`landing\`: one branch lands at a time" "$WORK"/race-*.start | grep -c '' || true)
-if [ "$raced" = "['landing', 'ready', 'ready']" ] && [ "$refused" = 2 ]; then
-  pass "two starts at one moment take turns under a lock: one task takes the landing line, and each other start finds it there and is refused"
+if [ "$raced" = "['landing', 'landing', 'landing']" ]; then
+  pass "three starts at one moment take turns under a lock, and each of the three tasks starts its landing: no task waits for another's"
 else
-  fail "starts at one moment: $raced, $refused refused / $(cat "$WORK"/race-*.start)"
+  fail "starts at one moment: $raced / $(cat "$WORK"/race-*.start)"
 fi
 for slug in race-one race-two race-three; do project --repo "$GRD" state "$slug" dropped "the test is over" >/dev/null; done
 
@@ -462,6 +436,8 @@ project --repo "$GRD" state crit-stop dropped "the test is over" >/dev/null
 
 # A branch with nothing of its own: base says so with the step that ends the task, and clean deletes the branch
 # of a dropped task that holds no commit of its own, while one with commits stays.
+# the base the task starts from is origin's: what the main checkout holds is there too
+git -C "$GRD" push -q origin main
 project --repo "$GRD" task-dir empty-branch --ask "Nothing." >/dev/null
 etree=$(wt empty-branch)
 git -C "$GRD" worktree add -q "$etree" -b fix/empty-branch main
@@ -471,7 +447,7 @@ nothing=$(g base empty-branch 2>&1 || true)
 project --repo "$GRD" state empty-branch dropped "nothing to land" >/dev/null
 emptied=$(g clean empty-branch 2>&1 || true)
 kept_branch=$(g clean detached 2>&1 || true)
-if grep -qF "the branch has no commit that main lacks: there is nothing to land" <<<"$nothing" && grep -qF "\`lem project state empty-branch dropped \"WHY\"\`" <<<"$nothing" \
+if grep -qF "the branch has no commit that origin/main lacks: there is nothing to land" <<<"$nothing" && grep -qF "\`lem project state empty-branch dropped \"WHY\"\`" <<<"$nothing" \
   && [ "$(field '(d["worktree"], d["branch"], d["branch_left"])' <<<"$emptied" 2>/dev/null)" = "(True, 'fix/empty-branch', None)" ] \
   && ! git -C "$GRD" rev-parse -q --verify fix/empty-branch >/dev/null \
   && [ "$(field '(d["worktree"], d["branch"])' <<<"$kept_branch" 2>/dev/null)" = "(True, None)" ] \
@@ -483,9 +459,9 @@ fi
 
 # The check of the criteria needs a change: a branch the base holds whole has no commit for a test to hold.
 small_task_in "$GRD" on-base o.txt o
-git -C "$GRD" merge -q --ff-only fix/on-base
+git -C "$GRD" merge -q --ff-only fix/on-base && git -C "$GRD" push -q origin main
 on_base=$("$PY" -B "$CRITERIA" --repo "$GRD" red on-base 2>&1 || true)
-if grep -qF "the branch has no commit beyond main, so there is no change for a test to hold" <<<"$on_base"; then
+if grep -qF "the branch has no commit beyond origin/main, so there is no change for a test to hold" <<<"$on_base"; then
   pass "the check of the criteria refuses a branch with no commit beyond the base"
 else
   fail "criteria red with no commit beyond the base: $on_base"

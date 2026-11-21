@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Every check of this repository at the same time: the unit level (tests/unit), the blocks of Lem's
-# scripts, the board, the gate and the panel, lem-ask, the experts, the page on GitHub Pages, ShellCheck
+# scripts, the board server among them, the gate and the panel, lem-ask, the experts, the page on GitHub Pages, ShellCheck
 # and the map of tests/pick.py. Each suite writes a log of its own and runs within a time limit
 # (tests/suites.sh). At the end one line for each suite gives its count of `ok`, `FAIL` and `SKIP`,
 # its exit and its time, and the log of each suite that failed follows. A suite passes only when its
@@ -12,11 +12,14 @@ cd -P "$(dirname "$0")/.." || exit 1
 . tests/suites.sh
 
 suites=(lem-settings lem-machine lem-state lem-decisions lem-land-shop lem-land-local lem-land-review lem-land-backlog lem-land-github lem-land-guards lem-land-small lem-serial
-  test-board test-gate-panel test-ask test-ask-expert shellcheck pick)
+  test-gate-panel test-ask test-ask-expert shellcheck pick)
 suites+=(lem-naps)
 suites+=(lem-command)
 suites+=(lem-picker)
-suites+=(lem-companion)
+suites+=(lem-session)
+suites+=(lem-serve)
+suites+=(lem-board-act)
+suites+=(lem-peers)
 suites+=(unit)
 suites+=(test-site)
 if [ -n "${LEM_TEST_LOGS:-}" ]; then
@@ -31,6 +34,8 @@ fi
 # then exports its own: no suite reads or writes the home directory's.
 MARKS=$(mktemp -d) || exit 1
 export XDG_CONFIG_HOME="$MARKS/config"
+# No board that a suite opens starts a board server (`serve.py`), which would outlive the run.
+export LEM_SERVE=off
 pids=()
 trap 'exit 143' TERM
 trap 'exit 130' INT

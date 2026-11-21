@@ -56,6 +56,9 @@ class UnknownNames(Refuses):
     def test_a_key_with_the_nearest_valid_one(self):
         self.assertNames(self.refused(read, "[branch]", 'base = "master"', 'lands = "agent"'), str(FILE), "branch.lands", "did you mean 'land'")
 
+    def test_a_way_to_land_with_no_pull_request(self):
+        self.assertNames(self.refused(read, "[branch]", 'propose = "merge"'), str(FILE), "unknown key branch.propose", "valid: base, land, history, protected")
+
     def test_a_table(self):
         self.assertNames(self.refused(read, "[gate]", 'commands = ["make test"]'), str(FILE), "unknown table [gate]")
 
@@ -78,13 +81,10 @@ class Values(Refuses):
     """A wrong value of a key is refused with the key and the values it may take."""
 
     def test_land(self):
-        self.assertNames(self.refused_settings("[branch]", 'land = "robot"'), "branch.land", "owner, agent")
+        self.assertNames(self.refused_settings("[branch]", 'land = "robot"'), "branch.land", "agent, owner")
 
     def test_history(self):
         self.assertNames(self.refused_settings("[branch]", 'history = "rewrite"'), "branch.history", "keep, squash")
-
-    def test_propose(self):
-        self.assertNames(self.refused_settings("[branch]", 'propose = "push"'), "branch.propose", "'push'", "pull-request, merge")
 
     def test_an_empty_base(self):
         self.assertNames(self.refused_settings("[branch]", 'base = ""'), "branch.base", "names no branch")
@@ -104,14 +104,15 @@ class Values(Refuses):
     def test_topics_that_are_no_list(self):
         self.assertNames(self.refused_settings("[flow]", 'topics = "money"'), "flow.topics", "list of strings")
 
-    def test_a_branch_defaults_to_squash_and_a_pull_request(self):
+    def test_a_branch_defaults_to_squash_and_the_merge_agent(self):
         found = settings("[branch]", 'base = "master"')
-        self.assertEqual((found["branch"]["history"], found["branch"]["propose"], found["branch"]["land"]), ("squash", "pull-request", "owner"))
+        self.assertEqual((found["branch"]["history"], found["branch"]["land"]), ("squash", "agent"))
+        self.assertEqual(sorted(found["branch"]), ["base", "history", "land", "protected"])
         self.assertEqual(sorted(found["checks"]), ["commands", "serial", "setup"])
 
-    def test_a_branch_keeps_its_commits_or_merges_when_the_file_says_so(self):
-        found = settings("[branch]", 'base = "master"', 'history = "keep"', 'propose = "merge"')
-        self.assertEqual((found["branch"]["history"], found["branch"]["propose"]), ("keep", "merge"))
+    def test_a_branch_keeps_its_commits_and_its_owner_merges_when_the_file_says_so(self):
+        found = settings("[branch]", 'base = "master"', 'history = "keep"', 'land = "owner"')
+        self.assertEqual((found["branch"]["history"], found["branch"]["land"]), ("keep", "owner"))
 
     def test_topics_are_the_owner_sentences(self):
         found = settings("[flow]", 'topics = ["a price a customer pays", "data that cannot be rebuilt"]')
@@ -209,6 +210,23 @@ class Seats(Refuses):
         self.assertEqual(found["reviewer"], {"agent": "codex", "model": "gpt-6.1-sol", "effort": "high", "seat": "codex/gpt-6.1-sol:high"})
         self.assertEqual(found["planner"], {"agent": "claude", "model": "opus", "effort": None, "seat": "claude/opus"})
         self.assertEqual([(e["agent"], e["model"], e["effort"], e["place"]) for e in found["experts"]], [("claude", "fable", "high", "fable"), ("codex", None, None, "astra")])
+
+    def test_the_merge_agents_seat_from_the_repository_the_machine_or_the_agent(self):
+        machine = {"merger": "codex/gpt-6.2-sol:high"}
+        raw = read("[seats]", 'merger = "claude/opus:high"')
+        own = project.decide(ROOT, ROOT, raw, {}, raw, None, machine)["seats"]["merger"]
+        self.assertEqual((own["agent"], own["model"], own["effort"], own["from"]), ("claude", "opus", "high", str(project.SETTINGS)))
+        raw = read("[branch]", 'base = "master"')
+        mine = project.decide(ROOT, ROOT, raw, {}, raw, None, machine)["seats"]["merger"]
+        self.assertEqual((mine["agent"], mine["model"], mine["effort"]), ("codex", "gpt-6.2-sol", "high"))
+        self.assertTrue(mine["from"].endswith("machine.toml"))
+        bare = project.decide(ROOT, ROOT, raw, {}, raw, None, {})["seats"]["merger"]
+        self.assertEqual((bare["agent"], bare["model"], bare["effort"], bare["from"]), ("claude", None, None, "the agent's own default"))
+
+    def test_the_merge_agents_seat_the_machine_names_is_checked(self):
+        raw = read("[branch]", 'base = "master"')
+        message = self.refused(project.decide, ROOT, ROOT, raw, {}, raw, None, {"merger": "gemini/pro"})
+        self.assertNames(message, "machine.toml: seats.merger", "the agent 'gemini' must be claude or codex")
 
     def test_a_seat_with_no_model(self):
         found = settings("[seats]", 'reviewer = "codex:high"')["seats"]["reviewer"]

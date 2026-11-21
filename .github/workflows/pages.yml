@@ -1,7 +1,7 @@
 name: Pages
 
 # Started by hand only (the Actions tab, or `gh workflow run Pages`), after the source of Pages is set
-# to "GitHub Actions". It publishes site/ with the logo and the board pictures of assets/, copied at
+# to "GitHub Actions". It publishes site/ with the logo and the six board pictures of assets/, copied at
 # the same paths, so the page names them as assets/... and site/ holds no picture of its own.
 # tests/test-site.sh runs the step "Make the folder to publish" as it is written here.
 on:
@@ -30,7 +30,8 @@ jobs:
           mkdir -p _site/assets/screens
           cp site/* _site/
           cp assets/lem.svg assets/lem-night.svg _site/assets/
-          cp assets/screens/board-light.png assets/screens/board-dark.png _site/assets/screens/
+          cp assets/screens/board-light.png assets/screens/board-dark.png assets/screens/phone-light.png assets/screens/phone-dark.png \
+             assets/screens/task-light.png assets/screens/task-dark.png _site/assets/screens/
       - uses: actions/upload-pages-artifact@v5
         with:
           path: _site

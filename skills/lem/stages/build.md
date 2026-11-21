@@ -25,9 +25,16 @@ you the start of one, write the state `blocked` with that refusal, and stop.
      writes at least one test for each, one that fails without its change, except for a criterion
      whose change keeps behavior (a rename, a bump, a refactor), which the whole suite holds at
      the checks;
+   - what the change is for, in the forms it was settled in: the `## Outcome` of `task.md` (its
+     story of Today and After, and its chart), each criterion's case, and the plan's `## How it
+     works` chart. They are the builder's contract beside the prose: where its reading of the
+     task's section and a story or a chart differ, the story and the chart are right, and it says
+     so in its report;
    - the rule files that cover the files it will touch, as `lem project rules FILE ...`
      prints them for the files the plan names for the task, and the project's lessons;
-   - the report file, `reports/NN-<task>.md` in the task directory;
+   - the report file, `reports/NN-<task>.md` in the task directory, and, for a task that changes
+     what a person sees or builds a flow, `SKILL_DIR/prompts/writing.md` for the picture and the
+     chart its report carries;
    - the tests it runs: those of the files it changes and of their direct callers, and never the
      whole suite, also not for a change that keeps behavior. The whole suite runs one time, in the
      checks before the pull request (`stages/land.md`, step 4), and it is the proof for such a
@@ -60,17 +67,18 @@ you the start of one, write the state `blocked` with that refusal, and stop.
      again in plain terms, name what the two tries assumed, and brief the next builder with a
      different approach and why it avoids that assumption;
    - *a choice the plan did not see*: "A choice in the build" below. It is not a question for
-     the reviewer.
+     the reviewer, and not for the owner.
    A builder's report also lists the decisions it took that the plan did not. Write each one into
    the record, as the next section says, before the next builder starts.
 3. **Go on to "The report"** when every task has its report.
 
 ## A choice in the build
 
-A surprise in the build stops the task for the owner's wait at most, never longer, except for a
-step that a later "no" cannot reverse. A decision of the plan takes these steps too
-(`stages/plan.md`, step 5): there is one path for every decision. Every decision goes into the
-task's record through one script, which also puts it on the board:
+A surprise in the build asks the owner nothing: the ladder decides it, its pick is taken at once,
+with him there or away, and he reads it at the pull request. Only the circuit breaker stops the
+task (`stages/breaker.md`). A decision of the plan takes these steps too (`stages/plan.md`, step
+5): there is one path for every decision. Every decision goes into the task's record through one
+script, which also puts it on the board:
 
 ```bash
 lem decisions --repo WORKTREE log SLUG --what TEXT --chose TEXT --why TEXT --by lead [--undo TEXT]
@@ -81,67 +89,28 @@ request (`lem criteria approved SLUG`), changes in the plan only with its own re
 before the commit that changes it, with its text before and after:
 
 ```bash
-lem decisions --repo WORKTREE criterion SLUG (--changed N --was TEXT --now TEXT | --added N --now TEXT | --removed N --was TEXT) --why TEXT (--choice ID | --by lead|personas [--said TEXT])
+lem decisions --repo WORKTREE criterion SLUG (--changed N --was TEXT --now TEXT | --added N --now TEXT | --removed N --was TEXT) --why TEXT (--decision ID | --by lead|personas [--said TEXT])
 ```
 
 N is the criterion's number as the criteria stand after every earlier change;
 `lem decisions changes SLUG` gives them, and the command refuses a `--was` that is not the text
-of criterion N then. `--choice ID` names the choice of step 2 that led to it, once it is answered or
-taken by timeout; a decision the personas settled is `--by personas --said "who picked what"`,
-one another level of the ladder settled is `--by lead` with its number in `--why`, and so is the
-lead's own change that is nobody's choice, such as a typo in an example.
-A criterion whose rule changes, comes or goes is never the lead's alone: it climbs the ladder
-(step 2). `criteria.py`
-refuses the plan until its criteria are the expected ones, word for word, and the pull request is
-not green for each change. A plan's `Size:` line always says `full`, and `criteria.py` refuses
-a plan that says `Size: small`: a build never moves a task from the standard track to the fast
-track, which has no plan, and the track is no choice of this section.
- A plan that departs from a direction
-(`directions.md`) is a decision of this section too, with the direction in `--what`.
+of criterion N then. `--decision ID` names the decision of the record that led to it: a pick of the
+ladder, or the owner's help on a breaker; a decision the personas settled is `--by personas --said
+"who picked what"`, and the lead's own change that is nobody's decision, such as a typo in an
+example, is `--by lead`. `criteria.py` refuses the plan until its criteria are the expected ones,
+word for word, and the pull request is not green for each change but one his help led to. A plan's
+`Size:` line always says `full`, and `criteria.py` refuses a plan that says `Size: small`: a build
+never moves a task from the standard track to the fast track, which has no plan, and the track is
+no choice of this section. A plan that departs from a direction (`directions.md`) is a decision of
+this section too, with the direction in `--what`.
 
 1. **The criteria and the directions stay true**: decide it yourself, from the code, the settings
    and the rulings, and log it with `--by lead` and `--undo`, what it would take to undo it.
-2. **Otherwise it is in doubt**: `stages/ladder.md`, read at the first such decision. With the
-   owner, a decision that went past the personas, and a step that a later "no" cannot reverse,
-   end as his card:
-
-   ```bash
-   lem decisions --repo WORKTREE ask SLUG --what TEXT --case STEPS --case-was reproduced|derived --cause TEXT --option TEXT --option TEXT --recommended TEXT --why TEXT --said TEXT [--irreversible data|system|person|money]
-   ```
-
-   `--case` is one concrete case in numbered steps that ends badly, with real names and values
-   and where each step was read, one step to a line; `--case-was` says whether you reproduced
-   it or derived it; `--cause` is one line on why the case became possible and how far the same
-   cause reaches. They go above the owner's card, so that he decides from one run and not from
-   the code. `--recommended` is the ladder's pick, and `--said` what each level answered. A
-   choice carries no criterion. Whichever way it ends, by his answer, by a decision of his that
-   is none of the options or taken when he went away, read what was taken against each criterion: when
-   one no longer holds, or a criterion has to come or go, record it with `lem decisions
-   criterion ... --choice N`, and change the criterion in the plan in the commit that builds the
-   option. A forgotten record does not pass: the checks refuse a plan whose criteria are not the
-   expected ones. The choice waits for his answer with no time limit, so tell Lem at once: `tell-coordinator` with
-   the line `lem: SLUG choice N waits`, to the address of the brief's `coordinator:` line. The
-   defender of a plan talk sends it from its companion, and a builder that leads sends it from
-   Lem's own session; the harness file says what of that was checked. A brief with no
-   `coordinator:` line has no address: the choice then reaches Lem at its next turn, through
-   `lem decisions pending`.
-3. **Go on with the work that does not depend on the choice.** Between two of your tasks, and
-   before you start one that depends on it, run `lem decisions --repo WORKTREE wait SLUG N`. It
-   returns when the owner answered, when the task runs without him (he said he is away; it then
-   takes the ladder's pick, on a choice the experts advised the option every expert picked, and the pull
-   request is not green for it), or after nine minutes: run it again while it says `still
-   waits`, when nothing else is left to do. `lem decisions list SLUG` shows each decision as it
-   stands; an answer that came after it was taken and differs from what was taken is the owner's correction:
-   build his answer, and log it with `--by lead` and why.
-4. **A step that a later "no" cannot reverse is never taken without his answer or by a level of
-   the ladder**, with the owner or without him. The four kinds, and no
-   other: it destroys or rewrites data outside the worktree (`data`); it writes to a system
-   outside the repository beyond what the settings already allow, such as the tracker's ticket
-   (`system`); it sends something to a person (`person`); it spends money (`money`). Ask it with
-   `--irreversible` and the kind. Only the part of the plan that needs that step waits, however
-   long; the rest goes on. When every task that is left needs it, write the report with the
-   choice under "held", write the state `held` with the line `choice N waits for the owner`, and
-   stop: Lem starts a lead again after his answer.
+2. **Otherwise it is in doubt**: `stages/ladder.md`, read at the first such decision. The ladder
+   always ends in a pick: log it as that file says, read the pick against each criterion, record a
+   criterion it changes with `--decision ID`, change the plan in the commit that builds it, and go
+   on. A pick that changes the rule of an approved criterion, or the next step that a later "no"
+   cannot reverse, is no pick to take: the breaker trips (`stages/breaker.md`).
 
 A builder that is not the lead and meets such a choice asks nobody: it stops its task with the
 question in its report, with the options and what it would choose, and the lead takes it from
@@ -149,14 +118,16 @@ there by these steps.
 
 ## The report
 
-The lead's last act, and also what it does before any other stop. Lem reads
-this file and the state block and nothing else of the task, and writes the owner's report from it.
+The lead's last act, and also what it does before any other stop. The landing reads this file
+and the state block and nothing else of the build, and writes the pull request's notes from it.
 Write `report.md` in the task directory, whole, each time, each part below under a heading of its
-name (`## What the owner gets`): the owner's page of the task takes that part. A path in it is
+name (`## What the owner gets`): the merge agent's review of the task tells that part. A path in it is
 relative to the repository's root, never a path inside the worktree: the worktree is gone when the
 owner reads.
 
-- **what the owner gets**, in one or two sentences, and how to see it;
+- **what the owner gets**, in one or two sentences, and how to see it. When behavior changed, the
+  run that shows it follows them, told as `prompts/writing.md` tells a story, with the chart of a
+  new flow and the builders' pictures of `media/`: the owner's "What was built" opens with this part;
 - **the criteria**: each criterion of the plan with the tests that hold it. Before the report, write
   under each criterion in the plan its tests (`- test: ...`, or `- no test: REASON` for a criterion
   no test can hold, such as a sentence of a document, and `- no test: the change keeps behavior; the
@@ -178,11 +149,10 @@ owner reads.
 - **not verified**: what you could not or did not check;
 - **decisions**: each one taken without the owner, with why and what it would take to undo, by
   its number in `lem decisions list SLUG`. Each is in that record before the report: the pull
-  request takes them from there;
+  request takes them from there, an important one with its story and its chart;
 - **held**: what the task waits on when its state is `held`: the criteria with the answers that
-  flagged them, or the irreversible choice that every task left depends on, by its number. A
-  choice that waits while the work goes on is in the record, not here. Leave the heading out when
-  there is none;
+  flagged them, or the breaker by its number, with its cause in one line. Leave the heading out
+  when there is none;
 - **outside defects**: each defect seen in code outside the task, with its file and one line on
   what is wrong. Do not fix it and do not file it: the polish pass of the landing fixes the
   small ones in place and files the others in the backlog (`stages/land.md`, step 3), with those
@@ -194,15 +164,9 @@ owner reads.
   uses it when the project lands a task as one commit;
 - **the branch and its tip**: the branch's name and the commit `git rev-parse HEAD` prints.
 
-Then write the state (`ready`, or `held`, `blocked` or `planned` with the line that says why),
-and stop. A builder that leads tells Lem by its reply, which is the report's path and nothing
-else, and sends no mailbox line for it: its reply already wakes Lem, and a line too would wake it
-twice for one stop. Its only line is `choice N waits`. The defender of a
-plan talk has no such reply and uses `tell-coordinator` (`prompts/defender.md`).
-
-When your agent refuses you the write of `report.md`, do not go around the refusal. Add the line
-`report in the reply` to the state, and make your reply the whole report, in this form: Lem
-writes the file from it.
+Then write the state: `ready`, and the landing comes, a phase of its own (`prompts/session.md`,
+"A change of phase"); or `held` or `blocked` with the line that says why, and wait in this session
+for the owner.
 
 Most real defects are found by the next builder on the same ground, not by a review
 (convertiser-server's log of defects outside its tasks held 105 items after about 28 hours). So

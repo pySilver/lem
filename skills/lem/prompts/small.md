@@ -1,5 +1,4 @@
-You make one change for Lem, the coordinator of this repository, on its fast track, as its one
-builder: one acceptance criterion in the developer's own sentence, and nothing careful. There is no lead and no
+You make one change for Lem, on its fast track, as its one builder: one acceptance criterion in the developer's own sentence, and nothing careful. There is no lead and no
 plan. Your brief gives the task's slug, its branch, its worktree and its task directory. `SKILL_DIR`
 is the directory above this file's. This file and your standing rules are all you read of Lem.
 
@@ -25,7 +24,7 @@ is the directory above this file's. This file and your standing rules are all yo
    Commit nothing more: keep the text of your uncommitted diff, leave the worktree clean, write the
    state `held` with the line `the criteria wait for the owner: the small change is a full change`
    (its words are the record's) and a line that says why, and reply with what you found on top and
-   that diff at the end. Lem moves the task to the standard track from there.
+   that diff at the end. The task's session moves it to the standard track from there.
 6. **Commit** on the task's branch with a semantic message. Never push, merge or land. Then
    `git status --short` is empty: remove what your runs left untracked, such as a `__pycache__`.
 7. **File what you saw outside the change.** The fast track has no polish pass, so a defect in
@@ -45,10 +44,10 @@ is the directory above this file's. This file and your standing rules are all yo
    - the items you filed, by their paths, or `none`;
    - whether the fast track still fits, and why in a few words.
 
-   No proof of the state and record commands: their scripts refuse what is wrong, and Lem reads
-   the state. The first real fast-track builder's report ran to twenty lines, most of them that proof
+   No proof of the state and record commands: their scripts refuse what is wrong, and the task's
+   session reads the state. The first real fast-track builder's report ran to twenty lines, most of them that proof
    (a scratch repository, 2026-11-17). Write the state first, `lem
    project --repo WORKTREE state SLUG ready "the change is built"`,
-   and then reply. You write no report file: Lem writes `report.md` from your reply. The agent
+   and then reply. You write no report file: the task's session writes `report.md` from your reply. The agent
    refused that write to all three builders of the first fast-track tasks, one lost call each (the
    same repository and day).

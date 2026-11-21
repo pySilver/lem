@@ -15,16 +15,18 @@ would be written against code that does not exist. Then write no plan: stop with
 lem project --repo WORKTREE state SLUG queued "WHAT THIS TASK NEEDS FROM THE OTHER, IN ONE LINE" "after: OTHER-SLUG"
 ```
 
-and the report and your reply as `stages/build.md` ends. `lem project may-start` keeps the task in
-the queue until that task is landed, answered or dropped, and Lem starts a lead for it then; the
-lead finds the base with the other task's change in it. Two tasks that only touch the same file
+and `report.md` as `stages/build.md` gives it; then `handoff.md`, and close this session as step 7
+of "The request" (`stages/new.md`) says. `lem project may-start` keeps the task in the queue until
+that task is landed, answered or dropped, and the board's server opens its session then; its lead
+finds the base with the other task's change in it. Two tasks that only touch the same file
 each go on: when the first one merges, the later pull request is brought onto the base if the
 forge calls it conflicting.
 
 1. **Write the plan** as one file at the path `lem project --repo WORKTREE plan-file SLUG`
    prints (`path`; its name is the settings' `paths.plan_file`, `YYYY-MM-DD-<slug>.md` unless they say otherwise), and
    commit it as your first commit: after a bug, the investigator's test comes before it. It opens with the acceptance criteria, because they are the
-   owner's document: he reads them and not the rest of the plan, and they become the tests.
+   owner's document: he reads them and not the rest of the plan, and they become the tests. Read
+   `SKILL_DIR/prompts/writing.md` before you write it; the plan and your report take its forms.
    - `## Acceptance criteria`, in the form `lem criteria --help` shows.
      First run `lem criteria approved SLUG`. When the owner approved
      criteria at his interview, they are your criteria: copy the section word for word, numbered the
@@ -46,7 +48,8 @@ forge calls it conflicting.
    - with no approved criteria (the standard track from a complete request), write them.
      A criterion is one business rule of the request in plain language with one concrete example,
      with real names and values: what a person of the project would see, never how the code does
-     it. Take them from the outcome and the "done when" of `task.md`, now that you have read the
+     it, and a case or a chart where `prompts/writing.md`, "In the acceptance criteria", asks for
+     one. Take them from the outcome and the "done when" of `task.md`, now that you have read the
      code. A rule you cannot write without guessing what the owner wants is not yours to guess:
      the criteria wait for him, as for a doubt of the personas below, with the criterion as you
      would guess it and each other reading beside it as a proposal. The first line of that section
@@ -83,7 +86,8 @@ forge calls it conflicting.
  A doubt: the
      first line of code waits. Write `report.md` with the criteria and the answers that flagged
      them on top, quoted, and the line `the criteria wait for the owner`; write the state `held`
-     with that line, and stop. Leave a flagged criterion as you wrote it: what you would change goes
+     with that line, and put them to him here, by steps 6 and 7 of `stages/interview.md`; after
+     his yes, build on. Leave a flagged criterion as you wrote it: what you would change goes
      beside it, as a proposal, and he decides. A task that runs without him (`mode` is `alone` in
      `lem project --repo WORKTREE tasks`) waits for nothing of this, a request somebody else
      wrote among it: each flagged criterion is a
@@ -95,6 +99,9 @@ forge calls it conflicting.
    - run `lem criteria record SLUG`: it refuses a section that does not
      have the form, or that departs from the approved criteria, and it puts the criteria where
      the board and Lem's status show them;
+   - when the change builds a flow, a rule with branches or a state that moves, one chart of it
+     under `## How it works`, after the criteria, below the sentence it shows, or a criterion's own
+     chart directly under it;
    - `## Tasks`: a numbered list of one to seven tasks, each an outcome a reviewer can check
      alone and one builder can finish in a context of its own, with the criteria it serves and
      the files it expects to touch. The landing counts the numbered lines under that heading:
@@ -147,35 +154,45 @@ forge calls it conflicting.
    large when `## Tasks` has more than three numbered tasks. When step 2 says careful, or the
    plan is large, read `talk` in `lem project --repo WORKTREE tasks`
    for this task: the newest `plan.talk` of its event log, or null.
-   - *null*: write `report.md` with what says so (the topic, the pattern, the owner's word, or
-     the count); write the state `planned` with the line `needs a session: careful` or
-     `needs a session: large, N tasks`; and stop. The plan talk of step 4 needs the reviewer's
-     pane and the mailbox, and a builder has neither (the harness file, `spawn-builder`). Lem
-     opens a companion session for the talk, and its agent, the plan's defender, starts from your
-     plan (`prompts/defender.md`, `stages/talk.md`).
+   - *null*: the talk of step 4 comes first.
    - *a record*: the talk is done, and you lead the build of the plan it left: skip step 4, take
      the questions it left open at step 5, and go on. Read the `## Plan talk` section first: a
-     repair changed the plan after you or another builder wrote it. Every plan has you start a
-     builder for each of its tasks, which the harness file checked from a `worker` subagent and
-     not yet from a `lem-builder`: when your agent refuses you the start of a builder, write the
-     state `blocked` with that refusal, and stop.
+     repair changed the plan after you wrote it.
    When your brief says `stop after the plan: yes`, take the plan's decisions through step 5
-   first, then stop the same way with the line `the owner reads the plan`.
-4. **A careful or large plan gets a plan talk before any code**, in the companion Lem opens for
-   it: the defender holds the talk with the reviewer by `stages/talk.md`, and writes its record
-   into the plan as `## Plan talk` and into the event log as `plan.talk`. You do not read that
-   file: you stopped at step 3 before the talk, or the talk is done and its record is in the
-   plan. A task that becomes careful after its plan, by the owner's word, by the review's call or
+   first, then write the state `planned` with the line `the owner reads the plan`, show him the
+   plan to mark up (`show-page`), and wait in this session for his "build" or "drop".
+4. **A careful or large plan gets a plan talk before any code**, in a pair you open under this
+   session: its agent, the plan's defender (`prompts/defender.md`), holds the talk with the
+   reviewer in its other pane by `stages/talk.md`, and writes its record into the plan as `##
+   Plan talk` and into the event log as `plan.talk`. You do not read that file.
+   1. Write `report.md` with why the plan is talked through (the topic, the pattern, the owner's
+      word, or the count), and `talk-brief.md` in the task directory, with this and nothing more:
+
+      ```
+      Read SKILL_DIR/prompts/defender.md and follow it.
+      task: SLUG
+      branch: the task's branch
+      worktree: the worktree's absolute path
+      task directory: the task directory's absolute path
+      ```
+
+   2. Open the pair (`open-task-session`, the plan talk's) with that file, on the settings'
+      `seats.planner`, and write the state `building` with the lines `the plan talk runs`, `lead:
+      session` and `defender: MODEL, EFFORT`, as the pair's status line shows them (the harness
+      file says how to read them).
+   3. `run-in-background` with `lem session wait SLUG --until planned,held`. Its end wakes you:
+      close the pair (`open-task-session`). On `planned` with `the plan talk is done`, write the
+      state `building` with the line `lead: builder`, and go on at step 3, which now finds the
+      record. On `held`, the defender tripped the breaker: take it up as `stages/breaker.md`
+      says under "After it".
+   A task that becomes careful after its plan, by the owner's word, by the review's call or
    by an edit of `.lem/project.toml`, gets no talk afterwards: the landing's full
    review reads the code that exists.
 5. **A decision of the plan in doubt climbs the ladder, and the work goes on.** A decision the
    lead may take is logged with `--by lead` (`stages/build.md`, "A choice in the build", step 1).
-   One in doubt takes `stages/ladder.md`; with the owner, one that went past the personas becomes
-   his card, as step 2 of that section asks it. Then go on to step 6: the build takes the tasks
-   that do not depend on it, and the choice waits as that section's steps 3 and 4 say. The state
-   `held` is not for such a decision. A builder whose plan is careful or large and has no talk
-   yet has stopped at step 3 before this; the builder that leads after the talk takes this step
-   for the plan's own decisions.
+   One in doubt takes `stages/ladder.md`, whose pick is taken at once and written into the plan;
+   only a pick the breaker stops (`stages/breaker.md`) holds the task. Then go on to step 6. A
+   plan whose talk is due takes this step after the talk, for its own decisions.
    A question the plan talk left open climbs the ladder like any other, with the two positions as
    its facts, and the defender takes it before it stops. A design choice about a decision of the
    plan (a layer over a decision with no cite, a decision two questions named, or a changed
@@ -183,5 +200,7 @@ forge calls it conflicting.
    the kept decision with each mechanism that guards it, the other the reversed decision with the
    tasks and the criteria it changes and each issue the reviewer raised against it. Both are the
    ladder's options, and the pick of level 1 is the kept decision: the plan stands until a level
-   settles otherwise, and the defender is one of the two positions that did not settle.
+   settles otherwise, and the defender is one of the two positions that did not settle. The pick
+   is taken: the defender writes the reversed decision into the plan when a level picks it, and
+   trips the breaker when it changes the rule of an approved criterion.
 6. **Go on to `build`.** Write the state `building` with the line `plan committed, N tasks`.

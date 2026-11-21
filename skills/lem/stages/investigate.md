@@ -26,14 +26,13 @@ task.
    request: TASK_DIRECTORY/ask.txt
    type: fix or question
    worktree: the path `lem project worktree-dir SLUG` prints
-   branch: the branch of step 2 of "Open the task"
+   branch: the branch of step 2 of "The request"
    task directory: TASK_DIRECTORY
    ```
 
    Log its start as it starts, `lem project log SLUG investigation.start
-   type=fix` (or `type=question`); the record of step 3 is its end. Then go back to his next
-   message: its reply wakes you, and the line of step 5 of "Open the task" (`stages/new.md`) told
-   him already. No investigation has been timed yet.
+   type=fix` (or `type=question`); the record of step 3 is its end. Then wait: its reply wakes
+   you, and the line of step 5 of "The request" (`stages/new.md`) told him already. No investigation has been timed yet.
 3. **Read its report.** Its reply is the path of `investigation.md` in the task directory. When
    its agent refused it the write, its reply is the whole report: write it into that file word
    for word, with one line at the top that says who copied it and why. The report is knowledge of
@@ -52,17 +51,16 @@ task.
 4. **The path**, from the call:
    - *small*: the fast track, with its one criterion the rule that removes the cause, in his
      words made exact, and with nothing careful: read the cause, its place and how far the report
-     says it reaches against each topic, as step 1 of "Open the task" reads an ask. The
+     says it reaches against each topic, as step 1 of "The request" reads an ask. The
      reproducing test is the criterion's test: the fast track's builder names it under the
-     criterion. Tell him in one line, as step 5 of "Open the task" says, and go on with "The fast
+     criterion. Tell him in one line, as step 5 of "The request" says, and go on with "The fast
      track" (`stages/new.md`).
    - *full*: the standard track with an interview and no scout, whose interview starts from the cause
      ("the total adds the refund as a payment, in `billing/invoice.py:total`; should the refund
      lower the total, or stand as a line of its own?"). Write the state `held` with the line `the
      interview waits for the owner` first: the investigator's place is free again. Then write the
-     lead's `brief.md` as step 6 of "Open the task" says, and open the interview's
-     companion as `stages/open-interview.md` says, the copy of the talk
-     first: the companion reads `investigation.md` as the scout's report.
+     lead's `brief.md` as step 6 of "The request" says, and take `stages/interview.md` here: it
+     reads `investigation.md` as the scout's report.
    - *not a bug*: tell him what the code does in his case and why, as one run (`SKILL.md`, "What
      the owner has to understand is told as one run"), with where each step was read. Write the
      state `answered` with that in one line, and `lem land clean SLUG`: the worktree goes, and a
@@ -79,11 +77,12 @@ task.
    call is `not-a-bug` or `answer`. For an answered task that came from a ticket, the tracker
    then comments the answer on the ticket and changes no status (its "answer"): tell the owner
    which status the ticket has. A task that goes on keeps the report in its directory, and
-   its pull request names the cause in one line, from the record.
+   its pull request names the cause in one line, from the record. A task that ended here closes
+   its session last, as `prompts/session.md` says under "The end".
 5. **A task from the report.** He can start one with `/lem new` and the report's path, as he can
    with a backlog item: the new task's ask is his words, and the report its written context. Copy
    the report into the new task's directory as `investigation.md`, name it in its `task.md`, and
-   take its path in step 4 of "Open the task": when the report and his words settle what is wanted, that is the standard
+   take its path in step 4 of "The request": when the report and his words settle what is wanted, that is the standard
    track from a complete request, and when they ask for one plain change, the fast track.
  The
    answered task's branch may hold a test the new task can take.

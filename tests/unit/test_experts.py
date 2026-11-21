@@ -89,14 +89,10 @@ class Audience(unittest.TestCase):
             text = experts.audience_text({"profile": None, "personas": [{"stem": "user", "path": str(user), "person": str(user)}]})
         self.assertIn("The project has no profile", text)
 
-    def test_both_briefs_hold_the_part_before_the_answer(self):
+    def test_the_brief_holds_the_part_before_the_answer(self):
         part = "## Who the code is for\n\nPEOPLE\n"
         free = experts.free_brief_text("Which store?", "", [], Path("/repo"), [], 2, part)
         self.assertLess(free.index(part), free.index("## Your answer"))
-        found = {"what": "Where the note goes", "options": ["a", "b"], "recommended": "a", "why": "w", "said": "s"}
-        choice = experts.brief_text("gift-note", 1, found, {"criteria": [], "plan": "p.md"}, Path("/repo"), [], 2, part)
-        self.assertLess(choice.index("## The files the choice is about"), choice.index(part))
-        self.assertLess(choice.index(part), choice.index("## Your answer"))
 
 
 if __name__ == "__main__":

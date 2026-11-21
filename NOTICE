@@ -1,8 +1,9 @@
 # Third-party attributions
 
 This repository is MIT licensed (see `LICENSE`). It also contains work adapted
-from other MIT-licensed projects, listed below with the notices their licenses
-require.
+from other MIT-licensed projects, copies of other projects that the board
+bundles, and icons under a commercial license, listed below with the notices
+their licenses require.
 
 ## interview-me
 
@@ -164,3 +165,68 @@ owner's own and unpublished, so no license applies to it.
 
 These came here from [pySilver/cc-tools](https://github.com/pySilver/cc-tools), by the same author
 and under the same license; the sections above name what each was adapted from before that.
+
+## The board's browser files
+
+`skills/lem/assets/vendor/board-app.js` is built by `tools/board-kit` and bundles
+[Turbo](https://github.com/hotwired/turbo) 8.0.23 and
+[Stimulus](https://github.com/hotwired/stimulus) 3.2.2, both MIT licensed (Turbo:
+Copyright © 2026 37signals LLC, as its own banner says; Stimulus: Copyright © 2021
+Basecamp, LLC), and [marked](https://github.com/markedjs/marked) 11.2.0, MIT licensed
+(Copyright (c) 2018+, MarkedJS; Copyright (c) 2011-2018, Christopher Jeffrey), whose
+license file also carries the license of Markdown, below.
+
+`skills/lem/assets/vendor/mermaid.min.js` is [mermaid](https://github.com/mermaid-js/mermaid)
+11.12.0 as its package ships it, MIT licensed (Copyright (c) 2014 - 2022 Knut Sveidqvist).
+The file bundles mermaid's dependencies, each under its own license, which comes with each
+package on npm: DOMPurify (Apache License 2.0 or Mozilla Public License 2.0; the bundle
+keeps its license line), d3 (ISC), d3-sankey (BSD-3-Clause), and @braintree/sanitize-url,
+@iconify/utils, @mermaid-js/parser, cytoscape, cytoscape-cose-bilkent, cytoscape-fcose,
+dagre-d3-es, dayjs, katex, khroma, lodash-es, marked, roughjs, stylis, ts-dedent and uuid
+(MIT).
+
+No change was made to any of them. The MIT license of each:
+
+```
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+The license of Markdown, as marked's license file carries it:
+
+```
+Copyright © 2004, John Gruber
+http://daringfireball.net/
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+* Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+* Neither the name “Markdown” nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+This software is provided by the copyright holders and contributors “as is” and any express or implied warranties, including, but not limited to, the implied warranties of merchantability and fitness for a particular purpose are disclaimed. In no event shall the copyright owner or contributors be liable for any direct, indirect, incidental, special, exemplary, or consequential damages (including, but not limited to, procurement of substitute goods or services; loss of use, data, or profits; or business interruption) however caused and on any theory of liability, whether in contract, strict liability, or tort (including negligence or otherwise) arising in any way out of the use of this software, even if advised of the possibility of such damage.
+```
+
+## Font Awesome Pro icons
+
+The icons in `skills/lem/assets/vendor/board-icons.json` are
+[Font Awesome Pro](https://fontawesome.com) 6.7.2 icons (Fonticons, Inc.), used under the
+owner's Font Awesome Pro license. They are not under this repository's MIT license and
+are not free to reuse from this repository: a use elsewhere needs a Font Awesome Pro
+license of its own.

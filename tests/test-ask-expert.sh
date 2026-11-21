@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
-# The experts of a choice that waits for the owner, offline: decisions.py keeps each expert's
-# advice under the task's lock and refuses a pick that is no option; when the task runs without the
-# owner a choice that waits is taken with the experts' shared pick, and the recommended option when
-# they split, never an irreversible step; and the lem-ask-expert skill's brief file holds the choice
-# and the criteria. No expert runs here.
+# The experts, offline: the lem-ask-expert skill's brief of a question in words, which the owner asks
+# and a lead's ladder asks at its last level, its folder, the record of each answer, who the experts
+# are, and one expert alone without Codex. No expert runs here.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 PROJECT=$PWD/skills/lem/scripts/project.py
-DECISIONS=$PWD/skills/lem/scripts/decisions.py
 EXPERTS=$PWD/skills/lem-ask-expert/scripts/experts.py
 WORK=$(cd "$(mktemp -d)" && pwd -P)
 export XDG_CONFIG_HOME="$WORK/config"  # the owner's status (`lem_state.owner_mark`) of this run, never the home directory's
@@ -40,230 +37,16 @@ printf '%s\n' '---' 'seats: ["claude/opus:high"]' '---' '# A merchant who sells 
 printf '%s\n' '# The accountant of the shop' '' '## Who they are' '' 'Imports the export into the books each Monday.' > "$EX/.lem/personas/accountant.md"
 printf '%s\n' '# A gift shop' '' 'One merchant, a few hundred orders a week.' > "$EX/.lem/profile.md"
 git -C "$EX" add -A && git -C "$EX" commit -q -m "chore: the settings"
-SLUG=gift-note
-project --repo "$EX" task-dir "$SLUG" >/dev/null
-tree=$(project --repo "$EX" worktree-dir "$SLUG")
-git -C "$EX" worktree add -q -b "feat/$SLUG" "$tree" main
-project --repo "$EX" state "$SLUG" building 'lead: builder' >/dev/null
-mkdir -p "$tree/docs/plans"
-printf '%s\n' '# The export has the gift note' '' '## Acceptance criteria' '' 'Size: full, because the export gets a new column.' '' \
-  '1. A CSV export holds the gift note of an order: order 1042 with the note "for Ania" has that text in its row.' \
-  '2. An order with no gift note has an empty cell, not the word "None".' '' '## Tasks' '' '1. The column.' > "$tree/docs/plans/2026-11-16-$SLUG.md"
-git -C "$tree" add -A && git -C "$tree" commit -q -m "docs: the plan"
-TASKDIR=$EX/.lem/state/tasks/$SLUG
-RECORD=$TASKDIR/decisions.jsonl
-
-decide() { "$PY" -B "$DECISIONS" --repo "$EX" "$@"; }
 experts() { "$PY" -B "$EXPERTS" --repo "$EX" "$@"; }
-# CASE: the run that ends badly, which every choice for the owner carries above his card
-CASE=(--case $'1. An importer reads the export\'s columns by place (`import.py:read_row`).\n2. A new column after the price moves the total one place to the right.\n3. The importer reads the note "for Ania" as the total of order 1042, and stops.'
-  --case-was derived --cause "The importer reads columns by place, and so does every reader that copies it.")
-# ask WHAT [--irreversible KIND]: a choice of two options, the last column recommended; prints its number
-ask() {
-  local what=$1; shift
-  decide ask "$SLUG" --what "$what" "${CASE[@]}" --option "the last column" --option "after the price" --recommended "the last column" \
-    --why "an import that reads the columns by place keeps working" --said "The merchant picked the last column, the accountant after the price." "$@" | field 'd["id"]'
-}
-# night SLUG: a night's mark on the task, so that it runs without the owner and only its choices go, until the task ends
-night() { project --repo "$EX" task-dir "$1" --ask "The backlog item of $1." --night 2026-11-18 >/dev/null; }
-one() { decide list "$SLUG" | "$PY" -c 'import json, sys; print(json.dumps(next(c for c in json.load(sys.stdin) if c["id"] == int(sys.argv[1]))))' "$1"; }
-advised_lines() { grep -c "\"id\": $1, .*\"kind\": \"advised\"" "$RECORD" || true; }
 
-# advise: one advice of each expert, a pick word for word, or none
-c1=$(ask "Where the note goes in the row")
-wrong=$(decide advise "$SLUG" "$c1" --expert fable --pick "the first column" --why "It reads first." 2>&1 || true)
-wrongcode=$(status_of decide advise "$SLUG" "$c1" --expert fable --pick "the first column" --why "It reads first.")
-both=$(status_of decide advise "$SLUG" "$c1" --expert fable --pick "the last column" --none --why "w")
-neither=$(status_of decide advise "$SLUG" "$c1" --expert fable --why "w")
-nothing=$(advised_lines "$c1")
-fable=$(decide advise "$SLUG" "$c1" --expert fable --pick "after the price" --why "The accountant reads the price first. A note beside it is seen." | field '(d["kind"], d["expert"], d["pick"], d["advised"], d["experts_pick"])' || true)
-again=$(decide advise "$SLUG" "$c1" --expert fable --pick "the last column" --why "w" 2>&1 || true)
-astra=$(decide advise "$SLUG" "$c1" --expert astra --none --why "Both options break an import. A new file is safer." | field '(d["none"], "pick" in d, d["advised"], d["experts_pick"])' || true)
-pending=$(decide pending "$SLUG" | field '[(c["id"], c["advice"]["fable"]["pick"], c["advice"]["astra"].get("none"), c["experts_pick"]) for c in d["waiting"]]' || true)
-events=$(grep -c '"event": "decision.advised", "task": "gift-note"' "$EX/.lem/state/events.jsonl" || true)
-if grep -qF "the pick of an expert is one of the options of choice $c1, word for word: the last column; after the price" <<<"$wrong" \
-  && [ "$wrongcode" = 1 ] && [ "$both" = 1 ] && [ "$neither" = 1 ] && [ "$nothing" = 0 ] \
-  && [ "$fable" = "('advised', 'fable', 'after the price', ['fable'], None)" ] \
-  && grep -qF "choice $c1 has the advice of fable already" <<<"$again" \
-  && [ "$astra" = "(True, False, ['astra', 'fable'], None)" ] \
-  && [ "$pending" = "[($c1, 'after the price', True, None)]" ] && [ "$events" = 2 ] && [ "$(advised_lines "$c1")" = 2 ]; then
-  pass "advise keeps one advice of each expert: a pick that is no option, a pick with --none and neither are refused with exit 1 and write nothing; --none is advice too, and pending shows both answers and that they share no pick"
-else
-  fail "advise: $wrong / $wrongcode / $both / $neither / $nothing / $fable / $again / $astra / $pending / $events"
-fi
-
-# advise under the lock: four writers of one expert at one time leave one advice, and the other expert's still goes in
-c2=$(ask "The header of the column")
-for n in 1 2 3; do
-  decide advise "$SLUG" "$c2" --expert fable --pick "after the price" --why "writer $n" >"$WORK/race-$n.out" 2>&1 &
-done
-decide advise "$SLUG" "$c2" --expert astra --pick "after the price" --why "the other expert" >"$WORK/race-astra.out" 2>&1 &
-wait
-fables=$(grep -c "\"id\": $c2, .*\"kind\": \"advised\", \"expert\": \"fable\"" "$RECORD" || true)
-astras=$(grep -c "\"id\": $c2, .*\"kind\": \"advised\", \"expert\": \"astra\"" "$RECORD" || true)
-refused=$(grep -h "has the advice of fable already" "$WORK"/race-[123].out | grep -c '' || true)
-if [ "$fables" = 1 ] && [ "$astras" = 1 ] && [ "$refused" = 2 ] && [ "$(one "$c2" | field 'd["state"]')" = waits ]; then
-  pass "advise checks and writes under the task's lock: of three writers of one expert at one time one is written and two are refused, and the other expert's advice goes in beside it"
-else
-  fail "advise under the lock: $fables / $astras / $refused / $(cat "$WORK"/race-*.out)"
-fi
-
-# advice comes while a choice waits; an irreversible step takes advice too, and an answered choice none
-c3=$(ask "The note's font")
-late=$(decide advise "$SLUG" "$c3" --expert fable --pick "after the price" --why "w" 2>&1 | field 'd["kind"]' || true)
-c4=$(ask "Email the merchants about the column" --irreversible person)
-forever=$(decide advise "$SLUG" "$c4" --expert fable --pick "after the price" --why "The merchants read the email." | field 'd["kind"]' || true)
-c5=$(ask "The note's length")
-decide answer "$SLUG" "$c5" --chose "the last column" >/dev/null || true
-over=$(decide advise "$SLUG" "$c5" --expert fable --pick "after the price" --why "w" 2>&1 || true)
-if [ "$late" = advised ] && [ "$(advised_lines "$c3")" = 1 ] \
-  && [ "$forever" = advised ] && grep -qF "choice $c5 does not wait: it is answered, with 'the last column'; advice on it changes nothing" <<<"$over"; then
-  pass "advice goes in while a choice waits; an irreversible step takes advice too, and an answered choice takes none"
-else
-  fail "advice and the wait: $late / $forever / $over"
-fi
-
-# When the task runs without the owner (here by a night's mark, so that only this task's choices go), `lem decisions
-# away` takes each choice that waits: the experts' shared pick, by: experts with both reasons, marked early; when they
-# split, one found none fits, one is missing or none advised, the recommended option, by: timeout.
-KEEP_SLUG=$SLUG KEEP_RECORD=$RECORD
-SLUG=gift-away RECORD=$EX/.lem/state/tasks/gift-away/decisions.jsonl
-project --repo "$EX" task-dir "$SLUG" >/dev/null && project --repo "$EX" state "$SLUG" building 'lead: builder' >/dev/null
-c6=$(ask "The note in the summary")
-decide advise "$SLUG" "$c6" --expert fable --pick "after the price" --why "The accountant reads the price first." >/dev/null || true
-decide advise "$SLUG" "$c6" --expert astra --pick "after the price" --why "A note beside the price is seen." >/dev/null || true
-c7=$(ask "The note in the footer")
-decide advise "$SLUG" "$c7" --expert fable --pick "after the price" --why "f" >/dev/null || true
-decide advise "$SLUG" "$c7" --expert astra --pick "the last column" --why "a" >/dev/null || true
-c8=$(ask "The note in the header")
-decide advise "$SLUG" "$c8" --expert fable --pick "after the price" --why "f" >/dev/null || true
-decide advise "$SLUG" "$c8" --expert astra --none --why "a" >/dev/null || true
-c9=$(ask "The note's separator")
-decide advise "$SLUG" "$c9" --expert fable --pick "after the price" --why "f" >/dev/null || true
-c10=$(ask "The note's escape")
-with_him=$(decide away | field 'd["taken"]' || true)
-night "$SLUG"
-taken=$(decide away | field '[(t["id"], t["chose"], t["by"]) for t in d["taken"]]' || true)
-listed=$(one "$c6" | field '(d["state"], d["chose"], d["by"], d.get("early"), d["experts"], sorted(d["advice"]))' || true)
-ended=$(decide wait "$SLUG" "$c6" --seconds 1 | field 'd["ended"]' || true)
-untouched=$(decide list "$KEEP_SLUG" | field '[c["state"] for c in d if c["id"] in (1, 2)]' || true)
-SLUG=$KEEP_SLUG RECORD=$KEEP_RECORD
-if [ "$with_him" = "[]" ] \
-  && [ "$taken" = "[($c6, 'after the price', 'experts'), ($c7, 'the last column', 'timeout'), ($c8, 'the last column', 'timeout'), ($c9, 'the last column', 'timeout'), ($c10, 'the last column', 'timeout')]" ] \
-  && [ "$listed" = "('timeout', 'after the price', 'experts', True, {'fable': 'The accountant reads the price first.', 'astra': 'A note beside the price is seen.'}, ['astra', 'fable'])" ] \
-  && [ "$ended" = "taken without the owner" ] && [ "$untouched" = "['waits', 'waits']" ]; then
-  pass "a task that runs without the owner has each choice that waits taken: the experts' shared pick, by: experts with both reasons, marked early; when they split, one found none fits, one is missing or none advised, the recommended option; and nothing of a task that runs with him"
-else
-  fail "the owner's away and the experts: $with_him / $taken / $listed / $ended / $untouched"
-fi
-
-# Without Codex on the machine the one expert that can answer answers alone: a choice asked there names one adviser, its
-# pick is the experts' pick, and the owner's away takes it, by: experts with its one reason. Two that split take none (above).
-KEEP_SLUG=$SLUG KEEP_RECORD=$RECORD
-SLUG=gift-one RECORD=$EX/.lem/state/tasks/gift-one/decisions.jsonl
-project --repo "$EX" task-dir "$SLUG" >/dev/null && project --repo "$EX" state "$SLUG" building 'lead: builder' >/dev/null
-alone_ask=$(env PATH="$NOCODEX" "$PY" -B "$DECISIONS" --repo "$EX" ask "$SLUG" --what "The note's font" "${CASE[@]}" --option "the last column" --option "after the price" \
-  --recommended "the last column" --why "w" --said "The two personas split." | field '(d["id"], d["advisers"])' || true)
-c12=$(cut -d, -f1 <<<"$alone_ask" | tr -d '( ')
-alone_pick=$(decide advise "$SLUG" "$c12" --expert fable --pick "after the price" --why "A printed note reads better beside the price." | field 'd["experts_pick"]' || true)
-night "$SLUG"
-alone_taken=$(decide away | field '[(t["id"], t["chose"], t["by"]) for t in d["taken"]]' || true)
-alone_listed=$(decide list "$SLUG" | field 'next((c["state"], c["by"], c["experts"]) for c in d if c["id"] == '"$c12"')' || true)
+# Without Codex on the machine the one expert that can answer answers alone: a question in words has one expert.
 alone_brief=$(env PATH="$NOCODEX" "$PY" -B "$EXPERTS" --repo "$EX" brief --question "Which font for the note?" || true)
 alone_names=$(field '[e["name"] for e in d["experts"]]' <<<"$alone_brief" || true)
 alone_file=$(field 'd["brief"]' <<<"$alone_brief" || true)
-SLUG=$KEEP_SLUG RECORD=$KEEP_RECORD
-if [ "$alone_ask" = "($c12, ['fable'])" ] && [ "$alone_pick" = "after the price" ] && [ "$alone_taken" = "[($c12, 'after the price', 'experts')]" ] \
-  && [ "$alone_listed" = "('timeout', 'experts', {'fable': 'A printed note reads better beside the price.'})" ] \
-  && [ "$alone_names" = "['fable']" ] && grep -qF "The owner asks one expert this question" "$alone_file"; then
-  pass "with no Codex on the machine one expert answers alone: the choice names one adviser, its pick is the experts' pick, the owner's away takes it by the experts with its one reason, and a question in words has one expert"
+if [ "$alone_names" = "['fable']" ] && grep -qF "The owner asks one expert this question" "$alone_file"; then
+  pass "with no Codex on the machine one expert answers alone: a question in words has one expert"
 else
-  fail "one expert alone: $alone_ask / $alone_pick / $alone_taken / $alone_listed / $alone_names / $alone_file"
-fi
-
-# A lead's wait on a choice with both experts' shared pick, when the task runs without the owner: the wait takes that
-# pick at once, early, and leaves the task's other choice that waits; an irreversible step is never taken so. A task of
-# its own, since a night's mark holds until it ends.
-KEEP_SLUG=$SLUG KEEP_RECORD=$RECORD
-SLUG=gift-early RECORD=$EX/.lem/state/tasks/gift-early/decisions.jsonl
-project --repo "$EX" task-dir "$SLUG" >/dev/null && project --repo "$EX" state "$SLUG" building 'lead: builder' >/dev/null
-c13=$(ask "The note's width")
-decide advise "$SLUG" "$c13" --expert fable --pick "after the price" --why "f" >/dev/null || true
-decide advise "$SLUG" "$c13" --expert astra --pick "after the price" --why "a" >/dev/null || true
-c14=$(ask "Email the accountants about the column" --irreversible person)
-c15=$(ask "The note's height")
-night "$SLUG"
-early=$(decide wait "$SLUG" "$c13" --seconds 30 | field '(d["chose"], d["by"], d["early"], sorted(d["experts"]))' || true)
-irreversible=$(decide wait "$SLUG" "$c14" --seconds 1 | field 'd["ended"]' || true)
-others=$(decide list "$SLUG" | field '[c["state"] for c in d if c["id"] == '"$c15"']' || true)
-SLUG=$KEEP_SLUG RECORD=$KEEP_RECORD
-if [ "$early" = "('after the price', 'experts', True, ['astra', 'fable'])" ] && [ "$irreversible" = "still waits" ] && [ "$others" = "['waits']" ]; then
-  pass "when the task runs without the owner, a wait takes the experts' shared pick of its own choice at once, marked early, and never an irreversible step"
-else
-  fail "a choice taken early: $early / $irreversible / $others"
-fi
-
-# the skill's brief: the choice, the criteria, the plan and the files, in one file of the task's directory
-c16=$(ask "Where the note goes in the second export")
-nofile=$(experts brief "$SLUG" "$c16" --file missing.sh 2>&1 || true)
-nofilecode=$(status_of experts brief "$SLUG" "$c16" --file missing.sh)
-made=$(experts brief "$SLUG" "$c16" --file export.sh)
-brief=$TASKDIR/experts/choice-$c16.brief.md
-paths=$(field '(d["brief"], d["answers"]["fable"], d["answers"]["astra"], d["ask"], d["worktree"])' <<<"$made")
-holds=yes
-for want in "# Choice $c16 of $SLUG: the experts' brief" "Where the note goes in the second export" "1. the last column" "2. after the price" \
-  "Recommended: the last column. Why: an import that reads the columns by place keeps working" \
-  "What the personas said: The merchant picked the last column, the accountant after the price." \
-  "The run that ends badly, as the lead derived it:" "1. An importer reads the export's columns by place (\`import.py:read_row\`)." \
-  '3. The importer reads the note "for Ania" as the total of order 1042, and stops.' \
-  "Why it can happen: The importer reads columns by place, and so does every reader that copies it." \
-  "Size: full, because the export gets a new column." \
-  '1. A CSV export holds the gift note of an order: order 1042 with the note "for Ania" has that text in its row.' \
-  '2. An order with no gift note has an empty cell, not the word "None".' \
-  "\`$tree/docs/plans/2026-11-16-$SLUG.md\`" "- $tree/export.sh" "Read only. Change no file" "    pick: ONE OPTION" "    none fits"; do
-  grep -qF -- "$want" "$brief" || { holds="no: $want"; break; }
-done
-decide answer "$SLUG" "$c16" --chose "after the price" >/dev/null || true
-answered=$(experts brief "$SLUG" "$c16" 2>&1 || true)
-alladvised=$(experts brief "$SLUG" "$c2" 2>&1 || true)
-c17=$(ask "Where the note goes in the third export" --irreversible data)
-decide advise "$SLUG" "$c17" --expert fable --pick "the last column" --why "f" >/dev/null || true
-rest=$(experts brief "$SLUG" "$c17" | field '(d["ask"], d["advised"])' || true)
-forbrief=$(grep -c "cannot be undone by a later \"no\" (data)" "$TASKDIR/experts/choice-$c17.brief.md" || true)
-if [ "$holds" = yes ] && [ "$paths" = "('$brief', '$TASKDIR/experts/choice-$c16.fable.md', '$TASKDIR/experts/choice-$c16.astra.md', ['fable', 'astra'], '$tree')" ] \
-  && grep -qF -- "--file missing.sh is not in the task's worktree" <<<"$nofile" && [ "$nofilecode" = 1 ] \
-  && grep -qF "choice $c16 of $SLUG does not wait: it is answered" <<<"$answered" && grep -qF "has the advice of every expert already" <<<"$alladvised" \
-  && [ "$rest" = "(['astra'], ['fable'])" ] && [ "$forbrief" = 1 ]; then
-  pass "the skill's brief file holds the choice word for word, the run that ends badly with its cause, the recommended option and the personas, the task's criteria and its plan, the files the choice is about and the answer's form; it names the experts still to ask, and is refused for a choice that does not wait or that both advised"
-else
-  fail "the experts' brief: $holds / $paths / $nofile / $answered / $alladvised / $rest / $forbrief"
-fi
-
-# record: an expert's last message, in the brief's form, goes into the record through advise
-c18=$(ask "Where the note goes in the fourth export")
-experts brief "$SLUG" "$c18" >/dev/null || true
-answers=$TASKDIR/experts
-absent=$(experts record "$SLUG" "$c18" --expert fable 2>&1 || true)
-printf '%s\n' '**My answer**' 'after the price, I think' > "$answers/choice-$c18.fable.md"
-badform=$(experts record "$SLUG" "$c18" --expert fable 2>&1 || true)
-printf 'pick: after the price\nwhy: caf\351.\n' > "$answers/choice-$c18.fable.md"
-latin=$(experts record "$SLUG" "$c18" --expert fable 2>&1 || true)
-printf '%s\n' 'pick: the first column' 'why: It reads first.' > "$answers/choice-$c18.fable.md"
-noption=$(experts record "$SLUG" "$c18" --expert fable 2>&1 || true)
-printf '%s\n' 'pick: after the price' 'why: The accountant reads the price first.' '  A note beside it is seen.' > "$answers/choice-$c18.fable.md"
-fabled=$(experts record "$SLUG" "$c18" --expert fable | field '(d["expert"], d["pick"], d["why"])' || true)
-printf '%s\n' 'None fits' 'why: Both break an import.' > "$answers/choice-$c18.astra.md"
-astrad=$(experts record "$SLUG" "$c18" --expert astra | field '(d["expert"], d.get("none"), d["experts_pick"])' || true)
-# the refusal says what the skill allows: one more ask with the same brief, then nothing recorded for that expert
-if grep -qF "choice-$c18.fable.md is not there" <<<"$absent" && grep -qF "is not an answer in the brief's form" <<<"$badform" \
-  && grep -qF "choice-$c18.fable.md is not UTF-8 text" <<<"$latin" && ! grep -q Traceback <<<"$latin" \
-  && grep -qF "Ask fable once more with the same brief" <<<"$badform" && grep -qF "record nothing for fable" <<<"$badform" && ! grep -qF "lem decisions advise" <<<"$badform" \
-  && grep -qF "the pick of an expert is one of the options of choice $c18, word for word" <<<"$noption" \
-  && [ "$fabled" = "('fable', 'after the price', 'The accountant reads the price first. A note beside it is seen.')" ] \
-  && [ "$astrad" = "('astra', True, None)" ] && [ "$(advised_lines "$c18")" = 2 ]; then
-  pass "record writes an expert's answer file into the record through advise: an answer not in the brief's form, a pick that is no option and a missing file are refused"
-else
-  fail "record: $absent / $badform / $noption / $fabled / $astrad"
+  fail "one expert alone: $alone_names / $alone_file"
 fi
 
 # a question in words: a folder of its own in the state folder, with the brief, the answers and a short record
@@ -301,24 +84,23 @@ else
   fail "a question in words: $folder / $holds / $shape / $noption / $badform / $stranger / $half / $twice / $whole / $kept"
 fi
 
-# who the code is for: both briefs name the profile and each persona, and a project with no personas gets no brief
+# who the code is for: the brief names the profile and each persona, and a project with no personas gets no brief
 people=yes
-for file in "$QS/$folder/brief.md" "$brief"; do
-  for want in "## Who the code is for" "The project's profile, \`$EX/.lem/profile.md\`, says what the product is and who uses it: read it first." \
-    "- **A merchant who sells gifts** (\`$EX/.lem/personas/merchant.md\`): Sells gifts online and sends the CSV export to an accountant each week." \
-    "- **The accountant of the shop** (\`$EX/.lem/personas/accountant.md\`): Imports the export into the books each Monday." \
-    "Weigh each option by what it does to these people. You still decide as an engineer"; do
-    grep -qF -- "$want" "$file" 2>/dev/null || { people="no: $file: $want"; break 2; }
-  done
-  ! grep -qF 'seats:' "$file" || { people="no: $file names a seat"; break; }
+file=$QS/$folder/brief.md
+for want in "## Who the code is for" "The project's profile, \`$EX/.lem/profile.md\`, says what the product is and who uses it: read it first." \
+  "- **A merchant who sells gifts** (\`$EX/.lem/personas/merchant.md\`): Sells gifts online and sends the CSV export to an accountant each week." \
+  "- **The accountant of the shop** (\`$EX/.lem/personas/accountant.md\`): Imports the export into the books each Monday." \
+  "Weigh each option by what it does to these people. You still decide as an engineer"; do
+  grep -qF -- "$want" "$file" 2>/dev/null || { people="no: $file: $want"; break; }
 done
+[ "$people" != yes ] || ! grep -qF 'seats:' "$file" || people="no: $file names a seat"
 NOCAST=$WORK/no-cast
 git init -q -b main "$NOCAST" && git -C "$NOCAST" config user.name t && git -C "$NOCAST" config user.email t@t
 project --repo "$NOCAST" init --base main >/dev/null && git -C "$NOCAST" add -A && git -C "$NOCAST" commit -q -m start
 nocast=$("$PY" -B "$EXPERTS" --repo "$NOCAST" brief --question "Which store?" 2>&1 || true)
 if [ "$people" = yes ] && grep -qF "the brief says who the code is for, from the project's personas, and \`lem cast\` says: this project has no personas" <<<"$nocast" \
   && [ -z "$(ls "$NOCAST/.lem/state/experts" 2>/dev/null)" ]; then
-  pass "a brief, of a question in words and of a task's choice, names the profile and each persona by its path, heading and who they are, without its seats, and tells the experts to weigh the options by these people; a project with no personas gets no brief"
+  pass "a brief names the profile and each persona by its path, heading and who they are, without its seats, and tells the experts to weigh the options by these people; a project with no personas gets no brief"
 else
   fail "who the code is for: $people / $nocast"
 fi
@@ -346,19 +128,14 @@ seated=$(experts brief --question "Which store?" --seat claude/opus:high --seat 
 noform=$(experts brief --question "Which store?" --seat claude-opus 2>&1 || true)
 noagent=$(experts brief --question "Which store?" --seat gemini/pro:high --seat claude/fable:high 2>&1 || true)
 same=$(experts brief --question "Which store?" --seat claude/fable:high --seat claude/fable:max 2>&1 || true)
-nochoice=$(experts brief "$SLUG" "$c18" --seat claude/opus:high --seat codex/gpt-6.2-sol --seat claude/fable 2>&1 || true)
 neither=$(experts brief 2>&1 || true)
-both=$(experts brief "$SLUG" "$c18" --question "Which store?" 2>&1 || true)
 alone=$(experts brief --question "Which store?" --option "Redis" 2>&1 || true)
-mixed=$(experts brief "$SLUG" "$c18" --option "Redis" --option "a table" 2>&1 || true)
 if [ "$seated" = "[('opus', 'opus', 'high'), ('sol', 'gpt-6.1-sol', 'xhigh')]" ] && grep -qF "'claude-opus' is no seat: write it as agent/model:effort" <<<"$noform" \
   && grep -qF "names the agent 'gemini': an expert is started by claude or codex" <<<"$noagent" && grep -qF "two experts are named fable" <<<"$same" \
-  && grep -qF "a choice of a task has one or 2 experts, and its record keeps their advice as fable and astra: give --seat once or 2 times" <<<"$nochoice" \
-  && grep -qF "brief takes a task's SLUG N or --question TEXT, one of the two" <<<"$neither" && grep -qF "one of the two" <<<"$both" \
-  && grep -qF "one --option is no choice" <<<"$alone" && grep -qF -- "--context and --option belong to a question in words" <<<"$mixed"; then
-  pass "--seat names the experts for one call, by the last word of each model; a seat not written agent/model:effort, an agent the harness does not know, two experts of one name, three --seat for a task's choice and a brief with no question or two are refused"
+  && grep -qF "the following arguments are required: --question" <<<"$neither" && grep -qF "one --option is no choice" <<<"$alone"; then
+  pass "--seat names the experts for one call, by the last word of each model; a seat not written agent/model:effort, an agent the harness does not know, two experts of one name, a brief with no question and one option alone are refused"
 else
-  fail "the experts' seats: $seated / $noform / $noagent / $same / $nochoice / $neither / $both / $alone / $mixed"
+  fail "the experts' seats: $seated / $noform / $noagent / $same / $neither / $alone"
 fi
 
 # the folders of questions in words go after 30 days without a write, at the next brief; other files in the folder stay
@@ -375,7 +152,7 @@ else
   fail "the old folders: $pruned / $(ls "$QS")"
 fi
 # who the experts are: the settings' seats.experts, which experts.py reads through project.py show, the project's and
-# this machine's own; a choice of a task names each by its place in the record, whatever model sits there
+# this machine's own, each named by its model, or by its place (fable, astra) when its seat names none
 seats_in() { "$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^experts = .*$", "experts = " + sys.argv[2], s, count=1))' "$EX/.lem/project.toml" "$1"; }
 # Lem reads the settings as the base branch's commit has them, so an edit counts once it is committed
 settings_committed() { git -C "$EX" add .lem/project.toml && git -C "$EX" -c user.name=t -c user.email=t@t commit -q --allow-empty -m "chore: the settings" -- .lem/project.toml; }
@@ -383,30 +160,21 @@ cp "$EX/.lem/project.toml" "$WORK/project.toml"
 seats_in '["claude/opus:high", "codex/gpt-6.1-sol"]'
 settings_committed
 tracked=$(experts brief --question "Which store, by the project's seats?" | field '[(e["name"], e["agent"], e["model"], e["effort"], e["place"]) for e in d["experts"]]' || true)
-cS=$(ask "Where the note goes, by the project's seats")
-forchoice=$(experts brief "$SLUG" "$cS" | field '([(e["name"], e["seat"], e["model"], e["effort"], e["answer"].rsplit("/", 1)[1]) for e in d["experts"]], d["ask"])' || true)
-printf '%s\n' 'pick: the last column' 'why: An import reads the columns by place.' > "$TASKDIR/experts/choice-$cS.fable.md"
-recorded=$(experts record "$SLUG" "$cS" --expert fable | field 'd["advised"]' || true)
 printf '%s\n' '[seats]' 'experts = ["claude", "codex:xhigh"]' > "$EX/.lem/project.local.toml"
-nomodel=$(experts brief "$SLUG" "$cS" | field '([(e["name"], e["agent"], e["model"], e["effort"]) for e in d["experts"]], d["ask"])' || true)
 nomodelq=$(experts brief --question "Which store, by this machine's seats?" | field '[e["name"] for e in d["experts"]]' || true)
 rm "$EX/.lem/project.local.toml"
-givenchoice=$(experts brief "$SLUG" "$cS" --seat claude/opus:high --seat codex/gpt-6-astra | field '[(e["name"], e["model"]) for e in d["experts"]]' || true)
-# one model in both places is two experts still: a choice names them by place, so no name is taken twice
-oneboth=$(experts brief "$SLUG" "$cS" --seat claude/fable:high --seat codex/fable | field '[e["name"] for e in d["experts"]]' || true)
 cp "$WORK/project.toml" "$EX/.lem/project.toml"
 settings_committed
-places=$("$PY" -B -c 'import sys; sys.path.insert(0, sys.argv[1]); import decisions, project; print(decisions.EXPERTS == project.EXPERT_PLACES, project.EXPERT_PLACES)' "$PWD/skills/lem/scripts")
+places=$("$PY" -B -c 'import sys; sys.path.insert(0, sys.argv[1]); sys.path.insert(0, sys.argv[2]); import experts, project; print(experts.PLACES == project.EXPERT_PLACES, project.EXPERT_PLACES)' "$PWD/skills/lem/scripts" "$(dirname "$EXPERTS")")
 if [ "$tracked" = "[('opus', 'claude', 'opus', 'high', 'fable'), ('sol', 'codex', 'gpt-6.1-sol', None, 'astra')]" ] \
-  && [ "$forchoice" = "([('fable', 'claude/opus:high', 'opus', 'high', 'choice-$cS.fable.md'), ('astra', 'codex/gpt-6.1-sol', 'gpt-6.1-sol', None, 'choice-$cS.astra.md')], ['fable', 'astra'])" ] \
-  && [ "$recorded" = "['fable']" ] && [ "$nomodel" = "([('fable', 'claude', None, None), ('astra', 'codex', None, 'xhigh')], ['astra'])" ] \
-  && [ "$nomodelq" = "['fable', 'astra']" ] && [ "$givenchoice" = "[('fable', 'opus'), ('astra', 'gpt-6-astra')]" ] && [ "$oneboth" = "['fable', 'astra']" ] && [ "$places" = "True ('fable', 'astra')" ]; then
-  pass "the experts are the settings' seats.experts, the project's or this machine's, each with its agent, model and effort; a choice of a task names the first fable and the second astra whatever model sits there, records the advice under that place, and takes a seat with no model; a question in words names each by its model"
+  && [ "$nomodelq" = "['fable', 'astra']" ] && [ "$places" = "True ('fable', 'astra')" ]; then
+  pass "the experts are the settings' seats.experts, the project's or this machine's, each with its agent, model and effort, named by its model, or by its place when its seat names no model"
 else
-  fail "the experts from the settings: $tracked / $forchoice / $recorded / $nomodel / $nomodelq / $givenchoice / $oneboth / $places"
+  fail "the experts from the settings: $tracked / $nomodelq / $places"
 fi
 
-if [ -d "$PWD/skills/lem/scripts/__pycache__" ] || [ -d "$(dirname "$EXPERTS")/__pycache__" ]; then fail "experts.py left a __pycache__"; else pass "experts.py left no __pycache__, also of the decisions.py it imports"; fi
+
+if [ -d "$PWD/skills/lem/scripts/__pycache__" ] || [ -d "$(dirname "$EXPERTS")/__pycache__" ]; then fail "experts.py left a __pycache__"; else pass "experts.py left no __pycache__, also of the scripts it imports"; fi
 
 if [ "$fails" -gt 0 ]; then
   echo "$fails failed"

@@ -14,7 +14,10 @@ blocks=(lem-settings lem-machine lem-state lem-decisions lem-land-shop lem-land-
 blocks+=(lem-naps)
 blocks+=(lem-command)
 blocks+=(lem-picker)
-blocks+=(lem-companion)
+blocks+=(lem-session)
+blocks+=(lem-serve)
+blocks+=(lem-board-act)
+blocks+=(lem-peers)
 LOGS=$(mktemp -d)
 pids=()
 # A run that is stopped stops its blocks, and each block removes its own folder on the way out.

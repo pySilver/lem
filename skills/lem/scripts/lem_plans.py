@@ -5,8 +5,6 @@ and `DD`, the day the file was written, and `<slug>`, the task's or the ruling's
 checks them). `project.py` and `criteria.py` import this file; it reads nothing and writes nothing.
 """
 
-from __future__ import annotations
-
 import re
 from pathlib import Path
 

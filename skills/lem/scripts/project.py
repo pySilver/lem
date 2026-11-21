@@ -21,6 +21,13 @@ a team that adopts Lem may have its own.
     lem project reviewer AGENT[/MODEL[:EFFORT]]
                                     who reviews on this machine, until `reviewer default`
     lem project reviewer default    the project's own reviewer again
+    lem project load [--start N|none]
+                                    the load average under which the checks of a landing start on
+                                    this machine, and the load now; --start sets the number for
+                                    every repository here, and none takes the gate away
+    lem project handoff [--tokens N|default]
+                                    the number of tokens past which a task's session compacts
+                                    itself, for every repository here; 0 leaves it to Claude Code
     lem project rules [FILE ...] [--range BASE..TIP]
                                     the rule files of .claude/rules that cover these files, as JSON
     lem project task-dir SLUG [--ask TEXT] [--ticket ID] [--branch NAME] [--night YYYY-MM-DD]
@@ -44,17 +51,24 @@ a team that adopts Lem may have its own.
     lem project owner away|back --words TEXT
                                     the owner says that he is away, or back again: his words as typed,
                                     kept in the machine's mark, so every repository on this machine
-                                    reads them. Away takes at once each choice of this repository that
-                                    waits for him and is no irreversible step (`lem decisions away`)
+                                    reads them. It changes nothing in a build, which asks him nothing
+                                    either way: an interview and criteria that wait for his yes read it
     lem project owner watch --seen N [--every SECONDS]
                                     look at the machine's mark every 5 seconds, and end with his
                                     status as JSON (`away`, `since`, `words`, `seen`) as soon as the
                                     mark holds another number of records than N, owner.seen of
                                     `waiting`: at once when it does at the start. It writes nothing
-                                    to the mark; Lem's session keeps it in the background
+                                    to the mark; a session of a task's shape keeps it in the background
     lem project log SLUG EVENT [key=value ...] [key:=json ...]
                                     append one event about a task to the log the board draws
-    lem project may-start SLUG      exit 1 for a task in `landing`, `open` or an ended state, which
+    lem project resume SLUG         the owner's word to go on with a task he put aside: a parked task
+                                    gets back the block that `parked` put aside (a breaker's wait, the
+                                    criteria's) and stays in its worktree; a dropped task stays ended,
+                                    and a new task opens from its files, its handoff and its branch's
+                                    commits, as SLUG-2 (then -3) on TYPE/SLUG-2 cut from the old
+                                    branch's tip, with `resumed-from.txt` naming the old one; a
+                                    dropped task resumes only with a breaker that waits
+    lem project may-start SLUG      exit 1 for a task in `landing`, `open`, `parked` or an ended state, which
                                     gets no lead, and for a task `queued` with an `after: OTHER`
                                     line while OTHER has not ended. No count of tasks stops a start:
                                     each start by day is the owner's own request
@@ -62,7 +76,7 @@ a team that adopts Lem may have its own.
     lem project serial -- COMMAND ...
                                     run one test command that two tasks cannot run at the same
                                     time (checks.serial), under the repository's one lock for them
-    lem project waiting             everything that waits for the owner, as JSON: each choice of a task,
+    lem project waiting             everything that waits for the owner, as JSON: each breaker of a task,
                                     each task whose criteria or a step of his hold it, each pull
                                     request with green or not, each task marked with the night that
                                     opened it, each retro's proposals, and last night's report
@@ -85,10 +99,8 @@ same status again is taken), so that a stale wake-up, a lead that finished after
 cannot reopen it: new work for it is a new ask, with a slug of its own.
 
 Every state block is also an event. `events.jsonl` in the state folder is the record, one JSON
-object per line: `ts` (UTC to the second), `event`, `task`, then the event's fields. The same
-record goes to `events.js` as a `lemEvent({...});` line, because the board is a file:// page: it
-cannot read a file with fetch, and it can load a script (measured in agterm 0.34.0 by the monitor
-this one follows). `state` writes `task.state` with the status, the lines, the ask and
+object per line: `ts` (UTC to the second), `event`, `task`, then the event's fields; the board server
+(`lem serve`) reads it as it grows. `state` writes `task.state` with the status, the lines, the ask and
 the branch and newest commit of the task's worktree, so the board needs no agent to remember a
 second command. `log` writes any other event: `key=value` stores a string and `key:=value` parses
 JSON, so a commit made only of digits stays a string and an exit code stays a number. The start
@@ -113,9 +125,8 @@ the machine's mark, `owner.jsonl` in `$XDG_CONFIG_HOME/lem`, or in `~/.config/le
 variable is not set, one record in the form of an event, `event` `owner` with no task and
 `away`, `by` `owner`, his `words` and the `repo` he typed it in. Every repository on this machine
 reads it, its newest record holds, and with no mark he is there. `owner` writes the folder and the
-file, and no other command of Lem's writes in the home directory. The board cannot read a file
-there, so `owner`, `owner watch` (at its start and at its end) and `lem board` write a copy of the
-mark whole into the state folder, `owner.js`, one `lemOwner({...});` line for each record.
+file, and no other command of Lem's writes in the home directory beside the machine's own files
+(`lem_state`).
 `task.mode` is the night's mark, which `task-dir --night` writes, as `mode=alone by=lem words="the
 night of YYYY-MM-DD"`. A task runs without the owner while he is away, and a night's task from its
 mark until it ends, whatever his status; `tasks` gives each task `mode` (`alone` or `with-owner`, now),
@@ -198,8 +209,14 @@ so a file a dead run left blocks nothing. One word list after `--` runs as it is
 runs in the shell, as a command of the checks does.
 
 A seat is one string, `agent/model:effort`: `seats.reviewer`, the agent in the reviewer's pane;
-`seats.planner`, the defender of a plan talk; and `seats.experts`, the one or two experts of a
-choice that waits for the owner. `show` marks each expert `here` when its agent is on this
+`seats.planner`, the defender of a plan talk; `seats.merger`, the merge agent, which reads each
+proposed task and merges it or calls the owner; `seats.session`, the agent of each task's own
+session (`lem session open`), only `claude` for now; and `seats.experts`, the one or two experts, the
+last level of the ladder of a decision in doubt. The merge agent's and the session's seats are the
+repository's when its settings name one, else the developer's own for all his repositories (`[seats]
+merger` and `session` in `machine.toml`, `lem_state.machine_file()`), else the agent's own default:
+`claude`, with no model and no effort, so that Lem's code names no model for them. `show` gives each
+with `from`, which of the three it is. `show` marks each expert `here` when its agent is on this
 machine (Claude Code always, Codex when its command is on PATH): only those answer, so without
 Codex the default's one Claude expert answers alone. `init` writes each of the three whole (the owner, 2026-11-18: "I think
 it should be explicitly `agent/model:effort` in all 3"). The effort may be left out
@@ -217,16 +234,19 @@ folder is a setting as the plans folder is.
 
 `waiting` is the one list of what waits for the owner, which a bare `/lem` says: his status first
 (`owner`: `away`, `since` and his `words`, from the machine's mark, and `seen`, the number of its
-records, from which a watch of the mark starts), then the choices of
-`lem decisions pending` (`choices`), the tasks `held` with the line `the criteria wait for the
-owner` (`criteria`) and the other `held` ones, a step of his or one more fact (`held`), each `open`
+records, from which a watch of the mark starts), then the breakers of `lem decisions pending`
+that wait (`breakers`), the tasks `held` with the line `the criteria wait for the owner`
+(`criteria`) and the other `held` ones, a step of his or one more fact (`held`), each `open`
 task with its proposal (`pull_requests`, with `conflict`: true or false as the forge said it of the
-pushed head at the last `lem land merged`, null when nothing asked or the head moved since), and each
+pushed head at the last `lem land merged`, null when nothing asked or the head moved since;
+`merge_review`, the merge agent's review of the proposed tip with its verdict and whether it calls the
+owner, or null; and `merge_refused`, GitHub's line when it refused a merge of that tip, or null), and each
 file of a retro's proposals in `retros/` of the state folder (`retros`), which a retro started
 with nobody at the terminal writes in the form Lem's question page takes, one question for each
 proposal. `count` adds them up. Each task in the list gives `night`, the date of the night that
 opened it, or null; its report is `night/DATE.md` in the state folder. `night_report` is the
-report of last night, today's or yesterday's, or null; it waits for no answer and is not counted.
+report of last night, today's or yesterday's, or null; it waits for no answer and is not counted,
+and neither is `parked`, each task the owner put aside, with the line that says why.
 It reads and writes nothing else.
 
 A nap is an optional part (`[naps]`, off unless the owner says yes): a fresh agent that reads the
@@ -244,8 +264,6 @@ A settings file with an unknown key, a wrong type or a path outside the reposito
 a stage that read half of it would run on defaults nobody chose. Needs Python 3.11 for tomllib.
 """
 
-from __future__ import annotations
-
 import sys
 
 if sys.version_info < (3, 11):
@@ -255,7 +273,6 @@ if sys.version_info < (3, 11):
 import argparse
 import difflib
 import fcntl
-import importlib
 import json
 import os
 import re
@@ -295,15 +312,20 @@ PLACES: dict[str, str] = {
 # configurable: rulings location, plans location, plan file names format, rulings file names
 # format"): the plans and the rulings. The name of a file in each is `plan_file` and `ruling_file`.
 PATHS = {"plans": "docs/plans", "rulings": "docs/rulings"}
-LAND = ("owner", "agent")
+# Who merges a proposed task: "agent", the merge agent, which reads each one and merges only a green
+# request that is not careful, and calls the owner for every other one; or "owner", who merges each one
+# after the same read. The merge agent by default (the owner, 2026-11-20: P6, "merge right away or
+# call me to read his summary and reasoning").
+LAND = ("agent", "owner")
+LAND_DEFAULT = "agent"
 # How a task's branch reaches the base branch: its own commits, or one commit for the whole branch.
 # One commit unless the settings say otherwise (the owner, 2026-11-18: "my opionated default is
 # "squash"").
 HISTORY = ("keep", "squash")
 HISTORY_DEFAULT = "squash"
-# How a task that has a forge ends: a pull request there, or a merge into the base branch with
-# none, for a developer who wants no pull requests. With no forge it is always the merge.
-PROPOSE = ("pull-request", "merge")
+# A task ends as a pull request on GitHub, the one way Lem lands (the owner's GitHub notes,
+# 2026-11-20: "we can assume that we fully use Github"); `init` refuses an origin elsewhere.
+GITHUB = re.compile(r"(https://|ssh://git@|git@)github\.com[:/]")
 # the agents that can sit in the reviewer's pane
 REVIEWERS = ("claude", "codex")
 # A seat is one string, `agent/model:effort` (the owner, 2026-11-17: "I personally prefer
@@ -320,9 +342,9 @@ PLANNER = "claude/opus:high"
 # The reviewer's seat that `init` writes for each agent: Codex when the machine has it, since two
 # model families disagree more usefully than one family twice, and Claude otherwise.
 REVIEWER_SEATS = {"codex": "codex/gpt-6.2-sol:high", "claude": "claude/opus:high"}
-# The experts of a choice that waits for the owner: one or two seats, and the record of a choice keeps
-# their answers in two places (`decisions.py advise --expert fable|astra`): the first seat answers in
-# the place named `fable`, the second in the place named `astra`. The default is the newest Fable of
+# The experts, the last level of the ladder of a decision in doubt: one or two seats, each named by its
+# place, `fable` for the first seat and `astra` for the second, whatever model sits there, so that a
+# record (`advisers` of `decisions.py log --by experts`) says one expert or two. The default is the newest Fable of
 # Anthropic as a Claude Code subagent and the newest Astra of OpenAI through Codex, each at high
 # effort. An expert answers only where its agent is on the machine (`here`): without Codex, one
 # expert answers alone (the owner, 2026-11-18, of a second Claude model in its place: "Sound pointless
@@ -333,7 +355,18 @@ EXPERT_PLACES = ("fable", "astra")
 SEATS = {
     "reviewer": (REVIEWERS, "the agents that can sit in the reviewer's pane", REVIEWER_SEATS["codex"]),
     "planner": (PLANNERS, "the harness was checked in Claude Code only", PLANNER),
+    "merger": (REVIEWERS, "the agents the harness starts a merge agent with, read-only", "claude:high"),
+    # A task's own session is a top-level agent that `lem session open` starts in agterm: Claude Code
+    # only, since the launch line, the two hooks and the compaction were checked there only.
+    "session": (("claude",), "a task's session runs Claude Code only for now", "claude:high"),
 }
+# The merge agent's seat when neither the repository nor the machine names one: the agent's own
+# default model and effort, so that no model's name is Lem's (the owner on the shape of task 3,
+# 2026-11-20: "this should be set on most generic level, not in code (`~/.config/lem` ?)").
+MERGER_DEFAULT = "claude"
+# The seats that take the developer's own for all his repositories when the repository names none:
+# each defaults to its agent's own model and effort, MERGER_DEFAULT.
+MACHINE_SEATS = ("merger", "session")
 # A plan's and a ruling's file name: their defaults, and their tokens; `lem_plans` builds and finds the name.
 PLAN_FILE = lem_plans.PLAN_FILE
 RULING_FILE = lem_plans.RULING_FILE
@@ -346,18 +379,24 @@ SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 #   queued    the ask is written and no lead runs yet: its `after:` line names the task it needs
 #   building  a lead plans or builds
 #   planned   the plan is committed and nothing builds it: it needs its talk, or a builder after the talk, or the owner reads it
-#   held      it waits for the owner on what is no decision with options: the criteria, one more fact, a
-#             step of his, or an irreversible choice every task left needs; a decision of his is a choice
-#   blocked   the lead stopped on something the coordinator has to settle
+#   held      it waits for the owner: the criteria, one more fact, a step of his, or a breaker's document
+#             (`breaker N waits for the owner`); no choice of the build waits for him, the ladder decides it
+#   blocked   the task stopped on something its session could not settle: the base is red, or a builder ended two times with no report
 #   ready     the report is written and the branch waits for its checks
 #   landing   the checks and the read run on it, or a builder repairs what they or the base showed
-#   open      it is proposed: a pull request is open, or the branch is ready to land, and it waits for the merge
+#   open      it is proposed: its pull request is open, and it waits for the merge agent's read and the merge
 #   landed    it is on the base branch
 #   dropped   nobody will build it
 #   answered  it ended with a report and nothing to merge: a question answered, or a bug that is none
-STATES = ("queued", "building", "planned", "held", "blocked", "ready", "landing", "open", "landed", "dropped", "answered")
+#   parked    put aside on the owner's word (`/lem park`): its worktree, branch and files stay, nothing
+#             waits for him, and `resume` brings back the block it put aside
+STATES = ("queued", "building", "planned", "held", "blocked", "ready", "landing", "open", "landed", "dropped", "answered", "parked")
 # The states a task does not leave: its files stay under its slug, and nothing of it waits.
 ENDED = ("landed", "dropped", "answered")
+# The state of a task the owner put aside, and the states it is put aside from: no lead runs in them.
+# A task whose lead builds is parked after the lead stops, and one with its landing is dropped or merged.
+PARKED = "parked"
+PARKABLE = ("queued", "held", "blocked", "planned")
 # The states of a task that is with its landing: the checks run on it, or it is proposed.
 WITH_LANDING = ("landing", "open")
 # The states only a lead, or the start or the queue of a task, writes. None comes over a task with its
@@ -390,10 +429,10 @@ SERIAL_LOCK = "serial.lock"
 STATE_LINE = re.compile(r"(?P<since>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z) (?P<status>[a-z]+): (?P<text>.+)")
 TABLES: dict[str, tuple[str, ...]] = {
     "paths": ("plans", "plan_file", "rulings", "ruling_file"),
-    "branch": ("base", "land", "history", "propose", "protected"),
+    "branch": ("base", "land", "history", "protected"),
     "checks": ("commands", "setup", "serial"),
     "flow": ("topics",),
-    "seats": ("reviewer", "planner", "experts"),
+    "seats": ("reviewer", "planner", "merger", "session", "experts"),
     "corrections": ("collect",),
     "tracker": ("kind",),
     "naps": ("on",),
@@ -445,16 +484,14 @@ ruling_file = "{ruling_file}"
 [branch]
 # The branch a task starts from and lands on.
 base = "{base}"
-# Who lands a finished task: "owner", or "agent", which lands only a request that is green and
-# that the review called not careful; the owner lands every other one.
-land = "owner"
+# Who merges a task's pull request. A fresh merge agent reads each proposed task and writes its
+# review either way. "agent": it merges a green request that is not careful, and calls the owner
+# for every other one. "owner": it never merges, and the owner merges each one after its review.
+# Lem pushes each task's branch and opens its pull request on GitHub without asking: these settings
+# are the owner's word for exactly that.
+land = "agent"
 # What lands: "squash" lands one commit for the whole task, "keep" lands the branch's own commits.
 history = "squash"
-# How a task ends where the remote is GitHub: "pull-request" opens one there, "merge" lands the
-# branch on the remote's base branch with none. With any other remote, or none, it is the merge.
-# With "pull-request", Lem pushes each task's branch and opens its pull request without asking:
-# this line is the owner's word for exactly that.
-propose = "pull-request"
 # Branches nothing lands on and nothing is pushed to through this skill, whoever asks.
 protected = []
 
@@ -495,7 +532,15 @@ reviewer = "{reviewer}"
 # The defender of a careful or large plan in its talk with the reviewer, in a companion session
 # Lem opens for the talk and closes after it. Only "claude" for now.
 planner = "{planner}"
-# The experts who answer a choice that waits for the owner, at the same moment and read-only: two
+# The merge agent, which reads each proposed task and merges it or calls the owner: "claude" or
+# "codex", read-only. Left out, it is the seat the developer names for all his repositories
+# (`[seats] merger` in ~/.config/lem/machine.toml), else the agent's own default model.
+# merger = "agent/model:effort"
+# The agent of each task's own session in agterm: "claude" only for now. Left out, it is the seat the
+# developer names for all his repositories (`[seats] session` in ~/.config/lem/machine.toml), else
+# the agent's own default model and effort.
+# session = "agent/model:effort"
+# The experts, the last level of the ladder of a decision in doubt, at the same moment and read-only: two
 # model families, so that their agreement is worth more than two of one. Where the machine has one
 # of their agents, that expert answers alone.
 experts = [{experts}]
@@ -736,6 +781,19 @@ def seat(raw: dict, name: Path, which: str = "reviewer") -> dict | None:
     return parse_seat(given, f"{name}: seats.{which}", agents, why, example)
 
 
+def machine_seat_of(which: str, named: dict, local: bool, machine: dict) -> dict:
+    """A seat of MACHINE_SEATS, the merge agent's or a task session's, with `from`, where it came
+    from: the repository's settings (or this machine's own file for the repository), else the
+    developer's file for all his repositories, else the agent's own default, which names no model and
+    no effort."""
+    if named["seat"] is not None:
+        return {**named, "from": str(LOCAL if local else SETTINGS)}
+    given = machine.get(which)
+    if given is not None:
+        return {**parse_seat(given, f"{lem_state.machine_file()}: seats.{which}", *SEATS[which]), "from": str(lem_state.machine_file())}
+    return {**parse_seat(MERGER_DEFAULT, "Lem's default", *SEATS[which]), "from": "the agent's own default"}
+
+
 def agent_here(agent: str) -> bool:
     """Whether an expert of this agent can answer on this machine: Claude Code is where Lem runs and
     starts its expert as a subagent; Codex needs its command."""
@@ -743,7 +801,7 @@ def agent_here(agent: str) -> bool:
 
 
 def experts_of(raw: dict, name: Path) -> list[dict] | None:
-    """The one or two experts one file names, checked, each with its place in a choice's record and
+    """The one or two experts one file names, checked, each with its place in a record and
     whether its agent is on this machine (`here`); None when the file names none."""
     given = raw.get("seats", {}).get("experts")
     if given is None:
@@ -751,7 +809,7 @@ def experts_of(raw: dict, name: Path) -> list[dict] | None:
     if not isinstance(given, list) or not 1 <= len(given) <= len(EXPERT_PLACES):
         raise SettingsError(
             f'{name}: seats.experts = {given!r} must be a list of one or two seats, "{SEAT_FORM}" each, as experts = [{", ".join(toml_string(one) for one in EXPERTS)}]: '
-            "a choice's record holds the answers of two experts at most",
+            "the ladder asks two experts at most",
         )
     found = [
         {**parse_seat(one, f"{name}: seats.experts[{number}]", REVIEWERS, "the agents the harness starts an expert with", EXPERTS[number]), "place": place}
@@ -857,14 +915,19 @@ def load(root: Path) -> dict:
         raw = read_settings(file, SETTINGS, tuple(TABLES))
     local = read_settings(main / LOCAL, LOCAL, LOCAL_TABLES)
     on_base = raw if main.resolve() == root.resolve() else base_raw()
-    return decide(root, main, raw, local, on_base, committed)
+    try:
+        machine = lem_state.machine_table("seats")
+    except lem_state.StateError as error:
+        raise SettingsError(str(error)) from error
+    return decide(root, main, raw, local, on_base, committed, machine)
 
 
-def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, committed: dict | None) -> dict:
+def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, committed: dict | None, machine: dict | None = None) -> dict:
     """The settings from the tables `load` read: the tracked file's (`raw`, the branch's copy in a
     task's worktree), this machine's own file's, and the base branch's copy (`on_base`, the same
     table as `raw` in the main checkout), with `committed` the commit of the base it came from, or
-    None for the working tree. Every value is checked here; it refuses with a SettingsError."""
+    None for the working tree; and `machine`, the `[seats]` table of the developer's file for all his
+    repositories (`machine.toml`). Every value is checked here; it refuses with a SettingsError."""
     file = root / SETTINGS
     local_file = main / LOCAL
     base_file = Path(f"{committed['branch']}:{SETTINGS}") if committed else main / SETTINGS
@@ -894,19 +957,13 @@ def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, commit
         raise SettingsError(f"{SETTINGS}: branch.base must be a string")
     if base is not None and not base.strip():
         raise SettingsError(f"{SETTINGS}: branch.base = {base!r} names no branch; write the branch tasks start from and land on, as base = \"main\"")
-    land = branch.get("land", "owner")
+    land = branch.get("land", LAND_DEFAULT)
     if land not in LAND:
         raise SettingsError(f"{SETTINGS}: branch.land = {land!r} must be one of {', '.join(LAND)}")
 
     history = branch.get("history", HISTORY_DEFAULT)
     if history not in HISTORY:
         raise SettingsError(f"{SETTINGS}: branch.history = {history!r} must be one of {', '.join(HISTORY)}")
-    propose = branch.get("propose", "pull-request")
-    if propose not in PROPOSE:
-        raise SettingsError(
-            f"{SETTINGS}: branch.propose = {propose!r} must be one of {', '.join(PROPOSE)}: "
-            '"pull-request" ends a task as a pull request on the forge, "merge" lands it on the base branch with none',
-        )
     protected =strings(branch.get("protected", []), "branch.protected")
     if base in protected:
         raise SettingsError(f"{SETTINGS}: branch.base = {base!r} is in branch.protected, so no task could land")
@@ -921,6 +978,8 @@ def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, commit
         if local_seat is not None:
             seats[which] = local_seat
             overridden.append(f"seats.{which}")
+    for which in MACHINE_SEATS:
+        seats[which] = machine_seat_of(which, seats[which], f"seats.{which}" in overridden, machine or {})
     seats["experts"] = experts_of(raw, SETTINGS) or experts_of({"seats": {"experts": list(EXPERTS)}}, Path("Lem's default"))
     local_experts = experts_of(local, LOCAL)
     if local_experts is not None:
@@ -963,7 +1022,7 @@ def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, commit
         if main.resolve() == root.resolve() else "this worktree's branch, with [flow] and [naps] from " + (f"{committed['branch']}@{committed['commit'][:9]}" if committed else "the main checkout"),
         "paths": paths,
         "places": places,
-        "branch": {"base": base, "land": land, "history": history, "propose": propose, "protected": protected},
+        "branch": {"base": base, "land": land, "history": history, "protected": protected},
         "checks": {
             "commands": commands(raw.get("checks", {}).get("commands", []), "checks.commands"),
             "setup": commands(raw.get("checks", {}).get("setup", []), "checks.setup"),
@@ -1025,7 +1084,7 @@ def may_land(settings: dict, target: str) -> str:
     found = subprocess.run(["git", "-C", settings["root"], "rev-parse", "--verify", "--quiet", f"refs/heads/{target}"], capture_output=True, text=True, check=False)
     if found.returncode != 0:
         raise SettingsError(f"branch.base = {target!r} is no branch of this repository; correct it in {SETTINGS}, or make the branch first")
-    return f"{target}: tasks land here; the {branch['land']} lands"
+    return f"{target}: tasks land here; " + ("the merge agent merges a green request that is not careful" if branch["land"] == "agent" else "the owner merges")
 
 
 def default_branch(root: Path) -> str | None:
@@ -1054,6 +1113,17 @@ def cmd_init(root: Path, base: str | None, codex: str) -> None:
     file = root / SETTINGS
     if file.exists():
         raise SettingsError(f"{SETTINGS} already exists; edit it")
+    # A task ends as a GitHub pull request, so a remote elsewhere could land nothing. A repository with
+    # no remote yet gets its settings, and the first proposal asks for the remote.
+    origin = subprocess.run(["git", "-C", str(root), "config", "--get", "remote.origin.url"], capture_output=True, text=True, check=False).stdout.strip()
+    if origin and not GITHUB.match(origin):
+        raise SettingsError(
+            f"origin is {origin}, and Lem lands through GitHub pull requests only: point origin at the repository on GitHub "
+            "(`git remote set-url origin git@github.com:OWNER/REPO.git`), then run init again",
+        )
+    if not origin:
+        print("project.py: this repository has no remote origin yet; Lem lands through GitHub pull requests, so add it "
+              "(`git remote add origin git@github.com:OWNER/REPO.git`) before the first landing", file=sys.stderr)
     base = base or default_branch(root)
     if not base:
         raise SettingsError("cannot tell the base branch (no origin/HEAD); pass --base NAME")
@@ -1405,7 +1475,7 @@ def cmd_worktree_dir(settings: dict, slug: str) -> None:
     print(parent / slug)
 
 
-def cmd_worktree(root: Path, settings: dict, slug: str, branch: str) -> None:
+def cmd_worktree(root: Path, settings: dict, slug: str, branch: str) -> dict:
     """Make the task's worktree where `worktree-dir` says, on BRANCH. A new branch starts from the
     base branch as origin has it now, after a fetch: the local base branch may be days old. It gets
     no upstream, so that no `git push` of a builder's reaches the base. With no remote, or an
@@ -1433,8 +1503,7 @@ def cmd_worktree(root: Path, settings: dict, slug: str, branch: str) -> None:
         on = subprocess.run(["git", "-C", str(place), "branch", "--show-current"], capture_output=True, text=True, check=False).stdout.strip()
         if on != branch:
             raise SettingsError(f"{place} is a worktree on {on or 'no branch'}, not on {branch}: the task's worktree is the one on its branch")
-        print(json.dumps({"task": slug, "worktree": str(place), "branch": branch, "made": False, "from": None}, indent=2))
-        return
+        return {"task": slug, "worktree": str(place), "branch": branch, "made": False, "from": None}
     place.parent.mkdir(parents=True, exist_ok=True)
     if not (place.parent / ".gitignore").is_file():
         (place.parent / ".gitignore").write_text("*\n", encoding="utf-8")
@@ -1454,7 +1523,7 @@ def cmd_worktree(root: Path, settings: dict, slug: str, branch: str) -> None:
         raise SettingsError(f"git could not make the worktree {place} on {branch}: {said(made)}")
     commit = subprocess.run(["git", "-C", str(place), "rev-parse", "HEAD"], capture_output=True, text=True, check=False).stdout.strip()
     setup = worktree_setup(root, settings, slug, place)
-    print(json.dumps({"task": slug, "worktree": str(place), "branch": branch, "made": True, "from": start, "commit": commit, "setup": setup}, indent=2))
+    return {"task": slug, "worktree": str(place), "branch": branch, "made": True, "from": start, "commit": commit, "setup": setup}
 
 
 def worktree_setup(root: Path, settings: dict, slug: str, place: Path) -> list[dict]:
@@ -1493,7 +1562,7 @@ def task_directory(root: Path, slug: str) -> Path:
 
 
 def append_event(root: Path, event: str, slug: str, fields: dict) -> dict:
-    """Append one record to the log, and to the copy of it the board can load."""
+    """Append one record to the log."""
     record = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": event, "task": slug, **fields}
     line = json.dumps(record, ensure_ascii=False)
     try:
@@ -1504,9 +1573,19 @@ def append_event(root: Path, event: str, slug: str, fields: dict) -> dict:
     directory = state_root(root)
     with (directory / "events.jsonl").open("a", encoding="utf-8") as log:
         log.write(line + "\n")
-    with (directory / "events.js").open("a", encoding="utf-8") as feed:
-        feed.write(f"lemEvent({line});\n")
     return record
+
+
+def task_plan(root: Path, settings: dict, slug: str) -> tuple[Path, str] | None:
+    """The task's plan in its worktree, with its path from the repository root, as the board's
+    artifacts explorer lists it; None when the task has no worktree or its plan is not written."""
+    resolved = root.resolve()
+    worktree = main_checkout(root) / Path(settings["places"]["worktrees"]["path"]).relative_to(resolved) / slug
+    if not (worktree / ".git").exists():
+        return None
+    folder = Path(settings["paths"]["plans"]["path"]).relative_to(resolved)
+    found = lem_plans.found(worktree / folder, settings["paths"]["plan_file"]["pattern"], slug)
+    return (found, (folder / found.name).as_posix()) if found else None
 
 
 def task_worktree(root: Path, settings: dict, slug: str) -> dict:
@@ -1525,8 +1604,23 @@ def task_worktree(root: Path, settings: dict, slug: str) -> dict:
     return {key: value for key, value in found.items() if value}
 
 
-def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: bool = False) -> None:
-    """Put a new block at the top of the task's state.md, and the same as an event in the log."""
+def parked_refusal(slug: str, now: str | None, status: str, resumed: bool = False) -> str | None:
+    """Why `state` refuses STATUS over a task whose newest status is NOW, for the park: a parked task
+    leaves `parked` only by a drop or by `resume`, and only a task no agent works on is parked."""
+    if now == PARKED and status not in (PARKED, "dropped") and not resumed:
+        return (f"the task {slug!r} is parked: the owner put it aside, and a reply or a message about {slug} that comes now is a stale wake-up. "
+                f"`lem project resume {slug}` brings it back on his word, and `dropped` ends it")
+    if status == PARKED and now not in (*PARKABLE, PARKED):
+        return (f"the task {slug!r} is {now or 'new'}, and only a task that no agent works on is parked ({', '.join(PARKABLE)}): "
+                + ("its lead or its investigator works now, so park it once it stops, or drop it now" if now == "building"
+                   else "its build is done: its landing goes on, or the owner drops it" if now in ("ready", *WITH_LANDING)
+                   else "an ended task stays ended" if now in ENDED else "nothing of it runs to put aside"))
+    return None
+
+
+def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: bool = False, resumed: bool = False) -> dict:
+    """Put a new block at the top of the task's state.md, and the same as an event in the log.
+    `resumed` is `resume`'s own write over a parked task, the one way out of `parked` but a drop."""
     directory = task_directory(root, slug)
     settings = load(root)
     if status not in STATES:
@@ -1552,6 +1646,9 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
             f"the task {slug!r} is {now}: it is with its landing, and a reply or a message about {slug} that comes now is a stale wake-up, "
             f"and no state is written for it; what the landing needs, land.py says itself",
         )
+    refused = parked_refusal(slug, now, status, resumed)
+    if refused:
+        raise SettingsError(refused)
     if status == "answered":
         answered_form(root, directory, slug)
     # the time is the clock's, never a writer's estimate
@@ -1567,7 +1664,130 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
         "status": status, "text": lines[0].strip(), "lines": [line.strip() for line in lines[1:]],
         "ask": ask_of(directory), **task_worktree(root, settings, slug),
     })
-    print(json.dumps({"slug": slug, "status": status, "since": since}))
+    return {"slug": slug, "status": status, "since": since}
+
+
+# What `resume` copies from a dropped task into the new one: the documents a fresh agent goes on
+# from, the records the landing reads, each breaker's document (`breaker-N.md`, RESUMED_GLOBS) and the
+# breaker's pictures (`media/`). The landing's own
+# files (`landing.json`, `gate/`, `reviews/`, `pr.md`) stay with the old task: the new one lands anew.
+RESUMED_FILES = ("task.md", "talk.md", "directions.md", "interview-notes.md", "scout.md", "investigation.md", "outside.md",
+                 "criteria.md", "criteria-read.md", "criteria.json", "decisions.jsonl", "handoff.md", "ticket.txt")
+RESUMED_GLOBS = ("breaker-*.md",)
+# The events of a dropped task that the new one takes with it, under its own slug and with `from`:
+# what the landing and the board read of its criteria, its decisions, its plan talk and its investigation.
+RESUMED_EVENTS = ("criteria.read.start", "criteria.read", "criteria.approved", "task.criteria", "plan.talk.start", "plan.talk",
+                  "investigation.start", "investigation", "interview.start", "scout.start", "scout")
+# The file of a resumed task that names the task it came from.
+RESUMED_FROM = "resumed-from.txt"
+
+
+def blocks_of(text: str) -> list[dict]:
+    """The blocks of a state.md, newest first, each with its status and its lines."""
+    out = []
+    for block in (part for part in text.strip().split("\n\n") if part.strip()):
+        rows = block.splitlines()
+        found = STATE_LINE.fullmatch(rows[0])
+        if found:
+            out.append({"status": found["status"], "lines": [found["text"], *rows[1:]]})
+    return out
+
+
+def resumed_slug(root: Path, slug: str) -> str:
+    """The slug of the task a dropped one goes on in: the first slug of its line (the task it came
+    from, when it came from one) with the next free number, `gift-note-2`, then `gift-note-3`."""
+    first = slug
+    while (state_root(root) / "tasks" / first / RESUMED_FROM).is_file():
+        first = text_of(state_root(root) / "tasks" / first / RESUMED_FROM).strip() or first
+    taken = {path.name for path in (state_root(root) / "tasks").iterdir()}
+    return next(f"{first}-{n}" for n in range(2, 1000) if f"{first}-{n}" not in taken)
+
+
+def cmd_resume(root: Path, slug: str) -> dict:
+    """The owner's word to go on with a task he put aside: a parked one comes back as it was, and a
+    dropped one goes on in a new task that starts from its files and its branch."""
+    directory = task_directory(root, slug)
+    blocks = blocks_of(text_of(directory / "state.md")) if (directory / "state.md").is_file() else []
+    now = blocks[0]["status"] if blocks else None
+    if now == PARKED:
+        before = next((block for block in blocks if block["status"] != PARKED), None)
+        if before is None:
+            raise SettingsError(f"the task {slug!r} has no block before its park to bring back: write its state by hand")
+        written = cmd_state(root, slug, before["status"], before["lines"], resumed=True)
+        breaker = re.fullmatch(r"breaker ([1-9]\d*) waits for the owner", before["lines"][0])
+        return {"task": slug, "resumed": "parked", "status": before["status"], "line": before["lines"][0], "since": written["since"],
+                "breaker": int(breaker[1]) if breaker else None, "says": f"{slug} goes on in its own worktree from where it was put aside"}
+    if now != "dropped":
+        raise SettingsError(
+            f"the task {slug!r} is {now or 'new'}: `resume` takes a parked task or a dropped one. "
+            + ("An ended task stays ended, and new work for it is a new ask (`/lem new`)" if now in ENDED else "This one goes on as it is"),
+        )
+    record = directory / "decisions.jsonl"
+    lines = [json.loads(line) for line in text_of(record).splitlines() if line.strip()] if record.is_file() else []
+    helped = {line.get("breaker") for line in lines if line.get("kind") == "taken" and "breaker" in line}
+    breaker = next((line for line in reversed(lines) if line.get("kind") == "breaker" and line["id"] not in helped), None)
+    if breaker is None or not (directory / "handoff.md").is_file():
+        raise SettingsError(
+            f"the task {slug!r} was dropped with no breaker that waits and its handoff beside it, so there is no talk to go back to: "
+            "new work for it is a new ask (`/lem new`), which may name its branch",
+        )
+    again = next((path.parent.name for path in sorted((state_root(root) / "tasks").glob(f"*/{RESUMED_FROM}")) if text_of(path).strip() == slug), None)
+    if again:
+        raise SettingsError(f"the dropped task {slug!r} goes on in {again!r} already: `lem project resume {again}` when that one is parked or dropped too")
+    settings = load(root)
+    main = main_checkout(root)
+    new = resumed_slug(root, slug)
+    typed = type_of(text_of(directory / "state.md"))
+    kind = typed["type"] if typed else "feat"
+    branch = f"{kind}/{new}"
+    # the old branch, as the newest state event that saw the task's worktree named it
+    old = next((event.get("branch") for event in reversed(events_named(root, "task.state")) if event.get("task") == slug and event.get("branch")), None)
+    exists = old is not None and subprocess.run(["git", "-C", str(main), "rev-parse", "--verify", "--quiet", f"refs/heads/{old}"],
+                                                capture_output=True, text=True, check=False).returncode == 0
+    target = state_root(root) / "tasks" / new
+    if target.exists():
+        raise SettingsError(f"{target} exists already: no task is resumed into another task's folder")
+    ask = text_of(directory / "ask.txt").strip() if (directory / "ask.txt").is_file() else (ask_of(directory) or slug)
+    taken_on_remote(root, new, branch)
+    if exists:
+        made = subprocess.run(["git", "-C", str(main), "branch", "--no-track", branch, old], capture_output=True, text=True, check=False)
+        if made.returncode != 0:
+            raise SettingsError(f"git could not make {branch} from {old}: {(made.stderr or made.stdout).strip()}")
+    (target / "reports").mkdir(parents=True)
+    (target / "ask.txt").write_text(ask + "\n", encoding="utf-8")
+    for name in RESUMED_FILES:
+        if (directory / name).is_file():
+            shutil.copy2(directory / name, target / name)
+    for pattern in RESUMED_GLOBS:
+        for found in sorted(directory.glob(pattern)):
+            shutil.copy2(found, target / found.name)
+    if (directory / "media").is_dir():
+        shutil.copytree(directory / "media", target / "media")
+    (target / RESUMED_FROM).write_text(slug + "\n", encoding="utf-8")
+    worktree = main / Path(settings["places"]["worktrees"]["path"]).relative_to(root.resolve()) / new
+    if (directory / "brief.md").is_file():
+        # the old brief with this task's own lines: a fresh lead reads where it works from it
+        own = {"task": new, "branch": branch, "worktree": str(worktree), "task directory": str(target)}
+        rows = [f"{row.split(':', 1)[0]}: {own[row.split(':', 1)[0]]}" if row.split(":", 1)[0] in own else row
+                for row in text_of(directory / "brief.md").splitlines()]
+        (target / "brief.md").write_text("\n".join([*rows, f"resumed from: {slug}; read handoff.md and {breaker.get('document') or 'the breaker document'} in the task directory first"]) + "\n", encoding="utf-8")
+    for event in events_named(root, *RESUMED_EVENTS) + [event for event in events_named(root, *(f"decision.{kind}" for kind in ("taken", "breaker", "criterion")))]:
+        if event.get("task") == slug:
+            append_event(root, event["event"], new, {**{key: value for key, value in event.items() if key not in ("ts", "event", "task")}, "from": slug})
+    try:
+        made_tree = cmd_worktree(root, settings, new, branch)
+    except SettingsError as error:
+        # the task is whole without its worktree's last step (a `checks.setup` that failed, or git): its
+        # state goes on record, so that it waits as the resumed task it is, and the error says what is left
+        cmd_state(root, new, "held", [f"breaker {breaker['id']} waits for the owner", f"resumed from {slug}, which was dropped",
+                                      *([f"type: {kind}, because {typed['why']}"] if typed else [])])
+        raise SettingsError(f"{slug} goes on in {new}, which is held by its breaker {breaker['id']} as a resumed task should be, and its worktree is not whole: {error}") from None
+    written = cmd_state(root, new, "held", [f"breaker {breaker['id']} waits for the owner", f"resumed from {slug}, which was dropped",
+                                            *([f"type: {kind}, because {typed['why']}"] if typed else [])])
+    return {"task": new, "resumed": "dropped", "from": slug, "branch": branch, "from_branch": old if exists else None,
+            "worktree": made_tree["worktree"], "breaker": breaker["id"], "status": "held", "since": written["since"],
+            "says": f"{slug} stays dropped; {new} goes on from its handoff and "
+                    + (f"the commits of {old}" if exists else f"the base branch, since the branch {old or 'of ' + slug} is gone")}
 
 
 def type_line(line: str) -> dict | None:
@@ -1854,7 +2074,11 @@ def proposal(directory: Path) -> dict | None:
     forge = kept.get("forge") if isinstance(kept.get("forge"), dict) else {}
     pushed = kept.get("pushed") or kept.get("proposed")
     conflict = {"CONFLICTING": True, "MERGEABLE": False}.get(forge.get("mergeable")) if pushed and forge.get("head") == pushed else None
-    return {"pull_request": (kept.get("pr") or {}).get("url"), "green": not reasons, "not_green": reasons, "conflict": conflict}
+    # the merge agent's review of the proposed tip, and GitHub's refusal of a merge after it
+    review = kept.get("merge_review") if isinstance(kept.get("merge_review"), dict) and kept["merge_review"].get("tip") == kept["proposed"] else None
+    refused = kept.get("merge_refused") if isinstance(kept.get("merge_refused"), dict) and kept["merge_refused"].get("tip") == kept["proposed"] else None
+    return {"pull_request": (kept.get("pr") or {}).get("url"), "green": not reasons, "not_green": reasons, "conflict": conflict,
+            "merge_review": review, "merge_refused": refused}
 
 
 def events_named(root: Path, *events: str) -> list[dict]:
@@ -1950,25 +2174,10 @@ def append_owner(root: Path, away: bool, words: str) -> dict:
     return record
 
 
-# The board's copy of the machine's mark, in a repository's state folder beside `events.js`: a page
-# reads only files beside it, so it cannot read the mark in the home directory.
-OWNER_COPY = "owner.js"
 # How many seconds the watch of the mark waits between two looks at it. A guess (2026-11-19), not a
-# measurement: an away typed in another repository reaches this one's waiting choices within
+# measurement: an away typed in another repository reaches this one's interviews within
 # seconds, and one read of a file of a few lines every 5 seconds costs nothing.
 OWNER_WATCH_SECONDS = 5
-
-
-def owner_copy(root: Path, records: list[dict]) -> None:
-    """Write the board's copy of the mark whole, one `lemOwner({...});` line for each record: a
-    temporary file and a rename, so that the page never reads half of it. Nothing reads it but the page."""
-    state = state_root(root)
-    # `</` is split so that no words of his can end a script tag that holds the line
-    text = "".join(f"lemOwner({json.dumps(record, ensure_ascii=False)});\n".replace("</", "<\\/") for record in records)
-    # the process's id in the name: two writers at one moment never write one new file
-    fresh = state / f"{OWNER_COPY}.{os.getpid()}.new"
-    fresh.write_text(text, encoding="utf-8")
-    fresh.replace(state / OWNER_COPY)
 
 
 def merged(events: list[dict], marks: list[dict]) -> list[dict]:
@@ -2036,7 +2245,7 @@ def type_of(text: str) -> dict | None:
 
 
 # The state lines that tell a task's track (SKILL.md, the seven lines of a fixed form), as the board
-# reads them (board.html FAST_BUILDER, FAST_GREW): the fast track's one builder; the line of a fast
+# reads them (lem_board_model's FAST_BUILDER, FAST_GREW): the fast track's one builder; the line of a fast
 # task whose builder found that it needs the standard track; a lead, which only the standard track has.
 FAST_BUILDER = "small change: one builder"
 FAST_GREW = re.compile(r"\bthe small change is a full change$")
@@ -2141,6 +2350,8 @@ def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
     status = next((task["status"] for task in tasks if task["slug"] == slug), None)
     if status in ENDED:
         raise SettingsError(f"the task {slug!r} is {status}: an ended task gets no lead, and new work for it is a new ask (`/lem new`) with a slug of its own")
+    if status == PARKED:
+        raise SettingsError(f"the task {slug!r} is parked: it gets no lead until the owner's `/lem resume {slug}` (`lem project resume {slug}`) brings it back")
     if status in ("landing", "open"):
         raise SettingsError(
             f"the task {slug!r} is {status}: its build is done, and it gets no lead. Its landing goes on with `land.py` "
@@ -2192,12 +2403,12 @@ def waiting_brief(task: dict) -> dict:
     return {"task": task["slug"], "ask": task["ask"], "since": task["since"], "night": task["night"]}
 
 
-def holds_of(held: list[dict], choices: list[dict]) -> dict:
+def holds_of(held: list[dict], breakers: list[dict]) -> dict:
     """The held tasks of the list of what waits: `criteria`, which wait for the owner's yes, and
-    `held`, a step of his. A held task with a choice that waits (`choice N waits for the owner`)
-    is that choice's: `choices` names it, so `held` does not name it again, as the board's tab
-    "Waits for you" makes one row of it (`waitsOf`)."""
-    asked = {choice["task"] for choice in choices}
+    `held`, a step of his. A task a breaker holds (`breaker N waits for the owner`) is that
+    breaker's: `breakers` names it, so `held` does not name it again, as the board's "Waits for
+    you" makes one row of it (`waits_of`)."""
+    stopped = {breaker["task"] for breaker in breakers}
 
     def line(task: dict) -> str:
         return STATE_LINE.fullmatch(task["state"].splitlines()[0])["text"]
@@ -2205,8 +2416,69 @@ def holds_of(held: list[dict], choices: list[dict]) -> dict:
     return {
         "criteria": [{**waiting_brief(task), "line": line(task)} for task in held if line(task).startswith(CRITERIA_WAIT)],
         "held": [{**waiting_brief(task), "line": line(task)} for task in held
-                 if not line(task).startswith(CRITERIA_WAIT) and task["slug"] not in asked],
+                 if not line(task).startswith(CRITERIA_WAIT) and task["slug"] not in stopped],
     }
+
+
+# The owner's word to skip the personas' read of the criteria, in the two texts the landing knows it by
+# (land.py READ_SKIP; the board's model keeps the same copy).
+READ_SKIP = {"what": "the personas' read of the criteria", "chose": "no read: the criteria name only the developer"}
+# whose approval answers a wait for the criteria: his own, or one made while the task ran without him
+APPROVERS = ("owner", "alone")
+BREAKER_WAIT = re.compile(r"breaker ([1-9]\d*) waits for the owner")
+
+
+def answered_hold(line: str, held_at: str, approvals: list[dict], reads: list[str], breaker_waits: bool) -> bool:
+    """Whether a `held` block whose first line is LINE, written at HELD_AT, has its answer on record,
+    so that it waits for the start of its lead and not for the owner. An interview is answered by an
+    approval of the criteria by `owner` or `alone` after the newest read of the personas since the
+    wait began (`reads`: each `criteria.read`, and each word of his that skipped it): a yes typed
+    before the read waits for it, so no lead starts before a doubt reaches him. Criteria that wait
+    for his yes are answered by such an approval after the block. A breaker is answered when it no
+    longer waits in the record (`breaker_waits` False). Any other hold waits for him."""
+    if line.startswith(INTERVIEW_WAIT) or FAST_GREW.search(line):
+        since = max((at for at in reads if at >= held_at), default=None)
+    elif line.startswith(CRITERIA_WAIT):
+        since = held_at
+    elif BREAKER_WAIT.fullmatch(line.strip()):
+        return not breaker_waits
+    else:
+        return False
+    return since is not None and any(approval["by"] in APPROVERS and approval["at"] >= since for approval in approvals)
+
+
+def answered_holds(root: Path, tasks: list[dict], waiting: list[dict]) -> set[str]:
+    """The held tasks whose newest block is a wait of the owner's whose answer is on record
+    (`answered_hold`), from the event log, each task's `criteria.json` and `waiting`, the breakers
+    that still wait (`lem decisions pending`)."""
+    events = events_named(root, "task.state", "criteria.approved", "criteria.read", "decision.taken")
+    state = state_root(root)
+    found = set()
+    for task in tasks:
+        if task["status"] != "held" or not task["state"]:
+            continue
+        slug = task["slug"]
+        line = STATE_LINE.fullmatch(task["state"].splitlines()[0])["text"]
+        mine = [record for record in events if record.get("task") == slug]
+        # the block's time to the second, from its event when the log has it, else its minute
+        newest = next((record for record in reversed(mine) if record.get("event") == "task.state"), None)
+        held_at = newest["ts"] if newest and newest.get("status") == "held" and newest.get("text") == line else f"{task['since'][:-1]}:00Z"
+        approvals = [{"at": record["ts"], "by": record.get("by")} for record in mine if record.get("event") == "criteria.approved"]
+        kept = state / "tasks" / slug / "criteria.json"
+        if kept.is_file():
+            try:
+                record = json.loads(text_of(kept))
+            except ValueError as error:
+                raise SettingsError(f"{kept} does not read as JSON ({error}); it is written by `lem criteria approve` only") from error
+            approvals += [{"at": one["at"], "by": one.get("by")} for one in [record, *record.get("history", [])] if isinstance(one, dict) and one.get("at")]
+        reads = [record["ts"] for record in mine if record.get("event") == "criteria.read"
+                 or (record.get("event") == "decision.taken" and record.get("by") == "owner"
+                     and record.get("what") == READ_SKIP["what"] and record.get("chose") == READ_SKIP["chose"])]
+        breaker = BREAKER_WAIT.fullmatch(line.strip())
+        waits = bool(breaker) and any(item.get("task") == slug and item.get("id") == int(breaker[1]) for item in waiting)
+        if answered_hold(line, held_at, approvals, reads, waits):
+            found.add(slug)
+    return found
 
 
 def cmd_waiting(root: Path) -> dict:
@@ -2218,25 +2490,22 @@ def cmd_waiting(root: Path) -> dict:
                            capture_output=True, text=True, check=False)
     if asked.returncode != 0:
         raise SettingsError(asked.stderr.strip().removeprefix("decisions.py: ") or "decisions.py pending failed")
-    # a wait whose answer is on record waits for Lem's start of its lead, not for him (companion.py's one rule)
-    companion = importlib.import_module("companion")
-    try:
-        answered = companion.answered_holds(root)
-    except (companion.CompanionError, companion.project.SettingsError) as error:
-        # the module companion.py loads is this file's again when it runs as `lem project`
-        raise SettingsError(str(error)) from error
+    pending = json.loads(asked.stdout)
+    # a wait whose answer is on record waits for the start of its lead, not for him
+    answered = answered_holds(root, tasks, pending["waiting"])
     held = [task for task in tasks if task["status"] == "held" and task["slug"] not in answered]
     marks = owner_records()
-    choices = json.loads(asked.stdout)["waiting"]
+    # a breaker the owner helped on waits for Lem's start of its lead, as an answered wait does
+    breakers = [breaker for breaker in pending["waiting"] if breaker["task"] not in answered]
     found = {
         # whether the owner said he is away, since when and in which words, from the machine's mark: the list
         # says it first; `seen` is the number of records in the mark, from which a watch of it starts
         "owner": {**owner_now(marks), "seen": len(marks)},
-        "choices": choices,
-        **holds_of(held, choices),
+        "breakers": breakers,
+        **holds_of(held, breakers),
         "pull_requests": [
             {**waiting_brief(task), "pull_request": task["proposal"]["pull_request"], "green": task["proposal"]["green"], "not_green": task["proposal"]["not_green"],
-             "conflict": task["proposal"]["conflict"]}
+             "conflict": task["proposal"]["conflict"], "merge_review": task["proposal"]["merge_review"], "merge_refused": task["proposal"]["merge_refused"]}
             for task in tasks if task["status"] == "open" and task["proposal"]
         ],
         "retros": [retro_proposals(file) for file in sorted((state_root(root) / RETROS).glob("*.json"))],
@@ -2246,30 +2515,22 @@ def cmd_waiting(root: Path) -> dict:
     recent = [(state_root(root) / NIGHTS / f"{day.isoformat()}.md") for day in (today, today - timedelta(days=1))]
     report = next((file for file in recent if file.is_file()), None)
     found["night_report"] = {"date": report.stem, "file": str(report)} if report else None
-    found["count"] = sum(len(found[key]) for key in ("choices", "criteria", "held", "pull_requests")) + sum(
+    # the tasks the owner put aside: no row of what waits, and not counted, so a status can name them apart
+    found["parked"] = [{**waiting_brief(task), "line": STATE_LINE.fullmatch(task["state"].splitlines()[0])["text"]} for task in tasks if task["status"] == PARKED]
+    found["count"] = sum(len(found[key]) for key in ("breakers", "criteria", "held", "pull_requests")) + sum(
         entry["proposals"] or 1 for entry in found["retros"]
     )
     return found
 
 
-def take_away(root: Path) -> list:
-    """Each choice of this repository that waits for the owner and is no irreversible step, taken
-    now that he is away (`lem decisions away`)."""
-    ran = subprocess.run([sys.executable, "-B", str(Path(__file__).resolve().parent / "decisions.py"), "--repo", str(root), "away"],
-                         capture_output=True, text=True, check=False)
-    if ran.returncode != 0:
-        raise SettingsError(f"the owner is away now, and the choices that wait were not taken: {ran.stderr.strip().removeprefix('decisions.py: ')}; run `lem decisions away`")
-    return json.loads(ran.stdout)["taken"]
-
-
 def cmd_owner(root: Path, status: str, words: str | None) -> dict:
     """Write the owner's status, away or back, with his words as typed, into the machine's mark, so
     that every repository on this machine reads it. Nothing is written when it changes nothing:
-    away while he is away, back while he is there. Away takes at once each choice of this repository
-    that waits for him and is no irreversible step, also when he was away already, since an away
-    typed in another repository took none of this one's; the other repositories' Lem takes theirs.
-    `tasks` are this repository's: after an away the tasks that run without him, after a back the
-    ones that came back to him (a night's task does not), and none after a back while he was there."""
+    away while he is away, back while he is there. His status changes nothing in a build, which asks
+    him nothing in either; it is read by an interview, criteria that wait for his yes, the
+    task sessions, and the merge. `tasks` are this repository's: after an away the tasks that run
+    without him, after a back the ones that came back to him (a night's task does not), and none
+    after a back while he was there."""
     if status not in ("away", "back"):
         raise SettingsError(f"the owner is away or back, not {status!r}: `lem project owner away --words \"I'm away\"` or `lem project owner back --words \"I'm back\"`"
                             " (`lem project owner watch --seen N` watches his status)")
@@ -2280,15 +2541,11 @@ def cmd_owner(root: Path, status: str, words: str | None) -> dict:
     away = status == "away"
     without = [task["slug"] for task in read_tasks(root) if task["status"] not in ENDED and task["mode"] == "alone"]
     if now["away"] == away:
-        # the board's copy is written again all the same: a copy that an older read replaced is current after it
-        owner_copy(root, marks)
-        return {**now, "written": False, "tasks": without if away else [], "taken": take_away(root) if away else []}
+        return {**now, "written": False, "tasks": without if away else []}
     record = append_owner(root, away, words.strip())
-    owner_copy(root, owner_records())
-    taken = take_away(root) if away else []
     after = [task["slug"] for task in read_tasks(root) if task["status"] not in ENDED and task["mode"] == "alone"]
     return {"away": away, "since": record["ts"], "words": record["words"], "written": True,
-            "tasks": after if away else [slug for slug in without if slug not in after], "taken": taken}
+            "tasks": after if away else [slug for slug in without if slug not in after]}
 
 
 def cmd_owner_watch(root: Path, seen: int, every: int = OWNER_WATCH_SECONDS) -> dict:
@@ -2297,11 +2554,10 @@ def cmd_owner_watch(root: Path, seen: int, every: int = OWNER_WATCH_SECONDS) -> 
     at once when that is so at the start, so that no change is lost between Lem's read and this
     start. The count is the cursor and no time is, since a `ts` has whole seconds and an away and a
     back can share one; the mark is only appended to, so a new record always changes the count. It
-    writes nothing to the mark, and the board's copy at its start and at its end. Lem acts on its result."""
+    writes nothing. Lem acts on its result."""
     if seen < 0:
         raise SettingsError(f"--seen is the number of records in the owner's mark, 0 or more, not {seen}: `lem project waiting` gives it as owner.seen")
     marks = owner_records()
-    owner_copy(root, marks)
 
     def stopped(*_: object) -> None:
         raise KeyboardInterrupt
@@ -2312,13 +2568,66 @@ def cmd_owner_watch(root: Path, seen: int, every: int = OWNER_WATCH_SECONDS) -> 
             time.sleep(every)
             marks = owner_records()
     except KeyboardInterrupt:
-        owner_copy(root, owner_records())
         raise SettingsError("the watch of the owner's status was stopped; start no other until the reason for the stop is gone") from None
     finally:
         signal.signal(signal.SIGTERM, before[0])
         signal.signal(signal.SIGINT, before[1])
-    owner_copy(root, marks)
     return {**owner_now(marks), "seen": len(marks)}
+
+
+def cmd_load(start: str | None) -> dict:
+    """The machine's load gate: the start number the developer set, and the load average now. With
+    --start, the number is written first: Lem picks none, so the only number is his."""
+    file = lem_state.machine_file()
+    if start is not None:
+        if start == "none":
+            value = None
+        else:
+            try:
+                value = float(start)
+            except ValueError:
+                value = -1.0
+            if not value > 0:
+                raise SettingsError(f"--start is a load average above 0, or none to take the gate away, not {start!r}")
+        # the file is written whole, with the board server's table kept as it reads
+        try:
+            lem_state.write_machine("load", None if value is None else {"start": int(value) if value.is_integer() else value})
+        except OSError as error:
+            raise SettingsError(f"{file} was not written ({error.strerror}); make its folder writable, then run this again") from error
+    try:
+        number = lem_state.load_start()
+    except lem_state.StateError as error:
+        raise SettingsError(str(error)) from error
+    now = round(os.getloadavg()[0], 1)
+    return {"file": str(file), "start": number, "load": now, "cores": os.cpu_count(),
+            "gate": None if number is None else ("open" if now < number else f"closed: the checks wait for a load below {number:g}")}
+
+
+def cmd_handoff(tokens: str | None) -> dict:
+    """The number of tokens past which a task's session compacts itself, for every repository on this
+    machine (`[handoff] tokens`). With --tokens it is written first; `default` takes the line out, so
+    that Lem's own number holds."""
+    file = lem_state.machine_file()
+    if tokens is not None:
+        if tokens == "default":
+            value = None
+        else:
+            value = int(tokens) if re.fullmatch(r"\d+", tokens) else -1
+            if value != 0 and value < lem_state.HANDOFF_FLOOR:
+                raise SettingsError(f"--tokens is 0 (Claude Code compacts at its own trigger), a whole number of {lem_state.HANDOFF_FLOOR} or more, "
+                                    f"or default for {lem_state.HANDOFF_TOKENS}, not {tokens!r}: Claude Code refuses a window under {lem_state.HANDOFF_FLOOR}")
+        try:
+            lem_state.write_machine("handoff", None if value is None else {"tokens": value})
+        except OSError as error:
+            raise SettingsError(f"{file} was not written ({error.strerror}); make its folder writable, then run this again") from error
+    try:
+        number = lem_state.handoff_tokens()
+        written = "tokens" in lem_state.machine_table("handoff")
+    except lem_state.StateError as error:
+        raise SettingsError(str(error)) from error
+    return {"file": str(file), "tokens": number, "default": not written,
+            "said": f"handoff tokens: {number} ({'default' if not written else 'set here'})" if number is not None
+            else "handoff tokens: 0, so Lem sets nothing and Claude Code compacts at its own trigger"}
 
 
 def cmd_serial(root: Path, words: list[str]) -> int:
@@ -2485,6 +2794,7 @@ def main(argv: list[str] | None = None) -> None:
     state.add_argument("lines", nargs="+", metavar="LINE")
     state.add_argument("--start-over", action="store_true", help="ready over a task in landing or open: its landing starts over, as land.py's message says")
     commands.add_parser("tasks")
+    commands.add_parser("resume", help="bring a parked task back on the owner's word, or open a new task from a dropped one's handoff and branch").add_argument("slug")
     owner = commands.add_parser("owner", help="the owner says that he is away, or back again, for every repository on this machine; watch waits for his next word")
     owner.add_argument("status", metavar="away|back|watch")
     owner.add_argument("--words", help="the owner's words as typed (away and back)")
@@ -2504,6 +2814,10 @@ def main(argv: list[str] | None = None) -> None:
     serial = commands.add_parser("serial", help="run one test command that two tasks cannot run at the same time, under the repository's one lock")
     serial.add_argument("words", nargs=argparse.REMAINDER, metavar="-- COMMAND")
     commands.add_parser("may-nap")
+    load_gate = commands.add_parser("load", help="the load average under which the checks of a landing start on this machine, and the load now")
+    load_gate.add_argument("--start", metavar="N|none", help="set the number for every repository on this machine, or none to take the gate away")
+    handoff = commands.add_parser("handoff", help="the number of tokens past which a task's session compacts itself, for every repository on this machine")
+    handoff.add_argument("--tokens", metavar="N|default", help="set the number: 0 leaves it to Claude Code, default takes the line out")
     args = parser.parse_args(argv)
     if problem := unreadable_argument(sys.argv[1:] if argv is None else argv):
         sys.exit(f"project.py: {problem}")
@@ -2519,7 +2833,10 @@ def main(argv: list[str] | None = None) -> None:
             cmd_task_dir(root, args.slug, args.ask, args.ticket, args.branch, args.night)
             return
         if args.command == "state":
-            cmd_state(root, args.slug, args.status, args.lines, args.start_over)
+            print(json.dumps(cmd_state(root, args.slug, args.status, args.lines, args.start_over)))
+            return
+        if args.command == "resume":
+            print(json.dumps(cmd_resume(root, args.slug), indent=2))
             return
         if args.command == "tasks":
             print(json.dumps(read_tasks(root), indent=2))
@@ -2553,6 +2870,12 @@ def main(argv: list[str] | None = None) -> None:
         if args.command == "may-nap":
             cmd_may_nap(root)
             return
+        if args.command == "load":
+            print(json.dumps(cmd_load(args.start), indent=2))
+            return
+        if args.command == "handoff":
+            print(json.dumps(cmd_handoff(args.tokens), indent=2))
+            return
         settings = load(root)
         if args.command == "rules":
             cmd_rules(settings, args.files, args.commits)
@@ -2564,7 +2887,7 @@ def main(argv: list[str] | None = None) -> None:
         elif args.command == "worktree-dir":
             cmd_worktree_dir(settings, args.slug)
         elif args.command == "worktree":
-            cmd_worktree(root, settings, args.slug, args.branch)
+            print(json.dumps(cmd_worktree(root, settings, args.slug, args.branch), indent=2))
         elif args.command == "plan-file":
             cmd_plan_file(settings, args.slug, args.date)
         elif args.command == "ruling-file":

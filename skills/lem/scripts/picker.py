@@ -9,21 +9,20 @@ it: the row `task picker` of `lem doctor` gives the line for this machine, which
 The repository is the one the session sits in (`AGT_SESSION_PWD`), so the same chord in another
 session lists that session's tasks.
 
-The rows come in the order a developer reads them: first what waits for the owner (a choice, the
-criteria for his yes, a step of his, a pull request to merge, a draft), in the order of `lem
-project waiting`; then the tasks that build (ACTIVE), the newest first; then the tasks that ended in the
+The rows come in the order a developer reads them: first what waits for the owner (a breaker's
+document, the criteria for his yes, a step of his, a pull request to merge), in the order of `lem
+project waiting`; then the tasks that build (ACTIVE), the newest first, with a parked one after them; then the tasks that ended in the
 last ENDED_DAYS days, the newest first; and last a row for the board of all tasks. A row's label is
 the task's ask in the owner's words, and its subtitle the state in the board's words, the track,
 the age of the newest state, and the pull request's number with green or not green.
 
 A pick runs `lem board --task SLUG --follow` (the board of all tasks for the last row), which is
-what `/lem status SLUG` opens: a page needs no agent, and nothing is typed into a pane. Escape
-opens nothing. Every failure exits 1 with one line on stderr, which agterm shows when the keymap
-line carries `--error-hud`: no repository of Lem in the session, no task yet, no `agtermctl`, or a
-picker or a board that failed.
+what `/lem status SLUG` opens: the board server's page of that task, which needs no agent, and
+nothing is typed into a pane. Escape opens nothing. Every failure exits 1 with one line on stderr,
+which agterm shows when the keymap line carries `--error-hud`: no repository of Lem in the session, no
+task yet, no `agtermctl`, or a picker or a board that failed (a board server that does not run among
+them).
 """
-
-from __future__ import annotations
 
 import sys
 
@@ -43,20 +42,17 @@ from pathlib import Path
 SCRIPTS = Path(__file__).resolve().parent
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
+import lem_board_model  # noqa: E402
 import project  # noqa: E402
 
 # The id of the row for the board of all tasks: a slug is lower-case words and hyphens, so no task has it.
 ALL = ":all"
 # How long an ended task keeps a row: a guess of 2026-11-18, long enough for last week's work, not measured.
 ENDED_DAYS = 7
-# The state of a task in the board's words (board.html STATUS); the test holds the two to one list.
-WORDS = {
-    "queued": "Queued", "building": "Building", "planned": "Planned", "held": "Waits for you", "blocked": "Blocked",
-    "ready": "Ready for its checks", "landing": "Checks and review", "open": "Waits for the merge", "landed": "Landed",
-    "dropped": "Dropped", "answered": "Answered",
-}
+# The state of a task in the board's words: the board's own list (lem_board_model.STATUS).
+WORDS = {status: facts["label"] for status, facts in lem_board_model.STATUS.items()}
 # the board's word for a task with no state block, and for a builder that investigates before any lead
-UNKNOWN = "No status"
+UNKNOWN = lem_board_model.UNKNOWN["label"]
 INVESTIGATING = "Investigating"
 TRACKS = {"fast": "fast track", "standard": "standard track"}
 # The order of the tasks that build: an agent or the checks work on these now, and Lem acts on the rest.
@@ -112,10 +108,8 @@ def row(task: dict, now: datetime, waits: str | None = None) -> dict:
     return {"id": task["slug"], "label": label(task), "subtitle": " · ".join(part for part in parts if part)}
 
 
-def choices_words(ids: list) -> str:
-    if len(ids) == 1:
-        return f"Choice {ids[0]} waits for you"
-    return f"Choices {', '.join(map(str, ids[:-1]))} and {ids[-1]} wait for you"
+def breaker_words(number: int) -> str:
+    return f"Stopped: breaker {number} waits for you"
 
 
 def rows(root: Path, now: datetime) -> list[dict]:
@@ -132,11 +126,8 @@ def rows(root: Path, now: datetime) -> list[dict]:
             seen.add(slug)
             out.append(row(tasks[slug], now, waits))
 
-    ids: dict[str, list] = {}
-    for choice in waiting["choices"]:
-        ids.setdefault(choice["task"], []).append(choice["id"])
-    for slug, numbers in ids.items():
-        add(slug, choices_words(numbers))
+    for breaker in waiting["breakers"]:
+        add(breaker["task"], breaker_words(breaker["id"]))
     for entry in waiting["criteria"]:
         add(entry["task"], "Waits for you: the acceptance criteria")
     for key in ("held", "pull_requests"):

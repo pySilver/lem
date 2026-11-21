@@ -131,13 +131,11 @@ else
   fail "the span without the owner across two repositories: $line / $away_at / $back_at"
 fi
 
-# The watch of the mark (criterion 5's wake-up, and the board's copy of criterion 7): started in the second repository
-# with the `seen` it read, it ends after an away in the first with that record, and the second repository's owner.js
-# then holds it; started with a `seen` that is no longer the count, it ends at once; an away and a back written in one
+# The watch of the mark (criterion 5's wake-up): started in the second repository with the `seen` it read, it ends after
+# an away in the first with that record; started with a `seen` that is no longer the count, it ends at once; an away and a back written in one
 # second, which share their `ts`, end it too, since the count is its cursor. It writes nothing to the mark, a stop ends
 # it with exit 1, and it is refused outside a repository and without a count it can take.
 watch_in() { XDG_CONFIG_HOME=$MACHINE "$PY" -B "$PROJECT" --repo "$SECOND" owner watch "$@"; }
-copy_of() { "$PY" -I -c 'import json, re, sys; print([(r["away"], r["ts"], r["words"]) for r in (json.loads(m) for m in re.findall(r"(?m)^lemOwner\((.*)\);$", open(sys.argv[1]).read()))][-1:])' "$SECOND/.lem/state/owner.js" 2>&1 || true; }
 # at_once ARGS...: the watch of the second repository with a clock that refuses a wait, so that "at once" is no count of
 # seconds: a watch that sleeps before its next look ends here with that message
 at_once() {
@@ -148,22 +146,29 @@ def refused(seconds): sys.exit(f"the watch waited {seconds} s for its next look"
 project.time = types.SimpleNamespace(**{**{name: getattr(time, name) for name in dir(time) if not name.startswith("_")}, "sleep": refused})
 project.main(sys.argv[2:])' "$PWD/skills/lem/scripts" --repo "$SECOND" owner watch "$@"
 }
-# watching PID: the watch PID wrote the second repository's owner.js at its start, which nothing else writes in this
-# check, and sleeps in its loop, where a stop has its own answer: a sign in place of a second of waiting
-watching() { [ -e "$SECOND/.lem/state/owner.js" ] && case $(ps -o stat= -p "$1" 2>/dev/null | tr -d ' ') in S* | I*) true ;; *) false ;; esac; }
+# looping ARGS... &: the watch of the second repository, in the job's own process (exec: a stop reaches it), whose every wait
+# first leaves the file $WORK/looping: the sign that it reached its loop, where a stop has its own answer, in place of
+# a second of waiting
+looping() {
+  XDG_CONFIG_HOME=$MACHINE exec "$PY" -B -c 'import pathlib, sys, time, types
+sys.path.insert(0, sys.argv[1])
+import project
+def marked(seconds): pathlib.Path(sys.argv[2]).touch(); time.sleep(seconds)
+project.time = types.SimpleNamespace(**{**{name: getattr(time, name) for name in dir(time) if not name.startswith("_")}, "sleep": marked})
+project.main(sys.argv[3:])' "$PWD/skills/lem/scripts" "$WORK/looping" --repo "$SECOND" owner watch "$@"
+}
+watching() { [ -e "$WORK/looping" ]; }
 seen=$(on "$SECOND" waiting | field 'd["owner"]["seen"]')
-rm -f "$SECOND/.lem/state/owner.js"
-XDG_CONFIG_HOME=$MACHINE "$PY" -B "$PROJECT" --repo "$SECOND" owner watch --seen "$seen" --every 1 > "$WORK/watch.out" 2>&1 &
+rm -f "$WORK/looping"
+looping --seen "$seen" --every 1 > "$WORK/watch.out" 2>&1 &
 watcher=$!
-soon watching "$watcher"
-copy_before=$(copy_of)
+soon watching
 away_at=$(on "$FIRST" owner away --words "/lem im-away" | field 'd["since"]')
 started=$(date +%s)
 watched=0
 wait "$watcher" || watched=$?
 took=$(( $(date +%s) - started ))
 heard=$(field '(d["away"], d["since"], d["words"], d["seen"])' < "$WORK/watch.out" 2>&1 || true)
-copy_after=$(copy_of)
 lines=$(grep -c '' "$MACHINE/lem/owner.jsonl")
 at_once --seen 0 > "$WORK/stale.out" 2>&1 || true
 stale=$(field '(d["away"], d["since"], d["seen"])' < "$WORK/stale.out" 2>/dev/null || cat "$WORK/stale.out")
@@ -176,11 +181,11 @@ again_ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 at_once --seen "$before_pair" > "$WORK/paired.out" 2>&1 || true
 paired=$(field '(d["away"], d["since"], d["seen"])' < "$WORK/paired.out" 2>/dev/null || cat "$WORK/paired.out")
 kept=$(grep -c '' "$MACHINE/lem/owner.jsonl")
-# the command itself in the background, not a function, so that the stop reaches it
-rm -f "$SECOND/.lem/state/owner.js"
-XDG_CONFIG_HOME=$MACHINE "$PY" -B "$PROJECT" --repo "$SECOND" owner watch --seen "$kept" > "$WORK/watch-stop.out" 2>&1 &
+# the watch's own process in the background, so that the stop reaches it
+rm -f "$WORK/looping"
+looping --seen "$kept" > "$WORK/watch-stop.out" 2>&1 &
 stopper=$!
-soon watching "$stopper"
+soon watching
 kill -TERM "$stopper"
 stopped_code=0
 wait "$stopper" || stopped_code=$?
@@ -188,14 +193,13 @@ no_seen=$(watch_in 2>&1 || true)
 negative=$(watch_in --seen -1 2>&1 || true)
 outside=$(cd "$WORK/no-repo" && XDG_CONFIG_HOME=$MACHINE "$PY" -B "$PROJECT" owner watch --seen 0 2>&1 || true)
 if [ "$watched" = 0 ] && [ "$took" -lt 15 ] && [ "$heard" = "(True, '$away_at', '/lem im-away', $((seen + 1)))" ] \
-  && [ "$copy_before" != "$copy_after" ] && [ "$copy_after" = "[(True, '$away_at', '/lem im-away')]" ] \
   && [ "$stale" = "(True, '$away_at', $lines)" ] && [ "$(grep -c '' "$MACHINE/lem/owner.jsonl")" = "$kept" ] \
   && [ "$paired" = "(True, '$again_ts', $((before_pair + 2)))" ] && [ "$kept" = "$((before_pair + 2))" ] \
   && [ "$stopped_code" = 1 ] && grep -qF "the watch of the owner's status was stopped; start no other until the reason for the stop is gone" "$WORK/watch-stop.out" \
   && grep -qF "watch takes --seen N" <<<"$no_seen" && grep -qF "0 or more, not -1" <<<"$negative" && grep -qF "is not inside a git checkout" <<<"$outside"; then
-  pass "the watch of the owner's mark in one repository ends after his away in another with that record, and its owner.js then holds it; a count that is no longer the mark's ends it at once, as an away and a back written in one second do; it writes nothing to the mark, a stop ends it with exit 1 and asks for no second watch, and it is refused outside a repository and without a count"
+  pass "the watch of the owner's mark in one repository ends after his away in another with that record; a count that is no longer the mark's ends it at once, as an away and a back written in one second do; it writes nothing to the mark, a stop ends it with exit 1 and asks for no second watch, and it is refused outside a repository and without a count"
 else
-  fail "the watch of the owner's mark: $watched / ${took}s / $heard / $copy_before / $copy_after / $stale / $again_ts $paired / $kept / $stopped_code $(cat "$WORK/watch-stop.out") / $no_seen / $negative / $outside"
+  fail "the watch of the owner's mark: $watched / ${took}s / $heard / $stale / $again_ts $paired / $kept / $stopped_code $(cat "$WORK/watch-stop.out") / $no_seen / $negative / $outside"
 fi
 
 finish

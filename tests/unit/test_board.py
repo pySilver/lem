@@ -1,8 +1,8 @@
 """board.py's rules for what the board of one task reads beside the page, each called in this
 process: what the owner gets, from a task.md's `## Outcome`, and a backlog item's title.
 
-Which items a task's branch adds against its merge base is a fact only git shows: tests/test-board.sh
-checks it over a branch that adds an item and one that adds none.
+Which items a task's branch adds against its merge base is a fact only git shows: tests/lem-serve.sh
+reads it on the board of a task whose branch filed one.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -16,6 +16,7 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts"))
 board = importlib.import_module("board")
+task_pages = importlib.import_module("lem_board_task")
 
 # A task.md as `/lem new` writes it (stages/new.md): the ask, the type, the outcome over two
 # paragraphs with hard-wrapped lines, then the next sections.
@@ -89,26 +90,27 @@ class ItemTitle(unittest.TestCase):
         self.assertEqual(board.parse_item("---\nworth: no\n---\nJust words.\n")[1], "")
 
 
-class Overview(unittest.TestCase):
-    """overview() over a state folder whose tasks have no worktree: each has its outcome, and no list
-    of filed items, since nothing tells it."""
+class MetaAndTold(unittest.TestCase):
+    """What the board reads of a repository beside its events: how many commands one run of the
+    checks has, and what "What we are building" says of a task with no worktree."""
 
-    def test_each_task_has_its_outcome_and_none_has_a_list_without_a_worktree(self):
+    def test_one_run_of_the_checks_counts_the_commands_and_the_serial_ones(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            state = root / ".lem" / "state"
+            settings = {"main": str(Path(tmp) / "shop"), "branch": {"base": "main"}, "checks": {"commands": ["make test"], "serial": ["make e2e"]}}
+            got = board.meta_of(settings, Path(tmp))
+        self.assertEqual(got, {"repo": "shop", "base": "main", "gates": 2, "serial": 1, "demo": False})
+
+    def test_a_task_with_no_worktree_has_its_outcome_and_no_list_of_filed_items(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state = Path(tmp)
             (state / "tasks" / "steady-look").mkdir(parents=True)
             (state / "tasks" / "steady-look" / "task.md").write_text(TASK, encoding="utf-8")
             (state / "tasks" / "no-file").mkdir()
-            (state / "tasks" / "Not A Slug").mkdir()
-            settings = {"main": str(root), "root": str(root), "branch": {"base": "main"},
-                        "places": {"worktrees": {"path": str(root / ".lem" / "worktrees")}, "backlog": {"path": str(root / "docs" / "backlog")}}}
-            got = board.overview(settings, state)
-        self.assertEqual(sorted(got["tasks"]), ["no-file", "steady-look"])
-        self.assertTrue(got["tasks"]["steady-look"]["outcome"].startswith("The owner opens the board"))
-        self.assertEqual(got["tasks"]["no-file"], {"outcome": "", "filed": None})
-        self.assertIsNone(got["tasks"]["steady-look"]["filed"])
-        self.assertRegex(got["written"], r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+            told = task_pages.told_of(state, board, "steady-look", None, "main", "docs/backlog")
+            empty = task_pages.told_of(state, board, "no-file", None, "main", "docs/backlog")
+        self.assertTrue(told["outcome"].startswith("The owner opens the board"))
+        self.assertIsNone(told["filed"])
+        self.assertEqual(empty, {"outcome": "", "filed": None})
 
 
 if __name__ == "__main__":

@@ -1,17 +1,18 @@
 # A decision in doubt: the ladder
 
-Read by a lead or a plan talk's defender at a decision in doubt, and by Lem at a criterion the
-personas flagged while the task runs without the owner (`stages/away.md`). A decision is
+Read by a lead or a plan talk's defender at a decision in doubt, and by a task's session in the
+shape at a criterion the personas flagged while the task runs without the owner (`stages/away.md`). A decision is
 in doubt when it changes a criterion or a direction, or when its options each cost a person
 something and nothing you read answers it. Every other decision is yours: decide it from the
 code, the settings and the rulings, log it with `--by lead` and `--undo`, and go on.
 
 A decision in doubt climbs, one level at a time, and a level runs only when the one before left
-it open. A count decides each level, not a model, and you apply it, since you read the code: the
+it open. It always ends in a pick, which is taken at once, with the owner there or away: nothing of
+a build waits for him. A count decides each level, not a model, and you apply it, since you read the code: the
 owner's "Next level follows if no clear consensus reached" (2026-11-18). Each log below is
 
 ```bash
-lem decisions --repo WORKTREE log SLUG --what TEXT --chose OPTION --why TEXT --by LEVEL --option TEXT --option TEXT [--level NAME=ANSWER ...]
+lem decisions --repo WORKTREE log SLUG --what TEXT --chose OPTION --why TEXT --by LEVEL --option TEXT --option TEXT [--level NAME=ANSWER ...] [--case STEPS --case-was reproduced|derived --cause TEXT] [--chart FILE]
 ```
 
 with each option, and a `--level` for each level that ran with what it answered, so that the
@@ -44,16 +45,15 @@ record shows later which level changes picks and which never does.
 
 ## The end
 
-- **Without the owner** (`mode` is `alone` in `lem project --repo WORKTREE tasks`): the log is the
-  end, and the work goes on. The pull request is not green for a decision of the dialectic, of
-  the experts or one that no level settled, and stays green for one of the gate or the personas.
-- **With the owner**: a decision the gate or the personas settled is the log, and Lem tells him
-  in one line. One that went past the personas is no log: it is his card, with the ladder's pick
-  as `--recommended` and each level's answer in `--said`, as `stages/build.md`, "A choice in the
-  build", step 2, asks it. Its wait and its end are steps 3 and 4 there.
-- **A step that a later "no" cannot reverse** is a card in both modes, with `--irreversible`.
-- **All opinions**, the owner's words on a card: run each level that did not run, and give him
-  the new answers through Lem. The experts on that choice are `lem experts brief SLUG N` and
-  `record SLUG N`, which keep their advice on his card.
+- **The log is the end**, and the work goes on. The pull request is not green for a decision of the
+  dialectic, of the experts or one that no level settled, and stays green for one of the gate or
+  the personas; the owner reads each at the pull request and asks for a fix when it was wrong.
+- **The story.** A decision that the dialectic, the experts or no level settled is important, and
+  carries its story (`prompts/writing.md`) in `--case`, `--case-was` and `--cause`; the log refuses
+  one without. Its chart, when it branches, is a file you write and name with `--chart FILE`. Each
+  `--option` is "LABEL: what the person sees after it".
+- **The breaker, not a pick**: when the pick is a step that a later "no" cannot reverse, or no
+  option keeps the rule of an approved criterion, log nothing and trip the breaker
+  (`stages/breaker.md`), with what each level said in its document.
 
-A choice of the plan talk that it left open, and a design choice of it, climb the same way.
+A question the plan talk left open, and a design choice of it, climb the same way.

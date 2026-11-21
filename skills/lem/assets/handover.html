@@ -277,14 +277,14 @@
 
   <section class="box">
     <h2>Assumptions: say <code>change</code> and what</h2>
-    <!-- each setting nobody asked about: who lands, a pull request or a merge, what lands, the
+    <!-- each setting nobody asked about: who merges, what lands, the
          closed branches, the tracker, the reviewer and the defender,
          the checks with only tests when git hooks run the rest, and the ignore lines for what the
          commands of the checks left untracked -->
     <ul>
       <li>THE ASSUMPTION AND ITS VALUE <span class="dim">(<code>WHERE IT WAS READ</code>, OR THE DEFAULT)</span>: <code>change WORDS</code></li>
-      <!-- with branch.propose = "pull-request", this line word for word: "land" approves it -->
-      <li>Lem pushes each task's branch and opens its pull request without asking <span class="dim">(<code>branch.propose = "pull-request"</code>)</span>: <code>change propose merge</code></li>
+      <!-- always, this line word for word: "land" approves it -->
+      <li>Lem pushes each task's branch and opens its pull request on GitHub without asking</li>
       <!-- always: how Lem asks, the three models, and the allow list -->
       <li>Lem asks with its own page, <code>lem-ask</code>, with the options side by side, and opens a text for you to mark up with webrev</li>
       <li>a task runs on three models: the builder on Opus at high effort, and the experts, the newest Fable of Anthropic and the newest Astra of OpenAI through Codex <span class="dim">(<code>agents/lem-builder.md</code>, <code>seats.experts</code>)</span>: <code>change experts SEAT SEAT</code></li>
@@ -301,9 +301,11 @@
           <li>Bash(COMMAND), one for each command of checks.commands, checks.serial and checks.setup</li>
         </ul>
       </li>
-      <!-- one of the two, as branch.propose says: how a task merges here -->
-      <li>a merge, yours or Lem's, goes through the task's pull request on GitHub, so GitHub's own rules for the base branch hold it <span class="dim">(<code>branch.propose = "pull-request"</code>)</span></li>
-      <li>a merge, yours or Lem's, puts the task's branch on the base branch directly, with no pull request <span class="dim">(<code>branch.propose = "merge"</code>, or no GitHub remote)</span></li>
+      <!-- one of the two, as branch.land says: who merges here -->
+      <li>a fresh merge agent reads each proposed task and merges a green one that is not careful; a careful one, or one that is not green, waits for your merge with its review <span class="dim">(<code>branch.land = "agent"</code>)</span>: <code>change land owner</code></li>
+      <li>a fresh merge agent reads each proposed task and writes its review, and you merge each one <span class="dim">(<code>branch.land = "owner"</code>)</span>: <code>change land agent</code></li>
+      <!-- always: how a merge goes -->
+      <li>a merge, yours or the merge agent's, goes through the task's pull request on GitHub, so GitHub's own rules for the base branch hold it</li>
       <!-- with git hooks that run at a commit: the checks have only the test commands -->
       <li>the checks run the tests only: the git hooks run the rest at each commit of a builder <span class="dim">(<code>HOOK FILE</code>)</span>: <code>change checks add COMMAND</code></li>
       <li>ignore what the checks leave: <code>__pycache__/</code> in <code>.gitignore</code> <span class="dim">(the checks' run of <code>COMMAND</code> left it)</span>: <code>change ignore none</code></li>

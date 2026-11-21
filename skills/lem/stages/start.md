@@ -1,13 +1,14 @@
-# Start a lead
+# The start of the build
 
-Every start goes this way: a new task, `/lem build`, a queued task whose turn came, a task whose
-wait the owner answered in a companion, and a lead that is started again after it stopped.
+Every start of a task's build goes this way: the owner's yes to the criteria, a complete request,
+the fast track's builder, a queued task whose turn came (the board's server opens its session),
+`/lem build`, and a task he resumed. The investigator of a bug or a question takes steps 1 and 2.
 
-1. **May it start?** `lem project may-start SLUG`, with the slug of the task whose lead starts.
-   No count of tasks stops a start. On exit 1 for a task queued `after:` a task that has not
-   ended, it stays `queued`, and the queue starts it when that task ends: stop here. A task in
-   `landing`, `open`, `landed`, `answered` or `dropped` gets no lead at all, and the step says so:
-   it is no task to queue.
+1. **May it start?** `lem project may-start SLUG`. No count of tasks stops a start. On exit 1 for
+   a task queued `after:` a task that has not ended, it stays `queued`: write `handoff.md` and close
+   this session as step 7 of "The request" (`stages/new.md`) says; the board's server opens it
+   again when that task ends. A task in `landing`, `open`, `parked`, `landed`, `answered` or
+   `dropped` gets no lead at all, and the step says so: it is no task to queue.
 2. **The worktree.** When the task has one, use it. When it has none, make it at the path in the
    brief: from the task's branch when that branch exists (a task whose worktree was removed), otherwise from the settings' base branch. Use the project's own worktree script
    when `AGENTS.md` names one, since it sets up what a plain worktree lacks (a test database, an
@@ -18,66 +19,29 @@ wait the owner answered in a companion, and a lead that is started again after i
    says so in one line. `lem project worktree-dir` already made the folder for worktrees one that
    git ignores. The worktree is in the checkout, not in the task's
    state directory, which is in the main checkout's state folder (`.lem/state/`): the state has
-   to outlive the worktree. Then `lem board --no-open`: a task's board reads its outcome and the
-   items its branch filed only from the file that command writes, so a task that starts after the board
-   opened shows them.
-3. **The lead.** Write a lead's `coordinator:` and `socket:` lines again with your own
-   values when they are not yours (a brief written by a Lem before you, or one with no such
-   lines): a lead tells the session those lines name. The fast track's brief has none: its
-   builder's reply is its only word. Write the state `building` first, with the line `lead:
-   builder` or `lead: session` as the brief says, or `small change: one builder` for a brief that
-   names `prompts/small.md`, so the next `may-start` counts this task. The fast track's builder
-
-   gets one more line, its start for the board, as it starts: `lem
-   project log SLUG builder.start "job=the small change"`; its state of
-   `ready` or `held` is its end. The task's first block carries the type line of step 1 of "Open
-   the task" (`stages/new.md`) too, when no block before it has one. For a task that came from a
-   ticket, the tracker then marks the ticket as started (its "start"), unless the ticket is there
-   already. Then, for a
-   builder, `spawn-builder` with one line: `Read TASK_DIRECTORY/brief.md and follow it.` For
-   `lead: session`, the plan talk's companion: `open-task-session` with the same file, its agent
-   on the model and the effort of the settings' `seats.planner` when the seat names them; write the
-   state again with the line `session: ID` and the id the session got, so the board can show the
-   companion and it can be closed after the talk, and with the line `defender: MODEL, EFFORT` as
-   the companion's status line shows them, which the talk's record names. When the companion is
-   still there, the start is one message to it with what changed (the owner's answers, a settled
-   blocker) instead of a second session.
-
-A lead that is started again is a fresh agent with the same brief. It finds the plan, the report,
-the decisions and the commits on the branch; that is the whole handover.
+   to outlive the worktree.
+3. **The state**: `building`, with the line `lead: builder`, or `small change: one builder` for a
+   brief that names `prompts/small.md`, and the type line of step 1 of "The request" when no block
+   before it has one. For a task that came from a ticket, the tracker then marks the ticket as
+   started (its "start"), unless the ticket is there already.
+4. **Who builds.**
+   - *The fast track*: `spawn-builder` with one line, `Read TASK_DIRECTORY/brief.md and follow
+     it.`, and as it starts, `lem project log SLUG builder.start "job=the small change"`; its state
+     of `ready` or `held` is its end. Its reply wakes this session ("The fast track" of
+     `stages/new.md`, step 3).
+   - *After his yes, in the shape's session*: hand the task to a fresh lead, as `prompts/session.md`
+     says under "A change of phase": the build is a phase of its own.
+   - *In a session whose phase is the build, or on the standard track from a complete request*:
+     you are the lead. Read `brief.md` and follow it.
 
 ## `/lem build`
 
-`/lem build <task>` is for a task whose state is `planned`: change its brief to `stop after the
-plan: no`, and start its lead. When its `report.md` or a state block of it says `needs a session:` and `lem project
-tasks` gives it no `talk`, change the brief to `lead: session` first: that start opens the plan
-talk's companion at once, where a builder would only stop at the plan again. A path to a plan file names its task too: the
-file's name is the settings' `paths.plan_file` (`YYYY-MM-DD-<slug>.md` unless they say otherwise),
-and the slug is the task's. With no name, list the tasks in that state (`lem project tasks`), each with its ask and its plan's path, and ask which one: a
-fixed choice, so it stays in the terminal. One such task needs no question.
-
-## The queue
-
-After a lead stopped (`stages/stopped.md`), a landing, a drop or an answer, look at what is owed and
-at the queue. A task that ended with a
-`ticket_owed` in `lem project tasks` gets those steps from the tracker now. While a task is `open`
-with a pull request and no watch of yours runs, start one, as `SKILL.md` says under Status. A `blocked` task whose
-state has `the base is red` and an `after:` task that is `landed` gets the state `ready` again,
-with the line `the base is green again`, and joins the landing line. Take the `queued` tasks in
-the order of their state's time, leave out each one whose `after:` task is not `landed`,
-`answered` or `dropped`, and start a lead, or the investigator of a bug or a question
-(`stages/investigate.md`), for each one that is left.
-
-Then each task that `lem companion due` gives under `start`, at this turn as at each of your
-turns: the owner's answer is on record, and no lead runs since. For approved criteria, of an
-interview or of a wait for his yes, take step 7 of "Open the task" (`stages/new.md`) from the ask
-in `task.md`, which may queue it `after:` another task, and then step 8 with the brief that is
-written already. For an answered choice, start a fresh lead, as `stages/stopped.md` says. Say
-"the build of SLUG started" in one line for each, or for one that step 7 queued, which task it
-waits for, and nothing more.
-
-Last, a nap. When a task ended in this turn (`landed`, `answered` or `dropped`), or nothing is left
-for you but the owner's word, and `naps.on` is true in `lem project show`, run `lem
-project may-nap`. When its `may` is true, read `stages/nap.md` and start the
-nap as it says; when it is false, say nothing of it. A nap never comes before what is owed, the
-queue or a question.
+`/lem build <task>` is for a task whose state is `planned`, whose lead stopped at the plan for the
+owner to read: change its brief to `stop after the plan: no`. Typed in the task's own session, go on
+as its lead. Typed elsewhere, `lem session open SLUG --why owner --focus`, and say its `say`; when
+it prints `already: true`, the task's session still waits for his word: say its name, and that
+"build" there starts it. A path to a plan file names its task too: the file's name is the settings'
+`paths.plan_file` (`YYYY-MM-DD-<slug>.md` unless they say otherwise), and the slug is the task's.
+With no name, list the tasks in that state (`lem project tasks`), each with its ask and its plan's
+path, and ask which one: a fixed choice, so it stays in the terminal. One such task needs no
+question.

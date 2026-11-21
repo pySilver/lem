@@ -15,6 +15,8 @@ MACHINE=$WORK/machine-repo
 mkdir -p "$BIN" "$FAKEHOME"
 git init -q -b main "$MACHINE"
 ln -s "$(command -v git)" "$BIN/git"
+# the Python that runs these tests, as a python3.N on the PATH, where lem_python.py finds it
+ln -s "$PY" "$BIN/python3.$("$PY" -c 'import sys; print(sys.version_info[1])')"
 fake() { printf '#!/bin/sh\necho "%s"\n' "$2" > "$BIN/$1"; chmod +x "$BIN/$1"; }
 doctor() { (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR"); }
 row() { field "next(t for t in d[\"tools\"] if t[\"name\"] == \"$1\")[\"$2\"]"; }
@@ -115,7 +117,7 @@ in_tree=$( (cd "$WORK/machine-wt" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -
 rm -r "$MACHINE/.claude" && git -C "$MACHINE" worktree remove --force "$WORK/machine-wt"
 if [ "$in_tree" = "$MACHINE/.claude/agents/lem-builder.md" ] && grep -qF "\`claude plugin marketplace add pySilver/lem --scope project\`, then \`claude plugin install lem@lem --scope project\`" <<<"$(row 'lem-builder agent' without_it <<<"$out")" \
   && ! grep -q "setup" <<<"$(row 'lem-builder agent' without_it <<<"$out")" \
-  && [ "$(row agterm without_it <<<"$out")" = "\`/lem\` stops at once: Lem runs inside agterm only" ] && ! grep -q coordinator <<<"$(row mailbox-chat used_for <<<"$out")"; then
+  && [ "$(row agterm without_it <<<"$out")" = "\`/lem\` stops at once: Lem runs inside agterm only" ]; then
   pass "in a task's worktree the check finds a project's own builder in the main checkout, and the builder's row names the plugin's install and no setup"
 else
   fail "the builder of a trial from a worktree: $in_tree / $(row 'lem-builder agent' without_it <<<"$out")"
@@ -358,33 +360,37 @@ for candidate in /usr/bin/python3 python3.9 python3.10; do
   if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c 'import sys; sys.exit(sys.version_info >= (3, 11))' 2>/dev/null; then old=$candidate; break; fi
 done
 if [ -n "$old" ]; then
-  # run in another repository than the one of the event: the failure belongs in that repository's
-  # log, and the one the hook ran in gets none
+  # The plugin's hook line under that python3: lem_python.py starts the hook under a newer Python it
+  # finds, run from another repository than the one of the event, and the message is queued there.
   git init -q -b main "$WORK/elsewhere"
-  out=$(cd "$WORK/elsewhere" && event "under an old python" s0 | "$old" -B "$CORR" hook 2>&1; echo "exit=$?")
-  if [ "$out" = "exit=0" ] && grep -q "tomllib" "$CQ/.lem/state/corrections.log" && [ ! -e "$WORK/elsewhere/.lem/state/corrections.log" ]; then
-    pass "under a python3 before 3.11 the hook exits 0, prints nothing, and logs the failure in the repository of the message"
+  launch=$PWD/skills/lem/scripts/lem_python.py
+  lem=$PWD/bin/lem
+  sed -i.bak 's/^collect = false$/collect = true/' "$CQ/.lem/project.toml" && rm "$CQ/.lem/project.toml.bak"
+  out=$(cd "$WORK/elsewhere" && event "under an old python" s0 | env LEM_JEV="$WORK/jevbin/jev" JEV_P=0.9 JEV_CALLED="$WORK/jev-called" \
+    "$old" -B "$launch" "$CORR" hook 2>&1; echo "exit=$?")
+  soon test -s "$CQ/.lem/state/corrections.jsonl"
+  if [ "$out" = "exit=0" ] && grep -qF '"owner": "under an old python"' "$CQ/.lem/state/corrections.jsonl" && [ ! -e "$CQ/.lem/state/corrections.log" ]; then
+    pass "under a python3 before 3.11 the plugin's hook line runs the hook under a newer Python it finds: exit 0, no output, and the message queued"
   else
-    fail "the hook under $old: $out / $(cat "$CQ/.lem/state/corrections.log" 2>&1)"
+    fail "the hook under $old: $out / $(cat "$CQ/.lem/state/corrections.jsonl" "$CQ/.lem/state/corrections.log" 2>&1)"
   fi
-  rm -f "$CQ/.lem/state/corrections.log"
-  # The other scripts under that python3: a row or one line that says what is needed, and no traceback.
-  rows=$(cd "$MACHINE" && "$old" -B "$DOCTOR" 2>&1 || true)
-  said=""
-  for script in "$PWD/skills/lem/scripts/project.py" "$PWD/skills/lem/scripts/land.py" "$PWD/skills/lem/scripts/criteria.py" "$PWD/skills/lem/scripts/board.py"; do
-    said="$said$("$old" -B "$script" --help 2>&1 || true)"$'\n'
-  done
-  # the queue's own commands, which the retro runs: only the hook and its detached half stay silent there
-  said="$said$("$old" -B "$CORR" --repo "$CQ" list 2>&1 || true)"$'\n'
-  if [ "$(field '(d["ok"], d["tools"][0]["name"], d["tools"][0]["found"])' <<<"$rows")" = "(False, 'python3', False)" ] && [ "$(grep -c "Lem needs Python 3.11 or newer, and this python3 is" <<<"$said")" = 5 ] \
-    && ! grep -q Traceback <<<"$rows$said" && [ "$(status_of "$old" -B "$CORR" --repo "$CQ" list)" = 1 ]; then
-    pass "under a python3 before 3.11 the machine check gives its rows with python3 as absent, and every other script says in one line what it needs"
+  rm -f "$CQ/.lem/state/corrections.jsonl" "$WORK/jev-called"
+  sed -i.bak 's/^collect = true$/collect = false/' "$CQ/.lem/project.toml" && rm "$CQ/.lem/project.toml.bak"
+  # lem under that python3, first on PATH, and a python3.N of 3.11 or newer later on it: the script runs
+  # under the newer one, and the machine check's row names both.
+  mkdir -p "$WORK/oldbin" && ln -sf "$(command -v "$old")" "$WORK/oldbin/python3"
+  helped=$("$old" -B "$lem" project --help 2>&1 || true)
+  rows=$(cd "$MACHINE" && env -i PATH="$WORK/oldbin:$BIN" HOME="$FAKEHOME" "$old" -B "$lem" doctor 2>&1 || true)
+  if [ "$(head -n 1 <<<"$helped" | cut -c 1-19)" = "usage: lem project " ] && [ "$(row python3 found <<<"$rows")" = "True" ] \
+    && grep -qF "python3 is 3.$("$old" -c 'import sys; print(sys.version_info[1])') at $WORK/oldbin/python3; Lem's commands and hooks start $BIN/python3." <<<"$(row python3 detail <<<"$rows")" \
+    && ! grep -q Traceback <<<"$helped$rows"; then
+    pass "under a python3 before 3.11, lem runs the script under a newer Python it finds, and the machine check's python3 row says which"
   else
-    fail "the scripts under $old: $rows / $said"
+    fail "lem under $old: $helped / $rows"
   fi
 else
   skip "the hook under a python3 before 3.11: none found"
-  skip "the other scripts under a python3 before 3.11: none found"
+  skip "lem under a python3 before 3.11: none found"
 fi
 sed -i.bak 's/^collect = false$/collect = true/' "$CQ/.lem/project.toml" && rm "$CQ/.lem/project.toml.bak"
 out=$(event "never push without asking" s1 | hook hook; echo "exit=$?")
@@ -605,19 +611,23 @@ if "$PY" -c 'import json, os, sys
 root = sys.argv[1]
 manifest = json.load(open(f"{root}/.claude-plugin/plugin.json"))
 market = json.load(open(f"{root}/.claude-plugin/marketplace.json"))
-links = {name: os.path.realpath(f"{root}/bin/{name}") for name in ("lem-ask", "lem-jev")}
 ok = (manifest["name"] == "lem" and "version" not in manifest
       and [(p["name"], p["source"]) for p in market["plugins"]] == [("lem", "./")]
-      and links == {"lem-ask": os.path.realpath(f"{root}/skills/lem-ask/bin/lem-ask"), "lem-jev": os.path.realpath(f"{root}/skills/lem/scripts/jev.py")}
+      and [os.readlink(f"{root}/bin/{name}") for name in ("lem-ask", "lem-jev")] == ["lem", "lem"]
       and sorted(os.listdir(f"{root}/bin")) == ["lem", "lem-ask", "lem-jev"] and not os.path.exists(f"{root}/scripts/setup.py")
       and os.path.isfile(f"{root}/bin/lem") and not os.path.islink(f"{root}/bin/lem") and os.access(f"{root}/bin/lem", os.X_OK)
-      and all(os.access(path, os.X_OK) for path in links.values())
-      and not os.path.isabs(os.readlink(f"{root}/bin/lem-ask")))
+      and all(os.access(f"{root}/{script}", os.X_OK) for script in ("skills/lem-ask/bin/lem-ask", "skills/lem/scripts/jev.py")))
 hooks = json.load(open(f"{root}/hooks/hooks.json"))["hooks"]
-commands = [h["command"] for group in hooks["UserPromptSubmit"] for h in group["hooks"]]
-ok = ok and list(hooks) == ["UserPromptSubmit"] and commands == ["python3 \"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/corrections.py\" hook"]
+commands = {event: [h["command"] for group in groups for h in group["hooks"]] for event, groups in hooks.items()}
+launch = "python3 \"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/lem_python.py\" "
+session = launch + "\"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/session_hook.py\""
+matchers = {event: [group.get("matcher") for group in groups] for event, groups in hooks.items()}
+ok = ok and commands == {"UserPromptSubmit": [launch + "\"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/corrections.py\" hook"],
+                         "SessionStart": [launch + "\"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/serve_hook.py\"", session],
+                         "PreCompact": [session]}
+ok = ok and matchers["SessionStart"] == ["startup|resume", "compact"] and matchers["PreCompact"] == ["auto|manual"]
 sys.exit(not ok)' "$PWD"; then
-  pass "the plugin manifest names lem and no version, so each commit is an update; the marketplace file lists the one plugin; bin/ holds the command lem, a file of its own, and relative links to the two commands lem-ask and lem-jev, and no plain jev; there is no setup script; and the one hook that comes with the plugin is the correction hook, by the plugin's own path"
+  pass "the plugin manifest names lem and no version, so each commit is an update; the marketplace file lists the one plugin; bin/ holds the command lem, a file of its own, and the two commands lem-ask and lem-jev as links to it, and no plain jev; there is no setup script; and the hooks that come with the plugin are the correction hook, the start of the board server, and a task session's two hooks of a compaction, each by the plugin's own path and started through lem_python.py"
 else
   fail "the plugin files in .claude-plugin and bin"
 fi
@@ -716,8 +726,8 @@ codexless=$(doctor | row codex without_it)
 codex_need=$(doctor | row codex need)
 if [ "$codex_need" = optional ] && grep -qF "highly recommended, since without it Claude reviews the work of Claude" <<<"$codexless" \
   && grep -qF "an expert whose seat names codex (by default the second of seats.experts, the newest Astra of OpenAI) does not answer, so the one expert that can answer" <<<"$codexless" \
-  && grep -qF "answers alone and its pick settles a choice the experts take" <<<"$codexless" && grep -qF "a persona panel has the answers of one model family" <<<"$codexless"; then
-  pass "with no Codex the codex row stays optional and says it is highly recommended, since without it Claude reviews the work of Claude: the reviewer is a second Claude, the second expert does not answer so a choice ends not green, and a panel has one model family"
+  && grep -qF "answers alone and its pick settles a decision the experts take" <<<"$codexless" && grep -qF "a persona panel has the answers of one model family" <<<"$codexless"; then
+  pass "with no Codex the codex row stays optional and says it is highly recommended, since without it Claude reviews the work of Claude: the reviewer is a second Claude, the second expert does not answer so its decision ends not green, and a panel has one model family"
 else
   fail "the codex row without codex: $codexless"
 fi

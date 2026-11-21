@@ -1,0 +1,275 @@
+"""The rules of the board of one task (lem_board_model.py, lem_board_task.py), each called over a few
+events: where the time went, the criteria as they stand and their checks, which decisions are important
+and what a reason of not green says, what the task waits for, the head of its large card, its progress,
+and the artifacts the panel reads; and that a task's text reaches the page escaped.
+
+    python3 -B -m unittest discover -s tests/unit
+"""
+
+import importlib
+import sys
+import tempfile
+import unittest
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts"))
+bm = importlib.import_module("lem_board_model")
+task_pages = importlib.import_module("lem_board_task")
+lem_artifacts = importlib.import_module("lem_artifacts")
+pages = importlib.import_module("lem_board_pages")
+
+START = datetime(2026, 11, 20, 9, 0, tzinfo=timezone.utc)
+NOW = int((START + timedelta(hours=2)).timestamp() * 1000)
+
+
+def ms(minute: float) -> int:
+    return int((START + timedelta(minutes=minute)).timestamp() * 1000)
+
+
+def ev(minute: float, event: str, task: str = "gift-note", **fields) -> dict:
+    return {"ts": (START + timedelta(minutes=minute)).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": event, "task": task, **fields}
+
+
+def state(minute: float, status: str, text: str, *lines: str, task: str = "gift-note") -> dict:
+    return ev(minute, "task.state", task, status=status, text=text, lines=list(lines))
+
+
+def model(*events: dict, owner=()):
+    return bm.derive(list(events), list(owner), NOW)
+
+
+def one(*events: dict, **kw) -> "bm.Task":
+    return model(*events, **kw).tasks[0]
+
+
+def spans(t, row: str | None = None, meta=None, end=None) -> list[tuple]:
+    tm = bm.time_of(t, end if end is not None else bm.time_end(t, NOW), meta or {"gates": 2, "serial": 0})
+    return [(g["row"], g["from"], g["to"], g["head"], g["live"]) for g in tm["spans"] if row is None or g["row"] == row]
+
+
+class Time(unittest.TestCase):
+    def test_a_builders_span_leaves_the_brief_and_the_report_to_the_agent(self):
+        t = one(state(0, "building", "task 1 of 2"), ev(5, "builder.start", job="task 1 of 2"), state(30, "building", "task 2 of 2"))
+        self.assertIn(("lead", ms(0), ms(5), "It briefs the builder", False), spans(t))
+        self.assertIn(("builders", ms(5), ms(30), "Task 1 of 2", False), spans(t))
+
+    def test_a_stopped_run_of_the_checks_ends_at_its_end_and_the_time_after_it_is_lems(self):
+        t = one(state(0, "landing", "the checks start"), ev(1, "gate.start", tip="4c1d2e3f5", commands=2),
+                ev(5, "gate.end", result="stopped", seconds=240, tip="4c1d2e3", say="gift-note: the checks were stopped; the landing waits for your word"))
+        checks = spans(t, "checks")
+        self.assertEqual(checks, [("checks", ms(1), ms(5), "The checks were stopped", False)])
+        self.assertEqual(spans(t, "lem")[-1][3:], ("The checks were stopped: the landing waits for your word", True))
+
+    def test_a_refused_run_names_what_was_refused_and_keeps_its_commands(self):
+        t = one(state(0, "landing", "the checks start"), ev(1, "gate.start", tip="4c1d2e3f5", commands=2),
+                ev(2, "gate", command="make test", exit=0, last="ok", tip="4c1d2e3"),
+                ev(2, "gate.end", result="refused", seconds=60, tip="4c1d2e3", say="gift-note: the checks refused the change: tests/x.py changed; a builder repairs it, nothing for you"))
+        tm = bm.time_of(t, bm.time_end(t, NOW), {"gates": 2})
+        end = next(g for g in tm["spans"] if g["head"] == "The checks refused the change")
+        self.assertEqual(end["sub"], "tests/x.py changed · 1 of 2 commands done · 1m 00s")
+        self.assertIn(("checks", ms(1), ms(2), "The checks: make test", False), spans(t, "checks"))
+
+    def test_a_breaker_holds_the_task_for_the_owner_and_a_carried_over_event_takes_no_time(self):
+        t = one(ev(0, "interview.start", **{"from": "old-note"}), state(0, "building", "task 1 of 2"),
+                state(10, "held", "breaker 1 waits for the owner", "w: why"), state(25, "building", "task 1 of 2"))
+        self.assertIn(("you", ms(10), ms(25), "The build stopped: its breaker waits for you", False), spans(t, "you"))
+        self.assertNotIn("The interview", [g[3] for g in spans(t)])
+
+    def test_a_read_whose_start_is_not_logged_is_a_mark_where_it_ended(self):
+        t = one(state(0, "held", "the criteria wait for the owner"), ev(5, "criteria.read", by="lem", asked=3, answered=3, families=["opus"], flagged=0, digest="d"))
+        tm = bm.time_of(t, bm.time_end(t, NOW))
+        self.assertEqual([(x["row"], x["at"]) for x in tm["marks"]], [("personas", ms(5))])
+
+    def test_shares_say_when_two_rows_held_the_same_minutes(self):
+        t = one(state(0, "building", "lead: builder"), ev(0, "plan.talk.start", reviewer="codex"),
+                ev(60, "plan.talk", reviewer="codex", turns=4, questions=1, settled=1, open=0, repaired=1), state(60, "landed", "merged"))
+        tm = bm.time_of(t, bm.time_end(t, NOW))
+        shares = bm.time_shares(tm, bm.time_rows(tm))
+        self.assertEqual((shares["share"]["review"], shares["share"]["lead"], shares["over"]), (100, 100, 200))
+
+    def test_a_tick_names_its_date_only_where_the_day_changes(self):
+        late = ms(14 * 60 + 50)  # 23:50 local time or so: the next tick is another day in any zone east of it
+        self.assertEqual(bm.tick_label(late, 3600000, late), bm.local(late).strftime("%H:%M"))
+        self.assertTrue(bm.tick_label(late + 86400000, 3600000, late).startswith(bm.day_label(late + 86400000)))
+
+
+class Criteria(unittest.TestCase):
+    def approval(self, minute, number, texts, by="owner", digest="d1"):
+        return ev(minute, "criteria.approved", by=by, number=number, size="full", why="w", digest=digest, criteria=[{"n": i, "text": x} for i, x in enumerate(texts, 1)])
+
+    def test_the_criteria_stand_as_approved_with_each_change_of_the_build_applied(self):
+        t = one(state(0, "building", "lead: builder"), self.approval(1, 1, ["one", "two"]),
+                ev(5, "decision.criterion", change=1, how="changed", criterion=2, was="two", now="two, said again", why="w", by="lead", approval=1))
+        self.assertEqual(bm.standing(t)["texts"], ["one", "two, said again"])
+        self.assertIsNone(bm.standing(t)["digest"])
+
+    def test_a_read_is_stale_when_the_owner_approved_other_criteria_after_it(self):
+        t = one(state(0, "held", "the criteria wait for the owner"), ev(2, "criteria.read", by="lem", asked=3, answered=3, families=["opus"], flagged=0, digest="d1", criteria=1),
+                self.approval(1, 1, ["one"], digest="d1"), self.approval(5, 2, ["one, sharper"], digest="d2"))
+        self.assertEqual(bm.read_stale(t, t.reads[-1]), "The criteria changed after this read by your approval 2, and the change was not read.")
+
+    def test_a_check_counts_only_for_the_criteria_it_ran_on(self):
+        crit = ev(1, "task.criteria", size="full", why="w", digest="d1", criteria=[{"n": 1, "text": "one", "tests": [{"command": "make t"}]}])
+        held = one(state(0, "building", "lead: builder"), crit, ev(3, "task.red", ok=True, digest="d1", tip="abc", tests=[{"criterion": 1, "command": "make t"}]))
+        stale = one(state(0, "building", "lead: builder"), crit, ev(3, "task.red", ok=True, digest="old", tests=[{"criterion": 1, "command": "make t"}]))
+        bad = one(state(0, "building", "lead: builder"), crit, ev(3, "task.red", ok=False, digest="d1", tests=[{"criterion": 1, "command": "make t", "problem": "it passes on the base"}]))
+        self.assertEqual(bm.criterion_checks(held)[0]["state"], "done")
+        self.assertEqual(bm.criterion_checks(stale)[0]["tests"], [("make t", "not checked yet")])
+        self.assertEqual((bm.criterion_checks(bad)[0]["state"], bm.criterion_checks(bad)[0]["tests"][0][1]), ("bad", "it passes on the base"))
+
+
+class Decisions(unittest.TestCase):
+    def test_a_pick_past_the_personas_an_unsettled_pick_a_named_one_and_his_help_are_important_and_a_breaker_is_not(self):
+        t = one(state(0, "building", "lead: builder"),
+                ev(1, "decision.taken", id=1, what="w", chose="x", why="y", by="dialectic"),
+                ev(2, "decision.taken", id=2, what="w", chose="x", why="y", by="lead", levels={"experts": "both picked x"}),
+                ev(3, "decision.taken", id=3, what="w", chose="x", why="y", by="lead", unsettled=True),
+                ev(4, "decision.taken", id=4, what="w", chose="x", why="y", by="lead"),
+                ev(5, "decision.breaker", id=5, cause="irreversible", irreversible="person", what="The mail goes to 40 merchants", document="breaker.md"),
+                ev(6, "decision.taken", id=6, what="w", chose="x", why="y", by="personas"),
+                ev(9, "proposed", green=False, not_green=['decision 6 was taken without the owner (w): "x", by the personas']))
+        self.assertEqual([d.id for d in bm.important_of(t)], [1, 2, 3, 6])
+        self.assertEqual(bm.importance(t, t.decisions[2]), "it went past the personas: the experts answered it")
+        self.assertEqual(bm.stop_words(t.decisions[5]), "the next step cannot be undone by a later “no”: it sends something to a person")
+
+    def test_a_short_label_finds_the_option_only_when_one_option_has_it(self):
+        d = bm.Decision(id=1, kind="taken", ts=0, chose="D: the backlog, by keys", options=["C: the board", "D: the backlog is patched by keys"])
+        self.assertEqual(bm.chosen_at(d), 1)
+        d.options.append("D: something else")
+        self.assertEqual(bm.chosen_at(d), -1)
+
+
+class Overview(unittest.TestCase):
+    def test_a_queued_task_waits_for_the_task_it_needs(self):
+        m = model(state(0, "queued", "it waits", "after: card-foot"))
+        self.assertEqual(bm.waits_for(m.tasks[0], bm.waits_of(m)), {"you": False, "text": "It starts after “Card foot” ends", "where": None})
+
+    def test_the_large_card_says_how_a_stopped_run_ended_and_never_that_the_checks_run(self):
+        t = one(state(0, "landing", "the checks start"), ev(1, "gate.start", tip="4c1d2e3f5", commands=2), ev(2, "gate.end", result="stopped", seconds=60))
+        self.assertEqual(bm.now_head(t), "The checks were stopped")
+        self.assertEqual(bm.now_head(one(state(0, "landing", "the checks start"))), "It starts its landing: the rebase onto the base, then the polish pass, before the checks")
+
+    def test_what_we_are_building_says_nothing_of_filed_items_after_an_end_with_none(self):
+        closed = one(state(0, "landed", "merged"))
+        self.assertIsNone(bm.building_of(closed, {"outcome": "", "filed": []}))
+        self.assertEqual(bm.building_of(one(state(0, "building", "lead: builder")), {"outcome": "One.\n\nTwo.", "filed": []})["outcome"], "One.\n\nTwo.")
+
+    def test_the_breakers_document_is_first_on_the_overview_while_it_waits_and_leaves_after_his_help(self):
+        stop = ev(20, "decision.breaker", id=1, cause="criteria", what="The note has no place", document="breaker.md", handoff="handoff.md")
+        held = state(20, "held", "breaker 1 waits for the owner", "The note has no place: no option keeps the criteria")
+        read = []
+
+        def overview(*events):
+            ctx = pages.Ctx(host="h", workspace="w", model=model(*events), asset=lambda name: name)
+            ctx.artifact = lambda slug, path: read.append(path) or {"path": path, "kind": "markdown", "text": "# The note has no place\n\n> [!TIP]\n> **A.**"}
+            return [str(x) for x in task_pages.overview_tab(ctx, ctx.model.tasks[0]) if x]
+
+        parts = overview(state(0, "building", "task 2 of 3"), stop, held)
+        self.assertIn('id="breaker"', parts[0])
+        self.assertIn("# The note has no place", parts[0])
+        self.assertEqual(read, ["breaker.md"])
+        helped = overview(state(0, "building", "task 2 of 3"), stop, held, ev(30, "decision.taken", id=2, what="w", chose="A", why="y", by="owner", breaker=1))
+        self.assertFalse(any('id="breaker"' in x for x in helped))
+
+    def test_the_merge_review_is_first_on_the_overview_of_an_open_task(self):
+        ctx = pages.Ctx(host="h", workspace="w", model=model(state(0, "open", "pull request https://github.com/acme/shop/pull/41"),
+                                                              ev(1, "merge.review", verdict="call", calls=True, why="a careful request", by="claude", tip="abc")),
+                        asset=lambda name: name)
+        ctx.artifact = lambda slug, path: {"path": path, "kind": "markdown", "text": "Verdict: call. The change is careful."} if path == "merge-review.md" else None
+        parts = [str(x) for x in task_pages.overview_tab(ctx, ctx.model.tasks[0]) if x]
+        self.assertIn('id="merge-review"', parts[0])
+        self.assertIn("it calls you", parts[0])
+        self.assertIn("Verdict: call. The change is careful.", parts[0])
+
+    def test_the_ring_counts_the_plans_finished_tasks_and_the_one_built_now(self):
+        p = bm.progress_of(one(state(0, "building", "plan committed, 3 tasks"), state(9, "building", "task 2 of 3")))
+        self.assertEqual((p["finished"], p["current"], p["total"], p["subs"][2]), (1, 1, 3, "task 2 of 3"))
+
+
+class Artifacts(unittest.TestCase):
+    def test_one_file_is_read_only_by_a_path_the_task_lists(self):
+        with tempfile.TemporaryDirectory() as folder:
+            task = Path(folder) / "tasks" / "gift-note"
+            task.mkdir(parents=True)
+            (task / "report.md").write_text("# Report\n")
+            (Path(folder) / "secret.txt").write_text("no")
+            self.assertEqual([f["text"] for f in lem_artifacts.files(task, "gift-note", read=False)], [None])
+            self.assertEqual(lem_artifacts.one(task, "gift-note", "report.md")[0]["text"], "# Report\n")
+            self.assertIsNone(lem_artifacts.one(task, "gift-note", "../../secret.txt"))
+
+    def test_an_artifacts_text_reaches_the_page_escaped(self):
+        f = {"path": "report.md", "kind": "markdown", "text": "<script>alert(1)</script>", "bytes": 26, "mtime": "2026-11-20T09:00:00Z"}
+        ctx = pages.Ctx(host="h", workspace="w", model=model(), asset=lambda name: name)
+        html = task_pages.art_body(ctx, f, one(state(0, "building", "lead: builder")))
+        self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", html)
+        self.assertNotIn("<script>", html)
+        self.assertNotIn("<b>", task_pages.json_marks('{"a": "<b>"}'))
+
+
+class Links(unittest.TestCase):
+    def test_every_form_of_a_pull_request_is_one_link_and_a_bare_number_needs_the_forge(self):
+        forge = "https://github.com/acme/shop"
+        parts = bm.pull_refs("merge pull request #41, acme/x#3 or https://github.com/a/b/pull/9.", forge)
+        self.assertEqual([x["url"] for x in parts if isinstance(x, dict)],
+                         ["https://github.com/acme/shop/pull/41", "https://github.com/acme/x/pull/3", "https://github.com/a/b/pull/9"])
+        self.assertEqual(bm.pull_refs("pull request #41 and #d8", None), ["pull request #41 and #d8"])
+
+    def test_markdown_gets_links_outside_its_code_and_its_links(self):
+        text = "see #41, `#5`, [x](https://g/pull/3)\n```\n#7\n```\n# Head"
+        self.assertEqual(bm.pull_links_md(text, "https://github.com/acme/shop"),
+                         "see [#41](https://github.com/acme/shop/pull/41), `#5`, [x](https://g/pull/3)\n```\n#7\n```\n# Head")
+
+
+class Reasons(unittest.TestCase):
+    def test_a_reason_is_cut_at_its_own_separators_never_inside_a_quote_or_a_parenthesis(self):
+        r = bm.reason_parts('decision 4 was taken without the owner (criterion 2: the span): "C: as W; and one line", by the dialectic')
+        self.assertEqual((r["head"], r["about"], r["detail"], r["ref"]),
+                         ("Decision 4 was taken without the owner", "criterion 2: the span", ['"C: as W; and one line", by the dialectic'], {"kind": "decision", "id": 4}))
+        bar = bm.reason_parts("the bar is lower in `t.py` (one assertion fewer). The builder: a reason. The review: it holds")
+        self.assertEqual((bar["head"], bar["about"], bar["detail"]), ("The bar is lower in `t.py`", "one assertion fewer", ["The builder: a reason", "The review: it holds"]))
+        self.assertEqual(bm.reason_parts("two rounds reviewed it: the last one left 1 must-fix; round 1 left 2")["detail"], ["the last one left 1 must-fix", "round 1 left 2"])
+
+
+class Map(unittest.TestCase):
+    def test_a_record_hangs_on_its_document_and_what_the_map_does_not_know_is_a_working_file(self):
+        entries = [{"path": p, "kind": "markdown", **lem_artifacts.place(p)} for p in
+                   ("criteria.md", "criteria.json", "decisions.jsonl", "notes-of-mine.txt", "reviews/t/01-initial/report.md", "reviews/t/01-initial/findings.json", "media/a.png")]
+        m = lem_artifacts.arrange(entries, {"criteria.md": ["media/a.png"]})
+        self.assertEqual([s["name"] for s in m["sections"]], ["Request", "Criteria", "Plan", "Build", "Checks", "Review", "Pull request"])
+        criteria = m["sections"][1]["docs"]
+        self.assertEqual([(d["path"], [a["path"] for a in d["attached"]]) for d in criteria], [("criteria.md", ["criteria.json", "media/a.png"])])
+        self.assertEqual([d["title"] for d in m["sections"][5]["docs"]], ["Review round 01-initial"])
+        self.assertEqual(sorted((w["folder"], [f["path"] for f in w["files"]]) for w in m["work"] if w["folder"]),
+                         [("Records with no document", ["decisions.jsonl"]), ("Review round 01-initial", ["reviews/t/01-initial/findings.json"])])
+        self.assertIn("notes-of-mine.txt", [f["path"] for w in m["work"] for f in w["files"]])
+        self.assertEqual(m["count"], 2)
+
+    def test_a_picture_is_one_by_its_name_and_its_first_bytes(self):
+        png = b"\x89PNG\r\n\x1a\n" + bytes(8)
+        self.assertEqual(lem_artifacts.image_type("a.png", png), "image/png")
+        self.assertIsNone(lem_artifacts.image_type("a.jpg", png))
+        self.assertIsNone(lem_artifacts.image_type("a.png", b"<svg onload=x>"))
+        self.assertIsNone(lem_artifacts.image_type("a.svg", b"<svg/>"))
+
+
+class Backlog(unittest.TestCase):
+    def test_the_filter_comes_from_the_address_and_a_value_it_does_not_know_is_no_filter(self):
+        self.assertEqual(pages.backlog_filter({"q": [" board "], "worth": ["bogus"], "only": ["stale"]}), {"q": "board", "worth": "", "only": "stale"})
+        self.assertEqual(pages.backlog_filter({"worth": ["later"], "only": ["everything"]}), {"q": "", "worth": "later", "only": ""})
+        self.assertEqual(pages.backlog_filter({"q": ["x" * 300]})["q"], "x" * 200)
+
+
+class Forge(unittest.TestCase):
+    def test_the_server_asks_only_when_a_pull_request_is_open_and_nobody_looked_lately(self):
+        prs, every = [{"task": "t", "n": 44}, {"task": "u", "n": 41}], 180_000
+        self.assertEqual(bm.forge_due(prs, None, NOW, every, True), [41, 44])
+        self.assertEqual(bm.forge_due(prs, NOW - 60_000, NOW, every, True), [], "the server looked a minute ago")
+        self.assertEqual(bm.forge_due(prs, NOW - 200_000, NOW, every, True), [41, 44])
+        self.assertEqual(bm.forge_due(prs, None, NOW, every, False), [], "a demo, or no GitHub remote")
+        self.assertEqual(bm.forge_due([], None, NOW, every, True), [])
+
+
+if __name__ == "__main__":
+    unittest.main()

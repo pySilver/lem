@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # A small change: one criterion in the task directory, no plan on the branch, one builder, the checks
-# with the check of the criteria once, one read, and a short pull request. And what keeps the fast track
-# safe: a full change with no plan is refused, a careful small change is not green and no agent merges
-# it. That a small change does not lower the bar is a case of tests/unit/test_land.py.
+# with the check of the criteria once, one read, a short pull request, and the merge agent's read of
+# one paragraph before its merge. And what keeps the fast track safe: a full change with no plan is
+# refused, a careful small change is not green and the merge agent does not merge it. That a small change does not lower the bar is a case of tests/unit/test_land.py.
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
@@ -11,7 +11,7 @@ SMALL=$WORK/small
 git init -q -b main "$SMALL" && ident "$SMALL"
 project --repo "$SMALL" init --base main >/dev/null
 printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[checks]' 'commands = ["true"]' '[flow]' 'topics = ["a customer is charged the wrong price"]' > "$SMALL/.lem/project.toml"
-git -C "$SMALL" add -A && git -C "$SMALL" commit -q -m "chore: start"
+git -C "$SMALL" add -A && git -C "$SMALL" commit -q -m "chore: start" && on_github "$SMALL"
 s() { land --repo "$SMALL" "$@"; }
 criteria() { "$PY" -B "$CRITERIA" --repo "$SMALL" "$@"; }
 dir_of() { echo "$SMALL/.lem/state/tasks/$1"; }
@@ -58,10 +58,11 @@ due=$(s read date-nowrap 2>&1 | field '(d["due"], d["floor"], d["small"], d["tas
 s read date-nowrap >/dev/null 2>&1 || true
 s read date-nowrap --record "$(clean 1)" >/dev/null 2>&1 || true
 proposed=$(s propose date-nowrap --title "fix(report): the date column never wraps" --notes "$SHORT" 2>&1 | field 'd["green"]' 2>&1 || true)
-merged=$(s land date-nowrap --by agent 2>&1 | field 'd["pushed"]' 2>&1 || true)
+read_small=$(merge_read "$SMALL" date-nowrap 2>&1 | field '(d["verdict"], d["calls"])' 2>&1 || true)
+merged=$(s merge date-nowrap --by merger 2>&1 | field 'd["pull_request"]["number"]' 2>&1 || true)
 text=$(dir_of date-nowrap)/pr.md
 if [ "$shown" = "(True, 'small', True)" ] && [ "$gated" = "(True, None, True)" ] && [ "$due" = "('review', 'read', True, 1)" ] \
-  && [ "$proposed" = True ] && [ "$merged" = False ] && [ "$(status_in "$SMALL" date-nowrap)" = landed ] && [ "$(reds date-nowrap)" = 1 ] \
+  && [ "$proposed" = True ] && [ "$read_small" = "('merge', False)" ] && [ "$merged" = 1 ] && [ "$(status_in "$SMALL" date-nowrap)" = landed ] && [ "$(reds date-nowrap)" = 1 ] \
   && [ -z "$(git -C "$SMALL" ls-tree -r --name-only main -- docs/plans)" ] \
   && [ "$(sed -n 1p "$text")" = '**Green.** The checks passed with the bar where it was, the review left no must-fix, no criterion changed, and no decision past the personas was taken without an answer.' ] \
   && ! grep -qi 'correction\|machine checks' "$text" \
@@ -69,15 +70,15 @@ if [ "$shown" = "(True, 'small', True)" ] && [ "$gated" = "(True, None, True)" ]
   && grep -qxF -- "   - \`sh tests/date-nowrap.sh\`: passes on the branch, fails on the base commit" "$text" \
   && grep -qxF -- '- the review, round 1 (one read; answered: codex): clean, 0 must-fix, 0 should, 0 nit' "$text" \
   && ! grep -q 'polish pass\|## Decisions of the build\|personas asked\|size:' "$text" && [ "$(grep -c '' "$text")" -le 20 ] \
-  && ! grep -qiwE 'you|your' "$text" && [ ! -e "$(dir_of date-nowrap)/built.md" ] && [ ! -e "$(dir_of date-nowrap)/decisions.md" ]; then
-  pass "a small change with its criterion in the task directory goes from Lem's approval through the gate, one read and a short pull request to an agent's merge, with no plan file on the branch, the check of the criteria run once, and neither of a full change's two files for the owner"
+  && ! grep -qiwE 'you|your' "$text" && [ -s "$(dir_of date-nowrap)/merge-review.md" ]; then
+  pass "a small change with its criterion in the task directory goes from Lem's approval through the gate, one read, a short pull request and the merge agent's read to its merge, with no plan file on the branch and the check of the criteria run once"
 else
-  fail "a small change: $shown / $gated / $due / $proposed / $merged / reds $(reds date-nowrap) / $(cat "$text" 2>/dev/null)"
+  fail "a small change: $shown / $gated / $due / $proposed / $read_small / $merged / reds $(reds date-nowrap) / $(cat "$text" 2>/dev/null)"
 fi
 
 # The landing logs the start of the checks and of the review itself, so that each has a span: the review's once for its attempt, however often read is asked.
 events_of() { "$PY" -c 'import json, sys; print([(e["event"], {k: v for k, v in e.items() if k in ("tip", "commands", "attempt", "floor")}) for e in map(json.loads, open(sys.argv[1])) if e["task"] == sys.argv[2] and e["event"] in ("gate.start", "gate", "review.start", "review")])' "$SMALL/.lem/state/events.jsonl" "$1"; }
-tip=$(git -C "$SMALL" rev-parse --short=9 main)
+tip=$(git -C "$SMALL" rev-parse --short=9 fix/date-nowrap)
 if [ "$(events_of date-nowrap)" = "[('gate.start', {'tip': '$tip', 'commands': 1}), ('gate', {'tip': '$tip'}), ('review.start', {'attempt': 1, 'floor': 'read'}), ('review', {'attempt': 1, 'tip': '$tip'})]" ]; then
   pass "gate logs gate.start with the tip and the count of its commands before the first runs, and read logs review.start once for the attempt that is due, before the review's record"
 else
@@ -135,12 +136,12 @@ floor=$(s read gate-edit 2>&1 | field '(d["floor"], len(d["careful"]))' 2>&1 || 
 one_read=$(s read gate-edit --record "$(clean 1)" 2>&1 || true)
 s read gate-edit --record "$(record 1 '{"kind": "full", "ran": [{"name": "full", "why": "the change edits the gate"}], "answered": ["codex"]}')" >/dev/null 2>&1 || true
 careful_green=$(s propose gate-edit --title "chore: two gate commands" --notes "$MIG" 2>&1 | field 'd["green"]' 2>&1 || true)
-by_agent=$(s land gate-edit --by agent 2>&1 || true)
+by_agent=$(s merge gate-edit --by merger 2>&1 || true)
 text=$(dir_of gate-edit)/pr.md
 if [ "$floor" = "('full', 1)" ] && grep -qF "this change gets the project's full set at the least" <<<"$one_read" && [ "$careful_green" = False ] \
-  && grep -qF "careful on the fast track" <<<"$(sed -n 3p "$text")" && grep -qF "a careful request is merged by a person" <<<"$by_agent" \
+  && grep -qF "careful on the fast track" <<<"$(sed -n 3p "$text")" && grep -qF "a careful request is merged by the owner" <<<"$by_agent" \
   && [ "$(status_in "$SMALL" gate-edit)" = open ]; then
-  pass "a small change whose diff edits the gate of the settings gets the full set, is not green because a careful change took the fast track, and no agent merges it"
+  pass "a small change whose diff edits the gate of the settings gets the full set, is not green because a careful change took the fast track, and the merge agent does not merge it"
 else
   fail "a careful small change: $(grep -v "^ \|^[{}]" "$WORK/gate-edit.out") / $floor / $one_read / $careful_green / $by_agent / $(cat "$text" 2>/dev/null)"
 fi

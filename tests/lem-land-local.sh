@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# The landing with no remote, part one: decisions, criteria and the personas' read in the pull
-# request's text. tests/lem-land-review.sh is part two, on a repository of its own.
+# The landing, part one: decisions, criteria and the personas' read in the pull request's text, on an
+# origin that the stand-in for `gh` answers for (lib.sh). tests/lem-land-review.sh is part two, on a
+# repository of its own.
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
@@ -19,7 +20,7 @@ app_py() {
 }
 app_py old old > "$LOCAL/app.py"
 printf '%s\n' 'pub fn one() -> i32 { 1 }' '#[cfg(test)]' 'mod tests {' '    #[test]' '    fn it_is_one() { assert_eq!(super::one(), 1); }' '}' > "$LOCAL/lib.rs"
-git -C "$LOCAL" add -A && git -C "$LOCAL" commit -q -m "chore: start"
+git -C "$LOCAL" add -A && git -C "$LOCAL" commit -q -m "chore: start" && on_github "$LOCAL"
 local_land() { land --repo "$LOCAL" "$@"; }
 task_in "$LOCAL" local-change x.txt x
 # A criterion that changed during the build is written down by the build, as a record of its own with its text before and after; the text shows it, and a person merges.
@@ -30,62 +31,54 @@ printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the ticket names 
 read_in "$LOCAL" local-change
 local_land start local-change >/dev/null && local_land base local-change >/dev/null && polish_in "$LOCAL" local-change && local_land checks local-change >/dev/null && local_land read local-change --record "$(clean 1)" >/dev/null
 local_land propose local-change --title "fix: x" --notes "$NOTES" >/dev/null
-err=$(local_land land local-change --by agent 2>&1 || true)
+err=$(local_land merge local-change --by merger 2>&1 || true)
 # an agent's merge of it would leave nothing for the owner's: that is this check's FAIL, not a stop of the block
-out=$(local_land land local-change --by owner) || true
-if grep -q "the request is not green (criterion 1 changed during the build: y is taken by another file.), so a person merges it" <<<"$err" \
+out=$(local_land merge local-change --by owner) || true
+if grep -q "the request is not green (criterion 1 changed during the build: y is taken by another file.), so the owner merges it" <<<"$err" \
   && [ "$(sed -n 1p "$LOCAL/.lem/state/tasks/local-change/pr.md")" = '**Not green.**' ] && [ "$(sed -n 3p "$LOCAL/.lem/state/tasks/local-change/pr.md")" = '- criterion 1 changed during the build: y is taken by another file.' ] \
   && grep -qxF -- '- criterion 1: was "The file holds the word y.", now "The file holds the word the owner asked for.". y is taken by another file. By the personas: Both personas picked x.' "$LOCAL/.lem/state/tasks/local-change/pr.md" \
   && [ ! -e "$LOCAL/.lem/state/tasks/local-change/criterion-changes.jsonl" ] \
-  && [ "$(field 'd["pushed"]' <<<"$out")" = False ] && [ -f "$LOCAL/x.txt" ] && [ "$(git -C "$LOCAL" log -1 --format=%s main)" = "fix: local-change" ] && [ "$(status_in "$LOCAL" local-change)" = landed ]; then
-  pass "a request with a changed criterion is not green: its text says so first and shows the change, with what the criterion was and is, and a person merges it whatever the settings say; with no remote the base branch is fast-forwarded in the checkout that holds it"
+  && [ "$(field 'd["pull_request"]["number"]' <<<"$out")" = 1 ] && [ -f "$LOCAL/x.txt" ] && [ "$(git -C "$LOCAL" log -1 --format=%s main)" = "fix: local-change" ] && [ "$(status_in "$LOCAL" local-change)" = landed ]; then
+  pass "a request with a changed criterion is not green: its text says so first and shows the change, with what the criterion was and is, and the owner merges it whatever the settings say, through its pull request, and the main checkout follows"
 else
   fail "local landing: $err / $out"
 fi
 local_land clean local-change >/dev/null
-# The choices of one task through the real commands: a choice that waits for the owner holds the proposal, an
-# irreversible one too, with no word of his "away"; his own decision that is none of the options settles one; a choice
-# the owner's away takes, by the ladder or by both experts, and a decision of one expert alone (no Codex on the
-# machine) make the request not green, and no agent merges it. What each line of the text says, for each kind of
-# record, is a case of tests/unit/test_land_text.py; here the writers and the real pr.md and decisions.md meet.
+# The decisions of one task through the real commands: a breaker that waits holds the proposal, also under a `ready`
+# written over it; the owner's help settles it and is no cause of not green; a pick of the dialectic and a decision of
+# one expert alone (no Codex on the machine) make the request not green, and the merge agent does not merge it. What
+# each line of the text says, for each kind of record, is a case of tests/unit/test_land_text.py; here the writers and
+# the real pr.md meet.
 task_in "$LOCAL" waited-change w.txt w
 read_in "$LOCAL" waited-change
-local_land start waited-change >/dev/null && local_land base waited-change >/dev/null && polish_in "$LOCAL" waited-change && local_land checks waited-change >/dev/null && local_land read waited-change --record "$(clean 1)" >/dev/null
 wdec() { "$PY" -B "$DECISIONS" --repo "$LOCAL" "$@"; }
 wdec log waited-change --what "The name of the file" --chose w.txt --why "The other files have one letter." --by lead >/dev/null
-wdec ask waited-change "${CASE[@]}" --what "Where the word goes" --option "the first line" --option "the last line" --recommended "the first line" --why "A reader sees it at once." --said "The two personas split." >/dev/null
+breaker_doc "$LOCAL/.lem/state/tasks/waited-change" && wdec breaker waited-change --cause irreversible --irreversible person >/dev/null
+project --repo "$LOCAL" state waited-change ready "the report is written" >/dev/null
+local_land start waited-change >/dev/null && local_land base waited-change >/dev/null && polish_in "$LOCAL" waited-change && local_land checks waited-change >/dev/null && local_land read waited-change --record "$(clean 1)" >/dev/null
 waiting=$(local_land propose waited-change --title "fix: w" --notes "$NOTES" 2>&1 || true)
-# away_and_back: the owner's away takes each choice that waits, and his back ends it
-away_and_back() { project --repo "$LOCAL" owner away --words "I'm away" >/dev/null && project --repo "$LOCAL" owner back --words "I'm back" >/dev/null; }
-away_and_back
-wdec ask waited-change "${CASE[@]}" --what "Tell the merchants" --option "send the email" --option "send nothing" --recommended "send nothing" --why "Nothing they see changes." --said "The two personas split." --irreversible person >/dev/null
-forever=$(local_land propose waited-change --title "fix: w" --notes "$NOTES" 2>&1 || true)
-wdec answer waited-change 3 --instead "Email only the beta testers." --why "They asked to hear first." >/dev/null
-# both experts pick the same option of a choice that waits, and the owner's away takes it
-wdec ask waited-change "${CASE[@]}" --what "The case of the word" --option "lower case" --option "upper case" --recommended "lower case" --why "The test reads it so." --said "The two personas split." >/dev/null
-wdec advise waited-change 4 --expert fable --pick "upper case" --why "The header is in upper case." >/dev/null
-wdec advise waited-change 4 --expert astra --pick "upper case" --why "The other words of the header are in upper case." >/dev/null
-away_and_back
-alone_log=$(env PATH="$NOCODEX" "$PY" -B "$DECISIONS" --repo "$LOCAL" log waited-change --what "The word's line ending" --chose "a line break" --by experts \
+wdec log waited-change --by owner --breaker 2 --what "Tell the merchants" --chose "send nothing" --why "Nothing they see changes." --words "no email, they read the export" >/dev/null
+wdec log waited-change "${CASE[@]}" --what "Where the word goes" --chose "the first line" --by dialectic --option "the first line" --option "the last line" \
+  --level "personas=1 for the first line, 1 for the last line" --level "dialectic=no break" --why "A reader sees it at once." >/dev/null
+alone_log=$(env PATH="$NOCODEX" "$PY" -B "$DECISIONS" --repo "$LOCAL" log waited-change "${CASE[@]}" --what "The word's line ending" --chose "a line break" --by experts \
   --why "Fable: every file ends so." --option "a line break" --option "no line break" | field 'd["advisers"]' 2>&1 || true)
-instead_pending=$(wdec pending waited-change | field '[c["id"] for c in d["waiting"]]')
 local_land propose waited-change --title "fix: w" --notes "$NOTES" >/dev/null
 text=$LOCAL/.lem/state/tasks/waited-change/pr.md
-decided=$LOCAL/.lem/state/tasks/waited-change/decisions.md
-agent=$(local_land land waited-change --by agent 2>&1 || true)
-if grep -qF "choice 2 of waited-change waits for the owner (Where the word goes): a request is never proposed over an open question of the owner's" <<<"$waiting" \
-  && grep -qF "lem decisions answer waited-change 2 --chose OPTION --words TEXT" <<<"$waiting" && grep -qF "when the owner says he is away, \`lem project owner away\` takes the ladder's pick" <<<"$waiting" \
-  && grep -qF "choice 3 of waited-change waits for the owner (Tell the merchants)" <<<"$forever" && ! grep -qF "owner away" <<<"$forever" \
-  && [ "$instead_pending" = "[]" ] && [ "$alone_log" = "['fable']" ] && [ "$(status_in "$LOCAL" waited-change)" = open ] \
+agent=$(local_land merge waited-change --by merger 2>&1 || true)
+if grep -qF "breaker 2 of waited-change waits for the owner (The gift note has no place that keeps the last column for the total): its build stopped there, and a request is never proposed over it" <<<"$waiting" \
+  && grep -qF "lem decisions log waited-change --by owner --breaker 2" <<<"$waiting" \
+  && [ "$alone_log" = "['fable']" ] && [ "$(status_in "$LOCAL" waited-change)" = open ] \
   && [ "$(sed -n 1p "$text")" = '**Not green.**' ] \
-  && [ "$(sed -n '3,5p' "$text" | cut -c1-38 | tr '\n' '|')" = "- choice 2 was taken without the owner|- choice 4 was taken by the experts (T|- decision 5 was taken without the own|" ] \
-  && [ -z "$(sed -n 6p "$text")" ] \
+  && [ "$(sed -n '3,4p' "$text" | cut -c1-38 | tr '\n' '|')" = "- decision 4 was taken without the own|- decision 5 was taken without the own|" ] \
+  && [ -z "$(sed -n 5p "$text")" ] \
   && [ "$(sed -n '/^## Decisions of the build$/,/^## Decisions$/p' "$text" | grep -c '^- ')" = 5 ] \
-  && grep -qF '| 5 | The word'"'"'s line ending | a line break | one expert model; **not green** |' "$decided" \
-  && grep -qF "the request is not green (choice 2 was taken without the owner" <<<"$agent"; then
-  pass "a request is never proposed over a choice that waits for the owner, irreversible or not, and his decision that is none of the options settles one; a choice his away took, by the ladder or by both experts, and a decision of one expert alone are each a line of the text that is not green, the text lists each decision of the record, decisions.md names the one expert, and no agent merges it"
+  && grep -qF -- "- the build stopped at breaker 2, " "$text" && grep -qF "; the owner helped, decision 3." "$text" \
+  && grep -qF -- '- Tell the merchants: "send nothing", by the owner, his help on breaker 2.' "$text" \
+  && grep -qF -- "- decision 5 was taken without the owner (The word's line ending): \"a line break\", by one expert" "$text" \
+  && grep -qF "the request is not green (decision 4 was taken without the owner" <<<"$agent"; then
+  pass "a request is never proposed over a breaker that waits, also under a ready written over it; the owner's help settles it and is no cause; a pick of the dialectic and a decision of one expert alone are each a line of the text that is not green, the text lists the breaker and each decision of the record and names the one expert, and the merge agent does not merge it"
 else
-  fail "decisions in the landing: $waiting / $forever / $alone_log / $agent / $(cat "$text" 2>/dev/null)"
+  fail "decisions in the landing: $waiting / $alone_log / $agent / $(cat "$text" 2>/dev/null)"
 fi
 project --repo "$LOCAL" state waited-change dropped "the test is over" >/dev/null
 
@@ -114,31 +107,30 @@ printf '%s\n' '# criterion-departs' '' '## Acceptance criteria' '' 'Size: full, 
   > "$tree/docs/plans/2026-11-15-criterion-departs.md"
 git -C "$tree" commit -q -am "docs: the criteria as they are built"
 unrecorded=$(local_land start criterion-departs >/dev/null && local_land base criterion-departs >/dev/null && local_land checks criterion-departs 2>&1 || true)
-# a criterion that a choice of the build removes, once the choice is answered; and one the lead adds
-ldecide ask criterion-departs "${CASE[@]}" --what "The one-line rule" --option "keep the rule" --option "no such rule" --recommended "keep the rule" --why "A reader counts on it." \
-  --said "The two personas split." >/dev/null 2>&1 || true
-early=$(ldecide criterion criterion-departs --removed 2 --was "The file has one line." --why "A second line holds the date now." --choice 1 2>&1 || true)
-ldecide answer criterion-departs 1 --chose "no such rule" >/dev/null 2>&1 || true
-ldecide criterion criterion-departs --removed 2 --was "The file has one line." --why "A second line holds the date now." --choice 1 >/dev/null 2>&1 || true
+# a criterion that a pick of the dialectic removes; and one the lead adds
+ldecide log criterion-departs "${CASE[@]}" --what "The one-line rule" --option "keep the rule" --option "no such rule" --chose "no such rule" --by dialectic \
+  --why "A second line holds the date." >/dev/null 2>&1 || true
+nodecision=$(ldecide criterion criterion-departs --removed 2 --was "The file has one line." --why "A second line holds the date now." --decision 7 2>&1 || true)
+ldecide criterion criterion-departs --removed 2 --was "The file has one line." --why "A second line holds the date now." --decision 1 >/dev/null 2>&1 || true
 ldecide criterion criterion-departs --added 2 --now "The file ends with a line break." --why "The importer reads whole lines only." --by lead >/dev/null 2>&1 || true
 polish_local criterion-departs 2>/dev/null && local_land checks criterion-departs >/dev/null 2>&1 && local_land read criterion-departs --record "$(clean 1)" >/dev/null 2>&1 \
   && local_land propose criterion-departs --title "fix: criterion-departs" --notes "$NOTES" >/dev/null 2>&1 || true
 text=$LOCAL/.lem/state/tasks/criterion-departs/pr.md
-agent=$(local_land land criterion-departs --by agent 2>&1 || true)
+agent=$(local_land merge criterion-departs --by merger 2>&1 || true)
 if grep -qF "criterion 2 of 2026-11-15-criterion-departs.md says 'The file ends with a line break.', and the expected criterion 2 is 'The file has one line.'" <<<"$unrecorded" \
-  && grep -qF "choice 1 waits: a criterion changes after a choice that was answered or taken without the owner" <<<"$early" \
+  && grep -qF "no decision 7 in criterion-departs" <<<"$nodecision" \
   && [ "$(sed -n 1p "$text" 2>/dev/null)" = '**Not green.**' ] \
-  && [ "$(sed -n 3p "$text")" = '- criterion 2 was removed during the build: A second line holds the date now, after choice 1 (The one-line rule), where the owner took "no such rule"' ] \
+  && [ "$(sed -n 3p "$text")" = '- criterion 2 was removed during the build: A second line holds the date now, after decision 1 (The one-line rule), where the dialectic took "no such rule"' ] \
   && [ "$(sed -n 4p "$text")" = '- criterion 2 was added during the build: The importer reads whole lines only.' ] \
-  && grep -qxF -- '- criterion 2: removed, was "The file has one line.". A second line holds the date now, after choice 1 (The one-line rule), where the owner took "no such rule".' "$text" \
+  && grep -qxF -- '- criterion 2: removed, was "The file has one line.". A second line holds the date now, after decision 1 (The one-line rule), where the dialectic took "no such rule".' "$text" \
   && grep -qxF -- '- criterion 2: added, "The file ends with a line break.". The importer reads whole lines only. By the lead.' "$text" \
   && [ -n "$(approved_day criterion-departs)" ] \
   && grep -qxF -- "- the criteria were read by 2 of 2 personas asked, two model families (opus, sol); nobody confused; the owner approved them on $(approved_day criterion-departs)" "$text" \
   && grep -qxF -- "- the criteria changed after the personas' read, by a change of the build, and the change was not read" "$text" \
   && grep -qF "the request is not green (criterion 2 was removed during the build" <<<"$agent"; then
-  pass "a criterion a choice of the build removed and one the lead added are not green, each with its line first, what it was or is, its reason and the choice that led to it; a criterion changes only after its choice is answered; the gate refuses the plan until both are recorded; and the checks say that two model families read the criteria, when he approved them, and that a change of the build came after the read"
+  pass "a criterion a pick of the dialectic removed and one the lead added are not green, each with its line first, what it was or is, its reason and the decision that led to it, which is on record; the gate refuses the plan until both are recorded; and the checks say that two model families read the criteria, when he approved them, and that a change of the build came after the read"
 else
-  fail "an added and a removed criterion in the landing: $unrecorded / $early / $agent / $(cat "$text" 2>/dev/null)"
+  fail "an added and a removed criterion in the landing: $unrecorded / $nodecision / $agent / $(cat "$text" 2>/dev/null)"
 fi
 project --repo "$LOCAL" state criterion-departs dropped "the test is over" >/dev/null
 # A full change is not proposed without a read of its criteria, nor over a doubt of the personas that no approval of his followed.
@@ -319,7 +311,7 @@ second_empty=$(empty_with 'families:=[]' "$quiet" flagged:=0)
 freeze_twice=$(lcriteria approve nobody-read --read 2>&1 || true)
 local_land propose nobody-read --title "fix: n" --notes "$NOTES" >/dev/null 2>&1 || true
 text=$LOCAL/.lem/state/tasks/nobody-read/pr.md
-twice_agent=$(local_land land nobody-read --by agent 2>&1 || true)
+twice_agent=$(local_land merge nobody-read --by merger 2>&1 || true)
 if grep -q "a read in which nobody answered has families:='\[\]'" <<<"$empty_family" && grep -q "a read in which nobody answered has families:='\[\]'" <<<"$empty_unnamed" \
   && grep -q "a read in which nobody answered has families:='\[\]'" <<<"$empty_flagged" \
   && grep -q '"event": "criteria.read"' <<<"$first_empty" && grep -q '"event": "criteria.read"' <<<"$second_empty" \
@@ -468,7 +460,7 @@ printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the ticket names 
 read_digest=$(lcriteria digest settled-out --file "$WORK/settled-read.md" 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
 project --repo "$LOCAL" log settled-out criteria.read by=lem asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' criteria:=1 flagged:=1 split:=false "digest=$read_digest" >/dev/null 2>&1 || true
 project --repo "$LOCAL" task-dir settled-out --ask "Put the word into s.txt." --night 2026-11-18 >/dev/null
-ldecide log settled-out --what "criterion 1" --option "The file holds a word." --option "The file holds the word the owner asked for." \
+ldecide log settled-out "${CASE[@]}" --what "criterion 1" --option "The file holds a word." --option "The file holds the word the owner asked for." \
   --chose "The file holds the word the owner asked for." --by dialectic --level "personas=one flagged it" --why "no break against the persona's reading" >/dev/null 2>&1 || true
 settled_by=$(lcriteria approve settled-out --file "$WORK/gone.md" --alone 2>&1 | field 'd["by"]' 2>&1 || true)
 checked_local settled-out

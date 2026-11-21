@@ -30,7 +30,7 @@ chord() {
 }
 listed() { "$PY" -B "$PICKER" --repo "$1" --list; }
 
-# A repository with tasks in every place of the list: a choice, criteria for his yes, a step of his, a pull request,
+# A repository with tasks in every place of the list: a breaker, criteria for his yes, a step of his, a pull request,
 # two that build (one on the fast track), one queued, one landed today and one landed a month ago.
 PK=$WORK/pick-repo
 git init -q -b main "$PK" && ident "$PK" && commit "$PK" start && project --repo "$PK" init --base main >/dev/null
@@ -61,20 +61,20 @@ pk task-dir his-step --ask "Move the reviewer to Codex." >/dev/null && pk state 
 backdate his-step 1
 pk task-dir his-criteria --ask "Add the gift note to the slip." >/dev/null && pk state his-criteria held "the criteria wait for the owner" "type: feat, because the slip gets a line" >/dev/null
 backdate his-criteria 1
-pk task-dir a-choice --ask "Put the note in the export." >/dev/null && pk state a-choice building "lead: builder" >/dev/null
-backdate a-choice 1
-"$PY" -B "$DECISIONS" --repo "$PK" ask a-choice "${CASE[@]}" --what "Where the note goes" --option "the last column" --option "after the price" --recommended "the last column" --why w --said s >/dev/null
+pk task-dir a-breaker --ask "Put the note in the export." >/dev/null && pk state a-breaker building "lead: builder" >/dev/null
+breaker_doc "$PK/.lem/state/tasks/a-breaker" && "$PY" -B "$DECISIONS" --repo "$PK" breaker a-breaker --cause criteria >/dev/null
+backdate a-breaker 1
 
 rows=$(listed "$PK" 2>&1 || true)
 order=$(field '[r["id"] for r in d]' <<<"$rows" 2>&1 || true)
-if [ "$order" = "['a-choice', 'his-criteria', 'his-step', 'proposed-one', 'typo-fix', 'big-export', 'queued-one', 'fixed-total', ':all']" ]; then
-  pass "the rows come in the order a developer reads them: a choice, criteria for his yes, a step of his and a pull request first, then what builds and the queue, then what landed lately; a task that landed a month ago has no row, and the board of all tasks is last"
+if [ "$order" = "['a-breaker', 'his-criteria', 'his-step', 'proposed-one', 'typo-fix', 'big-export', 'queued-one', 'fixed-total', ':all']" ]; then
+  pass "the rows come in the order a developer reads them: a breaker, criteria for his yes, a step of his and a pull request first, then what builds and the queue, then what landed lately; a task that landed a month ago has no row, and the board of all tasks is last"
 else
   fail "the order of the rows: $order / $rows"
 fi
 
 said=$(field '"\n".join(r["label"] + " | " + r["subtitle"] for r in d)' <<<"$rows" 2>&1 || true)
-want="Put the note in the export. | Choice 1 waits for you · standard track · 1h
+want="Put the note in the export. | Stopped: breaker 1 waits for you · standard track · 1h
 Add the gift note to the slip. | Waits for you: the acceptance criteria · standard track · 1h
 Move the reviewer to Codex. | Waits for you · 1h
 Sort the orders by date. | Waits for the merge · fast track · 1h · #7 green
@@ -89,21 +89,10 @@ else
   fail "the words of the rows: $said"
 fi
 
-# The picker's words for a state are the board's: one list, held to board.html's STATUS.
-same=$("$PY" -I - "$PWD" <<'PY'
-import re, runpy, sys
-from pathlib import Path
-root = Path(sys.argv[1])
-sys.dont_write_bytecode = True
-words = runpy.run_path(str(root / "skills/lem/scripts/picker.py"), run_name="picker")["WORDS"]
-page = (root / "skills/lem/assets/board.html").read_text(encoding="utf-8")
-board = dict(re.findall(r"^  (\w+): \{actor: '[^']+', who: '[^']+', label: '([^']+)'", page, re.M))
-print("same" if board and words == board else f"picker {words} / board {board}")
-PY
-)
-if [ "$same" = same ]; then pass "the picker names each state in the words the board uses"; else fail "the picker's words and the board's: $same"; fi
-
-# A pick opens the board of that task through lem board, which the stand-in records; the row for all tasks opens the board of all.
+# A pick opens the board of that task through lem board, at the address of this run's board server, which the stand-in records;
+# the row for all tasks opens the board of all.
+serve_up
+BOARD_URL=http://127.0.0.1:$SERVE_PORT/$(curl -fsS "http://127.0.0.1:$SERVE_PORT/api/server" | field 'd["host"]')/pick-repo
 picked=$(chord "$PK" '{"result":"picked","id":"typo-fix","label":"Fix the typo in the footer.","index":4}' 2>&1; echo "exit $?")
 picked_calls=$(cat "$CALLS")
 shown=$(field '[r["id"] for r in d]' < "$CALLS.rows" 2>&1 || true)
@@ -111,10 +100,10 @@ chord "$PK" '{"result":"picked","id":":all","label":"All tasks","index":8}' >/de
 all_calls=$(cat "$CALLS")
 if [ "$(tail -n 1 <<<"$picked")" = "exit 0" ] && [ "$shown" = "$order" ] \
   && grep -qxF "pick --prompt Open the board of a task --window W1 --socket $WORK/agterm.sock" <<<"$picked_calls" \
-  && grep -qF "session overlay open --html $PK/.lem/state/task-typo-fix.html" <<<"$picked_calls" && grep -qF "session rename typo-fix board --target S-BOARD" <<<"$picked_calls" \
-  && grep -qF "session select --target S-BOARD" <<<"$picked_calls" && [ -f "$PK/.lem/state/task-typo-fix.html" ] \
-  && grep -qF "session overlay open --html $PK/.lem/state/board.html" <<<"$all_calls" && grep -qF "session rename Lem board · pick-repo --target S-BOARD" <<<"$all_calls"; then
-  pass "a pick opens the board of that task as a companion and switches to it, the row for all tasks opens the board of all tasks, and the picker shows the rows of --list"
+  && grep -qF "session overlay open --url $BOARD_URL/tasks/typo-fix --persistent --js --companion --target S-LEM" <<<"$picked_calls" \
+  && grep -qF "session rename Lem board · pick-repo --target S-BOARD" <<<"$picked_calls" && grep -qF "session select --target S-BOARD" <<<"$picked_calls" \
+  && grep -qF "session overlay open --url $BOARD_URL/ --persistent" <<<"$all_calls" && grep -qF "session rename Lem board · pick-repo --target S-BOARD" <<<"$all_calls"; then
+  pass "a pick opens the board server's page of that task as a companion and switches to it, the row for all tasks opens the board of all tasks, and the picker shows the rows of --list"
 else
   fail "a pick: $picked / $picked_calls / $all_calls"
 fi

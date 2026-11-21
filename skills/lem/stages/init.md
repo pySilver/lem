@@ -144,9 +144,8 @@ Then edit `.lem/project.toml` with the three answers and the assumptions of step
   the lock files and the test configuration in `examined.md`. `lem project worktree` runs it one
   time in each worktree it makes;
 - the sentences of what must never go wrong (`flow.topics`) the owner confirmed;
-- `branch.land = "owner"`: a person merges, until he says otherwise;
-- `branch.propose`: `"pull-request"` where the remote is GitHub, and `"merge"` on any other remote or
-  none, so that the file says what happens there: with no forge a task ends as a merge either way;
+- `branch.land = "agent"`: the merge agent reads each proposed task and merges a green one that is
+  not careful, and calls the owner for every other one, until he says that he merges each one;
 - `branch.history`: `squash`, Lem's default, unless the last fifty merges in `examined.md` kept the
   commits of each branch: then `keep`;
 - `branch.protected`: the branches nothing lands on that `examined.md` found, or none;
@@ -165,7 +164,7 @@ Lem assumes that Claude Code and Codex run in auto mode: a builder works in the 
 permission prompt stops it until someone answers. Then the allow list, in the repository's tracked
 `.claude/settings.json` on the onboarding's branch: in auto mode a rule that allows a command
 skips the classifier, which once blocked a landing step (2026-11-18), and in the `default` or
-`acceptEdits` mode each command that no rule allows asks for permission in Lem's session, where
+`acceptEdits` mode each command that no rule allows asks for permission in the task's session, where
 the task waits, at night with nobody to answer (the machine check's `permission mode` row says
 which mode a new session starts in here). Add these rules to `permissions.allow`, each one that is not there yet, and never take
 one out or change another key of the file:
@@ -176,7 +175,7 @@ one out or change another key of the file:
   overlay open *)`, `Bash(agtermctl session new *)`, `Bash(agtermctl session split *)`,
   `Bash(agtermctl session type *)`, `Bash(agtermctl session close *)`, `Bash(agtermctl session
   rename *)`, `Bash(agtermctl session context *)`, `Bash(agtermctl session text *)`,
-  `Bash(agtermctl tree *)`;
+  `Bash(agtermctl session status *)`, `Bash(agtermctl tree *)`;
 - `Bash(mailbox-chat.py *)`, `Bash(revmux *)`, and `Bash(codex exec *)` for the experts;
 - `Edit(/.lem/worktrees/**)`, the worktrees' one place (`/` is the root of the project in a rule
   of its settings file);
@@ -186,9 +185,8 @@ one out or change another key of the file:
 
 The rules are the owner's to change on the page like any assumption ("change allow none" takes
 them all out again). They allow no push, no merge and no command of the project beyond its
-checks. No rule asks the owner at a merge: with `branch.propose = "pull-request"` every merge goes
-through the forge's pull request, under the forge's own rules, and with `"merge"` the project
-wants none.
+checks. No rule asks the owner at a merge: every merge goes through the task's pull request on GitHub,
+under GitHub's own rules.
 
 Run each command of the checks once, at the root, for the last line the hand-over page shows, and each
 `checks.serial` command through `lem project serial -- COMMAND`. Then look at
@@ -258,7 +256,8 @@ no part of Lem itself: the question page comes with Lem. Say there that the proj
 builder of its own, and how (the harness file, `spawn-builder`).
 
 **The assumptions**, each one line with its value, where it came from, and the words that change
-it: who lands (`owner`; "change land agent"), a pull request or a merge, what lands, the closed
+it: who merges (`agent`, the merge agent, which calls the owner for a careful change or one that is not
+green; "change land owner", and then the owner merges each one after its review), what lands, the closed
 branches, the tracker, the reviewer and the defender with their models, and each command of the
 checks. Three more lines are always there. How Lem asks: "Lem asks with its own page, `lem-ask`, and
 opens a text for you to mark up with webrev", with no word that changes it, since a personal
@@ -267,17 +266,18 @@ which one holds. The three models a task runs on: the builder on Opus at high ef
 (`agents/lem-builder.md`; a project's own `lem-builder.md` in `.claude/agents/` replaces it), and
 the experts, the newest Fable of Anthropic through Claude Code and the newest Astra of OpenAI
 through Codex (`seats.experts`; "change experts SEAT SEAT"), with a word when the machine check
-found no Codex: then one expert answers alone and its pick settles a choice the experts take, not
+found no Codex: then one expert answers alone and its pick settles a decision the experts take, not
 green, and the panel's second family does not answer. And the allow list: the rules written into `.claude/settings.json`,
 in one line with their count and the mode a new session starts in ("change allow none"). With git hooks, one line says, in these words, why the
 checks have only tests: "the git hooks run the rest at each commit of a builder" (the hook files;
 "change checks add COMMAND"). With a sign of a suite that needs the machine to itself, one line
 names your guess for `checks.serial` with the file the sign is in ("change serial COMMAND", "change
 serial none"): that line is the one question about it, and it waits for no answer either. He
-corrects one with "change" and what; nothing on the list waits for an answer. With `branch.propose = "pull-request"` one line of it says, in these
-words, what his "land" approves: "Lem pushes each task's branch and opens its pull request
-without asking" (`branch.propose`; "change propose merge"). That line makes the settings his
-standing word for the push, so that no task stops before its pull request to ask for it.
+corrects one with "change" and what; nothing on the list waits for an answer. One line of it says, in these
+words, what his "land" approves: "Lem pushes each task's branch and opens its pull request on GitHub
+without asking", with no word that changes it: a GitHub pull request is the one way a task lands.
+That line makes the settings his standing word for the push, so that no task stops before its pull
+request to ask for it.
 
 A list of file names is not a hand-over. Every generated file is a draft, and three are read
 first: what must never go wrong, the checks, the personas. Name each persona that is a thin guess, as the

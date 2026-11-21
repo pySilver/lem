@@ -304,3 +304,55 @@ class HeldRefusal(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WhoMerges(unittest.TestCase):
+    """Who may merge a proposed request: the merge agent only a green one that is not careful, with the
+    review's careful call and its own verdict to merge, where the settings let it; the owner always."""
+
+    def refusal(self, land_: str = "agent", careful: tuple[str, ...] = (), reasons: tuple[str, ...] = (), called: bool = True, verdict: str | None = "merge") -> str | None:
+        return land.merger_refusal("gift-note", land_, list(careful), list(reasons), called, {"verdict": verdict} if verdict else None)
+
+    def test_a_green_request_that_is_not_careful_with_a_merge_verdict(self) -> None:
+        self.assertIsNone(self.refusal())
+
+    def test_the_owner_merges_where_the_settings_say_so(self) -> None:
+        self.assertIn('branch.land is "owner"', self.refusal(land_="owner"))
+
+    def test_a_careful_request_calls_him_whatever_the_review_found(self) -> None:
+        self.assertIn("a careful request is merged by the owner", self.refusal(careful=("its plan says careful: yes",)))
+
+    def test_a_request_that_is_not_green_calls_him(self) -> None:
+        self.assertIn("the request is not green (decision 1 was taken without the owner)", self.refusal(reasons=("decision 1 was taken without the owner",)))
+
+    def test_no_careful_call_of_the_review_calls_him(self) -> None:
+        self.assertIn("no review that answered made the careful call", self.refusal(called=False))
+
+    def test_no_merge_review_or_a_call_keeps_the_merge_his(self) -> None:
+        self.assertIn("lem land merge-review gift-note --file FILE", self.refusal(verdict=None))
+        self.assertIn("the merge review calls the owner", self.refusal(verdict="call"))
+
+
+class MergeReview(unittest.TestCase):
+    """The merge agent's verdict is the first line of its review, and the task's time is measured
+    against the earlier tasks of its track in the event log."""
+
+    def test_the_verdict_is_the_first_line(self) -> None:
+        self.assertEqual(land.verdict_of("\nVerdict: merge. A typo in the footer, with its test.\n\nMore."), "merge")
+        self.assertEqual(land.verdict_of("**Verdict: call.** The change is careful."), "call")
+        self.assertIsNone(land.verdict_of("A fine change.\nVerdict: merge."))
+
+    def test_the_time_against_the_median_of_the_same_track(self) -> None:
+        def ev(task: str, event: str, at: str, **more: object) -> dict:
+            return {"ts": f"2026-11-20T{at}:00Z", "event": event, "task": task, **more}
+        events = [
+            ev("a", "task.criteria", "08:00", size="small"), ev("a", "proposed", "08:10"),
+            ev("b", "task.criteria", "08:00", size="small"), ev("b", "proposed", "08:30"),
+            ev("big", "task.criteria", "08:00", size="full"), ev("big", "proposed", "11:00"),
+            ev("c", "task.criteria", "09:00", size="small"), ev("c", "proposed", "12:00"),
+        ]
+        found = land.task_time(events, "c")
+        self.assertEqual((found["seconds"], found["expected"]), (3 * 3600, 20 * 60))
+        self.assertIn("the median of 2 earlier tasks of the fast track", found["from"])
+        self.assertEqual(land.task_time(events, "a")["expected"], None)
+        self.assertEqual(land.task_time(events, "nobody")["seconds"], None)

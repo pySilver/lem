@@ -1,80 +1,81 @@
 #!/usr/bin/env python3
-"""The decisions of one task: each one taken without the owner, and each choice put to the owner.
+"""The decisions of one task, each taken without the owner, and the breakers that stopped it.
 
 A build meets choices its plan did not see. Most are the lead's own: the acceptance criteria stay
 true, so the lead decides and writes the decision down. A choice that changes a criterion, or whose
 options each cost a person something, climbs a ladder of opinions (`stages/ladder.md`): the gate,
 the personas, the dialectic, the experts, each only when the one before left it open; the lead
-applies its counts, since the lead reads the code. Without the owner, its result is logged here.
-With the owner, a decision the gate or the personas settled is logged too, and one that went past
-the personas goes to him: it waits for his answer, with no time limit, while the rest of the task
-goes on. When he says he is away (`lem project owner away`), the ladder's pick is taken at once,
-and the pull request is not green for it. One kind of step never goes that way: a step that a
-later "no" cannot reverse waits for the owner's word however long that takes.
+applies its counts, since the lead reads the code. The ladder always decides: its pick is taken at
+once and logged here, with the owner there or away, and nothing waits for him. A pick past the
+personas makes the pull request not green, and he reads it there. "I'd rather review the PR and
+request a fix then find a work blocked on some question that automated anwers could answer right"
+(the owner, 2026-11-20).
+
+Only the circuit breaker stops a task, for two causes and no others: the next step cannot be
+reversed by a later "no" (`irreversible`), or no option of the ladder keeps the outcome the owner
+approved (`criteria`: a changed rule of an approved criterion; a changed example is a criterion
+change of `criterion`). The lead commits what it has, writes `handoff.md` and `breaker.md` in the
+task directory, and `breaker` records it, keeps the document under the breaker's number
+(`breaker-N.md`, so that a second breaker of the task never writes over the first one's), and holds
+the task. The owner reads the document and helps
+(his decision is `log --by owner --breaker N`), parks the task or drops it.
 
     lem decisions log SLUG --what TEXT --chose TEXT --why TEXT
                  --by lead|gate|personas|dialectic|experts|owner|lem
                  [--said TEXT] [--undo TEXT] [--option TEXT ...] [--vote "PERSONA, FAMILY=OPTION" ...]
-                 [--level NAME=ANSWER ...] [--unsettled]
+                 [--level NAME=ANSWER ...] [--unsettled] [--breaker N] [--words TEXT]
+                 [--case STEPS --case-was reproduced|derived --cause TEXT] [--chart FILE]
                             a decision that was taken, and by which level of the ladder: --why
                             holds the gate's cite, --said what the personas answered. --option is
-                            each option the decision had, --vote each persona's answer, one for
-                            each model family, and --level what each level that ran answered.
-                            `--by personas` takes two votes or more, each for the option --chose
-                            names. `--unsettled` goes with `--by lead`: no level settled it, and
-                            the lead's pick stands. `owner` is a word of the owner's that nobody
-                            asked for (the task is careful), or the owner's yes to skip the
-                            personas' read of criteria that name only the developer, in the form
-                            `land.py` reads (`READ_SKIP`); `lem` one that Lem took before the task
-                            had a lead (out of scope)
+                            each option the decision had, "LABEL: what the person sees after it",
+                            --vote each persona's answer, one for each model family, and --level
+                            what each level that ran answered. `--by personas` takes two votes or
+                            more, each for the option --chose names. `--unsettled` goes with `--by
+                            lead`: no level settled it, and the lead's pick stands. `owner` is a
+                            word of the owner's: his help on breaker N (`--breaker N`, which settles
+                            it, with his own words in --words), a word nobody asked for (the task is
+                            careful), or his yes to skip the personas' read of criteria that name
+                            only the developer, in the form `land.py` reads (`READ_SKIP`); `lem` one
+                            that Lem took before the task had a lead. An important decision, `--by
+                            dialectic`, `--by experts` or `--unsettled`, carries its story: --case,
+                            --case-was and --cause, which any other decision may carry too
     lem decisions criterion SLUG (--changed N --was TEXT --now TEXT | --added N --now TEXT
-                 | --removed N --was TEXT) --why TEXT (--choice ID | --by lead|personas [--said TEXT])
+                 | --removed N --was TEXT) --why TEXT (--decision ID | --by lead|personas [--said TEXT])
                             a change of a criterion the owner approved, with its text before and
                             after: N is its number in the criteria as they stand after every
-                            earlier change. --choice names the choice of the build that led to
-                            it, answered or taken without the owner; without one, the lead's own change
-                            or the personas' clear pick
+                            earlier change. --decision names the decision of the record that led
+                            to it (a pick of the ladder, or the owner's help on a breaker, which
+                            makes the change his); without one, the lead's own change or the
+                            personas' clear pick
     lem decisions changes SLUG
                             the approved criteria, each recorded change of them in order, and the
                             criteria they give, which the plan's criteria must be
-    lem decisions ask SLUG --what TEXT --case STEPS --case-was reproduced|derived --cause TEXT
-                 --option TEXT --option TEXT [...] --recommended TEXT --why TEXT --said TEXT
-                 [--irreversible data|system|person|money]
-                            a choice for the owner, of the plan or of the build: it gets a number,
-                            and while the task runs without the owner the ladder's pick is taken
-                            at once, unless it is irreversible. --case is one concrete case that ends
-                            badly, in numbered steps, one to a line, and --cause one line on why it
-                            became possible and how far that reaches: the owner's card tells one
-                            run.
+    lem decisions breaker SLUG --cause irreversible|criteria [--irreversible data|system|person|money]
+                 [--document FILE]
+                            the circuit breaker: it records the stop with its number, its cause and
+                            its document, and writes the task's state `held` with the line
+                            `breaker N waits for the owner`. FILE is `breaker.md` of the task
+                            directory unless named, a file there in the form of
+                            `templates/breaker.md`, which it keeps as `breaker-N.md`: refused
+                            without one of its parts, without
+                            `handoff.md` beside it, with an uncommitted change of a tracked file
+                            in the worktree, while another breaker of the task waits, and for a
+                            task that is with its landing or ended
     lem decisions pending [SLUG]
-                            the choices that wait, of one task or of every task (`waiting`). A task that is dropped,
-                            landed or answered has none: its choices that never got an answer are named
-                            under `ended`, with the task's status, and need no answer
-    lem decisions wait SLUG ID [--seconds N]
-                            return when the choice is answered, when the task runs without the
-                            owner (then the ladder's pick is taken now), or after N seconds, and
-                            say which
-    lem decisions answer SLUG ID --chose OPTION [--words TEXT] [--why TEXT]
-                            the owner's answer: the option it takes, word for word, the owner's
-                            own words when they are not that text, and the reason when one was
-                            given.
-                            Lem writes it down. Text that is no option is refused here
-    lem decisions answer SLUG ID --instead TEXT [--words TEXT] [--why TEXT]
-                            the owner decided what none of the options says: TEXT settles the
-                            choice, an irreversible one too
-    lem decisions advise SLUG ID --expert fable|astra (--pick OPTION | --none) --why TEXT
-                            one expert's advice on a choice that waits: the option it picks, word
-                            for word, or none of them, with its reasons. One advice of each expert,
-                            while the choice waits; an irreversible step takes advice too
-    lem decisions away
-                            what `lem project owner away` runs: each choice that waits, of each
-                            task that runs without the owner now, and that is no irreversible
-                            step, is taken now: the experts' pick when every expert picked the
-                            same option, the ladder's pick (`--recommended`) otherwise
-    lem decisions list SLUG  every decision of the task, each as it stands now
+                            the breakers that wait, of one task or of every task (`waiting`): a
+                            parked task's under `parked`; a task that is dropped, landed or answered
+                            has none waiting, and its breakers are named under `ended`
+    lem decisions list SLUG  every decision and breaker of the task, each as it stands now
+
+`--chart FILE`, on `log`, is one mermaid chart of the decision, in a file because a chart's text
+does not pass through every shell: the text of the chart, with or without its ```mermaid fence,
+kept with its line breaks. A flowchart's node and edge texts are each in double quotes (the owner's
+rule for every chart); a file that is empty, longer than CHART_MOST characters, of no chart type
+mermaid draws, or a flowchart with a text out of quotes is refused.
 
 The record is `decisions.jsonl` in the task's directory, one line for each thing that happened;
-a decision is the lines with its number. Each line is also an event in the log the board draws.
+each line is also an event in the log the board draws. A decision and a breaker share one row of
+numbers, so "decision 3" and "breaker 4" never name the same line.
 
 A criterion change is a line of the same record, with a number of its own (`change`). It applies
 to the newest approval of the criteria (`criteria.json`, which `lem criteria approve` writes) and names
@@ -83,16 +84,8 @@ is one approved before. `changes` keeps every change in `history`: one that a la
 the owner's took over is the owner's, and the pull request shows it as approved by the owner
 afterwards. `criterion` computes the criteria as they stand after every earlier change, and refuses a change whose criterion N is not the
 text `--was` names: a wrong record never enters. Texts are compared with each run of spaces as
-one, as a criterion written over two lines reads; they are kept as typed. A choice carries no
-criterion: when the option taken changes one, the lead records that with `criterion --choice ID`,
-and the check of the criteria refuses the plan until it does. A task with no approved criteria has
-no criterion changes: its plan's criteria are their one source.
-
-A choice has no time limit: "Lets remove this 15min automatic timeout - to have more explicit: Owner
-either tells dnd or not, no assumptions" (the owner, 2026-11-18). A choice taken because the task
-ran without the owner is a line `timeout` with `early: true`. `--said` is not optional for `ask`:
-the levels of the ladder answer before the owner is asked, and their answers go with the question;
-`--recommended` is the ladder's pick.
+one, as a criterion written over two lines reads; they are kept as typed. A task with no approved
+criteria has no criterion changes: its plan's criteria are their one source.
 
 A count decides each level, not a model, and the lead applies it: the script checks one count
 only, two persona votes or more, all for the option taken. It reads no answer of an agent, and
@@ -107,25 +100,15 @@ code can tell.
 The experts are the settings' `seats.experts` whose agent is on this machine (`here` in `lem
 project show`): two agents of two model families, or, on a machine with one of the agents, one
 expert alone; the owner asked for them as the way out when the owner is not there to answer
-(2026-11-16). On the ladder they are a level before any card, and their pick is logged `--by
-experts`: both picked it, or the one expert did. `advise` keeps their advice on a choice that
-waits, in two places, `fable` for the first seat and `astra` for the second, whatever model sits
-there. `ask` and `log --by experts` write which places answer on this machine (`advisers`), so that
-the record says one expert or two. When the owner goes away their pick is taken (`by: experts`,
-with each reason), and the recommended option when they split or one of them did not advise (`by:
-timeout`). Either way the pull request is not green for it.
+(2026-11-16). On the ladder they are its last level, and their pick is logged `--by experts`:
+both picked it, or the one expert did. `log --by experts` writes which places answer on this
+machine (`advisers`), so that the record says one expert or two. The pull request is not green for
+their pick.
 
-An answer to a choice that was taken without the owner is written down as late. What was taken
-stands; when the answer differs from it, that is a correction, for the lead while the task builds
-and a new ask after that.
-
-Every write reads the record and checks the state under one lock, so an answer and the owner's
-"away" that come at one time leave one outcome, and two writers never take one number. A task that is
-dropped, landed or answered takes no write at all, read under the same lock: nobody builds it,
-and its record stays as it ended.
+Every write reads the record and checks the state under one lock, so two writers never take one
+number. A task that is dropped, landed or answered takes no write at all, read under the same lock:
+nobody builds it, and its record stays as it ended.
 """
-
-from __future__ import annotations
 
 import sys
 
@@ -138,7 +121,7 @@ import fcntl
 import json
 import os
 import re
-import time
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -152,12 +135,45 @@ import lem_sibling  # noqa: E402
 BY = ("lead", "gate", "personas", "dialectic", "experts", "owner", "lem")
 # The task states in which nothing of a task waits any more, as project.py's ENDED.
 ENDED = ("dropped", "landed", "answered")
-# The two places in which the record keeps the experts' advice, as project.py's EXPERT_PLACES: the
-# first seat of the settings' `seats.experts` answers in `fable`, the second in `astra`, whatever
-# model sits there, so a record written under any seats reads the same.
-EXPERTS = ("fable", "astra")
-# How the case of a choice is known: the lead ran it, or read it out of the code.
+# The states of a task that is with its landing: its build is done, and no breaker stops it there.
+WITH_LANDING = ("landing", "open")
+# The task state that put a task aside on the owner's word (`/lem park`): its breaker still waits, for nobody now.
+PARKED = "parked"
+# How the case of a decision is known: the lead ran it, or read it out of the code.
 CASE_WAS = ("reproduced", "derived")
+# Who took a decision that went past the personas: a log by one of them is important and carries its story.
+PAST_PERSONAS = ("dialectic", "experts")
+# The longest chart a record keeps, in characters: about a dozen nodes is the form's own bound
+# (`prompts/writing.md`), and this is a guess at three times that, not a measurement.
+CHART_MOST = 4000
+# The first word of a chart mermaid draws (mermaid 11, its diagram types); the record takes no other.
+CHART_TYPES = (
+    "flowchart", "graph", "sequenceDiagram", "stateDiagram", "stateDiagram-v2", "classDiagram", "erDiagram", "journey",
+    "gantt", "pie", "quadrantChart", "requirementDiagram", "gitGraph", "mindmap", "timeline", "sankey-beta", "xychart-beta",
+    "block-beta", "packet-beta", "architecture-beta", "kanban", "radar-beta", "C4Context", "C4Container", "C4Component", "C4Dynamic", "C4Deployment",
+)
+# The two causes of the circuit breaker, and no others: see the text above.
+CAUSES = {
+    "irreversible": "the next step cannot be reversed by a later no",
+    "criteria": "no option of the ladder keeps the outcome the owner approved",
+}
+# The breaker's document and the handoff beside it, by their names in the task directory. The record keeps
+# the document under the breaker's number (`kept_document`), so each breaker of a task has its own.
+BREAKER_DOC = "breaker.md"
+BREAKER_KEPT = "breaker-{id}.md"
+HANDOFF = "handoff.md"
+# The parts of the breaker's document, as `templates/breaker.md` has them: each a `## ` heading
+# that opens with these words, in any case, and what its text must hold.
+BREAKER_PARTS = {
+    "today and after": "the run of Today and the run of After, each in numbered steps",
+    "the case": "the case that broke, in numbered steps, with its chart in a ```mermaid block",
+    "the root cause": "why the case became possible, and how far the same cause reaches",
+    "the options": "the options as this or that, in a table, with what each leads to",
+    "the recommendation": "the option you would take, and why",
+    "the assumptions": "what the document takes as true, one item each",
+}
+# The state line of a task that a breaker holds, which project.py, session.py and the board read.
+BREAKER_WAIT = re.compile(r"breaker ([1-9]\d*) waits for the owner")
 # Why a later "no" cannot undo a step. A fixed list: see the text above.
 IRREVERSIBLE = {
     "data": "it destroys or rewrites data outside the worktree",
@@ -195,20 +211,17 @@ class Task:
         read them already: `pending` reads them once for every task it lists."""
         self.repo = repo
         self.slug = slug
-        self.mode = "with-owner"
         self.status = self.read_status(tasks)
         self.directory = (state or Path(script("project.py", repo, "state-dir").strip())) / "tasks" / slug
         self.file = self.directory / "decisions.jsonl"
 
     def read_status(self, tasks: list[dict] | None = None) -> str | None:
-        """The task's status now, from its state file: a task may be dropped while a command runs.
-        Its mode comes with it: the owner may say that he is away while a command runs."""
+        """The task's status now, from its state file: a task may be dropped while a command runs."""
         if tasks is None:
             tasks = json.loads(script("project.py", self.repo, "tasks"))
         record = next((task for task in tasks if task["slug"] == self.slug), None)
         if record is None:
             raise DecisionError(f"no task {self.slug!r}; the tasks are: {', '.join(task['slug'] for task in tasks) or 'none yet'}")
-        self.mode = record.get("mode", "with-owner")
         return record["status"]
 
     def lines(self) -> list[dict]:
@@ -228,26 +241,16 @@ class Task:
         return out
 
     def decisions(self) -> list[dict]:
-        """Each decision as it stands now: its first line, with what came after under the same number."""
+        """Each decision and each breaker as it stands now: its first line, and a breaker with the
+        owner's help that settled it (`helped`, by the number of his decision)."""
         found: dict[int, dict] = {}
         for line in self.lines():
-            if line["kind"] in ("taken", "asked"):
-                found[line["id"]] = {**line, "state": "taken" if line["kind"] == "taken" else "waits"}
-            elif line["kind"] == "answered":
-                found[line["id"]].update(
-                    state="answered", chose=line["chose"], by="owner", answered=line["at"],
-                    **{f"owner_{key}": line[key] for key in ("words", "why") if key in line},
-                    **({"instead": True} if line.get("instead") else {}),
-                )
-            elif line["kind"] == "advised":
-                found[line["id"]].setdefault("advice", {})[line["expert"]] = {key: line[key] for key in ("pick", "none", "why", "at") if key in line}
-            elif line["kind"] == "timeout":
-                found[line["id"]].update(
-                    state="timeout", chose=line["chose"], by=line["by"], taken=line["at"],
-                    **({"experts": line["experts"]} if "experts" in line else {}), **({"early": True} if line.get("early") else {}),
-                )
-            elif line["kind"] == "late":
-                found[line["id"]].update(late={"chose": line["chose"], "at": line["at"], **{key: line[key] for key in ("words", "why", "instead") if key in line}})
+            if line["kind"] == "taken":
+                found[line["id"]] = {**line, "state": "taken"}
+                if "breaker" in line and line["breaker"] in found:
+                    found[line["breaker"]].update(state="helped", help=line["id"], helped=line["at"])
+            elif line["kind"] == "breaker":
+                found[line["id"]] = {**line, "state": "waits"}
         return [found[key] for key in sorted(found)]
 
     def approved(self) -> dict | None:
@@ -280,7 +283,7 @@ class Task:
             later = next((old["number"] for old in approvals if old["number"] > line["approval"] and old["by"] == "owner"), None)
             history.append({**line, "taken_over_by": later})
         changes = [line for line in everything if line.get("approval") == newest]
-        expected = [criterion["text"] for criterion in approved["criteria"]]
+        expected = [whole(criterion) for criterion in approved["criteria"]]
         for change in changes:
             expected = applied(expected, change)
         return {
@@ -288,13 +291,15 @@ class Task:
             "changes": changes, "history": history, "expected": expected,
         }
 
-    def one(self, number: int, known: list[dict] | None = None) -> dict:
+    def one(self, number: int, known: list[dict] | None = None, kind: str = "taken") -> dict:
+        """Decision NUMBER of the record, or breaker NUMBER with `kind="breaker"`."""
         known = self.decisions() if known is None else known
-        decision = next((d for d in known if d["id"] == number), None)
-        if decision is None or decision["kind"] != "asked":
-            asked = [str(d["id"]) for d in known if d["kind"] == "asked"]
-            raise DecisionError(f"no choice {number} went to the owner in {self.slug}; those that did: {', '.join(asked) or 'none'}")
-        return decision
+        found = next((d for d in known if d["id"] == number and d["kind"] == kind), None)
+        if found is None:
+            word = "breaker" if kind == "breaker" else "decision"
+            those = [str(d["id"]) for d in known if d["kind"] == kind]
+            raise DecisionError(f"no {word} {number} in {self.slug}; its {word}s: {', '.join(those) or 'none'} (`lem decisions list {self.slug}`)")
+        return found
 
     def add(self, make) -> list[dict]:
         """Write the lines `make` gives for the record as it is under the lock, so a state is
@@ -319,31 +324,6 @@ class Task:
         return lines
 
 
-def advisers(decision: dict) -> list[str]:
-    """The places of the experts who answer a decision: the ones `ask` or `log` found on the machine."""
-    return list(decision.get("advisers") or EXPERTS)
-
-
-def shared(decision: dict) -> str | None:
-    """The option every expert of the decision picked: both, or the one expert alone. None when one
-    is missing, one found none fits, or they split."""
-    advice = decision.get("advice", {})
-    names = advisers(decision)
-    picks = {advice[name].get("pick") for name in names if name in advice}
-    if any(name not in advice for name in names) or len(picks) != 1 or None in picks:
-        return None
-    return picks.pop()
-
-
-def ending(number: int, decision: dict, at: str) -> dict:
-    """The line that takes a choice without the owner, as the task runs without him: the experts'
-    shared pick, or the recommended option."""
-    pick = shared(decision)
-    if pick is None:
-        return {"id": number, "at": at, "kind": "timeout", "chose": decision["recommended"], "by": "timeout", "early": True}
-    return {"id": number, "at": at, "kind": "timeout", "chose": pick, "by": "experts", "experts": {name: decision["advice"][name]["why"] for name in advisers(decision)}, "early": True}
-
-
 def text(value: str | None, flag: str) -> str:
     if value is None or not value.strip():
         raise DecisionError(f"{flag} needs its text: one sentence in plain words")
@@ -355,6 +335,12 @@ def typed(value: str | None, flag: str) -> str:
     if value is None or not value.strip():
         raise DecisionError(f"{flag} needs the criterion's text, word for word")
     return value.strip()
+
+
+def whole(criterion: dict) -> str:
+    """An approved criterion as `lem criteria` compares it: its sentence and the steps of its case,
+    one to a line (criteria.py's `whole`). A change of a step is a change of the criterion."""
+    return "\n".join([criterion["text"], *criterion.get("case", [])])
 
 
 def same(one: str, other: str) -> bool:
@@ -409,7 +395,15 @@ def cmd_log(task: Task, args: argparse.Namespace) -> dict:
             )
     if args.unsettled and args.by != "lead":
         raise DecisionError("--unsettled is the lead's pick that no level settled: it goes with --by lead")
+    breaker = getattr(args, "breaker", None)
+    words = getattr(args, "words", None)
+    if (breaker is not None or words is not None) and args.by != "owner":
+        raise DecisionError("--breaker and --words are the owner's: his help on a breaker, in his own words, goes with --by owner")
     line = {"at": stamp(now()), "kind": "taken", "what": text(args.what, "--what"), "chose": chose, "why": text(args.why, "--why"), "by": args.by}
+    important = args.by in PAST_PERSONAS or args.unsettled
+    if important or any(value is not None for value in (args.case, args.case_was, args.cause)):
+        who = "the lead's pick that no level settled" if args.unsettled else f"a decision --by {args.by}"
+        line.update(story(args, f"{who} is important, and carries its story, which the owner reads at the pull request" if important else "a story"))
     if args.by == "experts":
         line["advisers"] = experts_here(task.repo)
     for key in ("said", "undo"):
@@ -424,7 +418,23 @@ def cmd_log(task: Task, args: argparse.Namespace) -> dict:
         line["levels"] = dict(pairs(args.level, "--level", "NAME=ANSWER, one for each level that ran"))
     if args.unsettled:
         line["unsettled"] = True
-    return task.add(lambda known: [{"id": len(known) + 1, **line}])[0]
+    if args.chart is not None:
+        line["chart"] = chart(args.chart)
+    if words is not None:
+        line["words"] = text(words, "--words")
+    if breaker is not None:
+        line["breaker"] = breaker
+
+    def make(known: list[dict]) -> list[dict]:
+        if breaker is not None:
+            stopped = task.one(breaker, known, "breaker")
+            if stopped["state"] != "waits":
+                raise DecisionError(f"breaker {breaker} of {task.slug} is helped already, by decision {stopped['help']}: a later word of the owner's is a decision of its own, with no --breaker")
+            if task.status == PARKED:
+                raise DecisionError(f"{task.slug} is parked: `lem project resume {task.slug}` brings its breaker back first, then his help settles it")
+        return [{"id": len(known) + 1, **line}]
+
+    return task.add(make)[0]
 
 
 def cmd_criterion(task: Task, args: argparse.Namespace) -> dict:
@@ -439,8 +449,8 @@ def cmd_criterion(task: Task, args: argparse.Namespace) -> dict:
             raise DecisionError(f"--{how} needs --{key}: the criterion's text {'before' if key == 'was' else 'after'} the change, word for word")
         if key not in wants and getattr(args, key) is not None:
             raise DecisionError(f"--{how} takes no --{key}: " + ("an added criterion had no text before" if how == "added" else "a removed criterion has no text after"))
-    if (args.choice is None) == (args.by is None):
-        raise DecisionError("a criterion change names --choice ID, the choice of the build that led to it, or --by lead|personas when no choice did: one of the two")
+    if (args.decision is None) == (args.by is None):
+        raise DecisionError("a criterion change names --decision ID, the decision of the record that led to it, or --by lead|personas when none did: one of the two")
     if args.by == "personas" and not args.said:
         raise DecisionError("--by personas needs --said: who answered and what each picked, in one or two sentences")
     if args.said is not None and args.by != "personas":
@@ -454,20 +464,17 @@ def cmd_criterion(task: Task, args: argparse.Namespace) -> dict:
     line = {"at": stamp(now()), "kind": "criterion", "how": how, "criterion": getattr(args, how), "why": text(args.why, "--why"), "approval": approved["number"]}
     for key in wants:
         line[key] = typed(getattr(args, key), f"--{key}")
-    if args.choice is not None:
-        line["choice"] = args.choice
+    if args.decision is not None:
+        line["decision"] = args.decision
     else:
         line["by"] = args.by
         if args.said is not None:
             line["said"] = text(args.said, "--said")
 
     def make(known: list[dict]) -> list[dict]:
-        if args.choice is not None:
-            choice = task.one(args.choice, known)
-            if choice["state"] not in ("answered", "timeout"):
-                # the state as a verb: a choice that "waits", a decision that "is taken"
-                said = "waits" if choice["state"] == "waits" else f"is {choice['state']}"
-                raise DecisionError(f"choice {args.choice} {said}: a criterion changes after a choice that was answered or taken without the owner")
+        if args.decision is not None:
+            # a decision that is on record: a pick of the ladder, or the owner's help on a breaker
+            task.one(args.decision, known)
         lines = task.lines()
         # the same computation the check of the criteria makes, with this change last: a wrong record never enters
         task.changes([*lines, line])
@@ -478,7 +485,7 @@ def cmd_criterion(task: Task, args: argparse.Namespace) -> dict:
 
 
 def steps(value: str | None) -> str:
-    """The case of a choice as typed, one step to a line: two numbered steps at the least."""
+    """The case of a decision as typed, one step to a line: two numbered steps at the least."""
     lines = [line.rstrip() for line in (value or "").strip().splitlines() if line.strip()]
     numbered = [line for line in lines if re.match(r"\s*\d+[.)]\s+\S", line)]
     if len(numbered) < 2:
@@ -487,6 +494,95 @@ def steps(value: str | None) -> str:
             f"with real names and values and where each step was read; this one has {len(numbered)} numbered step{'' if len(numbered) == 1 else 's'}",
         )
     return "\n".join(lines)
+
+
+def story(args: argparse.Namespace, what: str | None = None) -> dict:
+    """The case of a decision: --case in numbered steps, --case-was, --cause. WHAT names a log's
+    story, whose missing fields are named first."""
+    missing = [flag for flag, value in (("--case", args.case), ("--case-was", args.case_was), ("--cause", args.cause)) if value is None]
+    if missing and what:
+        raise DecisionError(
+            f"{what}: --case, one concrete run in numbered steps, one to a line, --case-was reproduced|derived, and --cause, one line on why it "
+            f"became possible and how far that reaches (`prompts/writing.md`); this one has no {', no '.join(missing)}",
+        )
+    case = steps(args.case)
+    if args.case_was not in CASE_WAS:
+        raise DecisionError(f"--case-was says how the case is known: {' or '.join(CASE_WAS)}")
+    return {"case": case, "case_was": args.case_was, "cause": text(args.cause, "--cause")}
+
+
+def chart(file: str) -> str:
+    """The text of one mermaid chart, from FILE, with its line breaks and without its fence."""
+    source = Path(file)
+    if not source.is_file():
+        raise DecisionError(f"--chart names a file that holds one mermaid chart, and {file} is not a file; write the chart into a file first")
+    try:
+        written = source.read_text(encoding="utf-8")
+    except UnicodeDecodeError as error:
+        raise DecisionError(f"{file} is not UTF-8 text (byte {error.start} does not read); write the chart in UTF-8") from error
+    rows = written.strip("\n").splitlines()
+    fence = re.match(r"\s*(`{3,}|~{3,})\s*(\w*)\s*$", rows[0]) if rows else None
+    if fence:
+        if fence.group(2) not in ("", "mermaid"):
+            raise DecisionError(f"{file} holds a ```{fence.group(2)} block, and --chart takes one mermaid chart: its text, or its text in a ```mermaid fence")
+        rows = rows[1:]
+        if rows and rows[-1].strip() == fence.group(1):
+            rows = rows[:-1]
+    body = "\n".join(row.rstrip() for row in rows).strip("\n")
+    if not body.strip():
+        raise DecisionError(f"{file} holds no chart: --chart takes one mermaid chart, its text or its text in a ```mermaid fence")
+    if len(body) > CHART_MOST:
+        raise DecisionError(f"the chart in {file} has {len(body)} characters, and a record keeps {CHART_MOST} at the most: one chart for one idea, about a dozen nodes (`prompts/writing.md`)")
+    head = chart_type(body)
+    if head not in CHART_TYPES:
+        raise DecisionError(f"the chart in {file} opens with {head!r}, which is no chart type mermaid draws; it opens with one of them, as `flowchart TD` or `sequenceDiagram`")
+    if head in ("flowchart", "graph"):
+        bare = unquoted(body)
+        if bare:
+            raise DecisionError(
+                f"the chart in {file} has a text out of double quotes, {bare!r}: every node's and edge's text of a flowchart is in double quotes, "
+                'as A["The total shows 0"] -->|"yes"| B["A credit note"]',
+            )
+    return body
+
+
+def chart_type(body: str) -> str:
+    """The first word of a chart, after its front matter and its `%%` lines."""
+    rows = body.splitlines()
+    if rows and rows[0].strip() == "---":
+        ends = next((i for i in range(1, len(rows)) if rows[i].strip() == "---"), len(rows) - 1)
+        rows = rows[ends + 1:]
+    first = next((row.strip() for row in rows if row.strip() and not row.strip().startswith("%%")), "")
+    return first.split()[0] if first else ""
+
+
+# The rows of a flowchart that hold no node's or edge's text, by their first word.
+NO_TEXT = ("flowchart", "graph", "classDef", "class", "style", "linkStyle", "click", "direction", "subgraph", "end")
+# A node's shape opening right after its id, and an edge's text between pipes or between `--` and its arrow.
+SHAPE = re.compile(r"[A-Za-z0-9_]+(\[\[|\[\(|\(\[|\(\(\(|\(\(|\{\{|\[/|\[\\|\[|\(|\{|>)")
+PIPED = re.compile(r"\|([^|]*)\|")
+SPOKEN = re.compile(r"(?<![-=])(?:--|==)\s+([^\s\->=][^>]*?)\s+(?:-->|==>|---|===)")
+
+
+def unquoted(body: str) -> str | None:
+    """The first node or edge text of a flowchart that is not in double quotes; none when each is.
+    A check of the common forms, not a parser: it reads a row with its quoted texts taken out."""
+    rows = body.splitlines()
+    # the rows after the one that names the chart's type: front matter before it holds no node
+    start = next(i for i, row in enumerate(rows) if row.split()[:1] and row.split()[0] in ("flowchart", "graph"))
+    for row in rows[start + 1:]:
+        words = row.split()
+        if not words or words[0] in NO_TEXT or words[0].startswith("%%"):
+            continue
+        bare = re.sub(r'"[^"]*"', '""', row)
+        for found in SHAPE.finditer(bare):
+            after = bare[found.end():].lstrip()
+            if not after.startswith('"'):
+                return row.strip()
+        for found in [*PIPED.finditer(bare), *SPOKEN.finditer(bare)]:
+            if found.group(1).strip() != '""':
+                return row.strip()
+    return None
 
 
 def experts_here(repo: Path) -> list[str]:
@@ -498,187 +594,122 @@ def experts_here(repo: Path) -> list[str]:
     return found
 
 
-def cmd_ask(task: Task, args: argparse.Namespace) -> dict:
-    case = steps(args.case)
-    if args.case_was not in CASE_WAS:
-        raise DecisionError(f"--case-was says how the case is known: {' or '.join(CASE_WAS)}")
-    cause = text(args.cause, "--cause")
-    options = [text(option, "--option") for option in args.option or []]
-    if len(options) < 2:
-        raise DecisionError("a choice has two options or more: --option for each")
-    recommended = text(args.recommended, "--recommended")
-    if recommended not in options:
-        raise DecisionError(f"--recommended is one of the options, word for word: {'; '.join(options)}")
-    line = {
-        "at": stamp(now()), "kind": "asked", "what": text(args.what, "--what"), "case": case, "case_was": args.case_was, "cause": cause,
-        "options": options, "recommended": recommended,
-        "why": text(args.why, "--why"), "said": text(args.said, "--said"), "irreversible": args.irreversible,
-        "advisers": experts_here(task.repo),
-    }
+def breaker_document(file: Path) -> str:
+    """The title of a breaker's document, after a check of its parts (BREAKER_PARTS); refused with
+    each part it lacks, so the owner never reads a bare question."""
+    try:
+        written = file.read_text(encoding="utf-8")
+    except UnicodeDecodeError as error:
+        raise DecisionError(f"{file} is not UTF-8 text (byte {error.start} does not read); write it in UTF-8") from error
+    title = next((line[2:].strip() for line in written.splitlines() if line.startswith("# ")), None)
+    sections: dict[str, list[str]] = {}
+    current = None
+    for line in written.splitlines():
+        if line.startswith("## "):
+            head = " ".join(line[3:].lower().split())
+            current = next((part for part in BREAKER_PARTS if head.startswith(part)), None)
+            if current is not None:
+                sections.setdefault(current, [])
+        elif current is not None:
+            sections[current].append(line)
+    missing = []
+    for part, holds in BREAKER_PARTS.items():
+        body = "\n".join(sections.get(part, []))
+        numbered = len(re.findall(r"(?m)^\s*\d+[.)]\s+\S", body))
+        lacks = (
+            part not in sections or not body.strip()
+            or (part == "today and after" and (numbered < 2 or not re.search(r"\btoday\b", body, re.I) or not re.search(r"\bafter\b", body, re.I)))
+            or (part == "the case" and (numbered < 2 or "```mermaid" not in body))
+            or (part == "the options" and len([row for row in body.splitlines() if row.strip().startswith("|")]) < 3)
+            or (part == "the assumptions" and not re.search(r"(?m)^\s*(?:[-*]|\d+[.)])\s+\S", body))
+        )
+        if lacks:
+            missing.append(f"## {part[0].upper()}{part[1:]} ({holds})")
+    if not title:
+        missing.insert(0, "a first line `# ` that says what stopped the task, in one sentence")
+    if missing:
+        raise DecisionError(
+            f"{file} is no breaker's document yet: it lacks " + "; ".join(missing)
+            + ". `templates/breaker.md` of the skill is its form: the owner reads it far from the task, so it brings the context back",
+        )
+    return " ".join(title.split())
+
+
+def kept_document(document: Path, number: int) -> str:
+    """Keep the breaker's document under its number, `breaker-N.md` beside it, and give that name: the
+    agent writes `breaker.md` each time, and a later breaker of the task never writes over this one's."""
+    kept = document.with_name(BREAKER_KEPT.format(id=number))
+    document.replace(kept)
+    return kept.name
+
+
+def cmd_breaker(task: Task, args: argparse.Namespace) -> dict:
+    """The circuit breaker: record it with its cause and its document, then hold the task."""
+    if args.cause == "irreversible" and args.irreversible is None:
+        raise DecisionError("--cause irreversible names its kind: --irreversible data|system|person|money")
+    if args.cause != "irreversible" and args.irreversible is not None:
+        raise DecisionError("--irreversible goes with --cause irreversible; the cause criteria is a rule of an approved criterion that no option keeps")
+    if task.status in WITH_LANDING:
+        raise DecisionError(f"{task.slug} is {task.status}: its build is done, and no breaker stops a landing. A step of the landing that only the owner may take is his word, as `stages/land.md` says")
+    document = Path(args.document) if args.document else task.directory / BREAKER_DOC
+    if not document.is_absolute():
+        document = Path.cwd() / document
+    if not document.is_file():
+        raise DecisionError(f"{document} is not a file: write the breaker's document first, {BREAKER_DOC} in the task directory, in the form of `templates/breaker.md`")
+    if document.resolve().parent != task.directory.resolve():
+        raise DecisionError(f"{document} is not in the task directory {task.directory}: the board and a fresh agent read the breaker's document there")
+    title = breaker_document(document)
+    handoff = task.directory / HANDOFF
+    if not handoff.is_file() or not handoff.read_text(encoding="utf-8").strip():
+        raise DecisionError(
+            f"{handoff} is missing: the agent that stops writes the handoff beside the document (what is settled, what is open, the next step, "
+            "what was tried and failed), so that a fresh agent goes on from it a week later",
+        )
+    dirty = subprocess.run(["git", "-C", str(task.repo), "status", "--porcelain", "--untracked-files=no"], capture_output=True, text=True, check=False)
+    if dirty.returncode == 0 and dirty.stdout.strip():
+        raise DecisionError(
+            f"the worktree {task.repo} has uncommitted changes of tracked files ({len(dirty.stdout.splitlines())}): commit what the task has first, "
+            "since a dropped task's worktree goes and only its branch stays",
+        )
+    line = {"at": stamp(now()), "kind": "breaker", "cause": args.cause, "what": title, "handoff": HANDOFF}
+    if args.irreversible:
+        line["irreversible"] = args.irreversible
 
     def make(known: list[dict]) -> list[dict]:
-        asked = {"id": len(known) + 1, **line}
-        # while the task runs without the owner (read again under the lock), nothing waits for him but an irreversible step
-        return [asked] if args.irreversible or task.mode != "alone" else [asked, ending(asked["id"], {**asked, "advice": {}}, asked["at"])]
-
-    made = task.add(make)
-    if len(made) > 1:
-        return {**made[0], "taken": made[1]["chose"], "next": "the task runs without the owner: the ladder's pick is taken now, the pull request is not green for it, and nothing waits"}
-    # the experts answer on the ladder before any card (`stages/ladder.md`), so the next step names only Lem
-    told = f"tell Lem that choice {made[0]['id']} of {task.slug} waits; "
-    return {**made[0], "next": told + (
-        "it waits for the owner's word, however long: the rest of the plan goes on" if args.irreversible
-        else f"go on with what does not depend on it; `lem decisions wait {task.slug} {made[0]['id']}` says when it is answered, or taken because the owner went away"
-    )}
-
-
-def cmd_advise(task: Task, number: int, args: argparse.Namespace) -> dict:
-    """One expert's advice on a choice that waits, checked against the record under the lock."""
-    if (args.pick is None) == (not args.none):
-        raise DecisionError("an expert's advice is --pick OPTION, one of the choice's options word for word, or --none when it found that none fits: one of the two")
-    line = {"id": number, "at": stamp(now()), "kind": "advised", "expert": args.expert}
-    if args.none:
-        line["none"] = True
-    else:
-        line["pick"] = text(args.pick, "--pick")
-    line["why"] = text(args.why, "--why")
-
-    def make(known: list[dict]) -> list[dict]:
-        decision = task.one(number, known)
-        if decision["state"] != "waits":
-            raise DecisionError(f"choice {number} does not wait: it is {decision['state']}, with {decision['chose']!r}; advice on it changes nothing")
-        if args.expert in decision.get("advice", {}):
-            raise DecisionError(f"choice {number} has the advice of {args.expert} already: one advice of each expert, and `lem decisions list {task.slug}` shows it")
-        if "pick" in line and line["pick"] not in decision["options"]:
-            raise DecisionError(
-                f"the pick of an expert is one of the options of choice {number}, word for word: {'; '.join(decision['options'])}. "
-                "An answer that fits none of them is --none, with its reasons in --why",
-            )
-        return [line]
+        waiting = next((d for d in known if d["kind"] == "breaker" and d["state"] == "waits"), None)
+        if waiting:
+            raise DecisionError(f"breaker {waiting['id']} of {task.slug} waits for the owner already: one breaker holds a task at a time, and its document says it")
+        number = len(known) + 1
+        return [{"id": number, **line, "document": kept_document(document, number)}]
 
     made = task.add(make)[0]
-    advised = task.one(number)
-    return {**made, "advised": sorted(advised.get("advice", {})), "experts_pick": shared(advised)}
+    why = CAUSES[args.cause] + (f" ({IRREVERSIBLE[args.irreversible]})" if args.irreversible else "")
+    script("project.py", task.repo, "state", task.slug, "held", f"breaker {made['id']} waits for the owner", f"{title}: {why}")
+    return {**made, "next": "the task stops here, and the other tasks build on. Stop as `stages/build.md` ends: the report, then your reply; "
+                            "Lem puts the document to the owner, who helps, parks the task or drops it"}
 
 
 def shown(task: Task, decision: dict) -> dict:
-    out = {"task": task.slug, **{key: value for key, value in decision.items() if key != "kind"}}
-    if decision["kind"] == "asked" and decision["state"] == "waits":
-        if "advice" in decision:
-            out["experts_pick"] = shared(decision)
-    return out
+    return {"task": task.slug, **{key: value for key, value in decision.items() if key != "kind"}, "kind": decision["kind"]}
 
 
 def cmd_pending(repo: Path, slug: str | None) -> dict:
-    """The choices that wait for the owner. A dropped, landed or answered task has none: nobody
-    needs his answer there, and the record stays for `list`."""
+    """The breakers that wait for the owner. A parked task's wait for nobody now; a dropped, landed or
+    answered task has none: nobody builds it, and the record stays for `list`."""
     # Every task, from one read of the tasks and of the state folder: nothing here writes either.
     listed = json.loads(script("project.py", repo, "tasks")) if not slug else None
     state = Path(script("project.py", repo, "state-dir").strip()) if listed else None
     slugs = [slug] if slug else [task["slug"] for task in listed]
-    waiting: list[dict] = []
-    ended: list[dict] = []
+    out: dict[str, list[dict]] = {"waiting": [], "parked": [], "ended": []}
     for task in (Task(repo, name, listed, state) for name in slugs):
-        open_ones = [decision for decision in task.decisions() if decision["state"] == "waits"]
+        open_ones = [d for d in task.decisions() if d["kind"] == "breaker" and d["state"] == "waits"]
         if task.status in ENDED:
             if open_ones or slug:
-                ended.append({
-                    "task": task.slug, "status": task.status, "choices": [decision["id"] for decision in open_ones],
-                    "says": f"the task is {task.status}: its choices no longer wait for an answer",
-                })
+                out["ended"].append({"task": task.slug, "status": task.status, "breakers": [d["id"] for d in open_ones],
+                                     "says": f"the task is {task.status}: its breakers no longer wait for anybody"})
         else:
-            waiting += [shown(task, decision) for decision in open_ones]
-    return {"waiting": waiting, "ended": ended}
-
-
-def cmd_wait(task: Task, number: int, seconds: int) -> dict:
-    until = time.monotonic() + seconds
-    while True:
-        decision = task.one(number)
-        if decision["state"] != "waits":
-            ended = "answered" if decision["state"] == "answered" else "taken without the owner"
-            return {**shown(task, decision), "ended": ended}
-        if task.status in ENDED:
-            return {**shown(task, decision), "ended": f"the task is {task.status}: the choice no longer waits", "status": task.status}
-        # the owner went away, or the task is a night's: nothing waits for him any more but an irreversible step
-        if not decision["irreversible"] and task.mode == "alone":
-            taken = take(task, [number])
-            if taken:
-                return {**shown(task, task.one(number)), "ended": "taken without the owner: the task runs without him now"}
-            continue
-        if time.monotonic() >= until:
-            return {**shown(task, decision), "ended": "still waits"}
-        # A short step, so that an answer or a drop ends the wait within two seconds or so; the
-        # status is read again with the choice, because a task dropped or landed during the wait ends it.
-        time.sleep(min(2, max(0.5, until - time.monotonic())))
-        task.status = task.read_status()
-
-
-def cmd_answer(task: Task, number: int, args: argparse.Namespace) -> dict:
-    if (args.chose is None) == (args.instead is None):
-        raise DecisionError("--chose names one of the options and --instead a decision of the owner's that is none of them: give one of the two")
-    instead = args.instead is not None
-    chose = text(args.instead, "--instead") if instead else text(args.chose, "--chose")
-    reason = {key: text(value, f"--{key}") for key, value in (("words", args.words), ("why", args.why)) if value is not None}
-    if instead:
-        reason["instead"] = True
-    taken: dict = {}
-
-    def make(known: list[dict]) -> list[dict]:
-        decision = task.one(number, known)
-        at = stamp(now())
-        if decision["state"] == "answered":
-            raise DecisionError(f"choice {number} has the owner's answer already: {decision['chose']!r}")
-        # The option is what the record and the pull request read; his own words stay beside it. A decision of his that is none of the options is --instead.
-        if not instead and chose not in decision["options"]:
-            raise DecisionError(
-                f"the answer to choice {number} is one of its options, word for word: {'; '.join(decision['options'])}. "
-                "Put the owner's own words in --words. When what the owner decided fits none of them, settle the choice with "
-                "--instead TEXT, never with a new `lem decisions log`, so it does not wait for ever",
-            )
-        # A choice that waits takes his answer, however long it waited.
-        if decision["state"] == "waits":
-            return [{"id": number, "at": at, "kind": "answered", "chose": chose, **reason}]
-        # Taken without him: what was taken stands.
-        taken.update(chose=decision["chose"], state=decision["state"])
-        return [{"id": number, "at": at, "kind": "late", "chose": chose, **reason}]
-
-    made = task.add(make)[-1]
-    if made["kind"] == "answered":
-        return made
-    return {**made, "state": taken["state"], "taken": taken["chose"], "next": (
-        "the answer is the action that was taken: nothing more to do" if chose == taken["chose"]
-        else f"\"{taken['chose']}\" was taken without the owner, and the answer differs: it is a correction. Tell the lead while the task builds; after that it is a new ask"
-    )}
-
-
-def take(task: Task, numbers: list[int] | None = None) -> list[dict]:
-    """Take each choice of the task that waits and is no irreversible step (only those of `numbers`,
-    when given), as the task runs without the owner: one line each, under the lock, where the mode is
-    read again. Nothing when the owner is there."""
-    def make(known: list[dict]) -> list[dict]:
-        if task.mode != "alone":
-            return []
-        at = stamp(now())
-        return [ending(decision["id"], decision, at) for decision in known
-                if decision["kind"] == "asked" and decision["state"] == "waits" and not decision["irreversible"] and (numbers is None or decision["id"] in numbers)]
-
-    return task.add(make)
-
-
-def cmd_away(repo: Path) -> dict:
-    """Each choice that waits, of each task that runs without the owner now: taken now, except an
-    irreversible step, which waits for him in every case."""
-    listed = json.loads(script("project.py", repo, "tasks"))
-    state = Path(script("project.py", repo, "state-dir").strip())
-    taken: list[dict] = []
-    for record in listed:
-        if record["status"] in ENDED or record.get("mode") != "alone":
-            continue
-        task = Task(repo, record["slug"], listed, state)
-        if any(decision["state"] == "waits" for decision in task.decisions()):
-            taken += [{"task": task.slug, "id": line["id"], "chose": line["chose"], "by": line["by"]} for line in take(task)]
-    return {"taken": taken}
+            out["parked" if task.status == PARKED else "waiting"] += [{**shown(task, d), "status": task.status} for d in open_ones]
+    return out
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -692,10 +723,16 @@ def main(argv: list[str] | None = None) -> None:
     log.add_argument("--by", required=True, choices=BY)
     log.add_argument("--said", help="what the personas answered: who, which option, in one or two sentences")
     log.add_argument("--undo", help="what it would take to undo the decision")
-    log.add_argument("--option", action="append", metavar="TEXT", help="each option the decision had, word for word")
+    log.add_argument("--option", action="append", metavar="TEXT", help="each option the decision had, word for word, as \"LABEL: what the person sees after it\"")
     log.add_argument("--vote", action="append", metavar="PERSONA, FAMILY=OPTION", help="one persona's answer in one model family")
     log.add_argument("--level", action="append", metavar="NAME=ANSWER", help="what one level of the ladder answered")
     log.add_argument("--unsettled", action="store_true", help="with --by lead: no level settled it, and the lead's pick stands")
+    log.add_argument("--case", metavar="STEPS", help="one concrete run in numbered steps, one to a line: required --by dialectic, --by experts and with --unsettled")
+    log.add_argument("--case-was", metavar="HOW", help="reproduced, or derived from the code")
+    log.add_argument("--cause", help="one line: why the case became possible, and how far the same cause reaches")
+    log.add_argument("--chart", metavar="FILE", help="a file that holds one mermaid chart of the decision")
+    log.add_argument("--breaker", type=int, metavar="N", help="with --by owner: his help on breaker N, which settles it")
+    log.add_argument("--words", help="with --by owner: his words as given, when they are not the --chose text")
     criterion = commands.add_parser("criterion")
     criterion.add_argument("slug")
     criterion.add_argument("--changed", type=int, metavar="N", help="criterion N changed: --was is its text before, --now its text after")
@@ -704,42 +741,17 @@ def main(argv: list[str] | None = None) -> None:
     criterion.add_argument("--was", help="the criterion's text before the change, word for word")
     criterion.add_argument("--now", help="the criterion's text after the change, word for word")
     criterion.add_argument("--why", required=True, help="why the criterion changed, in one sentence")
-    criterion.add_argument("--choice", type=int, metavar="ID", help="the choice of the build that led to the change")
-    criterion.add_argument("--by", choices=("lead", "personas"), help="who changed it, when no choice did")
+    criterion.add_argument("--decision", type=int, metavar="ID", help="the decision of the record that led to the change")
+    criterion.add_argument("--by", choices=("lead", "personas"), help="who changed it, when no decision of the record did")
     criterion.add_argument("--said", help="with --by personas: who answered and what each picked")
     commands.add_parser("changes").add_argument("slug")
-    ask = commands.add_parser("ask")
-    ask.add_argument("slug")
-    ask.add_argument("--what", required=True)
-    ask.add_argument("--case", metavar="STEPS", help="one concrete case that ends badly, in numbered steps, one to a line")
-    ask.add_argument("--case-was", metavar="HOW", help="reproduced, or derived from the code")
-    ask.add_argument("--cause", help="one line: why the case became possible, and how far the same cause reaches")
-    ask.add_argument("--option", action="append", metavar="TEXT")
-    ask.add_argument("--recommended", required=True)
-    ask.add_argument("--why", required=True, help="why that option is recommended")
-    ask.add_argument("--said", required=True, help="what the personas answered: who, which option, and why they do not agree")
-    ask.add_argument("--irreversible", choices=tuple(IRREVERSIBLE), help="why a later \"no\" cannot undo the step")
+    breaker = commands.add_parser("breaker", help="the circuit breaker: record the stop with its cause and its document, and hold the task")
+    breaker.add_argument("slug")
+    breaker.add_argument("--cause", required=True, choices=tuple(CAUSES), help="the next step cannot be reversed, or no option keeps the approved criteria")
+    breaker.add_argument("--irreversible", choices=tuple(IRREVERSIBLE), help="with --cause irreversible: why a later \"no\" cannot undo the step")
+    breaker.add_argument("--document", metavar="FILE", help=f"the breaker's document, {BREAKER_DOC} of the task directory unless named")
     pending = commands.add_parser("pending")
     pending.add_argument("slug", nargs="?")
-    wait = commands.add_parser("wait")
-    wait.add_argument("slug")
-    wait.add_argument("id", type=int)
-    wait.add_argument("--seconds", type=int, default=540, help="how long this call stays at the most (default: 540)")
-    answer = commands.add_parser("answer")
-    answer.add_argument("slug")
-    answer.add_argument("id", type=int)
-    answer.add_argument("--chose", metavar="OPTION", help="the option the owner's answer takes, word for word")
-    answer.add_argument("--instead", metavar="TEXT", help="the owner's decision, when it is none of the options; it settles the choice")
-    answer.add_argument("--words", help="the owner's answer as given, when it is not the option's text")
-    answer.add_argument("--why", help="the owner's own reason, in the owner's words, when one was given; never the recommendation's")
-    commands.add_parser("away")
-    advise = commands.add_parser("advise")
-    advise.add_argument("slug")
-    advise.add_argument("id", type=int)
-    advise.add_argument("--expert", required=True, choices=EXPERTS)
-    advise.add_argument("--pick", metavar="OPTION", help="the option the expert picked, word for word")
-    advise.add_argument("--none", action="store_true", help="the expert found that none of the options fits")
-    advise.add_argument("--why", required=True, help="the expert's reasons, in two to four sentences")
     commands.add_parser("list").add_argument("slug")
     args = parser.parse_args(argv)
     for arg in sys.argv[1:] if argv is None else argv:
@@ -752,8 +764,6 @@ def main(argv: list[str] | None = None) -> None:
     try:
         if args.command == "pending":
             result: object = cmd_pending(repo, args.slug)
-        elif args.command == "away":
-            result = cmd_away(repo)
         else:
             task = Task(repo, args.slug)
             if args.command == "log":
@@ -762,14 +772,8 @@ def main(argv: list[str] | None = None) -> None:
                 result = cmd_criterion(task, args)
             elif args.command == "changes":
                 result = task.changes()
-            elif args.command == "ask":
-                result = cmd_ask(task, args)
-            elif args.command == "wait":
-                result = cmd_wait(task, args.id, args.seconds)
-            elif args.command == "answer":
-                result = cmd_answer(task, args.id, args)
-            elif args.command == "advise":
-                result = cmd_advise(task, args.id, args)
+            elif args.command == "breaker":
+                result = cmd_breaker(task, args)
             else:
                 result = [shown(task, decision) for decision in task.decisions()]
     except DecisionError as error:

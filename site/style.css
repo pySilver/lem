@@ -79,11 +79,11 @@ h2 { margin: 0 0 14px; font-size: 32px; line-height: 1.2; font-weight: 720; lett
 .text p:last-child { margin-bottom: 0; }
 .columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 36px; align-items: start; margin-top: 34px; }
 
-/* the diagram: one row for each track, in six columns, so that both rows end at one pull request */
+/* the diagram: one row for each track, in seven columns, so that both rows end at one pull request and one merge */
 .flow { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 24px 26px 18px; display: flex; flex-direction: column; gap: 18px; }
 .track { display: grid; grid-template-columns: 128px minmax(0, 1fr); gap: 16px; align-items: center; }
 .track h3 { margin: 0; font-size: 13px; font-weight: 650; letter-spacing: .02em; color: var(--dim); }
-.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 24px; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 24px; }
 .fast .step:nth-child(2) { grid-column: span 3; }
 .step {
   position: relative; min-height: 62px; padding: 10px 12px; border-radius: 12px;
@@ -112,7 +112,7 @@ h2 { margin: 0 0 14px; font-size: 32px; line-height: 1.2; font-weight: 720; lett
 .who { font-weight: 700; }
 .who.you { color: var(--you-ink); }
 .who.lem { color: var(--lem-ink); }
-.dialog figcaption, .shot figcaption { margin-top: 10px; font-size: 13px; font-style: italic; color: var(--faint); }
+.dialog figcaption, .shot figcaption, .showcase figcaption { margin-top: 10px; font-size: 13px; font-style: italic; color: var(--faint); }
 
 /* the three points */
 .points { list-style: none; margin: 8px 0 0; padding: 0; counter-reset: point; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
@@ -127,13 +127,70 @@ h2 { margin: 0 0 14px; font-size: 32px; line-height: 1.2; font-weight: 720; lett
 .points b { font-size: 17px; line-height: 1.3; }
 .points span { color: var(--dim); font-size: 15px; }
 
-/* the board's picture: its top part, in a frame */
-.shot { margin: 0; }
+/* the board's pictures: a computer and a phone side by side, at one height. The phone's column is
+   the share of the computer's that gives both frames the same height (390/844 against 1440/900, with the phone's 6 px bezel). */
+.showcase { margin: 56px 0 0; align-self: stretch; }
+.screens {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .2967fr); gap: 22px; align-items: end;
+  width: min(1240px, calc(100vw - 64px)); margin-left: 50%; transform: translateX(-50%);
+}
 .frame {
-  max-height: 600px; overflow: hidden; border-radius: 14px; border: 1px solid var(--line-strong);
-  box-shadow: 0 24px 60px -30px color-mix(in srgb, var(--fg) 45%, transparent);
+  overflow: hidden; border-radius: 14px; border: 1px solid var(--line-strong); background: var(--card);
+  box-shadow: 0 30px 70px -34px color-mix(in srgb, var(--fg) 50%, transparent), 0 2px 6px -2px color-mix(in srgb, var(--fg) 12%, transparent);
 }
 .frame img { display: block; width: 100%; height: auto; }
+.frame.hand { border-radius: 28px; border: 6px solid #1c1c1c; box-shadow: 0 0 0 1px var(--line-strong), 0 30px 70px -34px color-mix(in srgb, var(--fg) 50%, transparent); }
+.showcase figcaption { text-align: center; margin-top: 18px; }
+
+/* the four views, each with the mark of its actor as on the board */
+.views { list-style: none; margin: 40px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.views li { --c: var(--lead); padding: 16px 18px 18px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); box-shadow: inset 3px 0 0 var(--c); display: flex; flex-direction: column; gap: 4px; }
+.views .v-you { --c: var(--you); }
+.views .v-backlog { --c: var(--gate); }
+.views .v-activity { --c: var(--lem); }
+.views b { font-size: 16px; }
+.views span { color: var(--dim); font-size: 14.5px; line-height: 1.5; }
+.tabs-line { margin: 18px 0 0; color: var(--dim); font-size: 15px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.chip { display: inline-block; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--card); color: var(--fg); font-size: 13px; line-height: 1.6; white-space: nowrap; }
+
+/* the two example dialogs, one over the other */
+.dialogs { display: flex; flex-direction: column; gap: 22px; }
+
+/* the phone: what it gives, and the setup in a card */
+.phone-cols { margin-top: 10px; align-items: stretch; }
+.phone-cols .intro { margin-bottom: 18px; color: var(--fg); font-size: 19px; line-height: 1.5; }
+.note { color: var(--dim); font-size: 15px; }
+.setup { padding: 22px 24px 20px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); }
+.setup ol { list-style: none; margin: 4px 0 0; padding: 0; counter-reset: step; display: flex; flex-direction: column; gap: 14px; }
+.setup li { counter-increment: step; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; align-items: start; font-size: 15.5px; }
+.setup li::before {
+  content: counter(step); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 13px; font-weight: 700; color: var(--bg); background: color-mix(in srgb, var(--you) 78%, var(--fg));
+}
+.setup .more { margin: 18px 0 0; padding-top: 14px; border-top: 1px solid var(--line); font-size: 14.5px; color: var(--dim); }
+
+/* many tasks at once: three cards, then the verdict of a pull request beside a task's picture */
+.cards { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.cards li { padding: 18px 20px 20px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+.cards b { font-size: 16.5px; line-height: 1.3; }
+.cards span { color: var(--dim); font-size: 15px; }
+.verdict { margin-top: 56px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; }
+.verdict h3 { margin: 0 0 12px; font-size: 22px; line-height: 1.25; font-weight: 700; letter-spacing: -.01em; }
+.reasons { margin: 0 0 14px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.reasons li { position: relative; padding-left: 20px; color: var(--dim); }
+.reasons li::before { content: ""; position: absolute; left: 3px; top: .62em; width: 7px; height: 7px; border-radius: 50%; background: var(--bad); }
+.verdict .text p:last-child { font-weight: 650; }
+.verdict .text p:last-child::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 9px; border-radius: 50%; background: var(--ok); transform: translateY(-1px); }
+.shot { margin: 0; }
+/* the task's picture, cut to its panel: from 61.5% to the right edge, and from 5% to 76% of its
+   height. The picture is 1440 x 900, so its width is 1 / 0.385 of the frame's, and its height 0.625 of that. */
+.frame.crop { aspect-ratio: 1 / 1.152; }
+.frame.crop img { width: 259.7%; max-width: none; margin-left: -159.7%; margin-top: -8.1%; }
+
+/* the main tools */
+.tools { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.tools li { padding: 3px 11px; border-radius: 999px; background: var(--card-hi); border: 1px solid var(--line); font-size: 14px; }
+.tools .optional { background: transparent; border-style: dashed; border-color: var(--line-strong); color: var(--dim); }
 
 /* the install again */
 #install .install { margin-bottom: 26px; }
@@ -144,15 +201,27 @@ footer { border-top: 1px solid var(--line); padding-top: 44px; padding-bottom: 5
 .repo { margin: 0; font-size: 15px; }
 
 /* a narrow window: the columns stack, and each track reads from top to bottom */
+@media (max-width: 1100px) {
+  .views { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (max-width: 860px) {
   main, footer { padding: 0 20px; }
   .lead { font-size: 25px; }
   h2 { font-size: 26px; }
-  .columns, .points { grid-template-columns: minmax(0, 1fr); }
+  .top { flex-wrap: wrap; justify-content: center; gap: 8px 20px; }
+  .columns, .points, .cards, .verdict { grid-template-columns: minmax(0, 1fr); }
   .track { grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .steps { grid-template-columns: minmax(0, 1fr); gap: 18px; }
   .fast .step:nth-child(2) { grid-column: auto; }
   .step { min-height: 0; }
   .step:not(:last-child)::after { top: auto; right: auto; bottom: -13px; left: 24px; width: 1.5px; height: 10px; }
   .step:not(:last-child)::before { top: auto; right: auto; bottom: -14px; left: 21.75px; transform: rotate(135deg); }
+  .verdict { margin-top: 40px; }
+}
+/* a phone: the phone's picture first and alone at a size to read, then the computer's */
+@media (max-width: 640px) {
+  .screens { width: auto; margin-left: 0; transform: none; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .frame.hand { order: -1; width: min(280px, 78%); justify-self: center; }
+  .views { grid-template-columns: minmax(0, 1fr); }
+  .install .cmd code { font-size: 13px; }
 }

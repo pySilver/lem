@@ -71,8 +71,6 @@ already has a cast, which a rebase brings in instead.
 two panels never write into one.
 """
 
-from __future__ import annotations
-
 import sys
 
 if sys.version_info < (3, 11):

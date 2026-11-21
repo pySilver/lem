@@ -150,26 +150,17 @@ else:
     problems.append("the page has no section")
 verdict["first"] = "; ".join(p for p in problems if p)
 
-# 2: five sections in order, then a footer
-order = []
-for section in sections:
-    text = flat(section.text())
-    if section.find(lambda n: "install" in n.classes()) and section.find(lambda n: n.tag == "picture"):
-        order.append("opening")
-    elif section.find(lambda n: "flow" in n.classes()):
-        order.append("flow")
-    elif section.find(lambda n: "points" in n.classes()) and all(word in text for word in ("interview", "acceptance criteria", "merge")):
-        order.append("points")
-    elif section.find(lambda n: n.tag == "img" and "board" in n.attrs.get("src", "")):
-        order.append("board")
-    elif section.find(lambda n: "install" in n.classes()):
-        order.append("install")
-    else:
-        order.append("unknown")
-want = ["opening", "flow", "points", "board", "install"]
+# 2: six sections in order, each known by its id, then a footer; the nav at the top links four of them
+order = [section.attrs.get("id", "") for section in sections]
+want = ["start", "board", "flow", "phone", "parallel", "install"]
 footer_last = footer is not None and page.rfind("</section>") < page.find("<footer")
-verdict["sections"] = "" if order == want and footer_last else f"the sections read as {order}, the footer after them: {footer_last}"
-verdict["words"] = "" if 600 <= len(words) <= 900 else f"{len(words)} words"
+problems = [] if order == want and footer_last else [f"the sections read as {order}, the footer after them: {footer_last}"]
+nav = [a.attrs.get("href", "") for a in body.find(lambda n: n.tag == "a" and n.parent is not None and "top" in n.parent.classes())]
+missing_nav = [f"#{name}" for name in ("board", "flow", "phone", "install") if f"#{name}" not in nav]
+if missing_nav:
+    problems.append(f"the nav does not link {missing_nav}")
+verdict["sections"] = "; ".join(problems)
+verdict["words"] = "" if 800 <= len(words) <= 1200 else f"{len(words)} words"
 verdict["words_count"] = str(len(words))
 
 # 2: the diagram, one row for each track, the steps of the developer marked with the class you
@@ -202,8 +193,8 @@ if last is not None:
         problems.append(f"the sentence that names .lem/ links {removal}, not the removal steps of docs/install.md")
 verdict["again"] = "; ".join(p for p in problems if p)
 
-# 2: the footer links the five guides, the settings and the repository
-need = {"docs/flow.md", "docs/when-lem-needs-you.md", "docs/pull-request.md", "docs/install.md", "docs/linear.md", "docs/settings.md"}
+# 2: the footer links the six guides, the settings and the repository
+need = {"docs/flow.md", "docs/when-lem-needs-you.md", "docs/board.md", "docs/pull-request.md", "docs/install.md", "docs/linear.md", "docs/settings.md"}
 footer_links = [a.attrs.get("href", "") for a in footer.find(lambda n: n.tag == "a")] if footer else []
 linked = {GUIDE.match(href).group(1) for href in footer_links if GUIDE.match(href)}
 missing = sorted(need - linked) + ([] if REPO in footer_links else [REPO])
@@ -238,9 +229,13 @@ for number, dialog in enumerate(dialogs, 1):
     caption = dialog.find(lambda n: n.tag == "figcaption")
     if not caption or "illustration" not in caption[0].text():
         problems.append(f"example dialog {number} has no caption that says illustration")
-shots = body.find(lambda n: n.tag == "figure" and n.find(lambda i: i.tag == "img" and "board" in i.attrs.get("src", "")))
-if not shots or not any("demo data" in c.text() for c in shots[0].find(lambda n: n.tag == "figcaption")):
-    problems.append("the board picture's caption does not say demo data")
+shots = body.find(lambda n: n.tag == "figure" and n.find(lambda i: i.tag == "img" and i.attrs.get("src", "").startswith("assets/screens/")))
+if not shots:
+    problems.append("no figure shows a picture of the board")
+for shot in shots:
+    names = [i.attrs.get("src") for i in shot.find(lambda n: n.tag == "img")]
+    if not any("demo data" in c.text() for c in shot.find(lambda n: n.tag == "figcaption")):
+        problems.append(f"the caption of {names} does not say demo data")
 verdict["captions"] = "; ".join(problems)
 
 # 4: the pictures for each theme, the hues and the other colors, and no switch
@@ -254,7 +249,24 @@ def picture_of(light, dark):
             return f"the picture of {light} has no dark source {dark}"
     return f"no picture shows {light}"
 verdict["pictures"] = "; ".join(p for p in (picture_of("assets/lem.svg", "assets/lem-night.svg"),
-                                             picture_of("assets/screens/board-light.png", "assets/screens/board-dark.png")) if p)
+                                             picture_of("assets/screens/board-light.png", "assets/screens/board-dark.png"),
+                                             picture_of("assets/screens/phone-light.png", "assets/screens/phone-dark.png"),
+                                             picture_of("assets/screens/task-light.png", "assets/screens/task-dark.png")) if p)
+# each picture of the board says its size in CSS pixels, half the file's pixels (the pictures are drawn at
+# two device pixels for each pixel), so the page keeps its place before the picture loads
+def png_size(path):
+    head = path.read_bytes()[:24]
+    return (int.from_bytes(head[16:20], "big"), int.from_bytes(head[20:24], "big")) if head[:8] == b"\x89PNG\r\n\x1a\n" else None
+problems = []
+for img in body.find(lambda n: n.tag == "img" and n.attrs.get("src", "").startswith("assets/screens/")):
+    src = img.attrs["src"]
+    files = [root / src] + [root / s.attrs["srcset"] for s in img.parent.find(lambda n: n.tag == "source")] if img.parent else [root / src]
+    said = (int(img.attrs.get("width") or 0), int(img.attrs.get("height") or 0))
+    for file in files:
+        real = png_size(file) if file.is_file() else None
+        if real != (said[0] * 2, said[1] * 2):
+            problems.append(f"{src} says {said[0]} x {said[1]}, and {file.relative_to(root)} is {real}")
+verdict["sizes"] = "; ".join(problems)
 hues = dict(re.findall(r"--(lead|lem|you|bad|gate|ok):\s*(#[0-9a-fA-F]{6})", (root / "skills/lem/assets/lem.css").read_text(encoding="utf-8")))
 bare = re.sub(r"(?s)/\*.*?\*/", "", css)
 mine = dict(re.findall(r"--(lead|lem|you|bad|gate|ok):\s*(#[0-9a-fA-F]{3,8})", bare))
@@ -323,7 +335,8 @@ for action in ("actions/checkout@", "actions/configure-pages@", "actions/upload-
         problems.append(f"it uses no {action}")
 verdict["workflow"] = "; ".join(problems)
 published = sorted(str(path.relative_to(site)) for path in site.rglob("*") if path.is_file()) if site.is_dir() else []
-want = ["assets/lem-night.svg", "assets/lem.svg", "assets/screens/board-dark.png", "assets/screens/board-light.png", "index.html", "style.css"]
+want = ["assets/lem-night.svg", "assets/lem.svg", "assets/screens/board-dark.png", "assets/screens/board-light.png", "assets/screens/phone-dark.png",
+        "assets/screens/phone-light.png", "assets/screens/task-dark.png", "assets/screens/task-light.png", "index.html", "style.css"]
 named = sorted({node.attrs.get(key) for node in top.find(lambda n: n.tag in ("img", "source", "link")) for key in ("src", "srcset", "href")
                 if node.attrs.get(key) and not re.match(r"(https?:)?//", node.attrs.get(key))})
 absent = [path for path in named if not (site / path).is_file()]
@@ -362,7 +375,7 @@ ok() {
 # criterion 6: the workflow and the folder its step makes
 if ok trigger; then pass "pages.yml runs only on Run workflow (workflow_dispatch), never on a push, a pull request or a schedule"; else fail "pages.yml's triggers: $WHY"; fi
 if ok workflow; then pass "pages.yml has the Pages permissions, the github-pages environment, and GitHub's Pages actions"; else fail "pages.yml: $WHY"; fi
-if [ -z "$copy_said" ] && ok copied; then pass "the step \"$STEP_NAME\" of pages.yml makes a folder of index.html, style.css and the four pictures, at the paths the page names"; else fail "the step \"$STEP_NAME\": ${copy_said:-$WHY}"; fi
+if [ -z "$copy_said" ] && ok copied; then pass "the step \"$STEP_NAME\" of pages.yml makes a folder of index.html, style.css, the logo for each theme and the six pictures of the board, at the paths the page names"; else fail "the step \"$STEP_NAME\": ${copy_said:-$WHY}"; fi
 if ok guides; then pass "every guide link of the page names a file of docs/ in the checkout, and each # part a heading of that file"; else fail "the guide links: $WHY"; fi
 # criterion 5: what site/ holds
 if ok tracked; then pass "git tracks index.html and style.css under site/, and nothing else"; else fail "site/ in git: $WHY"; fi
@@ -371,20 +384,21 @@ if ok local; then pass "the page draws nothing from another host: no script, sty
 # criterion 1, in the markup
 if ok first; then pass "the opening has the logo, the README's line, the two install lines exact with a copy button each, and \"Lem needs agterm.\" with its link and the line to run them"; else fail "the opening: $WHY"; fi
 # criterion 2
-if ok sections; then pass "the page is five sections in order (the opening, the flow, the three points, the board, the install) and a footer"; else fail "the sections: $WHY"; fi
-if ok words; then ok words_count || true; pass "the page has 600 to 900 words of visible text ($WHY)"; else fail "the visible text: $WHY, not 600 to 900"; fi
+if ok sections; then pass "the page is six sections in order (the opening, the board, the flow, the phone, many tasks at once, the install) and a footer, and the nav links the board, the flow, the phone and the install"; else fail "the sections: $WHY"; fi
+if ok words; then ok words_count || true; pass "the page has 800 to 1200 words of visible text ($WHY)"; else fail "the visible text: $WHY, not 800 to 1200"; fi
 if ok diagram; then pass "the diagram's fast track has one step for the developer, the merge; the standard track three: the interview, the criteria, the merge"; else fail "the diagram: $WHY"; fi
 if ok green; then pass "the page says \"Green means you can merge without a read.\""; else fail "the green sentence: $WHY"; fi
 if ok again; then pass "the second install block has the two lines, and a sentence that names .lem/ links the removal steps of docs/install.md"; else fail "the second install block: $WHY"; fi
-if ok footer; then pass "the footer links the five guides, the settings and the repository"; else fail "the footer: $WHY"; fi
+if ok footer; then pass "the footer links the six guides, the settings and the repository"; else fail "the footer: $WHY"; fi
 # criterion 3
 if ok sentences; then pass "no sentence of the page has more than 25 words, and no instruction more than 20"; else fail "the sentences: $WHY"; fi
 if ok os; then pass "the page names no operating system"; else fail "an operating system: $WHY"; fi
 if ok history; then pass "the page says nothing of what ran and nothing of history"; else fail "what ran or history: $WHY"; fi
 if ok plugin; then pass "the page calls Lem a plugin for Claude Code that works closely with agterm, and says that Lem needs agterm"; else fail "the plugin: $WHY"; fi
-if ok captions; then pass "every example dialog has a caption that says illustration, and the board picture's caption says demo data"; else fail "the captions: $WHY"; fi
+if ok captions; then pass "every example dialog has a caption that says illustration, and every caption of a picture of the board says demo data"; else fail "the captions: $WHY"; fi
 # criterion 4, in the files
-if ok pictures; then pass "the logo and the board picture each have a dark source: lem-night.svg and board-dark.png"; else fail "the pictures: $WHY"; fi
+if ok pictures; then pass "the logo and the pictures of the board, the phone and a task each have a dark source"; else fail "the pictures: $WHY"; fi
+if ok sizes; then pass "each picture of the board says its size as half the pixels of its files, light and dark"; else fail "the sizes of the pictures: $WHY"; fi
 if ok colors; then pass "style.css has the six hues of lem.css with the same values, and every other color is a grey or a mix of those"; else fail "the colors: $WHY"; fi
 if ok switch; then pass "the page has no control that switches the theme: its one kind of button copies a line"; else fail "a theme switch: $WHY"; fi
 

@@ -5,8 +5,42 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/corrections.py\" hook",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/lem_python.py\" \"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/corrections.py\" hook",
             "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/lem_python.py\" \"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/serve_hook.py\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/lem_python.py\" \"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/session_hook.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "auto|manual",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/lem_python.py\" \"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/session_hook.py\"",
+            "timeout": 5
           }
         ]
       }

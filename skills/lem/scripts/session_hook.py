@@ -1,0 +1,110 @@
+"""The plugin's two hooks of a task's session (`lem session open`): the form of a compaction's
+summary, and the task's files put back after it.
+
+    PreCompact (auto|manual)    prints the summary's instructions: the handoff's five headings
+    SessionStart (compact)      prints the task's newest state block word for word, then handoff.md
+                                with its time
+
+A task's session has `LEM_TASK=SLUG` in its environment, which `lem session open` puts into the
+launch line. Without it, or without the task's directory in the state folder of the repository the
+session runs in, the hook prints nothing and exits 0: a session that is no task's is no business of
+Lem's. Claude Code takes a PreCompact hook's output as the instructions of the summary, and a
+SessionStart hook's for the source `compact` as context after it (its hooks reference, read for the
+shape of task 4, 2026-11-21). No hook reads a transcript. It exits 0 whatever happens, a failure too.
+
+The plugin starts it through `lem_python.py` beside this file, as the other hooks.
+"""
+
+import sys
+
+# How long git may take to name the main checkout. A guess: it answers in milliseconds, and a stuck
+# git must not hold the hook.
+GIT_TIMEOUT = 2
+# a task's slug, as project.py's SLUG
+SLUG = r"[a-z0-9]+(?:-[a-z0-9]+)*"
+TRUTH = "The task's state is the truth; where handoff.md is older than the state, follow the state."
+
+
+def instructions(slug: str, phase: str | None) -> str:
+    """What a PreCompact hook prints: the summary's form, the handoff's."""
+    of = f"task {slug}, phase {phase}" if phase else f"task {slug}"
+    return (f"This summary is the handoff of {of}, under five headings: Settled; Open; Next step; Failed; "
+            "Changed files, each path with its status. Link a plan, a record or a commit by path or id; copy none of their text.")
+
+
+def restored(slug: str, block: str | None, handoff: str | None, written: str | None) -> str:
+    """What a SessionStart hook prints after a compaction: the newest state block word for word, then
+    handoff.md with its time, under the rule that the state wins."""
+    lines = [f"Lem's task {slug}, after the compaction. {TRUTH}", "", "## The newest state block (state.md)", "", block.strip() if block else "none written yet", ""]
+    if handoff is not None:
+        lines += [f"## handoff.md, written {written}", "", handoff.strip(), ""]
+    else:
+        lines += ["## handoff.md", "", "none in the task directory", ""]
+    return "\n".join(lines)
+
+
+def newest_phase(log, slug: str) -> str | None:
+    """The phase of the task's newest `session.open` in the event log, the lines of LOG."""
+    import json
+    phase = None
+    for line in log:
+        if f'"{slug}"' not in line or '"session.open"' not in line:
+            continue
+        try:
+            record = json.loads(line)
+        except ValueError:
+            continue
+        if record.get("event") == "session.open" and record.get("task") == slug:
+            phase = record.get("phase")
+    return phase
+
+
+def main() -> None:
+    import json
+    import os
+    import re
+    from datetime import datetime, timezone
+    from pathlib import Path
+
+    slug = os.environ.get("LEM_TASK", "").strip()
+    if not re.fullmatch(SLUG, slug):
+        return
+    here = Path(__file__).resolve().parent
+    sys.path.insert(0, str(here))
+    import lem_state
+
+    try:
+        event = json.loads(sys.stdin.read() or "{}")
+    except ValueError:
+        event = {}
+    if not isinstance(event, dict):
+        return
+    folder = event.get("cwd") if isinstance(event.get("cwd"), str) else None
+    folder = folder or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+    try:
+        state = lem_state.main_checkout(Path(folder), timeout=GIT_TIMEOUT) / lem_state.STATE
+    except lem_state.StateError:
+        return
+    directory = state / "tasks" / slug
+    if not directory.is_dir():
+        return
+    name = event.get("hook_event_name")
+    if name == "PreCompact":
+        log = state / "events.jsonl"
+        with (log.open(encoding="utf-8", errors="replace") if log.is_file() else open(os.devnull)) as lines:
+            print(instructions(slug, newest_phase(lines, slug)))
+    elif name == "SessionStart" and event.get("source") == "compact":
+        written = (directory / "state.md").read_text(encoding="utf-8", errors="replace") if (directory / "state.md").is_file() else ""
+        block = written.strip().split("\n\n")[0] if written.strip() else None
+        handoff = directory / "handoff.md"
+        text = handoff.read_text(encoding="utf-8", errors="replace") if handoff.is_file() else None
+        when = datetime.fromtimestamp(handoff.stat().st_mtime, timezone.utc).strftime("%Y-%m-%dT%H:%MZ") if text is not None else None
+        print(restored(slug, block, text, when))
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except BaseException:  # noqa: BLE001 - a hook that fails must not fail the session
+        pass
+    sys.exit(0)

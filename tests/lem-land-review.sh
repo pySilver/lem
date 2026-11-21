@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# The landing with no remote, part two: the polish pass, a review of the change as it is, the bar,
-# and what makes a request careful. tests/lem-land-local.sh is part one; the two are one block cut in
+# The landing, part two: the polish pass, a review of the change as it is, the bar, what makes a
+# request careful, and who merges it, on an origin that the stand-in for `gh` answers for (lib.sh). tests/lem-land-local.sh is part one; the two are one block cut in
 # two, so that each runs in about half the time, on a repository of its own with the same start.
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib.sh
@@ -20,7 +20,7 @@ app_py() {
 }
 app_py old old > "$LOCAL/app.py"
 printf '%s\n' 'pub fn one() -> i32 { 1 }' '#[cfg(test)]' 'mod tests {' '    #[test]' '    fn it_is_one() { assert_eq!(super::one(), 1); }' '}' > "$LOCAL/lib.rs"
-git -C "$LOCAL" add -A && git -C "$LOCAL" commit -q -m "chore: start"
+git -C "$LOCAL" add -A && git -C "$LOCAL" commit -q -m "chore: start" && on_github "$LOCAL"
 local_land() { land --repo "$LOCAL" "$@"; }
 lcriteria() { "$PY" -B "$CRITERIA" --repo "$LOCAL" "$@"; }
 
@@ -85,7 +85,7 @@ on_top=$(status_of local_land checks polish-me)
 git -C "$tree" reset -q --hard "$after_tip~1" && echo 'echo p > p.txt' > "$tree/tool.sh" && git -C "$tree" commit -q -am "refactor: written again"
 rewritten=$(local_land checks polish-me 2>&1 || true)
 git -C "$tree" reset -q --hard "$after_tip" && echo '# a fix' >> "$tree/tool.sh" && git -C "$tree" commit -q -am "fix: what a review found"
-echo late > "$LOCAL/polish-late.txt" && git -C "$LOCAL" add polish-late.txt && git -C "$LOCAL" commit -q -m "chore: a late file"
+echo late > "$LOCAL/polish-late.txt" && git -C "$LOCAL" add polish-late.txt && git -C "$LOCAL" commit -q -m "chore: a late file" && git -C "$LOCAL" push -q origin main
 local_land base polish-me >/dev/null
 moved=$(local_land checks polish-me | field 'd["polish"]["after"]')
 if [ "$gated" = "$after_tip" ] && [ "$on_top" = 0 ] && grep -qF "the tip does not hold the polish pass's last commit (${after_tip:0:9})" <<<"$rewritten" \
@@ -123,7 +123,7 @@ once=$(local_land read guide-change --record "$(record 1 "$quiet")" | field '(d[
 twice=$(local_land read guide-change --record "$(record 2 "$quiet")" | field 'd["next"]')
 local_land propose guide-change --title "docs: more" --notes "$NOTES" >/dev/null
 text=$LOCAL/.lem/state/tasks/guide-change/pr.md
-agent=$(local_land land guide-change --by agent 2>&1 || true)
+agent=$(local_land merge guide-change --by merger 2>&1 || true)
 if [ "$(field '(d["criteria"]["ok"], [w["criterion"] for w in d["criteria"]["without_a_test"]])' <<<"$gate")" = "(True, [1])" ] \
   && [ "$(field '(d["due"], d["floor"])' <<<"$out")" = "('review', 'read')" ] && [ "$early" = 1 ] && [ "$once" = "('not reviewed', 'review')" ] && [ "$twice" = owner ] \
   && [ "$(sed -n 1p "$text")" = '**Not green.**' ] && [ "$(sed -n 3p "$text")" = '- not reviewed: the review was started twice and no source answered' ] \
@@ -131,11 +131,11 @@ if [ "$(field '(d["criteria"]["ok"], [w["criterion"] for w in d["criteria"]["wit
   && grep -q '^   - no test: a sentence of the guide, which a person reads$' "$text" \
   && grep -q "^- the tests of the criteria: 0 pass on the branch and fail on the base commit; 1 criterion has no test$" "$text" \
   && grep -q "the request is not green (not reviewed" <<<"$agent"; then
-  pass "a change of documentation only is not proposed without a review; a review that nobody answered is started once more, and after the second the request is proposed as not reviewed, which no agent merges"
+  pass "a change of documentation only is not proposed without a review; a review that nobody answered is started once more, and after the second the request is proposed as not reviewed, which the merge agent does not merge"
 else
   fail "a documentation change and a review with no answer: $gate / $out / $once / $twice / $agent / $(cat "$text" 2>/dev/null)"
 fi
-local_land land guide-change --by owner >/dev/null && local_land clean guide-change >/dev/null
+local_land merge guide-change --by owner >/dev/null && local_land clean guide-change >/dev/null
 
 # A review is of the change as it is, and the change is known by its id, which land.change takes from
 # git: on real commits of one repository, a change of one space is another change, and so is the same
@@ -192,7 +192,7 @@ small=$(local_land read bar-change | field 'd["floor"]')
 unsaid=$(local_land read bar-change --record "$(clean 1)" 2>&1 || true)
 local_land read bar-change --record "$(record 1 '{"kind": "read", "answered": ["codex"], "bar": [{"name": "calc.py", "why": "the plugin is loaded by that import."}]}')" >/dev/null
 proposed=$(local_land propose bar-change --title "fix: marks" --notes "$NOTES")
-agent=$(local_land land bar-change --by agent 2>&1 || true)
+agent=$(local_land merge bar-change --by merger 2>&1 || true)
 text=$LOCAL/.lem/state/tasks/bar-change/pr.md
 # shellcheck disable=SC2016
 if [ "$(field '[(e["file"], e["reason"]) for e in d["bar"]["lowered"]]' <<<"$out")" = "[('calc.py', 'the import registers a plugin.')]" ] \
@@ -255,15 +255,15 @@ local_land read price-change --record "$(record 1 "$(called full)")" >/dev/null
 local_land propose price-change --title "fix: seven" --notes "$MIG" >/dev/null
 text=$LOCAL/.lem/state/tasks/price-change/pr.md
 first=$(grep -c '"event": "careful.missed", "task": "price-change"' "$LOCAL/.lem/state/events.jsonl" || true)
-agent=$(local_land land price-change --by agent 2>&1 || true)
+agent=$(local_land merge price-change --by merger 2>&1 || true)
 local_land start price-change >/dev/null && local_land base price-change >/dev/null && local_land checks price-change >/dev/null && local_land propose price-change --title "fix: seven" --notes "$MIG" >/dev/null
 if grep -qF "the record makes the careful call" <<<"$nocall" && grep -qF '"careful": true or false' <<<"$nocall" && grep -qF '"careful_why"' <<<"$nocall" \
   && grep -qF "a change the review calls careful gets the project's full set" <<<"$less" \
   && grep -q '^- no plan talk: the request became careful after its plan, by its review$' "$text" && grep -qxF -- "- careful: yes, the review says so: $priced" "$text" \
-  && [ "$(head -1 "$text" | cut -c1-10)" = '**Green.**' ] && [ "$(sed -n 3p "$text")" = "**Careful**, so a person merges it: the review says so: $priced." ] && [ "$first" = 1 ] \
+  && [ "$(head -1 "$text" | cut -c1-10)" = '**Green.**' ] && [ "$(sed -n 3p "$text")" = "**Careful**, so the owner merges it: the review says so: $priced." ] && [ "$first" = 1 ] \
   && [ "$(grep -c '"event": "careful.missed", "task": "price-change"' "$LOCAL/.lem/state/events.jsonl")" = 1 ] \
   && grep -qF "\"event\": \"careful.missed\", \"task\": \"price-change\", \"round\": 1, \"why\": \"$priced\"" "$LOCAL/.lem/state/events.jsonl" \
-  && grep -qF "a careful request is merged by a person, whatever the settings say (the review says so: $priced)" <<<"$agent" && [ "$(status_in "$LOCAL" price-change)" = open ]; then
+  && grep -qF "a careful request is merged by the owner, whatever the settings say (the review says so: $priced)" <<<"$agent" && [ "$(status_in "$LOCAL" price-change)" = open ]; then
   pass "a request the review calls careful and its plan did not gets the full set, its text says first that a person merges it and why, says in its checks that it had no plan talk and why, the plan's miss is one event with the review's reason, and no agent merges it; a record with no careful call is refused"
 else
   fail "a request careful by its review: $nocall / $less / first $first / $agent / $(grep careful.missed "$LOCAL/.lem/state/events.jsonl") / $(cat "$text" 2>/dev/null)"
@@ -272,7 +272,7 @@ project --repo "$LOCAL" state price-change dropped "the test is over" >/dev/null
 
 # The owner's careful on a task whose pull request is open (`stages/correct.md`): the line in its brief, then `start`
 # takes it into the landing again, the review is due again with the full set over the one read it had, and propose
-# writes the text again, careful, so a person merges it.
+# writes the text again, careful, so the owner merges it.
 task_in "$LOCAL" late-care late.txt late
 read_in "$LOCAL" late-care
 local_land start late-care >/dev/null && local_land base late-care >/dev/null && polish_in "$LOCAL" late-care && local_land checks late-care >/dev/null
@@ -288,8 +288,8 @@ local_land read late-care --record "$(record 2 '{"kind": "full", "ran": [{"name"
 local_land propose late-care --title "fix: late" --notes "$MIG" >/dev/null
 if [ "$before" = '**Green.**' ] && [ "$restarted" = late-care ] \
   && [ "$again" = "('review', 'full', 'the request is careful: the owner says so')" ] \
-  && grep -qxF '**Careful**, so a person merges it: the owner says so.' "$text" && [ "$(status_in "$LOCAL" late-care)" = open ]; then
-  pass "the owner's careful on a task whose pull request is open: start takes it into the landing again, the review is due again with the full set, and propose writes the text again, careful, so a person merges it"
+  && grep -qxF '**Careful**, so the owner merges it: the owner says so.' "$text" && [ "$(status_in "$LOCAL" late-care)" = open ]; then
+  pass "the owner's careful on a task whose pull request is open: start takes it into the landing again, the review is due again with the full set, and propose writes the text again, careful, so the owner merges it"
 else
   fail "careful on an open task: $before / $restarted / $again / $(cat "$text" 2>/dev/null)"
 fi
@@ -308,22 +308,22 @@ cp "$kept_file" "$WORK/call-kept.json"
 for read in d["reads"]:
     read.pop("careful"); read.pop("careful_why")
 json.dump(d, open(p, "w"))' "$kept_file"
-uncalled=$(local_land land call-kept --by agent 2>&1 || true)
+uncalled=$(local_land merge call-kept --by merger 2>&1 || true)
 cp "$WORK/call-kept.json" "$kept_file"
-merged=$(local_land land call-kept --by agent 2>&1 || true)
+merge_read "$LOCAL" call-kept >/dev/null
+merged=$(local_land merge call-kept --by merger 2>&1 || true)
 if grep -qxF -- "- careful: no; the review says no: $NOT_CAREFUL" "$text" && [ "$(head -1 "$text" | cut -c1-10)" = '**Green.**' ] && ! grep -q '^\*\*Careful\*\*' "$text" \
-  && grep -qF "no review that answered made the careful call for this change, so a person merges it" <<<"$uncalled" \
+  && grep -qF "no review that answered made the careful call for this change, so the owner merges it" <<<"$uncalled" \
   && [ "$(status_in "$LOCAL" call-kept)" = landed ] && [ "$(git -C "$LOCAL" show main:eight.txt)" = eight ]; then
-  pass "an agent merges a green request whose newest review says not careful, and its text says the review's call with its reason; a newest review with no call leaves the merge to a person"
+  pass "the merge agent merges a green request whose newest review says not careful, and its text says the review's call with its reason; a newest review with no call leaves the merge to the owner"
 else
   fail "the agent's merge and the review's call: $uncalled / $merged / $(cat "$text" 2>/dev/null)"
 fi
 local_land clean call-kept >/dev/null
 
 # A task that ran without the owner: green when nothing of his was decided without him, with the line that says when it
-# ran so, and a decision the gate or the personas settled stays green, its line with the votes and the model families. No
-# agent merges it while it runs so, whatever branch.land says; once he is back, branch.land rules as before. Here the
-# owner says that he is away.
+# ran so, and a decision the gate or the personas settled stays green, its line with the votes and the model families. The
+# merge agent merges it as any other. Here the owner says that he is away.
 ldecide() { "$PY" -B "$DECISIONS" --repo "$LOCAL" "$@"; }
 task_in "$LOCAL" quiet-run quiet.txt quiet
 read_in "$LOCAL" quiet-run
@@ -334,43 +334,27 @@ project --repo "$LOCAL" owner away --words "I'm away" >/dev/null
 local_land start quiet-run >/dev/null && local_land base quiet-run >/dev/null && polish_in "$LOCAL" quiet-run && local_land checks quiet-run >/dev/null && local_land read quiet-run --record "$(clean 1)" >/dev/null
 local_land propose quiet-run --title "fix: quiet" --notes "$NOTES" >/dev/null
 text=$LOCAL/.lem/state/tasks/quiet-run/pr.md
-held=$(local_land land quiet-run --by agent 2>&1 || true)
+read_alone=$(merge_read "$LOCAL" quiet-run 2>&1 || true)
+merged=$(local_land merge quiet-run --by merger 2>&1 || true)
 project --repo "$LOCAL" owner back --words "/lem im-back" >/dev/null
-back=$(local_land land quiet-run --by agent 2>&1 | field 'd["tip"] is not None' 2>&1 || true)
 if [ "$(head -1 "$text" | cut -c1-10)" = '**Green.**' ] && grep -qE '^It ran without the owner from 20[0-9-]+ [0-9:]+ UTC \(the owner: "I'"'"'m away"\)\.$' "$text" \
   && grep -qxF -- '- The word'"'"'s case: "lower case", by the personas: 3 votes of 2 personas, two model families, all for it. the importer reads lower case' "$text" \
   && grep -qxF -- '- The file'"'"'s name: "quiet.txt", by the gate. docs/rulings/names.md: a file is named for what it holds' "$text" \
-  && grep -qF "quiet-run runs without the owner: an agent never merges it" <<<"$held" && [ "$back" = True ] && [ "$(status_in "$LOCAL" quiet-run)" = landed ]; then
-  pass "a task that ran without the owner with nothing of his decided without him is green, and says when it ran so and on whose words; the gate's and the personas' decisions stay green, with the cite and the count of votes and families; no agent merges while it runs so, and branch.land rules again once he is back"
+  && [ "$(field '(d["verdict"], d["calls"])' <<<"$read_alone")" = "('merge', False)" ] && [ "$(field 'd["pull_request"]["url"].startswith("https://github.com/acme/local/pull/")' <<<"$merged")" = True ] \
+  && [ "$(status_in "$LOCAL" quiet-run)" = landed ]; then
+  pass "a task that ran without the owner with nothing of his decided without him is green, and says when it ran so and on whose words; the gate's and the personas' decisions stay green, with the cite and the count of votes and families; the merge agent reads it and merges it while he is away, as any other"
 else
-  fail "a green task that ran without the owner: $held / $back / $(cat "$text" 2>/dev/null)"
-fi
-# Its two files for the owner: no red block, since nothing of his was decided without him, and each decision with who took it.
-built=$LOCAL/.lem/state/tasks/quiet-run/built.md
-decided=$LOCAL/.lem/state/tasks/quiet-run/decisions.md
-# shellcheck disable=SC2016  # the backticks are the files' own marks around a branch
-if ! grep -q 'CAUTION\|not green' "$built" "$decided" && [ "$(sed -n 1p "$built")" = '# What was built: fix: quiet' ] \
-  && grep -qE '^Branch `fix/quiet-run`, ready to land on `main`\. Green\. It waits for the owner'"'"'s word to land it\. It ran without the owner from ' "$built" \
-  && grep -qxF '1. The file holds the word the owner asked for.' "$built" \
-  && [ "$(grep '^| [0-9]' "$decided")" = '| 2 | The word'"'"'s case | lower case | the personas |
-| 1 | The file'"'"'s name | quiet.txt | the gate |' ] \
-  && grep -qxF -- '- **Taken:** "quiet.txt", by the gate. docs/rulings/names.md: a file is named for what it holds' "$decided" \
-  && grep -qxF 'Branch `fix/quiet-run`. 2 decisions: 1 by the personas; 1 by the gate. The ones the owner most likely wants to change come first.' "$decided" \
-  && ! git -C "$LOCAL" log --all --format= --name-only | grep -q 'built.md\|decisions.md'; then
-  pass "a full change's proposal writes built.md and decisions.md into its task directory and no commit: with nothing of the owner's decided without him neither opens with a red block, and each decision says who took it"
-else
-  fail "the owner's two files of a green task: $(cat "$built" "$decided" 2>/dev/null)"
+  fail "a green task that ran without the owner: $read_alone / $merged / $(cat "$text" 2>/dev/null)"
 fi
 local_land clean quiet-run >/dev/null
-# Not green when something of his was decided without him: criteria approved without him, a decision past the personas
-# or that no level settled, and a choice that waited for him and was taken at once when he said that he is away; each is
-# a line of its own.
+# Not green when something of his was decided without him: criteria approved without him, and a decision past the
+# personas or that no level settled, taken at once whether he is there or away; each is a line of its own.
 task_in "$LOCAL" loud-run loud.txt loud
 read_in "$LOCAL" loud-run
 printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/loud.md"
-ldecide log loud-run --what "Where the word goes" --chose "the last line" --by experts --why "both experts picked it" --level "personas=1 to 1" --level "dialectic=one break" >/dev/null
-ldecide log loud-run --what "The word's font" --chose plain --by lead --unsettled --why "the export has no fonts" >/dev/null
-ldecide ask loud-run "${CASE[@]}" --what "The line ending" --option "a line break" --option "none" --recommended "a line break" --why "every file ends so" --said "the personas split" >/dev/null
+ldecide log loud-run "${CASE[@]}" --what "Where the word goes" --chose "the last line" --by experts --why "both experts picked it" --level "personas=1 to 1" --level "dialectic=one break" >/dev/null
+ldecide log loud-run "${CASE[@]}" --what "The word's font" --chose plain --by lead --unsettled --why "the export has no fonts" >/dev/null
+ldecide log loud-run "${CASE[@]}" --what "The line ending" --option "a line break" --option "none" --chose "a line break" --by dialectic --why "every file ends so" --level "personas=split" >/dev/null
 project --repo "$LOCAL" owner away --words "I'm away" >/dev/null
 lcriteria approve loud-run --file "$WORK/loud.md" --alone >/dev/null
 ldir=$LOCAL/.lem/state/tasks/loud-run
@@ -386,36 +370,12 @@ if [ "$(sed -n 1p "$text")" = '**Not green.**' ] \
   && [ "$(sed -n 3p "$text")" = "- the owner did not approve the criteria: they were approved on $day while the task ran without the owner" ] \
   && [ "$(sed -n 4p "$text")" = '- decision 1 was taken without the owner (Where the word goes): "the last line", by the experts' ] \
   && [ "$(sed -n 5p "$text")" = "- decision 2 was taken without the owner (The word's font): \"plain\", the lead's pick, which no level of the ladder settled" ] \
-  && [ "$(sed -n 6p "$text")" = '- choice 3 was taken without the owner (The line ending): "a line break", the recommended option, at once, as the task ran without the owner' ] \
+  && [ "$(sed -n 6p "$text")" = '- decision 3 was taken without the owner (The line ending): "a line break", by the dialectic' ] \
   && grep -qE '^It ran without the owner from ' "$text" && grep -qF 'Each level: personas: 1 to 1; dialectic: one break.' "$text" \
   && grep -qF "approved on $day while the task ran without the owner" <<<"$(grep '^- the criteria were read' "$text")"; then
-  pass "a task that ran without the owner is not green for each thing of his decided without him, one line each: criteria approved without him, a decision of the experts or of the dialectic, one no level settled, and a choice that waited for him and was taken at once when he went away"
+  pass "a task that ran without the owner is not green for each thing of his decided without him, one line each: criteria approved without him, a decision of the experts or of the dialectic, and one no level settled"
 else
   fail "a task that ran without the owner, not green: $(cat "$text" 2>/dev/null)"
-fi
-# Both files open with the same red block, one item for each thing of his decided without him; decisions.md
-# puts the ones he most likely wants to change first, each with who took it, and built.md takes the title, the
-# outcome and what is out of scope from task.md, his words of the interview, and what he gets from the lead's report.
-built=$ldir/built.md
-decided=$ldir/decisions.md
-flag() { sed -n '/^> \[!CAUTION\]$/,/^$/p' "$1"; }
-if [ "$(sed -n 1p "$built")" = '# What was built: The loud word' ] && [ "$(sed -n 1p "$decided")" = '# Decisions: The loud word' ] \
-  && [ "$(flag "$built")" = "$(flag "$decided")" ] && [ "$(flag "$built" | sed -n 2p)" = '> **4 things wait for the owner.**' ] \
-  && grep -qxF "> 1. The owner did not approve the criteria: they were approved on $day while the task ran without the owner." "$built" \
-  && grep -qxF '> 2. Decision 1 was taken without the owner (Where the word goes): "the last line", by the experts.' "$built" \
-  && grep -qxF "> 3. Decision 2 was taken without the owner (The word's font): \"plain\", the lead's pick, which no level of the ladder settled." "$built" \
-  && grep -qxF '> The pull request is not green for these. The owner reads each before the merge.' "$built" \
-  && grep -qF 'Lem approved them while the task ran without the owner; the owner did not.' "$built" \
-  && [ "$(sed -n '/^## What was built$/,/^The acceptance/p' "$built" | sed -n '3,7p')" = $'loud.txt holds the word.\n\n```sh\n# see it\ncat loud.txt' ] \
-  && grep -qxF -- '- "keep the word in lower case"' "$built" && grep -qxF 'The importer finds the word on its own line.' "$built" \
-  && grep -qxF -- '- the quiet word' "$built" && ! grep -q 'Not verified' "$built" \
-  && [ "$(grep '^| [0-9]' "$decided")" = "| 2 | The word's font | plain | no level: the lead's pick stands; **not green** |
-| 3 | The line ending | a line break | the ladder's pick, taken without the owner; **not green** |
-| 1 | Where the word goes | the last line | two expert models; **not green** |" ] \
-  && grep -qxF -- '- **The other option:** "none"' "$decided" && [ "$(grep -c '^\*\*Not green\.\*\* ' "$decided")" = 3 ]; then
-  pass "a task with things of the owner's decided without him opens both files with the same red block, one item for each, and decisions.md lists the decisions he most likely wants to change first, each with who took it and the options it did not take"
-else
-  fail "the owner's two files of a task that is not green: $(cat "$built" "$decided" 2>/dev/null)"
 fi
 project --repo "$LOCAL" state loud-run dropped "the test is over" >/dev/null
 
@@ -432,14 +392,14 @@ lifted=$(local_land read lift-topics | field '(d["floor"], d["why"], d["inputs"]
 from_tree=$(land --repo "$tree" read lift-topics | field '(d["floor"], d["inputs"]["topics"])')
 local_land read lift-topics --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the settings change"}], "answered": ["codex"]}')" >/dev/null
 local_land propose lift-topics --title "chore: no topics" --notes "$MIG" >/dev/null
-agent=$(local_land land lift-topics --by agent 2>&1 || true)
+agent=$(local_land merge lift-topics --by merger 2>&1 || true)
 text=$LOCAL/.lem/state/tasks/lift-topics/pr.md
 settings_why="the change edits [flow] of .lem/project.toml, Lem's own settings, which say for every later task what is careful, what the checks run, who merges and where a task lands"
 # the reason holds an apostrophe, so Python's repr of it is in double quotes
 if [ "$lifted" = "('full', \"the request is careful: $settings_why\", ['a customer is charged the wrong price'])" ] \
   && [ "$from_tree" = "('full', ['a customer is charged the wrong price'])" ] \
   && grep -qxF -- "- careful: yes, $settings_why; the review says no: $NOT_CAREFUL" "$text" \
-  && grep -qF "a careful request is merged by a person, whatever the settings say ($settings_why)" <<<"$agent" && [ "$(status_in "$LOCAL" lift-topics)" = open ]; then
+  && grep -qF "a careful request is merged by the owner, whatever the settings say ($settings_why)" <<<"$agent" && [ "$(status_in "$LOCAL" lift-topics)" = open ]; then
   pass "a branch that edits the flow table of its own settings is careful by the script, which says why, gets the full set and a person's merge, and the landing reads the main checkout's topics, also when it runs from the task's worktree"
 else
   fail "a branch that lifts its own topics: $lifted / $from_tree / $agent / $(cat "$text" 2>/dev/null)"
@@ -458,7 +418,7 @@ local_land start lands-alone >/dev/null && local_land base lands-alone >/dev/nul
 branch_floor=$(local_land read lands-alone | field '(d["floor"], d["why"])')
 local_land read lands-alone --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the settings change"}], "answered": ["codex"]}')" >/dev/null
 local_land propose lands-alone --title "chore: squash" --notes "$MIG" >/dev/null
-branch_agent=$(local_land land lands-alone --by agent 2>&1 || true)
+branch_agent=$(local_land merge lands-alone --by merger 2>&1 || true)
 project --repo "$LOCAL" state lands-alone dropped "the test is over" >/dev/null
 task_in "$LOCAL" settings-note eleven.txt eleven
 tree=$(project --repo "$LOCAL" worktree-dir settings-note)
@@ -469,7 +429,7 @@ note_floor=$(local_land read settings-note | field '(d["floor"], d["why"])')
 project --repo "$LOCAL" state settings-note dropped "the test is over" >/dev/null
 branch_why="the change edits [branch] of .lem/project.toml, Lem's own settings, which say for every later task what is careful, what the checks run, who merges and where a task lands"
 note_why="the change edits the text of .lem/project.toml, and no value in it, Lem's own settings, which say for every later task what is careful, what the checks run, who merges and where a task lands"
-if [ "$branch_floor" = "('full', \"the request is careful: $branch_why\")" ] && grep -qF "a careful request is merged by a person, whatever the settings say ($branch_why)" <<<"$branch_agent" \
+if [ "$branch_floor" = "('full', \"the request is careful: $branch_why\")" ] && grep -qF "a careful request is merged by the owner, whatever the settings say ($branch_why)" <<<"$branch_agent" \
   && grep -qxF -- "- careful: yes, $branch_why; the review says no: $NOT_CAREFUL" "$LOCAL/.lem/state/tasks/lands-alone/pr.md" \
   && [ "$note_floor" = "('full', \"the request is careful: $note_why\")" ]; then
   pass "every edit of Lem's own settings is careful by the script: one of [branch] gets the full set, a line of the pull request with the table named and a person's merge, and one of the file's text alone is careful too"
@@ -502,10 +462,10 @@ local_land start local-tracked >/dev/null && local_land base local-tracked >/dev
 local_floor=$(local_land read local-tracked | field '(d["floor"], d["why"])')
 local_land read local-tracked --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the settings change"}], "answered": ["codex"]}')" >/dev/null
 local_land propose local-tracked --title "chore: my asker" --notes "$MIG" >/dev/null
-local_agent=$(local_land land local-tracked --by agent 2>&1 || true)
+local_agent=$(local_land merge local-tracked --by merger 2>&1 || true)
 project --repo "$LOCAL" state local-tracked dropped "the test is over" >/dev/null
 local_why="the change adds .lem/project.local.toml, one machine's own settings, which git does not track: tracked, that machine's seats, corrections and naps become every machine's"
-if [ "$local_floor" = "('full', \"the request is careful: $local_why\")" ] && grep -qF "a careful request is merged by a person, whatever the settings say ($local_why)" <<<"$local_agent" \
+if [ "$local_floor" = "('full', \"the request is careful: $local_why\")" ] && grep -qF "a careful request is merged by the owner, whatever the settings say ($local_why)" <<<"$local_agent" \
   && grep -qxF -- "- careful: yes, $local_why; the review says no: $NOT_CAREFUL" "$LOCAL/.lem/state/tasks/local-tracked/pr.md"; then
   pass "a branch that commits the machine's own settings file is careful by the script: the full set, a line of the pull request that says the file is one machine's own, and a person's merge"
 else

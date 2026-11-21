@@ -6,9 +6,9 @@ from it, and leaves a short waking note. It is there for the pleasure of reading
 a retro may find in a waking note (`stages/learn.md`); nobody has shown that it helps. So it costs
 the owner nothing but the agent's minutes: it never holds a task, a question or him.
 
-Lem starts a nap by itself, never through a scheduled job and never on a word of the owner's: at
-the moment "The queue" of `stages/start.md` names at its end, when a task ended or nothing is left
-for Lem but the owner's word, and the settings' `naps.on` is true.
+A task's session starts a nap by itself, never through a scheduled job and never on a word of the
+owner's: when its task ended, before the session closes (`stages/land.md`, step 9), and the
+settings' `naps.on` is true.
 
 1. **May one start?**
 
@@ -22,7 +22,7 @@ for Lem but the owner's word, and the settings' `naps.on` is true.
 2. **Start it** with `start-nap`, with the `time` of that answer and the folder `lem project
    state-dir` prints. Its brief is `prompts/nap.md`, whole and unchanged: it is written to the nap
    the way the owner's routine is written to his, and a line of Lem's added to it turns a dream
-   into a report. Then go on at once with what you were doing; nothing waits for the nap.
+   into a report. Nothing waits for the nap but the close of the session, which would end it.
 3. **When it ends**, do nothing with it. No page shows it: the retro reads its waking note
    (`stages/learn.md`). Lem does not read a dream, and acts on none.
 

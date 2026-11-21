@@ -56,6 +56,8 @@ yes, with `<the test's command>` (commit <short hash>), failing with: <the exact
 
 ## Cause
 <one sentence>, at `path:symbol`. When it became wrong, from the history, when you could read it.
+<the run that shows it: numbered steps from the input to the wrong result, one step to a line,
+real values, each step with where it was read>
 (for a question: the answer, in one to three sentences, each with where it was read)
 
 ## Reach

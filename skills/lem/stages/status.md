@@ -1,15 +1,17 @@
 # status
 
-A bare `/lem`, `/lem status` and `/lem status <task>`. First find out what merged and open the
-board, as `SKILL.md` says under Status.
+A bare `/lem`, `/lem status` and `/lem status <task>`, in any session. Open the board first
+(`SKILL.md`, "The board"). In a task's session, say first where its own task stands, in one line
+from its newest state block. Nothing here starts a task's work: what merged on GitHub, a conflict
+and the queue are the board's server's, and the status only reads.
 
 A task's own board also shows its criteria, as the top of its plan has them: each with the tests
 that hold it and what the last check of those tests gave. `lem criteria
 show SLUG` prints the same. The criteria are what the owner reads of a task; the rest of the plan
 is the agents'. For a status of one task, say its criteria in his words before anything else.
-Then, for a task on the standard track that was proposed, `show-page` the page of what was built and decided,
-`page.html` in its task directory, as a companion beside the board (a second `/lem status SLUG` reloads it); when it has `built.md` and no page yet, make the page first,
-as `stages/pages.md` says.
+Then, for a task that was proposed and read by the merge agent, say the first line of its
+`merge-review.md` in the task directory, its verdict; the board shows the whole review first on the
+task's Overview.
 
 Every project of Lem has personas, and a project without them has an onboarding that is not
 finished. The machine check (`lem doctor`), run in the repository, has
@@ -33,12 +35,12 @@ are away since 14:05, in every repository on this machine; the tasks go on witho
 Then it gives each kind under its key, in this order, and you say them so, in plain names and
 never in task codes, one line each, and leave out a kind that has none:
 
-1. `choices`: each choice of a task that waits for him, as `lem decisions pending` gives it: the
-   task and the choice;
+1. `breakers`: each breaker of a task that waits for him: the task and the document's title;
 2. `criteria`: each task whose acceptance criteria wait for his yes;
 3. `held`: each task that waits for a step of his or one more fact, with that step;
-4. `pull_requests`: each open pull request, its address (or that its branch is ready to land),
-   and green or each reason it is not; a task with a `night` says "of the night";
+4. `pull_requests`: each open pull request, its address, and green or each reason it is not; when
+   its `merge_review` calls him, "read the merge review" with its `why`; when `merge_refused` holds
+   GitHub's line, that line; a task with a `night` says "of the night";
 5. `retros`: "the retro of DATE proposes N changes" for each file; a file with a `problem` is
    named with it.
 
@@ -46,22 +48,12 @@ When `count` is 0, say "nothing waits for you" in one line. Then, after the list
 what each other task waits on, what landed today, and what was answered today with its answer in
 one line, from `lem project tasks`.
 
-**Open what waits.** A bare `/lem` is his word to answer: open the companion of each need the list
-names, also one whose companion he closed with no answer, with `--asked`, which says that he asked:
-
-```bash
-lem companion open SLUG --need choice --choice N --asked
-```
-
-The need is `choice` with its number for each of `choices`; `interview` for a `held` task whose
-line is `the interview waits for the owner` and for `the criteria wait for the owner: the small
-change is a full change`; and `criteria` for every other line of `criteria`. Say each `say` line
-as it is. One whose companion runs is not opened twice: the command prints that one. One it
-refuses says why and the fix: an interview with no copy of the talk gets it first
-(`stages/open-interview.md`). `/lem status SLUG` opens each need of that task, and `/lem status
-SLUG choice N` that one choice, the same way. While he is away nothing opens, and the list's first
-line says why. A pull request and a retro's proposals open no companion: he reads the one on the
-forge and answers the other below, on his word.
+**Where he answers.** A breaker, criteria, a held step and an interview are answered in the task's
+own session: name it for each, from `lem session list` (the task's newest session, and whether it
+is `live`). One with no live session gets "no session" on the board, whose button opens one.
+`/lem status SLUG` opens the task's session when something of it waits for him and none runs,
+`lem session open SLUG --why owner --focus`, and says its `say`. A pull request he reads on GitHub,
+and a retro's proposals he answers below, on his word.
 
 A retro's proposals are his to answer, and they wait until he says so: on his word ("open
 them"), `ask-owner` with one page that holds each of them as a question of its own, each with
@@ -75,6 +67,15 @@ A dropped, landed or answered task has no choice that waits. A task whose status
 state nobody wrote through the script: say so. A task with a `ticket_owed` ended, and its ticket in
 the tracker does not say so yet: say that too. When `night_report` is not null, say after the
 list, from that file, which items became which pull request, which the night left out and why,
-and which task it left held for him; the files hold no record of a status shown. The status
-changes what already happened and nothing else: a merge on the forge is written down, with the
-steps that follow a merge and the queue that it frees.
+and which task it left held for him; the files hold no record of a status shown.
+
+## The board's server
+
+`/lem serve` and its words run one `lem serve` command each (the table in `SKILL.md`), and you say
+what its JSON says in one line: the board's address (`url`), and the phone's (`tailscale`) when the
+door is open. `--tailscale` refuses with the step that is missing (Tailscale not installed, not
+signed in, HTTPS off in the admin console): say that step as it is, and nothing else. The door
+stays open across restarts, since the machine's settings keep it. A command the owner types in a
+terminal with no agent (a remote login) is the plugin's `lem` by its path: the `board server` row of
+`lem doctor` gives that line for this computer.
+

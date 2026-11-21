@@ -1,0 +1,51 @@
+/* The control of the board's notifications on this device (lem_board_pages `push_row`, the `push`
+   controller): one row under "Waits for you", and the same row in the sidebar, shown only in a phone's
+   drawer. The server renders a sentence and the buttons for every state; the controller sets the state
+   in data-js-push and a line of what happened in data-js-note, and only the ones of that state show. */
+
+.app .push { --actor: var(--quiet); --ink: color-mix(in srgb, var(--actor) 58%, var(--fg));
+  display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 4px 14px; align-items: start;
+  padding: 14px 18px 14px 16px; border-radius: 12px; background: var(--tile); border: 1px solid var(--line); }
+.app .push[data-js-push="on"] { --actor: var(--ok); }
+.app .push:is([data-js-push="blocked"], [data-js-push="home"]) { --actor: var(--you); }
+.app .push .fi { width: 28px; height: 28px; border-radius: 8px; }
+.app .push .fi .ic { font-size: 13px; }
+.app .push-main { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.app .push-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.app .push-top b { font-weight: 650; font-size: 14.5px; line-height: 1.35; color: var(--fg); }
+.app .push-state { font: 650 11px/1.4 var(--mono); letter-spacing: .06em; text-transform: uppercase; padding: 1px 8px; border-radius: 999px;
+  color: var(--ink); background: color-mix(in srgb, var(--actor) 12%, var(--tile)); border: 1px solid color-mix(in srgb, var(--actor) 45%, transparent); }
+.app .push-say { margin: 0; font-size: 13px; line-height: 1.5; color: var(--dim); overflow-wrap: anywhere; }
+.app .push-acts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; align-self: center; }
+.app .push-acts .btn { white-space: nowrap; }
+/* the line of what happened (a test's answer, a refusal), from data-js-note */
+.app .push[data-js-note]::after { content: attr(data-js-note); grid-column: 2 / -1; font-size: 13px; line-height: 1.45; color: var(--fg);
+  padding-top: 8px; margin-top: 4px; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+
+/* only the parts of the state set: none before the controller has looked */
+.app .push [data-for] { display: none; }
+.app .push[data-js-push="busy"] [data-for="busy"], .app .push[data-js-push="insecure"] [data-for="insecure"], .app .push[data-js-push="home"] [data-for="home"],
+.app .push[data-js-push="none"] [data-for="none"], .app .push[data-js-push="blocked"] [data-for="blocked"], .app .push[data-js-push="off"] [data-for="off"],
+.app .push[data-js-push="on"] [data-for="on"] { display: block; }
+.app .push .push-state[data-for] { display: none; }
+.app .push[data-js-push="busy"] .push-state[data-for="busy"], .app .push[data-js-push="insecure"] .push-state[data-for="insecure"],
+.app .push[data-js-push="home"] .push-state[data-for="home"], .app .push[data-js-push="none"] .push-state[data-for="none"],
+.app .push[data-js-push="blocked"] .push-state[data-for="blocked"], .app .push[data-js-push="off"] .push-state[data-for="off"],
+.app .push[data-js-push="on"] .push-state[data-for="on"] { display: inline-block; }
+.app .push .btn[data-for] { display: none; }
+.app .push[data-js-push="off"] .btn[data-for="off"], .app .push[data-js-push="on"] .btn[data-for="on"] { display: inline-flex; }
+.app .push[data-js-push="busy"] .btn { pointer-events: none; opacity: .6; }
+
+/* on "Waits for you": below the list, as wide as it */
+.app .push-page { max-width: 980px; margin-top: 18px; }
+/* in the sidebar: only in a phone's drawer, smaller, above the switcher */
+.app .push-side { display: none; }
+
+@media (max-width: 700px) {
+  .app .push { grid-template-columns: 28px minmax(0, 1fr); padding: 13px 14px 13px 13px; gap: 4px 12px; }
+  .app .push-acts { grid-column: 2; justify-content: flex-start; margin-top: 6px; }
+  .app .push-acts .btn { min-height: 40px; }
+  .app .push-side { display: grid; margin: 8px 8px 4px; padding: 12px; gap: 4px 10px; border-radius: 10px; }
+  .app .push-side .push-top b { font-size: 13.5px; }
+  .app .push-side .push-say { font-size: 12.5px; }
+}

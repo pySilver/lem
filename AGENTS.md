@@ -24,16 +24,17 @@ works, and this file says how to change it.
   needs goes in that stage. A part of a stage that only one of its paths needs (the interview,
   an investigation, the polish pass) is a file beside it, and the step that chooses the path
   names that file in one line: a task on the fast track reads nothing that only the standard track needs.
-- **Lem's stages and a lead's stages stay apart.** `plan` and `build` are a lead's; the others
-  are Lem's. A step that reads a task's code or its diff goes to a lead or to a fresh agent,
-  never into `new`, `land` or `review`.
+- **A task's phases stay apart.** `plan` and `build` are the lead's, in the build phase. A step
+  that reads a task's code or its diff goes to the lead, a builder or a fresh agent (the
+  investigator, the review, the merge agent), never into the shape (`new`, `interview`) or the
+  landing (`land`).
 - **Scripts are standard-library Python, 3.11 or newer**, print JSON for an agent to read, and
   refuse a wrong input with exit 1 and a message that names the fix. No silent default for a
   choice that is the owner's (`project.py init` with no base it can tell asks for `--base`).
 - **A change is measured by what it costs a developer on a small task** (the touches it asks of
   him, the waits, the agents it starts) as well as by what it guards.
 - **Documentation describes the current state.** No changelog paragraphs, no "previously".
-- **A session with nobody at the terminal reads `docs/free-hour.md` first.** It works in a
+- **A maintainer's session with nobody at the terminal reads `docs/free-hour.md` first.** It works in a
   worktree of this clone, on a branch, and never pushes: `main` of this repository is what every
   project's next update of the plugin installs.
 - **Lem is not released, so a change keeps no reading of the form before it.** A change to the
@@ -836,6 +837,153 @@ A lowered bar (a new suppression, a skipped or deleted test, fewer assertions) m
 request not green also when the plan gives its reason: the design session's decision of
 2026-11-16, told to him as its own, and open to him.
 
+His rulings of 2026-11-20 and 2026-11-21, while his interview redesigned how a task runs and the
+board became a served app; a quote is his words. His answers Q7 to Q11 and notes P1 to P9 are in
+`.lem/state/tasks/one-lem-parallel-landings/`, which git ignores. Where a note replaces an earlier
+ruling, this is the ruling now.
+
+The first three tasks of the redesign, in the order he agreed to (Q9, "Yes I agree"):
+
+- **Landings run in parallel, and the machine's load decides when checks start**: "tests should run
+  in parallel", under Umputun's load-average rule, and "on macbook I want to be able to use laptop
+  comfortable, on my powerful mac mini: I can hummer it" (P7). This replaces his "yes" of 2026-11-19
+  to one landing at a time (criterion 6 of `landing-in-the-background`), and his count of check runs
+  of the same morning. The form is the session's: `lem land start` takes any number of tasks; the
+  checks start only below `[load] start` of `machine.toml` (`lem project load --start N`), two runs
+  start at least 60 s apart (a guess), and with no number there is no gate; merges go one at a time
+  under `merge.lock`. At a start of 1 in his first trial: "We stuck, I think LA will never get that
+  low."
+- **The build asks him nothing, and the ladder always decides**: his "yes" to Q7, and "I'd rather
+  review the PR and request a fix then find a work blocked on some question that automated anwers
+  could answer right." A pick past the personas is logged with its story and makes the pull request
+  not green; `lem decisions` asks nothing, and his away status changes nothing in a build. This
+  replaces "Two experts answer a choice that waits for him" (2026-11-16) and, for a choice of the
+  build, "He says whether he is there" (2026-11-18), "Lem asks through its question page"
+  (2026-11-15), "A companion opens only when something waits for him" (2026-11-19) and "The plan
+  talk is a pair in a companion" (2026-11-16); of the session's decisions, "Every decision that is
+  the owner's takes one path" and the card in "The mode and the ladder are built in the smaller of
+  two designs".
+- **Only a circuit breaker stops a task, with a document**: "Hard circut breaker should stop
+  execution and I will either rule to abandon / return the task and keep the context or help right
+  away" (P3), with "a landing page that I can read easily, with diagrams, flowcharts, user stories,
+  choices, recommendations and assumptions" (P2). Its two causes: a next step that a later "no"
+  cannot reverse, which replaces that step's wait in "A task runs with him or alone" (2026-11-18),
+  or no option that keeps the rule of an approved criterion ("agree"). "An overrun stops nothing".
+  The form is the session's: `lem decisions breaker` with `breaker.md`, the state `parked`, and `lem
+  project resume`.
+- **A fresh merge agent reads every proposed task, and merges it or calls him**: an "additional
+  Agent with fresh context" with a "settings configurable model" (P6). On a question page he picked,
+  against both recommendations, "The merge agent reads each task, the fast track too" and "Each
+  not-green pull request calls you"; a careful change always calls him ("It calls you"). Its seat:
+  "this should be set on most generic level, not in code (`~/.config/lem` ?)", so `seats.merger`
+  comes from the repository, else from `machine.toml`. `branch.land` stays the switch: "developer
+  can configure `lem` the say he always needs to review before merge. Merge review still applies."
+  The form is the session's: `prompts/merge.md`, the default `"agent"`, and `merge-review.md` in
+  place of the owner's page of a task.
+- **GitHub pull requests are the one way to land**: "we can assume that we fully use Github: PR,
+  reviews etc to avoid support for multiple ways of doing same thing". `branch.propose` goes, and
+  his merge and the agent's are one step, `lem land merge SLUG --by owner|merger`: the session's
+  form. With the merge agent it replaces "A project may land with no pull request" (2026-11-16), the
+  `branch.propose` part of "One way to merge in each project" (2026-11-17), the first half of "Every
+  way to merge stays" (2026-11-18), the merge in "Most requests have an interview" (2026-11-16) and
+  in "A task runs with him or alone" (2026-11-18), "agdoc is required too" (2026-11-18) for the page
+  at the end of a task, "The two artifacts are files of the task" (2026-11-18), and the session's
+  sentences on `branch.propose` and on `lem land land --by agent`.
+
+Task 4, a session for each task: `shape-task-4.md` is its shape, and section 7 of `plan-task-4.md`
+holds the coordinating session's decisions of 2026-11-21.
+
+- **Each task lives in a session of its own, from its shape to its merge, and there is no Lem
+  session.** To Q11's guess (no Lem session; `/lem` and an idea in any session, or "+" on the
+  board, opens the task's own session) he wrote "I like that. Yes to all points in that guess.",
+  and to Q10's (a fresh agent at each change of phase, from the leaving agent's `handoff.md`)
+  "yes". The form is the session's: `lem session` and its events `session.open|close|wake`;
+  `prompts/session.md`, which reads the state before `handoff.md` (a Fable second opinion he asked
+  for); and the fast track as one session, since a fresh one starts at about 84,000 tokens (that
+  opinion's median of 10 sessions).
+- **Inside a phase a session compacts itself at his number, for all his repositories.** Of the
+  number: "Globally configurable value please"; of the scouts' proposal, Claude Code's own
+  compaction inside a phase with the handoff's form: "I agree with proposal, but lets keep the
+  limit at 600K for now (default settings)" (2026-11-21). The form is the session's: `[handoff]
+  tokens` in `machine.toml`, 600,000 when absent, 0 for no number of Lem's, under 100,000 refused;
+  `CLAUDE_CODE_AUTO_COMPACT_WINDOW` in each launch line; the `PreCompact` and `SessionStart` hooks
+  of `session_hook.py`; and "hand off" in his words starts a fresh session in any phase.
+- **What reaches across tasks is the board server's**: the session's proposal in the shape he
+  reviewed, in place of Q11's watch in each session. The server runs `lem land merged`, wakes or
+  opens the task's session for its cleanup, a conflict or a queued task's turn, and shows "no
+  session"; it never types into a session, selects one without his click, closes one or decides.
+  Its wake-up is an agterm pane message, and the session acts on the files, never on the line.
+  Section 7: "no session" is a row only when something is stuck, and every task with no live
+  session has "Open a session"; `bin/lem` starts the server after a cheap look; a task's session
+  sits on `seats.session` when one is set.
+
+With Q11 as the new fact, this replaces "One Lem session for each repository, and no global Lem"
+(2026-11-19) and the coordinating Lem of "One Lem for one repository" (2026-11-14); "A companion
+opens only when something waits for him" and "A companion tells Lem with an agterm pane message"
+(2026-11-19); Lem's watch in "His away status is one mark of the machine" (2026-11-19), now the
+shape's session's; and the companions of "The plan talk is a pair in a companion that closes after
+it" (2026-11-16) and of "Lem asks through its question page" (2026-11-15), now the task's session.
+"A companion is a fresh agent, with the talk copied in" (2026-11-19) stays as `lem session talk`.
+The server takes over the session's decision "The status knows what merged" (2026-11-17), and types
+no line as "The board is served, and the server draws it" (2026-11-20) has it; in "A task that ended
+stays ended" (2026-11-17), `prompts/session.md` takes the place of `stages/stopped.md`.
+
+The board, whose form is the session's decision "The board is served, and the server draws it":
+
+- **Claude Code and agterm first, and Codex for reviews**: "my opionated choice is to have Lem a
+  Claude Code and agterm first class citizen. ... I mostly use CC and Codex for reviews." This
+  replaces "Codex in each role is wanted" (2026-11-17) and the Codex builder that "Claude Code
+  first" (2026-11-14) promises.
+- **The board is a served app**: "Lack of being able to oversee the process away from laptop its my
+  biggest pain". Hotwire, rendered on the server; "I agree that sqlite for now might be too much."
+  This replaces "The board as a tabbed interface is a backlog item" (2026-11-18).
+- **The board's icons are a subset of Font Awesome Pro, in the repository, under his license**: "Dont
+  bother with license - my license allows the usage" (2026-11-20). On 2026-11-21 the session found
+  that the repository is public, told him that Font Awesome's pages keep Pro files out of a public
+  repository, and began to move the repository to the Free icons. He ruled: "Yes I can use Font
+  Awesome fo my sites! This is allowed by the license. I cannot build similar products to
+  FontAwesome or WebAwesome", and "I am 100% sure I am allowed this. The reason is: we use a subset
+  of icons not a whole set." So `board-icons.json` stays as `tools/board-kit` builds it from his Pro
+  download, only the icons `icons.mjs` lists, and no agent reopens this.
+- **Tailscale is the way from his phone, and nothing supervises the server**: "Server: I want
+  tailscale usage be the first class citizen. Thats my opionated choice. Obviosly if one does not
+  need it - then fine, DIY". The door lets in only his tailscale login, never through Funnel. "I'd
+  rather keep the Plannotator approach and avoid polluting launchd. I can always remote login to the
+  machine and start the server manually." So the plugin's SessionStart hook and `lem board` start
+  it, and no login item does.
+- **An address for each workspace and task, two machines under one, and pushes**: his ask, not kept
+  in his words. `/HOST/WORKSPACE/tasks/SLUG`, `lem serve --join HOST`, and a push when "Waits for
+  you" gains a row; with Apple's topic `lemwaits`, "push notification worked".
+- **He acts from the board**: of actions from the phone, "worth doing", and with no look of his at
+  their design, "I allow you to use headless chrome for that, I think it will work?". Approve the
+  criteria, merge after a confirm step, park: each the command a session runs, the session's form.
+- **No stale pull request, and a folded header on a phone**: "gihub issue with stale elements should
+  not happen again", so the server runs `lem land merged` for a pull request merged or closed on
+  GitHub; of a task's header, "I believe it should be collapsed by default and unfold when
+  requrested". His other notes are in `board-plan.md` of that folder.
+- **A release is a change of the plugin's `version`** ("The latter will be a bit easier to manage"),
+  which replaces "no version" in the design "Lem is a Claude Code plugin" (2026-11-15). Of this
+  work: "I trust you here, go merge and push whenever you need to. ... I will wait for release.",
+  and "we can afford breaking things (old Lem)".
+
+What agents write, and the Python Lem needs:
+
+- **Stories, flowcharts and pictures, early**: "rich media in markdown files - lem should know it's
+  worth being used when tasks are planned and executed under lem; as well as step by step stories",
+  and "those flowcharts and stories are worth to be produced early - for example after acceptance
+  crierions are settled". The form is the session's: `prompts/writing.md`, read from the interview
+  to the merge agent, with `--case` and `--chart` on an important decision. To his "Should we add
+  anything about screenshots?" it added "A screenshot" and the capability `take-screenshot`.
+- **A task's artifacts have one map**: "core sections and components should be standard for every
+  project, so task artifacts map is predictable", and "I agree to limited number of artifacts - good
+  choice": seven sections in one order, the records folded, as an Opus opinion proposed.
+- **Python 3.11 stays, in the modern form.** Of a floor of 3.9: "Test it but if it will fail hard,
+  we will use modern version. Its opionated software", and "`from __future__ import annotations`
+  this considered harmful in python." So no script has that import; `lem_python.py` finds a newer
+  Python for `bin/lem` and the hooks. Of the finder: "also `uv` can be tried". The form is the
+  session's: `uv` is asked last, only for a Python it has, and the fix names `uv python install`
+  beside `brew install python`.
+
 ## Decisions the maintaining session took
 
 On 2026-11-16 the owner gave the design to the session that builds Lem: "You are the owner and
@@ -1096,6 +1244,29 @@ scratch repository (R1 to R6) and the final audit of `636b24c` (A1 to A15).
   that night ... that names a draft still `drafted`") and `settle --away` in his ruling on the
   experts tell the form before, and the state `drafted` is gone with it. The brake counts a night's pull requests that nobody merged or
   closed: with two or more, the night opens nothing.
+- **The board is served, and the server draws it** (2026-11-20). The owner: "Lack of being able to
+  oversee the process away from laptop its my biggest pain". The board was one file:// page that agterm
+  opened, with 2,980 lines of its own JavaScript (the one script of `board.html` at 1971c8e)
+  that read the state folder through copies of the log and of each task's files as scripts. Now
+  `lem serve`, one standard-library server for the machine, draws every page from the state folder
+  (`lem_board_model`, `lem_board_pages`, `lem_board_task`), and Turbo and a few Stimulus controllers
+  are all the browser runs: a stream of server-sent events tells an open page each change, which it
+  morphs in, so a phone, a laptop and agterm show the same board, and no file of the page is written
+  at an event. Tailscale is the first-class way in from another device, behind `tailscale serve`, with
+  the owner's own login as the check, Funnel refused, and the Mac itself served on 127.0.0.1 with no
+  check. The server starts on demand (`--ensure` from the SessionStart hook and from `lem board`)
+  and replaces itself after an update, with no launchd agent to install or to outlive the plugin. It
+  shows a list of workspaces for the machine (`workspaces.json`), and the machine's name is in each
+  address, so that a second machine's workspaces can join under their own. agterm gives an http page
+  no bridge, so the board's two acts of agterm go through the server, on this Mac only. The board
+  notices a merge on the forge itself: a thread of `lem serve` asks GitHub a few minutes apart about
+  the open pull requests nobody watches, and for one merged or closed there runs `lem land merged`,
+  the bookkeeping a status runs and no other step. Its notifications are web pushes with no payload,
+  signed with a key kept in Lem's home folder, and `/usr/bin/openssl` signs them, the one program
+  outside the standard library (`lem_push.py`). Two machines show under one address with `lem serve
+  --join HOST`, which lists the other's workspaces as `HOST/WORKSPACE` and passes its pages and its
+  stream through over the tailnet (`lem_peers.py`). A chart is drawn by a vendored mermaid, the file
+  `lem-ask` pins, which only a document with a chart names and a page loads at its first chart.
 
 ## Checks
 
@@ -1118,24 +1289,35 @@ to that count fails, and so does one that runs over its time limit (`LEM_TEST_LI
 With `LEM_TEST_TIMES=FILE` each check of a block appends its seconds to FILE, so one run shows
 which checks hold the time.
 
-One suite alone:
+One suite alone, in the order of `tests/all.sh`:
 
 ```bash
-bash tests/test-lem.sh         # Lem's scripts, in throwaway repositories: the blocks tests/lem-*.sh at the same time; loads the board in headless Chrome when one is installed
-bash tests/lem-land-shop.sh    # one block of them, alone (each block sources tests/lib.sh)
-bash tests/lem-land-local.sh   # the landing with no remote, in two blocks of about equal time: decisions, criteria and the read here,
-bash tests/lem-land-review.sh  # and the polish pass, the review, the bar and what makes a request careful here
-bash tests/lem-command.sh      # the command lem: each name, its arguments, stdin and exit status, help, and that no text names a script by its path or wraps a call
-bash tests/lem-serial.sh       # the tests two tasks cannot run at once (checks.serial): lem project serial, its one lock, the checks that use it; and checks.setup in a new worktree
-bash tests/lem-naps.sh         # the naps: the [naps] settings and lem project may-nap
-bash tests/lem-picker.sh       # the task picker: its rows, a pick, Escape and its refusals, with a stand-in for agtermctl
-bash tests/lem-companion.sh    # the companion of a need: open, list, close and due, two at once, and its files in the state folder git ignores, with a stand-in for agtermctl
+bash tests/lem-settings.sh     # the settings and the places of what Lem reads, a task's state and the event log, the rule picker, the criteria and their check on the base (each lem-* block sources tests/lib.sh)
+bash tests/lem-machine.sh      # the machine check, the correction queue and its hook, the plugin's files
+bash tests/lem-state.sh        # the state folder git never sees, and the owner's status
+bash tests/lem-decisions.sh    # a task's decisions, each taken by a level of the ladder, and the circuit breaker from its trip to his help, park, drop and resume
+bash tests/lem-land-shop.sh    # the landing from `ready` through the checks and one read to a pull request, the merge agent's read and the merge, on the stand-in for gh
+bash tests/lem-land-local.sh   # the landing in two halves of about equal time: decisions, criteria and the personas' read in the pull request's text here,
+bash tests/lem-land-review.sh  # and the polish pass, the review, the bar, what makes a request careful and who merges it here
+bash tests/lem-land-backlog.sh # what a review saw outside the change, filed as backlog items
+bash tests/lem-land-github.sh  # the forge's own cases, and a remote that is not GitHub, which lands nothing
+bash tests/lem-land-guards.sh  # the landing's guards and refusals, each next step run as the refusal names it
+bash tests/lem-land-small.sh   # the fast track's landing, and what keeps it safe
+bash tests/lem-serial.sh       # checks.serial under the repository's one lock, and checks.setup in a new worktree
+bash tests/lem-naps.sh         # the [naps] settings and lem project may-nap
+bash tests/lem-command.sh      # the command lem: each name, its arguments, stdin and exit status, help, and that no text names a script by its path
+bash tests/lem-picker.sh       # the task picker, with a stand-in for agtermctl
+bash tests/lem-session.sh      # a task's own session (lem session) with a stand-in for agtermctl, and the copy of the talk
+bash tests/lem-serve.sh        # the board server and lem board over HTTP, on the afternoon of tests/board-showcase.py: the routes, each page's words, the stream, the jump to a session, the start on demand
+bash tests/lem-board-act.sh    # the owner's acts from the board, and the server's duties across tasks, with a stand-in for lem session
+bash tests/lem-peers.sh        # two machines under one address: two board servers on this Mac, a join, the loop guard, a machine that does not answer
 bash tests/test-gate-panel.sh  # the panel's cast, in its one place
 bash tests/test-ask.sh         # lem-ask's spec checks and every template; loads pages in headless Chrome when one is installed
-bash tests/test-ask-expert.sh  # the experts' advice in a choice's record, the end of the wait, its end when the task runs without the owner, and the brief; no expert runs
-bash tests/test-board.sh       # the board over a repository whose tasks stand in every lane; loads its pages in headless Chrome when one is installed
-bash tests/test-site.sh        # the page on GitHub Pages: runs pages.yml's copy step in a throwaway folder and reads the page there (its text, links, colors, the workflow); the first screen, the copy buttons and both themes in headless Chrome when one is installed
+bash tests/test-ask-expert.sh  # the experts' brief of a question in words, its folder and the record of each answer, one expert alone; no expert runs
+bash tests/test-site.sh        # the page on GitHub Pages, from pages.yml's own copy step; its drawn page in headless Chrome when one is installed
 bash tests/shellcheck.sh       # ShellCheck over tests/*.sh, one check for each file, or over the files named
+python3 tests/pick.py --check  # the map of tests/pick.py: every file read by a suite, every suite in all.sh
+bash tests/test-lem.sh         # every lem-* block at the same time, with its output in order; all.sh runs each as a suite of its own
 ```
 
 A change to a script comes with its test. A change to a stage file has no test: its test is a
@@ -1145,148 +1327,129 @@ To run a clone of Lem in one session, without the plugin's install, load its fol
 (Claude Code 2.1.325, 2026-11-17: the session listed every `lem:` skill and `lem:lem-builder`):
 
 ```bash
-claude --plugin-dir /path/to/lem   # the plugin from this folder, for this session only, with its skills, agent, commands and hook
+claude --plugin-dir /path/to/lem   # the plugin from this folder, for this session only, with its skills, agent, commands and hooks
 ```
+
+A task's session that `lem session open` starts gets no `--plugin-dir` (`launch_line` in
+`session.py`): its `lem` commands are the installed plugin's, not the clone's (read in the code,
+not tried).
 
 ## Layout
 
-- `skills/lem/SKILL.md`: the entry point and what holds in every stage.
-- `skills/lem/stages/`: one file per subcommand, and `talk.md`, the plan talk of a careful or
-  large plan, which only its defender reads. The parts of `new.md` that only one path reads are
-  files beside it: `interview.md` (the interview and the acceptance criteria), `open-interview.md`
-  (how Lem copies the talk and opens the interview's companion), `investigate.md`
-  (a bug and a question), `start.md` (the start of a lead, `/lem build` and the queue),
-  `stopped.md` (when a lead stops) and `choice.md` (when a choice waits for the owner); and the
-  polish pass, step 3 of `land.md`, is `polish.md`, which only the standard track reads. `away.md` is
-  what Lem does when the owner says `/lem im-away` or `/lem im-back`, `correct.md` what it does at his
-  `/lem be-careful`, `standard-track` or `drop` of a task, and `ladder.md` the ladder of a decision in doubt, which only a lead or a defender reads, at such a
-  decision. `pages.md` is the owner's page of a task on the standard track, after step 6 of `land.md`: `land.py
-  propose` writes `built.md` and `decisions.md` into the task directory from the records the pull
-  request's text reads (never on the fast track, never committed), and Lem makes one page of the
-  two with `make-page` and the brief `templates/page-brief.md`, which `/lem status SLUG` opens.
-- `skills/lem/harness/`: the capability contract and one file per agent.
-- `skills/lem/scripts/`: `lem_state.py` (the one place that names a repository's state folder,
-  `.lem/state/` of the main checkout, and the machine's mark of the owner's status, `owner.jsonl`
-  in `$XDG_CONFIG_HOME/lem` or `~/.config/lem`; every script that touches the state or the mark
-  asks it, directly or through `project.py state-dir`),
-  `lem_plans.py` (the one place that builds and finds a plan's file name from `paths.plan_file`,
-  and a ruling's from `paths.ruling_file`), `lem_sibling.py` (how `land.py`,
-  `criteria.py`, `decisions.py` and `companion.py` run a command of a sibling: in their own process, as its
-  `main(argv)`, except the commands in its `APART`),
-  `project.py` (a repository's settings, the one place of each file Lem reads beside them
-  (`PLACES`), task state,
-  the owner's status (away or back), read from the machine's mark, with its watch (`lem project
-  owner watch`) and `owner.js`, the board's copy of it in the state folder, and from it each task's
-  mode, the event log, and `waiting`, the one list of what waits for the owner),
-  `doctor.py` (the machine, with the three recipes of the agterm cookbook Lem needs, webrev, agdoc
-  and the backlog, and a row when more than one place registers the correction hook),
-  `board.py` (opens the board, and with `--page FILE` any page of Lem to read, each as a page
-  companion of the session's group and never over the session), `picker.py` (`lem picker`: agterm's picker over the tasks, which
-  an agterm chord starts and which opens the board of the one picked; the `task picker` row of
-  `doctor.py` gives the owner its keymap line, with the folder of Lem's marketplace clone, whose
-  path an update does not move), `companion.py` (`lem companion`: the companion of one need that
-  waits for the owner, an interview, criteria for his yes or one choice, which it opens under Lem's
-  session with no focus and a fixed name in the sidebar, lists and closes, with `talk`, the copy of
-  the turns of Lem's session that led to the ask into `talk.md`, and `due`, what Lem owes at each
-  turn from the files: the companions to open and close and the leads to start;
-  `tests/lem-companion.sh` is its block),
-  `land.py` (the landing, one refusable step at a time: the
-  machine checks, the review's floor and its record, the pull request, the merge, and the watch
-  of the open pull requests on the forge),
-  `corrections.py` (the optional queue of the owner's corrections: its hook, which claims each
-  message so that a hook registered in two places judges it once, and what a retro reads), `jev.py` (the client of the Jev decision model, which the hook runs by its path and
-  the plugin puts on the Bash tool's `PATH` as the `lem-jev` command; its key is `JEV_API_KEY` and its address `JEV_API_URL`, OpenRouter's by default), `criteria.py` (a task's acceptance criteria, read from the top of
-  its plan, or on the fast track from `criteria.md` in its task directory, and the check that
-  each one's tests pass on the branch and fail on the base commit),
-  `decisions.py` (a task's decisions in `decisions.jsonl`: each one taken without the owner, with
-  the level of the ladder that took it, and each choice that waits for his answer with no time
-  limit, which `lem decisions away` takes when he says he is away; the landing reads it).
-- `skills/lem/assets/board.html`: the board of all tasks and of one task, one page for both. The
-  board of all tasks has the tabs "Tasks", "Waits for you" (a row for each thing the owner does)
-  and "Backlog" (the items in groups by their own `worth`); the board of one task has "Overview"
-  ("What we are building", then green or not green), "Criteria and decisions" (each decision a
-  folded row, the important ones marked and first), "Checks and review" and "Timeline". A tab
-  hides the other panels and removes none. The page draws the files beside it: `events.js`, which
-  `project.py` appends to, `meta.js`, `backlog.js` and `overview.js` (each task's outcome from
-  its `task.md`, and the backlog items its branch adds), which `board.py` writes, and `owner.js`,
-  the copy of the machine's mark, from which its header says that the owner is away. `lem.css` beside
-  it is the look every page of Lem shares, a small design system in the look of Lem's landing page
-  (`site/style.css`): Lem's own warm light and dark palettes with the ochre accent, body text at
-  16 px, monospace eyebrows for the small labels, its header, and one button, card, tab bar and
-  chip. `lem.js` beside them sets the palette mark from the `color-scheme` that agterm's theme
-  stylesheet puts on the page, or from the system's setting outside agterm. `handover.html` is the pattern of the onboarding's page. A new page for the
-  owner links `lem.css` and `lem.js` and brings no style of its own.
-- `skills/lem/templates/`: the shapes onboarding fills, and `page-brief.md`, the brief of the owner's
-  page of a task on the standard track.
-- `skills/lem/prompts/`: the standing briefs of a task's lead, of a plan talk's defender, of a
-  need's companion (`companion.md`), of the scout of an interview, of the investigator of a bug or
-  a question (`investigator.md`), of the one builder of the fast track (`small.md`), of the
-  builders of a landing, of the agent that routes and runs a review before a change is proposed,
-  and of the reviewer in the other pane.
-- The naps, an optional part: `skills/lem/prompts/nap.md` is the nap's brief, written after the
-  owner's own nap routine and kept in its voice (a change to it is tried with one real nap, and
-  its dream is read: a brief that makes a report of it is wrong); `skills/lem/stages/nap.md` starts
-  one; `project.py may-nap` says whether one may; no page shows them, and the retro reads their
-  waking notes. `tests/lem-naps.sh` is their block.
+Each script's module docstring says what it does and why; this list says where each thing is.
+
+- `skills/lem/SKILL.md`: the entry point, what holds in every stage, and "One session for each
+  task".
+- `skills/lem/stages/`: one file for each subcommand, read only when it runs. `new.md` opens a task
+  in its own session, and its "The request" and "The fast track" are that session's first steps;
+  `interview.md` (the interview and the criteria) and `investigate.md` (a bug, a question) are the
+  rest of the shape. `start.md` starts the build, `plan.md` and `build.md` are the lead's, `talk.md`
+  is the plan talk, which only its defender reads, `ladder.md` a decision in doubt and `breaker.md`
+  the circuit breaker. `land.md` is the land phase, and `polish.md` its step 3, on the standard
+  track only. `status.md`, `away.md`, `correct.md`, `park.md`, `night.md`, `init.md`, `learn.md`
+  and `nap.md` are the owner's other commands and the scheduled ones.
+- `skills/lem/prompts/`: the standing briefs: `session.md` (a task's session: what it reads, a
+  change of phase, a wake-up, what it never does), `lead.md`, `defender.md` and `reviewer.md` (the
+  plan talk's pair), `scout.md`, `investigator.md`, `small.md` (the fast track's one builder),
+  `landing.md` (a builder of a landing), `review.md` (the review before a pull request), `merge.md`
+  (the merge agent), `writing.md` (how a document for the owner is written, from the interview to
+  the merge agent) and `nap.md`.
+- `skills/lem/templates/`: `profile.md` and `persona.md`, which onboarding fills; `handoff.md`, the
+  hand-over between two agents of a task; `breaker.md`, the breaker's document.
+- `skills/lem/harness/`: the capability contract, `README.md`, and one file for each agent.
+- `skills/lem/scripts/`, each a command of `lem` or a module the commands share:
+  - `project.py` (`lem project`): a repository's settings and the one place of each file Lem reads
+    beside them (`PLACES`), a task's state and directory, the event log, the owner's status and its
+    watch, `waiting` (the one list of what waits for the owner), and the machine's `load` and
+    `handoff` numbers.
+  - `session.py` (`lem session`): a task's own session in agterm, its change of phase, its wake-up,
+    the handoff's check and the copy of the talk; `session_hook.py`: the plugin's `PreCompact` and
+    `SessionStart` (`compact`) hooks of a task's session.
+  - `land.py` (`lem land`): the landing, one refusable step at a time, from `ready` through the
+    checks and the review to a pull request on GitHub, the merge agent's read, the merge and the
+    cleanup.
+  - `criteria.py` (`lem criteria`): a task's acceptance criteria, and the check that each one's
+    tests pass on the branch and fail on the base. `decisions.py` (`lem decisions`): a task's
+    decisions, each taken without the owner, and its breakers.
+  - `serve.py` (`lem serve`): the machine's one board server, with the owner's acts, the jump to a
+    session, the tailnet door and the duties across tasks; `serve_hook.py`: the SessionStart hook
+    that starts it. Its parts: `lem_board_model.py` (the model, pure functions over the files),
+    `lem_board_pages.py` (the pages of a workspace), `lem_board_task.py` (the board of one task),
+    `lem_artifacts.py` (a task's files on one map), `lem_html.py` (`h()`, which escapes every text),
+    `lem_push.py` (the notifications) and `lem_peers.py` (another machine joined with `--join`).
+  - `board.py` (`lem board`): makes sure the server runs and opens a board, or with `--page FILE`
+    any page of Lem, as a companion. `picker.py` (`lem picker`): agterm's picker over the tasks.
+  - `doctor.py` (`lem doctor`): the machine check. `corrections.py` (`lem corrections`): the
+    optional queue of the owner's corrections and its hook. `jev.py` (`lem-jev`): the client of the
+    Jev model.
+  - `lem_state.py` (the state folder and Lem's home folder), `lem_plans.py` (a plan's and a ruling's
+    file name), `lem_sibling.py` (a sibling's command in the same process) and `lem_python.py` (a
+    Python of 3.11 or newer for `bin/lem` and the hooks).
+- `skills/lem/assets/`: what `lem serve` sends under `/assets/`. `board.css` is the board's look,
+  the phone's too; `lem.css` and `lem.js` are the look and the palette every page of Lem shares, and
+  a new page for the owner links both and brings no style of its own. `push.css` and `sw.js` are the
+  notifications', `icons/` the board's icons, and `handover.html` the pattern of the onboarding's
+  page. `vendor/` holds what `tools/board-kit` builds: `board-app.js`, the board's one script,
+  `board-icons.json` and `mermaid.min.js`.
+- `tools/board-kit/`: the maintainer's build of `vendor/`, which nobody who installs the plugin
+  runs: the built files are committed. Its `README.md` says how to build and how to add a Stimulus
+  controller to `controllers/`.
+- Lem's home folder, `$XDG_CONFIG_HOME/lem` or `~/.config/lem` (`lem_state.config()`):
+  `owner.jsonl`, the owner's away and back; `machine.toml`, this machine's settings, `[load]`,
+  `[serve]`, `[peers]`, `[seats]` (`merger` and `session`, for a repository whose settings name
+  none) and `[handoff]`; `workspaces.json`, the repositories the server shows; and what the server
+  and the checks keep there: `serve.lock`, `serve.log`, `load.lock`, the push key `push-key.pem` and
+  the devices `push.json`.
+- `.lem/`: Lem's own settings, profile, cast and lessons, in the places every repository has them.
+  Its `state/`, which git ignores, is the state of a repository's Lem: the tasks, the event log,
+  the night reports, the naps, the experts' folders and a panel's copies. `.lem/worktrees/` holds
+  the tasks' worktrees. `.revmux/` is the review tool's configuration for this repository.
+- The naps, an optional part: `prompts/nap.md` is written after the owner's own nap routine and
+  keeps its voice (a change is tried with one real nap, and its dream is read: a brief that makes a
+  report of it is wrong); `stages/nap.md` starts one and `lem project may-nap` says whether one
+  may. No page shows them; the retro reads their waking notes.
 - `docs/`: the guides the README links, each in STE like the README, each with one job and under
-  800 words: `flow.md` (how a task goes, for each size, with the one diagram),
-  `when-lem-needs-you.md` (the three points, what waits, the board, the ladder, away),
-  `pull-request.md` (what green means, the merge, a conflict, a drop), `install.md` (what Lem
-  needs, the install and the setup, what Lem keeps in a repository and outside it, the update, the removal) and
-  `linear.md` (how a project connects Linear; `skills/lem-linear` points to it); and
-  `settings.md`, the reference: one table for each table of the settings, one to one with
+  800 words: `flow.md` (how a task goes, with the one diagram), `when-lem-needs-you.md`,
+  `pull-request.md` (what green means, the merge review, the merge, a conflict), `board.md` (the
+  board, the phone, two machines under one address, the server), `install.md` and `linear.md`; and
+  `settings.md`, the reference, one table for each table of the settings, one to one with
   `project.py` (`tests/lem-settings.sh` checks it). How Lem works inside is in this file and the
-  skill, not in `docs/`. Beside them `free-hour.md` (how an unattended session may change Lem),
-  `backlog/`, Lem's own deferred work, and `plans/`, the plans that built Lem: each finished one
-  opens with a status line that names its commits and where later decisions changed it.
-- `.lem/`: Lem's own settings, profile, cast and lessons, from its onboarding, which `/lem` reads
-  when Lem runs in this repository; each file has that one place in every repository. Its `state/` folder, which git ignores, is the state of a
-  repository's Lem: the tasks, the event log, the night reports, the naps, the experts' folders
-  and the copies a panel read; `lem_state.py` names it. `.revmux/`: the review tool's profiles, lenses and project
-  profile for this repository.
-- `tests/`: the suites of the Checks above; `unit/` is the unit level, a `test_*.py` for each
-  script and `__main__.py`, its form as a suite; `all.sh` runs them all, `lib.sh` is what each
-  `lem-*.sh` block sources, `checks.sh` is how every suite counts its checks, `suites.sh` and
-  `limit.py` are what `all.sh` and `test-lem.sh` share, and `pick.py` holds the map of which suite
-  reads which file. `.github/workflows/ci.yml` runs `all.sh` when someone starts it by hand, and
-  `.github/workflows/pages.yml` beside it publishes `site/` the same way.
+  skill. Beside them: `free-hour.md` (how an unattended maintainer's session may change Lem),
+  `backlog/`, Lem's own deferred work, and `plans/`, the plans that built Lem, each finished one
+  with a status line that names its commits and where later decisions changed it.
+- `tests/`: the suites of "Checks". `unit/` is the unit level, a `test_*.py` for each script;
+  `lib.sh` is what each `lem-*.sh` block sources, `checks.sh` how every suite counts its checks,
+  `suites.sh` and `limit.py` what `all.sh` and `test-lem.sh` share, and `pick.py` the map of which
+  suite reads which file. `board-showcase.py` writes the demo afternoon that `lem-serve.sh` serves,
+  and makes the board's pictures through headless Chrome (`board-cdp.mjs`, which needs Node).
+  `.github/workflows/ci.yml` runs `all.sh` when someone starts it by hand.
 - `.claude-plugin/`, `bin/` and `hooks/`: what Claude Code reads to load this repository as the
-  plugin `lem`, the one way Lem installs: the manifest, a marketplace file that lists the one
-  plugin, `bin/lem`, Lem's one command, which runs the script a name stands for (`lem project
-  show` is `skills/lem/scripts/project.py show`, `lem help` lists the names), links to the two
-  commands `lem-ask` and `lem-jev`, all of which a plugin's `bin/` puts on the Bash tool's
-  `PATH`, and the correction hook. Every text and every message of a script says `lem NAME`, so
-  one permission rule, `Bash(lem *)`, covers them on every machine and after every update.
-- `agents/lem-builder.md`: the builder, as a Claude Code agent definition. Its body is the
-  builder's standing rules; `harness/claude-code.md` says how it is used and overridden.
-- `assets/lem.svg`: the logo, and `assets/lem-mark.svg`: the figure alone, for an icon.
-  `assets/lem-night.svg` and `assets/lem-mark-night.svg` are the same drawings in the night
-  palette, written by `assets/night.py`; the README shows the night one in a dark theme, and
-  the header of each page of Lem shows the night mark in its dark palette.
-- `assets/screens/`: the pictures of the board, for a light and a dark theme, at two device
-  pixels for each pixel. `board-*` (the tab "Tasks"), `task-*` (the board of one task on
-  "Overview") and `backlog-*` are renders of `skills/lem/assets/board.html` over the data of
-  `board.py --demo`, made by `tests/board-showcase.py`; the README shows `board-*`,
-  `docs/when-lem-needs-you.md` shows `task-*`, and no page shows `backlog-*`.
-- `site/`: Lem's page on GitHub Pages, `index.html` and `style.css` and no picture of its own. Its
-  text is written from the README and the guides, in their STE; its look is the board's, with the
-  six hues of `lem.css` copied at the same values into `style.css`, light or dark by the visitor's
-  theme and no switch; its one script is the copy buttons; it draws nothing from another host, and
-  its guide links are GitHub's pages of the guides. `.github/workflows/pages.yml`, started by hand
-  only, copies `site/*`, `assets/lem.svg`, `assets/lem-night.svg`,
-  `assets/screens/board-light.png` and `board-dark.png` into `_site/` at their repository paths
-  (so the page names them as `assets/...`) and publishes that folder. The plugin's install
-  carries the folder and the workflow, and the workflow never runs there. `tests/test-site.sh` runs the workflow's
-  copy step as written and reads the page in the folder it makes.
+  plugin `lem`, the one way Lem installs. `bin/lem` is Lem's one command: `lem NAME` runs the script
+  NAME stands for, and `lem help` lists them; `lem-ask` and `lem-jev` are links to it.
+  `hooks/hooks.json` starts, each through `lem_python.py`, the correction hook, the SessionStart
+  hook of the board server and the two hooks of a task's session. Every text and every message of a
+  script says `lem NAME`, so one permission rule, `Bash(lem *)`, covers them on every machine and
+  after every update.
+- `agents/lem-builder.md`: the builder, as a Claude Code agent definition; its body is the builder's
+  standing rules, and `harness/claude-code.md` says how it is used and overridden.
+- `assets/`: the logo (`lem.svg`), the figure alone (`lem-mark.svg`), and both in the night palette
+  (`*-night.svg`, written by `night.py`). `assets/screens/` holds the board's pictures, light and
+  dark, made by `tests/board-showcase.py`: `board-*` (the kanban), `task-*` (a task on "Overview"),
+  `backlog-*` and `phone-*`. The README shows `board-*` and `phone-*`, `docs/board.md` `phone-*`,
+  `docs/when-lem-needs-you.md` `task-*`, the site all three, and no page `backlog-*`.
+- `site/`: Lem's page on GitHub Pages, `index.html` and `style.css`, written from the README and the
+  guides in their STE, in the board's look (the six hues of `lem.css` at the same values), light or
+  dark by the visitor's theme, with the copy buttons as its one script and nothing from another
+  host. `.github/workflows/pages.yml`, started by hand only, copies it with the logo and the six
+  pictures into `_site/` at their repository paths and publishes that; `tests/test-site.sh` runs that
+  copy step as written.
 - `skills/lem-ask/`, `skills/lem-interview-me/`, `skills/lem-dialectic/`, `skills/lem-root-cause/`,
   `skills/lem-gate/`, `skills/lem-panel/`, `skills/lem-linear/`, `skills/lem-ask-expert/`: the
-  skills Lem names and ships. `lem-ask-expert` is Lem's own, written under the rules above, with
-  `scripts/experts.py` (the experts' brief and their answers: for a choice of a task into its
-  record, and for a question in words into a folder of its own in `.lem/state/experts/`).
-  `lem-panel`'s `scripts/cast.py` keeps the copies of the cast and the profile a panel read in
-  Lem's state folder, `.lem/state/personas-cast/` and `personas-profile/`, and in
-  `personas-person/` the text of a persona file without its frontmatter, which names its seats.
-  `NOTICE` says where each came from.
+  skills Lem names and ships. `lem-ask-expert` is Lem's own, with `scripts/experts.py` (`lem
+  experts`: the brief of a question in words and the record of the experts' answers, in a folder of
+  `.lem/state/experts/`). `lem-panel`'s `scripts/cast.py` (`lem cast`) finds the cast, copies it
+  into a project, and keeps the copies a panel read in Lem's state folder. `NOTICE` says where each
+  came from.
 
 ## The shipped skills are copies, not yet under the rules above
 

@@ -11,63 +11,68 @@ A pull request is not green when one of these is true:
 - your tests got less strict (the bar went down), even with a reason in the plan;
 - the review left a must-fix after two rounds, or no reviewer answered;
 - a criterion changed during the build;
-- Lem took a decision of yours without you: while you were away, or in a night task;
+- a decision went past the personas: the dialectic or the experts took it;
+- Lem approved the criteria without you: while you were away, or in a night task;
 - the personas did not answer, two times, when they read the criteria;
 - the change brings the first checks into a project that had none;
 - a task on the fast track turned out to be careful: it can affect what must never go wrong.
 
-An agent also makes smaller choices inside a task, all the time. They do not change green: the pull
-request lists the ones that matter, each with its reason.
+Smaller choices of an agent do not change green. The pull request lists the ones that matter.
 
-You can merge a green pull request without a read.
+## The merge review
 
-On the standard track, Lem also makes a page that tells what was built, why, and who took each decision.
-Type `/lem status <task>` to open it.
-
-## Merge it
-
-Each project has one way to merge. The remote and one setting decide it.
+Lem opens each pull request on GitHub, the one way a task lands. Then a fresh merge agent reads
+the task: its files, its reviews and its diff. It changes nothing. It writes `merge-review.md` in
+the folder of the task. The review starts with its verdict, merge or
+call. Then it tells what Lem built and why, as a short story. Last come the results, each decision
+that Lem took without you, and the time of the task. The review is shorter than the documents it
+read. For a safe small change, it is the verdict and three sentences.
 
 ```mermaid
 flowchart TD
-    ready["A task is ready"] --> host{"Where is the remote?"}
-    host -- "GitHub" --> wants{"Pull requests?"}
-    host -- "another host, or none" --> branch["The branch waits on your computer"]
-    wants -- "yes, the default" --> pr["Lem opens a pull request"]
-    wants -- "no" --> branch
-    pr --> button["Click Merge on GitHub"]
-    pr --> viapr["Type /lem land"]
-    branch --> direct["Type /lem land"]
-    button --> merged(["Merged: Lem removes the worktree and the branch"])
-    viapr --> merged
-    direct --> merged
+    A["Lem opens the pull request"] --> B["A merge agent reads the task"]
+    B --> C["It writes merge-review.md"]
+    C --> D{"Careful, or not green?"}
+    D -- "yes" --> W["It calls you"]
+    D -- "no" --> E{"Did it find a problem?"}
+    E -- "yes" --> W
+    E -- "no" --> M["It merges"]
+    W --> Y["You read the review, then merge or ask for a change"]
 ```
 
-- **GitHub, with pull requests** (the default). A merge on GitHub merges the pull request as it
-  is, under the rules of your base branch. `/lem land <task>` first runs the checks again if the
-  base moved.
-- **GitHub, with no pull requests** (`branch.propose = "merge"`), for a developer who works alone.
-  `/lem land <task>` puts the task on the base branch and pushes it to GitHub.
-- **Another host**, for example GitLab. Lem opens pull requests on GitHub only. `/lem land <task>`
-  pushes the task to the base branch of the remote, which fits a developer who works alone.
-- **No remote.** `/lem land <task>` moves the base branch on your computer.
+The merge agent calls you for each careful change and for each pull request that is not green.
+It also calls you when it finds a problem. The board then shows "Read the merge review" in
+"Waits for you", and the review is the first card of the task.
 
-Do not merge the branch of a task by hand: Lem knows only a merge through the pull request or
-through `/lem land`. After a merge, Lem removes the worktree and the branch, and updates the Linear
-ticket of the task.
-
-On GitHub's button, you select the merge method. `branch.history` is for a merge by Lem, and
-`branch.land = "agent"` lets Lem merge a green pull request with no word from you
+With `branch.land = "owner"`, the merge agent still writes its review, but it never merges
 ([Settings](settings.md#branch)).
 
-A script looks at Lem's pull requests one time each minute, with the GitHub CLI `gh`, while Lem's
-session is open. It uses no model until a pull request changes. Each `/lem` also looks.
+## Merge it
+
+There is one merge: the merge of the pull request on GitHub. You start it with the Merge button
+on GitHub, with Merge on the [board](board.md), or with `/lem land <task>`. The merge agent starts
+the same merge.
+
+- A merge goes through GitHub, under the rules of your base branch. When GitHub refuses it,
+  "Waits for you" shows the line that GitHub gave.
+- When the base branch moved, Lem first runs the checks again.
+- With more than one task, `/lem land` merges them one at a time, in your order.
+
+Do not merge the branch of a task by hand: Lem knows only a merge through the pull request. After
+a merge, Lem removes the worktree and the branch, and updates the Linear ticket of the task.
+
+On GitHub's button, you select the merge method. `branch.history` is for a merge by Lem.
+
+The board server asks GitHub about the open pull requests every few minutes. When you merge or
+close one on GitHub, the server records it and wakes the session of its task. That session
+removes the worktree and the branch.
 
 ## A conflict
 
-When a merge makes another open pull request conflict, Lem rebases its branch, and a builder
-resolves the conflict. The checks run again, and one read checks the resolution. Then Lem updates
-the pull request and tells you in one line, for example:
+When a merge makes another open pull request conflict, the board server wakes the session of its
+task. That session rebases the branch, and a builder resolves the conflict. The checks run again,
+one read checks the resolution, and the merge agent reads the pull request again. The session tells
+you in one line, for example:
 
 > Rebased on main after the forge called it conflicting; one conflict in shop/dates.py, resolved by
 > a builder; the checks passed again.
@@ -81,6 +86,6 @@ and Lem names the `git pull --rebase` that brings it in. Then the commit gets th
 
 ## Stop a task
 
-Type `/lem drop <task>`, or close the pull request on GitHub with no merge. Lem removes the worktree. A branch
-with commits of its own stays, and Lem tells you how to delete it. A task that ended does not start
-again: for new work, make a new request.
+Type `/lem drop <task>`, or close the pull request on GitHub with no merge. Lem removes the
+worktree. A branch with commits of its own stays, and Lem tells you how to delete it. For new work,
+make a new request.

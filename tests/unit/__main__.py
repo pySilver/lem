@@ -7,8 +7,6 @@ exit is 1 when a case failed or the lines do not add up to the cases collected: 
 subtest failed prints no line of its own, so its count does not add up.
 """
 
-from __future__ import annotations
-
 import sys
 import unittest
 from pathlib import Path

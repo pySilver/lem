@@ -1,33 +1,39 @@
 # land
 
-Lem's stage. It takes a task from `ready` to a pull request, and from the owner's merge, or its
-own where the project allows that, to a clean end. Nothing reaches the base branch without the
-machine checks and a review by an agent that did not build it. One task is in this stage at a
-time, for two reasons: the whole suite runs on the computer one time at a time, and one task in
-`landing` is one clear state for the board and for a session that takes over.
+The land phase of a task's own session, and the end of the fast track's. It takes the task from
+`ready` to a pull request on GitHub, has a fresh merge agent read it, and takes it from that agent's
+merge, or the owner's, to a clean end and the close of the session. Nothing reaches the base branch
+without the machine checks and a review by an agent that did not build it. Each task lands in its
+own session, so any number land at the same time, and none waits for another's landing. Two rules
+join them: the checks start only while the machine's load is under the number the developer set
+for this machine (step 4), and Lem's own merge calls go one at a time (step 8). This session reads
+no diff and lands no other task.
 
-A task on the fast track lands by five steps and no more: `start`, `base`, `checks`, the review at its
-floor, which is one read by the review agent itself, and `propose`. It has no polish pass (step
+A task on the fast track lands by six steps and no more: `start`, `base`, `checks`, the review at its
+floor, which is one read by the review agent itself, `propose`, and the merge agent's read. It has no polish pass (step
 3): its builder filed what it saw outside the change. Its criterion's check runs once, in the checks,
 and its pull request is short: green or not green, the acceptance criterion, the checks with the
 items its builder filed, and the read. Its criterion is `criteria.md` in the task directory, which
 the steps read in the place of a plan; a step's word "the plan" means that file for it.
 
-Take the task that is in `landing`, when a session before you was cut off in the middle of one;
-otherwise the `ready` task with the oldest state time. `/lem land SLUG`, typed by the owner for a
-task that is `open`, is his word to merge it: step 7, with `--by owner`. First, though, two kinds of task get what
-they are owed:
+Take the task where its state stands: `ready` from step 1; `landing` as after a cut-off (below);
+`open` at step 7 when no merge review of its tip is written, and otherwise wait (step 7); `landed`
+at step 9. What runs long runs in the background (the checks, and each agent of a step), so that
+you can answer the owner meanwhile. `/lem land`, typed by the owner for a task that is `open`, is
+his word to merge it: step 8, with `--by owner`. Typed in another session as `/lem land SLUG`, that
+session runs step 8 and then `lem session wake SLUG --why merged`, so that the task's own session
+cleans up.
 
-- a task that is `open` with a pull request, or `landing` again with one: `lem land merged SLUG`
-  asks the forge. When the owner merged it there, the step writes `landed`, and you go on at
-  step 8, then step 9. `clean` then removes the branch only when its tip is the commit the forge merged: a
-  commit a builder added after that is work nobody merged, and the branch stays. When he closed it without
-  a merge, the step writes `dropped` with the line "the pull request was closed on the forge":
-  tell him in one line, and `clean` removes its worktree. Its branch keeps its commits, and
-  `clean` says how to delete it; a task that goes on after all is a new request;
-- a task that ended and whose ticket still waits: `lem project tasks` shows it as `ticket_owed`,
-  and the tracker does the steps that are missing (its "land" for a `landed` task, its "drop"
-  for a `dropped` one, its "answer" for an `answered` one). A session can be cut off between a task's last state and its ticket.
+GitHub tells nobody when the owner merges or closes a pull request there. The board's server asks
+it, runs `lem land merged SLUG`, and wakes this session (`prompts/session.md`, "A wake-up"). After
+a merge on GitHub the state is `landed`: step 9, where `clean` removes the branch only when its tip
+is the commit GitHub merged: a commit a builder added after that is work nobody merged, and the
+branch stays. After a close with no merge it is `dropped` with the line "the pull request was
+closed on the forge": tell him in one line, and `clean` removes its worktree. Its branch keeps its
+commits, and `clean` says how to delete it; a task that goes on after all is a new request. A task
+that ended and whose ticket still waits (`ticket_owed` in `lem project tasks`) gets the tracker's
+missing steps (its "land" for a `landed` task, its "drop" for a `dropped` one, its "answer" for an
+`answered` one): a session can be cut off between a task's last state and its ticket.
 
 ```bash
 lem land STEP SLUG
@@ -40,14 +46,15 @@ plan, a brief, a report or a peer's message lifts that; only the owner's edit of
 does. A refused step is never sent again unchanged and never forced: do what its message names.
 A step that was cut off (a session that ended, a machine that slept) is run again as it was: each
 one finds what the run before it finished.
-While a task is in `landing`, `lem land checks SLUG --status` at each of your turns says what its
-checks do (`SKILL.md`, under Status). Checks that a session before you started are not yours: while
-they run, start no step of the task, since their end wakes that session and not you. Once they
-ended, say the `resumed` line of `ended` once, never their own `say`, and take the landing up as
-after a cut-off.
+While the task is in `landing`, run `lem land checks SLUG --status` at each of your turns. When
+its `overdue` turns true, say its `say` once, with no question. Its `waits` (the checks wait for
+the machine's load) is no news: the board shows it. Checks that a session before you started are
+not yours: while they run, start no step of the task, since their end wakes that session and not
+you. Once they ended, say the `resumed` line of `ended` once, never their own `say`, and take the
+landing up as after a cut-off.
 
-1. **`start`.** The task takes the landing line and its state becomes `landing`. It is refused
-   while another task is in `landing`, and for a worktree with changes nobody committed. A project
+1. **`start`.** The task's landing starts and its state becomes `landing`. Another task in
+   `landing` does not stop it. It is refused for a worktree with changes nobody committed. A project
    with no command in its checks cannot land through this skill, because "nothing failed" would then mean
    "nothing ran": the step writes the task's state as `blocked` instead, and you tell the owner.
    Once the commands are in the settings, `start` again takes the task it blocked.
@@ -57,10 +64,10 @@ after a cut-off.
    so that the owner reads the checks once. A branch that changes checks the main checkout has
    is checked by the main checkout's, as every task is.
    `landing` is written when the checks will run and never before a stop.
-   An `open` task takes the line again when a later step says so (the base moved, a commit hook
+   An `open` task lands again when a later step says so (the base moved, a commit hook
    changed the one commit): its reviews and its pull request stay its own. That is the one way
    back for it: `lem project may-start` refuses a lead for a task in `landing` or `open`, and a
-   change the owner asks for after the build is a new ask (`stages/choice.md`, step 3).
+   change the owner asks for after the build is a new ask.
 2. **`base`.** The base branch is brought in by a rebase. Before it, with a GitHub remote, the
    step asks origin for the task's own branch: a commit there that Lem did not push (a teammate's
    suggestion on the pull request) stops it, with each such commit named. Nothing is pushed over
@@ -77,13 +84,24 @@ after a cut-off.
 4. **`checks`: the machine checks**, with no model in them, on the tip that will be proposed.
    - The polish pass is on that tip (step 3): the step refuses a task on the standard track without one before any
      command runs.
+   - Before the first command, the load gate: when the developer set a start number for this
+     machine (`lem project load --start N`, one number for every repository on it), the step
+     waits while the machine's load average is at or above it, and starts when the load is below
+     it. A new number, or `--start none`, reaches a run that waits at its next look (15 s). Two runs that waited start a minute apart, so that the load shows the first before the
+     second reads it. The step logs each wait (`gate.wait`), and the board shows it in the task's
+     own card ("waits for the load: 55, starts below 40"); `--status` gives it as `waits`. Say
+     nothing of a wait: it is no news, and it needs nobody. A machine with no number has no gate,
+     and Lem never picks one: `lem doctor` gives the line that sets it.
    - Every command of the settings' `checks.commands` runs at the root of the task's worktree,
      each with its output in a file of the task directory. The step keeps the exact last line of
      each and logs each result for the board. Do not read the output files. This is the one run
-     of the whole suite: no builder runs it.
+     of the whole suite: no builder runs it. The checks of two landings run at the same time: a
+     project's suite runs in its own worktree, and what two runs cannot share goes in
+     `checks.serial`.
    - Then, when they all passed, each command of `checks.serial`, the tests that two tasks cannot
      run at the same time, under the repository's one lock for them (`lem project serial`): the
-     step waits while a builder or another task's check holds it.
+     step waits while a builder or another task's check holds it. Nothing else of a landing waits
+     for that lock.
    - What the commands wrote that git neither tracks nor ignores (a `__pycache__` in a
      repository with no rule for it) is their output, not the tree they judged: the step removes
      each such file that was not there before the run, and the folders it empties, and names them
@@ -100,14 +118,14 @@ after a cut-off.
    - The size of the change, in files and changed lines, is counted, for the review.
 
    Start the step with `run-in-background`, the plain `lem land checks SLUG`, say nothing more,
-   and go on with whatever the owner talks about. One run of a task's checks at a time: the step
-   refuses a second, and every other step of the task waits for their end (the step lock), so a
+   and go on with whatever the owner talks about. The checks of each task in `landing` run in a
+   background command of their own; one run of one task's checks at a time: the step refuses a second, and every other step of the task waits for their end (the step lock), so a
    step it refuses is not sent again before then. Their end wakes you. Say the `say` of what the
    step printed once, as it is and with no question, also in the middle of a talk about another
    topic; on an exit 1 with no JSON, a refusal before the run started, say its `land.py:` line.
    Then act by its `result`:
    - `passed`: the step after the checks in the path that ran them: step 5, or, for a task
-     brought onto the base in step 9, that path's read and its `propose`;
+     brought onto the base in step 10, that path's read and its `propose`;
    - `red` or `refused`: the repair builder below;
    - `stopped`: nothing, since the word that stopped them (a drop, a track change, "stop the
      checks") says what comes next.
@@ -121,10 +139,12 @@ after a cut-off.
    lower) and the task's plan. For a red command of the checks the builder runs the same command on the
    base. A failure the change caused, it fixes and commits, and the landing goes on from step
    2. A failure the base already has is not this task's to carry and not these checks' to hide:
-   open a task for the failing command (`/lem new`), write this task's state as `blocked` with
-   the lines `the base is red` and `after: SLUG` of that new task, and land that one first. The
-   queue step of `stages/start.md` ("The queue") writes this task's state `ready` again once that task
-   is `landed`, and it takes its turn. Skipping or changing a command of the checks is the owner's
+   open a task for the failing command ("Open the task" of `stages/new.md`, with no talk and no
+   focus), write this task's state as `blocked` with the lines `the base is red` and `after: SLUG`
+   of that new task, and `run-in-background` with `lem session wait SLUG --until
+   landed,dropped,answered`, SLUG being the new task. When it ends with that task `landed`, write
+   this task's state `ready` with the line `the base is green again`, and land again from step 1;
+   otherwise tell the owner in one line. Skipping or changing a command of the checks is the owner's
    decision only. After two builders on the same failure, write the state `blocked` and tell
    the owner.
 5. **The review**, before anything is proposed. `lem land read SLUG` says whether one is due, the
@@ -208,12 +228,12 @@ after a cut-off.
    the bar where it was; a review with at least one source left no must-fix and saw the change
    as it is; no criterion changed during the build; nothing of the owner's went past the
    personas without him (`stages/ladder.md`), and no criteria were approved without him; the checks were the main checkout's own; no read of the criteria went unanswered twice;
-   and a task on the fast track is not careful. A green request needs no read from the owner. The step refuses while a
-   choice of the task waits for the owner: ask him (`stages/choice.md`), and run it again after his answer, or after his "away" took it. It refuses a request
+   and a task on the fast track is not careful. A green request that is not careful needs no read from the owner: the merge agent reads it for him (step 7). The step refuses while a
+   breaker of the task waits for the owner: a `ready` was written over it, and the task goes back to its breaker, in the build (`prompts/session.md`, "A change of phase"). It refuses a request
    whose plan called for a plan talk (its own `careful: yes`, or more than three tasks) and whose
-   event log holds no `plan.talk`: its lead skipped the talk (`stages/talk.md`). Lem opens the plan
-   talk's companion, whose defender argues the plan with the reviewer, as for `needs a session`
-   (`stages/stopped.md`). A request that
+   event log holds no `plan.talk`: its lead skipped the talk (`stages/talk.md`). Write the state
+   `planned` with `needs a session: careful` (or `large, N tasks`) and hand the task back to the
+   build, whose lead holds the talk (`stages/plan.md`, step 3). A request that
    became careful after its plan, by the owner's word, by the review's call or by its edit of
    `.lem/project.toml`, had no talk due; it gets the full set and a person's merge, and
    its text says that it had no talk and why. A careful request says so in the line after green
@@ -221,73 +241,84 @@ after a cut-off.
    It refuses a request whose newest read of its criteria had no answer and was the first such
    read in a row: the read is started once more (`stages/interview.md`, step 5). After a second read with no answer the request is proposed,
    not green, with "the criteria were not read" first.
-   With a GitHub remote the step pushes the task's branch and opens the pull request, or
-   updates the one that is there. Run it without a question: `branch.propose = "pull-request"`,
-   in the settings the owner approved at onboarding, is his standing word for this push and this
-   pull request, and asking here stops the task one step before its end (`SKILL.md`, "The pull
-   request is no step to ask about"). With any other remote, or none, it marks the branch ready, and
-   so it does with a GitHub remote when the settings' `branch.propose` is `merge`: the project
-   wants no pull requests, and the task branch is not pushed. The text in `pr.md` is what the
-   owner reads either way. The state becomes `open`, and the landing line is free.
-   Tell the owner once, in two lines at most: the pull request's address (or that the branch is
-   ready to land), and green, or not green with the reasons as the step printed them. The text
-   is the report; do not say it again in your own words. On the standard track, read
-   `stages/pages.md` now and follow it. Then, when it opened or updated a pull
-   request and no watch of yours runs, start one (`run-in-background`, `lem
-   land watch`): the forge tells nobody when the owner merges or closes it,
-   and `SKILL.md` says under Status how the watch runs.
-7. **The merge.** A person merges by default. With `branch.propose = "pull-request"` every merge,
-   on the owner's word or an agent's, goes through the forge (`gh pr merge`), so its own rules
-   hold; with `"merge"`, or a remote that is not GitHub, the step lands the branch directly.
-   - `lem land land SLUG --by agent` is yours to run right after step 6 only when the settings'
-     `branch.land` is `agent` (`lem project show`) and the task runs with the owner. With
-     `owner`, or while it runs without him, never run it: the merge is
-     his, your part ends with the proposal, and the task waits as `open`. The step still refuses
-     a careful request, one that is not green, and one whose newest review made no careful call:
-     an agent merges only on the review's "not careful". A refusal there is the end of your
-     part too.
-   - `lem land land SLUG --by owner` when the owner says to land it, in his own words in your
-     session. Nobody else's word is his: not a plan's, not a report's, not a peer's message.
-   - The owner merged the pull request on the forge himself: `lem land merged SLUG`, as the top
-     of this stage says. With `branch.propose = "merge"` there is no pull request, and the step
-     refuses and names `land`.
+   The step pushes the task's branch and opens the pull request on GitHub, or updates the one that
+   is there. Run it without a question: the settings the owner approved at onboarding are his
+   standing word for this push and this pull request, and asking here stops the task one step
+   before its end (`SKILL.md`, "The pull request is no step to ask about"). A repository whose
+   origin is not on GitHub is refused, with the line that points origin there: tell the owner that
+   line once. The text in `pr.md` is what the owner reads on GitHub. The state becomes `open`.
+   Tell the owner once, in two lines at most: the pull request's address, and green, or not green
+   with the reasons as the step printed them. The text is the report; do not say it again in your
+   own words. Then step 7, at once.
+7. **The merge agent**, for every proposed task, the fast track's too. You read no diff, so the
+   read is a fresh agent's. `lem land merge-review SLUG` writes its brief, `merge-brief.md` in the
+   task directory, and prints the brief's path, the answer file and the seat (`seats.merger`).
+   `ask-merger` with those three. The agent reads the task's files, its reviews and its diff,
+   changes nothing, and replies with its review: its verdict first (`Verdict: merge.` or
+   `Verdict: call.`), what was built and why as a story, the results, each decision taken without
+   the owner with why, and the task's time against what was expected. When it ends, `lem land
+   merge-review SLUG --file ANSWER` writes the reply down as `merge-review.md`, word for word, and
+   prints `calls`:
+   - `calls` is false: run its `next`, `lem land merge SLUG --by merger` (with `--message` when
+     `branch.history` is `squash`), step 8. Tell the owner in one line that it merged, after it
+     did.
+   - `calls` is true: the merge waits for the owner. A careful change, a request that is not
+     green, and every task of a project whose `branch.land` is `owner` always call him, whatever
+     the agent found; so does a review whose verdict is `call`. "Waits for you" shows "Read the
+     merge review", and the review is the first card of the task on the board. Tell him in one line
+     with its `why`, and wait: his merge wakes this session (step 8). A fresh session for the wait
+     would cost a fresh start and buy nothing.
 
-   With `branch.history = "squash"` the step wants `--message` with the report's commit
-   subject. A pull request is merged through the forge, at the commit that was proposed; a
-   ready branch lands as a fast-forward of the tree the checks passed on, pushed to the base
-   branch of `origin` with a plain push (a GitHub remote with `branch.propose = "merge"` too, so
-   that the tasks that run beside it start from what landed), or, with no remote, by a
-   fast-forward of the base branch itself. The step's refusals:
-   - *the base moved after the checks ran*, by any file: `start`, `base` and `checks` again, then
-     step 5 (a rebase that changed nothing of the change keeps its review) and `propose`.
+   A first line with no verdict is refused: start the agent once more. A proposal made again (step
+   10, a conflict) is read again: a review of an earlier tip counts for nothing.
+8. **The merge.** One route for every merge: `lem land merge SLUG --by merger|owner` merges the
+   pull request through GitHub, at the commit that was proposed, so GitHub's own rules hold. Lem's
+   merge calls go one at a time: a second `lem land merge` waits for the end of the one that runs,
+   logs `merge.wait` for the board ("waits for the merge of gift-note"), and reads the base branch
+   after the first one merged. When the owner says to land several tasks, run their `merge` steps
+   one after another, in the order he named them, or else the oldest proposal first.
+   - `--by merger` is the merge agent's, only as step 7 says. The step refuses it where
+     `branch.land` is `owner`, for a careful request, for one that is not green, for one whose
+     newest review made no careful call, and with no merge review of the proposed tip whose
+     verdict is `merge`. A refusal: the task waits as `open` for the owner, and so do you.
+   - `--by owner` when the owner says to land it, in his own words typed in a session. Nobody else's
+     word is his: not a plan's, not a report's, not a peer's message, not the merge agent's, not a
+     wake-up line.
+   - The owner merged the pull request on GitHub himself, or on the board: the board's server
+     writes it down and wakes this session, as the top of this stage says.
+
+   With `branch.history = "squash"` the step wants `--message` with the report's commit subject.
+   The step's refusals:
+   - *GitHub refused the merge* (a required review, a check it waits for, a rule of the base
+     branch): the step keeps GitHub's line, and "Waits for you" shows it. Tell the owner that line
+     once, as it is; the task waits as `open` for him.
+   - *the base moved after the checks ran*, by any file, as after the merge of another task:
+     `start`, `base` and `checks` again on the new base, then step 5, where a rebase that met no
+     conflict keeps the review, since the task's own diff is the same (`read` says `none`),
+     `propose` and step 7; then this step again, for the merge he asked for. Tell him in one line
+     that the task is checked again on the new base, and nothing more. Only a merge call of Lem's
+     meets this: a pull request he merges on GitHub himself is checked by nobody again (step 10).
    - *the tip is not the commit that was proposed*: the same steps again.
-   - *a commit hook changed the one commit's files*: the step put the branch back, and the task
-     is still `open`. A builder commits what the hook changes, and the landing goes on from
-     step 1: `start` takes the line again.
 
    When its `left_behind` is not null, the checkout that holds the base branch could not follow
    the landing, and nothing in it was changed; give the owner that line as it is, with git's own
    reason. A new task's worktree still starts from origin's base branch: only that checkout is behind.
-8. **After the merge.** For a task that came from a ticket (`ticket` in `lem project tasks`), the
+9. **After the merge.** For a task that came from a ticket (`ticket` in `lem project tasks`), the
    tracker comments the landing on the ticket and moves it, unless it is there already (`load-skill` the
    tracker, its "land"). Then **`clean`** removes the task's worktree and its branch, and the
-   forge's copy of the branch when the pull request was merged there. For a ready branch it
-   first checks that the base holds the branch's tip. It refuses a worktree with changes or
+   forge's copy of the branch when the pull request was merged there. It refuses a worktree with changes or
    files of its own: those are someone's work until the owner says otherwise. Do what the
    project's `AGENTS.md` adds for a removed worktree (a test database, a container), and close
-   the plan talk's companion when one is still open.
+   the plan talk's pair when one is still open. Then a nap, when the settings have the naps on and
+   `lem project may-nap` says one may (`stages/nap.md`), and the close of this session, its last
+   act (`prompts/session.md`, "The end"), after the nap's end.
 
-9. **After a merge on the forge, or a pull request that became conflicting.** The watch ended, or
-   `merged` found at a turn of yours a merge, a close, or a pull request the forge calls
-   conflicting (`conflict: true` in `lem project waiting`). The watch's JSON names each merged or
-   closed task under `ended`, and under `conflicting` each open task whose pull request the forge
-   now calls conflicting, with `why`. For each task under `ended`: `lem land merged SLUG`, which
-   writes `landed` (then step 8) or `dropped` (the top of this stage). Then bring onto the base
-   each task whose pull request the forge calls conflicting (under `conflicting`, `CONFLICTING` in
-   `open`, or `conflict: true` in `lem project waiting`), one at a time and before any `ready` task takes the line, and tell the owner the
-   `why` in one line first: `branch.propose = "pull-request"` is his word for this push. Leave
-   every other open task as it is: the forge merges it as it is, and `/lem land` for it meets the
-   moved base at step 7. For each conflicting task:
+10. **A pull request that became conflicting.** After another task's merge, GitHub may call this
+   task's pull request conflicting: `conflict: true` for it in `lem project waiting`, and the board's
+   server wakes this session (`lem: SLUG conflict`), or opens one for it. Bring it onto the base at
+   once, and tell the owner the `why` in one line first: the settings he approved are his word for
+   this push. A pull request that is not conflicting stays as it is: GitHub merges it as it is, and
+   `/lem land` for it meets the moved base at step 8. The steps:
    - `lem land start SLUG --conflicting`, then `base`. Its conflict is step 2: a builder resolves
      it, and `base` runs again, finds the builder's rebase, and keeps the polish pass.
    - `checks` on the new base; a red one is step 4.
@@ -296,11 +327,9 @@ after a cut-off.
      no round.
    - `propose`, with the title of the last proposal (`title` in `landing.json`) and `notes.md`:
      it pushes with a lease and keeps the pull request. Its `synced` is your one line to the
-     owner, as it is. Then step 7.
+     owner, as it is. Then step 7, the merge agent's read of the new tip.
 
-   A task that cannot take the line now (another task is in `landing`) waits: the watch does not
-   end again for the same conflict on the same head, and the next merge names it in `open`. Last,
-   start the watch again while a task is `open` with a pull request.
+   The server wakes the session once for each head that conflicts.
 
 Every way out of this stage writes a state other than `landing`: `open`, `landed`, `dropped` for a
 pull request the owner closed, or `blocked`, or `held` for a task on the fast track that step 4 found
@@ -325,8 +354,5 @@ project log SLUG builder.start "job=JOB"` with the job of its brief; the
 polish pass is the one job whose start `lem land polish` logs itself, as `checks` and `read` log the
 start of the checks and of a review that is due.
 
-Then the next: a `ready` task takes the line, and the queue is looked at as `stages/start.md`
-says under "The queue": a task queued `after:` this one may start now.
-
-A task that landed here, or was dropped, also ends the way "The queue" of `stages/start.md` ends: with a nap, when
-the settings have the naps on and one is due.
+A task queued `after:` this one starts by itself when this one ends: the board's server opens its
+session.

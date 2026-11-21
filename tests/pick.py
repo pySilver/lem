@@ -9,7 +9,7 @@ It prints one command for each suite to run, `bash tests/NAME.sh` (the unit leve
 `python3 -B -m unittest discover -s tests/unit`), then `bash tests/shellcheck.sh`
 with the suite files that changed, and lines that start with `#` for what it found: a file no
 suite reads is named with "nothing reads it", and a file the map does not know runs the whole
-suite (`bash tests/all.sh`). The Chrome suites, test-board, test-ask and test-site, run only for
+suite (`bash tests/all.sh`). The Chrome suites, test-ask and test-site, run only for
 their own files, not for a script they also start. The whole suite runs once before the base branch
 moves: this list is for the turns before that.
 
@@ -18,8 +18,6 @@ scripts each one starts, and the files of this repository it reads), not measure
 a script that calls it: land.py, criteria.py and decisions.py call their siblings in their own
 process (`skills/lem/scripts/lem_sibling.py`).
 """
-
-from __future__ import annotations
 
 import fnmatch
 import re
@@ -35,7 +33,7 @@ EVERYTHING = "all"
 # The suites that are not a file tests/NAME.sh of their own: the map's check, and the unit level,
 # one file for each script in tests/unit/, which tests/all.sh runs as `python3 -B tests/unit`.
 COMMANDS = {"pick": "python3 tests/pick.py --check", "unit": "python3 -B -m unittest discover -s tests/unit", EVERYTHING: "bash tests/all.sh"}
-CHROME = ("test-board", "test-ask", "test-site")
+CHROME = ("test-ask", "test-site")
 
 # (the files, the suites that read them). A file pattern is fnmatch's over the path from the root,
 # where `*` also crosses a `/`; a suite may be a pattern over the suites' names. A row with no suite
@@ -47,14 +45,19 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     (("skills/lem/scripts/project.py", "skills/lem/scripts/lem_state.py", "skills/lem/scripts/lem_plans.py"),
      ("lem-*", "test-ask-expert", "test-gate-panel")),
     (("skills/lem/scripts/lem_sibling.py", "skills/lem/scripts/decisions.py", "skills/lem/scripts/criteria.py"),
-     ("lem-land-*", "lem-decisions", "lem-serial", "lem-settings", "lem-state", "lem-machine", "lem-command", "lem-picker", "lem-companion", "test-ask-expert")),
-    (("skills/lem/scripts/land.py",), ("lem-land-*", "lem-serial", "lem-command")),
-    (("skills/lem/scripts/board.py", "skills/lem/assets/*"), ("test-board", "lem-settings", "lem-serial", "lem-machine", "lem-command", "lem-picker")),
+     ("lem-land-*", "lem-decisions", "lem-serial", "lem-settings", "lem-state", "lem-machine", "lem-command", "lem-picker", "test-ask-expert", "lem-board-act")),
+    (("skills/lem/scripts/land.py",), ("lem-land-*", "lem-serial", "lem-command", "lem-board-act")),
+    (("skills/lem/scripts/board.py",), ("lem-serve", "lem-settings", "lem-machine", "lem-command", "lem-picker")),
+    # the board server and the pages it draws, and the afternoon its block serves
+    (("skills/lem/scripts/serve.py", "skills/lem/scripts/serve_hook.py", "skills/lem/scripts/lem_board_*.py", "skills/lem/scripts/lem_html.py",
+      "skills/lem/scripts/lem_artifacts.py", "skills/lem/assets/*", "tests/board-showcase.py"), ("lem-serve", "lem-board-act", "lem-settings", "lem-picker", "lem-command")),
+    # two machines under one address: the server that passes another's pages through, and the list of both
+    (("skills/lem/scripts/serve.py", "skills/lem/scripts/lem_peers.py", "skills/lem/scripts/lem_board_pages.py"), ("lem-peers",)),
     (("skills/lem/scripts/picker.py",), ("lem-picker", "lem-command")),
-    (("skills/lem/scripts/companion.py",), ("lem-companion", "lem-command")),
+    (("skills/lem/scripts/session.py", "skills/lem/scripts/session_hook.py", "skills/lem/templates/handoff.md"), ("lem-session", "lem-command")),
     (("skills/lem/scripts/corrections.py", "skills/lem/scripts/jev.py", "hooks/*", "bin/lem-jev"), ("lem-machine", "lem-state", "lem-command")),
     (("skills/lem/scripts/doctor.py", "scripts/setup.py", ".claude-plugin/*", "agents/*"), ("lem-machine", "lem-command")),
-    (("bin/lem",), ("lem-command", "lem-machine")),
+    (("bin/lem", "skills/lem/scripts/lem_python.py"), ("lem-command", "lem-machine")),
     (("skills/lem-ask/*", "bin/lem-ask"), ("test-ask", "lem-machine", "lem-command")),
     (("skills/lem-ask-expert/*",), ("test-ask-expert", "lem-command")),
     (("skills/lem-gate/*", "skills/lem-panel/*"), ("test-gate-panel", "lem-state", "lem-command")),
@@ -71,16 +74,16 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     (("docs/settings.md", "assets/night.py", "assets/lem.svg", "assets/lem-night.svg", "assets/lem-mark.svg", "assets/lem-mark-night.svg"), ("lem-settings",)),
     # The suites' own code.
     (("tests/lib.sh",), ("lem-*",)),
-    (("tests/checks.sh",), ("lem-*", "test-board", "test-ask", "test-site", "test-gate-panel", "shellcheck")),
+    (("tests/checks.sh",), ("lem-*", "test-ask", "test-site", "test-gate-panel", "shellcheck")),
     (("tests/suites.sh", "tests/limit.py", "tests/all.sh", "tests/test-lem.sh"), (EVERYTHING,)),
     (("tests/pick.py",), ("pick",)),
-    # What no suite reads; tests/clock/ is a late clock that a criterion's command puts on PYTHONPATH.
-    (("docs/*", "README.md", "AGENTS.md", "CLAUDE.md", "LICENSE", "NOTICE", ".gitignore", ".lem/*", ".revmux/*", ".github/*",
-      "assets/*", "tests/board-showcase.py", "tests/clock/*"), ()),
+    # What no suite reads; tests/clock/ is a late clock that a criterion's command puts on PYTHONPATH, and
+    # tools/ is the maintainer's build of the board's kit, whose built files are under skills/lem/assets/.
+    (("tools/*", "docs/*", "README.md", "AGENTS.md", "CLAUDE.md", "LICENSE", "NOTICE", ".gitignore", ".lem/*", ".revmux/*", ".github/*",
+      "assets/*", "tests/board-cdp.mjs", "tests/clock/*"), ()),
 ]
 # The files the Chrome suites are run for: each row that names one of them is all of their own.
-CHROME_OWN = {"test-board": ("skills/lem/scripts/board.py", "skills/lem/assets/*", "tests/checks.sh"),
-              "test-ask": ("skills/lem-ask/*", "bin/lem-ask", "tests/checks.sh"),
+CHROME_OWN = {"test-ask": ("skills/lem-ask/*", "bin/lem-ask", "tests/checks.sh"),
               "test-site": ("site/*", ".github/workflows/pages.yml", "tests/checks.sh")}
 
 

@@ -3,57 +3,40 @@
 
     lem board [--repo DIR] [--follow]               the board of all tasks
     lem board [--repo DIR] [--follow] --task SLUG   the board of one task
-    lem board [--repo DIR] [--task SLUG] --no-open  write the page's files and print where; open nothing
+    lem board [--repo DIR] [--task SLUG] --no-open  print the board's address; open nothing
     lem board ... --demo                            mark the state folder's tasks as examples, for good
     lem board --page FILE [--name NAME] [--follow]  open any page of Lem to read, as a companion the same way
 
-Every page of Lem that the owner reads (the board, the page of a task, the hand-over page of the
-onboarding) opens this way, as a companion, and never as an overlay over Lem's session (the owner,
+Every page of Lem that the owner reads (the board, the hand-over page of the onboarding, the page of
+a task) opens this way, as a companion, and never as an overlay over the session (the owner,
 2026-11-18: "Command like this and possibly others that opens html overlay should be opened in
 companion"). A page that waits for an answer is no such page: a question and a text to mark up
 open over the session, which waits for their result.
 
-The page is `assets/board.html`. It draws the files beside it in the state folder: `events.js`,
-which `project.py` appends to, and `meta.js`, which this script writes (the repository's name,
-the base branch, the session that opened the board, and how many commands one run of
-the checks has, `gates`, so the page knows when a run is complete). A file:// page cannot read a file with
-fetch and it can load a script, so each of them is one.
+The board is the machine's board server, `lem serve` (serve.py), which draws it from the state
+folder's files at each request and tells an open page each change: this script writes no file of the
+page. A run makes sure the server runs (`lem serve --ensure`, at most SERVE_WAIT), puts the
+repository's main checkout into the machine's list of workspaces (`lem_state.workspaces_file()`,
+which the server shows; a state folder of example tasks, `--demo`, stays out of it), and asks the
+server the address of the repository's board, `http://127.0.0.1:PORT/HOST/WORKSPACE/`, or of one
+task, `.../tasks/SLUG`. A server that does not run is a failure that says why: nothing else draws
+the board. `--no-open` prints the address and opens nothing.
 
-The owner's status, away or there, is the machine's mark in the home directory, which the page
-cannot read; `owner.js` beside it is the mark's copy, one `lemOwner({...});` line for each record,
-which this script writes at every run, as `lem project owner` and its watch do.
+A state folder of an older Lem still holds the copies of the page that agterm once opened as a file
+(`OLD_COPIES`): each run removes them, by their names, and nothing else of the folder.
 
-The board's tab "Backlog" reads `backlog.js`, which this script writes at every run:
-each item of the settings' backlog folder in the main checkout, with its `worth`, its `where` and
-whether that still resolves, and whether git has it committed. Items change rarely, so the page reads that file when
-the tab opens and on a key, and it says when the file was written. A run with `--no-open` writes
-it again without touching agterm, and keeps the session the board already names: the tab's one
-action types an ask into that session, so only a run that opens the board says which one it is.
-
-The board of one task reads `overview.js`, which this script writes at every run too, beside
-`meta.js`: for each task of the state folder, what the owner gets (the `## Outcome` of its
-`task.md`, which Lem writes at `new`) and the backlog items its branch adds against the merge base
-with the base branch, each with its title. The branch is the one checked out in the task's
-worktree; a task whose worktree is gone has no such list, since nothing tells it. The page cannot
-read `task.md` or ask git, so it reads that file with `meta.js`, and says when it was written.
-
-The page, the stylesheet it links (`assets/lem.css`, the look every page of Lem shares) and the
-script that gives that look Lem's light or dark palette (`assets/lem.js`) are copied into the
-state folder at every open, so an older checkout gets the current ones.
-A copy named `task-SLUG.html` opens on that task.
-
-It opens as a page companion of the top session of the asking session's group: it sits indented
-under Lem's session, or beside it when Lem's session is itself a companion, closes with that top
-session, and covers no pane. A board that is already there is reloaded. It is known by the file
-it shows, which agterm reports for a page, so the boards of two repositories under one top
-session stay two. agterm never saves a page companion, so after a relaunch of agterm the board
-is gone until this runs again.
+It opens as a page companion of the top session of the asking session's group, as an http page with
+its scripts on and its cookies kept (`--persistent`, so that the folded columns outlive a relaunch of
+agterm): it sits indented under the asking session, or beside it when that session is itself a companion,
+closes with that top session, and covers no pane. A board is known by its address: one companion for
+each workspace under the top session, so the boards of two repositories under one top session stay
+two. A board that is there already is reloaded where it stands, or opened again at the task asked
+for; one that still shows the old page's copy as a file is opened again at the address. agterm never saves a page companion, so after a relaunch of agterm the board is gone until this
+runs again.
 
 It runs from an agent's session, which has the AGTERM_* variables, and from an agterm keymap
 command, which has AGT_* instead.
 """
-
-from __future__ import annotations
 
 import sys
 
@@ -68,21 +51,31 @@ import os
 import re
 import shutil
 import subprocess
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import quote
 
 SCRIPTS = Path(__file__).resolve().parent
-# project.py's own read of the owner's mark, so that the board's copy of it is written as `owner` writes it
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
 lem_project = importlib.import_module("project")
-ASSET = SCRIPTS.parent / "assets" / "board.html"
-# the look every page of Lem shares, and the script that picks its palette; the board links both,
-# so they go beside the page
+lem_state = importlib.import_module("lem_state")
+# the look every page of Lem shares, and the script that picks its palette, which the board links
 STYLE = SCRIPTS.parent / "assets" / "lem.css"
 PALETTE = SCRIPTS.parent / "assets" / "lem.js"
+# the board's own look
+BOARD_STYLE = SCRIPTS.parent / "assets" / "board.css"
+# the board's script and its icons, built by tools/board-kit
+VENDOR = SCRIPTS.parent / "assets" / "vendor"
 SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 TINT = "green"
+# What an older Lem copied into a state folder for agterm to open as a file: the page, its looks and
+# scripts, the data files it read, and the copy of each task's files. Removed by these names only.
+OLD_COPIES = ("board.html", "lem.css", "lem.js", "board.css", "meta.js", "overview.js", "backlog.js", "owner.js", "events.js")
+OLD_FOLDERS = ("vendor", "artifacts")
+OLD_TASK_PAGE = re.compile(r"task-[a-z0-9]+(-[a-z0-9]+)*\.html")
 
 
 class BoardError(Exception):
@@ -150,15 +143,53 @@ def parse_item(text: str) -> tuple[dict[str, str], str, str]:
     return fields, (title.group(1).replace("`", "").strip() if title else ""), body
 
 
+# A line of markdown that starts a block of its own: a list item, a heading, a quote, a table row, a fence,
+# a rule; and a label that ends with a colon ("Today:"), after which a line starts anew.
+BLOCK = re.compile(r"^\s*([-*+]\s|\d+[.)]\s|#|>|\||```|~~~|---|\*\*\*)")
+
+
+def unwrapped(lines: list[str]) -> list[str]:
+    """Markdown lines with each line that only wraps a sentence joined to the line before it, so that the
+    board's reader, which keeps a line break as one, shows a paragraph as one; a list, a table, a quote,
+    a fence and a label stay as they were written."""
+    out: list[str] = []
+    fence = None
+    for line in lines:
+        mark = re.match(r"^\s*(```|~~~)", line)
+        if fence is not None or mark:
+            if mark:
+                fence = mark[1] if fence is None else (None if line.strip().startswith(fence) else fence)
+            out.append(line)
+            continue
+        prev = out[-1] if out else ""
+        joins = line.strip() and prev.strip() and not BLOCK.match(line) and not prev.rstrip().endswith(":") \
+            and not re.match(r"^\s*(```|~~~|\||#)", prev) and not prev.endswith("  ")
+        if joins:
+            out[-1] = f"{prev.rstrip()} {line.strip()}"
+        else:
+            out.append(line)
+    return out
+
+
 def outcome(text: str) -> str:
     """What the owner gets, from a task.md: its `## Outcome` section, to the next heading of the same
-    level or above, with each paragraph's lines joined into one and the paragraphs apart by a blank
-    line. "" when the file has no such section, or an empty one."""
-    found = re.search(r"(?ms)^##[ \t]+Outcome[ \t]*\n(.*?)(?=^#{1,2}[ \t]|\Z)", text)
+    level or above, as the markdown it was written in (a story's lines, a list, a table and a chart read
+    only so), with each line that only wraps a sentence joined to its paragraph (`unwrapped`). "" when the
+    file has no such section, or an empty one. A heading inside a fenced block is no end of the section."""
+    found = re.search(r"(?m)^##[ \t]+Outcome[ \t]*\n", text)
     if not found:
         return ""
-    paragraphs = re.split(r"\n[ \t]*\n", found.group(1).strip())
-    return "\n\n".join(" ".join(line.strip() for line in paragraph.splitlines() if line.strip()) for paragraph in paragraphs if paragraph.strip())
+    out, fence = [], None
+    for line in text[found.end():].splitlines():
+        mark = re.match(r"^\s*(```|~~~)", line)
+        if mark and fence is None:
+            fence = mark[1]
+        elif mark and line.strip().startswith(fence):
+            fence = None
+        elif fence is None and re.match(r"^#{1,2}[ \t]", line):
+            break
+        out.append(line)
+    return "\n".join(unwrapped(out)).strip()
 
 
 def filed(worktree: Path, onto: str, folder: str) -> list[dict] | None:
@@ -182,31 +213,6 @@ def filed(worktree: Path, onto: str, folder: str) -> list[dict] | None:
         text = git("show", f"HEAD:{path}") or ""
         items.append({"path": path, "title": parse_item(text)[1] or Path(path).stem})
     return items
-
-
-def overview(settings: dict, state: Path) -> dict:
-    """What the board of one task shows in "What we are building", for each task of the state folder:
-    its outcome from task.md, and the backlog items its branch filed (`filed`). It changes nothing."""
-    main, root = Path(settings["main"]), Path(settings["root"])
-    # the main checkout's places, as land.py finds a task's worktree; a run from a worktree has its own root
-    worktrees = main / Path(settings["places"]["worktrees"]["path"]).relative_to(root)
-    folder = Path(settings["places"]["backlog"]["path"]).relative_to(root).as_posix()
-    base = settings["branch"]["base"]
-    # the ref a landing compares the branch with (land.py `onto`)
-    remote = subprocess.run(["git", "-C", str(main), "remote", "get-url", "origin"], capture_output=True, text=True, check=False).returncode == 0
-    onto = (f"origin/{base}" if remote else base) if base else ""
-    feed: dict = {"written": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "tasks": {}}
-    tasks = state / "tasks"
-    for directory in sorted(tasks.iterdir() if tasks.is_dir() else []):
-        if not directory.is_dir() or not SLUG.fullmatch(directory.name):
-            continue
-        request = directory / "task.md"
-        try:
-            text = request.read_text(encoding="utf-8", errors="replace") if request.is_file() else ""
-        except OSError:
-            text = ""
-        feed["tasks"][directory.name] = {"outcome": outcome(text), "filed": filed(worktrees / directory.name, onto, folder)}
-    return feed
 
 
 def backlog(settings: dict) -> dict:
@@ -254,10 +260,28 @@ def backlog(settings: dict) -> dict:
     return feed
 
 
-def prepare(repo: str, slug: str | None, session: str, demo: bool = False, keep_session: bool = False) -> tuple[Path, str]:
-    """Write the page and meta.js into the state folder, and return the page's path and the repository's name."""
-    if not ASSET.is_file():
-        raise BoardError(f"{ASSET} is missing")
+def meta_of(settings: dict, state: Path, demo: bool = False) -> dict:
+    """The repository's facts the board shows beside its tasks: its name, the base branch, how many
+    commands one run of the checks has (`gates`, so that a run is known complete) and how many of
+    them are `checks.serial` (`serial`, which do not run after a red command), and whether the state
+    folder holds example tasks (`demo`). With `demo`, the folder is marked so for good: a board of
+    made-up tasks must say so itself, since a line under "Waits for you" reads as a call to act, and
+    the mark is a file beside the events because it is a fact about the data and not about one open."""
+    marker = state / "demo"
+    if demo:
+        marker.write_text("The tasks in this folder are examples, written by a fixture. board.py --demo made this file.\n")
+    return {
+        # the main checkout names the repository; a worktree's folder is named after its task
+        "repo": Path(settings["main"]).name, "base": settings["branch"]["base"],
+        "gates": len(settings["checks"]["commands"]) + len(settings["checks"]["serial"]),
+        "serial": len(settings["checks"]["serial"]),
+        "demo": marker.is_file(),
+    }
+
+
+def state_of(repo: str, slug: str | None, demo: bool) -> tuple[Path, dict]:
+    """The repository's state folder and settings, with the task checked when one is asked for, and
+    the folder marked as example tasks with `demo`."""
     state = Path(project(repo, "state-dir"))
     settings = json.loads(project(repo, "show"))
     if slug is not None:
@@ -266,51 +290,85 @@ def prepare(repo: str, slug: str | None, session: str, demo: bool = False, keep_
         if not (state / "tasks" / slug).is_dir():
             known = ", ".join(task["slug"] for task in json.loads(project(repo, "tasks"))) or "none yet"
             raise BoardError(f"no task {slug!r}; the tasks are: {known}")
-    # The main checkout names the repository; a worktree's folder is named after its task.
-    # `gates` is how many commands one run of the checks has, so the page knows when a run is complete;
-    # `serial` how many of them are `checks.serial`, which do not run after a red command.
-    meta = {
-        "repo": Path(settings["main"]).name, "base": settings["branch"]["base"], "session": session,
-        "gates": len(settings["checks"]["commands"]) + len(settings["checks"]["serial"]),
-        # the commands of `checks.serial`, which run last and only when the others passed
-        "serial": len(settings["checks"]["serial"]),
-    }
-    if keep_session:
-        # A run that opens nothing only writes the files again. The session the board names is the
-        # one that opened it: the page types an ask into it, so a run from another session, a
-        # lead's or none at all, must not change where that ask goes.
-        known = re.fullmatch(r"lemMeta\((.*)\);\n", (state / "meta.js").read_text(encoding="utf-8"), re.S) if (state / "meta.js").is_file() else None
-        try:
-            before = json.loads(known.group(1)) if known else {}
-        except ValueError:
-            before = {}
-        if isinstance(before, dict) and isinstance(before.get("session"), str) and before["session"]:
-            meta["session"] = before["session"]
-    # A board of made-up tasks must say so itself: a line under "Waits for you" reads as a call to
-    # act. The mark is a file beside the events, because it is a fact about the data and not about
-    # one open: `/lem status` opens the same folder later with no flag, and the page must still say it.
-    marker = state / "demo"
-    if demo:
-        marker.write_text("The tasks in this folder are examples, written by a fixture. board.py --demo made this file.\n")
-    if marker.is_file():
-        meta["demo"] = True
-    (state / "meta.js").write_text(f"lemMeta({json.dumps(meta, ensure_ascii=False)});\n", encoding="utf-8")
-    # The owner's status is the machine's mark in the home directory, which a file:// page cannot
-    # read: its copy goes beside the page at every run, as `lem project owner` and its watch write it.
+    meta_of(settings, state, demo)
+    return state, settings
+
+
+def clear_old_copies(state: Path) -> list[str]:
+    """Remove the copies of the page an older Lem left in the state folder (OLD_COPIES, OLD_FOLDERS and
+    each `task-SLUG.html`), and name what went. Nothing else of the folder is touched."""
+    gone = []
+    for name in OLD_COPIES:
+        if (state / name).is_file():
+            (state / name).unlink()
+            gone.append(name)
+    for name in OLD_FOLDERS:
+        if (state / name).is_dir() and not (state / name).is_symlink():
+            shutil.rmtree(state / name)
+            gone.append(f"{name}/")
+    for file in sorted(state.glob("task-*.html")):
+        if OLD_TASK_PAGE.fullmatch(file.name) and file.is_file():
+            file.unlink()
+            gone.append(file.name)
+    return gone
+
+
+def register(state: Path) -> None:
+    """Put the repository of the state folder into the machine's list of workspaces, unless the folder
+    holds example tasks: the server shows only a workspace of the list."""
+    if (state / "demo").is_file():
+        return
+    main = state
+    for _ in lem_state.STATE.parts:
+        main = main.parent
     try:
-        lem_project.owner_copy(Path(settings["main"]), lem_project.owner_records())
-    except lem_project.SettingsError as error:
-        raise BoardError(str(error)) from error
-    # `</` is split so that no item's text can end the script tag the page loads this file with
-    items = json.dumps(backlog(settings), ensure_ascii=False).replace("</", "<\\/")
-    (state / "backlog.js").write_text(f"lemBacklog({items});\n", encoding="utf-8")
-    told = json.dumps(overview(settings, state), ensure_ascii=False).replace("</", "<\\/")
-    (state / "overview.js").write_text(f"lemOverview({told});\n", encoding="utf-8")
-    page = state / (f"task-{slug}.html" if slug else "board.html")
-    shutil.copyfile(ASSET, page)
-    shutil.copyfile(STYLE, state / STYLE.name)
-    shutil.copyfile(PALETTE, state / PALETTE.name)
-    return page, meta["repo"]
+        lem_state.register(main)
+    except (OSError, lem_state.StateError) as error:
+        raise BoardError(f"{main} is not in the list of workspaces `lem serve` shows, so it has no board: {error}") from error
+
+
+# How long a run that opens the board waits for `lem serve --ensure`: its longest path, a wait for
+# another start, the stop of an old server and the start of a new one (serve.py's START_WAIT and
+# STOP_WAIT), with a margin.
+SERVE_WAIT = 35
+
+
+# How long one question to the server (its workspaces) may take. A guess: it answers from memory and
+# counts each workspace's tasks at most once in a few seconds.
+ASK_WAIT = 10
+
+
+def ensure_server() -> dict:
+    """Make sure the board server runs, with `lem serve --ensure`, and return what it printed: the
+    server's address in `url`. A server that does not run is a BoardError that says why."""
+    try:
+        ran = subprocess.run([sys.executable, "-B", str(SCRIPTS / "serve.py"), "--ensure"], capture_output=True, text=True, check=False, timeout=SERVE_WAIT)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise BoardError(f"`lem serve --ensure` did not finish ({error}), and the board is the server's page: run `lem serve --ensure` to see why") from error
+    if ran.returncode != 0:
+        raise BoardError(f"the board server does not run: {(ran.stderr or ran.stdout).strip().removeprefix('serve.py: ')}")
+    try:
+        found = json.loads(ran.stdout)
+    except ValueError as error:
+        raise BoardError(f"`lem serve --ensure` printed no JSON ({error}): {ran.stdout.strip()[:200]}") from error
+    if not found.get("running") or not found.get("url"):
+        raise BoardError(f"the board server does not run: {found.get('said') or 'lem serve --ensure started none'}; `lem serve --ensure` starts it")
+    return found
+
+
+def address(server: str, main: Path, slug: str | None) -> str:
+    """The address of the repository's board, or of one task, as the server names it: its list of
+    workspaces has the repository's main checkout with the board's path."""
+    try:
+        with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(f"{server.rstrip('/')}/api/workspaces", timeout=ASK_WAIT) as reply:
+            spaces = json.loads(reply.read())
+    except (urllib.error.URLError, OSError, ValueError) as error:
+        raise BoardError(f"the board server at {server} did not list its workspaces ({error}): `lem serve --ensure` says whether it runs") from error
+    found = next((space for space in spaces if isinstance(space, dict) and os.path.realpath(space.get("path", "")) == os.path.realpath(main)), None)
+    if found is None:
+        raise BoardError(f"the board server at {server} does not show {main}: `lem serve --list` names what it shows, and `lem serve --add {main}` adds it")
+    url = server.rstrip("/") + found["url"]
+    return url + (f"tasks/{quote(slug)}" if slug else "")
 
 
 def ctl(socket: str, *args: str) -> str:
@@ -322,8 +380,10 @@ def ctl(socket: str, *args: str) -> str:
     return ran.stdout
 
 
-def show(page: Path, name: str, session: str, socket: str, window: str, follow: bool) -> dict:
-    """Open the page as a companion of the session's group, or reload the one that is there."""
+def show(opens: list[str], shows, name: str, session: str, socket: str, window: str, follow: bool, again) -> dict:
+    """Open a page as a companion of the session's group (`opens`: the flags of `session overlay open`
+    that name the page), or keep the one that is there: `shows(overlay)` says whether a page companion
+    is it, and `again(overlay)` whether it opens anew rather than reloads where it stands."""
     in_window = ["--window", window] if window else []
     tree = json.loads(ctl(socket, "tree", "--json", *in_window))["result"]["tree"]
     live = [s for workspace in tree.get("workspaces", []) for s in workspace.get("sessions", [])]
@@ -332,28 +392,24 @@ def show(page: Path, name: str, session: str, socket: str, window: str, follow: 
         raise BoardError(f"this session ({session}) is not in the window agterm answered for")
     # A companion's companion becomes its sibling, so the parent is the top of the group.
     parent = (owner.get("parent") or owner["id"]).upper()
-    # A board is known by the file it shows, under this session's own group. Its name is not enough:
-    # two Lems of two repositories may be companions of one top session, and each has a board. The
-    # file is in its repository's own state folder, so it tells them apart.
-    def shows(node: dict) -> bool:
-        files = [overlay.get("file") or overlay.get("page") or "" for overlay in node.get("htmlOverlays") or []]
-        return any(file and os.path.realpath(file) == os.path.realpath(page) for file in files)
 
-    named = [s for s in live if s.get("content") == "page" and (s.get("parent") or "").upper() == parent and shows(s)]
-    kept = named[0] if named else None
-    stale = named[1:]
+    def overlay(node: dict) -> dict | None:
+        return next((page for page in node.get("htmlOverlays") or [] if shows(page)), None)
+
+    # A page is known by what it shows, under this session's own group. Its name is not enough: two
+    # Lems of two repositories may be companions of one top session, and each has a board.
+    named = [s for s in live if s.get("content") == "page" and (s.get("parent") or "").upper() == parent and overlay(s)]
+    kept = named[0] if named and not again(overlay(named[0])) else None
+    stale = [s for s in named if s is not kept]
     if stale:
         ctl(socket, "session", "close", *[arg for s in stale for arg in ("--target", s["id"])])
     if kept:
         target = kept["id"]
-        ctl(socket, "session", "overlay", "reload", "--target", target)
+        ctl(socket, "session", "overlay", "reload", "--current", "--target", target)
         if kept.get("name") != name:
             ctl(socket, "session", "rename", name, "--target", target)
     else:
-        opened = ctl(
-            socket, "session", "overlay", "open", "--html", str(page), "--cwd", str(page.parent),
-            "--js", "--companion", "--target", parent, "--json",
-        )
+        opened = ctl(socket, "session", "overlay", "open", *opens, "--js", "--companion", "--target", parent, "--json")
         target = json.loads(opened)["result"]["id"]
         ctl(socket, "session", "rename", name, "--target", target)
     ctl(socket, "session", "tint", TINT, "--on", "icon,name", "--target", target)
@@ -373,7 +429,31 @@ def open_page(page: Path, args: argparse.Namespace, session: str, socket: str) -
     if not (session and socket):
         raise BoardError("not inside an agterm session, so no companion can open; give the owner the file's path instead")
     name = args.name or page.stem
-    return {"page": str(page), "name": name, **show(page, name, session, socket, env("AGT_WINDOW_ID", "AGTERM_WINDOW_ID"), args.follow)}
+
+    def shows(overlay: dict) -> bool:
+        file = overlay.get("file") or ""
+        return bool(file) and os.path.realpath(file) == os.path.realpath(page)
+
+    return {"page": str(page), "name": name, **show(["--html", str(page), "--cwd", str(page.parent)], shows, name, session, socket,
+                                                    env("AGT_WINDOW_ID", "AGTERM_WINDOW_ID"), args.follow, lambda overlay: False)}
+
+
+def open_board(url: str, base: str, task: bool, name: str, session: str, socket: str, follow: bool, state: Path) -> dict:
+    """The board as a page companion of the session's group, known by the address of its workspace
+    (`base`): the one that shows it is reloaded where it stands, or, for a task's board when it shows
+    another page, opened again at the task's address. A companion of an older Lem that shows the
+    state folder's copy of the old page as a file is the board too, and is opened again at the address."""
+    def old_page(overlay: dict) -> bool:
+        file = Path(str(overlay.get("file") or ""))
+        return bool(overlay.get("file")) and file.parent.resolve() == state.resolve() and (file.name == "board.html" or bool(OLD_TASK_PAGE.fullmatch(file.name)))
+
+    def shows(overlay: dict) -> bool:
+        return old_page(overlay) or any(str(overlay.get(key) or "").startswith(base) for key in ("url", "page"))
+
+    def again(overlay: dict) -> bool:
+        return old_page(overlay) or (task and str(overlay.get("page") or overlay.get("url") or "").split("?")[0].rstrip("/") != url.rstrip("/"))
+
+    return show(["--url", url, "--persistent"], shows, name, session, socket, env("AGT_WINDOW_ID", "AGTERM_WINDOW_ID"), follow, again)
 
 
 def main() -> None:
@@ -381,7 +461,7 @@ def main() -> None:
     parser.add_argument("--repo", default=env("AGT_SESSION_PWD") or ".", help="a directory inside the checkout (default: the current one)")
     parser.add_argument("--task", metavar="SLUG", help="open the board of this task instead of the board of all tasks")
     parser.add_argument("--follow", action="store_true", help="switch to the board after it opens")
-    parser.add_argument("--no-open", action="store_true", help="write the files and print the page's path; open nothing")
+    parser.add_argument("--no-open", action="store_true", help="make sure the server runs and print the board's address; open nothing")
     parser.add_argument("--demo", action="store_true", help="the state folder holds example tasks: every board of it says so from now on")
     parser.add_argument("--page", metavar="FILE", help="open this HTML file as a page companion, as the board opens, or reload the one that shows it")
     parser.add_argument("--name", help="with --page: the companion's name (default: the file's name)")
@@ -395,12 +475,23 @@ def main() -> None:
         if args.name is not None:
             raise BoardError("--name goes with --page: the board names itself")
         if not args.no_open and not (session and socket):
-            raise BoardError("not inside an agterm session; --no-open writes the page without one")
-        page, repo = prepare(args.repo, args.task, session, args.demo, keep_session=args.no_open)
-        # the repository's name is in the name of its board of all tasks, so two boards in one sidebar read apart
-        result: dict = {"page": str(page), "name": f"{args.task} board" if args.task else f"Lem board · {repo}"}
+            raise BoardError("not inside an agterm session; --no-open prints the board's address without one")
+        state, settings = state_of(args.repo, args.task, args.demo)
+        gone = clear_old_copies(state)
+        register(state)
+        server = ensure_server()
+        main_dir = Path(settings["main"])
+        url = address(server["url"], main_dir, args.task)
+        base = address(server["url"], main_dir, None)
+        # the repository's name is in the board's name, so two boards in one sidebar read apart
+        result: dict = {"url": url, "name": f"Lem board · {main_dir.name}"}
+        if server.get("tailscale"):
+            # the same board through the tailnet door, for the owner's phone
+            result["tailnet_url"] = server["tailscale"].rstrip("/") + url.removeprefix(server["url"].rstrip("/"))
+        if gone:
+            result["removed"] = gone
         if not args.no_open:
-            result |= show(page, result["name"], session, socket, env("AGT_WINDOW_ID", "AGTERM_WINDOW_ID"), args.follow)
+            result |= open_board(url, base, args.task is not None, result["name"], session, socket, args.follow, state)
     except BoardError as error:
         sys.exit(f"board.py: {error}")
     print(json.dumps(result, indent=2))

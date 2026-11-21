@@ -1,7 +1,7 @@
 /* Lem's look, as a small design system: the tokens and the parts every page of Lem shares. The
-   board (board.html) and the pages a stage writes for the owner (handover.html) link this one file
-   and load lem.js beside it, so that they cannot drift apart. board.py and the stage copy both
-   beside the page.
+   board (which lem serve sends, with board.css) and the pages a stage writes for the owner
+   (handover.html) link this one file and load lem.js beside it, so that they cannot drift apart. A
+   stage copies both beside its page.
 
    The look is Lem's landing page's (site/style.css): warm light and dark backgrounds, the ochre of
    the logo as the one accent, text at 16 px with a line height of 1.6, small labels as monospace
@@ -37,8 +37,7 @@
      the browser's Canvas does not. The page is the ochre at 5% in the canvas, the text the canvas'
      text at 90%, a card the text at 4.5% in the page, --card-hi at 8%, the lines at 11% and 22%. The
      landing page's --dim (64%) is 4.40:1 on --card-hi and its --faint (46%) 2.53:1, so both are
-     darker here: each text color keeps 4.5:1 or more against --bg, --card and --card-hi
-     (tests/test-board.sh measures every text of every tab). It stands on the root with no mark as
+     darker here: each text color keeps 4.5:1 or more against --bg, --card and --card-hi. It stands on the root with no mark as
      well, so a page draws before lem.js runs; the color-scheme is set only under the mark, so that
      it never hides agterm's. */
   --bg: #fbf9f5;
@@ -109,8 +108,8 @@ button { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* Every animation's period divides 2s, and a node inserted later gets a negative delay that puts
-   it on the same 2s clock (phase() in board.html), so a block rebuilt on a later tick carries on
-   where the one it replaced left off. */
+   it on the same 2s clock, so a block rebuilt on a later tick carries on where the one it replaced
+   left off. */
 @keyframes ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 55%, transparent); } 70%, 100% { box-shadow: 0 0 0 7px transparent; } }
 @keyframes halo { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--actor) 45%, transparent); } 70%, 100% { box-shadow: 0 0 0 12px transparent; } }
 @keyframes breathe { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }

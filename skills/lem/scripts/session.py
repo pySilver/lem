@@ -1,0 +1,811 @@
+#!/usr/bin/env python3
+"""A task's own session in agterm: one session carries one task, and each phase starts a fresh agent.
+
+    lem session open SLUG [--focus] [--why new|handoff|dead|merged|conflict|queue|night|owner]
+                                 open the task's session for the phase its state gives, or print
+                                 the one that runs
+    lem session next SLUG [--same]
+                                 the change of phase: check handoff.md, open the next session and
+                                 name the old one `SLUG · handed off`; `--same` for the owner's
+                                 "hand off" inside a phase
+    lem session close SLUG [--session ID] --why handoff|ended|owner [--when-unselected]
+                                 log the close, then close the session; never one the owner has selected
+    lem session handoff SLUG --check
+                                 check handoff.md against `templates/handoff.md`
+    lem session talk SLUG --from TEXT [--leave TEXT ...]
+                                 copy the turns of this session about the ask into the task's talk.md
+    lem session wake SLUG --why merged|conflict|queue|owner [--head SHA]
+                                 a pane message to the task's live session, or a new session
+    lem session wait SLUG --until STATE,... | --event NAME
+                                 end when the task's state is one of these, or a new event is logged
+    lem session list             each task's newest session: live, agent, selected, phase, unanswered
+
+The phase comes from the task's state, never from an argument: no state block, or `held` for the
+interview or the criteria (any hold but a breaker's), is `shape`; a task on the fast track is `fast`
+from its request to its merge; `queued`, `building`, `planned`, `blocked` and a breaker's `held` are
+`build`; `ready`, `landing`, `open` and a `landed` task whose worktree is not removed yet are `land`.
+`open` refuses a task that does not exist, one that ended (a landed one only once its worktree is
+gone), a parked one, one queued `after:` a task that has not ended, a call with no agterm, a
+workspace it cannot tell, and a path the launch line cannot carry.
+
+`open` holds the task's lock (`session.lock` in its directory), so a click and a duty of the board's
+server never open two. When agterm's tree has the newest `session.open`'s session and an agent runs
+in it, `open` prints that one with `already: true`. Otherwise it writes `session.md` in the task
+directory, the new agent's first read, and runs
+
+    agtermctl session new --workspace WS --cwd DIR --name SLUG --no-select --command \\
+      "SHELL -l -c 'LEM_TASK=SLUG CLAUDE_CODE_AUTO_COMPACT_WINDOW=N claude \\"Read TASK_DIR/session.md and follow it.\\"'"
+
+then `session move --to top`, and with `--focus` `session select`. DIR is the task's worktree,
+else the main checkout: Claude Code asks no trust for a new worktree inside a checkout it trusts
+(lem-scratch, Claude Code 2.1.330, 2026-11-21). N is `[handoff] tokens` of the machine
+(`lem project handoff`); with 0 the variable is left out. `--model` and `--effort` follow only
+when `seats.session` names them. `--plugin-dir ROOT` follows when this Lem is not the installed
+plugin, ROOT being the folder of the plugin these scripts are in, so that the task's session runs
+the Lem that opened it: a folder under Claude Code's plugin folders (`plugins/` of
+`CLAUDE_CONFIG_DIR`, else of `~/.claude`) is the installed plugin and gets no flag; any other is a
+clone loaded with `claude --plugin-dir`, or a branch before its release (`plugin_dir`). The workspace is the one the task's newest session was in, else
+the caller's, else that of the task its `after:` line names, else the repository's newest. It
+logs `session.open` with the session, its name, the phase, why and the workspace.
+
+`next` refuses while the state still gives the caller's phase (the leaving agent writes its state
+block first), unless `--same`; it refuses a handoff.md that is not in the form, not from the
+caller's phase, or older than the caller's session. It prints the line that closes the old session
+once the owner has left it, for the background.
+
+`wake` sends `lem: SLUG WHY` to the left pane of the task's live session and logs `session.wake`
+(with `--head`, the head the pull request had, so that a conflict is woken once for each head); the
+agent reads the files, never the line. With no live session it opens one, as `open --why WHY`. The
+board's server sends `owner` after the owner's act on the task from the board (his yes to the
+criteria, a park): a task that gets no session then (a parked one) has nothing to wake, and that
+is no refusal.
+
+`list`'s `unanswered` is a wake older than UNANSWERED_AFTER whose line still waits in the session's
+mailbox (`agtermctl msg read`, which removes nothing).
+
+`talk` copies the turns of this Claude Code session word for word: from the newest owner turn
+whose text starts with TEXT to the newest turn, each with who said it and only its text, less each
+owner turn that a `--leave` text starts (another topic) with the turns of the agent that answer it.
+It copies only what the owner typed (a `/lem` line as he typed it) and what the agent wrote; the
+skill's text that `/lem` loads, a task's notification and agterm's mail are no turn of his.
+"""
+
+import sys
+
+if sys.version_info < (3, 11):
+    # an old python3 must still load this file, so that it can say what it needs and not a traceback
+    sys.exit(f"session.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH")
+
+import argparse
+import contextlib
+import fcntl
+import importlib
+import json
+import os
+import pwd
+import re
+import shutil
+import subprocess
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+
+SCRIPTS = Path(__file__).resolve().parent
+SKILL = SCRIPTS.parent
+# the folder of the plugin these scripts are in: skills/lem/scripts is three levels under it
+PLUGIN = SKILL.parents[1]
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(SCRIPTS))
+project = importlib.import_module("project")
+lem_state = importlib.import_module("lem_state")
+
+PHASES = ("shape", "build", "land", "fast")
+WHYS = ("new", "handoff", "dead", "merged", "conflict", "queue", "night", "owner")
+WAKES = ("merged", "conflict", "queue", "owner")
+CLOSES = ("handoff", "ended", "owner")
+EVENTS = ("session.open", "session.close", "session.wake")
+BRIEF = "session.md"
+HANDOFF = "handoff.md"
+LOCK = "session.lock"
+TALK = "talk.md"
+# The programs that count as the task's agent in the pane, by the name of their file.
+AGENTS = ("claude", "codex")
+# A session opened this long ago counts as live while its agent starts: the login shell runs first,
+# and a second `open` in that time must not open another. A guess.
+STARTING = 60
+# How often `close --when-unselected` looks whether the owner left the session. A guess (the plan).
+CLOSE_EVERY = 5
+# How often `wait` reads the task's state or the event log. A guess (the plan).
+WAIT_EVERY = 10
+# After how long a wake whose line still waits in the mailbox is `unanswered`: 10 minutes, a guess
+# (the plan's "no session" row says "does not answer" after it).
+UNANSWERED_AFTER = 600
+# the characters that the launch line cannot carry inside its two levels of quotes
+UNQUOTABLE = re.compile(r"['\"\\$`\n]")
+# how many words of a turn name it, in talk.md
+FIRST_WORDS = 8
+# The first line of handoff.md, and its five parts with what each holds (`templates/handoff.md`).
+HANDOFF_LINE = re.compile(r"task:\s*(?P<task>[a-z0-9]+(?:-[a-z0-9]+)*)\s*·\s*from\s+(?P<phase>[a-z]+)\s*·\s*written:\s*(?P<written>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?Z)")
+HANDOFF_PARTS = {
+    "settled": "what is decided or done, each with its path, record or commit",
+    "open": "what is not settled yet, or none",
+    "next step": "the one step the next agent takes first",
+    "failed": "what was tried and did not work, and why, or none",
+    "changed files": "each changed file, `PATH`: STATUS on a line of its own, or none",
+}
+CHANGED = re.compile(r"[-*]\s+(?:`(?P<quoted>[^`]+)`|(?P<bare>[^\s:`]+)):\s*(?P<status>\S.*)")
+NONE = re.compile(r"(?:[-*]\s+)?none\.?", re.I)
+
+
+class SessionError(Exception):
+    pass
+
+
+# ---- the rules, over facts ----
+
+def phase_of(slug: str, status: str | None, line: str | None, track: str | None, worktree: bool) -> str:
+    """The phase of a task's session from its newest state block (STATUS and its first LINE), its
+    track and whether its worktree is still there; a SessionError with the fix for a task that gets
+    no session."""
+    if status is None:
+        return "shape"
+    if status == project.PARKED:
+        raise SessionError(f"the task {slug!r} is parked: it gets no session until the owner's `/lem resume {slug}` (`lem project resume {slug}`) brings it back")
+    if status in project.ENDED:
+        if status == "landed" and worktree:
+            return "fast" if track == "fast" else "land"
+        if status == "landed":
+            raise SessionError(f"the task {slug!r} is landed and cleaned: its worktree is gone, and an ended task gets no session; new work for it is a new ask")
+        raise SessionError(f"the task {slug!r} is {status}: an ended task gets no session, and new work for it is a new ask with a slug of its own")
+    if status == "held":
+        # a breaker holds a build; every other hold waits for the owner, which the shape session holds
+        return "build" if line and project.BREAKER_WAIT.fullmatch(line.strip()) else "shape"
+    if track == "fast":
+        return "fast"
+    if status in ("queued", "building", "planned", "blocked"):
+        return "build"
+    return "land"
+
+
+def queued_behind(task: dict, tasks: list[dict]) -> str | None:
+    """The task a `queued` task waits for (its `after:` line) while that one has not ended, else None."""
+    if task["status"] != "queued" or not task["state"]:
+        return None
+    after = next((line.split(":", 1)[1].strip() for line in task["state"].splitlines()[1:] if line.startswith("after:")), None)
+    if not after:
+        return None
+    other = next((item["status"] for item in tasks if item["slug"] == after), None)
+    return None if other in project.ENDED else after
+
+
+def first_line(task: dict) -> str | None:
+    found = project.STATE_LINE.fullmatch(task["state"].splitlines()[0]) if task.get("state") else None
+    return found["text"] if found else None
+
+
+def agent_runs(node: dict) -> bool | None:
+    """Whether the program in the session's left pane is an agent (AGENTS), from agterm's tree: a dead
+    agent leaves a shell, or no session at all for a session that runs a command. None when agterm has
+    not drawn the session yet and so does not know."""
+    ground = node.get("foreground")
+    if isinstance(ground, list) and ground:
+        return any(Path(str(word)).name in AGENTS for word in ground[:2])
+    return None if node.get("realized") is False else False
+
+
+def live(node: dict | None, opened: dict | None, now: datetime) -> bool:
+    """Whether the session of a `session.open` record still carries its task: in the tree, and an agent
+    runs in it, or agterm does not know yet, or it opened under STARTING seconds ago."""
+    if node is None or opened is None:
+        return False
+    if agent_runs(node) is not False:
+        return True
+    return (now - stamp(opened["ts"])).total_seconds() < STARTING
+
+
+def stamp(text: str) -> datetime:
+    return datetime.strptime(text, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+
+
+def newest_opens(events: list[dict]) -> dict[str, dict]:
+    """Each task's newest `session.open`."""
+    found: dict[str, dict] = {}
+    for record in events:
+        if record.get("event") == "session.open":
+            found[record.get("task")] = record
+    return found
+
+
+def handoff_form(text: str, slug: str) -> dict:
+    """What handoff.md says of itself, after a check of its form (`templates/handoff.md`): its task,
+    the phase it is from, its time and its changed files; a SessionError that names each part it lacks."""
+    bare = re.sub(r"<!--.*?-->", "", text, flags=re.S)
+    lines = bare.splitlines()
+    head = next((line.strip() for line in lines if line.strip()), "")
+    found = HANDOFF_LINE.fullmatch(head)
+    missing = []
+    if not found:
+        missing.append(f"a first line `task: {slug} · from PHASE · written: YYYY-MM-DDTHH:MMZ`, with PHASE one of {', '.join(PHASES)}")
+    elif found["task"] != slug:
+        missing.append(f"its first line names the task {found['task']!r}, and this is {slug!r}")
+    elif found["phase"] not in PHASES:
+        missing.append(f"its first line says from {found['phase']!r}, and a phase is one of {', '.join(PHASES)}")
+    parts: dict[str, list[str]] = {}
+    current = None
+    for line in lines:
+        if line.startswith("## "):
+            title = " ".join(line[3:].lower().split())
+            current = title if title in HANDOFF_PARTS else None
+            if current is not None:
+                parts.setdefault(current, [])
+        elif current is not None and line.strip():
+            parts[current].append(line.strip())
+    changed = []
+    for part, holds in HANDOFF_PARTS.items():
+        body = parts.get(part, [])
+        if not body:
+            missing.append(f"## {part[0].upper()}{part[1:]} ({holds})")
+            continue
+        if part == "changed files" and not (len(body) == 1 and NONE.fullmatch(body[0])):
+            wrong = []
+            for line in body:
+                item = CHANGED.fullmatch(line)
+                if item:
+                    changed.append({"path": item["quoted"] or item["bare"], "status": item["status"].strip()})
+                else:
+                    wrong.append(line)
+            if wrong:
+                missing.append(f"a path and a status on each line of ## Changed files, as `PATH`: STATUS, and these lines have none: {'; '.join(repr(line) for line in wrong)}")
+    if missing:
+        raise SessionError(f"{HANDOFF} of {slug} is not in the form of `templates/handoff.md`: it lacks " + "; ".join(missing))
+    return {"task": slug, "from": found["phase"], "written": found["written"], "changed": changed}
+
+
+def plugin_dir(root: Path, environ: dict) -> str | None:
+    """What `--plugin-dir` names on the launch line: None when ROOT, this Lem's plugin folder, is under
+    Claude Code's plugin folders (`plugins/` of CLAUDE_CONFIG_DIR, else of `~/.claude`), where the new
+    session loads it as the installed plugin; else ROOT, so that the session runs this Lem and not the
+    one that is installed."""
+    home = Path(environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
+    plugins = (home / "plugins").resolve()
+    found = root.resolve()
+    return None if found == plugins or plugins in found.parents else str(found)
+
+
+def launch_line(shell: str, slug: str, brief: Path, tokens: int | None, seat: dict, plugin: str | None = None) -> str:
+    """The command of the task's session: the owner's login shell, so that his PATH finds claude, with
+    the task and the compaction number in the environment, since `agtermctl session new` takes none,
+    and with PLUGIN as `--plugin-dir` when this Lem is not the installed plugin (`plugin_dir`)."""
+    # a seat holds no space (`project.parse_seat`), so the quotes are what is left to refuse there
+    for what, value, fix in (("the brief's path", str(brief), "move the checkout to a path without them"),
+                             ("the plugin's folder", plugin or "", "move Lem's folder to a path without them"),
+                             ("the owner's login shell", shell, "set a login shell at a plain path"),
+                             ("the session's model", seat.get("model") or "", "write seats.session again"),
+                             ("the session's effort", seat.get("effort") or "", "write seats.session again")):
+        if UNQUOTABLE.search(value):
+            raise SessionError(f"{what} {value!r} holds a quote, a backslash, a $ or a line break, which the launch line cannot carry: {fix}")
+    variables = f"LEM_TASK={slug}" + (f" CLAUDE_CODE_AUTO_COMPACT_WINDOW={tokens}" if tokens is not None else "")
+    flags = (f" --model {seat['model']}" if seat.get("model") else "") + (f" --effort {seat['effort']}" if seat.get("effort") else "")
+    flags += f' --plugin-dir "{plugin}"' if plugin else ""
+    return f"{shell} -l -c '{variables} claude{flags} \"Read {brief} and follow it.\"'"
+
+
+def brief_text(slug: str, phase: str, why: str, directory: Path, main: Path, worktree: Path | None) -> str:
+    return "\n".join([
+        f"Read {SKILL / 'prompts' / 'session.md'} and follow it.", "",
+        f"task: {slug}",
+        f"phase: {phase}",
+        f"opened because: {why}",
+        f"task directory: {directory}",
+        f"main checkout: {main}",
+        f"worktree: {worktree if worktree else 'none yet'}", "",
+    ])
+
+
+# ---- agterm ----
+
+def place() -> dict:
+    """Where this command runs in agterm, from the variables agterm gives a session's commands; none
+    for a process outside agterm (the board's server), whose `agtermctl` finds the app by itself."""
+    def env(*names: str) -> str:
+        return next((os.environ[name] for name in names if os.environ.get(name)), "")
+
+    if not shutil.which("agtermctl"):
+        raise SessionError("agtermctl is not on the PATH: a task's session is a session of agterm, which Lem needs; install agterm's command line tool (Help > Install Command Line Tool)")
+    return {"session": env("AGTERM_SESSION_ID", "AGT_SESSION_ID"), "socket": env("AGTERM_SOCKET", "AGT_SOCKET"), "window": env("AGTERM_WINDOW_ID", "AGT_WINDOW_ID")}
+
+
+def ctl(where: dict, *args: str, window: bool = True) -> str:
+    extra = ["--socket", where["socket"]] if where["socket"] else []
+    if window and where["window"]:
+        extra += ["--window", where["window"]]
+    ran = subprocess.run(["agtermctl", *args, *extra], capture_output=True, text=True, check=False)
+    if ran.returncode != 0:
+        raise SessionError(f"agtermctl {' '.join(args[:2])} failed: {(ran.stderr or ran.stdout).strip() or f'exit {ran.returncode}'}")
+    return ran.stdout
+
+
+def tree(where: dict) -> list[dict]:
+    """Every session of agterm's tree, each with the id of its `workspace`."""
+    try:
+        found = json.loads(ctl(where, "tree", "--json"))["result"]["tree"]
+    except (ValueError, KeyError, TypeError) as error:
+        raise SessionError(f"agtermctl tree answered no tree ({error})") from error
+    return [{**node, "workspace": str(workspace.get("id", ""))} for workspace in found.get("workspaces", []) for node in workspace.get("sessions", [])]
+
+
+def node_of(nodes: list[dict], session: str | None) -> dict | None:
+    return next((node for node in nodes if session and str(node.get("id", "")).upper() == str(session).upper()), None)
+
+
+def left_pane(node: dict) -> str:
+    """The id of the session's left pane, which a message reaches, else `left`."""
+    return next((str(surface["paneID"]) for surface in node.get("surfaces", []) if isinstance(surface, dict) and surface.get("kind") == "left" and surface.get("paneID")), "left")
+
+
+def login_shell() -> str:
+    shell = pwd.getpwuid(os.getuid()).pw_shell
+    if not shell or not os.path.isabs(shell):
+        raise SessionError("the owner's login shell is not known to the system (no absolute path in the user database): agterm needs it to find claude")
+    return shell
+
+
+# ---- the facts ----
+
+def worktree_of(root: Path, settings: dict, slug: str) -> Path | None:
+    path = project.main_checkout(root) / Path(settings["places"]["worktrees"]["path"]).relative_to(root.resolve()) / slug
+    return path if (path / ".git").exists() else None
+
+
+@contextlib.contextmanager
+def task_lock(directory: Path):
+    with (directory / LOCK).open("a") as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
+
+
+def facts_of(root: Path, slug: str) -> dict:
+    directory = project.task_directory(root, slug)
+    settings = project.load(root)
+    tasks = project.read_tasks(root, settings)
+    task = next(task for task in tasks if task["slug"] == slug)
+    worktree = worktree_of(root, settings, slug)
+    phase = phase_of(slug, task["status"], first_line(task), task["track"], worktree is not None)
+    return {"directory": directory, "settings": settings, "tasks": tasks, "task": task, "worktree": worktree, "phase": phase}
+
+
+def workspace_for(slug: str, task: dict, opens: dict[str, dict], nodes: list[dict], caller: str) -> str:
+    """The workspace a new session of the task opens in: the one its newest session was in, else the
+    caller's, else that of the task its `after:` line names, else the repository's newest."""
+    known = {node["workspace"] for node in nodes}
+    mine = node_of(nodes, caller)
+    after = next((line.split(":", 1)[1].strip() for line in (task["state"] or "").splitlines()[1:] if line.startswith("after:")), None)
+    newest = max(opens.values(), key=lambda record: record["ts"], default=None)
+    for found in ((opens.get(slug) or {}).get("workspace"), mine["workspace"] if mine else None,
+                  (opens.get(after) or {}).get("workspace") if after else None, (newest or {}).get("workspace")):
+        if found and found in known:
+            return found
+    raise SessionError(f"no workspace of agterm is known for {slug}: no session of it or of this repository is on record, and this runs in no session of agterm. "
+                       f"Run `lem session open {slug}` from a session in the workspace it belongs in, or type `/lem status {slug}` there")
+
+
+# ---- the commands ----
+
+def cmd_open(root: Path, slug: str, focus: bool, why: str, replacing: str | None = None) -> dict:
+    where = place()
+    directory = project.task_directory(root, slug)
+    with task_lock(directory):
+        facts = facts_of(root, slug)
+        task, phase = facts["task"], facts["phase"]
+        behind = queued_behind(task, facts["tasks"])
+        if behind:
+            raise SessionError(f"the task {slug!r} is queued after {behind!r}, which has not ended: it gets its session when {behind} is landed, answered or dropped")
+        nodes = tree(where)
+        opens = newest_opens(project.events_named(root, *EVENTS))
+        newest = opens.get(slug)
+        node = node_of(nodes, newest.get("session") if newest else None)
+        if newest and live(node, newest, datetime.now(timezone.utc)) and str(newest["session"]).upper() != str(replacing or "").upper():
+            if focus:
+                ctl(where, "session", "select", "--target", str(newest["session"]))
+            return {"task": slug, "session": newest["session"], "name": node.get("name") or newest.get("name"), "phase": phase, "already": True,
+                    "say": f"{slug} already runs in the session `{node.get('name') or newest.get('name')}`"}
+        workspace = workspace_for(slug, task, opens, nodes, where["session"])
+        try:
+            tokens = lem_state.handoff_tokens()
+        except lem_state.StateError as error:
+            raise SessionError(str(error)) from error
+        worktree = facts["worktree"]
+        brief = directory / BRIEF
+        line = launch_line(login_shell(), slug, brief, tokens, facts["settings"]["seats"]["session"], plugin_dir(PLUGIN, os.environ))
+        main = project.main_checkout(root)
+        brief.write_text(brief_text(slug, phase, why, directory, main, worktree), encoding="utf-8")
+        made = ctl(where, "session", "new", "--workspace", workspace, "--cwd", str(worktree or main), "--name", slug, "--no-select", "--command", line, "--json")
+        try:
+            session = str(json.loads(made)["result"]["id"])
+        except (ValueError, KeyError, TypeError) as error:
+            raise SessionError(f"agtermctl session new answered no session id ({error}): {made.strip()[:200]}") from error
+        # the record first: the session exists now, whatever the next two steps do
+        project.append_event(root, "session.open", slug, {"session": session, "name": slug, "phase": phase, "why": why, "workspace": workspace})
+        ctl(where, "session", "move", "--to", "top", "--target", session)
+        if focus:
+            ctl(where, "session", "select", "--target", session)
+    return {"task": slug, "session": session, "name": slug, "phase": phase, "already": False,
+            "say": f"{slug} is open in its own session `{slug}`, phase {phase}" + (", and selected" if focus else ", at the top of the workspace")}
+
+
+def cmd_next(root: Path, slug: str, same: bool) -> dict:
+    where = place()
+    directory = project.task_directory(root, slug)
+    opens = newest_opens(project.events_named(root, *EVENTS))
+    newest = opens.get(slug)
+    if newest is None:
+        raise SessionError(f"no session of {slug} is on record, so there is no phase to hand off: `lem session open {slug}` opens its first")
+    old, was = str(where["session"] or newest["session"]), newest.get("phase")
+    phase = facts_of(root, slug)["phase"]
+    if phase == was and not same:
+        raise SessionError(f"the state of {slug} still gives the phase {was}: write the new state block first (`lem project state {slug} ...`), then run this again; "
+                           f"for the owner's \"hand off\" inside a phase, `lem session next {slug} --same`")
+    file = directory / HANDOFF
+    if not file.is_file():
+        raise SessionError(f"{file} is not there: write the handoff in the form of `templates/handoff.md` first, after the state block")
+    form = handoff_form(file.read_text(encoding="utf-8"), slug)
+    if form["from"] != was:
+        raise SessionError(f"{HANDOFF} of {slug} says it is from {form['from']}, and this session's phase is {was}: write it again for the phase that leaves")
+    if form["written"][:16] < newest["ts"][:16]:
+        raise SessionError(f"{HANDOFF} of {slug} was written at {form['written']}, before this session opened at {newest['ts']}: it is an older session's; write it again")
+    opened = cmd_open(root, slug, False, "handoff", replacing=old)
+    if opened["already"]:
+        raise SessionError(f"another session of {slug} runs already, `{opened['name']}` ({opened['session']}): it took over; this one closes with `lem session close {slug} --session {old} --why handoff --when-unselected`")
+    ctl(where, "session", "rename", f"{slug} · handed off", "--target", old)
+    close = f"lem session close {slug} --session {old} --why handoff --when-unselected"
+    return {**opened, "old": old, "from": was, "close": close,
+            "say": f"{slug} goes on in a fresh session for the phase {opened['phase']}; this one closes once the owner has left it"}
+
+
+def cmd_close(root: Path, slug: str, session: str | None, why: str, when_unselected: bool, every: float) -> dict:
+    where = place()
+    project.task_directory(root, slug)
+    events = project.events_named(root, *EVENTS)
+    if session is None:
+        newest = newest_opens(events).get(slug)
+        if newest is None:
+            raise SessionError(f"no session of {slug} is on record: there is nothing to close")
+        session = str(newest["session"])
+    logged = any(record.get("event") == "session.close" and str(record.get("session", "")).upper() == session.upper() for record in events)
+    while True:
+        node = node_of(tree(where), session)
+        if node is None:
+            if not logged:
+                project.append_event(root, "session.close", slug, {"session": session, "why": why})
+            return {"task": slug, "session": session, "why": why, "closed": False, "says": f"the session {session} is no longer in agterm's tree"}
+        if not node.get("active"):
+            break
+        if not when_unselected:
+            raise SessionError(f"the owner has the session `{node.get('name')}` selected, and Lem never closes a session he looks at: "
+                               f"`lem session close {slug} --session {session} --why {why} --when-unselected` closes it once he left it")
+        time.sleep(every)
+    # the log first: a session that closes itself ends with this command
+    if not logged:
+        project.append_event(root, "session.close", slug, {"session": session, "why": why})
+    ctl(where, "session", "close", "--target", session, "--undoable")
+    return {"task": slug, "session": session, "why": why, "closed": True}
+
+
+def cmd_handoff(root: Path, slug: str) -> dict:
+    file = project.task_directory(root, slug) / HANDOFF
+    if not file.is_file():
+        raise SessionError(f"{file} is not there: write it in the form of `templates/handoff.md`")
+    return {**handoff_form(file.read_text(encoding="utf-8"), slug), "file": str(file)}
+
+
+def cmd_wake(root: Path, slug: str, why: str, head: str | None) -> dict:
+    where = place()
+    project.task_directory(root, slug)
+    newest = newest_opens(project.events_named(root, *EVENTS)).get(slug)
+    node = node_of(tree(where), newest.get("session") if newest else None)
+    if newest and live(node, newest, datetime.now(timezone.utc)):
+        session = str(newest["session"])
+        ctl(where, "msg", "send", f"lem: {slug} {why}", "--to", f"{session}:left", window=False)
+        project.append_event(root, "session.wake", slug, {"session": session, "why": why, **({"head": head} if head else {})})
+        return {"task": slug, "session": session, "why": why, "woke": True, "opened": False,
+                "say": f"the session `{node.get('name')}` of {slug} got `lem: {slug} {why}`"}
+    if why == "owner":
+        try:
+            facts_of(root, slug)
+        except SessionError as error:
+            # his act ended the task's need of a session (a park): nothing waits for the line
+            return {"task": slug, "session": None, "why": why, "woke": False, "opened": False, "say": f"no session of {slug} runs, and it gets none: {error}"}
+    opened = cmd_open(root, slug, False, why)
+    if head:
+        # the head is kept on the wake's record, so that a conflict is answered once for each head
+        project.append_event(root, "session.wake", slug, {"session": opened["session"], "why": why, "head": head})
+    return {**opened, "why": why, "woke": False, "opened": not opened["already"]}
+
+
+def cmd_wait(root: Path, slug: str, until: list[str], event: str | None, every: float) -> dict:
+    project.task_directory(root, slug)
+    unknown = [state for state in until if state not in project.STATES]
+    if unknown:
+        raise SessionError(f"--until names {', '.join(unknown)}, and a state is one of {', '.join(project.STATES)}")
+
+    def mine() -> list[dict]:
+        return [record for record in project.events_named(root, event) if record.get("task") == slug]
+
+    seen = len(mine()) if event else 0
+    try:
+        while True:
+            if event:
+                found = mine()
+                if len(found) > seen:
+                    return {"task": slug, "event": found[-1]}
+            else:
+                task = next(task for task in project.read_tasks(root) if task["slug"] == slug)
+                if task["status"] in until:
+                    return {"task": slug, "status": task["status"], "line": first_line(task), "since": task["since"]}
+            time.sleep(every)
+    except KeyboardInterrupt:
+        raise SessionError(f"the wait for {slug} was stopped") from None
+
+
+def cmd_list(root: Path) -> list[dict]:
+    where = place()
+    nodes = tree(where)
+    events = project.events_named(root, *EVENTS)
+    now = datetime.now(timezone.utc)
+    out = []
+    for slug, opened in newest_opens(events).items():
+        session = str(opened["session"])
+        node = node_of(nodes, session)
+        after = [record for record in events if record.get("task") == slug and record["ts"] >= opened["ts"] and str(record.get("session", "")).upper() == session.upper()]
+        closed = next((record for record in after if record.get("event") == "session.close"), None)
+        wake = next((record for record in reversed(after) if record.get("event") == "session.wake"), None)
+        unanswered = False
+        if node is not None and wake is not None and (now - stamp(wake["ts"])).total_seconds() >= UNANSWERED_AFTER:
+            mailbox = ctl(where, "msg", "read", "--as", f"{session}:{left_pane(node)}", "--json", window=False)
+            unanswered = f"lem: {slug} {wake.get('why')}" in mailbox
+        out.append({"task": slug, "session": session, "name": node.get("name") if node else opened.get("name"), "phase": opened.get("phase"),
+                    "why": opened.get("why"), "since": opened["ts"], "workspace": opened.get("workspace"), "live": node is not None,
+                    "agent": agent_runs(node) if node else False, "selected": bool(node and node.get("active")),
+                    "closed": closed["why"] if closed else None, "unanswered": unanswered})
+    return out
+
+
+# ---- the transcript ----
+
+COMMAND_NAME = re.compile(r"<command-name>(.*?)</command-name>", re.S)
+COMMAND_ARGS = re.compile(r"<command-args>(.*?)</command-args>", re.S)
+
+
+def typed_text(content: object) -> tuple[str, str | None]:
+    """The text of a record the owner typed, and a slash command's arguments alone: a `/lem` line
+    is kept as the command line he typed, `/lem ARGS` (Claude Code names a plugin's skill `/lem:lem`)."""
+    if isinstance(content, list):
+        text = "\n".join(block.get("text", "") for block in content if isinstance(block, dict) and block.get("type") == "text")
+    else:
+        text = content if isinstance(content, str) else ""
+    text = text.strip()
+    if text.startswith(("<command-message>", "<command-name>")) and (name := COMMAND_NAME.search(text)):
+        command = name[1].strip()
+        plugin, colon, skill = command.lstrip("/").partition(":")
+        if colon and plugin == skill:
+            command = "/" + plugin
+        args = (COMMAND_ARGS.search(text)[1] if COMMAND_ARGS.search(text) else "").strip()
+        return (f"{command} {args}" if args else command), args
+    return text, None
+
+
+def transcript_turns(path: Path) -> list[dict]:
+    """The turns of a Claude Code session's transcript, oldest first, each {"who": "owner" or
+    "lem", "at": its first record's time, "text": its words}. The form is the harness's
+    (`skills/lem/harness/claude-code.md`): one JSON record a line. The owner's turn is a `user`
+    record whose `origin.kind` is `human`, with no `isMeta` (the text `/lem` loads) and no
+    `isCompactSummary`; a task's notification, agterm's mail and a peer's message have another
+    origin. The agent's turn is the text blocks of the `assistant` records between two prompts; a
+    tool's call and its result are no words. A record of a subagent (`isSidechain`) is no turn of
+    this session, and a `compact_boundary` ends nothing: the records before it are kept."""
+    turns: list[dict] = []
+    lem_open = False
+    prompts = origins = 0
+    for raw in path.read_bytes().splitlines():
+        try:
+            record = json.loads(raw.decode("utf-8", errors="replace"))
+        except ValueError:
+            continue
+        if not isinstance(record, dict) or record.get("isSidechain"):
+            continue
+        kind = record.get("type")
+        content = (record.get("message") or {}).get("content") if isinstance(record.get("message"), dict) else None
+        if kind == "assistant":
+            texts = [block.get("text", "") for block in content if isinstance(block, dict) and block.get("type") == "text"] if isinstance(content, list) else []
+            words = "\n\n".join(text.strip() for text in texts if text.strip())
+            if not words:
+                continue
+            if lem_open:
+                turns[-1]["text"] += "\n\n" + words
+            else:
+                turns.append({"who": "lem", "at": record.get("timestamp"), "text": words})
+                lem_open = True
+            continue
+        if kind != "user":
+            continue
+        if isinstance(content, list) and any(isinstance(block, dict) and block.get("type") == "tool_result" for block in content):
+            continue
+        # any other prompt ends the agent's turn: the owner's, a notification, a mail
+        lem_open = False
+        prompts += 1
+        if "origin" in record:
+            origins += 1
+        origin = record.get("origin")
+        if record.get("isMeta") or record.get("isCompactSummary") or not (isinstance(origin, dict) and origin.get("kind") == "human"):
+            continue
+        text, args = typed_text(content)
+        if text:
+            turns.append({"who": "owner", "at": record.get("timestamp"), "text": text, "args": args})
+    if prompts and not origins:
+        raise SessionError(
+            f"{path} names no prompt's origin, so the owner's turns cannot be told from the rest: this Claude Code writes its transcript "
+            "in another form than harness/claude-code.md names; give the new session the talk by hand",
+        )
+    return turns
+
+
+def flat(text: str) -> str:
+    return " ".join(text.split())
+
+
+def starts(turn: dict, start: str) -> bool:
+    words = flat(start)
+    return flat(turn["text"]).startswith(words) or (turn.get("args") is not None and flat(turn["args"]).startswith(words))
+
+
+def first_words(text: str) -> str:
+    words = flat(text).split(" ")
+    return " ".join(words[:FIRST_WORDS]) + (" …" if len(words) > FIRST_WORDS else "")
+
+
+def talk_range(turns: list[dict], start: str, leave: list[str]) -> tuple[list[dict], list[dict]]:
+    """The turns from the newest owner turn that `start` starts to the newest turn, and what was
+    left out: each owner turn that a text of `leave` starts (the newest one after the first turn),
+    with the agent's turns after it until the next owner turn."""
+    if not flat(start):
+        raise SessionError("--from is the first words of the owner's turn where the topic began, and it is empty")
+    begin = next((index for index in range(len(turns) - 1, -1, -1) if turns[index]["who"] == "owner" and starts(turns[index], start)), None)
+    if begin is None:
+        raise SessionError(f"no turn of the owner starts with {start!r}: give the first words of his turn where the topic began, as he typed them")
+    kept = turns[begin:]
+    out: set[int] = set()
+    left: list[dict] = []
+    for text in leave:
+        if not flat(text):
+            raise SessionError("a --leave text is the first words of an owner turn to leave out, and it is empty")
+        at = next((index for index in range(len(kept) - 1, 0, -1) if kept[index]["who"] == "owner" and starts(kept[index], text)), None)
+        if at is None:
+            raise SessionError(f"no turn of the owner after the first one starts with {text!r}: --leave names an owner turn of the copy, as he typed it")
+        if at in out:
+            continue
+        span = [at]
+        while at + len(span) < len(kept) and kept[at + len(span)]["who"] == "lem":
+            span.append(at + len(span))
+        out.update(span)
+        left.append({"at": kept[at]["at"], "words": first_words(kept[at]["text"]), "lem_turns": len(span) - 1})
+    return [turn for index, turn in enumerate(kept) if index not in out], sorted(left, key=lambda item: item["at"] or "")
+
+
+def when(stamp_text: str | None) -> str:
+    """`2026-11-19T14:17:34.495Z` as `2026-11-19 14:17 UTC`."""
+    return f"{stamp_text[:10]} {stamp_text[11:16]} UTC" if stamp_text and len(stamp_text) >= 16 else "an unknown time"
+
+
+def talk_text(slug: str, kept: list[dict], left: list[dict], source: Path) -> str:
+    owners = sum(1 for turn in kept if turn["who"] == "owner")
+    lines = [
+        f"# The talk that led to the ask of {slug}", "",
+        f"Copied word for word from the session where it was asked ({source.name}): {len(kept)} turns, {owners} of the owner and {len(kept) - owners} of the agent, "
+        f"from the owner's turn of {when(kept[0]['at'])} that starts \"{first_words(kept[0]['text'])}\" to the newest turn.", "",
+    ]
+    if left:
+        lines += ["Left out as another topic:", ""]
+        lines += [f"- the owner's turn of {when(item['at'])} that starts \"{item['words']}\", with {item['lem_turns']} turn{'s' if item['lem_turns'] != 1 else ''} of the agent after it"
+                  for item in left]
+        lines.append("")
+    for turn in kept:
+        lines += [f"## {'The owner' if turn['who'] == 'owner' else 'The agent'}, {when(turn['at'])}", "", turn["text"], ""]
+    return "\n".join(lines)
+
+
+def transcript_file() -> Path:
+    """This session's transcript: `~/.claude/projects/*/ID.jsonl`, with ID the session's
+    `CLAUDE_CODE_SESSION_ID`, which Claude Code gives the Bash tool (`harness/claude-code.md`).
+    `CLAUDE_CONFIG_DIR`, when set, stands for `~/.claude`."""
+    session = os.environ.get("CLAUDE_CODE_SESSION_ID", "").strip()
+    if not session:
+        raise SessionError("CLAUDE_CODE_SESSION_ID is not set: run `lem session talk` from the Claude Code session where the owner asked, whose Bash tool has it")
+    if not re.fullmatch(r"[A-Za-z0-9-]+", session):
+        raise SessionError(f"CLAUDE_CODE_SESSION_ID {session!r} is no session id of Claude Code: run this from the session where the owner asked")
+    home = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
+    found = sorted((home / "projects").glob(f"*/{session}.jsonl"))
+    if not found:
+        raise SessionError(f"no transcript {session}.jsonl under {home / 'projects'}: run this from the Claude Code session where the owner asked, whose transcript Claude Code keeps there")
+    if len(found) > 1:
+        raise SessionError(f"two transcripts carry the session {session}: {', '.join(map(str, found))}; move the one that is not this session's aside")
+    return found[0]
+
+
+def cmd_talk(root: Path, slug: str, start: str, leave: list[str]) -> dict:
+    directory = project.task_directory(root, slug)
+    source = transcript_file()
+    kept, left = talk_range(transcript_turns(source), start, leave)
+    file = directory / TALK
+    file.write_text(talk_text(slug, kept, left, source), encoding="utf-8")
+    owners = sum(1 for turn in kept if turn["who"] == "owner")
+    return {"task": slug, "file": str(file), "transcript": str(source), "turns": len(kept), "owner_turns": owners, "lem_turns": len(kept) - owners,
+            "first": {"at": kept[0]["at"], "words": first_words(kept[0]["text"])}, "left_out": left}
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(prog="lem session", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")
+    commands = parser.add_subparsers(dest="command", required=True)
+    opened = commands.add_parser("open", help="open the task's session for the phase its state gives, or print the one that runs")
+    opened.add_argument("slug")
+    opened.add_argument("--focus", action="store_true", help="select it: only for a request the owner typed in a session")
+    opened.add_argument("--why", choices=WHYS, default="owner", help="why it opens, for the record (default: owner)")
+    following = commands.add_parser("next", help="the change of phase: open the next session after the handoff, and name this one handed off")
+    following.add_argument("slug")
+    following.add_argument("--same", action="store_true", help="the owner's \"hand off\": a fresh session for the same phase")
+    closing = commands.add_parser("close", help="log the close of a session, then close it")
+    closing.add_argument("slug")
+    closing.add_argument("--session", metavar="ID", help="the session to close (default: the task's newest)")
+    closing.add_argument("--why", required=True, choices=CLOSES)
+    closing.add_argument("--when-unselected", action="store_true", help="wait until the owner has left the session, then close it")
+    closing.add_argument("--every", type=float, default=CLOSE_EVERY, help=argparse.SUPPRESS)
+    handoff = commands.add_parser("handoff", help="check the task's handoff.md against templates/handoff.md")
+    handoff.add_argument("slug")
+    handoff.add_argument("--check", action="store_true", required=True)
+    talk = commands.add_parser("talk", help="copy the turns of this session about the task's ask into its talk.md")
+    talk.add_argument("slug")
+    talk.add_argument("--from", dest="start", required=True, metavar="TEXT", help="the first words of the owner's turn where the topic began")
+    talk.add_argument("--leave", action="append", default=[], metavar="TEXT", help="the first words of an owner turn of another topic, left out with the agent's turns after it")
+    waking = commands.add_parser("wake", help="a pane message to the task's live session, or a new session")
+    waking.add_argument("slug")
+    waking.add_argument("--why", required=True, choices=WAKES)
+    waking.add_argument("--head", metavar="SHA", help="the pull request's head the wake is for, kept on its record")
+    waiting = commands.add_parser("wait", help="end when the task's state is one of these, or a new event of its own is logged")
+    waiting.add_argument("slug")
+    until = waiting.add_mutually_exclusive_group(required=True)
+    until.add_argument("--until", metavar="STATE,...", help="the states that end the wait, joined by commas")
+    until.add_argument("--event", metavar="NAME", help="the event that ends the wait, the first one logged for the task after its start")
+    waiting.add_argument("--every", type=float, default=WAIT_EVERY, help=argparse.SUPPRESS)
+    commands.add_parser("list", help="each task's newest session")
+    args = parser.parse_args(argv)
+    try:
+        root = project.repo_root(Path(args.repo))
+        if args.command == "open":
+            result: object = cmd_open(root, args.slug, args.focus, args.why)
+        elif args.command == "next":
+            result = cmd_next(root, args.slug, args.same)
+        elif args.command == "close":
+            result = cmd_close(root, args.slug, args.session, args.why, args.when_unselected, max(0.01, args.every))
+        elif args.command == "handoff":
+            result = cmd_handoff(root, args.slug)
+        elif args.command == "talk":
+            result = cmd_talk(root, args.slug, args.start, args.leave)
+        elif args.command == "wake":
+            result = cmd_wake(root, args.slug, args.why, args.head)
+        elif args.command == "wait":
+            states = [state.strip() for state in (args.until or "").split(",") if state.strip()]
+            if args.until is not None and not states:
+                raise SessionError("--until names one state or more, joined by commas, as --until open,held,landed")
+            result = cmd_wait(root, args.slug, states, args.event, max(0.01, args.every))
+        else:
+            result = cmd_list(root)
+    except (SessionError, project.SettingsError) as error:
+        sys.exit(f"lem session: {error}")
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+
+
+if __name__ == "__main__":
+    main()

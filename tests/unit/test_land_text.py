@@ -29,12 +29,7 @@ PLAN = (
 
 
 # A decision's lines, each in the form the command of decisions.py that writes it gives it.
-def asked(number: int, what: str, options: tuple[str, ...], recommended: str, why: str, *, advisers: tuple[str, ...] = ("fable", "astra")) -> dict:
-    """`lem decisions ask`: a choice that waits for the owner."""
-    return {
-        "id": number, "at": AT, "kind": "asked", "what": what, "case": "1. One step.\n2. Another.", "case_was": "derived", "cause": "the personas split",
-        "options": list(options), "recommended": recommended, "why": why, "said": "The two personas split.", "irreversible": None, "advisers": list(advisers),
-    }
+STORY = {"case": "1. One step.\n2. Another.", "case_was": "derived", "cause": "the personas split"}
 
 
 def taken(number: int, what: str, chose: str, why: str, by: str, **more: object) -> dict:
@@ -42,19 +37,15 @@ def taken(number: int, what: str, chose: str, why: str, by: str, **more: object)
     return {"id": number, "at": AT, "kind": "taken", "what": what, "chose": chose, "why": why, "by": by, **more}
 
 
-def answered(number: int, chose: str, **reason: object) -> dict:
-    """`lem decisions answer` of a choice that waits: `words`, `why`, `instead`."""
-    return {"id": number, "at": LATER, "kind": "answered", "chose": chose, **reason}
+def picked(number: int, what: str, options: tuple[str, ...], chose: str, why: str, by: str = "dialectic", **more: object) -> dict:
+    """`lem decisions log --by dialectic|experts`: a pick past the personas, with its options and its story."""
+    return taken(number, what, chose, why, by, options=list(options), **STORY, **more)
 
 
-def late(number: int, chose: str, **reason: object) -> dict:
-    """`lem decisions answer` of a choice that was taken without him."""
-    return {"id": number, "at": LATER, "kind": "late", "chose": chose, **reason}
-
-
-def advised(number: int, expert: str, pick: str, why: str) -> dict:
-    """`lem decisions advise`: one expert's pick."""
-    return {"id": number, "at": AT, "kind": "advised", "expert": expert, "pick": pick, "why": why}
+def breaker(number: int, cause: str = "criteria", **more: object) -> dict:
+    """`lem decisions breaker`: the stop of the build, with its cause and its document."""
+    return {"id": number, "at": AT, "kind": "breaker", "cause": cause, "what": "The note has no place that keeps criterion 1",
+            "document": "breaker.md", "handoff": "handoff.md", **more}
 
 
 def ledger(directory: Path) -> "decisions.Task":
@@ -70,13 +61,8 @@ def folded(lines: list[dict]) -> list[dict]:
     with tempfile.TemporaryDirectory() as folder:
         record = ledger(Path(folder))
         record.file.write_text("".join(json.dumps(line) + "\n" for line in lines), encoding="utf-8")
+        # as `lem decisions list` gives them, which land.py reads
         return record.decisions()
-
-
-def away(lines: list[dict], number: int) -> list[dict]:
-    """The lines with the one that takes choice NUMBER as the owner goes away: decisions.py's `ending`."""
-    choice = next(decision for decision in folded(lines) if decision["id"] == number)
-    return [*lines, decisions.ending(number, choice, LATER)]
 
 
 def approval(by: str, number: int = 1, plan: str = PLAN, at: str = AT, history: tuple[dict, ...] = ()) -> dict:
@@ -90,7 +76,7 @@ def approval(by: str, number: int = 1, plan: str = PLAN, at: str = AT, history: 
 
 
 def change(number: int, how: str, criterion: int, why: str, **more: object) -> dict:
-    """`lem decisions criterion`: one change of an approved criterion (`was`, `now`, and `choice` or `by`)."""
+    """`lem decisions criterion`: one change of an approved criterion (`was`, `now`, and `decision` or `by`)."""
     return {"change": number, "at": AT, "kind": "criterion", "how": how, "criterion": criterion, "why": why, "approval": 1, **more}
 
 
@@ -156,78 +142,22 @@ class Proposal(unittest.TestCase):
         return land.not_green(self.task(list(lines), **given), self.state())
 
 
-class ChoicesWithoutHim(Proposal):
-    """A choice that waited for the owner and was taken as he went away is not green, one line each,
-    with a late answer of his; an answered choice is no cause of not green."""
+class PicksWithoutHim(Proposal):
+    """The ladder decides every choice of the build: a pick past the personas is not green, one line
+    each, and one the gate or the personas settled is no cause. One expert alone is named as one."""
 
-    WHERE = asked(1, "Where the word goes", ("the first line", "the last line"), "the first line", "A reader sees it at once.")
-    CASE = asked(1, "The case of the word", ("lower case", "upper case"), "lower case", "The test reads it so.")
+    WHERE = picked(1, "Where the word goes", ("the first line", "the last line"), "the first line", "A reader sees it at once.")
 
-    def test_the_ladder_pick_with_the_same_late_answer(self) -> None:
-        lines = [*away([self.WHERE], 1), late(1, "the first line", why="The importer reads the first line.")]
-        [line] = self.reasons(*lines)
-        self.assertTrue(line.startswith("choice 1 was taken without the owner (Where the word goes): \"the first line\", the recommended option"))
-        self.assertIn("the owner answered later with the same (the owner's reason: The importer reads the first line)", line)
-        said = land.decided(folded(lines)[0])
-        self.assertIn("the ladder's pick, taken at once", said)
-        self.assertIn("A reader sees it at once.", said)
+    def test_a_pick_of_the_dialectic_is_not_green_and_keeps_its_story(self) -> None:
+        [line] = self.reasons(self.WHERE)
+        self.assertEqual(line, "decision 1 was taken without the owner (Where the word goes): \"the first line\", by the dialectic")
+        said = land.decided(folded([self.WHERE])[0])
+        self.assertIn("by the dialectic. A reader sees it at once.", said)
 
-    def test_a_late_answer_that_differs_says_his_words(self) -> None:
-        lines = [*away([self.CASE], 1), late(1, "upper case", words="Make it upper case.", why="The header is in upper case.")]
-        [line] = self.reasons(*lines)
-        self.assertIn("\"upper case\", which differs (the owner's words: \"Make it upper case.\"; the owner's reason: The header is in upper case)", line)
-
-    def test_an_answered_choice_is_no_cause(self) -> None:
-        lines = [
-            asked(1, "Tell the merchants", ("send the email", "send nothing"), "send nothing", "Nothing they see changes."),
-            answered(1, "send the email", words="Yes, send it.", why="The merchants asked for it."),
-            asked(2, "Which line", ("the only line", "the second line"), "the second line", "A header goes first."), answered(2, "the second line"),
-            asked(3, "Email the customers", ("all", "nobody"), "nobody", "Nobody asked for it."), answered(3, "Only the beta testers.", instead=True, why="They asked to hear first."),
-            asked(4, "The line ending", ("a break", "none"), "a break", "Every file ends so."), answered(4, "A break and a date.", instead=True),
-        ]
+    def test_the_gate_and_the_personas_are_green(self) -> None:
+        votes = [["the merchant, opus", "the first line"], ["the accountant, sol", "the first line"]]
+        lines = [taken(1, "Where", "the first line", "a ruling says so", "gate"), taken(2, "Which", "the first line", "both read it first", "personas", votes=votes)]
         self.assertEqual(self.reasons(*lines), [])
-        over, recommended, instead, bare = (land.decided(decision) for decision in folded(lines))
-        # the recommendation's reason is never said as his
-        self.assertIn("over the recommended \"send nothing\" (recommended because: Nothing they see changes)", over)
-        self.assertIn("The owner's words: \"Yes, send it.\" The owner's reason: The merchants asked for it.", over)
-        self.assertIn(", as recommended. A header goes first.", recommended)
-        self.assertIn("none of the options; the recommended was \"nobody\"", instead)
-        self.assertNotIn("gave no reason", instead)
-        self.assertIn("The owner gave no reason.", bare)
-
-    def test_a_choice_that_waits_says_so(self) -> None:
-        self.assertEqual(land.decided(folded([self.WHERE])[0]), "- Where the word goes: waits for the owner.")
-
-
-class TheExperts(Proposal):
-    """A choice the experts took as the owner went away names their pick and both reasons; one whose
-    experts split took the recommended option; one expert alone is named as one."""
-
-    def advised_choice(self, fable: str, astra: str) -> list[dict]:
-        return [
-            asked(1, "Where the word goes", ("the first line", "the last line"), "the first line", "A reader sees it at once."),
-            advised(1, "fable", fable, "A reader looks at the end first."), advised(1, "astra", astra, "The importer reads the last line."),
-        ]
-
-    def test_their_shared_pick_is_not_green_with_both_reasons(self) -> None:
-        lines = [*away(self.advised_choice("the last line", "the last line"), 1), late(1, "the first line", why="The test reads it so.")]
-        [line] = self.reasons(*lines)
-        self.assertTrue(line.startswith("choice 1 was taken by the experts (Where the word goes): \"the last line\", the option both picked"))
-        self.assertIn("Fable: A reader looks at the end first. Astra: The importer reads the last line", line)
-        self.assertIn("; the owner answered later with \"the first line\", which differs", line)
-        said = land.decided(folded(lines)[0])
-        self.assertIn("by the experts, the option both picked", said)
-        self.assertIn("the recommended was \"the first line\"", said)
-
-    def test_their_pick_that_is_the_recommended_says_so(self) -> None:
-        said = land.decided(folded(away(self.advised_choice("the first line", "the first line"), 1))[0])
-        self.assertIn("it is also the recommended", said)
-
-    def test_a_split_takes_the_recommended_option(self) -> None:
-        lines = away(self.advised_choice("the first line", "the last line"), 1)
-        [line] = self.reasons(*lines)
-        self.assertTrue(line.startswith("choice 1 was taken without the owner (Where the word goes): \"the first line\", the recommended option"))
-        self.assertIn("the ladder's pick", land.decided(folded(lines)[0]))
 
     def test_one_expert_alone_is_named_as_one(self) -> None:
         lines = [taken(1, "The word's case", "upper case", "Fable: the header is in upper case.", "experts", advisers=["fable"], options=["lower case", "upper case"])]
@@ -235,17 +165,37 @@ class TheExperts(Proposal):
         self.assertTrue(line.startswith("decision 1 was taken without the owner (The word's case)"))
         self.assertTrue(line.endswith(", by one expert"))
         self.assertIn("by one expert. Fable: the header is in upper case.", land.decided(folded(lines)[0]))
-        page = land.decisions_text(self.task(lines), "o", [line], "fix/o", None)
-        self.assertIn("| 1 | The word's case | upper case | one expert model; **not green** |", page)
 
-    def test_one_experts_pick_as_he_went_away(self) -> None:
-        lines = [asked(1, "Where", ("a", "b"), "a", "A reads first.", advisers=("fable",)), advised(1, "fable", "b", "B reads better.")]
-        [line] = self.reasons(*away(lines, 1))
-        self.assertTrue(line.startswith("choice 1 was taken by one expert (Where): \"b\", the one expert's pick"))
+    def test_two_experts_are_named_as_two(self) -> None:
+        lines = [picked(1, "Where", ("a", "b"), "b", "Both read b first.", "experts", advisers=["fable", "astra"])]
+        [line] = self.reasons(*lines)
+        self.assertTrue(line.endswith(", by the experts"), line)
 
-    def test_two_experts_on_a_shared_choice_are_named_as_two(self) -> None:
-        lines = away(self.advised_choice("the last line", "the last line"), 1)
-        self.assertIn("| two expert models; **not green** |", land.decisions_text(self.task(lines), "e", ["x"], "fix/e", None))
+
+class TheBreaker(Proposal):
+    """A breaker is a line of the pull request with its cause and how it ended; the owner's help on it
+    is no cause of not green, and neither is a criterion change his help led to."""
+
+    def test_his_help_is_no_cause_and_the_stop_is_a_line(self) -> None:
+        lines = [breaker(1, "irreversible", irreversible="person"),
+                 taken(2, "Email the merchants", "send nothing", "They read the export anyway.", "owner", breaker=1, words="no email")]
+        self.assertEqual(self.reasons(*lines), [])
+        text = land.pr_text(self.task(lines), "", self.state())
+        decided = text.split("## Decisions of the build\n\n", 1)[1]
+        self.assertTrue(decided.startswith("- the build stopped at breaker 1, 2026-11-18 10:00 UTC: The note has no place that keeps criterion 1. "
+                                           "Why it stopped: the next step could not be reversed by a later no (person); the owner helped, decision 2."))
+        self.assertIn("- Email the merchants: \"send nothing\", by the owner, his help on breaker 1. They read the export anyway. The owner's words: \"no email\"", decided)
+
+    def test_a_breaker_that_waits_says_so(self) -> None:
+        self.assertTrue(land.breaker_lines(self.task([breaker(1)]))[0].endswith("no option of the ladder kept the approved criteria; it waits for the owner."))
+
+    def test_a_criterion_his_help_changed_is_his(self) -> None:
+        lines = [breaker(1), taken(2, "The one-line rule", "no such rule", "a second line holds the date", "owner", breaker=1)]
+        removed = change(1, "removed", 2, "A second line holds the date now.", was="The file has one line.", decision=2)
+        plan = PLAN.replace("2. The file has one line.\n   - no test: printf ends every line so.\n", "")
+        task = self.task(lines, found=found_of(plan, approval("owner"), (*lines, removed)))
+        self.assertEqual(land.not_green(task, self.state()), [])
+        self.assertIn("after decision 2 (The one-line rule), the owner's help on breaker 1, which took \"no such rule\"", land.change_line(task, task.criteria["history"][0]))
 
 
 class CriteriaThatChanged(Proposal):
@@ -262,15 +212,16 @@ class CriteriaThatChanged(Proposal):
         self.assertIn("was \"The file holds the word y.\", now \"The file holds the word the owner asked for.\"", line)
         self.assertTrue(line.endswith("By the personas: Both personas picked x."))
 
-    def test_one_removed_after_a_choice_and_one_added_by_the_lead(self) -> None:
-        lines = [asked(1, "The one-line rule", ("keep the rule", "no such rule"), "keep the rule", "A reader counts on it."), answered(1, "no such rule")]
-        removed = change(1, "removed", 2, "A second line holds the date now.", was="The file has one line.", choice=1)
+    def test_one_removed_after_a_pick_and_one_added_by_the_lead(self) -> None:
+        lines = [picked(1, "The one-line rule", ("keep the rule", "no such rule"), "no such rule", "A reader counts on the date.")]
+        removed = change(1, "removed", 2, "A second line holds the date now.", was="The file has one line.", decision=1)
         added = change(2, "added", 2, "The importer reads whole lines only.", now="The file ends with a line break.", by="lead")
         plan = PLAN.replace("2. The file has one line.", "2. The file ends with a line break.")
         task = self.task(lines, found=found_of(plan, approval("owner"), (*lines, removed, added)))
-        removed_line, added_line = land.not_green(task, self.state())
+        removed_line, added_line, pick = land.not_green(task, self.state())
+        self.assertTrue(pick.startswith("decision 1 was taken without the owner"))
         self.assertTrue(removed_line.startswith("criterion 2 was removed during the build"))
-        self.assertIn("after choice 1 (The one-line rule), where the owner took \"no such rule\"", removed_line)
+        self.assertIn("after decision 1 (The one-line rule), where the dialectic took \"no such rule\"", removed_line)
         self.assertTrue(added_line.startswith("criterion 2 was added during the build: The importer reads"))
         self.assertTrue(land.change_line(task, task.criteria["history"][1]).endswith("By the lead."))
 
@@ -387,10 +338,10 @@ class TheText(Proposal):
         self.assertEqual(text.split("## Decisions of the build\n\n", 1)[1].splitlines()[0], "none")
 
     def test_not_green_puts_each_reason_first(self) -> None:
-        lines = away([asked(1, "Where", ("a", "b"), "a", "A reads first.")], 1)
+        lines = [picked(1, "Where", ("a", "b"), "a", "A reads first.")]
         out = land.pr_text(self.task(lines), "", self.state()).splitlines()
         self.assertEqual(out[:3], ["**Not green.**", "", out[2]])
-        self.assertTrue(out[2].startswith("- choice 1 was taken without the owner (Where)"))
+        self.assertTrue(out[2].startswith("- decision 1 was taken without the owner (Where)"))
 
     def test_the_cause_of_a_bug_is_named_once_with_its_place(self) -> None:
         bug = {"ts": AT, "event": "investigation", "task": "t", "type": "fix", "call": "full", "line": "the total adds the refund as a payment", "where": "billing/invoice.py:total", "reproduced": True}
@@ -403,13 +354,31 @@ class TheText(Proposal):
             with self.subTest(record=record):
                 self.assertNotIn("the cause", land.pr_text(self.task(record=record), "", self.state()))
 
-    def test_built_names_the_files_and_opens_with_the_red_block(self) -> None:
-        reasons = ["the owner did not approve the criteria"]
-        built = land.built_text(self.task(), "t", "", reasons, "fix/t", None, ["x.txt", "tests/t.sh"], [{"item": "docs/backlog/a.md", "where": "x.txt", "title": "A defect"}])
-        self.assertIn("The change touches 2 files: `x.txt`, `tests/t.sh`.", built)
-        self.assertIn("> **One thing waits for the owner.**", built.split("## ", 1)[0])
-        self.assertIn("- `docs/backlog/a.md`: A defect", built.split("## What was not built", 1)[1])
-        self.assertNotIn("[!CAUTION]", land.built_text(self.task(), "t", "", [], "fix/t", None, ["x.txt"], []))
+
+class TheDocuments(Proposal):
+    """The pull request's text in the forms of `prompts/writing.md`: an important decision's story
+    folded under it, a label cut at its colon, and no link to a picture the forge does not hold."""
+
+    CHART = 'flowchart TD\n  A["The real run ends"] --> B{"GitHub?"}\n  B -->|"no"| C["Waits for the merge"]'
+    LONG = "B. One held line for each criterion: 'Criterion 1: held: the answer came 1 min 9 s after the checks started', the times under each line"
+
+    def important(self) -> list[dict]:
+        pick = picked(8, "How the report of the real run shows criteria 1 and 3", ("A. Times only: a table of times", self.LONG), self.LONG, "Two lines to read.", chart=self.CHART)
+        return [pick, taken(2, "how a run of the checks is stopped", "by the script, lem land checks SLUG --stop, with the process id its lock file holds", "a new session does not hold the first one's task", "lead", undo="name the tool's own stop again")]
+
+    def test_a_label_ends_at_its_colon_and_never_inside_a_quote(self) -> None:
+        self.assertEqual(land.label("the Fable expert's picks: c4 as written"), "the Fable expert's picks")
+        self.assertEqual(land.label("it ends as refused, with the say 'the checks refused: a builder repairs it'"), "it ends as refused, with the say 'the checks refused: a builder repairs it'")
+
+    def test_the_pull_request_links_no_picture_and_folds_an_important_story(self) -> None:
+        notes = "## Worth a look\n\n![The file after](media/after.png)\n"
+        plain = land.pr_text(self.task(), notes, self.state())
+        self.assertNotIn("media/", plain)
+        self.assertIn("The file after (a picture on the task's board)", plain)
+        self.assertNotIn("<details>", plain)
+        folded = land.pr_text(self.task(self.important()), "", self.state())
+        self.assertEqual(folded.count("<details>"), 1)
+        self.assertIn(f"```mermaid\n{self.CHART}\n```\n\n</details>", folded)
 
 
 class Due(unittest.TestCase):

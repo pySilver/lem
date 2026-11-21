@@ -10,9 +10,21 @@ script's path stops holding then. The plugin puts this file on the Bash tool's P
     lem version          the plugin's version and the commit of its folder, as JSON
     lem NAME ARGS...     the script NAME stands for; `lem NAME --help` is the script's own help
 
+The two other commands of the plugin, `lem-ask` and `lem-jev`, are links to this file in `bin/`,
+and it runs the script each name stands for (ALIASES) with every argument.
+
 The process becomes the script (exec), so nothing stands between the caller and it. A Python
-script runs with -B, so it writes no bytecode beside itself. This file loads under any python3: a
-script that needs a newer one says so itself.
+script runs with -B, so it writes no bytecode beside itself.
+
+Before it, `lem NAME` takes a cheap look whether the board server of this machine runs: it reads the
+server's pid from `serve.pid` in Lem's home folder, which the server writes at its start and removes at
+a clean stop, and asks the kernel whether that process lives (signal 0), with no import of Lem's
+modules, no connect and no process started. Only when the file is not there, or its process is gone,
+does it start `lem serve --ensure` as a process of its own, with its output in the server's log, and it
+goes on without a wait. `serve` itself, `board` and `doctor`, which look at the server their own way,
+take no look, and `LEM_SERVE=off` turns it off, which the test suites set. This file loads under any python3, and
+when that python3 is older than Lem's scripts need, it runs the script under the newer Python that
+`lem_python.find()` finds, or says in one line what to install.
 """
 
 import json
@@ -22,6 +34,9 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
+# the name of a link to this file in bin/ -> the script it runs, relative to the plugin's folder
+ALIASES = {"lem-ask": "skills/lem-ask/bin/lem-ask", "lem-jev": "skills/lem/scripts/jev.py"}
+
 # name -> (the script, relative to the plugin's folder; what it does, in one line)
 COMMANDS = {
     "project": ("skills/lem/scripts/project.py", "a repository's settings, a task's state and directory, the event log, the queue"),
@@ -29,13 +44,69 @@ COMMANDS = {
     "criteria": ("skills/lem/scripts/criteria.py", "a task's acceptance criteria: approve, show, record, and red on the base"),
     "decisions": ("skills/lem/scripts/decisions.py", "a task's decisions and the choices that wait for the owner"),
     "board": ("skills/lem/scripts/board.py", "the board of all tasks, or of one task (--task SLUG)"),
+    "serve": ("skills/lem/scripts/serve.py", "the boards of every repository on this machine, and of the machines joined with --join, over HTTP, for a browser on another device: --ensure starts it"),
     "picker": ("skills/lem/scripts/picker.py", "agterm's picker over the tasks, which opens the board of the one picked (--list prints the rows)"),
-    "companion": ("skills/lem/scripts/companion.py", "the companion of one need that waits for the owner: talk, open, close, list, and what is due"),
+    "session": ("skills/lem/scripts/session.py", "a task's own session in agterm: open, next, close, wake, wait, list, its handoff and the copy of the talk"),
     "doctor": ("skills/lem/scripts/doctor.py", "the machine check: the tools Lem needs and recommends"),
     "corrections": ("skills/lem/scripts/corrections.py", "the queue of the owner's corrections, for a retro"),
     "experts": ("skills/lem-ask-expert/scripts/experts.py", "the experts' brief of one question, and the record of their answers"),
     "cast": ("skills/lem-panel/scripts/cast.py", "the persona panel's cast and profile, and a panel's run folder"),
 }
+
+
+# The commands that take no look at the board server: the server's own, and the two that look at it
+# their own way (`board` starts it and waits for it, and `doctor` only reports it).
+NO_LOOK = ("serve", "board", "doctor")
+# The server's pid file and its log in Lem's home folder (lem_state.SERVE_PID and SERVE_LOG), by name:
+# the look imports none of Lem's modules, since that import was most of its cost (8 to 11 ms a call,
+# medians of the builder of 2026-11-21).
+PID_FILE = "serve.pid"
+SERVE_LOG = "serve.log"
+
+
+def home():  # no annotation of `str | None`: this file loads under any python3
+    """Lem's home folder as lem_state.config() names it, or None where it refuses (a relative XDG_CONFIG_HOME)."""
+    named = os.environ.get("XDG_CONFIG_HOME", "")
+    if named and not os.path.isabs(named):
+        return None
+    return os.path.join(named or os.path.join(os.path.expanduser("~"), ".config"), "lem")
+
+
+def server_lives(folder: str) -> bool:
+    """Whether the pid in the server's pid file is a process that lives. A file that does not read is no server."""
+    try:
+        with open(os.path.join(folder, PID_FILE), encoding="utf-8") as file:
+            pid = int(file.read().split()[0])
+    except (OSError, ValueError, IndexError):
+        return False
+    if pid <= 0:
+        # 0 and a negative pid name a process group, never one server
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        # a process of another user holds the pid: it lives, and it is no server to start here
+        return True
+    return True
+
+
+def look_for_server(python: str) -> None:
+    """Start the board server detached when its pid file names no process that lives. Every failure is
+    silent: the look serves the board, and no command of Lem's waits for it or fails by it."""
+    if os.environ.get("LEM_SERVE") == "off" or sys.version_info < (3, 11):
+        return
+    folder = home()
+    if folder is None or server_lives(folder):
+        return
+    try:
+        os.makedirs(folder, exist_ok=True)
+        with open(os.path.join(folder, SERVE_LOG), "ab") as log:
+            subprocess.Popen([python, "-B", os.path.join(ROOT, "skills", "lem", "scripts", "serve.py"), "--ensure"], stdin=subprocess.DEVNULL,
+                             stdout=log, stderr=log, start_new_session=True, close_fds=True, cwd=folder)
+    except Exception:  # noqa: BLE001 - the command goes on without the board
+        return
 
 
 def names() -> str:
@@ -62,7 +133,26 @@ def version() -> dict:
     return found
 
 
+def run(script: str, args: list, command: str, look: bool = False) -> None:
+    """Become SCRIPT with ARGS, under this Python when it is 3.11 or newer, else under one it finds;
+    with LOOK, after the look at the board server."""
+    python = sys.executable or "python3"
+    if sys.version_info < (3, 11):
+        sys.path.insert(0, os.path.join(ROOT, "skills", "lem", "scripts"))
+        import lem_python
+
+        python = lem_python.find(python3=False)
+        if python is None:
+            sys.exit(lem_python.missing(command))
+    if look:
+        look_for_server(python)
+    os.execv(python, [python, "-B", script, *args])
+
+
 def main() -> None:
+    called = os.path.basename(sys.argv[0])
+    if called in ALIASES:
+        run(os.path.join(ROOT, ALIASES[called]), sys.argv[1:], called)
     args = sys.argv[1:]
     if not args or args[0] in ("help", "--help", "-h"):
         sys.stdout.write(names())
@@ -77,8 +167,7 @@ def main() -> None:
     script = os.path.join(ROOT, COMMANDS[name][0])
     if not os.path.isfile(script):
         sys.exit(f"lem: {script} is not there: the plugin's folder {ROOT} is not whole; install the plugin again")
-    python = sys.executable or "python3"
-    os.execv(python, [python, "-B", script, *rest])
+    run(script, rest, "lem", look=name not in NO_LOOK)
 
 
 if __name__ == "__main__":

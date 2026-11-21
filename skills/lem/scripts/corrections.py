@@ -46,12 +46,16 @@ The hook half speaks Claude Code's hook contract: the event on stdin with `promp
 `session_id` and `transcript_path`. It asks Jev through Lem's own `jev.py`, by its path: a hook
 has no `PATH` to count on. LEM_JEV, when set, names another command with the same contract.
 
-The hook half must start under any `python3` an agent finds, an old one too, and stay silent
-there: a Python before 3.11 has no tomllib, so the hook logs that and judges nothing.
+The plugin starts the hook through `lem_python.py` beside this file, which runs it under a Python
+of 3.11 or newer when the first `python3` is older, and leaves the session silent when the machine
+has none.
 """
 
-# An old python3 must still load this file, so that the hook can fail without a word.
-from __future__ import annotations
+import sys
+
+if sys.version_info < (3, 11):
+    # an old python3 must still load this file, so that it can say what it needs and not a traceback
+    sys.exit(f"corrections.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it")
 
 import argparse
 import hashlib
@@ -59,12 +63,11 @@ import json
 import os
 import select
 import subprocess
-import sys
 import tempfile
 import time
 from pathlib import Path
 
-# The one place that says where the state is; it loads under an old python3 too.
+# The one place that says where the state is.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lem_state  # noqa: E402
@@ -505,9 +508,6 @@ def main() -> None:
     if args.command == "worker":
         cmd_worker(args.payload)
         return
-    # The hook and its detached half stay silent under any python3; what the retro runs says what it needs.
-    if sys.version_info < (3, 11):
-        sys.exit(f"corrections.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it")
     for arg in sys.argv[1:]:
         try:
             arg.encode("utf-8")

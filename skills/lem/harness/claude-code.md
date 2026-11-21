@@ -100,17 +100,16 @@ not there), Lem has no channel of its own. Where his own instructions name one, 
 he reads away from the Mac, the question goes there, with the same case and options; otherwise
 it waits for him, and the task's state says what waits. Not checked in a run.
 
-**A card in a need's companion** (`prompts/companion.md`) waits for his answer with no time limit,
-and the companion still takes Lem's message meanwhile: run `lem-ask ask SPEC --timeout 86400` with
-the Bash tool's `run_in_background`, and without `--follow`, so that the card takes no focus. The
-companion's turn then ends while the card is up, so a mail of Lem's reaches it (the mailbox hook
-hands mail over between two turns, step 4 of `open-task-session`), and the end of the command
-wakes it with the answer. Exit 4 after that wait is `lem-ask wait PAGEID` the same way, again.
+**A card in a task's session** waits for his answer with no time limit, and the session still
+takes a wake-up meanwhile: run `lem-ask ask SPEC --timeout 86400` with the Bash tool's
+`run_in_background`, and without `--follow`, so that the card takes no focus. The session's turn
+then ends while the card is up, so a wake-up reaches it (the mailbox hook hands mail over between
+two turns, "A wake-up"), and the end of the command wakes it with the answer. Exit 4 after that wait is `lem-ask wait PAGEID` the same way, again.
 Exit 2 (`dismissed`) is a card he closed with no answer. Exit 0 with `status: "chat"`, or a `text`
-with no option selected, is a question of his or a wish to talk: answer it in the companion's
-conversation, and put the card up again with the same spec. The overlay covers the companion's
-session only, so two companions can show two cards at once, where one session shows one at a time
-(exit 5, `busy`). Not run yet: a card in a companion.
+with no option selected, is a question of his or a wish to talk: answer it in the session's
+conversation, and put the card up again with the same spec. The overlay covers that session only,
+so two tasks' sessions can show two cards at once, where one session shows one at a time (exit 5,
+`busy`). Not run yet: a card in a task's session.
 
 ## spawn-builder
 
@@ -143,173 +142,158 @@ counts on that write: when it is refused, its reply is the whole report, and the
 one who started it writes the file from the reply, as the stage files say. A builder that takes
 another tool to get the file written goes around a guard, and it must not.
 
-A builder can start builders of its own with the same tool, so a builder leads a plan of any size,
-also the build of a careful or large plan after its talk (a subagent that inherits every tool, as
-`lem-builder` does, called `Agent` and had the nested agent's reply: Claude Code 2.1.325,
-2026-11-14; not run yet from a `lem-builder`). The persona agents of a lead's read of its
-acceptance criteria start the same way. The scout of an interview is a builder too, with
-`prompts/scout.md` as its brief, and so are the investigator of a bug or a question, with
-`prompts/investigator.md`, and the one builder of the fast track, with `prompts/small.md`, which Lem
-starts from its own session as it starts a lead; the scout starts from the interview's companion,
-so its reply comes there. A
-builder has no pane of its own, so no reviewer sits beside it and the owner cannot type to it. A
-careful or large plan gets a companion session for its talk for that reason: the talk needs the
-reviewer's pane and the mailbox.
+The lead is the task's session itself, so each builder of a plan is a subagent of that session,
+one level down. The persona agents of a lead's read of its acceptance criteria start the same way.
+The scout of an interview is a builder too, with `prompts/scout.md` as its brief, and so are the
+investigator of a bug or a question, with `prompts/investigator.md`, and the one builder of the
+fast track, with `prompts/small.md`: each starts from the task's session, and its reply comes there.
+A builder has no pane of its own, so no reviewer sits beside it and the owner cannot type to it. A
+careful or large plan gets a pair for its talk for that reason: the talk needs the reviewer's pane
+and the mailbox.
 
 ## open-task-session
 
-A companion session of this one, which runs Claude Code with the brief's file named in its first
-prompt. Lem opens two kinds. One for a plan talk: its agent is the plan's defender
-(`prompts/defender.md`), and the companion is closed when the talk is done; the steps below are
-its. And one for each need that waits for the owner, under "A need's companion" below.
+Two kinds: a task's own session, and the plan talk's pair that a lead opens under it.
 
-1. **The brief** is the task's `brief.md`, with its two lines for `tell-coordinator`:
-   `coordinator: SESSION:PANE`, with this session's `AGTERM_SESSION_ID` and this pane's
-   `AGTERM_PANE_ID`, and `socket: PATH`, with this session's `AGTERM_SOCKET`. Lem writes them at
-   each start of a lead, for a builder too.
-2. **Open the session**:
+### A task's own session
+
+`lem session open SLUG` opens it, never a line of this file, so that its name, its place and one
+session for each task hold the same way each time: run twice, it opens one, and prints the one
+that runs with `already: true`. It writes `session.md` into the task directory and runs, in
+agterm's own words:
+
+```bash
+agtermctl session new --workspace WS --cwd DIR --name SLUG --no-select --command "LOGIN_SHELL -l -c 'LEM_TASK=SLUG CLAUDE_CODE_AUTO_COMPACT_WINDOW=N claude \"Read TASK_DIR/session.md and follow it.\"'"
+```
+
+then `agtermctl session move --to top`, and with `--focus` `agtermctl session select`. `DIR` is the
+task's worktree, else the main checkout. A trial on 2026-11-21 (agterm 0.41.1 serving and 0.43.0
+installed, Claude Code 2.1.330) showed:
+
+- The session opened at the top level of the workspace and was not selected; `move --to top` put
+  it first, and the selection stayed where it was.
+- `session new` takes no environment, so the two variables are in the launch line, and `ps eww`
+  showed the variable in the Claude process. A builder inherits both.
+- `LOGIN_SHELL` is the owner's login shell by absolute path (`dscl . -read /Users/NAME UserShell`):
+  agterm starts the command with its own `PATH`, and only the login shell finds `claude` the way
+  the owner's terminal does. The line passes no flag that widens the session's permissions.
+- Claude Code showed its trust dialog for a folder it had never trusted, with "No, exit" selected
+  first. Nothing of Lem answers it ("What the owner does himself").
+- A session opened with a command leaves no shell when its agent ends: after `/exit` the session
+  left agterm's tree at once. A task whose agent ended has no session, and the board says so.
+- Each idle session posts agterm's "Claude is waiting for your input". One of the trial's two
+  sessions closed 1.3 s after such a notice with no command of the trial's, most likely by a hand.
+
+When `seats.session` names a model or an effort, `lem session open` puts them on the launch line;
+otherwise the session runs the owner's default Claude. When this Lem is not the installed plugin (its folder is
+outside `~/.claude/plugins/`, or outside `plugins/` of `CLAUDE_CONFIG_DIR`), the line adds
+`--plugin-dir` with that folder, so that the task's session runs the Lem that opened it. Not run yet: a relaunch of agterm in its
+rerun mode, which starts each session's command again: the agent then starts from its first
+message, and `prompts/session.md` reads the state before anything else, so it goes on or stops.
+
+`lem session close SLUG [--session ID] --why ...` logs the close and then runs `agtermctl session
+close --target ID --undoable`. It refuses a session the owner has selected; with
+`--when-unselected` it looks every 5 seconds (a guess) and closes it once he left it, so it runs in
+the background. `lem session list` gives each task's newest session: whether it lives, runs an
+agent and is selected, its phase, and `unanswered`, a wake-up still in its mailbox after 10
+minutes.
+
+### The context's number
+
+`N` is `[handoff] tokens` of `~/.config/lem/machine.toml`, the owner's number for all his
+repositories: 600,000 when the file has none, written with `lem project handoff --tokens N|default`
+and shown by `lem doctor`. With 0 Lem sets nothing, and Claude Code compacts at its own trigger,
+"at about 967K tokens by default" on a 1M window (Claude Code's model-config page, read
+2026-11-21). Claude Code refuses a window under 100,000, and so does Lem. Past the number Claude
+Code compacts the session by itself; background commands and background subagents keep running
+through it (the context-window page, read 2026-11-21). The plugin brings two hooks for it, which
+read no transcript and do nothing without `LEM_TASK`:
+
+- `PreCompact` prints the summary's form, the five headings of `handoff.md`. Its output "becomes
+  instructions for the compaction summary", 10,000 characters at most (the hooks reference, read
+  2026-11-21).
+- `SessionStart` with the source `compact` prints the task's newest state block and `handoff.md`
+  with its time, under "the state is the truth; where the handoff is older, follow the state".
+
+Not run yet: a compaction at the number, and the two hooks.
+
+### The plan talk's pair
+
+A companion session of the lead's, `SLUG · plan talk`, which runs Claude Code with
+`talk-brief.md` named in its first prompt; its agent is the plan's defender
+(`prompts/defender.md`), and the reviewer sits in its other pane (`second-opinion`).
+
+1. **Open it**:
 
    ```bash
-   agtermctl session new --parent "$AGTERM_SESSION_ID" --cwd WORKTREE --name SLUG --no-select \
+   agtermctl session new --parent "$AGTERM_SESSION_ID" --cwd WORKTREE --name "SLUG · plan talk" --no-select \
      --command "LOGIN_SHELL -l -c 'claude --model MODEL --effort EFFORT \"Read BRIEF and follow it.\"'" --socket "$AGTERM_SOCKET"
    ```
 
    `MODEL` and `EFFORT` are the `model` and the `effort` of the settings' `seats.planner`, which
    `lem project show` gives parsed from its one line, `claude/MODEL:EFFORT`. Leave a flag out when
-   the seat does not name its value (`null`): the agent's own default holds then, as for the
-   reviewer's pane. The seat's `agent` can only be `claude`, since this file is the only one the
-   contract was checked in.
+   the seat does not name its value (`null`): the agent's own default holds then. The seat's
+   `agent` can only be `claude`, since this file is the only one the contract was checked in.
+2. **Confirm it runs**: the command prints the new session's id; keep it. In `agtermctl tree
+   --json` the node with that id has a `foreground` that ends in the `claude` line, and its
+   `parent` is this session. Only a node that is gone at once means the command failed; then open
+   it again with `--wait` and read its screen with `agtermctl session text --target ID`. Never
+   open a second pair for a task whose first one runs; a lead after a restart finds it in the tree
+   by its name. Then read the model and the effort from the status line on that screen, and write
+   them in the state as `defender: MODEL, EFFORT`, never the ones you asked for: the talk's record
+   names them. A status line of the owner's own may show neither: write `unread` for each value
+   the screen does not show.
+3. **Close it** once the lead's wait ended (`stages/plan.md`, step 4), or when the task is
+   dropped: `agtermctl session close --target ID --socket "$AGTERM_SOCKET"`. Its experts and the
+   reviewer's pane end with it.
 
-   `LOGIN_SHELL` is the owner's login shell by absolute path
-   (`dscl . -read /Users/NAME UserShell`), not the shell of your own Bash tool. agterm starts the
-   command with its own `PATH`, and only the login shell finds `claude` the way the owner's
-   terminal does. The line has no command substitution, so zsh and fish read it the same way. Pass no
-   flag that widens the session's permissions: it runs in the permission mode the owner's
-   settings give a new session.
-3. **Confirm it runs**: the command prints the new session's id. In `agtermctl tree --json` the
-   node with that id has a `foreground` that ends in the `claude` line. Its `parent` is this
-   session, or, when this session is itself a companion, this session's own parent: agterm makes
-   a companion's companion its sibling, so the task's session then sits beside Lem's and not
-   under it. That is a good open, and the board goes to the same place. Only a node that is gone
-   at once means the command failed; then open it again with `--wait` and read its screen with
-   `agtermctl session text --target ID`. Never open a second session for a task whose first one
-   runs. Write the id in the task's state. Then read the model and the effort from the status
-   line on that screen, and write them in the state as `defender: MODEL, EFFORT`, never the ones
-   you asked for: the talk's record names them, as it names the reviewer's. A status line of the
-   owner's own may show neither: write `unread` for each value the screen does not show
-   (`defender: unread, unread`), never the seat's value.
-4. **Send it a message** later (the owner's answers, a changed base):
-   `agtermctl msg send --stdin --to ID:left --socket "$AGTERM_SOCKET" < FILE`. The mailbox hook of
-   the mailbox chat hands it to the agent there at the end of its turn. When the session is gone,
-   open one again: the new lead reads the task's files.
-5. **Close it** when the talk is done, once `lem project tasks` gives the task a `talk`, or when the
-   task is dropped: `agtermctl session close --target ID --socket "$AGTERM_SOCKET"`. Its experts
-   and the reviewer's pane end with it.
+Not run yet: a pair opened from a task's session, and the launch line with `--model` or
+`--effort`.
 
-Under agterm's rerun restore mode a relaunch of agterm starts each session's command again. A
-lead started that way is a fresh agent with the same brief; `prompts/lead.md` tells it to read the
-task's state first, so it goes on or stops.
+## A wake-up
 
-Not run yet: a relaunch of agterm with a companion open, a companion for a plan talk alone and
-closed at its end, and the launch line with `--model` or `--effort`.
-
-### A need's companion
-
-A task's interview, its criteria that wait for the owner's yes, and one choice of its lead each
-get a companion of their own, `SLUG · interview`, `SLUG · criteria` and `SLUG · choice N` in the
-sidebar. Its agent is `prompts/companion.md`. No line of this file opens it: `lem companion open
-SLUG --need interview|criteria|choice [--choice N]` does, so that the name, the focus and one
-companion for each need hold the same way each time.
-
-- **The open.** The command refuses what must not open (a task on the fast track or one that
-  ended, a need that does not wait or is answered, an interview with no `talk.md`, any need while
-  the owner is away), and prints the one that runs when the need has one. Otherwise it writes the
-  brief `companion-NEED.md` into the task directory, with `coordinator:` and `socket:` from this
-  session's `AGTERM_SESSION_ID`, `AGTERM_PANE_ID` and `AGTERM_SOCKET`, and `lem session:` with
-  this session's name from `agtermctl tree --json`, and runs `agtermctl session new --parent
-  PARENT --cwd MAIN_CHECKOUT --name "SLUG · NEED" --no-select --command "LOGIN_SHELL -l -c 'claude
-  \"Read BRIEF and follow it.\"'"`. There is no `--model` and no `--effort`: the companion runs
-  the owner's default Claude, since no seat names one. `PARENT` follows the rule of step 3 above:
-  this session, or its own parent when this session is a companion. The command logs
-  `companion.open` and prints `say`, the one line Lem tells the owner ("the interview of SLUG is
-  open in `SLUG · interview` under this session").
-- **A message to it**, the owner's away from Lem: `agtermctl msg send --stdin --to ID:left
-  --socket "$AGTERM_SOCKET" < FILE`, as step 4 above, then `lem companion told-away SLUG --need
-  ...`, the record that it was told.
-- **The close.** The companion's own last act is `lem companion close SLUG --need ... --why
-  answered`, or `--why dismissed` for a card he closed with no answer. The command logs
-  `companion.close` first and then runs `agtermctl session close --target ID`, so a companion
-  that closes itself has its record before its session ends. Lem closes one the same way with
-  `--why dropped` when the task is dropped, and logs `--why gone` for one that `lem companion due`
-  finds gone from agterm's tree.
-- `lem companion list` names each one that runs; the board reads the same events.
-
-Not run yet: a need's companion opened by Lem, `--no-select` keeping the focus in Lem's session,
-a message to `ID:left` of a companion with no split, and a companion that closes its own session
-as its last act.
+Nothing of a task's session watches GitHub or another task. The board's server runs `lem session
+wake SLUG --why merged|conflict|queue|owner` (`owner` after his approval or his park on the board),
+which sends `agtermctl msg send "lem: SLUG WHY" --to
+ID:left` to the task's live session, or opens one when none lives. In the trial of 2026-11-21 the
+idle agent took a turn within 15 s each time, five sends in two sessions, two of them after about
+two minutes idle, with no `--socket` too (`agtermctl` finds the app's socket itself), and `ID:left`
+reached a session with no split. The line arrived as `[agterm mailbox, not a peer chat message]
+from outside agterm:` and its body, marked "NOT user input". So the session reads the files and
+never the line. A wake reaches an agent only through the mailbox chat's waiter, a hook of the
+owner's home settings (`mailbox-chat.py claude-hook`): the mailbox chat is a required tool of Lem,
+and `lem doctor`'s row for it says so. Mail is kept in memory only, so a pane that was restarted
+has lost it; a wake nobody took shows on the board after 10 minutes. Not run yet: a wake after an
+hour idle.
 
 ## The session's transcript
 
-`lem companion talk SLUG --from TEXT [--leave TEXT ...]` copies the turns of Lem's own session
-into `talk.md`, from the transcript Claude Code keeps of it: the file `~/.claude/projects/*/ID.jsonl`,
-with `ID` from `CLAUDE_CODE_SESSION_ID`, which Claude Code gives the Bash tool (`CLAUDE_CONFIG_DIR`,
-when it is set, stands for `~/.claude`). Run it from Lem's own session, never from a builder's. The
-transcript keeps the turns from before a compaction, so the copy is word for word after one too
-(495 owner records before the first `compact_boundary` in one transcript of Lem's own repository,
-read 2026-11-19). One JSON record a line, read this way (40 transcripts of Lem's own repository,
+`lem session talk SLUG --from TEXT [--leave TEXT ...]` copies the turns of the session it runs in,
+the one where the owner typed the request, into the new task's `talk.md`, from the transcript
+Claude Code keeps of it: the file `~/.claude/projects/*/ID.jsonl`, with `ID` from
+`CLAUDE_CODE_SESSION_ID`, which Claude Code gives the Bash tool (`CLAUDE_CONFIG_DIR`, when it is
+set, stands for `~/.claude`). Run it from that session, never from a builder's. The transcript
+keeps the turns from before a compaction, so the copy is word for word after one too (495 owner
+records before the first `compact_boundary` in one transcript of Lem's own repository, read
+2026-11-19). One JSON record a line, read this way (40 transcripts of Lem's own repository,
 Claude Code 2.1.328, 2026-11-19): an owner's turn is a `user` record whose `origin.kind` is
 `human`, with no `isMeta` (the text a skill loads) and no `isCompactSummary`; a task's
 notification, agterm's mail and a peer's message have another origin; a `/lem` line is a command
 record (`<command-name>/lem:lem</command-name>` with its `<command-args>`), copied as `/lem ARGS`;
-a record with a `tool_result` and one with `isSidechain` (a subagent's) are no turn; Lem's turn is
-the text blocks of the `assistant` records between two prompts. A transcript in which no prompt
-has an origin is refused, since the owner's turns cannot then be told from the rest. Untested:
-whether `CLAUDE_CODE_SESSION_ID` follows a `/clear`.
+a record with a `tool_result` and one with `isSidechain` (a subagent's) are no turn; the agent's
+turn is the text blocks of the `assistant` records between two prompts. A transcript in which no
+prompt has an origin is refused, since the owner's turns cannot then be told from the rest.
+Untested: whether `CLAUDE_CODE_SESSION_ID` follows a `/clear`.
 
-## tell-coordinator
+## mark-waiting
 
-From a plan talk's companion, and from a builder that leads a task, with the address from the
-brief's `coordinator:` line and the socket from its `socket:` line:
-
-```bash
-agtermctl msg send "lem: SLUG is STATUS" --to SESSION:PANE --socket SOCKET
-```
-
-Write both values literally, as the brief gives them: a builder writes no shell variable
-(`agents/lem-builder.md`), and `agtermctl` does not read `AGTERM_SOCKET` by itself (the agterm
-skill: "`agtermctl` never reads it automatically"). Lem writes the two lines into the brief at
-each start of a lead (`stages/start.md`), from its own `AGTERM_SESSION_ID`,
-`AGTERM_PANE_ID` and `AGTERM_SOCKET`, so a Lem that started after the brief was first written
-gets the line.
-
-From the defender, one line after its report and its state are written. From either, one line
-right after a choice is asked (`lem decisions ask`), `lem: SLUG choice N waits`. From a need's
-companion, one line once the owner's word is on record: `lem: SLUG criteria approved` after
-`lem criteria approve`, and `lem: SLUG choice N answered` after `lem decisions answer`; and one
-when he says there that he is away or back, after `lem project owner`, `lem: the owner is away`
-or `lem: the owner is back`. Each is a wake-up: Lem reads `lem companion due` and the task's
-files, so a lost one costs Lem's next turn and nothing else. A builder
-that leads sends no line when it stops: its reply wakes Lem, and a line too would wake it twice. It reaches Lem as mail that starts with
-`[agterm mailbox, not a peer chat message]`; Lem reads the task's state or `lem decisions
-pending`, never the line's claim. Mail is kept in memory only, so a pane that was restarted has
-lost it. A lost end of a task costs nothing but time: the state block is on disk, and `/lem
-status` shows it. A lost choice costs the owner part of his wait, so Lem also runs
-`lem companion due` at each of its turns, which reads `lem decisions pending` (`SKILL.md`,
-`stages/choice.md`).
-
-A builder runs as a subagent inside Lem's own session, so its line goes from Lem's pane to Lem's
-pane: the sender `agtermctl` takes by default (`--as`, from the `AGTERM_SESSION_ID` and
-`AGTERM_PANE_ID` the subagent inherits) is the recipient itself. agterm accepts a message to the
-sender's own pane, and the mailbox chat's waiter for Claude Code, which wakes an idle agent, takes
-any mail of its pane between two turns and reads no sender (`mailbox-chat.py`, its `Waiter`). A
-line from a companion, and one from a background command of Lem's own session, reached the idle
-Lem as a turn of its own (agterm 0.41.1, 2026-11-14 to 2026-11-16); a line a builder sends is not
-checked yet, so `lem companion due` at each of Lem's turns, which reads `lem decisions pending`
-and the task's files, is what makes sure that no choice and no approval is missed.
+`agtermctl session status blocked --blink --auto-reset --target "$AGTERM_SESSION_ID"`: the sidebar
+marks the session, and the mark goes back to idle once the owner visits it (the options of
+`agtermctl session status --help`, read 2026-11-21). Not run yet.
 
 ## second-opinion
 
-The reviewer is a second agent in the split pane of the session that asks (the companion of a plan
+The reviewer is a second agent in the split pane of the session that asks (the pair of a plan
 talk, for a careful or large plan); the owner reads both panes. The settings hold the seat as one
 line, `reviewer = "AGENT/MODEL:EFFORT"` under `[seats]`, and `lem project show` gives it parsed as
 `seats.reviewer`: its `agent` (`claude` or `codex`), its `model` and its `effort`, each null when
@@ -421,14 +405,14 @@ Not run yet: the two experts started from a `lem-builder` or from a task's sessi
 
 ## run-in-background
 
-The `Bash` tool with `run_in_background`, on the plain command as the stage gives it: `lem land
-watch` for the watch of the open pull requests, `lem project owner watch --seen N` for the watch of
-the owner's mark, `lem land checks SLUG` for a task's checks. Three may run at once, the two
-watches and the checks, each of them one at a time: keep the name of each task you started, and
-while one runs start no second of its kind. The tool names the background task
+The `Bash` tool with `run_in_background`, on the plain command as the stage gives it: `lem project
+owner watch --seen N` for the watch of the owner's mark, `lem land checks SLUG` for the task's
+checks, `lem session wait SLUG --until STATE,...` for the end of another session's work (it looks
+every 10 seconds, a guess), and the `lem session close` line that `lem session next` prints. Keep
+the name of each background task you started, and while one runs start no second of its kind. The tool names the background task
 and tells you when the command exits, also while the session waits between two of the owner's
 messages: the Bash tool's description in Claude Code 2.1.328 (read 2026-11-19) says that it
-"re-invokes you when it exits", and the end of a background `codex exec` woke an idle Lem session
+"re-invokes you when it exits", and the end of a background `codex exec` woke an idle session
 on 2026-11-19. Then read the output file it named: the command's JSON on exit 0; on exit 1 the
 JSON of checks that were red, refused or stopped, with its `say`, before the last line, `land.py:
 ...`, which alone is there for any other refusal, and for the watch of the mark its last line,
@@ -436,8 +420,8 @@ JSON of checks that were red, refused or stopped, with its `say`, before the las
 same description) is the foreground's, so a check suite of twelve minutes runs to its end here.
 
 A background command that an earlier session started is not yours, and its end wakes that session
-only. To stop one of your watches, when the owner says so, the `TaskStop` tool with its name; that
-watch then ends with exit 1 and says that it was stopped, and the other runs on. Stop the checks
+only. To stop a watch or a wait of yours, when the owner says so, the `TaskStop` tool with its name; a
+watch then ends with exit 1 and says that it was stopped. Stop the checks
 with `lem land checks SLUG --stop`, never with `TaskStop` alone: that ends the shell and may leave
 the script's process running with its lock, while `--stop` reaches it by the process id the lock
 names, also from another session.
@@ -449,10 +433,19 @@ names this session, and `agtermctl session context 'TEXT' --target ...` puts one
 work into the title bar. A stage that runs for a repository the session did not start in (the
 onboarding) does both, with the repository's name in each.
 
+## The board
+
+`lem board` opens the board as a page companion of this session's group: agterm shows the board
+server's address (`agtermctl session overlay open --url URL --persistent --js --companion`), with
+its cookies kept, so that a folded column outlives a relaunch of agterm. agterm gives such a page no
+bridge (an `--url` page has none: measured in agterm 0.41.1 on 2026-11-20), so what only agterm does, the jump to a session and
+the open of a task's session (`lem session open`), the board asks of the server, which runs them
+on this Mac.
+
 ## show-page
 
-An HTML file opened as a page companion of this session's group, the way the board opens, never
-as an overlay that covers Lem's session: `lem board --page FILE --name NAME`, with the file's
+An HTML file opened as a page companion of this session's group, as the board opens, never
+as an overlay that covers the session: `lem board --page FILE --name NAME`, with the file's
 absolute path and a short name for the sidebar (the task's slug and what the page is, as
 `gift-note page`). It opens the page with read access to the folder that holds it, so the page
 reads the `lem.css` and `lem.js` beside it, and a second call with the same file reloads its companion. It
@@ -466,11 +459,51 @@ machine check's `webrev skill` row is required and has its guide). When the sess
 skill, say so once, with the guide to install it by; then give the owner the file's path to read
 as it is, and take the notes in the conversation. Do not install it unasked.
 
-## make-page
+## ask-merger
 
-A subagent in the background (the `Agent` tool, `run_in_background`) whose prompt is `Use the agdoc
-skill with the text below as its arguments.` and the filled brief. Without agdoc, say so once with
-the guide of its row in the machine check, and give the owner the two files' paths.
+One agent, started as an expert is (`ask-experts`), on the `seat` that `lem land merge-review SLUG`
+printed: its `agent`, its `model` and its `effort`, each null when the seat leaves it out, which is
+then the agent's own default. `BRIEF` and `ANSWER` are the `brief` and `answer` paths the step
+printed, and `WORKTREE` its `worktree`.
+
+- `agent` is `claude`: the `Agent` tool with `subagent_type: "Plan"`, `run_in_background`, `model`
+  the seat's model (left out when it is null, so the session's own model answers), `effort` only when
+  the seat names one, and the prompt `Read BRIEF and follow it. Your reply is the review, and nothing
+  else.` The `Plan` agent has no edit or write tool. Write its reply into `ANSWER` word for word,
+  without the indent Claude Code puts before each line of a subagent's report.
+- `agent` is `codex`: the `Bash` tool with `run_in_background`, `-m MODEL` only when the seat names a
+  model and `-c model_reasoning_effort=EFFORT` only when it names an effort:
+
+  ```bash
+  codex exec -m MODEL -c model_reasoning_effort=EFFORT -s read-only --skip-git-repo-check --ephemeral -C WORKTREE -o ANSWER - < BRIEF > ANSWER.log 2>&1
+  ```
+
+  A non-zero exit, or no answer file, is a merge agent that did not answer: start it once more, and
+  after a second such end tell the owner in one line that the task waits for his read.
+
+Then `lem land merge-review SLUG --file ANSWER`.
+
+## take-screenshot
+
+A page: headless Chrome with a throwaway profile, which is removed after the picture. On macOS Chrome
+needs `--use-mock-keychain` and a `--user-data-dir` of its own, or it asks the login keychain and
+writes into the owner's profile. A desktop picture is one call:
+
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --use-mock-keychain \
+  --user-data-dir="$(mktemp -d)" --hide-scrollbars --window-size=1440,900 --force-device-scale-factor=2 \
+  --screenshot=media/NAME-after.png URL
+```
+
+A phone, a dark scheme, a click before the picture or a part of a page take the DevTools protocol:
+`Emulation.setDeviceMetricsOverride` (390 x 844, `deviceScaleFactor` 2, `mobile` true),
+`Emulation.setTouchEmulationEnabled`, `Emulation.setEmulatedMedia` with `prefers-color-scheme`,
+`Page.navigate`, then `Page.captureScreenshot`. Lem's own `tests/board-cdp.mjs` is such a driver in
+Node, with the steps as JSON; a project with Playwright or another driver of its own uses that. Both
+ways were checked on 2026-11-20 with Chrome 157.0.8103.51 and Node 26.9.0 on macOS: the call above
+wrote a 2560 x 1600 picture, and the driver a 780 x 1688 one of a phone. A screen that is no web page
+(a native window, a terminal) has no way checked here: say in one line that no picture was taken, and
+why.
 
 ## start-nap
 
@@ -498,7 +531,8 @@ nap writes over it. The prompt names the time, and `prompts/nap.md` comes on std
 limits above would be words in its brief only, and Claude Code once refused a builder the write of
 a report file (above), where a nap writes three.
 
-Not run yet: the line from Lem's own session.
+Not run yet: the line from a task's session, and a nap cut short by the close of the session
+that started it.
 
 ## The correction hook
 
@@ -542,8 +576,9 @@ Some steps are not an agent's, with or without the owner's yes in the conversati
   session starts in it, and Codex asks the same. That holds for a repository an agent made
   minutes before. The answer is kept in the owner's configuration, so it is his: say which
   session waits and where, and go on with other work. Do not answer the prompt, and do not go
-  around it. A task's worktree is inside the project's checkout, which the owner
-  trusted when Lem's session started there.
+  around it. A task's session that opens in a folder never trusted shows the dialog with "No,
+  exit" selected first (the trial of 2026-11-21), and waits there for him; whether a worktree
+  inside a trusted checkout asks again is not checked.
 - **agterm's keymap.** The line of the task picker (the `line` of the `task picker` row of
   `lem doctor`) goes into agterm's own file, `~/.config/agterm/keymap.conf`, and the owner adds
   it: another program's settings stay where that program keeps them (his ruling). Give him the

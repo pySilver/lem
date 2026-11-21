@@ -31,6 +31,27 @@ the criteria are:
 
        - no test: the change is one paragraph of the README.
 
+A criterion with more than one condition carries its case, numbered steps under its sentence and
+before its tests; a criterion with branches may carry its chart, a fenced `mermaid` block under it at
+any indent; and a chart of several criteria goes under `## How it works`, after the section:
+
+    1. A refund lowers the invoice's total, and never below 0:
+       1. Invoice 1042 is 100 EUR.
+       2. A refund of 130 EUR comes in.
+       3. The invoice shows 0, and a credit note holds the other 30 EUR.
+       ```mermaid
+       flowchart TD
+         A["A refund comes in"] --> B{"Larger than the total?"}
+       ```
+       - test: `python3 -m unittest tests.test_refund` in `tests/test_refund.py`
+
+The case is a part of the criterion, approved with it word for word: a change of a step is a change
+of the criterion, which `lem decisions criterion` records with the whole criterion, its sentence and
+its steps, in `--was` and `--now`. The chart and `## How it works` are no part of it: the digests
+leave them out, and they change with no record. Each criterion in the JSON carries `case`, its steps,
+and `chart`, the block's text without its fences, and the read carries `how`, the body of `## How it
+works`.
+
     lem criteria approve SLUG --file FILE
     lem criteria approve SLUG --small [--file FILE]
     lem criteria approve SLUG --read
@@ -113,8 +134,6 @@ command fails or the check is stopped, with every process a command left behind;
 run left is removed by the next run. A worktree that cannot be removed is an error with its path.
 """
 
-from __future__ import annotations
-
 import sys
 
 if sys.version_info < (3, 11):
@@ -151,6 +170,9 @@ CRITERION = re.compile(r"^(\d+)\.\s+(.+)$")
 TEST = re.compile(r"^\s+-\s+test:\s+`([^`]+)`\s+in\s+(.+)$")
 NO_TEST = re.compile(r"^\s+-\s+no test:\s+(.+)$")
 FILES = re.compile(r"`([^`]+)`")
+# A step of a criterion's case: a numbered line under its sentence, indented.
+STEP = re.compile(r"^\s+\d+[.)]\s+\S")
+HOW = re.compile(r"^##\s+How it works\s*$")
 # The shells a test command may start a script with, by the name of the program.
 SHELLS = ("sh", "bash", "dash", "ksh", "zsh")
 
@@ -180,34 +202,58 @@ def script(name: str, repo: Path, *args: str) -> str:
     return ran.stdout
 
 
+def whole(criterion: dict) -> str:
+    """A criterion as the owner approved it: its sentence and the steps of its case, one to a line.
+    What a digest marks and what a recorded change names; its chart is no part of it."""
+    return "\n".join([criterion["text"], *criterion.get("case", [])])
+
+
+def fences(lines: list[str]) -> list[tuple[int, int, str, int]]:
+    """Each fenced block of a text, at any indent: its first and last line, its info word, its indent.
+    A fence closes only on a line of its own character, at least as long as the one that opened it,
+    with nothing after it: a shorter fence inside is a part of the block. One that never closes runs
+    to the end of the text."""
+    found: list[tuple[int, int, str, int]] = []
+    opened: tuple[str, int, int, str, int] | None = None
+    for i, line in enumerate(lines):
+        mark = re.match(r"( *)(`{3,}|~{3,})(.*)$", line)
+        if opened is None:
+            if mark and not (mark.group(2)[0] == "`" and "`" in mark.group(3)):
+                info = mark.group(3).strip().split()
+                opened = (mark.group(2)[0], len(mark.group(2)), i, info[0].lower() if info else "", len(mark.group(1)))
+            continue
+        if mark and mark.group(2)[0] == opened[0] and len(mark.group(2)) >= opened[1] and not mark.group(3).strip():
+            found.append((opened[2], i, opened[3], opened[4]))
+            opened = None
+    if opened is not None:
+        found.append((opened[2], len(lines) - 1, opened[3], opened[4]))
+    return found
+
+
 def parse(text: str, name: str) -> dict:
     """The criteria section of a plan as a dict; a section that does not have the form is refused with the line."""
     lines = text.splitlines()
     # A plan may show the form in a code fence: what is inside one is an example, never the section.
-    # A fence closes only on a line of its own character, at least as long as the one that opened
-    # it, with nothing after it: a shorter fence inside is a part of the example.
-    fenced: set[int] = set()
-    opened: tuple[str, int] | None = None
-    for i, line in enumerate(lines):
-        mark = re.match(r" {0,3}(`{3,}|~{3,})(.*)$", line)
-        if opened is None:
-            if mark and not (mark.group(1)[0] == "`" and "`" in mark.group(2)):
-                opened = (mark.group(1)[0], len(mark.group(1)))
-                fenced.add(i)
-            continue
-        fenced.add(i)
-        if mark and mark.group(1)[0] == opened[0] and len(mark.group(1)) >= opened[1] and not mark.group(2).strip():
-            opened = None
+    blocks = fences(lines)
+    fenced = {i for first, last, _, _ in blocks for i in range(first, last + 1)}
     start = next((i for i, line in enumerate(lines) if i not in fenced and HEADING.match(line)), None)
     if start is None:
         raise CriteriaError(f"{name} has no `## Acceptance criteria` section; the plan opens with it, as `lem criteria --help` shows")
     end = next((i for i in range(start + 1, len(lines)) if i not in fenced and lines[i].startswith("## ")), len(lines))
-    lines = [("" if i in fenced else line) for i, line in enumerate(lines)]
+    # a `mermaid` block in the section is the chart of the criterion above it, at any indent; any other block is an example
+    charts = {first: (last, indent) for first, last, info, indent in blocks if info == "mermaid" and start < first < end}
     size = why = None
     criteria: list[dict] = []
     for number, line in enumerate(lines[start + 1:end], start + 2):
+        i = number - 1
         where = f"{name}:{number}"
-        if not line.strip():
+        if i in charts and criteria:
+            if criteria[-1]["chart"] is not None:
+                raise CriteriaError(f"{where}: criterion {criteria[-1]['n']} has a chart already; one chart for one criterion, and a chart of several goes under `## How it works`, after the section")
+            last, indent = charts[i]
+            body = [row[min(indent, len(row) - len(row.lstrip(" "))):] for row in lines[i + 1:last]]
+            criteria[-1]["chart"] = "\n".join(body).strip("\n") or None
+        if i in fenced or not line.strip():
             continue
         if size is None:
             found = SIZE.match(line.strip())
@@ -219,8 +265,11 @@ def parse(text: str, name: str) -> dict:
         criterion = CRITERION.match(line)
         if criterion:
             if int(criterion.group(1)) != len(criteria) + 1:
-                raise CriteriaError(f"{where}: the criteria are numbered 1, 2, 3 in order, and this one is {criterion.group(1)} after {len(criteria)}")
-            criteria.append({"n": len(criteria) + 1, "text": criterion.group(2).strip(), "tests": [], "no_test": None})
+                raise CriteriaError(
+                    f"{where}: the criteria are numbered 1, 2, 3 in order, and this one is {criterion.group(1)} after {len(criteria)}; "
+                    "the steps of a criterion's case are indented under its sentence",
+                )
+            criteria.append({"n": len(criteria) + 1, "text": criterion.group(2).strip(), "case": [], "chart": None, "tests": [], "no_test": None})
             continue
         if not criteria:
             raise CriteriaError(f"{where}: a criterion starts a line with its number, as in `1. A rule, with one example.`, and this line is {line.strip()!r}")
@@ -236,6 +285,12 @@ def parse(text: str, name: str) -> dict:
             raise CriteriaError(f"{where}: under a criterion a line is `- test: `COMMAND` in `FILE`` or `- no test: REASON`, and this one is {line.strip()!r}")
         elif criteria[-1]["tests"] or criteria[-1]["no_test"]:
             raise CriteriaError(f"{where}: the text of a criterion comes before its tests; this line comes after them: {line.strip()!r}")
+        elif STEP.match(line) or (criteria[-1]["case"] and line.rstrip().endswith(":")):
+            # a step of its case, or a label between two runs of it ("After:"), is a line of its own
+            criteria[-1]["case"].append(line.strip())
+        elif criteria[-1]["case"]:
+            # a step written over two lines
+            criteria[-1]["case"][-1] += " " + line.strip()
         else:
             criteria[-1]["text"] += " " + line.strip()
     if size is None or not criteria:
@@ -245,9 +300,20 @@ def parse(text: str, name: str) -> dict:
     both = [s["n"] for s in criteria if s["tests"] and s["no_test"]]
     if both:
         raise CriteriaError(f"{name}: criterion {both[0]} names a test and says that it has none; keep one of the two")
-    # one mark for this exact set of criteria and tests: a result of the check belongs to the set it ran on
-    digest = hashlib.sha256(json.dumps([size, criteria], sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:12]
-    return {"size": size, "why": why, "digest": digest, "criteria": criteria}
+    # one mark for this exact set of criteria and tests, their cases with them and their charts not: a result of the check belongs to the set it ran on
+    marked = [{key: value for key, value in criterion.items() if key != "chart"} for criterion in criteria]
+    digest = hashlib.sha256(json.dumps([size, marked], sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:12]
+    return {"size": size, "why": why, "digest": digest, "criteria": criteria, "how": how_it_works(lines, fenced)}
+
+
+def how_it_works(lines: list[str], fenced: set[int]) -> str | None:
+    """The body of the plan's `## How it works`, as markdown: the chart of several criteria and the
+    sentence it shows. None when the plan has none."""
+    start = next((i for i, line in enumerate(lines) if i not in fenced and HOW.match(line)), None)
+    if start is None:
+        return None
+    end = next((i for i in range(start + 1, len(lines)) if i not in fenced and re.match(r"#{1,2}\s", lines[i])), len(lines))
+    return "\n".join(lines[start + 1:end]).strip() or None
 
 
 def text_digest(size: str, texts: list[str]) -> str:
@@ -263,7 +329,7 @@ def against(read: dict, changes: dict, name: str, slug: str) -> None:
     fix = (
         f"The plan's criteria are the approved ones with each recorded change (`lem decisions changes {slug}` gives them), word for word, "
         f"with only the test lines added. A criterion the build changes, adds or removes is recorded first: `lem decisions criterion {slug} "
-        "--changed N --was TEXT --now TEXT`, `--added N --now TEXT` or `--removed N --was TEXT`, with --why and --choice ID or --by lead|personas"
+        "--changed N --was TEXT --now TEXT`, `--added N --now TEXT` or `--removed N --was TEXT`, with --why and --decision ID or --by lead|personas"
     )
     approved = changes["approved"]["size"]
     if read["size"] != approved:
@@ -272,7 +338,7 @@ def against(read: dict, changes: dict, name: str, slug: str) -> None:
             f"by the owner's approval of the criteria again (`lem criteria approve {slug} --file FILE`)",
         )
     expected = changes["expected"]
-    now = [criterion["text"] for criterion in read["criteria"]]
+    now = [whole(criterion) for criterion in read["criteria"]]
     for number, (want, have) in enumerate(zip(expected, now), start=1):
         if want.split() != have.split():
             raise CriteriaError(f"criterion {number} of {name} says {have!r}, and the expected criterion {number} is {want!r}. {fix}")
@@ -365,7 +431,7 @@ class Task:
                 f"The criteria of a task on the standard track are at the top of its plan, and the branch has none in {self.plans}: its lead writes {pattern.replace('<slug>', self.slug)}",
             )
         changes = self.changes()
-        digest = text_digest(read["size"], [criterion["text"] for criterion in read["criteria"]])
+        digest = text_digest(read["size"], [whole(criterion) for criterion in read["criteria"]])
         if small and changes["approved"] is None:
             raise CriteriaError(f"the fast track's criterion in {plan} has no approval: Lem approves it in the owner's name before its builder starts, `lem criteria approve {self.slug} --file {plan} --small`")
         if changes["approved"] is None:
@@ -667,9 +733,9 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
         raise CriteriaError(f"--small approves the one criterion of a task on the fast track in the owner's name, and {source.name} says `Size: {read['size']}`: the standard track waits for the owner's own yes")
     if by == "alone" and read["size"] == "small":
         raise CriteriaError(f"{source.name} says `Size: small`: the fast track's criterion is approved with --small, in either mode")
-    criteria = [{"n": criterion["n"], "text": criterion["text"]} for criterion in read["criteria"]]
-    # one mark for this exact set of approved texts; the approval itself is known by its number
-    digest = text_digest(read["size"], [criterion["text"] for criterion in criteria])
+    criteria = [{key: criterion[key] for key in ("n", "text", "case", "chart")} for criterion in read["criteria"]]
+    # one mark for this exact set of approved texts, each with its case; the approval itself is known by its number
+    digest = text_digest(read["size"], [whole(criterion) for criterion in criteria])
     task.directory.mkdir(parents=True, exist_ok=True)
     with (task.directory / "criteria.lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
@@ -714,7 +780,7 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
             # who approved: the owner; Lem in his name, for a task on the fast track, which does not wait; the
             # lead's read on the standard track from a complete request, which counts for the plan's check and never as his yes;
             # or Lem or the lead while the task runs without the owner (`alone`), which is never his yes either
-            "by": by, "size": read["size"], "why": read["why"], "digest": digest, "criteria": criteria, "text": text,
+            "by": by, "size": read["size"], "why": read["why"], "digest": digest, "criteria": criteria, "how": read["how"], "text": text,
             **({"replaces": before["number"]} if before else {}), "history": history,
         }
         task.approved_file.write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
@@ -773,7 +839,7 @@ def main(argv: list[str] | None = None) -> None:
                 if not Path(args.file).is_file():
                     raise CriteriaError(f"{args.file} is not a file; --file names the criteria to mark, in the form `lem criteria --help` shows")
                 read = parse(Path(args.file).read_text(encoding="utf-8"), Path(args.file).name)
-                result = {"task": task.slug, "of": args.file, "digest": text_digest(read["size"], [criterion["text"] for criterion in read["criteria"]])}
+                result = {"task": task.slug, "of": args.file, "digest": text_digest(read["size"], [whole(criterion) for criterion in read["criteria"]])}
         elif args.step == "red":
             result = cmd_red(task)
         else:

@@ -1,4 +1,4 @@
-You do one job of a landing for Lem, the coordinator of this repository. The brief that named
+You do one job of a landing for Lem, in a task's session. The brief that named
 this file gives the job, the task's slug, its worktree, its task directory, and the paths the job
 needs. Lem holds the task in the state `landing`: write no state block. Work only in the
 worktree, commit on the task's branch, and never push, merge or land. A path in anything you
@@ -63,7 +63,7 @@ worktrees and refuses a pass that changed a frozen file.
 
 Last, bring `report.md` up to what you did: the documents and comments you corrected, the
 leftovers you took out, the defects you fixed, and the items you filed, each item by its first
-line and its file. Lem copies the items into the pull request's `## Filed in the backlog`.
+line and its file. Leave its stories, charts and picture links as they are. Lem copies the items into the pull request's `## Filed in the backlog`.
 
 When your agent refuses you the write of a file, do not go around it: put the text in your reply
 and say which file it is for.

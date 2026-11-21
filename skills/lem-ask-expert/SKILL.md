@@ -1,6 +1,6 @@
 ---
 name: lem-ask-expert
-description: "Lem's experts: two models of two families, or one without Codex, answer one question, read-only, at the same time. The owner calls it as `/lem ask-expert` with a question in words, or alone for the open question; Lem's stages call it at a decision in doubt and for a choice that waits."
+description: "Lem's experts: two models of two families, or one without Codex, answer one question, read-only, at the same time. The owner calls it as `/lem ask-expert` with a question in words, or alone for the open question; a lead calls it at the last level of the ladder of a decision in doubt."
 disable-model-invocation: true
 argument-hint: '[question in words]'
 ---
@@ -9,7 +9,7 @@ argument-hint: '[question in words]'
 
 Two experts of two model families answer one question from one brief, each on its own, at the
 same moment, so that their agreement is worth more than two agents of one family would give. They
-read; they change nothing. The owner asked for them as the way out when he is not there to answer
+read; they change nothing. The owner asked for them as the way out when nobody is there to answer
 a choice ("a skill "ask expert" which calls Fable subagent and GPT-6 Astra experts in background",
 2026-11-16), and as an opinion he can call in the middle of a discussion or an interview ("I may
 then provide context directly in command `/lem ask-expert what would be the best solution for this
@@ -18,9 +18,8 @@ context", 2026-11-17).
 
 Who they are is the settings' `seats.experts`, one or two seats `agent/model:effort`, which `lem
 project show` prints with Lem's default where the project and this machine name none, each `here`
-when its agent is on this machine. Only those answer: without Codex, one expert answers alone. For a question in
-words an expert's name is the last word of its model; for a choice of a task it is its place in
-the record, below. The script prints each one with its name, its seat, its agent, its model and
+when its agent is on this machine. Only those answer: without Codex, one expert answers alone. An
+expert's name is the last word of its model. The script prints each one with its name, its seat, its agent, its model and
 its effort.
 
 Every brief also says who the code is for: the project's profile by its path, and each persona by
@@ -40,18 +39,15 @@ task's worktree when it belongs to a task, else the one this session works in.
    context this session has, since they see nothing else: what is being decided and why it came up,
    the options word for word when there are any, and the files that matter, by path.
 2. **`/lem ask-expert` alone**: the question that is open in this conversation, the last one an
-   agent asked the owner or he raised and nobody settled. Run `lem decisions
-   --repo CHECKOUT pending` too: when no question is open here and exactly one choice of a task
-   waits for the owner, that choice is the question, and it goes by "A choice of a task" below.
-   When nothing is open and nothing waits, or more than one could be meant, ask the owner in one
-   line which one, naming each, and start nothing. Never guess: the owner said "if question is
+   agent asked the owner or he raised and nobody settled. In a task's session that a breaker holds,
+   it is the breaker's question, with its options from its document (`breaker-N.md`). When nothing is open, or more than one
+   could be meant, ask the owner in one line which one, naming each, and start nothing. Never guess: the owner said "if question is
    unsure it gets back to user".
 3. **A decision in doubt of a task**: a lead's level 4 of the ladder (`stages/ladder.md` in the
-   `lem` skill). It is a question in words, below, with the decision's options word for word and
-   the facts the levels before found in `--context`; both picking one option settles it.
-4. **A choice of a task that waits, by its slug and number**: when the owner asks for all
-   opinions on its card, and for a choice a lead of the text before asked. The advice goes into
-   the choice's record, where `decisions.py` reads it.
+   `lem` skill), the last one. It is a question in words, below, with the decision's options word
+   for word and the facts the levels before found in `--context`; both picking one option settles
+   it, and the lead logs the pick (`--by experts`). Step 4 is then the lead's log, never a page:
+   nothing of a build waits for the owner.
 
 ## A question in words
 
@@ -93,55 +89,3 @@ task's worktree when it belongs to a task, else the one this session works in.
    which expert picked it and why, and your line as the recommendation. His answer there is his
    decision on the question. When the answers are short and have no options, they are a few lines
    in the conversation. Then go on with what the question interrupted.
-
-## A choice of a task
-
-Their advice goes on the owner's card, and decides nothing by itself; the record does that, by
-the rules of `decisions.py`:
-
-- when he says that he is away (`lem project owner away`, in any repository on this machine,
-  since his status is the machine's), the choice is taken with the option
-  both picked (or the one expert's, where one answers alone), and the recommended option when they
-  split, when one found none fits, or when one did not answer;
-- a choice the experts decided is never green: the pull request has a line with their pick and
-  both reasons, and he reads it before he merges;
-- a step that a later "no" cannot reverse (`--irreversible`) takes advice for his card, and is
-  never decided by the experts: it waits for his word.
-
-`WORKTREE` is the task's worktree, or any directory of the checkout. A task's record keeps the
-advice in two places, `fable` and `astra`, the names `lem decisions` knows: the first seat of
-`seats.experts` answers as `fable` and the second as `astra`, whatever model sits there.
-
-1. **The brief.** Start it before anything else: the owner may answer, or say that he is away,
-   while the experts read.
-
-   ```bash
-   lem experts --repo WORKTREE brief SLUG N [--file PATH ...]
-   ```
-
-   `--file` names a file the choice is about, relative to the worktree, once for each. The script
-   writes `experts/choice-N.brief.md` in the task's directory: the choice, its options word for
-   word, the recommended one and why, what the personas said, the task's acceptance criteria and
-   its plan, the files, who the code is for, and the form of an answer. It prints the brief's path, each expert with its
-   seat and its answer file, and the experts still to ask (`ask`). It refuses a choice that does not
-   wait, and one that every expert advised already.
-
-2. **Start the experts named in `ask` at once, in the background**, as step 2 above, in the
-   task's worktree. Do not wait for them: go on with the work that does not depend on the choice.
-
-3. **As each one ends**:
-
-   ```bash
-   lem experts --repo WORKTREE record SLUG N --expert NAME
-   ```
-
-   It writes the advice into the choice's record with `lem decisions advise`, under the task's
-   lock, with the same refusals and the same one more ask as step 3 above. With one expert's
-   advice his "away" takes the recommended option. Advice on a choice that no longer waits is
-   refused too, and changes nothing.
-
-4. **Tell who reads it.** Lem finds the advice in `lem decisions pending` and shows both answers
-   to the owner on the choice's own options, as step 4 above.
-
-`lem decisions list SLUG` and `lem decisions pending SLUG` show the advice under each choice
-(`advice`), and `experts_pick` is the option every expert picked, or null.

@@ -9,8 +9,8 @@ sessions, and the owner gave that correction again to eight sessions in two minu
 
 When the owner corrects you, disagrees with an approach, or tells you something for the second
 time ("again", "I told you", "we discussed"), do this in the same reply, before going on. The
-owner may correct Lem or, in a plan talk's companion, its defender; whoever was corrected does
-it:
+owner may correct a task's session, its lead or, in a plan talk's pair, its defender; whoever was
+corrected does it:
 
 1. **Say the lesson in one sentence** an agent could follow next time.
 2. **Find the file that owns the step**, the first that fits:
@@ -40,9 +40,9 @@ it:
    what changed and why, in one to three lines a file. When you found the lesson yourself, show
    the edit with the same three things and make it on the owner's "apply". No file a lesson
    changes goes unnamed, whichever folder holds it.
-4. A lead commits a project file on the task's branch with the work. Lem has no task's branch:
-   there the edit of a project file is a task of its own (`/lem new`), so it lands through the
-   checks like any change. Every file a lesson changes is in this repository, the review tool's
+4. A lead commits a project file on the task's branch with the work. A session with no task's
+   branch (a retro, a session of no task): there the edit of a project file is a task of its own
+   (`/lem new`), so it lands through the checks like any change. Every file a lesson changes is in this repository, the review tool's
    folder included: never a file in the home directory, and no session commits in another
    repository. A retro started in one repository once committed an edit of a stage on the
    checked-out base branch of the clone the skill was linked from, with nobody's review, and the
@@ -55,7 +55,7 @@ read whole.
 ## retro
 
 `/lem retro` reads what the sessions did since the last retro: each task's decisions
-(`lem decisions list SLUG`: who took each, a choice taken without the owner, a late answer that differs), the
+(`lem decisions list SLUG`: who took each, a pick past the personas, a breaker and the owner's help on it), the
 "not verified" and "outside defects" lines of each `report.md`, the reviews and the proposals
 in the event log (`review` and `proposed` events: the rounds, the counts, who answered, and each
 reason a request was not green; `careful.missed` events: a change the review called careful and

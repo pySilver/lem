@@ -8,19 +8,32 @@ owner that. The key of the Jev model (`JEV_API_KEY`) is optional, and required i
 on, where without it the queue stays empty and nothing says so. A recipe of the agterm cookbook that Lem needs (webrev, agdoc, the backlog) is
 required, and its row has the guide to install it by. A recommended tool is one Lem does not bring
 and a developer is better off with: its row has the guide too, and Lem installs it only on the
-developer's yes. On a machine with agterm, the optional row `task picker` gives the keymap line
-that starts `lem picker` with a chord, which the owner adds to agterm's keymap. Four rows
+developer's yes. The optional row `load gate` says under which load average the checks of a
+landing start on this machine, or that no number is set, with the line that sets one. The optional
+row `handoff tokens` says past how many tokens a task's session compacts itself, `handoff tokens:
+600000 (default)` with no number set, and the line that sets one. On a machine with agterm, the optional row `task picker` gives the keymap line
+that starts `lem picker` with a chord, which the owner adds to agterm's keymap. The optional
+row `board server` says whether the board server runs, with its addresses and its code against the
+code installed here, and the line that starts it from a terminal with no agent: `lem` by the path of
+Lem's marketplace clone, since the plugin puts `lem` on the PATH of Claude Code's Bash tool only; it
+never starts one. The optional row `board
+notifications` says how many devices get the board's notifications and how the last push went; it
+sends none. Four rows
 are about the repository it runs in and never fail the check: its personas, the correction hook
 when more than one place registers it there, the permission mode a builder in the background
 meets there, and Lem's plugin when it is installed for the user and so loads in every repository.
 
     lem doctor
 
-It loads under an old `python3` too, so that a machine whose first `python3` is the one its system
-ships gets a row that says so, not a traceback.
+The row `python3` names the Python that Lem's commands and hooks run under, which `lem_python.py`
+finds when the first `python3` is older than 3.11, and fails with the fix when there is none.
 """
 
-from __future__ import annotations
+import sys
+
+if sys.version_info < (3, 11):
+    # an old python3 must still load this file, so that it can say what it needs and not a traceback
+    sys.exit(f"doctor.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it")
 
 import argparse
 import json
@@ -29,7 +42,6 @@ import re
 import shlex
 import shutil
 import subprocess
-import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -43,10 +55,27 @@ PLUGINS = Path(".claude") / "plugins"
 
 
 def python() -> dict:
+    """The Python of 3.11 or newer that `lem` and the plugin's hooks start Lem's scripts with, found
+    as they find it: the first `python3` on PATH, else the newest `python3.N`, else Homebrew's, else one uv has."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import lem_python  # noqa: E402  (beside this file)
+
+    def said(path: str) -> str:
+        return ".".join(map(str, lem_python.version(path) or ("an unknown version",)))
+
+    first = shutil.which("python3")
+    found = lem_python.find()
+    python3 = f"python3 is {said(first)} at {first}" if first else "python3 is not on PATH"
+    if found is not None and found == first:
+        detail = f"{said(found)} at {found}"
+    elif found is not None:
+        detail = f"{python3}; Lem's commands and hooks start {found} ({said(found)}) in its place"
+    else:
+        detail = f"{python3}, and no python3.N of 3.11 or newer is on PATH, nor at {' or '.join(lem_python.FALLBACKS)}, and uv has none"
     return {
-        "name": "python3", "need": "required", "found": sys.version_info >= (3, 11), "detail": f"{sys.version.split()[0]} at {sys.executable}",
-        "used_for": "every script of Lem; the settings file is read with a module that came with Python 3.11",
-        "without_it": "no script of Lem runs; put a python3 of 3.11 or newer first on PATH",
+        "name": "python3", "need": "required", "found": found is not None, "detail": detail,
+        "used_for": "every script of Lem, its commands and its two hooks; the settings file is read with a module that came with Python 3.11",
+        "without_it": f"no command of Lem runs, and the plugin's two hooks do nothing in a session; run {lem_python.FIX}",
     }
 
 
@@ -267,11 +296,11 @@ def tool(name: str, need: str, used_for: str, without_it: str, binary: str, prob
 
 
 def gh() -> dict:
-    """The GitHub CLI: found or not, and signed in or not. The row is optional, since a project with
-    no GitHub remote, or with `branch.propose = "merge"`, never calls it."""
+    """The GitHub CLI: found or not, and signed in or not. The row is optional: a machine may hold
+    repositories that do not use Lem, and `lem land propose` and the board's look at GitHub say so where it is missing."""
     row = tool(
-        "gh", "optional", "the pull request of each task and the watch of the open ones, where the remote is GitHub",
-        "with a GitHub remote `lem land propose` and the watch stop and say so; install the GitHub CLI and run `gh auth login`", "gh", ["--version"],
+        "gh", "optional", "the pull request of each task and the board's look at the open ones, where the remote is GitHub",
+        "with a GitHub remote `lem land propose` and the board's look at GitHub stop and say so; install the GitHub CLI and run `gh auth login`", "gh", ["--version"],
     )
     row["signed_in"] = False
     if row["found"]:
@@ -286,7 +315,7 @@ def gh() -> dict:
 
 def agterm() -> list[dict]:
     row = tool(
-        "agterm", "required", "the reviewer's pane, pages for the owner, and the companion of a plan talk",
+        "agterm", "required", "a session for each task, the reviewer's pane, pages for the owner, and the companion of a plan talk",
         "`/lem` stops at once: Lem runs inside agterm only", "agtermctl", ["--version"],
     )
     row["in_session"] = bool(os.environ.get("AGTERM_SESSION_ID"))
@@ -307,12 +336,12 @@ PICKER = Path("skills") / "lem" / "scripts" / "picker.py"
 CHORD = "ctrl+cmd+t"
 
 
-def stable_lem(home: Path) -> tuple[Path, str] | None:
-    """A folder of Lem whose path outlives an update of the plugin, with what keeps it new, or None. The plugin's own folder
-    is named by its commit and changes with each update, so it is never this. First the clone of
-    Lem's marketplace, which Claude Code pulls before it copies a new folder of the plugin, so it is
-    the newest Lem on the machine. Else this checkout, when it is a clone of Lem's repository, as
-    for a contributor who loads it with `claude --plugin-dir`."""
+def marketplace_lem(home: Path, holds: Path) -> Path | None:
+    """The clone of Lem's marketplace when it holds the file `holds` (a path inside Lem), or None.
+    Claude Code pulls that clone before it copies a new folder of the plugin, so it is the newest Lem
+    on the machine, and its path outlives every update. The plugin's own folder is named by its
+    commit and changes with each update, so it is never this. The task picker's keymap line names a
+    script by this path."""
     try:
         known = json.loads((home / PLUGINS / "known_marketplaces.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -320,8 +349,18 @@ def stable_lem(home: Path) -> tuple[Path, str] | None:
     for key, _ in plugin_installs("lem", home):
         entry = known.get(key.partition("@")[2]) if isinstance(known, dict) else None
         place = entry.get("installLocation") if isinstance(entry, dict) else None
-        if isinstance(place, str) and (Path(place) / PICKER).is_file():
-            return Path(place), "Lem's marketplace clone, which each update of the plugin pulls and never moves"
+        if isinstance(place, str) and (Path(place) / holds).is_file():
+            return Path(place)
+    return None
+
+
+def stable_lem(home: Path) -> tuple[Path, str] | None:
+    """A folder of Lem whose path outlives an update of the plugin, with what keeps it new, or None.
+    First the clone of Lem's marketplace (`marketplace_lem`). Else this checkout, when it is a clone
+    of Lem's repository, as for a contributor who loads it with `claude --plugin-dir`."""
+    clone = marketplace_lem(home, PICKER)
+    if clone is not None:
+        return clone, "Lem's marketplace clone, which each update of the plugin pulls and never moves"
     own = Path(__file__).resolve().parents[3]
     return (own, "this clone of Lem, which stays where it is") if (own / ".git").exists() and (own / PICKER).is_file() else None
 
@@ -385,11 +424,11 @@ def claude() -> list[dict]:
 
 
 def codex() -> list[dict]:
-    row = tool("codex", "optional", "a reviewer of another model family, the second expert of a choice, and half of each persona panel",
+    row = tool("codex", "optional", "a reviewer of another model family, the second expert of the ladder, and half of each persona panel",
                "highly recommended, since without it Claude reviews the work of Claude: "
                "the reviewer is a second Claude; an expert whose seat names codex (by default the second of seats.experts, the newest "
                "Astra of OpenAI) does not answer, so the one expert that can answer, the newest Fable of Anthropic by default, answers "
-               "alone and its pick settles a choice the experts take, and the pull request is not green for such a choice; a persona "
+               "alone and its pick settles a decision the experts take, and the pull request is not green for such a decision; a persona "
                "panel has the answers of one model family, so a split between two is not seen", "codex", ["--version"])
     file = Path.home() / ".codex" / "agents" / "persona.toml"
     persona = {
@@ -408,8 +447,8 @@ def codex() -> list[dict]:
 SILENT_MODES = ("bypassPermissions", "auto")
 # What a builder in the background meets in each mode, for the row's `without_it`.
 MODE_SAYS = {
-    "default": "each command the allow list does not hold asks for permission, and the question comes up in Lem's session, so the task waits; at night nobody answers",
-    "acceptEdits": "an edit goes through, and each other command the allow list does not hold asks for permission in Lem's session, so the task waits; at night nobody answers",
+    "default": "each command the allow list does not hold asks for permission, and the question comes up in the task's session, so the task waits; at night nobody answers",
+    "acceptEdits": "an edit goes through, and each other command the allow list does not hold asks for permission in the task's session, so the task waits; at night nobody answers",
     "plan": "a builder can read and cannot edit or commit, so no task builds",
     "dontAsk": "each command the allow list does not hold is refused with no question, so a builder stops at the first one",
 }
@@ -441,12 +480,12 @@ def permission_mode() -> list[dict]:
         mode, source = said, file
         break
     silent = mode in SILENT_MODES
-    meets = MODE_SAYS.get(mode, "a mode this check does not know; a builder may ask for permission in Lem's session")
+    meets = MODE_SAYS.get(mode, "a mode this check does not know; a builder may ask for permission in the task's session")
     return [{
         "name": "permission mode", "need": "project", "found": silent,
         "detail": f"{mode}, from {source}" if source else "default: no settings file names one",
         "used_for": "Lem assumes that Claude Code runs in auto mode: the builders and the leads run in the background, and a permission "
-                    "prompt stops the task until someone answers in Lem's session",
+                    "prompt stops the task until someone answers in the task's session",
         "without_it": (
             "a builder asks nobody" + ("; the classifier may still refuse a step, which the owner then runs himself" if mode == "auto" else "")
             if silent else
@@ -515,9 +554,6 @@ def collects_here() -> bool:
     """Whether the correction queue is on in the repository the check runs in: its settings say
     `corrections.collect = true`, and this computer's `.lem/project.local.toml` does not say false.
     The hook's own answer, so the row and the hook never disagree."""
-    if sys.version_info < (3, 11):
-        # the settings file is read with tomllib; on such a machine the python3 row fails the check already
-        return False
     # no bytecode beside the scripts, also when this file runs without -B
     sys.dont_write_bytecode = True
     import corrections
@@ -546,6 +582,104 @@ def jev_key() -> dict:
                               "queue off for this computer with `collect = false` under [corrections] in .lem/project.local.toml"}
     return {**row, "without_it": "a card's framing check gets no answer, and the correction queue, which is off here, would stay empty if it "
                                  f"were on; put {JEV_WHERE}"}
+
+
+def load_gate() -> dict:
+    """The load average under which the checks of a landing start on this machine. An optional row:
+    with no number there is no gate, and Lem picks none, since the number is the developer's (a
+    laptop he keeps cool, a desktop he loads hard)."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import lem_state  # noqa: E402  (beside this file)
+
+    row = {"name": "load gate", "need": "optional", "found": False, "line": "lem project load --start N",
+           "used_for": "the checks of a landing start only while the machine's load average is below the number set for this machine"}
+    load = round(os.getloadavg()[0], 1)
+    cores = os.cpu_count()
+    try:
+        start = lem_state.load_start()
+    except lem_state.StateError as error:
+        return {**row, "detail": str(error), "without_it": "the checks of a landing stop at once with this error, until the file reads"}
+    if start is None:
+        return {**row, "detail": f"no start number on this machine; the load average is {load:g} now, on {cores} cores",
+                "without_it": f"the checks of every landing start at once, whatever the load. `lem project load --start N` sets the number in "
+                              f"{lem_state.machine_file()}, for every repository on this machine; N is the developer's, and Lem picks none"}
+    return {**row, "found": True, "detail": f"the checks start below a load average of {start:g}; it is {load:g} now, on {cores} cores ({lem_state.machine_file()})",
+            "without_it": None}
+
+
+def handoff_tokens() -> dict:
+    """Past how many tokens a task's session compacts itself, for every repository on this machine.
+    An optional row: with no number Lem's own holds, and the row says so."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import lem_state  # noqa: E402  (beside this file)
+
+    row = {"name": "handoff tokens", "need": "optional", "line": "lem project handoff --tokens N",
+           "used_for": "each task's session compacts itself past this number of tokens, with the handoff's form as its summary"}
+    try:
+        number = lem_state.handoff_tokens()
+        written = "tokens" in lem_state.machine_table("handoff")
+    except lem_state.StateError as error:
+        return {**row, "found": False, "detail": str(error), "without_it": "`lem session open` stops with this error, until the file reads"}
+    if number is None:
+        detail = "handoff tokens: 0, so Lem sets nothing and Claude Code compacts at its own trigger"
+    else:
+        detail = f"handoff tokens: {number} ({'set in ' + str(lem_state.machine_file()) if written else 'default'})"
+    return {**row, "found": True, "detail": detail, "without_it": None}
+
+
+def board_server() -> list[dict]:
+    """The board server of this machine (`lem serve`): whether one runs on the main port, its address
+    on this machine and on the tailnet, and its code against the code installed here. It only asks the
+    server and never starts one. An optional row: the board opens in agterm without it."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import serve  # noqa: E402  (beside this file)
+
+    # `lem` is on the PATH of Claude Code's Bash tool only; in a terminal with no agent (a remote login)
+    # the owner runs it by the path of Lem's marketplace clone, which no update moves
+    clone = marketplace_lem(Path.home(), Path("bin") / "lem")
+    line = f"{shlex.quote(str(clone / 'bin' / 'lem'))} serve --ensure" if clone else "lem serve --ensure"
+    row = {"name": "board server", "need": "optional", "found": False, "line": line,
+           "used_for": "the boards of every repository on this machine in a browser of another device, the owner's phone through his tailnet "
+                       "(`/lem serve tailscale`, one time); the first Claude Code session in a repository that uses Lem starts it"}
+    without = ("the board opens in agterm only, until a Claude Code session starts in a repository that uses Lem, or `/lem serve` "
+               f"runs; after a remote login with no agent, `{line}` in the terminal")
+    try:
+        settings = serve.serve_settings()
+        found = serve.ask(settings["port"])
+    except (serve.ServeError, serve.lem_state.StateError) as error:
+        return [{**row, "detail": str(error), "without_it": without}]
+    mine = serve.code_version()
+    door = f", and the door on tailnet port {settings['tailscale_port']}" if settings["tailscale"] else ""
+    if found is None:
+        return [{**row, "detail": f"no server runs on port {settings['port']}{door}; the code here is {mine}", "without_it": without}]
+    where = found["url"] + (f" and {found['tailscale']}" if found.get("tailscale") else "")
+    code = (f"it runs {found['version']}, and the code here is {mine}: the next `lem serve --ensure` replaces it" if serve.outdated(found) else
+            f"it runs {found['version']}, the code here" if found["version"] == mine else f"it runs {found['version']}, newer than the code here, {mine}")
+    return [{**row, "found": True, "detail": f"pid {found['pid']} serves {where}; {code}; its log is {serve.lem_state.config() / serve.SERVE_LOG}",
+             "without_it": None}]
+
+
+def board_notifications() -> list[dict]:
+    """The board's notifications on the owner's devices (lem_push): how many devices turned them on, and
+    when the last push went with each push service's answer. It reads Lem's home folder and sends
+    nothing. An optional row: the board shows what waits without them."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import lem_push  # noqa: E402  (beside this file)
+
+    row = {"name": "board notifications", "need": "optional", "found": False, "line": "lem serve --push-test",
+           "used_for": "a notification on the owner's phone or computer when something starts to wait for him; a device turns it on from the "
+                       "board's \"Waits for you\" (an iPhone from the board added to its Home Screen)"}
+    said = lem_push.status()
+    if said.get("problem"):
+        return [{**row, "detail": said["problem"], "without_it": "no device gets a notification until the file reads"}]
+    devices = said["devices"]
+    if not devices:
+        return [{**row, "detail": "no device has turned them on", "without_it": "the owner learns what waits from the board or a task's session only"}]
+    last = said.get("last") or {}
+    answers = ", ".join(f"{r.get('device')}: {r.get('status') or 'no answer'}" for r in last.get("results") or [])
+    went = f"the last push went at {last['at']} ({answers})" if last.get("at") else "no push has gone yet"
+    return [{**row, "found": True, "detail": f"{len(devices)} {'device' if len(devices) == 1 else 'devices'} ({', '.join(d['device'] or '?' for d in devices)}); {went}",
+             "without_it": None}]
 
 
 def cronn() -> dict:
@@ -604,11 +738,17 @@ def main() -> None:
         jev_key(),
         *codex(),
         *claude(),
-        tool("mailbox-chat", "required", "messages between Lem and a task's lead, and between the defender and the reviewer of a plan talk",
-             "the two agents cannot talk; install agterm's two-agent mailbox chat recipe from its cookbook, which puts mailbox-chat.py on PATH", "mailbox-chat.py"),
+        tool("mailbox-chat", "required", "the wake-up of a task's idle session by the board's server (a merge, a conflict, its turn in the queue) rests on its "
+             "waiter, the owner's hook; and the messages between the defender and the reviewer of a plan talk",
+             "an idle task session never hears a merge or a conflict, and the two agents of a plan talk cannot talk; install agterm's two-agent mailbox chat "
+             "recipe from its cookbook, which puts mailbox-chat.py on PATH", "mailbox-chat.py"),
         skill("mailbox-chat", "how an agent sends to the other pane and reads what comes back",
               "an agent has the command and no instructions for it; the same recipe of agterm's cookbook installs the skill"),
         cronn(),
+        load_gate(),
+        handoff_tokens(),
+        *board_server(),
+        *board_notifications(),
         *project(),
         *correction_hook(),
         *permission_mode(),

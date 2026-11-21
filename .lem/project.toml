@@ -16,28 +16,28 @@ ruling_file = "<slug>.md"
 [branch]
 # The branch a task starts from and lands on.
 base = "main"
-# Who lands a finished task: "owner", or "agent" once the checks are green.
+# Who merges a task's pull request: "agent", the merge agent, which reads each one and merges a green
+# one that is not careful, or "owner", who merges each one after the merge agent's review.
 land = "owner"
 # What lands: "squash" lands one commit for the whole task, "keep" lands the branch's own commits.
 history = "squash"
-# How a task ends where the remote is GitHub: "pull-request" opens one there, "merge" lands the
-# branch on the remote's base branch with none. With any other remote, or none, it is the merge.
-propose = "pull-request"
 # Branches nothing lands on and nothing is pushed to through this skill, whoever asks.
 protected = []
 
 [checks]
 # During the build, each builder runs only the tests of its own change. Before the pull request,
 # Lem runs these commands one time, at the root of the task's worktree.
-# The unit level comes first: it takes under a second and fails before the suites start.
-commands = ["python3 -B -m unittest discover -s tests/unit"]
+# The unit level comes first: it takes under a second and fails before the suites start. Then
+# every suite of the repository, at the same time (tests/all.sh); its last line says whether all
+# passed. Two landings run it at the same time too: each suite works in its own throwaway folders,
+# so two runs share no state (a subagent's read and a trial of three runs at once, 2026-11-20). The
+# machine's load gate (`lem project load`), not a lock, keeps a run from starting on a loaded machine.
+commands = ["python3 -B -m unittest discover -s tests/unit", "bash tests/all.sh"]
 # What a new worktree needs before its tests can run ("uv sync", "npm ci"). Lem runs these one
 # time in each worktree it makes for a task. None here: the tests need only Python and git.
 setup = []
-# The tests that two tasks cannot run at the same time. tests/all.sh runs every suite of the
-# repository at the same time and takes every core of the machine (9.8 of 10 cores in one run,
-# 2026-11-19), so two tasks run it one after the other. Its last line says whether all passed.
-serial = ["bash tests/all.sh"]
+# The tests that two tasks cannot run at the same time. None here.
+serial = []
 
 [flow]
 # What must never go wrong in this project, each as one sentence in the owner's words. No code

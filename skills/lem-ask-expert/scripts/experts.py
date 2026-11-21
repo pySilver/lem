@@ -5,15 +5,13 @@ Two experts of two model families answer one question from the same brief, at th
 read-only, or one expert alone on a machine with one of their agents. Who they are is the
 settings' `seats.experts`, one or two seats `agent/model:effort` that `lem project show` prints,
 each that is `here` (its agent is on this machine); `--seat`, once for each expert, names them for
-one call instead. A
-choice of a task keeps their advice in two places, `fable` for the first seat and `astra` for the
-second, whatever model sits there, and that place is the expert's name. For a question in words
-an expert's name is the last word of its model that holds a letter (`opus`, `sol`), or its place
-when its seat names no model. Its answer file carries the name. This script writes the brief and
+one call instead. An expert's name is the last word of its model that holds a letter (`opus`,
+`sol`), or its place (`fable` for the first seat, `astra` for the second) when its seat names no
+model. Its answer file carries the name. This script writes the brief and
 reads each answer back; starting the agents is the harness's (`ask-experts`).
 
-A question in words, which the owner asks (`/lem ask-expert ...`), has a folder of its own in Lem's
-state folder, `experts/DATE-TIME-WORDS/`, with the brief, each expert's answer and `record.json`:
+A question in words, which the owner asks (`/lem ask-expert ...`) and which a lead's ladder asks at
+its last level (`stages/ladder.md`, the experts), has a folder of its own in Lem's state folder, `experts/DATE-TIME-WORDS/`, with the brief, each expert's answer and `record.json`:
 
     lem experts brief --question TEXT [--context TEXT] [--option TEXT ...] [--file PATH ...]
                      make the folder and write `brief.md` in it: the question, what is being
@@ -28,24 +26,11 @@ state folder, `experts/DATE-TIME-WORDS/`, with the brief, each expert's answer a
                      record: each answer, whether all who answered share a pick (`agree`), and who
                      is still to answer (`waiting`)
 
-A choice of a task that waits for the owner, which Lem's stages give the experts right after
-`lem decisions ask`, keeps its brief in the task's directory and its advice in the choice's record:
-
-    lem experts brief SLUG N [--file PATH ...]
-                     write `experts/choice-N.brief.md` in the task's directory: the choice (what,
-                     the options word for word, the recommended one and why, what the personas
-                     said), the task's acceptance criteria and its plan, the files the choice is
-                     about, who the code is for, and the form of an answer. Refused for a choice
-                     that does not wait, and when every expert advised already
-
-Who the code is for is the same part in both briefs: the project's profile by its path, and each of
+Who the code is for is a part of each brief: the project's profile by its path, and each of
 its personas by its file's path, its first heading and its "Who they are" (WHO_WORDS words at most),
 from what `lem cast` prints, with the sentence that an expert weighs an option by what it does to
 these people and still decides as an engineer. A project with no personas has a setup that is not
 finished, and its brief is refused with what `lem cast` says.
-    lem experts record SLUG N --expert NAME
-                     read `experts/choice-N.NAME.md` and write it into the record with
-                     `lem decisions advise`, under the same refusals as above
 
 An answer is one of these forms, and nothing else; the last one only for a question with no
 options:
@@ -59,8 +44,6 @@ options:
     answer: one to three sentences.
     why: two to four sentences.
 """
-
-from __future__ import annotations
 
 import sys
 
@@ -82,9 +65,9 @@ from pathlib import Path
 SCRIPTS = Path(__file__).resolve().parents[2] / "lem" / "scripts"
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
-# the places in which a task's record keeps the experts' advice: decisions.py's, and nobody else's;
-# the first seat answers in the first, the second in the second (project.py's EXPERT_PLACES)
-from decisions import EXPERTS as PLACES  # noqa: E402
+# the names of the two seats of the settings' seats.experts, the first and the second, whatever model
+# sits there (project.py's EXPERT_PLACES): an expert whose seat names no model is named by its place
+PLACES = ("fable", "astra")
 
 # A seat for the error messages, in the form `--seat` takes.
 EXAMPLE_SEAT = "codex/gpt-6.2-astra:high"
@@ -124,10 +107,6 @@ def state_folder(repo: Path) -> Path:
     return Path(script("project.py", repo, "state-dir").strip())
 
 
-def task_directory(repo: Path, slug: str) -> Path:
-    return state_folder(repo) / "tasks" / slug
-
-
 def name_of(model: str) -> str:
     """An expert's name: the last word of its model that holds a letter (`gpt-6-astra` is astra)."""
     words = [word for word in re.split(r"[-_.]", model.lower()) if re.search(r"[a-z]", word)]
@@ -136,7 +115,7 @@ def name_of(model: str) -> str:
 
 def parse_seat(given: str, where: str, place: str | None) -> dict:
     """One `--seat`, as `lem project show` gives a seat of the settings: its parts, each None when
-    the seat leaves it out, and its place in a choice's record."""
+    the seat leaves it out, and its place among the seats."""
     found = SEAT.match(given)
     if found is None:
         raise ExpertError(f"{where} {given!r} is no seat: write it as agent/model:effort, for example {EXAMPLE_SEAT}")
@@ -145,11 +124,10 @@ def parse_seat(given: str, where: str, place: str | None) -> dict:
     return {"seat": found.group(0), **found.groupdict(), "place": place}
 
 
-def seats(repo: Path, given: list[str], by_place: bool = False) -> list[dict]:
+def seats(repo: Path, given: list[str]) -> list[dict]:
     """The experts, each with its seat's parts and its place: `--seat` when given, in the order
     given, else the settings' `seats.experts` as `lem project show` resolves them (the project's,
-    this machine's own, or Lem's default). Each is named by its place for a choice of a task
-    (`by_place`), and by its model for a question in words."""
+    this machine's own, or Lem's default). Each is named by its model, or by its place."""
     if given:
         experts = [parse_seat(seat, "--seat", PLACES[number] if number < len(PLACES) else None) for number, seat in enumerate(given)]
     else:
@@ -158,7 +136,7 @@ def seats(repo: Path, given: list[str], by_place: bool = False) -> list[dict]:
             raise ExpertError("no expert of the settings' seats.experts can answer on this machine: name a seat of an agent it has, or give --seat")
         experts = [{key: seat.get(key) for key in ("seat", "agent", "model", "effort", "place")} for seat in named]
     for expert in experts:
-        expert["name"] = expert["place"] if by_place else name_of(expert["model"]) if expert["model"] else expert["place"] or expert["agent"]
+        expert["name"] = name_of(expert["model"]) if expert["model"] else expert["place"] or expert["agent"]
     names = [expert["name"] for expert in experts]
     twice = sorted({name for name in names if names.count(name) > 1})
     if twice:
@@ -262,124 +240,6 @@ def answer_form(options: list[str], pick_from: str) -> str:
     why: two to four sentences: what decides it, from the code, the files or what you know."""
 
 
-# --- a choice of a task ---------------------------------------------------------------------
-
-def choice(repo: Path, slug: str, number: int) -> dict:
-    found = next((d for d in json.loads(script("decisions.py", repo, "list", slug)) if d["id"] == number), None)
-    if found is None or "options" not in found:
-        raise ExpertError(f"no choice {number} went to the owner in {slug}: the experts answer a choice that `lem decisions ask` recorded")
-    return found
-
-
-def worktree(repo: Path, slug: str) -> Path:
-    """The task's worktree, where criteria.py reads its plan: the experts read the code there."""
-    settings = json.loads(script("project.py", repo, "show"))
-    root = Path(settings["root"]).resolve()
-    return Path(settings["main"]) / Path(settings["places"]["worktrees"]["path"]).relative_to(root) / slug
-
-
-def choice_experts(repo: Path, given: list[str]) -> list[dict]:
-    """The one or two experts of a choice of a task, each named by its place in the record, whatever
-    model sits there."""
-    experts = seats(repo, given, by_place=True) if len(given) <= len(PLACES) else None
-    if experts is None or any(expert["place"] not in PLACES for expert in experts):
-        raise ExpertError(
-            f"a choice of a task has one or {len(PLACES)} experts, and its record keeps their advice as {' and '.join(PLACES)}: "
-            f"give --seat once or {len(PLACES)} times, the first for {PLACES[0]} and the second for {PLACES[1]}, or leave it out for the settings' seats.experts",
-        )
-    return experts
-
-
-def brief_text(slug: str, number: int, found: dict, criteria: dict, place: Path, files: list[Path], count: int = 2, people: str = "") -> str:
-    options = "\n".join(f"{n}. {option}" for n, option in enumerate(found["options"], start=1))
-    told = "\n".join(f"{criterion['n']}. {criterion['text']}" for criterion in criteria["criteria"]) or "none: the plan has no acceptance criteria"
-    kind = f"\n\nSize: {criteria['size']}" + (f", because {criteria['why']}" if criteria.get("why") else "") if criteria.get("size") else ""
-    irreversible = (
-        f"\nThis step cannot be undone by a later \"no\" ({found['irreversible']}). Your advice goes to the owner; "
-        "it never decides this choice, which waits for the owner's word.\n"
-    ) if found.get("irreversible") else ""
-    listed = "\n".join(f"- {file}" for file in files) or "- none named: read what the choice and the plan point at"
-    # a choice asked before the run was a part of the record has none to show
-    run = (
-        f"\nThe run that ends badly, as the lead {found['case_was']} it:\n\n{found['case']}\n\nWhy it can happen: {found['cause']}\n"
-    ) if found.get("case") else ""
-    who = "You are one of two experts who answer it from this brief, each on their own" if count > 1 else "You are the one expert who answers it from this brief"
-    taken = "the option both experts picked is taken; when you split, the recommended option is" if count > 1 else "your pick is taken; when none fits, the recommended option is"
-    return f"""# Choice {number} of {slug}: the experts' brief
-
-A task met a choice that is the owner's, in its plan or in its build, and the personas left it
-unclear, so it waits for the owner. {who}. Your answer goes on the owner's card during the wait.
-When the owner says he is away, {taken}.
-
-Read only. Change no file, run nothing that writes, and commit nothing. The task's worktree is
-`{place}`.
-
-## The choice
-
-{found['what']}
-{run}
-The options, word for word:
-
-{options}
-
-Recommended: {found['recommended']}. Why: {found['why'].rstrip('.')}.
-
-What the personas said: {found['said']}
-{irreversible}
-## The acceptance criteria
-
-The task's acceptance criteria, the contract in the owner's words:{kind}
-
-{told}
-
-## The plan
-
-`{criteria['plan']}`. Read it: the criteria are at its top, then the tasks.
-
-## The files the choice is about
-
-{listed}
-
-{people}
-## Your answer
-
-Your last message is your answer, in one of these two forms and nothing else: no heading, no
-quote marks around the option, no text before or after.
-
-{answer_form(found['options'], 'THE LIST ABOVE')}
-"""
-
-
-def cmd_choice_brief(repo: Path, slug: str, number: int, names: list[str], given: list[str]) -> dict:
-    experts = choice_experts(repo, given)
-    found = choice(repo, slug, number)
-    if found["state"] != "waits":
-        raise ExpertError(f"choice {number} of {slug} does not wait: it is {found['state']}, with {found.get('chose')!r}; the experts answer a choice that waits")
-    advised = found.get("advice", {})
-    ask = [expert["name"] for expert in experts if expert["name"] not in advised]
-    if not ask:
-        raise ExpertError(f"choice {number} of {slug} has the advice of every expert already: `lem decisions list {slug}` shows it")
-    place = worktree(repo, slug)
-    try:
-        criteria = json.loads(script("criteria.py", repo, "show", slug))
-    except ExpertError as error:
-        raise ExpertError(f"the brief needs the task's criteria and plan, and criteria.py says: {error}") from error
-    files = named_files(place, names, "the task's worktree")
-    who = audience(repo)
-    directory = task_directory(repo, slug) / "experts"
-    directory.mkdir(parents=True, exist_ok=True)
-    brief = directory / f"choice-{number}.brief.md"
-    brief.write_text(brief_text(slug, number, found, criteria, place, files, len(experts), who), encoding="utf-8")
-    answers = {expert["name"]: str(directory / f"choice-{number}.{expert['name']}.md") for expert in experts}
-    return {
-        "task": slug, "choice": number, "brief": str(brief), "worktree": str(place),
-        "experts": [{**expert, "answer": answers[expert["name"]]} for expert in experts],
-        "answers": answers, "ask": ask, "advised": sorted(advised),
-        "next": f"start {' and '.join(ask)} at once, in the background, with this brief (the harness's `ask-experts`); "
-                f"as each ends, `lem experts record {slug} {number} --expert NAME`",
-    }
-
-
 # The forms of an answer, with any indent an expert copied from the brief
 ANSWER = re.compile(r"\A(?:pick:[ \t]*(?P<pick>\S[^\n]*?)|(?P<none>none fits))[ \t]*\n\s*why:[ \t]*(?P<why>\S.*)\Z", re.DOTALL | re.IGNORECASE)
 FREE = re.compile(r"\Aanswer:[ \t]*(?P<answer>\S.*?)\n\s*why:[ \t]*(?P<why>\S.*)\Z", re.DOTALL | re.IGNORECASE)
@@ -406,17 +266,6 @@ def read_answer(answer: Path, expert: str, options: bool, one_left: str) -> dict
     if found["none"]:
         return {"none": True, "why": why}
     return {"pick": found["pick"].strip(), "why": why}
-
-
-def cmd_choice_record(repo: Path, slug: str, number: int, expert: str, given: list[str]) -> dict:
-    names = [e["name"] for e in choice_experts(repo, given)]
-    if expert not in names:
-        raise ExpertError(f"--expert {expert} is none of the experts ({', '.join(names)})")
-    got = read_answer(task_directory(repo, slug) / "experts" / f"choice-{number}.{expert}.md", expert, options=True,
-                      one_left="with an expert's advice missing, the owner's away takes the recommended option")
-    if got.get("none"):
-        return json.loads(script("decisions.py", repo, "advise", slug, str(number), "--expert", expert, "--none", "--why", got["why"]))
-    return json.loads(script("decisions.py", repo, "advise", slug, str(number), "--expert", expert, "--pick", got["pick"], "--why", got["why"]))
 
 
 # --- a question in words --------------------------------------------------------------------
@@ -568,16 +417,12 @@ def main() -> None:
     parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")
     commands = parser.add_subparsers(dest="command", required=True)
     brief = commands.add_parser("brief")
-    brief.add_argument("slug", nargs="?")
-    brief.add_argument("id", nargs="?", type=int)
-    brief.add_argument("--question", help="a question in words, which has a folder of its own")
+    brief.add_argument("--question", required=True, help="a question in words, which has a folder of its own")
     brief.add_argument("--context", default="", help="what is being decided, and why it came up")
     brief.add_argument("--option", action="append", default=[], help="an option, word for word, once for each")
-    brief.add_argument("--file", action="append", default=[], metavar="PATH", help="a file that matters, relative to the checkout or the task's worktree")
+    brief.add_argument("--file", action="append", default=[], metavar="PATH", help="a file that matters, relative to the checkout --repo names")
     record = commands.add_parser("record")
-    record.add_argument("slug", nargs="?")
-    record.add_argument("id", nargs="?", type=int)
-    record.add_argument("--folder", help="the folder of a question in words, as brief printed it")
+    record.add_argument("--folder", required=True, help="the folder of a question in words, as brief printed it")
     record.add_argument("--expert", required=True)
     for each in (brief, record):
         each.add_argument("--seat", action="append", default=[], metavar="AGENT/MODEL:EFFORT", help="an expert, once for each, in the place of the settings' seats.experts")
@@ -588,20 +433,9 @@ def main() -> None:
         except UnicodeEncodeError:
             sys.exit(f"experts.py: the argument {os.fsencode(arg)!r} is not UTF-8 text; give it in UTF-8")
     repo = Path(args.repo)
-    choice_form = args.slug is not None and args.id is not None
-    words = args.question if args.command == "brief" else args.folder
-    if choice_form == (words is not None) or (args.slug is not None and args.id is None):
-        flag = "--question TEXT" if args.command == "brief" else "--folder NAME"
-        sys.exit(f"experts.py: {args.command} takes a task's SLUG N or {flag}, one of the two")
     try:
-        if args.command == "brief" and choice_form:
-            if args.context or args.option:
-                raise ExpertError("--context and --option belong to a question in words: a task's choice has its own, in its record")
-            result = cmd_choice_brief(repo, args.slug, args.id, args.file, args.seat)
-        elif args.command == "brief":
+        if args.command == "brief":
             result = cmd_free_brief(repo, args.question, args.context, args.option, args.file, args.seat)
-        elif choice_form:
-            result = cmd_choice_record(repo, args.slug, args.id, args.expert, args.seat)
         else:
             if args.seat:
                 raise ExpertError("--seat belongs to brief: a question's experts are the ones its brief named")

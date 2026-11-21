@@ -1,94 +1,85 @@
 # When Lem needs you
 
-## Three points
+## Three touches
 
-1. **The standard track**: you answer the interview, and say yes to the acceptance criteria.
-2. **A decision in doubt** that the personas did not settle: you pick an option on a card.
-3. **The pull request**: you merge it.
+1. **The shape**, on the standard track: you answer the interview, and say yes to the acceptance
+   criteria.
+2. **A circuit breaker**: a task stops, and leaves a document for you.
+3. **A pull request that the merge agent calls you for**: you read its review, and merge.
 
-On the fast track, Lem needs you only at the pull request. Lem takes every other decision itself,
-and the pull request lists each with its reason.
+On the fast track, only the third touch can come. You answer the first two in the session of the
+task. The build asks you nothing.
 
-You answer the first two points in a companion: a session under Lem's session for one thing that
-waits for you, such as `gift-note-in-export · interview` in the sidebar. It closes after your
-answer. Lem's own session takes your next request at once.
+## A decision in doubt
+
+The build takes each decision in doubt up a ladder, until one level settles it:
+
+1. **The question gate**: a test, a rule or one of your [rulings](settings.md#paths) settles it.
+2. **The personas** vote: agents answer as each person that the decision affects.
+3. **Two agents** argue for and against the option with the most votes.
+4. **Two experts** answer: the latest Anthropic Fable, and the latest OpenAI Astra through Codex.
+   Without Codex, one expert answers alone.
+
+The task takes the pick at once and goes on. A pick past the personas makes the pull request not
+green.
+
+## The circuit breaker
+
+The breaker stops one task, and the other tasks go on. It has two causes:
+
+- the next step cannot be undone: it deletes data, writes to another system, sends a message to a
+  person, or spends money;
+- no option of the ladder keeps a criterion that you approved.
+
+A task that takes longer than expected does not stop. The task writes `breaker.md`: the case that
+broke, its root cause, the options, a recommendation and the assumptions. The board shows it first
+on the task, and sends a notification to [your phone](board.md#the-board-on-your-phone).
+
+Answer in one of three ways:
+
+- talk about it in the session of the task, and decide;
+- `/lem park <task>`: the worktree, the branch and the files stay;
+- `/lem drop <task>`: the worktree goes, and the files and the commits of the branch stay.
+
+`/lem resume <task>` opens the talk again after a park or a drop.
+
+## The merge review
+
+A fresh merge agent reads each pull request, writes `merge-review.md`, and merges a green one that
+is not careful. It calls you for every other one, and when it finds a problem. With
+`branch.land = "owner"`, it calls you for each one. Then "Waits for you" shows "Read the merge
+review". [The pull request](pull-request.md) tells more.
 
 ## What waits for you
 
-Type `/lem`. Lem opens the board, and gives one list in this order. While you are away, its first
-line says so.
+Type `/lem`. Lem opens the board, and gives one list in this order:
 
-1. the choices of a task;
+1. the breakers;
 2. the acceptance criteria that wait for your yes;
 3. the tasks that wait for a step of yours, or for one more fact;
 4. the open pull requests, each green or with its reasons;
 5. the changes that the morning retro proposes.
 
-`/lem` also opens a companion for each choice and for the criteria in the list. Say "open them" to
-approve, reject or delay the retro's changes.
-
-## The board
-
-The board of all tasks has three tabs: **Tasks**, in lanes by who acts next; **Waits for you**, a
-row for each thing that you do, which opens its companion; and **Backlog**, with "Start a task" on
-each item.
-`/lem status <task>` opens a task's board: what it builds, then green or not green.
+The [board](board.md) shows the same list in its view **Waits for you**. A task that needs a
+session and has none shows "no session" there, and "Open a session" starts a fresh agent.
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../assets/screens/task-dark.png">
-    <img src="../assets/screens/task-light.png" alt="The board of one task" width="900">
+    <img src="../assets/screens/task-light.png" alt="A task on the board: the merge review that calls you, first on its Overview" width="900">
   </picture>
 </p>
 
-*The board of one task. The picture shows example tasks.*
-
-In agterm, a chord lists the tasks, with what waits for you first. Pick one, and its board opens.
-`/lem init` gives you the keymap line.
-
-## At night
-
-A scheduled job runs `/lem night`. Lem takes the smallest backlog items, four at most, and runs
-them one after the other, each without you to its pull request, also after `/lem im-back`. In the
-morning, `/lem` shows them with the report of the night. On the standard track, such a pull request
-is not green, because you did not approve its criteria. Lem leaves out an item near what must never
-go wrong. With two night pull requests open, the night opens nothing.
-
-## A decision in doubt
-
-A decision is in doubt when it changes a criterion or a direction, or when each option costs a
-person something. It climbs a ladder, level by level, until one settles it:
-
-1. **The question gate** settles it with a ruling of yours, a test or a rule. A ruling is a
-   decision of yours that holds for later tasks, in the rulings folder of
-   [your settings](settings.md#paths). The gate also settles a decision whose wrong pick is cheap
-   to undo.
-2. **The personas** vote: agents answer as each person that the decision affects.
-3. **Two agents** argue for and against the option with the most votes.
-4. **Two experts** answer: the newest Fable of Anthropic, and the newest Astra of OpenAI through
-   Codex. Without Codex, one expert answers alone.
-
-When the gate or the personas settle a decision, Lem tells you in one line, and nothing waits. Any
-other decision comes to you as a card in its companion, with one example that goes wrong and the
-answer of each level. The card waits for your answer with no time limit, and the other work goes on.
+*A task on the board, on its Overview. The picture shows example tasks.*
 
 ## Away
 
-Type `/lem im-away`, or say "I'm away". It holds in every repository on this computer, and only
-your word changes it. While you are away, no companion opens, and every task goes on without you:
+Type `/lem im-away`, or say "I'm away". It holds in every repository on this computer, until you
+type `/lem im-back`. While you are away:
 
-- each choice that waits is taken at once, with the ladder's pick;
 - an interview goes on: Lem takes its own guess for each question, and writes it down;
-- the personas read the criteria, the ladder settles each criterion that a persona doubted, and
-  Lem approves the criteria without you.
+- the ladder settles each criterion that a persona doubted, and Lem approves the criteria for you;
+- a new request asks you nothing, and takes the safer read.
 
-The pull request is then not green, and lists each decision that Lem took. Type
-`/lem im-back` when you are back. Lem then tells you, for each task, what it decided without you.
-
-> [!IMPORTANT]
-> Two things wait for you also while you are away:
->
-> - **The merge.** Lem merges nothing while you are away.
-> - **A step that nobody can undo**, such as a migration that deletes shared data. Lem builds the
->   rest of the task, and asks you on a card. While you are away, its companion opens at
->   `/lem im-back`.
+The pull request of such a task is not green. A build, a breaker and the merge stay the same. A
+task of `/lem night` always runs without you, to its pull request.

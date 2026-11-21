@@ -10,7 +10,7 @@ backlog_repo() {
   git init -q -b main "$repo" && ident "$repo" && project --repo "$repo" init --base main >/dev/null
   printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[checks]' 'commands = ["true"]' > "$repo/.lem/project.toml"
   mkdir -p "$repo/docs/backlog" && echo '# an item from before' > "$repo/docs/backlog/existing.md" && echo one > "$repo/app.txt"
-  git -C "$repo" add -A && git -C "$repo" commit -q -m "chore: start"
+  git -C "$repo" add -A && git -C "$repo" commit -q -m "chore: start" && on_github "$repo"
 }
 # blg_task SLUG: a full change of the backlog repository, with the lead's read of its criteria
 blg_task() { task_in "$BLG" "$1" app.txt two && read_in "$BLG" "$1"; }
@@ -176,10 +176,11 @@ land --repo "$BLG" read filed-only --record "$(record 1 "$a_read, $(outside "$A"
 land --repo "$BLG" file filed-only >/dev/null
 filed_tip=$(git -C "$tree" rev-parse HEAD)
 carried=$(land --repo "$BLG" propose filed-only --title "fix: filed-only" --notes "$NOTES" 2>&1 || true)
-landed=$(land --repo "$BLG" land filed-only --by agent 2>&1 || true)
+merge_read "$BLG" filed-only >/dev/null 2>&1 || true
+landed=$(land --repo "$BLG" merge filed-only --by merger 2>&1 || true)
 if grep -qF "no green check is on record for this tip; \`lem land checks by-hand\` comes first" <<<"$hand" \
   && [ "$filed_tip" != "$gated" ] && [ "$(field '(d["green"], d["tip"])' <<<"$carried" 2>/dev/null)" = "(True, '$filed_tip')" ] \
-  && [ "$(field 'd["tip"]' <<<"$landed" 2>/dev/null)" = "$filed_tip" ] && [ "$(status_in "$BLG" filed-only)" = landed ] \
+  && [ "$(field 'd["merged"]' <<<"$landed" 2>/dev/null)" = "$filed_tip" ] && [ "$(status_in "$BLG" filed-only)" = landed ] \
   && [ "$(git -C "$BLG" show main:docs/backlog/empty-input-crashes-the-parser.md | sed -n 6p)" = "# Empty input crashes the parser" ] \
   && [ "$(grep -c '"event": "gate", "task": "filed-only"' "$BLG/.lem/state/events.jsonl")" = 1 ]; then
   pass "the items land.py file commits after the gate ask for no gate again: the request is proposed and lands with them on the gate's one run; an item written by hand after the gate asks for the gate"

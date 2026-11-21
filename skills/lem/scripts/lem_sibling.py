@@ -1,5 +1,5 @@
 """One command of a sibling script, run in this process: the one way `land.py`, `criteria.py`,
-`decisions.py` and `companion.py` call `project.py`, `criteria.py` and `decisions.py`.
+and `decisions.py` call `project.py`, `criteria.py` and `decisions.py`.
 
 A command of a sibling used to be a new `python3`, which compiled the script again, imported the
 standard library again and asked git again where the checkout is: in the suite at cfc4831 that
@@ -19,8 +19,6 @@ once" of the settings' copy). A command that needs a process of its own stays on
 so does a file in the sibling's place with no `def main(argv` of its own (a stand-in a test puts
 there, which reads `sys.argv` as a process does).
 """
-
-from __future__ import annotations
 
 import contextlib
 import importlib.util
