@@ -140,9 +140,15 @@ class TaskWorktree(Refuses):
 
     def test_the_days_the_state_keeps_come_from_the_base(self):
         found = self.in_tree(read("[state]", "keep_days = 1"), read("[state]", "keep_days = 14"))
-        self.assertEqual(found["state"], {"keep_days": 14})
-        self.assertEqual(self.in_tree(read("[state]", "keep_days = 1"), {})["state"], {"keep_days": project.KEEP_DAYS})
+        self.assertEqual(found["state"], {"keep_days": 14, "from": str(project.SETTINGS)})
+        self.assertEqual(self.in_tree(read("[state]", "keep_days = 1"), {})["state"], {"keep_days": project.KEEP_DAYS, "from": "Lem's default"})
         self.assertNames(self.refused(self.in_tree, read("[state]", "keep_days = 0"), {}), "state.keep_days")
+
+    def test_the_machines_own_days_hold_in_a_task_worktree_too(self):
+        # the main checkout's local file, as `load` reads it for a worktree as well
+        local = read("[state]", "keep_days = 3", name=project.LOCAL, tables=project.LOCAL_TABLES)
+        found = project.decide(self.TREE, ROOT, read("[state]", "keep_days = 1"), local, read("[state]", "keep_days = 14"), self.COMMITTED)
+        self.assertEqual((found["state"], found["local"]["overrides"]), ({"keep_days": 3, "from": str(project.LOCAL)}, ["state.keep_days"]))
 
     def test_the_branch_own_flow_is_still_checked(self):
         self.assertNames(self.refused(self.in_tree, read("[flow]", 'topics = "money"'), {}), "flow.topics")
@@ -151,24 +157,45 @@ class TaskWorktree(Refuses):
         self.assertNames(self.refused(self.in_tree, {}, read("[naps]", 'on = "yes"')), "main:.lem/project.toml", "naps.on")
 
 
+def local(*lines: str) -> dict:
+    """The tables of this machine's own file of these lines, as `load` reads them."""
+    return read(*lines, name=project.LOCAL, tables=project.LOCAL_TABLES)
+
+
 class KeepDays(Refuses):
     """How long the state folder keeps what Lem no longer needs: one whole number of days of the project's
-    file, 30 by default, and in no file of one machine."""
+    file, 30 by default, and one machine's own file may set its own number, which wins on that machine."""
 
     def test_the_default_is_the_owners_thirty(self):
-        self.assertEqual((settings()["state"], project.KEEP_DAYS), ({"keep_days": 30}, 30))
-        self.assertEqual(settings("[state]", "keep_days = 7")["state"], {"keep_days": 7})
+        self.assertEqual((settings()["state"], project.KEEP_DAYS), ({"keep_days": 30, "from": "Lem's default"}, 30))
+        self.assertEqual(settings("[state]", "keep_days = 7")["state"], {"keep_days": 7, "from": str(project.SETTINGS)})
 
     def test_a_number_that_is_no_whole_number_of_days_is_refused_with_the_fix(self):
         for value in ("0", "-3", "7.5", '"7"', "true"):
             self.assertNames(self.refused_settings("[state]", f"keep_days = {value}"), str(project.SETTINGS), "state.keep_days",
                              "a whole number of days, 1 or more", "keep_days = 30")
 
-    def test_another_key_and_the_local_file_are_refused(self):
+    def test_another_key_is_refused_in_either_file(self):
         self.assertNames(self.refused(read, "[state]", "days = 7"), "unknown key state.days", "keep_days")
-        local = ROOT / project.LOCAL
-        self.assertNames(self.refused(project.settings_of, "[state]\nkeep_days = 7\n", local, project.LOCAL_TABLES),
-                         "[state] is the project's rule and belongs in .lem/project.toml")
+        self.assertNames(self.refused(local, "[state]", "days = 7"), str(project.LOCAL), "unknown key state.days", "keep_days")
+
+    def test_the_machines_own_number_wins_lower_or_higher(self):
+        for project_lines, own, kept in ((("[state]", "keep_days = 30"), 7, 7), (("[state]", "keep_days = 7"), 60, 60), ((), 14, 14)):
+            with self.subTest(own=own):
+                found = settings(*project_lines, local=local("[state]", f"keep_days = {own}"))
+                self.assertEqual(found["state"], {"keep_days": kept, "from": str(project.LOCAL)})
+                self.assertEqual(found["local"]["overrides"], ["state.keep_days"])
+
+    def test_the_machines_file_without_the_key_leaves_the_projects_number(self):
+        found = settings("[state]", "keep_days = 7", local=local("[naps]", "on = false"))
+        self.assertEqual((found["state"], found["local"]["overrides"]), ({"keep_days": 7, "from": str(project.SETTINGS)}, []))
+
+    def test_a_wrong_number_in_the_machines_file_is_refused_by_that_file(self):
+        for value in ("0", "-3", "7.5", '"7"', "true"):
+            with self.subTest(value=value):
+                message = self.refused(lambda: settings("[state]", "keep_days = 7", local=local("[state]", f"keep_days = {value}")))
+                self.assertNames(message, f"{project.LOCAL}: state.keep_days", "a whole number of days, 1 or more", "keep_days = 30",
+                                 f"leave the line out for the number of {project.SETTINGS}")
 
     def test_the_template_writes_the_key_with_its_source(self):
         self.assertIn("[state]", project.TEMPLATE)

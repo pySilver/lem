@@ -31,10 +31,10 @@ else
   fail "the [checks] keys of the template: $template_keys, of show: $shown_keys"
 fi
 # The settings are 21 keys, one to one in show (with a tracker, whose one key is its kind), in the file init writes (a
-# commented line counts) and on the settings page.
+# commented line counts) and on the settings page. `from`, the file a value came from (state.from), is no key.
 printf '%s\n' '' '[tracker]' 'kind = "linear"' > "$WORK/tracker.toml"
 cp "$NEW/.lem/project.toml" "$WORK/template.toml" && cat "$WORK/tracker.toml" >> "$NEW/.lem/project.toml"
-shown=$(project --repo "$NEW" show | field 'sorted(f"{table}.{key}" for table in ("paths", "branch", "checks", "flow", "seats", "corrections", "tracker", "naps", "state") for key in d[table])')
+shown=$(project --repo "$NEW" show | field 'sorted(f"{table}.{key}" for table in ("paths", "branch", "checks", "flow", "seats", "corrections", "tracker", "naps", "state") for key in d[table] if key != "from")')
 cp "$WORK/template.toml" "$NEW/.lem/project.toml"
 written=$("$PY" -I -c 'import re, sys
 table, found = None, set()
@@ -50,6 +50,14 @@ if [ "$shown" = "$written" ] && [ "$shown" = "$paged" ] && [ "$("$PY" -c 'import
   pass "the settings are 21 keys, the same in show, in the file init writes and on the settings page"
 else
   fail "the keys of the settings: show $shown / the file $written / the page $paged"
+fi
+# The tables one machine's own file takes are the same in project.py and in that file's table on the settings page.
+local_paged=$("$PY" -I -c 'import re, sys; page = open(sys.argv[1], encoding="utf-8").read().split("## `.lem/project.local.toml`", 1)[1]; print(re.findall(r"^\| `\[(\w+)\]` \|", page, re.M))' "$PWD/docs/settings.md")
+local_coded=$("$PY" -I -B -c 'import sys; sys.path.insert(0, sys.argv[1]); import project; print(list(project.LOCAL_TABLES))' "$PWD/skills/lem/scripts")
+if [ "$local_paged" = "$local_coded" ] && [ "$local_coded" = "['seats', 'corrections', 'naps', 'state']" ]; then
+  pass "the tables of .lem/project.local.toml are the same in project.py and on the settings page: the seats, the corrections, the naps and the state"
+else
+  fail "the tables of the local file: the page $local_paged / project.py $local_coded"
 fi
 out=$(project --repo "$NEW" show)
 if [ "$(field 'd["branch"]["base"]' <<<"$out")" = "main" ] && [ "$(field 'd["places"]["personas"]["path"]' <<<"$out")" = "$NEW/.lem/personas" ] \
@@ -455,6 +463,36 @@ if [ "$machine" = "(False, ['naps.on'])" ] && [ "$in_tree" = "(False, True)" ] &
   pass "the machine's own file may say no to the naps, also for a task's worktree, show and may-nap say that the no is the machine's, and a rewrite keeps it; a yes to the naps, another key of [naps] and a table of [flow] are refused with the reason"
 else
   fail "the naps and [flow] in the local file: $machine / $in_tree / $asleep / $rewritten / $naps_yes / $naps_key / $flow_topics / $alone"
+fi
+# One machine may set how many days its state folder keeps old files, lower or higher than the project's, and it
+# wins there and in a task's worktree; a rewrite keeps it, and a wrong number or another key is refused by that file.
+settings '[branch]' 'base = "master"' '[state]' 'keep_days = 14'
+project_days=$(project --repo "$OLD" show 2>&1 | field '(d["state"], d["local"]["overrides"])' 2>&1 || true)
+printf '%s\n' '[state]' 'keep_days = 3' > "$OLD/.lem/project.local.toml"
+lower=$(project --repo "$OLD" show 2>&1 | field '(d["state"], d["local"]["overrides"])' 2>&1 || true)
+lower_tree=$(project --repo "$WORK/wt" show 2>&1 | field 'd["state"]' 2>&1 || true)
+project --repo "$OLD" reviewer claude >/dev/null 2>&1 && project --repo "$OLD" reviewer default >/dev/null 2>&1 || true
+days_kept=$(cat "$OLD/.lem/project.local.toml")
+printf '%s\n' '[state]' 'keep_days = 60' > "$OLD/.lem/project.local.toml"
+higher=$(project --repo "$OLD" show 2>&1 | field 'd["state"]' 2>&1 || true)
+printf '%s\n' '[state]' 'keep_days = 0' > "$OLD/.lem/project.local.toml"
+days_zero_code=0
+days_zero=$(project --repo "$OLD" show 2>&1) || days_zero_code=$?
+days_zero_reviewer=$(status_of project --repo "$OLD" reviewer claude)
+printf '%s\n' '[state]' 'days = 7' > "$OLD/.lem/project.local.toml"
+days_key=$(project --repo "$OLD" show 2>&1 || true)
+rm "$OLD/.lem/project.local.toml"
+if [ "$project_days" = "({'keep_days': 14, 'from': '.lem/project.toml'}, [])" ] \
+  && [ "$lower" = "({'keep_days': 3, 'from': '.lem/project.local.toml'}, ['state.keep_days'])" ] \
+  && [ "$lower_tree" = "{'keep_days': 3, 'from': '.lem/project.local.toml'}" ] \
+  && [ "$days_kept" = "$(printf '%s\n' "# This machine's own settings for Lem. Not committed; \`lem project reviewer\` writes the seat." '' '[state]' 'keep_days = 3')" ] \
+  && [ "$higher" = "{'keep_days': 60, 'from': '.lem/project.local.toml'}" ] \
+  && [ "$days_zero_code" = 1 ] && [ "$days_zero_reviewer" = 1 ] && ! grep -q Traceback <<<"$days_zero" \
+  && grep -qF "project.py: .lem/project.local.toml: state.keep_days = 0 must be a whole number of days, 1 or more, as keep_days = 30; leave the line out for the number of .lem/project.toml" <<<"$days_zero" \
+  && grep -qF ".lem/project.local.toml: unknown key state.days; did you mean 'keep_days'?" <<<"$days_key"; then
+  pass "the machine's own file may set the days its state folder keeps, lower or higher than the project's, and show names the file in a task's worktree too; a rewrite keeps it, and a number below 1 or another key of [state] is refused by that file with exit 1"
+else
+  fail "keep_days in the local file: $project_days / $lower / $lower_tree / $days_kept / $higher / $days_zero_code $days_zero_reviewer $days_zero / $days_key"
 fi
 settings '[branch]' 'base = "master"'
 # A checkout whose folder name holds a line break is still one path.

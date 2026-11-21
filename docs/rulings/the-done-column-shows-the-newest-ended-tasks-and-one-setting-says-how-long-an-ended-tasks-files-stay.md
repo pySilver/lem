@@ -25,9 +25,17 @@ KEEP_DAYS should be configurable and one would configure it to let's say 7 days 
 keep disk usage in control." And, when that session proposed this machine's file for the number:
 "Why machines? I thought that those logs are per project and stored in project .lem dir".
 
+Later the same day: "In that case one
+developer with a smaller disk free space will suffer while for another dev of that project it will
+be fine. I think `.lem/project.local.toml` should be acceptable". So one machine may set its own
+number in its own file, and that number wins on that machine, lower or higher than the project's.
+
 The form is the session's: the setting is `state.keep_days` of `.lem/project.toml`, a whole number
-of 1 or more, 30 by default, read as the base branch has it, so a task's branch cannot lower it,
-and no key of `machine.toml` or of `.lem/project.local.toml`. `lem project prune` removes what is
+of 1 or more, 30 by default, read as the base branch has it, so a task's branch cannot lower it.
+`.lem/project.local.toml` of the main checkout may hold the same key under `[state]`, and no other
+key of that table, checked as the project's is; on that machine it wins over the project's number,
+in a task's worktree too, and `lem project show` and `lem project prune` say which file the number
+came from. `machine.toml` has no such key. `lem project prune` removes what is
 older: the working files of a task that ended (the ones its map calls work, such as the review
 tool's archive of a round), with its documents and records kept; and whole, a question to the
 experts, a panel's folder, a nap and a copy of the cast. It replaces the two constants of 30 days,

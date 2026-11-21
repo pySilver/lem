@@ -275,7 +275,7 @@ chmod 755 "$OLD/locked"
 again=$(project --repo "$PR" prune)
 tasks_after=$(project --repo "$PR" tasks | field '[(t["slug"], t["status"], t["ticket_steps"]) for t in d if t["slug"] in ("old-landed", "old-dropped")]')
 decided=$("$PY" -B "$DECISIONS" --repo "$PR" list old-dropped 2>&1 || true)
-if [ "$before_dry" = "$after_dry" ] && [ "$(field '(d["dry_run"], d["keep_days"], d["from"], [t["task"] for t in d["tasks"]])' <<<"$dry")" = "(True, 30, 'state.keep_days', ['old-dropped', 'old-landed'])" ] \
+if [ "$before_dry" = "$after_dry" ] && [ "$(field '(d["dry_run"], d["keep_days"], d["from"], [t["task"] for t in d["tasks"]])' <<<"$dry")" = "(True, 30, '.lem/project.toml', ['old-dropped', 'old-landed'])" ] \
   && [ "$(field '[t["task"] for t in d["tasks"]]' <<<"$dry_all")" = "['old-dropped', 'old-landed', 'young-landed']" ] && [ "$(field 'd["from"]' <<<"$dry_all")" = "--days 0" ] \
   && grep -qF -- "--days goes with --dry-run only" <<<"$no_days" && [ "$real_code" = 1 ] \
   && [ "$(field '[f["path"] for f in d["failed"]]' <<<"$real")" = "['tasks/old-landed/locked/held.txt']" ] \
@@ -294,6 +294,43 @@ if [ "$before_dry" = "$after_dry" ] && [ "$(field '(d["dry_run"], d["keep_days"]
   pass "lem project prune removes the working files of a task that ended before state.keep_days and the old folders of the experts, the panels, the naps and the cast's copies, keeps every document, record and shown picture, and tasks and decisions read the task as before; an open or young task and a state that does not read are not touched, a link is never followed, a failed removal is named with exit 1, and a dry run removes nothing"
 else
   fail "the prune: $dry / $dry_all / $no_days / $real_code / $real / $again / $tasks_after / ${decided:0:300} / $(listing)"
+fi
+
+# One machine's own number of days wins over the project's there: higher, it keeps a task the project's 30 would
+# take; lower, a removal takes a task the project's 30 keeps. The answer says which file the number came from, and a
+# task's worktree prunes by the main checkout's own file too.
+PL=$WORK/prune-local
+git init -q -b main "$PL" && commit "$PL" start && project --repo "$PL" init --base main >/dev/null
+PLS=$(project --repo "$PL" state-dir)
+for slug in ten-days forty-days; do
+  project --repo "$PL" task-dir "$slug" --ask "The ask of $slug." >/dev/null
+  project --repo "$PL" state "$slug" landed "main: the pull request is merged" >/dev/null
+  printf 'scratch\n' > "$PLS/tasks/$slug/scratch.txt"
+done
+"$PY" -c 'import json, sys
+from datetime import datetime, timedelta, timezone
+back = {"ten-days": 10, "forty-days": 40}
+lines = open(sys.argv[1], encoding="utf-8").read().split("\n")
+for n, line in enumerate(lines):
+    task = json.loads(line).get("task") if line.strip() else None
+    if task in back:
+        lines[n] = line.replace(json.loads(line)["ts"], (datetime.now(timezone.utc) - timedelta(days=back[task])).strftime("%Y-%m-%dT%H:%M:%SZ"), 1)
+open(sys.argv[1], "w", encoding="utf-8").write("\n".join(lines))' "$PLS/events.jsonl"
+git -C "$PL" worktree add -q "$WORK/prune-local-wt" -b feat/prune-local
+by_project=$(project --repo "$PL" prune --dry-run | field '(d["keep_days"], d["from"], [t["task"] for t in d["tasks"]])')
+printf '%s\n' '[state]' 'keep_days = 50' > "$PL/.lem/project.local.toml"
+by_higher=$(project --repo "$PL" prune --dry-run | field '(d["keep_days"], d["from"], [t["task"] for t in d["tasks"]])')
+by_days=$(project --repo "$PL" prune --dry-run --days 3 | field '(d["keep_days"], d["from"])')
+printf '%s\n' '[state]' 'keep_days = 7' > "$PL/.lem/project.local.toml"
+by_lower=$(project --repo "$WORK/prune-local-wt" prune | field '(d["dry_run"], d["keep_days"], d["from"], [t["task"] for t in d["tasks"]])')
+no_days=$(project --repo "$PL" prune --days 3 2>&1 || true)
+if [ "$by_project" = "(30, '.lem/project.toml', ['forty-days'])" ] && [ "$by_higher" = "(50, '.lem/project.local.toml', [])" ] && [ "$by_days" = "(3, '--days 3')" ] \
+  && [ "$by_lower" = "(False, 7, '.lem/project.local.toml', ['forty-days', 'ten-days'])" ] \
+  && [ ! -e "$PLS/tasks/ten-days/scratch.txt" ] && [ ! -e "$PLS/tasks/forty-days/scratch.txt" ] && [ -f "$PLS/tasks/ten-days/state.md" ] \
+  && grep -qF "or in .lem/project.local.toml for this machine alone" <<<"$no_days"; then
+  pass "lem project prune keeps by this machine's own number of days, higher or lower than the project's, also from a task's worktree, and says which file the number came from, or --days"
+else
+  fail "the prune by the machine's own days: $by_project / $by_higher / $by_days / $by_lower / $no_days"
 fi
 
 finish

@@ -96,9 +96,10 @@ a team that adopts Lem may have its own.
                                     written down as started
     lem project prune [--dry-run [--days N]]
                                     remove what the state folder no longer needs, older than
-                                    `state.keep_days` days, and say what went, as JSON; the board
-                                    server runs it. --dry-run removes nothing and says what would go,
-                                    and --days says it for another number than the settings'
+                                    `state.keep_days` days, and say what went and where the number
+                                    came from, as JSON; the board server runs it. --dry-run removes
+                                    nothing and says what would go, and --days says it for another
+                                    number than the settings'
 
 Task state is kept in `.lem/state/` of the main checkout, the one folder `lem_state.py` names for
 every script: every worktree writes there, git never tracks it, a worktree's removal does not take
@@ -166,11 +167,12 @@ question; `state` refuses any other, and `tasks` gives the newest as `type`.
 
 `.lem/project.local.toml` is one person's or one day's choice on one machine: who sits in the
 reviewer's pane (the usual reviewer is down, or out of tokens) and on which model the defender of
-a plan talk runs, a no to the correction queue for that one person, and a no
-to the naps, which spend that person's tokens. It
+a plan talk runs, a no to the correction queue for that one person, a no
+to the naps, which spend that person's tokens, and how many days the state folder keeps old files on
+this machine's disk. It
 is not committed (`init` writes `.lem/.gitignore` for it), and it is read from the main checkout,
 because a task's worktree has no copy of a file git does not track. It may hold `[seats]`,
-`[corrections]` with `collect = false` and `[naps]` with `on = false`, and nothing else: the checks, what must
+`[corrections]` with `collect = false`, `[naps]` with `on = false` and `[state]` with `keep_days`, and nothing else: the checks, what must
 never go wrong, the protected branches and who lands are the project's rules, and a file nobody reviews
 must not open them. For the same reason it can switch the correction queue and the naps off
 for its person and never on: nobody's messages are sent, and nobody's tokens spent, because of a
@@ -285,7 +287,10 @@ yes writes `naps/.asleep` with the start, so a second call finds the nap that ru
 
 The state folder does not grow without end (`prune`, the owner's word of 2026-11-21). What Lem no
 longer needs goes `state.keep_days` days after it was last needed, 30 unless the settings say
-otherwise, and the base branch's number holds in a task's worktree too. A task that ended (`landed`,
+otherwise. The project's number is the base branch's, in a task's worktree too, so a branch cannot
+lower it. This machine's own file, `.lem/project.local.toml` of the main checkout, may set its own
+number, lower or higher, which wins on this machine and in each of its worktrees: it removes only
+this machine's files. `show` and `prune` say in `from` which file the number came from. A task that ended (`landed`,
 `dropped`, `answered`) and of which the event log holds nothing newer than that loses its working
 files, the ones its map (`lem_artifacts.working`) calls work: an agent's scratch, the review tool's
 archive of a round, a picture no document shows. Its documents and records stay, so its board, its
@@ -334,9 +339,9 @@ import lem_state  # noqa: E402
 
 SETTINGS = Path(".lem") / "project.toml"
 LOCAL = Path(".lem") / "project.local.toml"
-# the tables one machine may set for itself; of [naps] only `on = false`, and of [corrections] only
-# `collect = false`
-LOCAL_TABLES = ("seats", "corrections", "naps")
+# the tables one machine may set for itself; of [naps] only `on = false`, of [corrections] only
+# `collect = false`, and of [state] its one key, `keep_days`
+LOCAL_TABLES = ("seats", "corrections", "naps", "state")
 # What Lem reads beside its settings, each in one place with no setting (the owner's note of
 # 2026-11-18 on the plan, task 1b of docs/plans/2026-11-18-core-and-two-modes.md): Lem's own files,
 # the rules for the code in the folder Claude Code loads by itself, the review tool's folder, and the
@@ -502,12 +507,17 @@ RETURNED = ("dropped", "answered")
 # How many days the state folder keeps what Lem no longer needs (`prune`, `[state] keep_days`): the
 # owner, 2026-11-21: "I think that `.lem/state` should not grow to gigabytes. Maybe KEEP_DAYS should be
 # configurable and one would configure it to let's say 7 days instead of 30 to keep disk usage in
-# control", a key of the project's settings and of no machine's ("Why machines? I thought that those
-# logs are per project and stored in project .lem dir"). 30 is the number of the two guesses it
-# replaces, the experts' folders' and the naps'.
+# control", a key of the project's settings and not of machine.toml ("Why machines? I thought that
+# those logs are per project and stored in project .lem dir"). One machine's own file may set its own
+# number, which wins there, lower or higher (the same day: "In that case one developer with a smaller
+# disk free space will suffer while for another dev of that project it will be fine. I think
+# `.lem/project.local.toml` should be acceptable"). 30 is the number of the two guesses it replaces,
+# the experts' folders' and the naps'.
 KEEP_DAYS = 30
-# How a dry run with --days names the number it used, beside the settings' key.
+# The settings' key of the number, as the messages and the help name it.
 KEEP_KEY = "state.keep_days"
+# Where the number came from when no file names it.
+KEEP_DEFAULT = "Lem's default"
 # The naps (`may-nap`). A guess, not a measurement: the owner's own nap routine runs three times a day.
 NAPS_GAP_HOURS = 6
 # How long a nap that wrote no `waking.md` counts as running. A guess: the owner's own routine
@@ -621,7 +631,9 @@ TEMPLATE += f"""
 # panel's folder, a nap and a copy of the cast that nobody wrote or read in that time. A task's
 # documents and records stay, and so does the event log. The board server removes them, and
 # `lem project prune --dry-run --days 7` shows what 7 would remove. The default, {KEEP_DAYS}, is the
-# owner's word of 2026-11-21, and the two constants it replaces, which were guesses.
+# owner's word of 2026-11-21, and the two constants it replaces, which were guesses. One person with
+# less free disk, or more, sets a number for their machine alone with `keep_days` under [state] in
+# .lem/project.local.toml, which wins there.
 keep_days = {KEEP_DAYS}
 
 [naps]
@@ -940,18 +952,33 @@ def naps_of(raw: dict, name: Path) -> dict:
     return {"on": on}
 
 
-def keep_days_of(value: object, where: str) -> int:
+def keep_days_of(value: object, where: str, left_out: str = str(KEEP_DAYS)) -> int:
     """A number of days the state folder keeps what Lem no longer needs, checked: a whole number, 1 or
     more. 0 would take a task's working files at the first look after it ended, while the owner may
-    still read its board."""
+    still read its board. `left_out` is what the number is without the line."""
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
-        raise SettingsError(f"{where} = {value!r} must be a whole number of days, 1 or more, as keep_days = {KEEP_DAYS}; leave the line out for {KEEP_DAYS}")
+        raise SettingsError(f"{where} = {value!r} must be a whole number of days, 1 or more, as keep_days = {KEEP_DAYS}; leave the line out for {left_out}")
     return value
 
 
 def state_of(raw: dict, name: Path) -> dict:
-    """The `[state]` table of one settings file, checked: its one key, `keep_days`."""
-    return {"keep_days": keep_days_of(raw.get("state", {}).get("keep_days", KEEP_DAYS), f"{name}: state.keep_days")}
+    """The `[state]` table of one settings file, checked: its one key, `keep_days`, with `from`, the
+    file that names it, or KEEP_DEFAULT when the file names none. `from` is the tracked file's name
+    in a task's worktree too, where the number is the base branch's (`decide`)."""
+    given = raw.get("state", {}).get("keep_days")
+    if given is None:
+        return {"keep_days": KEEP_DAYS, "from": KEEP_DEFAULT}
+    return {"keep_days": keep_days_of(given, f"{name}: {KEEP_KEY}"), "from": str(SETTINGS)}
+
+
+def local_keep_days(local: dict) -> int | None:
+    """The number of days this machine's own file sets for itself, checked; None when it sets none.
+    It wins over the project's number on this machine, lower or higher: one developer's disk is not
+    another's. `[state]` holds no other key (`settings_of` refuses one)."""
+    given = local.get("state", {}).get("keep_days")
+    if given is None:
+        return None
+    return keep_days_of(given, f"{LOCAL}: {KEEP_KEY}", f"the number of {SETTINGS}")
 
 
 def load(root: Path) -> dict:
@@ -1091,9 +1118,15 @@ def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, commit
         naps["on"] = False
     # How long the state folder keeps old files is the base branch's too: a task's branch that lowers it
     # would remove files of other tasks before anybody agreed to it. The branch's own table is still checked.
+    # This machine's own file, the main checkout's, may set its own number, which wins here, in a
+    # task's worktree too: it removes only this machine's files.
     state = state_of(raw, SETTINGS)
     if main.resolve() != root.resolve():
         state = state_of(on_base, base_file)
+    own_days = local_keep_days(local)
+    if own_days is not None:
+        state = {"keep_days": own_days, "from": str(LOCAL)}
+        overridden.append(KEEP_KEY)
     return {
         "root": str(root),
         # the checkout every worktree hangs off; it is `root` unless this ran in a task's worktree
@@ -1116,7 +1149,8 @@ def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, commit
         "corrections": {"collect": collect},
         "tracker": tracker,
         "naps": naps,
-        # read from the main checkout's settings, in a task's worktree too
+        # read from the main checkout's settings, in a task's worktree too, or from this machine's own
+        # file; `from` names which, as a seat of MACHINE_SEATS does
         "state": state,
         # what this machine set for itself, so a report can say that the reviewer is not the project's
         "local": {"file": str(local_file) if local_file.is_file() else None, "overrides": overridden},
@@ -1238,6 +1272,7 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
     # refused with its fix, and the file stays as the owner left it.
     local_off(local)
     local_naps_off(local)
+    local_keep_days(local)
     seat(local, LOCAL, "reviewer")
     seat(local, LOCAL, "planner")
     experts_of(local, LOCAL)
@@ -1255,8 +1290,8 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
     for table in LOCAL_TABLES:
         body = local.get(table) or {}
         if body:
-            # a value here is a word in quotes, a list of them, or the one `false` the corrections and
-            # the naps tables may hold
+            # a value here is a word in quotes, a list of them, the one `false` the corrections and
+            # the naps tables may hold, or the state table's number of days
             lines += ["", f"[{table}]", *(f"{key} = {toml_value(value)}" for key, value in body.items())]
     if len(lines) == 1:
         file.unlink(missing_ok=True)
@@ -3298,13 +3333,18 @@ def log_events(root: Path) -> list[dict]:
 def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
     """Remove what the state folder no longer needs, older than `state.keep_days` (or, in a dry run,
     --days): the working files of each task that ended (`lem_artifacts.working`), and the old entries
-    of PRUNED. With `dry`, only say what would go. The answer, and the exit: 1 when a removal failed."""
+    of PRUNED. With `dry`, only say what would go. The answer, and the exit: 1 when a removal failed.
+    The answer's `from` says where the number came from: the project's settings, this machine's own
+    file, Lem's default, or `--days N`."""
     if days is not None and not dry:
-        raise SettingsError(f"--days goes with --dry-run only: a removal keeps what {KEEP_KEY} of {SETTINGS} says, so set the number there")
+        raise SettingsError(
+            f"--days goes with --dry-run only: a removal keeps what {KEEP_KEY} says, so set the number in {SETTINGS} for the project, "
+            f"or in {LOCAL} for this machine alone",
+        )
     if days is not None and (isinstance(days, bool) or days < 0):
         raise SettingsError(f"--days {days} is no number of days: give 0 or more")
     settings = load(root)
-    keep = settings["state"]["keep_days"] if days is None else days
+    keep, source = (settings["state"]["keep_days"], settings["state"]["from"]) if days is None else (days, f"--days {days}")
     state = state_root(root)
     if state.is_symlink():
         raise SettingsError(f"{state} is a link, and prune removes nothing through a link: make the state folder a folder of the main checkout")
@@ -3399,7 +3439,7 @@ def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
     files = sum(len(task["files"]) for task in pruned_tasks)
     verb = "would remove" if dry else "removed"
     answer = {
-        "dry_run": dry, "keep_days": keep, "from": f"--days {days}" if days is not None else KEEP_KEY, "before": stamp_of(cutoff.timestamp()),
+        "dry_run": dry, "keep_days": keep, "from": source, "before": stamp_of(cutoff.timestamp()),
         "state": str(state), "tasks": pruned_tasks, "folders": folders, "bytes": total,
         "said": f"{verb} {files} working files of {len(pruned_tasks)} ended tasks with no event since {stamp_of(cutoff.timestamp())[:10]}, and {len(folders)} old folders "
                 f"and copies, {total / 1_000_000:.1f} MB",

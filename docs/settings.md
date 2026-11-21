@@ -84,7 +84,7 @@ nothing.
 
 | Setting | Default | Use |
 | --- | --- | --- |
-| `state.keep_days` | `30` | the days after which an old file goes. Lem counts from the last event of a task that ended, and from the last write of a folder. A whole number, `1` or more |
+| `state.keep_days` | `30` | the days after which an old file goes. Lem counts from the last event of a task that ended, and from the last write of a folder. A whole number, `1` or more. A computer can set its own number in `.lem/project.local.toml` |
 
 ## `[tracker]`
 
@@ -103,3 +103,4 @@ Git does not track this file. It holds the settings of one computer, and only th
 | `[seats]` | a seat for this computer. `/lem reviewer codex/gpt-6.2-sol:high` writes the reviewer, and `/lem reviewer default` removes it |
 | `[corrections]` | only `collect = false` |
 | `[naps]` | only `on = false` |
+| `[state]` | only `keep_days`: the days for the old files of this computer. Lem uses this number on this computer, also when it is lower or higher than the number of the project |
