@@ -1,5 +1,5 @@
 ---
-worth: maybe
+worth: yes
 where: AGENTS.md
 added: 2026-11-20
 ---
@@ -20,3 +20,10 @@ its subcommand runs. The assessment's estimate of the saving: about 50M tokens o
 Open before it is built: how an agent finds the ruling a change reaches without reading them all,
 and whether a builder's brief names them. Projects that use Lem do not pay this cost; it is Lem's
 own repository only.
+
+Since 2026-11-21 the owner's own source says the same of any memory an agent is given whole:
+"the top layer of the memory hierarchy has to stay relatively small", kept so "by moving some
+details down the hierarchy and leaving links behind", and a longer instruction file is followed
+less well ("The components of agent memory", Anthropic, 2026-11-06). For this file the form would
+be: each ruling keeps its one bold sentence here, which is the rule an agent follows, and his words,
+the dates and what a ruling replaced move into a file of the rulings folder that the sentence links.

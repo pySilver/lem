@@ -1,10 +1,15 @@
 # nap
 
 A nap is an optional part of Lem, and the owner's own nap routine is its model. A fresh agent reads
-the recent tasks in the state folder, sleeps, dreams, and writes the dream down, makes one thing
-from it, and leaves a short waking note. It is there for the pleasure of reading it, and for what
-a retro may find in a waking note (`stages/learn.md`); nobody has shown that it helps. So it costs
-the owner nothing but the agent's minutes: it never holds a task, a question or him.
+the recent tasks in the state folder and what Lem made of the owner's corrections, sleeps, dreams,
+and writes the dream down, makes one thing from it, and leaves a short waking note. It is Lem's time
+off the task: an agent writes a lesson in the moment, without knowing which of them will matter,
+and only a look back over the days can hold a lesson against what happened after it ("The
+components of agent memory", Anthropic, 2026-11-06, which the owner named as the reason for the
+naps on 2026-11-21). The nap is that look in its lightest form: it changes no lesson itself, and a
+retro takes from its waking note only what the records bear out (`stages/learn.md`). Lem has not
+measured what the naps give. So a nap costs the owner nothing but the agent's minutes: it never
+holds a task, a question or him.
 
 A task's session starts a nap by itself, never through a scheduled job and never on a word of the
 owner's: when its task ended, before the session closes (`stages/land.md`, step 9), and the

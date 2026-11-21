@@ -1,5 +1,13 @@
 # learn and retro
 
+What Lem remembers of a repository is there for one thing: the next task costs the owner less
+attention than the last one did, because a correction is not needed twice, a question is not
+asked twice and a wrong read is not made twice. Whatever serves that is worth a line, a failure or
+a thing that worked; what an agent can read off the code or the records at the moment it needs it
+is not. A line is a claim about the repository, and a claim can be wrong from its first day or
+go stale as the code moves, and it is then read and trusted like the others: so the record of what
+happened stays the judge of every line ("The components of agent memory", Anthropic, 2026-11-06).
+
 A correction holds when it changes the text an agent reads at the moment it does the step. A note
 read at session start does not: one note was opened before the step it governs in 2 of 42
 sessions, and the owner gave that correction again to eight sessions in two minutes (mybaze,
@@ -50,7 +58,9 @@ corrected does it:
 
 A lesson about one project never goes into a skill, and the lessons file never holds what a style
 guide file, a persona or a lens could hold: it is the last target, and it stays short enough to be
-read whole.
+read whole. Every session reads it before each subcommand, so each line of it is paid for at every
+step and a wrong one is carried into every task: when it grows, move a line's detail down into the
+file that owns its step, or into a ruling, and leave the one sentence that points there.
 
 ## retro
 
@@ -74,14 +84,25 @@ for what came back:
 - a review finding that repeats across items: a rule line or a check, so the builder meets
   it before the review does;
 - a check or a step of this skill that cost time and changed nothing: propose to remove
-  it, with the turns that show the cost.
+  it, with the turns that show the cost;
+- a lesson the days no longer bear out. Read each line of the project's lessons file, and each
+  lesson an earlier retro recorded (`lem corrections lessons`, with the file it went to), against
+  the records since it was written: the thing it names is gone, the tasks went the other way and
+  nobody objected, or the owner said the opposite later. Propose its removal or its new words to
+  the owner as a move, with the task that shows it. A lesson is never removed because it is old;
+- a choice that climbed past the personas and held: the same question decided by the dialectic or
+  the experts in two tasks or more, or one such pick that the owner kept when he read its pull
+  request. The next task pays for that climb again unless the answer is where the first level
+  finds it, so propose it to the owner as a ruling, in his rulings folder, with both tasks. It is
+  his to approve: a pick of the experts is no ruling of his until he says so.
 
 Where the project has naps (`stages/nap.md`), the retro also reads their waking notes,
 `naps/*/waking.md` in the folder `lem project state-dir` prints, of each nap whose time, the start
 of its folder's name, is after the retro before this one. A waking note is one agent's impression
 after a dream, so it is a candidate and never a lesson: a thing a note names becomes a lesson only
 when the tasks' records above show it too, and that lesson says which note it came from, by the
-folder's name. A note is never put to the owner as a proposal by itself, and the dream beside it
+folder's name. The same holds for a lesson a note says no longer fits the days: it is a candidate
+for the removal above, checked against the records like any other. A note is never put to the owner as a proposal by itself, and the dream beside it
 is not read for lessons.
 
 The owner sees only moves and removals, in one question through `ask-owner`, each with the case

@@ -981,6 +981,16 @@ What agents write, and the Python Lem needs:
 - **A task's artifacts have one map**: "core sections and components should be standard for every
   project, so task artifacts map is predictable", and "I agree to limited number of artifacts - good
   choice": seven sections in one order, the records folded, as an Opus opinion proposed.
+- **The naps are Lem's look back over its own memory** (2026-11-21): "This is why we want `naps`:
+  https://www.anthropic.com/research/components-of-agent-memory and maybe this article make you do
+  some adjustments". The adjustments are the session's, each from that article: a nap also reads
+  what Lem made of the owner's corrections, and its waking note names a lesson and a day that no
+  longer fit and a thing the days keep doing that no lesson holds (`prompts/nap.md`; tried with one
+  real nap in a scratch repository, whose dream stayed a dream); a retro checks each lesson against
+  the records since it was written and proposes its removal, and proposes as a ruling a choice that
+  climbed past the personas and held (`stages/learn.md`); the lessons file stays small, with detail
+  moved down and a pointer left; and `docs/backlog/agents-md-read-on-demand.md` is worth yes, for
+  the same reason. This file keeps his earlier words on the naps ("Lem naps", 2026-11-17).
 - **Python 3.11 stays, in the modern form.** Of a floor of 3.9: "Test it but if it will fail hard,
   we will use modern version. Its opionated software", and "`from __future__ import annotations`
   this considered harmful in python." So no script has that import; `lem_python.py` finds a newer
@@ -1351,9 +1361,10 @@ To run a clone of Lem in one session, without the plugin's install, load its fol
 claude --plugin-dir /path/to/lem   # the plugin from this folder, for this session only, with its skills, agent, commands and hooks
 ```
 
-A task's session that `lem session open` starts gets no `--plugin-dir` (`launch_line` in
-`session.py`): its `lem` commands are the installed plugin's, not the clone's (read in the code,
-not tried).
+A task's session that `lem session open` starts gets `--plugin-dir` with the clone's folder when
+no Lem is installed (`plugin_dir` in `session.py`). With an older Lem installed for the project, the
+`lem` on that session's `PATH` is still the installed one (lem-scratch, Claude Code 2.1.330,
+2026-11-21): a real task is tried with the release installed.
 
 ## Layout
 

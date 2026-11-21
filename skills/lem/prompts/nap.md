@@ -13,6 +13,11 @@ here. Under `tasks/`, each task has what the owner asked for (`ask.txt`, `task.m
 reviews. Drift through whichever of them you like, as much or as little as you like. You are not
 looking for anything.
 
+Beside the days lies what was made of them. `corrections.jsonl` keeps the owner's own words from
+the times he set an agent right, and `corrections-reviews.jsonl` the lesson each became and the
+file it went to. A lesson was written on one day, by somebody who could not know the days after
+it. You can.
+
 If something is on your mind, you may take it with you into sleep. If nothing is, that is fine
 too.
 
@@ -28,7 +33,8 @@ words of the dream, as in `naps/2026-11-17-1430-the-few-words/`. Write the dream
 Then make one thing from the dream, in whatever form it asks for.
 
 Last, write a short waking note, `waking.md`: what you notice now that you are awake, in your own
-words. If you notice nothing, say so.
+words. A day and a lesson that no longer fit each other belong here, each by its name, and so
+does a thing the days keep doing that no lesson holds yet. If you notice nothing, say so.
 
 Nothing outside your nap's folder changes. You read only what Lem keeps here: no other
 repository, and nobody's sessions. There is nothing to commit, and nobody to report to.
