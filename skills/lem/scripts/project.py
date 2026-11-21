@@ -468,6 +468,8 @@ RUNNING = ("building", "landing")
 # state folder. Not the landing's `landing.lock`: a builder takes this one too, while another task
 # holds the landing line.
 SERIAL_LOCK = "serial.lock"
+# the lock of one task's state.md, in its task directory (`cmd_state`)
+STATE_LOCK = "state.lock"
 # The first line of a state block: the time in UTC, the status, one line of text.
 STATE_LINE = re.compile(r"(?P<since>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z) (?P<status>[a-z]+): (?P<text>.+)")
 TABLES: dict[str, tuple[str, ...]] = {
@@ -1732,42 +1734,47 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
         raise SettingsError("each LINE of a state block is one line of text, and none is empty")
     for line in lines:
         type_line(line)
-    # the status the newest block gives, read from this task's file alone
-    written = text_of(directory / "state.md").strip() if (directory / "state.md").is_file() else ""
-    first = STATE_LINE.fullmatch(written.split("\n\n")[0].splitlines()[0]) if written else None
-    now = first["status"] if first else None
-    if now in ENDED and status != now:
-        raise SettingsError(
-            f"the task {slug!r} is {now}, and an ended task stays ended: new work for it is a new ask (`/lem new`), "
-            f"whose task takes a slug of its own. A reply or a message about {slug} that comes now is a stale wake-up, and nothing is done for it",
-        )
-    if now in WITH_LANDING and status in LEADS_WRITE and not (status == "ready" and start_over):
-        raise SettingsError(
-            f"the task {slug!r} is {now}: it is with its landing, and a reply or a message about {slug} that comes now is a stale wake-up, "
-            f"and no state is written for it; what the landing needs, land.py says itself",
-        )
-    refused = parked_refusal(slug, now, status, resumed)
-    if refused:
-        raise SettingsError(refused)
-    if status == "answered":
-        answered_form(root, directory, slug)
-    # the time is the clock's, never a writer's estimate
-    since = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
-    block = "\n".join([f"{since} {status}: {lines[0].strip()}", *(line.strip() for line in lines[1:])])
-    file = directory / "state.md"
-    older = text_of(file).strip() if file.is_file() else ""
-    # the process's id in the name: two writers at one moment never write one new file
-    fresh = directory / f"state.md.{os.getpid()}.new"
-    fresh.write_text(block + ("\n\n" + older if older else "") + "\n", encoding="utf-8")
-    fresh.replace(file)
-    worktree = task_worktree(root, settings, slug)
-    # the task's first line, for the block that names its path: the session says it, the board shows it,
-    # and the session where he typed the request says its named form (`lem session wait SLUG --first-line`)
-    said = opening_line(root, directory, slug, status, lines, older, worktree.get("branch"))
-    append_event(root, "task.state", slug, {
-        "status": status, "text": lines[0].strip(), "lines": [line.strip() for line in lines[1:]],
-        "ask": ask_of(directory), **worktree, **(said or {}),
-    })
+    # one writer at a time, from the read of the newest status through the event's append: the lead's
+    # `building` and the owner's drop at one moment would else each read the old status, and one block
+    # would be lost or land above the drop
+    with (directory / STATE_LOCK).open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        # the status the newest block gives, read from this task's file alone
+        written = text_of(directory / "state.md").strip() if (directory / "state.md").is_file() else ""
+        first = STATE_LINE.fullmatch(written.split("\n\n")[0].splitlines()[0]) if written else None
+        now = first["status"] if first else None
+        if now in ENDED and status != now:
+            raise SettingsError(
+                f"the task {slug!r} is {now}, and an ended task stays ended: new work for it is a new ask (`/lem new`), "
+                f"whose task takes a slug of its own. A reply or a message about {slug} that comes now is a stale wake-up, and nothing is done for it",
+            )
+        if now in WITH_LANDING and status in LEADS_WRITE and not (status == "ready" and start_over):
+            raise SettingsError(
+                f"the task {slug!r} is {now}: it is with its landing, and a reply or a message about {slug} that comes now is a stale wake-up, "
+                f"and no state is written for it; what the landing needs, land.py says itself",
+            )
+        refused = parked_refusal(slug, now, status, resumed)
+        if refused:
+            raise SettingsError(refused)
+        if status == "answered":
+            answered_form(root, directory, slug)
+        # the time is the clock's, never a writer's estimate
+        since = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
+        block = "\n".join([f"{since} {status}: {lines[0].strip()}", *(line.strip() for line in lines[1:])])
+        file = directory / "state.md"
+        older = text_of(file).strip() if file.is_file() else ""
+        # the process's id in the name: two writers at one moment never write one new file
+        fresh = directory / f"state.md.{os.getpid()}.new"
+        fresh.write_text(block + ("\n\n" + older if older else "") + "\n", encoding="utf-8")
+        fresh.replace(file)
+        worktree = task_worktree(root, settings, slug)
+        # the task's first line, for the block that names its path: the session says it, the board shows it,
+        # and the session where he typed the request says its named form (`lem session wait SLUG --first-line`)
+        said = opening_line(root, directory, slug, status, lines, older, worktree.get("branch"))
+        append_event(root, "task.state", slug, {
+            "status": status, "text": lines[0].strip(), "lines": [line.strip() for line in lines[1:]],
+            "ask": ask_of(directory), **worktree, **(said or {}),
+        })
     return {"slug": slug, "status": status, "since": since, **({"say": said["say"]} if said else {})}
 
 

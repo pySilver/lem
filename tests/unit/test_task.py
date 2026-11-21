@@ -270,6 +270,52 @@ class EventLog(unittest.TestCase):
         self.assertEqual([record["say"] for record in found], [SEPARATED])
 
 
+class OneWriter(unittest.TestCase):
+    """Two writers of one task's state at one moment: the lead's `building` and the owner's drop."""
+
+    def test_a_drop_that_comes_while_another_write_runs_stays_on_top(self):
+        import threading
+        from unittest import mock
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        directory = Path(folder.name)
+        (directory / "state.md").write_text("2026-11-21T10:00Z building: lead: builder 1\n", encoding="utf-8")
+        events = []
+        lead_read, go = threading.Event(), threading.Event()
+        refusal = project.parked_refusal
+
+        def paused(slug, now, status, resumed=False):
+            # the lead has read `building` and decided; the owner's drop comes now
+            if status == "building":
+                lead_read.set()
+                go.wait(5)
+            return refusal(slug, now, status, resumed)
+        said = {}
+
+        def write(status, line):
+            try:
+                said[status] = project.cmd_state(ROOT, "gift-note", status, [line])
+            except project.SettingsError as error:
+                said[status] = str(error)
+        with mock.patch.object(project, "task_directory", return_value=directory), mock.patch.object(project, "load", return_value={}), \
+                mock.patch.object(project, "task_worktree", return_value={}), mock.patch.object(project, "opening_line", return_value=None), \
+                mock.patch.object(project, "append_event", side_effect=lambda root, name, slug, fields: events.append(fields["status"])), \
+                mock.patch.object(project, "parked_refusal", side_effect=paused):
+            lead = threading.Thread(target=write, args=("building", "lead: builder 2"))
+            lead.start()
+            self.assertTrue(lead_read.wait(5))
+            owner = threading.Thread(target=write, args=("dropped", "the owner dropped it"))
+            owner.start()
+            # the drop has had its moment to write while the lead still holds its read
+            owner.join(0.5)
+            go.set()
+            lead.join(5)
+            owner.join(5)
+        blocks = (directory / "state.md").read_text(encoding="utf-8").split("\n\n")
+        self.assertEqual([block.split()[1] for block in blocks], ["dropped:", "building:", "building:"], blocks)
+        self.assertEqual(events, ["building", "dropped"])
+
+
 class Prune(unittest.TestCase):
     """What `lem project prune` does with each task, from its state.md and the event log alone: an open
     task is never touched, an ended one goes once nothing of it was logged for the days, and a state that
