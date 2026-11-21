@@ -9,21 +9,17 @@ The owner asked for this item when the status boards got their new look: "Once w
 will have a followup task to update screenshorts at our landing page (you can file a backlog item
 for that now)".
 
-Section "03 · The board" of `site/index.html` shows `assets/screens/board-light.png` and
-`board-dark.png`. `.github/workflows/pages.yml` copies those two files into the published folder,
-and it runs only when someone starts it by hand. So the branch `feat/status-boards-steady-look`
-makes the pictures again under the same names, and once it is on `main` the files are new, but
-the published page keeps the old board until the workflow runs again.
+`site/index.html` shows `assets/screens/board-light.png` and `board-dark.png`, with the phone's and
+the task's pictures. `.github/workflows/pages.yml` copies the six files into the published folder,
+and it runs only when someone starts it by hand. 65df09a made the pictures again under the same
+names and gave the page their size (`width="1440" height="900"`, for pictures of 2880 x 1800), and
+`.frame` in `site/style.css` no longer cuts a picture at 600 px. The workflow last ran on
+2026-11-19 at 12:19Z (`gh run list --workflow Pages`, read 2026-11-21), so the published page keeps
+the old board until it runs again.
 
-What to do after that branch lands:
+What is left:
 
-- `site/index.html` gives the picture `width="1440" height="1625"`, the size of the old board.
-  `python3 -B tests/board-showcase.py DIR` printed `board-light.png (1440 x 2159)` for the new one
-  (2026-11-19, at the commit that made the pictures). Write the new height, or the browser keeps
-  the old shape's room until the picture loads.
-- `.frame` in `site/style.css` shows at most 600 px of the picture. At the new board's 16 px type
-  the same 600 px hold less: look at what the frame shows in light and in dark, and choose whether
-  it still shows the lanes.
-- The caption says "The picture shows demo data"; the README and the guides now say "The picture
-  shows example tasks". Use one of the two.
+- The captions differ: `site/index.html` (both), `README.md` (the phone) and `docs/board.md` say
+  "The picture shows demo data"; `README.md` (the board) and `docs/when-lem-needs-you.md` say "The
+  picture shows example tasks". Use one of the two.
 - Run `tests/test-site.sh`, then start the Pages workflow by hand and look at the published page.
