@@ -355,6 +355,33 @@ class TheText(Proposal):
                 self.assertNotIn("the cause", land.pr_text(self.task(record=record), "", self.state()))
 
 
+class WithoutHim(Proposal):
+    """The line of the time a task ran without the owner, under green or not green, on both tracks."""
+
+    SMALL = "## Acceptance criteria\n\nSize: small, because one word changes.\n\n1. The file holds the word y.\n   - test: `sh tests/t.sh` in `tests/t.sh`\n"
+    AWAY = [{"from": AT, "to": LATER, "started": {"by": "owner", "words": "/lem im-away"}, "ended": {"by": "owner", "words": "/lem im-back"}}]
+    LINE = 'It ran without the owner from 2026-11-18 10:00 UTC (the owner: "/lem im-away") to 2026-11-18 11:00 UTC (the owner: "/lem im-back").'
+
+    def setUp(self) -> None:
+        super().setUp()
+        from unittest import mock
+        # what the fast track's builder filed is a fact of the branch, which only git shows
+        patched = mock.patch.object(land, "builder_filed", return_value=[])
+        patched.start()
+        self.addCleanup(patched.stop)
+
+    def test_each_track_names_the_time_without_him(self) -> None:
+        for name, plan in (("standard", PLAN), ("fast", self.SMALL)):
+            with self.subTest(track=name):
+                found = found_of(plan, approved=approval("owner", plan=plan))
+                out = land.pr_text(self.task(found=found, record={"without_owner": self.AWAY}), "", self.state()).splitlines()
+                self.assertEqual(out[:4], [land.GREEN, "", self.LINE, ""])
+
+    def test_a_task_that_ran_with_him_has_no_such_line(self) -> None:
+        found = found_of(self.SMALL, approved=approval("owner", plan=self.SMALL))
+        self.assertNotIn("ran without the owner", land.pr_text(self.task(found=found), "", self.state()))
+
+
 class TheDocuments(Proposal):
     """The pull request's text in the forms of `prompts/writing.md`: an important decision's story
     folded under it, a label cut at its colon, and no link to a picture the forge does not hold."""

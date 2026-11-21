@@ -2926,6 +2926,26 @@ def resolution_line(read: dict) -> str:
     return f"- the read of the conflict's resolution ({KIND_SAYS[read['kind']]}; {who}): {said}"
 
 
+def head_lines(task: Task, state: dict) -> list[str]:
+    """The head of a pull request's text on either track, in the order the owner reads it: green or
+    not green with each reason, the time the task ran without him, why it is careful, and what
+    bringing it onto a base that moved did."""
+    reasons = not_green(task, state)
+    out = ["**Not green.**", "", *(f"- {why}" for why in reasons), ""] if reasons else [GREEN, ""]
+    alone = without_owner(task)
+    if alone:
+        # which part ran without him: a cause of not green only through what was decided then, which the lines above name
+        out += [alone, ""]
+    if state["careful"]:
+        # a careful request is a person's to merge, green or not, and he reads why first
+        out += [f"**Careful**, so the owner merges it: {'; '.join(reason(why) for why in state['careful'])}.", ""]
+    moved = synced(task)
+    if moved:
+        # an open task brought onto a base that a merge moved: what happened to it since the owner last read it
+        out += [moved[0].upper() + moved[1:] + ".", ""]
+    return out
+
+
 def small_text(task: Task, notes: str, state: dict) -> str:
     """The text of a pull request on the fast track: green or not, the criterion, the checks, the read.
     What the fast track does not have (a plan, a personas' read, a polish pass, a talk) gets no line;
@@ -2935,13 +2955,7 @@ def small_text(task: Task, notes: str, state: dict) -> str:
     found = criteria_of(task)
     ask = (task.directory / "ask.txt").read_text(encoding="utf-8").strip() if (task.directory / "ask.txt").is_file() else ""
     held = {(test["criterion"], test["command"]): test for test in checked_criteria(checks)["tests"]}
-    reasons = not_green(task, state)
-    out = ["**Not green.**", "", *(f"- {why}" for why in reasons), ""] if reasons else [GREEN, ""]
-    if state["careful"]:
-        out += [f"**Careful**, so the owner merges it: {'; '.join(reason(why) for why in state['careful'])}.", ""]
-    moved = synced(task)
-    if moved:
-        out += [moved[0].upper() + moved[1:] + ".", ""]
+    out = head_lines(task, state)
     out += ["## The request", "", *(f"> {line}" for line in (ask or "(the owner's words were not kept for this task)").splitlines()), ""]
     approval = found.get("approved") or {}
     by = {"lem": f" Lem approved it in the owner's name on {approval.get('at', '')[:10]}; the personas did not read it.",
@@ -2989,23 +3003,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     found = criteria_of(task)
     ask = (task.directory / "ask.txt").read_text(encoding="utf-8").strip() if (task.directory / "ask.txt").is_file() else ""
     held = {(test["criterion"], test["command"]): test for test in checked_criteria(checks)["tests"]}
-    out: list[str] = []
-    reasons = not_green(task, state)
-    if reasons:
-        out += ["**Not green.**", "", *(f"- {reason}" for reason in reasons), ""]
-    else:
-        out += [GREEN, ""]
-    alone = without_owner(task)
-    if alone:
-        # which part ran without him: a cause of not green only through what was decided then, which the lines above name
-        out += [alone, ""]
-    if state["careful"]:
-        # a careful request is a person's to merge, green or not, and he reads why first
-        out += [f"**Careful**, so the owner merges it: {'; '.join(reason(why) for why in state['careful'])}.", ""]
-    moved = synced(task)
-    if moved:
-        # an open task brought onto a base that a merge moved: what happened to it since the owner last read it
-        out += [moved[0].upper() + moved[1:] + ".", ""]
+    out = head_lines(task, state)
     out += ["## The request", "", *(f"> {line}" for line in (ask or "(the owner's words were not kept for this task)").splitlines()), ""]
     out += ["## Acceptance criteria", "", f"The {TRACKS.get(found['size'], found['size'])} track, because {found['why']}", ""]
     out += criteria_lines(found, held)
