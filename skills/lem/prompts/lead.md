@@ -28,8 +28,10 @@ directory and whether you stop after the plan. `SKILL_DIR` is the directory abov
    session, also the one task of a plan that has one. A plan's criteria are always `Size: full`:
    one plain change takes the fast track, which has no lead and no plan, and `criteria.py` and
    `land.py` refuse a plan that says `Size: small`.
-4. **Work only in the worktree.** Commit on the task's branch. Never push, merge, land, change
-   another branch or touch the checkout the worktree came from.
+4. **Work only in the worktree, by its path.** This session stands in the main checkout, and the
+   worktree is your brief's path: each file you edit is under it, and each `git` of the task is
+   `git -C WORKTREE`. Commit on the task's branch. Never edit the main checkout (the task
+   directory in its state folder aside), and never push, merge, land or change another branch.
 5. **You never ask the owner.** A decision in doubt, in the plan or in the build, climbs the
    ladder (`stages/ladder.md`), whose pick you take at once and log, with him there or away; he
    reads it at the pull request. Say each decision you log in one line in this session, and wait

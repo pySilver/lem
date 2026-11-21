@@ -11,10 +11,13 @@ A companion session of the lead's, `SLUG · plan talk`, which runs Claude Code w
 1. **Open it**:
 
    ```bash
-   agtermctl session new --parent "$AGTERM_SESSION_ID" --cwd WORKTREE --name "SLUG · plan talk" --no-select \
+   agtermctl session new --parent "$AGTERM_SESSION_ID" --cwd MAIN --name "SLUG · plan talk" --no-select \
      --command "LOGIN_SHELL -l -c 'claude --model MODEL --effort EFFORT \"Read BRIEF and follow it.\"'" --socket "$AGTERM_SOCKET"
    ```
 
+   `MAIN` is the main checkout, where the task's session stands too: the pair has the plugin and
+   the folder's own Claude Code settings there, and reaches the task's worktree by its path, as
+   the session does (`owner-steps.md`, "A folder's trust").
    `MODEL` and `EFFORT` are the `model` and the `effort` of the settings' `seats.planner`, which
    `lem project show` gives parsed from its one line, `claude/MODEL:EFFORT`. Leave a flag out when
    the seat does not name its value (`null`): the agent's own default holds then. The seat's

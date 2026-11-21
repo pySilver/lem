@@ -19,7 +19,8 @@ agtermctl session new --workspace WS --cwd DIR --name SLUG --no-select --command
 ```
 
 then `agtermctl session move --to top`, and with `--focus` `agtermctl session select`. `DIR` is the
-task's worktree, else the main checkout. A trial on 2026-11-21 (agterm 0.41.1 serving and 0.43.0
+main checkout, also for a task with a worktree, which the session reaches by its path
+(`owner-steps.md`, "A folder's trust"). A trial on 2026-11-21 (agterm 0.41.1 serving and 0.43.0
 installed, Claude Code 2.1.330) showed:
 
 - The session opened at the top level of the workspace and was not selected; `move --to top` put

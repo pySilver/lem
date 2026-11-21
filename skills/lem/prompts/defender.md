@@ -20,7 +20,8 @@ its task directory. `SKILL_DIR` is the directory above this file's.
 3. **Hold the talk** by `stages/talk.md`, with the reviewer's seat at its effort.
    You are the plan's side in it: you answer each question with one repair or one refutation
    with a cite, and you check each claim of the reviewer's in the code before you answer.
-4. **The plan is the one file you edit.** Each repair is yours to write and to commit on the
+4. **The plan is the one file you edit**, in the worktree by its path, with `git -C WORKTREE`:
+   this session stands in the main checkout, which you never edit. Each repair is yours to write and to commit on the
    task's branch, never a subagent's: you hold the whole talk, and a repair written without it
    answers the question and misses the others. A criterion stays as the owner approved it: a
    question that needs a criterion changed is no repair, and it goes to step 5 as a decision in doubt.

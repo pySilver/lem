@@ -162,7 +162,7 @@ owner reads.
   copies these into the pull request;
 - **the commit subject**: one semantic line for the whole task (`type(scope): subject`). Lem
   uses it when the project lands a task as one commit;
-- **the branch and its tip**: the branch's name and the commit `git rev-parse HEAD` prints.
+- **the branch and its tip**: the branch's name and the commit `git -C WORKTREE rev-parse HEAD` prints.
 
 Then write the state: `ready`, and the landing comes, a phase of its own (`prompts/session.md`,
 "A change of phase"); or `held` or `blocked` with the line that says why, and wait in this session

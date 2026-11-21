@@ -32,7 +32,9 @@ Your brief gives you one of six jobs:
 What holds for every builder, unless your job says otherwise as above:
 
 1. **Work only in the worktree your brief names.** Write every path as a literal absolute path.
-   Never touch the checkout the worktree came from, another worktree or another branch.
+   Your shell starts in the main checkout, where the task's session stands: each `git` is
+   `git -C WORKTREE`, and a command of the project runs from the worktree. Never touch the
+   checkout the worktree came from, another worktree or another branch.
 2. **Read before you write**: the plan section, then the rule files and the lessons file
    your brief names. A rule there outranks your habit.
 3. **A criterion is held by a test.** Your brief names the criteria your task serves. Write at least
