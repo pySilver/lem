@@ -572,16 +572,16 @@ JEV_WHERE = ("JEV_API_KEY in the environment the agent starts with, the key of t
 
 
 def jev_key() -> dict:
-    """The key of the Jev decision model: JEV_API_KEY, or OPENROUTER_API_KEY of a machine set up
-    before. Required where the correction queue is on: without it the hook writes a failure for
-    each message to a file nobody reads, and the queue stays empty."""
-    given = next((name for name in ("JEV_API_KEY", "OPENROUTER_API_KEY") if os.environ.get(name)), None)
+    """The key of the Jev decision model: JEV_API_KEY, the one name jev.py reads for it. Required
+    where the correction queue is on: without it the hook writes a failure for each message to a
+    file nobody reads, and the queue stays empty."""
+    given = bool(os.environ.get("JEV_API_KEY"))
     url = os.environ.get("JEV_API_URL", "").strip()
-    detail = (f"{given}, to {url or 'OpenRouter'}" if given else None)
-    row = {"name": "Jev key", "need": "optional", "found": bool(given), "detail": detail,
+    detail = f"JEV_API_KEY, to {url or 'OpenRouter'}" if given else "JEV_API_KEY is not set, and it is the one name Lem reads for the key"
+    row = {"name": "Jev key", "need": "optional", "found": given, "detail": detail,
            "used_for": "the Jev decision model, which the correction queue and a card's framing check ask"}
     if collects_here():
-        return {**row, "need": "required", "detail": (f"{detail}; " if detail else "") + "the correction queue is on in this repository (corrections.collect = true)",
+        return {**row, "need": "required", "detail": f"{detail}; the correction queue is on in this repository (corrections.collect = true)",
                 "without_it": "the correction hook writes each message of the owner to .lem/state/corrections.log as a failure, the queue stays "
                               f"empty, and the retro reads nothing. Put {JEV_WHERE}, or turn the "
                               "queue off for this computer with `collect = false` under [corrections] in .lem/project.local.toml"}
