@@ -447,7 +447,8 @@ printf '%s\n' 'slug: gone-out' 'request by: someone else' > "$LOCAL/.lem/state/t
 digest=$(lcriteria digest gone-out 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
 project --repo "$LOCAL" log gone-out criteria.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' criteria:=1 flagged:=1 split:=false "digest=$digest" >/dev/null 2>&1 || true
 with_him=$(lcriteria approve gone-out --file "$WORK/gone.md" --alone 2>&1 || true)
-project --repo "$LOCAL" task-dir gone-out --ask "Put the word into g.txt." --night 2026-11-18 >/dev/null
+# the night's mark on a task that has its words: the same words again, since a task's words are written once
+project --repo "$LOCAL" task-dir gone-out --ask "Put g into g.txt." --night 2026-11-18 >/dev/null
 # the fast track's criterion of the owner's own request is approved in his name, never --alone (a night's or someone else's is: tests/unit/test_criteria.py)
 project --repo "$LOCAL" task-dir own-small --ask "Put the word into o.txt." >/dev/null
 small_file=$(lcriteria approve own-small --file "$WORK/as-correction.md" --alone 2>&1 || true)
@@ -481,7 +482,7 @@ task_in "$LOCAL" settled-out s.txt s
 printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds a word.' > "$WORK/settled-read.md"
 read_digest=$(lcriteria digest settled-out --file "$WORK/settled-read.md" 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
 project --repo "$LOCAL" log settled-out criteria.read by=lem asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' criteria:=1 flagged:=1 split:=false "digest=$read_digest" >/dev/null 2>&1 || true
-project --repo "$LOCAL" task-dir settled-out --ask "Put the word into s.txt." --night 2026-11-18 >/dev/null
+project --repo "$LOCAL" task-dir settled-out --ask "Put s into s.txt." --night 2026-11-18 >/dev/null
 ldecide log settled-out "${CASE[@]}" --what "criterion 1" --option "The file holds a word." --option "The file holds the word the owner asked for." \
   --chose "The file holds the word the owner asked for." --by dialectic --level "personas=one flagged it" --why "no break against the persona's reading" >/dev/null 2>&1 || true
 settled_by=$(lcriteria approve settled-out --file "$WORK/gone.md" --alone 2>&1 | field 'd["by"]' 2>&1 || true)
