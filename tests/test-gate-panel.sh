@@ -2,7 +2,7 @@
 # The persona panel's cast.py, offline: the cast
 # comes from the project alone (none there means no panel; the user's and the built-in cast only start one), a checkout older than its default
 # branch's cast reads that cast, the project's profile comes from the checkout or the default branch
-# and never from a generic layer, init copies a cast down, and run-dir makes a folder git ignores.
+# and never from a generic layer, init copies a cast down, and run-dir makes a folder in Lem's state folder.
 set -eEuo pipefail
 
 cd "$(dirname "$0")/.."
@@ -202,12 +202,24 @@ fi
 day_from=$(date +%Y-%m-%d)
 dir=$(cast run-dir pack-size --repo "$REPO")
 day_to=$(date +%Y-%m-%d)
-if [ -d "$dir" ] && { [ "$(basename "$dir")" = "$day_from-pack-size" ] || [ "$(basename "$dir")" = "$day_to-pack-size" ]; } && [ -z "$(git -C "$REPO" status --porcelain --untracked-files=all)" ]; then
-  pass "run-dir makes a dated folder that git status never shows"
+if [ -d "$dir" ] && [ "$(dirname "$dir")" = "$REPO/.lem/state/panels" ] && { [ "$(basename "$dir")" = "$day_from-pack-size" ] || [ "$(basename "$dir")" = "$day_to-pack-size" ]; } \
+  && [ -z "$(git -C "$REPO" status --porcelain --untracked-files=all)" ] && [ ! -e "$REPO/.lem/runs" ]; then
+  pass "run-dir makes a dated folder in Lem's state folder, panels/, that git status never shows"
 else
   fail "run-dir: $dir; status: $(git -C "$REPO" status --porcelain --untracked-files=all)"
 fi
 if [ "$(status_of cast run-dir pack-size --repo "$REPO")" = 1 ]; then pass "run-dir refuses a folder that already exists"; else fail "run-dir reused a folder"; fi
+# from a worktree the folder is the main checkout's, and in a repository new to Lem git shows nothing of it
+from_worktree=$(cast run-dir from-a-worktree --repo "$PANEL/old")
+NEW_TO_LEM=$PANEL/new-to-lem
+git init -q -b main "$NEW_TO_LEM"
+new_dir=$(cast run-dir first-panel --repo "$NEW_TO_LEM")
+if [ "$(dirname "$from_worktree")" = "$REPO/.lem/state/panels" ] && [ ! -e "$PANEL/old/.lem/state" ] \
+  && [ "$(dirname "$new_dir")" = "$NEW_TO_LEM/.lem/state/panels" ] && [ -z "$(git -C "$NEW_TO_LEM" status --porcelain --untracked-files=all)" ]; then
+  pass "run-dir in a worktree makes the folder in the main checkout's state folder, and in a repository new to Lem git status shows nothing"
+else
+  fail "run-dir from a worktree: $from_worktree; in a new repository: $new_dir, status: $(git -C "$NEW_TO_LEM" status --porcelain --untracked-files=all)"
+fi
 
 # A settings file Lem refuses stops the panel too.
 LINKED=$PANEL/linked

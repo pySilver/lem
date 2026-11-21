@@ -65,10 +65,10 @@ closed stop the command with the file and the line to write.
 folder so the project has its own people to rewrite. It refuses a checkout whose personas folder already holds any file, and one whose default branch
 already has a cast, which a rebase brings in instead.
 
-`run-dir` makes runs/<YYYY-MM-DD>-<SLUG>/ beside the personas folder and prints its path. The runs folder holds a
-.gitignore of `*`, which ignores the folder and itself, so a panel's files never show in
-`git status` and a project needs no ignore rule of its own. An existing folder is refused, so
-two panels never write into one.
+`run-dir` makes panels/<YYYY-MM-DD>-<SLUG>/ in Lem's state folder (`.lem/state/panels/` of the main
+checkout) and prints its path. Git never shows the state folder, so a panel's files never show in
+`git status` and a project needs no ignore rule of its own; a worktree's removal does not take them.
+An existing folder is refused, so two panels never write into one.
 """
 
 import sys
@@ -93,11 +93,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "lem" / "scripts"))
 import lem_state  # noqa: E402
 import project  # noqa: E402  (the one reader of a seat, `agent/model:effort`, and whether its agent is here)
 
-# Where a project keeps its personas, its profile and its panels' files, relative to the checkout:
-# each has one place, which configure() takes from `project.py show` (`places`).
+# Where a project keeps its personas and its profile, relative to the checkout: each has one place,
+# which configure() takes from `project.py show` (`places`).
 PROJECT_CAST = Path(".lem") / "personas"
 PROJECT_PROFILE = Path(".lem") / "profile.md"
-RUNS = Path(".lem") / "runs"
+# The folder of Lem's state folder that holds each panel's own folder.
+PANELS = "panels"
 BUILT_IN = Path(__file__).resolve().parent.parent / "cast"
 PROJECT_SETTINGS = Path(__file__).resolve().parents[2] / "lem" / "scripts" / "project.py"
 
@@ -220,7 +221,7 @@ def fail(message: str) -> None:
 def configure(root: Path) -> None:
     """Take the places of the personas and the profile from the project's settings, which this checks
     first: a settings file that does not read stops the panel."""
-    global PROJECT_CAST, PROJECT_PROFILE, RUNS
+    global PROJECT_CAST, PROJECT_PROFILE
     done = subprocess.run(
         [sys.executable, "-B", str(PROJECT_SETTINGS), "--repo", str(root), "show"], capture_output=True, text=True
     )
@@ -230,7 +231,6 @@ def configure(root: Path) -> None:
     top = Path(settings["root"]).resolve()
     PROJECT_CAST = Path(settings["places"]["personas"]["path"]).relative_to(top)
     PROJECT_PROFILE = Path(settings["places"]["profile"]["path"]).relative_to(top)
-    RUNS = PROJECT_CAST.parent / "runs"
 
 
 def git(cwd: Path, *args: str) -> str:
@@ -465,12 +465,9 @@ def init(root: Path) -> None:
 def run_dir(root: Path, slug: str) -> None:
     if not slug or "/" in slug or slug.startswith(".") or slug.startswith("-"):
         fail(f"a slug is one plain path segment, not {slug!r}")
-    runs = root / RUNS
-    runs.mkdir(parents=True, exist_ok=True)
-    ignore = runs / ".gitignore"
-    if not ignore.is_file():
-        ignore.write_text("*\n")
-    target = runs / f"{datetime.date.today().isoformat()}-{slug}"
+    panels = cache(root, PANELS)
+    panels.mkdir(exist_ok=True)
+    target = panels / f"{datetime.date.today().isoformat()}-{slug}"
     if target.exists():
         fail(f"{target} already exists; add a suffix such as -2 to the slug")
     target.mkdir()

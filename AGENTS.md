@@ -462,7 +462,8 @@ Each script's module docstring says what it does and why; this list says where e
   Its `decisions/` holds the maintaining session's decisions and designs, one file for each, each
   linked by its sentence in "Decisions the maintaining session took", and a replaced one marked and
   linked by what replaced it. Its `state/`, which git ignores, is the state of a repository's Lem: the tasks, the event log,
-  the night reports, the naps, the experts' folders, a panel's copies, and `forge.json`, the board
+  the night reports, the naps, the experts' folders, a panel's copies, the panels' folders
+  (`panels/`, which `lem cast run-dir` makes), and `forge.json`, the board
   server's last look at GitHub. `.lem/worktrees/` holds
   the tasks' worktrees. `.revmux/` is the review tool's configuration for this repository.
 - The naps, an optional part: `prompts/nap.md` is written after the owner's own nap routine and
@@ -511,7 +512,8 @@ Each script's module docstring says what it does and why; this list says where e
   skills Lem names and ships. `lem-ask-expert` is Lem's own, with `scripts/experts.py` (`lem
   experts`: the brief of a question in words and the record of the experts' answers, in a folder of
   `.lem/state/experts/`). `lem-panel`'s `scripts/cast.py` (`lem cast`) finds the cast, copies it
-  into a project, and keeps the copies a panel read in Lem's state folder. `NOTICE` says where each
+  into a project, keeps the copies a panel read in Lem's state folder, and makes each panel's own
+  folder there, in `.lem/state/panels/`. `NOTICE` says where each
   came from.
 
 ## The shipped skills are copies, not yet under the rules above
