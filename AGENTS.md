@@ -205,7 +205,7 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   developer's yes. The mailbox and revmux stay required, as he ruled before; that reading of
   his sentence is the session's, not his words.
 - **OpenRouter is the one way to the Jev model for now**: on a direct API beside it, "Ok. Lets
-  keep that way for now" (`docs/backlog/no-direct-jev-api.md`).
+  keep that way for now".
 - **What must not go wrong is named by topic, and an agent says whether a task is careful**: "we
   analyze the project, then we suggest what are the dangerous zones or topics and let user
   provide more ... Later at a plan time we can understand if it touches anything whats dangerous
@@ -384,7 +384,7 @@ replaces an earlier ruling, this is the ruling now.
   suits for now." The workflow starts by hand.
 - **Lem's docs do not speak for another tool**: of `.revmux/` in the removal steps, "its not our
   tool".
-- **Codex in each role is wanted**, as `docs/backlog/codex-in-each-role.md`.
+- **Codex in each role is wanted** (replaced on 2026-11-20, below).
 
 - **A complete ticket that someone else wrote needs his yes to its criteria, and no interview**:
   an audit found that nobody at the terminal reads such a ticket before Lem builds it. On a page
@@ -659,8 +659,7 @@ Where a note replaces an earlier ruling, this is the ruling now.
   `lem board --page FILE` opens it. A question page and a mark-up stay overlays, since each waits
   for his answer: that part is the session's.
 - **The board as a tabbed interface is a backlog item**: "redesign board to a tabbed interface,
-  consider using the WebAwesome (we have a professional license)"
-  (`docs/backlog/board-as-a-tabbed-interface.md`).
+  consider using the WebAwesome (we have a professional license)" (built on 2026-11-20, below).
 
 His notes of 2026-11-19, in the session, on the Linear page and in the interview on his away
 status; a quote is his words.
