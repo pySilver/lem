@@ -297,6 +297,85 @@ Files: `AGENTS.md`, `.lem/profile.md`, `.revmux/profile.md`, `docs/free-hour.md`
 `docs/plans/2026-11-18-core-and-two-modes/mode-and-ladder.md`, and any other text the search
 finds, `tests/unit/test_agents_md.py`, `docs/backlog/agents-md-read-on-demand.md`.
 
+## Plan talk
+
+Who argued the plan: the reviewer, Codex, with GPT 6.2 Sol at high effort as its pane's status line
+showed them (context 7% used at its start); the defender, Claude Code, with Opus 5.5 at high effort,
+as the `defender:` line of the task's state gives. Two families. Seven turns, under the bound of 30
+for its 7 questions. Agreement carries no authority: the review before the pull request
+reads each settled position as a claim.
+
+The list, numbered as the reviewer gave it in its first turn:
+
+1. **Which sentence the question gate can take as current.** A file of a ruling changed in part
+   holds the old paragraph, and the judge searches by keyword before it reads a file
+   (`skills/lem-gate/references/judge.md`, lines 12 to 26): a search for "a choice of his waits"
+   finds base line 505, which "The build asks him nothing" (base 858 to 867) changed. Repaired once:
+   `## Changed in part` comes right under the title, before the paragraph, with the line that the
+   title is the rule as it stands. Held: a keyword match returns the old sentence without the note,
+   and the move puts it in the judge's first source, where the base had it in the fifth. Refuted
+   once: the judge's `decided` must cite the heading (judge.md, lines 25 and 26), and the headings
+   above the old paragraph are the title and `## Changed in part`; at the base the same line stands
+   in `AGENTS.md` with no change mark. Held a second time: the cite of the heading does not make the
+   judge read the note, and the old paragraph has no heading of its own. **A design choice**, which
+   "Decisions of the talk" below takes up the ladder.
+2. **How the short index tells a builder which file to read.** "Opinionated and small" holds the
+   out-of-scope list (base 83 to 86), which its sentence does not name, so a builder that adds a
+   skill-activation hook reads the index and skips the file. Repaired: the map's field "what it
+   holds that its sentence does not name", such rulings in "What Lem is, and who it is for", and a
+   second sentence of the rule of criterion 7: a change that adds a part to Lem reaches each
+   sentence of that group. Closed, a layer over plan decision 3 and criteria 1 and 4: settled by the
+   two, not checked by the review.
+3. **What lets `docs/rulings/` hold the history.** "No history and no reasons in a text for a
+   reader" (base 336 to 339) names `docs/`. Refuted: the base "Layout" keeps dated history in
+   `docs/plans/` (base 1449 to 1451), the ruling's own reason is the agents that read the records,
+   and `docs/rulings` is the folder the settings name (`skills/lem/scripts/project.py`, `PATHS`, line
+   317; `.lem/project.toml`). Closed: settled by the two, not checked by the review.
+4. **How the map gives each ruling its own state and day.** A paragraph with two bold spans (base
+   443) has one entry, of which one span changed ("agdoc is required too", by base 891), and an
+   opening of two days gives no one day. Repaired once: a state for each span, and the opening's
+   days as written. Held: the GitHub ruling's paragraph (base 885 to 893) names only the days of the
+   rulings it replaces, its opening (base 842) names "2026-11-20 and 2026-11-21", and criterion 2
+   wants `ruled: 2026-11-20`. Not refuted: the defender agreed. **A design choice**, which
+   "Decisions of the talk" below takes up the ladder. The part of the repair on the two spans
+   closed.
+5. **What happens when a replacement is itself replaced.** The chain at base 71 to 78 and 885 to
+   893. Repaired: the entry in force at the end of the chain takes the text, a replacing ruling takes
+   the replaced file whole, each link to it moves in the same commit, and the unit test checks the
+   links in the two folders. Closed, at the cause for the move rule; the link test is a layer over
+   the replacement rule of criterion 8. Settled by the two, not checked by the review.
+6. **Where a cite of an opening goes.** `docs/plans/2026-11-18-core-and-two-modes.md` (lines 3 and
+   4) cites "His interview ... on what stays in Lem" in `AGENTS.md`, which the short file does not
+   keep. Repaired: Task 3 searches every tracked text for `AGENTS.md` and for each opening's first
+   words, and a cite of an opening names `docs/rulings/`. Closed: settled by the two, not checked by
+   the review.
+7. **How the lists reach the pull request whole.** Under "Decisions" the landing writes one line
+   each (`skills/lem/stages/land.md`, step 6). Repaired: the lists go under the notes' `## Migration`,
+   which `cmd_propose` of `skills/lem/scripts/land.py` (line 3194) asks of a careful request, from a
+   heading of their own in `report.md`. Closed: settled by the two, not checked by the review.
+
+Each mechanism a repair added, with the decision it sits on and the reviewer's word:
+
+- the second sentence of the rule of criterion 7 and the map's field (question 2): a layer over plan
+  decision 3 and criteria 1 and 4, which are approved;
+- the move of a replaced file whole, with its links, in one commit (question 5): at the cause;
+- the unit test of the links in the two folders (question 5): a layer over the replacement rule of
+  criterion 8, which is approved.
+
+No question was raised after the first turn. No addition was refused as unpriced.
+
+What changed in the plan, by question and by task (commit `b1a162f`):
+
+- Task 1: a state for each bold span and the opening's days as written (question 4); the end of the
+  chain (question 5); the field of what a sentence does not name, its group, and a line of the report
+  (question 2).
+- Task 2: `## Changed in part` before the paragraph (question 1); the unit test of the links in the
+  two folders (question 5).
+- Task 3: the second sentence of the rule of criterion 7 (question 2); the move of a replaced file
+  whole with its links (question 5); the search of every text that cites `AGENTS.md`, with the two
+  cites of an opening, and their files (question 6).
+- "Left to the landing": the lists under `## Migration` (question 7).
+
 ## The groups
 
 Each is a `###` heading of the short file and the `area:` of its files, in the same words under
