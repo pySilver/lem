@@ -14,6 +14,14 @@ writes into the owner's profile. A desktop picture is one call:
   --screenshot=media/NAME-after.png URL
 ```
 
+The call ends on a page that holds a request open, as every page of Lem's board holds its event
+stream: on 2026-11-22, with Chrome 157.0.8103.51 on macOS, it wrote the board's "Waits for you" page,
+served by `lem serve`, in 3.9 s, with the stream live at the page's foot. Add no
+`--virtual-time-budget` to it on such a page: with the budget, the same call on the same page did not
+end in 30 s and wrote no picture, and a page of 30 lines with one open `EventSource` did the same. A
+page that needs time to draw after its load takes the DevTools driver below, with a fixed wait before
+the picture (`{"goto": URL, "wait": MS}` in `tests/board-cdp.mjs`).
+
 A phone, a dark scheme, a click before the picture or a part of a page take the DevTools protocol:
 `Emulation.setDeviceMetricsOverride` (390 x 844, `deviceScaleFactor` 2, `mobile` true),
 `Emulation.setTouchEmulationEnabled`, `Emulation.setEmulatedMedia` with `prefers-color-scheme`,
