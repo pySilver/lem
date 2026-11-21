@@ -1,6 +1,8 @@
 """What a landing reads of a repository before its step, as calls of the functions it calls with the
 settings it loaded once: `may_land`, which `lem project may-land` prints. Whether the base branch
-exists is a fact only git shows, and tests/lem-settings.sh checks it in a real repository.
+exists is a fact only git shows, and tests/lem-settings.sh checks it in a real repository. And what
+`lem project prune` does with each task (`task_calls`); what it removes from a folder is
+tests/lem-state.sh's.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -266,6 +268,45 @@ class EventLog(unittest.TestCase):
         project.append_event(self.root, "gate.end", "demo", {"say": SEPARATED, "result": "passed"})
         found = project.events_named(self.root, "gate.end")
         self.assertEqual([record["say"] for record in found], [SEPARATED])
+
+
+class Prune(unittest.TestCase):
+    """What `lem project prune` does with each task, from its state.md and the event log alone: an open
+    task is never touched, an ended one goes once nothing of it was logged for the days, and a state that
+    does not read or that the log does not agree with is skipped with why, never guessed at."""
+
+    CUTOFF = project.datetime(2026, 11, 1, tzinfo=project.timezone.utc)
+
+    @staticmethod
+    def state(status: str) -> str:
+        return f"2026-10-20T10:00Z {status}: the line\n"
+
+    def calls(self, found: list[dict], events: list[dict]) -> dict:
+        return {call["task"]: (call["call"], call.get("why", "")) for call in project.task_calls(found, events, self.CUTOFF)}
+
+    def test_each_call(self):
+        found = [{"slug": slug, "state": text} for slug, text in (
+            ("old-landed", self.state("landed")), ("late-event", self.state("dropped")), ("still-open", self.state("open")),
+            ("no-state-yet", None), ("broken", "not a state line\n"), ("no-event", self.state("answered")),
+            ("log-disagrees", self.state("landed")), ("bad-time", self.state("landed")))]
+        events = [
+            {"ts": "2026-10-20T10:00:00Z", "event": "task.state", "task": "old-landed", "status": "landed"},
+            {"ts": "2026-10-20T10:00:00Z", "event": "task.state", "task": "late-event", "status": "dropped"},
+            # an event after the end, a ticket's step, makes the task young again: its last event is what counts
+            {"ts": "2026-11-02T08:00:00Z", "event": "ticket.step", "task": "late-event"},
+            {"ts": "2026-10-01T10:00:00Z", "event": "task.state", "task": "still-open", "status": "open"},
+            {"ts": "2026-10-20T10:00:00Z", "event": "task.state", "task": "log-disagrees", "status": "open"},
+            {"ts": "yesterday", "event": "task.state", "task": "bad-time", "status": "landed"},
+        ]
+        calls = self.calls(found, events)
+        self.assertEqual({task: call for task, (call, _why) in calls.items()}, {
+            "old-landed": "old", "late-event": "young", "still-open": "open", "no-state-yet": "open", "broken": "skip",
+            "no-event": "skip", "log-disagrees": "skip", "bad-time": "skip"})
+        self.assertIn("does not read", calls["broken"][1])
+        self.assertIn("holds no event of it", calls["no-event"][1])
+        self.assertIn("says landed, and the newest state of it in the event log says open", calls["log-disagrees"][1])
+        self.assertIn("'yesterday'", calls["bad-time"][1])
+
 
 if __name__ == "__main__":
     unittest.main()

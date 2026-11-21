@@ -138,18 +138,21 @@ else
   fail "the experts' seats: $seated / $noform / $noagent / $same / $neither / $alone"
 fi
 
-# the folders of questions in words go after 30 days without a write, at the next brief; other files in the folder stay
+# the folders of questions in words go state.keep_days (30 here) after their last write, with `lem project prune`; a
+# newer one and a folder of another name stay, and a brief removes nothing
 "$PY" -c 'import os, sys, time
 old = time.time() - 31 * 86400
 for root, dirs, files in os.walk(sys.argv[1]):
     for name in files: os.utime(os.path.join(root, name), (old, old))
 os.utime(sys.argv[1], (old, old))' "$QS/$folder"
 mkdir -p "$QS/notes" && "$PY" -c 'import os, sys, time; old = time.time() - 40 * 86400; os.utime(sys.argv[1], (old, old))' "$QS/notes"
-pruned=$(experts brief --question "Which store, once more?" | field 'd["removed"]' || true)
-if [ "$pruned" = "['$folder']" ] && [ ! -e "$QS/$folder" ] && [ -d "$QS/$ofolder" ] && [ -d "$QS/notes" ]; then
-  pass "a question's folder is removed at the next brief once 30 days passed since its last write, and a newer one and a folder of another name stay"
+briefed=$(experts brief --question "Which store, once more?" | field '"removed" in d' || true)
+kept_by_brief=$([ -d "$QS/$folder" ] && echo yes || echo no)
+pruned=$(project --repo "$EX" prune | field '[f["path"] for f in d["folders"] if f["kind"] == "experts"]' || true)
+if [ "$briefed" = False ] && [ "$kept_by_brief" = yes ] && [ "$pruned" = "['experts/$folder']" ] && [ ! -e "$QS/$folder" ] && [ -d "$QS/$ofolder" ] && [ -d "$QS/notes" ]; then
+  pass "a question's folder goes with lem project prune once state.keep_days passed since its last write, a brief removes none, and a newer one and a folder of another name stay"
 else
-  fail "the old folders: $pruned / $(ls "$QS")"
+  fail "the old folders: $briefed / $kept_by_brief / $pruned / $(ls "$QS")"
 fi
 # who the experts are: the settings' seats.experts, which experts.py reads through project.py show, the project's and
 # this machine's own, each named by its model, or by its place (fable, astra) when its seat names none

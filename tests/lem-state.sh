@@ -215,4 +215,85 @@ else
   fail "the watch of the owner's mark: $watched / ${took}s / $heard / $stale / $again_ts $paired / $kept / $stopped_code $(cat "$WORK/watch-stop.out") / $no_seen / $negative / $outside"
 fi
 
+# What the state folder keeps: `lem project prune` removes, once state.keep_days passed, the working files of a task that
+# ended and the old folders of the experts, the panels, the naps and the cast's copies. A task's documents and records
+# stay, and `tasks` and `lem decisions` read it as before; an open task, a young one and one whose state does not read
+# are not touched; a link is never followed, a removal that fails is named and the others go on, and a dry run
+# removes nothing.
+PR=$WORK/prune-repo
+git init -q -b main "$PR" && commit "$PR" start && project --repo "$PR" init --base main >/dev/null
+PS=$(project --repo "$PR" state-dir)
+for slug in old-landed young-landed still-open old-dropped; do project --repo "$PR" task-dir "$slug" --ask "The ask of $slug." >/dev/null; done
+project --repo "$PR" state old-landed landed "main: pull request 1 is merged" >/dev/null
+project --repo "$PR" state young-landed landed "main: pull request 2 is merged" >/dev/null
+project --repo "$PR" state still-open building "lead: builder" >/dev/null
+project --repo "$PR" state old-dropped building "lead: builder" >/dev/null
+"$PY" -B "$DECISIONS" --repo "$PR" log old-dropped --what "Which name?" --chose "A" --why "It reads plainly." --by lead >/dev/null
+project --repo "$PR" state old-dropped dropped "nobody will build it" >/dev/null
+mkdir -p "$PS/tasks/broken-state" && printf 'not a state line\n' > "$PS/tasks/broken-state/state.md"
+OLD=$PS/tasks/old-landed
+mkdir -p "$OLD/media" "$OLD/reviews/old-landed/01-initial/agents" "$OLD/locked"
+"$PY" -c 'import sys; [open(p, "wb").write(b"\x89PNG\r\n\x1a\n" + bytes(8)) for p in sys.argv[1:]]' "$OLD/media/shown.png" "$OLD/media/unshown.png"
+printf '# Report\n\nSee ![it](media/shown.png).\n' > "$OLD/report.md"
+printf '{"proposed": "abc"}\n' > "$OLD/landing.json"
+printf 'started landed\n' > "$OLD/ticket-steps.txt"
+printf '# Round 1\n' > "$OLD/reviews/old-landed/01-initial/report.md"
+printf '{}\n' > "$OLD/reviews/old-landed/01-initial/agents/a.jsonl"
+printf 'scratch\n' > "$OLD/scratch.txt" && printf 'held\n' > "$OLD/locked/held.txt" && printf 'kept outside\n' > "$WORK/outside.txt"
+ln -s "$WORK/outside.txt" "$OLD/link.txt"
+cp "$OLD/scratch.txt" "$PS/tasks/young-landed/scratch.txt" && cp "$OLD/scratch.txt" "$PS/tasks/still-open/scratch.txt" && cp "$OLD/scratch.txt" "$PS/tasks/old-dropped/scratch.txt"
+# the old tasks' events 40 days back, each line kept whole; the old folders 40 days back by their last write or their name
+"$PY" -c 'import json, sys
+from datetime import datetime, timedelta, timezone
+old = (datetime.now(timezone.utc) - timedelta(days=40)).strftime("%Y-%m-%dT%H:%M:%SZ")
+lines = open(sys.argv[1], encoding="utf-8").read().split("\n")
+for n, line in enumerate(lines):
+    if line.strip() and json.loads(line).get("task") in ("old-landed", "old-dropped"):
+        lines[n] = line.replace(json.loads(line)["ts"], old, 1)
+open(sys.argv[1], "w", encoding="utf-8").write("\n".join(lines))' "$PS/events.jsonl"
+mkdir -p "$PS/experts/2026-01-02-101010-an-old-question" "$PS/experts/$(date -u +%Y-%m-%d)-101010-a-new-question" "$PS/experts/notes" \
+  "$PS/panels/2026-01-02-an-old-panel" "$PS/naps/2020-01-02-0300-an-old-dream" "$PS/naps/$(date -u +%Y-%m-%d-%H%M)-a-new-dream" "$PS/personas-cast/0123abc" "$PS/personas-cast/4567def"
+printf 'q\n' > "$PS/experts/2026-01-02-101010-an-old-question/brief.md" && printf 'p\n' > "$PS/panels/2026-01-02-an-old-panel/answer.md"
+printf 'd\n' > "$PS/naps/2020-01-02-0300-an-old-dream/dream.md" && printf 'c\n' > "$PS/personas-cast/0123abc/merchant.md" && printf 'c\n' > "$PS/personas-cast/4567def/merchant.md"
+ln -s "$WORK" "$PS/panels/2026-01-03-a-link"
+"$PY" -c 'import os, sys, time
+old = time.time() - 40 * 86400
+for top in sys.argv[1:]:
+    for root, dirs, files in os.walk(top):
+        for name in files: os.utime(os.path.join(root, name), (old, old))
+    os.utime(top, (old, old))' "$PS/experts/2026-01-02-101010-an-old-question" "$PS/experts/notes" "$PS/panels/2026-01-02-an-old-panel" "$PS/personas-cast/0123abc"
+listing() { (cd "$PS" && find . -not -type d | LC_ALL=C sort | tr '\n' ' '); }
+before_dry=$(listing)
+dry=$(project --repo "$PR" prune --dry-run)
+after_dry=$(listing)
+dry_all=$(project --repo "$PR" prune --dry-run --days 0)
+no_days=$(project --repo "$PR" prune --days 3 2>&1 || true)
+chmod 555 "$OLD/locked"
+real_code=0
+real=$(project --repo "$PR" prune) || real_code=$?
+chmod 755 "$OLD/locked"
+again=$(project --repo "$PR" prune)
+tasks_after=$(project --repo "$PR" tasks | field '[(t["slug"], t["status"], t["ticket_steps"]) for t in d if t["slug"] in ("old-landed", "old-dropped")]')
+decided=$("$PY" -B "$DECISIONS" --repo "$PR" list old-dropped 2>&1 || true)
+if [ "$before_dry" = "$after_dry" ] && [ "$(field '(d["dry_run"], d["keep_days"], d["from"], [t["task"] for t in d["tasks"]])' <<<"$dry")" = "(True, 30, 'state.keep_days', ['old-dropped', 'old-landed'])" ] \
+  && [ "$(field '[t["task"] for t in d["tasks"]]' <<<"$dry_all")" = "['old-dropped', 'old-landed', 'young-landed']" ] && [ "$(field 'd["from"]' <<<"$dry_all")" = "--days 0" ] \
+  && grep -qF -- "--days goes with --dry-run only" <<<"$no_days" && [ "$real_code" = 1 ] \
+  && [ "$(field '[f["path"] for f in d["failed"]]' <<<"$real")" = "['tasks/old-landed/locked/held.txt']" ] \
+  && [ "$(field 'sorted(f["path"] for f in d["folders"])' <<<"$real")" = "['experts/2026-01-02-101010-an-old-question', 'naps/2020-01-02-0300-an-old-dream', 'panels/2026-01-02-an-old-panel', 'personas-cast/0123abc']" ] \
+  && [ "$(field '[(t["task"], t["files"]) for t in d["tasks"]]' <<<"$again")" = "[('old-landed', ['locked/held.txt'])]" ] && [ "$(field '(d["folders"], d["failed"])' <<<"$again")" = "([], [])" ] \
+  && [ ! -e "$OLD/scratch.txt" ] && [ ! -e "$OLD/media/unshown.png" ] && [ ! -e "$OLD/reviews/old-landed/01-initial/agents" ] && [ ! -e "$PS/tasks/old-dropped/scratch.txt" ] \
+  && [ -f "$OLD/media/shown.png" ] && [ -f "$OLD/report.md" ] && [ -f "$OLD/reviews/old-landed/01-initial/report.md" ] && [ -f "$OLD/state.md" ] && [ -f "$OLD/ask.txt" ] \
+  && [ -f "$OLD/landing.json" ] && [ -f "$OLD/ticket-steps.txt" ] && [ ! -e "$OLD/locked" ] && [ -L "$OLD/link.txt" ] && [ "$(cat "$WORK/outside.txt")" = "kept outside" ] \
+  && [ -f "$PS/tasks/young-landed/scratch.txt" ] && [ -f "$PS/tasks/still-open/scratch.txt" ] && [ -f "$PS/tasks/old-dropped/decisions.jsonl" ] \
+  && [ ! -e "$PS/experts/2026-01-02-101010-an-old-question" ] && [ -d "$PS/experts/notes" ] && [ -d "$PS/experts/$(date -u +%Y-%m-%d)-101010-a-new-question" ] \
+  && [ ! -e "$PS/panels/2026-01-02-an-old-panel" ] && [ -L "$PS/panels/2026-01-03-a-link" ] && [ -d "$WORK/no-repo" ] \
+  && [ ! -e "$PS/naps/2020-01-02-0300-an-old-dream" ] && [ -d "$PS/naps/$(date -u +%Y-%m-%d-%H%M)-a-new-dream" ] && [ ! -e "$PS/personas-cast/0123abc" ] && [ -d "$PS/personas-cast/4567def" ] \
+  && grep -qF "'tasks/broken-state'" <<<"$(field '[s["path"] for s in d["skipped"]]' <<<"$again")" && grep -qF "'tasks/old-landed/link.txt'" <<<"$(field '[s["path"] for s in d["skipped"]]' <<<"$again")" \
+  && grep -qF "'panels/2026-01-03-a-link'" <<<"$(field '[s["path"] for s in d["skipped"]]' <<<"$again")" \
+  && [ "$tasks_after" = "[('old-dropped', 'dropped', []), ('old-landed', 'landed', ['started', 'landed'])]" ] && grep -qF "Which name?" <<<"$decided"; then
+  pass "lem project prune removes the working files of a task that ended before state.keep_days and the old folders of the experts, the panels, the naps and the cast's copies, keeps every document, record and shown picture, and tasks and decisions read the task as before; an open or young task and a state that does not read are not touched, a link is never followed, a failed removal is named with exit 1, and a dry run removes nothing"
+else
+  fail "the prune: $dry / $dry_all / $no_days / $real_code / $real / $again / $tasks_after / ${decided:0:300} / $(listing)"
+fi
+
 finish

@@ -70,6 +70,20 @@ An optional agent that reads the recent tasks and leaves a note for the retro.
 | --- | --- | --- |
 | `naps.on` | `false` | `true` turns the naps on |
 
+## `[state]`
+
+Lem keeps the files of its work in `.lem/state/`, and git does not see this folder. The board
+server removes the old files from it each hour. It removes the working files of a task that ended:
+the notes of an agent, the archive of a review round, a picture that no document shows. It keeps
+the documents and the records of the task. It also removes a question to the experts, the folder
+of a persona panel, a nap and a copy of the personas that nobody used for that number of days. To
+see what a number removes, type `lem project prune --dry-run --days 7`. This command removes
+nothing.
+
+| Setting | Default | Use |
+| --- | --- | --- |
+| `state.keep_days` | `30` | the days after which an old file goes. Lem counts from the last event of a task that ended, and from the last write of a folder. A whole number, `1` or more |
+
 ## `[tracker]`
 
 Leave this table out with no tracker. [Connect Linear](linear.md) tells you how to fill it.

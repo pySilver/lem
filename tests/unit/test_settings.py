@@ -136,13 +136,45 @@ class TaskWorktree(Refuses):
             read("[branch]", 'base = "main"', "[flow]", 'topics = ["a customer is charged the wrong price"]'),
         )
         self.assertEqual((found["flow"]["topics"], found["naps"]["on"], found["branch"]["land"]), (["a customer is charged the wrong price"], False, "agent"))
-        self.assertEqual(found["settings_from"], "this worktree's branch, with [flow] and [naps] from main@012345678")
+        self.assertEqual(found["settings_from"], "this worktree's branch, with [flow], [naps] and [state] from main@012345678")
+
+    def test_the_days_the_state_keeps_come_from_the_base(self):
+        found = self.in_tree(read("[state]", "keep_days = 1"), read("[state]", "keep_days = 14"))
+        self.assertEqual(found["state"], {"keep_days": 14})
+        self.assertEqual(self.in_tree(read("[state]", "keep_days = 1"), {})["state"], {"keep_days": project.KEEP_DAYS})
+        self.assertNames(self.refused(self.in_tree, read("[state]", "keep_days = 0"), {}), "state.keep_days")
 
     def test_the_branch_own_flow_is_still_checked(self):
         self.assertNames(self.refused(self.in_tree, read("[flow]", 'topics = "money"'), {}), "flow.topics")
 
     def test_a_wrong_naps_switch_on_the_base_names_the_base_commit(self):
         self.assertNames(self.refused(self.in_tree, {}, read("[naps]", 'on = "yes"')), "main:.lem/project.toml", "naps.on")
+
+
+class KeepDays(Refuses):
+    """How long the state folder keeps what Lem no longer needs: one whole number of days of the project's
+    file, 30 by default, and in no file of one machine."""
+
+    def test_the_default_is_the_owners_thirty(self):
+        self.assertEqual((settings()["state"], project.KEEP_DAYS), ({"keep_days": 30}, 30))
+        self.assertEqual(settings("[state]", "keep_days = 7")["state"], {"keep_days": 7})
+
+    def test_a_number_that_is_no_whole_number_of_days_is_refused_with_the_fix(self):
+        for value in ("0", "-3", "7.5", '"7"', "true"):
+            self.assertNames(self.refused_settings("[state]", f"keep_days = {value}"), str(project.SETTINGS), "state.keep_days",
+                             "a whole number of days, 1 or more", "keep_days = 30")
+
+    def test_another_key_and_the_local_file_are_refused(self):
+        self.assertNames(self.refused(read, "[state]", "days = 7"), "unknown key state.days", "keep_days")
+        local = ROOT / project.LOCAL
+        self.assertNames(self.refused(project.settings_of, "[state]\nkeep_days = 7\n", local, project.LOCAL_TABLES),
+                         "[state] is the project's rule and belongs in .lem/project.toml")
+
+    def test_the_template_writes_the_key_with_its_source(self):
+        self.assertIn("[state]", project.TEMPLATE)
+        self.assertIn("keep_days = 30", project.TEMPLATE)
+        words = " ".join(project.TEMPLATE.replace("# ", "").split())
+        self.assertIn("The default, 30, is the owner's word of 2026-11-21, and the two constants it replaces, which were guesses.", words)
 
 
 class Paths(Refuses):

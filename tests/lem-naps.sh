@@ -18,8 +18,8 @@ ago() { "$PY" -c 'import sys, datetime as d; print((d.datetime.now(d.timezone.ut
 woke() { mkdir -p "$NAPS/$1" && printf '# A dream\n\nA field.\n' > "$NAPS/$1/dream.md" && printf 'x\n' > "$NAPS/$1/thing.txt" && printf '# Waking\n\nNothing.\n' > "$NAPS/$1/waking.md"; }
 naps_on() { "$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^on = false$", "on = true", s, count=1))' "$NP/.lem/project.toml"; }
 
-# The settings: one switch, off; the 30 days and the 6 hours are fixed, each guess said so in the file; a wrong value
-# or a key it does not know is refused by its key.
+# The settings: one switch, off; the 6 hours are fixed, a guess the file says so of, and a nap's folder is kept for
+# state.keep_days; a wrong value or a key it does not know is refused by its key.
 shown=$(project --repo "$NP" show | field 'd["naps"]')
 template=$(sed -n '/^\[naps\]$/,$p' "$NP/.lem/project.toml")
 bad() {
@@ -30,10 +30,10 @@ bad() {
 }
 if [ "$shown" = "{'on': False}" ] \
   && grep -qx 'on = false' <<<"$template" \
-  && grep -qF '6 hours pass between two naps' <<<"$template" && grep -qF 'kept 30 days: two guesses' <<<"$template" && grep -q 'nobody has shown that it helps' <<<"$template" \
+  && grep -qF '6 hours pass between two naps: a guess' <<<"$template" && grep -qF "A nap's folder is kept for state.keep_days." <<<"$template" && grep -q 'nobody has shown that it helps' <<<"$template" \
   && grep -qF "naps.on = 'yes' must be true or false" <<<"$(bad word 'on = "yes"')" \
   && grep -qF "unknown key naps.often" <<<"$(bad key 'often = 2')"; then
-  pass "the naps' settings: one switch, off; 30 days and 6 hours are fixed and the template says each is a guess; a wrong value or a key it does not know is refused by its key"
+  pass "the naps' settings: one switch, off; 6 hours are fixed and the template says it is a guess, and a nap's folder is kept for state.keep_days; a wrong value or a key it does not know is refused by its key"
 else
   fail "the naps' settings: $shown / $template"
 fi
@@ -43,7 +43,7 @@ fi
 git -C "$NP" worktree add -q "$WORK/nap-tree" -b feat/naps-on main
 "$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^on = false$", "on = true", s, count=1))' "$WORK/nap-tree/.lem/project.toml"
 git -C "$WORK/nap-tree" -c user.name=t -c user.email=t@t commit -q -am "chore: the naps on"
-from_branch=$(project --repo "$WORK/nap-tree" show | field '(d["naps"]["on"], d["settings_from"].startswith("this worktree'"'"'s branch, with [flow] and [naps] from the main checkout"))')
+from_branch=$(project --repo "$WORK/nap-tree" show | field '(d["naps"]["on"], d["settings_from"].startswith("this worktree'"'"'s branch, with [flow], [naps] and [state] from the main checkout"))')
 git -C "$NP" worktree remove --force "$WORK/nap-tree" && git -C "$NP" branch -q -D feat/naps-on
 if [ "$from_branch" = "(False, True)" ]; then
   pass "in a task's worktree the naps' table is the main checkout's: a branch that switches the naps on changes nothing, and show says where both tables come from"
@@ -98,7 +98,8 @@ else
   fail "may-nap and the gap: $stale / $due"
 fi
 
-# Old naps go; a folder whose name holds no time, and a link, never do. A broken record is refused by its file.
+# Old naps go with `lem project prune`, which may-nap leaves to it; a folder whose name holds no time, and a link, never
+# do. A broken record is refused by its file.
 rm -f "$NAPS/.asleep"
 woke "2026-01-01-0000-the-first"
 TWO=$(ago 47)-two-days
@@ -106,15 +107,17 @@ woke "$TWO"
 mkdir -p "$NAPS/not-a-nap" && touch -t 202601010000 "$NAPS/not-a-nap"
 ln -s "$NAPS/2026-01-01-0000-the-first" "$NAPS/2026-01-02-0000-a-link"
 cleaned=$(nap)
+pruned=$(project --repo "$NP" prune)
 printf 'not json\n' > "$NAPS/.asleep"
 broken=$(nap 2>&1 || true); broken_code=$(status_of nap)
 rm -f "$NAPS/.asleep"
-if [ "$(field 'd["removed"]' <<<"$cleaned")" = "['2026-01-01-0000-the-first']" ] && [ -d "$NAPS/not-a-nap" ] && [ -L "$NAPS/2026-01-02-0000-a-link" ] \
+if [ "$(field '"removed" in d' <<<"$cleaned")" = False ] && [ "$(field '[f["path"] for f in d["folders"]]' <<<"$pruned")" = "['naps/2026-01-01-0000-the-first']" ] \
+  && [ ! -e "$NAPS/2026-01-01-0000-the-first" ] && [ -d "$NAPS/not-a-nap" ] && [ -L "$NAPS/2026-01-02-0000-a-link" ] \
   && [ -d "$NAPS/$TWO" ] && [ -d "$NAPS/$LONG" ] \
   && [ "$broken_code" = 1 ] && grep -qF "$NAPS/.asleep is not the record may-nap writes" <<<"$broken"; then
-  pass "may-nap removes the naps older than 30 days and names them, keeps a younger one, never a folder whose name holds no time or a link, and refuses a broken record of a start by its file"
+  pass "lem project prune removes the naps older than state.keep_days and names them, may-nap removes none, a younger one stays, and so do a folder whose name holds no time and a link; may-nap refuses a broken record of a start by its file"
 else
-  fail "may-nap's removal: $cleaned / $broken"
+  fail "the removal of old naps: $cleaned / $pruned / $broken"
 fi
 rm -f "$NAPS/2026-01-02-0000-a-link"
 

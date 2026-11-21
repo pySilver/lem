@@ -31,7 +31,9 @@ a session running in that worktree keeps the project's people without a rebase. 
 remote default branch, the newer one is read: work can land on either side first. The files
 are written once per commit in Lem's state folder (`.lem/state/personas-cast/<sha>/` of the main
 checkout, as `lem_state.py` names it), which git never shows and every worktree shares; `source`
-names the branch and commit.
+names the branch and commit. Each read writes its time on the copy it reads, here and for the
+copies of the profile and of a persona below, and `lem project prune` removes a copy that nobody
+wrote or read for `state.keep_days` days.
 
 The profile, at the settings' profile path (.lem/profile.md unless they say otherwise), says
 what the project is: the product, its scale, its rules and
@@ -67,8 +69,9 @@ already has a cast, which a rebase brings in instead.
 
 `run-dir` makes panels/<YYYY-MM-DD>-<SLUG>/ in Lem's state folder (`.lem/state/panels/` of the main
 checkout) and prints its path. Git never shows the state folder, so a panel's files never show in
-`git status` and a project needs no ignore rule of its own; a worktree's removal does not take them.
-An existing folder is refused, so two panels never write into one.
+`git status` and a project needs no ignore rule of its own; a worktree's removal does not take them,
+and `lem project prune` removes the folder `state.keep_days` days after its last write. An existing
+folder is refused, so two panels never write into one.
 """
 
 import sys
@@ -318,6 +321,8 @@ def default_branch_cast(root: Path) -> tuple[str, Path, str] | None:
                 if not target.is_dir():
                     raise
                 shutil.rmtree(staging)
+        else:
+            read_now(target)
         return f"{label} at {sha[:9]}", target, ref
     return None
 
@@ -356,7 +361,19 @@ def state_file(root: Path, folder: str, name: str, body: bytes) -> Path:
             if not target.is_file():
                 raise
             staging.unlink()
+    else:
+        read_now(target)
     return target
+
+
+def read_now(copy: Path) -> None:
+    """Write the time of this read on a copy in the state folder: `lem project prune` removes a copy
+    by its last write, so a copy a panel still reads stays. A copy that cannot take the time is read
+    all the same."""
+    try:
+        os.utime(copy)
+    except OSError:
+        pass
 
 
 def profile(root: Path) -> dict[str, str] | None:

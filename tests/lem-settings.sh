@@ -30,11 +30,11 @@ if [ "$shown_keys" = "$template_keys" ] && [ "$shown_keys" = "['commands', 'seri
 else
   fail "the [checks] keys of the template: $template_keys, of show: $shown_keys"
 fi
-# The settings are 19 keys, one to one in show (with a tracker, whose one key is its kind), in the file init writes (a
+# The settings are 21 keys, one to one in show (with a tracker, whose one key is its kind), in the file init writes (a
 # commented line counts) and on the settings page.
 printf '%s\n' '' '[tracker]' 'kind = "linear"' > "$WORK/tracker.toml"
 cp "$NEW/.lem/project.toml" "$WORK/template.toml" && cat "$WORK/tracker.toml" >> "$NEW/.lem/project.toml"
-shown=$(project --repo "$NEW" show | field 'sorted(f"{table}.{key}" for table in ("paths", "branch", "checks", "flow", "seats", "corrections", "tracker", "naps") for key in d[table])')
+shown=$(project --repo "$NEW" show | field 'sorted(f"{table}.{key}" for table in ("paths", "branch", "checks", "flow", "seats", "corrections", "tracker", "naps", "state") for key in d[table])')
 cp "$WORK/template.toml" "$NEW/.lem/project.toml"
 written=$("$PY" -I -c 'import re, sys
 table, found = None, set()
@@ -46,8 +46,8 @@ for line in open(sys.argv[1], encoding="utf-8"):
 print(sorted(found))' "$NEW/.lem/project.toml")
 # shellcheck disable=SC2016  # the backticks are the refusal's or the page's own marks
 paged=$("$PY" -I -c 'import re, sys; print(sorted(set(re.findall(r"^\| `(\w+\.\w+)` \|", open(sys.argv[1], encoding="utf-8").read(), re.M))))' "$PWD/docs/settings.md")
-if [ "$shown" = "$written" ] && [ "$shown" = "$paged" ] && [ "$("$PY" -c 'import sys; print(len(eval(sys.argv[1])))' "$shown")" = 20 ]; then
-  pass "the settings are 20 keys, the same in show, in the file init writes and on the settings page"
+if [ "$shown" = "$written" ] && [ "$shown" = "$paged" ] && [ "$("$PY" -c 'import sys; print(len(eval(sys.argv[1])))' "$shown")" = 21 ]; then
+  pass "the settings are 21 keys, the same in show, in the file init writes and on the settings page"
 else
   fail "the keys of the settings: show $shown / the file $written / the page $paged"
 fi
