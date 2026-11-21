@@ -1119,20 +1119,30 @@ def act_merge(workspace: Workspace, slug: str, form: dict, via: str) -> str:
     tip = str(landing.get("proposed") or "")
     if not tip or form.get("tip") != tip:
         return NOTES.put(task=slug, act="merge", state="refused", said="The branch was proposed again since the confirm step showed it: nothing was merged. Read the confirm step again.")
-    return merge_in_thread(workspace, slug, landing, "owner", lambda: asked_from(workspace, slug, "merge", via))
+    # the tip the confirm step showed goes with the merge: land.py merges that proposal or nothing
+    return merge_in_thread(workspace, slug, landing, "owner", tip, lambda: asked_from(workspace, slug, "merge", via))
 
 
-def merge_args(landing: dict, slug: str, by: str, standing: bool = False) -> list[str]:
-    """land.py's MERGE_STEP for a task, `--by BY --via server`, with the proposal's title as the one
-    commit's subject where the history is squashed, and `--standing` for the owner's merge that a moved
-    base refused and that stood through the new landing."""
-    args = [MERGE_STEP, slug, "--by", by, "--via", "server", *(["--standing"] if standing else [])]
+def merge_tip_of(landing: dict, by: str) -> str:
+    """The tip the server's own merge is for, from the landing record: the merge agent's, the one its
+    review read; the owner's that stood through a new landing, the one his merge stands for. "" when the
+    record has none, which land.py refuses."""
+    kept = landing.get("merge_review" if by == "merger" else "owner_tap")
+    return str(kept.get("tip") or "") if isinstance(kept, dict) else ""
+
+
+def merge_args(landing: dict, slug: str, by: str, tip: str, standing: bool = False) -> list[str]:
+    """land.py's MERGE_STEP for a task, `--by BY --via server --tip TIP`, TIP being the commit the
+    merge is for (the one the owner saw, or the one the merge agent read), with the proposal's title as
+    the one commit's subject where the history is squashed, and `--standing` for the owner's merge that
+    a moved base refused and that stood through the new landing."""
+    args = [MERGE_STEP, slug, "--by", by, "--via", "server", "--tip", tip, *(["--standing"] if standing else [])]
     if landing.get("history") == "squash" and landing.get("title"):
         args += ["--message", str(landing["title"])]
     return args
 
 
-def merge_in_thread(workspace: Workspace, slug: str, landing: dict, by: str, after=None, failed=None, standing: bool = False) -> str:
+def merge_in_thread(workspace: Workspace, slug: str, landing: dict, by: str, tip: str, after=None, failed=None, standing: bool = False) -> str:
     """Run the merge of a task, the owner's or the merge agent's (`merge_args`), in a thread of its own,
     one call at a time with the server's other calls into Lem's scripts (`lem_run`), and the token of its
     note at once: the note says that it runs (NOTES.merging, which the board reads as "Merging…") until
@@ -1142,7 +1152,7 @@ def merge_in_thread(workspace: Workspace, slug: str, landing: dict, by: str, aft
     pr = landing.get("pr") if isinstance(landing.get("pr"), dict) else None
     what = f"pull request #{pr['number']}" if pr and pr.get("number") else f"the branch {landing.get('branch') or slug}"
     base = landing.get("base") or "the base branch"
-    args = merge_args(landing, slug, by, standing)
+    args = merge_args(landing, slug, by, tip, standing)
     token, new = NOTES.start_merge((workspace.name, slug), task=slug, act="merge", state="running",
                                    said=f"Lem merges {what} into {base}. The page shows the result when it ends.")
     if not new:
@@ -2070,7 +2080,8 @@ def run_duties(workspace: Workspace, now: float | None = None) -> list[dict]:
                 # a refusal land.py kept ends the duty for that tip; any other end waits DUTY_RETRY
                 workspace.failed[key] = time.monotonic()
             # `why` is who merges: the merge agent, or the owner whose merge stood through a new landing
-            merge_in_thread(workspace, slug, workspace.landing_of(slug), why, failed=failed, standing=why == "owner")
+            landing = workspace.landing_of(slug)
+            merge_in_thread(workspace, slug, landing, why, merge_tip_of(landing, why), failed=failed, standing=why == "owner")
             ran.append({"verb": verb, "task": slug, "why": why, "exit": None, "said": "started"})
             continue
         # a conflict's wake keeps the head the forge named on its record (`session.wake`), one wake for each head

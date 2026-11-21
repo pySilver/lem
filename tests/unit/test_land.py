@@ -450,6 +450,23 @@ class EventLog(unittest.TestCase):
         self.assertEqual((land.waits_of(self.task, "2026-11-21T09:00:00Z") or {}).get("say"), self.WORDS)
 
 
+class ExpectedTip(unittest.TestCase):
+    """`land.expected_refusal`: a merge given the tip its caller saw (`--tip`) merges that proposal only."""
+
+    def test_the_tip_that_was_proposed(self) -> None:
+        self.assertIsNone(land.expected_refusal("a" * 40, "a" * 40, "gift-note"))
+        self.assertIsNone(land.expected_refusal(None, "a" * 40, "gift-note"))
+
+    def test_a_tip_proposed_after_it_is_refused(self) -> None:
+        said = land.expected_refusal("a" * 40, "b" * 40, "gift-note")
+        self.assertIn(f"the merge was asked for {'a' * 9}, and the proposal is {'b' * 9} now", said)
+        self.assertIn("nothing was merged", said)
+
+    def test_an_empty_or_short_tip_is_refused(self) -> None:
+        self.assertIn("the whole commit", land.expected_refusal("", "a" * 40, "gift-note"))
+        self.assertIn("the whole commit", land.expected_refusal("a" * 9, "a" * 40, "gift-note"))
+
+
 class ForgeBase(unittest.TestCase):
     """`land.base_refusal`: a pull request whose base on GitHub is not the task's base is neither merged
     nor recorded as landed, and the refusal names the branch GitHub has."""

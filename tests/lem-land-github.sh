@@ -112,13 +112,18 @@ else
   fail "a second proposal: $no_pr / $(cat "$WORK/gh.json")"
 fi
 merge_read "$GHS" pr-change >/dev/null
-out=$(gh_land merge pr-change --by merger)
+# a merge for another commit than the one proposed now (the one a confirm step or a review saw before) merges nothing and keeps nothing
+seen=$(git -C "$GHS" rev-parse main)
+stale=$(gh_land merge pr-change --by merger --tip "$seen" 2>&1 || true)
+stale_kept=$(kept_in "$GHS" pr-change merge_refused)
+out=$(gh_land merge pr-change --by merger --tip "$tip")
 if [ "$(field '(d["merged"], d["pull_request"]["number"], d["left_behind"])' <<<"$out")" = "('$tip', 7, None)" ] && [ "$(status_in "$GHS" pr-change)" = landed ] \
+  && grep -qF "the merge was asked for ${seen:0:9}, and the proposal is ${tip:0:9} now" <<<"$stale" && grep -qF "nothing was merged" <<<"$stale" && [ "$stale_kept" = None ] \
   && [ "$(gh_state '[c for c in d["calls"] if c[:2] == ["pr", "merge"]]')" = "[['pr', 'merge', '7', '--match-head-commit', '$tip', '--rebase']]" ] \
   && [ "$(git -C "$GHS" rev-parse main)" = "$tip" ] && [ -f "$GHS/p.txt" ]; then
-  pass "a pull request is merged through the forge, only at the commit that was proposed, and the main checkout follows"
+  pass "a pull request is merged through the forge, only at the commit that was proposed and that the caller saw, and the main checkout follows"
 else
-  fail "merging a pull request: $out"
+  fail "merging a pull request: $stale / $out"
 fi
 out=$(gh_land clean pr-change)
 if [ "$(field '(d["worktree"], d["branch"])' <<<"$out")" = "(True, 'fix/pr-change')" ] && [ -z "$(git -C "$GHO" branch --list fix/pr-change)" ]; then

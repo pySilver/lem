@@ -283,7 +283,9 @@ landing up as after a cut-off.
    proposal (a builder's commit, a resolved conflict) prints `"merge_review": null` and is read
    again: a review of an earlier tip counts for nothing.
 8. **The merge.** One route for every merge: `lem land merge SLUG --by owner|merger` merges the
-   pull request through GitHub, at the commit that was proposed, so GitHub's own rules hold. Lem's
+   pull request through GitHub, at the commit that was proposed, so GitHub's own rules hold. The
+   board's server gives it `--tip`, the commit the owner's confirm step showed or the merge agent's
+   review read: a proposal made since is refused, with nothing merged or kept. Lem's
    merge calls go one at a time: a second `lem land merge` waits for the end of the one that runs,
    logs `merge.wait` for the board ("waits for the merge of gift-note"), and reads the base branch
    after the first one merged. When the owner says to land several tasks, run their `merge` steps

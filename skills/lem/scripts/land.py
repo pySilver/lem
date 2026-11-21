@@ -40,11 +40,13 @@ may-land` about the settings' base branch, so a protected branch is never reache
     lem land merge-review SLUG --file FILE
                            write down the merge agent's reply as merge-review.md: its verdict,
                            merge or call, and whether the owner is called
-    lem land merge SLUG --by owner|merger [--message SUBJECT] [--via session|server] [--standing]
+    lem land merge SLUG --by owner|merger [--message SUBJECT] [--via session|server] [--standing] [--tip COMMIT]
                            merge the pull request through GitHub: the owner's word, or the merge
                            agent's where the settings and the request allow it; `--via server`
                            when the board's server runs it, `--standing` for the owner's merge
-                           that a moved base refused and that stood through the new landing
+                           that a moved base refused and that stood through the new landing;
+                           `--tip` the commit the caller saw, which must be the one proposed now
+                           (the board's server always gives it)
     lem land merged SLUG   the owner merged the pull request on the forge: finish the bookkeeping;
                            or he closed it with no merge: the task is dropped
     lem land clean SLUG    remove the task's worktree and its branch after the merge
@@ -3704,11 +3706,30 @@ def cmd_merge_review(task: Task, record: str | None) -> dict:
     return {"task": task.slug, "review": str(task.directory / "merge-review.md"), "verdict": verdict, "calls": calls, "why": why, "by": seat["seat"], "next": after}
 
 
-def cmd_merge(task: Task, by: str, message: str | None, via: str, standing: bool = False) -> dict:
+def expected_refusal(expected: str | None, proposed: str | None, slug: str) -> str | None:
+    """Why a merge given the tip its caller saw (EXPECTED, `--tip`: the commit the owner's confirm step
+    showed, the one the merge agent's review read, the one his standing merge was of) may not merge
+    the tip proposed now; None when they are one, or when no tip was given."""
+    if expected is None:
+        return None
+    if not re.fullmatch(r"[0-9a-f]{40}", expected):
+        return f"--tip is the whole commit the merge is for, 40 hex digits, as `landing.json` keeps `proposed`, and it is {expected!r}; nothing was merged"
+    if expected != proposed:
+        return (f"the merge was asked for {expected[:9]}, and the proposal is {str(proposed)[:9]} now: the branch was proposed again since, and nothing was merged. "
+                f"The new proposal is read again (`lem land merge-review {slug}`), and the owner's word is for the commit he saw")
+    return None
+
+
+def cmd_merge(task: Task, by: str, message: str | None, via: str, standing: bool = False, expected: str | None = None) -> dict:
     if task.record["status"] != "open":
         raise LandError(f"the task is {task.record['status']!r}, not `open`; `lem land propose {task.slug}` comes first")
     if standing and by != "owner":
         raise LandError("--standing is the owner's merge that stood through a new landing: it goes with --by owner")
+    # Under the task's step lock, so no proposal comes in between, and before anything of the merge is
+    # kept: a word for another commit than the one proposed now merges nothing and stands for nothing.
+    wrong = expected_refusal(expected, task.kept().get("proposed"), task.slug)
+    if wrong:
+        raise LandError(wrong)
     with merge_lock(task, by, via, standing):
         # another call may have merged this task, or the owner closed it, while this one waited
         task.read_states()
@@ -3896,7 +3917,7 @@ def step(task: Task, args: argparse.Namespace) -> dict:
     if args.command == "merge-review":
         return cmd_merge_review(task, args.file and task_file(args.file, "--file", task.directory, here))
     if args.command == "merge":
-        return cmd_merge(task, args.by, args.message, args.via, args.standing)
+        return cmd_merge(task, args.by, args.message, args.via, args.standing, args.tip)
     if args.command == "merged":
         return cmd_merged(task)
     return cmd_clean(task)
@@ -3939,6 +3960,7 @@ def main(argv: list[str] | None = None) -> None:
     merge.add_argument("--message", help="the subject of the one commit, when branch.history is \"squash\"")
     merge.add_argument("--via", choices=("session", "server"), default="session", help="who runs this call: a session (the default), or the board's server, which runs the merge agent's merge and the owner's merge from the board")
     merge.add_argument("--standing", action="store_true", help="with --by owner: the owner's merge that a moved base refused and that stood through the new landing; the board's server runs it")
+    merge.add_argument("--tip", metavar="COMMIT", help="the whole commit the caller saw: the one the board's confirm step showed, the one the merge review read; any other proposal is refused, and nothing is merged or kept")
     args = parser.parse_args(argv)
     try:
         task = Task(Path(args.repo), args.slug)

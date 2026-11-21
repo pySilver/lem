@@ -240,8 +240,15 @@ class Duties(unittest.TestCase):
         self.assertEqual(serve.duties(self.model(*again, stands), {}, set(), {"gift-note"}), [])
         conflicting = {"gift-note": {"mergeable": "CONFLICTING", "head": "def456789aaa"}}
         self.assertEqual(serve.duties(self.model(*again, stands, self.ev(8, "session.wake", session="S1", why="conflict")), conflicting, set()), [])
-        self.assertEqual(serve.merge_args({"history": "squash", "title": "fix: x"}, "gift-note", "owner", True),
-                         ["merge", "gift-note", "--by", "owner", "--via", "server", "--standing", "--message", "fix: x"])
+        self.assertEqual(serve.merge_args({"history": "squash", "title": "fix: x"}, "gift-note", "owner", "def456789" + "0" * 31, True),
+                         ["merge", "gift-note", "--by", "owner", "--via", "server", "--tip", "def456789" + "0" * 31, "--standing", "--message", "fix: x"])
+
+    def test_the_servers_merge_takes_the_tip_that_was_read(self):
+        # the merge agent's merge is of the tip its review read, the owner's that stood of the tip he merged
+        landing = {"proposed": "c" * 40, "merge_review": {"tip": "a" * 40, "verdict": "merge"}, "owner_tap": {"tip": "b" * 40}}
+        self.assertEqual(serve.merge_tip_of(landing, "merger"), "a" * 40)
+        self.assertEqual(serve.merge_tip_of(landing, "owner"), "b" * 40)
+        self.assertEqual(serve.merge_tip_of({"proposed": "c" * 40}, "merger"), "")
 
     def test_a_failed_bookkeeping_of_a_merged_pull_request_is_tried_again(self):
         key = ("gift-note", 41)
