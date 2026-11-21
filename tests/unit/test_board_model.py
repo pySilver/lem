@@ -403,6 +403,14 @@ class Workspace(unittest.TestCase):
         self.assertEqual([t.slug for t in m.lane["done"]], ["new-one", "old-one"])
         self.assertNotIn("early", [t.slug for t in m.tasks])
 
+    def test_done_keeps_every_ended_task_and_the_ones_after_its_newest_20_are_the_older(self):
+        ended = ("landed", "dropped", "answered")
+        m = model(*(state(i, ended[i % 3], "it ended", task=f"task-{i:02d}") for i in range(25)), state(30, "building", "task 1 of 2", task="builds"))
+        self.assertEqual(bm.DONE_SHOWN, 20)
+        self.assertEqual(len(m.lane["done"]), 25)
+        self.assertEqual([t.slug for t in bm.done_older(m)], ["task-04", "task-03", "task-02", "task-01", "task-00"])
+        self.assertEqual(bm.done_older(model(*(state(i, "landed", "merged", task=f"task-{i:02d}") for i in range(20)))), [])
+
     def test_the_phases_of_the_fast_track_and_of_the_standard_track(self):
         fast = one(state(0, "building", "small change: one builder"), state(9, "landing", "the checks start"))
         self.assertEqual((bm.phases_of(fast)["names"][0], bm.phases_of(fast)["at"]), ("Change", 1))

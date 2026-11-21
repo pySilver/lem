@@ -126,6 +126,11 @@ body { font-size: 14px; line-height: 1.5; }
 .col-head .ibtn { margin-left: auto; }
 .col-body { flex: 1; min-height: 0; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
 .col-empty { padding: 14px 10px; text-align: center; color: var(--faint); font-size: 13px; border: 1px dashed var(--line-strong); border-radius: 10px; }
+/* Done's foot row: the ended tasks it has no card for, as the way to their list */
+.col-more { display: flex; align-items: center; justify-content: center; gap: 8px; flex: none; padding: 9px 10px; font-size: 13px; font-weight: 600;
+  color: var(--dim); text-decoration: none; border: 1px dashed var(--line-strong); border-radius: 10px; }
+.col-more:hover { color: var(--fg); background: var(--tile-hi); border-color: var(--accent); }
+.col-more .ic { font-size: 12px; }
 .col.folded { flex: 0 0 42px; min-width: 42px; cursor: pointer; }
 .col.folded .col-head { flex-direction: column; gap: 10px; padding: 8px 0; border-bottom: 0; height: 100%; }
 .col.folded .col-head .ibtn { margin: 0; order: -1; }

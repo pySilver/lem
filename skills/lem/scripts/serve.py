@@ -83,8 +83,9 @@ listed as not reachable, with when it last answered, and never slows a page.
     POST /api/push/subscribe, /api/push/unsubscribe, /api/push/test
                                a device turns the board's notifications on or off, or asks for one push to itself:
                                through the door, and on the main listener from the board's own page on this Mac
-    GET /HOST/NAME/            the kanban of that workspace; `waits`, `backlog` and `activity` beside it
-    GET /HOST/NAME/tasks/SLUG  the board of one task over the kanban (`?in=waits`, `backlog`, `activity` over
+    GET /HOST/NAME/            the kanban of that workspace; `waits`, `backlog` and `activity` beside it, and `done`,
+                               the ended tasks the kanban's Done has no card for
+    GET /HOST/NAME/tasks/SLUG  the board of one task over the kanban (`?in=waits`, `backlog`, `activity`, `done` over
                                that view), on its Overview; `/criteria`, `/checks`, `/timeline`,
                                `/artifacts` and `/artifacts/PATH/` (an artifact, each part encoded) beside it;
                                with the header `Turbo-Frame: task`, the panel alone in its frame
@@ -329,7 +330,7 @@ PUSH_ACTS = ("subscribe", "unsubscribe", "test")
 # 2.7 MB as it is and about a quarter of that compressed, which a phone feels.
 PACKED: dict[tuple, bytes] = {}
 # The views of a workspace the server renders, by the rest of their address.
-PAGES = {"": "kanban_page", "waits": "waits_page", "backlog": "backlog_page", "activity": "activity_page", "new": "new_page"}
+PAGES = {"": "kanban_page", "waits": "waits_page", "backlog": "backlog_page", "activity": "activity_page", "done": "older_page", "new": "new_page"}
 # The one cookie of the board's own state (tools/board-kit/controllers/prefs.js).
 PREFS_COOKIE = "lem_board"
 # The panel's widths a dragged width may take, in px: a guess at what any screen and any panel holds.
@@ -1406,7 +1407,7 @@ class Handler(BaseHTTPRequestHandler):
             result = {"approve": act_approve, "park": act_park, "session": act_session}[act](workspace, slug, form, via)
             token = NOTES.put(task=slug, act=act, state="done" if result["ok"] else "refused", said=result["said"])
             workspace.acted += 1
-        under = form.get("in") if form.get("in") in pages.VIEW and form.get("in") != "tasks" else None
+        under = form.get("in") if form.get("in") in pages.UNDER and form.get("in") != "tasks" else None
         tab = form.get("tab") if form.get("tab") in ("criteria",) else ""
         query = urlencode({**({"in": under} if under else {}), "note": token})
         to = f"/{quote(HOSTNAME)}/{quote(name)}/tasks/{quote(slug)}" + (f"/{tab}" if tab else "") + f"?{query}"
@@ -1663,7 +1664,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             ctx = self.context(workspace, query)
             under = (parse_qs(query).get("in") or ["tasks"])[0]
-            ctx.view = under if under in pages.VIEW else "tasks"
+            ctx.view = under if under in pages.UNDER else "tasks"
             ctx.task, ctx.tab, ctx.file = slug, tab or "overview", (path or None) if tab == "artifacts" else None
             if path and tab != "artifacts":
                 ctx.tab = f"{tab}/{path}"

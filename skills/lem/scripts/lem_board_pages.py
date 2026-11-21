@@ -1,6 +1,7 @@
 """The pages of the served board, as HTML: functions from the model (`lem_board_model`) to `Markup`.
 
     kanban_page(ctx)     /HOST/WORKSPACE/            the tasks in four columns, by who acts
+    older_page(ctx)      /HOST/WORKSPACE/done        the ended tasks Done has no card for, from its foot row
     waits_page(ctx)      /HOST/WORKSPACE/waits       one row for each thing the owner does
     backlog_page(ctx)    /HOST/WORKSPACE/backlog     the backlog's items by their worth
     activity_page(ctx)   /HOST/WORKSPACE/activity    where the time went, and every event
@@ -25,7 +26,7 @@ A task opens in the panel at the right of the view, inside `<turbo-frame id="tas
 `data-turbo-frame="task"` and `data-turbo-action="advance"`, so the panel changes and the address
 follows it, and the same address loaded whole renders the view under it with the panel open.
 `task_href` is the one place that says where a task opens. The view under the panel is in the address
-(`?in=waits`, `backlog`, `activity`; the kanban has none), so that a refresh, a reload or a shared link
+(`?in=waits`, `backlog`, `activity`, `done`; the kanban has none), so that a refresh, a reload or a shared link
 shows the same page. For the Hotwire Native app (`Ctx.native`) every link is a whole visit.
 
 The backlog's filter is in the address (`?q=`, `worth=`, `only=`, `backlog_filter`), so a shared link
@@ -70,6 +71,11 @@ VIEWS = [
     {"key": "activity", "path": "activity", "label": "Activity", "icon": "list-timeline", "kbd": "A", "code": "KeyA"},
 ]
 VIEW = {v["key"]: v for v in VIEWS}
+# The ended tasks Done has no card for, as a page of the workspace: Done's foot row is its way in, and it is no key
+# of the views.
+OLDER = {"key": "done", "path": "done", "label": "Older ended tasks"}
+# Every page of a workspace a task's panel may lie over (`?in=KEY`), by its key.
+UNDER = {**VIEW, OLDER["key"]: OLDER}
 # The backlog's groups, from each item's own `worth`.
 BY_WORTH = [
     {"key": "yes", "name": "Worth doing", "actor": "gate"},
@@ -175,13 +181,13 @@ class Ctx:
         return f"/{quote(self.host)}/{quote(self.workspace)}"
 
     def href(self, view: str) -> str:
-        return f"{self.base}/{VIEW[view]['path']}"
+        return f"{self.base}/{UNDER[view]['path']}"
 
 
 def under_query(ctx: Ctx, under: str | None = None) -> str:
     """The view a panel lies over, as the address keeps it: `?in=VIEW`, or nothing for the kanban."""
     under = ctx.view if under is None else under
-    return f"?in={quote(under)}" if under in VIEW and under != "tasks" else ""
+    return f"?in={quote(under)}" if under in UNDER and under != "tasks" else ""
 
 
 def task_href(ctx: Ctx, slug: str, tab: str = "overview", file: str | None = None, under: str | None = None) -> str:
@@ -742,7 +748,9 @@ def kanban(ctx: Ctx) -> Markup:
                                         "title": "Unfold the column" if fold else "Fold the column", "aria-label": f"Fold or unfold {lane['title']}"},
                              icon(ctx, "chevron-left"))),
                          h("div", {"class": "col-body", "id": f"col-body-{lane['key']}"},
-                           [task_card(ctx, t, lane, selected) for t in tasks] or h("div", {"class": "col-empty"}, lane["empty"]))))
+                           [task_card(ctx, t, lane, selected) for t in (tasks[:bm.DONE_SHOWN] if lane["key"] == "done" else tasks)]
+                           or h("div", {"class": "col-empty"}, lane["empty"]),
+                           older_row(ctx) if lane["key"] == "done" else None)))
         tabs.append(h("button", {"class": f"ktab a-{lane['actor']}{' some' if tasks else ''}", "type": "button", "id": f"ktab-{lane['key']}",
                                  "data-columns-target": "tab", "data-action": "columns#show", "data-columns-index-param": i},
                       h("i"), lane["title"], h("em", None, len(tasks))))
@@ -751,9 +759,49 @@ def kanban(ctx: Ctx) -> Markup:
              h("div", {"class": "view kanban", "id": "kanban", "data-columns-target": "board"}, columns))
 
 
+def older_row(ctx: Ctx) -> Markup | None:
+    """Done's foot row under its cards: how many ended tasks have no card there, as the way to the page that
+    lists them; none while Done draws every ended task."""
+    older = bm.done_older(ctx.model)
+    if not older:
+        return None
+    return h("a", {"class": "col-more", "id": "done-older", "href": ctx.href(OLDER["key"]),
+                   "title": f"Done shows the {bm.DONE_SHOWN} tasks that ended last: open the list of the {bm.plural(len(older), 'older one')}"},
+             icon(ctx, "clock"), h("span", None, f"{len(older)} older"), icon(ctx, "arrow"))
+
+
 def kanban_page(ctx: Ctx) -> Markup:
     ctx.view = "tasks"
     return layout(ctx, "Tasks", summary_of(ctx.model), kanban(ctx))
+
+
+def older_page(ctx: Ctx) -> Markup:
+    """The ended tasks Done draws no card for, the newest first: each with its title, how it ended, when,
+    the way to its board and its pull request when it has one. The board's model is all it reads."""
+    ctx.view = OLDER["key"]
+    m = ctx.model
+    older = bm.done_older(m)
+    rows = []
+    for t in older:
+        pr = bm.pr_of(t)
+        rows.append(h("div", {"class": f"row a-{t.info['actor']}", "id": f"older-{t.slug}"},
+                      h("span", {"class": "fi"}, icon(ctx, t.info["icon"])),
+                      h("div", {"class": "rtext"},
+                        h("a", {"class": "rlink", **task_link(ctx, t.slug)}, t.title), " · ", h("b", None, t.info["label"]),
+                        " · " if pr else None,
+                        h("a", {"class": "tag c-gate", "href": pr["url"], "target": "_blank", "rel": "noopener", "title": f"Open the pull request on the forge: {pr['url']}"},
+                          icon(ctx, "pull"), h("span", None, f"#{pr['n']}")) if pr else None),
+                      h("span", {"class": "rtime", "title": f"ended {bm.stamp(t.since, m.now)}"}, bm.stamp(t.since, m.now))))
+    if not rows:
+        rows = [h("div", {"class": "empty"}, f"Done shows every ended task: none is older than its {bm.DONE_SHOWN} newest")]
+    shown = len(m.lane["done"]) - len(older)
+    view = h("div", {"class": "view scroll", "id": "older-view"},
+             h("section", {"class": "card", "id": "older"},
+               h("div", {"class": "card-head"}, h("h2", None, OLDER["label"]),
+                 h("a", {"class": "dim small rlink", "href": ctx.href("tasks")}, f"the {bm.plural(shown, 'newer one')} {'is' if shown == 1 else 'are'} in Done")),
+               h("div", {"class": "rows"}, rows)))
+    summary = f"The {bm.plural(len(older), 'ended task')} Done has no card for, the newest first" if older else "Every ended task has its card in Done"
+    return layout(ctx, OLDER["label"], summary, view)
 
 
 # ---- the reasons of not green ----
