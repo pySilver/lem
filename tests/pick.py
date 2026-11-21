@@ -78,9 +78,11 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     (("tests/checks.sh",), ("lem-*", "test-ask", "test-site", "test-gate-panel", "shellcheck")),
     (("tests/suites.sh", "tests/limit.py", "tests/all.sh", "tests/test-lem.sh"), (EVERYTHING,)),
     (("tests/pick.py",), ("pick",)),
+    # The short AGENTS.md and the files its rulings and decisions link, which tests/unit/test_agents_md.py reads
+    (("AGENTS.md", "docs/rulings/*", ".lem/decisions/*"), ("unit",)),
     # What no suite reads; tests/clock/ is a late clock that a criterion's command puts on PYTHONPATH, and
     # tools/ is the maintainer's build of the board's kit, whose built files are under skills/lem/assets/.
-    (("tools/*", "docs/*", "README.md", "AGENTS.md", "CLAUDE.md", "LICENSE", "NOTICE", ".gitignore", ".lem/*", ".revmux/*", ".github/*",
+    (("tools/*", "docs/*", "README.md", "CLAUDE.md", "LICENSE", "NOTICE", ".gitignore", ".lem/*", ".revmux/*", ".github/*",
       "assets/*", "tests/board-cdp.mjs", "tests/clock/*"), ()),
 ]
 # The files the Chrome suites are run for: each row that names one of them is all of their own.
