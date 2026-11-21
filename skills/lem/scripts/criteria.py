@@ -115,8 +115,10 @@ needs before its tests can start), so that nothing one run writes reaches the ot
 - one at the base commit with only the named test files of the branch laid over it, where each
   test must fail. A command that does not start there is no proof: one that exits 126 or 127,
   the codes a shell gives for a program it cannot find or run, and one that starts a shell
-  (`sh`, `bash`, `dash`, `ksh`, `zsh`) on a script file the base commit lacks, which bash ends
-  with 127 and dash with 2. A helper that a test's own script starts is caught only by the code
+  (`sh`, `bash`, `dash`, `ksh`, `zsh`) or Python (`python`, `python3`, `python3.N`) on a script
+  file the base commit lacks, which bash ends with 127, and dash and Python with 2; the refusal
+  names that file. `python3 -m MODULE` and `-c TEXT` start no script file, and are not looked at.
+  An exit of 2 by itself is no such sign: an assertion may end a test with it. A helper that a test's own script starts is caught only by the code
   its shell gives, so a test starts its helpers by their path (`./tests/helper.sh`): every shell
   ends that with 127 when the file is not there.
 
@@ -188,6 +190,9 @@ STEP = re.compile(r"^\s+\d+[.)]\s+\S")
 HOW = re.compile(r"^##\s+How it works\s*$")
 # The shells a test command may start a script with, by the name of the program.
 SHELLS = ("sh", "bash", "dash", "ksh", "zsh")
+# Python, by the name of the program: `python`, `python3` and `python3.N`, which end with exit 2 when
+# their script file is not there (`python3 -I -B missing.py`, checked on 2026-11-21).
+PYTHON = re.compile(r"python(3(\.\d+)?)?")
 
 
 class CriteriaError(Exception):
@@ -493,32 +498,62 @@ class Task:
         script("project.py", self.repo, "log", self.slug, event, *(f"{key}:={json.dumps(value, ensure_ascii=False)}" for key, value in fields.items()))
 
 
-def unstarted(command: str, where: Path) -> bool:
-    """Whether the command starts a shell on a script file that is not in `where`. Its exit does
-    not say so in every shell: bash ends `sh FILE` with no FILE with 127, dash with 2."""
+def unstarted(command: str, where: Path) -> str | None:
+    """The script file the command starts a shell or Python on, when it is not in `where`; None when
+    the command starts no such file or the file is there. Its exit does not say so: bash ends `sh FILE`
+    with no FILE with 127, dash with 2, and Python with 2, which an assertion's exit may be too."""
     try:
         words = shlex.split(command)
     except ValueError:
-        return False
-    if not words or Path(words[0]).name not in SHELLS:
-        return False
-    rest = iter(words[1:])
+        return None
+    if not words:
+        return None
+    program = Path(words[0]).name
+    file = shell_script(words[1:]) if program in SHELLS else python_script(words[1:]) if PYTHON.fullmatch(program) else None
+    return file if file is not None and not (where / file).is_file() else None
+
+
+def shell_script(words: list[str]) -> str | None:
+    """The script file a shell's arguments start, or None for standard input and `-c TEXT`."""
+    rest = iter(words)
     for word in rest:
         if word in ("-o", "+o"):
             next(rest, None)
         elif word == "--":
-            file = next(rest, None)
-            break
+            return next(rest, None)
         elif word in ("-", "+") or word.startswith("--") or (word.startswith("-") and "c" in word):
             # standard input, a long option of one shell, or `-c TEXT`, whose operand is a command:
             # no script file to look for
-            return False
+            return None
         elif not word.startswith(("-", "+")):
-            file = word
-            break
-    else:
-        return False
-    return file is not None and not (where / file).is_file()
+            return word
+    return None
+
+
+def python_script(words: list[str]) -> str | None:
+    """The script file Python's arguments start, or None for `-m MODULE`, `-c TEXT`, standard input
+    and a long option. Short options may share one word (`-IB`), and `-W` and `-X` take the rest of
+    their word or the next one."""
+    rest = iter(words)
+    for word in rest:
+        if word == "--":
+            return next(rest, None)
+        if word == "--check-hash-based-pycs":
+            next(rest, None)
+            continue
+        if word == "-" or word.startswith("--"):
+            return None
+        if not word.startswith("-"):
+            return word
+        for i, letter in enumerate(word[1:], start=1):
+            if letter in "cm":
+                # the module or the command is the operand: no script file to look for
+                return None
+            if letter in "WX":
+                if i == len(word) - 1:
+                    next(rest, None)
+                break
+    return None
 
 
 def needs_serial(command: str, serial: list[str]) -> bool:
@@ -664,7 +699,7 @@ def cmd_red(task: Task) -> dict:
 
         before = signal.signal(signal.SIGTERM, ended)
         codes: dict[str, list[int]] = {}
-        absent: list[bool] = []
+        absent: list[str | None] = []
         failure: str | None = None
         try:
             for name, place in places.items():
@@ -703,8 +738,9 @@ def cmd_red(task: Task) -> dict:
             elif red == 0:
                 problem = "passes on the base commit too, so it does not test the change"
             elif red in (126, 127) or lacked:
+                missing = f": its script file {lacked} is not on the base commit" if lacked else ""
                 problem = (
-                    f"does not start on the base commit (exit {red}), so its failure there proves nothing. If a file it needs is a helper of the test, "
+                    f"does not start on the base commit (exit {red}{missing}), so its failure there proves nothing. If a file it needs is a helper of the test, "
                     "name it among the criterion's files; if what is absent is the change itself, make the test fail on it and not stop before it"
                 )
             results.append({"criterion": number, "command": test["command"], "files": test["files"], "on_branch": green, "on_base": red, "problem": problem})

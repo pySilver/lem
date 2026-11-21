@@ -961,6 +961,8 @@ echo 'grep -q topics .lem/project.toml || exit 1; echo changed >> .lem/project.t
 # The helper starts by its path, so that a helper that is not there exits 127 in every shell: `sh
 # FILE` with no FILE is 127 in bash and 2 in dash.
 echo './tests/runner.sh' > "$stw/tests/calls.sh" && echo 'exit 0' > "$stw/tests/runner.sh" && chmod +x "$stw/tests/runner.sh"
+# a Python runner of the tests, which the base commit lacks: Python ends with 2 for a script that is not there
+echo 'raise SystemExit(0)' > "$stw/tests/runner.py"
 git -C "$stw" add -A && git -C "$stw" commit -q -m "test: more tests" && before=$(git -C "$stw" rev-parse HEAD)
 # shellcheck disable=SC2016
 writes=$(story3 '3. The config is read.' '   - test: `sh tests/config.sh` in `tests/config.sh`')
@@ -973,6 +975,8 @@ mkdir -p "$WORK/dashlike" && printf '%s\n' '#!/bin/sh' '[ -f "$1" ] || exit 2' '
 # shellcheck disable=SC2016
 unstarted=$(PATH="$WORK/dashlike:$PATH" story3 '3. The runner runs.' '   - test: `sh tests/runner.sh` in `tests/calls.sh`')
 # shellcheck disable=SC2016
+pyrunner=$(story3 '3. The runner runs.' '   - test: `python3 -B tests/runner.py` in `tests/calls.sh`')
+# shellcheck disable=SC2016
 folder=$(story3 '3. The tests are there.' '   - test: `sh tests/gift.sh` in `tests`')
 bare=$(story3 '3. The export still has one row for each order.')
 said=$(story3 '3. The export still has one row for each order.' '   - no test: the count of rows is the export of today, which no change here touches.' | field '(d["ok"], d["without_a_test"])')
@@ -983,15 +987,16 @@ rm "$stw/stray.txt"
 if grep -q 'criterion 3: `sh export.sh` passes on the base commit too, so it does not test the change' <<<"$weak" \
   && grep -q 'criterion 3: `sh tests/config.sh` passes on the base commit too' <<<"$writes" \
   && grep -q 'criterion 3: `sh tests/calls.sh` does not start on the base commit (exit 127), so its failure there proves nothing. If a file it needs is a helper of the test, name it among' <<<"$helper" \
-  && grep -q 'criterion 3: `sh tests/runner.sh` does not start on the base commit (exit 2), so its failure there proves nothing' <<<"$unstarted" \
+  && grep -q 'criterion 3: `sh tests/runner.sh` does not start on the base commit (exit 2: its script file tests/runner.sh is not on the base commit), so its failure there proves nothing' <<<"$unstarted" \
+  && grep -q 'criterion 3: `python3 -B tests/runner.py` does not start on the base commit (exit 2: its script file tests/runner.py is not on the base commit)' <<<"$pyrunner" \
   && grep -q "criterion 3: 'tests' is a folder on the branch. Name each file that holds the test, one by one" <<<"$folder" \
   && grep -q "criterion 3 names no test: every criterion is held by a test at the end of a build" <<<"$bare" \
   && [ "$said" = "(True, [{'criterion': 3, 'why': 'the count of rows is the export of today, which no change here touches.'}])" ] \
   && grep -q "the worktree has changes nobody committed" <<<"$dirty" && [ "$(git -C "$stw" rev-parse HEAD)" = "$before" ] \
   && [ "$(find "$ST/.lem/worktrees" -maxdepth 1 -name '*.red-*' | grep -c '')" = 0 ]; then
-  pass "a criterion is not held by a test that passes on the base commit too, that only changes a file both commits have, whose helper file is not named, or that starts a shell on a script the base commit lacks, whatever that shell's exit; a folder as a test file and a criterion with no test are refused, and one that says why it has none is listed"
+  pass "a criterion is not held by a test that passes on the base commit too, that only changes a file both commits have, whose helper file is not named, or that starts a shell or Python on a script the base commit lacks, whatever its exit, named in the refusal; a folder as a test file and a criterion with no test are refused, and one that says why it has none is listed"
 else
-  fail "criteria red refusals: $weak / $writes / $helper / $unstarted / $folder / $bare / $said / $dirty"
+  fail "criteria red refusals: $weak / $writes / $helper / $unstarted / $pyrunner / $folder / $bare / $said / $dirty"
 fi
 # A test that needs what a fresh worktree lacks is named as such, and the settings' checks.setup makes it.
 echo 'test -f .made-by-setup && sh export.sh | grep -q "1042,for Ania"' > "$stw/tests/env.sh" && git -C "$stw" add -A && git -C "$stw" commit -q -m "test: one that needs a setup" && before=$(git -C "$stw" rev-parse HEAD)

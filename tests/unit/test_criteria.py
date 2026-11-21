@@ -164,6 +164,30 @@ class FastTrackNotHis(unittest.TestCase):
             self.assertEqual(criteria.cmd_approve(task, str(task.small_file), "lem")["by"], "lem")
 
 
+class Unstarted(unittest.TestCase):
+    """`criteria.unstarted`: a test command that starts a shell or Python on a script file the base
+    commit lacks does not start there, whatever its exit; a module, a text and a file that is there do."""
+
+    def test_python_on_a_file_the_base_lacks(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            where = Path(folder)
+            (where / "tests").mkdir()
+            (where / "tests" / "there.py").write_text("")
+            for command in ("python3 tests/helper.py", "python tests/helper.py -v", "python3.12 -I -B tests/helper.py",
+                            "/usr/bin/python3 -u tests/helper.py", "python3 -W ignore tests/helper.py", "python3 -X dev -- tests/helper.py"):
+                self.assertEqual(criteria.unstarted(command, where), "tests/helper.py", command)
+            for command in ("python3 -m unittest tests.test_helper", "python3 -c 'import helper'", "python3 tests/there.py",
+                            "python3 -", "python3", "pythonista tests/helper.py", "python3 -mpytest tests/helper.py"):
+                self.assertIsNone(criteria.unstarted(command, where), command)
+
+    def test_a_shell_on_a_file_the_base_lacks_is_named(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            self.assertEqual(criteria.unstarted("sh tests/helper.sh", Path(folder)), "tests/helper.sh")
+            self.assertIsNone(criteria.unstarted("sh -c 'exit 1'", Path(folder)))
+
+
 class ReadsOf(unittest.TestCase):
     """A read of the criteria whose words hold the characters str.splitlines breaks at, read back whole."""
 
