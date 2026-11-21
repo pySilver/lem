@@ -185,10 +185,22 @@ class SessionError(Exception):
 
 # ---- the rules, over facts ----
 
-def phase_of(slug: str, status: str | None, line: str | None, track: str | None, worktree: bool) -> str:
+def lead_started(state: str) -> bool:
+    """Whether a lead ever ran for the task: a block of its whole STATE (state.md, every block) has a
+    `lead:` line (`project.LEAD_LINE`), as its first line's text or a line under it."""
+    for line in state.splitlines():
+        found = project.STATE_LINE.fullmatch(line.strip())
+        if project.LEAD_LINE.match(found["text"] if found else line.strip()):
+            return True
+    return False
+
+
+def phase_of(slug: str, status: str | None, line: str | None, track: str | None, worktree: bool, state: str) -> str:
     """The phase of a task's session from its newest state block (STATUS and its first LINE), its
-    track and whether its worktree is still there; a SessionError with the fix for a task that gets
-    no session."""
+    track, whether its worktree is still there and its whole STATE; a SessionError with the fix for a
+    task that gets no session. A `queued` task that no lead started was queued in the shape, at step 7
+    of "The request" (`stages/new.md`), and goes on there, at step 8; one that its lead queued goes on
+    at the start of the build."""
     if status is None:
         return "shape"
     if status == project.PARKED:
@@ -204,20 +216,23 @@ def phase_of(slug: str, status: str | None, line: str | None, track: str | None,
         return "build" if line and project.BREAKER_WAIT.fullmatch(line.strip()) else "shape"
     if track == "fast":
         return "fast"
+    if status == "queued" and not lead_started(state):
+        return "shape"
     if status in ("queued", "building", "planned", "blocked"):
         return "build"
     return "land"
 
 
-def phase_left(slug: str, blocks: list[dict], track: str | None, now: str, start: str) -> str:
+def phase_left(slug: str, blocks: list[dict], track: str | None, now: str, start: str, state: str) -> str:
     """The phase a change of phase leaves: the phase of the newest state block before the run of blocks
     that gives NOW, the phase the task is in. BLOCKS are the `task.state` records the caller's session
     wrote, the ones after its `session.open`, oldest first, each with `status` and `text`; START is the
-    phase that session opened in, which ends when none of its blocks gives another. A block that gives
-    no phase (a park, an ended task's) is passed over."""
+    phase that session opened in, which ends when none of its blocks gives another; STATE is the task's
+    whole state, which tells a `queued` block of the shape from one its lead wrote (`phase_of`). A block
+    that gives no phase (a park, an ended task's) is passed over."""
     for block in reversed(blocks):
         try:
-            phase = phase_of(slug, block.get("status"), block.get("text"), track, True)
+            phase = phase_of(slug, block.get("status"), block.get("text"), track, True, state)
         except SessionError:
             continue
         if phase != now:
@@ -470,8 +485,10 @@ def facts_of(root: Path, slug: str) -> dict:
     tasks = project.read_tasks(root, settings)
     task = next(task for task in tasks if task["slug"] == slug)
     worktree = worktree_of(root, settings, slug)
-    phase = phase_of(slug, task["status"], first_line(task), task["track"], worktree is not None)
-    return {"directory": directory, "settings": settings, "tasks": tasks, "task": task, "worktree": worktree, "phase": phase}
+    # the whole state, every block: whether a lead ever ran for a queued task is in an older one
+    written = project.text_of(directory / "state.md") if (directory / "state.md").is_file() else ""
+    phase = phase_of(slug, task["status"], first_line(task), task["track"], worktree is not None, written)
+    return {"directory": directory, "settings": settings, "tasks": tasks, "task": task, "worktree": worktree, "phase": phase, "state": written}
 
 
 def workspace_for(slug: str, task: dict, opens: dict[str, dict], nodes: list[dict], caller: str) -> str:
@@ -549,7 +566,7 @@ def cmd_next(root: Path, slug: str, same: bool) -> dict:
     records = [record for record in project.events_named(root, "task.state", "session.open") if record.get("task") == slug]
     last_open = max((i for i, record in enumerate(records) if record.get("event") == "session.open"), default=-1)
     blocks = [record for record in records[last_open + 1:] if record.get("event") == "task.state"]
-    was = phase if same else phase_left(slug, blocks, facts["task"]["track"], phase, newest.get("phase"))
+    was = phase if same else phase_left(slug, blocks, facts["task"]["track"], phase, newest.get("phase"), facts["state"])
     if phase == was and not same:
         raise SessionError(f"the state of {slug} still gives the phase {was}: write the new state block first (`lem project state {slug} ...`), then run this again; "
                            f"for the owner's \"hand off\" inside a phase, `lem session next {slug} --same`")
@@ -715,8 +732,10 @@ def cmd_list(root: Path) -> list[dict]:
         session = str(opened["session"])
         node = node_of(nodes, session)
         task = tasks.get(slug)
+        # the whole state, every block: whether a lead ever ran for a queued task is in an older one
+        written = project.text_of(project.task_directory(root, slug) / "state.md") if task and (project.task_directory(root, slug) / "state.md").is_file() else ""
         try:
-            phase = phase_of(slug, task["status"], first_line(task), task["track"], worktree_of(root, settings, slug) is not None) if task else None
+            phase = phase_of(slug, task["status"], first_line(task), task["track"], worktree_of(root, settings, slug) is not None, written) if task else None
         except SessionError:
             # a parked task, or one that ended with its worktree gone, is in no phase
             phase = None
