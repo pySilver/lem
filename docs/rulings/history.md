@@ -5,9 +5,9 @@ in force. It is not a bullet of `docs/rulings/rulings.md` because a test, the co
 holds it. `decided` before a day marks a choice of the maintaining session; every other line is the
 owner's ruling, reopened only by asking him, as a bullet of the list is.
 
-The full text of each, with the owner's words, is in git at `04ba08c`, the commit before this
-change: `git show 04ba08c:docs/rulings/NAME.md`, and for a choice of the session the same NAME in
-the folder `.lem/decisions` of that commit, with NAME as the table of
+The full text of each, with the owner's words, is in git at `04ba08c`, a commit of `main` from
+before this change: `git show 04ba08c:docs/rulings/NAME.md`, and for a choice of the session the
+same NAME in the folder `.lem/decisions` of that commit, with NAME as the table of
 `docs/plans/2026-11-21-rulings-as-one-list.md` names it.
 
 When a test or a place named here stops holding its rule, the rule goes back to the list as a
