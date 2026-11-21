@@ -94,7 +94,9 @@ def label(task: dict) -> str:
 def state_words(task: dict, waits: str | None) -> str:
     if waits:
         return waits
-    if task["status"] == "building" and any(line.startswith("investigation:") for line in (task["state"] or "").splitlines()[1:]):
+    # every line of the newest block, its first too, as `lem project state` writes it
+    newest = project.blocks_of(task["state"] or "")
+    if task["status"] == "building" and newest and any(line.strip().startswith("investigation:") for line in newest[0]["lines"]):
         return INVESTIGATING
     return WORDS.get(task["status"], UNKNOWN)
 
