@@ -16,10 +16,12 @@ Size: full, because the board and the picker each change, and the board gets a p
    1. With 25 ended tasks, the row under the 20 cards says "5 older".
    2. A click on that row opens a list of those 5 tasks.
    3. With 20 ended tasks or fewer, Done shows each of them and no such row.
-4. The list of older tasks shows each task that has no card in Done, newest first, with its title, how it ended, when, and a link to its board: with 25 ended tasks it lists the 5 that ended first, the one that ended last of them on top, and a click on one opens that task's board.
+   4. The list opens as a page of the board, and the board's own Tasks link goes back to the columns.
+4. The list of older tasks shows each task that has no card in Done, newest first, with its title, how it ended, when, and a link to its board, and to its pull request when it has one: with 25 ended tasks it lists the 5 that ended first, the one that ended last of them on top, and a click on one opens that task's board.
 5. The picker lists the 20 tasks that ended last, whenever they ended:
    1. A repository whose 3 tasks all ended a month ago shows those 3 in the picker.
    2. A repository with 25 ended tasks shows the 20 that ended last.
+   3. The tasks that wait for the owner or build stay above the ended ones, as today.
 
 ## Tasks
 
