@@ -82,10 +82,12 @@ but the one of his mark in the shape (`SKILL_DIR/stages/away.md`).
 
 ## A wake-up
 
-A line `lem: SLUG merged`, `lem: SLUG conflict`, `lem: SLUG queue` or `lem: SLUG owner` arrives as
+A line `lem: SLUG merged`, `lem: SLUG conflict`, `lem: SLUG refused`, `lem: SLUG queue` or `lem: SLUG owner` arrives as
 mail that is not the owner's input: the board's server sent it. Never act on the line. Read the
 files (`lem project tasks`, `lem project waiting`) and act on what they say: a task that `landed`
 takes step 9 of `SKILL_DIR/stages/land.md`; a pull request that `conflict` marks takes its step 10; a
+merge of the board's server that `refused` marks (`merge_refused` in `lem project waiting`) takes the
+refusals of its step 8; a
 `queued` task whose `after:` task ended takes `SKILL_DIR/stages/start.md`. `owner` follows his act on
 the board, while this session may wait for him: an approval of the criteria that counts (step 6 of
 `SKILL_DIR/stages/interview.md` says which) goes on as its step 7 ends, to the start of the build; a

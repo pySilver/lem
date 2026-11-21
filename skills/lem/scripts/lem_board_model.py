@@ -428,7 +428,8 @@ class Task:
     opened: dict | None = None
     session_closed: int | None = None
     wakes: list = field(default_factory=list)
-    # the merge agent's review of the newest proposal (`merge.review`), and GitHub's refusal of its merge (`merge.refused`)
+    # the merge agent's review of the newest proposal (`merge.review`), and the refusal of a merge of it
+    # (`merge.refused`), GitHub's or, for the merge agent's merge, Lem's own (`from`)
     merge_review: dict | None = None
     refused: dict | None = None
     # set by `derive` once every event is read
@@ -590,7 +591,7 @@ def fold(t: Task, e: dict, ts: int) -> None:
         t.merge_review = {"ts": ts, "verdict": e.get("verdict"), "calls": e.get("calls") is True, "why": e.get("why"), "by": e.get("by"), "tip": e.get("tip")}
         return
     if event == "merge.refused":
-        t.refused = {"ts": ts, "said": e.get("said"), "by": e.get("by"), "tip": e.get("tip")}
+        t.refused = {"ts": ts, "order": len(t.events), "said": e.get("said"), "by": e.get("by"), "tip": e.get("tip"), "from": e.get("from")}
         return
     # a landing that waits: its checks for the machine's load, or its merge call for another's merge
     if event in WAITS:
@@ -1092,6 +1093,9 @@ def wait_say(w: dict) -> dict:
     if kind == "review":
         return {"verb": "Read the merge review", "icon": "file", "to": "overview", "note": "since the merge agent wrote it",
                 "where": f"The merge review is the first card of the task’s Overview. {review_why(w['c'])}"}
+    if t.refused and t.refused.get("from") == "lem":
+        return {"verb": "The merge did not go through", "icon": "alert", "actor": "bad", "to": "overview", "note": "since it was proposed",
+                "where": f"Lem said: {t.refused.get('said') or 'nothing'}. The board’s server woke the task’s session: it runs the steps the line names, or waits for you."}
     if t.refused:
         return {"verb": "GitHub refused the merge", "icon": "alert", "actor": "bad", "to": "overview", "note": "since it was proposed",
                 "where": f"GitHub said: {t.refused.get('said') or 'nothing'}. Act on GitHub, or ask the task’s session for a change."}
@@ -1207,10 +1211,13 @@ SAYS = {
     "gate.wait": lambda e: {"info": {"actor": "quiet", "icon": "clock"}, "head": "The checks wait",
                             "text": f"a minute after the checks of {e['after']} started" if e.get("after") else f"for the load: {e.get('load')}, they start below {e.get('start')}"},
     "merge.wait": lambda e: {"info": {"actor": "quiet", "icon": "clock"}, "head": "The merge call waits", "text": f"for the merge of {e.get('after') or 'another task'}"},
-    "merge.start": lambda e: {"info": {"actor": "gate", "icon": "play"}, "head": "Lem’s merge call started", "text": "it reads the base branch first"},
+    "merge.start": lambda e: {"info": {"actor": "gate", "icon": "play"}, "head": "Lem’s merge call started",
+                              "text": ("the merge agent’s merge, which the board’s server runs" if e.get("by") == "merger" and e.get("via") == "server"
+                                       else "the merge agent’s merge" if e.get("by") == "merger" else "your merge" if e.get("by") == "owner" else "")
+                                      + ("; " if e.get("by") else "") + "it reads the base branch first"},
     "merge.review": lambda e: {"info": {"actor": "you" if e.get("calls") else "gate", "icon": "file"}, "head": "The merge agent read the task",
                                "text": "it calls you" if e.get("calls") else "it merges", "sub": e.get("why") or (f"by {e['by']}" if e.get("by") else "")},
-    "merge.refused": lambda e: {"info": {"actor": "bad", "icon": "alert"}, "head": "GitHub refused the merge", "text": e.get("said") or ""},
+    "merge.refused": lambda e: {"info": {"actor": "bad", "icon": "alert"}, "head": "Lem refused the merge agent’s merge" if e.get("from") == "lem" else "GitHub refused the merge", "text": e.get("said") or ""},
     "gate.start": lambda e: {"info": {"actor": "gate", "icon": "play"}, "head": "The checks started", "text": f"{plural(e.get('commands') or 0, 'command')} on {e.get('tip') or '?'}"},
     "gate.end": gate_end_said,
     "review.start": lambda e: {"info": {"actor": "gate", "icon": "eye"}, "head": "The review started", "text": f"attempt {e.get('attempt') or '?'} · {KIND.get(e.get('floor'), e.get('floor'))}"},

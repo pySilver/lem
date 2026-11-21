@@ -150,6 +150,30 @@ class Duties(unittest.TestCase):
         waiting = (self.state(0, "open", self.PR, task="coupon"), *queued)
         self.assertEqual(serve.duties(self.model(*waiting, sessions={}), {}, set()), [])
 
+    def test_the_merge_agents_merge_of_the_proposed_tip_is_the_servers(self):
+        proposed = (self.ev(0, "proposed", green=True, not_green=[], tip="abc123456"), self.state(1, "open", self.PR))
+        merge = (*proposed, self.ev(2, "merge.review", verdict="merge", calls=False, by="claude/opus:high", tip="abc123456"))
+        self.assertEqual(serve.duties(self.model(*merge), {}, set()), [("merge", "gift-note", "merger")])
+        # one that runs in this process is not started twice
+        self.assertEqual(serve.duties(self.model(*merge), {}, set(), {"gift-note"}), [])
+        call = (*proposed, self.ev(2, "merge.review", verdict="call", calls=True, by="claude/opus:high", tip="abc123456"))
+        self.assertEqual(serve.duties(self.model(*call), {}, set()), [])
+        overruled = (*proposed, self.ev(2, "merge.review", verdict="merge", calls=True, by="claude/opus:high", tip="abc123456"))
+        self.assertEqual(serve.duties(self.model(*overruled), {}, set()), [])
+        other_tip = (*proposed, self.ev(2, "merge.review", verdict="merge", calls=False, by="claude/opus:high", tip="fff000111"))
+        self.assertEqual(serve.duties(self.model(*other_tip), {}, set()), [])
+        # a refused try is not tried again on that tip, and the task's session is woken once for it
+        refused = (*merge, self.ev(3, "merge.refused", by="merger", via="server", said="main moved after the checks ran", tip="abc123456"))
+        self.assertEqual(serve.duties(self.model(*refused), {}, set()), [("wake", "gift-note", "refused")])
+        self.assertEqual(serve.duties(self.model(*refused, self.ev(4, "session.wake", session="S1", why="refused")), {}, set()), [])
+        # a new proposal and its new review make a new try
+        again = (*refused, self.ev(5, "proposed", green=True, not_green=[], tip="def456789"), self.state(6, "open", self.PR),
+                 self.ev(7, "merge.review", verdict="merge", calls=False, by="claude/opus:high", tip="def456789"))
+        self.assertEqual(serve.duties(self.model(*again), {}, set()), [("merge", "gift-note", "merger")])
+        merged = (*merge, self.state(3, "landed", "main: pull request https://github.com/acme/shop/pull/41 is merged"))
+        self.assertEqual(serve.duties(self.model(*merged), {}, set()), [])
+        self.assertEqual(serve.duties(self.model(*merge, demo=True), {}, set()), [])
+
     def test_a_demo_workspace_owes_nothing(self):
         merged = (self.state(0, "landed", "main: pull request ... is merged"),)
         self.assertEqual(serve.duties(self.model(*merged, demo=True), {}, {"gift-note"}), [])

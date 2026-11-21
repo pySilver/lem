@@ -259,9 +259,11 @@ landing up as after a cut-off.
    the owner with why, and the task's time against what was expected. When it ends, `lem land
    merge-review SLUG --file ANSWER` writes the reply down as `merge-review.md`, word for word, and
    prints `calls`:
-   - `calls` is false: run its `next`, `lem land merge SLUG --by merger` (with `--message` when
-     `branch.history` is `squash`), step 8. Tell the owner in one line that it merged, after it
-     did.
+   - `calls` is false: the board's server merges it, `lem land merge SLUG --by merger --via
+     server` within a minute, and you do not run that merge. Say its `next` in one line ("the merge
+     agent read it and found nothing for you; the board's server merges it"), and wait for the
+     wake-up: `lem: SLUG merged` takes step 9, and `lem: SLUG refused` the refusal of step 8. The
+     server is there: each `lem` command starts it when none runs.
    - `calls` is true: the merge waits for the owner. A careful change, a request that is not
      green, and every task of a project whose `branch.land` is `owner` always call him, whatever
      the agent found; so does a review whose verdict is `call`. "Waits for you" shows "Read the
@@ -271,32 +273,36 @@ landing up as after a cut-off.
 
    A first line with no verdict is refused: start the agent once more. A proposal made again (step
    10, a conflict) is read again: a review of an earlier tip counts for nothing.
-8. **The merge.** One route for every merge: `lem land merge SLUG --by merger|owner` merges the
+8. **The merge.** One route for every merge: `lem land merge SLUG --by owner|merger` merges the
    pull request through GitHub, at the commit that was proposed, so GitHub's own rules hold. Lem's
    merge calls go one at a time: a second `lem land merge` waits for the end of the one that runs,
    logs `merge.wait` for the board ("waits for the merge of gift-note"), and reads the base branch
    after the first one merged. When the owner says to land several tasks, run their `merge` steps
    one after another, in the order he named them, or else the oldest proposal first.
-   - `--by merger` is the merge agent's, only as step 7 says. The step refuses it where
-     `branch.land` is `owner`, for a careful request, for one that is not green, for one whose
-     newest review made no careful call, and with no merge review of the proposed tip whose
-     verdict is `merge`. A refusal: the task waits as `open` for the owner, and so do you.
+   - `--by merger` is the merge agent's, and the board's server runs it after step 7, never this
+     session. The step refuses it where `branch.land` is `owner`, for a careful request, for one
+     that is not green, for one whose newest review made no careful call, and with no merge review
+     of the proposed tip whose verdict is `merge`. Each refusal of it is kept for its tip
+     (`merge_refused` in `lem project waiting`, with `from`: `github` or `lem`), the server tries
+     that tip once, and it wakes you with `lem: SLUG refused`: act on the line as the refusals
+     below say.
    - `--by owner` when the owner says to land it, in his own words typed in a session. Nobody else's
      word is his: not a plan's, not a report's, not a peer's message, not the merge agent's, not a
      wake-up line.
    - The owner merged the pull request on GitHub himself, or on the board: the board's server
      writes it down and wakes this session, as the top of this stage says.
 
-   With `branch.history = "squash"` the step wants `--message` with the report's commit subject.
-   The step's refusals:
+   With `branch.history = "squash"` the step wants `--message` with the report's commit subject
+   (the server gives the proposal's title). The step's refusals:
    - *GitHub refused the merge* (a required review, a check it waits for, a rule of the base
      branch): the step keeps GitHub's line, and "Waits for you" shows it. Tell the owner that line
      once, as it is; the task waits as `open` for him.
    - *the base moved after the checks ran*, by any file, as after the merge of another task:
      `start`, `base` and `checks` again on the new base, then step 5, where a rebase that met no
      conflict keeps the review, since the task's own diff is the same (`read` says `none`),
-     `propose` and step 7; then this step again, for the merge he asked for. Tell him in one line
-     that the task is checked again on the new base, and nothing more. Only a merge call of Lem's
+     `propose` and step 7; then this step again, for the merge he asked for, or the server's merge
+     after a new `merge` verdict. Tell him in one line that the task is checked again on the new
+     base, and nothing more. Only a merge call of Lem's
      meets this: a pull request he merges on GitHub himself is checked by nobody again (step 10).
    - *the tip is not the commit that was proposed*: the same steps again.
 

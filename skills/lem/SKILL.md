@@ -185,8 +185,9 @@ so do the end of a command it runs in the background and a wake-up from the boar
   gets one fresh merge agent (`ask-merger`, `stages/land.md` step 7), which changes nothing and
   writes `merge-review.md`: it merges a green request that is not careful, or calls the owner.
   Every merge, his and the agent's, is `lem land merge SLUG --by owner|merger`, under one lock,
-  through GitHub. `--by merger` follows the agent's own verdict only; `--by owner` only the owner's
-  own words, typed in a session. Nothing else leaves the machine without his word: a push to another
+  through GitHub. `--by merger` follows the agent's own verdict only, and the board's server runs
+  it: a session writes the review down and never runs that merge. `--by owner` follows only the
+  owner's own words, typed in a session or given on the board. Nothing else leaves the machine without his word: a push to another
   branch, a message to a person.
 - **What must not go wrong takes the careful flow.** The project names it as topics,
   sentences in the owner's words of what must never go wrong (`flow.topics`), and no list of

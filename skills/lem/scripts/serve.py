@@ -147,13 +147,22 @@ workspace, one call at a time with the server's other calls into Lem's scripts (
   `wake SLUG --why merged`, so that the task's session removes its worktree and its branch; for a pull
   request the forge calls conflicting, `wake SLUG --why conflict`, once for each head; and for a task
   queued `after:` one that ended, `open SLUG --why queue`. `wake` opens a session when none lives. A
-  duty whose command failed waits DUTY_RETRY.
+  duty whose command failed waits DUTY_RETRY;
+- the merge agent's merge (`merge_due`): for an open task whose merge agent's review of the tip Lem
+  proposed last says `merge` and calls nobody, with no refused merge of that tip and none running, the
+  server runs land.py's MERGE_STEP `--by merger --via server` as it runs the owner's merge from the
+  board (`merge_in_thread`: in a thread of its own, under SCRIPT_LOCK, and "Merging…" on the board
+  while it runs). land.py's own rules decide whether it merges; the server only runs the call, since a
+  task's session that ran it met a block of Claude Code's auto mode (pySilver/lem-scratch#12,
+  2026-11-21). A refusal is kept for its tip by land.py, which ends the duty for that tip, and the
+  task's session gets `wake SLUG --why refused` once; after a merge, `wake … merged` above.
 
 A server started from a session leaves it at its start (`detach_from_session`): `lem session` reads
 agterm's variables as its caller's place, and the server is no part of any session.
 
 The server never types into a session, never selects one without the owner's click, never closes one,
-decides nothing, and writes a task's files only through `lem land merged` and `lem session`. A workspace
+decides nothing, and writes a task's files only through `lem land merged`, the merge agent's `lem land
+merge` and `lem session`. A workspace
 of example tasks has no forge to ask and no duty, and one whose remote is not GitHub has no forge to ask.
 
 Apart from that, the server reads. Its actions are its own stop, the board's notifications, the owner's
@@ -1080,12 +1089,29 @@ def act_merge(workspace: Workspace, slug: str, form: dict, via: str) -> str:
     tip = str(landing.get("proposed") or "")
     if not tip or form.get("tip") != tip:
         return NOTES.put(task=slug, act="merge", state="refused", said="The branch was proposed again since the confirm step showed it: nothing was merged. Read the confirm step again.")
-    pr = landing.get("pr") if isinstance(landing.get("pr"), dict) else None
-    what = f"pull request #{pr['number']}" if pr and pr.get("number") else f"the branch {t.branch or slug}"
-    base = landing.get("base") or "the base branch"
-    args = [MERGE_STEP, slug, "--by", "owner"]
+    return merge_in_thread(workspace, slug, landing, "owner", lambda: asked_from(workspace, slug, "merge", via))
+
+
+def merge_args(landing: dict, slug: str, by: str) -> list[str]:
+    """land.py's MERGE_STEP for a task, `--by BY --via server`, with the proposal's title as the one
+    commit's subject where the history is squashed."""
+    args = [MERGE_STEP, slug, "--by", by, "--via", "server"]
     if landing.get("history") == "squash" and landing.get("title"):
         args += ["--message", str(landing["title"])]
+    return args
+
+
+def merge_in_thread(workspace: Workspace, slug: str, landing: dict, by: str, after=None, failed=None) -> str:
+    """Run the merge of a task, the owner's or the merge agent's (`merge_args`), in a thread of its own,
+    one call at a time with the server's other calls into Lem's scripts (`lem_run`), and the token of its
+    note at once: the note says that it runs (NOTES.merging, which the board reads as "Merging…") until
+    the step ends. A task whose merge runs already gets that merge's token, and no second one starts.
+    AFTER gives what the note adds to a merge that went through; FAILED is called with no argument when
+    the step did not."""
+    pr = landing.get("pr") if isinstance(landing.get("pr"), dict) else None
+    what = f"pull request #{pr['number']}" if pr and pr.get("number") else f"the branch {landing.get('branch') or slug}"
+    base = landing.get("base") or "the base branch"
+    args = merge_args(landing, slug, by)
     token, new = NOTES.start_merge((workspace.name, slug), task=slug, act="merge", state="running",
                                    said=f"Lem merges {what} into {base}. The page shows the result when it ends.")
     if not new:
@@ -1096,11 +1122,15 @@ def act_merge(workspace: Workspace, slug: str, form: dict, via: str) -> str:
             ran = lem_run(workspace, "land.py", *args)
             if ran.returncode == 0:
                 NOTES.change(token, state="done", said=f"Merged: {what} is on {base}. Within a minute the board’s server wakes the task’s session, or opens one, which removes its worktree and its branch."
-                             + asked_from(workspace, slug, "merge", via))
+                             + (after() if after else ""))
             else:
                 NOTES.change(token, state="refused", said=said_of(ran))
+                if failed:
+                    failed()
         except Exception as error:  # noqa: BLE001 - a merge that fails says why on its page, and the server goes on
             NOTES.change(token, state="refused", said=f"The merge failed: {error!r}")
+            if failed:
+                failed()
         finally:
             with NOTES.lock:
                 NOTES.merging.pop((workspace.name, slug), None)
@@ -1839,10 +1869,11 @@ def run_start(t: "bm.Task") -> int:
     return t.blocks[i]["order"]
 
 
-def duties(model: "bm.Model", seen: dict, kept: set) -> list[tuple[str, str, str]]:
+def duties(model: "bm.Model", seen: dict, kept: set, merging: set = frozenset()) -> list[tuple[str, str, str]]:
     """What the server owes the tasks of a workspace now, each `(VERB, SLUG, WHY)` for `lem session VERB
-    SLUG --why WHY`, read from the files and the forge's last look (`seen`, by task) alone, so that a
-    pause of the server loses nothing. Never for a demo workspace.
+    SLUG --why WHY`, or `("merge", SLUG, "merger")` for the merge agent's merge, read from the files and
+    the forge's last look (`seen`, by task) alone, so that a pause of the server loses nothing; MERGING
+    names the tasks whose merge runs in this process. Never for a demo workspace.
 
     - `wake … merged`: a task the merge ended (`landed`, or `dropped` because its pull request was closed
       on the forge) whose worktree is still there (`kept`), and no session was woken or opened since.
@@ -1850,7 +1881,11 @@ def duties(model: "bm.Model", seen: dict, kept: set) -> list[tuple[str, str, str
       proposed last, and no session was woken or opened for a conflict since that proposal: one wake for
       each head.
     - `open … queue`: a queued task whose `after:` task ended, that has no live session (`Model.sessions`,
-      so never while the server does not know) and no session opened since it was queued."""
+      so never while the server does not know) and no session opened since it was queued.
+    - `merge … merger`: an open task whose merge agent's review of the tip Lem proposed last says
+      `merge` and calls nobody (`merge_due`). land.py's own refusals stay the gate: the server only runs it.
+    - `wake … refused`: an open task whose merge agent's merge was refused on the tip Lem proposed last,
+      by GitHub or by Lem's rules, and no session was woken or opened since the refusal."""
     if model.meta.get("demo"):
         return []
     out = []
@@ -1866,6 +1901,12 @@ def duties(model: "bm.Model", seen: dict, kept: set) -> list[tuple[str, str, str
             woke = any(w["order"] > since and w.get("why") in ("conflict", None) for w in t.wakes) or bool(t.opened and t.opened["order"] > since and t.opened.get("why") == "conflict")
             if look.get("mergeable") == "CONFLICTING" and same_head(look.get("head"), t.proposal.get("tip")) and not woke:
                 out.append(("wake", t.slug, "conflict"))
+            elif merge_due(t, seen, merging):
+                out.append(("merge", t.slug, "merger"))
+            elif t.refused and t.refused.get("by") == "merger":
+                after = t.refused["order"]
+                if not any(w["order"] > after for w in t.wakes) and not (t.opened and t.opened["order"] > after):
+                    out.append(("wake", t.slug, "refused"))
         elif t.status == "queued" and bm.after_ended(t, model) and model.sessions is not None:
             live = bm.live_of(t, model) or {}
             if not live.get("live") and not (t.opened and t.opened["order"] > run_start(t)):
@@ -1873,18 +1914,38 @@ def duties(model: "bm.Model", seen: dict, kept: set) -> list[tuple[str, str, str
     return out
 
 
+def merge_due(t: "bm.Task", seen: dict, merging: set) -> bool:
+    """Whether the server runs the merge agent's merge of an open task now: the merge agent's review is
+    of the tip Lem proposed last, says `merge` and calls nobody; no merge of that tip was refused (a new
+    proposal, and its new review, make a new try); the forge does not call it conflicting (its session
+    brings it onto the base first); and no merge of it runs in this process (MERGING)."""
+    review = t.merge_review
+    return bool(t.status == "open" and t.proposal and review and review.get("verdict") == "merge" and not review.get("calls")
+                and same_head(review.get("tip"), t.proposal.get("tip")) and not t.refused
+                and not bm.conflicts(t, seen) and t.slug not in merging)
+
+
 def run_duties(workspace: Workspace, now: float | None = None) -> list[dict]:
     """Run each duty the workspace has now (`duties`), one command at a time, and what ran: a duty whose
-    command failed waits DUTY_RETRY before the next try. The server never types into a session, never
+    command failed waits DUTY_RETRY before the next try. The merge agent's merge starts in a thread of
+    its own (`merge_in_thread`, as the owner's merge from the board), so a merge that waits for the base
+    branch and the forge holds up no other duty. The server never types into a session, never
     selects one and never closes one: `lem session wake` sends a pane message, and `lem session open`
     opens one with no focus."""
     now = time.monotonic() if now is None else now
     model = workspace.model()
     seen = workspace.forge.get("seen") or {}
     ran = []
-    for verb, slug, why in duties(model, seen, workspace.kept):
+    for verb, slug, why in duties(model, seen, workspace.kept, NOTES.running(workspace.name)):
         key = (verb, slug, why)
         if key in workspace.failed and now - workspace.failed[key] < DUTY_RETRY:
+            continue
+        if verb == "merge":
+            def failed(key: tuple = key) -> None:
+                # a refusal land.py kept ends the duty for that tip; any other end waits DUTY_RETRY
+                workspace.failed[key] = time.monotonic()
+            merge_in_thread(workspace, slug, workspace.landing_of(slug), "merger", failed=failed)
+            ran.append({"verb": verb, "task": slug, "why": why, "exit": None, "said": "started"})
             continue
         # a conflict's wake keeps the head the forge named on its record (`session.wake`), one wake for each head
         head = (seen.get(slug) or {}).get("head") if why == "conflict" else None
@@ -1912,6 +1973,9 @@ def forge_loop(machine: "Machine") -> None:
             try:
                 workspace.look_sessions()
                 for one in run_duties(workspace):
+                    if one["verb"] == "merge":
+                        sys.stderr.write(f"serve.py: {workspace.name}: `lem land merge {one['task']} --by merger --via server` started, after the merge agent's verdict `merge`\n")
+                        continue
                     sys.stderr.write(f"serve.py: {workspace.name}: `lem session {one['verb']} {one['task']} --why {one['why']}` exited {one['exit']}"
                                      f"{': ' + one['said'] if one['said'] else ''}\n")
             except Exception as error:  # noqa: BLE001 - as above: one workspace that fails says why

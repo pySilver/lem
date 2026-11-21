@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A task's own session in agterm: one session carries one task, and each phase starts a fresh agent.
 
-    lem session open SLUG [--focus] [--why new|handoff|dead|merged|conflict|queue|night|owner]
+    lem session open SLUG [--focus] [--why new|handoff|dead|merged|conflict|refused|queue|night|owner]
                                  open the task's session for the phase its state gives, or print
                                  the one that runs
     lem session next SLUG [--same]
@@ -14,7 +14,7 @@
                                  check handoff.md against `templates/handoff.md`
     lem session talk SLUG --from TEXT [--leave TEXT ...]
                                  copy the turns of this session about the ask into the task's talk.md
-    lem session wake SLUG --why merged|conflict|queue|owner [--head SHA]
+    lem session wake SLUG --why merged|conflict|refused|queue|owner [--head SHA]
                                  a pane message to the task's live session, or a new session
     lem session wait SLUG --until STATE,... | --event NAME
                                  end when the task's state is one of these, or a new event is logged
@@ -103,8 +103,8 @@ project = importlib.import_module("project")
 lem_state = importlib.import_module("lem_state")
 
 PHASES = ("shape", "build", "land", "fast")
-WHYS = ("new", "handoff", "dead", "merged", "conflict", "queue", "night", "owner")
-WAKES = ("merged", "conflict", "queue", "owner")
+WHYS = ("new", "handoff", "dead", "merged", "conflict", "refused", "queue", "night", "owner")
+WAKES = ("merged", "conflict", "refused", "queue", "owner")
 CLOSES = ("handoff", "ended", "owner")
 EVENTS = ("session.open", "session.close", "session.wake")
 BRIEF = "session.md"

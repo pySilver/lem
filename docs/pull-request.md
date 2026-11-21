@@ -50,8 +50,8 @@ With `branch.land = "owner"`, the merge agent still writes its review, but it ne
 ## Merge it
 
 There is one merge: the merge of the pull request on GitHub. You start it with the Merge button
-on GitHub, with Merge on the [board](board.md), or with `/lem land <task>`. The merge agent starts
-the same merge.
+on GitHub, with Merge on the [board](board.md), or with `/lem land <task>`. When the merge agent
+gives the verdict merge, the board server starts the same merge.
 
 - A merge goes through GitHub, under the rules of your base branch. When GitHub refuses it,
   "Waits for you" shows the line that GitHub gave.

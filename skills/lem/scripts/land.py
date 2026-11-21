@@ -40,9 +40,10 @@ may-land` about the settings' base branch, so a protected branch is never reache
     lem land merge-review SLUG --file FILE
                            write down the merge agent's reply as merge-review.md: its verdict,
                            merge or call, and whether the owner is called
-    lem land merge SLUG --by owner|merger [--message SUBJECT]
+    lem land merge SLUG --by owner|merger [--message SUBJECT] [--via session|server]
                            merge the pull request through GitHub: the owner's word, or the merge
-                           agent's where the settings and the request allow it
+                           agent's where the settings and the request allow it; `--via server`
+                           when the board's server runs it
     lem land merged SLUG   the owner merged the pull request on the forge: finish the bookkeeping;
                            or he closed it with no merge: the task is dropped
     lem land clean SLUG    remove the task's worktree and its branch after the merge
@@ -372,15 +373,21 @@ it. A task that goes on after all is a new request. One that is still open is "n
 
 `merge` is the one route to the base branch, the owner's and the merge agent's alike: `merge --by
 owner` is his word (the board's merge and his `/lem land` run it), and `merge --by merger` is the merge
-agent's, after its review. Both run under the merge lock and read the base after they take it. `--by
+agent's, after its review, which the board's server runs (`--via server`) once `merge-review` kept the
+verdict `merge` with no call: the agent only writes its review, and no session is told to run it.
+Both run under the merge lock and read the base after they take it, and `merge.start` says who merges
+(`by`) and who ran the call (`via`, `session` unless the server says `server`), as `merged_by` in
+`landing.json` does after a merge. `--by
 merger` is refused where the settings' `branch.land` is `owner`, for a careful request, for one that
 is not green (one that is not reviewed among them), for one whose newest review that answered made no
 careful call, and with no merge review of the proposed tip whose verdict is `merge`. A task that ran
 without the owner is merged as any other. The pull request is merged through GitHub, so its own rules
-hold: a merge GitHub refuses keeps its line as `merge_refused` in `landing.json` and a `merge.refused`
-event, for the row that waits for the owner, and the step exits 1 with that line. `merged` is for one
-the owner merged on GitHub. What lands is the tree the checks passed on: when the tip is another tree,
-or the base moved by any file, `merge` refuses and says which steps run again.
+hold: a merge GitHub refuses keeps its line as `merge_refused` in `landing.json` (`from: github`) and a
+`merge.refused` event, for the row that waits for the owner, and the step exits 1 with that line. A
+`--by merger` call that Lem's own rules refuse under the lock keeps its line the same way, with `from:
+lem`, so that the server tries that tip once and the task's session is woken for what the line names.
+`merged` is for one the owner merged on GitHub. What lands is the tree the checks passed on: when the
+tip is another tree, or the base moved by any file, `merge` refuses and says which steps run again.
 
 A step that was cut off is run again; a merge that GitHub already holds only finishes the bookkeeping.
 `clean` knows the branch from `landing.json`, so it finds it after the worktree is gone. It
@@ -568,6 +575,11 @@ INLINE_TESTS = (".rs",)
 
 class LandError(Exception):
     pass
+
+
+class ForgeSaid(LandError):
+    """What GitHub said of a merge Lem asked for: its refusal, whose line `merge_locked` has kept
+    already, or a merge it took and has not made yet, which is no refusal."""
 
 
 def run(args: list[str], cwd: Path | None = None, check: bool = True) -> subprocess.CompletedProcess:
@@ -3346,7 +3358,7 @@ def forge_look(main: Path, base: str, numbers: list[int]) -> dict[int, dict]:
 
 
 @contextlib.contextmanager
-def merge_lock(task: Task):
+def merge_lock(task: Task, by: str, via: str):
     """Hold the repository's one lock of Lem's merge calls while this one runs. A call that finds it
     held logs `merge.wait` with the task that holds it and waits; whoever holds it is done in seconds
     (a fetch, a merge on the forge or a push). The call reads the base branch after it takes it."""
@@ -3368,7 +3380,7 @@ def merge_lock(task: Task):
         handle.truncate()
         handle.write(json.dumps({"step": "merge", "task": task.slug, "pid": os.getpid(), "since": now_utc()}) + "\n")
         handle.flush()
-        script("project.py", task.main, "log", task.slug, "merge.start")
+        script("project.py", task.main, "log", task.slug, "merge.start", f"by={by}", f"via={via}")
         try:
             yield
         finally:
@@ -3485,21 +3497,32 @@ def cmd_merge_review(task: Task, record: str | None) -> dict:
     if calls:
         after = "it calls the owner: \"Read the merge review\" waits for him, and only his merge lands it"
     else:
-        squash = task.settings["branch"]["history"] == "squash"
-        after = f"`lem land merge {task.slug} --by merger" + (" --message SUBJECT`, with the report's commit subject" if squash else "`")
+        after = (f"the board's server merges it (`lem land merge {task.slug} --by merger --via server`): tell the owner in one line that the merge agent "
+                 f"found nothing for him, and wait for the wake-up `lem: {task.slug} merged`, or `lem: {task.slug} refused`")
     return {"task": task.slug, "review": str(task.directory / "merge-review.md"), "verdict": verdict, "calls": calls, "why": why, "by": seat["seat"], "next": after}
 
 
-def cmd_merge(task: Task, by: str, message: str | None) -> dict:
+def cmd_merge(task: Task, by: str, message: str | None, via: str) -> dict:
     if task.record["status"] != "open":
         raise LandError(f"the task is {task.record['status']!r}, not `open`; `lem land propose {task.slug}` comes first")
-    with merge_lock(task):
+    with merge_lock(task, by, via):
         # another call may have merged this task, or the owner closed it, while this one waited
         task.read_states()
-        return merge_locked(task, by, message)
+        try:
+            return merge_locked(task, by, message, via)
+        except ForgeSaid:
+            raise
+        except LandError as error:
+            # The merge agent's merge runs with nobody to read its refusal (the board's server runs
+            # it): its line is kept for that tip, so that the server tries it once and wakes the session.
+            if by == "merger" and task.record["status"] == "open" and task.kept().get("proposed"):
+                tip = task.kept()["proposed"]
+                task.keep(merge_refused={"tip": tip, "by": by, "via": via, "from": "lem", "said": str(error), "at": now_utc()})
+                script("project.py", task.main, "log", task.slug, "merge.refused", f"by={by}", f"via={via}", "from=lem", f"said={error}", f"tip={tip[:9]}")
+            raise
 
 
-def merge_locked(task: Task, by: str, message: str | None) -> dict:
+def merge_locked(task: Task, by: str, message: str | None, via: str) -> dict:
     """The one merge of a task's pull request, the owner's and the merge agent's alike: through
     GitHub, at the commit that was proposed, on the base it was checked on."""
     if task.record["status"] != "open":
@@ -3541,12 +3564,14 @@ def merge_locked(task: Task, by: str, message: str | None) -> dict:
         # line is kept for "Waits for you", and the owner acts on GitHub or asks Lem for a change.
         said = [line.strip() for line in (merged.stderr or merged.stdout).splitlines() if line.strip()]
         line = said[-1] if said else f"gh pr merge exited {merged.returncode}"
-        task.keep(merge_refused={"tip": tip, "by": by, "said": line, "at": now_utc()})
-        script("project.py", task.main, "log", task.slug, "merge.refused", f"by={by}", f"said={line}", f"tip={tip[:9]}")
-        raise LandError(f"GitHub refused the merge of {kept['pr']['url']}: {line}. It waits for the owner as `open`")
+        task.keep(merge_refused={"tip": tip, "by": by, "via": via, "from": "github", "said": line, "at": now_utc()})
+        script("project.py", task.main, "log", task.slug, "merge.refused", f"by={by}", f"via={via}", "from=github", f"said={line}", f"tip={tip[:9]}")
+        raise ForgeSaid(f"GitHub refused the merge of {kept['pr']['url']}: {line}. It waits for the owner as `open`")
+    # who merged, and who ran the call: the merge agent's merge is the board's server's (`--via server`)
+    task.keep(merged_by={"by": by, "via": via})
     view = viewed(task)
     if view["state"] != "MERGED":
-        raise LandError("GitHub took the merge and the pull request is not merged yet (a queue, or a check it waits for); run `lem land merged` when it is")
+        raise ForgeSaid("GitHub took the merge and the pull request is not merged yet (a queue, or a check it waits for); run `lem land merged` when it is")
     return forge_done(task, view)
 
 
@@ -3643,7 +3668,7 @@ def step(task: Task, args: argparse.Namespace) -> dict:
     if args.command == "merge-review":
         return cmd_merge_review(task, args.file)
     if args.command == "merge":
-        return cmd_merge(task, args.by, args.message)
+        return cmd_merge(task, args.by, args.message, args.via)
     if args.command == "merged":
         return cmd_merged(task)
     return cmd_clean(task)
@@ -3684,6 +3709,7 @@ def main(argv: list[str] | None = None) -> None:
     merge.add_argument("slug")
     merge.add_argument("--by", required=True, choices=BY, help="who merges: the owner's word, or the merge agent where the settings and the request allow it")
     merge.add_argument("--message", help="the subject of the one commit, when branch.history is \"squash\"")
+    merge.add_argument("--via", choices=("session", "server"), default="session", help="who runs this call: a session (the default), or the board's server, which runs the merge agent's merge and the owner's merge from the board")
     args = parser.parse_args(argv)
     try:
         task = Task(Path(args.repo), args.slug)

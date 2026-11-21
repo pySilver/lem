@@ -253,7 +253,7 @@ Not run yet: a pair opened from a task's session, and the launch line with `--mo
 ## A wake-up
 
 Nothing of a task's session watches GitHub or another task. The board's server runs `lem session
-wake SLUG --why merged|conflict|queue|owner` (`owner` after his approval or his park on the board),
+wake SLUG --why merged|conflict|refused|queue|owner` (`owner` after his approval or his park on the board),
 which sends `agtermctl msg send "lem: SLUG WHY" --to
 ID:left` to the task's live session, or opens one when none lives. In the trial of 2026-11-21 the
 idle agent took a turn within 15 s each time, five sends in two sessions, two of them after about
@@ -587,4 +587,6 @@ Some steps are not an agent's, with or without the owner's yes in the conversati
   owner's yes (mybaze, 2026-11-07): a push to another repository than the session's own, the
   registration of a hook that sends prompts to an outside service, and the install of a scheduler, whose login agent counts
   as persistence. When the classifier refuses a step, give the owner the exact command on one
-  line and go on. Never send the step again in another form.
+  line and go on. Never send the step again in another form. It blocked the merge agent's merge,
+  `lem land merge SLUG --by merger`, in one task's session and let it through in another
+  (pySilver/lem-scratch#12, 2026-11-21), so no step rests on that call: the board's server runs it.

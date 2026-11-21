@@ -911,7 +911,9 @@ holds the coordinating session's decisions of 2026-11-21.
 - **What reaches across tasks is the board server's**: the session's proposal in the shape he
   reviewed, in place of Q11's watch in each session. The server runs `lem land merged`, wakes or
   opens the task's session for its cleanup, a conflict or a queued task's turn, and shows "no
-  session"; it never types into a session, selects one without his click, closes one or decides.
+  session", and since 2026-11-21 it runs the merge agent's merge too (the maintaining session's
+  decision of that day, below); it never types into a session, selects one without his click,
+  closes one or decides.
   Its wake-up is an agterm pane message, and the session acts on the files, never on the line.
   Section 7: "no session" is a row only when something is stuck, and every task with no live
   session has "Open a session"; `bin/lem` starts the server after a cheap look; a task's session
@@ -1267,6 +1269,23 @@ scratch repository (R1 to R6) and the final audit of `636b24c` (A1 to A15).
   --join HOST`, which lists the other's workspaces as `HOST/WORKSPACE` and passes its pages and its
   stream through over the tailnet (`lem_peers.py`). A chart is drawn by a vendored mermaid, the file
   `lem-ask` pins, which only a document with a chart names and a page loads at its first chart.
+- **The board's server runs the merge agent's merge, and the agent only writes its review**
+  (2026-11-21). The first real task (pySilver/lem-scratch#12) showed it: the merge agent's review
+  said `Verdict: merge.`, the task's session ran `lem land merge SLUG --by merger`, Claude Code's
+  auto mode blocked that one Bash call ("1 action blocked by auto mode"), and the pull request
+  stayed open until the owner opened a second session from his phone, which ran the same command
+  unblocked. A block that holds in one session and not in the next is no step to rest the flow on.
+  So the session writes the review down (`lem land merge-review SLUG --file ANSWER`), says one line
+  and waits, and the server's duty runs `lem land merge SLUG --by merger --via server` in a thread,
+  as it runs the owner's merge from the board; land.py's rules stay the gate, `merge.start` and
+  `merged_by` say who merged and who ran the call, and a refusal of that merge, GitHub's or Lem's
+  own (the base moved, the tip changed), is kept for its tip, so that the server tries the tip once
+  and wakes the session with `lem: SLUG refused`. The script still takes `--by merger` from an
+  agent; no text tells one to run it. The same task showed a live session called dead: agterm's
+  tree gives a task's session as the login shell with the agent inside its `-c` string, and
+  `agent_runs` read only the first two words, so the board said "No session runs this task" and
+  the owner opened a second session beside the live one; it now reads the `-c` string as a shell
+  would.
 
 ## Checks
 

@@ -90,7 +90,8 @@ A new Claude Code session in a repository that uses Lem starts the server, and s
 `lem` command of any session. The first session after an update replaces it.
 
 The server tells the session of a task about a merge or a conflict on GitHub. It also opens the
-session of a task that waited for another task. It never types into a session.
+session of a task that waited for another task. When the merge agent gives the verdict merge, the
+server merges the pull request. It never types into a session.
 
 ## Commands
 

@@ -240,7 +240,8 @@ that wait (`breakers`), the tasks `held` with the line `the criteria wait for th
 task with its proposal (`pull_requests`, with `conflict`: true or false as the forge said it of the
 pushed head at the last `lem land merged`, null when nothing asked or the head moved since;
 `merge_review`, the merge agent's review of the proposed tip with its verdict and whether it calls the
-owner, or null; and `merge_refused`, GitHub's line when it refused a merge of that tip, or null), and each
+owner, or null; and `merge_refused`, the line of a refused merge of that tip, GitHub's or, for the
+merge agent's merge, Lem's own (`from`), or null), and each
 file of a retro's proposals in `retros/` of the state folder (`retros`), which a retro started
 with nobody at the terminal writes in the form Lem's question page takes, one question for each
 proposal. `count` adds them up. Each task in the list gives `night`, the date of the night that

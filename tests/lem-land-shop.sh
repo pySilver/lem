@@ -175,7 +175,7 @@ stale=$(land --repo "$SHOP" merge first-change --by merger 2>&1 || true)
 read_again=$(merge_read "$SHOP" first-change)
 out=$(land --repo "$SHOP" merge first-change --by merger)
 if grep -q "moved after the checks ran, by files (docs/guide.md)" <<<"$docs_err" && grep -qF "no merge review of the proposed tip is on record" <<<"$stale" \
-  && [ "$(field '(d["verdict"], d["calls"], d["next"])' <<<"$read_again")" = "('merge', False, '\`lem land merge first-change --by merger\`')" ] \
+  && [ "$(field '(d["verdict"], d["calls"], d["next"].startswith("the board\x27s server merges it") and "lem land merge first-change --by merger --via server" in d["next"])' <<<"$read_again")" = "('merge', False, True)" ] \
   && [ "$(field '(d["pull_request"]["number"], d["left_behind"])' <<<"$out")" = "(1, None)" ] && [ "$(status first-change)" = landed ] \
   && [ "$(git -C "$ORIGIN" log -1 --format=%s main)" = "fix: first-change" ] && [ "$(git -C "$SHOP" rev-parse main)" = "$(git -C "$ORIGIN" rev-parse main)" ] \
   && [ -f "$SHOP/ok.txt" ] && [ -f "$SHOP/late.txt" ]; then

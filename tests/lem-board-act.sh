@@ -262,4 +262,44 @@ else
   fail "the server's duties: $looked / $(status_in "$DUTY" first-word) / $sessions / $(cat "$AGT/calls")"
 fi
 
+# The merge agent's merge is the server's duty: after its review says `merge` and calls nobody, the server runs
+# `lem land merge SLUG --by merger --via server` in a thread with no act of anyone, the pull request lands, and the
+# next look wakes the task's session for its cleanup through the stand-in for agtermctl.
+AUTO=$WORK/auto-shop
+git init -q -b main "$AUTO" && ident "$AUTO" && commit "$AUTO" init && on_github "$AUTO"
+project --repo "$AUTO" init --base main >/dev/null
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' 'history = "squash"' '[checks]' 'commands = ["true"]' > "$AUTO/.lem/project.toml"
+git -C "$AUTO" add -A && git -C "$AUTO" commit -q -m "chore: start" && git -C "$AUTO" push -q origin main
+task_in "$AUTO" word-by-agent word.txt yes && read_in "$AUTO" word-by-agent
+land --repo "$AUTO" start word-by-agent >/dev/null && land --repo "$AUTO" base word-by-agent >/dev/null && polish_in "$AUTO" word-by-agent
+land --repo "$AUTO" checks word-by-agent >/dev/null && land --repo "$AUTO" read word-by-agent --record "$(clean 1)" >/dev/null
+land --repo "$AUTO" propose word-by-agent --title "fix: the word by the agent" --notes "$NOTES" >/dev/null
+reviewed=$(merge_read "$AUTO" word-by-agent | field '(d["calls"], d["next"].startswith("the board'"'"'s server merges it"))')
+: > "$AGT/calls"
+agt AGTERM_SESSION_ID=S-HIS "$PY" -B skills/lem/scripts/session.py --repo "$AUTO" open word-by-agent --why new >/dev/null
+auto=$(agt LEM_SESSION_SCRIPT= "$PY" -B -c '
+import json, sys, threading
+sys.path.insert(0, "skills/lem/scripts")
+import serve
+serve.detach_from_session()
+w = serve.Workspace("auto-shop", sys.argv[1])
+w.look_sessions()
+first = serve.run_duties(w)
+for thread in threading.enumerate():
+    if thread.name.startswith("merge "):
+        thread.join(120)
+w.look_sessions()
+second = serve.run_duties(w)
+print(json.dumps({"first": [(x["verb"], x["task"], x["why"]) for x in first], "second": [(x["verb"], x["task"], x["why"], x["exit"]) for x in second]}))
+' "$AUTO")
+started=$(grep '"event": "merge.start", "task": "word-by-agent"' "$AUTO/.lem/state/events.jsonl" | field '(d["by"], d["via"])')
+if [ "$reviewed" = "(False, True)" ] && [ "$(field 'd["first"]' <<<"$auto")" = "[['merge', 'word-by-agent', 'merger']]" ] \
+  && [ "$(status_in "$AUTO" word-by-agent)" = landed ] && [ "$(git -C "$AUTO.origin.git" log -1 --format=%s main)" = "fix: the word by the agent" ] \
+  && [ "$started" = "('merger', 'server')" ] && [ "$(kept_in "$AUTO" word-by-agent merged_by)" = "{'by': 'merger', 'via': 'server'}" ] \
+  && [ "$(field 'd["second"]' <<<"$auto")" = "[['wake', 'word-by-agent', 'merged', 0]]" ] && grep -qF '["msg", "send", "lem: word-by-agent merged", "--to", "S-' "$AGT/calls"; then
+  pass "after the merge agent's verdict merge the server's duty merges the pull request with no act of anyone, the record says the server ran the merge agent's merge, and the next look wakes the task's session"
+else
+  fail "the merge agent's merge by the server: $reviewed / $auto / $(status_in "$AUTO" word-by-agent) / $started / $(kept_in "$AUTO" word-by-agent merged_by) / $(cat "$AGT/calls")"
+fi
+
 finish
