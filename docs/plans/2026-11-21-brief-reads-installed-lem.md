@@ -10,8 +10,11 @@ Size: full, because two scripts and six stage texts change the first line of eve
    1. Lem in the folder `.../lem/0.2.0` opens the task `gift-note`, and writes its `session.md`.
    2. The plugin updates, and its folder is `.../lem/0.2.1` now.
    3. No line of that `session.md` holds `.../lem/0.2.0`: its first line tells the session to read `skills/lem/prompts/session.md` in the folder that `lem version` prints as `root`, which is `.../lem/0.2.1`.
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_session.py -k SessionBrief` in `tests/unit/test_session.py`
 2. The merge agent's brief, `merge-brief.md`, names no folder of a Lem version: the merge agent of `gift-note` reads `skills/lem/prompts/merge.md` in the folder that `lem version` prints as `root`.
+   - test: `bash tests/lem-land-shop.sh` in `tests/lem-land-shop.sh`
 3. Every brief that a stage tells a session to write or to send (the lead's `brief.md`, the fast track's `brief.md`, the plan talk's `talk-brief.md`, and the briefs of the scout, the investigator, the review and a builder of the landing) names its standing text the same way: `skills/lem/prompts/NAME.md` in the folder that `lem version` prints as `root`, and no absolute path of a Lem folder.
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_session.py -k EveryBrief` in `tests/unit/test_session.py`
 
 ## How it works
 
