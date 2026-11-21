@@ -1528,8 +1528,8 @@ RESULTS = ("passed", "red", "refused", "stopped")
 OVERDUE_TIMES = 3
 
 # How long `checks --stop` waits for the run it stopped to end: the stop of a serial command takes
-# up to SERIAL_GRACE, and `criteria.py red` takes up to 3 s for each signal to each command it runs
-# (its `stop`). A guess with room, not a measurement.
+# up to SERIAL_GRACE, and `criteria.py red` up to its own GRACE for each signal to each command it runs,
+# and its SERIAL_GRACE for the term to a serial test's wrapper (its `stop`). A guess with room, not a measurement.
 STOP_WAIT = 60
 
 # How long a serial command's wrapper (`project.py serial`) gets after a term before it is killed:

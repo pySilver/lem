@@ -165,6 +165,13 @@ import lem_plans  # noqa: E402
 # How this script calls a sibling: in this process, as one command of it.
 import lem_sibling  # noqa: E402
 import lem_state  # noqa: E402  (how a JSON-lines file is split into its lines)
+# How long a command of the check gets after each signal of a stop, in seconds, and how long a serial
+# test's wrapper (`project.py serial`) gets after its term: its own cleanup sends its command a term,
+# waits 3 s, sends a kill and waits 3 s more (`cmd_serial`), and one second is left for its exit, as
+# land.py's SERIAL_GRACE gives a serial command of the checks. A wrapper killed before its cleanup ends
+# leaves a test that ignores a term running, with the lock free.
+GRACE = 3.0
+SERIAL_GRACE = 7.0
 # The track of a task, as the `Size:` line names it: `full`, the standard track with its plan and lead,
 # or `small`, the fast track of one builder.
 SIZES = ("full", "small")
@@ -604,20 +611,23 @@ def cmd_red(task: Task) -> dict:
             if stuck:
                 raise CriteriaError(stuck)
         child: list[subprocess.Popen] = []
+        # the serial wrappers among them, which get the time of their own cleanup after a term
+        wrappers: set[int] = set()
 
         def stop() -> None:
             """End the command that runs and everything it started: each command is a process group of its own."""
             for proc in child:
-                for sign in (signal.SIGTERM, signal.SIGKILL):
+                for sign, wait in ((signal.SIGTERM, SERIAL_GRACE if proc.pid in wrappers else GRACE), (signal.SIGKILL, GRACE)):
                     try:
                         os.killpg(proc.pid, sign)
                     except (ProcessLookupError, PermissionError):
                         break
                     try:
-                        proc.wait(timeout=3)
+                        proc.wait(timeout=wait)
                     except subprocess.TimeoutExpired:
                         continue
             child.clear()
+            wrappers.clear()
 
         serial = task.settings["checks"]["serial"]
 
@@ -629,6 +639,8 @@ def cmd_red(task: Task) -> dict:
                 line = [sys.executable, "-B", str(SCRIPTS / "project.py"), "--repo", str(task.main), "serial", "--", command]
             proc = subprocess.Popen(line, shell=isinstance(line, str), cwd=where, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, start_new_session=True)  # noqa: S602
             child.append(proc)
+            if isinstance(line, list):
+                wrappers.add(proc.pid)
             code = proc.wait()
             # a command that ended may have left a process behind (a server a test started)
             stop()

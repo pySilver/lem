@@ -134,6 +134,24 @@ if [ "$(field '(d["ok"], [(t["command"], t["on_branch"], t["on_base"]) for t in 
 else
   fail "a criterion's test of a serial suite: $held"
 fi
+# A stop of the check of the criteria while such a test runs and ignores a term: the serial wrapper gets the time of
+# its own cleanup, which kills the test, before the check kills the wrapper; nothing of the test is left, and the lock is free.
+printf '%s\n' "trap '' TERM; sleep 67 & echo \$! > '$WORK/crit-serial.pid'; wait" > "$tree/tests/e2e/b.sh"
+git -C "$tree" commit -q -am "test: a criterion's test that ignores a term"
+"$PY" -B "$CRITERIA" --repo "$AL" red serial-criterion > "$WORK/crit-serial.out" 2>&1 &
+checking=$!
+soon test -s "$WORK/crit-serial.pid"
+kill -TERM "$checking"
+set +e; wait "$checking"; set -e
+crit_serial_left=$(kill -0 "$(cat "$WORK/crit-serial.pid")" 2>/dev/null && echo alive || echo ended)
+started=$SECONDS
+serial -- true
+if [ "$crit_serial_left" = ended ] && [ $((SECONDS - started)) -lt 5 ] && grep -qF "the check was stopped, and its commands are ended" "$WORK/crit-serial.out"; then
+  pass "a stop of the check of the criteria during a serial test that ignores a term leaves no process of the test, and the next serial run starts at once"
+else
+  fail "a stop of the criteria's check during a serial test: the test is $crit_serial_left, the next run after $((SECONDS - started)) s / $(cat "$WORK/crit-serial.out")"
+fi
+kill -KILL "$(cat "$WORK/crit-serial.pid")" 2>/dev/null || true
 
 # A new worktree of a task gets checks.setup one time, so that the checks there can run: a task on the fast track whose
 # builder runs no test reaches its checks with what the setup installs. A setup that fails is refused with its exit.
