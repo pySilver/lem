@@ -315,7 +315,7 @@ command when it is one. The status says who acts next, and the phase of the task
 
 | Status | Means | Who acts |
 | --- | --- | --- |
-| `queued` | the ask is written and nothing builds it: it needs the result of the task its `after:` line names | the board's server opens its session when that task ends |
+| `queued` | the ask is written and nothing builds it: it needs the result of the task its `after:` line names | the board's server opens its session when that task is `landed` or `answered`; the owner, when it was dropped |
 | `building` | a lead plans or builds, or an investigator examines a bug or a question | the task's session |
 | `planned` | the plan is committed and nothing builds it: the plan talk runs, or the owner reads the plan | the defender, or the owner |
 | `held` | it waits for the owner: the interview, the criteria that wait for his yes, one more fact an investigation needs, a step that is his to do, or a breaker's document (`breaker N waits for the owner`); no choice of a build waits for him | the owner, in the task's session |

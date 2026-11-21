@@ -196,12 +196,18 @@ The task's own session, in the shape, from its first message.
    needs a plan to talk about.
 7. **Does it wait for another task?** Only when the later ask needs what the earlier one
    changes: it names the earlier one's result, or it makes no sense before that result exists.
+   Ask it here before the fast track's builder, an investigator or the lead of a complete request.
+   On the standard track with an interview, the interview and his yes come first, while he is
+   there, and `stages/start.md` asks it after them (step 1). The scout and the criteria then read
+   a base without the earlier task's result: a criterion that the result makes false is a change
+   of the criteria, and the pull request is not green for it.
    Then write the later one's state as `queued` with the line `after: SLUG` of the earlier one,
    and with `investigation: bug` or `investigation: question` when its investigation comes first
    (step 4); write `handoff.md` (`prompts/session.md`, "A change of phase"), and close this
    session, `lem session close SLUG --why handoff --when-unselected` with `run-in-background`. The
-   board's server opens the task's session when that task is `landed`, `answered` or `dropped`,
-   so it builds on what the earlier one changed. Two asks that only name the same thing (the same
+   board's server opens the task's session when that task is `landed` or `answered`, so it builds
+   on what the earlier one changed. When that task is dropped, it stays `queued`, and "Waits for
+   you" asks the owner to start it or to drop it. Two asks that only name the same thing (the same
    screen, the same file, the same function) each start on their own. Do not read the code to find
    an overlap the asks do not show; the landing settles that one, as a conflict at its rebase
    (`stages/land.md`, step 2).

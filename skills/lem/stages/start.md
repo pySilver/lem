@@ -4,10 +4,12 @@ Every start of a task's build goes this way: the owner's yes to the criteria, a 
 the fast track's builder, a queued task whose turn came (the board's server opens its session),
 `/lem build`, and a task he resumed. The investigator of a bug or a question takes steps 1 and 2.
 
-1. **May it start?** `lem project may-start SLUG`. No count of tasks stops a start. On exit 1 for
-   a task queued `after:` a task that has not ended, it stays `queued`: write `handoff.md` and close
-   this session as step 7 of "The request" (`stages/new.md`) says; the board's server opens it
-   again when that task ends. A task in `landing`, `open`, `parked`, `landed`, `answered` or
+1. **May it start?** After an interview and his yes, ask step 7 of "The request" (`stages/new.md`)
+   first: a task that needs another task's result is `queued` behind it as that step says, and
+   this session hands over and closes there. Then `lem project may-start SLUG`. No count of tasks
+   stops a start. On exit 1 for a task queued `after:` a task that has not ended, it stays
+   `queued`: write `handoff.md` and close this session as step 7 of "The request" says; the board's
+   server opens it again when that task is `landed` or `answered`. A task in `landing`, `open`, `parked`, `landed`, `answered` or
    `dropped` gets no lead at all, and the step says so: it is no task to queue.
 2. **The worktree.** When the task has one, use it. When it has none, make it at the path in the
    brief: from the task's branch when that branch exists (a task whose worktree was removed), otherwise from the settings' base branch. Use the project's own worktree script
