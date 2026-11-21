@@ -19,3 +19,8 @@ the newest. The forms live in the script, and `stages/new.md` keeps one example.
 facts, "The request" writes the fast track's criterion and the lead's brief before the task's first
 block, and the first block of every path comes before anyone starts. A task of the night gets no
 line: the night's report names it.
+
+The session where the owner typed the request says the line too, with the task named and in its
+commands (`lem session wait SLUG --first-line`, the `then` of `lem session open SLUG --why new`),
+because the task's session did not say it in a real task on 0.1.5 (lem-trial, 2026-11-21), and a
+session on the fast track takes no focus, so he is not in it.
