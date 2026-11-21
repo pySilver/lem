@@ -299,9 +299,12 @@ else
 fi
 
 # The one list of what waits for the owner: a breaker, criteria that wait for his yes, a step of his, a pull
-# request with green or not whose merge review calls him, and a retro's proposals.
+# request with green or not whose merge review calls him, and a retro's proposals. An interview whose criteria the
+# personas read is not on it until their read is in, and then it is.
 wq() { project --repo "$WQ" "$@"; }
-for slug in a-breaker his-criteria his-step proposed-one; do wq task-dir "$slug" --ask "The ask of $slug." >/dev/null; done
+for slug in a-breaker his-criteria his-step proposed-one in-read; do wq task-dir "$slug" --ask "The ask of $slug." >/dev/null; done
+wq state in-read held "the interview waits for the owner" "type: feat, because the export gets a note" >/dev/null
+wq log in-read criteria.read.start by=lem >/dev/null
 # a breaker holds its task: the list names it once, under breakers
 breaker_doc "$WQ/.lem/state/tasks/a-breaker" && "$PY" -B "$DECISIONS" --repo "$WQ" breaker a-breaker --cause criteria >/dev/null
 wq state his-criteria held "the criteria wait for the owner" "type: feat, because the export gets a column" >/dev/null
@@ -316,13 +319,16 @@ seen=$( (cat "$XDG_CONFIG_HOME/lem/owner.jsonl" 2>/dev/null || true) | grep -c '
 wq owner away --words "I'm away" >/dev/null
 away_list=$(wq waiting | field '(d["owner"]["away"], d["owner"]["words"], d["owner"]["since"] is not None, [b["task"] for b in d["breakers"]], d["count"])' 2>&1 || true)
 wq owner back --words "/lem im-back" >/dev/null
+wq log in-read criteria.read by=lem asked:=2 answered:=2 families:='["opus"]' silent:='[]' criteria:=1 flagged:=0 split:=false digest=0123456789ab >/dev/null
+read_in=$(wq waiting | field '([t["task"] for t in d["held"]], d["count"])' 2>&1 || true)
+wq state in-read dropped "the test is over" >/dev/null
 shape=$(field '([(c["task"], c["id"]) for c in d["breakers"]], [(t["task"], t["line"]) for t in d["criteria"]], [(t["task"], t["line"]) for t in d["held"]], [(t["task"], t["pull_request"], t["green"], t["not_green"], t["conflict"]) for t in d["pull_requests"]], [(r["date"], r["proposals"], "problem" in r) for r in d["retros"]], d["count"])' <<<"$listed" 2>&1 || true)
 if [ "$shape" = "([('a-breaker', 1)], [('his-criteria', 'the criteria wait for the owner')], [('his-step', \"the reviewer's pane waits for the owner's trust of the folder\")], [('proposed-one', 'https://github.com/acme/shop/pull/7', False, ['the bar is lower'], True)], [('2026-11-17', 2, False), ('2026-11-18', None, True)], 7)" ] \
   && [ "$(field '(d["owner"]["away"], d["owner"]["seen"])' <<<"$listed")" = "(False, $seen)" ] && [ "$(field 'd["pull_requests"][0]["ask"]' <<<"$listed")" = "The ask of proposed-one." ] \
-  && [ "$away_list" = "(True, \"I'm away\", True, ['a-breaker'], 7)" ]; then
-  pass "waiting lists in one JSON what waits for the owner: whether he is away, each breaker as decisions.py pending gives it, once though it holds its task, the criteria and the steps that hold a task, each pull request with green or not and whether the forge calls it conflicting, and each retro's proposals, with a file that does not read named as such; while he is away it says so first, since when and in his words, and the breaker still waits for him"
+  && [ "$away_list" = "(True, \"I'm away\", True, ['a-breaker'], 7)" ] && [ "$read_in" = "(['in-read', 'his-step'], 8)" ]; then
+  pass "waiting lists in one JSON what waits for the owner: whether he is away, each breaker as decisions.py pending gives it, once though it holds its task, the criteria and the steps that hold a task, each pull request with green or not and whether the forge calls it conflicting, and each retro's proposals, with a file that does not read named as such; while he is away it says so first, since when and in his words, and the breaker still waits for him; an interview whose criteria the personas read is neither listed nor counted until their read is in"
 else
-  fail "waiting: $shape / $away_list / $listed"
+  fail "waiting: $shape / $away_list / $read_in / $listed"
 fi
 
 # A night's task is told from a day's task by the night's mark, and the night's brake counts its pull requests that

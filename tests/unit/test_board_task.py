@@ -156,6 +156,11 @@ class Overview(unittest.TestCase):
         alone = one(state(0, "queued", "it waits", "then: the lead"))
         self.assertEqual((bm.now_head(alone), spans(alone, "lem")[0][3]), ("Waits to start", "Queued: it waits to start"))
 
+    def test_an_interview_whose_criteria_the_personas_read_waits_for_nothing_of_his(self):
+        m = model(state(0, "held", "the interview waits for the owner"), ev(1, "interview.start"), ev(10, "criteria.read.start", by="lem"))
+        self.assertEqual(bm.waits_for(m.tasks[0], bm.waits_of(m)), None)
+        self.assertEqual(pages.summary_of(m), "1 with the personas’ read of its criteria")
+
     def test_the_large_card_says_how_a_stopped_run_ended_and_never_that_the_checks_run(self):
         t = one(state(0, "landing", "the checks start"), ev(1, "gate.start", tip="4c1d2e3f5", commands=2), ev(2, "gate.end", result="stopped", seconds=60))
         self.assertEqual(bm.now_head(t), "The checks were stopped")

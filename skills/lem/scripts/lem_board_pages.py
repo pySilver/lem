@@ -656,8 +656,10 @@ def summary_of(m: bm.Model) -> str:
 
     approved = sum(1 for t in m.lane["build"] if t.approved)
     helped = sum(1 for t in m.lane["build"] if t.helped)
+    reading = sum(1 for t in m.lane["build"] if t.reading)
     n = len(m.for_owner)
     parts = [n and f"{n} wait{'s' if n == 1 else ''} for you", in_build("building") and f"{in_build('building')} build{'s' if in_build('building') == 1 else ''}",
+             reading and f"{reading} with the personas’ read of {'its' if reading == 1 else 'their'} criteria",
              m.lane["checks"] and f"{len(m.lane['checks'])} in checks and review", in_build("queued") and f"{in_build('queued')} queued",
              in_build("planned") and f"{in_build('planned')} wait for their plan talk", in_build("blocked") and f"{in_build('blocked')} blocked",
              approved and f"{approved} approved, with no lead yet", helped and f"{helped} helped, with no lead yet", m.parked and f"{len(m.parked)} parked"]
