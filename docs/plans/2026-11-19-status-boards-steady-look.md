@@ -1,5 +1,9 @@
 # The status boards: one steady look, with tabs, in Lem's own light and dark
 
+> **Status: built** in `5b05a58` (2026-11-19). The served board of 2026-11-20 (`AGENTS.md`, "The
+> board is served, and the server draws it") replaced its page and its script, and keeps its look,
+> its tabs and the folded decisions.
+
 careful: no, because no task changes a record, a script that writes one, the text of a pull request or a git act: the board reads `events.js`, `meta.js` and `backlog.js` and writes nothing, `land.py`'s green and its reasons are untouched, and the board's one action (the backlog's "Start a task", which types `/lem new PATH` into Lem's session) keeps its code and its test in `tests/lem-settings.sh`. Tasks 5 to 7 keep that: `board.py` writes one more file of the board's own beside `meta.js` and `backlog.js`, from `task.md` and a read of git, and the decisions tab only shows the record.
 
 ## Acceptance criteria

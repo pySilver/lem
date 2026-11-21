@@ -1,5 +1,9 @@
 # A companion only when something waits for the owner
 
+> **Status: built** in `ffd8903` (2026-11-20). The redesign of 2026-11-20 ([2026-11-20-a-session-for-each-task.md](2026-11-20-a-session-for-each-task.md)) replaced the companions:
+> each task has a session of its own from its shape to its merge. The copy of the talk stays, as
+> `lem session talk`.
+
 careful: yes, because the change moves where the owner's yes to the criteria and his answer to a choice are typed, which reaches "A task's record is lost or wrong" (the approval is written in a companion and must reach Lem's records) and "A decision that is the owner's is taken without him" (a companion that closes, a message that is lost or an away status must never let anyone take his yes for him); task 6 writes new rulings of his into `AGENTS.md`, which reaches "A change bends a ruling of the owner".
 
 ## Acceptance criteria

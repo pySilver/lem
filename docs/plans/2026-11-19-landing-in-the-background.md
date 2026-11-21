@@ -1,5 +1,9 @@
 # The landing's checks run in the background
 
+> **Status: built** in `36e7eb0` (2026-11-19). The checks still run in the background;
+> the redesign of 2026-11-20 ([2026-11-20-a-session-for-each-task.md](2026-11-20-a-session-for-each-task.md)) let landings run in parallel, under the load gate of the machine, in the place of
+> one landing at a time.
+
 careful: yes, because task 1 changes when the landing reads the result of the checks and adds a refusal to `read` and `propose`, which reaches the owner's topic "The landing lets through a change that should not land: one the checks or the review did not pass, one a person should merge, or one aimed at a protected branch", and a run that is stopped must leave `landing.json` true, which reaches "A task's record is lost or wrong".
 
 ## Acceptance criteria

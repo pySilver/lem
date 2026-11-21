@@ -1,5 +1,9 @@
 # Away for the whole machine
 
+> **Status: built** in `3662a3f` (2026-11-20). The one mark of the machine still holds; the redesign of 2026-11-20 ([2026-11-20-a-session-for-each-task.md](2026-11-20-a-session-for-each-task.md))
+> moved its watch from Lem's session to the shape's session of each task, and the mark changes
+> nothing in a build.
+
 careful: yes, because two topics are in reach: "A decision that is the owner's is taken without him, or one taken for him is missing from the pull request he reads" (task 1 moves the one fact that `decisions.py` `take`, `cmd_wait`, `criteria.py --alone` and `land.py` `may_merge` and `without_owner` act on, so a wrong read takes his choices in every repository at once or drops a span from a pull request), and "Lem writes over something of the developer's: a file in his home" (task 1 writes the first file Lem keeps under the home directory, and every test suite that calls `lem project owner` today would write it unless the run is kept away from it); and "A change bends a ruling of the owner" is near, since "One Lem for one repository" and "his being there is one status of the repository" (AGENTS.md) are read against a fact that now holds across repositories, which the owner's interview of 2026-11-19 settled (`directions.md`) and task 4 writes down.
 
 ## Acceptance criteria

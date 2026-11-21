@@ -1,5 +1,7 @@
 # A landing page for Lem on GitHub Pages
 
+> **Status: built** in `8abef4d` (2026-11-19), and it holds as built.
+
 careful: no, because no task reaches a topic: the page is a static `site/` folder and a workflow that runs only by hand, outside every plugin folder Claude Code reads (`agents/`, `bin/`, `hooks/`, `skills/`, `.claude-plugin/`), so "Lem as a plugin ... brings a hook or a command he did not install" is not reached; the rulings the page meets (no CI on a push, the README's STE, the logo unchanged, no report of what ran) are kept by the criteria and the directions; and the page starts no product code that other code copies.
 
 ## Acceptance criteria
