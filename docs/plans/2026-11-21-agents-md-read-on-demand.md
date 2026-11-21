@@ -164,9 +164,15 @@ Each entry says:
     has a state for each span, and the entry's state is the strongest change of the two: when a
     later ruling changed or replaced one span, the entry is changed in part, and its part names that
     span by its words;
-  - **its day**: the date its paragraph gives, else the date of its group's opening. Where the
-    opening gives more than one day ("His interview of 2026-11-17 and 2026-11-18"), the day is
-    those days as the opening writes them (`2026-11-17 and 2026-11-18`), never one of them picked;
+  - **its day**: the date its paragraph gives for the ruling itself (not the days of the rulings it
+    names), else the date of its group's opening. Where the opening gives more than one day ("His
+    rulings of 2026-11-20 and 2026-11-21"), the day is the one the source the opening names gives
+    for that ruling: for "GitHub pull requests are the one way to land",
+    `.lem/state/tasks/one-lem-parallel-landings/owner-notes-process.md`, whose first line says
+    2026-11-20 and which holds his quote, so `ruled: 2026-11-20`, as criterion 2 has it. The day of
+    a commit is no source: the commit that added that paragraph is of 2026-11-21. With no source
+    that gives the day, it is the opening's days as written (`2026-11-17 and 2026-11-18`), never
+    one of them picked, and the report lists each such entry (decision 9 of the plan);
   - **its sentence**: for one in force, today's bold sentence word for word, with both bold spans
     as one line where a paragraph has two; for one changed in part, the rule as it stands today,
     with today's bold sentence beside it and each later ruling that changed a part: its day, its
@@ -423,6 +429,11 @@ Each is the lead's, with what it rests on. The task's record holds them after th
    and `wc -w`). The number is the session's estimate, and the case says so.
 8. **The pull request's lists carry the counts of each kind.** The map gives them at no cost. The
    record's decision 14 left them out of criterion 4, and no criterion changes.
+9. **A ruling's day comes from the source its group's opening names, where the opening names more
+   than one day**, and the opening's days as written only where no source gives it. The plan talk's
+   question 4 closed as a design choice; the question gate settled it as checkable by criterion 2,
+   whose case says `ruled: 2026-11-20` for "GitHub pull requests are the one way to land" (decision
+   16 of the task's record).
 
 ## Left to the landing
 
