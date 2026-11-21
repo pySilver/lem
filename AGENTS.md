@@ -48,288 +48,30 @@ works, and this file says how to change it.
   settings, a record, an event, a state or a command reads and writes the new form only, and the
   maintaining session corrects the repositories that use Lem by hand. When Lem has users, this
   rule changes.
-- **Before a change that reaches what a sentence of the two lists below names, read that
-  sentence's file**, in whatever group it stands. A sentence names its ruling, and the sentences of
-  "What Lem is, and who it is for" name what Lem holds and leaves out, so a change that adds a part
-  to Lem (a skill, a hook, a command, a key of the settings, a tool it needs) reaches each of them.
-- **A new ruling of the owner is a file of `docs/rulings/` and one sentence in `AGENTS.md`.**
-  `lem project ruling-file SLUG` names the file, from the words of the sentence in lower case with
-  hyphens. The file opens with a front matter block of `ruled:` (his day) and `area:` (the heading
-  of its group), then the sentence as its `#` title, then the ruling in his words. The sentence is
-  the text of a link to the file, alone on its line under the heading of its group. The file and
-  the sentence change in the same commit.
-- **A ruling that replaces another takes that ruling's file whole**, with its own `## Changed in
-  part` and `## Replaced, not in force`, into its own `## Replaced, not in force`: a `###` heading
-  of the replaced sentence, the line `Ruled on DAY.`, then its text. The replaced file and its
-  sentence leave, and each link to the removed file, in `AGENTS.md` and in the two folders, names
-  the new file in the same commit.
-- **A ruling that changes a part of another changes that ruling's sentence and title where they
-  are no longer true**, and adds one line to that ruling's `## Changed in part`: the day, the new
-  ruling's sentence as a link, and the part it changed. A file with no `## Changed in part` yet
-  gets one under its title, opening with "The title is the rule as it stands. Where the paragraph
-  below says otherwise, the line here holds.", and its old words go under `## As ruled on DAY,
-  changed in part since`.
-- **A new decision of the maintaining session is a file of `.lem/decisions/`**, named as a
-  ruling's file is, with `decided:` in place of `ruled:`, and one sentence under the heading of
-  its group in "Decisions the maintaining session took". A decision changes as a ruling does, and
-  no heading or marker line of its file says "ruled": `decided:`, `Decided on DAY.` and `## As
-  decided on DAY, changed in part since` take the place of a ruling's words. A moved paragraph
-  keeps its words, "ruled" among them. A decision that a ruling replaces keeps its file,
-  whose first line under the title is `Replaced, not in force: on DAY, by` and the link of that
-  ruling, and the ruling's `## Replaced, not in force` links it back.
+- **A new ruling of the owner is one bullet of `docs/rulings/rulings.md`**, under the heading of
+  its group: the rule in one sentence, in bold; only where the sentence alone could mislead, at most
+  three lines more, with his words in quotes only where they are the rule or its limit; his day in
+  parentheses at the end. No history in a bullet.
+- **A ruling that replaces another takes its bullet's place**, and git keeps the old one. A ruling
+  that changes a part of another changes that bullet's words. A bullet leaves the list only on the
+  owner's word.
+- **A rule that a test now holds may move to `docs/rulings/history.md`, on his word**, as one line
+  with the test's name, which `tests/unit/test_agents_md.py` finds or fails.
+- **A choice of the maintaining session that no code and no test can show is a bullet of the
+  list's last part**, "Choices of the maintaining session", with `decided` before its day. Every
+  other choice of the session is in the message of the commit that made it.
 
 ## The owner's rulings
 
-Each sentence below is a ruling of the owner in force, and the text of a link to its file in
-`docs/rulings/`, which holds his words, the day, what changed it since and what it replaced. A
-ruling is reopened only by asking him.
+`docs/rulings/rulings.md` is the list of the owner's rulings in force, one bullet for each under
+the twelve groups, and in its last part the choices of the maintaining session that are open to
+him. Read it whole once in a session, before a change to Lem. A change that adds a part to Lem (a
+skill, a hook, a command, a key of the settings, a tool it needs) reaches each bullet of "What Lem
+is, and who it is for". A ruling is reopened only by asking him.
 
-### What Lem is, and who it is for
-
-- [Lem is for experienced developers, and every change is measured against that](docs/rulings/lem-is-for-experienced-developers-and-every-change-is-measured-against-that.md)
-- [One Lem for one repository.](docs/rulings/one-lem-for-one-repository.md)
-- [Claude Code first.](docs/rulings/claude-code-first.md)
-- [Opinionated and small.](docs/rulings/opinionated-and-small.md)
-- [The rules of an existing project stay where they are](docs/rulings/the-rules-of-an-existing-project-stay-where-they-are.md)
-- [Another program's settings stay where that program keeps them](docs/rulings/another-programs-settings-stay-where-that-program-keeps-them.md)
-- [webrev is the way to mark up a plan or a document, a required recipe of the agterm cookbook, and it is not a part of Lem.](docs/rulings/webrev-is-the-way-to-mark-up-a-plan-or-a-document-a-required-recipe-of-the-agterm-cookbook-and-it-is-not-a-part-of-lem.md)
-- [Lem is a plugin, and nothing else](docs/rulings/lem-is-a-plugin-and-nothing-else.md)
-- [Lem is his one desk for work in a repository, and its core is the path from a request to a merged pull request.](docs/rulings/lem-is-his-one-desk-for-work-in-a-repository-and-its-core-is-the-path-from-a-request-to-a-merged-pull-request.md)
-- [Release, last-tag and the review of another person's pull request leave the core](docs/rulings/release-last-tag-and-the-review-of-another-persons-pull-request-leave-the-core.md)
-- [Three more commands are no commands of his, and two recipes of the agterm cookbook become required](docs/rulings/three-more-commands-are-no-commands-of-his-and-two-recipes-of-the-agterm-cookbook-become-required.md)
-- [No word and no form of a Lem before is kept.](docs/rulings/no-word-and-no-form-of-a-lem-before-is-kept.md)
-- [The user of Lem is a senior developer with little attention to give](docs/rulings/the-user-of-lem-is-a-senior-developer-with-little-attention-to-give.md)
-- [The shipped skills are for the times he steps in](docs/rulings/the-shipped-skills-are-for-the-times-he-steps-in.md)
-- [Claude Code and agterm first, and Codex for reviews](docs/rulings/claude-code-and-agterm-first-and-codex-for-reviews.md)
-
-### What Lem needs on the machine
-
-- [agterm is a hard dependency](docs/rulings/agterm-is-a-hard-dependency.md)
-- [The question page is a part of Lem, not a tool the machine has or lacks](docs/rulings/the-question-page-is-a-part-of-lem-not-a-tool-the-machine-has-or-lacks.md)
-- [agterm, the mailbox chat and revmux stay required](docs/rulings/agterm-the-mailbox-chat-and-revmux-stay-required.md)
-- [cronn is required, and Codex is highly recommended](docs/rulings/cronn-is-required-and-codex-is-highly-recommended.md)
-- [Lem assumes auto mode](docs/rulings/lem-assumes-auto-mode.md)
-- [A release is a change of the plugin's `version`](docs/rulings/a-release-is-a-change-of-the-plugins-version.md)
-- [Python 3.11 stays, in the modern form.](docs/rulings/python-3-11-stays-in-the-modern-form.md)
-
-### A request: its type, its track and its commands
-
-- [A shipped skill's name follows `/lem`](docs/rulings/a-shipped-skills-name-follows-lem.md)
-- [What must not go wrong is named by topic, and an agent says whether a task is careful](docs/rulings/what-must-not-go-wrong-is-named-by-topic-and-an-agent-says-whether-a-task-is-careful.md)
-- [Lem tells the type of a request, asks when it is unclear, and a bug is investigated first](docs/rulings/lem-tells-the-type-of-a-request-asks-when-it-is-unclear-and-a-bug-is-investigated-first.md)
-- [A task has a type and a track, and they are two words.](docs/rulings/a-task-has-a-type-and-a-track-and-they-are-two-words.md)
-- [The first line is where he corrects Lem's read of a request](docs/rulings/the-first-line-is-where-he-corrects-lems-read-of-a-request.md)
-- [The two tracks are the fast track and the standard track](docs/rulings/the-two-tracks-are-the-fast-track-and-the-standard-track.md)
-- [A helper starts from plain words](docs/rulings/a-helper-starts-from-plain-words.md)
-- [The commands of his status and of a task are `/lem im-away`, `/lem im-back`, `/lem be-careful [task]`, `/lem standard-track [task]` and `/lem drop [task]`.](docs/rulings/the-commands-of-his-status-and-of-a-task-are-lem-im-away-lem-im-back-lem-be-careful-task-lem-standard-track-task-and-lem-drop-task.md)
-- [The investigation of a bug keeps its method](docs/rulings/the-investigation-of-a-bug-keeps-its-method.md)
-- [A task order in his words stays](docs/rulings/a-task-order-in-his-words-stays.md)
-
-### The interview, the criteria and the personas
-
-- [The personas' read of the acceptance criteria is his to skip, and only when every criterion names only the developer](docs/rulings/the-personas-read-of-the-acceptance-criteria-is-his-to-skip-and-only-when-every-criterion-names-only-the-developer.md)
-- [Every project of Lem has personas, and a panel asks the project's own](docs/rulings/every-project-of-lem-has-personas-and-a-panel-asks-the-projects-own.md)
-- [One approved line of a task is an acceptance criterion](docs/rulings/one-approved-line-of-a-task-is-an-acceptance-criterion.md)
-- [A complete ticket that someone else wrote needs his yes to its criteria, and no interview](docs/rulings/a-complete-ticket-that-someone-else-wrote-needs-his-yes-to-its-criteria-and-no-interview.md)
-- [A persona's file names its models](docs/rulings/a-personas-file-names-its-models.md)
-- [Most requests have an interview and his check of the acceptance criteria, and the pull request says green or not green first.](docs/rulings/most-requests-have-an-interview-and-his-check-of-the-acceptance-criteria-and-the-pull-request-says-green-or-not-green-first.md)
-- [The personas read first, and their confusion may change the design](docs/rulings/the-personas-read-first-and-their-confusion-may-change-the-design.md)
-
-### The plan, the build and the tests
-
-- [The first run is in a scratch repository](docs/rulings/the-first-run-is-in-a-scratch-repository.md)
-- [Each task of a plan gets a fresh builder](docs/rulings/each-task-of-a-plan-gets-a-fresh-builder.md)
-- [The plan talk is predictably short, over a closed list](docs/rulings/the-plan-talk-is-predictably-short-over-a-closed-list.md)
-- [The plan talk is a pair in a companion that closes after it](docs/rulings/the-plan-talk-is-a-pair-in-a-companion-that-closes-after-it.md)
-- [A plan's file is `YYYY-MM-DD-<slug>.md`](docs/rulings/a-plans-file-is-yyyy-mm-dd-slug-md.md)
-- [No CI on a push for now](docs/rulings/no-ci-on-a-push-for-now.md)
-- [The tests are to be useful and fast](docs/rulings/the-tests-are-to-be-useful-and-fast.md)
-- [The plan talk stays as one plan, one reviewer and a closed list, and it can stop a task](docs/rulings/the-plan-talk-stays-as-one-plan-one-reviewer-and-a-closed-list-and-it-can-stop-a-task.md)
-- [The tests are chosen by what can fail, and a task is quick.](docs/rulings/the-tests-are-chosen-by-what-can-fail-and-a-task-is-quick.md)
-- [A plan may end with a documentation task](docs/rulings/a-plan-may-end-with-a-documentation-task.md)
-
-### A decision without him: the ladder, the experts and the breaker
-
-- [A builder's question about the outcome goes to the personas](docs/rulings/a-builders-question-about-the-outcome-goes-to-the-personas.md)
-- [The owner learns at the end what was decided for him, each with a short why](docs/rulings/the-owner-learns-at-the-end-what-was-decided-for-him-each-with-a-short-why.md)
-- [`/lem ask-expert` takes a question in words, or none](docs/rulings/lem-ask-expert-takes-a-question-in-words-or-none.md)
-- [In doubt, a decision climbs a ladder of opinions, and a count decides, not a model.](docs/rulings/in-doubt-a-decision-climbs-a-ladder-of-opinions-and-a-count-decides-not-a-model.md)
-- [The question gate stays, hidden, and may decide](docs/rulings/the-question-gate-stays-hidden-and-may-decide.md)
-- [Without Codex one expert answers alone.](docs/rulings/without-codex-one-expert-answers-alone.md)
-- [A choice that matters is logged, also when nobody was asked](docs/rulings/a-choice-that-matters-is-logged-also-when-nobody-was-asked.md)
-- [The experts know the personas](docs/rulings/the-experts-know-the-personas.md)
-- [A decision in the build goes to the personas first, and the build asks him nothing.](docs/rulings/a-decision-in-the-build-goes-to-the-personas-first-and-the-build-asks-him-nothing.md)
-- [The build asks him nothing, and the ladder always decides](docs/rulings/the-build-asks-him-nothing-and-the-ladder-always-decides.md)
-- [Only a circuit breaker stops a task, with a document](docs/rulings/only-a-circuit-breaker-stops-a-task-with-a-document.md)
-
-### The review, the pull request and the merge
-
-- [A review comes before the merge, and a task ends as a pull request.](docs/rulings/a-review-comes-before-the-merge-and-a-task-ends-as-a-pull-request.md)
-- [A project can close branches](docs/rulings/a-project-can-close-branches.md)
-- [A small defect outside the task is fixed at the end](docs/rulings/a-small-defect-outside-the-task-is-fixed-at-the-end.md)
-- [After a merge, Lem repairs only a pull request with a conflict](docs/rulings/after-a-merge-lem-repairs-only-a-pull-request-with-a-conflict.md)
-- [One way to merge in each project, and no prompt](docs/rulings/one-way-to-merge-in-each-project-and-no-prompt.md)
-- [`branch.history` is `"squash"` by default](docs/rulings/branch-history-is-squash-by-default.md)
-- [There is no train: the button on GitHub and `/lem land` are the same merge, and a task's branch is never merged by hand.](docs/rulings/there-is-no-train-the-button-on-github-and-lem-land-are-the-same-merge-and-a-tasks-branch-is-never-merged-by-hand.md)
-- [A polish pass is a step of the flow](docs/rulings/a-polish-pass-is-a-step-of-the-flow.md)
-- [A partial review is a review](docs/rulings/a-partial-review-is-a-review.md)
-- [The review is routed by an agent that knows what each profile is for](docs/rulings/the-review-is-routed-by-an-agent-that-knows-what-each-profile-is-for.md)
-- [Landings run in parallel, and the machine's load decides when checks start](docs/rulings/landings-run-in-parallel-and-the-machines-load-decides-when-checks-start.md)
-- [A fresh merge agent reads every proposed task, and merges it or calls him](docs/rulings/a-fresh-merge-agent-reads-every-proposed-task-and-merges-it-or-calls-him.md)
-- [GitHub pull requests are the one way to land](docs/rulings/github-pull-requests-are-the-one-way-to-land.md)
-
-### A task's session, and whether he is there
-
-- [A task runs with him or alone, and he can let go at any stage.](docs/rulings/a-task-runs-with-him-or-alone-and-he-can-let-go-at-any-stage.md)
-- [He says whether he is there, and Lem assumes nothing](docs/rulings/he-says-whether-he-is-there-and-lem-assumes-nothing.md)
-- [His away status is one mark of the machine, and a night task always runs without him](docs/rulings/his-away-status-is-one-mark-of-the-machine-and-a-night-task-always-runs-without-him.md)
-- [No global Lem, and there is no Lem session.](docs/rulings/no-global-lem-and-there-is-no-lem-session.md)
-- [A task's session is a fresh agent, with the talk copied in by `lem session talk`.](docs/rulings/a-tasks-session-is-a-fresh-agent-with-the-talk-copied-in-by-lem-session-talk.md)
-- [Each task lives in a session of its own, from its shape to its merge, and there is no Lem session.](docs/rulings/each-task-lives-in-a-session-of-its-own-from-its-shape-to-its-merge-and-there-is-no-lem-session.md)
-- [Inside a phase a session compacts itself at his number, for all his repositories.](docs/rulings/inside-a-phase-a-session-compacts-itself-at-his-number-for-all-his-repositories.md)
-
-### The board and the pages for him
-
-- [The monitor is required](docs/rulings/the-monitor-is-required.md)
-- [Lem asks through its question page](docs/rulings/lem-asks-through-its-question-page.md)
-- [A page for the owner has the board's look](docs/rulings/a-page-for-the-owner-has-the-boards-look.md)
-- [The backlog is a part of Lem, and its view is a tab of the board](docs/rulings/the-backlog-is-a-part-of-lem-and-its-view-is-a-tab-of-the-board.md)
-- [A board of example tasks says so on the page](docs/rulings/a-board-of-example-tasks-says-so-on-the-page.md)
-- [The time card gets exact start times](docs/rulings/the-time-card-gets-exact-start-times.md)
-- [What waits for the owner is one list, with a decision for each item](docs/rulings/what-waits-for-the-owner-is-one-list-with-a-decision-for-each-item.md)
-- [A chord opens a list of the tasks](docs/rulings/a-chord-opens-a-list-of-the-tasks.md)
-- [A page to read opens as a companion](docs/rulings/a-page-to-read-opens-as-a-companion.md)
-- [What reaches across tasks is the board server's](docs/rulings/what-reaches-across-tasks-is-the-board-servers.md)
-- [The board is a served app](docs/rulings/the-board-is-a-served-app.md)
-- [The board's icons are a subset of Font Awesome Pro, in the repository, under his license](docs/rulings/the-boards-icons-are-a-subset-of-font-awesome-pro-in-the-repository-under-his-license.md)
-- [Tailscale is the way from his phone, and nothing supervises the server](docs/rulings/tailscale-is-the-way-from-his-phone-and-nothing-supervises-the-server.md)
-- [An address for each workspace and task, two machines under one, and pushes](docs/rulings/an-address-for-each-workspace-and-task-two-machines-under-one-and-pushes.md)
-- [He acts from the board](docs/rulings/he-acts-from-the-board.md)
-- [No stale pull request, and a folded header on a phone](docs/rulings/no-stale-pull-request-and-a-folded-header-on-a-phone.md)
-- [Stories, flowcharts and pictures, early](docs/rulings/stories-flowcharts-and-pictures-early.md)
-- [A task's artifacts have one map](docs/rulings/a-tasks-artifacts-have-one-map.md)
-
-### The settings, the seats and the tracker
-
-- [Linear and GitHub Issues, and the local backlog stays local](docs/rulings/linear-and-github-issues-and-the-local-backlog-stays-local.md)
-- [A check of the tracker is no command of the owner's](docs/rulings/a-check-of-the-tracker-is-no-command-of-the-owners.md)
-- [A seat is written `agent/model:effort`](docs/rulings/a-seat-is-written-agent-model-effort.md)
-- [The state of Lem is not in the git directory](docs/rulings/the-state-of-lem-is-not-in-the-git-directory.md)
-- [Not every section of the settings stays](docs/rulings/not-every-section-of-the-settings-stays.md)
-- [The Linear table is short](docs/rulings/the-linear-table-is-short.md)
-- [Each of the three seats is written whole](docs/rulings/each-of-the-three-seats-is-written-whole.md)
-- [No setting counts the tasks that run. A night works its items one after another](docs/rulings/no-setting-counts-the-tasks-that-run-a-night-works-its-items-one-after-another.md)
-- [`[checks]` keeps three keys, and `alone` is `serial`.](docs/rulings/checks-keeps-three-keys-and-alone-is-serial.md)
-- [The topics are proposed at the setup](docs/rulings/the-topics-are-proposed-at-the-setup.md)
-- [Four places are settings](docs/rulings/four-places-are-settings.md)
-- [`[tracker]` has one key](docs/rulings/tracker-has-one-key.md)
-- [`/lem read KEY` shows a ticket](docs/rulings/lem-read-key-shows-a-ticket.md)
-- [The Done column shows the newest ended tasks, and one setting says how long an ended task's files stay](docs/rulings/the-done-column-shows-the-newest-ended-tasks-and-one-setting-says-how-long-an-ended-tasks-files-stay.md)
-
-### The README, the guides and the logo
-
-- [The logo is the owner's pick](docs/rulings/the-logo-is-the-owners-pick.md)
-- [The README is in ASD-STE100 Simplified Technical English](docs/rulings/the-readme-is-in-asd-ste100-simplified-technical-english.md)
-- [The README tells a command he types from one a job or Lem runs](docs/rulings/the-readme-tells-a-command-he-types-from-one-a-job-or-lem-runs.md)
-- [The texts assume a public repository](docs/rulings/the-texts-assume-a-public-repository.md)
-- [The README and the docs do not report what ran](docs/rulings/the-readme-and-the-docs-do-not-report-what-ran.md)
-- [No history and no reasons in a text for a reader](docs/rulings/no-history-and-no-reasons-in-a-text-for-a-reader.md)
-- [The README is easy for a reader who is not a native speaker](docs/rulings/the-readme-is-easy-for-a-reader-who-is-not-a-native-speaker.md)
-- [Lem's docs do not speak for another tool](docs/rulings/lems-docs-do-not-speak-for-another-tool.md)
-- [The README shows the interaction, and links to no run](docs/rulings/the-readme-shows-the-interaction-and-links-to-no-run.md)
-- [The README says a plugin that works closely with agterm, and names no operating system](docs/rulings/the-readme-says-a-plugin-that-works-closely-with-agterm-and-names-no-operating-system.md)
-- [Each label of a chart is quoted.](docs/rulings/each-label-of-a-chart-is-quoted.md)
-
-### The lessons, the correction queue, the naps, the night and the free hour
-
-- [The free hour may edit Lem's skills on a branch of the clone.](docs/rulings/the-free-hour-may-edit-lems-skills-on-a-branch-of-the-clone.md)
-- [The correction hook is an optional part.](docs/rulings/the-correction-hook-is-an-optional-part.md)
-- [As a plugin, the correction hook comes with the install, and the repository says yes for all](docs/rulings/as-a-plugin-the-correction-hook-comes-with-the-install-and-the-repository-says-yes-for-all.md)
-- [Lem naps](docs/rulings/lem-naps.md)
-- [The lessons, the retro and Jev stay; a night run ends as a pull request; naps are not shown](docs/rulings/the-lessons-the-retro-and-jev-stay-a-night-run-ends-as-a-pull-request-naps-are-not-shown.md)
-- [The Jev model comes through any provider](docs/rulings/the-jev-model-comes-through-any-provider.md)
-- [The naps are Lem's look back over its own memory](docs/rulings/the-naps-are-lems-look-back-over-its-own-memory.md)
-
-## Decisions the maintaining session took
-
-None of these is his ruling: each is a decision or a design of the session that maintains Lem,
-and open to him. Each sentence is the text of a link to its file in `.lem/decisions/`.
-
-### What Lem is, and who it is for
-
-- [Lem is a companion, not a gate](.lem/decisions/lem-is-a-companion-not-a-gate.md)
-- [Two rulings that say one rule are merged when one of them next changes, not before](.lem/decisions/two-rulings-that-say-one-rule-are-merged-when-one-of-them-next-changes-not-before.md)
-
-### What Lem needs on the machine
-
-- [Lem is a Claude Code plugin](.lem/decisions/lem-is-a-claude-code-plugin.md)
-
-### A request: its type, its track and its commands
-
-- [The session's answers to his notes that asked a question: `[gate]` is renamed `[checks]`, a lead queues a task behind another open task whose result it needs, and the plugin's commands carry Lem's name.](.lem/decisions/the-sessions-answers-to-his-notes-that-asked-a-question-gate-is-renamed-checks-a-lead-queues-a-task-behind-another-open-task-whose-result-it-needs-and-the-plugins-commands-carry-lems-name.md)
-- [`/lem build` takes a plan file too, and lists the waiting plans when it gets no name](.lem/decisions/lem-build-takes-a-plan-file-too-and-lists-the-waiting-plans-when-it-gets-no-name.md)
-- [Whether a change is careful is inferred from what the owner said must not go wrong, never matched from a list of paths](.lem/decisions/whether-a-change-is-careful-is-inferred-from-what-the-owner-said-must-not-go-wrong-never-matched-from-a-list-of-paths.md)
-- [The size of a change decides its path](.lem/decisions/the-size-of-a-change-decides-its-path.md)
-- [Every edit of the settings file is careful](.lem/decisions/every-edit-of-the-settings-file-is-careful.md)
-- [An ask waits for another task when it needs that task's result, not when it names the same code](.lem/decisions/an-ask-waits-for-another-task-only-when-it-needs-that-tasks-result.md)
-
-### The interview, the criteria and the personas
-
-- [Where the stages keep what the amendment of 2026-11-16 says otherwise.](.lem/decisions/where-the-stages-keep-what-the-amendment-of-2026-11-16-says-otherwise.md)
-- [A full change has one approval and no ceremony that nobody asked for](.lem/decisions/a-full-change-has-one-approval-and-no-ceremony-that-nobody-asked-for.md)
-
-### The plan, the build and the tests
-
-- [Lem brings its own builder agent](.lem/decisions/lem-brings-its-own-builder-agent.md)
-- [A plan talk's record is taken as it ran.](.lem/decisions/a-plan-talks-record-is-taken-as-it-ran.md)
-- [A plan never makes a change small](.lem/decisions/a-plan-never-makes-a-change-small.md)
-- [The checks remove what their own commands leave](.lem/decisions/the-checks-remove-what-their-own-commands-leave.md)
-- [Two builders of one plan that run at one moment commit only their own paths](.lem/decisions/two-builders-of-one-plan-that-run-at-one-moment-commit-only-their-own-paths.md)
-
-### A decision without him: the ladder, the experts and the breaker
-
-- [A decision of the plan does not hold the task: `held` keeps what has no options, the criteria that wait for his yes, one more fact for an investigation and a step that is his to do.](.lem/decisions/a-decision-of-the-plan-does-not-hold-the-task-held-keeps-what-has-no-options-the-criteria-that-wait-for-his-yes-one-more-fact-for-an-investigation-and-a-step-that-is-his-to-do.md)
-- [The mode and the ladder are built in the smaller of two designs](.lem/decisions/the-mode-and-the-ladder-are-built-in-the-smaller-of-two-designs.md)
-- [A machine failure stops a task as `blocked`, with one line that names what to do, and with no breaker's document](.lem/decisions/a-machine-failure-stops-a-task-as-blocked-with-one-line-that-names-what-to-do-and-with-no-breakers-document.md)
-
-### The review, the pull request and the merge
-
-- [A lowered bar (a new suppression, a skipped or deleted test, fewer assertions) makes a pull request not green also when the plan gives its reason.](.lem/decisions/a-lowered-bar-a-new-suppression-a-skipped-or-deleted-test-fewer-assertions-makes-a-pull-request-not-green-also-when-the-plan-gives-its-reason.md)
-- [Lem lands Lem by a rule, not by machinery](.lem/decisions/lem-lands-lem-by-a-rule-not-by-machinery.md)
-- [The status knows what merged](.lem/decisions/the-status-knows-what-merged.md)
-- [A small change never gets a polish pass](.lem/decisions/a-small-change-never-gets-a-polish-pass.md)
-- [The push and the pull request of `propose` need no question](.lem/decisions/the-push-and-the-pull-request-of-propose-need-no-question.md)
-- [Two things a real run showed on 2026-11-18](.lem/decisions/two-things-a-real-run-showed-on-2026-11-18.md)
-- [The board's server runs the merge agent's merge, and the agent only writes its review](.lem/decisions/the-boards-server-runs-the-merge-agents-merge-and-the-agent-only-writes-its-review.md)
-- [Two reviews of the release, and what the session took](.lem/decisions/two-reviews-of-the-release-and-what-the-session-took.md)
-
-### A task's session, and whether he is there
-
-- [The copied talk stays in Lem's untracked state folder and never reaches git or a pull request.](.lem/decisions/the-copied-talk-stays-in-lems-untracked-state-folder-and-never-reaches-git-or-a-pull-request.md)
-- [A task that ended stays ended](.lem/decisions/a-task-that-ended-stays-ended.md)
-- [The trials of 2026-11-21: a task's session takes the focus only for its own question and says its first line first, and the onboarding writes no allow rules and commits the plugin's file](.lem/decisions/the-trials-of-2026-11-21-a-tasks-session-takes-the-focus-only-for-its-own-question-and-says-its-first-line-first-and-the-onboarding-writes-no-allow-rules-and-commits-the-plugins-file.md)
-- [The first line of a task is composed by `lem project state`, and its session says it as it is](.lem/decisions/the-first-line-of-a-task-is-composed-by-lem-project-state-and-its-session-says-it-as-it-is.md)
-
-### The board and the pages for him
-
-- [The board is served, and the server draws it](.lem/decisions/the-board-is-served-and-the-server-draws-it.md)
-
-### The settings, the seats and the tracker
-
-- [The reviewer's seat is written `agent/model:effort`.](.lem/decisions/the-reviewers-seat-is-written-agent-model-effort.md)
-- [One machine may name its own reviewer for a while](.lem/decisions/one-machine-may-name-its-own-reviewer-for-a-while.md)
-- [Onboarding asks three questions](.lem/decisions/onboarding-asks-three-questions.md)
-
-### The README, the guides and the logo
-
-- [The texts people read say "the owner"](.lem/decisions/the-texts-people-read-say-the-owner.md)
-
-### The lessons, the correction queue, the naps, the night and the free hour
-
-- [One person can say no to the correction queue, and nobody is switched on by a file git does not show](.lem/decisions/one-person-can-say-no-to-the-correction-queue-and-nobody-is-switched-on-by-a-file-git-does-not-show.md)
-- [No project's session edits Lem](.lem/decisions/no-projects-session-edits-lem.md)
-- [A correction hook registered twice judges each message once](.lem/decisions/a-correction-hook-registered-twice-judges-each-message-once.md)
-- [A night ends as pull requests, and a task without the owner covers what a night was](.lem/decisions/a-night-ends-as-pull-requests-and-a-task-without-the-owner-covers-what-a-night-was.md)
+`docs/rulings/history.md` holds the rulings and choices that left the list, each still in force:
+each with the test that holds it, or the one place that says it. Read it when a change touches a
+test or a place it names.
 
 ## Checks
 
@@ -471,9 +213,7 @@ Each script's module docstring says what it does and why; this list says where e
   and the checks keep there: `serve.lock`, `serve.log`, `load.lock`, the push key `push-key.pem` and
   the devices `push.json`.
 - `.lem/`: Lem's own settings, profile, cast and lessons, in the places every repository has them.
-  Its `decisions/` holds the maintaining session's decisions and designs, one file for each, each
-  linked by its sentence in "Decisions the maintaining session took", and a replaced one marked and
-  linked by what replaced it. Its `state/`, which git ignores, is the state of a repository's Lem: the tasks, the event log,
+  Its `state/`, which git ignores, is the state of a repository's Lem: the tasks, the event log,
   the night reports, the naps, the experts' folders, a panel's copies, the panels' folders
   (`panels/`, which `lem cast run-dir` makes), and `forge.json`, the board
   server's last look at GitHub. `lem project prune` removes from it what is older than
@@ -490,8 +230,9 @@ Each script's module docstring says what it does and why; this list says where e
   `settings.md`, the reference, one table for each table of the settings, one to one with
   `project.py` (`tests/lem-settings.sh` checks it). How Lem works inside is in this file and the
   skill. Beside them: `free-hour.md` (how an unattended maintainer's session may change Lem),
-  `rulings/`, the owner's rulings, one file for each ruling in force, linked by its sentence in
-  "The owner's rulings", with the rulings it replaced inside it, `backlog/`, Lem's own deferred work, and `plans/`, the plans that built Lem, each finished one
+  `rulings/`, with `rulings.md`, the list of the owner's rulings and of the session's choices open
+  to him, and `history.md`, what a test or one place holds of them, `backlog/`, Lem's own deferred
+  work, and `plans/`, the plans that built Lem, each finished one
   with a status line that names its commits and where later decisions changed it; the redesign of
   2026-11-20 is `plans/2026-11-20-a-session-for-each-task.md` and its folder.
 - `tests/`: the suites of "Checks". `unit/` is the unit level, a `test_*.py` for each script;
