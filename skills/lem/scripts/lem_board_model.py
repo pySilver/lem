@@ -787,23 +787,38 @@ def settle(t: Task, now: int) -> None:
 MERGE_WAITS = {
     "reads": {"actor": "gate", "who": "The merge agent", "label": "The merge agent reads it", "icon": "eye", "live": True},
     "merges": {"actor": "gate", "who": "Lem", "label": "Lem merges it", "icon": "branch", "live": True},
+    "relands": {"actor": "gate", "who": "Lem", "label": "Lem lands it again", "icon": "play", "live": True},
 }
 
 
 def merge_wait(t: Task) -> str | None:
     """Who the merge of an `open` task waits for, None for any other task. "reads": the merge agent,
     since no review of the tip Lem proposed last is written (a review of an older tip counts for
-    none). "merges": the board's server, since the review says `merge`, calls nobody and no merge of
-    that tip was refused. "owner": the owner, for a review that calls him, a refused merge, and an
-    open task with no proposal on record. Only "owner" is a row of "Waits for you"; the owner's own
-    merge on the task's page stays in every case (`acts_of`)."""
+    none; one that `propose` carried onto this tip is its `merge.review` too). "merges": the board's
+    server, since the review says `merge`, calls nobody and no merge of that tip was refused, or the
+    owner's merge stands for that tip (`merge.stands`). "relands": the task's session, since Lem
+    refused the merge because the base moved after the checks ran (`merge.refused` with `kind: base`),
+    and the session lands it again. "owner": the owner, for a review that calls him, any other refused
+    merge, and an open task with no proposal on record. Only "owner" is a row of "Waits for you"; the
+    owner's own merge on the task's page stays in every case (`acts_of`)."""
     if t.status != "open":
         return None
-    if t.refused or not t.proposal:
+    if not t.proposal:
         return "owner"
+    tip = t.proposal.get("tip")
+
+    def same(of: object) -> bool:
+        return bool(tip and of) and (str(tip).startswith(str(of)) or str(of).startswith(str(tip)))
+
+    # the events since the proposal, the newest last: the refusal's kind and a merge of the owner's that stands are read there
+    since = t.events[t.proposal["order"]:]
+    if t.refused:
+        refusal = next((e for e in reversed(since) if e.get("event") == "merge.refused"), {})
+        return "relands" if refusal.get("from") == "lem" and refusal.get("kind") == "base" else "owner"
+    if any(e.get("event") == "merge.stands" and same(e.get("tip")) for e in since):
+        return "merges"
     r = t.merge_review
-    tip, of = (t.proposal or {}).get("tip"), (r or {}).get("tip")
-    if not r or (tip and of and not (str(tip).startswith(str(of)) or str(of).startswith(str(tip)))):
+    if not r or (tip and r.get("tip") and not same(r.get("tip"))):
         return "reads"
     return "merges" if r.get("verdict") == "merge" and not r.get("calls") else "owner"
 
@@ -933,10 +948,19 @@ def after_of(t: Task) -> str | None:
 
 
 def after_ended(t: Task, m: Model) -> bool:
-    """A queued task whose `after:` task ended: nothing holds it back any more."""
+    """A queued task whose `after:` task landed or was answered: nothing holds it back any more. A
+    dropped one is no such end (`after_dropped`): its result never came."""
     after = after_of(t)
     done = m.by_slug.get(after) if after else None
-    return t.status == "queued" and done is not None and bool(done.blocks) and done.closed
+    return t.status == "queued" and done is not None and bool(done.blocks) and done.status in ("landed", "answered")
+
+
+def after_dropped(t: Task, m: Model) -> bool:
+    """A queued task whose `after:` task was dropped: it stays queued, and the owner says whether it
+    starts without that task's result or is dropped too."""
+    after = after_of(t)
+    done = m.by_slug.get(after) if after else None
+    return t.status == "queued" and done is not None and bool(done.blocks) and done.status == "dropped"
 
 
 def live_of(t: Task, m: Model) -> dict | None:

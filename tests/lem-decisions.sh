@@ -220,12 +220,17 @@ over_landing=$(project --repo "$WQ" state in-landing queued "it needs the cache"
 project --repo "$WQ" state caches-the-list landed "main 1234567..89abcde" >/dev/null
 freed=$(project --repo "$WQ" may-start shows-the-list 2>&1 | field 'd["running"]' 2>&1 || true)
 project --repo "$WQ" state in-landing dropped "the test is over" >/dev/null
+# a task queued after one that was dropped stays queued for the owner's word: the result it waited for never came
+project --repo "$WQ" task-dir after-dropped --ask "The ask of after-dropped." >/dev/null && project --repo "$WQ" state after-dropped building "lead: builder" >/dev/null
+project --repo "$WQ" state after-dropped queued "it needs what in-landing adds" "after: in-landing" >/dev/null
+after_dropped=$(project --repo "$WQ" may-start after-dropped 2>&1 || true)
 if [ "$queued" = queued ] && [ "$held_code" = 1 ] \
-  && grep -qF "the task 'shows-the-list' is queued after 'caches-the-list', which is building: it starts when caches-the-list is landed, answered or dropped" <<<"$held_back" \
-  && grep -qF "it is with its landing" <<<"$over_landing" && [ "$(status_in "$WQ" in-landing)" = dropped ] && [ "$freed" = "['in-landing']" ]; then
-  pass "a lead whose task needs another task's result writes its own task queued after that task; may-start keeps it queued until the other one ended and starts it then, and a task with its landing is never queued"
+  && grep -qF "the task 'shows-the-list' is queued after 'caches-the-list', which is building: it starts when caches-the-list is landed or answered" <<<"$held_back" \
+  && grep -qF "it is with its landing" <<<"$over_landing" && [ "$(status_in "$WQ" in-landing)" = dropped ] && [ "$freed" = "['in-landing']" ] \
+  && grep -qF "queued after 'in-landing', which was dropped, so the result it waited for never came: it stays queued for the owner's word" <<<"$after_dropped"; then
+  pass "a lead whose task needs another task's result writes its own task queued after that task; may-start keeps it queued until the other one landed and starts it then, keeps it queued for the owner's word when the other one was dropped, and a task with its landing is never queued"
 else
-  fail "a lead that queues its task: $queued / $held_back / $over_landing / $freed"
+  fail "a lead that queues its task: $queued / $held_back / $over_landing / $freed / $after_dropped"
 fi
 
 # The one list of what waits for the owner: a breaker, criteria that wait for his yes, a step of his, a pull

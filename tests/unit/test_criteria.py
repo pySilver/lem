@@ -96,3 +96,69 @@ class Digests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ResumedPlan(unittest.TestCase):
+    """A task resumed from a dropped one finds the old task's plan on its branch, and its own once its lead writes one."""
+
+    def test_the_plan_of_the_task_it_came_from(self) -> None:
+        import tempfile
+        lem_plans = importlib.import_module("lem_plans")
+        with tempfile.TemporaryDirectory() as folder:
+            tasks, plans = Path(folder) / "tasks", Path(folder) / "plans"
+            for slug, came in (("gift-note", None), ("gift-note-2", "gift-note"), ("gift-note-3", "gift-note-2")):
+                (tasks / slug).mkdir(parents=True)
+                if came:
+                    (tasks / slug / "resumed-from.txt").write_text(came + "\n")
+            plans.mkdir()
+            (plans / "2026-11-20-gift-note.md").write_text("# plan\n")
+            self.assertEqual(lem_plans.resumed_from(tasks, "gift-note-3"), ["gift-note-2", "gift-note"])
+            self.assertEqual(lem_plans.found(plans, lem_plans.PLAN_FILE, "gift-note-3"), None)
+            self.assertEqual(lem_plans.found(plans, lem_plans.PLAN_FILE, "gift-note-3", lem_plans.resumed_from(tasks, "gift-note-3")).name, "2026-11-20-gift-note.md")
+            (plans / "2026-11-21-gift-note-3.md").write_text("# its own\n")
+            self.assertEqual(lem_plans.found(plans, lem_plans.PLAN_FILE, "gift-note-3", ["gift-note-2", "gift-note"]).name, "2026-11-21-gift-note-3.md")
+            self.assertEqual(lem_plans.resumed_from(tasks, "gift-note"), [])
+
+
+class FastTrackNotHis(unittest.TestCase):
+    """The fast track's one criterion is approved in the owner's name only when the request is his own
+    sentence; a night's task, or a request someone else wrote, is approved without him (`--alone`), in any mode."""
+
+    SMALL = "## Acceptance criteria\n\nSize: small, because the request is one sentence.\n\n1. The footer says 2026.\n"
+
+    def task(self, folder: Path, night: str | None = None, brief: str = "", mode: str = "with-owner"):
+        task = criteria.Task.__new__(criteria.Task)
+        task.slug, task.night, task.mode = "footer-year", night, mode
+        task.directory = folder / "tasks" / "footer-year"
+        task.directory.mkdir(parents=True)
+        task.approved_file, task.small_file = task.directory / "criteria.json", task.directory / "criteria.md"
+        task.small_file.write_text(self.SMALL)
+        if brief:
+            (task.directory / "brief.md").write_text(brief)
+        task.read_mode = lambda: task.mode
+        task.log = lambda *args, **kwargs: None
+        return task
+
+    def test_a_nights_task_is_approved_without_him_and_never_in_his_name(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            task = self.task(Path(folder), night="2026-11-21", mode="alone")
+            with self.assertRaises(criteria.CriteriaError) as refused:
+                criteria.cmd_approve(task, str(task.small_file), "lem")
+            self.assertIn("--alone", str(refused.exception))
+            self.assertEqual(criteria.cmd_approve(task, str(task.small_file), "alone", plan=True)["by"], "alone")
+
+    def test_a_request_someone_else_wrote_is_approved_without_him_while_he_is_there(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            task = self.task(Path(folder), brief="task: footer-year\nrequest by: someone else\n")
+            self.assertEqual(criteria.cmd_approve(task, str(task.small_file), "alone", plan=True)["by"], "alone")
+
+    def test_his_own_request_is_approved_in_his_name_even_while_he_is_away(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            task = self.task(Path(folder), mode="alone")
+            with self.assertRaises(criteria.CriteriaError) as refused:
+                criteria.cmd_approve(task, str(task.small_file), "alone", plan=True)
+            self.assertIn("--alone is for a night's task or a request someone else wrote", str(refused.exception))
+            self.assertEqual(criteria.cmd_approve(task, str(task.small_file), "lem")["by"], "lem")

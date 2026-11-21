@@ -70,7 +70,8 @@ a team that adopts Lem may have its own.
                                     dropped task resumes only with a breaker that waits
     lem project may-start SLUG      exit 1 for a task in `landing`, `open`, `parked` or an ended state, which
                                     gets no lead, and for a task `queued` with an `after: OTHER`
-                                    line while OTHER has not ended. No count of tasks stops a start:
+                                    line while OTHER has not landed or been answered (a dropped OTHER
+                                    leaves it queued for the owner's word). No count of tasks stops a start:
                                     each start by day is the owner's own request
     lem project state-dir           the folder that holds every task, the event log and the night reports
     lem project serial -- COMMAND ...
@@ -1064,7 +1065,9 @@ def cmd_plan_file(settings: dict, slug: str, day: str | None, key: str = "plan_f
         raise SettingsError(f"--date {day!r} is not a day as YYYY-MM-DD") from error
     pattern = settings["paths"][key]["pattern"]
     folder = Path(settings["paths"][FILE_PATTERNS[key][1]]["path"])
-    found = lem_plans.found(folder, pattern, slug)
+    # a task resumed from a dropped one works on the old branch's commits, its plan among them
+    before = lem_plans.resumed_from(state_root(Path(settings["root"])) / "tasks", slug) if key == "plan_file" else []
+    found = lem_plans.found(folder, pattern, slug, before)
     name = lem_plans.name(pattern, slug, day)
     print(json.dumps({"slug": slug, "pattern": pattern, "name": name, "path": str(folder / name), "found": str(found) if found else None}, indent=2))
 
@@ -1587,7 +1590,7 @@ def task_plan(root: Path, settings: dict, slug: str) -> tuple[Path, str] | None:
     if not (worktree / ".git").exists():
         return None
     folder = Path(settings["paths"]["plans"]["path"]).relative_to(resolved)
-    found = lem_plans.found(worktree / folder, settings["paths"]["plan_file"]["pattern"], slug)
+    found = lem_plans.found(worktree / folder, settings["paths"]["plan_file"]["pattern"], slug, lem_plans.resumed_from(state_root(root) / "tasks", slug))
     return (found, (folder / found.name).as_posix()) if found else None
 
 
@@ -1682,7 +1685,7 @@ RESUMED_GLOBS = ("breaker-*.md",)
 RESUMED_EVENTS = ("criteria.read.start", "criteria.read", "criteria.approved", "task.criteria", "plan.talk.start", "plan.talk",
                   "investigation.start", "investigation", "interview.start", "scout.start", "scout")
 # The file of a resumed task that names the task it came from.
-RESUMED_FROM = "resumed-from.txt"
+RESUMED_FROM = lem_plans.RESUMED_FROM
 
 
 def blocks_of(text: str) -> list[dict]:
@@ -2346,7 +2349,7 @@ def read_tasks(root: Path, settings: dict | None = None) -> list[dict]:
 
 def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
     """Exit 1 for a task that gets no lead: in the landing, proposed or ended, since a stale wake-up
-    must not start one, or queued behind a task that has not ended. No count of tasks stops a
+    must not start one, or queued behind a task that has not landed or been answered. No count of tasks stops a
     start: by day each start is the owner's own request (the owner, 2026-11-18: "Why block him?"),
     and a night works its items one after another."""
     task_directory(root, slug)
@@ -2368,9 +2371,16 @@ def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
     after = next((line.split(":", 1)[1].strip() for line in (mine["state"] or "").splitlines()[1:] if line.startswith("after:")), None) if mine and status == "queued" else None
     if after:
         other = next((task["status"] for task in tasks if task["slug"] == after), None)
+        if other == "dropped":
+            # what it waited for never came: whether it starts without it is the owner's word
+            raise SettingsError(
+                f"the task {slug!r} is queued after {after!r}, which was dropped, so the result it waited for never came: it stays queued for the owner's word. "
+                f"On his \"start it\", write its state `queued` again without the `after:` line (`lem project state {slug} queued \"WHY\"`) and start it; "
+                f"on his \"drop it\", `lem project state {slug} dropped \"WHY\"`",
+            )
         if other not in ENDED:
             raise SettingsError(
-                f"the task {slug!r} is queued after {after!r}, which is {other or 'no task'}: it starts when {after} is landed, answered or dropped, "
+                f"the task {slug!r} is queued after {after!r}, which is {other or 'no task'}: it starts when {after} is landed or answered, "
                 f"so that it builds on what {after} changes; when it no longer needs that, write its state `queued` again without the `after:` line",
             )
     running = [task["slug"] for task in tasks if task["status"] in RUNNING and task["slug"] != slug]

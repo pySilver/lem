@@ -428,7 +428,9 @@ digest=$(lcriteria digest gone-out 2>/dev/null | field 'd["digest"]' 2>/dev/null
 project --repo "$LOCAL" log gone-out criteria.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' criteria:=1 flagged:=1 split:=false "digest=$digest" >/dev/null 2>&1 || true
 with_him=$(lcriteria approve gone-out --file "$WORK/gone.md" --alone 2>&1 || true)
 project --repo "$LOCAL" task-dir gone-out --ask "Put the word into g.txt." --night 2026-11-18 >/dev/null
-small_file=$(lcriteria approve gone-out --file "$WORK/as-correction.md" --alone 2>&1 || true)
+# the fast track's criterion of the owner's own request is approved in his name, never --alone (a night's or someone else's is: tests/unit/test_criteria.py)
+project --repo "$LOCAL" task-dir own-small --ask "Put the word into o.txt." >/dev/null
+small_file=$(lcriteria approve own-small --file "$WORK/as-correction.md" --alone 2>&1 || true)
 two_kinds=$(status_of lcriteria approve gone-out --file "$WORK/gone.md" --alone --small)
 checked_local gone-out
 flagged=$(local_land propose gone-out --title "feat: g" --notes "$NOTES" 2>&1 || true)
@@ -442,11 +444,11 @@ project --repo "$LOCAL" task-dir grew-up --ask "Put the word into the file." --n
 over_small=$(lcriteria approve grew-up --file "$WORK/gone.md" --alone 2>&1 | field '(d["by"], d["number"])' 2>&1 || true)
 lcriteria approve grew-up --file "$WORK/gone.md" >/dev/null 2>&1 || true
 over_his=$(lcriteria approve grew-up --file "$WORK/gone.md" --alone 2>&1 || true)
-if grep -qF "gone-out runs with the owner: the owner's yes approves its criteria" <<<"$with_him" && grep -qF "the fast track's criterion is approved with --small" <<<"$small_file" \
+if grep -qF "gone-out runs with the owner: the owner's yes approves its criteria" <<<"$with_him" && grep -qF "the fast track's criterion is approved in the owner's name with --small" <<<"$small_file" \
   && [ "$two_kinds" = 1 ] && grep -qF "found 1 flagged criterion, and no approval of the owner's came after it" <<<"$flagged" \
   && [ "$by_alone" = alone ] && [ "$proposed_alone" = open ] \
   && [ "$over_small" = "('alone', 2)" ] && grep -qF "grew-up has approval 3 of its criteria already (by owner)" <<<"$over_his"; then
-  pass "without the owner the criteria are approved by:alone, never while the task runs with him, for a small change's file or over his approval; a flagged read of someone else's request with such an approval after it is proposed"
+  pass "without the owner the criteria are approved by:alone, never while the task runs with him, for the small change of his own request or over his approval; a flagged read of someone else's request with such an approval after it is proposed"
 else
   fail "criteria approved without the owner: $with_him / $small_file / $two_kinds / $flagged / $by_alone / $proposed_alone / $over_small / $over_his"
 fi

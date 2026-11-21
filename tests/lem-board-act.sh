@@ -302,4 +302,53 @@ else
   fail "the merge agent's merge by the server: $reviewed / $auto / $(status_in "$AUTO" word-by-agent) / $started / $(kept_in "$AUTO" word-by-agent merged_by) / $(cat "$AGT/calls")"
 fi
 
+# Two proposed tasks, each with the merge agent's verdict merge. The first merges; the server's merge of the
+# second meets the base the first moved, and Lem keeps that refusal and wakes the second's session. The
+# session lands it again (here the test runs its steps): the rebase with no conflict carries the review and the
+# merge review onto the new tip, and the server merges it with no second read by the merge agent.
+MOVE=$WORK/move-shop
+git init -q -b main "$MOVE" && ident "$MOVE" && commit "$MOVE" init && on_github "$MOVE"
+project --repo "$MOVE" init --base main >/dev/null
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' 'history = "squash"' '[checks]' 'commands = ["true"]' > "$MOVE/.lem/project.toml"
+git -C "$MOVE" add -A && git -C "$MOVE" commit -q -m "chore: start" && git -C "$MOVE" push -q origin main
+for slug in first-move second-move; do
+  task_in "$MOVE" "$slug" "$slug.txt" yes && read_in "$MOVE" "$slug"
+  land --repo "$MOVE" start "$slug" >/dev/null && land --repo "$MOVE" base "$slug" >/dev/null && polish_in "$MOVE" "$slug"
+  land --repo "$MOVE" checks "$slug" >/dev/null && land --repo "$MOVE" read "$slug" --record "$(clean 1)" >/dev/null
+  land --repo "$MOVE" propose "$slug" --title "fix: $slug" --notes "$NOTES" >/dev/null && merge_read "$MOVE" "$slug" >/dev/null
+done
+land --repo "$MOVE" merge first-move --by merger --via server --message "fix: first-move" >/dev/null
+BEFORE=$(kept_in "$MOVE" second-move proposed)
+duty() {
+  "$PY" -B -c '
+import json, sys, threading
+sys.path.insert(0, "skills/lem/scripts")
+import serve
+w = serve.Workspace("move-shop", sys.argv[1])
+ran = serve.run_duties(w)
+for thread in threading.enumerate():
+    if thread.name.startswith("merge "):
+        thread.join(120)
+print(json.dumps({"ran": [(x["verb"], x["task"], x["why"]) for x in ran], "owed": serve.duties(w.model(), {}, set())}))
+' "$MOVE"
+}
+refused=$(duty)
+kind=$(kept_in "$MOVE" second-move merge_refused | "$PY" -c 'import ast, sys; d = ast.literal_eval(sys.stdin.read()); print((d["by"], d["from"], d["kind"]))')
+land --repo "$MOVE" start second-move >/dev/null && land --repo "$MOVE" base second-move >/dev/null && land --repo "$MOVE" checks second-move >/dev/null
+due_now=$(land --repo "$MOVE" read second-move | field 'd["due"]')
+again=$(land --repo "$MOVE" propose second-move --title "fix: second-move" --notes "$NOTES")
+AFTER=$(kept_in "$MOVE" second-move proposed)
+merged=$(duty)
+reviews=$("$PY" -c 'import json, sys; print([("carried" in r) for r in map(json.loads, open(sys.argv[1])) if r["event"] == "merge.review" and r["task"] == "second-move"])' "$MOVE/.lem/state/events.jsonl")
+if [ "$(field 'd["ran"]' <<<"$refused")" = "[['merge', 'second-move', 'merger']]" ] && [ "$(field 'd["owed"]' <<<"$refused")" = "[['wake', 'second-move', 'refused']]" ] \
+  && [ "$kind" = "('merger', 'lem', 'base')" ] && [ "$due_now" = none ] && [ "$BEFORE" != "$AFTER" ] \
+  && [ "$(field '(d["merge_review"], d["green"])' <<<"$again")" = "('carried', True)" ] && [ "$(kept_in "$MOVE" second-move relands)" = 1 ] \
+  && [ "$(field 'd["ran"]' <<<"$merged")" = "[['merge', 'second-move', 'merger']]" ] && [ "$(status_in "$MOVE" second-move)" = landed ] \
+  && [ "$reviews" = "[False, True]" ] \
+  && [ "$(git -C "$MOVE.origin.git" log -2 --format=%s main)" = "$(printf '%s\n' 'fix: second-move' 'fix: first-move')" ]; then
+  pass "a merge that meets the base another merge moved is kept for its tip and wakes the task's session; landed again with no conflict, the review and the merge review carry onto the new tip, and the server merges it with no second read"
+else
+  fail "the merge after a moved base: $refused / $kind / $due_now / $again / $merged / $reviews / $(status_in "$MOVE" second-move) / $(git -C "$MOVE.origin.git" log -3 --format=%s main)"
+fi
+
 finish
