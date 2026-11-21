@@ -12,19 +12,26 @@ Size: full, because five promises of pull request 13 change in the scripts and i
    3. "Waits for you" on the board and `lem project waiting` each show one row for `export-notes-in-order`. The row says that `gift-note-in-export` was dropped, that "start export-notes-in-order now" starts the task, that `/lem drop export-notes-in-order` ends it, and that he types either one in any Lem session of this repository.
    4. After his word, either one, the row is gone.
    A task queued after a task that still runs has no such row.
+   - test: `python3 -B -m unittest tests.unit.test_board_model.AfterDropped` in `tests/unit/test_board_model.py`
+   - test: `bash tests/lem-serve.sh` in `tests/lem-serve.sh`
 2. His "start it" for a task that waits behind a dropped task starts it, and the task's record keeps his order and his word:
    1. `export-notes-in-order` is queued with the lines `the owner's order: "After gift-note-in-export"`, `after: gift-note-in-export`, its type line and `then: the interview`. The task `gift-note-in-export` was dropped.
    2. `lem project may-start export-notes-in-order` refuses, and prints for the agent the two commands of his "start it" whole, with the block's own lines: the one that logs his words, and the one that writes the queued block again with each of its lines but `after: gift-note-in-export` and with the line `the owner's order was removed: "HIS WORDS"`. Its text says that the agent runs them on his word.
    3. He says "start it". The agent runs the two commands as printed, with his words in them; he types nothing more and reads no command.
    4. The task's state still shows his order, its type and `then: the interview`, and says that his word removed the order. `lem decisions list export-notes-in-order` holds his word. `lem project may-start export-notes-in-order` passes, and the task goes on with its interview.
    A task that was queued by a need gets one command: its block again, with each of its lines but the `after:` line.
+   - test: `python3 -B -m unittest tests.unit.test_task.DroppedRefusal` in `tests/unit/test_task.py`
+   - test: `bash tests/lem-decisions.sh` in `tests/lem-decisions.sh`
 3. A task that was held because Lem could not tell which task his order names gets its first line when his answer comes:
    1. He is away, and his request is `/lem After the gift note: the export keeps the notes in their order`. Two open tasks fit "the gift note": `gift-note-in-export` and `gift-note-on-invoice`.
    2. The task `export-notes-in-order` is held with `the order waits for the owner: "After the gift note"`, and is in the list of what waits for him. No first line is said.
    3. He is back, and the row sends him to the task's session. Its one question names each open task that fits and "no order": "Queue this after gift-note-in-export, after gift-note-on-invoice, or no order?". He answers "after gift-note-in-export". The task's session writes the queued block, and that command prints the task's first line: its type, his words, the branch, then `It waits for gift-note-in-export, as you said; "start export-notes-in-order now" starts it before that.`, then the track with its steps.
    4. With the answer "no order" instead, the block of the task's path prints the first line of a task that starts at once: its type, his words, the branch and the track with its steps.
    The first line is said one time.
+   - test: `python3 -B -m unittest tests.unit.test_task -k a_task_held_for_his_order_gets_its_first_line_with_his_answer -k no_order_gives_the_line_of_a_task_that_starts_at_once` in `tests/unit/test_task.py`
+   - test: `python3 -B -m unittest tests.unit.test_session -k a_block_no_line_will_follow` in `tests/unit/test_session.py`
 4. The text of `/lem build` names only commands that run: for "start export-notes-in-order now" typed in another session than the task's, it names no `lem session open` with `--focus`, a flag that the command refuses.
+   - no test: the criterion is a sentence of a stage text, `skills/lem/stages/start.md`, which an agent follows; its test is a real task
 5. A state line that the first line is read from is refused in another form, so that no first line leaves out his order because of how a line was typed:
    1. A session writes `lem project state export-notes-in-order queued "the owner's order: After gift-note-in-export" "after: gift-note-in-export" "type: feat, because a new order" "then: the interview"`, with no quotes around his words.
    2. The command exits 1, writes no block, and names the form: `the owner's order: "HIS WORDS"`.
@@ -32,6 +39,9 @@ Size: full, because five promises of pull request 13 change in the scripts and i
    4. The same command with the line `the one open task that fit his words` exits 1, and names the line as it is written: `the one open task that fits his words`.
    5. A line that does not start as one of these three is a free line, as today, and it cannot hide the wait: with the first line `the owners order: "After gift-note-in-export"`, with no apostrophe, the first line of the task still says `It waits for gift-note-in-export, and starts when that task lands or is answered.` Only "as you said" and "start export-notes-in-order now" need the order line in its form.
    6. His words with a double quote of his own are taken whole: `the owner's order: "After the "gift note" task"` is in the form.
+   - test: `python3 -B -m unittest tests.unit.test_task.FixedForm` in `tests/unit/test_task.py`
+   - test: `python3 -B -m unittest tests.unit.test_task -k a_free_order_line_still_says_the_wait` in `tests/unit/test_task.py`
+   - test: `bash tests/lem-settings.sh` in `tests/lem-settings.sh`
 
 ## How it works
 
