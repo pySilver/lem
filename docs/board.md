@@ -18,7 +18,7 @@ the computer, the repository, the task.
 | View | Key | It answers |
 | --- | --- | --- |
 | **Tasks** | `T` | Who acts next? One column for each actor. |
-| **Waits for you** | `W` | What must I do? One row for each breaker, approval, step of yours, stopped task, plan, merge review, merge and task with no session. |
+| **Waits for you** | `W` | What must I do? One row for each breaker, approval, step of yours, task that waits for a task that you dropped, stopped task, plan, merge review, merge and task with no session. |
 | **Backlog** | `B` | What waits for later? The backlog, in groups by worth. |
 | **Activity** | `A` | Where did the time go? A chart of each task, and every event. |
 
