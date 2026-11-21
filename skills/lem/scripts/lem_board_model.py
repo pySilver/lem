@@ -102,7 +102,7 @@ LANE = {lane["key"]: lane for lane in LANES}
 PHASES = ["Criteria", "Plan", "Build", "Checks", "Review", "Proposed", "Landed"]
 SMALL_PHASES = ["Change", "Checks", "Review", "Proposed", "Landed"]
 # What waits for the owner, the most pressing first.
-OWNER_ORDER = ["breaker", "held", "blocked", "planned", "open"]
+OWNER_ORDER = ["breaker", "held", "queued", "blocked", "planned", "open"]
 BY_WHOM = {"lead": "the agent", "personas": "the personas", "owner": "you", "lem": "Lem", "experts": "the experts",
            "gate": "the question gate", "dialectic": "the dialectic"}
 # Who works on a task, from its state lines, in words a developer needs no glossary for.
@@ -151,7 +151,7 @@ OPENED = {"new": "for a new task", "handoff": "for the next phase", "dead": "in 
 # open to its agent (a guess, plan-task-4.md section 2, 2026-11-21).
 GRACE_MS = 2 * 60 * 1000
 # The merge review that calls the owner comes before the merge it is about.
-WAIT_ORDER = {"breaker": 0, "session": 0, "criteria": 1, "held": 1, "blocked": 1, "plan": 2, "review": 3, "merge": 4}
+WAIT_ORDER = {"breaker": 0, "session": 0, "criteria": 1, "held": 1, "after_dropped": 1, "blocked": 1, "plan": 2, "review": 3, "merge": 4}
 
 
 # ---- formatting ----
@@ -468,6 +468,8 @@ class Task:
     approvable: bool = False
     helped: Decision | None = None
     waits_after: bool = False
+    # the task a queued task waited for, which was dropped (`after_dropped`): it waits for the owner's word
+    dropped_after: str | None = None
     for_owner: bool = False
     # for an `open` task, who its merge waits for (`merge_wait`): "reads", "merges" or "owner"
     merge_wait: str | None = None
@@ -881,14 +883,21 @@ def derive(events: list[dict], owner: list[dict], now: int, *, meta: dict | None
         return sorted((t for t in listed if t.status == status), key=lambda t: t.since)
 
     today = local(now).date()
-    return Model(
+    m = Model(
         now=now, tasks=listed, away=away, owners=owners, proposed=by("open"), building=by("building"), queued=by("queued"), ready=by("ready"),
-        landing=by("landing"), blocked=by("blocked"), parked=by(PARKED),
-        for_owner=sorted((t for t in listed if t.for_owner), key=lambda t: (t.owner_rank, t.since)),
+        landing=by("landing"), blocked=by("blocked"), parked=by(PARKED), for_owner=[],
         landed_today=[t for t in listed if t.status == "landed" and local(t.since).date() == today],
-        unknown=[t for t in listed if t.status not in STATUS],
-        lane={lane["key"]: lanes_sorted(lane["key"], [t for t in listed if t.lane == lane["key"]]) for lane in LANES},
+        unknown=[t for t in listed if t.status not in STATUS], lane={},
         by_slug=tasks, events=events, meta=meta or {})
+    # a task queued after a dropped task waits for his word, which only the other task's status tells:
+    # it is his on every view, as its row of "Waits for you" says
+    for t in listed:
+        if after_dropped(t, m):
+            t.dropped_after, t.for_owner, t.lane, t.owner_rank = after_of(t), True, "you", OWNER_ORDER.index("queued")
+            t.info = {**t.info, "actor": "you", "who": "You"}
+    m.for_owner = sorted((t for t in listed if t.for_owner), key=lambda t: (t.owner_rank, t.since))
+    m.lane = {lane["key"]: lanes_sorted(lane["key"], [t for t in listed if t.lane == lane["key"]]) for lane in LANES}
+    return m
 
 
 def lanes_sorted(key: str, tasks: list) -> list:
@@ -949,7 +958,12 @@ def parked_of(t: Task) -> dict | None:
 
 
 def answer_of(t: Task) -> str:
-    """Where the owner answers what waits for him: in the task's own session, or on the board."""
+    """Where the owner answers what waits for him: in the task's own session, or on the board; for a task
+    queued after a dropped task, which no session runs, in any Lem session."""
+    if t.dropped_after:
+        start, drop = f"start {t.slug} now", f"/lem drop {t.slug}"
+        return (f"It waited for {t.dropped_after}, which was dropped, so the result it waited for never came. Type “{start}” to start it without that result, "
+                f"or {drop} to end it, in any Lem session of this repository.")
     if t.breaker is not None:
         return (f"Read its document, first on the task’s Overview. Help in the task’s session. "
                 f"Or type /lem park {t.slug} to put the task aside, or /lem drop {t.slug} to end it.")
@@ -1181,6 +1195,10 @@ def waits_of(m: Model) -> list[dict]:
             rows.append({"kind": "breaker", "key": f"breaker:{t.slug}:{t.breaker.id}", "t": t, "c": t.breaker, "since": t.breaker.ts})
         elif t.status == "held" and not t.approved and not t.helped:
             rows.append({"kind": "criteria" if t.criteria_wait else "held", "key": f"held:{t.slug}", "t": t, "c": None, "since": t.since})
+        # a task queued after a task that was dropped: no session runs it, and only his word starts it or ends it
+        if after_dropped(t, m):
+            done = m.by_slug[after_of(t)]
+            rows.append({"kind": "after_dropped", "key": f"after_dropped:{t.slug}", "t": t, "c": None, "since": max(t.since, done.since), "after": done.slug})
         # a task its session stopped with something it cannot settle alone; not one that waits for the base's repair
         if t.status == "blocked" and not t.base_red:
             rows.append({"kind": "blocked", "key": f"blocked:{t.slug}", "t": t, "c": None, "since": t.since})
@@ -1213,6 +1231,11 @@ def wait_say(w: dict) -> dict:
         return {"verb": "Approve the criteria", "icon": "file", "to": "overview", "note": "in this state"}
     if kind == "held":
         return {"verb": cap(t.shown or t.info["label"]), "icon": "user", "to": "overview", "note": "in this state"}
+    if kind == "after_dropped":
+        # the two words he types, each with the task's name: no session runs this task, so he types them in another one
+        after, start, drop = w["after"], f"start {t.slug} now", f"/lem drop {t.slug}"
+        return {"verb": f"{after} was dropped: your word starts or ends this task", "icon": "user", "to": "overview", "note": f"since {after} was dropped",
+                "start": start, "drop": drop, "where": answer_of(t)}
     if kind == "blocked":
         return {"verb": "Its session stopped: tell it what to do", "icon": "alert", "actor": "bad", "to": "overview", "note": "since it stopped",
                 "where": f"The task’s session stopped on something it cannot settle alone: “{t.shown or t.text}”. Tell it what to do in the task’s session, "

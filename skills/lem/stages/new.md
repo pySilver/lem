@@ -118,12 +118,14 @@ The task's own session, in the shape, from its first message.
    question as his: "I read this as a fix for the fast track: one rule in `shop/dates.py`. Fast track?
    (y/n)", or "Is the 0 wrong today, a fix, or do you want a new rule for refunds, a feat?" (his
    example of 2026-11-16: "From such input its kinda hard to deduct if we want to investigate the
-   bug or its a feature request."). A question on the order names its three answers, so that no
-   answer has two readings: "Queue this after gift-note-in-export, after another task (name it), or
-   no order?". When another read is unclear too, the one line holds that guess beside it, and the
-   order keeps its three answers: "Fast track, and queued after gift-note-in-export, after another
-   task (name it), or no order?". His yes queues the task after the task you guessed, and a task he
-   names queues it after that one. His "no order" is his word that no order holds: log it, `lem
+   bug or its a feature request."). A question on the order names each answer, so that no answer
+   has two readings: each open task that fits his words, and "no order": "Queue this after
+   gift-note-in-export, after gift-note-on-invoice, or no order?". When one task fits, or none,
+   it names your guess, another task and "no order": "Queue this after gift-note-in-export, after
+   another task (name it), or no order?". When another read is unclear too, the one line holds that
+   guess beside it, and the order keeps its answers: "Fast track, and queued after
+   gift-note-in-export, after another task (name it), or no order?". His yes queues the task after
+   the task you guessed, and a task he names queues it after that one. His "no order" is his word that no order holds: log it, `lem
    decisions log SLUG --by owner --what "the order of the ask" --chose "no order" --why "his
    answer" --words "HIS WORDS"`, and step 7 still reads the need. An answer that still names no
    task you can tell holds the task for him, as below. One question at most; his answer settles
@@ -134,8 +136,12 @@ The task's own session, in the shape, from its first message.
    `lem decisions log SLUG --by lem`. When none fits, or more than one, write the state `held` with
    the first line `the order waits for the owner: "HIS WORDS"`, the words of his that give the
    order on one line, and the type line; it puts the task into the list of what waits for him (`lem
-   project waiting`). Say so in one line, and start nothing: the task waits for his answer to the
-   one question (`prompts/session.md`, "What comes next"). The type goes into
+   project waiting`). That block names no path, so it prints no `say`: the task gets its first line
+   when he answers, since a line said while he is away reaches nobody, and its row in "Waits for
+   you" tells him that it waits. Start nothing: the task waits for his answer to the one question
+   (`prompts/session.md`, "What comes next"). Then the first block that names its path prints the
+   first line, with the type line of the hold when it has none: the `queued` block of step 7 for a
+   task he names, or the first block of step 8 for "no order". The type goes into
    `task.md` with its reason, and as the line `type: TYPE, because WHY` into the task's first state
    block (step 8); `lem project state` refuses that line in any other form, and `lem project
    tasks` gives it as `type`. When he changes the type later, write a state block with the new
@@ -217,8 +223,9 @@ The task's own session, in the shape, from its first message.
    needs a plan to talk about.
 7. **Does it wait for another task?** In two cases, and in no other:
    - *his order*, as step 1 read it, while the task he named has not landed or been answered;
-   - *a need*: the later ask needs what the earlier one changes: it names the earlier one's
-     result, or it makes no sense before that result exists.
+   - *a need*: the later ask needs what the earlier one changes, while the earlier one has not
+     ended (not landed, answered or dropped): it names the earlier one's result, or it makes no
+     sense before that result exists.
    His order queues the task here, on every track. A need is asked here before the fast track's
    builder, an investigator or the lead of a complete request. On the standard track with an
    interview, the interview and his yes come first, while he is there, and `stages/start.md` asks
@@ -228,13 +235,16 @@ The task's own session, in the shape, from its first message.
    Then write the later one's state as `queued`. Its first line is his order, `the owner's order:
    "HIS WORDS"`, the words of his that give the order as he typed them, on one line (a line break
    becomes a space), or for a need what the task needs from the earlier one, in one line. Then the
-   line `after: SLUG` of the earlier one, the type line of step 1, the `careful:` line of step 1
-   when a topic is in reach, and the line of the path that step 8 takes when the wait ends: `then:
-   the interview`, `then: the fast track` or `then: the lead`, or for an investigation that comes
-   first (step 4) its line `investigation: bug` or `investigation: question` in its place. A task
-   you put after the one open task that fits his words, while he was away (step 1), gets the line
-   `the one open task that fits his words`. It is the task's first block: say its `say` as step 8
-   says.
+   line `after: SLUG` of the earlier one, the type line of step 1 and the `careful:` line of step 1
+   when a topic is in reach (each when no block before it has one: the hold of step 1 has them),
+   and the line of the path that step 8 takes when the wait ends: `then: the interview`, `then: the
+   fast track` or `then: the lead`, or for an investigation that comes first (step 4) its line
+   `investigation: bug` or `investigation: question` in its place. A task you put after the one
+   open task that fits his words, while he was away (step 1), gets the line `the one open task that
+   fits his words`. The first line is read from the order, the `then:` line and that line, so `lem
+   project state` refuses a line that starts as one of them in another form, with the form in its
+   message. It is the first block that names the task's path, also after the hold of step 1: say
+   its `say` as step 8 says.
 
    ```bash
    lem project state SLUG queued "the owner's order: \"After gift-note-in-export\"" "after: gift-note-in-export" "type: feat, because WHY" "then: the interview"
@@ -246,16 +256,26 @@ The task's own session, in the shape, from its first message.
    runs, and the session goes on where it stopped (`prompts/session.md`, "What comes next"), so it
    builds on what the earlier one changed. When that task is dropped, the result it waited for
    never comes: it stays `queued`, no session opens for it, and the owner says whether it starts
-   without that result or is dropped too. On his "start it", write its `queued` block again with
-   each of its lines but the `after:` line (for his order, log his words first, as for his "start
-   SLUG now"), and go on where it stopped; on his "drop it", `lem project state SLUG dropped
-   "WHY"`. `lem project may-start SLUG` refuses it with those two lines. Only his word removes his
+   without that result or is dropped too. Its row of "Waits for you" names his two words, "start
+   SLUG now" and `/lem drop SLUG`, which he types in any Lem session of this repository. `lem
+   project may-start SLUG` refuses it, and prints the commands of his "start SLUG now", composed
+   from the task's newest block: for his order, the log of his words, then the `queued` block again
+   with each of its lines but the `after:` line and with `the owner's order was removed: "HIS
+   WORDS"`; for a need, that block alone. On his word (his "start it", too, where the talk is about
+   this task), run `lem project may-start SLUG` once more and run the commands it prints then, as
+   printed, with his words in place of `HIS WORDS` as it says; never ones printed before his word,
+   since a `/lem standard-track SLUG` between the two changes the block they copy. Then the task
+   goes on as `stages/start.md`, "`/lem build`", says. On his `/lem drop SLUG`, drop it
+   (`stages/correct.md`, "drop"). A dropped task is no task to queue behind again: what a task
+   started past it still needs is planned inside it. Only his word removes his
    order before that task lands or is answered: his "start SLUG now" (`stages/start.md`, "`/lem
    build`"). Two asks that only name the same thing (the same screen, the same file, the same
    function) each start on their own. Do not read the code to find an overlap the asks do not show;
    the landing settles that one, as a conflict at its rebase (`stages/land.md`, step 2).
 8. **The first state block, and the line.** The task's first state block names its path and
    carries the type line of step 1, and the `careful:` line of step 1 when a topic is in reach.
+   After the hold of an order that named no task (step 1), it is the first block after his answer
+   that names the path, and the hold's type and `careful:` lines stand for its own.
    The path's first step writes it, before anyone starts:
    - with an interview, here, then `stages/interview.md`:
 
@@ -292,8 +312,10 @@ The task's own session, in the shape, from its first message.
    here, then acceptance criteria for your yes. After that it runs to the pull request without you.
    Wrong read? /lem be-careful.` One you put after the one open task that fits his words, while he
    was away, says which: `It waits for gift-note-in-export, the one open task that fits "when the
-   gift note lands"; ...`. A call that prints no `say` for a task of the day wrote no first block:
-   look at its lines again. A decision you took for him at step 3 is a second line, in your words.
+   gift note lands"; ...`. A task that waits by a need says `It waits for gift-note-in-export, and
+   starts when that task lands or is answered.` in the same place. The first line of a task held
+   for his order comes with his answer, one time. A call that prints no `say` for a task of the
+   day, other than that hold, wrote no first block: look at its lines again. A decision you took for him at step 3 is a second line, in your words.
    Nothing repeats the first line later: the next thing he hears is a question of the interview,
    the criteria, or the pull request; the board shows it on the task's Overview until its next
    block. A task of the night gets no `say` and tells nobody: the night's report names it.

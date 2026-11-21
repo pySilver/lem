@@ -59,16 +59,19 @@ or `queue` (the board's server opened it for that), `night`, or `owner` (his wor
   back asks it.
 - **A queued task**: `queued`, whatever else its files hold. While the task of its `after:` line
   has not landed or been answered, it still waits: write `handoff.md` and close this session as step
-  7 of "The request" says. When that task was dropped, it stays `queued` for his word, "start it" or
-  "drop it", as step 7 says. When that task landed or was answered, or its block has no `after:`
-  line (his word removed his order, `SKILL_DIR/stages/start.md`, "`/lem build`", or his "start it"
-  after a drop), it goes on where it stopped. A task its lead queued (a block of its state has a
+  7 of "The request" says. When that task was dropped, it stays `queued` for his word, "start SLUG
+  now" or `/lem drop SLUG`, as step 7 says: tell him so in one line, and run nothing that `lem
+  project may-start SLUG` printed before his word. When that task landed or was answered, or its
+  block has no `after:` line (his word removed his order or started it past a dropped task,
+  `SKILL_DIR/stages/start.md`, "`/lem build`"), it goes on where it stopped. A task its lead queued (a block of its state has a
   `lead:` line) takes `SKILL_DIR/stages/start.md`. A task no lead started is in the shape, and takes
   step 8 of "The request" by the `then:` or `investigation:` line of its block. Before step 8:
   1. Read the need of step 7 again, and the need only, since the order ended with its task or with
-     his word: an ask that needs the result of another open task is queued again behind that one,
-     where step 7 says: before a scout or an investigator reads the code, and on the standard track
-     with an interview after his yes (`SKILL_DIR/stages/start.md`, step 1).
+     his word: an ask that needs the result of another task that has not ended (not landed,
+     answered or dropped) is queued again behind that one, where step 7 says: before a scout or an
+     investigator reads the code, and on the standard track with an interview after his yes
+     (`SKILL_DIR/stages/start.md`, step 1). A dropped task is no task to queue behind again: what
+     the task still needs of one is planned inside it.
   2. On `then: the interview`, write the interview's block of step 8, `held` with `the interview
      waits for the owner` and the type line, so that the interview finds the block it expects, and
      the board and "Waits for you" show it.

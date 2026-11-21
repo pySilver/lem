@@ -59,12 +59,14 @@ Type `/lem`. Lem opens the board, and gives one list in this order:
    fresh agent;
 2. the acceptance criteria that wait for your yes;
 3. the tasks that wait for a step of yours, or for one more fact;
-4. the tasks that stopped on a problem that they cannot solve alone;
-5. the plans that wait for you to read them;
-6. the merge reviews that call you;
-7. the pull requests that wait for your merge, and each merge that GitHub or Lem refused, each
+4. the tasks that wait for a task that you dropped: type "start <task> now" to start the task, or
+   `/lem drop <task>` to stop it, in a Lem session of this repository;
+5. the tasks that stopped on a problem that they cannot solve alone;
+6. the plans that wait for you to read them;
+7. the merge reviews that call you;
+8. the pull requests that wait for your merge, and each merge that GitHub or Lem refused, each
    green or with its reasons;
-8. the changes that the morning retro proposes.
+9. the changes that the morning retro proposes.
 
 The [board](board.md) shows the same rows, in the same order, in its view **Waits for you**. When
 Lem cannot read the sessions of agterm, the list says so.

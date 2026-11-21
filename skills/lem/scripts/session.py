@@ -256,11 +256,18 @@ def queued_behind(task: dict, tasks: list[dict]) -> str | None:
     """The task a `queued` task waits for (its `after:` line) while that one has not ended, else None."""
     if task["status"] != "queued" or not task["state"]:
         return None
-    after = next((line.split(":", 1)[1].strip() for line in task["state"].splitlines()[1:] if line.startswith("after:")), None)
+    after = after_of(task)
     if not after:
         return None
     other = next((item["status"] for item in tasks if item["slug"] == after), None)
     return None if other in project.ENDED else after
+
+
+def after_of(task: dict) -> str | None:
+    """The task that the `after:` line of the task's newest block names, read from each of its lines,
+    its first too, as `may-start` and the board read it (`project.after_in`); None with no such line."""
+    blocks = project.blocks_of(task["state"]) if task.get("state") else []
+    return project.after_in([line.strip() for line in blocks[0]["lines"]]) if blocks else None
 
 
 def first_line(task: dict) -> str | None:
@@ -271,13 +278,19 @@ def first_line(task: dict) -> str | None:
 def first_line_end(slug: str, records: list[dict], night: bool) -> dict | None:
     """The end of `wait --first-line` from the task's `task.state` events, oldest first: its first
     line as another session says it, or None with the reason when a block came that no line will
-    follow (a block with a type and no line, or a task parked or ended first); None while it waits."""
+    follow (a block with a type and no line, a task parked or ended first, or the hold of an order
+    that named no task, whose line comes in the task's own session with the owner's answer); None
+    while it waits."""
     for record in records:
         if record.get("say"):
             return {"task": slug, "say": record["say_named"], "gone": False}
         status = record.get("status")
         if status in project.ENDED or status == "parked":
             return {"task": slug, "say": None, "gone": False, "why": f"{slug} is {status} before its first line, so there is no line to say"}
+        if status == "held" and str(record.get("text", "")).strip().startswith(project.ORDER_WAIT):
+            return {"task": slug, "say": None, "gone": False,
+                    "why": f"{slug} is held: the order waits for the owner, since his words name no open task Lem can tell. "
+                           f"Its first line comes with his answer, in its own session, and the list of what waits for him shows it until then"}
         if project.type_of("\n".join([str(record.get("text", "")), *map(str, record.get("lines", []))])):
             why = (f"{slug} is a task of the night: it gets no first line, and the night's report names it" if night
                    else f"the first state block of {slug} that names its type has no line, so there is none to say; the board shows its state")
@@ -524,7 +537,7 @@ def workspace_for(slug: str, task: dict, opens: dict[str, dict], nodes: list[dic
     caller's, else that of the task its `after:` line names, else the repository's newest."""
     known = {node["workspace"] for node in nodes}
     mine = node_of(nodes, caller)
-    after = next((line.split(":", 1)[1].strip() for line in (task["state"] or "").splitlines()[1:] if line.startswith("after:")), None)
+    after = after_of(task)
     newest = max(opens.values(), key=lambda record: record["ts"], default=None)
     for found in ((opens.get(slug) or {}).get("workspace"), mine["workspace"] if mine else None,
                   (opens.get(after) or {}).get("workspace") if after else None, (newest or {}).get("workspace")):

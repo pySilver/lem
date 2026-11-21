@@ -183,6 +183,16 @@ class Phase(unittest.TestCase):
         self.assertEqual(session.queued_behind(queued, [queued, {"slug": "coupon", "status": "open"}]), "coupon")
         self.assertIsNone(session.queued_behind(queued, [queued, {"slug": "coupon", "status": "landed"}]))
 
+    def test_the_after_line_is_read_from_every_line_its_first_too(self):
+        # as `may-start` and the board read it: a block whose first line is `after: coupon`
+        first = {"slug": SLUG, "status": "queued", "state": "2026-11-21T10:00Z queued: after: coupon\ntype: fix, because x\nthen: the fast track"}
+        self.assertEqual(session.queued_behind(first, [first, {"slug": "coupon", "status": "building"}]), "coupon")
+        nodes = [{"workspace": "W-coupon"}, {"workspace": "W-other"}]
+        opens = {"coupon": {"workspace": "W-coupon", "ts": "2026-11-21T09:00:00Z"}, "other": {"workspace": "W-other", "ts": "2026-11-21T09:30:00Z"}}
+        with mock.patch.object(session, "node_of", return_value=None):
+            self.assertEqual(session.workspace_for(SLUG, first, opens, nodes, ""), "W-coupon")
+        self.assertIsNone(session.after_of({"slug": SLUG, "status": "queued", "state": "2026-11-21T10:00Z queued: needs the column"}))
+
 
     def test_the_phase_that_ends_is_the_states_and_not_the_one_the_session_opened_in(self):
         def block(status: str, text: str) -> dict:
@@ -222,6 +232,11 @@ class FirstLine(unittest.TestCase):
         self.assertEqual((night["say"], night["gone"]), (None, False))
         self.assertIn("a task of the night", night["why"])
         self.assertIn("has no line", session.first_line_end(SLUG, [typed], False)["why"])
+        # the hold of an order that named no task: his answer brings the line, in the task's own session
+        held = session.first_line_end(SLUG, [self.state("held", 'the order waits for the owner: "After the gift note"', "type: feat, because x")], False)
+        self.assertEqual((held["say"], held["gone"]), (None, False))
+        self.assertIn(f"{SLUG} is held: the order waits for the owner", held["why"])
+        self.assertIn("comes with his answer", held["why"])
         for status in ("dropped", "answered", "landed", "parked"):
             ended = session.first_line_end(SLUG, [self.state("held", "the request waits for one answer"), self.state(status, "the owner dropped it")], False)
             self.assertEqual(ended["say"], None, status)

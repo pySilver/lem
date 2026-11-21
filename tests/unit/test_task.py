@@ -7,6 +7,7 @@ tests/lem-state.sh's.
     python3 -B -m unittest discover -s tests/unit
 """
 
+import shlex
 import shutil
 import sys
 import tempfile
@@ -76,6 +77,80 @@ class QueuedRefusal(unittest.TestCase):
         self.assertIn("which is no task:", project.queued_refusal("a", "b", None))
 
 
+class DroppedRefusal(unittest.TestCase):
+    """The refusal of `may-start` for a task queued behind a dropped task prints the commands of the
+    owner's "start SLUG now" whole, from the task's own block, for the agent to run on his word."""
+
+    ORDER = ["the owner's order: \"After the \"gift note\" task\"", "after: gift-note-in-export",
+             "type: feat, because a new order", "then: the interview"]
+    # his reply, with a double quote and an apostrophe of his, put in as the refusal says: '\'' for his '
+    REPLY = 'start it, it\'s "fine"'
+
+    def run_as_printed(self, command: str) -> list[str]:
+        """The arguments the shell gives the command after his words go in where HIS WORDS stands."""
+        return shlex.split(command.replace(project.HIS_WORDS, self.REPLY.replace("'", "'\\''")))
+
+    def test_his_order_is_logged_then_the_block_is_written_again_without_its_after_line(self):
+        logged, written = project.start_commands("export-notes-in-order", self.ORDER)
+        self.assertEqual(self.run_as_printed(logged), [
+            "lem", "decisions", "log", "export-notes-in-order", "--by", "owner", "--what", "the owner's order",
+            "--chose", "start now", "--why", "his word", "--words", self.REPLY])
+        self.assertEqual(self.run_as_printed(written), [
+            "lem", "project", "state", "export-notes-in-order", "queued", "the owner's order: \"After the \"gift note\" task\"",
+            "type: feat, because a new order", "then: the interview", f"the owner's order was removed: \"{self.REPLY}\""])
+
+    def test_a_need_gets_its_block_again_and_no_log(self):
+        need = ["it needs the cache that caches-the-list adds", "after: caches-the-list", "then: the lead"]
+        self.assertEqual([shlex.split(c) for c in project.start_commands("shows-the-list", need)],
+                         [["lem", "project", "state", "shows-the-list", "queued", need[0], "then: the lead"]])
+
+    def test_the_after_line_is_read_from_every_line_its_first_too(self):
+        first = ["after: gift-note-in-export", "type: fix, because the order is lost", "then: the fast track"]
+        self.assertEqual(project.after_in(first), "gift-note-in-export")
+        self.assertEqual(project.after_in(self.ORDER), "gift-note-in-export")
+        self.assertIsNone(project.after_in(["the owner's order was removed: \"start it\"", "then: the interview"]))
+        self.assertEqual([shlex.split(c) for c in project.start_commands("t", first)],
+                         [["lem", "project", "state", "t", "queued", "type: fix, because the order is lost", "then: the fast track"]])
+
+    def test_the_refusal_says_his_word_comes_first_and_prints_each_command_on_its_line(self):
+        said = project.dropped_refusal("export-notes-in-order", "gift-note-in-export", self.ORDER)
+        self.assertTrue(said.startswith("the task 'export-notes-in-order' is queued after 'gift-note-in-export', which was dropped"))
+        self.assertIn("nothing below runs before it", said)
+        self.assertIn("run `lem project may-start export-notes-in-order` once more and run the commands that it prints then, never ones printed before his word", said)
+        self.assertIn("a single quote of his is written '\\''", said)
+        self.assertIn("/lem drop export-notes-in-order", said)
+        printed = [row for row in said.splitlines() if row.startswith("lem ")]
+        self.assertEqual(printed, project.start_commands("export-notes-in-order", self.ORDER))
+        self.assertNotIn(project.HIS_WORDS, project.dropped_refusal("t", "a", ["it needs a", "after: a"]))
+
+
+class FixedForm(unittest.TestCase):
+    """`state` refuses a line that starts as one of the three lines the first line reads and is not in
+    its form, and takes every other line as it is."""
+
+    def refused(self, line: str) -> str:
+        with self.assertRaises(project.SettingsError) as caught:
+            project.fixed_form(line)
+        return str(caught.exception)
+
+    def test_each_of_the_three_in_another_form_names_its_form(self):
+        self.assertIn("`the owner's order: \"HIS WORDS\"`", self.refused("the owner's order: After gift-note-in-export"))
+        self.assertIn("`the owner's order: \"HIS WORDS\"`", self.refused("the owner's order: \"After gift-note-in-export\" now"))
+        said = self.refused("then: an interview")
+        for path in ("`then: the interview`", "`then: the fast track`", "`then: the lead`"):
+            self.assertIn(path, said)
+        self.assertIn("`the one open task that fits his words`", self.refused("the one open task that fit his words"))
+
+    def test_the_forms_and_every_free_line_pass(self):
+        for line in ('the owner\'s order: "After the "gift note" task"', "the owner's order: \"After gift-note-in-export\"",
+                     "then: the interview", "then: the fast track", "then: the lead", "the one open task that fits his words",
+                     'the owners order: "After gift-note-in-export"', 'the order waits for the owner: After the gift note',
+                     'the owner\'s order was removed: "start it"', "after: gift-note-in-export", "it needs the export's column"):
+            with self.subTest(line=line):
+                self.assertIsNone(project.fixed_form(line))
+        self.assertEqual(project.ORDER_LINE.fullmatch('the owner\'s order: "After the "gift note" task"')["words"], 'After the "gift note" task')
+
+
 class Parked(unittest.TestCase):
     """The owner's park: a task no agent works on is put aside, and it leaves `parked` only by a drop
     or by `resume`, which writes the block the park put aside."""
@@ -143,10 +218,12 @@ class FirstLine(unittest.TestCase):
         self.assertEqual(self.say("building", "small change: one builder", "type: fix, because the footer is wrong today"),
                          fast + "Nothing waits for you but the pull request, which calls you: you did not approve its criterion. "
                                 "Wrong read? /lem standard-track, /lem be-careful.")
-        # queued behind another task, its yes still comes before its builder
+        # queued behind another task, its yes still comes before its builder: the wait comes first, then
+        # the steps of the track, then what waits for him
         queued = self.say("queued", "it needs the footer's new text", "after: footer-text", "type: fix, because x", "then: the fast track")
-        self.assertIn("It waits for footer-text, and starts when that task lands or is answered. Someone else wrote the request, so its criterion "
-                      "waits for your yes before the builder starts.", queued)
+        self.assertIn("It waits for footer-text, and starts when that task lands or is answered. Then the fast track: one builder, the checks, "
+                      "one read, then the pull request. Someone else wrote the request, so its criterion waits for your yes before the builder "
+                      "starts.", queued)
 
     def test_the_standard_track_with_an_interview_quotes_the_outcome(self):
         self.write("ask.txt", "Add the gift note to the CSV export, Ania asked twice\n")
@@ -210,8 +287,11 @@ class FirstLine(unittest.TestCase):
         self.write("ask.txt", "Put the gift note on the label too\n")
         self.write("brief.md", "Read SKILL_DIR/prompts/small.md and follow it.\nbranch: feat/note-on-label\n")
         said = self.say("queued", "it waits for the export", "after: gift-note-in-export", "type: feat, because a new line")
-        self.assertIn("Fast track: one builder", said)
-        self.assertIn("It waits for gift-note-in-export, and starts when that task lands or is answered.", said)
+        # the wait comes before the steps of the track, which run when it ends
+        self.assertEqual(said, 'feat: "put the gift note on the label too". Branch feat/note-on-label. '
+                               "It waits for gift-note-in-export, and starts when that task lands or is answered. "
+                               "Then the fast track: one builder, the checks, one read, then the pull request. Nothing waits for you. "
+                               "Wrong read? /lem standard-track, /lem be-careful.")
 
     def test_a_task_queued_by_his_order_says_so_and_his_word_that_starts_it(self):
         self.write("ask.txt", "After one-lem-parallel-landings: unit cases for the functions that are pure today\n")
@@ -238,6 +318,65 @@ class FirstLine(unittest.TestCase):
                         "the one open task that fits his words", "type: feat, because a new order", "then: the interview")
         self.assertIn('It waits for gift-note-in-export, the one open task that fits "when the gift note lands"; '
                       '"start task now" starts it before that.', said)
+
+    def held_for_his_order(self) -> tuple[Path, str]:
+        """The task of criterion 3: held while he was away, since two open tasks fit "the gift note"."""
+        task = self.dir / "export-notes-in-order"
+        task.mkdir()
+        (task / "ask.txt").write_text("/lem After the gift note: the export keeps the notes in their order\n")
+        (task / "task.md").write_text("# Notes in order\n\n## Outcome\n\nThe export keeps the notes in their order.\n")
+        (task / "brief.md").write_text("Read SKILL_DIR/prompts/lead.md and follow it.\nbranch: feat/export-notes-in-order\nstop after the plan: no\n")
+        hold = ['the order waits for the owner: "After the gift note"', "type: feat, because a new order"]
+        return task, "2026-11-21T10:00Z held: " + "\n".join(hold)
+
+    def test_a_task_held_for_his_order_gets_its_first_line_with_his_answer(self):
+        task, hold = self.held_for_his_order()
+        # the hold names no path: no line while he is away
+        self.assertIsNone(project.opening_line_of(task, self.main, "held", hold.split(": ", 1)[1].splitlines(), "", None, False))
+        # his answer "after gift-note-in-export": the queued block, with no type line of its own since the hold has it
+        queued = ['the owner\'s order: "After the gift note"', "after: gift-note-in-export", "then: the interview"]
+        said = project.opening_line_of(task, self.main, "queued", queued, hold, None, False)
+        self.assertEqual(said, 'feat: "the export keeps the notes in their order". Branch feat/export-notes-in-order. '
+                               'It waits for gift-note-in-export, as you said; "start export-notes-in-order now" starts it before that. '
+                               "Then the standard track: an interview here, then acceptance criteria for your yes. "
+                               "After that it runs to the pull request without you. Wrong read? /lem be-careful.")
+        named = project.opening_line_of(task, self.main, "queued", queued, hold, None, False, task="export-notes-in-order")
+        self.assertTrue(named.startswith('export-notes-in-order · feat: "the export keeps the notes in their order".'), named)
+        # the one question's own hold between the two changes nothing
+        asked = "2026-11-21T18:00Z held: the request waits for one answer\n\n" + hold
+        self.assertEqual(project.opening_line_of(task, self.main, "queued", queued, asked, None, False), said)
+        # said one time: the block its wait ends in says nothing
+        older = "2026-11-21T18:01Z queued: " + "\n".join(queued) + "\n\n" + asked
+        self.assertIsNone(project.opening_line_of(task, self.main, "held", ["the interview waits for the owner"], older, None, False))
+
+    def test_no_order_gives_the_line_of_a_task_that_starts_at_once(self):
+        task, hold = self.held_for_his_order()
+        said = project.opening_line_of(task, self.main, "held", ["the interview waits for the owner"], hold, None, False)
+        self.assertEqual(said, 'feat: "the export keeps the notes in their order". Branch feat/export-notes-in-order. '
+                               "Standard track: an interview here now, then acceptance criteria for your yes. "
+                               "After that it runs to the pull request without you. Wrong read? /lem be-careful.")
+        # the hold's careful line stands for a block that has none
+        careful = hold + "\ncareful: this changes the export a shop reads"
+        self.assertTrue(project.opening_line_of(task, self.main, "held", ["the interview waits for the owner"], careful, None, False)
+                        .startswith("Careful: this changes the export a shop reads. feat:"))
+        # a block's own type line wins over the hold's
+        fixed = project.opening_line_of(task, self.main, "held", ["the interview waits for the owner", "type: fix, because the order is lost"], hold, None, False)
+        self.assertTrue(fixed.startswith('fix: "the export keeps'), fixed)
+        # an older typed block that is no hold of his order said the line already, as before
+        self.assertIsNone(project.opening_line_of(task, self.main, "held", ["the interview waits for the owner"],
+                                                  "2026-11-21T10:00Z held: breaker 1 waits for the owner\ntype: feat, because x", None, False))
+
+    def test_a_free_order_line_still_says_the_wait(self):
+        # "the owners order", with no apostrophe, is a free line: the wait follows the `after:` line
+        self.write("ask.txt", "After gift-note-in-export: the export keeps the notes in their order\n")
+        said = self.say("queued", 'the owners order: "After gift-note-in-export"', "after: gift-note-in-export",
+                        "type: feat, because a new order", "then: the interview")
+        self.assertEqual(said, 'feat: "after gift-note-in-export: the export keeps the notes in their order". '
+                               "It waits for gift-note-in-export, and starts when that task lands or is answered. "
+                               "Then the standard track: an interview here, then acceptance criteria for your yes. "
+                               "After that it runs to the pull request without you. Wrong read? /lem be-careful.")
+        found = self.say("queued", "it needs the export's column", "after: gift-note-in-export", "investigation: bug", "type: fix, because x")
+        self.assertIn("starts when that task lands or is answered. Then an investigator finds the cause first.", found)
 
     def test_another_session_names_the_task_and_its_commands(self):
         self.write("ask.txt", "the footer says Terms, not Terms and Conditions\n")

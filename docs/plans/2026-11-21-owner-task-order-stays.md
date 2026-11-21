@@ -1,5 +1,14 @@
 # A task order in the owner's words stays
 
+> **Status: built** in `74bd242`. A later plan changed parts of it,
+> `2026-11-21-owner-order-open-defects.md`: `lem project state` reads three lines of a queued block
+> for the task's first line (`the owner's order: "HIS WORDS"`, `then: PATH` and `the one open task
+> that fits his words`) and refuses each in another form, where decisions 1 and 7 say that no script
+> reads them; the task text's `lem session open SLUG --why owner --focus` names a flag that the
+> command refuses, and "`/lem build`" of `stages/start.md` names none; a task queued behind a dropped
+> task has a row in "Waits for you", and `lem project may-start` prints the commands of his "start
+> it"; and a task held with `the order waits for the owner` gets its first line with his answer.
+
 careful: yes, because task 1 edits the rule of who decides the order of the owner's tasks, which reaches the owner's topic "A decision that is the owner's is taken without him, or one taken for him is missing from the pull request he reads": a wrong sentence there lets a lead remove his order again, or holds a task that he wanted started.
 
 ## Acceptance criteria

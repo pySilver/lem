@@ -41,16 +41,20 @@ with each kind's entry under its key, and leave out a kind that has none:
    (`need: deaf`); the board's "Open a session", or `lem session open SLUG --why dead`, opens one;
 3. `criteria`: each task whose acceptance criteria wait for his yes;
 4. `held`: each task that waits for a step of his or one more fact, with that step;
-5. `blocked`: each task its session stopped on something it cannot settle alone, with its `line`;
+5. `after_dropped`: each task queued after a task that was dropped, with its `where` as it is: the
+   dropped task (`after`), "start SLUG now" (`start`), which starts it without that task's result,
+   and `/lem drop SLUG` (`drop`), which ends it, either one typed in any Lem session of this
+   repository, since no session runs the task;
+6. `blocked`: each task its session stopped on something it cannot settle alone, with its `line`;
    he answers in the task's session or with `/lem drop SLUG`;
-6. `plans`: each plan that waits for him to read it;
-7. `reviews`: each merge review that calls him, "read the merge review" with its `why`;
-8. `pull_requests`: each open pull request whose merge waits for him, its address, and green or
+7. `plans`: each plan that waits for him to read it;
+8. `reviews`: each merge review that calls him, "read the merge review" with its `why`;
+9. `pull_requests`: each open pull request whose merge waits for him, its address, and green or
    each reason it is not (one the merge agent still reads, or that the board's server merges after
    a `merge` verdict, is not in the list); when `merge_refused` holds GitHub's or Lem's line, that
    line; a task with a `night` says "of the night";
-9. `retros`: "the retro of DATE proposes N changes" for each file; a file with a `problem` is
-   named with it.
+10. `retros`: "the retro of DATE proposes N changes" for each file; a file with a `problem` is
+    named with it.
 
 When `sessions.known` is false, say in one line that the tasks' sessions are not known, with
 `sessions.said`: no task with no session can show then.
