@@ -100,7 +100,8 @@ git -C "$BR" worktree remove --force "$BT"
 resumed=$(br resume gift-note | field '(d["task"], d["resumed"], d["branch"], d["from_branch"], d["breaker"], d["status"])')
 nd=$BR/.lem/state/tasks/gift-note-2
 carried=$(git -C "$BR" log --format=%s feat/gift-note-2 | head -2 | tr '\n' '|')
-copied=$(cd "$nd" && printf '%s ' *)
+# a lock is no copied file: each write of the new task's state takes its state.lock
+copied=$(cd "$nd" && find . -mindepth 1 -maxdepth 1 ! -name '*.lock' | sed 's|^\./||' | sort | tr '\n' ' ')
 first=$(br tasks | field 'next((t["status"], t["state"].splitlines()[0].split(": ", 1)[1], t["state"].splitlines()[1:3]) for t in d if t["slug"] == "gift-note-2")')
 old=$(br tasks | field 'next(t["status"] for t in d if t["slug"] == "gift-note")')
 record=$(bdecide "$BR" list gift-note-2 | field '[(c["id"], c["kind"], c["state"]) for c in d]')
