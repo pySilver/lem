@@ -30,7 +30,9 @@ workspace it cannot tell, and a path the launch line cannot carry.
 
 `open` holds the task's lock (`session.lock` in its directory), so a click and a duty of the board's
 server never open two. When agterm's tree has the newest `session.open`'s session and an agent runs
-in it, `open` prints that one with `already: true`. Otherwise it writes `session.md` in the task
+in it (`agent_runs`), `open` prints that one with `already: true`. A session of the task that is still
+in the tree with no agent in it (the shell the owner left after its agent ended) stays as it is: `open`
+opens the new one beside it and closes nothing. Otherwise it writes `session.md` in the task
 directory, the new agent's first read, and runs
 
     agtermctl session new --workspace WS --cwd DIR --name SLUG --no-select --command \\
@@ -84,6 +86,7 @@ import json
 import os
 import pwd
 import re
+import shlex
 import shutil
 import subprocess
 import time
@@ -110,6 +113,10 @@ LOCK = "session.lock"
 TALK = "talk.md"
 # The programs that count as the task's agent in the pane, by the name of their file.
 AGENTS = ("claude", "codex")
+# A shell's option that runs the next word as a command: `-c`, a cluster with it (`-lc`), or fish's `--command`.
+SHELL_COMMAND = re.compile(r"-[a-zA-Z]*c[a-zA-Z]*|--command")
+# A word of a command that sets a variable for it, `NAME=value`.
+ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=.*", re.S)
 # A session opened this long ago counts as live while its agent starts: the login shell runs first,
 # and a second `open` in that time must not open another. A guess.
 STARTING = 60
@@ -183,13 +190,35 @@ def first_line(task: dict) -> str | None:
     return found["text"] if found else None
 
 
+def command_agent(text: str) -> bool:
+    """Whether a shell's `-c` string runs an agent: its first command word, after the `NAME=value`
+    words that set its environment (the form `launch_line` builds), is an agent's file. A string that
+    does not read as a shell's words counts when one plain word of it is an agent's file."""
+    try:
+        words = shlex.split(text)
+    except ValueError:
+        return any(Path(word).name in AGENTS for word in text.split())
+    first = next((word for word in words if not ASSIGNMENT.fullmatch(word)), None)
+    return first is not None and Path(first).name in AGENTS
+
+
 def agent_runs(node: dict) -> bool | None:
-    """Whether the program in the session's left pane is an agent (AGENTS), from agterm's tree: a dead
-    agent leaves a shell, or no session at all for a session that runs a command. None when agterm has
-    not drawn the session yet and so does not know."""
+    """Whether the program in the session's left pane is an agent (AGENTS), from agterm's tree. Its
+    `foreground` is the argv of the pane's foreground process: an agent the owner started by hand (a
+    word whose file is an agent's, `/…/bin/claude …` or `node /…/claude`), or the shell of the launch
+    line, whose `-c` string runs the agent (`command_agent`). A shell with no command, or the null
+    foreground of an idle shell, is no agent: a dead agent leaves one. None when agterm has not drawn
+    the session yet and so does not know. The forms are the ones agterm's tree gave on 2026-11-21."""
     ground = node.get("foreground")
     if isinstance(ground, list) and ground:
-        return any(Path(str(word)).name in AGENTS for word in ground[:2])
+        words = [str(word) for word in ground]
+        for i, word in enumerate(words):
+            if i and SHELL_COMMAND.fullmatch(words[i - 1]):
+                if command_agent(word):
+                    return True
+            elif Path(word).name in AGENTS:
+                return True
+        return False
     return None if node.get("realized") is False else False
 
 

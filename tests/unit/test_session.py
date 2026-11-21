@@ -9,6 +9,7 @@ tests/lem-session.sh, with a stand-in for agtermctl.
 import importlib
 import json
 import os
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -175,6 +176,24 @@ class Agent(unittest.TestCase):
         self.assertFalse(session.agent_runs({"foreground": ["/opt/homebrew/bin/fish"], "realized": True}))
         self.assertFalse(session.agent_runs({"realized": True}))
         self.assertIsNone(session.agent_runs({"realized": False}))
+
+    def test_the_launch_lines_shell_runs_the_agent_in_its_command(self):
+        # agterm's tree for a live task session that Claude Code held idle (lem-scratch, 2026-11-21)
+        ground = ["/opt/homebrew/bin/fish", "-l", "-c", "LEM_TASK=profile-names-working-days CLAUDE_CODE_AUTO_COMPACT_WINDOW=600000 claude --model opus --effort high \"Read /x/session.md and follow it.\""]
+        self.assertTrue(session.agent_runs({"foreground": ground, "realized": True}))
+        now = datetime(2026, 11, 21, 10, 0, 0, tzinfo=timezone.utc)
+        self.assertTrue(session.live({"foreground": ground}, {"ts": "2026-11-21T08:00:00Z"}, now))
+        # the line launch_line builds reads the same way
+        line = session.launch_line("/bin/zsh", SLUG, Path("/r/session.md"), 600_000, {"agent": "claude", "model": None, "effort": None})
+        self.assertTrue(session.agent_runs({"foreground": shlex.split(line)}))
+
+    def test_a_shell_whose_command_is_no_agent_or_cannot_be_read(self):
+        self.assertFalse(session.agent_runs({"foreground": ["/bin/zsh", "-l"], "realized": True}))
+        self.assertFalse(session.agent_runs({"foreground": ["/bin/sh", "-c", "LEM_TASK=x htop"]}))
+        self.assertFalse(session.agent_runs({"foreground": ["/bin/sh", "-c", "echo claude"]}))
+        # an unclosed quote: a plain word that is an agent's file still counts, and none does not
+        self.assertTrue(session.agent_runs({"foreground": ["/bin/sh", "-c", "LEM_TASK=x claude \"Read"]}))
+        self.assertFalse(session.agent_runs({"foreground": ["/bin/sh", "-c", "LEM_TASK=x htop \"Read"]}))
 
     def test_a_session_counts_while_its_agent_starts(self):
         now = datetime(2026, 11, 21, 10, 0, 0, tzinfo=timezone.utc)
