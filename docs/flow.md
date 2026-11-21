@@ -94,5 +94,6 @@ change. A builder fixes each must-fix, in two rounds at most. Then Lem opens
 
 Many tasks build and land at the same time. With `lem project load --start N`, the checks start
 only while the load of your computer is below N.
-Lem merges one task at a time. A request that needs the result of another task waits, and the
-board server opens its session when that task ends.
+Lem merges one task at a time. A request waits for a task whose result it needs, or that you put
+before it. It starts when that task merges or gets its answer. When that task is dropped, Lem asks
+you to start the request or to drop it.
