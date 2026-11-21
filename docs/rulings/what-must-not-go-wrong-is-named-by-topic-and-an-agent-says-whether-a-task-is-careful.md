@@ -5,7 +5,7 @@ area: A request: its type, its track and its commands
 
 # What must not go wrong is named by topic, and an agent says whether a task is careful
 
-Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A quote is his words.
+His ruling of 2026-11-15. It is reopened only by asking him. A quote is his words.
 
 **What must not go wrong is named by topic, and an agent says whether a task is careful**: "we
 analyze the project, then we suggest what are the dangerous zones or topics and let user

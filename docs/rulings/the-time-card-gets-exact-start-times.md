@@ -5,7 +5,7 @@ area: The board and the pages for him
 
 # The time card gets exact start times
 
-Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A quote is his words.
+His ruling of 2026-11-17. It is reopened only by asking him. A quote is his words.
 
 **The time card gets exact start times**: asked in his Inbox on 2026-11-17 whether the board's
 time card should get exact start times now, he picked "Build it now: each stage logs its start,

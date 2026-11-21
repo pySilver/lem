@@ -14,7 +14,7 @@ The title is the rule as it stands. Where the paragraph below says otherwise, th
 
 ## As ruled on 2026-11-17, changed in part since
 
-Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A quote is his words.
+His ruling of 2026-11-17. It is reopened only by asking him. A quote is his words.
 
 **Linear and GitHub Issues, and the local backlog stays local**: he first ruled Linear only,
 "built so that another can be added", and on 2026-11-17 picked "GitHub Issues as a second

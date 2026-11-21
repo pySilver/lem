@@ -5,7 +5,7 @@ area: The lessons, the correction queue, the naps, the night and the free hour
 
 # As a plugin, the correction hook comes with the install, and the repository says yes for all
 
-Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A quote is his words.
+His ruling of 2026-11-15. It is reopened only by asking him. A quote is his words.
 
 **As a plugin, the correction hook comes with the install, and the repository says yes for
 all**: he picked "With the plugin; the repository says yes for all" and wrote "I'm divided

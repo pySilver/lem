@@ -13,7 +13,7 @@ The title is the rule as it stands. Where the paragraph below says otherwise, th
 
 ## As ruled on 2026-11-16, changed in part since
 
-Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A quote is his words.
+His ruling of 2026-11-16. It is reopened only by asking him. A quote is his words.
 
 **The personas' read of the acceptance criteria is his to skip, and only when every criterion
 names only the developer**: he asked whether the read should be optional ("In some cases the owner has all the

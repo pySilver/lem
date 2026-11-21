@@ -5,7 +5,7 @@ area: A request: its type, its track and its commands
 
 # Lem tells the type of a request, asks when it is unclear, and a bug is investigated first
 
-Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A quote is his words.
+His ruling of 2026-11-16. It is reopened only by asking him. A quote is his words.
 
 **Lem tells the type of a request, asks when it is unclear, and a bug is investigated
 first**: of a small fix taken as a correction with no scout, "Well typically the

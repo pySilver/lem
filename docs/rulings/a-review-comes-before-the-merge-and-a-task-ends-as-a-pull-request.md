@@ -5,7 +5,7 @@ area: The review, the pull request and the merge
 
 # A review comes before the merge, and a task ends as a pull request.
 
-Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A quote is his words.
+His ruling of 2026-11-16. It is reopened only by asking him. A quote is his words.
 
 **A review comes before the merge, and a task ends as a pull request.** He chose "build
 first, review after" on 2026-11-14 and reopened it the next day, of commits that reach the

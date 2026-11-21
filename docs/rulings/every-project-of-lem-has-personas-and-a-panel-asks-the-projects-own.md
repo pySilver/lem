@@ -5,7 +5,7 @@ area: The interview, the criteria and the personas
 
 # Every project of Lem has personas, and a panel asks the project's own
 
-Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A quote is his words.
+His ruling of 2026-11-15. It is reopened only by asking him. A quote is his words.
 
 **Every project of Lem has personas, and a panel asks the project's own**: "every project has
 personas, I don't see why we can have none when Lem is installed for a project" (2026-11-15).

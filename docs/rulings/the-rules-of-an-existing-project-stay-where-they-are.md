@@ -5,7 +5,7 @@ area: What Lem is, and who it is for
 
 # The rules of an existing project stay where they are
 
-Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A quote is his words.
+His ruling of 2026-11-15. It is reopened only by asking him. A quote is his words.
 
 **The rules of an existing project stay where they are**: "ok rules stays for now"
 (2026-11-15). An adopted project's style guide is the folder its agent loads by itself
