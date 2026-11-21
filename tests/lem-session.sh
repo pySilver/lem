@@ -98,6 +98,29 @@ else
   fail "close: $refused / $still / $(cat "$WORK/closed") / $(events)"
 fi
 
+# A close that waits gives up on a session woken after it started: the owner keeps the session of a queued task
+# selected, its task ends, and the server's wake (`lem: SLUG queue`) gives it work again, which no close may end.
+"$PY" -c 'import json, sys; n = json.load(open(sys.argv[1])); [x.update(active=(x["id"] == "S-2")) for x in n]; json.dump(n, open(sys.argv[1], "w"))' "$TREE"
+rm -f "$CALLS"
+sess close gift-note --session S-2 --why handoff --when-unselected --every 0.1 > "$WORK/kept" 2>&1 &
+waiter=$!
+# the close has read the log once it asks agterm for the tree
+for _ in $(seq 50); do grep -qF '"tree"' "$CALLS" 2>/dev/null && break; sleep 0.1; done
+AS="" sess wake gift-note --why queue >/dev/null 2>&1
+for _ in $(seq 50); do kill -0 "$waiter" 2>/dev/null || break; sleep 0.1; done
+# a close that did not give up still runs in the subshell's child: end it too, so that it closes no session
+# when the owner leaves S-2 below and the checks after this one meet the same sessions
+pkill -P "$waiter" 2>/dev/null || true
+kill "$waiter" 2>/dev/null || true
+wait "$waiter" 2>/dev/null || true
+"$PY" -c 'import json, sys; n = json.load(open(sys.argv[1])); [x.update(active=(x["id"] == "S-HIS")) for x in n]; json.dump(n, open(sys.argv[1], "w"))' "$TREE"
+if [ "$(field '(d["closed"], d["woken"])' < "$WORK/kept" 2>&1)" = "(False, True)" ] && ! grep -qF '"session", "close", "--target", "S-2"' "$CALLS" \
+  && ! grep -qF "('session.close', 'S-2'" <<<"$(events)" && grep -qF "('session.wake', 'S-2', None, 'queue')" <<<"$(events)"; then
+  pass "close --when-unselected ends with no close and no record when the session is woken while it waits"
+else
+  fail "close after a wake: $(cat "$WORK/kept") / $(cat "$CALLS") / $(events)"
+fi
+
 # The wake: a live session gets the pane message and the record; a task with none gets a new session.
 pr task-dir coupon-slug --ask "the coupon has a slug" >/dev/null
 pr state coupon-slug held "the interview waits for the owner" "type: feat, because a coupon gets a slug" >/dev/null

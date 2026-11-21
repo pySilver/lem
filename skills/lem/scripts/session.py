@@ -26,7 +26,9 @@
 The phase comes from the task's state, never from an argument: no state block, or `held` for the
 interview or the criteria (any hold but a breaker's), is `shape`; a task on the fast track is `fast`
 from its request to its merge; `queued`, `building`, `planned`, `blocked` and a breaker's `held` are
-`build`; `ready`, `landing`, `open` and a `landed` task whose worktree is not removed yet are `land`.
+`build`, but a `queued` task that no lead started (no block of its state has a `lead:` line), which
+goes on at step 8 of "The request", is `shape`; `ready`, `landing`, `open` and a `landed` task whose
+worktree is not removed yet are `land`.
 `open` refuses a task that does not exist, one that ended (a landed one only once its worktree is
 gone), a parked one, one queued `after:` a task that has not ended, a call with no agterm, a
 workspace it cannot tell, and a path the launch line cannot carry.
@@ -83,6 +85,11 @@ it), when the task's session is gone, and after FIRST_LINE_BOUND.
 (`live`): then it prints `"gone": true` with the session's id, the task's state, and a `say` that
 names `lem session open SLUG --why dead`. Its other ends print `"gone": false`. An agterm that does
 not answer one look is asked again at the next.
+
+`close --when-unselected` ends with no close (`closed: false`, `woken: true`) when the session is
+woken while it waits (a new `session.wake` of that session in the log): the session has work again,
+as a queued task's session does at `lem: SLUG queue`, and the close of its next change of phase or
+of its end is the one that closes it.
 
 `wake` sends `lem: SLUG WHY` to the left pane of the task's live session and logs `session.wake`
 (with `--head`, the head the pull request had, so that a conflict is woken once for each head); the
@@ -587,6 +594,12 @@ def cmd_next(root: Path, slug: str, same: bool) -> dict:
             "say": f"{slug} goes on in a fresh session for the phase {opened['phase']}; this one closes once the owner has left it"}
 
 
+def wakes_of(events: list[dict], session: str) -> int:
+    """How many `session.wake` records the event log holds for SESSION: counted, not timed, since a
+    record's time has whole seconds and a wake may come in the second the close started."""
+    return sum(1 for record in events if record.get("event") == "session.wake" and str(record.get("session", "")).upper() == session.upper())
+
+
 def cmd_close(root: Path, slug: str, session: str | None, why: str, when_unselected: bool, every: float) -> dict:
     where = place()
     project.task_directory(root, slug)
@@ -597,7 +610,13 @@ def cmd_close(root: Path, slug: str, session: str | None, why: str, when_unselec
             raise SessionError(f"no session of {slug} is on record: there is nothing to close")
         session = str(newest["session"])
     logged = any(record.get("event") == "session.close" and str(record.get("session", "")).upper() == session.upper() for record in events)
+    woken = wakes_of(events, session)
     while True:
+        if when_unselected and wakes_of(project.events_named(root, *EVENTS), session) > woken:
+            # woken after this close started (a queued task's turn, `lem: SLUG queue`): the session has
+            # work again, and the close that its next change of phase or its end runs is the one that counts
+            return {"task": slug, "session": session, "why": why, "closed": False, "woken": True,
+                    "says": f"the session {session} was woken after this close started, so it has work again and stays open; the close of its next change of phase or of its end closes it"}
         node = node_of(tree(where), session)
         if node is None:
             if not logged:
@@ -939,7 +958,7 @@ def main(argv: list[str] | None = None) -> None:
     closing.add_argument("slug")
     closing.add_argument("--session", metavar="ID", help="the session to close (default: the task's newest)")
     closing.add_argument("--why", required=True, choices=CLOSES)
-    closing.add_argument("--when-unselected", action="store_true", help="wait until the owner has left the session, then close it")
+    closing.add_argument("--when-unselected", action="store_true", help="wait until the owner has left the session, then close it; a wake of the session meanwhile ends the wait with no close")
     closing.add_argument("--every", type=float, default=CLOSE_EVERY, help=argparse.SUPPRESS)
     handoff = commands.add_parser("handoff", help="check the task's handoff.md against templates/handoff.md")
     handoff.add_argument("slug")
