@@ -5,6 +5,14 @@ area: The interview, the criteria and the personas
 
 # The personas' read of the acceptance criteria is his to skip, and only when every criterion names only the developer
 
+## Changed in part
+
+The title is the rule as it stands. Where the paragraph below says otherwise, the line here holds.
+
+- 2026-11-17, [A complete ticket that someone else wrote needs his yes to its criteria, and no interview](a-complete-ticket-that-someone-else-wrote-needs-his-yes-to-its-criteria-and-no-interview.md): "for a full change from a complete request the read is the only approval and always runs": the read still always runs, and it is the only approval of a complete request he wrote himself; a complete request that someone else wrote needs his yes to the criteria after the read (`stages/plan.md`, step 1)
+
+## As ruled on 2026-11-16, changed in part since
+
 Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A quote is his words.
 
 **The personas' read of the acceptance criteria is his to skip, and only when every criterion
