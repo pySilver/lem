@@ -69,8 +69,10 @@ Then, in this order, each part only when it holds something:
 
 The review is always shorter than what you read, and it grows only with what he must read. For a
 safe change on the fast track (green, not careful, one criterion that the change holds) it is the
-verdict and three sentences: what changed, that its test proves it, and the time. No headings
-then. Plain words, short sentences, no emoji; the owner reads English as a second language and
+verdict line and at most three sentences after it, 60 words in all (a bound by guess): what changed, that its test
+proves it, and the time. No heading, no list, no story and no chart then; the parts above are for
+every other review. Count the words before you reply: the review of such a change in a scratch
+repository ran to 140 words (pySilver/lem-scratch#13, 2026-11-21). Plain words, short sentences, no emoji; the owner reads English as a second language and
 has little time.
 
 Your reply is the review and nothing else: the task's session writes it down as `merge-review.md`
