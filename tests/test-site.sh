@@ -335,7 +335,7 @@ for action in ("actions/checkout@", "actions/configure-pages@", "actions/upload-
         problems.append(f"it uses no {action}")
 verdict["workflow"] = "; ".join(problems)
 published = sorted(str(path.relative_to(site)) for path in site.rglob("*") if path.is_file()) if site.is_dir() else []
-want = ["assets/lem-night.svg", "assets/lem.svg", "assets/screens/board-dark.png", "assets/screens/board-light.png", "assets/screens/phone-dark.png",
+want = ["assets/lem-mark.svg", "assets/lem-night.svg", "assets/lem.svg", "assets/screens/board-dark.png", "assets/screens/board-light.png", "assets/screens/phone-dark.png",
         "assets/screens/phone-light.png", "assets/screens/task-dark.png", "assets/screens/task-light.png", "index.html", "style.css"]
 named = sorted({node.attrs.get(key) for node in top.find(lambda n: n.tag in ("img", "source", "link")) for key in ("src", "srcset", "href")
                 if node.attrs.get(key) and not re.match(r"(https?:)?//", node.attrs.get(key))})
@@ -375,7 +375,7 @@ ok() {
 # criterion 6: the workflow and the folder its step makes
 if ok trigger; then pass "pages.yml runs only on Run workflow (workflow_dispatch), never on a push, a pull request or a schedule"; else fail "pages.yml's triggers: $WHY"; fi
 if ok workflow; then pass "pages.yml has the Pages permissions, the github-pages environment, and GitHub's Pages actions"; else fail "pages.yml: $WHY"; fi
-if [ -z "$copy_said" ] && ok copied; then pass "the step \"$STEP_NAME\" of pages.yml makes a folder of index.html, style.css, the logo for each theme and the six pictures of the board, at the paths the page names"; else fail "the step \"$STEP_NAME\": ${copy_said:-$WHY}"; fi
+if [ -z "$copy_said" ] && ok copied; then pass "the step \"$STEP_NAME\" of pages.yml makes a folder of index.html, style.css, the logo for each theme, its figure alone for the tab and the six pictures of the board, at the paths the page names"; else fail "the step \"$STEP_NAME\": ${copy_said:-$WHY}"; fi
 if ok guides; then pass "every guide link of the page names a file of docs/ in the checkout, and each # part a heading of that file"; else fail "the guide links: $WHY"; fi
 # criterion 5: what site/ holds
 if ok tracked; then pass "git tracks index.html and style.css under site/, and nothing else"; else fail "site/ in git: $WHY"; fi

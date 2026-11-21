@@ -512,9 +512,9 @@ Each script's module docstring says what it does and why; this list says where e
 - `site/`: Lem's page on GitHub Pages, `index.html` and `style.css`, written from the README and the
   guides in their STE, in the board's look (the six hues of `lem.css` at the same values), light or
   dark by the visitor's theme, with the copy buttons as its one script and nothing from another
-  host. `.github/workflows/pages.yml`, started by hand only, copies it with the logo and the six
-  pictures into `_site/` at their repository paths and publishes that; `tests/test-site.sh` runs that
-  copy step as written.
+  host. `.github/workflows/pages.yml`, started by hand only, copies it with the logo, the figure
+  alone (the tab icon) and the six pictures into `_site/` at their repository paths and publishes
+  that; `tests/test-site.sh` runs that copy step as written.
 - `skills/lem-ask/`, `skills/lem-interview-me/`, `skills/lem-dialectic/`, `skills/lem-root-cause/`,
   `skills/lem-gate/`, `skills/lem-panel/`, `skills/lem-linear/`, `skills/lem-ask-expert/`: the
   skills Lem names and ships. `lem-ask-expert` is Lem's own, with `scripts/experts.py` (`lem
