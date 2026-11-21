@@ -481,7 +481,7 @@ pre.code { margin: 0; font: 12.5px/1.6 var(--mono); white-space: pre-wrap; overf
   .btn { min-height: 40px; }
   .ibtn { width: 40px; height: 40px; }
   .ibtn .ic { font-size: 16px; }
-  .ktabs:not([hidden]) { display: flex; gap: 6px; padding: 8px 10px; overflow-x: auto; border-bottom: 1px solid var(--line); scrollbar-width: none; }
+  .ktabs:not([hidden]) { display: flex; gap: 6px; padding: 8px 10px; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; border-bottom: 1px solid var(--line); scrollbar-width: none; }
   .ktabs::-webkit-scrollbar { display: none; }
   .ktab { appearance: none; cursor: pointer; flex: none; display: inline-flex; align-items: center; gap: 7px; height: 40px; padding: 0 12px; border-radius: 999px;
     border: 1px solid var(--line); background: var(--tile); color: var(--dim); font: 600 13px var(--sans); white-space: nowrap; }
@@ -629,7 +629,7 @@ html:has(.app.plain) { overflow: auto; height: auto; }
 @media (max-width: 700px) {
   .app .shell[data-js-drawer] .side { transform: none; visibility: visible; box-shadow: 16px 0 40px -16px rgba(0, 0, 0, .4); }
   .app .shell[data-js-drawer] .scrim { display: block; position: fixed; inset: 0; z-index: 35; background: rgba(20, 16, 8, .38); }
-  .app .ktabs { display: flex; gap: 6px; padding: 8px 10px; overflow-x: auto; border-bottom: 1px solid var(--line); scrollbar-width: none; flex: none; }
+  .app .ktabs { display: flex; gap: 6px; padding: 8px 10px; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; border-bottom: 1px solid var(--line); scrollbar-width: none; flex: none; }
   .app .ktab[data-js-on="true"] { color: var(--fg); border-color: var(--line-strong); background: var(--card-hi); }
   .app .ktab.a-you.some[data-js-on="true"] { background: color-mix(in srgb, var(--you) 14%, var(--tile)); }
   .app .col.folded .col-body { display: flex; }
@@ -685,10 +685,12 @@ html:has(.app.plain) { overflow: auto; height: auto; }
 .app .copy .done, .app .copy[data-js-done] .ic:not(.done) { display: none; }
 .app .copy[data-js-done] .done { display: inline; color: color-mix(in srgb, var(--ok) 58%, var(--fg)); }
 
-/* the tabs: links that change the frame, the one shown underlined in the accent */
-.app .ptabs { flex: none; display: flex; gap: 8px; padding: 0 10px; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+/* the tabs: links that change the frame, the one shown underlined in the accent. The row scrolls sideways only:
+   its line is a shadow inside it and no tab reaches out of it, so nothing is left to scroll up or down. */
+.app .ptabs { flex: none; display: flex; gap: 8px; padding: 0 10px; box-shadow: inset 0 -1px 0 var(--line); overflow-x: auto; overflow-y: hidden;
+  overscroll-behavior-x: contain; scrollbar-width: none; }
 .app .ptabs::-webkit-scrollbar { display: none; }
-.app .ptab { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 12px 8px 11px; margin-bottom: -1px; border-bottom: 2px solid transparent;
+.app .ptab { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 12px 8px 11px; border-bottom: 2px solid transparent;
   font: 600 13px/1.2 var(--sans); color: var(--dim); white-space: nowrap; text-decoration: none; }
 .app .ptab:hover { color: var(--fg); }
 .app .ptab[aria-current="page"] { color: var(--fg); border-bottom-color: var(--accent); }
