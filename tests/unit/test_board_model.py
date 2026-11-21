@@ -430,6 +430,28 @@ class AfterDropped(unittest.TestCase):
         # the task's own card says where he answers as the row does, not "tell the task's session", since none runs
         self.assertEqual(bm.waits_for(m.by_slug[self.ORDER], rows)["where"], say["where"])
 
+    def test_the_task_waits_for_him_on_every_view_of_the_board(self):
+        m = model(*self.gift("dropped"), self.QUEUED)
+        m.sessions = {}
+        t = m.by_slug[self.ORDER]
+        say = bm.wait_say(bm.waits_of(m)[0])
+        # the kanban, the summary's count, the Overview's eyebrow and its "Where you answer" agree with the row
+        self.assertEqual((t.for_owner, t.lane, [x.slug for x in m.for_owner], bm.who_acts(t)), (True, "you", [self.ORDER], "You act"))
+        self.assertEqual(bm.answer_of(t), say["where"])
+        # behind a task that still runs, Lem holds it
+        runs = model(*self.gift("building"), self.QUEUED).by_slug[self.ORDER]
+        self.assertEqual((runs.for_owner, runs.lane, bm.who_acts(runs)), (False, "build", "Lem acts"))
+
+    def test_a_row_of_another_kind_leaves_where_he_answers_to_the_task_state(self):
+        # a breaker whose task has no session: the session's row does not take the breaker's words away
+        m = model(state(0, "building", "task 2 of 3"), Breakers.STOP, Breakers.HELD)
+        m.sessions = {}
+        t = m.tasks[0]
+        rows = bm.waits_of(m)
+        self.assertEqual([w["kind"] for w in rows], ["session", "breaker"])
+        self.assertEqual(bm.waits_for(t, rows)["where"], bm.answer_of(t))
+        self.assertIn("/lem park gift-note", bm.waits_for(t, rows)["where"])
+
     def test_a_need_gets_the_same_row(self):
         need = state(5, "queued", "it needs the gift note column that gift-note-in-export adds", "after: gift-note-in-export", task=self.ORDER)
         rows = bm.waits_of(model(*self.gift("dropped"), need))

@@ -102,7 +102,7 @@ LANE = {lane["key"]: lane for lane in LANES}
 PHASES = ["Criteria", "Plan", "Build", "Checks", "Review", "Proposed", "Landed"]
 SMALL_PHASES = ["Change", "Checks", "Review", "Proposed", "Landed"]
 # What waits for the owner, the most pressing first.
-OWNER_ORDER = ["breaker", "held", "blocked", "planned", "open"]
+OWNER_ORDER = ["breaker", "held", "queued", "blocked", "planned", "open"]
 BY_WHOM = {"lead": "the agent", "personas": "the personas", "owner": "you", "lem": "Lem", "experts": "the experts",
            "gate": "the question gate", "dialectic": "the dialectic"}
 # Who works on a task, from its state lines, in words a developer needs no glossary for.
@@ -468,6 +468,8 @@ class Task:
     approvable: bool = False
     helped: Decision | None = None
     waits_after: bool = False
+    # the task a queued task waited for, which was dropped (`after_dropped`): it waits for the owner's word
+    dropped_after: str | None = None
     for_owner: bool = False
     # for an `open` task, who its merge waits for (`merge_wait`): "reads", "merges" or "owner"
     merge_wait: str | None = None
@@ -881,14 +883,21 @@ def derive(events: list[dict], owner: list[dict], now: int, *, meta: dict | None
         return sorted((t for t in listed if t.status == status), key=lambda t: t.since)
 
     today = local(now).date()
-    return Model(
+    m = Model(
         now=now, tasks=listed, away=away, owners=owners, proposed=by("open"), building=by("building"), queued=by("queued"), ready=by("ready"),
-        landing=by("landing"), blocked=by("blocked"), parked=by(PARKED),
-        for_owner=sorted((t for t in listed if t.for_owner), key=lambda t: (t.owner_rank, t.since)),
+        landing=by("landing"), blocked=by("blocked"), parked=by(PARKED), for_owner=[],
         landed_today=[t for t in listed if t.status == "landed" and local(t.since).date() == today],
-        unknown=[t for t in listed if t.status not in STATUS],
-        lane={lane["key"]: lanes_sorted(lane["key"], [t for t in listed if t.lane == lane["key"]]) for lane in LANES},
+        unknown=[t for t in listed if t.status not in STATUS], lane={},
         by_slug=tasks, events=events, meta=meta or {})
+    # a task queued after a dropped task waits for his word, which only the other task's status tells:
+    # it is his on every view, as its row of "Waits for you" says
+    for t in listed:
+        if after_dropped(t, m):
+            t.dropped_after, t.for_owner, t.lane, t.owner_rank = after_of(t), True, "you", OWNER_ORDER.index("queued")
+            t.info = {**t.info, "actor": "you", "who": "You"}
+    m.for_owner = sorted((t for t in listed if t.for_owner), key=lambda t: (t.owner_rank, t.since))
+    m.lane = {lane["key"]: lanes_sorted(lane["key"], [t for t in listed if t.lane == lane["key"]]) for lane in LANES}
+    return m
 
 
 def lanes_sorted(key: str, tasks: list) -> list:
@@ -949,7 +958,12 @@ def parked_of(t: Task) -> dict | None:
 
 
 def answer_of(t: Task) -> str:
-    """Where the owner answers what waits for him: in the task's own session, or on the board."""
+    """Where the owner answers what waits for him: in the task's own session, or on the board; for a task
+    queued after a dropped task, which no session runs, in any Lem session."""
+    if t.dropped_after:
+        start, drop = f"start {t.slug} now", f"/lem drop {t.slug}"
+        return (f"It waited for {t.dropped_after}, which was dropped, so the result it waited for never came. Type “{start}” to start it without that result, "
+                f"or {drop} to end it, in any Lem session of this repository.")
     if t.breaker is not None:
         return (f"Read its document, first on the task’s Overview. Help in the task’s session. "
                 f"Or type /lem park {t.slug} to put the task aside, or /lem drop {t.slug} to end it.")
@@ -1221,9 +1235,7 @@ def wait_say(w: dict) -> dict:
         # the two words he types, each with the task's name: no session runs this task, so he types them in another one
         after, start, drop = w["after"], f"start {t.slug} now", f"/lem drop {t.slug}"
         return {"verb": f"{after} was dropped: your word starts or ends this task", "icon": "user", "to": "overview", "note": f"since {after} was dropped",
-                "start": start, "drop": drop,
-                "where": f"It waited for {after}, which was dropped, so the result it waited for never came. Type “{start}” to start it without that result, "
-                         f"or {drop} to end it, in any Lem session of this repository."}
+                "start": start, "drop": drop, "where": answer_of(t)}
     if kind == "blocked":
         return {"verb": "Its session stopped: tell it what to do", "icon": "alert", "actor": "bad", "to": "overview", "note": "since it stopped",
                 "where": f"The task’s session stopped on something it cannot settle alone: “{t.shown or t.text}”. Tell it what to do in the task’s session, "
@@ -1465,9 +1477,7 @@ def waits_for(t: Task, waits: list) -> dict | None:
     or the task its queue waits for; None when it waits for nothing."""
     mine = [w for w in waits if w["t"] is t]
     if mine:
-        # where he answers, as the row of "Waits for you" says it, else as the task's state says it
-        where = next((said for said in (wait_say(w).get("where") for w in mine) if said), None)
-        return {"you": True, "text": "; ".join(wait_say(w)["verb"] for w in mine), "where": where or answer_of(t)}
+        return {"you": True, "text": "; ".join(wait_say(w)["verb"] for w in mine), "where": answer_of(t)}
     if waits_now(t):
         return {"you": False, "text": waits_say(t.waits), "where": None}
     after = next((line for line in said_of(t.blocks[-1]) if line.startswith("it starts after")), None) if t.waits_after else None
