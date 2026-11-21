@@ -139,12 +139,13 @@ class Merge(unittest.TestCase):
         self.assertEqual(bm.verdict_of(t), {"green": False, "reasons": ["a test was deleted"]})
 
     def test_a_pull_request_the_forge_calls_conflicting_is_a_row_with_nothing_to_do(self):
-        events = (ev(0, "proposed", green=True, not_green=[], tip="abc123456"), state(1, "open", self.PR))
+        events = (ev(0, "proposed", green=True, not_green=[], tip="abc123456"), state(1, "open", self.PR),
+                  ev(2, "merge.review", verdict="call", calls=True, why="Verdict: call. It is careful.", by="claude", tip="abc123456"))
         seen = {"gift-note": {"mergeable": "CONFLICTING", "head": "abc123456789"}}
-        say = bm.wait_say(bm.waits_of(model(*events, seen=seen))[0])
+        say = bm.wait_say(bm.waits_of(model(*events, seen=seen))[-1])
         self.assertEqual((say["verb"], say["actor"]), ("It conflicts with the base", "bad"))
         older = {"gift-note": {"mergeable": "CONFLICTING", "head": "fff000"}}
-        self.assertEqual(bm.wait_say(bm.waits_of(model(*events, seen=older))[0])["verb"], "Merge the pull request #41")
+        self.assertEqual(bm.wait_say(bm.waits_of(model(*events, seen=older))[-1])["verb"], "Merge the pull request #41")
 
     def test_a_merge_review_that_calls_him_comes_before_the_merge_and_a_new_proposal_forgets_it(self):
         events = (ev(0, "proposed", green=True, not_green=[], tip="abc123456"), state(1, "open", self.PR),
@@ -153,9 +154,41 @@ class Merge(unittest.TestCase):
         self.assertEqual([(w["kind"], bm.wait_say(w)["verb"]) for w in rows], [("review", "Read the merge review"), ("merge", "Merge the pull request #41")])
         self.assertEqual(bm.wait_say(rows[0])["where"], "The merge review is the first card of the task’s Overview. A test proves less than its criterion.")
         merges = model(*events[:2], ev(2, "merge.review", verdict="merge", calls=False, by="claude", tip="abc123456"))
-        self.assertEqual([w["kind"] for w in bm.waits_of(merges)], ["merge"])
+        self.assertEqual(bm.waits_of(merges), [])
+        # a new proposal forgets the review: the merge agent reads the new tip, and nothing waits for him
         again = model(*events, ev(3, "proposed", green=True, not_green=[], tip="def456789"))
-        self.assertEqual([w["kind"] for w in bm.waits_of(again)], ["merge"])
+        self.assertEqual(bm.waits_of(again), [])
+
+    def test_an_open_pull_request_waits_for_him_only_when_its_merge_does(self):
+        proposed = (ev(0, "proposed", green=True, not_green=[], tip="abc123456"), state(1, "open", self.PR))
+        reads = model(*proposed)
+        t = reads.tasks[0]
+        self.assertEqual((t.merge_wait, t.for_owner, t.lane, t.info["label"], bm.waits_of(reads)), ("reads", False, "checks", "The merge agent reads it", []))
+        merges = model(*proposed, ev(2, "merge.review", verdict="merge", calls=False, by="claude", tip="abc123456"))
+        t = merges.tasks[0]
+        self.assertEqual((t.merge_wait, t.for_owner, t.lane, t.info["label"], bm.waits_of(merges)), ("merges", False, "checks", "Lem merges it", []))
+        calls = model(*proposed, ev(2, "merge.review", verdict="merge", calls=True, why="Verdict: merge. The settings say the owner merges.", by="claude", tip="abc123456"))
+        self.assertEqual(([w["kind"] for w in bm.waits_of(calls)], calls.tasks[0].lane), (["review", "merge"], "you"))
+        refused = model(*proposed, ev(2, "merge.review", verdict="merge", calls=False, by="claude", tip="abc123456"),
+                        ev(3, "merge.refused", by="merger", via="server", said="Required status check is expected", tip="abc123456"))
+        self.assertEqual(([w["kind"] for w in bm.waits_of(refused)], refused.tasks[0].for_owner), (["merge"], True))
+        # a review of an older tip than the proposal is none
+        older = model(*proposed, ev(2, "merge.review", verdict="merge", calls=False, by="claude", tip="fff000111"))
+        self.assertEqual((older.tasks[0].merge_wait, bm.waits_of(older)), ("reads", []))
+        # his own merge stays on the task's page in each case
+        for m in (reads, merges, calls, refused, older):
+            self.assertEqual(bm.acts_of(m.tasks[0], None), ["merge"])
+
+    def test_an_open_task_needs_its_session_only_while_the_merge_agent_reads_it(self):
+        proposed = (ev(0, "proposed", green=True, not_green=[], tip="abc123456"), state(1, "open", self.PR))
+        reads = model(*proposed)
+        reads.sessions = {}
+        reads.now += 10 * 60_000
+        self.assertEqual(bm.session_need(reads.tasks[0], reads), "gone")
+        calls = model(*proposed, ev(2, "merge.review", verdict="call", calls=True, why="Verdict: call. It is careful.", by="claude", tip="abc123456"))
+        calls.sessions = {}
+        calls.now += 10 * 60_000
+        self.assertIsNone(bm.session_need(calls.tasks[0], calls))
 
     def test_a_merge_github_refused_says_its_line(self):
         say = bm.wait_say(bm.waits_of(model(state(0, "open", self.PR), ev(1, "merge.refused", by="merger", said="Required status check is expected", tip="abc123456")))[0])

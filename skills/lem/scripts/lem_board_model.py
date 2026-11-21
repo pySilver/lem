@@ -456,6 +456,8 @@ class Task:
     helped: Decision | None = None
     waits_after: bool = False
     for_owner: bool = False
+    # for an `open` task, who its merge waits for (`merge_wait`): "reads", "merges" or "owner"
+    merge_wait: str | None = None
     investigating: bool = False
     checks_stop: dict | None = None
     owner_rank: int = -1
@@ -737,8 +739,11 @@ def settle(t: Task, now: int) -> None:
     if t.helped:
         t.shown = f"your help on breaker {t.helped.id} is on record: Lem starts its lead"
     t.waits_after = t.status == "queued" and needs_task(last)
-    t.for_owner = (bool(t.breaker) or (t.status == "held" and not t.approved and not t.helped) or t.status == "open"
+    t.merge_wait = merge_wait(t)
+    t.for_owner = (bool(t.breaker) or (t.status == "held" and not t.approved and not t.helped) or t.merge_wait == "owner"
                    or (t.status == "planned" and bool(re.search(r"\bowner\b", t.text))))
+    if t.merge_wait in MERGE_WAITS:
+        t.info = dict(MERGE_WAITS[t.merge_wait])
     if t.approved and not t.for_owner:
         t.info = {"actor": "lem", "who": "Lem", "label": "Approved", "icon": "check", "live": False}
     if t.helped and not t.for_owner:
@@ -760,8 +765,9 @@ def settle(t: Task, now: int) -> None:
         t.shown = f"{said}. In the task's session, /lem land starts them again and /lem drop {t.slug} drops the task" if stopped else said
     rank = "breaker" if t.breaker else t.status
     t.owner_rank = OWNER_ORDER.index(rank) if rank in OWNER_ORDER else -1
-    # a parked task stands in no column of who acts: nobody does, and it has a place of its own
-    t.lane = "you" if t.for_owner else "done" if t.closed else PARKED if t.status == PARKED else "checks" if t.status in ("ready", "landing") else "build"
+    # a parked task stands in no column of who acts: nobody does, and it has a place of its own; an open
+    # task whose merge agent reads it, or whose merge the server runs, stands under the checks and review
+    t.lane = "you" if t.for_owner else "done" if t.closed else PARKED if t.status == PARKED else "checks" if t.status in ("ready", "landing", "open") else "build"
     t.segments = []
     for k, b in enumerate(t.blocks):
         end_ = t.blocks[k + 1]["ts"] if k + 1 < len(t.blocks) else (b["ts"] if t.closed else now)
@@ -775,6 +781,31 @@ def settle(t: Task, now: int) -> None:
     t.investigated = any(investigates(b) for b in t.blocks) or t.investigation is not None
     t.plan_committed = any(b["status"] == "planned" or re.search(r"\bplan committed\b", " ".join(lines_of(b))) for b in t.blocks)
     t.gate_bad = sum(1 for g in t.gates if g["exit"] != 0)
+
+
+# What an `open` task shows while nothing of it waits for the owner (`merge_wait`).
+MERGE_WAITS = {
+    "reads": {"actor": "gate", "who": "The merge agent", "label": "The merge agent reads it", "icon": "eye", "live": True},
+    "merges": {"actor": "gate", "who": "Lem", "label": "Lem merges it", "icon": "branch", "live": True},
+}
+
+
+def merge_wait(t: Task) -> str | None:
+    """Who the merge of an `open` task waits for, None for any other task. "reads": the merge agent,
+    since no review of the tip Lem proposed last is written (a review of an older tip counts for
+    none). "merges": the board's server, since the review says `merge`, calls nobody and no merge of
+    that tip was refused. "owner": the owner, for a review that calls him, a refused merge, and an
+    open task with no proposal on record. Only "owner" is a row of "Waits for you"; the owner's own
+    merge on the task's page stays in every case (`acts_of`)."""
+    if t.status != "open":
+        return None
+    if t.refused or not t.proposal:
+        return "owner"
+    r = t.merge_review
+    tip, of = (t.proposal or {}).get("tip"), (r or {}).get("tip")
+    if not r or (tip and of and not (str(tip).startswith(str(of)) or str(of).startswith(str(tip)))):
+        return "reads"
+    return "merges" if r.get("verdict") == "merge" and not r.get("calls") else "owner"
 
 
 def derive(events: list[dict], owner: list[dict], now: int, *, meta: dict | None = None) -> Model:
@@ -927,8 +958,10 @@ def session_need(t: Task, m: Model) -> str | None:
     """Whether the task is stuck for want of its session, so that a row of "Waits for you" says so:
     `gone` for a task whose phase needs an agent and that has no live session (2 minutes after its
     newest session opened, or after the task opened when it never had one), `deaf` for a live session
-    that left a wake-up unanswered for 10 minutes, None otherwise. A task that waits only for the
-    owner's merge (`open`) has none: at the merge the server wakes or opens a session for the cleanup.
+    that left a wake-up unanswered for 10 minutes, None otherwise. An `open` task needs its session
+    only while no merge review of its proposed tip is written, since the session runs the merge agent;
+    one whose merge the server runs, or that waits for the owner's merge, has none: at the merge the
+    server wakes or opens a session for the cleanup.
     A parked task has none, nor a queued one whose task has not ended. A merged task has one only while
     its worktree is still there, since its cleanup is what needs the session."""
     if t.status == PARKED:
@@ -943,7 +976,7 @@ def session_need(t: Task, m: Model) -> str | None:
             return None
         since = max(t.since, (t.opened or {}).get("ts") or 0)
     else:
-        if t.status == "open" or (t.status == "queued" and not after_ended(t, m)):
+        if (t.status == "open" and t.merge_wait != "reads") or (t.status == "queued" and not after_ended(t, m)):
             return None
         since = max(t.first, (t.opened or {}).get("ts") or 0)
     return "gone" if m.now - since >= GRACE_MS else None
@@ -1063,9 +1096,11 @@ def waits_of(m: Model) -> list[dict]:
             rows.append({"kind": "criteria" if t.criteria_wait else "held", "key": f"held:{t.slug}", "t": t, "c": None, "since": t.since})
         if t.status == "planned" and re.search(r"\bowner\b", t.text):
             rows.append({"kind": "plan", "key": f"plan:{t.slug}", "t": t, "c": None, "since": t.since})
-        if t.status == "open" and t.merge_review and t.merge_review["calls"]:
+        # an open task is his only when its merge waits for him (`merge_wait`): not while the merge
+        # agent reads it, nor while the server merges it
+        if t.merge_wait == "owner" and t.merge_review and t.merge_review["calls"]:
             rows.append({"kind": "review", "key": f"review:{t.slug}", "t": t, "c": t.merge_review, "since": t.merge_review["ts"]})
-        if t.status == "open":
+        if t.merge_wait == "owner":
             rows.append({"kind": "merge", "key": f"merge:{t.slug}", "t": t, "c": None, "since": t.since, "conflict": conflicts(t, m.seen)})
     return sorted(rows, key=lambda w: (WAIT_ORDER[w["kind"]], w["since"]))
 
@@ -1368,7 +1403,10 @@ def now_head(t: Task) -> str:
             return checks_end(t.checks_stop.get("result"))["head"]
         return step_runs(t.landing_step) if t.landing_step else "The checks and the review run on it"
     if s == "open":
-        return waits_say(t.waits) if waits_now(t) else "Proposed: it waits for the merge"
+        if waits_now(t):
+            return waits_say(t.waits)
+        return {"reads": "Proposed: the merge agent reads it", "merges": "Proposed: the merge agent found nothing for you, and Lem merges it"}.get(
+            t.merge_wait, "Proposed: it waits for your merge")
     return {"landed": "Landed", "dropped": "Dropped", "answered": "Answered: it ended with a report and nothing to merge"}.get(s, f'Status "{s}"')
 
 

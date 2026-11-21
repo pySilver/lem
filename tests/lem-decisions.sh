@@ -229,7 +229,7 @@ else
 fi
 
 # The one list of what waits for the owner: a breaker, criteria that wait for his yes, a step of his, a pull
-# request with green or not, and a retro's proposals.
+# request with green or not whose merge review calls him, and a retro's proposals.
 wq() { project --repo "$WQ" "$@"; }
 for slug in a-breaker his-criteria his-step proposed-one; do wq task-dir "$slug" --ask "The ask of $slug." >/dev/null; done
 # a breaker holds its task: the list names it once, under breakers
@@ -237,7 +237,7 @@ breaker_doc "$WQ/.lem/state/tasks/a-breaker" && "$PY" -B "$DECISIONS" --repo "$W
 wq state his-criteria held "the criteria wait for the owner" "type: feat, because the export gets a column" >/dev/null
 wq state his-step held "the reviewer's pane waits for the owner's trust of the folder" >/dev/null
 wq state proposed-one open "pull request https://github.com/acme/shop/pull/7" "not green: the bar is lower" >/dev/null
-printf '%s\n' '{"proposed": "abc1234", "pushed": "abc1234", "forge": {"mergeable": "CONFLICTING", "head": "abc1234"}, "pr": {"number": 7, "url": "https://github.com/acme/shop/pull/7"}, "not_green": ["the bar is lower"]}' > "$WQ/.lem/state/tasks/proposed-one/landing.json"
+printf '%s\n' '{"proposed": "abc1234", "pushed": "abc1234", "forge": {"mergeable": "CONFLICTING", "head": "abc1234"}, "pr": {"number": 7, "url": "https://github.com/acme/shop/pull/7"}, "not_green": ["the bar is lower"], "merge_review": {"tip": "abc1234", "verdict": "call", "calls": true, "why": "Verdict: call. It is not green."}}' > "$WQ/.lem/state/tasks/proposed-one/landing.json"
 mkdir -p "$WQ/.lem/state/retros"
 printf '%s\n' '{"title": "The retro of 2026-11-17", "questions": [{"id": "p1", "prompt": "Move the rule?", "options": ["approve", "reject", "later"]}, {"id": "p2", "prompt": "Drop the step?", "options": ["approve", "reject", "later"]}]}' > "$WQ/.lem/state/retros/2026-11-17.json"
 printf '%s\n' 'not json' > "$WQ/.lem/state/retros/2026-11-18.json"
@@ -264,9 +264,9 @@ for slug in night-small night-full night-merged night-closed; do
 done
 night_mode=$(wq tasks | field '[t["mode"] for t in d if t["slug"] == "night-small"][0]')
 wq state night-small open "pull request https://github.com/acme/shop/pull/8" "green" >/dev/null
-printf '%s\n' '{"proposed": "def5678", "pr": {"number": 8, "url": "https://github.com/acme/shop/pull/8"}, "not_green": []}' > "$WQ/.lem/state/tasks/night-small/landing.json"
+printf '%s\n' '{"proposed": "def5678", "pr": {"number": 8, "url": "https://github.com/acme/shop/pull/8"}, "not_green": [], "merge_review": {"tip": "def5678", "verdict": "call", "calls": true, "why": "Verdict: call. It is careful."}}' > "$WQ/.lem/state/tasks/night-small/landing.json"
 wq state night-full open "pull request https://github.com/acme/shop/pull/9" "not green: the owner did not approve the criteria" >/dev/null
-printf '%s\n' '{"proposed": "0a1b2c3", "pr": {"number": 9, "url": "https://github.com/acme/shop/pull/9"}, "not_green": ["the owner did not approve the criteria"]}' > "$WQ/.lem/state/tasks/night-full/landing.json"
+printf '%s\n' '{"proposed": "0a1b2c3", "pr": {"number": 9, "url": "https://github.com/acme/shop/pull/9"}, "not_green": ["the owner did not approve the criteria"], "merge_review": {"tip": "0a1b2c3", "verdict": "call", "calls": true, "why": "Verdict: call. It is not green."}}' > "$WQ/.lem/state/tasks/night-full/landing.json"
 wq owner away --words "I'm away" >/dev/null && wq owner back --words "/lem im-back" >/dev/null
 back_again=$(wq owner back --words "/lem im-back" | field '(d["written"], d["tasks"])' 2>&1 || true)
 wq state night-merged landed "main 1234567..89abcde" >/dev/null

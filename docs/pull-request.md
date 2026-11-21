@@ -44,6 +44,10 @@ The merge agent calls you for each careful change and for each pull request that
 It also calls you when it finds a problem. The board then shows "Read the merge review" in
 "Waits for you", and the review is the first card of the task.
 
+While the merge agent reads a pull request, nothing of it waits for you. After the verdict merge,
+the board server merges it, and nothing waits for you then either. Until the merge, the task stays
+in the column "Checks and review", with no row in "Waits for you" and no notification.
+
 With `branch.land = "owner"`, the merge agent still writes its review, but it never merges
 ([Settings](settings.md#branch)).
 

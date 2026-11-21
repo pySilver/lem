@@ -69,13 +69,13 @@ topics = [
 # Who sits where, each as "agent/model:effort". A part left out ("codex/gpt-6.2-sol", "codex")
 # takes that agent's own default.
 # The reviewer: "claude" or "codex". Lem's builders build; this one talks the plan of a careful
-# or large task through with its defender, in the plan talk's companion. The same family twice is
-# allowed.
+# or large task through with its defender, in the other pane of the pair the task's lead opens for
+# the talk. The same family twice is allowed.
 reviewer = "codex/gpt-6.2-sol:high"
-# The defender of a careful or large plan in its talk with the reviewer, in a companion session
-# Lem opens for the talk and closes after it. Only "claude" for now.
+# The defender of a careful or large plan in its talk with the reviewer, in the pair the task's
+# lead opens under the task's session for the talk and closes after it. Only "claude" for now.
 planner = "claude/opus:high"
-# The experts who answer a choice that waits for the owner, at the same moment and read-only: two
+# The experts, the last level of the ladder of a decision in doubt, at the same moment and read-only: two
 # model families, so that their agreement is worth more than two of one. Where the machine has one
 # of their agents, that expert answers alone.
 experts = ["claude/fable:high", "codex/gpt-6.2-astra:high"]

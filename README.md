@@ -51,7 +51,7 @@ you  /lem the footer says Terms, not Terms and Conditions
 lem  docs: "the footer says Terms". Branch docs/footer-says-terms. Fast track: one
      builder, the checks, one read, then the pull request. Nothing waits for you.
      Wrong read? /lem standard-track, /lem be-careful.
-lem  The pull request is open. Green. The merge agent read it, and merged it.
+lem  The pull request is open. Green. The merge agent found nothing for you, and Lem merged it.
 ```
 
 ```text
@@ -126,7 +126,7 @@ phone. Lem then sends a notification each time something starts to wait for you.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/screens/phone-dark.png">
-    <img src="assets/screens/phone-light.png" alt="The board on a phone: the column Waits for you, with four tasks" width="300">
+    <img src="assets/screens/phone-light.png" alt="The board on a phone: the column Waits for you, with three tasks" width="300">
   </picture>
 </p>
 

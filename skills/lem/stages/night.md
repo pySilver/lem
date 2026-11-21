@@ -7,7 +7,7 @@ while nobody's looking and its actually got to be a PR to merge, not a plan" (20
 Nothing asks him. This session keeps no watch of the owner's mark and takes no step of
 `stages/away.md` on it: its tasks run without him whatever the mark says. It does no task's work.
 
-1. **The brake.** Count the pull requests of earlier nights that nobody merged or closed: the
+1. **The brake.** Count the pull requests of earlier nights that wait for the owner's merge: the
    `pull_requests` of `lem project waiting` whose `night` is not null. With two or more, open
    nothing, and write the night report with why: a request nobody reads ages as the base moves.
 2. **The candidates.** The items in `lem project path backlog`: one file each, with `worth`,

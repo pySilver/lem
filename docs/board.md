@@ -68,7 +68,7 @@ away. The computer must be awake: when it sleeps, the phone cannot open the boar
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../assets/screens/phone-dark.png">
-    <img src="../assets/screens/phone-light.png" alt="The board on a phone: the column Waits for you, with four tasks" width="300">
+    <img src="../assets/screens/phone-light.png" alt="The board on a phone: the column Waits for you, with three tasks" width="300">
   </picture>
 </p>
 

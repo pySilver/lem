@@ -56,7 +56,7 @@ backdate typo-fix 1
 pk task-dir proposed-one --ask "Sort the orders by date." >/dev/null && pk state proposed-one building "small change: one builder" >/dev/null
 pk state proposed-one open "pull request https://github.com/acme/shop/pull/7" "green" >/dev/null
 backdate proposed-one 1
-printf '%s\n' '{"proposed": "abc1234", "pr": {"number": 7, "url": "https://github.com/acme/shop/pull/7"}, "not_green": []}' > "$PK/.lem/state/tasks/proposed-one/landing.json"
+printf '%s\n' '{"proposed": "abc1234", "pr": {"number": 7, "url": "https://github.com/acme/shop/pull/7"}, "not_green": [], "merge_review": {"tip": "abc1234", "verdict": "call", "calls": true, "why": "Verdict: call. It is careful."}}' > "$PK/.lem/state/tasks/proposed-one/landing.json"
 pk task-dir his-step --ask "Move the reviewer to Codex." >/dev/null && pk state his-step held "the reviewer's pane waits for the owner's trust of the folder" >/dev/null
 backdate his-step 1
 pk task-dir his-criteria --ask "Add the gift note to the slip." >/dev/null && pk state his-criteria held "the criteria wait for the owner" "type: feat, because the slip gets a line" >/dev/null

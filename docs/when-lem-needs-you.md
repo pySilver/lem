@@ -57,7 +57,8 @@ Type `/lem`. Lem opens the board, and gives one list in this order:
 1. the breakers;
 2. the acceptance criteria that wait for your yes;
 3. the tasks that wait for a step of yours, or for one more fact;
-4. the open pull requests, each green or with its reasons;
+4. the pull requests that the merge agent calls you for, and each merge that GitHub or Lem
+   refused, each green or with its reasons;
 5. the changes that the morning retro proposes.
 
 The [board](board.md) shows the same list in its view **Waits for you**. A task that needs a

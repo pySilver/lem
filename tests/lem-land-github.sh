@@ -517,6 +517,8 @@ fi
 # forge says of a conflict on the pushed head, so the list of what waits says it beside green.
 line_task w-seven small 8 seven
 proposed w-seven
+# the merge agent calls the owner, so that the pull request is his to merge and a row of what waits
+merge_read "$GWS" w-seven call >/dev/null
 seven=$(gw_state 'next(n for n, p in d["prs"].items() if p["head"] == "fix/w-seven")')
 conflict_seven() { project --repo "$GWS" waiting | field 'next((t["green"], t["conflict"]) for t in d["pull_requests"] if t["task"] == "w-seven")'; }
 unasked=$(conflict_seven)

@@ -104,5 +104,17 @@ class Parked(unittest.TestCase):
                          ["breaker 2 waits for the owner", "The note has no place: no option keeps the approved criteria"])
 
 
+class MergeWaits(unittest.TestCase):
+    """Which open pull request is a row of the owner's list (`lem project waiting`)."""
+
+    def test_only_a_review_that_calls_him_or_a_refused_merge_waits_for_him(self):
+        merge = {"tip": "abc", "verdict": "merge", "calls": False}
+        self.assertFalse(project.merge_waits_for_owner({"merge_review": None, "merge_refused": None}))
+        self.assertFalse(project.merge_waits_for_owner({"merge_review": merge, "merge_refused": None}))
+        self.assertTrue(project.merge_waits_for_owner({"merge_review": {**merge, "calls": True}, "merge_refused": None}))
+        self.assertTrue(project.merge_waits_for_owner({"merge_review": {**merge, "verdict": "call", "calls": True}, "merge_refused": None}))
+        self.assertTrue(project.merge_waits_for_owner({"merge_review": merge, "merge_refused": {"tip": "abc", "from": "github", "said": "no"}}))
+
+
 if __name__ == "__main__":
     unittest.main()

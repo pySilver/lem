@@ -237,7 +237,9 @@ folder is a setting as the plans folder is.
 records, from which a watch of the mark starts), then the breakers of `lem decisions pending`
 that wait (`breakers`), the tasks `held` with the line `the criteria wait for the owner`
 (`criteria`) and the other `held` ones, a step of his or one more fact (`held`), each `open`
-task with its proposal (`pull_requests`, with `conflict`: true or false as the forge said it of the
+task whose merge waits for him, a review of the proposed tip that calls him or a refused merge of it
+(`merge_waits_for_owner`; one that the merge agent still reads, or that the board's server merges after
+a `merge` that calls nobody, is no row), with its proposal (`pull_requests`, with `conflict`: true or false as the forge said it of the
 pushed head at the last `lem land merged`, null when nothing asked or the head moved since;
 `merge_review`, the merge agent's review of the proposed tip with its verdict and whether it calls the
 owner, or null; and `merge_refused`, the line of a refused merge of that tip, GitHub's or, for the
@@ -527,11 +529,11 @@ topics = []
 # Who sits where, each as "agent/model:effort". A part left out ("codex/gpt-6.2-sol", "codex")
 # takes that agent's own default.
 # The reviewer: "claude" or "codex". Lem's builders build; this one talks the plan of a careful
-# or large task through with its defender, in the plan talk's companion. The same family twice is
-# allowed.
+# or large task through with its defender, in the other pane of the pair the task's lead opens for
+# the talk. The same family twice is allowed.
 reviewer = "{reviewer}"
-# The defender of a careful or large plan in its talk with the reviewer, in a companion session
-# Lem opens for the talk and closes after it. Only "claude" for now.
+# The defender of a careful or large plan in its talk with the reviewer, in the pair the task's
+# lead opens under the task's session for the talk and closes after it. Only "claude" for now.
 planner = "{planner}"
 # The merge agent, which reads each proposed task and merges it or calls the owner: "claude" or
 # "codex", read-only. Left out, it is the seat the developer names for all his repositories
@@ -2100,9 +2102,10 @@ def events_named(root: Path, *events: str) -> list[dict]:
 
 
 def newest_events(root: Path, event: str) -> dict[str, dict]:
-    """Each task's newest event of one name in the event log. Lem closes a talk's companion, and a
-    builder leads the build of a careful or large plan, only on the newest `plan.talk`, never on a
-    line that says so; Lem takes a bug's next path on the newest `investigation`."""
+    """Each task's newest event of one name in the event log. A task's lead closes the plan talk's
+    pair, and a builder leads the build of a careful or large plan, only on the newest `plan.talk`,
+    never on a line that says so; a task's session takes a bug's next path on the newest
+    `investigation`."""
     return {record.get("task"): record for record in events_named(root, event)}
 
 
@@ -2482,6 +2485,15 @@ def answered_holds(root: Path, tasks: list[dict], waiting: list[dict]) -> set[st
     return found
 
 
+def merge_waits_for_owner(proposal: dict) -> bool:
+    """Whether an open task's merge waits for the owner, from its proposal (`proposal_of`): a merge of
+    the proposed tip was refused, or the merge agent's review of it calls him. While no review of that
+    tip is written the merge agent reads it, and after a `merge` that calls nobody the board's server
+    merges it: neither waits for him."""
+    review = proposal.get("merge_review")
+    return bool(proposal.get("merge_refused")) or bool(review and (review.get("calls") or review.get("verdict") != "merge"))
+
+
 def cmd_waiting(root: Path) -> dict:
     """Everything that waits for the owner, from the files that hold it: nothing here decides or writes."""
     # a broken settings file is an error here too
@@ -2507,7 +2519,7 @@ def cmd_waiting(root: Path) -> dict:
         "pull_requests": [
             {**waiting_brief(task), "pull_request": task["proposal"]["pull_request"], "green": task["proposal"]["green"], "not_green": task["proposal"]["not_green"],
              "conflict": task["proposal"]["conflict"], "merge_review": task["proposal"]["merge_review"], "merge_refused": task["proposal"]["merge_refused"]}
-            for task in tasks if task["status"] == "open" and task["proposal"]
+            for task in tasks if task["status"] == "open" and task["proposal"] and merge_waits_for_owner(task["proposal"])
         ],
         "retros": [retro_proposals(file) for file in sorted((state_root(root) / RETROS).glob("*.json"))],
     }

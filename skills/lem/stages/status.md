@@ -38,9 +38,11 @@ never in task codes, one line each, and leave out a kind that has none:
 1. `breakers`: each breaker of a task that waits for him: the task and the document's title;
 2. `criteria`: each task whose acceptance criteria wait for his yes;
 3. `held`: each task that waits for a step of his or one more fact, with that step;
-4. `pull_requests`: each open pull request, its address, and green or each reason it is not; when
-   its `merge_review` calls him, "read the merge review" with its `why`; when `merge_refused` holds
-   GitHub's line, that line; a task with a `night` says "of the night";
+4. `pull_requests`: each open pull request whose merge waits for him, its address, and green or
+   each reason it is not (one the merge agent still reads, or that the board's server merges after
+   a `merge` verdict, is not in the list); when its `merge_review` calls him, "read the merge
+   review" with its `why`; when `merge_refused` holds GitHub's or Lem's line, that line; a task
+   with a `night` says "of the night";
 5. `retros`: "the retro of DATE proposes N changes" for each file; a file with a `problem` is
    named with it.
 

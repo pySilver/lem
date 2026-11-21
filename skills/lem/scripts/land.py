@@ -474,10 +474,10 @@ PLAN_CALL = re.compile(r"(?mi)^careful:\s*(yes|no)\b")
 # rarely edits it, and every table of it guards something for every later task (audit A1,
 # 2026-11-17: a branch that set `branch.land` to "agent" got one read and a green pull request).
 SETTINGS_FILE = ".lem/project.toml"
-# One machine's own settings (`[seats]`, `[corrections]`, `[naps]` and `[flow]`), untracked by design and
-# read from the main checkout. A branch that commits it, or changes or removes a tracked copy, is
-# careful by this script too: a green request and an agent's merge would make one machine's choices
-# every machine's (audit N5, 2026-11-17: a branch that committed it with `git add -f` got both).
+# One machine's own settings (`[seats]`, `[corrections]` and `[naps]`, project.py's LOCAL_TABLES),
+# untracked by design and read from the main checkout. A branch that commits it, or changes or
+# removes a tracked copy, is careful by this script too: a green request and an agent's merge would
+# make one machine's choices every machine's (audit N5, 2026-11-17: a branch that committed it with `git add -f` got both).
 LOCAL_SETTINGS_FILE = ".lem/project.local.toml"
 # What a decision of the build did to its criterion, as a line of the pull request says it.
 CHANGE_HOW = {"changed": "changed", "added": "was added", "removed": "was removed"}

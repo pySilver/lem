@@ -35,7 +35,7 @@ lanes() { "$PY" -c 'import re, sys; t = sys.stdin.read(); cols = re.split(r"<sec
 server=$(got "$SERVER/api/server")
 listed=$(got "$SERVER/api/workspaces")
 if [ "$(field '(d["port"], d["config"])' <<<"$server")" = "($SERVE_PORT, '$XDG_CONFIG_HOME/lem')" ] && [ -n "$HOST" ] \
-  && [ "$(field '[(w["name"], w["url"], w["waits"], w["building"], w["checks"]) for w in d]' <<<"$listed")" = "[('shop', '/$HOST/shop/', 6, 2, 1)]" ] \
+  && [ "$(field '[(w["name"], w["url"], w["waits"], w["building"], w["checks"]) for w in d]' <<<"$listed")" = "[('shop', '/$HOST/shop/', 5, 2, 1)]" ] \
   && [ "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$SERVER/")" = "302 $BASE/" ]; then
   pass "/api/server names the server of this home folder and the machine's name, /api/workspaces counts what waits, what builds and what is in its checks, and / with one workspace goes to its board"
 else
@@ -44,9 +44,9 @@ fi
 
 kanban=$(got "$BASE/")
 said=$(words <<<"$kanban")
-if [ "$(lanes <<<"$kanban")" = "{'you': ['gift-note-in-export', 'stock-on-product-page', 'refund-line-on-receipt', 'footer-terms-typo'], 'build': ['refund-rounding', 'cart-total-after-coupon'], 'checks': ['coupon-has-a-slug'], 'done': ['order-date-on-invoice', 'why-export-is-slow']}" ] \
+if [ "$(lanes <<<"$kanban")" = "{'you': ['gift-note-in-export', 'stock-on-product-page', 'refund-line-on-receipt'], 'build': ['refund-rounding', 'cart-total-after-coupon'], 'checks': ['coupon-has-a-slug'], 'done': ['footer-terms-typo', 'order-date-on-invoice', 'why-export-is-slow']}" ] \
   && grep -qF "The criteria wait for you" <<<"$said" && grep -qF "Investigating: an investigator reproduces the bug" <<<"$said" \
-  && grep -qF "Waits for the merge: pull request #41" <<<"$said" && grep -qF "Landed: main: pull request #38 is merged" <<<"$said" \
+  && grep -qF "Landed: main: pull request #41 is merged" <<<"$said" && grep -qF "Landed: main: pull request #38 is merged" <<<"$said" \
   && grep -qF "Demo data." <<<"$said" && grep -qF "Read the breaker of gift-note-in-export" <<<"$said" && ! grep -qF 'id="card-fee-notice-to-merchants"' <<<"$kanban" && grep -qF 'data-agterm-url-value="/'"$HOST"'/shop/agterm"' <<<"$kanban"; then
   pass "the kanban puts each task in the column of who acts and a parked one in none, each card says its state in the board's words, the sidebar has what waits, and a page for this Mac carries the address of agterm's acts"
 else

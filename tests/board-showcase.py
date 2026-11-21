@@ -8,7 +8,8 @@ for tests/lem-serve.sh.
 
 It is ten tasks a team could have on one afternoon, written by Lem's own scripts (project.py,
 criteria.py, decisions.py) in a throwaway repository, with a task in every column: two that build,
-one in its checks, a breaker and criteria that wait for the owner, two pull requests, a landed task,
+one in its checks, a breaker and criteria that wait for the owner, a pull request the merge agent calls
+the owner for, a typo the merge agent found nothing in and the board's server merged, another landed task,
 an answered question, and one task the owner parked after its breaker. Each task has the `session.open`
 of its agterm session, as `lem session open` logs it, and one that builds has none, so that "Waits for
 you" has its row "No session runs this task"; the pull request that is not green has the merge agent's
@@ -320,7 +321,8 @@ What the ladder said: a step that cannot be undone is never the ladder's to take
 
 def afternoon(shop: Shop) -> None:
     s = shop
-    # A task on the fast track, built, checked, read once and proposed green: it waits for the merge.
+    # A task on the fast track, built, checked, read once and proposed green: the merge agent finds nothing
+    # for the owner, and the board's server merges it (`lem land merge --by merger --via server`).
     t = "footer-terms-typo"
     s.task(t, 'The footer says "Terms and condtions"')
     s.session(t, 52.5, "fast", "new")
@@ -338,6 +340,12 @@ def afternoon(shop: Shop) -> None:
           "silent:=[]", "ran:=[]", "left_out:=[]", "tip=4c1d2e3")
     s.log(t, 34, "proposed", "green:=true", "not_green:=[]", "tip=4c1d2e3")
     s.state(t, 34, "open", "pull request https://github.com/acme/shop/pull/41", "green")
+    folder = s.dir / "tasks" / t
+    (folder / "merge-review.md").write_text(TYPO_REVIEW)
+    s.log(t, 33, "merge.review", "verdict=merge", "calls:=false", "by=claude", "tip=4c1d2e3")
+    s.log(t, 32.5, "merge.start", "by=merger", "via=server")
+    s.state(t, 32, "landed", "main: pull request https://github.com/acme/shop/pull/41 is merged")
+    s.closed(t, 31, "ended")
 
     # A task on the fast track in its checks: the first command passed, the second runs.
     t = "coupon-has-a-slug"
@@ -532,6 +540,17 @@ def afternoon(shop: Shop) -> None:
 
 # The merge agent's review of the task that is not green, in the form of skills/lem/prompts/merge.md: the
 # pictures of "Waits for you" and of the task's Overview show it, so it is written as the owner would read it.
+TYPO_REVIEW = """Verdict: merge. The footer says "Terms and conditions", as the criterion asks, and nothing else changed.
+
+**What was built, and why.** You asked to fix the typo in the footer. One word of the template changed.
+
+**The results.** The checks passed: 212 tests and the lint. One read found no must-fix.
+
+**Decisions taken without you.** None.
+
+**Time.** 18 minutes from the request to the pull request.
+"""
+
 MERGE_REVIEW = """Verdict: call. The change does what both criteria say; it is not green for two choices taken without you, and I would keep both.
 
 **What was built, and why.** You asked: "Show a refund as a line of its own on the receipt."

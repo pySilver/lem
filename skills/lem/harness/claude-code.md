@@ -577,8 +577,9 @@ Some steps are not an agent's, with or without the owner's yes in the conversati
   minutes before. The answer is kept in the owner's configuration, so it is his: say which
   session waits and where, and go on with other work. Do not answer the prompt, and do not go
   around it. A task's session that opens in a folder never trusted shows the dialog with "No,
-  exit" selected first (the trial of 2026-11-21), and waits there for him; whether a worktree
-  inside a trusted checkout asks again is not checked.
+  exit" selected first (the trial of 2026-11-21), and waits there for him. A new worktree inside a
+  checkout he trusts asks nothing (lem-scratch, Claude Code 2.1.330, 2026-11-21), so a task's
+  session in its worktree starts with no dialog.
 - **agterm's keymap.** The line of the task picker (the `line` of the `task picker` row of
   `lem doctor`) goes into agterm's own file, `~/.config/agterm/keymap.conf`, and the owner adds
   it: another program's settings stay where that program keeps them (his ruling). Give him the
