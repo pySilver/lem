@@ -29,11 +29,13 @@ every report says that the reviewer is this machine's choice, and "same family" 
      `agtermctl session type --stdin --pane right --target "$AGTERM_SESSION_ID" --socket "$AGTERM_SOCKET" < FILE`.
      The line starts the agent with the reviewer's brief, `prompts/reviewer.md` in this skill's
      directory, by absolute path:
-     - Codex: `codex "$(cat PATH/prompts/reviewer.md)"`. A Codex pane receives mail only after
-       its first prompt, and the brief is that prompt. With a model, add `-m MODEL` before the
-       prompt; with an effort, `-c model_reasoning_effort=EFFORT`.
-     - Claude Code: `claude --append-system-prompt "$(cat PATH/prompts/reviewer.md)" "You are the reviewer. Wait for the first message."`
-       With a model, add `--model MODEL`; with an effort, `--effort EFFORT`.
+     - Codex: `codex "$(cat "PATH/prompts/reviewer.md")"`. A Codex pane receives mail only after
+       its first prompt, and the brief is that prompt. With a model, add `-m "MODEL"` before the
+       prompt; with an effort, `-c "model_reasoning_effort=EFFORT"`.
+     - Claude Code: `claude --append-system-prompt "$(cat "PATH/prompts/reviewer.md")" "You are the reviewer. Wait for the first message."`
+       With a model, add `--model "MODEL"`; with an effort, `--effort "EFFORT"`.
+     Keep the quotes around each value you put in: a skill's folder with a space splits a bare
+     path, and zsh stops a bare model such as `opus[1m]` with "no matches found".
      `MODEL` and `EFFORT` are the seat's `model` and `effort` from `lem project show`. Leave a flag
      out when the seat does not name its value (`null`): the agent's own default holds then.
    - read the model and the effort back from the pane's status line, and name those in the
