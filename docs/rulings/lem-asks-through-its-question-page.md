@@ -12,7 +12,7 @@ The title is the rule as it stands. Where the paragraph below says otherwise, th
 - 2026-11-18, [Three more commands are no commands of his, and two recipes of the agterm cookbook become required](three-more-commands-are-no-commands-of-his-and-two-recipes-of-the-agterm-cookbook-become-required.md): "his call `/lem ask`": `/lem ask` is no command of his, Lem calls it by itself
 - 2026-11-18, [Not every section of the settings stays](not-every-section-of-the-settings-stays.md): "A project's settings may name another way to ask (`tools.ask`)": the `[tools]` table goes
 - 2026-11-20, [The build asks him nothing, and the ladder always decides](the-build-asks-him-nothing-and-the-ladder-always-decides.md): for a choice of the build: the build asks him nothing, and the ladder always decides
-- 2026-11-20, [Each task lives in a session of its own, from its shape to its merge, and there is no Lem session.](each-task-lives-in-a-session-of-its-own-from-its-shape-to-its-merge-and-there-is-no-lem-session.md): the companions: his page opens in the task's session (the note at line 924)
+- 2026-11-20, [Each task lives in a session of its own, from its shape to its merge, and there is no Lem session.](each-task-lives-in-a-session-of-its-own-from-its-shape-to-its-merge-and-there-is-no-lem-session.md): the companions: his page opens in the task's session (its note that starts "With Q11 as the new fact")
 
 ## As ruled on 2026-11-15, changed in part since
 

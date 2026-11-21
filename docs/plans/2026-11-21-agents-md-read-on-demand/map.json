@@ -152,7 +152,7 @@
       "changed_by": [
         {
           "line": 898,
-          "part": "\"It coordinates many tasks there\": the coordinating Lem is replaced, each task lives in a session of its own and there is no Lem session (the note at line 924)",
+          "part": "\"It coordinates many tasks there\": the coordinating Lem is replaced, each task lives in a session of its own and there is no Lem session (its note that starts \"With Q11 as the new fact\")",
           "day": "2026-11-20",
           "sentence": "Each task lives in a session of its own, from its shape to its merge, and there is no Lem session."
         }
@@ -673,7 +673,7 @@
         },
         {
           "line": 898,
-          "part": "the companions: his page opens in the task's session (the note at line 924)",
+          "part": "the companions: his page opens in the task's session (its note that starts \"With Q11 as the new fact\")",
           "day": "2026-11-20",
           "sentence": "Each task lives in a session of its own, from its shape to its merge, and there is no Lem session."
         }
@@ -1263,7 +1263,7 @@
         },
         {
           "line": 898,
-          "part": "the companion: the talk is a companion of the task's session, where it was a companion of Lem's session, and the companion of a choice's card is gone (the note at line 924)",
+          "part": "the companion: the talk is a companion of the task's session, where it was a companion of Lem's session, and the companion of a choice's card is gone (its note that starts \"With Q11 as the new fact\")",
           "day": "2026-11-20",
           "sentence": "Each task lives in a session of its own, from its shape to its merge, and there is no Lem session."
         }
@@ -3383,7 +3383,7 @@
       "changed_by": [
         {
           "line": 898,
-          "part": "\"Lem's session in each repository keeps one watch of it\": the watch is the shape's session's (the note at line 924)",
+          "part": "\"Lem's session in each repository keeps one watch of it\": the watch is the shape's session's (its note that starts \"With Q11 as the new fact\")",
           "day": "2026-11-20",
           "sentence": "Each task lives in a session of its own, from its shape to its merge, and there is no Lem session."
         }
@@ -3434,7 +3434,7 @@
       "changed_by": [
         {
           "line": 898,
-          "part": "\"One Lem session for each repository\": there is no Lem session (the note at line 924)",
+          "part": "\"One Lem session for each repository\": there is no Lem session (its note that starts \"With Q11 as the new fact\")",
           "day": "2026-11-20",
           "sentence": "Each task lives in a session of its own, from its shape to its merge, and there is no Lem session."
         }
@@ -3497,7 +3497,7 @@
       "changed_by": [
         {
           "line": 898,
-          "part": "the companion: a task's session takes its place, and `lem companion talk` is `lem session talk` (the note at line 924)",
+          "part": "the companion: a task's session takes its place, and `lem companion talk` is `lem session talk` (its note that starts \"With Q11 as the new fact\")",
           "day": "2026-11-20",
           "sentence": "Each task lives in a session of its own, from its shape to its merge, and there is no Lem session."
         }
@@ -3555,7 +3555,7 @@
       "changed_by": [
         {
           "line": 898,
-          "part": "\"a companion runs only on the owner's machine and asks nothing of a teammate\": the companions are gone, a task's session takes their place (the note at line 924)",
+          "part": "\"a companion runs only on the owner's machine and asks nothing of a teammate\": the companions are gone, a task's session takes their place (its note that starts \"With Q11 as the new fact\")",
           "day": "2026-11-20",
           "sentence": "Each task lives in a session of its own, from its shape to its merge, and there is no Lem session."
         }
@@ -5103,7 +5103,7 @@
         },
         {
           "line": 898,
-          "part": "Lem's run of `land.py merged` before a status: the server takes it over (the note at line 924)",
+          "part": "Lem's run of `land.py merged` before a status: the server takes it over (its note that starts \"With Q11 as the new fact\")",
           "day": "2026-11-20",
           "sentence": "Each task lives in a session of its own, from its shape to its merge, and there is no Lem session."
         }
@@ -5242,7 +5242,7 @@
       "changed_by": [
         {
           "line": 898,
-          "part": "\"`stages/stopped.md`\": `prompts/session.md` takes its place (the note at line 924)",
+          "part": "\"`stages/stopped.md`\": `prompts/session.md` takes its place (its note that starts \"With Q11 as the new fact\")",
           "day": "2026-11-20",
           "sentence": "Each task lives in a session of its own, from its shape to its merge, and there is no Lem session."
         }

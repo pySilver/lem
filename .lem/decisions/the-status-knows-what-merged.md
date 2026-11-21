@@ -10,7 +10,7 @@ area: The review, the pull request and the merge
 The title is the rule as it stands. Where the paragraph below says otherwise, the line here holds.
 
 - 2026-11-18, [A night ends as pull requests, and a task without the owner covers what a night was](a-night-ends-as-pull-requests-and-a-task-without-the-owner-covers-what-a-night-was.md): "a report of that night or the one before that names a draft still `drafted`": the state `drafted` is gone
-- 2026-11-20, [Each task lives in a session of its own, from its shape to its merge, and there is no Lem session.](../../docs/rulings/each-task-lives-in-a-session-of-its-own-from-its-shape-to-its-merge-and-there-is-no-lem-session.md): Lem's run of `land.py merged` before a status: the server takes it over (the note at line 924)
+- 2026-11-20, [Each task lives in a session of its own, from its shape to its merge, and there is no Lem session.](../../docs/rulings/each-task-lives-in-a-session-of-its-own-from-its-shape-to-its-merge-and-there-is-no-lem-session.md): Lem's run of `land.py merged` before a status: the server takes it over (its note that starts "With Q11 as the new fact")
 
 ## As decided on 2026-11-17, changed in part since
 

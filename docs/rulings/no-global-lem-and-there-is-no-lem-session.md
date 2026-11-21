@@ -9,7 +9,7 @@ area: A task's session, and whether he is there
 
 The title is the rule as it stands. Where the paragraph below says otherwise, the line here holds.
 
-- 2026-11-20, [Each task lives in a session of its own, from its shape to its merge, and there is no Lem session.](each-task-lives-in-a-session-of-its-own-from-its-shape-to-its-merge-and-there-is-no-lem-session.md): "One Lem session for each repository": there is no Lem session (the note at line 924)
+- 2026-11-20, [Each task lives in a session of its own, from its shape to its merge, and there is no Lem session.](each-task-lives-in-a-session-of-its-own-from-its-shape-to-its-merge-and-there-is-no-lem-session.md): "One Lem session for each repository": there is no Lem session (its note that starts "With Q11 as the new fact")
 
 ## As ruled on 2026-11-19, changed in part since
 

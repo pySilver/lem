@@ -9,7 +9,7 @@ area: A task's session, and whether he is there
 
 The title is the rule as it stands. Where the paragraph below says otherwise, the line here holds.
 
-- 2026-11-20, [Each task lives in a session of its own, from its shape to its merge, and there is no Lem session.](../../docs/rulings/each-task-lives-in-a-session-of-its-own-from-its-shape-to-its-merge-and-there-is-no-lem-session.md): "`stages/stopped.md`": `prompts/session.md` takes its place (the note at line 924)
+- 2026-11-20, [Each task lives in a session of its own, from its shape to its merge, and there is no Lem session.](../../docs/rulings/each-task-lives-in-a-session-of-its-own-from-its-shape-to-its-merge-and-there-is-no-lem-session.md): "`stages/stopped.md`": `prompts/session.md` takes its place (its note that starts "With Q11 as the new fact")
 
 ## As decided on 2026-11-17, changed in part since
 

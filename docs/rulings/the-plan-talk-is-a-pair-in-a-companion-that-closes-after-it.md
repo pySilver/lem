@@ -11,7 +11,7 @@ The title is the rule as it stands. Where the paragraph below says otherwise, th
 
 - 2026-11-19, [A companion opens only when something waits for him, and closes when he answered.](each-task-lives-in-a-session-of-its-own-from-its-shape-to-its-merge-and-there-is-no-lem-session.md): "Since 2026-11-19 (below)": the card of a talk's choice opens in that choice's own companion, not in the plan talk's
 - 2026-11-20, [The build asks him nothing, and the ladder always decides](the-build-asks-him-nothing-and-the-ladder-always-decides.md): for a choice of the talk: the build asks him nothing, and the ladder always decides
-- 2026-11-20, [Each task lives in a session of its own, from its shape to its merge, and there is no Lem session.](each-task-lives-in-a-session-of-its-own-from-its-shape-to-its-merge-and-there-is-no-lem-session.md): the companion: the talk is a companion of the task's session, where it was a companion of Lem's session, and the companion of a choice's card is gone (the note at line 924)
+- 2026-11-20, [Each task lives in a session of its own, from its shape to its merge, and there is no Lem session.](each-task-lives-in-a-session-of-its-own-from-its-shape-to-its-merge-and-there-is-no-lem-session.md): the companion: the talk is a companion of the task's session, where it was a companion of Lem's session, and the companion of a choice's card is gone (its note that starts "With Q11 as the new fact")
 
 ## As ruled on 2026-11-16, changed in part since
 
