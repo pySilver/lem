@@ -314,7 +314,8 @@ def small_block(block: dict) -> bool:
     return block["status"] == "building" and any(FAST_BUILDER.search(line) for line in lines_of(block))
 
 
-def needs_task(block: dict) -> bool:
+def waits_for_task(block: dict) -> bool:
+    """Whether a state block has an `after: SLUG` line: a task it needs, or one the owner's words put it after."""
     return any(re.fullmatch(r"after: [a-z0-9-]+", line) for line in lines_of(block))
 
 
@@ -762,7 +763,7 @@ def settle(t: Task, now: int) -> None:
     t.helped = held if held and held.kind == "breaker" and held.state == "helped" and t.status == "held" else None
     if t.helped:
         t.shown = f"your help on breaker {t.helped.id} is on record: the task's session starts its build again"
-    t.waits_after = t.status == "queued" and needs_task(last)
+    t.waits_after = t.status == "queued" and waits_for_task(last)
     t.merge_wait = merge_wait(t)
     t.base_red = t.status == "blocked" and BASE_RED in [line.strip() for line in lines_of(last)]
     t.for_owner = (bool(t.breaker) or (t.status == "held" and not t.approved and not t.helped) or t.merge_wait == "owner"
@@ -2188,7 +2189,7 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
             stage = stage_of(b)
             band(stage, frm, to, open_)
         if s == "queued":
-            add_block("lem", frm, to, "Queued: it waits for another task" if needs_task(b) else "Queued: it waits to start", what, open_)
+            add_block("lem", frm, to, "Queued: it waits for another task" if waits_for_task(b) else "Queued: it waits to start", what, open_)
         elif s == "building" and task:
             add_block("builders", frm, to, f"Task {task[1]} of {task[2]}", what, open_, "lead")
         elif investigates(b):
