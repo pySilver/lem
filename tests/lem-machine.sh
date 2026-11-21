@@ -186,8 +186,9 @@ if [ "$home_only" = "(False, False)" ] && [ "$(field 'd["ok"]' <<<"$out")" = "Tr
   && [ "$(field '[t["name"] for t in d["tools"] if t["name"] == "codex persona agent"]' <<<"$out")" = "[]" ] \
   && [ "$(field '[(t["name"], t["found"], t["guide"].rsplit("/", 1)[1]) for t in d["tools"] if t["need"] == "recommended"]' <<<"$out")" \
     = "[('agdoc skill', True, 'html-doc-overlay'), ('plannotator-tui', False, 'annotate-in-plannotator-tui'), ('codex', False, 'codex')]" ] \
+  && [ "$(row cronn used_for <<<"$out")" = "a scheduled retro and a night run" ] \
   && [ ! -e "$PWD/skills/lem-webrev" ]; then
-  pass "a builder file in the home is not Lem's; with git, the review tool, agterm, the mailbox, the cookbook's recipes, their skills, Claude Code and Lem's plugin the check passes; absent optional tools only change their rows, the recommended tools, no part of Lem, have a row with their guide, and no row speaks of a jev command"
+  pass "a builder file in the home is not Lem's; with git, the review tool, agterm, the mailbox, the cookbook's recipes, their skills, Claude Code and Lem's plugin the check passes; absent optional tools only change their rows, the recommended tools, no part of Lem, have a row with their guide, no row speaks of a jev command, and the cronn row names no free hour, which is the maintainer's"
 else
   fail "doctor with the required set: $out"
 fi

@@ -765,7 +765,7 @@ def board_notifications() -> list[dict]:
 
 def cronn() -> dict:
     row = tool(
-        "cronn", "required", "a scheduled retro, a night run, and the agents' free hours",
+        "cronn", "required", "a scheduled retro and a night run",
         "no retro and no night run starts by itself, so the corrections wait unread; install it from https://cronn.umputun.dev "
         "(a Homebrew formula and an agent that starts at login)", "cronn",
     )
