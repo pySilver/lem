@@ -12,8 +12,8 @@ the open tasks named. Never guess between two tasks.
 
 **Where it runs.** What is a file (the brief's line, the record, a state) is written at once, in
 whichever session he typed it. A step of the task's work (its landing again, its interview) runs in
-the task's own session: typed elsewhere, `lem session open SLUG --why owner --focus` takes him
-there, and its session takes the step at his word.
+the task's own session: typed elsewhere, `lem session open SLUG --why owner` opens it, or prints
+the one that runs, and its session takes the step at his word.
 
 **A task in `landing`.** Before `standard-track` or `drop` does anything to it, `lem land checks
 SLUG --stop`: it stops the task's checks when they run, and does nothing when they do not.
@@ -22,8 +22,9 @@ SLUG --stop`: it stops the task's checks when they run, and does nothing when th
 
 Careful at any time before the merge, whatever its lead called it. At once, add the line
 `careful: the owner says so` to the task's brief, and log his words with `lem decisions log SLUG
---by owner`. During an interview the brief is written already (`stages/new.md`, "The request", step
-6), and the lead reads the line. The brief holds it, so every session of the task after this one
+--by owner --what "whether the task is careful" --chose "careful until its merge"
+--why "HIS WORDS, AS HE TYPED THEM"`. During an interview the brief is written already
+(`stages/new.md`, "The request", step 6), and the lead reads the line. The brief holds it, so every session of the task after this one
 reads it, and the landing reads it too: the change gets the project's full
 review set, its notes say whether it holds a migration, and a person merges it whatever the
 settings say (`stages/land.md`). What follows depends on where the task is:

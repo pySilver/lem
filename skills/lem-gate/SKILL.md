@@ -31,7 +31,7 @@ hidden feature. Decisions taken that way lands in `decisions.md` artifact at PR 
    and a recommendation), the options start from that framing, with every option it lists: on a
    2026-11-07 test the judge found a draft that had dropped one of the item's options.
 3. **The verdict.** decided, checkable or cheap settle the decision: `lem decisions log SLUG --by
-   gate --why "CITE"`, with the option taken. held goes on to the personas.
+   gate --what "THE QUESTION" --chose "THE OPTION TAKEN" --why "CITE"`. held goes on to the personas.
 
 ## What the gate does not do
 

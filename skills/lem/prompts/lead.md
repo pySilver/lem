@@ -40,8 +40,9 @@ directory and whether you stop after the plan. `SKILL_DIR` is the directory abov
    `resumed from:`, or the record holds his help on a breaker, read `handoff.md`, that breaker's
    document (`breaker-N.md`) and his decision first, and build what he decided. When the owner
    writes to you here, do what he
-   says, and log it: `lem decisions log SLUG --by owner`, with `--breaker N` when it settles a
-   breaker. His `/lem im-away` and `/lem im-back`, or plain words that say the same, are `lem
+   says, and log it: `lem decisions log SLUG --by owner --what "WHAT IT WAS ABOUT"
+   --chose "WHAT HE SAID TO DO" --why "HIS WORDS, AS HE TYPED THEM"`, with `--breaker N` when it
+   settles a breaker. His `/lem im-away` and `/lem im-back`, or plain words that say the same, are `lem
    project --repo WORKTREE owner away|back --words "HIS WORDS"`.
 6. **Write the state as you go**: `lem project --repo WORKTREE state SLUG
    STATUS "one line"`. It is what the owner's board shows of you while you work.

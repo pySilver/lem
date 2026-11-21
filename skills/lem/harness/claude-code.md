@@ -146,6 +146,11 @@ session list` gives as `session`; compare the two with no regard to case.
 marks the session, and the mark goes back to idle once the owner visits it (the options of
 `agtermctl session status --help`, read 2026-11-21). Not run yet.
 
+## take-focus
+
+`agtermctl session select --target "$AGTERM_SESSION_ID"`: agterm selects this session in its window
+(the options of `agtermctl session select --help`, read 2026-11-21). Not run yet.
+
 ## Auto mode
 
 **What the classifier refuses in auto mode.** It refuses these to the agent also after the

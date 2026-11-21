@@ -18,7 +18,8 @@ agterm's own words:
 agtermctl session new --workspace WS --cwd DIR --name SLUG --no-select --command "LOGIN_SHELL -l -c 'LEM_TASK=SLUG CLAUDE_CODE_AUTO_COMPACT_WINDOW=N claude \"Read TASK_DIR/session.md and follow it.\"'"
 ```
 
-then `agtermctl session move --to top`, and with `--focus` `agtermctl session select`. `DIR` is the
+then `agtermctl session move --to top`, and never `agtermctl session select`: the task's session
+takes the focus itself (`take-focus` in the core). `DIR` is the
 main checkout, also for a task with a worktree, which the session reaches by its path
 (`owner-steps.md`, "A folder's trust"). A trial on 2026-11-21 (agterm 0.41.1 serving and 0.43.0
 installed, Claude Code 2.1.330) showed:
@@ -51,8 +52,8 @@ message, and `prompts/session.md` reads the state before anything else, so it go
 close --target ID --undoable`. It refuses a session the owner has selected; with
 `--when-unselected` it looks every 5 seconds (a guess) and closes it once he left it, so it runs in
 the background. `lem session list` gives each task's newest session: whether it lives, runs an
-agent and is selected, its phase, and `unanswered`, a wake-up still in its mailbox after 10
-minutes.
+agent and is selected, the phase its task is in now (`phase`) and the one it opened in
+(`opened_in`), and `unanswered`, a wake-up still in its mailbox after 10 minutes.
 
 ## The context's number
 

@@ -29,7 +29,7 @@ lem project resume SLUG
 ```
 
 - **A parked task** gets back the block the park put aside, in its own worktree: a breaker's wait,
-  criteria for his yes, a step of his. Then `lem session open SLUG --why owner --focus`: its session
+  criteria for his yes, a step of his. Then `lem session open SLUG --why owner`: its session
   reads the state, `handoff.md` and the breaker's document (`breaker-N.md`), so the talk goes on
   where it stopped.
 - **A dropped task** stays dropped. The command opens a new task from it, with the next free

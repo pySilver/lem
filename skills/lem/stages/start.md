@@ -45,7 +45,7 @@ the fast track's builder, a queued task whose turn came (the board's server open
 
 `/lem build <task>` is for a task whose state is `planned`, whose lead stopped at the plan for the
 owner to read: change its brief to `stop after the plan: no`. Typed in the task's own session, go on
-as its lead. Typed elsewhere, `lem session open SLUG --why owner --focus`, and say its `say`; when
+as its lead. Typed elsewhere, `lem session open SLUG --why owner`, and say its `say`; when
 it prints `already: true`, the task's session still waits for his word: say its name, and that
 "build" there starts it. A path to a plan file names its task too: the file's name is the settings'
 `paths.plan_file` (`YYYY-MM-DD-<slug>.md` unless they say otherwise), and the slug is the task's.

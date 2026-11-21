@@ -10,9 +10,9 @@ chooses the path names it.
 ## Open the task
 
 The part of the session where the owner typed the request. The night takes the same steps, with no
-talk to copy and no focus. The board's "+" and a backlog item's "Start a task" are the board
+talk to copy. The board's "+" and a backlog item's "Start a task" are the board
 server's: it names the task by a fixed rule (an item's file's stem, else the first five plain words
-of his text), runs step 3 with his words or the item's path as the ask, and step 5 with no focus.
+of his text), runs step 3 with his words or the item's path as the ask, and step 5.
 
 1. **An ask that is a ticket.** When the ask is a ticket's id or its URL and `lem project show`
    gives a `tracker`, the tracker reads it (`load-skill` the tracker, its "read"): its title is
@@ -45,7 +45,9 @@ of his text), runs step 3 with his words or the item's path as the ask, and step
    for each turn of his in between that is another topic. It copies the turns word for word into
    `talk.md` in the task directory, also those from before a compaction, and refuses with the fix
    when no turn of his starts with those words.
-5. **Open its session**: `lem session open SLUG --why new --focus`. `task-dir` and `session open`
+5. **Open its session**: `lem session open SLUG --why new`. It opens with no focus: the owner stays
+   here, and the task's session takes the focus itself when it has a question only he can answer
+   (`prompts/session.md`, "While the owner is needed"). `task-dir` and `session open`
    put the repository's main checkout into the machine's list of workspaces, so the board's server
    shows it from its first task, as "Starting" until its session writes a state. Say its `say` in one line, and
    go back to what this session was doing. Read no code and choose no type or track: the task's
@@ -124,7 +126,8 @@ The task's own session, in the shape, from its first message.
    Write it from the ask, `talk.md` when it is there, the project's profile and the rulings. Do
    not read the code for it: a "done when" line that needs the code is the lead's to sharpen in its
    plan. A line you put out of scope by yourself is a decision taken without the owner: log it with
-   `lem decisions log SLUG --by lem`.
+   `lem decisions log SLUG --by lem --what "out of scope: THE LINE" --chose "left out of this task"
+   --why "WHY"`.
 4. **Which path.** Choose one:
    - *the investigation first*, for a fix whose cause the ask does not show and for a question:
      a fresh builder reproduces the bug and finds its cause, or answers the question, before
@@ -158,8 +161,10 @@ The task's own session, in the shape, from its first message.
    ```
 
    On the other paths the first block is the one the path's own first step writes, before its
-   builder starts: there is no wait between the two.
-5. **Tell the owner in one line**, and no more: the type, the criterion or the outcome in his
+   builder starts: there is no wait between the two. Whatever the path, step 5 comes before its
+   first step: no scout, investigator or builder starts before that line is said.
+5. **Tell the owner in one line**, your first words to him in this session (after the one question
+   of step 1, when the read needed it), and no more: the type, the criterion or the outcome in his
    words, the branch, the track with its steps, and what he must do. The track's name stands at its
    steps, never beside the type. On the fast track: `docs: "the README says receive, not
    recieve". Branch docs/readme-receive-typo. Fast track: one builder, the checks, one read, then

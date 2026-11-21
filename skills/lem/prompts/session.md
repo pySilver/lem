@@ -40,7 +40,10 @@ or `queue` (the board's server opened it for that), `night`, or `owner` (his wor
 ## What comes next
 
 - **The shape**: no state block yet, a new request, or `held` with `the request waits for one
-  answer`: "The request" of `SKILL_DIR/stages/new.md`.
+  answer`: "The request" of `SKILL_DIR/stages/new.md`. Opened because `new`, your first words to
+  the owner are the one line of its step 5 (after its step 1's one question, when the read needs
+  it), in the form that step gives, before any scout, investigator or builder starts: the branch,
+  the track and a careful topic are in no other line, and it is where he corrects your read.
   `held` with `the interview waits for the owner`, or with `the criteria wait for the owner`:
   `SKILL_DIR/stages/interview.md`, from where its files stand. `held` with `the investigation
   waits for one more fact`: his answer, then a fresh investigator (`SKILL_DIR/stages/investigate.md`,
@@ -100,6 +103,14 @@ background runs on through it.
 A question of the interview, his yes, a breaker's document, a plan he asked to read, a step that
 is his to do: say it in one line, mark this session as waiting for him (`mark-waiting`), and wait. Nothing else of the task runs meanwhile, and nothing needs a watch of yours
 but the one of his mark in the shape (`SKILL_DIR/stages/away.md`).
+
+This session opened with no focus, and the owner may be in another one. Take the focus
+(`take-focus`) once, at the first thing in this session that only he can answer while he is there:
+the one question of the request's read, the first question of an interview, criteria for his yes,
+or a breaker's document. Take it as you say the line, and never again in this session. A session
+that asks him nothing (a fast track whose read was clear, a build, a landing that the merge agent
+merges) never takes it, so that its close (`--when-unselected`) does not wait for a session he
+never chose.
 
 ## A wake-up
 

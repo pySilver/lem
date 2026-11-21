@@ -63,7 +63,7 @@ one line, from `lem project tasks`.
 own session: name it for each, from `lem session list` (the task's newest session, and whether it
 is `live`). One with no live session gets "no session" on the board, whose button opens one.
 `/lem status SLUG` opens the task's session when something of it waits for him and none runs,
-`lem session open SLUG --why owner --focus`, and says its `say`. A pull request he reads on GitHub,
+`lem session open SLUG --why owner`, and says its `say`. A pull request he reads on GitHub,
 and a retro's proposals he answers below, on his word.
 
 A retro's proposals are his to answer, and they wait until he says so: on his word ("open

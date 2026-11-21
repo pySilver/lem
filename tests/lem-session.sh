@@ -37,6 +37,7 @@ pr state gift-note held "the interview waits for the owner" "type: feat, because
 rm -f "$CALLS"
 first=$(sess open gift-note --why new 2>&1 || true)
 second=$(AS="" sess open gift-note --why dead 2>&1 || true)
+focused=$(sess open gift-note --focus 2>&1; echo "exit $?")
 made=$(calls_of session new)
 want=$("$PY" -c 'import json, sys; print(json.dumps(sys.argv[1:]))' session new --workspace W-MINE --cwd "$R" --name gift-note --no-select --command \
   "$SHELL_LINE -l -c 'LEM_TASK=gift-note CLAUDE_CODE_AUTO_COMPACT_WINDOW=600000 claude --plugin-dir \"$PWD\" \"Read $STATE/tasks/gift-note/session.md and follow it.\"'" --json --socket "$WORK/agterm.sock")
@@ -44,12 +45,13 @@ brief=$(cat "$STATE/tasks/gift-note/session.md" 2>/dev/null || true)
 if [ "$(field '(d["session"], d["phase"], d["already"])' <<<"$first" 2>&1)" = "('S-1', 'shape', False)" ] \
   && [ "$(field '(d["session"], d["already"])' <<<"$second" 2>&1)" = "('S-1', True)" ] \
   && [ "$made" = "$want" ] && calls_of move top | grep -qF '"S-1"' && [ -z "$(calls_of session select)" ] \
+  && grep -qF "unrecognized arguments: --focus" <<<"$focused" && [ "$(tail -n 1 <<<"$focused")" = "exit 2" ] \
   && grep -qxF "Read $PWD/skills/lem/prompts/session.md and follow it." <<<"$brief" && grep -qxF "phase: shape" <<<"$brief" \
   && grep -qxF "opened because: new" <<<"$brief" && grep -qxF "worktree: none yet" <<<"$brief" \
   && [ "$(events)" = "[('session.open', 'S-1', 'shape', 'new')]" ] && git -C "$R" check-ignore -q "$STATE/tasks/gift-note/session.md"; then
-  pass "open makes one session of the task in the caller's workspace, with no focus, LEM_TASK and the compaction number in its launch line and session.md as its first read, then moves it to the top and logs it; a second open prints the one that runs"
+  pass "open makes one session of the task in the caller's workspace, with no focus and no flag that gives it, LEM_TASK and the compaction number in its launch line and session.md as its first read, then moves it to the top and logs it; a second open prints the one that runs"
 else
-  fail "open twice: $first / $second / $made / $want / $brief / $(events)"
+  fail "open twice: $first / $second / $focused / $made / $want / $brief / $(events)"
 fi
 
 # The change of phase: the lead's state and handoff.md, then next from the shape session: a fresh session for
@@ -112,7 +114,9 @@ else
   fail "wake: $woke / $opened / $(cat "$CALLS")"
 fi
 
-# The list: each task's newest session; a wake older than ten minutes whose line is still in the mailbox is unanswered.
+# The list: each task's newest session, with the phase its task is in now beside the one it opened in; a wake older
+# than ten minutes whose line is still in the mailbox is unanswered.
+pr state coupon-slug building "small change: one builder" "type: feat, because a coupon gets a slug" >/dev/null
 "$PY" - "$STATE/events.jsonl" <<'PY'
 import json, sys
 lines = open(sys.argv[1]).read().splitlines()
@@ -134,16 +138,17 @@ for record in lines:
 open(sys.argv[1], "w").write("".join(json.dumps(record) + "\n" for record in lines))
 PY
 listed=$(MAILBOX='{"result": {"messages": [{"body": "lem: gift-note conflict"}]}}' sess list 2>&1 || true)
-if [ "$(field '[(s["task"], s["session"], s["phase"], s["live"], s["agent"], s["selected"], s["unanswered"]) for s in d]' <<<"$listed" 2>&1)" \
-  = "[('gift-note', 'S-2', 'build', True, True, False, True), ('coupon-slug', 'S-3', 'shape', True, True, False, False)]" ] \
+if [ "$(field '[(s["task"], s["session"], s["phase"], s["opened_in"], s["live"], s["agent"], s["selected"], s["unanswered"]) for s in d]' <<<"$listed" 2>&1)" \
+  = "[('gift-note', 'S-2', 'build', 'build', True, True, False, True), ('coupon-slug', 'S-3', 'fast', 'shape', True, True, False, False)]" ] \
   && grep -qF '["msg", "read", "--as", "S-2:P-2", "--json"' "$CALLS"; then
-  pass "list gives each task's newest session with its phase, whether it lives, runs an agent and is selected, and a wake whose line still waits in its mailbox after ten minutes as unanswered"
+  pass "list gives each task's newest session with the phase its task is in now (a fast track's, not the shape it opened in), whether it lives, runs an agent and is selected, and a wake whose line still waits in its mailbox after ten minutes as unanswered"
 else
   fail "list: $listed"
 fi
 
 # The refusals of open: a parked task, one queued after a task that has not ended, and a task no workspace is known for;
 # the owner's word on the board to a parked task wakes nobody and opens nothing, with no refusal.
+pr state coupon-slug held "the interview waits for the owner" >/dev/null
 pr state coupon-slug parked "put aside" >/dev/null
 pr task-dir csv-dates --ask "the CSV dates stay whole" >/dev/null
 pr state csv-dates queued "needs the export's column" "after: gift-note" >/dev/null

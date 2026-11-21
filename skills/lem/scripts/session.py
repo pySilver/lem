@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """A task's own session in agterm: one session carries one task, and each phase starts a fresh agent.
 
-    lem session open SLUG [--focus] [--why new|handoff|dead|merged|conflict|refused|queue|night|owner]
-                                 open the task's session for the phase its state gives, or print
-                                 the one that runs
+    lem session open SLUG [--why new|handoff|dead|merged|conflict|refused|queue|night|owner]
+                                 open the task's session for the phase its state gives, with no
+                                 focus, or print the one that runs
     lem session next SLUG [--same]
                                  the change of phase: check handoff.md, open the next session and
                                  name the old one `SLUG · handed off`; `--same` for the owner's
@@ -19,7 +19,8 @@
     lem session wait SLUG --until STATE,... | --event NAME
                                  end when the task's state is one of these, or a new event is logged,
                                  or when the task's session is gone (`"gone": true`)
-    lem session list             each task's newest session: live, agent, selected, phase, unanswered
+    lem session list             each task's newest session: live, agent, selected, the phase the task is
+                                 in now and the one the session opened in, unanswered
 
 The phase comes from the task's state, never from an argument: no state block, or `held` for the
 interview or the criteria (any hold but a breaker's), is `shape`; a task on the fast track is `fast`
@@ -39,9 +40,10 @@ directory, the new agent's first read, and runs
     agtermctl session new --workspace WS --cwd DIR --name SLUG --no-select --command \\
       "SHELL -l -c 'LEM_TASK=SLUG CLAUDE_CODE_AUTO_COMPACT_WINDOW=N claude \\"Read TASK_DIR/session.md and follow it.\\"'"
 
-then `session move --to top`, and with `--focus` `session select`. DIR is the main checkout in every
-phase, and the agent works in the task's worktree by its path (`worktree:` of `session.md`): the
-developer's Claude Code setup belongs to the main checkout's folder (a plugin installed for the
+then `session move --to top`. It never selects the session: the owner's selection stays where it
+is, and the task's session takes the focus itself when it asks him a question (`take-focus`). DIR is
+the main checkout in every phase, and the agent works in the task's worktree by its path
+(`worktree:` of `session.md`): the developer's Claude Code setup belongs to the main checkout's folder (a plugin installed for the
 project, `.claude/settings.local.json`, the folder's trust), and a session started in a worktree has
 none of it. In lem-scratch on 2026-11-21 a landing session opened in its worktree found no `lem`
 command and no builder agent, and stopped as `blocked`. N is `[handoff] tokens` of the machine
@@ -78,7 +80,9 @@ board's server sends `owner` after the owner's act on the task from the board (h
 criteria, a park): a task that gets no session then (a parked one) has nothing to wake, and that
 is no refusal.
 
-`list`'s `unanswered` is a wake older than UNANSWERED_AFTER whose line still waits in the session's
+`list`'s `phase` is the phase the task's state gives now, null for a task that gets no session (parked,
+or ended with its worktree gone), and `opened_in` the phase its newest session opened in. Its
+`unanswered` is a wake older than UNANSWERED_AFTER whose line still waits in the session's
 mailbox (`agtermctl msg read`, which removes nothing).
 
 `talk` copies the turns of this Claude Code session word for word: from the newest owner turn
@@ -455,7 +459,7 @@ def workspace_for(slug: str, task: dict, opens: dict[str, dict], nodes: list[dic
 
 # ---- the commands ----
 
-def cmd_open(root: Path, slug: str, focus: bool, why: str, replacing: str | None = None) -> dict:
+def cmd_open(root: Path, slug: str, why: str, replacing: str | None = None) -> dict:
     where = place()
     directory = project.task_directory(root, slug)
     # the board server shows the repository and runs its duties from its first session on
@@ -471,8 +475,6 @@ def cmd_open(root: Path, slug: str, focus: bool, why: str, replacing: str | None
         newest = opens.get(slug)
         node = node_of(nodes, newest.get("session") if newest else None)
         if newest and live(node, newest, datetime.now(timezone.utc)) and str(newest["session"]).upper() != str(replacing or "").upper():
-            if focus:
-                ctl(where, "session", "select", "--target", str(newest["session"]))
             return {"task": slug, "session": newest["session"], "name": node.get("name") or newest.get("name"), "phase": phase, "already": True,
                     "say": f"{slug} already runs in the session `{node.get('name') or newest.get('name')}`"}
         workspace = workspace_for(slug, task, opens, nodes, where["session"])
@@ -490,13 +492,11 @@ def cmd_open(root: Path, slug: str, focus: bool, why: str, replacing: str | None
             session = str(json.loads(made)["result"]["id"])
         except (ValueError, KeyError, TypeError) as error:
             raise SessionError(f"agtermctl session new answered no session id ({error}): {made.strip()[:200]}") from error
-        # the record first: the session exists now, whatever the next two steps do
+        # the record first: the session exists now, whatever the next step does
         project.append_event(root, "session.open", slug, {"session": session, "name": slug, "phase": phase, "why": why, "workspace": workspace})
         ctl(where, "session", "move", "--to", "top", "--target", session)
-        if focus:
-            ctl(where, "session", "select", "--target", session)
     return {"task": slug, "session": session, "name": slug, "phase": phase, "already": False,
-            "say": f"{slug} is open in its own session `{slug}`, phase {phase}" + (", and selected" if focus else ", at the top of the workspace")}
+            "say": f"{slug} is open in its own session `{slug}`, phase {phase}, at the top of the workspace"}
 
 
 def cmd_next(root: Path, slug: str, same: bool) -> dict:
@@ -527,7 +527,7 @@ def cmd_next(root: Path, slug: str, same: bool) -> dict:
         raise SessionError(f"{HANDOFF} of {slug} says it is from {form['from']}, and the phase that ends, by the task's state, is {was}: write it again for the phase that leaves")
     if form["written"][:16] < newest["ts"][:16]:
         raise SessionError(f"{HANDOFF} of {slug} was written at {form['written']}, before this session opened at {newest['ts']}: it is an older session's; write it again")
-    opened = cmd_open(root, slug, False, "handoff", replacing=old)
+    opened = cmd_open(root, slug, "handoff", replacing=old)
     if opened["already"]:
         raise SessionError(f"another session of {slug} runs already, `{opened['name']}` ({opened['session']}): it took over; this one closes with `lem session close {slug} --session {old} --why handoff --when-unselected`")
     ctl(where, "session", "rename", f"{slug} · handed off", "--target", old)
@@ -589,7 +589,7 @@ def cmd_wake(root: Path, slug: str, why: str, head: str | None) -> dict:
         except SessionError as error:
             # his act ended the task's need of a session (a park): nothing waits for the line
             return {"task": slug, "session": None, "why": why, "woke": False, "opened": False, "say": f"no session of {slug} runs, and it gets none: {error}"}
-    opened = cmd_open(root, slug, False, why)
+    opened = cmd_open(root, slug, why)
     if head:
         # the head is kept on the wake's record, so that a conflict is answered once for each head
         project.append_event(root, "session.wake", slug, {"session": opened["session"], "why": why, "head": head})
@@ -649,11 +649,19 @@ def cmd_list(root: Path) -> list[dict]:
     where = place()
     nodes = tree(where)
     events = project.events_named(root, *EVENTS)
+    settings = project.load(root)
+    tasks = {task["slug"]: task for task in project.read_tasks(root, settings)}
     now = datetime.now(timezone.utc)
     out = []
     for slug, opened in newest_opens(events).items():
         session = str(opened["session"])
         node = node_of(nodes, session)
+        task = tasks.get(slug)
+        try:
+            phase = phase_of(slug, task["status"], first_line(task), task["track"], worktree_of(root, settings, slug) is not None) if task else None
+        except SessionError:
+            # a parked task, or one that ended with its worktree gone, is in no phase
+            phase = None
         after = [record for record in events if record.get("task") == slug and record["ts"] >= opened["ts"] and str(record.get("session", "")).upper() == session.upper()]
         closed = next((record for record in after if record.get("event") == "session.close"), None)
         wake = next((record for record in reversed(after) if record.get("event") == "session.wake"), None)
@@ -661,8 +669,8 @@ def cmd_list(root: Path) -> list[dict]:
         if node is not None and wake is not None and (now - stamp(wake["ts"])).total_seconds() >= UNANSWERED_AFTER:
             mailbox = ctl(where, "msg", "read", "--as", f"{session}:{left_pane(node)}", "--json", window=False)
             unanswered = f"lem: {slug} {wake.get('why')}" in mailbox
-        out.append({"task": slug, "session": session, "name": node.get("name") if node else opened.get("name"), "phase": opened.get("phase"),
-                    "why": opened.get("why"), "since": opened["ts"], "workspace": opened.get("workspace"), "live": node is not None,
+        out.append({"task": slug, "session": session, "name": node.get("name") if node else opened.get("name"), "phase": phase,
+                    "opened_in": opened.get("phase"), "why": opened.get("why"), "since": opened["ts"], "workspace": opened.get("workspace"), "live": node is not None,
                     "agent": agent_runs(node) if node else False, "selected": bool(node and node.get("active")),
                     "closed": closed["why"] if closed else None, "unanswered": unanswered})
     return out
@@ -846,7 +854,6 @@ def main(argv: list[str] | None = None) -> None:
     commands = parser.add_subparsers(dest="command", required=True)
     opened = commands.add_parser("open", help="open the task's session for the phase its state gives, or print the one that runs")
     opened.add_argument("slug")
-    opened.add_argument("--focus", action="store_true", help="select it: only for a request the owner typed in a session")
     opened.add_argument("--why", choices=WHYS, default="owner", help="why it opens, for the record (default: owner)")
     following = commands.add_parser("next", help="the change of phase: open the next session after the handoff, and name this one handed off")
     following.add_argument("slug")
@@ -879,7 +886,7 @@ def main(argv: list[str] | None = None) -> None:
     try:
         root = project.repo_root(Path(args.repo))
         if args.command == "open":
-            result: object = cmd_open(root, args.slug, args.focus, args.why)
+            result: object = cmd_open(root, args.slug, args.why)
         elif args.command == "next":
             result = cmd_next(root, args.slug, args.same)
         elif args.command == "close":
