@@ -23,11 +23,10 @@ Smaller choices of an agent do not change green. The pull request lists the ones
 ## The merge review
 
 Lem opens each pull request on GitHub, the one way a task lands. Then a fresh merge agent reads
-the task: its files, its reviews and its diff. It changes nothing. It writes `merge-review.md` in
-the folder of the task. The review starts with its verdict, merge or
-call. Then it tells what Lem built and why, as a short story. Last come the results, each decision
-that Lem took without you, and the time of the task. The review is shorter than the documents it
-read. For a safe small change, it is the verdict and three sentences.
+the task: its files, its reviews and its diff. It changes nothing, and it writes `merge-review.md`.
+The review starts with its verdict, merge or call. Then it tells what Lem built and why, the
+results, each decision that Lem took without you, and the time and the tokens of the task. For a
+safe small change, it is the verdict and three sentences.
 
 ```mermaid
 flowchart TD
@@ -41,13 +40,11 @@ flowchart TD
     W --> Y["You read the review, then merge or ask for a change"]
 ```
 
-The merge agent calls you for each careful change and for each pull request that is not green.
-It also calls you when it finds a problem. The board then shows "Read the merge review" in
-"Waits for you", and the review is the first card of the task.
+When the merge agent calls you, the board shows "Read the merge review" in "Waits for you", and
+the review is the first card of the task.
 
-While the merge agent reads a pull request, nothing of it waits for you. After the verdict merge,
-the board server merges it, and nothing waits for you then either. Until the merge, the task stays
-in the column "Checks and review", with no row in "Waits for you" and no notification.
+After the verdict merge, the board server merges the pull request. Until then the task stays in
+the column "Checks and review", with no row in "Waits for you" and no notification.
 
 With `branch.land = "owner"`, the merge agent still writes its review, but it never merges
 ([Settings](settings.md#branch)).
@@ -67,25 +64,19 @@ gives the verdict merge, the board server starts the same merge.
 - With more than one task, `/lem land` merges them one at a time, in your order.
 
 Do not merge the branch of a task by hand: Lem knows only a merge through the pull request. After
-a merge, Lem removes the worktree and the branch, and updates the Linear ticket of the task.
+a merge, the session of the task removes the worktree and the branch, and updates the Linear ticket.
 
-On GitHub's button, you select the merge method. `branch.history` is for a merge by Lem.
+On GitHub's button, you select the merge method. `branch.history` is for Lem's merge.
 
-The board server asks GitHub about the open pull requests every few minutes. When you merge or
-close one on GitHub, the server records it and wakes the session of its task. That session
-removes the worktree and the branch.
+The board server asks GitHub about the open pull requests every few minutes, so it sees a merge
+or a close that you make on GitHub.
 
 ## A conflict
 
 When a merge makes another open pull request conflict, the board server wakes the session of its
 task. That session rebases the branch, and a builder resolves the conflict. The checks run again,
-one read checks the resolution, and the merge agent reads the pull request again. The session tells
-you in one line, for example:
-
-> Rebased on main after the forge called it conflicting; one conflict in shop/dates.py, resolved by
-> a builder; the checks passed again.
-
-Lem leaves every other open pull request as it is.
+one read checks the resolution, and the merge agent reads the pull request again. Lem leaves every
+other open pull request as it is.
 
 ## A commit of a teammate
 
