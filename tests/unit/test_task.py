@@ -270,6 +270,18 @@ class EventLog(unittest.TestCase):
         self.assertEqual([record["say"] for record in found], [SEPARATED])
 
 
+class Words(unittest.TestCase):
+    """A task's words (ask.txt) are written once: the same words again pass, other words are refused."""
+
+    def test_the_same_words_again_and_other_words(self):
+        self.assertIsNone(project.ask_refusal("gift-note", None, "Add the gift note"))
+        self.assertIsNone(project.ask_refusal("gift-note", "Add the gift note\n", "  Add the gift note "))
+        said = project.ask_refusal("gift-note", "Add the gift note\n", "Add the gift note to the slip")
+        self.assertIn("the task 'gift-note' holds other words already", said)
+        self.assertIn("Add the gift note", said)
+        self.assertIn("choose another name", said)
+
+
 class OneWriter(unittest.TestCase):
     """Two writers of one task's state at one moment: the lead's `building` and the owner's drop."""
 

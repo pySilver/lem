@@ -1474,6 +1474,15 @@ def taken_on_remote(root: Path, slug: str, branch: str | None) -> None:
         )
 
 
+def ask_refusal(slug: str, kept: str | None, ask: str) -> str | None:
+    """Why ASK cannot be the words of the task SLUG, whose ask.txt holds KEPT (None when it has none):
+    the same words again are a retry and pass, and other words are another request under the same name."""
+    if kept is None or kept.strip() == ask.strip():
+        return None
+    return (f"the task {slug!r} holds other words already ({kept.strip()!r}), and a task's words are written once: "
+            f"this is another request under the same name, so choose another name for it (add a word to the slug)")
+
+
 def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None, branch: str | None = None, night: str | None = None) -> None:
     if not SLUG.fullmatch(slug):
         raise SettingsError(f"slug {slug!r} must be lower-case words joined by hyphens")
@@ -1511,8 +1520,20 @@ def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None, bra
     (directory / "reports").mkdir(parents=True, exist_ok=True)
     if ask is not None:
         # The owner's words, as given. task.md is a document with headings; the board and the
-        # status show these words, so they have a file of their own that nothing rewrites.
-        (directory / "ask.txt").write_text(ask.strip() + "\n", encoding="utf-8")
+        # status show these words, so they have a file of their own that nothing rewrites: a link
+        # of a finished file claims the name, so of two writers at one moment one writes, and the
+        # other finds its words whole and compares them.
+        file = directory / "ask.txt"
+        fresh = directory / f"ask.txt.{os.getpid()}.new"
+        fresh.write_text(ask.strip() + "\n", encoding="utf-8")
+        try:
+            os.link(fresh, file)
+        except FileExistsError:
+            refused = ask_refusal(slug, text_of(file), ask)
+            if refused:
+                raise SettingsError(refused) from None
+        finally:
+            fresh.unlink(missing_ok=True)
     if ticket is not None:
         (directory / "ticket.txt").write_text(ticket + "\n", encoding="utf-8")
     if night is not None and not any(record.get("task") == slug for record in events_named(root, "task.mode")):

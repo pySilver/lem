@@ -201,6 +201,11 @@ running=$(post "$SERVER/$HOST/shop/start" "$SERVER" "words=Stock on product page
 running_page=$(curl -fsS "${running#* }" | words)
 ended_slug=$(post "$SERVER/$HOST/shop/start" "$SERVER" "words=order date on invoice")
 ended_page=$(curl -fsS "${ended_slug#* }" | words)
+# a task whose directory and words are there and whose session has not opened yet: the board sees no task, and
+# task-dir keeps the words that came first
+project --repo "$DEMO" task-dir refund-email-to-the-customer --ask "Refund email to the customer, in Polish" >/dev/null
+other_words=$(post "$SERVER/$HOST/shop/start" "$SERVER" "words=Refund email to the customer, in English")
+other_page=$(curl -fsS "${other_words#* }" | words)
 if grep -qF "What should Lem do?" <<<"$new_form" && [[ "$started" == "303 $SERVER/$HOST/shop/tasks/add-the-gift-note-to?note="* ]] \
   && [ "$(cat "$STATE/tasks/add-the-gift-note-to/ask.txt")" = "Add the gift note to the CSV export, please" ] \
   && grep -qF "Done. Lem opened the session add-the-gift-note-to in agterm" <<<"$started_page" \
@@ -208,10 +213,12 @@ if grep -qF "What should Lem do?" <<<"$new_form" && [[ "$started" == "303 $SERVE
   && [ "$(grep -c '^open ' "$LEM_SESSION_CALLS")" = 2 ] && grep -qxF "open add-the-gift-note-to --why new" "$LEM_SESSION_CALLS" && grep -qxF "open export-in-one-query --why new" "$LEM_SESSION_CALLS" \
   && grep -qF "Not done. stock-on-product-page is a task already" <<<"$running_page" \
   && [[ "$ended_slug" == "303 $SERVER/$HOST/shop/new?note="* ]] && grep -qF "Not done. project.py: the task 'order-date-on-invoice' is landed; a new task takes a slug of its own" <<<"$ended_page" \
-  && [ "$(grep '"event": "board.act", "task": "add-the-gift-note-to"' "$STATE/events.jsonl" | field 'd["act"]')" = start ]; then
-  pass "a new task starts from the board: the owner's words name it by their first five plain words and a backlog item by its stem, each gets its ask and its session with no focus, and a slug that runs or ended is refused with why"
+  && [ "$(grep '"event": "board.act", "task": "add-the-gift-note-to"' "$STATE/events.jsonl" | field 'd["act"]')" = start ] \
+  && grep -qF "Not done. project.py: the task 'refund-email-to-the-customer' holds other words already" <<<"$other_page" && grep -qF "choose another name" <<<"$other_page" \
+  && [ "$(cat "$STATE/tasks/refund-email-to-the-customer/ask.txt")" = "Refund email to the customer, in Polish" ] && ! grep -qF refund-email "$LEM_SESSION_CALLS"; then
+  pass "a new task starts from the board: the owner's words name it by their first five plain words and a backlog item by its stem, each gets its ask and its session with no focus, and a slug that runs or ended, or whose words differ, is refused with why"
 else
-  fail "a new task from the board: $started / ${started_page:0:300} / $item / $(cat "$LEM_SESSION_CALLS") / ${running_page:0:300} / $ended_slug / ${ended_page:0:300}"
+  fail "a new task from the board: $started / ${started_page:0:300} / $item / $(cat "$LEM_SESSION_CALLS") / ${running_page:0:300} / $ended_slug / ${ended_page:0:300} / ${other_page:0:300}"
 fi
 
 # The server's duties, over a repository the server does not show, so that only this process acts on it: a pull
