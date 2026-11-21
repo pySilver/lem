@@ -29,3 +29,10 @@ in a fixed form of `STARTS` in `project.py`, and `reading_of` taking the time fr
 `criteria.read.start` as Lem's too. The question of step 5, "Skip the persona read? (y/n)", comes in
 that time and is his: it needs an event of its own, or it moves before the end of the questions.
 The time card's interview span (`time_of`) would then end at the new event too.
+
+A third moment has the same wrong row, and no event tells it either: while the owner is away, an
+interview goes on without him, with Lem's guesses (`stages/away.md`), and the state stays `held`
+with `the interview waits for the owner`. The board has his away status (`m.away`), but no event
+says when the task's own session took that status up, so the row cannot tell an interview that
+goes on without him from one that waits for his answer. Seen by the builder of the read's fix,
+2026-11-21.
