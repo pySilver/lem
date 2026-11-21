@@ -159,13 +159,22 @@ Read in the code at `7971845`:
    The commit says which task showed the need: `tests-at-the-unit-level`, 2026-11-20.
 2. **What Lem prints, and the phase of a queued task.** Serves criterion 1, its step 5, and
    criterion 2, its last step. Files: `skills/lem/scripts/project.py`,
-   `skills/lem/scripts/lem_board_model.py`, `skills/lem/scripts/session.py`, and their tests in
+   `skills/lem/scripts/lem_board_model.py`, `skills/lem/scripts/session.py`, `skills/lem/scripts/serve.py`, and their tests in
    `tests/unit/` (or the may-start checks of `tests/lem-settings.sh`, where the builder finds that
    the rule needs a repository).
    - `phase_of` in `session.py`: a `queued` task that no lead started (no block of its state has a
      `lead:` line, the form `LEAD_LINE` in `project.py` reads) is in the phase `shape`, since its
      session takes step 8 of "The request"; one that its lead queued stays in `build`. Its caller
      gives it the task's whole state. One unit case for each.
+   - `duties` in `serve.py`: a `queued` task whose `after:` task ended and whose session still lives
+     (`live_of`) gets `wake SLUG --why queue`, once, when no session was woken or opened since its
+     queued block (`run_start`), where today it gets nothing until that session closes. It prevents
+     a task that stays queued after its wait ended; the input is a session the owner keeps selected,
+     so that `lem session close --when-unselected` never closes it, while the task it waits for
+     ends; that is realistic, since the ask is typed in that session and it opens with focus;
+     without it the task starts only when he selects another session. It sits on the duty's rule
+     "no live session" (`open … queue`), which rests on existing code; the wake-up's route is there
+     already (`prompts/session.md`, `lem: SLUG queue`; `WAKES` in `session.py`). One unit case.
    - The refusal of `lem project may-start` for a task queued after one that has not ended names both
      ways out: a task that waited because it needed the other one's result and no longer does has its
      state `queued` written again without the `after:` line; an order of the owner's (the block's
