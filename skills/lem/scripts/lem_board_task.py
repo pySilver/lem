@@ -477,7 +477,8 @@ def merge_review_card(ctx, t: bm.Task) -> Markup | None:
 
 
 def now_card(ctx, t: bm.Task) -> Markup:
-    """What runs now, or what waits for the owner, with where he answers."""
+    """What runs now, or what waits for the owner, with where he answers, under the task's first line
+    while the block that said it is the task's newest."""
     now = ctx.model.now
     x = t.investigation
     found = []
@@ -486,7 +487,9 @@ def now_card(ctx, t: bm.Task) -> Markup:
         found = [h("div", {"class": "now-ctx"}, h("b", None, f"{bm.CALLS.get(x['call'], {}).get('now', x['call'])}: "), x.get("line") or "", f" · {where}" if where else ""),
                  h("div", {"class": "now-ctx"}, "The report is investigation.md in the task directory")]
     headline = bm.now_head(t)
-    body = [h("div", {"class": "now-eyebrow"}, bm.who_acts(t)), h("div", {"class": "now-head"}, headline),
+    # Lem's first line of the task, its read of the request, while the block that said it is the newest
+    said = t.opening and h("div", {"class": "now-said", "title": "Lem's first line of this task: its read of the request"}, P.rich(ctx, t.opening))
+    body = [said, h("div", {"class": "now-eyebrow"}, bm.who_acts(t)), h("div", {"class": "now-head"}, headline),
             t.shown and not t.breaker and h("div", {"class": "now-status"}, P.rich(ctx, t.shown)),
             t.more and h("div", {"class": "now-ctx"}, P.rich(ctx, " · ".join(t.more))),
             found,

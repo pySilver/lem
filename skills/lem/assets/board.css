@@ -240,6 +240,7 @@ h2 { margin: 0; font: 650 11px/1.4 var(--mono); letter-spacing: .1em; text-trans
 .avatar .ic { font-size: 18px; }
 .still .avatar { animation: none; }
 .now-body { min-width: 0; flex: 1; }
+.now-said { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--line); color: var(--dim); font-size: 12.5px; line-height: 1.45; overflow-wrap: anywhere; }
 .now-eyebrow { font: 650 11px/1.4 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink); }
 .now-head { font-size: 16px; line-height: 1.35; font-weight: 700; letter-spacing: -.01em; margin-top: 2px; overflow-wrap: anywhere; }
 .now-status { margin-top: 4px; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; font-size: 13.5px; }

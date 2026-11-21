@@ -429,6 +429,9 @@ class Task:
     polish: dict | None = None
     type: dict | None = None
     investigation: dict | None = None
+    # the task's first line to the owner, as `lem project state` composed it for the block that names its path,
+    # while that block is the task's newest
+    opening: str | None = None
     landing_step: dict | None = None
     checks_end: dict | None = None
     waits: dict | None = None
@@ -683,6 +686,8 @@ def fold(t: Task, e: dict, ts: int) -> None:
     t.blocks.append({"ts": ts, "order": len(t.events), "status": status, "text": text, "lines": lines})
     if e.get("ask"):
         t.ask = str(e["ask"])
+    # the first line stands while its block is the task's newest: a later block is a later moment of the task
+    t.opening = str(e["say"]) if e.get("say") else None
     for line in [text, *lines]:
         lead = re.match(r"^lead: (builder|session)\b", line)
         if lead:

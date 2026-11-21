@@ -183,6 +183,21 @@ class Overview(unittest.TestCase):
         self.assertIn("it calls you", parts[0])
         self.assertIn("Verdict: call. The change is careful.", parts[0])
 
+    def test_the_large_card_opens_with_the_tasks_first_line_while_its_block_is_the_newest(self):
+        line = 'fix: "the footer says Terms and conditions". Fast track: one builder, the checks, one read, then the pull request. Nothing waits for you.'
+        first = {**state(0, "building", "small change: one builder", "type: fix, because a typo"), "say": line}
+
+        def card(*events):
+            ctx = pages.Ctx(host="h", workspace="w", model=model(*events), asset=lambda name: name)
+            return str(task_pages.now_card(ctx, ctx.model.tasks[0]))
+
+        shown = card(first, ev(1, "builder.start", job="the small change"))
+        self.assertIn('class="now-said"', shown)
+        self.assertLess(shown.index("now-said"), shown.index("now-eyebrow"))
+        self.assertIn("the footer says Terms and conditions", shown)
+        self.assertNotIn("now-said", card(first, state(5, "ready", "the report is written")))
+        self.assertNotIn("now-said", card(state(0, "building", "lead: builder")))
+
     def test_the_ring_counts_the_plans_finished_tasks_and_the_one_built_now(self):
         p = bm.progress_of(one(state(0, "building", "plan committed, 3 tasks"), state(9, "building", "task 2 of 3")))
         self.assertEqual((p["finished"], p["current"], p["total"], p["subs"][2]), (1, 1, 3, "task 2 of 3"))

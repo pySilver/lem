@@ -25,7 +25,7 @@ the computer, the repository, the task.
 A task opens in a panel beside the view, or as a page of its own on a phone. Its five tabs have
 the keys `1` to `5`, and `Escape` closes the panel:
 
-1. **Overview**: what the task builds, and green or not green with each reason.
+1. **Overview**: what the task builds, the first line of the task until its next step, and green or not green with each reason.
 2. **Criteria and decisions**: your criteria, and each decision with who took it.
 3. **Checks and review**: each test command, and what each reviewer found.
 4. **Timeline**: who held the work, and for how long.
