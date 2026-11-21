@@ -253,6 +253,7 @@ and open to him. Each sentence is the text of a link to its file in `.lem/decisi
 ### What Lem is, and who it is for
 
 - [Lem is a companion, not a gate](.lem/decisions/lem-is-a-companion-not-a-gate.md)
+- [Two rulings that say one rule are merged when one of them next changes, not before](.lem/decisions/two-rulings-that-say-one-rule-are-merged-when-one-of-them-next-changes-not-before.md)
 
 ### What Lem needs on the machine
 
