@@ -98,16 +98,43 @@ The task's own session, in the shape, from its first message.
    each). An ask in reach of a topic never takes the fast track.
    The lead makes its own call on the plan (`stages/plan.md`, step 2), and the agent that reviews
    the diff makes the last.
+   In the same look, read whether the owner's words put the whole task after another task: "after
+   X", "when X lands", "once X is merged", with capital letters and a colon or without, whether or
+   not the task needs anything of X. That is his order, and step 7 queues the task by it. X is a
+   task that `lem project tasks` lists, named by its slug or in his own words ("when the gift note
+   task lands"). Words with "after" that order no tasks are no order: "after a refund the invoice
+   shows 0" is a symptom; and an ask that only names a task ("the card of gift-note-in-export cuts
+   its title") is about that task, not after it. A task that landed or was answered has met his
+   order already: the order adds no wait, and step 7 still reads the need, as for an ask with no
+   order. A task that was dropped never brings its result: step 7 queues the task after it all the
+   same, and it stays `queued` for his word, as that step says. When his words name no task you can tell (a slug with a typo,
+   words that fit no task or more than one), never start the task against the order: the order is
+   a read for the one question below.
    **One question when the read is not clear.** When the words and what you looked at do not
-   settle the track, the type or whether it is careful, ask once, in one line with your guess
-   first, after the state `held` with the line `the request waits for one answer` (`lem project
-   state SLUG held "the request waits for one answer"`), so that the board shows the question as
-   his: "I read this as a fix for the fast track: one rule in `shop/dates.py`. Fast track?
+   settle the track, the type, whether it is careful or the order, ask once, in one line with your
+   guess first, after the state `held` with the line `the request waits for one answer` (`lem
+   project state SLUG held "the request waits for one answer"`), so that the board shows the
+   question as his: "I read this as a fix for the fast track: one rule in `shop/dates.py`. Fast track?
    (y/n)", or "Is the 0 wrong today, a fix, or do you want a new rule for refunds, a feat?" (his
    example of 2026-11-16: "From such input its kinda hard to deduct if we want to investigate the
-   bug or its a feature request."). One question at most; his answer settles it, and you go on. A
-   clear read asks nothing. While he is away, and for a task of the night (`night` in `lem project
-   tasks`), ask nothing: take the standard track, and careful in doubt. The type goes into
+   bug or its a feature request."). A question on the order names its three answers, so that no
+   answer has two readings: "Queue this after gift-note-in-export, after another task (name it), or
+   no order?". When another read is unclear too, the one line holds that guess beside it, and the
+   order keeps its three answers: "Fast track, and queued after gift-note-in-export, after another
+   task (name it), or no order?". His yes queues the task after the task you guessed, and a task he
+   names queues it after that one. His "no order" is his word that no order holds: log it, `lem
+   decisions log SLUG --by owner --what "the order of the ask" --chose "no order" --why "his
+   answer" --words "HIS WORDS"`, and step 7 still reads the need. An answer that still names no
+   task you can tell holds the task for him, as below. One question at most; his answer settles
+   it, and you go on. A clear read asks nothing. While he is away, and for a task of the night
+   (`night` in `lem project tasks`), ask nothing: take the standard track, and careful in doubt.
+   For the order, when exactly one open task fits his words, take that one: step 7 queues the task
+   after it, its queued block and the line of step 8 say which task you took, and you log the read,
+   `lem decisions log SLUG --by lem`. When none fits, or more than one, write the state `held` with
+   the first line `the order waits for the owner: "HIS WORDS"`, the words of his that give the
+   order on one line, and the type line; it puts the task into the list of what waits for him (`lem
+   project waiting`). Say so in one line, and start nothing: the task waits for his answer to the
+   one question (`prompts/session.md`, "What comes next"). The type goes into
    `task.md` with its reason, and as the line `type: TYPE, because WHY` into the task's first state
    block (step 8); `lem project state` refuses that line in any other form, and `lem project
    tasks` gives it as `type`. When he changes the type later, write a state block with the new
@@ -157,7 +184,7 @@ The task's own session, in the shape, from its first message.
    - *the standard track with an interview*, for every other ask: the interview, then the criteria
      he approves, here in this session: at step 8, read `stages/interview.md` and follow it.
    Steps 5 to 7 write what the line of step 8 reads, and step 8 writes the task's first state
-   block, which says that line.
+   block, which says that line; a task that waits by step 7 gets its first block there.
 5. **The fast track's criterion and brief**: on the fast track, steps 1 and 2 of "The fast track"
    below, now, so that the line of step 8 quotes the criterion.
 6. **The brief** of a lead, on the standard track, also one with an interview: write it now, with
@@ -183,28 +210,45 @@ The task's own session, in the shape, from its first message.
    `careful: the owner says so` and log his words, as `stages/correct.md` says. The lead still
    writes the plan: it reads that line as a yes (`stages/plan.md`, step 2), and the plan talk
    needs a plan to talk about.
-7. **Does it wait for another task?** Only when the later ask needs what the earlier one
-   changes: it names the earlier one's result, or it makes no sense before that result exists.
-   Ask it here before the fast track's builder, an investigator or the lead of a complete request.
-   On the standard track with an interview, the interview and his yes come first, while he is
-   there, and `stages/start.md` asks it after them (step 1). The scout and the criteria then read
-   a base without the earlier task's result: a criterion that the result makes false is a change
-   of the criteria, and the pull request is not green for it.
-   Then write the later one's state as `queued` with the line `after: SLUG` of the earlier one,
-   the type line of step 1, and `investigation: bug` or `investigation: question` when its
-   investigation comes first (step 4). It is the task's first block: say its `say` as step 8 says.
-   Write `handoff.md` (`prompts/session.md`, "A change of phase"), and close this
-   session, `lem session close SLUG --why handoff --when-unselected` with `run-in-background`. The
-   board's server opens the task's session when that task is `landed` or `answered`, so it builds
-   on what the earlier one changed. When that task is dropped, the result it waited for never
-   comes: it stays `queued`, no session opens for it, and the owner says whether it starts without
-   that result or is dropped too. On his "start it", write its state `queued` again with no
-   `after:` line (`lem project state SLUG queued "WHY"`) and take `stages/start.md`; on his "drop
-   it", `lem project state SLUG dropped "WHY"`. `lem project may-start SLUG` refuses it with those
-   two lines. Two asks that only name the same thing (the same
-   screen, the same file, the same function) each start on their own. Do not read the code to find
-   an overlap the asks do not show; the landing settles that one, as a conflict at its rebase
-   (`stages/land.md`, step 2).
+7. **Does it wait for another task?** In two cases, and in no other:
+   - *his order*, as step 1 read it, while the task he named has not landed or been answered;
+   - *a need*: the later ask needs what the earlier one changes: it names the earlier one's
+     result, or it makes no sense before that result exists.
+   His order queues the task here, on every track. A need is asked here before the fast track's
+   builder, an investigator or the lead of a complete request. On the standard track with an
+   interview, the interview and his yes come first, while he is there, and `stages/start.md` asks
+   the need after them (step 1). The scout and the criteria then read a base without the earlier
+   task's result: a criterion that the result makes false is a change of the criteria, and the pull
+   request is not green for it.
+   Then write the later one's state as `queued`. Its first line is his order, `the owner's order:
+   "HIS WORDS"`, the words of his that give the order as he typed them, on one line (a line break
+   becomes a space), or for a need what the task needs from the earlier one, in one line. Then the
+   line `after: SLUG` of the earlier one, the type line of step 1, the `careful:` line of step 1
+   when a topic is in reach, and the line of the path that step 8 takes when the wait ends: `then:
+   the interview`, `then: the fast track` or `then: the lead`, or for an investigation that comes
+   first (step 4) its line `investigation: bug` or `investigation: question` in its place. A task
+   you put after the one open task that fits his words, while he was away (step 1), gets the line
+   `the one open task that fits his words`. It is the task's first block: say its `say` as step 8
+   says.
+
+   ```bash
+   lem project state SLUG queued "the owner's order: \"After gift-note-in-export\"" "after: gift-note-in-export" "type: feat, because WHY" "then: the interview"
+   ```
+
+   Write `handoff.md` (`prompts/session.md`, "A change of phase"), and close this session, `lem
+   session close SLUG --why handoff --when-unselected` with `run-in-background`. When that task is
+   `landed` or `answered`, the board's server opens the task's session, or wakes it when it still
+   runs, and the session goes on where it stopped (`prompts/session.md`, "What comes next"), so it
+   builds on what the earlier one changed. When that task is dropped, the result it waited for
+   never comes: it stays `queued`, no session opens for it, and the owner says whether it starts
+   without that result or is dropped too. On his "start it", write its `queued` block again with
+   each of its lines but the `after:` line (for his order, log his words first, as for his "start
+   SLUG now"), and go on where it stopped; on his "drop it", `lem project state SLUG dropped
+   "WHY"`. `lem project may-start SLUG` refuses it with those two lines. Only his word removes his
+   order before that task lands or is answered: his "start SLUG now" (`stages/start.md`, "`/lem
+   build`"). Two asks that only name the same thing (the same screen, the same file, the same
+   function) each start on their own. Do not read the code to find an overlap the asks do not show;
+   the landing settles that one, as a conflict at its rebase (`stages/land.md`, step 2).
 8. **The first state block, and the line.** The task's first state block names its path and
    carries the type line of step 1, and the `careful:` line of step 1 when a topic is in reach.
    The path's first step writes it, before anyone starts:
@@ -220,7 +264,9 @@ The task's own session, in the shape, from its first message.
    - the standard track from a complete request: steps 1 to 3 of `stages/start.md`, the state
      `building` with `lead: builder`. This session is the lead: then follow `brief.md`; nothing is
      handed over, since nothing was said yet that the lead would lose;
-   - a task that waits: the `queued` block of step 7.
+   - a task that waits: the `queued` block of step 7. When its wait ends, its session takes the
+     path of its `then:` or `investigation:` line here (`prompts/session.md`, "What comes next"),
+     and that block, no longer the first, prints no `say`.
 
    That `lem project state` call prints `say`, the task's first line to the owner, which the script
    composes from the task's files: the type, the criterion of `criteria.md` or else the outcome of
@@ -231,12 +277,19 @@ The task's own session, in the shape, from its first message.
    track and a careful topic are in no other line, and it is where he corrects your read. On the
    fast track it reads `docs: "the README says receive, not recieve". Branch
    docs/readme-receive-typo. Fast track: one builder, the checks, one read, then the pull request.
-   Nothing waits for you. Wrong read? /lem standard-track, /lem be-careful.` A call that prints no
-   `say` for a task of the day wrote no first block: look at its lines again. A decision you took
-   for him at step 3 is a second line, in your words. Nothing repeats the first line later: the
-   next thing he hears is a question of the interview, the criteria, or the pull request; the
-   board shows it on the task's Overview until its next block. A task of the night gets no `say`
-   and tells nobody: the night's report names it.
+   Nothing waits for you. Wrong read? /lem standard-track, /lem be-careful.` A task that waits by
+   his order says so on every track, in place of "Nothing waits for you" on the fast track, before
+   the steps of its track, which run when the wait ends: `feat: "the export keeps the notes in
+   their order". Branch feat/export-notes-in-order. It waits for gift-note-in-export, as you said;
+   "start export-notes-in-order now" starts it before that. Then the standard track: an interview
+   here, then acceptance criteria for your yes. After that it runs to the pull request without you.
+   Wrong read? /lem be-careful.` One you put after the one open task that fits his words, while he
+   was away, says which: `It waits for gift-note-in-export, the one open task that fits "when the
+   gift note lands"; ...`. A call that prints no `say` for a task of the day wrote no first block:
+   look at its lines again. A decision you took for him at step 3 is a second line, in your words.
+   Nothing repeats the first line later: the next thing he hears is a question of the interview,
+   the criteria, or the pull request; the board shows it on the task's Overview until its next
+   block. A task of the night gets no `say` and tells nobody: the night's report names it.
 
 ## The fast track
 

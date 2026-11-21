@@ -2325,6 +2325,12 @@ def track_of(text: str) -> str | None:
 # builder runs now" instead, also after the text said it more strongly.
 INVESTIGATION_LINE = re.compile(r"investigation: (bug|question)")
 AFTER_LINE = re.compile(r"after: (?P<slug>[a-z0-9][a-z0-9-]*)")
+# A `queued` block of step 7: the owner's order as its first line, the path its wait ends in, and
+# the line of a task put after the one open task that fits his words while he was away.
+ORDER_LINE = re.compile(r"the owner's order: \"(?P<words>.*)\"")
+THEN_LINE = re.compile(r"then: (?P<path>the interview|the fast track|the lead)")
+THEN_PATHS = {"the interview": "interview", "the fast track": "fast", "the lead": "complete"}
+FITS_LINE = "the one open task that fits his words"
 CAREFUL_LINE = re.compile(r"careful:\s*(?P<why>.+)", re.IGNORECASE)
 BRANCH_NAME = re.compile(r"[\w][\w./+-]*")
 SENTENCE = re.compile(r"(.+?[.!?])(?=\s|$)")
@@ -2413,10 +2419,14 @@ def opening_line_facts(directory: Path, main: Path, status: str, lines: list[str
     said = [line.strip() for line in lines]
     investigation = next((found[1] for found in map(INVESTIGATION_LINE.fullmatch, said) if found), None)
     after = next((found["slug"] for found in map(AFTER_LINE.fullmatch, said) if found), None)
+    order = ORDER_LINE.fullmatch(said[0]) if status == "queued" and after else None
+    then = next((found["path"] for found in map(THEN_LINE.fullmatch, said) if found), None) if status == "queued" else None
     if status == "held" and said[0] == INTERVIEW_WAIT:
         path = "interview"
     elif status in ("building", "queued") and investigation:
         path = "investigation"
+    elif then:
+        path = THEN_PATHS[then]
     elif status in ("building", "queued") and FAST_BUILDER in said or status == "queued" and "prompts/small.md" in brief:
         path = "fast"
     elif status == "building" and any(LEAD_LINE.match(line) for line in said) or status == "queued" and "prompts/lead.md" in brief:
@@ -2437,7 +2447,8 @@ def opening_line_facts(directory: Path, main: Path, status: str, lines: list[str
     return {
         "type": typed["type"], "path": path, "quote": quote and in_his_words(quote),
         "branch": named if BRANCH_NAME.fullmatch(named) else branch,
-        "careful": careful, "after": after,
+        "careful": careful, "after": after, "slug": directory.name,
+        "order": order["words"] if order else None, "fits": FITS_LINE in said,
         "plan": "stop after the plan: yes" in brief_rows, "someone_else": "request by: someone else" in brief_rows,
         "stands_in": ("the ticket" if (directory / "ticket.txt").is_file() else "the backlog item" if item
                       else "the investigation's report" if (directory / "investigation.md").is_file() else "your request"),
@@ -2463,19 +2474,31 @@ def compose_opening_line(facts: dict, task: str | None = None) -> str:
     standard = "Standard track, because you asked for its plan:" if facts.get("plan") else "Standard track:"
     then = "After that a lead writes the plan and stops for you to read it." if facts.get("plan") else "After that it runs to the pull request without you."
     waits = f"It waits for {facts['after']}, and starts when that task lands or is answered." if facts.get("after") else None
+    if facts.get("order") is not None:
+        # his order: the wait comes before the steps of the track, which run when it ends, and his
+        # word that starts the task before that is in it
+        start = f"\"start {task or facts['slug']} now\" starts it before that."
+        which = f"the one open task that fits \"{facts['order'].replace(chr(34), chr(39))}\";" if facts.get("fits") else "as you said;"
+        words.append(f"It waits for {facts['after']}, {which} {start}")
+        waits = None
+        standard = "Then the s" + standard[1:]
     if path == "fast":
-        words += [FAST_STEPS, waits,
-                  "Nothing waits for you but the pull request, which calls you: you did not approve its criterion." if facts.get("someone_else") else "Nothing waits for you.",
+        nothing = "Nothing waits for you." if facts.get("order") is None else None
+        steps = FAST_STEPS if facts.get("order") is None else "Then the f" + FAST_STEPS[1:]
+        words += [steps, waits,
+                  "Nothing waits for you but the pull request, which calls you: you did not approve its criterion." if facts.get("someone_else") else nothing,
                   correction(True, task)]
     elif path == "interview":
-        words += [f"{standard} an interview {here} now, then acceptance criteria for your yes.", then, correction(False, task)]
+        now = " now" if facts.get("order") is None else ""
+        words += [f"{standard} an interview {here}{now}, then acceptance criteria for your yes.", then, correction(False, task)]
     elif path == "complete":
         read = ("a lead writes acceptance criteria, the personas read them, and they wait for your yes." if facts.get("someone_else")
                 else "a lead writes acceptance criteria, and the personas read them.")
         words += [f"{standard.rstrip(':')}, with no interview, since {facts['stands_in']} says what is wanted: {read}", waits, then, correction(False, task)]
     else:
-        words += (["An investigator finds the answer first.", waits, f"{teller} the answer."] if facts.get("question")
-                  else ["An investigator finds the cause first.", waits, f"{teller} what it found: the fast track, the standard track, or no bug."])
+        investigator = "An investigator" if facts.get("order") is None else "Then an investigator"
+        words += ([f"{investigator} finds the answer first.", waits, f"{teller} the answer."] if facts.get("question")
+                  else [f"{investigator} finds the cause first.", waits, f"{teller} what it found: the fast track, the standard track, or no bug."])
     return " ".join(word for word in words if word)
 
 

@@ -22,6 +22,25 @@ finds the base with the other task's change in it. Two tasks that only touch the
 each go on: when the first one merges, the later pull request is brought onto the base if the
 forge calls it conflicting.
 
+An order that the owner gave stays. His order is the first line of a `queued` block of this task,
+`the owner's order: "HIS WORDS"`, or his words in the ask of `task.md` that put the whole task
+after another task ("After gift-note-in-export: ...", "when the gift note task lands"). You never
+remove it, also when the code shows that this task needs nothing of the other one: only his own
+record removes it, a decision `--by owner` on the order in `lem decisions --repo WORKTREE list
+SLUG` (`stages/start.md`, "`/lem build`"), which you read before the ask, so his words in
+`task.md` do not bring back an order he removed. A task that started all the same while the task
+he named has not landed or been answered gets no plan and no code: queue it as above, with his words as the first
+line, the words of his that give the order on one line,
+
+```bash
+lem project --repo WORKTREE state SLUG queued "the owner's order: \"After gift-note-in-export\"" "after: gift-note-in-export"
+```
+
+and name his words in your report. When you see no need for his order, the block gets one more
+line, which the board shows while the task waits: that you see no need for the order, why, and
+that "start SLUG now" starts the task; when the task is queued already, write its block again
+with each of its lines and that one. Your report says the same. A task he named that ended has met his order: go on.
+
 1. **Write the plan** as one file at the path `lem project --repo WORKTREE plan-file SLUG`
    prints (`path`; its name is the settings' `paths.plan_file`, `YYYY-MM-DD-<slug>.md` unless they say otherwise), and
    commit it as your first commit: after a bug, the investigator's test comes before it. It opens with the acceptance criteria, because they are the

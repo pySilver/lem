@@ -188,6 +188,32 @@ class FirstLine(unittest.TestCase):
         self.assertIn("Fast track: one builder", said)
         self.assertIn("It waits for gift-note-in-export, and starts when that task lands or is answered.", said)
 
+    def test_a_task_queued_by_his_order_says_so_and_his_word_that_starts_it(self):
+        self.write("ask.txt", "After one-lem-parallel-landings: unit cases for the functions that are pure today\n")
+        self.write("brief.md", "Read SKILL_DIR/prompts/lead.md and follow it.\nbranch: test/tests-at-the-unit-level\nstop after the plan: no\n")
+        order = "the owner's order: \"After one-lem-parallel-landings\""
+        said = self.say("queued", order, "after: one-lem-parallel-landings", "type: test, because tests only", "then: the interview")
+        self.assertEqual(said, 'test: "after one-lem-parallel-landings: unit cases for the functions that are pure today". '
+                               "Branch test/tests-at-the-unit-level. It waits for one-lem-parallel-landings, as you said; "
+                               '"start task now" starts it before that. Then the standard track: an interview here, then acceptance '
+                               "criteria for your yes. After that it runs to the pull request without you. Wrong read? /lem be-careful.")
+        # the fast track's line puts his word in place of "Nothing waits for you"
+        self.write("brief.md", "Read SKILL_DIR/prompts/small.md and follow it.\nbranch: test/tests-at-the-unit-level\n")
+        fast = self.say("queued", order, "after: one-lem-parallel-landings", "type: test, because tests only", "then: the fast track")
+        self.assertIn("as you said; \"start task now\" starts it before that. Then the fast track: one builder,", fast)
+        self.assertNotIn("Nothing waits for you", fast)
+        # another session names the task in his word too
+        named = project.opening_line_of(self.task, self.main, "queued", [order, "after: one-lem-parallel-landings", "type: test, because x",
+                                        "then: the lead"], "", None, False, task="tests-at-the-unit-level")
+        self.assertIn('"start tests-at-the-unit-level now" starts it before that. Then the standard track, with no interview,', named)
+
+    def test_a_task_put_after_the_one_task_that_fits_says_which(self):
+        self.write("ask.txt", "when the gift note lands, keep the notes in their order\n")
+        said = self.say("queued", "the owner's order: \"when the gift note lands\"", "after: gift-note-in-export",
+                        "the one open task that fits his words", "type: feat, because a new order", "then: the interview")
+        self.assertIn('It waits for gift-note-in-export, the one open task that fits "when the gift note lands"; '
+                      '"start task now" starts it before that.', said)
+
     def test_another_session_names_the_task_and_its_commands(self):
         self.write("ask.txt", "the footer says Terms, not Terms and Conditions\n")
         self.write("criteria.md", "## Acceptance criteria\n\nSize: small, because one word.\n\n1. The footer says Terms.\n")

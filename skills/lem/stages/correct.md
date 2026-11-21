@@ -51,7 +51,11 @@ fast track's. A builder that runs then finishes, and its commits stay on the bra
 wait for its stop (its reply wakes you), since its last state would stand over yours. Then write the state `held` with
 the line `the interview waits for the owner`, the lead's brief of step 6 of "The request"
 (`stages/new.md`) over the fast track's, and take `stages/interview.md` in the task's session.
-When its builder ran, the interview reads the builder's `report.md` as the scout's report. A
+When its builder ran, the interview reads the builder's `report.md` as the scout's report. A task
+that is `queued` stays queued, and takes no `held` block: the correction changes only the path its
+wait ends in. Write the `queued` block again with each of its lines, with `then: the interview` in
+place of `then: the fast track`, and the lead's brief of step 6 of "The request" over the fast
+track's; the interview starts when the wait ends (`prompts/session.md`, "What comes next"). A
 move from the fast track to the standard track is his or its builder's; a change of the type is his
 only. Once its pull request exists (the task is `open` or ended), say in one line that the track no
 longer changes, and that a new request does it.
