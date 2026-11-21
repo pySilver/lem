@@ -104,6 +104,24 @@ if grep -qxF -- "- the polish pass: 6 commits, 1 item filed in the backlog" "$pd
 else
   fail "the polish pass in the pull request: $(cat "$pdir/pr.md" 2>/dev/null)"
 fi
+# The pass runs once for a task: a red base that held the task, and its start again on a base that moved, keep it.
+task_in "$LOCAL" polish-stays ps.txt ps
+stree=$(project --repo "$LOCAL" worktree-dir polish-stays)
+local_land start polish-stays >/dev/null && local_land base polish-stays >/dev/null && polish_in "$LOCAL" polish-stays
+passed_at=$(kept_in "$LOCAL" polish-stays polish)
+project --repo "$LOCAL" state polish-stays blocked "the base is red" >/dev/null
+echo green > "$LOCAL/base-green.txt" && git -C "$LOCAL" add base-green.txt && git -C "$LOCAL" commit -q -m "fix: the base is green" && git -C "$LOCAL" push -q origin main
+project --repo "$LOCAL" state polish-stays ready "the base is green again" >/dev/null
+local_land start polish-stays >/dev/null && local_land base polish-stays >/dev/null
+kept_pass=$(local_land polish polish-stays 2>&1 | field '(d["done"], d["before"])' 2>&1 || true)
+gated_again=$(local_land checks polish-stays 2>&1 | field 'd["polish"]["after"]' 2>&1 || true)
+starts=$(grep -c '"event": "polish.start", "task": "polish-stays"' "$LOCAL/.lem/state/events.jsonl" || true)
+if grep -qF "'done': True" <<<"$passed_at" && [ "$kept_pass" = "(True, '$(git -C "$stree" rev-parse HEAD)')" ] && [ "$gated_again" = "$(git -C "$stree" rev-parse HEAD)" ] && [ "$starts" = 1 ]; then
+  pass "a polish pass that was done stays done when a red base held the task and it starts again on a base that moved: polish says done, the checks find the pass by its new name, and no second pass starts"
+else
+  fail "the polish pass after a red base: $passed_at / $kept_pass / $gated_again / starts $starts"
+fi
+project --repo "$LOCAL" state polish-stays dropped "the test is over" >/dev/null
 
 # No path rule lets a change skip its review: documentation gets one read at the least. A review that no
 # source answered is none; it is started once more, and then the request goes on as not reviewed.

@@ -885,9 +885,14 @@ def start_locked(task: Task, conflicting: bool = False) -> dict:
     if task.record["status"] == "ready" or again:
         # A task that was built further starts over, with new checks and new reads. Its pull request
         # stays its own, and so does what Lem knows of its branch on the forge: the commit it pushed
-        # last, and the one whose commits the branch took in (`own_remote`).
+        # last, and the one whose commits the branch took in (`own_remote`). The polish pass runs once
+        # for a task (`stages/polish.md`): a pass that is done stays while the branch holds its last
+        # commit, as after a stop on a red base, and `base` carries it through the rebase.
         kept = task.kept()
         forge = {key: value for key, value in kept.items() if key in ("pr", "pushed", "taken") and value}
+        polish = kept.get("polish")
+        if polish and polish.get("done") and holds_commit(task, polish.get("after"), git(task.worktree, "rev-parse", "HEAD")):
+            forge["polish"] = polish
         task.kept_file.unlink(missing_ok=True)
         if forge:
             task.keep(**forge)
