@@ -160,13 +160,23 @@ Each entry says:
 - **what it is**: a ruling or a decision; an opening of a group; or a note that belongs to the
   rulings beside it, with the entries it goes with;
 - for a ruling or a decision:
-  - **its state**: in force, changed in part, or replaced whole;
-  - **its day**: the date its paragraph gives, else the date of its group's opening;
+  - **its state**: in force, changed in part, or replaced whole. A paragraph with two bold spans
+    has a state for each span, and the entry's state is the strongest change of the two: when a
+    later ruling changed or replaced one span, the entry is changed in part, and its part names that
+    span by its words;
+  - **its day**: the date its paragraph gives, else the date of its group's opening. Where the
+    opening gives more than one day ("His interview of 2026-11-17 and 2026-11-18"), the day is
+    those days as the opening writes them (`2026-11-17 and 2026-11-18`), never one of them picked;
   - **its sentence**: for one in force, today's bold sentence word for word, with both bold spans
     as one line where a paragraph has two; for one changed in part, the rule as it stands today,
     with today's bold sentence beside it and each later ruling that changed a part: its day, its
     sentence, and the part;
-  - **what replaced it**, for one replaced whole: the one entry whose file takes its text;
+  - **what replaced it**, for one replaced whole: the one entry whose file takes its text, which is
+    the entry in force at the end of the chain. A ruling replaced by one that a third replaced goes
+    to the third, after the second, in the order of their days;
+  - **what it holds that its sentence does not name**, for a ruling whose paragraph rules more than
+    its sentence says (a list of what Lem leaves out, a named tool, command or key, a number): one
+    line of what. "Opinionated and small" holds the out-of-scope list (base lines 83 to 86);
   - **its group**, one of "The groups" of this plan;
   - **its slug**: the words of its sentence in lower case with hyphens, which matches `SLUG` of
     `skills/lem/scripts/project.py` and is the slug of no other entry.
@@ -184,10 +194,12 @@ How it judges:
 - A sentence the builder writes (for a ruling changed in part, or for a paragraph with no bold
   sentence) uses the words of the rulings and adds no rule.
 - It starts from "The groups" of this plan, changes the list where a sentence fits none, and says
-  so in its report.
+  so in its report. A ruling that says what Lem leaves out, or what Lem must not hold, stands in
+  "What Lem is, and who it is for".
 
 Its report gives the count of entries of each kind, each ruling replaced whole with what replaced
-it, and each sentence that is not today's bold sentence.
+it, each sentence that is not today's bold sentence, and each entry that holds what its sentence
+does not name, with what.
 
 Files: `docs/plans/2026-11-21-agents-md-read-on-demand/map.json`.
 
@@ -198,12 +210,15 @@ A script writes every file and both short sections from the map and from `git sh
 has it. The script is a working file of the task directory and is not committed.
 
 - **A file of a ruling**, in `docs/rulings/`, named `<slug>.md`: a front matter block with
-  `ruled:` and `area:`; the sentence as its `#` title; each opening under which the paragraph
-  stood at the base commit, word for word; then the paragraph, word for word, without its list
-  mark and its indent. Where the map says so, two more sections follow. `## Changed in part` has
-  one line for each later ruling: its day, its sentence as a link, and the part it changed. `##
-  Replaced, not in force` holds each ruling this one replaced: its sentence, its day, its openings
-  and its paragraph, word for word.
+  `ruled:` and `area:`; the sentence as its `#` title, which is the rule as it stands; for a ruling
+  changed in part, `## Changed in part` next, before any word of the paragraph, opening with the
+  line "The title is the rule as it stands. Where the paragraph below says otherwise, the line here
+  holds." and then one line for each later ruling: its day, its sentence as a link, and the part it
+  changed; each opening under which the paragraph stood at the base commit, word for word; then the
+  paragraph, word for word, without its list mark and its indent. Last, where the map says so,
+  `## Replaced, not in force` holds each ruling this one replaced: its sentence, its day, its
+  openings and its paragraph, word for word. So a reader of the file, the question gate's judge
+  among them, meets what changed before the words it changed.
 - **A file of a decision or of a design that is open to him**, in `.lem/decisions/`: the same
   form, with `decided:` where a ruling has `ruled:`.
 - **A decision of the session that was replaced whole** keeps a file of its own in
@@ -220,7 +235,7 @@ has it. The script is a working file of the task directory and is not committed.
   folders with each run of spaces as one, prints the count compared, the count found and each
   paragraph it did not find, as JSON, and exits 1 when one is missing.
 - **`tests/unit/test_agents_md.py`**, the checks that hold after this task: each link of the two
-  sections names a file that exists; each file of the two folders is linked by one sentence, or by
+  sections, and each link in a file of the two folders, names a file that exists; each file of the two folders is linked by one sentence, or by
   the file of what replaced it; a sentence is the `#` title of its file; a file's `area:` is the
   heading of its sentence's group; a file of `docs/rulings/` has `ruled:` and one of
   `.lem/decisions/` has `decided:`; `AGENTS.md` has 8,000 words or fewer, and the failure names the
@@ -242,11 +257,17 @@ Files: `AGENTS.md`, `docs/rulings/*.md`, `.lem/decisions/*.md`,
 ### Task 3: the rules, the layout and the texts that point
 
 - **"Rules for a change here"** gets the rule of criterion 7: before a change that reaches what a
-  sentence names, read that sentence's file, in whatever group it stands. It gets the rules of
-  criterion 8: where a new ruling goes, what a ruling that replaces another does, what a ruling
-  that changes a part of another does, that the file and the sentence change in one commit, and
-  where a new decision of the session goes. A decision changes as a ruling does: that closes the
-  gap an expert named, a decision of the session that changes a part of another decision.
+  sentence names, read that sentence's file, in whatever group it stands. Its second sentence says
+  what "reaches" holds beyond a sentence's words: a sentence names its ruling, and the sentences of
+  "What Lem is, and who it is for" name what Lem holds and leaves out, so a change that adds a part
+  to Lem (a skill, a hook, a command, a key of the settings, a tool it needs) reaches each of them.
+  It gets the rules of criterion 8: where a new ruling goes, what a ruling that replaces another
+  does, what a ruling that changes a part of another does, that the file and the sentence change in
+  one commit, and where a new decision of the session goes. A ruling that replaces another takes
+  that ruling's file whole, with its own `## Replaced, not in force` and `## Changed in part`, and
+  each link to the removed file, in `AGENTS.md` and in the two folders, names the new file in the
+  same commit. A decision changes as a ruling does: that closes the gap an expert named, a decision
+  of the session that changes a part of another decision.
 - **The first lines under the two headings**: under "The owner's rulings", that each sentence is a
   rule in force, that its file holds his words, the day and what it replaced, and that a ruling is
   reopened only by asking him; under "Decisions the maintaining session took", first, that none of
@@ -259,12 +280,22 @@ Files: `AGENTS.md`, `docs/rulings/*.md`, `.lem/decisions/*.md`,
   designs `AGENTS.md` lists as open to the owner" are still under the decisions' heading. A case of
   `tests/unit/test_agents_md.py` holds the four names. The page changes only where a cite no
   longer finds its target.
+- **Every other text that cites `AGENTS.md`**, found by a search of the tracked files for
+  `AGENTS.md` and for the first words of each opening the map lists. A cite of a heading or a
+  sentence that the short file keeps stays. A cite of an opening, which the short file does not
+  keep, names `docs/rulings/` in place of `AGENTS.md`, since each file of that group opens with it:
+  today `docs/plans/2026-11-18-core-and-two-modes.md` (lines 3 and 4) and
+  `docs/plans/2026-11-18-core-and-two-modes/mode-and-ladder.md` (line 12) cite "His interview of
+  2026-11-17 and 2026-11-18". Only the words of the cite change. The report lists each cite it
+  found and what it did with it.
 - **`docs/backlog/agents-md-read-on-demand.md`** is removed: the item is built.
 - `.lem/project.toml` is not changed (decision 11 of the task's record).
 - Last, `wc -w AGENTS.md`, the unit level and `python3 tests/pick.py --check`.
 
 Files: `AGENTS.md`, `.lem/profile.md`, `.revmux/profile.md`, `docs/free-hour.md`,
-`tests/unit/test_agents_md.py`, `docs/backlog/agents-md-read-on-demand.md`.
+`docs/plans/2026-11-18-core-and-two-modes.md`,
+`docs/plans/2026-11-18-core-and-two-modes/mode-and-ladder.md`, and any other text the search
+finds, `tests/unit/test_agents_md.py`, `docs/backlog/agents-md-read-on-demand.md`.
 
 ## The groups
 
@@ -316,8 +347,12 @@ Each is the lead's, with what it rests on. The task's record holds them after th
 
 ## Left to the landing
 
-- The lists of `pr-lists.md` go into the pull request whole. The lead puts them in `report.md`
-  under "Decisions", and the landing's notes take them from there.
+- The lists of `pr-lists.md` go into the pull request whole, under the notes' `## Migration`,
+  which a careful request's notes must have (`stages/land.md`, step 6; `land.py`, `cmd_propose`):
+  this change is a migration of the rulings, and that heading says how to revert it. The lead puts
+  them in `report.md` under its own heading, `## For the pull request's Migration`, with the line
+  "copy whole into the notes' `## Migration`", never under "Decisions", whose notes are one line
+  each.
 - The pull request says that the comment of `.lem/project.toml` on the rulings ("Lem's own rulings
   are in AGENTS.md") is half true after this change, and that the task did not edit that file.
 - The pull request is not green: the criteria were approved without the owner, and decisions 7 to
