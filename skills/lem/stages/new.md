@@ -165,7 +165,8 @@ The task's own session, in the shape, from its first message.
      anyone writes a criterion: at step 8, read `stages/investigate.md` and follow it. For a
      fix, its report then takes one of the paths below; a question ends with its answer.
    - *the fast track*: one builder, the checks, one read and the pull request, with no lead, no
-     plan and no wait for him, as "The fast track" below says.
+     plan and no wait for him, as "The fast track" below says: its steps 1 and 2, the criterion and
+     the brief, come before step 7.
    - *the standard track from a complete request*: the whole context and a defined outcome are
      written already: a ticket whose description says what is wanted and how to tell that it is
      done, a backlog item whose options are settled, an investigation's
