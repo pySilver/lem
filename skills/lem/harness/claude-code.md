@@ -132,6 +132,12 @@ names, also from another session.
 
 Several `Agent` calls in one message. The `Workflow` tool only when the owner asked for one.
 
+## A session's own id
+
+`AGTERM_SESSION_ID`, which agterm sets in each session's environment: `printenv
+AGTERM_SESSION_ID` with the Bash tool prints it. It is the id `lem session open` logged, which `lem
+session list` gives as `session`; compare the two with no regard to case.
+
 ## mark-waiting
 
 `agtermctl session status blocked --blink --auto-reset --target "$AGTERM_SESSION_ID"`: the sidebar

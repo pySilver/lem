@@ -8,6 +8,17 @@ nobody knows.
 `phase:`, `opened because:`, `task directory:`, `main checkout:` and `worktree:`. `SKILL_DIR` is
 the directory above this file's.
 
+## First: is this the task's newest session?
+
+Before anything else, run `lem session list`. Its entry for this task gives `session`, the id of
+the task's newest session; compare it with your own id (the harness file's core, "A session's own
+id"). When they differ, a newer session carries the task: this is an old one that a relaunch of
+agterm started again. Say in one line that the task goes on in its newer session, by that entry's
+`name`, and close this one with `run-in-background`: `lem session close SLUG --session YOUR_ID
+--why handoff --when-unselected`. Do nothing else. The same holds for words the owner types here
+after this session handed over: say where the task goes on, and do nothing of the task here. A
+`/lem` line of his is still his ("What you never do").
+
 ## Read, in this order
 
 1. `SKILL_DIR/SKILL.md`, for what holds in every stage, and the file in `SKILL_DIR/harness/`
