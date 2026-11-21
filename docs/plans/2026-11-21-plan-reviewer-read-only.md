@@ -131,7 +131,11 @@ The list, as the reviewer gave it, and how each question ended:
      fetch's write still breaks them; the ruling is about where Codex keeps its settings and
      gives no exception to the write limit, so the choice is the line with the exception said, or
      the approved fallback: the harness file stays and the backlog item says what the talk showed.
-   - the ladder: see below.
+   - the ladder: the gate judged it checkable by the approved criteria: criterion 1, step 4,
+     checks the reviewer's write with `git status`, which a fetch's `FETCH_HEAD` does not change,
+     and criterion 3 takes the fallback only when the talk did not show criteria 1 and 2. So the
+     kept decision stands: task 2 publishes the line with the exception said (`lem decisions
+     list`, decision 3).
 2. **Which directory does Codex start in for the throwaway talk?** Repaired: task 1's pair starts
    in Lem's main checkout, which Codex trusts (`~/.codex/config.toml`, lines 265–266), as a real
    talk's pair does (`plan-talk.md`, step 1, `MAIN`), and the message names the throwaway
