@@ -51,7 +51,8 @@ message, and `prompts/session.md` reads the state before anything else, so it go
 `lem session close SLUG [--session ID] --why ...` logs the close and then runs `agtermctl session
 close --target ID --undoable`. It refuses a session the owner has selected; with
 `--when-unselected` it looks every 5 seconds (a guess) and closes it once he left it, so it runs in
-the background. `lem session list` gives each task's newest session: whether it lives, runs an
+the background; a wake of that session meanwhile ends the wait with no close (`closed: false`,
+`woken: true`). `lem session list` gives each task's newest session: whether it lives, runs an
 agent and is selected, the phase its task is in now (`phase`) and the one it opened in
 (`opened_in`), and `unanswered`, a wake-up still in its mailbox after 10 minutes.
 

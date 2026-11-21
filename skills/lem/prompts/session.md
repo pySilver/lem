@@ -48,15 +48,35 @@ or `queue` (the board's server opened it for that), `night`, or `owner` (his wor
   `held` with `the interview waits for the owner`, or with `the criteria wait for the owner`:
   `SKILL_DIR/stages/interview.md`, from where its files stand. `held` with `the investigation
   waits for one more fact`: his answer, then a fresh investigator (`SKILL_DIR/stages/investigate.md`,
-  step 4, *not reproduced*).
+  step 4, *not reproduced*). `held` with `the order waits for the owner`: while he is there, step 1
+  of "The request" for its one question on the order, and on from there; while he is away it waits
+  for him, also when the watch of his mark ends on his away (`SKILL_DIR/stages/away.md`), and his
+  back asks it.
+- **A queued task**: `queued`, whatever else its files hold. While the task of its `after:` line
+  has not landed or been answered, it still waits: write `handoff.md` and close this session as step
+  7 of "The request" says. When that task was dropped, it stays `queued` for his word, "start it" or
+  "drop it", as step 7 says. When that task landed or was answered, or its block has no `after:`
+  line (his word removed his order, `SKILL_DIR/stages/start.md`, "`/lem build`", or his "start it"
+  after a drop), it goes on where it stopped. A task its lead queued (a block of its state has a
+  `lead:` line) takes `SKILL_DIR/stages/start.md`. A task no lead started is in the shape, and takes
+  step 8 of "The request" by the `then:` or `investigation:` line of its block. Before step 8:
+  1. Read the need of step 7 again, and the need only, since the order ended with its task or with
+     his word: an ask that needs the result of another open task is queued again behind that one,
+     where step 7 says: before a scout or an investigator reads the code, and on the standard track
+     with an interview after his yes (`SKILL_DIR/stages/start.md`, step 1).
+  2. On `then: the interview`, write the interview's block of step 8, `held` with `the interview
+     waits for the owner` and the type line, so that the interview finds the block it expects, and
+     the board and "Waits for you" show it.
+  3. On `then: the fast track`, whose criterion and brief were written before step 7 ("The fast
+     track", steps 1 and 2), take `SKILL_DIR/stages/start.md`, which starts its one builder, and
+     never the fast track's step 1 or step 7 again.
 - **The fast track**: a block with `small change: one builder`, or `criteria.md` that says `Size:
   small` with no lead: "The fast track" of `SKILL_DIR/stages/new.md`. It stays one session up to
   the merge: its builder is a subagent, and the landing runs here.
 - **The build**: `building`, `planned` or `blocked`, or `held` by a breaker: read `brief.md` in the
   task directory and follow it; it names `prompts/lead.md`, and you are the task's lead. A block
   with an `investigation:` line is an investigation: `SKILL_DIR/stages/investigate.md`, from its
-  step 3 when its report is there. `queued`, opened because its `after:` task landed or was answered:
-  `SKILL_DIR/stages/start.md`. `blocked` with `the base is red`: step 4 of
+  step 3 when its report is there. `blocked` with `the base is red`: step 4 of
   `SKILL_DIR/stages/land.md`, its wait for that task.
 - **The landing**: `ready`, `landing`, `open`, or a task that ended and whose worktree is still
   there: `SKILL_DIR/stages/land.md`, for this task only.
@@ -122,11 +142,12 @@ takes step 9 of `SKILL_DIR/stages/land.md`; a pull request that `conflict` marks
 merge that `refused` marks (`merge_refused` in `lem project waiting`) takes the refusals of its step
 8: the merge agent's merge that GitHub or Lem's rules refused, or the owner's that Lem refused because
 the base moved (`kind: base`), after which the task lands again and the server merges it while his
-merge stands; a `queued` task whose `after:` task landed or was answered takes
-`SKILL_DIR/stages/start.md`. `owner` follows his act on
-the board, while this session may wait for him: an approval of the criteria that counts (step 6 of
-`SKILL_DIR/stages/interview.md` says which) goes on as its step 7 ends, to the start of the build; a
-task he parked ends this session ("The end"). A line that the files do not bear out changes nothing.
+merge stands; a `queued` task whose wait ended goes on where it stopped, as "A queued task" above
+says. `owner` follows his word: his act on the board, while this session may wait for him, or his
+"start SLUG now" (`SKILL_DIR/stages/start.md`, "`/lem build`"). An approval of the criteria that
+counts (step 6 of `SKILL_DIR/stages/interview.md` says which) goes on as its step 7 ends, to the
+start of the build; a task he parked ends this session ("The end"). A line that the files do not
+bear out changes nothing.
 
 ## The end
 

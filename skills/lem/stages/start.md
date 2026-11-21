@@ -1,18 +1,21 @@
 # The start of the build
 
 Every start of a task's build goes this way: the owner's yes to the criteria, a complete request,
-the fast track's builder, a queued task whose turn came (the board's server opens its session),
-`/lem build`, and a task he resumed. The investigator of a bug or a question takes steps 1 and 2.
+the fast track's builder, a queued task whose turn came (the board's server opens or wakes its
+session), `/lem build`, and a task he resumed. The investigator of a bug or a question takes steps 1 and 2.
 
 1. **May it start?** After an interview and his yes, ask step 7 of "The request" (`stages/new.md`)
    first: a task that needs another task's result is `queued` behind it as that step says, and
    this session hands over and closes there. Then `lem project may-start SLUG`. No count of tasks
    stops a start. On exit 1 for a task queued `after:` a task that has not ended, it stays
    `queued`: write `handoff.md` and close this session as step 7 of "The request" says; the board's
-   server opens it again when that task is `landed` or `answered`. Behind a task that was dropped,
-   the refusal names the owner's two words, "start it" and "drop it": say them to him in one line,
-   and do what he picks, as step 7 of "The request" says. A task in `landing`, `open`, `parked`, `landed`, `answered` or
-   `dropped` gets no lead at all, and the step says so: it is no task to queue.
+   server opens it again when that task is `landed` or `answered`, or wakes it when it still runs.
+   A task queued by the owner's order (the first line of its block, `the owner's order`) stays so
+   until that task is landed or answered, or his word removes the order ("`/lem build`"). Behind a
+   task that was dropped, the refusal names the owner's two words, "start it" and "drop it": say
+   them to him in one line, and do what he picks, as step 7 of "The request" says. A task in
+   `landing`, `open`, `parked`, `landed`, `answered` or `dropped` gets no lead at all, and the step
+   says so: it is no task to queue.
 2. **The worktree.** When the task has one, use it. When it has none, make it at the path in the
    brief: from the task's branch when that branch exists (a task whose worktree was removed), otherwise from the settings' base branch. Use the project's own worktree script
    when `AGENTS.md` names one, since it sets up what a plain worktree lacks (a test database, an
@@ -54,3 +57,16 @@ it prints `already: true`, the task's session still waits for his word: say its 
 With no name, list the tasks in that state (`lem project tasks`), each with its ask and its plan's
 path, and ask which one: a fixed choice, so it stays in the terminal. One such task needs no
 question.
+
+His "start SLUG now", or `/lem build SLUG`, for a task `queued` by his order (the first line of its
+block, `the owner's order`), in any session, removes the order. Log his words first, `lem decisions
+log SLUG --by owner --what "the owner's order" --chose "start now" --why "his word" --words "HIS
+WORDS"`; then write the `queued` block again with each of its lines but the `after:` line, and the
+line `the owner's order was removed: "HIS WORDS"`. Then `lem session wake SLUG --why owner`: it
+wakes the task's session when one runs, also when you are that session, and opens one when none
+does. A close of step 7 of "The request" that still waits for him to leave the session then ends
+with no close (`lem session close` gives up on a session woken after it started), so that the
+session is not closed under its work. Typed in the task's own session, go on at once as
+`prompts/session.md` says for a queued task whose wait ended; the wake's line that comes back
+changes nothing. Typed elsewhere, `lem session open SLUG --why owner --focus` takes him there, and
+you say its `say`.

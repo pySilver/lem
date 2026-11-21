@@ -74,9 +74,10 @@ writes down how the talk went, and stops; the lead closes the pair and builds th
 **The board's server**, `lem serve`, holds what reaches across tasks, with no context of its own:
 it notices a merge or a close on GitHub and runs `lem land merged`, wakes the task's session for its
 cleanup, for a pull request that became conflicting, and after the owner's approval or park on the
-board, opens the session of a queued task when the task it waited for landed or was answered, opens the session of a
-task he starts on the board ("+" or a backlog item), and shows a task whose session is gone as "no
-session" for the owner. It never types into a session, decides, or closes one.
+board, opens the session of a queued task when the task it waited for landed or was answered (or
+wakes it, when it still runs), opens the session of a task he starts on the board ("+" or a backlog
+item), and shows a task whose session is gone as "no session" for the owner. It never types into a
+session, decides, or closes one.
 
 Every task on the standard track starts with an interview or a complete request, and then a lead,
 also one the owner calls careful in the ask: there is no talk before there is a plan. The plan says
@@ -123,7 +124,7 @@ runs, and follow it. Do not read the others. In a task's session, `be-careful`, 
 | --- | --- | --- |
 | `new <what>` | opens the task (its directory, the ask in the owner's words, the talk that led to it) in a session of its own, which says its type and its track in one line and runs it; the session he typed it in says that line too, when it comes. The fast track: one builder and the landing, and nothing waits. The standard track: the interview there, where a scout reads the code, the personas read the criteria and he gives his yes, then a fresh lead; a ticket or an item whose whole context is written skips the interview. A bug whose cause the ask does not show is investigated first, and a question ends with its answer. `<what>` may be a tracker's ticket, by its id or its URL | `stages/new.md` |
 | `plan <what>` | as `new`, and the lead stops at the committed plan for the owner to read. A plan is the standard track's, so the ask takes the standard track, and the task's first line says so | `stages/new.md` |
-| `build [<task> or <plan file>]` | the build of a task whose plan the owner read. With no name it lists those tasks and asks which | `stages/start.md`, "`/lem build`" |
+| `build [<task> or <plan file>]` | the build of a task whose plan the owner read. With no name it lists those tasks and asks which. His "start SLUG now" for a task queued by his order removes the order, and the task starts | `stages/start.md`, "`/lem build`" |
 | `im-away`, `im-back` | the owner says that he is away, and an interview and criteria that wait for his yes go on without him, or that he is back; a build and a merge are the same either way. His word holds in every repository on this machine | `stages/away.md` |
 | `be-careful`, `standard-track`, `drop` `[<task>]` | the owner corrects a task: careful until its merge, the standard track until its pull request exists, or not wanted | `stages/correct.md` |
 | `park`, `resume` `[<task>]` | the owner puts a task aside, a breaker's answer with his help and `drop`, or goes back to it: a parked task goes on in its own worktree, and a dropped one in a new task from its handoff and its branch | `stages/park.md` |
@@ -319,7 +320,7 @@ command when it is one. The status says who acts next, and the phase of the task
 
 | Status | Means | Who acts |
 | --- | --- | --- |
-| `queued` | the ask is written and nothing builds it: it needs the result of the task its `after:` line names | the board's server opens its session when that task is `landed` or `answered`; the owner says "start it" or "drop it" when it was dropped |
+| `queued` | the ask is written and nothing builds it: it needs the result of the task its `after:` line names, or the owner's words put it after that task | the board's server opens its session when that task is `landed` or `answered`, or wakes it when it still runs; the owner says "start it" or "drop it" when it was dropped |
 | `building` | a lead plans or builds, or an investigator examines a bug or a question | the task's session |
 | `planned` | the plan is committed and nothing builds it: the plan talk runs, or the owner reads the plan | the defender, or the owner |
 | `held` | it waits for the owner: the interview, the criteria that wait for his yes, one more fact an investigation needs, a step that is his to do, or a breaker's document (`breaker N waits for the owner`); no choice of a build waits for him | the owner, in the task's session |

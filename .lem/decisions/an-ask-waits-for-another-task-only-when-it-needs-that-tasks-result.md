@@ -3,7 +3,15 @@ decided: 2026-11-17
 area: A request: its type, its track and its commands
 ---
 
-# An ask waits for another task only when it needs that task's result
+# An ask waits for another task when it needs that task's result, not when it names the same code
+
+## Changed in part
+
+The title is the rule as it stands. Where the paragraph below says otherwise, the line here holds.
+
+- 2026-11-21, [A task order in his words stays](../../docs/rulings/a-task-order-in-his-words-stays.md): "only": an ask also waits when the owner's words put it after another task
+
+## As decided on 2026-11-17, changed in part since
 
 On 2026-11-16 the owner gave the design to the session that builds Lem: "You are the owner and
 long-term maintainer of this codebase, and its design is up to you. Pick recommended action if

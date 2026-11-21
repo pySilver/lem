@@ -118,6 +118,7 @@ ruling is reopened only by asking him.
 - [A helper starts from plain words](docs/rulings/a-helper-starts-from-plain-words.md)
 - [The commands of his status and of a task are `/lem im-away`, `/lem im-back`, `/lem be-careful [task]`, `/lem standard-track [task]` and `/lem drop [task]`.](docs/rulings/the-commands-of-his-status-and-of-a-task-are-lem-im-away-lem-im-back-lem-be-careful-task-lem-standard-track-task-and-lem-drop-task.md)
 - [The investigation of a bug keeps its method](docs/rulings/the-investigation-of-a-bug-keeps-its-method.md)
+- [A task order in his words stays](docs/rulings/a-task-order-in-his-words-stays.md)
 
 ### The interview, the criteria and the personas
 
@@ -263,7 +264,7 @@ and open to him. Each sentence is the text of a link to its file in `.lem/decisi
 - [Whether a change is careful is inferred from what the owner said must not go wrong, never matched from a list of paths](.lem/decisions/whether-a-change-is-careful-is-inferred-from-what-the-owner-said-must-not-go-wrong-never-matched-from-a-list-of-paths.md)
 - [The size of a change decides its path](.lem/decisions/the-size-of-a-change-decides-its-path.md)
 - [Every edit of the settings file is careful](.lem/decisions/every-edit-of-the-settings-file-is-careful.md)
-- [An ask waits for another task only when it needs that task's result](.lem/decisions/an-ask-waits-for-another-task-only-when-it-needs-that-tasks-result.md)
+- [An ask waits for another task when it needs that task's result, not when it names the same code](.lem/decisions/an-ask-waits-for-another-task-only-when-it-needs-that-tasks-result.md)
 
 ### The interview, the criteria and the personas
 

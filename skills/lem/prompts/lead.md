@@ -22,8 +22,9 @@ directory and whether you stop after the plan. `SKILL_DIR` is the directory abov
    list SLUG` and the branch's log, and go on from there. Do not start over, and do not ask again
    what that record already answers.
 3. **Follow `SKILL_DIR/stages/plan.md`, then `SKILL_DIR/stages/build.md`.** Read each when you
-   reach it. When the task needs the result of another task that is not landed, `plan.md` says
-   how you queue it behind that task (`queued` with `after: SLUG`) instead of writing a plan. You
+   reach it. When the task needs the result of another task that has not landed or been
+   answered, or the owner's words put it after such a task, `plan.md` says how you queue it behind that task (`queued` with
+   `after: SLUG`) instead of writing a plan; his order stays also when you see no need for it. You
    write the plan and no code: each task of the plan goes to a fresh builder, a subagent of this
    session, also the one task of a plan that has one. A plan's criteria are always `Size: full`:
    one plain change takes the fast track, which has no lead and no plan, and `criteria.py` and

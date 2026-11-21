@@ -147,7 +147,8 @@ workspace, one call at a time with the server's other calls into Lem's scripts (
 - the duties (`duties`, `run_duties`), each a command of `lem session` (SESSION_SCRIPT): after a merge,
   `wake SLUG --why merged`, so that the task's session removes its worktree and its branch; for a pull
   request the forge calls conflicting, `wake SLUG --why conflict`, once for each head; and for a task
-  queued `after:` one that ended, `open SLUG --why queue`. `wake` opens a session when none lives. A
+  queued `after:` one that ended, `open SLUG --why queue`, or `wake SLUG --why queue` once when its
+  session still lives. `wake` opens a session when none lives. A
   duty whose command failed waits DUTY_RETRY;
 - the merge agent's merge (`merge_due`): for an open task whose merge agent's review of the tip Lem
   proposed last says `merge` and calls nobody, with no refused merge of that tip and none running, the
@@ -1926,6 +1927,18 @@ def run_start(t: "bm.Task") -> int:
     return t.blocks[i]["order"]
 
 
+def wait_start(t: "bm.Task") -> int:
+    """The place in a queued task's events of the first block of its wait now: the run of `queued` blocks
+    with the `after:` line of the newest one. A queued block behind another task starts a new wait, so a
+    session opened or woken for the wait before it does not count for this one."""
+    def after(block: dict) -> list[str]:
+        return [line for line in bm.lines_of(block) if line.startswith("after: ")]
+    i = len(t.blocks) - 1
+    while i > 0 and t.blocks[i - 1]["status"] == "queued" and after(t.blocks[i - 1]) == after(t.blocks[i]):
+        i -= 1
+    return t.blocks[i]["order"]
+
+
 def duties(model: "bm.Model", seen: dict, kept: set, merging: set = frozenset()) -> list[tuple[str, str, str]]:
     """What the server owes the tasks of a workspace now, each `(VERB, SLUG, WHY)` for `lem session VERB
     SLUG --why WHY`, or `("merge", SLUG, "merger")` for the merge agent's merge, read from the files and
@@ -1938,7 +1951,11 @@ def duties(model: "bm.Model", seen: dict, kept: set, merging: set = frozenset())
       proposed last, and no session was woken or opened for a conflict since that proposal: one wake for
       each head.
     - `open … queue`: a queued task whose `after:` task ended, that has no live session (`Model.sessions`,
-      so never while the server does not know) and no session opened since it was queued.
+      so never while the server does not know) and no session opened since its wait began (`wait_start`:
+      a task queued again behind another task waits anew).
+    - `wake … queue`: the same task whose session still lives (the one its ask was typed in, which the
+      owner may keep selected, so that its close never comes), when no session was woken or opened
+      since its wait began: one wake.
     - `merge … owner`: an open task for whose tip Lem proposed last the owner's merge stands, after a
       moved base refused it and the session landed the task again with the same change and the same
       reasons (`merge.stands`, `stands_due`): `lem land merge SLUG --by owner --via server --standing`.
@@ -1973,8 +1990,15 @@ def duties(model: "bm.Model", seen: dict, kept: set, merging: set = frozenset())
                     out.append(("wake", t.slug, "refused"))
         elif t.status == "queued" and bm.after_ended(t, model) and model.sessions is not None:
             live = bm.live_of(t, model) or {}
-            if not live.get("live") and not (t.opened and t.opened["order"] > run_start(t)):
+            since = wait_start(t)
+            if t.opened and t.opened["order"] > since:
+                continue
+            if not live.get("live"):
                 out.append(("open", t.slug, "queue"))
+            elif not any(w["order"] > since for w in t.wakes):
+                # the session the ask was typed in lives on: the owner may keep it selected, so its close
+                # never comes and nothing else would start the task
+                out.append(("wake", t.slug, "queue"))
     return out
 
 

@@ -141,7 +141,6 @@ class Phase(unittest.TestCase):
             (("held", "the criteria wait for the owner's yes", "standard", True), "shape"),
             (("held", "the criteria wait for the owner: the small change is a full change", "standard", True), "shape"),
             (("held", "breaker 2 waits for the owner", "standard", True), "build"),
-            (("queued", "needs the export's column", None, False), "build"),
             (("building", "lead: builder", "standard", True), "build"),
             (("planned", "the plan is committed", "standard", True), "build"),
             (("blocked", "the base is red", "standard", True), "build"),
@@ -155,13 +154,28 @@ class Phase(unittest.TestCase):
         ]
         for facts, phase in cases:
             with self.subTest(facts=facts):
-                self.assertEqual(session.phase_of(SLUG, *facts), phase)
+                self.assertEqual(session.phase_of(SLUG, *facts, ""), phase)
+
+    def test_a_task_queued_in_the_shape_goes_on_in_the_shape(self):
+        # queued at step 7 of "The request": no lead ran, so its session takes step 8 there
+        state = ('2026-11-21T10:01Z queued: the owner\'s order: "After coupon: unit cases"\nafter: coupon\nthen: the interview\n\n'
+                 "2026-11-21T10:00Z held: the interview waits for the owner\ntype: test, because w")
+        self.assertEqual(session.phase_of(SLUG, "queued", "the owner's order: \"After coupon: unit cases\"", "standard", False, state), "shape")
+        need = "2026-11-21T10:00Z queued: needs the export's column\nafter: coupon\ninvestigation: bug"
+        self.assertEqual(session.phase_of(SLUG, "queued", "needs the export's column", None, False, need), "shape")
+
+    def test_a_task_its_lead_queued_goes_on_in_the_build(self):
+        # a `lead:` line in any block, the first line's text or a line under it
+        for older in ("2026-11-21T10:00Z building: lead: builder", "2026-11-21T10:00Z building: the plan starts\nlead: builder"):
+            with self.subTest(older=older):
+                state = f"2026-11-21T10:30Z queued: needs the export's column\nafter: coupon\n\n{older}"
+                self.assertEqual(session.phase_of(SLUG, "queued", "needs the export's column", "standard", True, state), "build")
 
     def test_a_task_that_gets_no_session(self):
         for facts, says in ((("parked", "put aside", "standard", True), "is parked"), (("landed", "merged", "standard", False), "landed and cleaned"),
                             (("dropped", "nobody builds it", "standard", True), "is dropped"), (("answered", "the answer", None, False), "is answered")):
             with self.subTest(facts=facts), self.assertRaises(session.SessionError) as raised:
-                session.phase_of(SLUG, *facts)
+                session.phase_of(SLUG, *facts, "")
             self.assertIn(says, str(raised.exception))
 
     def test_a_queued_task_waits_for_its_after_task_until_that_one_ended(self):
@@ -175,13 +189,17 @@ class Phase(unittest.TestCase):
             return {"status": status, "text": text}
         # a session that opened for the shape and led the task through the build hands off from the build
         led = [block("building", "lead: builder"), block("building", "task 2 of 2"), block("ready", "the report is written")]
-        self.assertEqual(session.phase_left(SLUG, led, "standard", "land", "shape"), "build")
+        self.assertEqual(session.phase_left(SLUG, led, "standard", "land", "shape", ""), "build")
         # a session that wrote the build's first block hands off from the phase it opened in
-        self.assertEqual(session.phase_left(SLUG, [block("building", "lead: builder")], "standard", "build", "shape"), "shape")
+        self.assertEqual(session.phase_left(SLUG, [block("building", "lead: builder")], "standard", "build", "shape", ""), "shape")
         # a session that wrote nothing since it opened: its own phase, so `next` refuses while the state gives it
-        self.assertEqual(session.phase_left(SLUG, [], "standard", "build", "build"), "build")
+        self.assertEqual(session.phase_left(SLUG, [], "standard", "build", "build", ""), "build")
         # a park in between gives no phase
-        self.assertEqual(session.phase_left(SLUG, [block("building", "x"), block("parked", "aside"), block("ready", "y")], "standard", "land", "build"), "build")
+        self.assertEqual(session.phase_left(SLUG, [block("building", "x"), block("parked", "aside"), block("ready", "y")], "standard", "land", "build", ""), "build")
+        # a queued block is the shape's when no lead ran for the task, and the build's when one did
+        queued = [block("queued", "needs the column")]
+        self.assertEqual(session.phase_left(SLUG, queued, "standard", "land", "build", ""), "shape")
+        self.assertEqual(session.phase_left(SLUG, queued, "standard", "land", "shape", "2026-11-21T10:00Z building: lead: builder"), "build")
 
 class FirstLine(unittest.TestCase):
     """`wait --first-line`: the task's first line for the session where the owner typed the request,

@@ -386,4 +386,5 @@ polish pass is the one job whose start `lem land polish` logs itself, as `checks
 start of the checks and of a review that is due.
 
 A task queued `after:` this one starts by itself when this one is `landed` or `answered`: the
-board's server opens its session. When this one is dropped, it waits for the owner's word.
+board's server opens its session, or wakes it when it still runs. When this one is dropped, it
+waits for the owner's word.

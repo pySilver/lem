@@ -73,9 +73,11 @@ a team that adopts Lem may have its own.
                                     dropped task resumes only with a breaker that waits
     lem project may-start SLUG      exit 1 for a task in `landing`, `open`, `parked` or an ended state, which
                                     gets no lead, and for a task `queued` with an `after: OTHER`
-                                    line while OTHER has not landed or been answered (a dropped OTHER
-                                    leaves it queued for the owner's word). No count of tasks stops a start:
-                                    each start by day is the owner's own request
+                                    line while OTHER has not landed or been answered, whether it needs
+                                    OTHER's result or the owner's words put it after OTHER; the refusal
+                                    names the way out of each (a dropped OTHER leaves it queued for the
+                                    owner's word). No count of tasks stops a start: each start by day
+                                    is the owner's own request
     lem project state-dir           the folder that holds every task, the event log and the night reports
     lem project serial -- COMMAND ...
                                     run one test command that two tasks cannot run at the same
@@ -396,7 +398,8 @@ PLAN_TOKENS = lem_plans.TOKENS
 # a task's slug: plain words joined by hyphens, e.g. report-dates-stay-whole
 SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 # What a task's newest state block may say, and who acts next:
-#   queued    the ask is written and no lead runs yet: its `after:` line names the task it needs
+#   queued    the ask is written and no lead runs yet: its `after:` line names the task it waits for,
+#             whose result it needs, or after which the owner's words put it (`the owner's order: "..."`)
 #   building  a lead plans or builds
 #   planned   the plan is committed and nothing builds it: it needs its talk, or a builder after the talk, or the owner reads it
 #   held      it waits for the owner: the criteria, one more fact, a step of his, or a breaker's document
@@ -2322,6 +2325,12 @@ def track_of(text: str) -> str | None:
 # builder runs now" instead, also after the text said it more strongly.
 INVESTIGATION_LINE = re.compile(r"investigation: (bug|question)")
 AFTER_LINE = re.compile(r"after: (?P<slug>[a-z0-9][a-z0-9-]*)")
+# A `queued` block of step 7: the owner's order as its first line, the path its wait ends in, and
+# the line of a task put after the one open task that fits his words while he was away.
+ORDER_LINE = re.compile(r"the owner's order: \"(?P<words>.*)\"")
+THEN_LINE = re.compile(r"then: (?P<path>the interview|the fast track|the lead)")
+THEN_PATHS = {"the interview": "interview", "the fast track": "fast", "the lead": "complete"}
+FITS_LINE = "the one open task that fits his words"
 CAREFUL_LINE = re.compile(r"careful:\s*(?P<why>.+)", re.IGNORECASE)
 BRANCH_NAME = re.compile(r"[\w][\w./+-]*")
 SENTENCE = re.compile(r"(.+?[.!?])(?=\s|$)")
@@ -2410,10 +2419,14 @@ def opening_line_facts(directory: Path, main: Path, status: str, lines: list[str
     said = [line.strip() for line in lines]
     investigation = next((found[1] for found in map(INVESTIGATION_LINE.fullmatch, said) if found), None)
     after = next((found["slug"] for found in map(AFTER_LINE.fullmatch, said) if found), None)
+    order = ORDER_LINE.fullmatch(said[0]) if status == "queued" and after else None
+    then = next((found["path"] for found in map(THEN_LINE.fullmatch, said) if found), None) if status == "queued" else None
     if status == "held" and said[0] == INTERVIEW_WAIT:
         path = "interview"
     elif status in ("building", "queued") and investigation:
         path = "investigation"
+    elif then:
+        path = THEN_PATHS[then]
     elif status in ("building", "queued") and FAST_BUILDER in said or status == "queued" and "prompts/small.md" in brief:
         path = "fast"
     elif status == "building" and any(LEAD_LINE.match(line) for line in said) or status == "queued" and "prompts/lead.md" in brief:
@@ -2434,7 +2447,8 @@ def opening_line_facts(directory: Path, main: Path, status: str, lines: list[str
     return {
         "type": typed["type"], "path": path, "quote": quote and in_his_words(quote),
         "branch": named if BRANCH_NAME.fullmatch(named) else branch,
-        "careful": careful, "after": after,
+        "careful": careful, "after": after, "slug": directory.name,
+        "order": order["words"] if order else None, "fits": FITS_LINE in said,
         "plan": "stop after the plan: yes" in brief_rows, "someone_else": "request by: someone else" in brief_rows,
         "stands_in": ("the ticket" if (directory / "ticket.txt").is_file() else "the backlog item" if item
                       else "the investigation's report" if (directory / "investigation.md").is_file() else "your request"),
@@ -2460,19 +2474,31 @@ def compose_opening_line(facts: dict, task: str | None = None) -> str:
     standard = "Standard track, because you asked for its plan:" if facts.get("plan") else "Standard track:"
     then = "After that a lead writes the plan and stops for you to read it." if facts.get("plan") else "After that it runs to the pull request without you."
     waits = f"It waits for {facts['after']}, and starts when that task lands or is answered." if facts.get("after") else None
+    if facts.get("order") is not None:
+        # his order: the wait comes before the steps of the track, which run when it ends, and his
+        # word that starts the task before that is in it
+        start = f"\"start {task or facts['slug']} now\" starts it before that."
+        which = f"the one open task that fits \"{facts['order'].replace(chr(34), chr(39))}\";" if facts.get("fits") else "as you said;"
+        words.append(f"It waits for {facts['after']}, {which} {start}")
+        waits = None
+        standard = "Then the s" + standard[1:]
     if path == "fast":
-        words += [FAST_STEPS, waits,
-                  "Nothing waits for you but the pull request, which calls you: you did not approve its criterion." if facts.get("someone_else") else "Nothing waits for you.",
+        nothing = "Nothing waits for you." if facts.get("order") is None else None
+        steps = FAST_STEPS if facts.get("order") is None else "Then the f" + FAST_STEPS[1:]
+        words += [steps, waits,
+                  "Nothing waits for you but the pull request, which calls you: you did not approve its criterion." if facts.get("someone_else") else nothing,
                   correction(True, task)]
     elif path == "interview":
-        words += [f"{standard} an interview {here} now, then acceptance criteria for your yes.", then, correction(False, task)]
+        now = " now" if facts.get("order") is None else ""
+        words += [f"{standard} an interview {here}{now}, then acceptance criteria for your yes.", then, correction(False, task)]
     elif path == "complete":
         read = ("a lead writes acceptance criteria, the personas read them, and they wait for your yes." if facts.get("someone_else")
                 else "a lead writes acceptance criteria, and the personas read them.")
         words += [f"{standard.rstrip(':')}, with no interview, since {facts['stands_in']} says what is wanted: {read}", waits, then, correction(False, task)]
     else:
-        words += (["An investigator finds the answer first.", waits, f"{teller} the answer."] if facts.get("question")
-                  else ["An investigator finds the cause first.", waits, f"{teller} what it found: the fast track, the standard track, or no bug."])
+        investigator = "An investigator" if facts.get("order") is None else "Then an investigator"
+        words += ([f"{investigator} finds the answer first.", waits, f"{teller} the answer."] if facts.get("question")
+                  else [f"{investigator} finds the cause first.", waits, f"{teller} what it found: the fast track, the standard track, or no bug."])
     return " ".join(word for word in words if word)
 
 
@@ -2568,6 +2594,19 @@ def read_tasks(root: Path, settings: dict | None = None) -> list[dict]:
     return tasks
 
 
+def queued_refusal(slug: str, after: str, other: str | None) -> str:
+    """The refusal of `may-start` for a task queued after AFTER, whose status OTHER is not ended (None for
+    no task of that name; a dropped AFTER has a refusal of its own), with both ways out: a need that went
+    is written away by the agent, and the owner's order only by his word, which is logged first."""
+    return (
+        f"the task {slug!r} is queued after {after!r}, which is {other or 'no task'}: it starts when {after} is landed or answered. "
+        f"When it waits because it needs the result of {after} and no longer does, write its state `queued` again without the `after:` line. "
+        f"When the block's first line says `the owner's order`, only the owner's word removes the order: log his words first "
+        f"(`lem decisions log {slug} --by owner --words \"HIS WORDS\" ...`), then write its state `queued` again without the `after:` line "
+        f"and with the line `the owner's order was removed: \"HIS WORDS\"`"
+    )
+
+
 def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
     """Exit 1 for a task that gets no lead: in the landing, proposed or ended, since a stale wake-up
     must not start one, or queued behind a task that has not landed or been answered. No count of tasks stops a
@@ -2585,9 +2624,11 @@ def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
             f"the task {slug!r} is {status}: its build is done, and it gets no lead. Its landing goes on with `land.py` "
             f"(`stages/land.md`; an open task takes the line again with `lem land start {slug}`), and a change the owner asks for now is a new ask",
         )
-    # A task queued behind another (`after: OTHER`, which Lem writes for an ask that needs another's
-    # result, and a lead for a plan that does) starts when that task has ended, so that it builds on
-    # what the other one changed.
+    # A task queued behind another (`after: OTHER`) starts when that task has ended. Lem writes the line
+    # for an ask that needs another's result, and a lead for a plan that does, so that it builds on what
+    # the other one changed; and Lem or a lead writes it for an ask whose owner's words put it after
+    # another task, whose block's first line is `the owner's order: "HIS WORDS"`. The script reads only
+    # the `after:` line: which of the two it is, the agent that reads the refusal reads in the block.
     mine = next((task for task in tasks if task["slug"] == slug), None)
     after = next((line.split(":", 1)[1].strip() for line in (mine["state"] or "").splitlines()[1:] if line.startswith("after:")), None) if mine and status == "queued" else None
     if after:
@@ -2600,10 +2641,7 @@ def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
                 f"on his \"drop it\", `lem project state {slug} dropped \"WHY\"`",
             )
         if other not in ENDED:
-            raise SettingsError(
-                f"the task {slug!r} is queued after {after!r}, which is {other or 'no task'}: it starts when {after} is landed or answered, "
-                f"so that it builds on what {after} changes; when it no longer needs that, write its state `queued` again without the `after:` line",
-            )
+            raise SettingsError(queued_refusal(slug, after, other))
     running = [task["slug"] for task in tasks if task["status"] in RUNNING and task["slug"] != slug]
     print(json.dumps({"running": running}))
 
