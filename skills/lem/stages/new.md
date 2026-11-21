@@ -350,4 +350,6 @@ queued task").
      the report. Write the lead's brief of step 6 of "The request" over the fast track's, then
      take `stages/interview.md` here: it reads the builder's `report.md` as the scout's report,
      and its commits stay on the branch for the lead. His approval of the criteria on the
-     standard track replaces the fast track's.
+     standard track replaces the fast track's. So does an approval with `--alone` while the task
+     still runs without him (a night's task, or his away mark), also over a fast-track approval
+     that was `--alone` itself: both stay in the record, and the pull request is not green for it.

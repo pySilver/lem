@@ -220,6 +220,47 @@ class Unstarted(unittest.TestCase):
             self.assertIsNone(criteria.unstarted("sh -c 'exit 1'", Path(folder)))
 
 
+class NightTrackChange(unittest.TestCase):
+    """A night's task on the fast track that turns out to be a full change: its `small` approval by
+    `alone` is replaced by a `full` one by `alone` while it still runs without the owner, and both stay
+    in the history; with the owner there, or after a `full` approval, the second `--alone` is refused."""
+
+    FULL = "## Acceptance criteria\n\nSize: full, because the footer has two places.\n\n1. The footer says 2026.\n2. The page title says 2026.\n"
+
+    def night(self, folder: Path, mode: str = "alone"):
+        task = FastTrackNotHis.task(FastTrackNotHis(), folder, night="2026-11-21", mode="alone")
+        criteria.cmd_approve(task, str(task.small_file), "alone", plan=True)
+        task.mode = mode
+        full = folder / "criteria-full.md"
+        full.write_text(self.FULL)
+        return task, full
+
+    def test_the_full_approval_replaces_the_small_one_while_it_runs_alone(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            task, full = self.night(Path(folder))
+            record = criteria.cmd_approve(task, str(full), "alone", plan=True)
+            self.assertEqual((record["by"], record["size"], record["number"], record["replaces"]), ("alone", "full", 2, 1))
+            self.assertEqual([(old["by"], old["size"]) for old in record["history"]], [("alone", "small")])
+
+    def test_with_the_owner_back_it_waits_for_his_yes(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            task, full = self.night(Path(folder), mode="with-owner")
+            with self.assertRaises(criteria.CriteriaError) as refused:
+                criteria.cmd_approve(task, str(full), "alone", plan=True)
+            self.assertIn("runs with the owner", str(refused.exception))
+
+    def test_a_second_full_approval_alone_is_refused(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            task, full = self.night(Path(folder))
+            criteria.cmd_approve(task, str(full), "alone", plan=True)
+            with self.assertRaises(criteria.CriteriaError) as refused:
+                criteria.cmd_approve(task, str(full), "alone", plan=True)
+            self.assertIn("has approval 2 of its criteria already (by alone)", str(refused.exception))
+
+
 class ReadsOf(unittest.TestCase):
     """A read of the criteria whose words hold the characters str.splitlines breaks at, read back whole."""
 

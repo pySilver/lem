@@ -73,7 +73,8 @@ works`.
                               as the owner's yes. --alone: Lem or the lead approves the criteria of a task
                               on the standard track while the task runs without the owner (`lem project owner away`, a night),
                               as `by: alone`; refused while it runs with him and after any approval
-                              but Lem's on the fast track. On the fast track --alone is the one approval
+                              but a fast-track one, Lem's or an `alone` one (a night's task that
+                              grew into a full change: both stay in the history). On the fast track --alone is the one approval
                               of a request that is not the owner's own sentence (the night's mark, or
                               `request by: someone else` in its brief or its state), in any mode, and
                               --small is refused for it. It is never his yes either: the pull
@@ -845,8 +846,11 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False, shown: str |
             if not other and task.read_mode() != "alone":
                 raise CriteriaError(f"{task.slug} runs with the owner: the owner's yes approves its criteria (`stages/interview.md`, step 7), and --alone is for a task that runs without the owner")
             kept = task.approved()
-            # a fast-track task that turned out to need the standard track needs that path's approval; any other approval stands
-            if kept is not None and kept["by"] != "lem":
+            # a fast-track task that turned out to need the standard track needs that path's approval, also
+            # when its first was made without the owner (a night's task, a request someone else wrote, while
+            # it still runs without him: the check above); any other approval stands
+            grew = kept is not None and kept["by"] == "alone" and kept.get("size") == "small" and read["size"] == "full"
+            if kept is not None and kept["by"] != "lem" and not grew:
                 raise CriteriaError(
                     f"{task.slug} has approval {kept['number']} of its criteria already (by {kept['by']}): "
                     f"a criterion changes through its record, `lem decisions criterion {task.slug} ...`",
