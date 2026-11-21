@@ -151,7 +151,7 @@ OPENED = {"new": "for a new task", "handoff": "for the next phase", "dead": "in 
 # open to its agent (a guess, plan-task-4.md section 2, 2026-11-21).
 GRACE_MS = 2 * 60 * 1000
 # The merge review that calls the owner comes before the merge it is about.
-WAIT_ORDER = {"breaker": 0, "session": 0, "criteria": 1, "held": 1, "blocked": 1, "plan": 2, "review": 3, "merge": 4}
+WAIT_ORDER = {"breaker": 0, "session": 0, "criteria": 1, "held": 1, "after_dropped": 1, "blocked": 1, "plan": 2, "review": 3, "merge": 4}
 
 
 # ---- formatting ----
@@ -1181,6 +1181,10 @@ def waits_of(m: Model) -> list[dict]:
             rows.append({"kind": "breaker", "key": f"breaker:{t.slug}:{t.breaker.id}", "t": t, "c": t.breaker, "since": t.breaker.ts})
         elif t.status == "held" and not t.approved and not t.helped:
             rows.append({"kind": "criteria" if t.criteria_wait else "held", "key": f"held:{t.slug}", "t": t, "c": None, "since": t.since})
+        # a task queued after a task that was dropped: no session runs it, and only his word starts it or ends it
+        if after_dropped(t, m):
+            done = m.by_slug[after_of(t)]
+            rows.append({"kind": "after_dropped", "key": f"after_dropped:{t.slug}", "t": t, "c": None, "since": max(t.since, done.since), "after": done.slug})
         # a task its session stopped with something it cannot settle alone; not one that waits for the base's repair
         if t.status == "blocked" and not t.base_red:
             rows.append({"kind": "blocked", "key": f"blocked:{t.slug}", "t": t, "c": None, "since": t.since})
@@ -1213,6 +1217,13 @@ def wait_say(w: dict) -> dict:
         return {"verb": "Approve the criteria", "icon": "file", "to": "overview", "note": "in this state"}
     if kind == "held":
         return {"verb": cap(t.shown or t.info["label"]), "icon": "user", "to": "overview", "note": "in this state"}
+    if kind == "after_dropped":
+        # the two words he types, each with the task's name: no session runs this task, so he types them in another one
+        after, start, drop = w["after"], f"start {t.slug} now", f"/lem drop {t.slug}"
+        return {"verb": f"{after} was dropped: your word starts or ends this task", "icon": "user", "to": "overview", "note": f"since {after} was dropped",
+                "start": start, "drop": drop,
+                "where": f"It waited for {after}, which was dropped, so the result it waited for never came. Type “{start}” to start it without that result, "
+                         f"or {drop} to end it, in any Lem session of this repository."}
     if kind == "blocked":
         return {"verb": "Its session stopped: tell it what to do", "icon": "alert", "actor": "bad", "to": "overview", "note": "since it stopped",
                 "where": f"The task’s session stopped on something it cannot settle alone: “{t.shown or t.text}”. Tell it what to do in the task’s session, "
@@ -1454,7 +1465,9 @@ def waits_for(t: Task, waits: list) -> dict | None:
     or the task its queue waits for; None when it waits for nothing."""
     mine = [w for w in waits if w["t"] is t]
     if mine:
-        return {"you": True, "text": "; ".join(wait_say(w)["verb"] for w in mine), "where": answer_of(t)}
+        # where he answers, as the row of "Waits for you" says it, else as the task's state says it
+        where = next((said for said in (wait_say(w).get("where") for w in mine) if said), None)
+        return {"you": True, "text": "; ".join(wait_say(w)["verb"] for w in mine), "where": where or answer_of(t)}
     if waits_now(t):
         return {"you": False, "text": waits_say(t.waits), "where": None}
     after = next((line for line in said_of(t.blocks[-1]) if line.startswith("it starts after")), None) if t.waits_after else None

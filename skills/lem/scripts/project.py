@@ -250,7 +250,9 @@ state folder, and the task sessions, from `lem session list`, which it asks itse
 watch of the mark starts); then one group for each kind of row: the breakers that wait, as `lem
 decisions pending` gives them (`breakers`); the tasks `held` with the line `the criteria wait for
 the owner` (`criteria`) and the other `held` ones, a step of his or one more fact (`held`); a task
-its session stopped as `blocked` on something it cannot settle, not one that waits for the base to be
+`queued` after a task that was dropped (`after_dropped`, with that task as `after` and the row's own
+words: `verb`, `start`, "start SLUG now", `drop`, `/lem drop SLUG`, and `where`, which says that he
+types either one in any Lem session of the repository); a task its session stopped as `blocked` on something it cannot settle, not one that waits for the base to be
 green again (`blocked`); a plan that names him (`plans`); the merge agent's review that calls him
 (`reviews`, with its `why` and `tip`); each `open` task whose merge waits for him, a review of the
 proposed tip that calls him, a refused merge of it, or no proposal on record, with its proposal
@@ -2750,6 +2752,11 @@ def cmd_waiting(root: Path) -> dict:
         found = next((item for item in pending["waiting"] if item["task"] == row["t"].slug and item.get("id") == number), None)
         return found or {"task": row["t"].slug, "id": number, "what": row["c"].what, "status": row["t"].status}
 
+    def dropped_after(row: dict) -> dict:
+        # the row's own words, so that the terminal says what the board says, also for a first line that names neither
+        say = bm.wait_say(row)
+        return brief(row, after=row["after"], **{key: say[key] for key in ("verb", "start", "drop", "where")})
+
     def pull_request(row: dict) -> dict:
         task = tasks[row["t"].slug]
         proposal = task["proposal"] or {}
@@ -2763,6 +2770,7 @@ def cmd_waiting(root: Path) -> dict:
         "breakers": [breaker(row) for row in kind("breaker")],
         "criteria": [brief(row) for row in kind("criteria")],
         "held": [brief(row) for row in kind("held")],
+        "after_dropped": [dropped_after(row) for row in kind("after_dropped")],
         "blocked": [brief(row) for row in kind("blocked")],
         "plans": [brief(row) for row in kind("plan")],
         "reviews": [brief(row, why=bm.review_why(row["c"]), tip=row["c"].get("tip")) for row in kind("review")],

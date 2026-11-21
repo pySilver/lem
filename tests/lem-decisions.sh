@@ -233,6 +233,26 @@ else
   fail "a lead that queues its task: $queued / $held_back / $over_landing / $freed / $after_dropped"
 fi
 
+# A task queued after a dropped task, by a need or by his order, is one row of what waits for the owner, with the two
+# words he types in any Lem session; one queued after a task that runs has none. His word ends the row: "start it"
+# writes the queued block again without its `after:` line, and /lem drop ends the task.
+project --repo "$WQ" task-dir ordered-after --ask "After in-landing: the export keeps the notes in their order." >/dev/null
+project --repo "$WQ" state ordered-after queued "the owner's order: \"After in-landing\"" "after: in-landing" "type: feat, because a new order" "then: the interview" >/dev/null
+project --repo "$WQ" task-dir still-runs --ask "The ask of still-runs." >/dev/null && project --repo "$WQ" state still-runs building "lead: builder" >/dev/null
+project --repo "$WQ" task-dir behind-runs --ask "The ask of behind-runs." >/dev/null
+project --repo "$WQ" state behind-runs queued "it needs what still-runs adds" "after: still-runs" >/dev/null
+orphans=$(project --repo "$WQ" waiting | field '([(t["task"], t["after"], t["start"], t["drop"]) for t in d["after_dropped"]], [r["key"] for r in d["rows"] if "behind-runs" in r["key"]], d["after_dropped"][0]["where"].replace("“", "<").replace("”", ">"))' 2>&1 || true)
+project --repo "$WQ" state after-dropped queued "it needs what in-landing adds" >/dev/null
+project --repo "$WQ" state ordered-after dropped "the owner dropped it: /lem drop ordered-after" >/dev/null
+project --repo "$WQ" state still-runs dropped "the test is over" >/dev/null && project --repo "$WQ" state behind-runs dropped "the test is over" >/dev/null
+answered=$(project --repo "$WQ" waiting | field '(d["after_dropped"], [r["key"] for r in d["rows"] if r["kind"] == "after_dropped"])' 2>&1 || true)
+if [ "$orphans" = "([('after-dropped', 'in-landing', 'start after-dropped now', '/lem drop after-dropped'), ('ordered-after', 'in-landing', 'start ordered-after now', '/lem drop ordered-after')], [], 'It waited for in-landing, which was dropped, so the result it waited for never came. Type <start after-dropped now> to start it without that result, or /lem drop after-dropped to end it, in any Lem session of this repository.')" ] \
+  && [ "$answered" = "([], [])" ]; then
+  pass "a task queued after a dropped task, by a need or by his order, is a row of what waits for the owner with the dropped task, \"start SLUG now\" and /lem drop SLUG, typed in any Lem session; one queued after a task that runs has none; and after his word, either one, the row is gone"
+else
+  fail "a task queued after a dropped task: $orphans / $answered"
+fi
+
 # The one list of what waits for the owner: a breaker, criteria that wait for his yes, a step of his, a pull
 # request with green or not whose merge review calls him, and a retro's proposals.
 wq() { project --repo "$WQ" "$@"; }

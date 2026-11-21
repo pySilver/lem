@@ -11,7 +11,8 @@ The repository is the one the session sits in (`AGT_SESSION_PWD`), so the same c
 session lists that session's tasks.
 
 The rows come in the order a developer reads them: first what waits for the owner (a breaker's
-document, the criteria for his yes, a step of his, a task its session stopped, a plan to read, a pull
+document, the criteria for his yes, a step of his, a task queued after a dropped one, a task its
+session stopped, a plan to read, a pull
 request to merge, a task with no session), in the groups of `lem project waiting`; then the tasks that build (ACTIVE), the newest first, with a parked one after them; then the tasks that ended in the
 last ENDED_DAYS days, the newest first; and last a row for the board of all tasks. A row's label is
 the task's ask in the owner's words, and its subtitle the state in the board's words, the track,
@@ -134,7 +135,11 @@ def rows(root: Path, now: datetime) -> list[dict]:
         add(breaker["task"], breaker_words(breaker["id"]))
     for entry in waiting["criteria"]:
         add(entry["task"], "Waits for you: the acceptance criteria")
-    for key in ("held", "blocked", "plans", "pull_requests", "no_session"):
+    for entry in waiting["held"]:
+        add(entry["task"])
+    for entry in waiting["after_dropped"]:
+        add(entry["task"], f"Waits for you: {entry['after']} was dropped")
+    for key in ("blocked", "plans", "pull_requests", "no_session"):
         for entry in waiting[key]:
             add(entry["task"])
     def newest(task: dict) -> str:
