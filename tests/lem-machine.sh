@@ -185,7 +185,7 @@ if [ "$home_only" = "(False, False)" ] && [ "$(field 'd["ok"]' <<<"$out")" = "Tr
   && [ "$(field '[t["name"] for t in d["tools"] if t["name"] == "plannotator"]' <<<"$out")" = "[]" ] && [ "$(row codex found <<<"$out")" = "False" ] \
   && [ "$(field '[t["name"] for t in d["tools"] if t["name"] == "codex persona agent"]' <<<"$out")" = "[]" ] \
   && [ "$(field '[(t["name"], t["found"], t["guide"].rsplit("/", 1)[1]) for t in d["tools"] if t["need"] == "recommended"]' <<<"$out")" \
-    = "[('agdoc skill', True, 'html-doc-overlay'), ('plannotator-tui', False, 'annotate-in-plannotator-tui')]" ] \
+    = "[('agdoc skill', True, 'html-doc-overlay'), ('plannotator-tui', False, 'annotate-in-plannotator-tui'), ('codex', False, 'codex')]" ] \
   && [ ! -e "$PWD/skills/lem-webrev" ]; then
   pass "a builder file in the home is not Lem's; with git, the review tool, agterm, the mailbox, the cookbook's recipes, their skills, Claude Code and Lem's plugin the check passes; absent optional tools only change their rows, the recommended tools, no part of Lem, have a row with their guide, and no row speaks of a jev command"
 else
@@ -721,13 +721,13 @@ fi
 git -C "$PPL" worktree remove --force "$WORK/people-wt"
 
 # Without Codex the codex row says what a task loses: the reviewer's other family, the second expert, half of a panel.
-# It stays optional, since nothing fails without it, and says that it is highly recommended and why.
+# It is recommended, as the owner ruled, so onboarding offers it with its guide; nothing fails without it, and it says why.
 codexless=$(doctor | row codex without_it)
 codex_need=$(doctor | row codex need)
-if [ "$codex_need" = optional ] && grep -qF "highly recommended, since without it Claude reviews the work of Claude" <<<"$codexless" \
+if [ "$codex_need" = recommended ] && grep -qF "highly recommended, since without it Claude reviews the work of Claude" <<<"$codexless" \
   && grep -qF "an expert whose seat names codex (by default the second of seats.experts, the newest Astra of OpenAI) does not answer, so the one expert that can answer" <<<"$codexless" \
   && grep -qF "answers alone and its pick settles a decision the experts take" <<<"$codexless" && grep -qF "a persona panel has the answers of one model family" <<<"$codexless"; then
-  pass "with no Codex the codex row stays optional and says it is highly recommended, since without it Claude reviews the work of Claude: the reviewer is a second Claude, the second expert does not answer so its decision ends not green, and a panel has one model family"
+  pass "with no Codex the codex row is recommended and says it is highly recommended, since without it Claude reviews the work of Claude: the reviewer is a second Claude, the second expert does not answer so its decision ends not green, and a panel has one model family"
 else
   fail "the codex row without codex: $codexless"
 fi

@@ -7,7 +7,7 @@ is absent is not an error: its row says what the skill does without it, and onbo
 owner that. The key of the Jev model (`JEV_API_KEY`) is optional, and required in a repository whose correction queue is
 on, where without it the queue stays empty and nothing says so. A recipe of the agterm cookbook that Lem needs (webrev, the backlog) is
 required, and its row has the guide to install it by. A recommended tool is one Lem does not bring
-and a developer is better off with (agdoc, plannotator-tui): its row has the guide too, and Lem
+and a developer is better off with (agdoc, plannotator-tui, Codex): its row has the guide too, and Lem
 installs it only on the developer's yes. The optional row `load gate` says under which load average the checks of a
 landing start on this machine, or that no number is set, with the line that sets one. The optional
 row `handoff tokens` says past how many tokens a task's session compacts itself, `handoff tokens:
@@ -426,12 +426,15 @@ def claude() -> list[dict]:
 
 
 def codex() -> list[dict]:
-    row = tool("codex", "optional", "a reviewer of another model family, the second expert of the ladder, and half of each persona panel",
+    # recommended: the owner's ruling "cronn is required, and Codex is highly recommended" (2026-11-18), so
+    # onboarding offers it with its guide; it fails no check ("Without Codex one expert answers alone")
+    row = tool("codex", "recommended", "a reviewer of another model family, the second expert of the ladder, and half of each persona panel",
                "highly recommended, since without it Claude reviews the work of Claude: "
                "the reviewer is a second Claude; an expert whose seat names codex (by default the second of seats.experts, the newest "
                "Astra of OpenAI) does not answer, so the one expert that can answer, the newest Fable of Anthropic by default, answers "
                "alone and its pick settles a decision the experts take, and the pull request is not green for such a decision; a persona "
                "panel has the answers of one model family, so a split between two is not seen", "codex", ["--version"])
+    row["guide"] = "https://github.com/openai/codex"
     file = Path.home() / ".codex" / "agents" / "persona.toml"
     persona = {
         "name": "codex persona agent", "need": "optional", "found": file.is_file(), "detail": str(file) if file.is_file() else None,
