@@ -12,6 +12,8 @@ plan_file = "YYYY-MM-DD-<slug>.md"
 # name of a ruling's file there, with the same tokens. Lem's own rulings are one list in that
 # folder, docs/rulings/rulings.md, with docs/rulings/history.md for what a test or one place holds.
 rulings = "docs/rulings"
+# Unused in this repository: a new ruling is a bullet of the list, never a file of its own (the line
+# for learn in .lem/lessons.md).
 ruling_file = "<slug>.md"
 
 [branch]
