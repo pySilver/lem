@@ -1,6 +1,22 @@
 {
   "base": "7971845",
   "source": "AGENTS.md",
+  "carried_over": {
+    "base": "479bef6",
+    "why": "the task's branch sits on 479bef6, whose AGENTS.md changed one paragraph of the two sections and added another after this map was made on 7971845. The files carry 479bef6's words, so moved.py runs with --base 479bef6, as criterion 6 has it; with --base 7971845, the command task 2 names, it misses the Linear paragraph.",
+    "paragraphs": [
+      {
+        "first_words": "**Linear and GitHub Issues, and the local backlog",
+        "what": "changed: `[tracker] kind` is `linear`, and `github` is the backlog item `docs/backlog/github-issues-as-a-second-tracker.md`. The entry of line 175 keeps the words of 7971845 in its `holds_unnamed`.",
+        "file": "docs/rulings/linear-and-github-issues-and-the-local-backlog-stays-local.md"
+      },
+      {
+        "first_words": "**Two reviews of the release, and what the session took**",
+        "what": "added: a decision of the session of 2026-11-21, in force, in the group \"The review, the pull request and the merge\", with no entry below.",
+        "file": ".lem/decisions/two-reviews-of-the-release-and-what-the-session-took.md"
+      }
+    ]
+  },
   "sections": {
     "rulings": "## The owner's rulings",
     "decisions": "## Decisions the maintaining session took"
