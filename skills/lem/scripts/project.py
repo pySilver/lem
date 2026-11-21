@@ -233,9 +233,12 @@ merger` and `session` in `machine.toml`, `lem_state.machine_file()`), else the a
 `claude`, with no model and no effort, so that Lem's code names no model for them. `show` gives each
 with `from`, which of the three it is. `show` marks each expert `here` when its agent is on this
 machine (Claude Code always, Codex when its command is on PATH): only those answer, so without
-Codex the default's one Claude expert answers alone. `init` writes each of the three whole (the owner, 2026-11-18: "I think
-it should be explicitly `agent/model:effort` in all 3"). The effort may be left out
-(`codex/gpt-6.2-sol`), and so may the model (`codex`, `codex:high`): the part left out is that agent's own default, and Lem passes nothing for it. `show`
+Codex the default's one Claude expert answers alone. The reviewer's, the defender's and each
+expert's seat is written whole, and `show` and `reviewer` refuse one that leaves out its model or its
+effort (the owner, 2026-11-18: "I think it should be explicitly `agent/model:effort` in all 3; not
+simply "claude" or "codex""); `init` writes the three so. The merge agent's and the session's seat
+may leave out the effort (`claude/opus`), and the model too (`claude`, `claude:high`): the part
+left out is that agent's own default, and Lem passes nothing for it. `show`
 gives each seat parsed, as `agent`, `model`, `effort` and the `seat` as written; a file with no
 planner or no experts gets Lem's (`PLANNER`, `EXPERTS`), and one with no reviewer gets none, which
 the stage that needs it asks the owner for.
@@ -379,9 +382,12 @@ REVIEWERS = ("claude", "codex")
 # `codex/gpt-6.1-sol:high`"; and 2026-11-18, of the models `init` writes: "Use latest
 # `codex/gpt-6.2-sol:high` and `codex/gpt-6.2-astra:high` (released yesterday)"). A model and an effort are not checked against a list: their names
 # change with each release of an agent's command, and that command refuses a wrong one loudly when
-# it starts. A part left out is the agent's own default, and Lem passes nothing for it.
+# it starts. The three seats of WHOLE_SEATS are written whole (the owner, 2026-11-18: "I think it
+# should be explicitly `agent/model:effort` in all 3; not simply "claude" or "codex""); a part left out
+# of the merge agent's or a task session's seat is the agent's own default, and Lem passes nothing for it.
 SEAT_FORM = "agent/model:effort"
 SEAT_KEYS = ("agent", "model", "effort")
+WHOLE_SEATS = ("reviewer", "planner", "experts")
 # The defender's seat: the agent Lem starts in the companion of a plan talk, which defends the
 # plan against the reviewer. Only Claude Code, because the harness was checked in no other agent.
 PLANNERS = ("claude",)
@@ -586,14 +592,16 @@ serial = []
 topics = []
 
 [seats]
-# Who sits where, each as "agent/model:effort". A part left out ("codex/gpt-6.2-sol", "codex")
-# takes that agent's own default.
-# The reviewer: "claude" or "codex". Lem's builders build; this one talks the plan of a careful
-# or large task through with its defender, in the other pane of the pair the task's lead opens for
-# the talk. The same family twice is allowed.
+# Who sits where, each as "agent/model:effort". The reviewer, the planner and each expert are
+# written whole: Lem refuses "codex" or "codex/gpt-6.2-sol" there. A part left out of the merger
+# or the session ("claude", "claude:high") takes that agent's own default.
+# The reviewer, on the agent "claude" or "codex". Lem's builders build; this one talks the plan of
+# a careful or large task through with its defender, in the other pane of the pair the task's lead
+# opens for the talk. The same family twice is allowed.
 reviewer = "{reviewer}"
 # The defender of a careful or large plan in its talk with the reviewer, in the pair the task's
-# lead opens under the task's session for the talk and closes after it. Only "claude" for now.
+# lead opens under the task's session for the talk and closes after it. Only the agent "claude" for
+# now.
 planner = "{planner}"
 # The merge agent, which reads each proposed task and merges it or calls the owner: "claude" or
 # "codex", read-only. Left out, it is the seat the developer names for all his repositories
@@ -817,11 +825,15 @@ def flow_of(raw: dict, name: Path) -> dict:
     return {"topics": strings(raw.get("flow", {}).get("topics", []), "flow.topics")}
 
 
-def parse_seat(text: object, where: str, agents: tuple[str, ...], why: str, example: str) -> dict:
+def parse_seat(text: object, where: str, agents: tuple[str, ...], why: str, example: str, whole: bool = False) -> dict:
     """One seat, `agent/model:effort`, as its parts: the agent, the model and the effort, each None
     when the line leaves it out, and the line as written. The effort is what follows the one `:`
-    after the model, or after the agent when the line names no model; a second `:` is refused."""
-    form = f'one string, "{SEAT_FORM}", as "{example}"; the effort, or the model and the effort, may be left out'
+    after the model, or after the agent when the line names no model; a second `:` is refused. A
+    `whole` seat (WHOLE_SEATS) that leaves out its model or its effort is refused."""
+    if whole:
+        form = f'one string, "{SEAT_FORM}", written whole, as "{example}"'
+    else:
+        form = f'one string, "{SEAT_FORM}", as "{example}"; the effort, or the model and the effort, may be left out'
     if not isinstance(text, str):
         raise SettingsError(f"{where} = {text!r} must be {form}")
     if not text.strip():
@@ -838,6 +850,12 @@ def parse_seat(text: object, where: str, agents: tuple[str, ...], why: str, exam
         model = None
     if not agent:
         raise SettingsError(f"{where} = {text!r} names no agent before the `/`: it is {form}")
+    if whole:
+        if agent not in agents:
+            raise SettingsError(f"{where} = {text!r}: the agent {agent!r} must be {' or '.join(agents)}: {why}")
+        missing = [part for part, value in (("model", model), ("effort", effort)) if not value]
+        if missing:
+            raise SettingsError(f"{where} = {text!r} names no {' and no '.join(missing)}: it is {form}")
     if slash and not model:
         raise SettingsError(f"{where} = {text!r} names no model after the `/`: leave the `/` out with the model, as \"{agent}\", or write {form}")
     if colon and not effort:
@@ -853,7 +871,7 @@ def seat(raw: dict, name: Path, which: str = "reviewer") -> dict | None:
     given = raw.get("seats", {}).get(which)
     if given is None:
         return None
-    return parse_seat(given, f"{name}: seats.{which}", agents, why, example)
+    return parse_seat(given, f"{name}: seats.{which}", agents, why, example, which in WHOLE_SEATS)
 
 
 def machine_seat_of(which: str, named: dict, local: bool, machine: dict) -> dict:
@@ -887,7 +905,7 @@ def experts_of(raw: dict, name: Path) -> list[dict] | None:
             "the ladder asks two experts at most",
         )
     found = [
-        {**parse_seat(one, f"{name}: seats.experts[{number}]", REVIEWERS, "the agents the harness starts an expert with", EXPERTS[number]), "place": place}
+        {**parse_seat(one, f"{name}: seats.experts[{number}]", REVIEWERS, "the agents the harness starts an expert with", EXPERTS[number], True), "place": place}
         for number, (one, place) in enumerate(zip(given, EXPERT_PLACES))
     ]
     return [{**expert, "here": agent_here(expert["agent"])} for expert in found]
@@ -1282,9 +1300,9 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
         if len(words) != 1:
             raise SettingsError(
                 f'reviewer takes one seat, "{SEAT_FORM}", as `reviewer {REVIEWER_SEATS["codex"]}`, or the word default; '
-                f"not {len(words)} words. The effort, or the model and the effort, may be left out",
+                f"not {len(words)} words",
             )
-        parse_seat(words[0], "the reviewer", REVIEWERS, SEATS["reviewer"][1], SEATS["reviewer"][2])
+        parse_seat(words[0], "the reviewer", REVIEWERS, SEATS["reviewer"][1], SEATS["reviewer"][2], True)
         local.setdefault("seats", {})["reviewer"] = words[0]
     lines = ["# This machine's own settings for Lem. Not committed; `lem project reviewer` writes the seat."]
     for table in LOCAL_TABLES:

@@ -24,8 +24,8 @@ A companion session of the lead's, `SLUG · plan talk`, which runs Claude Code w
    the folder's own Claude Code settings there, and reaches the task's worktree by its path, as
    the session does (`owner-steps.md`, "A folder's trust").
    `MODEL` and `EFFORT` are the `model` and the `effort` of the settings' `seats.planner`, which
-   `lem project show` gives parsed from its one line, `claude/MODEL:EFFORT`. Leave a flag out when
-   the seat does not name its value (`null`): the agent's own default holds then. The seat's
+   `lem project show` gives parsed from its one line, `claude/MODEL:EFFORT`; the settings refuse a
+   defender's seat with no model or no effort. The seat's
    `agent` can only be `claude`, since this agent's file is the only one the contract was checked in.
 2. **Confirm it runs**: the command prints the new session's id; keep it, since the lead's wait
    takes it (`lem session wait SLUG --until planned,held --companion ID`). In `agtermctl tree

@@ -8,8 +8,10 @@ Both in one message, so that they start at one moment; `BRIEF`, `WORKTREE` and e
 are the paths `lem experts brief` printed.
 
 Each entry of the `experts` list that `lem experts brief` printed is one expert to start, from the
-settings' `seats.experts`: its `name`, which is the `--expert` word of `lem experts record`, its
-`agent`, `model` and `effort`, each null when the seat leaves it out, and its `answer` file.
+settings' `seats.experts` or from the brief's `--seat`: its `name`, which is the `--expert` word of
+`lem experts record`, its `agent`, `model` and `effort`, and its `answer` file. The settings refuse
+an expert's seat with no model or no effort; only a `--seat` may leave one out, and its value is
+then null.
 Start each by its agent, and never with a model or an effort the entry does not name:
 
 - an entry whose `agent` is `claude`: the `Agent`

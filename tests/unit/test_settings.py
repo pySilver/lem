@@ -262,13 +262,44 @@ class Tracker(Refuses):
 
 
 class Seats(Refuses):
-    """A seat is one string, agent/model:effort: the effort, or the model and the effort, may be left out."""
+    """A seat is one string, agent/model:effort. The reviewer's, the defender's and each expert's is written
+    whole; the merge agent's and a task session's may leave out the effort, or the model and the effort."""
 
     def test_each_seat_parsed(self):
-        found = settings("[seats]", 'reviewer = "codex/gpt-6.1-sol:high"', 'planner = "claude/opus"', 'experts = ["claude/fable:high", "codex"]')["seats"]
+        found = settings("[seats]", 'reviewer = "codex/gpt-6.1-sol:high"', 'planner = "claude/opus:max"', 'experts = ["claude/fable:high", "codex/gpt-6.2-astra:xhigh"]')["seats"]
         self.assertEqual(found["reviewer"], {"agent": "codex", "model": "gpt-6.1-sol", "effort": "high", "seat": "codex/gpt-6.1-sol:high"})
-        self.assertEqual(found["planner"], {"agent": "claude", "model": "opus", "effort": None, "seat": "claude/opus"})
-        self.assertEqual([(e["agent"], e["model"], e["effort"], e["place"]) for e in found["experts"]], [("claude", "fable", "high", "fable"), ("codex", None, None, "astra")])
+        self.assertEqual(found["planner"], {"agent": "claude", "model": "opus", "effort": "max", "seat": "claude/opus:max"})
+        self.assertEqual([(e["agent"], e["model"], e["effort"], e["place"]) for e in found["experts"]], [("claude", "fable", "high", "fable"), ("codex", "gpt-6.2-astra", "xhigh", "astra")])
+
+    def test_each_of_the_three_is_refused_unless_whole(self):
+        # the owner, 2026-11-18: "I think it should be explicitly `agent/model:effort` in all 3; not simply "claude" or "codex""
+        for which, given, missing, example in (
+            ("reviewer", "codex", "no model and no effort", project.REVIEWER_SEATS["codex"]),
+            ("reviewer", "codex:high", "no model", project.REVIEWER_SEATS["codex"]),
+            ("reviewer", "codex/gpt-6.2-sol", "no effort", project.REVIEWER_SEATS["codex"]),
+            ("reviewer", "codex/", "no model and no effort", project.REVIEWER_SEATS["codex"]),
+            ("reviewer", "codex/gpt:", "no effort", project.REVIEWER_SEATS["codex"]),
+            ("planner", "claude", "no model and no effort", project.PLANNER),
+            ("planner", "claude/opus", "no effort", project.PLANNER),
+        ):
+            for name in (FILE, ROOT / project.LOCAL):
+                with self.subTest(which=which, given=given, name=name):
+                    message = self.refused(project.seat, {"seats": {which: given}}, name, which)
+                    self.assertEqual(message, f'{name}: seats.{which} = {given!r} names {missing}: it is one string, "agent/model:effort", written whole, as "{example}"')
+
+    def test_each_expert_is_refused_unless_whole(self):
+        for given, number, missing in ((["claude/fable:high", "codex"], 1, "no model and no effort"), (["claude/fable"], 0, "no effort")):
+            with self.subTest(given=given):
+                message = self.refused(project.experts_of, {"seats": {"experts": given}}, FILE)
+                self.assertEqual(message, f'{FILE}: seats.experts[{number}] = {given[number]!r} names {missing}: it is one string, "agent/model:effort", written whole, as "{project.EXPERTS[number]}"')
+
+    def test_the_reviewer_command_refuses_a_seat_that_is_not_whole(self):
+        message = self.refused(project.parse_seat, "claude", "the reviewer", project.REVIEWERS, *project.SEATS["reviewer"][1:], True)
+        self.assertEqual(message, f'the reviewer = \'claude\' names no model and no effort: it is one string, "agent/model:effort", written whole, as "{project.REVIEWER_SEATS["codex"]}"')
+
+    def test_a_wrong_agent_is_named_before_the_parts_it_leaves_out(self):
+        message = self.refused(project.seat, {"seats": {"planner": "codex"}}, FILE, "planner")
+        self.assertNames(message, "the agent 'codex' must be claude")
 
     def test_the_merge_agents_seat_from_the_repository_the_machine_or_the_agent(self):
         machine = {"merger": "codex/gpt-6.2-sol:high"}
@@ -287,9 +318,10 @@ class Seats(Refuses):
         message = self.refused(project.decide, ROOT, ROOT, raw, {}, raw, None, {"merger": "gemini/pro"})
         self.assertNames(message, "machine.toml: seats.merger", "the agent 'gemini' must be claude or codex")
 
-    def test_a_seat_with_no_model(self):
-        found = settings("[seats]", 'reviewer = "codex:high"')["seats"]["reviewer"]
-        self.assertEqual((found["agent"], found["model"], found["effort"]), ("codex", None, "high"))
+    def test_the_merge_agents_and_the_sessions_seat_may_leave_out_a_part(self):
+        found = settings("[seats]", 'merger = "codex:high"', 'session = "claude"')["seats"]
+        self.assertEqual((found["merger"]["agent"], found["merger"]["model"], found["merger"]["effort"]), ("codex", None, "high"))
+        self.assertEqual((found["session"]["agent"], found["session"]["model"], found["session"]["effort"]), ("claude", None, None))
 
     def test_lem_defaults_with_no_seat(self):
         found = settings("[branch]", 'base = "master"')["seats"]
@@ -319,12 +351,12 @@ class Seats(Refuses):
             ("reviewer", "", ("seats.reviewer is empty", project.SEAT_FORM)),
             ("reviewer", "codex /gpt", ("holds a space", project.SEAT_FORM)),
             ("reviewer", "gemini/pro:high", ("the agent 'gemini' must be claude or codex",)),
-            ("reviewer", "codex/", ("names no model after the `/`",)),
-            ("reviewer", "codex/gpt:", ("names no effort after the `:`",)),
             ("reviewer", "/gpt:high", ("names no agent before the `/`",)),
             ("reviewer", 3, ("seats.reviewer = 3", project.SEAT_FORM)),
             ("reviewer", "codex:high:max", ("seats.reviewer = 'codex:high:max' holds 2 `:`", "one at most")),
             ("planner", "codex/gpt:high", ("the agent 'codex' must be claude", "checked in Claude Code only")),
+            ("merger", "codex/", ("names no model after the `/`",)),
+            ("merger", "codex/gpt:", ("names no effort after the `:`",)),
         ):
             with self.subTest(which=which, given=given):
                 self.assertNames(self.refused(project.seat, {"seats": {which: given}}, name, which), str(name), *names)
@@ -338,9 +370,9 @@ class Seats(Refuses):
         name = Path(".lem/project.toml")
         for given, names in (
             ([], ("seats.experts = []", "one or two seats")),
-            (["claude", "codex", "claude/opus"], ("seats.experts", "one or two seats")),
-            ("claude/fable", ("seats.experts = 'claude/fable'", "one or two seats")),
-            (["claude/fable", "gemini"], ("seats.experts[1]", "the agent 'gemini' must be claude or codex")),
+            (["claude/fable:high", "codex/gpt:high", "claude/opus:high"], ("seats.experts", "one or two seats")),
+            ("claude/fable:high", ("seats.experts = 'claude/fable:high'", "one or two seats")),
+            (["claude/fable:high", "gemini/pro:high"], ("seats.experts[1]", "the agent 'gemini' must be claude or codex")),
         ):
             with self.subTest(given=given):
                 self.assertNames(self.refused(project.experts_of, {"seats": {"experts": given}}, name), str(name), *names)

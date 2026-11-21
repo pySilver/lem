@@ -6,8 +6,8 @@ read-only, or one expert alone on a machine with one of their agents. Who they a
 settings' `seats.experts`, one or two seats `agent/model:effort` that `lem project show` prints,
 each that is `here` (its agent is on this machine); `--seat`, once for each expert, names them for
 one call instead. An expert's name is the last word of its model that holds a letter (`opus`,
-`sol`), or its place (`fable` for the first seat, `astra` for the second) when its seat names no
-model. Its answer file carries the name. This script writes the brief and
+`sol`), or its place (`fable` for the first seat, `astra` for the second) when a `--seat` names no
+model: a seat of the settings is written whole. Its answer file carries the name. This script writes the brief and
 reads each answer back; starting the agents is the harness's (`ask-experts`).
 
 A question in words, which the owner asks (`/lem ask-expert ...`) and which a lead's ladder asks at
@@ -66,7 +66,7 @@ SCRIPTS = Path(__file__).resolve().parents[2] / "lem" / "scripts"
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
 # the names of the two seats of the settings' seats.experts, the first and the second, whatever model
-# sits there (project.py's EXPERT_PLACES): an expert whose seat names no model is named by its place
+# sits there (project.py's EXPERT_PLACES): an expert whose `--seat` names no model is named by its place
 PLACES = ("fable", "astra")
 
 # A seat for the error messages, in the form `--seat` takes.

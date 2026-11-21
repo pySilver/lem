@@ -476,7 +476,7 @@ fi
 task_in "$LOCAL" local-tracked thirteen.txt thirteen
 read_in "$LOCAL" local-tracked
 tree=$(project --repo "$LOCAL" worktree-dir local-tracked)
-printf '%s\n' '[seats]' 'reviewer = "claude"' > "$tree/.lem/project.local.toml"
+printf '%s\n' '[seats]' 'reviewer = "claude/opus:high"' > "$tree/.lem/project.local.toml"
 git -C "$tree" add -f .lem/project.local.toml && git -C "$tree" commit -q -m "chore: my asker"
 local_land start local-tracked >/dev/null && local_land base local-tracked >/dev/null && polish_in "$LOCAL" local-tracked && local_land checks local-tracked >/dev/null
 local_floor=$(local_land read local-tracked | field '(d["floor"], d["why"])')

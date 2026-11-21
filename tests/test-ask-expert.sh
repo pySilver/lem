@@ -155,25 +155,26 @@ else
   fail "the old folders: $briefed / $kept_by_brief / $pruned / $(ls "$QS")"
 fi
 # who the experts are: the settings' seats.experts, which experts.py reads through project.py show, the project's and
-# this machine's own, each named by its model, or by its place (fable, astra) when its seat names none
+# this machine's own, each whole and named by its model; a --seat that names no model is named by its place (fable, astra)
 seats_in() { "$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^experts = .*$", "experts = " + sys.argv[2], s, count=1))' "$EX/.lem/project.toml" "$1"; }
 # Lem reads the settings as the base branch's commit has them, so an edit counts once it is committed
 settings_committed() { git -C "$EX" add .lem/project.toml && git -C "$EX" -c user.name=t -c user.email=t@t commit -q --allow-empty -m "chore: the settings" -- .lem/project.toml; }
 cp "$EX/.lem/project.toml" "$WORK/project.toml"
-seats_in '["claude/opus:high", "codex/gpt-6.1-sol"]'
+seats_in '["claude/opus:high", "codex/gpt-6.1-sol:xhigh"]'
 settings_committed
 tracked=$(experts brief --question "Which store, by the project's seats?" | field '[(e["name"], e["agent"], e["model"], e["effort"], e["place"]) for e in d["experts"]]' || true)
-printf '%s\n' '[seats]' 'experts = ["claude", "codex:xhigh"]' > "$EX/.lem/project.local.toml"
-nomodelq=$(experts brief --question "Which store, by this machine's seats?" | field '[e["name"] for e in d["experts"]]' || true)
+printf '%s\n' '[seats]' 'experts = ["claude/sonnet:high", "codex/gpt-6.2-astra:high"]' > "$EX/.lem/project.local.toml"
+machineq=$(experts brief --question "Which store, by this machine's seats?" | field '[e["name"] for e in d["experts"]]' || true)
 rm "$EX/.lem/project.local.toml"
+nomodelq=$(experts brief --question "Which store, by no model?" --seat claude --seat codex:xhigh | field '[e["name"] for e in d["experts"]]' || true)
 cp "$WORK/project.toml" "$EX/.lem/project.toml"
 settings_committed
 places=$("$PY" -B -c 'import sys; sys.path.insert(0, sys.argv[1]); sys.path.insert(0, sys.argv[2]); import experts, project; print(experts.PLACES == project.EXPERT_PLACES, project.EXPERT_PLACES)' "$PWD/skills/lem/scripts" "$(dirname "$EXPERTS")")
-if [ "$tracked" = "[('opus', 'claude', 'opus', 'high', 'fable'), ('sol', 'codex', 'gpt-6.1-sol', None, 'astra')]" ] \
-  && [ "$nomodelq" = "['fable', 'astra']" ] && [ "$places" = "True ('fable', 'astra')" ]; then
-  pass "the experts are the settings' seats.experts, the project's or this machine's, each with its agent, model and effort, named by its model, or by its place when its seat names no model"
+if [ "$tracked" = "[('opus', 'claude', 'opus', 'high', 'fable'), ('sol', 'codex', 'gpt-6.1-sol', 'xhigh', 'astra')]" ] \
+  && [ "$machineq" = "['sonnet', 'astra']" ] && [ "$nomodelq" = "['fable', 'astra']" ] && [ "$places" = "True ('fable', 'astra')" ]; then
+  pass "the experts are the settings' seats.experts, the project's or this machine's, each with its agent, model and effort, named by its model, and a --seat with no model by its place"
 else
-  fail "the experts from the settings: $tracked / $nomodelq / $places"
+  fail "the experts from the settings: $tracked / $machineq / $nomodelq / $places"
 fi
 
 

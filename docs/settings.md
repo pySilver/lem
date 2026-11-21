@@ -46,7 +46,9 @@ merge.
 
 ## `[seats]`
 
-A seat is one string, `agent/model:effort`. A part that you leave out takes the default of the agent.
+A seat is one string, `agent/model:effort`. Write all three parts for `seats.reviewer`,
+`seats.planner` and each of `seats.experts`: Lem stops at `"codex"` or `"codex/gpt-6.2-sol"` there.
+In `seats.merger` and `seats.session`, a part that you do not write takes the default of the agent.
 A persona names its own seats in the frontmatter of its file, in the same form:
 `seats: ["claude/opus:high"]`. A persona file without it uses the seats of the panel.
 
@@ -100,7 +102,7 @@ Git does not track this file. It holds the settings of one computer, and only th
 
 | Table | What it can say |
 | --- | --- |
-| `[seats]` | a seat for this computer. `/lem reviewer codex/gpt-6.2-sol:high` writes the reviewer, and `/lem reviewer default` removes it |
+| `[seats]` | a seat for this computer, in the same form. `/lem reviewer codex/gpt-6.2-sol:high` writes the reviewer, and `/lem reviewer default` removes it |
 | `[corrections]` | only `collect = false` |
 | `[naps]` | only `on = false` |
 | `[state]` | only `keep_days`: the days for the old files of this computer. Lem uses this number on this computer, also when it is lower or higher than the number of the project |
