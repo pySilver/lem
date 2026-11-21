@@ -244,7 +244,7 @@ standing rule of Lem does not carry the flow as written, with what the build doe
    builders.
 3. **A plan talk needs a session**, for the same reason. A large plan (more than three tasks)
    therefore gets a session as its lead, as a careful one does today (`stages/plan.md`, step 3).
-4. **Lem reads no diff** (`AGENTS.md`, "Lem's stages and a lead's stages stay apart"). The read
+4. **Lem reads no diff** (`AGENTS.md`, "A task's phases stay apart"). The read
    before the pull request is a fresh agent that Lem starts and that changes nothing, as the
    review stage starts one today; a must-fix goes to a builder.
 5. **"Every new test fails on the base commit" needs each story's tests as commands a script can
