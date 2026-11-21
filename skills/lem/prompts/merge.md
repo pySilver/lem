@@ -14,8 +14,8 @@ The brief that named this file holds the facts of the task as JSON: its `worktre
 plan, or `criteria.md` on the fast track), `files` (the pull request's text `pr.md`, the owner's
 words, the request, the report, the notes, an investigation or a breaker's document, where the task
 has them), the `reviews`, the command that lists its `decisions`, whether it is `green` and why not,
-why it is `careful`, `land` (the settings' `branch.land`), `owner_merges`, `time` and `relands`, how
-many times this proposal landed again (a moved base, a conflict).
+why it is `careful`, `land` (the settings' `branch.land`), `owner_merges`, `time`, `tokens` and
+`relands`, how many times this proposal landed again (a moved base, a conflict).
 
 ## Read
 
@@ -32,7 +32,9 @@ many times this proposal landed again (a moved base, a conflict).
 4. The task's time: `time.seconds` against `time.expected`, with `time.from`, which says where the
    expectation comes from. A task that took far longer than expected (three hours where one was
    expected) is worth a look at why: the report and the decisions usually say. An overrun is no
-   defect by itself. Nothing bounds `relands`; more than one or two says that the base moves
+   defect by itself. `tokens`, when it is not null, is what the task's Claude Code sessions and
+   their subagents used, and `tokens.covers` says what the number leaves out: it is a fact for the
+   owner, and a reason to look only beside a time far over the expected one. Nothing bounds `relands`; more than one or two says that the base moves
    faster than the checks run.
 
 ## Decide
@@ -64,8 +66,8 @@ Then, in this order, each part only when it holds something:
 3. **Decided without you.** Each decision taken without him that matters, one line each: what was
    chosen and why, and your word on it. A decision the pull request is not green for always gets
    its line.
-4. **The time.** The task's time against what was expected, with where the expectation comes
-   from, in one line.
+4. **The time and the tokens.** The task's time against what was expected, with where the
+   expectation comes from, and its tokens with what `tokens.covers` says they are, in one line.
 5. **What you found.** Each thing that makes you call, with its file and symbol, and the input
    that shows it.
 

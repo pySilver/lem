@@ -459,6 +459,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
 import lem_sibling  # noqa: E402
 import lem_state  # noqa: E402
+import lem_tokens  # noqa: E402
 
 # Who merges: the owner's word, or the merge agent, where the settings and the request allow it.
 BY = ("owner", "merger")
@@ -3578,6 +3579,9 @@ def cmd_merge_review(task: Task, record: str | None) -> dict:
             # the call is the owner's whatever the agent finds, when this names why
             "owner_merges": refusal,
             "time": task_time(events_all(task), task.slug),
+            # the tokens of the task's Claude Code sessions and their subagents, with what the number
+            # leaves out (`covers`); null when the log names no transcript of the task
+            "tokens": lem_tokens.task_tokens(task.directory.parent.parent, task.slug),
             # how many times this proposal landed again (a base that moved, a conflict): nothing bounds them
             "relands": int(kept.get("relands") or 0),
         }
