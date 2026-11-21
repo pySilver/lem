@@ -169,6 +169,19 @@ class Phase(unittest.TestCase):
         self.assertIsNone(session.queued_behind(queued, [queued, {"slug": "coupon", "status": "landed"}]))
 
 
+    def test_the_phase_that_ends_is_the_states_and_not_the_one_the_session_opened_in(self):
+        def block(status: str, text: str) -> dict:
+            return {"status": status, "text": text}
+        # a session that opened for the shape and led the task through the build hands off from the build
+        led = [block("building", "lead: builder"), block("building", "task 2 of 2"), block("ready", "the report is written")]
+        self.assertEqual(session.phase_left(SLUG, led, "standard", "land", "shape"), "build")
+        # a session that wrote the build's first block hands off from the phase it opened in
+        self.assertEqual(session.phase_left(SLUG, [block("building", "lead: builder")], "standard", "build", "shape"), "shape")
+        # a session that wrote nothing since it opened: its own phase, so `next` refuses while the state gives it
+        self.assertEqual(session.phase_left(SLUG, [], "standard", "build", "build"), "build")
+        # a park in between gives no phase
+        self.assertEqual(session.phase_left(SLUG, [block("building", "x"), block("parked", "aside"), block("ready", "y")], "standard", "land", "build"), "build")
+
 class Agent(unittest.TestCase):
     def test_an_agent_in_the_left_pane(self):
         self.assertTrue(session.agent_runs({"foreground": ["/usr/local/bin/claude", "--resume", "x"]}))
@@ -308,6 +321,22 @@ class Hooks(unittest.TestCase):
         self.assertIn("The lead plans the export's column.", ran.stdout)
         started = self.hook({"hook_event_name": "SessionStart", "source": "startup"})
         self.assertEqual((started.returncode, started.stdout), (0, ""))
+
+    def test_each_claude_session_of_the_task_is_logged_once(self):
+        log = self.repo / ".lem" / "state" / "events.jsonl"
+        before = log.read_text(encoding="utf-8")
+        event = {"hook_event_name": "SessionStart", "source": "startup", "session_id": "c0ffee-1", "transcript_path": "/x/projects/-shop/c0ffee-1.jsonl"}
+        try:
+            for _ in range(2):
+                ran = self.hook(event)
+                self.assertEqual((ran.returncode, ran.stdout), (0, ""))
+            self.hook({**event, "source": "compact"})
+            self.hook({"hook_event_name": "SessionStart", "source": "startup"}, task="no-such-task")
+            records = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()[len(before.splitlines()):]]
+            self.assertEqual([(r["event"], r["task"], r["claude"], r["transcript"], r["source"]) for r in records],
+                             [("session.transcript", SLUG, "c0ffee-1", "/x/projects/-shop/c0ffee-1.jsonl", "startup")])
+        finally:
+            log.write_text(before, encoding="utf-8")
 
 
 if __name__ == "__main__":
