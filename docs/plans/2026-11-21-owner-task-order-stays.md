@@ -175,6 +175,13 @@ Read in the code at `7971845`:
      without it the task starts only when he selects another session. It sits on the duty's rule
      "no live session" (`open … queue`), which rests on existing code; the wake-up's route is there
      already (`prompts/session.md`, `lem: SLUG queue`; `WAKES` in `session.py`). One unit case.
+   - `cmd_close` in `session.py`, with `--when-unselected`: it ends with no close, and says so, when
+     the event log holds a `session.wake` of that session newer than the close's own start, since
+     a woken session has work again; the next close is the one its next change of phase or its end
+     runs. Without it the step-7 close that still waits ends the woken session mid-work once the
+     owner selects another session (the plan talk's question 6). One check in the block that holds
+     `lem session close`, with a stand-in for agtermctl (`tests/lem-session.sh`). This is the pick
+     of design choice C (decision 9 of the record, by the gate).
    - The refusal of `lem project may-start` for a task queued after one that has not ended names both
      ways out: a task that waited because it needed the other one's result and no longer does has its
      state `queued` written again without the `after:` line; an order of the owner's (the block's
