@@ -52,12 +52,15 @@ leave them out, and they change with no record. Each criterion in the JSON carri
 and `chart`, the block's text without its fences, and the read carries `how`, the body of `## How it
 works`.
 
-    lem criteria approve SLUG --file FILE
+    lem criteria approve SLUG --file FILE [--shown DIGEST]
     lem criteria approve SLUG --small [--file FILE]
     lem criteria approve SLUG --read
     lem criteria approve SLUG --file FILE --alone
                               keep the criteria the owner approved, as FILE has them: the same
-                              section with no test lines, which the lead adds. --small: Lem
+                              section with no test lines, which the lead adds. --shown: the
+                              digest of FILE's bytes as the owner's page showed them (the board
+                              gives it); FILE is read once, and a file that changed since is
+                              refused with nothing approved. --small: Lem
                               approves the one criterion of a task on the fast track in the owner's name, as the task's
                               first contract only, and the owner may still say "standard"; its file is
                               `criteria.md` in the task directory unless --file names another. --read: the lead of a
@@ -784,15 +787,30 @@ def first_contract(task: Task, by: str) -> None:
         )
 
 
-def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
+def shown_digest(data: bytes) -> str:
+    """The digest of a criteria file's bytes as the owner's page showed them, which the board's form
+    carries back (`serve.py`, `criteria_waiting`): sha256, its first 16 hex digits."""
+    return hashlib.sha256(data).hexdigest()[:16]
+
+
+def cmd_approve(task: Task, file: str, by: str, plan: bool = False, shown: str | None = None) -> dict:
     """Keep the criteria that were approved, word for word, with a digest and a number of their own,
     and log the event. Each approval is a new one, also of a text approved before. The check of
     what is approved already and the write are one step under the task's lock, so an approval of
-    his and an automatic one that come at one time never both pass."""
+    his and an automatic one that come at one time never both pass. SHOWN is the digest of the bytes
+    the owner's page showed (`shown_digest`): the file is read once, and those bytes are approved or
+    nothing is."""
     source = Path(file)
     if not source.is_file():
         raise CriteriaError(f"{file} is not a file; --file names the criteria the owner approved, in the form `lem criteria --help` shows")
-    text = source.read_text(encoding="utf-8")
+    data = source.read_bytes()
+    if shown is not None and shown_digest(data) != shown:
+        raise CriteriaError(
+            f"{source.name} changed since the page showed them (the page showed {shown}, the file is {shown_digest(data)} now): nothing was approved. "
+            "Read the criteria again, then approve",
+        )
+    # the line ends a read in text mode gives, from the same bytes
+    text = data.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
     read = parse(text, source.name)
     tested = [criterion["n"] for criterion in read["criteria"] if criterion["tests"] or criterion["no_test"]]
     # the plan's own criteria carry the lead's test lines, which are no part of a criterion's text
@@ -878,10 +896,13 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--small", action="store_true", help="with approve: Lem approves the one criterion of a task on the fast track in the owner's name")
     parser.add_argument("--read", action="store_true", help="with approve: the lead of a task on the standard track from a complete request freezes the criteria a read in which nobody was confused read")
     parser.add_argument("--alone", action="store_true", help="with approve: Lem or the lead approves the criteria of a task on the standard track while the task runs without the owner")
+    parser.add_argument("--shown", metavar="DIGEST", help="with approve --file: the digest of the file's bytes as the owner's page showed them (the board's form gives it); the file changed since is approved by nobody")
     args = parser.parse_args(argv)
     try:
         if args.file is not None and args.step not in ("approve", "digest"):
             raise CriteriaError("--file goes with `approve` and `digest`")
+        if args.shown is not None and (args.step != "approve" or args.file is None or args.small or args.read or args.alone):
+            raise CriteriaError("--shown goes with `approve --file FILE`, the owner's own approval of the file his page showed")
         if (args.small or args.read or args.alone) and args.step != "approve":
             raise CriteriaError("--small, --read and --alone go with `approve`")
         if args.small + args.read + args.alone > 1:
@@ -906,7 +927,7 @@ def main(argv: list[str] | None = None) -> None:
                 # the plan's own criteria carry the lead's test lines, which are no part of a criterion's text
                 result = cmd_approve(task, args.file, "alone", plan=True)
             else:
-                result = cmd_approve(task, args.file, "lem" if args.small else "owner")
+                result = cmd_approve(task, args.file, "lem" if args.small else "owner", shown=args.shown)
         elif args.step == "approved":
             kept = task.approved()
             result = {"task": task.slug, "approved": kept} if kept else {

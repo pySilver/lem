@@ -575,7 +575,8 @@ class Workspace:
     def criteria_waiting(self, slug: str) -> dict | None:
         """The criteria of the task directory that wait for the owner's yes, `criteria.md`, as the task's
         session writes them: its path, its text and a digest of its bytes, which the approval's form carries back,
-        so that a yes never takes criteria the page did not show. None when the file is not there."""
+        so that a yes never takes criteria the page did not show: `lem criteria approve --shown` compares it with
+        the bytes it approves, in the same form (criteria.py's `shown_digest`). None when the file is not there."""
         file = self.state / "tasks" / slug / "criteria.md"
         try:
             data = file.read_bytes()
@@ -984,7 +985,8 @@ def act_approve(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
         return {"ok": False, "said": "criteria.md is not in the task directory yet: the task's session writes it. Approve the criteria there."}
     if form.get("digest") != waiting["digest"]:
         return {"ok": False, "said": "The criteria changed since the page showed them. Read them again, then approve."}
-    ran = lem_run(workspace, "criteria.py", "approve", slug, "--file", waiting["path"])
+    # the digest goes with the file, so that the step approves the bytes the page showed or nothing
+    ran = lem_run(workspace, "criteria.py", "approve", slug, "--file", waiting["path"], "--shown", waiting["digest"])
     if ran.returncode != 0:
         return {"ok": False, "said": said_of(ran)}
     asked = asked_from(workspace, slug, "approve", via)

@@ -164,6 +164,38 @@ class FastTrackNotHis(unittest.TestCase):
             self.assertEqual(criteria.cmd_approve(task, str(task.small_file), "lem")["by"], "lem")
 
 
+class ApprovalOfWhatWasShown(unittest.TestCase):
+    """`cmd_approve` with the digest of the bytes the owner's page showed (`--shown`): it approves those
+    bytes or nothing, so a file that changed after the page's check is never approved in his name."""
+
+    FULL = "## Acceptance criteria\n\nSize: full, because the export gets a column.\n\n1. The export holds the gift note.\n"
+
+    def task(self, folder: Path):
+        task = FastTrackNotHis.task(FastTrackNotHis(), folder)
+        task.small_file.write_text(self.FULL)
+        return task
+
+    def test_the_bytes_the_page_showed_are_approved(self) -> None:
+        import hashlib
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            task = self.task(Path(folder))
+            shown = hashlib.sha256(task.small_file.read_bytes()).hexdigest()[:16]
+            self.assertEqual(criteria.cmd_approve(task, str(task.small_file), "owner", shown=shown)["text"], self.FULL)
+
+    def test_a_file_that_changed_after_the_page_is_not_approved(self) -> None:
+        import hashlib
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            task = self.task(Path(folder))
+            shown = hashlib.sha256(task.small_file.read_bytes()).hexdigest()[:16]
+            task.small_file.write_text(self.FULL.replace("gift note", "gift note and its date"))
+            with self.assertRaises(criteria.CriteriaError) as refused:
+                criteria.cmd_approve(task, str(task.small_file), "owner", shown=shown)
+            self.assertIn("changed since the page showed them", str(refused.exception))
+            self.assertFalse(task.approved_file.exists())
+
+
 class Unstarted(unittest.TestCase):
     """`criteria.unstarted`: a test command that starts a shell or Python on a script file the base
     commit lacks does not start there, whatever its exit; a module, a text and a file that is there do."""
