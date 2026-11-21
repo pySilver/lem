@@ -147,7 +147,8 @@ workspace, one call at a time with the server's other calls into Lem's scripts (
 - the duties (`duties`, `run_duties`), each a command of `lem session` (SESSION_SCRIPT): after a merge,
   `wake SLUG --why merged`, so that the task's session removes its worktree and its branch; for a pull
   request the forge calls conflicting, `wake SLUG --why conflict`, once for each head; and for a task
-  queued `after:` one that ended, `open SLUG --why queue`. `wake` opens a session when none lives. A
+  queued `after:` one that ended, `open SLUG --why queue`, or `wake SLUG --why queue` once when its
+  session still lives. `wake` opens a session when none lives. A
   duty whose command failed waits DUTY_RETRY;
 - the merge agent's merge (`merge_due`): for an open task whose merge agent's review of the tip Lem
   proposed last says `merge` and calls nobody, with no refused merge of that tip and none running, the
