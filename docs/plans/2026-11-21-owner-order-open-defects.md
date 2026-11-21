@@ -122,8 +122,8 @@ The design choice, decided by the ladder after the talk (the decisions log has i
   criterion 2 cites: `may-start` prints the commands, and the agent runs `may-start` again on his
   word and runs what it prints then, with the seconds between the print and the run left open to a
   correction from another session. The other position: the copy printed with the first refusal,
-  which leaves the whole wait open to it. The decision of the ladder is under "Decisions of the
-  plan".
+  which leaves the whole wait open to it. Decided: the copy printed on his
+  word, by the personas (decision 6 of "Decisions of the plan"; decision 1 of the task's record).
 
 Each mechanism a repair added: none of a guard, a lock, a flag or a retry. The second read of
 `may-start` on his word (question 2) is a layer over task 2's printed copy, which cites criterion 2;
@@ -151,6 +151,7 @@ task 3, the words after a wait (7) and no check of the hold's line (8).
 3. **The three lines get a fixed form in `lem project state`; the script does not stop reading them.** The first line that pull request 13 promises ("It waits for X, as you said") can be composed only from the order's words and the path, and the block is their one place. The act of Lem's that does harm without the check: a session writes the order line without its quotes, and the first line then tells the owner nothing of the wait or of the word that starts the task. Its cost on a small task: none, since only a line that starts as one of the three is checked.
 4. **His word is logged for his order, and not for a need**, as step 7 of "The request" has it today. The change keeps that rule and makes the refusal print it.
 5. **No button on the board for "start it".** The ask names the row; an act of the board is a new part, and he has the two words.
+6. **The commands of his "start it" are the ones `may-start` prints at his word** (the plan talk's design choice A, question 2; decision 1 of the task's record, by the personas). The agent runs `lem project may-start SLUG` once more on his word and runs what it prints then. Against it stood the copy printed with the first refusal, which in the session that looked at the task before loses a `/lem standard-track` typed at any time before his word. The gate held; the developer (sure) and the newcomer (leaning), each on Opus, one model family, both wanted the copy at his word: under the other, the session that told him the task waits is where he answers, so his correction is lost on the ordinary path. What stays open: a correction in the seconds between the print and the run is still lost, and nothing tells him; the review checks the mixed record that it leaves ("## Plan talk").
 
 ## What the plan will not verify
 
