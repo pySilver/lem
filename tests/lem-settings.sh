@@ -52,6 +52,7 @@ else
   fail "the keys of the settings: show $shown / the file $written / the page $paged"
 fi
 # The tables one machine's own file takes are the same in project.py and in that file's table on the settings page.
+# shellcheck disable=SC2016  # the backticks are the page's own marks
 local_paged=$("$PY" -I -c 'import re, sys; page = open(sys.argv[1], encoding="utf-8").read().split("## `.lem/project.local.toml`", 1)[1]; print(re.findall(r"^\| `\[(\w+)\]` \|", page, re.M))' "$PWD/docs/settings.md")
 local_coded=$("$PY" -I -B -c 'import sys; sys.path.insert(0, sys.argv[1]); import project; print(list(project.LOCAL_TABLES))' "$PWD/skills/lem/scripts")
 if [ "$local_paged" = "$local_coded" ] && [ "$local_coded" = "['seats', 'corrections', 'naps', 'state']" ]; then
