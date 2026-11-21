@@ -163,6 +163,26 @@ else
   fail "the read before a proposal: $unread_feature / $split_unseen / $freeze_split / $flag_unseen / $(cat "$text" 2>/dev/null)"
 fi
 project --repo "$LOCAL" state read-doubt dropped "the test is over" >/dev/null
+# A request that had an interview ends it with his yes: after a read that found nobody confused, with no approval of his,
+# or with only the lead's freeze of the read, it is not proposed; his approval lets it go, green.
+task_in "$LOCAL" asked-first f.txt f
+project --repo "$LOCAL" log asked-first interview.start >/dev/null
+read_in "$LOCAL" asked-first
+local_land start asked-first >/dev/null && local_land base asked-first >/dev/null && polish_local asked-first && local_land checks asked-first >/dev/null \
+  && local_land read asked-first --record "$(clean asked-first 1)" >/dev/null
+unasked=$(local_land propose asked-first --title "fix: f" --notes "$NOTES" 2>&1 || true)
+lcriteria approve asked-first --read >/dev/null 2>&1 || true
+frozen=$(local_land propose asked-first --title "fix: f" --notes "$NOTES" 2>&1 || true)
+printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/asked.md"
+lcriteria approve asked-first --file "$WORK/asked.md" >/dev/null 2>&1 || true
+yes=$(local_land propose asked-first --title "fix: f" --notes "$NOTES" 2>/dev/null | field 'd["green"]' 2>/dev/null || true)
+if grep -qF "asked-first had an interview (\`interview.start\` in the event log), and its criteria carry no approval of the owner's" <<<"$unasked" \
+  && grep -qF "lem criteria approve asked-first --file FILE" <<<"$unasked" && grep -qF "had an interview" <<<"$frozen" && [ "$yes" = True ] && [ "$(status_in "$LOCAL" asked-first)" = open ]; then
+  pass "a request that had an interview is not proposed without the owner's approval of its criteria, also after a read that found nobody confused and the lead's freeze of it; his approval lets it go, green"
+else
+  fail "an interview with no approval of his: $unasked / $frozen / $yes"
+fi
+project --repo "$LOCAL" state asked-first dropped "the test is over" >/dev/null
 # The read is compared with the criteria as they are now, and the history of criterion changes stays in the pull request:
 # approval 1, the personas change its criterion, a clean read of the changed criterion, then his approval of it.
 task_in "$LOCAL" after-change a.txt a

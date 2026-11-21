@@ -154,8 +154,9 @@ Criteria that wait for his yes with no interview (a lead's, of a complete reques
    (a complete request) start nothing here: after his yes that lead builds on, as `stages/plan.md`
    says. A stop between the approval and
    the hand-over loses nothing: the session opened after it reads the record. The landing refuses a task on the standard track
-   whose criteria nobody read and whose read he did not skip (step 5), and one whose read found a
-   doubt with no yes of his after it.
+   whose criteria nobody read and whose read he did not skip (step 5), one whose read found a
+   doubt with no yes of his after it, and one that had an interview and whose criteria carry no
+   approval of his, nor one with `--alone` while he was away: a clear read is no yes.
 
 When he says that he is away during the interview, it goes on without him as step 3 of
 `stages/away.md` says: your guesses, logged, the read, each flagged criterion settled by the

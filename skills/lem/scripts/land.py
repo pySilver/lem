@@ -2376,6 +2376,16 @@ def read_skipped(task: Task) -> tuple[dict | None, str | None]:
     return {"word": events[word], "approval": events[approval]}, None
 
 
+def interview_unapproved(events: list[dict], approvals: list[dict], small: bool) -> bool:
+    """Whether a task on the standard track had an interview (`interview.start` among its EVENTS) and
+    its criteria carry no approval of the owner's, nor one made while it ran without him (`alone`):
+    the interview ends with his yes (`stages/interview.md`, steps 6 and 7), and the lead's freeze of a
+    read is the complete request's approval, not his. The fast track asks nothing of it."""
+    if small or not any(event.get("event") == "interview.start" for event in events):
+        return False
+    return not any(approval.get("by") in ("owner", "alone") for approval in approvals)
+
+
 def approved_after(found: dict, read: dict) -> bool:
     """Whether the owner himself approved the criteria at the read's time or after it. A freeze of
     a read (`by: read`) and Lem's approval on the fast track are not his yes."""
@@ -3302,6 +3312,14 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
             f"the newest read of {task.slug}'s criteria found {doubt}, and no approval of the owner's came after it: the criteria with the personas' answers "
             "on top go to the owner (`stages/interview.md`, step 6), and the owner's yes is kept with "
             f"`lem criteria approve {task.slug} --file FILE`",
+        )
+    # A request that had an interview ends it with his yes, whatever the read found: a step that skipped
+    # it, and a lead that then froze the criteria as a complete request's, do not make it his.
+    if interview_unapproved(events_of(task), found.get("approvals", []), found["small"]):
+        raise LandError(
+            f"{task.slug} had an interview (`interview.start` in the event log), and its criteria carry no approval of the owner's: the interview ends with "
+            f"his yes, kept with `lem criteria approve {task.slug} --file FILE` (`stages/interview.md`, steps 6 and 7), or, while the task runs without him, "
+            "with `--alone` (`stages/away.md`). The criteria with the personas' answers go to the owner",
         )
     # A complete request that someone else wrote: nobody at the terminal read it, so its criteria wait
     # for his yes even when nobody was confused, and the lead's freeze of the read is not that yes.

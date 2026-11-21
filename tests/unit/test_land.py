@@ -450,6 +450,27 @@ class EventLog(unittest.TestCase):
         self.assertEqual((land.waits_of(self.task, "2026-11-21T09:00:00Z") or {}).get("say"), self.WORDS)
 
 
+class InterviewApproved(unittest.TestCase):
+    """`land.interview_unapproved`: a task that had an interview is proposed only over criteria the
+    owner approved, or that were approved while it ran without him; a complete request (no interview)
+    and the fast track ask nothing of it."""
+
+    INTERVIEW = [{"event": "interview.start", "task": "gift-note"}, {"event": "criteria.read", "task": "gift-note"}]
+
+    def test_an_interview_with_no_approval_of_his(self) -> None:
+        self.assertTrue(land.interview_unapproved(self.INTERVIEW, [], small=False))
+        self.assertTrue(land.interview_unapproved(self.INTERVIEW, [{"by": "read"}], small=False))
+        self.assertTrue(land.interview_unapproved(self.INTERVIEW, [{"by": "lem"}], small=False))
+
+    def test_his_approval_or_one_without_him(self) -> None:
+        self.assertFalse(land.interview_unapproved(self.INTERVIEW, [{"by": "owner"}], small=False))
+        self.assertFalse(land.interview_unapproved(self.INTERVIEW, [{"by": "lem"}, {"by": "alone"}], small=False))
+
+    def test_a_complete_request_and_the_fast_track(self) -> None:
+        self.assertFalse(land.interview_unapproved([{"event": "criteria.read", "task": "gift-note"}], [], small=False))
+        self.assertFalse(land.interview_unapproved(self.INTERVIEW, [], small=True))
+
+
 class FailedAttempt(unittest.TestCase):
     """`land.failed_attempt`: the record of a review that got no answer at all, which counts as an
     attempt with no careful call: nobody answered, a reason for each silent source, no finding."""
