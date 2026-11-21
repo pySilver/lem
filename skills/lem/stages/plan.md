@@ -218,7 +218,9 @@ with each of its lines and that one. Your report says the same. A task he named 
    plan (a layer over a decision with no cite, a decision two questions named, or a changed
    decision that brought issues of its own) is an honest comparison of both sides: one option is
    the kept decision with each mechanism that guards it, the other the reversed decision with the
-   tasks and the criteria it changes and each issue the reviewer raised against it. Both are the
+   tasks and the criteria it changes and each issue the reviewer raised against it. The kept
+   decision is the one the plan holds as the talk left it, after its repairs, never the one the
+   plan held before them. Both are the
    ladder's options, and the pick of level 1 is the kept decision: the plan stands until a level
    settles otherwise, and the defender is one of the two positions that did not settle. The pick
    is taken: the defender writes the reversed decision into the plan when a level picks it, and
