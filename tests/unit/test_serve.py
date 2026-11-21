@@ -180,6 +180,24 @@ class Duties(unittest.TestCase):
         waiting = (self.ev(0, "session.open", session="S1", why="new"), self.state(1, "open", self.PR, task="coupon"), *queued)
         self.assertEqual(serve.duties(self.model(*waiting, sessions=live), {}, set()), [])
 
+    def test_a_task_queued_again_behind_a_second_task_gets_its_turn_when_that_one_ends(self):
+        # its first wait ended, its session read the need again and queued it behind card-foot
+        first = (self.state(0, "landed", "main: pull request ... is merged", task="coupon"), self.state(1, "open", self.PR, task="card-foot"),
+                 self.state(2, "queued", 'the owner\'s order: "After coupon: x"', "after: coupon", "then: the interview"))
+        again = (self.state(4, "queued", "needs the card foot", "after: card-foot", "then: the interview"),)
+        landed = (self.state(6, "landed", "main: pull request ... is merged", task="card-foot"),)
+        opened = (*first, self.ev(3, "session.open", session="S2", why="queue"), *again, self.ev(5, "session.close", session="S2"))
+        self.assertEqual(serve.duties(self.model(*opened, sessions={}), {}, set()), [])
+        self.assertEqual(serve.duties(self.model(*opened, *landed, sessions={}), {}, set()), [("open", "gift-note", "queue")])
+        # the same, with the session woken for the first wait and still live
+        live = {"gift-note": {"live": True, "agent": True}}
+        woken = (*first, self.ev(3, "session.wake", session="S1", why="queue"), *again, *landed)
+        self.assertEqual(serve.duties(self.model(*woken, sessions=live), {}, set()), [("wake", "gift-note", "queue")])
+        # a queued block written again behind the same task keeps the one turn it had
+        same = (*first, self.ev(3, "session.wake", session="S1", why="queue"),
+                self.state(4, "queued", 'the owner\'s order: "After coupon: x"', "after: coupon", "then: the interview", "the agent sees no need"))
+        self.assertEqual(serve.duties(self.model(*same, sessions=live), {}, set()), [])
+
     def test_the_merge_agents_merge_of_the_proposed_tip_is_the_servers(self):
         proposed = (self.ev(0, "proposed", green=True, not_green=[], tip="abc123456"), self.state(1, "open", self.PR))
         merge = (*proposed, self.ev(2, "merge.review", verdict="merge", calls=False, by="claude/opus:high", tip="abc123456"))
