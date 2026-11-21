@@ -78,6 +78,19 @@ class Actions(unittest.TestCase):
         self.assertIn("not the board's own", self.refusal(Host="evil.example.com:4536", Origin="http://evil.example.com:4536"))
 
 
+class Reads(unittest.TestCase):
+    """The main listener reads a request only for a `Host` of its own: a name of another site that points
+    at this machine (DNS rebinding) reads nothing."""
+
+    def test_its_own_names_are_read_and_another_is_refused(self):
+        for host in ("127.0.0.1:4536", "localhost:4536", "[::1]:4536", "127.0.0.1", "LOCALHOST:4536"):
+            self.assertIsNone(serve.host_refusal(headers(Host=host), 4536), host)
+        for given in (headers(Host="evil.example.com:4536"), headers(), headers(("Host", "127.0.0.1:4536"), ("Host", "evil.example.com"))):
+            self.assertIn("not the board's own", serve.host_refusal(given, 4536))
+        self.assertIsNone(serve.host_refusal(headers(Host="10.0.0.5:4536"), 4536, "10.0.0.5"))
+        self.assertIsNotNone(serve.host_refusal(headers(Host="10.0.0.5:4536"), 4536))
+
+
 class Notes(unittest.TestCase):
     def test_a_second_press_of_a_merge_that_runs_gets_the_first_ones_note(self):
         notes = serve.Notes()

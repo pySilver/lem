@@ -53,6 +53,27 @@ else
   fail "the kanban: $(lanes <<<"$kanban") / ${said:0:1500}"
 fi
 
+# The main listener reads nothing for a Host of another name, as a page of another site that points its own name at
+# this machine would send (DNS rebinding); its own names read.
+foreign=""
+for path in /api/server /api/workspaces "/$HOST/shop/" "/$HOST/shop/tasks/order-date-on-invoice"; do foreign="$foreign $(code -H "Host: evil.example:$SERVE_PORT" "$SERVER$path")"; done
+if [ "$foreign" = " 403 403 403 403" ] && [ "$(code -H "Host: localhost:$SERVE_PORT" "$SERVER/api/server")" = 200 ] && [ "$(code "$SERVER/api/server")" = 200 ] \
+  && curl -s -H "Host: evil.example:$SERVE_PORT" "$SERVER/api/workspaces" | grep -qF "not the board's own"; then
+  pass "the main listener reads nothing for a Host that is none of its own names, and its own names read"
+else
+  fail "the main listener's Host: $foreign"
+fi
+
+# lem project waiting lists the rows of the board's Waits for you, in their order, and counts them as the server does.
+waiting=$(project --repo "$DEMO" waiting)
+rows=$(got "$BASE/waits" | "$PY" -c 'import re, sys; print(re.findall(r"<article class=\"wrow [^\"]*\" id=\"wait-([a-z0-9-]+)\"", sys.stdin.read()))')
+if [ "$(field '[r["key"].replace(":", "-") for r in d["rows"]]' <<<"$waiting")" = "$rows" ] && [ "$(field 'd["count"]' <<<"$waiting")" = 5 ] \
+  && [ "$(field '(d["sessions"]["known"], len(d["breakers"]), len(d["criteria"]))' <<<"$waiting")" = "(True, 1, 1)" ]; then
+  pass "lem project waiting lists the rows of the board's Waits for you in their order, with the count /api/workspaces gives"
+else
+  fail "waiting and the board: $(field 'd["rows"]' <<<"$waiting") / $rows"
+fi
+
 T=$BASE/tasks/order-date-on-invoice
 tabs=""
 for tab in "" /criteria /checks /timeline /artifacts "?in=waits" /artifacts/report.md/; do tabs="$tabs $(code "$T$tab")"; done
@@ -191,31 +212,26 @@ else
 fi
 
 # lem board, with a stand-in for agtermctl that prints a tree and records its calls: the board opens at the server's
-# address as a page companion of the session's group, and is known by its workspace's address. A state folder of an
-# older Lem loses the copies of the old page, and nothing else.
+# address as a page companion of the session's group, and is known by its workspace's address.
 printf '%s\n' '{"result": {"tree": {"workspaces": [{"sessions": [{"id": "LEM", "foreground": ["/usr/local/bin/claude"]}, {"id": "OTHER"},' \
   '{"id": "PX", "content": "page", "parent": "LEM", "htmlOverlays": [{"url": "http://127.0.0.1:1/elsewhere/shop/", "page": "http://127.0.0.1:1/elsewhere/shop/"}]},' \
-  "{\"id\": \"PA\", \"name\": \"Lem board\", \"content\": \"page\", \"parent\": \"LEM\", \"htmlOverlays\": [{\"url\": \"$BASE/\", \"page\": \"$BASE/backlog\"}]}," \
-  "{\"id\": \"PO\", \"name\": \"Lem board · shop\", \"content\": \"page\", \"parent\": \"OTHER\", \"htmlOverlays\": [{\"file\": \"$STATE/board.html\"}]}]}]}}}" > "$WORK/tree.json"
+  "{\"id\": \"PA\", \"name\": \"Lem board\", \"content\": \"page\", \"parent\": \"LEM\", \"htmlOverlays\": [{\"url\": \"$BASE/\", \"page\": \"$BASE/backlog\"}]}]}]}}}" > "$WORK/tree.json"
 opened() { : > "$AGT_CALLS"; env -u AGTERM_WINDOW_ID -u AGT_WINDOW_ID -u AGT_SESSION_ID -u AGT_SOCKET AGTERM_SESSION_ID="$1" AGTERM_SOCKET="$WORK/agterm.sock" "$PY" -B "$BOARD" --repo "$DEMO" "${@:2}"; }
-mkdir -p "$STATE/vendor" "$STATE/artifacts" && touch "$STATE/board.html" "$STATE/meta.js" "$STATE/events.js" "$STATE/owner.js" "$STATE/task-gift-note-in-export.html" "$STATE/vendor/board-kit.js" "$STATE/artifacts/x.js" "$STATE/keep.txt"
 kept=$(opened LEM)
 kept_calls=$(cat "$AGT_CALLS")
 fresh=$(opened OTHER --task stock-on-product-page --follow)
 fresh_calls=$(cat "$AGT_CALLS")
 moved=$(opened LEM --task stock-on-product-page)
 moved_calls=$(cat "$AGT_CALLS")
-left=$(cd "$STATE" && ls -d board.html meta.js events.js owner.js task-gift-note-in-export.html vendor artifacts 2>/dev/null || true)
-if [ "$(field '(d["url"], d["companion"], d["reloaded"], d["name"], d["removed"])' <<<"$kept")" = "('$BASE/', 'PA', True, 'Lem board · shop', ['board.html', 'meta.js', 'owner.js', 'events.js', 'vendor/', 'artifacts/', 'task-gift-note-in-export.html'])" ] \
+if [ "$(field '(d["url"], d["companion"], d["reloaded"], d["name"], "removed" in d)' <<<"$kept")" = "('$BASE/', 'PA', True, 'Lem board · shop', False)" ] \
   && grep -qxF "session overlay reload --current --target PA --socket $WORK/agterm.sock" <<<"$kept_calls" && ! grep -q "PX\|overlay open\|session close" <<<"$kept_calls" \
-  && [ -z "$left" ] && [ -f "$STATE/keep.txt" ] && [ -f "$STATE/events.jsonl" ] \
-  && [ "$(field '(d["companion"], d["parent"], d["reloaded"])' <<<"$fresh")" = "('NEW', 'OTHER', False)" ] && grep -qxF "session close --target PO --socket $WORK/agterm.sock" <<<"$fresh_calls" \
+  && [ "$(field '(d["companion"], d["parent"], d["reloaded"])' <<<"$fresh")" = "('NEW', 'OTHER', False)" ] && ! grep -qF "session close" <<<"$fresh_calls" \
   && grep -qxF "session overlay open --url $BASE/tasks/stock-on-product-page --persistent --js --companion --target OTHER --json --socket $WORK/agterm.sock" <<<"$fresh_calls" \
   && grep -qxF "session select --target NEW --socket $WORK/agterm.sock" <<<"$fresh_calls" \
   && grep -qxF "session close --target PA --socket $WORK/agterm.sock" <<<"$moved_calls" && grep -qF "overlay open --url $BASE/tasks/stock-on-product-page" <<<"$moved_calls"; then
-  pass "lem board opens the server's address as a page companion: its workspace's board is reloaded where it stands, a task's board opens anew, one that shows the old page as a file is closed, another repository's is left alone, and the old page's copies go"
+  pass "lem board opens the server's address as a page companion: its workspace's board is reloaded where it stands, a task's board opens anew, and another repository's is left alone"
 else
-  fail "lem board: $kept / $kept_calls / $fresh / $fresh_calls / $moved_calls / $left"
+  fail "lem board: $kept / $kept_calls / $fresh / $fresh_calls / $moved_calls"
 fi
 
 # The jump to a task's session, as the board's page asks it: on this Mac, from the board's own origin, and only to the

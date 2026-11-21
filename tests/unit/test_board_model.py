@@ -53,7 +53,7 @@ class Status(unittest.TestCase):
         t = one(state(0, "held", "the criteria wait for the owner"), ev(3, "criteria.approved", by="owner", number=1))
         self.assertFalse(t.for_owner)
         self.assertEqual((t.lane, t.info["label"], t.info["actor"]), ("build", "Approved", "lem"))
-        self.assertEqual(t.shown, "your yes to the criteria is on record: Lem starts its lead")
+        self.assertEqual(t.shown, "your yes to the criteria is on record: the task's session starts its build")
         self.assertEqual(bm.waits_of(model(state(0, "held", "the criteria wait for the owner"), ev(3, "criteria.approved", by="owner", number=1))), [])
 
     def test_since_is_when_the_task_entered_its_status_not_its_newest_block(self):
@@ -280,6 +280,51 @@ class Sessions(unittest.TestCase):
         self.assertEqual(self.rows(demo), [])
         closed = bm.derive([state(0, "building", "lead: builder"), ev(1, "session.open", session="S1"), ev(2, "session.close", session="S1", why="owner")], [], NOW, meta={"demo": True})
         self.assertEqual(self.rows(closed), [("session", "No session runs this task")])
+
+
+class Blocked(unittest.TestCase):
+    """A task its session stopped (`blocked`) waits for the owner's word, except while the base is red."""
+
+    def test_a_blocked_task_is_a_row_of_his_with_its_own_line_and_the_base_red_is_none(self):
+        m = model(state(0, "building", "lead: builder"), state(5, "blocked", "a builder ended two times with no report"))
+        t = m.tasks[0]
+        rows = bm.waits_of(m)
+        self.assertEqual([(w["key"], bm.wait_say(w)["verb"]) for w in rows], [("blocked:gift-note", "Its session stopped: tell it what to do")])
+        self.assertIn("a builder ended two times with no report", bm.wait_say(rows[0])["where"])
+        self.assertEqual((t.lane, t.info["actor"], bm.now_head(t)), ("you", "you", "Its session stopped: it waits for your word"))
+        red = model(state(0, "landing", "the checks run"), state(5, "blocked", "the base is red", "after: fix-the-base"))
+        self.assertEqual((bm.waits_of(red), red.tasks[0].lane), ([], "build"))
+        self.assertIn("waits for the base", bm.now_head(red.tasks[0]))
+
+
+class NewTask(unittest.TestCase):
+    """A task whose session opened and wrote no state block is on the board from its first minute."""
+
+    def test_a_session_open_with_no_block_is_a_task_that_starts(self):
+        m = model(ev(0, "session.open", session="S1", name="gift-note", phase="shape", why="new"))
+        t = m.by_slug["gift-note"]
+        self.assertEqual((t.status, t.info["label"], t.lane, bm.now_head(t)), (bm.NEW, "Starting", "build", "Its session opened: it reads the request"))
+        self.assertEqual(bm.waits_of(m), [])
+        m.sessions = {}
+        self.assertEqual([w["key"] for w in bm.waits_of(m)], ["session:gift-note"])
+        self.assertTrue(bm.opens_session(t, m))
+        later = model(ev(0, "session.open", session="S1"), state(1, "held", "the request waits for one answer"))
+        self.assertEqual(later.tasks[0].status, "held")
+
+
+class ForgeLook(unittest.TestCase):
+    def test_the_servers_last_look_is_read_from_the_state_folder(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            self.assertIsNone(bm.forge_look(folder))
+            (folder / bm.FORGE_LOOK).write_text(json.dumps({"looked": "2026-11-21T10:00:00Z", "seen": {"gift-note": {"mergeable": "CONFLICTING", "head": "abc"}}}))
+            self.assertEqual(bm.forge_look(folder)["seen"]["gift-note"]["head"], "abc")
+            (folder / bm.FORGE_LOOK).write_text("half")
+            self.assertIsNone(bm.forge_look(folder))
+
+    def test_sessions_of_adds_the_worktrees_of_ended_tasks(self):
+        found = bm.sessions_of(bm.session_entries('[{"task": "a", "live": true, "agent": true}]'), {"b"})
+        self.assertEqual(found, {"a": {"live": True, "agent": True, "unanswered": None, "session": None, "name": None, "worktree": False}, "b": {"worktree": True}})
 
 
 class Workspace(unittest.TestCase):

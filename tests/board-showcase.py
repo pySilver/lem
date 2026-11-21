@@ -19,7 +19,8 @@ shows "What we are building" whole; the task of the picture of one task (`refund
 a document of Lem's takes, and its picture shows the merge review that calls the owner. The scripts write the
 events seconds apart, and their times are then moved to the minutes before
 NOW, the minute the run started, that a run would have spaced them. The state folder is marked as demo
-data, as `lem board --demo` marks one.
+data, as `lem board --demo` marks one, before the first task: `lem project task-dir` and `lem session
+open` put no repository with that mark into the machine's list of workspaces.
 
 The pictures are of the board as `lem serve` sends it: a server of this checkout on a free port, with
 a home folder of Lem of its own (XDG_CONFIG_HOME), shows the repository, and headless Chrome takes each
@@ -78,6 +79,8 @@ class Shop:
         self.git("add", "-A")
         self.git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "chore: the settings")
         self.dir = Path(self.project("state-dir").strip())
+        # the mark first, so that no script of the afternoon puts this repository into a list of workspaces
+        (self.dir / "demo").write_text("The tasks in this folder are examples, written by tests/board-showcase.py.\n")
 
     def git(self, *args: str) -> str:
         return run("git", "-C", str(self.repo), *args)
@@ -750,7 +753,6 @@ def build(work: Path) -> Shop:
     afternoon(shop)
     refund_line(shop)
     shop.retime()
-    (shop.dir / "demo").write_text("The tasks in this folder are examples, written by tests/board-showcase.py.\n")
     return shop
 
 

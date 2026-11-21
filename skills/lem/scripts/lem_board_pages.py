@@ -505,7 +505,7 @@ def rail(ctx: Ctx, waits: list, counts: dict) -> list:
     bad = len(m.blocked) + len(m.unknown)
     if bad:
         flags.append(h("button", {"class": "rbtn a-bad", "type": "button", "data-action": "fold#side",
-                                  "title": f"{bm.plural(bad, 'task')} need Lem to settle them: unfold the sidebar"}, icon(ctx, "alert"), em(bad)))
+                                  "title": f"{bm.plural(bad, 'task')} stopped or with a status no stage writes: unfold the sidebar"}, icon(ctx, "alert"), em(bad)))
     if flags:
         out += [h("hr"), *flags]
     if len(ctx.spaces) > 1:
