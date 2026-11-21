@@ -67,8 +67,9 @@ works, and this file says how to change it.
 - **A new decision of the maintaining session is a file of `.lem/decisions/`**, named as a
   ruling's file is, with `decided:` in place of `ruled:`, and one sentence under the heading of
   its group in "Decisions the maintaining session took". A decision changes as a ruling does, and
-  no line of its file says "ruled": `Decided on DAY.` and `## As decided on DAY, changed in part
-  since` take the place of a ruling's words. A decision that a ruling replaces keeps its file,
+  no heading or marker line of its file says "ruled": `decided:`, `Decided on DAY.` and `## As
+  decided on DAY, changed in part since` take the place of a ruling's words. A moved paragraph
+  keeps its words, "ruled" among them. A decision that a ruling replaces keeps its file,
   whose first line under the title is `Replaced, not in force: on DAY, by` and the link of that
   ruling, and the ruling's `## Replaced, not in force` links it back.
 
