@@ -24,7 +24,8 @@ The candidates, none of them started:
 - **Review.** A review of another person's pull request from its URL: no search of the forge,
   starts where the owner stopped, the project's lenses, a pending review that he submits. The
   owner called the shape sane (2026-11-17). `lem-pr-review` was the copied skill; same way to find it.
-- **Digest.** One page a week: what Lem built and why, made from the end pages of the tasks. It
+- **Digest.** One page a week: what Lem built and why, made from the tasks' merge reviews
+  (`merge-review.md`). It
   answers his "when there are lots of tasks and plans, its easy to loose track on what we build".
   The maintaining session would build this one first.
 - **Triage.** Reads new tickets and proposes which are ready to become a request. Not in the
@@ -32,6 +33,8 @@ The candidates, none of them started:
 - **CI repair.** A red check on the base branch becomes a bug request with its log.
 - **Night jobs.** Test gaps, docs that differ from the code, dependency updates, each ending as
   a pull request like any night run.
-- **Adapters.** Jira, GitLab as a forge (`no-pull-request-on-gitlab.md`), Codex in each role
-  (`codex-in-each-role.md`).
+- **Adapters.** Jira, and GitLab as a forge. His ruling of 2026-11-20 makes GitHub pull requests
+  the one way to land ("we can assume that we fully use Github"), so a forge adapter needs his word
+  first. Codex in each role left this list with his ruling "Claude Code and agterm first, and Codex
+  for reviews" (2026-11-20).
 - **Pictures.** For a change of a page, the pull request shows the page before and after.
