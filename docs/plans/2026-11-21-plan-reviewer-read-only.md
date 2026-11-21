@@ -31,13 +31,18 @@ flowchart TD
 
 ## Tasks
 
-1. **The real talk.** In a throwaway git repository under the task directory, open a pair in agterm:
-   a Claude Code agent as the defender in one pane, and the Codex reviewer in the other, started
-   with the new launch line (decisions 1 to 4 and 6) and `skills/lem/prompts/reviewer.md` as its first
-   prompt. The defender sends a short plan with one wrong path through the mailbox and asks the
+1. **The real talk.** Open a pair in agterm whose session and panes start in Lem's main checkout,
+   which Codex trusts, as a real talk's pair does (`plan-talk.md`, step 1, `MAIN`; decision 3), so
+   no trust question stops it: a Claude Code agent as the defender in one pane, and the Codex
+   reviewer in the other, started with the new launch line (decisions 1 to 4 and 6) and
+   `skills/lem/prompts/reviewer.md` as its first prompt. The work happens in a throwaway git
+   repository under the task directory, which the defender's message names as the directory to
+   work in, as a real talk names the worktree. The defender sends a short `plan.md` there with one
+   wrong path through the mailbox and asks the
    reviewer to read it, run `git log`, and to try to fix the path itself in the file; after the
    refusal, to ask for approval of the same write. Record the
-   reviewer's screen, `git status`, the reply file's write, the `sent` receipt and the defender's
+   reviewer's screen, `git status` of the throwaway repository and of the main checkout, the reply
+   file's write, the `sent` receipt and the defender's
    receipt, that no approval request reached anyone (decision 6), the allow rules of
    `~/.codex/rules/` at the time of the run, and the model and effort the reviewer's status line
    shows. Close every session and
