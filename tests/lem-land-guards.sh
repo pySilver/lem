@@ -9,8 +9,9 @@
 GRD=$WORK/guards
 git init -q -b main "$GRD" && ident "$GRD"
 project --repo "$GRD" init --base main >/dev/null
-# grd_settings COMMANDS: the settings with these gate commands, a TOML list's items; HISTORY=squash for one commit, SERIAL for checks.serial
-grd_settings() { printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' "history = \"${HISTORY:-keep}\"" '[checks]' "commands = [$1]" "serial = [${SERIAL:-}]" > "$GRD/.lem/project.toml"; }
+# grd_settings COMMANDS: the settings with these gate commands, a TOML list's items; HISTORY=squash for one commit, SERIAL for checks.serial,
+# PROTECTED for branch.protected
+grd_settings() { printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' "history = \"${HISTORY:-keep}\"" "protected = [${PROTECTED:-}]" '[checks]' "commands = [$1]" "serial = [${SERIAL:-}]" > "$GRD/.lem/project.toml"; }
 grd_settings '"true"'
 mkdir -p "$GRD/tests" && printf '%s\n' 'def test_old():' '    assert 1 + 1 == 2' > "$GRD/tests/test_old.py"
 git -C "$GRD" add -A && git -C "$GRD" commit -q -m "chore: start" && on_github "$GRD"
@@ -86,6 +87,24 @@ else
   fail "a green result after the commands changed: $none / $added / $same"
 fi
 project --repo "$GRD" state new-command dropped "the test is over" >/dev/null
+
+# A branch the owner protects after the task's worktree was made: propose pushes nothing to it, and clean removes nothing of
+# it, the worktree neither, until the name leaves branch.protected.
+small_task_in "$GRD" kept-name k.txt k
+g start kept-name >/dev/null && g base kept-name >/dev/null && g checks kept-name >/dev/null && g read kept-name --record "$(clean 1)" >/dev/null
+PROTECTED='"fix/kept-name"' grd_settings '"true"'
+pushed=$(g propose kept-name --title "fix: k" --notes "$NOTES" 2>&1 || true)
+remote=$(git -C "$GRD" ls-remote origin refs/heads/fix/kept-name)
+project --repo "$GRD" state kept-name dropped "the test is over" >/dev/null
+cleaned=$(g clean kept-name 2>&1 || true)
+grd_settings '"true"'
+if grep -qF "fix/kept-name is in branch.protected of .lem/project.toml: Lem pushes nothing to it" <<<"$pushed" && grep -qF "nothing was pushed" <<<"$pushed" && [ -z "$remote" ] \
+  && grep -qF "fix/kept-name is in branch.protected of .lem/project.toml: Lem deletes nothing of it" <<<"$cleaned" && [ -d "$(wt kept-name)" ] \
+  && git -C "$GRD" rev-parse -q --verify refs/heads/fix/kept-name >/dev/null && [ "$(g clean kept-name | field 'd["worktree"]')" = True ]; then
+  pass "a task branch the owner protected after its worktree was made gets no push from propose, and clean removes neither it nor the worktree until the name leaves branch.protected"
+else
+  fail "a protected task branch: $pushed / $remote / $cleaned"
+fi
 
 # A task whose worktree was removed by hand while it lands: another task starts its landing beside it, and the task's own step names the way out.
 small_task_in "$GRD" stuck s.txt s

@@ -450,6 +450,24 @@ class EventLog(unittest.TestCase):
         self.assertEqual((land.waits_of(self.task, "2026-11-21T09:00:00Z") or {}).get("say"), self.WORDS)
 
 
+class ProtectedBranch(unittest.TestCase):
+    """`land.protected_refusal`: the name of the branch Lem pushes or deletes, checked against the
+    settings where it does so: the base and each protected branch are refused, with the way out."""
+
+    BRANCH = {"base": "main", "protected": ["release", "fix/gift-note"]}
+
+    def test_a_task_branch_that_is_not_protected(self) -> None:
+        self.assertIsNone(land.protected_refusal("fix/footer", self.BRANCH, "pushes"))
+
+    def test_a_protected_name_is_refused_and_named(self) -> None:
+        said = land.protected_refusal("fix/gift-note", self.BRANCH, "pushes")
+        self.assertIn("fix/gift-note is in branch.protected", said)
+        self.assertIn("Lem pushes nothing to it", said)
+
+    def test_the_base_is_refused(self) -> None:
+        self.assertIn("main is the base branch", land.protected_refusal("main", self.BRANCH, "deletes"))
+
+
 class SameChecks(unittest.TestCase):
     """`land.same_checks`: a green result holds only for the commands that ran, in their order and with
     their serial flags; a command added, removed, moved to `serial` or none at all asks for the checks."""

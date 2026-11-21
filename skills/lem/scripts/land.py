@@ -3187,6 +3187,18 @@ def not_github(task: Task) -> str:
     )
 
 
+def protected_refusal(branch: str, settings: dict, does: str) -> str | None:
+    """Why Lem may not push to the branch named BRANCH (DOES `pushes`) or delete it (`deletes`), by the
+    settings' `[branch]` as they are now: the base branch, or a name in `branch.protected`, which the
+    owner may add after the task's worktree was made. None for a branch of the task's own."""
+    what = "to" if does == "pushes" else "of"
+    if branch == settings["base"]:
+        return f"{branch} is the base branch of .lem/project.toml: Lem {does} nothing {what} it outside a merge through its pull request"
+    if branch in settings["protected"]:
+        return f"{branch} is in branch.protected of .lem/project.toml: Lem {does} nothing {what} it"
+    return None
+
+
 def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     task.need_landing()
     task.need_worktree()
@@ -3299,6 +3311,13 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     reasons = not_green(task, state)
     says = "green" if not reasons else f"not green: {'; '.join(reasons)}"
     branch = git(task.worktree, "branch", "--show-current")
+    # the name the push goes to, by the settings as they are now: the owner may protect it after the worktree was made
+    protected = protected_refusal(branch, task.settings["branch"], "pushes")
+    if protected:
+        raise LandError(
+            f"{protected}, and the task's branch has that name; nothing was pushed. The owner takes the name out of branch.protected, "
+            f"or, while the task has no pull request, a builder gives the task a branch of its own (`git -C {task.worktree} branch -m NEW-NAME`); then this step runs again",
+        )
     pr = kept.get("pr")
     # What origin's copy of the branch holds may be replaced only when it is Lem's push or the
     # branch holds it: the lease names that commit, or no branch at all for a first push.
@@ -3756,6 +3775,15 @@ def cmd_clean(task: Task) -> dict:
     branch = task.kept().get("branch")
     if (task.worktree / ".git").exists():
         branch = git(task.worktree, "branch", "--show-current") or branch
+    # Before anything goes: a branch whose name the owner protected since is not deleted here or on
+    # origin, and the refusal leaves the task as it was.
+    protected = protected_refusal(branch, task.settings["branch"], "deletes") if branch else None
+    if protected:
+        raise LandError(
+            f"{protected}, and the task's branch has that name; nothing was removed. The owner takes the name out of branch.protected and "
+            f"`lem land clean {task.slug}` runs again, or removes the worktree himself (`git -C {task.main} worktree remove {task.worktree}`) and keeps the branch",
+        )
+    if (task.worktree / ".git").exists():
         if branch:
             task.keep(branch=branch)
         # git refuses a worktree with changes or untracked files: they are someone's work until the owner says otherwise.

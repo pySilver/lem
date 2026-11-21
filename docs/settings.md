@@ -23,7 +23,7 @@ Paths are relative to the root of the repository.
 | `branch.base` | `/lem init` writes the default branch | the branch that a task starts from and lands on |
 | `branch.land` | `"agent"` | who merges. A merge agent reads each pull request first and writes its review. `"agent"`: the merge agent merges a green pull request that is not careful, and calls you for each other one. `"owner"`: you merge each pull request |
 | `branch.history` | `"squash"` | what lands. `"squash"`: one commit. `"keep"`: the commits of the branch |
-| `branch.protected` | `[]` | the branches where Lem lands nothing and pushes nothing |
+| `branch.protected` | `[]` | the branches where Lem lands nothing, pushes nothing and deletes nothing, also a task's own branch that you add here later |
 
 ## `[checks]`
 
