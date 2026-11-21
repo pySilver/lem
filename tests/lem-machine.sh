@@ -607,11 +607,11 @@ if [ "$(status_of project --repo "$CQ" show)" = 1 ]; then pass "a collect value 
 
 # The plugin form: the files Claude Code reads to load this repository as the plugin `lem`.
 # shellcheck disable=SC2016  # ${CLAUDE_PLUGIN_ROOT} is the text of the hook's command, for Claude Code to fill
-if "$PY" -c 'import json, os, sys
+if "$PY" -c 'import json, os, re, sys
 root = sys.argv[1]
 manifest = json.load(open(f"{root}/.claude-plugin/plugin.json"))
 market = json.load(open(f"{root}/.claude-plugin/marketplace.json"))
-ok = (manifest["name"] == "lem" and "version" not in manifest
+ok = (manifest["name"] == "lem" and re.fullmatch(r"\d+\.\d+\.\d+", manifest.get("version") or "") is not None
       and [(p["name"], p["source"]) for p in market["plugins"]] == [("lem", "./")]
       and [os.readlink(f"{root}/bin/{name}") for name in ("lem-ask", "lem-jev")] == ["lem", "lem"]
       and sorted(os.listdir(f"{root}/bin")) == ["lem", "lem-ask", "lem-jev"] and not os.path.exists(f"{root}/scripts/setup.py")
@@ -627,7 +627,7 @@ ok = ok and commands == {"UserPromptSubmit": [launch + "\"${CLAUDE_PLUGIN_ROOT}/
                          "PreCompact": [session]}
 ok = ok and matchers["SessionStart"] == ["startup|resume", "compact"] and matchers["PreCompact"] == ["auto|manual"]
 sys.exit(not ok)' "$PWD"; then
-  pass "the plugin manifest names lem and no version, so each commit is an update; the marketplace file lists the one plugin; bin/ holds the command lem, a file of its own, and the two commands lem-ask and lem-jev as links to it, and no plain jev; there is no setup script; and the hooks that come with the plugin are the correction hook, the start of the board server, and a task session's two hooks of a compaction, each by the plugin's own path and started through lem_python.py"
+  pass "the plugin manifest names lem and a version of three numbers, which is the release; the marketplace file lists the one plugin; bin/ holds the command lem, a file of its own, and the two commands lem-ask and lem-jev as links to it, and no plain jev; there is no setup script; and the hooks that come with the plugin are the correction hook, the start of the board server, and a task session's two hooks of a compaction, each by the plugin's own path and started through lem_python.py"
 else
   fail "the plugin files in .claude-plugin and bin"
 fi
