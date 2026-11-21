@@ -294,10 +294,13 @@ The task's own session, in the shape, from its first message.
 ## The fast track
 
 One criterion, his own sentence made exact, nothing careful and no question open: one builder makes
-it, the landing checks it and one read reviews it, and it waits for nothing. It stays in this
-session from the request to the merge, with no fresh agent at a phase: a fresh session starts at
-about 84,000 tokens (a second opinion's median of 10 sessions, 2026-11-20), which a typo must not
-pay three times.
+it, the landing checks it and one read reviews it, and it waits for nothing but a task that step 7
+puts it after. It stays in this session from the request to the merge, with no fresh agent at a
+phase: a fresh session starts at about 84,000 tokens (a second opinion's median of 10 sessions,
+2026-11-20), which a typo must not pay three times. A task that step 7 queues closes this session
+there once he leaves it; when the wait ends, the board's server opens a session for it, or wakes
+this one when it still runs, and that session takes it on at its builder (`prompts/session.md`, "A
+queued task").
 
 1. **The criterion.** Write it to `criteria.md` in the task directory, in the form `lem criteria
    --help` shows, with `Size: small, because ...` and the one criterion, and approve it in his name:

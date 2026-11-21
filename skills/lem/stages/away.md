@@ -44,7 +44,11 @@ of the night acts on none: it runs without him until it ends.
 
 ## When the watch ends
 
-- **Away**: the shape goes on without him, with no question to him.
+- **Away**: the shape goes on without him, with no question to him, except a task held with `the
+  order waits for the owner`.
+  - *An order of his that names no task you can tell*: the task held with `the order waits for the
+    owner` waits for him, and nothing of it starts; his back asks its one question
+    (`prompts/session.md`, "What comes next").
   - *An interview*: the steps of `stages/interview.md` go on with your guess for each question
     left, each logged, `lem decisions log SLUG --by lem --what "THE QUESTION" --chose "YOUR GUESS"
     --why WHY`. The personas' read runs, since nobody can skip it now. Each criterion it flagged is
