@@ -60,6 +60,8 @@ BLOCK = re.compile(r'tests/(?P<file>[\w-]+\.sh): "(?P<text>[^"]+)"')
 SCRIPT = re.compile(r"(?P<file>skills/\S+\.py): (?P<name>\w+)")
 # The paths the list names in another repository, each with where it is.
 ELSEWHERE = {".claude/rules": "the folder of rules in a project that adopts Lem"}
+# The paths git ignores (`.lem/.gitignore`), which a clone never holds: one machine's settings.
+IGNORED = (".lem/project.local.toml",)
 # The files that may name a file the list took the place of: the record of the task that made those
 # files, and the plan of the move, whose table names each.
 MAY_NAME = ("docs/plans/2026-11-21-agents-md-read-on-demand/map.json", "docs/plans/2026-11-21-rulings-as-one-list.md")
@@ -177,7 +179,7 @@ class TheList(unittest.TestCase):
         text = QUOTED.sub('""', flat(LIST.read_text(encoding="utf-8")))
         for match in CODE.finditer(text):
             name = match[1]
-            if not PATH.fullmatch(name) or PLACEHOLDER.search(name) or name.startswith((".lem/state/", "~")) or name in ELSEWHERE:
+            if not PATH.fullmatch(name) or PLACEHOLDER.search(name) or name.startswith((".lem/state/", "~")) or name in ELSEWHERE or name in IGNORED:
                 continue
             with self.subTest(path=name):
                 self.assertTrue((ROOT / name).exists() or (ROOT / "skills" / "lem" / name).exists(), f"the list names `{name}`, which is not in the repository")
