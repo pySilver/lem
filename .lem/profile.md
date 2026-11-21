@@ -5,8 +5,8 @@ onboarding on 2026-11-16, from the repository and the owner's answers; correct w
 
 ## What it is
 
-Lem is a set of Claude Code skills that carries one unit of work in a repository from the ask to
-a pull request that says green or not green. It runs on macOS inside agterm only, with a reviewer
+Lem is a Claude Code plugin, installed and never cloned, whose skills carry one unit of work in a
+repository from the ask to a pull request that says green or not green. It runs on macOS inside agterm only, with a reviewer
 (Codex or a second Claude) in a split pane. Its user is a senior developer whose attention is
 short and spread over many projects; a team may adopt it for one repository, as with revmux.
 
