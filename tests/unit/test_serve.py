@@ -345,6 +345,29 @@ class Look(unittest.TestCase):
             pid_file.write_text("0 4536\n")
             self.assertFalse(command.server_lives(folder), "0 names a process group")
 
+    def test_the_look_starts_the_server_under_the_python_it_found_also_when_the_launchers_own_is_older(self):
+        import importlib.machinery
+        import importlib.util
+        import os
+        import tempfile
+        from unittest import mock
+        path = Path(__file__).resolve().parents[2] / "bin" / "lem"
+        loader = importlib.machinery.SourceFileLoader("lem_command", str(path))
+        command = importlib.util.module_from_spec(importlib.util.spec_from_loader("lem_command", loader))
+        loader.exec_module(command)
+        started = []
+        with tempfile.TemporaryDirectory() as folder:
+            outside = {key: value for key, value in os.environ.items() if key != "LEM_SERVE"}
+            with mock.patch.dict(os.environ, {**outside, "XDG_CONFIG_HOME": folder}, clear=True), \
+                    mock.patch.object(command.subprocess, "Popen", lambda args, **_: started.append(args)), \
+                    mock.patch.object(sys, "version_info", (3, 9, 6)):
+                command.look_for_server("/opt/found/python3.13")
+                os.environ["LEM_SERVE"] = "off"
+                command.look_for_server("/opt/found/python3.13")
+        self.assertEqual(len(started), 1, "one start with no LEM_SERVE, none with LEM_SERVE=off")
+        self.assertEqual(started[0][:2], ["/opt/found/python3.13", "-B"])
+        self.assertEqual(started[0][-1], "--ensure")
+
 
 if __name__ == "__main__":
     unittest.main()
