@@ -49,7 +49,11 @@ a team that adopts Lem may have its own.
                                     put a new block at the top of the task's state.md, with the time.
                                     For the block that names the task's path with its type line, the
                                     first of a day's task, it prints `say` too: the task's first line
-                                    to the owner, which its session says as it is
+                                    to the owner, which its session says as it is. The hold of an
+                                    order that names no task names no path: the first block after
+                                    it that names one prints it, with the hold's type line. It
+                                    refuses a type line, the owner's order, a `then:` line and the
+                                    line of the one open task that fits in another form
     lem project tasks               every task's ask, status and newest state block, as JSON
     lem project owner away|back --words TEXT
                                     the owner says that he is away, or back again: his words as typed,
@@ -404,11 +408,14 @@ PLAN_TOKENS = lem_plans.TOKENS
 SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 # What a task's newest state block may say, and who acts next:
 #   queued    the ask is written and no lead runs yet: its `after:` line names the task it waits for,
-#             whose result it needs, or after which the owner's words put it (`the owner's order: "..."`)
+#             whose result it needs, or after which the owner's words put it. Three of its lines have a
+#             fixed form, which `state` checks and the task's first line reads (`opening_line_facts`):
+#             `the owner's order: "HIS WORDS"`, `then: PATH` and `the one open task that fits his words`
 #   building  a lead plans or builds
 #   planned   the plan is committed and nothing builds it: it needs its talk, or a builder after the talk, or the owner reads it
-#   held      it waits for the owner: the criteria, one more fact, a step of his, or a breaker's document
-#             (`breaker N waits for the owner`); no choice of the build waits for him, the ladder decides it
+#   held      it waits for the owner: the criteria, one more fact, a step of his, the task his order names
+#             (`the order waits for the owner`, ORDER_WAIT), or a breaker's document (`breaker N waits for
+#             the owner`); no choice of the build waits for him, the ladder decides it
 #   blocked   the task stopped on something its session could not settle: the base is red, or a builder ended two times with no report
 #   ready     the report is written and the branch waits for its checks
 #   landing   the checks and the read run on it, or a builder repairs what they or the base showed
@@ -1678,6 +1685,7 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
         raise SettingsError("each LINE of a state block is one line of text, and none is empty")
     for line in lines:
         type_line(line)
+        fixed_form(line)
     # the status the newest block gives, read from this task's file alone
     written = text_of(directory / "state.md").strip() if (directory / "state.md").is_file() else ""
     first = STATE_LINE.fullmatch(written.split("\n\n")[0].splitlines()[0]) if written else None
@@ -2295,7 +2303,7 @@ def type_of(text: str) -> dict | None:
     return None
 
 
-# The state lines that tell a task's track (SKILL.md, the seven lines of a fixed form), as the board
+# The state lines that tell a task's track (SKILL.md, the lines of a fixed form), as the board
 # reads them (lem_board_model's FAST_BUILDER, FAST_GREW): the fast track's one builder; the line of a fast
 # task whose builder found that it needs the standard track; a lead, which only the standard track has.
 FAST_BUILDER = "small change: one builder"
@@ -2303,6 +2311,10 @@ FAST_GREW = re.compile(r"\bthe small change is a full change$")
 LEAD_LINE = re.compile(r"lead: (builder|session)\b")
 # The state line of a task whose interview waits for the owner (`stages/new.md`, "The request", step 8).
 INTERVIEW_WAIT = "the interview waits for the owner"
+# The first line of a `held` block whose order names no task Lem can tell, while he is away (step 1 of
+# "The request"), in whatever form the rest of it has: it names no path, so its first line comes with
+# the first block after his answer that names one, which may take its type line from this block.
+ORDER_WAIT = "the order waits for the owner"
 
 
 def track_of(text: str) -> str | None:
@@ -2331,11 +2343,28 @@ def track_of(text: str) -> str | None:
 INVESTIGATION_LINE = re.compile(r"investigation: (bug|question)")
 AFTER_LINE = re.compile(r"after: (?P<slug>[a-z0-9][a-z0-9-]*)")
 # A `queued` block of step 7: the owner's order as its first line, the path its wait ends in, and
-# the line of a task put after the one open task that fits his words while he was away.
+# the line of a task put after the one open task that fits his words while he was away. The first
+# line reads them, so `state` refuses a line that starts as one of them in another form (`fixed_form`);
+# the match of his words is greedy, so a double quote of his own stays inside them.
 ORDER_LINE = re.compile(r"the owner's order: \"(?P<words>.*)\"")
 THEN_LINE = re.compile(r"then: (?P<path>the interview|the fast track|the lead)")
 THEN_PATHS = {"the interview": "interview", "the fast track": "fast", "the lead": "complete"}
 FITS_LINE = "the one open task that fits his words"
+
+
+def fixed_form(line: str) -> None:
+    """Refuse a state line that starts as one of the three lines the first line reads (the owner's
+    order, `then:`, the one open task that fits) and is not in its form, so that no first line leaves
+    out his order because of how a line was typed. Every other line is free."""
+    text = line.strip()
+    if text.startswith(ORDER_START) and not ORDER_LINE.fullmatch(text):
+        raise SettingsError(f"the line {text!r} starts as the owner's order and is not in its form: write it as "
+                            f"`the owner's order: \"HIS WORDS\"`, his words on one line between double quotes")
+    if text.startswith("then:") and not THEN_LINE.fullmatch(text):
+        raise SettingsError(f"the line {text!r} names no path a wait ends in: write `then: the interview`, "
+                            f"`then: the fast track` or `then: the lead`")
+    if text.startswith("the one open task") and text != FITS_LINE:
+        raise SettingsError(f"the line {text!r} is not in its form: write it as `{FITS_LINE}`")
 CAREFUL_LINE = re.compile(r"careful:\s*(?P<why>.+)", re.IGNORECASE)
 BRANCH_NAME = re.compile(r"[\w][\w./+-]*")
 SENTENCE = re.compile(r"(.+?[.!?])(?=\s|$)")
@@ -2410,14 +2439,18 @@ def outcome_of(text: str) -> str | None:
     return first_sentence(" ".join(paragraph)) if paragraph and len(" ".join(paragraph).split()) > 3 else None
 
 
-def opening_line_facts(directory: Path, main: Path, status: str, lines: list[str], branch: str | None) -> dict | None:
+def opening_line_facts(directory: Path, main: Path, status: str, lines: list[str], branch: str | None,
+                       held: list[str] | None = None) -> dict | None:
     """What the first line of a task says, from its records at the moment its first block is written,
     or None for a block that names no path. `lines` are the block's lines, its first among them;
-    `branch` is the branch of the task's worktree, when it has one."""
+    `branch` is the branch of the task's worktree, when it has one; `held` the lines of the hold of
+    an order that named no task (ORDER_WAIT) before it, whose type and `careful:` lines stand for a
+    block that has none of its own."""
     def file(name: str) -> str:
         return text_of(directory / name) if (directory / name).is_file() else ""
 
-    typed = next((found for found in map(type_line, lines) if found), None)
+    held = [line.strip() for line in held or []]
+    typed = next((found for found in map(type_line, [*lines, *held]) if found), None)
     if typed is None:
         return None
     brief = file("brief.md")
@@ -2440,7 +2473,7 @@ def opening_line_facts(directory: Path, main: Path, status: str, lines: list[str
         return None
     brief_rows = [row.strip() for row in brief.splitlines()]
     named = next((row.split(":", 1)[1].strip() for row in brief_rows if row.startswith("branch:")), "")
-    careful = next((found["why"].strip() for found in map(CAREFUL_LINE.fullmatch, [*said, *brief_rows]) if found), None)
+    careful = next((found["why"].strip() for found in map(CAREFUL_LINE.fullmatch, [*said, *held, *brief_rows]) if found), None)
     ask = " ".join(file("ask.txt").split())
     item = re.fullmatch(r"\S*backlog/\S+\.md", ask)
     quote = criterion_of(file("criteria.md")) if path == "fast" else None
@@ -2478,43 +2511,70 @@ def compose_opening_line(facts: dict, task: str | None = None) -> str:
     here, teller = ("in its own session", "Then its session tells you") if task else ("here", "Then I tell you")
     standard = "Standard track, because you asked for its plan:" if facts.get("plan") else "Standard track:"
     then = "After that a lead writes the plan and stops for you to read it." if facts.get("plan") else "After that it runs to the pull request without you."
-    waits = f"It waits for {facts['after']}, and starts when that task lands or is answered." if facts.get("after") else None
+    # A block with an `after:` line waits on every path: the wait comes before the steps of the track,
+    # which run when it ends, and those steps follow the `after:` line ("Then ..."). Only what names
+    # his order (as you said, the one open task that fits, his word that starts it before that)
+    # follows the order line, so a free order line still leaves the wait in the line.
+    waiting = bool(facts.get("after"))
     if facts.get("order") is not None:
-        # his order: the wait comes before the steps of the track, which run when it ends, and his
-        # word that starts the task before that is in it
         start = f"\"start {task or facts['slug']} now\" starts it before that."
         which = f"the one open task that fits \"{facts['order'].replace(chr(34), chr(39))}\";" if facts.get("fits") else "as you said;"
         words.append(f"It waits for {facts['after']}, {which} {start}")
-        waits = None
+    elif waiting:
+        words.append(f"It waits for {facts['after']}, and starts when that task lands or is answered.")
+    if waiting:
         standard = "Then the s" + standard[1:]
     if path == "fast":
         nothing = "Nothing waits for you." if facts.get("order") is None else None
-        steps = FAST_STEPS if facts.get("order") is None else "Then the f" + FAST_STEPS[1:]
-        words += [steps, waits,
+        steps = "Then the f" + FAST_STEPS[1:] if waiting else FAST_STEPS
+        words += [steps,
                   "Nothing waits for you but the pull request, which calls you: you did not approve its criterion." if facts.get("someone_else") else nothing,
                   correction(True, task)]
     elif path == "interview":
-        now = " now" if facts.get("order") is None else ""
+        now = "" if waiting else " now"
         words += [f"{standard} an interview {here}{now}, then acceptance criteria for your yes.", then, correction(False, task)]
     elif path == "complete":
         read = ("a lead writes acceptance criteria, the personas read them, and they wait for your yes." if facts.get("someone_else")
                 else "a lead writes acceptance criteria, and the personas read them.")
-        words += [f"{standard.rstrip(':')}, with no interview, since {facts['stands_in']} says what is wanted: {read}", waits, then, correction(False, task)]
+        words += [f"{standard.rstrip(':')}, with no interview, since {facts['stands_in']} says what is wanted: {read}", then, correction(False, task)]
     else:
-        investigator = "An investigator" if facts.get("order") is None else "Then an investigator"
-        words += ([f"{investigator} finds the answer first.", waits, f"{teller} the answer."] if facts.get("question")
-                  else [f"{investigator} finds the cause first.", waits, f"{teller} what it found: the fast track, the standard track, or no bug."])
+        investigator = "Then an investigator" if waiting else "An investigator"
+        words += ([f"{investigator} finds the answer first.", f"{teller} the answer."] if facts.get("question")
+                  else [f"{investigator} finds the cause first.", f"{teller} what it found: the fast track, the standard track, or no bug."])
     return " ".join(word for word in words if word)
+
+
+def held_order(directory: Path, main: Path, older: str) -> list[str] | None:
+    """The lines of each hold of an order that named no task (a `held` block whose first line starts
+    as ORDER_WAIT) in OLDER, the blocks of state.md before the one written now, for that block to take
+    its type from; None when an OLDER block said the first line already: one that names a type and is
+    no such hold, or one after a hold that names the task's path with the hold's type."""
+    held: list[str] = []
+    for part in reversed([part for part in older.strip().split("\n\n") if part.strip()]):
+        rows = part.splitlines()
+        found = STATE_LINE.fullmatch(rows[0])
+        lines = [found["text"], *rows[1:]] if found else rows
+        if found and found["status"] == "held" and lines[0].strip().startswith(ORDER_WAIT):
+            held += lines
+            continue
+        if type_of(part) is not None:
+            return None
+        if held and found and opening_line_facts(directory, main, found["status"], lines, None, held) is not None:
+            return None
+    return held
 
 
 def opening_line_of(directory: Path, main: Path, status: str, lines: list[str], older: str, branch: str | None, night: bool,
                     task: str | None = None) -> str | None:
     """The `say` of a state block: the task's first line when this block is the first that names its
-    path with its type (no OLDER block of state.md names a type), and the task is no night's, whose
-    report names it. None for every other block. With `task`, the form for another session."""
-    if night or type_of(older) is not None:
+    path with its type (no OLDER block of state.md said it, `held_order`), and the task is no night's,
+    whose report names it. A hold of his order names no path: the first block after his answer that
+    names one says the line, with the hold's type when it has none. None for every other block. With
+    `task`, the form for another session."""
+    held = held_order(directory, main, older)
+    if night or held is None:
         return None
-    facts = opening_line_facts(directory, main, status, lines, branch)
+    facts = opening_line_facts(directory, main, status, lines, branch, held)
     return compose_opening_line(facts, task) if facts else None
 
 
@@ -2522,7 +2582,8 @@ def opening_line(root: Path, directory: Path, slug: str, status: str, lines: lis
     """`opening_line_of` for a task of this repository, with its night's mark read from the log: the
     `say` of the task's own session and the `say_named` of the session the owner typed the request in,
     both from the same facts, or None."""
-    if type_of(older) is not None:
+    if type_of(older) is not None and ORDER_WAIT not in older:
+        # a block before this one said the line, and no hold of his order is there to look past
         return None
     night = bool(nights(events_named(root, "task.mode")).get(slug))
     main = main_checkout(root)

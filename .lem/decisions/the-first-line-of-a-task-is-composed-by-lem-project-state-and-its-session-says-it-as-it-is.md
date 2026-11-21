@@ -13,7 +13,11 @@ last on 0.1.4, after `prompts/session.md` had been changed to make that line its
 stronger sentence did not work; what sessions do reliably is run a command and say its `say`.
 
 So `lem project state` composes the line from the task's files for the block that names the task's
-path with its type line (`opening_line` in `project.py`), prints it as `say` and logs it with the
+path with its type line (`opening_line` in `project.py`), and from three lines of a queued block,
+`the owner's order: "HIS WORDS"`, `then: PATH` and `the one open task that fits his words`, which
+`state` refuses in another form. The hold of an order that names no task (`the order waits for the
+owner`) names no path: the first block after the owner's answer that names one gets the line, with
+the hold's type line. `state` prints the line as `say` and logs it with the
 block's `task.state` event, and the board shows it at the top of the "now" card while that block is
 the newest. The forms live in the script, and `stages/new.md` keeps one example. To give the script its
 facts, "The request" writes the fast track's criterion and the lead's brief before the task's first
