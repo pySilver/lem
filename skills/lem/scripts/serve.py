@@ -1939,6 +1939,9 @@ def duties(model: "bm.Model", seen: dict, kept: set, merging: set = frozenset())
       each head.
     - `open … queue`: a queued task whose `after:` task ended, that has no live session (`Model.sessions`,
       so never while the server does not know) and no session opened since it was queued.
+    - `wake … queue`: the same task whose session still lives (the one its ask was typed in, which the
+      owner may keep selected, so that its close never comes), when no session was woken or opened
+      since it was queued: one wake.
     - `merge … owner`: an open task for whose tip Lem proposed last the owner's merge stands, after a
       moved base refused it and the session landed the task again with the same change and the same
       reasons (`merge.stands`, `stands_due`): `lem land merge SLUG --by owner --via server --standing`.
@@ -1973,8 +1976,15 @@ def duties(model: "bm.Model", seen: dict, kept: set, merging: set = frozenset())
                     out.append(("wake", t.slug, "refused"))
         elif t.status == "queued" and bm.after_ended(t, model) and model.sessions is not None:
             live = bm.live_of(t, model) or {}
-            if not live.get("live") and not (t.opened and t.opened["order"] > run_start(t)):
+            since = run_start(t)
+            if t.opened and t.opened["order"] > since:
+                continue
+            if not live.get("live"):
                 out.append(("open", t.slug, "queue"))
+            elif not any(w["order"] > since for w in t.wakes):
+                # the session the ask was typed in lives on: the owner may keep it selected, so its close
+                # never comes and nothing else would start the task
+                out.append(("wake", t.slug, "queue"))
     return out
 
 

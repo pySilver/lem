@@ -157,11 +157,28 @@ class Duties(unittest.TestCase):
         queued = (self.state(1, "queued", "it starts after coupon", "after: coupon"),)
         self.assertEqual(serve.duties(self.model(*landed, *queued, sessions={}), {}, set()), [("open", "gift-note", "queue")])
         self.assertEqual(serve.duties(self.model(*landed, *queued, sessions=None), {}, set()), [])
-        self.assertEqual(serve.duties(self.model(*landed, *queued, sessions={"gift-note": {"live": True, "agent": True}}), {}, set()), [])
         opened = (*landed, *queued, self.ev(2, "session.open", session="S2", why="queue"))
         self.assertEqual(serve.duties(self.model(*opened, sessions={}), {}, set()), [])
         waiting = (self.state(0, "open", self.PR, task="coupon"), *queued)
         self.assertEqual(serve.duties(self.model(*waiting, sessions={}), {}, set()), [])
+
+    def test_a_queued_task_whose_session_lives_is_woken_once_when_its_task_ended(self):
+        # the session the ask was typed in, opened before the queue, which the owner keeps selected
+        typed = (self.ev(0, "session.open", session="S1", why="new"), self.state(1, "landed", "main: pull request ... is merged", task="coupon"))
+        queued = (self.state(2, "queued", 'the owner\'s order: "After coupon: unit cases"', "after: coupon", "then: the interview"),)
+        live = {"gift-note": {"live": True, "agent": True}}
+        self.assertEqual(serve.duties(self.model(*typed, *queued, sessions=live), {}, set()), [("wake", "gift-note", "queue")])
+        woken = (*typed, *queued, self.ev(3, "session.wake", session="S1", why="queue"))
+        self.assertEqual(serve.duties(self.model(*woken, sessions=live), {}, set()), [])
+        reopened = (*typed, *queued, self.ev(3, "session.open", session="S2", why="queue"))
+        self.assertEqual(serve.duties(self.model(*reopened, sessions=live), {}, set()), [])
+        # a wake from before the queue does not count for it
+        before = (self.ev(0, "session.open", session="S1", why="new"), self.ev(1, "session.wake", session="S1", why="owner"),
+                  self.state(1, "landed", "main: pull request ... is merged", task="coupon"), *queued)
+        self.assertEqual(serve.duties(self.model(*before, sessions=live), {}, set()), [("wake", "gift-note", "queue")])
+        # while its task has not ended, nothing
+        waiting = (self.ev(0, "session.open", session="S1", why="new"), self.state(1, "open", self.PR, task="coupon"), *queued)
+        self.assertEqual(serve.duties(self.model(*waiting, sessions=live), {}, set()), [])
 
     def test_the_merge_agents_merge_of_the_proposed_tip_is_the_servers(self):
         proposed = (self.ev(0, "proposed", green=True, not_green=[], tip="abc123456"), self.state(1, "open", self.PR))
