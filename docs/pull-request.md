@@ -51,11 +51,11 @@ With `branch.land = "owner"`, the merge agent still writes its review, but it ne
 ## Merge it
 
 There is one merge: the merge of the pull request on GitHub. You start it with the Merge button
-on GitHub, with Merge on the [board](board.md), or with `/lem land <task>`. When the merge agent
-gives the verdict merge, the board server starts the same merge.
+on GitHub, with Merge on the [board](board.md), or with `/lem land <task>`.
 
 - A merge goes through GitHub, under the rules of your base branch. When GitHub refuses it,
-  "Waits for you" shows the line that GitHub gave.
+  "Waits for you" shows the line that GitHub gave. Lem refuses it when the pull request on
+  GitHub has another base branch than yours, and names the fix.
 - When the base branch moved, Lem runs the checks again first. The review and the merge review
   stay when the rebase has no conflict. Then Lem merges, also after you pressed merge: your merge
   stays while the change and its reasons stay the same. Otherwise Lem tells you why, and waits for

@@ -27,8 +27,9 @@ time. The board shows all of them in agterm, in a browser, and on your phone.
 ## What it looks like
 
 A task takes one of two tracks. The **fast track** is for one plain change with no open question:
-one builder makes it, and nothing waits for you. The **standard track** is for every other
-request: an interview, acceptance criteria for your yes, a plan, and a larger review.
+one builder makes it, and nothing waits for you. When another person wrote the ticket, its one
+criterion waits for your yes first. The **standard track** is for every other request: an
+interview, acceptance criteria for your yes, a plan, and a larger review.
 
 ```mermaid
 flowchart LR
@@ -111,7 +112,7 @@ each morning and `/lem night` each night.
 
 - Nothing merges before your tests pass and an agent that did not build the change reviews it.
 - After an interview, nothing builds before your yes to the acceptance criteria, unless you are
-  away.
+  away or the task runs at night.
 - Every reviewer reads a change that can affect what you said must never go wrong, and you merge
   it.
 - A step that nobody can undo stops the task, and waits for you.
