@@ -85,48 +85,106 @@ flowchart TD
 1. **The settings, the id of an issue and the pull request's line** (criteria 1, 2, and step 1 of
    criterion 5). `TRACKERS` in `skills/lem/scripts/project.py` takes `github`; `cmd_task_dir`
    reads the project's tracker and takes the id form of its kind (`TICKET` stays the Linear form, a
-   new rule takes `42` and `#42` and keeps `#42`), and its refusal of a ticket a landed task holds
-   names that task and says to start the new task from the owner's own words; `TICKET_STEPS` gains
-   `assigned` (Lem added the assignee at the start) and `unassigned` (it removed it), and
-   `ticket_owed` has a dropped or answered task whose steps hold `assigned` owe `unassigned`; the
-   commented `[tracker]` of the settings template names both kinds; the row of `tracker.kind` in
-   `docs/settings.md` names both (`tests/lem-settings.sh` holds the table one to one). In
-   `skills/lem/scripts/land.py`, the text of the pull request of a task whose ticket is a GitHub
-   issue, in a project whose tracker is GitHub, holds the line `Issue: #42`, with no word that
-   closes it. Tests: the rules at the unit level (`tests/unit/test_settings.py`,
-   `tests/unit/test_task.py` and `tests/unit/test_land_text.py`, where those rules are now), and the
-   task-dir journey with a GitHub tracker in the ticket checks of `tests/lem-settings.sh`.
+   new rule takes `42`, `#42` and `#042` and keeps `#42`: the number as an integer, so one issue has
+   one saved form, and 0 is refused). A project with no `[tracker]` refuses `--ticket`, with the fix
+   (the table and its `kind`): a ticket that no tracker can act on is a record nobody pays
+   (`ticket_owed` gives nothing with no tracker). The claim of a ticket is one function that
+   `cmd_task_dir` and `cmd_resume` both call, so a resumed task that would take an issue another
+   live task holds is refused like a new one (`cmd_resume` copies `ticket.txt` through
+   `RESUMED_FILES` today with no check). The claim gives a ticket back only when its dropped or
+   answered task owes it nothing: an earlier task whose `ticket_owed` is not empty holds it still,
+   and the refusal names that task, its owed steps and the `lem issue` line that pays them. Its
+   refusal of a ticket a landed task holds names that task and says to start the new task from the
+   owner's own words. `TICKET_STEPS` gains `assigned` (Lem added the assignee at the start) and
+   `unassigned` (it removed it, or the add failed). `ticket-step SLUG assigned --login LOGIN` keeps
+   the login with the step, as the line `assigned LOGIN` of `ticket-steps.txt`; `lem project tasks`
+   gives the step names in `ticket_steps` as now, and the login in `ticket_assignee` (null without
+   one). `ticket_owed` has a dropped or answered task whose steps hold `assigned` owe
+   `unassigned`. The commented `[tracker]` of the settings template names both kinds; the row of
+   `tracker.kind` in `docs/settings.md` names both (`tests/lem-settings.sh` holds the table one to
+   one). In `skills/lem/scripts/land.py`, the text of the pull request of a task whose ticket is a
+   GitHub issue, in a project whose tracker is GitHub, holds the line `Issue: #42`, with no word
+   that closes it, on both tracks (`pr_text` and `small_text`). Tests: the rules at the unit level
+   (`tests/unit/test_settings.py`, `tests/unit/test_task.py` and `tests/unit/test_land_text.py`,
+   where those rules are now), and the task-dir and resume journeys with a GitHub tracker in the
+   ticket checks of `tests/lem-settings.sh`, whose fixture writes `[tracker] kind = "linear"` before
+   its first `--ticket MBZ-12` (today it writes the table only later, for the steps owed).
    Files: `skills/lem/scripts/project.py`, `skills/lem/scripts/land.py`, `docs/settings.md`, the
    tests named.
 2. **The skill `lem-github` and its command `lem issue`** (criteria 3 to 7). A new skill,
    `skills/lem-github/SKILL.md`, in the shape of `skills/lem-linear/SKILL.md` (the same six steps,
    `disable-model-invocation: true`, the same "What this skill never does"), whose steps run one
    script, `skills/lem-github/scripts/issues.py`, which `bin/lem` names `issue`: `check`, `read
-   ID|URL`, `start SLUG`, `land SLUG --body-file FILE`, `drop SLUG --why TEXT`, `answer SLUG
-   --body-file FILE`. `read` gives the comments apart from the text; `start` writes `assigned` when
-   it added the gh login and says who holds an issue another person is assigned to; `drop` and
-   `answer` remove the assignee only when `assigned` is written down; `check` names each missing
-   thing with its fix (criterion 7). Each write is `gh` against origin's repository, looks at
-   `lem project tasks`' `ticket_steps` first, writes the step down through `lem project
-   ticket-step` after `gh` took it, and for a comment reads the issue's comments for the last
-   line `lem: SLUG STEP` before it posts. The script adds that last line itself. Standard library,
-   JSON out, exit 1 with the fix, "the owner" in every string for a person. Tests: a unit file
+   ID|URL`, `start SLUG`, `land SLUG`, `drop SLUG`, `answer SLUG`.
+   - `read` gives the title, the text as written, open or closed, the labels, the address, the
+     author's login, and the comments apart from the text. The skill's "read" says that the ask
+     is the title and the text, never the comments, and that the author is the issue's creator for
+     the rule of `request by: someone else` (`stages/new.md`, "Which path").
+   - Each write first reads the task in `lem project tasks` and refuses a status the step does not
+     belong to: `start` an ended or parked task, `land` any status but `landed`, `drop` any but
+     `dropped`, `answer` any but `answered`. Then it looks at `ticket_steps`.
+   - `start`, with `started` not written: it reads the issue's assignees. With none, it writes
+     `assigned LOGIN` (the gh login) down first and then adds that login; when `gh` refuses the
+     add, it writes `unassigned` at once and tells the owner why in one line. With `assigned`
+     written from a start that was cut off, it adds the login only when the issue still has no
+     assignee. With an assignee who is another person, it names that person in one line and adds
+     nobody. Then it writes `started`. A start with `started` written writes nothing.
+   - `drop` and `answer`, with `assigned` written and `unassigned` not: they read the assignees and
+     remove the login that `assigned` names when it is there, whoever is signed in to `gh` now,
+     then write `unassigned`. Every other assignee stays.
+   - The three comments take their words from the task's record, never from the caller: `land`
+     the outcome of `task.md` (`outcome_of`), the pull request's address and green or not green
+     from `proposal` in `lem project tasks` (`landing.json`, which `cmd_propose` keeps after the
+     forge took the proposal, `land.py` line 3426, while `pr.md` is written before it); `drop` the
+     first line of the newest `dropped` block; `answer` the newest investigation's `line` and
+     `where`, and that the report is in the task directory. So any session, or the owner, can run
+     a step a task still owes with the slug alone.
+   - `check` names each missing thing with its fix (criterion 7), and gives the stage the facts
+     the onboarding needs: whether the repository's issues are on, and whether it holds at least
+     one issue of any state (`--state all`: `gh issue list` gives open issues only by default).
+   Each write is `gh` against origin's repository, writes the step down through `lem project
+   ticket-step` after `gh` took it (the assignee's step before it, as above), and for a comment
+   reads the issue's comments for the last line `lem: SLUG STEP` before it posts. The script adds
+   that last line itself. Standard library, JSON out, exit 1 with the fix, "the owner" in every
+   string for a person. Tests: a unit file
    `tests/unit/test_issues.py` over a stand-in `gh` on `PATH`, written in the manner of the one
    `tests/lib.sh` keeps, for each step and each refusal; the map of `tests/pick.py`. The tracker's
    harness part, `skills/lem/harness/claude-code/tracker.md`, says that the skill is `lem-KIND`
    and that the GitHub tracker needs `gh`, no MCP server; `skills/lem/harness/README.md` lists
    the skill; `NOTICE` says that `lem-github` was written for Lem.
    Files: the two new files, `bin/lem`, the test file, `tests/pick.py`, the harness files, `NOTICE`.
-3. **The onboarding proposes GitHub** (criterion 8). `skills/lem/stages/init.md`: the look at
-   "where the work is kept" adds GitHub's issues (on, and at least one issue, through `gh`), and
-   `[tracker]` proposes `github` when no Linear key shows, with the check of task 2 before the
-   table is written, in the same words as for Linear. The onboarding's page pattern, when it names
-   the tracker, too.
-   Files: `skills/lem/stages/init.md`, and `skills/lem/harness/claude-code/onboarding.md` only if
-   it names the tracker.
+3. **The onboarding proposes GitHub, and the stages call the tracker where it is owed** (criteria
+   3, 6 and 8).
+   - `skills/lem/stages/init.md`: the look at "where the work is kept" takes the facts of
+     criterion 8 and no other: Linear ticket keys in branch names or commit subjects, and the
+     facts the tracker's check gives (issues on, at least one issue of any state). A link to
+     `linear.app` in a document is no longer evidence for a proposal. `[tracker]` proposes
+     `github` when no Linear key shows, with the check of task 2 before the table is written, in
+     the same words as for Linear. The onboarding's page pattern, when it names the tracker, too.
+   - `skills/lem/stages/new.md`, step 1 of "The request": the ask of a ticket is what the
+     tracker's "read" gives as the ask (today "its title is the ask", which drops the text that
+     `lem-linear`'s "read" itself names as the ask). So `ask.txt`, which the investigator reads
+     (`stages/investigate.md`, step 2), holds the issue's text.
+   - `skills/lem/stages/correct.md` ("drop") and `skills/lem/stages/investigate.md` (step 4,
+     "answer"): the tracker's step comes before the worktree's removal, so a worktree that `lem
+     land clean` refuses does not stop the comment.
+   - `skills/lem/prompts/session.md` ("A wake-up"): a task the wake finds `dropped` (a pull
+     request closed on GitHub, which `lem land merged` writes) or `answered` takes the tracker's
+     missing steps of `ticket_owed`, as `stages/land.md` already says for its land phase, before
+     the session's end.
+   - `skills/lem/stages/status.md`: a task whose `ticket_owed` is not empty names the tracker's
+     step that pays it, which for GitHub is one line, `lem issue STEP SLUG`, that any session or
+     the owner runs.
+   Files: `skills/lem/stages/init.md`, `skills/lem/stages/new.md`, `skills/lem/stages/correct.md`,
+   `skills/lem/stages/investigate.md`, `skills/lem/prompts/session.md`,
+   `skills/lem/stages/status.md`, and `skills/lem/harness/claude-code/onboarding.md` only if it
+   names the tracker.
 4. **The documents** (criterion 9, and what the change makes false). A new guide
    `docs/github-issues.md`, "Connect GitHub Issues", in STE, under 800 words, in the shape of
-   `docs/linear.md`; `docs/linear.md` loses "Lem supports no other tracker"; `README.md` and
+   `docs/linear.md`; `docs/linear.md` loses "Lem supports no other tracker";
+   `skills/lem-linear/SKILL.md` loses "It is the only tracker Lem has" (the next sentence, another
+   tracker is another skill of this shape, stays true); the helper row of `skills/lem/SKILL.md`
+   names the tracker's skill as the one `tracker.kind` names, not `linear` alone; `README.md` and
    `site/index.html` link the guide beside "Connect Linear"; `docs/settings.md` links it under
    `[tracker]`; `docs/pull-request.md` says "the ticket", not "the Linear ticket"; `AGENTS.md`
    names the skill in "Layout" (the shipped skills, the guides, `lem issue` among the commands);
@@ -146,6 +204,19 @@ flowchart TD
   comment says green or not green instead of each check's last line.
 - Out of scope: the status columns of GitHub Projects boards (decision 1) and a tracker on another
   forge (decision 2). The pull request's text gets no `Closes #42`: Lem closes the issue itself.
+- The issue is origin's, at every step: the ask says "the repository is origin's", criterion 3
+  reads "the repository that origin names", and `land.py` reads origin at each step for the push
+  and the pull request (`Task.__init__`, `remote.origin.url`). The task keeps `#42` alone.
+- The assignee's step is written down before `gh` adds the login, with the login, and every other
+  step after `gh` took it: a removal reads the assignees first, so a step written for an add that
+  never happened removes nothing, while a step written after the add would be lost by a cut-off
+  between the two and leave Lem's assignee on a dropped issue (criterion 6).
+- A ticket goes back to a new task only when its old task owes it nothing (`ticket_owed`), so an
+  old task's late drop never writes to an issue a new task holds.
+- The tracker's steps take the slug alone and read their words from the task's record, so a step
+  a task still owes is one line any session can run.
+- Overlapping calls of one step for one task are not guarded: only a task's own session runs its
+  steps, one at a time, as `lem-linear`'s steps are run today.
 
 ## What it will not verify
 
