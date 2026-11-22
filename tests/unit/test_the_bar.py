@@ -31,6 +31,7 @@ NAMERS = (
     "skills/lem/prompts/landing.md",
     "skills/lem/prompts/small.md",
     "skills/lem/prompts/review.md",
+    "skills/lem/prompts/merge.md",
     "skills/lem/stages/polish.md",
     "skills/lem/stages/build.md",
     "skills/lem/stages/interview.md",

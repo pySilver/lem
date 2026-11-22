@@ -1059,3 +1059,20 @@ class ReadOfAMovedBase(unittest.TestCase):
         carried = land.carried_review(review, "b" * 40, False, None, TIP)
         self.assertEqual(carried, {"tip": "b" * 40, "verdict": "merge", "calls": False, "why": None, "by": "claude/opus:high", "at": "2026-11-22T10:00:00Z",
                                    "carried_from": TIP})
+
+
+class BarFile(unittest.TestCase):
+    """`land.bar_file`: the merge brief names the rule 6 the project's builders read, as `spawn-builder` picks the builder."""
+
+    def test_lem_s_own_by_its_place_in_the_plugin_when_the_project_has_none(self) -> None:
+        with tempfile.TemporaryDirectory() as main:
+            self.assertEqual(land.bar_file(Path(main)), {"file": "agents/lem-builder.md", "of": "lem"})
+            # the plugin's file is at that place, three folders above the scripts
+            self.assertTrue((Path(land.SCRIPTS).parents[2] / land.bar_file(Path(main))["file"]).is_file())
+
+    def test_the_project_s_own_builder_by_its_whole_path(self) -> None:
+        with tempfile.TemporaryDirectory() as main:
+            own = Path(main) / ".claude" / "agents" / "lem-builder.md"
+            own.parent.mkdir(parents=True)
+            own.write_text("---\nname: lem-builder\n---\n")
+            self.assertEqual(land.bar_file(Path(main)), {"file": str(own), "of": "project"})

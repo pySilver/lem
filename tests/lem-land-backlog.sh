@@ -156,6 +156,19 @@ if [ "$told" = "[('$own', 'src/json.py:parse', 'The parser fails on an empty inp
 else
   fail "a defect the branch filed already: $told / $filing / $green / $(grep 'the review, round' "$text" 2>/dev/null)"
 fi
+# The merge agent reads each item the branch adds, whoever filed it, against the bar of rule 6 in the file the
+# project's builders read, as spawn-builder picks it: Lem's by its place in the plugin, or the project's own
+# lem-builder.md in the main checkout, where the task's session stands.
+lems=$(land --repo "$BLG" merge-review builder-filed | field '(sorted((f["item"], f["title"]) for f in d["facts"]["filed"]), d["facts"]["bar"])')
+mkdir -p "$BLG/.claude/agents" && printf '%s\n' '---' 'name: lem-builder' '---' > "$BLG/.claude/agents/lem-builder.md"
+owns=$(land --repo "$BLG" merge-review builder-filed | field 'd["facts"]["bar"]')
+rm "$BLG/.claude/agents/lem-builder.md"
+if [ "$lems" = "([('docs/backlog/a-quoted-comma-splits-the-field.md', 'A quoted comma splits the field'), ('docs/backlog/empty-input-crashes-the-parser.md', 'Empty input crashes the parser'), ('$own', 'The parser fails on an empty input')], {'file': 'agents/lem-builder.md', 'of': 'lem'})" ] \
+  && [ "$owns" = "{'file': '$(cd "$BLG" && pwd -P)/.claude/agents/lem-builder.md', 'of': 'project'}" ]; then
+  pass "the merge agent's brief lists each item the branch adds to the backlog, the builder's and the review's, by its path and title, and names the file of the bar the project's builders read: Lem's in the plugin, or the project's own lem-builder.md"
+else
+  fail "the items and the bar in the merge brief: $lems / $owns"
+fi
 project --repo "$BLG" state builder-filed dropped "the test is over" >/dev/null
 
 # The items `file` commits hold no code and no test, so they ask for no gate again: the request is

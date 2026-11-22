@@ -458,8 +458,12 @@ true for the verdict `call`, and for a `merge` that `owner_merges` overrules: th
 `propose` carried it onto the tip after a new landing (below). The facts hold `relands` too, how many
 times the proposal landed again, `pictures`, the PNG, JPEG, GIF and WebP files of the task's `media/`
 folder by their paths from the task directory, which the builders took and a review of a change to
-what a person sees links, and `try`, the worktree's folder from the main checkout and `gh pr checkout
-N`, which a review that calls the owner ends with.
+what a person sees links, `try`, the worktree's folder from the main checkout and `gh pr checkout
+N`, which a review that calls the owner ends with, `filed`, each item the branch adds to the backlog
+folder by its path and title, whoever filed it, and `bar`, the file whose rule 6 holds the bar of an
+item as `spawn-builder` picks the builder: the project's own `.claude/agents/lem-builder.md` in the
+main checkout by its whole path when it is there (`of`: `project`), else `agents/lem-builder.md` in
+Lem's plugin folder (`of`: `lem`). The agent calls the owner for an item under that bar.
 
 A read with `Base: safe.` answers Lem's own refusal of a merge of its tip because the base moved
 (`merge_refused` with `kind: base`), and so does a read whose brief named the checks' own base,
@@ -2988,21 +2992,43 @@ def gate_holds(task: Task, tip: str) -> bool:
     return True
 
 
-def branch_items(task: Task) -> list[dict]:
-    """Each item the branch adds to the backlog folder that `file` did not write for a review: what
-    the fast track's builder or the polish pass filed, with its `where` and its title."""
+def items_added(task: Task, base: str) -> list[dict]:
+    """Each item the branch adds to the backlog folder between BASE and its tip, whoever wrote it (a
+    builder, the polish pass, `file` for a review), with its `where` and its title."""
     folder = backlog_of(task)
-    base = git(task.worktree, "merge-base", "HEAD", task.onto)
-    written = {defect["item"] for read in task.kept().get("reads", []) for defect in outside_of(read) if defect.get("item")}
     rows = [row.split("\t", 1) for row in git(task.worktree, "diff", "--name-status", "--no-renames", "--diff-filter=A", base, "HEAD").splitlines()]
     found = []
     for _, path in rows:
-        if not path.startswith(folder + "/") or path in written:
+        if not path.startswith(folder + "/"):
             continue
         item = item_of(task.worktree / path)
         front, lines = item if item else ({}, [])
         found.append({"item": path, "where": front.get("where"), "title": lines[0][2:].strip() if lines else None})
     return found
+
+
+def branch_items(task: Task) -> list[dict]:
+    """Each item the branch adds to the backlog folder that `file` did not write for a review: what
+    the fast track's builder or the polish pass filed, with its `where` and its title."""
+    written = {defect["item"] for read in task.kept().get("reads", []) for defect in outside_of(read) if defect.get("item")}
+    return [item for item in items_added(task, git(task.worktree, "merge-base", "HEAD", task.onto)) if item["item"] not in written]
+
+
+# A project's own builder, which `spawn-builder` starts in place of Lem's (harness/claude-code.md).
+OWN_BUILDER = Path(".claude") / "agents" / "lem-builder.md"
+
+
+def bar_file(main: Path) -> dict:
+    """The file whose rule 6 holds the bar of a backlog item for this project, as `spawn-builder` picks
+    the builder that the polish pass, the fast track's builder and the review run as: the project's own
+    `.claude/agents/lem-builder.md` in the main checkout MAIN, where the task's session stands, when it
+    is there, by its whole path (`of`: `project`); else Lem's `agents/lem-builder.md`, by its place in
+    the plugin (`of`: `lem`), since an update of the plugin replaces this Lem's folder. So the merge
+    agent judges the items by the rule 6 the builders read."""
+    own = main / OWN_BUILDER
+    if own.is_file():
+        return {"file": str(own), "of": "project"}
+    return {"file": "agents/lem-builder.md", "of": "lem"}
 
 
 def cmd_file(task: Task, again: bool) -> dict:
@@ -4587,6 +4613,10 @@ def cmd_merge_review(task: Task, record: str | None, read_tip: str | None = None
             "relands": int(kept.get("relands") or 0),
             # the builders' pictures, which a review of a change to what a person sees links
             "pictures": pictures_of(task.directory),
+            # each item the branch adds to the backlog folder, whoever filed it, which the agent reads against the
+            # bar of rule 6 in the file `bar` names, the one the project's builders read
+            "filed": [{"item": item["item"], "title": item["title"]} for item in items_added(task, kept["base"])],
+            "bar": bar_file(task.main),
             # how the owner tries the branch himself, the last line of a review that calls him
             "try": try_of(task.main, task.worktree, kept["pr"]),
             # the base this read is against, and what moved on it since the checks ran (null when nothing moved);
