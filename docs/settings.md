@@ -90,7 +90,8 @@ nothing.
 
 ## `[tracker]`
 
-Leave this table out with no tracker. [Connect Linear](linear.md) tells you how to fill it.
+Leave this table out with no tracker. [Connect Linear](linear.md) and
+[Connect GitHub Issues](github-issues.md) tell you how to fill it.
 
 | Setting | Default | Use |
 | --- | --- | --- |

@@ -1,7 +1,7 @@
 # Connect Linear
 
 Lem moves a ticket when its work starts and when it lands. Lem adds a comment when the task ends.
-Lem supports no other tracker.
+For the issues of GitHub, read [Connect GitHub Issues](github-issues.md).
 
 ## Connect the server
 
@@ -21,7 +21,8 @@ server with a different name. Lem uses the server that has the team of the ticke
 
 ## Fill the settings
 
-When your repository shows Linear, `/lem init` adds this table. To add it yourself:
+When the branch names or commit subjects of your repository show Linear ticket keys, such as
+`ABC-12`, `/lem init` adds this table. To add it yourself:
 
 ```toml
 [tracker]

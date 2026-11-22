@@ -229,9 +229,9 @@ Each script's module docstring says what it does and why; this list says where e
 - `docs/`: the guides the README links, each in STE like the README, each with one job and under
   800 words: `flow.md` (how a task goes, with the one diagram), `when-lem-needs-you.md`,
   `pull-request.md` (what green means, the merge review, the merge, a conflict), `board.md` (the
-  board, the phone, two machines under one address, the server), `install.md` and `linear.md`; and
-  `settings.md`, the reference, one table for each table of the settings, one to one with
-  `project.py` (`tests/lem-settings.sh` checks it). How Lem works inside is in this file and the
+  board, the phone, two machines under one address, the server), `install.md`, `linear.md` and
+  `github-issues.md`; and `settings.md`, the reference, one table for each table of the settings,
+  one to one with `project.py` (`tests/lem-settings.sh` checks it). How Lem works inside is in this file and the
   skill. Beside them: `free-hour.md` (how an unattended maintainer's session may change Lem),
   `rulings/`, with `rulings.md`, the list of the owner's rulings and of the session's choices open
   to him, and `history.md`, what a test or one place holds of them, `backlog/`, Lem's own deferred
@@ -267,9 +267,11 @@ Each script's module docstring says what it does and why; this list says where e
   alone (the tab icon) and the six pictures into `_site/` at their repository paths and publishes
   that; `tests/test-site.sh` runs that copy step as written.
 - `skills/lem-ask/`, `skills/lem-interview-me/`, `skills/lem-dialectic/`, `skills/lem-root-cause/`,
-  `skills/lem-gate/`, `skills/lem-panel/`, `skills/lem-linear/`, `skills/lem-ask-expert/`: the
-  skills Lem names and ships. `lem-ask-expert` is Lem's own, with `scripts/experts.py` (`lem
-  experts`: the brief of a question in words and the record of the experts' answers, in a folder of
+  `skills/lem-gate/`, `skills/lem-panel/`, `skills/lem-linear/`, `skills/lem-github/`,
+  `skills/lem-ask-expert/`: the skills Lem names and ships. `lem-github` is Lem's own, with
+  `scripts/issues.py` (`lem issue`: the GitHub tracker's check, the read of an issue, and its
+  writes at a task's start, landing, drop and answer, through `gh`). `lem-ask-expert` is Lem's
+  own, with `scripts/experts.py` (`lem experts`: the brief of a question in words and the record of the experts' answers, in a folder of
   `.lem/state/experts/`). `lem-panel`'s `scripts/cast.py` (`lem cast`) finds the cast, copies it
   into a project, keeps the copies a panel read in Lem's state folder, and makes each panel's own
   folder there, in `.lem/state/panels/`. `NOTICE` says where each
