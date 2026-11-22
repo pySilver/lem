@@ -19,8 +19,8 @@ bullet.
   `tests/lem-machine.sh: "the check has no row for the question page, which is a part of Lem"`; no
   page for the owner lists it: `skills/lem/stages/init.md` (step 6, "the question page comes with
   Lem"). (2026-11-14)
-- **A task has a type and a track, and they are two words.** `tests/lem-settings.sh: "a state line
-  that names the type of a request names one of the eight"`;
+- **A task has a type and a track, and they are two words.**
+  `tests/unit/test_task_rules.py::TypeLine.test_each_of_the_eight_types_is_taken`;
   `tests/unit/test_task.py::FirstLine.test_the_fast_track_quotes_its_criterion`;
   `tests/lem-settings.sh: "a plan with no criteria section, no size, a small change of two
   criteria"`; careful is a mark on top, the line `careful:` of the first state block:
