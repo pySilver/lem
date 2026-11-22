@@ -1366,6 +1366,15 @@ class StoppedSession(unittest.TestCase):
         self.assertIsNone(bm.stop_stands(task(*stopped, self.ev("12:50", "review.start"))))
         self.assertIsNone(bm.stop_stands(task(*self.restarted())))
 
+    def test_a_quiet_task_whose_signs_do_not_read_is_woken_or_shown(self):
+        # #37 as it ran: its session opened at 01:33, before the hook wrote `session` into a transcript
+        # record, so `lem session list` read "signs": false for it all day; at 15:37, nearly five hours
+        # after the checks ended, the owner's request (2026-11-22) wants the task woken or shown to him
+        m = self.model(*self.landing(), at="15:37", sign=None, signs=False)
+        t = m.by_slug["gift-note"]
+        rows = [w["kind"] for w in bm.waits_of(m) if w["t"] is t]
+        self.assertTrue(bm.stop_due(t, m) is not None or rows, "a live session quiet since 10:54 whose signs do not read gets no step of the guard and no row")
+
     def test_the_numbers_are_the_owners(self):
         self.assertEqual((bm.QUIET_MS, bm.ANSWER_MS), (45 * 60 * 1000, 10 * 60 * 1000))
 
