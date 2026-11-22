@@ -160,7 +160,8 @@ lands again the same way, with no `--conflicting`. `start` counts each new landi
 open task (`relands` in `landing.json`, a `land.again` event with `count`), for the merge agent's
 facts; nothing bounds the count. The pull request's text
 and the state say in one line what happened ("rebased on main after the forge called it
-conflicting; one conflict in shop/dates.py, resolved by a builder; the checks passed again"). A conflict that `base` meets is kept in `landing.json` with the tip before the rebase and
+conflicting; one conflict in shop/dates.py, resolved by a builder; one read of the resolution; the merge review carried over the resolved
+conflict: the resolution read found nothing; the checks passed again"). A conflict that `base` meets is kept in `landing.json` with the tip before the rebase and
 whether a review covered the change then; the builder that resolves it rebases the branch itself,
 and the next `base` finds the rewritten commits by that tip, gives the polish pass's commits their
 new names, and keeps the resolution. The newest review that saw the change stands as it was
@@ -173,7 +174,13 @@ with an open must-fix a resolved conflict gets the rules of the change, not one 
 resolution, and keeps the reason no review covers it. A builder's resolution gets one read of what it
 changed (`git range-diff` of the commits before and after the rebase), or the project's full set
 for a careful request; that read is no round, and anything committed after the resolution is
-reviewed as a change like any other.
+reviewed as a change like any other. A read of the resolution that answered and found nothing (0
+must-fix, 0 should, 0 nit), on a request that no call makes careful, carries what was said of the
+tip at its merge onto the resolution's tip, as a rebase with no conflict does (`moved_carry`,
+below). A careful call is a reason of careful now, or the careful call of the newest round of the
+change, which the read's own call does not take back. A read with a finding, a careful request, a
+read that did not answer and a commit after the resolution carry nothing: a fresh merge agent reads
+the task, and `propose` says why.
 
 `start` refuses a worktree on no branch: `propose` pushes the task's branch and `clean` deletes
 it. Any number of tasks land at the same time, each in its own worktree and under its own step
@@ -477,18 +484,29 @@ moved base) keeps its line the same way, with `from: lem` and the `kind`, for ev
 merge agent's merge and for the owner's when the base moved (`kept_refusal`): the server tries that
 tip no more and wakes the task's session with `lem: SLUG refused`. A git or `gh` call that failed is
 no refusal of the tip and is not kept; the next try runs it again. After a base refusal a fresh merge
-agent reads what moved; after a read that said another round the session lands the task again. A
-rebase with no conflict carries the review (above) and, with it, what was said of the tip at the
-merge (`rebase_carried`, from the tip before the rebase to the one after it); `propose` of that tip,
-with no commit after the rebase, carries the merge agent's review onto it, with its call of the
-owner as the rules say now and with no call on a moved base, since the new landing's checks ran on
-the new base, and logs it as a `merge.review` with `carried`, so that the server merges it with no
-second read. The owner's merge that the base refused (`owner_tap`) stands the same way, while the
+agent reads what moved; after a read that said another round the session lands the task again. One
+rule says what a new landing's proposal carries of what was said of the tip proposed before
+(`moved_carry`), and it runs before the pull request's text is written. The tip carries when it is
+the same, when a rebase with no conflict made it and kept the review (`rebase_carried`, from the tip
+before the rebase to the one after it), and when it is the tip of a builder's resolution whose one
+read found nothing, on a request that no call makes careful (above), with no commit after the rebase
+or the resolution. Then each act has its own last fact. `propose` carries the merge agent's review
+of the earlier tip onto the new one when one with a verdict is on record, with its call of the owner
+as the rules say now and with no call on a moved base, since the new landing's checks ran on the new
+base, and logs it as a `merge.review` with `carried`, so that the server merges it with no second
+read. The owner's merge that the base refused (`owner_tap`) stands while the tip carries and the
 reasons the request is not green are the ones he saw: `propose` logs `merge.stands`, and the server
 runs `merge --by owner --via server --standing`, which `merge.start` and `merged_by` record as made
-`after: a re-check`. A commit after the rebase, a conflict, a review that does not cover the change
-or other reasons end it, and `propose` says why (`owner_merge`); for a review that does not cover it,
-the review's reason, which the rebase kept (`rebase_uncovered`). A merge on a moved base that a read
+`after: a re-check`. Otherwise the merge review does not carry (`"merge_review": null`, with
+`merge_review_why`, and a fresh merge agent reads the task) and the owner's merge ends (`owner_merge`),
+each with the rule's reason: a commit after the rebase or the resolution, a read of the resolution
+with a finding, or one that did not answer or did not run, a careful request, a review that does not
+cover the change (the review's reason, which the rebase kept, `rebase_uncovered`); for the merge
+review alone, no merge review of the earlier tip on record, and for the owner's merge alone, reasons
+for not green that are not the ones he saw. The pull request's text and the `proposed`
+event (`review`, `merge_review`, `why`, `owner_merge`, `owner_why`) say what carried ("the merge
+review carried over the resolved conflict: the resolution read found nothing", or "a fresh merge
+agent reads it: REASON"). A merge on a moved base that a read
 covered is recorded in `merge.start` and `merged_by` as made `after: a read of the moved base`, with
 the `base` it read.
 
@@ -1029,7 +1047,7 @@ def cmd_base(task: Task) -> dict:
         # covered: the newest review that answered saw this change and left nothing to fix in it,
         # which a conflict's record keeps: it decides between one read of the resolution and the rules of the change
         covered = carries and not answered[-1]["must_fix"]
-        # why it is not, for the owner's merge that `propose` ends after this rebase (`tap_after`)
+        # why it is not, for the owner's merge that `propose` ends after this rebase (`moved_carry`)
         uncovered = why_uncovered(answered, backlog_of(task), change(task))
     rebased = run(["git", "-C", str(task.worktree), "rebase", task.onto], check=False)
     if rebased.returncode != 0:
@@ -3170,27 +3188,34 @@ def builder_filed(task: Task) -> list[str]:
 
 def synced(task: Task) -> str | None:
     """What bringing an open task onto a base that moved did, in one line for the pull request and
-    for Lem's line to the owner: why, the rebase, a conflict and who resolved it. None for a landing
-    that did not start from `open`, or before its `base`."""
+    for Lem's line to the owner: why, the rebase, a conflict and who resolved it, and what carried
+    over: the review and the merge review, as `propose` worked them out (`carry` of the kept `sync`,
+    `moved_carry`). None for a landing that did not start from `open`, or before its `base`."""
     sync = task.kept().get("sync")
     if not sync or not sync.get("onto"):
         return None
+    return sync_line(sync, task.base)
+
+
+def sync_line(sync: dict, base: str) -> str:
+    """`synced` from the kept `sync` and the base branch's name: the one place of the line's words."""
     after = " after the forge called it conflicting" if sync.get("conflicting") else ""
-    line = f"rebased on {task.base}{after}" if sync.get("moved") else f"checked again on {task.base}{after}, with no rebase needed"
+    line = f"rebased on {base}{after}" if sync.get("moved") else f"checked again on {base}{after}, with no rebase needed"
     files = sync.get("conflict") or []
     if files and sync.get("resolved"):
         line += f"; one conflict in {files[0]}" if len(files) == 1 else f"; conflicts in {len(files)} files, {', '.join(files)}"
         line += ", resolved by a builder"
-    said = review_line(sync.get("carried"))
-    if said:
-        line += f"; {said}"
+    carry = sync.get("carry")
+    for said in (carry["review"] if carry else review_line(sync.get("carried")), merge_line(carry)):
+        if said:
+            line += f"; {said}"
     return line + "; the checks passed again"
 
 
 def review_line(carried: dict | None) -> str | None:
     """What a rebase with no conflict carried of the review (`carried` of the kept `sync`: the round
-    and the must-fix it left), in the words of the pull request's text and of the `proposed` event;
-    None when it carried none."""
+    and the must-fix it left), in the words of the pull request's text and of the `proposed` event
+    (`moved_carry`'s `review`); None when it carried none."""
     if not carried:
         return None
     return "the review carried over the rebase" + (", and its open must-fix" if carried["must_fix"] else "")
@@ -3582,9 +3607,14 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
         raise LandError(f"the notes lack {', '.join(missing)}: they hold {', '.join(wanted)}, each with what is true of this task or the one word `none`")
     if not title.strip() or "\n" in title:
         raise LandError("--title is one line: the subject of the change")
+    reasons = not_green(task, state)
+    # The one rule of a moved base runs before the text is written: the text, the `proposed` event and
+    # what is carried after the push all say what this one result gives.
+    carry = moved_carry(kept, tip, state["careful"], reasons)
+    if kept.get("sync"):
+        task.keep(sync={**task.kept()["sync"], "carry": {key: carry[key] for key in ("how", "why", "review", "merge_review", "merge_why")}})
     body = task.directory / "pr.md"
     write_whole(body, pr_text(task, notes, state))
-    reasons = not_green(task, state)
     says = "green" if not reasons else f"not green: {'; '.join(reasons)}"
     branch = git(task.worktree, "branch", "--show-current")
     # the name the push goes to, by the settings as they are now: the owner may protect it after the worktree was made
@@ -3633,13 +3663,17 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
         pr = {"number": int(number), "url": url}
     # The events come after the forge's step: a proposal that the forge or the push refused is none.
     # for the retro: how often a request is not green, and for which reason
-    # and, for a landing that started from `open`, what the rebase carried of the review
-    review = review_line((kept.get("sync") or {}).get("carried"))
-    script("project.py", task.worktree, "log", task.slug, "proposed", f"green:={json.dumps(not reasons)}", f"not_green:={json.dumps(reasons)}", f"tip={tip[:9]}",
-           *([f"review={review}"] if review else []))
+    # and, for a landing that started from `open`, what carried over the moved base: the review, the
+    # merge review (`carried`, or `fresh` with `why`) and the owner's merge
+    carried_facts = []
+    if kept.get("sync"):
+        carried_facts = [*([f"review={carry['review']}"] if carry["review"] else []), f"merge_review={'carried' if carry['merge_review'] else 'fresh'}",
+                       *([f"why={carry['merge_why']}"] if carry["merge_why"] else []),
+                       *([f"owner_merge={carry['owner_merge']}"] if carry["owner_merge"] else []), *([f"owner_why={carry['owner_why']}"] if carry["owner_why"] else [])]
+    script("project.py", task.worktree, "log", task.slug, "proposed", f"green:={json.dumps(not reasons)}", f"not_green:={json.dumps(reasons)}", f"tip={tip[:9]}", *carried_facts)
     moved = synced(task)
     task.keep(pr=pr, proposed=tip, title=title, not_green=reasons)
-    carried = carry_merge(task, kept, tip, state, reasons)
+    carried = carry_merge(task, kept, tip, state, reasons, carry)
     task.state("open", f"pull request {pr['url']}", says, *([moved] if moved else []))
     return {
         "task": task.slug, "text": str(body), "pull_request": pr, "green": not reasons, "not_green": reasons, "branch": branch, "tip": tip,
@@ -3647,20 +3681,19 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     }
 
 
-def carry_merge(task: Task, kept: dict, tip: str, state: dict, reasons: list[str]) -> dict:
+def carry_merge(task: Task, kept: dict, tip: str, state: dict, reasons: list[str], carry: dict) -> dict:
     """After a proposal, what was said of the tip proposed before (KEPT, the record before this
-    proposal) at its merge, carried onto TIP where the change is the same (`carried_over`): the merge
-    agent's review, with whether it calls the owner as the rules say now and with no call on a moved
-    base (`carried_review`), logged again as a `merge.review` of TIP with `carried`; and the owner's
-    merge that a moved base refused, which stands (`merge.stands`) or ends (`tap_after`, with the
-    reason no review covers the change when a rebase kept one, `rebase_uncovered`). What it gives the
-    output: `merge_review` (carried or
-    null) and `owner_merge` (`stands`, the reason it ended, or null)."""
-    old, rebased = kept.get("proposed"), kept.get("rebase_carried")
-    out: dict = {"merge_review": None, "owner_merge": None}
-    review = kept.get("merge_review")
-    # a review with no verdict (the second answer on a moved base that could not be recorded) has nothing to carry
-    if isinstance(review, dict) and review.get("verdict") in ("merge", "call") and review.get("tip") == old and carried_over(old, tip, rebased):
+    proposal) at its merge, carried onto TIP as the rule of a moved base says (CARRY, `moved_carry`):
+    the merge agent's review, with whether it calls the owner as the rules say now and with no call on a
+    moved base (`carried_review`), logged again as a `merge.review` of TIP with `carried`; and the
+    owner's merge that a moved base refused, which stands (`merge.stands`) or ends with the rule's
+    reason. What it gives the output: `merge_review` (carried or null), `merge_review_why` (why a
+    fresh merge agent reads the task, after a moved base) and `owner_merge` (`stands`, the reason it
+    ended, or null)."""
+    old = kept.get("proposed")
+    out: dict = {"merge_review": None, "merge_review_why": carry["merge_why"], "owner_merge": None}
+    if carry["merge_review"]:
+        review = kept["merge_review"]
         refusal = merger_refusal(task.slug, task.settings["branch"]["land"], state["careful"], reasons, review_call(task) is not None, {"verdict": "merge"})
         calls = review.get("verdict") == "call" or refusal is not None
         why = refusal if refusal else (review.get("why") if review.get("verdict") == "call" else None)
@@ -3669,14 +3702,13 @@ def carry_merge(task: Task, kept: dict, tip: str, state: dict, reasons: list[str
         script("project.py", task.main, "log", task.slug, "merge.review", f"verdict={review['verdict']}", f"calls:={json.dumps(calls)}", f"by={review.get('by')}",
                f"tip={tip[:9]}", f"carried={str(old)[:9]}", *([f"why={why}"] if why else []))
         out["merge_review"] = "carried"
-    tap, ended = tap_after(kept.get("owner_tap"), old, tip, rebased, kept.get("rebase_uncovered"), reasons)
-    if tap:
-        task.keep(owner_tap=tap)
+    if carry["owner_merge"] == "stands":
+        task.keep(owner_tap=carry["tap"])
         script("project.py", task.main, "log", task.slug, "merge.stands", "by=owner", f"tip={tip[:9]}", f"from={str(old)[:9]}")
         out["owner_merge"] = "stands: the board's server merges it after the checks and the reviews were checked again"
-    elif ended:
+    elif carry["owner_merge"] == "ended":
         task.keep(owner_tap=None)
-        out["owner_merge"] = f"ended: {ended}; the owner merges it again"
+        out["owner_merge"] = f"ended: {carry['owner_why']}; the owner merges it again"
     return out
 
 
@@ -3725,27 +3757,101 @@ def kept_refusal(by: str, kind: str | None) -> bool:
     return kind in REFUSALS and (by == "merger" or kind == "base")
 
 
-def carried_over(old: str | None, new: str, rebased: dict | None) -> bool:
-    """Whether what was said of the proposed tip OLD holds for the tip NEW proposed now: the same tip,
-    or the tip that `base` made of it by a rebase with no conflict that kept the code review
-    (`rebase_carried`), with no commit after it."""
-    return bool(old) and (old == new or rebased == {"from": old, "to": new})
-
-
-def tap_after(tap: dict | None, old: str | None, new: str, rebased: dict | None, uncovered: dict | None, reasons: list[str]) -> tuple[dict | None, str | None]:
-    """The owner's merge that a moved base refused, after a new proposal: it stands, with the new tip,
-    while the change is the one he merged (`carried_over`) and the reasons it is not green are the same;
-    else it ends, with why. A merge that ends because the rebase from OLD to NEW kept no review
-    (UNCOVERED, `rebase_uncovered`) says the review's reason. (None, None) when no merge of his waits."""
-    if not tap:
+def tip_carry(kept: dict, new: str, why_careful: list[str]) -> tuple[str | None, str | None]:
+    """Whether what was said of the proposed tip at its merge holds for the tip NEW proposed now, from
+    the record before this proposal (KEPT: `proposed`, `rebase_carried`, `resolution`, `reads`,
+    `rebase_uncovered`) and each reason the request is careful now. It gives how the tip carries
+    (`same`, `rebase` for a rebase with no conflict that kept the code review, `resolution` for a
+    builder's resolution whose one read found nothing) and None, or None and why it does not; (None,
+    None) for a first proposal. A careful request never carries over a resolved conflict: a reason of
+    careful now, or the careful call of the newest round of the change, which the read of the resolution
+    does not take back (careful in doubt), though who merges still follows the newest call (`review_call`)."""
+    old, rebased, uncovered = kept.get("proposed"), kept.get("rebase_carried"), kept.get("rebase_uncovered")
+    if not old:
         return None, None
-    if tap.get("tip") != old or not carried_over(old, new, rebased):
-        if old and tap.get("tip") == old and uncovered and uncovered.get("from") == old and uncovered.get("to") == new:
+    if old == new:
+        return "same", None
+    if rebased == {"from": old, "to": new}:
+        return "rebase", None
+    resolution = kept.get("resolution")
+    uncovers = bool(uncovered) and uncovered.get("from") == old and uncovered.get("to") == new
+    if not (resolution and resolution.get("before") == old):
+        if uncovers:
             return None, f"no review covers the change: {uncovered['why']}"
-        return None, "the change is not the one the owner merged: a commit came after the rebase, or the rebase met a conflict"
-    if list(tap.get("not_green") or []) != list(reasons):
-        return None, "the reasons the request is not green are not the ones the owner saw when he merged it"
-    return {**tap, "tip": new}, None
+        if (rebased or uncovered or {}).get("from") == old:
+            return None, "a commit came after the rebase"
+        return None, "a commit came after the tip proposed before"
+    met = "the rebase met a conflict, and"
+    if uncovers:
+        return None, f"{met} no review covers the change: {uncovered['why']}"
+    reads = kept.get("reads", [])
+    read = next((one for one in reads if resolution.get("read") is not None and one.get("attempt") == resolution["read"]), None)
+    if read and read["answered"] and (read["must_fix"] or read["should"] or read["nit"]):
+        return None, f"{met} the read of its resolution found {read['must_fix']} must-fix, {read['should']} should and {read['nit']} nit"
+    if resolution.get("after") != new:
+        return None, f"{met} a commit came after its resolution"
+    if not (read and read["answered"]):
+        silent = any(one.get("of") == "resolution" and not one["answered"] and one.get("tip") == new[:9] for one in reads)
+        return None, f"{met} the read of its resolution {'did not answer' if silent else 'did not run'}"
+    rounds = [one for one in reads if one["answered"] and one.get("of") != "resolution"]
+    if why_careful:
+        return None, f"{met} the request is careful: {why_careful[0]}"
+    if rounds and rounds[-1].get("careful"):
+        return None, f"{met} the request is careful: the review says so: {reason(rounds[-1].get('careful_why') or 'a round called it careful')}"
+    return "resolution", None
+
+
+def moved_carry(kept: dict, new: str, why_careful: list[str], reasons: list[str]) -> dict:
+    """What a proposal of the tip NEW carries of what was said of the tip proposed before, from the
+    record before this proposal (KEPT), each reason the request is careful now and each reason it is not
+    green now: the one rule of a moved base, which the pull request's text, the `proposed` event and
+    `carry_merge` read. The tip's carry (`tip_carry`) comes first; then each act has its own last fact.
+    The merge review carries when a merge agent's review of the proposed tip with a verdict is on record
+    (`merge_review`, else `merge_why` says why a fresh merge agent reads the task); the owner's merge
+    that a moved base refused (`owner_tap`) stands, with the new tip (`tap`), while the reasons the
+    request is not green are the ones he saw, and else ends with `owner_why`. `review` is what the
+    rebase did with the review, in the text's words: carried over it (`sync.carried`), or one read of
+    the resolution that answered."""
+    old = kept.get("proposed")
+    how, why = tip_carry(kept, new, why_careful)
+    resolution = kept.get("resolution")
+    read = next((one for one in kept.get("reads", []) if resolution and resolution.get("read") is not None and one.get("attempt") == resolution["read"]), None)
+    review = review_line((kept.get("sync") or {}).get("carried")) or (
+        "one read of the resolution" if resolution and resolution.get("before") == old and read and read["answered"] else None
+    )
+    out: dict = {"how": how, "why": why, "review": review, "merge_review": False, "merge_why": None, "owner_merge": None, "owner_why": None, "tap": None}
+    if not old:
+        return out
+    said = kept.get("merge_review")
+    # a review with no verdict (the second answer on a moved base that could not be recorded) has nothing to carry
+    if how and isinstance(said, dict) and said.get("verdict") in ("merge", "call") and said.get("tip") == old:
+        out["merge_review"] = True
+    else:
+        out["merge_why"] = why or "no merge review of the earlier tip was on record"
+    tap = kept.get("owner_tap")
+    if tap:
+        if tap.get("tip") != old:
+            ended = "the change is not the one the owner merged"
+        elif not how:
+            ended = why
+        elif list(tap.get("not_green") or []) != list(reasons):
+            ended = "the reasons the request is not green are not the ones the owner saw when he merged it"
+        else:
+            ended = None
+        out.update(owner_merge="ended" if ended else "stands", owner_why=ended, tap=None if ended else {**tap, "tip": new})
+    return out
+
+
+def merge_line(carry: dict | None) -> str | None:
+    """What a new landing did with the merge review, in the words of the pull request's text and of the
+    `proposed` event: carried over, with how, or a fresh merge agent's read with its reason. None for a
+    first proposal."""
+    if not carry:
+        return None
+    if carry["merge_review"]:
+        return {"resolution": "the merge review carried over the resolved conflict: the resolution read found nothing",
+                "rebase": "the merge review carried over the rebase"}.get(carry["how"], "the merge review carried over")
+    return f"a fresh merge agent reads it: {carry['merge_why']}" if carry["merge_why"] else None
 
 
 def merge_review_of(task: Task) -> dict | None:
@@ -4296,7 +4402,7 @@ def cmd_merge(task: Task, by: str, message: str | None, via: str, standing: bool
             # no more and wakes the task's session: the merge agent's, which runs with nobody to read
             # it, and a moved base's, of the owner's merge too, which the session answers with a fresh
             # read of what moved. The owner's merge then stands on that read's `Base: safe.`
-            # (`merge.stands`), or for the next proposal after `Base: another round.` (`tap_after`).
+            # (`merge.stands`), or for the next proposal after `Base: another round.` (`moved_carry`).
             if kept_refusal(by, error.kind) and task.record["status"] == "open" and task.kept().get("proposed"):
                 kept = task.kept()
                 tip = kept["proposed"]
