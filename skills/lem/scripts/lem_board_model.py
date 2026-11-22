@@ -760,7 +760,8 @@ def fold_summary(t: Task, e: dict, ts: int) -> None:
     the run of its status began (`since`), the task's first block (`first`), the pull request any of its
     blocks named (`pr`) and whether a plan talk ended before it (`talked`); and the facts its card reads
     from the other events: the ask, the branch, the type, the lead, the proposal and the investigation
-    (the careful call stays in `t.summary`, which `careful_of` reads). Each is what this module read from
+    (the careful call and the criteria's size stay in `t.summary`, which `careful_of` and `criteria_size`
+    read). Each is what this module read from
     the task's events, since project.py `summary_of` computes it with `derive`, so `settle`, the card,
     `pr_of`, `careful_of`, `after_ended` and `after_dropped` read a summarized task as before."""
     last = at(e.get("last")) or ts
@@ -1284,9 +1285,14 @@ def careful_of(t: Task) -> dict | None:
 
 
 def criteria_size(t: Task) -> str | None:
+    """The size of the task's criteria, which `track_of` says as its track: from its newest criteria or
+    approval, or from its summary (SUMMARY), which keeps the size its events gave."""
     if t.criteria and t.criteria.get("size"):
         return t.criteria["size"]
-    return t.approvals[-1].get("size") if t.approvals else None
+    if t.approvals:
+        return t.approvals[-1].get("size")
+    size = (t.summary or {}).get("size")
+    return size if isinstance(size, str) and size else None
 
 
 def conflicts(t: Task, seen: dict | None) -> bool:

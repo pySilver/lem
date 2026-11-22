@@ -735,15 +735,16 @@ PULL_12 = "https://github.com/acme/shop/pull/12"
 
 def report_dates() -> list[dict]:
     """The 60 events of `report-dates`, which landed with pull request 12 (criterion 2 of the task
-    old-task-events-summarized): its interview, its build, 51 checks, a careful review, a green proposal,
-    the open pull request, its merge review and its end."""
+    old-task-events-summarized): its interview and its criteria of the standard track, its build, 50 checks, a
+    careful review, a green proposal, the open pull request, its merge review and its end."""
     rd = "report-dates"
     events = [
         ev(0, "task.mode", rd, mode="alone", by="lem", words="the night of 2026-11-20", was="with-owner"),
         {**state(1, "held", "the interview waits for the owner", "type: feat, because the report shows no dates", task=rd), "ask": "Dates on the report."},
+        ev(1.5, "task.criteria", rd, size="full", why="the report every merchant reads", digest="d1", criteria=["Each report shows its dates."]),
         {**state(2, "building", "lead: session", "plan committed with 2 tasks", task=rd), "branch": "feat/report-dates", "head": "abc1234", "subject": "feat: dates"},
     ]
-    events += [ev(3 + n / 10, "gate", rd, command=f"check {n}", exit=0, last="ok", tip="abc1234") for n in range(51)]
+    events += [ev(3 + n / 10, "gate", rd, command=f"check {n}", exit=0, last="ok", tip="abc1234") for n in range(50)]
     events += [
         ev(10, "review", rd, attempt=1, round=1, of=1, kind="read", verdict="clean", must_fix=0, should=0, nit=0, tip="abc1234",
            careful=True, careful_why="it changes the report every merchant reads"),
@@ -884,7 +885,7 @@ class SummarizedBoard(unittest.TestCase):
         ctx.told = lambda slug: {"outcome": "Each report shows its dates.", "filed": None}
         return ctx
 
-    def test_the_header_says_the_same_status_end_and_pull_request(self):
+    def test_the_header_says_the_same_status_end_pull_request_and_track(self):
         import re
         before, after = self.boards()
 
@@ -893,10 +894,12 @@ class SummarizedBoard(unittest.TestCase):
             t = m.by_slug["report-dates"]
             facts = str(join(task_pages.facts(ctx, t, [])))
             return (str(task_pages.pill(ctx, t)), re.search(r'<dd id="dd-pr">.*?</dd>', facts)[0], re.search(r'<dd id="dd-time">.*?</dd>', facts)[0],
-                    str(task_pages.key_line(ctx, t)))
+                    str(task_pages.key_line(ctx, t)), re.search(r'<dd id="dd-type">.*?</dd>', facts)[0])
 
         self.assertEqual(said(after), said(before))
         self.assertIn("acme/shop#12", said(after)[1])
+        # the Type row still says the track, from the criteria's size the summary keeps (decision 21)
+        self.assertIn("<b>feat</b> · standard track", said(after)[4])
 
     def test_the_overview_opens_with_the_summary_and_no_tab_draws_an_empty_section(self):
         _, after = self.boards()

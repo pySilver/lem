@@ -3778,7 +3778,7 @@ def summary_of(slug: str, records: list[dict], now: int) -> dict:
     order. Each fact is the one the function that reads it from the events gives, so that a reader of
     the summary and a reader of the events cannot disagree: the board's model (`lem_board_model`
     `derive`, then `settle` for the newest block, `since`, `first` and `last`, `pr_of`, the card's
-    `type`, `lead_of`, `careful_of`, `proposal` and `investigation`, and whether a plan talk ended
+    `type`, `criteria_size` for the track, `lead_of`, `careful_of`, `proposal` and `investigation`, and whether a plan talk ended
     before the newest block, which `said_of` reads), `read_tasks` for `opened` and `newest` (the first
     and newest `task.mode` or `task.state`), and `nights` for `night`. `ts` is the time of the task's
     newest event, which `prune` dates the task by. A task whose events hold its summary and newer
@@ -3815,6 +3815,7 @@ def summary_of(slug: str, records: list[dict], now: int) -> dict:
         "pr": newer(bm.pr_of(task) if stated else None, "pr"),
         "ask": newer(task.ask if task else None, "ask"), "branch": newer(task.branch if task else None, "branch"),
         "type": newer(task.type if task else None, "type"),
+        "size": newer(bm.criteria_size(task) if task else None, "size"),
         "lead": newer(bm.lead_of(task) if task and task.lead else None, "lead"),
         "careful": newer(bm.careful_of(task) if task else None, "careful"),
         "proposal": newer({"ts": stamp_ms(proposal["ts"]), "green": proposal["green"], "reasons": proposal["reasons"], "tip": proposal["tip"]} if proposal else None, "proposal"),

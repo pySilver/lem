@@ -838,9 +838,11 @@ class Summarized(unittest.TestCase):
         mine = [
             {"ts": back(41), "event": "task.mode", "task": rd, "mode": "alone", "by": "lem", "words": "the night of 2026-10-01", "all": False, "was": "with-owner"},
             self.state_event(back(41, 1), rd, "held", "the interview waits for the owner", "type: feat, because the report shows no dates"),
+            {"ts": back(41, 2), "event": "task.criteria", "task": rd, "size": "full", "why": "the report every merchant reads", "digest": "d1",
+             "criteria": ["Each report shows its dates."]},
             self.state_event(back(40), rd, "building", "lead: builder", "plan committed with 2 tasks", branch="feat/report-dates", head="abc1234", subject="feat: dates"),
         ]
-        mine += [{"ts": back(39, n), "event": "gate", "task": rd, "command": f"check {n}", "exit": 0, "last": "ok", "tip": "abc1234"} for n in range(51)]
+        mine += [{"ts": back(39, n), "event": "gate", "task": rd, "command": f"check {n}", "exit": 0, "last": "ok", "tip": "abc1234"} for n in range(50)]
         mine += [
             {"ts": back(38), "event": "review", "task": rd, "attempt": 1, "round": 1, "of": 1, "kind": "read", "verdict": "clean", "must_fix": 0, "should": 0, "nit": 0,
              "tip": "abc1234", "careful": True, "careful_why": "it changes the report every merchant reads"},
@@ -896,6 +898,8 @@ class Summarized(unittest.TestCase):
         self.assertEqual(s["pr"], {"url": PULL_12, "n": "12", "repo": "acme/shop"})
         self.assertEqual(s["pr"], bm.pr_of(card))
         self.assertEqual(s["type"], {"type": "feat", "why": "the report shows no dates"})
+        self.assertEqual(s["size"], "full")
+        self.assertEqual(s["size"], bm.criteria_size(card))
         self.assertEqual(s["lead"], "builder")
         self.assertEqual(s["careful"], bm.careful_of(card))
         self.assertEqual(s["proposal"], {"ts": back(37), "green": True, "reasons": [], "tip": "abc1234"})
@@ -939,6 +943,7 @@ class Summarized(unittest.TestCase):
         again = [json.loads(line) for line in self.lines() if json.loads(line)["task"] == "report-dates"]
         self.assertEqual(len(again), 1)
         self.assertEqual(again[0], {**first, "ts": back(31), "events": 61})
+        self.assertEqual(again[0]["size"], "full", "a second summary keeps the criteria's size")
 
     def test_an_append_waits_for_the_lock_of_the_log(self):
         import threading
