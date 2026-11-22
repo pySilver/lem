@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # The landing: land.py takes one task from `ready` through the machine checks and one read to a pull
 # request on GitHub, the merge agent's read, and from there to the base branch. This block's origin is
-# on GitHub through the stand-in for `gh` (lib.sh); lem-land-backlog.sh files what a review saw outside
-# the change, and lem-land-github.sh holds the forge's own cases.
+# on GitHub through the stand-in for `gh` (lib.sh); lem-land-backlog.sh holds what a review saw outside
+# the change, judged by the bar (an item, a fix or a line of the pull request), a task's own item and
+# the items in the merge agent's brief, and lem-land-github.sh holds the forge's own cases.
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
