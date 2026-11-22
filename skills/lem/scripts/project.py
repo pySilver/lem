@@ -23,8 +23,9 @@ team that adopts Lem may have its own.
     lem project reviewer default    the project's own reviewer again
     lem project load [--start N|none]
                                     the load average under which the checks of a landing start on
-                                    this machine, and the load now; --start sets the number for
-                                    every repository here, and none takes the gate away
+                                    this machine (40 when none is set), and the load now; --start
+                                    sets the number for every repository here, and none takes
+                                    the gate away
     lem project handoff [--tokens N|default]
                                     the number of tokens past which a task's session compacts
                                     itself, for every repository here; 0 leaves it to Claude Code
@@ -3422,12 +3423,13 @@ def cmd_owner_watch(root: Path, seen: int, every: int = OWNER_WATCH_SECONDS) -> 
 
 
 def cmd_load(start: str | None) -> dict:
-    """The machine's load gate: the start number the developer set, and the load average now. With
-    --start, the number is written first: Lem picks none, so the only number is his."""
+    """The machine's load gate: the start number the developer set, else Lem's LOAD_START, and the load
+    average now. With --start, the number is written first; none writes 0, so that the gate stays away
+    and Lem's number does not come back by itself."""
     file = lem_state.machine_file()
     if start is not None:
         if start == "none":
-            value = None
+            value = 0.0
         else:
             try:
                 value = float(start)
@@ -3437,15 +3439,16 @@ def cmd_load(start: str | None) -> dict:
                 raise SettingsError(f"--start is a load average above 0, or none to take the gate away, not {start!r}")
         # the file is written whole, with the board server's table kept as it reads
         try:
-            lem_state.write_machine("load", None if value is None else {"start": int(value) if value.is_integer() else value})
+            lem_state.write_machine("load", {"start": int(value) if value.is_integer() else value})
         except OSError as error:
             raise SettingsError(f"{file} was not written ({error.strerror}); make its folder writable, then run this again") from error
     try:
         number = lem_state.load_start()
+        written = "start" in lem_state.machine_table("load")
     except lem_state.StateError as error:
         raise SettingsError(str(error)) from error
     now = round(os.getloadavg()[0], 1)
-    return {"file": str(file), "start": number, "load": now, "cores": os.cpu_count(),
+    return {"file": str(file), "start": number, "default": not written, "load": now, "cores": os.cpu_count(),
             "gate": None if number is None else ("open" if now < number else f"closed: the checks wait for a load below {number:g}")}
 
 
@@ -4130,7 +4133,8 @@ def main(argv: list[str] | None = None) -> None:
     prune.add_argument("--dry-run", action="store_true", help="remove nothing: say what would go")
     prune.add_argument("--days", type=int, metavar="N", help=f"with --dry-run: what would go if {KEEP_KEY} were N")
     load_gate =commands.add_parser("load", help="the load average under which the checks of a landing start on this machine, and the load now")
-    load_gate.add_argument("--start", metavar="N|none", help="set the number for every repository on this machine, or none to take the gate away")
+    load_gate.add_argument("--start", metavar="N|none", help=f"set the number for every repository on this machine ({lem_state.LOAD_START} when none is set), "
+                                                              "or none to take the gate away")
     handoff = commands.add_parser("handoff", help="the number of tokens past which a task's session compacts itself, for every repository on this machine")
     handoff.add_argument("--tokens", metavar="N|default", help="set the number: 0 leaves it to Claude Code, default takes the line out")
     args = parser.parse_args(argv)

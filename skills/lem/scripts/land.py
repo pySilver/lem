@@ -175,12 +175,12 @@ back once the commands are there; each refusal on the way names the step out, al
 worktree is gone.
 
 What two landings share is the machine and the base branch, and each has one rule. The checks start
-only while the machine's load average is below the start number the developer set for this machine
-(`[load] start` in `machine.toml`, beside the owner's mark): a run waits before its first command,
+only while the machine's load average is below the start number of this machine (`[load] start` in
+`machine.toml`, beside the owner's mark, else Lem's 40): a run waits before its first command,
 logs `gate.wait` with the load and the number while it waits, and starts when the load is below the
 number. Two runs that wait start at least `LOAD_SPACING` seconds apart, so that the load average
-shows the first before the second reads it. A machine with no number has no gate; Lem picks none
-(`lem doctor` gives the line that sets one). And Lem's own merge calls (`merge`) go one at a time,
+shows the first before the second reads it. `lem project load --start none` takes the gate away on
+one machine (`lem doctor` gives the line that sets a number). And Lem's own merge calls (`merge`) go one at a time,
 under `merge.lock` of the state folder: a second call logs `merge.wait` with the task that holds
 it, waits, and reads the base branch after it takes the lock, so that it meets the merge before it.
 The commands of `checks.serial` still take the repository's one lock for them; nothing else does.
@@ -1645,9 +1645,9 @@ def wait_say(slug: str, load: float, start: float, after: str | None = None) -> 
 
 def wait_for_load(task: Task) -> dict | None:
     """Wait, before the first command of the checks, until the machine's load average is below the start
-    number the developer set for this machine, and until LOAD_SPACING seconds passed since the last start
-    under the gate on this machine, of any repository. Logs `gate.wait` when it waits, again each
-    LOAD_SAY seconds while it waits. None when the machine has no number: then there is no gate. The
+    number of this machine (`lem_state.load_start`), and until LOAD_SPACING seconds passed since the last
+    start under the gate on this machine, of any repository. Logs `gate.wait` when it waits, again each
+    LOAD_SAY seconds while it waits. None when the developer took the gate away on this machine. The
     number is read again at each look, so that a run that waits takes the developer's new number, or
     starts at once when he took the gate away."""
     path = lem_state.machine_file().parent / lem_state.LOAD_LOCK

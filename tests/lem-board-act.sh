@@ -227,6 +227,7 @@ fi
 # session open` put a repository into the list of workspaces of Lem's home folder, so the rest of this block has a
 # home folder of its own, whose list the server of this block does not read.
 export XDG_CONFIG_HOME=$WORK/aside
+mkdir -p "$XDG_CONFIG_HOME/lem" && printf '[load]\nstart = 0\n' > "$XDG_CONFIG_HOME/lem/machine.toml"
 DUTY=$WORK/duty-shop
 git init -q -b main "$DUTY" && ident "$DUTY" && commit "$DUTY" init && on_github "$DUTY"
 project --repo "$DUTY" init --base main >/dev/null
