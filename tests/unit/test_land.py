@@ -782,7 +782,7 @@ M1, M2, M3 = "1" * 40, "2" * 40, "3" * 40
 TIP = "a" * 40
 
 
-class MovedBase(unittest.TestCase):
+class ReadOfAMovedBase(unittest.TestCase):
     """A base that moved after the checks: what the merge agent's brief says moved, its call on the move
     as its answer's second line, which base a read covers, what a safe read answers, the line of the
     merge, and what `propose` carries onto a new tip."""
