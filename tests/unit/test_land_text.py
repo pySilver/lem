@@ -428,6 +428,64 @@ class TheDocuments(Proposal):
         self.assertIn(f"```mermaid\n{self.CHART}\n```\n\n</details>", folded)
 
 
+class SeenOutside(Proposal):
+    """What the pull request's text says of the defects a review saw outside the change, on both
+    tracks: the items filed, a line under `## Seen, not filed` for each of the others, and a cheap one
+    that a fix line names by its number under `## Fixed on the way` (backlog-filing-judged, criteria 2 and 6)."""
+
+    SMALL = "## Acceptance criteria\n\nSize: small, because one word changes.\n\n1. The file holds the word y.\n   - test: `sh tests/t.sh` in `tests/t.sh`\n"
+    NOTES = "## Decisions\n\nnone\n\n## Left open\n\nnone\n\n## Worth a look\n\nnone\n\n## Filed in the backlog\n\nnone\n\n## Not done\n\nnone\n"
+    GUARD = {"where": "tests/unit/test_board_model.py", "title": "two test classes come after the main guard", "what": "the file runs them after its main guard.",
+             "bar": "under", "why": "only a reader of the code meets it", "number": "r1.1"}
+    SUPPRESSION = {"where": "app.py:run", "title": "an outdated lint suppression", "what": "the mark names a rule the linter no longer has.",
+                   "bar": "cheap", "why": "a comment of the code, no behavior", "number": "r1.2"}
+    FILED = {"where": "app.py:load", "title": "load crashes on an empty file", "what": "load of an empty file raises KeyError.", "bar": "over", "number": "r1.3",
+             "item": "docs/backlog/load-crashes-on-an-empty-file.md"}
+
+    def setUp(self) -> None:
+        super().setUp()
+        from unittest import mock
+        patched = mock.patch.object(land, "builder_filed", return_value=[])
+        patched.start()
+        self.addCleanup(patched.stop)
+
+    def text(self, plan: str, notes: str) -> list[str]:
+        found = found_of(plan, approved=approval("owner", plan=plan))
+        task = self.task(found=found, kept={"reads": [review(1, must_fix=0, outside=[self.GUARD, self.SUPPRESSION, self.FILED])]})
+        return land.pr_text(task, notes, self.state()).splitlines()
+
+    def test_a_defect_under_the_bar_and_a_cheap_one_nobody_fixed_are_lines_and_the_item_is_filed(self) -> None:
+        for name, plan, notes in (("standard", PLAN, self.NOTES), ("fast", self.SMALL, "none\n")):
+            with self.subTest(track=name):
+                out = self.text(plan, notes)
+                seen = out.index("## Seen, not filed")
+                self.assertEqual(out[seen + 2:seen + 4], ["- `tests/unit/test_board_model.py`: two test classes come after the main guard; only a reader of the code meets it",
+                                                          "- `app.py:run`: an outdated lint suppression; a comment of the code, no behavior"])
+                filed = out.index("## Filed in the backlog")
+                self.assertEqual(out[filed + 2], "- `docs/backlog/load-crashes-on-an-empty-file.md`: load crashes on an empty file")
+                self.assertLess(filed, seen)
+                self.assertNotIn("## Fixed on the way", out)
+                line = next(line for line in out if line.startswith("- the review, round 1"))
+                self.assertTrue(line.endswith("; it saw 3 defects outside the change, filed as `docs/backlog/load-crashes-on-an-empty-file.md`; 2 seen, not filed"), line)
+
+    def test_a_fix_line_that_names_the_cheap_entry_takes_its_line_out(self) -> None:
+        fix = "## Fixed on the way\n\n- `app.py` (abc1234): r1.2, the suppression named a rule the linter no longer has\n\n"
+        for name, plan, notes in (("standard", PLAN, self.NOTES.replace("## Not done", fix + "## Not done")), ("fast", self.SMALL, fix)):
+            with self.subTest(track=name):
+                out = self.text(plan, notes)
+                self.assertLess(out.index("## Filed in the backlog"), out.index("## Fixed on the way"))
+                self.assertLess(out.index("## Fixed on the way"), out.index("## Seen, not filed"))
+                self.assertNotIn("- `app.py:run`: an outdated lint suppression; a comment of the code, no behavior", out)
+                self.assertIn("- `app.py` (abc1234): r1.2, the suppression named a rule the linter no longer has", out)
+                self.assertTrue(next(line for line in out if line.startswith("- the review, round 1")).endswith("; 1 fixed on the way; 1 seen, not filed"))
+
+    def test_a_review_that_saw_nothing_outside_keeps_the_text_as_it_was(self) -> None:
+        task = self.task()
+        out = land.pr_text(task, self.NOTES, self.state())
+        self.assertTrue(out.endswith("\n\n" + self.NOTES))
+        self.assertNotIn("## Seen, not filed", out)
+
+
 class TheIssue(Proposal):
     """A task from a GitHub issue names it in its pull request with `Issue: #42`, which GitHub links
     both ways, and no word that closes it, on both tracks (github-issues-tracker, criterion 5.1)."""

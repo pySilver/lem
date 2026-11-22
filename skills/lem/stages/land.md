@@ -11,9 +11,10 @@ no diff and lands no other task.
 
 A task on the fast track lands by six steps and no more: `start`, `base`, `checks`, the review at its
 floor, which is one read by the review agent itself, `propose`, and the merge agent's read. It has no polish pass (step
-3): its builder filed what it saw outside the change. Its criterion's check runs once, in the checks,
-and its pull request is short: green or not green, the acceptance criterion, the checks with the
-items its builder filed, and the read. Its criterion is `criteria.md` in the task directory, which
+3): its builder judged what it saw outside the change by the bar of rule 6 of the builder's standing
+rules. Its criterion's check runs once, in the checks, and its pull request is short: green or not
+green, the acceptance criterion, the checks, the read, and at its end what was seen outside the
+change: the items filed, the cheap defects fixed on the way, and the others seen and not filed. Its criterion is `criteria.md` in the task directory, which
 the steps read in the place of a plan; a step's word "the plan" means that file for it.
 
 Take the task where its state stands: `ready` from step 1; `landing` as after a cut-off (below);
@@ -196,19 +197,26 @@ landing up as after a cut-off.
    - *no must-fix*: go to step 6. The should findings stay open and go into the notes: a fix now
      would be a change nobody reviewed.
    - *defects outside the change* (`to_file` names some, in this output or in a later plain
-     `read`): the review saw defects the base already has. `lem land file SLUG` writes one item
-     for each in the backlog folder and commits them on the task's branch. Those commits ask
+     `read`): the review saw defects the base already has, and called each one by the bar of
+     rule 6 of the builder's standing rules. `lem land file SLUG` writes one item in the backlog
+     folder for each one over the bar whose `open` item the tip does not hold, and commits them
+     on the task's branch; it writes nothing for the others, which the pull request names on a
+     line each under "Seen, not filed" by itself. Those commits ask
      for no `checks` again, since they hold no code and no test, and `read` still says `none`: new
      files of the backlog folder are no change the review did not see. An item written by hand
      asks for the checks, as any other commit does. Do this after every record that names some,
-     before a fix builder starts too. `propose` refuses while a defect has no item, and while an
+     before a fix builder starts too. `propose` refuses while a defect over the bar has no item, and while an
      item is gone from the tip: then `lem land file SLUG --again` puts it back. An item the owner does not want
      stays, with `worth: no` and his reason in it; it is never deleted.
    - *a must-fix*: `spawn-builder` with the brief below, the job "the fix of a review's
-     findings", and as its paths `reviews/review-N.md` and the task's plan. It fixes each
-     must-fix, and each should that is cheap, with a test for what was wrong. Then steps 4 and 5
+     findings", and as its paths `reviews/review-N.md`, the task's plan, and each entry of
+     `cheap` in this output by its number, its `where` and its title (`r1.3 src/app.py:load "the
+     docstring says the opposite"`). It fixes each must-fix, and each should that is cheap, with a
+     test for what was wrong, and each cheap entry in a commit of its own, which it names in its
+     reply by its number. Then steps 4 and 5
      again: the fix gets the machine checks and the second round, which is a round of the
-     review tool at the least.
+     review tool at the least. A cheap entry alone, in a record with no must-fix, starts no
+     builder and no new run of the checks: the pull request names it under "Seen, not filed".
    - *a source did not answer* (a usage limit, a model at capacity): the review counts. The
      record says who answered and who did not, and the pull request shows both. Do not run it
      again for that.
@@ -225,7 +233,8 @@ landing up as after a cut-off.
 6. **`propose`**, with `--title` and `--notes`. The title is the report's commit subject. The
    notes are a file you write in the task directory, `notes.md` (`--notes notes.md`), from
    `report.md` and the last review's file. The fast track's notes are the should findings the review left, one line each
-   with its file, or the one word `none`, and `## Migration` when it is careful. Every other
+   with its file, or the one word `none`, `## Fixed on the way` and `## Seen, not filed` from the
+   builder's reply when it gave those lists, and `## Migration` when it is careful. Every other
    request's have these headings, each holding what is true of this task or the one word `none`:
    - `## Decisions`: what the record of the task's decisions does not hold, one line each: what
      came up, what was chosen, and why in a few words. The lead's call on whether the task is
@@ -234,7 +243,14 @@ landing up as after a cut-off.
    - `## Left open`: each should finding the review left, with its file.
    - `## Worth a look`: up to three places a person's eye is worth, and why each.
    - `## Filed in the backlog`: each item the polish pass filed, by its first line, as
-     `report.md` names them.
+     `report.md` names them. The step adds the items the reviews' defects were filed as.
+   - `## Fixed on the way`, when a builder fixed one: each cheap defect the polish pass fixed, as
+     `report.md` names it (the file, the commit and what was wrong), and each cheap entry of a
+     review that the fix builder's reply names, with its number (`r1.3`). An entry no line here
+     names by its number stays under "Seen, not filed".
+   - `## Seen, not filed`, when the polish pass saw one: each line of `report.md`'s list, its
+     place and why. The step adds one line for each of the reviews' defects that has no item and
+     that no line under `## Fixed on the way` names, so write none of those here.
    - `## Not done`: what the request asked for and this change does not do, and what was not
      verified.
    - `## Migration`, for a careful request only: whether the change holds a migration, and how

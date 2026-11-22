@@ -30,6 +30,7 @@ PARTS = ("confuses a user", "breaks a contract", "damages data", "costs money", 
 NAMERS = (
     "skills/lem/prompts/landing.md",
     "skills/lem/prompts/small.md",
+    "skills/lem/prompts/review.md",
     "skills/lem/stages/polish.md",
     "skills/lem/stages/build.md",
     "skills/lem/stages/interview.md",
