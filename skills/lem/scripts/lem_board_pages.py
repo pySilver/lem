@@ -777,8 +777,8 @@ def kanban(ctx: Ctx) -> Markup:
 
 
 def keys_line(*parts, id_: str | None = None) -> Markup:
-    """A view's line of its keys, in the Backlog's look and hidden on a phone as the Backlog's is (`.keys`):
-    the parts in turns, a tuple of keys and the word of what they do."""
+    """A view's line of its keys, the Tasks view's, "Waits for you"'s and the Backlog's, each hidden on a phone
+    (`.keys`): the parts in turns, a tuple of keys and the word of what they do."""
     out = []
     for keys, word in zip(parts[::2], parts[1::2]):
         if out:
@@ -1138,8 +1138,7 @@ def backlog_page(ctx: Ctx) -> Markup:
                h("div", {"class": "dim small bl-sum"}, h("span", {"data-backlog-target": "count"}), sum_),
                h("div", {"class": "backlog", "id": "bl-groups"}, groups, empty,
                  h("div", {"class": "lane-empty", "data-backlog-target": "none", "data-js-out": True}, "No item fits the filter.")),
-               h("div", {"class": "keys"}, h("kbd", None, "/"), " filter · ", h("kbd", None, "J"), " ", h("kbd", None, "K"), " move · ", h("kbd", None, "Enter"),
-                 " open or close · ", h("kbd", None, "R"), " read again")))
+               keys_line(("/",), "filter", ("J", "K"), "move", ("Enter",), "open or close", ("R",), "read again")))
     return layout(ctx, "Backlog", "The items of the backlog, by the worth each one gives itself", view)
 
 
