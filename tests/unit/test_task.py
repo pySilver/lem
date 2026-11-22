@@ -739,6 +739,36 @@ class TicketClaim(unittest.TestCase):
         self.assertIn("the task 'export-keeps-gift-note' already holds the ticket #42", self.refused("gift-note-3", [old, live], succeeds="gift-note"))
         self.assertFalse((self.state / "tickets" / "42").exists())
 
+    def refused_in(self, slug: str, tasks: list[dict], succeeds: str | None = None, seen: list[str] | None = None) -> None:
+        """An opening that claims #42 for SLUG and is refused after the claim, as `task-dir` is by
+        other words under its slug and `resume` by a branch git cannot make."""
+        with self.assertRaises(project.SettingsError):
+            with project.held_ticket(ROOT, slug, "#42", tasks, "github", succeeds):
+                if seen is not None:
+                    seen.append(self.mark())
+                raise project.SettingsError("refused after the claim")
+
+    def test_an_opening_refused_after_its_claim_gives_the_mark_back(self):
+        self.refused_in("gift-note-words", [])
+        self.assertFalse((self.state / "tickets" / "42").exists())
+        # the ticket then opens under another slug
+        self.assertIsNotNone(project.claim_ticket(ROOT, "gift-note-in-the-export", "#42", [], "github"))
+        # a retry's mark was there before its claim, and stays
+        self.task("gift-note-in-the-export", None)
+        self.refused_in("gift-note-in-the-export", [])
+        self.assertEqual(self.mark(), "gift-note-in-the-export")
+
+    def test_a_resume_refused_after_its_claim_gives_the_mark_back_to_the_dropped_task(self):
+        project.claim_ticket(ROOT, "gift-note", "#42", [], "github")
+        old = self.task("gift-note", "dropped", ("dropped", "unassigned"))
+        seen: list[str] = []
+        self.refused_in("gift-note-2", [old], succeeds="gift-note", seen=seen)
+        self.assertEqual((seen, self.mark()), (["gift-note-2"], "gift-note"))
+        # a dropped task that had no mark gets none
+        (self.state / "tickets" / "42").unlink()
+        self.refused_in("gift-note-2", [old], succeeds="gift-note")
+        self.assertFalse((self.state / "tickets" / "42").exists())
+
     def test_a_mark_whose_task_folder_is_gone_is_named_with_the_fix(self):
         (self.state / "tickets").mkdir()
         (self.state / "tickets" / "42").write_text("gone-task\n", encoding="utf-8")

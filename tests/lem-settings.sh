@@ -433,6 +433,32 @@ if grep -qF "the task 'gift-note-first' is dropped and still owes the ticket #7 
 else
   fail "a dropped GitHub task and its resume: $owed_drop / $mark_gone / $held_resume / $resumed / $(cat "$WORK/resume.err") / $(ls "$GH/.lem/state/tickets" 2>&1)"
 fi
+# An opening refused after its claim gives the issue's mark back. A slug made from the issue's title is the slug of a
+# task that holds other words, so the opening is refused, and the same issue then opens under another slug. A resume
+# that git refuses, since the new task's branch is there already, leaves the mark with the dropped task, which still owes.
+project --repo "$GH" task-dir gift-note-words --ask "keep the gift note in the export" >/dev/null
+other_words=$(project --repo "$GH" task-dir gift-note-words --ask "Each export drops the gift note." --ticket 12 --ticket-repo acme/shop 2>&1 || true)
+words_mark=$([ -e "$GH/.lem/state/tickets/12" ] && echo kept || echo gone)
+other_slug=$(project --repo "$GH" task-dir gift-note-in-the-export --ask "Each export drops the gift note." --ticket 12 --ticket-repo acme/shop 2>&1 && echo opened || true)
+GL=$GH/.lem/state/tasks/gift-note-later
+project --repo "$GH" task-dir gift-note-later --ticket 9 --ticket-repo acme/shop --ask "the gift note is lost again" >/dev/null
+project --repo "$GH" ticket-step gift-note-later assigned --login octo-cat >/dev/null
+printf '%s\n' '2026-01-01T00:00Z dropped: the owner dropped it' > "$GL/state.md"
+printf '%s\n' '{"id": 1, "at": "2026-01-01T00:00:00Z", "kind": "breaker", "cause": "criteria", "what": "no place keeps the note", "document": "breaker.md", "handoff": "handoff.md"}' > "$GL/decisions.jsonl"
+printf '%s\n' '# Handoff' > "$GL/handoff.md"
+printf '%s\n' '{"ts": "2026-01-01T00:00:00Z", "event": "task.state", "task": "gift-note-later", "status": "building", "branch": "feat/gift-note-later"}' >> "$GH/.lem/state/events.jsonl"
+git -C "$GH" branch feat/gift-note-later
+git -C "$GH" branch feat/gift-note-later-2
+git_refused=$(project --repo "$GH" resume gift-note-later 2>&1 || true)
+later=$(gh_tasks 'next((t["ticket_owed"], t["ticket_held_by"]) for t in d if t["slug"] == "gift-note-later")')
+if grep -qF "the task 'gift-note-words' holds other words already" <<<"$other_words" && [ "$words_mark" = gone ] && [ ! -e "$GH/.lem/state/tasks/gift-note-words/ticket.txt" ] \
+  && grep -q "opened$" <<<"$other_slug" && [ "$(cat "$GH/.lem/state/tickets/12")" = gift-note-in-the-export ] \
+  && grep -qF "git could not make feat/gift-note-later-2 from feat/gift-note-later" <<<"$git_refused" && [ ! -e "$GH/.lem/state/tasks/gift-note-later-2" ] \
+  && [ "$(cat "$GH/.lem/state/tickets/9")" = gift-note-later ] && [ "$later" = "(['dropped', 'unassigned'], None)" ]; then
+  pass "an opening refused after its claim of the issue gives the mark back: the issue opens under another slug, and a resume git refuses leaves the dropped task holding the issue it still owes"
+else
+  fail "a refused opening and the issue's mark: $other_words / $words_mark / $other_slug / $git_refused / $later / $(ls "$GH/.lem/state/tickets" 2>&1)"
+fi
 none=$(project --repo "$OLD" tasks | field '[t["proposal"] for t in d]')
 echo '{"proposed": "0123", "pr": {"number": 7, "url": "https://github.com/acme/shop/pull/7"}, "not_green": ["criterion 1 changed during the build: y is taken."]}' > "$dir/landing.json"
 if [ "$none" = "[None]" ] && [ "$(project --repo "$OLD" tasks | field '[t["proposal"] for t in d]')" = "[{'pull_request': 'https://github.com/acme/shop/pull/7', 'green': False, 'not_green': ['criterion 1 changed during the build: y is taken.'], 'conflict': None, 'merge_review': None, 'merge_refused': None}]" ]; then

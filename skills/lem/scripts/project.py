@@ -331,6 +331,7 @@ if sys.version_info < (3, 11):
     sys.exit(f"project.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it")
 
 import argparse
+import contextlib
 import difflib
 import fcntl
 import importlib
@@ -344,6 +345,7 @@ import stat
 import subprocess
 import time
 import tomllib
+from collections.abc import Iterator
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -1622,22 +1624,16 @@ def claim_ticket(root: Path, slug: str, ticket: str, tasks: list[dict], kind: st
     The mark comes first and the scan of the tasks after it, so two opens at one moment cannot both
     pass: the mark is a link of a finished file, and only one link takes the name. A mark that names
     SLUG is a retry and passes. A mark whose task gave the ticket back is taken over. Returns the
-    mark when this call made it, so that a refusal later in the opening takes it back."""
+    mark when this call made it, so that `held_ticket` gives it back when a refusal later in the
+    opening stops it."""
     mark = mark_of(root, ticket)
     mark.parent.mkdir(parents=True, exist_ok=True)
     by_slug = {task["slug"]: task for task in tasks}
     made = None
     for _ in range(3):
-        fresh = mark.with_name(f"{mark.name}.{os.getpid()}.new")
-        fresh.write_text(slug + "\n", encoding="utf-8")
-        try:
-            os.link(fresh, mark)
+        if link_mark(mark, slug):
             made = mark
             break
-        except FileExistsError:
-            pass
-        finally:
-            fresh.unlink(missing_ok=True)
         try:
             holder = text_of(mark).strip()
         except FileNotFoundError:
@@ -1663,14 +1659,47 @@ def claim_ticket(root: Path, slug: str, ticket: str, tasks: list[dict], kind: st
     return made
 
 
-def take_over(mark: Path, holder: str, ticket: str) -> None:
-    """Remove the mark of a task that gave its ticket back, only while it still names that task: it
-    moves aside first, and a mark another open took in the meantime goes back."""
+@contextlib.contextmanager
+def held_ticket(root: Path, slug: str, ticket: str, tasks: list[dict], kind: str | None, succeeds: str | None = None) -> Iterator[None]:
+    """Take TICKET for the task SLUG (`claim_ticket`) for the rest of an opening, `task-dir`'s or
+    `resume`'s: a refusal raised in the block gives back the mark this claim made, to the dropped
+    task SUCCEEDS when the claim took it from that one, so that no mark names a task that never opened."""
+    mark = mark_of(root, ticket)
+    try:
+        before = text_of(mark).strip()
+    except FileNotFoundError:
+        before = None
+    made = claim_ticket(root, slug, ticket, tasks, kind, succeeds)
+    try:
+        yield
+    except BaseException:
+        if made and unmark(made, slug) is None and succeeds is not None and before == succeeds:
+            link_mark(made, succeeds)
+        raise
+
+
+def link_mark(mark: Path, slug: str) -> bool:
+    """Make MARK name the task SLUG, only when no mark is there: a link of a finished file, so of two
+    writers at one moment one takes the name. False when a mark was there already."""
+    fresh = mark.with_name(f"{mark.name}.{os.getpid()}.new")
+    fresh.write_text(slug + "\n", encoding="utf-8")
+    try:
+        os.link(fresh, mark)
+        return True
+    except FileExistsError:
+        return False
+    finally:
+        fresh.unlink(missing_ok=True)
+
+
+def unmark(mark: Path, holder: str) -> str | None:
+    """Remove MARK only while it still names the task HOLDER: it moves aside first, and a mark another
+    open took in the meantime goes back. Returns the task that mark named, else None (removed, or no mark)."""
     aside = mark.with_name(f"{mark.name}.{os.getpid()}.gone")
     try:
         os.rename(mark, aside)
     except FileNotFoundError:
-        return
+        return None
     moved = text_of(aside).strip()
     if moved != holder:
         try:
@@ -1679,8 +1708,17 @@ def take_over(mark: Path, holder: str, ticket: str) -> None:
             pass
         finally:
             aside.unlink(missing_ok=True)
-        raise SettingsError(f"the task {moved!r} took the ticket {ticket} in this moment; go on with that task")
+        return moved
     aside.unlink(missing_ok=True)
+    return None
+
+
+def take_over(mark: Path, holder: str, ticket: str) -> None:
+    """Remove the mark of a task that gave its ticket back, only while it still names that task
+    (`unmark`), and refuse when another open took it in the meantime."""
+    moved = unmark(mark, holder)
+    if moved is not None:
+        raise SettingsError(f"the task {moved!r} took the ticket {ticket} in this moment; go on with that task")
 
 
 def give_back(root: Path, slug: str) -> None:
@@ -1694,9 +1732,7 @@ def give_back(root: Path, slug: str) -> None:
     names, _ = ticket_steps_of(directory)
     if status not in RETURNED or ticket_owed(status, names, load(root)["tracker"]):
         return
-    mark = mark_of(root, text_of(directory / "ticket.txt").strip())
-    if mark.is_file() and text_of(mark).strip() == slug:
-        mark.unlink(missing_ok=True)
+    unmark(mark_of(root, text_of(directory / "ticket.txt").strip()), slug)
 
 
 def ticket_steps_of(directory: Path) -> tuple[list[str], str | None]:
@@ -1729,7 +1765,7 @@ def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None, bra
     if ticket_repo is not None and ticket is None:
         raise SettingsError("--ticket-repo is the repository of the issue the task came from, so it goes with --ticket")
     directory = state_root(root) / "tasks" / slug
-    made = None
+    claim: contextlib.AbstractContextManager = contextlib.nullcontext()
     if ticket is not None:
         tracker = load(root)["tracker"]
         ticket = ticket_id(tracker, ticket)
@@ -1748,35 +1784,31 @@ def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None, bra
             held = mine["ticket"] + (f" of {mine['ticket_repo']}" if mine["ticket_repo"] else "")
             raise SettingsError(f"the task {slug!r} already holds the ticket {held}; give the task for {ticket} another slug")
         # one ticket is one task: a second task for it would be a second branch for the same work
-        made = claim_ticket(root, slug, ticket, tasks, tracker["kind"])
-    try:
+        claim = held_ticket(root, slug, ticket, tasks, tracker["kind"])
+    with claim:
         if (ask is not None or ticket is not None) and not directory.is_dir():
             taken_on_remote(root, slug, branch)
-    except SettingsError:
-        if made:
-            made.unlink(missing_ok=True)
-        raise
-    (directory / "reports").mkdir(parents=True, exist_ok=True)
-    if ask is not None:
-        # The owner's words, as given. task.md is a document with headings; the board and the
-        # status show these words, so they have a file of their own that nothing rewrites: a link
-        # of a finished file claims the name, so of two writers at one moment one writes, and the
-        # other finds its words whole and compares them.
-        file = directory / "ask.txt"
-        fresh = directory / f"ask.txt.{os.getpid()}.new"
-        fresh.write_text(ask.strip() + "\n", encoding="utf-8")
-        try:
-            os.link(fresh, file)
-        except FileExistsError:
-            refused = ask_refusal(slug, text_of(file), ask)
-            if refused:
-                raise SettingsError(refused) from None
-        finally:
-            fresh.unlink(missing_ok=True)
-    if ticket is not None:
-        (directory / "ticket.txt").write_text(ticket + "\n", encoding="utf-8")
-        if ticket_repo is not None:
-            (directory / "ticket-repo.txt").write_text(ticket_repo + "\n", encoding="utf-8")
+        (directory / "reports").mkdir(parents=True, exist_ok=True)
+        if ask is not None:
+            # The owner's words, as given. task.md is a document with headings; the board and the
+            # status show these words, so they have a file of their own that nothing rewrites: a link
+            # of a finished file claims the name, so of two writers at one moment one writes, and the
+            # other finds its words whole and compares them.
+            file = directory / "ask.txt"
+            fresh = directory / f"ask.txt.{os.getpid()}.new"
+            fresh.write_text(ask.strip() + "\n", encoding="utf-8")
+            try:
+                os.link(fresh, file)
+            except FileExistsError:
+                refused = ask_refusal(slug, text_of(file), ask)
+                if refused:
+                    raise SettingsError(refused) from None
+            finally:
+                fresh.unlink(missing_ok=True)
+        if ticket is not None:
+            (directory / "ticket.txt").write_text(ticket + "\n", encoding="utf-8")
+            if ticket_repo is not None:
+                (directory / "ticket-repo.txt").write_text(ticket_repo + "\n", encoding="utf-8")
     if night is not None and not any(record.get("task") == slug for record in events_named(root, "task.mode")):
         # the night's mark
         append_event(root, "task.mode", slug, {"mode": "alone", "by": "lem", "words": f"the night of {night}", "all": False, "was": "with-owner"})
@@ -2137,14 +2169,16 @@ def cmd_resume(root: Path, slug: str) -> dict:
         raise SettingsError(f"{target} exists already: no task is resumed into another task's folder")
     ask = text_of(directory / "ask.txt").strip() if (directory / "ask.txt").is_file() else (ask_of(directory) or slug)
     taken_on_remote(root, new, branch)
+    claim: contextlib.AbstractContextManager = contextlib.nullcontext()
     if (directory / "ticket.txt").is_file():
         # the ticket goes on with the work, as for a new task: refused while another task holds it,
-        # and the dropped task's mark moves to the new slug
-        claim_ticket(root, new, text_of(directory / "ticket.txt").strip(), read_tasks(root, settings), (settings["tracker"] or {}).get("kind"), succeeds=slug)
-    if exists:
-        made = subprocess.run(["git", "-C", str(main), "branch", "--no-track", branch, old], capture_output=True, text=True, check=False)
-        if made.returncode != 0:
-            raise SettingsError(f"git could not make {branch} from {old}: {(made.stderr or made.stdout).strip()}")
+        # and the dropped task's mark moves to the new slug, and back to it when git refuses the branch
+        claim = held_ticket(root, new, text_of(directory / "ticket.txt").strip(), read_tasks(root, settings), (settings["tracker"] or {}).get("kind"), succeeds=slug)
+    with claim:
+        if exists:
+            made = subprocess.run(["git", "-C", str(main), "branch", "--no-track", branch, old], capture_output=True, text=True, check=False)
+            if made.returncode != 0:
+                raise SettingsError(f"git could not make {branch} from {old}: {(made.stderr or made.stdout).strip()}")
     (target / "reports").mkdir(parents=True)
     (target / "ask.txt").write_text(ask + "\n", encoding="utf-8")
     for name in RESUMED_FILES:
