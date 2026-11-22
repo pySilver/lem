@@ -53,8 +53,9 @@ In git:
 - `.lem/project.toml`: the [settings](settings.md).
 - `.lem/profile.md`, `.lem/personas/`: the product, and the people that a change affects.
 - `.lem/lessons.md`: your corrections of how an agent does a step in this repository.
-- `docs/rulings/`: your decisions about what the product does, which no agent reopens without
-  asking you.
+- `docs/rulings.md`: your decisions about what the product does, which no agent reopens without
+  asking you. The rulings are one file, with one bullet for each decision. A retro adds a bullet
+  only after you approve the ruling, in a pull request.
 - `docs/plans/`, `docs/backlog/`: the plans, and work for later. The [settings](settings.md#paths)
   can move the plans and the rulings.
 

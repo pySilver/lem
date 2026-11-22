@@ -191,6 +191,9 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
 - **`[tracker]` has one key**, `kind`: the team comes from the ticket's id, the agent reads the
   team's statuses by their type, and a connection that fails points to Linear's MCP help page.
   (2026-11-18, 2026-11-19)
+- **A project's rulings are one list file, one bullet for each ruling under the heading of its
+  group.** It holds for every project, as for Lem's own list: `paths.rulings` names the file, and
+  no setting names a file for each ruling. (2026-11-22)
 
 ## The README, the guides and the logo
 

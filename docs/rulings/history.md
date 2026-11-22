@@ -125,11 +125,12 @@ bullet.
   `tests/unit/test_settings.py::Values.test_a_branch_defaults_to_squash_and_the_merge_agent`;
   `tests/lem-serial.sh: "the checks run each checks.serial command after checks.commands, under the
   one lock"` (2026-11-18)
-- **Four places are settings**, and a plan's file is `YYYY-MM-DD-<slug>.md` unless the settings say
-  otherwise. `tests/unit/test_settings.py::UnknownNames.test_a_key_of_paths_with_the_keys_it_knows`;
+- **Three places are settings**: the plans folder, a plan's file name and the rulings file. A
+  plan's file is `YYYY-MM-DD-<slug>.md` unless the settings say otherwise.
+  `tests/unit/test_settings.py::UnknownNames.test_a_key_of_paths_with_the_keys_it_knows`;
   `tests/lem-settings.sh: "the rulings file is a setting"`;
   `tests/lem-settings.sh: "a plan's name is paths.plan_file, YYYY-MM-DD-<slug>.md by default"`
-  (2026-11-17, 2026-11-18)
+  (2026-11-17, 2026-11-18, 2026-11-22)
 - **One machine may name its own reviewer for a while.** `tests/lem-settings.sh: "reviewer
   AGENT/MODEL:EFFORT, run in a worktree, writes this machine's seat in the main checkout"`;
   `tests/lem-settings.sh: "reviewer default gives the project's reviewer back and keeps what else
