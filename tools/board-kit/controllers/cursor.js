@@ -7,7 +7,7 @@
 // mark, the first of these keys marks the first item of the first group you can see. Moving the mark
 // moves the focus to the item's link, so Enter is the browser's own press of that link, the same as a
 // click; with the focus on no link, Enter clicks the marked item's link. A click on an item's link, or on
-// a task's row in the sidebar (a link outside the view with data-task), moves the mark to that item, so
+// a task's row in the sidebar or in the search (a link outside the view with data-task), moves the mark to that item, so
 // Escape after the panel it opened (the hotkeys controller, then panel.js, which gives the focus back to
 // the marked card or row) leaves the mark and the focus on it. With no item you can see, the move keys
 // stay the browser's.
@@ -141,7 +141,7 @@ export default class extends Controller {
     if (item && this.element.contains(item)) this.mark(item, false);
   }
 
-  // a click on a task's row in the sidebar, which opens the task's panel, marks the view's item of that task
+  // a click on a task's row in the sidebar or in the search, which opens the task's panel, marks the view's item of that task
   side(ev) {
     const link = ev.target instanceof Element ? ev.target.closest('a[data-task]') : null;
     if (!link || this.element.contains(link)) return;

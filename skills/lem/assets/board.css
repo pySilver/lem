@@ -1105,7 +1105,7 @@ html:has(.app.plain) { overflow: auto; height: auto; }
 
 /* ---- the search over every card (search_box in lem_board_pages.py) ----
    Drawn closed on every page; the search controller opens it with data-js-open, which a morph keeps. It
-   lies over the board under the drawer's scrim, one row for each card, its chip a pill in the color of
+   lies over the board and the drawer, behind a scrim of the drawer's color, one row for each card, its chip a pill in the color of
    the card's place. Its button stands in the bar, and on a phone in the bar at the top. */
 .app .search { display: none; }
 .app .search[data-js-open] { display: flex; position: fixed; inset: 0; z-index: 50; justify-content: center; align-items: flex-start; padding: 12vh 16px 16px;
