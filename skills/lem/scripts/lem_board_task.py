@@ -328,9 +328,11 @@ def inbox_action(ctx, t: bm.Task) -> Markup | None:
     Inbox (`bm.inbox_of`): a question, in the task's session on the Mac or in the Inbox, its thread a link at
     the Inbox's tailnet address, in place of `session_action`'s line about the session (its jump stays on a
     page for this Mac); a note, which no session can take a reply to, that no session runs or answers, with
-    the link and "Open a session" where the page may act; and with no link, `session_action` as today and one
-    line that says why. None while it changes nothing of today's lines: the large card and the breaker's
-    card show `row_action` then."""
+    the link and "Open a session" where the page may act; a note of a row that asks nothing (a refused
+    merge, a merge with no review of its tip), `session_action` as today and a line that the Inbox has a
+    note of it, with the link; and with no link, `session_action` as today and one line that says why.
+    None while it changes nothing of today's lines: the large card and the breaker's card show
+    `row_action` then."""
     said = bm.inbox_of(t, ctx.model)
     if said is None:
         return None

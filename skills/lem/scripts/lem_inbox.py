@@ -413,7 +413,7 @@ class Watcher:
     runs `lem session wake SLUG --why inbox` and returns whether a live session got the word."""
 
     def __init__(self, spaces, link, wake, *, runner=subprocess.run, log=None, now=time.time) -> None:
-        import lem_board_model as bm  # here: a server that never looks loads no model for it
+        import lem_board_model as bm  # here: the rule's functions take the model's module as an argument, and only the watcher holds it
 
         self.bm = bm
         self.spaces = spaces

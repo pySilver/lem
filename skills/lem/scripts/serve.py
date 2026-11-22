@@ -251,7 +251,7 @@ a row it sends one push with no payload to each device; the worker then asks `/a
 to say. Nothing is sent for a demo workspace, and a failure is a line in
 the log and `push` in `/api/server`, never a stop of the server.
 
-The owner's Inbox (`lem_inbox`): while his mark says away, a third thread of the server
+The owner's Inbox (`lem_inbox`): while his mark says away, another thread of the server
 (`lem_inbox.Watcher`) sends each row of the same lists to the Plannotator Inbox on this Mac, in the
 task's own thread and as the task's Claude Code session, so that his reply there comes back into that
 session; it withdraws a question whose row left the list, and wakes the task's session with `lem
