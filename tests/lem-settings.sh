@@ -181,11 +181,10 @@ settings '[branch]' 'base = "master"' '[paths]' 'rulings = "docs/rulings"'
 CORR=$PWD/skills/lem/scripts/corrections.py
 stopped_codes="" stopped_said=0
 for command in "project show" "project path rulings" "project plan-file header-names" "project prune --dry-run" "project may-nap" "corrections list"; do
-  read -r script words <<<"$command"
-  if [ "$script" = project ]; then run=("$PY" -B "$PROJECT"); else run=("$PY" -B "$CORR"); fi
+  read -r -a argv <<<"$command"
+  if [ "${argv[0]}" = project ]; then run=("$PY" -B "$PROJECT"); else run=("$PY" -B "$CORR"); fi
   code=0
-  # shellcheck disable=SC2086  # the command's words are split on purpose
-  said=$("${run[@]}" --repo "$OLD" $words 2>&1) || code=$?
+  said=$("${run[@]}" --repo "$OLD" "${argv[@]:1}" 2>&1) || code=$?
   stopped_codes="$stopped_codes $code"
   grep -qF "paths.rulings = 'docs/rulings' is no markdown file: paths.rulings names the list file of the owner's rulings" <<<"$said" \
     && grep -qF 'as rulings = "docs/rulings.md"' <<<"$said" && ! grep -q Traceback <<<"$said" && stopped_said=$((stopped_said + 1))
