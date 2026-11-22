@@ -380,6 +380,35 @@ else
   fail "the stream opened again after a change outside the log: the log $count lines, the inbox $inbox_before then $inbox_after, the stream said $(cat "$WORK/stream-again.out")"
 fi
 
+# A phone's page in headless Chrome (tests/board-cdp.mjs): a finger opens a task's panel, and within seconds what
+# waits for the owner changes (away, then a line of the log). The refresh that follows keeps the whole page: the
+# inbox icon and the sidebar's "Waits for you" both say the server's new count. A tap also starts Turbo's prefetch of
+# the link (`Turbo-Frame: task`, which the server answers with the panel alone), and Turbo keeps that answer for 10
+# seconds for the next request of the same address, the refresh's too.
+tapped_checks() {
+  inbox_before=$(inbox)
+  "$PY" -c 'import json, sys; base, project, demo, py = sys.argv[1:]; print(json.dumps({"width": 390, "height": 844, "mobile": True, "steps": [
+      {"goto": base + "/", "wait": 2500},
+      {"click": "#card-refund-line-on-receipt .tc-link", "tap": True, "after": 2500},
+      {"sh": f"{py} -B {project} --repo {demo} owner away --words away >/dev/null && {py} -B {project} --repo {demo} state cart-total-after-coupon building \"an investigator reproduces the bug and finds its cause\" \"investigation: bug\" >/dev/null", "after": 5000},
+      {"print": "JSON.stringify([document.querySelector(\".m-waits span\")?.textContent ?? \"none\", document.querySelector(\".side-head em\")?.textContent ?? \"none\"])"}]}))' \
+    "$BASE" "$PROJECT" "$DEMO" "$PY" > "$WORK/tap.json"
+  node tests/board-cdp.mjs "$WORK/tap.json" > "$WORK/tap.out" 2>&1 || true
+  inbox_after=$(inbox)
+  project --repo "$DEMO" owner back --words "/lem im-back" >/dev/null
+  shown=$(tail -n 1 "$WORK/tap.out")
+  if [ "$inbox_before" != "$inbox_after" ] && [ "$shown" = "\"[\\\"$inbox_after\\\",\\\"$inbox_after\\\"]\"" ]; then
+    pass "a refresh soon after a finger opened a task's panel on a phone keeps the whole page: the inbox icon and the sidebar say the server's new count"
+  else
+    fail "the phone's page after the refresh: the server's inbox $inbox_before then $inbox_after, the page's inbox icon and sidebar $shown"
+  fi
+}
+if command -v node >/dev/null 2>&1 && { [ -x "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ] || command -v google-chrome >/dev/null 2>&1 || command -v chromium >/dev/null 2>&1; }; then
+  tapped_checks
+else
+  skip_function tapped_checks "no Node, or no Chrome or Chromium found"
+fi
+
 # lem board, with a stand-in for agtermctl that prints a tree and records its calls: the board opens at the server's
 # address as a page companion of the session's group, and is known by its workspace's address.
 printf '%s\n' '{"result": {"tree": {"workspaces": [{"sessions": [{"id": "LEM", "foreground": ["/usr/local/bin/claude"]}, {"id": "OTHER"},' \
