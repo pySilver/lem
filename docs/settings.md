@@ -56,8 +56,8 @@ A persona names its own seats in the frontmatter of its file, in the same form:
 | --- | --- | --- |
 | `seats.reviewer` | `"codex/gpt-6.2-sol:high"`, or `"claude/opus:high"` without Codex | the reviewer of the plan talk |
 | `seats.planner` | `"claude/opus:high"` | the defender of the plan in the plan talk: only `claude` |
-| `seats.merger` | the seat in `~/.config/lem/machine.toml`, else `"claude"` | the merge agent: `claude` or `codex`. Without a seat in the repository, Lem uses `merger` under `[seats]` in `~/.config/lem/machine.toml`, the file for all your repositories. Without that, the agent uses its own default model |
-| `seats.session` | the seat in `~/.config/lem/machine.toml`, else `"claude"` | the agent of the session of each task: only `claude`. The sources are the same as for `seats.merger`. Without a seat, the session uses your default model of Claude Code |
+| `seats.merger` | the seat in `~/.config/lem/machine.toml`, else `"claude/opus:high"` | the merge agent: `claude` or `codex`. Without a seat in the repository, Lem uses `merger` under `[seats]` in `~/.config/lem/machine.toml`, the file for all your repositories. Without that, Lem uses `"claude/opus:high"` |
+| `seats.session` | the seat in `~/.config/lem/machine.toml`, else `"claude/opus:high"` | the agent of the session of each task: only `claude`. The sources and the default are the same as for `seats.merger` |
 | `seats.experts` | `["claude/fable:high", "codex/gpt-6.2-astra:high"]` | the experts of a decision in doubt. Without Codex, one answers alone |
 
 ## `[corrections]`

@@ -235,8 +235,8 @@ proposed task and merges it or calls the owner; `seats.session`, the agent of ea
 session (`lem session open`), only `claude` for now; and `seats.experts`, the one or two experts, the
 last level of the ladder of a decision in doubt. The merge agent's and the session's seats are the
 repository's when its settings name one, else the developer's own for all his repositories (`[seats]
-merger` and `session` in `machine.toml`, `lem_state.machine_file()`), else the agent's own default:
-`claude`, with no model and no effort, so that Lem's code names no model for them. `show` gives each
+merger` and `session` in `machine.toml`, `lem_state.machine_file()`), else Lem's default,
+`claude/opus:high` (`MACHINE_SEAT_DEFAULT`). `show` gives each
 with `from`, which of the three it is. `show` marks each expert `here` when its agent is on this
 machine (Claude Code always, Codex when its command is on PATH): only those answer, so without
 Codex the default's one Claude expert answers alone. The reviewer's, the defender's and each
@@ -244,7 +244,7 @@ expert's seat is written whole, and `show` and `reviewer` refuse one that leaves
 effort (the owner, 2026-11-18: "I think it should be explicitly `agent/model:effort` in all 3; not
 simply "claude" or "codex""); `init` writes the three so. The merge agent's and the session's seat
 may leave out the effort (`claude/opus`), and the model too (`claude`, `claude:high`): the part
-left out is that agent's own default, and Lem passes nothing for it. `show`
+a named seat leaves out is that agent's own default, and Lem passes nothing for it. `show`
 gives each seat parsed, as `agent`, `model`, `effort` and the `seat` as written; a file with no
 planner or no experts gets Lem's (`PLANNER`, `EXPERTS`), and one with no reviewer gets none, which
 the stage that needs it asks the owner for.
@@ -393,7 +393,8 @@ REVIEWERS = ("claude", "codex")
 # change with each release of an agent's command, and that command refuses a wrong one loudly when
 # it starts. The three seats of WHOLE_SEATS are written whole (the owner, 2026-11-18: "I think it
 # should be explicitly `agent/model:effort` in all 3; not simply "claude" or "codex""); a part left out
-# of the merge agent's or a task session's seat is the agent's own default, and Lem passes nothing for it.
+# of the merge agent's or a task session's seat is the agent's own default, and Lem passes nothing for it;
+# a seat nobody names is MACHINE_SEAT_DEFAULT, written whole.
 SEAT_FORM = "agent/model:effort"
 SEAT_KEYS = ("agent", "model", "effort")
 WHOLE_SEATS = ("reviewer", "planner", "experts")
@@ -422,12 +423,11 @@ SEATS = {
     # only, since the launch line, the two hooks and the compaction were checked there only.
     "session": (("claude",), "a task's session runs Claude Code only for now", "claude:high"),
 }
-# The merge agent's seat when neither the repository nor the machine names one: the agent's own
-# default model and effort, so that no model's name is Lem's (the owner on the shape of task 3,
-# 2026-11-20: "this should be set on most generic level, not in code (`~/.config/lem` ?)").
-MERGER_DEFAULT = "claude"
-# The seats that take the developer's own for all his repositories when the repository names none:
-# each defaults to its agent's own model and effort, MERGER_DEFAULT.
+# The merge agent's and a task session's seat when neither the repository nor the machine names one
+# (the owner, 2026-11-22: "`seats.merger`, `seats.session` should default to `claude/opus:high`").
+MACHINE_SEAT_DEFAULT = "claude/opus:high"
+# The seats that take the developer's own for all his repositories when the repository names none,
+# and MACHINE_SEAT_DEFAULT when he names none either.
 MACHINE_SEATS = ("merger", "session")
 # A plan's and a ruling's file name: their defaults, and their tokens; `lem_plans` builds and finds the name.
 PLAN_FILE = lem_plans.PLAN_FILE
@@ -617,11 +617,11 @@ reviewer = "{reviewer}"
 planner = "{planner}"
 # The merge agent, which reads each proposed task and merges it or calls the owner: "claude" or
 # "codex", read-only. Left out, it is the seat the developer names for all his repositories
-# (`[seats] merger` in ~/.config/lem/machine.toml), else the agent's own default model.
+# (`[seats] merger` in ~/.config/lem/machine.toml), else "claude/opus:high".
 # merger = "agent/model:effort"
 # The agent of each task's own session in agterm: "claude" only for now. Left out, it is the seat the
 # developer names for all his repositories (`[seats] session` in ~/.config/lem/machine.toml), else
-# the agent's own default model and effort.
+# "claude/opus:high".
 # session = "agent/model:effort"
 # The experts, the last level of the ladder of a decision in doubt, at the same moment and read-only: two
 # model families, so that their agreement is worth more than two of one. Where the machine has one
@@ -889,14 +889,13 @@ def seat(raw: dict, name: Path, which: str = "reviewer") -> dict | None:
 def machine_seat_of(which: str, named: dict, local: bool, machine: dict) -> dict:
     """A seat of MACHINE_SEATS, the merge agent's or a task session's, with `from`, where it came
     from: the repository's settings (or this machine's own file for the repository), else the
-    developer's file for all his repositories, else the agent's own default, which names no model and
-    no effort."""
+    developer's file for all his repositories, else Lem's default, MACHINE_SEAT_DEFAULT."""
     if named["seat"] is not None:
         return {**named, "from": str(LOCAL if local else SETTINGS)}
     given = machine.get(which)
     if given is not None:
         return {**parse_seat(given, f"{lem_state.machine_file()}: seats.{which}", *SEATS[which]), "from": str(lem_state.machine_file())}
-    return {**parse_seat(MERGER_DEFAULT, "Lem's default", *SEATS[which]), "from": "the agent's own default"}
+    return {**parse_seat(MACHINE_SEAT_DEFAULT, "Lem's default", *SEATS[which]), "from": "Lem's default"}
 
 
 def agent_here(agent: str) -> bool:

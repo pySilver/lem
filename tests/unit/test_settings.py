@@ -311,7 +311,7 @@ class Seats(Refuses):
         self.assertEqual((mine["agent"], mine["model"], mine["effort"]), ("codex", "gpt-6.2-sol", "high"))
         self.assertTrue(mine["from"].endswith("machine.toml"))
         bare = project.decide(ROOT, ROOT, raw, {}, raw, None, {})["seats"]["merger"]
-        self.assertEqual((bare["agent"], bare["model"], bare["effort"], bare["from"]), ("claude", None, None, "the agent's own default"))
+        self.assertEqual((bare["agent"], bare["model"], bare["effort"], bare["from"]), ("claude", "opus", "high", "Lem's default"))
 
     def test_the_merge_agents_seat_the_machine_names_is_checked(self):
         raw = read("[branch]", 'base = "master"')

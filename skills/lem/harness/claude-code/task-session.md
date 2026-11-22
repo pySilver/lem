@@ -38,8 +38,9 @@ installed, Claude Code 2.1.330) showed:
 - Each idle session posts agterm's "Claude is waiting for your input". One of the trial's two
   sessions closed 1.3 s after such a notice with no command of the trial's, most likely by a hand.
 
-When `seats.session` names a model or an effort, `lem session open` puts them on the launch line;
-otherwise the session runs the owner's default Claude. When this Lem is not the installed plugin (its folder is
+`lem session open` puts the model and the effort of `seats.session` on the launch line
+(`claude/opus:high` when no file names the seat); a part that a named seat leaves out is the
+owner's default of Claude Code. When this Lem is not the installed plugin (its folder is
 outside `~/.claude/plugins/`, or outside `plugins/` of `CLAUDE_CONFIG_DIR`), the line adds
 `--plugin-dir` with that folder, so that the task's session runs the Lem that opened it. That holds
 where no Lem is installed: with an older Lem installed for the project, the `lem` on such a session's
