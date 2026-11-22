@@ -81,11 +81,16 @@ flowchart TD
    `aria-disabled` away. A `ResizeObserver` on the body and on its content takes the place of a
    window's resize event: when the content grows (a reason's fold opened, a picture loaded, a
    narrower screen) and the end is no longer in view, the button is off again until the end is
-   reached again. The read is kept in a `data-js-*` attribute with the key it read, so a morph keeps
-   it; after each `turbo:morph`, which renders the button on and with its label, the controller
-   applies its state again, and a key other than the kept one scrolls the body back to its top and
-   turns the button off, so that a scroll position left from the text before never counts as the
-   read of the new one. When the overlay shows, the controller moves the focus to its head
+   reached again. The controller keeps the key the body showed last in a `data-js-*` attribute, and
+   the read with it, so a morph keeps both; after each `turbo:morph`, which renders the button on and
+   with its label, the controller applies its state again, and a key other than the one the body
+   showed last scrolls the body back to its top and turns the button off, whether a read was
+   complete or not, so that a scroll position left from the text before never counts as the read
+   of the new one; a morph that leaves the body's HTML the same (another task changed) leaves the
+   scroll and the button as they were (decision 8 of the task, the ladder's pick of the talk's
+   question 1). It applies its state again on `turbo:submit-end` too, which Turbo fires after it
+   restored the button's content when a request ends without a new page, so the label reads "Read
+   to the end ↓" at once when the gate is off then (decision 7, question 6). When the overlay shows, the controller moves the focus to its head
    (`tabindex="-1"`), one animation frame after `panel.js`, which focuses the task's title behind it;
    the parts behind the overlay carry no act on a step (`head_acts()` returns None for `ACT_TABS`).
    Then `npm --prefix tools/board-kit ci` and `npm --prefix tools/board-kit run build`, and commit
@@ -111,14 +116,20 @@ flowchart TD
      "Read to the end ↓", a click on it posts nothing (no `board.act` event, the page stays), and
      after the body is scrolled to its end it reads "Merge pull request #44" and is on. Then the check
      adds a `proposed` event with another tip and its `landing.json`, and after the morph the body is
-     at its top and the button is off again.
-   - a green open task of the demo with no reasons (pull request 41 or 38), with its `landing.json`:
-     at 390 × 844 the button is on at once.
+     at its top and the button is off again. A second morph case: the body scrolled to just above
+     its end, a `proposed` event brings a shorter body that still does not fit, and the body is at
+     its top with the button off.
+   - a green open task the check adds itself, since the demo ends its green pull requests 41 and 38
+     as landed (`board-showcase.py`, `afternoon`) and a merge step has its button only for an open
+     task (`acts_of`): its events (a green `proposed` event with no reasons and an open state) at the
+     end of the demo's log and its `landing.json`, as the block's `held.py` adds a task of its own;
+     at 390 × 844 the button is on at once (decision 6, question 9).
    - pull request 44 at 1440 × 900: the card has no fixed part, and the button is on.
-   - pull request 44 with the script turned off at 390 × 844: the page scrolls as one, the button is
-     on at the end of the text, and a click on it posts the form: the page that follows carries the
-     act's note, and neither of the guard's two refusals ("A merge runs only from its confirm step",
-     "Read the confirm step again").
+   - pull request 44 with the script turned off at 390 × 844, open and with no merge running: the
+     page scrolls as one, the button is on at the end of the text, and a click on it posts the form,
+     which the guard takes: a `merge.start` event with the page's tip follows (`act_merge` returns
+     the token of a merge already running before it reads `confirm` and `tip`, so the absence of the
+     guard's two refusals proves nothing alone) (decision 6, question 9).
    In `tests/lem-board-act.sh` the confirm page's words follow the new head ("Merge #1 · confirm
    Green"), and one check posts the form with a tip other than the page's and sees "Read the confirm
    step again" with nothing merged. Each check that needs Chrome prints a `SKIP` line of its own
@@ -197,7 +208,7 @@ The reviewer's list, as it came:
    kept key, nothing to compare) did not close it: the owner stops just before the end of commit A,
    a refresh to B shortens the body, and the old position reaches B's end. **A design choice**: the
    kept decision (compare against the key of a completed read) against the reversed one (compare
-   against the key the body last showed). Decision 1 of the ladder below.
+   against the key the body last showed). The gate took the reversed one, B, as checkable by criterion 3: decision 8.
 2. **The read stays on when the body grows** (tasks 1 and 2): a fold opened or a picture loaded
    after the first fit. Repaired at the cause: a `ResizeObserver` turns the button off when the
    content grows and the end is out of view (criteria 3 and 5). Settled, `lem_board_pages.py`
@@ -220,13 +231,13 @@ The reviewer's list, as it came:
    and cancels the form's `submit`. It held on the label: after a fetch that fails on the network,
    Turbo's `resetSubmitterText` puts back "Merge pull request" while the gate is off, until the next
    scroll; the refutation (safe side, rare) did not close it, since criterion 3 asks for "Read to the
-   end ↓" in that state. **A design choice**: decision 2 of the ladder below.
+   end ↓" in that state. **A design choice**: kept (the label right at the next scroll) against reversed (the state applied again on `turbo:submit-end`). The gate took the reversed one, as checkable by criterion 3: decision 7.
 7. **The focus behind the overlay** (tasks 1 and 2): `panel.js` focuses the task's title behind it.
    Repaired as a layer over the fixed overlay of criteria 1 and 5: the focus moves to the overlay's
    head. It held: Shift+Tab reaches the covered tabs, and on the criteria tab of a task with no
    session the covered "Open a session" (`head_acts()`, `serve.py` `act_session`), which starts a
    session and logs a `board.act`. The refutation (nothing behind merges, parks or approves) did not
-   close it. **A design choice**: decision 3 of the ladder below.
+   close it. **A design choice**: kept (the focus in the overlay, nothing inert) against reversed (the panel's head and tab bar `inert` while the overlay shows). The gate judged it cheap, and the kept one stands: decision 9.
 8. **The desktop layout under the new wrappers** (criterion 7): `.confirm > p` and the gaps of the
    card and of `.approve-body`, and "Cancel" against criterion 1's "Back". Repaired: the wrappers are
    `display: contents` outside the overlay, the `.confirm > p` rules also name `.cf-body > p`, and
@@ -240,7 +251,7 @@ The reviewer's list, as it came:
    that posts. It held: #41 and #38 end landed (`tests/board-showcase.py` `afternoon`), and a merge
    token alone does not prove the fields passed (`act_merge` returns a running merge's token before
    it reads them). The refutation (the plan's rule to add what a check needs) did not close it.
-   **A design choice**: decision 4 of the ladder below.
+   **A design choice**: kept (the plan's rule, the example of #41 or #38, any note but the two refusals) against reversed (a green open task of the check's own, and a `merge.start` with the page's tip). The gate took the reversed one, as checkable from the code: decision 6.
 10. **Criterion 6's proof on the base commit**: the whole `tests/lem-board-act.sh` fails on the base
     for the new head words, not for the guard. Repaired: criteria 6, 7 and 8 take
     `- no test: the change keeps behavior; the suite holds it`, with the checks that hold each named.
@@ -288,14 +299,18 @@ the change" holds the other markdown blocks of the board.
   commit, another careful call or other criteria are another key, which scrolls the body to its top
   and turns the button off. Without it, a morph after his read would leave the button on over a
   text he did not read, and the server's guard would take it, since the morph also brings the new
-  commit into the form. It rests on criteria 3 and 5 (the button is off while text is below the
-  screen). Its cost is one attribute compared on each morph.
+  commit into the form. The key compared is the one the body showed last, whether a read was
+  complete or not (decision 8): a body that changed under a read that was not complete starts at
+  its top too. It rests on criteria 3 and 5 (the button is off while text is below the screen).
+  Its cost is one attribute compared on each morph.
 - **The button is off again when the body's content grows and its end is out of view** (a fold
   opened, a picture loaded, a narrower screen), from a `ResizeObserver`, which takes the place of a
   window's resize event. It rests on criteria 3 and 5, word for word.
 - **The gate never writes `disabled`**: it sets `aria-disabled` and cancels the form's `submit` event,
   so Turbo stays the one writer of `disabled` while a request runs, and no state of the gate can
-  turn on a button that a request has turned off.
+  turn on a button that a request has turned off. It applies its state again on `turbo:submit-end`,
+  after Turbo restored the button's content, so its label is right after a request that ends with
+  no new page (decision 7).
 - **The overlay comes only on a step that has its button.** A page that may not act (`ctx.can_act`
   false) shows the line that says where to act, as today, and has nothing to gate.
 - **The overlay takes the focus when it shows**, to its head, after `panel.js` gives it to the
