@@ -87,16 +87,19 @@ flowchart TD
    reads the project's tracker and takes the id form of its kind (`TICKET` stays the Linear form, a
    new rule takes `42`, `#42` and `#042` and keeps `#42`: the number as an integer, so one issue has
    one saved form, and 0 is refused). For a GitHub ticket, `cmd_task_dir` also keeps the
-   repository that origin names when the task takes the issue, `OWNER/REPO`, in
+   repository of the issue that was read, `OWNER/REPO` from the address `lem issue read` gave,
+   which it takes as `--ticket-repo OWNER/REPO` (required with a GitHub ticket), in
    `ticket-repo.txt` beside `ticket.txt` (which keeps `#42`, criterion 2); `lem project tasks`
-   gives it as `ticket_repo`, and `RESUMED_FILES` copies it with `ticket.txt`. A project with no `[tracker]` refuses `--ticket`, with the fix
+   gives it as `ticket_repo`, and `RESUMED_FILES` copies it with `ticket.txt` (decision 10). A project with no `[tracker]` refuses `--ticket`, with the fix
    (the table and its `kind`): a ticket that no tracker can act on is a record nobody pays
    (`ticket_owed` gives nothing with no tracker). The claim of a ticket is one function that
    `cmd_task_dir` and `cmd_resume` both call, so a resumed task that would take an issue another
    live task holds is refused like a new one (`cmd_resume` copies `ticket.txt` through
    `RESUMED_FILES` today with no check). The claim gives a ticket back only when its dropped or
    answered task owes it nothing: an earlier task whose `ticket_owed` is not empty holds it still,
-   and the refusal names that task, its owed steps and the `lem issue` line that pays them. Its
+   and the refusal names that task, its owed steps and the step that pays them by the tracker's
+   kind: the line `lem issue STEP SLUG` for `github`, the `lem-linear` skill's step of that name,
+   run from a session, for `linear` (decision 12). Its
    refusal of a ticket a landed task holds names that task and says to start the new task from the
    owner's own words. `TICKET_STEPS` gains `assigned` (Lem added the assignee at the start) and
    `unassigned` (it removed it, or the add failed). `ticket-step SLUG assigned --login LOGIN` keeps
@@ -121,7 +124,8 @@ flowchart TD
    ID|URL`, `start SLUG`, `land SLUG`, `drop SLUG`, `answer SLUG`.
    - `read` gives the title, the text as written, open or closed, the labels, the address, the
      author's login, and the comments apart from the text. The skill's "read" says that the ask
-     is the title and the text, never the comments, and that the author is the issue's creator for
+     is the text, the title only when the text is empty, and never the comments, as
+     `lem-linear`'s "read" says of a ticket (decision 15), and that the author is the issue's creator for
      the rule of `request by: someone else` (`stages/new.md`, "Which path").
    - Each write first reads the task in `lem project tasks` and refuses a status the step does not
      belong to: `start` an ended or parked task, `land` any status but `landed`, `drop` any but
@@ -169,7 +173,8 @@ flowchart TD
    - `skills/lem/stages/new.md`, step 1 of "Open the task": the ask of a ticket is what the
      tracker's "read" gives as the ask (today "its title is the ask", which drops the text that
      `lem-linear`'s "read" itself names as the ask). So `ask.txt`, which the investigator reads
-     (`stages/investigate.md`, step 2), holds the issue's text.
+     (`stages/investigate.md`, step 2), holds the issue's text. Step 3 there passes, for a GitHub
+     ticket, `--ticket-repo` with the repository of the address the read gave (decision 10).
    - `skills/lem/stages/correct.md` ("drop") and `skills/lem/stages/investigate.md` (step 4,
      "answer"): the tracker's step comes before the worktree's removal, so a worktree that `lem
      land clean` refuses does not stop the comment.
@@ -212,9 +217,10 @@ flowchart TD
 - The issue is origin's, at every step: the ask says "the repository is origin's", criterion 3
   reads "the repository that origin names", and `land.py` reads origin at each step for the push
   and the pull request (`Task.__init__`, `remote.origin.url`). The task keeps `#42` and the
-  repository origin named when it took the issue, and no write goes to an issue of another
-  repository: a task can be dropped before any push, so the landing does not catch a moved origin
-  first.
+  repository of the issue its read returned, and no write goes to an issue of another repository:
+  a task can be dropped before any push, so the landing does not catch a moved origin first, and
+  the repository comes from the read itself, so a move between the read and `task-dir` is caught
+  too (decision 10, the gate).
 - The assignee's step is written down before `gh` adds the login, with the login, and every other
   step after `gh` took it: a removal reads the assignees first, so a step written for an add that
   never happened removes nothing, while a step written after the add would be lost by a cut-off
