@@ -336,20 +336,23 @@ def inbox_action(ctx, t: bm.Task) -> Markup | None:
     said = bm.inbox_of(t, ctx.model)
     if said is None:
         return None
+
+    def line(*words, then=None) -> Markup:
+        return h("div", {"class": "wl-actions", "id": "inbox"}, h("span", {"class": "bl-note"}, *words), then)
+
     if said["why"]:
-        return join([session_action(ctx, t) or "", h("div", {"class": "wl-actions", "id": "inbox"}, h("span", {"class": "bl-note"}, said["why"]))])
+        return join([session_action(ctx, t) or "", line(said["why"])])
     inbox = h("a", {"class": "inbox-link", "href": said["thread"], "target": "_blank", "rel": "noopener", "title": "Open the task’s thread in the Inbox"}, "Inbox")
     live = bm.live_of(t, ctx.model) or {}
     if said["asks"]:
         go = jump(ctx, live.get("session"), "Go to the task’s session") if live.get("live") else None
-        return h("div", {"class": "wl-actions", "id": "inbox"}, h("span", {"class": "bl-note"}, "Answer in the task’s session on the Mac, or in the ", inbox, "."), go)
+        return line("Answer in the task’s session on the Mac, or in the ", inbox, ".", then=go)
     if said["gone"]:
         opens = bm.opens_session(t, ctx.model) and ctx.can_act
         first = ("The task’s session does not answer." if live.get("live") else
                  "No session of the task runs now: open one here." if opens else "No session of the task runs now.")
-        return h("div", {"class": "wl-actions", "id": "inbox"}, h("span", {"class": "bl-note"}, first, " The ", inbox, " has a note, not a question."),
-                 open_form(ctx, t) if opens else None)
-    return join([session_action(ctx, t) or "", h("div", {"class": "wl-actions", "id": "inbox"}, h("span", {"class": "bl-note"}, "The ", inbox, " has a note of it, not a question."))])
+        return line(first, " The ", inbox, " has a note, not a question.", then=open_form(ctx, t) if opens else None)
+    return join([session_action(ctx, t) or "", line("The ", inbox, " has a note of it, not a question.")])
 
 
 def row_action(ctx, t: bm.Task) -> Markup | None:
