@@ -243,6 +243,28 @@ class Duties(unittest.TestCase):
         self.assertEqual(serve.merge_args({"history": "squash", "title": "fix: x"}, "gift-note", "owner", "def456789" + "0" * 31, True),
                          ["merge", "gift-note", "--by", "owner", "--via", "server", "--tip", "def456789" + "0" * 31, "--standing", "--message", "fix: x"])
 
+    def test_a_press_after_a_moved_base_is_refused_as_lem_lands_it_again(self):
+        # the page offers no Merge while Lem lands it again; a press sent anyway is refused for that, not for a conflict
+        class Space:
+            name = "shop"
+
+            def __init__(self, m):
+                self.m = m
+
+            def model(self):
+                return self.m
+
+            def landing_of(self, slug):
+                # no proposed tip: a press that got past the acts is refused at the tip, and nothing merges
+                return {}
+
+        base = (self.ev(0, "proposed", green=True, not_green=[], tip="abc123456"), self.state(1, "open", self.PR),
+                self.ev(2, "merge.refused", by="owner", via="server", kind="base", said="origin/main moved after the checks ran", tip="abc123456", **{"from": "lem"}))
+        note = serve.NOTES.get(serve.act_merge(Space(self.model(*base)), "gift-note", {"confirm": "yes", "tip": "abc123456"}, "board"))
+        self.assertEqual(note["state"], "refused")
+        self.assertIn("Lem lands it again", note["said"])
+        self.assertNotIn("conflicting", note["said"])
+
     def test_the_servers_merge_takes_the_tip_that_was_read(self):
         # the merge agent's merge is of the tip its review read, the owner's that stood of the tip he merged
         landing = {"proposed": "c" * 40, "merge_review": {"tip": "a" * 40, "verdict": "merge"}, "owner_tap": {"tip": "b" * 40}}

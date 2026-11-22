@@ -1190,6 +1190,8 @@ def merge_step(ctx, t: bm.Task) -> list:
         return not_now(ctx, t, "Lem merges it now. This page shows the result when it ends.")
     if "merge" not in bm.acts_of(t, ctx.model.seen):
         return not_now(ctx, t, f"Nothing to merge now: the task is {t.info['label'].lower()}." if t.status != "open"
+                       else "Lem lands it again: the base moved after the checks ran, so a merge now is refused the same way. "
+                            "The task’s session lands it again, and its new proposal is open for a merge." if t.merge_wait == "relands"
                        else "The forge calls its pull request conflicting with the base: Lem brings it onto the base first, and then it waits for you again.")
     says = bm.merge_says(t)
     landing = ctx.landing_of(t.slug) or {}

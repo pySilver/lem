@@ -204,6 +204,23 @@ class Overview(unittest.TestCase):
         self.assertIn("it calls you", parts[0])
         self.assertIn("Verdict: call. The change is careful.", parts[0])
 
+    def test_after_a_moved_base_the_page_offers_no_merge_and_its_step_says_lem_lands_it_again(self):
+        proposed = (ev(0, "proposed", green=True, not_green=[], tip="abc123456"), state(1, "open", "pull request https://github.com/acme/shop/pull/41"))
+        refused = (*proposed, ev(2, "merge.refused", by="owner", via="server", kind="base", said="origin/main moved after the checks ran", tip="abc123456", **{"from": "lem"}))
+
+        def page(*events):
+            ctx = pages.Ctx(host="h", workspace="w", model=model(*events), asset=lambda name: name, can_act=True)
+            t = ctx.model.tasks[0]
+            return ctx, t, str(task_pages.head_acts(ctx, t) or "")
+
+        _, _, offered = page(*proposed)
+        self.assertIn("/merge", offered)
+        ctx, t, shown = page(*refused)
+        self.assertNotIn("/merge", shown)
+        step = "".join(str(x) for x in task_pages.merge_step(ctx, t))
+        self.assertIn("Lem lands it again", step)
+        self.assertNotIn("conflicting", step)
+
     def test_the_large_card_opens_with_the_tasks_first_line_while_its_block_is_the_newest(self):
         line = 'fix: "the footer says Terms and conditions". Fast track: one builder, the checks, one read, then the pull request. Nothing waits for you.'
         first = {**state(0, "building", "small change: one builder", "type: fix, because a typo"), "say": line}

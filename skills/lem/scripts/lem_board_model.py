@@ -921,7 +921,8 @@ def merge_wait(t: Task) -> str | None:
     refused the merge because the base moved after the checks ran (`merge.refused` with `kind: base`),
     and the session lands it again. "owner": the owner, for a review that calls him, any other refused
     merge, and an open task with no proposal on record. Only "owner" is a row of "Waits for you"; the
-    owner's own merge on the task's page stays in every case (`acts_of`)."""
+    owner's own merge on the task's page stays in every case but "relands", where a press meets the same
+    tip on the same moved base and is refused again (`acts_of`)."""
     if t.status != "open":
         return None
     if not t.proposal:
@@ -1263,12 +1264,14 @@ ACTED = {"approve": "You approved the criteria from the board", "merge": "You me
 
 def acts_of(t: Task, seen: dict | None) -> list[str]:
     """The acts the board offers on a task: `approve` while its criteria wait for the owner's yes and the
-    yes would count (`Task.approvable`), `merge` while it is open and the forge does not call it
-    conflicting (Lem brings that one onto the base first), and `park` while a breaker waits for him."""
+    yes would count (`Task.approvable`), `merge` while it is open, Lem does not land it again after a
+    moved base (`merge_wait` "relands": until the next proposal, a merge of that tip is refused the same
+    way) and the forge does not call it conflicting (Lem brings that one onto the base first), and
+    `park` while a breaker waits for him."""
     out = []
     if t.approvable:
         out.append("approve")
-    if t.status == "open" and not conflicts(t, seen):
+    if t.status == "open" and t.merge_wait != "relands" and not conflicts(t, seen):
         out.append("merge")
     if t.breaker is not None:
         out.append("park")
