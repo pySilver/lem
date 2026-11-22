@@ -95,7 +95,13 @@ flowchart TD
    (`ticket_owed` gives nothing with no tracker). The claim of a ticket is one function that
    `cmd_task_dir` and `cmd_resume` both call, so a resumed task that would take an issue another
    live task holds is refused like a new one (`cmd_resume` copies `ticket.txt` through
-   `RESUMED_FILES` today with no check). The claim gives a ticket back only when its dropped or
+   `RESUMED_FILES` today with no check). The claim cannot race (decision 17): before its scan, a
+   task takes a mark for the ticket in Lem's state folder by an atomic link, as `ask.txt` is
+   written (a file per ticket that names the slug; a retry of the same slug passes), and keeps it
+   while it holds the ticket: while it runs, for good once it landed, and after a drop or an answer
+   until it owes the ticket nothing, when the mark goes. `cmd_resume` moves the mark to the new
+   slug; a mark whose task folder is gone is named in the refusal with the fix; `prune` leaves the
+   marks alone. The claim gives a ticket back only when its dropped or
    answered task owes it nothing: an earlier task whose `ticket_owed` is not empty holds it still,
    and the refusal names that task, its owed steps and the step that pays them by the tracker's
    kind: the line `lem issue STEP SLUG` for `github`, the `lem-linear` skill's step of that name,
@@ -230,7 +236,9 @@ flowchart TD
 - The tracker's steps take the slug alone and read their words from the task's record, so a step
   a task still owes is one line any session can run.
 - Overlapping calls of one step for one task are not guarded: only a task's own session runs its
-  steps, one at a time, as `lem-linear`'s steps are run today.
+  steps, one at a time, as `lem-linear`'s steps are run today (decision 14, the gate).
+- Two opens of one ticket in the same moment are refused by a mark only one task can take
+  (decision 17, the dialectic, after both personas chose it).
 
 ## What it will not verify
 
