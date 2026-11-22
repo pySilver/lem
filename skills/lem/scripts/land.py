@@ -3785,7 +3785,7 @@ def tip_carry(kept: dict, new: str, why_careful: list[str]) -> tuple[str | None,
     if uncovers:
         return None, f"{met} no review covers the change: {uncovered['why']}"
     reads = kept.get("reads", [])
-    read = next((one for one in reads if resolution.get("read") is not None and one.get("attempt") == resolution["read"]), None)
+    read = resolution_read(kept)
     if read and read["answered"] and (read["must_fix"] or read["should"] or read["nit"]):
         return None, f"{met} the read of its resolution found {read['must_fix']} must-fix, {read['should']} should and {read['nit']} nit"
     if resolution.get("after") != new:
@@ -3799,6 +3799,15 @@ def tip_carry(kept: dict, new: str, why_careful: list[str]) -> tuple[str | None,
     if rounds and rounds[-1].get("careful"):
         return None, f"{met} the request is careful: the review says so: {reason(rounds[-1].get('careful_why') or 'a round called it careful')}"
     return "resolution", None
+
+
+def resolution_read(kept: dict) -> dict | None:
+    """The review of the builder's resolution that the record KEPT names (`resolution.read`, its
+    attempt, among `reads`); None when no resolution is kept, or no read of it."""
+    resolution = kept.get("resolution")
+    if not resolution or resolution.get("read") is None:
+        return None
+    return next((one for one in kept.get("reads", []) if one.get("attempt") == resolution["read"]), None)
 
 
 def moved_carry(kept: dict, new: str, why_careful: list[str], reasons: list[str]) -> dict:
@@ -3815,7 +3824,7 @@ def moved_carry(kept: dict, new: str, why_careful: list[str], reasons: list[str]
     old = kept.get("proposed")
     how, why = tip_carry(kept, new, why_careful)
     resolution = kept.get("resolution")
-    read = next((one for one in kept.get("reads", []) if resolution and resolution.get("read") is not None and one.get("attempt") == resolution["read"]), None)
+    read = resolution_read(kept)
     review = review_line((kept.get("sync") or {}).get("carried")) or (
         "one read of the resolution" if resolution and resolution.get("before") == old and read and read["answered"] else None
     )
