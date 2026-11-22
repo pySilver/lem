@@ -75,6 +75,9 @@ class Actions(unittest.TestCase):
         self.assertIn("another site", self.refusal(Host="127.0.0.1:4536", Origin="http://127.0.0.1:4536", Sec_Fetch_Site="cross-site"))
         self.assertIn("another origin", self.refusal(Host="127.0.0.1:4536", Origin="http://evil.example.com"))
         self.assertIn("or none", self.refusal(Host="127.0.0.1:4536"))
+        # a form of a page whose policy sends no referrer posts `Origin: null`: still refused, so the board's
+        # pages send `Referrer-Policy: same-origin` (`Handler.send`)
+        self.assertIn("or none", self.refusal(Host="127.0.0.1:4536", Origin="null", Sec_Fetch_Site="same-origin"))
         # a name of another site that resolves to 127.0.0.1 carries that name in Host
         self.assertIn("not the board's own", self.refusal(Host="evil.example.com:4536", Origin="http://evil.example.com:4536"))
 

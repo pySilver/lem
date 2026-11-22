@@ -39,7 +39,7 @@ words() { "$PY" -c 'import html, re, sys; t = sys.stdin.read(); t = re.sub(r"(?s
 
 # event.py LOG TASK STATUS TEXT: a state line of TASK, written now at the end of the demo's log
 cat > "$WORK/event.py" <<'PY'
-import json, sys
+import json, sys, time
 from datetime import datetime, timezone
 log, task, status, text = sys.argv[1:]
 with open(log, "a", encoding="utf-8") as out:
@@ -50,7 +50,7 @@ PY
 # held.py LOG TASK SESSION ASK: a task the owner asked for, its session opened and its interview waiting for him, written
 # now at the end of the demo's log
 cat > "$WORK/held.py" <<'PY'
-import json, sys
+import json, sys, time
 from datetime import datetime, timezone
 log, task, session, ask = sys.argv[1:]
 now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -492,9 +492,10 @@ PY
 # has no button: merge.py writes what land.py keeps and logs for an open task. `merge.py landing STATE TASK PR TIP`: its
 # landing.json with the proposed tip and the pull request; `merge.py review LOG TASK`: a review's careful call;
 # `merge.py proposed LOG TASK TIP N`: a proposal of TIP that is not green for the first N of the demo's four reasons
-# (green for 0); `merge.py open LOG TASK PR`: the state open with the pull request.
+# (green for 0); `merge.py open LOG TASK PR`: the state open with the pull request; `merge.py started LOG TASK`: whether
+# a merge.start of TASK comes into the log within 20 s (land.py logs it only for the tip proposed now, `--tip`).
 cat > "$WORK/merge.py" <<'PY'
-import json, sys
+import json, sys, time
 from datetime import datetime, timezone
 from pathlib import Path
 REASONS = ["decision 1 was taken without the owner (Where the refund line goes on the receipt): \"B: a line of its own under the items, then the total\", by the dialectic",
@@ -519,12 +520,19 @@ elif verb == "proposed":
     log("proposed", green=int(n) == 0, not_green=REASONS[:int(n)], tip=tip[:9])
 elif verb == "open":
     log("task.state", status="open", text=f"pull request https://github.com/acme/shop/pull/{more[0]}", lines=["not green"], ask=task)
+elif verb == "started":
+    def started():
+        return any(json.loads(line).get("event") == "merge.start" and json.loads(line).get("task") == task for line in open(where, encoding="utf-8"))
+    end = time.time() + 20
+    while time.time() < end and not started():
+        time.sleep(0.2)
+    print(json.dumps(["started", started()]))
 PY
 
 # The checks of the confirm step, after the other checks of the block: pull request 44 of refund-line-on-receipt, not
 # green for four reasons and careful, at a phone's width with a height where its text goes on below the screen (390 x
 # 664) and at 390 x 844, where it fits; a green open task of the check's own; a desktop's screen; and the page with its
-# scripts off, whose click posts the form as the browser sends it.
+# scripts off, whose click posts the form to the server's guard, which takes it.
 confirm_checks() {
   local refund=refund-line-on-receipt green=coupon-code-in-email tip moved shorter out=$WORK/confirm
   tip=$(git -C "$DEMO" rev-parse "feat/$refund")
@@ -583,7 +591,7 @@ specs = {
     "noscript": {"width": 390, "height": 844, "mobile": True, "noscript": True, "posts": True, "steps": [
         {"goto": step, "wait": 2500},
         {"print": "['page', (() => { const p = document.querySelector('.panel'); return [typeof window.Turbo, p.scrollHeight > p.clientHeight].join(' '); })()]"}, at("off"),
-        {"click": "#confirm .cf-foot button"}, {"wait": 1500}, {"print": "['answer', document.body.innerText.slice(0, 300)]"}]},
+        {"click": "#confirm .cf-foot button"}, {"wait": 1500}, {"print": "['answer', document.body.innerText.slice(0, 300)]"}, sh(py, f"{work}/merge.py", "started", log, refund)]},
 }
 for name, spec in specs.items():
     with open(f"{work}/confirm-{name}.json", "w", encoding="utf-8") as out:
@@ -638,8 +646,8 @@ print(eval(sys.argv[1], {"d": d}))' "$3"; }
   fi
   if [ "$(seen "$out-noscript.out" page)" = "undefined true" ] \
     && [ "$(fact "$out-noscript.out" off 'd["sheet"], d["fixed"], d["disabled"], d["label"], d["buttonTop"] > d["noteEnd"]')" = "(False, False, None, 'Merge pull request #44', True)" ] \
-    && [ "$(seen "$out-noscript.out" post)" = "$BASE/tasks/$refund/merge confirm=yes&tip=$shorter&in=waits" ]; then
-    pass "with no script the merge step of #44 is one page that scrolls, its button is on at the end of its text, and its click posts the form with confirm=yes and the commit the page showed"
+    && [ "$(seen "$out-noscript.out" post)" = "$BASE/tasks/$refund/merge confirm=yes&tip=$shorter&in=waits" ] && [ "$(seen "$out-noscript.out" started)" = True ]; then
+    pass "with no script the merge step of #44 is one page that scrolls, its button is on at the end of its text, and its click posts the form with confirm=yes and the commit the page showed, which the server's guard takes: land.py starts the merge of that commit"
   else
     fail "the merge step with no script: $(cat "$out-noscript.out")"
   fi

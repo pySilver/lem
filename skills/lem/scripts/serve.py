@@ -1575,7 +1575,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", kind)
         self.send_header("Content-Length", str(len(data)))
         self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("Referrer-Policy", "no-referrer")
+        # same-origin: no Referer leaves for another site, and a form posted with no script carries the
+        # board's own Origin (under no-referrer the browser sends `null`, which `action_refusal` refuses)
+        self.send_header("Referrer-Policy", "same-origin")
         for key, value in {"Cache-Control": "no-store", **(headers or {})}.items():
             self.send_header(key, value)
         self.end_headers()
@@ -1808,7 +1810,7 @@ class Handler(BaseHTTPRequestHandler):
         rendered, since = ((asked.get(key) or [None])[0] for key in ("rendered", "since"))
         self.send_response(HTTPStatus.OK)
         for key, value in {"Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
-                           "Referrer-Policy": "no-referrer", "X-Accel-Buffering": "no", "Connection": "close"}.items():
+                           "Referrer-Policy": "same-origin", "X-Accel-Buffering": "no", "Connection": "close"}.items():
             self.send_header(key, value)
         self.end_headers()
         self.close_connection = True

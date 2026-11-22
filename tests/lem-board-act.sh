@@ -92,6 +92,16 @@ else
   fail "the acts of Waits for you: $(grep -o 'wr-acts.\{0,400\}' <<<"$waits" | head -c 1500)"
 fi
 
+# A page's own forms carry its origin with no script too: the board sends Referrer-Policy same-origin, under which the
+# browser's POST names the board's origin (no-referrer would make it `null`, which the guard refuses as it did).
+policy=$(curl -fsS -D - -o /dev/null "$BASE/tasks/stock-on-product-page/criteria" | tr -d '\r' | grep -i '^referrer-policy:' || true)
+nulled=$(post "$BASE/tasks/stock-on-product-page/approve" null "digest=$digest")
+if [ "$policy" = "Referrer-Policy: same-origin" ] && [ "${nulled%% *}" = 403 ] && [ ! -e "$STATE/tasks/stock-on-product-page/criteria.json" ]; then
+  pass "a page of the board carries Referrer-Policy same-origin, and a form posted with the Origin null is still refused"
+else
+  fail "the referrer policy and a null origin: $policy / $nulled"
+fi
+
 # A form of another site, and one that carries criteria other than the file's, approve nothing.
 elsewhere=$(post "$BASE/tasks/stock-on-product-page/approve" https://evil.example "digest=$digest")
 stale=$(post "$BASE/tasks/stock-on-product-page/approve" "$SERVER" "digest=0000" "in=waits")
