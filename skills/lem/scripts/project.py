@@ -525,15 +525,15 @@ ISSUE = re.compile(r"#?([0-9]+)")
 ISSUE_REPO = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?/[A-Za-z0-9._-]+")
 # the login of a GitHub account, which `ticket-step SLUG assigned --login LOGIN` keeps
 LOGIN = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?")
-# What Lem did to a task's ticket, each written down after the tracker took it, so that a step is
-# never done twice and a session that was cut off can see what is still owed:
-#   started    the ticket got the status for work that started
+# What Lem did to a task's ticket, each written down after the tracker took it (`assigned` before),
+# so that a step is never done twice and a session that was cut off can see what is still owed:
+#   started    the ticket got the status for work that started; for an issue, the start ran
 #   assigned   Lem set out to add the person signed in to `gh` as the issue's assignee: written
 #              before the add, with the login (`assigned LOGIN`), since a removal reads the
 #              assignees first and a record lost after the add would leave his name on the issue
 #   unassigned Lem removed that assignee again, or the add failed
 #   commented  the landing was commented on the ticket
-#   landed     the ticket got the status for work that landed
+#   landed     the ticket got the status for work that landed; an issue is closed as completed
 #   dropped    the ticket got the comment that its task was dropped
 #   answered   the ticket got the comment with its task's answer: not a bug, or the answer to a question
 TICKET_STEPS = ("started", "assigned", "unassigned", "commented", "landed", "dropped", "answered")
@@ -2988,7 +2988,7 @@ def read_tasks(root: Path, settings: dict | None = None) -> list[dict]:
         tasks.append({
             "slug": directory.name,
             "ask": ask_of(directory),
-            # the tracker's ticket the ask came from; a dropped or answered task gives its ticket back
+            # the tracker's ticket the ask came from; a dropped or answered task gives its ticket back once it owes it nothing
             "ticket": text_of(directory / "ticket.txt").strip() or None if (directory / "ticket.txt").is_file() else None,
             # the repository of a GitHub issue, OWNER/REPO from the address its read gave, or null
             "ticket_repo": text_of(directory / "ticket-repo.txt").strip() or None if (directory / "ticket-repo.txt").is_file() else None,
