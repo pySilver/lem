@@ -258,6 +258,12 @@ class Overdue(unittest.TestCase):
         self.assertFalse(land.is_overdue(10_000, None))
         self.assertFalse(land.is_overdue(None, 266))
 
+    def test_a_last_run_of_zero_seconds_is_no_measure(self) -> None:
+        # the guards check's last run of `true` rounds to 0 s, and a slow run read under load at 3 s
+        # was called overdue (hero-logo-animated-background, gate/01.log, 2026-11-22)
+        self.assertFalse(land.is_overdue(3, 0))
+        self.assertFalse(land.is_overdue(10_000, 0))
+
     def test_the_line_says_both_lengths_and_the_stop(self) -> None:
         self.assertEqual(land.overdue_say(SLUG, 840, 266),
                          f'{SLUG}: the checks run for 14 min, more than three times their last run of 4 min 26 s; "stop the checks" stops them')

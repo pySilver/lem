@@ -90,7 +90,7 @@ run kept before its first command, so a run cut off with no chance to clean up l
 tip. `--status` gives `running` (the step lock is held by `checks`), `since` and `seconds` of the
 run, `last_seconds` (the `seconds` of the newest `gate.end` that passed, of any task, or null), and
 `overdue` with its `say` when the run is more than three times as long as that one
-(`OVERDUE_TIMES`); and `ended`, the newest `gate.end` of the task with `resumed`, the line for a
+(`OVERDUE_TIMES`), never against a last run of 0 seconds; and `ended`, the newest `gate.end` of the task with `resumed`, the line for a
 session that did not start that run, which says its result as past and the next step as it is now.
 `--stop` sends a term to the process the lock names, only while `checks` holds it, waits until that
 run lets the lock go (`STOP_WAIT` at most), and says whether it stopped one (`stopped`).
@@ -1662,8 +1662,10 @@ def last_seconds(events: list[dict]) -> int | None:
 
 
 def is_overdue(seconds: int | None, last: int | None) -> bool:
-    """Whether a run that has gone on for `seconds` runs more than OVERDUE_TIMES as long as the last finished one."""
-    return seconds is not None and last is not None and seconds > OVERDUE_TIMES * last
+    """Whether a run that has gone on for `seconds` runs more than OVERDUE_TIMES as long as the last finished one.
+    A last run that rounds to 0 seconds (a stand-in command such as `true`) has no length to multiply, so
+    nothing is overdue against it: three times 0 would call any run overdue after 1 second."""
+    return seconds is not None and last is not None and last > 0 and seconds > OVERDUE_TIMES * last
 
 
 def overdue_say(slug: str, seconds: int, last: int) -> str:
