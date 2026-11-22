@@ -10,17 +10,31 @@ Size: full, because three act steps of the board change on the phone, one of the
    1. On a screen of 390 × 844, pull request 31 waits for his merge; it is not green for four reasons and it is careful.
    2. He taps "Merge…" in "Waits for you".
    3. The overlay shows the head "Merge #31 · confirm" at its top, the text in a middle part that scrolls by itself, and a foot with the button and "Back" at its bottom, all inside the screen.
+   - test: `bash tests/lem-board-keys.sh` in `tests/lem-board-keys.sh`, `tests/board-cdp.mjs`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-showcase.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_task.MergeStep.test_the_head_names_the_pull_request_when_it_has_a_number` in `tests/unit/test_board_task.py`
 2. The text of the merge step keeps its order: green or not green, the reasons, the "Careful:" line, the facts (pull request, commit, branch, into, lands as), and the note that a merge cannot be undone; the button is after all of them, in the foot.
+   - test: `bash tests/lem-board-keys.sh` in `tests/lem-board-keys.sh`, `tests/board-cdp.mjs`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-showcase.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_task.MergeStep.test_the_step_is_a_head_a_body_with_the_six_items_in_their_order_and_a_foot_with_the_form_and_back` in `tests/unit/test_board_task.py`
 3. While text is still below the screen, the button is off and says "Read to the end ↓"; it comes on when he has scrolled the text to its end:
    1. Pull request 31 opens with its facts and its note below the screen.
    2. The button reads "Read to the end ↓", and a tap on it sends nothing.
    3. He scrolls the text to the note at its end.
    4. The button reads "Merge pull request #31" and is on.
+   - test: `bash tests/lem-board-keys.sh` in `tests/lem-board-keys.sh`, `tests/board-cdp.mjs`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-showcase.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_task.MergeStep.test_only_a_step_with_its_button_has_the_controller_the_overlays_class_and_the_key_of_its_read` in `tests/unit/test_board_task.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_task.MergeStep.test_the_key_of_the_read_is_another_for_another_commit_and_for_another_careful_call_on_the_same_commit` in `tests/unit/test_board_task.py`
 4. When the whole text fits on the screen, the button is on at once: green pull request 32 with no reasons shows "Merge pull request #32" on from the first look.
+   - test: `bash tests/lem-board-keys.sh` in `tests/lem-board-keys.sh`, `tests/board-cdp.mjs`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-showcase.py`
 5. The park step and the approval of the criteria open the same overlay on a phone, each with its own text and its own button, under rules 3 and 4: "Park…" on task gift-note-in-export shows its text and a button that is off until he has read to the end of it.
+   - test: `bash tests/lem-board-keys.sh` in `tests/lem-board-keys.sh`, `tests/board-cdp.mjs`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-showcase.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_task.ParkAndApproveSteps` in `tests/unit/test_board_task.py`
 6. The guard of a merge is the same as today: the server merges only from the confirm form with `confirm=yes` and the commit the page showed, and refuses a merge whose commit moved since, with "Read the confirm step again".
+   - no test: the change keeps behavior; the suite holds it, in the check of `tests/lem-board-act.sh` that a merge whose form carries another commit than the one proposed now merges nothing
 7. On a desktop's screen each of the three steps shows as it does today, with no fixed foot and the button on at once: pull request 31 at 1440 × 900 shows its text and the button below it in the page.
+   - no test: the change keeps behavior; the suite holds it, in the checks at 1440 x 900 of `tests/lem-board-keys.sh`
 8. With no script the three steps work as they do today: the page scrolls as one, the button is on at the end of the text, and the merge runs.
+   - test: `bash tests/lem-board-keys.sh` in `tests/lem-board-keys.sh`, `tests/board-cdp.mjs`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-showcase.py`
+   - test: `bash tests/lem-board-act.sh` in `tests/lem-board-act.sh`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-showcase.py`
 
 ## How it works
 
@@ -52,8 +66,9 @@ flowchart TD
    (the eyebrow, which reads "Merge #N · confirm" when the pull request has a number, else
    "Merge · confirm"), a body (green or not green, the reasons, the "Careful:" line, the facts and
    the note, in that order), and a foot (today's `act-row` with the form of `P.act_form()` and
-   `act_back()`, whose link reads "Back" on every screen, the word of criterion 1). The form, its
-   hidden fields `confirm=yes` and `tip`, and `serve.py` do not change. Outside the overlay the three
+   `act_back()`, whose link reads "Back" on every screen, the word of criterion 1). The form and its
+   hidden fields `confirm=yes` and `tip` do not change, and neither do the guards of `serve.py`
+   (`action_refusal`, `door_refusal`); its `Referrer-Policy` does, by decision 10 below. Outside the overlay the three
    wrappers are `display: contents`, so the card's flex column and its gap reach the same children as
    today, and each rule of `board.css` that names `.confirm > p` names `.confirm .cf-body > p` beside
    it (criterion 7).
@@ -323,10 +338,26 @@ the change" holds the other markdown blocks of the board.
 - **A note of the approval is inside its card**, first in its body, while the card holds the form,
   so that the overlay does not cover the note of a refused approval; on a desktop it is the card's
   first line.
-- **Criteria 6, 7 and 8 take `- no test: the change keeps behavior; the suite holds it`**, with the
-  checks that hold each named after it: a check of today's behavior passes on the base commit by
+- **Criteria 6 and 7 take `- no test: the change keeps behavior; the suite holds it`**, with the
+  checks that hold each named after it (criterion 8 too until decision 10, above): a check of today's behavior passes on the base commit by
   design, and `lem criteria red` refuses such a test, or takes another check's failure in the same
   block as its proof.
+- **With no script the board's forms carry the board's origin: `serve.py` sends
+  `Referrer-Policy: same-origin` in place of `no-referrer`** (decision 10, taken in the build). The
+  builder of task 1 found that with `no-referrer` a browser posts a form with `Origin: null`, which
+  `action_refusal` and `door_refusal` refuse, so with no script no act of the board ran, and
+  criterion 8 says the merge runs. The guards stay as they are: a form of another site still
+  carries `Origin: null` and is refused, which a unit case and a check of `tests/lem-board-act.sh`
+  hold. Since this changes what happens with no script, criterion 8 holds by tests that fail on the
+  base commit, and not by "no test".
+- **A check of the button off uses a screen where the text goes below the body's end** (decisions 11
+  and 13): in the overlay the demo's texts fit at 390 × 844, so the merge step's checks and pictures
+  use 390 × 664, and the park and the approval 390 × 400, each by measure; the fit case of rule 4 is
+  390 × 844.
+- **The read stays on when he scrolls back up** (decision 12), until the text's key changes or the
+  content grows past the end.
+- **On a phone the approval's overlay covers the whole criteria tab** while the criteria wait for his
+  yes (decision 13), as `directions.md` asks of every act step with text above its button.
 - **The browser checks go into `tests/lem-board-keys.sh`**, which already serves the demo to
   headless Chrome; a new block would start a second server for the same afternoon.
 - **The pictures stay out of `assets/screens/`**, since no page of the README, the guides or the
