@@ -104,11 +104,15 @@ flowchart TD
      of `sign` and of the task's newest work event. A work event is any event of the task but
      `session.*` and `board.act`: `board.act` is the board's record of the owner's click, which
      `serve.py:asked_from` logs after the open it asked for, and no work of the task's agent (the
-     plan talk's question 6). The rule gives the step that is due: `status` at 45 minutes with no
-     status wake since that sign; `restart` 10 minutes after that wake when no `session.open
-     why=stopped` came after the task's newest work event; `stopped` 10 minutes after the wake when
-     one did and no `session.stopped` came since that sign (the plan talk's question 7: else each
-     look logs the stop again); or nothing. The 45 and the 10 are constants with their source, the
+     plan talk's question 6). The clocks count from the newest of that sign and the task's newest
+     `session.open` (decision 4, the gate's pick of the plan talk's question 6, by criterion 5): a
+     fresh session's 45 minutes start at its open when it has no newer sign, and a status wake
+     counts for a step only when it came after the newest `session.open`. The rule gives the step
+     that is due: `status` at 45 minutes with no status wake since that time; `restart` 10 minutes
+     after that wake when no `session.open why=stopped` came after the task's newest work event;
+     `stopped` 10 minutes after the wake when one did and no `session.stopped` came since that time
+     (the plan talk's question 7: else each look logs the stop again); or nothing. The restart
+     stays spent until a work event. The 45 and the 10 are constants with their source, the
      owner's words of 2026-11-22 in `directions.md`.
    - `skills/lem/scripts/serve.py`, `duties`: three duties from that rule, `wake … status`,
      `open … stopped` and `stopped … stopped` (`lem session stopped SLUG`), and its docstring
@@ -135,14 +139,15 @@ flowchart TD
      `tests.unit.test_board_model.StoppedSession`) to these criteria: they were written for the
      owner's first pick (wake, then show).
    - Tests: unit cases in `tests/unit/test_serve.py` and `tests/unit/test_board_model.py` for each
-     step on the events of #37 (10:54, 11:39, 11:49, and the fresh session's own stop), one for a
+     step on the events of #37 (10:54, 11:39, 11:49, a look at 11:49:20 that gives nothing, and the fresh session's own status message and stop), one for a
      shell that runs for 50 minutes, one for a sign in the 10 minutes, and one for each status of
      criterion 7. One check in `tests/lem-session.sh` that `open --why stopped` opens beside a live
      session with the stand-in for agtermctl, and refuses with a sign, only when it costs no new
      journey of its own.
 3. **The board shows the stop and each act.** Criteria 5 and 6.
    - `skills/lem/scripts/lem_board_model.py`: a row `stopped` of `waits_of` while the task's
-     newest `session.stopped` has no work event after it, with its `wait_say` ("Its session
+     newest `session.stopped` has no work event and no `session.open` after it (decision 4: the
+     owner's click opens a session, and the row and its button go), with its `wait_say` ("Its session
      stopped" and where he acts) and its place in `WAIT_ORDER`; `opens_session` is true for it,
      although the pane lives. The timeline's words for `session.wake why=status` (the status
      message), `session.open why=stopped` (the restart) and `session.stopped` (the stop), each with
@@ -169,11 +174,11 @@ flowchart TD
      say in one line where the task stands, and go on with the next step, as for any wake-up.
      Before acting on any wake-up, the session checks that it is still the task's newest
      (`lem session list`), and closes itself as "First" says when it is not. `lem: SLUG
-     replaced` is such a wake-up: the session stops its turn at once, does no step more, and
-     closes itself. Claude Code puts a line that comes during a turn into the turn after the
-     current tool call; that is unverified (no run of it is recorded), so the build checks it
-     once by hand in a scratch session and writes what it saw in the report. If the line waits
-     for the turn's end, the old turn runs to its end, which is no worse than without the line.
+     replaced` is such a wake-up: the session does no step more and closes itself. The line
+     reaches the agent only when its turn ends, since the mailbox chat's waiter keeps mail while
+     a turn is busy (`mailbox-chat.py`, `Waiter.loop`, read 2026-11-22); so a turn that the owner
+     goes on with after the restart runs to its end beside the fresh session, and then closes
+     (decision 5).
    - No test: a stage text, whose test is a real task.
 5. **The documents say what Lem does with a stopped session.** No criterion.
    - The texts that list what the board server does or the rows of "Waits for you":
@@ -205,7 +210,9 @@ The list, numbered as the reviewer gave it:
    `Waiter.run`), so the line cannot end the old turn, and the plan's "which ends its turn at its
    next step" is false. The defender had no refutation. The two positions: the kept decision
    with its layer, against the smaller option, no restart beside a pane that may wait at a
-   prompt. `stages/plan.md`, step 5, takes it; its decision is in the decisions log.
+   prompt. `stages/plan.md`, step 5, took it: decision 5, by the gate, kept the decision (the
+   smaller option changes the rule of criterion 4, which only the breaker can take), and the false
+   sentence now says that the line closes the old pane at the end of its turn.
 2. **The newest transcript write counted as work, so the status message's own `enqueue` record
    moved the sign and #37 never reached the restart.** Settled, at the cause: Task 1 reads the
    `timestamp` of the newest `user` or `assistant` record, not the file's time (`f0410fb9…` ends
@@ -231,8 +238,8 @@ The list, numbered as the reviewer gave it:
    `stopped` before it gets its own status message, against criterion 5; (b) the `stopped` row
    ends only at a work event, so the owner's click leaves the row and its button. The defender
    had no refutation. The two positions: the rule as repaired, against a rule whose steps count
-   from the newest `session.open` as well. `stages/plan.md`, step 5, takes it; its decision is in
-   the decisions log.
+   from the newest `session.open` as well. `stages/plan.md`, step 5, took it: decision 4, by the
+   gate, checkable by criterion 5, picked the reversed rule, now in Tasks 2 and 3.
 7. **After `session.stopped`, each look logged the stop again.** Settled, at the cause: `stopped`
    is due only with no `session.stopped` since the newest sign. Settled by the two, not checked by
    the review.
@@ -250,7 +257,7 @@ Each mechanism a repair added:
 
 - the rename `SLUG · replaced` and the line `lem: SLUG replaced` (question 1): a layer over "A
   session that waits at a prompt on its screen counts as stopped", whose cites are criterion 1 and
-  the ruling that a build asks the owner nothing; the reviewer held it, and the ladder decides it;
+  the ruling that a build asks the owner nothing; the reviewer held it, and decision 5 kept it;
 - the field `session` of `session.transcript` (question 5): at the cause, since it changed the
   decision of Task 1 to take the records by time;
 - the one check of the three acts in the task's lock (question 3): at the cause, since it widened
@@ -267,9 +274,11 @@ realistic here.
 What changed in the plan, by question and by task: Task 1, questions 2, 4 and 5 (the sign from
 dated turns, the process file from the transcript's folder, the records by session); Task 2,
 questions 1, 3, 6 and 7 (the shared check, the rename and the line, the work event without
-`board.act`, one stop logged once); Task 3, questions 8, 9 and 10 (the words on `acted: false`,
-the button in `row_acts`, no `deaf` for a status wake); Task 4, question 1 (`lem: SLUG
-replaced`); the decisions, questions 1, 3 and 6.
+`board.act`, one stop logged once, and after the talk decision 4: the clocks count from the newest
+`session.open` too); Task 3, questions 6, 8, 9 and 10 (decision 4: the `stopped` row ends at a newer
+`session.open`; the words on `acted: false`, the button in `row_acts`, no `deaf` for a status
+wake); Task 4, question 1 (`lem: SLUG replaced`, which closes the old pane at the end of its turn,
+decision 5); the decisions, questions 1, 3 and 6.
 
 ## Decisions
 
@@ -292,8 +301,10 @@ replaced`); the decisions, questions 1, 3 and 6.
   nothing and Lem assumes auto mode (the rulings), and a prompt is none of the four signs of
   criterion 1, so such a prompt is itself a stop; the old pane stays open for him, and criterion 4
   says when it wakes it closes itself. Since the owner may still answer that prompt after the
-  restart, the restart also sends the old pane `lem: SLUG replaced`, which ends its turn at its
-  next step, and renames it `SLUG · replaced`, so that he sees which pane is old.
+  restart, the restart also sends the old pane `lem: SLUG replaced`, which closes it when its
+  turn ends, and renames it `SLUG · replaced`, so that he sees which pane is old. A turn he goes
+  on with there runs to its end beside the fresh session: the gate kept this decision (decision
+  5), since the other option, no restart beside an open turn, changes the rule of criterion 4.
 - **The owner's button uses the same `open --why stopped`**, so it opens beside the live pane, and
   its fresh session is not restarted again by the guard (it is the newest `why=stopped` open).
 
