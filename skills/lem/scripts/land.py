@@ -245,7 +245,8 @@ what stopped it, no finding), which may leave the careful call out. `tip` is the
 `tip` that `read` printed for the attempt: a record of another tip than the branch's now is refused,
 since the attempt counts the records and a review of an earlier tip carries the same number. `careful` is the
 review's own reading of the diff against each topic, and `careful_why` names the topic the change
-reaches, or what was checked to say that it reaches none; `careful: true` comes with `kind: full`. `bar` has one entry for each file in which
+reaches, or what was checked to say that it reaches none; `careful: true` comes with `kind: full`.
+`left_out` is `[]` when `kind` is `full`: the full set is run whole. `bar` has one entry for each file in which
 the change lowers the bar, and is left out otherwise. `outside` names each defect the review saw
 that the base commit already has: it is no finding of the change, and it goes to the backlog.
 `what` is the concrete run: what happens, with the input. A count in its place is refused, and
@@ -2752,7 +2753,10 @@ def cmd_read(task: Task, record: str | None) -> dict:
     if kind != "read" and not ran and not failed:
         raise LandError("a round names each profile it ran in `ran`, with why that profile fits this change")
     if kind == "full" and left_out:
-        raise LandError("the project's full set leaves no profile out: a profile may be added to it, never dropped")
+        raise LandError(
+            "the project's full set leaves no profile out: a profile may be added to it, never dropped; "
+            "write \"left_out\": [] on a full review"
+        )
     counts = {key: said.get(key, 0) for key in ("must_fix", "should", "nit")}
     if not all(isinstance(count, int) and not isinstance(count, bool) and count >= 0 for count in counts.values()):
         raise LandError("`must_fix`, `should` and `nit` are counts")
