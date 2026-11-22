@@ -22,6 +22,8 @@ the computer, the repository, the task.
 | **Backlog** | `B` | What waits for later? The backlog, in groups by worth. |
 | **Activity** | `A` | Where did the time go? A chart of each task, and every event. |
 
+Press each key alone, with no Shift. Each view button on the board shows its key.
+
 A task opens in a panel beside the view, or as a page of its own on a phone. Its five tabs have
 the keys `1` to `5`, and `Escape` closes the panel:
 

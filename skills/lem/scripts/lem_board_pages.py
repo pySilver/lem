@@ -443,8 +443,9 @@ def sidebar(ctx: Ctx, waits: list, repo: str) -> Markup:
              h("div", {"class": "side-head"}, "Views"),
              h("nav", {"id": "views", "class": "views", "aria-label": "Views"},
                [h("a", {"class": "vbtn", "id": f"view-{v['key']}", "href": ctx.href(v["key"]), "aria-current": "page" if ctx.view == v["key"] else None,
-                        "title": f"Key {v['kbd']}", "data-hotkey": v["code"]},
-                  icon(ctx, v["icon"]), v["label"], h("em", None, counts[v["key"]]) if counts.get(v["key"]) is not None else None) for v in VIEWS]),
+                        "title": f"Key {v['kbd']}, with no Shift", "data-hotkey": v["code"]},
+                  icon(ctx, v["icon"]), v["label"], h("kbd", None, v["kbd"]),
+                  h("em", None, counts[v["key"]]) if counts.get(v["key"]) is not None else None) for v in VIEWS]),
              push_row(ctx, "side"),
              h("div", {"class": "side-foot", "id": "side-foot"}, switcher(ctx)))
 
