@@ -57,47 +57,80 @@ flowchart TD
    - Where the facts are, as read on this Mac with Claude Code 2.1.330 on 2026-11-22 (each a
      fact to check again before it is coded, and to cite with its day in the code):
      - The task's Claude Code sessions are its `session.transcript` events (`claude`, the id, and
-       `transcript`, the path), which `session_hook.py` logs at each SessionStart; take the ones
-       logged at or after the task's newest `session.open`. The main thread's newest line is the
-       transcript file's modification time.
-     - A subagent writes `<transcript without .jsonl>/subagents/agent-*.jsonl`.
-     - `~/.claude/sessions/<pid>.json` (under `CLAUDE_CONFIG_DIR` when it is set) holds `pid` and
-       `sessionId`. A command of the Bash tool is a direct child of that pid whose command line
-       sources `shell-snapshots/snapshot-` (`ps -A -o pid=,ppid=,command=`); a background command
+       `transcript`, the path), which `session_hook.py:keep_transcript` logs at each SessionStart.
+       The record gets one field more, `session`, the hook's `AGTERM_SESSION_ID` (agterm sets it
+       in each pane's environment), and the signs take only the records whose `session` is the
+       session of the task's newest `session.open`, in no regard to case (the plan talk's question
+       5: a time filter took the old pane's `/clear`, or a daemon's spare with a wrong
+       `LEM_TASK`, as the fresh pane's work). A record without the field counts for no session:
+       Lem keeps no reading of an older form (AGENTS.md).
+     - The main thread's newest sign is the `timestamp` of the newest record of the transcript
+       whose `type` is `user` or `assistant` (a prompt, a tool's result, a reply), read from the
+       file's end; never the file's modification time. A message that reaches a parked or idle
+       pane writes a `queue-operation` record with no turn (`f0410fb9…` of #37: `enqueue` at
+       15:53:31Z after `continued-in` at 10:45:49Z), and `attachment`, `system`, `cost-state` and
+       `continued-in` records are no turn either (the plan talk's question 2).
+     - A subagent writes `<transcript without .jsonl>/subagents/agent-*.jsonl`; its newest sign is
+       read by the same rule.
+     - The process file is `sessions/<pid>.json` in the Claude Code folder that holds the
+       transcript (the transcript is `FOLDER/projects/NAME/ID.jsonl`, so the folder is the
+       transcript's third parent), never one found from the server's own `CLAUDE_CONFIG_DIR` (the
+       plan talk's question 4). It holds `pid` and `sessionId` (`63868.json` of #37 holds
+       `f0410fb9…`, with `status: idle` since 10:45:48 and `parkedJobId: 6fe214ec`). A command of
+       the Bash tool is a direct child of that pid whose command line sources
+       `shell-snapshots/snapshot-` (`ps -A -o pid=,ppid=,command=`); a background command
        (`run_in_background`) has the same form. Other children (a hook's process, `caffeinate`)
        are no shell command. Check with a real subagent whether its Bash commands are children of
        the same pid, and say what was seen in the report.
-   - With no transcript record since the newest open (a Codex seat, a hook that did not run),
-     `signs` is false. With a record but no process file for its id, `shell` is false and the
-     files still give `sign`.
+   - `signs` is false, and the session gets no message, when there is no transcript record of the
+     session since its open (a Codex seat, a hook that did not run), or when no process file of
+     that folder names the record's id: with no process to read, there is no evidence that no
+     shell runs (the decision "A session whose signs cannot be read gets no message").
    - `skills/lem/scripts/lem_board_model.py`, `session_entries`: carry `sign`, `shell` and
      `signs` into `Model.sessions`.
+   - `skills/lem/scripts/session_hook.py`, `keep_transcript`: writes `session` from
+     `AGTERM_SESSION_ID`, and the record is once for each Claude id and session.
    - Tests: unit cases in `tests/unit/test_session.py` (or a `test_signs.py`) for the pure
-     function: a transcript only, a newer subagent file, a Bash shell child, a hook child that is
-     not one, no record, a record with no process file. No new block journey.
+     function: a transcript only, a newer subagent file, a `queue-operation` record after the
+     newest turn that moves no sign, a Bash shell child, a hook child that is not one, no record,
+     a record of another session (the old pane's), and a record with no process file. A case for
+     the hook's `session` field in the unit file where `keep_transcript` is tested now (find it
+     with a search for `keep_transcript` in `tests/`). No new block journey.
 2. **The board server sends the status message, restarts once, then logs the stop.** Criteria 1,
    2, 3, 4, 5 and 7.
    - `skills/lem/scripts/lem_board_model.py`: a pure rule of the stop over the task and the model
      (`m.now`, `Model.sessions`): the task is `building`, `ready` or `landing`, not parked, its
      session lives (`live_of`), its `signs` read, no `shell`; its newest sign of work is the newest
-     of `sign` and of the task's newest event other than Lem's own acts of this guard (the status
-     wake and `session.stopped`). It gives the step that is due: `status` at 45 minutes with no
+     of `sign` and of the task's newest work event. A work event is any event of the task but
+     `session.*` and `board.act`: `board.act` is the board's record of the owner's click, which
+     `serve.py:asked_from` logs after the open it asked for, and no work of the task's agent (the
+     plan talk's question 6). The rule gives the step that is due: `status` at 45 minutes with no
      status wake since that sign; `restart` 10 minutes after that wake when no `session.open
-     why=stopped` came after the task's newest work event (any event but `session.*`); `stopped`
-     10 minutes after the wake when one did; or nothing. The 45 and the 10 are constants with
-     their source, the owner's words of 2026-11-22 in `directions.md`.
+     why=stopped` came after the task's newest work event; `stopped` 10 minutes after the wake when
+     one did and no `session.stopped` came since that sign (the plan talk's question 7: else each
+     look logs the stop again); or nothing. The 45 and the 10 are constants with their source, the
+     owner's words of 2026-11-22 in `directions.md`.
    - `skills/lem/scripts/serve.py`, `duties`: three duties from that rule, `wake … status`,
      `open … stopped` and `stopped … stopped` (`lem session stopped SLUG`), and its docstring
      names each. Never for a demo workspace, and never while `Model.sessions` is None.
-   - `skills/lem/scripts/session.py`:
+   - `skills/lem/scripts/session.py`: the three acts share one check, run in the task's lock
+     (`task_lock`) before each act: the task's status is still `building`, `ready` or `landing`
+     and it is not parked, the newest session is the one the duty named and still lives, its
+     signs read, and no sign of work came since the time the step is due from. When the check
+     fails, the command acts on nothing, exits 0, and prints `acted: false` with its reason
+     (`working`, `status`, `gone` or `unread`), so that the server waits for its next look
+     (the plan talk's question 3).
      - `wake --why status` sends a line that asks where the task stands and tells the session to
-       go on with its next step, and logs `session.wake why=status`. `status` joins `WAKES`.
-     - `open --why stopped` reads the signs once more in the task's lock, and when there is still
-       none since the newest status wake, opens a fresh session beside the live one (the
-       `replacing` path of `cmd_open`) and logs `session.open why=stopped`; when a sign came, it
-       opens nothing and prints `working: true`. `stopped` joins `WHYS`.
-     - `stopped SLUG` reads the signs once more the same way, and logs `session.stopped` with the
-       session's id, or prints `working: true`. `session.stopped` joins `EVENTS`.
+       go on with its next step, and logs `session.wake why=status`. `status` joins `WAKES`. It
+       never takes `cmd_wake`'s path to `cmd_open`: a pane that is gone is the board's "No
+       session runs this task" row.
+     - `open --why stopped` opens a fresh session beside the live one (the `replacing` path of
+       `cmd_open`) and logs `session.open why=stopped`. Then it renames the old session
+       `SLUG · replaced`, as `cmd_next` renames one `· handed off`, and sends it the line
+       `lem: SLUG replaced`, logged as `session.wake why=replaced` with the old session's id (the
+       plan talk's question 1). `stopped` joins `WHYS`, and `replaced` joins `WAKES`.
+     - `stopped SLUG` logs `session.stopped` with the session's id. `session.stopped` joins
+       `EVENTS`.
    - Fit the investigator's cases of 0d8b44ed (`tests.unit.test_serve.StoppedSession`,
      `tests.unit.test_board_model.StoppedSession`) to these criteria: they were written for the
      owner's first pick (wake, then show).
@@ -114,19 +147,33 @@ flowchart TD
      although the pane lives. The timeline's words for `session.wake why=status` (the status
      message), `session.open why=stopped` (the restart) and `session.stopped` (the stop), each with
      its time, beside the ones of `session.wake` and `session.open` around line 1581.
+   - `skills/lem/scripts/lem_board_pages.py`, `row_acts`: "Open a session" for a `stopped` row as
+     for a `session` row, under the same `bm.opens_session` (the plan talk's question 9).
    - `skills/lem/scripts/serve.py`, `act_session`: the button of a stopped task runs `lem session
-     open SLUG --why stopped`.
+     open SLUG --why stopped`. When it prints `acted: false`, the board says so in the owner's
+     words and opens nothing: for `working`, "Its session works again, so no session was opened"
+     (the plan talk's question 8).
+   - `skills/lem/scripts/session.py`, `cmd_list`: `unanswered` is false for a wake
+     `why=status`, since the guard itself ends that wait at 10 minutes, with the restart or the
+     `stopped` row; so no `deaf` row stands beside the guard's own steps (the plan talk's question
+     10).
    - `skills/lem/scripts/project.py`, `cmd_waiting`: the row is in the list as the board has it.
    - Tests: unit cases in `tests/unit/test_board_model.py` (the row, its words, the timeline's three
-     words) and, when it costs no new journey, one check of the button in
-     `tests/lem-board-act.sh`.
+     words, no `deaf` row for a status wake), one in `tests/unit/test_serve.py` for the words of
+     `act_session` on `acted: false`, and, when it costs no new journey, one check of the button
+     in `tests/lem-board-act.sh`.
 4. **A task's session answers the status message, and an old pane closes itself.** Criteria 1
    and 4.
    - `skills/lem/prompts/session.md`: `opened because:` names `stopped` (Lem's guard opened it
      after the session before it stopped); "A wake-up" takes `lem: SLUG status`: read the files,
      say in one line where the task stands, and go on with the next step, as for any wake-up.
      Before acting on any wake-up, the session checks that it is still the task's newest
-     (`lem session list`), and closes itself as "First" says when it is not.
+     (`lem session list`), and closes itself as "First" says when it is not. `lem: SLUG
+     replaced` is such a wake-up: the session stops its turn at once, does no step more, and
+     closes itself. Claude Code puts a line that comes during a turn into the turn after the
+     current tool call; that is unverified (no run of it is recorded), so the build checks it
+     once by hand in a scratch session and writes what it saw in the report. If the line waits
+     for the turn's end, the old turn runs to its end, which is no worse than without the line.
    - No test: a stage text, whose test is a real task.
 5. **The documents say what Lem does with a stopped session.** No criterion.
    - The texts that list what the board server does or the rows of "Waits for you":
@@ -146,16 +193,21 @@ Task 1 comes first. Tasks 2, 3 and 4 follow in that order, since 3 reads the eve
 - **A session whose signs cannot be read gets no message.** The owner's words: a task counts as
   stopped "only on plain evidence". A Codex seat or a session with no transcript record shows no
   evidence either way, and a restart beside it could put two agents on one branch.
-- **Each act reads the signs once more in the task's lock** (criterion 4's "looks once more"):
-  `open --why stopped` and `stopped` refuse when a sign came, so a list read 20 seconds before
-  cannot start a second agent.
+- **Each act reads the task and the signs once more in the task's lock** (criterion 4's "looks
+  once more", and criterion 7 for a task that became `held` meanwhile): the status message, the
+  restart and the stop each act only when the task's status, its live session and its signs still
+  call for that step, so a list read 20 seconds before cannot send a message to a held task or
+  start a second agent.
 - **"One stop" ends with a work event of the task.** A restart is spent until the task logs an
-  event that is not `session.*`; a fresh session's own transcript lines do not end the stop, since
-  else a fresh session that reads its files and stops would be restarted each hour.
+  event that is neither `session.*` nor `board.act`; a fresh session's own transcript lines do not
+  end the stop, since else a fresh session that reads its files and stops would be restarted each
+  hour.
 - **A session that waits at a prompt on its screen counts as stopped.** A build asks the owner
-  nothing and Lem assumes auto mode (the rulings), so such a prompt is itself a stop; the old pane
-  stays open for him, and criterion 4 says when it wakes it closes itself. This is the decision
-  the plan talk should test first.
+  nothing and Lem assumes auto mode (the rulings), and a prompt is none of the four signs of
+  criterion 1, so such a prompt is itself a stop; the old pane stays open for him, and criterion 4
+  says when it wakes it closes itself. Since the owner may still answer that prompt after the
+  restart, the restart also sends the old pane `lem: SLUG replaced`, which ends its turn at its
+  next step, and renames it `SLUG · replaced`, so that he sees which pane is old.
 - **The owner's button uses the same `open --why stopped`**, so it opens beside the live pane, and
   its fresh session is not restarted again by the guard (it is the newest `why=stopped` open).
 
