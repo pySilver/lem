@@ -439,7 +439,7 @@ class Watcher:
         for space in self.spaces():
             try:
                 done += self.look_at(space)
-            except Exception as error:  # noqa: BLE001 - one workspace that fails says why, and the others are still looked at
+            except Exception as error:  # one workspace that fails says why, and the others are still looked at
                 self.say(space.name, repr(error))
         return done
 
@@ -563,5 +563,5 @@ class Watcher:
         while not stopping.wait(LOOK_SECONDS):
             try:
                 self.look()
-            except Exception as error:  # noqa: BLE001 - the watcher never stops the server; it says why and looks again
+            except Exception as error:  # the watcher never stops the server; it says why and looks again
                 self.say("*", repr(error))

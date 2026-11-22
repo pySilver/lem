@@ -225,8 +225,7 @@ kill "$streamed" 2>/dev/null || true
 wait "$streamed" 2>/dev/null || true
 stopped=$(got -H 'Lem-Hop: 1' "$G" | words)
 rm -f "$XDG_CONFIG_HOME/lem/owner.jsonl"
-# shellcheck disable=SC1112  # the page's own curly quotes, as words
-today='The task’s session, “gift-note-in-export”, is in agterm on the Mac.'
+today="The task’s session, "'“gift-note-in-export”'", is in agterm on the Mac."
 if grep -qF "$today" <<<"$there" && ! grep -qF "Inbox" <<<"$there" \
   && grep -qF "Answer in the task’s session on the Mac, or in the Inbox" <<<"$(words <<<"$away")" && ! grep -qF "is in agterm on the Mac" <<<"$(words <<<"$away")" \
   && grep -qF 'href="https://studio.tail4e2a.ts.net:8443/#thread=msg_01DEMOGIFTNOTEBREAKER1"' <<<"$away" \
