@@ -19,6 +19,22 @@ A pull request is not green when one of these is true:
 
 Smaller choices of an agent do not change green. The pull request lists the ones that matter.
 
+## What Lem saw outside the task
+
+The pull request names each defect that an agent found outside the task, under one of three
+headings:
+
+- **Fixed on the way**: a cheap defect (no change of behavior, no new test). An agent that already
+  works on the branch fixed it in a commit of its own.
+- **Filed in the backlog**: a defect that occurs today and confuses a user, breaks a contract,
+  damages data or costs money. It is an item in `docs/backlog/`.
+- **Seen, not filed**: each other defect, with its place and the reason, or the open item that
+  already names it.
+
+The bar is rule 6 of `agents/lem-builder.md`, or of your own `.claude/agents/lem-builder.md`. It
+is for Lem's agents only: an item that you write or ask for is always filed. When Lem filed an
+item under the bar, the merge agent calls you.
+
 ## The merge review
 
 Lem opens each pull request on GitHub, the one way a task lands. Then a fresh merge agent reads

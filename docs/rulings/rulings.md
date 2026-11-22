@@ -128,9 +128,12 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
 
 - **A review comes before the merge, and a task ends as a pull request.** No plan argued question by
   question, and no review of every task of a usual request. (2026-11-16)
-- **A small defect outside the task is fixed at the end**, in the landing's polish pass; a larger
-  one becomes a backlog item, filed on the task's branch without a question and listed in the pull
-  request. (2026-11-14)
+- **Lem's agents file a defect outside the task as a backlog item only when it happens today and is
+  one of the "real issues that confuse my users, break contracts, damage data or cost money", or
+  when he said it is worth an item.** A cheap defect (no behavior change, no new test) is fixed on
+  the branch only by an agent already at work there: the polish pass, the fast track's builder, or a
+  builder that fixes a must-fix of the same review. Each other defect is one line "Seen, not filed".
+  (2026-11-22)
 - **The review is routed by an agent that knows what each profile is for.** It picks the profiles
   from the diff, "So documentation does not trigger security or architecture checks"; no code and no
   list of words routes, and `land.py` holds only the floor. (2026-11-16)

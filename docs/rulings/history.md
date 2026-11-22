@@ -81,9 +81,9 @@ bullet.
   `tests/unit/test_land.py::Bar.test_a_deleted_test_file_is_one_entry`;
   `tests/unit/test_land.py::Bar.test_a_skip_of_a_whole_module` (decided 2026-11-16)
 - **A small change never gets a polish pass.** `tests/lem-land-small.sh: "a small change whose
-  builder filed a defect outside it in its own commit has no polish pass"`; its builder files such a
-  defect and never fixes it: `skills/lem/prompts/small.md` (step 7). (decided 2026-11-16,
-  2026-11-17)
+  builder filed a defect outside it in its own commit has no polish pass"`; its builder fixes a cheap
+  defect outside it in a commit of its own, and files only one over the bar of rule 6:
+  `skills/lem/prompts/small.md` (step 7). (decided 2026-11-16, 2026-11-17)
 - **His away status is one mark of the machine, and a night task always runs without him.**
   `tests/lem-state.sh: "the owner's status is one mark of the machine: with none he is there"`;
   `tests/unit/test_owner.py::Spans.test_a_back_ends_his_away_and_never_a_night`;
