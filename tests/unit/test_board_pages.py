@@ -297,7 +297,10 @@ class Search(unittest.TestCase):
         ctx = self.ctx()
         html = str(pages.waits_page(ctx))
         box = self.box(html)
-        row = lambda slug, kind="task": re.search(rf'<a class="sr [^"]*" id="sr-{kind}-{slug}"[^>]*>(.*?)</a>', box, re.S)  # noqa: E731
+
+        def row(slug, kind="task"):
+            return re.search(rf'<a class="sr [^"]*" id="sr-{kind}-{slug}"[^>]*>(.*?)</a>', box, re.S)
+
         held = row("board-card-search")
         self.assertIsNotNone(held)
         for attr in ('class="sr a-you"', 'role="option"', 'href="/h/w/tasks/board-card-search?in=waits"', 'data-turbo-frame="task"', 'data-turbo-action="advance"',
