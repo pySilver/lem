@@ -13,24 +13,36 @@ Size: full, because `prune` rewrites the event log that five scripts read and tw
    4. Every event of `invoice-fix` and of `gift-note` is in the log as it was, in the same order.
    5. A second `lem project prune` leaves the log as it is.
    6. The task `old-idea`, parked on 2026-09-01, keeps all its events: a parked task, and every task that has not ended, stays whole however old it is. The log is in Lem's state folder, which git never sees: no file in git and no branch changes.
+   - test: `python3 -B -m unittest tests.unit.test_task.Summarized.test_an_old_ended_task_becomes_one_summary_and_every_other_line_stays_as_it_was` in `tests/unit/test_task.py`
+   - test: `python3 -B -m unittest tests.unit.test_task.Summarized.test_a_second_prune_leaves_the_log_as_it_is` in `tests/unit/test_task.py`
+   - test: `bash tests/lem-state.sh` in `tests/lem-state.sh`, `tests/lib.sh`, `tests/checks.sh`
 2. The board and `lem project tasks` show an old ended task the same before its summary and after it:
    1. Before the prune of criterion 1, the card of `report-dates` in Done shows "landed", the time of its end, its last line, its type, "green" and the pull request 12.
    2. After the prune, its card shows the same six things, and its board says the same status, end and pull request.
    3. `lem project tasks` gives `report-dates` the same status, the same `since` and the same pull request as before.
+   - test: `python3 -B -m unittest tests.unit.test_board_model.Summary.test_an_old_ended_tasks_card_and_its_followers_read_the_same_after_its_events_became_one_summary` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_model.SummarizedBoard.test_the_header_says_the_same_status_end_pull_request_and_track` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_task.Summarized.test_tasks_read_the_same_night_and_times_from_the_summary` in `tests/unit/test_task.py`
 3. A task that waits for an old task still starts, and a new task cannot take an old task's name:
    1. After the prune of criterion 1, the task `report-dates-in-export` is queued with the line `after: report-dates`.
    2. `lem project may-start report-dates-in-export` lets it start, as it did before the prune.
    3. `lem project task-dir report-dates --ask "..."` refuses the name, as it did before the prune.
+   - test: `bash tests/lem-state.sh` in `tests/lem-state.sh`, `tests/lib.sh`, `tests/checks.sh`
 4. No event is lost and none is read twice while `prune` writes the log:
    1. The board is open, and has read the 60 events of `report-dates` and the events of `gift-note`.
    2. `prune` writes the new log. At the same moment, the session of `gift-note` writes the state `ready`, and its Claude Code session logs its transcript.
    3. The new log holds both events of `gift-note`, after its older ones.
    4. At its next look, the open board shows `gift-note` as `ready`, `report-dates` once in Done, and no event twice.
+   - test: `python3 -B -m unittest tests.unit.test_task.Summarized.test_a_state_and_a_transcript_written_from_other_processes_while_prune_writes_are_in_the_new_log` in `tests/unit/test_task.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_model.Summary.test_the_reader_reads_a_log_that_prune_replaced_once_and_whole` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_serve.LogLook.test_three_old_events_that_become_one_while_two_new_ones_come_are_a_change` in `tests/unit/test_serve.py`
 5. `lem project prune --dry-run` names each ended task whose events it would replace with a summary, with the count of its events, and changes no file: after it, the log of criterion 1 still holds the 60 events of `report-dates`.
+   - test: `python3 -B -m unittest tests.unit.test_task.Summarized.test_a_dry_run_names_the_task_with_the_count_of_its_events_and_changes_no_file` in `tests/unit/test_task.py`
 6. A dropped task whose events became a summary is not resumed, and Lem says why and what to do instead:
    1. The task `card-foot` was dropped on 2026-10-01. On 2026-11-05 `prune` replaced its events with a summary.
    2. `lem project resume card-foot` refuses. Its message says that the events of `card-foot` (its approved criteria, the personas' read, its decisions' events) became one summary event past `state.keep_days`, so a resumed task would start with none of them, and that a new task with its ask is the way on. It ends with the line to type, `/lem` followed by the text of `ask.txt` of the dropped task.
    3. A dropped task whose events are whole resumes as before.
+   - test: `python3 -B -m unittest tests.unit.test_task.ResumeSummarized.test_a_dropped_task_whose_events_became_a_summary_is_refused_with_its_ask` in `tests/unit/test_task.py`
 
 ## How it works
 
