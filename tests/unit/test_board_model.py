@@ -307,6 +307,16 @@ class Sessions(unittest.TestCase):
         m.sessions = {"gift-note": {"live": True, "agent": True}}
         self.assertEqual((self.rows(m), bm.opens_session(m.tasks[0], m)), ([], False))
 
+    def test_the_where_of_a_task_whose_session_is_gone_says_what_its_row_says(self):
+        m = model(state(0, "building", "lead: builder"), state(30, "building", "task 2 of 3"))
+        m.sessions = {}
+        t, waits = m.tasks[0], bm.waits_of(m)
+        self.assertEqual(self.rows(m), [("session", "No session runs this task")])
+        where = bm.waits_for(t, waits)["where"]
+        self.assertIn("Open a session here or on the task’s header", where)
+        self.assertIn("/lem drop gift-note", where)
+        self.assertNotIn("Tell the task’s session", where)
+
     def test_nothing_is_said_while_the_server_has_not_asked_or_the_session_is_young(self):
         self.assertEqual(self.rows(model(state(0, "building", "lead: builder"))), [])
         young = model(state(119, "held", "the interview waits for the owner"))

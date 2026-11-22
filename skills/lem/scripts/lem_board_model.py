@@ -1513,7 +1513,11 @@ def waits_for(t: Task, waits: list) -> dict | None:
     or the task its queue waits for; None when it waits for nothing."""
     mine = [w for w in waits if w["t"] is t]
     if mine:
-        return {"you": True, "text": "; ".join(wait_say(w)["verb"] for w in mine), "where": answer_of(t)}
+        # a task whose only row is "no session" is answered where that row says, never in the session that is
+        # gone; a row of another kind (a breaker) keeps its own words
+        gone = mine[0] if len(mine) == 1 and mine[0]["kind"] == "session" and not mine[0].get("deaf") else None
+        where = answer_of(t) if gone is None else wait_say(gone)["where"] + ("" if t.closed else f" Or type /lem drop {t.slug} to end it.")
+        return {"you": True, "text": "; ".join(wait_say(w)["verb"] for w in mine), "where": where}
     if waits_now(t):
         return {"you": False, "text": waits_say(t.waits), "where": None}
     after = next((line for line in said_of(t.blocks[-1]) if line.startswith("it starts after")), None) if t.waits_after else None
