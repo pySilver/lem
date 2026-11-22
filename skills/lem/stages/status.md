@@ -80,7 +80,14 @@ so that the list names what still waits.
 
 A dropped, landed or answered task has no choice that waits. A task whose status is null has a
 state nobody wrote through the script: say so. A task with a `ticket_owed` ended, and its ticket in
-the tracker does not say so yet: say that too. When `night_report` is not null, say after the
+the tracker does not say so yet: say that too, with the step that pays each owed step, by the
+tracker's kind (`tracker.kind` in `lem project show`). For `github` it is one line that any session,
+or the owner in a terminal, runs: `lem issue STEP SLUG`, STEP being the owed step's tracker step
+(`land` for `landed` or `commented`, `drop` for `dropped`, `answer` for `answered`, and for
+`unassigned` the `drop` or `answer` of the task's status). For `linear` it is the `lem-linear`
+skill's step of that name, run from a session (`load-skill`). A dropped or answered task whose
+newest state block says where its ticket stays (an issue stays open): say that line, since the
+session that wrote it may have closed before he saw it. When `night_report` is not null, say after the
 list, from that file, which items became which pull request, which the night left out and why,
 and which task it left held for him; the files hold no record of a status shown.
 

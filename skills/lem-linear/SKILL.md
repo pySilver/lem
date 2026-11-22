@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 A ticket is one more place an ask can come from, beside the owner's own words and a backlog
 item. This skill reads it, and keeps the ticket true while Lem works: started when the work
-starts, done and commented when it lands. It is the only tracker Lem has. Another one would be
+starts, done and commented when it lands. Another tracker is
 another skill of this shape and another value of `tracker.kind`.
 
 The local backlog is a different thing, and this skill never touches it: a backlog item is never

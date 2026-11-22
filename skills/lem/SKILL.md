@@ -140,7 +140,7 @@ runs, and follow it. Do not read the others. In a task's session, `be-careful`, 
 | `serve stop` | ends the server (`lem serve --stop`); the next `lem` command of any session starts it again | `stages/status.md`, "The board's server" |
 | `read <ticket>` | reads one ticket of the tracker, by its id (`/lem read MBZ-12`) or its URL, and says what it holds; it opens no task and writes nothing to the ticket. With no tracker in `lem project show`, say that the project has none | the tracker's skill (`load-skill` the one `tracker.kind` names), its "read" |
 | `reviewer AGENT/MODEL:EFFORT`, `reviewer default` | who sits in the reviewer's pane on this machine for now, as one whole seat (`/lem reviewer codex/gpt-6.2-sol:high`; a seat with no model or no effort is refused), and the project's own reviewer again: `lem project reviewer` with the same words. Say what `lem project show` then gives as the seat | the harness file, `second-opinion` |
-| a helper | `/lem interview-me` loads `lem-interview-me` (`load-skill`): read `SKILL_DIR/../lem-interview-me/SKILL.md` by its path and follow it, with the rest of the line as its arguments. Plain words start one too, with or without `/lem`: "let's brainstorm this" or "interview me about X" (`interview-me`), "argue both sides of ..." (`dialectic`), "why does this keep breaking" (`root-cause`), "what would the experts say" (`ask-expert`), "how would the users take this" (`panel`). Outside a session where `/lem` was typed a shipped skill never starts by itself. Lem's stages load `ask-expert`, `panel`, `linear`, `lem-ask` and `lem-gate` themselves: Lem opens its question page each time it asks him, and the gate is the first level of the ladder | that skill |
+| a helper | `/lem interview-me` loads `lem-interview-me` (`load-skill`): read `SKILL_DIR/../lem-interview-me/SKILL.md` by its path and follow it, with the rest of the line as its arguments. Plain words start one too, with or without `/lem`: "let's brainstorm this" or "interview me about X" (`interview-me`), "argue both sides of ..." (`dialectic`), "why does this keep breaking" (`root-cause`), "what would the experts say" (`ask-expert`), "how would the users take this" (`panel`). Outside a session where `/lem` was typed a shipped skill never starts by itself. Lem's stages load `ask-expert`, `panel`, the tracker's skill (`linear` or `github`, the one `tracker.kind` names), `lem-ask` and `lem-gate` themselves: Lem opens its question page each time it asks him, and the gate is the first level of the ladder | that skill |
 | anything else | an ask in plain words: `/lem the report dates must stay whole` is `new` with that sentence, also in another task's session. Words that plainly say one of the rows above go there | `stages/new.md` |
 
 A helper's name at the start of a line does not make the line its call: `/lem root-cause analysis
@@ -253,9 +253,11 @@ It makes and prints the task's directory in Lem's state folder, `.lem/state/` of
 shared by every worktree, never committed and not removed with a worktree. It holds:
 
 - `ask.txt` and `task.md`: the owner's words as given, and the ask with its outcome. `ticket.txt`
-  holds the id of the tracker's ticket, for a task that came from one, and `ticket-steps.txt` what
-  Lem did to that ticket; `lem project tasks` gives both, and `ticket_owed`: what an ended task's
-  ticket still waits for.
+  holds the id of the tracker's ticket, for a task that came from one, `ticket-repo.txt` the
+  `OWNER/REPO` of a GitHub issue, and `ticket-steps.txt` what Lem did to that ticket; `lem project
+  tasks` gives them, and `ticket_owed`: what an ended task's ticket still waits for. The task that
+  holds a ticket has a mark for it in `.lem/state/tickets/`, a file named by the ticket's id
+  without its `#` that holds the slug, so that one ticket goes to one task at a time.
 - `session.md`: the first thing a task's session reads, which `lem session open` writes: the task,
   its phase, why the session opened, and where it works.
 - `handoff.md`: what the agent that leaves a phase, or trips the breaker, leaves for the next one,

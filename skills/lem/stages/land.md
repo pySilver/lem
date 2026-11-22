@@ -29,8 +29,10 @@ it, runs `lem land merged SLUG`, and wakes this session (`prompts/session.md`, "
 a merge on GitHub the state is `landed`: step 9, where `clean` removes the branch only when its tip
 is the commit GitHub merged: a commit a builder added after that is work nobody merged, and the
 branch stays. After a close with no merge it is `dropped` with the line "the pull request was
-closed on the forge": tell him in one line, and `clean` removes its worktree. Its branch keeps its
-commits, and `clean` says how to delete it; a task that goes on after all is a new request. A task
+closed on the forge", and it ends in the order "A wake-up" gives: the tracker's missing steps, the
+state block that says where its ticket stays, `clean`, which removes its worktree, and last one line
+to the owner. Its branch keeps its commits, and `clean` says how to delete it; a task that goes on
+after all is a new request. A task
 that ended and whose ticket still waits (`ticket_owed` in `lem project tasks`) gets the tracker's
 missing steps (its "land" for a `landed` task, its "drop" for a `dropped` one, its "answer" for an
 `answered` one): a session can be cut off between a task's last state and its ticket.

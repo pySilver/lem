@@ -66,7 +66,8 @@ task.
      reads `investigation.md` as the scout's report.
    - *not a bug*: tell him what the code does in his case and why, as one run (`SKILL.md`, "What
      the owner has to understand is told as one run"), with where each step was read. Write the
-     state `answered` with that in one line, and `lem land clean SLUG`: the worktree goes, and a
+     state `answered` with that in one line, the ticket's "answer" (below), and `lem land clean
+     SLUG`: the worktree goes, and a
      branch with commits of its own stays, the reproducing test among them, with how to delete it;
      a branch with none, which the base holds whole, goes.
    - *not reproduced*: tell him each try in one line, and ask him for one more fact: the record,
@@ -74,12 +75,14 @@ task.
      waits for one more fact`. Write his answer into `task.md`, add one line to the brief,
      `tried before:` with the report's tries, and start a fresh investigator from step 1.
    - *answer*, for a question: show him the answer as the report gives it, with where each
-     part was read. Write the state `answered` with the answer in one line, and `lem land clean
-     SLUG`.
+     part was read. Write the state `answered` with the answer in one line, the ticket's "answer"
+     (below), and `lem land clean SLUG`.
    `lem project state SLUG answered` refuses a task with no `investigation.md` or no record whose
    call is `not-a-bug` or `answer`. For an answered task that came from a ticket, the tracker
-   then comments the answer on the ticket and changes no status (its "answer"): tell the owner
-   which status the ticket has. A task that goes on keeps the report in its directory, and
+   comments the answer on the ticket right after that state, before `lem land clean`, so that a
+   worktree the cleanup refuses does not stop the comment (`load-skill` the skill `tracker.kind`
+   names, its "answer"). It removes an assignee it added at the start and changes no status: tell
+   the owner which status the ticket has now (an issue stays open). A task that goes on keeps the report in its directory, and
    its pull request names the cause in one line, from the record. A task that ended here closes
    its session last, as `prompts/session.md` says under "The end".
 5. **A task from the report.** He can start one with `/lem new` and the report's path, as he can

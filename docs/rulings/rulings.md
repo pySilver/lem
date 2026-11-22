@@ -179,9 +179,9 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
 
 ## The settings, the seats and the tracker
 
-- **Linear and GitHub Issues, and the local backlog stays local.** `[tracker] kind` is `linear`;
-  GitHub Issues is `docs/backlog/github-issues-as-a-second-tracker.md`. A backlog item is never
-  mirrored to a tracker, and Lem makes no ticket from one unless he asks. (2026-11-17)
+- **Linear and GitHub Issues, and the local backlog stays local.** `[tracker] kind` is `linear`
+  or `github`. A backlog item is never mirrored to a tracker, and Lem makes no ticket from one
+  unless he asks. (2026-11-17)
 - **No setting counts the tasks that run. A night works its items one after another.** No key limits
   the tasks that run, and nothing stops a start; a night takes four items at most, or the N of `/lem
   night N`. (2026-11-18)

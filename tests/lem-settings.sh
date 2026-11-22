@@ -282,17 +282,26 @@ if grep -qF "the argument b'caf\\xe9 au lait' is not UTF-8 text" <<<"$bad_ask" &
 else
   fail "text that is not UTF-8: $bad_ask / $bad_line / $bad_field / $bad_settings / $bad_state"
 fi
-# One ticket is one task, until that task is dropped or answered.
+# A ticket needs a tracker: with no [tracker], --ticket is refused with the table that adds one.
+no_tracker=$(project --repo "$OLD" task-dir from-a-ticket --ticket MBZ-12 2>&1 || true)
+no_tracker_dir=$([ -e "$OLD/.lem/state/tasks/from-a-ticket" ] && echo made || echo none)
+# One ticket is one task, until that task is dropped or answered and owes the ticket nothing. The states
+# are written by hand in the script's own form, so that the event log the next checks count stays as it is.
+settings '[branch]' 'base = "master"' '[tracker]' 'kind = "linear"'
 project --repo "$OLD" task-dir from-a-ticket --ticket mbz-12 --ask "Report dates are cut" >/dev/null
 err=$(project --repo "$OLD" task-dir the-same-ticket --ticket MBZ-12 2>&1 || true)
+number=$(project --repo "$OLD" task-dir an-issue-number --ticket 42 2>&1 || true)
 if [ "$(project --repo "$OLD" tasks | field '{t["slug"]: t["ticket"] for t in d}')" = "{'from-a-ticket': 'MBZ-12', 'report-dates-stay-whole': None}" ] \
+  && grep -qF "has no [tracker]: add the table with its kind (kind = \"linear\" or kind = \"github\")" <<<"$no_tracker" && [ "$no_tracker_dir" = none ] \
   && grep -q "the task 'from-a-ticket' already holds the ticket MBZ-12" <<<"$err" && [ ! -e "$OLD/.lem/state/tasks/the-same-ticket" ] \
+  && grep -qF "is not a ticket's id, such as MBZ-12: the project's tracker is linear" <<<"$number" && [ ! -e "$OLD/.lem/state/tasks/an-issue-number" ] \
   && [ "$(status_of project --repo "$OLD" task-dir bad-ticket --ticket "not a ticket")" = 1 ] && [ ! -e "$OLD/.lem/state/tasks/bad-ticket" ] \
   && [ "$(status_of project --repo "$OLD" task-dir from-a-ticket --ticket MBZ-13)" = 1 ] && [ "$(cat "$OLD/.lem/state/tasks/from-a-ticket/ticket.txt")" = MBZ-12 ] \
+  && [ "$(status_of project --repo "$OLD" task-dir with-a-repo --ticket MBZ-14 --ticket-repo acme/shop)" = 1 ] \
   && project --repo "$OLD" task-dir from-a-ticket --ticket MBZ-12 >/dev/null; then
-  pass "a task keeps the ticket its ask came from: a second task for that ticket, another ticket for that task and a word that is no ticket are refused"
+  pass "a task keeps the ticket its ask came from: no tracker, a second task for that ticket, another ticket for that task, an issue's number in a Linear project and a word that is no ticket are refused"
 else
-  fail "a task's ticket: $(project --repo "$OLD" tasks | field '[(t["slug"], t["ticket"]) for t in d]') / $err"
+  fail "a task's ticket: $(project --repo "$OLD" tasks | field '[(t["slug"], t["ticket"]) for t in d]') / $no_tracker / $err / $number"
 fi
 # What Lem did to the ticket is written down once for each step.
 out=$(project --repo "$OLD" ticket-step from-a-ticket started)
@@ -304,9 +313,7 @@ if [ "$(field '(d["ticket"], d["steps"])' <<<"$out")" = "('MBZ-12', ['started'])
 else
   fail "ticket-step: $out / $(project --repo "$OLD" tasks | field '[(t["slug"], t["ticket_steps"]) for t in d]')"
 fi
-# A task that ended still owes its ticket the steps that are not written down. The states are written
-# by hand in the script's own form, so that the event log the next checks count stays as it is.
-settings '[branch]' 'base = "master"' '[tracker]' 'kind = "linear"'
+# A task that ended still owes its ticket the steps that are not written down.
 owed() { project --repo "$OLD" tasks | field 'next(t["ticket_owed"] for t in d if t["slug"] == "from-a-ticket")'; }
 printf '%s\n' '2026-01-01T00:00Z building: task 1 of 1' > "$OLD/.lem/state/tasks/from-a-ticket/state.md"
 building=$(owed)
@@ -320,28 +327,138 @@ else
   fail "ticket_owed: $building / $landed / $dropped"
 fi
 err=$(project --repo "$OLD" task-dir from-a-ticket --ticket MBZ-12 2>&1 || true)
-if grep -q "is dropped; a new task takes a slug of its own" <<<"$err" && project --repo "$OLD" task-dir the-same-ticket --ticket MBZ-12 >/dev/null \
+owes=$(project --repo "$OLD" task-dir the-same-ticket --ticket MBZ-12 2>&1 || true)
+owes_dir=$([ -e "$OLD/.lem/state/tasks/the-same-ticket" ] && echo made || echo none)
+project --repo "$OLD" ticket-step from-a-ticket dropped >/dev/null
+if grep -q "is dropped; a new task takes a slug of its own" <<<"$err" && [ "$owes_dir" = none ] \
+  && grep -qF "the task 'from-a-ticket' is dropped and still owes the ticket MBZ-12 dropped: pay it with the lem-linear skill's step \`drop\` for from-a-ticket, run from a session" <<<"$owes" \
+  && project --repo "$OLD" task-dir the-same-ticket --ticket MBZ-12 >/dev/null \
   && [ "$(project --repo "$OLD" tasks | field 'next(t["ticket_steps"] for t in d if t["slug"] == "the-same-ticket")')" = "[]" ]; then
-  pass "a dropped task gives its ticket back to a task with a slug of its own, which starts with no step written down"
+  pass "a dropped task holds its ticket while it owes the drop comment, and gives it back after, to a task with a slug of its own, which starts with no step written down"
 else
-  fail "the ticket of a dropped task: $err"
+  fail "the ticket of a dropped task: $err / $owes"
 fi
-# A task that ended with an answer gives its ticket back too, and the ticket is owed the answer's
-# comment until that step is written down.
+# A task that ended with an answer gives its ticket back too, once the answer's comment is written down.
 owed_by() { project --repo "$OLD" tasks | field "next(t[\"ticket_owed\"] for t in d if t[\"slug\"] == \"$1\")"; }
 printf '%s\n' '2026-01-01T00:00Z answered: not a bug: the report cuts no date' > "$OLD/.lem/state/tasks/the-same-ticket/state.md"
 answered=$(owed_by the-same-ticket)
+early=$(project --repo "$OLD" task-dir after-the-answer --ticket MBZ-12 2>&1 || true)
+project --repo "$OLD" ticket-step the-same-ticket answered >/dev/null
 again=$(project --repo "$OLD" task-dir after-the-answer --ticket MBZ-12 2>&1 || true)
-project --repo "$OLD" ticket-step the-same-ticket answered >/dev/null 2>&1 || true
-if [ "$answered" = "['answered']" ] && [ "$(project --repo "$OLD" tasks | field '{t["slug"]: t["ticket"] for t in d if t["ticket"]}')" = "{'after-the-answer': 'MBZ-12', 'from-a-ticket': 'MBZ-12', 'the-same-ticket': 'MBZ-12'}" ] \
-  && [ "$(owed_by the-same-ticket)" = "[]" ] && [ "$(owed_by after-the-answer)" = "[]" ]; then
-  pass "an answered task gives its ticket back to a task with a slug of its own, and its ticket is owed the answer's comment until the step answered is written down"
+if [ "$answered" = "['answered']" ] && grep -qF "the lem-linear skill's step \`answer\` for the-same-ticket" <<<"$early" \
+  && [ "$(project --repo "$OLD" tasks | field '{t["slug"]: t["ticket"] for t in d if t["ticket"]}')" = "{'after-the-answer': 'MBZ-12', 'from-a-ticket': 'MBZ-12', 'the-same-ticket': 'MBZ-12'}" ] \
+  && [ "$(owed_by the-same-ticket)" = "[]" ] && [ "$(owed_by after-the-answer)" = "[]" ] && [ "$(cat "$OLD/.lem/state/tickets/MBZ-12")" = after-the-answer ]; then
+  pass "an answered task holds its ticket until the step answered is written down, then gives it to a task with a slug of its own, which takes its mark"
 else
-  fail "the ticket of an answered task: $answered / $again / $(owed_by the-same-ticket)"
+  fail "the ticket of an answered task: $answered / $early / $again / $(owed_by the-same-ticket)"
 fi
 settings '[branch]' 'base = "master"'
-rm -r "$OLD/.lem/state/tasks/from-a-ticket" "$OLD/.lem/state/tasks/the-same-ticket"
+rm -r "$OLD/.lem/state/tasks/from-a-ticket" "$OLD/.lem/state/tasks/the-same-ticket" "$OLD/.lem/state/tickets"
 rm -rf "$OLD/.lem/state/tasks/after-the-answer"
+# A project whose tracker is GitHub, in a repository of its own so that the log the next checks count stays
+# as it is: the id of an issue is its number after `#`, kept with the repository of the issue that was read.
+GH=$WORK/issues
+git init -q -b main "$GH"
+mkdir -p "$GH/.lem"
+printf '%s\n' '[branch]' 'base = "main"' '[tracker]' 'kind = "github"' > "$GH/.lem/project.toml"
+printf '%s\n' 'state/' > "$GH/.lem/.gitignore"
+git -C "$GH" add .lem && commit "$GH" "the settings"
+gh_tasks() { project --repo "$GH" tasks | field "$1"; }
+shown_tracker=$(project --repo "$GH" show | field 'd["tracker"]')
+project --repo "$GH" task-dir export-keeps-gift-note --ticket 42 --ticket-repo acme/shop --ask "the export drops the gift note" >/dev/null
+hashed=$(project --repo "$GH" task-dir export-keeps-gift-note --ticket "#42" --ticket-repo acme/shop 2>&1 && echo taken)
+second=$(project --repo "$GH" task-dir gift-note-in-export --ticket 42 --ticket-repo acme/shop 2>&1 || true)
+linear_id=$(project --repo "$GH" task-dir a-linear-id --ticket MBZ-12 --ticket-repo acme/shop 2>&1 || true)
+no_repo=$(project --repo "$GH" task-dir no-repo --ticket 43 2>&1 || true)
+GD=$GH/.lem/state/tasks/export-keeps-gift-note
+if [ "$shown_tracker" = "{'kind': 'github'}" ] && grep -q "taken$" <<<"$hashed" && [ "$(cat "$GD/ticket.txt")" = "#42" ] && [ "$(cat "$GD/ticket-repo.txt")" = acme/shop ] \
+  && [ "$(gh_tasks '[(t["slug"], t["ticket"], t["ticket_repo"]) for t in d]')" = "[('export-keeps-gift-note', '#42', 'acme/shop')]" ] \
+  && grep -qF "the task 'export-keeps-gift-note' already holds the ticket #42" <<<"$second" \
+  && grep -qF "is not an issue's number, such as 42 or #42: the project's tracker is github" <<<"$linear_id" \
+  && grep -qF "give it as --ticket-repo OWNER/REPO" <<<"$no_repo" \
+  && [ "$(status_of project --repo "$GH" task-dir export-keeps-gift-note --ticket 42 --ticket-repo acme/fork)" = 1 ] \
+  && [ "$(status_of project --repo "$GH" task-dir bad-repo --ticket 44 --ticket-repo "not a repo")" = 1 ] \
+  && [ "$(find "$GH/.lem/state/tasks" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = 1 ]; then
+  pass "with the tracker github, --ticket 42 and --ticket '#42' keep #42 with the issue's repository; a second task for #42, a Linear id, no repository and another repository for the task are refused"
+else
+  fail "a GitHub ticket: $shown_tracker / $hashed / $second / $linear_id / $no_repo / $(gh_tasks '[(t["slug"], t["ticket"], t["ticket_repo"]) for t in d]')"
+fi
+# The assignee Lem adds is written down with its login, and a drop owes its removal.
+project --repo "$GH" ticket-step export-keeps-gift-note assigned --login octo-cat >/dev/null
+project --repo "$GH" ticket-step export-keeps-gift-note started >/dev/null
+assignee=$(gh_tasks 'next((t["ticket_steps"], t["ticket_assignee"]) for t in d if t["slug"] == "export-keeps-gift-note")')
+no_login=$(project --repo "$GH" ticket-step export-keeps-gift-note assigned 2>&1 || true)
+if [ "$assignee" = "(['assigned', 'started'], 'octo-cat')" ] && [ "$(head -n 1 "$GD/ticket-steps.txt")" = "assigned octo-cat" ] \
+  && grep -qF "give it as --login LOGIN" <<<"$no_login" && [ "$(status_of project --repo "$GH" ticket-step export-keeps-gift-note commented --login octo-cat)" = 1 ]; then
+  pass "ticket-step assigned keeps the login on its line, tasks gives it as ticket_assignee, and a login with another step or no login with assigned is refused"
+else
+  fail "the assignee's step: $assignee / $(cat "$GD/ticket-steps.txt") / $no_login"
+fi
+# A landed task keeps its issue: a new task for it, after the issue is reopened, is refused with the landed task named.
+printf '%s\n' '2026-01-01T00:00Z landed: main a..b' > "$GD/state.md"
+reopened=$(project --repo "$GH" task-dir gift-note-reopened --ticket 42 --ticket-repo acme/shop 2>&1 || true)
+landed_owed=$(gh_tasks 'next(t["ticket_owed"] for t in d if t["slug"] == "export-keeps-gift-note")')
+if grep -qF "the task 'export-keeps-gift-note' landed the ticket #42" <<<"$reopened" && grep -qF "start the new task from the owner's own words" <<<"$reopened" \
+  && [ "$landed_owed" = "['commented', 'landed']" ] && [ ! -e "$GH/.lem/state/tasks/gift-note-reopened" ]; then
+  pass "a landed task keeps its issue for good: a new task for it is refused, and the refusal names the task and says to start from the owner's own words"
+else
+  fail "a landed task's issue: $reopened / $landed_owed"
+fi
+# A dropped task holds its issue until the comment and the assignee's removal are written down, and the
+# refusal names the line that pays them; a resume of a dropped task takes the issue with it, its mark
+# too, and is refused while another task holds the issue.
+GF=$GH/.lem/state/tasks/gift-note-first
+project --repo "$GH" task-dir gift-note-first --ticket 7 --ticket-repo acme/shop --ask "the gift note is lost" >/dev/null
+project --repo "$GH" ticket-step gift-note-first assigned --login octo-cat >/dev/null
+printf '%s\n' '2026-01-01T00:00Z dropped: the owner dropped it' > "$GF/state.md"
+printf '%s\n' '{"id": 1, "at": "2026-01-01T00:00:00Z", "kind": "breaker", "cause": "criteria", "what": "no place keeps the note", "document": "breaker.md", "handoff": "handoff.md"}' > "$GF/decisions.jsonl"
+printf '%s\n' '# Handoff' > "$GF/handoff.md"
+owed_drop=$(project --repo "$GH" task-dir gift-note-other --ticket 7 --ticket-repo acme/shop 2>&1 || true)
+project --repo "$GH" ticket-step gift-note-first dropped >/dev/null
+project --repo "$GH" ticket-step gift-note-first unassigned >/dev/null
+mark_gone=$([ -e "$GH/.lem/state/tickets/7" ] && echo kept || echo gone)
+project --repo "$GH" task-dir gift-note-other --ticket 7 --ticket-repo acme/shop >/dev/null
+held_resume=$(project --repo "$GH" resume gift-note-first 2>&1 || true)
+held_dir=$([ -e "$GH/.lem/state/tasks/gift-note-first-2" ] && echo made || echo none)
+printf '%s\n' '2026-01-01T00:00Z dropped: the owner dropped it too' > "$GH/.lem/state/tasks/gift-note-other/state.md"
+project --repo "$GH" ticket-step gift-note-other dropped >/dev/null
+resumed=$(project --repo "$GH" resume gift-note-first 2>"$WORK/resume.err" | field 'd["task"]' 2>&1 || true)
+GR=$GH/.lem/state/tasks/gift-note-first-2
+if grep -qF "the task 'gift-note-first' is dropped and still owes the ticket #7 dropped, unassigned: pay it with the line \`lem issue drop gift-note-first\`" <<<"$owed_drop" \
+  && [ "$mark_gone" = gone ] && grep -qF "the task 'gift-note-other' already holds the ticket #7" <<<"$held_resume" && [ "$held_dir" = none ] \
+  && [ "$resumed" = gift-note-first-2 ] && [ "$(cat "$GR/ticket.txt")" = "#7" ] && [ "$(cat "$GR/ticket-repo.txt")" = acme/shop ] \
+  && [ "$(cat "$GH/.lem/state/tickets/7")" = gift-note-first-2 ] \
+  && [ "$(gh_tasks 'next((t["ticket"], t["ticket_repo"], t["ticket_steps"]) for t in d if t["slug"] == "gift-note-first-2")')" = "('#7', 'acme/shop', [])" ]; then
+  pass "a dropped task holds its issue while it owes the comment and the assignee's removal, named with lem issue drop; a resume takes the issue and its mark, and is refused while another task holds it"
+else
+  fail "a dropped GitHub task and its resume: $owed_drop / $mark_gone / $held_resume / $resumed / $(cat "$WORK/resume.err") / $(ls "$GH/.lem/state/tickets" 2>&1)"
+fi
+# An opening refused after its claim gives the issue's mark back. A slug made from the issue's title is the slug of a
+# task that holds other words, so the opening is refused, and the same issue then opens under another slug. A resume
+# that git refuses, since the new task's branch is there already, leaves the mark with the dropped task, which still owes.
+project --repo "$GH" task-dir gift-note-words --ask "keep the gift note in the export" >/dev/null
+other_words=$(project --repo "$GH" task-dir gift-note-words --ask "Each export drops the gift note." --ticket 12 --ticket-repo acme/shop 2>&1 || true)
+words_mark=$([ -e "$GH/.lem/state/tickets/12" ] && echo kept || echo gone)
+other_slug=$(project --repo "$GH" task-dir gift-note-in-the-export --ask "Each export drops the gift note." --ticket 12 --ticket-repo acme/shop 2>&1 && echo opened || true)
+GL=$GH/.lem/state/tasks/gift-note-later
+project --repo "$GH" task-dir gift-note-later --ticket 9 --ticket-repo acme/shop --ask "the gift note is lost again" >/dev/null
+project --repo "$GH" ticket-step gift-note-later assigned --login octo-cat >/dev/null
+printf '%s\n' '2026-01-01T00:00Z dropped: the owner dropped it' > "$GL/state.md"
+printf '%s\n' '{"id": 1, "at": "2026-01-01T00:00:00Z", "kind": "breaker", "cause": "criteria", "what": "no place keeps the note", "document": "breaker.md", "handoff": "handoff.md"}' > "$GL/decisions.jsonl"
+printf '%s\n' '# Handoff' > "$GL/handoff.md"
+printf '%s\n' '{"ts": "2026-01-01T00:00:00Z", "event": "task.state", "task": "gift-note-later", "status": "building", "branch": "feat/gift-note-later"}' >> "$GH/.lem/state/events.jsonl"
+git -C "$GH" branch feat/gift-note-later
+git -C "$GH" branch feat/gift-note-later-2
+git_refused=$(project --repo "$GH" resume gift-note-later 2>&1 || true)
+later=$(gh_tasks 'next((t["ticket_owed"], t["ticket_held_by"]) for t in d if t["slug"] == "gift-note-later")')
+if grep -qF "the task 'gift-note-words' holds other words already" <<<"$other_words" && [ "$words_mark" = gone ] && [ ! -e "$GH/.lem/state/tasks/gift-note-words/ticket.txt" ] \
+  && grep -q "opened$" <<<"$other_slug" && [ "$(cat "$GH/.lem/state/tickets/12")" = gift-note-in-the-export ] \
+  && grep -qF "git could not make feat/gift-note-later-2 from feat/gift-note-later" <<<"$git_refused" && [ ! -e "$GH/.lem/state/tasks/gift-note-later-2" ] \
+  && [ "$(cat "$GH/.lem/state/tickets/9")" = gift-note-later ] && [ "$later" = "(['dropped', 'unassigned'], None)" ]; then
+  pass "an opening refused after its claim of the issue gives the mark back: the issue opens under another slug, and a resume git refuses leaves the dropped task holding the issue it still owes"
+else
+  fail "a refused opening and the issue's mark: $other_words / $words_mark / $other_slug / $git_refused / $later / $(ls "$GH/.lem/state/tickets" 2>&1)"
+fi
 none=$(project --repo "$OLD" tasks | field '[t["proposal"] for t in d]')
 echo '{"proposed": "0123", "pr": {"number": 7, "url": "https://github.com/acme/shop/pull/7"}, "not_green": ["criterion 1 changed during the build: y is taken."]}' > "$dir/landing.json"
 if [ "$none" = "[None]" ] && [ "$(project --repo "$OLD" tasks | field '[t["proposal"] for t in d]')" = "[{'pull_request': 'https://github.com/acme/shop/pull/7', 'green': False, 'not_green': ['criterion 1 changed during the build: y is taken.'], 'conflict': None, 'merge_review': None, 'merge_refused': None}]" ]; then

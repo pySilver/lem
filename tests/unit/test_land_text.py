@@ -408,6 +408,43 @@ class TheDocuments(Proposal):
         self.assertIn(f"```mermaid\n{self.CHART}\n```\n\n</details>", folded)
 
 
+class TheIssue(Proposal):
+    """A task from a GitHub issue names it in its pull request with `Issue: #42`, which GitHub links
+    both ways, and no word that closes it, on both tracks (github-issues-tracker, criterion 5.1)."""
+
+    SMALL = "## Acceptance criteria\n\nSize: small, because one word changes.\n\n1. The file holds the word y.\n   - test: `sh tests/t.sh` in `tests/t.sh`\n"
+
+    def setUp(self) -> None:
+        super().setUp()
+        from unittest import mock
+        patched = mock.patch.object(land, "builder_filed", return_value=[])
+        patched.start()
+        self.addCleanup(patched.stop)
+
+    def text(self, plan: str, kind: str | None, ticket: str | None) -> str:
+        task = self.task(found=found_of(plan, approved=approval("owner", plan=plan)), record={"ticket": ticket})
+        task.settings = {**task.settings, "tracker": {"kind": kind} if kind else None}
+        return land.pr_text(task, "", self.state())
+
+    def test_each_track_names_the_issue_under_the_request(self):
+        for name, plan in (("standard", PLAN), ("fast", self.SMALL)):
+            with self.subTest(track=name):
+                out = self.text(plan, "github", "#42").splitlines()
+                self.assertEqual(out.count("Issue: #42"), 1)
+                request = out.index("## The request")
+                # right under the quote of the request
+                self.assertGreater(out.index("Issue: #42"), request)
+                self.assertTrue(out[out.index("Issue: #42") - 2].startswith("> "))
+                text = "\n".join(out).lower()
+                for word in ("closes #42", "fixes #42", "resolves #42", "close #42", "fix #42", "resolve #42"):
+                    self.assertNotIn(word, text)
+
+    def test_a_linear_ticket_or_no_ticket_has_no_such_line(self):
+        for kind, ticket in (("linear", "MBZ-12"), ("github", None), (None, None)):
+            with self.subTest(kind=kind, ticket=ticket):
+                self.assertNotIn("Issue:", self.text(PLAN, kind, ticket))
+
+
 class Due(unittest.TestCase):
     """`due_of`: which review is due for the change as it is now, from the kept reviews."""
 

@@ -452,6 +452,43 @@ class Sessions(unittest.TestCase):
         m.sessions = {}
         self.assertEqual((self.rows(m), bm.opens_session(m.tasks[0], m)), ([], False))
 
+    CLOSED_ON_GITHUB = (state(0, "open", Merge.PR), state(10, "dropped", "the pull request was closed on the forge"))
+
+    def test_a_task_dropped_by_a_close_on_github_has_a_row_only_while_its_worktree_stays(self):
+        # decision 28 of github-issues-tracker: the wake of such a task failed, and the board says so
+        m = model(*self.CLOSED_ON_GITHUB)
+        m.sessions = {"gift-note": {"worktree": True}}
+        self.assertEqual(bm.session_need(m.tasks[0], m), "gone")
+        rows = [w for w in bm.waits_of(m) if w["kind"] == "session"]
+        self.assertEqual([(w["key"], bm.wait_say(w)["verb"], bm.wait_say(w)["note"]) for w in rows],
+                         [("session:gift-note", "No session cleans the dropped task", "since it was dropped")])
+        m.sessions = {}
+        self.assertEqual((bm.session_need(m.tasks[0], m), self.rows(m)), (None, []))
+
+    def test_a_task_dropped_by_a_close_on_github_gets_the_button_only_while_its_worktree_stays(self):
+        m = model(*self.CLOSED_ON_GITHUB)
+        m.sessions = {"gift-note": {"worktree": True}}
+        self.assertTrue(bm.opens_session(m.tasks[0], m))
+        m.sessions = {"gift-note": {"worktree": True, "live": True, "agent": True}}
+        self.assertFalse(bm.opens_session(m.tasks[0], m))
+        m.sessions = {}
+        self.assertFalse(bm.opens_session(m.tasks[0], m))
+
+    def test_the_board_offers_a_session_to_each_ended_task_that_phase_of_gives_one(self):
+        # session.py's `phase_of` is the one that opens it: the board agrees with it on every ended state
+        session = importlib.import_module("session")
+        for status in bm.ENDED:
+            for worktree in (True, False):
+                with self.subTest(status=status, worktree=worktree):
+                    try:
+                        session.phase_of("gift-note", status, "it ended", None, worktree, "")
+                        gets = True
+                    except session.SessionError:
+                        gets = False
+                    m = model(state(0, "open", Merge.PR), state(10, status, "it ended"))
+                    m.sessions = {"gift-note": {"worktree": True}} if worktree else {}
+                    self.assertEqual((bm.opens_session(m.tasks[0], m), bm.session_need(m.tasks[0], m) == "gone"), (gets, gets))
+
     def test_a_wake_nobody_took_is_a_row_of_its_own(self):
         m = model(state(0, "open", Merge.PR))
         m.sessions = {"gift-note": {"live": True, "agent": True, "unanswered": True}}

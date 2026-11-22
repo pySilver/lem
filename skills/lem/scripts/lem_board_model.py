@@ -67,6 +67,10 @@ NEW_TEXT = "its session opened and reads the request; it wrote no state yet"
 BASE_RED = "the base is red"
 # The states a task does not leave (project.py ENDED): nobody acts, and nothing of it waits.
 ENDED = ("landed", "dropped", "answered")
+# The ended states whose task still gets a session while its worktree is there, as session.py's `phase_of`
+# admits them: the session cleans up and pays what the ticket is still owed, after a merge or after a pull
+# request closed on GitHub. An `answered` task, or one whose worktree is gone, gets none.
+CLEANED_BY_SESSION = ("landed", "dropped")
 # The state of a task the owner put aside (`/lem park`, project.py PARKED): nobody acts, and nothing of it
 # waits for him, also when a breaker of it still does; `/lem resume SLUG` brings it back.
 PARKED = "parked"
@@ -1162,8 +1166,10 @@ def session_need(t: Task, m: Model) -> str | None:
     only while no merge review of its proposed tip is written, since the session runs the merge agent;
     one whose merge the server runs, or that waits for the owner's merge, has none: at the merge the
     server wakes or opens a session for the cleanup.
-    A parked task has none, nor a queued one whose task has not ended. A merged task has one only while
-    its worktree is still there, since its cleanup is what needs the session."""
+    A parked task has none, nor a queued one whose task has not ended. An ended task has one only when
+    session.py's `phase_of` gives it a session (CLEANED_BY_SESSION: a merged task, or one whose pull
+    request was closed, the drop GitHub's close wrote) and its worktree is still there, since its cleanup
+    is what needs the session; a dropped task whose worktree is gone has none."""
     if t.status == PARKED:
         return None
     f = live_of(t, m)
@@ -1172,7 +1178,7 @@ def session_need(t: Task, m: Model) -> str | None:
     if f["live"]:
         return "deaf" if f["unanswered"] else None
     if t.closed:
-        if t.status != "landed" or not f["worktree"]:
+        if t.status not in CLEANED_BY_SESSION or not f["worktree"]:
             return None
         since = max(t.since, (t.opened or {}).get("ts") or 0)
     else:
@@ -1184,12 +1190,13 @@ def session_need(t: Task, m: Model) -> str | None:
 
 def opens_session(t: Task, m: Model) -> bool:
     """Whether the board offers "Open a session" for the task: nothing says that its session lives, and
-    `lem session open` would take it (not ended, but a merged task whose worktree stays; not parked; not
-    queued behind a task that has not ended)."""
+    `lem session open` would take it, as session.py's `phase_of` says: not ended, except a merged or
+    dropped task whose worktree stays (CLEANED_BY_SESSION); not parked; not queued behind a task that has
+    not ended."""
     f = live_of(t, m)
     if f is None or f["live"] or t.status == PARKED or (t.status == "queued" and not after_ended(t, m)):
         return False
-    return not t.closed or (t.status == "landed" and f["worktree"])
+    return not t.closed or (t.status in CLEANED_BY_SESSION and f["worktree"])
 
 
 def is_green(t: Task) -> bool:
@@ -1282,7 +1289,7 @@ def waits_of(m: Model) -> list[dict]:
     them (without the retro's proposals, and with the plans he reads), the most pressing first."""
     rows = []
     for t in m.tasks:
-        # a task stuck for want of its session: the one row of a merged task whose cleanup did not run
+        # a task stuck for want of its session: the one row of a merged or dropped task whose cleanup did not run
         need = session_need(t, m)
         if need:
             since = max(t.since if t.closed else t.first, (t.opened or {}).get("ts") or 0)
@@ -1325,9 +1332,12 @@ def wait_say(w: dict) -> dict:
     if kind == "session" and w.get("deaf"):
         return {"verb": "Its session does not answer", "icon": "alert", "actor": "bad", "to": "overview", "note": "since its session opened",
                 "where": "A wake-up has waited in the task’s session for 10 minutes or more. Look at the session: its agent may wait for an answer, or run a long turn."}
+    if kind == "session" and t.closed and t.status == "dropped":
+        return {"verb": "No session cleans the dropped task", "icon": "alert", "actor": "bad", "to": "overview", "note": "since it was dropped",
+                "where": "Open a session here or on the task’s header: it gives a ticket what it is still owed, then removes the worktree; the branch keeps its commits."}
     if kind == "session" and t.closed:
         return {"verb": "No session cleans the merged task", "icon": "alert", "actor": "bad", "to": "overview", "note": "since it was merged",
-                "where": "Open a session here or on the task’s header: it removes the worktree and the branch, and moves the ticket."}
+                "where": "Open a session here or on the task’s header: it removes the worktree and the branch, and updates the ticket."}
     if kind == "session":
         return {"verb": "No session runs this task", "icon": "alert", "actor": "bad", "to": "overview", "note": "since its last session opened" if t.opened else "since it opened",
                 "where": "Open a session here or on the task’s header: a fresh agent reads the task’s state and goes on from there."}

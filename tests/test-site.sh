@@ -194,8 +194,8 @@ if last is not None:
         problems.append(f"the sentence that names .lem/ links {removal}, not the removal steps of docs/install.md")
 verdict["again"] = "; ".join(p for p in problems if p)
 
-# 2: the footer links the six guides, the settings and the repository
-need = {"docs/flow.md", "docs/when-lem-needs-you.md", "docs/board.md", "docs/pull-request.md", "docs/install.md", "docs/linear.md", "docs/settings.md"}
+# 2: the footer links the seven guides, the settings and the repository
+need = {"docs/flow.md", "docs/when-lem-needs-you.md", "docs/board.md", "docs/pull-request.md", "docs/install.md", "docs/linear.md", "docs/github-issues.md", "docs/settings.md"}
 footer_links = [a.attrs.get("href", "") for a in footer.find(lambda n: n.tag == "a")] if footer else []
 linked = {GUIDE.match(href).group(1) for href in footer_links if GUIDE.match(href)}
 missing = sorted(need - linked) + ([] if REPO in footer_links else [REPO])
@@ -703,7 +703,7 @@ if ok words; then ok words_count || true; pass "the page has 800 to 1200 words o
 if ok diagram; then pass "the diagram's fast track has one step for the developer, the merge; the standard track three: the interview, the criteria, the merge"; else fail "the diagram: $WHY"; fi
 if ok green; then pass "the page says \"Green means you can merge without a read.\""; else fail "the green sentence: $WHY"; fi
 if ok again; then pass "the second install block has the two lines, and a sentence that names .lem/ links the removal steps of docs/install.md"; else fail "the second install block: $WHY"; fi
-if ok footer; then pass "the footer links the six guides, the settings and the repository"; else fail "the footer: $WHY"; fi
+if ok footer; then pass "the footer links the seven guides, the settings and the repository"; else fail "the footer: $WHY"; fi
 # criterion 3
 if ok sentences; then pass "no sentence of the page has more than 25 words, and no instruction more than 20"; else fail "the sentences: $WHY"; fi
 if ok os; then pass "the page names no operating system"; else fail "an operating system: $WHY"; fi

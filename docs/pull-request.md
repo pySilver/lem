@@ -63,7 +63,7 @@ on GitHub, with Merge on the [board](board.md), or with `/lem land <task>`.
 - With more than one task, `/lem land` merges them one at a time, in your order.
 
 Do not merge the branch of a task by hand: Lem knows only a merge through the pull request. After
-a merge, the session of the task removes the worktree and the branch, and updates the Linear ticket.
+a merge, the session of the task removes the worktree and the branch, and updates the ticket of the task.
 
 On GitHub's button, you select the merge method. `branch.history` is for Lem's merge.
 

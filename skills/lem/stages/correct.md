@@ -63,14 +63,17 @@ longer changes, and that a new request does it.
 ## drop
 
 A task that is not wanted, at any point before its landing, and one of his three answers to a
-breaker. Write the state `dropped` with his reason in one line. Close the plan talk's pair when one
+breaker. Write the state `dropped` with his reason in one line. For a task that came from a ticket,
+the tracker says so on the ticket next (`load-skill` the skill `tracker.kind` names, its "drop"),
+before anything else of the drop, so that a worktree the cleanup refuses does not stop the
+comment. It comments, removes an assignee it added at the start, and changes no status.
+Tell the owner which status the ticket has now (an issue stays open), since where it goes now is
+his call. Close the plan talk's pair when one
 is open (`open-task-session`). Remove its worktree the way the project does. A branch with commits of its own stays, because
 those commits are on no other branch, and `lem land clean` names how to delete it; a branch with
 none, which the base holds whole, goes (`lem land clean` does both and says which). Its task
 directory stays, `handoff.md` and each breaker's document (`breaker-N.md`) with it, so that `/lem resume SLUG` opens a new task
-from them and from the branch (`stages/park.md`); say so in the line that tells him it is dropped. For a task that came from a ticket, the
-tracker then says so on the ticket (its "drop") and changes no status: tell the owner which status
-the ticket has, since where it goes now is his call. A task queued `after:` this one does not
+from them and from the branch (`stages/park.md`); say so in the line that tells him it is dropped. A task queued `after:` this one does not
 start: it stays `queued` for his word (step 7 of "The request", `stages/new.md`). The same line
 that tells him this one is dropped names each such task as one that now waits for his word, "start
 SLUG now" or `/lem drop SLUG`: after the drop, `lem project waiting` lists each under

@@ -58,8 +58,12 @@ onboarding directory, every line with the path it was read from:
 - how work lands: the default branch, the branches the last fifty merges went into, whether
   commits are squashed, the form of the commit subjects, whether the remote is GitHub, and any
   branch nothing lands on (a release branch frozen for a rewrite);
-- where the work is kept: a tracker the repository shows (Linear issue keys in branch names or
-  commit subjects, a link to linear.app in its documents), with the team key it shows;
+- where the work is kept, from two facts and no other: Linear ticket keys (`ABC-12`) in branch
+  names or commit subjects, with the team key they show; and, when none shows and the remote is
+  GitHub, what the GitHub tracker's "check" gives (`load-skill` the skill `lem-github`, its
+  "check", which writes nothing): whether the repository's issues are on and whether it holds at
+  least one issue of any state, or what is missing, with its fix. A link to a tracker in a
+  document is no evidence of one;
 - where a defect costs most: migrations, money, authentication, anything that writes data which
   cannot be rebuilt, private data, the checks themselves. Most products have most of these, so
   look for each. They become the proposals of what must never go wrong: each one sentence in
@@ -149,12 +153,21 @@ Then edit `.lem/project.toml` with the three answers and the assumptions of step
 - `branch.history`: `squash`, Lem's default, unless the last fifty merges in `examined.md` kept the
   commits of each branch: then `keep`;
 - `branch.protected`: the branches nothing lands on that `examined.md` found, or none;
-- `[tracker]`: none, unless the repository shows one. When it shows Linear, propose
-  `kind = "linear"` alone, and run the tracker's "check" with the team key the repository shows
-  before you write the table: a connection that sees no team shows now, and a check that fails
-  leaves the table out and says why on the page. The table has no other key: the check's two
-  statuses go on the page as what Lem will use, and a status the names do not settle is said
-  there in one line, with no question;
+- `[tracker]`: none, unless the facts of "where the work is kept" show one. When they show
+  Linear keys, propose `kind = "linear"` alone, and run the tracker's "check" (`load-skill` the
+  skill `lem-linear`) with the team key the repository shows before you write the table: a
+  connection that sees no team shows now, and a check that fails leaves the table out and says
+  why on the page. The table has no other key: the check's two statuses go on the page as what
+  Lem will use, and a status the names do not settle is said there in one line, with no question.
+  When no Linear key shows and the GitHub tracker's check says that the issues are on and hold at
+  least one issue, propose `kind = "github"` alone: that check ran before the table is written,
+  and a check that fails leaves the table out and says on the page what it found missing, with the
+  fix it named (issues off in the repository's settings among them). The table has no other key: the page
+  names origin's repository, as the check gave it, as the one whose issues Lem reads, and says
+  what Lem writes to an issue a task came from (an assignee at the start, one comment at the end,
+  the close at a landing), which the repository shows to everyone who can read it. For a
+  repository on GitHub whose issues are on and hold no issue, the page says so in one line, and
+  that `[tracker]` with `kind = "github"` in `.lem/project.toml` connects them later;
 - the seats, each whole, as `agent/model:effort`: the command writes them, with `--codex no` when
   step 1 found no Codex. The reviewer is Codex when step 1 found it, since two model families
   disagree more usefully than one family twice and a reviewer on another provider's quota does not
@@ -266,7 +279,7 @@ builder of its own, and how (the harness file, `spawn-builder`).
 **The assumptions**, each one line with its value, where it came from, and the words that change
 it: who merges (`agent`, the merge agent, which calls the owner for a careful change or one that is not
 green; "change land owner", and then the owner merges each one after its review), what lands, the closed
-branches, the tracker, the reviewer and the defender with their models, and each command of the
+branches, the tracker (`linear`, `github`, or none with the fact that left it out), the reviewer and the defender with their models, and each command of the
 checks. Three more lines are always there. How Lem asks: "Lem asks with its own page, `lem-ask`, and
 opens a text for you to mark up with webrev", with no word that changes it, since a personal
 rule of his that names another asker would otherwise meet Lem's page turn by turn and wonder

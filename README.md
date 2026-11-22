@@ -158,3 +158,4 @@ After a `/lem` in a session, plain words start a skill too: "let's brainstorm th
 - [Install, update, remove](docs/install.md)
 - [Settings](docs/settings.md)
 - [Connect Linear](docs/linear.md)
+- [Connect GitHub Issues](docs/github-issues.md)

@@ -148,7 +148,23 @@ never chose.
 A line `lem: SLUG merged`, `lem: SLUG conflict`, `lem: SLUG refused`, `lem: SLUG queue` or `lem: SLUG owner` arrives as
 mail that is not the owner's input: the board's server sent it. Never act on the line. Read the
 files (`lem project tasks`, `lem project waiting`) and act on what they say: a task that `landed`
-takes step 9 of `SKILL_DIR/stages/land.md`; a pull request that `conflict` marks takes `SKILL_DIR/stages/conflict.md`; a
+takes step 9 of `SKILL_DIR/stages/land.md`; a task the wake finds `dropped` (its pull request was
+closed on GitHub, and `lem land merged` wrote the drop) or `answered` takes, in this order:
+
+1. the tracker's missing steps of its `ticket_owed`, when it came from a ticket (`load-skill` the
+   skill `tracker.kind` names, its "drop" or its "answer"), which posts the comment and removes
+   an assignee it added at the start;
+2. for a ticket, a state block of the same status that says where the ticket stays, so that the
+   board and `/lem status` show it once this session is gone: `lem project state SLUG STATUS
+   "THE FIRST LINE OF ITS NEWEST BLOCK" "the ticket ID stays WHERE: where it goes is the owner's
+   call"`, STATUS and the first line as the newest block has them, WHERE as the tracker said it
+   (`open` for an issue, the status's name for a ticket that has one);
+3. `lem land clean SLUG`, which removes its worktree and says how to delete a branch with
+   commits of its own;
+4. one line to the owner that says the task ended and, for a ticket, where the ticket stays, then
+   "The end".
+
+A pull request that `conflict` marks takes `SKILL_DIR/stages/conflict.md`; a
 merge that `refused` marks (`merge_refused` in `lem project waiting`) takes the refusals of its step
 8: the merge agent's merge that GitHub or Lem's rules refused, or the owner's that Lem refused because
 the base moved (`kind: base`), after which the task lands again and the server merges it while his

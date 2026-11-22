@@ -244,10 +244,12 @@ class Tracker(Refuses):
     def test_the_tables_it_takes(self):
         self.assertIsNone(self.tracker())
         self.assertEqual(self.tracker('kind = "linear"'), {"kind": "linear"})
+        # criterion 1 of github-issues-tracker: GitHub Issues with no other key, the repository being origin's
+        self.assertEqual(self.tracker('kind = "github"'), {"kind": "github"})
 
     def test_the_tables_it_refuses(self):
         for lines, names in (
-            (('kind = "jira"',), ("tracker.kind", "'jira'", "linear")),
+            (('kind = "jira"',), ("tracker.kind", "'jira'", "linear", "github")),
             (('kind = ""',), ("tracker.kind",)),
             ((), ("[tracker] needs kind",)),
         ):

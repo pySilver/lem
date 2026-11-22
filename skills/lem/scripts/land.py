@@ -3034,6 +3034,16 @@ def head_lines(task: Task, state: dict) -> list[str]:
     return out
 
 
+def issue_line(task: Task) -> list[str]:
+    """The line `Issue: #42` under the request, for a task whose ticket is an issue of a project whose
+    tracker is GitHub: GitHub links the issue and the pull request both ways from it. No word that
+    closes the issue (`Closes`, `Fixes`): `lem issue land` comments and closes it itself."""
+    ticket = task.record.get("ticket") or ""
+    if (task.settings.get("tracker") or {}).get("kind") != "github" or not ticket.startswith("#"):
+        return []
+    return [f"Issue: {ticket}", ""]
+
+
 def small_text(task: Task, notes: str, state: dict) -> str:
     """The text of a pull request on the fast track: green or not, the criterion, the checks, the read.
     What the fast track does not have (a plan, a personas' read, a polish pass, a talk) gets no line;
@@ -3045,6 +3055,7 @@ def small_text(task: Task, notes: str, state: dict) -> str:
     held = {(test["criterion"], test["command"]): test for test in checked_criteria(checks)["tests"]}
     out = head_lines(task, state)
     out += ["## The request", "", *(f"> {line}" for line in (ask or "(the owner's words were not kept for this task)").splitlines()), ""]
+    out += issue_line(task)
     approval = found.get("approved") or {}
     by = {"lem": f" Lem approved it in the owner's name on {approval.get('at', '')[:10]}; the personas did not read it.",
           # a night's task, or a request someone else wrote: not the owner's own sentence, so not his approval either
@@ -3093,6 +3104,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     held = {(test["criterion"], test["command"]): test for test in checked_criteria(checks)["tests"]}
     out = head_lines(task, state)
     out += ["## The request", "", *(f"> {line}" for line in (ask or "(the owner's words were not kept for this task)").splitlines()), ""]
+    out += issue_line(task)
     out += ["## Acceptance criteria", "", f"The {TRACKS.get(found['size'], found['size'])} track, because {found['why']}", ""]
     out += criteria_lines(found, held)
     if found["history"]:

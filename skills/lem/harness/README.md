@@ -30,11 +30,11 @@ And three roles a stage names instead of a skill id, because the id differs per 
 | the question gate | the first level of the ladder: settles a decision a ruling of the owner's, a test or a rule answers, or whose wrong pick is cheap to reverse |
 | the persona panel | has the people a decision affects answer it, from the project's cast, before the owner sees it; no generic cast stands in for the project's own |
 | the review tool | runs one review round over a range with the project's lenses and profile |
-| the tracker | reads a ticket into a task, moves it when its work starts and lands where the project's settings say Lem does, and comments the landing |
+| the tracker | the skill `tracker.kind` names (`lem-linear`, `lem-github`): reads a ticket into a task, marks it when its work starts, and comments and finishes it when the task ends |
 
 A stage may name a skill this repository ships by its id, which is the same in every agent:
 `lem-interview-me`, `lem-ask`, `lem-dialectic`, `lem-root-cause`,
-`lem-gate`, `lem-panel`, `lem-linear`, `lem-ask-expert`. Each id starts with
+`lem-gate`, `lem-panel`, `lem-linear`, `lem-github`, `lem-ask-expert`. Each id starts with
 `lem-`, so it cannot collide with another skill in an agent that keeps all skills in one flat list.
 
 Each agent's file answers every row, or says the capability is absent and what the stage does

@@ -212,13 +212,16 @@ def phase_of(slug: str, status: str | None, line: str | None, track: str | None,
     track, whether its worktree is still there and its whole STATE; a SessionError with the fix for a
     task that gets no session. A `queued` task that no lead started was queued in the shape, at step 7
     of "The request" (`stages/new.md`), and goes on there, at step 8; one that its lead queued goes on
-    at the start of the build."""
+    at the start of the build. A `landed` or `dropped` task whose worktree is still there is in the
+    land phase: its session cleans it up and pays what its ticket is still owed, also for a pull
+    request closed on GitHub while no session ran, which the board's server wakes as it wakes a merged
+    one (`serve.py`, `duties`)."""
     if status is None:
         return "shape"
     if status == project.PARKED:
         raise SessionError(f"the task {slug!r} is parked: it gets no session until the owner's `/lem resume {slug}` (`lem project resume {slug}`) brings it back")
     if status in project.ENDED:
-        if status == "landed" and worktree:
+        if status in ("landed", "dropped") and worktree:
             return "fast" if track == "fast" else "land"
         if status == "landed":
             raise SessionError(f"the task {slug!r} is landed and cleaned: its worktree is gone, and an ended task gets no session; new work for it is a new ask")

@@ -15,8 +15,10 @@ server's: it names the task by a fixed rule (an item's file's stem, else the fir
 of his text), runs step 3 with his words or the item's path as the ask, and step 5.
 
 1. **An ask that is a ticket.** When the ask is a ticket's id or its URL and `lem project show`
-   gives a `tracker`, the tracker reads it (`load-skill` the tracker, its "read"): its title is
-   the ask. When the settings have no tracker, say that this project has none, and ask the owner
+   gives a `tracker`, the tracker reads it (`load-skill` the skill `tracker.kind` names, its
+   "read"): what the read gives as the ask is the ask, word for word (the ticket's text, its title
+   only when the text is empty, never the comments under it), and that is what `--ask` takes in
+   step 3. When the settings have no tracker, say that this project has none, and ask the owner
    for the ask in his words. When `lem project tasks` already lists a task with this ticket that is
    not `dropped` or `answered`, open no second one: say which task it is and where it stands.
 2. **The slug.** Two to five plain words that say what the owner gets ("report-dates-stay-whole"),
@@ -30,7 +32,9 @@ of his text), runs step 3 with his words or the item's path as the ask, and step
    ```
 
    For a ticket, add `--ticket ID`, and `--branch NAME` when the tracker gives a branch name for it:
-   it checks that name. It refuses a ticket another task holds, and a slug whose branch origin has
+   it checks that name. For a GitHub issue (`tracker.kind` is `github`), add `--ticket-repo
+   OWNER/REPO` too, the repository of the issue's address that the read gave, never origin's as it
+   is now: the tracker writes only to the issue that was read. It refuses a ticket another task holds, and a slug whose branch origin has
    already, a teammate's: take another slug. For `/lem plan <what>`, the ask is
    the whole line as he typed it, `/lem plan` included: the task's session reads his wish for a plan
    there.
