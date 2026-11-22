@@ -242,7 +242,7 @@ use the image block. Any block takes `title`, `caption` and `card: true`.
 | Block | Shape |
 | --- | --- |
 | markdown | `"text"` or `{"md": "text"}` |
-| diagram | `{"mermaid": "flowchart LR\n A --> B"}` — any mermaid type (flowchart, sequence, class, state, ER, gantt, gitGraph). In labels avoid `#` (starts an entity: `#1` truncates the line) and `%` (comment marker in gantt); add `todayMarker off` to a gantt |
+| diagram | `{"mermaid": "flowchart LR\n A --> B"}`, or a ` ```mermaid ` fence in markdown — any mermaid type (flowchart, sequence, class, state, ER, gantt, gitGraph). In labels avoid `#` (starts an entity: `#1` truncates the line) and `%` (comment marker in gantt); add `todayMarker off` to a gantt |
 | chart | `{"chart": {"type": "bar"\|"line"\|"area"\|"hbar"\|"donut"\|"pie", "labels": [...], "series": [{"name", "values", "color"}], "unit": " ms"}}` — `values` alone for one series. Optional: `title`, `highlight` (index or label; not donut/pie), `marks: [{"value", "label"}]` (threshold lines), `min`, `max`, `height`; donut/pie `colors`, `center`, `size`; hbar `labelWidth` |
 | stat tiles | `{"stats": [{"label", "value", "delta", "good": true\|false\|null, "sub"}]}` |
 | image | `{"image": "/abs/or/relative.png", "height": 160, "fit": "cover", "alt": "…"}` — local files are embedded (up to 8 MB); a missing one shows its alt text |
