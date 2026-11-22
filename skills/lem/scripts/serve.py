@@ -1853,7 +1853,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def refreshes(self, workspace: Workspace, query: str) -> None:
         """Server-sent events for the served pages: a Turbo `refresh` each time the workspace's log grew or
-        a file the pages read changed (the owner's mark, the settings), or what the server itself knows
+        a file the pages read changed (the owner's mark, the settings, the Inbox's record), or what the server itself knows
         changed (an act of the board, its look at the forge or at the task sessions: `Workspace.acted`),
         `id:` the version of the log (`bm.log_version`: its inode and its count of lines), and a `ping`
         event after each PING_SECONDS with nothing to say. A page's open after a render (`?rendered=ID`)
@@ -1869,7 +1869,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header(key, value)
         self.end_headers()
         self.close_connection = True
-        files = {"demo": workspace.state / "demo",
+        # the Inbox's record too, which the Inbox thread writes only when a look changed it (lem_inbox), so that a
+        # task's page shows the link to its thread, or why there is none, within seconds of the send
+        files = {"demo": workspace.state / "demo", "inbox": workspace.state / bm.INBOX_LOOK,
                  "settings": Path(workspace.path) / ".lem" / "project.toml"}
         task = (asked.get("task") or [""])[0]
         if TASK_SLUG.fullmatch(task) and (workspace.state / "tasks" / task).is_dir():

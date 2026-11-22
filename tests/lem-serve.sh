@@ -205,6 +205,39 @@ else
   fail "the breaker and the parked task: $first / $(words <<<"$waits" | head -c 1200)"
 fi
 
+# While the owner is away, the phone's page of a task whose breaker the board's server sent to his Inbox names both
+# places, with a link to the task's thread at the Inbox's tailnet address (the afternoon's inbox.json); a page that
+# another machine passed on (Lem-Hop) cannot jump to the session, as the phone's cannot. When the record says the Inbox
+# stopped, a stream open on the task refreshes, and the page says today's line and why there is no link. His mark goes
+# with its file at the end, so that the afternoon is as it was for the checks after this one.
+G=$BASE/tasks/gift-note-in-export
+there=$(got -H 'Lem-Hop: 1' "$G" | words)
+project --repo "$DEMO" owner away --words "I'm away" >/dev/null
+away=$(got -H 'Lem-Hop: 1' "$G")
+version=$(log_version "$STATE/events.jsonl")
+curl -sN --max-time 8 "$BASE/stream?since=$version&task=gift-note-in-export" > "$WORK/stream-inbox.out" 2>/dev/null &
+streamed=$!
+soon grep -q ': open' "$WORK/stream-inbox.out"
+"$PY" -c 'import json, sys; r = json.load(open(sys.argv[1])); r.update(running=False, url=None, tailnet_url=None, why="not running", said="the Inbox is not running")
+json.dump(r, open(sys.argv[1], "w"))' "$STATE/inbox.json"
+soon grep -qF 'data: <turbo-stream action="refresh"></turbo-stream>' "$WORK/stream-inbox.out"
+kill "$streamed" 2>/dev/null || true
+wait "$streamed" 2>/dev/null || true
+stopped=$(got -H 'Lem-Hop: 1' "$G" | words)
+rm -f "$XDG_CONFIG_HOME/lem/owner.jsonl"
+# shellcheck disable=SC1112  # the page's own curly quotes, as words
+today='The task’s session, “gift-note-in-export”, is in agterm on the Mac.'
+if grep -qF "$today" <<<"$there" && ! grep -qF "Inbox" <<<"$there" \
+  && grep -qF "Answer in the task’s session on the Mac, or in the Inbox" <<<"$(words <<<"$away")" && ! grep -qF "is in agterm on the Mac" <<<"$(words <<<"$away")" \
+  && grep -qF 'href="https://studio.tail4e2a.ts.net:8443/#thread=msg_01DEMOGIFTNOTEBREAKER1"' <<<"$away" \
+  && grep -qxF 'data: <turbo-stream action="refresh"></turbo-stream>' "$WORK/stream-inbox.out" \
+  && grep -qF "$today The Inbox does not run on this Mac, so no question went there." <<<"$stopped" \
+  && ! grep -qF "#thread=" <<<"$stopped"; then
+  pass "while the owner is away, the phone's page of a task whose breaker went to his Inbox names both places and links to its thread at the Inbox's tailnet address; when the Inbox stops, the page refreshes to today's line and why there is no link"
+else
+  fail "the Inbox on the phone's page: ${there:0:600} / $(words <<<"$away" | head -c 1200) / $(cat "$WORK/stream-inbox.out") / ${stopped:0:1200}"
+fi
+
 # The backlog's filter is in the address: a shared link shows the same list. The server draws every item with the
 # field and the chip the address picks, and the backlog controller hides what the filter leaves out.
 filtered=$(got "$BASE/backlog?worth=later&q=query")
