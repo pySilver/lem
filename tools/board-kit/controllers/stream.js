@@ -15,10 +15,10 @@
 // of the back-forward cache, opens a new stream; and a page that heard nothing for SILENCE_MS (no message
 // and no `ping` event, which the server sends every 10 s of quiet) takes its stream as down, as does one
 // whose new stream did not open within that time. A stream that fails is closed here, never left to the
-// browser's own reconnect, so every new one is this page's open. While the stream is down the page says
-// "reconnecting", opens a new stream every POLL_MS and refreshes itself, but only after the server answered
-// a light request within ASK_MS: a refresh that finds no server would make Turbo reload the page into the
-// browser's error.
+// browser's own reconnect, so every new one is this page's open, and the page says "reconnecting" until it
+// opens. While the stream is down the page opens a new stream every POLL_MS and refreshes itself, but
+// only after the server answered a light request within ASK_MS: a refresh that finds no server would make
+// Turbo reload the page into the browser's error.
 import {Controller} from '@hotwired/stimulus';
 import {ago} from './time.js';
 
@@ -69,6 +69,7 @@ export default class extends Controller {
     this.close();
     this.watching = this.task();
     const id = `${this.first ? 'rendered' : 'since'}=${encodeURIComponent(this.lastId)}`;
+    this.again = !this.first;
     this.first = false;
     const source = new EventSource(`${this.urlValue}?${id}${this.watching ? `&task=${this.watching}` : ''}`);
     const heard = ev => {
@@ -132,8 +133,8 @@ export default class extends Controller {
       text = this.lastMessage ? `live · last change ${ago(now - this.lastMessage)}` : 'live';
       title = 'lem serve tells this page each change of the workspace, and the page changes with it';
     } else if (!this.down) {
-      text = 'connecting…';
-      title = 'The page opens its stream to lem serve';
+      text = this.again ? 'reconnecting' : 'connecting…';
+      title = this.again ? 'The page opens a new stream to lem serve, which sends it what it missed' : 'The page opens its stream to lem serve';
     } else {
       text = 'reconnecting';
       const since = new Date(this.down).toLocaleTimeString();
