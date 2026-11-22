@@ -663,21 +663,85 @@ class MovedBase(unittest.TestCase):
         proposed = (ev(0, "proposed", green=True, not_green=[], tip="abc123456"), state(1, "open", self.PR))
         base = model(*proposed, ev(2, "merge.refused", by="owner", via="server", **{"from": "lem"}, kind="base", said="origin/main moved after the checks ran", tip="abc123456"))
         t = base.tasks[0]
-        self.assertEqual((t.merge_wait, t.for_owner, t.info["label"], bm.waits_of(base)), ("relands", False, "Lem lands it again", []))
+        # the merge agent reads what moved, and nothing waits for the owner
+        self.assertEqual((t.merge_wait, t.for_owner, t.info["label"], bm.waits_of(base)), ("reads", False, "The merge agent reads it", []))
         github = model(*proposed, ev(2, "merge.refused", by="owner", via="server", **{"from": "github"}, said="Required status check is expected", tip="abc123456"))
         self.assertEqual([w["kind"] for w in bm.waits_of(github)], ["merge"])
 
+    def read(self, minute: float, call: str, verdict: str = "merge", calls: bool = False) -> dict:
+        return ev(minute, "merge.review", verdict=verdict, calls=calls, by="claude", tip="abc123456", base="m2m2m2m2m", base_call=call,
+                  base_why="B changed only docs/board.md, which the change does not read")
+
+    def test_a_safe_read_of_the_moved_base_answers_lems_refusal(self):
+        proposed = (ev(0, "proposed", green=True, not_green=[], tip="abc123456"), state(1, "open", self.PR))
+        refused = (*proposed, ev(2, "merge.refused", by="merger", via="server", **{"from": "lem"}, kind="base", said="origin/main moved after the checks ran", tip="abc123456"))
+        t = one(*refused, self.read(3, "safe"))
+        self.assertEqual((t.refused, t.merge_wait, t.info["label"]), (None, "merges", "Lem merges it"))
+        self.assertEqual(t.merge_review["base_why"], "B changed only docs/board.md, which the change does not read")
+        # the owner's merge that the moved base refused stands on the safe read, with a careful change's `Verdict: call.`
+        his = (*proposed, ev(2, "merge.refused", by="owner", via="server", **{"from": "lem"}, kind="base", said="origin/main moved", tip="abc123456"),
+               self.read(3, "safe", verdict="call", calls=True), ev(3, "merge.stands", by="owner", tip="abc123456", **{"from": "abc123456"}))
+        m = model(*his)
+        self.assertEqual((m.tasks[0].refused, m.tasks[0].merge_wait, bm.waits_of(m)), (None, "merges", []))
+        # no read answers GitHub's refusal
+        github = one(*proposed, ev(2, "merge.refused", by="merger", via="server", **{"from": "github"}, said="Required status check is expected", tip="abc123456"),
+                     self.read(3, "safe"))
+        self.assertEqual((github.refused["from"], github.merge_wait), ("github", "owner"))
+
+    def test_a_read_on_the_checks_base_answers_lems_refusal_after_a_revert(self):
+        # main moved and the merge was refused; a revert gave main the checks' tree again, so the read's brief
+        # named the checks' own base and its review has no call on a move: it answers the refusal too
+        proposed = (ev(0, "proposed", green=True, not_green=[], tip="abc123456"), state(1, "open", self.PR))
+        refused = (*proposed, ev(2, "merge.refused", by="merger", via="server", **{"from": "lem"}, kind="base", said="origin/main moved after the checks ran", tip="abc123456"))
+        back = ev(3, "merge.review", verdict="merge", calls=False, by="claude", tip="abc123456", base="m1m1m1m1m")
+        t = one(*refused, back)
+        self.assertEqual((t.refused, t.merge_wait, t.info["label"]), (None, "merges", "Lem merges it"))
+        stands = bm.describe(ev(3, "merge.stands", by="owner", tip="abc123456", after="a read of the base back on the checks' tree", base="m1m1m1m1m"), model(*proposed))
+        self.assertEqual(stands["text"], "the merge agent read it on the base the checks ran on, which main has again: the board’s server runs it, and nobody asks you again")
+        # GitHub's refusal stays
+        github = one(*proposed, ev(2, "merge.refused", by="merger", via="server", **{"from": "github"}, said="Required status check is expected", tip="abc123456"), back)
+        self.assertEqual(github.merge_wait, "owner")
+
+    def test_another_round_relands_until_the_next_proposal(self):
+        proposed = (ev(0, "proposed", green=True, not_green=[], tip="abc123456"), state(1, "open", self.PR))
+        refusal = ev(4, "merge.refused", by="merger", via="server", **{"from": "lem"}, kind="base", said="the merge agent asks for another round of the checks", tip="abc123456")
+        again = (*proposed, self.read(3, "another round"), refusal)
+        t = one(*again)
+        self.assertEqual((t.merge_wait, t.for_owner, t.info["label"]), ("relands", False, "Lem lands it again"))
+        # a later safe read answers nothing: the refusal an another-round read keeps is the new landing's
+        later = one(*again, self.read(5, "safe"))
+        self.assertEqual((later.refused is not None, later.merge_wait), (True, "relands"))
+        # an another-round read with no refusal before it is the session's too, never the server's merge
+        self.assertEqual(one(*proposed, self.read(3, "another round")).merge_wait, "relands")
+        # the next proposal forgets it
+        landed = one(*again, ev(6, "proposed", green=True, not_green=[], tip="def456789"), state(7, "open", self.PR))
+        self.assertEqual(landed.merge_wait, "reads")
+
+    def test_the_feed_shows_the_read_of_a_moved_base_with_its_call(self):
+        m = model(ev(0, "proposed", green=True, not_green=[], tip="abc123456"), state(1, "open", self.PR))
+        safe = bm.describe(self.read(3, "safe"), m)
+        self.assertEqual((safe["head"], safe["text"], safe["sub"]),
+                         ("The merge agent read the task and the moved base", "the moved base m2m2m2m2m is safe; it merges", "B changed only docs/board.md, which the change does not read"))
+        again = bm.describe(self.read(3, "another round"), m)
+        self.assertEqual((again["info"]["actor"], again["text"]), ("gate", "the moved base m2m2m2m2m needs another round of the checks: Lem lands it again"))
+        plain = bm.describe(ev(3, "merge.review", verdict="merge", calls=False, by="claude", tip="abc123456"), m)
+        self.assertEqual((plain["head"], plain["text"], plain["sub"]), ("The merge agent read the task", "it merges", "by claude"))
+
     def test_a_merge_the_moved_base_refused_is_not_offered_again_until_the_next_proposal(self):
-        # his merge from the board met a moved base: the same tip on the same moved base is refused again,
+        # his merge from the board met a moved base: until the merge agent reads it, his press stays offered,
+        # since a safe read lets it stand; once a read asks for another round, the same tip is refused again,
         # so the task's page offers no Merge while Lem lands it again, and the new proposal offers it
         proposed = (ev(0, "proposed", green=True, not_green=[], tip="abc123456"), state(1, "open", self.PR),
                     ev(2, "merge.review", verdict="call", calls=True, why="a careful request is merged by the owner", by="claude", tip="abc123456"))
         refused = (*proposed, ev(3, "merge.start", by="owner", via="server"),
                    ev(3, "merge.refused", by="owner", via="server", **{"from": "lem"}, kind="base", said="origin/main moved after the checks ran", tip="abc123456"))
         self.assertEqual(bm.acts_of(one(*proposed), None), ["merge"])
-        self.assertEqual(one(*refused).merge_wait, "relands")
-        self.assertEqual(bm.acts_of(one(*refused), None), [])
-        again = (*refused, state(4, "landing", "the base moved: the checks run again"),
+        self.assertEqual((one(*refused).merge_wait, bm.acts_of(one(*refused), None)), ("reads", ["merge"]))
+        another = (*refused, self.read(4, "another round", verdict="call", calls=True),
+                   ev(4, "merge.refused", by="owner", via="server", **{"from": "lem"}, kind="base", said="the merge agent asks for another round of the checks", tip="abc123456"))
+        self.assertEqual(one(*another).merge_wait, "relands")
+        self.assertEqual(bm.acts_of(one(*another), None), [])
+        again = (*another, state(5, "landing", "the base moved: the checks run again"),
                  ev(9, "proposed", green=True, not_green=[], tip="def456789"), state(9, "open", self.PR))
         self.assertEqual(bm.acts_of(one(*again), None), ["merge"])
 

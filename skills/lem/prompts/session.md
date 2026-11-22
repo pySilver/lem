@@ -167,8 +167,8 @@ closed on GitHub, and `lem land merged` wrote the drop) or `answered` takes, in 
 A pull request that `conflict` marks takes `SKILL_DIR/stages/conflict.md`; a
 merge that `refused` marks (`merge_refused` in `lem project waiting`) takes the refusals of its step
 8: the merge agent's merge that GitHub or Lem's rules refused, or the owner's that Lem refused because
-the base moved (`kind: base`), after which the task lands again and the server merges it while his
-merge stands; a `queued` task whose wait ended goes on where it stopped, as "A queued task" above
+the base moved (`kind: base`), after which a fresh merge agent reads what moved and the server
+merges it on a safe read, or the task lands again on another round, while his merge stands; a `queued` task whose wait ended goes on where it stopped, as "A queued task" above
 says. `owner` follows his word: his act on the board, while this session may wait for him, or his
 "start SLUG now" (`SKILL_DIR/stages/start.md`, "`/lem build`"). An approval of the criteria that
 counts (step 6 of `SKILL_DIR/stages/interview.md` says which) goes on as its step 7 ends, to the

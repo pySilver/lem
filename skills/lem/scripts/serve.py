@@ -154,13 +154,18 @@ workspace, one call at a time with the server's other calls into Lem's scripts (
   session still lives. `wake` opens a session when none lives. A
   duty whose command failed waits DUTY_RETRY;
 - the merge agent's merge (`merge_due`): for an open task whose merge agent's review of the tip Lem
-  proposed last says `merge` and calls nobody, with no refused merge of that tip and none running, the
-  server runs land.py's MERGE_STEP `--by merger --via server` as it runs the owner's merge from the
-  board (`merge_in_thread`: in a thread of its own, under SCRIPT_LOCK, and "Merging…" on the board
-  while it runs). land.py's own rules decide whether it merges; the server only runs the call, since a
+  proposed last says `merge`, calls nobody and does not say `another round` of a moved base, with no
+  refused merge of that tip that no read answered and none running, the server runs land.py's
+  MERGE_STEP `--by merger --via server` as it runs the owner's merge from the board
+  (`merge_in_thread`: in a thread of its own, under SCRIPT_LOCK, and "Merging…" on the board while it
+  runs). land.py's own rules decide whether it merges; the server only runs the call, since a
   task's session that ran it met a block of Claude Code's auto mode (pySilver/lem-scratch#12,
   2026-11-21). A refusal is kept for its tip by land.py, which ends the duty for that tip, and the
-  task's session gets `wake SLUG --why refused` once; after a merge, `wake … merged` above;
+  task's session gets `wake SLUG --why refused` once. Lem's refusal because the base moved is answered
+  by the merge agent's read of what moved: a read that says `safe`, or a read on the checks' own base
+  once main has their tree again (a revert), makes the merge due again at the server's next look,
+  the owner's too when his was the merge refused (`merge.stands`, `stands_due`), since a failed merge waits DUTY_RETRY for its read alone (`duty_key`); one that says `another round`
+  makes none, and the session lands the task again. After a merge, `wake … merged` above;
 - the keeping of the state folder (`prune_once`): at its first look and each PRUNE_SECONDS after, it runs
   `lem project prune`, which removes what the workspace's state folder no longer needs, older than its
   settings' `state.keep_days`: the working files of the tasks that ended, and old questions to the
@@ -1130,7 +1135,8 @@ def act_merge(workspace: Workspace, slug: str, form: dict, via: str) -> str:
 
 def merge_tip_of(landing: dict, by: str) -> str:
     """The tip the server's own merge is for, from the landing record: the merge agent's, the one its
-    review read; the owner's that stood through a new landing, the one his merge stands for. "" when the
+    review read; the owner's that stood through a new landing or a read of the moved base that said
+    `safe`, the one his merge stands for. "" when the
     record has none, which land.py refuses."""
     kept = landing.get("merge_review" if by == "merger" else "owner_tap")
     return str(kept.get("tip") or "") if isinstance(kept, dict) else ""
@@ -1140,7 +1146,8 @@ def merge_args(landing: dict, slug: str, by: str, tip: str, standing: bool = Fal
     """land.py's MERGE_STEP for a task, `--by BY --via server --tip TIP`, TIP being the commit the
     merge is for (the one the owner saw, or the one the merge agent read), with the proposal's title as
     the one commit's subject where the history is squashed, and `--standing` for the owner's merge that
-    a moved base refused and that stood through the new landing."""
+    a moved base refused and that stood through the new landing or a read of the moved base that said
+    `safe`."""
     args = [MERGE_STEP, slug, "--by", by, "--via", "server", "--tip", tip, *(["--standing"] if standing else [])]
     if landing.get("history") == "squash" and landing.get("title"):
         args += ["--message", str(landing["title"])]
@@ -1153,7 +1160,8 @@ def merge_in_thread(workspace: Workspace, slug: str, landing: dict, by: str, tip
     note at once: the note says that it runs (NOTES.merging, which the board reads as "Merging…") until
     the step ends. A task whose merge runs already gets that merge's token, and no second one starts.
     AFTER gives what the note adds to a merge that went through; FAILED is called with no argument when
-    the step did not. STANDING runs the owner's merge that stood through a new landing (`merge_args`)."""
+    the step did not. STANDING runs the owner's merge that stood through a new landing or a safe read
+    of the moved base (`merge_args`)."""
     pr = landing.get("pr") if isinstance(landing.get("pr"), dict) else None
     what = f"pull request #{pr['number']}" if pr and pr.get("number") else f"the branch {landing.get('branch') or slug}"
     base = landing.get("base") or "the base branch"
@@ -2003,11 +2011,15 @@ def duties(model: "bm.Model", seen: dict, kept: set, merging: set = frozenset())
       owner may keep selected, so that its close never comes), when no session was woken or opened
       since its wait began: one wake.
     - `merge … owner`: an open task for whose tip Lem proposed last the owner's merge stands, after a
-      moved base refused it and the session landed the task again with the same change and the same
-      reasons (`merge.stands`, `stands_due`): `lem land merge SLUG --by owner --via server --standing`.
+      moved base refused it and a read of the moved base said `safe` (or a read on the checks' own base
+      after a revert answered the refusal), or the session landed the task again with the same change
+      and the same reasons (`merge.stands`, `stands_due`): `lem land merge
+      SLUG --by owner --via server --standing`.
     - `merge … merger`: an open task whose merge agent's review of the tip Lem proposed last says
-      `merge` and calls nobody (`merge_due`), also one that `propose` carried onto that tip. land.py's
-      own refusals stay the gate: the server only runs it.
+      `merge` and calls nobody (`merge_due`), also one that `propose` carried onto that tip, and one
+      whose read of a moved base said `safe` after Lem refused the merge because the base moved; never
+      one whose read said `another round`, which the session lands again. land.py's own refusals stay
+      the gate: the server only runs it.
     - `wake … refused`: an open task whose merge was refused on the tip Lem proposed last, and no
       session was woken or opened since the refusal: the merge agent's, by GitHub or by Lem's rules, and
       the owner's when Lem refused it because the base moved (`kind: base`, `refusal_of`)."""
@@ -2050,11 +2062,15 @@ def duties(model: "bm.Model", seen: dict, kept: set, merging: set = frozenset())
 
 def merge_due(t: "bm.Task", seen: dict, merging: set) -> bool:
     """Whether the server runs the merge agent's merge of an open task now: the merge agent's review is
-    of the tip Lem proposed last, says `merge` and calls nobody; no merge of that tip was refused (a new
-    proposal, and its new review, make a new try); the forge does not call it conflicting (its session
-    brings it onto the base first); and no merge of it runs in this process (MERGING)."""
+    of the tip Lem proposed last, says `merge`, calls nobody and does not say `another round` of a
+    moved base (the task's session lands it again); no merge of that tip was refused, or the refusal
+    was Lem's because the base moved and a read of the moved base that said `safe`, or a read on the
+    checks' own base after a revert, answered it (`bm.answers_refusal`; a new proposal, and its new
+    review, make a new try); the forge does not call it conflicting (its session brings it onto the base first); and no merge of it runs in this
+    process (MERGING)."""
     review = t.merge_review
     return bool(t.status == "open" and t.proposal and review and review.get("verdict") == "merge" and not review.get("calls")
+                and review.get("base_call") != "another round"
                 and same_head(review.get("tip"), t.proposal.get("tip")) and not t.refused
                 and not bm.conflicts(t, seen) and t.slug not in merging)
 
@@ -2071,19 +2087,32 @@ def refusal_of(t: "bm.Task") -> dict:
 
 
 def stands_due(t: "bm.Task", seen: dict, merging: set) -> bool:
-    """Whether the server runs the owner's merge that stood through a new landing now: `propose` logged
-    `merge.stands` for the tip Lem proposed last, no merge of that tip was refused since, the forge does
-    not call it conflicting, and no merge of it runs in this process (MERGING)."""
+    """Whether the server runs the owner's merge that a moved base refused now: `merge.stands` is logged
+    for the tip Lem proposed last, by `propose` after a new landing or by the record of a read that
+    answered Lem's refusal because the base moved (a read of the moved base that said `safe`, or a
+    read on the checks' own base after a revert); no merge of that tip was refused since, or such a
+    read answered that refusal (`bm.answers_refusal`); the newest review of that tip does not say
+    `another round` (the task's session lands it again); the forge does not call it conflicting; and no
+    merge of it runs in this process (MERGING)."""
     tip = (t.proposal or {}).get("tip")
-    return bool(t.status == "open" and t.proposal and not t.refused and not bm.conflicts(t, seen) and t.slug not in merging
+    review = t.merge_review or {}
+    again = same_head(review.get("tip"), tip) and review.get("base_call") == "another round"
+    return bool(t.status == "open" and t.proposal and not t.refused and not again and not bm.conflicts(t, seen) and t.slug not in merging
                 and any(e.get("event") == "merge.stands" and same_head(e.get("tip"), tip) for e in since_proposal(t)))
 
 
 def duty_key(verb: str, slug: str, why: str, landing: dict) -> tuple:
-    """What a failed duty waits DUTY_RETRY under. A merge is of one proposed tip, so its wait is that
-    tip's: a task that landed again after a refused merge is merged at the next look, not after the
-    old tip's wait (lem-scratch, 2026-11-21: a carried review waited 4 minutes for its merge)."""
-    return (verb, slug, why, str(landing.get("proposed") or "")) if verb == "merge" else (verb, slug, why)
+    """What a failed duty waits DUTY_RETRY under. A merge is of one proposed tip and of the newest merge
+    review of it (its `at` in `landing.json`), so its wait is that read's: a task that landed again
+    after a refused merge is merged at the next look, not after the old tip's wait (lem-scratch,
+    2026-11-21: a carried review waited 4 minutes for its merge), and so is the merge after a new read
+    of a moved base that said `safe`, which answers the refusal of the read before it."""
+    if verb != "merge":
+        return (verb, slug, why)
+    proposed = str(landing.get("proposed") or "")
+    review = landing.get("merge_review") if isinstance(landing.get("merge_review"), dict) else {}
+    read = str(review.get("at") or "") if proposed and review.get("tip") == proposed else ""
+    return (verb, slug, why, proposed, read)
 
 
 def run_duties(workspace: Workspace, now: float | None = None) -> list[dict]:
@@ -2106,6 +2135,7 @@ def run_duties(workspace: Workspace, now: float | None = None) -> list[dict]:
                 # a refusal land.py kept ends the duty for that tip; any other end waits DUTY_RETRY
                 workspace.failed[key] = time.monotonic()
             # `why` is who merges: the merge agent, or the owner whose merge stood through a new landing
+            # or a safe read of the moved base
             landing = workspace.landing_of(slug)
             merge_in_thread(workspace, slug, landing, why, merge_tip_of(landing, why), failed=failed, standing=why == "owner")
             ran.append({"verb": verb, "task": slug, "why": why, "exit": None, "said": "started"})
@@ -2174,7 +2204,7 @@ def forge_loop(machine: "Machine") -> None:
                     if one["verb"] == "merge":
                         owner = one["why"] == "owner"
                         sys.stderr.write(f"serve.py: {workspace.name}: `lem land merge {one['task']} --by {one['why']} --via server{' --standing' if owner else ''}` started, "
-                                         + ("after the owner's merge stood through a new landing\n" if owner else "after the merge agent's verdict `merge`\n"))
+                                         + ("after the owner's merge stood through a new landing or a safe read of the moved base\n" if owner else "after the merge agent's verdict `merge`\n"))
                         continue
                     sys.stderr.write(f"serve.py: {workspace.name}: `lem session {one['verb']} {one['task']} --why {one['why']}` exited {one['exit']}"
                                      f"{': ' + one['said'] if one['said'] else ''}\n")

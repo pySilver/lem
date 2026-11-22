@@ -206,7 +206,10 @@ class Overview(unittest.TestCase):
 
     def test_after_a_moved_base_the_page_offers_no_merge_and_its_step_says_lem_lands_it_again(self):
         proposed = (ev(0, "proposed", green=True, not_green=[], tip="abc123456"), state(1, "open", "pull request https://github.com/acme/shop/pull/41"))
-        refused = (*proposed, ev(2, "merge.refused", by="owner", via="server", kind="base", said="origin/main moved after the checks ran", tip="abc123456", **{"from": "lem"}))
+        # the merge agent's read of the moved base asked for another round, and the refusal it keeps waits for the new landing
+        refused = (*proposed, ev(2, "merge.review", verdict="merge", calls=False, by="claude", tip="abc123456", base="m2m2m2m2m", base_call="another round",
+                                 base_why="B changed skills/lem/scripts/land.py, which the change edits too"),
+                   ev(2, "merge.refused", by="owner", via="server", kind="base", said="the merge agent asks for another round of the checks", tip="abc123456", **{"from": "lem"}))
 
         def page(*events):
             ctx = pages.Ctx(host="h", workspace="w", model=model(*events), asset=lambda name: name, can_act=True)
@@ -220,6 +223,8 @@ class Overview(unittest.TestCase):
         step = "".join(str(x) for x in task_pages.merge_step(ctx, t))
         self.assertIn("Lem lands it again", step)
         self.assertNotIn("conflicting", step)
+        # it is Lem's turn, not the owner's: the large card's head says so
+        self.assertEqual((t.merge_wait, bm.now_head(t)), ("relands", "Proposed: Lem lands it again on the moved base"))
 
     def test_the_large_card_opens_with_the_tasks_first_line_while_its_block_is_the_newest(self):
         line = 'fix: "the footer says Terms and conditions". Fast track: one builder, the checks, one read, then the pull request. Nothing waits for you.'
@@ -299,6 +304,10 @@ class Map(unittest.TestCase):
         self.assertIn("notes-of-mine.txt", [f["path"] for w in m["work"] for f in w["files"]])
         self.assertEqual(m["count"], 2)
 
+    def test_the_merge_agents_brief_of_a_tip_on_a_base_is_a_document_of_the_pull_request(self):
+        placed = lem_artifacts.place("merge-brief-abc123456789-def456789012.md")
+        self.assertEqual(placed, {"group": "pr", "title": "The merge agent's brief of abc123456 on def456789", "role": "doc"})
+
     def test_a_task_loses_only_its_working_files_and_keeps_its_state_and_every_record(self):
         with tempfile.TemporaryDirectory() as folder:
             task = Path(folder) / "gift-note"
@@ -337,6 +346,24 @@ class Forge(unittest.TestCase):
         self.assertEqual(bm.forge_due(prs, NOW - 200_000, NOW, every, True), [41, 44])
         self.assertEqual(bm.forge_due(prs, None, NOW, every, False), [], "a demo, or no GitHub remote")
         self.assertEqual(bm.forge_due([], None, NOW, every, True), [])
+
+
+class Feed(unittest.TestCase):
+    def test_only_an_event_a_resumed_task_carried_over_says_so(self):
+        m = model(state(0, "open", "pull request https://github.com/acme/shop/pull/41"))
+        refused = ev(1, "merge.refused", by="merger", via="server", kind="base", said="origin/main moved after the checks ran", tip="abc123456", **{"from": "lem"})
+        self.assertNotIn("carried over", bm.describe(refused, m)["sub"])
+        carried = ev(1, "criteria.approved", by="owner", was_at="2026-11-20T08:00:00Z", **{"from": "card-foot"})
+        self.assertIn("carried over from", bm.describe(carried, m)["sub"])
+
+    def test_the_owners_merge_that_stands_is_said_in_words(self):
+        m = model(state(0, "open", "pull request https://github.com/acme/shop/pull/41"))
+        read = bm.describe(ev(1, "merge.stands", by="owner", tip="abc123456", after="a read of the moved base", base="def456789"), m)
+        landed = bm.describe(ev(1, "merge.stands", by="owner", tip="abc123456", **{"from": "fed987654"}), m)
+        self.assertEqual((read["head"], landed["head"]), ("Your merge stands", "Your merge stands"))
+        self.assertIn("the merge agent read the moved base and said safe", read["text"])
+        self.assertIn("the new landing kept the change you merged", landed["text"])
+        self.assertNotIn("carried over", landed["sub"])
 
 
 if __name__ == "__main__":

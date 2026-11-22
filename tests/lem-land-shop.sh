@@ -123,25 +123,29 @@ else
 fi
 # The merge agent reads it: its brief, then its reply written down. With branch.land = "owner" the review still calls him.
 brief=$(land --repo "$SHOP" merge-review first-change)
-unread=$(printf '%s\n' 'A fine change.' > "$WORK/no-verdict.md"; land --repo "$SHOP" merge-review first-change --file "$WORK/no-verdict.md" --tip "$tip" 2>&1 || true)
+unread=$(printf '%s\n' 'A fine change.' > "$WORK/no-verdict.md"; land --repo "$SHOP" merge-review first-change --file "$WORK/no-verdict.md" --tip "$tip" --base "$base" 2>&1 || true)
 # the answer of a brief of another tip (an earlier proposal) is not written down, and each tip has its own answer file
-superseded=$(printf '%s\n' 'Verdict: merge. A fine change.' > "$WORK/old-answer.md"; land --repo "$SHOP" merge-review first-change --file "$WORK/old-answer.md" --tip "$base" 2>&1 || true)
+superseded=$(printf '%s\n' 'Verdict: merge. A fine change.' > "$WORK/old-answer.md"; land --repo "$SHOP" merge-review first-change --file "$WORK/old-answer.md" --tip "$base" --base "$base" 2>&1 || true)
+# an answer whose base no brief named is not written down either: the read covers the base its brief named
+unnamed=$(land --repo "$SHOP" merge-review first-change --file "$WORK/old-answer.md" --tip "$tip" --base "$tip" 2>&1 || true)
 called=$(merge_read "$SHOP" first-change)
 err=$(land --repo "$SHOP" merge first-change --by merger 2>&1 || true)
 # shellcheck disable=SC2016  # the backticks are the message's own marks
 if [ "$(field '(d["seat"]["agent"], d["seat"]["from"], d["facts"]["pull_request"]["number"], d["facts"]["green"], d["facts"]["land"], d["facts"]["time"]["seconds"] is not None)' <<<"$brief")" = "('claude', \"Lem's default\", 1, True, 'owner', True)" ] \
   && [ "$(field '(d["facts"]["pictures"], d["facts"]["try"])' <<<"$brief")" = "([], {'worktree': '.lem/worktrees/first-change', 'checkout': 'gh pr checkout 1'})" ] \
-  && [ "$(head -n 1 "$SHOP/.lem/state/tasks/first-change/merge-brief.md")" = 'Read `skills/lem/prompts/merge.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check. Your reply is the review, in the form that file gives, and nothing else.' ] \
-  && ! grep -qF "$PWD/skills/lem" "$SHOP/.lem/state/tasks/first-change/merge-brief.md" && grep -qF '"owner_merges": "branch.land is' "$SHOP/.lem/state/tasks/first-change/merge-brief.md" \
+  && [ "$(head -n 1 "$(field 'd["brief"]' <<<"$brief")")" = 'Read `skills/lem/prompts/merge.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check. Your reply is the review, in the form that file gives, and nothing else.' ] \
+  && ! grep -qF "$PWD/skills/lem" "$(field 'd["brief"]' <<<"$brief")" && grep -qF '"owner_merges": "branch.land is' "$(field 'd["brief"]' <<<"$brief")" \
   && grep -qF 'gives no verdict: it is `Verdict: merge.` or `Verdict: call.`' <<<"$unread" \
   && grep -qF "the merge agent's answer is of ${base:0:12}, and the proposal is ${tip:0:12} now" <<<"$superseded" \
-  && [ "$(field '(d["tip"], d["answer"].rsplit("/", 1)[-1])' <<<"$brief")" = "('$tip', 'merge-answer-${tip:0:12}.md')" ] && grep -qF "\"tip\": \"$tip\"" "$SHOP/.lem/state/tasks/first-change/merge-brief.md" \
+  && [ "$(field '(d["tip"], d["base"], d["facts"]["base"], d["facts"]["moved"], d["brief"].rsplit("/", 1)[-1], d["answer"].rsplit("/", 1)[-1])' <<<"$brief")" \
+    = "('$tip', '$base', '$base', None, 'merge-brief-${tip:0:12}-${base:0:12}.md', 'merge-answer-${tip:0:12}-${base:0:12}.md')" ] \
+  && grep -qF "\"tip\": \"$tip\"" "$(field 'd["brief"]' <<<"$brief")" && grep -qF "no brief of ${tip:0:12} on that base was written" <<<"$unnamed" \
   && [ "$(field '(d["verdict"], d["calls"], d["by"])' <<<"$called")" = "('merge', True, 'claude/opus:high')" ] && grep -q '^Verdict: merge\.' "$SHOP/.lem/state/tasks/first-change/merge-review.md" \
   && grep -q '"event": "merge.review", "task": "first-change", "verdict": "merge", "calls": true, "by": "claude/opus:high"' "$SHOP/.lem/state/events.jsonl" \
   && grep -qF 'branch.land is "owner"' <<<"$err" && [ "$(git -C "$ORIGIN" rev-parse main)" = "$(git -C "$SHOP" rev-parse main)" ] && [ "$(status first-change)" = open ]; then
-  pass "the merge agent's brief names its standing text by its place in the plugin, found through lem version, and no folder of the Lem that wrote it, the seat that starts it, the tip and its own answer file, and the facts of the task, with no picture of a task that took none and the two ways the owner tries the branch; a reply with no verdict, or of a brief of another tip, is refused, one with it is merge-review.md and an event; where the settings say that the owner merges, the review calls him and the merge agent merges nothing"
+  pass "the merge agent's brief names its standing text by its place in the plugin, found through lem version, and no folder of the Lem that wrote it, the seat that starts it, the tip, the base and their own brief and answer files, and the facts of the task, with nothing moved, no picture of a task that took none and the two ways the owner tries the branch; a reply with no verdict, of a brief of another tip or of a base no brief named, is refused, one with it is merge-review.md and an event; where the settings say that the owner merges, the review calls him and the merge agent merges nothing"
 else
-  fail "the merge review with branch.land = owner: $brief / $unread / $superseded / $called / $err"
+  fail "the merge review with branch.land = owner: $brief / $unread / $superseded / $unnamed / $called / $err"
 fi
 shop_settings agent keep
 err=$(land --repo "$SHOP" merge first-change --by owner --message "fix: x" 2>&1) && code=0 || code=$?
@@ -150,17 +154,18 @@ if [ "$code" = 1 ] && grep -qF 'branch.history is "keep": the branch'"'"'s own c
 else
   fail "land --message with history = keep: $code $err"
 fi
-# The base moves after the gate ran: by any file, the checks run again.
+# The base moves after the gate ran: by any file, the merge waits for the merge agent's read of what moved.
 other=$WORK/other
 git clone -q "$ORIGIN" "$other" && ident "$other"
 echo late > "$other/late.txt" && git -C "$other" add -A && git -C "$other" commit -q -m "feat: late" && git -C "$other" push -q origin main
 err=$(land --repo "$SHOP" merge first-change --by owner 2>&1 || true)
 if [ "$(status_of land --repo "$SHOP" merge first-change --by owner)" = 1 ] && grep -q "moved after the checks ran, by files (late.txt)" <<<"$err" \
-  && grep -q "run .lem land start., .lem land base., .lem land checks., .lem land read. and .lem land propose. again" <<<"$err" && [ "$(status first-change)" = open ]; then
-  pass "merge refuses when the base moved by a file, and says which steps run again"
+  && grep -q "A fresh merge agent reads what moved: .lem land merge-review first-change. writes its brief" <<<"$err" && ! grep -q "lem land start" <<<"$err" && [ "$(status first-change)" = open ]; then
+  pass "merge refuses when the base moved by a file, and names the merge agent's read of what moved as the next step"
 else
   fail "land after the base moved: $err"
 fi
+# landed again, as after a read that says another round
 land --repo "$SHOP" start first-change >/dev/null && land --repo "$SHOP" base first-change >/dev/null
 if [ "$(status first-change)" = landing ] && [ "$(kept first-change gated)" = None ] && [ "$(status_of land --repo "$SHOP" merge first-change --by owner)" = 1 ] \
   && [ "$(status_of land --repo "$SHOP" propose first-change --title x --notes "$NOTES")" = 1 ]; then
@@ -184,7 +189,7 @@ again=$(land --repo "$SHOP" propose first-change --title "fix: first-change" --n
 # and the owner's merge that the moved base refused stands for it: the server's merge runs it after the re-check
 review=$(kept first-change merge_review | "$PY" -c 'import ast, sys; d = ast.literal_eval(sys.stdin.read()); print((d["verdict"], d["calls"], d["tip"] == sys.argv[1], "carried_from" in d))' "$(kept first-change proposed)")
 out=$(land --repo "$SHOP" merge first-change --by owner --via server --standing)
-if grep -q "moved after the checks ran, by files (docs/guide.md)" <<<"$docs_err" && grep -qF "the owner's merge stands while the change and the reasons it is not green stay the same" <<<"$docs_err" \
+if grep -q "moved after the checks ran, by files (docs/guide.md)" <<<"$docs_err" && grep -qF "the owner's merge stands, and goes through after a read that says \`Base: safe.\`" <<<"$docs_err" \
   && [ "$(field '(d["merge_review"], d["owner_merge"].startswith("stands"))' <<<"$again")" = "('carried', True)" ] && [ "$review" = "('merge', False, True, True)" ] \
   && [ "$(kept first-change relands)" = 2 ] && grep -q '"event": "merge.stands", "task": "first-change", "by": "owner"' "$SHOP/.lem/state/events.jsonl" \
   && [ "$(field '(d["pull_request"]["number"], d["left_behind"])' <<<"$out")" = "(1, None)" ] && [ "$(status first-change)" = landed ] \
@@ -588,5 +593,205 @@ else
 fi
 project --repo "$FG" state set-up-checks dropped "the test is over" >/dev/null
 project --repo "$FG2" state other-checks dropped "the test is over" >/dev/null
+
+# A base that moved after the checks: a fresh merge agent reads what moved beside the change, and a move it calls
+# safe merges with no new run of the checks; one it calls another round lands the task again first.
+MB=$WORK/moved-base
+git init -q -b main "$MB" && ident "$MB"
+# the repository has no origin before its first commit, which init says on stderr
+project --repo "$MB" init --base main >/dev/null 2>&1
+# mb_settings LAND HISTORY: the moved-base shop's settings, an edit of the owner's in its main checkout
+mb_settings() { printf '%s\n' '[branch]' 'base = "main"' "land = \"$1\"" "history = \"$2\"" '[checks]' 'commands = ["true"]' > "$MB/.lem/project.toml"; }
+mb_settings agent squash
+mkdir -p "$MB/docs" && echo board > "$MB/docs/board.md" && printf '%s\n' 1 2 3 4 5 6 7 8 9 10 > "$MB/shared.txt"
+git -C "$MB" add -A && git -C "$MB" commit -q -m "chore: start" && on_github "$MB"
+MBO=$MB.origin.git
+MBX=$WORK/moved-base-other
+git clone -q "$MBO" "$MBX" 2>/dev/null && ident "$MBX"
+# mb_move FILE: another task's commit on origin's main, which appends a line to FILE; prints the new main
+mb_move() {
+  git -C "$MBX" pull -q --ff-only origin main && echo "move $(git -C "$MBX" rev-list --count HEAD)" >> "$MBX/$1"
+  git -C "$MBX" add -A && git -C "$MBX" commit -q -m "docs: $1" && git -C "$MBX" push -q origin main && git -C "$MBX" rev-parse HEAD
+}
+# mb_task SLUG FILE: a task of the moved-base shop, ready; mb_land SLUG [RECORD] [NOTES]: from ready to its pull request,
+# with a read that found nothing, or the review RECORD of its first attempt (JSON), and NOTES
+mb_task() { task_in "$MB" "$1" "$2" yes && read_in "$MB" "$1"; }
+MB_READ='{"kind": "read", "answered": ["codex"]}'
+mb_land() {
+  land --repo "$MB" start "$1" >/dev/null && land --repo "$MB" base "$1" >/dev/null && polish_in "$MB" "$1" && land --repo "$MB" checks "$1" >/dev/null \
+    && land --repo "$MB" read "$1" --record "$(record "$1" 1 "${2:-$MB_READ}")" >/dev/null \
+    && land --repo "$MB" propose "$1" --title "fix: $1" --notes "${3:-$NOTES}" >/dev/null
+}
+# mb_kept SLUG KEY PYTHON: what landing.json keeps under KEY, as `d`
+mb_kept() { "$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])).get(sys.argv[2]); print(eval(sys.argv[3], {"d": d}))' "$MB/.lem/state/tasks/$1/landing.json" "$2" "$3"; }
+# mb_body SLUG PYTHON: the pull request's text on GitHub (the stand-in's), as `d`
+mb_body() { gh_prs "$MB" "(lambda d: $2)(d['prs'][str($(mb_kept "$1" pr 'd["number"]'))]['body'])"; }
+mb_events() { grep "\"task\": \"$1\"" "$MB/.lem/state/events.jsonl" | grep -c "\"event\": \"$2\"" || true; }
+# mb_logged SLUG EVENT PYTHON: each EVENT of the task in the event log, as `d`, in a list
+mb_logged() { "$PY" -c 'import json, sys; print([eval(sys.argv[3], {"d": d}) for d in map(json.loads, open(sys.argv[1])) if d.get("task") == sys.argv[2] and d.get("event") == sys.argv[4]])' "$MB/.lem/state/events.jsonl" "$1" "$3" "$2"; }
+
+# Safe: the read of m2 comes after main moved to m3, so it covers m2 alone and the merge on m3 waits for a new read;
+# GitHub's refusal writes no line; a failed edit of the text after GitHub's merge leaves the task open, and `merged` writes it.
+mb_task mb-safe safe.txt && mb_land mb-safe
+m1=$(mb_kept mb-safe base d)
+starts=$(mb_events mb-safe gate.start)
+m2=$(mb_move docs/board.md)
+brief=$(land --repo "$MB" merge-review mb-safe)
+m3=$(mb_move docs/board.md)
+printf '%s\n' 'Verdict: merge. The change does what its criterion says.' 'Base: safe. What moved changed only docs/board.md, which the change does not read.' > "$WORK/mb-safe.md"
+late=$(land --repo "$MB" merge-review mb-safe --file "$WORK/mb-safe.md" --tip "$(field 'd["tip"]' <<<"$brief")" --base "$(field 'd["base"]' <<<"$brief")")
+beyond=$(land --repo "$MB" merge mb-safe --by merger --via server --message "fix: mb-safe" 2>&1 || true)
+kept_refusal=$(mb_kept mb-safe merge_refused '(d["by"], d["from"], d["kind"])')
+reread=$(merge_read "$MB" mb-safe merge safe)
+cleared=$(mb_kept mb-safe merge_refused d)
+gh_said=$(GH_REFUSE="Pull request is not mergeable: a required check is pending" land --repo "$MB" merge mb-safe --by merger --via server --message "fix: mb-safe" 2>&1 || true)
+untouched=$(mb_body mb-safe '"read of what moved" in d')
+edit_said=$(GH_EDIT_REFUSE="HTTP 502: Bad Gateway" land --repo "$MB" merge mb-safe --by merger --via server --message "fix: mb-safe" 2>&1 || true)
+open_still=$(status_in "$MB" mb-safe)
+commit_body=$(git -C "$MBO" log -1 --format=%b main)
+merged=$(land --repo "$MB" merged mb-safe)
+line="The checks ran on main at ${m1:0:9}; it merged on main at ${m3:0:9}, after the merge agent's read of what moved: What moved touches nothing the change rests on."
+started=$(grep '"event": "merge.start", "task": "mb-safe"' "$MB/.lem/state/events.jsonl" | tail -1 | field '(d.get("after"), d.get("base"))')
+if [ "$(field '(d["base"], d["facts"]["moved"]["checks_ran_on"], d["facts"]["moved"]["base_now"], d["facts"]["moved"]["files"], d["facts"]["moved"]["overlap"], [c["subject"] for c in d["facts"]["moved"]["commits"]])' <<<"$brief")" \
+    = "('$m2', '$m1', '$m2', ['docs/board.md'], [], ['docs: docs/board.md'])" ] \
+  && [ "$(field '(d["base"], d["base_call"], d["base_why"])' <<<"$late")" = "('$m2', 'safe', 'What moved changed only docs/board.md, which the change does not read.')" ] \
+  && grep -qF "the read of ${m2:0:9} said safe, and it covers no later base" <<<"$beyond" && [ "$kept_refusal" = "('merger', 'lem', 'base')" ] \
+  && [ "$(field '(d["base"], d["base_call"], d["next"].startswith("the board"))' <<<"$reread")" = "('$m3', 'safe', True)" ] && [ "$cleared" = None ] \
+  && grep -qF "GitHub refused the merge" <<<"$gh_said" && [ "$untouched" = False ] \
+  && grep -qF "did not reach the pull request's text (gh pr edit said: HTTP 502: Bad Gateway); the task stays open, and \`lem land merged mb-safe\` tries again" <<<"$edit_said" \
+  && [ "$open_still" = open ] && [ "$commit_body" = "$line" ] \
+  && [ "$(field 'd["base_read"]' <<<"$merged")" = "$line" ] && [ "$(status_in "$MB" mb-safe)" = landed ] && [ "$(mb_body mb-safe "d.rstrip().endswith('''$line''')")" = True ] \
+  && grep -qxF "$line" "$MB/.lem/state/tasks/mb-safe/pr.md" && grep -qxF "$line" "$MB/.lem/state/tasks/mb-safe/state.md" \
+  && [ "$(mb_kept mb-safe merged_by '(d["by"], d["after"], d["base"], d["checks_ran_on"])')" = "('merger', 'a read of the moved base', '$m3', '$m1')" ] \
+  && [ "$started" = "('a read of the moved base', '${m3:0:9}')" ] && [ "$(mb_events mb-safe gate.start)" = "$starts" ] \
+  && [ "$(mb_logged mb-safe merge.review '(d["base"], d["base_call"])')" = "[('${m2:0:9}', 'safe'), ('${m3:0:9}', 'safe')]" ] \
+  && [ "$(git -C "$MBO" show main:docs/board.md | grep -c '^move ')" = 2 ] && [ "$(git -C "$MBO" show main:safe.txt)" = yes ]; then
+  pass "a base that moved after the checks is read by a fresh merge agent with the commits and the files that moved beside the change; its read covers the base its brief named, so an answer recorded after main moved again covers no later base and the merge waits for a new read; a safe read merges with no new run of the checks and keeps what moved, and the merge commit, the pull request's text, pr.md and the task's state name the base the checks ran on, the base it merged on and the read's why, also when the edit of the text failed once; a merge GitHub refuses writes no line"
+else
+  fail "a safe read of a moved base: $brief / $late / $beyond / $kept_refusal / $reread / $cleared / $gh_said / $untouched / $edit_said / $open_still / $commit_body / $merged / $started"
+fi
+
+# Another round: the read keeps a base refusal that only a new landing answers, also when the move touched a file the
+# change edits too; and an answer with no base call, twice on a moved base, is recorded as another round.
+mb_task mb-round round.txt
+round_tree=$(project --repo "$MB" worktree-dir mb-round)
+printf '%s\n' one 2 3 4 5 6 7 8 9 10 > "$round_tree/shared.txt" && git -C "$round_tree" commit -q -am "fix: the first line"
+mb_land mb-round
+mb_task mb-mute mute.txt && mb_land mb-mute
+git -C "$MBX" pull -q --ff-only origin main && printf '%s\n' 1 2 3 4 5 6 7 8 9 ten > "$MBX/shared.txt" && git -C "$MBX" commit -q -am "fix: the last line" && git -C "$MBX" push -q origin main
+overlap=$(land --repo "$MB" merge-review mb-round | field 'd["facts"]["moved"]["overlap"]')
+round=$(merge_read "$MB" mb-round merge "another round")
+round_tip=$(mb_kept mb-round proposed d)
+again_brief=$(land --repo "$MB" merge-review mb-round 2>&1 || true)
+printf '%s\n' 'Verdict: merge. Fine.' 'Base: safe. Nothing moved that matters.' > "$WORK/mb-round-safe.md"
+again_answer=$(land --repo "$MB" merge-review mb-round --file "$WORK/mb-round-safe.md" --tip "$round_tip" --base "$(git -C "$MB" rev-parse origin/main)" 2>&1 || true)
+again_merge=$(land --repo "$MB" merge mb-round --by merger --via server --message "fix: mb-round" 2>&1 || true)
+round_refusal=$(mb_kept mb-round merge_refused '(d["by"], d["from"], d["kind"])')
+mute_brief=$(land --repo "$MB" merge-review mb-mute)
+printf '%s\n' 'Verdict: merge. The change does what its criterion says.' '' 'Its test proves it.' > "$WORK/mb-mute.md"
+mute_first=$(land --repo "$MB" merge-review mb-mute --file "$WORK/mb-mute.md" --tip "$(field 'd["tip"]' <<<"$mute_brief")" --base "$(field 'd["base"]' <<<"$mute_brief")" 2>&1 || true)
+mute_second=$(land --repo "$MB" merge-review mb-mute --file "$WORK/mb-mute.md" --tip "$(field 'd["tip"]' <<<"$mute_brief")" --base "$(field 'd["base"]' <<<"$mute_brief")")
+mute_refusal=$(mb_kept mb-mute merge_refused '(d["from"], d["kind"])')
+# the new landing: the rebase with no conflict carries the review and the merge review, with no call on the old base
+land --repo "$MB" start mb-round >/dev/null && land --repo "$MB" base mb-round >/dev/null && land --repo "$MB" checks mb-round >/dev/null && land --repo "$MB" read mb-round >/dev/null
+reproposed=$(land --repo "$MB" propose mb-round --title "fix: mb-round" --notes "$NOTES")
+carried=$(mb_kept mb-round merge_review '(d["verdict"], "base_call" in d, "carried_from" in d)')
+landed_round=$(land --repo "$MB" merge mb-round --by merger --via server --message "fix: mb-round")
+if [ "$overlap" = "['shared.txt']" ] \
+  && [ "$(field '(d["base_call"], "lem land start" in d["next"], "the owner is not asked" in d["next"])' <<<"$round")" = "('another round', True, True)" ] \
+  && [ "$(mb_kept mb-round another_round d)" = "$round_tip" ] && [ "$round_refusal" = "('merger', 'lem', 'base')" ] \
+  && grep -qF "said that the moved base needs another round of the checks, and no later read answers that" <<<"$again_brief" \
+  && grep -qF "said that the moved base needs another round of the checks, and no later read answers that" <<<"$again_answer" \
+  && grep -qF "the merge agent's read of this tip said another round; run \`lem land start\`" <<<"$again_merge" \
+  && [ "$(mb_logged mb-round merge.refused '(d["kind"], d["from"], "another round" in d["said"])')" = "[('base', 'lem', True), ('base', 'lem', True)]" ] \
+  && grep -qF "gives no call on the moved base" <<<"$mute_first" && grep -qF "the merge agent is asked again" <<<"$mute_first" \
+  && [ "$(field '(d["verdict"], d["base_call"], d["base_why"])' <<<"$mute_second")" \
+    = "('merge', 'another round', \"the merge agent's answer could not be recorded twice (its second line gave no call on the moved base), and in doubt the checks run again\")" ] \
+  && [ "$mute_refusal" = "('lem', 'base')" ] \
+  && [ "$(field 'd["merge_review"]' <<<"$reproposed")" = carried ] && [ "$carried" = "('merge', False, True)" ] \
+  && [ "$(status_in "$MB" mb-round)" = landed ] && [ "$(mb_kept mb-round merged_by d)" = "{'by': 'merger', 'via': 'server'}" ] && [ "$(field 'd["base_read"]' <<<"$landed_round")" = None ] \
+  && [ "$(git -C "$MBO" show main:shared.txt | tr '\n' ' ')" = "one 2 3 4 5 6 7 8 9 ten " ]; then
+  pass "a read that says another round merges nothing and keeps a base refusal that no later read answers, also when the move touched a file the change edits; a second answer with no base call on a moved base is recorded as another round; the new landing carries the merge review with no call on the old base and merges with no line"
+else
+  fail "another round on a moved base: $overlap / $round / $again_brief / $again_answer / $again_merge / $round_refusal / $mute_first / $mute_second / $reproposed / $carried / $landed_round"
+fi
+project --repo "$MB" state mb-mute dropped "the test is over" >/dev/null
+
+# The owner's merge that meets a moved base waits for the read, and on safe it goes through with no new press of his;
+# with history = keep the pull request's text alone holds the line.
+mb_settings agent keep
+mb_task mb-owner owner.txt && mb_land mb-owner
+owner_move=$(mb_move docs/board.md)
+pressed=$(land --repo "$MB" merge mb-owner --by owner 2>&1 || true)
+tap=$(mb_kept mb-owner owner_tap 'd["tip"] == "'"$(mb_kept mb-owner proposed d)"'"')
+stands=$(merge_read "$MB" mb-owner merge safe)
+stood=$(land --repo "$MB" merge mb-owner --by owner --via server --standing --tip "$(mb_kept mb-owner proposed d)")
+owner_line="The checks ran on main at $(mb_kept mb-owner merged_by 'd["checks_ran_on"][:9]'); it merged on main at ${owner_move:0:9}, after the merge agent's read of what moved: What moved touches nothing the change rests on."
+if grep -qF "the owner's merge stands, and goes through after a read that says \`Base: safe.\`" <<<"$pressed" && [ "$tap" = True ] \
+  && [ "$(field '(d["base_call"], d["next"].startswith("the owner'"'"'s merge stands"))' <<<"$stands")" = "('safe', True)" ] && [ "$(mb_kept mb-owner merge_refused d)" = None ] \
+  && [ "$(mb_logged mb-owner merge.stands '(d["by"], d["after"], d["base"])')" = "[('owner', 'a read of the moved base', '${owner_move:0:9}')]" ] \
+  && [ "$(status_in "$MB" mb-owner)" = landed ] && [ "$(field 'd["base_read"]' <<<"$stood")" = "$owner_line" ] && [ "$(mb_body mb-owner "'''$owner_line''' in d")" = True ] \
+  && [ "$(mb_kept mb-owner merged_by '(d["by"], d["via"], d["after"])')" = "('owner', 'server', 'a read of the moved base')" ] \
+  && git -C "$MBO" merge-base --is-ancestor "$owner_move" main && [ "$(git -C "$MBO" show main:owner.txt)" = yes ] && [ -z "$(git -C "$MBO" log -1 --format=%b main)" ]; then
+  pass "the owner's merge that meets a moved base waits for the merge agent's read; on safe the refusal is answered, his merge stands and goes through on the new base with no new press, and with history = keep the pull request's text alone names the read"
+else
+  fail "the owner's merge on a moved base: $pressed / $tap / $stands / $stood / $(git -C "$MBO" log -3 --format=%s main)"
+fi
+
+# A safe read never lets the merge agent merge what it may not merge today: a careful request still waits for the owner.
+mb_settings agent squash
+mb_task mb-careful careful.txt
+printf '%s\n' 'slug: mb-careful' 'lead: session' 'careful: the owner says so' > "$(project --repo "$MB" task-dir mb-careful)/brief.md"
+mb_land mb-careful '{"kind": "full", "ran": [{"name": "default", "why": "the request is careful"}], "answered": ["codex"]}' "$MIG"
+mb_move docs/board.md >/dev/null
+careful_read=$(merge_read "$MB" mb-careful merge safe)
+careful_merge=$(land --repo "$MB" merge mb-careful --by merger --via server --message "fix: mb-careful" 2>&1 || true)
+if [ "$(field '(d["base_call"], d["calls"], d["next"].startswith("it calls the owner"))' <<<"$careful_read")" = "('safe', True, True)" ] \
+  && grep -qF "a careful request is merged by the owner" <<<"$careful_merge" && [ "$(status_in "$MB" mb-careful)" = open ]; then
+  pass "a safe read of a moved base still calls the owner for a careful request, and the merge agent merges nothing"
+else
+  fail "a careful request on a moved base: $careful_read / $careful_merge"
+fi
+project --repo "$MB" state mb-careful dropped "the test is over" >/dev/null
+
+# A merge on GitHub outside Lem between Lem's look at the base and its merge call: the merged commit's parent is not the
+# base the read covered, and the pull request's text and the task's state say so.
+mb_task mb-race race.txt && mb_land mb-race
+mb_move docs/board.md >/dev/null
+merge_read "$MB" mb-race merge safe >/dev/null
+race_read=$(mb_kept mb-race merge_review 'd["base"]')
+git -C "$MBX" pull -q --ff-only origin main && echo raced > "$MBX/raced.txt" && git -C "$MBX" add -A && git -C "$MBX" commit -q -m "feat: raced" && git -C "$MBX" push -q origin HEAD:refs/heads/racer
+racer=$(git -C "$MBX" rev-parse HEAD) && git -C "$MBX" reset -q --hard origin/main
+raced=$(GH_BASE_FIRST=$racer land --repo "$MB" merge mb-race --by merger --via server --message "fix: mb-race")
+race_line="The checks ran on main at $(mb_kept mb-race base 'd[:9]'); it merged on main at ${racer:0:9}, which no read of the merge agent covered (its read covered ${race_read:0:9}): a merge on GitHub came between Lem's look at the base and its merge, and nothing undoes it"
+if [ "$(field 'd["base_read"]' <<<"$raced")" = "$race_line" ] && [ "$(field 'd["uncovered"]' <<<"$raced")" = "mb-race: $race_line" ] && [ "$(git -C "$MBO" rev-parse main^)" = "$racer" ] \
+  && [ "$(mb_body mb-race "'''$race_line''' in d")" = True ] && grep -qxF "$race_line" "$MB/.lem/state/tasks/mb-race/state.md"; then
+  pass "a merge whose real parent on GitHub is not the base the read covered names the base it merged on and says that no read covered it, in the pull request's text, the task's state and a line for the owner"
+else
+  fail "a merge outside Lem before Lem's merge call: $raced / $race_line"
+fi
+
+# A move that a revert undid after Lem refused the owner's merge for it: the read's brief names the checks' own base,
+# and that read, with no call on a move, answers the refusal, so his merge stands and goes through with no new run of
+# the checks.
+mb_task mb-back back.txt && mb_land mb-back
+back_base=$(mb_kept mb-back base d)
+back_starts=$(mb_events mb-back gate.start)
+mb_move docs/board.md >/dev/null
+back_refused=$(land --repo "$MB" merge mb-back --by owner --message "fix: mb-back" 2>&1 || true)
+git -C "$MBX" revert --no-edit HEAD >/dev/null && git -C "$MBX" push -q origin main
+back_main=$(git -C "$MBX" rev-parse HEAD)
+back_read=$(merge_read "$MB" mb-back merge)
+back_cleared=$(mb_kept mb-back merge_refused d)
+back_merged=$(land --repo "$MB" merge mb-back --by owner --via server --standing --tip "$(mb_kept mb-back proposed d)" --message "fix: mb-back")
+if grep -qF "moved after the checks ran, by files (docs/board.md)" <<<"$back_refused" \
+  && [ "$(field '(d["base"], d["base_call"], d["next"].startswith("the owner'"'"'s merge stands"))' <<<"$back_read")" = "('$back_base', None, True)" ] \
+  && [ "$back_cleared" = None ] && [ "$(mb_logged mb-back merge.stands '(d["after"], d["base"])')" = "[(\"a read of the base back on the checks' tree\", '${back_base:0:9}')]" ] \
+  && [ "$(status_in "$MB" mb-back)" = landed ] && [ "$(field 'd["base_read"]' <<<"$back_merged")" = None ] && [ "$(git -C "$MBO" rev-parse main^)" = "$back_main" ] \
+  && [ "$(mb_events mb-back gate.start)" = "$back_starts" ] && [ "$(git -C "$MBO" show main:back.txt)" = yes ]; then
+  pass "a move of the base that a revert undid after Lem refused the owner's merge: the read's brief names the checks' own base, its read answers the refusal, and his merge stands and goes through with no new run of the checks"
+else
+  fail "a read on the checks' base after a revert: $back_refused / $back_read / $back_cleared / $back_merged / $(git -C "$MBO" log -3 --format=%s main)"
+fi
 
 finish
