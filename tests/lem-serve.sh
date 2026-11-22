@@ -362,6 +362,24 @@ json.dump({"width": 390, "height": 844, "scale": 2, "mobile": True, "steps": ste
   fi
 fi
 
+# A page that opens its stream again (a phone's page back in view: `?since=` the id it saw last) after a change it
+# missed that is no line of the log gets a refresh at once. The owner's mark is such a change: away, the criteria Lem
+# approves without him leave Waits for you, so the count on the phone's inbox icon would stay one more than a page
+# that was open all along shows in its sidebar.
+inbox() { got "$BASE/" | "$PY" -c 'import re, sys; print(re.search(r"class=\"m-waits[^\"]*\".*?<span>(\d+)</span>", sys.stdin.read(), re.S)[1])'; }
+count=$(grep -c '' "$STATE/events.jsonl")
+inbox_before=$(inbox)
+project --repo "$DEMO" owner away --words "I'm away" >/dev/null
+inbox_after=$(inbox)
+curl -sN --max-time 3 "$BASE/stream?since=$count" > "$WORK/stream-again.out" 2>/dev/null || true
+project --repo "$DEMO" owner back --words "/lem im-back" >/dev/null
+if [ "$count" = "$(grep -c '' "$STATE/events.jsonl")" ] && [ "$inbox_before" != "$inbox_after" ] \
+  && grep -qxF 'data: <turbo-stream action="refresh"></turbo-stream>' "$WORK/stream-again.out"; then
+  pass "a page that opens its stream again after a change of what waits for the owner that is no line of the log gets a refresh at once"
+else
+  fail "the stream opened again after a change outside the log: the log $count lines, the inbox $inbox_before then $inbox_after, the stream said $(cat "$WORK/stream-again.out")"
+fi
+
 # lem board, with a stand-in for agtermctl that prints a tree and records its calls: the board opens at the server's
 # address as a page companion of the session's group, and is known by its workspace's address.
 printf '%s\n' '{"result": {"tree": {"workspaces": [{"sessions": [{"id": "LEM", "foreground": ["/usr/local/bin/claude"]}, {"id": "OTHER"},' \
