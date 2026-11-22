@@ -243,6 +243,114 @@ The tasks run one after another in the one worktree, but task 5, which touches o
    - `AGENTS.md`: a sentence that the change makes false (search "backlog", "filed").
    Files: the documents above.
 
+## Plan talk
+
+Who argued the plan: the reviewer, Codex with GPT 6.2 Sol at high effort, as its pane's status
+line showed them; the defender, Claude Code with Opus 5.5 at high effort, as the `defender:` line
+of the task's state gives them. Two families. The talk had 8 turns, against a bound of 46
+(4 × 11 + 2). The repairs are commit 76d16900. Agreement carries no authority: the review before
+the pull request reads each settled position as a claim.
+
+The reviewer's list, numbered as it came:
+
+1. **Is a whole-path ask enough to delete an item?** Mechanism: an issue whose body is only an
+   item's path reaches `ask.txt` word for word (`stages/new.md`, "Open the task", steps 1 and 3),
+   and the rule of task 3 would delete that item. Place: task 3. Repair: the item is the ask only
+   when the whole of `ask.txt` is one path of the base's backlog folder. It held: the text of a
+   ticket may identify the work while the criteria say what changes. Refutation: a ticket's text
+   is the ask word for word, and a body that is only the path gives the task nothing else to
+   build (`stages/new.md`, step 1); the merge agent reads the deletion in the diff
+   (`prompts/merge.md`, step 2). It held again. **A design choice**: a whole path from any source
+   (the plan as the talk left it) against the board's and the night's start alone, which
+   criterion 8 names. `stages/plan.md`, step 5, takes it.
+2. **What lets the checks pass over a late deletion?** Mechanism: a project check that reads the
+   item passes before its deletion and fails after it, and `gate_holds` would keep the green
+   result. Place: task 3, `land.py:gate_holds`. Repair, at the cause: the late deletion runs the
+   checks again; `covers_one` still takes it as no new review. It held, at the cause: the late
+   deletion changes the reviewed diff, and `prompts/review.md` step 1 reads the diff against the
+   rules. Refutation: the reviewer's example fails at the checks here
+   (`tests/unit/test_agents_md.py:test_each_path_the_list_names_exists`), which the reviewer
+   withdrew as a failure of this repository; an item holds no code, as the items `file` adds hold
+   none (`land.py:covers_one`). It held again. **A design choice**: carry the review over the
+   late deletion of the task's own item (the plan) against a review of the changed diff.
+   `stages/plan.md`, step 5, takes it.
+3. **Does the decision against a match by `where` hold for the branch's items too?** Mechanism:
+   defects A and D of `tests/lem-land-backlog.sh` share a `where`; a builder files A, and
+   `cmd_file` gives D's record A's item, so D is lost. Place: `land.py:cmd_file`. Repair, at the
+   cause: the match by `where` and `named` go; the review leaves out a defect a branch item names.
+   It held, at the cause: when a join on the base removes the item an `open` cites and keeps
+   another for the same defect, `cmd_file` files a second item, which criterion 4 forbids.
+   Refutation: only this task's one sort joins items, and an extra item is the price existing code
+   takes (`land.py:cmd_file`, "an extra item is the price, never a lost one"). It held again: here
+   the item that stays holds the same defect. **A design choice**: file the defect when its cited
+   item is gone (the plan) against a look for the item that took its place before filing.
+   `stages/plan.md`, step 5, takes it.
+4. **What tells a cheap finding the fix builder fixed from one it did not?** Mechanism: in a
+   second round with a must-fix, `land.py:due_of` gives `owner` and no fix builder starts, so no
+   notes name the round's cheap entries. Place: task 2, `propose`. Repair, at the cause: each
+   `cheap` entry is a line under "Seen, not filed" by default, and only a line under "Fixed on the
+   way" with its `where` and its title word for word takes it out. It held, at the cause: D and E
+   of `tests/lem-land-backlog.sh` share `where` and title with two runs, so a fix of one takes out
+   the line of the other. No refutation. **A design choice**: the key of `where` and title (the
+   plan) against a key that tells each finding apart. `stages/plan.md`, step 5, takes it.
+5. **Can a fix note for one finding count for another at the same place?** Mechanism: an obsolete
+   suppression and a false docstring at one function; a note for the docstring met the rule by
+   `where`. Place: task 2. Repair: the key is `where` and title, word for word. Closed, same
+   decision as 4; settled by the two, not checked by the review.
+6. **Which step keeps a "Seen, not filed" line from naming a gone item?** Mechanism: task 5's join
+   removes an item a review cited in `open`, and a rebase keeps that review (`land.py:cmd_base`,
+   `covers_one`). Place: task 2. Repair: `to_file` and `cmd_file` take an `over` entry whose `open`
+   is not in the tip. Closed, same decision as 3; settled by the two, not checked by the review.
+7. **Does an over-bar line that names an open item make the merge agent call?** Mechanism: the
+   criterion 4 example names `the-first-line-skips-a-bold-outcome.md`, and task 4 called for any
+   over-bar line. Place: task 4. Repair: such a line is a call only when it names no open item that
+   holds the defect. Closed (`prompts/merge.md`, "Decide", as task 4 changes it); settled by the
+   two, not checked by the review.
+8. **Where do both tracks publish the new lists?** Mechanism: `land.py:pr_text` and `small_text`
+   read `defect["item"]` of every entry, which an `under` entry lacks, and `small_text` names the
+   builder's items under `## Checks`. Place: task 2. Repair: both read `item` only where it is, and
+   each track writes `## Filed in the backlog`, `## Fixed on the way` and `## Seen, not filed`.
+   Closed; settled by the two, not checked by the review.
+9. **Which rule 6 do the reviewer and the merge agent of a project with its own builder read?**
+   Mechanism: `spawn-builder` picks a project's `.claude/agents/lem-builder.md`, and `merge.md`
+   named Lem's. Place: the decision on the bar's place, task 4. Repair: the merge brief names the
+   file the bar is in, as `spawn-builder` picks it. Closed, a layer over "The bar is written in
+   rule 6", which rests on criterion 1 and the override of `harness/claude-code.md`; settled by the
+   two, not checked by the review.
+10. **Which task updates the callers of new required headings?** Mechanism: `tests/lib.sh` and
+    `tests/lem-land-shop.sh:113` write and assert the notes' headings. Place: task 2, `NOTES`.
+    Repair: `NOTES` stays; the two new headings are the text's own, written only when they have a
+    line. Closed; settled by the two, not checked by the review.
+11. **Where do the ruling and the history meet criteria 5 and 6?** Mechanism: the new bullet said a
+    cheap defect is fixed where it was found, and the history's fast-track line says its builder
+    never fixes. Place: task 6. Repair: the bullet follows criteria 5 and 6, and the history's line
+    changes its second part. Closed; settled by the two, not checked by the review.
+
+Each mechanism a repair added, with the decision it sits on and the reviewer's word:
+
+- Question 6: an `over` entry whose `open` item is gone from the tip is filed. It sits on "An open
+  item is named by the agent", which rests on criterion 4; the reviewer closed it as the same
+  decision as 3.
+- Question 9: the merge brief's `bar`, the file of rule 6 as `spawn-builder` picks it. A layer over
+  "The bar is written in rule 6", cited to criterion 1 and `harness/claude-code.md`, `spawn-builder`.
+- Questions 2, 3 and 4 changed a decision (at the cause): the checks' exemption for a deletion
+  went, the match by `where` in `cmd_file` went, and the refusal of `propose` over cheap entries
+  gave way to a default line.
+
+Raised, not argued: a rebase gives a cheap fix's commit a new hash, while `stages/conflict.md`
+keeps `notes.md` and `land.py:through_rebase` maps only the polish record's `before` and `after`,
+so a line under "Fixed on the way" can name the old commit. Place: task 2, the notes, and
+`stages/conflict.md`.
+
+Refused as unpriced: none.
+
+What changed in the plan, by task: task 2 (questions 3 to 6, 8 and 10: the record's `open` and its
+filing, the end of the `where` match, the default line for a cheap entry, `NOTES`, `pr_text` and
+`small_text`, the tests); task 3 (questions 1 and 2: the whole-path ask, the checks after a late
+deletion); task 4 (questions 7 and 9: the open-item exception, the bar's file in the merge brief);
+task 6 (question 11: the ruling's words, the history's line); the decisions of the plan (questions
+2, 3, 4 and 9).
+
 ## Decisions of the plan
 
 - **The bar is written in rule 6 of `agents/lem-builder.md`.** The polish pass, the fast track's
