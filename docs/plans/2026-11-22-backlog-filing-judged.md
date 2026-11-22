@@ -265,7 +265,8 @@ The reviewer's list, numbered as it came:
    build (`stages/new.md`, step 1); the merge agent reads the deletion in the diff
    (`prompts/merge.md`, step 2). It held again. **A design choice**: a whole path from any source
    (the plan as the talk left it) against the board's and the night's start alone, which
-   criterion 8 names. `stages/plan.md`, step 5, takes it.
+   criterion 8 names. The ladder's gate: cheap, so the plan's A stands (the two differ only on a
+   ticket or a line of his that is a path alone; a change to B is one small commit).
 2. **What lets the checks pass over a late deletion?** Mechanism: a project check that reads the
    item passes before its deletion and fails after it, and `gate_holds` would keep the green
    result. Place: task 3, `land.py:gate_holds`. Repair, at the cause: the late deletion runs the
@@ -276,7 +277,8 @@ The reviewer's list, numbered as it came:
    withdrew as a failure of this repository; an item holds no code, as the items `file` adds hold
    none (`land.py:covers_one`). It held again. **A design choice**: carry the review over the
    late deletion of the task's own item (the plan) against a review of the changed diff.
-   `stages/plan.md`, step 5, takes it.
+   The ladder's gate: cheap, so the plan's A stands (a rare case of a file with no code; the
+   checks run again).
 3. **Does the decision against a match by `where` hold for the branch's items too?** Mechanism:
    defects A and D of `tests/lem-land-backlog.sh` share a `where`; a builder files A, and
    `cmd_file` gives D's record A's item, so D is lost. Place: `land.py:cmd_file`. Repair, at the
@@ -287,7 +289,8 @@ The reviewer's list, numbered as it came:
    takes (`land.py:cmd_file`, "an extra item is the price, never a lost one"). It held again: here
    the item that stays holds the same defect. **A design choice**: file the defect when its cited
    item is gone (the plan) against a look for the item that took its place before filing.
-   `stages/plan.md`, step 5, takes it.
+   The ladder's gate: cheap, so the plan's A stands (a near-never case whose worst outcome is
+   one duplicate item that the merge agent reads).
 4. **What tells a cheap finding the fix builder fixed from one it did not?** Mechanism: in a
    second round with a must-fix, `land.py:due_of` gives `owner` and no fix builder starts, so no
    notes name the round's cheap entries. Place: task 2, `propose`. Repair, at the cause: each
@@ -295,7 +298,9 @@ The reviewer's list, numbered as it came:
    way" with its `where` and its title word for word takes it out. It held, at the cause: D and E
    of `tests/lem-land-backlog.sh` share `where` and title with two runs, so a fix of one takes out
    the line of the other. No refutation. **A design choice**: the key of `where` and title (the
-   plan) against a key that tells each finding apart. `stages/plan.md`, step 5, takes it.
+   plan) against a key that tells each finding apart. The ladder's gate: cheap, with the key of
+   `where` and title out, since it breaks criterion 3; the plan now gives each entry a number
+   (`r1.3`) that the fix line names (commit c0d3e8fd).
 5. **Can a fix note for one finding count for another at the same place?** Mechanism: an obsolete
    suppression and a false docstring at one function; a note for the docstring met the rule by
    `where`. Place: task 2. Repair: the key is `where` and title, word for word. Closed, same
@@ -352,7 +357,7 @@ filing, the end of the `where` match, the default line for a cheap entry, `NOTES
 `small_text`, the tests); task 3 (questions 1 and 2: the whole-path ask, the checks after a late
 deletion); task 4 (questions 7 and 9: the open-item exception, the bar's file in the merge brief);
 task 6 (question 11: the ruling's words, the history's line); the decisions of the plan (questions
-2, 3, 4 and 9).
+2, 3, 4 and 9); after the talk, task 2 and its decision again, by the ladder's pick for question 4.
 
 ## Decisions of the plan
 
