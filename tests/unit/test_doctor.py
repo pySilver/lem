@@ -21,7 +21,7 @@ IN_TABLE = {
     "agterm": "[agterm]", "agterm skill": "[agterm]", "claude": "[Claude Code]", "git": "git, and Python", "python3": "Python 3.11",
     "revmux": "[revmux]", "revmux skill": "[revmux]", "cronn": "[cronn]", "mailbox-chat": "the mailbox chat",
     "mailbox-chat skill": "the mailbox chat", "webrev skill": "webrev", "backlog skill": "the backlog recipe", "agdoc skill": "agdoc",
-    "codex": "[Codex]", "Jev key": "JEV_API_KEY",
+    "codex": "[Codex]", "plannotator": "[Plannotator]", "Jev key": "JEV_API_KEY",
 }
 # A table row whose word and the check's tier do not agree, and why it is not settled here.
 UNSETTLED = {

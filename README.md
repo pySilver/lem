@@ -122,7 +122,10 @@ each morning and `/lem night` each night.
 
 The board shows each task, what waits for you, the backlog and the activity, and it updates by
 itself. You can approve criteria, merge and park a task there. Add it to the Home Screen of your
-phone. Lem then sends a notification each time something starts to wait for you. The boards of two computers can share one address.
+phone. Lem then sends a notification each time something starts to wait for you. While you are
+away, what waits for you also goes to your
+[Plannotator Inbox](docs/when-lem-needs-you.md#answer-from-the-inbox), and you can answer it there
+from your phone. The boards of two computers can share one address.
 
 <p align="center">
   <picture>

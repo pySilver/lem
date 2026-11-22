@@ -196,7 +196,9 @@ Each script's module docstring says what it does and why; this list says where e
     that starts it. Its parts: `lem_board_model.py` (the model, pure functions over the files),
     `lem_board_pages.py` (the pages of a workspace), `lem_board_task.py` (the board of one task),
     `lem_artifacts.py` (a task's files on one map), `lem_html.py` (`h()`, which escapes every text),
-    `lem_push.py` (the notifications) and `lem_peers.py` (another machine joined with `--join`).
+    `lem_push.py` (the notifications), `lem_inbox.py` (what waits for the owner, sent to his Plannotator
+    Inbox while he is away and withdrawn when it no longer waits) and `lem_peers.py` (another machine
+    joined with `--join`).
   - `board.py` (`lem board`): makes sure the server runs and opens a board, or with `--page FILE`
     any page of Lem, as a companion. `picker.py` (`lem picker`): agterm's picker over the tasks.
   - `doctor.py` (`lem doctor`): the machine check. `corrections.py` (`lem corrections`): the
@@ -223,8 +225,9 @@ Each script's module docstring says what it does and why; this list says where e
 - `.lem/`: Lem's own settings, profile, cast and lessons, in the places every repository has them.
   Its `state/`, which git ignores, is the state of a repository's Lem: the tasks, the event log,
   the night reports, the naps, the experts' folders, a panel's copies, the panels' folders
-  (`panels/`, which `lem cast run-dir` makes), and `forge.json`, the board
-  server's last look at GitHub. `lem project prune` removes from it what is older than
+  (`panels/`, which `lem cast run-dir` makes), `forge.json`, the board
+  server's last look at GitHub, and `inbox.json`, its record of the owner's Inbox: its last look at
+  the Inbox and each thing it sent there. `lem project prune` removes from it what is older than
   `state.keep_days`, and makes the events of each task that ended before then one summary event of
   the log. `.lem/worktrees/` holds
   the tasks' worktrees. `.revmux/` is the review tool's configuration for this repository.
@@ -293,6 +296,7 @@ and lem-ask's Stop hook (`skills/lem-ask/hooks/hooks.json`) is registered by not
 the capability rule when a second agent has to run it, not before.
 
 The set is deliberately small. A tool with its own life (revmux, agterm, the mailbox chat, webrev,
-agdoc, the backlog recipe, cronn, plannotator-tui, Codex) is checked for by `doctor.py` and never
-copied in. The backlog's item format is the recipe's, and Lem's builders read it in rule 6 of
-`agents/lem-builder.md`; no builder loads the recipe's skill, which is the owner's own tool.
+agdoc, the backlog recipe, cronn, plannotator-tui, Plannotator, Codex) is checked for by
+`doctor.py` and never copied in. The backlog's item format is the recipe's, and Lem's builders read
+it in rule 6 of `agents/lem-builder.md`; no builder loads the recipe's skill, which is the owner's
+own tool.
