@@ -27,6 +27,11 @@ export default class extends Controller {
     const railed = !read().rail;
     write({rail: railed});
     this.element.classList.toggle('railed', railed);
+    // the arrow at the sidebar's foot says what its next click does; board.css turns it
+    const button = document.getElementById('side-fold');
+    const say = railed ? 'Unfold the sidebar' : 'Fold the sidebar';
+    button?.setAttribute('title', say);
+    button?.setAttribute('aria-label', say);
   }
 
   head(ev) {

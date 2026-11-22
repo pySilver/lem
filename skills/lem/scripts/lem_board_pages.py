@@ -432,9 +432,7 @@ def sidebar(ctx: Ctx, waits: list, repo: str) -> Markup:
                h("div", None, h("div", {"class": "b-name"}, "Lem"),
                  h("div", {"class": "b-repo", "title": f"{repo} · tasks land on {m.meta['base']}" if m.meta.get("base") else repo}, repo)),
                h("span", {"class": f"beacon{' bad' if trouble else ''}", "id": "beacon",
-                          "title": "; ".join(trouble) if trouble else "lem serve reads this workspace's files and tells the page each change"}),
-               h("button", {"id": "side-fold", "class": "ibtn", "type": "button", "data-action": "fold#side", "title": "Fold the sidebar", "aria-label": "Fold the sidebar"},
-                 icon(ctx, "sidebar"))),
+                          "title": "; ".join(trouble) if trouble else "lem serve reads this workspace's files and tells the page each change"})),
              h("div", {"class": "rail", "id": "rail", "aria-label": "Lem, folded"}, rail(ctx, waits, counts)),
              h("div", {"class": "notices", "id": "notices"}, notices(ctx)),
              h("div", {"class": "side-head"}, "Waits for you",
@@ -447,7 +445,15 @@ def sidebar(ctx: Ctx, waits: list, repo: str) -> Markup:
                   icon(ctx, v["icon"]), v["label"], h("kbd", None, v["kbd"]),
                   h("em", None, counts[v["key"]]) if counts.get(v["key"]) is not None else None) for v in VIEWS]),
              push_row(ctx, "side"),
-             h("div", {"class": "side-foot", "id": "side-foot"}, switcher(ctx)))
+             h("div", {"class": "side-foot", "id": "side-foot"}, switcher(ctx), side_fold(ctx)))
+
+
+def side_fold(ctx: Ctx) -> Markup:
+    """The one control that folds the sidebar to a rail and unfolds it, at the sidebar's foot: an arrow
+    that points left while the sidebar is open, and that board.css turns to the right on the rail."""
+    say = "Unfold the sidebar" if ctx.prefs.get("rail") else "Fold the sidebar"
+    return h("button", {"id": "side-fold", "class": "ibtn", "type": "button", "data-action": "fold#side", "title": say, "aria-label": say},
+             icon(ctx, "chevron-left"))
 
 
 def wait_row(ctx: Ctx, w: dict) -> Markup:
