@@ -57,7 +57,10 @@ Criteria that wait for his yes with no interview (a lead's, of a complete reques
    decision of the build (`stages/build.md`, "A choice in the build"). Then write `task.md` again
    with the outcome and the "done when" his answers gave, once the last question is answered. Read
    `SKILL_DIR/prompts/writing.md` first: the `## Outcome` is its story of what he will see, Today
-   and After, with a chart when the change is a flow or a rule with branches.
+   and After, with a chart when the change is a flow or a rule with branches. Once it is written,
+   log the end of the questions, `lem project log SLUG interview.end`, also when they ended with
+   your guesses while he is away: from then on the board says that you write the criteria, and no
+   longer lists the task as his while the scout still reads and you write.
    A defect outside the request, that he names or that the scout's report shows, is no part of
    the task and is not lost: write it to `outside.md` in the task directory, one line each, with
    its place (`path` or `path:symbol`) and what is wrong. Do not ask him whether to file it, and
@@ -76,7 +79,7 @@ Criteria that wait for his yes with no interview (a lead's, of a complete reques
    directions, and say that the personas read them now (a chart stays in the file and goes on the
    page of step 6). No page opens before the read is in.
    Log its start, `lem project log SLUG criteria.read.start by=lem`; the
-   record below is its end, and the end of the interview. The read is the persona panel's
+   record below is its end. The read is the persona panel's
    "Reading acceptance criteria" mode (`load-skill`). It runs on one model family: a task's session
    has no paired agent of the other family, and the panel never puts a one-shot agent of that
    family in its place, so the record's `families` has one entry and the panel says that one family
@@ -108,7 +111,8 @@ Criteria that wait for his yes with no interview (a lead's, of a complete reques
    developer (a customer, a clerk, a reader of a file), the read starts and you ask nothing. When
    every criterion names only the developer, ask one fixed question in the terminal before the
    read starts, a fixed choice with no context: "The acceptance criteria name only you. Skip the
-   persona read? (y/n)". Never skip the read by your own judgment: you wrote the criteria, and the author of a
+   persona read? (y/n)". Log it as you ask it, `lem project log SLUG read.skip.asked`: the board
+   lists the task as his again until he answers. Never skip the read by your own judgment: you wrote the criteria, and the author of a
    wrong reading sees it as clear (a Fable second opinion, 2026-11-16, which he agreed to). On his
    no, the read starts as above. On his yes, write his words at once, then take his approval of
    step 6 and freeze the criteria with step 7; a session after you reads that decision and asks

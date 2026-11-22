@@ -229,8 +229,8 @@ class Acts(unittest.TestCase):
 class InterviewRead(unittest.TestCase):
     """An interview's held block says that it waits for the owner from its first question to his yes; while
     the personas read the criteria (`criteria.read.start` with no `criteria.read` after it) Lem waits for
-    them, and nothing of the task waits for him (docs/backlog/interview-state-says-who-waits.md, the case
-    of 2026-11-19)."""
+    them, and nothing of the task waits for him (the case of 2026-11-19, in the plan of
+    interview-end-tells-board)."""
 
     READ = Acts.READ
     INTERVIEW = (state(0, "held", "the interview waits for the owner", "type: feat, because the export gets a column"),
@@ -288,6 +288,123 @@ class InterviewRead(unittest.TestCase):
                   ev(10, "criteria.read.start", task=first, by="lem"))
         self.assertEqual(self.rows(m), [(f"held:{second}", "held")])
         self.assertEqual([t.slug for t in m.for_owner], [second])
+
+
+class InterviewTurns(unittest.TestCase):
+    """Who acts on a held interview, from the events after its newest block: the owner answers the questions,
+    Lem writes the criteria once they ended (`interview.end`), the owner says whether to skip the personas'
+    read (`read.skip.asked`), the personas read, and his yes is what is missing (the plan of
+    interview-end-tells-board, its acceptance criteria 1 to 4, on `report-dates-stay-whole`)."""
+
+    SLUG = "report-dates-stay-whole"
+    READ = Acts.READ
+    SKIP = dict(id=1, by="owner", what=bm.READ_SKIP["what"], chose=bm.READ_SKIP["chose"], why="y")
+
+    def interview(self, *events: dict) -> tuple:
+        return (state(0, "held", "the interview waits for the owner", "type: fix, because a report cuts its dates", task=self.SLUG),
+                ev(0.5, "scout.start", self.SLUG), ev(1, "interview.start", self.SLUG), *events)
+
+    def at(self, minute: float, event: str, **fields) -> dict:
+        return ev(minute, event, self.SLUG, **fields)
+
+    def rows(self, m) -> list:
+        return [(w["key"], w["kind"], bm.wait_say(w)["verb"], bm.wait_say(w)["to"]) for w in bm.waits_of(m)]
+
+    def test_criterion_1_after_the_last_answer_lem_writes_the_criteria_and_nothing_waits_for_him(self):
+        # the scout still reads (no `scout` yet), then its report is in, and Lem writes the criteria
+        for scout in ((), (self.at(6, "scout"),)):
+            with self.subTest(scout_report=bool(scout)):
+                m = model(*self.interview(self.at(5, "interview.end"), *scout))
+                t = m.tasks[0]
+                self.assertEqual((self.rows(m), [x.slug for x in m.for_owner], t.for_owner, t.lane), ([], [], False, "build"))
+                self.assertEqual(bm.card_line(t, bm.LANE["build"]), "Lem writes the criteria; then they come to you.")
+                self.assertNotIn("scout", bm.card_line(t, bm.LANE["build"]).lower())
+                self.assertEqual((bm.who_acts(t), bm.now_head(t), t.info["actor"]), ("Lem acts", "Lem writes the criteria", "lem"))
+                self.assertIsNone(bm.waits_for(t, bm.waits_of(m)))
+                self.assertEqual(bm.acts_of(t, None), [])
+
+    def test_criterion_2_the_skip_question_is_his_row_and_his_no_starts_the_read(self):
+        asking = model(*self.interview())
+        interview_row = self.rows(asking)
+        self.assertEqual(interview_row, [(f"held:{self.SLUG}", "held", "The interview waits for you", "overview")])
+
+        written = (self.at(5, "interview.end"), self.at(6, "scout"))
+        skip = model(*self.interview(*written, self.at(12, "read.skip.asked")))
+        t = skip.tasks[0]
+        # the same row as the interview's, with its words, and the same way to the task's session (its need)
+        self.assertEqual(self.rows(skip), [(f"held:{self.SLUG}", "held", "Lem asks whether to skip the personas' read of the criteria", "overview")])
+        self.assertEqual((t.for_owner, t.lane, t.need, bm.who_acts(t)), (True, "you", asking.tasks[0].need, "You act"))
+        self.assertIn("y or n", bm.answer_of(t))
+        self.assertEqual(bm.acts_of(t, None), [])
+
+        said_no = model(*self.interview(*written, self.at(12, "read.skip.asked"), self.at(13, "criteria.read.start", by="lem")))
+        self.assertEqual((self.rows(said_no), said_no.tasks[0].for_owner), ([], False))
+        read_in = model(*self.interview(*written, self.at(12, "read.skip.asked"), self.at(13, "criteria.read.start", by="lem"), self.at(18, "criteria.read", **self.READ)))
+        self.assertEqual(self.rows(read_in), [(f"held:{self.SLUG}", "held", "The criteria wait for your yes", "overview")])
+
+        said_yes = model(*self.interview(*written, self.at(12, "read.skip.asked"), self.at(13, "decision.taken", **self.SKIP)))
+        t = said_yes.tasks[0]
+        self.assertEqual(self.rows(said_yes), [(f"held:{self.SLUG}", "held", "The criteria wait for your yes", "overview")])
+        self.assertEqual((bm.now_head(t), bm.acts_of(t, None)), ("The criteria wait for your yes", ["approve"]))
+
+    def test_criterion_3_while_he_is_away_lem_goes_on_and_only_a_breaker_and_an_order_stay_his(self):
+        away = {"ts": "2026-11-20T09:02:00Z", "event": "owner", "away": True, "words": "/lem im-away"}
+        back = {"ts": "2026-11-20T09:20:00Z", "event": "owner", "away": False, "words": "/lem im-back"}
+        order = "export-notes-in-order"
+        others = (state(0, "held", 'the order waits for the owner: "after the export task"', "type: feat, because notes get an order", task=order),
+                  state(0, "building", "task 1 of 2", task="gift-note"), ev(1, "decision.breaker", "gift-note", id=1, cause="criteria", what="w"),
+                  state(1, "held", "breaker 1 waits for the owner", task="gift-note"),
+                  state(0, "held", "the investigation waits for one more fact", task="zero-after-refund"))
+
+        m = model(*self.interview(), *others, owner=[away])
+        t = m.by_slug[self.SLUG]
+        self.assertEqual(sorted(w["key"] for w in bm.waits_of(m)), ["breaker:gift-note:1", f"held:{order}", "held:zero-after-refund"])
+        self.assertEqual((t.for_owner, t.lane, t.goes_on, bm.now_head(t), bm.who_acts(t)), (False, "build", "interview", "Lem goes on without you", "Lem acts"))
+        self.assertTrue(bm.card_line(t, bm.LANE["build"]).startswith("Lem goes on without you: "))
+        self.assertIn("each in the task's decisions for the pull request", t.shown)
+        self.assertNotIn(self.SLUG, [x.slug for x in m.for_owner])
+
+        # back while Lem still has questions: the row comes back, and the next question is his
+        m = model(*self.interview(), *others, owner=[away, back])
+        t = m.by_slug[self.SLUG]
+        self.assertIn(f"held:{self.SLUG}", [w["key"] for w in bm.waits_of(m)])
+        self.assertEqual((t.for_owner, t.goes_on, bm.now_head(t)), (True, None, "The interview waits for you"))
+
+    def test_criterion_3_a_nights_task_and_the_requests_one_answer_go_on_without_him(self):
+        night = self.at(0, "task.mode", mode="alone", by="lem", words="the night of 2026-11-19", all=False, was="with-owner")
+        m = model(night, *self.interview())
+        self.assertEqual((self.rows(m), m.tasks[0].goes_on), ([], "interview"))
+        criteria = model(self.at(0, "task.mode", mode="alone", by="lem", words="the night of 2026-11-19"),
+                         state(1, "held", "the criteria wait for the owner: a small change that someone else asked for", task=self.SLUG))
+        self.assertEqual((self.rows(criteria), criteria.tasks[0].goes_on), ([], "criteria"))
+        away = {"ts": "2026-11-20T08:00:00Z", "event": "owner", "away": True, "words": "out"}
+        answer = (state(0, "held", "the request waits for one answer", task=self.SLUG),)
+        self.assertEqual(model(*answer, owner=[away]).tasks[0].goes_on, "answer")
+        self.assertEqual(len(bm.waits_of(model(*answer, owner=[away]))), 0)
+        self.assertEqual([w["key"] for w in bm.waits_of(model(*answer))], [f"held:{self.SLUG}"])
+
+    def test_criterion_4_the_interview_ends_with_its_questions_and_lems_writing_runs_to_the_read(self):
+        # the questions ended at 10:05 and the read started at 10:12 (START is 9:00)
+        t = one(state(59, "held", "the interview waits for the owner", task=self.SLUG), self.at(60, "interview.start"), self.at(65, "interview.end"),
+                self.at(72, "criteria.read.start", by="lem"))
+        tm = bm.time_of(t, bm.time_end(t, NOW))
+        got = [(g["row"], g["from"], g["to"], g["head"]) for g in tm["spans"] if g["head"] in ("The interview", "Lem writes the criteria")]
+
+        def ms(minute):
+            return int((START + timedelta(minutes=minute)).timestamp() * 1000)
+
+        self.assertEqual(got, [("you", ms(60), ms(65), "The interview"), ("lem", ms(65), ms(72), "Lem writes the criteria")])
+        # the skip question and his approval end Lem's writing too
+        for end in (self.at(70, "read.skip.asked"), self.at(70, "criteria.approved", by="owner", number=1)):
+            with self.subTest(end=end["event"]):
+                t = one(state(0, "held", "the interview waits for the owner", task=self.SLUG), self.at(60, "interview.start"), self.at(65, "interview.end"), end)
+                writes = [(g["from"], g["to"]) for g in bm.time_of(t, bm.time_end(t, NOW))["spans"] if g["head"] == "Lem writes the criteria"]
+                self.assertEqual(writes, [(ms(65), ms(70))])
+
+    def test_the_timeline_says_both_events(self):
+        m = model(*self.interview())
+        self.assertEqual(bm.describe(self.at(5, "interview.end"), m)["head"], "The interview’s questions ended")
+        self.assertEqual(bm.describe(self.at(12, "read.skip.asked"), m)["head"], "Lem asked whether to skip the personas’ read")
 
 
 class Sessions(unittest.TestCase):

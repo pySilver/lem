@@ -351,8 +351,11 @@ and `session.wake`, and the board knows each task's session from them.
 A stage's start is an event too, so that the board's time card has a start and an end for each
 span (the owner's pick of 2026-11-17). Each has a fixed form that `lem project log` checks, and
 the event that already ends the stage ends it. Logged by the agent that runs the stage, where its
-stage text says: `interview.start` (before the first question; it ends at the first
-`criteria.read.start` or `criteria.approved` after it), `scout.start` and `scout` (as the
+stage text says: `interview.start` (before the first question; it ends at `interview.end`, once
+`task.md` is written again after the last question, and Lem's span of writing the criteria runs
+from there to the first `read.skip.asked`, `criteria.read.start` or `criteria.approved`;
+`read.skip.asked` as the interview asks him whether to skip the personas' read, in step 5 of
+`stages/interview.md`: the task is his again until he answers), `scout.start` and `scout` (as the
 scout starts and when its report is written), `criteria.read.start by=lem|lead` (it ends at
 `criteria.read`), `investigation.start type=fix|question` (it ends at `investigation`), and
 `builder.start job=JOB` for a builder's job, `task N of M`, `the small change` (the fast track's builder), `the repair of a

@@ -7,6 +7,8 @@ tests/lem-state.sh's.
     python3 -B -m unittest discover -s tests/unit
 """
 
+import contextlib
+import io
 import shlex
 import shutil
 import sys
@@ -430,6 +432,39 @@ class EventLog(unittest.TestCase):
         project.append_event(self.root, "gate.end", "demo", {"say": SEPARATED, "result": "passed"})
         found = project.events_named(self.root, "gate.end")
         self.assertEqual([record["say"] for record in found], [SEPARATED])
+
+
+class InterviewEvents(unittest.TestCase):
+    """The end of an interview's questions and the skip question are two events of one form each, which
+    take nothing (`STARTS`), so that the board tells who acts on a held interview; `log` refuses either
+    with a field, as it refuses `interview.start by=lem`, and writes nothing then."""
+
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory()
+        self.addCleanup(self.folder.cleanup)
+        self.root = Path(self.folder.name)
+        project.STATE_ROOTS[self.root] = self.root / "state"
+        self.addCleanup(project.STATE_ROOTS.pop, self.root)
+        (self.root / "state" / "tasks" / "report-dates-stay-whole").mkdir(parents=True)
+
+    def log(self, event: str, *pairs: str) -> None:
+        with contextlib.redirect_stdout(io.StringIO()):
+            project.cmd_log(self.root, "report-dates-stay-whole", event, list(pairs))
+
+    def test_each_takes_nothing_and_a_field_is_refused(self):
+        for event, said in (("interview.end", "interview.end, the end of the questions to the owner, takes nothing"),
+                            ("read.skip.asked", "read.skip.asked, the question whether the owner skips the personas' read, takes nothing")):
+            with self.subTest(event=event):
+                self.log(event)
+                for pair in ("by=lem", "answer=y"):
+                    with self.assertRaises(project.SettingsError) as caught:
+                        self.log(event, pair)
+                    self.assertIn(said, str(caught.exception))
+        self.assertEqual([record["event"] for record in project.events_named(self.root, "interview.end", "read.skip.asked")], ["interview.end", "read.skip.asked"])
+        self.assertEqual({k for record in project.events_named(self.root, "interview.end", "read.skip.asked") for k in record}, {"ts", "event", "task"})
+
+    def test_a_resumed_task_takes_both_with_the_interviews_start(self):
+        self.assertTrue({"interview.start", "interview.end", "read.skip.asked"} <= set(project.RESUMED_EVENTS))
 
 
 class Words(unittest.TestCase):

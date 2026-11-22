@@ -57,7 +57,7 @@ Type `/lem`. Lem opens the board, and gives one list in this order:
 
 1. the breakers, and each task that needs a session and has none: "Open a session" starts a
    fresh agent;
-2. the acceptance criteria that wait for your yes;
+2. the questions of an interview, and the acceptance criteria that wait for your yes;
 3. the tasks that wait for a step of yours, or for one more fact;
 4. the tasks that wait for a task that you dropped: type "start <task> now" to start the task, or
    `/lem drop <task>` to stop it, in a Lem session of this repository;
@@ -67,6 +67,9 @@ Type `/lem`. Lem opens the board, and gives one list in this order:
 8. the pull requests that wait for your merge, and each merge that GitHub or Lem refused, each
    green or with its reasons;
 9. the changes that the morning retro proposes.
+
+An interview is on the list only while it asks you a question. While Lem writes the acceptance
+criteria, or the personas read them, it is not there.
 
 The [board](board.md) shows the same rows, in the same order, in its view **Waits for you**. When
 Lem cannot read the sessions of agterm, the list says so.
@@ -85,7 +88,8 @@ Lem cannot read the sessions of agterm, the list says so.
 Type `/lem im-away`, or say "I'm away". It holds in every repository on this computer, until you
 type `/lem im-back`. While you are away:
 
-- an interview goes on: Lem takes its own guess for each question, and writes it down;
+- an interview goes on, and is not on the list of what waits for you: Lem takes its own guess
+  for each question, and writes it down;
 - the ladder settles each criterion that a persona doubted, and Lem approves the criteria for you;
 - a new request asks you nothing, and takes the safer read.
 
