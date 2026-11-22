@@ -14,6 +14,8 @@ Size: full, because the landing's merge, the merge agent's brief and answer, the
    5. The pull request on GitHub and the merge commit say that the checks ran on m1, that A merged on m2 after the merge agent's read, and the read's one sentence of why.
    - test: `python3 -B -m unittest tests.unit.test_land.ReadOfAMovedBase.test_a_safe_read_covers_its_own_base tests.unit.test_land.ReadOfAMovedBase.test_what_moved_beside_the_change` in `tests/unit/test_land.py`
    - test: `python3 -B -m unittest tests.unit.test_serve.MovedBaseRead.test_a_safe_read_answers_lems_base_refusal_and_the_server_merges` in `tests/unit/test_serve.py`
+   - test: `bash tests/lem-land-shop.sh` in `tests/lem-land-shop.sh` `tests/lib.sh`
+   - test: `bash tests/lem-board-act.sh` in `tests/lem-board-act.sh` `tests/lib.sh`
 2. A move that the merge agent calls unsafe gets another round of the checks before any merge:
    1. Task A's checks pass on m1. Task B merges and changes `skills/lem/scripts/land.py`, a file A's change also edits.
    2. The merge agent answers "Base: another round." with one sentence of why.
@@ -24,6 +26,7 @@ Size: full, because the landing's merge, the merge agent's brief and answer, the
 3. A read covers the base it read, and no later one: after a read of m2 says safe, task C merges and main is m3 before A's merge runs; A's merge meets m3, and nothing merges until a new read of what moved since A's checks says safe.
    - test: `python3 -B -m unittest tests.unit.test_land.ReadOfAMovedBase.test_the_refusal_names_the_read_or_a_new_landing tests.unit.test_land.ReadOfATip.test_each_tip_and_base_has_its_own_brief_and_answer_file` in `tests/unit/test_land.py`
    - test: `python3 -B -m unittest tests.unit.test_serve.MovedBaseRead.test_a_read_of_m2_does_not_cover_m3` in `tests/unit/test_serve.py`
+   - test: `bash tests/lem-land-shop.sh` in `tests/lem-land-shop.sh` `tests/lib.sh`
 4. The owner's merge that meets a moved base is read the same way, and he is not asked again:
    1. The owner presses Merge on task A's board; main moved since A's checks.
    2. A fresh merge agent reads what moved.
@@ -35,6 +38,7 @@ Size: full, because the landing's merge, the merge agent's brief and answer, the
 6. The record says that a merge went through on a moved base and why: after A merges on m2, the pull request's text and the merge commit name the base the checks ran on, the base it merged on and the merge agent's one sentence of why, and A's board shows the same read.
    - test: `python3 -B -m unittest tests.unit.test_land.ReadOfAMovedBase.test_the_line_names_both_bases_and_the_why tests.unit.test_land.ReadOfAMovedBase.test_a_base_no_read_covered_is_named` in `tests/unit/test_land.py`
    - test: `python3 -B -m unittest tests.unit.test_board_model.MovedBase.test_the_feed_shows_the_read_of_a_moved_base_with_its_call` in `tests/unit/test_board_model.py`
+   - test: `bash tests/lem-land-shop.sh` in `tests/lem-land-shop.sh` `tests/lib.sh`
 
 ## How it works
 
