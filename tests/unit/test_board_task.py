@@ -7,6 +7,7 @@ and the artifacts the panel reads; and that a task's text reaches the page escap
 """
 
 import importlib
+import re
 import sys
 import tempfile
 import unittest
@@ -364,6 +365,71 @@ class Feed(unittest.TestCase):
         self.assertIn("the merge agent read the moved base and said safe", read["text"])
         self.assertIn("the new landing kept the change you merged", landed["text"])
         self.assertNotIn("carried over", landed["sub"])
+
+
+class MergeStep(unittest.TestCase):
+    """The confirm step of a merge (`merge_step`): its head, its body and its foot, and the key of its read."""
+
+    REASONS = ["the owner did not approve the criteria: they were approved while the task ran without the owner",
+               "two rounds reviewed it: the last one left no must-fix"]
+
+    def step(self, *events, tip="4c1d2e3f5a6b7c8d9e0f4c1d2e3f5a6b7c8d9e0f", pr=44, can_act=True):
+        base = (ev(0, "proposed", green=False, not_green=self.REASONS, tip=tip[:9]),
+                state(1, "open", f"pull request https://github.com/acme/shop/pull/{pr}" if pr else "the branch lands on the base itself"))
+        ctx = pages.Ctx(host="h", workspace="w", model=model(*base, *events), asset=lambda name: name, can_act=can_act)
+        landing = {"proposed": tip, "history": "squash", "title": "feat: a refund line", "base": "main", **({"pr": {"number": pr, "url": f"https://github.com/acme/shop/pull/{pr}"}} if pr else {})}
+        ctx.landing_of = lambda slug: landing
+        return "".join(str(x) for x in task_pages.merge_step(ctx, ctx.model.tasks[0]))
+
+    def careful(self, why):
+        return ev(2, "review", attempt=2, round=2, kind="round", verdict="clean", careful=True, careful_why=why)
+
+    def key(self, html):
+        found = re.search(r'data-sheet-key-value="([0-9a-f]+)"', html)
+        return found and found.group(1)
+
+    def test_the_step_is_a_head_a_body_with_the_six_items_in_their_order_and_a_foot_with_the_form_and_back(self):
+        html = self.step(self.careful("the total is money"))
+        head, body, foot = html.index('class="cf-head"'), html.index('class="cf-body"'), html.index('class="cf-foot"')
+        self.assertLess(head, body)
+        self.assertLess(body, foot)
+        self.assertIn('<div class="eyebrow">Merge #44 · confirm</div>', html[head:body])
+        items = [html.index(x, body) for x in ('class="cf-first', 'class="reasons"', 'class="cf-careful-why"', 'id="cf-facts"', 'class="cf-note"')]
+        self.assertEqual(items, sorted(items))
+        self.assertLess(items[-1], foot)
+        facts = [html.index(f'id="cf-dt-{x}"') for x in ("pr", "commit", "into", "as")]
+        self.assertEqual(facts, sorted(facts))
+        form = html[foot:]
+        self.assertIn('name="confirm" value="yes"', form)
+        self.assertIn('name="tip" value="4c1d2e3f5a6b7c8d9e0f4c1d2e3f5a6b7c8d9e0f"', form)
+        self.assertIn("<span>Merge pull request #44</span>", form)
+        self.assertIn("<span>Back</span>", form)
+        self.assertNotIn("Cancel", html)
+
+    def test_only_a_step_with_its_button_has_the_controller_the_overlays_class_and_the_key_of_its_read(self):
+        shown = self.step()
+        self.assertIn('data-controller="sheet"', shown)
+        self.assertIn("cf-sheet", shown)
+        self.assertRegex(self.key(shown) or "", r"^[0-9a-f]{12}$")
+        self.assertIn('data-sheet-target="body"', shown)
+        self.assertIn('data-sheet-target="head" tabindex="-1"', shown)
+        for html in (self.step(can_act=False), self.step(tip="")):
+            self.assertNotIn("sheet", html)
+            self.assertNotIn('name="confirm"', html)
+            self.assertIn('class="cf-body"', html)
+
+    def test_the_key_of_the_read_is_another_for_another_commit_and_for_another_careful_call_on_the_same_commit(self):
+        first = self.key(self.step(self.careful("the total is money")))
+        self.assertEqual(first, self.key(self.step(self.careful("the total is money"))), "the same text is the same key")
+        self.assertNotEqual(first, self.key(self.step(self.careful("the total is money"), tip="9" * 40)))
+        self.assertNotEqual(first, self.key(self.step(self.careful("a refund larger than the total"))))
+        self.assertNotEqual(first, self.key(self.step()))
+
+    def test_the_head_names_the_pull_request_when_it_has_a_number(self):
+        self.assertIn('<div class="eyebrow">Merge #7 · confirm</div>', self.step(pr=7))
+        no_pr = self.step(pr=None)
+        self.assertIn('<div class="eyebrow">Merge · confirm</div>', no_pr)
+        self.assertIn("<span>Merge it into main</span>", no_pr)
 
 
 if __name__ == "__main__":

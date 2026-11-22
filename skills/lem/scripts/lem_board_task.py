@@ -1296,16 +1296,29 @@ def merge_step(ctx, t: bm.Task) -> list:
     elif landing.get("history"):
         fact("as", "Lands as", "the branch’s own commits")
     label = f"Merge pull request #{pr['number']}" if pr.get("number") else f"Merge it into {base}"
+    body = [first, reasons, careful, h("dl", {"class": "facts cf-facts", "id": "cf-facts"}, facts_),
+            h("p", {"class": "cf-note"}, "A merge cannot be undone from the board. Lem’s merge call reads the base branch first, and it can take a minute.")]
     if ctx.can_act and tip:
         act = P.act_form(ctx, t.slug, "merge", label, "pull", "risk", "Merging…", {"confirm": "yes", "tip": tip, "in": ctx.view if ctx.view != "tasks" else None})
-        acts = h("div", {"class": "act-row"}, act, act_back(ctx, t))
+        acts = h("div", {"class": "act-row"}, act, act_back(ctx, t, "Back"))
     else:
         acts = h("p", {"class": "sub"}, f"Merge it on this board on the Mac or through the tailnet door, or type /lem land {t.slug} in the task’s session.")
-    return [h("section", {"class": f"card confirm a-{'done' if green else 'you'}", "id": "confirm", "aria-label": "Merge: confirm"},
-              h("div", {"class": "eyebrow"}, "Merge · confirm"), first, reasons, careful,
-              h("dl", {"class": "facts cf-facts", "id": "cf-facts"}, facts_),
-              h("p", {"class": "cf-note"}, "A merge cannot be undone from the board. Lem’s merge call reads the base branch first, and it can take a minute."),
-              acts)]
+    return [confirm_card(f"card confirm a-{'done' if green else 'you'}", "Merge: confirm",
+                         f"Merge #{pr['number']} · confirm" if pr.get("number") else "Merge · confirm", body, acts, ctx.can_act and bool(tip))]
+
+
+def confirm_card(cls: str, label: str, eyebrow: str, body: list, foot: Markup, sheet: bool) -> Markup:
+    """The card of an act's step in its three parts: the head, the body with what the owner reads, and the
+    foot with the button and the way back. Outside the overlay the three parts take no box of their own
+    (board.css), so the card shows as one column. A card that has its button (SHEET) gets the `sheet`
+    controller and the key of its read, the digest of the body as rendered here: on a phone's screen the
+    card is then an overlay whose button comes on when the body was scrolled to its end, and any change
+    of what the body says is another key, which the owner reads again from its top."""
+    text = h("div", {"class": "cf-body", "data-sheet-target": "body" if sheet else None}, body)
+    return h("section", {"class": f"{cls}{' cf-sheet' if sheet else ''}", "id": "confirm", "aria-label": label,
+                         **({"data-controller": "sheet", "data-sheet-key-value": hashlib.sha256(text.encode()).hexdigest()[:12]} if sheet else {})},
+             h("div", {"class": "cf-head", **({"data-sheet-target": "head", "tabindex": "-1"} if sheet else {})}, h("div", {"class": "eyebrow"}, eyebrow)),
+             text, h("div", {"class": "cf-foot"}, foot))
 
 
 def park_step(ctx, t: bm.Task) -> list:
