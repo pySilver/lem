@@ -127,6 +127,50 @@ class Landing(unittest.TestCase):
         self.assertEqual(([g["tip"] for g in t.gates], t.gate_bad), (["bbb", "bbb"], 0))
 
 
+class TakenFromPolish(unittest.TestCase):
+    """A run of the checks that took the polish pass's result of the criteria's tests logs no `task.red`:
+    its `gate.end` names the pass's commit (`taken`), and the board says so where it would draw the tests."""
+
+    TIP = "a1b2c3d4e"
+
+    def landing(self, *after: dict, commits: int = 1) -> "bm.Task":
+        return one(state(0, "landing", "the polish pass"), ev(1, "polish.start", before="0f0f0f0f0"),
+                   ev(10, "polish", before="0f0f0f0f0", after=self.TIP, commits=commits, filed=[]),
+                   ev(11, "gate.start", tip=self.TIP, commands=2),
+                   ev(13, "gate", command="make test", exit=0, last="ok", tip=self.TIP), ev(15, "gate", command="make lint", exit=0, last="ok", tip=self.TIP), *after)
+
+    @staticmethod
+    def checks(t: "bm.Task", end: int | None = None) -> list[tuple]:
+        tm = bm.time_of(t, end if end is not None else bm.time_end(t, NOW), {"gates": 2, "serial": 0})
+        return [(g["head"], g["sub"], g["live"]) for g in tm["spans"] if g["row"] == "checks"]
+
+    def test_a_taken_result_is_the_span_of_the_criterias_tests_with_the_pass_and_its_commit(self):
+        t = self.landing(ev(16, "gate.end", result="passed", seconds=300, tip=self.TIP, taken=self.TIP, say="gift-note: the checks passed; the review runs, nothing for you"))
+        heads = [x[0] for x in self.checks(t)]
+        self.assertIn(f"The tests of the criteria, taken from the polish pass at {self.TIP}", heads)
+        self.assertNotIn("The tests of the criteria, on the branch and on the base commit", heads)
+        # the feed says it too, under the run's end
+        self.assertIn(f"the tests of the criteria taken from the polish pass at {self.TIP}, not run again", bm.SAYS["gate.end"](t.events[-1])["sub"])
+
+    def test_a_run_of_the_tests_says_nothing_of_the_polish_pass(self):
+        t = self.landing(ev(18, "task.red", ok=True, digest="d", base="b0b0b0b0b", tip=self.TIP, tests=[], without_a_test=[]),
+                         ev(19, "gate.end", result="passed", seconds=480, tip=self.TIP, say="gift-note: the checks passed; the review runs, nothing for you"))
+        heads = [x[0] for x in self.checks(t)]
+        self.assertIn("The tests of the criteria, on the branch and on the base commit", heads)
+        self.assertFalse(any("polish pass" in x for x in heads))
+        self.assertNotIn("polish pass", bm.SAYS["gate.end"](t.events[-1])["sub"])
+
+    def test_after_the_last_command_on_the_passs_commit_the_live_line_does_not_say_that_the_tests_run(self):
+        live = [x for x in self.checks(self.landing()) if x[2]]
+        self.assertEqual(len(live), 1)
+        self.assertNotEqual(live[0][0], "The tests of the criteria run")
+        self.assertIn(f"the polish pass's result at {self.TIP} is taken", live[0][0])
+
+    def test_after_a_pass_with_no_commits_the_tests_run(self):
+        live = [x for x in self.checks(self.landing(commits=0)) if x[2]]
+        self.assertEqual([x[0] for x in live], ["The tests of the criteria run"])
+
+
 class Merge(unittest.TestCase):
     PR = "pull request https://github.com/acme/shop/pull/41"
 

@@ -82,9 +82,11 @@ it.
 A run of the checks is two events: `gate.start` and one `gate.end`, however it ends, with `result`
 (`passed` when the step keeps its result; `red` for a command of the checks that failed; `refused`
 for a criterion's test that does not hold, a lowered bar, a command that changed the tree, or an
-error of the step itself; `stopped` for a stop), `seconds` from its start, `tip`, and `say`, the one
-line for the owner, with the slug, the result and the next step, and no question ("SLUG: the checks
-passed; the review runs, nothing for you"). The step prints `say` in its JSON at every end after
+error of the step itself; `stopped` for a stop), `seconds` from its start, `tip`, `taken` (only for
+a run that took the polish pass's result of the criteria's tests in place of its own run: the commit
+that run was on, which logs no `task.red` of its own), and `say`, the one line for the owner, with
+the slug, the result and the next step, and no question ("SLUG: the checks passed; the review runs,
+nothing for you"). The step prints `say` in its JSON at every end after
 `gate.start`, a red, refused or stopped one before its exit 1. The run clears the result an earlier
 run kept before its first command, so a run cut off with no chance to clean up leaves none for its
 tip. `--status` gives `running` (the step lock is held by `checks`), `since` and `seconds` of the
@@ -1159,6 +1161,14 @@ def taken_from_polish(polish: dict | None, now: dict | None, small: bool) -> dic
     return {**ran, "taken": {"from": "polish", "at": ran["inputs"]["tip"]}}
 
 
+def taken_at(criteria: object) -> str | None:
+    """The commit, as `gate.end` names it, whose polish pass's result of the criteria's tests a run of the
+    checks took (`taken_from_polish`); None for a run that ran them, or that never reached them."""
+    taken = criteria.get("taken") if isinstance(criteria, dict) else None
+    at = taken.get("at") if isinstance(taken, dict) and taken.get("from") == "polish" else None
+    return at[:9] if isinstance(at, str) and at else None
+
+
 def criteria_of(task: Task) -> dict:
     """The task's acceptance criteria and its plan, through the one script that reads them. A step
     asks for them many times, and no step writes the plan, the approval or a criterion's record, so
@@ -1943,11 +1953,14 @@ def checks_run(task: Task, flags: dict) -> dict:
     started = time.monotonic()
     ended: list[str] = []
 
-    def end(result: str, say: str) -> None:
+    def end(how: str, say: str) -> None:
         """The one `gate.end` of the run, however it ends."""
         if not ended:
-            ended.append(result)
-            script("project.py", task.worktree, "log", task.slug, "gate.end", f"result={result}", f"seconds:={round(time.monotonic() - started)}", f"tip={tip[:9]}", f"say={say}")
+            ended.append(how)
+            # a run that took the polish pass's result logs no `task.red`: its end names the pass's commit
+            taken = taken_at(result.get("criteria"))
+            script("project.py", task.worktree, "log", task.slug, "gate.end", f"result={how}", f"seconds:={round(time.monotonic() - started)}", f"tip={tip[:9]}",
+                   *([f"taken={taken}"] if taken else []), f"say={say}")
 
     # No result of an earlier run stays while this one runs: a run cut off with no chance to clean
     # up (a kill) leaves none for its tip either.

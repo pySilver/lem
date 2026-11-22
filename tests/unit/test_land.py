@@ -675,3 +675,9 @@ class TakenFromPolish(unittest.TestCase):
         self.assertIsNone(land.taken_from_polish(self.POLISH, None, False))
         self.assertIsNone(self.taken({**self.POLISH, "criteria": {**self.RAN, "inputs": None}}))
         self.assertIsNone(self.taken({**self.POLISH, "criteria": {**self.RAN, "ok": False}}))
+
+    def test_the_end_of_the_checks_names_the_commit_of_a_taken_result_and_nothing_for_a_run(self) -> None:
+        # `taken_at` gives the `taken` field of the run's `gate.end`
+        self.assertEqual(land.taken_at(self.taken()), self.TIP[:9])
+        self.assertIsNone(land.taken_at(self.RAN))
+        self.assertIsNone(land.taken_at(None))

@@ -106,10 +106,10 @@ else
   fail "the gate and the polish pass: $gated / $on_top / $rewritten / $moved"
 fi
 # The tips of the task.red events of each run of the checks, between its gate.start and its gate.end: the refused
-# pass's run and the pass's own lie outside every run.
+# pass's run and the pass's own lie outside every run. Then the commit each run's gate.end says it took the pass's result at.
 reds=$("$PY" -c '
 import json, sys
-runs, inside = [], False
+runs, taken, inside = [], [], False
 for line in open(sys.argv[1], encoding="utf-8"):
     event = json.loads(line)
     if event.get("task") != "polish-me":
@@ -119,12 +119,13 @@ for line in open(sys.argv[1], encoding="utf-8"):
         inside = True
     elif event["event"] == "gate.end":
         inside = False
+        taken.append(event.get("taken"))
     elif event["event"] == "task.red" and inside:
         runs[-1].append(event["tip"])
-print(runs)' "$LOCAL/.lem/state/events.jsonl")
+print(runs, taken)' "$LOCAL/.lem/state/events.jsonl")
 project --repo "$LOCAL" state polish-me dropped "the test is over" >/dev/null
-if [ "$reds" = "[[], ['${fixed_tip:0:9}'], ['${rebased_tip:0:9}']]" ] && [ "$taken_kept" = "{'from': 'polish', 'at': '$after_tip'}" ] && [ "$fixed_tip" != "$rebased_tip" ]; then
-  pass "the checks on the tip the polish pass ended on run no test of the criteria and keep the pass's result with the pass and its commit; after a fix on top, and after a rebase by base, they run the tests themselves once, on the new tip"
+if [ "$reds" = "[[], ['${fixed_tip:0:9}'], ['${rebased_tip:0:9}']] ['${after_tip:0:9}', None, None]" ] && [ "$taken_kept" = "{'from': 'polish', 'at': '$after_tip'}" ] && [ "$fixed_tip" != "$rebased_tip" ]; then
+  pass "the checks on the tip the polish pass ended on run no test of the criteria, keep the pass's result with the pass and its commit, and their gate.end names that commit; after a fix on top, and after a rebase by base, they run the tests themselves once, on the new tip"
 else
   fail "the criteria's tests in the checks after the polish pass: $reds / $taken_kept / fix ${fixed_tip:0:9} / rebased ${rebased_tip:0:9}"
 fi
