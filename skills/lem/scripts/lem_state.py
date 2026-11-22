@@ -119,7 +119,7 @@ def owner_mark() -> Path:
 
 
 # The settings of this machine, one file for every repository on it: `[load] start`, the load average
-# under which the checks of a landing start (`land.py`), and `[serve]`, how the board server runs
+# under which the checks of a landing start (`land.py`, LOAD_START without it), and `[serve]`, how the board server runs
 # (`serve.py`). Each writer writes the file whole and keeps the other's table.
 MACHINE = "machine.toml"
 # The lock that spaces two starts of the checks that waited for the load, in the same folder.
@@ -325,16 +325,25 @@ def handoff_tokens():
     return value
 
 
+# The load average under which the checks of a landing start on a machine with no `[load] start` of its
+# own, the owner's for every new user: "also `lem` default should be set to 40, so new users will get it
+# that way" (2026-11-22, after the retro, where he set his own Mac's number to 40). `start = 0`, which
+# `lem project load --start none` writes, is a machine with no gate.
+LOAD_START = 40
+
+
 def load_start():
-    """The load average under which the checks of a landing start on this machine, or None when the
-    developer set none: then there is no gate. A file that does not read, or a number that is not
-    above 0, is refused with the line that writes a good one."""
+    """The load average under which the checks of a landing start on this machine: the developer's
+    `[load] start`, else LOAD_START; None for 0, when he took the gate away. A file that does not read,
+    or a negative number, is refused with the line that writes a good one."""
     table = machine_table("load")
     if "start" not in table:
-        return None
+        return float(LOAD_START)
     value = table["start"]
-    if value <= 0:
-        raise StateError(f"load.start in {machine_file()} is {value!r}, and it is a load average above 0; {MACHINE_FIX['load']}")
+    if value == 0:
+        return None
+    if value < 0:
+        raise StateError(f"load.start in {machine_file()} is {value!r}, and it is a load average above 0, or 0 for no gate; {MACHINE_FIX['load']}")
     return float(value)
 
 

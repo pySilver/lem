@@ -9,7 +9,8 @@ on, where without it the queue stays empty and nothing says so. A recipe of the 
 required, and its row has the guide to install it by. A recommended tool is one Lem does not bring
 and a developer is better off with (agdoc, plannotator-tui, Codex): its row has the guide too, and Lem
 installs it only on the developer's yes. The optional row `load gate` says under which load average the checks of a
-landing start on this machine, or that no number is set, with the line that sets one. The optional
+landing start on this machine, 40 (Lem's default) with no number set, or that the gate is away, with
+the line that sets one. The optional
 row `handoff tokens` says past how many tokens a task's session compacts itself, `handoff tokens:
 600000 (default)` with no number set, and the line that sets one. On a machine with agterm, the optional row `task picker` gives the keymap line
 that starts `lem picker` with a chord, which the owner adds to agterm's keymap. The optional
@@ -591,8 +592,8 @@ def jev_key() -> dict:
 
 def load_gate() -> dict:
     """The load average under which the checks of a landing start on this machine. An optional row:
-    with no number there is no gate, and Lem picks none, since the number is the developer's (a
-    laptop he keeps cool, a desktop he loads hard)."""
+    with no number Lem's own (LOAD_START) holds, and the developer sets his (a laptop he keeps cool, a
+    desktop he loads hard), or takes the gate away."""
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import lem_state  # noqa: E402  (beside this file)
 
@@ -605,10 +606,11 @@ def load_gate() -> dict:
     except lem_state.StateError as error:
         return {**row, "detail": str(error), "without_it": "the checks of a landing stop at once with this error, until the file reads"}
     if start is None:
-        return {**row, "detail": f"no start number on this machine; the load average is {load:g} now, on {cores} cores",
-                "without_it": f"the checks of every landing start at once, whatever the load. `lem project load --start N` sets the number in "
-                              f"{lem_state.machine_file()}, for every repository on this machine; N is the developer's, and Lem picks none"}
-    return {**row, "found": True, "detail": f"the checks start below a load average of {start:g}; it is {load:g} now, on {cores} cores ({lem_state.machine_file()})",
+        return {**row, "detail": f"no gate on this machine (`lem project load --start none`); the load average is {load:g} now, on {cores} cores",
+                "without_it": f"the checks of every landing start at once, whatever the load. `lem project load --start N` sets a number in "
+                              f"{lem_state.machine_file()}, for every repository on this machine"}
+    whose = "" if "start" in lem_state.machine_table("load") else ", Lem's default"
+    return {**row, "found": True, "detail": f"the checks start below a load average of {start:g}{whose}; it is {load:g} now, on {cores} cores ({lem_state.machine_file()})",
             "without_it": None}
 
 

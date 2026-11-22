@@ -135,8 +135,8 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
   from the diff, "So documentation does not trigger security or architecture checks"; no code and no
   list of words routes, and `land.py` holds only the floor. (2026-11-16)
 - **Landings run in parallel, and the machine's load decides when checks start.** The checks start
-  only below `[load] start` of `machine.toml`, with no gate when it has no number, and merges go one
-  at a time (the form is the session's). (2026-11-20)
+  only below `[load] start` of `machine.toml`, 40 when it has no number, and merges go one at a time
+  (the form is the session's). (2026-11-20, 2026-11-22)
 - **A fresh merge agent reads every proposed task, and merges it or calls him.** The fast track too;
   a pull request that is not green and a careful change call him. `seats.merger` comes from the
   repository, else from `machine.toml`, and `branch.land` stays the switch. (2026-11-20)

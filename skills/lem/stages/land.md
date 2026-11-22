@@ -87,14 +87,14 @@ landing up as after a cut-off.
 4. **`checks`: the machine checks**, with no model in them, on the tip that will be proposed.
    - The polish pass is on that tip (step 3): the step refuses a task on the standard track without one before any
      command runs.
-   - Before the first command, the load gate: when the developer set a start number for this
-     machine (`lem project load --start N`, one number for every repository on it), the step
-     waits while the machine's load average is at or above it, and starts when the load is below
-     it. A new number, or `--start none`, reaches a run that waits at its next look (15 s). Two runs that waited start a minute apart, so that the load shows the first before the
+   - Before the first command, the load gate: the start number of this machine, the developer's
+     (`lem project load --start N`, one number for every repository on it) or else Lem's 40. The
+     step waits while the machine's load average is at or above it, and starts when the load is
+     below it. A new number, or `--start none`, reaches a run that waits at its next look (15 s). Two runs that waited start a minute apart, so that the load shows the first before the
      second reads it. The step logs each wait (`gate.wait`), and the board shows it in the task's
      own card ("waits for the load: 55, starts below 40"); `--status` gives it as `waits`. Say
-     nothing of a wait: it is no news, and it needs nobody. A machine with no number has no gate,
-     and Lem never picks one: `lem doctor` gives the line that sets it.
+     nothing of a wait: it is no news, and it needs nobody. Only `lem project load --start none`
+     takes the gate away on a machine; `lem doctor` gives the line that sets a number.
    - Every command of the settings' `checks.commands` runs at the root of the task's worktree,
      each with its output in a file of the task directory. The step keeps the exact last line of
      each and logs each result for the board. Do not read the output files. This is the one run

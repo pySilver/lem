@@ -110,6 +110,39 @@ class Tokens(Machine):
                 project.cmd_handoff(wrong)
 
 
+class Load(Machine):
+    """`[load] start`: Lem's 40 on a machine with no number, the developer's own when he set one, and no
+    gate after `--start none`, which a later read keeps."""
+
+    def test_a_new_machine_gates_at_forty(self):
+        self.assertFalse(lem_state.machine_file().exists())
+        self.assertEqual(lem_state.load_start(), 40.0)
+        shown = project.cmd_load(None)
+        self.assertEqual((shown["start"], shown["default"]), (40.0, True))
+        self.assertEqual(shown["gate"], "open" if shown["load"] < 40 else "closed: the checks wait for a load below 40")
+
+    def test_his_number_wins_and_none_stays_none(self):
+        self.written("[serve]\nport = 4500\n")
+        mine = project.cmd_load("12")
+        self.assertEqual((mine["start"], mine["default"]), (12.0, False))
+        self.assertEqual(lem_state.load_start(), 12.0)
+        away = project.cmd_load("none")
+        self.assertEqual((away["start"], away["gate"], away["default"]), (None, None, False))
+        later = project.cmd_load(None)
+        self.assertEqual((later["start"], later["gate"]), (None, None))
+        self.assertIsNone(lem_state.load_start())
+        self.assertEqual(lem_state.machine_table("serve"), {"port": 4500})
+        for wrong in ("0", "-3", "lots"):
+            with self.subTest(wrong=wrong), self.assertRaises(project.SettingsError):
+                project.cmd_load(wrong)
+
+    def test_a_negative_number_written_by_hand_is_refused(self):
+        self.written("[load]\nstart = -1\n")
+        with self.assertRaises(lem_state.StateError) as raised:
+            lem_state.load_start()
+        self.assertIn("lem project load --start N", str(raised.exception))
+
+
 class Seat(Machine):
     """`seats.session` takes the three sources of the merge agent's seat."""
 

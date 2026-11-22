@@ -23,9 +23,11 @@ SERVE_PID=""
 trap 'stopped; [ -z "$SERVE_PID" ] || { kill -TERM "$SERVE_PID" 2>/dev/null; wait "$SERVE_PID" 2>/dev/null || true; }; rm -rf "$WORK"' EXIT
 PY=$(python3 -I -c 'import sys; print(sys.executable)')
 # The board server's port of this run, a free one, in the machine's settings of this run: a check that asks for the
-# server (lem board, lem serve --ensure) asks this port, never the one of a server the owner runs.
+# server (lem board, lem serve --ensure) asks this port, never the one of a server the owner runs. The load gate is
+# away (`start = 0`, as `lem project load --start none` writes it): under Lem's default of 40 two landings of a block
+# would start their checks a minute apart, and a loaded machine would hold every one.
 SERVE_PORT=$("$PY" -I -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()')
-mkdir -p "$XDG_CONFIG_HOME/lem" && printf '[serve]\nport = %s\n' "$SERVE_PORT" > "$XDG_CONFIG_HOME/lem/machine.toml"
+mkdir -p "$XDG_CONFIG_HOME/lem" && printf '[load]\nstart = 0\n[serve]\nport = %s\n' "$SERVE_PORT" > "$XDG_CONFIG_HOME/lem/machine.toml"
 SERVE=$PWD/skills/lem/scripts/serve.py
 # serve_up: the board server of this run, in the foreground of a background job, with its output in $WORK/serve.out;
 # it answers before this returns, and the run's exit stops it

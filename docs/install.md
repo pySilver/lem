@@ -68,7 +68,8 @@ For all repositories, in `~/.config/lem/` (or `$XDG_CONFIG_HOME/lem/`):
 
 - `owner.jsonl`: your away status.
 - `machine.toml`: the settings of this computer:
-  - `[load]`: the load limit for the checks, which `lem project load --start N` sets;
+  - `[load]`: the load limit for the checks, 40 when you set none. `lem project load --start N`
+    sets it, and `lem project load --start none` removes the limit;
   - `[handoff]`: the number of tokens where a session compacts, which `lem project handoff
     --tokens N` sets;
   - `[seats]`: the seats `merger` and `session`, which you write by hand;
