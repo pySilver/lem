@@ -32,7 +32,7 @@ chord() {
 listed() { env CALLS="$WORK/list-calls" PATH="$BIN:$PATH" "$PY" -B "$PICKER" --repo "$1" --list; }
 
 # A repository with tasks in every place of the list: a breaker, criteria for his yes, a step of his, a pull request,
-# two that build (one on the fast track), one queued, one landed today and one landed a month ago.
+# two that build (one on the fast track), one queued, one landed yesterday and one landed a month ago.
 PK=$WORK/pick-repo
 git init -q -b main "$PK" && ident "$PK" && commit "$PK" start && project --repo "$PK" init --base main >/dev/null
 pk() { project --repo "$PK" "$@"; }
@@ -69,8 +69,8 @@ backdate a-breaker 1
 
 rows=$(listed "$PK" 2>&1 || true)
 order=$(field '[r["id"] for r in d]' <<<"$rows" 2>&1 || true)
-if [ "$order" = "['a-breaker', 'his-criteria', 'his-step', 'proposed-one', 'typo-fix', 'big-export', 'queued-one', 'fixed-total', ':all']" ]; then
-  pass "the rows come in the order a developer reads them: a breaker, criteria for his yes, a step of his and a pull request first, then what builds and the queue, then what landed lately; a task that landed a month ago has no row, and the board of all tasks is last"
+if [ "$order" = "['a-breaker', 'his-criteria', 'his-step', 'proposed-one', 'typo-fix', 'big-export', 'queued-one', 'fixed-total', 'old-landed', ':all']" ]; then
+  pass "the rows come in the order a developer reads them: a breaker, criteria for his yes, a step of his and a pull request first, then what builds and the queue, then what ended, the newest first; a task that landed a month ago keeps its row, and the board of all tasks is last"
 else
   fail "the order of the rows: $order / $rows"
 fi
@@ -84,6 +84,7 @@ Fix the typo in the footer. | Building · fast track · 1h
 Export the gift notes, one column each. | Building · standard track · 2h
 Cache the product list. | Queued · 3h
 Show the total after a refund. | Landed · fast track · 1d
+Rename the old export. | Landed · standard track · 30d
 All tasks | the board of every task · 9 tasks"
 if [ "$said" = "$want" ]; then
   pass "each row is the ask in the owner's words, with the state in the board's words, the track, the age and the pull request's number with green or not green; the last row is the board of all tasks"
@@ -98,7 +99,7 @@ BOARD_URL=http://127.0.0.1:$SERVE_PORT/$(curl -fsS "http://127.0.0.1:$SERVE_PORT
 picked=$(chord "$PK" '{"result":"picked","id":"typo-fix","label":"Fix the typo in the footer.","index":4}' 2>&1; echo "exit $?")
 picked_calls=$(cat "$CALLS")
 shown=$(field '[r["id"] for r in d]' < "$CALLS.rows" 2>&1 || true)
-chord "$PK" '{"result":"picked","id":":all","label":"All tasks","index":8}' >/dev/null 2>&1 || true
+chord "$PK" '{"result":"picked","id":":all","label":"All tasks","index":9}' >/dev/null 2>&1 || true
 all_calls=$(cat "$CALLS")
 live=$(chord "$PK" '{"result":"picked","id":"big-export","label":"Export the gift notes, one column each.","index":5}' 2>&1; echo "exit $?")
 live_calls=$(cat "$CALLS")
