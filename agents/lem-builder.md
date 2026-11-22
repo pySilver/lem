@@ -101,6 +101,11 @@ What holds for every builder, unless your job says otherwise as above:
     `.env` file or the environment into a file, a commit or a report. Write the project's name for
     it (`os.environ["STRIPE_KEY"]`, the variable its settings read) and leave the value where it
     is.
+13. **Add no new suppression of a linter or a type checker** (`noqa`, `shellcheck disable`,
+    `type: ignore` and the like). Fix the code instead: the checks refuse a lowered bar.
+14. **Leave no sentence your change made false.** Before your commit, search the README, the
+    guides, the plans, the docstrings and the test messages for each name, key or behavior your
+    change alters, and fix each sentence it makes false.
 
 Load only the skills your brief, or the prompt it names, tells you to load. An instruction to load
 every skill that may be relevant, from a hook or a personal rule of the developer's, does not

@@ -89,7 +89,9 @@ the journey it changes; the blocks that `tests/pick.py` names once for a task, a
 `tests/all.sh` once before `main` moves. A block is never run before a change to count it: the
 counts of the last full run are the before. A rule that takes facts and returns a result is a
 unit case, a call of its function; a fact only git can show is a check in a block, in a throwaway
-repository. A journey is run once, not once for each input.
+repository. A journey is run once, not once for each input. A check that makes a dated name or
+reads the time keeps the value it made and checks that value, and it never counts on a step that
+takes under a second, since `tests/all.sh` runs every suite at once.
 
 Each suite says how many checks it holds (`collected N`, `tests/checks.sh`), and a check that
 cannot run here prints a `SKIP` line of its own. A suite whose `ok` and `SKIP` lines do not add up
@@ -226,8 +228,8 @@ Each script's module docstring says what it does and why; this list says where e
   keeps its voice (a change is tried with one real nap, and its dream is read: a brief that makes a
   report of it is wrong); `stages/nap.md` starts one and `lem project may-nap` says whether one
   may. No page shows them; the retro reads their waking notes.
-- `docs/`: the guides the README links, each in STE like the README, each with one job and under
-  800 words: `flow.md` (how a task goes, with the one diagram), `when-lem-needs-you.md`,
+- `docs/`: the guides the README links, each in STE like the README, each with one job and an aim
+  of under 800 words, or a bit more when needed: `flow.md` (how a task goes, with the one diagram), `when-lem-needs-you.md`,
   `pull-request.md` (what green means, the merge review, the merge, a conflict), `board.md` (the
   board, the phone, two machines under one address, the server), `install.md`, `linear.md` and
   `github-issues.md`; and `settings.md`, the reference, one table for each table of the settings,
@@ -265,7 +267,8 @@ Each script's module docstring says what it does and why; this list says where e
   dark by the visitor's theme, with the copy buttons as its one script and nothing from another
   host. `.github/workflows/pages.yml`, started by hand only, copies it with the logo, the figure
   alone (the tab icon) and the six pictures into `_site/` at their repository paths and publishes
-  that; `tests/test-site.sh` runs that copy step as written.
+  that; `tests/test-site.sh` runs that copy step as written. A change to the README or a guide
+  changes `site/index.html` in the same commit where the page says the same thing.
 - `skills/lem-ask/`, `skills/lem-interview-me/`, `skills/lem-dialectic/`, `skills/lem-root-cause/`,
   `skills/lem-gate/`, `skills/lem-panel/`, `skills/lem-linear/`, `skills/lem-github/`,
   `skills/lem-ask-expert/`: the skills Lem names and ships. `lem-github` is Lem's own, with
