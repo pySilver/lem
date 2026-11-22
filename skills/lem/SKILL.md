@@ -161,7 +161,8 @@ so do the end of a command it runs in the background and a wake-up from the boar
 
 - **The owner is needed at three points.** The interview and his yes to the criteria (`new`), a
   breaker, and the pull request when the merge agent calls him; a task on the fast track needs him
-  at its pull request only. He answers in the task's own session. The build asks him nothing, there
+  at its pull request only. He answers in the task's own session, and while he is away also from
+  his inbox (`inbox-reply`). The build asks him nothing, there
   or away. A lead takes a decision in doubt up a ladder of opinions (the gate, the personas, the
   dialectic, the experts; `stages/ladder.md`), and its pick is taken at once, logged, and said in
   one line in the task's session. A pick past the personas makes the pull request not green. Only
@@ -240,7 +241,7 @@ so do the end of a command it runs in the background and a wake-up from the boar
   a planning or debugging skill loaded beside a stage has the session read code and plans by itself,
   which is the work of a lead and its builders (the compatibility audit, 2026-11-17).
 - **Capabilities, not tools.** A stage says `spawn-builder`, `open-task-session`, `mark-waiting`,
-  `take-focus`, `second-opinion`, `ask-owner`, `ask-experts`, `ask-merger`, `fan-out`, `run-in-background`,
+  `take-focus`, `second-opinion`, `ask-owner`, `inbox-reply`, `ask-experts`, `ask-merger`, `fan-out`, `run-in-background`,
   `start-nap` (for a nap), `show-page` or `load-skill`, and
   names the question gate, the persona panel and the review tool by role. Read, once per session, the file in this skill's `harness/` folder named
   after the agent you run in (`harness/claude-code.md`): it says what each means there, or names

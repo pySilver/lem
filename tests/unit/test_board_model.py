@@ -650,6 +650,103 @@ class Reader(unittest.TestCase):
             self.assertIn("line 4", reader.problems["events"])
 
 
+class Inbox(unittest.TestCase):
+    """What the task's page reads of the owner's Inbox: the board server's record (`inbox.json`, which
+    lem_inbox.Watcher writes), read as `forge.json` is, and what it says for a task that waits for him
+    while his mark says away (criteria 6 and 7 of away-questions-reach-phone)."""
+
+    AWAY = [{"ts": "2026-11-20T10:00:00Z", "event": "owner", "away": True, "words": "I'm away"}]
+    LIVE = {"gift-note": {"live": True, "agent": True, "session": "S1"}}
+    TAILNET = "https://studio.tail4e2a.ts.net:8443/"
+
+    @classmethod
+    def record(cls, *sent, **door) -> dict:
+        return {"running": True, "url": "http://plannotator.localhost:50026/", "tailnet_url": cls.TAILNET, "why": None, "said": "", "problem": None,
+                **door, "sent": list(sent)}
+
+    @staticmethod
+    def thing(key="breaker:gift-note:1", kind="breaker", form="question", asks=True, task="gift-note", **more) -> dict:
+        return {"key": key, "task": task, "kind": kind, "form": form, "asks": asks, "session": "C1" if form == "question" else None,
+                "message_id": "msg_01ABC", "thread_id": "msg_01ABC", "thread_url": "http://plannotator.localhost:50026/#thread=msg_01ABC", **more}
+
+    def breaker(self, record, owner=AWAY, sessions=LIVE):
+        m = model(ev(0, "session.open", session="S1", name="gift-note"), state(1, "building", "task 2 of 3"), Breakers.STOP, Breakers.HELD, owner=owner)
+        m.sessions, m.inbox = sessions, record
+        return bm.inbox_of(m.tasks[0], m)
+
+    def test_the_record_is_the_servers_file_read_whole_and_each_why_has_its_words(self):
+        lem_inbox = importlib.import_module("lem_inbox")
+        self.assertEqual((bm.INBOX_LOOK, set(bm.INBOX_WHY)), (lem_inbox.RECORD, set(lem_inbox.WHYS)))
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            self.assertIsNone(bm.inbox_look(folder))
+            (folder / bm.INBOX_LOOK).write_text(json.dumps(self.record(self.thing(), {"task": "gift-note"}, "x")))
+            self.assertEqual([s["key"] for s in bm.inbox_look(folder)["sent"]], ["breaker:gift-note:1"])
+            (folder / bm.INBOX_LOOK).write_text("half")
+            self.assertIsNone(bm.inbox_look(folder))
+
+    def test_the_reader_puts_the_record_into_the_model_and_reads_it_again_when_it_changes(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+
+            def load(root):
+                raise ValueError("no settings here")
+
+            lem_state = SimpleNamespace(owner_mark=lambda: folder / "owner.jsonl", StateError=OSError)
+            board = SimpleNamespace(lem_project=SimpleNamespace(lem_state=lem_state, owner_records=list, SettingsError=OSError, load=load), meta_of=lambda *_: {})
+            reader = bm.Reader(folder, folder)
+            self.assertIsNone(reader.current(board, NOW).inbox)
+            (folder / bm.INBOX_LOOK).write_text(json.dumps(self.record(self.thing())))
+            self.assertEqual(reader.current(board, NOW).inbox["tailnet_url"], self.TAILNET)
+            (folder / bm.INBOX_LOOK).write_text(json.dumps(self.record(running=False, tailnet_url=None, why="not running")))
+            self.assertEqual(reader.current(board, NOW).inbox["why"], "not running")
+
+    def test_criterion_6_a_question_sent_while_he_is_away_links_to_its_thread_at_the_tailnet_address(self):
+        self.assertEqual(self.breaker(self.record(self.thing())), {"thread": f"{self.TAILNET}#thread=msg_01ABC", "asks": True, "gone": False, "why": None})
+        # an address with no slash at its end, and a thread id that needs quoting
+        said = self.breaker(self.record(self.thing(thread_id='m"1 <x>'), tailnet_url="https://studio.tail4e2a.ts.net:8443"))
+        self.assertEqual(said["thread"], "https://studio.tail4e2a.ts.net:8443/#thread=m%221%20%3Cx%3E")
+
+    def test_criterion_7_with_the_door_closed_the_page_gets_why_and_no_link(self):
+        for why, words in (("not running", "The Inbox does not run on this Mac, so no question went there."),
+                           ("no tailnet address", "The Inbox has no tailnet address, so the phone cannot open it.")):
+            with self.subTest(why=why):
+                said = self.breaker(self.record(running=why != "not running", tailnet_url=None, why=why))
+                self.assertEqual(said, {"thread": None, "asks": False, "gone": False, "why": words})
+        # a question of the task that went before the door closed is there: the line says so, not that none went
+        self.assertEqual(set(bm.INBOX_WHY_SENT), set(bm.INBOX_WHY))
+        for why, words in (("not running", "A message of this task went to the Inbox, but the Inbox does not run on this Mac now, so the phone cannot open it."),
+                           ("no tailnet address", "The Inbox has no tailnet address, so the phone cannot open it.")):
+            with self.subTest(why=why, sent=True):
+                said = self.breaker(self.record(self.thing(), running=why != "not running", tailnet_url=None, why=why))
+                self.assertEqual(said, {"thread": None, "asks": False, "gone": False, "why": words})
+        self.assertTrue(all("no question went there" not in words for words in bm.INBOX_WHY_SENT.values()))
+        # a word the model does not know is still said, and no address but http or https is a link
+        self.assertIn("“later”", self.breaker(self.record(running=False, tailnet_url=None, why="later"))["why"])
+        self.assertIsNone(self.breaker(self.record(self.thing(), tailnet_url="javascript:alert(1)")))
+
+    def test_nothing_changes_while_he_is_there_while_nothing_of_the_task_went_and_for_an_old_row(self):
+        self.assertIsNone(self.breaker(self.record(self.thing()), owner=[]))
+        self.assertIsNone(self.breaker(None))
+        self.assertIsNone(self.breaker(self.record()))
+        # the note of a session that came back, which the server forgets at its next look
+        self.assertIsNone(self.breaker(self.record(self.thing("session:gift-note", "session", "note", False))))
+        # a thing that waits for its send again after a call that failed
+        unsent = {k: v for k, v in self.thing().items() if k not in ("message_id", "thread_id")}
+        self.assertEqual(self.breaker(self.record(unsent, problem="the send of breaker:gift-note:1: server_error: down"))["why"], bm.INBOX_UNSENT)
+        self.assertIsNone(self.breaker(self.record(unsent)))
+
+    def test_a_note_says_whether_a_session_can_take_a_reply_and_the_merge_review_is_the_merges_thing(self):
+        gone = self.breaker(self.record(self.thing("session:gift-note", "session", "note", False)), sessions={})
+        self.assertEqual((gone["asks"], gone["gone"]), (False, True))
+        merge = model(state(0, "open", Merge.PR), ev(1, "merge.review", verdict="call", calls=True, why="careful", by="claude", tip="abc"), owner=self.AWAY)
+        merge.sessions, merge.inbox = self.LIVE, self.record(self.thing("merge:gift-note", "merge", "note", False))
+        self.assertEqual([w["key"] for w in bm.waits_of(merge)], ["review:gift-note", "merge:gift-note"])
+        said = bm.inbox_of(merge.tasks[0], merge)
+        self.assertEqual((said["asks"], said["gone"], said["thread"]), (False, False, f"{self.TAILNET}#thread=msg_01ABC"))
+
+
 if __name__ == "__main__":
     unittest.main()
 

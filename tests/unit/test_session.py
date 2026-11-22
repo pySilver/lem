@@ -349,6 +349,34 @@ class Close(unittest.TestCase):
         self.assertEqual(closed, [("session", "close", "--target", "s-1", "--undoable")])
 
 
+class Wake(unittest.TestCase):
+    OPENS = [{"event": "session.open", "task": SLUG, "session": "S-1", "ts": "2026-11-22T10:00:00Z"}]
+
+    def wake(self, why: str, alive: bool) -> tuple[dict, list, list]:
+        sent, logged = [], []
+        with mock.patch.object(session, "place", return_value={"session": "", "socket": "", "window": ""}), \
+             mock.patch.object(session, "tree", return_value={}), \
+             mock.patch.object(session, "node_of", return_value={"name": "gift-note", "active": False}), \
+             mock.patch.object(session, "live", return_value=alive), \
+             mock.patch.object(session, "ctl", side_effect=lambda where, *args, window=True: sent.append(args)), \
+             mock.patch.object(session, "cmd_open", side_effect=AssertionError("the Inbox's wake opens no session")), \
+             mock.patch.object(project, "append_event", side_effect=lambda root, event, slug, fields: logged.append((event, fields))), \
+             mock.patch.object(project, "task_directory", return_value=Path("/lem-unit/task")), \
+             mock.patch.object(project, "events_named", side_effect=lambda root, *names: [r for r in self.OPENS if r["event"] in names]):
+            return session.cmd_wake(ROOT, SLUG, why, None), sent, logged
+
+    def test_the_inbox_wakes_a_live_session_and_opens_none(self):
+        # the board server's word when a thing of the task went to the Inbox, or a reply came for a gone session
+        self.assertIn("inbox", session.WAKES)
+        done, sent, logged = self.wake("inbox", True)
+        self.assertEqual((done["woke"], done["opened"]), (True, False))
+        self.assertEqual(sent, [("msg", "send", "lem: gift-note inbox", "--to", "S-1:left")])
+        self.assertEqual(logged, [("session.wake", {"session": "S-1", "why": "inbox"})])
+        done, sent, logged = self.wake("inbox", False)
+        self.assertEqual((done["woke"], done["opened"], sent, logged), (False, False, [], []))
+        self.assertIn("waits there", done["say"])
+
+
 class Agent(unittest.TestCase):
     def test_an_agent_in_the_left_pane(self):
         self.assertTrue(session.agent_runs({"foreground": ["/usr/local/bin/claude", "--resume", "x"]}))

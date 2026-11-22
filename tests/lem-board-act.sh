@@ -561,4 +561,49 @@ else
   fail "the server's merge after a safe read of a moved base: $refused / $kept / $moved / $said / $read_now / $merged / $(events "$SAFE" gate.start code-second) vs $CHECKS_RAN / $(git -C "$SAFE.origin.git" log -3 --format=%s main)"
 fi
 
+# The owner's Inbox while he is away (lem_inbox): the server's look sends the breaker of report-dates to the stand-in
+# for Plannotator of tests/lib.sh once, in the task's thread and as its Claude Code session, with no variable of the
+# session that started the server, and wakes the task's session; the park takes the row off the list, and the next look
+# withdraws the question as the same session. The task's sessions are the stand-in's list (LEM_SESSION_LIST).
+IN=$WORK/inbox-shop
+git init -q -b main "$IN" && ident "$IN" && commit "$IN" init && project --repo "$IN" init --base main >/dev/null 2>&1
+project --repo "$IN" task-dir report-dates --ask "Put the dates on the report" >/dev/null
+INT=$(project --repo "$IN" worktree report-dates feat/report-dates | field 'd["worktree"]')
+project --repo "$IN" state report-dates building "lead: builder" "type: feat, because the report gets its dates" >/dev/null
+project --repo "$IN" log report-dates session.open session=S-1 name=report-dates phase=build why=new >/dev/null
+project --repo "$IN" log report-dates session.transcript claude=c-main transcript=/t/c-main.jsonl source=startup >/dev/null
+breaker_doc "$IN/.lem/state/tasks/report-dates"
+"$PY" -B "$DECISIONS" --repo "$INT" breaker report-dates --cause criteria >/dev/null
+project --repo "$IN" owner away --words "/lem im-away" >/dev/null
+printf '%s\n' '[{"task": "report-dates", "session": "S-1", "name": "report-dates", "live": true, "agent": true, "unanswered": false}]' > "$WORK/inbox-sessions.json"
+printf '%s\n' '{"state": "running", "running": true, "url": "http://plannotator.localhost:50026/", "tailnet_url": "https://mac.tail0.ts.net:50026/"}' > "$PLANNOTATOR_STATUS"
+: > "$LEM_SESSION_CALLS"
+look() {
+  LEM_SESSION_LIST=$WORK/inbox-sessions.json PLANNOTATOR_SESSION_TAG=claude-code:the-session-that-started-the-server CLAUDECODE=1 "$PY" -B -c '
+import json, sys
+sys.path.insert(0, "skills/lem/scripts")
+import serve, lem_inbox
+serve.detach_from_session()
+w = serve.Workspace("inbox-shop", sys.argv[1])
+w.look_sessions()
+watcher = lem_inbox.Watcher(lambda: [w], serve.inbox_link, serve.inbox_wake)
+print(json.dumps([(x["did"], x["key"]) for x in watcher.look()]))
+' "$IN"
+}
+sent=$(look)
+twice=$(look)
+project --repo "$IN" state report-dates parked "the owner parked it" >/dev/null
+withdrawn=$(look)
+calls=$("$PY" -c 'import json, sys; print([(c["args"][2:4], (c["payload"] or {}).get("thread"), (c["payload"] or {}).get("supersedes"), c["named"], c["cwd"] == sys.argv[2]) for c in map(json.loads, open(sys.argv[1])) if "send_message" in c["args"]])' "$PLANNOTATOR_CALLS" "$IN")
+body=$("$PY" -c 'import json, sys; print(next(json.loads(l)["payload"]["body"] for l in open(sys.argv[1]) if "send_message" in l))' "$PLANNOTATOR_CALLS")
+if [ "$sent" = '[["sent", "breaker:report-dates:1"]]' ] && [ "$twice" = "[]" ] && [ "$withdrawn" = '[["withdrew", "breaker:report-dates:1"]]' ] \
+  && [ "$calls" = "[(['--session', 'claude-code:c-main'], 'report-dates', None, [], True), (['--session', 'claude-code:c-main'], None, ['msg_1'], [], True)]" ] \
+  && grep -qF ':::question' <<<"$body" && grep -qF -- '- [ ] Park' <<<"$body" && grep -qF '/inbox-shop/tasks/report-dates' <<<"$body" \
+  && [ "$(grep -c '^wake report-dates --why inbox$' "$LEM_SESSION_CALLS")" = 1 ] \
+  && [ "$("$PY" -c 'import json, sys; print(json.load(open(sys.argv[1]))["sent"])' "$IN/.lem/state/inbox.json")" = "[]" ]; then
+  pass "while the owner is away the server sends a breaker to the Inbox once, in the task's thread and as its Claude Code session with no variable of the session that started the server, and wakes the task's session; once the row leaves the list it withdraws the question as the same session"
+else
+  fail "the owner's Inbox: $sent / $twice / $withdrawn / $calls / $(cat "$LEM_SESSION_CALLS") / $(cat "$IN/.lem/state/inbox.json" 2>/dev/null)"
+fi
+
 finish

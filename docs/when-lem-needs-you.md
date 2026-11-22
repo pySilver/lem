@@ -42,6 +42,8 @@ Answer in one of three ways:
 - `/lem park <task>`: the worktree, the branch and the files stay;
 - `/lem drop <task>`: the worktree goes, and the files and the commits of the branch stay.
 
+While you are away, you can also answer in the [Inbox](#answer-from-the-inbox).
+
 `/lem resume <task>` opens the talk again after a park or a drop. After the days of
 [`state.keep_days`](settings.md#state), the events of a dropped task become one summary, and Lem
 cannot resume it. Then type `/lem` and its request to start a new task.
@@ -95,5 +97,19 @@ type `/lem im-back`. While you are away:
 - the ladder settles each criterion that a persona doubted, and Lem approves the criteria for you;
 - a new request asks you nothing, and takes the safer read.
 
-The pull request of such a task is not green. A build, a breaker and the merge stay the same. A
-task of `/lem night` always runs without you, to its pull request.
+The pull request of such a task is not green. A build, a breaker and the merge agent work as when
+you are there. A task of `/lem night` always runs without you, to its pull request.
+
+### Answer from the Inbox
+
+While you are away, each row of what waits for you also goes to the
+[Plannotator](https://github.com/backnotprop/plannotator) Inbox on this computer, in a thread with
+the name of the task. A question there has the same answers as the card in the session of the
+task. On your phone, the [page of the task](board.md#the-board-on-your-phone) links to the thread.
+
+- The first answer counts: in the Inbox, in the session or on the board. Lem then closes the
+  question in the other places.
+- A task with no session gets a note with a link to its page on the board, and no question.
+- After `/lem im-back`, a question in the Inbox stays open.
+
+When the Inbox does not run, or has no Tailscale address, Lem sends nothing there.

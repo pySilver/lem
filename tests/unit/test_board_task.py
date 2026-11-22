@@ -247,6 +247,104 @@ class Overview(unittest.TestCase):
         self.assertEqual((p["finished"], p["current"], p["total"], p["subs"][2]), (1, 1, 3, "task 2 of 3"))
 
 
+class InboxLine(unittest.TestCase):
+    """Where the owner answers on the phone's page of a task while his mark says away and the board's server
+    sent the task's thing to his Inbox: both places with a link to the thread (criterion 6 of
+    away-questions-reach-phone), today's line and why with no link (criterion 7), and the line of a note
+    (decision 8). The page here is the phone's: not for this Mac, and it may act through the tailnet door."""
+
+    AWAY = [{"ts": "2026-11-20T10:00:00Z", "event": "owner", "away": True, "words": "I'm away"}]
+    LIVE = {"gift-note": {"live": True, "agent": True, "session": "S1"}}
+    TAILNET = "https://studio.tail4e2a.ts.net:8443/"
+    OPENED = ev(0, "session.open", session="S1", name="gift-note")
+    BREAKER = (ev(20, "decision.breaker", id=1, cause="criteria", what="The note has no place", document="breaker.md", handoff="handoff.md"),
+               state(20, "held", "breaker 1 waits for the owner", "The note has no place: no option keeps the criteria"))
+    TODAY = "The task’s session, “gift-note”, is in agterm on the Mac."
+    BOTH = "Answer in the task’s session on the Mac, or in the Inbox"
+
+    @classmethod
+    def record(cls, key="breaker:gift-note:1", kind="breaker", form="question", asks=True, **door) -> dict:
+        sent = {"key": key, "task": "gift-note", "kind": kind, "form": form, "asks": asks, "message_id": "msg_01ABC", "thread_id": "msg_01ABC"}
+        return {"running": True, "tailnet_url": cls.TAILNET, "why": None, "problem": None, **door, "sent": [sent]}
+
+    def overview(self, *events, record=None, owner=AWAY, sessions=LIVE) -> str:
+        m = model(self.OPENED, *events, owner=owner)
+        m.sessions, m.inbox = sessions, record
+        ctx = pages.Ctx(host="h", workspace="w", model=m, asset=lambda name: name, local=False, can_act=True)
+        ctx.artifact = lambda slug, path: {"path": path, "kind": "markdown", "text": "# The note has no place"}
+        return "".join(str(x) for x in task_pages.overview_tab(ctx, m.by_slug["gift-note"]) if x)
+
+    @staticmethod
+    def text(html: str) -> str:
+        return " ".join(re.sub(r"<[^>]+>", " ", html).split()).replace(" .", ".")
+
+    def test_criterion_6_a_breaker_sent_to_the_inbox_names_both_places_once_with_the_threads_link(self):
+        shown = self.overview(state(1, "building", "task 2 of 3"), *self.BREAKER, record=self.record())
+        said = self.text(shown)
+        self.assertIn(f"{self.BOTH}.", said)
+        self.assertIn(f'href="{self.TAILNET}#thread=msg_01ABC"', shown)
+        self.assertEqual(shown.count('id="inbox"'), 1)
+        self.assertNotIn(self.TODAY, said)
+        self.assertNotIn("Where you answer: help in the task’s session.", said)
+        self.assertIn("/lem park gift-note", said)
+        # while he is there, the same record changes nothing: today's line alone
+        there = self.text(self.overview(state(1, "building", "task 2 of 3"), *self.BREAKER, record=self.record(), owner=[]))
+        self.assertIn(self.TODAY, there)
+        self.assertNotIn("Inbox", there)
+
+    def test_criterion_6_a_merge_and_a_blocked_task_get_the_line_that_row_action_never_gave_them(self):
+        merge = (state(1, "open", "pull request https://github.com/acme/shop/pull/41"), ev(2, "merge.review", verdict="call", calls=True, why="careful", by="claude", tip="abc"))
+        blocked = (state(1, "building", "lead: builder"), state(5, "blocked", "a builder ended two times with no report"))
+        for events, key, kind in ((merge, "merge:gift-note", "merge"), (blocked, "blocked:gift-note", "blocked")):
+            with self.subTest(kind=kind):
+                self.assertNotIn("Inbox", self.text(self.overview(*events, record=self.record(key, kind), owner=[])))
+                shown = self.overview(*events, record=self.record(key, kind))
+                self.assertIn(self.BOTH, self.text(shown))
+                self.assertIn(f'href="{self.TAILNET}#thread=msg_01ABC"', shown)
+
+    def test_criterion_7_with_no_inbox_or_no_tailnet_address_the_page_says_todays_line_and_why(self):
+        for door, why in (({"running": False, "tailnet_url": None, "why": "not running"},
+                           "A message of this task went to the Inbox, but the Inbox does not run on this Mac now, so the phone cannot open it."),
+                          ({"tailnet_url": None, "why": "no tailnet address"}, "The Inbox has no tailnet address, so the phone cannot open it.")):
+            with self.subTest(why=door["why"]):
+                shown = self.overview(state(1, "building", "task 2 of 3"), *self.BREAKER, record=self.record(**door))
+                said = self.text(shown)
+                self.assertIn(self.TODAY, said)
+                self.assertIn(why, said)
+                self.assertNotIn("#thread=", shown)
+                self.assertNotIn(self.BOTH, said)
+
+    def test_a_task_whose_thing_went_as_a_note_says_no_session_runs_and_offers_one(self):
+        shown = self.overview(state(1, "building", "lead: builder"), record=self.record("session:gift-note", "session", "note", False),
+                              sessions={"gift-note": {"live": True, "agent": False}})
+        said = self.text(shown)
+        self.assertIn("No session of the task runs now: open one here. The Inbox has a note, not a question.", said)
+        self.assertIn(f'href="{self.TAILNET}#thread=msg_01ABC"', shown)
+        self.assertIn('action="/h/w/tasks/gift-note/session"', shown)
+        self.assertNotIn(self.BOTH, said)
+
+    def test_a_task_whose_session_stopped_says_so_and_offers_a_fresh_one(self):
+        # the merge review's finding 3: the row "stopped" asks nothing, as the row of a missing session
+        shown = self.overview(state(1, "building", "lead: builder"), ev(60, "session.stopped", session="S1"),
+                              record=self.record("stopped:gift-note", "stopped", "note", False))
+        said = self.text(shown)
+        self.assertIn("The task’s session stopped: open a fresh one here. The Inbox has a note, not a question.", said)
+        self.assertIn(f'href="{self.TAILNET}#thread=msg_01ABC"', shown)
+        self.assertIn('action="/h/w/tasks/gift-note/session"', shown)
+        self.assertNotIn(self.BOTH, said)
+
+    def test_the_record_reaches_the_page_escaped(self):
+        record = self.record(running=False, tailnet_url=None, why='<img src=x onerror="alert(1)">')
+        shown = self.overview(state(1, "building", "task 2 of 3"), *self.BREAKER, record=record)
+        self.assertIn("&lt;img src=x onerror=", shown)
+        self.assertNotIn("<img src=x", shown)
+        sent = self.record()
+        sent["sent"][0]["thread_id"] = '"><script>x</script>'
+        shown = self.overview(state(1, "building", "task 2 of 3"), *self.BREAKER, record=sent)
+        self.assertIn("#thread=%22%3E%3Cscript%3Ex%3C%2Fscript%3E", shown)
+        self.assertNotIn("<script>x", shown)
+
+
 class Artifacts(unittest.TestCase):
     def test_one_file_is_read_only_by_a_path_the_task_lists(self):
         with tempfile.TemporaryDirectory() as folder:

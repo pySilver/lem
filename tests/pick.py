@@ -52,6 +52,8 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     # the board server and the pages it draws, and the afternoon its block serves
     (("skills/lem/scripts/serve.py", "skills/lem/scripts/serve_hook.py", "skills/lem/scripts/lem_board_*.py", "skills/lem/scripts/lem_html.py",
       "skills/lem/scripts/lem_artifacts.py", "skills/lem/assets/*", "tests/board-showcase.py"), ("lem-serve", "lem-board-act", "lem-board-keys", "lem-settings", "lem-picker", "lem-command")),
+    # the server's thread that sends what waits to the owner's Inbox, which every server loads and lem-board-act runs on the stand-in for plannotator
+    (("skills/lem/scripts/lem_inbox.py",), ("lem-board-act", "lem-serve")),
     # the driver of headless Chrome, through which lem-serve types into a page of the board and lem-board-keys presses the board's keys
     (("tests/board-cdp.mjs",), ("lem-serve", "lem-board-keys")),
     # two machines under one address: the server that passes another's pages through, and the list of both

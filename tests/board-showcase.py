@@ -14,7 +14,8 @@ an answered question, and one task the owner parked after its breaker. Each task
 of its agterm session, as `lem session open` logs it, and one that builds has none, so that "Waits for
 you" has its row "No session runs this task"; the pull request that is not green has the merge agent's
 review (`merge-review.md` and its `merge.review`), which calls the owner, and the landing's record (`landing.json`) that
-every open task has, so that its merge step has its button. The landed task has a `task.md`
+every open task has, so that its merge step has its button. The breaker's question is in the board server's record
+of the owner's Inbox (`inbox.json`), which a page shows only while his mark says away. The landed task has a `task.md`
 with its outcome, and its polish pass files one backlog item on its branch, so that its "Overview"
 shows "What we are building" whole; the task of the picture of one task (`refund_line`) has every form
 a document of Lem's takes, and its picture shows the merge review that calls the owner. The scripts write the
@@ -56,6 +57,8 @@ PHONE = (390, 844)
 # The screen of the merge step's pictures: at PHONE the whole text of pull request 44 fits in the overlay (its body 675 px
 # of 675, measured 2026-11-22), so its button is on at once; at 664 px it goes on below the body's end (495 px of 609).
 MERGE_PHONE = (390, 664)
+# the tailnet address of the owner's Inbox in this afternoon's record of it (inbox.json)
+INBOX_TAILNET = "https://studio.tail4e2a.ts.net:8443/"
 
 
 def run(*args: str, cwd: Path | None = None) -> str:
@@ -397,6 +400,14 @@ def afternoon(shop: Shop) -> None:
     (s.dir / "tasks" / t / "handoff.md").write_text(GIFT_HANDOFF)
     s.decide(t, 20, "breaker", t, "--cause", "criteria")
     s.at(t, 20)
+    # the board's server sent the breaker to the owner's Inbox as the task's session (lem_inbox.Watcher, which
+    # sends nothing for a demo, so the record is written here as it writes it); a page says so only while his
+    # mark says away, which this afternoon has not
+    sent = {"key": f"breaker:{t}:1", "task": t, "kind": "breaker", "form": "question", "asks": True, "session": "6f1c2a9e-demo", "tip": None,
+            "message_id": "msg_01DEMOGIFTNOTEBREAKER1", "thread_id": "msg_01DEMOGIFTNOTEBREAKER1",
+            "thread_url": "http://plannotator.localhost:50026/#thread=msg_01DEMOGIFTNOTEBREAKER1", "questions": ["q1"], "woke": []}
+    (s.dir / "inbox.json").write_text(json.dumps({"running": True, "url": "http://plannotator.localhost:50026/", "tailnet_url": INBOX_TAILNET,
+                                                  "why": None, "said": "", "problem": None, "sent": [sent]}, indent=2) + "\n")
 
     # A task whose breaker stopped it before a step no "no" undoes, which the owner then parked.
     t = "fee-notice-to-merchants"

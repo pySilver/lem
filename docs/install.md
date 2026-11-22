@@ -13,6 +13,7 @@
 | a remote on GitHub, and the [GitHub CLI](https://cli.github.com) `gh`, signed in | the pull requests, the one way a task lands |
 | [Codex](https://github.com/openai/codex): highly recommended | a second model family for the review |
 | agdoc, from the agterm cookbook: recommended | a page that you ask for, about an issue, a plan or a change |
+| [Plannotator](https://github.com/backnotprop/plannotator): recommended | the Inbox, where what waits for you goes while you are away, also on your phone |
 | `JEV_API_KEY`, a key for the Jev decision model: optional | [the correction queue](#the-correction-queue) |
 
 `/lem init` checks each tool and says how to install it.

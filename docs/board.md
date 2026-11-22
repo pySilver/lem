@@ -70,6 +70,11 @@ devices. Only your Tailscale login gets access.
 The phone then gets a notification when something starts to wait for you. When the computer
 sleeps, the phone cannot open the board.
 
+While you are [away](when-lem-needs-you.md#answer-from-the-inbox), the page of a task that waits
+for you says: "Answer in the task's session on the Mac, or in the Inbox". "Inbox" opens the
+thread of the task through the Tailscale address of the Inbox. When the Inbox does not run, or has
+no Tailscale address, the page says why it has no link.
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../assets/screens/phone-dark.png">
@@ -94,8 +99,8 @@ A new Claude Code session in a repository that uses Lem starts the server, and s
 `lem` command of any session. The first session after an update replaces it.
 
 The server merges a pull request when the merge agent gives the verdict merge. Each hour it removes
-the old files and events, as [`state.keep_days`](settings.md#state) tells. It never types into a
-session.
+the old files and events, as [`state.keep_days`](settings.md#state) tells. While you are away, it
+sends what waits for you to the Inbox. It never types into a session.
 
 The server also monitors each task that builds or lands. When its session does no work for 45
 minutes, the server asks the session for its status. After 10 more minutes with no work, the server

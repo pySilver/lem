@@ -21,7 +21,7 @@ IN_TABLE = {
     "agterm": "[agterm]", "agterm skill": "[agterm]", "claude": "[Claude Code]", "git": "git, and Python", "python3": "Python 3.11",
     "revmux": "[revmux]", "revmux skill": "[revmux]", "cronn": "[cronn]", "mailbox-chat": "the mailbox chat",
     "mailbox-chat skill": "the mailbox chat", "webrev skill": "webrev", "backlog skill": "the backlog recipe", "agdoc skill": "agdoc",
-    "codex": "[Codex]", "Jev key": "JEV_API_KEY",
+    "codex": "[Codex]", "plannotator": "[Plannotator]", "Jev key": "JEV_API_KEY",
 }
 # A table row whose word and the check's tier do not agree, and why it is not settled here.
 UNSETTLED = {
@@ -91,6 +91,32 @@ def table() -> list[tuple[str, str]]:
         word = re.search(r":\s*(optional|highly recommended|recommended)$", cell)
         out.append((cell, "recommended" if word and word[1] == "highly recommended" else word[1] if word else "required"))
     return out
+
+
+class Plannotator(unittest.TestCase):
+    """The Inbox of the owner's away (away-questions-reach-phone, criterion 7): a recommended tool, which
+    fails no check where it is absent."""
+
+    def row(self, path: str | None, said: str | None) -> dict:
+        which, version = doctor.shutil.which, doctor.version
+        doctor.shutil.which = lambda binary: path if binary == "plannotator" else None
+        doctor.version = lambda command: said if command == [path, "--version"] else None
+        try:
+            return doctor.plannotator()
+        finally:
+            doctor.shutil.which, doctor.version = which, version
+
+    def test_the_row_is_recommended_with_its_guide_and_names_the_version_found(self):
+        found = self.row("/opt/bin/plannotator", "plannotator 0.29.0")
+        self.assertEqual((found["name"], found["need"], found["found"], found["detail"]), ("plannotator", "recommended", True, "plannotator 0.29.0"))
+        self.assertEqual(found["guide"], "https://github.com/backnotprop/plannotator")
+        self.assertIn("while he is away", found["used_for"])
+        self.assertEqual(tiers()["plannotator"], {"recommended"})
+
+    def test_without_it_the_row_says_that_nothing_goes_to_the_inbox(self):
+        absent = self.row(None, None)
+        self.assertEqual((absent["need"], absent["found"], absent["detail"]), ("recommended", False, None))
+        self.assertTrue(absent["without_it"].startswith("nothing goes to the Inbox"))
 
 
 class Tiers(unittest.TestCase):

@@ -54,7 +54,9 @@ With `branch.land = "owner"`, the merge agent still writes its review, but it ne
 ## Merge it
 
 There is one merge: the merge of the pull request. You start it with the Merge button on GitHub,
-with Merge on the [board](board.md), or with `/lem land <task>`.
+with Merge on the [board](board.md), or with `/lem land <task>`. While you are away, you can also
+answer Merge in the [Inbox](when-lem-needs-you.md#answer-from-the-inbox). Lem merges only the
+commit that the question names.
 
 - A merge goes through GitHub, under the rules of your base branch. When GitHub refuses it,
   "Waits for you" shows the line that GitHub gave. Lem refuses it when the pull request on

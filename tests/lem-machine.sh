@@ -182,10 +182,10 @@ else
 fi
 out=$(doctor)
 if [ "$home_only" = "(False, False)" ] && [ "$(field 'd["ok"]' <<<"$out")" = "True" ] && [ "$(field '[t["name"] for t in d["tools"] if "jev" in t["name"]]' <<<"$out")" = "[]" ] && [ "$(row 'lem-builder agent' detail <<<"$out")" = "lem:lem-builder, from the plugin lem@lem" ] && [ "$(row cronn found <<<"$out")" = "True" ] \
-  && [ "$(field '[t["name"] for t in d["tools"] if t["name"] == "plannotator"]' <<<"$out")" = "[]" ] && [ "$(row codex found <<<"$out")" = "False" ] \
+  && [ "$(row plannotator found <<<"$out")" = "False" ] && [ "$(row plannotator without_it <<<"$out" | grep -c 'nothing goes to the Inbox')" = 1 ] && [ "$(row codex found <<<"$out")" = "False" ] \
   && [ "$(field '[t["name"] for t in d["tools"] if t["name"] == "codex persona agent"]' <<<"$out")" = "[]" ] \
   && [ "$(field '[(t["name"], t["found"], t["guide"].rsplit("/", 1)[1]) for t in d["tools"] if t["need"] == "recommended"]' <<<"$out")" \
-    = "[('agdoc skill', True, 'html-doc-overlay'), ('plannotator-tui', False, 'annotate-in-plannotator-tui'), ('codex', False, 'codex')]" ] \
+    = "[('agdoc skill', True, 'html-doc-overlay'), ('plannotator-tui', False, 'annotate-in-plannotator-tui'), ('plannotator', False, 'plannotator'), ('codex', False, 'codex')]" ] \
   && [ "$(row cronn used_for <<<"$out")" = "a scheduled retro and a night run" ] \
   && [ ! -e "$PWD/skills/lem-webrev" ]; then
   pass "a builder file in the home is not Lem's; with git, the review tool, agterm, the mailbox, the cookbook's recipes, their skills, Claude Code and Lem's plugin the check passes; absent optional tools only change their rows, the recommended tools, no part of Lem, have a row with their guide, no row speaks of a jev command, and the cronn row names no free hour, which is the maintainer's"
@@ -266,6 +266,14 @@ if [ "$on_code" = 1 ] && [ "$(key_row <<<"$on_out")" = "('required', False)" ] &
   pass "where the correction queue is on the key is required: with none the check fails and names the key and the local collect = false; with the key it passes; the queue off, or off for this computer, leaves it optional"
 else
   fail "the key where the queue is on: $on_code $(key_row <<<"$on_out") / $on_says / $on_keyed $on_keyed_code / $local_off $local_off_code / $off $off_code"
+fi
+fake plannotator "plannotator 0.29.0"
+inbox=$(doctor | field '(next((t["need"], t["found"], t["detail"]) for t in d["tools"] if t["name"] == "plannotator"), d["ok"])' || true)
+rm "$BIN/plannotator"
+if [ "$inbox" = "(('recommended', True, 'plannotator 0.29.0'), True)" ]; then
+  pass "a machine with Plannotator has its row found with its version, the Inbox of what waits for the owner while he is away"
+else
+  fail "doctor and Plannotator: $inbox"
 fi
 fake codex "codex-cli 9.9"
 without=$(doctor | field '(next(t for t in d["tools"] if t["name"] == "codex persona agent")["found"], d["ok"])')

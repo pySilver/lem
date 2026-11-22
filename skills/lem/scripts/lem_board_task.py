@@ -34,7 +34,10 @@ went with the events (`summary_card`, `went_tab`).
 Each task lives in its own agterm session. The jump to it has its button only on a page for this Mac
 (`Ctx.local`, the agterm controller), and only while the session lives; a task with no live session
 has "Open a session" in its header on every page that may act, which the server answers with `lem
-session open` (serve.py `act_session`).
+session open` (serve.py `act_session`). While the owner's mark says away and the board's server sent a
+thing of the task to his Inbox, the line of where he answers names both places, the task's session on
+the Mac and the Inbox, with a link to the task's thread at the Inbox's tailnet address; with no link, it
+says why (`inbox_action`).
 """
 
 import hashlib
@@ -320,6 +323,40 @@ def session_action(ctx, t: bm.Task) -> Markup | None:
     return None
 
 
+def inbox_action(ctx, t: bm.Task) -> Markup | None:
+    """Where the owner answers while his mark says away and the board's server sent the task's thing to his
+    Inbox (`bm.inbox_of`): a question, in the task's session on the Mac or in the Inbox, its thread a link at
+    the Inbox's tailnet address, in place of `session_action`'s line about the session (its jump stays on a
+    page for this Mac); a note, which no session can take a reply to, that no session runs or answers, or
+    that the task's session stopped, with the link and "Open a session" where the page may act; a note of
+    a row that asks nothing (a refused merge, a merge with no review of its tip), `session_action` as
+    today and a line that the Inbox has a note of it, with the link; and with no link, `session_action` as
+    today and one line that says why. None while it changes nothing of today's lines: the large card and the breaker's card show
+    `row_action` then."""
+    said = bm.inbox_of(t, ctx.model)
+    if said is None:
+        return None
+
+    def line(*words, then=None) -> Markup:
+        return h("div", {"class": "wl-actions", "id": "inbox"}, h("span", {"class": "bl-note"}, *words), then)
+
+    if said["why"]:
+        return join([session_action(ctx, t) or "", line(said["why"])])
+    inbox = h("a", {"class": "inbox-link", "href": said["thread"], "target": "_blank", "rel": "noopener", "title": "Open the task’s thread in the Inbox"}, "Inbox")
+    live = bm.live_of(t, ctx.model) or {}
+    if said["asks"]:
+        go = jump(ctx, live.get("session"), "Go to the task’s session") if live.get("live") else None
+        return line("Answer in the task’s session on the Mac, or in the ", inbox, ".", then=go)
+    if said["gone"]:
+        opens = bm.opens_session(t, ctx.model) and ctx.can_act
+        stopped = bm.stopped_of(t, ctx.model) is not None
+        first = ("The task’s session stopped: open a fresh one here." if stopped and opens else "The task’s session stopped." if stopped else
+                 "The task’s session does not answer." if live.get("live") else
+                 "No session of the task runs now: open one here." if opens else "No session of the task runs now.")
+        return line(first, " The ", inbox, " has a note, not a question.", then=open_form(ctx, t) if opens else None)
+    return join([session_action(ctx, t) or "", line("The ", inbox, " has a note of it, not a question.")])
+
+
 def row_action(ctx, t: bm.Task) -> Markup | None:
     """The way to the task's session for a thing of the task that waits for the owner: its breaker, or its held block's need."""
     if t.breaker is not None or (t.need and not t.approved and not t.helped):
@@ -452,8 +489,11 @@ def breaker_card(ctx, t: bm.Task) -> Markup | None:
         P.icon(ctx, "file"), "the handoff", " ", P.icon(ctx, "arrow"))
     body = (P.md_block(ctx, f"breaker-{t.slug}-{b.id}", text, slug=t.slug) if text is not None
             else h("p", {"class": "sub"}, f"{name} is not in the task directory: the board has nothing to show of it."))
-    where = (h("div", {"class": "b-lines"}, h("div", {"class": "b-line"}, h("b", None, "Where you answer: "), "help in the task’s session."),
-               row_action(ctx, t), owner_lines(ctx, t))
+    # while he is away and the breaker went to his Inbox, its line says where he answers, once
+    inbox = inbox_action(ctx, t) if t.breaker else None
+    both = inbox is not None and bm.inbox_of(t, ctx.model)["asks"]
+    where = (h("div", {"class": "b-lines"}, None if both else h("div", {"class": "b-line"}, h("b", None, "Where you answer: "), "help in the task’s session."),
+               inbox or row_action(ctx, t), owner_lines(ctx, t))
              if t.breaker else h("div", {"class": "b-lines"}, h("div", {"class": "b-line"}, "The task is parked: this breaker waits for nobody until you bring it back."), owner_lines(ctx, t)))
     return h("section", {"class": f"card building a-{'you' if t.breaker else 'quiet'}", "id": "breaker", "aria-label": "What stopped the build"},
              h("div", {"class": "eyebrow", "title": bm.cap(bm.stop_words(b))}, f"The build stopped · breaker {b.id} · ", h("span", {"title": bm.stamp(b.ts, now)}, P.since(b.ts, now), " ago")),
@@ -501,7 +541,7 @@ def now_card(ctx, t: bm.Task) -> Markup:
             found,
             t.for_owner and not t.breaker and h("div", {"class": "now-ctx"}, h("b", None, "Where you answer: "), P.rich(ctx, bm.answer_of(t))),
             t.breaker and h("div", {"class": "now-ctx"}, "Its document is the first card above: read it, then help, park or drop the task."),
-            row_action(ctx, t) if t.for_owner and not t.breaker else None,
+            None if t.breaker else inbox_action(ctx, t) or (row_action(ctx, t) if t.for_owner else None),
             t.status == bm.PARKED and owner_lines(ctx, t)]
     time = h("span", None, bm.stamp(t.since, now)) if t.closed else P.since(t.since, now)
     return h("section", {"class": f"card now a-{t.info['actor']}", "id": "now"},

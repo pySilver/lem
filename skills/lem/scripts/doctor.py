@@ -7,7 +7,7 @@ is absent is not an error: its row says what the skill does without it, and onbo
 owner that. The key of the Jev model (`JEV_API_KEY`) is optional, and required in a repository whose correction queue is
 on, where without it the queue stays empty and nothing says so. A recipe of the agterm cookbook that Lem needs (webrev, the backlog) is
 required, and its row has the guide to install it by. A recommended tool is one Lem does not bring
-and a developer is better off with (agdoc, plannotator-tui, Codex): its row has the guide too, and Lem
+and a developer is better off with (agdoc, plannotator-tui, Plannotator, Codex): its row has the guide too, and Lem
 installs it only on the developer's yes. The optional row `load gate` says under which load average the checks of a
 landing start on this machine, 40 (Lem's default) with no number set, or that the gate is away, with
 the line that sets one. The optional
@@ -765,6 +765,16 @@ def board_notifications() -> list[dict]:
              "without_it": None}]
 
 
+def plannotator() -> dict:
+    # recommended (away-questions-reach-phone, 2026-11-22): while the owner is away, the board's server sends
+    # what waits for him to the Inbox (lem_inbox.py), and without it nothing is sent and no step of a task fails
+    row = tool("plannotator", "recommended", "the Inbox carries what waits for the owner while he is away, to his phone too, "
+               "and brings his answer back into the task's session",
+               "nothing goes to the Inbox: while the owner is away, what waits for him waits in the task's session and on the board, "
+               "and the phone's page of the task says why there is no Inbox link", "plannotator", ["--version"])
+    return {**row, "guide": "https://github.com/backnotprop/plannotator"}
+
+
 def cronn() -> dict:
     row = tool(
         "cronn", "required", "a scheduled retro and a night run",
@@ -820,6 +830,7 @@ def main() -> None:
         # A recommended tool: Lem installs it only on the developer's yes.
         {**tool("plannotator-tui", "recommended", "the owner marks up what a pane printed, or an agent's newest reply, from two agterm chords",
                 "no stage needs it", "plannotator-tui", ["--version"]), "guide": COOKBOOK + "annotate-in-plannotator-tui"},
+        plannotator(),
         jev_key(),
         *codex(),
         *claude(),

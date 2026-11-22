@@ -143,6 +143,46 @@ on_github() {
 # gh_prs REPO PYTHON: what the stand-in keeps of REPO's pull requests, as `d`
 gh_prs() { "$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print(eval(sys.argv[2], {"d": d}))' "$1.origin.git.gh.json" "$2"; }
 
+# A stand-in for Plannotator's `plannotator` on PATH, so that no check reaches the owner's Inbox: each call is one JSON
+# line in PLANNOTATOR_CALLS (its words, the JSON it read on stdin, its folder and the variables of its environment that
+# name a session). `inbox status --json` prints the file PLANNOTATOR_STATUS and exits with the number in
+# PLANNOTATOR_STATUS.exit (0 without one), or, with no such file, says the Inbox does not run and exits 1;
+# `inbox call ... send_message -` answers a new message_id (msg_1, msg_2, ...) with a question key for a body that asks
+# one, the first answer again for a key it saw, and refuses a `supersedes` that is no list as Plannotator 0.29.0 does
+# (`normalizeSupersedes`, read in its binary on 2026-11-22); `inbox call ... read_thread -` a thread with no messages.
+export PLANNOTATOR_CALLS=$WORK/plannotator-calls.jsonl PLANNOTATOR_STATUS=$WORK/plannotator-status.json
+cat > "$WORK/plannotator-standin.py" <<'PY'
+import json, os, sys
+args = sys.argv[1:]
+body = sys.stdin.read() if args[-1:] == ["-"] else ""
+payload = json.loads(body) if body else None
+named = sorted(k for k in os.environ if k in ("PLANNOTATOR_SESSION_TAG", "CLAUDECODE", "CODEX_THREAD_ID", "PI_SESSION_ID", "PLANNOTATOR_SESSION_PROJECT"))
+with open(os.environ["PLANNOTATOR_CALLS"], "a") as calls:
+    calls.write(json.dumps({"args": args, "payload": payload, "cwd": os.getcwd(), "named": named}) + "\n")
+status = os.environ["PLANNOTATOR_STATUS"]
+if args[:2] == ["inbox", "status"]:
+    if not os.path.exists(status):
+        print(json.dumps({"state": "stopped", "running": False}))
+        sys.exit(1)
+    print(open(status).read())
+    sys.exit(int(open(status + ".exit").read()) if os.path.exists(status + ".exit") else 0)
+if args[:2] == ["inbox", "call"] and "send_message" in args:
+    if payload.get("supersedes") is not None and not isinstance(payload["supersedes"], list):
+        sys.stderr.write("invalid_supersedes: supersedes: a list of ids, each `<message id>` or `<message id>/<key>`.\n")
+        sys.exit(1)
+    sent = [json.loads(line) for line in open(os.environ["PLANNOTATOR_CALLS"])]
+    keys = [c["payload"]["idempotency_key"] for c in sent if c["payload"] and "send_message" in c["args"]]
+    key = payload.get("idempotency_key")
+    n = list(dict.fromkeys(keys)).index(key) + 1
+    print(json.dumps({"message_id": f"msg_{n}", "thread_id": f"thr_{n}", "questions": [{"key": f"q-{n}"}] if ":::question" in payload.get("body", "") else [],
+                      "url": f"http://plannotator.localhost:50026/#thread=thr_{n}", "replayed": keys.count(key) > 1}))
+elif args[:2] == ["inbox", "call"] and "read_thread" in args:
+    print(json.dumps({"thread": {"messages": []}}))
+else:
+    sys.exit("usage: plannotator stand-in: no such command: " + " ".join(args))
+PY
+printf '%s\n' '#!/bin/sh' "exec '$PY' -I '$WORK/plannotator-standin.py' \"\$@\"" > "$WORK/standin/plannotator" && chmod +x "$WORK/standin/plannotator"
+
 # agterm_standin DIR: a stand-in for agtermctl in DIR, for `lem session` (session.py), which keeps agterm's tree in a
 # file: each call one JSON line in CALLS. TREE is a list of sessions, each with its `workspace`; `tree` groups them by
 # workspace, `session new` adds one (S-1, S-2, ...) that runs claude, `session close` takes its --target away, `rename`

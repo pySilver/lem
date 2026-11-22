@@ -330,7 +330,10 @@ with the Bash tool's `run_in_background: true` — you are notified when the use
 add `--timeout 86400`: the 570 s default exists only for foreground calls. A question whose answer the next
 step does not depend on can wait in the background while you do that step; one that decides what you do
 next is asked in the foreground. A timed-out wait leaves the "asking" glyph up, since the question is still
-open, set to clear when the user visits the session to answer or close it.
+open, set to clear when the user visits the session to answer or close it. When the question was answered
+somewhere else, `lem-ask close` (or `lem-ask close <pageID>` for that page only) closes the page this session
+shows, only when it is one of lem-ask's, and prints `"status": "closed"`, or `"gone"` when none is up; the
+waiting call then ends as `dismissed`, which needs no act.
 
 ## Recommending
 

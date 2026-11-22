@@ -25,8 +25,9 @@ when its size or its change time moved, so that a page that renders after a burs
 the log once: the event log (`events.jsonl`, read on from where the last read stopped, and whole again
 when `lem project prune` put a new one in place), the owner's
 mark (`project.owner_records`), and the settings, the backlog and the meta facts through `board.py`'s
-functions, and the board server's last look at the forge (FORGE_LOOK, `Model.seen`). What does not read is a problem the
-page says, never an empty board.
+functions, the board server's last look at the forge (FORGE_LOOK, `Model.seen`), and its record of
+what it sent to the owner's Inbox while he is away (INBOX_LOOK, `Model.inbox`, which `inbox_of` reads
+for a task's page). What does not read is a problem the page says, never an empty board.
 """
 
 import json
@@ -38,6 +39,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import quote
 
 # ---- the words of each status, and the lanes ----
 
@@ -561,6 +563,9 @@ class Model:
     # as lem_signs reads them; `worktree`: the task's worktree is still there), which serve.py puts
     # here; None while the server has not asked (a demo workspace, or before its first look)
     sessions: dict | None = None
+    # what the board server's Inbox thread last wrote of the owner's Inbox (`inbox_look` of INBOX_LOOK): the
+    # door's last look and each thing it sent; None while no server wrote it
+    inbox: dict | None = None
 
 
 def decision_event(t: Task, e: dict, ts: int) -> None:
@@ -1259,6 +1264,90 @@ def forge_look(state: Path) -> dict | None:
     except (OSError, ValueError):
         return None
     return found if isinstance(found, dict) and isinstance(found.get("seen"), dict) else None
+
+
+# The board server's record of the owner's Inbox, in the state folder (`lem_inbox.RECORD`), which only its
+# Inbox thread writes (`lem_inbox.Watcher`): the door's last look (`running`, `tailnet_url`, `why`), the
+# last call that failed (`problem`), and each thing it sent (`sent`: the row's `key`, the `task`, its
+# `kind`, `form` and `asks`, and once the Inbox answered, `message_id` and `thread_id`).
+INBOX_LOOK = "inbox.json"
+# Why no question went to the Inbox, in the page's words, for each `why` of the door (`lem_inbox.WHYS`).
+INBOX_WHY = {
+    "not installed": "The Inbox is not installed on this Mac, so no question went there.",
+    "not running": "The Inbox does not run on this Mac, so no question went there.",
+    "not answering": "The Inbox on this Mac does not answer, so no question went there.",
+    "no tailnet address": "The Inbox has no tailnet address, so the phone cannot open it.",
+    "failed": "The board’s server could not ask the Inbox on this Mac, so no question went there.",
+}
+# The same, for a task whose message went to the Inbox before its door closed: it is there, and the phone cannot reach it now.
+INBOX_WHY_SENT = {
+    "not installed": "A message of this task went to the Inbox, but the Inbox is not installed on this Mac now, so the phone cannot open it.",
+    "not running": "A message of this task went to the Inbox, but the Inbox does not run on this Mac now, so the phone cannot open it.",
+    "not answering": "A message of this task went to the Inbox, but the Inbox on this Mac does not answer now, so the phone cannot open it.",
+    "no tailnet address": INBOX_WHY["no tailnet address"],
+    "failed": "A message of this task went to the Inbox, but the board’s server could not ask the Inbox on this Mac now, so the phone cannot open it.",
+}
+# A thing the record keeps with no answer of the Inbox yet while a call failed: the next look sends it again.
+INBOX_UNSENT = "The board’s server could not send this to the Inbox yet; its next look tries again."
+
+
+def inbox_look(state: Path) -> dict | None:
+    """The record of the owner's Inbox as the server wrote it, with only the sent things that name a row;
+    None when there is none or it does not read."""
+    try:
+        found = json.loads((state / INBOX_LOOK).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(found, dict):
+        return None
+    return {**found, "sent": [s for s in found.get("sent") or [] if isinstance(s, dict) and isinstance(s.get("key"), str) and s["key"]]}
+
+
+def thread_link(tailnet: object, thread: object) -> str | None:
+    """The address of a thread of the Inbox through its tailnet address, `TAILNET_URL#thread=ID` (the form
+    `send_message` gave Lem's task sessions on 2026-11-21); None unless the address is http or https."""
+    if not isinstance(tailnet, str) or not re.match(r"https?://[^\s/#?]+", tailnet) or not isinstance(thread, str) or not thread:
+        return None
+    base = tailnet.split("#", 1)[0]
+    base = base if re.match(r"https?://[^/]+/", base) else f"{base}/"
+    return f"{base}#thread={quote(thread, safe='')}"
+
+
+def inbox_of(t: Task, m: Model) -> dict | None:
+    """What a task's page says of the owner's Inbox, from the server's record (`Model.inbox`): None while
+    his mark does not say away, while the task has no row of "Waits for you", and while nothing is known
+    that changes today's line (no record, or nothing of the task sent yet). Else `thread`, the address of
+    the task's thread at the Inbox's tailnet address, with `asks` when a question of the task went there
+    (he answers in either place) or `gone` when only a note went, which no session can take a reply to
+    (`lem_inbox.thing_of`: a task with no session, one whose session does not answer or stopped, one
+    queued after a dropped task); or `why`, the line that says why there is no link. A thing counts only
+    for a row the task has now: the merge review and the merge of a task are its merge's one thing."""
+    if m.away is None:
+        return None
+    rows = [w for w in waits_of(m) if w["t"] is t]
+    if not rows:
+        return None
+    record = m.inbox
+    if not record:
+        return None
+    keys = {f"merge:{t.slug}" if w["kind"] == "review" else w["key"] for w in rows}
+    sent = [s for s in record.get("sent") or [] if s.get("task") == t.slug and s["key"] in keys]
+    door = record.get("running") is True and record.get("tailnet_url")
+    there = [s for s in sent if s.get("message_id") and s.get("thread_id")]
+    if not door:
+        why = record.get("why")
+        if not why:
+            return None
+        said = (INBOX_WHY_SENT if there else INBOX_WHY).get(why) if isinstance(why, str) else None
+        return {"thread": None, "asks": False, "gone": False,
+                "why": said or f"{'A message of this task went to the Inbox, and' if there else 'No question went to the Inbox:'} its last look said “{flat(why)}”."}
+    link = next((thread_link(record["tailnet_url"], s["thread_id"]) for s in there), None)
+    if link is None:
+        unsent = any(not s.get("message_id") for s in sent) and record.get("problem")
+        return {"thread": None, "asks": False, "gone": False, "why": INBOX_UNSENT} if unsent else None
+    asks = any(s.get("form") == "question" for s in there)
+    gone = not asks and any(s.get("kind") in ("session", "stopped", "after_dropped") or (s.get("asks") and s.get("form") == "note") for s in there)
+    return {"thread": link, "asks": asks, "gone": gone, "why": None}
 
 
 def live_of(t: Task, m: Model) -> dict | None:
@@ -2778,6 +2867,7 @@ class Reader:
         self.model_key: tuple | None = None
         self.model: Model | None = None
         self.forge: dict | None = None
+        self.inbox: dict | None = None
 
     # each loader keeps its last good read, and says what failed in `problems`
 
@@ -2917,4 +3007,7 @@ class Reader:
             if self.changed("forge", self.state / FORGE_LOOK):
                 self.forge = forge_look(self.state)
             self.model.seen = (self.forge or {}).get("seen")
+            if self.changed("inbox", self.state / INBOX_LOOK):
+                self.inbox = inbox_look(self.state)
+            self.model.inbox = self.inbox
             return self.model
