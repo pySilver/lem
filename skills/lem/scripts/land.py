@@ -1917,8 +1917,10 @@ def criteria_red(task: Task) -> subprocess.CompletedProcess:
 
 
 def cmd_checks(task: Task) -> dict:
-    """The machine checks on the tip. The step's SIGTERM handler holds from its first line to its last,
-    the criteria's tests and the bar included: a stop ends what runs and keeps no result."""
+    """The machine checks on the tip: the commands, the serial ones, the criteria's tests, or the polish
+    pass's run of them when its five inputs are the same now (`taken_from_polish`), and the bar. The
+    step's SIGTERM handler holds from its first line to its last, the criteria's tests and the bar
+    included: a stop ends what runs and keeps no result."""
     flags = {"stopping": False, "done": False}
 
     def stopped(*_: object) -> None:
@@ -2023,7 +2025,8 @@ def checks_ready(task: Task) -> tuple[str, dict, list[str]]:
 
 
 def checks_body(task: Task, flags: dict, tip: str, found: dict, commands: list[str], serial: list[str], logs: Path, result: dict) -> tuple[str, str | None]:
-    """The run itself: the commands, the serial ones, the criteria's tests and the bar. It fills `result`
+    """The run itself: the commands, the serial ones, the criteria's tests (or the polish pass's result of
+    them, `taken_from_polish`) and the bar. It fills `result`
     with what the step prints, its `say` among it, and gives back how the run ends and the refusal to
     exit with, none for a passed run."""
     # What git does not know before the first command. `need_worktree` refused any such file, so

@@ -31,7 +31,7 @@ TESTS = ROOT / "tests"
 # The name that runs everything: a change to how the suites run is checked by a run of them all.
 EVERYTHING = "all"
 # The suites that are not a file tests/NAME.sh of their own: the map's check, and the unit level,
-# one file for each script in tests/unit/, which tests/all.sh runs as `python3 -B tests/unit`.
+# one file or more for each script in tests/unit/, which tests/all.sh runs as `python3 -B tests/unit`.
 COMMANDS = {"pick": "python3 tests/pick.py --check", "unit": "python3 -B -m unittest discover -s tests/unit", EVERYTHING: "bash tests/all.sh"}
 CHROME = ("test-ask", "test-site")
 

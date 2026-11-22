@@ -81,7 +81,7 @@ test or a place it names.
 ```bash
 bash tests/all.sh              # every suite below at the same time, one log each, a line of ok, FAIL and SKIP per suite
 python3 tests/pick.py --base main  # the suites to run for what the branch changed (or name the files); all.sh still runs before main moves
-python3 -B -m unittest discover -s tests/unit  # the unit level: one file for each script, its rules called in one process; all.sh runs it as the suite unit
+python3 -B -m unittest discover -s tests/unit  # the unit level: one file or more for each script, its rules called in one process; all.sh runs it as the suite unit
 ```
 
 The loop: the unit level after each edit; while a task is in work, only the one block that holds
@@ -242,7 +242,7 @@ Each script's module docstring says what it does and why; this list says where e
   work, and `plans/`, the plans that built Lem, each finished one
   with a status line that names its commits and where later decisions changed it; the redesign of
   2026-11-20 is `plans/2026-11-20-a-session-for-each-task.md` and its folder.
-- `tests/`: the suites of "Checks". `unit/` is the unit level, a `test_*.py` for each script;
+- `tests/`: the suites of "Checks". `unit/` is the unit level, one `test_*.py` or more for each script;
   `lib.sh` is what each `lem-*.sh` block sources, `checks.sh` how every suite counts its checks,
   `suites.sh` and `limit.py` what `all.sh` and `test-lem.sh` share, and `pick.py` the map of which
   suite reads which file. `board-showcase.py` writes the demo afternoon that `lem-serve.sh` serves,
