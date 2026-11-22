@@ -446,6 +446,24 @@ class FirstLine(unittest.TestCase):
                          "The invoice shows 100 EUR after the refund")
         self.assertIsNone(project.outcome_of("## Outcome\n\n**Today:** it shows 100.\n\n1. step\n"))
 
+    def test_only_the_marks_of_a_bold_run_leave_the_quote(self):
+        # bold-outcome-quoted-whole, 2026-11-22: prose that names the marks in code keeps them
+        self.assertEqual(project.outcome_of("## Outcome\n\nWhen the Outcome is one bold sentence, the first line quotes it, "
+                                            "without the `**` marks. A label is no quote.\n"),
+                         "When the Outcome is one bold sentence, the first line quotes it, without the `**` marks")
+        self.assertEqual(project.outcome_of("## Outcome\n\n**The check reads `src/**/*.py` and\npasses `**kwargs` on.**\n"),
+                         "The check reads `src/**/*.py` and passes `**kwargs` on")
+
+    def test_a_bold_label_or_a_rule_is_no_quote(self):
+        # a bold run that closes on its line and ends in a colon is a label at any length
+        self.assertEqual(project.outcome_of("## Outcome\n\n**Before and after the change:**\n\nThe invoice shows 70 EUR after the refund.\n"),
+                         "The invoice shows 70 EUR after the refund")
+        self.assertEqual(project.outcome_of("## Outcome\n\n**Before and after the change**:\nThe invoice shows 70 EUR after the refund.\n"),
+                         "The invoice shows 70 EUR after the refund")
+        # a *** rule is no bold line
+        self.assertEqual(project.outcome_of("## Outcome\n\n***\nThe invoice shows 70 EUR after the refund.\n"),
+                         "The invoice shows 70 EUR after the refund")
+
 
 # Words that hold the three characters str.splitlines breaks at and json.dumps(ensure_ascii=False) keeps.
 SEPARATED = "a\u2028b\u2029c\x85d"
