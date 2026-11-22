@@ -7,25 +7,47 @@ careful: yes, because the change reaches "A change bends a ruling of the owner" 
 Size: full, because the change reaches the briefs of three agents that file items, the merge agent's brief, the guard of `lem land propose`, the backlog itself and one of the owner's rulings.
 
 1. An item is filed only for a defect over the bar: it confuses a user, breaks a contract, damages data or costs money, and it happens today; or the owner said it is worth an item. The bar is written in one place, and the polish pass, the fast-track builder and the review read it there. The bar is for Lem's agents only: an item a person writes, or asks an agent to file, is filed whatever the bar, and the docs say where the bar is written. Example: the polish pass sees that `lem board` shows a wrong count of the backlog, and files an item; it sees an old TODO in `land.py`, and files none.
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_the_bar.py` in `tests/unit/test_the_bar.py`
+
 2. A defect under the bar makes no file in `docs/backlog/` and no `worth: no` item; the pull request names it on one line under "Seen, not filed", with its place and why it is under the bar:
    1. The review of a task finds that two test classes come after the main guard in `tests/unit/test_board_model.py`.
    2. No file is written for it.
    3. The pull request says, under "Seen, not filed": "`tests/unit/test_board_model.py`: two test classes come after the main guard; only a reader of the code meets it".
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_backlog.py -k test_an_under_defect_is_one_line` in `tests/unit/test_backlog.py`
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_land_text.py -k test_a_defect_under_the_bar_and_a_cheap_one_nobody_fixed` in `tests/unit/test_land_text.py`
+
 3. `lem land propose` opens the pull request when each defect outside the change that a review found has an item or a line under "Seen, not filed", and still stops for a defect that has neither. Example: a review finds two defects outside the change, the landing files one and writes one line for the other, and the pull request opens.
+   - test: `bash tests/lem-land-backlog.sh` in `tests/lem-land-backlog.sh` `tests/lib.sh` `tests/checks.sh`
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_land.py -k DefectsOutside` in `tests/unit/test_land.py`
+
 4. A defect over the bar that an open item on the base already names gets no second file; its line under "Seen, not filed" names that item. Example: a task finds again that the first line quotes a bold outcome from its middle, and the line names `docs/backlog/the-first-line-skips-a-bold-outcome.md`.
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_backlog.py -k test_an_open_entry_names_its_item` in `tests/unit/test_backlog.py`
+
 5. A cheap defect, one whose fix changes no behavior and needs no new test, is fixed on the task's branch by the agent already at work there: the polish pass on the standard track, and on the fast track its builder, in a commit of its own apart from the criterion's commit. The pull request names each such fix on one line under "Fixed on the way": the file, the commit and what was wrong; the review reads those commits as a part of the diff. Example: the fast-track builder sees a docstring in `land.py` that says the opposite of what the function does, and corrects it in its own commit.
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_land_text.py -k test_a_fix_line_that_names_the_cheap_entry` in `tests/unit/test_land_text.py`
+
 6. A cheap defect that the review finds is fixed only when a builder already fixes a must-fix finding of that review; otherwise it is one line under "Seen, not filed". A cheap defect alone never starts a builder or a new run of the checks:
    1. The review of a task finds one cheap defect, an outdated lint suppression, and no must-fix.
    2. No builder starts, and the checks do not run again.
    3. The pull request names the suppression under "Seen, not filed".
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_backlog.py -k test_a_cheap_entry_is_a_line_unless_a_fix_line_names_its_number` in `tests/unit/test_backlog.py`
+
 7. The merge agent reads "Filed in the backlog" and "Seen, not filed", and calls the owner when a filed item does not meet the bar. Example: a pull request files an item for a typo in a comment, and the merge agent calls the owner with that item named, in place of merging.
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_land.py -k BarFile` in `tests/unit/test_land.py`
+
 8. A task started from a backlog item, from the board's "Start a task" or from `/lem night`, removes that item on its own branch, and `lem land propose` stops while the item is still on the branch:
    1. The owner presses "Start a task" on `two-guides-are-over-the-800-words-agents-md-allows.md`.
    2. The builder shortens the two guides, and the item is still on the branch.
    3. `lem land propose` stops and names the item; the landing's builder removes it with `git rm`, and nothing waits for the owner.
    4. After the merge, the item is gone from `main` and from the board.
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_backlog.py -k TaskItem` in `tests/unit/test_backlog.py`
+   - test: `bash tests/lem-land-backlog.sh` in `tests/lem-land-backlog.sh` `tests/lib.sh` `tests/checks.sh`
+
 9. This task sorts the items on `main` by the bar once: items that name one defect become one item, an item under the bar is removed and named in the pull request with its reason, and an item over the bar stays as it is. An item that the owner wrote or asked for stays, whatever the bar, and the pull request groups the removed items by the folder of their `where:` line. Example: the four items on `project.py:outcome_of` become one, and `two-test-classes-of-the-board-model-come-after-its-main-guard.md` is removed with the reason "only a reader of the code meets it".
+   - no test: a one-time sort of the backlog's documents; the pull request lists each removed item with its reason
+
 10. `docs/rulings/rulings.md` says the new rule in place of the bullet of 2026-11-14 on a defect outside the task, with the day 2026-11-22.
+   - no test: a sentence of `docs/rulings/rulings.md`; `tests/unit/test_agents_md.py` holds only its form
 
 ## How it works
 
