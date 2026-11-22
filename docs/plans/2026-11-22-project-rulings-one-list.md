@@ -1,0 +1,40 @@
+# A project's rulings are one list file
+
+careful: yes, because it reaches "Lem reads a project's settings wrong" (task 1 removes `paths.ruling_file`, gives `paths.rulings` a new meaning and edits `.lem/project.toml`) and "A change bends a ruling of the owner" (task 3 changes the words of "Four places are settings").
+
+## Acceptance criteria
+
+Size: full, because a settings key leaves, another changes its meaning, and the retro, the ladder and the question gate change how they write and read a ruling.
+
+1. A project's rulings are one markdown file, which the settings name, `docs/rulings.md` unless they say otherwise. In a project whose settings name no rulings, `lem project path rulings` prints `ROOT/docs/rulings.md`, and `lem project show` gives no `ruling_file` and no `lem project ruling-file` command exists.
+2. A settings file that still has the folder form is refused, with a message that names the fix:
+   1. `.lem/project.toml` says `rulings = "docs/rulings"`.
+   2. Every `lem` command that reads the settings stops with exit 1.
+   3. The message names `paths.rulings`, says that it names the list file, and gives `rulings = "docs/rulings.md"` as the example.
+   4. The same file with `rulings = "docs/rulings.md"` and a line `ruling_file = "<slug>.md"` is refused as a key Lem does not know, and the message lists `plans`, `plan_file` and `rulings`.
+3. `lem project init` writes `rulings = "docs/rulings.md"` with a comment that says it is the one list of the owner's rulings, and writes no `ruling_file` line.
+4. The retro writes a ruling the owner approved as one bullet of the list, under the heading of its group: the owner approves "a refund never makes an invoice negative" on 2026-11-22, and the list gets `- **A refund never makes an invoice negative.** (2026-11-22)` under `## Invoices`; a project with no list yet gets the file, with its title and that heading.
+5. The question gate's judge and the ladder read the rulings as the bullets of the list, and a cite names the group's heading and the bullet's bold sentence: "docs/rulings.md, Invoices: A refund never makes an invoice negative."
+6. Lem's own repository keeps the same form, and its documents say it:
+   1. Its `.lem/project.toml` says `rulings = "docs/rulings/rulings.md"` and has no `ruling_file` line.
+   2. `docs/rulings/rulings.md` holds the owner's ruling of 2026-11-22, a project's rulings are one list file, as one bullet.
+   3. "Four places are settings" in `docs/rulings/history.md` names the plans folder, a plan's file name and the rulings file, and no ruling's file name.
+   4. `docs/settings.md` and `docs/install.md` call the rulings one file, and no page of `docs/` says that a ruling is a file of its own.
+
+## Tasks
+
+1. **The settings and the command** (criteria 1, 2, 3, and the settings part of 6). `paths.rulings` names the list file, a markdown file inside the repository, `docs/rulings.md` by default; `paths.ruling_file`, `RULING_FILE`, `FILE_PATTERNS["ruling_file"]` and the `ruling-file` subcommand go, and `cmd_plan_file` and `lem_plans` serve the plan only. A value that does not end with `.md` is refused with the message of criterion 2. The `init` template writes the new comment and line. `.lem/project.toml` of this repository says `rulings = "docs/rulings/rulings.md"`, with its comment, and no `ruling_file`. `docs/settings.md` gets one row for `paths.rulings` ("the file of your rulings, one bullet for each") and loses the `ruling_file` row; `tests/lem-settings.sh` checks the table against `project.py`, so both change in this task. The history line "Four places are settings" names its tests, which `tests/unit/test_agents_md.py` finds by name: the renamed check of `tests/lem-settings.sh` and the history line change together here. Files: `skills/lem/scripts/project.py`, `skills/lem/scripts/lem_plans.py`, `.lem/project.toml`, `docs/settings.md`, `docs/rulings/history.md`, `tests/lem-settings.sh`, `tests/unit/test_settings.py`, and the unit test of `lem_plans` when one names `RULING_FILE`.
+2. **The readers and the writer** (criteria 4 and 5). `stages/learn.md`: a ruling is one bullet of the list `lem project path rulings` prints, under the heading of its group, in the form of criterion 4, and a list that does not exist is made with a `#` title and the group's `##` heading; the retro's proposal of a ruling says the list, not "his rulings folder". `stages/ladder.md`, level 0: a bullet of the list. `stages/init.md`: "no ruling file is written" and "three ruling files" say rulings. `skills/lem-gate/references/judge.md`: the judge greps the list file, a `##` heading is the area and a bullet is a ruling, and the cite of `decided` is the heading and the bold sentence; `skills/lem-gate/SKILL.md` says the same of `decided`. `skills/lem-panel/SKILL.md` line 20 names a real project's folder: it says the list `lem project path rulings` prints. `.lem/lessons.md`: the `learn:` line goes, since the stage now says it; the `lem-gate:` line keeps only what is this repository's own, `docs/rulings/history.md` beside the list and the part "Choices of the maintaining session". Files: those named.
+3. **The documents, the ruling and the backlog** (the rest of criterion 6). `docs/rulings/rulings.md` gets the owner's ruling of 2026-11-22 as one bullet under "The settings, the seats and the tracker", in the form `AGENTS.md` gives. `docs/rulings/history.md`: "Four places are settings" becomes the three places, the plans folder, a plan's file name and the rulings file, with its day of 2026-11-22 added, if task 1 did not already change its words. `docs/install.md` line 56 names the rulings file in place of `docs/rulings/`. The module docstring and the help of `project.py` say "the rulings file" where task 1 left "folder". `docs/backlog/a-project-s-rulings-are-still-one-file-for-each-ruling.md` is removed with `git rm`. Files: those named, and any page of `docs/`, `README.md` or `site/` that a `grep -rn -i "ruling"` shows to call a ruling a file of its own.
+
+## Decisions
+
+- **The default is `docs/rulings.md`, a file and no folder.** The owner chose option 2 of the backlog item, whose words are "`paths.rulings` names a file in place of a folder". A folder for one file adds a level for nothing. Lem's own repository keeps `docs/rulings/rulings.md`, since `docs/rulings/history.md` stands beside it.
+- **`lem project ruling-file` is removed, and `ruling_file` is refused as any unknown key is.** The ruling "No word and no form of a Lem before is kept" forbids a special refusal of a key that went.
+- **A value of `paths.rulings` that is no `.md` file is refused.** It is the check of the new form (a plan's file name is checked the same way), and it stops the old folder form from being read as a file that does not exist.
+- **Only the list.** A project gets no `history.md`: that file is Lem's own maintaining practice, written in this repository's `AGENTS.md`.
+
+## Not verified
+
+- The retro's and the gate's new texts run in no test: they are stage texts, and a real retro and a real gate run are their test (`AGENTS.md`, "A change to a stage file has no test").
+- mybaze is not touched: its 71 files, its `_is_ruling` test and its 10 citing files move by hand after the merge (the ask).
