@@ -275,6 +275,37 @@ else
   fail "the stream: $(cat "$WORK/stream.out") / $(cat "$WORK/stream-task.out")"
 fi
 
+# A refresh keeps what the owner types: on the phone, the words of a new task stay in the form's field, with the focus,
+# when the stream (or the poll while the stream is down) has Turbo morph the page into its new version. The page is
+# driven in headless Chrome (tests/board-cdp.mjs, which needs Node); the refresh is the one message the stream sends.
+cdp_chrome=""
+for c in google-chrome chromium chromium-browser "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"; do
+  if command -v "$c" >/dev/null 2>&1 || [ -x "$c" ]; then cdp_chrome=$c; break; fi
+done
+if [ -z "$cdp_chrome" ] || ! command -v node >/dev/null 2>&1; then
+  skip "a refresh of the page keeps the words the owner types into the form of a new task on the phone, and the focus: no Chrome or no Node"
+else
+  "$PY" -c '
+import json, sys
+field = "document.querySelector(\"#new-task textarea[name=words]\")"
+steps = [
+    {"goto": sys.argv[1], "wait": 2500},
+    {"eval": "addEventListener(\"turbo:morph\", () => { window.lemMorphed = true; }); " + field + ".focus(); "
+             "document.execCommand(\"insertText\", false, \"Add the gift note to the CSV export\")"},
+    {"eval": "Turbo.renderStreamMessage(\"<turbo-stream action=\\\"refresh\\\"></turbo-stream>\")", "after": 2500},
+    {"print": "({morphed: Boolean(window.lemMorphed), words: " + field + "?.value ?? null, focused: document.activeElement?.name ?? null})"},
+]
+json.dump({"width": 390, "height": 844, "scale": 2, "mobile": True, "steps": steps}, open(sys.argv[2], "w"))
+' "$BASE/new" "$WORK/typing.json"
+  mkdir -p "$WORK/chrome-tmp"
+  typed=$(TMPDIR="$WORK/chrome-tmp" MAC_CHROMIUM_TMPDIR="$WORK/chrome-tmp" CHROME="$cdp_chrome" node tests/board-cdp.mjs "$WORK/typing.json" 2>&1 || true)
+  if [ "$typed" = '{"morphed":true,"words":"Add the gift note to the CSV export","focused":"words"}' ]; then
+    pass "a refresh of the page keeps the words the owner types into the form of a new task on the phone, and the focus"
+  else
+    fail "a refresh and the words of a new task: $typed"
+  fi
+fi
+
 # lem board, with a stand-in for agtermctl that prints a tree and records its calls: the board opens at the server's
 # address as a page companion of the session's group, and is known by its workspace's address.
 printf '%s\n' '{"result": {"tree": {"workspaces": [{"sessions": [{"id": "LEM", "foreground": ["/usr/local/bin/claude"]}, {"id": "OTHER"},' \

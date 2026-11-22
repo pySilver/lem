@@ -52,6 +52,8 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     # the board server and the pages it draws, and the afternoon its block serves
     (("skills/lem/scripts/serve.py", "skills/lem/scripts/serve_hook.py", "skills/lem/scripts/lem_board_*.py", "skills/lem/scripts/lem_html.py",
       "skills/lem/scripts/lem_artifacts.py", "skills/lem/assets/*", "tests/board-showcase.py"), ("lem-serve", "lem-board-act", "lem-settings", "lem-picker", "lem-command")),
+    # the driver of headless Chrome, through which lem-serve types into a page of the board
+    (("tests/board-cdp.mjs",), ("lem-serve",)),
     # two machines under one address: the server that passes another's pages through, and the list of both
     (("skills/lem/scripts/serve.py", "skills/lem/scripts/lem_peers.py", "skills/lem/scripts/lem_board_pages.py"), ("lem-peers",)),
     (("skills/lem/scripts/picker.py", "skills/lem/scripts/session.py"), ("lem-picker", "lem-command")),
@@ -90,7 +92,7 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     # What no suite reads, except docs/rulings/, the plan of the list and docs/install.md, which the rows above give the unit level;
     # tests/clock/ is a late clock that a criterion's command puts on PYTHONPATH or PATH, and tools/ is the maintainer's build of the board's kit, whose built files are under skills/lem/assets/.
     (("tools/*", "docs/*", "README.md", "CLAUDE.md", "LICENSE", "NOTICE", ".gitignore", ".lem/*", ".revmux/*", ".github/*",
-      "assets/*", "tests/board-cdp.mjs", "tests/clock/*"), ()),
+      "assets/*", "tests/clock/*"), ()),
 ]
 # The files the Chrome suites are run for: each row that names one of them is all of their own.
 CHROME_OWN = {"test-ask": ("skills/lem-ask/*", "bin/lem-ask", "tests/checks.sh"),
