@@ -21,7 +21,6 @@ Size: full, because the board and the picker each change, and the board gets a p
    3. With 20 ended tasks or fewer, Done shows each of them and no such row.
    4. The list opens as a page of the board, and the board's own Tasks link goes back to the columns.
    - test: `python3 -B -m unittest tests.unit.test_board_pages.Done.test_a_row_under_the_20_cards_counts_the_rest_and_leads_to_their_list` in `tests/unit/test_board_pages.py`
-   - test: `python3 -B -m unittest tests.unit.test_board_pages.Done.test_with_20_ended_tasks_or_fewer_done_draws_each_and_no_row` in `tests/unit/test_board_pages.py`
    - test: `python3 -B -m unittest tests.unit.test_board_pages.Done.test_the_list_is_a_page_of_the_board_whose_tasks_link_goes_back_to_the_columns` in `tests/unit/test_board_pages.py`
 4. The list of older tasks shows each task that has no card in Done, newest first, with its title, how it ended, when, and a link to its board, and to its pull request when it has one: with 25 ended tasks it lists the 5 that ended first, the one that ended last of them on top, and a click on one opens that task's board.
    - test: `python3 -B -m unittest tests.unit.test_board_pages.Older` in `tests/unit/test_board_pages.py`
