@@ -1,5 +1,5 @@
-// The step of an act that has its button (a merge's confirm step): on a phone's screen the owner reads its
-// text to the end before the button comes on. The controller marks the card (data-js-sheet), and board.css
+// The step of an act that has its button (the confirm step of a merge or a park, the approval of the
+// criteria): on a phone's screen the owner reads its text to the end before the button comes on. The controller marks the card (data-js-sheet), and board.css
 // then makes it an overlay over the panel with the body as the one part that scrolls; the controller
 // gates the button only while the body scrolls by itself, which it reads from the body's style, so the
 // breakpoint has one place, board.css. While text is below the body's end the button has aria-disabled,
