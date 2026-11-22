@@ -1150,3 +1150,40 @@ class Search(unittest.TestCase):
         self.assertEqual(rows["The board's done column has no limit"], ("Backlog · worth: yes", "gate"))
         self.assertEqual(rows["Read the monthly export in one query"], ("Backlog · worth: later", "you"))
         self.assertEqual(rows["An item with no worth"], ("Backlog · worth: unset", "quiet"))
+
+
+class StoppedSession(unittest.TestCase):
+    """A task in its phase whose session stopped, and that a wake did not bring on, waits for the owner.
+    The case of 2026-11-22 (merge-leaves-board-lock, #37): its checks ended at 10:54, its session stayed
+    live with an agent in its pane, and the wake of 15:53 reached a conversation that no longer ran
+    there; no event came after it, and "Waits for you" showed nothing."""
+
+    LIVE = {"gift-note": {"live": True, "agent": True, "unanswered": False, "session": "S1", "name": "gift-note"}}
+
+    def ev(self, hhmm: str, event: str, **fields) -> dict:
+        return {"ts": f"2026-11-22T{hhmm}:00Z", "event": event, "task": "gift-note", **fields}
+
+    def model(self, *events: dict, at: str):
+        now = int(datetime.strptime(f"2026-11-22T{at}:00Z", "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp() * 1000)
+        m = bm.derive(list(events), [], now)
+        m.sessions = self.LIVE
+        return m
+
+    def landing(self) -> tuple:
+        return (self.ev("01:33", "session.open", session="S1", name="gift-note", phase="land", why="handoff"),
+                self.ev("10:15", "task.state", status="landing", text="the base moved: the checks run again", lines=[]),
+                self.ev("10:18", "gate.start", tip="5ccc53d36", commands=1),
+                self.ev("10:22", "gate", command="bash tests/all.sh", exit=0, last="all suites passed", tip="5ccc53d36"),
+                self.ev("10:54", "gate.end", result="passed", seconds=2156, tip="5ccc53d36"))
+
+    @staticmethod
+    def rows(m) -> list:
+        return [w for w in bm.waits_of(m) if w["t"].slug == "gift-note"]
+
+    def test_a_landing_that_a_wake_did_not_bring_on_waits_for_the_owner(self):
+        woken = (*self.landing(), self.ev("15:53", "session.wake", session="S1", why="owner"))
+        self.assertNotEqual(self.rows(self.model(*woken, at="17:00")), [])
+
+    def test_a_session_that_went_on_after_the_wake_does_not(self):
+        went_on = (*self.landing(), self.ev("15:53", "session.wake", session="S1", why="owner"), self.ev("16:58", "gate.wait", load=48.0, start=40))
+        self.assertEqual(self.rows(self.model(*went_on, at="17:00")), [])

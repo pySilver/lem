@@ -10,6 +10,7 @@ import email.message
 import importlib
 import sys
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.dont_write_bytecode = True
@@ -432,6 +433,51 @@ class MovedBaseRead(unittest.TestCase):
         self.assertEqual(self.owed(*m3, self.ev(4, "session.wake", session="S1", why="refused")), [])
         read = (*m3, self.ev(4, "session.wake", session="S1", why="refused"), self.read(5, "safe", base="m3m3m3m3m"))
         self.assertEqual(self.owed(*read), [("merge", "gift-note", "merger")])
+
+
+class StoppedSession(unittest.TestCase):
+    """A task in its phase whose session stopped: live in agterm, an agent in its pane, and no event for
+    hours. The case of 2026-11-22 (merge-leaves-board-lock, #37): its checks ended at 10:54, the
+    conversation had gone on in a background process of Claude Code that carried another task's pane,
+    and that process stopped; at 15:37 the task still stood in `landing` and nothing woke it."""
+
+    @staticmethod
+    def ev(hhmm: str, event: str, **fields) -> dict:
+        return {"ts": f"2026-11-22T{hhmm}:00Z", "event": event, "task": "gift-note", **fields}
+
+    @staticmethod
+    def now(hhmm: str) -> int:
+        return int(datetime.strptime(f"2026-11-22T{hhmm}:00Z", "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp() * 1000)
+
+    LIVE = {"gift-note": {"live": True, "agent": True, "unanswered": False, "session": "S1", "name": "gift-note"}}
+
+    def landing(self) -> tuple:
+        return (self.ev("01:33", "session.open", session="S1", name="gift-note", phase="land", why="handoff"),
+                self.ev("10:15", "task.state", status="landing", text="the base moved: the checks run again", lines=[]),
+                self.ev("10:18", "gate.start", tip="5ccc53d36", commands=1),
+                self.ev("10:22", "gate", command="bash tests/all.sh", exit=0, last="all suites passed", tip="5ccc53d36"),
+                self.ev("10:54", "gate.end", result="passed", seconds=2156, tip="5ccc53d36"))
+
+    def model(self, *events: dict, at: str):
+        m = bm.derive(list(events), [], self.now(at))
+        m.sessions = self.LIVE
+        return m
+
+    @staticmethod
+    def wakes(duties: list) -> list:
+        return [d for d in duties if d[0] == "wake" and d[1] == "gift-note"]
+
+    def test_a_landing_with_no_event_for_hours_is_woken(self):
+        self.assertNotEqual(self.wakes(serve.duties(self.model(*self.landing(), at="15:37"), {}, set())), [])
+
+    def test_a_session_that_still_works_is_not_woken(self):
+        working = (*self.landing(), self.ev("15:35", "gate.wait", load=48.0, start=40))
+        self.assertEqual(self.wakes(serve.duties(self.model(*working, at="15:37"), {}, set())), [])
+
+    def test_a_task_that_waits_for_the_owner_is_not_woken(self):
+        held = (self.ev("01:33", "session.open", session="S1", name="gift-note", phase="shape", why="new"),
+                self.ev("10:15", "task.state", status="held", text="the criteria wait for the owner", lines=[]))
+        self.assertEqual(self.wakes(serve.duties(self.model(*held, at="15:37"), {}, set())), [])
 
 
 class DutyKey(unittest.TestCase):
