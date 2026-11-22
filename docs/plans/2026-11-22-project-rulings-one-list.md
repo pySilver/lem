@@ -7,19 +7,25 @@ careful: yes, because it reaches "Lem reads a project's settings wrong" (task 1 
 Size: full, because a settings key leaves, another changes its meaning, and the retro, the ladder and the question gate change how they write and read a ruling.
 
 1. A project's rulings are one markdown file, which the settings name, `docs/rulings.md` unless they say otherwise. In a project whose settings name no rulings, `lem project path rulings` prints `ROOT/docs/rulings.md`, and `lem project show` gives no `ruling_file` and no `lem project ruling-file` command exists.
+   - test: `python3 -B -m unittest tests.unit.test_settings.Rulings.test_the_default_is_one_file_and_no_ruling_file` in `tests/unit/test_settings.py`
 2. A settings file that still has the folder form is refused, with a message that names the fix:
    1. `.lem/project.toml` says `rulings = "docs/rulings"`.
    2. Every `lem` command that reads the settings stops with exit 1.
    3. The message names `paths.rulings`, says that it names the list file, and gives `rulings = "docs/rulings.md"` as the example.
    4. The same file with `rulings = "docs/rulings.md"` and a line `ruling_file = "<slug>.md"` is refused as a key Lem does not know, and the message lists `plans`, `plan_file` and `rulings`.
+   - test: `python3 -B -m unittest tests.unit.test_settings.Rulings.test_the_folder_form_names_the_list_file_and_the_example tests.unit.test_settings.Rulings.test_a_folder_with_a_markdown_name tests.unit.test_settings.UnknownNames.test_a_ruling_file_line_with_the_nearest_key_and_the_keys_it_knows` in `tests/unit/test_settings.py`
 3. `lem project init` writes `rulings = "docs/rulings.md"` with a comment that says it is the list of your product decisions, one bullet for each, and writes no `ruling_file` line. `init` writes only the setting: the file comes with the first ruling.
+   - test: `python3 -B -m unittest tests.unit.test_settings.Rulings.test_the_template_writes_the_list_file_with_its_comment_and_no_ruling_file` in `tests/unit/test_settings.py`
 4. The retro writes a ruling the owner approved as one bullet of the list, under the heading of its group: the owner approves "a refund never makes an invoice negative" on 2026-11-22, and the list gets `- **A refund never makes an invoice negative.** (2026-11-22)` under `## Invoices`; a project with no list yet gets the file, with its title and that heading. A group heading that the list does not have yet is added at the end of the list, and the retro puts a ruling under a heading of the list when one fits.
+   - no test: a text of the retro's stage, `skills/lem/stages/learn.md`; a real retro is its test.
 5. The question gate's judge and the ladder read the rulings as the bullets of the list, and a cite names the group's heading and the bullet's bold sentence: "docs/rulings.md, Invoices: A refund never makes an invoice negative."
+   - no test: texts of the question gate's judge and of the ladder's stage; a real gate run is their test.
 6. Lem's own repository keeps the same form, and its documents say it:
    1. Its `.lem/project.toml` says `rulings = "docs/rulings/rulings.md"` and has no `ruling_file` line.
    2. `docs/rulings/rulings.md` holds the owner's ruling of 2026-11-22, a project's rulings are one list file, as one bullet.
    3. "Four places are settings" in `docs/rulings/history.md` names the plans folder, a plan's file name and the rulings file, and no ruling's file name.
    4. `docs/settings.md` and `docs/install.md` call the rulings one file, and no page of `docs/` says that a ruling is a file of its own. `docs/install.md` says where the file is, and that the retro writes a bullet only after the owner approves the ruling, in a pull request.
+   - no test: lines of this repository's settings and documents; `tests/unit/test_agents_md.py` checks the form of the new bullet and the history line.
 
 ## Tasks
 
