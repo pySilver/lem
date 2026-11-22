@@ -8,9 +8,13 @@ the server owes the tasks, and when it runs `lem project prune`. The routes, the
 
 import email.message
 import importlib
+import json
+import subprocess
 import sys
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
+from unittest import mock
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts"))
@@ -317,8 +321,11 @@ class Duties(unittest.TestCase):
         self.assertEqual(serve.duties(self.model(*merged, demo=True), {}, {"gift-note"}), [])
 
     def test_the_list_of_sessions_reads_by_task(self):
-        listed = serve.session_entries('[{"task": "gift-note", "session": "S1", "live": true, "agent": false, "unanswered": false, "phase": "build"}]')
-        self.assertEqual(listed, {"gift-note": {"live": True, "agent": False, "unanswered": False, "session": "S1", "name": None}})
+        listed = serve.session_entries('[{"task": "gift-note", "session": "S1", "live": true, "agent": false, "unanswered": false, "phase": "build", '
+                                       '"sign": "2026-11-22T10:15:42Z", "shell": true, "signs": true}]')
+        # the session's signs of work go on to the model, which the guard of a stopped session reads
+        self.assertEqual(listed, {"gift-note": {"live": True, "agent": False, "unanswered": False, "session": "S1", "name": None,
+                                                "sign": "2026-11-22T10:15:42Z", "shell": True, "signs": True}})
         self.assertEqual(serve.session_entries('{"sessions": []}'), {})
         with self.assertRaises(ValueError):
             serve.session_entries('{"said": "no"}')
@@ -432,6 +439,147 @@ class MovedBaseRead(unittest.TestCase):
         self.assertEqual(self.owed(*m3, self.ev(4, "session.wake", session="S1", why="refused")), [])
         read = (*m3, self.ev(4, "session.wake", session="S1", why="refused"), self.read(5, "safe", base="m3m3m3m3m"))
         self.assertEqual(self.owed(*read), [("merge", "gift-note", "merger")])
+
+
+class StoppedSession(unittest.TestCase):
+    """A task in its phase whose session stopped: live in agterm, an agent in its pane, and no sign of work
+    for hours. The case of 2026-11-22 (merge-leaves-board-lock, #37): its checks ended at 10:54, the
+    conversation had gone on in a background process of Claude Code that carried another task's pane,
+    and that process stopped; at 15:37 the task still stood in `landing` and nothing woke it. The server
+    owes it the status message at 11:39, the restart at 11:49 and, when the fresh session stops too, the
+    stop (`bm.stop_due`, whose cases are in test_board_model.py)."""
+
+    @staticmethod
+    def ev(hhmm: str, event: str, **fields) -> dict:
+        return {"ts": f"2026-11-22T{hhmm}{'' if hhmm.count(':') == 2 else ':00'}Z", "event": event, "task": "gift-note", **fields}
+
+    @staticmethod
+    def now(hhmm: str) -> int:
+        text = f"2026-11-22T{hhmm}{'' if hhmm.count(':') == 2 else ':00'}Z"
+        return int(datetime.strptime(text, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp() * 1000)
+
+    @staticmethod
+    def live(session: str = "S1", sign: str | None = "2026-11-22T10:15:42Z", shell: bool = False) -> dict:
+        return {"gift-note": {"live": True, "agent": True, "unanswered": False, "session": session, "name": "gift-note", "sign": sign, "shell": shell, "signs": True}}
+
+    def landing(self) -> tuple:
+        return (self.ev("01:33", "session.open", session="S1", name="gift-note", phase="land", why="handoff"),
+                self.ev("10:15", "task.state", status="landing", text="the base moved: the checks run again", lines=[]),
+                self.ev("10:18", "gate.start", tip="5ccc53d36", commands=1),
+                self.ev("10:22", "gate", command="bash tests/all.sh", exit=0, last="all suites passed", tip="5ccc53d36"),
+                self.ev("10:54", "gate.end", result="passed", seconds=2156, tip="5ccc53d36"))
+
+    def model(self, *events: dict, at: str, sessions: dict | None = None):
+        m = bm.derive(list(events), [], self.now(at))
+        m.sessions = self.live() if sessions is None else sessions
+        return m
+
+    def owed(self, *events: dict, at: str, sessions: dict | None = None) -> list:
+        return [d for d in serve.duties(self.model(*events, at=at, sessions=sessions), {}, set()) if d[1] == "gift-note"]
+
+    def test_a_landing_with_no_event_for_hours_is_woken(self):
+        self.assertEqual(self.owed(*self.landing(), at="11:38"), [])
+        self.assertEqual(self.owed(*self.landing(), at="11:39"), [("wake", "gift-note", "status")])
+        self.assertEqual(self.owed(*self.landing(), at="15:37"), [("wake", "gift-note", "status")])
+
+    def test_a_session_that_still_works_is_not_woken(self):
+        working = (*self.landing(), self.ev("15:35", "gate.wait", load=48.0, start=40))
+        self.assertEqual(self.owed(*working, at="15:37"), [])
+        # the checks run for 50 minutes with no event: their shell command is the sign of work
+        self.assertEqual(self.owed(*self.landing()[:3], at="11:08", sessions=self.live(shell=True)), [])
+
+    def test_ten_minutes_after_the_message_the_task_is_restarted_then_its_stop_logged(self):
+        woken = (*self.landing(), self.ev("11:39", "session.wake", session="S1", why="status"))
+        self.assertEqual(self.owed(*woken, at="11:48"), [])
+        self.assertEqual(self.owed(*woken, at="11:49", sessions=self.live(sign="2026-11-22T11:42:00Z")), [])
+        self.assertEqual(self.owed(*woken, at="11:49"), [("open", "gift-note", "stopped")])
+        fresh = (*woken, self.ev("11:49", "session.open", session="S2", name="gift-note", phase="land", why="stopped"),
+                 self.ev("11:49", "session.wake", session="S1", why="replaced"))
+        self.assertEqual(self.owed(*fresh, at="11:49:20", sessions=self.live("S2", None)), [])
+        self.assertEqual(self.owed(*fresh, at="12:34", sessions=self.live("S2", None)), [("wake", "gift-note", "status")])
+        again = (*fresh, self.ev("12:34", "session.wake", session="S2", why="status"))
+        self.assertEqual(self.owed(*again, at="12:44", sessions=self.live("S2", None)), [("stopped", "gift-note", "stopped")])
+        logged = (*again, self.ev("12:44", "session.stopped", session="S2"))
+        self.assertEqual(self.owed(*logged, at="12:44:20", sessions=self.live("S2", None)), [])
+
+    def test_a_task_that_waits_for_the_owner_or_is_out_of_its_phase_is_not_woken(self):
+        for status, text in (("held", "the criteria wait for the owner"), ("queued", "after: other-task"), ("planned", "the plan waits for the owner"),
+                             ("blocked", "a builder ended two times with no report"), ("parked", "the owner parked it"), ("answered", "the report answers it"),
+                             ("dropped", "the owner dropped it"), ("open", "PR #12 opened"), ("landed", "merged as #12")):
+            held = (self.ev("01:33", "session.open", session="S1", name="gift-note", phase="shape", why="new"),
+                    self.ev("10:15", "task.state", status=status, text=text, lines=[]))
+            self.assertEqual([d for d in self.owed(*held, at="15:37") if d[2] in ("status", "stopped")], [], status)
+
+    def test_a_step_that_acted_on_nothing_says_why_in_the_servers_log(self):
+        import subprocess
+        refused = subprocess.CompletedProcess([], 0, '{"task": "gift-note", "acted": false, "why": "working", "say": "Lem did nothing for gift-note: ..."}', "")
+        self.assertEqual(serve.not_acted(refused), "Lem did nothing for gift-note: ...")
+        self.assertEqual(serve.not_acted(subprocess.CompletedProcess([], 0, '{"task": "gift-note", "acted": true}', "")), "")
+        self.assertEqual(serve.not_acted(subprocess.CompletedProcess([], 0, '{"task": "gift-note", "woke": true}', "")), "")
+
+    def test_the_step_names_the_session_it_is_for(self):
+        m = self.model(*self.landing(), at="15:37")
+        self.assertEqual(serve.duty_args("wake", "gift-note", "status", {}, m), ["wake", "gift-note", "--why", "status", "--session", "S1"])
+        self.assertEqual(serve.duty_args("open", "gift-note", "stopped", {}, m), ["open", "gift-note", "--why", "stopped", "--session", "S1"])
+        self.assertEqual(serve.duty_args("stopped", "gift-note", "stopped", {}, m), ["stopped", "gift-note", "--session", "S1"])
+        self.assertEqual(serve.duty_args("wake", "gift-note", "conflict", {"gift-note": {"head": "abc"}}, m), ["wake", "gift-note", "--why", "conflict", "--head", "abc"])
+        self.assertEqual(serve.duty_args("open", "gift-note", "queue", {}, m), ["open", "gift-note", "--why", "queue"])
+
+
+class StoppedOpen(unittest.TestCase):
+    """The owner's "Open a session" on a task whose stop the guard logged (criterion 5): `lem session open
+    SLUG --why stopped` beside its live session, and when the look once more finds work, the owner's words
+    and no session; a stopped session that is gone takes the open of a task with none."""
+
+    class Space:
+        name = "shop"
+
+        def __init__(self, m):
+            self.m, self.looked = m, 0
+
+        def model(self):
+            return self.m
+
+        def look_sessions(self):
+            self.looked += 1
+
+    def stopped(self, live: bool = True) -> "StoppedOpen.Space":
+        s = StoppedSession
+        events = (*s.landing(s), s.ev("11:39", "session.wake", session="S1", why="status"),
+                  s.ev("11:49", "session.open", session="S2", name="gift-note", phase="land", why="stopped"),
+                  s.ev("12:34", "session.wake", session="S2", why="status"), s.ev("12:44", "session.stopped", session="S2"))
+        m = bm.derive(list(events), [], s.now("13:00"))
+        m.sessions = {"gift-note": {"live": live, "agent": live, "unanswered": False, "session": "S2", "name": "gift-note", "sign": None, "shell": False, "signs": live}}
+        return self.Space(m)
+
+    def act(self, space, printed: dict) -> tuple[dict, list, list]:
+        asked = []
+        ran = mock.Mock(side_effect=lambda workspace, *args: asked.append(args) or subprocess.CompletedProcess(args, 0, json.dumps(printed), ""))
+        logged = mock.Mock(return_value="")
+        with mock.patch.object(serve, "session_run", ran), mock.patch.object(serve, "asked_from", logged):
+            said = serve.act_session(space, "gift-note", {}, "board")
+        return said, asked, logged.call_args_list
+
+    def test_the_button_opens_beside_the_stopped_session(self):
+        said, asked, logged = self.act(self.stopped(), {"task": "gift-note", "session": "S3", "name": "gift-note", "already": False, "acted": True})
+        self.assertEqual(asked, [("open", "gift-note", "--why", "stopped")])
+        self.assertTrue(said["ok"])
+        self.assertIn("beside the one that stopped", said["said"])
+        self.assertEqual(len(logged), 1)
+
+    def test_an_open_that_finds_work_says_so_and_opens_nothing(self):
+        space = self.stopped()
+        said, asked, logged = self.act(space, {"task": "gift-note", "session": "S2", "acted": False, "why": "working", "say": "Lem did nothing for gift-note: ..."})
+        self.assertEqual(said, {"ok": False, "said": "Its session works again, so no session was opened."})
+        # no record of an open he did not get, and the board looks at the sessions again
+        self.assertEqual((logged, space.looked), ([], 1))
+        for why in ("gone", "status", "unread"):
+            said, _, _ = self.act(self.stopped(), {"task": "gift-note", "acted": False, "why": why})
+            self.assertEqual(said, {"ok": False, "said": serve.NOT_OPENED[why] + "."}, why)
+
+    def test_a_stopped_session_that_is_gone_takes_the_open_of_a_task_with_none(self):
+        _, asked, _ = self.act(self.stopped(live=False), {"task": "gift-note", "session": "S3", "name": "gift-note", "already": False})
+        self.assertEqual(asked, [("open", "gift-note", "--why", "dead")])
 
 
 class DutyKey(unittest.TestCase):

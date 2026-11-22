@@ -48,7 +48,7 @@ Buttons on "Waits for you" and the task pages do what Lem does on your words:
   undo a merge. On a phone, the page opens over the task, and its button becomes active when you
   read to the end.
 - **Park it**: puts aside a task that a breaker stopped, with one line of why.
-- **Open a session**: starts a new agent for a task that has no session.
+- **Open a session**: starts a new agent for a task that has no session, or whose session stopped.
 
 On a phone, **Approve the criteria** and **Park it** open over the task in the same way.
 The page then shows the result, or why Lem refused.
@@ -96,6 +96,10 @@ A new Claude Code session in a repository that uses Lem starts the server, and s
 The server merges a pull request when the merge agent gives the verdict merge. Each hour it removes
 the old files and events, as [`state.keep_days`](settings.md#state) tells. It never types into a
 session.
+
+The server also monitors each task that builds or lands. When its session does no work for 45
+minutes, the server asks the session for its status. After 10 more minutes with no work, the server
+opens a fresh session one time. When that session also stops, the task waits for you as "stopped".
 
 ## Commands
 

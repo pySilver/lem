@@ -150,13 +150,19 @@ workspace, one call at a time with the server's other calls into Lem's scripts (
   with the base goes into `forge.json` of the state folder (`keep_forge_look`), which the board's model
   and `lem project waiting` read. `gh` missing or signed out is one line on the status bar until it changes;
 - the look at the task sessions: `lem session list` (`Workspace.look_sessions`), which says of each
-  task whether its session is in agterm, whether an agent runs in it and whether a wake-up waits in it
-  unanswered, for the board's row "no session" and its "Open a session";
+  task whether its session is in agterm, whether an agent runs in it, whether a wake-up waits in it
+  unanswered, and its signs of work (`lem_signs`), for the board's row "no session" and its "Open a
+  session", and for the guard of a stopped session below;
 - the duties (`duties`, `run_duties`), each a command of `lem session` (SESSION_SCRIPT): after a merge,
   `wake SLUG --why merged`, so that the task's session removes its worktree and its branch; for a pull
   request the forge calls conflicting, `wake SLUG --why conflict`, once for each head; and for a task
   queued `after:` one that ended, `open SLUG --why queue`, or `wake SLUG --why queue` once when its
-  session still lives. `wake` opens a session when none lives. A
+  session still lives. `wake` opens a session when none lives. The guard of a stopped session
+  (`lem_board_model.stop_due`): for a task in `building`, `ready` or `landing` whose live session
+  showed no sign of work for 45 minutes, `wake SLUG --why status`; 10 minutes after it with still no
+  sign, `open SLUG --why stopped`, a fresh session beside the old pane, once for one stop; and when
+  that restart is spent, `stopped SLUG`, which logs the stop for the owner's row "stopped". Each looks
+  once more in the task's lock and acts on nothing (`acted: false`) when the step is no longer due. A
   duty whose command failed waits DUTY_RETRY;
 - the merge agent's merge (`merge_due`): for an open task whose merge agent's review of the tip Lem
   proposed last says `merge`, calls nobody and does not say `another round` of a moved base, with no
@@ -201,7 +207,8 @@ only for the text the page showed (a digest of the file); the merge of an open t
 step, land.py's MERGE_STEP `--by owner`, only at the commit the step showed; the park of a task a
 breaker holds, `lem project state SLUG parked WHY`, with his line of why; and a fresh session of a task
 none of whose sessions lives (`act_session`), `lem session open SLUG --why dead`, or `--why owner` for
-a task that never had one; and a new task (`act_start`), from his words on the form of "+" or from a
+a task that never had one, or `--why stopped` beside the live session of a task whose stop the guard
+logged, which opens nothing when that session works again; and a new task (`act_start`), from his words on the form of "+" or from a
 backlog item's "Start a task": its slug by a fixed rule (an item's file's stem; else the first
 SLUG_WORDS plain words of his text, in lower case, joined by hyphens), `lem project task-dir SLUG --ask
 ASK` (his words, or the item's path as the night gives it), then `lem session open SLUG --why new` with
@@ -1032,10 +1039,21 @@ def act_park(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
     return {"ok": True, "said": f"The task is parked. {ends}/lem resume {slug} in any session brings it back." + asked}
 
 
+# What the board says when the owner's "Open a session" of a stopped task opened nothing (`lem session open
+# SLUG --why stopped` printed `acted: false`), by its `why` (session.py REFUSALS).
+NOT_OPENED = {"working": "Its session works again, so no session was opened",
+              "gone": "Its session is gone from agterm, so no session was opened beside it: the board offers a fresh one in its place within a minute",
+              "status": "The task is no longer building, ready or landing, so no session was opened",
+              "unread": "The board cannot read whether its session works, so no session was opened: try again in a minute"}
+
+
 def act_session(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
     """A fresh session of a task none of whose sessions lives (`lem_board_model.opens_session`), on the
     owner's click: `lem session open SLUG --why dead` for a task that had one, `--why owner` for one that
-    never did. The server never selects it: it opens with no focus, at the top of agterm's workspace."""
+    never did, and `--why stopped` for a task whose stop the guard logged while its session lives
+    (`lem_board_model.stopped_of`), which opens beside that session, or opens nothing and says why
+    (NOT_OPENED) when the look once more refuses it. The server never selects it: it opens with no
+    focus, at the top of agterm's workspace."""
     t = task_of(workspace, slug)
     model = workspace.model()
     if t is None or not bm.opens_session(t, model):
@@ -1043,18 +1061,23 @@ def act_session(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
         why = ("its session runs: go to it in agterm" if live and live["live"] else "the board does not know yet whether its session runs; look again in a minute" if t and live is None
                else f"it is {t.info['label'].lower()}" if t else "no such task is on record")
         return {"ok": False, "said": f"No session of {slug} was opened: {why}."}
-    ran = session_run(workspace, "open", slug, "--why", "dead" if t.opened else "owner")
+    stopped = bm.stopped_of(t, model) is not None
+    ran = session_run(workspace, "open", slug, "--why", "stopped" if stopped else "dead" if t.opened else "owner")
     if ran.returncode != 0:
         return {"ok": False, "said": said_of(ran)}
     try:
         opened = json.loads(ran.stdout)
     except ValueError:
         opened = {}
+    if isinstance(opened, dict) and opened.get("acted") is False:
+        workspace.look_sessions()
+        return {"ok": False, "said": f"{NOT_OPENED.get(opened.get('why'), opened.get('say') or 'No session was opened')}."}
     name = opened.get("name") if isinstance(opened, dict) else None
     workspace.look_sessions()
     if isinstance(opened, dict) and opened.get("already"):
         return {"ok": True, "said": f"The session {name or 'of the task'} runs already: go to it in agterm." + asked_from(workspace, slug, "session", via)}
-    return {"ok": True, "said": f"A session of the task opened in agterm{f', “{name}”' if name else ''}, at the top of its workspace. Its agent reads the task’s state and goes on from there."
+    beside = f" beside the one that stopped, which agterm now names “{slug} · replaced”" if stopped else ""
+    return {"ok": True, "said": f"A session of the task opened in agterm{f', “{name}”' if name else ''}, at the top of its workspace{beside}. Its agent reads the task’s state and goes on from there."
             + asked_from(workspace, slug, "session", via)}
 
 
@@ -2053,7 +2076,16 @@ def duties(model: "bm.Model", seen: dict, kept: set, merging: set = frozenset())
       the gate: the server only runs it.
     - `wake … refused`: an open task whose merge was refused on the tip Lem proposed last, and no
       session was woken or opened since the refusal: the merge agent's, by GitHub or by Lem's rules, and
-      the owner's when Lem refused it because the base moved (`kind: base`, `refusal_of`)."""
+      the owner's when Lem refused it because the base moved (`kind: base`, `refusal_of`).
+    - `wake … status`: a task in `building`, `ready` or `landing` whose live session showed no sign of
+      work for 45 minutes (`bm.stop_due`): the line that asks the session where the task stands.
+    - `open … stopped`: the same task 10 minutes after that line with still no sign of work, when Lem
+      did not restart it since its newest work event: a fresh session beside the old pane.
+    - `stopped … stopped`: the same once the restart was spent: `lem session stopped SLUG` logs the
+      stop, once, and the owner's "Waits for you" shows it.
+    Each of the three names the session it is for (`--session`), and `lem session` looks once more in
+    the task's lock before it acts: a sign of work since, a status that changed, a session that is gone
+    or signs that do not read make it act on nothing (`acted: false`), and the next look asks again."""
     if model.meta.get("demo"):
         return []
     out = []
@@ -2077,6 +2109,8 @@ def duties(model: "bm.Model", seen: dict, kept: set, merging: set = frozenset())
                 after = t.refused["order"]
                 if not any(w["order"] > after for w in t.wakes) and not (t.opened and t.opened["order"] > after):
                     out.append(("wake", t.slug, "refused"))
+        elif (due := bm.stop_due(t, model)) is not None:
+            out.append(STOP_DUTIES[due["step"]](t.slug))
         elif t.status == "queued" and bm.after_ended(t, model) and model.sessions is not None:
             live = bm.live_of(t, model) or {}
             since = wait_start(t)
@@ -2089,6 +2123,11 @@ def duties(model: "bm.Model", seen: dict, kept: set, merging: set = frozenset())
                 # never comes and nothing else would start the task
                 out.append(("wake", t.slug, "queue"))
     return out
+
+
+# The duty of each step of the guard of a stopped session (`bm.stop_due`), as `(VERB, SLUG, WHY)`.
+STOP_DUTIES = {"status": lambda slug: ("wake", slug, "status"), "restart": lambda slug: ("open", slug, "stopped"),
+               "stopped": lambda slug: ("stopped", slug, "stopped")}
 
 
 def merge_due(t: "bm.Task", seen: dict, merging: set) -> bool:
@@ -2146,6 +2185,17 @@ def duty_key(verb: str, slug: str, why: str, landing: dict) -> tuple:
     return (verb, slug, why, proposed, read)
 
 
+def duty_args(verb: str, slug: str, why: str, seen: dict, model: "bm.Model") -> list[str]:
+    """The words of `lem session` for one duty. A conflict's wake keeps the head the forge named on its
+    record (`session.wake`), one wake for each head. A step of the guard of a stopped session names the
+    session it is for, the one `lem session list` gave (`Model.sessions`), so that the act refuses
+    another one; the stop is `lem session stopped SLUG`, which has no why."""
+    head = (seen.get(slug) or {}).get("head") if why == "conflict" else None
+    named = ((model.sessions or {}).get(slug) or {}).get("session") if why in ("status", "stopped") else None
+    words = [verb, slug] + ([] if verb == "stopped" else ["--why", why])
+    return words + (["--head", str(head)] if head else []) + (["--session", str(named)] if named else [])
+
+
 def run_duties(workspace: Workspace, now: float | None = None) -> list[dict]:
     """Run each duty the workspace has now (`duties`), one command at a time, and what ran: a duty whose
     command failed waits DUTY_RETRY before the next try. The merge agent's merge starts in a thread of
@@ -2171,15 +2221,25 @@ def run_duties(workspace: Workspace, now: float | None = None) -> list[dict]:
             merge_in_thread(workspace, slug, landing, why, merge_tip_of(landing, why), failed=failed, standing=why == "owner")
             ran.append({"verb": verb, "task": slug, "why": why, "exit": None, "said": "started"})
             continue
-        # a conflict's wake keeps the head the forge named on its record (`session.wake`), one wake for each head
-        head = (seen.get(slug) or {}).get("head") if why == "conflict" else None
-        result = session_run(workspace, verb, slug, "--why", why, *(["--head", str(head)] if head else []))
+        words = duty_args(verb, slug, why, seen, model)
+        result = session_run(workspace, *words)
         if result.returncode == 0:
             workspace.failed.pop(key, None)
         else:
             workspace.failed[key] = now
-        ran.append({"verb": verb, "task": slug, "why": why, "exit": result.returncode, "said": said_of(result) if result.returncode else ""})
+        ran.append({"verb": verb, "task": slug, "why": why, "words": words, "exit": result.returncode,
+                    "said": said_of(result) if result.returncode else not_acted(result)})
     return ran
+
+
+def not_acted(ran: subprocess.CompletedProcess) -> str:
+    """What a step of the guard of a stopped session said when it acted on nothing (`acted: false`, exit
+    0: its look once more in the task's lock found a reason), else ""."""
+    try:
+        said = json.loads(ran.stdout)
+    except ValueError:
+        return ""
+    return str(said.get("say") or said.get("why") or "") if isinstance(said, dict) and said.get("acted") is False else ""
 
 
 # How often the server runs `lem project prune` for one workspace. A guess (2026-11-21): the number it
@@ -2237,7 +2297,7 @@ def forge_loop(machine: "Machine") -> None:
                         sys.stderr.write(f"serve.py: {workspace.name}: `lem land merge {one['task']} --by {one['why']} --via server{' --standing' if owner else ''}` started, "
                                          + ("after the owner's merge stood through a new landing or a safe read of the moved base\n" if owner else "after the merge agent's verdict `merge`\n"))
                         continue
-                    sys.stderr.write(f"serve.py: {workspace.name}: `lem session {one['verb']} {one['task']} --why {one['why']}` exited {one['exit']}"
+                    sys.stderr.write(f"serve.py: {workspace.name}: `lem session {' '.join(one['words'])}` exited {one['exit']}"
                                      f"{': ' + one['said'] if one['said'] else ''}\n")
             except Exception as error:  # noqa: BLE001 - as above: one workspace that fails says why
                 workspace.session_problem = f"the board's look at the task sessions failed: {error!r}"

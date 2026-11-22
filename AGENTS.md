@@ -181,7 +181,9 @@ Each script's module docstring says what it does and why; this list says where e
     the handoff's check and the copy of the talk; `session_hook.py`: the plugin's `PreCompact` and
     `SessionStart` hooks of a task's session (every source: the record of each Claude Code session of
     the task, and after a compaction the task's files); `lem_tokens.py`: the tokens a task's Claude
-    Code sessions spent, from their transcripts, for the merge brief.
+    Code sessions spent, from their transcripts, for the merge brief; `lem_signs.py`: the signs of
+    work of a task's live session (its newest turn, a shell command that runs), from Claude Code's
+    own files, for `lem session list`.
   - `land.py` (`lem land`): the landing, one refusable step at a time, from `ready` through the
     checks and the review to a pull request on GitHub, the merge agent's read, the merge and the
     cleanup.

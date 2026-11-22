@@ -583,10 +583,12 @@ class Hooks(unittest.TestCase):
     def tearDownClass(cls):
         cls.folder.cleanup()
 
-    def hook(self, event: dict, task: str | None = SLUG) -> subprocess.CompletedProcess:
-        env = {key: value for key, value in os.environ.items() if key != "LEM_TASK"}
+    def hook(self, event: dict, task: str | None = SLUG, pane: str | None = None) -> subprocess.CompletedProcess:
+        env = {key: value for key, value in os.environ.items() if key not in ("LEM_TASK", "AGTERM_SESSION_ID")}
         if task:
             env["LEM_TASK"] = task
+        if pane:
+            env["AGTERM_SESSION_ID"] = pane
         return subprocess.run([sys.executable, "-B", str(SCRIPTS / "session_hook.py")], input=json.dumps({"cwd": str(self.repo), **event}),
                               capture_output=True, text=True, env=env, check=False)
 
@@ -625,10 +627,168 @@ class Hooks(unittest.TestCase):
             self.hook({**event, "source": "compact"})
             self.hook({"hook_event_name": "SessionStart", "source": "startup"}, task="no-such-task")
             records = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()[len(before.splitlines()):]]
-            self.assertEqual([(r["event"], r["task"], r["claude"], r["transcript"], r["source"]) for r in records],
-                             [("session.transcript", SLUG, "c0ffee-1", "/x/projects/-shop/c0ffee-1.jsonl", "startup")])
+            self.assertEqual([(r["event"], r["task"], r["claude"], r["transcript"], r["source"], r["session"]) for r in records],
+                             [("session.transcript", SLUG, "c0ffee-1", "/x/projects/-shop/c0ffee-1.jsonl", "startup", None)])
         finally:
             log.write_text(before, encoding="utf-8")
+
+    def test_the_record_names_the_agterm_session_once_for_each_claude_id_and_session(self):
+        log = self.repo / ".lem" / "state" / "events.jsonl"
+        before = log.read_text(encoding="utf-8")
+        event = {"hook_event_name": "SessionStart", "source": "startup", "session_id": "f0410fb9", "transcript_path": "/x/projects/-shop/f0410fb9.jsonl"}
+        try:
+            for _ in range(2):
+                self.hook(event, pane="902B55C6-0001")
+            # the same Claude id in a background host that runs with another pane's environment is another record
+            self.hook({**event, "source": "fork"}, pane="9F9C5C30-0002")
+            records = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()[len(before.splitlines()):]]
+            self.assertEqual([(r["claude"], r["session"], r["source"]) for r in records],
+                             [("f0410fb9", "902B55C6-0001", "startup"), ("f0410fb9", "9F9C5C30-0002", "fork")])
+        finally:
+            log.write_text(before, encoding="utf-8")
+
+
+class Guard(unittest.TestCase):
+    """The look once more of the guard of a stopped session (`guard_refusal`, `guard_check`), in the task's
+    lock before each of its acts, and the three acts: the status message, the restart beside the old pane
+    and the stop. The events are those of 2026-11-22 (merge-leaves-board-lock, #37)."""
+
+    SIGNS = {"sign": "2026-11-22T10:15:42Z", "shell": False, "signs": True}
+    NODES = [{"id": "S1", "name": SLUG, "workspace": "W1", "foreground": ["claude"]}]
+
+    @staticmethod
+    def ev(hhmm: str, event: str, **fields) -> dict:
+        return {"ts": f"2026-11-22T{hhmm}:00Z", "event": event, "task": SLUG, **fields}
+
+    def landing(self, status: str = "landing") -> list[dict]:
+        return [self.ev("01:33", "session.open", session="S1", name=SLUG, phase="land", why="handoff", workspace="W1"),
+                self.ev("10:15", "task.state", status=status, text="the base moved: the checks run again", lines=[]),
+                self.ev("10:54", "gate.end", result="passed", seconds=2156, tip="5ccc53d36"),
+                self.ev("10:15", "session.transcript", claude="f0410fb9", transcript="/x/projects/-shop/f0410fb9.jsonl", session="S1", source="startup")]
+
+    def refusal(self, events: list[dict], step: str, at: str, named: str | None = "S1", **entry) -> str | None:
+        bm = session.board_model()
+        now = int(datetime.strptime(f"2026-11-22T{at}:00Z", "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp() * 1000)
+        m = bm.derive(events, [], now)
+        m.sessions = {SLUG: {"live": True, "agent": True, "unanswered": False, "session": "S1", **self.SIGNS, **entry}}
+        t = m.by_slug.get(SLUG)
+        return session.guard_refusal(t if t and t.blocks else None, m, step, named)
+
+    def test_each_step_acts_only_while_the_rule_still_gives_it(self):
+        woken = [*self.landing(), self.ev("11:39", "session.wake", session="S1", why="status")]
+        self.assertIsNone(self.refusal(self.landing(), "status", "11:39"))
+        self.assertEqual(self.refusal(self.landing(), "restart", "11:39"), "working")
+        self.assertIsNone(self.refusal(woken, "restart", "11:49"))
+        # the session wrote a turn since the server's look: no restart
+        self.assertEqual(self.refusal(woken, "restart", "11:49", sign="2026-11-22T11:48:00Z"), "working")
+        self.assertEqual(self.refusal(woken, "status", "11:49"), "working")
+        fresh = [*woken, self.ev("11:49", "session.open", session="S1", name=SLUG, phase="land", why="stopped", workspace="W1"),
+                 self.ev("12:34", "session.wake", session="S1", why="status")]
+        self.assertIsNone(self.refusal(fresh, "stopped", "12:44", sign=None))
+        self.assertEqual(self.refusal([*fresh, self.ev("12:44", "session.stopped", session="S1")], "stopped", "12:45", sign=None), "working")
+
+    def test_a_task_out_of_its_phase_a_gone_or_other_session_and_signs_that_do_not_read(self):
+        self.assertEqual(self.refusal(self.landing("held"), "status", "11:39"), "status")
+        self.assertEqual(self.refusal(self.landing("parked"), "status", "11:39"), "status")
+        self.assertEqual(self.refusal(self.landing(), "status", "11:39", named="S0"), "gone")
+        self.assertIsNone(self.refusal(self.landing(), "status", "11:39", named="s1"))
+        self.assertEqual(self.refusal(self.landing(), "status", "11:39", live=False, agent=False), "gone")
+        self.assertEqual(self.refusal(self.landing(), "status", "11:39", signs=False), "unread")
+        self.assertEqual(self.refusal(self.landing(), "status", "11:39", shell=True), "working")
+        self.assertEqual(self.refusal([], "status", "11:39"), "status")
+
+    def test_the_status_message_is_never_a_wake_nobody_answered(self):
+        # its line waits in the mailbox 20 minutes later, as an owner's wake's would: only the owner's is `unanswered`,
+        # since the guard ends the status message's wait itself, with the restart or the stop
+        ago = (datetime.now(timezone.utc) - timedelta(minutes=20)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        opened = {"ts": "2026-11-22T01:33:00Z", "event": "session.open", "task": SLUG, "session": "S1", "name": SLUG, "phase": "land", "why": "handoff"}
+
+        def unanswered(why: str) -> bool:
+            woke = {"ts": ago, "event": "session.wake", "task": SLUG, "session": "S1", "why": why}
+            with mock.patch.object(session, "place", return_value={"session": "", "socket": "", "window": ""}), \
+                 mock.patch.object(session, "tree", return_value=self.NODES), \
+                 mock.patch.object(session.project, "events_named", side_effect=lambda root, *names: [e for e in (opened, woke) if e["event"] in names]), \
+                 mock.patch.object(session.project, "load", return_value={}), mock.patch.object(session.project, "read_tasks", return_value=[]), \
+                 mock.patch.object(session, "ctl", return_value=json.dumps([{"text": f"lem: {SLUG} {why}"}])):
+                return session.cmd_list(ROOT)[0]["unanswered"]
+
+        self.assertEqual((unanswered("owner"), unanswered("status")), (True, False))
+
+    def test_the_owners_open_of_a_stopped_task_acts_until_its_session_works_again(self):
+        stopped = [*self.landing(), self.ev("11:39", "session.wake", session="S1", why="status"),
+                   self.ev("11:49", "session.open", session="S1", name=SLUG, phase="land", why="stopped", workspace="W1"),
+                   self.ev("12:34", "session.wake", session="S1", why="status"), self.ev("12:44", "session.stopped", session="S1")]
+        self.assertIsNone(self.refusal(stopped, "restart", "13:30", named=None, sign=None))
+        self.assertEqual(self.refusal(stopped, "restart", "13:30", named=None, sign="2026-11-22T13:00:00Z"), "working")
+
+    def run_act(self, events: list[dict], act, signs: dict | None = None, nodes: list | None = None, at: str = "15:37") -> tuple[dict, list, list]:
+        now = int(datetime.strptime(f"2026-11-22T{at}:00Z", "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp() * 1000)
+        with tempfile.TemporaryDirectory() as folder:
+            state = Path(folder)
+            (state / "events.jsonl").write_text("".join(json.dumps(e) + "\n" for e in events), encoding="utf-8")
+            sent = []
+
+            def ctl(where, *args, window=True):
+                sent.append(args)
+                return json.dumps({"result": {"id": "S2"}}) if args[:2] == ("session", "new") else ""
+            facts = {"task": {"slug": SLUG, "state": "", "status": "landing"}, "tasks": [], "phase": "land", "worktree": None, "settings": {"seats": {"session": {}}}}
+            with mock.patch.object(session, "place", return_value={"session": "", "socket": "", "window": ""}), \
+                 mock.patch.object(session, "tree", return_value=self.NODES if nodes is None else nodes), \
+                 mock.patch.object(session, "ctl", side_effect=ctl), \
+                 mock.patch.object(session, "process_table", return_value="table"), \
+                 mock.patch.object(session.lem_signs, "signs_of", return_value=signs or self.SIGNS), \
+                 mock.patch.object(session, "facts_of", return_value=facts), \
+                 mock.patch.object(session, "login_shell", return_value="/bin/zsh"), \
+                 mock.patch.object(session.lem_state, "handoff_tokens", return_value=None), \
+                 mock.patch.object(project, "register_checkout"), \
+                 mock.patch.object(project, "task_directory", return_value=state), \
+                 mock.patch.object(project, "state_root", return_value=state), \
+                 mock.patch.object(project, "main_checkout", return_value=state), \
+                 mock.patch.object(session.board_model(), "now_ms", return_value=now):
+                result = act()
+                logged = [json.loads(line) for line in (state / "events.jsonl").read_text(encoding="utf-8").splitlines()][len(events):]
+        return result, sent, logged
+
+    def test_the_status_message_goes_to_the_live_session_and_never_opens_one(self):
+        done, sent, logged = self.run_act(self.landing(), lambda: session.cmd_wake(ROOT, SLUG, "status", None, "S1"), at="11:39")
+        self.assertEqual((done["acted"], done["woke"], done["opened"]), (True, True, False))
+        self.assertEqual(sent, [("msg", "send", f"lem: {SLUG} status", "--to", "S1:left")])
+        self.assertEqual([(e["event"], e["session"], e["why"]) for e in logged], [("session.wake", "S1", "status")])
+        # a pane that is gone gets no message and no session in its place
+        gone, sent, logged = self.run_act(self.landing(), lambda: session.cmd_wake(ROOT, SLUG, "status", None, "S1"), nodes=[])
+        self.assertEqual((gone["acted"], gone["why"], sent, logged), (False, "gone", [], []))
+
+    def test_a_sign_of_work_since_the_look_makes_the_act_act_on_nothing(self):
+        woken = [*self.landing(), self.ev("11:39", "session.wake", session="S1", why="status")]
+        late = {**self.SIGNS, "sign": "2026-11-22T11:48:30Z"}
+        done, sent, logged = self.run_act(woken, lambda: session.cmd_open(ROOT, SLUG, "stopped", named="S1"), signs=late, at="11:49")
+        self.assertEqual((done["acted"], done["why"], sent, logged), (False, "working", [], []))
+        self.assertIn("Lem did nothing for gift-note", done["say"])
+
+    def test_the_restart_opens_beside_the_old_pane_and_tells_it(self):
+        woken = [*self.landing(), self.ev("11:39", "session.wake", session="S1", why="status")]
+        done, sent, logged = self.run_act(woken, lambda: session.cmd_open(ROOT, SLUG, "stopped", named="S1"), at="11:49")
+        self.assertEqual((done["acted"], done["session"], done["old"], done["told"]), (True, "S2", "S1", True))
+        self.assertEqual([args[:2] for args in sent], [("session", "new"), ("session", "move"), ("session", "rename"), ("msg", "send")])
+        self.assertEqual(sent[2], ("session", "rename", f"{SLUG} · replaced", "--target", "S1"))
+        self.assertEqual(sent[3], ("msg", "send", f"lem: {SLUG} replaced", "--to", "S1:left"))
+        self.assertEqual([(e["event"], e["session"], e["why"]) for e in logged], [("session.open", "S2", "stopped"), ("session.wake", "S1", "replaced")])
+
+    def test_the_stop_is_logged_with_its_session(self):
+        fresh = [*self.landing(), self.ev("11:39", "session.wake", session="S1", why="status"),
+                 self.ev("11:49", "session.open", session="S1", name=SLUG, phase="land", why="stopped", workspace="W1"),
+                 self.ev("12:34", "session.wake", session="S1", why="status")]
+        done, sent, logged = self.run_act(fresh, lambda: session.cmd_stopped(ROOT, SLUG, "S1"), signs={**self.SIGNS, "sign": None}, at="12:44")
+        self.assertEqual((done["acted"], sent), (True, []))
+        self.assertEqual([(e["event"], e["session"]) for e in logged], [("session.stopped", "S1")])
+        again, _, logged = self.run_act([*fresh, self.ev("12:44", "session.stopped", session="S1")], lambda: session.cmd_stopped(ROOT, SLUG, "S1"), at="12:45")
+        self.assertEqual((again["acted"], logged), (False, []))
+
+    def test_session_goes_only_with_the_guards_steps(self):
+        with mock.patch.object(sys, "argv", ["session.py"]), self.assertRaises(SystemExit) as raised, \
+             mock.patch.object(project, "repo_root", return_value=ROOT):
+            session.main(["open", SLUG, "--why", "owner", "--session", "S1"])
+        self.assertIn("--session goes with `open --why stopped`", str(raised.exception))
 
 
 if __name__ == "__main__":

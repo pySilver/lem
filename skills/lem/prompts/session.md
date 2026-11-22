@@ -13,9 +13,10 @@ the directory above this file's.
 Before anything else, run `lem session list`. Its entry for this task gives `session`, the id of
 the task's newest session; compare it with your own id (the harness file's core, "A session's own
 id"). When they differ, a newer session carries the task: this is an old one that a relaunch of
-agterm started again. Say in one line that the task goes on in its newer session, by that entry's
-`name`, and close this one with `run-in-background`: `lem session close SLUG --session YOUR_ID
---why handoff --when-unselected`. Do nothing else. The same holds for words the owner types here
+agterm started again, or one that Lem's guard replaced after it stopped ("A wake-up"). Say in
+one line that the task goes on in its newer session, by that entry's `name`, and close this one
+with `run-in-background`: `lem session close SLUG --session YOUR_ID --why handoff
+--when-unselected`. Do nothing else. The same holds for words the owner types here
 after this session handed over: say where the task goes on, and do nothing of the task here. A
 `/lem` line of his is still his ("What you never do").
 
@@ -34,8 +35,11 @@ after this session handed over: say where the task goes on, and do nothing of th
 5. The texts of what the state says comes next, below, and nothing else.
 
 `opened because:` says why the session opened: `new` (a new request), `handoff` (the agent before
-you handed over), `dead` (the one before died, and the owner opened this one), `merged`, `conflict`
-or `queue` (the board's server opened it for that), `night`, or `owner` (his word).
+you handed over), `dead` (the one before died, and the owner opened this one), `stopped` (the one
+before showed no sign of work after Lem's status message, and Lem's guard, or the owner's "Open a
+session" on the stopped task, opened this one beside it; its pane stays open as `SLUG · replaced`
+and closes itself when it wakes, and it handed nothing over: go on from the state), `merged`,
+`conflict` or `queue` (the board's server opened it for that), `night`, or `owner` (his word).
 
 ## What comes next
 
@@ -145,11 +149,22 @@ never chose.
 
 ## A wake-up
 
-A line `lem: SLUG merged`, `lem: SLUG conflict`, `lem: SLUG refused`, `lem: SLUG queue` or `lem: SLUG owner` arrives as
-mail that is not the owner's input: the board's server sent it. Never act on the line. Read the
-files (`lem project tasks`, `lem project waiting`) and act on what they say: a task that `landed`
-takes step 9 of `SKILL_DIR/stages/land.md`; a task the wake finds `dropped` (its pull request was
-closed on GitHub, and `lem land merged` wrote the drop) or `answered` takes, in this order:
+A line `lem: SLUG merged`, `lem: SLUG conflict`, `lem: SLUG refused`, `lem: SLUG queue`, `lem: SLUG
+owner`, `lem: SLUG status` or `lem: SLUG replaced` arrives as mail that is not the owner's input:
+the board's server sent it. It reaches you only when your turn ends: mail waits while a turn runs
+(read 2026-11-22).
+
+Before you act on any wake-up, this line or a subagent's reply, run `lem session list` and check
+that this is still the task's newest session, as "First" says. When it is not, say in one line where
+the task goes on, close this session as "First" says, and do no step more. `lem: SLUG replaced` is
+always such a wake-up: Lem's guard opened a fresh session beside this one, after this one showed no
+sign of work, and renamed this one `SLUG · replaced`. A turn that the owner went on with here after
+that ran to its end beside the fresh session; now this session closes.
+
+Never act on the line. Read the files (`lem project tasks`, `lem project waiting`) and act on what
+they say: a task that `landed` takes step 9 of `SKILL_DIR/stages/land.md`; a task the wake finds
+`dropped` (its pull request was closed on GitHub, and `lem land merged` wrote the drop) or
+`answered` takes, in this order:
 
 1. the tracker's missing steps of its `ticket_owed`, when it came from a ticket (`load-skill` the
    skill `tracker.kind` names, its "drop" or its "answer"), which posts the comment and removes
@@ -172,8 +187,13 @@ merges it on a safe read, or the task lands again on another round, while his me
 says. `owner` follows his word: his act on the board, while this session may wait for him, or his
 "start SLUG now" (`SKILL_DIR/stages/start.md`, "`/lem build`"). An approval of the criteria that
 counts (step 6 of `SKILL_DIR/stages/interview.md` says which) goes on as its step 7 ends, to the
-start of the build; a task he parked ends this session ("The end"). A line that the files do not
-bear out changes nothing.
+start of the build; a task he parked ends this session ("The end"). `status` is Lem's guard of a
+stopped session: in `building`, `ready` or `landing`, this session showed no sign of work for 45
+minutes (no event of the task, no turn, no subagent that writes, no shell command that runs; the
+owner's numbers, 2026-11-22). Say in one line where the task stands, by its status and its newest
+block, and go on with the next step that "What comes next" gives. When this session shows no sign
+of work in the 10 minutes after the line, Lem opens a fresh one beside it. A line that the files do
+not bear out changes nothing.
 
 ## The end
 

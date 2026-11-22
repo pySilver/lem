@@ -57,8 +57,8 @@ review". [The pull request](pull-request.md) tells more.
 
 Type `/lem`. Lem opens the board, and gives one list in this order:
 
-1. the breakers, and each task that needs a session and has none: "Open a session" starts a
-   fresh agent;
+1. the breakers, each task that needs a session and has none, and each task whose session
+   stopped: "Open a session" starts a fresh agent;
 2. the questions of an interview, and the acceptance criteria that wait for your yes;
 3. the tasks that wait for a step of yours, or for one more fact;
 4. the tasks that wait for a task that you dropped: type "start <task> now" to start the task, or

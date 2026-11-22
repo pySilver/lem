@@ -56,7 +56,10 @@ older session of the task counts). It refuses a session the owner has selected; 
 the background; a wake of that session meanwhile ends the wait with no close (`closed: false`,
 `woken: true`). `lem session list` gives each task's newest session: whether it lives, runs an
 agent and is selected, the phase its task is in now (`phase`) and the one it opened in
-(`opened_in`), and `unanswered`, a wake-up still in its mailbox after 10 minutes.
+(`opened_in`), `unanswered`, a wake-up still in its mailbox after 10 minutes (never the guard's
+status message), and for a live session its signs of work from Claude Code's own files
+(`lem_signs.py`): `sign`, the time of the newest turn of its main thread or a subagent, `shell`,
+whether a shell command of it runs, and `signs`, whether the two could be read.
 
 ## The context's number
 
@@ -82,18 +85,22 @@ a merge: the summary took the handoff's form, and the state came back after it (
 ## A wake-up
 
 Nothing of a task's session watches GitHub or another task. The board's server runs `lem session
-wake SLUG --why merged|conflict|refused|queue|owner` (`owner` after his approval or his park on the board),
+wake SLUG --why merged|conflict|refused|queue|owner|status` (`owner` after his approval or his park on
+the board, `status` the guard's status message after 45 minutes with no sign of work),
 which sends `agtermctl msg send "lem: SLUG WHY" --to
-ID:left` to the task's live session, or opens one when none lives. In the trial of 2026-11-21 the
+ID:left` to the task's live session, or opens one when none lives (never for `status`). `replaced`
+is sent only by `lem session open SLUG --why stopped`, to the old session beside the fresh one. In the trial of 2026-11-21 the
 idle agent took a turn within 15 s each time, five sends in two sessions, two of them after about
 two minutes idle, with no `--socket` too (`agtermctl` finds the app's socket itself), and `ID:left`
 reached a session with no split. The line arrived as `[agterm mailbox, not a peer chat message]
 from outside agterm:` and its body, marked "NOT user input". So the session reads the files and
 never the line. A wake reaches an agent only through the mailbox chat's waiter, a hook of the
 owner's home settings (`mailbox-chat.py claude-hook`): the mailbox chat is a required tool of Lem,
-and `lem doctor`'s row for it says so. Mail is kept in memory only, so a pane that was restarted
-has lost it; a wake nobody took shows on the board after 10 minutes. Not run yet: a wake after an
-hour idle.
+and `lem doctor`'s row for it says so. A line reaches the agent only when its turn ends, since the
+waiter keeps mail while a turn is busy (`mailbox-chat.py`, `Waiter.loop`, read 2026-11-22): a
+`replaced` line ends no turn that runs, and the old pane closes itself when that turn ends. Mail is kept in memory only,
+so a pane that was restarted has lost it; a wake nobody took shows on the board after 10 minutes,
+except the status message, whose wait the guard itself ends. Not run yet: a wake after an hour idle.
 
 ## The session's transcript
 

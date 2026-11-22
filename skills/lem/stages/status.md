@@ -39,21 +39,24 @@ with each kind's entry under its key, and leave out a kind that has none:
 1. `breakers`: each breaker of a task that waits for him: the task and the document's title;
 2. `no_session`: each task whose session is gone (`need: gone`) or does not answer a wake-up
    (`need: deaf`); the board's "Open a session", or `lem session open SLUG --why dead`, opens one;
-3. `criteria`: each task whose acceptance criteria wait for his yes;
-4. `held`: each task that waits for a step of his or one more fact, with that step;
-5. `after_dropped`: each task queued after a task that was dropped, with its `where` as it is: the
+3. `stopped`: each task whose live session showed no sign of work after the board server's status
+   message and its one restart, the stop the server logged; the board's "Open a session", or its
+   `open`, `lem session open SLUG --why stopped`, opens a fresh one beside it;
+4. `criteria`: each task whose acceptance criteria wait for his yes;
+5. `held`: each task that waits for a step of his or one more fact, with that step;
+6. `after_dropped`: each task queued after a task that was dropped, with its `where` as it is: the
    dropped task (`after`), "start SLUG now" (`start`), which starts it without that task's result,
    and `/lem drop SLUG` (`drop`), which ends it, either one typed in any Lem session of this
    repository, since no session runs the task;
-6. `blocked`: each task its session stopped on something it cannot settle alone, with its `line`;
+7. `blocked`: each task its session stopped on something it cannot settle alone, with its `line`;
    he answers in the task's session or with `/lem drop SLUG`;
-7. `plans`: each plan that waits for him to read it;
-8. `reviews`: each merge review that calls him, "read the merge review" with its `why`;
-9. `pull_requests`: each open pull request whose merge waits for him, its address, and green or
-   each reason it is not (one the merge agent still reads, or that the board's server merges after
-   a `merge` verdict, is not in the list); when `merge_refused` holds GitHub's or Lem's line, that
-   line; a task with a `night` says "of the night";
-10. `retros`: "the retro of DATE proposes N changes" for each file; a file with a `problem` is
+8. `plans`: each plan that waits for him to read it;
+9. `reviews`: each merge review that calls him, "read the merge review" with its `why`;
+10. `pull_requests`: each open pull request whose merge waits for him, its address, and green or
+    each reason it is not (one the merge agent still reads, or that the board's server merges after
+    a `merge` verdict, is not in the list); when `merge_refused` holds GitHub's or Lem's line, that
+    line; a task with a `night` says "of the night";
+11. `retros`: "the retro of DATE proposes N changes" for each file; a file with a `problem` is
     named with it.
 
 When `sessions.known` is false, say in one line that the tasks' sessions are not known, with

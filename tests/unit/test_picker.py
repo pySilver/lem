@@ -46,7 +46,7 @@ def ended(count: int, newest: datetime) -> list[dict]:
 
 def picked(tasks: list[dict], held: tuple[str, ...] = ()) -> list[str]:
     """The ids of the picker's rows over TASKS, with HELD the tasks that wait for the owner."""
-    waiting = {key: [] for key in ("breakers", "criteria", "after_dropped", "blocked", "plans", "pull_requests", "no_session")}
+    waiting = {key: [] for key in ("breakers", "criteria", "after_dropped", "blocked", "plans", "pull_requests", "no_session", "stopped")}
     waiting["held"] = [{"task": slug} for slug in held]
     with mock.patch.object(picker.project, "read_tasks", return_value=tasks), mock.patch.object(picker.project, "cmd_waiting", return_value=waiting):
         return [r["id"] for r in picker.rows(Path("/nowhere"), NOW)]
