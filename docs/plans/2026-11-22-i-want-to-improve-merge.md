@@ -11,11 +11,17 @@ Size: full, because the merge agent's brief, the fast-track builder's brief and 
    2. The merge agent writes `merge-review.md`.
    3. The review links both pictures, side by side or one under the other, with a caption that says what differs.
    4. The owner opens the task on the board, and its merge review card shows the two pictures.
+   - test: `python3 -B -m unittest discover -s tests/unit -k MergeBriefPictures` in `tests/unit/test_land.py`
 2. A change on the fast track that changes what a person sees gets its before and after pictures from its one builder, and its merge review shows them: a fix of a button's color on the board has `media/button-before.png` and `media/button-after.png`, and its review shows both beside its words, which stay at 60 at most.
+   - no test: the fast-track builder's pictures and its reply line are text of its brief (`prompts/small.md`) and of the session's (`stages/new.md`); their test is the next real fast-track task that changes what a person sees
 3. A change to what a person sees whose task has no picture says so in one line of its review, with the reason its builder gave: "No picture: the page needs a login this machine does not have."
+   - no test: the No picture line is text the merge agent writes from `prompts/merge.md`, from the builder's reason in `prompts/small.md` or `stages/build.md`; its test is the next real visual task with no picture
 4. A change that shows nothing on a screen has no picture and no line about pictures in its review: a fix of the order of the checks in `land.py` has a review with words only.
+   - no test: a review with no picture part for a change with nothing on a screen is the merge agent's reading of `prompts/merge.md`; no script decides it
 5. A review that calls the owner for a change to what a person sees ends with one line on how he tries the branch himself: "Try it: the branch is in `.lem/worktrees/board-colors`, or `gh pr checkout 41`." A review whose verdict is merge has no such line.
+   - test: `python3 -B -m unittest discover -s tests/unit -k MergeBriefTry` in `tests/unit/test_land.py`
 6. A picture, or the lack of one, never turns a merge into a call or a call into a merge: a green fast-track change of the board's colors with no picture still gets `Verdict: merge.`, with the line of criterion 3.
+   - no test: no rule of the merge reads `pictures` or `try`; `verdict_of`, `merger_refusal`, the `calls` line and "## Decide" are unchanged, which the existing unit cases and the lem-land blocks hold
 
 ## How it works
 
