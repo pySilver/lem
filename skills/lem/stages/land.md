@@ -314,14 +314,20 @@ landing up as after a cut-off.
    that brief that cannot be recorded is recorded as `another round`, with that reason as its
    `base_why`: the checks decide, and the owner is not asked. A merge agent that gives no answer
    twice on a moved base (`ask-merger`) leaves nothing to record: land the task again with the
-   same steps, and tell the owner nothing of a read. A proposal made again after a
-   rebase that met no conflict, with no commit after it (another round on a moved base, or a conflict
-   (`stages/conflict.md`) that git rebased by itself), keeps the merge review: `propose` prints `"merge_review":
-   "carried"` and logs a `merge.review` of the new tip with `carried`, its `calls` worked out again
-   from the rules as they are now (a request that became not green, or careful, calls the owner),
-   and the board's server merges it as after step 7. Start no merge agent then. Any other new
-   proposal (a builder's commit, a resolved conflict) prints `"merge_review": null` and is read
-   again: a review of an earlier tip counts for nothing.
+   same steps, and tell the owner nothing of a read. A proposal made again keeps the merge review
+   of the tip proposed before in two cases, each with no commit after it: a rebase that met no
+   conflict and kept the review, an open must-fix of it too (another round on a moved base, or a
+   conflict (`stages/conflict.md`) that git rebased by itself); and a builder's resolution of a
+   conflict whose one read found nothing (no must-fix, no should, no nit), on a request that no
+   call makes careful, neither a reason of `careful` now nor the newest round's call. Then
+   `propose` prints `"merge_review": "carried"` and logs a `merge.review` of the new tip with
+   `carried`, its `calls` worked out again from the rules as they are now (a request that became
+   not green, or careful, calls the owner), and the board's server merges it as after step 7.
+   Start no merge agent then. Any other new proposal prints `"merge_review": null`, and
+   `merge_review_why` gives the reason (a builder's commit, a read of the resolution that found
+   something, did not answer or did not run, a careful request, a review that does not cover the
+   change, no merge review of the earlier tip on record): start this step's merge agent, since a
+   review of an earlier tip counts for nothing.
 8. **The merge.** One route for every merge: `lem land merge SLUG --by owner|merger` merges the
    pull request through GitHub, at the commit that was proposed, so GitHub's own rules hold. The
    board's server gives it `--tip`, the commit the owner's confirm step showed or the merge agent's
@@ -354,9 +360,9 @@ landing up as after a cut-off.
      `"owner_merge": "stands: ..."` and logs `merge.stands`, and the server runs `lem land merge
      SLUG --by owner --via server --standing`, which `merge.start` and `merged_by` record as made
      after a re-check. Do not run that merge yourself. When `propose` prints `"owner_merge":
-     "ended: WHY"` (no review covers the change, a commit came after the rebase, the rebase met a
-     conflict, or the reasons for not green changed), tell him WHY in one line: the merge waits for
-     his word again.
+     "ended: WHY"` (no review covers the change, a commit came after the rebase or the resolution,
+     the rebase met a conflict and its resolution did not carry, as step 7 says, or the reasons for
+     not green changed), tell him WHY in one line: the merge waits for his word again.
    - The owner merged the pull request on GitHub himself, or on the board: the board's server
      writes it down and wakes this session, as the top of this stage says.
 
@@ -375,8 +381,8 @@ landing up as after a cut-off.
      row of "Waits for you". When the newest read of the tip said `Base: another round.`, its
      refusal is answered by a new landing alone, and `merge-review` refuses a new brief of that tip:
      `start`, `base` and `checks` again on the new base, then step 5, where a rebase that
-     met no conflict keeps the review, since the task's own diff is the same (`read` says `none`),
-     then `propose`. Its output says what follows: with `"merge_review": "carried"` the server
+     met no conflict keeps the review, since the task's own diff is the same (`read` says `none`,
+     or `owner` with the same must-fix when two rounds left one open), then `propose`. Its output says what follows: with `"merge_review": "carried"` the server
      merges it, for the merge agent's `merge` or for his merge that `"owner_merge": "stands: ..."`
      names, and no merge agent starts again; with `"merge_review": null`, step 7 again. Tell him in
      one line that the task is checked again on the new base, and nothing more. Each new landing of an open task is counted (`relands` in

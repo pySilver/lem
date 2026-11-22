@@ -431,24 +431,27 @@ class MovedBase(unittest.TestCase):
 
     def test_the_tip_of_a_rebase_with_no_conflict_carries_what_was_said(self) -> None:
         rebased = {"from": "aaa", "to": "bbb"}
-        self.assertTrue(land.carried_over("aaa", "bbb", rebased))
-        self.assertTrue(land.carried_over("aaa", "aaa", None))
-        # a commit after the rebase, a conflict (no record), or a first proposal carry nothing
-        self.assertFalse(land.carried_over("aaa", "ccc", rebased))
-        self.assertFalse(land.carried_over("aaa", "bbb", None))
-        self.assertFalse(land.carried_over(None, "bbb", rebased))
+        self.assertEqual(land.tip_carry({"proposed": "aaa", "rebase_carried": rebased}, "bbb", []), ("rebase", None))
+        self.assertEqual(land.tip_carry({"proposed": "aaa"}, "aaa", []), ("same", None))
+        # a careful request carries over a rebase with no conflict all the same
+        self.assertEqual(land.tip_carry({"proposed": "aaa", "rebase_carried": rebased}, "bbb", ["the owner says so"]), ("rebase", None))
+        # a commit after the rebase, a tip no record names, or a first proposal carry nothing
+        self.assertEqual(land.tip_carry({"proposed": "aaa", "rebase_carried": rebased}, "ccc", []), (None, "a commit came after the rebase"))
+        self.assertEqual(land.tip_carry({"proposed": "aaa"}, "bbb", []), (None, "a commit came after the tip proposed before"))
+        self.assertEqual(land.tip_carry({"rebase_carried": rebased}, "bbb", []), (None, None))
 
     def test_the_owners_merge_stands_while_the_change_and_its_reasons_stay(self) -> None:
         tap = {"tip": "aaa", "not_green": ["the bar is lower"], "via": "server", "at": "2026-11-21T10:00:00Z"}
-        rebased = {"from": "aaa", "to": "bbb"}
-        self.assertEqual(land.tap_after(tap, "aaa", "bbb", rebased, None, ["the bar is lower"]), ({**tap, "tip": "bbb"}, None))
-        gone, why = land.tap_after(tap, "aaa", "ccc", rebased, None, ["the bar is lower"])
-        self.assertIsNone(gone)
-        self.assertIn("a commit came after the rebase", why)
-        gone, why = land.tap_after(tap, "aaa", "bbb", rebased, None, [])
-        self.assertIsNone(gone)
-        self.assertIn("not the ones the owner saw", why)
-        self.assertEqual(land.tap_after(None, "aaa", "bbb", rebased, None, []), (None, None))
+        kept = {"proposed": "aaa", "rebase_carried": {"from": "aaa", "to": "bbb"}, "owner_tap": tap}
+        stood = land.moved_carry(kept, "bbb", [], ["the bar is lower"])
+        self.assertEqual((stood["owner_merge"], stood["owner_why"], stood["tap"]), ("stands", None, {**tap, "tip": "bbb"}))
+        gone = land.moved_carry(kept, "ccc", [], ["the bar is lower"])
+        self.assertEqual((gone["owner_merge"], gone["owner_why"], gone["tap"]), ("ended", "a commit came after the rebase", None))
+        gone = land.moved_carry(kept, "bbb", [], [])
+        self.assertEqual(gone["owner_merge"], "ended")
+        self.assertIn("not the ones the owner saw", gone["owner_why"])
+        # with no merge of his on record there is nothing to stand or end
+        self.assertEqual(land.moved_carry({**kept, "owner_tap": None}, "bbb", [], [])["owner_merge"], None)
 
     # the reviews that answered, as `cmd_base` reads them: round 1 of a change whose patch is p1
     READ = {"answered": ["codex"], "round": 1, "must_fix": 0, "patch": "p1", "contents": {"shop.txt": {"base": "b1", "tip": "t1", "modes": ["100644", "100644"]}}}
@@ -469,25 +472,158 @@ class MovedBase(unittest.TestCase):
         self.assert_why([self.READ], fixed, "no review read what changed after round 1")
         self.assert_why([self.READ], self.NOW, None)
 
+    def test_a_rebase_with_no_conflict_carries_the_newest_review_with_what_it_left_open(self) -> None:
+        fixed = {"patch": "p2", "contents": {"shop.txt": {"base": "b1", "tip": "t2", "modes": ["100644", "100644"]}}}
+        open_one = {**self.READ, "round": 2, "must_fix": 1}
+        self.assertTrue(land.review_carries([self.READ], "docs/backlog", self.NOW))
+        # round 2 left 1 must-fix at the tip it read, and nothing came after it: the review carries, its must-fix too
+        self.assertTrue(land.review_carries([self.READ, open_one], "docs/backlog", self.NOW))
+        # the form an earlier rebase carried covers the change as well
+        self.assertTrue(land.review_carries([{**open_one, "carried": [{"patch": "p2", "contents": fixed["contents"], "onto": "abc"}]}], "docs/backlog", fixed))
+        # no review answered, or a commit came after the newest one: nothing carries
+        self.assertFalse(land.review_carries([], "docs/backlog", self.NOW))
+        self.assertFalse(land.review_carries([self.READ, open_one], "docs/backlog", fixed))
+        # an earlier review that covers the change carries nothing when a newer one does not
+        self.assertFalse(land.review_carries([self.READ, {**self.READ, "round": 2, "patch": "p0", "contents": None}], "docs/backlog", self.NOW))
+
+    def test_a_covered_change_with_an_open_must_fix_keeps_its_reason(self) -> None:
+        # the review carries over a clean rebase, and a conflict on it still keeps why no review covers it with nothing to fix
+        open_one = {**self.READ, "round": 2, "must_fix": 1}
+        self.assertTrue(land.review_carries([self.READ, open_one], "docs/backlog", self.NOW))
+        self.assert_why([self.READ, open_one], self.NOW, "round 2 left 1 must-fix, and no review read the change after it")
+
+    def test_the_line_of_a_carried_review_names_its_open_must_fix(self) -> None:
+        self.assertIsNone(land.review_line(None))
+        self.assertEqual(land.review_line({"round": 1, "must_fix": 0}), "the review carried over the rebase")
+        self.assertEqual(land.review_line({"round": 2, "must_fix": 1}), "the review carried over the rebase, and its open must-fix")
+
     def test_an_ended_merge_says_that_no_review_covers_the_change(self) -> None:
         tap = {"tip": "aaa", "not_green": ["two rounds reviewed it"], "via": "server", "at": "2026-11-22T10:00:00Z"}
         uncovered = {"from": "aaa", "to": "bbb", "why": "round 2 left 1 must-fix, and no review read the change after it"}
-        gone, why = land.tap_after(tap, "aaa", "bbb", None, uncovered, ["two rounds reviewed it"])
-        self.assertIsNone(gone)
-        self.assertEqual(why, "no review covers the change: round 2 left 1 must-fix, and no review read the change after it")
-        self.assertNotIn("a commit came after the rebase", why)
-        self.assertNotIn("conflict", why)
+        kept = {"proposed": "aaa", "rebase_uncovered": uncovered, "owner_tap": tap}
+        ended = land.moved_carry(kept, "bbb", [], ["two rounds reviewed it"])
+        self.assertEqual(ended["owner_why"], "no review covers the change: round 2 left 1 must-fix, and no review read the change after it")
+        self.assertNotIn("conflict", ended["owner_why"])
         # a commit after that rebase is a cause of its own
-        gone, why = land.tap_after(tap, "aaa", "ccc", None, uncovered, ["two rounds reviewed it"])
-        self.assertIn("a commit came after the rebase", why)
+        self.assertEqual(land.moved_carry(kept, "ccc", [], ["two rounds reviewed it"])["owner_why"], "a commit came after the rebase")
 
-    def test_an_ended_merge_after_a_covering_review_keeps_its_line(self) -> None:
-        tap = {"tip": "aaa", "not_green": [], "via": "server", "at": "2026-11-22T10:00:00Z"}
-        today = "the change is not the one the owner merged: a commit came after the rebase, or the rebase met a conflict"
-        # a review covered the change, so no rebase kept a reason it does not: a commit after the rebase
-        self.assertEqual(land.tap_after(tap, "aaa", "ccc", {"from": "aaa", "to": "bbb"}, None, []), (None, today))
-        # a review whose change found nothing to fix, and a rebase that met a conflict in README.md: no rebase_carried
-        self.assertEqual(land.tap_after(tap, "aaa", "bbb", None, None, []), (None, today))
+    # A proposal of aaa with the merge agent's verdict and the owner's merge, a conflict, and a builder's
+    # resolution from aaa to bbb whose read is attempt 3; round 1 read the change, careful false.
+    ROUND = {"attempt": 1, "round": 1, "answered": ["codex"], "must_fix": 0, "should": 0, "nit": 0, "careful": False, "careful_why": "it reaches no topic", "tip": "aaa"}
+    SOLVED = {"attempt": 3, "round": 1, "of": "resolution", "kind": "read", "answered": ["codex"], "must_fix": 0, "should": 0, "nit": 0, "careful": False, "careful_why": "it reaches no topic", "tip": "bbb"}
+    RESOLVED = {
+        "proposed": "aaa", "merge_review": {"verdict": "merge", "tip": "aaa", "calls": False},
+        "owner_tap": {"tip": "aaa", "not_green": [], "via": "server", "at": "2026-11-22T10:00:00Z"},
+        "resolution": {"files": ["shop.txt"], "before": "aaa", "after": "bbb", "covered": True, "read": 3},
+        "reads": [ROUND, SOLVED],
+    }
+
+    def resolved(self, why_careful: tuple[str, ...] = (), reasons: tuple[str, ...] = (), **kept: object) -> dict:
+        return land.moved_carry({**self.RESOLVED, **kept}, "bbb", list(why_careful), list(reasons))
+
+    def test_a_clean_read_of_a_resolution_carries_the_merge_review_and_the_owners_merge(self) -> None:
+        carry = self.resolved()
+        self.assertEqual((carry["how"], carry["merge_review"], carry["merge_why"], carry["owner_merge"]), ("resolution", True, None, "stands"))
+        self.assertEqual(carry["review"], "one read of the resolution")
+        self.assertEqual(land.merge_line(carry), "the merge review carried over the resolved conflict: the resolution read found nothing")
+
+    def test_a_read_of_a_resolution_with_a_finding_carries_nothing(self) -> None:
+        met = "the rebase met a conflict, and"
+        for counts, said in (({"should": 1}, "0 must-fix, 1 should and 0 nit"), ({"must_fix": 1}, "1 must-fix, 0 should and 0 nit"), ({"nit": 2}, "0 must-fix, 0 should and 2 nit")):
+            carry = self.resolved(reads=[self.ROUND, {**self.SOLVED, **counts}])
+            self.assertEqual((carry["how"], carry["merge_review"], carry["owner_merge"]), (None, False, "ended"))
+            self.assertEqual(carry["merge_why"], f"{met} the read of its resolution found {said}")
+            self.assertEqual(carry["owner_why"], carry["merge_why"])
+            self.assertEqual(land.merge_line(carry), f"a fresh merge agent reads it: {met} the read of its resolution found {said}")
+        # the fix of a must-fix is a commit after the resolution; the read's counts stay the reason
+        fixed = land.moved_carry({**self.RESOLVED, "reads": [self.ROUND, {**self.SOLVED, "must_fix": 1}]}, "ccc", [], [])
+        self.assertEqual(fixed["merge_why"], f"{met} the read of its resolution found 1 must-fix, 0 should and 0 nit")
+
+    def test_a_read_of_a_resolution_that_did_not_answer_or_did_not_run_carries_nothing(self) -> None:
+        silent = {**self.SOLVED, "answered": [], "verdict": "not reviewed"}
+        unread = {**self.RESOLVED["resolution"], "read": None}
+        self.assertEqual(self.resolved(resolution=unread, reads=[self.ROUND, silent])["merge_why"], "the rebase met a conflict, and the read of its resolution did not answer")
+        self.assertEqual(self.resolved(resolution=unread, reads=[self.ROUND])["merge_why"], "the rebase met a conflict, and the read of its resolution did not run")
+        self.assertIsNone(self.resolved(resolution=unread, reads=[self.ROUND])["review"])
+
+    def test_a_careful_request_never_carries_over_a_resolved_conflict(self) -> None:
+        carry = self.resolved(why_careful=("the owner says so",))
+        self.assertEqual((carry["how"], carry["merge_review"], carry["owner_merge"]), (None, False, "ended"))
+        self.assertEqual(carry["merge_why"], "the rebase met a conflict, and the request is careful: the owner says so")
+        self.assertEqual(carry["owner_why"], "the rebase met a conflict, and the request is careful: the owner says so")
+
+    def test_a_rounds_careful_call_holds_against_a_resolution_read_that_makes_none(self) -> None:
+        # round 1 called it careful; the read of the resolution said it is not, so `careful` now gives no reason
+        called = {**self.ROUND, "kind": "full", "careful": True, "careful_why": "it reaches the topic of payments."}
+        carry = self.resolved(reads=[called, self.SOLVED])
+        self.assertEqual(carry["merge_why"], "the rebase met a conflict, and the request is careful: the review says so: it reaches the topic of payments")
+        self.assertFalse(carry["merge_review"])
+
+    def test_a_commit_after_the_resolution_carries_nothing(self) -> None:
+        carry = land.moved_carry(self.RESOLVED, "ccc", [], [])
+        self.assertEqual((carry["how"], carry["merge_why"], carry["owner_why"]), (None, "the rebase met a conflict, and a commit came after its resolution", "the rebase met a conflict, and a commit came after its resolution"))
+
+    def test_the_items_filed_after_a_clean_read_of_the_resolution_keep_its_carry(self) -> None:
+        # the read of the resolution found nothing in the change and saw one defect outside it, which `file` commits on top
+        seen = {**self.SOLVED, "outside": [{**DEFECT, "item": "docs/backlog/empty-input-crashes-the-parser.md"}]}
+        kept = {**self.RESOLVED, "reads": [self.ROUND, seen]}
+        moved = land.filed_on(kept, "bbb", "fff")
+        self.assertEqual(moved, {"resolution": {**self.RESOLVED["resolution"], "after": "fff"}})
+        carry = land.moved_carry({**kept, **moved}, "fff", [], [])
+        self.assertEqual((carry["how"], carry["merge_review"], carry["owner_merge"]), ("resolution", True, "stands"))
+        # the tip a rebase with no conflict made, carried or not, moves the same way; a record of another tip stays
+        rebased = {"proposed": "aaa", "rebase_carried": {"from": "aaa", "to": "bbb"}, "rebase_uncovered": {"from": "aaa", "to": "ccc", "why": "w"}}
+        self.assertEqual(land.filed_on(rebased, "bbb", "fff"), {"rebase_carried": {"from": "aaa", "to": "fff"}})
+        self.assertEqual(land.filed_on(rebased, "ccc", "fff"), {"rebase_uncovered": {"from": "aaa", "to": "fff", "why": "w"}})
+        self.assertEqual(land.filed_on(kept, "bbb", "bbb"), {})
+
+    def test_a_second_rebase_after_a_resolution_says_that_the_base_moved_again(self) -> None:
+        for key in ("rebase_carried", "rebase_uncovered"):
+            carry = land.moved_carry({**self.RESOLVED, key: {"from": "bbb", "to": "ccc", "why": "w"}}, "ccc", [], [])
+            self.assertEqual((carry["how"], carry["merge_why"]), (None, "the rebase met a conflict, and the base moved again after its resolution"))
+
+    def test_the_line_of_a_resolution_read_names_its_kind(self) -> None:
+        self.assertEqual(self.resolved()["review"], "one read of the resolution")
+        self.assertEqual(self.resolved(reads=[self.ROUND, {**self.SOLVED, "kind": "full"}])["review"], "a read of the resolution by the project's full set")
+
+    def test_a_resolved_conflict_that_no_review_covered_keeps_the_reviews_reason(self) -> None:
+        uncovered = {"from": "aaa", "to": "bbb", "why": "round 2 left 1 must-fix, and no review read the change after it"}
+        carry = self.resolved(resolution={**self.RESOLVED["resolution"], "covered": False, "read": None}, reads=[self.ROUND], rebase_uncovered=uncovered)
+        self.assertEqual(carry["merge_why"], "the rebase met a conflict, and no review covers the change: round 2 left 1 must-fix, and no review read the change after it")
+
+    def test_a_carrying_tip_with_no_merge_review_on_record_starts_the_first_one(self) -> None:
+        for review in (None, {"verdict": None, "tip": "aaa"}, {"verdict": "merge", "tip": "zzz"}):
+            carry = self.resolved(merge_review=review)
+            self.assertEqual((carry["how"], carry["merge_review"], carry["merge_why"]), ("resolution", False, "no merge review of the earlier tip was on record"))
+            # the owner's merge has its own last fact, and stands
+            self.assertEqual(carry["owner_merge"], "stands")
+            self.assertEqual(land.merge_line(carry), "a fresh merge agent reads it: no merge review of the earlier tip was on record")
+
+    def test_a_carrying_tip_whose_reasons_for_not_green_changed_words_ends_only_the_owners_merge(self) -> None:
+        # the read of the resolution words a lowered bar in its own words, so the reasons are not the ones he saw
+        carry = self.resolved(reasons=("the bar is lower in tests/a.py: the read says the builder's reason holds",))
+        self.assertEqual((carry["how"], carry["merge_review"], carry["owner_merge"]), ("resolution", True, "ended"))
+        self.assertEqual(carry["owner_why"], "the reasons the request is not green are not the ones the owner saw when he merged it")
+
+    def test_the_line_of_a_moved_base_says_what_carried(self) -> None:
+        sync = {"conflicting": True, "onto": "abc", "moved": True, "conflict": ["shop.txt"], "resolved": True, "carried": None}
+        self.assertEqual(
+            land.sync_line({**sync, "carry": self.resolved()}, "main"),
+            "rebased on main after the forge called it conflicting; one conflict in shop.txt, resolved by a builder; one read of the resolution; "
+            "the merge review carried over the resolved conflict: the resolution read found nothing; the checks passed again",
+        )
+        careful = self.resolved(why_careful=("the owner says so",))
+        self.assertEqual(
+            land.sync_line({**sync, "carry": careful}, "main"),
+            "rebased on main after the forge called it conflicting; one conflict in shop.txt, resolved by a builder; one read of the resolution; "
+            "a fresh merge agent reads it: the rebase met a conflict, and the request is careful: the owner says so; the checks passed again",
+        )
+        rebased = land.moved_carry({"proposed": "aaa", "rebase_carried": {"from": "aaa", "to": "bbb"}, "merge_review": {"verdict": "call", "tip": "aaa"},
+                                    "sync": {"carried": {"round": 2, "must_fix": 1}}}, "bbb", [], [])
+        self.assertEqual(
+            land.sync_line({"onto": "abc", "moved": True, "carried": {"round": 2, "must_fix": 1}, "carry": rebased}, "main"),
+            "rebased on main; the review carried over the rebase, and its open must-fix; the merge review carried over the rebase; the checks passed again",
+        )
 
 
 class TaskFile(unittest.TestCase):

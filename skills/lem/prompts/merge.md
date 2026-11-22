@@ -75,7 +75,8 @@ while a wrong "safe" lands a change that no check ran on.
 The call on the base stands beside your verdict, not in its place: a careful change still gets
 `Verdict: call.`, and its base line says whether his merge may go through on this base. On
 `Base: another round.` nothing merges: the task lands again and its checks run on the new base,
-and your verdict goes on to the new tip when the rebase meets no conflict.
+and your verdict goes on to the new tip when the rebase meets no conflict, or when a builder
+resolves one and the one read of the resolution finds nothing, on a request that is not careful.
 
 ## Decide
 

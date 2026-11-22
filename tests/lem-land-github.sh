@@ -425,6 +425,8 @@ proposed() {
   if [ -e "$GWS/docs/plans/2026-11-15-$1.md" ] || [ -e "$GWS/.lem/worktrees/$1/docs/plans/2026-11-15-$1.md" ]; then polish_in_gw "$1"; fi
   gw_land checks "$1" >/dev/null && gw_land read "$1" --record "$(clean "$1" 1)" >/dev/null && gw_land propose "$1" --title "fix: $1" --notes "$NOTES" >/dev/null
 }
+# proposed_of SLUG: what the newest `proposed` event of SLUG says carried over the moved base
+proposed_of() { "$PY" -c 'import json, sys; r = [r for r in map(json.loads, open(sys.argv[1])) if r["event"] == "proposed" and r["task"] == sys.argv[2]][-1]; print((r.get("review"), r.get("merge_review"), r.get("why"), r.get("owner_merge")))' "$GWS/.lem/state/events.jsonl" "$1"; }
 polish_in_gw() {
   local started
   started=$(gw_land polish "$1") || return 1
@@ -461,11 +463,12 @@ if [ "$(status_in "$GWS" w-one)" = landed ] && [ "$waited" = open ] && grep -qF 
   && [ "$(field 'd["task"]' <<<"$started" 2>&1)" = w-two ] && grep -qF "the base moved: the checks run again" "$GWS/.lem/state/tasks/w-two/state.md" \
   && [ "$(field '(d["moved"], d["resolved"])' <<<"$based" 2>&1)" = "(True, None)" ] && [ "$(field 'd["done"]' <<<"$polished" 2>&1)" = True ] \
   && [ "$(field '(d["due"], d["why"])' <<<"$due_after" 2>&1)" = "('none', 'round 1 reviewed this change and left no must-fix')" ] \
-  && [ "$(field '(d["pull_request"]["number"], d["green"], d["synced"])' <<<"$again" 2>&1)" = "(8, True, 'rebased on main; the checks passed again')" ] \
+  && [ "$(field '(d["pull_request"]["number"], d["green"], d["synced"])' <<<"$again" 2>&1)" = "(8, True, 'rebased on main; the review carried over the rebase; a fresh merge agent reads it: no merge review of the earlier tip was on record; the checks passed again')" ] \
   && [ "$(status_in "$GWS" w-two)" = open ] && [ "$(git -C "$GWO" rev-parse refs/heads/fix/w-two)" = "$(git -C "$tree" rev-parse HEAD)" ] \
   && git -C "$tree" merge-base --is-ancestor "$(git -C "$GWO" rev-parse main)" HEAD \
-  && [ "$(gw_state '(sum(c[:2] == ["pr", "create"] for c in d["calls"]), [c[2] for c in d["calls"] if c[:2] == ["pr", "edit"]], "Rebased on main; the checks passed again." in d["prs"]["8"]["body"])')" = "(2, ['8'], True)" ] \
-  && sed -n 3p "$text" | grep -qxF "Rebased on main; the checks passed again." && grep -qxF "rebased on main; the checks passed again" "$GWS/.lem/state/tasks/w-two/state.md"; then
+  && [ "$(gw_state '(sum(c[:2] == ["pr", "create"] for c in d["calls"]), [c[2] for c in d["calls"] if c[:2] == ["pr", "edit"]], "Rebased on main; the review carried over the rebase; a fresh merge agent reads it: no merge review of the earlier tip was on record; the checks passed again." in d["prs"]["8"]["body"])')" = "(2, ['8'], True)" ] \
+  && sed -n 3p "$text" | grep -qxF "Rebased on main; the review carried over the rebase; a fresh merge agent reads it: no merge review of the earlier tip was on record; the checks passed again." \
+  && grep -qxF "rebased on main; the review carried over the rebase; a fresh merge agent reads it: no merge review of the earlier tip was on record; the checks passed again" "$GWS/.lem/state/tasks/w-two/state.md"; then
   pass "after a merge an open task with no conflict waits as it is; the owner's word to land it is refused on the moved base with the steps, and they bring it onto the new base: the polish pass and the review it had stand through a rebase with no conflict, the checks run again, and propose pushes it and keeps its pull request, whose text and state say what happened in one line"
 else
   fail "an open task after a merge: $waited / $refused / $started / $based / $polished / $due_after / $again"
@@ -498,12 +501,17 @@ else
   fail "an owner's merge that no review covers: $uncovered / $ended"
 fi
 # A conflict: the owner merges #9, which changed the line #10 changes too, and the forge calls #10 conflicting. base stops,
-# a builder (here the test) rebases and keeps both, and the resolution gets one read of its own.
+# a builder (here the test) rebases and keeps both, and the resolution gets one read of its own. The merge agent read #10
+# before, and the owner merged it after the base moved, which was refused: the read of the resolution finds nothing, so
+# the merge review carries over the resolved conflict and his merge stands.
 line_task w-three small 5 three
 line_task w-four full 5 four
 proposed w-three && proposed w-four
+merge_read "$GWS" w-four >/dev/null
+four_before=$(kept_in "$GWS" w-four proposed)
 forge_merge 9 "d['prs']['10']['mergeable'] = 'CONFLICTING'"
 gw_land merged w-three >/dev/null
+four_pressed=$(gw_land merge w-four --by owner 2>&1 || true)
 gw_land start w-four --conflicting >/dev/null
 stopped=$(gw_land base w-four 2>/dev/null || true)
 tree=$GWS/.lem/worktrees/w-four
@@ -514,24 +522,34 @@ resolved=$(gw_land base w-four 2>&1 || true)
 polished=$(gw_land polish w-four 2>&1 || true)
 gw_land checks w-four >/dev/null 2>&1 || true
 due_read=$(gw_land read w-four 2>&1 || true)
-recorded=$(gw_land read w-four --record "$(clean w-four 2)" 2>&1 || true)
+# the read sees one defect outside the change, which file commits on top of the resolution: that commit asks for no other read
+seen='{"kind": "read", "answered": ["codex"], "outside": [{"where": "shop.txt", "title": "The shop has no closing line", "what": "shop.txt ends with no line that says the shop is closed, on the base commit too."}]}'
+recorded=$(gw_land read w-four --record "$(record w-four 2 "$seen")" 2>&1 || true)
+filed=$(gw_land file w-four 2>&1 || true)
 due_after=$(gw_land read w-four 2>&1 || true)
 again=$(gw_land propose w-four --title "fix: w-four" --notes "$NOTES" 2>&1 || true)
 text=$GWS/.lem/state/tasks/w-four/pr.md
 # the forge works out again that the pushed head merges with no conflict
 gh_set "d['prs']['10']['mergeable'] = 'MERGEABLE'" "$GW"
+four_line="rebased on main after the forge called it conflicting; one conflict in shop.txt, resolved by a builder; one read of the resolution; the merge review carried over the resolved conflict: the resolution read found nothing; the checks passed again"
 if [ "$(status_in "$GWS" w-three)" = landed ] && [ "$(field 'd["conflict"]' <<<"$stopped" 2>&1)" = "['shop.txt']" ] && [ "$(field '(d["resolved"], d["moved"])' <<<"$resolved" 2>&1)" = "(['shop.txt'], False)" ] \
   && [ "$(field 'd["done"]' <<<"$polished" 2>&1)" = True ] \
   && [ "$(field '(d["due"], d["floor"], d["round"], d["resolution"]["files"], d["resolution"]["range_diff"].startswith("git range-diff "))' <<<"$due_read" 2>&1)" = "('review', 'read', 1, ['shop.txt'], True)" ] \
   && grep -qF "a builder resolved a conflict with the base in shop.txt: one read of what the resolution changed" <<<"$due_read" \
-  && [ "$(field '(d["recorded"]["of"], d["recorded"]["round"], d["next"])' <<<"$recorded" 2>&1)" = "('resolution', 1, 'none')" ] && [ "$(field 'd["due"]' <<<"$due_after" 2>&1)" = none ] \
-  && [ "$(field '(d["pull_request"]["number"], d["green"], d["synced"])' <<<"$again" 2>&1)" = "(10, True, 'rebased on main after the forge called it conflicting; one conflict in shop.txt, resolved by a builder; the checks passed again')" ] \
+  && [ "$(field '(d["recorded"]["of"], d["recorded"]["round"], d["next"], len(d["to_file"]))' <<<"$recorded" 2>&1)" = "('resolution', 1, 'none', 1)" ] && [ "$(field 'd["due"]' <<<"$due_after" 2>&1)" = none ] \
+  && [ "$(field '[f["item"] for f in d["filed"]]' <<<"$filed" 2>&1)" = "['docs/backlog/the-shop-has-no-closing-line.md']" ] \
+  && [ "$(field '(d["pull_request"]["number"], d["green"], d["synced"])' <<<"$again" 2>&1)" = "(10, True, '$four_line')" ] \
   && grep -qxF -- "- the read of the conflict's resolution (one read; answered: codex): clean, 0 must-fix, 0 should, 0 nit" "$text" \
-  && grep -qxF "Rebased on main after the forge called it conflicting; one conflict in shop.txt, resolved by a builder; the checks passed again." "$text" \
-  && [ "$(git -C "$GWO" rev-parse refs/heads/fix/w-four)" = "$(git -C "$tree" rev-parse HEAD)" ] && [ "$(status_in "$GWS" w-four)" = open ]; then
-  pass "a conflict after a merge: base stops on the files of the pull request the forge calls conflicting, and after a builder's resolution base keeps the polish pass by its new names; the resolution gets one read that is no round, and propose keeps the pull request, whose text says that a builder resolved the conflict"
+  && grep -qxF "R${four_line#r}." "$text" \
+  && [ "$(git -C "$GWO" rev-parse refs/heads/fix/w-four)" = "$(git -C "$tree" rev-parse HEAD)" ] && [ "$(status_in "$GWS" w-four)" = open ] \
+  && grep -qF "the owner's merge stands, and goes through after a read that says \`Base: safe.\`" <<<"$four_pressed" \
+  && [ "$(field '(d["merge_review"], d["merge_review_why"], d["owner_merge"].startswith("stands"))' <<<"$again" 2>&1)" = "('carried', None, True)" ] \
+  && [ "$(kept_in "$GWS" w-four merge_review | "$PY" -c 'import ast, sys; d = ast.literal_eval(sys.stdin.read()); print((d["verdict"], d["tip"] == sys.argv[1], d["carried_from"] == sys.argv[2]))' "$(git -C "$tree" rev-parse HEAD)" "$four_before")" = "('merge', True, True)" ] \
+  && [ "$(kept_in "$GWS" w-four owner_tap | "$PY" -c 'import ast, sys; print(ast.literal_eval(sys.stdin.read())["tip"] == sys.argv[1])' "$(git -C "$tree" rev-parse HEAD)")" = True ] \
+  && [ "$(proposed_of w-four)" = "('one read of the resolution', 'carried', None, 'stands')" ]; then
+  pass "a conflict after a merge: base stops on the files of the pull request the forge calls conflicting, and after a builder's resolution base keeps the polish pass by its new names; the resolution gets one read that is no round, which finds nothing in the change and files what it saw outside it, so the merge review from before the conflict carries to the resolution's tip and the owner's merge stands; propose keeps the pull request, and its text and the proposed event say what carried"
 else
-  fail "a conflict after a merge: $stopped / $resolved / $polished / $due_read / $recorded / $due_after / $again"
+  fail "a conflict after a merge: $four_pressed / $stopped / $resolved / $polished / $due_read / $recorded / $filed / $due_after / $again / $(proposed_of w-four)"
 fi
 # A commit on the base that is no task's merge (here a push of the owner's) makes an open pull request conflicting:
 # start --conflicting brings it onto the base, and the pull request's text says why in one line.
@@ -555,8 +573,8 @@ synced=$(gw_land propose w-six --title "fix: w-six" --notes "$NOTES" 2>&1 | fiel
 gh_set "d['prs']['11']['mergeable'] = 'MERGEABLE'" "$GW"
 if grep -qF "the forge calls the pull request conflicting with main: the branch is brought onto it again" "$GWS/.lem/state/tasks/w-six/state.md" \
   && [ "$(field 'd["conflict"]' <<<"$stopped" 2>&1)" = "['shop.txt']" ] \
-  && [ "$synced" = "(11, 'rebased on main after the forge called it conflicting; one conflict in shop.txt, resolved by a builder; the checks passed again')" ] \
-  && grep -qxF "Rebased on main after the forge called it conflicting; one conflict in shop.txt, resolved by a builder; the checks passed again." "$GWS/.lem/state/tasks/w-six/pr.md"; then
+  && [ "$synced" = "(11, 'rebased on main after the forge called it conflicting; one conflict in shop.txt, resolved by a builder; one read of the resolution; a fresh merge agent reads it: no merge review of the earlier tip was on record; the checks passed again')" ] \
+  && grep -qxF "Rebased on main after the forge called it conflicting; one conflict in shop.txt, resolved by a builder; one read of the resolution; a fresh merge agent reads it: no merge review of the earlier tip was on record; the checks passed again." "$GWS/.lem/state/tasks/w-six/pr.md"; then
   pass "a pull request a commit on the base made conflicting: start --conflicting brings it onto the base, and its text says why"
 else
   fail "a pull request that became conflicting: $stopped / $synced"
@@ -612,6 +630,43 @@ if [ "$care_alone" = none ] && [ "$care_meet" = "('none', 'round 1 reviewed this
   pass "a careful change keeps its review through a rebase with no conflict, onto a base that left its files alone and onto one that changed one of them in other lines"
 else
   fail "a careful change after a rebase with no conflict: $care_alone / $care_meet"
+fi
+
+# A careful change after a conflict: the merge agent read it and the owner merged it after the base moved, which was
+# refused. A builder resolves the conflict and the read of the resolution finds nothing, and still nothing carries: a fresh
+# merge agent reads it, and his merge ends with the careful reason.
+line_task w-wary small 6 wary
+printf '%s\n' 'slug: w-wary' 'careful: the owner says so' > "$GWS/.lem/state/tasks/w-wary/brief.md"
+gw_land start w-wary >/dev/null && gw_land base w-wary >/dev/null && gw_land checks w-wary >/dev/null
+gw_land read w-wary --record "$(record w-wary 1 "$full_read")" >/dev/null && gw_land propose w-wary --title "fix: w-wary" --notes "$MIG" >/dev/null
+merge_read "$GWS" w-wary >/dev/null
+wary_pr=$(gw_state 'next(n for n, p in d["prs"].items() if p["head"] == "fix/w-wary")')
+git -C "$pusher" fetch -q origin && git -C "$pusher" merge -q --ff-only origin/main
+"$PY" -I -c 'import sys; p = sys.argv[1]; lines = open(p).read().splitlines(); lines[5] = "the owner"; open(p, "w").write("\n".join(lines) + "\n")' "$pusher/shop.txt"
+git -C "$pusher" commit -q -am "docs: the owner's sixth line" && git -C "$pusher" push -q origin main
+gh_set "d['prs']['$wary_pr']['mergeable'] = 'CONFLICTING'" "$GW"
+wary_pressed=$(gw_land merge w-wary --by owner 2>&1 || true)
+gw_land start w-wary --conflicting >/dev/null
+gw_land base w-wary >/dev/null 2>&1 || true
+tree=$GWS/.lem/worktrees/w-wary
+git -C "$tree" rebase -q origin/main >/dev/null 2>&1 || true
+"$PY" -I -c 'import sys; p = sys.argv[1]; lines = [l for l in open(p).read().splitlines() if not l.startswith(("<<<<<<<", "=======", ">>>>>>>", "wary", "the owner"))]; lines.insert(5, "the owner wary"); open(p, "w").write("\n".join(lines) + "\n")' "$tree/shop.txt"
+git -C "$tree" add shop.txt && GIT_EDITOR=true git -C "$tree" rebase --continue >/dev/null 2>&1
+gw_land base w-wary >/dev/null 2>&1 || true
+gw_land checks w-wary >/dev/null 2>&1 || true
+wary_read=$(gw_land read w-wary --record "$(record w-wary 2 "$full_read")" 2>&1 || true)
+wary=$(gw_land propose w-wary --title "fix: w-wary" --notes "$MIG" 2>&1 || true)
+gh_set "d['prs']['$wary_pr']['mergeable'] = 'MERGEABLE'" "$GW"
+wary_why="the rebase met a conflict, and the request is careful: the owner says so"
+if grep -qF "the owner's merge stands, and goes through after a read that says \`Base: safe.\`" <<<"$wary_pressed" \
+  && [ "$(field '(d["recorded"]["of"], d["recorded"]["kind"], d["next"])' <<<"$wary_read" 2>&1)" = "('resolution', 'full', 'none')" ] \
+  && [ "$(field '(d["merge_review"], d["merge_review_why"], d["owner_merge"])' <<<"$wary" 2>&1)" = "(None, '$wary_why', 'ended: $wary_why; the owner merges it again')" ] \
+  && [ "$(field 'd["synced"]' <<<"$wary" 2>&1)" = "rebased on main after the forge called it conflicting; one conflict in shop.txt, resolved by a builder; a read of the resolution by the project's full set; a fresh merge agent reads it: $wary_why; the checks passed again" ] \
+  && grep -qxF "Rebased on main after the forge called it conflicting; one conflict in shop.txt, resolved by a builder; a read of the resolution by the project's full set; a fresh merge agent reads it: $wary_why; the checks passed again." "$GWS/.lem/state/tasks/w-wary/pr.md" \
+  && [ "$(kept_in "$GWS" w-wary owner_tap)" = None ] && [ "$(proposed_of w-wary)" = "(\"a read of the resolution by the project's full set\", 'fresh', '$wary_why', 'ended')" ]; then
+  pass "a careful change after a conflict: the read of the resolution finds nothing and nothing carries; propose says that a fresh merge agent reads it because the request is careful, and the owner's merge given before the conflict ends with that reason"
+else
+  fail "a careful change after a conflict: $wary_pressed / $wary_read / $wary / $(proposed_of w-wary)"
 fi
 
 finish

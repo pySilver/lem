@@ -422,7 +422,7 @@ for thread in threading.enumerate():
     if thread.name.startswith("merge "):
         thread.join(120)
 print(json.dumps({"ran": [(x["verb"], x["task"], x["why"]) for x in ran], "owed": serve.duties(w.model(), {}, set())}))
-' "$MOVE"
+' "${1:-$MOVE}"
 }
 refused=$(duty)
 kind=$(kept_in "$MOVE" second-move merge_refused | "$PY" -c 'import ast, sys; d = ast.literal_eval(sys.stdin.read()); print((d["by"], d["from"], d["kind"]))')
@@ -441,6 +441,52 @@ if [ "$(field 'd["ran"]' <<<"$refused")" = "[['merge', 'second-move', 'merger']]
   pass "a merge that meets the base another merge moved is kept for its tip and wakes the task's session; landed again with no conflict, the review and the merge review carry onto the new tip, and the server merges it with no second read"
 else
   fail "the merge after a moved base: $refused / $kind / $due_now / $again / $merged / $reviews / $(status_in "$MOVE" second-move) / $(git -C "$MOVE.origin.git" log -3 --format=%s main)"
+fi
+
+# A change whose review left a must-fix open: two rounds leave 1 must-fix, so the request is not green for it and the
+# merge agent calls the owner, who merges it. The base moves and his merge is refused for it; the merge agent's read
+# says another round, and the new landing's rebase meets no conflict. The review carries as it was, its must-fix too:
+# the request is not green for the same must-fix, the merge review carries, his merge stands, and the server merges it.
+OPEN=$WORK/open-must-fix-shop
+git init -q -b main "$OPEN" && ident "$OPEN" && commit "$OPEN" init && on_github "$OPEN"
+project --repo "$OPEN" init --base main >/dev/null
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' 'history = "squash"' '[checks]' 'commands = ["true"]' > "$OPEN/.lem/project.toml"
+git -C "$OPEN" add -A && git -C "$OPEN" commit -q -m "chore: start" && git -C "$OPEN" push -q origin main
+task_in "$OPEN" open-must-fix open.txt yes && read_in "$OPEN" open-must-fix
+land --repo "$OPEN" start open-must-fix >/dev/null && land --repo "$OPEN" base open-must-fix >/dev/null && polish_in "$OPEN" open-must-fix
+land --repo "$OPEN" checks open-must-fix >/dev/null
+land --repo "$OPEN" read open-must-fix --record "$(record open-must-fix 1 '{"kind": "read", "answered": ["codex"], "must_fix": 1}')" >/dev/null
+land --repo "$OPEN" read open-must-fix --record "$(record open-must-fix 2 '{"kind": "round", "ran": [{"name": "default", "why": "it fits"}], "answered": ["codex"], "must_fix": 1}')" >/dev/null
+first=$(land --repo "$OPEN" propose open-must-fix --title "fix: open-must-fix" --notes "$NOTES")
+called=$(merge_read "$OPEN" open-must-fix | field 'd["calls"]')
+OPEN_MOVER=$WORK/open-must-fix-mover
+git clone -q "$OPEN.origin.git" "$OPEN_MOVER" && ident "$OPEN_MOVER"
+echo moved > "$OPEN_MOVER/moved.txt" && git -C "$OPEN_MOVER" add moved.txt && git -C "$OPEN_MOVER" commit -q -m "docs: moved" && git -C "$OPEN_MOVER" push -q origin main
+pressed=$(land --repo "$OPEN" merge open-must-fix --by owner --message "fix: open-must-fix" 2>&1 || true)
+round=$(merge_read "$OPEN" open-must-fix merge "another round" | field 'd["base_call"]')
+land --repo "$OPEN" start open-must-fix >/dev/null && land --repo "$OPEN" base open-must-fix >/dev/null && land --repo "$OPEN" checks open-must-fix >/dev/null
+due_open=$(land --repo "$OPEN" read open-must-fix | field '(d["due"], d["why"])')
+reproposed=$(land --repo "$OPEN" propose open-must-fix --title "fix: open-must-fix" --notes "$NOTES")
+logged=$("$PY" -c 'import json, sys; print([(r["green"], r.get("review"), r.get("merge_review"), r.get("owner_merge")) for r in map(json.loads, open(sys.argv[1])) if r["event"] == "proposed" and r["task"] == "open-must-fix"])' "$OPEN/.lem/state/events.jsonl")
+open_merged=$(duty "$OPEN")
+open_reviews=$("$PY" -c 'import json, sys; print([("carried" in r) for r in map(json.loads, open(sys.argv[1])) if r["event"] == "merge.review" and r["task"] == "open-must-fix"])' "$OPEN/.lem/state/events.jsonl")
+must_fix_why="two rounds reviewed it: the last one left 1 must-fix"
+carried_line="rebased on main; the review carried over the rebase, and its open must-fix; the merge review carried over the rebase; the checks passed again"
+if [ "$(field '(d["green"], d["not_green"])' <<<"$first")" = "(False, ['$must_fix_why'])" ] && [ "$called" = True ] \
+  && grep -qF "the owner's merge stands, and goes through after a read that says \`Base: safe.\`" <<<"$pressed" && [ "$round" = "another round" ] \
+  && [ "$due_open" = "('owner', '$must_fix_why')" ] \
+  && [ "$(field '(d["green"], d["not_green"], d["merge_review"], d["owner_merge"].startswith("stands"), d["synced"])' <<<"$reproposed")" \
+    = "(False, ['$must_fix_why'], 'carried', True, '$carried_line')" ] \
+  && [ "$(kept_in "$OPEN" open-must-fix rebase_uncovered)" = None ] \
+  && grep -qxF "Rebased on main; the review carried over the rebase, and its open must-fix; the merge review carried over the rebase; the checks passed again." "$OPEN/.lem/state/tasks/open-must-fix/pr.md" \
+  && [ "$logged" = "[(False, None, None, None), (False, 'the review carried over the rebase, and its open must-fix', 'carried', 'stands')]" ] \
+  && [ "$(field 'd["ran"]' <<<"$open_merged")" = "[['merge', 'open-must-fix', 'owner']]" ] && [ "$(status_in "$OPEN" open-must-fix)" = landed ] \
+  && [ "$(kept_in "$OPEN" open-must-fix merged_by | "$PY" -c 'import ast, sys; d = ast.literal_eval(sys.stdin.read()); print((d["by"], d["via"], d.get("after")))')" = "('owner', 'server', 'a re-check')" ] \
+  && [ "$open_reviews" = "[False, False, True]" ] \
+  && [ "$(git -C "$OPEN.origin.git" log -2 --format=%s main)" = "$(printf '%s\n' 'fix: open-must-fix' 'docs: moved')" ]; then
+  pass "a review that left a must-fix open carries over a rebase with no conflict as it was: the request stays not green for the same must-fix, the pull request's text and the proposed event say that the review and its open must-fix carried and that the merge review carried, the owner's merge stands, and the server merges it"
+else
+  fail "a clean rebase of an open must-fix: $first / $called / $pressed / $round / $due_open / $reproposed / $logged / $open_merged / $open_reviews / $(kept_in "$OPEN" open-must-fix merged_by) / $(status_in "$OPEN" open-must-fix)"
 fi
 
 # The same moved base, read by a fresh merge agent instead of a new landing: the server's merge of the second
