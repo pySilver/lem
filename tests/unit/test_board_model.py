@@ -712,8 +712,16 @@ class Inbox(unittest.TestCase):
         for why, words in (("not running", "The Inbox does not run on this Mac, so no question went there."),
                            ("no tailnet address", "The Inbox has no tailnet address, so the phone cannot open it.")):
             with self.subTest(why=why):
+                said = self.breaker(self.record(running=why != "not running", tailnet_url=None, why=why))
+                self.assertEqual(said, {"thread": None, "asks": False, "gone": False, "why": words})
+        # a question of the task that went before the door closed is there: the line says so, not that none went
+        self.assertEqual(set(bm.INBOX_WHY_SENT), set(bm.INBOX_WHY))
+        for why, words in (("not running", "A message of this task went to the Inbox, but the Inbox does not run on this Mac now, so the phone cannot open it."),
+                           ("no tailnet address", "The Inbox has no tailnet address, so the phone cannot open it.")):
+            with self.subTest(why=why, sent=True):
                 said = self.breaker(self.record(self.thing(), running=why != "not running", tailnet_url=None, why=why))
                 self.assertEqual(said, {"thread": None, "asks": False, "gone": False, "why": words})
+        self.assertTrue(all("no question went there" not in words for words in bm.INBOX_WHY_SENT.values()))
         # a word the model does not know is still said, and no address but http or https is a link
         self.assertIn("“later”", self.breaker(self.record(running=False, tailnet_url=None, why="later"))["why"])
         self.assertIsNone(self.breaker(self.record(self.thing(), tailnet_url="javascript:alert(1)")))

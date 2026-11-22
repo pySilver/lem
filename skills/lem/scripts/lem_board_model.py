@@ -1279,6 +1279,14 @@ INBOX_WHY = {
     "no tailnet address": "The Inbox has no tailnet address, so the phone cannot open it.",
     "failed": "The board’s server could not ask the Inbox on this Mac, so no question went there.",
 }
+# The same, for a task whose message went to the Inbox before its door closed: it is there, and the phone cannot reach it now.
+INBOX_WHY_SENT = {
+    "not installed": "A message of this task went to the Inbox, but the Inbox is not installed on this Mac now, so the phone cannot open it.",
+    "not running": "A message of this task went to the Inbox, but the Inbox does not run on this Mac now, so the phone cannot open it.",
+    "not answering": "A message of this task went to the Inbox, but the Inbox on this Mac does not answer now, so the phone cannot open it.",
+    "no tailnet address": INBOX_WHY["no tailnet address"],
+    "failed": "A message of this task went to the Inbox, but the board’s server could not ask the Inbox on this Mac now, so the phone cannot open it.",
+}
 # A thing the record keeps with no answer of the Inbox yet while a call failed: the next look sends it again.
 INBOX_UNSENT = "The board’s server could not send this to the Inbox yet; its next look tries again."
 
@@ -1325,13 +1333,14 @@ def inbox_of(t: Task, m: Model) -> dict | None:
     keys = {f"merge:{t.slug}" if w["kind"] == "review" else w["key"] for w in rows}
     sent = [s for s in record.get("sent") or [] if s.get("task") == t.slug and s["key"] in keys]
     door = record.get("running") is True and record.get("tailnet_url")
+    there = [s for s in sent if s.get("message_id") and s.get("thread_id")]
     if not door:
         why = record.get("why")
         if not why:
             return None
-        said = INBOX_WHY.get(why) if isinstance(why, str) else None
-        return {"thread": None, "asks": False, "gone": False, "why": said or f"No question went to the Inbox: its last look said “{flat(why)}”."}
-    there = [s for s in sent if s.get("message_id") and s.get("thread_id")]
+        said = (INBOX_WHY_SENT if there else INBOX_WHY).get(why) if isinstance(why, str) else None
+        return {"thread": None, "asks": False, "gone": False,
+                "why": said or f"{'A message of this task went to the Inbox, and' if there else 'No question went to the Inbox:'} its last look said “{flat(why)}”."}
     link = next((thread_link(record["tailnet_url"], s["thread_id"]) for s in there), None)
     if link is None:
         unsent = any(not s.get("message_id") for s in sent) and record.get("problem")

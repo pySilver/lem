@@ -303,7 +303,8 @@ class InboxLine(unittest.TestCase):
                 self.assertIn(f'href="{self.TAILNET}#thread=msg_01ABC"', shown)
 
     def test_criterion_7_with_no_inbox_or_no_tailnet_address_the_page_says_todays_line_and_why(self):
-        for door, why in (({"running": False, "tailnet_url": None, "why": "not running"}, "The Inbox does not run on this Mac, so no question went there."),
+        for door, why in (({"running": False, "tailnet_url": None, "why": "not running"},
+                           "A message of this task went to the Inbox, but the Inbox does not run on this Mac now, so the phone cannot open it."),
                           ({"tailnet_url": None, "why": "no tailnet address"}, "The Inbox has no tailnet address, so the phone cannot open it.")):
             with self.subTest(why=door["why"]):
                 shown = self.overview(state(1, "building", "task 2 of 3"), *self.BREAKER, record=self.record(**door))

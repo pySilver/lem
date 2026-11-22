@@ -230,7 +230,7 @@ if grep -qF "$today" <<<"$there" && ! grep -qF "Inbox" <<<"$there" \
   && grep -qF "Answer in the task’s session on the Mac, or in the Inbox" <<<"$(words <<<"$away")" && ! grep -qF "is in agterm on the Mac" <<<"$(words <<<"$away")" \
   && grep -qF 'href="https://studio.tail4e2a.ts.net:8443/#thread=msg_01DEMOGIFTNOTEBREAKER1"' <<<"$away" \
   && grep -qxF 'data: <turbo-stream action="refresh"></turbo-stream>' "$WORK/stream-inbox.out" \
-  && grep -qF "$today The Inbox does not run on this Mac, so no question went there." <<<"$stopped" \
+  && grep -qF "$today A message of this task went to the Inbox, but the Inbox does not run on this Mac now, so the phone cannot open it." <<<"$stopped" \
   && ! grep -qF "#thread=" <<<"$stopped"; then
   pass "while the owner is away, the phone's page of a task whose breaker went to his Inbox names both places and links to its thread at the Inbox's tailnet address; when the Inbox stops, the page refreshes to today's line and why there is no link"
 else
