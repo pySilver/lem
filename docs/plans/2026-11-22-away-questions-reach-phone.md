@@ -11,21 +11,34 @@ Size: full, because a task's sessions, the board's task page and the harness cha
    2. The task report-dates trips breaker 1.
    3. Its session shows the breaker's document, as today.
    4. The Inbox gets one message in the thread "report-dates" with the breaker's case and its three answers: help, park, drop.
+   - test: `python3 -B -m unittest tests.unit.test_inbox.Sends.test_criterion_1_a_breaker_while_he_is_away_reaches_the_inbox_once_as_the_tasks_session` in `tests/unit/test_inbox.py`
+   - test: `bash tests/lem-board-act.sh` in `tests/lem-board-act.sh`, `tests/lib.sh`, `tests/checks.sh`
 2. The things that reach the Inbox are those of "Waits for you" while he is away: a breaker, a merge the merge agent gives to him, a blocked task, an order of his that names no task, a task that waits for a dropped task, and a task with no session.
+   - test: `python3 -B -m unittest tests.unit.test_inbox.Sends.test_criterion_2_every_row_of_waits_for_you_is_a_thing_and_the_merge_review_and_merge_one` in `tests/unit/test_inbox.py`
 3. A thing that already waits when he types `/lem im-away` reaches the Inbox at that moment:
    1. Breaker 1 of report-dates waits in its session.
    2. The owner types `/lem im-away` an hour later.
    3. The Inbox gets the breaker's message then.
+   - test: `python3 -B -m unittest tests.unit.test_inbox.Sends.test_criterion_3_a_thing_that_waits_when_the_mark_comes_is_sent_then` in `tests/unit/test_inbox.py`
 4. While the owner is there, nothing goes to the Inbox: with no away mark, breaker 1 of report-dates waits in its session and on the board only.
+   - test: `python3 -B -m unittest tests.unit.test_inbox.Sends.test_criterion_4_with_no_away_mark_nothing_goes_to_the_inbox_and_nothing_is_asked` in `tests/unit/test_inbox.py`
 5. The first answer counts, and the other place no longer asks:
    1. Breaker 1 of report-dates waits in its session and in the Inbox.
    2. The owner answers "park" on his phone.
    3. The session parks the task and closes its card in agterm.
    4. Had he answered at the Mac first, the session withdraws the Inbox question, and the phone shows it as "No longer applies".
+   - test: `python3 -B -m unittest tests.unit.test_inbox.Withdraws.test_criterion_5_an_answer_at_the_mac_withdraws_the_question_as_the_same_session` in `tests/unit/test_inbox.py`
+   - test: `bash tests/test-ask.sh` in `tests/test-ask.sh`, `tests/checks.sh`
 6. While he is away, the phone's page of a task that waits for him names both places, and links to the Inbox thread through the Inbox's tailnet address: "Answer in the task's session on the Mac, or in the Inbox", where "Inbox" opens the thread "report-dates" at `https://HOST.ts.net:PORT/`.
+   - test: `python3 -B -m unittest tests.unit.test_board_task.InboxLine tests.unit.test_board_model.Inbox` in `tests/unit/test_board_task.py`, `tests/unit/test_board_model.py`
+   - test: `bash tests/lem-serve.sh` in `tests/lem-serve.sh`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-showcase.py`
 7. When the Inbox does not run, or has no tailnet address, Lem sends nothing there and no step of a task fails: the page shows today's line, "The task's session, “report-dates”, is in agterm on the Mac.", and one line that says why there is no Inbox link.
+   - test: `python3 -B -m unittest tests.unit.test_inbox.Door.test_criterion_7_no_inbox_or_no_tailnet_address_sends_nothing_and_keeps_why` in `tests/unit/test_inbox.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_task.InboxLine.test_criterion_7_with_no_inbox_or_no_tailnet_address_the_page_says_todays_line_and_why` in `tests/unit/test_board_task.py`, `tests/unit/test_board_model.py`
 8. A task with no session gets a note in the Inbox with no question, since no session can take a reply: "report-dates has no session; open it on the board", with a link to the task's page on the board.
+   - test: `python3 -B -m unittest tests.unit.test_inbox.Sends.test_criterion_8_a_task_with_no_session_gets_a_note_with_no_question_and_the_boards_link` in `tests/unit/test_inbox.py`
 9. At `/lem im-back`, an Inbox question that waits stays open: he answers it in the Inbox or in the task's session, and the first answer counts as in criterion 5.
+   - test: `python3 -B -m unittest tests.unit.test_inbox.Withdraws.test_criterion_9_at_im_back_the_open_question_stays_and_a_new_session_gets_nothing_new` in `tests/unit/test_inbox.py`
 
 ## How it works
 
