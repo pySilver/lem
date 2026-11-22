@@ -9,13 +9,14 @@ real command shows: tests/lem-settings.sh runs one journey for each.
     python3 -B -m unittest discover -s tests/unit
 """
 
+import importlib
 import sys
 import unittest
 from pathlib import Path
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts"))
-import project  # noqa: E402
+project = importlib.import_module("project")
 
 
 class Refuses(unittest.TestCase):
