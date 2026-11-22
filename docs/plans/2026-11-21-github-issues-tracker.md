@@ -234,3 +234,108 @@ flowchart TD
   the test of the skill's text.
 - The onboarding's proposal (criterion 8) is a step of a stage file, which no test holds: a real
   onboarding of a repository with issues shows it.
+
+## Plan talk
+
+Who argued the plan: the reviewer, Codex, `GPT 6.2 Sol` at `high`, as its pane's status line
+showed them; the defender, Claude Code, Opus 5.5 at high, as the `defender:` line of the task's
+state gives them. Two families. 6 turns (the list, two answers of each side, the close), within
+the bound of 4 × 12 + 2 = 50. The repairs are commits 25e83d0 and 39b016c.
+
+The reviewer's list, numbered as it came, and how each question ended:
+
+1. **Which repository owns the task's issue after origin changes?** (Tasks 1 and 2; `cmd_task_dir`.)
+   Refuted first: the issue is origin's, as the landing's push and pull request are (`land.py`,
+   `Task.__init__`). Held: a drop before any push writes to a moved origin's issue. Repaired
+   (39b016c): the task keeps origin's `OWNER/REPO` in `ticket-repo.txt`, and each write refuses
+   another repository; a layer over "the issue is origin's" (cite: the ask, criterion 3). Held
+   again: origin can move between the read of the issue (`new.md`, "Open the task", step 1) and
+   `task-dir` (step 3), so the saved repository is already the other one. A design choice:
+   the kept layer against a repository read from the issue itself; the ladder takes it.
+2. **What proves Lem added a particular assignee?** (Task 2, `start`; `cmd_ticket_step`.)
+   Repaired (25e83d0), at the cause: the assignee's step is written before `gh` adds the login,
+   with the login, and a removal removes that login only when it is on the issue. Held: a
+   cut-off between the record and the add, then the same login assigned by hand, is removed at
+   the drop though Lem never added it. Refuted: three rare steps in a row, and the login is the
+   one Lem set out to add. Held again. A design choice: the record before the add against the
+   record after it; the ladder takes it.
+3. **When does an ended task release responsibility for its assignee?** (Task 1, the claim;
+   `RETURNED`.) Repaired (25e83d0), a layer over `RETURNED` (existing code): a ticket goes back only
+   when its old task owes nothing. Held: the refusal names `lem issue` as the way to pay, which a
+   Linear task cannot use. Not refuted. A design choice; the ladder takes it.
+4. **Where does criterion 2's one-task rule hold across entry points?** (Task 1; `cmd_task_dir`,
+   `cmd_resume`, `taken_on_remote`.) Repaired (25e83d0), at the cause: one claim for `task-dir` and
+   `resume`, and the number read as an integer. The race of two opens was not covered. Held: a
+   stall of `ls-remote` lets two opens of one issue both pass. Refuted: two sessions given the
+   same issue within one remote call, and the Linear claim has the same window. Held again. A
+   design choice: no lock against a claim that cannot race; the ladder takes it.
+5. **What local state permits each issue write?** (Task 2.) Repaired (25e83d0), at the cause: each
+   write refuses a status it does not belong to. Held: `start` admits a `queued` or `held` task,
+   and a drop that runs between a start's record and its add removes nothing, so the add lands
+   after it. Refuted: `start.md` step 3 is the one caller, after `building`. Held again. A design
+   choice; the ladder takes it.
+6. **Who runs the missing ticket steps after the task ends?** (Task 3; `session.md`, `phase_of`,
+   `session_need`.) Repaired (25e83d0), at the cause: the tracker's step before the worktree's
+   removal, the wake of a dropped task runs the owed steps, and the status names the line. Held: a
+   pull request closed on GitHub while no session lives gets no session, so no first call. Not
+   refuted. A design choice; the ladder takes it.
+7. **What makes the comment a one-time write when calls overlap?** (Task 2; `cmd_ticket_step`.)
+   Refuted: only a task's own session runs its steps. Held: task 3 offers the owed line to any
+   session while the first may still wait on GitHub. Refuted: the window is seconds inside the
+   owner's own drop. Held again. A design choice: no lock against a lock; the ladder takes it.
+8. **How does the issue body reach the task's own session?** (Task 2, `read`; `new.md`,
+   `investigate.md`.) Repaired (25e83d0), at the cause: `read` gives the author, and the ask is
+   the title and the text. Held: criterion 3 says "Only the text is the request", so the title is
+   no part of it. Refuted: the owner's outcome in `task.md` says the title is the ask, and
+   criterion 3's "only" sets the text against the comments. Held again. A design choice; the
+   ladder takes it, as a question of what the approved criterion says.
+9. **Which record supplies the landed comment?** (Task 2, `land`; `cmd_propose`, `outcome_of`.)
+   Repaired (25e83d0), at the cause: the comment's words come from the record (`proposal`,
+   `outcome_of`), never from the caller. Held: a cut-off in `cmd_propose` leaves the verdict
+   behind the pull request, and `outcome_of` names the outcome of the shape, which a narrower
+   recorded criterion no longer matches. Refuted: a rare gap, and the comment links the pull
+   request. Held again. A design choice; the ladder takes it.
+10. **What facts make onboarding choose GitHub?** (Task 3, `init.md`.) Repaired (25e83d0): the
+    check counts issues of any state, and only Linear keys are Linear's evidence. Closed. Settled by
+    the two, not checked by the review.
+11. **What does the existing ticket test prove after the change?** (Task 1, `tests/lem-settings.sh`.)
+    Repaired (25e83d0), at the cause: no `[tracker]` refuses `--ticket`, and the fixture writes its
+    tracker first. Closed, at the cause. Settled by the two, not checked by the review.
+12. **Which shipped instructions describe both trackers?** (Task 4.) Repaired (25e83d0): the two
+    shipped texts that name one tracker change. Closed. Settled by the two, not checked by the
+    review.
+
+The mechanisms the repairs added, with the decision each sits on and the reviewer's word:
+
+- `ticket-repo.txt` and the refusal of another repository (question 1): a layer over "the issue
+  is origin's", cited by the ask and criterion 3.
+- The assignee's step written before the add, with its login (question 2): at the cause, the
+  order of record and write that `lem-linear` gives.
+- The claim that waits for what an old task owes (question 3): a layer over `RETURNED`, existing
+  code.
+- One claim for `task-dir` and `resume` (question 4): at the cause.
+- The status guard of each write (question 5): at the cause, on decision 3.
+- The tracker's step before the worktree's removal, and the wake of a dropped task (question 6):
+  at the cause.
+
+No question was raised after the first turn. No addition was refused as unpriced in the
+reviewer's turns; the defender priced and declined two of its own: a stored repository beside
+`#42` in the first answer to question 1 (repaired later), and a lock against two opens or two
+calls (questions 4 and 7), which the ladder now weighs.
+
+What changed in the plan, by task:
+
+- Task 1: the issue number as an integer, the repository kept with the issue, no `--ticket`
+  without a tracker, one claim for `task-dir` and `resume` that waits for what an old task owes,
+  `assigned LOGIN` and `ticket_assignee`, `Issue: #42` on both tracks, the fixture's tracker first.
+- Task 2: `read` gives the author and the ask; each write checks the status and the repository;
+  the assignee's order; `land`, `drop` and `answer` take the slug alone and their words from the
+  record; `check` gives the onboarding's facts.
+- Task 3: now also the stages that call the tracker: `new.md`, `correct.md`, `investigate.md`,
+  `session.md` and `status.md`, beside `init.md`, which takes criterion 8's facts only.
+- Task 4: `skills/lem-linear/SKILL.md` and the helper row of `skills/lem/SKILL.md`.
+- "Decisions of the plan": five decisions the repairs took.
+
+Agreement carries no authority: the review before the pull request reads each settled position
+as a claim.
+
