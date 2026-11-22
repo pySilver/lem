@@ -355,6 +355,26 @@ class TheText(Proposal):
                 self.assertNotIn("the cause", land.pr_text(self.task(record=record), "", self.state()))
 
 
+class TheCriteriasCheck(Proposal):
+    """The line of the check of the criteria among the pull request's checks: run by the checks, or taken
+    from the polish pass at its commit and not run again."""
+
+    @staticmethod
+    def line(text: str) -> list[str]:
+        return [row for row in text.splitlines() if row.startswith("- the tests of the criteria")]
+
+    def test_tests_the_checks_ran_pass_on_the_branch_and_fail_on_the_base_commit(self) -> None:
+        text = land.pr_text(self.task(), "", self.state())
+        self.assertEqual(self.line(text), ["- the tests of the criteria: 1 pass on the branch and fail on the base commit; 1 criterion has no test"])
+
+    def test_tests_taken_from_the_polish_pass_name_it_and_its_commit(self) -> None:
+        taken = {**CHECKS, "criteria": {**CHECKS["criteria"], "taken": {"from": "polish", "at": "a1b2c3d4e5f6a7b8"}}}
+        text = land.pr_text(self.task(kept={"checks": taken}), "", self.state())
+        self.assertEqual(self.line(text), ["- the tests of the criteria: 1 pass on the branch and fail on the base commit, taken from the polish pass at a1b2c3d4e, and not run again; 1 criterion has no test"])
+        # each test still says what the pass's run gave it
+        self.assertIn("   - `sh tests/t.sh`: passes on the branch, fails on the base commit", text.splitlines())
+
+
 class WithoutHim(Proposal):
     """The line of the time a task ran without the owner, under green or not green, on both tracks."""
 

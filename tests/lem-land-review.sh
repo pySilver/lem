@@ -79,8 +79,18 @@ else
   fail "polish --done: $dirty / $started / $frozen / $broken / $done_out / $twice"
 fi
 # The gate: the pass is on the tip it checks while the commits after it are on top, and a rebase by `base` keeps it.
+# On the tip the pass ended on, the checks take the pass's run of the criteria's tests; after a commit on top, and
+# after a rebase, they run the tests themselves.
 gated=$(local_land checks polish-me | field 'd["polish"]["after"]')
+taken_kept=$("$PY" -c 'import json, sys; print(json.load(open(sys.argv[1]))["checks"]["criteria"].get("taken"))' "$pdir/landing.json")
+# The pull request of checks that took the pass's result says so, with one line from the pass; start then takes
+# the open task into the landing again, for a fix on top.
+digest=$(lcriteria digest polish-me 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
+project --repo "$LOCAL" log polish-me criteria.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' criteria:=1 flagged:=0 split:=false "digest=$digest" >/dev/null 2>&1 || true
+local_land read polish-me --record "$(clean polish-me 1)" >/dev/null 2>&1 && local_land propose polish-me --title "feat: p" --notes "$NOTES" >/dev/null 2>&1 || true
+local_land start polish-me >/dev/null
 echo '# a fix' >> "$tree/tool.sh" && git -C "$tree" commit -q -am "fix: what a review found"
+fixed_tip=$(git -C "$tree" rev-parse HEAD)
 on_top=$(status_of local_land checks polish-me)
 git -C "$tree" reset -q --hard "$after_tip~1" && echo 'echo p > p.txt' > "$tree/tool.sh" && git -C "$tree" commit -q -am "refactor: written again"
 rewritten=$(local_land checks polish-me 2>&1 || true)
@@ -88,19 +98,40 @@ git -C "$tree" reset -q --hard "$after_tip" && echo '# a fix' >> "$tree/tool.sh"
 echo late > "$LOCAL/polish-late.txt" && git -C "$LOCAL" add polish-late.txt && git -C "$LOCAL" commit -q -m "chore: a late file" && git -C "$LOCAL" push -q origin main
 local_land base polish-me >/dev/null
 moved=$(local_land checks polish-me | field 'd["polish"]["after"]')
+rebased_tip=$(git -C "$tree" rev-parse HEAD)
 if [ "$gated" = "$after_tip" ] && [ "$on_top" = 0 ] && grep -qF "the tip does not hold the polish pass's last commit (${after_tip:0:9})" <<<"$rewritten" \
   && [ "$moved" = "$(git -C "$tree" rev-parse HEAD~1)" ] && [ "$moved" != "$after_tip" ] && [ "$(git -C "$tree" log -1 --format=%s "$moved")" = "docs(backlog): the guide says nothing of p.txt" ]; then
   pass "the gate finds the polish pass on its tip with a fix on top of it, refuses a branch rewritten under the pass, and after a rebase by base knows the pass's last commit by its new name"
 else
   fail "the gate and the polish pass: $gated / $on_top / $rewritten / $moved"
 fi
-# The pull request's checks hold one line from the pass.
-digest=$(lcriteria digest polish-me 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
-project --repo "$LOCAL" log polish-me criteria.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' criteria:=1 flagged:=0 split:=false "digest=$digest" >/dev/null 2>&1 || true
-local_land read polish-me --record "$(clean polish-me 1)" >/dev/null 2>&1 && local_land propose polish-me --title "feat: p" --notes "$NOTES" >/dev/null 2>&1 || true
+# The tips of the task.red events of each run of the checks, between its gate.start and its gate.end: the refused
+# pass's run and the pass's own lie outside every run. Then the commit each run's gate.end says it took the pass's result at.
+reds=$("$PY" -c '
+import json, sys
+runs, taken, inside = [], [], False
+for line in open(sys.argv[1], encoding="utf-8"):
+    event = json.loads(line)
+    if event.get("task") != "polish-me":
+        continue
+    if event["event"] == "gate.start":
+        runs.append([])
+        inside = True
+    elif event["event"] == "gate.end":
+        inside = False
+        taken.append(event.get("taken"))
+    elif event["event"] == "task.red" and inside:
+        runs[-1].append(event["tip"])
+print(runs, taken)' "$LOCAL/.lem/state/events.jsonl")
 project --repo "$LOCAL" state polish-me dropped "the test is over" >/dev/null
-if grep -qxF -- "- the polish pass: 6 commits, 1 item filed in the backlog" "$pdir/pr.md"; then
-  pass "the pull request's checks say how many commits the polish pass made and how many items it filed"
+if [ "$reds" = "[[], ['${fixed_tip:0:9}'], ['${rebased_tip:0:9}']] ['${after_tip:0:9}', None, None]" ] && [ "$taken_kept" = "{'from': 'polish', 'at': '$after_tip'}" ] && [ "$fixed_tip" != "$rebased_tip" ]; then
+  pass "the checks on the tip the polish pass ended on run no test of the criteria, keep the pass's result with the pass and its commit, and their gate.end names that commit; after a fix on top, and after a rebase by base, they run the tests themselves once, on the new tip"
+else
+  fail "the criteria's tests in the checks after the polish pass: $reds / $taken_kept / fix ${fixed_tip:0:9} / rebased ${rebased_tip:0:9}"
+fi
+if grep -qxF -- "- the polish pass: 6 commits, 1 item filed in the backlog" "$pdir/pr.md" \
+  && grep -qxF -- "- the tests of the criteria: 1 pass on the branch and fail on the base commit, taken from the polish pass at ${after_tip:0:9}, and not run again" "$pdir/pr.md"; then
+  pass "the pull request's checks say how many commits the polish pass made and how many items it filed, and that the tests of the criteria were taken from the pass at its commit and not run again"
 else
   fail "the polish pass in the pull request: $(cat "$pdir/pr.md" 2>/dev/null)"
 fi

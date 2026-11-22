@@ -110,7 +110,12 @@ landing up as after a cut-off.
      each such file that was not there before the run, and the folders it empties, and names them
      in `removed_untracked`. That is no failure and no task for an ignore rule. A command that
      changed a tracked file or made a commit is refused, since its result is about another tree.
-   - Each criterion's tests pass on the branch and fail on the base commit (`lem criteria red`).
+   - Each criterion's tests pass on the branch and fail on the base commit. The step reads the
+     criteria again (`lem criteria inputs`), and that read refuses as a run of the tests would.
+     When the polish pass committed anything and its run of the tests had the same five inputs
+     (the tip, the base commit, the plan file, `checks.setup` and `checks.serial`), the step takes
+     that run's result and runs no tests; the pull request and the board say that it was taken from
+     the pass at its commit. Otherwise it runs `lem criteria red`.
    - The change did not lower the bar: no new lint or type suppression, no skipped or deleted
      test, no fewer assertions in a test file. A lowered bar passes only with a reason for that
      file in the plan, under `## The bar`, as `- PATH: REASON`; and then the request is not

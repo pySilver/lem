@@ -1,9 +1,10 @@
 """criteria.py's reading of a plan's criteria, each called in this process: a criterion's case and its
-chart, the plan's `## How it works`, and which of them the digests mark."""
+chart, the plan's `## How it works`, which of them the digests mark, and the inputs of a run of `red`."""
 
 import importlib
 import sys
 import unittest
+import unittest.mock
 from pathlib import Path
 
 sys.dont_write_bytecode = True
@@ -290,3 +291,56 @@ class ReadsOf(unittest.TestCase):
             record = {"ts": "2026-11-21T10:00:00Z", "event": "criteria.read", "task": "demo", "silent": [words]}
             (Path(folder) / "events.jsonl").write_text(json.dumps(record, ensure_ascii=False) + "\n", encoding="utf-8")
             self.assertEqual([read["silent"] for read in criteria.reads_of(task)], [[words]])
+
+
+class Inputs(unittest.TestCase):
+    """`criteria.cmd_inputs`, `lem criteria inputs SLUG`: what a run of `red` depends on now, without the
+    run. The read of the criteria comes first and refuses as `red` does; git answers the tip and the
+    merge-base, here as a stand-in that gives what git gave."""
+
+    TIP, BASE, PLAN = "a1b2c3d" + "0" * 33, "b0" * 20, "/repo/.lem/worktrees/t/docs/plans/2026-11-21-t.md"
+
+    def task(self, origin: str = "git@github.com:o/r.git", setup: tuple[str, ...] = (), serial: tuple[str, ...] = ()):
+        task = criteria.Task.__new__(criteria.Task)
+        task.slug, task.main, task.worktree = "t", Path("/repo"), Path("/repo/.lem/worktrees/t")
+        task.settings = {"branch": {"base": "main"}, "checks": {"setup": list(setup), "serial": list(serial)}}
+        task.criteria = lambda: {"plan": self.PLAN, "small": False, "criteria": []}
+        self.asked: list[tuple[str, ...]] = []
+
+        def git(where: Path, *args: str, check: bool = True) -> str:
+            self.asked.append(args)
+            if args[0] == "remote":
+                return origin
+            if args == ("rev-parse", "HEAD"):
+                return self.TIP
+            if args[0] == "merge-base":
+                return self.BASE
+            raise AssertionError(f"git {args} was not expected")
+
+        patcher = unittest.mock.patch.object(criteria, "git", git)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return task
+
+    def test_the_five_inputs_of_a_run(self) -> None:
+        said = criteria.cmd_inputs(self.task(setup=("npm ci",), serial=("sh tests/e2e",)))
+        self.assertEqual(said, {"task": "t", "inputs": {"tip": self.TIP, "base": self.BASE, "plan": self.PLAN, "setup": ["npm ci"], "serial": ["sh tests/e2e"]}})
+
+    def test_the_base_commit_is_the_merge_base_of_the_tip_and_origins_base_branch(self) -> None:
+        criteria.cmd_inputs(self.task())
+        self.assertIn(("merge-base", self.TIP, "origin/main"), self.asked)
+
+    def test_with_no_origin_the_base_branch_itself(self) -> None:
+        criteria.cmd_inputs(self.task(origin=""))
+        self.assertIn(("merge-base", self.TIP, "main"), self.asked)
+
+    def test_a_read_that_refuses_refuses_the_inputs_before_git_is_asked(self) -> None:
+        task = self.task()
+
+        def refused() -> dict:
+            raise criteria.CriteriaError("criterion 1 of plan.md says 'x', and the expected criterion 1 is 'y'")
+
+        task.criteria = refused
+        with self.assertRaisesRegex(criteria.CriteriaError, "the expected criterion 1 is 'y'"):
+            criteria.cmd_inputs(task)
+        self.assertEqual(self.asked, [])

@@ -89,6 +89,8 @@ works`.
                               JSON; `small` says which, and `plan` names the file
     lem criteria record SLUG  the same, and one event for the board
     lem criteria red SLUG     each criterion's tests pass on the branch and fail on the base commit
+    lem criteria inputs SLUG  what a run of `red` depends on, as it stands now, without a run: the tip, the
+                              base commit, the plan file, and the settings' checks.setup and checks.serial
 
 Approved criteria are frozen as written. `approve` keeps them in `criteria.json` in the task's
 directory, with their text, a digest and a number of their own (approval 1, 2, ...), the earlier
@@ -110,6 +112,13 @@ other criteria than the approved ones shows.
 
 `red` is a machine check with no model in it. A test that also passes on the base commit does
 not test the change, and a criterion with no test at the end of a build is refused.
+
+What a run of `red` gives depends on five inputs, and on nothing else: the branch's tip; the base
+commit, the merge-base of the tip and origin's base branch at the time of the run; the plan file the
+read of the criteria chose, by the settings' `paths.plans` and `paths.plan_file`; and the settings'
+`checks.setup` and `checks.serial`. `red` reports them whole as `inputs`, and `inputs` gives them as
+they stand now, after the same read of the criteria, which refuses as `red` would: two runs with the
+same five ran the same tests on the same trees, under the same approved criteria.
 
 It never moves the task's worktree. It makes two worktrees of its own beside it, each with the
 commands of the settings' `checks.setup` run in it first (what a fresh worktree of this project
@@ -602,6 +611,30 @@ def remove(task: Task, place: Path) -> str | None:
     return None
 
 
+def onto_of(task: Task) -> str:
+    """What the branch is measured against: origin's base branch, or the base branch itself in a repository with no origin."""
+    base_branch = task.settings["branch"]["base"]
+    return f"origin/{base_branch}" if git(task.main, "remote", "get-url", "origin", check=False) else str(base_branch)
+
+
+def inputs(task: Task, found: dict) -> dict:
+    """The five inputs a run of the criteria's tests depends on, as they stand now: the tip, the base
+    commit, the plan file of FOUND (the read of the criteria, which `paths.plans` and `paths.plan_file`
+    chose), and the settings' `checks.setup` and `checks.serial`. The settings are the ones this read
+    loaded, the main checkout's when the landing runs it."""
+    tip = git(task.worktree, "rev-parse", "HEAD")
+    return {
+        "tip": tip, "base": git(task.worktree, "merge-base", tip, onto_of(task)), "plan": found["plan"],
+        "setup": list(task.settings["checks"]["setup"]), "serial": list(task.settings["checks"]["serial"]),
+    }
+
+
+def cmd_inputs(task: Task) -> dict:
+    """What a run of `red` would depend on now, without the run: the read of the criteria first, which
+    refuses in the words `red` gives, then its five inputs."""
+    return {"task": task.slug, "inputs": inputs(task, task.criteria())}
+
+
 def cmd_red(task: Task) -> dict:
     found = task.criteria()
     untested = [criterion["n"] for criterion in found["criteria"] if not criterion["tests"] and not criterion["no_test"]]
@@ -613,12 +646,11 @@ def cmd_red(task: Task) -> dict:
     dirty = git(task.worktree, "status", "--porcelain")
     if dirty:
         raise CriteriaError(f"the worktree has changes nobody committed:\n{dirty}\ncommit them or remove them: this check runs what the branch holds, and they are not in it")
-    base_branch = task.settings["branch"]["base"]
-    onto = f"origin/{base_branch}" if git(task.main, "remote", "get-url", "origin", check=False) else str(base_branch)
-    tip = git(task.worktree, "rev-parse", "HEAD")
-    base = git(task.worktree, "merge-base", tip, onto)
+    # what this run depends on, reported whole: the run below uses these values and no others
+    ran = inputs(task, found)
+    tip, base = ran["tip"], ran["base"]
     if base == tip:
-        raise CriteriaError(f"the branch has no commit beyond {onto}, so there is no change for a test to hold")
+        raise CriteriaError(f"the branch has no commit beyond {onto_of(task)}, so there is no change for a test to hold")
     tests = [(criterion["n"], test) for criterion in found["criteria"] for test in criterion["tests"]]
     for number, test in tests:
         for file in test["files"]:
@@ -670,7 +702,7 @@ def cmd_red(task: Task) -> dict:
             child.clear()
             wrappers.clear()
 
-        serial = task.settings["checks"]["serial"]
+        serial = ran["serial"]
 
         def outcome(command: str, where: Path, test: bool = False) -> int:
             # through a shell, as the commands of the checks run: a test command is a line the project would type;
@@ -712,7 +744,7 @@ def cmd_red(task: Task) -> dict:
                 grouped(task.main, "worktree", "add", "-q", "--detach", str(place), tip if name == "branch" else base)
                 if name == "base":
                     grouped(place, "checkout", tip, "--", *laid)
-                for command in task.settings["checks"]["setup"]:
+                for command in ran["setup"]:
                     code = outcome(command, place)
                     setup.append({"on": name, "command": command, "exit": code})
                     if code != 0:
@@ -754,7 +786,7 @@ def cmd_red(task: Task) -> dict:
     task.log("task.red", ok=ok, digest=found["digest"], base=base[:9], tip=tip[:9], tests=results, without_a_test=without, run_without=run_without)
     return {
         "task": task.slug, "ok": ok, "digest": found["digest"], "base": base[:9], "tip": tip[:9], "setup": setup, "tests": results,
-        "without_a_test": without, "run_without": run_without,
+        "without_a_test": without, "run_without": run_without, "inputs": ran,
     }
 
 
@@ -911,7 +943,7 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False, shown: str |
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="lem criteria", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the repository (default: the current one)")
-    parser.add_argument("step", choices=("approve", "approved", "digest", "show", "record", "red"))
+    parser.add_argument("step", choices=("approve", "approved", "digest", "show", "record", "red", "inputs"))
     parser.add_argument("slug")
     parser.add_argument("--file", help="with approve: the criteria the owner approved, in the form above and with no test lines; with digest: the criteria to mark")
     parser.add_argument("--small", action="store_true", help="with approve: Lem approves the one criterion of a task on the fast track in the owner's name")
@@ -965,6 +997,8 @@ def main(argv: list[str] | None = None) -> None:
                 result = {"task": task.slug, "of": args.file, "digest": text_digest(read["size"], [whole(criterion) for criterion in read["criteria"]])}
         elif args.step == "red":
             result = cmd_red(task)
+        elif args.step == "inputs":
+            result = cmd_inputs(task)
         else:
             result = task.criteria()
             if args.step == "record":

@@ -610,3 +610,74 @@ class SameChecks(unittest.TestCase):
         # docs/settings.md: "With no command, only the task that adds one can land"
         self.assertFalse(land.same_checks(self.SAVED, [], []))
         self.assertFalse(land.same_checks([], [], []))
+
+
+class TakenFromPolish(unittest.TestCase):
+    """`land.taken_from_polish`: the checks take the polish pass's result of the criteria's tests only
+    when the pass committed anything, on the standard track, and the five inputs its run reported are
+    the ones `lem criteria inputs` gives now; in every other case they run the tests themselves."""
+
+    TIP, BASE, PLAN = "a1b2c3d" + "0" * 33, "b0" * 20, "/repo/.lem/worktrees/t/docs/plans/2026-11-21-t.md"
+    INPUTS = {"tip": TIP, "base": BASE, "plan": PLAN, "setup": [], "serial": []}
+    # the pass's run of `lem criteria red`, as `polish --done` keeps it
+    RAN = {
+        "task": "t", "ok": True, "digest": "d1", "base": BASE[:9], "tip": TIP[:9], "setup": [],
+        "tests": [{"criterion": 1, "command": "sh tests/t.sh", "files": ["tests/t.sh"], "on_branch": 0, "on_base": 1, "problem": None}],
+        "without_a_test": [], "run_without": ["t.txt"], "inputs": INPUTS,
+    }
+    POLISH = {"before": "c0" * 20, "after": TIP, "done": True, "commits": 1, "filed": [], "criteria": RAN}
+
+    def taken(self, polish: dict | None = None, small: bool = False, **now: object) -> dict | None:
+        return land.taken_from_polish(self.POLISH if polish is None else polish, {**self.INPUTS, **now}, small)
+
+    def test_the_tip_the_pass_ended_on_takes_its_result_and_names_the_pass_and_its_commit(self) -> None:
+        self.assertEqual(self.taken(), {**self.RAN, "taken": {"from": "polish", "at": self.TIP}})
+
+    def test_a_base_branch_that_moved_on_with_the_same_merge_base_changes_nothing(self) -> None:
+        # origin's base took commits of its own: the merge-base of the tip and it is still the base commit of both runs
+        self.assertEqual(self.taken(base=self.BASE)["taken"], {"from": "polish", "at": self.TIP})
+
+    def test_the_fast_track_runs_the_tests(self) -> None:
+        self.assertIsNone(self.taken(small=True))
+
+    def test_a_pass_with_no_commits_runs_the_tests(self) -> None:
+        self.assertIsNone(self.taken({**self.POLISH, "commits": 0, "criteria": None}))
+
+    def test_no_pass_or_one_not_done_runs_the_tests(self) -> None:
+        self.assertIsNone(land.taken_from_polish(None, self.INPUTS, False))
+        self.assertIsNone(self.taken({"before": self.TIP, "done": False}))
+
+    def test_a_commit_after_the_pass_runs_the_tests(self) -> None:
+        # a builder's repair of a failed check: the branch is at e4f5a6b now
+        self.assertIsNone(self.taken(tip="e4f5a6b" + "0" * 33))
+
+    def test_a_rebased_tip_runs_the_tests_though_after_has_its_new_name(self) -> None:
+        rebased = "f0" * 20
+        # `through_rebase` gives `after` the rebased commit's name; the run still names the tip it ran on
+        self.assertIsNone(self.taken({**self.POLISH, "after": rebased}, tip=rebased, base="d0" * 20))
+
+    def test_after_decides_nothing_when_the_inputs_are_the_same(self) -> None:
+        self.assertEqual(self.taken({**self.POLISH, "after": "f0" * 20})["taken"]["at"], self.TIP)
+        self.assertEqual(self.taken({**self.POLISH, "after": None})["taken"]["at"], self.TIP)
+
+    def test_a_merge_base_that_moved_under_the_same_tip_runs_the_tests(self) -> None:
+        # the base branch took in a commit of the branch: the same tip has another base commit
+        self.assertIsNone(self.taken(base="d0" * 20))
+
+    def test_another_plan_file_runs_the_tests(self) -> None:
+        self.assertIsNone(self.taken(plan="/repo/.lem/worktrees/t/docs/plans/2026-11-22-t.md"))
+
+    def test_another_serial_or_setup_runs_the_tests(self) -> None:
+        self.assertIsNone(self.taken(serial=["sh tests/e2e"]))
+        self.assertIsNone(self.taken(setup=["npm ci"]))
+
+    def test_no_inputs_now_or_a_run_with_none_runs_the_tests(self) -> None:
+        self.assertIsNone(land.taken_from_polish(self.POLISH, None, False))
+        self.assertIsNone(self.taken({**self.POLISH, "criteria": {**self.RAN, "inputs": None}}))
+        self.assertIsNone(self.taken({**self.POLISH, "criteria": {**self.RAN, "ok": False}}))
+
+    def test_the_end_of_the_checks_names_the_commit_of_a_taken_result_and_nothing_for_a_run(self) -> None:
+        # `taken_at` gives the `taken` field of the run's `gate.end`
+        self.assertEqual(land.taken_at(self.taken()), self.TIP[:9])
+        self.assertIsNone(land.taken_at(self.RAN))
+        self.assertIsNone(land.taken_at(None))

@@ -4,8 +4,15 @@
 # place each and no setting; a settings file Lem cannot read is refused through the real command,
 # with exit 1, the key and the file (each rule of the file is a unit case, tests/unit/test_settings.py);
 # a worktree reads the main checkout's flow table, and the main checkout the base branch's copy while
-# another branch is checked out there. Then the task state and the event log, the rule picker, a task's criteria and the check that
-# each one's tests fail on the base commit, and the board, which reads them all.
+# another branch is checked out there. Then the task state and the event log, through one journey of
+# `state`, `log` and `tasks` for each line and record whose form a rule holds (the type line, the steps
+# a ticket is owed and the form of each record are unit cases, tests/unit/test_task_rules.py): the exit
+# status, the log that does not grow after a refusal and the newest record in `tasks`. Then the rule
+# picker, through one journey of `rules` (a glob's braces and what it matches are unit cases,
+# tests/unit/test_rule_picker.py): the rule files it finds in a subfolder and through a link, what it
+# reads of their frontmatter, a range of commits with a file that moved, the path forms and the
+# refusals. Then a task's criteria and the check that each one's tests fail on the base commit, and the
+# board, which reads them all.
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
@@ -327,19 +334,9 @@ if [ "$(field '(d["ticket"], d["steps"])' <<<"$out")" = "('MBZ-12', ['started'])
 else
   fail "ticket-step: $out / $(project --repo "$OLD" tasks | field '[(t["slug"], t["ticket_steps"]) for t in d]')"
 fi
-# A task that ended still owes its ticket the steps that are not written down.
-owed() { project --repo "$OLD" tasks | field 'next(t["ticket_owed"] for t in d if t["slug"] == "from-a-ticket")'; }
-printf '%s\n' '2026-01-01T00:00Z building: task 1 of 1' > "$OLD/.lem/state/tasks/from-a-ticket/state.md"
-building=$(owed)
-printf '%s\n' '2026-01-01T00:00Z landed: master a..b' > "$OLD/.lem/state/tasks/from-a-ticket/state.md"
-landed=$(owed)
+# A task that ended still owes its ticket the steps that are not written down (`ticket_owed`, a unit case,
+# tests/unit/test_task_rules.py).
 printf '%s\n' '2026-01-01T00:00Z dropped: the owner dropped it' > "$OLD/.lem/state/tasks/from-a-ticket/state.md"
-dropped=$(owed)
-if [ "$building" = "[]" ] && [ "$landed" = "['landed']" ] && [ "$dropped" = "['dropped']" ]; then
-  pass "a landed task owes its ticket the steps that are not written down, a dropped task its drop comment, and a task that still runs owes nothing"
-else
-  fail "ticket_owed: $building / $landed / $dropped"
-fi
 err=$(project --repo "$OLD" task-dir from-a-ticket --ticket MBZ-12 2>&1 || true)
 owes=$(project --repo "$OLD" task-dir the-same-ticket --ticket MBZ-12 2>&1 || true)
 owes_dir=$([ -e "$OLD/.lem/state/tasks/the-same-ticket" ] && echo made || echo none)
@@ -695,29 +692,25 @@ if [ "$(status_of project --repo "$OLD" log with-a-worktree task.state status=la
 else
   fail "log refusals"
 fi
-# A plan talk's record counts the repairs at the cause and the layers over a cited decision, and
-# the decisions two questions named; `tasks` gives each task its newest talk, which Lem and a
-# builder read before the build of a careful or large plan.
-talk() { project --repo "$OLD" log with-a-worktree plan.talk reviewer=codex turns:=6 questions:=3 settled:=2 open:=1 design:=1 unargued:=0 "$@" 2>&1 || true; }
+# A plan talk's record goes through the real command: log refuses one whose counts do not agree with
+# exit 1 and appends nothing, takes one with the bound its rules give, and `tasks` gives each task its
+# newest talk, which Lem and a builder read before the build of a careful or large plan. The form of the
+# record, each refusal's words among it, is a unit case (`talk_form`, tests/unit/test_task_rules.py).
+talk() { project --repo "$OLD" log with-a-worktree plan.talk reviewer=codex turns:=6 questions:=3 settled:=2 open:=1 design:=1 unargued:=0 "$@" 2>&1; }
 before=$(grep -c '' "$OLD/.lem/state/events.jsonl")
-untold=$(talk repaired:=2)
-layered=$(talk repaired:=2 root:=1 layer:=2 shared:=0)
-typed=$(talk repaired:=2 root:=1 layer=1 shared:=0)
+layered_code=0
+layered=$(talk repaired:=2 root:=1 layer:=2 shared:=0) || layered_code=$?
 none_yet=$(project --repo "$OLD" tasks | field '[t["talk"] for t in d if t["slug"] == "with-a-worktree"]' 2>&1 || true)
 after_refusals=$(grep -c '' "$OLD/.lem/state/events.jsonl")
-# more decisions two questions named than design choices breaks a rule of the talk, not a count: the record is taken
-unshared=$(talk repaired:=2 root:=1 layer:=1 shared:=2)
-talk repaired:=1 root:=0 layer:=1 shared:=0 >/dev/null
-written=$(talk repaired:=2 root:=1 layer:=1 shared:=1)
+talk repaired:=1 root:=0 layer:=1 shared:=0 >/dev/null || true
+written=$(talk repaired:=2 root:=1 layer:=1 shared:=2 || true)
 told=$(project --repo "$OLD" tasks | field '[(t["slug"], t["talk"] and (t["talk"]["root"], t["talk"]["layer"], t["talk"]["shared"], bool(t["talk"]["ts"]))) for t in d if t["slug"] in ("with-a-worktree", "report-dates-stay-whole")]' 2>&1 || true)
-if grep -qF "and nothing else; this one has design, open, questions, repaired, reviewer, settled, turns, unargued" <<<"$untold" \
-  && grep -qF "root and layer add up to at most repaired" <<<"$layered" && [ "$(field '(d["shared"], d["design"], d["bound"])' <<<"$unshared")" = "(2, 1, 14)" ] \
-  && grep -qF "each N is a whole number" <<<"$typed" && [ "$none_yet" = "[None]" ] && [ "$after_refusals" = "$before" ] \
-  && [ "$(field '(d["root"], d["layer"], d["shared"])' <<<"$written")" = "(1, 1, 1)" ] \
-  && [ "$told" = "[('report-dates-stay-whole', None), ('with-a-worktree', (1, 1, 1, True))]" ]; then
-  pass "a plan talk's record names its repairs at the cause, its layers over a cited decision and its decisions two questions named: root and layer add up to at most repaired, a record with more decisions two questions named than design choices is taken with its bound, and a refused record writes nothing; tasks gives each task its newest talk, or none"
+if [ "$layered_code" = 1 ] && grep -qF "root and layer add up to at most repaired" <<<"$layered" && [ "$none_yet" = "[None]" ] && [ "$after_refusals" = "$before" ] \
+  && [ "$(field '(d["root"], d["layer"], d["shared"], d["bound"])' <<<"$written")" = "(1, 1, 2, 14)" ] \
+  && [ "$told" = "[('report-dates-stay-whole', None), ('with-a-worktree', (1, 1, 2, True))]" ]; then
+  pass "log refuses a plan talk's record whose counts do not agree with exit 1 and writes nothing, and takes one with the bound its rules give; tasks gives each task its newest talk, or none"
 else
-  fail "the talk's new counts: $untold / $layered / $unshared / $typed / $none_yet / $written / $told"
+  fail "the plan talk through log and tasks: $layered_code $layered / $none_yet / $before $after_refusals / $written / $told"
 fi
 project --repo "$OLD" state with-a-worktree dropped "the test is over" >/dev/null
 
@@ -875,19 +868,22 @@ ANS=$WORK/answered
 git init -q -b main "$ANS"
 project --repo "$ANS" init --base main >/dev/null
 ans_dir=$(project --repo "$ANS" task-dir zero-after-refund --ask "invoices show 0 after a refund")
+# The type line through the real command: state refuses one in another form with exit 1 and writes no block,
+# and tasks gives the newest type. Its form, each refusal's words among it, is a unit case (`type_line`,
+# tests/unit/test_task_rules.py).
 before=$(grep -c '' "$ANS/.lem/state/events.jsonl" 2>/dev/null || echo 0)
-unknown=$(project --repo "$ANS" state zero-after-refund building "an investigator reproduces the bug and finds its cause" "investigation: bug" "type: defect, because the total is wrong" 2>&1 || true)
-unsaid=$(project --repo "$ANS" state zero-after-refund building "an investigator reproduces the bug and finds its cause" "investigation: bug" "type: fix" 2>&1 || true)
+unsaid_code=0
+unsaid=$(project --repo "$ANS" state zero-after-refund building "an investigator reproduces the bug and finds its cause" "investigation: bug" "type: fix" 2>&1) || unsaid_code=$?
 after_refusals=$(grep -c '' "$ANS/.lem/state/events.jsonl" 2>/dev/null || echo 0)
+unwritten=$([ -f "$ans_dir/state.md" ] && echo written || echo none)
 first_said=$(project --repo "$ANS" state zero-after-refund building "an investigator reproduces the bug and finds its cause" "investigation: bug" "type: fix, because the ask says the total is wrong today")
 second_said=$(project --repo "$ANS" state zero-after-refund building "the test that reproduces the bug is committed" "investigation: bug")
 kind=$(project --repo "$ANS" tasks | field 'next(t["type"] for t in d if t["slug"] == "zero-after-refund")' 2>&1 || true)
-if grep -qF "'defect' is not a type of request" <<<"$unknown" && grep -qF "feat, fix, docs, refactor, perf, test, chore, question" <<<"$unknown" \
-  && grep -qF "write it as \`type: fix, because ...\`" <<<"$unsaid" && [ "$after_refusals" = "$before" ] \
+if [ "$unsaid_code" = 1 ] && grep -qF "names the type without its reason" <<<"$unsaid" && [ "$after_refusals" = "$before" ] && [ "$unwritten" = none ] \
   && [ "$kind" = "{'type': 'fix', 'why': 'the ask says the total is wrong today'}" ]; then
-  pass "a state line that names the type of a request names one of the eight with its reason, and tasks gives the newest type also when a later block says nothing of it"
+  pass "state refuses a type line without its reason with exit 1 and writes no block, takes one with it, and tasks gives the newest type also when a later block says nothing of it"
 else
-  fail "the type of a request: $unknown / $unsaid / $before $after_refusals / $kind"
+  fail "the type of a request: $unsaid_code $unsaid / $before $after_refusals / $unwritten / $kind"
 fi
 # The task's first line: `state` composes it for the block that names the task's path, from the task's files, and logs it
 # with the block; a later block, and a task of the night, get none.
@@ -945,47 +941,36 @@ if [ "$hold_said" = None ] && [ "$again_said" = None ] \
 else
   fail "the first line after the hold: $hold_said / $answer_said / $answer_named / $again_said"
 fi
-# The investigation's record: a fix's call, whether the bug was reproduced and where the cause is; a question's answer.
-inv() { project --repo "$ANS" log zero-after-refund investigation "$@" 2>&1 || true; }
+# The investigation's record through the real command: log refuses one in another form with exit 1 and appends
+# nothing, takes one in its form, and tasks gives the newest. The form, each refusal's words among it, is a unit
+# case (`investigation_form`, tests/unit/test_task_rules.py).
+inv() { project --repo "$ANS" log zero-after-refund investigation "$@" 2>&1; }
 before=$(grep -c '' "$ANS/.lem/state/events.jsonl")
-asked_back=$(inv type=question call=answer "line=the refund writes a credit note" reproduced:=true)
-nowhere=$(inv type=fix call=small "line=the total skips credit notes" reproduced:=true)
-not_so=$(inv type=fix call=not-reproduced "line=a refund of 10 gave 90" reproduced:=true)
-odd_call=$(inv type=fix call=maybe "line=x" reproduced:=false)
-untyped=$(inv type=fix call=full "line=x" where=a.py:f reproduced=true)
+nowhere_code=0
+nowhere=$(inv type=fix call=small "line=the total skips credit notes" reproduced:=true) || nowhere_code=$?
 after_refusals=$(grep -c '' "$ANS/.lem/state/events.jsonl")
 none_yet=$(project --repo "$ANS" tasks | field 'next(t["investigation"] for t in d if t["slug"] == "zero-after-refund")' 2>&1 || true)
-inv type=fix call=full "line=the invoice total adds the refund as a payment" where=billing/invoice.py:total reproduced:=true >/dev/null
+inv type=fix call=full "line=the invoice total adds the refund as a payment" where=billing/invoice.py:total reproduced:=true >/dev/null || true
 found=$(project --repo "$ANS" tasks | field 'next((t["investigation"]["call"], t["investigation"]["where"], t["investigation"]["reproduced"]) for t in d if t["slug"] == "zero-after-refund")' 2>&1 || true)
-if grep -qF "reproduced is a fix's" <<<"$asked_back" && grep -qF "where names the cause" <<<"$nowhere" && grep -qF "not-reproduced is a bug that was not reproduced" <<<"$not_so" \
-  && grep -qF "call is small, full, not-a-bug or not-reproduced for a fix" <<<"$odd_call" && grep -qF "written with :=" <<<"$untyped" \
-  && [ "$after_refusals" = "$before" ] && [ "$none_yet" = "None" ] && [ "$found" = "('full', 'billing/invoice.py:total', True)" ]; then
-  pass "an investigation's record names its type, its call and its one line, a fix's whether the bug was reproduced and a cause's place; a wrong one writes nothing, and tasks gives the newest"
+if [ "$nowhere_code" = 1 ] && grep -qF "where names the cause" <<<"$nowhere" && [ "$after_refusals" = "$before" ] \
+  && [ "$none_yet" = "None" ] && [ "$found" = "('full', 'billing/invoice.py:total', True)" ]; then
+  pass "log refuses an investigation's record in another form with exit 1 and writes nothing, and takes one in its form; tasks gives the newest"
 else
-  fail "the investigation's record: $asked_back / $nowhere / $not_so / $odd_call / $untyped / $before $after_refusals / $none_yet / $found"
+  fail "the investigation's record through log and tasks: $nowhere_code $nowhere / $before $after_refusals / $none_yet / $found"
 fi
-# The start of each stage an agent runs has one form, so that the board draws its span from it to the event that ends it.
-starts() { project --repo "$ANS" log zero-after-refund "$@" 2>&1 || true; }
+# A stage's start through the real command: log takes one in its form, so that the board draws its span from it to
+# the event that ends it, and refuses one in another form with exit 1 and appends nothing. The form of each start,
+# each refusal's words among it, is a unit case (`start_form`, tests/unit/test_task_rules.py).
+starts() { project --repo "$ANS" log zero-after-refund "$@" 2>&1; }
 before=$(grep -c '' "$ANS/.lem/state/events.jsonl")
-good=$(for form in "interview.start" "scout.start" "scout" "criteria.read.start by=lem" "criteria.read.start by=lead" "investigation.start type=fix" "investigation.start type=question" \
-  "builder.start job=task 2 of 3" "builder.start job=the small change" "builder.start job=the repair of a conflict with the base" "builder.start job=the repair of a failed check" "builder.start job=the fix of a review's findings"; do
-  read -r -a words <<<"${form%% *}"; if [ "$form" = "${form%% *}" ]; then starts "${words[0]}" | field 'd["event"]'; else starts "${words[0]}" "${form#* }" | field 'd["event"]'; fi; done | sort -u | tr '\n' ' ')
-added=$(( $(grep -c '' "$ANS/.lem/state/events.jsonl") - before ))
-with_field=$(starts interview.start by=lem)
-no_by=$(starts criteria.read.start)
-odd_by=$(starts criteria.read.start by=owner)
-odd_kind=$(starts investigation.start kind=question)
-odd_job=$(starts builder.start "job=the polish pass")
-task_zero=$(starts builder.start "job=task 0 of 3")
-script_start=$(starts gate.start tip=abc123456)
-if [ "$good" = "builder.start criteria.read.start interview.start investigation.start scout scout.start " ] && [ "$added" = 12 ] \
-  && grep -qF "interview.start takes nothing" <<<"$with_field" && grep -qF "criteria.read.start takes by=lem|lead, and nothing else" <<<"$no_by" && grep -qF "by is 'owner'" <<<"$odd_by" \
-  && grep -qF "investigation.start takes type=fix|question" <<<"$odd_kind" && grep -qF "builder.start takes job=" <<<"$odd_job" && grep -qF "the polish pass logs its own start" <<<"$odd_job" \
-  && grep -qF "builder.start takes job=" <<<"$task_zero" && grep -qF "gate.start takes tip=TIP commands:=N" <<<"$script_start" \
-  && [ "$(grep -c '' "$ANS/.lem/state/events.jsonl")" = $((before + 12)) ]; then
-  pass "the start of the interview, the scout, the personas' read, an investigation and a builder's job each has one form, the scout's end too; a start with a wrong field, a job no builder has or a script's start in another form writes nothing"
+started=$(starts builder.start "job=task 2 of 3" || true)
+odd_job_code=0
+odd_job=$(starts builder.start "job=the polish pass") || odd_job_code=$?
+if [ "$(field '(d["event"], d["job"])' <<<"$started")" = "('builder.start', 'task 2 of 3')" ] && [ "$odd_job_code" = 1 ] \
+  && grep -qF "the polish pass logs its own start" <<<"$odd_job" && [ "$(grep -c '' "$ANS/.lem/state/events.jsonl")" = $((before + 1)) ]; then
+  pass "log takes a builder's start in its form, and refuses a job no builder has with exit 1 and writes nothing"
 else
-  fail "the forms of the starts: $good / $added / $with_field / $no_by / $odd_by / $odd_kind / $odd_job / $task_zero / $script_start"
+  fail "a start through log: $started / $odd_job_code $odd_job"
 fi
 # a breaker that stopped the investigation while the task built, which nobody helped on before the task ended
 breaker_doc "$ans_dir" && "$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ANS" breaker zero-after-refund --cause irreversible --irreversible data >/dev/null
@@ -993,7 +978,7 @@ breaker_doc "$ans_dir" && "$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo
 no_report=$(project --repo "$ANS" state zero-after-refund answered "not a bug: a refund is a credit note" 2>&1 || true)
 printf '%s\n' '# Investigation' '' 'Reproduced: yes.' > "$ans_dir/investigation.md"
 goes_on=$(project --repo "$ANS" state zero-after-refund answered "not a bug: a refund is a credit note" 2>&1 || true)
-inv type=fix call=not-a-bug "line=a refund is a credit note, and the invoice shows what is left to pay" where=billing/invoice.py:total reproduced:=true >/dev/null
+inv type=fix call=not-a-bug "line=a refund is a credit note, and the invoice shows what is left to pay" where=billing/invoice.py:total reproduced:=true >/dev/null || true
 project --repo "$ANS" state zero-after-refund answered "not a bug: the invoice shows what is left to pay" "report: investigation.md" >/dev/null 2>&1 || true
 answered=$(project --repo "$ANS" tasks | field 'next((t["status"], t["investigation"]["call"]) for t in d if t["slug"] == "zero-after-refund")' 2>&1 || true)
 project --repo "$ANS" task-dir other-task >/dev/null
@@ -1034,6 +1019,8 @@ project --repo "$OLD" log owner-lands-it proposed green:=false 'not_green:=["cri
 project --repo "$OLD" state owner-lands-it open "ready to land on master at abc1234" "not green: criterion 1 changed during the build: y is taken." >/dev/null
 
 # The rule picker: one match of a change against the scopes of the style guide files, for every reader of the rules.
+# Each glob form, a brace group and what it matches or not is a unit case (`braces`, `glob_regex`,
+# tests/unit/test_rule_picker.py); here each rule file covers one file or more of one call.
 RUL=$WORK/rules-repo
 git init -q -b main "$RUL"
 git -C "$RUL" config user.name t && git -C "$RUL" config user.email t@t
@@ -1054,25 +1041,12 @@ echo 'not a rule' > "$RUL/.claude/rules/notes.txt"
 project --repo "$RUL" init --base main >/dev/null
 git -C "$RUL" add -A && git -C "$RUL" commit -q -m "chore: start"
 picked() { project --repo "$RUL" rules "$@" | field '" ".join(r["file"].rsplit("/", 1)[1][:2] for r in d["rules"])'; }
-got=""
-for file in src/api/v1/x.ts src/x.ts x.ts README.md docs/README.md src/components/a.tsx src/components/deep/a.tsx src/components/a.css lib/a.ts lib/a.tsx tests/unit/a.test.ts tests/a.ts \
-  models.py app/models.py app/models/user/x.py app/models.pyc .revmux/lenses/a.md scripts/verify.sh scripts/other.sh docs/a/x.md docs/c/x.md db/001.sql 'db/a#b.psql' api/v1.proto lib/../src/x.ts Makefile; do
-  got="$got$file=$(picked "$file");"
-done
-want="src/api/v1/x.ts=00 01 10 11 14;src/x.ts=00 01 10 11 14;x.ts=00 01 10;README.md=00 01 12;docs/README.md=00 01;src/components/a.tsx=00 01 11 13 14;src/components/deep/a.tsx=00 01 11 14;"
-want="${want}src/components/a.css=00 01 11;lib/a.ts=00 01 10 14;lib/a.tsx=00 01;tests/unit/a.test.ts=00 01 10 14;tests/a.ts=00 01 10;"
-want="${want}models.py=00 01 20;app/models.py=00 01 20;app/models/user/x.py=00 01 20;app/models.pyc=00 01;.revmux/lenses/a.md=00 01 20;scripts/verify.sh=00 01 21;scripts/other.sh=00 01;"
-want="${want}docs/a/x.md=00 01 20;docs/c/x.md=00 01;db/001.sql=00 01 30;db/a#b.psql=00 01 30;api/v1.proto=00 01 15;lib/../src/x.ts=00 01 10 11 14;Makefile=00 01;"
-if [ "$got" = "$want" ]; then
-  pass "the rule picker matches the glob forms the agent's documentation gives for paths: a star stays in one folder, two stars cross folders, braces list endings, a file with no scope covers every path, and a comment or a byte order mark in the frontmatter changes nothing"
-else
-  fail "the rule picker: $(tr ';' '\n' <<<"$got" | diff - <(tr ';' '\n' <<<"$want"))"
-fi
-out=$(project --repo "$RUL" rules src/components/a.tsx "$RUL/app/models.py")
+out=$(project --repo "$RUL" rules src/components/a.tsx "$RUL/app/models.py" docs/a/x.md lib/a.ts tests/unit/a.test.ts scripts/verify.sh db/001.sql 'db/a#b.psql' api/v1.proto README.md)
 if [ "$(field '[(r["file"].rsplit("/", 1)[1], r["scope"], r.get("covers")) for r in d["rules"] if r["scope"] != "every path"]' <<<"$out")" \
-  = "[('11-under-src.md', ['src/**/*'], ['src/components/a.tsx']), ('13-one-folder.md', ['src/components/*.tsx'], ['src/components/a.tsx']), ('14-braces.md', ['src/**/*.{ts,tsx}'], ['src/components/a.tsx']), ('20-models.md', ['**/models.py'], ['app/models.py'])]" ] \
-  && [ "$(field '(d["files"], d["exists"], d["folder"], d["rules"][0]["file"])' <<<"$out")" = "(['app/models.py', 'src/components/a.tsx'], True, '$RUL/.claude/rules', '$RUL/.claude/rules/00-conduct.md')" ]; then
-  pass "the picker says for each rule which glob matched and which files it covers, reads rule files in subfolders and through links, and does not turn in a loop of links"
+  = "[('10-any-ts.md', ['**/*.ts'], ['lib/a.ts', 'tests/unit/a.test.ts']), ('11-under-src.md', ['src/**/*'], ['src/components/a.tsx']), ('12-root-md.md', ['*.md'], ['README.md']), ('13-one-folder.md', ['src/components/*.tsx'], ['src/components/a.tsx']), ('14-braces.md', ['lib/**/*.ts', 'src/**/*.{ts,tsx}', 'tests/**/*.test.ts'], ['lib/a.ts', 'src/components/a.tsx', 'tests/unit/a.test.ts']), ('15-bom.md', ['**/*.proto'], ['api/v1.proto']), ('20-models.md', ['**/models.py', 'docs/{a,b}/*.md'], ['app/models.py', 'docs/a/x.md']), ('21-one-file.md', ['scripts/verify.sh'], ['scripts/verify.sh']), ('30-sql.md', ['**/*#*.psql', '**/*.sql'], ['db/001.sql', 'db/a#b.psql'])]" ] \
+  && [ "$(field '[r["file"].rsplit("/", 1)[1] for r in d["rules"] if r["scope"] == "every path"]' <<<"$out")" = "['00-conduct.md', '01-reports.md']" ] \
+  && [ "$(field '(d["files"][:3], d["exists"], d["folder"], d["rules"][0]["file"], len(d["rules"]))' <<<"$out")" = "(['README.md', 'api/v1.proto', 'app/models.py'], True, '$RUL/.claude/rules', '$RUL/.claude/rules/00-conduct.md', 11)" ]; then
+  pass "the picker reads the scope of each rule file, in a subfolder and through a link, with a comment, a flow list, a scalar or a byte order mark in its frontmatter, says which glob matched and which files each covers, gives a file with no scope every path, and does not turn in a loop of links"
 else
   fail "the picker's output: $out"
 fi
@@ -1106,18 +1080,14 @@ shape=$(project --repo "$RUL" rules x.ts 2>&1 || true)
 printf '%s\n' '---' 'paths: ["src/[z-a].ts"]' '---' > "$RUL/.claude/rules/40-empty.md"
 glob=$(project --repo "$RUL" rules x.ts 2>&1 || true)
 code="$(status_of project --repo "$RUL" rules) $(status_of project --repo "$RUL" rules "$WORK/elsewhere.py") $(status_of project --repo "$RUL" rules x.ts)"
-printf '%s\n' '---' 'paths: ["src/[!].ts"]' '---' > "$RUL/.claude/rules/40-empty.md"
-code="$code $(status_of project --repo "$RUL" rules x.ts)"
-printf '%s\n' '---' 'paths: ["a{b", "c}", "[", "src/**/", "d**e/*.x"]' '---' > "$RUL/.claude/rules/40-empty.md"
-odd=$(project --repo "$RUL" rules 'dxe/f.x' 'a{b' 'src/x.ts' | field '[r.get("covers") for r in d["rules"] if r["file"].endswith("40-empty.md")]')
 rm "$RUL/.claude/rules/40-empty.md"
-if [ "$code" = "1 1 1 1" ] && grep -q "name them, or pass --range BASE..TIP" <<<"$err" && grep -q "is not inside $RUL" <<<"$outside" \
+if [ "$code" = "1 1 1" ] && grep -q "name them, or pass --range BASE..TIP" <<<"$err" && grep -q "is not inside $RUL" <<<"$outside" \
   && grep -q ".claude/rules/40-empty.md: its .paths:. names no glob" <<<"$empty" && grep -q "or take the line out so the file covers every path" <<<"$empty" \
   && grep -q "a line under .paths:. is not a list item" <<<"$shape" \
-  && grep -q ".claude/rules/40-empty.md: a glob of its .paths:. does not read as a pattern" <<<"$glob" && ! grep -q Traceback <<<"$glob" && [ "$odd" = "[['a{b', 'dxe/f.x']]" ]; then
-  pass "the picker refuses a call with no file, a file of another folder, and a rule whose paths name no glob, are no list or hold a pattern that does not read, each with the fix; an odd glob that reads matches as written"
+  && grep -q ".claude/rules/40-empty.md: a glob of its .paths:. does not read as a pattern" <<<"$glob" && ! grep -q Traceback <<<"$glob"; then
+  pass "the picker refuses a call with no file, a file of another folder, and a rule whose paths name no glob, are no list or hold a pattern that does not read, each with the fix"
 else
-  fail "the picker's refusals: $code / $err / $outside / $empty / $shape / $glob / $odd"
+  fail "the picker's refusals: $code / $err / $outside / $empty / $shape / $glob"
 fi
 # A project with no rules yet gets an empty answer, not an error.
 FRESH=$WORK/rules-fresh

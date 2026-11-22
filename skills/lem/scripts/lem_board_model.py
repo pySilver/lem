@@ -1508,7 +1508,7 @@ def job_of(e: dict):
 
 def gate_end_said(e: dict) -> dict:
     said = say_of(e)
-    ran = f"after {span((e.get('seconds') or 0) * 1000)} on {e.get('tip') or '?'}"
+    ran = f"after {span((e.get('seconds') or 0) * 1000)} on {e.get('tip') or '?'}" + (f" · the tests of the criteria taken from the polish pass at {e['taken']}, not run again" if e.get("taken") else "")
     info = {"actor": "done", "icon": "check"} if e.get("result") == "passed" else {"actor": "lem", "icon": "x"} if e.get("result") == "stopped" else {"actor": "bad", "icon": "alert"}
     return {"info": info, "head": checks_end(e.get("result"))["head"], "text": said or ran, "sub": ran if said else ""}
 
@@ -2274,10 +2274,12 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
         Lem's: the rebase onto the base before the first step, and Lem between two steps after it. One
         run of the gate is its commands on one tip, in order: a repair shows only as a run on another
         tip after a failed run, a failed check of the criteria or a must-fix, or as a builder's start.
-        A run of the checks ends at its `gate.end`, however it ended."""
+        A run of the checks ends at its `gate.end`, however it ended. A run that took the polish pass's
+        result of the criteria's tests logs no `task.red`: its `gate.end` names the pass's commit (`taken`),
+        and the span of the criteria's tests is drawn from it."""
         inside = [e for i, e in enumerate(events) if block_of.get(i) == k and (e.get("event") in CHECKS or e.get("event") in LANDING_STARTS)]
         stepped = any(e.get("event") in LANDING_STARTS for e in inside)
-        run, owed, prev, before, opened, checks = None, False, frm, None, None, None
+        run, owed, prev, before, opened, checks, polished = None, False, frm, None, None, None, None
 
         def job(e: dict) -> str:
             return cap(str(job_of(e) or "a job"))
@@ -2303,7 +2305,7 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
             repairing = False
             if ev == "polish":
                 add("builders", prev, x, "The polish pass", f"{e.get('before') or '?'} → {e.get('after') or '?'} · {plural(e.get('commits') or 0, 'commit')}")
-                run, owed, prev, before, opened = None, False, x, e, None
+                run, owed, prev, before, opened, polished = None, False, x, e, None, e
                 continue
             if ev == "gate":
                 if not run or run["done"] or not same_tip(run["tip"], e.get("tip")):
@@ -2331,6 +2333,11 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
             elif ev == "task.red":
                 add("checks", prev, x, "The tests of the criteria, on the branch and on the base commit", "each test holds its criterion" if e.get("ok") else "a test does not hold its criterion")
             elif ev == "gate.end":
+                if e.get("taken"):
+                    # drawn also with no width: it is the one place that says where the criteria's result came from
+                    spans.append({"row": "checks", "from": prev, "to": max(prev, x), "live": False, "head": f"The tests of the criteria, taken from the polish pass at {e['taken']}",
+                                  "sub": "not run again: the pass ran them on this commit, with the same inputs"})
+                    prev = max(prev, x)
                 # drawn also with no width: a refusal often shares its second with the event before it,
                 # and its head is the one place that says how the run ended
                 sub = [refused_of(e) if e.get("result") == "refused" else "",
@@ -2370,6 +2377,9 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
                     row, head = after_failure
                 elif run["failed"] and gates is None:
                     row, head = "lem", "A command of this run failed: the next command, a repair or a stop, and no event says which yet"
+                elif run["done"] and polished and polished.get("commits") and same_tip(polished.get("after"), run["tip"]):
+                    # the checks take the pass's result when its run's inputs are still the same, and run the tests otherwise
+                    row, head = "checks", f"The checks read the criteria again: the polish pass's result at {run['tip']} is taken, or the tests run when an input changed"
                 elif run["done"]:
                     row, head = "checks", "The tests of the criteria run"
                 else:
