@@ -357,6 +357,238 @@ for href in guides:
     elif found.group(2) and found.group(2) not in heading_slugs(root / found.group(1)):
         problems.append(f"{href}: {found.group(1)} has no heading #{found.group(2)}")
 verdict["guides"] = "; ".join(problems)
+
+# 7: the scene, assets/lem.svg, and the night file assets/night.py writes from it; the README and the page show both
+SCENES = {"day": root / "assets/lem.svg", "night": root / "assets/lem-night.svg"}
+scenes = {theme: path.read_text(encoding="utf-8") if path.is_file() else "" for theme, path in SCENES.items()}
+def attrs_of(tag):
+    return dict(re.findall(r'([\w:-]+)="([^"]*)"', tag))
+def seconds(value):
+    found = re.fullmatch(r"(-?[\d.]+)(m?s)", value.strip())
+    return float(found.group(1)) / (1000 if found.group(2) == "ms" else 1) if found else None
+def rules(svg):
+    """Each rule of the scene's style outside its keyframes and media rules: selector to its declarations."""
+    style = "\n".join(re.findall(r"(?s)<style>(.*?)</style>", svg))
+    flat_style = re.sub(r"@(?:keyframes|media)[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}", "", style)
+    return {sel.strip(): dict((k.strip(), v.strip()) for k, v in re.findall(r"([\w-]+)\s*:\s*([^;]+)", body))
+            for sel, body in re.findall(r"([^{}]+)\{([^{}]*)\}", flat_style)}
+def frames(svg, name):
+    """The keyframes NAME as a list of (percent, declarations)."""
+    found = re.search(r"@keyframes\s+" + re.escape(name) + r"\s*\{((?:[^{}]*\{[^{}]*\})*)[^{}]*\}", svg)
+    out = []
+    for stops, body in re.findall(r"([^{}]+)\{([^{}]*)\}", found.group(1) if found else ""):
+        decl = dict((k.strip(), v.strip()) for k, v in re.findall(r"([\w-]+)\s*:\s*([^;]+)", body))
+        for stop in stops.split(","):
+            stop = stop.strip()
+            out.append((0.0 if stop == "from" else 100.0 if stop == "to" else float(stop.rstrip("%")), decl))
+    return sorted(out, key=lambda pair: pair[0])
+def animation(rule):
+    """The name, the duration and the delay of a rule's animation shorthand."""
+    parts = (rule or {}).get("animation", "").split()
+    times = [seconds(p) for p in parts if seconds(p) is not None]
+    names = [p for p in parts if seconds(p) is None and p not in ("linear", "ease-in-out", "ease", "infinite", "alternate", "none", "!important")]
+    return (names[0] if names else None, times[0] if times else None, times[1] if len(times) > 1 else 0.0)
+def elements(svg, cls):
+    return [attrs_of(tag) for tag in re.findall(r"<\w+\b[^>]*\bclass=\"" + re.escape(cls) + r"\"[^>]*>", svg)]
+def inline(attrs, key):
+    found = re.search(re.escape(key) + r"\s*:\s*([^;]+)", attrs.get("style", ""))
+    return found.group(1).strip() if found else None
+def hexes(svg):
+    return set(re.findall(r"#[0-9a-f]{6}\b", svg))
+
+# criterion 3: the pulse on the wire, the pegs' flash and the tiles, one cycle of 8 seconds with a rest
+problems = []
+for theme, svg in scenes.items():
+    style = rules(svg)
+    pulses = elements(svg, "pulse")
+    if len(pulses) != 3:
+        problems.append(f"the {theme} scene has {len(pulses)} paths of the pulse, not 3")
+    for pulse in pulses:
+        dash = [float(v) for v in (inline(pulse, "stroke-dasharray") or "0 0").split()]
+        start, name = float(inline(pulse, "stroke-dashoffset") or "nan"), inline(pulse, "animation-name")
+        keys = frames(svg, name or "")
+        offsets = [(at, float(d["stroke-dashoffset"])) for at, d in keys if "stroke-dashoffset" in d]
+        if pulse.get("pathLength") != "1000" or len(dash) != 2 or dash[1] < 1000 + dash[0] or start != dash[0]:
+            problems.append(f"a pulse of the {theme} scene does not rest before the line's start: pathLength {pulse.get('pathLength')}, dash {dash}, offset {start}")
+        elif not offsets or offsets[0] != (0.0, dash[0]) or -offsets[-1][1] < 1000 or min(at for at, off in offsets if -off >= 1000) > 90:
+            problems.append(f"the pulse {name} of the {theme} scene does not run from the left edge past the right one with a rest: {offsets}")
+    flashes, drips, tiles = elements(svg, "flash"), elements(svg, "drip"), elements(svg, "tile")
+    if len(flashes) != 8 or len(drips) != 8:
+        problems.append(f"the {theme} scene flashes {len(flashes)} pegs and runs down {len(drips)} strands, not the 8 of each")
+    if len(tiles) != 42:
+        problems.append(f"the {theme} scene lights {len(tiles)} tiles, not the 41 of the word and its cursor")
+    letters = {"L": [], "e": [], "m": [], "cursor": []}
+    for tile in tiles:
+        x = float(re.match(r"M([\d.]+)", tile.get("d", "M0")).group(1))
+        letters["L" if x < 400 else "e" if x < 490 else "m" if x < 580 else "cursor"].append(seconds(inline(tile, "animation-delay") or "0s"))
+    means = [sum(v) / len(v) if v else None for v in letters.values()]
+    if None in means or means != sorted(means):
+        problems.append(f"the {theme} scene's letters do not light from left to right: mean delays {means}")
+    for cls in ("pulse", "flash", "drip", "glow", "tile"):
+        name, duration, _ = animation(style.get("." + cls))
+        if duration != 8:
+            problems.append(f"the {theme} scene's .{cls} runs {name} in {duration} s, not the cycle of 8 s")
+verdict["scene_wire"] = "; ".join(problems)
+
+# criterion 4: about a hundred stars, each on its own timing, and the aurora by night; haze, rays and a shimmer by day
+problems = []
+for theme, svg in scenes.items():
+    style, prefix = rules(svg), "c2n" if theme == "night" else "c2"
+    hidden = [sel for sel, decl in style.items() if decl.get("display") == "none"]
+    want = [f".{prefix}-sky-day"] if theme == "night" else [f".{prefix}-sky-night"]
+    if hidden != want:
+        problems.append(f"the {theme} scene hides {hidden}, not {want}")
+    stars = re.search(r'<g class="stars">(.*?)</g>', svg)
+    timings = re.findall(r'<circle\b[^>]*style="animation-duration:([\d.]+s);animation-delay:(-?[\d.]+s)"', stars.group(1)) if stars else []
+    if not 90 <= len(timings) <= 120 or len(set(timings)) < 0.9 * len(timings):
+        problems.append(f"the {theme} scene has {len(timings)} stars, {len(set(timings))} timings of their own")
+    for cls, name in ((".band1", "drift1"), (".band2", "drift2"), (".haze", "haze"), (".heat1", "heat1"), (".heat2", "heat2"),
+                      (".ray", "ray"), (".stars circle, .star", "twinkle")):
+        got, duration, _ = animation(style.get(cls))
+        if got != name or not duration or not frames(svg, name):
+            problems.append(f"the {theme} scene's {cls} runs {got} in {duration} s, not the keyframes {name}")
+    for cls in ("band1", "band2"):
+        if not elements(svg, cls):
+            problems.append(f"the {theme} scene draws no aurora band .{cls}")
+    if not re.search(r'<feTurbulence\b', svg) or not elements(svg, "fan") or not elements(svg, "haze"):
+        problems.append(f"the {theme} scene draws no shimmer, rays or haze")
+verdict["scene_sky"] = "; ".join(problems)
+
+# criterion 5: one red eye that glows, blinks every 5 to 7 seconds, flares as the pulse passes the figure; one red in both
+problems, reds = [], {}
+for theme, svg in scenes.items():
+    style = rules(svg)
+    eye = re.search(r'<g class="eye">(.*?)</g>', svg)
+    name, blink, _ = animation(style.get(".eye"))
+    if not eye or not (5 <= (blink or 0) <= 7) or not frames(svg, name or ""):
+        problems.append(f"the {theme} scene's eye blinks {name} every {blink} s, not every 5 to 7 s")
+    elif not any(float(d.get("opacity", 1)) < .5 for _, d in frames(svg, name)) or any(float(d.get("opacity", 1)) < 1 for at, d in frames(svg, name) if at in (0, 100)):
+        problems.append(f"the {theme} scene's eye does not glow and dim for a moment: {frames(svg, name)}")
+    name, period, delay = animation(style.get(".flare"))
+    flash_at = sorted((float(f["cx"]), seconds(inline(f, "animation-delay") or "0s")) for f in elements(svg, "flash"))
+    around = [t for x, t in flash_at if x < 130][-1:] + [t for x, t in flash_at if x > 130][:1]
+    if not elements(svg, "flare") or period != 8 or style.get(".flare", {}).get("opacity") != "0" or len(around) != 2 or not around[0] <= delay <= around[1]:
+        problems.append(f"the {theme} scene's eye flares {name} at {delay} s of {period} s, not as the pulse passes the figure between the flashes at {around}")
+    colors = hexes(eye.group(1) if eye else "") | hexes(re.search(r'<radialGradient id="c2n?-eye">.*?</radialGradient>', svg).group(0) if re.search(r'<radialGradient id="c2n?-eye">', svg) else "")
+    reds[theme] = colors
+    if not colors or any(not (int(c[1:3], 16) > 200 and int(c[3:5], 16) < 80 and int(c[5:7], 16) < 80) for c in colors):
+        problems.append(f"the {theme} scene's eye is {sorted(colors)}, not a red")
+if reds.get("day") != reds.get("night"):
+    problems.append(f"the eye is {sorted(reds.get('day', []))} by day and {sorted(reds.get('night', []))} at night")
+verdict["scene_eye"] = "; ".join(problems)
+
+# criterion 7: one rule stops every animation, nothing animates past it, and each light rests dark
+problems = []
+for theme, svg in scenes.items():
+    style, media = rules(svg), re.findall(r"@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{\s*([^{}]*)\{([^{}]*)\}\s*\}", svg)
+    if len(re.findall(r"@media", svg)) != 1 or media != [("* ", " animation: none !important; ")]:
+        problems.append(f"the {theme} scene's rules for reduce motion are {media}, not the one * {{ animation: none !important; }}")
+    smil = sorted(set(re.findall(r"<(animate\w*|set)\b", svg)))
+    if smil:
+        problems.append(f"the {theme} scene animates with {smil}, which the rule does not stop")
+    for cls in ("flash", "glow", "tile", "flare"):
+        if style.get("." + cls, {}).get("opacity") != "0":
+            problems.append(f"the {theme} scene's .{cls} does not rest unlit")
+    drip = style.get(".drip", {})
+    if not drip or drip.get("stroke-dashoffset") != (drip.get("stroke-dasharray", "") + " -").split()[0]:
+        problems.append(f"the {theme} scene's .drip does not rest before its strand: {drip}")
+verdict["scene_still"] = "; ".join(problems)
+
+# criteria 8 and 9: the files are pictures with nothing to fetch and no script, of the scene's frame, each under 50 KB
+problems = []
+for theme, svg in scenes.items():
+    size = len(svg.encode("utf-8"))
+    if not svg or size >= 50000:
+        problems.append(f"the {theme} scene is {size} bytes, not under 50,000")
+    head = attrs_of(re.match(r"<svg\b[^>]*>", svg).group(0)) if re.match(r"<svg\b[^>]*>", svg) else {}
+    if (head.get("viewBox"), head.get("width"), head.get("height")) != ("0 0 1600 640", "1600", "640"):
+        problems.append(f"the {theme} scene's frame is {head.get('viewBox')} at {head.get('width')} x {head.get('height')}")
+    outside = re.findall(r"<script\b|<foreignObject\b|<image\b|\son\w+=|@import|(?:href|src)=\"(?!#)[^\"]*\"|url\((?!#)[^)]*\)", svg)
+    if outside:
+        problems.append(f"the {theme} scene holds {sorted(set(outside))}")
+verdict["scene_file"] = "; ".join(problems)
+
+# every color of the scene a six-digit lowercase hex, no name and no function
+PAINT = re.compile(r'\b(fill|stroke|stop-color|flood-color|lighting-color|color)(?:="([^"]*)"|\s*:\s*([^;}"]*))')
+problems = []
+for theme, svg in scenes.items():
+    wrong = [c for c in re.findall(r"#[0-9A-Fa-f]{3,8}\b", svg) if not re.fullmatch(r"#[0-9a-f]{6}", c)]
+    for found in PAINT.finditer(svg):
+        value = (found.group(2) if found.group(2) is not None else found.group(3)).strip()
+        if not re.fullmatch(r"#[0-9a-f]{6}|none|url\(#[\w-]+\)", value) and not re.fullmatch(r"#[0-9A-Fa-f]{3,8}", value):
+            wrong.append(f"{found.group(1)} {value}")
+    if wrong:
+        problems.append(f"the {theme} scene has {sorted(set(wrong))}")
+verdict["scene_hex"] = "; ".join(problems)
+
+# criterion 6, its static half (decision 9): one bound color for each theme from every color the scene holds, the
+# lightest red, green and blue at night and the darkest by day, and nothing in the file that paints outside it. A mix,
+# an opacity, a blur and a mask stay inside; a filter may add only a constant color, which joins the bound.
+CHILDREN = ("feMergeNode", "feFuncR", "feFuncG", "feFuncB", "feFuncA")
+def paint_rule(svg):
+    """What can paint outside the bound, and the constant colors the scene's filters add to it."""
+    problems, constants = [], []
+    for found in re.findall(r"(?i)mix-blend-mode|background-blend-mode|plus-lighter|\b(?:brightness|contrast|saturate|invert|sepia|hue-rotate|grayscale|drop-shadow)\(", svg):
+        problems.append(f"the blend or the filter {found}")
+    for fid, body in re.findall(r'(?s)<filter\b[^>]*?\bid="([^"]*)"[^>]*>(.*?)</filter>', svg):
+        tags = [(tag, attrs_of(rest)) for tag, rest in re.findall(r"<(fe\w+)\b([^>]*)>", body)]
+        chain, inputs, made = [], [], {}
+        for tag, attrs in tags:
+            if tag == "feMergeNode" and chain and chain[-1][0] == "feMerge":
+                inputs[-1].append(("in", attrs.get("in")))
+                continue
+            if tag in CHILDREN:
+                continue
+            k = len(chain)
+            chain.append((tag, attrs))
+            inputs.append([] if tag in ("feMerge", "feTurbulence", "feFlood", "feImage") else [("in", attrs.get("in"))])
+            if tag in ("feComposite", "feBlend", "feDisplacementMap"):
+                inputs[-1].append(("in2", attrs.get("in2")))
+        consumers = {k: [] for k in range(len(chain))}
+        for k, slots in enumerate(inputs):
+            for slot, name in slots:
+                source = k - 1 if name is None else max((j for j in range(k) if chain[j][1].get("result") == name), default=None)
+                if source is not None and source >= 0:
+                    consumers[source].append((k, slot))
+        def constant(attrs):
+            values = [float(v) for v in attrs.get("values", "").replace(",", " ").split()]
+            if attrs.get("type", "matrix") != "matrix" or len(values) != 20 or any(values[r * 5 + c] for r in range(3) for c in range(4)):
+                return None
+            return "#" + "".join(f"{round(min(max(values[r * 5 + 4], 0), 1) * 255):02x}" for r in range(3))
+        for k, (tag, attrs) in enumerate(chain):
+            if tag in ("feGaussianBlur", "feOffset", "feMerge", "feDisplacementMap", "feTile"):
+                continue
+            if tag == "feComposite" and attrs.get("operator", "over") != "arithmetic":
+                continue
+            if tag == "feFlood" and re.fullmatch(r"#[0-9a-f]{6}", attrs.get("flood-color", "")):
+                continue
+            if tag == "feColorMatrix" and constant(attrs):
+                constants.append(constant(attrs))
+                continue
+            if tag == "feTurbulence":
+                fine = all((chain[j][0] == "feColorMatrix" and slot == "in" and constant(chain[j][1])) or (chain[j][0] == "feDisplacementMap" and slot == "in2")
+                           for j, slot in consumers[k])
+                if fine and k != len(chain) - 1:
+                    continue
+                problems.append(f"the filter {fid}: an feTurbulence that paints its own colors")
+                continue
+            problems.append(f"the filter {fid}: {tag}{' ' + attrs.get('operator', '') if tag == 'feComposite' else ''}")
+    return problems, constants
+def bound(svg, dark):
+    colors = hexes(svg) | set(paint_rule(svg)[1])
+    pick = max if dark else min
+    return "#" + "".join(f"{pick(int(c[i:i + 2], 16) for c in colors):02x}" for i in (1, 3, 5)) if colors else ""
+SHIMMER = '<filter id="f"><feTurbulence type="fractalNoise" baseFrequency=".018 .32" numOctaves="2" seed="4"/><feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 .95  0 0 0 0 .8  0 0 0 2.6 -1.25"/></filter>'
+BARE = '<filter id="f"><feTurbulence type="fractalNoise" baseFrequency=".02" numOctaves="2"/></filter>'
+problems = []
+if paint_rule(SHIMMER) != ([], ["#fff2cc"]):
+    problems.append(f"the owner's shimmer filter gives {paint_rule(SHIMMER)}, not a pass with #fff2cc")
+if not paint_rule(BARE)[0]:
+    problems.append("a bare feTurbulence passes")
+for theme, svg in scenes.items():
+    problems += [f"the {theme} scene: {p}" for p in paint_rule(svg)[0]]
+verdict["scene_paint"] = "; ".join(problems)
+verdict["bound_day"], verdict["bound_night"] = bound(scenes["day"], False), bound(scenes["night"], True)
 print(json.dumps(verdict))
 PY
 )
@@ -401,6 +633,14 @@ if ok pictures; then pass "the logo and the pictures of the board, the phone and
 if ok sizes; then pass "each picture of the board says its size as half the pixels of its files, light and dark"; else fail "the sizes of the pictures: $WHY"; fi
 if ok colors; then pass "style.css has the six hues of lem.css with the same values, and every other color is a grey or a mix of those"; else fail "the colors: $WHY"; fi
 if ok switch; then pass "the page has no control that switches the theme: its one kind of button copies a line"; else fail "a theme switch: $WHY"; fi
+# the scene, assets/lem.svg and assets/lem-night.svg, in the files
+if ok scene_wire; then pass "in both scene files a pulse runs along the wire from before its left end to past its right end in a cycle of 8 s with a rest, each of the 8 pegs flashes, and the 42 tiles light letter by letter"; else fail "the pulse on the wire: $WHY"; fi
+if ok scene_sky; then pass "the day scene shows its sky with haze, rays and a shimmer, the night scene its sky with about a hundred stars on timings of their own and two drifting aurora bands"; else fail "the sky: $WHY"; fi
+if ok scene_eye; then pass "in both scene files one red eye glows, blinks every 5 to 7 s and flares as the pulse passes the figure, in the same red"; else fail "the eye: $WHY"; fi
+if ok scene_still; then pass "each scene file has one rule for reduce motion that stops every animation, no animation it would not stop, and each light rests unlit"; else fail "reduce motion: $WHY"; fi
+if ok scene_file; then pass "each scene file is 1600 x 640, under 50,000 bytes, with no script and nothing from another file or host"; else fail "the scene files: $WHY"; fi
+if ok scene_hex; then pass "every color of each scene file is a six-digit lowercase hex"; else fail "the scene's colors: $WHY"; fi
+if ok scene_paint; then ok bound_day || true; bound="day $WHY"; ok bound_night || true; pass "nothing in a scene file paints outside its bound color ($bound, night $WHY), and the rule passes the owner's shimmer filter and refuses a bare feTurbulence"; else fail "the paint of the scene: $WHY"; fi
 
 # ---- the checks of a drawn page ----
 chrome=""
