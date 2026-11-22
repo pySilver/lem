@@ -1,6 +1,7 @@
 """lem_board_model.py's rules, each called over a few events: the status and the column of a task, who
 acts, what a card says, what waits for the owner and where he answers, green and its reasons, the end
-of a run of the checks, the phases, and the read of the log on from where the last read stopped.
+of a run of the checks, the phases, the read of the log on from where the last read stopped, and a
+task whose events became one summary: its card, its followers, its board and the read of the new log.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -16,6 +17,9 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts"))
 bm = importlib.import_module("lem_board_model")
+pages = importlib.import_module("lem_board_pages")
+task_pages = importlib.import_module("lem_board_task")
+join = importlib.import_module("lem_html").join
 
 START = datetime(2026, 11, 20, 9, 0, tzinfo=timezone.utc)
 NOW = int((START + timedelta(hours=2)).timestamp() * 1000)
@@ -724,3 +728,204 @@ class AfterDropped(unittest.TestCase):
             m = model(*self.gift("dropped"), self.QUEUED, *word)
             m.sessions = {}
             self.assertEqual([w["key"] for w in bm.waits_of(m) if w["kind"] == "after_dropped"], [], word[-1]["status"])
+
+
+PULL_12 = "https://github.com/acme/shop/pull/12"
+
+
+def report_dates() -> list[dict]:
+    """The 60 events of `report-dates`, which landed with pull request 12 (criterion 2 of the task
+    old-task-events-summarized): its interview, its build, 51 checks, a careful review, a green proposal,
+    the open pull request, its merge review and its end."""
+    rd = "report-dates"
+    events = [
+        ev(0, "task.mode", rd, mode="alone", by="lem", words="the night of 2026-11-20", was="with-owner"),
+        {**state(1, "held", "the interview waits for the owner", "type: feat, because the report shows no dates", task=rd), "ask": "Dates on the report."},
+        {**state(2, "building", "lead: session", "plan committed with 2 tasks", task=rd), "branch": "feat/report-dates", "head": "abc1234", "subject": "feat: dates"},
+    ]
+    events += [ev(3 + n / 10, "gate", rd, command=f"check {n}", exit=0, last="ok", tip="abc1234") for n in range(51)]
+    events += [
+        ev(10, "review", rd, attempt=1, round=1, of=1, kind="read", verdict="clean", must_fix=0, should=0, nit=0, tip="abc1234",
+           careful=True, careful_why="it changes the report every merchant reads"),
+        ev(11, "proposed", rd, green=True, not_green=[], tip="abc1234"),
+        state(12, "open", "the pull request waits for its merge", f"pull request: {PULL_12}", "green", task=rd),
+        ev(13, "session.transcript", rd, claude="c1", transcript="/t/c1.jsonl", source="startup"),
+        ev(14, "merge.review", rd, verdict="merge", calls=False, why="it reads well", by="claude", tip="abc1234"),
+        state(15, "landed", "main: pull request 12 is merged", task=rd),
+    ]
+    return events
+
+
+def summarized(events: list[dict], *slugs: str) -> list[dict]:
+    """EVENTS with the events of each of SLUGS replaced by its one summary, in the place of its newest
+    event, as `lem project prune` writes it (project.py `summary_of`)."""
+    project = importlib.import_module("project")
+    out = list(events)
+    for slug in slugs:
+        mine = [e for e in out if e.get("task") == slug]
+        at_ = max(i for i, e in enumerate(out) if e.get("task") == slug)
+        summary = project.summary_of(slug, mine, NOW)
+        out = [summary if i == at_ else e for i, e in enumerate(out) if i == at_ or e.get("task") != slug]
+    return out
+
+
+class Summary(unittest.TestCase):
+    """A task whose events became one summary reads on the board as it did before (criterion 2 of the task
+    old-task-events-summarized), and the board's reader of the log reads a summarized log once and whole
+    (criterion 4)."""
+
+    OTHERS = [
+        state(20, "queued", "it starts after report-dates", "after: report-dates", task="report-dates-in-export"),
+        state(0, "building", "small change: one builder", "type: fix, because a typo", task="card-foot"),
+        state(16, "dropped", "the owner dropped it", task="card-foot"),
+        state(21, "queued", "it starts after card-foot", "after: card-foot", task="card-foot-after"),
+        state(4, "building", "an investigator finds the answer", "investigation: question", task="why-slow"),
+        ev(8, "investigation", "why-slow", type="question", call="answer", line="the export reads every order twice", where="export.py"),
+        state(9, "answered", "the report is investigation.md", task="why-slow"),
+        state(30, "building", "lead: builder", task="gift-note"),
+    ]
+
+    @staticmethod
+    def facts(t: "bm.Task") -> tuple:
+        proposal = {k: v for k, v in (t.proposal or {}).items() if k != "order"}
+        return (t.status, t.info, t.since, t.first, t.last_ts, t.closed, t.lane, t.shown, t.more, bm.card_line(t, bm.LANE[t.lane]), t.type, t.ask, t.branch,
+                t.lead, bm.lead_of(t), bm.careful_of(t), bm.pr_of(t), bm.is_green(t), bm.verdict_of(t), proposal, t.investigation)
+
+    def test_an_old_ended_tasks_card_and_its_followers_read_the_same_after_its_events_became_one_summary(self):
+        log = sorted(report_dates() + self.OTHERS, key=lambda e: e["ts"])
+        self.assertEqual(sum(1 for e in log if e["task"] == "report-dates"), 60)
+        before = model(*log)
+        after = model(*summarized(log, "report-dates", "card-foot", "why-slow"))
+        self.assertEqual([e["event"] for e in after.events if e["task"] == "report-dates"], ["task.summary"])
+
+        def card(m, slug):
+            t = m.by_slug[slug]
+            return str(pages.task_card(pages.Ctx(host="h", workspace="w", model=m, asset=lambda name: name), t, bm.LANE[t.lane]))
+
+        rd = before.by_slug["report-dates"]
+        # criterion 2.1: landed, the time of its end, its last line, its type, green, and pull request 12
+        shown = card(before, "report-dates")
+        for said in ("s-landed", f'data-ago="{bm.at(ev(15, "x")["ts"])}"', "Landed: main: pull request 12 is merged", ">feat<", ">green<", "#12", "careful", "plan talk"):
+            self.assertIn(said, shown)
+        self.assertEqual((rd.status, rd.since, bm.pr_of(rd)["n"]), ("landed", bm.at(ev(15, "x")["ts"]), "12"))
+        # criterion 2.2: the same card, word for word, and the same facts its board reads
+        for slug in ("report-dates", "card-foot", "why-slow"):
+            self.assertIsNotNone(after.by_slug[slug].summary, slug)
+            self.assertEqual(self.facts(after.by_slug[slug]), self.facts(before.by_slug[slug]), slug)
+            self.assertEqual(card(after, slug), card(before, slug), slug)
+        self.assertEqual([t.slug for t in after.lane["done"]], [t.slug for t in before.lane["done"]])
+        # a task queued after it still starts, and one queued after a dropped one still waits for his word
+        for m in (before, after):
+            self.assertTrue(bm.after_ended(m.by_slug["report-dates-in-export"], m))
+            self.assertTrue(bm.after_dropped(m.by_slug["card-foot-after"], m))
+            self.assertEqual(m.by_slug["card-foot-after"].lane, "you")
+        # the activity says what the one event stands for
+        said = bm.describe(next(e for e in after.events if e["task"] == "report-dates"), after)
+        self.assertEqual(said["head"], "Its events became one summary")
+        self.assertTrue(said["text"].startswith("60 events of a task that ended more than state.keep_days ago"))
+
+    def test_a_summary_with_a_newer_state_dates_since_from_the_run_its_past_began(self):
+        log = summarized(sorted(report_dates() + self.OTHERS, key=lambda e: e["ts"]), "report-dates")
+        t = model(*log, state(40, "landed", "main: pull request 12 is merged, and the session cleaned up", task="report-dates")).by_slug["report-dates"]
+        self.assertEqual((t.status, t.since, t.first, bm.pr_of(t)["n"]), ("landed", bm.at(ev(15, "x")["ts"]), bm.at(ev(1, "x")["ts"]), "12"))
+
+    def test_the_reader_reads_a_log_that_prune_replaced_once_and_whole(self):
+        import os
+        from unittest import mock
+
+        def lines(events):
+            return "".join(json.dumps(e) + "\n" for e in events)
+
+        log_events = sorted(report_dates() + [state(30, "building", "lead: builder")], key=lambda e: e["ts"])
+        with tempfile.TemporaryDirectory() as tmp:
+            log, new = Path(tmp) / "events.jsonl", Path(tmp) / "events.new"
+            log.write_text(lines(log_events))
+            reader = bm.Reader(Path(tmp), Path(tmp))
+            reader.read_log()
+            self.assertEqual(len(reader.events), 61)
+            first = reader.log_id()
+            # gift-note writes `ready` into the old file, and prune writes the new log with it after the summary
+            ready = state(31, "ready", "the build is done")
+            with log.open("a") as out:
+                out.write(json.dumps(ready) + "\n")
+            new.write_text(lines(summarized(log_events, "report-dates") + [ready]))
+            # the replace lands between the reader's look at the log and its read of it
+            real_open = Path.open
+
+            def open_after_replace(path, *args, **kwargs):
+                if path == log and new.exists():
+                    os.replace(new, log)
+                return real_open(path, *args, **kwargs)
+
+            with mock.patch.object(Path, "open", open_after_replace):
+                reader.read_log()
+            m = bm.derive(reader.events, [], NOW)
+            self.assertEqual([e["event"] for e in reader.events if e["task"] == "report-dates"], ["task.summary"])
+            self.assertEqual(m.by_slug["gift-note"].status, "ready")
+            self.assertEqual([t.slug for t in m.lane["done"]], ["report-dates"])
+            self.assertEqual(len(reader.events), len({json.dumps(e, sort_keys=True) for e in reader.events}), "no event twice")
+            self.assertEqual(reader.log_id(), bm.log_version(log.stat().st_ino, 3))
+            self.assertNotEqual(reader.log_id(), first)
+
+
+class SummarizedBoard(unittest.TestCase):
+    """The board of a task whose events became one summary (the task old-task-events-summarized, decision
+    2): its header says the same status, end and pull request as before; its Overview opens with one card
+    that says so, what the summary keeps and that its files stay; each other tab says its detail went with
+    the events, and no section is drawn empty."""
+
+    def boards(self):
+        log = report_dates()
+        return model(*log), model(*summarized(log, "report-dates"))
+
+    @staticmethod
+    def ctx(m, tab: str = "overview"):
+        ctx = pages.Ctx(host="h", workspace="w", model=m, asset=lambda name: name, task="report-dates", tab=tab)
+        ctx.told = lambda slug: {"outcome": "Each report shows its dates.", "filed": None}
+        return ctx
+
+    def test_the_header_says_the_same_status_end_and_pull_request(self):
+        import re
+        before, after = self.boards()
+
+        def said(m):
+            ctx = self.ctx(m)
+            t = m.by_slug["report-dates"]
+            facts = str(join(task_pages.facts(ctx, t, [])))
+            return (str(task_pages.pill(ctx, t)), re.search(r'<dd id="dd-pr">.*?</dd>', facts)[0], re.search(r'<dd id="dd-time">.*?</dd>', facts)[0],
+                    str(task_pages.key_line(ctx, t)))
+
+        self.assertEqual(said(after), said(before))
+        self.assertIn("acme/shop#12", said(after)[1])
+
+    def test_the_overview_opens_with_the_summary_and_no_tab_draws_an_empty_section(self):
+        _, after = self.boards()
+        t = after.by_slug["report-dates"]
+        parts = [str(x) for x in task_pages.overview_tab(self.ctx(after), t) if x]
+        self.assertIn('id="summary"', parts[0])
+        self.assertIn("Its 60 events became one summary:", parts[0])
+        self.assertIn("state.keep_days", parts[0])
+        for kept in ("landed", "pull request acme/shop#12", "green", "type feat", "careful: yes", "branch feat/report-dates"):
+            self.assertIn(kept, parts[0])
+        self.assertIn("Artifacts", parts[0])
+        self.assertTrue(any('id="building"' in x for x in parts), "What we are building reads its task.md, which stays")
+        self.assertFalse(any('id="progress"' in x for x in parts), "no stats whose checks, review and decisions would read as none")
+        for tab, went in (("criteria", "Its acceptance criteria, their approval, the personas’ read and its decisions went with its events"),
+                          ("checks", "Its runs of the checks, its review rounds and the proposal’s reasons went with its events"),
+                          ("timeline", "Its timeline and its events went with its events")):
+            drawn = "".join(str(x) for x in {"criteria": task_pages.criteria_tab, "checks": task_pages.checks_tab, "timeline": task_pages.timeline_tab}[tab](self.ctx(after, tab), t))
+            self.assertIn(f'id="went-{tab}"', drawn)
+            self.assertIn(went, drawn)
+            self.assertNotIn('class="empty"', drawn)
+            self.assertNotIn("with no checks and no review on record", drawn)
+            self.assertNotIn("with no criteria and no decision on record", drawn)
+        self.assertEqual(task_pages.empty_reason(t, "checks"), "no document: what showed it went with the events, into one summary")
+        self.assertEqual(task_pages.empty_reason(t, "proposal"), "no document: green or not green is on the Overview")
+
+    def test_a_task_whose_events_are_whole_has_no_summary_card(self):
+        before, _ = self.boards()
+        t = before.by_slug["report-dates"]
+        parts = [str(x) for x in task_pages.overview_tab(self.ctx(before), t) if x]
+        self.assertFalse(any('id="summary"' in x for x in parts))
+        self.assertTrue(any('id="progress"' in x for x in parts))
+

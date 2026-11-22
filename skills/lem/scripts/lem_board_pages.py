@@ -122,6 +122,8 @@ class Ctx:
     problems: list = field(default_factory=list)
     read_at: int = 0
     events: int = 0
+    # the version of the event log the page was drawn from (`bm.log_version`), which its stream sends back
+    log_id: str = ""
     spaces: list = field(default_factory=list)
     view: str = "tasks"
     used: set = field(default_factory=set)
@@ -659,7 +661,7 @@ def statusbar(ctx: Ctx) -> Markup:
              h("span", {"title": forge_title}, *forge),
              h("span", {"class": "st-right"},
                h("span", {"class": "st-live", "id": f"live-{ctx.host}-{ctx.workspace}", "data-turbo-permanent": True, "data-controller": "stream",
-                          "data-stream-url-value": f"{ctx.base}/stream", "data-stream-since-value": ctx.events}, "connecting…")))
+                          "data-stream-url-value": f"{ctx.base}/stream", "data-stream-since-value": ctx.log_id}, "connecting…")))
 
 
 def summary_of(m: bm.Model) -> str:

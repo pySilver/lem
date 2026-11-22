@@ -399,5 +399,66 @@ class Look(unittest.TestCase):
         self.assertEqual(started[0][-1], "--ensure")
 
 
+class LogLook(unittest.TestCase):
+    """The stream's look at the event log after `lem project prune` replaced it (criterion 4 of the task
+    old-task-events-summarized): a change is told also when the count of lines is the same, and a page that
+    reconnects with the id from before the rewrite is told at once."""
+
+    def test_three_old_events_that_become_one_while_two_new_ones_come_are_a_change(self):
+        import json
+        import os
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            state = Path(folder)
+            log = state / serve.EVENT_LOG
+            old = [{"ts": f"2026-10-01T09:0{n}:00Z", "event": "gate", "task": "report-dates"} for n in range(3)]
+            log.write_text("".join(json.dumps(e) + "\n" for e in [*old, {"ts": "2026-11-20T09:00:00Z", "event": "task.state", "task": "gift-note"}]))
+            look = serve.Look(state, {})
+            version, changed = look.changes()
+            self.assertEqual(version, bm.log_version(log.stat().st_ino, 4))
+            self.assertEqual(look.changes(), (version, None))
+            new = state / "events.new"
+            new.write_text("".join(json.dumps(e) + "\n" for e in [{"ts": "2026-10-01T09:02:00Z", "event": "task.summary", "task": "report-dates"},
+                                                                  {"ts": "2026-11-20T09:00:00Z", "event": "task.state", "task": "gift-note"},
+                                                                  {"ts": "2026-11-20T09:05:00Z", "event": "task.state", "task": "gift-note"},
+                                                                  {"ts": "2026-11-20T09:06:00Z", "event": "session.transcript", "task": "gift-note"}]))
+            os.replace(new, log)
+            now, changed = look.changes()
+            self.assertIsNotNone(changed, "the same count of lines on a new log is a change")
+            self.assertEqual(now, bm.log_version(log.stat().st_ino, 4))
+            self.assertNotEqual(now, version)
+            # a page that reconnects with the id it saw before the rewrite is behind; one with the id now, or none, is not
+            self.assertTrue(serve.behind(version, now))
+            self.assertFalse(serve.behind(now, now))
+            self.assertFalse(serve.behind(None, now))
+            self.assertFalse(serve.behind("", now))
+            self.assertEqual(serve.refresh(now), f'id: {now}\ndata: <turbo-stream action="refresh"></turbo-stream>\n\n'.encode())
+
+    def test_a_log_replaced_between_the_look_at_its_name_and_its_open_is_counted_from_its_start(self):
+        import os
+        import tempfile
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as folder:
+            state = Path(folder)
+            log = state / serve.EVENT_LOG
+            log.write_bytes(b"{}\n" * 10)
+            look = serve.Look(state, {})
+            self.assertEqual(look.count(), 10)
+            with log.open("ab") as out:
+                out.write(b"{}\n")
+            new = state / "events.new"
+            new.write_bytes(b"{}\n" * 3)
+            real_open = Path.open
+
+            def open_after_replace(path, *args, **kwargs):
+                if path == log and new.exists():
+                    os.replace(new, log)
+                return real_open(path, *args, **kwargs)
+
+            with mock.patch.object(Path, "open", open_after_replace):
+                self.assertEqual(look.count(), 3)
+            self.assertEqual(look.version(), bm.log_version(log.stat().st_ino, 3))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -4,8 +4,10 @@
 //
 // iOS drops an EventSource in the background, or keeps a dead one that still says it is open: a page
 // that comes back into view, or out of the back-forward cache, opens a new one, which the server
-// answers with a refresh when the log grew meanwhile (`?since=` the last id seen). With a task open
-// (its address), the stream watches that task's files too (`&task=`). While the stream
+// answers with a refresh when the log changed meanwhile (`?since=` the last id seen). An id is the log's
+// version, its inode and its count of lines in one text ("8812-140"), kept whole: a log that
+// `lem project prune` replaced has another inode, so the page is told also when the count is the
+// same. With a task open (its address), the stream watches that task's files too (`&task=`). While the stream
 // is down the page refreshes itself every POLL_MS, and only after the server answered a light
 // request: a refresh that finds no server would make Turbo reload the page into the browser's error.
 import {Controller} from '@hotwired/stimulus';
@@ -15,7 +17,7 @@ const POLL_MS = 10000;
 const REFRESH = '<turbo-stream action="refresh"></turbo-stream>';
 
 export default class extends Controller {
-  static values = {url: String, since: Number};
+  static values = {url: String, since: String};
 
   connect() {
     this.lastId = this.sinceValue;
@@ -52,11 +54,11 @@ export default class extends Controller {
   open() {
     this.close();
     this.watching = this.task();
-    const source = new EventSource(`${this.urlValue}?since=${this.lastId}${this.watching ? `&task=${this.watching}` : ''}`);
+    const source = new EventSource(`${this.urlValue}?since=${encodeURIComponent(this.lastId)}${this.watching ? `&task=${this.watching}` : ''}`);
     source.addEventListener('open', () => { if (this.source === source) { this.down = 0; this.say(); } });
     source.addEventListener('message', ev => {
       if (this.source !== source) return;
-      if (ev.lastEventId) this.lastId = Number(ev.lastEventId) || this.lastId;
+      if (ev.lastEventId) this.lastId = ev.lastEventId;
       this.lastMessage = Date.now();
       this.down = 0;
       this.say();

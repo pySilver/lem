@@ -91,12 +91,12 @@ else
 fi
 
 # The stream of a peer's workspace through alpha: a refresh after an event there, and the peer's connection ends with the client's.
-count=$(grep -c '' "$WORK/beta/shop/.lem/state/events.jsonl")
+version=$(log_version "$WORK/beta/shop/.lem/state/events.jsonl")
 # one process reads the stream and stamps each line with the time it came, so that its end closes the connection
 "$PY" -u -c 'import sys, time, urllib.request
 reply = urllib.request.build_opener(urllib.request.ProxyHandler({})).open(sys.argv[1], timeout=20)
 for line in reply:
-    print(f"{time.time():.3f} {line.decode()}", end="", flush=True)' "$ALPHA/beta/shop/stream?since=$count" > "$WORK/stream.out" 2>/dev/null &
+    print(f"{time.time():.3f} {line.decode()}", end="", flush=True)' "$ALPHA/beta/shop/stream?since=$version" > "$WORK/stream.out" 2>/dev/null &
 streamed=$!
 soon grep -q ': open' "$WORK/stream.out"
 links=$(peer_links)
@@ -108,7 +108,7 @@ wait "$streamed" 2>/dev/null || true
 soon no_links
 left=$(peer_links)
 came=$(awk '/turbo-stream/ {print $1; exit}' "$WORK/stream.out")
-if grep -qF "id: $((count + 1))" "$WORK/stream.out" && [ -n "$came" ] && [ "$links" -ge 1 ] && [ "$left" = 0 ]; then
+if grep -qF "id: ${version%-*}-$(( ${version#*-} + 1 ))" "$WORK/stream.out" && [ -n "$came" ] && [ "$links" -ge 1 ] && [ "$left" = 0 ]; then
   pass "a peer's stream through alpha delivers its refresh after an event there, and the peer's connection ends when the client hangs up"
   printf '     the event reached the client %.2f s after its write began\n' "$("$PY" -c 'import sys; print(float(sys.argv[1]) - float(sys.argv[2]))' "$came" "$written")"
 else

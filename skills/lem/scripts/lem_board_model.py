@@ -30,6 +30,7 @@ page says, never an empty board.
 
 import json
 import math
+import os
 import re
 import threading
 import time
@@ -155,6 +156,9 @@ FAMILIES = {1: "one model family", 2: "two model families"}
 CHECKS = ("polish", "gate", "task.red", "gate.end", "review", "review.filed", "proposed")
 LANDING_STARTS = ("polish.start", "gate.start", "review.start", "builder.start")
 WAITS = ("gate.wait", "merge.wait")
+# The one event that stands for every event of a task that ended before `state.keep_days`, which only
+# `lem project prune` writes (project.py SUMMARY, `summary_of`), in the place of the task's newest event.
+SUMMARY = "task.summary"
 # How a run of the checks ended, by the `result` of its `gate.end` (land.py RESULTS).
 CHECKS_END = {
     "passed": {"head": "The checks passed", "label": "Checks passed", "after": "Lem, between two steps of the landing"},
@@ -519,6 +523,9 @@ class Task:
     # each Claude Code session of the task, as the plugin's SessionStart hook logged it (`session.transcript`):
     # its id and the path of its transcript, which lem_tokens reads
     transcripts: list = field(default_factory=list)
+    # the task's summary (SUMMARY) as `lem project prune` wrote it, once its events became that one event;
+    # the board of the task says so and shows what it holds (lem_board_task.py)
+    summary: dict | None = None
 
 
 @dataclass
@@ -613,6 +620,9 @@ def fold(t: Task, e: dict, ts: int) -> None:
     event = str(e.get("event"))
     if event.startswith("decision."):
         decision_event(t, e, ts)
+        return
+    if event == SUMMARY:
+        fold_summary(t, e, ts)
         return
     if event == "criteria.approved":
         t.approvals.append({"ts": ts, "order": len(t.events), "number": e.get("number"), "by": e.get("by"), "size": e.get("size"), "why": e.get("why"),
@@ -745,12 +755,39 @@ def fold(t: Task, e: dict, ts: int) -> None:
         t.commit = {"head": e["head"], "subject": e.get("subject") or "", "seen": ts}
 
 
+def fold_summary(t: Task, e: dict, ts: int) -> None:
+    """A task's summary (SUMMARY) as the task's whole past: one block, its newest, which also carries when
+    the run of its status began (`since`), the task's first block (`first`), the pull request any of its
+    blocks named (`pr`) and whether a plan talk ended before it (`talked`); and the facts its card reads
+    from the other events: the ask, the branch, the type, the lead, the proposal and the investigation
+    (the careful call stays in `t.summary`, which `careful_of` reads). Each is what this module read from
+    the task's events, since project.py `summary_of` computes it with `derive`, so `settle`, the card,
+    `pr_of`, `careful_of`, `after_ended` and `after_dropped` read a summarized task as before."""
+    last = at(e.get("last")) or ts
+    pr = e.get("pr") if isinstance(e.get("pr"), dict) and e["pr"].get("url") else None
+    t.summary = e
+    t.blocks = [{"ts": last, "order": len(t.events), "status": e.get("status"), "text": "" if e.get("text") is None else str(e["text"]),
+                 "lines": [str(line) for line in (e.get("lines") or [])], "since": at(e.get("since")) or last, "first": at(e.get("first")) or last,
+                 "pr": pr, "talked": e.get("talked") is True}]
+    t.ask = str(e["ask"]) if e.get("ask") else None
+    t.branch = str(e["branch"]) if e.get("branch") else None
+    t.type = e["type"] if isinstance(e.get("type"), dict) else None
+    t.lead = e["lead"] if e.get("lead") in LEAD else None
+    p = e.get("proposal")
+    t.proposal = ({"ts": at(p.get("ts")) or last, "order": len(t.events), "green": p.get("green") is True, "reasons": list(p.get("reasons") or []), "tip": p.get("tip")}
+                  if isinstance(p, dict) else None)
+    x = e.get("investigation")
+    t.investigation = {**x, "ts": at(x.get("ts")) or last} if isinstance(x, dict) else None
+    t.opening, t.landing_step, t.checks_end, t.waits = None, None, None, None
+
+
 def lead_of(t: Task) -> str:
-    return "session" if t.lead == "session" else "small" if t.lead == "small" else "talked" if t.talks else "builder"
+    return "session" if t.lead == "session" else "small" if t.lead == "small" else "talked" if t.talks or t.lead == "talked" else "builder"
 
 
 def talked_before(t: Task, ms: int) -> bool:
-    return any(x["ts"] <= ms for x in t.talks)
+    """Whether a plan talk ended by MS: one of the task's talks, or the summary's word for its past."""
+    return any(x["ts"] <= ms for x in t.talks) or any(b.get("talked") and b["ts"] <= ms for b in t.blocks)
 
 
 def skips_read(e: dict) -> bool:
@@ -806,12 +843,12 @@ def settle(t: Task, now: int, away: bool = False) -> None:
     t.shown = shown[0] if shown else ""
     t.more = shown[1:]
     t.last_ts = last["ts"]
-    # "since" is when the task entered the status it has now
+    # "since" is when the task entered the status it has now; a summary's block keeps when its run began, and the task's first block
     i = len(t.blocks) - 1
     while i > 0 and t.blocks[i - 1]["status"] == t.status:
         i -= 1
-    t.since = t.blocks[i]["ts"]
-    t.first = t.blocks[0]["ts"]
+    t.since = t.blocks[i].get("since", t.blocks[i]["ts"])
+    t.first = t.blocks[0].get("first", t.blocks[0]["ts"])
     t.closed = t.status in ENDED
     # the breaker that holds the task: one at a time (decisions.py), and none once the task ended; a
     # parked task's breaker waits for nobody until `/lem resume` brings it back
@@ -896,7 +933,7 @@ def settle(t: Task, now: int, away: bool = False) -> None:
         if prev and prev["status"] == b["status"]:
             prev["end"] = end_
         else:
-            t.segments.append({"status": b["status"], "start": b["ts"], "end": end_, "open": k == len(t.blocks) - 1 and not t.closed})
+            t.segments.append({"status": b["status"], "start": b.get("since", b["ts"]), "end": end_, "open": k == len(t.blocks) - 1 and not t.closed})
     # where the task got to: the newest status that is a step forward
     t.reached = next((b["status"] for b in reversed(t.blocks) if b["status"] not in ("held", "blocked")), t.status)
     t.investigated = any(investigates(b) for b in t.blocks) or t.investigation is not None
@@ -1221,8 +1258,13 @@ def verdict_of(t: Task) -> dict | None:
 
 
 def pr_of(t: Task) -> dict | None:
-    """The newest address of a pull request in the task's state lines, with its number and its repository."""
+    """The newest address of a pull request in the task's state lines, with its number and its repository;
+    a summary's block gives the one its past named."""
     for b in reversed(t.blocks):
+        if "pr" in b:
+            if b["pr"]:
+                return dict(b["pr"])
+            continue
         for line in lines_of(b):
             found = PULL.search(line)
             if found:
@@ -1234,7 +1276,11 @@ def careful_of(t: Task) -> dict | None:
     if t.missed:
         return {"yes": True, "why": t.missed["why"], "by": "the review called it careful, and the plan did not"}
     r = next((x for x in reversed(t.reviews) if isinstance(x["careful"], bool)), None)
-    return {"yes": r["careful"], "why": r["careful_why"] or "", "by": f"the review of round {r['round']}"} if r else None
+    if r:
+        return {"yes": r["careful"], "why": r["careful_why"] or "", "by": f"the review of round {r['round']}"}
+    # a summarized task keeps the call its events made
+    kept = (t.summary or {}).get("careful")
+    return dict(kept) if isinstance(kept, dict) else None
 
 
 def criteria_size(t: Task) -> str | None:
@@ -1439,6 +1485,15 @@ def gate_end_said(e: dict) -> dict:
     return {"info": info, "head": checks_end(e.get("result"))["head"], "text": said or ran, "sub": ran if said else ""}
 
 
+SUMMARY_HEAD = "Its events became one summary"
+
+
+def summary_said(e: dict) -> str:
+    """What a task's summary stands for, in the words of the board: how many events, and why."""
+    n = e.get("events") if isinstance(e.get("events"), int) else 0
+    return f"{plural(n, 'event')} of a task that ended more than state.keep_days ago, in one event that keeps its status, its end and its pull request"
+
+
 def _approved_head(e: dict) -> str:
     return {"owner": "You approved the acceptance criteria", "lem": "Taken for the fast track in your name", "read": "The personas’ read froze the criteria"}.get(e.get("by"), f"Criteria approved by {e.get('by')}")
 
@@ -1513,6 +1568,7 @@ SAYS = {
     "board.act": lambda e: {"info": {"actor": "you", "icon": "user"}, "head": ACTED.get(e.get("act"), f"You acted from the board: {e.get('act')}"), "text": e.get("via") or "",
                             "sub": e.get("why") or ""},
     "decision.criterion": lambda e: {"info": {"actor": "you", "icon": "alert"}, "head": _criterion_head(e), "text": e.get("why")},
+    SUMMARY: lambda e: {"info": STATUS.get(e.get("status"), UNKNOWN), "head": SUMMARY_HEAD, "text": summary_said(e)},
 }
 
 
@@ -2443,6 +2499,14 @@ def time_shares(tm: dict, rows: list[dict]) -> dict:
 
 # ---- the loaders: the files a workspace's model is made from ----
 
+def log_version(inode: int, lines: int) -> str:
+    """The version of the event log a page saw, as the stream's `id:` says it: the log's inode and its
+    count of whole lines, in one id. `lem project prune` puts a new log in place (a new inode), so a page
+    that saw the old one, whatever the count now, is told by the id that it is behind (serve.py
+    `refreshes`)."""
+    return f"{inode}-{lines}"
+
+
 class Reader:
     """The facts of one workspace, read again only where a file changed: the event log read on from
     where the last read stopped, the owner's mark, and the settings, the meta
@@ -2456,6 +2520,8 @@ class Reader:
         self.events: list[dict] = []
         self.log_at: tuple = (0, 0)
         self.log_bad: list[str] = []
+        # the whole lines of the log read so far, blank and bad ones too: the count of `log_version`
+        self.log_lines = 0
         self.read_at = 0
         self.stamps: dict[str, tuple] = {}
         self.owner: list[dict] = []
@@ -2472,31 +2538,36 @@ class Reader:
     # each loader keeps its last good read, and says what failed in `problems`
 
     def read_log(self) -> None:
+        """The log read on from where the last read stopped, or from its start when it is another file
+        (`lem project prune` puts a new one in place, with a new inode) or shrank. The inode and the size
+        are the ones of the file this read holds open (`os.fstat`), so a replace between a look at the name
+        and the open never reads the new file from the old one's offset."""
         file = self.state / "events.jsonl"
         try:
-            facts = file.stat()
+            handle = file.open("rb")
         except FileNotFoundError:
-            self.events, self.log_at, self.log_bad = [], (0, 0), []
+            self.events, self.log_at, self.log_bad, self.log_lines = [], (0, 0), [], 0
             self.problems.pop("events", None)
             return
         except OSError as error:
             self.problems["events"] = f"events.jsonl cannot be read ({error.strerror})"
             return
-        same = self.log_at[0] == facts.st_ino and facts.st_size >= self.log_at[1]
-        start = self.log_at[1] if same else 0
-        if start == facts.st_size and same:
-            return
-        try:
-            with file.open("rb") as handle:
+        with handle:
+            try:
+                facts = os.fstat(handle.fileno())
+                same = self.log_at[0] == facts.st_ino and facts.st_size >= self.log_at[1]
+                start = self.log_at[1] if same else 0
+                if start == facts.st_size and same:
+                    return
                 handle.seek(start)
                 data = handle.read(facts.st_size - start)
-        except OSError as error:
-            self.problems["events"] = f"events.jsonl cannot be read ({error.strerror})"
-            return
+            except OSError as error:
+                self.problems["events"] = f"events.jsonl cannot be read ({error.strerror})"
+                return
         # only whole lines: a line that is being written is read at the next look
         whole = data.rfind(b"\n") + 1
         if not same:
-            self.events, self.log_bad = [], []
+            self.events, self.log_bad, self.log_lines = [], [], 0
         number = len(self.events) + len(self.log_bad)
         for raw in data[:whole].split(b"\n")[:-1]:
             number += 1
@@ -2511,6 +2582,7 @@ class Reader:
                 self.log_bad.append(f"line {number}")
                 continue
             self.events.append(record)
+        self.log_lines += data[:whole].count(b"\n")
         self.log_at = (facts.st_ino, start + whole)
         self.read_at = now_ms()
         if self.log_bad:
@@ -2518,6 +2590,10 @@ class Reader:
             self.problems["events"] = f"events.jsonl: {shown} {'is' if len(self.log_bad) == 1 else 'are'} no event with a time, and the board leaves {'it' if len(self.log_bad) == 1 else 'them'} out"
         else:
             self.problems.pop("events", None)
+
+    def log_id(self) -> str:
+        """The version of the log this reader read (`log_version`), which a page gives its stream."""
+        return log_version(self.log_at[0], self.log_lines)
 
     def changed(self, key: str, path: Path) -> bool:
         try:
