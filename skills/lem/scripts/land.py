@@ -436,7 +436,9 @@ that the server merges it with no second read. The owner's merge that the base r
 (`owner_tap`) stands the same way, while the reasons the request is not green are the ones he saw:
 `propose` logs `merge.stands`, and the server runs `merge --by owner --via server --standing`, which
 `merge.start` and `merged_by` record as made `after: a re-check`. A commit after the rebase, a
-conflict or other reasons end it, and `propose` says why (`owner_merge`).
+conflict, a review that does not cover the change or other reasons end it, and `propose` says why
+(`owner_merge`); for a review that does not cover it, the review's reason, which the rebase kept
+(`rebase_uncovered`).
 
 A step that was cut off is run again; a merge that GitHub already holds only finishes the bookkeeping.
 `clean` knows the branch from `landing.json`, so it finds it after the worktree is gone. It
@@ -927,7 +929,7 @@ def start_locked(task: Task, conflicting: bool = False) -> dict:
         # since the checks run outside the merge lock and a busy base can move again meanwhile.
         relands = int(task.kept().get("relands") or 0) + 1
         task.keep(sync={"conflicting": conflicting, "onto": None, "moved": None, "conflict": None, "resolved": False},
-                  conflict=None, resolution=None, rebase_carried=None, relands=relands)
+                  conflict=None, resolution=None, rebase_carried=None, rebase_uncovered=None, relands=relands)
         script("project.py", task.main, "log", task.slug, "land.again", f"count:={relands}", f"conflicting:={json.dumps(conflicting)}")
     if task.record["status"] != "landing":
         # kept here because `clean` needs the branch after the worktree, which names it, is gone
@@ -952,14 +954,17 @@ def cmd_base(task: Task) -> dict:
     before = git(task.worktree, "rev-parse", "HEAD")
     kept = task.kept()
     # A conflict this landing met before: a builder rebased the branch since and resolved it, or
-    # left it as it was. Its record keeps the tip before any rebase and whether a review covered it.
+    # left it as it was. Its record keeps the tip before any rebase, whether a review covered it, and why not.
     pending = kept.get("conflict")
     if pending:
         covered = pending["covered"]
+        uncovered = pending["uncovered"]
     else:
         # covered: the newest review that answered saw this change and left nothing to fix in it
         answered = [read for read in kept.get("reads", []) if read["answered"]]
         covered = bool(answered) and not answered[-1]["must_fix"] and covers(task, answered[-1], change(task))
+        # why it is not, for the owner's merge that `propose` ends after this rebase (`tap_after`)
+        uncovered = why_uncovered(answered, backlog_of(task), change(task))
     rebased = run(["git", "-C", str(task.worktree), "rebase", task.onto], check=False)
     if rebased.returncode != 0:
         conflicts = git(task.worktree, "diff", "--name-only", "--diff-filter=U", check=False).splitlines()
@@ -967,7 +972,7 @@ def cmd_base(task: Task) -> dict:
         task.keep(conflict={
             "before": pending["before"] if pending else before,
             "base": pending["base"] if pending else git(task.worktree, "merge-base", before, onto),
-            "files": sorted({*(pending["files"] if pending else []), *conflicts}), "covered": covered,
+            "files": sorted({*(pending["files"] if pending else []), *conflicts}), "covered": covered, "uncovered": uncovered,
         })
         if kept.get("sync"):
             task.keep(sync={**kept["sync"], "conflict": sorted({*(kept["sync"].get("conflict") or []), *conflicts})})
@@ -994,7 +999,7 @@ def cmd_base(task: Task) -> dict:
     now = change(task)
     # the tip a rebase with no conflict made of the tip before it, while the review carried: what was
     # said of that tip at the merge (the merge agent's review, the owner's merge) is kept for this one
-    updates: dict = {"base": onto, "gated": None, "tree": None, "conflict": None, "rebase_carried": None}
+    updates: dict = {"base": onto, "gated": None, "tree": None, "conflict": None, "rebase_carried": None, "rebase_uncovered": None}
     if resolved:
         # What the review saw is the change before the conflict; what the builder chose where the
         # two sides met is new, and gets one read of its own (`due`).
@@ -1010,6 +1015,10 @@ def cmd_base(task: Task) -> dict:
         reads[last] = {**reads[last], "carried": [*reads[last].get("carried", []), {"patch": now["patch"], "contents": now["contents"], "onto": onto[:9]}]}
         updates["reads"] = reads
         updates["rebase_carried"] = {"from": origin, "to": tip}
+    if tip != origin and not covered:
+        # the tip a rebase made while no review covered the change, and why: the words of the owner's
+        # merge that `propose` of this tip ends
+        updates["rebase_uncovered"] = {"from": origin, "to": tip, "why": uncovered}
     if kept.get("sync"):
         updates["sync"] = {**task.kept()["sync"], "onto": onto[:9], "moved": tip != origin, "resolved": resolved or task.kept()["sync"].get("resolved", False)}
     # a new base or a new tip means the last result of the checks is about another tree
@@ -1218,6 +1227,20 @@ def covers(task: Task, read: dict, now: dict) -> bool:
 def covered(folder: str, read: dict, now: dict) -> bool:
     """`covers`, with the backlog folder given: the rule alone, which reads no file."""
     return any(covers_one(folder, seen, now) for seen in [read, *read.get("carried", [])])
+
+
+def why_uncovered(answered: list[dict], folder: str, now: dict) -> str | None:
+    """Why no review covers the change as it is now, from the reviews that answered, in order, and the
+    backlog folder: the newest one's words, for the owner whose merge `propose` ends. None when the
+    newest one covers it, which is when `cmd_base`'s `covered` is true."""
+    if not answered:
+        return "no review answered for the change"
+    last = answered[-1]
+    if last["must_fix"]:
+        return f"round {last['round']} left {last['must_fix']} must-fix, and no review read the change after it"
+    if not covered(folder, last, now):
+        return f"no review read what changed after round {last['round']}"
+    return None
 
 
 def covers_one(folder: str, read: dict, now: dict) -> bool:
@@ -3528,7 +3551,8 @@ def carry_merge(task: Task, kept: dict, tip: str, state: dict, reasons: list[str
     proposal) at its merge, carried onto TIP where the change is the same (`carried_over`): the merge
     agent's review, with whether it calls the owner as the rules say now, logged again as a
     `merge.review` of TIP with `carried`; and the owner's merge that a moved base refused, which stands
-    (`merge.stands`) or ends (`tap_after`). What it gives the output: `merge_review` (carried or
+    (`merge.stands`) or ends (`tap_after`, with the reason no review covers the change when a rebase
+    kept one, `rebase_uncovered`). What it gives the output: `merge_review` (carried or
     null) and `owner_merge` (`stands`, the reason it ended, or null)."""
     old, rebased = kept.get("proposed"), kept.get("rebase_carried")
     out: dict = {"merge_review": None, "owner_merge": None}
@@ -3542,7 +3566,7 @@ def carry_merge(task: Task, kept: dict, tip: str, state: dict, reasons: list[str
         script("project.py", task.main, "log", task.slug, "merge.review", f"verdict={review['verdict']}", f"calls:={json.dumps(calls)}", f"by={review.get('by')}",
                f"tip={tip[:9]}", f"carried={str(old)[:9]}", *([f"why={why}"] if why else []))
         out["merge_review"] = "carried"
-    tap, ended = tap_after(kept.get("owner_tap"), old, tip, rebased, reasons)
+    tap, ended = tap_after(kept.get("owner_tap"), old, tip, rebased, kept.get("rebase_uncovered"), reasons)
     if tap:
         task.keep(owner_tap=tap)
         script("project.py", task.main, "log", task.slug, "merge.stands", "by=owner", f"tip={tip[:9]}", f"from={str(old)[:9]}")
@@ -3604,13 +3628,16 @@ def carried_over(old: str | None, new: str, rebased: dict | None) -> bool:
     return bool(old) and (old == new or rebased == {"from": old, "to": new})
 
 
-def tap_after(tap: dict | None, old: str | None, new: str, rebased: dict | None, reasons: list[str]) -> tuple[dict | None, str | None]:
+def tap_after(tap: dict | None, old: str | None, new: str, rebased: dict | None, uncovered: dict | None, reasons: list[str]) -> tuple[dict | None, str | None]:
     """The owner's merge that a moved base refused, after a new proposal: it stands, with the new tip,
     while the change is the one he merged (`carried_over`) and the reasons it is not green are the same;
-    else it ends, with why. (None, None) when no merge of his waits."""
+    else it ends, with why. A merge that ends because the rebase from OLD to NEW kept no review
+    (UNCOVERED, `rebase_uncovered`) says the review's reason. (None, None) when no merge of his waits."""
     if not tap:
         return None, None
     if tap.get("tip") != old or not carried_over(old, new, rebased):
+        if old and tap.get("tip") == old and uncovered and uncovered.get("from") == old and uncovered.get("to") == new:
+            return None, f"no review covers the change: {uncovered['why']}"
         return None, "the change is not the one the owner merged: a commit came after the rebase, or the rebase met a conflict"
     if list(tap.get("not_green") or []) != list(reasons):
         return None, "the reasons the request is not green are not the ones the owner saw when he merged it"

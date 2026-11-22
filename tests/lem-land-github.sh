@@ -470,6 +470,33 @@ if [ "$(status_in "$GWS" w-one)" = landed ] && [ "$waited" = open ] && grep -qF 
 else
   fail "an open task after a merge: $waited / $refused / $started / $based / $polished / $due_after / $again"
 fi
+# The same task again, with a review that does not cover it: round 2 leaves a must-fix, a builder fixes it and no review
+# reads the fix, so the owner merges it; the base moves, his word is refused, and the landing after it ends his merge
+# with the review's reason.
+two=$GWS/.lem/worktrees/w-two
+echo more > "$two/more.txt" && git -C "$two" add more.txt && git -C "$two" commit -q -m "feat: more"
+gw_land start w-two >/dev/null && gw_land base w-two >/dev/null && gw_land checks w-two >/dev/null
+gw_land read w-two --record "$(record w-two 2 '{"kind": "round", "ran": [{"name": "default", "why": "it fits"}], "answered": ["codex"], "must_fix": 1}')" >/dev/null
+echo fixed > "$two/more.txt" && git -C "$two" commit -q -am "fix: the must-fix"
+gw_land checks w-two >/dev/null 2>&1 || true
+gw_land propose w-two --title "fix: w-two" --notes "$NOTES" >/dev/null 2>&1 || true
+mover=$WORK/gw-mover
+git clone -q "$GWO" "$mover" && ident "$mover"
+echo moved > "$mover/moved.txt" && git -C "$mover" add moved.txt && git -C "$mover" commit -q -m "docs: moved" && git -C "$mover" push -q origin main
+proposed_two=$(kept_in "$GWS" w-two proposed)
+gw_land merge w-two --by owner >/dev/null 2>&1 || true
+gw_land start w-two >/dev/null && gw_land base w-two >/dev/null
+uncovered=$(kept_in "$GWS" w-two rebase_uncovered)
+gw_land checks w-two >/dev/null 2>&1 || true
+ended=$(gw_land propose w-two --title "fix: w-two" --notes "$NOTES" 2>&1 || true)
+must_fix="round 2 left 1 must-fix, and no review read the change after it"
+if [ "$uncovered" = "{'from': '$proposed_two', 'to': '$(git -C "$two" rev-parse HEAD)', 'why': '$must_fix'}" ] \
+  && [ "$(kept_in "$GWS" w-two rebase_carried)" = None ] && [ "$(kept_in "$GWS" w-two owner_tap)" = None ] \
+  && [ "$(field 'd["owner_merge"]' <<<"$ended" 2>&1)" = "ended: no review covers the change: $must_fix; the owner merges it again" ]; then
+  pass "an open task whose last review left a must-fix that no review read after its fix: the rebase onto the moved base keeps why no review covers the change, and propose ends the owner's merge with that reason"
+else
+  fail "an owner's merge that no review covers: $uncovered / $ended"
+fi
 # A conflict: the owner merges #9, which changed the line #10 changes too, and the forge calls #10 conflicting. base stops,
 # a builder (here the test) rebases and keeps both, and the resolution gets one read of its own.
 line_task w-three small 5 three
