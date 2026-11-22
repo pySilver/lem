@@ -270,7 +270,8 @@ next=$(land --repo "$SHOP" read second-change --record "$(record second-change 1
 err=$(land --repo "$SHOP" propose second-change --title x --notes "$NOTES" 2>&1 || true)
 if [ "$(field '(d["due"], d["floor"], d["why"])' <<<"$out")" = "('review', 'full', 'the request is careful: the owner says so')" ] \
   && grep -q "this change gets the project's full set at the least (the request is careful: the owner says so), and the record says a review round with the profiles that fit" <<<"$under" \
-  && grep -q "the project's full set leaves no profile out" <<<"$dropped" && [ "$next" = "('must-fix', 'review')" ] \
+  && grep -q "the project's full set leaves no profile out" <<<"$dropped" && grep -qF 'write "left_out": [] on a full review' <<<"$dropped" \
+  && [ "$next" = "('must-fix', 'review')" ] \
   && grep -q "a review is due before anything is proposed, the project's full set at the least" <<<"$err"; then
   pass "a request the owner called careful gets the project's full set: a record of less is refused, one that leaves a profile out too; a round in which one source did not answer counts, and a must-fix is followed by another round"
 else
