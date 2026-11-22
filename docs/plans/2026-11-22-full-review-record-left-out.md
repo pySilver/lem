@@ -16,6 +16,7 @@ Size: full, because the review's brief, the help of `lem land` and the refusal o
    1. A record says `"kind": "full"` and `"left_out": [{"name": "focused", "why": "the change is careful"}]`.
    2. `lem land read --record` refuses it.
    3. Its message says that the full set leaves no profile out, and that `left_out` is `[]` on a full review.
+   - test: `bash tests/lem-land-shop.sh` in `tests/lem-land-shop.sh`
 
 ## Tasks
 
