@@ -87,8 +87,8 @@ only while that thing still waits:
    and nothing is merged that he did not read; his "Not now" leaves the pull request open. An answer
    that asks something back or thinks aloud is no pick: say in the thread what you read, and wait
    for his yes there or at the Mac.
-3. Close the card when one is up (`lem-ask close`: the card's own command then ends as `dismissed`,
-   which here is your close and needs no act), clear the waiting mark (its reverse in
+3. Close the card when one is up (`lem-ask close`: the card's own command then ends, as `dismissed`
+   by agterm's help, and that end is your close and needs no act), clear the waiting mark (its reverse in
    `../claude-code.md`), and say in one line in the session and in one line in the thread that his
    answer came from the Inbox and what it did. Do this before the stage's own last act (the close
    of a parked or dropped task's session).
