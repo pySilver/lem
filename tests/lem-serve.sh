@@ -205,6 +205,39 @@ else
   fail "the backlog's filter: $shown"
 fi
 
+# The search over every card (criteria 1, 2, 4 and 5 of docs/plans/2026-11-22-board-card-search.md): the Tasks view and
+# "Activity" draw it closed, with its button in the bar and in the phone's bar, and its rows hold every card of the
+# workspace in the order of the columns: a task of a column, the parked task, an ended task Done draws no card for and a
+# backlog item, each with its chip. Twenty tasks that landed a minute ago put the afternoon's ended tasks past Done's cards.
+"$PY" -c 'import json, sys
+from datetime import datetime, timedelta, timezone
+ts = (datetime.now(timezone.utc) - timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+with open(sys.argv[1], "a", encoding="utf-8") as log:
+    for n in range(1, 21):
+        log.write(json.dumps({"ts": ts, "event": "task.state", "task": f"landed-now-{n:02d}", "status": "landed", "text": "merged", "lines": []}) + "\n")' "$STATE/events.jsonl"
+# found: the search's box, its rows and the two buttons of a page on stdin, as one line
+found() { "$PY" -c 'import re, sys
+t = sys.stdin.read()
+box = re.search(r"<div class=\"search\" id=\"search\"[^>]*>", t)
+rows = re.findall(r"<a class=\"sr a-([a-z]+)\" id=\"sr-([a-z]+-[a-z0-9-]+)\"[^>]*>.*?<span class=\"pill sr-chip\"><i></i><span>([^<]*)</span>", t, re.S)
+chips = {key: (actor, re.sub(r" \d{4}-\d{2}-\d{2}$", " DAY", chip)) for actor, key, chip in rows}
+order = [key for _, key, _ in rows]
+def first(key):
+    return order.index(key) if key in order else -1
+buttons = [bool(re.search(r"<header class=\"" + bar + r"\">(?:(?!</header>).)*<button class=\"btn search-open[^>]*aria-label=\"[^\"]*Cmd-K", t, re.S)) for bar in ("bar", "mbar")]
+print(bool(box) and "data-js-open" not in box[0], buttons, [chips.get(k) for k in ("task-stock-on-product-page", "task-fee-notice-to-merchants", "task-why-export-is-slow", "item-invoice-footer-wraps")],
+      0 <= first("task-gift-note-in-export") < first("task-refund-rounding") < first("task-coupon-has-a-slug") < first("task-fee-notice-to-merchants") < first("task-landed-now-01") < first("item-invoice-footer-wraps"),
+      "href=\"/" + sys.argv[1] + "/shop/backlog#item-invoice-footer-wraps\"" in t)' "$HOST"; }
+search_kanban=$(got "$BASE/")
+search_activity=$(got "$BASE/activity")
+searched="True [True, True] [('you', 'Waits for you · held'), ('quiet', 'parked'), ('done', 'answered DAY'), ('gate', 'Backlog · worth: yes')] True True"
+if [ "$(found <<<"$search_kanban")" = "$searched" ] && [ "$(found <<<"$search_activity")" = "$searched" ] \
+  && ! grep -qF 'id="card-why-export-is-slow"' <<<"$search_kanban" && ! grep -qF 'id="card-fee-notice-to-merchants"' <<<"$search_kanban"; then
+  pass "the Tasks view and Activity draw the search closed with its button in both bars, and its rows hold every card in the order of the columns: a task of a column, the parked task, an ended task Done has no card for and a backlog item, each with its chip"
+else
+  fail "the search over every card: $(found <<<"$search_kanban") / $(found <<<"$search_activity")"
+fi
+
 # The diagram library: a document with a chart names it, and a page with none never does.
 charted=$(got "$R")
 library=$("$PY" -c 'import re, sys; print((re.findall(r"data-lem-mermaid=\"([^\"]+)\"", sys.stdin.read()) or [""])[0])' <<<"$charted")

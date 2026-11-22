@@ -255,5 +255,93 @@ class WaitsVerb(unittest.TestCase):
         self.assertNotIn('id="waits-keys"', html)
 
 
+class Search(unittest.TestCase):
+    """The search over every card, as the server draws it (criteria 1, 2, 4 and 5 of
+    docs/plans/2026-11-22-board-card-search.md): closed on every page of the workspace, one row for each card
+    with its title, its chip and the link a pick follows, and its button in the bar and in the phone's bar."""
+
+    BACKLOG = {"folder": "docs/backlog", "items": [{"slug": "the-board-s-done-column-has-no-limit", "path": "docs/backlog/the-board-s-done-column-has-no-limit.md",
+                                                     "title": "The board's done column has no limit", "worth": "yes"}]}
+
+    def ctx(self, **kw) -> "pages.Ctx":
+        events = [*ended(22), state(61, "held", "the criteria wait for the owner", task="board-card-search"),
+                  state(62, "parked", "wait for the merchants", task="old-export-fix")]
+        return pages.Ctx(host="h", workspace="w", model=bm.derive(events, [], NOW), asset=lambda name: name, backlog=self.BACKLOG, **kw)
+
+    def box(self, html: str) -> str:
+        found = re.findall(r'<div class="search" id="search"[^>]*>.*?<div class="keys search-keys" id="search-keys">.*?</div></div></div>', html, re.S)
+        self.assertEqual(len(found), 1)
+        return found[0]
+
+    def test_every_page_of_the_workspace_draws_the_box_once_closed_with_its_field(self):
+        ctx = self.ctx()
+        drawn = {"tasks": pages.kanban_page(ctx), "waits": pages.waits_page(ctx), "backlog": pages.backlog_page(ctx), "activity": pages.activity_page(ctx),
+                 "done": pages.older_page(ctx), "new": pages.new_page(ctx)}
+        task_ctx = self.ctx()
+        task_ctx.task = "board-card-search"
+        drawn["task"] = task_pages.task_page(task_ctx)[1]
+        native = self.ctx(native=True)
+        native.task = "board-card-search"
+        drawn["native"] = task_pages.task_page(native)[1]
+        for name, page_ in drawn.items():
+            box = self.box(str(page_))
+            head = re.match(r"<div[^>]*>", box)[0]
+            self.assertNotIn("data-js-open", head, name)
+            self.assertIn('data-controller="search"', head, name)
+            self.assertIn('role="dialog"', head, name)
+            self.assertRegex(box, r'<input id="search-q-w" type="search"[^>]*data-search-target="query"[^>]*data-turbo-permanent>', name)
+            self.assertIn('data-search-target="none" data-js-out', box, name)
+            self.assertEqual(len(re.findall(r'<a class="sr ', box)), 22 + 2 + 1 + 1, name)
+
+    def test_each_row_has_its_title_its_chip_and_the_link_a_card_has(self):
+        ctx = self.ctx()
+        html = str(pages.waits_page(ctx))
+        box = self.box(html)
+
+        def row(slug, kind="task"):
+            return re.search(rf'<a class="sr [^"]*" id="sr-{kind}-{slug}"[^>]*>(.*?)</a>', box, re.S)
+
+        held = row("board-card-search")
+        self.assertIsNotNone(held)
+        for attr in ('class="sr a-you"', 'role="option"', 'href="/h/w/tasks/board-card-search?in=waits"', 'data-turbo-frame="task"', 'data-turbo-action="advance"',
+                     'data-search-target="row"', 'data-kind="task"', 'data-slug="board-card-search"', 'data-title="Board card search"', 'data-open="1"'):
+            self.assertIn(attr, held[0])
+        self.assertIn('<span class="sr-title">Board card search</span><span class="pill sr-chip"><i></i><span>Waits for you · held</span></span>', held[1])
+        parked = row("old-export-fix")
+        self.assertIn('data-open="1"', parked[0])
+        self.assertIn("<span>parked</span>", parked[1])
+        # an ended task Done draws no card for: in the box, with no data-open, and its chip the day it ended
+        old = row("task-00")
+        self.assertIsNotNone(old)
+        self.assertNotIn('id="card-task-00"', str(pages.kanban_page(self.ctx())))
+        self.assertNotIn("data-open", old[0])
+        self.assertIn('class="sr a-done"', old[0])
+        self.assertIn(f"<span>landed {bm.local(ctx.model.by_slug['task-00'].since).date().isoformat()}</span>", old[1])
+        item = row("the-board-s-done-column-has-no-limit", "item")
+        for attr in ('class="sr a-gate"', 'href="/h/w/backlog#item-the-board-s-done-column-has-no-limit"', 'data-kind="item"', 'data-title="The board&#x27;s done column has no limit"'):
+            self.assertIn(attr, item[0])
+        self.assertNotIn("data-open", item[0])
+        self.assertNotIn("data-turbo-frame", item[0])
+        self.assertIn("<span>Backlog · worth: yes</span>", item[1])
+        # the order: the columns, the parked task, the ended ones newest first, the backlog
+        order = re.findall(r'id="sr-([a-z]+-[a-z0-9-]+)"', box)
+        self.assertEqual(order[:4], ["task-board-card-search", "task-builds", "task-old-export-fix", "task-task-21"])
+        self.assertEqual(order[-2:], ["task-task-00", "item-the-board-s-done-column-has-no-limit"])
+
+    def test_the_bar_and_the_phones_bar_have_the_button_that_names_its_key(self):
+        html = str(pages.activity_page(self.ctx()))
+        for bar in ("bar", "mbar"):
+            header = re.search(rf'<header class="{bar}">(.*?)</header>', html, re.S)
+            self.assertIsNotNone(header, bar)
+            button = re.search(r'<button class="btn search-open [^"]*"[^>]*>(.*?)</button>', header[1], re.S)
+            self.assertIsNotNone(button, bar)
+            self.assertIn('data-search-open', button[0])
+            self.assertIn('aria-controls="search"', button[0])
+            self.assertRegex(button[0], r'title="[^"]*Cmd-K[^"]*"')
+            self.assertRegex(button[0], r'aria-label="[^"]*Cmd-K[^"]*"')
+            self.assertIn('<use href="#i-magnifying-glass">', button[1])
+        self.assertIn('<symbol id="i-magnifying-glass"', html)
+
+
 if __name__ == "__main__":
     unittest.main()

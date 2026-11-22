@@ -10,8 +10,9 @@
 
 Every page of a workspace is one layout (`layout`): the sidebar (the mark and the repository, the
 notices, "Waits for you", the views and the switcher of the workspaces in its foot), the bar above the
-view (its name, what it holds, the base branch and the counts of the pull requests), the view, and the
-status bar (when the log was read, when the forge was looked at, and whether the page is live). On a
+view (its name, what it holds, the base branch and the counts of the pull requests), the view, the
+status bar (when the log was read, when the forge was looked at, and whether the page is live), and the
+search over every card of the workspace, closed until its button or its key opens it (`search_box`). On a
 phone the sidebar is a drawer behind a bar at the top, and the kanban shows one column at a time.
 
 The page is drawn whole by the server for its URL, and Turbo morphs it into its next version when the
@@ -76,13 +77,8 @@ VIEW = {v["key"]: v for v in VIEWS}
 OLDER = {"key": "done", "path": "done", "label": "Older ended tasks"}
 # Every page of a workspace a task's panel may lie over (`?in=KEY`), by its key.
 UNDER = {**VIEW, OLDER["key"]: OLDER}
-# The backlog's groups, from each item's own `worth`.
-BY_WORTH = [
-    {"key": "yes", "name": "Worth doing", "actor": "gate"},
-    {"key": "later", "name": "Later", "actor": "you"},
-    {"key": "unset", "name": "No verdict in the item", "actor": "quiet"},
-    {"key": "no", "name": "Decided against", "actor": "quiet", "recessive": True},
-]
+# The key of the search over every card, as its button names it: the browser's search controller takes either.
+SEARCH_KEYS = "Cmd-K, or Ctrl-K off the Mac"
 # How long the board's own look at GitHub counts as fresh: a few of its looks (serve.FORGE_SECONDS), a guess.
 BOARD_LOOK_FRESH = 10 * 60 * 1000
 # A path in a line the owner types into a session: anything but plain path characters is refused.
@@ -334,6 +330,13 @@ def act_note(ctx: Ctx, note: dict | None) -> Markup | None:
                h("div", {"class": "v-text"}, h("b", {"class": "v-word"}, word), " ", rich(ctx, note.get("said") or ""))))
 
 
+def search_button(ctx: Ctx, cls: str = "") -> Markup:
+    """The button that opens the search over every card (`search_box`), in the bar and in the phone's bar."""
+    return h("button", {"class": f"btn search-open {cls}".strip(), "type": "button", "data-search-open": True, "aria-controls": "search",
+                        "title": f"Search every card by its title · {SEARCH_KEYS}", "aria-label": f"Search every card ({SEARCH_KEYS})"},
+             icon(ctx, "magnifying-glass"), h("span", None, "Search"))
+
+
 def new_task_link(ctx: Ctx, cls: str = "") -> Markup:
     """The "+" of a new task, which opens its form."""
     return h("a", {"class": f"btn new-task {cls}".strip(), "href": f"{ctx.base}/new", "title": "A new task, in your words · key N", "aria-label": "A new task",
@@ -403,6 +406,7 @@ def layout(ctx: Ctx, title: str, summary: str, view: Markup, *, stage_cls: str =
                    h("button", {"class": "ibtn", "type": "button", "data-action": "drawer#open", "title": "Menu", "aria-label": "Open the menu"}, icon(ctx, "bars")),
                    # the phone's bar says demo data too: the sidebar's notice is behind the drawer there
                    h("div", {"class": "m-title"}, h("b", None, "Lem"), h("span", None, f"{ctx.workspace} · demo data" if meta.get("demo") else ctx.workspace)),
+                   search_button(ctx, "m-search"),
                    new_task_link(ctx, "m-new") if ctx.can_act else None,
                    h("a", {"class": f"m-waits{' you' if waits else ''}", "href": ctx.href("waits"),
                            "aria-label": f"{bm.plural(len(waits), 'thing')} {'waits' if len(waits) == 1 else 'wait'} for you: open the list"},
@@ -411,7 +415,8 @@ def layout(ctx: Ctx, title: str, summary: str, view: Markup, *, stage_cls: str =
                  h("main", stage_attrs(ctx, stage_cls), view, task_frame(ctx)),
                  statusbar(ctx)))
     # the icons last, once the page named every one it uses
-    body = h("body", {"class": "app", "data-controller": "clock agterm", "data-agterm-url-value": f"{ctx.base}/agterm" if ctx.local else None}, shell, sprite(ctx))
+    body = h("body", {"class": "app", "data-controller": "clock agterm", "data-agterm-url-value": f"{ctx.base}/agterm" if ctx.local else None},
+             shell, search_box(ctx), sprite(ctx))
     trouble_mark = "PROBLEM · " if trouble else ""
     demo_mark = "DEMO · " if meta.get("demo") else ""
     builds = sum(1 for t in m.lane["build"] if t.status == "building")
@@ -419,6 +424,34 @@ def layout(ctx: Ctx, title: str, summary: str, view: Markup, *, stage_cls: str =
     doc_title = (f"{trouble_mark}{demo_mark}{open_task.title} · {open_task.info['label'] if open_task.blocks else 'no state yet'} · Lem · {repo}" if open_task
                  else f"{trouble_mark}{demo_mark}{title} · Lem · {repo} · {builds} build · {len(waits)} for you")
     return page(head(doc_title, ctx.asset), body)
+
+
+def search_box(ctx: Ctx) -> Markup:
+    """The search over every card of the workspace, drawn whole and closed on every page: its field and
+    one row for each card (`bm.search_rows`), in the order it lists them with nothing typed. The search
+    controller opens it (`data-js-open`, which a morph keeps), filters and orders the rows by the title in
+    `data-title`, shows only the rows with `data-open` while nothing is typed, and picks a row by its link:
+    a task's opens its panel as its card does, a backlog item's opens the Backlog view on that item. A task's
+    row carries `data-task`, as a task's row of the sidebar does, so the view's mark goes to its card
+    (cursor.js) and Escape after the panel gives the focus to that card."""
+    def link(r: dict) -> dict:
+        return task_link(ctx, r["slug"]) if r["kind"] == "task" else {"href": f"{ctx.href('backlog')}#item-{quote(r['slug'], safe='')}"}
+
+    rows = [h("a", {"class": f"sr a-{r['actor']}", "id": f"sr-{r['kind']}-{r['slug']}", "role": "option", "tabindex": "-1", **link(r),
+                    "data-search-target": "row", "data-kind": r["kind"], "data-slug": r["slug"], "data-title": r["title"], "data-open": "1" if r["open"] else None,
+                    "data-task": r["slug"] if r["kind"] == "task" else None},
+              h("span", {"class": "sr-title"}, r["title"]), h("span", {"class": "pill sr-chip"}, h("i"), h("span", None, r["chip"])))
+            for r in bm.search_rows(ctx.model, ctx.backlog)]
+    return h("div", {"class": "search", "id": "search", "data-controller": "search", "data-action": "click->search#click", "role": "dialog", "aria-modal": "true", "aria-label": "Search every card"},
+             h("div", {"class": "search-box"},
+               h("label", {"class": "search-field"}, icon(ctx, "magnifying-glass"),
+                 h("input", {"id": f"search-q-{ctx.workspace}", "type": "search", "placeholder": "Search every card by its title", "aria-label": "Search every card by its title",
+                             "autocomplete": "off", "spellcheck": "false", "aria-controls": "search-list", "data-action": "input->search#input", "data-search-target": "query",
+                             "data-turbo-permanent": True}),
+                 h("kbd", None, "Esc")),
+               h("div", {"class": "search-list", "id": "search-list", "role": "listbox", "aria-label": "The cards of the workspace"}, rows,
+                 h("div", {"class": "search-none", "data-search-target": "none", "data-js-out": True}, "No card has these letters in its title.")),
+               keys_line(("↑", "↓"), "move", ("Enter",), "open", ("Esc",), "close", id_="search-keys", cls="search-keys")))
 
 
 def sidebar(ctx: Ctx, waits: list, repo: str) -> Markup:
@@ -639,7 +672,7 @@ def topbar(ctx: Ctx, title: str, summary: str) -> Markup:
     if m.landed_today:
         chips.append(chip(ctx, "check", "ok", h("b", None, len(m.landed_today)), " landed today"))
     return h("header", {"class": "bar"}, h("h1", None, title), h("span", {"class": "sum", "title": summary}, summary), h("div", {"class": "meta"}, chips),
-             new_task_link(ctx, "bar-new") if ctx.can_act else None)
+             search_button(ctx, "bar-search"), new_task_link(ctx, "bar-new") if ctx.can_act else None)
 
 
 def statusbar(ctx: Ctx) -> Markup:
@@ -776,9 +809,10 @@ def kanban(ctx: Ctx) -> Markup:
              keys_line(("J", "K", "↑", "↓"), "move", ("H", "L", "←", "→"), "column", ("Enter",), "open", ("Esc",), "close", id_="kanban-keys"))
 
 
-def keys_line(*parts, id_: str | None = None) -> Markup:
-    """A view's line of its keys, the Tasks view's, "Waits for you"'s and the Backlog's, each hidden on a phone
-    (`.keys`): the parts in turns, a tuple of keys and the word of what they do."""
+def keys_line(*parts, id_: str | None = None, cls: str = "") -> Markup:
+    """A view's line of its keys, the Tasks view's, "Waits for you"'s and the Backlog's, and the search's
+    (`cls` "search-keys"), each hidden on a phone (`.keys`): the parts in turns, a tuple of keys and the
+    word of what they do."""
     out = []
     for keys, word in zip(parts[::2], parts[1::2]):
         if out:
@@ -786,7 +820,7 @@ def keys_line(*parts, id_: str | None = None) -> Markup:
         for key in keys:
             out += [h("kbd", None, key), " "]
         out.append(word)
-    return h("div", {"class": "keys", "id": id_}, out)
+    return h("div", {"class": f"keys {cls}".strip(), "id": id_}, out)
 
 
 def older_row(ctx: Ctx) -> Markup | None:
@@ -1030,10 +1064,6 @@ def backlog_filter(query: dict) -> dict:
     return {"q": one("q")[:200], "worth": worth if worth in WORTHS else "", "only": only if only in FACTS else ""}
 
 
-def worth_of(it: dict) -> str:
-    return it.get("worth") if it.get("worth") in ("yes", "later", "no") else "unset"
-
-
 def filter_href(ctx: Ctx, f: dict, **change: str) -> str:
     """The address of the backlog with the filter F changed: a value given again takes it off."""
     want = {**f, **{k: ("" if f.get(k) == v else v) for k, v in change.items()}}
@@ -1075,7 +1105,7 @@ def backlog_item(ctx: Ctx, it: dict) -> Markup:
         actions = h("div", {"class": "bl-actions"}, h("span", {"class": "bl-note bad"},
                     "The name of this file has a character that a line to type would not keep. Start the task yourself in a session, with your own words."))
     body = it.get("body") or ""
-    return h("details", {"class": "bl-item", "id": f"item-{it['slug']}", "data-backlog-target": "item", "data-worth": worth_of(it),
+    return h("details", {"class": "bl-item", "id": f"item-{it['slug']}", "data-backlog-target": "item", "data-worth": bm.worth_of(it),
                          "data-stale": "1" if it.get("where_problem") else None, "data-new": "1" if it.get("state") in ("new", "edited") else None},
              h("summary", {"class": "bl-head"}, h("span", {"class": "bl-title"}, rich(ctx, it["title"])), h("span", {"class": "bl-side"}, side), place),
              h("div", {"class": "bl-body"},
@@ -1090,8 +1120,8 @@ def backlog_page(ctx: Ctx) -> Markup:
     items = backlog["items"] if backlog else []
     f = {"q": "", "worth": "", "only": "", **(ctx.filters or {})}
     groups = []
-    for g in BY_WORTH:
-        mine = [it for it in items if worth_of(it) == g["key"]]
+    for g in bm.BY_WORTH:
+        mine = [it for it in items if bm.worth_of(it) == g["key"]]
         if mine:
             groups.append(h("div", {"class": f"bl-group a-{g['actor']}{' recessive' if g.get('recessive') else ''}", "id": f"group-{g['key']}", "data-backlog-target": "group"},
                             h("div", {"class": "lane-head"}, h("i"), g["name"], h("em", None, len(mine))), [backlog_item(ctx, it) for it in mine]))
@@ -1117,8 +1147,8 @@ def backlog_page(ctx: Ctx) -> Markup:
                        "data-action": "backlog#pick", "aria-pressed": "true" if on else "false", "title": title},
                  h("i"), h("span", None, label), h("em", None, n))
 
-    counts = {g["key"]: sum(1 for it in items if worth_of(it) == g["key"]) for g in BY_WORTH}
-    chips = [chip_("worth", g["key"], g["name"], counts[g["key"]], g["actor"], f"Only the items whose worth is {g['key']}") for g in BY_WORTH if counts[g["key"]]]
+    counts = {g["key"]: sum(1 for it in items if bm.worth_of(it) == g["key"]) for g in bm.BY_WORTH}
+    chips = [chip_("worth", g["key"], g["name"], counts[g["key"]], g["actor"], f"Only the items whose worth is {g['key']}") for g in bm.BY_WORTH if counts[g["key"]]]
     facts_ = [chip_("only", "stale", FACTS["stale"][0], stale, "bad", f"Only the items where {FACTS['stale'][1]}"),
               chip_("only", "new", FACTS["new"][0], fresh, "gate", f"Only the items {FACTS['new'][1]}")]
     filtered = bool(f["q"] or f["worth"] or f["only"])

@@ -1102,3 +1102,41 @@ html:has(.app.plain) { overflow: auto; height: auto; }
   .bar .new-task { display: none; }
   .nt { padding: 12px 12px 24px; }
 }
+
+/* ---- the search over every card (search_box in lem_board_pages.py) ----
+   Drawn closed on every page; the search controller opens it with data-js-open, which a morph keeps. It
+   lies over the board and the drawer, behind a scrim of the drawer's color, one row for each card, its chip a pill in the color of
+   the card's place. Its button stands in the bar, and on a phone in the bar at the top. */
+.app .search { display: none; }
+.app .search[data-js-open] { display: flex; position: fixed; inset: 0; z-index: 50; justify-content: center; align-items: flex-start; padding: 12vh 16px 16px;
+  background: rgba(20, 16, 8, .38); }
+.app .search-box { width: min(640px, 100%); max-height: min(560px, 76vh); display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+  background: var(--tile); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: 0 24px 60px -24px rgba(40, 30, 10, .5); }
+:root[data-palette="dark"] .app .search-box { box-shadow: 0 24px 60px -20px rgba(0, 0, 0, .8); }
+.app .search-field { flex: none; display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); color: var(--dim); cursor: text; }
+.app .search-field .ic { font-size: 15px; }
+.app .search-field input { flex: 1; min-width: 0; border: 0; outline: none; background: none; padding: 2px 0; font: 15px var(--sans); color: var(--fg); }
+.app .search-field input::-webkit-search-cancel-button { display: none; }
+.app .search-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 6px; display: flex; flex-direction: column; gap: 2px; }
+.app .sr { display: flex; align-items: center; gap: 12px; min-height: 38px; padding: 6px 10px 6px 13px; border-radius: 8px; text-decoration: none; color: inherit;
+  box-shadow: inset 3px 0 0 var(--actor); }
+.app .sr:hover { background: var(--card-hi); }
+.app .sr[data-js-cur] { background: var(--card-hi); box-shadow: inset 3px 0 0 var(--actor), 0 0 0 2px var(--accent); }
+.app .sr:focus-visible { outline: none; }
+.app .sr-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.app .sr-chip { flex: none; font-weight: 500; }
+.app .search-none { padding: 14px 10px; color: var(--dim); font-size: 13px; }
+.app .search-keys { flex: none; padding: 7px 14px; border-top: 1px solid var(--line); }
+.bar .search-open { margin-left: auto; }
+.bar .search-open ~ .new-task { margin-left: 0; }
+.mbar .search-open { display: none; }
+@media (max-width: 700px) {
+  .app .search[data-js-open] { padding: max(8px, env(safe-area-inset-top)) 8px 8px; }
+  .app .search-box { max-height: 100%; }
+  .app .search-field input { font-size: 16px; }
+  .app .sr { flex-wrap: wrap; gap: 4px 10px; min-height: 48px; padding: 8px 10px 8px 13px; }
+  .app .sr-title { flex-basis: 100%; white-space: normal; }
+  .mbar .search-open { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 0; border-radius: 999px; }
+  .mbar .search-open span { display: none; }
+  .bar .search-open { display: none; }
+}

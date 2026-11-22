@@ -1052,6 +1052,47 @@ def done_older(m: Model) -> list:
     return m.lane["done"][DONE_SHOWN:]
 
 
+# ---- the backlog's items and the search over every card ----
+
+# The backlog's groups, from each item's own `worth`.
+BY_WORTH = [
+    {"key": "yes", "name": "Worth doing", "actor": "gate"},
+    {"key": "later", "name": "Later", "actor": "you"},
+    {"key": "unset", "name": "No verdict in the item", "actor": "quiet"},
+    {"key": "no", "name": "Decided against", "actor": "quiet", "recessive": True},
+]
+# The columns whose tasks have not ended, in the kanban's order: the search lists them first.
+OPEN_LANES = ("you", "build", "checks")
+
+
+def worth_of(it: dict) -> str:
+    return it.get("worth") if it.get("worth") in ("yes", "later", "no") else "unset"
+
+
+def search_rows(m: Model, backlog: dict | None) -> list[dict]:
+    """One row for each card of the workspace, in the order the search lists them with nothing typed:
+    the tasks of the columns that have not ended, each column in the kanban's order; the parked tasks;
+    every ended task, the newest first, also those Done draws no card for; then the backlog's items by
+    their worth. Each row has its title, whether it is a task that has not ended (`open`), the color of
+    its place (`actor`) and its chip: `COLUMN · STATUS`, `parked`, `STATUS DAY` for an ended task (the day
+    it ended, on this machine's clock, as `stamp` reads it), `Backlog · worth: WORTH`. Only this model
+    and this backlog come in, so no other workspace and no joined machine does."""
+    def task_row(t: Task, open_: bool, actor: str, chip: str) -> dict:
+        return {"kind": "task", "slug": t.slug, "title": t.title, "open": open_, "actor": actor, "chip": chip}
+
+    rows = []
+    for key in OPEN_LANES:
+        lane = LANE[key]
+        rows += [task_row(t, True, lane["actor"], f"{lane['title']} · {t.status}") for t in m.lane[key]]
+    rows += [task_row(t, True, STATUS[PARKED]["actor"], PARKED) for t in m.parked]
+    rows += [task_row(t, False, LANE["done"]["actor"], f"{t.status} {local(t.since).date().isoformat()}") for t in m.lane["done"]]
+    items = (backlog or {}).get("items") or []
+    for g in BY_WORTH:
+        rows += [{"kind": "item", "slug": it["slug"], "title": flat(it.get("title") or it["slug"]), "open": False, "actor": g["actor"],
+                  "chip": f"Backlog · worth: {g['key']}"} for it in items if worth_of(it) == g["key"]]
+    return rows
+
+
 # ---- what the views say ----
 
 def waits_say(w: dict) -> str:
