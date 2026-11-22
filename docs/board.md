@@ -23,6 +23,10 @@ The first page lists the repositories that use Lem, each with what waits for you
 
 Press each key alone, with no Shift. Each view button on the board shows its key.
 
+On **Tasks**, `J`, `K`, `↑` and `↓` move a mark in a column, and `H`, `L`, `←` and `→` to the next
+column. On **Waits for you**, `J`, `K`, `↑` and `↓` move it. `Enter` opens the marked task, or the
+session in agterm where you answer its row.
+
 A task opens in a panel, or as a page on a phone. The keys `1` to `5` open its tabs, and `Escape`
 closes the panel:
 
