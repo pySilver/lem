@@ -1108,6 +1108,8 @@ def act_merge(workspace: Workspace, slug: str, form: dict, via: str) -> str:
     t = task_of(workspace, slug)
     if t is None or "merge" not in bm.acts_of(t, workspace.model().seen):
         said = (f"{slug} is not open for a merge now: it is {t.info['label'].lower()}." if t and t.status != "open"
+                else f"Lem lands it again: the base moved after the checks ran, so a merge of {slug} now is refused the same way. "
+                     "The task’s session lands it again, and its new proposal is open for a merge." if t and t.merge_wait == "relands"
                 else f"The forge calls the pull request of {slug} conflicting: the task’s session brings it onto the base first." if t else f"No task {slug} is on record.")
         return NOTES.put(task=slug, act="merge", state="refused", said=said)
     with NOTES.lock:
