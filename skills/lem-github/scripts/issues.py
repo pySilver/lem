@@ -342,8 +342,7 @@ def landed_words(root: Path, task: dict) -> str:
     """The landed comment, from the task's record: its outcome, and the pull request with green or not green."""
     directory = project.state_root(root) / "tasks" / task["slug"]
     text = project.text_of(directory / "task.md") if (directory / "task.md").is_file() else ""
-    # the outcome's sentence is often one bold line (prompts/writing.md), which outcome_of takes for a label: unwrap it first
-    outcome = project.outcome_of(re.sub(r"(?m)^[ \t]*\*\*(.+?)\*\*[ \t]*$", r"\1", text))
+    outcome = project.outcome_of(text)
     what = outcome or project.first_sentence(task["ask"] or task["slug"])
     proposal = task["proposal"] or {}
     if proposal.get("pull_request"):

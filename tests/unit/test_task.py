@@ -410,6 +410,18 @@ class FirstLine(unittest.TestCase):
         self.assertTrue(found.endswith("Then its session tells you what it found: the fast track, the standard track, or no bug."), found)
         self.assertIsNone(project.opening_line_of(self.task, self.main, *lines[:4], True, task="footer-terms"))
 
+    def test_an_outcome_in_bold_as_prompts_writing_asks(self):
+        # github-issues-tracker, 2026-11-22: its first line quoted only the second line of this sentence
+        self.assertEqual(project.outcome_of("## Outcome\n\n**A developer whose team keeps its work in GitHub Issues gives Lem an issue, "
+                                            "and Lem reads it,\nworks it and reports on it the way it does a Linear ticket.**\n\nToday:\n\n1. step\n"),
+                         "A developer whose team keeps its work in GitHub Issues gives Lem an issue, and Lem reads it, "
+                         "works it and reports on it the way it does a Linear ticket")
+        self.assertEqual(project.outcome_of("## Outcome\n\n**The export keeps the gift note of each order.**\n"),
+                         "The export keeps the gift note of each order")
+        self.assertIsNone(project.outcome_of("## Outcome\n\n**Today:**\n\n1. Invoice 1042 is 100 EUR.\n2. It shows 70.\n"))
+        self.assertEqual(project.outcome_of("## Outcome\n\nThe export keeps the gift note\nof each order. It shows on the slip.\n"),
+                         "The export keeps the gift note of each order")
+
     def test_the_words_it_quotes(self):
         self.assertEqual(project.first_sentence("The footer says Terms.  It is wrong."), "The footer says Terms")
         self.assertEqual(project.in_his_words("README says it"), "README says it")
@@ -418,6 +430,19 @@ class FirstLine(unittest.TestCase):
         self.assertIsNone(project.outcome_of("## Outcome\n\n1. Invoice 1042 is 100 EUR.\n2. It shows 70.\n"))
         self.assertEqual(project.outcome_of("## Outcome\n\n**Today:**\n\n1. step\n\nThe invoice shows 70 EUR after the refund.\n"),
                          "The invoice shows 70 EUR after the refund")
+
+    def test_a_bold_outcome_is_quoted_whole(self):
+        # brief-reads-installed-lem, 2026-11-22: one bold sentence wrapped over two lines
+        self.assertEqual(project.outcome_of("## Outcome\n\n**The brief names the Lem that is\ninstalled when it starts.**\n"),
+                         "The brief names the Lem that is installed when it starts")
+        # done-column-shows-newest, 2026-11-22: one bold sentence on one line, with prose after it
+        self.assertEqual(project.outcome_of("## Outcome\n\n**Done shows at most the 20 newest ended tasks, and one row at its foot "
+                                            "leads to the rest.**\n\nThe rest stay in the backlog.\n"),
+                         "Done shows at most the 20 newest ended tasks, and one row at its foot leads to the rest")
+        # a bold label of a few words is still no quote, on its own line or before the text
+        self.assertEqual(project.outcome_of("## Outcome\n\n**Today:**\nThe invoice shows 100 EUR after the refund.\n"),
+                         "The invoice shows 100 EUR after the refund")
+        self.assertIsNone(project.outcome_of("## Outcome\n\n**Today:** it shows 100.\n\n1. step\n"))
 
 
 # Words that hold the three characters str.splitlines breaks at and json.dumps(ensure_ascii=False) keeps.

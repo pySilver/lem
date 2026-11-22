@@ -2765,7 +2765,8 @@ def criterion_of(text: str) -> str | None:
 
 def outcome_of(text: str) -> str | None:
     """The first sentence of prose under `## Outcome` in a task.md, or None: a numbered story, a list,
-    a chart or a label of a few words ("Today:") is no sentence to quote."""
+    a chart or a label of a few words ("Today:") is no sentence to quote. A bold sentence, on one line
+    or wrapped over more, is quoted whole and without its `**`."""
     found = re.search(r"(?m)^##[ \t]+Outcome[ \t]*$", text)
     if not found:
         return None
@@ -2778,14 +2779,18 @@ def outcome_of(text: str) -> str | None:
             continue
         if line.startswith("#"):
             break
-        prose = line and not fenced and not re.match(r"(\d+\.|[-*+>|!]|\*\*)", line)
+        # a line that opens with bold is a label when its bold closes on it within a few words
+        label = re.match(r"\*\*([^*]*)\*\*", line)
+        bold = line.startswith("**") and not (label and len(label[1].split()) <= 3)
+        prose = line and not fenced and (bold or not re.match(r"(\d+\.|[-*+>|!]|\*\*)", line))
         if prose:
             paragraph.append(line)
             continue
         if paragraph and len(" ".join(paragraph).split()) > 3:
             break
         paragraph = []
-    return first_sentence(" ".join(paragraph)) if paragraph and len(" ".join(paragraph).split()) > 3 else None
+    said = " ".join(paragraph).replace("**", "")
+    return first_sentence(said) if len(said.split()) > 3 else None
 
 
 def opening_line_facts(directory: Path, main: Path, status: str, lines: list[str], branch: str | None,
