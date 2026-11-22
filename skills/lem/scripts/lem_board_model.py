@@ -1834,7 +1834,8 @@ def now_head(t: Task) -> str:
     if s == "open":
         if waits_now(t):
             return waits_say(t.waits)
-        return {"reads": "Proposed: the merge agent reads it", "merges": "Proposed: the merge agent found nothing for you, and Lem merges it"}.get(
+        return {"reads": "Proposed: the merge agent reads it", "merges": "Proposed: the merge agent found nothing for you, and Lem merges it",
+                "relands": "Proposed: Lem lands it again on the moved base"}.get(
             t.merge_wait, "Proposed: it waits for your merge")
     return {"landed": "Landed", "dropped": "Dropped", "answered": "Answered: it ended with a report and nothing to merge"}.get(s, f'Status "{s}"')
 

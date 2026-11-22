@@ -223,6 +223,8 @@ class Overview(unittest.TestCase):
         step = "".join(str(x) for x in task_pages.merge_step(ctx, t))
         self.assertIn("Lem lands it again", step)
         self.assertNotIn("conflicting", step)
+        # it is Lem's turn, not the owner's: the large card's head says so
+        self.assertEqual((t.merge_wait, bm.now_head(t)), ("relands", "Proposed: Lem lands it again on the moved base"))
 
     def test_the_large_card_opens_with_the_tasks_first_line_while_its_block_is_the_newest(self):
         line = 'fix: "the footer says Terms and conditions". Fast track: one builder, the checks, one read, then the pull request. Nothing waits for you.'
