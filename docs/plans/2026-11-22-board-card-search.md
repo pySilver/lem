@@ -7,19 +7,33 @@ careful: no, because no topic of `flow.topics` is in reach: the change draws a l
 Size: full, because the board gets a search box with its own key, a list of every card of the workspace, a match rule and a row for each result.
 
 1. `Cmd-K` (`Ctrl-K` off the Mac) opens a search box over the board on every view, with the cursor in it, and a search button in the board's header opens the same box, also on a phone; `/` stays the key of the backlog's filter: on "Activity", the owner presses `Cmd-K` and the box opens over the page.
+   - test: `python3 -B -m unittest tests.unit.test_board_pages.Search.test_the_bar_and_the_phones_bar_have_the_button_that_names_its_key` in `tests/unit/test_board_pages.py`
+   - test: `bash tests/lem-serve.sh` in `tests/lem-serve.sh`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-showcase.py`
+   - test: `bash tests/lem-board-keys.sh` in `tests/lem-board-keys.sh`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-cdp.mjs`, `tests/board-showcase.py`
 2. The search finds every card of the workspace on the screen and of no other workspace or joined machine: every task, also a parked task and an ended task that the Done column does not show, and every backlog item.
    1. The workspace has the open task "board-card-search", the parked task "old-export-fix" and the backlog item "The board's done column has no limit".
    2. The owner types "export": "Old export fix" is in the list.
    3. He types "done col": "The board's done column has no limit" is in the list.
+   - test: `python3 -B -m unittest tests.unit.test_board_model.Search.test_criterion_2_every_task_a_parked_one_and_an_ended_one_done_draws_no_card_for_and_every_backlog_item` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_pages.Search.test_each_row_has_its_title_its_chip_and_the_link_a_card_has` in `tests/unit/test_board_pages.py`
+   - test: `bash tests/lem-serve.sh` in `tests/lem-serve.sh`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-showcase.py`
+   - test: `bash tests/lem-board-keys.sh` in `tests/lem-board-keys.sh`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-cdp.mjs`, `tests/board-showcase.py`
 3. The match is fuzzy on the title alone: the typed letters must stand in the title in that order, with any letters between them, no matter the case and with the spaces he types ignored, and a title where they stand closer together comes first: "crdsrch" finds "Board card search", and "card" lists "Board card search" above "Clear a reported deadline".
+   - test: `bash tests/lem-board-keys.sh` in `tests/lem-board-keys.sh`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-cdp.mjs`, `tests/board-showcase.py`
 4. With nothing typed, the box lists the tasks that have not ended, in the order of the board's columns.
+   - test: `python3 -B -m unittest tests.unit.test_board_model.Search.test_criterion_4_the_order_the_columns_then_the_parked_then_every_ended_task_newest_first_then_the_backlog_by_worth` in `tests/unit/test_board_model.py`
+   - test: `bash tests/lem-serve.sh` in `tests/lem-serve.sh`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-showcase.py`
 5. Each result shows its title and, beside it, a chip in the color of its column with its place and its state: "Board card search · Waits for you · held", "The board's done column has no limit · Backlog · worth: yes", "Old export fix · parked", and "Agents md read on demand · landed 2026-11-21".
+   - test: `python3 -B -m unittest tests.unit.test_board_model.Search.test_criterion_5_each_chip_says_its_place_and_its_state_in_the_color_of_its_column` in `tests/unit/test_board_model.py`
+   - test: `bash tests/lem-serve.sh` in `tests/lem-serve.sh`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-showcase.py`
 6. The arrow keys move through the results, and Enter or a click picks one; the box then closes, and a task opens in its panel beside the view as a click on its card does, also a parked or an old ended task, and a backlog item opens as it opens from the backlog view; Escape closes the box with no pick and leaves the board as it was.
    1. The owner types "crdsrch".
    2. "Board card search" is the first result, and it is marked.
    3. He presses Enter.
    4. The box is gone, and the panel of "board-card-search" is open beside the view.
+   - test: `bash tests/lem-board-keys.sh` in `tests/lem-board-keys.sh`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-cdp.mjs`, `tests/board-showcase.py`
 7. The box stays open with what the owner typed while the board updates itself: a new event of the workspace neither closes the box nor clears his letters.
+   - test: `bash tests/lem-board-keys.sh` in `tests/lem-board-keys.sh`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-cdp.mjs`, `tests/board-showcase.py`
 
 ## How it works
 
