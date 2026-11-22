@@ -20,11 +20,12 @@
 . "$(dirname "$0")/lib.sh"
 
 DOOR_PID=""
-# the run's exit stops the door of this block too, beside the server lib.sh stops
+PAGES_PID=""
+# the run's exit stops the door and the pages of this block too, beside the server lib.sh stops
 ended() {
   local pid
   stopped
-  for pid in $SERVE_PID $DOOR_PID; do kill -TERM "$pid" 2>/dev/null; wait "$pid" 2>/dev/null || true; done
+  for pid in $SERVE_PID $DOOR_PID $PAGES_PID; do kill -TERM "$pid" 2>/dev/null; wait "$pid" 2>/dev/null || true; done
   rm -rf "$WORK"
 }
 trap ended EXIT
@@ -65,8 +66,22 @@ land --repo "$SHOP" start word-in-file >/dev/null && land --repo "$SHOP" base wo
 land --repo "$SHOP" checks word-in-file >/dev/null && land --repo "$SHOP" read word-in-file --record "$(clean word-in-file 1)" >/dev/null
 land --repo "$SHOP" propose word-in-file --title "fix: the word is in the file" --notes "$NOTES" >/dev/null
 TIP=$(kept_in "$SHOP" word-in-file proposed)
-"$PY" -B "$SERVE" --add "$DEMO" >/dev/null && "$PY" -B "$SERVE" --add "$SHOP" >/dev/null
-serve_up
+# The docs: a second repository on the same board, with one task whose criteria wait for the owner's yes.
+DOCS=$WORK/docs
+git init -q -b main "$DOCS" && ident "$DOCS" && commit "$DOCS" init
+# it says on stderr that the docs have no origin: they never land, so the line is not shown
+project --repo "$DOCS" init --base main >/dev/null 2>&1
+project --repo "$DOCS" task-dir note-in-readme --ask "Put a note into the README." >/dev/null
+printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the README gets a section.' '' '1. The README holds the note the owner asked for.' > "$DOCS/.lem/state/tasks/note-in-readme/criteria.md"
+project --repo "$DOCS" state note-in-readme held "the criteria wait for the owner" >/dev/null
+"$PY" -B "$SERVE" --add "$DEMO" >/dev/null && "$PY" -B "$SERVE" --add "$SHOP" >/dev/null && "$PY" -B "$SERVE" --add "$DOCS" >/dev/null
+# GitHub that answers slowly: the server's `gh` holds a `pr merge` while the file HOLD is there, and writes HOLD.held
+# when it starts to hold; a call while HOLD is not there goes to the stand-in at once.
+HOLD=$WORK/gh-hold
+mkdir -p "$WORK/hold"
+printf '%s\n' '#!/bin/sh' "if [ \"\$1 \$2\" = 'pr merge' ] && [ -e '$HOLD' ]; then : > '$HOLD.held'; while [ -e '$HOLD' ]; do sleep 0.1; done; fi" \
+  "exec '$WORK/standin/gh' \"\$@\"" > "$WORK/hold/gh" && chmod +x "$WORK/hold/gh"
+PATH="$WORK/hold:$PATH" serve_up
 SERVER=http://127.0.0.1:$SERVE_PORT
 HOST=$(curl -fsS "$SERVER/api/server" | field 'd["host"]')
 BASE=$SERVER/$HOST/shop
@@ -179,7 +194,25 @@ if [ "${stale%% *}" = 303 ] && grep -qF "Not done. The branch was proposed again
 else
   fail "the merge of a commit the confirm step did not show: $stale / $(status_in "$SHOP" word-in-file) / $(grep -o "Not done[^<]*" <<<"$stale_page" | head -c 300)"
 fi
+: > "$HOLD"
 merged=$(post "$M/merge" "$SERVER" "confirm=yes" "tip=$TIP")
+soon test -e "$HOLD.held"
+# While GitHub holds the merge: the owner's yes to the criteria of a task of the docs on the same board, with a time
+# limit, since a yes that waits for the merge would wait for as long as the hold; and the merging task's page.
+docs_digest=$("$PY" -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest()[:16])' "$DOCS/.lem/state/tasks/note-in-readme/criteria.md")
+yes=$(curl -s -m 20 -o /dev/null -w '%{http_code} %{redirect_url}' -H "Origin: $SERVER" -H 'Sec-Fetch-Site: same-origin' \
+  --data-urlencode "digest=$docs_digest" "$SERVER/$HOST/docs/tasks/note-in-readme/approve" || true)
+yes_page=$(curl -fsS -m 20 "${yes#* }" | words || true)
+yes_kept=$("$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print((d["by"], d["number"]))' "$DOCS/.lem/state/tasks/note-in-readme/criteria.json" 2>/dev/null || true)
+merging_page=$(curl -fsS -m 20 "$M" | words || true)
+held=$( [ -e "$HOLD.held" ] && status_in "$SHOP" word-in-file || true)
+rm -f "$HOLD"
+if [ "$held" = open ] && [ "${yes%% *}" = 303 ] && grep -qF "Done. Your yes to the criteria is on record." <<<"$yes_page" && [ "$yes_kept" = "('owner', 1)" ] \
+  && grep -qF "Merging…" <<<"$merging_page"; then
+  pass "while GitHub holds a merge from the board, the owner's yes to the criteria of another repository's task is on record and its page comes back, and the merging task's page says Merging…"
+else
+  fail "an act beside a merge that waits: $held / $yes / ${yes_page:0:300} / $yes_kept / $(grep -o "Merging.\{0,40\}" <<<"$merging_page" | head -1)"
+fi
 soon test "$(status_in "$SHOP" word-in-file)" = landed
 soon grep -q '"event": "board.act", "task": "word-in-file"' "$SHOP/.lem/state/events.jsonl"
 merged_page=$(curl -fsS "${merged#* }" | words)
@@ -409,8 +442,63 @@ for slug in first-move second-move; do
   land --repo "$MOVE" checks "$slug" >/dev/null && land --repo "$MOVE" read "$slug" --record "$(clean "$slug" 1)" >/dev/null
   land --repo "$MOVE" propose "$slug" --title "fix: $slug" --notes "$NOTES" >/dev/null && merge_read "$MOVE" "$slug" >/dev/null
 done
-land --repo "$MOVE" merge first-move --by merger --via server --message "fix: first-move" >/dev/null
 BEFORE=$(kept_in "$MOVE" second-move proposed)
+# The server merges first-move and GitHub holds its `gh pr merge`; meanwhile the server's duty starts the merge of
+# second-move in the same process, which waits for the repository's merge lock, and the board says so on second-move.
+# Then GitHub answers: first-move lands, and the merge of second-move meets the base that first-move moved.
+: > "$HOLD"
+PATH="$WORK/hold:$PATH" "$PY" -B -c '
+import json, os, sys, threading, time
+sys.path.insert(0, "skills/lem/scripts")
+import serve
+w = serve.Workspace("move-shop", sys.argv[1])
+landing = w.landing_of("first-move")
+serve.merge_in_thread(w, "first-move", landing, "merger", serve.merge_tip_of(landing, "merger"))
+for _ in range(300):
+    if os.path.exists(sys.argv[2] + ".held"):
+        break
+    time.sleep(0.1)
+ran = serve.run_duties(w)
+for thread in threading.enumerate():
+    if thread.name.startswith("merge "):
+        thread.join(120)
+notes = {n["task"]: [n["state"], n["said"]] for n in serve.NOTES.kept.values()}
+print(json.dumps({"ran": [(x["verb"], x["task"], x["why"]) for x in ran], "owed": serve.duties(w.model(), {}, set()), "notes": notes}))
+' "$MOVE" "$HOLD" > "$WORK/move.out" &
+MOVING=$!
+soon grep -q '"event": "merge.wait", "task": "second-move"' "$MOVE/.lem/state/events.jsonl"
+# the board's page of second-move while it waits: serve.py's handler with no duty of its own, over the repositories of
+# this home folder, as the door above is
+PAGES_PORT=$("$PY" -I -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()')
+"$PY" -B -c '
+import sys
+sys.path.insert(0, "skills/lem/scripts")
+import serve, lem_peers
+serve.Handler.machine = serve.Machine()
+serve.Handler.peers = lem_peers.Peers(lambda: {})
+server = serve.ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), serve.Handler)
+print(serve.HOSTNAME, flush=True)
+server.serve_forever()
+' "$PAGES_PORT" > "$WORK/pages.out" 2>&1 &
+PAGES_PID=$!
+soon grep -q . "$WORK/pages.out"
+waiting_page=$(curl -fsS -m 20 "http://127.0.0.1:$PAGES_PORT/$(head -1 "$WORK/pages.out")/move-shop/tasks/second-move" | words || true)
+waited=$(grep '"event": "merge.wait", "task": "second-move"' "$MOVE/.lem/state/events.jsonl" | field 'd["after"]' || true)
+kill -TERM "$PAGES_PID" 2>/dev/null; wait "$PAGES_PID" 2>/dev/null || true
+PAGES_PID=""
+rm -f "$HOLD"
+wait "$MOVING" || true
+moved=$(cat "$WORK/move.out")
+refused_said=$("$PY" -c 'import json, sys; print(json.load(open(sys.argv[1]))["merge_refused"]["said"])' "$MOVE/.lem/state/tasks/second-move/landing.json" 2>/dev/null || true)
+if [ "$waited" = first-move ] && grep -qF "Waits for the merge of first-move" <<<"$waiting_page" && [ "$(status_in "$MOVE" first-move)" = landed ] \
+  && [ "$(field 'd["notes"]["first-move"][0]' <<<"$moved")" = "done" ] && [[ "$(field 'd["notes"]["first-move"][1]' <<<"$moved")" == "Merged: pull request #1 is on main."* ]] \
+  && [ -n "$refused_said" ] && [ "$(field 'd["notes"]["second-move"][0]' <<<"$moved")" = refused ] \
+  && [ "$(field 'd["notes"]["second-move"][1]' <<<"$moved")" = "land.py: $refused_said" ]; then
+  pass "two merges from the server of one repository take turns: the second waits for the merge lock the first holds while GitHub answers, and the board says on it that it waits for the merge of the first; the first says it merged, and the second says Lem's refusal as lem land merge gives it"
+else
+  fail "two merges of one repository: $waited / $(grep -o "Waits for the merge.\{0,40\}" <<<"$waiting_page" | head -1) / $moved / $refused_said / $(status_in "$MOVE" first-move)"
+fi
+refused=$moved
 duty() {
   "$PY" -B -c '
 import json, sys, threading
@@ -424,7 +512,6 @@ for thread in threading.enumerate():
 print(json.dumps({"ran": [(x["verb"], x["task"], x["why"]) for x in ran], "owed": serve.duties(w.model(), {}, set())}))
 ' "${1:-$MOVE}"
 }
-refused=$(duty)
 kind=$(kept_in "$MOVE" second-move merge_refused | "$PY" -c 'import ast, sys; d = ast.literal_eval(sys.stdin.read()); print((d["by"], d["from"], d["kind"]))')
 land --repo "$MOVE" start second-move >/dev/null && land --repo "$MOVE" base second-move >/dev/null && land --repo "$MOVE" checks second-move >/dev/null
 due_now=$(land --repo "$MOVE" read second-move | field 'd["due"]')

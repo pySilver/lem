@@ -13,9 +13,13 @@ Size: full, because the board's server changes how it runs a merge, and its look
    4. While it waits, the board shows "Merging…" on `word-in-file`.
    5. His yes is on record, and its page comes back, while the merge of pull request 1 still waits.
    6. When GitHub answers, pull request 1 is merged and `word-in-file` is landed.
+   - test: `bash tests/lem-board-act.sh` in `tests/lem-board-act.sh`
 2. Two merges of one repository still take turns: while the merge of `first-move` holds the repository's merge lock, the merge of `second-move` waits for it, and the board shows on `second-move` that it waits for the merge of `first-move`.
+   - test: `bash tests/lem-board-act.sh` in `tests/lem-board-act.sh`
 3. The board says what came of a merge as it does today: a merge that went through says "Merged: pull request #1 is on main", and one that Lem refused says the refusal's own line, as `lem land merge` gives it.
+   - test: `bash tests/lem-board-act.sh` in `tests/lem-board-act.sh`
 4. While a merge from the board runs, the board's look at GitHub shows no false failure for that task: when GitHub already calls pull request 1 merged before the merge's step ends, the status bar shows no line that `lem land merged word-in-file` failed. A look that finds `lem land merged` failing for a task whose merge does not run still shows its line, as today.
+   - test: `python3 -B -m unittest tests.unit.test_serve.ForgeLookBesideAMerge` in `tests/unit/test_serve.py`
 
 ## Tasks
 

@@ -146,9 +146,10 @@ workspace, one call at a time with the server's other calls into Lem's scripts (
 - the look at the forge: while a workspace has a task `open` with a pull request and nobody looked at
   the forge in the last FORGE_SECONDS, it asks `gh` once for all of them (`land.py`'s `forge_look`), and
   for one the forge calls merged or closed it runs the bookkeeping, `lem land merged SLUG`, once for
-  each such task. The record then says `landed` or `dropped`. What it saw of each pull request's merge
-  with the base goes into `forge.json` of the state folder (`keep_forge_look`), which the board's model
-  and `lem project waiting` read. `gh` missing or signed out is one line on the status bar until it changes;
+  each such task, except one whose merge runs in this process: that merge's step records the landing,
+  and a merge that ends with none leaves the task to the next look. The record then says `landed` or
+  `dropped`. What it saw of each pull request's merge with the base goes into `forge.json` of the state
+  folder (`keep_forge_look`), which the board's model and `lem project waiting` read. `gh` missing or signed out is one line on the status bar until it changes;
 - the look at the task sessions: `lem session list` (`Workspace.look_sessions`), which says of each
   task whether its session is in agterm, whether an agent runs in it, whether a wake-up waits in it
   unanswered, and its signs of work (`lem_signs`), for the board's row "no session" and its "Open a
@@ -168,8 +169,8 @@ workspace, one call at a time with the server's other calls into Lem's scripts (
   proposed last says `merge`, calls nobody and does not say `another round` of a moved base, with no
   refused merge of that tip that no read answered and none running, the server runs land.py's
   MERGE_STEP `--by merger --via server` as it runs the owner's merge from the board
-  (`merge_in_thread`: in a thread of its own, under SCRIPT_LOCK, and "Merging…" on the board while it
-  runs). land.py's own rules decide whether it merges; the server only runs the call, since a
+  (`merge_in_thread`: in a thread of its own, as a process of its own outside SCRIPT_LOCK, and
+  "Merging…" on the board while it runs). land.py's own rules decide whether it merges; the server only runs the call, since a
   task's session that ran it met a block of Claude Code's auto mode (pySilver/lem-scratch#12,
   2026-11-21). A refusal is kept for its tip by land.py, which ends the duty for that tip, and the
   task's session gets `wake SLUG --why refused` once. Lem's refusal because the base moved is answered
@@ -204,8 +205,8 @@ The owner's acts on a task (`board_act`) are forms of the board's pages, and eac
 runs on his word, in this process and one at a time with the server's other calls into Lem's scripts
 (SCRIPT_LOCK): his yes to the criteria that wait for it, `lem criteria approve SLUG --file criteria.md`,
 only for the text the page showed (a digest of the file); the merge of an open task from its confirm
-step, land.py's MERGE_STEP `--by owner`, only at the commit the step showed; the park of a task a
-breaker holds, `lem project state SLUG parked WHY`, with his line of why; and a fresh session of a task
+step, land.py's MERGE_STEP `--by owner`, only at the commit the step showed, which alone runs as a
+process of its own (below); the park of a task a breaker holds, `lem project state SLUG parked WHY`, with his line of why; and a fresh session of a task
 none of whose sessions lives (`act_session`), `lem session open SLUG --why dead`, or `--why owner` for
 a task that never had one, or `--why stopped` beside the live session of a task whose stop the guard
 logged, which opens nothing when that session works again; and a new task (`act_start`), from his words on the form of "+" or from a
@@ -216,10 +217,12 @@ no focus, whose agent reads the type and the track itself. A task whose session 
 state yet is on the board as starting (`lem_board_model.NEW`), so its acts and "Open a session" work.
 Each act the script took is
 logged as `board.act` with where he asked (`via`: the board on this Mac, or through the tailnet door),
-never his login. A merge runs in a thread of its own, since it reads the base branch and asks the forge:
-the answer is at once, its page says that it runs, and the stream refreshes the page at its end
-(`Workspace.acted`). The line of each result is kept in memory for NOTE_SECONDS (`NOTES`), so a server
-that restarts forgets it, and the files still say what happened. What only the task's session does
+never his login. A merge runs in a thread of its own, since it reads the base branch and asks the forge,
+and as a process of its own outside SCRIPT_LOCK (`merge_apart`), so that a slow forge holds no other act
+of the board; the process takes the task's step lock and the repository's merge lock itself, so two
+merges of one repository still take turns. The answer is at once, its page says that it runs, and the
+stream refreshes the page at its end (`Workspace.acted`). The line of each result is kept in memory for
+NOTE_SECONDS (`NOTES`), so a server that restarts forgets it, and the files still say what happened. What only the task's session does
 after an act stays the session's, and the page says so: after his yes and after a park the server sends
 it `lem session wake SLUG --why owner` (`tell_session`), since it may wait for him, and a task that needs
 a session and has none gets one; after a merge the duty below wakes it for the cleanup.
@@ -1216,11 +1219,21 @@ def merge_args(landing: dict, slug: str, by: str, tip: str, standing: bool = Fal
     return args
 
 
+def merge_apart(workspace: Workspace, *args: str) -> subprocess.CompletedProcess:
+    """land.py's merge for the workspace as a process of its own, `python3 -B land.py --repo MAIN ARGS`,
+    with the server's environment as it is, and outside SCRIPT_LOCK: it waits for the base branch and the
+    forge, and the server's other calls go on meanwhile. The process takes the task's step lock and the
+    repository's merge lock itself, as a task's session that runs `lem land merge` does, so two merges of
+    one repository still take turns; its output is its own and mixes with no call in this process."""
+    return subprocess.run([sys.executable, "-B", str(SCRIPTS / "land.py"), "--repo", str(workspace.path), *args],
+                          capture_output=True, text=True, check=False)
+
+
 def merge_in_thread(workspace: Workspace, slug: str, landing: dict, by: str, tip: str, after=None, failed=None, standing: bool = False) -> str:
     """Run the merge of a task, the owner's or the merge agent's (`merge_args`), in a thread of its own,
-    one call at a time with the server's other calls into Lem's scripts (`lem_run`), and the token of its
-    note at once: the note says that it runs (NOTES.merging, which the board reads as "Merging…") until
-    the step ends. A task whose merge runs already gets that merge's token, and no second one starts.
+    as a process of its own (`merge_apart`), and the token of its note at once: the note says that it
+    runs (NOTES.merging, which the board reads as "Merging…") until the step ends. A task whose merge
+    runs already gets that merge's token, and no second one starts.
     AFTER gives what the note adds to a merge that went through; FAILED is called with no argument when
     the step did not. STANDING runs the owner's merge that stood through a new landing or a safe read
     of the moved base (`merge_args`)."""
@@ -1235,7 +1248,7 @@ def merge_in_thread(workspace: Workspace, slug: str, landing: dict, by: str, tip
 
     def merge() -> None:
         try:
-            ran = lem_run(workspace, "land.py", *args)
+            ran = merge_apart(workspace, *args)
             if ran.returncode == 0:
                 NOTES.change(token, state="done", said=f"Merged: {what} is on {base}. Within a minute the board’s server wakes the task’s session, or opens one, which removes its worktree and its branch."
                              + (after() if after else ""))
@@ -1938,7 +1951,8 @@ def packed(file: Path, data: bytes) -> bytes:
 FORGE_SECONDS = 180
 # How often the thread looks whether a workspace is due: a guess, short beside FORGE_SECONDS.
 FORGE_TICK = 20
-# One call of Lem's scripts at a time from this process: the server's bookkeeping runs them in it.
+# One call of Lem's scripts at a time from this process: the server's bookkeeping runs them in it. A
+# merge is a process of its own and takes no part in it (`merge_apart`).
 SCRIPT_LOCK = threading.Lock()
 GITHUB_REMOTE = re.compile(r"(https://|ssh://git@|git@)github\.com[:/]")
 
@@ -1959,7 +1973,8 @@ def has_forge(workspace: Workspace, model: "bm.Model") -> bool:
 
 def forge_once(workspace: Workspace, now: int | None = None) -> list[dict]:
     """One look at the forge for a workspace when it is due (`lem_board_model.forge_due`), and the
-    bookkeeping of each pull request the forge calls merged or closed: what ran, one entry each."""
+    bookkeeping of each pull request the forge calls merged or closed, except of a task whose merge runs
+    in this process (NOTES.running): what ran, one entry each."""
     now = bm.now_ms() if now is None else now
     model = workspace.model()
     prs = open_prs(model)
@@ -1998,6 +2013,11 @@ def forge_once(workspace: Workspace, now: int | None = None) -> list[dict]:
     failed = workspace.forge.setdefault("failed", {})
     clock = time.monotonic()
     for pr in prs:
+        if pr["task"] in NOTES.running(workspace.name):
+            # its merge runs in this process (`merge_in_thread`) and holds the task's step lock, so a
+            # `merged` now is refused with a false line; the merge's own step records the landing, and a
+            # merge that ends without one leaves the task open for the next look
+            continue
         state = (looked.get(pr["n"]) or {}).get("state")
         key = (pr["task"], pr["n"])
         if state not in ("MERGED", "CLOSED") or not merged_due(key, workspace.forge["done"], failed, clock):
