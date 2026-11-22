@@ -20,7 +20,8 @@ hidden feature. Decisions taken that way lands in `decisions.md` artifact at PR 
 2. **The judge**: a fresh Opus subagent (`subagent_type: "general-purpose"`, `model: "opus"`),
    read-only, with the prompt in
    `references/judge.md`. It returns one verdict with its cite:
-   - **decided**: a recorded ruling answers it: the file, the heading and the sentence.
+   - **decided**: a recorded ruling, the whole bullet of the rulings list with the lines after its
+     bold sentence, answers it as asked: the file, the group's heading and the bold sentence.
    - **checkable**: a test or an existing rule answers it: which, and what it shows. The lead
      runs that check and takes the option it shows.
    - **cheap**: a wrong pick can be reversed later at little cost, and nobody would notice it in

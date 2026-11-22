@@ -152,6 +152,20 @@ def uses_lem(cwd: str) -> bool:
         return False
 
 
+def settings_refused(cwd: str) -> str | None:
+    """Why `project.py` refuses this repository's settings, or None when it reads them. The retro's
+    `list` asks it first, so that a settings file Lem cannot read stops it as it stops every command
+    that reads the settings; the hook never asks it, since a settings error must not stop the
+    developer's session, and reads its one key through `collects`."""
+    import project
+
+    try:
+        project.load(project.repo_root(Path(cwd)))
+    except project.SettingsError as error:
+        return str(error)
+    return None
+
+
 def collects(cwd: str) -> bool:
     """Whether this repository's settings turn the queue on. Anything that cannot be read is a no."""
     import tomllib
@@ -515,6 +529,8 @@ def main() -> None:
             sys.exit(f"corrections.py: the argument {os.fsencode(arg)!r} is not UTF-8 text; give it in UTF-8")
     if git(args.repo, "rev-parse", "--git-dir") is None:
         sys.exit(f"corrections.py: {args.repo} is not inside a git checkout")
+    if args.command == "list" and (refused := settings_refused(args.repo)):
+        sys.exit(f"corrections.py: {refused}")
     try:
         where = folder(args.repo)
         if args.command == "list":

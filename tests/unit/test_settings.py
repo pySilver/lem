@@ -67,7 +67,11 @@ class UnknownNames(Refuses):
 
     def test_a_key_of_paths_with_the_keys_it_knows(self):
         message = self.refused(read, "[paths]", 'styleguide = ".lem/styleguide"')
-        self.assertNames(message, str(FILE), "paths.styleguide", "valid: plans, plan_file, rulings, ruling_file")
+        self.assertNames(message, str(FILE), "paths.styleguide", "valid: plans, plan_file, rulings")
+
+    def test_a_ruling_file_line_with_the_nearest_key_and_the_keys_it_knows(self):
+        message = self.refused(read, "[paths]", 'rulings = "docs/rulings.md"', 'ruling_file = "<slug>.md"')
+        self.assertNames(message, str(FILE), "unknown key paths.ruling_file", "did you mean 'plan_file'?", "valid: plans, plan_file, rulings")
 
     def test_a_file_that_does_not_parse(self):
         self.assertIn(str(FILE), self.refused(read, "not toml ["))
@@ -230,9 +234,37 @@ class Paths(Refuses):
             with self.subTest(bad=bad):
                 self.assertNames(self.refused_settings("[paths]", f'plan_file = "{bad}"'), "paths.plan_file", repr(bad), names)
 
-    def test_a_ruling_file_with_a_folder(self):
-        message = self.refused_settings("[paths]", 'ruling_file = "decisions/<slug>.md"')
-        self.assertNames(message, "paths.ruling_file", "with no folder in it", "paths.rulings names the folder")
+
+
+class Rulings(Refuses):
+    """The rulings are one markdown file, `docs/rulings.md` unless the settings say otherwise; a folder is refused."""
+
+    def test_the_default_is_one_file_and_no_ruling_file(self):
+        paths = settings()["paths"]
+        self.assertEqual(sorted(paths), ["plan_file", "plans", "rulings"])
+        self.assertEqual(paths["rulings"]["path"], str(ROOT / "docs/rulings.md"))
+        self.assertEqual(settings("[paths]", 'rulings = "decisions/list.md"')["paths"]["rulings"]["path"], str(ROOT / "decisions/list.md"))
+
+    def test_the_folder_form_names_the_list_file_and_the_example(self):
+        for value in ("docs/rulings", "docs/rulings/", "docs/rulings.txt"):
+            with self.subTest(value=value):
+                message = self.refused_settings("[paths]", f'rulings = "{value}"')
+                self.assertNames(message, f"paths.rulings = {value!r}", "names the list file", 'rulings = "docs/rulings.md"')
+
+    def test_a_folder_with_a_markdown_name(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "docs" / "rulings.md").mkdir(parents=True)
+            raw = read("[paths]", 'rulings = "docs/rulings.md"')
+            message = self.refused(project.decide, root, root, raw, {}, raw, None)
+            self.assertNames(message, "paths.rulings = 'docs/rulings.md' is a folder", "names the list file", 'rulings = "docs/rulings.md"')
+
+    def test_the_template_writes_the_list_file_with_its_comment_and_no_ruling_file(self):
+        written = project.TEMPLATE.format_map({**{key: "" for key in ("plans", "plan_file", "base", "reviewer", "planner", "experts")}, "rulings": project.PATHS["rulings"]})
+        self.assertIn('rulings = "docs/rulings.md"', written.splitlines())
+        words = " ".join(written.replace("# ", "").split())
+        self.assertIn("the list of your product decisions, one bullet for each", words)
+        self.assertNotIn("ruling_file", written)
 
 
 class Tracker(Refuses):

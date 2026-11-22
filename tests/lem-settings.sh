@@ -13,12 +13,16 @@
 NEW=$WORK/new
 git init -q -b main "$NEW"
 out=$(project --repo "$NEW" show)
+ruled_default=$(project --repo "$NEW" path rulings)
+no_ruling_file=0
+ruling_file_err=$(project --repo "$NEW" ruling-file header-names 2>&1) || no_ruling_file=$?
 if [ "$(field 'd["settings"]' <<<"$out")" = "None" ] && [ "$(field 'd["places"]["rules"]["path"]' <<<"$out")" = "$NEW/.claude/rules" ] \
-  && [ "$(field 'd["branch"]["land"]' <<<"$out")" = "agent" ] && [ "$(field 'sorted(d["paths"])' <<<"$out")" = "['plan_file', 'plans', 'ruling_file', 'rulings']" ] \
-  && [ "$(field '(d["paths"]["rulings"]["path"], d["paths"]["ruling_file"]["pattern"])' <<<"$out")" = "('$NEW/docs/rulings', '<slug>.md')" ]; then
-  pass "with no settings file, show answers from Lem's own places, the paths are the plans and the rulings folders and the name of a file in each, docs/rulings and <slug>.md for a ruling, and the merge agent merges"
+  && [ "$(field 'd["branch"]["land"]' <<<"$out")" = "agent" ] && [ "$(field 'sorted(d["paths"])' <<<"$out")" = "['plan_file', 'plans', 'rulings']" ] \
+  && [ "$(field 'd["paths"]["rulings"]["path"]' <<<"$out")" = "$NEW/docs/rulings.md" ] && [ "$ruled_default" = "$NEW/docs/rulings.md" ] \
+  && ! grep -q ruling_file <<<"$out" && [ "$no_ruling_file" = 2 ] && grep -qF "invalid choice: 'ruling-file'" <<<"$ruling_file_err"; then
+  pass "with no settings file, show answers from Lem's own places, the paths are the plans folder, a plan's name and the rulings file, docs/rulings.md, no command names a ruling's file, and the merge agent merges"
 else
-  fail "defaults: $out"
+  fail "defaults: $out / $ruled_default / $no_ruling_file / $ruling_file_err"
 fi
 if [ "$(status_of project --repo "$NEW" init)" = 1 ]; then pass "init refuses a checkout whose base branch it cannot tell"; else fail "init without a base"; fi
 project --repo "$NEW" init --base main >/dev/null
@@ -30,7 +34,7 @@ if [ "$shown_keys" = "$template_keys" ] && [ "$shown_keys" = "['commands', 'seri
 else
   fail "the [checks] keys of the template: $template_keys, of show: $shown_keys"
 fi
-# The settings are 21 keys, one to one in show (with a tracker, whose one key is its kind), in the file init writes (a
+# The settings are 20 keys, one to one in show (with a tracker, whose one key is its kind), in the file init writes (a
 # commented line counts) and on the settings page. `from`, the file a value came from (state.from), is no key.
 printf '%s\n' '' '[tracker]' 'kind = "linear"' > "$WORK/tracker.toml"
 cp "$NEW/.lem/project.toml" "$WORK/template.toml" && cat "$WORK/tracker.toml" >> "$NEW/.lem/project.toml"
@@ -46,8 +50,8 @@ for line in open(sys.argv[1], encoding="utf-8"):
 print(sorted(found))' "$NEW/.lem/project.toml")
 # shellcheck disable=SC2016  # the backticks are the refusal's or the page's own marks
 paged=$("$PY" -I -c 'import re, sys; print(sorted(set(re.findall(r"^\| `(\w+\.\w+)` \|", open(sys.argv[1], encoding="utf-8").read(), re.M))))' "$PWD/docs/settings.md")
-if [ "$shown" = "$written" ] && [ "$shown" = "$paged" ] && [ "$("$PY" -c 'import sys; print(len(eval(sys.argv[1])))' "$shown")" = 21 ]; then
-  pass "the settings are 21 keys, the same in show, in the file init writes and on the settings page"
+if [ "$shown" = "$written" ] && [ "$shown" = "$paged" ] && [ "$("$PY" -c 'import sys; print(len(eval(sys.argv[1])))' "$shown")" = 20 ]; then
+  pass "the settings are 20 keys, the same in show, in the file init writes and on the settings page"
 else
   fail "the keys of the settings: show $shown / the file $written / the page $paged"
 fi
@@ -96,7 +100,7 @@ places=$(field '{name: (p["path"].removeprefix(d["root"] + "/"), p["exists"]) fo
 answered=""
 for name in profile personas lessons worktrees rules review backlog rulings plans; do answered="$answered $(project --repo "$OLD" path "$name" | sed "s|^$OLD/||")"; done
 if [ "$places" = "{'profile': ('.lem/profile.md', False), 'personas': ('.lem/personas', False), 'lessons': ('.lem/lessons.md', False), 'worktrees': ('.lem/worktrees', False), 'rules': ('.claude/rules', True), 'review': ('.revmux', True), 'backlog': ('docs/backlog', False)}" ] \
-  && [ "$answered" = " .lem/profile.md .lem/personas .lem/lessons.md .lem/worktrees .claude/rules .revmux docs/backlog docs/rulings docs/plans" ] \
+  && [ "$answered" = " .lem/profile.md .lem/personas .lem/lessons.md .lem/worktrees .claude/rules .revmux docs/backlog docs/rulings.md docs/plans" ] \
   && ! grep -qE '^(profile|personas|lessons|worktrees|styleguide|review|backlog) = ' "$OLD/.lem/project.toml" && [ -d "$OLD/.personas/cast" ] \
   && [ "$(status_of project --repo "$OLD" init --base master --existing link)" = 2 ]; then
   pass "init over another tool's cast and profile links nothing and moves nothing; each place is Lem's one place, show says whether it exists, and path answers for each name"
@@ -169,23 +173,33 @@ if [ "$built" = "('2026-11-17-gift-note.md', None)" ] && [ "$older" = "$OLD/docs
 else
   fail "plan file names: $built / $older / $newer / $own / $own_found / $path_err"
 fi
-# The rulings are a folder of the settings too, with the name of a ruling's file built by the code that names a plan's;
-# a folder outside the repository is refused as the plans' is.
-settings '[branch]' 'base = "master"' '[paths]' 'rulings = "decisions"' 'ruling_file = "YYYY-MM-DD-<slug>.md"'
+# The rulings are one file of the settings, which init names with its comment and does not make. The folder form, of a
+# file for each ruling, stops every command that reads the settings, with the message that names the list file.
+settings '[branch]' 'base = "master"' '[paths]' 'rulings = "decisions/rulings.md"'
 ruled=$(project --repo "$OLD" path rulings)
-ruled_name=$(project --repo "$OLD" ruling-file header-names --date 2026-11-18 | field '(d["name"], d["path"], d["found"])')
-mkdir -p "$OLD/decisions" && touch "$OLD/decisions/2026-11-17-header-names.md"
-ruled_found=$(project --repo "$OLD" ruling-file header-names | field 'd["found"]')
-rm -rf "$OLD/decisions"
+settings '[branch]' 'base = "master"' '[paths]' 'rulings = "docs/rulings"'
+CORR=$PWD/skills/lem/scripts/corrections.py
+stopped_codes="" stopped_said=0
+for command in "project show" "project path rulings" "project plan-file header-names" "project prune --dry-run" "project may-nap" "corrections list"; do
+  read -r -a argv <<<"$command"
+  if [ "${argv[0]}" = project ]; then run=("$PY" -B "$PROJECT"); else run=("$PY" -B "$CORR"); fi
+  code=0
+  said=$("${run[@]}" --repo "$OLD" "${argv[@]:1}" 2>&1) || code=$?
+  stopped_codes="$stopped_codes $code"
+  grep -qF "paths.rulings = 'docs/rulings' is no markdown file: paths.rulings names the list file of the owner's rulings" <<<"$said" \
+    && grep -qF 'as rulings = "docs/rulings.md"' <<<"$said" && ! grep -q Traceback <<<"$said" && stopped_said=$((stopped_said + 1))
+done
+settings '[branch]' 'base = "master"' '[paths]' 'rulings = "docs/rulings.md"' 'ruling_file = "<slug>.md"'
+old_key_code=0
+old_key=$(project --repo "$OLD" show 2>&1) || old_key_code=$?
 settings '[branch]' 'base = "master"'
-ruled_path_err=$(project --repo "$OLD" path ruling_file 2>&1 || true)
-if [ "$ruled" = "$OLD/decisions" ] && [ "$ruled_name" = "('2026-11-18-header-names.md', '$OLD/decisions/2026-11-18-header-names.md', None)" ] \
-  && [ "$ruled_found" = "$OLD/decisions/2026-11-17-header-names.md" ] \
-  && grep -qF "paths.ruling_file is the pattern of a ruling's name, not a path: \`lem project ruling-file SLUG\`" <<<"$ruled_path_err" \
-  && grep -qxF 'rulings = "docs/rulings"' "$NEW/.lem/project.toml" && grep -qxF 'ruling_file = "<slug>.md"' "$NEW/.lem/project.toml"; then
-  pass "the rulings folder and a ruling's name are settings: path rulings answers from them, ruling-file builds the name as a plan's is built and finds the ruling of that slug, and init writes both defaults"
+if [ "$ruled" = "$OLD/decisions/rulings.md" ] && [ "$stopped_codes" = " 1 1 1 1 1 1" ] && [ "$stopped_said" = 6 ] \
+  && [ "$old_key_code" = 1 ] && grep -qF "unknown key paths.ruling_file; did you mean 'plan_file'? valid: plans, plan_file, rulings" <<<"$old_key" \
+  && grep -qxF 'rulings = "docs/rulings.md"' "$NEW/.lem/project.toml" && grep -qF '# The rulings file: the list of your product decisions, one bullet for each' "$NEW/.lem/project.toml" \
+  && ! grep -q ruling_file "$NEW/.lem/project.toml" && [ ! -e "$NEW/docs/rulings.md" ]; then
+  pass "the rulings file is a setting: path rulings answers from it, the folder form stops every command that reads the settings with the fix, ruling_file is a key Lem does not know, and init writes the default with its comment and no file"
 else
-  fail "the rulings in the settings: $ruled / $ruled_name / $ruled_found / $ruled_path_err"
+  fail "the rulings in the settings: $ruled /$stopped_codes / $stopped_said / $old_key_code / $old_key"
 fi
 
 settings '[branch]' 'base = "v2"' 'protected = ["master", "develop"]'

@@ -347,7 +347,7 @@ local_land clean call-kept >/dev/null
 ldecide() { "$PY" -B "$DECISIONS" --repo "$LOCAL" "$@"; }
 task_in "$LOCAL" quiet-run quiet.txt quiet
 read_in "$LOCAL" quiet-run
-ldecide log quiet-run --what "The file's name" --chose quiet.txt --by gate --why "docs/rulings/names.md: a file is named for what it holds" >/dev/null
+ldecide log quiet-run --what "The file's name" --chose quiet.txt --by gate --why "docs/rulings.md, Names: A file is named for what it holds." >/dev/null
 ldecide log quiet-run --what "The word's case" --chose "lower case" --by personas --vote "the merchant, opus=lower case" --vote "the merchant, sol=lower case" --vote "the clerk, opus=lower case" \
   --why "the importer reads lower case" >/dev/null
 project --repo "$LOCAL" owner away --words "I'm away" >/dev/null
@@ -359,7 +359,7 @@ merged=$(local_land merge quiet-run --by merger 2>&1 || true)
 project --repo "$LOCAL" owner back --words "/lem im-back" >/dev/null
 if [ "$(head -1 "$text" | cut -c1-10)" = '**Green.**' ] && grep -qE '^It ran without the owner from 20[0-9-]+ [0-9:]+ UTC \(the owner: "I'"'"'m away"\)\.$' "$text" \
   && grep -qxF -- '- The word'"'"'s case: "lower case", by the personas: 3 votes of 2 personas, two model families, all for it. the importer reads lower case' "$text" \
-  && grep -qxF -- '- The file'"'"'s name: "quiet.txt", by the gate. docs/rulings/names.md: a file is named for what it holds' "$text" \
+  && grep -qxF -- '- The file'"'"'s name: "quiet.txt", by the gate. docs/rulings.md, Names: A file is named for what it holds.' "$text" \
   && [ "$(field '(d["verdict"], d["calls"])' <<<"$read_alone")" = "('merge', False)" ] && [ "$(field 'd["pull_request"]["url"].startswith("https://github.com/acme/local/pull/")' <<<"$merged")" = True ] \
   && [ "$(status_in "$LOCAL" quiet-run)" = landed ]; then
   pass "a task that ran without the owner with nothing of his decided without him is green, and says when it ran so and on whose words; the gate's and the personas' decisions stay green, with the cite and the count of votes and families; the merge agent reads it and merges it while he is away, as any other"

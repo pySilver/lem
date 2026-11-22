@@ -97,9 +97,9 @@ examination answered, and every setting with a default, is an assumption of the 
 An interview question goes straight to the owner. It does not pass the question gate or the
 persona panel, its card gets no framing check, and its answer is not tested for a ruling: it
 asks what the owner wants, which no ruling, probe or persona knows. Each answer has a place
-already, the settings file or the profile, so no ruling file is written for it. The first
+already, the settings file or the profile, so no ruling is written for it. The first
 onboarding through Lem put its five questions through the gate: 11m 54s passed between the
-owner's first answer and the second question, and three ruling files repeated three lines of the
+owner's first answer and the second question, and three rulings repeated three lines of the
 settings (a scratch repository, 2026-11-15; the time is that session's status line as another
 session read it).
 

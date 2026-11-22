@@ -19,9 +19,11 @@ with each option, and a `--level` for each level that ran with what it answered,
 record shows later which level changes picks and which never does.
 
 0. **The gate.** The `lem-gate` skill (`load-skill`) asks its judge. It settles the decision when
-   a ruling of the owner's answers it (a file of the rulings folder, `lem project path rulings`, or a line of the project's agent
-   document), when a test or a rule answers it, or when a wrong pick is cheap to reverse and
-   nobody would notice it meanwhile: `--by gate`, with the cite in `--why`. `held` goes on.
+   a ruling of the owner's answers it (a bullet of the rulings list, `lem project path rulings`,
+   or a line of the project's agent document), when a test or a rule answers it, or when a wrong
+   pick is cheap to reverse and nobody would notice it meanwhile: `--by gate`, with the cite in
+   `--why`, for a ruling the list, the group's heading and the bullet's bold sentence ("docs/rulings.md,
+   Invoices: A refund never makes an invoice negative."). `held` goes on.
 1. **You** write the options, each as what a person would see and what it costs, your pick, and
    the facts it rests on, each with its file and line.
 2. **The personas.** The persona panel (`lem-panel`, `load-skill`), "In the ladder", with the
