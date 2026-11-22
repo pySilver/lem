@@ -16,7 +16,7 @@
                                  check handoff.md against `templates/handoff.md`
     lem session talk SLUG --from TEXT [--leave TEXT ...]
                                  copy the turns of this session about the ask into the task's talk.md
-    lem session wake SLUG --why merged|conflict|refused|queue|owner|status [--head SHA] [--session ID]
+    lem session wake SLUG --why merged|conflict|refused|queue|owner|inbox|status [--head SHA] [--session ID]
                                  a pane message to the task's live session, or a new session;
                                  `--why status` only to a live one
     lem session stopped SLUG [--session ID]
@@ -104,7 +104,9 @@ of its end is the one that closes it.
 agent reads the files, never the line. With no live session it opens one, as `open --why WHY`. The
 board's server sends `owner` after the owner's act on the task from the board (his yes to the
 criteria, a park): a task that gets no session then (a parked one) has nothing to wake, and that
-is no refusal.
+is no refusal. It sends `inbox` when a thing of the task went to the owner's Inbox, or when his reply
+came in a thread whose session no longer runs the task (`lem_inbox`): the live session reads the thread
+itself, and with none live the wake opens nothing, since the reply waits in the Inbox.
 
 `list`'s `phase` is the phase the task's state gives now, null for a task that gets no session (parked,
 or ended with its worktree gone), and `opened_in` the phase its newest session opened in. Its
@@ -173,7 +175,7 @@ lem_signs = importlib.import_module("lem_signs")
 PHASES = ("shape", "build", "land", "fast")
 WHYS = ("new", "handoff", "dead", "merged", "conflict", "refused", "queue", "night", "owner", "stopped")
 # the whys of a `session.wake` record; `replaced` is sent only by `open --why stopped`, to the old pane
-WAKES = ("merged", "conflict", "refused", "queue", "owner", "status", "replaced")
+WAKES = ("merged", "conflict", "refused", "queue", "owner", "inbox", "status", "replaced")
 CLOSES = ("handoff", "ended", "owner")
 EVENTS = ("session.open", "session.close", "session.wake", "session.stopped")
 # Why a step of the guard of a stopped session acted on nothing (`guard_refusal`), each with its words.
@@ -868,6 +870,9 @@ def cmd_wake(root: Path, slug: str, why: str, head: str | None, named: str | Non
         project.append_event(root, "session.wake", slug, {"session": session, "why": why, **({"head": head} if head else {})})
         return {"task": slug, "session": session, "why": why, "woke": True, "opened": False,
                 "say": f"the session `{node.get('name')}` of {slug} got `lem: {slug} {why}`"}
+    if why == "inbox":
+        # the Inbox's word opens no session: the thing or the reply stays in the Inbox for the session that comes
+        return {"task": slug, "session": None, "why": why, "woke": False, "opened": False, "say": f"no session of {slug} runs: what came in the Inbox waits there"}
     if why == "owner":
         try:
             facts_of(root, slug)

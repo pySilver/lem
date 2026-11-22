@@ -249,7 +249,17 @@ drawer, and its subscription is kept in Lem's home folder. A thread of the serve
 looks at each workspace's list of what waits for the owner every few seconds, and when the list gains
 a row it sends one push with no payload to each device; the worker then asks `/api/push/latest` what
 to say. Nothing is sent for a demo workspace, and a failure is a line in
-the log and `push` in `/api/server`, never a stop of the server. Before it
+the log and `push` in `/api/server`, never a stop of the server.
+
+The owner's Inbox (`lem_inbox`): while his mark says away, a third thread of the server
+(`lem_inbox.Watcher`) sends each row of the same lists to the Plannotator Inbox on this Mac, in the
+task's own thread and as the task's Claude Code session, so that his reply there comes back into that
+session; it withdraws a question whose row left the list, and wakes the task's session with `lem
+session wake SLUG --why inbox` (`inbox_wake`). A task's page links to its message through the
+Inbox's tailnet address (`inbox.json` of the state folder). Nothing is sent for a demo workspace,
+and a failure is a line in the log, never a stop of the server or of a task.
+
+Before it
 publishes, the server reads `tailscale serve status --json`: a port that another target holds is
 refused, never taken over, and an entry that already points at the door is kept. The entry stays
 when the server stops, and Tailscale keeps it across a restart of the Mac; `--tailscale-off` takes
@@ -300,6 +310,7 @@ pages = importlib.import_module("lem_board_pages")
 task_pages = importlib.import_module("lem_board_task")
 lem_artifacts = importlib.import_module("lem_artifacts")
 lem_push = importlib.import_module("lem_push")
+lem_inbox = importlib.import_module("lem_inbox")
 lem_peers = importlib.import_module("lem_peers")
 lem_sibling = importlib.import_module("lem_sibling")
 
@@ -977,6 +988,27 @@ def task_of(workspace: Workspace, slug: str) -> "bm.Task | None":
     """The task as the board shows it, also one whose session opened and wrote no state yet (bm.NEW), or None."""
     t = workspace.model().by_slug.get(slug)
     return t if t is not None and t.blocks else None
+
+
+def inbox_link(name: str, slug: str) -> str:
+    """The address of a task's page on the board for a message of the Inbox: through the tailnet door
+    when it is open, so that the owner's phone opens it, else on this Mac."""
+    base = RUNNING.get("tailscale") or RUNNING.get("url") or f"http://{HOST}:{PORT}/"
+    return f"{base}{quote(HOSTNAME)}/{quote(name)}/tasks/{quote(slug, safe='')}"
+
+
+def inbox_wake(workspace: Workspace, slug: str) -> bool:
+    """The word to the task's live session that the Inbox has a thing of it, or a reply of the owner's
+    for it: `lem session wake SLUG --why inbox`, which opens no session. Whether a live session got it."""
+    ran = session_run(workspace, "wake", slug, "--why", "inbox")
+    if ran.returncode != 0:
+        sys.stderr.write(f"serve.py: {workspace.name}: `lem session wake {slug} --why inbox` exited {ran.returncode}: {said_of(ran)}\n")
+        return False
+    try:
+        told = json.loads(ran.stdout)
+    except ValueError:
+        return False
+    return isinstance(told, dict) and told.get("woke") is True
 
 
 def tell_session(workspace: Workspace, slug: str) -> dict:
@@ -2878,6 +2910,9 @@ def listen(host: str, verbose: bool, settings: dict) -> None:
     # the board's notifications: a look at each workspace's list of what waits, in a thread of its own (lem_push)
     watcher = lem_push.Watcher(lambda: [(w.name, w.path, w.model) for w in Handler.machine.workspaces()], HOSTNAME)
     threading.Thread(target=watcher.run, args=(STOPPING,), daemon=True).start()
+    # the owner's Inbox while he is away: a look at the same lists, in a thread of its own (lem_inbox)
+    inbox = lem_inbox.Watcher(Handler.machine.workspaces, inbox_link, inbox_wake)
+    threading.Thread(target=inbox.run, args=(STOPPING,), daemon=True, name="inbox").start()
     print(json.dumps({**said, "version": RUNNING["version"], "workspaces": [{"name": w["name"], "path": w["path"]} for w in Handler.machine.listing()]}), flush=True)
 
     def stop_now(_signum, _frame) -> None:
