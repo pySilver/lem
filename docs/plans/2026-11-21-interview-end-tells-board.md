@@ -11,18 +11,24 @@ Size: full, because the board's model, two event forms, the time card and the in
    2. Lem writes `task.md` again and logs that the questions ended.
    3. The scout still reads the code; then Lem writes the criteria.
    4. "Waits for you" has no row for `report-dates-stay-whole`, and its card says "Lem writes the criteria; then they come to you.", with the name of no helper.
+   - test: `python3 -B -m unittest tests.unit.test_board_model.InterviewTurns.test_criterion_1_after_the_last_answer_lem_writes_the_criteria_and_nothing_waits_for_him` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_task.InterviewEvents` in `tests/unit/test_task.py`
 2. When Lem asks "Skip the persona read? (y/n)", the task is in "Waits for you" again until he answers, and the row says what it asks:
    1. Lem wrote the criteria of `report-dates-stay-whole`, and each names only the developer.
    2. Lem asks "Skip the persona read? (y/n)" in the task's session.
    3. "Waits for you" lists `report-dates-stay-whole` as his: the row says "Lem asks whether to skip the personas' read of the criteria" and opens the task's session in one jump, as the interview's row does.
    4. He answers "n": the personas' read starts, and the row leaves until the read is in.
    5. Had he answered "y", the row stays and says that the criteria wait for his yes.
+   - test: `python3 -B -m unittest tests.unit.test_board_model.InterviewTurns.test_criterion_2_the_skip_question_is_his_row_and_his_no_starts_the_read` in `tests/unit/test_board_model.py`
 3. While the owner is away, Lem answers an interview's questions with its own guesses and approves the criteria without him, so such a task is not in "Waits for you": its card says that Lem goes on without him, and each guess is in the task's decisions for the pull request. A breaker, and a task that waits for his word on which task it comes after, stay his:
    1. The owner types `/lem im-away` while the interview of `report-dates-stay-whole` waits for his answer.
    2. "Waits for you" has no row for `report-dates-stay-whole`, and its card says that Lem goes on without him.
    3. Task `export-notes-in-order` waits for him to say which task it comes after: its row stays.
    4. He types `/lem im-back` while Lem still has questions for the interview of `report-dates-stay-whole`: its row comes back, and the next question is his.
+   - test: `python3 -B -m unittest tests.unit.test_board_model.InterviewTurns.test_criterion_3_while_he_is_away_lem_goes_on_and_only_a_breaker_and_an_order_stay_his` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_model.InterviewTurns.test_criterion_3_a_nights_task_and_the_requests_one_answer_go_on_without_him` in `tests/unit/test_board_model.py`
 4. The time card's span "The interview" ends when the questions ended, not when the personas' read starts, and the time between shows as Lem's span "Lem writes the criteria": an interview whose questions ended at 10:05 and whose read started at 10:12 shows "The interview" to 10:05 and "Lem writes the criteria" from 10:05 to 10:12.
+   - test: `python3 -B -m unittest tests.unit.test_board_model.InterviewTurns.test_criterion_4_the_interview_ends_with_its_questions_and_lems_writing_runs_to_the_read` in `tests/unit/test_board_model.py`
 
 ## How it works
 
