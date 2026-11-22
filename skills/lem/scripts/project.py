@@ -77,7 +77,9 @@ team that adopts Lem may have its own.
                                     and a new task opens from its files, its handoff and its branch's
                                     commits, as SLUG-2 (then -3) on TYPE/SLUG-2 cut from the old
                                     branch's tip, with `resumed-from.txt` naming the old one; a
-                                    dropped task resumes only with a breaker that waits
+                                    dropped task resumes only with a breaker that waits and with its
+                                    events whole: after `prune` made them one summary event, the
+                                    refusal ends with `/lem` and its ask, the new task to open
     lem project may-start SLUG      exit 1 for a task in `landing`, `open`, `parked` or an ended state, which
                                     gets no lead, and for a task `queued` with an `after: OTHER`
                                     line while OTHER has not landed or been answered, whether it needs
@@ -102,10 +104,12 @@ team that adopts Lem may have its own.
                                     written down as started
     lem project prune [--dry-run [--days N]]
                                     remove what the state folder no longer needs, older than
-                                    `state.keep_days` days, and say what went and where the number
-                                    came from, as JSON; the board server runs it. --dry-run removes
-                                    nothing and says what would go, and --days says it for another
-                                    number than the settings'
+                                    `state.keep_days` days, replace all the events of each task that
+                                    ended before then with one summary event, and say what went, which
+                                    tasks it summarized with the count of their events, and where the
+                                    number came from, as JSON; the board server runs it. --dry-run
+                                    removes nothing, writes nothing and says what would go, and --days
+                                    says it for another number than the settings'
 
 Task state is kept in `.lem/state/` of the main checkout, the one folder `lem_state.py` names for
 every script: every worktree writes there, git never tracks it, a worktree's removal does not take
@@ -117,7 +121,11 @@ cannot reopen it: new work for it is a new ask, with a slug of its own.
 
 Every state block is also an event. `events.jsonl` in the state folder is the record, one JSON
 object per line: `ts` (UTC to the second), `event`, `task`, then the event's fields; the board server
-(`lem serve`) reads it as it grows. `state` writes `task.state` with the status, the lines, the ask and
+(`lem serve`) reads it as it grows, and whole again when it is a new file. Each writer appends under
+the log's one lock (`lem_state.events_lock`). Only `prune` shortens it: past `state.keep_days`, all
+the events of a task that ended become one `task.summary` (`summary_of`) in the place of its newest,
+with the facts the board and `tasks` read of an ended task, and the new log replaces the old one
+under the same lock. `log` refuses a `task.summary`. `state` writes `task.state` with the status, the lines, the ask and
 the branch and newest commit of the task's worktree, so the board needs no agent to remember a
 second command, and for the block that names a day's task's path with its type, the task's first
 line to the owner as `say` (`opening_line`), which `state` prints too, and `say_named`, the same

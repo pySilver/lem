@@ -42,7 +42,9 @@ Answer in one of three ways:
 - `/lem park <task>`: the worktree, the branch and the files stay;
 - `/lem drop <task>`: the worktree goes, and the files and the commits of the branch stay.
 
-`/lem resume <task>` opens the talk again after a park or a drop.
+`/lem resume <task>` opens the talk again after a park or a drop. After the days of
+[`state.keep_days`](settings.md#state), the events of a dropped task become one summary, and Lem
+cannot resume it. Then type `/lem` and its request to start a new task.
 
 ## The merge review
 

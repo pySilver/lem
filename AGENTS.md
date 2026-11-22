@@ -222,7 +222,8 @@ Each script's module docstring says what it does and why; this list says where e
   the night reports, the naps, the experts' folders, a panel's copies, the panels' folders
   (`panels/`, which `lem cast run-dir` makes), and `forge.json`, the board
   server's last look at GitHub. `lem project prune` removes from it what is older than
-  `state.keep_days`. `.lem/worktrees/` holds
+  `state.keep_days`, and makes the events of each task that ended before then one summary event of
+  the log. `.lem/worktrees/` holds
   the tasks' worktrees. `.revmux/` is the review tool's configuration for this repository.
 - The naps, an optional part: `prompts/nap.md` is written after the owner's own nap routine and
   keeps its voice (a change is tried with one real nap, and its dream is read: a brief that makes a
