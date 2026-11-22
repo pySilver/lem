@@ -326,8 +326,9 @@ landing up as after a cut-off.
      `"owner_merge": "stands: ..."` and logs `merge.stands`, and the server runs `lem land merge
      SLUG --by owner --via server --standing`, which `merge.start` and `merged_by` record as made
      after a re-check. Do not run that merge yourself. When `propose` prints `"owner_merge":
-     "ended: WHY"` (a commit came after the rebase, the rebase met a conflict, or the reasons for
-     not green changed), tell him WHY in one line: the merge waits for his word again.
+     "ended: WHY"` (no review covers the change, a commit came after the rebase, the rebase met a
+     conflict, or the reasons for not green changed), tell him WHY in one line: the merge waits for
+     his word again.
    - The owner merged the pull request on GitHub himself, or on the board: the board's server
      writes it down and wakes this session, as the top of this stage says.
 

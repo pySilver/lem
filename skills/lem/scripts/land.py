@@ -436,7 +436,9 @@ that the server merges it with no second read. The owner's merge that the base r
 (`owner_tap`) stands the same way, while the reasons the request is not green are the ones he saw:
 `propose` logs `merge.stands`, and the server runs `merge --by owner --via server --standing`, which
 `merge.start` and `merged_by` record as made `after: a re-check`. A commit after the rebase, a
-conflict or other reasons end it, and `propose` says why (`owner_merge`).
+conflict, a review that does not cover the change or other reasons end it, and `propose` says why
+(`owner_merge`); for a review that does not cover it, the review's reason, which the rebase kept
+(`rebase_uncovered`).
 
 A step that was cut off is run again; a merge that GitHub already holds only finishes the bookkeeping.
 `clean` knows the branch from `landing.json`, so it finds it after the worktree is gone. It
