@@ -11,16 +11,24 @@ Size: full, because it changes what carries over a moved base in the landing's r
    2. The base moves, and GitHub calls pull request 39 conflicting.
    3. A builder resolves the conflict, and the resolution read finds nothing.
    4. The merge review of step 1 carries to the new tip, no fresh merge agent starts, and the board server merges pull request 39 by that verdict.
+   - test: `python3 -B -m unittest tests.unit.test_land.MovedBase.test_a_clean_read_of_a_resolution_carries_the_merge_review_and_the_owners_merge` in `tests/unit/test_land.py`
+   - test: `bash tests/lem-land-github.sh` in `tests/lem-land-github.sh` `tests/lib.sh` `tests/checks.sh`
 2. After a conflict with the base, a resolution read with a finding, or a careful change, still gets a fresh merge agent's read, and the owner's merge given before the conflict ends as it does today.
    1. Task board-cards-keyboard is careful, and the owner merged its pull request 39.
    2. The base moves, a builder resolves the conflict, and the resolution read finds nothing.
    3. A fresh merge agent reads the task, and the owner's merge ends with the reason that the rebase met a conflict.
+   - test: `python3 -B -m unittest tests.unit.test_land.MovedBase.test_a_read_of_a_resolution_with_a_finding_carries_nothing tests.unit.test_land.MovedBase.test_a_read_of_a_resolution_that_did_not_answer_or_did_not_run_carries_nothing tests.unit.test_land.MovedBase.test_a_careful_request_never_carries_over_a_resolved_conflict tests.unit.test_land.MovedBase.test_a_rounds_careful_call_holds_against_a_resolution_read_that_makes_none tests.unit.test_land.MovedBase.test_a_commit_after_the_resolution_carries_nothing` in `tests/unit/test_land.py`
+   - test: `bash tests/lem-land-github.sh` in `tests/lem-land-github.sh` `tests/lib.sh` `tests/checks.sh`
 3. A clean rebase of a reviewed change whose last review round left a must-fix open carries that review as it was: the must-fix stays open, the pull request stays not green for it, the merge review carries over, and the owner's merge given before stands.
    1. The last review round of task bold-outcome-quoted-whole leaves 1 must-fix open, and pull request 31 is not green for it.
    2. The merge agent calls the owner, and he merges pull request 31.
    3. The base moves, and the rebase meets no conflict.
    4. Pull request 31 is still not green for the same must-fix, no fresh merge agent starts, and the owner's merge stands: the board server merges pull request 31 when its checks are green on the new tip.
+   - test: `python3 -B -m unittest tests.unit.test_land.MovedBase.test_a_rebase_with_no_conflict_carries_the_newest_review_with_what_it_left_open tests.unit.test_land.MovedBase.test_a_covered_change_with_an_open_must_fix_keeps_its_reason` in `tests/unit/test_land.py`
+   - test: `bash tests/lem-board-act.sh` in `tests/lem-board-act.sh` `tests/lib.sh` `tests/checks.sh`
 4. At each moved base, the pull request's text and the event log say whether the review and the merge review carried over, and when a fresh merge agent read the task, the reason: a resolution read with a finding, or a careful change. Example: pull request 39 says "the merge review carried over the resolved conflict: the resolution read found nothing".
+   - test: `python3 -B -m unittest tests.unit.test_land.MovedBase.test_the_line_of_a_moved_base_says_what_carried tests.unit.test_land.MovedBase.test_the_line_of_a_carried_review_names_its_open_must_fix tests.unit.test_land.MovedBase.test_a_carrying_tip_with_no_merge_review_on_record_starts_the_first_one` in `tests/unit/test_land.py`
+   - test: `bash tests/lem-land-github.sh` in `tests/lem-land-github.sh` `tests/lib.sh` `tests/checks.sh`
 
 ## How it works
 
