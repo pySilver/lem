@@ -84,6 +84,8 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     (("tests/checks.sh",), ("lem-*", "test-ask", "test-site", "test-gate-panel", "shellcheck")),
     (("tests/suites.sh", "tests/limit.py", "tests/all.sh", "tests/test-lem.sh"), (EVERYTHING,)),
     (("tests/pick.py",), ("pick",)),
+    # the driver of headless Chrome: the board's pictures, and lem-serve's phone page
+    (("tests/board-cdp.mjs",), ("lem-serve",)),
     # The short AGENTS.md, the list of rulings and its history, and the plan whose table has a row for each
     # file the list took the place of, which tests/unit/test_agents_md.py reads
     (("AGENTS.md", "docs/rulings/*", "docs/plans/2026-11-21-rulings-as-one-list.md"), ("unit",)),

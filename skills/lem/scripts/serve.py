@@ -120,18 +120,23 @@ state that is the browser's (the folded columns, the folded sidebar, the panel's
 is expanded) comes in the cookie PREFS_COOKIE.
 
 The stream of the pages is HTTP/1.0 with no length, so it ends when the socket closes, with one
-thread for each. Each message is the default event, with no `event:` line: `id:` is the version of
+thread for each. Each message but the ping below is the default event, with no `event:` line: `id:` is the version of
 the workspace's `events.jsonl`, its inode and its number of lines in one id (`bm.log_version`), and
 `data:` `<turbo-stream action="refresh">`, at which the page fetches itself again and morphs in what
 changed. A message goes when the log grew or `lem project prune` replaced it, or when a file
 the pages read beside it changed: the owner's mark, the settings, the
 demo mark, the backlog's folder, and with `?task=SLUG` (a page with a task open) each file of that
 task's folder, so that an artifact written with no event still shows. The thread looks every
-WATCH_SECONDS, so a burst of events is one message, ends when its client hung up, and sends a comment
-line every PING_SECONDS, at which a client that vanished with no close shows as a failed write. A
-request whose `Last-Event-ID`, or `?since=ID`, is not the log's version now gets one message at once,
-so a page that reconnects after a prune replaced the log is told even when the count is the same. The server's
-stop ends every stream within WATCH_SECONDS.
+WATCH_SECONDS, so a burst of events is one message, and ends when its client hung up. A stream with
+nothing to say sends a `ping` event every PING_SECONDS: the page sees it (Turbo renders only the default
+event, so not this one) and takes a stream silent for longer than its limit as dead, and a client that
+vanished with no close shows as a failed write. A page's open after a render (its load, or a visit to
+another task) names the id its page shows (`?rendered=ID`) and gets a message at once only when that is
+not the log's version now, so a page rendered before a prune replaced the log is told even when the count
+is the same; an open after the page may have missed a change (`?since=ID` from a page back on the screen
+or whose stream went down, or the browser's `Last-Event-ID`) gets one at once whatever the log, since what
+it missed may be a change that adds no line to it (`opens_with_refresh`). The server's stop ends every
+stream within WATCH_SECONDS.
 
 Each task lives in its own agterm session, and what reaches across tasks is the server's: it holds no
 context, and it reads every duty from the files at each look, so a pause of the server costs only time.
@@ -394,10 +399,12 @@ NO_START = ("LEM_SERVE", "off")
 # The stream. How often its thread looks at the workspace's files with `stat`: a guess, short enough
 # that a new event reaches a phone in about a second, and a `stat` of a few files costs nothing.
 WATCH_SECONDS = 0.5
-# How often a stream with nothing to say sends a comment line: often enough that a client that went
-# away is found and its thread ends, and that no proxy on the way takes the stream for idle. The 15 s
-# is the usual pick for server-sent events (the research of 2026-11-20 for the board).
-PING_SECONDS = 15
+# How often a stream with nothing to say sends a ping event: often enough that a page hears one well
+# within its silence limit (SILENCE_MS of the board's stream.js, 25 s, so that it says "reconnecting"
+# within 30 s of a stop), that a client that went away is found and its thread ends, and that no proxy on
+# the way takes the stream for idle. 10 s is an unmeasured estimate (the plan of 2026-11-22), under the
+# 15 s that is the usual pick for server-sent events (the research of 2026-11-20 for the board).
+PING_SECONDS = 10
 EVENT_LOG = "events.jsonl"
 
 # Who this server is, which `GET /api/server` answers; `listen` fills it.
@@ -1213,10 +1220,29 @@ def refresh(version: str) -> bytes:
 
 
 def behind(given: str | None, version: str) -> bool:
-    """Whether a page that reconnects with the id it saw last (GIVEN, its `Last-Event-ID` or `?since=`) is
-    behind the log's version now: any id that is not the version now, also one of the same count on a
-    log that `lem project prune` replaced. A request with no id is no page that saw a version."""
+    """Whether a page that names the id it saw (GIVEN) is behind the log's version now: any id that is
+    not the version now, also one of the same count on a log that `lem project prune` replaced. A request
+    with no id is no page that saw a version."""
     return bool(given and given.strip()) and given.strip() != version
+
+
+def ping(version: str) -> bytes:
+    """The sign of life of a quiet stream: a `ping` event, which the page hears and Turbo does not render,
+    its id the version of the event log."""
+    return f"id: {version}\nevent: ping\ndata: {version}\n\n".encode("utf-8")
+
+
+def opens_with_refresh(rendered: str | None, since: str | None, last_id: str | None, version: str) -> bool:
+    """Whether a stream gets a refresh the moment it opens, from its request and the log's version now.
+    A page's open after a render (its load, or a visit to another task) names the id its page shows
+    (`rendered`), and gets one only when it is behind the log (`behind`). An open after the page may
+    have missed a change, `since` from a page back on the screen or whose stream went down, or the
+    browser's own `Last-Event-ID`, gets one whatever the log: what it missed may be a change that adds
+    no line to the log (the owner's mark, the settings, the backlog, a task's files, an act of the
+    server). An open that names none of them gets none."""
+    if last_id or since is not None:
+        return True
+    return behind(rendered, version)
 
 
 class Look:
@@ -1772,11 +1798,14 @@ class Handler(BaseHTTPRequestHandler):
         """Server-sent events for the served pages: a Turbo `refresh` each time the workspace's log grew or
         a file the pages read changed (the owner's mark, the settings), or what the server itself knows
         changed (an act of the board, its look at the forge or at the task sessions: `Workspace.acted`),
-        `id:` the version of the log (`bm.log_version`: its inode and its count of lines). A request whose
-        `Last-Event-ID`, or `?since=ID`, is not the log's version now gets one at once (`behind`), also
-        after `lem project prune` replaced the log with one of the same count. The thread ends when its
-        client hung up or the server stops."""
-        given = self.headers.get("Last-Event-ID") or (parse_qs(query).get("since") or [None])[0]
+        `id:` the version of the log (`bm.log_version`: its inode and its count of lines), and a `ping`
+        event after each PING_SECONDS with nothing to say. A page's open after a render (`?rendered=ID`)
+        gets a refresh at once when ID is not the log's version now (`behind`), also after `lem project
+        prune` replaced the log with one of the same count, and an open after the page may have missed a
+        change (`?since=ID`, `Last-Event-ID`) gets one at once whatever the log (`opens_with_refresh`).
+        The thread ends when its client hung up or the server stops."""
+        asked = parse_qs(query)
+        rendered, since = ((asked.get(key) or [None])[0] for key in ("rendered", "since"))
         self.send_response(HTTPStatus.OK)
         for key, value in {"Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
                            "Referrer-Policy": "no-referrer", "X-Accel-Buffering": "no", "Connection": "close"}.items():
@@ -1785,7 +1814,7 @@ class Handler(BaseHTTPRequestHandler):
         self.close_connection = True
         files = {"demo": workspace.state / "demo",
                  "settings": Path(workspace.path) / ".lem" / "project.toml"}
-        task = (parse_qs(query).get("task") or [""])[0]
+        task = (asked.get("task") or [""])[0]
         if TASK_SLUG.fullmatch(task) and (workspace.state / "tasks" / task).is_dir():
             files["task"] = workspace.state / "tasks" / task
         backlog = workspace.backlog_folder()
@@ -1799,7 +1828,7 @@ class Handler(BaseHTTPRequestHandler):
         version, _ = look.changes()
         acted = workspace.acted
         try:
-            self.wfile.write(refresh(version) if behind(given, version) else b": open\n\n")
+            self.wfile.write(refresh(version) if opens_with_refresh(rendered, since, self.headers.get("Last-Event-ID"), version) else b": open\n\n")
             quiet = time.monotonic()
             while not STOPPING.wait(WATCH_SECONDS):
                 if self.hung_up():
@@ -1812,7 +1841,7 @@ class Handler(BaseHTTPRequestHandler):
                     self.wfile.write(refresh(version))
                     quiet = time.monotonic()
                 elif time.monotonic() - quiet >= PING_SECONDS:
-                    self.wfile.write(b": ping\n\n")
+                    self.wfile.write(ping(version))
                     quiet = time.monotonic()
         except (OSError, ValueError):
             return

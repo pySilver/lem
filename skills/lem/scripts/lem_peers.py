@@ -76,8 +76,8 @@ LIST_TIMEOUT = 4
 # connection opens in well under a second when the machine is awake, and a page renders in under one.
 CONNECT_TIMEOUT = 4
 PAGE_TIMEOUT = 30
-# How long a stream from a peer may stay silent before it is taken as gone: two of its pings (every
-# 15 s, serve.PING_SECONDS) and a margin.
+# How long a stream from a peer may stay silent before it is taken as gone: three of its pings (every
+# 10 s, serve.PING_SECONDS) and a margin.
 STREAM_SILENCE = 35
 # How often a stream's watch looks whether its client hung up or the server stops.
 WATCH_SECONDS = 0.5

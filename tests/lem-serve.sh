@@ -8,6 +8,17 @@
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
 
+RELAY_PID=""
+# the run's exit stops the relay of the stream's check too (let go first, if it was stopped), beside the server lib.sh stops
+ended() {
+  local pid
+  stopped
+  [ -z "$RELAY_PID" ] || kill -CONT "$RELAY_PID" 2>/dev/null || true
+  for pid in $SERVE_PID $RELAY_PID; do kill -TERM "$pid" 2>/dev/null; wait "$pid" 2>/dev/null || true; done
+  rm -rf "$WORK"
+}
+trap ended EXIT
+
 BOARD=$PWD/skills/lem/scripts/board.py
 # A stand-in for agtermctl, first on the PATH of this block and of its server: it prints the tree of AGT_TREE and records
 # each call in AGT_CALLS.
@@ -304,16 +315,17 @@ else
 fi
 
 # The stream: a refresh within seconds of a state block, and of a file of the open task written with no event. Its id is
-# the log's version, its inode and its count of lines, which the page gives its stream.
+# the log's version, its inode and its count of lines, which the page gives its stream. Each is a page's first open,
+# which names the id it was rendered with (`?rendered=`).
 version=$(log_version "$STATE/events.jsonl")
 paged=$(got "$BASE/" | "$PY" -c 'import re, sys; print(re.search(r"data-stream-since-value=\"([^\"]*)\"", sys.stdin.read())[1])')
-curl -sN --max-time 6 "$BASE/stream?since=$version" > "$WORK/stream.out" 2>/dev/null &
+curl -sN --max-time 6 "$BASE/stream?rendered=$version" > "$WORK/stream.out" 2>/dev/null &
 streamed=$!
 soon grep -q ': open' "$WORK/stream.out"
 project --repo "$DEMO" state cart-total-after-coupon building "an investigator reproduces the bug and finds its cause" "investigation: bug" >/dev/null
 wait "$streamed" || true
 grown=$(log_version "$STATE/events.jsonl")
-curl -sN --max-time 4 "$BASE/stream?since=$grown&task=why-export-is-slow" > "$WORK/stream-task.out" 2>/dev/null &
+curl -sN --max-time 4 "$BASE/stream?rendered=$grown&task=why-export-is-slow" > "$WORK/stream-task.out" 2>/dev/null &
 streamed=$!
 soon grep -q ': open' "$WORK/stream-task.out"
 echo 'written by an agent, with no event' > "$STATE/tasks/why-export-is-slow/notes.md"
@@ -360,6 +372,210 @@ json.dump({"width": 390, "height": 844, "scale": 2, "mobile": True, "steps": ste
   else
     fail "a refresh and the words the owner types: $typed"
   fi
+fi
+
+# A page's first open at the log's version gets `: open` and no refresh, and the quiet stream then sends a ping event, which
+# the page hears (a comment line it would not), within PING_SECONDS (serve.py, 10). One reader stamps each line with the
+# seconds since its request and stops at the ping.
+version=$(log_version "$STATE/events.jsonl")
+"$PY" -u -c 'import sys, time, urllib.request
+start = time.monotonic()
+reply = urllib.request.build_opener(urllib.request.ProxyHandler({})).open(sys.argv[1], timeout=15)
+for line in reply:
+    print(f"{time.monotonic() - start:.1f} {line.decode()}", end="", flush=True)
+    if line.startswith(b"event: ping"):
+        break' "$BASE/stream?rendered=$version" > "$WORK/stream-quiet.out" 2>/dev/null || true
+pinged=$(awk '$2 == "event:" && $3 == "ping" {print $1; exit}' "$WORK/stream-quiet.out")
+if [ "$(head -n 1 "$WORK/stream-quiet.out" | cut -d' ' -f2-)" = ": open" ] && ! grep -q 'turbo-stream' "$WORK/stream-quiet.out" \
+  && grep -qE "^[0-9.]+ id: $version\$" "$WORK/stream-quiet.out" && [ -n "$pinged" ] && "$PY" -c 'import sys; sys.exit(not float(sys.argv[1]) < 12)' "$pinged"; then
+  pass "a page's first open of its stream at the log's version gets : open and no refresh, and the quiet stream sends a ping event with the log's id within PING_SECONDS and a margin of 2 s"
+else
+  fail "the first open of a quiet stream: $(cat "$WORK/stream-quiet.out")"
+fi
+
+# A page that opens its stream again (a phone's page back in view: `?since=` the id it saw last) after a change it
+# missed that is no line of the log gets a refresh at once. The owner's mark is such a change: away, the criteria Lem
+# approves without him leave Waits for you, so the count on the phone's inbox icon would stay one more than a page
+# that was open all along shows in its sidebar.
+inbox() { got "$BASE/" | "$PY" -c 'import re, sys; print(re.search(r"class=\"m-waits[^\"]*\".*?<span>(\d+)</span>", sys.stdin.read(), re.S)[1])'; }
+count=$(grep -c '' "$STATE/events.jsonl")
+inbox_before=$(inbox)
+project --repo "$DEMO" owner away --words "I'm away" >/dev/null
+inbox_after=$(inbox)
+curl -sN --max-time 3 "$BASE/stream?since=$count" > "$WORK/stream-again.out" 2>/dev/null || true
+project --repo "$DEMO" owner back --words "/lem im-back" >/dev/null
+if [ "$count" = "$(grep -c '' "$STATE/events.jsonl")" ] && [ "$inbox_before" != "$inbox_after" ] \
+  && grep -qxF 'data: <turbo-stream action="refresh"></turbo-stream>' "$WORK/stream-again.out"; then
+  pass "a page that opens its stream again after a change of what waits for the owner that is no line of the log gets a refresh at once"
+else
+  fail "the stream opened again after a change outside the log: the log $count lines, the inbox $inbox_before then $inbox_after, the stream said $(cat "$WORK/stream-again.out")"
+fi
+
+# A phone's page in headless Chrome (tests/board-cdp.mjs): a finger opens a task's panel, and within seconds what
+# waits for the owner changes (away, then a line of the log). The refresh that follows keeps the whole page: the
+# inbox icon and the sidebar's "Waits for you" both say the server's new count. A tap also starts Turbo's prefetch of
+# the link (`Turbo-Frame: task`, which the server answers with the panel alone), and Turbo keeps that answer for 10
+# seconds for the next request of the same address, the refresh's too.
+tapped_checks() {
+  inbox_before=$(inbox)
+  "$PY" -c 'import json, sys; base, project, demo, py = sys.argv[1:]; print(json.dumps({"width": 390, "height": 844, "mobile": True, "steps": [
+      {"goto": base + "/", "wait": 2500},
+      {"click": "#card-refund-line-on-receipt .tc-link", "tap": True, "after": 2500},
+      {"sh": f"{py} -B {project} --repo {demo} owner away --words away >/dev/null && {py} -B {project} --repo {demo} state cart-total-after-coupon building \"an investigator reproduces the bug and finds its cause\" \"investigation: bug\" >/dev/null", "after": 5000},
+      {"print": "JSON.stringify([document.querySelector(\".m-waits span\")?.textContent ?? \"none\", document.querySelector(\".side-head em\")?.textContent ?? \"none\"])"}]}))' \
+    "$BASE" "$PROJECT" "$DEMO" "$PY" > "$WORK/tap.json"
+  node tests/board-cdp.mjs "$WORK/tap.json" > "$WORK/tap.out" 2>&1 || true
+  inbox_after=$(inbox)
+  project --repo "$DEMO" owner back --words "/lem im-back" >/dev/null
+  shown=$(tail -n 1 "$WORK/tap.out")
+  if [ "$inbox_before" != "$inbox_after" ] && [ "$shown" = "\"[\\\"$inbox_after\\\",\\\"$inbox_after\\\"]\"" ]; then
+    pass "a refresh soon after a finger opened a task's panel on a phone keeps the whole page: the inbox icon and the sidebar say the server's new count"
+  else
+    fail "the phone's page after the refresh: the server's inbox $inbox_before then $inbox_after, the page's inbox icon and sidebar $shown"
+  fi
+}
+# The owner's merges on the phone, in headless Chrome at a phone's size: a finger opens the panel of
+# refund-line-on-receipt, the page logs its inbox icon and its sidebar's "Waits for you" at each change of the page (a
+# MutationObserver), and within seconds the merge's events are written as land.py writes them for the board's merge
+# (`--by owner --via server`; the demo has no confirm form). On one page Lem refuses the merge because the base moved
+# (`merge.refused`, kind `base`: the task lands again, and waits for its session, not for him). Then the task is
+# proposed again and the merge agent's review calls the owner, and on a second page the merge goes through (the task
+# lands). Each page prints the server's count (/api/workspaces) before the events and again 5 seconds after them. Every
+# pair a page logged is two equal numbers, the page went from the first count to the second, and its last pair is the
+# second; the second page's is also the count the server's board shows.
+merge_checks() {
+  printf '%s\n' 'import json, sys, urllib.request' 'print("count", json.load(urllib.request.urlopen(sys.argv[1]))[0]["waits"])' > "$WORK/count.py"
+  for end in refused merged; do
+    "$PY" -c 'import json, shlex, sys; base, server, project, demo, py, work, end = sys.argv[1:]
+log = [py, "-B", project, "--repo", demo, "log", "refund-line-on-receipt"]
+events = [log + ["merge.start", "by=owner", "via=server"], {
+  "refused": log + ["merge.refused", "by=owner", "via=server", "from=lem", "kind=base", "said=origin/main moved after the checks ran, by files (shop/receipt.py)", "tip=e269cde1d"],
+  "merged": [py, "-B", project, "--repo", demo, "state", "refund-line-on-receipt", "landed", "main: pull request https://github.com/acme/shop/pull/44 is merged"]}[end]]
+count = shlex.join([py, "-I", work + "/count.py", server + "/api/workspaces"])
+pair = "[document.querySelector(\".m-waits span\")?.textContent ?? \"none\", document.querySelector(\".side-head em\")?.textContent ?? \"none\"]"
+print(json.dumps({"width": 390, "height": 844, "mobile": True, "steps": [
+  {"goto": base + "/", "wait": 2500},
+  {"click": "#card-refund-line-on-receipt .tc-link", "tap": True, "after": 2500},
+  {"eval": f"window.lemPairs = [{pair}]; new MutationObserver(() => window.lemPairs.push({pair})).observe(document.documentElement, {{subtree: true, childList: true, characterData: true, attributes: true}})"},
+  {"sh": " && ".join([count] + [shlex.join(e) + " >/dev/null" for e in events]), "after": 5000},
+  {"sh": count},
+  {"print": "JSON.stringify(window.lemPairs)"}]}))' \
+      "$BASE" "$SERVER" "$PROJECT" "$DEMO" "$PY" "$WORK" "$end" > "$WORK/merge-$end.json"
+    node tests/board-cdp.mjs "$WORK/merge-$end.json" > "$WORK/merge-$end.out" 2>&1 || true
+    if [ "$end" = refused ]; then
+      project --repo "$DEMO" log refund-line-on-receipt proposed "green:=false" 'not_green:=["the owner did not approve the criteria"]' tip=7a51c0d >/dev/null
+      project --repo "$DEMO" log refund-line-on-receipt merge.review verdict=call "calls:=true" by=claude tip=7a51c0d2e "why=Verdict: call. The base moved under the receipt." >/dev/null
+    fi
+  done
+  # for each page: the server's two counts, the pairs it logged as each change of a pair, and what is wrong with them
+  seen=$("$PY" -c 'import json, sys; board = sys.argv[1]
+def changes(items): return [x for i, x in enumerate(items) if i == 0 or x != items[i - 1]]
+said = {}
+for end, file in zip(("refused", "merged"), sys.argv[2:]):
+    lines = open(file).read().splitlines()
+    counts = [line.split()[1] for line in lines if line.startswith("count ")]
+    try:
+        pairs = json.loads(json.loads(lines[-1]))
+    except (ValueError, IndexError):
+        pairs = []
+    last = counts[-1] if counts else None
+    said[end] = {"counts": counts, "pairs": changes(pairs), "wrong": [w for w, bad in (
+        ("a tap found no element", any(line.startswith("no element") for line in lines)),
+        ("the count did not move", len(counts) != 2 or counts[0] == counts[1]),
+        ("two counts of the page differ", any(a != b for a, b in pairs)),
+        ("the page did not go from the first count to the second", [a for a, _ in changes(pairs)] != changes(counts)),
+        ("the last pair is not the server count", not pairs or pairs[-1] != [last, last] or (end == "merged" and last != board))) if bad]}
+print(json.dumps({**said, "wrong": said["refused"]["wrong"] + said["merged"]["wrong"]}))' "$(inbox)" "$WORK/merge-refused.out" "$WORK/merge-merged.out")
+  if [ "$(field 'd["wrong"]' <<<"$seen")" = "[]" ]; then
+    pass "the owner's merge from a task's panel on a phone, refused because the base moved or gone through: the inbox icon and the sidebar's Waits for you show the same number after every change of the page, the server's"
+  else
+    fail "the counts of a phone page through the owner's merges: $seen"
+  fi
+}
+# A phone's page whose network stops forwarding and keeps every connection open: headless Chrome at a phone's size
+# reaches the board through a relay of this check, which `kill -STOP` stops (each socket stays open, nothing passes)
+# and `kill -CONT` lets go. The relay gives the server its own address in each request (`Host`), since the server
+# reads only its own. While the relay is stopped, a task stops waiting for the owner (he is away, so the criteria
+# Lem approves without him leave Waits for you). The page says "reconnecting" in its status bar within 30 seconds
+# of the stop, and after the relay goes on its inbox icon and its sidebar's "Waits for you" both come to the
+# server's new count.
+relay_checks() {
+  "$PY" -I -c 'import socket, sys, threading
+up = int(sys.argv[2])
+server = socket.create_server(("127.0.0.1", 0))
+port = server.getsockname()[1]
+def pump(a, b, ours):
+    try:
+        while data := a.recv(65536):
+            b.sendall(data.replace(b"127.0.0.1:%d" % port, b"127.0.0.1:%d" % up) if ours else data)
+    except OSError:
+        pass
+    for end in (a, b):
+        try:
+            end.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+with open(sys.argv[1], "w") as out:
+    out.write(str(port))
+while True:
+    client, _ = server.accept()
+    try:
+        upstream = socket.create_connection(("127.0.0.1", up))
+    except OSError:
+        client.close()
+        continue
+    threading.Thread(target=pump, args=(client, upstream, True), daemon=True).start()
+    threading.Thread(target=pump, args=(upstream, client, False), daemon=True).start()' "$WORK/relay.port" "$SERVE_PORT" 2>/dev/null &
+  RELAY_PID=$!
+  soon test -s "$WORK/relay.port"
+  relayed=http://127.0.0.1:$(cat "$WORK/relay.port")/$HOST/shop
+  inbox_before=$(inbox)
+  "$PY" -c 'import json, sys; relay, project, demo, py, relay_pid, before = sys.argv[1:]
+pair = "[document.querySelector(\".m-waits span\")?.textContent ?? \"none\", document.querySelector(\".side-head em\")?.textContent ?? \"none\"]"
+live = "(document.querySelector(\".st-live\")?.textContent ?? \"none\")"
+# wait up to MS for COND, then the seconds since the stop, the status bar and the pair
+def until(cond, ms): return f"new Promise(r => {{ const t0 = Date.now(); const i = setInterval(() => {{ if ({cond} || Date.now() - t0 > {ms}) {{ clearInterval(i); r(JSON.stringify([(Date.now() - window.lemStop) / 1000, {live}, {pair}])); }} }}, 250); }})"
+print(json.dumps({"width": 390, "height": 844, "mobile": True, "steps": [
+  {"goto": relay + "/", "wait": 3000},
+  {"print": f"JSON.stringify([{live}, {pair}])"},
+  {"eval": "window.lemStop = Date.now()", "after": 0},
+  {"sh": f"kill -STOP {relay_pid}"},
+  {"sh": f"{py} -B {project} --repo {demo} owner away --words away >/dev/null && echo away"},
+  {"print": until(f"{live} === \"reconnecting\"", 32000)},
+  {"sh": f"kill -CONT {relay_pid}"},
+  {"print": until(f"{pair}[0] !== {json.dumps(before)}", 20000)}]}))' \
+    "$relayed" "$PROJECT" "$DEMO" "$PY" "$RELAY_PID" "$inbox_before" > "$WORK/relay.json"
+  node tests/board-cdp.mjs "$WORK/relay.json" > "$WORK/relay.out" 2>&1 || true
+  inbox_after=$(inbox)
+  project --repo "$DEMO" owner back --words "/lem im-back" >/dev/null
+  kill -CONT "$RELAY_PID" 2>/dev/null || true
+  kill -TERM "$RELAY_PID" 2>/dev/null || true
+  wait "$RELAY_PID" 2>/dev/null || true
+  RELAY_PID=""
+  seen=$("$PY" -c 'import json, sys; before, after, file = sys.argv[1:]
+lines = open(file).read().splitlines()
+said = [json.loads(json.loads(line)) for line in lines if line.startswith("\"[")]
+first, stopped, back = (said + [None, None, None])[:3]
+print(json.dumps({"first": first, "stopped": stopped, "back": back, "wrong": [w for w, bad in (
+    ("the server count did not move", before == after),
+    ("the page did not start live at the server count", not first or not first[0].startswith("live") or first[1] != [before, before]),
+    ("no \"reconnecting\" within 30 s of the stop", not stopped or stopped[1] != "reconnecting" or stopped[0] > 30),
+    ("the counts after the relay went on are not the server count", not back or back[2] != [after, after])) if bad]}))' "$inbox_before" "$inbox_after" "$WORK/relay.out")
+  if [ "$(field 'd["wrong"]' <<<"$seen")" = "[]" ]; then
+    pass "a phone page whose network stops forwarding and keeps the connection open says reconnecting within 30 s of the stop, and after the network goes on its inbox icon and its sidebar's Waits for you show the server's new count"
+    printf '     reconnecting %s s after the stop, the new count %s s after it\n' "$(field 'd["stopped"][0]' <<<"$seen")" "$(field 'd["back"][0]' <<<"$seen")"
+  else
+    fail "a phone page through a relay that stops: $seen / $(tr '\n' ' ' < "$WORK/relay.out" | cut -c1-600)"
+  fi
+}
+if command -v node >/dev/null 2>&1 && { [ -x "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ] || command -v google-chrome >/dev/null 2>&1 || command -v chromium >/dev/null 2>&1; }; then
+  tapped_checks
+  merge_checks
+  relay_checks
+else
+  skip_function tapped_checks "no Node, or no Chrome or Chromium found"
+  skip_function merge_checks "no Node, or no Chrome or Chromium found"
+  skip_function relay_checks "no Node, or no Chrome or Chromium found"
 fi
 
 # lem board, with a stand-in for agtermctl that prints a tree and records its calls: the board opens at the server's
