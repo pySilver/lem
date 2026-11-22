@@ -318,8 +318,11 @@ class Duties(unittest.TestCase):
         self.assertEqual(serve.duties(self.model(*merged, demo=True), {}, {"gift-note"}), [])
 
     def test_the_list_of_sessions_reads_by_task(self):
-        listed = serve.session_entries('[{"task": "gift-note", "session": "S1", "live": true, "agent": false, "unanswered": false, "phase": "build"}]')
-        self.assertEqual(listed, {"gift-note": {"live": True, "agent": False, "unanswered": False, "session": "S1", "name": None}})
+        listed = serve.session_entries('[{"task": "gift-note", "session": "S1", "live": true, "agent": false, "unanswered": false, "phase": "build", '
+                                       '"sign": "2026-11-22T10:15:42Z", "shell": true, "signs": true}]')
+        # the session's signs of work go on to the model, which the guard of a stopped session reads
+        self.assertEqual(listed, {"gift-note": {"live": True, "agent": False, "unanswered": False, "session": "S1", "name": None,
+                                                "sign": "2026-11-22T10:15:42Z", "shell": True, "signs": True}})
         self.assertEqual(serve.session_entries('{"sessions": []}'), {})
         with self.assertRaises(ValueError):
             serve.session_entries('{"said": "no"}')

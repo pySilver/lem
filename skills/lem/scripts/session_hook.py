@@ -5,11 +5,13 @@ summary, the task's files put back after it, and the record of each Claude Code 
     SessionStart (compact)      prints the task's newest state block word for word, then handoff.md
                                 with its time
     SessionStart (any source)   logs `session.transcript` in the task's event log, once for each
-                                Claude Code session: its id (`claude`), the path of its transcript
-                                (`transcript`) and the source, as the hook's input names them
-                                (`session_id`, `transcript_path`, `source`: the hooks reference,
-                                read 2026-11-21); it prints nothing for a start, a resume, a clear
-                                or a fork
+                                Claude Code session and agterm session: its id (`claude`), the path
+                                of its transcript (`transcript`) and the source, as the hook's input
+                                names them (`session_id`, `transcript_path`, `source`: the hooks
+                                reference, read 2026-11-21), and the agterm session it runs in
+                                (`session`, from `AGTERM_SESSION_ID`, which agterm sets in each
+                                pane's environment; null outside agterm); it prints nothing for a
+                                start, a resume, a clear or a fork
 
 A task's session has `LEM_TASK=SLUG` in its environment, which `lem session open` puts into the
 launch line. Without it, or without the task's directory in the state folder of the repository the
@@ -69,8 +71,10 @@ def newest_phase(log, slug: str) -> str | None:
     return phase
 
 
-def transcript_record(log, slug: str, claude: str, transcript: str) -> bool:
-    """Whether the event log, the lines of LOG, already holds this Claude Code session of the task."""
+def transcript_record(log, slug: str, claude: str, session: str | None) -> bool:
+    """Whether the event log, the lines of LOG, already holds this Claude Code session of the task in
+    this agterm session: a background host of Claude Code that runs with another pane's environment
+    logs the same Claude id under another `session` (`lem_signs`)."""
     import json
     for line in log:
         if f'"{slug}"' not in line or '"session.transcript"' not in line:
@@ -79,13 +83,14 @@ def transcript_record(log, slug: str, claude: str, transcript: str) -> bool:
             record = json.loads(line)
         except ValueError:
             continue
-        if record.get("task") == slug and record.get("claude") == claude and record.get("transcript") == transcript:
+        if record.get("task") == slug and record.get("claude") == claude and record.get("session") == session:
             return True
     return False
 
 
-def keep_transcript(state, slug: str, event: dict) -> None:
-    """Log the task's Claude Code session, its id and its transcript's path from the hook's input, once."""
+def keep_transcript(state, slug: str, event: dict, session: str | None = None) -> None:
+    """Log the task's Claude Code session, its id and its transcript's path from the hook's input, and
+    SESSION, the agterm session the hook runs in, once for each Claude id and agterm session."""
     import json
     from datetime import datetime, timezone
     claude, transcript = event.get("session_id"), event.get("transcript_path")
@@ -97,10 +102,10 @@ def keep_transcript(state, slug: str, event: dict) -> None:
     # after this record or put its new file in place before the read
     with lem_state.events_lock(state):
         with (log.open(encoding="utf-8", errors="replace") if log.is_file() else open(os.devnull)) as lines:
-            if transcript_record(lines, slug, claude, transcript):
+            if transcript_record(lines, slug, claude, session):
                 return
         record = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": "session.transcript", "task": slug,
-                  "claude": claude, "transcript": transcript, "source": str(event.get("source") or "")}
+                  "claude": claude, "transcript": transcript, "source": str(event.get("source") or ""), "session": session}
         with log.open("a", encoding="utf-8") as out:
             out.write(json.dumps(record, ensure_ascii=False) + "\n")
 
@@ -140,7 +145,7 @@ def main() -> None:
         with (log.open(encoding="utf-8", errors="replace") if log.is_file() else open(os.devnull)) as lines:
             print(instructions(slug, newest_phase(lines, slug)))
     elif name == "SessionStart":
-        keep_transcript(state, slug, event)
+        keep_transcript(state, slug, event, os.environ.get("AGTERM_SESSION_ID", "").strip() or None)
     if name == "SessionStart" and event.get("source") == "compact":
         written = (directory / "state.md").read_text(encoding="utf-8", errors="replace") if (directory / "state.md").is_file() else ""
         block = written.strip().split("\n\n")[0] if written.strip() else None

@@ -583,10 +583,12 @@ class Hooks(unittest.TestCase):
     def tearDownClass(cls):
         cls.folder.cleanup()
 
-    def hook(self, event: dict, task: str | None = SLUG) -> subprocess.CompletedProcess:
-        env = {key: value for key, value in os.environ.items() if key != "LEM_TASK"}
+    def hook(self, event: dict, task: str | None = SLUG, pane: str | None = None) -> subprocess.CompletedProcess:
+        env = {key: value for key, value in os.environ.items() if key not in ("LEM_TASK", "AGTERM_SESSION_ID")}
         if task:
             env["LEM_TASK"] = task
+        if pane:
+            env["AGTERM_SESSION_ID"] = pane
         return subprocess.run([sys.executable, "-B", str(SCRIPTS / "session_hook.py")], input=json.dumps({"cwd": str(self.repo), **event}),
                               capture_output=True, text=True, env=env, check=False)
 
@@ -625,8 +627,23 @@ class Hooks(unittest.TestCase):
             self.hook({**event, "source": "compact"})
             self.hook({"hook_event_name": "SessionStart", "source": "startup"}, task="no-such-task")
             records = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()[len(before.splitlines()):]]
-            self.assertEqual([(r["event"], r["task"], r["claude"], r["transcript"], r["source"]) for r in records],
-                             [("session.transcript", SLUG, "c0ffee-1", "/x/projects/-shop/c0ffee-1.jsonl", "startup")])
+            self.assertEqual([(r["event"], r["task"], r["claude"], r["transcript"], r["source"], r["session"]) for r in records],
+                             [("session.transcript", SLUG, "c0ffee-1", "/x/projects/-shop/c0ffee-1.jsonl", "startup", None)])
+        finally:
+            log.write_text(before, encoding="utf-8")
+
+    def test_the_record_names_the_agterm_session_once_for_each_claude_id_and_session(self):
+        log = self.repo / ".lem" / "state" / "events.jsonl"
+        before = log.read_text(encoding="utf-8")
+        event = {"hook_event_name": "SessionStart", "source": "startup", "session_id": "f0410fb9", "transcript_path": "/x/projects/-shop/f0410fb9.jsonl"}
+        try:
+            for _ in range(2):
+                self.hook(event, pane="902B55C6-0001")
+            # the same Claude id in a background host that runs with another pane's environment is another record
+            self.hook({**event, "source": "fork"}, pane="9F9C5C30-0002")
+            records = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()[len(before.splitlines()):]]
+            self.assertEqual([(r["claude"], r["session"], r["source"]) for r in records],
+                             [("f0410fb9", "902B55C6-0001", "startup"), ("f0410fb9", "9F9C5C30-0002", "fork")])
         finally:
             log.write_text(before, encoding="utf-8")
 

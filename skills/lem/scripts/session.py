@@ -23,7 +23,8 @@
                                  gone (`"gone": true`), or with --companion when that companion of the
                                  waiting session is gone (`"gone": true, "companion": ID`)
     lem session list             each task's newest session: live, agent, selected, the phase the task is
-                                 in now and the one the session opened in, unanswered
+                                 in now and the one the session opened in, unanswered, and its signs
+                                 of work (sign, shell, signs)
 
 The phase comes from the task's state, never from an argument: no state block, or `held` for the
 interview or the criteria (any hold but a breaker's), is `shape`; a task on the fast track is `fast`
@@ -105,6 +106,12 @@ or ended with its worktree gone), and `opened_in` the phase its newest session o
 `unanswered` is a wake older than UNANSWERED_AFTER whose line still waits in the session's
 mailbox (`agtermctl msg read`, which removes nothing).
 
+Each entry whose session is live (`live`) says what Claude Code's own files say of its work
+(`lem_signs`): `sign`, the time of the newest turn of the session's main thread or of any of its
+subagents, or null; `shell`, true while a shell command of the session runs; and `signs`, false when
+neither could be read (no `session.transcript` record of that agterm session, or no live process of
+it). A session that is not live has `sign` null and both false.
+
 `talk` copies the turns of this Claude Code session word for word: from the newest owner turn
 whose text starts with TEXT to the newest turn, each with who said it and only its text, less each
 owner turn that a `--leave` text starts (another topic) with the turns of the agent that answer it.
@@ -141,6 +148,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
 project = importlib.import_module("project")
 lem_state = importlib.import_module("lem_state")
+lem_signs = importlib.import_module("lem_signs")
 
 PHASES = ("shape", "build", "land", "fast")
 WHYS = ("new", "handoff", "dead", "merged", "conflict", "refused", "queue", "night", "owner")
@@ -171,6 +179,8 @@ FIRST_LINE_BOUND = 600
 # After how long a wake whose line still waits in the mailbox is `unanswered`: 10 minutes, a guess
 # (the plan's "no session" row says "does not answer" after it).
 UNANSWERED_AFTER = 600
+# How long ps may take to list the machine's processes. A guess: it answers in well under a second.
+PS_TIMEOUT = 10
 # the characters that the launch line cannot carry inside its two levels of quotes to every login
 # shell: fish reads `\` inside single quotes as an escape, where sh and zsh keep it
 UNQUOTABLE = re.compile(r"[\\\n]")
@@ -826,7 +836,11 @@ def cmd_first_line(root: Path, slug: str, every: float, bound: float) -> dict:
 def cmd_list(root: Path) -> list[dict]:
     where = place()
     nodes = tree(where)
-    events = project.events_named(root, *EVENTS)
+    logged = project.events_named(root, *EVENTS, lem_signs.EVENT)
+    events = [record for record in logged if record.get("event") in EVENTS]
+    transcripts = [record for record in logged if record.get("event") == lem_signs.EVENT]
+    # the process table, read once and only when a live session has a record to read it for
+    table: list[str | None] = []
     settings = project.load(root)
     tasks = {task["slug"]: task for task in project.read_tasks(root, settings)}
     now = datetime.now(timezone.utc)
@@ -849,11 +863,27 @@ def cmd_list(root: Path) -> list[dict]:
         if node is not None and wake is not None and (now - stamp(wake["ts"])).total_seconds() >= UNANSWERED_AFTER:
             mailbox = ctl(where, "msg", "read", "--as", f"{session}:{left_pane(node)}", "--json", window=False)
             unanswered = f"lem: {slug} {wake.get('why')}" in mailbox
+        signs = {"sign": None, "shell": False, "signs": False}
+        if live(node, opened, now):
+            records = [record for record in transcripts if record.get("task") == slug]
+            if lem_signs.own_records(records, session) and not table:
+                table.append(process_table())
+            signs = lem_signs.signs_of(records, session, table[0] if table else None)
         out.append({"task": slug, "session": session, "name": node.get("name") if node else opened.get("name"), "phase": phase,
                     "opened_in": opened.get("phase"), "why": opened.get("why"), "since": opened["ts"], "workspace": opened.get("workspace"), "live": node is not None,
                     "agent": agent_runs(node) if node else False, "selected": bool(node and node.get("active")),
-                    "closed": closed["why"] if closed else None, "unanswered": unanswered})
+                    "closed": closed["why"] if closed else None, "unanswered": unanswered, **signs})
     return out
+
+
+def process_table() -> str | None:
+    """The machine's process table, `ps -A -o pid=,ppid=,command=`, or None when ps does not answer
+    (lem_signs: with no table, no session's signs read)."""
+    try:
+        ran = subprocess.run(["ps", "-A", "-o", "pid=,ppid=,command="], capture_output=True, text=True, check=False, timeout=PS_TIMEOUT)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return ran.stdout if ran.returncode == 0 else None
 
 
 # ---- the transcript ----

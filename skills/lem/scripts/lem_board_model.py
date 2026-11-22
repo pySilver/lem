@@ -556,8 +556,9 @@ class Model:
     seen: dict | None = None
     # what the board server's last `lem session list` said of each task's session, by its slug
     # (`live`: the session is in agterm's tree; `agent`: an agent runs in its pane; `unanswered`: a
-    # wake-up waits in it for 10 minutes; `worktree`: the task's worktree is still there), which
-    # serve.py puts here; None while the server has not asked (a demo workspace, or before its first look)
+    # wake-up waits in it for 10 minutes; `sign`, `shell` and `signs`: the session's own signs of work,
+    # as lem_signs reads them; `worktree`: the task's worktree is still there), which serve.py puts
+    # here; None while the server has not asked (a demo workspace, or before its first look)
     sessions: dict | None = None
 
 
@@ -1224,14 +1225,15 @@ def after_dropped(t: Task, m: Model) -> bool:
 
 def session_entries(text: str) -> dict[str, dict]:
     """What `lem session list` printed, by task: a JSON list of entries, each with its `task` and the
-    facts the board reads (`live`, `agent`, `unanswered`, `session`, `name`); a list under `sessions` or
-    `tasks` is taken too. ValueError for anything else."""
+    facts the board reads (`live`, `agent`, `unanswered`, `session`, `name`, and the signs of work
+    `sign`, `shell` and `signs`); a list under `sessions` or `tasks` is taken too. ValueError for
+    anything else."""
     data = json.loads(text)
     if isinstance(data, dict):
         data = data.get("sessions", data.get("tasks"))
     if not isinstance(data, list):
         raise ValueError("`lem session list` printed no list of the tasks' sessions")
-    return {str(e["task"]): {k: e.get(k) for k in ("live", "agent", "unanswered", "session", "name")} for e in data if isinstance(e, dict) and e.get("task")}
+    return {str(e["task"]): {k: e.get(k) for k in ("live", "agent", "unanswered", "session", "name", "sign", "shell", "signs")} for e in data if isinstance(e, dict) and e.get("task")}
 
 
 def sessions_of(entries: dict[str, dict], kept: set[str]) -> dict[str, dict]:

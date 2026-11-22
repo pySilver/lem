@@ -600,7 +600,8 @@ class ForgeLook(unittest.TestCase):
 
     def test_sessions_of_adds_the_worktrees_of_ended_tasks(self):
         found = bm.sessions_of(bm.session_entries('[{"task": "a", "live": true, "agent": true}]'), {"b"})
-        self.assertEqual(found, {"a": {"live": True, "agent": True, "unanswered": None, "session": None, "name": None, "worktree": False}, "b": {"worktree": True}})
+        self.assertEqual(found, {"a": {"live": True, "agent": True, "unanswered": None, "session": None, "name": None, "sign": None, "shell": None, "signs": None,
+                                       "worktree": False}, "b": {"worktree": True}})
 
 
 class Workspace(unittest.TestCase):
