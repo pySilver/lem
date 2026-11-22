@@ -125,5 +125,16 @@ class Older(unittest.TestCase):
         self.assertIn("Done shows every ended task", html)
 
 
+class Views(unittest.TestCase):
+    def test_each_view_button_shows_its_plain_key_on_the_button_and_takes_that_key(self):
+        html = str(pages.kanban_page(ctx_of(ended(3))))
+        for key, label, kbd in (("tasks", "Tasks", "T"), ("waits", "Waits for you", "W"), ("backlog", "Backlog", "B"), ("activity", "Activity", "A")):
+            button = re.search(rf'<a class="vbtn" id="view-{key}"[^>]*>(.*?)</a>', html)
+            self.assertIsNotNone(button, key)
+            self.assertIn(f'data-hotkey="Key{kbd}"', button[0])
+            self.assertIn(f"{label}<kbd>{kbd}</kbd>", button[1])
+            self.assertIn(f'title="Key {kbd}, with no Shift"', button[0])
+
+
 if __name__ == "__main__":
     unittest.main()
