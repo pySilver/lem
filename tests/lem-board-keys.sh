@@ -100,6 +100,13 @@ for line in open(sys.argv[1], encoding="utf-8"):
 else:
     print("nothing printed")' "$1" "$2"
 }
+# fact OUT LABEL EXPR: EXPR over the facts the spec printed under LABEL (d), "nothing printed" when it printed none
+fact() { seen "$1" "$2" | "$PY" -c 'import ast, json, sys; t = sys.stdin.read().strip()
+try:
+    d = ast.literal_eval(t)
+except (ValueError, SyntaxError):
+    print("nothing printed"); sys.exit()
+print(eval(sys.argv[1], {"d": d}))' "$3"; }
 
 # The spec of the Tasks view: each print step gives a label and the state, "MARK FOCUS PANEL": the task of the card
 # with the mark, of the card whose link has the focus, and of the open panel, each "-" for none.
@@ -603,13 +610,6 @@ PY
   drive "$WORK/confirm-desk.json" "$out-desk.out"
   drive "$WORK/confirm-gate.json" "$out-gate.out"
   drive "$WORK/confirm-noscript.json" "$out-noscript.out"
-  # fact OUT LABEL EXPR: EXPR over the facts the spec printed under LABEL (d), "nothing printed" when it printed none
-  fact() { seen "$1" "$2" | "$PY" -c 'import ast, json, sys; t = sys.stdin.read().strip()
-try:
-    d = ast.literal_eval(t)
-except (ValueError, SyntaxError):
-    print("nothing printed"); sys.exit()
-print(eval(sys.argv[1], {"d": d}))' "$3"; }
   local phone=$out-phone.out gate=$out-gate.out
   if [ "$(fact "$phone" phone 'd["sheet"] and d["position"] == "fixed" and d["head"][0] >= 0 and d["button"][1] <= d["screen"] and d["back"][1] <= d["screen"] and d["back"][0] > d["button"][0]')" = True ] \
     && [ "$(fact "$phone" phone 'd["headWords"]')" = "Merge #44 · confirm" ] && [ "$(fact "$phone" phone 'd["backWords"]')" = Back ] \
@@ -653,21 +653,140 @@ print(eval(sys.argv[1], {"d": d}))' "$3"; }
   fi
 }
 
+# The park step of gift-note-in-export and the approval of the criteria of stock-on-product-page, which on a phone take
+# the confirm step's overlay (lem_board_task.py `confirm_card`, the `sheet` controller, board.css). Each text fits at
+# 390 x 844, so the gate's checks use 390 x 400, where the text of each goes on below the body's end (measured: the park's
+# body 161 px of 194, the approval's 140 of 226). Last in the block: with no script its checks park the one task and
+# approve the criteria of the other. `acted.py LOG TASK ACT` prints whether a board.act of ACT on TASK comes into the log
+# within 20 s (serve.py `asked_from` logs it after the act's script ran).
+cat > "$WORK/acted.py" <<'PY'
+import json, sys, time
+log, task, act = sys.argv[1:]
+def acted():
+    return any(e.get("event") == "board.act" and e.get("task") == task and e.get("act") == act for e in map(json.loads, open(log, encoding="utf-8")))
+end = time.time() + 20
+while time.time() < end and not acted():
+    time.sleep(0.2)
+print(json.dumps(["acted", acted()]))
+PY
+step_checks() {
+  local park=gift-note-in-export stock=stock-on-product-page out=$WORK/steps
+  "$PY" - "$BASE" "$WORK" "$PY" "$LOG" "$park" "$stock" <<'PY'
+import json, shlex, sys
+base, work, py, log, park, stock = sys.argv[1:]
+PARK, STOCK = f"{base}/tasks/{park}/park?in=waits", f"{base}/tasks/{stock}/criteria?in=waits"
+CARD = {"park": "#confirm", "approve": "#approve-card"}
+def facts(card):
+    """the card's facts: whether the controller marked it, its position, the head's top and words, the button's and Back's
+    top and bottom (null when not drawn) and Back's words, the button's aria-disabled and label, the body's scroll, its
+    height and its content's, the bottom of the body's text that is drawn, whether it goes on below the body's end, whether
+    a part of the card is fixed, the class of what has the focus, and the plain text of the criteria where it is drawn; on a
+    page without the parts (the base commit's), the error, so that the print step ends and the check fails"""
+    return ("(() => { try { const c = document.querySelector('" + card + "'), body = c.querySelector('.cf-body'), b = c.querySelector('.cf-foot button[type=submit]'), back = c.querySelector('.cf-foot a.btn');"
+            " const at = n => n && n.getClientRects().length ? [Math.round(n.getBoundingClientRect().top), Math.round(n.getBoundingClientRect().bottom)] : null;"
+            " const end = Math.max(...[...body.children].filter(n => n.getClientRects().length).map(n => n.getBoundingClientRect().bottom)), plain = c.querySelector('pre.cf-plain');"
+            " return {sheet: c.hasAttribute('data-js-sheet'), position: getComputedStyle(c).position, head: at(c.querySelector('.cf-head')), headWords: c.querySelector('.cf-head').textContent.replace(/\\s+/g, ' ').trim(),"
+            " button: at(b), back: at(back), backWords: back.textContent.trim(), screen: innerHeight, disabled: b.getAttribute('aria-disabled'), label: b.textContent.trim(),"
+            " top: Math.round(body.scrollTop), height: body.clientHeight, content: body.scrollHeight, textEnd: Math.round(end), textBelow: end > body.getBoundingClientRect().bottom + 1,"
+            " fixed: [c, ...c.querySelectorAll('*')].some(n => ['fixed', 'sticky'].includes(getComputedStyle(n).position)), focus: document.activeElement?.className ?? '-',"
+            " plain: plain && plain.getClientRects().length ? plain.textContent.split('\\n')[0] : null }; } catch (e) { return {error: String(e)}; } })()")
+def until(label, step, cond):
+    """a print step that waits up to 15 s for COND, then gives LABEL and the facts of STEP's card"""
+    return {"print": f"new Promise(done => {{ const end = Date.now() + 15000; const tick = () => (({cond}) || Date.now() > end) ? done([{json.dumps(label)}, {facts(CARD[step])}]) : setTimeout(tick, 100); tick(); }})"}
+def at(label, step):
+    return {"print": f"[{json.dumps(label)}, {facts(CARD[step])}]"}
+def sh(*argv):
+    return {"sh": " ".join(map(shlex.quote, argv))}
+def acts(label):
+    return sh(py, "-c", "import json, sys; print(json.dumps([sys.argv[1], sum('\"board.act\"' in line for line in open(sys.argv[2]))]))", label, log)
+def open_(step, url):
+    # the approval's criteria come from its markdown block, which the browser draws after the page
+    return [{"goto": url, "wait": 300}, until(f"{step}-ready", step, f"document.readyState === 'complete' && document.querySelector('{CARD[step]}[data-js-sheet]') && document.querySelector('{CARD[step]} .cf-body').textContent.trim()"), {"wait": 500}]
+def to_end(step):
+    return {"eval": f"(() => {{ const b = document.querySelector('{CARD[step]} .cf-body'); b.scrollTop = b.scrollHeight; }})()", "after": 500}
+def gate(step, url):
+    return [*open_(step, url), at(f"{step}-opened", step), acts(f"{step}-acts-before"), {"click": f"{CARD[step]} .cf-foot button[type=submit]"}, {"wait": 700},
+            {"print": f"['{step}-tapped', location.pathname + location.search]"}, acts(f"{step}-acts-after"), at(f"{step}-after-tap", step), to_end(step), at(f"{step}-end", step)]
+def looks(width, height, label, **more):
+    return {"width": width, "height": height, **more, "steps": [*open_("park", PARK), at(f"park-{label}", "park"), *open_("approve", STOCK), at(f"approve-{label}", "approve")]}
+specs = {
+    "gate": {"width": 390, "height": 400, "mobile": True, "steps": [*gate("park", PARK), *gate("approve", STOCK)]},
+    "fit": looks(390, 844, "fit", mobile=True),
+    "desk": looks(1440, 900, "desk"),
+    # with no script: no controller, so no overlay; each click posts its form, and the act runs
+    "noscript": {"width": 390, "height": 844, "mobile": True, "noscript": True, "posts": True, "steps": [
+        {"goto": STOCK, "wait": 2500}, at("approve-off", "approve"), {"click": "#approve-card .cf-foot button[type=submit]"}, {"wait": 1500}, sh(py, f"{work}/acted.py", log, stock, "approve"),
+        {"goto": PARK, "wait": 2500}, at("park-off", "park"), {"click": "#confirm .cf-foot button[type=submit]"}, {"wait": 1500}, sh(py, f"{work}/acted.py", log, park, "park")]},
+}
+for name, spec in specs.items():
+    with open(f"{work}/steps-{name}.json", "w", encoding="utf-8") as out:
+        json.dump(spec, out)
+PY
+  drive "$WORK/steps-gate.json" "$out-gate.out"
+  drive "$WORK/steps-fit.json" "$out-fit.out"
+  drive "$WORK/steps-desk.json" "$out-desk.out"
+  drive "$WORK/steps-noscript.json" "$out-noscript.out"
+  local gate=$out-gate.out
+  # gated STEP LABEL: the overlay of STEP opened with its text below the body's end and its button off, a tap posted
+  # nothing, and the scroll to the end turned the button on with LABEL
+  gated() {
+    [ "$(fact "$gate" "$1-opened" 'd["sheet"] and d["position"] == "fixed" and d["head"][0] >= 0 and d["button"][1] <= d["screen"] and d["back"][1] <= d["screen"] and d["textBelow"]')" = True ] \
+      && [ "$(fact "$gate" "$1-opened" 'd["disabled"], d["label"], d["backWords"], d["focus"]')" = "('true', 'Read to the end ↓', 'Back', 'cf-head')" ] \
+      && [ "$(seen "$gate" "$1-acts-before")" = "$(seen "$gate" "$1-acts-after")" ] && [ "$(seen "$gate" "$1-acts-after")" != "nothing printed" ] \
+      && [ "$(fact "$gate" "$1-after-tap" 'd["label"]')" = "Read to the end ↓" ] \
+      && [ "$(fact "$gate" "$1-end" 'd["disabled"], d["label"], d["textBelow"]')" = "(None, '$2', False)" ]
+  }
+  if gated park "Park the task" && [ "$(seen "$gate" park-tapped)" = "/$HOST/shop/tasks/$park/park?in=waits" ] \
+    && [ "$(fact "$gate" park-opened 'd["headWords"]')" = "Park · breaker 1" ]; then
+    pass "on a phone whose screen the park's text goes on below, Park… on gift-note-in-export opens the overlay with its head, its text and a button that is off and reads Read to the end ↓, a tap on it posts nothing, and after the text is scrolled to its end it reads Park the task and is on"
+  else
+    fail "the park step's overlay on a phone: $(cat "$gate")"
+  fi
+  if gated approve "Approve the criteria" && [ "$(seen "$gate" approve-tapped)" = "/$HOST/shop/tasks/$stock/criteria?in=waits" ] \
+    && [[ "$(fact "$gate" approve-opened 'd["headWords"]')" == "The criteria wait for your yes"* ]]; then
+    pass "on a phone whose screen the criteria go on below, the approval of stock-on-product-page opens the overlay with its head, the criteria and a button that is off and reads Read to the end ↓, a tap on it posts nothing, and after the criteria are scrolled to their end it reads Approve the criteria and is on"
+  else
+    fail "the approval's overlay on a phone: $(cat "$gate")"
+  fi
+  if [ "$(fact "$out-fit.out" park-fit 'd["sheet"], d["position"], d["content"] <= d["height"], d["disabled"], d["label"]')" = "(True, 'fixed', True, None, 'Park the task')" ] \
+    && [ "$(fact "$out-fit.out" approve-fit 'd["sheet"], d["position"], d["content"] <= d["height"], d["disabled"], d["label"]')" = "(True, 'fixed', True, None, 'Approve the criteria')" ]; then
+    pass "on a phone of 390 x 844, where the whole text of each fits, the park step and the approval open the overlay with the button on from the first look"
+  else
+    fail "the park step and the approval whose text fits: $(cat "$out-fit.out")"
+  fi
+  if [ "$(fact "$out-desk.out" park-desk 'd["fixed"], d["disabled"], d["label"], d["button"][0] > d["textEnd"], d["backWords"], d["back"] is not None')" = "(False, None, 'Park the task', True, 'Back', True)" ] \
+    && [ "$(fact "$out-desk.out" approve-desk 'd["fixed"], d["disabled"], d["label"], d["button"][0] > d["textEnd"], d["back"]')" = "(False, None, 'Approve the criteria', True, None)" ]; then
+    pass "on a desktop's screen of 1440 x 900 the park step and the approval have no fixed part and their button is on, below their text in the page, and the approval shows no Back"
+  else
+    fail "the park step and the approval on a desktop: $(cat "$out-desk.out")"
+  fi
+  if [ "$(fact "$out-noscript.out" approve-off 'd["sheet"], d["fixed"], d["disabled"], d["plain"], d["textEnd"] < d["button"][0]')" = "(False, False, None, '## Acceptance criteria', True)" ] \
+    && grep -qF "[\"post\",\"$BASE/tasks/$stock/approve digest=" "$out-noscript.out" && [ "$(fact "$out-noscript.out" park-off 'd["sheet"], d["fixed"], d["disabled"], d["label"], d["button"][0] > d["textEnd"]')" = "(False, False, None, 'Park the task', True)" ] \
+    && grep -qF "[\"post\",\"$BASE/tasks/$park/park in=waits&why=\"]" "$out-noscript.out" && [ "$(grep -c '^\["acted", true\]$' "$out-noscript.out")" = 2 ]; then
+    pass "with no script the approval shows the criteria as plain text above its button and the park step its text above its button, each button is on, and each click posts its form and the act runs: the board.act of the approval and of the park come into the log"
+  else
+    fail "the park step and the approval with no script: $(cat "$out-noscript.out")"
+  fi
+}
+
 if [ -z "$NODE" ]; then
   skip_function tasks_view_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function waits_view_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function search_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function confirm_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
+  skip_function step_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
 elif [ -z "$CHROME_AT" ]; then
   skip_function tasks_view_checks "no Chrome here (set CHROME to the browser)"
   skip_function waits_view_checks "no Chrome here (set CHROME to the browser)"
   skip_function search_checks "no Chrome here (set CHROME to the browser)"
   skip_function confirm_checks "no Chrome here (set CHROME to the browser)"
+  skip_function step_checks "no Chrome here (set CHROME to the browser)"
 else
   tasks_view_checks
   waits_view_checks
   search_checks
   confirm_checks
+  step_checks
 fi
 
 finish
