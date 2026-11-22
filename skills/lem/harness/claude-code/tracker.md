@@ -4,8 +4,13 @@ A part of `../claude-code.md`, read at the first read of a ticket.
 
 ## The tracker
 
-The tracker is the skill the settings' `tracker.kind` names, `lem-linear` for `linear`. The
-tracker's server is an MCP server, and Claude Code shows its tools as `mcp__SERVER__NAME`, with
+The tracker is the skill the settings' `tracker.kind` names, `lem-KIND`: `lem-linear` for
+`linear`, `lem-github` for `github`.
+
+The GitHub tracker needs GitHub's `gh`, installed and signed in, and no MCP server: its steps are
+the lines of `lem issue`, which the permission rule `Bash(lem *)` already covers.
+
+The Linear tracker's server is an MCP server, and Claude Code shows its tools as `mcp__SERVER__NAME`, with
 the name the server was added under as SERVER (`linear` in `docs/linear.md`; a second
 workspace is a second server with a name of its own, and the skill says which one a ticket
 takes). A session that was running when the server was added

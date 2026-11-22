@@ -107,7 +107,7 @@ else
 fi
 
 # no bytecode: the real scripts, through lem, the ones that import their siblings among them
-for name in project land criteria decisions experts cast board picker session; do "$LEM" "$name" --help >/dev/null 2>&1 || true; done
+for name in project land criteria decisions experts cast issue board picker session; do "$LEM" "$name" --help >/dev/null 2>&1 || true; done
 caches=$(find skills bin -name __pycache__ -type d)
 if [ -z "$caches" ]; then pass "lem leaves no __pycache__, also of the scripts that import their siblings"; else fail "lem left a __pycache__: $caches"; fi
 
@@ -118,7 +118,7 @@ if [ -z "$caches" ]; then pass "lem leaves no __pycache__, also of the scripts t
 import re, sys
 from pathlib import Path
 root = Path(sys.argv[1])
-names = "project|land|criteria|decisions|board|picker|session|doctor|corrections|experts|cast"
+names = "project|land|criteria|decisions|board|picker|session|doctor|corrections|experts|cast|issues"
 # `python3 SKILL_DIR/scripts/land.py`, `bash SKILL_DIR/scripts/run.sh`, also across a line break
 path_form = re.compile(r"(?:python3|bash)\s+\S*scripts/[\w-]+\.(?:py|sh)")
 # `land.py merged SLUG`, `project.py --repo W tasks`, also across a line break

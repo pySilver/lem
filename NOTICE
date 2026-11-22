@@ -113,6 +113,11 @@ read from the project and the server at run time and never written into the skil
 server is asked who it is before the first write. That repository has no license, so none of its
 text is used.
 
+## lem-github
+
+`skills/lem-github/` was written for Lem on 2026-11-22, in the shape of `skills/lem-linear/`. No text of
+another source is used.
+
 ## lem-ask-expert
 
 `skills/lem-ask-expert/` was written for Lem on 2026-11-16. No text of another source is used.
