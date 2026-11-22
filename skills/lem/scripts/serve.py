@@ -1977,8 +1977,12 @@ def has_forge(workspace: Workspace, model: "bm.Model") -> bool:
 def forge_once(workspace: Workspace, now: int | None = None) -> list[dict]:
     """One look at the forge for a workspace when it is due (`lem_board_model.forge_due`), and the
     bookkeeping of each pull request the forge calls merged or closed, except of a task whose merge this
-    server runs (NOTES.running): what ran, one entry each."""
+    server runs (NOTES.running) when the look begins or when its pull request's turn comes: what ran,
+    one entry each."""
     now = bm.now_ms() if now is None else now
+    # read before the model: a merge that ends during the look at the forge is still left to itself,
+    # and one that ended before this line has its landing in the model already
+    running = NOTES.running(workspace.name)
     model = workspace.model()
     prs = open_prs(model)
     if not prs:
@@ -2016,10 +2020,10 @@ def forge_once(workspace: Workspace, now: int | None = None) -> list[dict]:
     failed = workspace.forge.setdefault("failed", {})
     clock = time.monotonic()
     for pr in prs:
-        if pr["task"] in NOTES.running(workspace.name):
-            # this server runs its merge (`merge_in_thread`), whose process holds the task's step lock, so
-            # a `merged` now is refused with a false line; the merge's own step records the landing, and a
-            # merge that ends without one leaves the task open for the next look
+        if pr["task"] in running or pr["task"] in NOTES.running(workspace.name):
+            # this server runs or ran its merge (`merge_in_thread`), whose process holds the task's step
+            # lock or has landed it, so a `merged` now is refused with a false line; the merge's own step
+            # records the landing, and a merge that ends without one leaves the task open for the next look
             continue
         state = (looked.get(pr["n"]) or {}).get("state")
         key = (pr["task"], pr["n"])

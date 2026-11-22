@@ -626,9 +626,9 @@ class DutyKey(unittest.TestCase):
 
 
 class ForgeLookBesideAMerge(unittest.TestCase):
-    """The look at the forge leaves a task whose merge runs in this process to that merge: no `lem land
-    merged` for it, and no line on the status bar that it failed. GitHub, land.py's look and the
-    bookkeeping are stand-ins; one call of `forge_once` with both pull requests merged on GitHub."""
+    """The look at the forge leaves a task whose merge this server runs to that merge, also when the merge
+    ends during the look: no `lem land merged` for it, and no line on the status bar that it failed.
+    GitHub, land.py's look and the bookkeeping are stand-ins; one call of `forge_once` each."""
 
     class Place:
         def __init__(self) -> None:
@@ -666,6 +666,31 @@ class ForgeLookBesideAMerge(unittest.TestCase):
         self.assertEqual(place.forge["problem"], "`lem land merged tax-line` failed after GitHub called pull request 2 merged: "
                                                  "land.py: another step of the task runs; run it again when it ends; the board tries it again in a few minutes")
         self.assertEqual(list(place.forge["failed"]), [("tax-line", 2)])
+
+    def test_a_merge_that_ends_during_the_look_at_github_gets_no_merged_and_no_problem_line(self):
+        from unittest import mock
+        import subprocess
+        prs = [{"task": "gift-note", "n": 1, "url": "https://github.com/acme/shop/pull/1"}]
+
+        def look(main, base, due):
+            # the merge's process ends while `gh` answers: its thread takes the task off NOTES.merging
+            serve.NOTES.merging.pop(("shop", "gift-note"))
+            return {1: {"state": "MERGED"}}
+        land = type("Land", (), {"LandError": type("LandError", (Exception,), {}), "forge_look": staticmethod(look)})
+        ran = []
+
+        def run(path, repo, *args):
+            ran.append(args)
+            return subprocess.CompletedProcess([], 1, "", "land.py: the task is 'landed' and has a pull request; it is merged already\n")
+        place = self.Place()
+        with mock.patch.object(serve, "open_prs", lambda model: prs), mock.patch.object(serve, "has_forge", lambda w, m: True), \
+                mock.patch.object(serve.shutil, "which", lambda name: "/lem-unit/bin/gh"), \
+                mock.patch.object(serve.lem_sibling, "module", lambda path: land), mock.patch.object(serve.lem_sibling, "run", run), \
+                mock.patch.object(serve, "keep_forge_look", lambda *a: None), mock.patch.dict(serve.NOTES.merging, {("shop", "gift-note"): "token"}):
+            looked = serve.forge_once(place, now=1000)
+        self.assertEqual(ran, [], "no `merged` for gift-note, whose merge ran when the look began")
+        self.assertEqual(looked, [])
+        self.assertIsNone(place.forge["problem"])
 
 
 class Prune(unittest.TestCase):
