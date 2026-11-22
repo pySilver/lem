@@ -327,11 +327,11 @@ def inbox_action(ctx, t: bm.Task) -> Markup | None:
     """Where the owner answers while his mark says away and the board's server sent the task's thing to his
     Inbox (`bm.inbox_of`): a question, in the task's session on the Mac or in the Inbox, its thread a link at
     the Inbox's tailnet address, in place of `session_action`'s line about the session (its jump stays on a
-    page for this Mac); a note, which no session can take a reply to, that no session runs or answers, with
-    the link and "Open a session" where the page may act; a note of a row that asks nothing (a refused
-    merge, a merge with no review of its tip), `session_action` as today and a line that the Inbox has a
-    note of it, with the link; and with no link, `session_action` as today and one line that says why.
-    None while it changes nothing of today's lines: the large card and the breaker's card show
+    page for this Mac); a note, which no session can take a reply to, that no session runs or answers, or
+    that the task's session stopped, with the link and "Open a session" where the page may act; a note of
+    a row that asks nothing (a refused merge, a merge with no review of its tip), `session_action` as
+    today and a line that the Inbox has a note of it, with the link; and with no link, `session_action` as
+    today and one line that says why. None while it changes nothing of today's lines: the large card and the breaker's card show
     `row_action` then."""
     said = bm.inbox_of(t, ctx.model)
     if said is None:
@@ -349,7 +349,9 @@ def inbox_action(ctx, t: bm.Task) -> Markup | None:
         return line("Answer in the task’s session on the Mac, or in the ", inbox, ".", then=go)
     if said["gone"]:
         opens = bm.opens_session(t, ctx.model) and ctx.can_act
-        first = ("The task’s session does not answer." if live.get("live") else
+        stopped = bm.stopped_of(t, ctx.model) is not None
+        first = ("The task’s session stopped: open a fresh one here." if stopped and opens else "The task’s session stopped." if stopped else
+                 "The task’s session does not answer." if live.get("live") else
                  "No session of the task runs now: open one here." if opens else "No session of the task runs now.")
         return line(first, " The ", inbox, " has a note, not a question.", then=open_form(ctx, t) if opens else None)
     return join([session_action(ctx, t) or "", line("The ", inbox, " has a note of it, not a question.")])

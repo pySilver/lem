@@ -1319,9 +1319,9 @@ def inbox_of(t: Task, m: Model) -> dict | None:
     that changes today's line (no record, or nothing of the task sent yet). Else `thread`, the address of
     the task's thread at the Inbox's tailnet address, with `asks` when a question of the task went there
     (he answers in either place) or `gone` when only a note went, which no session can take a reply to
-    (`lem_inbox.thing_of`: a task with no session, one whose session does not answer, one queued after a
-    dropped task); or `why`, the line that says why there is no link. A thing counts only for a row the
-    task has now: the merge review and the merge of a task are its merge's one thing."""
+    (`lem_inbox.thing_of`: a task with no session, one whose session does not answer or stopped, one
+    queued after a dropped task); or `why`, the line that says why there is no link. A thing counts only
+    for a row the task has now: the merge review and the merge of a task are its merge's one thing."""
     if m.away is None:
         return None
     rows = [w for w in waits_of(m) if w["t"] is t]
@@ -1346,7 +1346,7 @@ def inbox_of(t: Task, m: Model) -> dict | None:
         unsent = any(not s.get("message_id") for s in sent) and record.get("problem")
         return {"thread": None, "asks": False, "gone": False, "why": INBOX_UNSENT} if unsent else None
     asks = any(s.get("form") == "question" for s in there)
-    gone = not asks and any(s.get("kind") in ("session", "after_dropped") or (s.get("asks") and s.get("form") == "note") for s in there)
+    gone = not asks and any(s.get("kind") in ("session", "stopped", "after_dropped") or (s.get("asks") and s.get("form") == "note") for s in there)
     return {"thread": link, "asks": asks, "gone": gone, "why": None}
 
 

@@ -17,8 +17,8 @@ What a row becomes (`things_of`, `thing_of`, pure functions over the model):
   `lem land merge --tip` takes 40), and the time of the task's newest state block (`block`). A row
   whose thing changes (another form, session, tip or block, or a row that no longer asks) is a new thing: the old one is withdrawn when it was a question, and the new one is sent. The
   merge review and the merge of one task (`review:SLUG`, `merge:SLUG`) are one thing, the merge's.
-  While a task has a row of its own for its missing or deaf session, that row's note stands for the
-  task, and its other rows wait until a session can take a reply. A row whose task's session opened
+  While a task has a row of its own for its missing, deaf or stopped session, that row's note stands for
+  the task, and its other rows wait until a session can take a reply. A row whose task's session opened
   less than the board's `GRACE_MS` ago (2 minutes) and has not yet logged its Claude Code session is
   no thing yet: its next look tells.
 - A question goes as the task's newest Claude Code session: the `claude` of its newest
@@ -26,19 +26,22 @@ What a row becomes (`things_of`, `thing_of`, pure functions over the model):
   another Claude Code session started from the task's, which inherits `LEM_TASK`), and only while the
   board knows that session lives and answers (`lem_board_model.live_of`). Plannotator files such a
   message under that session (`--session claude-code:ID`), and the owner's reply comes back into it.
-- A note goes with no session: a task with no live session, one whose session does not answer, a task
-  queued after a dropped one, a refused merge, an open task with no proposal, no review of its tip or
+- A note goes with no session: a task with no live session, one whose session does not answer, one
+  whose session stopped (the row "stopped" of the guard of a stopped session), a task queued after a
+  dropped one, a refused merge, an open task with no proposal, no review of its tip or
   no whole commit of it on record.
 
 The rule (`plan`): a recorded thing that still matches its row stays. One whose row left, or whose
 thing changed, leaves the record: a question is withdrawn (a message as the same session, with
-`reply_to` and `supersedes` its message), a note is only forgotten. While the mark does not say away,
-a thing whose session alone changed, or whose form changed with it, stays, and so does one whose row
-still waits behind its task's session row (the question stays open after `/lem im-back`), and nothing
-is sent. A row with no recorded thing is sent while the mark says away and the door is open. A thing
-written before a call that never answered is sent again, with its payload and key, only while the
-mark says away, the door is open and its row is still the same thing; while he is away with the door
-closed it waits, and otherwise it is forgotten, since nothing of it may go now.
+`reply_to` its message and `supersedes` a list of its id), a note is only forgotten. While the mark
+does not say away, or the door is closed, a thing whose session alone changed, or whose form changed
+with it, stays, and so does one whose row still waits behind its task's session row: the question stays
+open after `/lem im-back`, and while he is away it is withdrawn only when a newer message follows it.
+While the mark does not say away, nothing is sent. A row with no recorded thing is sent while the mark
+says away and the door is open. A thing written before a call that never answered is sent again, with
+its payload and key, only while the mark says away, the door is open and its row is still the same
+thing; while he is away with the door closed it waits, and otherwise it is forgotten, since nothing of
+it may go now.
 
 The door (`door_of`): `plannotator inbox status --json`, found on the server's PATH, read at each look
 while the mark says away or a sent thing waits in the record. Lem starts no Inbox on purpose: a look
@@ -49,9 +52,10 @@ the background, and the next look reads it running. A send needs the door open (
 runs with the server's environment less the variables Plannotator reads to name a session
 (SESSION_VARIABLES), from the workspace's main checkout, with that checkout as `project_path`.
 
-A withdrawal that Plannotator refuses with `invalid_supersedes` names no open question any more: the
-owner answered it in the Inbox, skipped it, or archived the thread, and the thing leaves the record
-with no message. No `read_thread` is made for a withdrawal.
+A withdrawal that Plannotator refuses because its message has no open question (ANSWERED) names no
+open question any more: the owner answered it in the Inbox, skipped it, or archived the thread, and the
+thing leaves the record with no message. Any other refusal, of the payload's shape among them, is a
+failure of the call. No `read_thread` is made for a withdrawal.
 
 A reply in a thread whose session is gone (the task's session changed after `/lem im-back`, decision
 11 of away-questions-reach-phone): the look reads the thread with no `--session`, so that the read is
@@ -127,8 +131,10 @@ QUESTION, NOTE = "question", "note"
 # thing whose row changed while a newer message of the same thread goes out (another session, tip or block).
 WITHDRAWN = "This no longer waits for you: it was settled outside this thread."
 REPLACED = "This no longer applies as it was asked: the newest message of this thread says what waits now."
-# The refusal of a withdrawal whose question is no longer open (`plannotator inbox --help`, "send_message").
-ANSWERED = "invalid_supersedes"
+# The refusal of a withdrawal whose message, `{id}`, has no open question: answered, skipped or closed by an
+# archive (`planSupersede` of Plannotator 0.29.0's binary, read on 2026-11-22). Its other refusals with the
+# same code, a `supersedes` that is no list among them, are no answer of the owner's.
+ANSWERED = "invalid_supersedes: supersedes {id}: that message has no open question."
 # The held line of an order that names no task (stages/new.md, step 6).
 ORDER = re.compile(r'the order waits for the owner: "(.*)"', re.S)
 # The parts of a thing that make it the same thing: a change of any is a new thing.
@@ -136,7 +142,11 @@ SAME = ("form", "asks", "session", "tip", "block")
 
 
 class InboxError(Exception):
-    """A call of the Inbox that failed, with Plannotator's own line."""
+    """A call of the Inbox that failed, with Plannotator's own line, and in `said` all it wrote on stderr."""
+
+    def __init__(self, line: str, said: str = "") -> None:
+        super().__init__(line)
+        self.said = said or line
 
 
 def now_iso(seconds: float | None = None) -> str:
@@ -195,9 +205,9 @@ def thing_of(row: dict, m, bm, whole=None) -> dict | None:
     t, kind = row["t"], row["kind"]
     claude = claude_of(t)
     tip = commit_of(t, whole) if kind == "merge" else None
-    # what the row itself allows, apart from who can take the reply: a task with no session, one queued
-    # after a dropped task, a refused merge and a merge with no review of its tip or no whole commit ask nothing
-    can = kind not in ("session", "after_dropped") and (kind != "merge" or (merge_asks(t, bm) and tip is not None))
+    # what the row itself allows, apart from who can take the reply: a task with no session, one whose
+    # session stopped, one queued after a dropped task, a refused merge and a merge with no review of its tip or no whole commit ask nothing
+    can = kind not in ("session", "stopped", "after_dropped") and (kind != "merge" or (merge_asks(t, bm) and tip is not None))
     live = answers(t, m, bm)
     if can and live and claude is None and t.opened and m.now - t.opened["ts"] < bm.GRACE_MS:
         return None
@@ -210,12 +220,12 @@ def thing_of(row: dict, m, bm, whole=None) -> dict | None:
 
 def things_of(rows: list[dict], m, bm, whole=None) -> dict:
     """The things of a workspace's rows, by key: none for a merge review (its merge's thing carries it),
-    only the session's own note for a task that has a row for its missing or deaf session, and none for a
-    row whose session cannot be told yet (`thing_of`)."""
-    without = {r["t"].slug for r in rows if r["kind"] == "session"}
+    only the session's own note for a task that has a row for its missing, deaf or stopped session, and
+    none for a row whose session cannot be told yet (`thing_of`)."""
+    without = {r["t"].slug for r in rows if r["kind"] in ("session", "stopped")}
     out = {}
     for row in rows:
-        if row["kind"] == "review" or (row["kind"] != "session" and row["t"].slug in without):
+        if row["kind"] == "review" or (row["kind"] not in ("session", "stopped") and row["t"].slug in without):
             continue
         thing = thing_of(row, m, bm, whole)
         if thing is not None:
@@ -256,7 +266,7 @@ def plan(want: dict, sent: list[dict], away: bool, door: bool, behind: set | fro
             continue
         if w is not None and same(r, w):
             continue
-        if not away and ((w is not None and session_side(r, w)) or (w is None and key in behind)):
+        if not (away and door) and ((w is not None and session_side(r, w)) or (w is None and key in behind)):
             continue
         if r.get("form") == QUESTION:
             withdraw.append(r)
@@ -301,6 +311,8 @@ def message_of(thing: dict, row: dict, m, bm, *, task_dir: Path, plan_file: Path
     if thing["form"] == NOTE:
         if kind == "after_dropped":
             body = no_session(t, link_line, f"\n\n{bm.answer_of(t)}")
+        elif kind == "stopped":
+            body = f"The session of {slug} stopped, and so did the fresh one that took its place. Open a fresh one on the board: {link_line}"
         elif kind == "merge" and t.refused:
             said = t.refused.get("said") or "nothing"
             body = f"The merge of {slug} did not go through: {said}\n\nThe task on the board: {link_line}"
@@ -439,7 +451,7 @@ def call(action: str, payload: dict, *, cwd: str, session: str | None = None, ru
     args = ["inbox", "call", *(["--session", f"claude-code:{session}"] if session else []), action, "-"]
     code, out, err = run_cli(args, cwd=cwd, stdin=json.dumps(payload), runner=runner)
     if code != 0:
-        raise InboxError(err.strip().splitlines()[-1] if err.strip() else f"`plannotator inbox call {action}` exited {code}")
+        raise InboxError(err.strip().splitlines()[-1] if err.strip() else f"`plannotator inbox call {action}` exited {code}", err)
     try:
         result = json.loads(out)
     except ValueError as error:
@@ -552,12 +564,12 @@ class Watcher:
                 self.wake(space, r["task"])
         for r in steps["withdraw"]:
             body = REPLACED if r["key"] in steps["replaced"] else WITHDRAWN
-            payload = {"body": body, "reply_to": r["message_id"], "supersedes": r["message_id"], "idempotency_key": f"{r['idempotency_key']}-withdrawn"}
+            payload = {"body": body, "reply_to": r["message_id"], "supersedes": [r["message_id"]], "idempotency_key": f"{r['idempotency_key']}-withdrawn"}
             try:
                 call("send_message", payload, cwd=cwd, session=r.get("session"), runner=self.runner)
                 did = "withdrew"
             except InboxError as error:
-                if not str(error).startswith(ANSWERED):
+                if not any(line.startswith(ANSWERED.format(id=r["message_id"])) for line in error.said.splitlines()):
                     problems.append(f"the withdrawal of {r['key']}: {error}")
                     continue
                 did = "answered"

@@ -551,7 +551,7 @@ withdrawn=$(look)
 calls=$("$PY" -c 'import json, sys; print([(c["args"][2:4], (c["payload"] or {}).get("thread"), (c["payload"] or {}).get("supersedes"), c["named"], c["cwd"] == sys.argv[2]) for c in map(json.loads, open(sys.argv[1])) if "send_message" in c["args"]])' "$PLANNOTATOR_CALLS" "$IN")
 body=$("$PY" -c 'import json, sys; print(next(json.loads(l)["payload"]["body"] for l in open(sys.argv[1]) if "send_message" in l))' "$PLANNOTATOR_CALLS")
 if [ "$sent" = '[["sent", "breaker:report-dates:1"]]' ] && [ "$twice" = "[]" ] && [ "$withdrawn" = '[["withdrew", "breaker:report-dates:1"]]' ] \
-  && [ "$calls" = "[(['--session', 'claude-code:c-main'], 'report-dates', None, [], True), (['--session', 'claude-code:c-main'], None, 'msg_1', [], True)]" ] \
+  && [ "$calls" = "[(['--session', 'claude-code:c-main'], 'report-dates', None, [], True), (['--session', 'claude-code:c-main'], None, ['msg_1'], [], True)]" ] \
   && grep -qF ':::question' <<<"$body" && grep -qF -- '- [ ] Park' <<<"$body" && grep -qF '/inbox-shop/tasks/report-dates' <<<"$body" \
   && [ "$(grep -c '^wake report-dates --why inbox$' "$LEM_SESSION_CALLS")" = 1 ] \
   && [ "$("$PY" -c 'import json, sys; print(json.load(open(sys.argv[1]))["sent"])' "$IN/.lem/state/inbox.json")" = "[]" ]; then

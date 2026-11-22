@@ -323,6 +323,16 @@ class InboxLine(unittest.TestCase):
         self.assertIn('action="/h/w/tasks/gift-note/session"', shown)
         self.assertNotIn(self.BOTH, said)
 
+    def test_a_task_whose_session_stopped_says_so_and_offers_a_fresh_one(self):
+        # the merge review's finding 3: the row "stopped" asks nothing, as the row of a missing session
+        shown = self.overview(state(1, "building", "lead: builder"), ev(60, "session.stopped", session="S1"),
+                              record=self.record("stopped:gift-note", "stopped", "note", False))
+        said = self.text(shown)
+        self.assertIn("The task’s session stopped: open a fresh one here. The Inbox has a note, not a question.", said)
+        self.assertIn(f'href="{self.TAILNET}#thread=msg_01ABC"', shown)
+        self.assertIn('action="/h/w/tasks/gift-note/session"', shown)
+        self.assertNotIn(self.BOTH, said)
+
     def test_the_record_reaches_the_page_escaped(self):
         record = self.record(running=False, tailnet_url=None, why='<img src=x onerror="alert(1)">')
         shown = self.overview(state(1, "building", "task 2 of 3"), *self.BREAKER, record=record)

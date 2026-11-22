@@ -67,7 +67,9 @@ def model(*events: dict, owner=(), sessions=None):
 
 class Plannotator:
     """A stand-in for `plannotator`: keeps each call, answers `inbox status` with STATUS and each `inbox call`
-    with what the case sets, and replays a send of a key it saw, as the Inbox does."""
+    with what the case sets, and replays a send of a key it saw, as the Inbox does. A `supersedes` that is no
+    list, or that names a message in ANSWERED, it refuses with the words of Plannotator 0.29.0's store
+    (`normalizeSupersedes` and `planSupersede`, read in its binary on 2026-11-22)."""
 
     def __init__(self, status=(0, {"running": True, "url": "http://plannotator.localhost:50026/", "tailnet_url": TAILNET})):
         self.status = status
@@ -90,8 +92,13 @@ class Plannotator:
         action = words[-2]
         if action == "read_thread":
             return subprocess.CompletedProcess(args, 0, json.dumps(self.thread), "")
-        if payload.get("supersedes") in self.answered:
-            return subprocess.CompletedProcess(args, 1, "", f"invalid_supersedes: {payload['supersedes']} has no open question")
+        supersedes = payload.get("supersedes")
+        if supersedes is not None and not isinstance(supersedes, list):
+            return subprocess.CompletedProcess(args, 1, "", "invalid_supersedes: supersedes: a list of ids, each `<message id>` or `<message id>/<key>`.\n")
+        for ref in supersedes or []:
+            if ref in self.answered:
+                return subprocess.CompletedProcess(args, 1, "", f"invalid_supersedes: supersedes {ref}: that message has no open question. "
+                                                   "Nothing was sent. This thread has no open questions.\n")
         key = payload.get("idempotency_key")
         if key in self.keys:
             return subprocess.CompletedProcess(args, 0, json.dumps({**self.keys[key], "replayed": True}), "")
@@ -307,7 +314,7 @@ class Withdraws(InFolder):
         withdrawal = self.plannotator.sends()[-1]
         self.assertEqual(withdrawal["session"], "claude-code:c-main")
         self.assertEqual({k: withdrawal["payload"][k] for k in ("body", "reply_to", "supersedes")},
-                         {"body": inbox.WITHDRAWN, "reply_to": "msg_1", "supersedes": "msg_1"})
+                         {"body": inbox.WITHDRAWN, "reply_to": "msg_1", "supersedes": ["msg_1"]})
         self.assertEqual(self.record()["sent"], [])
         self.assertEqual(w.look(), [])
 
@@ -474,6 +481,65 @@ class ReviewOne(InFolder):
         self.m = model(*late, owner=[AWAY])
         self.watcher().look()
         self.assertEqual([c["session"] for c in self.plannotator.sends()], [None])
+
+
+class ReviewTwo(InFolder):
+    """The findings of the second review of away-questions-reach-phone and of its merge review, each on the
+    input it named."""
+
+    def test_a_refusal_of_the_withdrawals_shape_is_a_problem_and_never_his_answer(self):
+        # finding 1: only a refusal that the message has no open question is "he answered it"
+        w = self.watcher()
+        self.m = model(*BREAKER, owner=[AWAY])
+        w.look()
+        self.m = model(*BREAKER, state(4, "parked", "the owner parked it from the board"), owner=[AWAY])
+        self.plannotator.fail = "invalid_supersedes: supersedes msg_1 is in another thread (thr_x): only questions of the thread this message lands in can be superseded."
+        self.assertEqual(w.look(), [])
+        record = self.record()
+        self.assertEqual([r["key"] for r in record["sent"]], ["breaker:report-dates:1"])
+        self.assertIn("invalid_supersedes", record["problem"])
+        self.plannotator.fail = None
+        self.assertEqual([d["did"] for d in w.look()], ["withdrew"])
+        self.assertEqual(self.plannotator.sends()[-1]["payload"]["supersedes"], ["msg_1"])
+
+    def test_while_away_with_no_tailnet_address_a_new_session_keeps_the_question_until_one_can_follow(self):
+        # finding 2: no withdrawal says "settled" of a breaker that still waits
+        w = self.watcher()
+        self.m = model(*BREAKER, owner=[AWAY])
+        w.look()
+        self.plannotator.status = (0, {"running": True, "url": "http://plannotator.localhost:50026/", "tailnet_url": None})
+        self.m = model(*BREAKER, *opened(40, session="S-2", claude="c-new"), owner=[AWAY])
+        self.assertEqual(w.look(), [])
+        self.assertEqual(len(self.plannotator.sends()), 1)
+        self.assertEqual([(r["key"], r["session"]) for r in self.record()["sent"]], [("breaker:report-dates:1", "c-main")])
+        # its session row while the door is closed: the question behind it stays too
+        gone = {RD: {"live": False, "agent": False, "unanswered": False, "session": None, "worktree": True}}
+        self.m = model(*BREAKER, owner=[AWAY], sessions=gone)
+        self.assertEqual(w.look(), [])
+        self.assertEqual(len(self.plannotator.sends()), 1)
+        # the tailnet address back: the question is replaced by the one of the new session
+        self.plannotator.status = (0, {"running": True, "url": "http://plannotator.localhost:50026/", "tailnet_url": TAILNET})
+        self.m = model(*BREAKER, *opened(40, session="S-2", claude="c-new"), owner=[AWAY])
+        self.assertEqual([d["did"] for d in w.look()], ["withdrew", "sent"])
+        self.assertEqual(self.plannotator.sends()[1]["payload"]["body"], inbox.REPLACED)
+        self.assertEqual(self.plannotator.sends()[-1]["session"], "claude-code:c-new")
+
+    def test_a_task_whose_session_stopped_gets_a_note_that_asks_nothing(self):
+        # the merge review's finding 3: the row "stopped" of the guard of a stopped session asks nothing, as "session"
+        stuck = [state(0, "building", "task 1 of 2"), *opened(1), ev(60, "session.stopped", session="S-1")]
+        self.m = model(*stuck, owner=[AWAY])
+        self.assertEqual([r["kind"] for r in bm.waits_of(self.m)], ["stopped"])
+        self.assertEqual([d["did"] for d in self.watcher().look()], ["sent"])
+        sent = self.plannotator.sends()[0]
+        self.assertIsNone(sent["session"])
+        self.assertEqual(sent["payload"]["body"], "The session of report-dates stopped, and so did the fresh one that took its place. Open a fresh one on the board: "
+                         "[report-dates on the board](https://mac.tail0.ts.net:4537/mac/shop/tasks/report-dates)")
+        self.assertEqual(self.woken, [])
+        kept = self.record()
+        self.assertEqual([(r["form"], r["asks"]) for r in kept["sent"]], [("note", False)])
+        self.m.inbox = kept
+        said = bm.inbox_of(self.m.tasks[0], self.m)
+        self.assertEqual((said["asks"], said["gone"]), (False, True))
 
 
 if __name__ == "__main__":

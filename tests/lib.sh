@@ -148,7 +148,8 @@ gh_prs() { "$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print(e
 # name a session). `inbox status --json` prints the file PLANNOTATOR_STATUS and exits with the number in
 # PLANNOTATOR_STATUS.exit (0 without one), or, with no such file, says the Inbox does not run and exits 1;
 # `inbox call ... send_message -` answers a new message_id (msg_1, msg_2, ...) with a question key for a body that asks
-# one, the first answer again for a key it saw, and `inbox call ... read_thread -` a thread with no messages.
+# one, the first answer again for a key it saw, and refuses a `supersedes` that is no list as Plannotator 0.29.0 does
+# (`normalizeSupersedes`, read in its binary on 2026-11-22); `inbox call ... read_thread -` a thread with no messages.
 export PLANNOTATOR_CALLS=$WORK/plannotator-calls.jsonl PLANNOTATOR_STATUS=$WORK/plannotator-status.json
 cat > "$WORK/plannotator-standin.py" <<'PY'
 import json, os, sys
@@ -166,6 +167,9 @@ if args[:2] == ["inbox", "status"]:
     print(open(status).read())
     sys.exit(int(open(status + ".exit").read()) if os.path.exists(status + ".exit") else 0)
 if args[:2] == ["inbox", "call"] and "send_message" in args:
+    if payload.get("supersedes") is not None and not isinstance(payload["supersedes"], list):
+        sys.stderr.write("invalid_supersedes: supersedes: a list of ids, each `<message id>` or `<message id>/<key>`.\n")
+        sys.exit(1)
     sent = [json.loads(line) for line in open(os.environ["PLANNOTATOR_CALLS"])]
     keys = [c["payload"]["idempotency_key"] for c in sent if c["payload"] and "send_message" in c["args"]]
     key = payload.get("idempotency_key")
