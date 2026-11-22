@@ -48,7 +48,6 @@ export const REGULAR = [
   'plus',
   'rotate',
   'shield-exclamation',
-  'sidebar',
   'square-kanban',
   'table-columns',
   'terminal',

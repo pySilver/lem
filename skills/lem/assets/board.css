@@ -30,7 +30,7 @@ body { font-size: 14px; line-height: 1.5; }
    leave, keeps room for two rows, and scrolls inside itself, with a fade at each edge it cuts. */
 .side { background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 .side > * { flex: none; }
-.brand { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 14px 10px 12px 16px; }
+.brand { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 14px 10px 12px 16px; }
 .brand .mark { width: 32px; height: 32px; border-radius: 8px; overflow: hidden; box-shadow: 0 0 0 1px var(--line-strong); grid-row: auto; }
 .brand .mark svg { display: block; width: 100%; height: 100%; }
 .b-name { font-weight: 700; font-size: 15px; line-height: 1.2; letter-spacing: -.01em; }
@@ -69,14 +69,17 @@ body { font-size: 14px; line-height: 1.5; }
 .vbtn[aria-current="true"] .ic { color: var(--accent-ink); }
 .vbtn em { margin-left: auto; font: 600 11.5px var(--mono); font-style: normal; color: var(--dim); }
 .vbtn kbd { margin-left: 6px; }
-.side-foot { margin-top: auto; padding: 10px 12px 12px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
-.side-foot:empty { display: none; }
-/* the sidebar folded to a rail: the mark, the control that unfolds it, what waits, the views, and the
-   marks of a notice, each an icon with its count */
+/* the foot: the workspace, and at its end the arrow that folds the sidebar, which stays at the foot of the rail */
+.side-foot { margin-top: auto; padding: 10px 12px 12px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 6px; }
+.side-foot > :not(#side-fold) { flex: 1; min-width: 0; }
+/* the sidebar folded to a rail: the mark, what waits, the views, the marks of a notice, each an icon
+   with its count, and at the foot the arrow, turned to the right, that unfolds it */
 .shell.railed { grid-template-columns: 56px minmax(0, 1fr); }
-.shell.railed .side > :not(.brand, .rail) { display: none !important; }
+.shell.railed .side > :not(.brand, .rail, .side-foot) { display: none !important; }
 .shell.railed .brand { grid-template-columns: 32px; justify-content: center; justify-items: center; padding: 12px 0 6px; gap: 8px; }
-.shell.railed .brand > :not(.mark, #side-fold) { display: none; }
+.shell.railed .brand > :not(.mark) { display: none; }
+.shell.railed .side-foot { justify-content: center; padding: 15px 0 17px; }
+.shell.railed .side-foot > :not(#side-fold) { display: none; }
 .shell.railed #side-fold .ic { transform: scaleX(-1); }
 .rail { display: none; flex-direction: column; align-items: center; gap: 4px; padding: 2px 0 10px; }
 .shell.railed .rail { display: flex; }

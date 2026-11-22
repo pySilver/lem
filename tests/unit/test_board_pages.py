@@ -5,6 +5,7 @@ column draws of the ended tasks, its foot row, and the page that lists the ended
 """
 
 import importlib
+import json
 import re
 import sys
 import unittest
@@ -134,6 +135,54 @@ class Views(unittest.TestCase):
             self.assertIn(f'data-hotkey="Key{kbd}"', button[0])
             self.assertIn(f"{label}<kbd>{kbd}</kbd>", button[1])
             self.assertIn(f'title="Key {kbd}, with no Shift"', button[0])
+
+
+class SideFold(unittest.TestCase):
+    """The one arrow at the sidebar's foot that folds it to a rail and unfolds it."""
+
+    def page(self, rail: bool) -> str:
+        ctx = ctx_of(ended(3))
+        ctx.prefs = {"rail": True} if rail else {}
+        return str(pages.kanban_page(ctx))
+
+    def fold(self, html: str) -> re.Match:
+        return re.search(r'<button id="side-fold" class="ibtn" type="button" data-action="fold#side" title="([^"]+)" aria-label="([^"]+)">'
+                         r'<svg class="ic" aria-hidden="true"><use href="#i-chevron-left"></use></svg></button>', html)
+
+    def test_an_open_sidebar_has_an_arrow_that_points_left_at_its_foot_and_the_old_icon_is_gone(self):
+        html = self.page(rail=False)
+        self.assertRegex(html, r'<div class="shell" id="shell"')
+        found = self.fold(html)
+        self.assertIsNotNone(found)
+        self.assertEqual((found[1], found[2]), ("Fold the sidebar", "Fold the sidebar"))
+        self.assertEqual(html.count('id="side-fold"'), 1)
+        brand = html.split('<div class="brand">', 1)[1].split('<div class="rail"', 1)[0]
+        self.assertNotIn("fold#side", brand)
+        foot = html.split('id="side-foot"', 1)[1].split("</aside>", 1)[0]
+        self.assertIn('id="side-fold"', foot)
+        self.assertLess(foot.index('id="ws"'), foot.index('id="side-fold"'))
+        self.assertNotIn("i-sidebar", html)
+
+    def test_a_folded_sidebar_keeps_the_arrow_at_its_foot_and_it_unfolds_it(self):
+        html = self.page(rail=True)
+        self.assertRegex(html, r'<div class="shell railed" id="shell"')
+        found = self.fold(html)
+        self.assertIsNotNone(found)
+        self.assertEqual((found[1], found[2]), ("Unfold the sidebar", "Unfold the sidebar"))
+        self.assertIn('id="side-fold"', html.split('id="side-foot"', 1)[1].split("</aside>", 1)[0])
+
+    def test_the_rail_shows_the_foot_with_the_arrow_alone_turned_to_the_right(self):
+        css = (pages.ASSETS / "board.css").read_text(encoding="utf-8")
+        hidden = re.search(r"\.shell\.railed \.side > :not\(([^)]*)\) \{ display: none !important; \}", css)
+        self.assertIsNotNone(hidden)
+        self.assertIn(".side-foot", hidden[1])
+        self.assertIn(".shell.railed .side-foot > :not(#side-fold) { display: none; }", css)
+        self.assertIn(".shell.railed #side-fold .ic { transform: scaleX(-1); }", css)
+
+    def test_a_click_says_the_next_click_on_the_arrow(self):
+        script = (pages.ASSETS / "vendor" / "board-app.js").read_text(encoding="utf-8")
+        self.assertIn('"Unfold the sidebar":"Fold the sidebar"', script)
+        self.assertNotIn("sidebar", json.loads(pages.ICONS.read_text(encoding="utf-8")))
 
 
 if __name__ == "__main__":
