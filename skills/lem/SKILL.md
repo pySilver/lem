@@ -76,8 +76,12 @@ it notices a merge or a close on GitHub and runs `lem land merged`, wakes the ta
 cleanup, for a pull request that became conflicting, and after the owner's approval or park on the
 board, opens the session of a queued task when the task it waited for landed or was answered (or
 wakes it, when it still runs), opens the session of a task he starts on the board ("+" or a backlog
-item), and shows a task whose session is gone as "no session" for the owner. It never types into a
-session, decides, or closes one.
+item), and shows a task whose session is gone as "no session" for the owner. It guards a task in
+`building`, `ready` or `landing` whose live session shows no sign of work (no turn, no subagent, no
+shell command, no event of the task): after 45 minutes it sends that session `lem: SLUG status`, 10
+minutes later with still no sign it opens a fresh session beside the old pane, once for one stop,
+and when the fresh one stops too it logs the stop, which "Waits for you" shows as "stopped" (the
+owner's numbers, 2026-11-22). It never types into a session, decides, or closes one.
 
 Every task on the standard track starts with an interview or a complete request, and then a lead,
 also one the owner calls careful in the ask: there is no talk before there is a plan. The plan says
@@ -132,7 +136,7 @@ runs, and follow it. Do not read the others. In a task's session, `be-careful`, 
 | `learn`, `retro` | a correction becomes an edit of the file that owns the step | `stages/learn.md` |
 | `init` | onboarding: checks the machine, examines the project, interviews the owner, writes the settings and the draft profiles | `stages/init.md` |
 | `night` | unattended: takes backlog items, the smallest first, four at most (`/lem night N` takes N), and opens them one after another, each in its own session that runs it without the owner to its pull request | `stages/night.md` |
-| bare `/lem`, `status` | the one list of what waits for the owner, the board's own rows of "Waits for you" in the board's order: each breaker of a task, each task with no session, each task whose criteria wait for his yes, each step of his, each task queued after a dropped task with "start SLUG now" and `/lem drop SLUG`, each blocked task, each plan to read, each merge review that calls him, each pull request with green or not, those of the night with the night's report, each retro's proposals, and where he answers each, with one line when the sessions are not known; and the board of all tasks. In a task's session, that task's line first. A retro's proposal he answers with approve, reject or later, all on one page | `stages/status.md` |
+| bare `/lem`, `status` | the one list of what waits for the owner, the board's own rows of "Waits for you" in the board's order: each breaker of a task, each task with no session, each task whose session the guard logged as stopped, each task whose criteria wait for his yes, each step of his, each task queued after a dropped task with "start SLUG now" and `/lem drop SLUG`, each blocked task, each plan to read, each merge review that calls him, each pull request with green or not, those of the night with the night's report, each retro's proposals, and where he answers each, with one line when the sessions are not known; and the board of all tasks. In a task's session, that task's line first. A retro's proposal he answers with approve, reject or later, all on one page | `stages/status.md` |
 | `status <task>` | the board of one task, and its session when something of it waits for him and none runs | `stages/status.md` |
 | `serve` | the board's server: `lem serve --ensure` starts it when none runs, and you say where the board is, its `url`, and its `tailscale` address when the door is open | `stages/status.md`, "The board's server" |
 | `serve tailscale`, or "put the board on my phone" | opens the tailnet door from now on (`lem serve --tailscale`) and says the address the phone opens; `serve tailscale off` closes it (`--tailscale-off`) | `stages/status.md`, "The board's server" |
@@ -384,11 +388,11 @@ request and tells an open page each change, so it updates by itself. `lem board`
 server runs and opens the board's address, `http://127.0.0.1:PORT/HOST/WORKSPACE/` (a task's is
 `.../tasks/SLUG`), as a page beside the session that opened it. It has four views (keys T, W, B and
 A): "Tasks", each task in the column of who acts on it; "Waits for you", one row for each thing the
-owner does, with where he does it, and "no session" for a task whose session is gone while it needs
-one; "Backlog", the items of the backlog path by their own `worth`, each with "start a task", which
+owner does, with where he does it, "no session" for a task whose session is gone while it needs
+one, and "stopped" for a task whose live session the server's guard logged as stopped; "Backlog", the items of the backlog path by their own `worth`, each with "start a task", which
 opens a task's session through the server; and "Activity". A task opens in a panel beside the view,
 with its tabs "Overview", "Criteria and decisions", "Checks and review", "Timeline" and
-"Artifacts", and a button that opens its session when none runs. With the tailnet door on (`/lem
+"Artifacts", and a button that opens its session when none runs or its session stopped. With the tailnet door on (`/lem
 serve tailscale`, docs/board.md), the owner opens the same board on his phone at the address `lem
 board --no-open` prints as `tailnet_url`. When the server does not run, the board does not load,
 and the next `lem` command of any session starts it.

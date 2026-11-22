@@ -150,13 +150,19 @@ workspace, one call at a time with the server's other calls into Lem's scripts (
   with the base goes into `forge.json` of the state folder (`keep_forge_look`), which the board's model
   and `lem project waiting` read. `gh` missing or signed out is one line on the status bar until it changes;
 - the look at the task sessions: `lem session list` (`Workspace.look_sessions`), which says of each
-  task whether its session is in agterm, whether an agent runs in it and whether a wake-up waits in it
-  unanswered, for the board's row "no session" and its "Open a session";
+  task whether its session is in agterm, whether an agent runs in it, whether a wake-up waits in it
+  unanswered, and its signs of work (`lem_signs`), for the board's row "no session" and its "Open a
+  session", and for the guard of a stopped session below;
 - the duties (`duties`, `run_duties`), each a command of `lem session` (SESSION_SCRIPT): after a merge,
   `wake SLUG --why merged`, so that the task's session removes its worktree and its branch; for a pull
   request the forge calls conflicting, `wake SLUG --why conflict`, once for each head; and for a task
   queued `after:` one that ended, `open SLUG --why queue`, or `wake SLUG --why queue` once when its
-  session still lives. `wake` opens a session when none lives. A
+  session still lives. `wake` opens a session when none lives. The guard of a stopped session
+  (`lem_board_model.stop_due`): for a task in `building`, `ready` or `landing` whose live session
+  showed no sign of work for 45 minutes, `wake SLUG --why status`; 10 minutes after it with still no
+  sign, `open SLUG --why stopped`, a fresh session beside the old pane, once for one stop; and when
+  that restart is spent, `stopped SLUG`, which logs the stop for the owner's row "stopped". Each looks
+  once more in the task's lock and acts on nothing (`acted: false`) when the step is no longer due. A
   duty whose command failed waits DUTY_RETRY;
 - the merge agent's merge (`merge_due`): for an open task whose merge agent's review of the tip Lem
   proposed last says `merge`, calls nobody and does not say `another round` of a moved base, with no
