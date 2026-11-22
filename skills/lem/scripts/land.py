@@ -216,7 +216,7 @@ the change made false, a leftover, code that reads badly, a document the change 
 the defects outside the task that the lead's report and the interview named) and changes no
 behavior. `polish` prints what that builder gets: the range of the task's own commits from the
 base, the plan, the report, `outside.md` of the interview when the task has one, the backlog
-folder, and the files the pass may not change. It keeps the tip the pass starts at; a second
+folder, the item the task was started from (below), and the files the pass may not change. It keeps the tip the pass starts at; a second
 start before `--done` keeps the same one. `polish --done` refuses a worktree with changes
 nobody committed, a branch that no longer holds that tip, a pass that leaves a criterion's test
 file or the plan other than it found them, and tests of the criteria that no longer pass on the branch and fail on
@@ -295,8 +295,9 @@ record sends the request on as not reviewed. A review is of a change, known by t
 each file it touches, before and after: a rebase onto a base that left those files alone does
 not undo it, nor does a rebase `base` made with no conflict (above), and a change of one space does. The one addition a review still covers is a new file
 in the backlog folder (`docs/backlog`, its one place), when every file the review saw is as it saw
-it: that is where the defects outside the change are filed after the review. An edit or a
-deletion of an item that was there before is a change like any other.
+it: that is where the defects outside the change are filed after the review. The one deletion it
+still covers is of the task's own item (below). An edit or a deletion of any other item that was
+there before is a change like any other.
 Two rounds at most: after that the request is proposed as it is, green when the second round
 left nothing open and not green otherwise. `attempt` in a record is the number `read` printed
 for it, so a record that is sent twice is written down once.
@@ -327,6 +328,15 @@ many defects, and a match by place alone gives two defects one item, which loses
 defect that two rounds describe in other words gets two items: an extra item costs a merge of two
 items by hand, and a lost one costs the defect. The review is asked to repeat an earlier round's
 words for a defect it sees again.
+
+A task started from a backlog item lands with the item gone from its branch, so that the merge
+takes it off the base and off the board. Its item is its ask: the whole of `ask.txt`, stripped, is
+the path of a file of the backlog folder that the base commit holds (`item_of_ask`), as the board's
+"Start a task" and the night write it; an ask with any other word beside the path has none.
+`polish` prints it as `item`, and `propose` refuses while the tip still holds it, with the `git rm`
+of a builder of the landing as the next step. That commit asks for the checks again, as any commit
+does, since a command of the project may read the file; it asks for no other review, since the
+item holds no code (`covers_one`).
 
 The text of the pull request lists what the reviews saw outside the change under three headings,
 each written only when it has a line, after `## Filed in the backlog`: the review's items join the
@@ -1073,7 +1083,9 @@ def cmd_base(task: Task) -> dict:
     answered = [read for read in kept.get("reads", []) if read["answered"]]
     # what a rebase with no conflict carries: the newest review that answered, while it saw this
     # change, with whatever it left open (read before the rebase, on the branch as it is)
-    carries = not (pending and before != pending["before"]) and review_carries(answered, backlog_of(task), change(task))
+    # the task's own item, whose deletion on the branch asks for no other review (`task_item`)
+    own = task_item(task)
+    carries = not (pending and before != pending["before"]) and review_carries(answered, backlog_of(task), change(task), own)
     if pending:
         covered = pending["covered"]
         uncovered = pending["uncovered"]
@@ -1082,7 +1094,7 @@ def cmd_base(task: Task) -> dict:
         # which a conflict's record keeps: it decides between one read of the resolution and the rules of the change
         covered = carries and not answered[-1]["must_fix"]
         # why it is not, for the owner's merge that `propose` ends after this rebase (`moved_carry`)
-        uncovered = why_uncovered(answered, backlog_of(task), change(task))
+        uncovered = why_uncovered(answered, backlog_of(task), change(task), own)
     rebased = run(["git", "-C", str(task.worktree), "rebase", task.onto], check=False)
     if rebased.returncode != 0:
         conflicts = git(task.worktree, "diff", "--name-only", "--diff-filter=U", check=False).splitlines()
@@ -1211,6 +1223,8 @@ def cmd_polish(task: Task, done: bool) -> dict:
             "commits": git(task.worktree, "log", "--format=%h %s", f"{base}..{polish['before']}").splitlines(),
             "plan": found["plan"], "report": str(report) if report.is_file() else None, "outside": str(outside) if outside.is_file() else None,
             "backlog": backlog_of(task),
+            # the item the task was started from, which the pass removes when the branch still holds it
+            "item": task_item(task),
             "frozen": frozen,
         }
     if not polish:
@@ -1340,46 +1354,82 @@ def backlog_of(task: Task) -> str:
     return Path(task.settings["places"]["backlog"]["path"]).relative_to(Path(task.settings["root"]).resolve()).as_posix()
 
 
-def covers(task: Task, read: dict, now: dict) -> bool:
+def task_item(task: Task) -> str | None:
+    """The backlog item the task was started from, by `item_of_ask` over its `ask.txt` and the base
+    commit of its branch: the path relative to the root, or None when the task has no such item."""
+    file = task.directory / "ask.txt"
+    if not file.is_file():
+        return None
+    base = git(task.worktree, "merge-base", "HEAD", task.onto, check=False)
+    if not base:
+        return None
+    roots = (str(task.main), str(task.main.resolve()))
+    return item_of_ask(file.read_text(encoding="utf-8", errors="replace"), backlog_of(task), roots, lambda path: file_at(task, base, path))
+
+
+def item_of_ask(ask: str, folder: str, roots: tuple[str, ...], at_base) -> str | None:
+    """The item a task was started from: its ASK, stripped, is one path and nothing else, of a file
+    of the backlog folder FOLDER itself whose name ends in `.md`, and AT_BASE finds it at the base
+    commit. The board's "Start a task" writes the path relative to the root; the night may write it
+    whole, from `lem project path backlog`, and a whole path under one of ROOTS (the main checkout)
+    reads as the same item. An ask with any other word beside the path asks for more than the
+    item's work, and has no item. The path relative to the root, or None."""
+    path = ask.strip()
+    if path.startswith("/"):
+        root = next((f"{root.rstrip('/')}/" for root in roots if path.startswith(f"{root.rstrip('/')}/")), None)
+        if root is None:
+            return None
+        path = path[len(root):]
+    parent, _, name = path.rpartition("/")
+    if parent != folder or not name.endswith(".md"):
+        return None
+    return path if at_base(path) else None
+
+
+def covers(task: Task, read: dict, now: dict, own: str | None = None) -> bool:
     """Whether a review that was recorded still covers the change as it is now: the change it
-    reviewed, or that change as each rebase `base` made with no conflict carried it onto a new base."""
-    return covered(backlog_of(task), read, now)
+    reviewed, or that change as each rebase `base` made with no conflict carried it onto a new base.
+    OWN is the task's own item (`task_item`), whose deletion asks for no other review."""
+    return covered(backlog_of(task), read, now, own)
 
 
-def covered(folder: str, read: dict, now: dict) -> bool:
+def covered(folder: str, read: dict, now: dict, own: str | None = None) -> bool:
     """`covers`, with the backlog folder given: the rule alone, which reads no file."""
-    return any(covers_one(folder, seen, now) for seen in [read, *read.get("carried", [])])
+    return any(covers_one(folder, seen, now, own) for seen in [read, *read.get("carried", [])])
 
 
-def review_carries(answered: list[dict], folder: str, now: dict) -> bool:
+def review_carries(answered: list[dict], folder: str, now: dict, own: str | None = None) -> bool:
     """Whether a rebase with no conflict carries the review onto the new base, from the reviews that
-    answered, in order, the backlog folder and the change as it is now: the newest one covers the
-    change, whatever it left open. A must-fix it left stays open on the new tip, a reason for not
-    green in the same words (`due_of`). That it also left no must-fix is the `covered` of a
-    conflict's record, which `why_uncovered` gives the reason against."""
-    return bool(answered) and covered(folder, answered[-1], now)
+    answered, in order, the backlog folder, the change as it is now and the task's own item: the
+    newest one covers the change, whatever it left open. A must-fix it left stays open on the new
+    tip, a reason for not green in the same words (`due_of`). That it also left no must-fix is the
+    `covered` of a conflict's record, which `why_uncovered` gives the reason against."""
+    return bool(answered) and covered(folder, answered[-1], now, own)
 
 
-def why_uncovered(answered: list[dict], folder: str, now: dict) -> str | None:
-    """Why no review covers the change as it is now, from the reviews that answered, in order, and the
-    backlog folder: the newest one's words, for the owner whose merge `propose` ends. None when the
-    newest one covers it and left no must-fix, which is when `cmd_base`'s `covered` is true."""
+def why_uncovered(answered: list[dict], folder: str, now: dict, own: str | None = None) -> str | None:
+    """Why no review covers the change as it is now, from the reviews that answered, in order, the
+    backlog folder and the task's own item: the newest one's words, for the owner whose merge
+    `propose` ends. None when the newest one covers it and left no must-fix, which is when
+    `cmd_base`'s `covered` is true."""
     if not answered:
         return "no review answered for the change"
     last = answered[-1]
     if last["must_fix"]:
         return f"round {last['round']} left {last['must_fix']} must-fix, and no review read the change after it"
-    if not covered(folder, last, now):
+    if not covered(folder, last, now, own):
         return f"no review read what changed after round {last['round']}"
     return None
 
 
-def covers_one(folder: str, read: dict, now: dict) -> bool:
+def covers_one(folder: str, read: dict, now: dict, own: str | None = None) -> bool:
     """Whether one form of a reviewed change covers the change as it is now. It does when the
     change is the same, or when the change is the reviewed one plus new files of the backlog
-    folder and nothing else: `file` writes the defects a review saw outside the change there after
-    the review, and that asks for no other review. Any other file does, an item that was on the
-    base too. A record that kept no contents covers only the same change."""
+    folder and the deletion of OWN, the item the task was started from (`task_item`), and nothing
+    else: `file` writes the defects a review saw outside the change there after the review, a
+    builder of the landing removes the task's own item when the review came first, and neither
+    holds code, so neither asks for another review. Any other file does, another item that was on
+    the base too. A record that kept no contents covers only the same change."""
     if read["patch"] == now["patch"]:
         return True
     was = read.get("contents")
@@ -1387,7 +1437,9 @@ def covers_one(folder: str, read: dict, now: dict) -> bool:
         return False
     extra = [path for path in now["contents"] if path not in was]
     return bool(extra) and all(now["contents"].get(path) == entry for path, entry in was.items()) and all(
-        set(now["contents"][path]["base"]) == {"0"} and path.startswith(folder + "/") for path in extra
+        (set(now["contents"][path]["base"]) == {"0"} and path.startswith(folder + "/"))
+        or (path == own and set(now["contents"][path]["tip"]) == {"0"})
+        for path in extra
     )
 
 
@@ -2540,12 +2592,13 @@ def due(task: Task) -> dict:
     kept = task.kept()
     # the fast track has no plan, and is the one task of its builder
     tasks = 1 if found["small"] else tasks_of(Path(found["plan"]).read_text(encoding="utf-8"))
-    return due_of(now, kept.get("reads", []), kept.get("resolution"), careful(task, now), tasks, found["small"], backlog_of(task))
+    return due_of(now, kept.get("reads", []), kept.get("resolution"), careful(task, now), tasks, found["small"], backlog_of(task), task_item(task))
 
 
-def due_of(now: dict, reads: list[dict], resolution: dict | None, why_careful: list[str], tasks: int, small: bool, folder: str) -> dict:
+def due_of(now: dict, reads: list[dict], resolution: dict | None, why_careful: list[str], tasks: int, small: bool, folder: str, own: str | None = None) -> dict:
     """`due` from what it read: the change as `change` gives it, the kept reviews and resolution,
-    each reason the request is careful, the plan's count of tasks, the track, and the backlog folder."""
+    each reason the request is careful, the plan's count of tasks, the track, the backlog folder,
+    and the task's own item (`task_item`)."""
     answered = [read for read in reads if read["answered"]]
     # The read of a conflict's resolution is no round: the two rounds are of the change itself.
     rounds = [read for read in answered if read.get("of") != "resolution"]
@@ -2585,7 +2638,7 @@ def due_of(now: dict, reads: list[dict], resolution: dict | None, why_careful: l
     if last:
         if last["must_fix"]:
             unmet.append(f"the last one left {last['must_fix']} must-fix")
-        if not covered(folder, last, now):
+        if not covered(folder, last, now, own):
             unmet.append("nobody reviewed what changed after it")
         # the read of a resolution is as large as the resolution; the change itself was reviewed by the round before it
         sized = rounds[-1] if last.get("of") == "resolution" and rounds else last
@@ -3715,6 +3768,17 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     if task.forge != "github":
         raise LandError(not_github(task))
     tip = git(task.worktree, "rev-parse", "HEAD")
+    # A task started from a backlog item did that item's work, so it lands with the item gone: the
+    # merge takes it off the base and off the board. Asked before the checks' result: the removal
+    # asks for a run of the checks, since a command of the project may read the file.
+    own = task_item(task)
+    if own and in_tree(task, tip, own):
+        raise LandError(
+            f"{task.slug} was started from the backlog item {own} (its ask is that path), and the branch still holds it: the task does that item's work, "
+            f"so its branch removes it. A builder of the landing removes it in a commit of its own (`git -C {task.worktree} rm -q -- {own}`, then "
+            f"`git -C {task.worktree} commit -m MESSAGE -- {own}` in the project's message form), then `lem land checks {task.slug}` and this step run again; "
+            "the review that read the change still covers it",
+        )
     missing = gate_missing(task, tip)
     if missing:
         raise LandError(f"{missing}; `lem land checks {task.slug}` comes first")

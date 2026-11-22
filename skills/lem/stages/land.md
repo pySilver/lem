@@ -277,6 +277,14 @@ landing up as after a cut-off.
    It refuses a request whose newest read of its criteria had no answer and was the first such
    read in a row: the read is started once more (`stages/interview.md`, step 5). After a second read with no answer the request is proposed,
    not green, with "the criteria were not read" first.
+   It refuses a request whose branch still holds the task's own item: a task started from a
+   backlog item (its ask is that item's path alone, as the board's "Start a task" and the night
+   write it) did that item's work, and its branch removes the item, so that the merge takes it off
+   the base and off the board. The polish pass and the fast track's builder remove it first; when
+   neither did, `spawn-builder` with the brief below, the job "the removal of the task's item", and
+   as its path the item the step names. Then step 4 and this step again: the removal is a commit,
+   which the checks run on, and the review still covers it when the builder changed nothing else.
+   Nothing waits for the owner.
    The step pushes the task's branch and opens the pull request on GitHub, or updates the one that
    is there. Run it without a question: the settings the owner approved at onboarding are his
    standing word for this push and this pull request, and asking here stops the task one step
@@ -446,7 +454,7 @@ The brief for each builder of this stage is these lines and nothing more. Its st
 
 ```
 Read `skills/lem/prompts/landing.md` in the folder that `lem version` prints as `root`, and do the job named here; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.
-job: the repair of a conflict with the base | the polish pass | the repair of a failed check | the fix of a review's findings
+job: the repair of a conflict with the base | the polish pass | the repair of a failed check | the fix of a review's findings | the removal of the task's item
 task: SLUG
 worktree: the worktree's absolute path
 task directory: the task directory's absolute path

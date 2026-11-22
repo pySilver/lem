@@ -53,6 +53,9 @@ it touches, and look for these in the lines the change wrote or that sit next to
    bar, and one that an open item of the backlog folder already names, is a line of "Seen, not
    filed", with no fix and no file. One over the bar that no open item names you file: one item in the
    backlog folder, in the item format of rule 6, committed as `docs(backlog):`. You ask nobody.
+6. **The task's own item.** When `polish.json` gives `item`, the task was started from that
+   backlog item and did its work. When the branch still holds it, remove it as "The removal of the
+   task's item" below says, in a commit of its own.
 
 Commit each kind on its own (`docs:` for comments and documents, `refactor:` or `chore:` for the
 code), never in one commit with another kind. You change no behavior: a criterion's test file and
@@ -62,8 +65,9 @@ last, and the tests, the formatter and the linter of the files you touched, as t
 `AGENTS.md` names them. After you, `lem land polish --done` runs the tests of the criteria in fresh
 worktrees and refuses a pass that changed a frozen file.
 
-Last, bring `report.md` up to what you did: the documents and comments you corrected and the
-leftovers you took out, then the defects outside the task in three lists of their own. "Fixed on
+Last, bring `report.md` up to what you did: the documents and comments you corrected, the
+leftovers you took out and the task's item you removed, then the defects outside the task in three
+lists of their own. "Fixed on
 the way": one line for each defect you fixed, with the file, the commit and what was wrong.
 "Seen, not filed": one line for each of the others you did not file, with its place and why it is
 under the bar, or the path of the open item that names it. "Filed in the backlog": each item you
@@ -76,6 +80,23 @@ and say which file it is for.
 Your reply: the commits you made, by subject; the tests of the criteria before and after, each with the
 exact last line of its output; the tip (`git rev-parse HEAD`); the output of
 `git status --short`; and that `report.md` is current, or the text for it.
+
+## The removal of the task's item
+
+The brief gives the path of the backlog item the task was started from, as `lem land propose`
+named it: the task's ask is that path alone, so the task did that item's work, and its branch
+removes the item, so that the merge takes it off the base and off the board.
+
+1. Remove it in a commit of its own: `git -C WORKTREE rm -q -- PATH`, then `git -C WORKTREE
+   commit -m MESSAGE -- PATH`, the message in the project's form, else `docs(backlog): the item of
+   SLUG is done`. It is the one item a builder of the landing deletes: an item filed in this
+   landing that the owner does not want stays, with `worth: no` and his reason in it.
+2. Search the repository's durable documents for the path. A sentence that names the item as open
+   is one the removal makes false: correct it in the same commit, and say so in your reply, since
+   the review then reads that change. Change nothing else.
+
+Your reply: the commit, by subject; the sentences you corrected, or none; the tip (`git rev-parse
+HEAD`); the output of `git status --short`.
 
 ## The repair of a failed check
 

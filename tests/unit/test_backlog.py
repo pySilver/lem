@@ -1,6 +1,7 @@
 """land.py's rules for the backlog items a review's defects outside the change become, each called in
-this process: which names an item may take, whether an item file is a given defect, and whether a
-review still covers a change that only added items after it.
+this process: which names an item may take, whether an item file is a given defect, whether a
+review still covers a change that only added items after it or removed the task's own, and which
+item a task was started from.
 
 What only git can show (the commits `lem land file` makes, an item removed by a commit, a review
 that a later commit asks to run again) stays in tests/lem-land-backlog.sh.
@@ -139,11 +140,58 @@ class Covers(unittest.TestCase):
         self.assertTrue(land.covers_one(FOLDER,bare, {**REVIEWED}))
         self.assertFalse(land.covers_one(FOLDER,bare, now(**{"docs/backlog/new.md": entry(NONE, "c" * 40)})))
 
+    def test_the_deletion_of_the_tasks_own_item_keeps_the_review(self) -> None:
+        own = "docs/backlog/existing.md"
+        deleted = now(**{own: entry("d" * 40, NONE)})
+        self.assertTrue(land.covers_one(FOLDER, REVIEWED, deleted, own))
+        self.assertTrue(land.covers_one(FOLDER, REVIEWED, now(**{own: entry("d" * 40, NONE), "docs/backlog/new.md": entry(NONE, "c" * 40)}), own))
+        self.assertTrue(land.covered(FOLDER, REVIEWED, deleted, own))
+        self.assertIsNone(land.why_uncovered([{**REVIEWED, "round": 1, "must_fix": 0}], FOLDER, deleted, own))
+
+    def test_an_edit_of_the_tasks_own_item_or_the_deletion_of_another_asks_for_another(self) -> None:
+        own = "docs/backlog/existing.md"
+        self.assertFalse(land.covers_one(FOLDER, REVIEWED, now(**{own: entry("d" * 40, "e" * 40)}), own))
+        self.assertFalse(land.covers_one(FOLDER, REVIEWED, now(**{"docs/backlog/other.md": entry("d" * 40, NONE)}), own))
+        self.assertFalse(land.covers_one(FOLDER, REVIEWED, now(**{own: entry("d" * 40, NONE)})))
+
     def test_a_form_a_rebase_carried_covers_too(self) -> None:
         rebased = {"patch": "rebased", "contents": {"app.txt": entry("1" * 40, "2" * 40)}}
         read = {"patch": "older", "contents": {"app.txt": entry("a" * 40, "9" * 40)}, "carried": [rebased]}
         self.assertTrue(land.covers(TASK, read, {"patch": "later", "contents": {**rebased["contents"], "docs/backlog/new.md": entry(NONE, "c" * 40)}}))
         self.assertFalse(land.covers(TASK, {**read, "carried": []}, {**rebased}))
+
+
+class TaskItem(unittest.TestCase):
+    """`land.item_of_ask`: the backlog item a task was started from, found from its ask and the base."""
+
+    ROOTS = ("/lem-unit/repo", "/private/lem-unit/repo")
+    # the files of the base commit
+    BASE = {"docs/backlog/two-guides.md", "docs/backlog/old/two-guides.md", "docs/backlog/notes.txt", "docs/two-guides.md"}
+
+    def item(self, ask: str) -> str | None:
+        return land.item_of_ask(ask, FOLDER, self.ROOTS, self.BASE.__contains__)
+
+    def test_the_path_alone_as_the_board_and_the_night_write_it(self) -> None:
+        self.assertEqual(self.item("docs/backlog/two-guides.md\n"), "docs/backlog/two-guides.md")
+        self.assertEqual(self.item("  docs/backlog/two-guides.md  "), "docs/backlog/two-guides.md")
+        self.assertEqual(self.item("/lem-unit/repo/docs/backlog/two-guides.md\n"), "docs/backlog/two-guides.md")
+        self.assertEqual(self.item("/private/lem-unit/repo/docs/backlog/two-guides.md"), "docs/backlog/two-guides.md")
+
+    def test_an_ask_with_a_word_beside_the_path_has_no_item(self) -> None:
+        self.assertIsNone(self.item("Do docs/backlog/two-guides.md"))
+        self.assertIsNone(self.item("docs/backlog/two-guides.md, and keep the README short"))
+        self.assertIsNone(self.item("docs/backlog/two-guides.md\nand the README too"))
+        self.assertIsNone(self.item("`docs/backlog/two-guides.md`"))
+
+    def test_a_path_outside_the_folder_or_one_the_base_lacks_is_no_item(self) -> None:
+        self.assertIsNone(self.item("docs/two-guides.md"))
+        self.assertIsNone(self.item("docs/backlog/old/two-guides.md"))
+        self.assertIsNone(self.item("docs/backlog/notes.txt"))
+        self.assertIsNone(self.item("docs/backlog/gone.md"))
+        self.assertIsNone(self.item("docs/backlog/../backlog/two-guides.md"))
+        self.assertIsNone(self.item("/elsewhere/repo/docs/backlog/two-guides.md"))
+        self.assertIsNone(self.item("/lem-unit/repo-old/docs/backlog/two-guides.md"))
+        self.assertIsNone(self.item(""))
 
 
 class Unfiled(unittest.TestCase):

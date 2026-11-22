@@ -259,4 +259,34 @@ else
 fi
 project --repo "$BLG" state judged dropped "the test is over" >/dev/null
 
+# A task started from a backlog item, whose ask is the item's path alone as the board's "Start a task" writes it,
+# removes that item on its branch: propose stops while the tip holds it and names it, and after a builder's git rm
+# the checks run again, the review still covers the change, and the pull request opens. Which ask names an item,
+# and what a review covers, is tests/unit/test_backlog.py's.
+backlog_repo backlog-own
+OWN=$WORK/backlog-own
+task_in "$OWN" from-item app.txt two && read_in "$OWN" from-item
+printf '%s\n' docs/backlog/existing.md > "$OWN/.lem/state/tasks/from-item/ask.txt"
+tree=$(project --repo "$OWN" worktree-dir from-item)
+polished=$(land --repo "$OWN" start from-item >/dev/null && land --repo "$OWN" base from-item >/dev/null && land --repo "$OWN" polish from-item | field 'd["item"]')
+land --repo "$OWN" polish from-item --done >/dev/null && land --repo "$OWN" checks from-item >/dev/null
+land --repo "$OWN" read from-item --record "$(clean from-item 1)" >/dev/null
+stopped=$(land --repo "$OWN" propose from-item --title "fix: from-item" --notes "$NOTES" 2>&1 || true)
+git -C "$tree" rm -q -- docs/backlog/existing.md && git -C "$tree" commit -q -m "docs(backlog): the task's item is done" -- docs/backlog/existing.md
+unchecked=$(land --repo "$OWN" propose from-item --title "fix: from-item" --notes "$NOTES" 2>&1 || true)
+land --repo "$OWN" checks from-item >/dev/null
+due=$(land --repo "$OWN" read from-item | field 'd["due"]')
+opened=$(land --repo "$OWN" propose from-item --title "fix: from-item" --notes "$NOTES" | field '(d["green"], d["tip"])')
+if [ "$polished" = docs/backlog/existing.md ] \
+  && grep -qF "from-item was started from the backlog item docs/backlog/existing.md (its ask is that path), and the branch still holds it" <<<"$stopped" \
+  && grep -qF "\`git -C $tree rm -q -- docs/backlog/existing.md\`" <<<"$stopped" && ! grep -q Traceback <<<"$stopped" \
+  && grep -qF "no green check is on record for this tip; \`lem land checks from-item\` comes first" <<<"$unchecked" \
+  && [ "$due" = none ] && [ "$opened" = "(True, '$(git -C "$tree" rev-parse HEAD)')" ] \
+  && [ -z "$(git -C "$tree" ls-files docs/backlog)" ] && [ "$(grep -c '"event": "gate", "task": "from-item"' "$OWN/.lem/state/events.jsonl")" = 2 ]; then
+  pass "a task started from a backlog item stops at propose while its branch holds the item, and after a builder's git rm and a new run of the checks the review still covers it and the pull request opens"
+else
+  fail "the task's own item: $polished / $stopped / $unchecked / $due / $opened / $(git -C "$tree" ls-files docs/backlog | tr '\n' ' ')"
+fi
+project --repo "$OWN" state from-item dropped "the test is over" >/dev/null
+
 finish

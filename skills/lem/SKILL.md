@@ -371,7 +371,8 @@ from there to the first `read.skip.asked`, `criteria.read.start` or `criteria.ap
 scout starts and when its report is written), `criteria.read.start by=lem|lead` (it ends at
 `criteria.read`), `investigation.start type=fix|question` (it ends at `investigation`), and
 `builder.start job=JOB` for a builder's job, `task N of M`, `the small change` (the fast track's builder), `the repair of a
-conflict with the base`, `the repair of a failed check` or `the fix of a review's findings` (it
+conflict with the base`, `the repair of a failed check`, `the fix of a review's findings` or `the
+removal of the task's item` (it
 ends at the next state block or step of the landing). Logged by `land.py` itself:
 `polish.start before=TIP` (it ends at `polish`), `gate.start tip=TIP commands:=N`, the start of
 the checks (it ends at `gate.end`) and `review.start attempt:=N floor=KIND`, once for the

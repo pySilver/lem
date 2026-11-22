@@ -27,7 +27,8 @@ Your brief gives you one of six jobs:
   that fails because of the bug, and no file of the application changes; for a question, you commit
   nothing. Rules 3 and 9 below are replaced by that file's test and report.
 - **It names `prompts/landing.md` and a job of the landing**: the repair of a conflict with the
-  base, the polish pass, the repair of a failed check, or the fix of a review's findings. Read
+  base, the polish pass, the repair of a failed check, the fix of a review's findings, or the
+  removal of the task's item. Read
   that file and do the job it gives under that name. It allows what rules 5 and 6 forbid
   otherwise, and it says what your reply holds.
 
