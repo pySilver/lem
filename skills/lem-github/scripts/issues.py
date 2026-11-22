@@ -45,6 +45,7 @@ if sys.version_info < (3, 11):
 
 import argparse
 import contextlib
+import importlib
 import io
 import json
 import os
@@ -57,7 +58,8 @@ from pathlib import Path
 SCRIPTS = Path(__file__).resolve().parents[2] / "lem" / "scripts"
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
-import project  # noqa: E402  (the settings, the tasks and the record of each step)
+# the settings, the tasks and the record of each step
+project = importlib.import_module("project")
 
 # origin on GitHub, in the three forms git takes, as OWNER/REPO
 ORIGIN = re.compile(r"(?:https://github\.com/|ssh://git@github\.com/|git@github\.com:)(?P<repo>[^/\s:]+/[^/\s]+?)(?:\.git)?/?")
