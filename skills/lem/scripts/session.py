@@ -456,8 +456,12 @@ def shell_word(word: str) -> str:
 
 
 def brief_text(slug: str, phase: str, why: str, directory: Path, main: Path, worktree: Path | None) -> str:
+    """The text of `session.md`. Its first line names `prompts/session.md` by its place in the plugin,
+    found through `lem version`, and never by the folder of this Lem: the plugin's folder changes with
+    each update, and a session started after one reads the texts of the Lem whose `lem` is on its PATH,
+    the one whose scripts it runs."""
     return "\n".join([
-        f"Read {SKILL / 'prompts' / 'session.md'} and follow it.", "",
+        "Read `skills/lem/prompts/session.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.", "",
         f"task: {slug}",
         f"phase: {phase}",
         f"opened because: {why}",

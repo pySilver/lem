@@ -204,7 +204,7 @@ The task's own session, in the shape, from its first message.
    task directory, with this and nothing more:
 
    ```
-   Read SKILL_DIR/prompts/lead.md and follow it.
+   Read `skills/lem/prompts/lead.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.
    task: SLUG
    branch: the branch of step 2
    worktree: the path `lem project worktree-dir SLUG` prints
@@ -214,13 +214,15 @@ The task's own session, in the shape, from its first message.
 
    For a complete request that somebody else wrote, and for a task of the night, add the line
    `request by: someone else`. The brief says nothing about the code, so it cannot say anything
-   wrong about it. The ask is in `task.md`, in the owner's words. The brief is a file because a
-   task may wait in the queue or get a second lead, and each start has to find the same answers:
-   an ask of `/lem plan` writes `stop after the plan: yes` here, and that line is what keeps a
-   plan from being built. When the owner called the task careful in the ask, add the line
-   `careful: the owner says so` and log his words, as `stages/correct.md` says. The lead still
-   writes the plan: it reads that line as a yes (`stages/plan.md`, step 2), and the plan talk
-   needs a plan to talk about.
+   wrong about it. Its first line, as the first line of every brief a stage writes, names the
+   standing text by its place in the plugin and never by a folder: the plugin's folder changes with
+   each update, and the `lem` on the reader's PATH is the Lem loaded when it starts. The ask is in
+   `task.md`, in the owner's words. The brief is a file because a task may wait in the queue or
+   get a second lead, and each start has to find the same answers: an ask of `/lem plan` writes
+   `stop after the plan: yes` here, and that line is what keeps a plan from being built. When the
+   owner called the task careful in the ask, add the line `careful: the owner says so` and log his
+   words, as `stages/correct.md` says. The lead still writes the plan: it reads that line as a yes
+   (`stages/plan.md`, step 2), and the plan talk needs a plan to talk about.
 7. **Does it wait for another task?** In two cases, and in no other:
    - *his order*, as step 1 read it, while the task he named has not landed or been answered;
    - *a need*: the later ask needs what the earlier one changes, while the earlier one has not
@@ -377,7 +379,7 @@ queued task").
 2. **The brief**, `brief.md` in the task directory, with this and nothing more:
 
    ```
-   Read SKILL_DIR/prompts/small.md and follow it.
+   Read `skills/lem/prompts/small.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.
    task: SLUG
    branch: the branch of step 2 of "The request"
    worktree: the path `lem project worktree-dir SLUG` prints

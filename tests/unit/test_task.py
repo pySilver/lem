@@ -198,7 +198,7 @@ class FirstLine(unittest.TestCase):
     def test_the_fast_track_quotes_its_criterion(self):
         self.write("ask.txt", "fix the typo recieve in the README\n")
         self.write("criteria.md", "## Acceptance criteria\n\nSize: small, because one word.\n\n1. The README says receive, not recieve.\n")
-        self.write("brief.md", "Read SKILL_DIR/prompts/small.md and follow it.\ntask: readme-receive-typo\nbranch: docs/readme-receive-typo\n")
+        self.write("brief.md", "Read `skills/lem/prompts/small.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.\ntask: readme-receive-typo\nbranch: docs/readme-receive-typo\n")
         self.assertEqual(self.say("building", "small change: one builder", "type: docs, because a word of the README"),
                          'docs: "the README says receive, not recieve". Branch docs/readme-receive-typo. '
                          "Fast track: one builder, the checks, one read, then the pull request. Nothing waits for you. "
@@ -208,7 +208,7 @@ class FirstLine(unittest.TestCase):
         self.write("ask.txt", "SHOP-14\n")
         self.write("ticket.txt", "SHOP-14\n")
         self.write("criteria.md", "## Acceptance criteria\n\nSize: small, because one word.\n\n1. The footer says Terms.\n")
-        self.write("brief.md", "Read SKILL_DIR/prompts/small.md and follow it.\nbranch: fix/shop-14-footer-terms\nrequest by: someone else\n")
+        self.write("brief.md", "Read `skills/lem/prompts/small.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.\nbranch: fix/shop-14-footer-terms\nrequest by: someone else\n")
         fast = ('fix: "the footer says Terms". Branch fix/shop-14-footer-terms. Fast track: one builder, the checks, one read, then the pull request. ')
         # with the owner there, the first block is the wait for his yes, before the builder
         self.assertEqual(self.say("held", project.FAST_WAIT, "type: fix, because the footer is wrong today"),
@@ -228,7 +228,7 @@ class FirstLine(unittest.TestCase):
     def test_the_standard_track_with_an_interview_quotes_the_outcome(self):
         self.write("ask.txt", "Add the gift note to the CSV export, Ania asked twice\n")
         self.write("task.md", "# Gift note\n\n## Outcome\n\nAn export holds the gift note. The shop reads it.\n\n## Done when\n\n- a row\n")
-        self.write("brief.md", "Read SKILL_DIR/prompts/lead.md and follow it.\nbranch: feat/gift-note-in-export\nstop after the plan: no\n")
+        self.write("brief.md", "Read `skills/lem/prompts/lead.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.\nbranch: feat/gift-note-in-export\nstop after the plan: no\n")
         self.assertEqual(self.say("held", "the interview waits for the owner", "type: feat, because the export gets a column"),
                          'feat: "an export holds the gift note". Branch feat/gift-note-in-export. Standard track: an interview here now, '
                          "then acceptance criteria for your yes. After that it runs to the pull request without you. Wrong read? /lem be-careful.")
@@ -252,7 +252,7 @@ class FirstLine(unittest.TestCase):
     def test_a_complete_request_names_what_stands_in_for_the_interview(self):
         self.write("ask.txt", "Export the gift note\n")
         self.write("ticket.txt", "SHOP-12\n")
-        self.write("brief.md", "Read SKILL_DIR/prompts/lead.md and follow it.\nbranch: shop-12-export-the-gift-note\nrequest by: someone else\n")
+        self.write("brief.md", "Read `skills/lem/prompts/lead.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.\nbranch: shop-12-export-the-gift-note\nrequest by: someone else\n")
         said = self.say("building", "lead: builder", "type: feat, because a new column")
         self.assertEqual(said, 'feat: "export the gift note". Branch shop-12-export-the-gift-note. Standard track, with no interview, since the ticket '
                                "says what is wanted: a lead writes acceptance criteria, the personas read them, and they wait for your yes. "
@@ -285,7 +285,7 @@ class FirstLine(unittest.TestCase):
 
     def test_a_queued_task_says_what_it_waits_for(self):
         self.write("ask.txt", "Put the gift note on the label too\n")
-        self.write("brief.md", "Read SKILL_DIR/prompts/small.md and follow it.\nbranch: feat/note-on-label\n")
+        self.write("brief.md", "Read `skills/lem/prompts/small.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.\nbranch: feat/note-on-label\n")
         said = self.say("queued", "it waits for the export", "after: gift-note-in-export", "type: feat, because a new line")
         # the wait comes before the steps of the track, which run when it ends
         self.assertEqual(said, 'feat: "put the gift note on the label too". Branch feat/note-on-label. '
@@ -295,7 +295,7 @@ class FirstLine(unittest.TestCase):
 
     def test_a_task_queued_by_his_order_says_so_and_his_word_that_starts_it(self):
         self.write("ask.txt", "After one-lem-parallel-landings: unit cases for the functions that are pure today\n")
-        self.write("brief.md", "Read SKILL_DIR/prompts/lead.md and follow it.\nbranch: test/tests-at-the-unit-level\nstop after the plan: no\n")
+        self.write("brief.md", "Read `skills/lem/prompts/lead.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.\nbranch: test/tests-at-the-unit-level\nstop after the plan: no\n")
         order = "the owner's order: \"After one-lem-parallel-landings\""
         said = self.say("queued", order, "after: one-lem-parallel-landings", "type: test, because tests only", "then: the interview")
         self.assertEqual(said, 'test: "after one-lem-parallel-landings: unit cases for the functions that are pure today". '
@@ -303,7 +303,7 @@ class FirstLine(unittest.TestCase):
                                '"start task now" starts it before that. Then the standard track: an interview here, then acceptance '
                                "criteria for your yes. After that it runs to the pull request without you. Wrong read? /lem be-careful.")
         # the fast track's line puts his word in place of "Nothing waits for you"
-        self.write("brief.md", "Read SKILL_DIR/prompts/small.md and follow it.\nbranch: test/tests-at-the-unit-level\n")
+        self.write("brief.md", "Read `skills/lem/prompts/small.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.\nbranch: test/tests-at-the-unit-level\n")
         fast = self.say("queued", order, "after: one-lem-parallel-landings", "type: test, because tests only", "then: the fast track")
         self.assertIn("as you said; \"start task now\" starts it before that. Then the fast track: one builder,", fast)
         self.assertNotIn("Nothing waits for you", fast)
@@ -325,7 +325,7 @@ class FirstLine(unittest.TestCase):
         task.mkdir()
         (task / "ask.txt").write_text("/lem After the gift note: the export keeps the notes in their order\n")
         (task / "task.md").write_text("# Notes in order\n\n## Outcome\n\nThe export keeps the notes in their order.\n")
-        (task / "brief.md").write_text("Read SKILL_DIR/prompts/lead.md and follow it.\nbranch: feat/export-notes-in-order\nstop after the plan: no\n")
+        (task / "brief.md").write_text("Read `skills/lem/prompts/lead.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.\nbranch: feat/export-notes-in-order\nstop after the plan: no\n")
         hold = ['the order waits for the owner: "After the gift note"', "type: feat, because a new order"]
         return task, "2026-11-21T10:00Z held: " + "\n".join(hold)
 
@@ -381,7 +381,7 @@ class FirstLine(unittest.TestCase):
     def test_another_session_names_the_task_and_its_commands(self):
         self.write("ask.txt", "the footer says Terms, not Terms and Conditions\n")
         self.write("criteria.md", "## Acceptance criteria\n\nSize: small, because one word.\n\n1. The footer says Terms.\n")
-        self.write("brief.md", "Read SKILL_DIR/prompts/small.md and follow it.\nbranch: fix/footer-terms\n")
+        self.write("brief.md", "Read `skills/lem/prompts/small.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.\nbranch: fix/footer-terms\n")
         lines = ("building", ["small change: one builder", "type: fix, because the footer is wrong today"], "", None, False)
         self.assertEqual(project.opening_line_of(self.task, self.main, *lines, task="footer-terms"),
                          'footer-terms · fix: "the footer says Terms". Branch fix/footer-terms. '

@@ -158,9 +158,10 @@ landing up as after a cut-off.
      started twice and nobody answered. Go to step 6; the request is not green, and its first
      lines say why.
    - `due` is `review`: you read no diff, so the review is a fresh agent's. `spawn-builder` with
-     one line, `Read SKILL_DIR/prompts/review.md and follow it.`, and under it the task's slug,
-     its worktree, its task directory and the path of `read.json`. That
-     agent changes nothing. It first reads the diff against each of the project's topics
+     one line,
+     ``Read `skills/lem/prompts/review.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.``,
+     and under it the task's slug, its worktree, its task directory and the path of `read.json`.
+     That agent changes nothing. It first reads the diff against each of the project's topics
      (`topics` in `read.json`, the main checkout's) and makes the careful call, the last of the
      three and the only one at the code itself: `careful` with one line of why in its record. Then
      it chooses what the change gets, within the floor `read.json` names: one read for a short and
@@ -366,7 +367,7 @@ The brief for each builder of this stage is these lines and nothing more. Its st
 `prompts/landing.md`, so that you do not say a step again in your own words:
 
 ```
-Read SKILL_DIR/prompts/landing.md and do the job named here.
+Read `skills/lem/prompts/landing.md` in the folder that `lem version` prints as `root`, and do the job named here; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.
 job: the repair of a conflict with the base | the polish pass | the repair of a failed check | the fix of a review's findings
 task: SLUG
 worktree: the worktree's absolute path

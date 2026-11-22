@@ -55,10 +55,11 @@ if [ "$(field '(d["session"], d["phase"], d["already"])' <<<"$first" 2>&1)" = "(
   && [ "$(field '(d["session"], d["already"])' <<<"$second" 2>&1)" = "('S-1', True)" ] \
   && [ "$made" = "$want" ] && calls_of move top | grep -qF '"S-1"' && [ -z "$(calls_of session select)" ] \
   && grep -qF "unrecognized arguments: --focus" <<<"$focused" && [ "$(tail -n 1 <<<"$focused")" = "exit 2" ] \
-  && grep -qxF "Read $PWD/skills/lem/prompts/session.md and follow it." <<<"$brief" && grep -qxF "phase: shape" <<<"$brief" \
+  && [ "$(head -n 1 <<<"$brief")" = "Read \`skills/lem/prompts/session.md\` in the folder that \`lem version\` prints as \`root\`, and follow it; when \`lem version\` fails, stop and say that \`lem\` is not on the PATH, with \`lem doctor\` as the check." ] \
+  && ! grep -qF "$PWD/skills" <<<"$brief" && grep -qxF "phase: shape" <<<"$brief" \
   && grep -qxF "opened because: new" <<<"$brief" && grep -qxF "worktree: none yet" <<<"$brief" \
   && [ "$(events)" = "[('session.open', 'S-1', 'shape', 'new')]" ] && git -C "$R" check-ignore -q "$STATE/tasks/gift-note/session.md"; then
-  pass "open makes one session of the task in the caller's workspace, with no focus and no flag that gives it, LEM_TASK, the compaction number and Lem's default seat in its launch line and session.md as its first read, then moves it to the top and logs it; a second open prints the one that runs"
+  pass "open makes one session of the task in the caller's workspace, with no focus and no flag that gives it, LEM_TASK, the compaction number and Lem's default seat in its launch line and session.md as its first read, which names its standing text through lem version and no folder of the Lem that wrote it, then moves it to the top and logs it; a second open prints the one that runs"
 else
   fail "open twice: $first / $second / $focused / $made / $want / $brief / $(events)"
 fi
@@ -241,7 +242,7 @@ sess wait footer-terms --first-line --every 0.1 > "$WORK/first-line" 2>&1 &
 waiter=$!
 sleep 0.3
 printf '%s\n' '## Acceptance criteria' '' 'Size: small, because one word.' '' '1. The footer says Terms.' > "$STATE/tasks/footer-terms/criteria.md"
-printf '%s\n' 'Read SKILL_DIR/prompts/small.md and follow it.' 'task: footer-terms' 'branch: fix/footer-terms' > "$STATE/tasks/footer-terms/brief.md"
+printf '%s\n' "Read \`skills/lem/prompts/small.md\` in the folder that \`lem version\` prints as \`root\`, and follow it; when \`lem version\` fails, stop and say that \`lem\` is not on the PATH, with \`lem doctor\` as the check." 'task: footer-terms' 'branch: fix/footer-terms' > "$STATE/tasks/footer-terms/brief.md"
 pr state footer-terms building "small change: one builder" "type: fix, because the footer is wrong today" >/dev/null
 wait "$waiter"
 if [ "$(field 'd["then"]' <<<"$opened" 2>&1)" = "lem session wait footer-terms --first-line" ] && [ "$(field 'd["gone"]' < "$WORK/first-line" 2>&1)" = False ] \

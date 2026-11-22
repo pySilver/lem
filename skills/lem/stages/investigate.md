@@ -24,7 +24,7 @@ task.
 2. **Start the investigator**, a fresh builder (`spawn-builder`) with the brief
 
    ```
-   Read SKILL_DIR/prompts/investigator.md and follow it.
+   Read `skills/lem/prompts/investigator.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.
    request: TASK_DIRECTORY/ask.txt
    type: fix or question
    worktree: the path `lem project worktree-dir SLUG` prints

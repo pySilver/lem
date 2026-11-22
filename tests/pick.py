@@ -66,9 +66,10 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     (("skills/lem-panel/scripts/*",), ("test-ask-expert", "unit")),
     (("skills/lem-ask-expert/scripts/*",), ("unit",)),
     # Texts a suite reads: every text under skills/ and agents/, none of which may tell anyone to run
-    # a script by its path (lem-command).
+    # a script by its path (lem-command), nor name a Lem text by a folder in a brief's first line
+    # (tests/unit/test_session.py).
     (("skills/*/SKILL.md",), ("test-gate-panel",)),
-    (("skills/*", "agents/*"), ("lem-command",)),
+    (("skills/*", "agents/*"), ("lem-command", "unit")),
     # Lem's page on GitHub Pages, and the workflow whose copy step the suite runs
     (("site/*", ".github/workflows/pages.yml"), ("test-site",)),
     (("docs/settings.md", "assets/night.py", "assets/lem.svg", "assets/lem-night.svg", "assets/lem-mark.svg", "assets/lem-mark-night.svg"), ("lem-settings",)),
