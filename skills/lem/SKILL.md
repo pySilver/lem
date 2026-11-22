@@ -14,7 +14,9 @@ code in `.claude/rules`. This skill holds the flow and knows no project.
 The owner is a developer whose attention is short, and a task takes one of two tracks.
 The fast track is for one plain change: one acceptance criterion in his own sentence, nothing careful
 and no question open, whatever its type (a fix of one rule, a typo, a rename, a version bump, a line
-of a document). One builder makes it and files in the backlog what it saw outside it, the machine
+of a document). One builder makes it and judges what it saw outside it by the bar of rule 6 of
+the builder's standing rules (`agents/lem-builder.md`, or a project's own): it fixes a cheap
+defect in a commit of its own and files an item only over the bar. The machine
 checks and one read review it, it has no polish pass, and the merge agent reads it and merges it. Every other request takes the standard track, and the flow asks for his attention at
 three touches: the shape, an interview while a scout reads the code around his ask, which ends
 with the criteria that the personas read before he does and that he approves, so that they are
@@ -36,7 +38,8 @@ report sets the track. A question is the same work, and ends `answered`, with
 a report and nothing to merge. Between the touches a task builds without him. A plan whose change makes a document
 false ends with a documentation task. After the last task a fresh builder makes the polish pass, a
 short fixed list of what a build leaves behind (a comment made false, a leftover, code that reads
-badly, a document made false, the defects outside the task, fixed when cheap or filed), and changes
+badly, a document made false, the defects outside the task, each by the bar of rule 6 of the
+builder's standing rules: fixed when cheap, filed only over the bar), and changes
 no behavior. Then the change passes the machine checks and a
 review by an agent that did not build it, as large as the change needs. Nothing is reviewed after
 the merge, since reviews queued after a landing stay open (43 of 48 about 28 hours later:
@@ -284,7 +287,8 @@ shared by every worktree, never committed and not removed with a worktree. It ho
 - `directions.md`: what the owner named in the interview or in the talk before it (a technology, a
   library, an approach, an option he picked), one line each in his words. The plan follows it.
 - `outside.md`: the defects outside the request that the interview found, one line each with its
-  place. The landing's polish pass fixes or files each one.
+  place. The landing's polish pass takes each one by the bar of rule 6 of the builder's standing
+  rules.
 - `criteria.json`: the criteria the owner approved, word for word, with a digest, who approved them
   and when, and the number of the approval, with the earlier approvals under `history`. For a
   task on the standard track from a complete request the lead's read freezes them there too (`by: read`), which is never his yes. Only `lem criteria approve` writes it; `lem criteria approved SLUG` prints it, and the

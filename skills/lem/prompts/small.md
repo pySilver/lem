@@ -36,12 +36,16 @@ and for a change to what a person sees, "A picture" and "A screenshot" in
    that diff at the end. The task's session moves it to the standard track from there.
 6. **Commit** on the task's branch with a semantic message. Never push, merge or land. Then
    `git status --short` is empty: remove what your runs left untracked, such as a `__pycache__`.
-7. **File what you saw outside the change.** The fast track has no polish pass, so a defect in
-   code outside your change, one the base commit has too, is yours to file and never to fix: one
-   item for each, in the item format of rule 6 of your standing rules, with the last line `Seen
-   outside the change by the builder of task SLUG (DATE); the base commit has it.` Commit the
-   items in one commit of their own, after the change's: `docs(backlog): what the builder of SLUG
-   saw outside it`. You ask nobody; the pull request lists them.
+7. **What you saw outside the change.** The fast track has no polish pass, so a defect in code
+   outside your change, one the base commit has too, is yours to judge by the bar of rule 6 of
+   your standing rules: you are the agent at work on the branch. A cheap one you fix, each in a
+   commit of its own after the change's, with a semantic message, and you run the tests of the file
+   it touches as step 4 says. One under the bar, and one that an open item of the backlog folder
+   already names, you neither fix nor file: it is a line of your reply. One over the bar that no
+   open item names is one item, in the item format of rule 6, with the last line `Seen outside the
+   change by the builder of task SLUG (DATE); the base commit has it.` Commit the items in one
+   commit of their own, after the change's: `docs(backlog): what the builder of SLUG saw outside
+   it`. You ask nobody; the pull request lists all three.
 8. **The criterion's line.** Under the criterion in `criteria.md`, three spaces in: `- test:
    `COMMAND` in `FILE``, each file the test needs in its own backticks, or the `- no test:` line of
    step 3. Then `lem criteria --repo WORKTREE record SLUG`, which refuses a
@@ -52,7 +56,9 @@ and for a change to what a person sees, "A picture" and "A screenshot" in
      picture: REASON` with the reason of step 2, or `no picture: nothing on a screen changed`;
    - the test and that it failed before the change, or the `no test:` line;
    - the checks you ran, each with the exact last line of its output;
-   - the items you filed, by their paths, or `none`;
+   - what you saw outside the change, as three short lists on the one line: fixed (the file, the
+     commit, what was wrong), seen, not filed (the place, and why or the open item), and filed (the
+     item's path), each `none` when it has nothing;
    - whether the fast track still fits, and why in a few words.
 
    No proof of the state and record commands: their scripts refuse what is wrong, and the task's
