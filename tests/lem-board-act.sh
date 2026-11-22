@@ -469,8 +469,9 @@ if [ "$(field '(d["ran"], d["owed"], d["wait"])' <<<"$refused")" = "([['merge', 
   && [ "$(field 'bool(__import__("re").fullmatch(r"the moved base [0-9a-f]+ is safe; it merges", d["feed"]["text"]))' <<<"$merged")" = True ] \
   && [ "$(field 'd["feed"]["sub"]' <<<"$merged")" = "docs-first only added docs-first.txt, which this change neither edits nor reads." ] \
   && [ "$(events "$SAFE" gate.start code-second)" = "$CHECKS_RAN" ] && [ "$(kept_in "$SAFE" code-second proposed)" = "$PROPOSED" ] \
-  && [ "$(git -C "$SAFE.origin.git" log -2 --format=%s main)" = "$(printf '%s\n' 'fix: code-second' 'fix: docs-first')" ]; then
-  pass "a merge that meets the base another merge moved waits for the merge agent's read of what moved; its Base: safe. answers Lem's refusal, and the server's next look merges the task on the moved base with no new run of the checks, the board showing the read and its why"
+  && [ "$(git -C "$SAFE.origin.git" log -2 --format=%s main)" = "$(printf '%s\n' 'fix: code-second' 'fix: docs-first')" ] \
+  && [ "$(git -C "$SAFE.origin.git" show main:docs-first.txt)" = yes ] && [ "$(git -C "$SAFE.origin.git" show main:code-second.txt)" = yes ]; then
+  pass "a merge that meets the base another merge moved waits for the merge agent's read of what moved; its Base: safe. answers Lem's refusal, and the server's next look merges the task on the moved base with no new run of the checks, keeping what moved, the board showing the read and its why"
 else
   fail "the server's merge after a safe read of a moved base: $refused / $kept / $moved / $said / $read_now / $merged / $(events "$SAFE" gate.start code-second) vs $CHECKS_RAN / $(git -C "$SAFE.origin.git" log -3 --format=%s main)"
 fi

@@ -48,8 +48,9 @@ NOCODEX=$WORK/nocodex
 # A stand-in for GitHub's `gh` on PATH, for every repository whose origin is on GitHub (on_github): it finds the
 # bare repository the origin stands for through git's own rewrite of the address, keeps that origin's pull requests in a
 # file beside it (ORIGIN.gh.json, with one line of each call in ORIGIN.gh.json.log), and merges by moving the base
-# branch there: one new commit of the head's tree with --squash (its message the --subject and the --body), the head
-# itself with --rebase, or its commits made again on the base when the base moved since. GH_REFUSE=LINE makes a merge
+# branch there: one new commit on the base with --squash, of the head merged into the base as GitHub does (its message
+# the --subject and the --body), the head itself with --rebase, or its commits made again on the base when the base moved
+# since; a squash that conflicts is refused. GH_REFUSE=LINE makes a merge
 # fail with that line, as GitHub's rules do; GH_BASE_FIRST=COMMIT moves the base there just before a merge, as a merge on
 # GitHub outside Lem would; GH_EDIT_REFUSE=LINE makes `pr edit` fail with that line.
 cat > "$WORK/gh-standin.py" <<'PY'
@@ -110,7 +111,11 @@ elif args[:2] == ["pr", "merge"]:
     merged = head
     who = ["-c", "user.name=t", "-c", "user.email=t@t"]
     if "--squash" in args:
-        merged = git(*who, "commit-tree", "-p", base, "-m", opt("--subject"), *(["-m", opt("--body")] if opt("--body") else []), head + "^{tree}", where=origin)
+        # what moved on the base since the head's merge base stays: the head merged into the base, never the head's tree alone
+        tree = subprocess.run(["git", "-C", origin, "merge-tree", "--write-tree", base, head], capture_output=True, text=True)
+        if tree.returncode != 0:
+            sys.exit("Pull request is not mergeable: the merge commit cannot be cleanly created")
+        merged = git(*who, "commit-tree", "-p", base, "-m", opt("--subject"), *(["-m", opt("--body")] if opt("--body") else []), tree.stdout.split()[0], where=origin)
     elif subprocess.run(["git", "-C", origin, "merge-base", "--is-ancestor", base, head]).returncode != 0:
         # a rebase onto the base that moved: each commit of the head made again on it, as GitHub's rebase merge does
         merged = base

@@ -664,8 +664,9 @@ if [ "$(field '(d["base"], d["facts"]["moved"]["checks_ran_on"], d["facts"]["mov
   && grep -qxF "$line" "$MB/.lem/state/tasks/mb-safe/pr.md" && grep -qxF "$line" "$MB/.lem/state/tasks/mb-safe/state.md" \
   && [ "$(mb_kept mb-safe merged_by '(d["by"], d["after"], d["base"], d["checks_ran_on"])')" = "('merger', 'a read of the moved base', '$m3', '$m1')" ] \
   && [ "$started" = "('a read of the moved base', '${m3:0:9}')" ] && [ "$(mb_events mb-safe gate.start)" = "$starts" ] \
-  && [ "$(mb_logged mb-safe merge.review '(d["base"], d["base_call"])')" = "[('${m2:0:9}', 'safe'), ('${m3:0:9}', 'safe')]" ]; then
-  pass "a base that moved after the checks is read by a fresh merge agent with the commits and the files that moved beside the change; its read covers the base its brief named, so an answer recorded after main moved again covers no later base and the merge waits for a new read; a safe read merges with no new run of the checks, and the merge commit, the pull request's text, pr.md and the task's state name the base the checks ran on, the base it merged on and the read's why, also when the edit of the text failed once; a merge GitHub refuses writes no line"
+  && [ "$(mb_logged mb-safe merge.review '(d["base"], d["base_call"])')" = "[('${m2:0:9}', 'safe'), ('${m3:0:9}', 'safe')]" ] \
+  && [ "$(git -C "$MBO" show main:docs/board.md | grep -c '^move ')" = 2 ] && [ "$(git -C "$MBO" show main:safe.txt)" = yes ]; then
+  pass "a base that moved after the checks is read by a fresh merge agent with the commits and the files that moved beside the change; its read covers the base its brief named, so an answer recorded after main moved again covers no later base and the merge waits for a new read; a safe read merges with no new run of the checks and keeps what moved, and the merge commit, the pull request's text, pr.md and the task's state name the base the checks ran on, the base it merged on and the read's why, also when the edit of the text failed once; a merge GitHub refuses writes no line"
 else
   fail "a safe read of a moved base: $brief / $late / $beyond / $kept_refusal / $reread / $cleared / $gh_said / $untouched / $edit_said / $open_still / $commit_body / $merged / $started"
 fi
