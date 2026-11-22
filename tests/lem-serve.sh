@@ -76,14 +76,14 @@ fi
 
 T=$BASE/tasks/order-date-on-invoice
 tabs=""
-for tab in "" /criteria /checks /timeline /artifacts "?in=waits" /artifacts/report.md/; do tabs="$tabs $(code "$T$tab")"; done
+for tab in "" /criteria /checks /timeline /artifacts "?in=waits" "?in=done" /artifacts/report.md/; do tabs="$tabs $(code "$T$tab")"; done
 overview=$(got "$T" | words)
 frame=$(got -H 'Turbo-Frame: task' "$T")
-for view in waits backlog activity; do tabs="$tabs $(code "$BASE/$view")"; done
-if [ "$tabs" = " 200 200 200 200 200 200 404 200 200 200" ] && grep -qF "What we are building" <<<"$overview" \
+for view in waits backlog activity "done"; do tabs="$tabs $(code "$BASE/$view")"; done
+if [ "$tabs" = " 200 200 200 200 200 200 200 404 200 200 200 200" ] && grep -qF "What we are building" <<<"$overview" \
   && grep -qF "1 backlog item filed" <<<"$overview" && grep -qF "The invoice footer wraps on A5" <<<"$overview" \
   && grep -q '<turbo-frame id="task"' <<<"$frame" && ! grep -q 'id="col-you"' <<<"$frame"; then
-  pass "a task's Overview and each of its tabs and each view answer, Overview names the backlog item the task's branch filed, a request of the frame gets the panel alone, and a file the task does not have is not found"
+  pass "a task's Overview and each of its tabs and each view answer, the list of older ended tasks too and a task over it, Overview names the backlog item the task's branch filed, a request of the frame gets the panel alone, and a file the task does not have is not found"
 else
   fail "the task's pages: $tabs / ${overview:0:800}"
 fi

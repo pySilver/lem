@@ -1306,7 +1306,7 @@ def missing_panel(ctx, said: str) -> Markup:
         ctx.scope = "page"
 
 
-VIEW_PAGES = {"tasks": P.kanban_page, "waits": P.waits_page, "backlog": P.backlog_page, "activity": P.activity_page}
+VIEW_PAGES = {"tasks": P.kanban_page, "waits": P.waits_page, "backlog": P.backlog_page, "activity": P.activity_page, "done": P.older_page}
 
 
 def task_page(ctx) -> tuple[int, Markup]:
@@ -1334,7 +1334,7 @@ def frame_page(ctx) -> tuple[int, Markup]:
             status, ctx.panel = 404, missing_panel(ctx, str(missing))
     t = ctx.model.by_slug.get(ctx.task) if ctx.task else None
     repo = ctx.model.meta.get("repo") or ctx.workspace
-    title = f"{t.title} · Lem · {repo}" if t else f"{P.VIEW.get(ctx.view, P.VIEW['tasks'])['label']} · Lem · {repo}"
+    title = f"{t.title} · Lem · {repo}" if t else f"{P.UNDER.get(ctx.view, P.VIEW['tasks'])['label']} · Lem · {repo}"
     return status, page(P.head(title, ctx.asset), h("body", {"class": "app"}, P.task_frame(ctx)))
 
 

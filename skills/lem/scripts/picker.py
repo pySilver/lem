@@ -13,10 +13,10 @@ session lists that session's tasks.
 The rows come in the order a developer reads them: first what waits for the owner (a breaker's
 document, the criteria for his yes, a step of his, a task queued after a dropped one, a task its
 session stopped, a plan to read, a pull request to merge, a task with no session), in the groups of
-`lem project waiting`; then the tasks that build (ACTIVE), the newest first, with a parked one after them; then the tasks that ended in the
-last ENDED_DAYS days, the newest first; and last a row for the board of all tasks. A row's label is
-the task's ask in the owner's words, and its subtitle the state in the board's words, the track,
-the age of the newest state, and the pull request's number with green or not green.
+`lem project waiting`; then the tasks that build (ACTIVE), the newest first, with a parked one after them; then the tasks that ended last,
+the newest first, as many as the board's Done column draws (lem_board_model.DONE_SHOWN), however long ago they ended;
+and last a row for the board of all tasks. A row's label is the task's ask in the owner's words, and its subtitle the
+state in the board's words, the track, the age of the newest state, and the pull request's number with green or not green.
 
 A pick of a task whose newest session lives in agterm's tree with an agent in it (`lem session`'s
 `live`) selects that session (`agtermctl session select`), where the task's agent is. A task with
@@ -41,7 +41,7 @@ import os
 import re
 import shutil
 import subprocess
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
@@ -52,8 +52,6 @@ import project  # noqa: E402
 
 # The id of the row for the board of all tasks: a slug is lower-case words and hyphens, so no task has it.
 ALL = ":all"
-# How long an ended task keeps a row: a guess of 2026-11-18, long enough for last week's work, not measured.
-ENDED_DAYS = 7
 # The state of a task in the board's words: the board's own list (lem_board_model.STATUS).
 WORDS = {status: facts["label"] for status, facts in lem_board_model.STATUS.items()}
 # the board's word for a task with no state block, and for a builder that investigates before any lead
@@ -151,9 +149,9 @@ def rows(root: Path, now: datetime) -> list[dict]:
     building = [task for task in tasks.values() if task["slug"] not in seen and task["status"] not in project.ENDED]
     for task in sorted(sorted(building, key=newest, reverse=True), key=lambda task: ACTIVE.index(task["status"]) if task["status"] in ACTIVE else len(ACTIVE)):
         add(task["slug"])
-    lately = (now - timedelta(days=ENDED_DAYS)).strftime("%Y-%m-%dT%H:%MZ")
-    ended = [task for task in tasks.values() if task["status"] in project.ENDED and newest(task) >= lately]
-    for task in sorted(ended, key=newest, reverse=True):
+    # the ended tasks Done draws as cards, by the board's own number, so that the two lists cannot drift
+    ended = [task for task in tasks.values() if task["status"] in project.ENDED]
+    for task in sorted(ended, key=newest, reverse=True)[:lem_board_model.DONE_SHOWN]:
         add(task["slug"])
     count = len(tasks)
     out.append({"id": ALL, "label": "All tasks", "subtitle": f"the board of every task · {count} task{'s' if count != 1 else ''}"})

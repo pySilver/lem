@@ -98,6 +98,10 @@ LANES = [
     {"key": "done", "title": "Done", "actor": "done", "empty": "Nothing landed yet"},
 ]
 LANE = {lane["key"]: lane for lane in LANES}
+# The ended tasks Done draws as cards, the newest first: its head counts every ended task, and a page of the board
+# lists the rest. An unmeasured estimate of a column that fits one screen of the large board
+# (docs/plans/2026-11-21-done-column-shows-newest.md, 2026-11-21).
+DONE_SHOWN = 20
 # 'Proposed' is the pull request on GitHub.
 PHASES = ["Criteria", "Plan", "Build", "Checks", "Review", "Proposed", "Landed"]
 SMALL_PHASES = ["Change", "Checks", "Review", "Proposed", "Landed"]
@@ -933,6 +937,11 @@ def lanes_sorted(key: str, tasks: list) -> list:
     if key == "checks":
         return sorted(tasks, key=lambda t: (t.status != "landing", 0 if t.status == "landing" else t.since))
     return tasks
+
+
+def done_older(m: Model) -> list:
+    """The ended tasks Done draws no card for: those after its newest `DONE_SHOWN`, the newest first."""
+    return m.lane["done"][DONE_SHOWN:]
 
 
 # ---- what the views say ----
