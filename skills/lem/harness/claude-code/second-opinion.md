@@ -31,8 +31,20 @@ every report says that the reviewer is this machine's choice, and "same family" 
      `agtermctl session type --stdin --pane right --target "$AGTERM_SESSION_ID" --socket "$AGTERM_SOCKET" < FILE`.
      The line starts the agent with the reviewer's brief, `prompts/reviewer.md` in this skill's
      directory, by absolute path:
-     - Codex: `codex -m "MODEL" -c "model_reasoning_effort=EFFORT" "$(cat "PATH/prompts/reviewer.md")"`.
+     - Codex: `codex -m "MODEL" -c "model_reasoning_effort=EFFORT" -a never -c 'default_permissions="lem_review"' -c "permissions.lem_review.filesystem={\":root\"=\"read\",\"/tmp/mailbox-chat-$AGTERM_PANE_ID.txt\"=\"write\"}" "$(cat "PATH/prompts/reviewer.md")"`.
        A Codex pane receives mail only after its first prompt, and the brief is that prompt.
+       `$AGTERM_PANE_ID` stays as written: the reviewer pane's own shell expands it to its id.
+       The profile `lem_review` reads the whole machine and writes one file, the reviewer's
+       mailbox reply file `/tmp/mailbox-chat-<pane>.txt`, which the Codex mailbox recipe writes
+       before `mailbox-chat.py say --file`; a bare `-s read-only` refuses that file and stops the
+       talk (codex-cli 0.169.0, 2026-11-21), and `-a never` keeps a refused write from going to an
+       approval reviewer of the developer's own Codex configuration. In two plan talks in agterm
+       (codex-cli 0.169.0, 2026-11-22) Codex refused the reviewer's writes to the plan and to a
+       file beside its reply file, took `/tmp` for `/private/tmp` by itself, and sent the reply.
+       The profile does not hold a command that the developer's own Codex rules allow (an `allow`
+       prefix rule in `~/.codex/rules/`): it runs outside the sandbox, by Codex's design and by
+       his word for every Codex session, and the mailbox's own send is such a command.
+       The profile lives on this line only: Lem writes no file of the developer's Codex settings.
      - Claude Code: `claude --model "MODEL" --effort "EFFORT" --append-system-prompt "$(cat "PATH/prompts/reviewer.md")" "You are the reviewer. Wait for the first message."`
      Keep the quotes around each value you put in: a skill's folder with a space splits a bare
      path, and zsh stops a bare model such as `opus[1m]` with "no matches found".
@@ -72,5 +84,6 @@ every report says that the reviewer is this machine's choice, and "same family" 
 Say in the report which family reviewed. Two agents of one family agree more easily than two of
 different ones; the report says "same family" when that was the case.
 
-Not run yet: a Claude Code reviewer started this way, and a launch with a model or an effort flag
-(the flags are in each command's `--help`, read on 2026-11-14).
+Not run yet: a Claude Code reviewer started this way (its flags are in `claude --help`, read on
+2026-11-14), and the Codex line in a pane whose login shell is not fish: the line ran in fish
+only, and its status line showed the seat's model and effort (2026-11-22).
