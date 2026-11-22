@@ -192,7 +192,7 @@ split=$(ladder --chose "the last column" --by personas --vote "the merchant, opu
 alone_vote=$(ladder --chose "the last column" --by personas --vote "the merchant, opus=the last column" 2>&1 || true)
 bad_vote=$(status_of ladder --chose "the last column" --by personas --vote "the merchant" --vote "the clerk, opus=the last column")
 lines_after_refusals=$(grep -c '' "$lfile")
-gate=$(decide log ladder-task --what "The header's name" --chose "Gift note" --by gate --why "docs/rulings/headers.md: a header says what the cell holds" | field 'd["by"]')
+gate=$(decide log ladder-task --what "The header's name" --chose "Gift note" --by gate --why "docs/rulings.md, Headers: A header says what the cell holds." | field 'd["by"]')
 dialectic=$(ladder "${CASE[@]}" --chose "after the price" --by dialectic --level "personas=1 for the last column, 1 for after the price" --level "dialectic=no break" | field '(d["by"], d["levels"])')
 unsettled=$(ladder "${CASE[@]}" --chose "the last column" --by lead --unsettled --level "experts=split" | field '(d["by"], d["unsettled"])')
 not_lead=$(status_of ladder --chose "the last column" --by experts --unsettled)
