@@ -76,7 +76,8 @@ printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the README gets a
 project --repo "$DOCS" state note-in-readme held "the criteria wait for the owner" >/dev/null
 "$PY" -B "$SERVE" --add "$DEMO" >/dev/null && "$PY" -B "$SERVE" --add "$SHOP" >/dev/null && "$PY" -B "$SERVE" --add "$DOCS" >/dev/null
 # GitHub that answers slowly: the server's `gh` holds a `pr merge` while the file HOLD is there, and writes HOLD.held
-# when it starts to hold; a call while HOLD is not there goes to the stand-in at once.
+# when it starts to hold; a call while HOLD is not there goes to the stand-in at once. Each check that holds removes
+# the HOLD.held of the one before, so that only a hold of its own merge counts.
 HOLD=$WORK/gh-hold
 mkdir -p "$WORK/hold"
 printf '%s\n' '#!/bin/sh' "if [ \"\$1 \$2\" = 'pr merge' ] && [ -e '$HOLD' ]; then : > '$HOLD.held'; while [ -e '$HOLD' ]; do sleep 0.1; done; fi" \
@@ -94,6 +95,16 @@ post() {
 }
 words() { "$PY" -c 'import html, re, sys; t = sys.stdin.read(); t = re.sub(r"(?s)<(script|style|template|svg)\b.*?</\1>", " ", t); print(" ".join(html.unescape(re.sub(r"<[^>]+>", " ", t)).split()))'; }
 events() { grep -c "\"event\": \"$2\", \"task\": \"$3\"" "$1/.lem/state/events.jsonl" || true; }
+# until_for SECONDS COMMAND...: COMMAND again every 0.2 s until it succeeds, for at most SECONDS; exit 1 when the time
+# ran out. The block's own wait, which says that it ran out, where lib.sh's `soon` goes on silently.
+until_for() {
+  local end=$((SECONDS + $1))
+  shift
+  until "$@"; do
+    [ "$SECONDS" -lt "$end" ] || return 1
+    sleep 0.2
+  done
+}
 digest=$("$PY" -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest()[:16])' "$STATE/tasks/stock-on-product-page/criteria.md")
 
 waits=$(curl -fsS "$BASE/waits")
@@ -194,24 +205,38 @@ if [ "${stale%% *}" = 303 ] && grep -qF "Not done. The branch was proposed again
 else
   fail "the merge of a commit the confirm step did not show: $stale / $(status_in "$SHOP" word-in-file) / $(grep -o "Not done[^<]*" <<<"$stale_page" | head -c 300)"
 fi
+rm -f "$HOLD.held"
 : > "$HOLD"
 merged=$(post "$M/merge" "$SERVER" "confirm=yes" "tip=$TIP")
-soon test -e "$HOLD.held"
-# While GitHub holds the merge: the owner's yes to the criteria of a task of the docs on the same board, with a time
-# limit, since a yes that waits for the merge would wait for as long as the hold; and the merging task's page.
-docs_digest=$("$PY" -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest()[:16])' "$DOCS/.lem/state/tasks/note-in-readme/criteria.md")
-yes=$(curl -s -m 20 -o /dev/null -w '%{http_code} %{redirect_url}' -H "Origin: $SERVER" -H 'Sec-Fetch-Site: same-origin' \
-  --data-urlencode "digest=$docs_digest" "$SERVER/$HOST/docs/tasks/note-in-readme/approve" || true)
-yes_page=$(curl -fsS -m 20 "${yes#* }" | words || true)
-yes_kept=$("$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print((d["by"], d["number"]))' "$DOCS/.lem/state/tasks/note-in-readme/criteria.json" 2>/dev/null || true)
-merging_page=$(curl -fsS -m 20 "$M" | words || true)
-held=$( [ -e "$HOLD.held" ] && status_in "$SHOP" word-in-file || true)
-rm -f "$HOLD"
-if [ "$held" = open ] && [ "${yes%% *}" = 303 ] && grep -qF "Done. Your yes to the criteria is on record." <<<"$yes_page" && [ "$yes_kept" = "('owner', 1)" ] \
-  && grep -qF "Merging…" <<<"$merging_page"; then
-  pass "while GitHub holds a merge from the board, the owner's yes to the criteria of another repository's task is on record and its page comes back, and the merging task's page says Merging…"
+# held_or_ended: the server's merge of word-in-file holds in GitHub's `pr merge`, or it ended before it got there (its
+# page no longer says Merging…); a page that does not come back says neither
+held_or_ended() {
+  local page
+  [ -e "$HOLD.held" ] && return 0
+  page=$(curl -fsS -m 20 "$M" | words) || return 1
+  ! grep -qF "Merging…" <<<"$page"
+}
+until_for 300 held_or_ended || true
+if [ -e "$HOLD.held" ]; then
+  # While GitHub holds the merge: the owner's yes to the criteria of a task of the docs on the same board, with a time
+  # limit, since a yes that waits for the merge would wait for as long as the hold; and the merging task's page.
+  docs_digest=$("$PY" -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest()[:16])' "$DOCS/.lem/state/tasks/note-in-readme/criteria.md")
+  yes=$(curl -s -m 20 -o /dev/null -w '%{http_code} %{redirect_url}' -H "Origin: $SERVER" -H 'Sec-Fetch-Site: same-origin' \
+    --data-urlencode "digest=$docs_digest" "$SERVER/$HOST/docs/tasks/note-in-readme/approve" || true)
+  yes_page=$(curl -fsS -m 20 "${yes#* }" | words || true)
+  yes_kept=$("$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print((d["by"], d["number"]))' "$DOCS/.lem/state/tasks/note-in-readme/criteria.json" 2>/dev/null || true)
+  merging_page=$(curl -fsS -m 20 "$M" | words || true)
+  held=$(status_in "$SHOP" word-in-file)
+  rm -f "$HOLD"
+  if [ "$held" = open ] && [ "${yes%% *}" = 303 ] && grep -qF "Done. Your yes to the criteria is on record." <<<"$yes_page" && [ "$yes_kept" = "('owner', 1)" ] \
+    && grep -qF "Merging…" <<<"$merging_page"; then
+    pass "while GitHub holds a merge from the board, the owner's yes to the criteria of another repository's task is on record and its page comes back, and the merging task's page says Merging…"
+  else
+    fail "an act beside a merge that waits: $held / $yes / ${yes_page:0:300} / $yes_kept / $(grep -o "Merging.\{0,40\}" <<<"$merging_page" | head -1)"
+  fi
 else
-  fail "an act beside a merge that waits: $held / $yes / ${yes_page:0:300} / $yes_kept / $(grep -o "Merging.\{0,40\}" <<<"$merging_page" | head -1)"
+  rm -f "$HOLD"
+  fail "an act beside a merge that waits: the server's merge of word-in-file did not reach GitHub's pr merge (it ended first, or 300 s ran out), so no act ran beside it: $merged / $(curl -fsS -m 20 "$M" | words | grep -o "Merg.\{0,200\}" | head -1 || true)"
 fi
 soon test "$(status_in "$SHOP" word-in-file)" = landed
 soon grep -q '"event": "board.act", "task": "word-in-file"' "$SHOP/.lem/state/events.jsonl"
@@ -446,6 +471,9 @@ BEFORE=$(kept_in "$MOVE" second-move proposed)
 # The server merges first-move and GitHub holds its `gh pr merge`; meanwhile the server's duty starts the merge of
 # second-move in the same process, which waits for the repository's merge lock, and the board says so on second-move.
 # Then GitHub answers: first-move lands, and the merge of second-move meets the base that first-move moved.
+# The duty starts only once the merge of first-move holds; when it does not get there (its merge ended first, or 300 s
+# ran out), the process prints at once what it saw as an error, starts no duty, and waits for that merge to end.
+rm -f "$HOLD.held"
 : > "$HOLD"
 PATH="$WORK/hold:$PATH" "$PY" -B -c '
 import json, os, sys, threading, time
@@ -454,10 +482,18 @@ import serve
 w = serve.Workspace("move-shop", sys.argv[1])
 landing = w.landing_of("first-move")
 serve.merge_in_thread(w, "first-move", landing, "merger", serve.merge_tip_of(landing, "merger"))
-for _ in range(300):
-    if os.path.exists(sys.argv[2] + ".held"):
-        break
+first = [t for t in threading.enumerate() if t.name == "merge first-move"]
+held = sys.argv[2] + ".held"
+end = time.monotonic() + 300
+while not os.path.exists(held) and any(t.is_alive() for t in first) and time.monotonic() < end:
     time.sleep(0.1)
+if not os.path.exists(held):
+    why = "300 s ran out" if any(t.is_alive() for t in first) else "its merge ended first"
+    notes = {n["task"]: [n["state"], n["said"]] for n in serve.NOTES.kept.values()}
+    print(json.dumps({"error": f"the merge of first-move did not reach GitHub'"'"'s pr merge ({why}), so no duty started", "notes": notes}), flush=True)
+    for thread in first:
+        thread.join(300)
+    sys.exit(0)
 ran = serve.run_duties(w)
 for thread in threading.enumerate():
     if thread.name.startswith("merge "):
@@ -466,7 +502,9 @@ notes = {n["task"]: [n["state"], n["said"]] for n in serve.NOTES.kept.values()}
 print(json.dumps({"ran": [(x["verb"], x["task"], x["why"]) for x in ran], "owed": serve.duties(w.model(), {}, set()), "notes": notes}))
 ' "$MOVE" "$HOLD" > "$WORK/move.out" &
 MOVING=$!
-soon grep -q '"event": "merge.wait", "task": "second-move"' "$MOVE/.lem/state/events.jsonl"
+# second_waits: the merge of second-move logged that it waits, or the process above gave up and said why
+second_waits() { grep -q '"event": "merge.wait", "task": "second-move"' "$MOVE/.lem/state/events.jsonl" 2>/dev/null || [ -s "$WORK/move.out" ]; }
+until_for 300 second_waits || true
 # the board's page of second-move while it waits: serve.py's handler with no duty of its own, over the repositories of
 # this home folder, as the door above is
 PAGES_PORT=$("$PY" -I -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()')
@@ -490,13 +528,26 @@ rm -f "$HOLD"
 wait "$MOVING" || true
 moved=$(cat "$WORK/move.out")
 refused_said=$("$PY" -c 'import json, sys; print(json.load(open(sys.argv[1]))["merge_refused"]["said"])' "$MOVE/.lem/state/tasks/second-move/landing.json" 2>/dev/null || true)
-if [ "$waited" = first-move ] && grep -qF "Waits for the merge of first-move" <<<"$waiting_page" && [ "$(status_in "$MOVE" first-move)" = landed ] \
+gave_up=$(field 'd.get("error", "")' <<<"$moved" 2>/dev/null || true)
+two_merges=""
+if [ -z "$gave_up" ] && [ "$waited" = first-move ] && grep -qF "Waits for the merge of first-move" <<<"$waiting_page" && [ "$(status_in "$MOVE" first-move)" = landed ] \
   && [ "$(field 'd["notes"]["first-move"][0]' <<<"$moved")" = "done" ] && [[ "$(field 'd["notes"]["first-move"][1]' <<<"$moved")" == "Merged: pull request #1 is on main."* ]] \
   && [ -n "$refused_said" ] && [ "$(field 'd["notes"]["second-move"][0]' <<<"$moved")" = refused ] \
   && [ "$(field 'd["notes"]["second-move"][1]' <<<"$moved")" = "land.py: $refused_said" ]; then
   pass "two merges from the server of one repository take turns: the second waits for the merge lock the first holds while GitHub answers, and the board says on it that it waits for the merge of the first; the first says it merged, and the second says Lem's refusal as lem land merge gives it"
+  two_merges=passed
+elif [ -n "$gave_up" ]; then
+  fail "two merges of one repository: $gave_up / $moved"
+elif [ -z "$waited" ]; then
+  fail "two merges of one repository: the merge of second-move never waited for the merge lock in 300 s / $moved / $(status_in "$MOVE" first-move)"
 else
   fail "two merges of one repository: $waited / $(grep -o "Waits for the merge.\{0,40\}" <<<"$waiting_page" | head -1) / $moved / $refused_said / $(status_in "$MOVE" first-move)"
+fi
+# The check below lands again the second-move that the check above leaves refused; after a failure above there is
+# nothing of that to land.
+if [ "$two_merges" != passed ]; then
+  fail "the merge after a moved base: not run, since it starts from what the check of two merges of one repository leaves, and that check failed"
+  finish
 fi
 refused=$moved
 duty() {
