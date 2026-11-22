@@ -135,6 +135,14 @@ steps = [
     # in the open panel the arrows are the panel's, and J moves the mark; Enter then opens the card J marked
     key("Enter"), until("panel", "document.querySelector('#task > .panel')"), key("ArrowDown"), at("panel-down"), J, at("panel-j"),
     key("Enter"), until("panel-enter", "document.querySelector('#task > .panel')?.dataset.task === 'cart-total-after-coupon'"), key("Escape"), until("panel-escape", "!document.querySelector('#task > .panel')"),
+    # J in the open panel, then Escape: the focus goes to the card J marked, and Enter opens that card
+    *go(f"{base}/"), J, key("Enter"), until("split-open", "document.querySelector('#task > .panel')"), J, at("split-j"),
+    key("Escape"), until("split-escape", "!document.querySelector('#task > .panel')"),
+    key("Enter"), until("split-enter", "document.querySelector('#task > .panel')?.dataset.task === 'stock-on-product-page'"), key("Escape"), until("split-close", "!document.querySelector('#task > .panel')"),
+    # a click on a task's row in the sidebar moves the mark to its card, and Escape leaves the focus there
+    {"click": ".wi[data-task='cart-total-after-coupon']"}, until("side", "document.querySelector('#task > .panel')?.dataset.task === 'cart-total-after-coupon'"),
+    key("Escape"), until("side-escape", "!document.querySelector('#task > .panel')"),
+    key("Enter"), until("side-enter", "document.querySelector('#task > .panel')?.dataset.task === 'cart-total-after-coupon'"), key("Escape"), until("side-close", "!document.querySelector('#task > .panel')"),
     # no key in a field (the park's line of why, a panel over the Tasks view) or with Cmd, Ctrl or Alt
     *go(f"{base}/tasks/gift-note-in-export/park"), J, at("field-before"), {"eval": "document.querySelector('#confirm input[name=why]').focus()"},
     key("j", "KeyJ", text="j"), {"print": "['field', document.querySelector('#confirm input[name=why]').value + ' ' + (document.querySelector('[data-js-cur]')?.dataset.task ?? '-')]"},
@@ -150,6 +158,10 @@ steps = [
     event("keys-new-task", "building", "task 1 of 2"), until("new-card", "document.querySelector('#col-build #card-keys-new-task')"),
     event("cart-total-after-coupon", "landing", "the checks start"), until("moved", "document.querySelector('#col-checks #card-cart-total-after-coupon')"),
     J, at("after-move"),
+    # every column folded: no card to mark, and the down arrow stays the browser's (it scrolls)
+    {"eval": "document.querySelectorAll('#kanban section.col:not(.folded) .col-head button').forEach(b => b.click())"}, {"wait": 300},
+    {"eval": "window.lemKeys = []; window.addEventListener('keydown', ev => window.lemKeys.push(ev.defaultPrevented))"},
+    key("ArrowDown"), {"print": "['no-card', [[...document.querySelectorAll('#kanban article.tc')].filter(n => n.getClientRects().length).length, ...window.lemKeys].join(' ')]"},
 ]
 print(json.dumps({"width": 1440, "height": 900, "steps": steps}))
 PY
@@ -197,6 +209,19 @@ tasks_view_checks() {
     pass "with the focus in the open panel the down arrow moves no mark, J moves it to the next card, and Enter then opens that card's panel"
   else
     fail "the keys with the panel open: $(cat "$out")"
+  fi
+  if [ "$(seen "$out" split-open)" = "gift-note-in-export - gift-note-in-export" ] && [ "$(seen "$out" split-j)" = "stock-on-product-page stock-on-product-page gift-note-in-export" ] \
+    && [ "$(seen "$out" split-escape)" = "stock-on-product-page stock-on-product-page -" ] && [ "$(seen "$out" split-enter)" = "stock-on-product-page - stock-on-product-page" ] \
+    && [ "$(seen "$out" side)" = "cart-total-after-coupon - cart-total-after-coupon" ] && [ "$(seen "$out" side-escape)" = "cart-total-after-coupon cart-total-after-coupon -" ] \
+    && [ "$(seen "$out" side-enter)" = "cart-total-after-coupon - cart-total-after-coupon" ]; then
+    pass "after J in the open panel, or a click on a task's row in the sidebar, Escape puts the focus on the marked card, and Enter opens that card"
+  else
+    fail "the mark and the focus after Escape: $(cat "$out")"
+  fi
+  if [ "$(seen "$out" no-card)" = "0 false" ]; then
+    pass "with every column folded no key marks a card, and the down arrow stays the browser's"
+  else
+    fail "the arrows with no card to mark (cards shown, then whether the down arrow was cancelled): $(seen "$out" no-card)"
   fi
   if [ "$(seen "$out" field-before)" = "gift-note-in-export gift-note-in-export gift-note-in-export" ] && [ "$(seen "$out" field)" = "j gift-note-in-export" ] \
     && [ "$(seen "$out" cmd)" = "gift-note-in-export - gift-note-in-export" ] && [ "$(seen "$out" ctrl)" = "gift-note-in-export - gift-note-in-export" ] \

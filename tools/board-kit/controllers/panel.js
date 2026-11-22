@@ -4,7 +4,7 @@
 // sideways (a phone); it opens the row a link named (data-row, a decision a reason of not green names)
 // and brings it into view; and it expands to the stage's whole width or docks at the right, which the
 // cookie keeps for the next page. It takes the focus when a link outside it opened it (to its title),
-// keeps it on the tabs when a tab changed it, and gives it back to the task's card (or its marked row) when it closes.
+// keeps it on the tabs when a tab changed it, and gives it to the marked card or row (or the task's card) when it closes.
 import {Controller} from '@hotwired/stimulus';
 import {write} from './prefs.js';
 
@@ -49,12 +49,13 @@ export default class extends Controller {
     queueMicrotask(() => {
       if (document.querySelector('#task > .panel')) return;
       select(null);
-      // closed by its control or by Escape: the focus goes back to the task's card, or to its row of "Waits
-      // for you" that has the mark (cursor.js), or to its row of what waits in the sidebar
+      // closed by its control or by Escape: the focus goes to the card or the row of "Waits for you" that has
+      // the mark (cursor.js), which J may have moved while the panel was open, so that Enter opens the marked
+      // one; with no mark, back to the task's card, or to its row of what waits in the sidebar
       if (closed) {
         trigger = null;
         const task = CSS.escape(slug);
-        (document.querySelector(`#card-${task} .tc-link`) ?? document.querySelector(`.wrow[data-js-cur][data-task="${task}"] .wr-verb`)
+        (document.querySelector('.tc[data-js-cur] .tc-link, .wrow[data-js-cur] .wr-verb') ?? document.querySelector(`#card-${task} .tc-link`)
           ?? document.querySelector(`.wi[data-task="${task}"]`))?.focus({preventScroll: true});
       }
     });

@@ -6,9 +6,11 @@
 // empty one are passed over), to its item at the height of the marked one or the closest to it. With no
 // mark, the first of these keys marks the first item of the first group you can see. Moving the mark
 // moves the focus to the item's link, so Enter is the browser's own press of that link, the same as a
-// click; with the focus on no link, Enter clicks the marked item's link. A click on an item's link moves
-// the mark there, so Escape after the panel it opened (the hotkeys controller, then panel.js, which gives
-// the focus back to the card or to the marked row) leaves the mark where it was.
+// click; with the focus on no link, Enter clicks the marked item's link. A click on an item's link, or on
+// a task's row in the sidebar (a link outside the view with data-task), moves the mark to that item, so
+// Escape after the panel it opened (the hotkeys controller, then panel.js, which gives the focus back to
+// the marked card or row) leaves the mark and the focus on it. With no item you can see, the move keys
+// stay the browser's.
 //
 // The mark is the attribute data-js-cur on the item, which a morph keeps (app.js), and its value is the
 // id of the item's group. After a morph a marked item that is now in another group loses the mark, and
@@ -35,12 +37,15 @@ export default class extends Controller {
     // the item marked last and its group, for an item a morph drew anew
     this.last = null;
     this.onMorph = () => this.keep();
+    this.onSide = ev => this.side(ev);
     document.addEventListener('turbo:morph', this.onMorph);
+    document.addEventListener('click', this.onSide);
     this.keep();
   }
 
   disconnect() {
     document.removeEventListener('turbo:morph', this.onMorph);
+    document.removeEventListener('click', this.onSide);
   }
 
   items(scope = this.element) {
@@ -91,22 +96,24 @@ export default class extends Controller {
     }
   }
 
+  // moves the mark by CODE, and says whether there was an item to mark
   move(code) {
     const groups = this.visible();
-    if (!groups.length) return;
+    if (!groups.length) return false;
     const cur = this.current();
     const at = cur && shown(cur) ? groups.findIndex(g => g.items.includes(cur)) : -1;
-    if (at < 0) { this.mark(groups[0].items[0]); return; }
+    if (at < 0) { this.mark(groups[0].items[0]); return true; }
     const {items} = groups[at];
     const index = items.indexOf(cur);
     if (DOWN.has(code)) this.mark(items[Math.min(items.length - 1, index + 1)]);
     else if (UP.has(code)) this.mark(items[Math.max(0, index - 1)]);
     else {
       const next = groups[at + (RIGHT.has(code) ? 1 : -1)];
-      if (!next) return;
+      if (!next) return true;
       const height = middle(cur);
       this.mark(next.items.reduce((best, item) => Math.abs(middle(item) - height) < Math.abs(middle(best) - height) ? item : best));
     }
+    return true;
   }
 
   key(ev) {
@@ -118,8 +125,7 @@ export default class extends Controller {
     const code = ev.code;
     if (DOWN.has(code) || UP.has(code) || LEFT.has(code) || RIGHT.has(code)) {
       if (inPanel && ARROWS.has(code)) return;
-      ev.preventDefault();
-      this.move(code);
+      if (this.move(code)) ev.preventDefault();
     } else if (ev.key === 'Enter' && !inPanel && !target?.closest('a, button, summary')) {
       const link = this.current()?.querySelector(this.linkValue);
       if (!link) return;
@@ -133,5 +139,13 @@ export default class extends Controller {
     const link = ev.target instanceof Element ? ev.target.closest(this.pickValue || this.linkValue) : null;
     const item = link?.closest(this.itemValue);
     if (item && this.element.contains(item)) this.mark(item, false);
+  }
+
+  // a click on a task's row in the sidebar, which opens the task's panel, marks the view's item of that task
+  side(ev) {
+    const link = ev.target instanceof Element ? ev.target.closest('a[data-task]') : null;
+    if (!link || this.element.contains(link)) return;
+    const item = this.items().find(node => node.dataset.task === link.dataset.task);
+    if (item) this.mark(item, false);
   }
 }
