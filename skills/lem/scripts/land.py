@@ -490,7 +490,8 @@ rule says what a new landing's proposal carries of what was said of the tip prop
 the same, when a rebase with no conflict made it and kept the review (`rebase_carried`, from the tip
 before the rebase to the one after it), and when it is the tip of a builder's resolution whose one
 read found nothing, on a request that no call makes careful (above), with no commit after the rebase
-or the resolution. Then each act has its own last fact. `propose` carries the merge agent's review
+or the resolution other than the backlog items `file` commits, which move the tip the record names
+(`filed_on`). Then each act has its own last fact. `propose` carries the merge agent's review
 of the earlier tip onto the new one when one with a verdict is on record, with its call of the owner
 as the rules say now and with no call on a moved base, since the new landing's checks ran on the new
 base, and logs it as a `merge.review` with `carried`, so that the server merges it with no second
@@ -499,7 +500,8 @@ reasons the request is not green are the ones he saw: `propose` logs `merge.stan
 runs `merge --by owner --via server --standing`, which `merge.start` and `merged_by` record as made
 `after: a re-check`. Otherwise the merge review does not carry (`"merge_review": null`, with
 `merge_review_why`, and a fresh merge agent reads the task) and the owner's merge ends (`owner_merge`),
-each with the rule's reason: a commit after the rebase or the resolution, a read of the resolution
+each with the rule's reason: a commit after the rebase or the resolution, a base that moved again
+after the resolution, a read of the resolution
 with a finding, or one that did not answer or did not run, a careful request, a review that does not
 cover the change (the review's reason, which the rebase kept, `rebase_uncovered`); for the merge
 review alone, no merge review of the earlier tip on record, and for the owner's merge alone, reasons
@@ -2807,12 +2809,13 @@ def cmd_file(task: Task, again: bool) -> dict:
                 f"the hook asks for (`git -C {task.worktree} commit -m MESSAGE -- {' '.join(paths)}`), never with --no-verify, "
                 f"then `lem land file {task.slug}` runs again and finds each item by its defect",
             )
-    tip = git(task.worktree, "rev-parse", "HEAD")
+    before, tip = tip, git(task.worktree, "rev-parse", "HEAD")
     if filed or same or named:
         items = [{**entry, "new": True} for entry in filed] + [{**entry, "new": False} for entry in [*same, *named]]
         script("project.py", task.worktree, "log", task.slug, "review.filed", f"items:={json.dumps(items)}", f"tip={tip[:9]}")
-    # A run cut off after its commit finds each item again by its defect, so this write comes last.
-    task.keep(reads=reads)
+    # A run cut off after its commit finds each item again by its defect, so this write comes last;
+    # a resolution or a rebase whose tip these commits moved names the new one (`filed_on`).
+    task.keep(reads=reads, **filed_on(task.kept(), before, tip))
     return {"task": task.slug, "filed": filed, "same": same, "named": named, "gone": gone, "tip": tip}
 
 
@@ -3788,6 +3791,8 @@ def tip_carry(kept: dict, new: str, why_careful: list[str]) -> tuple[str | None,
     read = resolution_read(kept)
     if read and read["answered"] and (read["must_fix"] or read["should"] or read["nit"]):
         return None, f"{met} the read of its resolution found {read['must_fix']} must-fix, {read['should']} should and {read['nit']} nit"
+    if any((one or {}).get("from") == resolution.get("after") and (one or {}).get("to") == new for one in (rebased, uncovered)):
+        return None, f"{met} the base moved again after its resolution"
     if resolution.get("after") != new:
         return None, f"{met} a commit came after its resolution"
     if not (read and read["answered"]):
@@ -3799,6 +3804,25 @@ def tip_carry(kept: dict, new: str, why_careful: list[str]) -> tuple[str | None,
     if rounds and rounds[-1].get("careful"):
         return None, f"{met} the request is careful: the review says so: {reason(rounds[-1].get('careful_why') or 'a round called it careful')}"
     return "resolution", None
+
+
+def filed_on(kept: dict, before: str, after: str) -> dict:
+    """The records of a moved base that name BEFORE as the tip a builder's resolution or a rebase made
+    (`resolution.after`, `rebase_carried.to`, `rebase_uncovered.to`), moved to AFTER, from the record
+    KEPT: `file`'s commits from BEFORE to AFTER only add the backlog items of the reviews' defects
+    outside the change, which ask for no review and no check again (`covers_one`, `gate_holds`), so what
+    was said of BEFORE holds for AFTER (`tip_carry`). Empty when nothing names BEFORE."""
+    if before == after:
+        return {}
+    moved: dict = {}
+    resolution = kept.get("resolution")
+    if resolution and resolution.get("after") == before:
+        moved["resolution"] = {**resolution, "after": after}
+    for key in ("rebase_carried", "rebase_uncovered"):
+        one = kept.get(key)
+        if one and one.get("to") == before:
+            moved[key] = {**one, "to": after}
+    return moved
 
 
 def resolution_read(kept: dict) -> dict | None:
@@ -3819,14 +3843,15 @@ def moved_carry(kept: dict, new: str, why_careful: list[str], reasons: list[str]
     (`merge_review`, else `merge_why` says why a fresh merge agent reads the task); the owner's merge
     that a moved base refused (`owner_tap`) stands, with the new tip (`tap`), while the reasons the
     request is not green are the ones he saw, and else ends with `owner_why`. `review` is what the
-    rebase did with the review, in the text's words: carried over it (`sync.carried`), or one read of
-    the resolution that answered."""
+    rebase did with the review, in the text's words: carried over it (`sync.carried`), or the read of
+    the resolution that answered, by its kind."""
     old = kept.get("proposed")
     how, why = tip_carry(kept, new, why_careful)
     resolution = kept.get("resolution")
     read = resolution_read(kept)
     review = review_line((kept.get("sync") or {}).get("carried")) or (
-        "one read of the resolution" if resolution and resolution.get("before") == old and read and read["answered"] else None
+        ("one read of the resolution" if read["kind"] == "read" else f"a read of the resolution by {KIND_SAYS[read['kind']]}")
+        if resolution and resolution.get("before") == old and read and read["answered"] else None
     )
     out: dict = {"how": how, "why": why, "review": review, "merge_review": False, "merge_why": None, "owner_merge": None, "owner_why": None, "tap": None}
     if not old:

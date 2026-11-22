@@ -510,7 +510,7 @@ class MovedBase(unittest.TestCase):
     # A proposal of aaa with the merge agent's verdict and the owner's merge, a conflict, and a builder's
     # resolution from aaa to bbb whose read is attempt 3; round 1 read the change, careful false.
     ROUND = {"attempt": 1, "round": 1, "answered": ["codex"], "must_fix": 0, "should": 0, "nit": 0, "careful": False, "careful_why": "it reaches no topic", "tip": "aaa"}
-    SOLVED = {"attempt": 3, "round": 1, "of": "resolution", "answered": ["codex"], "must_fix": 0, "should": 0, "nit": 0, "careful": False, "careful_why": "it reaches no topic", "tip": "bbb"}
+    SOLVED = {"attempt": 3, "round": 1, "of": "resolution", "kind": "read", "answered": ["codex"], "must_fix": 0, "should": 0, "nit": 0, "careful": False, "careful_why": "it reaches no topic", "tip": "bbb"}
     RESOLVED = {
         "proposed": "aaa", "merge_review": {"verdict": "merge", "tip": "aaa", "calls": False},
         "owner_tap": {"tip": "aaa", "not_green": [], "via": "server", "at": "2026-11-22T10:00:00Z"},
@@ -562,6 +562,29 @@ class MovedBase(unittest.TestCase):
     def test_a_commit_after_the_resolution_carries_nothing(self) -> None:
         carry = land.moved_carry(self.RESOLVED, "ccc", [], [])
         self.assertEqual((carry["how"], carry["merge_why"], carry["owner_why"]), (None, "the rebase met a conflict, and a commit came after its resolution", "the rebase met a conflict, and a commit came after its resolution"))
+
+    def test_the_items_filed_after_a_clean_read_of_the_resolution_keep_its_carry(self) -> None:
+        # the read of the resolution found nothing in the change and saw one defect outside it, which `file` commits on top
+        seen = {**self.SOLVED, "outside": [{**DEFECT, "item": "docs/backlog/empty-input-crashes-the-parser.md"}]}
+        kept = {**self.RESOLVED, "reads": [self.ROUND, seen]}
+        moved = land.filed_on(kept, "bbb", "fff")
+        self.assertEqual(moved, {"resolution": {**self.RESOLVED["resolution"], "after": "fff"}})
+        carry = land.moved_carry({**kept, **moved}, "fff", [], [])
+        self.assertEqual((carry["how"], carry["merge_review"], carry["owner_merge"]), ("resolution", True, "stands"))
+        # the tip a rebase with no conflict made, carried or not, moves the same way; a record of another tip stays
+        rebased = {"proposed": "aaa", "rebase_carried": {"from": "aaa", "to": "bbb"}, "rebase_uncovered": {"from": "aaa", "to": "ccc", "why": "w"}}
+        self.assertEqual(land.filed_on(rebased, "bbb", "fff"), {"rebase_carried": {"from": "aaa", "to": "fff"}})
+        self.assertEqual(land.filed_on(rebased, "ccc", "fff"), {"rebase_uncovered": {"from": "aaa", "to": "fff", "why": "w"}})
+        self.assertEqual(land.filed_on(kept, "bbb", "bbb"), {})
+
+    def test_a_second_rebase_after_a_resolution_says_that_the_base_moved_again(self) -> None:
+        for key in ("rebase_carried", "rebase_uncovered"):
+            carry = land.moved_carry({**self.RESOLVED, key: {"from": "bbb", "to": "ccc", "why": "w"}}, "ccc", [], [])
+            self.assertEqual((carry["how"], carry["merge_why"]), (None, "the rebase met a conflict, and the base moved again after its resolution"))
+
+    def test_the_line_of_a_resolution_read_names_its_kind(self) -> None:
+        self.assertEqual(self.resolved()["review"], "one read of the resolution")
+        self.assertEqual(self.resolved(reads=[self.ROUND, {**self.SOLVED, "kind": "full"}])["review"], "a read of the resolution by the project's full set")
 
     def test_a_resolved_conflict_that_no_review_covered_keeps_the_reviews_reason(self) -> None:
         uncovered = {"from": "aaa", "to": "bbb", "why": "round 2 left 1 must-fix, and no review read the change after it"}
