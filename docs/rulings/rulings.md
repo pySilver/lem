@@ -94,6 +94,8 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
 - **Most requests have an interview and his check of the acceptance criteria, and the pull request
   says green or not green first.** (2026-11-16)
 - **The personas read first, and their confusion may change the design.** (2026-11-16)
+- **When the personas flag a criterion and give a rewrite that keeps its rule, the rewrite is
+  taken.** (2026-11-22)
 
 ## The plan, the build and the tests
 
@@ -204,6 +206,8 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
 - **The README is in ASD-STE100 Simplified Technical English**, easy for a reader who is not a
   native speaker: one topic in a sentence, 20 words at most in an instruction and 25 in a
   description, the active voice, no word only Lem uses as a noun ("ask"). (2026-11-14, 2026-11-17)
+- **A guide of `docs/` aims at under 800 words, or a bit more when needed.** The 800 is no hard
+  rule: "We are not the army here". (2026-11-22)
 - **The skill files keep their own voice.** (2026-11-14)
 - **An example in the README that no run produced says that it is an illustration**, and a picture
   of demo data says so in its caption. (2026-11-14)
