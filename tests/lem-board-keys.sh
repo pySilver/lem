@@ -16,8 +16,12 @@
 # each call in AGT_CALLS.
 FAKE=$WORK/fake
 mkdir -p "$FAKE"
-# shellcheck disable=SC2016  # the stand-in's own variables, expanded when it runs
-printf '%s\n' '#!/bin/sh' 'echo "$*" >> "$AGT_CALLS"' 'case "$1" in tree) cat "$AGT_TREE" ;; session) [ "$2 $3" = "overlay open" ] && echo "{\"result\": {\"id\": \"NEW\"}}" ;; esac' 'exit 0' > "$FAKE/agtermctl"
+cat > "$FAKE/agtermctl" <<'SH'
+#!/bin/sh
+echo "$*" >> "$AGT_CALLS"
+case "$1" in tree) cat "$AGT_TREE" ;; session) [ "$2 $3" = "overlay open" ] && echo "{\"result\": {\"id\": \"NEW\"}}" ;; esac
+exit 0
+SH
 chmod +x "$FAKE/agtermctl"
 export PATH="$FAKE:$PATH" AGT_CALLS="$WORK/calls" AGT_TREE="$WORK/tree.json"
 DEMO=$("$PY" -B tests/board-showcase.py --demo "$WORK/demo" | field 'd["repo"]')
