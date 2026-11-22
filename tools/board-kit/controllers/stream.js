@@ -2,13 +2,15 @@
 // (`refresh`: Turbo fetches the page again and morphs it in). The element is permanent, so it lives
 // across the visits of one workspace and its words in the status bar are its own.
 //
-// The stream's first open names the id the page was rendered with (`?rendered=`), and the server sends a
-// refresh at once only when the log is no longer at it. Every later open names the last id seen (`?since=`),
-// and the server sends a refresh at once whatever the log, since a change the page missed may add no line
-// to it (the owner's mark, the settings, a task's files). An id is the log's version, its inode and its
-// count of lines in one text ("8812-140"), kept whole: a log that `lem project prune` replaced has another
-// inode, so the page is told also when the count is the same. With a task open (its address), the stream
-// watches that task's files too (`&task=`).
+// An open after a render, the page's load or a visit that changes the task in its address, names the last
+// id seen (`?rendered=`), and the server sends a refresh at once only when the log is no longer at it: the
+// page shows what its live stream told it, and a refresh there would morph over the visit and over a click
+// made during it. An open after the page may have missed a change (back into view, out of the back-forward
+// cache, or after its stream went down) names it as `?since=`, and the server sends a refresh at once
+// whatever the log, since a change the page missed may add no line to it (the owner's mark, the settings, a
+// task's files). An id is the log's version, its inode and its count of lines in one text ("8812-140"),
+// kept whole: a log that `lem project prune` replaced has another inode, so the page is told also when the
+// count is the same. With a task open (its address), the stream watches that task's files too (`&task=`).
 //
 // iOS drops an EventSource in the background, or keeps a dead one that still says it is open, and a
 // network can stop forwarding and keep the connection open. So a page that comes back into view, or out
@@ -34,11 +36,12 @@ export default class extends Controller {
 
   connect() {
     this.lastId = this.sinceValue;
-    this.first = true;
+    // whether the page may have missed a change, so that its next open asks for a refresh (`?since=`)
+    this.owed = false;
     this.lastMessage = 0;
     this.down = 0;
-    this.onShow = () => { if (document.visibilityState === 'visible') this.open(); };
-    this.onPageShow = ev => { if (ev.persisted) this.open(); };
+    this.onShow = () => { if (document.visibilityState === 'visible') { this.owed = true; this.open(); } };
+    this.onPageShow = ev => { if (ev.persisted) { this.owed = true; this.open(); } };
     // a visit to another task opens the stream again for that task's files
     this.onVisit = () => { if (this.task() !== this.watching) this.open(); };
     document.addEventListener('visibilitychange', this.onShow);
@@ -68,9 +71,8 @@ export default class extends Controller {
   open() {
     this.close();
     this.watching = this.task();
-    const id = `${this.first ? 'rendered' : 'since'}=${encodeURIComponent(this.lastId)}`;
-    this.again = !this.first;
-    this.first = false;
+    const id = `${this.owed ? 'since' : 'rendered'}=${encodeURIComponent(this.lastId)}`;
+    this.again = this.owed;
     const source = new EventSource(`${this.urlValue}?${id}${this.watching ? `&task=${this.watching}` : ''}`);
     const heard = ev => {
       if (this.source !== source) return false;
@@ -80,9 +82,11 @@ export default class extends Controller {
       return true;
     };
     source.addEventListener('open', ev => { if (heard(ev)) this.say(); });
-    source.addEventListener('ping', ev => { if (heard(ev)) this.say(); });
+    // the server sends the refresh of a `since` open before anything else, so a ping or a message pays it
+    source.addEventListener('ping', ev => { if (heard(ev)) { this.owed = false; this.say(); } });
     source.addEventListener('message', ev => {
       if (!heard(ev)) return;
+      this.owed = false;
       this.lastMessage = Date.now();
       this.say();
     });
@@ -104,9 +108,10 @@ export default class extends Controller {
     this.source = null;
   }
 
-  // the stream is down from now, unless it already was
+  // the stream is down from now, unless it already was, and the page may miss a change until a new one opens
   went() {
     if (!this.down) this.down = Date.now();
+    this.owed = true;
     this.say();
   }
 

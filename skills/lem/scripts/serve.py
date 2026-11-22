@@ -130,12 +130,13 @@ task's folder, so that an artifact written with no event still shows. The thread
 WATCH_SECONDS, so a burst of events is one message, and ends when its client hung up. A stream with
 nothing to say sends a `ping` event every PING_SECONDS: the page sees it (Turbo renders only the default
 event, so not this one) and takes a stream silent for longer than its limit as dead, and a client that
-vanished with no close shows as a failed write. A page's first open names the id it was rendered with
-(`?rendered=ID`) and gets a message at once only when that is not the log's version now, so a page
-rendered before a prune replaced the log is told even when the count is the same; any other open (`?since=ID` from a page that opens its
-stream again, or the browser's `Last-Event-ID`) gets one at once whatever the log, since what it missed
-may be a change that adds no line to it (`opens_with_refresh`). The server's stop ends every stream
-within WATCH_SECONDS.
+vanished with no close shows as a failed write. A page's open after a render (its load, or a visit to
+another task) names the id its page shows (`?rendered=ID`) and gets a message at once only when that is
+not the log's version now, so a page rendered before a prune replaced the log is told even when the count
+is the same; an open after the page may have missed a change (`?since=ID` from a page back on the screen
+or whose stream went down, or the browser's `Last-Event-ID`) gets one at once whatever the log, since what
+it missed may be a change that adds no line to it (`opens_with_refresh`). The server's stop ends every
+stream within WATCH_SECONDS.
 
 Each task lives in its own agterm session, and what reaches across tasks is the server's: it holds no
 context, and it reads every duty from the files at each look, so a pause of the server costs only time.
@@ -1233,8 +1234,9 @@ def ping(version: str) -> bytes:
 
 def opens_with_refresh(rendered: str | None, since: str | None, last_id: str | None, version: str) -> bool:
     """Whether a stream gets a refresh the moment it opens, from its request and the log's version now.
-    A page's first open names the id it was rendered with (`rendered`), and gets one only when it is
-    behind the log (`behind`). Any other open, `since` from a page that opens its stream again or the
+    A page's open after a render (its load, or a visit to another task) names the id its page shows
+    (`rendered`), and gets one only when it is behind the log (`behind`). An open after the page may
+    have missed a change, `since` from a page back on the screen or whose stream went down, or the
     browser's own `Last-Event-ID`, gets one whatever the log: what it missed may be a change that adds
     no line to the log (the owner's mark, the settings, the backlog, a task's files, an act of the
     server). An open that names none of them gets none."""
@@ -1797,11 +1799,11 @@ class Handler(BaseHTTPRequestHandler):
         a file the pages read changed (the owner's mark, the settings), or what the server itself knows
         changed (an act of the board, its look at the forge or at the task sessions: `Workspace.acted`),
         `id:` the version of the log (`bm.log_version`: its inode and its count of lines), and a `ping`
-        event after each PING_SECONDS with nothing to say. A page's first open (`?rendered=ID`) gets a
-        refresh at once when ID is not the log's version now (`behind`), also after `lem project prune`
-        replaced the log with one of the same count, and any other open (`?since=ID`, `Last-Event-ID`)
-        gets one at once whatever the log (`opens_with_refresh`). The thread ends when its client hung up
-        or the server stops."""
+        event after each PING_SECONDS with nothing to say. A page's open after a render (`?rendered=ID`)
+        gets a refresh at once when ID is not the log's version now (`behind`), also after `lem project
+        prune` replaced the log with one of the same count, and an open after the page may have missed a
+        change (`?since=ID`, `Last-Event-ID`) gets one at once whatever the log (`opens_with_refresh`).
+        The thread ends when its client hung up or the server stops."""
         asked = parse_qs(query)
         rendered, since = ((asked.get(key) or [None])[0] for key in ("rendered", "since"))
         self.send_response(HTTPStatus.OK)
