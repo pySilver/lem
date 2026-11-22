@@ -10,19 +10,31 @@ Size: full, because two views of the board get keys of their own, each with a hi
    1. The column "Building" holds the cards export-notes, gift-note and report-dates, in that order.
    2. No card has the mark, and you press `J`.
    3. export-notes gets the mark; `J` again moves it to gift-note, and `K` moves it back to export-notes.
+   - test: `bash tests/lem-board-keys.sh` in `tests/lem-board-keys.sh`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-cdp.mjs`, `tests/board-showcase.py`
 2. On the Tasks view, `H` or `←` and `L` or `→` move the mark to the nearest card of the next column with cards that you can see, at the height of the marked card or the closest to it; a folded column and an empty column are passed over:
    1. The mark is on gift-note, the second card of "Building".
    2. The next column to the right is folded, and the one after it, "Ready", holds two cards.
    3. You press `L`, and the second card of "Ready" gets the mark.
+   - test: `bash tests/lem-board-keys.sh` in `tests/lem-board-keys.sh`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-cdp.mjs`, `tests/board-showcase.py`
 3. `Enter` opens the panel of the marked card, as a click on the card does, and `Esc` closes the panel with the mark still on that card: with the mark on gift-note, `Enter` opens the panel of gift-note, and after `Esc` gift-note keeps the mark.
+   - test: `bash tests/lem-board-keys.sh` in `tests/lem-board-keys.sh`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-cdp.mjs`, `tests/board-showcase.py`
 4. On "Waits for you", `J` or `↓` and `K` or `↑` move the mark from row to row, and `Enter` does what a click on the row's main link does, and never presses one of its buttons (Approve, Merge, Park, Open a session):
    1. The mark is on the row "board-card-search: the interview waits for you".
    2. You press `Enter`.
    3. agterm shows the session of board-card-search, as a click on that row's link does.
+   - test: `bash tests/lem-board-keys.sh` in `tests/lem-board-keys.sh`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-cdp.mjs`, `tests/board-showcase.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_model.AnsweredInSession` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_pages.WaitsVerb.test_a_held_row_on_a_page_for_this_mac_with_a_live_session_jumps_to_it_and_keeps_its_address` in `tests/unit/test_board_pages.py`
 5. The mark stays on its task when the board updates by itself, and goes away when its card or its row leaves the view: with the mark on gift-note, a new task's card that comes into "Building" leaves the mark on gift-note; when gift-note moves to "Ready", no card has the mark until the next key.
+   - test: `bash tests/lem-board-keys.sh` in `tests/lem-board-keys.sh`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-cdp.mjs`, `tests/board-showcase.py`
 6. The keys do nothing while the focus is in a text field, or while you hold `Cmd`, `Ctrl` or `Alt`: in the box of a new task, `J` types the letter j and moves no mark.
+   - test: `bash tests/lem-board-keys.sh` in `tests/lem-board-keys.sh`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-cdp.mjs`, `tests/board-showcase.py`
 7. The Tasks view and "Waits for you" each show one hint line of their keys, in the look of the Backlog view's hint line and hidden on a phone, as the Backlog's is: Tasks shows "J K ↑ ↓ move · H L ← → column · Enter open · Esc close", and "Waits for you" shows "J K ↑ ↓ move · Enter go".
+   - test: `bash tests/lem-board-keys.sh` in `tests/lem-board-keys.sh`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-cdp.mjs`, `tests/board-showcase.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_pages.Keys.test_the_kanban_carries_the_cursor_over_its_cards_and_one_line_of_its_keys` in `tests/unit/test_board_pages.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_pages.WaitsVerb.test_the_list_carries_the_cursor_over_its_rows_and_one_line_of_its_keys` in `tests/unit/test_board_pages.py`
 8. `docs/board.md` names the keys of the Tasks view and of "Waits for you": its part on the views lists `J`, `K`, `H`, `L`, the arrows, `Enter` and `Esc` with what each does there.
+   - no test: the criterion is a paragraph of `docs/board.md`.
 
 ## How it works
 
