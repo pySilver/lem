@@ -120,15 +120,17 @@ state that is the browser's (the folded columns, the folded sidebar, the panel's
 is expanded) comes in the cookie PREFS_COOKIE.
 
 The stream of the pages is HTTP/1.0 with no length, so it ends when the socket closes, with one
-thread for each. Each message is the default event, with no `event:` line: `id:` is the number of
-lines of the workspace's `events.jsonl`, and `data:` `<turbo-stream action="refresh">`, at which the
-page fetches itself again and morphs in what changed. A message goes when the log grew, or when a file
+thread for each. Each message is the default event, with no `event:` line: `id:` is the version of
+the workspace's `events.jsonl`, its inode and its number of lines in one id (`bm.log_version`), and
+`data:` `<turbo-stream action="refresh">`, at which the page fetches itself again and morphs in what
+changed. A message goes when the log grew or `lem project prune` replaced it, or when a file
 the pages read beside it changed: the owner's mark, the settings, the
 demo mark, the backlog's folder, and with `?task=SLUG` (a page with a task open) each file of that
 task's folder, so that an artifact written with no event still shows. The thread looks every
 WATCH_SECONDS, so a burst of events is one message, ends when its client hung up, and sends a comment
 line every PING_SECONDS, at which a client that vanished with no close shows as a failed write. A
-request whose `Last-Event-ID`, or `?since=N`, is behind the log gets one message at once. The server's
+request whose `Last-Event-ID`, or `?since=ID`, is not the log's version now gets one message at once,
+so a page that reconnects after a prune replaced the log is told even when the count is the same. The server's
 stop ends every stream within WATCH_SECONDS.
 
 Each task lives in its own agterm session, and what reaches across tasks is the server's: it holds no
@@ -1196,17 +1198,24 @@ def stop_all() -> None:
         SERVERS[0].shutdown()
 
 
-def refresh(count: int) -> bytes:
-    """One message of a served page's stream: Turbo's `refresh`, the default event, its id the number of
-    lines of the event log."""
-    return f'id: {count}\ndata: <turbo-stream action="refresh"></turbo-stream>\n\n'.encode("utf-8")
+def refresh(version: str) -> bytes:
+    """One message of a served page's stream: Turbo's `refresh`, the default event, its id the version of
+    the event log (`bm.log_version`: its inode and its count of lines)."""
+    return f'id: {version}\ndata: <turbo-stream action="refresh"></turbo-stream>\n\n'.encode("utf-8")
+
+
+def behind(given: str | None, version: str) -> bool:
+    """Whether a page that reconnects with the id it saw last (GIVEN, its `Last-Event-ID` or `?since=`) is
+    behind the log's version now: any id that is not the version now, also one of the same count on a
+    log that `lem project prune` replaced. A request with no id is no page that saw a version."""
+    return bool(given and given.strip()) and given.strip() != version
 
 
 class Look:
-    """What a stream last told of a state folder: the number of lines of its event log, a digest of the
-    content of each watched file, which it reads again only when the file's `stat` changed, and of a
-    watched folder the names, sizes and times of its files (of every file under it, for the folder
-    named `task`). A file written again with the same content is no change."""
+    """What a stream last told of a state folder: the version of its event log (its inode and its count of
+    lines), a digest of the content of each watched file, which it reads again only when the file's `stat`
+    changed, and of a watched folder the names, sizes and times of its files (of every file under it, for
+    the folder named `task`). A file written again with the same content is no change."""
 
     def __init__(self, state: Path, files: dict[str, Path]) -> None:
         self.state = state
@@ -1216,34 +1225,45 @@ class Look:
         self.lines = 0
         self.cache: dict[Path, tuple] = {}
         self.told: dict[str, str] | None = None
-        self.told_lines = -1
+        self.told_version = ""
 
     def count(self) -> int:
         """The lines of the event log, read on from where the last look stopped; a log that shrank or
-        was replaced is counted again from its start."""
+        was replaced is counted again from its start. The inode and the size are the ones of the file
+        this look holds open (`os.fstat`), so a replace between a look at the name and the open never
+        counts the new file from the old one's offset."""
         file = self.state / EVENT_LOG
         try:
-            facts = file.stat()
+            handle = file.open("rb")
         except OSError:
             self.log_at, self.lines = (0, 0), 0
             return 0
-        start = self.log_at[1] if self.log_at[0] == facts.st_ino and facts.st_size >= self.log_at[1] else 0
-        if start == 0:
-            self.lines = 0
-        try:
-            with file.open("rb") as handle:
+        with handle:
+            try:
+                facts = os.fstat(handle.fileno())
+            except OSError:
+                return self.lines
+            start = self.log_at[1] if self.log_at[0] == facts.st_ino and facts.st_size >= self.log_at[1] else 0
+            if start == 0:
+                self.lines = 0
+            left = facts.st_size - start
+            try:
                 handle.seek(start)
-                left = facts.st_size - start
                 while left > 0:
                     chunk = handle.read(min(left, 1 << 20))
                     if not chunk:
                         break
                     self.lines += chunk.count(b"\n")
                     left -= len(chunk)
-        except OSError:
-            return self.lines
+            except OSError:
+                self.log_at = (facts.st_ino, facts.st_size - left)
+                return self.lines
         self.log_at = (facts.st_ino, facts.st_size - left)
         return self.lines
+
+    def version(self) -> str:
+        """The log's version at the last count (`bm.log_version`)."""
+        return bm.log_version(self.log_at[0], self.lines)
 
     def digest(self, path: Path) -> tuple[str, int] | None:
         """The file's content digest and its change time in ns, or None when it is not there."""
@@ -1262,11 +1282,12 @@ class Look:
         self.cache[path] = (key, digest)
         return digest, facts.st_mtime_ns
 
-    def changes(self) -> tuple[int, dict | None]:
-        """The lines of the log, and the watched files whose content changed since the last look, each
-        with its change time in ms (None for a file that went); None when nothing changed. The first
-        look names every file."""
-        lines = self.count()
+    def changes(self) -> tuple[str, dict | None]:
+        """The version of the log (its inode and its count of lines), and the watched files whose content
+        changed since the last look, each with its change time in ms (None for a file that went); None
+        when nothing changed. The first look names every file."""
+        self.count()
+        version = self.version()
         now: dict[str, tuple[str, int]] = {}
         for name, path in self.files.items():
             if path.is_dir():
@@ -1281,10 +1302,11 @@ class Look:
         changed = {name: now[name][1] // 1_000_000 for name in now if before.get(name) != now[name][0]}
         changed |= {name: None for name in before if name not in now}
         first = self.told is None
-        moved = lines != self.told_lines
+        # a log that `lem project prune` replaced is a change also when its count is the same
+        moved = version != self.told_version
         self.told = {name: now[name][0] for name in now}
-        self.told_lines = lines
-        return lines, (changed if first or changed or moved else None)
+        self.told_version = version
+        return version, (changed if first or changed or moved else None)
 
 
 def listed(folder: Path, deep: bool) -> list[tuple[str, int, int]]:
@@ -1622,7 +1644,7 @@ class Handler(BaseHTTPRequestHandler):
         backlog = reader.read_backlog(board, fresh=fresh_backlog)
         return pages.Ctx(host=HOSTNAME, workspace=workspace.name, model=model, asset=asset_link, prefs=prefs_of(self.headers.get("Cookie")),
                          backlog=backlog, problems=[*reader.problems.values(), *([workspace.session_problem] if workspace.session_problem else [])],
-                         read_at=model.now, events=len(reader.events),
+                         read_at=model.now, events=len(reader.events), log_id=reader.log_id(),
                          spaces=self.spaces(), native=bool(NATIVE.search(self.headers.get("User-Agent") or "")),
                          local=self.door is None and self.client_address[0] in LOOPBACK and not lem_peers.hopped(self.headers),
                          forge_look=dict(workspace.forge), filters=pages.backlog_filter(parse_qs(query)),
@@ -1742,10 +1764,11 @@ class Handler(BaseHTTPRequestHandler):
         """Server-sent events for the served pages: a Turbo `refresh` each time the workspace's log grew or
         a file the pages read changed (the owner's mark, the settings), or what the server itself knows
         changed (an act of the board, its look at the forge or at the task sessions: `Workspace.acted`),
-        `id:` the number of lines of the log. A request whose `Last-Event-ID`, or `?since=N`, is behind
-        the log gets one at once. The thread ends when its client hung up or the server stops."""
+        `id:` the version of the log (`bm.log_version`: its inode and its count of lines). A request whose
+        `Last-Event-ID`, or `?since=ID`, is not the log's version now gets one at once (`behind`), also
+        after `lem project prune` replaced the log with one of the same count. The thread ends when its
+        client hung up or the server stops."""
         given = self.headers.get("Last-Event-ID") or (parse_qs(query).get("since") or [None])[0]
-        since = int(given) if given is not None and given.strip().isdigit() else None
         self.send_response(HTTPStatus.OK)
         for key, value in {"Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
                            "Referrer-Policy": "no-referrer", "X-Accel-Buffering": "no", "Connection": "close"}.items():
@@ -1765,20 +1788,20 @@ class Handler(BaseHTTPRequestHandler):
         except lem_state.StateError:
             pass
         look = Look(workspace.state, files)
-        count, _ = look.changes()
+        version, _ = look.changes()
         acted = workspace.acted
         try:
-            self.wfile.write(refresh(count) if since is not None and since < count else b": open\n\n")
+            self.wfile.write(refresh(version) if behind(given, version) else b": open\n\n")
             quiet = time.monotonic()
             while not STOPPING.wait(WATCH_SECONDS):
                 if self.hung_up():
                     return
-                count, changed = look.changes()
+                version, changed = look.changes()
                 # an act of the board that ended, also one that wrote no file (a merge the script refused)
                 if workspace.acted != acted:
                     acted, changed = workspace.acted, changed or {}
                 if changed is not None:
-                    self.wfile.write(refresh(count))
+                    self.wfile.write(refresh(version))
                     quiet = time.monotonic()
                 elif time.monotonic() - quiet >= PING_SECONDS:
                     self.wfile.write(b": ping\n\n")
@@ -2119,13 +2142,13 @@ def prune_once(workspace: Workspace, now: float | None = None) -> dict | None:
         answer = json.loads(ran.stdout)
     except ValueError:
         return {"exit": ran.returncode or 1, "said": said_of(ran), "skipped": [], "failed": []}
-    return {"exit": ran.returncode, "said": answer.get("said") or said_of(ran), "bytes": answer.get("bytes", 0),
+    return {"exit": ran.returncode, "said": answer.get("said") or said_of(ran), "bytes": answer.get("bytes", 0), "events": answer.get("events", 0),
             "skipped": answer.get("skipped") or [], "failed": answer.get("failed") or []}
 
 
 def prune_line(name: str, ran: dict) -> str | None:
-    """The server's log line for a run of `prune`: none when it removed, skipped and failed nothing."""
-    if ran["exit"] == 0 and not ran.get("bytes") and not ran["skipped"] and not ran["failed"]:
+    """The server's log line for a run of `prune`: none when it removed, summarized, skipped and failed nothing."""
+    if ran["exit"] == 0 and not ran.get("bytes") and not ran.get("events") and not ran["skipped"] and not ran["failed"]:
         return None
     parts = [f"serve.py: {name}: `lem project prune` exited {ran['exit']}: {ran['said']}"]
     parts += [f"skipped {one['path']}: {one['why']}" for one in ran["skipped"]]

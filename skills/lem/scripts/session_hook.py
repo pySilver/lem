@@ -18,7 +18,8 @@ Lem's. Claude Code takes a PreCompact hook's output as the instructions of the s
 SessionStart hook's for the source `compact` as context after it (its hooks reference, read for the
 shape of task 4, 2026-11-21). No hook reads a transcript: `lem_tokens` reads the ones the record names,
 for the tokens of the task. The record is one line appended to `events.jsonl`, in the form `lem project
-log` writes, with no lock, as every writer of the log appends. It exits 0 whatever happens, a failure too.
+log` writes, under the log's lock (`lem_state.events_lock`), as every writer of the log appends. It exits
+0 whatever happens, a failure too.
 
 The plugin starts it through `lem_python.py` beside this file, as the other hooks.
 """
@@ -90,14 +91,18 @@ def keep_transcript(state, slug: str, event: dict) -> None:
     claude, transcript = event.get("session_id"), event.get("transcript_path")
     if not (isinstance(claude, str) and claude and isinstance(transcript, str) and transcript):
         return
-    log = state / "events.jsonl"
-    with (log.open(encoding="utf-8", errors="replace") if log.is_file() else open(os.devnull)) as lines:
-        if transcript_record(lines, slug, claude, transcript):
-            return
-    record = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": "session.transcript", "task": slug,
-              "claude": claude, "transcript": transcript, "source": str(event.get("source") or "")}
-    with log.open("a", encoding="utf-8") as out:
-        out.write(json.dumps(record, ensure_ascii=False) + "\n")
+    import lem_state
+    log = state / lem_state.EVENTS
+    # under the log's lock, as `lem project log` appends: a prune that rewrites the log either comes
+    # after this record or put its new file in place before the read
+    with lem_state.events_lock(state):
+        with (log.open(encoding="utf-8", errors="replace") if log.is_file() else open(os.devnull)) as lines:
+            if transcript_record(lines, slug, claude, transcript):
+                return
+        record = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": "session.transcript", "task": slug,
+                  "claude": claude, "transcript": transcript, "source": str(event.get("source") or "")}
+        with log.open("a", encoding="utf-8") as out:
+            out.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
 def main() -> None:

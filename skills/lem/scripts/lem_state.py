@@ -28,6 +28,8 @@ spaces the starts of the checks that waited for the load, and the board server's
 `serve.log`.
 """
 
+import contextlib
+import fcntl
 import os
 import subprocess
 import tomllib
@@ -36,10 +38,23 @@ from pathlib import Path
 STATE = Path(".lem") / "state"
 # what the folder's own ignore file says: everything in it, and the file itself
 IGNORE = "*\n"
+# The event log of the state folder, and the lock beside it: each append takes it for its write, and
+# `lem project prune` from its read of the log through the replace of the log by its new file, so that
+# no append lands in the old file after prune read it (`events_lock`).
+EVENTS = "events.jsonl"
+EVENTS_LOCK = "events.lock"
 
 
 class StateError(Exception):
     pass
+
+
+@contextlib.contextmanager
+def events_lock(state: Path):
+    """Hold the lock of the event log in the state folder STATE, waiting for another holder."""
+    with (state / EVENTS_LOCK).open("a") as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        yield
 
 
 def jsonl_lines(text: str) -> list[str]:

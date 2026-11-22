@@ -172,6 +172,9 @@ STANDIN
 project() { "$PY" -B "$PROJECT" "$@"; }
 status_of() { set +e; "$@" >/dev/null 2>&1; local code=$?; set -e; echo "$code"; }
 field() { "$PY" -c 'import json, sys; d = json.load(sys.stdin); print(eval(sys.argv[1], {"d": d}))' "$1"; }
+# log_version LOG [ADD]: the version of an event log as the board's stream names it (lem_board_model.log_version), its inode
+# and its count of lines, with ADD lines more
+log_version() { "$PY" -c 'import os, sys; lines = open(sys.argv[1], "rb").read().count(b"\n") + int(sys.argv[2]); print(f"{os.stat(sys.argv[1]).st_ino}-{lines}")' "$1" "${2:-0}"; }
 commit() { git -C "$1" -c user.name=t -c user.email=t@t commit -q --allow-empty -m "$2"; }
 # CASE: the run that ends badly, which an important decision of the ladder carries as its story (decisions.py log)
 CASE=(--case $'1. Order 1042 has two gift notes, "for Ania" and "for Ola".\n2. The export writes one cell for the note of an order.\n3. The merchant prints the slip with one note, and Ola gets none.'

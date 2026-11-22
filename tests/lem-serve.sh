@@ -119,27 +119,41 @@ printf '%s\n' '# Report' '' 'The date under the number: ![the invoice](media/a.p
 printf 'scratch\n' > "$TD/scratch.txt"
 printf '# Round 1\n' > "$TD/reviews/order-date-on-invoice/01-initial/report.md"
 printf '{}\n' > "$TD/reviews/order-date-on-invoice/01-initial/agents/a.jsonl"
-"$PY" -c 'import json, sys
+"$PY" -c 'import json, os, sys
 from datetime import datetime, timedelta, timezone
 old = (datetime.now(timezone.utc) - timedelta(days=400)).strftime("%Y-%m-%dT%H:%M:%SZ")
 lines = open(sys.argv[1], encoding="utf-8").read().split("\n")
 for n, line in enumerate(lines):
     if line.strip() and json.loads(line).get("task") == "order-date-on-invoice":
-        # the same length, so that the server, which reads the log on from where it stopped, finds whole lines
         lines[n] = line.replace(json.loads(line)["ts"], old, 1)
-open(sys.argv[1], "w", encoding="utf-8").write("\n".join(lines))' "$STATE/events.jsonl"
+# a new file in its place, so that the server, which reads the log on from where it stopped, reads it whole
+open(sys.argv[1] + ".new", "w", encoding="utf-8").write("\n".join(lines))
+os.replace(sys.argv[1] + ".new", sys.argv[1])' "$STATE/events.jsonl"
 art_before=$(got "$T/artifacts" | words)
+# card: the Done card of the task on the kanban on stdin
+card() { "$PY" -c 'import re, sys; print(re.search(r"<article[^>]*id=\"card-order-date-on-invoice\".*?</article>", sys.stdin.read(), re.S)[0])'; }
+card_before=$(got "$BASE/" | card)
+version_before=$(log_version "$STATE/events.jsonl")
 pruned_board=$(project --repo "$DEMO" prune)
 ended_tabs=""
 for tab in "" /criteria /checks /timeline /artifacts /artifacts/report.md/ /artifacts/task.md/ /media/a.png /media/b.png /artifacts/scratch.txt/; do ended_tabs="$ended_tabs $(code "$T$tab")"; done
 art_after=$(got "$T/artifacts" | words)
+card_after=$(got "$BASE/" | card)
+summarized=$(got "$T" | words)
+went=$(got "$T/checks" | words)
+# a page that saw the log before the prune reconnects: the log is another file, so it is told at once
+curl -sN --max-time 2 "$BASE/stream?since=$version_before" > "$WORK/stream-pruned.out" 2>/dev/null || true
 if [ "$(field '[(t["task"], sorted(t["files"])) for t in d["tasks"]]' <<<"$pruned_board")" = "[('order-date-on-invoice', ['media/b.png', 'reviews/order-date-on-invoice/01-initial/agents/a.jsonl', 'scratch.txt'])]" ] \
+  && [ "$(field '[(t["task"], t["status"]) for t in d["summarized"]]' <<<"$pruned_board")" = "[('order-date-on-invoice', 'landed')]" ] \
   && [ "$ended_tabs" = " 200 200 200 200 200 200 200 200 404 404" ] && grep -qF "scratch.txt" <<<"$art_before" && ! grep -qF "scratch.txt" <<<"$art_after" \
   && grep -qF "The task" <<<"$art_after" && grep -qF "Review round 01-initial" <<<"$art_after" && grep -qF "Report" <<<"$art_after" \
-  && got "$T" | words | grep -qF "What we are building" && [ -f "$TD/state.md" ] && [ -f "$TD/criteria.json" ]; then
-  pass "a task that ended long ago loses its working files to lem project prune, and its Overview, its tabs, its documents, its records and the picture a document shows still read on the board"
+  && grep -qF "What we are building" <<<"$summarized" && grep -qF "became one summary: the task ended more than state.keep_days ago" <<<"$summarized" \
+  && grep -qF "Its runs of the checks, its review rounds and the proposal’s reasons went with its events" <<<"$went" \
+  && [ -n "$card_before" ] && [ "$card_before" = "$card_after" ] \
+  && grep -qxF "id: $(log_version "$STATE/events.jsonl")" "$WORK/stream-pruned.out" && [ -f "$TD/state.md" ] && [ -f "$TD/criteria.json" ]; then
+  pass "a task that ended long ago loses its working files to lem project prune and its events become one summary: its Done card is the same, its Overview says so, its tabs, its documents, its records and the picture a document shows still read, and a page that saw the old log is told at once"
 else
-  fail "the board of a pruned task: $ended_tabs / $(field '[(t["task"], t["files"]) for t in d["tasks"]]' <<<"$pruned_board" 2>&1) / ${art_after:0:600}"
+  fail "the board of a pruned task: $ended_tabs / $(field '[(t["task"], t["files"]) for t in d["tasks"]]' <<<"$pruned_board" 2>&1) / $(cat "$WORK/stream-pruned.out") / ${card_before:0:400} / ${card_after:0:400} / ${summarized:0:600}"
 fi
 
 # A task's pictures: a picture of its media folder only, by its name and its first bytes, never another file.
@@ -256,23 +270,27 @@ else
   fail "the machine's other name: $alias / $moved"
 fi
 
-# The stream: a refresh within seconds of a state block, and of a file of the open task written with no event.
-count=$(grep -c '' "$STATE/events.jsonl")
-curl -sN --max-time 6 "$BASE/stream?since=$count" > "$WORK/stream.out" 2>/dev/null &
+# The stream: a refresh within seconds of a state block, and of a file of the open task written with no event. Its id is
+# the log's version, its inode and its count of lines, which the page gives its stream.
+version=$(log_version "$STATE/events.jsonl")
+paged=$(got "$BASE/" | "$PY" -c 'import re, sys; print(re.search(r"data-stream-since-value=\"([^\"]*)\"", sys.stdin.read())[1])')
+curl -sN --max-time 6 "$BASE/stream?since=$version" > "$WORK/stream.out" 2>/dev/null &
 streamed=$!
 soon grep -q ': open' "$WORK/stream.out"
 project --repo "$DEMO" state cart-total-after-coupon building "an investigator reproduces the bug and finds its cause" "investigation: bug" >/dev/null
 wait "$streamed" || true
-curl -sN --max-time 4 "$BASE/stream?since=$((count + 1))&task=why-export-is-slow" > "$WORK/stream-task.out" 2>/dev/null &
+grown=$(log_version "$STATE/events.jsonl")
+curl -sN --max-time 4 "$BASE/stream?since=$grown&task=why-export-is-slow" > "$WORK/stream-task.out" 2>/dev/null &
 streamed=$!
 soon grep -q ': open' "$WORK/stream-task.out"
 echo 'written by an agent, with no event' > "$STATE/tasks/why-export-is-slow/notes.md"
 wait "$streamed" || true
-if grep -qxF "id: $((count + 1))" "$WORK/stream.out" && grep -qxF 'data: <turbo-stream action="refresh"></turbo-stream>' "$WORK/stream.out" \
+if [ "$paged" = "$version" ] && [ "$grown" = "$(log_version "$STATE/events.jsonl")" ] && [ "$grown" = "${version%-*}-$(( ${version#*-} + 1 ))" ] \
+  && grep -qxF "id: $grown" "$WORK/stream.out" && grep -qxF 'data: <turbo-stream action="refresh"></turbo-stream>' "$WORK/stream.out" \
   && grep -qxF 'data: <turbo-stream action="refresh"></turbo-stream>' "$WORK/stream-task.out"; then
-  pass "the stream sends Turbo a refresh, its id the log's line count, within seconds of a state block, and of a file of the open task written with no event"
+  pass "the stream sends Turbo a refresh, its id the log's version (its inode and its line count, the one the page carries), within seconds of a state block, and of a file of the open task written with no event"
 else
-  fail "the stream: $(cat "$WORK/stream.out") / $(cat "$WORK/stream-task.out")"
+  fail "the stream: $paged / $version / $grown / $(cat "$WORK/stream.out") / $(cat "$WORK/stream-task.out")"
 fi
 
 # A refresh keeps what the owner types: on the phone, the words of a new task, and his line of why on a park's confirm

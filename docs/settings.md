@@ -78,14 +78,18 @@ An optional agent that reads the recent tasks and leaves a note for the retro.
 Lem keeps the files of its work in `.lem/state/`, and git does not see this folder. The board
 server removes the old files from it each hour. It removes the working files of a task that ended:
 the notes of an agent, the archive of a review round, a picture that no document shows. It keeps
-the documents and the records of the task. It also removes a question to the experts, the folder
-of a persona panel, a nap and a copy of the personas that nobody used for that number of days. To
-see what a number removes, type `lem project prune --dry-run --days 7`. This command removes
-nothing.
+the documents and the records of the task. In the event log, it replaces all the events of that
+task with one summary event, and the board shows the task in Done as before. Its Overview shows
+what the summary keeps, and tabs 2 to 4 of its panel tell you that their details went with the
+events. `/lem resume` cannot
+start a dropped task again after this: type `/lem` and its request to start a new task. The server
+also removes a question to the experts, the folder of a persona panel, a nap and a copy of the
+personas that nobody used for that number of days. To see what a number removes, type
+`lem project prune --dry-run --days 7`. This command removes and changes nothing.
 
 | Setting | Default | Use |
 | --- | --- | --- |
-| `state.keep_days` | `30` | the days after which an old file goes. Lem counts from the last event of a task that ended, and from the last write of a folder. A whole number, `1` or more. A computer can set its own number in `.lem/project.local.toml` |
+| `state.keep_days` | `30` | the days after which an old file goes, and the events of a task that ended become one summary event. Lem counts from the last event of a task that ended, and from the last write of a folder. A dropped task whose events became a summary cannot be resumed. A whole number, `1` or more. A computer can set its own number in `.lem/project.local.toml` |
 
 ## `[tracker]`
 

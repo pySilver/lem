@@ -26,6 +26,11 @@ readable, JSON lines, a log without its colors, a picture, an HTML page in a san
 server's raw route, the whole width, and the panel's height with the header folded). Every pull request
 a line names is a link. The words are the model's.
 
+A task whose events became one summary (`lem project prune`, past `state.keep_days`) has the same header,
+and its Overview opens with a card that says so, with what the summary keeps and that its files stay;
+"Criteria and decisions", "Checks and review" and "Timeline" each say in one line that their detail
+went with the events (`summary_card`, `went_tab`).
+
 Each task lives in its own agterm session. The jump to it has its button only on a page for this Mac
 (`Ctx.local`, the agterm controller), and only while the session lives; a task with no live session
 has "Open a session" in its header on every page that may act, which the server answers with `lem
@@ -570,7 +575,62 @@ def parked_card(ctx, t: bm.Task) -> Markup | None:
                  h("div", {"class": "sub"}, "Nothing of it waits for you, and nobody works on it. Type ", h("code", None, p["resume"]), " in any session to bring it back."))))
 
 
+# ---- a task whose events became one summary ----
+
+# What went with the events of a summarized task, by the tab that showed it: the tab says so in one
+# line, never with an empty section that reads as nothing on record.
+WENT = {
+    "criteria": "Its acceptance criteria, their approval, the personas’ read and its decisions",
+    "checks": "Its runs of the checks, its review rounds and the proposal’s reasons",
+    "timeline": "Its timeline and its events",
+}
+
+
+def artifacts_link(ctx, t: bm.Task) -> Markup:
+    return h("a", {"class": "btn b-look", **P.frame_link(ctx, P.task_href(ctx, t.slug, "artifacts")), "title": "Open the tab Artifacts · key 5"},
+             P.icon(ctx, "folder"), "Artifacts", " ", P.icon(ctx, "arrow"))
+
+
+def summary_card(ctx, t: bm.Task) -> Markup | None:
+    """The first card of the Overview of a task whose events became one summary (`t.summary`): that they
+    did, and why; what the summary keeps, with its values; what went with the events; and that the
+    task's files stay, on Artifacts. None for any other task."""
+    s = t.summary
+    if s is None:
+        return None
+    now = ctx.model.now
+    n = s.get("events") if isinstance(s.get("events"), int) else 0
+    pr = bm.pr_of(t)
+    v = bm.verdict_of(t)
+    lead = bm.LEAD[bm.lead_of(t)] if t.lead else None
+    careful = bm.careful_of(t)
+    kept = [f"{t.info['label'].lower()} {bm.stamp(t.since, now)}", f"opened {bm.stamp(t.first, now)}",
+            pr and f"pull request {pr['repo']}#{pr['n']}", v and ("green" if v["green"] else "not green"), t.type and f"type {t.type['type']}",
+            lead and f"who worked on it: {lead['tag']}", careful and f"careful: {'yes' if careful['yes'] else 'no'}", t.branch and f"branch {t.branch}",
+            "its last line, its ask and its card"]
+    return h("section", {"class": "card verdict a-quiet", "id": "summary", "role": "status", "aria-label": "Its events became one summary"},
+             h("div", {"class": "v-line"}, h("span", {"class": "fi"}, P.icon(ctx, "layers")),
+               h("div", {"class": "v-text"},
+                 h("b", {"class": "v-word"}, f"Its {bm.plural(n, 'event')} became one summary:"),
+                 " the task ended more than state.keep_days ago, so lem project prune kept one event in their place.",
+                 h("div", {"class": "sub", "id": "summary-kept"}, "It keeps: ", "; ".join(x for x in kept if x), "."),
+                 h("div", {"class": "sub", "id": "summary-went"}, "What went with the events: ", "; ".join(x[0].lower() + x[1:] for x in WENT.values()), "."),
+                 h("div", {"class": "sub", "id": "summary-files"}, "Its files stay: its state, its request, its reports and its documents."),
+                 h("div", {"class": "b-lines"}, h("div", {"class": "b-line"}, artifacts_link(ctx, t))))))
+
+
+def went_tab(ctx, t: bm.Task, tab: str) -> list:
+    """A tab of a summarized task whose detail went with its events: one line that says so, and where its
+    files are."""
+    return [h("div", {"class": "lane-empty panel-empty", "id": f"went-{tab}"},
+              f"{WENT[tab]} went with its events: they became one summary, as the task ended more than state.keep_days ago. "
+              "The Overview shows what the summary keeps, and its files stay on Artifacts. ", artifacts_link(ctx, t))]
+
+
 def overview_tab(ctx, t: bm.Task) -> list:
+    if t.summary is not None:
+        # no phases and no stats: their checks, review and decisions went with the events, and would read as none
+        return [summary_card(ctx, t), building(ctx, t), verdict(ctx, t), now_card(ctx, t)]
     return [merge_review_card(ctx, t), parked_card(ctx, t), breaker_card(ctx, t), building(ctx, t), verdict(ctx, t), now_card(ctx, t), progress(ctx, t)]
 
 
@@ -843,6 +903,8 @@ def approve_card(ctx, t: bm.Task) -> Markup | None:
 
 
 def criteria_tab(ctx, t: bm.Task) -> list:
+    if t.summary is not None:
+        return went_tab(ctx, t, "criteria")
     crit = criteria_rows(ctx, t)
     decs = decision_rows(ctx, t)
     # a card of a task that ended with nothing in it is not drawn; a tab whose cards are all gone says so
@@ -868,6 +930,8 @@ def log_link(ctx, t: bm.Task, k: int) -> Markup | None:
 
 
 def checks_tab(ctx, t: bm.Task) -> list:
+    if t.summary is not None:
+        return went_tab(ctx, t, "checks")
     now = ctx.model.now
     gates = [row(ctx, f"gate-{k}", "done" if g["exit"] == 0 else "bad", "check" if g["exit"] == 0 else "alert",
                  [h("b", None, "green" if g["exit"] == 0 else f"exit {g['exit']}"), " · ", h("span", {"class": "cmd"}, g["command"] or ""), log_link(ctx, t, k),
@@ -994,6 +1058,8 @@ def feed_card(ctx, t: bm.Task) -> Markup:
 
 
 def timeline_tab(ctx, t: bm.Task) -> list:
+    if t.summary is not None:
+        return went_tab(ctx, t, "timeline")
     return [time_card(ctx, t), feed_card(ctx, t)]
 
 
@@ -1069,6 +1135,9 @@ def empty_reason(t: bm.Task, key: str) -> str:
     ended = "none: it ended with a report" if t.status == "answered" else "none: the task was dropped" if t.status == "dropped" else "none"
     if key == "request":
         return "none: the request was typed in a session"
+    if t.summary is not None and key in ("criteria", "checks", "review", "proposal"):
+        # what showed them went with the events, into the summary
+        return "no document: green or not green is on the Overview" if key == "proposal" and t.proposal else "no document: what showed it went with the events, into one summary"
     if key == "criteria":
         return "no document: Criteria and decisions shows them" if t.approvals or t.criteria else ended if t.closed else "not yet: the interview writes them"
     if key == "plan":
