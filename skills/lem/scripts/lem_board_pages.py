@@ -1116,9 +1116,11 @@ def new_page(ctx: Ctx) -> Markup:
     to start it in a session instead."""
     ctx.view = "new"
     if ctx.can_act:
+        # The field is permanent, as the backlog's filter is: a refresh morphs the page into the server's empty field,
+        # and the words the owner is typing on the phone (where the poll refreshes every 10 s) would go.
         form = h("form", {"class": "act-form act-stack nt-form", "method": "post", "action": f"{ctx.base}/start", "data-turbo-frame": "_top"},
                  h("label", {"class": "act-field"}, h("span", None, "What should Lem do?"),
-                   h("textarea", {"name": "words", "rows": "5", "maxlength": "2000", "required": True, "autocomplete": "off", "spellcheck": "true",
+                   h("textarea", {"id": f"nt-words-{ctx.workspace}", "name": "words", "data-turbo-permanent": True, "rows": "5", "maxlength": "2000", "required": True, "autocomplete": "off", "spellcheck": "true",
                                   "enterkeyhint": "done", "placeholder": "Add the gift note to the CSV export"})),
                  h("div", {"class": "act-row"},
                    h("button", {"class": "btn go", "type": "submit", "data-turbo-submits-with": "Starting…"}, icon(ctx, "play"), h("span", None, "Start the task")),
