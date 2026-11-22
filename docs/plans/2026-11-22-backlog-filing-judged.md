@@ -107,12 +107,15 @@ The tasks run one after another in the one worktree, but task 5, which touches o
    - `propose` still refuses while an over-the-bar entry with no `open` in the tip has no item, or
      its item is gone from the tip (today's guard). The text of the pull request gets the lines
      under `## Seen, not filed` by itself, as "`WHERE`: TITLE; WHY": one for each `under` entry,
-     each `open` entry (its line names the item), and each `cheap` entry that the notes do not
-     name under `## Fixed on the way` by its `where` and its title, both word for word. So a cheap
-     defect that nobody fixed, in a round with or without a must-fix, a second round whose fix
-     builder never starts among them, is a line by default, and no notes can lose one: a fix line
-     that names another title at the same `where` leaves this entry's line in place. `propose` has
-     no refusal of its own for the cheap entries.
+     each `open` entry (its line names the item), and each `cheap` entry that no line of the notes
+     under `## Fixed on the way` names by its number. Each entry of `outside` gets a number from
+     `read --record`, its round and its place in the record (`r1.3`), which `landing.json` keeps
+     and `read` prints. So a cheap defect that nobody fixed, in a round with or without a
+     must-fix, a second round whose fix builder never starts among them, is a line by default, and
+     no notes can lose one: two entries with the same `where` and title (D and E of
+     `tests/lem-land-backlog.sh`) have two numbers, and a fix line for one leaves the other's line
+     in place. `propose` has no refusal of its own for the cheap entries (decision of the ladder,
+     plan talk question 4: by the gate).
    - `NOTES`, the headings the notes must have, stays as it is. `## Fixed on the way` and
      `## Seen, not filed` are the text's own, after `## Filed in the backlog`, each written only
      when the notes or the record give it a line, so a task with nothing outside its change keeps
@@ -127,9 +130,9 @@ The tasks run one after another in the one worktree, but task 5, which touches o
      and `## Seen, not filed` when each has a line, in place of the line "filed in the backlog by the
      builder" under `## Checks`.
    - `stages/land.md`, steps 5 and 6: the step after a record files only over the bar; a fix
-     builder's brief names the round's `cheap` entries, each by its `where` and title; the notes get
-     `## Fixed on the way` from `report.md` (the polish pass's list) and from the fix builder's
-     reply, a fix of a review's entry with that entry's `where` and title word for word, and
+     builder's brief names the round's `cheap` entries, each by its number, `where` and title; the
+     notes get `## Fixed on the way` from `report.md` (the polish pass's list) and from the fix
+     builder's reply, a fix of a review's entry with that entry's number, and
      `## Seen, not filed` from `report.md`; `## Filed in the backlog` takes the polish pass's items
      as today. Its sentence "An item the owner does not want stays, with `worth: no` ... never
      deleted" stays.
@@ -140,9 +143,9 @@ The tasks run one after another in the one worktree, but task 5, which touches o
      `land.py`'s rules), and checks in `tests/lem-land-backlog.sh` for the journey: a review with
      one `over` and one `under` defect files one item, and the pull request opens with the other
      on one line under `## Seen, not filed`; an `open` entry files nothing and names its item, and
-     one whose item the tip lacks is filed; a `cheap` entry that the notes do not name under
-     `## Fixed on the way` gets its line under `## Seen, not filed`, also when a fix line names
-     another title at its `where`; a defect the review lists at the `where` of an item the builder
+     one whose item the tip lacks is filed; a `cheap` entry whose number no line of the notes
+     under `## Fixed on the way` names gets its line under `## Seen, not filed`, also when a fix
+     line names another entry with the same `where` and title; a defect the review lists at the `where` of an item the builder
      filed gets an item of its own. The existing checks that pin "every defect is an item", and the
      check of `named` (the builder's item at the same `where`), change to the new form, since each
      one tests the record's old form; none is weakened to pass.
@@ -364,8 +367,10 @@ task 6 (question 11: the ruling's words, the history's line); the decisions of t
   (directions, Q4). The record's `bar` makes each defect one of three, and `lem land` writes the
   "Seen, not filed" line from the record, so a defect the review saw is in the pull request by
   construction, as an item or as a line. A `cheap` defect is a line by default; only a line of
-  the notes under "Fixed on the way" with its `where` and title word for word takes it out, so a
-  fix that never came, or a note that was not written, leaves the line and loses nothing.
+  the notes under "Fixed on the way" with its number (`r1.3`, which `read --record` gives) takes
+  it out, so a fix that never came, or a note that was not written, leaves the line and loses
+  nothing. The number, not `where` and title, because one record can hold two defects with the
+  same `where` and title (the ladder's gate, plan talk question 4).
 - **An open item is named by the agent, and no script matches it.** The same `where` is no proof
   of the same defect (four items on `project.py:outcome_of` are one defect, but a `where` such as
   `skills/lem/scripts/land.py` holds many), so a match by `where` would lose real defects. The
