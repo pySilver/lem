@@ -8,7 +8,7 @@
 // moves the focus to the item's link, so Enter is the browser's own press of that link, the same as a
 // click; with the focus on no link, Enter clicks the marked item's link. A click on an item's link moves
 // the mark there, so Escape after the panel it opened (the hotkeys controller, then panel.js, which gives
-// the focus back to the card) leaves the mark where it was.
+// the focus back to the card or to the marked row) leaves the mark where it was.
 //
 // The mark is the attribute data-js-cur on the item, which a morph keeps (app.js), and its value is the
 // id of the item's group. After a morph a marked item that is now in another group loses the mark, and
