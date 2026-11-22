@@ -1070,8 +1070,10 @@ html:has(.app.plain) { overflow: auto; height: auto; }
 .approve { box-shadow: inset 3px 0 0 var(--you); }
 .approve-body { display: flex; flex-direction: column; gap: 12px; }
 .approve-body .md, .approve-body .cf-plain { padding: 10px 14px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); }
-/* the approval's criteria for a browser with no script, which draws the markdown block empty */
+/* the approval's criteria for a browser with no script, which leaves the markdown block with its template alone and
+   draws no empty box of it */
 .cf-plain { margin: 0; font: 13px/1.55 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.approve-body .md:has(> template:only-child) { display: none; }
 .approve-body .act-note { margin-bottom: 0; }
 .approve .cf-acts { margin-top: 0; }
 /* the way back of a step that a desktop shows inside its tab (the approval's): only its overlay needs one */
