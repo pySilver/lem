@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """A task's own session in agterm: one session carries one task, and each phase starts a fresh agent.
 
-    lem session open SLUG [--why new|handoff|dead|merged|conflict|refused|queue|night|owner]
+    lem session open SLUG [--why new|handoff|dead|merged|conflict|refused|queue|night|owner|stopped] [--session ID]
                                  open the task's session for the phase its state gives, with no
-                                 focus, or print the one that runs
+                                 focus, or print the one that runs; `--why stopped` opens a fresh
+                                 one beside a stopped live one
     lem session next SLUG [--same]
                                  the change of phase: check handoff.md, open the next session and
                                  name the old one `SLUG · handed off`; `--same` for the owner's
@@ -15,8 +16,12 @@
                                  check handoff.md against `templates/handoff.md`
     lem session talk SLUG --from TEXT [--leave TEXT ...]
                                  copy the turns of this session about the ask into the task's talk.md
-    lem session wake SLUG --why merged|conflict|refused|queue|owner [--head SHA]
-                                 a pane message to the task's live session, or a new session
+    lem session wake SLUG --why merged|conflict|refused|queue|owner|status [--head SHA] [--session ID]
+                                 a pane message to the task's live session, or a new session;
+                                 `--why status` only to a live one
+    lem session stopped SLUG [--session ID]
+                                 log that the task's session stopped after its status message and
+                                 its restart, so that it waits for the owner
     lem session wait SLUG --until STATE,... | --event NAME | --first-line [--companion ID]
                                  end when the task's state is one of these, or a new event is logged,
                                  or the task's first line is written, or when the task's session is
@@ -112,6 +117,20 @@ subagents, or null; `shell`, true while a shell command of the session runs; and
 neither could be read (no `session.transcript` record of that agterm session, or no live process of
 it). A session that is not live has `sign` null and both false.
 
+The guard of a stopped session is the board server's (`serve.py`, `duties`; the rule is
+`lem_board_model.stop_due`): 45 minutes with no sign of work in a task in `building`, `ready` or
+`landing` give `wake --why status`, which sends `lem: SLUG status`; 10 minutes more give `open --why
+stopped`, a fresh session beside the old one, which it renames `SLUG · replaced` and sends `lem: SLUG
+replaced` (logged as that session's `session.wake`); once that restart is spent, `stopped` logs
+`session.stopped`. Each of the three looks once more in the task's lock before it acts
+(`guard_check`): the task is still in one of those statuses, its newest session is the one `--session`
+names and still lives, its signs read, no shell command of it runs, and the rule still gives that step,
+so that no sign of work came since the step was due. Else it acts on nothing, exits 0 and prints
+`acted: false` with `why` (`working`, `status`, `gone` or `unread`), and the server's next look asks
+again. `open --why stopped` also acts while the task's stop stands and no sign of work came after it:
+the owner's "Open a session" on a stopped task. The status message never opens a session: a gone
+pane is the board's "No session runs this task".
+
 `talk` copies the turns of this Claude Code session word for word: from the newest owner turn
 whose text starts with TEXT to the newest turn, each with who said it and only its text, less each
 owner turn that a `--leave` text starts (another topic) with the turns of the agent that answer it.
@@ -151,10 +170,18 @@ lem_state = importlib.import_module("lem_state")
 lem_signs = importlib.import_module("lem_signs")
 
 PHASES = ("shape", "build", "land", "fast")
-WHYS = ("new", "handoff", "dead", "merged", "conflict", "refused", "queue", "night", "owner")
-WAKES = ("merged", "conflict", "refused", "queue", "owner")
+WHYS = ("new", "handoff", "dead", "merged", "conflict", "refused", "queue", "night", "owner", "stopped")
+# the whys of a `session.wake` record; `replaced` is sent only by `open --why stopped`, to the old pane
+WAKES = ("merged", "conflict", "refused", "queue", "owner", "status", "replaced")
 CLOSES = ("handoff", "ended", "owner")
-EVENTS = ("session.open", "session.close", "session.wake")
+EVENTS = ("session.open", "session.close", "session.wake", "session.stopped")
+# Why a step of the guard of a stopped session acted on nothing (`guard_refusal`), each with its words.
+REFUSALS = {
+    "working": "its session showed a sign of work since the step was due, or a shell command of it runs, or the step was taken already",
+    "status": "the task is no longer in building, ready or landing",
+    "gone": "the session the step was for is not the task's newest any more, or it no longer lives in agterm",
+    "unread": "its session's signs of work do not read (no transcript record of that session, or no live process of it), and Lem acts only on plain evidence",
+}
 BRIEF = "session.md"
 HANDOFF = "handoff.md"
 LOCK = "session.lock"
@@ -576,14 +603,111 @@ def workspace_for(slug: str, task: dict, opens: dict[str, dict], nodes: list[dic
                        f"Run `lem session open {slug}` from a session in the workspace it belongs in, or type `/lem status {slug}` there")
 
 
+# ---- the guard of a stopped session ----
+
+def guard_refusal(t, m, step: str, named: str | None) -> str | None:
+    """Why the act of STEP (`status`, `restart` or `stopped`) of the guard of a stopped session acts on
+    nothing, a key of REFUSALS, or None when it acts. T is the task in M, the board's model of the event
+    log as it is now (None for a task with no state), whose `sessions` holds the one entry of T's newest
+    session as read now in the task's lock; NAMED is the session the board server named, or None.
+
+    It acts when the task is still in GUARDED, its newest session is the one named and still lives, its
+    signs read, no shell command of it runs, and the rule (`lem_board_model.stop_due`) still gives STEP
+    over the new facts, so that no sign of work came since the time the step was due from. A `restart`
+    acts too while the task's stop stands (`stop_stands`) and no sign of work came after it: the owner's
+    "Open a session" on a stopped task, which names no session."""
+    bm = board_model()
+    f = (m.sessions or {}).get(t.slug) if t is not None else None
+    if t is None or t.status not in bm.GUARDED:
+        return "status"
+    if not f or not (f.get("live") is True and f.get("agent") is True) or (named and str(named).upper() != str(f.get("session") or "").upper()):
+        return "gone"
+    if f.get("signs") is not True:
+        return "unread"
+    if f.get("shell") is not False:
+        return "working"
+    stood = bm.stop_stands(t) if step == "restart" else None
+    if stood is not None:
+        return None if (bm.at(f.get("sign")) or 0) <= (bm.at(stood.get("ts")) or 0) else "working"
+    due = bm.stop_due(t, m)
+    return None if due is not None and due["step"] == step else "working"
+
+
+def board_model():
+    return importlib.import_module("lem_board_model")
+
+
+def guard_check(root: Path, slug: str, step: str, named: str | None, where: dict) -> tuple[dict | None, str | None]:
+    """The look once more of the guard of a stopped session, run in the task's lock before its act: the
+    board's model of the event log now, the task's newest session in agterm's tree, and its signs of work
+    read now. Its refusal, `acted: false` with its reason for the caller to print, or None; and the
+    session the act is for."""
+    bm = board_model()
+    state = project.state_root(root)
+    reader = bm.Reader(project.main_checkout(root), state)
+    reader.read_log()
+    if "events" in reader.problems:
+        raise SessionError(f"{state / 'events.jsonl'}: {reader.problems['events']}; the log is written by project.py, never by hand")
+    m = bm.derive(reader.events, [], bm.now_ms())
+    t = m.by_slug.get(slug)
+    t = t if t is not None and t.blocks else None
+    newest = newest_opens(reader.events).get(slug)
+    session = str(newest["session"]) if newest and newest.get("session") else None
+    alive = False
+    signs = {"sign": None, "shell": False, "signs": False}
+    if session is not None and t is not None and t.status in bm.GUARDED:
+        alive = live(node_of(tree(where), session), newest, datetime.now(timezone.utc))
+        records = [record for record in reader.events if record.get("event") == lem_signs.EVENT and record.get("task") == slug]
+        if alive and lem_signs.own_records(records, session):
+            signs = lem_signs.signs_of(records, session, process_table())
+    m.sessions = {slug: {"live": alive, "agent": alive, "unanswered": False, "session": session, **signs}}
+    reason = guard_refusal(t, m, step, named)
+    if reason is None:
+        return None, session
+    return {"task": slug, "session": session, "acted": False, "why": reason,
+            "say": f"Lem did nothing for {slug}: {REFUSALS[reason]}; the board server's next look asks again"}, session
+
+
+def tell_replaced(root: Path, where: dict, slug: str, old: str) -> dict:
+    """After a restart, the old session's new name, `SLUG · replaced`, and the line `lem: SLUG replaced`
+    to its left pane, logged as its `session.wake`, so that the owner sees which pane is old and the old
+    agent closes itself at the end of its turn. What failed is said, never raised: the fresh session is
+    open and on record by then."""
+    try:
+        ctl(where, "session", "rename", f"{slug} · replaced", "--target", old)
+        ctl(where, "msg", "send", f"lem: {slug} replaced", "--to", f"{old}:left", window=False)
+    except SessionError as error:
+        return {"old": old, "told": False, "problem": str(error)}
+    project.append_event(root, "session.wake", slug, {"session": old, "why": "replaced"})
+    return {"old": old, "told": True}
+
+
+def cmd_stopped(root: Path, slug: str, named: str | None) -> dict:
+    where = place()
+    directory = project.task_directory(root, slug)
+    with task_lock(directory):
+        refused, session = guard_check(root, slug, "stopped", named, where)
+        if refused is not None:
+            return refused
+        project.append_event(root, "session.stopped", slug, {"session": session})
+    return {"task": slug, "session": session, "acted": True,
+            "say": f"the stop of {slug} is logged: its session showed no sign of work after the status message and after its restart, "
+                   f"so it waits for the owner, whose `lem session open {slug} --why stopped` opens a fresh session"}
+
+
 # ---- the commands ----
 
-def cmd_open(root: Path, slug: str, why: str, replacing: str | None = None) -> dict:
+def cmd_open(root: Path, slug: str, why: str, replacing: str | None = None, named: str | None = None) -> dict:
     where = place()
     directory = project.task_directory(root, slug)
     # the board server shows the repository and runs its duties from its first session on
     project.register_checkout(root)
     with task_lock(directory):
+        if why == "stopped":
+            # the restart of the guard, or the owner's open of a stopped task: beside the live session it replaces
+            refused, replacing = guard_check(root, slug, "restart", named, where)
+            if refused is not None:
+                return refused
         facts = facts_of(root, slug)
         task, phase = facts["task"], facts["phase"]
         behind = queued_behind(task, facts["tasks"])
@@ -614,6 +738,9 @@ def cmd_open(root: Path, slug: str, why: str, replacing: str | None = None) -> d
         # the record first: the session exists now, whatever the next step does
         project.append_event(root, "session.open", slug, {"session": session, "name": slug, "phase": phase, "why": why, "workspace": workspace})
         ctl(where, "session", "move", "--to", "top", "--target", session)
+    if why == "stopped":
+        return {"task": slug, "session": session, "name": slug, "phase": phase, "already": False, "acted": True, **tell_replaced(root, where, slug, str(replacing)),
+                "say": f"{slug} goes on in a fresh session `{slug}`, phase {phase}, beside the old one, which is named `{slug} · replaced`"}
     return {"task": slug, "session": session, "name": slug, "phase": phase, "already": False,
             "say": f"{slug} is open in its own session `{slug}`, phase {phase}, at the top of the workspace",
             # the caller runs it in the background, and says the task's first line when it ends
@@ -719,9 +846,19 @@ def cmd_handoff(root: Path, slug: str) -> dict:
     return {**handoff_form(file.read_text(encoding="utf-8"), slug), "file": str(file)}
 
 
-def cmd_wake(root: Path, slug: str, why: str, head: str | None) -> dict:
+def cmd_wake(root: Path, slug: str, why: str, head: str | None, named: str | None = None) -> dict:
     where = place()
-    project.task_directory(root, slug)
+    directory = project.task_directory(root, slug)
+    if why == "status":
+        # the guard's status message: to the live session it was due for, never a new session in its place
+        with task_lock(directory):
+            refused, session = guard_check(root, slug, "status", named, where)
+            if refused is not None:
+                return refused
+            ctl(where, "msg", "send", f"lem: {slug} status", "--to", f"{session}:left", window=False)
+            project.append_event(root, "session.wake", slug, {"session": session, "why": why})
+        return {"task": slug, "session": session, "why": why, "acted": True, "woke": True, "opened": False,
+                "say": f"the session of {slug} got `lem: {slug} status`, which asks where the task stands and to go on with its next step"}
     newest = newest_opens(project.events_named(root, *EVENTS)).get(slug)
     node = node_of(tree(where), newest.get("session") if newest else None)
     if newest and live(node, newest, datetime.now(timezone.utc)):
@@ -1065,6 +1202,7 @@ def main(argv: list[str] | None = None) -> None:
     opened = commands.add_parser("open", help="open the task's session for the phase its state gives, or print the one that runs")
     opened.add_argument("slug")
     opened.add_argument("--why", choices=WHYS, default="owner", help="why it opens, for the record (default: owner)")
+    opened.add_argument("--session", metavar="ID", help="with --why stopped: the session the restart replaces, which must still be the task's newest")
     following = commands.add_parser("next", help="the change of phase: open the next session after the handoff, and name this one handed off")
     following.add_argument("slug")
     following.add_argument("--same", action="store_true", help="the owner's \"hand off\": a fresh session for the same phase")
@@ -1083,8 +1221,12 @@ def main(argv: list[str] | None = None) -> None:
     talk.add_argument("--leave", action="append", default=[], metavar="TEXT", help="the first words of an owner turn of another topic, left out with the agent's turns after it")
     waking = commands.add_parser("wake", help="a pane message to the task's live session, or a new session")
     waking.add_argument("slug")
-    waking.add_argument("--why", required=True, choices=WAKES)
+    waking.add_argument("--why", required=True, choices=[why for why in WAKES if why != "replaced"])
     waking.add_argument("--head", metavar="SHA", help="the pull request's head the wake is for, kept on its record")
+    waking.add_argument("--session", metavar="ID", help="with --why status: the session the line is for, which must still be the task's newest")
+    stopping = commands.add_parser("stopped", help="log that the task's session stopped after the status message and its restart, for the owner")
+    stopping.add_argument("slug")
+    stopping.add_argument("--session", metavar="ID", help="the session the stop is for, which must still be the task's newest")
     waiting = commands.add_parser("wait", help="end when the task's state is one of these, a new event of its own is logged, or its first line is written")
     waiting.add_argument("slug")
     until = waiting.add_mutually_exclusive_group(required=True)
@@ -1098,8 +1240,10 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
     try:
         root = project.repo_root(Path(args.repo))
+        if getattr(args, "session", None) and args.command in ("open", "wake") and args.why not in ("stopped", "status"):
+            raise SessionError(f"--session goes with `open --why stopped` and `wake --why status`, the steps of the guard of a stopped session; `{args.command} --why {args.why}` takes the task's newest session")
         if args.command == "open":
-            result: object = cmd_open(root, args.slug, args.why)
+            result: object = cmd_open(root, args.slug, args.why, named=args.session)
         elif args.command == "next":
             result = cmd_next(root, args.slug, args.same)
         elif args.command == "close":
@@ -1109,7 +1253,9 @@ def main(argv: list[str] | None = None) -> None:
         elif args.command == "talk":
             result = cmd_talk(root, args.slug, args.start, args.leave)
         elif args.command == "wake":
-            result = cmd_wake(root, args.slug, args.why, args.head)
+            result = cmd_wake(root, args.slug, args.why, args.head, args.session)
+        elif args.command == "stopped":
+            result = cmd_stopped(root, args.slug, args.session)
         elif args.command == "wait" and args.first_line:
             if args.companion:
                 raise SessionError("--companion goes with --until or --event: the first line comes from the task's own session")

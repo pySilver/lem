@@ -1154,20 +1154,24 @@ class Search(unittest.TestCase):
 
 
 class StoppedSession(unittest.TestCase):
-    """A task in its phase whose session stopped, and that a wake did not bring on, waits for the owner.
-    The case of 2026-11-22 (merge-leaves-board-lock, #37): its checks ended at 10:54, its session stayed
-    live with an agent in its pane, and the wake of 15:53 reached a conversation that no longer ran
-    there; no event came after it, and "Waits for you" showed nothing."""
-
-    LIVE = {"gift-note": {"live": True, "agent": True, "unanswered": False, "session": "S1", "name": "gift-note"}}
+    """The guard of a stopped session (`stop_due`), on the events of 2026-11-22 (merge-leaves-board-lock,
+    #37): its checks ended at 10:54, its session stayed live with an agent in its pane, and nothing woke
+    it until the owner found it at 15:37. The step due at each look: the status message at 11:39, the
+    restart at 11:49, and when the fresh session stops too, the stop, once. The row of "Waits for you"
+    for a stop is task 3's of the plan, and its case comes with it."""
 
     def ev(self, hhmm: str, event: str, **fields) -> dict:
-        return {"ts": f"2026-11-22T{hhmm}:00Z", "event": event, "task": "gift-note", **fields}
+        return {"ts": f"2026-11-22T{hhmm}{'' if hhmm.count(':') == 2 else ':00'}Z", "event": event, "task": "gift-note", **fields}
 
-    def model(self, *events: dict, at: str):
-        now = int(datetime.strptime(f"2026-11-22T{at}:00Z", "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp() * 1000)
-        m = bm.derive(list(events), [], now)
-        m.sessions = self.LIVE
+    @staticmethod
+    def ms(hhmm: str) -> int:
+        text = f"2026-11-22T{hhmm}{'' if hhmm.count(':') == 2 else ':00'}Z"
+        return int(datetime.strptime(text, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp() * 1000)
+
+    def model(self, *events: dict, at: str, session: str = "S1", sign: str | None = "2026-11-22T10:15:42Z", shell: bool = False, signs: bool = True,
+              live: bool = True):
+        m = bm.derive(list(events), [], self.ms(at))
+        m.sessions = {"gift-note": {"live": live, "agent": live, "unanswered": False, "session": session, "name": "gift-note", "sign": sign, "shell": shell, "signs": signs}}
         return m
 
     def landing(self) -> tuple:
@@ -1177,14 +1181,93 @@ class StoppedSession(unittest.TestCase):
                 self.ev("10:22", "gate", command="bash tests/all.sh", exit=0, last="all suites passed", tip="5ccc53d36"),
                 self.ev("10:54", "gate.end", result="passed", seconds=2156, tip="5ccc53d36"))
 
-    @staticmethod
-    def rows(m) -> list:
-        return [w for w in bm.waits_of(m) if w["t"].slug == "gift-note"]
+    def woken(self) -> tuple:
+        return (*self.landing(), self.ev("11:39", "session.wake", session="S1", why="status"))
 
-    def test_a_landing_that_a_wake_did_not_bring_on_waits_for_the_owner(self):
-        woken = (*self.landing(), self.ev("15:53", "session.wake", session="S1", why="owner"))
-        self.assertNotEqual(self.rows(self.model(*woken, at="17:00")), [])
+    def restarted(self) -> tuple:
+        return (*self.woken(), self.ev("11:49", "session.open", session="S2", name="gift-note", phase="land", why="stopped"),
+                self.ev("11:49", "session.wake", session="S1", why="replaced"))
 
-    def test_a_session_that_went_on_after_the_wake_does_not(self):
-        went_on = (*self.landing(), self.ev("15:53", "session.wake", session="S1", why="owner"), self.ev("16:58", "gate.wait", load=48.0, start=40))
-        self.assertEqual(self.rows(self.model(*went_on, at="17:00")), [])
+    def due(self, *events: dict, at: str, **given):
+        m = self.model(*events, at=at, **given)
+        found = bm.stop_due(m.by_slug["gift-note"], m)
+        return (found["step"], found["session"], found["from"]) if found else None
+
+    def test_45_minutes_after_the_newest_sign_the_status_message_is_due(self):
+        self.assertIsNone(self.due(*self.landing(), at="11:38:59"))
+        # the newest sign is the end of the checks, newer than the session's own last turn at 10:15
+        self.assertEqual(self.due(*self.landing(), at="11:39"), ("status", "S1", self.ms("10:54")))
+        self.assertEqual(self.due(*self.landing(), at="15:37"), ("status", "S1", self.ms("10:54")))
+        # a newer turn of the session (or of a subagent) moves the clock
+        self.assertIsNone(self.due(*self.landing(), at="11:39", sign="2026-11-22T11:30:00Z"))
+        self.assertEqual(self.due(*self.landing(), at="12:15", sign="2026-11-22T11:30:00Z"), ("status", "S1", self.ms("11:30")))
+
+    def test_a_shell_command_that_runs_is_work_and_signs_that_do_not_read_are_no_evidence(self):
+        # the checks of a landing run for 50 minutes with no event: their shell command is the sign
+        checks = (*self.landing()[:3],)
+        self.assertIsNone(self.due(*checks, at="11:08", shell=True))
+        self.assertEqual(self.due(*checks, at="11:08"), ("status", "S1", self.ms("10:18")))
+        self.assertIsNone(self.due(*self.landing(), at="15:37", signs=False))
+        self.assertIsNone(self.due(*self.landing(), at="15:37", live=False))
+        m = self.model(*self.landing(), at="15:37")
+        m.sessions = None
+        self.assertIsNone(bm.stop_due(m.by_slug["gift-note"], m))
+        demo = bm.derive(list(self.landing()), [], self.ms("15:37"), meta={"demo": True})
+        demo.sessions = self.model(*self.landing(), at="15:37").sessions
+        self.assertIsNone(bm.stop_due(demo.by_slug["gift-note"], demo))
+
+    def test_the_restart_is_due_10_minutes_after_the_message_with_no_sign(self):
+        self.assertIsNone(self.due(*self.woken(), at="11:48:59"))
+        self.assertEqual(self.due(*self.woken(), at="11:49"), ("restart", "S1", self.ms("11:39")))
+
+    def test_a_sign_in_the_10_minutes_ends_that_stop(self):
+        self.assertIsNone(self.due(*self.woken(), at="11:49", sign="2026-11-22T11:41:00Z"))
+        # a work event answers too; the session's answer in the second of the message counts as after it
+        self.assertIsNone(self.due(*self.woken(), self.ev("11:44", "review.start"), at="11:49"))
+        self.assertIsNone(self.due(*self.woken(), at="11:49", sign="2026-11-22T11:39:00Z"))
+        # the guard's own records and the owner's click are no work
+        self.assertEqual(self.due(*self.woken(), self.ev("11:45", "board.act", act="open", via="board"), at="11:49")[0], "restart")
+        # a later stop of 45 minutes is a new stop, with a message of its own
+        self.assertEqual(self.due(*self.woken(), at="12:26", sign="2026-11-22T11:41:00Z"), ("status", "S1", self.ms("11:41")))
+
+    def test_the_fresh_sessions_clock_starts_at_its_open(self):
+        # the look 20 seconds after the restart, and one 10 minutes after the old message: nothing
+        self.assertIsNone(self.due(*self.restarted(), at="11:49:20", session="S2", sign=None))
+        self.assertIsNone(self.due(*self.restarted(), at="11:59", session="S2", sign=None))
+        self.assertEqual(self.due(*self.restarted(), at="12:34", session="S2", sign=None), ("status", "S2", self.ms("11:49")))
+        self.assertEqual(self.due(*self.restarted(), at="12:37", session="S2", sign="2026-11-22T11:52:00Z"), ("status", "S2", self.ms("11:52")))
+
+    def test_a_fresh_session_that_stops_too_is_logged_once_and_not_restarted(self):
+        again = (*self.restarted(), self.ev("12:37", "session.wake", session="S2", why="status"))
+        self.assertIsNone(self.due(*again, at="12:46", session="S2", sign="2026-11-22T11:52:00Z"))
+        self.assertEqual(self.due(*again, at="12:47", session="S2", sign="2026-11-22T11:52:00Z"), ("stopped", "S2", self.ms("12:37")))
+        stopped = (*again, self.ev("12:47", "session.stopped", session="S2"))
+        for at in ("12:47:20", "13:40", "17:00"):
+            self.assertIsNone(self.due(*stopped, at=at, session="S2", sign="2026-11-22T11:52:00Z"), at)
+
+    def test_a_work_event_after_the_restart_makes_a_new_restart_possible(self):
+        worked = (*self.restarted(), self.ev("11:55", "gate.start", tip="77aa", commands=1), self.ev("11:58", "gate.end", result="passed", tip="77aa"),
+                  self.ev("12:43", "session.wake", session="S2", why="status"))
+        self.assertEqual(self.due(*worked, at="12:53", session="S2", sign="2026-11-22T11:58:00Z"), ("restart", "S2", self.ms("12:43")))
+
+    def test_a_task_out_of_building_ready_and_landing_gets_nothing(self):
+        opened = self.ev("01:33", "session.open", session="S1", name="gift-note", phase="build", why="handoff")
+        lines = {"held": "the criteria wait for the owner", "queued": "after: other-task", "planned": "the plan waits for the owner",
+                 "blocked": "a builder ended two times with no report", "open": "PR #12 opened", "parked": "the owner parked it",
+                 "landed": "merged as #12", "dropped": "the owner dropped it", "answered": "the answer is in the report"}
+        for status, text in lines.items():
+            self.assertIsNone(self.due(opened, self.ev("10:15", "task.state", status=status, text=text, lines=[]), at="15:37"), status)
+        for status in bm.GUARDED:
+            self.assertIsNotNone(self.due(opened, self.ev("10:15", "task.state", status=status, text="task 2 of 5", lines=[]), at="15:37"), status)
+
+    def test_a_stop_stands_until_a_work_event_or_a_session_opens(self):
+        stopped = (*self.restarted(), self.ev("12:37", "session.wake", session="S2", why="status"), self.ev("12:47", "session.stopped", session="S2"))
+        task = lambda *events: bm.derive(list(events), [], self.ms("13:00")).by_slug["gift-note"]
+        self.assertEqual(bm.stop_stands(task(*stopped))["session"], "S2")
+        self.assertEqual(bm.stop_stands(task(*stopped, self.ev("12:50", "board.act", act="open", via="board")))["session"], "S2")
+        self.assertIsNone(bm.stop_stands(task(*stopped, self.ev("12:50", "session.open", session="S3", name="gift-note", phase="land", why="stopped"))))
+        self.assertIsNone(bm.stop_stands(task(*stopped, self.ev("12:50", "review.start"))))
+        self.assertIsNone(bm.stop_stands(task(*self.restarted())))
+
+    def test_the_numbers_are_the_owners(self):
+        self.assertEqual((bm.QUIET_MS, bm.ANSWER_MS), (45 * 60 * 1000, 10 * 60 * 1000))

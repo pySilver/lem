@@ -2053,7 +2053,16 @@ def duties(model: "bm.Model", seen: dict, kept: set, merging: set = frozenset())
       the gate: the server only runs it.
     - `wake … refused`: an open task whose merge was refused on the tip Lem proposed last, and no
       session was woken or opened since the refusal: the merge agent's, by GitHub or by Lem's rules, and
-      the owner's when Lem refused it because the base moved (`kind: base`, `refusal_of`)."""
+      the owner's when Lem refused it because the base moved (`kind: base`, `refusal_of`).
+    - `wake … status`: a task in `building`, `ready` or `landing` whose live session showed no sign of
+      work for 45 minutes (`bm.stop_due`): the line that asks the session where the task stands.
+    - `open … stopped`: the same task 10 minutes after that line with still no sign of work, when Lem
+      did not restart it since its newest work event: a fresh session beside the old pane.
+    - `stopped … stopped`: the same once the restart was spent: `lem session stopped SLUG` logs the
+      stop, once, and the owner's "Waits for you" shows it.
+    Each of the three names the session it is for (`--session`), and `lem session` looks once more in
+    the task's lock before it acts: a sign of work since, a status that changed, a session that is gone
+    or signs that do not read make it act on nothing (`acted: false`), and the next look asks again."""
     if model.meta.get("demo"):
         return []
     out = []
@@ -2077,6 +2086,8 @@ def duties(model: "bm.Model", seen: dict, kept: set, merging: set = frozenset())
                 after = t.refused["order"]
                 if not any(w["order"] > after for w in t.wakes) and not (t.opened and t.opened["order"] > after):
                     out.append(("wake", t.slug, "refused"))
+        elif (due := bm.stop_due(t, model)) is not None:
+            out.append(STOP_DUTIES[due["step"]](t.slug))
         elif t.status == "queued" and bm.after_ended(t, model) and model.sessions is not None:
             live = bm.live_of(t, model) or {}
             since = wait_start(t)
@@ -2089,6 +2100,11 @@ def duties(model: "bm.Model", seen: dict, kept: set, merging: set = frozenset())
                 # never comes and nothing else would start the task
                 out.append(("wake", t.slug, "queue"))
     return out
+
+
+# The duty of each step of the guard of a stopped session (`bm.stop_due`), as `(VERB, SLUG, WHY)`.
+STOP_DUTIES = {"status": lambda slug: ("wake", slug, "status"), "restart": lambda slug: ("open", slug, "stopped"),
+               "stopped": lambda slug: ("stopped", slug, "stopped")}
 
 
 def merge_due(t: "bm.Task", seen: dict, merging: set) -> bool:
@@ -2146,6 +2162,17 @@ def duty_key(verb: str, slug: str, why: str, landing: dict) -> tuple:
     return (verb, slug, why, proposed, read)
 
 
+def duty_args(verb: str, slug: str, why: str, seen: dict, model: "bm.Model") -> list[str]:
+    """The words of `lem session` for one duty. A conflict's wake keeps the head the forge named on its
+    record (`session.wake`), one wake for each head. A step of the guard of a stopped session names the
+    session it is for, the one `lem session list` gave (`Model.sessions`), so that the act refuses
+    another one; the stop is `lem session stopped SLUG`, which has no why."""
+    head = (seen.get(slug) or {}).get("head") if why == "conflict" else None
+    named = ((model.sessions or {}).get(slug) or {}).get("session") if why in ("status", "stopped") else None
+    words = [verb, slug] + ([] if verb == "stopped" else ["--why", why])
+    return words + (["--head", str(head)] if head else []) + (["--session", str(named)] if named else [])
+
+
 def run_duties(workspace: Workspace, now: float | None = None) -> list[dict]:
     """Run each duty the workspace has now (`duties`), one command at a time, and what ran: a duty whose
     command failed waits DUTY_RETRY before the next try. The merge agent's merge starts in a thread of
@@ -2171,15 +2198,25 @@ def run_duties(workspace: Workspace, now: float | None = None) -> list[dict]:
             merge_in_thread(workspace, slug, landing, why, merge_tip_of(landing, why), failed=failed, standing=why == "owner")
             ran.append({"verb": verb, "task": slug, "why": why, "exit": None, "said": "started"})
             continue
-        # a conflict's wake keeps the head the forge named on its record (`session.wake`), one wake for each head
-        head = (seen.get(slug) or {}).get("head") if why == "conflict" else None
-        result = session_run(workspace, verb, slug, "--why", why, *(["--head", str(head)] if head else []))
+        words = duty_args(verb, slug, why, seen, model)
+        result = session_run(workspace, *words)
         if result.returncode == 0:
             workspace.failed.pop(key, None)
         else:
             workspace.failed[key] = now
-        ran.append({"verb": verb, "task": slug, "why": why, "exit": result.returncode, "said": said_of(result) if result.returncode else ""})
+        ran.append({"verb": verb, "task": slug, "why": why, "words": words, "exit": result.returncode,
+                    "said": said_of(result) if result.returncode else not_acted(result)})
     return ran
+
+
+def not_acted(ran: subprocess.CompletedProcess) -> str:
+    """What a step of the guard of a stopped session said when it acted on nothing (`acted: false`, exit
+    0: its look once more in the task's lock found a reason), else ""."""
+    try:
+        said = json.loads(ran.stdout)
+    except ValueError:
+        return ""
+    return str(said.get("say") or said.get("why") or "") if isinstance(said, dict) and said.get("acted") is False else ""
 
 
 # How often the server runs `lem project prune` for one workspace. A guess (2026-11-21): the number it
@@ -2237,7 +2274,7 @@ def forge_loop(machine: "Machine") -> None:
                         sys.stderr.write(f"serve.py: {workspace.name}: `lem land merge {one['task']} --by {one['why']} --via server{' --standing' if owner else ''}` started, "
                                          + ("after the owner's merge stood through a new landing or a safe read of the moved base\n" if owner else "after the merge agent's verdict `merge`\n"))
                         continue
-                    sys.stderr.write(f"serve.py: {workspace.name}: `lem session {one['verb']} {one['task']} --why {one['why']}` exited {one['exit']}"
+                    sys.stderr.write(f"serve.py: {workspace.name}: `lem session {' '.join(one['words'])}` exited {one['exit']}"
                                      f"{': ' + one['said'] if one['said'] else ''}\n")
             except Exception as error:  # noqa: BLE001 - as above: one workspace that fails says why
                 workspace.session_problem = f"the board's look at the task sessions failed: {error!r}"
