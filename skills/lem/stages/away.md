@@ -22,7 +22,9 @@ writes the machine's mark: from away on, every task that did not end, in every r
 machine, runs without him, and so does each task opened while he is away; from back on, every task
 that ran without him comes back to him, except a night's, which runs without him until it ends.
 Say in one line what it means: the interviews and the criteria go on without him, a breaker waits
-for him, the merge agent merges what it may as always. At back, one line for each task the
+for him, the merge agent merges what it may as always. What still waits for him while he is away
+also reaches his inbox, where he can answer it (`inbox-reply`), and a question there stays open
+after his back. At back, one line for each task the
 command's `tasks` names: whether its criteria were approved without him, and `/lem status SLUG` for
 the rest. Nothing is undone: a wish of his that differs from what was decided is a correction, for
 the lead while the task builds and a new ask after that.

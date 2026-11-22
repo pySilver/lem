@@ -8,7 +8,7 @@ use of that capability, once:
 
 | Part | Answers |
 | --- | --- |
-| `claude-code/ask-owner.md` | `ask-owner` |
+| `claude-code/ask-owner.md` | `ask-owner`, and `inbox-reply` |
 | `claude-code/review-tool.md` | the review tool |
 | `claude-code/tracker.md` | the tracker |
 | `claude-code/task-session.md` | `open-task-session` for a task's own session: its launch, the context's number, a wake-up, the session's transcript (`lem session talk`) |
@@ -146,6 +146,10 @@ session list` gives as `session`; compare the two with no regard to case.
 `agtermctl session status blocked --blink --auto-reset --target "$AGTERM_SESSION_ID"`: the sidebar
 marks the session, and the mark goes back to idle once the owner visits it (the options of
 `agtermctl session status --help`, read 2026-11-21). Not run yet.
+
+Its reverse, for an answer that came from elsewhere while the owner never visited the session
+(`inbox-reply`): `agtermctl session status idle --target "$AGTERM_SESSION_ID"` (the states of the
+same help, read 2026-11-22). Not run yet.
 
 ## take-focus
 

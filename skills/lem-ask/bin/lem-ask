@@ -4,6 +4,8 @@
   lem-ask SPEC.json | lem-ask - < spec.json      ask from a JSON spec (see SKILL.md for the schema)
   lem-ask q "Prompt" "Label|subtitle" "*Recommended|subtitle|why" ... [--multi] [--context MD]
   lem-ask wait PAGE_ID                          resume waiting after a timeout (exit 4)
+  lem-ask close [PAGE_ID]                       close the question page this session shows (that one, when named),
+                                                whose answer came from elsewhere; its waiter ends as dismissed
   lem-ask demo [NAME ...]                       open bundled demos (no name: list them)
   lem-ask templates                             list templates with their one-line purpose
   lem-ask render SPEC -o FILE                   build the page only, open nothing
@@ -561,6 +563,37 @@ def pending_page():
     return None
 
 
+def close_page(page_id=None):
+    """Close the question page this session shows, the one named when an id is given: a card whose
+    answer came from somewhere else (the owner answered it in his inbox), so that it asks no more.
+
+    agterm's `session overlay close` closes whatever page the session shows, so it runs only while
+    that page is one of this script's: another tool's overlay (a diff review, a plan annotation) is
+    not ours to close, and neither is another question than the one named. With none of ours open
+    there is nothing to close, which is no error. The `lem-ask ask` or `wait` that waits on the page
+    then ends as a dismissal (exit 2)."""
+    if not in_agterm():
+        die("not inside agterm, so there is no page to close", 3)
+    s = this_session()
+    if s is None:
+        die("agterm did not say what this session shows; run `agtermctl tree --json` to see why")
+    ours = os.path.realpath(OUTDIR) + os.sep
+    page = next((o.get("id") for o in s.get("htmlOverlays") or []
+                 if o.get("file") and os.path.realpath(o["file"]).startswith(ours) and page_id in (None, o.get("id"))), None)
+    if page is None:
+        emit({"status": "gone", "pageID": page_id,
+              "hint": "no question page of lem-ask is open on this session" + (f" with the id {page_id}" if page_id else "")
+                      + ": nothing was closed"}, 0)
+    r = ctl("session", "overlay", "close", "--target", os.environ["AGTERM_SESSION_ID"], "--json", check=False)
+    try:
+        reply = json.loads(r.stdout)
+    except json.JSONDecodeError:
+        die((r.stderr or r.stdout).strip() or f"agtermctl session overlay close exited {r.returncode}")
+    if not reply.get("ok", True) or r.returncode != 0:
+        die(f"agterm did not close page {page}: {reply.get('error') or (r.stderr or r.stdout).strip()}")
+    emit({"status": "closed", "pageID": page}, 0)
+
+
 def hook_stop():
     """The plugin's Stop hook: when the turn ends with a question page still open, show the question.
 
@@ -827,7 +860,7 @@ def main():
     common.add_argument("--browser", action="store_true", help="open the page in the local browser: outside agterm, or instead of the overlay")
 
     argv = sys.argv[1:]
-    sub = argv[0] if argv and argv[0] in ("q", "wait", "demo", "templates", "render", "ask", "hook-stop") else None
+    sub = argv[0] if argv and argv[0] in ("q", "wait", "close", "demo", "templates", "render", "ask", "hook-stop") else None
     if sub is None:
         argv = ["ask", *argv]
         sub = "ask"
@@ -838,6 +871,7 @@ def main():
     s_q = sp.add_parser("q", parents=[common]); s_q.add_argument("prompt"); s_q.add_argument("options", nargs="*")
     s_q.add_argument("--multi", action="store_true"); s_q.add_argument("--context"); s_q.add_argument("--title")
     s_w = sp.add_parser("wait", parents=[common]); s_w.add_argument("page_id")
+    s_c = sp.add_parser("close"); s_c.add_argument("page_id", nargs="?")
     s_d = sp.add_parser("demo", parents=[common]); s_d.add_argument("names", nargs="*")
     sp.add_parser("templates")
     s_r = sp.add_parser("render"); s_r.add_argument("spec"); s_r.add_argument("-o", "--out", required=True)
@@ -857,6 +891,8 @@ def main():
         if not in_agterm():
             die("not inside agterm", 3)
         sys.exit(wait_page(a.page_id, a.timeout, status=not a.no_status))
+    if a.cmd == "close":
+        close_page(a.page_id)
     if a.cmd == "templates":
         for name, about in list_dir(TEMPLATES):
             print(f"{name:18} {about}")

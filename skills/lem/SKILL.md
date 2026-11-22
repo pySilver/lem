@@ -240,7 +240,7 @@ so do the end of a command it runs in the background and a wake-up from the boar
   a planning or debugging skill loaded beside a stage has the session read code and plans by itself,
   which is the work of a lead and its builders (the compatibility audit, 2026-11-17).
 - **Capabilities, not tools.** A stage says `spawn-builder`, `open-task-session`, `mark-waiting`,
-  `take-focus`, `second-opinion`, `ask-owner`, `ask-experts`, `ask-merger`, `fan-out`, `run-in-background`,
+  `take-focus`, `second-opinion`, `ask-owner`, `inbox-reply`, `ask-experts`, `ask-merger`, `fan-out`, `run-in-background`,
   `start-nap` (for a nap), `show-page` or `load-skill`, and
   names the question gate, the persona panel and the review tool by role. Read, once per session, the file in this skill's `harness/` folder named
   after the agent you run in (`harness/claude-code.md`): it says what each means there, or names

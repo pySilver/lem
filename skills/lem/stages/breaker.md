@@ -61,7 +61,9 @@ there.
 The board puts the document first on the task, and its "Waits for you" and a push to his phone
 tell him. He answers one of three ways: he helps, in a talk about the document in the task's
 session; he parks the task (`/lem park SLUG`); or he drops it (`/lem drop SLUG`). `/lem resume
-SLUG` goes back to the talk after either.
+SLUG` goes back to the talk after either. While he is away, the breaker also reaches his inbox with
+the same three answers, and help, park or drop may come from there as well (`inbox-reply`): the
+first answer counts, and it is his as if typed here.
 
 - **The talk.** You stand in for the lead that tripped it, or you are that lead: answer from the
   document, `handoff.md` and the code. "What do the experts say?" is the document's line of the

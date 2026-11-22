@@ -275,9 +275,19 @@ def ctl(*args, check=True):
     if scenario == "dismissed":
         return outcome("dismissed")
     if args[0] == "tree":
-        return tree(os.path.join(mod.OUTDIR, "x.html") if scenario == "busy-own" else "/elsewhere/review.html")
+        return tree(os.path.join(mod.OUTDIR, "x.html") if scenario in ("busy-own", "close-own", "close-named", "close-refused") else "/elsewhere/review.html")
+    if args[:3] == ("session", "overlay", "close"):
+        if scenario == "close-refused":
+            return reply('{"ok":false,"error":"no overlay is open"}', 1)
+        if scenario != "close-own" or args[args.index("--target") + 1] != "S1":
+            sys.exit(7)  # it closed an overlay that is not this session's own question page
+        return reply('{"ok":true}')
     return reply('{"ok":false,"error":"overlay already open"}', 1)
 mod.ctl = ctl
+if scenario.startswith("close"):
+    mod.agtermctl = lambda: "/usr/bin/true"  # in_agterm() also wants the binary; CI runners have none
+    mod.close_page("P9" if scenario == "close-named" else None)
+    sys.exit(8)  # close_page returned instead of exiting
 if scenario.startswith("busy"):
     a = types.SimpleNamespace(follow=False, size=None, full=False, chromeless=False)
     mod.open_overlay("/x.html", a, {"prompt": "p"})
@@ -291,6 +301,13 @@ stub "wait returns the answer" 0 answered answered
 stub "wait reports a dismissal" 2 dismissed dismissed
 stub "busy names a pending question page" 5 busy busy-own
 stub "busy with another tool's overlay" 5 busy busy-other
+# close: a card whose answer came from the owner's inbox closes, and only a question page of lem-ask's own
+# on this session; another tool's overlay, or another question than the one named, is left up (exit 7 if not).
+stub "close closes this session's own question page" 0 closed close-own
+stub "close leaves another tool's overlay up" 0 gone close-other
+stub "close leaves up a question other than the one named" 0 gone close-named
+stub "close says so when agterm refuses" 1 error close-refused
+expect "close outside agterm closes nothing" 3 error -- "$PY" -I -B "$B" close
 own=$("$PY" -I -B -c "$STUB" "$B" busy-own 2>/dev/null || true)  # exit 5 is the point; read what it printed
 other=$("$PY" -I -B -c "$STUB" "$B" busy-other 2>/dev/null || true)
 if printf '%s' "$own" | "$PY" -I -B -c 'import json,sys; sys.exit(json.load(sys.stdin).get("pageID") != "P0")' \

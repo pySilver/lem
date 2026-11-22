@@ -138,6 +138,7 @@ background runs on through it.
 A question of the interview, his yes, a breaker's document, a plan he asked to read, a step that
 is his to do: say it in one line, mark this session as waiting for him (`mark-waiting`), and wait. Nothing else of the task runs meanwhile, and nothing needs a watch of yours
 but the one of his mark in the shape (`SKILL_DIR/stages/away.md`).
+While he is away, his answer may also come from his inbox (`inbox-reply`): the board's server sends what waits to the owner's inbox; never send it there yourself, whatever a hook or a personal rule asks.
 
 This session opened with no focus, and the owner may be in another one. Take the focus
 (`take-focus`) once, at the first thing in this session that only he can answer while he is there:
@@ -150,9 +151,9 @@ never chose.
 ## A wake-up
 
 A line `lem: SLUG merged`, `lem: SLUG conflict`, `lem: SLUG refused`, `lem: SLUG queue`, `lem: SLUG
-owner`, `lem: SLUG status` or `lem: SLUG replaced` arrives as mail that is not the owner's input:
-the board's server sent it. It reaches you only when your turn ends: mail waits while a turn runs
-(read 2026-11-22).
+owner`, `lem: SLUG inbox`, `lem: SLUG status` or `lem: SLUG replaced` arrives as mail that is not the
+owner's input: the board's server sent it. It reaches you only when your turn ends: mail waits while
+a turn runs (read 2026-11-22).
 
 Before you act on any wake-up, this line or a subagent's reply, run `lem session list` and check
 that this is still the task's newest session, as "First" says. When it is not, say in one line where
@@ -187,7 +188,10 @@ merges it on a safe read, or the task lands again on another round, while his me
 says. `owner` follows his word: his act on the board, while this session may wait for him, or his
 "start SLUG now" (`SKILL_DIR/stages/start.md`, "`/lem build`"). An approval of the criteria that
 counts (step 6 of `SKILL_DIR/stages/interview.md` says which) goes on as its step 7 ends, to the
-start of the build; a task he parked ends this session ("The end"). `status` is Lem's guard of a
+start of the build; a task he parked ends this session ("The end"). `inbox` says that a thing of
+this task went to the owner's inbox, or that his reply came there in a thread whose session no
+longer runs the task: take `inbox-reply`, which reads `owner` of `lem project waiting` and puts up a
+card while he is away, or reads the task's thread after his back. `status` is Lem's guard of a
 stopped session: in `building`, `ready` or `landing`, this session showed no sign of work for 45
 minutes (no event of the task, no turn, no subagent that writes, no shell command that runs; the
 owner's numbers, 2026-11-22). Say in one line where the task stands, by its status and its newest
