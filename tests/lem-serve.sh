@@ -222,7 +222,8 @@ box = re.search(r"<div class=\"search\" id=\"search\"[^>]*>", t)
 rows = re.findall(r"<a class=\"sr a-([a-z]+)\" id=\"sr-([a-z]+-[a-z0-9-]+)\"[^>]*>.*?<span class=\"pill sr-chip\"><i></i><span>([^<]*)</span>", t, re.S)
 chips = {key: (actor, re.sub(r" \d{4}-\d{2}-\d{2}$", " DAY", chip)) for actor, key, chip in rows}
 order = [key for _, key, _ in rows]
-first = lambda key: order.index(key) if key in order else -1  # noqa: E731
+def first(key):
+    return order.index(key) if key in order else -1
 buttons = [bool(re.search(r"<header class=\"" + bar + r"\">(?:(?!</header>).)*<button class=\"btn search-open[^>]*aria-label=\"[^\"]*Cmd-K", t, re.S)) for bar in ("bar", "mbar")]
 print(bool(box) and "data-js-open" not in box[0], buttons, [chips.get(k) for k in ("task-stock-on-product-page", "task-fee-notice-to-merchants", "task-why-export-is-slow", "item-invoice-footer-wraps")],
       0 <= first("task-gift-note-in-export") < first("task-refund-rounding") < first("task-coupon-has-a-slug") < first("task-fee-notice-to-merchants") < first("task-landed-now-01") < first("item-invoice-footer-wraps"),
