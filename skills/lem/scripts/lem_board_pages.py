@@ -767,9 +767,26 @@ def kanban(ctx: Ctx) -> Markup:
         tabs.append(h("button", {"class": f"ktab a-{lane['actor']}{' some' if tasks else ''}", "type": "button", "id": f"ktab-{lane['key']}",
                                  "data-columns-target": "tab", "data-action": "columns#show", "data-columns-index-param": i},
                       h("i"), lane["title"], h("em", None, len(tasks))))
+    # the cursor controller's mark over the cards (cursor.js), with its keys in one line under the columns
     return h("div", {"class": "board-wrap", "data-controller": "columns"},
              h("nav", {"class": "ktabs", "id": "ktabs", "aria-label": "The columns"}, tabs),
-             h("div", {"class": "view kanban", "id": "kanban", "data-columns-target": "board"}, columns))
+             h("div", {"class": "view kanban", "id": "kanban", "data-columns-target": "board", "data-controller": "cursor",
+                       "data-cursor-item-value": "article.tc", "data-cursor-group-value": "section.col", "data-cursor-link-value": ".tc-link",
+                       "data-action": "keydown@window->cursor#key click->cursor#pick"}, columns),
+             keys_line(("J", "K", "↑", "↓"), "move", ("H", "L", "←", "→"), "column", ("Enter",), "open", ("Esc",), "close", id_="kanban-keys"))
+
+
+def keys_line(*parts, id_: str | None = None) -> Markup:
+    """A view's line of its keys, in the Backlog's look and hidden on a phone as the Backlog's is (`.keys`):
+    the parts in turns, a tuple of keys and the word of what they do."""
+    out = []
+    for keys, word in zip(parts[::2], parts[1::2]):
+        if out:
+            out.append(" · ")
+        for key in keys:
+            out += [h("kbd", None, key), " "]
+        out.append(word)
+    return h("div", {"class": "keys", "id": id_}, out)
 
 
 def older_row(ctx: Ctx) -> Markup | None:

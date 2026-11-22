@@ -563,6 +563,11 @@ pre.code { margin: 0; font: 12.5px/1.6 var(--mono); white-space: pre-wrap; overf
 .app .tc-link:focus-visible { outline: none; }
 .app .tc-chips :is(a, [title]) { position: relative; z-index: 1; }
 .app .col.folded .col-head .ibtn .ic { transform: scaleX(-1); }
+/* the mark the keys move over the cards (cursor.js), the backlog's ring; its ring is the focus's too */
+.app .tc[data-js-cur] { box-shadow: 0 0 0 2px var(--accent); }
+.app .tc.sel[data-js-cur] { box-shadow: inset 3px 0 0 var(--actor), 0 0 0 2px var(--accent); }
+.app .tc[data-js-cur]:has(.tc-link:focus-visible) { outline: none; }
+.app .board-wrap > .keys { flex: none; padding: 0 18px 10px; margin-top: -6px; }
 
 /* "Waits for you", the page */
 .app .waits-list { display: flex; flex-direction: column; gap: 10px; max-width: 980px; }

@@ -1,5 +1,6 @@
 """lem_board_pages.py's rules, each a page drawn from a model of a few events: what the kanban's Done
-column draws of the ended tasks, its foot row, and the page that lists the ended tasks it has no card for.
+column draws of the ended tasks, its foot row, the page that lists the ended tasks it has no card for, and the
+kanban's mark over its cards and its line of keys.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -183,6 +184,20 @@ class SideFold(unittest.TestCase):
         script = (pages.ASSETS / "vendor" / "board-app.js").read_text(encoding="utf-8")
         self.assertIn('"Unfold the sidebar":"Fold the sidebar"', script)
         self.assertNotIn("sidebar", json.loads(pages.ICONS.read_text(encoding="utf-8")))
+
+
+class Keys(unittest.TestCase):
+    def test_the_kanban_carries_the_cursor_over_its_cards_and_one_line_of_its_keys(self):
+        html = str(pages.kanban_page(ctx_of(ended(3))))
+        kanban = re.search(r'<div class="view kanban" id="kanban"[^>]*>', html)[0]
+        for attr in ('data-controller="cursor"', 'data-cursor-item-value="article.tc"', 'data-cursor-group-value="section.col"',
+                     'data-cursor-link-value=".tc-link"', 'data-action="keydown@window-&gt;cursor#key click-&gt;cursor#pick"'):
+            self.assertIn(attr, kanban)
+        line = re.search(r'<div class="keys" id="kanban-keys">(.*?)</div>', html)
+        self.assertIsNotNone(line)
+        self.assertEqual(" ".join(re.sub(r"<[^>]+>", " ", line[1]).split()), "J K ↑ ↓ move · H L ← → column · Enter open · Esc close")
+        self.assertEqual(re.findall(r"<kbd>([^<]+)</kbd>", line[1]), ["J", "K", "↑", "↓", "H", "L", "←", "→", "Enter", "Esc"])
+        self.assertEqual(html.count('class="keys"'), 1)
 
 
 if __name__ == "__main__":

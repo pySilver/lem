@@ -7,6 +7,7 @@ import BacklogController from './backlog.js';
 import ClockController from './clock.js';
 import ColumnsController from './columns.js';
 import CopyController from './copy.js';
+import CursorController from './cursor.js';
 import DrawerController from './drawer.js';
 import EdgesController from './edges.js';
 import FoldController from './fold.js';
@@ -26,6 +27,7 @@ export const CONTROLLERS = {
   clock: ClockController,
   columns: ColumnsController,
   copy: CopyController,
+  cursor: CursorController,
   drawer: DrawerController,
   edges: EdgesController,
   fold: FoldController,
