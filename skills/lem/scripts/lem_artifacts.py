@@ -71,7 +71,6 @@ DOCS = {
     "pr.md": ("pr", "Pull request text"),
     "notes.md": ("pr", "Notes for the pull request"),
     "merge-review.md": ("pr", "The merge review"),
-    "merge-brief.md": ("pr", "The merge agent's brief"),
     "handover.html": ("pr", "The hand-over page"),
 }
 # The records, by their name: the document they belong to, the word of their link, and the tab of the
@@ -137,6 +136,10 @@ def place(path: str) -> dict:
     if path in RECORDS:
         of, label, tab = RECORDS[path]
         return {"group": DOCS[of][0], "title": f"{DOCS[of][1]} ({label})", "role": "record", "of": of, "label": label, "tab": tab}
+    # the merge agent's brief of one proposed tip on one base (land.py `brief_file`)
+    brief = re.fullmatch(r"merge-brief-([0-9a-f]+)-([0-9a-f]+)\.md", path)
+    if brief:
+        return {"group": "pr", "title": f"The merge agent's brief of {brief.group(1)[:9]} on {brief.group(2)[:9]}", "role": "doc"}
     breaker = re.fullmatch(r"breaker-(\d+)\.md", path)
     if breaker:
         return {"group": "build", "title": f"What stopped the build: breaker {breaker.group(1)}", "role": "doc"}

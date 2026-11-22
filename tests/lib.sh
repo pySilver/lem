@@ -48,8 +48,10 @@ NOCODEX=$WORK/nocodex
 # A stand-in for GitHub's `gh` on PATH, for every repository whose origin is on GitHub (on_github): it finds the
 # bare repository the origin stands for through git's own rewrite of the address, keeps that origin's pull requests in a
 # file beside it (ORIGIN.gh.json, with one line of each call in ORIGIN.gh.json.log), and merges by moving the base
-# branch there: one new commit of the head's tree with --squash, the head itself with --rebase. GH_REFUSE=LINE makes a
-# merge fail with that line, as GitHub's rules do.
+# branch there: one new commit of the head's tree with --squash (its message the --subject and the --body), the head
+# itself with --rebase, or its commits made again on the base when the base moved since. GH_REFUSE=LINE makes a merge
+# fail with that line, as GitHub's rules do; GH_BASE_FIRST=COMMIT moves the base there just before a merge, as a merge on
+# GitHub outside Lem would; GH_EDIT_REFUSE=LINE makes `pr edit` fail with that line.
 cat > "$WORK/gh-standin.py" <<'PY'
 import json, os, subprocess, sys
 args = sys.argv[1:]
@@ -65,7 +67,7 @@ with open(state_file + ".log", "a") as log:
 def opt(key): return args[args.index(key) + 1] if key in args else None
 def rev(ref): return git("rev-parse", "--verify", "-q", ref, where=origin)
 def shown(n, pr): return {"number": int(n), "url": pr["url"], "state": pr["state"], "mergeable": pr.get("mergeable", "MERGEABLE"), "baseRefName": pr["base"],
-                          "headRefOid": rev("refs/heads/" + pr["head"]), "mergeCommit": {"oid": pr["merge"]} if pr["merge"] else None}
+                          "headRefOid": rev("refs/heads/" + pr["head"]), "mergeCommit": {"oid": pr["merge"]} if pr["merge"] else None, "body": pr["body"]}
 def save():
     with open(state_file + ".new", "w") as out:
         json.dump(state, out)
@@ -83,11 +85,15 @@ elif args[:2] == ["pr", "create"]:
     out = state["prs"][n]["url"]
     save()
 elif args[:2] == ["pr", "edit"]:
+    if os.environ.get("GH_EDIT_REFUSE"):
+        sys.exit(os.environ["GH_EDIT_REFUSE"])
     # --base changes the branch the pull request goes into, as a person can on GitHub
     if opt("--base"):
         state["prs"][args[2]]["base"] = opt("--base")
     if opt("--title"):
-        state["prs"][args[2]].update(title=opt("--title"), body=open(opt("--body-file")).read())
+        state["prs"][args[2]]["title"] = opt("--title")
+    if opt("--body-file"):
+        state["prs"][args[2]]["body"] = open(opt("--body-file")).read()
     save()
 elif args[:2] == ["pr", "view"]:
     out = json.dumps(shown(args[2], state["prs"][args[2]]))
@@ -98,9 +104,19 @@ elif args[:2] == ["pr", "merge"]:
         sys.exit(os.environ["GH_REFUSE"])
     if opt("--match-head-commit") != head:
         sys.exit("the head is another commit")
+    if os.environ.get("GH_BASE_FIRST"):
+        subprocess.run(["git", "-C", origin, "update-ref", "refs/heads/" + pr["base"], os.environ["GH_BASE_FIRST"]], check=True)
+    base = rev("refs/heads/" + pr["base"])
     merged = head
+    who = ["-c", "user.name=t", "-c", "user.email=t@t"]
     if "--squash" in args:
-        merged = git("-c", "user.name=t", "-c", "user.email=t@t", "commit-tree", "-p", rev("refs/heads/" + pr["base"]), "-m", opt("--subject"), head + "^{tree}", where=origin)
+        merged = git(*who, "commit-tree", "-p", base, "-m", opt("--subject"), *(["-m", opt("--body")] if opt("--body") else []), head + "^{tree}", where=origin)
+    elif subprocess.run(["git", "-C", origin, "merge-base", "--is-ancestor", base, head]).returncode != 0:
+        # a rebase onto the base that moved: each commit of the head made again on it, as GitHub's rebase merge does
+        merged = base
+        for commit in git("rev-list", "--reverse", head, "^" + base, where=origin).split():
+            tree = git("merge-tree", "--write-tree", "--merge-base", commit + "^", merged, commit, where=origin).split()[0]
+            merged = git(*who, "commit-tree", "-p", merged, "-m", git("log", "-1", "--format=%B", commit, where=origin), tree, where=origin)
     subprocess.run(["git", "-C", origin, "update-ref", "refs/heads/" + pr["base"], merged], check=True)
     pr.update(state="MERGED", merge=merged)
     save()
@@ -283,13 +299,20 @@ record() {
 }
 # clean SLUG N: the record of one read that found nothing
 clean() { record "$1" "$2" '{"kind": "read", "answered": ["codex"]}'; }
-# merge_read REPO SLUG [VERDICT]: the merge agent's read of a proposed task, its brief and then its reply with VERDICT
-# (merge by default) written down; prints what the step printed
+# merge_read REPO SLUG [VERDICT] [BASE_CALL]: the merge agent's read of a proposed task, its brief and then its reply with
+# VERDICT (merge by default) written down, and on a base that moved since the checks a second line with BASE_CALL (safe or
+# another round) and its sentence of why; prints what the step printed
 merge_read() {
-  local brief
+  local brief answer
   brief=$(land --repo "$1" merge-review "$2") || return 1
-  printf 'Verdict: %s. The change does what its criterion says.\n\nIts test proves it, and the task took as long as expected.\n' "${3:-merge}" > "$(field 'd["answer"]' <<<"$brief")"
-  land --repo "$1" merge-review "$2" --file "$(field 'd["answer"]' <<<"$brief")" --tip "$(field 'd["tip"]' <<<"$brief")"
+  answer=$(field 'd["answer"]' <<<"$brief")
+  printf 'Verdict: %s. The change does what its criterion says.\n' "${3:-merge}" > "$answer"
+  case ${4:-} in
+    safe) printf 'Base: safe. What moved touches nothing the change rests on.\n' >> "$answer" ;;
+    ?*) printf 'Base: %s. What moved changes a file the change rests on.\n' "$4" >> "$answer" ;;
+  esac
+  printf '\nIts test proves it, and the task took as long as expected.\n' >> "$answer"
+  land --repo "$1" merge-review "$2" --file "$answer" --tip "$(field 'd["tip"]' <<<"$brief")" --base "$(field 'd["base"]' <<<"$brief")"
 }
 # the notes of a pull request, and the same notes with the migration a careful request needs
 NOTES=$WORK/notes.md

@@ -35,17 +35,20 @@ may-land` about the settings' base branch, so a protected branch is never reache
                            push the branch and open its pull request on GitHub, or update the one
                            that is there: the state becomes `open`
     lem land merge-review SLUG
-                           what the merge agent reads: its brief, merge-brief.md in the task
-                           directory, with the facts of the task, and its seat
-    lem land merge-review SLUG --file FILE --tip COMMIT
+                           what the merge agent reads: its brief, merge-brief-TIP-BASE.md in the
+                           task directory, with the facts of the task and what moved on the base
+                           since the checks, and its seat
+    lem land merge-review SLUG --file FILE --tip COMMIT --base COMMIT
                            write down the merge agent's reply as merge-review.md: its verdict,
-                           merge or call, and whether the owner is called; COMMIT is the `tip` the
-                           brief named, and the reply of a brief of an earlier proposal is refused
+                           merge or call, whether the owner is called, and on a moved base its call,
+                           safe or another round; the commits are the `tip` and the `base` the brief
+                           named, and the reply of a brief of an earlier proposal is refused
     lem land merge SLUG --by owner|merger [--message SUBJECT] [--via session|server] [--standing] [--tip COMMIT]
                            merge the pull request through GitHub: the owner's word, or the merge
                            agent's where the settings and the request allow it; `--via server`
                            when the board's server runs it, `--standing` for the owner's merge
-                           that a moved base refused and that stood through the new landing;
+                           that a moved base refused and that stood through the new landing or
+                           a read that said the move is safe;
                            `--tip` the commit the caller saw, which must be the one proposed now
                            (the board's server always gives it)
     lem land merged SLUG   the owner merged the pull request on the forge: finish the bookkeeping;
@@ -65,8 +68,8 @@ the checks: the events `gate`, `gate.start` and `gate.end`, the folder `gate/` o
 A FILE of `read --record`, `propose --notes` and `merge-review --file` is read from the working
 directory, and a relative one that is not there is read from the task's directory (`task_file`): a
 task's session stands in the main checkout, and the files are the task directory's
-(`reviews/review-1.json`, `notes.md`, `merge-answer-TIP.md`, the answer file `merge-review` names
-for the tip of its brief).
+(`reviews/review-1.json`, `notes.md`, `merge-answer-TIP-BASE.md`, the answer file `merge-review`
+names for the tip and the base of its brief).
 
 One step of a task runs at a time. Every step here that names a task takes the task's one step
 lock (`step.lock` in its directory) before anything else it does, and holds it until it ends,
@@ -151,8 +154,9 @@ ran on and that tip's tree.
 An `open` task lands again when its base moved: after a merge, Lem takes each task whose
 pull request the forge calls conflicting through `start --conflicting`, `base`, the checks, the
 review that is due and `propose`, which keeps its pull request; every other open task waits as it
-is, and `merge` refuses it on a base that moved by any file since the checks ran (below), after
-which it lands again the same way, with no `--conflicting`. `start` counts each new landing of an
+is, and `merge` refuses it on a base that moved by any file since the checks ran until the merge
+agent's read of what moved says the move is safe (below); when it says another round, the task
+lands again the same way, with no `--conflicting`. `start` counts each new landing of an
 open task (`relands` in `landing.json`, a `land.again` event with `count`), for the merge agent's
 facts; nothing bounds the count. The pull request's text
 and the state say in one line what happened ("rebased on main after the forge called it
@@ -378,23 +382,49 @@ GitHub, or that has none, is refused before anything is written, with the line t
 at GitHub: a GitHub pull request is the one way a task lands.
 
 The merge agent reads every proposed task, the fast track's too, after `propose`. `merge-review`
-with no record writes its brief, `merge-brief.md` in the task directory: the line that names
-`prompts/merge.md`, and the facts as JSON (the pull request, the range, the files of the task
-directory there are, the reviews, green or why not, why careful, `branch.land`, `owner_merges`, the
-reason the owner merges whatever the agent finds, or null, and `time`, the task's seconds from its
-first event to its first proposal against the median of the earlier tasks of its track in the
-event log). It prints the brief, the answer file the agent's reply goes to, and the seat that
-starts it, `seats.merger` as `lem project show` resolves it. The agent changes nothing. Its reply
-opens with its verdict, `Verdict: merge.` or `Verdict: call.`; `merge-review --file FILE` refuses one
-that does not, writes the reply as `merge-review.md`, keeps `merge_review` in `landing.json` (the
-proposed tip, the verdict, `calls`, `why`, the seat as `by`, and the time) and logs `merge.review`
-with the same. `calls` is true for the verdict `call`, and for a `merge` that `owner_merges` overrules:
-the owner is called, and "Waits for you" shows "Read the merge review". A review of an earlier tip
-counts for nothing, unless `propose` carried it onto the tip after a new landing (below). The facts
-hold `relands` too, how many times the proposal landed again, `pictures`, the PNG, JPEG, GIF and
-WebP files of the task's `media/` folder by their paths from the task directory, which the builders
-took and a review of a change to what a person sees links, and `try`, the worktree's folder from the
-main checkout and `gh pr checkout N`, which a review that calls the owner ends with.
+with no record fetches the base and writes its brief, `merge-brief-TIP-BASE.md` in the task directory,
+named by the proposed tip and the base it reads against, so that the brief of a later base never
+takes the place of the one an agent was started with: the line that names `prompts/merge.md`, and the
+facts as JSON (the pull request, the range, the files of the task directory there are, the reviews,
+green or why not, why careful, `branch.land`, `owner_merges`, the reason the owner merges whatever
+the agent finds, or null, `time`, the task's seconds from its first event to its first proposal
+against the median of the earlier tasks of its track in the event log, `base`, and `moved`). `moved`
+is null when no file changed on origin's base since the base the checks ran on; otherwise it holds
+that base (`checks_ran_on`), the base now (`base_now`), the `range` between them, each `commits` entry
+(short id and subject), the `files` they changed, and the `overlap`, those of them the task's change
+touches too: always from the checks' base, never from an earlier read, so a read sees every move
+since the checks. `base` is origin's base when `moved` is not null, and the checks' base otherwise.
+It prints the brief, the answer file the agent's reply goes to (`merge-answer-TIP-BASE.md`), the
+tip, the base, and the seat that starts it, `seats.merger` as `lem project show` resolves it. The
+agent changes nothing. Its reply opens with its verdict, `Verdict: merge.` or `Verdict: call.`; on a
+moved base its second line is its call on the move, `Base: safe.` or `Base: another round.`, then one
+sentence of why. `merge-review --file FILE --tip TIP --base BASE` takes the tip and the base the brief
+named: an answer of another tip than the one proposed, or of a base no brief named, is refused, and
+the read covers BASE, never the base at the time of the record. A reply with no verdict, or with no
+base call on a moved base, is refused, and the agent is asked again; on a moved base the second such
+reply of one brief is recorded as another round, with that reason as its why, so that the checks
+decide and the owner is not asked. It writes the reply as `merge-review.md`, keeps `merge_review` in
+`landing.json` (the proposed tip, the verdict, `calls`, `why`, the seat as `by`, the time as `at`, the
+`base` the read covered, and its `base_call` and `base_why`, null with no move) and logs one
+`merge.review` with the same for each read, so the log keeps the why of every base call. `calls` is
+true for the verdict `call`, and for a `merge` that `owner_merges` overrules: the owner is called, and
+"Waits for you" shows "Read the merge review". A review of an earlier tip counts for nothing, unless
+`propose` carried it onto the tip after a new landing (below). The facts hold `relands` too, how many
+times the proposal landed again, `pictures`, the PNG, JPEG, GIF and WebP files of the task's `media/`
+folder by their paths from the task directory, which the builders took and a review of a change to
+what a person sees links, and `try`, the worktree's folder from the main checkout and `gh pr checkout
+N`, which a review that calls the owner ends with.
+
+A read with `Base: safe.` answers Lem's own refusal of a merge of its tip because the base moved
+(`merge_refused` with `kind: base`): the record clears it, so that `landing.json`, `lem project
+waiting` and the board agree, and when that refused merge was the owner's (`owner_tap` of the tip) it
+logs `merge.stands`, so that the board's server runs his merge with `--standing` and he is not asked
+again. No read answers any other refusal (GitHub's, a rule's, a tip's). A read with `Base: another
+round.` merges nothing: it keeps a refusal of kind `base` for its tip (`merge_refused` and a
+`merge.refused` event, with the read's why) and the tip as `another_round`, so that the server wakes
+the session and the board says that it lands again; the task lands again with no question to the
+owner. Only that new landing answers such a refusal: `merge-review` refuses a brief or an answer of a
+tip whose read said another round.
 
 `merged` asks GitHub about a pull request the owner may have merged or closed there. A merged one
 finishes as a landing does. A closed one with no merge ends the task: its state becomes `dropped`
@@ -418,27 +448,43 @@ without the owner is merged as any other. The pull request is merged through Git
 hold: a merge GitHub refuses keeps its line as `merge_refused` in `landing.json` (`from: github`) and a
 `merge.refused` event, for the row that waits for the owner, and the step exits 1 with that line.
 `merged` is for one the owner merged on GitHub. What lands is the tree the checks passed on: when the
-tip is another tree, or the base moved by any file after the checks ran (`changed` from the base the
-checks ran on to the base now: every file, not only those the checks read), `merge` refuses and says
-which steps run again.
+tip is another tree, `merge` refuses and says which steps run again. When the base moved by any file
+after the checks ran (`changed` from the base the checks ran on to the base now: every file, not only
+those the checks read), it merges only when the base now has the same tree as the base a read of the
+proposed tip with `Base: safe.` covered, and no read of that tip said another round; otherwise it
+refuses, and the refusal names the merge agent's read of what moved as the next step, or a new
+landing after another round. A read of one base covers no later one. Such a merge leaves its record in
+git, and only once GitHub took it: its line names the base the checks ran on, the base it merged on
+and the merge agent's sentence of why; with `branch.history = "squash"` it is the body of the merge
+commit, in the same `gh pr merge` call, and `forge_done`, which every path to `landed` takes (`merge`,
+and `merged`), adds it to the pull request's text (`gh pr edit`, and `pr.md`) and to the landed state
+when the text lacks it. A failed edit leaves the task `open` with the step's error, and the next
+`merged` tries again. `forge_done` also reads the merged commit's parent on the base: when its tree is
+not the tree the read covered (a merge on GitHub outside Lem came between Lem's fetch and its merge
+call, which no flag of `gh pr merge` can bind), the line names the base it really merged on and says
+that no read covered it, and the step prints it as `uncovered`, for the owner. A merge on the base the
+checks ran on writes no such line, and a merge GitHub refuses writes none anywhere.
 
 A refusal by Lem's own rules under the lock (`Refusal`, with its `kind`: `rule` for one of the merge
 agent's rules, `tip` for a tip or a head that is not the one proposed and checked, `base` for the
 moved base) keeps its line the same way, with `from: lem` and the `kind`, for every refusal of the
 merge agent's merge and for the owner's when the base moved (`kept_refusal`): the server tries that
 tip no more and wakes the task's session with `lem: SLUG refused`. A git or `gh` call that failed is
-no refusal of the tip and is not kept; the next try runs it again. After a base refusal the session
-lands the task again. A rebase with no conflict carries the review (above) and, with it, what was
-said of the tip at the merge (`rebase_carried`, from the tip before the rebase to the one after it);
-`propose` of that tip, with no commit after the rebase, carries the merge agent's review onto it,
-with its call of the owner as the rules say now, and logs it as a `merge.review` with `carried`, so
-that the server merges it with no second read. The owner's merge that the base refused
-(`owner_tap`) stands the same way, while the reasons the request is not green are the ones he saw:
-`propose` logs `merge.stands`, and the server runs `merge --by owner --via server --standing`, which
-`merge.start` and `merged_by` record as made `after: a re-check`. A commit after the rebase, a
-conflict, a review that does not cover the change or other reasons end it, and `propose` says why
-(`owner_merge`); for a review that does not cover it, the review's reason, which the rebase kept
-(`rebase_uncovered`).
+no refusal of the tip and is not kept; the next try runs it again. After a base refusal a fresh merge
+agent reads what moved; after a read that said another round the session lands the task again. A
+rebase with no conflict carries the review (above) and, with it, what was said of the tip at the
+merge (`rebase_carried`, from the tip before the rebase to the one after it); `propose` of that tip,
+with no commit after the rebase, carries the merge agent's review onto it, with its call of the
+owner as the rules say now and with no call on a moved base, since the new landing's checks ran on
+the new base, and logs it as a `merge.review` with `carried`, so that the server merges it with no
+second read. The owner's merge that the base refused (`owner_tap`) stands the same way, while the
+reasons the request is not green are the ones he saw: `propose` logs `merge.stands`, and the server
+runs `merge --by owner --via server --standing`, which `merge.start` and `merged_by` record as made
+`after: a re-check`. A commit after the rebase, a conflict, a review that does not cover the change
+or other reasons end it, and `propose` says why (`owner_merge`); for a review that does not cover it,
+the review's reason, which the rebase kept (`rebase_uncovered`). A merge on a moved base that a read
+covered is recorded in `merge.start` and `merged_by` as made `after: a read of the moved base`, with
+the `base` it read.
 
 A step that was cut off is run again; a merge that GitHub already holds only finishes the bookkeeping.
 `clean` knows the branch from `landing.json`, so it finds it after the worktree is gone. It
@@ -497,6 +543,13 @@ BY = ("owner", "merger")
 GITHUB = re.compile(r"(https://|ssh://git@|git@)github\.com[:/]")
 # The merge agent's verdict, the first line of its review: it merges, or it calls the owner.
 VERDICT = re.compile(r"Verdict:\s*(merge|call)\b", re.IGNORECASE)
+# The merge agent's call on a base that moved after the checks ran, the second line of its review: the
+# move is safe for the change as it is, or the change needs another round of the checks; then one
+# sentence of why, which the pull request and the merge commit carry.
+BASE_CALL = re.compile(r"Base:\s*(safe|another round)\b[.:;,]?\**\s*(.*)", re.IGNORECASE)
+# What `merged_by` and `merge.start` say of a merge on a base that moved after the checks, which a read
+# of the merge agent's covered.
+READ_AFTER = "a read of the moved base"
 # The review a change gets, from the least to the most: one read by one agent, a round of the
 # project's review tool with the profiles that fit the change, the project's full set.
 KINDS = ("read", "round", "full")
@@ -3556,19 +3609,20 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
 def carry_merge(task: Task, kept: dict, tip: str, state: dict, reasons: list[str]) -> dict:
     """After a proposal, what was said of the tip proposed before (KEPT, the record before this
     proposal) at its merge, carried onto TIP where the change is the same (`carried_over`): the merge
-    agent's review, with whether it calls the owner as the rules say now, logged again as a
-    `merge.review` of TIP with `carried`; and the owner's merge that a moved base refused, which stands
+    agent's review, with whether it calls the owner as the rules say now and with no call on a moved
+    base (`carried_review`), logged again as a `merge.review` of TIP with `carried`; and the owner's merge that a moved base refused, which stands
     (`merge.stands`) or ends (`tap_after`, with the reason no review covers the change when a rebase
     kept one, `rebase_uncovered`). What it gives the output: `merge_review` (carried or
     null) and `owner_merge` (`stands`, the reason it ended, or null)."""
     old, rebased = kept.get("proposed"), kept.get("rebase_carried")
     out: dict = {"merge_review": None, "owner_merge": None}
     review = kept.get("merge_review")
-    if isinstance(review, dict) and review.get("tip") == old and carried_over(old, tip, rebased):
+    # a review with no verdict (the second answer on a moved base that could not be recorded) has nothing to carry
+    if isinstance(review, dict) and review.get("verdict") in ("merge", "call") and review.get("tip") == old and carried_over(old, tip, rebased):
         refusal = merger_refusal(task.slug, task.settings["branch"]["land"], state["careful"], reasons, review_call(task) is not None, {"verdict": "merge"})
         calls = review.get("verdict") == "call" or refusal is not None
         why = refusal if refusal else (review.get("why") if review.get("verdict") == "call" else None)
-        review = {**review, "tip": tip, "calls": calls, "why": why, "carried_from": old}
+        review = carried_review(review, tip, calls, why, old)
         task.keep(merge_review=review)
         script("project.py", task.main, "log", task.slug, "merge.review", f"verdict={review['verdict']}", f"calls:={json.dumps(calls)}", f"by={review.get('by')}",
                f"tip={tip[:9]}", f"carried={str(old)[:9]}", *([f"why={why}"] if why else []))
@@ -3614,7 +3668,7 @@ def merger_refusal(slug: str, land: str, careful: list[str], reasons: list[str],
     if not called:
         return "no review that answered made the careful call for this change, so the owner merges it; it waits as `open` for his word"
     if review is None:
-        return f"no merge review of the proposed tip is on record: the merge agent reads the task first, and `lem land merge-review {slug} --file FILE --tip TIP` writes its review down"
+        return f"no merge review of the proposed tip is on record: the merge agent reads the task first, and `lem land merge-review {slug} --file FILE --tip TIP --base BASE` writes its review down"
     if review.get("verdict") != "merge":
         return "the merge review calls the owner: he reads it, and it waits as `open` for his word"
     return None
@@ -3686,6 +3740,10 @@ def base_refusal(view: dict, base: str, url: str, slug: str) -> str | None:
 
 
 def forge_done(task: Task, view: dict) -> dict:
+    """The bookkeeping of a pull request GitHub merged, the one step every path to `landed` takes: Lem's
+    merge, and `lem land merged` of a merge GitHub took later or the owner made there. A merge on a base
+    that moved after the checks leaves its line in the pull request's text first (`moved_line`); a
+    failed edit leaves the task `open` with this step's error, and the next `lem land merged` tries again."""
     pr = task.kept()["pr"]
     # a merge into another branch than the base is no landing: the task stays as it is, and the owner reads why
     wrong = base_refusal(view, task.base, pr["url"], task.slug)
@@ -3693,11 +3751,46 @@ def forge_done(task: Task, view: dict) -> dict:
         raise LandError(wrong)
     task.fetch()
     merged = (view.get("mergeCommit") or {}).get("oid")
+    line, uncovered = moved_line(task, merged)
+    if line:
+        noted(task, pr, line)
     # the commit of the branch that the forge merged: `clean` removes the branch only when it holds nothing after it
     task.keep(merged=merged or True, merged_head=view["headRefOid"])
     left_behind = follow(task)
-    task.state("landed", f"{task.base}: pull request {pr['url']} is merged")
-    return {"task": task.slug, "base": task.base, "pull_request": pr, "merged": merged, "left_behind": left_behind}
+    task.state("landed", f"{task.base}: pull request {pr['url']} is merged", *([line] if line else []))
+    return {"task": task.slug, "base": task.base, "pull_request": pr, "merged": merged, "left_behind": left_behind, "base_read": line,
+            **({"uncovered": f"{task.slug}: {line}"} if uncovered else {})}
+
+
+def moved_line(task: Task, merged: str | None) -> tuple[str | None, bool]:
+    """The line of a merge on a base that moved after the checks, from Lem's record of the merge
+    (`merged_by`): the base the checks ran on, the base the read covered and its why. The merged
+    commit's parent on the base is read too: when its tree is not the tree the read covered (a merge on
+    GitHub outside Lem came between Lem's fetch and its merge call), the line names the base it really
+    merged on and says that no read covered it (True beside it). (None, False) for any other merge."""
+    record = task.kept().get("merged_by") or {}
+    if record.get("after") != READ_AFTER:
+        return None, False
+    if merged and record.get("commits"):
+        parent = git(task.worktree, "rev-parse", f"{merged}~{int(record['commits'])}", check=False)
+        if parent and changed(task, record["base"], parent):
+            return uncovered_line(task.base, record["checks_ran_on"], parent, record["base"]), True
+    return record["line"], False
+
+
+def noted(task: Task, pr: dict, line: str) -> None:
+    """LINE in the pull request's text on GitHub, once: added at its end when the text lacks it, and in
+    `pr.md`, the task's copy of that text, which the board shows."""
+    body = json.loads(gh(task, "pr", "view", str(pr["number"]), "--json", "body").stdout).get("body") or ""
+    if line in body:
+        return
+    text = task.directory / "pr.md"
+    write_whole(text, body.rstrip("\n") + "\n\n" + line + "\n")
+    edited = gh(task, "pr", "edit", str(pr["number"]), "--body-file", str(text), check=False)
+    if edited.returncode != 0:
+        said = [one.strip() for one in (edited.stderr or edited.stdout).splitlines() if one.strip()]
+        raise LandError(f"GitHub merged {pr['url']}, and the line of its merge on the moved base did not reach the pull request's text "
+                        f"(gh pr edit said: {said[-1] if said else edited.returncode}); the task stays open, and `lem land merged {task.slug}` tries again")
 
 
 def viewed(task: Task, pr: dict | None = None) -> dict:
@@ -3765,13 +3858,25 @@ def merge_lock(task: Task, by: str, via: str, standing: bool = False):
         handle.truncate()
         handle.write(json.dumps({"step": "merge", "task": task.slug, "pid": os.getpid(), "since": now_utc()}) + "\n")
         handle.flush()
-        script("project.py", task.main, "log", task.slug, "merge.start", f"by={by}", f"via={via}", *(["after=a re-check"] if standing else []))
+        script("project.py", task.main, "log", task.slug, "merge.start", f"by={by}", f"via={via}", *start_after(task, standing))
         try:
             yield
         finally:
             handle.seek(0)
             handle.truncate()
             handle.flush()
+
+
+def start_after(task: Task, standing: bool) -> list[str]:
+    """What `merge.start` says the merge comes after: a read of the merge agent that said a move of the
+    base since the checks is safe for the proposed tip (`after` and the `base` it read), or the owner's
+    merge that stood through a new landing (`a re-check`); nothing for a plain merge."""
+    kept = task.kept()
+    tip = kept.get("proposed")
+    covered = read_base(kept.get("merge_review"), tip, kept.get("another_round")) if tip else None
+    if covered and covered != kept.get("base"):
+        return [f"after={READ_AFTER}", f"base={covered[:9]}"]
+    return ["after=a re-check"] if standing else []
 
 
 def stamp_seconds(stamp: str) -> float:
@@ -3848,17 +3953,119 @@ def verdict_of(text: str) -> str | None:
     return found.group(1).lower() if found else None
 
 
-def answer_file(task: Task, tip: str) -> Path:
-    """The file the merge agent's answer goes to, one for each proposed tip, so that the answer of a
-    read of an earlier proposal never takes the place of the newest one's."""
-    return task.directory / f"merge-answer-{tip[:12]}.md"
+def base_call_of(text: str) -> tuple[str, str] | None:
+    """The merge agent's call on a base that moved after the checks, from the second line of its review
+    that is not empty: (`safe` or `another round`, its sentence of why), or None when that line gives
+    no call, or a call with no sentence of why."""
+    lines = [line for line in text.splitlines() if line.strip()]
+    if len(lines) < 2:
+        return None
+    found = BASE_CALL.match(lines[1].strip().lstrip("#*> ").strip())
+    if not found:
+        return None
+    why = found.group(2).strip().strip("*").strip()
+    return (found.group(1).lower(), why) if why else None
 
 
-def cmd_merge_review(task: Task, record: str | None, read_tip: str | None = None) -> dict:
-    """The merge agent's read of a proposed task. With no record: its brief, `merge-brief.md` in the
-    task directory, and the facts in it, the proposed `tip` among them. With the agent's reply and
-    READ_TIP, the tip its brief named: the review written down as `merge-review.md`, and whether it
-    merges or calls the owner; the reply of a brief of another tip than the one proposed now is refused."""
+def moved_of(checks_ran_on: str, base_now: str, log: str, files: list[str], own: list[str]) -> dict | None:
+    """What moved on the base since the checks ran, as the merge agent's brief gives it: the base the
+    checks ran on, the base now, the range between them, each commit of that range (LOG, git's
+    `%h NUL %s` lines, as its short id and subject), the files they changed (FILES), and which of those
+    the task's own change touches too (OWN, the files of the change). None when no file moved: an empty
+    commit on the base moves nothing. Always from the checks' base, never from an earlier read, so a
+    read sees every move since the checks."""
+    if not files:
+        return None
+    commits = [{"commit": commit, "subject": subject} for commit, _, subject in (line.partition("\0") for line in log.splitlines() if line.strip())]
+    mine = set(own)
+    return {"checks_ran_on": checks_ran_on, "base_now": base_now, "range": f"{checks_ran_on}..{base_now}", "commits": commits, "files": files,
+            "overlap": [path for path in files if path in mine]}
+
+
+def read_base(review: dict | None, tip: str, another_round: str | None) -> str | None:
+    """The base a merge review of TIP lets it merge on when the base moved after the checks: the base
+    the read covered, when it said `Base: safe.` and no read of TIP said `Base: another round.`
+    (ANOTHER_ROUND, the tip such a read was of), whose refusal only a new landing answers. None for none:
+    a read with no base call covers only the checks' own base."""
+    if not isinstance(review, dict) or review.get("tip") != tip or another_round == tip:
+        return None
+    return review.get("base") if review.get("base_call") == "safe" else None
+
+
+def refusal_answered(refused: object, tip: str) -> bool:
+    """Whether a read of TIP with `Base: safe.` answers the refusal on record (REFUSED, `merge_refused`):
+    only Lem's own refusal of that tip because the base moved (`kind: base`). GitHub's, a rule's and a
+    tip's stay until a new proposal."""
+    return isinstance(refused, dict) and refused.get("from") == "lem" and refused.get("kind") == "base" and refused.get("tip") == tip
+
+
+def base_line(base: str, checks_ran_on: str, merged_on: str, why: str) -> str:
+    """The record of a merge on a base that moved after the checks, for the pull request's text and the
+    merge commit: the base the checks ran on, the base it merged on, and the merge agent's sentence of why."""
+    return f"The checks ran on {base} at {checks_ran_on[:9]}; it merged on {base} at {merged_on[:9]}, after the merge agent's read of what moved: {why}"
+
+
+def uncovered_line(base: str, checks_ran_on: str, real: str, read: str) -> str:
+    """The record of a merge whose real base on GitHub is not the one the merge agent's read covered: a
+    merge outside Lem came between Lem's look at the base and its merge call, which nothing can undo."""
+    return (f"The checks ran on {base} at {checks_ran_on[:9]}; it merged on {base} at {real[:9]}, which no read of the merge agent covered "
+            f"(its read covered {read[:9]}): a merge on GitHub came between Lem's look at the base and its merge, and nothing undoes it")
+
+
+def moved_refusal(slug: str, onto: str, files: list[str], by: str, covered: str | None, round_said: bool) -> str:
+    """Why a merge on a base that moved after the checks by FILES is refused, and the step that comes
+    next: the merge agent's read of what moved, or a new landing when a read of the tip said
+    `Base: another round.` (ROUND_SAID). COVERED is the base an earlier read with `Base: safe.` covered,
+    which covers no later base."""
+    said = f"{onto} moved after the checks ran, by files ({', '.join(files[:5])}{', ...' if len(files) > 5 else ''})"
+    if round_said:
+        then = ("the owner's merge stands while the change and the reasons it is not green stay the same, and the board's server merges it after the proposal"
+                if by == "owner" else "the board's server merges it after the proposal when the merge review still says merge")
+        return f"{said}, and the merge agent's read of this tip said another round; {AGAIN}. The merge review is kept with the review, and {then}"
+    earlier = f"; the read of {covered[:9]} said safe, and it covers no later base" if covered else ""
+    then = ("the owner's merge stands, and goes through after a read that says `Base: safe.`; on `Base: another round.` the task lands again"
+            if by == "owner" else "the board's server merges it after a read that says `Base: safe.` when its verdict is merge")
+    return (f"{said}{earlier}. A fresh merge agent reads what moved: `lem land merge-review {slug}` writes its brief, with the commits and the files that moved "
+            f"since the checks, and the answer names its base (`--base`); {then}")
+
+
+def carried_review(review: dict, tip: str, calls: bool, why: str | None, old: str) -> dict:
+    """The merge agent's review of the proposed tip OLD as `propose` carries it onto TIP after a new
+    landing: its verdict, with whether it calls the owner as the rules say now. Its call on a moved base
+    is dropped: the new landing's checks ran on the new base, so a read of an older one says nothing of it."""
+    kept = {key: value for key, value in review.items() if key not in ("base", "base_call", "base_why")}
+    return {**kept, "tip": tip, "calls": calls, "why": why, "carried_from": old}
+
+
+def brief_file(task: Task, tip: str, base: str) -> Path:
+    """The merge agent's brief of a proposed tip on one base, so that the brief of a later base never
+    takes the place of the one an agent was started with."""
+    return task.directory / f"merge-brief-{tip[:12]}-{base[:12]}.md"
+
+
+def answer_file(task: Task, tip: str, base: str) -> Path:
+    """The file the merge agent's answer goes to, one for each proposed tip and base, so that the answer
+    of a read of an earlier proposal, or of an earlier base, never takes the place of the newest one's."""
+    return task.directory / f"merge-answer-{tip[:12]}-{base[:12]}.md"
+
+
+def moved_facts(task: Task, checks_ran_on: str, base_now: str, tip: str) -> dict | None:
+    """`moved_of` from git: what moved on the base between the checks' base and BASE_NOW, beside the
+    files of the task's change from the checks' base to TIP."""
+    files = changed(task, checks_ran_on, base_now) if base_now != checks_ran_on else []
+    if not files:
+        return None
+    log = git(task.worktree, "log", "--format=%h%x00%s", f"{checks_ran_on}..{base_now}")
+    return moved_of(checks_ran_on, base_now, log, files, changed(task, checks_ran_on, tip))
+
+
+def cmd_merge_review(task: Task, record: str | None, read_tip: str | None = None, read_on: str | None = None) -> dict:
+    """The merge agent's read of a proposed task. With no record: its brief, `merge-brief-TIP-BASE.md`
+    in the task directory, and the facts in it, the proposed `tip`, the `base` it reads against and
+    what `moved` on the base since the checks among them. With the agent's reply, READ_TIP and READ_ON,
+    the tip and the base its brief named: the review written down as `merge-review.md`, whether it
+    merges or calls the owner, and on a moved base its call on the move; the reply of a brief of
+    another tip than the one proposed now, or of a base no brief named, is refused."""
     if task.record["status"] != "open":
         raise LandError(f"the task is {task.record['status']!r}, not `open`: the merge agent reads a proposed task; `lem land propose {task.slug}` comes first")
     task.need_worktree()
@@ -3868,6 +4075,9 @@ def cmd_merge_review(task: Task, record: str | None, read_tip: str | None = None
         raise LandError(f"{task.slug} has no pull request on record; `lem land propose {task.slug}` comes first")
     if git(task.worktree, "rev-parse", "HEAD") != tip:
         raise LandError(f"the branch's tip is not the tip that was proposed; {AGAIN}")
+    if kept.get("another_round") == tip:
+        # a read of this tip said the moved base needs another round: its refusal is answered by the new landing alone
+        raise LandError(f"the merge agent's read of {tip[:9]} said that the moved base needs another round of the checks, and no later read answers that; {AGAIN}")
     state = due(task)
     reasons = not_green(task, state)
     land = task.settings["branch"]["land"]
@@ -3875,6 +4085,11 @@ def cmd_merge_review(task: Task, record: str | None, read_tip: str | None = None
     # whether the merge agent may merge when it finds nothing: every rule but its own verdict
     refusal = merger_refusal(task.slug, land, state["careful"], reasons, review_call(task) is not None, {"verdict": "merge"})
     if record is None:
+        # origin's base now, after a fetch: a move since the checks is read in this brief, so one read answers both questions
+        task.fetch()
+        base_now = git(task.worktree, "rev-parse", task.onto)
+        moved = moved_facts(task, kept["base"], base_now, tip)
+        base = base_now if moved else kept["base"]
         found = criteria_of(task)
         files = {name: str(task.directory / file) for name, file in (
             ("pull_request_text", "pr.md"), ("words", "ask.txt"), ("request", "task.md"), ("report", "report.md"), ("notes", "notes.md"),
@@ -3903,42 +4118,95 @@ def cmd_merge_review(task: Task, record: str | None, read_tip: str | None = None
             "pictures": pictures_of(task.directory),
             # how the owner tries the branch himself, the last line of a review that calls him
             "try": try_of(task.main, task.worktree, kept["pr"]),
+            # the base this read is against, and what moved on it since the checks ran (null when nothing moved);
+            # on a moved base the answer's second line is `Base: safe.` or `Base: another round.`, then one sentence of why
+            "base": base, "moved": moved,
         }
-        brief = task.directory / "merge-brief.md"
+        brief = brief_file(task, tip, base)
         write_whole(brief, "\n".join([
             # by its place in the plugin, never by this Lem's folder, which an update of the plugin replaces
             "Read `skills/lem/prompts/merge.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check. Your reply is the review, in the form that file gives, and nothing else.",
             "", "The facts of this task, as `lem land merge-review` gave them:", "", "```json", json.dumps(facts, indent=2), "```", "",
         ]))
-        return {"task": task.slug, "brief": str(brief), "answer": str(answer_file(task, tip)), "tip": tip, "worktree": str(task.worktree), "seat": seat, "facts": facts}
-    # The reply is of the brief that named its tip: one of an earlier proposal is no read of this one.
-    if read_tip is None:
-        raise LandError(f"--file goes with --tip, the `tip` that `lem land merge-review {task.slug}` printed for the brief the merge agent read")
+        return {"task": task.slug, "brief": str(brief), "answer": str(answer_file(task, tip, base)), "tip": tip, "base": base, "worktree": str(task.worktree),
+                "seat": seat, "facts": facts}
+    # The reply is of the brief that named its tip and its base: one of an earlier proposal is no read of
+    # this one, and the read covers the base its brief named, never the base at the time of this record.
+    if read_tip is None or read_on is None:
+        raise LandError(f"--file goes with --tip and --base, the `tip` and the `base` that `lem land merge-review {task.slug}` printed for the brief the merge agent read")
     if read_tip != tip:
         raise LandError(
             f"the merge agent's answer is of {read_tip[:12]}, and the proposal is {tip[:12]} now: it read an earlier proposal, and its answer is not written down. "
             f"`lem land merge-review {task.slug}` writes the brief of this one, and a fresh merge agent reads it",
         )
+    if not re.fullmatch(r"[0-9a-f]{40}", read_on) or not brief_file(task, tip, read_on).is_file():
+        raise LandError(
+            f"--base is {read_on!r}, and no brief of {tip[:12]} on that base was written: --base is the whole commit `lem land merge-review {task.slug}` printed as `base` "
+            "with the brief the merge agent read; its answer is not written down",
+        )
     try:
         text = Path(record).read_text(encoding="utf-8")
     except OSError as error:
         raise LandError(f"{record} cannot be read ({error.strerror}); --file names the merge agent's reply") from error
+    moved = read_on != kept["base"]
     verdict = verdict_of(text)
+    call = base_call_of(text) if moved else None
+    problem, short = None, None
     if verdict is None:
-        raise LandError(f"the first line of {record} gives no verdict: it is `Verdict: merge.` or `Verdict: call.`, then one sentence, as `prompts/merge.md` asks; the merge agent is asked again")
+        problem = f"the first line of {record} gives no verdict: it is `Verdict: merge.` or `Verdict: call.`, then one sentence, as `prompts/merge.md` asks"
+        short = "its first line gave no verdict"
+    elif moved and call is None:
+        problem = (f"the second line of {record} gives no call on the moved base: the base moved after the checks ran, so it is `Base: safe.` or "
+                   "`Base: another round.`, then one sentence of why, as `prompts/merge.md` asks")
+        short = "its second line gave no call on the moved base"
+    if problem:
+        # The merge agent is asked again once. On a moved base its second answer that cannot be recorded is
+        # recorded as another round, so the checks decide, and the owner is not asked (in doubt, another round).
+        unread = kept.get("merge_unread") or {}
+        tries = int(unread.get("count") or 0) + 1 if unread.get("tip") == tip and unread.get("base") == read_on else 1
+        task.keep(merge_unread={"tip": tip, "base": read_on, "count": tries})
+        if not moved or tries < 2:
+            raise LandError(f"{problem}; the merge agent is asked again")
+        call = ("another round", f"the merge agent's answer could not be recorded twice ({short}), and in doubt the checks run again")
     calls = verdict == "call" or refusal is not None
     why = refusal if refusal else (next(line for line in text.splitlines() if line.strip()).strip().lstrip("#*> ").strip() if verdict == "call" else None)
     write_whole(task.directory / "merge-review.md", text if text.endswith("\n") else text + "\n")
-    review = {"tip": tip, "verdict": verdict, "calls": calls, "why": why, "by": seat["seat"], "at": now_utc()}
-    task.keep(merge_review=review)
-    script("project.py", task.main, "log", task.slug, "merge.review", f"verdict={verdict}", f"calls:={json.dumps(calls)}", f"by={seat['seat']}",
-           f"tip={tip[:9]}", *([f"why={why}"] if why else []))
-    if calls:
+    review = {"tip": tip, "verdict": verdict, "calls": calls, "why": why, "by": seat["seat"], "at": now_utc(), "base": read_on,
+              "base_call": call[0] if call else None, "base_why": call[1] if call else None}
+    task.keep(merge_review=review, merge_unread=None)
+    # one event for each read, with its call on the base and its why, so the log keeps every read's reason after merge-review.md is written over
+    script("project.py", task.main, "log", task.slug, "merge.review", *([f"verdict={verdict}"] if verdict else []), f"calls:={json.dumps(calls)}", f"by={seat['seat']}",
+           f"tip={tip[:9]}", *([f"why={why}"] if why else []), f"base={read_on[:9]}", *([f"base_call={call[0]}", f"base_why={call[1]}"] if call else []))
+    stands = False
+    if call and call[0] == "another round":
+        # The read keeps a refusal of kind `base` for its tip, as a moved base's refusal is kept: the server
+        # wakes the session, the board says it lands again, and only the new landing answers it.
+        before = kept.get("merge_refused") if refusal_answered(kept.get("merge_refused"), tip) else None
+        by, via = (before["by"], before.get("via", "session")) if before else ("merger", "session")
+        said = f"the merge agent's read of what moved on {task.base} since the checks says another round: {call[1]}; {AGAIN}"
+        task.keep(merge_refused={"tip": tip, "by": by, "via": via, "from": "lem", "kind": "base", "said": said, "at": now_utc()}, another_round=tip)
+        script("project.py", task.main, "log", task.slug, "merge.refused", f"by={by}", f"via={via}", "from=lem", "kind=base", f"said={said}", f"tip={tip[:9]}")
+    elif call and refusal_answered(kept.get("merge_refused"), tip):
+        # A safe read answers Lem's refusal of this tip for the moved base, so landing.json, `lem project
+        # waiting` and the board agree; the owner's merge that it refused stands, and the server runs it.
+        task.keep(merge_refused=None)
+        tap = kept.get("owner_tap")
+        if isinstance(tap, dict) and tap.get("tip") == tip:
+            stands = True
+            script("project.py", task.main, "log", task.slug, "merge.stands", "by=owner", f"tip={tip[:9]}", f"after={READ_AFTER}", f"base={read_on[:9]}")
+    if call and call[0] == "another round":
+        after = (f"the merge agent says that the moved base needs another round of the checks: the task lands again, and the owner is not asked; {AGAIN}"
+                 + ("; the owner's merge stands through the new landing while the change and the reasons it is not green stay the same" if (kept.get("owner_tap") or {}).get("tip") == tip else ""))
+    elif stands:
+        after = (f"the owner's merge stands: the board's server merges it on {task.base} at {read_on[:9]} (`lem land merge {task.slug} --by owner --via server --standing`), "
+                 f"and the owner is not asked again; wait for the wake-up `lem: {task.slug} merged`, or `lem: {task.slug} refused`")
+    elif calls:
         after = "it calls the owner: \"Read the merge review\" waits for him, and only his merge lands it"
     else:
         after = (f"the board's server merges it (`lem land merge {task.slug} --by merger --via server`): tell the owner in one line that the merge agent "
                  f"found nothing for him, and wait for the wake-up `lem: {task.slug} merged`, or `lem: {task.slug} refused`")
-    return {"task": task.slug, "review": str(task.directory / "merge-review.md"), "verdict": verdict, "calls": calls, "why": why, "by": seat["seat"], "next": after}
+    return {"task": task.slug, "review": str(task.directory / "merge-review.md"), "verdict": verdict, "calls": calls, "why": why, "by": seat["seat"],
+            "base": read_on, "base_call": call[0] if call else None, "base_why": call[1] if call else None, "next": after}
 
 
 def expected_refusal(expected: str | None, proposed: str | None, slug: str) -> str | None:
@@ -3959,7 +4227,7 @@ def cmd_merge(task: Task, by: str, message: str | None, via: str, standing: bool
     if task.record["status"] != "open":
         raise LandError(f"the task is {task.record['status']!r}, not `open`; `lem land propose {task.slug}` comes first")
     if standing and by != "owner":
-        raise LandError("--standing is the owner's merge that stood through a new landing: it goes with --by owner")
+        raise LandError("--standing is the owner's merge that stood through a new landing or a read of the moved base: it goes with --by owner")
     # Under the task's step lock, so no proposal comes in between, and before anything of the merge is
     # kept: a word for another commit than the one proposed now merges nothing and stands for nothing.
     wrong = expected_refusal(expected, task.kept().get("proposed"), task.slug)
@@ -4021,16 +4289,22 @@ def merge_locked(task: Task, by: str, message: str | None, via: str, standing: b
         raise LandError("branch.history is \"squash\": pass --message with the one commit's subject, from the task's report")
     if not squash and message:
         raise LandError("branch.history is \"keep\": the branch's own commits land, so --message has nothing to name")
-    # The base is read after the lock is taken, so that a merge just before this one is met here.
+    # The base is read after the lock is taken, so that a merge just before this one is met here. What
+    # lands is the tree the checks passed on, on the base they ran on, or on the base a read of the merge
+    # agent's covered when it said the move is safe: by tree, so an empty commit on either moves nothing.
     task.fetch()
     base_now = git(task.worktree, "rev-parse", task.onto)
     moved = changed(task, kept["base"], base_now) if base_now != kept["base"] else []
+    record: dict = {}
     if moved:
-        then = ("the owner's merge stands while the change and the reasons it is not green stay the same, and the board's server merges it after the proposal"
-                if by == "owner" else "the board's server merges it after the proposal when the merge review still says merge")
-        raise Refusal("base", f"{task.onto} moved after the checks ran, by files ({', '.join(moved[:5])}{', ...' if len(moved) > 5 else ''}); {AGAIN}. "
-                              f"The merge review is kept with the review, and {then}")
-    how = ["--squash", "--subject", message] if squash else ["--rebase"]
+        review = merge_review_of(task)
+        covered = read_base(review, tip, kept.get("another_round"))
+        if not covered or changed(task, covered, base_now):
+            raise Refusal("base", moved_refusal(task.slug, task.onto, moved, by, covered, kept.get("another_round") == tip))
+        line = base_line(task.base, kept["base"], covered, review["base_why"])
+        commits = 1 if squash else int(git(task.worktree, "rev-list", "--count", f"{kept['base']}..{tip}"))
+        record = {"after": READ_AFTER, "base": covered, "checks_ran_on": kept["base"], "base_why": review["base_why"], "line": line, "commits": commits}
+    how = ["--squash", "--subject", message, *(["--body", record["line"]] if record else [])] if squash else ["--rebase"]
     merged = gh(task, "pr", "merge", str(kept["pr"]["number"]), "--match-head-commit", tip, *how, check=False)
     if merged.returncode != 0:
         # GitHub's own rules hold (a required review, a check it waits for, a protected branch): its
@@ -4041,8 +4315,10 @@ def merge_locked(task: Task, by: str, message: str | None, via: str, standing: b
         script("project.py", task.main, "log", task.slug, "merge.refused", f"by={by}", f"via={via}", "from=github", f"said={line}", f"tip={tip[:9]}")
         raise ForgeSaid(f"GitHub refused the merge of {kept['pr']['url']}: {line}. It waits for the owner as `open`")
     # who merged, and who ran the call: the merge agent's merge is the board's server's (`--via server`);
-    # the owner's that stood through a new landing ran after the checks and the reviews were checked again
-    task.keep(merged_by={"by": by, "via": via, **({"after": "a re-check"} if standing else {})})
+    # the owner's that stood through a new landing ran after the checks and the reviews were checked again;
+    # one on a moved base ran after the merge agent's read of it, whose line `forge_done` writes into the
+    # pull request's text once GitHub holds the merge
+    task.keep(merged_by={"by": by, "via": via, **(record or ({"after": "a re-check"} if standing else {}))})
     view = viewed(task)
     if view["state"] != "MERGED":
         raise ForgeSaid("GitHub took the merge and the pull request is not merged yet (a queue, or a check it waits for); run `lem land merged` when it is")
@@ -4150,9 +4426,9 @@ def step(task: Task, args: argparse.Namespace) -> dict:
     if args.command == "propose":
         return cmd_propose(task, args.title, task_file(args.notes, "--notes", task.directory, here))
     if args.command == "merge-review":
-        if args.tip and not args.file:
-            raise LandError("--tip goes with --file: the tip of the brief whose answer is written down")
-        return cmd_merge_review(task, args.file and task_file(args.file, "--file", task.directory, here), args.tip)
+        if (args.tip or args.base) and not args.file:
+            raise LandError("--tip and --base go with --file: the tip and the base of the brief whose answer is written down")
+        return cmd_merge_review(task, args.file and task_file(args.file, "--file", task.directory, here), args.tip, args.base)
     if args.command == "merge":
         return cmd_merge(task, args.by, args.message, args.via, args.standing, args.tip)
     if args.command == "merged":
@@ -4192,12 +4468,13 @@ def main(argv: list[str] | None = None) -> None:
     review.add_argument("slug")
     review.add_argument("--file", metavar="FILE", help="the merge agent's reply, its review with the verdict on its first line")
     review.add_argument("--tip", metavar="COMMIT", help="with --file: the `tip` the step printed with the brief the agent read; the answer of another proposal than the one now is refused")
+    review.add_argument("--base", metavar="COMMIT", help="with --file: the `base` the step printed with the brief the agent read; the read covers that base and no later one")
     merge = commands.add_parser("merge")
     merge.add_argument("slug")
     merge.add_argument("--by", required=True, choices=BY, help="who merges: the owner's word, or the merge agent where the settings and the request allow it")
     merge.add_argument("--message", help="the subject of the one commit, when branch.history is \"squash\"")
     merge.add_argument("--via", choices=("session", "server"), default="session", help="who runs this call: a session (the default), or the board's server, which runs the merge agent's merge and the owner's merge from the board")
-    merge.add_argument("--standing", action="store_true", help="with --by owner: the owner's merge that a moved base refused and that stood through the new landing; the board's server runs it")
+    merge.add_argument("--standing", action="store_true", help="with --by owner: the owner's merge that a moved base refused and that stood through the new landing or a read that said the move is safe; the board's server runs it")
     merge.add_argument("--tip", metavar="COMMIT", help="the whole commit the caller saw: the one the board's confirm step showed, the one the merge review read; any other proposal is refused, and nothing is merged or kept")
     args = parser.parse_args(argv)
     try:

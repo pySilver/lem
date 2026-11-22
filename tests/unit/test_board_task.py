@@ -302,6 +302,10 @@ class Map(unittest.TestCase):
         self.assertIn("notes-of-mine.txt", [f["path"] for w in m["work"] for f in w["files"]])
         self.assertEqual(m["count"], 2)
 
+    def test_the_merge_agents_brief_of_a_tip_on_a_base_is_a_document_of_the_pull_request(self):
+        placed = lem_artifacts.place("merge-brief-abc123456789-def456789012.md")
+        self.assertEqual(placed, {"group": "pr", "title": "The merge agent's brief of abc123456 on def456789", "role": "doc"})
+
     def test_a_task_loses_only_its_working_files_and_keeps_its_state_and_every_record(self):
         with tempfile.TemporaryDirectory() as folder:
             task = Path(folder) / "gift-note"

@@ -622,11 +622,14 @@ class ReadOfATip(unittest.TestCase):
         for said in (None, "a" * 9, "HEAD"):
             self.assertIn("40 hex digits", land.record_tip_refusal(said, "a" * 40, "gift-note"))
 
-    def test_each_tip_has_its_own_answer_file(self) -> None:
+    def test_each_tip_and_base_has_its_own_brief_and_answer_file(self) -> None:
         import types
         task = types.SimpleNamespace(directory=Path("/state/tasks/gift-note"))
-        self.assertEqual(land.answer_file(task, "abc123456789" + "0" * 28).name, "merge-answer-abc123456789.md")
-        self.assertNotEqual(land.answer_file(task, "a" * 40), land.answer_file(task, "b" * 40))
+        self.assertEqual(land.answer_file(task, "abc123456789" + "0" * 28, "def456789012" + "0" * 28).name, "merge-answer-abc123456789-def456789012.md")
+        self.assertEqual(land.brief_file(task, "abc123456789" + "0" * 28, "def456789012" + "0" * 28).name, "merge-brief-abc123456789-def456789012.md")
+        self.assertNotEqual(land.answer_file(task, "a" * 40, "c" * 40), land.answer_file(task, "b" * 40, "c" * 40))
+        # a brief for a later base never takes the place of the brief an agent was started with
+        self.assertNotEqual(land.brief_file(task, "a" * 40, "c" * 40), land.brief_file(task, "a" * 40, "d" * 40))
 
 
 class ExpectedTip(unittest.TestCase):
@@ -773,3 +776,86 @@ class TakenFromPolish(unittest.TestCase):
         self.assertEqual(land.taken_at(self.taken()), self.TIP[:9])
         self.assertIsNone(land.taken_at(self.RAN))
         self.assertIsNone(land.taken_at(None))
+
+
+M1, M2, M3 = "1" * 40, "2" * 40, "3" * 40
+TIP = "a" * 40
+
+
+class MovedBase(unittest.TestCase):
+    """A base that moved after the checks: what the merge agent's brief says moved, its call on the move
+    as its answer's second line, which base a read covers, what a safe read answers, the line of the
+    merge, and what `propose` carries onto a new tip."""
+
+    def test_the_base_call_is_the_second_line(self) -> None:
+        self.assertEqual(land.base_call_of("Verdict: merge. Fine.\nBase: safe. B changed only docs/board.md.\n\nMore."), ("safe", "B changed only docs/board.md."))
+        self.assertEqual(land.base_call_of("**Verdict: call.** Careful.\n**Base: another round.** B renamed `total`, which the change calls."),
+                         ("another round", "B renamed `total`, which the change calls."))
+        self.assertEqual(land.base_call_of("Verdict: merge.\n\nbase: Another Round: the settings moved."), ("another round", "the settings moved."))
+
+    def test_no_base_call_or_no_why_is_none(self) -> None:
+        self.assertIsNone(land.base_call_of("Verdict: merge. Fine."))
+        self.assertIsNone(land.base_call_of("Verdict: merge. Fine.\nIts test proves it.\nBase: safe. Late."))
+        self.assertIsNone(land.base_call_of("Verdict: merge. Fine.\nBase: safe."))
+        self.assertIsNone(land.base_call_of("Verdict: merge. Fine.\nBase: maybe. Who knows."))
+
+    def test_what_moved_beside_the_change(self) -> None:
+        moved = land.moved_of(M1, M2, "abc1234\0docs: the board\ndef5678\0fix: land\n", ["docs/board.md", "land.py"], ["land.py", "tests/t.sh"])
+        self.assertEqual(moved, {"checks_ran_on": M1, "base_now": M2, "range": f"{M1}..{M2}", "files": ["docs/board.md", "land.py"], "overlap": ["land.py"],
+                                 "commits": [{"commit": "abc1234", "subject": "docs: the board"}, {"commit": "def5678", "subject": "fix: land"}]})
+
+    def test_no_file_moved_is_no_move(self) -> None:
+        # an empty commit on the base moves nothing
+        self.assertIsNone(land.moved_of(M1, M2, "abc1234\0chore: empty\n", [], ["land.py"]))
+
+    def test_a_safe_read_covers_its_own_base(self) -> None:
+        review = {"tip": TIP, "verdict": "merge", "base": M2, "base_call": "safe", "base_why": "docs only"}
+        self.assertEqual(land.read_base(review, TIP, None), M2)
+
+    def test_no_read_covers_a_base_without_a_safe_call(self) -> None:
+        self.assertIsNone(land.read_base({"tip": TIP, "base": M2, "base_call": "another round"}, TIP, None))
+        self.assertIsNone(land.read_base({"tip": TIP, "base": M1, "base_call": None}, TIP, None))
+        self.assertIsNone(land.read_base({"tip": "b" * 40, "base": M2, "base_call": "safe"}, TIP, None))
+        self.assertIsNone(land.read_base(None, TIP, None))
+
+    def test_after_another_round_no_read_of_the_tip_covers_a_base(self) -> None:
+        self.assertIsNone(land.read_base({"tip": TIP, "base": M3, "base_call": "safe"}, TIP, TIP))
+        self.assertEqual(land.read_base({"tip": TIP, "base": M3, "base_call": "safe"}, TIP, "b" * 40), M3)
+
+    def test_a_safe_read_answers_only_lems_base_refusal_of_its_tip(self) -> None:
+        base = {"tip": TIP, "by": "owner", "from": "lem", "kind": "base"}
+        self.assertTrue(land.refusal_answered(base, TIP))
+        self.assertFalse(land.refusal_answered({**base, "tip": "b" * 40}, TIP))
+        self.assertFalse(land.refusal_answered({**base, "kind": "rule"}, TIP))
+        self.assertFalse(land.refusal_answered({**base, "kind": "tip"}, TIP))
+        self.assertFalse(land.refusal_answered({"tip": TIP, "from": "github", "said": "a required review"}, TIP))
+        self.assertFalse(land.refusal_answered(None, TIP))
+
+    def test_the_line_names_both_bases_and_the_why(self) -> None:
+        line = land.base_line("main", M1, M2, "B changed only docs/board.md.")
+        self.assertEqual(line, f"The checks ran on main at {M1[:9]}; it merged on main at {M2[:9]}, after the merge agent's read of what moved: B changed only docs/board.md.")
+
+    def test_a_base_no_read_covered_is_named(self) -> None:
+        line = land.uncovered_line("main", M1, M3, M2)
+        self.assertIn(f"it merged on main at {M3[:9]}, which no read of the merge agent covered (its read covered {M2[:9]})", line)
+        self.assertIn(f"The checks ran on main at {M1[:9]}", line)
+
+    def test_the_refusal_names_the_read_or_a_new_landing(self) -> None:
+        read = land.moved_refusal("gift-note", "origin/main", ["docs/board.md"], "merger", None, False)
+        self.assertIn("origin/main moved after the checks ran, by files (docs/board.md)", read)
+        self.assertIn("`lem land merge-review gift-note` writes its brief", read)
+        self.assertNotIn("lem land start", read)
+        later = land.moved_refusal("gift-note", "origin/main", ["docs/board.md", "a", "b", "c", "d", "e"], "owner", M2, False)
+        self.assertIn(f"the read of {M2[:9]} said safe, and it covers no later base", later)
+        self.assertIn("(docs/board.md, a, b, c, d, ...)", later)
+        self.assertIn("the owner's merge stands, and goes through after a read that says `Base: safe.`", later)
+        again = land.moved_refusal("gift-note", "origin/main", ["land.py"], "merger", None, True)
+        self.assertIn("the merge agent's read of this tip said another round", again)
+        self.assertIn("lem land start", again)
+
+    def test_a_carried_review_drops_its_call_on_the_base(self) -> None:
+        review = {"tip": TIP, "verdict": "merge", "calls": False, "why": None, "by": "claude/opus:high", "at": "2026-11-22T10:00:00Z",
+                  "base": M2, "base_call": "another round", "base_why": "B renamed total"}
+        carried = land.carried_review(review, "b" * 40, False, None, TIP)
+        self.assertEqual(carried, {"tip": "b" * 40, "verdict": "merge", "calls": False, "why": None, "by": "claude/opus:high", "at": "2026-11-22T10:00:00Z",
+                                   "carried_from": TIP})
