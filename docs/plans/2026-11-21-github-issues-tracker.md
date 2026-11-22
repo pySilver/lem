@@ -9,6 +9,7 @@ Size: full, because a new tracker reaches the settings, the id of a ticket, a ne
 1. A project whose `.lem/project.toml` has `[tracker]` with `kind = "github"` and no other key is
    taken: `lem project show` gives the tracker as `github`. `kind = "jira"` is refused, and the
    message names `linear` and `github`.
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_settings.py -k Tracker` in `tests/unit/test_settings.py`
 2. In a project whose tracker is GitHub, the id of an issue is its number after `#`:
    1. `lem project task-dir export-keeps-gift-note --ticket 42` keeps `#42` as the task's ticket,
       and `--ticket "#42"` keeps the same.
@@ -18,17 +19,20 @@ Size: full, because a new tracker reaches the settings, the id of a ticket, a ne
    4. A task that landed keeps issue 42, as for Linear. A new task for 42 after the issue is
       reopened is refused, and the message names the landed task and says to start the new task
       from the owner's own words.
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_task.py -k TicketId -k TicketClaim` in `tests/unit/test_task.py`
 3. `/lem read 42`, or the issue's address `https://github.com/OWNER/REPO/issues/42`, shows issue 42
    of the repository that origin names: its title, its text as written, open or closed, its labels
    and its address, and the comments under it apart from its text. Only the text is the request. It
    writes nothing to the issue. The address of an issue of another repository, such as the
    upstream of a fork, is refused, and the message names origin's repository and says that Lem
    reads the issues of origin.
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_issues.py -k Read` in `tests/unit/test_issues.py`
 4. When the build of a task from issue 42 starts, issue 42 gets the person signed in to `gh` as its
    assignee. An issue that has an assignee already keeps its assignees, Lem adds nobody, and when
    that assignee is another person, Lem tells the owner who it is in one line and builds on. When
    `gh` cannot assign, Lem tells the owner why in one line. A second start writes nothing to the
    issue.
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_issues.py -k Start` in `tests/unit/test_issues.py`
 5. When the task from issue 42 lands, issue 42 gets one comment and is closed as completed:
    1. The pull request of `export-keeps-gift-note` has the line `Issue: #42` in its text, so that
       GitHub links the issue and the pull request both ways.
@@ -38,25 +42,32 @@ Size: full, because a new tracker reaches the settings, the id of a ticket, a ne
    4. Issue 42 is closed as completed. An issue that is closed already stays as it is.
    5. A session that was cut off after the comment posts no second comment: the next session finds
       that last line on the issue, and goes on to the close.
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_land_text.py -k TheIssue` in `tests/unit/test_land_text.py`
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_issues.py -k Land` in `tests/unit/test_issues.py`
 6. When the task from issue 42 is dropped, issue 42 gets one comment that says why in one line, and
    its last line is `lem: export-keeps-gift-note dropped`. When the task ends with an answer, the
    comment holds the answer, and its last line is `lem: export-keeps-gift-note answered`. Either
    way the assignee that Lem added at the start is removed, any other assignee stays, the issue
    stays open, and Lem tells the owner that it is open.
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_issues.py -k DropAndAnswer` in `tests/unit/test_issues.py`
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_session.py -k test_a_dropped_task_whose_worktree_stays_gets_its_land_session` in `tests/unit/test_session.py`
 7. The GitHub tracker's check runs in `/lem init` and when the owner asks for it. It says the
    repository that origin names and that its issues are on, or names what is missing, each with
    its fix: `gh` that is not installed, `gh` that is not signed in (`gh auth login`), issues that
    are off in the repository's settings, or an origin that is not on GitHub. It writes nothing, to
    the issues or to the settings.
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_issues.py -k Check` in `tests/unit/test_issues.py`
 8. `/lem init` proposes `kind = "github"` for a repository on GitHub whose issues are on and hold
    at least one issue, when the repository shows no Linear ticket keys (such as `ABC-12`) in its
    branch names or commit subjects. When it shows them it proposes `linear`, and otherwise no
    tracker: for a repository on GitHub with no issues, the onboarding's page says so, and says how
    to add the table later. A check that fails leaves the table out, and the page says why.
+   - no test: a step of the stage `skills/lem/stages/init.md`, which no test holds; a real onboarding of a repository with issues shows it.
 9. A guide, "Connect GitHub Issues", opens with what Lem writes to an issue (the assignee, the
    comment and the close, which are public in the repository), then says how to fill `[tracker]`
    for GitHub and how to start a task from an issue. The README, the site and `docs/settings.md`
    link it. `docs/linear.md` no longer says that Lem supports no other tracker.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh`
 
 ## How it works
 
