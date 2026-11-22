@@ -1,4 +1,6 @@
-// A mark moved by the keys over the items of a view: the cards of the kanban, in their columns. J or
+// A mark moved by the keys over the items of a view: the cards of the kanban, in their columns, and the
+// rows of "Waits for you", one group whose link is each row's verb (on a page for this Mac it may carry
+// the agterm controller's jump, which then takes the click and Enter alike). J or
 // the down arrow moves it to the next item of its group, K or the up arrow to the one before; H or the
 // left arrow and L or the right arrow to the next group with an item you can see (a folded column and an
 // empty one are passed over), to its item at the height of the marked one or the closest to it. With no
@@ -15,7 +17,8 @@
 // Enter stay the panel's.
 //
 // The values: `item`, the selector of an item; `group`, the selector of a group of items (none: the
-// controller's element is the one group); `link`, the selector of the item's link.
+// controller's element is the one group); `link`, the selector of the item's link; `pick`, the selector of
+// the links whose click marks their item (none: the item's link alone).
 import {Controller} from '@hotwired/stimulus';
 
 const DOWN = new Set(['KeyJ', 'ArrowDown']), UP = new Set(['KeyK', 'ArrowUp']);
@@ -26,7 +29,7 @@ const shown = node => node.getClientRects().length > 0;
 const middle = node => { const box = node.getBoundingClientRect(); return box.top + box.height / 2; };
 
 export default class extends Controller {
-  static values = {item: String, group: String, link: String};
+  static values = {item: String, group: String, link: String, pick: String};
 
   connect() {
     // the item marked last and its group, for an item a morph drew anew
@@ -125,9 +128,9 @@ export default class extends Controller {
     }
   }
 
-  // a click on an item's link marks the item
+  // a click on an item's link, or on another link the `pick` value names, marks the item
   pick(ev) {
-    const link = ev.target instanceof Element ? ev.target.closest(this.linkValue) : null;
+    const link = ev.target instanceof Element ? ev.target.closest(this.pickValue || this.linkValue) : null;
     const item = link?.closest(this.itemValue);
     if (item && this.element.contains(item)) this.mark(item, false);
   }

@@ -1377,6 +1377,27 @@ def waits_of(m: Model) -> list[dict]:
     return sorted(rows, key=lambda w: (WAIT_ORDER[w["kind"]], w["since"]))
 
 
+def answered_in_session(w: dict, m: Model) -> bool:
+    """Whether the owner answers a row of "Waits for you" in the task's own session rather than on the
+    board: a held step with no yes of his on the board (the interview and the others; not criteria that
+    wait for his approval there), a task its session stopped, and a session that does not answer. Every
+    other row (a merge, criteria, a breaker's document, a plan, a merge review, a task queued after a
+    dropped one, a task with no session) he answers on the board or in another session."""
+    kind = w["kind"]
+    if kind == "held":
+        return "approve" not in acts_of(w["t"], m.seen)
+    return kind == "blocked" or (kind == "session" and bool(w.get("deaf")))
+
+
+def session_of_wait(w: dict, m: Model) -> str | None:
+    """The session a click on a row's verb goes to: the task's session while it lives, for a row the owner
+    answers there (`answered_in_session`); None otherwise, and the verb opens the task's panel."""
+    if not answered_in_session(w, m):
+        return None
+    f = live_of(w["t"], m)
+    return f["session"] if f and f["live"] and f["session"] else None
+
+
 def dropped_head(after: str) -> str:
     """What a task queued after the dropped task AFTER waits for: the words of its row in "Waits for you" and of its Overview's headline."""
     return f"{after} was dropped: your word starts or ends this task"

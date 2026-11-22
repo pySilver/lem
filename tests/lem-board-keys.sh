@@ -3,8 +3,10 @@
 # afternoon of tests/board-showcase.py, served as tests/lem-serve.sh serves it: a server of this run on its own port and
 # home folder (tests/lib.sh), with the stand-in for agtermctl of lem-serve.sh first on its PATH. The Tasks view's mark
 # (cursor.js): J, K and the arrows in a column, H, L and the arrows to the next column you can see, Enter and Escape,
-# the mark through a morph, and no key in a field or with a modifier. A check adds to the demo's log only the state
-# lines it needs, as a lead's `lem project state` writes them. Each check that needs Chrome prints a SKIP line of its
+# the mark through a morph, and no key in a field or with a modifier. The mark of "Waits for you": J, K and the arrows
+# over its rows, Enter on a row answered in the task's session (the stand-in's `session select`) and on a merge row (the
+# panel, no button), and the mark through a morph. A check adds to the demo's log only the state lines it needs, as a
+# lead's `lem project state` and `lem session open` write them. Each check that needs Chrome prints a SKIP line of its
 # own where Node or Chrome is missing.
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib.sh
@@ -39,13 +41,33 @@ with open(log, "a", encoding="utf-8") as out:
                           "text": text, "lines": [], "ask": text}) + "\n")
 PY
 
+# held.py LOG TASK SESSION ASK: a task the owner asked for, its session opened and its interview waiting for him, written
+# now at the end of the demo's log
+cat > "$WORK/held.py" <<'PY'
+import json, sys
+from datetime import datetime, timezone
+log, task, session, ask = sys.argv[1:]
+now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+with open(log, "a", encoding="utf-8") as out:
+    out.write(json.dumps({"ts": now, "event": "session.open", "task": task, "session": session, "name": task, "phase": "shape", "why": "new", "workspace": "demo"}) + "\n")
+    out.write(json.dumps({"ts": now, "event": "task.state", "task": task, "status": "held", "text": "the interview waits for the owner", "lines": [], "ask": ask}) + "\n")
+PY
+
 TASKS_KEYS="J K ↑ ↓ move · H L ← → column · Enter open · Esc close"
+WAITS_KEYS="J K ↑ ↓ move · Enter go"
 kanban=$(got "$BASE/")
 if words <<<"$kanban" | grep -qF "$TASKS_KEYS" && grep -qF '<div class="keys" id="kanban-keys">' <<<"$kanban" \
   && grep -qF 'data-controller="cursor"' <<<"$kanban"; then
   pass "the Tasks view says its keys in one line of the Backlog's look: $TASKS_KEYS"
 else
   fail "the Tasks view's line of keys: $(words <<<"$kanban" | grep -oE '.{0,40}move.{0,80}' || true)"
+fi
+waits=$(got "$BASE/waits")
+if words <<<"$waits" | grep -qF "$WAITS_KEYS" && grep -qF '<div class="keys" id="waits-keys">' <<<"$waits" \
+  && grep -qF 'id="waits-list" data-controller="cursor"' <<<"$waits"; then
+  pass "Waits for you says its keys in one line of the Backlog's look: $WAITS_KEYS"
+else
+  fail "the line of keys of Waits for you: $(words <<<"$waits" | grep -oE '.{0,40}move.{0,80}' || true)"
 fi
 
 # ---- in Chrome ----
@@ -193,12 +215,109 @@ tasks_view_checks() {
   fi
 }
 
+# The checks of "Waits for you", after the Tasks view's: a task whose interview waits for the owner, with its session
+# open (a demo marks a session live from the log alone), is added first. Each print step gives a label and the state,
+# "MARK FOCUS PANEL": the id of the row with the mark, of the row whose link has the focus, and the task of the open
+# panel, each "-" for none; a `calls-*` step gives the stand-in agtermctl's calls so far, joined by "|".
+waits_view_checks() {
+  local out=$WORK/waits.out held=order-search session=0F5EA2C1-0000-4000-8000-0000000000C1 rows first merge select
+  "$PY" "$WORK/held.py" "$LOG" "$held" "$session" "Search the orders by customer name"
+  rows=$(got "$BASE/waits" | grep -oE '<article class="wrow[^"]*" id="wait-[^"]+"' | sed -E 's/.*id="//; s/"$//' | tr '\n' ' ')
+  : > "$AGT_CALLS"
+  "$PY" - "$BASE" "$WORK" "$PY" "$LOG" "$AGT_CALLS" "$held" "$rows" > "$WORK/waits.json" <<'PY'
+import json, shlex, sys
+base, work, py, log, calls, held, ids = sys.argv[1:]
+rows = ids.split()
+mine, merge = f"wait-held-{held}", next((r for r in rows if r.startswith("wait-merge-")), "")
+STATE = ("(() => { const cur = document.querySelector('#waits-list [data-js-cur]'); const focus = document.activeElement?.closest('article.wrow');"
+         " const panel = document.querySelector('#task > .panel');"
+         " return [cur ? cur.id : '-', focus ? focus.id : '-', panel ? panel.dataset.task : '-'].join(' '); })()")
+def until(label, cond):
+    """a print step that waits up to 15 s for COND, then gives LABEL and the state"""
+    return {"print": f"new Promise(done => {{ const end = Date.now() + 15000; const tick = () => (({cond}) || Date.now() > end) ? done([{json.dumps(label)}, {STATE}]) : setTimeout(tick, 100); tick(); }})"}
+def at(label):
+    return {"print": f"[{json.dumps(label)}, {STATE}]"}
+def where(label):
+    return {"print": f"[{json.dumps(label)}, location.pathname + ' ' + (document.querySelector('#confirm') ? 'confirm' : 'no-confirm')]"}
+def key(name, code=None):
+    vk = {"Enter": 13, "Escape": 27}.get(name, 0)
+    return {"key": name, "code": code or name, "vk": vk, "after": 100, **({"text": "\r"} if name == "Enter" else {})}
+J, K = key("j", "KeyJ"), key("k", "KeyK")
+def moves(src, dst):
+    """the J or K presses that take the mark from row SRC to row DST"""
+    a, b = rows.index(src), rows.index(dst)
+    return [J] * (b - a) if b > a else [K] * (a - b)
+def sh(*argv):
+    return {"sh": " ".join(map(shlex.quote, argv))}
+def seen_calls(label):
+    # the stand-in's calls, a second after the press: the jump posts to the server, which runs agtermctl
+    return [{"wait": 1000}, sh(py, "-c", "import json, sys; print(json.dumps([sys.argv[1], '|'.join(open(sys.argv[2]).read().split(chr(10))).strip('|')]))", label, calls)]
+gone = "!document.querySelector('#task > .panel')"
+steps = [
+    {"goto": f"{base}/waits", "wait": 300},
+    until("ready", f"document.readyState === 'complete' && window.Turbo && document.querySelector('#{mine}')"), {"wait": 300},
+    # J, K and the arrows over the rows; the line of keys
+    at("none"), J, at("j1"), J, at("j2"), K, at("k1"), key("ArrowDown"), at("down"), key("ArrowUp"), at("up"),
+    {"print": "['line', (() => { const n = document.getElementById('waits-keys'); return n && n.getClientRects().length ? n.textContent.replace(/\\s+/g, ' ').trim() : 'hidden'; })()]"},
+    # Enter on the row whose interview waits: by its focused verb, with the focus on no link, then a click on the verb
+    *moves(rows[0], mine), at("at-held"), key("Enter"), *seen_calls("calls-enter"), at("after-enter"), where("where-enter"),
+    {"eval": "document.activeElement.blur()"}, key("Enter"), *seen_calls("calls-blur"), at("after-blur"),
+    {"click": f"#{mine} .wr-verb"}, *seen_calls("calls-click"), at("after-click"), where("where-click"),
+    # Enter on a merge row opens the task's panel, and no button of the row is pressed; Escape gives the focus back to it
+    *(moves(mine, merge) if merge else []), at("at-merge"), key("Enter"), until("merge-enter", "document.querySelector('#task > .panel')"), where("where-merge"),
+    key("Escape"), until("merge-escape", gone), *seen_calls("calls-merge"),
+    # the mark through a morph: a new row comes, then the marked row leaves
+    *(moves(merge, mine) if merge else []), at("pre-morph"),
+    sh(py, f"{work}/event.py", log, "keys-other-wait", "held", "the interview waits for the owner"), until("new-row", "document.querySelector('#wait-held-keys-other-wait')"),
+    sh(py, f"{work}/event.py", log, held, "building", "task 1 of 2"), until("row-gone", f"!document.querySelector('#{mine}')"),
+    J, at("after-gone"), {"print": "['first', document.querySelector('#waits-list article.wrow')?.id ?? '-']"},
+]
+print(json.dumps({"width": 1440, "height": 900, "steps": steps}))
+PY
+  drive "$WORK/waits.json" "$out"
+  read -r first _ <<<"$rows"
+  merge=$(tr ' ' '\n' <<<"$rows" | grep -m1 '^wait-merge-' || true)
+  mine=wait-held-$held
+  if [ "$(seen "$out" ready)" != "nothing printed" ] && [ -n "$first" ] && [ "$(seen "$out" none)" = "- - -" ] \
+    && [ "$(seen "$out" j1)" = "$first $first -" ] && [ "$(seen "$out" k1)" = "$first $first -" ] && [ "$(seen "$out" up)" = "$first $first -" ] \
+    && [ "$(seen "$out" j2)" != "$first $first -" ] && [ "$(seen "$out" j2)" = "$(seen "$out" down)" ] && [ "$(seen "$out" line)" = "$WAITS_KEYS" ]; then
+    pass "on Waits for you, with no mark J marks the first row, J and the down arrow move it to the next row, K and the up arrow to the one before, the focus goes with it, and the line of keys shows"
+  else
+    fail "J, K and the arrows over the rows: $(cat "$out")"
+  fi
+  select="session select --target $session"
+  if [ "$(seen "$out" at-held)" = "$mine $mine -" ] && [ "$(seen "$out" calls-enter)" = "$select" ] && [ "$(seen "$out" after-enter)" = "$mine $mine -" ] \
+    && [ "$(seen "$out" calls-blur)" = "$select|$select" ] && [ "$(seen "$out" after-blur)" = "$mine - -" ] \
+    && [ "$(seen "$out" calls-click)" = "$select|$select|$select" ] && [ "$(seen "$out" after-click)" = "$mine $mine -" ] \
+    && [ "$(seen "$out" where-enter)" = "/$HOST/shop/waits no-confirm" ] && [ "$(seen "$out" where-click)" = "/$HOST/shop/waits no-confirm" ]; then
+    pass "Enter on the marked row whose interview waits, by its focused verb or with the focus on no link, and a click on its verb each switch agterm to the task's session and open no panel"
+  else
+    fail "Enter on a row answered in the session: $(cat "$out") / calls: $(cat "$AGT_CALLS")"
+  fi
+  if [ -n "$merge" ] && [ "$(seen "$out" at-merge)" = "$merge $merge -" ] && [ "$(seen "$out" merge-enter)" = "$merge - ${merge#wait-merge-}" ] \
+    && [ "$(seen "$out" where-merge)" = "/$HOST/shop/tasks/${merge#wait-merge-} no-confirm" ] && [ "$(seen "$out" merge-escape)" = "$merge $merge -" ] \
+    && [ "$(seen "$out" calls-merge)" = "$select|$select|$select" ]; then
+    pass "Enter on a marked merge row opens the task's panel and presses none of the row's buttons, and Escape gives the focus back to the marked row"
+  else
+    fail "Enter on a merge row ($merge): $(cat "$out")"
+  fi
+  if [ "$(seen "$out" pre-morph)" = "$mine $mine -" ] && [ "$(seen "$out" new-row)" = "$mine $mine -" ] && [ "$(seen "$out" row-gone)" = "- - -" ] \
+    && [ "$(seen "$out" first)" != "-" ] && [ "$(seen "$out" after-gone)" = "$(seen "$out" first) $(seen "$out" first) -" ]; then
+    pass "the mark stays on its row when a new row comes into Waits for you, goes when its row leaves, and the next key marks the first row"
+  else
+    fail "the mark of a row through a morph: $(cat "$out")"
+  fi
+}
+
 if [ -z "$NODE" ]; then
   skip_function tasks_view_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
+  skip_function waits_view_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
 elif [ -z "$CHROME_AT" ]; then
   skip_function tasks_view_checks "no Chrome here (set CHROME to the browser)"
+  skip_function waits_view_checks "no Chrome here (set CHROME to the browser)"
 else
   tasks_view_checks
+  waits_view_checks
 fi
 
 finish

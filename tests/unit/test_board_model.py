@@ -932,3 +932,48 @@ class SummarizedBoard(unittest.TestCase):
         self.assertFalse(any('id="summary"' in x for x in parts))
         self.assertTrue(any('id="progress"' in x for x in parts))
 
+
+class AnsweredInSession(unittest.TestCase):
+    """Which rows of "Waits for you" the owner answers in the task's own session, so that the row's verb goes
+    to that session while it lives (decision 4 of docs/plans/2026-11-22-board-cards-keyboard.md)."""
+
+    LIVE = {"gift-note": {"live": True, "agent": True, "session": "S1"}}
+
+    def row(self, *events, sessions=None, kind=None) -> tuple:
+        m = model(ev(0, "session.open", session="S1", name="gift-note"), *events)
+        m.sessions = self.LIVE if sessions is None else sessions
+        rows = [w for w in bm.waits_of(m) if kind is None or w["kind"] == kind]
+        self.assertEqual(len(rows), 1, [w["kind"] for w in bm.waits_of(m)])
+        w = rows[0]
+        return w["kind"], bm.answered_in_session(w, m), bm.session_of_wait(w, m)
+
+    def test_a_held_step_with_no_yes_on_the_board_goes_to_the_session(self):
+        self.assertEqual(self.row(state(1, "held", "the interview waits for the owner")), ("held", True, "S1"))
+
+    def test_a_held_step_whose_yes_is_on_the_board_and_criteria_stay_on_the_board(self):
+        interview_read = (state(1, "held", "the interview waits for the owner"), ev(5, "criteria.read", **Acts.READ))
+        self.assertEqual(self.row(*interview_read), ("held", False, None))
+        self.assertEqual(self.row(state(1, "held", "the criteria wait for the owner")), ("criteria", False, None))
+
+    def test_a_task_its_session_stopped_goes_to_the_session(self):
+        self.assertEqual(self.row(state(1, "building", "lead: builder"), state(5, "blocked", "a builder ended two times with no report")), ("blocked", True, "S1"))
+
+    def test_a_session_that_does_not_answer_goes_to_it_and_a_task_with_no_session_does_not(self):
+        deaf = {"gift-note": {"live": True, "agent": True, "unanswered": True, "session": "S1"}}
+        self.assertEqual(self.row(state(1, "building", "lead: builder"), sessions=deaf, kind="session"), ("session", True, "S1"))
+        gone = {"gift-note": {"live": True, "agent": False, "session": "S1"}}
+        self.assertEqual(self.row(state(1, "building", "lead: builder"), sessions=gone, kind="session"), ("session", False, None))
+
+    def test_a_merge_a_breaker_a_plan_and_a_task_after_a_dropped_one_stay_on_the_board(self):
+        self.assertEqual(self.row(state(1, "open", Merge.PR)), ("merge", False, None))
+        self.assertEqual(self.row(state(1, "building", "task 2 of 3"), Breakers.STOP, Breakers.HELD), ("breaker", False, None))
+        self.assertEqual(self.row(state(1, "planned", "the plan waits for the owner")), ("plan", False, None))
+        dropped = (*AfterDropped().gift("dropped"), AfterDropped.QUEUED)
+        self.assertEqual(self.row(*dropped, kind="after_dropped"), ("after_dropped", False, None))
+
+    def test_a_session_that_does_not_live_takes_no_jump(self):
+        self.assertEqual(self.row(state(1, "held", "the interview waits for the owner"), sessions={}, kind="held"), ("held", True, None))
+        demo = bm.derive([state(0, "held", "the interview waits for the owner")], [], NOW, meta={"demo": True})
+        self.assertEqual(bm.session_of_wait(bm.waits_of(demo)[0], demo), None)
+        demo = bm.derive([state(0, "held", "the interview waits for the owner"), ev(1, "session.open", session="S9", name="gift-note")], [], NOW, meta={"demo": True})
+        self.assertEqual(bm.session_of_wait(bm.waits_of(demo)[0], demo), "S9")

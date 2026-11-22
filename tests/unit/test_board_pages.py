@@ -200,5 +200,60 @@ class Keys(unittest.TestCase):
         self.assertEqual(html.count('class="keys"'), 1)
 
 
+class WaitsVerb(unittest.TestCase):
+    """The verb of a row of "Waits for you" goes where the owner acts: on a page for this Mac, for a row he
+    answers in the task's session while it lives, the jump of agterm; elsewhere the task's panel alone."""
+
+    OPEN = {"ts": (START + timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": "session.open", "task": "gift-note", "session": "S1", "name": "gift-note"}
+
+    def verb(self, *events, row="held", local=True, sessions=None) -> str:
+        """The verb link of the row ROW-gift-note"""
+        m = bm.derive([self.OPEN, *events], [], NOW)
+        m.sessions = {"gift-note": {"live": True, "agent": True, "session": "S1"}} if sessions is None else sessions
+        html = str(pages.waits_page(pages.Ctx(host="h", workspace="w", model=m, asset=lambda name: name, local=local)))
+        verbs = re.findall(rf'<article class="wrow[^"]*" id="wait-{row}-gift-note"[^>]*>.*?(<a class="wr-verb"[^>]*>)', html)
+        self.assertEqual(len(verbs), 1, verbs)
+        return verbs[0]
+
+    def test_a_held_row_on_a_page_for_this_mac_with_a_live_session_jumps_to_it_and_keeps_its_address(self):
+        verb = self.verb(state(2, "held", "the interview waits for the owner", task="gift-note"))
+        self.assertIn('data-action="agterm#jump"', verb)
+        self.assertIn('data-agterm-session-param="S1"', verb)
+        self.assertIn('href="/h/w/tasks/gift-note?in=waits"', verb)
+
+    def test_no_jump_on_a_page_that_is_not_for_this_mac_or_with_no_live_session(self):
+        held = state(2, "held", "the interview waits for the owner", task="gift-note")
+        for verb in (self.verb(held, local=False), self.verb(held, sessions={"gift-note": {"live": False, "session": "S1"}})):
+            self.assertNotIn("agterm#jump", verb)
+            self.assertNotIn("data-agterm-session-param", verb)
+            self.assertIn('href="/h/w/tasks/gift-note?in=waits"', verb)
+
+    def test_no_jump_for_a_merge_row(self):
+        verb = self.verb(state(2, "open", "pull request https://github.com/acme/shop/pull/41", task="gift-note"), row="merge")
+        self.assertNotIn("agterm#jump", verb)
+        self.assertIn('href="/h/w/tasks/gift-note?in=waits"', verb)
+
+    def test_the_list_carries_the_cursor_over_its_rows_and_one_line_of_its_keys(self):
+        m = bm.derive([self.OPEN, state(2, "held", "the interview waits for the owner", task="gift-note")], [], NOW)
+        html = str(pages.waits_page(pages.Ctx(host="h", workspace="w", model=m, asset=lambda name: name)))
+        listing = re.search(r'<div class="waits-list" id="waits-list"[^>]*>', html)
+        self.assertIsNotNone(listing)
+        for attr in ('data-controller="cursor"', 'data-cursor-item-value="article.wrow"', 'data-cursor-link-value="a.wr-verb"',
+                     'data-cursor-pick-value="a.wr-verb, a.wr-task"', 'data-action="keydown@window-&gt;cursor#key click-&gt;cursor#pick"'):
+            self.assertIn(attr, listing[0])
+        self.assertNotIn("data-cursor-group-value", listing[0])
+        line = re.search(r'<div class="keys" id="waits-keys">(.*?)</div>', html)
+        self.assertIsNotNone(line)
+        self.assertEqual(" ".join(re.sub(r"<[^>]+>", " ", line[1]).split()), "J K ↑ ↓ move · Enter go")
+        self.assertEqual(html.count('class="keys"'), 1)
+        # the title link of the row opens the panel and carries no jump
+        self.assertNotIn("agterm", re.search(r'<a class="wr-task"[^>]*>', html)[0])
+
+    def test_with_nothing_waiting_no_line_of_keys(self):
+        html = str(pages.waits_page(ctx_of(ended(2))))
+        self.assertIn("Nothing waits for you.", html)
+        self.assertNotIn('id="waits-keys"', html)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -893,10 +893,10 @@ def waits_page(ctx: Ctx) -> Markup:
         elif w["kind"] in ("held", "criteria") and t.shown and say["verb"].lower() != t.shown.lower():
             facts.append(h("div", {"class": "wr-sub"}, rich(ctx, bm.cap(t.shown))))
         acts = row_acts(ctx, w)
-        rows.append(h("article", {"class": f"wrow a-{say.get('actor', 'you')}", "id": f"wait-{w['key'].replace(':', '-')}"},
+        rows.append(h("article", {"class": f"wrow a-{say.get('actor', 'you')}", "id": f"wait-{w['key'].replace(':', '-')}", "data-task": t.slug},
                       h("span", {"class": "fi"}, icon(ctx, say["icon"])),
                       h("div", {"class": "wr-main"},
-                        h("div", {"class": "wr-top"}, h("a", {"class": "wr-verb", **task_link(ctx, t.slug, say["to"])}, say["verb"]),
+                        h("div", {"class": "wr-top"}, h("a", verb_link(ctx, w, say), say["verb"]),
                           h("span", {"class": "wr-time", "title": say["note"]}, since(w["since"], m.now))),
                         h("a", {"class": "wr-task", **task_link(ctx, t.slug, say["to"])}, t.title, h("span", {"class": "wr-state"}, f" · {t.info['label']}")),
                         facts,
@@ -907,7 +907,24 @@ def waits_page(ctx: Ctx) -> Markup:
                   " A breaker, criteria to approve, a plan to read, a pull request to merge or a task with no session shows here when it comes."))]
     n = len(bm.waits_of(m))
     summary = f"{bm.plural(n, 'thing')} you do, the most pressing first" if n else "Nothing waits for you"
-    return layout(ctx, "Waits for you", summary, h("div", {"class": "view scroll", "id": "waits-view"}, h("div", {"class": "waits-list"}, rows, parked_group(ctx)), push_row(ctx, "page")))
+    # the cursor controller's mark over the rows (cursor.js), one group, the verb as each row's link and a
+    # click on the verb or the title marking the row; the parked tasks under the rows are no item of it
+    listing = h("div", {"class": "waits-list", "id": "waits-list", "data-controller": "cursor", "data-cursor-item-value": "article.wrow",
+                        "data-cursor-link-value": "a.wr-verb", "data-cursor-pick-value": "a.wr-verb, a.wr-task",
+                        "data-action": "keydown@window->cursor#key click->cursor#pick"}, rows, parked_group(ctx))
+    keys = keys_line(("J", "K", "↑", "↓"), "move", ("Enter",), "go", id_="waits-keys") if n else None
+    return layout(ctx, "Waits for you", summary, h("div", {"class": "view scroll", "id": "waits-view"}, listing, keys, push_row(ctx, "page")))
+
+
+def verb_link(ctx: Ctx, w: dict, say: dict) -> dict:
+    """The attributes of a row's verb, its main link: the task's panel, and on a page for this Mac, for a row
+    the owner answers in the task's session while it lives (`lem_board_model.session_of_wait`), the jump of
+    agterm to that session too (agterm.js), which takes the click; elsewhere the address opens the panel."""
+    attrs = {"class": "wr-verb", **task_link(ctx, w["t"].slug, say["to"])}
+    session = bm.session_of_wait(w, ctx.model) if ctx.local else None
+    if session:
+        attrs.update({"data-action": "agterm#jump", "data-agterm-session-param": session, "title": "Go to the task’s session in agterm"})
+    return attrs
 
 
 def row_acts(ctx: Ctx, w: dict) -> Markup | None:
