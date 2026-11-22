@@ -185,6 +185,92 @@ flowchart TD
 Task 1 comes first. Tasks 2, 3 and 4 follow in that order, since 3 reads the events 2 names. Task
 5 comes last.
 
+## Plan talk
+
+2026-11-22, 7 turns, within the bound of 4 × 10 + 2. Who argued the plan: the reviewer, Codex,
+`GPT 6.2 Sol high` as its pane's status line showed it (the seat `codex/gpt-6.2-sol:high`); the
+defender, Claude Code, Opus 5.5 at high, as the `defender:` line of the task's state gives it.
+Two model families. The repairs are commit acecea7e. Agreement carries no authority: the review
+before the pull request reads each settled position as a claim.
+
+The list, numbered as the reviewer gave it:
+
+1. **A session at a prompt counts as stopped: the owner may answer the old pane's prompt after
+   the restart, and its turn runs beside the fresh session.** A design choice. The repair added a
+   layer over the decision "A session that waits at a prompt on its screen counts as stopped"
+   (cited: criterion 1's four signs, and the ruling that a build asks the owner nothing): the
+   restart renames the old session `SLUG · replaced` and sends it `lem: SLUG replaced`. The
+   reviewer held it, layer over that decision: the mailbox chat's waiter keeps mail while a turn
+   is busy and gives it only after the Stop hook (`mailbox-chat.py`, `Waiter.loop` and
+   `Waiter.run`), so the line cannot end the old turn, and the plan's "which ends its turn at its
+   next step" is false. The defender had no refutation. The two positions: the kept decision
+   with its layer, against the smaller option, no restart beside a pane that may wait at a
+   prompt. `stages/plan.md`, step 5, takes it; its decision is in the decisions log.
+2. **The newest transcript write counted as work, so the status message's own `enqueue` record
+   moved the sign and #37 never reached the restart.** Settled, at the cause: Task 1 reads the
+   `timestamp` of the newest `user` or `assistant` record, not the file's time (`f0410fb9…` ends
+   with `queue-operation` `enqueue` at 15:53:31Z). Settled by the two, not checked by the review.
+3. **The status message had no check of its own: `cmd_wake` falls through to `cmd_open` for a
+   gone pane, and sends to a task that became `held`.** Settled. The repair made the three acts
+   share one check in the task's lock; the reviewer held that a `held` written under `state.lock`
+   in the gap before the send still gets the line. The refutation: only another terminal of the
+   owner's can write in those milliseconds after 45 minutes of no sign, a write by the session is
+   its own shell command, which the check sees, and the session follows its state (`prompts/session.md`).
+   The reviewer closed it, at the cause. Settled by the two, not checked by the review.
+4. **A record with no process file gave `shell: false` with no evidence.** Settled, at the cause:
+   the process file is found in the Claude Code folder of the transcript, and none means `signs`
+   false. Settled by the two, not checked by the review.
+5. **A time filter on transcript records took the old pane's `/clear` as the fresh pane's work.**
+   Settled, at the cause: the record carries the agterm session id, and the signs take only the
+   newest open's session. Settled by the two, not checked by the review.
+6. **`board.act`, logged after the owner's open, counted as work and gave the task a new
+   automatic restart.** A design choice. The repair changed the rule's work event to leave out
+   `board.act` (at the cause). The reviewer held two issues in the changed rule: (a) `stopped` is
+   due 10 minutes after the 11:39 status wake, with nothing that requires that wake to come after
+   the restart's `session.open`, so a look before the fresh session's first dated turn logs
+   `stopped` before it gets its own status message, against criterion 5; (b) the `stopped` row
+   ends only at a work event, so the owner's click leaves the row and its button. The defender
+   had no refutation. The two positions: the rule as repaired, against a rule whose steps count
+   from the newest `session.open` as well. `stages/plan.md`, step 5, takes it; its decision is in
+   the decisions log.
+7. **After `session.stopped`, each look logged the stop again.** Settled, at the cause: `stopped`
+   is due only with no `session.stopped` since the newest sign. Settled by the two, not checked by
+   the review.
+8. **`act_session` said a session opened when the open found work.** Settled: `acted: false`
+   gives the owner's words and opens nothing. Settled by the two, not checked by the review.
+9. **No renderer drew the `stopped` row's button.** Settled: Task 3 names
+   `lem_board_pages.py:row_acts`. Settled by the two, not checked by the review.
+10. **A `deaf` row stood beside the guard's own steps.** Settled. The repair made `unanswered`
+    false for a wake `why=status`; the reviewer held that an owner's wake can still give a `deaf`
+    row beside the `stopped` row. The refutation: that row is the existing rule's true word for
+    an owner's wake left unanswered (`lem_board_model.py:wait_say`). The reviewer closed it, at the
+    cause. Settled by the two, not checked by the review.
+
+Each mechanism a repair added:
+
+- the rename `SLUG · replaced` and the line `lem: SLUG replaced` (question 1): a layer over "A
+  session that waits at a prompt on its screen counts as stopped", whose cites are criterion 1 and
+  the ruling that a build asks the owner nothing; the reviewer held it, and the ladder decides it;
+- the field `session` of `session.transcript` (question 5): at the cause, since it changed the
+  decision of Task 1 to take the records by time;
+- the one check of the three acts in the task's lock (question 3): at the cause, since it widened
+  the decision "Each act reads the task and the signs once more in the task's lock".
+
+Raised, not argued: two rows for one task, `deaf` for an owner's wake that waits and `stopped`
+beside it, in `lem_board_model.py:waits_of` (the reviewer's answer to question 10). What the owner
+sees there is a question for the personas; the review before the pull request checks it as a claim.
+
+Refused as unpriced: to take `state.lock` beside `session.lock` in the check of question 3; its
+input, a state write in the milliseconds before the send after 45 minutes of no sign, is not
+realistic here.
+
+What changed in the plan, by question and by task: Task 1, questions 2, 4 and 5 (the sign from
+dated turns, the process file from the transcript's folder, the records by session); Task 2,
+questions 1, 3, 6 and 7 (the shared check, the rename and the line, the work event without
+`board.act`, one stop logged once); Task 3, questions 8, 9 and 10 (the words on `acted: false`,
+the button in `row_acts`, no `deaf` for a status wake); Task 4, question 1 (`lem: SLUG
+replaced`); the decisions, questions 1, 3 and 6.
+
 ## Decisions
 
 - **The signs come from `lem session list`, which the server already runs at each look.** One
