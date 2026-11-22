@@ -2771,6 +2771,9 @@ FITS_LINE = "the one open task that fits his words"
 CAREFUL_LINE = re.compile(r"careful:\s*(?P<why>.+)", re.IGNORECASE)
 BRANCH_NAME = re.compile(r"[\w][\w./+-]*")
 SENTENCE = re.compile(r"(.+?[.!?])(?=\s|$)")
+# a code span, kept as it is, or a bold run, whose text is kept without its `**`: the `**` a
+# code span names (`src/**/*.py`, `**kwargs`) never opens or closes a run
+BOLD_RUN = re.compile(r"(`[^`]*`)|\*\*(?=\S)((?:`[^`]*`|[^`])+?)(?<=\S)\*\*")
 FAST_STEPS = "Fast track: one builder, the checks, one read, then the pull request."
 
 
@@ -2834,8 +2837,9 @@ def criterion_of(text: str) -> str | None:
 
 def outcome_of(text: str) -> str | None:
     """The first sentence of prose under `## Outcome` in a task.md, or None: a numbered story, a list,
-    a chart or a label of a few words ("Today:") is no sentence to quote. A bold sentence, on one line
-    or wrapped over more, is quoted whole and without its `**`."""
+    a chart or a bold label (a few words, or any that ends in a colon: "Today:") is no sentence to
+    quote. A bold sentence, on one line or wrapped over more, is quoted whole and without its `**`;
+    the `**` inside a code span stays."""
     found = re.search(r"(?m)^##[ \t]+Outcome[ \t]*$", text)
     if not found:
         return None
@@ -2848,9 +2852,11 @@ def outcome_of(text: str) -> str | None:
             continue
         if line.startswith("#"):
             break
-        # a line that opens with bold is a label when its bold closes on it within a few words
-        label = re.match(r"\*\*([^*]*)\*\*", line)
-        bold = line.startswith("**") and not (label and len(label[1].split()) <= 3)
+        # a line that opens with bold is a label when its bold closes on it within a few words, or
+        # ends in a colon inside the bold or right after it; a *** rule opens with no bold
+        label = re.match(r"\*\*([^*]*)\*\*(:?)", line)
+        bold = bool(re.match(r"\*\*[^*\s]", line)) and not (
+            label and (len(label[1].split()) <= 3 or label[1].rstrip().endswith(":") or label[2]))
         prose = line and not fenced and (bold or not re.match(r"(\d+\.|[-*+>|!]|\*\*)", line))
         if prose:
             paragraph.append(line)
@@ -2858,7 +2864,7 @@ def outcome_of(text: str) -> str | None:
         if paragraph and len(" ".join(paragraph).split()) > 3:
             break
         paragraph = []
-    said = " ".join(paragraph).replace("**", "")
+    said = BOLD_RUN.sub(lambda run: run[1] or run[2], " ".join(paragraph))
     return first_sentence(said) if len(said.split()) > 3 else None
 
 
