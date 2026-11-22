@@ -97,7 +97,8 @@ team that adopts Lem may have its own.
     lem project waiting             everything that waits for the owner, as JSON: the rows of the board's
                                     "Waits for you" (a breaker, criteria or a step of his, a blocked task,
                                     a plan, a merge review, a pull request with green or not, a task with
-                                    no session), each retro's proposals, and last night's report
+                                    no session, a task whose session stopped after the status message and
+                                    its restart), each retro's proposals, and last night's report
     lem project plan-file SLUG [--date YYYY-MM-DD]
                                     the name a task's plan takes (`paths.plan_file`), and the plan
                                     of the task the plans folder holds, as JSON

@@ -1307,8 +1307,9 @@ def session_need(t: Task, m: Model) -> str | None:
 
 
 def opens_session(t: Task, m: Model) -> bool:
-    """Whether the board offers "Open a session" for the task: nothing says that its session lives, and
-    `lem session open` would take it, as session.py's `phase_of` says: not ended, except a merged or
+    """Whether the board offers "Open a session" for the task: nothing says that its session lives, or it
+    lives and the guard of a stopped session logged its stop (`stopped_of`), and `lem session open` would
+    take it, as session.py's `phase_of` says: not ended, except a merged or
     dropped task whose worktree stays (CLEANED_BY_SESSION); not parked; not queued behind a task that has
     not ended."""
     f = live_of(t, m)
@@ -1547,7 +1548,8 @@ def answered_in_session(w: dict, m: Model) -> bool:
     board: a held step with no yes of his on the board (the interview and the others; not criteria that
     wait for his approval there), a task its session stopped, and a session that does not answer. Every
     other row (a merge, criteria, a breaker's document, a plan, a merge review, a task queued after a
-    dropped one, a task with no session) he answers on the board or in another session."""
+    dropped one, a task with no session, a task whose stop the guard of a stopped session logged) he
+    answers on the board or in another session."""
     kind = w["kind"]
     if kind == "held":
         return "approve" not in acts_of(w["t"], m.seen)

@@ -12,7 +12,8 @@ session lists that session's tasks.
 
 The rows come in the order a developer reads them: first what waits for the owner (a breaker's
 document, the criteria for his yes, a step of his, a task queued after a dropped one, a task its
-session stopped, a plan to read, a pull request to merge, a task with no session), in the groups of
+session stopped, a plan to read, a pull request to merge, a task with no session, a task whose
+session the board server's guard logged as stopped), in the groups of
 `lem project waiting`; then the tasks that build (ACTIVE), the newest first, with a parked one after them; then the tasks that ended last,
 the newest first, as many as the board's Done column draws (lem_board_model.DONE_SHOWN), however long ago they ended;
 and last a row for the board of all tasks. A row's label is the task's ask in the owner's words, and its subtitle the

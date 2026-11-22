@@ -56,7 +56,10 @@ older session of the task counts). It refuses a session the owner has selected; 
 the background; a wake of that session meanwhile ends the wait with no close (`closed: false`,
 `woken: true`). `lem session list` gives each task's newest session: whether it lives, runs an
 agent and is selected, the phase its task is in now (`phase`) and the one it opened in
-(`opened_in`), and `unanswered`, a wake-up still in its mailbox after 10 minutes.
+(`opened_in`), `unanswered`, a wake-up still in its mailbox after 10 minutes (never the guard's
+status message), and for a live session its signs of work from Claude Code's own files
+(`lem_signs.py`): `sign`, the time of the newest turn of its main thread or a subagent, `shell`,
+whether a shell command of it runs, and `signs`, whether the two could be read.
 
 ## The context's number
 

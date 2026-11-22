@@ -276,7 +276,8 @@ def open_form(ctx, t: bm.Task) -> Markup:
 
 
 def head_acts(ctx, t: bm.Task) -> Markup | None:
-    """The header's acts: "Open a session" while no session of the task lives, and the way to the
+    """The header's acts: "Open a session" while no session of the task lives or the guard of a stopped
+    session logged its stop (`bm.opens_session`), and the way to the
     confirm step of a merge while the task is open (while its merge runs, a line that says so). None on
     a page that may not act, and on a step of an act itself."""
     if not ctx.can_act or ctx.tab in ACT_TABS:
