@@ -25,7 +25,10 @@ Lem opens each pull request on GitHub, the one way a task lands. Then a fresh me
 the task: its files, its reviews and its diff. It changes nothing, and it writes `merge-review.md`.
 The review starts with its verdict, merge or call. Then it tells what Lem built and why, the
 results, each decision that Lem took without you, and the time and the tokens of the task. For a
-safe small change, it is the verdict and three sentences.
+safe small change, it is the verdict and three sentences. A change to what you see also gets the
+before and after pictures of the builders, or one line that says why there is none. When the
+review calls you for such a change, its last line tells you how to try the branch: in its worktree,
+or with `gh pr checkout`.
 
 ```mermaid
 flowchart TD
