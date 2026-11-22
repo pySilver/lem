@@ -439,6 +439,10 @@ class FirstLine(unittest.TestCase):
                          "A merge from the board no longer holds the owner's other acts on the board")
         self.assertEqual(project.outcome_of("## Outcome\n\n**What the owner sees after it:**\n\n1. step\n\nThe invoice shows 70 EUR after the refund.\n"),
                          "The invoice shows 70 EUR after the refund")
+        # a line that opens with a bold label is no outcome to quote: the paragraph after it is
+        self.assertEqual(project.outcome_of("## Outcome\n\n**Today:** the invoice shows 100 EUR after the refund.\n\n"
+                                            "The invoice shows 70 EUR after the refund.\n"),
+                         "The invoice shows 70 EUR after the refund")
 
     def test_a_bold_outcome_is_quoted_whole(self):
         # brief-reads-installed-lem, 2026-11-22: one bold sentence wrapped over two lines
