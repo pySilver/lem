@@ -13,7 +13,7 @@ rule `HIDE_NIGHT`. The night sky stands in the day file in its night colors, as 
 the sample he chose on 2026-11-21: its aurora uses colors of the day field, which `NIGHT` maps for
 the mark, so one map cannot serve both. This script maps every color outside the night sky through
 `NIGHT`, leaves the colors inside it as written, and swaps the rule so that the night file hides the
-day sky. The mark has no sky, and its night file is written as before.
+day sky. The mark has no sky, so every color of it goes through `NIGHT`.
 
 The picture is the owner's pick ("The Line in the Field"), and so is this palette: he approved it
 on 2026-11-14 from a render on a dark page, and the scene with its lights on 2026-11-21. Change
