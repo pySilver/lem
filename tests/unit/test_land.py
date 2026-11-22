@@ -430,14 +430,53 @@ class MovedBase(unittest.TestCase):
     def test_the_owners_merge_stands_while_the_change_and_its_reasons_stay(self) -> None:
         tap = {"tip": "aaa", "not_green": ["the bar is lower"], "via": "server", "at": "2026-11-21T10:00:00Z"}
         rebased = {"from": "aaa", "to": "bbb"}
-        self.assertEqual(land.tap_after(tap, "aaa", "bbb", rebased, ["the bar is lower"]), ({**tap, "tip": "bbb"}, None))
-        gone, why = land.tap_after(tap, "aaa", "ccc", rebased, ["the bar is lower"])
+        self.assertEqual(land.tap_after(tap, "aaa", "bbb", rebased, None, ["the bar is lower"]), ({**tap, "tip": "bbb"}, None))
+        gone, why = land.tap_after(tap, "aaa", "ccc", rebased, None, ["the bar is lower"])
         self.assertIsNone(gone)
         self.assertIn("a commit came after the rebase", why)
-        gone, why = land.tap_after(tap, "aaa", "bbb", rebased, [])
+        gone, why = land.tap_after(tap, "aaa", "bbb", rebased, None, [])
         self.assertIsNone(gone)
         self.assertIn("not the ones the owner saw", why)
-        self.assertEqual(land.tap_after(None, "aaa", "bbb", rebased, []), (None, None))
+        self.assertEqual(land.tap_after(None, "aaa", "bbb", rebased, None, []), (None, None))
+
+    # the reviews that answered, as `cmd_base` reads them: round 1 of a change whose patch is p1
+    READ = {"answered": ["codex"], "round": 1, "must_fix": 0, "patch": "p1", "contents": {"shop.txt": {"base": "b1", "tip": "t1", "modes": ["100644", "100644"]}}}
+    NOW = {"patch": "p1", "contents": {"shop.txt": {"base": "b1", "tip": "t1", "modes": ["100644", "100644"]}}}
+
+    def assert_why(self, answered: list[dict], now: dict, expected: str | None) -> None:
+        why = land.why_uncovered(answered, "docs/backlog", now)
+        self.assertEqual(why, expected)
+        # the reason is None exactly when the rule of `cmd_base` says that a review covers the change
+        held = bool(answered) and not answered[-1]["must_fix"] and land.covered("docs/backlog", answered[-1], now)
+        self.assertEqual(why is None, held)
+
+    def test_why_no_review_covers_the_change_names_the_newest_reviews_reason(self) -> None:
+        fixed = {"patch": "p2", "contents": {"shop.txt": {"base": "b1", "tip": "t2", "modes": ["100644", "100644"]}}}
+        self.assert_why([], self.NOW, "no review answered for the change")
+        # round 2, at the tip it read, left 1 must-fix; a builder fixed it and no review read the fix
+        self.assert_why([self.READ, {**self.READ, "round": 2, "must_fix": 1}], fixed, "round 2 left 1 must-fix, and no review read the change after it")
+        self.assert_why([self.READ], fixed, "no review read what changed after round 1")
+        self.assert_why([self.READ], self.NOW, None)
+
+    def test_an_ended_merge_says_that_no_review_covers_the_change(self) -> None:
+        tap = {"tip": "aaa", "not_green": ["two rounds reviewed it"], "via": "server", "at": "2026-11-22T10:00:00Z"}
+        uncovered = {"from": "aaa", "to": "bbb", "why": "round 2 left 1 must-fix, and no review read the change after it"}
+        gone, why = land.tap_after(tap, "aaa", "bbb", None, uncovered, ["two rounds reviewed it"])
+        self.assertIsNone(gone)
+        self.assertEqual(why, "no review covers the change: round 2 left 1 must-fix, and no review read the change after it")
+        self.assertNotIn("a commit came after the rebase", why)
+        self.assertNotIn("conflict", why)
+        # a commit after that rebase is a cause of its own
+        gone, why = land.tap_after(tap, "aaa", "ccc", None, uncovered, ["two rounds reviewed it"])
+        self.assertIn("a commit came after the rebase", why)
+
+    def test_an_ended_merge_after_a_covering_review_keeps_its_line(self) -> None:
+        tap = {"tip": "aaa", "not_green": [], "via": "server", "at": "2026-11-22T10:00:00Z"}
+        today = "the change is not the one the owner merged: a commit came after the rebase, or the rebase met a conflict"
+        # a review covered the change, so no rebase kept a reason it does not: a commit after the rebase
+        self.assertEqual(land.tap_after(tap, "aaa", "ccc", {"from": "aaa", "to": "bbb"}, None, []), (None, today))
+        # a review whose change found nothing to fix, and a rebase that met a conflict in README.md: no rebase_carried
+        self.assertEqual(land.tap_after(tap, "aaa", "bbb", None, None, []), (None, today))
 
 
 class TaskFile(unittest.TestCase):
