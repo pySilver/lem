@@ -432,5 +432,98 @@ class MergeStep(unittest.TestCase):
         self.assertIn("<span>Merge it into main</span>", no_pr)
 
 
+class ParkAndApproveSteps(unittest.TestCase):
+    """The park step (`park_step`) and the approval of the criteria (`approve_card`): the three parts of an act's
+    step, as the merge step has them, the key of their read, and where the approval's note and its plain text go."""
+
+    STOP = ev(20, "decision.breaker", id=1, cause="criteria", what="The note has no place", document="breaker.md", handoff="handoff.md")
+    TEXT = '## Acceptance criteria\n\n1. A product with 3 in stock says "3 left" under its price.\n'
+    REFUSED = {"task": "gift-note", "state": "refused", "said": "The criteria changed since the page showed them. Read them again, then approve."}
+
+    def key(self, html):
+        found = re.search(r'data-sheet-key-value="([0-9a-f]+)"', html)
+        return found and found.group(1)
+
+    def park(self, can_act=True):
+        ctx = pages.Ctx(host="h", workspace="w", model=model(state(0, "building", "task 2 of 3"), self.STOP,
+                                                              state(20, "held", "breaker 1 waits for the owner", "The note has no place: no option keeps the criteria")),
+                        asset=lambda name: name, can_act=can_act)
+        return "".join(str(x) for x in task_pages.park_step(ctx, ctx.model.tasks[0]))
+
+    def ctx(self, text=TEXT, can_act=True, note=None):
+        ctx = pages.Ctx(host="h", workspace="w", model=model(state(0, "held", "the criteria wait for the owner")), asset=lambda name: name, can_act=can_act, note=note)
+        ctx.criteria_waiting = lambda slug: None if text is None else {"text": text, "digest": "d1g3st"}
+        return ctx
+
+    def approve(self, **kw):
+        ctx = self.ctx(**kw)
+        return str(task_pages.approve_card(ctx, ctx.model.tasks[0]))
+
+    def test_the_park_step_is_a_head_a_body_with_what_stopped_and_what_a_park_keeps_and_a_foot_with_the_field_the_button_and_back(self):
+        html = self.park()
+        head, body, foot = html.index('class="cf-head"'), html.index('class="cf-body"'), html.index('class="cf-foot"')
+        self.assertLess(head, body)
+        self.assertLess(body, foot)
+        self.assertIn('<div class="eyebrow">Park · breaker 1</div>', html[head:body])
+        said = [html.index(x, body) for x in ("The build stopped: ", "A parked task keeps its worktree")]
+        self.assertEqual(said, sorted(said))
+        self.assertLess(said[-1], foot)
+        form = html[foot:]
+        for part in ('name="why"', "<span>Park the task</span>", "<span>Back</span>"):
+            self.assertIn(part, form)
+        self.assertNotIn("Cancel", html)
+        self.assertIn('data-controller="sheet"', html)
+        self.assertIn("cf-sheet", html)
+        self.assertRegex(self.key(html) or "", r"^[0-9a-f]{12}$")
+        mute = self.park(can_act=False)
+        self.assertNotIn("sheet", mute)
+        self.assertNotIn('name="why"', mute)
+        self.assertIn("/lem park gift-note", mute)
+
+    def test_the_approval_that_holds_the_button_is_a_head_a_body_with_the_criteria_and_their_plain_text_and_a_foot_with_the_form_and_back(self):
+        html = self.approve()
+        head, wrap, body, foot = (html.index(x) for x in ('class="cf-head"', 'class="approve-body"', 'class="cf-body"', 'class="cf-foot"'))
+        self.assertEqual([head, wrap, body, foot], sorted([head, wrap, body, foot]))
+        self.assertIn('id="approve-card"', html[:head])
+        self.assertIn("The criteria wait for your yes", html[head:wrap])
+        markdown, plain = html.index('data-controller="markdown"', body), html.index('<noscript><pre class="cf-plain">## Acceptance criteria', body)
+        self.assertLess(markdown, plain)
+        self.assertIn("&quot;3 left&quot; under its price.", html[plain:foot])
+        form = html[foot:]
+        self.assertIn('name="digest" value="d1g3st"', form)
+        self.assertIn("<span>Approve the criteria</span>", form)
+        self.assertIn('class="btn cf-back"', form)
+        self.assertIn("<span>Back</span>", form)
+        self.assertIn('data-controller="sheet"', html)
+        self.assertIn("cf-sheet", html)
+
+    def test_only_an_approval_with_its_button_has_the_controller_and_the_key_of_its_read_follows_the_criteria(self):
+        first = self.key(self.approve())
+        self.assertRegex(first or "", r"^[0-9a-f]{12}$")
+        self.assertEqual(first, self.key(self.approve()))
+        self.assertNotEqual(first, self.key(self.approve(text=self.TEXT + "2. A product with none in stock says \"Sold out\".\n")))
+        for html in (self.approve(can_act=False), self.approve(text=None)):
+            self.assertNotIn("sheet", html)
+            self.assertNotIn("cf-body", html)
+            self.assertNotIn('name="digest"', html)
+            self.assertNotIn("noscript", html)
+
+    def test_the_note_of_an_approval_is_first_in_the_card_that_holds_the_button_and_above_a_card_without_it(self):
+        ctx = self.ctx(note=self.REFUSED)
+        parts = [str(x) for x in task_pages.criteria_tab(ctx, ctx.model.tasks[0]) if x]
+        self.assertIn('id="approve-card"', parts[0])
+        body = parts[0].index('class="cf-body"')
+        first = parts[0].index("<section", body)
+        self.assertIn('id="act-note"', parts[0][first:parts[0].index(">", first)])
+        self.assertLess(parts[0].index('id="act-note"'), parts[0].index('data-controller="markdown"'))
+        self.assertEqual(sum('id="act-note"' in p for p in parts), 1)
+        self.assertNotEqual(self.key(parts[0]), self.key(self.approve()), "the note is part of what the owner reads")
+        ctx = self.ctx(note=self.REFUSED, can_act=False)
+        parts = [str(x) for x in task_pages.criteria_tab(ctx, ctx.model.tasks[0]) if x]
+        self.assertIn('id="act-note"', parts[0])
+        self.assertIn('id="approve-card"', parts[1])
+        self.assertNotIn('id="act-note"', parts[1])
+
+
 if __name__ == "__main__":
     unittest.main()
