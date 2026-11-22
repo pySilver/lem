@@ -2853,8 +2853,9 @@ def outcome_of(text: str) -> str | None:
         if line.startswith("#"):
             break
         # a line that opens with bold is a label when its bold closes on it within a few words, or
-        # ends in a colon inside the bold or right after it; a *** rule opens with no bold
-        label = re.match(r"\*\*([^*]*)\*\*(:?)", line)
+        # ends in a colon inside the bold or right after it; a *** rule opens with no bold; the `**`
+        # a code span names never closes the label, as in BOLD_RUN
+        label = re.match(r"\*\*((?:`[^`]*`|[^*`])*)\*\*(:?)", line)
         bold = bool(re.match(r"\*\*[^*\s]", line)) and not (
             label and (len(label[1].split()) <= 3 or label[1].rstrip().endswith(":") or label[2]))
         prose = line and not fenced and (bold or not re.match(r"(\d+\.|[-*+>|!]|\*\*)", line))

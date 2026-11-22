@@ -454,6 +454,17 @@ class FirstLine(unittest.TestCase):
         self.assertEqual(project.outcome_of("## Outcome\n\n**The check reads `src/**/*.py` and\npasses `**kwargs` on.**\n"),
                          "The check reads `src/**/*.py` and passes `**kwargs` on")
 
+    def test_a_code_span_among_the_first_words_makes_no_label(self):
+        # bold-label-skips-code-spans, 2026-11-22: the label test stopped at the `**` inside the code span
+        self.assertEqual(project.outcome_of("## Outcome\n\n**Lem reads `**/*.md` and\nquotes each file once.**\n"),
+                         "Lem reads `**/*.md` and quotes each file once")
+        self.assertEqual(project.outcome_of("## Outcome\n\n**Pass `**kwargs` on to the handler every time.**\n"),
+                         "Pass `**kwargs` on to the handler every time")
+        # a bold label of a few words is still no quote
+        self.assertEqual(project.outcome_of("## Outcome\n\n**Today:**\nThe invoice shows 100 EUR after the refund.\n"),
+                         "The invoice shows 100 EUR after the refund")
+        self.assertIsNone(project.outcome_of("## Outcome\n\n**Today:** `**` shows 100.\n\n1. step\n"))
+
     def test_a_bold_label_or_a_rule_is_no_quote(self):
         # a bold run that closes on its line and ends in a colon is a label at any length
         self.assertEqual(project.outcome_of("## Outcome\n\n**Before and after the change:**\n\nThe invoice shows 70 EUR after the refund.\n"),
