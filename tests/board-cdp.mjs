@@ -1,5 +1,5 @@
 // node tests/board-cdp.mjs SPEC.json: drive headless Chrome over the DevTools protocol, for the board's
-// pictures (tests/board-showcase.py), tests/lem-serve.sh's typing into a page, and a builder's look at a page. SPEC has a viewport (`width`,
+// pictures (tests/board-showcase.py), tests/lem-serve.sh's typing into a page, the keys of tests/lem-board-keys.sh and a builder's look at a page. SPEC has a viewport (`width`,
 // `height`, `scale`, `mobile` for a phone's emulation), `dark` for the color scheme, `ua` for another
 // user agent, and `steps`: {goto, wait}, {wait}, {eval}, {print}, {click}, {key} (with `code`, `vk`, `text`, `modifiers`), {shot}. Chrome runs
 // with a throwaway profile and the mock keychain, and the profile goes at the end. CHROME names the

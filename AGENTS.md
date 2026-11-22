@@ -246,7 +246,8 @@ Each script's module docstring says what it does and why; this list says where e
   `lib.sh` is what each `lem-*.sh` block sources, `checks.sh` how every suite counts its checks,
   `suites.sh` and `limit.py` what `all.sh` and `test-lem.sh` share, and `pick.py` the map of which
   suite reads which file. `board-showcase.py` writes the demo afternoon that `lem-serve.sh` serves,
-  and makes the board's pictures through headless Chrome (`board-cdp.mjs`, which needs Node).
+  and makes the board's pictures through headless Chrome (`board-cdp.mjs`, which needs Node), the
+  driver that `lem-board-keys.sh` presses the board's keys with.
   `.github/workflows/ci.yml` runs `all.sh` when someone starts it by hand.
 - `.claude-plugin/`, `bin/` and `hooks/`: what Claude Code reads to load this repository as the
   plugin `lem`, the one way Lem installs. `bin/lem` is Lem's one command: `lem NAME` runs the script
