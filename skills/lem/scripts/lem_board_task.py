@@ -1245,8 +1245,9 @@ def park_step(ctx, t: bm.Task) -> list:
     b = t.breaker
     if b is None or "park" not in bm.acts_of(t, ctx.model.seen):
         return not_now(ctx, t, f"Nothing to park: no breaker of this task waits for you. The task is {t.info['label'].lower()}.")
+    # permanent, as the new task's field is: a refresh keeps the line he is typing
     field_ = h("label", {"class": "act-field"}, h("span", None, "Why, in one line"),
-               h("input", {"type": "text", "name": "why", "maxlength": "300", "autocomplete": "off", "enterkeyhint": "done",
+               h("input", {"id": f"park-why-{ctx.workspace}-{t.slug}", "type": "text", "name": "why", "data-turbo-permanent": True, "maxlength": "300", "autocomplete": "off", "enterkeyhint": "done",
                            "placeholder": "the owner parked it"}))
     if ctx.can_act:
         act = P.act_form(ctx, t.slug, "park", "Park the task", "park", "go", "Parking…", {"in": ctx.view if ctx.view != "tasks" else None}, field_, form_cls="act-stack")
