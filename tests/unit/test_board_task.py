@@ -346,5 +346,14 @@ class Forge(unittest.TestCase):
         self.assertEqual(bm.forge_due([], None, NOW, every, True), [])
 
 
+class Feed(unittest.TestCase):
+    def test_only_an_event_a_resumed_task_carried_over_says_so(self):
+        m = model(state(0, "open", "pull request https://github.com/acme/shop/pull/41"))
+        refused = ev(1, "merge.refused", by="merger", via="server", kind="base", said="origin/main moved after the checks ran", tip="abc123456", **{"from": "lem"})
+        self.assertNotIn("carried over", bm.describe(refused, m)["sub"])
+        carried = ev(1, "criteria.approved", by="owner", was_at="2026-11-20T08:00:00Z", **{"from": "card-foot"})
+        self.assertIn("carried over from", bm.describe(carried, m)["sub"])
+
+
 if __name__ == "__main__":
     unittest.main()

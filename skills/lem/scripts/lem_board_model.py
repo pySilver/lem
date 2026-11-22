@@ -1701,8 +1701,10 @@ def describe(e: dict, m: Model) -> dict:
     say = SAYS.get(e.get("event"))
     if say:
         said = {"title": title, "sub": "", **say(e)}
-        if e.get("from"):
-            # a dropped task's event that its resumed task carried over (project.py `resume`), at the time of the resume
+        if e.get("from") and e.get("was_at"):
+            # a dropped task's event that its resumed task carried over (project.py `resume`), at the time of the
+            # resume: it keeps its first time as `was_at`; another event's `from` is its own field (`merge.refused`'s
+            # `lem` or `github`, `merge.stands`'s old tip)
             said["sub"] = " · ".join(x for x in (said["sub"], f"carried over from “{title_of(e['from'])}”") if x)
         return said
     rest = " · ".join(f"{k} {v if isinstance(v, str) else json.dumps(v, ensure_ascii=False)}" for k, v in e.items() if k not in ("ts", "event", "task"))
