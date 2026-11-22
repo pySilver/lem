@@ -367,6 +367,7 @@ class Land(Issues):
 
     def test_the_comment_says_what_changed_the_pull_request_and_green_then_the_issue_is_closed(self):
         self.landed()
+        self.edit_issue(assignees=["octo-cat"])
         out = self.ok("land", "export-keeps-gift-note")
         body = self.issue()["comments"][-1]["body"]
         self.assertEqual(body, "Lem landed the work of this issue: The export keeps the gift note of each order, as the shop shows it.\n\n"
@@ -378,8 +379,8 @@ class Land(Issues):
         calls = len(self.gh()["calls"])
         self.assertEqual(self.ok("land", "export-keeps-gift-note")["did"], [])
         self.assertEqual(len(self.gh()["calls"]), calls)
-        # the landed task's issue keeps the assignee
-        self.assertEqual(self.issue()["assignees"], [])
+        # the landed task's issue keeps the assignee Lem added
+        self.assertEqual(self.issue()["assignees"], ["octo-cat"])
 
     def test_not_green_is_said_and_a_closed_issue_stays_as_it_is(self):
         self.landed(green=False)
