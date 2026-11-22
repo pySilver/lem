@@ -7,22 +7,32 @@ careful: yes, because "A change bends a ruling of the owner" is in reach: task 1
 Size: full, because the hero of the page, the logo files, the README and the site's checks all change, and the scene is a new drawing with three animations.
 
 1. The scene fills the hero from edge to edge, and the hero text stands on top of it: a visitor with a page area of 1280 x 800 sees the scene reach the left and the right edge of the window, with the headline, the lead, both install lines with their Copy buttons and the agterm note on top of it, all inside the first 800 px, the install lines keep their solid box, and no boxed picture shows above the headline.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh` and `tests/checks.sh`, its checks "at 1280 x 800 the scene reaches the window's left and right edge" and the first screen at 1280 x 800
 2. On a phone the scene keeps its center in view: at 390 px wide the hooded figure and the word "Lem" both show, and the scene is cut at its sides, not squeezed.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh` and `tests/checks.sh`, its check "at 390 px the scene is cut at its sides around its center and keeps its ratio"
 3. A pulse of light runs along the wire, in both themes:
    1. The pulse enters at the left edge and travels to the right edge.
    2. The clip where each string hangs flashes once as the pulse passes it.
    3. Each letter of "Lem" lights up, tile by tile, as the pulse passes over it, then fades.
    4. The cycle takes about 8 seconds, with a short rest, and repeats.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh` and `tests/checks.sh`, its check "in both scene files a pulse runs along the wire"
 4. The sky moves at the same time as the wire: in the dark theme about a hundred stars blink, each on its own timing, and pale aurora bands drift slowly across the sky; in the light theme a warm haze and soft rays drift over a low sun, with a faint heat shimmer on the horizon.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh` and `tests/checks.sh`, its check "the day scene shows its sky with haze, rays and a shimmer, the night scene its sky with about a hundred stars"
+   - test: `bash tests/lem-settings.sh` in `tests/lem-settings.sh`, `tests/lib.sh` and `tests/checks.sh`, its check "night.py keeps the night sky's colors as written and maps the rest"
 5. The hooded figure has one small red eye:
    1. It glows softly inside the black hood all the time.
    2. Once every 5 to 7 seconds it blinks: a quick dim and back.
    3. When the pulse on the wire passes the figure, the eye flares brighter.
    4. The red is the same in the light theme and the dark theme.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh` and `tests/checks.sh`, its check "in both scene files one red eye glows, blinks every 5 to 7 s and flares as the pulse passes the figure"
 6. The theme picks the palette: a visitor whose system is set to dark sees the night colors of the scene, and one set to light sees the day colors; in both, every text of the hero (the headline, the lead, the install lines, the Copy buttons and the agterm note) keeps a contrast of at least 4.5 to 1 against what is behind it, at every moment of the motion.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh` and `tests/checks.sh`, its checks "in the day theme every hero text keeps 4.5 to 1" and "in the night theme every hero text keeps 4.5 to 1", and the light and the dark theme
 7. With "reduce motion" set in the system, the scene stands still in one complete pose, on the page and in the README: the wire dark, the tiles unlit, the stars and the sky still, and the eye glowing steady. The pull request shows that pose as a still picture.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh` and `tests/checks.sh`, its check "each scene file has one rule for reduce motion that stops every animation"
 8. The README shows the same animated scene in place of today's still logo, at the same width as today (720 px): on github.com/pySilver/lem a visitor in the light theme sees the day scene move, and one in the dark theme the night scene; where a viewer does not animate it, the still scene shows. Only Lem's own README and page change, nothing in a repository that uses Lem, and the pull request shows a still picture of each theme.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh` and `tests/checks.sh`, its check "each scene file is 1600 x 640, under 50,000 bytes, with no script and nothing from another file or host"
 9. The motion costs the page nothing new: the page runs no script but the Copy buttons, loads nothing from another host, the scene is a file in `assets/` that the Pages step publishes, and each scene file stays under 50 KB.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh` and `tests/checks.sh`, its checks "each scene file is 1600 x 640, under 50,000 bytes", the copy step of pages.yml, and the page draws nothing from another host
 
 ## How it works
 
@@ -52,7 +62,7 @@ flowchart LR
 2. **The hero.** The page lays the scene behind the hero text from edge to edge. Serves criteria 1, 2, 6 and 9 (the page's side).
    - `site/index.html` keeps the `<picture>` with `assets/lem.svg` and its night source in the first section, so the checks "first" and "theme" of `tests/test-site.sh` still hold; its `width` and `height` take the scene's frame, and its alt text says what the scene shows.
    - `site/style.css` breaks the scene out of `main`'s 1080 px to the window's width as a layer behind the hero text, from the top of the page to the end of the agterm note, never behind the board pictures of `.showcase` in the same section, and draws a shade from the scene to `var(--bg)` under the text, so the text keeps 4.5 to 1 against the scene's worst color at that place. The boxed frame, the rounded corners and the ochre shadow go. The install lines keep their solid box.
-   - The layer's height sets how much of the frame's width shows, since the scene is cut at its sides and never squeezed: at a width W and a height H a window shows W × 640 / H units of the 1600-unit frame, around its center. So at 390 px wide the layer is at most 390 × 640 / (2 × max(800 − left, right − 800)) px high, left being the hood's left edge and right the word's right edge in the final drawing, since the crop stays centered at x 800 (x 404.8 and 1137.9 in `wire-day.svg`, the hood's path and the last tile under its `translate(224 40) scale(1.6)`, so 2 × 395 units and about 316 px; decision 8, by the gate), and the hero text below that height stands on the page's background, reached through the shade (the talk's question 2).
+   - The layer's height sets how much of the frame's width shows, since the scene is cut at its sides and never squeezed: at a width W and a height H a window shows W × 640 / H units of the 1600-unit frame, around its center. So at 390 px wide the layer is at most 390 × 640 / (2 × max(800 − left, right − 800)) px high, left being the hood's left edge and right the word's right edge in the final drawing, since the crop stays centered at x 800 (x 404.8 and 1137.9 in `wire-day.svg`, the hood's path and the last tile under its `translate(224 40) scale(1.6)`, so 2 × 395 units and about 316 px; decision 8, by the gate); in the build the span is the whole figure and the word with its cursor block, x 384 to 1224.8 of `assets/lem.svg`, so the cap is 293.8 px and the page uses 260 px (decision 18), and the hero text below that height stands on the page's background, reached through the shade (the talk's question 2).
    - `tests/test-site.sh` gains drawn checks: the scene reaches both edges at 1280 x 800 with the first screen as today; the probe of the first screen records the lead (`.sub`) too, beside the headline and the agterm note (the talk's question 6); at 390 px the figure and the word are inside the window, and the scene's ratio is kept; each hero text's contrast against the worst color behind it, in each theme.
    - Files: `site/index.html`, `site/style.css`, `tests/test-site.sh`, and `README.md` only for the alt text, so the README and the page say the same.
 3. **The documents.** Corrects what the change makes false:
