@@ -21,7 +21,8 @@ The first page lists the repositories that use Lem, each with what waits for you
 | **Backlog** | `B` | What waits for later? The backlog, in groups by worth. |
 | **Activity** | `A` | Where did the time go? A chart of each task, and every event. |
 
-Press each key alone, with no Shift.
+Press each key alone, with no Shift. `Cmd-K` (`Ctrl-K` off a Mac), or the **Search** button, finds
+any task or backlog item by its title.
 
 On **Tasks**, `J`, `K`, `↑` and `↓` move a mark in a column, and `H`, `L`, `←` and `→` to the next
 column. On **Waits for you**, `J`, `K`, `↑` and `↓` move it. `Enter` opens the marked task, or the
