@@ -3756,7 +3756,17 @@ def stamp_of(seconds: float) -> str:
     return datetime.fromtimestamp(seconds, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def log_events(root: Path, why: str = "prune dates each task by the log, so it removed nothing") -> list[dict]:
+# What a line of the log that does not read stops in `prune`, which dates each ended task by the log.
+PRUNE_STOPS = "prune dates each task by the log, so it removed nothing"
+
+
+def unread_line(log: Path, number: int, error: ValueError, why: str) -> SettingsError:
+    """The refusal of line NUMBER of the event log LOG, which does not read as JSON; WHY says what it stopped."""
+    return SettingsError(f"{log}:{number} does not read as JSON ({error}), and {why}; "
+                         "the log is written by project.py, never by hand: correct or remove that line")
+
+
+def log_events(root: Path, why: str = PRUNE_STOPS) -> list[dict]:
     """Every event of the repository's log, oldest first. A line that does not read stops the caller,
     WHY says how: `prune` dates each ended task by the log, and removes nothing by a guess."""
     log = state_root(root) / "events.jsonl"
@@ -3769,8 +3779,7 @@ def log_events(root: Path, why: str = "prune dates each task by the log, so it r
         try:
             record = json.loads(line)
         except ValueError as error:
-            raise SettingsError(f"{log}:{number} does not read as JSON ({error}), and {why}; "
-                                "the log is written by project.py, never by hand: correct or remove that line") from error
+            raise unread_line(log, number, error, why) from error
         if isinstance(record, dict):
             found.append(record)
     return found
@@ -3861,8 +3870,7 @@ def log_lines(data: bytes, log: Path) -> tuple[list[tuple[bytes, dict | None]], 
         try:
             record = json.loads(raw.decode("utf-8"))
         except ValueError as error:
-            raise SettingsError(f"{log}:{number} does not read as JSON ({error}), and prune dates each task by the log, so it removed nothing; "
-                                "the log is written by project.py, never by hand: correct or remove that line") from error
+            raise unread_line(log, number, error, PRUNE_STOPS) from error
         lines.append((raw, record if isinstance(record, dict) else None))
     return lines, whole
 
