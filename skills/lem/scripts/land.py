@@ -485,7 +485,6 @@ SCRIPTS = Path(__file__).resolve().parent
 # How this script calls a sibling: in this process, as one command of it.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
-import lem_artifacts  # noqa: E402
 import lem_sibling  # noqa: E402
 import lem_state  # noqa: E402
 import lem_tokens  # noqa: E402
@@ -3784,6 +3783,8 @@ def pictures_of(directory: Path) -> list[str]:
     WebP, by `lem_artifacts.IMAGES`), each by its path from the task directory (`media/NAME`), with
     those of a subfolder and without a hidden part, sorted; [] when the task has no such folder. The
     merge agent links the ones a report links: a builder takes them, since the agent changes nothing."""
+    import lem_artifacts  # the board's module, here for its one table of picture suffixes
+
     folder = directory / "media"
     if not folder.is_dir():
         return []
