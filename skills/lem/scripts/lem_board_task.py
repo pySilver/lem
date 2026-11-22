@@ -875,10 +875,21 @@ def how_card(ctx, t: bm.Task) -> Markup | None:
              P.md_block(ctx, f"how-{t.slug}", how))
 
 
-def approve_card(ctx, t: bm.Task) -> Markup | None:
+def approve_holds_form(ctx, t: bm.Task) -> bool:
+    """Whether the approval card of the criteria tab holds the owner's button: the criteria wait for a yes
+    that would count, criteria.md is in the task directory, and the page may act."""
+    return ctx.can_act and "approve" in bm.acts_of(t, ctx.model.seen) and ctx.criteria_waiting(t.slug) is not None
+
+
+def approve_card(ctx, t: bm.Task, note: Markup | None = None) -> Markup | None:
     """The criteria that wait for the owner's yes, as the task's session wrote them (`criteria.md` of the task
     directory), first on "Criteria and decisions", with the personas' read in one line and his yes as a
-    button on a page that may act. None while they do not wait for a yes that would count."""
+    button on a page that may act. None while they do not wait for a yes that would count.
+    A card that holds the button is an act's step (`confirm_card`): on a phone's screen an overlay whose
+    button comes on when the criteria were read to the end, with "Back" to the Overview, which a desktop
+    does not show. Its body holds the act's NOTE first, which the overlay would cover above the card, and
+    after the markdown block the criteria as plain text for a browser with no script, which draws the
+    markdown block empty."""
     if "approve" not in bm.acts_of(t, ctx.model.seen):
         return None
     waiting = ctx.criteria_waiting(t.slug)
@@ -888,23 +899,30 @@ def approve_card(ctx, t: bm.Task) -> Markup | None:
         read = ("Nobody answered the personas’ read." if r["answered"] == 0 else
                 f"The personas flagged {r['flagged']} of {bm.criteria_count(r['criteria'] or 0)}{'; the two model families split' if r['split'] else ''}: read the flagged one before you approve."
                 if r["flagged"] or r["split"] else "The personas read them, and nobody was confused.")
+    head_ = h("div", {"class": "card-head"}, h("h2", None, "The criteria wait for your yes"), h("div", {"class": "dim small"}, read or "criteria.md in the task directory"))
+    if waiting is not None and ctx.can_act:
+        body = [note, P.md_block(ctx, f"waiting-{t.slug}", waiting["text"], slug=t.slug, cls="b-md"),
+                h("noscript", None, h("pre", {"class": "cf-plain"}, waiting["text"]))]
+        form = P.act_form(ctx, t.slug, "approve", "Approve the criteria", "check", "go", "Approving…",
+                          {"digest": waiting["digest"], "tab": "criteria", "in": ctx.view if ctx.view != "tasks" else None},
+                          h("span", {"class": "act-say"}, "Your yes freezes them as they stand here, and the task’s session goes on from it."))
+        return confirm_card("card approve a-you", "Approve the criteria", head_, body,
+                            h("div", {"class": "act-row cf-acts"}, form, act_back(ctx, t, "Back", "cf-back")), True, card_id="approve-card", wrap="approve-body")
     if waiting is None:
         body = [h("p", {"class": "sub"}, "The task’s session writes them to criteria.md in the task directory, and the board shows them here then. "
                                           "Until then, approve them in the task’s session.")]
     else:
         body = [P.md_block(ctx, f"waiting-{t.slug}", waiting["text"], slug=t.slug, cls="b-md"),
-                P.act_form(ctx, t.slug, "approve", "Approve the criteria", "check", "go", "Approving…",
-                           {"digest": waiting["digest"], "tab": "criteria", "in": ctx.view if ctx.view != "tasks" else None},
-                           h("span", {"class": "act-say"}, "Your yes freezes them as they stand here, and the task’s session goes on from it."))
-                if ctx.can_act else h("p", {"class": "sub"}, "Approve them in the task’s session, or on this board on the Mac or through the tailnet door.")]
-    return h("section", {"class": "card approve a-you", "id": "approve-card"},
-             h("div", {"class": "card-head"}, h("h2", None, "The criteria wait for your yes"), h("div", {"class": "dim small"}, read or "criteria.md in the task directory")),
-             h("div", {"class": "approve-body"}, body))
+                h("p", {"class": "sub"}, "Approve them in the task’s session, or on this board on the Mac or through the tailnet door.")]
+    return h("section", {"class": "card approve a-you", "id": "approve-card"}, head_, h("div", {"class": "approve-body"}, body))
 
 
 def criteria_tab(ctx, t: bm.Task) -> list:
+    """The criteria, the decisions and, while the criteria wait for the owner's yes, the approval first, with
+    the act's note first in the tab, or first in the approval card while that holds the button."""
+    note = note_card(ctx, t.slug)
     if t.summary is not None:
-        return went_tab(ctx, t, "criteria")
+        return [note, *went_tab(ctx, t, "criteria")]
     crit = criteria_rows(ctx, t)
     decs = decision_rows(ctx, t)
     # a card of a task that ended with nothing in it is not drawn; a tab whose cards are all gone says so
@@ -914,8 +932,9 @@ def criteria_tab(ctx, t: bm.Task) -> list:
     cards = [c for c in cards if c]
     if cards:
         how = how_card(ctx, t)
-        return [approve_card(ctx, t), *([how] if how else []), *cards]
-    return [h("div", {"class": "lane-empty panel-empty"}, "The task ended with no criteria and no decision on record")]
+        inside = approve_holds_form(ctx, t)
+        return [None if inside else note, approve_card(ctx, t, note if inside else None), *([how] if how else []), *cards]
+    return [note, h("div", {"class": "lane-empty panel-empty"}, "The task ended with no criteria and no decision on record")]
 
 
 # ---- Checks and review ----
@@ -1243,8 +1262,8 @@ def note_card(ctx, slug: str) -> Markup | None:
     return P.act_note(ctx, note)
 
 
-def act_back(ctx, t: bm.Task, label: str = "Cancel") -> Markup:
-    return h("a", {"class": "btn", **P.frame_link(ctx, P.task_href(ctx, t.slug))}, h("span", None, label))
+def act_back(ctx, t: bm.Task, label: str, cls: str = "") -> Markup:
+    return h("a", {"class": f"btn {cls}".strip(), **P.frame_link(ctx, P.task_href(ctx, t.slug))}, h("span", None, label))
 
 
 def not_now(ctx, t: bm.Task, said: str) -> list:
@@ -1296,16 +1315,31 @@ def merge_step(ctx, t: bm.Task) -> list:
     elif landing.get("history"):
         fact("as", "Lands as", "the branch’s own commits")
     label = f"Merge pull request #{pr['number']}" if pr.get("number") else f"Merge it into {base}"
+    body = [first, reasons, careful, h("dl", {"class": "facts cf-facts", "id": "cf-facts"}, facts_),
+            h("p", {"class": "cf-note"}, "A merge cannot be undone from the board. Lem’s merge call reads the base branch first, and it can take a minute.")]
     if ctx.can_act and tip:
         act = P.act_form(ctx, t.slug, "merge", label, "pull", "risk", "Merging…", {"confirm": "yes", "tip": tip, "in": ctx.view if ctx.view != "tasks" else None})
-        acts = h("div", {"class": "act-row"}, act, act_back(ctx, t))
+        acts = h("div", {"class": "act-row"}, act, act_back(ctx, t, "Back"))
     else:
         acts = h("p", {"class": "sub"}, f"Merge it on this board on the Mac or through the tailnet door, or type /lem land {t.slug} in the task’s session.")
-    return [h("section", {"class": f"card confirm a-{'done' if green else 'you'}", "id": "confirm", "aria-label": "Merge: confirm"},
-              h("div", {"class": "eyebrow"}, "Merge · confirm"), first, reasons, careful,
-              h("dl", {"class": "facts cf-facts", "id": "cf-facts"}, facts_),
-              h("p", {"class": "cf-note"}, "A merge cannot be undone from the board. Lem’s merge call reads the base branch first, and it can take a minute."),
-              acts)]
+    return [confirm_card(f"card confirm a-{'done' if green else 'you'}", "Merge: confirm",
+                         h("div", {"class": "eyebrow"}, f"Merge #{pr['number']} · confirm" if pr.get("number") else "Merge · confirm"), body, acts, ctx.can_act and bool(tip))]
+
+
+def confirm_card(cls: str, label: str, head_: Markup, body: list, foot: Markup, sheet: bool, *, card_id: str = "confirm", wrap: str | None = None) -> Markup:
+    """The card of an act's step in its three parts: the head, the body with what the owner reads, and the
+    foot with the button and the way back, the last two in a box of class WRAP where the card has one
+    (the approval's). Outside the overlay the three parts take no box of their own (board.css), so the
+    card shows as one column. A card that has its button (SHEET) gets the `sheet` controller and the key of
+    its read, the digest of the body as rendered here: on a phone's screen the card is then an overlay
+    whose button comes on when the body was scrolled to its end, and any change of what the body says is
+    another key, which the owner reads again from its top."""
+    text = h("div", {"class": "cf-body", "data-sheet-target": "body" if sheet else None}, body)
+    rest = [text, h("div", {"class": "cf-foot"}, foot)]
+    return h("section", {"class": f"{cls}{' cf-sheet' if sheet else ''}", "id": card_id, "aria-label": label,
+                         **({"data-controller": "sheet", "data-sheet-key-value": hashlib.sha256(text.encode()).hexdigest()[:12]} if sheet else {})},
+             h("div", {"class": "cf-head", **({"data-sheet-target": "head", "tabindex": "-1"} if sheet else {})}, head_),
+             h("div", {"class": wrap}, rest) if wrap else rest)
 
 
 def park_step(ctx, t: bm.Task) -> list:
@@ -1320,15 +1354,13 @@ def park_step(ctx, t: bm.Task) -> list:
                            "placeholder": "the owner parked it"}))
     if ctx.can_act:
         act = P.act_form(ctx, t.slug, "park", "Park the task", "park", "go", "Parking…", {"in": ctx.view if ctx.view != "tasks" else None}, field_, form_cls="act-stack")
-        acts = h("div", {"class": "act-row"}, act, act_back(ctx, t))
+        acts = h("div", {"class": "act-row"}, act, act_back(ctx, t, "Back"))
     else:
         acts = h("p", {"class": "sub"}, f"Park it on this board on the Mac or through the tailnet door, or type /lem park {t.slug} in any session.")
-    return [h("section", {"class": "card confirm a-you", "id": "confirm", "aria-label": "Park: confirm"},
-              h("div", {"class": "eyebrow"}, f"Park · breaker {b.id}"),
-              h("p", None, h("b", None, "The build stopped: "), P.rich(ctx, b.what or ""), f", since {bm.stop_words(b)}."),
-              h("p", {"class": "sub"}, f"A parked task keeps its worktree, its branch and its files. Nothing of it waits for you, and nobody works on it, "
-                                       f"until /lem resume {t.slug} in any session brings it back."),
-              acts)]
+    body = [h("p", None, h("b", None, "The build stopped: "), P.rich(ctx, b.what or ""), f", since {bm.stop_words(b)}."),
+            h("p", {"class": "sub"}, f"A parked task keeps its worktree, its branch and its files. Nothing of it waits for you, and nobody works on it, "
+                                     f"until /lem resume {t.slug} in any session brings it back.")]
+    return [confirm_card("card confirm a-you", "Park: confirm", h("div", {"class": "eyebrow"}, f"Park · breaker {b.id}"), body, acts, ctx.can_act)]
 
 
 def panel(ctx) -> Markup:
@@ -1355,7 +1387,8 @@ def panel(ctx) -> Markup:
             else:
                 parts = {"overview": overview_tab, "criteria": criteria_tab, "checks": checks_tab, "timeline": timeline_tab,
                          "merge": merge_step, "park": park_step}[ctx.tab](ctx, t)
-                tab_body = h("div", {"class": "tabbody", "id": f"tb-{ctx.tab}"}, note_card(ctx, t.slug), parts)
+                # the criteria tab places the act's note itself: in the approval card while that holds the button
+                tab_body = h("div", {"class": "tabbody", "id": f"tb-{ctx.tab}"}, None if ctx.tab == "criteria" else note_card(ctx, t.slug), parts)
             inner = [head(ctx, t, t.title), tab_nav(ctx, t), tab_body]
         # an HTML page opened among the artifacts takes the panel's height: the header folds as on a phone
         page_open = t is not None and ctx.tab == "artifacts" and ctx.file is not None and any(

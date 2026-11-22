@@ -45,10 +45,12 @@ Buttons on "Waits for you" and the task pages do what Lem does on your words:
   A backlog item has **Start a task**.
 - **Approve the criteria**: your yes to the criteria.
 - **Merge**: a page shows green or not green, the pull request and the commit first. You cannot
-  undo a merge.
+  undo a merge. On a phone, the page opens over the task, and its button becomes active when you
+  read to the end.
 - **Park it**: puts aside a task that a breaker stopped, with one line of why.
 - **Open a session**: starts a new agent for a task that has no session.
 
+On a phone, **Approve the criteria** and **Park it** open over the task in the same way.
 The page then shows the result, or why Lem refused.
 
 ## The board on your phone

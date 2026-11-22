@@ -46,7 +46,8 @@ server fills, with its tables in a box that scrolls sideways, its pictures from 
 folder, GitHub's alerts as callouts and its charts drawn, kept through a refresh while its text is the
 same: `data-keep` in `app.js`), `chart` (a chart fit to its box, whole and never larger than drawn, or
 sideways in its box when its words would be too small; a click opens it over the whole window, where
-it pans and zooms) and `copy`.
+it pans and zooms), `sheet` (a merge's, a park's or an approval's step with its button: on a phone an
+overlay whose button comes on when its text was read to the end) and `copy`.
 
 ## What only agterm does
 

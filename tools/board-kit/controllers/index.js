@@ -16,6 +16,7 @@ import MarkdownController from './markdown.js';
 import PanelController from './panel.js';
 import PushController from './push.js';
 import SearchController from './search.js';
+import SheetController from './sheet.js';
 import SplitterController from './splitter.js';
 import StreamController from './stream.js';
 import TipController from './tip.js';
@@ -37,6 +38,7 @@ export const CONTROLLERS = {
   panel: PanelController,
   push: PushController,
   search: SearchController,
+  sheet: SheetController,
   splitter: SplitterController,
   stream: StreamController,
   tip: TipController,
