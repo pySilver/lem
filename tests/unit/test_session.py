@@ -176,10 +176,21 @@ class Phase(unittest.TestCase):
 
     def test_a_task_that_gets_no_session(self):
         for facts, says in ((("parked", "put aside", "standard", True), "is parked"), (("landed", "merged", "standard", False), "landed and cleaned"),
-                            (("dropped", "nobody builds it", "standard", True), "is dropped"), (("answered", "the answer", None, False), "is answered")):
+                            (("dropped", "nobody builds it", "standard", False), "is dropped"), (("answered", "the answer", None, False), "is answered"),
+                            (("answered", "the answer", "standard", True), "is answered")):
             with self.subTest(facts=facts), self.assertRaises(session.SessionError) as raised:
                 session.phase_of(SLUG, *facts, "")
             self.assertIn(says, str(raised.exception))
+
+    def test_a_dropped_task_whose_worktree_stays_gets_its_land_session(self):
+        # a pull request closed on GitHub while no session ran: the server's wake opens the task's session,
+        # which pays what its ticket is owed and cleans up, as it does for a merged one
+        closed = "the pull request was closed on the forge"
+        self.assertEqual(session.phase_of(SLUG, "dropped", closed, "standard", True, ""), "land")
+        self.assertEqual(session.phase_of(SLUG, "dropped", closed, "fast", True, ""), "fast")
+        with self.assertRaises(session.SessionError) as raised:
+            session.phase_of(SLUG, "dropped", closed, "standard", False, "")
+        self.assertIn("is dropped", str(raised.exception))
 
     def test_a_queued_task_waits_for_its_after_task_until_that_one_ended(self):
         queued = {"slug": SLUG, "status": "queued", "state": "2026-11-21T10:00Z queued: needs the column\nafter: coupon"}

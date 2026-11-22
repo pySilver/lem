@@ -272,6 +272,48 @@ else
   fail "the server's duties: $looked / $(status_in "$DUTY" first-word) / $sessions / $(cat "$AGT/calls")"
 fi
 
+# A pull request closed on GitHub with no merge while no session runs for its task: the server runs `lem land
+# merged`, which drops the task, and its wake opens the task's session in the land phase with no focus, so that
+# the session pays what the task's ticket is owed and removes the worktree (stages/land.md, prompts/session.md).
+CLOSE=$WORK/close-shop
+git init -q -b main "$CLOSE" && ident "$CLOSE" && commit "$CLOSE" init && on_github "$CLOSE"
+project --repo "$CLOSE" init --base main >/dev/null
+printf '%s\n' '[branch]' 'base = "main"' 'land = "owner"' 'history = "squash"' '[checks]' 'commands = ["true"]' > "$CLOSE/.lem/project.toml"
+git -C "$CLOSE" add -A && git -C "$CLOSE" commit -q -m "chore: start" && git -C "$CLOSE" push -q origin main
+task_in "$CLOSE" word-not-wanted word.txt yes && read_in "$CLOSE" word-not-wanted
+land --repo "$CLOSE" start word-not-wanted >/dev/null && land --repo "$CLOSE" base word-not-wanted >/dev/null && polish_in "$CLOSE" word-not-wanted
+land --repo "$CLOSE" checks word-not-wanted >/dev/null && land --repo "$CLOSE" read word-not-wanted --record "$(clean word-not-wanted 1)" >/dev/null
+land --repo "$CLOSE" propose word-not-wanted --title "fix: word-not-wanted" --notes "$NOTES" >/dev/null
+printf '%s\n' '[{"id": "S-HIS", "name": "notes", "workspace": "W-1", "foreground": ["claude"]}]' > "$AGT/tree.json"
+agt AGTERM_SESSION_ID=S-HIS "$PY" -B skills/lem/scripts/session.py --repo "$CLOSE" open word-not-wanted --why new >/dev/null
+# its session is gone (agterm's tree holds the owner's session alone), and GitHub closes the pull request with no merge
+printf '%s\n' '[{"id": "S-HIS", "name": "notes", "workspace": "W-1", "foreground": ["claude"]}]' > "$AGT/tree.json"
+: > "$AGT/calls"
+"$PY" -c 'import json, sys; f = sys.argv[1]; d = json.load(open(f)); d["prs"]["1"]["state"] = "CLOSED"; json.dump(d, open(f, "w"))' "$CLOSE.origin.git.gh.json"
+closed=$(agt LEM_SESSION_SCRIPT= "$PY" -B -c '
+import json, sys
+sys.path.insert(0, "skills/lem/scripts")
+import serve
+serve.detach_from_session()
+w = serve.Workspace("close-shop", sys.argv[1])
+forge = serve.forge_once(w)
+w.look_sessions()
+first = serve.run_duties(w)
+w.look_sessions()
+second = serve.run_duties(w)
+print(json.dumps({"forge": [(x["task"], x["exit"]) for x in forge], "first": [(x["verb"], x["task"], x["why"], x["exit"]) for x in first], "second": len(second)}))
+' "$CLOSE")
+opens=$("$PY" -c 'import json, sys; print([(r["why"], r["phase"]) for r in map(json.loads, open(sys.argv[1])) if r["event"] == "session.open"])' "$CLOSE/.lem/state/events.jsonl")
+line=$(project --repo "$CLOSE" tasks | field 'next(t["state"].splitlines()[0] for t in d if t["slug"] == "word-not-wanted")')
+if [ "$(status_in "$CLOSE" word-not-wanted)" = dropped ] && [[ "$line" == *"dropped: the pull request was closed on the forge" ]] \
+  && [ "$(field 'd["forge"]' <<<"$closed")" = "[['word-not-wanted', 0]]" ] && [ "$(field 'd["first"]' <<<"$closed")" = "[['wake', 'word-not-wanted', 'merged', 0]]" ] \
+  && [ "$(field 'd["second"]' <<<"$closed")" = 0 ] && [ "$opens" = "[('new', 'land'), ('merged', 'land')]" ] \
+  && grep -qF '"--no-select"' "$AGT/calls" && ! grep -qF '["session", "select"' "$AGT/calls" && [ -d "$WORK/close-shop/.lem/worktrees/word-not-wanted" ]; then
+  pass "after GitHub closed a pull request with no merge while no session ran for its task, the server drops the task and its wake opens the task's session in the land phase with no focus, once, its worktree still there for that session to clean"
+else
+  fail "the wake of a pull request closed on GitHub: $closed / $(status_in "$CLOSE" word-not-wanted) / $line / $opens / $(cat "$AGT/calls")"
+fi
+
 # The merge agent's merge is the server's duty: after its review says `merge` and calls nobody, the server runs
 # `lem land merge SLUG --by merger --via server` in a thread with no act of anyone, the pull request lands, and the
 # next look wakes the task's session for its cleanup through the stand-in for agtermctl.
