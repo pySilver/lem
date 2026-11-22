@@ -356,6 +356,15 @@ class Feed(unittest.TestCase):
         carried = ev(1, "criteria.approved", by="owner", was_at="2026-11-20T08:00:00Z", **{"from": "card-foot"})
         self.assertIn("carried over from", bm.describe(carried, m)["sub"])
 
+    def test_the_owners_merge_that_stands_is_said_in_words(self):
+        m = model(state(0, "open", "pull request https://github.com/acme/shop/pull/41"))
+        read = bm.describe(ev(1, "merge.stands", by="owner", tip="abc123456", after="a read of the moved base", base="def456789"), m)
+        landed = bm.describe(ev(1, "merge.stands", by="owner", tip="abc123456", **{"from": "fed987654"}), m)
+        self.assertEqual((read["head"], landed["head"]), ("Your merge stands", "Your merge stands"))
+        self.assertIn("the merge agent read the moved base and said safe", read["text"])
+        self.assertIn("the new landing kept the change you merged", landed["text"])
+        self.assertNotIn("carried over", landed["sub"])
+
 
 if __name__ == "__main__":
     unittest.main()

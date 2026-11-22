@@ -1659,6 +1659,10 @@ SAYS = {
                                        else "the merge agent’s merge" if e.get("by") == "merger" else "your merge" if e.get("by") == "owner" else "")
                                       + ("; " if e.get("by") else "") + "it reads the base branch first"},
     "merge.review": merge_review_said,
+    # land.py logs it after a safe read of the moved base (`after`), or at a proposal that kept the change he merged
+    "merge.stands": lambda e: {"info": {"actor": "gate", "icon": "play"}, "head": "Your merge stands",
+                               "text": ("the merge agent read the moved base and said safe" if e.get("after") == "a read of the moved base"
+                                        else "the new landing kept the change you merged") + ": the board’s server runs it, and nobody asks you again"},
     "merge.refused": lambda e: {"info": {"actor": "bad", "icon": "alert"}, "head": "Lem refused the merge agent’s merge" if e.get("from") == "lem" else "GitHub refused the merge", "text": e.get("said") or ""},
     "gate.start": lambda e: {"info": {"actor": "gate", "icon": "play"}, "head": "The checks started", "text": f"{plural(e.get('commands') or 0, 'command')} on {e.get('tip') or '?'}"},
     "gate.end": gate_end_said,
