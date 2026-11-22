@@ -155,6 +155,8 @@ cases = {
     "md-task": "- [ ] open\n- [x] done",
     "md-plus": "+ one\n+ two",
     "md-start": "3. three\n4. four",
+    # An md block with a mermaid fence beside a python one: the fence is a chart and the page carries the bundle.
+    "md-mermaid": {"md": "```mermaid\nflowchart TD\n  A[\"Start\"] --> B[\"End\"]\n```\n\n```python\nprint(\"py-fence\")\n```"},
 }
 for name, text in cases.items():
     with open(os.path.join(sys.argv[1], name + ".json"), "w") as f:
@@ -164,8 +166,27 @@ PY
 )
 MDNAMES=$("$PY" -I -B -c "$MDCASES" "$WORK")
 for n in $MDNAMES; do
-  "$PY" -I -B "$B" render "$WORK/$n.json" -o "$WORK/$n.html" >/dev/null
+  "$PY" -I -B "$B" render "$WORK/$n.json" -o "$WORK/$n.html" >/dev/null 2>"$WORK/$n.err"
 done
+# The bundle goes into the page of a mermaid fence in markdown, and into no page that has no mermaid.
+BUNDLED=$(cat <<'PY'
+import glob, sys
+bundle = glob.glob(sys.argv[1] + "/mermaid-*.min.js")
+if not bundle:
+    sys.exit(2)
+head = open(bundle[0], encoding="utf-8").read(400)
+fence, none = (head in open(f, encoding="utf-8").read() for f in sys.argv[2:4])
+print(f"the fence's page carries the bundle: {fence}; the page with no mermaid carries it: {none}")
+sys.exit(0 if fence and not none else 1)
+PY
+)
+set +e
+why=$("$PY" -I -B -c "$BUNDLED" "$HOME/.cache/lem-ask" "$WORK/md-mermaid.html" "$WORK/md-tilde.html")
+got=$?
+set -e
+if [ "$got" = 0 ]; then pass "a mermaid fence in an md block puts the mermaid bundle on the page, and a page with no mermaid gets none"
+elif [ "$got" = 2 ]; then skip "the mermaid bundle of a fence: the mermaid bundle could not be downloaded"
+else fail "the mermaid bundle of a fence: $why"; fi
 
 # A table wider than the window, in a table block, in a key-value block and in markdown, and a grid
 # of options whose preview holds a long path with no space in it (checked in the browser below).
@@ -585,6 +606,14 @@ elif case == "md-task":
     want("☐" in shown and "☑" in shown, "no box glyphs")
 elif case == "md-plus":
     want(any(texts(u.els()) == ["one", "two"] for u in page.find("ul")), "no list of two items")
+elif case == "md-mermaid":
+    drawn = [x for x in page.find("svg") if x.attrs.get("id", "").startswith("hd-mm-")]
+    want(len(drawn) == 1, f"{len(drawn)} drawn diagrams")
+    if drawn:
+        want("Start" in drawn[0].text() and "End" in drawn[0].text(), f"the chart's text is {drawn[0].text()!r}")
+    want(not any("flowchart" in x.text() for x in page.find("pre")), "the fence's text shows as code")
+    py = [x for x in page.find("pre") if x.attrs.get("data-lang") == "python"]
+    want(len(py) == 1 and "py-fence" in py[0].text(), "the python fence is not code")
 elif case == "md-start":
     ols = page.find("ol")
     want(len(ols) == 1 and ols[0].attrs.get("start") == "3", "the list does not start at 3")
@@ -600,13 +629,17 @@ said = {
     "md-task": "a task item shows a box",
     "md-plus": "a + item is a list item",
     "md-start": "an ordered list keeps its first number",
+    "md-mermaid": "a mermaid fence in an md block draws a chart with its labels, and a python fence beside it stays code",
 }[case]
 print(f"markdown {case}: " + ("; ".join(bad) if bad else said))
 sys.exit(bool(bad))
 PY
 )
   for n in "${mdnames[@]}"; do
-    if why=$("$PY" -I -B -c "$MDCHECK" "$WORK/$n.dom" "$n"); then pass "$why"; else fail "$why"; fi
+    if grep -q 'mermaid unavailable' "$WORK/$n.err" 2>/dev/null; then
+      skipped=$((skipped + 1))
+      skip "markdown $n: the mermaid bundle could not be downloaded"
+    elif why=$("$PY" -I -B -c "$MDCHECK" "$WORK/$n.dom" "$n"); then pass "$why"; else fail "$why"; fi
   done
   # At 900 px a wide table scrolls inside its own box and the page stays as wide as its window; the
   # grid's previews keep their path inside the card. A script added to a copy of the page measures

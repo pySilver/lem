@@ -18,6 +18,8 @@
   const mix = (a, b, t) => { const x = rgbOf(a), y = rgbOf(b); return "#" + x.map((v, i) => Math.round(v * t + y[i] * (1 - t)).toString(16).padStart(2, "0")).join(""); };
 
   // ---------- markdown (small, safe subset) ----------
+  let mermaidN = 0;
+  const pendingMermaid = [];
   function inline(s) {
     s = esc(s);
     const codes = [];
@@ -104,7 +106,7 @@
       if ((m = FENCE.exec(l))) {
         const lang = m[2].trim(), close = new RegExp("^\\s{0,3}" + m[1][0] + "{" + m[1].length + ",}\\s*$"), buf = [];
         i++; while (i < lines.length && !close.test(lines[i])) buf.push(lines[i++]);
-        i++; out += codeHTML(buf.join("\n"), lang); continue;
+        i++; out += /^mermaid\b/.test(lang) ? mermaidHTML(buf.join("\n")) : codeHTML(buf.join("\n"), lang); continue;
       }
       if ((m = HEAD.exec(l))) { out += `<h${m[1].length}>${inline(m[2])}</h${m[1].length}>`; i++; continue; }
       if (RULE.test(l)) { out += "<hr>"; i++; continue; }
@@ -130,6 +132,11 @@
       body = lines.map((ln, i) => `<span class="ln" style="width:${w}ch">${start + i}</span>${esc(ln)}`).join("\n");
     }
     return `<pre class="hd-code" data-lang="${esc(lang || "")}">${body}</pre>`;
+  }
+  // A ```mermaid fence is a diagram, as a {"mermaid": …} block is: its source shows until the chart
+  // replaces it. mdBlock() queues it for flush().
+  function mermaidHTML(src) {
+    return `<div class="hd-mermaid" id="hd-mm-${mermaidN++}" data-src="${esc(src)}"><pre class="hd-code">${esc(src)}</pre></div>`;
   }
 
   // ---------- palette ----------
@@ -220,15 +227,19 @@
   }
 
   // ---------- blocks ----------
-  let mermaidN = 0;
-  const pendingMermaid = [];
   const blockJS = [];
+  // Markdown in a block of its own, with each diagram of its mermaid fences queued.
+  function mdBlock(cls, src) {
+    const el = $("div", cls, md(src));
+    el.querySelectorAll(".hd-mermaid").forEach((d) => pendingMermaid.push(d));
+    return el;
+  }
   function block(b) {
     if (b == null) return $("div");
-    if (typeof b === "string") return $("div", "hd-md", md(b));
+    if (typeof b === "string") return mdBlock("hd-md", b);
     if (Array.isArray(b)) { const d = $("div", "hd-blocks"); b.forEach((x) => d.appendChild(block(x))); d.style.margin = "0"; return d; }
     let el;
-    if (b.md != null) el = $("div", "hd-md", md(b.md));
+    if (b.md != null) el = mdBlock("hd-md", b.md);
     else if (b.mermaid != null) {
       el = $("div", "hd-mermaid"); el.dataset.src = b.mermaid; el.id = "hd-mm-" + mermaidN++;
       el.appendChild($("pre", "hd-code", esc(b.mermaid))); pendingMermaid.push(el);
@@ -258,7 +269,7 @@
       let h = '<table class="hd-table"><tbody>';
       (Array.isArray(b.kv) ? b.kv : Object.entries(b.kv)).forEach(([k, v]) => (h += `<tr><th style="width:35%">${esc(k)}</th><td>${inline(v)}</td></tr>`));
       el = $("div", "hd-tablewrap", h + "</tbody></table>");
-    } else if (b.callout != null) el = $("div", "hd-callout hd-md " + (b.tone || ""), md(b.callout));
+    } else if (b.callout != null) el = mdBlock("hd-callout hd-md " + (b.tone || ""), b.callout);
     else if (b.radius != null) {
       el = $("div", "hd-sample"); const box = $("div", "hd-radius-box"); box.style.borderRadius = typeof b.radius === "number" ? b.radius + "px" : b.radius; el.appendChild(box);
     } else if (b.gap != null) {
