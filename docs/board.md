@@ -89,8 +89,8 @@ A new Claude Code session in a repository that uses Lem starts the server, and s
 `lem` command of any session. The first session after an update replaces it.
 
 The server merges a pull request when the merge agent gives the verdict merge. Each hour it removes
-the old files from `.lem/state/`, as [`state.keep_days`](settings.md#state) tells. It never types
-into a session.
+the old files and events, as [`state.keep_days`](settings.md#state) tells. It never types into a
+session.
 
 ## Commands
 
