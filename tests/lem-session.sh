@@ -51,12 +51,11 @@ call = json.loads(sys.stdin.read())
 call.insert(call.index("--command") + 1, [sys.argv[1], "-l", "-c", ["LEM_TASK=gift-note", "CLAUDE_CODE_AUTO_COMPACT_WINDOW=600000", "claude", "--model", "opus", "--effort", "high", "--plugin-dir", sys.argv[2], f"Read {sys.argv[3]} and follow it."]])
 print(json.dumps(call))' "$SHELL_LINE" "$PWD" "$STATE/tasks/gift-note/session.md")
 brief=$(cat "$STATE/tasks/gift-note/session.md" 2>/dev/null || true)
-# shellcheck disable=SC2016  # the backticks are the brief's own marks
 if [ "$(field '(d["session"], d["phase"], d["already"])' <<<"$first" 2>&1)" = "('S-1', 'shape', False)" ] \
   && [ "$(field '(d["session"], d["already"])' <<<"$second" 2>&1)" = "('S-1', True)" ] \
   && [ "$made" = "$want" ] && calls_of move top | grep -qF '"S-1"' && [ -z "$(calls_of session select)" ] \
   && grep -qF "unrecognized arguments: --focus" <<<"$focused" && [ "$(tail -n 1 <<<"$focused")" = "exit 2" ] \
-  && [ "$(head -n 1 <<<"$brief")" = 'Read `skills/lem/prompts/session.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.' ] \
+  && [ "$(head -n 1 <<<"$brief")" = "Read \`skills/lem/prompts/session.md\` in the folder that \`lem version\` prints as \`root\`, and follow it; when \`lem version\` fails, stop and say that \`lem\` is not on the PATH, with \`lem doctor\` as the check." ] \
   && ! grep -qF "$PWD/skills" <<<"$brief" && grep -qxF "phase: shape" <<<"$brief" \
   && grep -qxF "opened because: new" <<<"$brief" && grep -qxF "worktree: none yet" <<<"$brief" \
   && [ "$(events)" = "[('session.open', 'S-1', 'shape', 'new')]" ] && git -C "$R" check-ignore -q "$STATE/tasks/gift-note/session.md"; then
@@ -243,8 +242,7 @@ sess wait footer-terms --first-line --every 0.1 > "$WORK/first-line" 2>&1 &
 waiter=$!
 sleep 0.3
 printf '%s\n' '## Acceptance criteria' '' 'Size: small, because one word.' '' '1. The footer says Terms.' > "$STATE/tasks/footer-terms/criteria.md"
-# shellcheck disable=SC2016  # the backticks are the brief's own marks
-printf '%s\n' 'Read `skills/lem/prompts/small.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.' 'task: footer-terms' 'branch: fix/footer-terms' > "$STATE/tasks/footer-terms/brief.md"
+printf '%s\n' "Read \`skills/lem/prompts/small.md\` in the folder that \`lem version\` prints as \`root\`, and follow it; when \`lem version\` fails, stop and say that \`lem\` is not on the PATH, with \`lem doctor\` as the check." 'task: footer-terms' 'branch: fix/footer-terms' > "$STATE/tasks/footer-terms/brief.md"
 pr state footer-terms building "small change: one builder" "type: fix, because the footer is wrong today" >/dev/null
 wait "$waiter"
 if [ "$(field 'd["then"]' <<<"$opened" 2>&1)" = "lem session wait footer-terms --first-line" ] && [ "$(field 'd["gone"]' < "$WORK/first-line" 2>&1)" = False ] \

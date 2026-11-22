@@ -82,8 +82,7 @@ fi
 theirs_in() {
   project --repo "$SMALL" task-dir "$1" --ask "SHOP-14: the date column of the report must never wrap." >/dev/null
   printf '%s\n' '## Acceptance criteria' '' 'Size: small, because the ticket is one sentence.' '' '1. The date column of the report never wraps: 2026-11-17 stays on one line.' > "$(dir_of "$1")/criteria.md"
-  # shellcheck disable=SC2016  # the backticks are the brief's own marks
-  printf '%s\n' 'Read `skills/lem/prompts/small.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.' "task: $1" "branch: fix/$1" 'request by: someone else' > "$(dir_of "$1")/brief.md"
+  printf '%s\n' "Read \`skills/lem/prompts/small.md\` in the folder that \`lem version\` prints as \`root\`, and follow it; when \`lem version\` fails, stop and say that \`lem\` is not on the PATH, with \`lem doctor\` as the check." "task: $1" "branch: fix/$1" 'request by: someone else' > "$(dir_of "$1")/brief.md"
 }
 theirs_in their-date
 said_first=$(project --repo "$SMALL" state their-date held "the criteria wait for the owner: a small change that someone else asked for" "type: fix, because the column wraps today" | field 'd["say"]' 2>&1 || true)

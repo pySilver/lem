@@ -765,8 +765,7 @@ git init -q -b main "$FL"
 project --repo "$FL" init --base main >/dev/null
 project --repo "$FL" task-dir footer-terms-typo --ask 'The footer says "Terms and condtions"' >/dev/null
 printf '%s\n' '## Acceptance criteria' '' 'Size: small, because one word.' '' '1. The footer says "Terms and conditions".' > "$FL/.lem/state/tasks/footer-terms-typo/criteria.md"
-# shellcheck disable=SC2016  # the backticks are the brief's own marks
-printf '%s\n' 'Read `skills/lem/prompts/small.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.' 'task: footer-terms-typo' 'branch: fix/footer-terms-typo' > "$FL/.lem/state/tasks/footer-terms-typo/brief.md"
+printf '%s\n' "Read \`skills/lem/prompts/small.md\` in the folder that \`lem version\` prints as \`root\`, and follow it; when \`lem version\` fails, stop and say that \`lem\` is not on the PATH, with \`lem doctor\` as the check." 'task: footer-terms-typo' 'branch: fix/footer-terms-typo' > "$FL/.lem/state/tasks/footer-terms-typo/brief.md"
 fast_said=$(project --repo "$FL" state footer-terms-typo building "small change: one builder" "type: fix, because the footer shows a typo today" | field 'd.get("say")' 2>&1 || true)
 fast_logged=$(tail -n 1 "$FL/.lem/state/events.jsonl" | field 'd.get("say")' 2>&1 || true)
 project --repo "$FL" task-dir night-note --ask docs/backlog/night-note.md --night 2026-11-21 >/dev/null
@@ -802,8 +801,7 @@ else
 fi
 # A task held because his order named no task Lem could tell gets no first line at the hold, and gets it with his answer.
 project --repo "$FL" task-dir notes-held --ask '/lem After the gift note: the export keeps the notes in their order' >/dev/null
-# shellcheck disable=SC2016  # the backticks are the brief's own marks
-printf '%s\n' 'Read `skills/lem/prompts/lead.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.' 'task: notes-held' 'branch: feat/notes-held' > "$FL/.lem/state/tasks/notes-held/brief.md"
+printf '%s\n' "Read \`skills/lem/prompts/lead.md\` in the folder that \`lem version\` prints as \`root\`, and follow it; when \`lem version\` fails, stop and say that \`lem\` is not on the PATH, with \`lem doctor\` as the check." 'task: notes-held' 'branch: feat/notes-held' > "$FL/.lem/state/tasks/notes-held/brief.md"
 printf '%s\n' '# Notes in order' '' '## Outcome' '' 'The export keeps the notes in their order.' > "$FL/.lem/state/tasks/notes-held/task.md"
 hold_said=$(project --repo "$FL" state notes-held held 'the order waits for the owner: "After the gift note"' "type: feat, because a new order" | field 'd.get("say")' 2>&1 || true)
 answer_said=$(project --repo "$FL" state notes-held queued "the owner's order: \"After the gift note\"" "after: gift-note-in-export" "then: the interview" | field 'd.get("say")' 2>&1 || true)
