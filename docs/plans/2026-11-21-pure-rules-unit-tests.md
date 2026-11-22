@@ -7,16 +7,24 @@ careful: yes, because "A criterion's test is taken as its proof when it is not" 
 Size: full, because two parts change: the tests of nine rules of `project.py` move to the unit level, and the landing's checks take the polish pass's result of the criteria's tests.
 
 1. Each of the nine rules of `project.py` (`type_line`, `ticket_owed`, `braces`, `glob_regex`, `investigation_form`, `read_form`, `start_form`, `talk_start_form`, `talk_form`) is checked by unit cases that call the function: the line `type: fix` with no reason is refused with "names the type without its reason" by a call of `type_line`, with no `lem project` process.
+   - no test: the change keeps behavior; the suite holds it
 2. A shell check of one of the nine rules leaves `tests/lem-settings.sh` only when a unit case holds the same rule, and each command that reads such a rule keeps one journey through the real command: the refusals of an investigation's record become unit cases, and the block keeps one `lem project log` of an investigation that is written and one that is refused with exit 1 and writes nothing.
+   - no test: the change keeps behavior; the suite holds it
 3. When the checks start on the commit the polish pass ended on, they take the pass's result of the criteria's tests and run them no second time:
    1. The polish pass of a task commits one fix, and ends on commit `a1b2c3d`.
    2. `lem land polish SLUG --done` runs the criteria's tests: each passes on `a1b2c3d` and fails on the base commit.
    3. `lem land checks SLUG` starts on `a1b2c3d`, and its commands are green.
    4. The checks run no criteria's test, and their record says that they took the result of the polish pass at `a1b2c3d`.
    5. The pull request says that the criteria's tests were taken from the polish pass at `a1b2c3d`, and not run again.
+   - test: `python3 -B -m unittest discover -s tests/unit -p 'test_land*.py' -k TakenFromPolish -k test_tests_taken_from_the_polish_pass` in `tests/unit/test_land.py`, `tests/unit/test_land_text.py`
+   - test: `python3 -B -m unittest discover -s tests/unit -p 'test_board_model.py' -k TakenFromPolish` in `tests/unit/test_board_model.py`
 4. The checks run the criteria's tests themselves in every other case: when a commit came after the one the pass ended on (a builder's repair of a failed check), when the pass made no commits, and on the fast track, which has no pass. A task whose pass ended on `a1b2c3d` and whose branch is now at `e4f5a6b` gets its criteria's tests run by the checks. A main branch that moved on while the branch stayed at `a1b2c3d` changes nothing: the base commit of the tests is the commit the branch started from, the same for the pass and the checks.
+   - test: `python3 -B -m unittest discover -s tests/unit -p 'test_land.py' -k TakenFromPolish` in `tests/unit/test_land.py`
+   - test: `python3 -B -m unittest discover -s tests/unit -p 'test_criteria.py' -k Inputs` in `tests/unit/test_criteria.py`
 5. The polish pass keeps its own run of the criteria's tests and its own message: a commit of the pass that breaks a criterion's test is refused by `lem land polish SLUG --done` with "after the polish pass the tests of the criteria do not hold", as before this change.
+   - no test: the change keeps behavior; the suite holds it
 6. The pull request of this task gives the checks, and the seconds of each suite it changed, on the base commit and on the branch.
+   - no test: it is the evidence of this task's pull request, the table of the seconds in the notes
 
 ## How it works
 
