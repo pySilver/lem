@@ -2202,7 +2202,7 @@ def forge_loop(machine: "Machine") -> None:
                     if one["verb"] == "merge":
                         owner = one["why"] == "owner"
                         sys.stderr.write(f"serve.py: {workspace.name}: `lem land merge {one['task']} --by {one['why']} --via server{' --standing' if owner else ''}` started, "
-                                         + ("after the owner's merge stood through a new landing\n" if owner else "after the merge agent's verdict `merge`\n"))
+                                         + ("after the owner's merge stood through a new landing or a safe read of the moved base\n" if owner else "after the merge agent's verdict `merge`\n"))
                         continue
                     sys.stderr.write(f"serve.py: {workspace.name}: `lem session {one['verb']} {one['task']} --why {one['why']}` exited {one['exit']}"
                                      f"{': ' + one['said'] if one['said'] else ''}\n")
