@@ -619,6 +619,20 @@ class MovedBase(unittest.TestCase):
         github = model(*proposed, ev(2, "merge.refused", by="owner", via="server", **{"from": "github"}, said="Required status check is expected", tip="abc123456"))
         self.assertEqual([w["kind"] for w in bm.waits_of(github)], ["merge"])
 
+    def test_a_merge_the_moved_base_refused_is_not_offered_again_until_the_next_proposal(self):
+        # his merge from the board met a moved base: the same tip on the same moved base is refused again,
+        # so the task's page offers no Merge while Lem lands it again, and the new proposal offers it
+        proposed = (ev(0, "proposed", green=True, not_green=[], tip="abc123456"), state(1, "open", self.PR),
+                    ev(2, "merge.review", verdict="call", calls=True, why="a careful request is merged by the owner", by="claude", tip="abc123456"))
+        refused = (*proposed, ev(3, "merge.start", by="owner", via="server"),
+                   ev(3, "merge.refused", by="owner", via="server", **{"from": "lem"}, kind="base", said="origin/main moved after the checks ran", tip="abc123456"))
+        self.assertEqual(bm.acts_of(one(*proposed), None), ["merge"])
+        self.assertEqual(one(*refused).merge_wait, "relands")
+        self.assertEqual(bm.acts_of(one(*refused), None), [])
+        again = (*refused, state(4, "landing", "the base moved: the checks run again"),
+                 ev(9, "proposed", green=True, not_green=[], tip="def456789"), state(9, "open", self.PR))
+        self.assertEqual(bm.acts_of(one(*again), None), ["merge"])
+
     def test_a_merge_of_his_that_stands_is_the_servers(self):
         again = (ev(0, "proposed", green=True, not_green=[], tip="def456789"), state(1, "open", self.PR),
                  ev(2, "merge.review", verdict="merge", calls=True, why="branch.land is owner", by="claude", tip="def456789", carried="abc123456"),
