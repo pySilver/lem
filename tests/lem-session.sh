@@ -48,7 +48,7 @@ print(json.dumps(call))')
 want=$("$PY" -c 'import json, sys; print(json.dumps(sys.argv[1:]))' session new --workspace W-MINE --cwd "$R" --name gift-note --no-select --command \
   --json --socket "$WORK/agterm.sock" | "$PY" -c 'import json, sys
 call = json.loads(sys.stdin.read())
-call.insert(call.index("--command") + 1, [sys.argv[1], "-l", "-c", ["LEM_TASK=gift-note", "CLAUDE_CODE_AUTO_COMPACT_WINDOW=600000", "claude", "--plugin-dir", sys.argv[2], f"Read {sys.argv[3]} and follow it."]])
+call.insert(call.index("--command") + 1, [sys.argv[1], "-l", "-c", ["LEM_TASK=gift-note", "CLAUDE_CODE_AUTO_COMPACT_WINDOW=600000", "claude", "--model", "opus", "--effort", "high", "--plugin-dir", sys.argv[2], f"Read {sys.argv[3]} and follow it."]])
 print(json.dumps(call))' "$SHELL_LINE" "$PWD" "$STATE/tasks/gift-note/session.md")
 brief=$(cat "$STATE/tasks/gift-note/session.md" 2>/dev/null || true)
 if [ "$(field '(d["session"], d["phase"], d["already"])' <<<"$first" 2>&1)" = "('S-1', 'shape', False)" ] \
@@ -58,7 +58,7 @@ if [ "$(field '(d["session"], d["phase"], d["already"])' <<<"$first" 2>&1)" = "(
   && grep -qxF "Read $PWD/skills/lem/prompts/session.md and follow it." <<<"$brief" && grep -qxF "phase: shape" <<<"$brief" \
   && grep -qxF "opened because: new" <<<"$brief" && grep -qxF "worktree: none yet" <<<"$brief" \
   && [ "$(events)" = "[('session.open', 'S-1', 'shape', 'new')]" ] && git -C "$R" check-ignore -q "$STATE/tasks/gift-note/session.md"; then
-  pass "open makes one session of the task in the caller's workspace, with no focus and no flag that gives it, LEM_TASK and the compaction number in its launch line and session.md as its first read, then moves it to the top and logs it; a second open prints the one that runs"
+  pass "open makes one session of the task in the caller's workspace, with no focus and no flag that gives it, LEM_TASK, the compaction number and Lem's default seat in its launch line and session.md as its first read, then moves it to the top and logs it; a second open prints the one that runs"
 else
   fail "open twice: $first / $second / $focused / $made / $want / $brief / $(events)"
 fi

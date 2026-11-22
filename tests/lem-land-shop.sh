@@ -129,13 +129,13 @@ superseded=$(printf '%s\n' 'Verdict: merge. A fine change.' > "$WORK/old-answer.
 called=$(merge_read "$SHOP" first-change)
 err=$(land --repo "$SHOP" merge first-change --by merger 2>&1 || true)
 # shellcheck disable=SC2016  # the backticks are the message's own marks
-if [ "$(field '(d["seat"]["agent"], d["seat"]["from"], d["facts"]["pull_request"]["number"], d["facts"]["green"], d["facts"]["land"], d["facts"]["time"]["seconds"] is not None)' <<<"$brief")" = "('claude', \"the agent's own default\", 1, True, 'owner', True)" ] \
+if [ "$(field '(d["seat"]["agent"], d["seat"]["from"], d["facts"]["pull_request"]["number"], d["facts"]["green"], d["facts"]["land"], d["facts"]["time"]["seconds"] is not None)' <<<"$brief")" = "('claude', \"Lem's default\", 1, True, 'owner', True)" ] \
   && grep -qF "prompts/merge.md and follow it" "$SHOP/.lem/state/tasks/first-change/merge-brief.md" && grep -qF '"owner_merges": "branch.land is' "$SHOP/.lem/state/tasks/first-change/merge-brief.md" \
   && grep -qF 'gives no verdict: it is `Verdict: merge.` or `Verdict: call.`' <<<"$unread" \
   && grep -qF "the merge agent's answer is of ${base:0:12}, and the proposal is ${tip:0:12} now" <<<"$superseded" \
   && [ "$(field '(d["tip"], d["answer"].rsplit("/", 1)[-1])' <<<"$brief")" = "('$tip', 'merge-answer-${tip:0:12}.md')" ] && grep -qF "\"tip\": \"$tip\"" "$SHOP/.lem/state/tasks/first-change/merge-brief.md" \
-  && [ "$(field '(d["verdict"], d["calls"], d["by"])' <<<"$called")" = "('merge', True, 'claude')" ] && grep -q '^Verdict: merge\.' "$SHOP/.lem/state/tasks/first-change/merge-review.md" \
-  && grep -q '"event": "merge.review", "task": "first-change", "verdict": "merge", "calls": true, "by": "claude"' "$SHOP/.lem/state/events.jsonl" \
+  && [ "$(field '(d["verdict"], d["calls"], d["by"])' <<<"$called")" = "('merge', True, 'claude/opus:high')" ] && grep -q '^Verdict: merge\.' "$SHOP/.lem/state/tasks/first-change/merge-review.md" \
+  && grep -q '"event": "merge.review", "task": "first-change", "verdict": "merge", "calls": true, "by": "claude/opus:high"' "$SHOP/.lem/state/events.jsonl" \
   && grep -qF 'branch.land is "owner"' <<<"$err" && [ "$(git -C "$ORIGIN" rev-parse main)" = "$(git -C "$SHOP" rev-parse main)" ] && [ "$(status first-change)" = open ]; then
   pass "the merge agent's brief names its standing text, the seat that starts it, the tip and its own answer file, and the facts of the task; a reply with no verdict, or of a brief of another tip, is refused, one with it is merge-review.md and an event; where the settings say that the owner merges, the review calls him and the merge agent merges nothing"
 else

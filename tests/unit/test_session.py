@@ -121,7 +121,7 @@ class Seat(Machine):
         self.assertEqual((mine["model"], mine["effort"]), ("m2", None))
         self.assertTrue(mine["from"].endswith("machine.toml"))
         bare = self.decided(["[branch]", 'base = "main"'], {})
-        self.assertEqual((bare["agent"], bare["model"], bare["effort"], bare["from"]), ("claude", None, None, "the agent's own default"))
+        self.assertEqual((bare["agent"], bare["model"], bare["effort"], bare["from"]), ("claude", "opus", "high", "Lem's default"))
 
     def test_only_claude_sits_there(self):
         with self.assertRaises(project.SettingsError) as raised:
