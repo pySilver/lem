@@ -22,7 +22,8 @@ words after a stop (`checks_end`). A sentence here is Lem's own and is said as i
 
 The facts come in through the loaders at the end of this file (`Reader`), which read each file only
 when its size or its change time moved, so that a page that renders after a burst of events reads
-the log once: the event log (`events.jsonl`, read on from where the last read stopped), the owner's
+the log once: the event log (`events.jsonl`, read on from where the last read stopped, and whole again
+when `lem project prune` put a new one in place), the owner's
 mark (`project.owner_records`), and the settings, the backlog and the meta facts through `board.py`'s
 functions, and the board server's last look at the forge (FORGE_LOOK, `Model.seen`). What does not read is a problem the
 page says, never an empty board.
