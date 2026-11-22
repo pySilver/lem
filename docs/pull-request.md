@@ -76,8 +76,18 @@ The board server sees a merge or a close on GitHub within a few minutes.
 
 When a merge makes another open pull request conflict, the board server wakes the session of its
 task. That session rebases the branch, and a builder resolves the conflict. The checks run again,
-one read checks the resolution, and the merge agent reads the pull request again. Lem leaves every
-other open pull request as it is.
+and one read checks the resolution. Lem leaves every other open pull request as it is.
+
+When the read finds nothing and the change is not careful, the merge review stays, and so does
+your merge while the reasons for "not green" stay the same. A fresh merge agent reads the pull
+request, and your merge stops, when:
+
+- the read found a must-fix, a should or a nit, or did not answer two times;
+- the change is careful;
+- a commit came after the resolution;
+- the review before the conflict left a must-fix (then the whole change gets the review rules).
+
+The pull request says what stayed, or why a merge agent reads it.
 
 ## A commit of a teammate
 
