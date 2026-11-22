@@ -1021,3 +1021,68 @@ class AnsweredInSession(unittest.TestCase):
         self.assertEqual(bm.session_of_wait(bm.waits_of(demo)[0], demo), None)
         demo = bm.derive([state(0, "held", "the interview waits for the owner"), ev(1, "session.open", session="S9", name="gift-note")], [], NOW, meta={"demo": True})
         self.assertEqual(bm.session_of_wait(bm.waits_of(demo)[0], demo), "S9")
+
+
+class Search(unittest.TestCase):
+    """The rows of the search over every card (criteria 2, 4 and 5 of docs/plans/2026-11-22-board-card-search.md):
+    every task of the workspace, a parked one and an ended one Done has no card for too, and every backlog
+    item, in the order the search lists them with nothing typed, each with its chip."""
+
+    # 2026-11-22 10:00 UTC; each event's minute counts from START, 2026-11-20 09:00 UTC
+    NOW = int(datetime(2026, 11, 22, 10, 0, tzinfo=timezone.utc).timestamp() * 1000)
+    # noon UTC of 2026-11-21, which is that day on any clock from UTC-11 to UTC+11
+    NOON_21 = 27 * 60
+    BACKLOG = {"items": [
+        {"slug": "export-in-one-query", "title": "Read the monthly export in one query", "worth": "later"},
+        {"slug": "odd-item", "title": "An item with no worth"},
+        {"slug": "the-board-s-done-column-has-no-limit", "title": "The board's done column has no limit", "worth": "yes"},
+        {"slug": "a-thing-not-to-do", "title": "A thing not to do", "worth": "no"},
+    ]}
+
+    def events(self) -> list:
+        return [
+            state(0, "building", "task 1 of 3", task="refund-rounding"),
+            state(1, "held", "the criteria wait for the owner", task="board-card-search"),
+            state(2, "queued", "it waits", task="clear-a-reported-deadline"),
+            state(3, "landing", "the checks run", task="coupon-has-a-slug"),
+            state(4, "parked", "wait for the merchants", task="old-export-fix"),
+            state(5, "held", "the interview waits for the owner", task="stock-on-product-page"),
+            state(self.NOON_21, "landed", "main: pull request #41 is merged", task="agents-md-read-on-demand"),
+            *(state(10 + i, "landed", "merged", task=f"task-{i:02d}") for i in range(bm.DONE_SHOWN)),
+        ]
+
+    def rows(self) -> list:
+        return bm.search_rows(bm.derive(self.events(), [], self.NOW), self.BACKLOG)
+
+    def test_criterion_4_the_order_the_columns_then_the_parked_then_every_ended_task_newest_first_then_the_backlog_by_worth(self):
+        m = bm.derive(self.events(), [], self.NOW)
+        slugs = [r["slug"] for r in bm.search_rows(m, self.BACKLOG)]
+        columns = [t.slug for key in ("you", "build", "checks") for t in m.lane[key]]
+        self.assertEqual(columns, ["board-card-search", "stock-on-product-page", "clear-a-reported-deadline", "refund-rounding", "coupon-has-a-slug"])
+        ended = ["agents-md-read-on-demand", *(f"task-{i:02d}" for i in reversed(range(bm.DONE_SHOWN)))]
+        self.assertEqual(slugs, [*columns, "old-export-fix", *ended,
+                                 "the-board-s-done-column-has-no-limit", "export-in-one-query", "odd-item", "a-thing-not-to-do"])
+        # with nothing typed, the search lists the tasks that have not ended: the columns', then the parked one
+        self.assertEqual([r["slug"] for r in bm.search_rows(m, self.BACKLOG) if r["open"]], [*columns, "old-export-fix"])
+
+    def test_criterion_2_every_task_a_parked_one_and_an_ended_one_done_draws_no_card_for_and_every_backlog_item(self):
+        m = bm.derive(self.events(), [], self.NOW)
+        rows = {r["title"]: r for r in bm.search_rows(m, self.BACKLOG)}
+        self.assertEqual(len(m.lane["done"]), bm.DONE_SHOWN + 1)
+        self.assertIn("task-00", [t.slug for t in bm.done_older(m)])
+        for title, kind in (("Board card search", "task"), ("Old export fix", "task"), ("Task 00", "task"), ("The board's done column has no limit", "item")):
+            self.assertEqual(rows[title]["kind"], kind, title)
+        self.assertEqual(len(rows), len(m.tasks) + len(self.BACKLOG["items"]))
+        # no backlog read: the tasks alone
+        self.assertEqual(len(bm.search_rows(m, None)), len(m.tasks))
+
+    def test_criterion_5_each_chip_says_its_place_and_its_state_in_the_color_of_its_column(self):
+        rows = {r["title"]: (r["chip"], r["actor"]) for r in self.rows()}
+        self.assertEqual(rows["Board card search"], ("Waits for you · held", "you"))
+        self.assertEqual(rows["Clear a reported deadline"], ("Building · queued", "lead"))
+        self.assertEqual(rows["Coupon has a slug"], ("Checks and review · landing", "gate"))
+        self.assertEqual(rows["Old export fix"], ("parked", "quiet"))
+        self.assertEqual(rows["Agents md read on demand"], ("landed 2026-11-21", "done"))
+        self.assertEqual(rows["The board's done column has no limit"], ("Backlog · worth: yes", "gate"))
+        self.assertEqual(rows["Read the monthly export in one query"], ("Backlog · worth: later", "you"))
+        self.assertEqual(rows["An item with no worth"], ("Backlog · worth: unset", "quiet"))
