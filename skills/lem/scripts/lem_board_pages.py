@@ -767,9 +767,26 @@ def kanban(ctx: Ctx) -> Markup:
         tabs.append(h("button", {"class": f"ktab a-{lane['actor']}{' some' if tasks else ''}", "type": "button", "id": f"ktab-{lane['key']}",
                                  "data-columns-target": "tab", "data-action": "columns#show", "data-columns-index-param": i},
                       h("i"), lane["title"], h("em", None, len(tasks))))
+    # the cursor controller's mark over the cards (cursor.js), with its keys in one line under the columns
     return h("div", {"class": "board-wrap", "data-controller": "columns"},
              h("nav", {"class": "ktabs", "id": "ktabs", "aria-label": "The columns"}, tabs),
-             h("div", {"class": "view kanban", "id": "kanban", "data-columns-target": "board"}, columns))
+             h("div", {"class": "view kanban", "id": "kanban", "data-columns-target": "board", "data-controller": "cursor",
+                       "data-cursor-item-value": "article.tc", "data-cursor-group-value": "section.col", "data-cursor-link-value": ".tc-link",
+                       "data-action": "keydown@window->cursor#key click->cursor#pick"}, columns),
+             keys_line(("J", "K", "↑", "↓"), "move", ("H", "L", "←", "→"), "column", ("Enter",), "open", ("Esc",), "close", id_="kanban-keys"))
+
+
+def keys_line(*parts, id_: str | None = None) -> Markup:
+    """A view's line of its keys, the Tasks view's, "Waits for you"'s and the Backlog's, each hidden on a phone
+    (`.keys`): the parts in turns, a tuple of keys and the word of what they do."""
+    out = []
+    for keys, word in zip(parts[::2], parts[1::2]):
+        if out:
+            out.append(" · ")
+        for key in keys:
+            out += [h("kbd", None, key), " "]
+        out.append(word)
+    return h("div", {"class": "keys", "id": id_}, out)
 
 
 def older_row(ctx: Ctx) -> Markup | None:
@@ -876,10 +893,10 @@ def waits_page(ctx: Ctx) -> Markup:
         elif w["kind"] in ("held", "criteria") and t.shown and say["verb"].lower() != t.shown.lower():
             facts.append(h("div", {"class": "wr-sub"}, rich(ctx, bm.cap(t.shown))))
         acts = row_acts(ctx, w)
-        rows.append(h("article", {"class": f"wrow a-{say.get('actor', 'you')}", "id": f"wait-{w['key'].replace(':', '-')}"},
+        rows.append(h("article", {"class": f"wrow a-{say.get('actor', 'you')}", "id": f"wait-{w['key'].replace(':', '-')}", "data-task": t.slug},
                       h("span", {"class": "fi"}, icon(ctx, say["icon"])),
                       h("div", {"class": "wr-main"},
-                        h("div", {"class": "wr-top"}, h("a", {"class": "wr-verb", **task_link(ctx, t.slug, say["to"])}, say["verb"]),
+                        h("div", {"class": "wr-top"}, h("a", verb_link(ctx, w, say), say["verb"]),
                           h("span", {"class": "wr-time", "title": say["note"]}, since(w["since"], m.now))),
                         h("a", {"class": "wr-task", **task_link(ctx, t.slug, say["to"])}, t.title, h("span", {"class": "wr-state"}, f" · {t.info['label']}")),
                         facts,
@@ -890,7 +907,24 @@ def waits_page(ctx: Ctx) -> Markup:
                   " A breaker, criteria to approve, a plan to read, a pull request to merge or a task with no session shows here when it comes."))]
     n = len(bm.waits_of(m))
     summary = f"{bm.plural(n, 'thing')} you do, the most pressing first" if n else "Nothing waits for you"
-    return layout(ctx, "Waits for you", summary, h("div", {"class": "view scroll", "id": "waits-view"}, h("div", {"class": "waits-list"}, rows, parked_group(ctx)), push_row(ctx, "page")))
+    # the cursor controller's mark over the rows (cursor.js), one group, the verb as each row's link and a
+    # click on the verb or the title marking the row; the parked tasks under the rows are no item of it
+    listing = h("div", {"class": "waits-list", "id": "waits-list", "data-controller": "cursor", "data-cursor-item-value": "article.wrow",
+                        "data-cursor-link-value": "a.wr-verb", "data-cursor-pick-value": "a.wr-verb, a.wr-task",
+                        "data-action": "keydown@window->cursor#key click->cursor#pick"}, rows, parked_group(ctx))
+    keys = keys_line(("J", "K", "↑", "↓"), "move", ("Enter",), "go", id_="waits-keys") if n else None
+    return layout(ctx, "Waits for you", summary, h("div", {"class": "view scroll", "id": "waits-view"}, listing, keys, push_row(ctx, "page")))
+
+
+def verb_link(ctx: Ctx, w: dict, say: dict) -> dict:
+    """The attributes of a row's verb, its main link: the task's panel, and on a page for this Mac, for a row
+    the owner answers in the task's session while it lives (`lem_board_model.session_of_wait`), the jump of
+    agterm to that session too (agterm.js), which takes the click; elsewhere the address opens the panel."""
+    attrs = {"class": "wr-verb", **task_link(ctx, w["t"].slug, say["to"])}
+    session = bm.session_of_wait(w, ctx.model) if ctx.local else None
+    if session:
+        attrs.update({"data-action": "agterm#jump", "data-agterm-session-param": session, "title": "Go to the task’s session in agterm"})
+    return attrs
 
 
 def row_acts(ctx: Ctx, w: dict) -> Markup | None:
@@ -1104,8 +1138,7 @@ def backlog_page(ctx: Ctx) -> Markup:
                h("div", {"class": "dim small bl-sum"}, h("span", {"data-backlog-target": "count"}), sum_),
                h("div", {"class": "backlog", "id": "bl-groups"}, groups, empty,
                  h("div", {"class": "lane-empty", "data-backlog-target": "none", "data-js-out": True}, "No item fits the filter.")),
-               h("div", {"class": "keys"}, h("kbd", None, "/"), " filter · ", h("kbd", None, "J"), " ", h("kbd", None, "K"), " move · ", h("kbd", None, "Enter"),
-                 " open or close · ", h("kbd", None, "R"), " read again")))
+               keys_line(("/",), "filter", ("J", "K"), "move", ("Enter",), "open or close", ("R",), "read again")))
     return layout(ctx, "Backlog", "The items of the backlog, by the worth each one gives itself", view)
 
 

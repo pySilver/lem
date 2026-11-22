@@ -119,6 +119,7 @@ bash tests/lem-command.sh      # the command lem: each name, its arguments, stdi
 bash tests/lem-picker.sh       # the task picker, with a stand-in for agtermctl
 bash tests/lem-session.sh      # a task's own session (lem session) with a stand-in for agtermctl, and the copy of the talk
 bash tests/lem-serve.sh        # the board server and lem board over HTTP, on the afternoon of tests/board-showcase.py: the routes, each page's words, the stream, the jump to a session, the start on demand
+bash tests/lem-board-keys.sh   # the board's keys on the Tasks view and "Waits for you", pressed in headless Chrome on the same afternoon; a SKIP line for each check without Node or Chrome
 bash tests/lem-board-act.sh    # the owner's acts from the board, and the server's duties across tasks, with a stand-in for lem session
 bash tests/lem-peers.sh        # two machines under one address: two board servers on this Mac, a join, the loop guard, a machine that does not answer
 bash tests/test-gate-panel.sh  # the panel's cast, in its one place
@@ -245,7 +246,8 @@ Each script's module docstring says what it does and why; this list says where e
   `lib.sh` is what each `lem-*.sh` block sources, `checks.sh` how every suite counts its checks,
   `suites.sh` and `limit.py` what `all.sh` and `test-lem.sh` share, and `pick.py` the map of which
   suite reads which file. `board-showcase.py` writes the demo afternoon that `lem-serve.sh` serves,
-  and makes the board's pictures through headless Chrome (`board-cdp.mjs`, which needs Node).
+  and makes the board's pictures through headless Chrome (`board-cdp.mjs`, which needs Node), the
+  driver that `lem-board-keys.sh` presses the board's keys with.
   `.github/workflows/ci.yml` runs `all.sh` when someone starts it by hand.
 - `.claude-plugin/`, `bin/` and `hooks/`: what Claude Code reads to load this repository as the
   plugin `lem`, the one way Lem installs. `bin/lem` is Lem's one command: `lem NAME` runs the script

@@ -1,7 +1,7 @@
 // node tests/board-cdp.mjs SPEC.json: drive headless Chrome over the DevTools protocol, for the board's
-// pictures (tests/board-showcase.py), tests/lem-serve.sh's typing into a page, and a builder's look at a page. SPEC has a viewport (`width`,
+// pictures (tests/board-showcase.py), tests/lem-serve.sh's typing into a page, the keys of tests/lem-board-keys.sh and a builder's look at a page. SPEC has a viewport (`width`,
 // `height`, `scale`, `mobile` for a phone's emulation), `dark` for the color scheme, `ua` for another
-// user agent, and `steps`: {goto, wait}, {wait}, {eval}, {print}, {click}, {key}, {shot}. Chrome runs
+// user agent, and `steps`: {goto, wait}, {wait}, {eval}, {print}, {click}, {key} (with `code`, `vk`, `text`, `modifiers`), {shot}. Chrome runs
 // with a throwaway profile and the mock keychain, and the profile goes at the end. CHROME names the
 // browser; by default Google Chrome's place on macOS, else the first of google-chrome and chromium.
 import {spawn, execSync} from 'node:child_process';
@@ -53,7 +53,14 @@ try {
       for (const type of ['mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', {type, x: at[0], y: at[1], button: 'left', clickCount: 1});
       await sleep(step.after ?? 800);
     }
-    else if (step.key) { for (const type of ['keyDown', 'keyUp']) await send('Input.dispatchKeyEvent', {type, key: step.key, code: step.code ?? step.key, windowsVirtualKeyCode: step.vk ?? 0}); await sleep(step.after ?? 600); }
+    else if (step.key) {
+      // `text` types the character as a key of a keyboard does; `modifiers` holds them down (Alt 1, Ctrl 2, Meta/Cmd 4, Shift 8)
+      for (const type of ['keyDown', 'keyUp']) {
+        await send('Input.dispatchKeyEvent', {type, key: step.key, code: step.code ?? step.key, windowsVirtualKeyCode: step.vk ?? 0, modifiers: step.modifiers ?? 0,
+          ...(type === 'keyDown' && step.text ? {text: step.text} : {})});
+      }
+      await sleep(step.after ?? 600);
+    }
     else if (step.shot) {
       const r = await send('Page.captureScreenshot', {format: 'png'});
       writeFileSync(step.shot, Buffer.from(r.result.data, 'base64'));
