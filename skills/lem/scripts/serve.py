@@ -155,9 +155,10 @@ workspace, one call at a time with the server's other calls into Lem's scripts (
   duty whose command failed waits DUTY_RETRY;
 - the merge agent's merge (`merge_due`): for an open task whose merge agent's review of the tip Lem
   proposed last says `merge`, calls nobody and does not say `another round` of a moved base, with no
-  refused merge of that tip that no read answered and none running, the server runs land.py's MERGE_STEP `--by merger --via server` as it runs the owner's merge from the
-  board (`merge_in_thread`: in a thread of its own, under SCRIPT_LOCK, and "Merging…" on the board
-  while it runs). land.py's own rules decide whether it merges; the server only runs the call, since a
+  refused merge of that tip that no read answered and none running, the server runs land.py's
+  MERGE_STEP `--by merger --via server` as it runs the owner's merge from the board
+  (`merge_in_thread`: in a thread of its own, under SCRIPT_LOCK, and "Merging…" on the board while it
+  runs). land.py's own rules decide whether it merges; the server only runs the call, since a
   task's session that ran it met a block of Claude Code's auto mode (pySilver/lem-scratch#12,
   2026-11-21). A refusal is kept for its tip by land.py, which ends the duty for that tip, and the
   task's session gets `wake SLUG --why refused` once. Lem's refusal because the base moved is answered
@@ -1134,7 +1135,8 @@ def act_merge(workspace: Workspace, slug: str, form: dict, via: str) -> str:
 
 def merge_tip_of(landing: dict, by: str) -> str:
     """The tip the server's own merge is for, from the landing record: the merge agent's, the one its
-    review read; the owner's that stood through a new landing, the one his merge stands for. "" when the
+    review read; the owner's that stood through a new landing or a read of the moved base that said
+    `safe`, the one his merge stands for. "" when the
     record has none, which land.py refuses."""
     kept = landing.get("merge_review" if by == "merger" else "owner_tap")
     return str(kept.get("tip") or "") if isinstance(kept, dict) else ""
@@ -1144,7 +1146,8 @@ def merge_args(landing: dict, slug: str, by: str, tip: str, standing: bool = Fal
     """land.py's MERGE_STEP for a task, `--by BY --via server --tip TIP`, TIP being the commit the
     merge is for (the one the owner saw, or the one the merge agent read), with the proposal's title as
     the one commit's subject where the history is squashed, and `--standing` for the owner's merge that
-    a moved base refused and that stood through the new landing."""
+    a moved base refused and that stood through the new landing or a read of the moved base that said
+    `safe`."""
     args = [MERGE_STEP, slug, "--by", by, "--via", "server", "--tip", tip, *(["--standing"] if standing else [])]
     if landing.get("history") == "squash" and landing.get("title"):
         args += ["--message", str(landing["title"])]
@@ -1157,7 +1160,8 @@ def merge_in_thread(workspace: Workspace, slug: str, landing: dict, by: str, tip
     note at once: the note says that it runs (NOTES.merging, which the board reads as "Merging…") until
     the step ends. A task whose merge runs already gets that merge's token, and no second one starts.
     AFTER gives what the note adds to a merge that went through; FAILED is called with no argument when
-    the step did not. STANDING runs the owner's merge that stood through a new landing (`merge_args`)."""
+    the step did not. STANDING runs the owner's merge that stood through a new landing or a safe read
+    of the moved base (`merge_args`)."""
     pr = landing.get("pr") if isinstance(landing.get("pr"), dict) else None
     what = f"pull request #{pr['number']}" if pr and pr.get("number") else f"the branch {landing.get('branch') or slug}"
     base = landing.get("base") or "the base branch"
@@ -2129,6 +2133,7 @@ def run_duties(workspace: Workspace, now: float | None = None) -> list[dict]:
                 # a refusal land.py kept ends the duty for that tip; any other end waits DUTY_RETRY
                 workspace.failed[key] = time.monotonic()
             # `why` is who merges: the merge agent, or the owner whose merge stood through a new landing
+            # or a safe read of the moved base
             landing = workspace.landing_of(slug)
             merge_in_thread(workspace, slug, landing, why, merge_tip_of(landing, why), failed=failed, standing=why == "owner")
             ran.append({"verb": verb, "task": slug, "why": why, "exit": None, "said": "started"})

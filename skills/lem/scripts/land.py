@@ -3610,9 +3610,10 @@ def carry_merge(task: Task, kept: dict, tip: str, state: dict, reasons: list[str
     """After a proposal, what was said of the tip proposed before (KEPT, the record before this
     proposal) at its merge, carried onto TIP where the change is the same (`carried_over`): the merge
     agent's review, with whether it calls the owner as the rules say now and with no call on a moved
-    base (`carried_review`), logged again as a `merge.review` of TIP with `carried`; and the owner's merge that a moved base refused, which stands
-    (`merge.stands`) or ends (`tap_after`, with the reason no review covers the change when a rebase
-    kept one, `rebase_uncovered`). What it gives the output: `merge_review` (carried or
+    base (`carried_review`), logged again as a `merge.review` of TIP with `carried`; and the owner's
+    merge that a moved base refused, which stands (`merge.stands`) or ends (`tap_after`, with the
+    reason no review covers the change when a rebase kept one, `rebase_uncovered`). What it gives the
+    output: `merge_review` (carried or
     null) and `owner_merge` (`stands`, the reason it ended, or null)."""
     old, rebased = kept.get("proposed"), kept.get("rebase_carried")
     out: dict = {"merge_review": None, "owner_merge": None}
@@ -3677,7 +3678,8 @@ def merger_refusal(slug: str, land: str, careful: list[str], reasons: list[str],
 def kept_refusal(by: str, kind: str | None) -> bool:
     """Whether a refused merge is kept for its tip, so that the server tries that tip no more and wakes
     the task's session: every refusal of the merge agent's merge by Lem's rules, and the owner's when
-    the base moved, which the session repairs by landing the task again. A git or `gh` call that failed
+    the base moved, which the session answers with a fresh merge agent's read of what moved, or with a
+    new landing after a read that said another round. A git or `gh` call that failed
     (no kind) is never kept: the next try runs it again."""
     return kind in REFUSALS and (by == "merger" or kind == "base")
 
