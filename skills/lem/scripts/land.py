@@ -108,7 +108,14 @@ suite, which runs here one time and in no builder; then, when they all passed, e
 `checks.serial`, the tests that two tasks cannot run at the same time (an end-to-end suite on fixed
 ports, one database, a browser), each under the repository's one lock for them through `lem project serial`,
 which waits while a builder or another check holds it; then `lem criteria red` (each criterion's tests pass on the branch and fail on the base commit), then the
-bar. A change lowers the bar when it adds a lint or type suppression, a skipped test or a mark
+bar. The checks take the polish pass's result of the criteria's tests in place of a run of their own
+when the pass committed anything and `lem criteria inputs`, read after the commands, gives the five
+inputs the pass's run reported: the tip, the base commit, the plan file, `checks.setup` and
+`checks.serial`. That read of the criteria refuses the checks as a run of the tests would; the
+result they keep then names the pass and its commit (`taken`), and the pull request says the tests
+were taken from it and not run again. A commit after the pass, a rebase, a base branch that took in
+a commit of the branch, another plan file or other settings, and the fast track, which has no pass,
+make the checks run the tests themselves. A change lowers the bar when it adds a lint or type suppression, a skipped test or a mark
 that runs one test alone, a test that runs again until it passes, deletes a test file or moves it
 out of the tests, or leaves fewer assertions in one (counted by the words `assert` and `expect` on
 the lines it adds and removes, in a test file and in every Rust file, where unit tests sit beside
@@ -195,7 +202,8 @@ nobody committed, a branch that no longer holds that tip, a pass that leaves a c
 file or the plan other than it found them, and tests of the criteria that no longer pass on the branch and fail on
 the base commit (`lem criteria red`, run when the pass committed anything). Otherwise it logs one
 `polish` event (the tip before and after, the count of commits, the items it added to the
-backlog folder). `checks` refuses a task on the standard track with no pass of this landing whose last commit the
+backlog folder), and keeps the result of its run of the criteria's tests, with the inputs that run
+reported, for the checks. `checks` refuses a task on the standard track with no pass of this landing whose last commit the
 tip holds, and any task whose pass started and is not done. Every task with a plan is on the
 standard track: `criteria.py` refuses a plan that says `Size: small`, and so does every step here that
 reads the criteria. The commits
@@ -1108,7 +1116,9 @@ def cmd_polish(task: Task, done: bool) -> dict:
     added = [row.split("\t", 1)[1] for row in git(task.worktree, "diff", "--name-status", "--no-renames", before, tip).splitlines() if row.startswith("A\t")]
     result["filed"] = [path for path in added if path.startswith(folder + "/")]
     script("project.py", task.worktree, "log", task.slug, "polish", f"before={before[:9]}", f"after={tip[:9]}", f"commits:={len(commits)}", f"filed:={json.dumps(result['filed'])}")
-    task.keep(polish={"before": before, "after": tip, "done": True, "commits": len(commits), "filed": result["filed"]})
+    # the pass's result of the criteria's tests, with the inputs its run reported: the checks take it
+    # in place of a run of their own when those inputs are the same when they decide (`taken_from_polish`)
+    task.keep(polish={"before": before, "after": tip, "done": True, "commits": len(commits), "filed": result["filed"], "criteria": result["criteria"]})
     return result
 
 
@@ -1130,6 +1140,23 @@ def polish_missing(task: Task, tip: str, found: dict) -> str | None:
             f"The pass runs again: `lem land polish {task.slug}`, its builder, and `--done`"
         )
     return None
+
+
+def taken_from_polish(polish: dict | None, now: dict | None, small: bool) -> dict | None:
+    """The polish pass's result of the criteria's tests when the checks take it in place of a run of
+    their own, with `taken`, which names the pass and its commit; None when the checks run the tests.
+
+    The fast track has no pass, and a pass with no commits ran no tests. Otherwise the result is taken
+    only when NOW, the inputs `lem criteria inputs` gives after the checks' commands, are the inputs
+    the pass's run reported, all five: the tip, the base commit, the plan file, `checks.setup` and
+    `checks.serial`. `polish.after` decides nothing here: a rebase by `base` gives it the rebased
+    commit's name (`through_rebase`), while the run named the tip it ran on."""
+    if small or not polish or not polish.get("done") or not polish.get("commits"):
+        return None
+    ran = polish.get("criteria") or {}
+    if not ran.get("ok") or not ran.get("inputs") or now is None or ran["inputs"] != now:
+        return None
+    return {**ran, "taken": {"from": "polish", "at": ran["inputs"]["tip"]}}
 
 
 def criteria_of(task: Task) -> dict:
@@ -2050,14 +2077,27 @@ def checks_body(task: Task, flags: dict, tip: str, found: dict, commands: list[s
         return "red", f"the checks are red on {len(red)} command(s): {'; '.join(red)}. A builder reads the output files; the checks are never edited to pass"
     # The commands of the checks are green. Now what no command of the project checks: that each criterion is
     # held by a test that fails without the change, and that the change did not lower the bar.
-    held = criteria_red(task)
-    try:
-        result["criteria"] = json.loads(held.stdout)
-    except ValueError:
-        result["criteria"] = None
-    if held.returncode != 0:
-        result.update(result="refused", say=checks_say(task.slug, "refused", refused="the check of the criteria did not pass"))
-        return "refused", f"{held.stderr.strip().removeprefix('criteria.py: ')}. A builder repairs the test or the plan; the check is never edited to pass"
+    taken = None
+    if not found["small"]:
+        # A new read of the criteria, here and not the one `checks_ready` made before the load wait and the
+        # commands: an approval or a recorded change since then counts. It refuses as a run of the tests would.
+        read = script("criteria.py", task.main, "inputs", task.slug, check=False)
+        if read.returncode != 0:
+            result.update(criteria=None, result="refused", say=checks_say(task.slug, "refused", refused="the check of the criteria did not pass"))
+            return "refused", f"{read.stderr.strip().removeprefix('criteria.py: ')}. A builder repairs the test or the plan; the check is never edited to pass"
+        taken = taken_from_polish(task.kept().get("polish"), json.loads(read.stdout)["inputs"], small=False)
+    if taken:
+        # the pass ran these tests on this tip, against this base commit, plan file and settings: they run no second time
+        result["criteria"] = taken
+    else:
+        held = criteria_red(task)
+        try:
+            result["criteria"] = json.loads(held.stdout)
+        except ValueError:
+            result["criteria"] = None
+        if held.returncode != 0:
+            result.update(result="refused", say=checks_say(task.slug, "refused", refused="the check of the criteria did not pass"))
+            return "refused", f"{held.stderr.strip().removeprefix('criteria.py: ')}. A builder repairs the test or the plan; the check is never edited to pass"
     # The fast track gives no reason for a lowered bar: it has no plan, and a lowered bar never takes the fast track.
     plan = "" if found["small"] else Path(found["plan"]).read_text(encoding="utf-8")
     now = change(task)
@@ -2956,6 +2996,17 @@ def checked_criteria(checks: dict) -> dict:
     return {**kept, "tests": kept.get("tests", [])}
 
 
+def criteria_check_line(held: dict) -> str:
+    """The check of the criteria as one line of the pull request's checks: how many tests pass on the
+    branch and fail on the base commit, and, when the checks took the polish pass's result, that the
+    tests were taken from the pass at its commit and not run again."""
+    tests, without, taken = held["tests"], held.get("without_a_test", []), held.get("taken")
+    line = f"- the tests of the criteria: {len(tests)} pass on the branch and fail on the base commit"
+    if taken:
+        line += f", taken from the polish pass at {str(taken['at'])[:9]}, and not run again"
+    return line + (f"; {len(without)} {'criterion has' if len(without) == 1 else 'criteria have'} no test" if without else "")
+
+
 def criterion_lines(criterion: dict, chart: bool = False) -> list[str]:
     """One criterion as a numbered item: its sentence, the steps of its case under it, and its chart
     when `chart` (the pull request leaves the chart to the owner's page)."""
@@ -3118,9 +3169,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     for command in checks.get("commands", []):
         code = command["exit"]
         out.append(f"- check, `{command['command']}`{' (serial, under the lock)' if command.get('serial') else ''}: {command['last'] or f'exit {code}'}")
-    tests = checked_criteria(checks)["tests"]
-    without = checked_criteria(checks).get("without_a_test", [])
-    out.append(f"- the tests of the criteria: {len(tests)} pass on the branch and fail on the base commit" + (f"; {len(without)} {'criterion has' if len(without) == 1 else 'criteria have'} no test" if without else ""))
+    out.append(criteria_check_line(checked_criteria(checks)))
     out.append(polished(kept.get("polish")))
     read = criteria_read_of(task)
     out.append(read_line(read, found, unanswered(task), read_skipped(task)[0] if read is None else None, criteria_waited(events_of(task))))
