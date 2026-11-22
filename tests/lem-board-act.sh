@@ -404,4 +404,75 @@ else
   fail "the merge after a moved base: $refused / $kind / $due_now / $again / $merged / $reviews / $(status_in "$MOVE" second-move) / $(git -C "$MOVE.origin.git" log -3 --format=%s main)"
 fi
 
+# The same moved base, read by a fresh merge agent instead of a new landing: the server's merge of the second
+# task meets the base the first one moved, Lem keeps the refusal and wakes the session, whose merge agent reads
+# what moved and answers `Base: safe.`. That read answers the refusal: the server's next look merges the second
+# task on the moved base with no new run of its checks, and the board reads it as Lem's merge, not a new landing.
+SAFE=$WORK/safe-shop
+git init -q -b main "$SAFE" && ident "$SAFE" && commit "$SAFE" init && on_github "$SAFE"
+project --repo "$SAFE" init --base main >/dev/null
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' 'history = "squash"' '[checks]' 'commands = ["true"]' > "$SAFE/.lem/project.toml"
+git -C "$SAFE" add -A && git -C "$SAFE" commit -q -m "chore: start" && git -C "$SAFE" push -q origin main
+# safe_read SLUG SECOND: the merge agent's read of the proposed task, its brief and then its answer, with SECOND as
+# the answer's second line when it is not empty, recorded with the tip and the base the brief named; prints the record
+safe_read() {
+  local brief answer
+  brief=$(land --repo "$SAFE" merge-review "$1") || return 1
+  answer=$(field 'd["answer"]' <<<"$brief")
+  printf 'Verdict: merge. The change does what its criterion says.\n%s\nIts test proves it, and the task took as long as expected.\n' "$2" > "$answer"
+  land --repo "$SAFE" merge-review "$1" --file "$answer" --tip "$(field 'd["tip"]' <<<"$brief")" --base "$(field 'd["base"]' <<<"$brief")"
+}
+for slug in docs-first code-second; do
+  task_in "$SAFE" "$slug" "$slug.txt" yes && read_in "$SAFE" "$slug"
+  land --repo "$SAFE" start "$slug" >/dev/null && land --repo "$SAFE" base "$slug" >/dev/null && polish_in "$SAFE" "$slug"
+  land --repo "$SAFE" checks "$slug" >/dev/null && land --repo "$SAFE" read "$slug" --record "$(clean "$slug" 1)" >/dev/null
+  land --repo "$SAFE" propose "$slug" --title "fix: $slug" --notes "$NOTES" >/dev/null && safe_read "$slug" "" >/dev/null
+done
+land --repo "$SAFE" merge docs-first --by merger --via server --message "fix: docs-first" >/dev/null
+CHECKS_RAN=$(events "$SAFE" gate.start code-second)
+PROPOSED=$(kept_in "$SAFE" code-second proposed)
+# safe_duty: the server's duties once, its merge's thread joined; then what it owes, and how the board reads the task
+safe_duty() {
+  "$PY" -B -c '
+import json, sys, threading
+sys.path.insert(0, "skills/lem/scripts")
+import serve, lem_board_model as bm
+w = serve.Workspace("safe-shop", sys.argv[1])
+ran = serve.run_duties(w)
+for thread in threading.enumerate():
+    if thread.name.startswith("merge "):
+        thread.join(120)
+m = w.model()
+t = m.by_slug["code-second"]
+review = next((e for e in reversed(t.events) if e.get("event") == "merge.review"), {})
+print(json.dumps({"ran": [(x["verb"], x["task"], x["why"]) for x in ran], "owed": serve.duties(m, {}, set()), "wait": t.merge_wait, "status": t.status,
+                  "feed": bm.describe(review, m)}))
+' "$SAFE"
+}
+refused=$(safe_duty)
+kept=$(kept_in "$SAFE" code-second merge_refused | "$PY" -c 'import ast, sys; d = ast.literal_eval(sys.stdin.read()); print((d["from"], d["kind"]))')
+moved=$(land --repo "$SAFE" merge-review code-second | field '("docs-first.txt" in d["facts"]["moved"]["files"], d["facts"]["moved"]["overlap"])')
+said=$(safe_read code-second "Base: safe. docs-first only added docs-first.txt, which this change neither edits nor reads.")
+read_now=$("$PY" -B -c '
+import json, sys
+sys.path.insert(0, "skills/lem/scripts")
+import serve
+w = serve.Workspace("safe-shop", sys.argv[1])
+t = w.model().by_slug["code-second"]
+print(json.dumps({"owed": serve.duties(w.model(), {}, set()), "wait": t.merge_wait, "refused": t.refused}))
+' "$SAFE")
+merged=$(safe_duty)
+if [ "$(field '(d["ran"], d["owed"], d["wait"])' <<<"$refused")" = "([['merge', 'code-second', 'merger']], [['wake', 'code-second', 'refused']], 'reads')" ] \
+  && [ "$kept" = "('lem', 'base')" ] && [ "$moved" = "(True, [])" ] \
+  && [ "$(field '(d["owed"], d["wait"], d["refused"])' <<<"$read_now")" = "([['merge', 'code-second', 'merger']], 'merges', None)" ] \
+  && [ "$(field '(d["ran"], d["status"])' <<<"$merged")" = "([['merge', 'code-second', 'merger']], 'landed')" ] \
+  && [ "$(field 'bool(__import__("re").fullmatch(r"the moved base [0-9a-f]+ is safe; it merges", d["feed"]["text"]))' <<<"$merged")" = True ] \
+  && [ "$(field 'd["feed"]["sub"]' <<<"$merged")" = "docs-first only added docs-first.txt, which this change neither edits nor reads." ] \
+  && [ "$(events "$SAFE" gate.start code-second)" = "$CHECKS_RAN" ] && [ "$(kept_in "$SAFE" code-second proposed)" = "$PROPOSED" ] \
+  && [ "$(git -C "$SAFE.origin.git" log -2 --format=%s main)" = "$(printf '%s\n' 'fix: code-second' 'fix: docs-first')" ]; then
+  pass "a merge that meets the base another merge moved waits for the merge agent's read of what moved; its Base: safe. answers Lem's refusal, and the server's next look merges the task on the moved base with no new run of the checks, the board showing the read and its why"
+else
+  fail "the server's merge after a safe read of a moved base: $refused / $kept / $moved / $said / $read_now / $merged / $(events "$SAFE" gate.start code-second) vs $CHECKS_RAN / $(git -C "$SAFE.origin.git" log -3 --format=%s main)"
+fi
+
 finish
