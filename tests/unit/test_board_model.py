@@ -1158,7 +1158,7 @@ class StoppedSession(unittest.TestCase):
     #37): its checks ended at 10:54, its session stayed live with an agent in its pane, and nothing woke
     it until the owner found it at 15:37. The step due at each look: the status message at 11:39, the
     restart at 11:49, and when the fresh session stops too, the stop, once. The row of "Waits for you"
-    for a stop is task 3's of the plan, and its case comes with it."""
+    for a stop, and the timeline's words, are StoppedRow's."""
 
     def ev(self, hhmm: str, event: str, **fields) -> dict:
         return {"ts": f"2026-11-22T{hhmm}{'' if hhmm.count(':') == 2 else ':00'}Z", "event": event, "task": "gift-note", **fields}
@@ -1271,3 +1271,96 @@ class StoppedSession(unittest.TestCase):
 
     def test_the_numbers_are_the_owners(self):
         self.assertEqual((bm.QUIET_MS, bm.ANSWER_MS), (45 * 60 * 1000, 10 * 60 * 1000))
+
+
+class StoppedRow(unittest.TestCase):
+    """Criteria 5 and 6 on the board: a stop the guard logged is the row `stopped` of "Waits for you",
+    with "Open a session", until a session opens or the task's agent works again; and the timeline says
+    each act of the guard with its time. The events are those of #37, from StoppedSession."""
+
+    ev, model, landing, woken, restarted = StoppedSession.ev, StoppedSession.model, StoppedSession.landing, StoppedSession.woken, StoppedSession.restarted
+    ms = staticmethod(StoppedSession.ms)
+
+    def stopped(self) -> tuple:
+        return (*self.restarted(), self.ev("12:34", "session.wake", session="S2", why="status"), self.ev("12:44", "session.stopped", session="S2"))
+
+    def rows(self, *events: dict, at: str = "13:00", **given) -> list:
+        m = self.model(*events, at=at, session="S2", sign=None, **given)
+        return [(w["key"], w["kind"], bm.wait_say(w)["verb"], w["since"]) for w in bm.waits_of(m)]
+
+    def test_a_stop_is_a_row_with_the_button_that_opens_a_fresh_session(self):
+        self.assertEqual(self.rows(*self.stopped()), [("stopped:gift-note", "stopped", "Its session stopped: open a fresh one", self.ms("12:44"))])
+        m = self.model(*self.stopped(), at="13:00", session="S2", sign=None)
+        t = m.by_slug["gift-note"]
+        self.assertTrue(bm.opens_session(t, m))
+        say = bm.wait_say(bm.waits_of(m)[0])
+        self.assertEqual((say["actor"], say["to"], say["note"]), ("bad", "overview", "since Lem logged the stop"))
+        self.assertIn("Open a session here or on the task’s header", say["where"])
+        # he acts on the board, so the verb opens the panel and never jumps to the stopped pane
+        self.assertIsNone(bm.session_of_wait(bm.waits_of(m)[0], m))
+        self.assertIn("Open a session here", bm.waits_for(t, bm.waits_of(m))["where"])
+        html = str(pages.waits_page(pages.Ctx(host="h", workspace="w", model=m, asset=lambda name: name, can_act=True)))
+        row = html[html.index('id="wait-stopped-gift-note"'):]
+        self.assertIn("Open a session", row[:row.index("</article>")])
+
+    def test_no_row_before_the_stop_is_logged_or_after_a_session_opens_or_the_agent_works(self):
+        before = self.stopped()[:-1]
+        self.assertEqual(self.rows(*before, at="12:43"), [])
+        opened = (*self.stopped(), self.ev("12:50", "session.open", session="S3", name="gift-note", phase="land", why="stopped"))
+        m = self.model(*opened, at="13:00", session="S3", sign=None)
+        self.assertEqual(([w["kind"] for w in bm.waits_of(m)], bm.opens_session(m.by_slug["gift-note"], m)), ([], False))
+        worked = (*self.stopped(), self.ev("12:50", "gate.start", tip="77aa", commands=1))
+        self.assertEqual(self.rows(*worked), [])
+        # the record of his click is no work and no open: the row goes with the open it asked for
+        self.assertEqual(len(self.rows(*self.stopped(), self.ev("12:50", "board.act", act="session", via="board"))), 1)
+
+    def test_a_stopped_session_that_is_gone_is_the_no_session_row_alone(self):
+        # the old pane closed after the stop: the open of "No session runs this task" takes no stop, so no row `stopped` stands beside it
+        self.assertEqual([(k, kind, verb) for k, kind, verb, _ in self.rows(*self.stopped(), live=False)],
+                         [("session:gift-note", "session", "No session runs this task")])
+        m = self.model(*self.stopped(), at="13:00", session="S2", sign=None, live=False)
+        self.assertIsNone(bm.stopped_of(m.by_slug["gift-note"], m))
+        self.assertTrue(bm.opens_session(m.by_slug["gift-note"], m))
+
+    def test_a_stop_takes_the_place_of_a_wake_nobody_took(self):
+        m = self.model(*self.stopped(), at="13:00", session="S2", sign=None)
+        m.sessions["gift-note"]["unanswered"] = True
+        self.assertEqual([w["key"] for w in bm.waits_of(m)], ["stopped:gift-note"])
+
+    def test_a_task_out_of_its_phase_has_no_row_whatever_its_stop(self):
+        parked = (*self.stopped(), self.ev("12:50", "task.state", status="parked", text="the owner parked it", lines=[]))
+        self.assertEqual(self.rows(*parked), [])
+
+    def test_the_timeline_says_each_act_of_the_guard_with_its_time(self):
+        m = self.model(*self.stopped(), at="13:00", session="S2", sign=None)
+        t = m.by_slug["gift-note"]
+        said = {(e["event"], e.get("why")): (bm.describe(e, m), e["ts"]) for e in t.events if e["event"].startswith("session.")}
+        status, ts = said[("session.wake", "status")]
+        self.assertEqual(status["head"], "The board’s server asked the task’s session for its status")
+        self.assertIn("no sign of work for 45 minutes", status["text"])
+        restart, ts = said[("session.open", "stopped")]
+        self.assertEqual((restart["head"], ts), ("A fresh session took the task over", "2026-11-22T11:49:00Z"))
+        self.assertIn("beside the one that stopped", restart["sub"])
+        self.assertEqual(said[("session.wake", "replaced")][0]["head"], "The board’s server told the old session that a fresh one replaced it")
+        stop, ts = said[("session.stopped", None)]
+        self.assertEqual((stop["head"], stop["info"]["actor"], ts), ("The task’s session stopped", "bad", "2026-11-22T12:44:00Z"))
+        # each with its time in the task's Activity
+        ctx = pages.Ctx(host="h", workspace="w", model=m, asset=lambda name: name, task="gift-note", tab="timeline")
+        html = str(task_pages.feed_card(ctx, t))
+        for head in ("asked the task’s session for its status", "A fresh session took the task over", "The task’s session stopped"):
+            self.assertIn(head, html)
+        self.assertEqual(html.count(bm.stamp(self.ms("12:44"), m.now)), 1)
+
+    def test_lem_project_waiting_lists_the_stop_as_the_board_has_it(self):
+        from unittest import mock
+        project = importlib.import_module("project")
+        m = self.model(*self.stopped(), at="13:00", session="S2", sign=None)
+        task = {"slug": "gift-note", "ask": "a gift note", "since": "2026-11-22T12:44:00Z", "night": None, "state": "", "status": "landing"}
+        pending = mock.Mock(returncode=0, stdout=json.dumps({"waiting": [], "ended": []}))
+        with tempfile.TemporaryDirectory() as state, \
+             mock.patch.object(project, "load", return_value={}), mock.patch.object(project, "read_tasks", return_value=[task]), \
+             mock.patch.object(project, "waiting_model", return_value=(m, None)), mock.patch.object(project.subprocess, "run", return_value=pending), \
+             mock.patch.object(project, "owner_records", return_value=[]), mock.patch.object(project, "state_root", return_value=Path(state)):
+            found = project.cmd_waiting(Path("/lem-unit/repo"))
+        self.assertEqual([(e["task"], e["open"]) for e in found["stopped"]], [("gift-note", "lem session open gift-note --why stopped")])
+        self.assertEqual((found["rows"], found["no_session"], found["count"]), ([{"key": "stopped:gift-note", "kind": "stopped", "task": "gift-note"}], [], 1))

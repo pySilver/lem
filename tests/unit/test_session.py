@@ -697,6 +697,23 @@ class Guard(unittest.TestCase):
         self.assertEqual(self.refusal(self.landing(), "status", "11:39", shell=True), "working")
         self.assertEqual(self.refusal([], "status", "11:39"), "status")
 
+    def test_the_status_message_is_never_a_wake_nobody_answered(self):
+        # its line waits in the mailbox 20 minutes later, as an owner's wake's would: only the owner's is `unanswered`,
+        # since the guard ends the status message's wait itself, with the restart or the stop
+        ago = (datetime.now(timezone.utc) - timedelta(minutes=20)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        opened = {"ts": "2026-11-22T01:33:00Z", "event": "session.open", "task": SLUG, "session": "S1", "name": SLUG, "phase": "land", "why": "handoff"}
+
+        def unanswered(why: str) -> bool:
+            woke = {"ts": ago, "event": "session.wake", "task": SLUG, "session": "S1", "why": why}
+            with mock.patch.object(session, "place", return_value={"session": "", "socket": "", "window": ""}), \
+                 mock.patch.object(session, "tree", return_value=self.NODES), \
+                 mock.patch.object(session.project, "events_named", side_effect=lambda root, *names: [e for e in (opened, woke) if e["event"] in names]), \
+                 mock.patch.object(session.project, "load", return_value={}), mock.patch.object(session.project, "read_tasks", return_value=[]), \
+                 mock.patch.object(session, "ctl", return_value=json.dumps([{"text": f"lem: {SLUG} {why}"}])):
+                return session.cmd_list(ROOT)[0]["unanswered"]
+
+        self.assertEqual((unanswered("owner"), unanswered("status")), (True, False))
+
     def test_the_owners_open_of_a_stopped_task_acts_until_its_session_works_again(self):
         stopped = [*self.landing(), self.ev("11:39", "session.wake", session="S1", why="status"),
                    self.ev("11:49", "session.open", session="S1", name=SLUG, phase="land", why="stopped", workspace="W1"),

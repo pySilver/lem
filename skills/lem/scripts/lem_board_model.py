@@ -176,12 +176,13 @@ PULL = re.compile(r"\bhttps?://\S+/pull/(\d+)\b")
 # Why a task's session closed (`lem session close --why`), and why one opened or was woken, in words.
 CLOSED = {"handoff": "a fresh session took its place", "ended": "the task ended", "owner": "you closed it"}
 OPENED = {"new": "for a new task", "handoff": "for the next phase", "dead": "in place of one that was gone", "merged": "after the merge, for the cleanup",
-          "conflict": "to bring its pull request onto the base", "queue": "the task it waited for ended", "night": "for the night", "owner": "on your word"}
+          "conflict": "to bring its pull request onto the base", "queue": "the task it waited for ended", "night": "for the night", "owner": "on your word",
+          "stopped": "beside the one that stopped, whose name in agterm now ends in “replaced”"}
 # How long a task may have no live session before the board says so: the time a session takes from its
 # open to its agent (a guess, plan-task-4.md section 2, 2026-11-21).
 GRACE_MS = 2 * 60 * 1000
 # The merge review that calls the owner comes before the merge it is about.
-WAIT_ORDER = {"breaker": 0, "session": 0, "criteria": 1, "held": 1, "after_dropped": 1, "blocked": 1, "plan": 2, "review": 3, "merge": 4}
+WAIT_ORDER = {"breaker": 0, "session": 0, "stopped": 0, "criteria": 1, "held": 1, "after_dropped": 1, "blocked": 1, "plan": 2, "review": 3, "merge": 4}
 
 
 # ---- formatting ----
@@ -1311,8 +1312,11 @@ def opens_session(t: Task, m: Model) -> bool:
     dropped task whose worktree stays (CLEANED_BY_SESSION); not parked; not queued behind a task that has
     not ended."""
     f = live_of(t, m)
-    if f is None or f["live"] or t.status == PARKED or (t.status == "queued" and not after_ended(t, m)):
+    if f is None or t.status == PARKED or (t.status == "queued" and not after_ended(t, m)):
         return False
+    if f["live"]:
+        # a stop the guard logged: the session lives and does nothing, and the open goes beside it
+        return stopped_of(t, m) is not None
     return not t.closed or (t.status in CLEANED_BY_SESSION and f["worktree"])
 
 
@@ -1381,6 +1385,19 @@ def stop_stands(t: Task) -> dict | None:
     if found is None or any(work_event(e) or e.get("event") == "session.open" for e in t.events[found + 1:]):
         return None
     return t.events[found]
+
+
+def stopped_of(t: Task, m: Model) -> dict | None:
+    """The stop that waits for the owner (`stop_stands`), while the task is in GUARDED and its session still
+    lives (`live_of`): the row `stopped` of "Waits for you", whose "Open a session" opens a fresh session
+    beside it (`lem session open SLUG --why stopped`). None otherwise: a stopped session that is gone from
+    agterm is `session_need`'s `gone`, whose open takes no stop, so the two rows never stand together."""
+    if t.status not in GUARDED:
+        return None
+    f = live_of(t, m)
+    if f is None or not f["live"]:
+        return None
+    return stop_stands(t)
 
 
 def is_green(t: Task) -> bool:
@@ -1491,7 +1508,11 @@ def waits_of(m: Model) -> list[dict]:
     for t in m.tasks:
         # a task stuck for want of its session: the one row of a merged or dropped task whose cleanup did not run
         need = session_need(t, m)
-        if need:
+        stop = stopped_of(t, m)
+        if stop is not None:
+            # the guard's stop, whose fresh session also answers a wake-up that waits in the stopped one
+            rows.append({"kind": "stopped", "key": f"stopped:{t.slug}", "t": t, "c": None, "since": at(stop.get("ts")) or t.since})
+        elif need:
             since = max(t.since if t.closed else t.first, (t.opened or {}).get("ts") or 0)
             rows.append({"kind": "session", "key": f"{'deaf' if need == 'deaf' else 'session'}:{t.slug}", "t": t, "c": None, "since": since, "deaf": need == "deaf"})
         if t.closed:
@@ -1553,6 +1574,11 @@ def wait_say(w: dict) -> dict:
     if kind == "session" and w.get("deaf"):
         return {"verb": "Its session does not answer", "icon": "alert", "actor": "bad", "to": "overview", "note": "since its session opened",
                 "where": "A wake-up has waited in the task’s session for 10 minutes or more. Look at the session: its agent may wait for an answer, or run a long turn."}
+    if kind == "stopped":
+        return {"verb": "Its session stopped: open a fresh one", "icon": "alert", "actor": "bad", "to": "overview", "note": "since Lem logged the stop",
+                "where": f"The task’s session showed no sign of work for {QUIET_MS // 60000} minutes, nor in the {ANSWER_MS // 60000} minutes after Lem asked it for its status, "
+                         "and neither did the fresh session that took its place. Open a session here or on the task’s header: a fresh agent reads the task’s state "
+                         "and goes on from there, and the old pane stays open in agterm."}
     if kind == "session" and t.closed and t.status == "dropped":
         return {"verb": "No session cleans the dropped task", "icon": "alert", "actor": "bad", "to": "overview", "note": "since it was dropped",
                 "where": "Open a session here or on the task’s header: it gives a ticket what it is still owed, then removes the worktree; the branch keeps its commits."}
@@ -1744,15 +1770,24 @@ SAYS = {
     "gate.start": lambda e: {"info": {"actor": "gate", "icon": "play"}, "head": "The checks started", "text": f"{plural(e.get('commands') or 0, 'command')} on {e.get('tip') or '?'}"},
     "gate.end": gate_end_said,
     "review.start": lambda e: {"info": {"actor": "gate", "icon": "eye"}, "head": "The review started", "text": f"attempt {e.get('attempt') or '?'} · {KIND.get(e.get('floor'), e.get('floor'))}"},
-    "session.open": lambda e: {"info": {"actor": "lem", "icon": "split"}, "head": "The task’s session opened", "text": e.get("name") or e.get("task") or "",
+    "session.open": lambda e: {"info": {"actor": "lem", "icon": "split"}, "head": "A fresh session took the task over" if e.get("why") == "stopped" else "The task’s session opened",
+                               "text": e.get("name") or e.get("task") or "",
                                "sub": " · ".join(x for x in (f"the {e['phase']} phase" if e.get("phase") else "", OPENED.get(e.get("why"), e.get("why") or "")) if x)},
     "session.close": lambda e: {"info": {"actor": "quiet", "icon": "split"}, "head": "A session of the task closed", "text": CLOSED.get(e.get("why"), e.get("why") or "")},
     "session.transcript": lambda e: {"info": {"actor": "quiet", "icon": "split"}, "head": "Claude Code started in the task’s session",
                                      "text": {"startup": "a new conversation", "resume": "a resumed conversation", "clear": "after a clear", "compact": "after a compaction", "fork": "a forked conversation"}.get(
                                          e.get("source"), "a conversation")},
-    "session.wake": lambda e: {"info": {"actor": "lem", "icon": "split"}, "head": "The board’s server woke the task’s session",
-                               "text": {"merged": "the pull request is merged: the session cleans up", "conflict": "GitHub calls the pull request conflicting: the session brings it onto the base",
-                                        "queue": "the task it waited for ended"}.get(e.get("why"), e.get("why") or "")},
+    "session.wake": lambda e: ({"info": {"actor": "lem", "icon": "split"}, "head": "The board’s server asked the task’s session for its status",
+                                "text": f"no sign of work for {QUIET_MS // 60000} minutes: it says where the task stands and goes on with its next step"}
+                               if e.get("why") == "status" else
+                               {"info": {"actor": "quiet", "icon": "split"}, "head": "The board’s server told the old session that a fresh one replaced it",
+                                "text": "it closes itself at the end of its turn"}
+                               if e.get("why") == "replaced" else
+                               {"info": {"actor": "lem", "icon": "split"}, "head": "The board’s server woke the task’s session",
+                                "text": {"merged": "the pull request is merged: the session cleans up", "conflict": "GitHub calls the pull request conflicting: the session brings it onto the base",
+                                         "queue": "the task it waited for ended"}.get(e.get("why"), e.get("why") or "")}),
+    "session.stopped": lambda e: {"info": {"actor": "bad", "icon": "alert"}, "head": "The task’s session stopped",
+                                  "text": "no sign of work after the status message, nor in the fresh session: “Open a session” on the board starts another"},
     "decision.taken": lambda e: ({"info": {"actor": "you", "icon": "user"}, "head": f"You helped on breaker {e['breaker']}", "text": e.get("chose"), "sub": f"“{e['words']}”" if e.get("words") else ""}
                                  if e.get("by") == "owner" and e.get("breaker") is not None else
                                  {"info": {"actor": "done", "icon": "check"}, "head": f"Decision {e.get('id')}, by {BY_WHOM.get(e.get('by'), e.get('by'))}", "text": f"{e.get('what')} → {e.get('chose')}"}),
@@ -1853,7 +1888,7 @@ def waits_for(t: Task, waits: list) -> dict | None:
     if mine:
         # a task whose only row is "no session" is answered where that row says, never in the session that is
         # gone; a row of another kind (a breaker) keeps its own words
-        gone = mine[0] if len(mine) == 1 and mine[0]["kind"] == "session" and not mine[0].get("deaf") else None
+        gone = mine[0] if len(mine) == 1 and (mine[0]["kind"] == "stopped" or (mine[0]["kind"] == "session" and not mine[0].get("deaf"))) else None
         where = answer_of(t) if gone is None else wait_say(gone)["where"] + ("" if t.closed else f" Or type /lem drop {t.slug} to end it.")
         return {"you": True, "text": "; ".join(wait_say(w)["verb"] for w in mine), "where": where}
     if waits_now(t):

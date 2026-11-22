@@ -201,7 +201,8 @@ only for the text the page showed (a digest of the file); the merge of an open t
 step, land.py's MERGE_STEP `--by owner`, only at the commit the step showed; the park of a task a
 breaker holds, `lem project state SLUG parked WHY`, with his line of why; and a fresh session of a task
 none of whose sessions lives (`act_session`), `lem session open SLUG --why dead`, or `--why owner` for
-a task that never had one; and a new task (`act_start`), from his words on the form of "+" or from a
+a task that never had one, or `--why stopped` beside the live session of a task whose stop the guard
+logged, which opens nothing when that session works again; and a new task (`act_start`), from his words on the form of "+" or from a
 backlog item's "Start a task": its slug by a fixed rule (an item's file's stem; else the first
 SLUG_WORDS plain words of his text, in lower case, joined by hyphens), `lem project task-dir SLUG --ask
 ASK` (his words, or the item's path as the night gives it), then `lem session open SLUG --why new` with
@@ -1032,10 +1033,21 @@ def act_park(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
     return {"ok": True, "said": f"The task is parked. {ends}/lem resume {slug} in any session brings it back." + asked}
 
 
+# What the board says when the owner's "Open a session" of a stopped task opened nothing (`lem session open
+# SLUG --why stopped` printed `acted: false`), by its `why` (session.py REFUSALS).
+NOT_OPENED = {"working": "Its session works again, so no session was opened",
+              "gone": "Its session is gone from agterm, so no session was opened beside it: the board offers a fresh one in its place within a minute",
+              "status": "The task is no longer building, ready or landing, so no session was opened",
+              "unread": "The board cannot read whether its session works, so no session was opened: try again in a minute"}
+
+
 def act_session(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
     """A fresh session of a task none of whose sessions lives (`lem_board_model.opens_session`), on the
     owner's click: `lem session open SLUG --why dead` for a task that had one, `--why owner` for one that
-    never did. The server never selects it: it opens with no focus, at the top of agterm's workspace."""
+    never did, and `--why stopped` for a task whose stop the guard logged while its session lives
+    (`lem_board_model.stopped_of`), which opens beside that session, or opens nothing and says why
+    (NOT_OPENED) when the look once more refuses it. The server never selects it: it opens with no
+    focus, at the top of agterm's workspace."""
     t = task_of(workspace, slug)
     model = workspace.model()
     if t is None or not bm.opens_session(t, model):
@@ -1043,18 +1055,23 @@ def act_session(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
         why = ("its session runs: go to it in agterm" if live and live["live"] else "the board does not know yet whether its session runs; look again in a minute" if t and live is None
                else f"it is {t.info['label'].lower()}" if t else "no such task is on record")
         return {"ok": False, "said": f"No session of {slug} was opened: {why}."}
-    ran = session_run(workspace, "open", slug, "--why", "dead" if t.opened else "owner")
+    stopped = bm.stopped_of(t, model) is not None
+    ran = session_run(workspace, "open", slug, "--why", "stopped" if stopped else "dead" if t.opened else "owner")
     if ran.returncode != 0:
         return {"ok": False, "said": said_of(ran)}
     try:
         opened = json.loads(ran.stdout)
     except ValueError:
         opened = {}
+    if isinstance(opened, dict) and opened.get("acted") is False:
+        workspace.look_sessions()
+        return {"ok": False, "said": f"{NOT_OPENED.get(opened.get('why'), opened.get('say') or 'No session was opened')}."}
     name = opened.get("name") if isinstance(opened, dict) else None
     workspace.look_sessions()
     if isinstance(opened, dict) and opened.get("already"):
         return {"ok": True, "said": f"The session {name or 'of the task'} runs already: go to it in agterm." + asked_from(workspace, slug, "session", via)}
-    return {"ok": True, "said": f"A session of the task opened in agterm{f', “{name}”' if name else ''}, at the top of its workspace. Its agent reads the task’s state and goes on from there."
+    beside = f" beside the one that stopped, which agterm now names “{slug} · replaced”" if stopped else ""
+    return {"ok": True, "said": f"A session of the task opened in agterm{f', “{name}”' if name else ''}, at the top of its workspace{beside}. Its agent reads the task’s state and goes on from there."
             + asked_from(workspace, slug, "session", via)}
 
 

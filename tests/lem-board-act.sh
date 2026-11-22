@@ -208,6 +208,26 @@ else
   fail "the act of a session: $opened / $(cat "$LEM_SESSION_CALLS") / ${opened_page:0:400} / ${refused_page:0:400}"
 fi
 
+# "Open a session" for a task whose stop the guard logged while its session lives: the row `stopped` of Waits for you,
+# whose button runs `lem session open SLUG --why stopped` beside that session.
+now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+{
+  printf '{"ts": "%s", "event": "session.wake", "task": "refund-rounding", "session": "S-OLD", "why": "status"}\n' "$now"
+  printf '{"ts": "%s", "event": "session.open", "task": "refund-rounding", "session": "S-FRESH", "name": "refund-rounding", "phase": "build", "why": "stopped", "workspace": "demo"}\n' "$now"
+  printf '{"ts": "%s", "event": "session.wake", "task": "refund-rounding", "session": "S-FRESH", "why": "status"}\n' "$now"
+  printf '{"ts": "%s", "event": "session.stopped", "task": "refund-rounding", "session": "S-FRESH"}\n' "$now"
+} >> "$STATE/events.jsonl"
+: > "$LEM_SESSION_CALLS"
+waits_page=$(curl -fsS "$BASE/waits" | words)
+reopened=$(post "$BASE/tasks/refund-rounding/session" "$SERVER" "in=waits")
+reopened_page=$(curl -fsS "${reopened#* }" | words)
+if grep -qF "Its session stopped: open a fresh one" <<<"$waits_page" && [ "${reopened%% *}" = 303 ] && grep -qxF "open refund-rounding --why stopped" "$LEM_SESSION_CALLS" \
+  && grep -qF "Done. A session of the task opened in agterm" <<<"$reopened_page" && grep -qF "beside the one that stopped" <<<"$reopened_page"; then
+  pass "a task whose stop the guard logged is the row Its session stopped of Waits for you, and its Open a session runs lem session open with the reason stopped, beside the live session"
+else
+  fail "the open of a stopped task: $reopened / $(cat "$LEM_SESSION_CALLS") / $(grep -o "Its session stopped.\{0,80\}" <<<"$waits_page" | head -1) / ${reopened_page:0:400}"
+fi
+
 # A new task from the board: the owner's words on the form of "+" name it by their first five plain words, and a backlog
 # item by its file's stem; each gets its directory with its ask and its session with no focus. A slug of a task that
 # runs is refused by the server, and one of a task that ended by task-dir, as it says.

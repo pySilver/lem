@@ -8,10 +8,13 @@ the server owes the tasks, and when it runs `lem project prune`. The routes, the
 
 import email.message
 import importlib
+import json
+import subprocess
 import sys
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest import mock
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts"))
@@ -521,6 +524,62 @@ class StoppedSession(unittest.TestCase):
         self.assertEqual(serve.duty_args("stopped", "gift-note", "stopped", {}, m), ["stopped", "gift-note", "--session", "S1"])
         self.assertEqual(serve.duty_args("wake", "gift-note", "conflict", {"gift-note": {"head": "abc"}}, m), ["wake", "gift-note", "--why", "conflict", "--head", "abc"])
         self.assertEqual(serve.duty_args("open", "gift-note", "queue", {}, m), ["open", "gift-note", "--why", "queue"])
+
+
+class StoppedOpen(unittest.TestCase):
+    """The owner's "Open a session" on a task whose stop the guard logged (criterion 5): `lem session open
+    SLUG --why stopped` beside its live session, and when the look once more finds work, the owner's words
+    and no session; a stopped session that is gone takes the open of a task with none."""
+
+    class Space:
+        name = "shop"
+
+        def __init__(self, m):
+            self.m, self.looked = m, 0
+
+        def model(self):
+            return self.m
+
+        def look_sessions(self):
+            self.looked += 1
+
+    def stopped(self, live: bool = True) -> "StoppedOpen.Space":
+        s = StoppedSession
+        events = (*s.landing(s), s.ev("11:39", "session.wake", session="S1", why="status"),
+                  s.ev("11:49", "session.open", session="S2", name="gift-note", phase="land", why="stopped"),
+                  s.ev("12:34", "session.wake", session="S2", why="status"), s.ev("12:44", "session.stopped", session="S2"))
+        m = bm.derive(list(events), [], s.now("13:00"))
+        m.sessions = {"gift-note": {"live": live, "agent": live, "unanswered": False, "session": "S2", "name": "gift-note", "sign": None, "shell": False, "signs": live}}
+        return self.Space(m)
+
+    def act(self, space, printed: dict) -> tuple[dict, list, list]:
+        asked = []
+        ran = mock.Mock(side_effect=lambda workspace, *args: asked.append(args) or subprocess.CompletedProcess(args, 0, json.dumps(printed), ""))
+        logged = mock.Mock(return_value="")
+        with mock.patch.object(serve, "session_run", ran), mock.patch.object(serve, "asked_from", logged):
+            said = serve.act_session(space, "gift-note", {}, "board")
+        return said, asked, logged.call_args_list
+
+    def test_the_button_opens_beside_the_stopped_session(self):
+        said, asked, logged = self.act(self.stopped(), {"task": "gift-note", "session": "S3", "name": "gift-note", "already": False, "acted": True})
+        self.assertEqual(asked, [("open", "gift-note", "--why", "stopped")])
+        self.assertTrue(said["ok"])
+        self.assertIn("beside the one that stopped", said["said"])
+        self.assertEqual(len(logged), 1)
+
+    def test_an_open_that_finds_work_says_so_and_opens_nothing(self):
+        space = self.stopped()
+        said, asked, logged = self.act(space, {"task": "gift-note", "session": "S2", "acted": False, "why": "working", "say": "Lem did nothing for gift-note: ..."})
+        self.assertEqual(said, {"ok": False, "said": "Its session works again, so no session was opened."})
+        # no record of an open he did not get, and the board looks at the sessions again
+        self.assertEqual((logged, space.looked), ([], 1))
+        for why in ("gone", "status", "unread"):
+            said, _, _ = self.act(self.stopped(), {"task": "gift-note", "acted": False, "why": why})
+            self.assertEqual(said, {"ok": False, "said": serve.NOT_OPENED[why] + "."}, why)
+
+    def test_a_stopped_session_that_is_gone_takes_the_open_of_a_task_with_none(self):
+        _, asked, _ = self.act(self.stopped(live=False), {"task": "gift-note", "session": "S3", "name": "gift-note", "already": False})
+        self.assertEqual(asked, [("open", "gift-note", "--why", "dead")])
 
 
 class DutyKey(unittest.TestCase):

@@ -139,7 +139,7 @@ def rows(root: Path, now: datetime) -> list[dict]:
         add(entry["task"])
     for entry in waiting["after_dropped"]:
         add(entry["task"], f"Waits for you: {entry['after']} was dropped")
-    for key in ("blocked", "plans", "pull_requests", "no_session"):
+    for key in ("blocked", "plans", "pull_requests", "no_session", "stopped"):
         for entry in waiting[key]:
             add(entry["task"])
     def newest(task: dict) -> str:

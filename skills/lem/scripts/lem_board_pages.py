@@ -39,9 +39,10 @@ and a markdown text through `md_block`.
 Each task lives in its own agterm session. The jump to it, which only agterm does, has its button only
 on a page drawn for the main listener and a client on this Mac (`Ctx.local`): it posts to the server,
 which runs `agtermctl session select` (`serve.agterm_act`). A task with no live session is a row of
-"Waits for you" when it is stuck for want of one (`lem_board_model.session_need`), and the row and the
-task's header have "Open a session" on every page that may act, which the server answers with `lem
-session open` (`serve.act_session`).
+"Waits for you" when it is stuck for want of one (`lem_board_model.session_need`), and so is a task
+whose live session the guard logged as stopped (`lem_board_model.stopped_of`). The row and the task's
+header have "Open a session" on every page that may act, which the server answers with `lem session
+open` (`serve.act_session`).
 """
 
 import hashlib
@@ -968,7 +969,7 @@ def verb_link(ctx: Ctx, w: dict, say: dict) -> dict:
 def row_acts(ctx: Ctx, w: dict) -> Markup | None:
     """The buttons of a row of "Waits for you": the way to criteria that wait for the owner's yes, which he
     gives under their text, the way to a merge's confirm step, the way to park a task whose breaker waits, and
-    "Open a session" for a task stuck with none. None on a page that may not act, and for a row with no act."""
+    "Open a session" for a task stuck with none or whose session stopped. None on a page that may not act, and for a row with no act."""
     if not ctx.can_act:
         return None
     t = w["t"]
@@ -984,7 +985,7 @@ def row_acts(ctx: Ctx, w: dict) -> Markup | None:
                    else act_link(ctx, t.slug, "merge", "Merge…", "pull", "risk", "waits", frame=True))
     if w["kind"] == "breaker" and "park" in acts:
         out.append(act_link(ctx, t.slug, "park", "Park it…", "park", "", "waits", frame=True))
-    if w["kind"] == "session" and bm.opens_session(t, ctx.model):
+    if w["kind"] in ("session", "stopped") and bm.opens_session(t, ctx.model):
         out.append(act_form(ctx, t.slug, "session", "Open a session", "play", "go", "Opening…", {"in": "waits"}))
     return h("div", {"class": "wr-acts"}, out) if out else None
 

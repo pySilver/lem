@@ -109,7 +109,8 @@ is no refusal.
 `list`'s `phase` is the phase the task's state gives now, null for a task that gets no session (parked,
 or ended with its worktree gone), and `opened_in` the phase its newest session opened in. Its
 `unanswered` is a wake older than UNANSWERED_AFTER whose line still waits in the session's
-mailbox (`agtermctl msg read`, which removes nothing).
+mailbox (`agtermctl msg read`, which removes nothing), never the guard's status message, whose wait
+the guard itself ends.
 
 Each entry whose session is live (`live`) says what Claude Code's own files say of its work
 (`lem_signs`): `sign`, the time of the newest turn of the session's main thread or of any of its
@@ -997,7 +998,9 @@ def cmd_list(root: Path) -> list[dict]:
         closed = next((record for record in after if record.get("event") == "session.close"), None)
         wake = next((record for record in reversed(after) if record.get("event") == "session.wake"), None)
         unanswered = False
-        if node is not None and wake is not None and (now - stamp(wake["ts"])).total_seconds() >= UNANSWERED_AFTER:
+        # the guard's own status message is no wait for the owner: the guard ends it at 10 minutes, with the
+        # restart or the stop, so no row "does not answer" stands beside its steps
+        if node is not None and wake is not None and wake.get("why") != "status" and (now - stamp(wake["ts"])).total_seconds() >= UNANSWERED_AFTER:
             mailbox = ctl(where, "msg", "read", "--as", f"{session}:{left_pane(node)}", "--json", window=False)
             unanswered = f"lem: {slug} {wake.get('why')}" in mailbox
         signs = {"sign": None, "shell": False, "signs": False}
