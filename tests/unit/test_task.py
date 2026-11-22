@@ -616,6 +616,29 @@ class TicketOwed(unittest.TestCase):
         self.assertEqual(project.ticket_owed("landed", ["assigned", "started"], self.TRACKER), ["commented", "landed"])
         self.assertEqual(project.ticket_owed("building", ["assigned", "started"], self.TRACKER), [])
 
+    def test_a_task_whose_ticket_another_task_holds_owes_it_nothing(self):
+        # decision 23: a resume moved the ticket to the new task, and the dropped one's drop comment would tell the issue's readers the work was dropped
+        self.assertEqual(project.ticket_owed("dropped", ["started", "assigned"], self.TRACKER, held_by="gift-note-2"), [])
+        self.assertEqual(project.ticket_owed("answered", [], self.TRACKER, held_by="gift-note-2"), [])
+
+    def test_the_holder_is_the_mark_and_else_the_task_a_resume_went_on_in(self):
+        with tempfile.TemporaryDirectory() as folder:
+            project.STATE_ROOTS[ROOT] = Path(folder)
+            self.addCleanup(project.STATE_ROOTS.pop, ROOT, None)
+            old = {"slug": "gift-note", "ticket": "#42"}
+            new = {"slug": "gift-note-2", "ticket": "#42"}
+            # no mark and no resume: the task holds its own ticket
+            self.assertIsNone(project.ticket_held_by(ROOT, old, None))
+            (Path(folder) / "tickets").mkdir()
+            (Path(folder) / "tickets" / "42").write_text("gift-note\n", encoding="utf-8")
+            self.assertIsNone(project.ticket_held_by(ROOT, old, None))
+            (Path(folder) / "tickets" / "42").write_text("gift-note-2\n", encoding="utf-8")
+            self.assertEqual(project.ticket_held_by(ROOT, old, new), "gift-note-2")
+            # the resumed task gave the ticket back and its mark went: the old task still owes nothing
+            (Path(folder) / "tickets" / "42").unlink()
+            self.assertEqual(project.ticket_held_by(ROOT, old, new), "gift-note-2")
+            self.assertIsNone(project.ticket_held_by(ROOT, old, {**new, "ticket": "#43"}))
+
     def test_the_steps_are_read_one_a_line_with_the_login_of_the_assignee(self):
         with tempfile.TemporaryDirectory() as folder:
             directory = Path(folder)

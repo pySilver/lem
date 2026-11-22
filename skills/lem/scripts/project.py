@@ -2434,10 +2434,13 @@ def talk_form(fields: dict) -> None:
     # the companion open and the request unproposed for ever.
 
 
-def ticket_owed(status: str | None, steps: list[str], tracker: dict | None) -> list[str]:
+def ticket_owed(status: str | None, steps: list[str], tracker: dict | None, held_by: str | None = None) -> list[str]:
     """The steps a ticket still waits for, now that its task has ended. A session may be cut off
-    between a task's last state and the tracker, and this is how the next one sees it."""
-    if tracker is None:
+    between a task's last state and the tracker, and this is how the next one sees it. HELD_BY is the
+    task that holds the ticket now when it is another one (`ticket_held_by`): the dropped task a
+    resume went on from owes nothing, since a drop comment would tell the issue's readers that work
+    they still get was dropped."""
+    if tracker is None or held_by is not None:
         return []
     if status == "landed":
         # the status too: a ticket that an automation of the tracker already moved is written down with no move
@@ -2988,6 +2991,8 @@ def read_tasks(root: Path, settings: dict | None = None) -> list[dict]:
             "ticket_steps": steps,
             # the login Lem set out to add as the issue's assignee (`assigned LOGIN`), or null
             "ticket_assignee": assignee,
+            # the task that holds the ticket now when it is another one (a resume went on from this one), or null
+            "ticket_held_by": None,
             "ticket_owed": [],
             # null when no block was written through `project.py state`: nobody can tell who acts next
             "status": first["status"] if known else None,
@@ -3014,10 +3019,25 @@ def read_tasks(root: Path, settings: dict | None = None) -> list[dict]:
     if any(task["ticket"] for task in tasks):
         # only a project with a ticket needs its settings here; a broken settings file then stops this, loudly
         tracker = (settings or load(root))["tracker"]
+        went_on = {text_of(parent / task["slug"] / RESUMED_FROM).strip(): task for task in tasks if (parent / task["slug"] / RESUMED_FROM).is_file()}
         for task in tasks:
             if task["ticket"]:
-                task["ticket_owed"] = ticket_owed(task["status"], task["ticket_steps"], tracker)
+                task["ticket_held_by"] = ticket_held_by(root, task, went_on.get(task["slug"]))
+                task["ticket_owed"] = ticket_owed(task["status"], task["ticket_steps"], tracker, task["ticket_held_by"])
     return tasks
+
+
+def ticket_held_by(root: Path, task: dict, successor: dict | None) -> str | None:
+    """The task that holds TASK's ticket now, when it is another one, or None. The ticket's mark names
+    it (a resume moves the mark to the new task), and else the task a resume went on in, SUCCESSOR,
+    with the same ticket: that one may have given the ticket back already, and its mark is gone then."""
+    mark = mark_of(root, task["ticket"])
+    holder = text_of(mark).strip() if mark.is_file() else ""
+    if holder and holder != task["slug"]:
+        return holder
+    if successor is not None and successor["ticket"] == task["ticket"]:
+        return successor["slug"]
+    return None
 
 
 def queued_refusal(slug: str, after: str, other: str | None) -> str:
