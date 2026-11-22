@@ -141,7 +141,11 @@ flowchart TD
    `approve_card()` gets them too, only when it holds the form: the head (its `card-head`), the body
    (the criteria's text), and the foot (the form with its line under the button, and "Back" to the
    task's Overview through `act_back()`, which shows only in the overlay, so the desktop keeps the
-   card of today). The approval's form posts back to the criteria tab, where `note_card()` puts the
+   card of today). With no script the criteria's text shows nowhere today, since `P.md_block()` puts
+   it in a `<template>` that only the `markdown` controller renders; so the body holds, after the
+   markdown block, a `<noscript>` with the same text as plain text in a `pre` (wrapped, in the
+   board's mono face), which a browser with the script never draws (criterion 8: the button is at
+   the end of the text). The approval's form posts back to the criteria tab, where `note_card()` puts the
    act's note first in the tab, above the card, and a refused approval (the criteria changed since
    the page showed them, `serve.py` `act_approve`) shows the new criteria with their form again: so
    when the approval card holds the form, `criteria_tab()` gives the note to `approve_card()`, which
@@ -152,7 +156,8 @@ flowchart TD
    approval card. Browser checks in `tests/lem-board-keys.sh`: "Park…" on `gift-note-in-export` and
    the approval on `stock-on-product-page`, each at a phone's size where its text is below the body's
    end (the button off), after the scroll (on), at a phone's width with a height where its whole body
-   fits (on at once), and at 1440 × 900 as today. Serves criterion 5, and criteria 7 and 8 for these
+   fits (on at once), at 1440 × 900 as today, and with the script turned off at 390 × 844, where the
+   criteria's text is above the approval's button. Serves criterion 5, and criteria 7 and 8 for these
    two steps.
    Files: `skills/lem/scripts/lem_board_task.py`, `skills/lem/assets/board.css`, the controller,
    `skills/lem/assets/vendor/board-app.js`, `tests/unit/test_board_task.py`, `tests/lem-board-keys.sh`.
@@ -206,6 +211,9 @@ flowchart TD
   task's title behind the overlay.
 - **The approval's overlay gets "Back" to the task's Overview**, as the merge and the park steps
   have, so a phone can leave it without the approval; a desktop does not show it.
+- **With no script the approval shows its criteria as plain text**, in a `<noscript>` after its
+  markdown block, since criterion 8 puts the button at the end of the text and the markdown block
+  draws nothing without the script; the other markdown blocks of the board stay as they are.
 - **A note of the approval is inside its card**, first in its body, while the card holds the form,
   so that the overlay does not cover the note of a refused approval; on a desktop it is the card's
   first line.
@@ -220,10 +228,9 @@ flowchart TD
 
 ## Outside the change
 
-- With no script the approval card shows no criteria, today and after this change: `approve_card()`
-  puts them in `P.md_block()`, whose `<template>` only the `markdown` controller renders, and every
-  other markdown block of the board is the same. Criterion 8 asks for the steps as they work today,
-  so the plan keeps it, and the polish pass files it in the backlog.
+- With no script every other markdown block of the board shows no text (`P.md_block()` puts it in a
+  `<template>` that only the `markdown` controller renders). Only the approval's text is a step of
+  this change, and task 2 gives it its `<noscript>`; the polish pass files the rest in the backlog.
 
 ## Not verified
 
