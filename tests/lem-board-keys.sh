@@ -7,9 +7,10 @@
 # over its rows, Enter on a row answered in the task's session (the stand-in's `session select`) and on a merge row (the
 # panel, no button), and the mark through a morph. The search over every card (search.js): Cmd-K and Ctrl-K, also from a
 # field, and the search buttons open it, letters typed filter and order it, Enter, a click and Escape, and the box through
-# a morph. A check adds to the demo's log only the state lines it needs, as a
-# lead's `lem project state` and `lem session open` write them. Each check that needs Chrome prints a SKIP line of its
-# own where Node or Chrome is missing.
+# a morph. The confirm step of a merge, a park and an approval: on a phone an overlay whose button comes on when its
+# text was read to the end, on a desktop and with no script as before. A check adds to the demo's log only the state
+# lines it needs, as a lead's `lem project state` and `lem session open` write them. Each check that needs Chrome
+# prints a SKIP line of its own where Node or Chrome is missing.
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
@@ -555,8 +556,9 @@ base, work, py, log, state, refund, green, moved, shorter = sys.argv[1:]
 step = f"{base}/tasks/{refund}/merge?in=waits"
 # the card's facts: whether the controller marked it, its position, the head's, the button's and Back's top and bottom,
 # the parts of the body in their order, the facts in theirs, the button's aria-disabled and label, the body's scroll and
-# its height and its content's, whether the note's end is below the body's, and the class of what has the focus
-FACTS = ("(() => { const c = document.querySelector('#confirm'), body = c.querySelector('.cf-body'), b = c.querySelector('.cf-foot button'), note = c.querySelector('.cf-note');"
+# its height and its content's, whether the note's end is below the body's, and the class of what has the focus; on a page
+# without the parts (the base commit's), the error, so that the print step ends and the check fails
+FACTS = ("(() => { try { const c = document.querySelector('#confirm'), body = c.querySelector('.cf-body'), b = c.querySelector('.cf-foot button'), note = c.querySelector('.cf-note');"
          " const at = n => n ? [Math.round(n.getBoundingClientRect().top), Math.round(n.getBoundingClientRect().bottom)] : null;"
          " return {sheet: c.hasAttribute('data-js-sheet'), position: getComputedStyle(c).position, head: at(c.querySelector('.cf-head .eyebrow')), headWords: c.querySelector('.cf-head').textContent.trim(),"
          " button: at(b), back: at(c.querySelector('.cf-foot a.btn')), backWords: c.querySelector('.cf-foot a.btn').textContent.trim(), screen: innerHeight,"
@@ -565,7 +567,7 @@ FACTS = ("(() => { const c = document.querySelector('#confirm'), body = c.queryS
          " disabled: b.getAttribute('aria-disabled'), label: b.textContent.trim(), top: Math.round(body.scrollTop), height: body.clientHeight, content: body.scrollHeight,"
          " noteBelow: note.getBoundingClientRect().bottom > body.getBoundingClientRect().bottom + 1, noteEnd: Math.round(note.getBoundingClientRect().bottom), buttonTop: Math.round(b.getBoundingClientRect().top),"
          " fixed: [c, ...c.querySelectorAll('*')].some(n => ['fixed', 'sticky'].includes(getComputedStyle(n).position)), focus: document.activeElement?.className ?? '-',"
-         " commit: c.querySelector('#cf-dd-commit .mono')?.textContent ?? '-' }; })()")
+         " commit: c.querySelector('#cf-dd-commit .mono')?.textContent ?? '-' }; } catch (e) { return {error: String(e)}; } })()")
 def until(label, cond):
     """a print step that waits up to 15 s for COND, then gives LABEL and the card's facts"""
     return {"print": f"new Promise(done => {{ const end = Date.now() + 15000; const tick = () => (({cond}) || Date.now() > end) ? done([{json.dumps(label)}, {FACTS}]) : setTimeout(tick, 100); tick(); }})"}
