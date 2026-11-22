@@ -3,7 +3,7 @@
 for tests/lem-serve.sh.
 
     python3 tests/board-showcase.py OUT              the pictures, into OUT: board-*, task-*, backlog-*, phone-*, waits-*, phone-waits-*,
-                                                     review-* and phone-review-*, light and dark
+                                                     story-*, phone-review-*, phone-merge-off-* and phone-merge-on-*, light and dark
     python3 tests/board-showcase.py --demo DIR       the repository alone, in DIR; print its path and its state folder as JSON
 
 It is ten tasks a team could have on one afternoon, written by Lem's own scripts (project.py,
@@ -13,7 +13,8 @@ the owner for, a typo the merge agent found nothing in and the board's server me
 an answered question, and one task the owner parked after its breaker. Each task has the `session.open`
 of its agterm session, as `lem session open` logs it, and one that builds has none, so that "Waits for
 you" has its row "No session runs this task"; the pull request that is not green has the merge agent's
-review (`merge-review.md` and its `merge.review`), which calls the owner. The landed task has a `task.md`
+review (`merge-review.md` and its `merge.review`), which calls the owner, and the landing's record (`landing.json`) that
+every open task has, so that its merge step has its button. The landed task has a `task.md`
 with its outcome, and its polish pass files one backlog item on its branch, so that its "Overview"
 shows "What we are building" whole; the task of the picture of one task (`refund_line`) has every form
 a document of Lem's takes, and its picture shows the merge review that calls the owner. The scripts write the
@@ -26,7 +27,9 @@ The pictures are of the board as `lem serve` sends it: a server of this checkout
 a home folder of Lem of its own (XDG_CONFIG_HOME), shows the repository, and headless Chrome takes each
 picture through the DevTools protocol (tests/board-cdp.mjs, which needs Node): 1440 x 900 px for the
 desktop and 390 x 844 px for a phone, both at two device pixels for each pixel, with the color scheme
-the picture's theme names.
+the picture's theme names. The merge step of pull request 44 on a phone, as it opens with its button off
+(phone-merge-off-*) and with its text scrolled to the end and the button on (phone-merge-on-*), is 390 x
+664 px, since its whole text fits at 390 x 844 (MERGE_PHONE).
 """
 
 import json
@@ -50,6 +53,9 @@ NOW = datetime.now(timezone.utc).replace(second=0, microsecond=0)
 TODAY = NOW.strftime("%Y-%m-%d")
 WIDTH, HEIGHT = 1440, 900
 PHONE = (390, 844)
+# The screen of the merge step's pictures: at PHONE the whole text of pull request 44 fits in the overlay (its body 675 px
+# of 675, measured 2026-11-22), so its button is on at once; at 664 px it goes on below the body's end (495 px of 609).
+MERGE_PHONE = (390, 664)
 
 
 def run(*args: str, cwd: Path | None = None) -> str:
@@ -711,8 +717,16 @@ def refund_line(s: Shop) -> None:
     s.state(t, 448, "open", "pull request https://github.com/acme/shop/pull/44", "not green")
     # the merge agent's read of it (land.py `merge-review`): a request that is not green is the owner's to merge, so it calls him
     (folder / "merge-review.md").write_text(MERGE_REVIEW)
-    s.log(t, 440, "merge.review", "verdict=call", "calls:=true", "by=claude", f"tip={tip[:9]}",
-          "why=Verdict: call. The change does what both criteria say; it is not green for two choices taken without you, and I would keep both.")
+    why = "Verdict: call. The change does what both criteria say; it is not green for two choices taken without you, and I would keep both."
+    s.log(t, 440, "merge.review", "verdict=call", "calls:=true", "by=claude", f"tip={tip[:9]}", f"why={why}")
+    # the landing's record of an open task, in land.py's form (`propose`, `merge-review`): the whole commit it proposed and
+    # its pull request, which the merge step shows and its form carries, and the merge agent's review of that commit
+    whole = run("git", "-C", str(tree), "rev-parse", "HEAD").strip()
+    (folder / "landing.json").write_text(json.dumps({
+        "branch": f"feat/{t}", "pushed": whole, "pr": {"number": 44, "url": "https://github.com/acme/shop/pull/44"}, "proposed": whole,
+        "title": "feat(receipt): a refund shows as a line of its own", "not_green": reasons,
+        "merge_review": {"tip": whole, "verdict": "call", "calls": True, "why": why, "by": "claude", "at": (NOW - timedelta(minutes=440)).strftime("%Y-%m-%dT%H:%M:%SZ")},
+    }, indent=2) + "\n")
     (folder / "pr.md").write_text("feat(receipt): a refund shows as a line of its own\n\nNot green: four reasons, in `decisions.md`.\n\n"
                                   "<details><summary>Decision 1, its story: where the refund line goes</summary>\n\n"
                                   "1. Order 1042 has three items.\n2. A refund of 30.00 EUR comes in.\n\n```mermaid\n" + chart.read_text() + "```\n\n</details>\n")
@@ -770,9 +784,12 @@ def shots(out: Path, base: str) -> None:
     task = f"{base}tasks/refund-line-on-receipt"
     story = [{"eval": "const tab = document.querySelector('.tabbody'), after = [...document.querySelectorAll('.building .b-md p')].find(p => p.textContent.trim() === 'After:');"
                       " tab.scrollTop += after.getBoundingClientRect().top - tab.getBoundingClientRect().top - 14", "after": 800}]
+    # its merge step on a phone, as it opens (the button off) and with its body scrolled to the end (the button on)
+    to_end = [{"eval": "const body = document.querySelector('#confirm .cf-body'); body.scrollTop = body.scrollHeight", "after": 800}]
     pictures = {"board": (base, (WIDTH, HEIGHT), False, []), "task": (task, (WIDTH, HEIGHT), False, []), "backlog": (f"{base}backlog", (WIDTH, HEIGHT), False, []),
                 "phone": (base, PHONE, True, []), "waits": (f"{base}waits", (WIDTH, HEIGHT), False, []), "phone-waits": (f"{base}waits", PHONE, True, []),
-                "story": (task, (WIDTH, HEIGHT), False, story), "phone-review": (task, PHONE, True, [])}
+                "story": (task, (WIDTH, HEIGHT), False, story), "phone-review": (task, PHONE, True, []),
+                "phone-merge-off": (f"{task}/merge", MERGE_PHONE, True, []), "phone-merge-on": (f"{task}/merge", MERGE_PHONE, True, to_end)}
     for name, (url, (width, height), mobile, steps) in pictures.items():
         for theme in ("light", "dark"):
             target = out / f"{name}-{theme}.png"
