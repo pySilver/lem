@@ -391,7 +391,10 @@ proposed tip, the verdict, `calls`, `why`, the seat as `by`, and the time) and l
 with the same. `calls` is true for the verdict `call`, and for a `merge` that `owner_merges` overrules:
 the owner is called, and "Waits for you" shows "Read the merge review". A review of an earlier tip
 counts for nothing, unless `propose` carried it onto the tip after a new landing (below). The facts
-hold `relands` too, how many times the proposal landed again.
+hold `relands` too, how many times the proposal landed again, `pictures`, the PNG, JPEG, GIF and
+WebP files of the task's `media/` folder by their paths from the task directory, which the builders
+took and a review of a change to what a person sees links, and `try`, the worktree's folder from the
+main checkout and `gh pr checkout N`, which a review that calls the owner ends with.
 
 `merged` asks GitHub about a pull request the owner may have merged or closed there. A merged one
 finishes as a landing does. A closed one with no merge ends the task: its state becomes `dropped`
@@ -482,6 +485,7 @@ SCRIPTS = Path(__file__).resolve().parent
 # How this script calls a sibling: in this process, as one command of it.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
+import lem_artifacts  # noqa: E402
 import lem_sibling  # noqa: E402
 import lem_state  # noqa: E402
 import lem_tokens  # noqa: E402
@@ -3775,6 +3779,33 @@ def task_time(events: list[dict], slug: str) -> dict:
             "from": f"the median of {len(earlier)} earlier task{'' if len(earlier) == 1 else 's'} of {which}, from the first event to the proposal, in the event log"}
 
 
+def pictures_of(directory: Path) -> list[str]:
+    """The pictures of a task's `media/` folder that the board's media route shows (PNG, JPEG, GIF,
+    WebP, by `lem_artifacts.IMAGES`), each by its path from the task directory (`media/NAME`), with
+    those of a subfolder and without a hidden part, sorted; [] when the task has no such folder. The
+    merge agent links the ones a report links: a builder takes them, since the agent changes nothing."""
+    folder = directory / "media"
+    if not folder.is_dir():
+        return []
+    found = []
+    for path in folder.rglob("*"):
+        parts = path.relative_to(folder).parts
+        if path.is_file() and not any(part.startswith(".") for part in parts) and path.suffix.lower() in lem_artifacts.IMAGES:
+            found.append("/".join(("media", *parts)))
+    return sorted(found)
+
+
+def try_of(main: Path, worktree: Path, pr: dict) -> dict:
+    """The two ways the owner gets a proposed branch to try it himself: the worktree's folder, by its
+    path from the main checkout when it is under it (`.lem/worktrees/SLUG`), else whole, and the forge's
+    checkout of the pull request. The merge agent copies both into the last line of a review that calls him."""
+    try:
+        folder = str(worktree.relative_to(main))
+    except ValueError:
+        folder = str(worktree)
+    return {"worktree": folder, "checkout": f"gh pr checkout {pr['number']}"}
+
+
 def verdict_of(text: str) -> str | None:
     """The merge agent's verdict, from the first line of its review: `merge` or `call`, or None."""
     first = next((line for line in text.splitlines() if line.strip()), "")
@@ -3833,6 +3864,10 @@ def cmd_merge_review(task: Task, record: str | None, read_tip: str | None = None
             "tokens": lem_tokens.task_tokens(task.directory.parent.parent, task.slug),
             # how many times this proposal landed again (a base that moved, a conflict): nothing bounds them
             "relands": int(kept.get("relands") or 0),
+            # the builders' pictures, which a review of a change to what a person sees links
+            "pictures": pictures_of(task.directory),
+            # how the owner tries the branch himself, the last line of a review that calls him
+            "try": try_of(task.main, task.worktree, kept["pr"]),
         }
         brief = task.directory / "merge-brief.md"
         write_whole(brief, "\n".join([
