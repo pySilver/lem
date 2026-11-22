@@ -389,7 +389,10 @@ class InterviewTurns(unittest.TestCase):
                 self.at(72, "criteria.read.start", by="lem"))
         tm = bm.time_of(t, bm.time_end(t, NOW))
         got = [(g["row"], g["from"], g["to"], g["head"]) for g in tm["spans"] if g["head"] in ("The interview", "Lem writes the criteria")]
-        ms = lambda minute: int((START + timedelta(minutes=minute)).timestamp() * 1000)  # noqa: E731
+
+        def ms(minute):
+            return int((START + timedelta(minutes=minute)).timestamp() * 1000)
+
         self.assertEqual(got, [("you", ms(60), ms(65), "The interview"), ("lem", ms(65), ms(72), "Lem writes the criteria")])
         # the skip question and his approval end Lem's writing too
         for end in (self.at(70, "read.skip.asked"), self.at(70, "criteria.approved", by="owner", number=1)):
