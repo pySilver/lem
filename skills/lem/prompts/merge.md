@@ -15,7 +15,9 @@ plan, or `criteria.md` on the fast track), `files` (the pull request's text `pr.
 words, the request, the report, the notes, an investigation or a breaker's document, where the task
 has them), the `reviews`, the command that lists its `decisions`, whether it is `green` and why not,
 why it is `careful`, `land` (the settings' `branch.land`), `owner_merges`, `time`, `tokens` and
-`relands`, how many times this proposal landed again (a moved base, a conflict).
+`relands`, how many times this proposal landed again (a moved base, a conflict), `pictures`, the
+pictures of the task's `media/` folder by their paths from the task directory, and `try`, the two
+ways the owner gets the branch to try it himself.
 
 ## Read
 
@@ -62,22 +64,40 @@ Then, in this order, each part only when it holds something:
    numbered story, one concrete run with real names and values, **Today** and **After**
    (`SKILL_DIR/prompts/writing.md`, "The numbered story"). A flowchart only when the logic
    branches.
-2. **The results.** The checks, the criteria's tests and the review, in one or two lines.
-3. **Decided without you.** Each decision taken without him that matters, one line each: what was
+2. **What it looks like**, for a change to what a person sees (a page, a screen, a dialog, the
+   text a command prints for a person). You tell it from the criteria, the report and the diff.
+   Link the builders' before and after pictures: the ones of `pictures` that the report or a
+   builder's report links, three at most. A picture no report links is not evidence of this change:
+   an interview or an investigation may leave pictures of the code before it. Link each by its path
+   in `pictures` (`media/NAME`), since your review is in the task directory. Put a pair side by side
+   in a table of one row, or one under the other, each with a caption that says what differs
+   (`SKILL_DIR/prompts/writing.md`, "A screenshot"). With no picture, write one line, `No picture:
+   REASON`, with the reason the builder gave, or that it gave none. A change that shows nothing on
+   a screen gets no picture and no line about pictures. A picture, or its lack, is no reason to
+   call and no reason to merge: "Decide" above says which.
+3. **The results.** The checks, the criteria's tests and the review, in one or two lines.
+4. **Decided without you.** Each decision taken without him that matters, one line each: what was
    chosen and why, and your word on it. A decision the pull request is not green for always gets
    its line.
-4. **The time and the tokens.** The task's time against what was expected, with where the
+5. **The time and the tokens.** The task's time against what was expected, with where the
    expectation comes from, and its tokens with what `tokens.covers` says they are, in one line.
-5. **What you found.** Each thing that makes you call, with its file and symbol, and the input
+6. **What you found.** Each thing that makes you call, with its file and symbol, and the input
    that shows it.
 
 The review is always shorter than what you read, and it grows only with what he must read. For a
 safe change on the fast track (green, not careful, one criterion that the change holds) it is the
 verdict line and at most three sentences after it, 60 words in all (a bound by guess): what changed, that its test
 proves it, and the time. No heading, no list, no story and no chart then; the parts above are for
-every other review. Count the words before you reply: the review of such a change in a scratch
+every other review. The pictures or the no-picture line of a change to what a person sees still go
+in: they come after those words, and the 60 do not count them. Count the words before you reply: the review of such a change in a scratch
 repository ran to 140 words (pySilver/lem-scratch#13, 2026-11-21). Plain words, short sentences, no emoji; the owner reads English as a second language and
 has little time.
+
+A review whose verdict is call, of a change to what a person sees, ends with one line from `try`,
+for the times the owner wants more than the pictures: `Try it: the branch is in WORKTREE, or
+CHECKOUT.`, each value in code marks as the fact gives it (``Try it: the branch is in
+`.lem/worktrees/board-colors`, or `gh pr checkout 41`.``). A review whose verdict is merge has no
+such line.
 
 Your reply is the review and nothing else: the task's session writes it down as `merge-review.md`
 in the task directory, word for word.

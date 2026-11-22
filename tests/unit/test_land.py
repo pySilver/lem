@@ -365,6 +365,48 @@ class MergeReview(unittest.TestCase):
         self.assertEqual(land.task_time(events, "nobody")["seconds"], None)
 
 
+class MergeBriefPictures(unittest.TestCase):
+    """`land.pictures_of`: the pictures of the task's `media/` folder that the merge brief names, each
+    a picture the board's media route shows, by its path from the task directory."""
+
+    def setUp(self) -> None:
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.directory = Path(folder.name) / "hero-logo-animated-background"
+        self.directory.mkdir()
+
+    def test_the_pictures_of_the_folder_and_its_subfolder_and_nothing_else(self) -> None:
+        media = self.directory / "media"
+        (media / "phone").mkdir(parents=True)
+        for name in ("hero-before-dark.png", "hero-after-dark.png", "logo.JPEG", "spinner.gif", "card.webp", "notes.txt", "mark.svg", ".hidden.png"):
+            (media / name).write_bytes(b"x")
+        (media / "phone" / "hero-after.png").write_bytes(b"x")
+        (media / "empty").mkdir()
+        (self.directory / "report.md").write_text("![after](media/hero-after-dark.png)\n", encoding="utf-8")
+        self.assertEqual(land.pictures_of(self.directory), [
+            "media/card.webp", "media/hero-after-dark.png", "media/hero-before-dark.png", "media/logo.JPEG",
+            "media/phone/hero-after.png", "media/spinner.gif",
+        ])
+
+    def test_no_media_folder_is_no_picture(self) -> None:
+        self.assertEqual(land.pictures_of(self.directory), [])
+
+
+class MergeBriefTry(unittest.TestCase):
+    """`land.try_of`: the two ways the owner gets the branch, which a review that calls him ends with."""
+
+    PR = {"number": 41, "url": "https://github.com/example/shop/pull/41"}
+
+    def test_a_worktree_under_the_main_checkout_is_named_from_it(self) -> None:
+        main = Path("/work/shop")
+        self.assertEqual(land.try_of(main, main / ".lem" / "worktrees" / "board-colors", self.PR),
+                         {"worktree": ".lem/worktrees/board-colors", "checkout": "gh pr checkout 41"})
+
+    def test_a_worktree_outside_it_is_named_whole(self) -> None:
+        self.assertEqual(land.try_of(Path("/work/shop"), Path("/elsewhere/board-colors"), self.PR),
+                         {"worktree": "/elsewhere/board-colors", "checkout": "gh pr checkout 41"})
+
+
 class MovedBase(unittest.TestCase):
     """A merge that the moved base refused: which refusals are kept for the tip, when what was said of
     the tip at the merge holds for the tip of the new landing, and when the owner's merge stands."""

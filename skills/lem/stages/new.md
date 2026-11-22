@@ -396,8 +396,12 @@ queued task").
    change: one builder` and the type line of step 1, whose `say` is the first line. There is no
    lead: the one builder is the fresh builder of the one task, as the owner's rule on a fresh
    builder for each task has it.
-3. **When it stops**, its reply is its report, of five lines at most, and you write `report.md`
-   in the task directory from it word for word. Its state says what follows:
+3. **When it stops**, its reply is its report, of six lines at most, and you write `report.md`
+   in the task directory from it word for word, but for its line of pictures: each picture it
+   names goes in as a paragraph of its own, its link and its caption under it
+   (`![WHAT IT SHOWS](media/NAME-before.png)`, then `*WHAT DIFFERS*` on the next line), so that
+   the board draws a `-before`/`-after` pair side by side and the merge agent finds it. A `No
+   picture:` line stays as the builder wrote it. Its state says what follows:
    - `ready`: the landing, `stages/land.md`, here in this session, with the fast track's steps
      there, up to its pull request with no question on the way: the push and the pull request of
      `lem land propose` are the owner's standing word in the settings he approved, not a step to
