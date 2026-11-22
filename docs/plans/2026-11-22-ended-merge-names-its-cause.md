@@ -12,7 +12,10 @@ Size: full, because the fast track's one criterion named a cause the code does n
    3. The base moves, and the owner merges the task's pull request.
    4. The rebase meets no conflict, and no commit comes after it.
    5. `lem land propose` ends his merge, and its `owner_merge` line says that no review covers the change: round 2 left 1 must-fix, and no review read the change after it.
+   - test: `python3 -B -m unittest tests.unit.test_land.MovedBase.test_why_no_review_covers_the_change_names_the_newest_reviews_reason` in `tests/unit/test_land.py`
+   - test: `python3 -B -m unittest tests.unit.test_land.MovedBase.test_an_ended_merge_says_that_no_review_covers_the_change` in `tests/unit/test_land.py`
 2. When `lem land propose` ends the owner's merge after a moved base while a review covers the change, because a commit came after the rebase or the rebase met a conflict, its `owner_merge` line still says that a commit came after the rebase or that the rebase met a conflict: the rebase of a task whose review found nothing to fix meets a conflict in `README.md`, and the line names the rebase and the conflict, as it does today.
+   - test: `python3 -B -m unittest tests.unit.test_land.MovedBase.test_an_ended_merge_after_a_covering_review_keeps_its_line` in `tests/unit/test_land.py`
 
 ## How it works
 
