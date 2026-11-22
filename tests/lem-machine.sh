@@ -475,6 +475,7 @@ else
   fail "same second, same session: $(corr list)"
 fi
 # A queue line that was cut off, and a review file that holds a byte that is not UTF-8: named with the file and the line, no traceback.
+# A settings file that does not read stops list as it stops every command that reads the settings, and is a no for the hook.
 cp "$CQ/.lem/state/corrections.jsonl" "$WORK/queue.kept"
 printf '{"ts": "2026-01-01T00:00:00Z", "sess' >> "$CQ/.lem/state/corrections.jsonl"
 cut_line=$(corr list 2>&1 || true)
@@ -484,14 +485,17 @@ cp "$CQ/.lem/state/corrections-reviews.jsonl" "$WORK/reviews.kept" && printf 'ca
 latin_line=$(corr lessons 2>&1 || true)
 cp "$WORK/reviews.kept" "$CQ/.lem/state/corrections-reviews.jsonl"
 cp "$CQ/.lem/project.toml" "$WORK/corr-settings.kept" && printf '# caf\351\n' >> "$CQ/.lem/project.toml"
-latin_settings=$(corr list | field 'd["collect"]' 2>&1 || true)
+latin_code=$(status_of corr list)
+latin_settings=$(corr list 2>&1 || true)
+latin_hook=$("$PY" -B -c 'import sys; sys.path.insert(0, sys.argv[1]); import corrections; print(corrections.collects(sys.argv[2]))' "$(dirname "$CORR")" "$CQ")
 cp "$WORK/corr-settings.kept" "$CQ/.lem/project.toml"
 lines=$(grep -c '' "$CQ/.lem/state/corrections.jsonl")
 if [ "$cut_code" = 1 ] && grep -qF "corrections.jsonl:$((lines + 1)) does not read as JSON" <<<"$cut_line" && grep -qF "corrections-reviews.jsonl:" <<<"$latin_line" \
-  && grep -qF "is not UTF-8 text" <<<"$latin_line" && [ "$latin_settings" = False ] && ! grep -q Traceback <<<"$cut_line$latin_line$latin_settings"; then
-  pass "a queue line that was cut off and a line that is not UTF-8 are named with their file and line, and settings that do not read are a no"
+  && grep -qF "is not UTF-8 text" <<<"$latin_line" && [ "$latin_code" = 1 ] && grep -qF "corrections.py: $CQ/.lem/project.toml is not UTF-8 text" <<<"$latin_settings" \
+  && [ "$latin_hook" = False ] && ! grep -q Traceback <<<"$cut_line$latin_line$latin_settings"; then
+  pass "a queue line that was cut off and a line that is not UTF-8 are named with their file and line, and settings that do not read stop list with the fix and are a no for the hook"
 else
-  fail "a queue that does not read: $cut_line / $latin_line / $latin_settings"
+  fail "a queue that does not read: $cut_line / $latin_line / $latin_code / $latin_settings / $latin_hook"
 fi
 # Lem's client of Jev: a timeout that is no number and a spec that is not UTF-8 are named, and nothing is sent.
 JEVPY=$PWD/skills/lem/scripts/jev.py
