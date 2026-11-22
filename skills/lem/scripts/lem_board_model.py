@@ -994,7 +994,7 @@ def merge_wait(t: Task) -> str | None:
     tip = t.proposal.get("tip")
 
     def same(of: object) -> bool:
-        return bool(tip and of) and (str(tip).startswith(str(of)) or str(of).startswith(str(tip)))
+        return same_tip(tip, of)
 
     # the events since the proposal, the newest last: a read of the moved base and a merge of the owner's that stands are read there
     since = t.events[t.proposal["order"]:]
