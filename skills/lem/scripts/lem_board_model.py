@@ -99,7 +99,8 @@ LANES = [
 ]
 LANE = {lane["key"]: lane for lane in LANES}
 # The ended tasks Done draws as cards, the newest first: its head counts every ended task, and a page of the board
-# lists the rest. An unmeasured estimate of a column that fits one screen of the large board (the backlog item, 2026-11-21).
+# lists the rest. An unmeasured estimate of a column that fits one screen of the large board
+# (docs/plans/2026-11-21-done-column-shows-newest.md, 2026-11-21).
 DONE_SHOWN = 20
 # 'Proposed' is the pull request on GitHub.
 PHASES = ["Criteria", "Plan", "Build", "Checks", "Review", "Proposed", "Landed"]
