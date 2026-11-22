@@ -10,23 +10,23 @@ Size: full, because the fix closes three ways a board page keeps old counts, in 
    1. On the phone, the owner taps the card of project-rulings-one-list, and its panel opens.
    2. 3 seconds later Lem refuses his merge because the base moved, and the board refreshes.
    3. The page still has its sidebar, its inbox icon and its status bar, and the inbox icon and the sidebar's "Waits for you" both show the new number.
-   - test: `bash tests/lem-serve.sh` in `tests/lem-serve.sh`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-showcase.py`, `tests/board-cdp.mjs` (the check of a refresh soon after a finger opened a task's panel, `tapped_checks`)
+   - test: `bash tests/lem-serve.sh` in `tests/lem-serve.sh`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-showcase.py`, `tests/board-cdp.mjs` (the check of a refresh soon after a finger opened a task's panel, tapped_checks)
 2. A page that comes back to the screen, or connects again, gets each change it missed, also a change that adds no line to the event log:
    1. The phone shows 5 on the inbox icon and goes off the screen.
    2. On the Mac the owner types `/lem im-away`, and the criteria that waited for his yes go on without him: 4 things wait now.
    3. The phone comes back to the screen.
    4. In its first update, the inbox icon and the sidebar's "Waits for you" both show 4.
    - test: `bash tests/lem-serve.sh` in `tests/lem-serve.sh`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-showcase.py`, `tests/board-cdp.mjs` (a stream opened again after a change outside the log gets a refresh; a first open gets none, and a quiet stream pings)
-   - test: `python3 -B -m unittest discover -s tests/unit -p test_serve.py` in `tests/unit/test_serve.py` (`StreamOpen`)
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_serve.py` in `tests/unit/test_serve.py` (the class StreamOpen)
 3. A page on the screen whose connection stops without an error knows it within 30 seconds, says "reconnecting" in its status bar in place of "live", and gets the new counts as soon as the connection works again:
    1. The phone shows 5 on the inbox icon.
    2. The network stops forwarding but keeps the connection open.
    3. A task stops waiting for the owner.
    4. 30 seconds after the network stopped at the latest, the status bar says "reconnecting".
    5. The network forwards again, and both counts show 4 in the next update.
-   - test: `bash tests/lem-serve.sh` in `tests/lem-serve.sh`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-showcase.py`, `tests/board-cdp.mjs` (a phone page through a relay that stops, `relay_checks`)
+   - test: `bash tests/lem-serve.sh` in `tests/lem-serve.sh`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-showcase.py`, `tests/board-cdp.mjs` (a phone page through a relay that stops, relay_checks)
 4. On one page, the inbox icon and the sidebar's "Waits for you" show the same number after every update: when the owner confirms a merge in a task's panel on the phone, and the merge goes through or Lem refuses it, the two counts change in the same update.
-   - test: `bash tests/lem-serve.sh` in `tests/lem-serve.sh`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-showcase.py`, `tests/board-cdp.mjs` (the owner's merge from a task's panel on a phone, refused or gone through, `merge_checks`)
+   - test: `bash tests/lem-serve.sh` in `tests/lem-serve.sh`, `tests/lib.sh`, `tests/checks.sh`, `tests/board-showcase.py`, `tests/board-cdp.mjs` (the owner's merge from a task's panel on a phone, refused or gone through, merge_checks)
 
 ## How it works
 
