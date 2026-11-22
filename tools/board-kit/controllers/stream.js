@@ -2,18 +2,31 @@
 // (`refresh`: Turbo fetches the page again and morphs it in). The element is permanent, so it lives
 // across the visits of one workspace and its words in the status bar are its own.
 //
-// iOS drops an EventSource in the background, or keeps a dead one that still says it is open: a page
-// that comes back into view, or out of the back-forward cache, opens a new one, which the server
-// answers with a refresh when the log changed meanwhile (`?since=` the last id seen). An id is the log's
-// version, its inode and its count of lines in one text ("8812-140"), kept whole: a log that
-// `lem project prune` replaced has another inode, so the page is told also when the count is the
-// same. With a task open (its address), the stream watches that task's files too (`&task=`). While the stream
-// is down the page refreshes itself every POLL_MS, and only after the server answered a light
-// request: a refresh that finds no server would make Turbo reload the page into the browser's error.
+// The stream's first open names the id the page was rendered with (`?rendered=`), and the server sends a
+// refresh at once only when the log is no longer at it. Every later open names the last id seen (`?since=`),
+// and the server sends a refresh at once whatever the log, since a change the page missed may add no line
+// to it (the owner's mark, the settings, a task's files). An id is the log's version, its inode and its
+// count of lines in one text ("8812-140"), kept whole: a log that `lem project prune` replaced has another
+// inode, so the page is told also when the count is the same. With a task open (its address), the stream
+// watches that task's files too (`&task=`).
+//
+// iOS drops an EventSource in the background, or keeps a dead one that still says it is open, and a
+// network can stop forwarding and keep the connection open. So a page that comes back into view, or out
+// of the back-forward cache, opens a new stream; and a page that heard nothing for SILENCE_MS (no message
+// and no `ping` event, which the server sends every 10 s of quiet) takes its stream as down, as does one
+// whose new stream did not open within that time. A stream that fails is closed here, never left to the
+// browser's own reconnect, so every new one is this page's open. While the stream is down the page says
+// "reconnecting", opens a new stream every POLL_MS and refreshes itself, but only after the server answered
+// a light request within ASK_MS: a refresh that finds no server would make Turbo reload the page into the
+// browser's error.
 import {Controller} from '@hotwired/stimulus';
 import {ago} from './time.js';
 
 const POLL_MS = 10000;
+// 25 s of silence, over two of the server's pings: the page says "reconnecting" within 30 s of a stop, at
+// most one tick late. An unmeasured estimate (the plan of 2026-11-22), as is the light request's 5 s.
+const SILENCE_MS = 25000;
+const ASK_MS = 5000;
 const REFRESH = '<turbo-stream action="refresh"></turbo-stream>';
 
 export default class extends Controller {
@@ -21,6 +34,7 @@ export default class extends Controller {
 
   connect() {
     this.lastId = this.sinceValue;
+    this.first = true;
     this.lastMessage = 0;
     this.down = 0;
     this.onShow = () => { if (document.visibilityState === 'visible') this.open(); };
@@ -54,22 +68,31 @@ export default class extends Controller {
   open() {
     this.close();
     this.watching = this.task();
-    const source = new EventSource(`${this.urlValue}?since=${encodeURIComponent(this.lastId)}${this.watching ? `&task=${this.watching}` : ''}`);
-    source.addEventListener('open', () => { if (this.source === source) { this.down = 0; this.say(); } });
-    source.addEventListener('message', ev => {
-      if (this.source !== source) return;
+    const id = `${this.first ? 'rendered' : 'since'}=${encodeURIComponent(this.lastId)}`;
+    this.first = false;
+    const source = new EventSource(`${this.urlValue}?${id}${this.watching ? `&task=${this.watching}` : ''}`);
+    const heard = ev => {
+      if (this.source !== source) return false;
       if (ev.lastEventId) this.lastId = ev.lastEventId;
-      this.lastMessage = Date.now();
+      this.heard = Date.now();
       this.down = 0;
+      return true;
+    };
+    source.addEventListener('open', ev => { if (heard(ev)) this.say(); });
+    source.addEventListener('ping', ev => { if (heard(ev)) this.say(); });
+    source.addEventListener('message', ev => {
+      if (!heard(ev)) return;
+      this.lastMessage = Date.now();
       this.say();
     });
     source.addEventListener('error', () => {
       if (this.source !== source) return;
-      if (!this.down) this.down = Date.now();
-      this.say();
+      this.close();
+      this.went();
     });
     window.Turbo.connectStreamSource(source);
     this.source = source;
+    this.heard = Date.now();
     this.say();
   }
 
@@ -80,17 +103,24 @@ export default class extends Controller {
     this.source = null;
   }
 
+  // the stream is down from now, unless it already was
+  went() {
+    if (!this.down) this.down = Date.now();
+    this.say();
+  }
+
   async tick() {
+    // a stream that said nothing for too long, or a new one that never opened, is dead
+    if (this.source && Date.now() - this.heard > SILENCE_MS) { this.close(); this.went(); }
     this.say();
     if (!this.down || Date.now() - (this.polled ?? 0) < POLL_MS) return;
     this.polled = Date.now();
-    // a stream the server refused stays closed: open it again, and read the page while it is down
-    if (this.source?.readyState === EventSource.CLOSED) this.open();
+    if (!this.source) this.open();
     try {
-      const reply = await fetch('/api/server', {cache: 'no-store'});
+      const reply = await fetch('/api/server', {cache: 'no-store', signal: AbortSignal.timeout(ASK_MS)});
       if (reply.ok) { window.Turbo.renderStreamMessage(REFRESH); this.answered = Date.now(); }
     } catch {
-      // the server does not answer: the page stays as it is, and says so
+      // the server does not answer, or not in time: the page stays as it is, and says so
     }
     this.say();
   }
@@ -105,8 +135,11 @@ export default class extends Controller {
       text = 'connecting…';
       title = 'The page opens its stream to lem serve';
     } else {
-      text = this.answered && this.answered > this.down ? `the stream is down: the page reads again every ${POLL_MS / 1000}s` : 'lem serve does not answer';
-      title = `Since ${new Date(this.down).toLocaleTimeString()}; the page tries again every ${POLL_MS / 1000}s`;
+      text = 'reconnecting';
+      const since = new Date(this.down).toLocaleTimeString();
+      title = this.answered && this.answered > this.down
+        ? `The stream is down since ${since}, and lem serve answers: the page reads itself again and opens a new stream every ${POLL_MS / 1000}s`
+        : `lem serve does not answer since ${since}: the page tries again every ${POLL_MS / 1000}s`;
     }
     this.element.classList.toggle('down', Boolean(this.down));
     if (this.element.textContent !== text) this.element.textContent = text;

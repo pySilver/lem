@@ -1,5 +1,6 @@
 """serve.py's rules, each called in this process: who the tailnet door lets in, who may ask the main
-listener for an act, the note of a merge that runs, the machine's names in an address, which duty
+listener for an act, the note of a merge that runs, whether a page's stream gets a refresh as it
+opens, and its ping, the machine's names in an address, which duty
 the server owes the tasks, and when it runs `lem project prune`. The routes, the stream and the start on demand run in tests/lem-serve.sh, with a server.
 
     python3 -B -m unittest discover -s tests/unit
@@ -99,6 +100,31 @@ class Notes(unittest.TestCase):
         self.assertEqual((again, new, second, notes.running("shop")), (first, True, False, {"gift-note"}))
         notes.change(first, state="done", said="merged")
         self.assertEqual((notes.get(first)["state"], notes.get("no-such-token")), ("done", None))
+
+
+class StreamOpen(unittest.TestCase):
+    """Whether a page's stream gets a refresh the moment it opens (`opens_with_refresh`)."""
+
+    def test_a_first_open_gets_one_only_when_the_log_is_no_longer_at_its_render(self):
+        self.assertFalse(serve.opens_with_refresh("8812-142", None, None, "8812-142"))
+        self.assertTrue(serve.opens_with_refresh("8812-141", None, None, "8812-142"))
+        # the same count on a log that `lem project prune` replaced, and a shorter one, are behind too
+        self.assertTrue(serve.opens_with_refresh("8812-142", None, None, "9301-142"))
+        self.assertTrue(serve.opens_with_refresh("8812-143", None, None, "9301-142"))
+
+    def test_an_open_again_gets_one_whatever_the_log(self):
+        self.assertTrue(serve.opens_with_refresh(None, "8812-142", None, "8812-142"))
+        self.assertTrue(serve.opens_with_refresh(None, "8812-150", None, "8812-142"))
+
+    def test_the_browsers_own_reconnect_gets_one_also_on_a_first_opens_address(self):
+        self.assertTrue(serve.opens_with_refresh("8812-142", None, "8812-142", "8812-142"))
+
+    def test_an_open_that_names_no_id_gets_none(self):
+        self.assertFalse(serve.opens_with_refresh(None, None, None, "8812-142"))
+        self.assertFalse(serve.opens_with_refresh("", None, "", "8812-142"))
+
+    def test_the_ping_is_an_event_of_its_own_with_the_logs_id(self):
+        self.assertEqual(serve.ping("8812-142"), b"id: 8812-142\nevent: ping\ndata: 8812-142\n\n")
 
 
 class Names(unittest.TestCase):

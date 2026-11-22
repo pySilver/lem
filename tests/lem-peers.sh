@@ -96,7 +96,7 @@ version=$(log_version "$WORK/beta/shop/.lem/state/events.jsonl")
 "$PY" -u -c 'import sys, time, urllib.request
 reply = urllib.request.build_opener(urllib.request.ProxyHandler({})).open(sys.argv[1], timeout=20)
 for line in reply:
-    print(f"{time.time():.3f} {line.decode()}", end="", flush=True)' "$ALPHA/beta/shop/stream?since=$version" > "$WORK/stream.out" 2>/dev/null &
+    print(f"{time.time():.3f} {line.decode()}", end="", flush=True)' "$ALPHA/beta/shop/stream?rendered=$version" > "$WORK/stream.out" 2>/dev/null &
 streamed=$!
 soon grep -q ': open' "$WORK/stream.out"
 links=$(peer_links)
