@@ -20,6 +20,10 @@ A companion session of the lead's, `SLUG · plan talk`, which runs Claude Code w
    backslash breaks the line; then tell the owner in one line that the pair cannot open from that
    checkout, and hold the task.
 
+   `LOGIN_SHELL` is the owner's login shell by absolute path, as `task-session.md` finds it
+   (`dscl . -read /Users/NAME UserShell`), never `$SHELL`: in a task's session `$SHELL` gave
+   `/bin/zsh`, whose login `PATH` has no `claude`, and the pair failed twice with "command not
+   found: claude"; the login shell, fish, opened it (moved-base-merge-agent-call, 2026-11-22).
    `MAIN` is the main checkout, where the task's session stands too: the pair has the plugin and
    the folder's own Claude Code settings there, and reaches the task's worktree by its path, as
    the session does (`owner-steps.md`, "A folder's trust").
