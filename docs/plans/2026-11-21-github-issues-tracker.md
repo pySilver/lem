@@ -86,7 +86,10 @@ flowchart TD
    criterion 5). `TRACKERS` in `skills/lem/scripts/project.py` takes `github`; `cmd_task_dir`
    reads the project's tracker and takes the id form of its kind (`TICKET` stays the Linear form, a
    new rule takes `42`, `#42` and `#042` and keeps `#42`: the number as an integer, so one issue has
-   one saved form, and 0 is refused). A project with no `[tracker]` refuses `--ticket`, with the fix
+   one saved form, and 0 is refused). For a GitHub ticket, `cmd_task_dir` also keeps the
+   repository that origin names when the task takes the issue, `OWNER/REPO`, in
+   `ticket-repo.txt` beside `ticket.txt` (which keeps `#42`, criterion 2); `lem project tasks`
+   gives it as `ticket_repo`, and `RESUMED_FILES` copies it with `ticket.txt`. A project with no `[tracker]` refuses `--ticket`, with the fix
    (the table and its `kind`): a ticket that no tracker can act on is a record nobody pays
    (`ticket_owed` gives nothing with no tracker). The claim of a ticket is one function that
    `cmd_task_dir` and `cmd_resume` both call, so a resumed task that would take an issue another
@@ -122,7 +125,9 @@ flowchart TD
      the rule of `request by: someone else` (`stages/new.md`, "Which path").
    - Each write first reads the task in `lem project tasks` and refuses a status the step does not
      belong to: `start` an ended or parked task, `land` any status but `landed`, `drop` any but
-     `dropped`, `answer` any but `answered`. Then it looks at `ticket_steps`.
+     `dropped`, `answer` any but `answered`. It refuses too when origin names another repository
+     than the task's `ticket_repo`, and names both and the fix: origin set back, or the owner
+     writes to the issue by hand. Then it looks at `ticket_steps`.
    - `start`, with `started` not written: it reads the issue's assignees. With none, it writes
      `assigned LOGIN` (the gh login) down first and then adds that login; when `gh` refuses the
      add, it writes `unassigned` at once and tells the owner why in one line. With `assigned`
@@ -161,7 +166,7 @@ flowchart TD
      `linear.app` in a document is no longer evidence for a proposal. `[tracker]` proposes
      `github` when no Linear key shows, with the check of task 2 before the table is written, in
      the same words as for Linear. The onboarding's page pattern, when it names the tracker, too.
-   - `skills/lem/stages/new.md`, step 1 of "The request": the ask of a ticket is what the
+   - `skills/lem/stages/new.md`, step 1 of "Open the task": the ask of a ticket is what the
      tracker's "read" gives as the ask (today "its title is the ask", which drops the text that
      `lem-linear`'s "read" itself names as the ask). So `ask.txt`, which the investigator reads
      (`stages/investigate.md`, step 2), holds the issue's text.
@@ -206,7 +211,10 @@ flowchart TD
   forge (decision 2). The pull request's text gets no `Closes #42`: Lem closes the issue itself.
 - The issue is origin's, at every step: the ask says "the repository is origin's", criterion 3
   reads "the repository that origin names", and `land.py` reads origin at each step for the push
-  and the pull request (`Task.__init__`, `remote.origin.url`). The task keeps `#42` alone.
+  and the pull request (`Task.__init__`, `remote.origin.url`). The task keeps `#42` and the
+  repository origin named when it took the issue, and no write goes to an issue of another
+  repository: a task can be dropped before any push, so the landing does not catch a moved origin
+  first.
 - The assignee's step is written down before `gh` adds the login, with the login, and every other
   step after `gh` took it: a removal reads the assignees first, so a step written for an add that
   never happened removes nothing, while a step written after the add would be lost by a cut-off
