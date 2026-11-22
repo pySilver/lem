@@ -12,18 +12,29 @@ Size: full, because the landing's merge, the merge agent's brief and answer, the
    3. The merge of A meets m2. A fresh merge agent gets B's commits and files beside A's change, and answers "Base: safe." with one sentence of why.
    4. A merges on m2, and no command of the checks runs again.
    5. The pull request on GitHub and the merge commit say that the checks ran on m1, that A merged on m2 after the merge agent's read, and the read's one sentence of why.
+   - test: `python3 -B -m unittest tests.unit.test_land.ReadOfAMovedBase.test_a_safe_read_covers_its_own_base tests.unit.test_land.ReadOfAMovedBase.test_what_moved_beside_the_change` in `tests/unit/test_land.py`
+   - test: `python3 -B -m unittest tests.unit.test_serve.MovedBaseRead.test_a_safe_read_answers_lems_base_refusal_and_the_server_merges` in `tests/unit/test_serve.py`
 2. A move that the merge agent calls unsafe gets another round of the checks before any merge:
    1. Task A's checks pass on m1. Task B merges and changes `skills/lem/scripts/land.py`, a file A's change also edits.
    2. The merge agent answers "Base: another round." with one sentence of why.
    3. A is brought onto m2 and checked again, as a moved base is today, and only then can it merge.
    4. The same holds when B renames a function that A's change calls, in a file A does not edit: the merge agent reads what A's code uses, not only the files both edit.
+   - test: `python3 -B -m unittest tests.unit.test_land.ReadOfAMovedBase.test_the_base_call_is_the_second_line tests.unit.test_land.ReadOfAMovedBase.test_after_another_round_no_read_of_the_tip_covers_a_base` in `tests/unit/test_land.py`
+   - test: `python3 -B -m unittest tests.unit.test_serve.MovedBaseRead.test_another_round_with_no_refusal_before_it_starts_no_merge` in `tests/unit/test_serve.py`
 3. A read covers the base it read, and no later one: after a read of m2 says safe, task C merges and main is m3 before A's merge runs; A's merge meets m3, and nothing merges until a new read of what moved since A's checks says safe.
+   - test: `python3 -B -m unittest tests.unit.test_land.ReadOfAMovedBase.test_the_refusal_names_the_read_or_a_new_landing tests.unit.test_land.ReadOfATip.test_each_tip_and_base_has_its_own_brief_and_answer_file` in `tests/unit/test_land.py`
+   - test: `python3 -B -m unittest tests.unit.test_serve.MovedBaseRead.test_a_read_of_m2_does_not_cover_m3` in `tests/unit/test_serve.py`
 4. The owner's merge that meets a moved base is read the same way, and he is not asked again:
    1. The owner presses Merge on task A's board; main moved since A's checks.
    2. A fresh merge agent reads what moved.
    3. On "safe", his merge goes through on the new base. On "another round", A is checked again: when the checks pass, A merges with no new press of his; when they fail, Lem repairs the branch as for any red check, the board shows it, and the merge waits for his press again, since the change is no longer the one he merged.
+   - test: `python3 -B -m unittest tests.unit.test_serve.MovedBaseRead.test_the_owners_merge_a_moved_base_refused_goes_through_on_a_safe_read` in `tests/unit/test_serve.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_model.MovedBase.test_a_safe_read_of_the_moved_base_answers_lems_refusal` in `tests/unit/test_board_model.py`
 5. A read of a moved base never lets the merge agent merge what it may not merge today: a careful change, a request that is not green, and a project whose settings say the owner merges still wait for the owner's merge when the read says safe.
+   - test: `bash tests/lem-land-shop.sh` in `tests/lem-land-shop.sh` `tests/lib.sh`
 6. The record says that a merge went through on a moved base and why: after A merges on m2, the pull request's text and the merge commit name the base the checks ran on, the base it merged on and the merge agent's one sentence of why, and A's board shows the same read.
+   - test: `python3 -B -m unittest tests.unit.test_land.ReadOfAMovedBase.test_the_line_names_both_bases_and_the_why tests.unit.test_land.ReadOfAMovedBase.test_a_base_no_read_covered_is_named` in `tests/unit/test_land.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_model.MovedBase.test_the_feed_shows_the_read_of_a_moved_base_with_its_call` in `tests/unit/test_board_model.py`
 
 ## How it works
 
