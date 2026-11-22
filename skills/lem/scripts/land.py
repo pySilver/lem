@@ -2093,14 +2093,20 @@ def checks_body(task: Task, flags: dict, tip: str, found: dict, commands: list[s
         return "red", f"the checks are red on {len(red)} command(s): {'; '.join(red)}. A builder reads the output files; the checks are never edited to pass"
     # The commands of the checks are green. Now what no command of the project checks: that each criterion is
     # held by a test that fails without the change, and that the change did not lower the bar.
+
+    def criteria_refused(stderr: str) -> tuple[str, str]:
+        """The run refused by the check of the criteria, in the words its script gave."""
+        result.update(result="refused", say=checks_say(task.slug, "refused", refused="the check of the criteria did not pass"))
+        return "refused", f"{stderr.strip().removeprefix('criteria.py: ')}. A builder repairs the test or the plan; the check is never edited to pass"
+
     taken = None
     if not found["small"]:
         # A new read of the criteria, here and not the one `checks_ready` made before the load wait and the
         # commands: an approval or a recorded change since then counts. It refuses as a run of the tests would.
         read = script("criteria.py", task.main, "inputs", task.slug, check=False)
         if read.returncode != 0:
-            result.update(criteria=None, result="refused", say=checks_say(task.slug, "refused", refused="the check of the criteria did not pass"))
-            return "refused", f"{read.stderr.strip().removeprefix('criteria.py: ')}. A builder repairs the test or the plan; the check is never edited to pass"
+            result["criteria"] = None
+            return criteria_refused(read.stderr)
         taken = taken_from_polish(task.kept().get("polish"), json.loads(read.stdout)["inputs"], small=False)
     if taken:
         # the pass ran these tests on this tip, against this base commit, plan file and settings: they run no second time
@@ -2112,8 +2118,7 @@ def checks_body(task: Task, flags: dict, tip: str, found: dict, commands: list[s
         except ValueError:
             result["criteria"] = None
         if held.returncode != 0:
-            result.update(result="refused", say=checks_say(task.slug, "refused", refused="the check of the criteria did not pass"))
-            return "refused", f"{held.stderr.strip().removeprefix('criteria.py: ')}. A builder repairs the test or the plan; the check is never edited to pass"
+            return criteria_refused(held.stderr)
     # The fast track gives no reason for a lowered bar: it has no plan, and a lowered bar never takes the fast track.
     plan = "" if found["small"] else Path(found["plan"]).read_text(encoding="utf-8")
     now = change(task)
