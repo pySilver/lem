@@ -8,8 +8,11 @@
 # `state`, `log` and `tasks` for each line and record whose form a rule holds (the type line, the steps
 # a ticket is owed and the form of each record are unit cases, tests/unit/test_task_rules.py): the exit
 # status, the log that does not grow after a refusal and the newest record in `tasks`. Then the rule
-# picker, a task's criteria and the check that each one's tests fail on the base commit, and the board,
-# which reads them all.
+# picker, through one journey of `rules` (a glob's braces and what it matches are unit cases,
+# tests/unit/test_rule_picker.py): the rule files it finds in a subfolder and through a link, what it
+# reads of their frontmatter, a range of commits with a file that moved, the path forms and the
+# refusals. Then a task's criteria and the check that each one's tests fail on the base commit, and the
+# board, which reads them all.
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
@@ -1016,6 +1019,8 @@ project --repo "$OLD" log owner-lands-it proposed green:=false 'not_green:=["cri
 project --repo "$OLD" state owner-lands-it open "ready to land on master at abc1234" "not green: criterion 1 changed during the build: y is taken." >/dev/null
 
 # The rule picker: one match of a change against the scopes of the style guide files, for every reader of the rules.
+# Each glob form, a brace group and what it matches or not is a unit case (`braces`, `glob_regex`,
+# tests/unit/test_rule_picker.py); here each rule file covers one file or more of one call.
 RUL=$WORK/rules-repo
 git init -q -b main "$RUL"
 git -C "$RUL" config user.name t && git -C "$RUL" config user.email t@t
@@ -1036,25 +1041,12 @@ echo 'not a rule' > "$RUL/.claude/rules/notes.txt"
 project --repo "$RUL" init --base main >/dev/null
 git -C "$RUL" add -A && git -C "$RUL" commit -q -m "chore: start"
 picked() { project --repo "$RUL" rules "$@" | field '" ".join(r["file"].rsplit("/", 1)[1][:2] for r in d["rules"])'; }
-got=""
-for file in src/api/v1/x.ts src/x.ts x.ts README.md docs/README.md src/components/a.tsx src/components/deep/a.tsx src/components/a.css lib/a.ts lib/a.tsx tests/unit/a.test.ts tests/a.ts \
-  models.py app/models.py app/models/user/x.py app/models.pyc .revmux/lenses/a.md scripts/verify.sh scripts/other.sh docs/a/x.md docs/c/x.md db/001.sql 'db/a#b.psql' api/v1.proto lib/../src/x.ts Makefile; do
-  got="$got$file=$(picked "$file");"
-done
-want="src/api/v1/x.ts=00 01 10 11 14;src/x.ts=00 01 10 11 14;x.ts=00 01 10;README.md=00 01 12;docs/README.md=00 01;src/components/a.tsx=00 01 11 13 14;src/components/deep/a.tsx=00 01 11 14;"
-want="${want}src/components/a.css=00 01 11;lib/a.ts=00 01 10 14;lib/a.tsx=00 01;tests/unit/a.test.ts=00 01 10 14;tests/a.ts=00 01 10;"
-want="${want}models.py=00 01 20;app/models.py=00 01 20;app/models/user/x.py=00 01 20;app/models.pyc=00 01;.revmux/lenses/a.md=00 01 20;scripts/verify.sh=00 01 21;scripts/other.sh=00 01;"
-want="${want}docs/a/x.md=00 01 20;docs/c/x.md=00 01;db/001.sql=00 01 30;db/a#b.psql=00 01 30;api/v1.proto=00 01 15;lib/../src/x.ts=00 01 10 11 14;Makefile=00 01;"
-if [ "$got" = "$want" ]; then
-  pass "the rule picker matches the glob forms the agent's documentation gives for paths: a star stays in one folder, two stars cross folders, braces list endings, a file with no scope covers every path, and a comment or a byte order mark in the frontmatter changes nothing"
-else
-  fail "the rule picker: $(tr ';' '\n' <<<"$got" | diff - <(tr ';' '\n' <<<"$want"))"
-fi
-out=$(project --repo "$RUL" rules src/components/a.tsx "$RUL/app/models.py")
+out=$(project --repo "$RUL" rules src/components/a.tsx "$RUL/app/models.py" docs/a/x.md lib/a.ts tests/unit/a.test.ts scripts/verify.sh db/001.sql 'db/a#b.psql' api/v1.proto README.md)
 if [ "$(field '[(r["file"].rsplit("/", 1)[1], r["scope"], r.get("covers")) for r in d["rules"] if r["scope"] != "every path"]' <<<"$out")" \
-  = "[('11-under-src.md', ['src/**/*'], ['src/components/a.tsx']), ('13-one-folder.md', ['src/components/*.tsx'], ['src/components/a.tsx']), ('14-braces.md', ['src/**/*.{ts,tsx}'], ['src/components/a.tsx']), ('20-models.md', ['**/models.py'], ['app/models.py'])]" ] \
-  && [ "$(field '(d["files"], d["exists"], d["folder"], d["rules"][0]["file"])' <<<"$out")" = "(['app/models.py', 'src/components/a.tsx'], True, '$RUL/.claude/rules', '$RUL/.claude/rules/00-conduct.md')" ]; then
-  pass "the picker says for each rule which glob matched and which files it covers, reads rule files in subfolders and through links, and does not turn in a loop of links"
+  = "[('10-any-ts.md', ['**/*.ts'], ['lib/a.ts', 'tests/unit/a.test.ts']), ('11-under-src.md', ['src/**/*'], ['src/components/a.tsx']), ('12-root-md.md', ['*.md'], ['README.md']), ('13-one-folder.md', ['src/components/*.tsx'], ['src/components/a.tsx']), ('14-braces.md', ['lib/**/*.ts', 'src/**/*.{ts,tsx}', 'tests/**/*.test.ts'], ['lib/a.ts', 'src/components/a.tsx', 'tests/unit/a.test.ts']), ('15-bom.md', ['**/*.proto'], ['api/v1.proto']), ('20-models.md', ['**/models.py', 'docs/{a,b}/*.md'], ['app/models.py', 'docs/a/x.md']), ('21-one-file.md', ['scripts/verify.sh'], ['scripts/verify.sh']), ('30-sql.md', ['**/*#*.psql', '**/*.sql'], ['db/001.sql', 'db/a#b.psql'])]" ] \
+  && [ "$(field '[r["file"].rsplit("/", 1)[1] for r in d["rules"] if r["scope"] == "every path"]' <<<"$out")" = "['00-conduct.md', '01-reports.md']" ] \
+  && [ "$(field '(d["files"][:3], d["exists"], d["folder"], d["rules"][0]["file"], len(d["rules"]))' <<<"$out")" = "(['README.md', 'api/v1.proto', 'app/models.py'], True, '$RUL/.claude/rules', '$RUL/.claude/rules/00-conduct.md', 11)" ]; then
+  pass "the picker reads the scope of each rule file, in a subfolder and through a link, with a comment, a flow list, a scalar or a byte order mark in its frontmatter, says which glob matched and which files each covers, gives a file with no scope every path, and does not turn in a loop of links"
 else
   fail "the picker's output: $out"
 fi
@@ -1088,18 +1080,14 @@ shape=$(project --repo "$RUL" rules x.ts 2>&1 || true)
 printf '%s\n' '---' 'paths: ["src/[z-a].ts"]' '---' > "$RUL/.claude/rules/40-empty.md"
 glob=$(project --repo "$RUL" rules x.ts 2>&1 || true)
 code="$(status_of project --repo "$RUL" rules) $(status_of project --repo "$RUL" rules "$WORK/elsewhere.py") $(status_of project --repo "$RUL" rules x.ts)"
-printf '%s\n' '---' 'paths: ["src/[!].ts"]' '---' > "$RUL/.claude/rules/40-empty.md"
-code="$code $(status_of project --repo "$RUL" rules x.ts)"
-printf '%s\n' '---' 'paths: ["a{b", "c}", "[", "src/**/", "d**e/*.x"]' '---' > "$RUL/.claude/rules/40-empty.md"
-odd=$(project --repo "$RUL" rules 'dxe/f.x' 'a{b' 'src/x.ts' | field '[r.get("covers") for r in d["rules"] if r["file"].endswith("40-empty.md")]')
 rm "$RUL/.claude/rules/40-empty.md"
-if [ "$code" = "1 1 1 1" ] && grep -q "name them, or pass --range BASE..TIP" <<<"$err" && grep -q "is not inside $RUL" <<<"$outside" \
+if [ "$code" = "1 1 1" ] && grep -q "name them, or pass --range BASE..TIP" <<<"$err" && grep -q "is not inside $RUL" <<<"$outside" \
   && grep -q ".claude/rules/40-empty.md: its .paths:. names no glob" <<<"$empty" && grep -q "or take the line out so the file covers every path" <<<"$empty" \
   && grep -q "a line under .paths:. is not a list item" <<<"$shape" \
-  && grep -q ".claude/rules/40-empty.md: a glob of its .paths:. does not read as a pattern" <<<"$glob" && ! grep -q Traceback <<<"$glob" && [ "$odd" = "[['a{b', 'dxe/f.x']]" ]; then
-  pass "the picker refuses a call with no file, a file of another folder, and a rule whose paths name no glob, are no list or hold a pattern that does not read, each with the fix; an odd glob that reads matches as written"
+  && grep -q ".claude/rules/40-empty.md: a glob of its .paths:. does not read as a pattern" <<<"$glob" && ! grep -q Traceback <<<"$glob"; then
+  pass "the picker refuses a call with no file, a file of another folder, and a rule whose paths name no glob, are no list or hold a pattern that does not read, each with the fix"
 else
-  fail "the picker's refusals: $code / $err / $outside / $empty / $shape / $glob / $odd"
+  fail "the picker's refusals: $code / $err / $outside / $empty / $shape / $glob"
 fi
 # A project with no rules yet gets an empty answer, not an error.
 FRESH=$WORK/rules-fresh
