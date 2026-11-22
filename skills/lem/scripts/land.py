@@ -92,7 +92,7 @@ run kept before its first command, so a run cut off with no chance to clean up l
 tip. `--status` gives `running` (the step lock is held by `checks`), `since` and `seconds` of the
 run, `last_seconds` (the `seconds` of the newest `gate.end` that passed, of any task, or null), and
 `overdue` with its `say` when the run is more than three times as long as that one
-(`OVERDUE_TIMES`), never against a last run of 0 seconds; and `ended`, the newest `gate.end` of the task with `resumed`, the line for a
+(`OVERDUE_TIMES`) and has gone on for at least a minute (`OVERDUE_FLOOR`); and `ended`, the newest `gate.end` of the task with `resumed`, the line for a
 session that did not start that run, which says its result as past and the next step as it is now.
 `--stop` sends a term to the process the lock names, only while `checks` holds it, waits until that
 run lets the lock go (`STOP_WAIT` at most), and says whether it stopped one (`stopped`).
@@ -1601,6 +1601,13 @@ RESULTS = ("passed", "red", "refused", "stopped")
 # 2026-11-19-landing-in-the-background).
 OVERDUE_TIMES = 3
 
+# And only after they ran for at least this many seconds, a minute: a last run of 0 or 1 second (a
+# stand-in such as `true`, rounded under load) is no measure, and three times it passed while five
+# Python steps started (the guards check under tests/all.sh, load-gate-default-forty, 2026-11-22).
+# The minute is the criterion of the task overdue-race-after-one-second-run (2026-11-22), a guess
+# that no real suite of the checks ends in under a minute, not a measurement.
+OVERDUE_FLOOR = 60
+
 # How long `checks --stop` waits for the run it stopped to end: the stop of a serial command takes
 # up to SERIAL_GRACE, and `criteria.py red` up to its own GRACE for each signal to each command it runs,
 # and its SERIAL_GRACE for the term to a serial test's wrapper (its `stop`). A guess with room, not a measurement.
@@ -1726,10 +1733,10 @@ def last_seconds(events: list[dict]) -> int | None:
 
 
 def is_overdue(seconds: int | None, last: int | None) -> bool:
-    """Whether a run that has gone on for `seconds` runs more than OVERDUE_TIMES as long as the last finished one.
-    A last run that rounds to 0 seconds (a stand-in command such as `true`) has no length to multiply, so
-    nothing is overdue against it: three times 0 would call any run overdue after 1 second."""
-    return seconds is not None and last is not None and last > 0 and seconds > OVERDUE_TIMES * last
+    """Whether a run that has gone on for `seconds` runs more than OVERDUE_TIMES as long as the last finished one,
+    and for at least OVERDUE_FLOOR seconds. A last run of a few seconds (a stand-in command such as `true`)
+    has no length to multiply: three times 0 or 1 second would call a run overdue while its processes start."""
+    return seconds is not None and last is not None and seconds >= OVERDUE_FLOOR and seconds > OVERDUE_TIMES * last
 
 
 def overdue_say(slug: str, seconds: int, last: int) -> str:
