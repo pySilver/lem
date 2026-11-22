@@ -86,6 +86,8 @@ RECORDS = {
     "state.md": ("ask.txt", "state", "timeline"),
     # what Lem did to the task's ticket, which `lem project tasks` reads to say what is still owed
     "ticket-steps.txt": ("ticket.txt", "ticket steps", None),
+    # the repository of a GitHub issue, which each write of `lem issue` compares with origin's
+    "ticket-repo.txt": ("ticket.txt", "ticket repository", None),
     # the task a resumed one came from, which a resume and a plan's name follow back
     "resumed-from.txt": ("ask.txt", "resumed from", None),
 }

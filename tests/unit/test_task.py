@@ -570,5 +570,135 @@ class Prune(unittest.TestCase):
         self.assertIn("'yesterday'", calls["bad-time"][1])
 
 
+class TicketId(unittest.TestCase):
+    """The id of a ticket by the kind of the project's tracker (github-issues-tracker, criterion 2)."""
+
+    def refused(self, tracker: dict | None, given: str) -> str:
+        with self.assertRaises(project.SettingsError) as caught:
+            project.ticket_id(tracker, given)
+        return str(caught.exception)
+
+    def test_an_issue_is_its_number_after_a_hash_in_one_saved_form(self):
+        for given in ("42", "#42", "#042", "042"):
+            with self.subTest(given=given):
+                self.assertEqual(project.ticket_id({"kind": "github"}, given), "#42")
+
+    def test_github_refuses_a_linear_id_and_no_number(self):
+        for given in ("MBZ-12", "0", "#0", "#", "42a", "# 42", "-42"):
+            with self.subTest(given=given):
+                self.assertIn("is not an issue's number, such as 42 or #42: the project's tracker is github", self.refused({"kind": "github"}, given))
+
+    def test_linear_refuses_a_number_and_keeps_its_own_form(self):
+        self.assertEqual(project.ticket_id({"kind": "linear"}, "mbz-12"), "MBZ-12")
+        for given in ("42", "#42"):
+            with self.subTest(given=given):
+                self.assertIn("is not a ticket's id, such as MBZ-12: the project's tracker is linear", self.refused({"kind": "linear"}, given))
+
+    def test_a_project_with_no_tracker_takes_no_ticket_and_says_how_to_add_one(self):
+        said = self.refused(None, "MBZ-12")
+        self.assertIn("has no [tracker]", said)
+        self.assertIn('kind = "linear" or kind = "github"', said)
+
+
+class TicketOwed(unittest.TestCase):
+    """What an ended task still owes its ticket, the assignee Lem added among it."""
+
+    TRACKER = {"kind": "github"}
+
+    def test_a_drop_or_an_answer_owes_the_removal_of_the_assignee_lem_added(self):
+        self.assertEqual(project.ticket_owed("dropped", ["started", "assigned"], self.TRACKER), ["dropped", "unassigned"])
+        self.assertEqual(project.ticket_owed("answered", ["assigned", "started"], self.TRACKER), ["answered", "unassigned"])
+        self.assertEqual(project.ticket_owed("dropped", ["assigned", "unassigned", "started", "dropped"], self.TRACKER), [])
+        # an issue that had an assignee got none from Lem: nothing to remove
+        self.assertEqual(project.ticket_owed("dropped", ["started"], self.TRACKER), ["dropped"])
+
+    def test_a_landing_keeps_the_assignee_and_a_running_task_owes_nothing(self):
+        self.assertEqual(project.ticket_owed("landed", ["assigned", "started"], self.TRACKER), ["commented", "landed"])
+        self.assertEqual(project.ticket_owed("building", ["assigned", "started"], self.TRACKER), [])
+
+    def test_the_steps_are_read_one_a_line_with_the_login_of_the_assignee(self):
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder)
+            self.assertEqual(project.ticket_steps_of(directory), ([], None))
+            (directory / "ticket-steps.txt").write_text("assigned octo-cat\nstarted\n", encoding="utf-8")
+            self.assertEqual(project.ticket_steps_of(directory), (["assigned", "started"], "octo-cat"))
+
+
+class TicketClaim(unittest.TestCase):
+    """The claim of a ticket (decision 17): a mark in the state folder only one task takes, before
+    the scan of the tasks; a ticket goes back only once its old task owes it nothing (decision 12)."""
+
+    def setUp(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.state = Path(folder.name)
+        project.STATE_ROOTS[ROOT] = self.state
+        self.addCleanup(project.STATE_ROOTS.pop, ROOT, None)
+
+    def task(self, slug: str, status: str | None, owed: tuple[str, ...] = (), ticket: str = "#42") -> dict:
+        (self.state / "tasks" / slug).mkdir(parents=True, exist_ok=True)
+        return {"slug": slug, "status": status, "ticket": ticket, "ticket_owed": list(owed)}
+
+    def refused(self, slug: str, tasks: list[dict], kind: str = "github", succeeds: str | None = None) -> str:
+        with self.assertRaises(project.SettingsError) as caught:
+            project.claim_ticket(ROOT, slug, "#42", tasks, kind, succeeds)
+        return str(caught.exception)
+
+    def mark(self) -> str:
+        return (self.state / "tickets" / "42").read_text(encoding="utf-8").strip()
+
+    def test_two_opens_in_one_moment_one_takes_the_ticket(self):
+        # both scanned the tasks before either wrote ticket.txt: neither scan sees a holder
+        self.assertIsNotNone(project.claim_ticket(ROOT, "export-keeps-gift-note", "#42", [], "github"))
+        self.assertEqual(self.mark(), "export-keeps-gift-note")
+        self.task("export-keeps-gift-note", None)
+        said = self.refused("gift-note-in-export", [])
+        self.assertIn("the task 'export-keeps-gift-note' already holds the ticket #42", said)
+        # a retry of the same task passes, and makes no new mark
+        self.assertIsNone(project.claim_ticket(ROOT, "export-keeps-gift-note", "#42", [], "github"))
+        self.assertEqual(sorted(path.name for path in (self.state / "tickets").iterdir()), ["42"])
+
+    def test_a_landed_task_keeps_its_ticket_and_the_refusal_names_it(self):
+        project.claim_ticket(ROOT, "export-keeps-gift-note", "#42", [], "github")
+        landed = self.task("export-keeps-gift-note", "landed")
+        said = self.refused("gift-note-again", [landed])
+        self.assertIn("the task 'export-keeps-gift-note' landed the ticket #42", said)
+        self.assertIn("start the new task from the owner's own words", said)
+
+    def test_an_ended_task_that_still_owes_holds_the_ticket_and_the_refusal_names_the_step_by_kind(self):
+        project.claim_ticket(ROOT, "export-keeps-gift-note", "#42", [], "github")
+        dropped = self.task("export-keeps-gift-note", "dropped", ("dropped", "unassigned"))
+        said = self.refused("gift-note-again", [dropped])
+        self.assertIn("is dropped and still owes the ticket #42 dropped, unassigned", said)
+        self.assertIn("`lem issue drop export-keeps-gift-note`", said)
+        answered = {**dropped, "status": "answered", "ticket_owed": ["answered"]}
+        self.assertIn("the lem-linear skill's step `answer` for export-keeps-gift-note, run from a session", self.refused("gift-note-again", [answered], kind="linear"))
+
+    def test_a_ticket_given_back_goes_to_the_new_task(self):
+        project.claim_ticket(ROOT, "export-keeps-gift-note", "#42", [], "github")
+        paid = self.task("export-keeps-gift-note", "dropped")
+        self.assertIsNotNone(project.claim_ticket(ROOT, "gift-note-again", "#42", [paid], "github"))
+        self.assertEqual(self.mark(), "gift-note-again")
+
+    def test_a_resumed_task_takes_the_mark_of_the_task_it_goes_on_from_and_no_other(self):
+        project.claim_ticket(ROOT, "gift-note", "#42", [], "github")
+        old = self.task("gift-note", "dropped", ("dropped",))
+        project.claim_ticket(ROOT, "gift-note-2", "#42", [old], "github", succeeds="gift-note")
+        self.assertEqual(self.mark(), "gift-note-2")
+        # a live task with the ticket and no mark (a state folder from before the marks) refuses the resume too
+        (self.state / "tickets" / "42").unlink()
+        live = self.task("export-keeps-gift-note", "building")
+        self.assertIn("the task 'export-keeps-gift-note' already holds the ticket #42", self.refused("gift-note-3", [old, live], succeeds="gift-note"))
+        self.assertFalse((self.state / "tickets" / "42").exists())
+
+    def test_a_mark_whose_task_folder_is_gone_is_named_with_the_fix(self):
+        (self.state / "tickets").mkdir()
+        (self.state / "tickets" / "42").write_text("gone-task\n", encoding="utf-8")
+        said = self.refused("gift-note", [])
+        self.assertIn(f"{self.state / 'tickets' / '42'}", said)
+        self.assertIn("names the task 'gone-task', whose folder is not there", said)
+        self.assertIn("remove the mark (rm", said)
+
+
 if __name__ == "__main__":
     unittest.main()

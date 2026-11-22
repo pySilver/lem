@@ -30,13 +30,16 @@ a team that adopts Lem may have its own.
                                     itself, for every repository here; 0 leaves it to Claude Code
     lem project rules [FILE ...] [--range BASE..TIP]
                                     the rule files of .claude/rules that cover these files, as JSON
-    lem project task-dir SLUG [--ask TEXT] [--ticket ID] [--branch NAME] [--night YYYY-MM-DD]
+    lem project task-dir SLUG [--ask TEXT] [--ticket ID [--ticket-repo OWNER/REPO]] [--branch NAME] [--night YYYY-MM-DD]
                                     make and print one task's state directory; keep the owner's words
-                                    and the ticket the ask came from. At a task's opening it refuses
-                                    a slug whose branch origin has already: TYPE/SLUG for every
-                                    type, or the NAME --branch gives. --night marks the task as the
-                                    night's, which runs it without the owner
-    lem project ticket-step SLUG started|commented|landed|dropped|answered
+                                    and the ticket the ask came from: MBZ-12 for Linear, #42 for
+                                    GitHub, with the repository of the issue that was read. A ticket
+                                    another task holds is refused, until that task was dropped or
+                                    answered and owes the ticket nothing. At a task's opening it
+                                    refuses a slug whose branch origin has already: TYPE/SLUG for
+                                    every type, or the NAME --branch gives. --night marks the task
+                                    as the night's, which runs it without the owner
+    lem project ticket-step SLUG started|assigned --login LOGIN|unassigned|commented|landed|dropped|answered
                                     write down what Lem did to the task's ticket, once
     lem project worktree-dir SLUG   print where the task's worktree goes, inside a folder git ignores
     lem project worktree SLUG BRANCH
@@ -508,22 +511,42 @@ TABLES: dict[str, tuple[str, ...]] = {
     "naps": ("on",),
     "state": ("keep_days",),
 }
-# The trackers Lem has a skill for. The rest is the tracker skill's read, not a setting: the team
-# is in the ticket's id, the server is the one connected in the agent, and the status a ticket
-# gets is the team's status of the type it needs (the lem-linear skill).
-TRACKERS = ("linear",)
-# a ticket's id as a tracker writes it, e.g. MBZ-12
+# The trackers Lem has a skill for, `lem-KIND`. The rest is the tracker skill's read, not a setting:
+# for Linear the team is in the ticket's id, the server is the one connected in the agent, and the
+# status a ticket gets is the team's status of the type it needs (the lem-linear skill); for GitHub
+# the repository is origin's (the lem-github skill).
+TRACKERS = ("linear", "github")
+# a Linear ticket's id as the tracker writes it, e.g. MBZ-12
 TICKET = re.compile(r"[A-Za-z][A-Za-z0-9]*-[0-9]+")
+# a GitHub issue's number as the owner may give it, 42, #42 or #042; kept as #42, the number as an
+# integer, so that one issue has one saved form
+ISSUE = re.compile(r"#?([0-9]+)")
+# the repository of a GitHub issue, OWNER/REPO, as the issue's address gives it
+ISSUE_REPO = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?/[A-Za-z0-9._-]+")
+# the login of a GitHub account, which `ticket-step SLUG assigned --login LOGIN` keeps
+LOGIN = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?")
 # What Lem did to a task's ticket, each written down after the tracker took it, so that a step is
 # never done twice and a session that was cut off can see what is still owed:
 #   started    the ticket got the status for work that started
+#   assigned   Lem set out to add the person signed in to `gh` as the issue's assignee: written
+#              before the add, with the login (`assigned LOGIN`), since a removal reads the
+#              assignees first and a record lost after the add would leave his name on the issue
+#   unassigned Lem removed that assignee again, or the add failed
 #   commented  the landing was commented on the ticket
 #   landed     the ticket got the status for work that landed
 #   dropped    the ticket got the comment that its task was dropped
 #   answered   the ticket got the comment with its task's answer: not a bug, or the answer to a question
-TICKET_STEPS = ("started", "commented", "landed", "dropped", "answered")
-# The ended states that give a task's ticket back: a new task may take it. A landed task keeps it.
+TICKET_STEPS = ("started", "assigned", "unassigned", "commented", "landed", "dropped", "answered")
+# The ended states that give a task's ticket back, once the task owes it nothing (`ticket_owed`): a
+# new task may take it then. A landed task keeps it.
 RETURNED = ("dropped", "answered")
+# The tracker's step that pays what a dropped or answered task still owes its ticket.
+PAID_BY = {"dropped": "drop", "answered": "answer"}
+# The folder of the state folder that holds a mark for each ticket a task holds: a file named by the
+# ticket's id without its `#` (`42`, `MBZ-12`) that holds the slug. A link of a finished file claims
+# the name, as `ask.txt` is written, so of two opens of one ticket at one moment one takes it.
+# `prune` leaves it alone.
+TICKET_MARKS = "tickets"
 # How many days the state folder keeps what Lem no longer needs (`prune`, `[state] keep_days`): the
 # owner, 2026-11-21: "I think that `.lem/state` should not grow to gigabytes. Maybe KEEP_DAYS should be
 # configurable and one would configure it to let's say 7 days instead of 30 to keep disk usage in
@@ -638,9 +661,11 @@ experts = [{experts}]
 # no for themselves with `collect = false` under [corrections] in .lem/project.local.toml.
 collect = false
 
-# The tracker a task's ask may come from. Leave it out when the project has none. Lem reads a
-# ticket into a task, moves it when its work starts and lands, and comments the landing. The
-# team is in the ticket's id (ABC-12), and each status is the team's own of its type.
+# The tracker a task's ask may come from: "linear" or "github". Leave it out when the project has
+# none. Lem reads a ticket into a task, marks it when its work starts, and comments the landing.
+# For Linear the team is in the ticket's id (ABC-12), and each status is the team's own of its
+# type. For GitHub the issues are origin's, the id is the issue's number (#42), and Lem adds an
+# assignee at the start and closes the issue at the landing.
 # [tracker]
 # kind = "linear"
 """
@@ -1549,7 +1574,141 @@ def ask_refusal(slug: str, kept: str | None, ask: str) -> str | None:
             f"this is another request under the same name, so choose another name for it (add a word to the slug)")
 
 
-def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None, branch: str | None = None, night: str | None = None) -> None:
+def ticket_id(tracker: dict | None, given: str) -> str:
+    """The id of a ticket as the task keeps it, by the kind of the project's tracker: a Linear id in
+    upper case (MBZ-12), a GitHub issue's number after `#` (#42). A project with no tracker takes no
+    ticket: no tracker would act on it, and `ticket_owed` gives nothing with none."""
+    if tracker is None:
+        raise SettingsError(f"--ticket {given!r} names a tracker's ticket, and {SETTINGS} has no [tracker]: add the table with its kind "
+                            "(kind = \"linear\" or kind = \"github\"), or open the task with --ask alone")
+    if tracker["kind"] == "github":
+        found = ISSUE.fullmatch(given)
+        if not found or int(found[1]) == 0:
+            raise SettingsError(f"--ticket {given!r} is not an issue's number, such as 42 or #42: the project's tracker is github")
+        return f"#{int(found[1])}"
+    if not TICKET.fullmatch(given):
+        raise SettingsError(f"--ticket {given!r} is not a ticket's id, such as MBZ-12: the project's tracker is {tracker['kind']}")
+    return given.upper()
+
+
+def released(task: dict) -> bool:
+    """Whether a task gave its ticket back: it was dropped or answered, and owes the ticket nothing."""
+    return task["status"] in RETURNED and not task["ticket_owed"]
+
+
+def holder_refusal(task: dict, ticket: str, kind: str | None) -> str:
+    """Why a new task cannot take TICKET, which TASK holds, with the way on."""
+    slug = task["slug"]
+    if task["status"] == "landed":
+        return (f"the task {slug!r} landed the ticket {ticket}, and a ticket that landed stays with its task: "
+                "start the new task from the owner's own words (--ask), with no --ticket")
+    if task["status"] in RETURNED:
+        step = PAID_BY[task["status"]]
+        pay = f"the line `lem issue {step} {slug}`" if kind == "github" else f"the lem-linear skill's step `{step}` for {slug}, run from a session"
+        return (f"the task {slug!r} is {task['status']} and still owes the ticket {ticket} {', '.join(task['ticket_owed'])}: "
+                f"pay it with {pay}, then open this task again")
+    return f"the task {slug!r} already holds the ticket {ticket}; go on with that task, or drop it first"
+
+
+def mark_of(root: Path, ticket: str) -> Path:
+    """The mark of a ticket in the state folder (TICKET_MARKS)."""
+    return state_root(root) / TICKET_MARKS / ticket.lstrip("#")
+
+
+def claim_ticket(root: Path, slug: str, ticket: str, tasks: list[dict], kind: str | None, succeeds: str | None = None) -> Path | None:
+    """Take TICKET for the task SLUG, or refuse it with the task that holds it. `task-dir` and
+    `resume` both call it; SUCCEEDS is the dropped task a resumed one goes on from, whose mark moves.
+
+    The mark comes first and the scan of the tasks after it, so two opens at one moment cannot both
+    pass: the mark is a link of a finished file, and only one link takes the name. A mark that names
+    SLUG is a retry and passes. A mark whose task gave the ticket back is taken over. Returns the
+    mark when this call made it, so that a refusal later in the opening takes it back."""
+    mark = mark_of(root, ticket)
+    mark.parent.mkdir(parents=True, exist_ok=True)
+    by_slug = {task["slug"]: task for task in tasks}
+    made = None
+    for _ in range(3):
+        fresh = mark.with_name(f"{mark.name}.{os.getpid()}.new")
+        fresh.write_text(slug + "\n", encoding="utf-8")
+        try:
+            os.link(fresh, mark)
+            made = mark
+            break
+        except FileExistsError:
+            pass
+        finally:
+            fresh.unlink(missing_ok=True)
+        try:
+            holder = text_of(mark).strip()
+        except FileNotFoundError:
+            continue
+        if holder == slug:
+            break
+        task = by_slug.get(holder)
+        if holder == succeeds or (task is not None and released(task)):
+            take_over(mark, holder, ticket)
+            continue
+        if task is None and not (state_root(root) / "tasks" / holder).is_dir():
+            raise SettingsError(f"the ticket {ticket} has a mark, {mark}, that names the task {holder!r}, whose folder is not there: a task that opens "
+                                f"in this moment, or a mark left behind. When no task {holder!r} opens, remove the mark (rm '{mark}') and open this task again")
+        raise SettingsError(holder_refusal(task or {"slug": holder, "status": None, "ticket_owed": []}, ticket, kind))
+    else:
+        raise SettingsError(f"the mark of the ticket {ticket}, {mark}, changed hands three times while this task asked for it: open this task again")
+    other = next((task for task in tasks if task["ticket"] == ticket and task["slug"] not in (slug, succeeds) and not released(task)), None)
+    if other:
+        # a task that holds the ticket with no mark: a task the hand moved, or one of a state folder from before the marks
+        if made:
+            made.unlink(missing_ok=True)
+        raise SettingsError(holder_refusal(other, ticket, kind))
+    return made
+
+
+def take_over(mark: Path, holder: str, ticket: str) -> None:
+    """Remove the mark of a task that gave its ticket back, only while it still names that task: it
+    moves aside first, and a mark another open took in the meantime goes back."""
+    aside = mark.with_name(f"{mark.name}.{os.getpid()}.gone")
+    try:
+        os.rename(mark, aside)
+    except FileNotFoundError:
+        return
+    moved = text_of(aside).strip()
+    if moved != holder:
+        try:
+            os.link(aside, mark)
+        except FileExistsError:
+            pass
+        finally:
+            aside.unlink(missing_ok=True)
+        raise SettingsError(f"the task {moved!r} took the ticket {ticket} in this moment; go on with that task")
+    aside.unlink(missing_ok=True)
+
+
+def give_back(root: Path, slug: str) -> None:
+    """Remove the mark of the task SLUG's ticket once the task gave the ticket back: dropped or
+    answered, and owing it nothing. A mark that names another task stays."""
+    directory = state_root(root) / "tasks" / slug
+    if not (directory / "ticket.txt").is_file():
+        return
+    blocks = blocks_of(text_of(directory / "state.md")) if (directory / "state.md").is_file() else []
+    status = blocks[0]["status"] if blocks else None
+    names, _ = ticket_steps_of(directory)
+    if status not in RETURNED or ticket_owed(status, names, load(root)["tracker"]):
+        return
+    mark = mark_of(root, text_of(directory / "ticket.txt").strip())
+    if mark.is_file() and text_of(mark).strip() == slug:
+        mark.unlink(missing_ok=True)
+
+
+def ticket_steps_of(directory: Path) -> tuple[list[str], str | None]:
+    """The steps written down for a task's ticket, one a line, and the login of the line `assigned LOGIN`."""
+    file = directory / "ticket-steps.txt"
+    rows = [line.split() for line in text_of(file).splitlines() if line.strip()] if file.is_file() else []
+    login = next((row[1] for row in rows if row[0] == "assigned" and len(row) > 1), None)
+    return [row[0] for row in rows], login
+
+
+def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None, branch: str | None = None, night: str | None = None,
+                 ticket_repo: str | None = None) -> None:
     if not SLUG.fullmatch(slug):
         raise SettingsError(f"slug {slug!r} must be lower-case words joined by hyphens")
     if ask is not None and not ask.strip():
@@ -1567,22 +1726,36 @@ def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None, bra
         ended = next((task["status"] for task in read_tasks(root) if task["slug"] == slug and task["status"] in ENDED), None)
         if ended:
             raise SettingsError(f"the task {slug!r} is {ended}; a new task takes a slug of its own: add a word to this one")
-    if ticket is not None:
-        if not TICKET.fullmatch(ticket):
-            raise SettingsError(f"--ticket {ticket!r} is not a ticket's id, such as MBZ-12")
-        ticket = ticket.upper()
-        # one ticket is one task: a second task for it would be a second branch for the same work
-        tasks = read_tasks(root)
-        taken = next((task["slug"] for task in tasks if task["ticket"] == ticket and task["slug"] != slug and task["status"] not in RETURNED), None)
-        if taken:
-            raise SettingsError(f"the task {taken!r} already holds the ticket {ticket}; go on with that task, or drop it first")
-        mine = next((task["ticket"] for task in tasks if task["slug"] == slug), None)
-        if mine and mine != ticket:
-            # two tickets with one title would give one slug: the first task keeps its ticket
-            raise SettingsError(f"the task {slug!r} already holds the ticket {mine}; give the task for {ticket} another slug")
+    if ticket_repo is not None and ticket is None:
+        raise SettingsError("--ticket-repo is the repository of the issue the task came from, so it goes with --ticket")
     directory = state_root(root) / "tasks" / slug
-    if (ask is not None or ticket is not None) and not directory.is_dir():
-        taken_on_remote(root, slug, branch)
+    made = None
+    if ticket is not None:
+        tracker = load(root)["tracker"]
+        ticket = ticket_id(tracker, ticket)
+        if tracker["kind"] == "github":
+            if ticket_repo is None:
+                raise SettingsError(f"--ticket {ticket} is an issue of GitHub, and the task keeps the repository of the issue that was read: "
+                                    "give it as --ticket-repo OWNER/REPO, from the address `lem issue read` gave")
+            if not ISSUE_REPO.fullmatch(ticket_repo):
+                raise SettingsError(f"--ticket-repo {ticket_repo!r} is not a repository of GitHub: give it as OWNER/REPO, from the issue's address")
+        elif ticket_repo is not None:
+            raise SettingsError(f"--ticket-repo names the repository of a GitHub issue, and the project's tracker is {tracker['kind']}: leave it out")
+        tasks = read_tasks(root)
+        mine = next((task for task in tasks if task["slug"] == slug), None)
+        if mine and mine["ticket"] and (mine["ticket"], mine["ticket_repo"]) != (ticket, ticket_repo):
+            # two tickets with one title would give one slug: the first task keeps its ticket
+            held = mine["ticket"] + (f" of {mine['ticket_repo']}" if mine["ticket_repo"] else "")
+            raise SettingsError(f"the task {slug!r} already holds the ticket {held}; give the task for {ticket} another slug")
+        # one ticket is one task: a second task for it would be a second branch for the same work
+        made = claim_ticket(root, slug, ticket, tasks, tracker["kind"])
+    try:
+        if (ask is not None or ticket is not None) and not directory.is_dir():
+            taken_on_remote(root, slug, branch)
+    except SettingsError:
+        if made:
+            made.unlink(missing_ok=True)
+        raise
     (directory / "reports").mkdir(parents=True, exist_ok=True)
     if ask is not None:
         # The owner's words, as given. task.md is a document with headings; the board and the
@@ -1602,6 +1775,8 @@ def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None, bra
             fresh.unlink(missing_ok=True)
     if ticket is not None:
         (directory / "ticket.txt").write_text(ticket + "\n", encoding="utf-8")
+        if ticket_repo is not None:
+            (directory / "ticket-repo.txt").write_text(ticket_repo + "\n", encoding="utf-8")
     if night is not None and not any(record.get("task") == slug for record in events_named(root, "task.mode")):
         # the night's mark
         append_event(root, "task.mode", slug, {"mode": "alone", "by": "lem", "words": f"the night of {night}", "all": False, "was": "with-owner"})
@@ -1624,21 +1799,34 @@ def register_checkout(root: Path) -> None:
         print(f"project.py: {main} is not in the list of workspaces the board server shows ({error}); `lem serve --add {main}` puts it there", file=sys.stderr)
 
 
-def cmd_ticket_step(root: Path, slug: str, step: str) -> None:
-    """Write down one thing Lem did to the task's ticket, after the tracker took it."""
+def cmd_ticket_step(root: Path, slug: str, step: str, login: str | None = None) -> None:
+    """Write down one thing Lem did to the task's ticket, after the tracker took it (the assignee's
+    step before, with the login). The step that leaves a dropped or answered task owing nothing gives
+    its ticket's mark back."""
     directory = task_directory(root, slug)
     ticket = directory / "ticket.txt"
     if not ticket.is_file():
         raise SettingsError(f"the task {slug!r} came from no ticket")
     if step not in TICKET_STEPS:
         raise SettingsError(f"{step!r} is not a step{nearest(step, TICKET_STEPS)}")
+    if step == "assigned" and login is None:
+        raise SettingsError("the step 'assigned' keeps the login Lem adds as the issue's assignee: give it as --login LOGIN")
+    if step != "assigned" and login is not None:
+        raise SettingsError(f"--login goes with the step 'assigned' only, not with {step!r}")
+    if login is not None and not LOGIN.fullmatch(login):
+        raise SettingsError(f"--login {login!r} is not a login of GitHub: give the login `gh api user --jq .login` prints")
     file = directory / "ticket-steps.txt"
-    steps = text_of(file).split() if file.is_file() else []
+    steps, _ = ticket_steps_of(directory)
     if step in steps:
         # the caller should have looked first: a step that is written down was done, and is not done again
         raise SettingsError(f"the step {step!r} is already written down for {text_of(ticket).strip()}: it was done, do not do it again")
-    file.write_text("\n".join([*steps, step]) + "\n", encoding="utf-8")
-    print(json.dumps({"slug": slug, "ticket": text_of(ticket).strip(), "steps": [*steps, step]}))
+    if step == "unassigned" and "assigned" not in steps:
+        raise SettingsError(f"the step 'unassigned' undoes the step 'assigned', which is not written down for {text_of(ticket).strip()}: Lem added nobody to remove")
+    rows = [line.strip() for line in text_of(file).splitlines() if line.strip()] if file.is_file() else []
+    file.write_text("\n".join([*rows, f"{step} {login}" if login else step]) + "\n", encoding="utf-8")
+    give_back(root, slug)
+    steps, assignee = ticket_steps_of(directory)
+    print(json.dumps({"slug": slug, "ticket": text_of(ticket).strip(), "steps": steps, "assignee": assignee}))
 
 
 def ask_of(directory: Path) -> str | None:
@@ -1871,7 +2059,7 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
 # breaker's pictures (`media/`). The landing's own
 # files (`landing.json`, `gate/`, `reviews/`, `pr.md`) stay with the old task: the new one lands anew.
 RESUMED_FILES = ("task.md", "talk.md", "directions.md", "interview-notes.md", "scout.md", "investigation.md", "outside.md",
-                 "criteria.md", "criteria-read.md", "criteria.json", "decisions.jsonl", "handoff.md", "ticket.txt")
+                 "criteria.md", "criteria-read.md", "criteria.json", "decisions.jsonl", "handoff.md", "ticket.txt", "ticket-repo.txt")
 RESUMED_GLOBS = ("breaker-*.md",)
 # The events of a dropped task that the new one takes with it, under its own slug and with `from`, in
 # the log's order and each with its own time as `was_at`: what the landing and the board read of its
@@ -1949,6 +2137,10 @@ def cmd_resume(root: Path, slug: str) -> dict:
         raise SettingsError(f"{target} exists already: no task is resumed into another task's folder")
     ask = text_of(directory / "ask.txt").strip() if (directory / "ask.txt").is_file() else (ask_of(directory) or slug)
     taken_on_remote(root, new, branch)
+    if (directory / "ticket.txt").is_file():
+        # the ticket goes on with the work, as for a new task: refused while another task holds it,
+        # and the dropped task's mark moves to the new slug
+        claim_ticket(root, new, text_of(directory / "ticket.txt").strip(), read_tasks(root, settings), (settings["tracker"] or {}).get("kind"), succeeds=slug)
     if exists:
         made = subprocess.run(["git", "-C", str(main), "branch", "--no-track", branch, old], capture_output=True, text=True, check=False)
         if made.returncode != 0:
@@ -2251,8 +2443,9 @@ def ticket_owed(status: str | None, steps: list[str], tracker: dict | None) -> l
         # the status too: a ticket that an automation of the tracker already moved is written down with no move
         wanted = ["commented", "landed"]
     elif status in RETURNED:
-        # the comment of the tracker's "drop" or "answer", and no status: where it goes is the owner's call
-        wanted = [status]
+        # the comment of the tracker's "drop" or "answer", and no status: where it goes is the owner's call;
+        # and the assignee Lem added at the start goes, since nobody works on the issue now
+        wanted = [status, *(["unassigned"] if "assigned" in steps else [])]
     else:
         wanted = []
     return [step for step in wanted if step not in steps]
@@ -2783,13 +2976,18 @@ def read_tasks(root: Path, settings: dict | None = None) -> list[dict]:
         ended = known and first["status"] in ENDED and directory.name in newest
         spans = runs_without_owner(directory.name, [record for record in presence if record["ts"] <= newest[directory.name]] if ended else presence, opened.get(directory.name))
         alone = bool(spans) and spans[-1]["to"] is None
+        steps, assignee = ticket_steps_of(directory)
         tasks.append({
             "slug": directory.name,
             "ask": ask_of(directory),
             # the tracker's ticket the ask came from; a dropped or answered task gives its ticket back
             "ticket": text_of(directory / "ticket.txt").strip() or None if (directory / "ticket.txt").is_file() else None,
-            # what Lem did to that ticket so far (TICKET_STEPS)
-            "ticket_steps": text_of(directory / "ticket-steps.txt").split() if (directory / "ticket-steps.txt").is_file() else [],
+            # the repository of a GitHub issue, OWNER/REPO from the address its read gave, or null
+            "ticket_repo": text_of(directory / "ticket-repo.txt").strip() or None if (directory / "ticket-repo.txt").is_file() else None,
+            # what Lem did to that ticket so far (TICKET_STEPS), by name
+            "ticket_steps": steps,
+            # the login Lem set out to add as the issue's assignee (`assigned LOGIN`), or null
+            "ticket_assignee": assignee,
             "ticket_owed": [],
             # null when no block was written through `project.py state`: nobody can tell who acts next
             "status": first["status"] if known else None,
@@ -3627,7 +3825,8 @@ def main(argv: list[str] | None = None) -> None:
     task_dir = commands.add_parser("task-dir")
     task_dir.add_argument("slug")
     task_dir.add_argument("--ask", help="the owner's words for this task, as given")
-    task_dir.add_argument("--ticket", help="the id of the tracker's ticket the ask came from, e.g. MBZ-12")
+    task_dir.add_argument("--ticket", help="the id of the tracker's ticket the ask came from: MBZ-12 for Linear, 42 or #42 for GitHub")
+    task_dir.add_argument("--ticket-repo", metavar="OWNER/REPO", help="with a GitHub issue: the repository of the issue that was read, from its address")
     task_dir.add_argument("--branch", help="the branch the task takes, when it is not TYPE/SLUG (a tracker's name, the project's own scheme)")
     task_dir.add_argument("--night", metavar="YYYY-MM-DD", help="the night that opens the task, which then runs without the owner")
     state = commands.add_parser("state")
@@ -3646,6 +3845,7 @@ def main(argv: list[str] | None = None) -> None:
     step = commands.add_parser("ticket-step")
     step.add_argument("slug")
     step.add_argument("step")
+    step.add_argument("--login", help="with the step assigned: the login Lem adds as the issue's assignee")
     log = commands.add_parser("log")
     log.add_argument("slug")
     log.add_argument("event")
@@ -3675,7 +3875,7 @@ def main(argv: list[str] | None = None) -> None:
             cmd_reviewer(root, args.words)
             return
         if args.command == "task-dir":
-            cmd_task_dir(root, args.slug, args.ask, args.ticket, args.branch, args.night)
+            cmd_task_dir(root, args.slug, args.ask, args.ticket, args.branch, args.night, args.ticket_repo)
             return
         if args.command == "state":
             print(json.dumps(cmd_state(root, args.slug, args.status, args.lines, args.start_over)))
@@ -3702,7 +3902,7 @@ def main(argv: list[str] | None = None) -> None:
             cmd_log(root, args.slug, args.event, args.fields)
             return
         if args.command == "ticket-step":
-            cmd_ticket_step(root, args.slug, args.step)
+            cmd_ticket_step(root, args.slug, args.step, args.login)
             return
         if args.command == "state-dir":
             print(state_root(root))

@@ -94,7 +94,7 @@ Leave this table out with no tracker. [Connect Linear](linear.md) tells you how 
 
 | Setting | Default | Use |
 | --- | --- | --- |
-| `tracker.kind` | required | `"linear"`, the one key of the table |
+| `tracker.kind` | required | `"linear"` or `"github"`, the one key of the table. With `"github"`, Lem uses the issues of the repository that origin names |
 
 ## `.lem/project.local.toml`
 

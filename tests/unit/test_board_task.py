@@ -285,8 +285,8 @@ class Map(unittest.TestCase):
     def test_a_task_loses_only_its_working_files_and_keeps_its_state_and_every_record(self):
         with tempfile.TemporaryDirectory() as folder:
             task = Path(folder) / "gift-note"
-            files = {"ask.txt": "Add a gift note.", "state.md": "2026-11-20T10:00Z landed: main a..b", "ticket-steps.txt": "started landed",
-                     "resumed-from.txt": "gift", "decisions.jsonl": "{}", "report.md": "# Report\n\n![the note](media/a.png)\n",
+            files = {"ask.txt": "Add a gift note.", "state.md": "2026-11-20T10:00Z landed: main a..b", "ticket-steps.txt": "started\nassigned octocat\nlanded",
+                     "ticket-repo.txt": "acme/shop", "resumed-from.txt": "gift", "decisions.jsonl": "{}", "report.md": "# Report\n\n![the note](media/a.png)\n",
                      "media/a.png": "a", "media/b.png": "b", "reviews/t/01-initial/report.md": "# Round", "reviews/t/01-initial/agents/a.jsonl": "{}",
                      "scratch.txt": "notes", "look/x.png": "x"}
             for path, text in files.items():
@@ -294,8 +294,8 @@ class Map(unittest.TestCase):
                 (task / path).write_text(text)
             self.assertEqual(sorted(e["path"] for e in lem_artifacts.working(task, "gift-note")),
                              ["look/x.png", "media/b.png", "reviews/t/01-initial/agents/a.jsonl", "scratch.txt"])
-            self.assertEqual({p: lem_artifacts.place(p)["role"] for p in ("state.md", "ticket-steps.txt", "resumed-from.txt")},
-                             {"state.md": "record", "ticket-steps.txt": "record", "resumed-from.txt": "record"})
+            self.assertEqual({p: lem_artifacts.place(p)["role"] for p in ("state.md", "ticket-steps.txt", "ticket-repo.txt", "resumed-from.txt")},
+                             {"state.md": "record", "ticket-steps.txt": "record", "ticket-repo.txt": "record", "resumed-from.txt": "record"})
 
     def test_a_picture_is_one_by_its_name_and_its_first_bytes(self):
         png = b"\x89PNG\r\n\x1a\n" + bytes(8)
