@@ -771,4 +771,27 @@ else
   fail "a merge outside Lem before Lem's merge call: $raced / $race_line"
 fi
 
+# A move that a revert undid after Lem refused the owner's merge for it: the read's brief names the checks' own base,
+# and that read, with no call on a move, answers the refusal, so his merge stands and goes through with no new run of
+# the checks.
+mb_task mb-back back.txt && mb_land mb-back
+back_base=$(mb_kept mb-back base d)
+back_starts=$(mb_events mb-back gate.start)
+mb_move docs/board.md >/dev/null
+back_refused=$(land --repo "$MB" merge mb-back --by owner --message "fix: mb-back" 2>&1 || true)
+git -C "$MBX" revert --no-edit HEAD >/dev/null && git -C "$MBX" push -q origin main
+back_main=$(git -C "$MBX" rev-parse HEAD)
+back_read=$(merge_read "$MB" mb-back merge)
+back_cleared=$(mb_kept mb-back merge_refused d)
+back_merged=$(land --repo "$MB" merge mb-back --by owner --via server --standing --tip "$(mb_kept mb-back proposed d)" --message "fix: mb-back")
+if grep -qF "moved after the checks ran, by files (docs/board.md)" <<<"$back_refused" \
+  && [ "$(field '(d["base"], d["base_call"], d["next"].startswith("the owner'"'"'s merge stands"))' <<<"$back_read")" = "('$back_base', None, True)" ] \
+  && [ "$back_cleared" = None ] && [ "$(mb_logged mb-back merge.stands '(d["after"], d["base"])')" = "[(\"a read of the base back on the checks' tree\", '${back_base:0:9}')]" ] \
+  && [ "$(status_in "$MB" mb-back)" = landed ] && [ "$(field 'd["base_read"]' <<<"$back_merged")" = None ] && [ "$(git -C "$MBO" rev-parse main^)" = "$back_main" ] \
+  && [ "$(mb_events mb-back gate.start)" = "$back_starts" ] && [ "$(git -C "$MBO" show main:back.txt)" = yes ]; then
+  pass "a move of the base that a revert undid after Lem refused the owner's merge: the read's brief names the checks' own base, its read answers the refusal, and his merge stands and goes through with no new run of the checks"
+else
+  fail "a read on the checks' base after a revert: $back_refused / $back_read / $back_cleared / $back_merged / $(git -C "$MBO" log -3 --format=%s main)"
+fi
+
 finish

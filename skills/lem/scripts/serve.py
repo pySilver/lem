@@ -162,9 +162,9 @@ workspace, one call at a time with the server's other calls into Lem's scripts (
   task's session that ran it met a block of Claude Code's auto mode (pySilver/lem-scratch#12,
   2026-11-21). A refusal is kept for its tip by land.py, which ends the duty for that tip, and the
   task's session gets `wake SLUG --why refused` once. Lem's refusal because the base moved is answered
-  by the merge agent's read of what moved: a read that says `safe` makes the merge due again at the
-  server's next look, the owner's too when his was the merge refused (`merge.stands`, `stands_due`),
-  since a failed merge waits DUTY_RETRY for its read alone (`duty_key`); one that says `another round`
+  by the merge agent's read of what moved: a read that says `safe`, or a read on the checks' own base
+  once main has their tree again (a revert), makes the merge due again at the server's next look,
+  the owner's too when his was the merge refused (`merge.stands`, `stands_due`), since a failed merge waits DUTY_RETRY for its read alone (`duty_key`); one that says `another round`
   makes none, and the session lands the task again. After a merge, `wake … merged` above;
 - the keeping of the state folder (`prune_once`): at its first look and each PRUNE_SECONDS after, it runs
   `lem project prune`, which removes what the workspace's state folder no longer needs, older than its
@@ -2011,8 +2011,9 @@ def duties(model: "bm.Model", seen: dict, kept: set, merging: set = frozenset())
       owner may keep selected, so that its close never comes), when no session was woken or opened
       since its wait began: one wake.
     - `merge … owner`: an open task for whose tip Lem proposed last the owner's merge stands, after a
-      moved base refused it and a read of the moved base said `safe`, or the session landed the task
-      again with the same change and the same reasons (`merge.stands`, `stands_due`): `lem land merge
+      moved base refused it and a read of the moved base said `safe` (or a read on the checks' own base
+      after a revert answered the refusal), or the session landed the task again with the same change
+      and the same reasons (`merge.stands`, `stands_due`): `lem land merge
       SLUG --by owner --via server --standing`.
     - `merge … merger`: an open task whose merge agent's review of the tip Lem proposed last says
       `merge` and calls nobody (`merge_due`), also one that `propose` carried onto that tip, and one
@@ -2063,9 +2064,9 @@ def merge_due(t: "bm.Task", seen: dict, merging: set) -> bool:
     """Whether the server runs the merge agent's merge of an open task now: the merge agent's review is
     of the tip Lem proposed last, says `merge`, calls nobody and does not say `another round` of a
     moved base (the task's session lands it again); no merge of that tip was refused, or the refusal
-    was Lem's because the base moved and a read of the moved base that said `safe` answered it
-    (`bm.answers_refusal`; a new proposal, and its new review, make a new try); the forge does not
-    call it conflicting (its session brings it onto the base first); and no merge of it runs in this
+    was Lem's because the base moved and a read of the moved base that said `safe`, or a read on the
+    checks' own base after a revert, answered it (`bm.answers_refusal`; a new proposal, and its new
+    review, make a new try); the forge does not call it conflicting (its session brings it onto the base first); and no merge of it runs in this
     process (MERGING)."""
     review = t.merge_review
     return bool(t.status == "open" and t.proposal and review and review.get("verdict") == "merge" and not review.get("calls")
@@ -2087,9 +2088,10 @@ def refusal_of(t: "bm.Task") -> dict:
 
 def stands_due(t: "bm.Task", seen: dict, merging: set) -> bool:
     """Whether the server runs the owner's merge that a moved base refused now: `merge.stands` is logged
-    for the tip Lem proposed last, by `propose` after a new landing or by the record of a read of the
-    moved base that said `safe`; no merge of that tip was refused since, or a safe read answered Lem's
-    refusal because the base moved (`bm.answers_refusal`); the newest review of that tip does not say
+    for the tip Lem proposed last, by `propose` after a new landing or by the record of a read that
+    answered Lem's refusal because the base moved (a read of the moved base that said `safe`, or a
+    read on the checks' own base after a revert); no merge of that tip was refused since, or such a
+    read answered that refusal (`bm.answers_refusal`); the newest review of that tip does not say
     `another round` (the task's session lands it again); the forge does not call it conflicting; and no
     merge of it runs in this process (MERGING)."""
     tip = (t.proposal or {}).get("tip")

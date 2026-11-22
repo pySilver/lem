@@ -624,12 +624,14 @@ def same_tip(a: object, b: object) -> bool:
 
 def answers_refusal(refused: dict | None, before: dict | None, review: dict, proposed: object) -> bool:
     """Whether a merge review (REVIEW) answers the refusal on record (REFUSED), as land.py's record of
-    it clears `merge_refused`: a read of the proposed tip (PROPOSED) whose call on the moved base is
-    `safe` answers Lem's refusal of that tip because the base moved (`kind: base`), unless the newest
-    read of that tip before it (BEFORE) said `another round`, whose refusal only the new landing
-    answers. No read answers any other refusal: GitHub's, a rule's, a tip's."""
+    it clears `merge_refused` (`read_answers`): a read of the proposed tip (PROPOSED) whose call on the
+    moved base is `safe`, or that has no call on a move, answers Lem's refusal of that tip because the
+    base moved (`kind: base`), unless the newest read of that tip before it (BEFORE) said `another
+    round`, whose refusal only the new landing answers. land.py records a read with no call only when
+    its brief named the checks' own base: main has their tree again, after a revert. No read answers
+    any other refusal: GitHub's, a rule's, a tip's."""
     tip = review.get("tip")
-    return bool(refused and review.get("base_call") == "safe" and refused.get("from") == "lem" and refused.get("kind") == "base"
+    return bool(refused and review.get("base_call") in ("safe", None) and refused.get("from") == "lem" and refused.get("kind") == "base"
                 and same_tip(refused.get("tip"), tip) and (not proposed or same_tip(proposed, tip))
                 and not (before and same_tip(before.get("tip"), tip) and before.get("base_call") == "another round"))
 
@@ -981,9 +983,9 @@ def merge_wait(t: Task) -> str | None:
     `another round`: the task's session starts a fresh merge agent, which reads what moved. "merges":
     the board's server, since the review says `merge`, calls nobody and no merge of that tip was
     refused, or the owner's merge stands for that tip (`merge.stands`); a read whose call on the moved
-    base is `safe` answers Lem's refusal (`answers_refusal`). "relands": the task's session, since a
-    read of that tip said `another round` of the moved base, and the session lands it again, until the
-    next proposal. "owner": the owner, for a review that calls him, any other refused merge, and an
+    base is `safe`, or a read on the checks' own base after a revert, answers Lem's refusal
+    (`answers_refusal`). "relands": the task's session, since a read of that tip said `another
+    round` of the moved base, and the session lands it again, until the next proposal. "owner": the owner, for a review that calls him, any other refused merge, and an
     open task with no proposal on record. Only "owner" is a row of "Waits for you"; the owner's own
     merge on the task's page stays in every case but "relands", where a press meets the base refusal
     that only the new landing answers and is refused again (`acts_of`)."""
@@ -1659,9 +1661,12 @@ SAYS = {
                                        else "the merge agent’s merge" if e.get("by") == "merger" else "your merge" if e.get("by") == "owner" else "")
                                       + ("; " if e.get("by") else "") + "it reads the base branch first"},
     "merge.review": merge_review_said,
-    # land.py logs it after a safe read of the moved base (`after`), or at a proposal that kept the change he merged
+    # land.py logs it after a safe read of the moved base, or a read on the checks' base after a revert (`after`), or at a
+    # proposal that kept the change he merged
     "merge.stands": lambda e: {"info": {"actor": "gate", "icon": "play"}, "head": "Your merge stands",
                                "text": ("the merge agent read the moved base and said safe" if e.get("after") == "a read of the moved base"
+                                        else "the merge agent read it on the base the checks ran on, which main has again"
+                                        if e.get("after") == "a read of the base back on the checks' tree"
                                         else "the new landing kept the change you merged") + ": the board’s server runs it, and nobody asks you again"},
     "merge.refused": lambda e: {"info": {"actor": "bad", "icon": "alert"}, "head": "Lem refused the merge agent’s merge" if e.get("from") == "lem" else "GitHub refused the merge", "text": e.get("said") or ""},
     "gate.start": lambda e: {"info": {"actor": "gate", "icon": "play"}, "head": "The checks started", "text": f"{plural(e.get('commands') or 0, 'command')} on {e.get('tip') or '?'}"},

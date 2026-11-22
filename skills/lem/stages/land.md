@@ -294,8 +294,9 @@ landing up as after a cut-off.
      "the base moved" of step 8 says for a read that said another round. Tell him in one line that
      the task is checked again on the new base, with the read's `base_why`.
    - The owner's merge stands: a read with `Base: safe.` after Lem refused his merge for the base
-     (step 8). Its `next` says that the board's server merges it on the base the read covered; say
-     that in one line, wait for the wake-up, and do not ask him again.
+     (step 8), or a read whose brief named the checks' own base because main has their tree again
+     (a revert of the move). Its `next` says that the board's server merges it on the base the read
+     covered; say that in one line, wait for the wake-up, and do not ask him again.
    - `calls` is false: the board's server merges it, `lem land merge SLUG --by merger --via
      server` within a minute, and you do not run that merge. Say its `next` in one line ("the merge
      agent read it and found nothing for you; the board's server merges it"), and wait for the

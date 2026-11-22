@@ -416,9 +416,10 @@ what a person sees links, and `try`, the worktree's folder from the main checkou
 N`, which a review that calls the owner ends with.
 
 A read with `Base: safe.` answers Lem's own refusal of a merge of its tip because the base moved
-(`merge_refused` with `kind: base`): the record clears it, so that `landing.json`, `lem project
-waiting` and the board agree, and when that refused merge was the owner's (`owner_tap` of the tip) it
-logs `merge.stands`, so that the board's server runs his merge with `--standing` and he is not asked
+(`merge_refused` with `kind: base`), and so does a read whose brief named the checks' own base,
+since origin's base had the checks' tree again (a revert) when it was written: the record clears it,
+so that `landing.json`, `lem project waiting` and the board agree, and when that refused merge was
+the owner's (`owner_tap` of the tip) it logs `merge.stands`, so that the board's server runs his merge with `--standing` and he is not asked
 again. No read answers any other refusal (GitHub's, a rule's, a tip's). A read with `Base: another
 round.` merges nothing: it keeps a refusal of kind `base` for its tip (`merge_refused` and a
 `merge.refused` event, with the read's why) and the tip as `another_round`, so that the server wakes
@@ -550,6 +551,9 @@ BASE_CALL = re.compile(r"Base:\s*(safe|another round)\b[.:;,]?\**\s*(.*)", re.IG
 # What `merged_by` and `merge.start` say of a merge on a base that moved after the checks, which a read
 # of the merge agent's covered.
 READ_AFTER = "a read of the moved base"
+# What `merge.stands` says of the owner's merge after a read whose brief named the checks' own base,
+# since origin's base had the checks' tree again (a revert) after Lem refused his merge for a move.
+READ_BACK = "a read of the base back on the checks' tree"
 # The review a change gets, from the least to the most: one read by one agent, a round of the
 # project's review tool with the profiles that fit the change, the project's full set.
 KINDS = ("read", "round", "full")
@@ -4001,6 +4005,15 @@ def refusal_answered(refused: object, tip: str) -> bool:
     return isinstance(refused, dict) and refused.get("from") == "lem" and refused.get("kind") == "base" and refused.get("tip") == tip
 
 
+def read_answers(refused: object, tip: str, base_call: str | None, on_checks_base: bool) -> bool:
+    """Whether the record of a read of TIP answers the refusal on record (REFUSED, `refusal_answered`):
+    a read with `Base: safe.` (BASE_CALL), or a read whose brief named the checks' own base
+    (ON_CHECKS_BASE): origin's base had the checks' tree again when the brief was written, after a
+    revert of the move Lem refused for, so the read has no call on a move, and the merge checks the
+    base once more. A read with `Base: another round.` answers nothing."""
+    return refusal_answered(refused, tip) and (base_call == "safe" or on_checks_base)
+
+
 def base_line(base: str, checks_ran_on: str, merged_on: str, why: str) -> str:
     """The record of a merge on a base that moved after the checks, for the pull request's text and the
     merge commit: the base the checks ran on, the base it merged on, and the merge agent's sentence of why."""
@@ -4188,19 +4201,20 @@ def cmd_merge_review(task: Task, record: str | None, read_tip: str | None = None
         said = f"the merge agent's read of what moved on {task.base} since the checks says another round: {call[1]}; {AGAIN}"
         task.keep(merge_refused={"tip": tip, "by": by, "via": via, "from": "lem", "kind": "base", "said": said, "at": now_utc()}, another_round=tip)
         script("project.py", task.main, "log", task.slug, "merge.refused", f"by={by}", f"via={via}", "from=lem", "kind=base", f"said={said}", f"tip={tip[:9]}")
-    elif call and refusal_answered(kept.get("merge_refused"), tip):
-        # A safe read answers Lem's refusal of this tip for the moved base, so landing.json, `lem project
-        # waiting` and the board agree; the owner's merge that it refused stands, and the server runs it.
+    elif read_answers(kept.get("merge_refused"), tip, call[0] if call else None, not moved):
+        # A safe read, or a read on the checks' own base after main went back to their tree, answers Lem's
+        # refusal of this tip for the moved base, so landing.json, `lem project waiting` and the board agree;
+        # the owner's merge that it refused stands, and the server runs it.
         task.keep(merge_refused=None)
         tap = kept.get("owner_tap")
         if isinstance(tap, dict) and tap.get("tip") == tip:
             stands = True
-            script("project.py", task.main, "log", task.slug, "merge.stands", "by=owner", f"tip={tip[:9]}", f"after={READ_AFTER}", f"base={read_on[:9]}")
+            script("project.py", task.main, "log", task.slug, "merge.stands", "by=owner", f"tip={tip[:9]}", f"after={READ_AFTER if moved else READ_BACK}", f"base={read_on[:9]}")
     if call and call[0] == "another round":
         after = (f"the merge agent says that the moved base needs another round of the checks: the task lands again, and the owner is not asked; {AGAIN}"
                  + ("; the owner's merge stands through the new landing while the change and the reasons it is not green stay the same" if (kept.get("owner_tap") or {}).get("tip") == tip else ""))
     elif stands:
-        after = (f"the owner's merge stands: the board's server merges it on {task.base} at {read_on[:9]} (`lem land merge {task.slug} --by owner --via server --standing`), "
+        after = (f"the owner's merge stands: the board's server merges it on {task.base}{f' at {read_on[:9]}' if moved else ''} (`lem land merge {task.slug} --by owner --via server --standing`), "
                  f"and the owner is not asked again; wait for the wake-up `lem: {task.slug} merged`, or `lem: {task.slug} refused`")
     elif calls:
         after = "it calls the owner: \"Read the merge review\" waits for him, and only his merge lands it"
@@ -4243,8 +4257,9 @@ def cmd_merge(task: Task, by: str, message: str | None, via: str, standing: bool
         except Refusal as error:
             # A refusal by Lem's rules is kept for that tip (`kept_refusal`), so that the server tries it
             # no more and wakes the task's session: the merge agent's, which runs with nobody to read
-            # it, and a moved base's, of the owner's merge too, which the session repairs by landing the
-            # task again. The owner's merge then stands for the next proposal (`tap_after`).
+            # it, and a moved base's, of the owner's merge too, which the session answers with a fresh
+            # read of what moved. The owner's merge then stands on that read's `Base: safe.`
+            # (`merge.stands`), or for the next proposal after `Base: another round.` (`tap_after`).
             if kept_refusal(by, error.kind) and task.record["status"] == "open" and task.kept().get("proposed"):
                 kept = task.kept()
                 tip = kept["proposed"]
@@ -4257,7 +4272,8 @@ def cmd_merge(task: Task, by: str, message: str | None, via: str, standing: bool
 
 def merge_locked(task: Task, by: str, message: str | None, via: str, standing: bool = False) -> dict:
     """The one merge of a task's pull request, the owner's and the merge agent's alike: through
-    GitHub, at the commit that was proposed, on the base it was checked on."""
+    GitHub, at the commit that was proposed, on the base it was checked on, or on the base a read of
+    the merge agent's covered when it said the move is safe."""
     if task.record["status"] != "open":
         raise LandError(f"the task is {task.record['status']!r}, not `open`; `lem land propose {task.slug}` comes first")
     task.need_worktree()

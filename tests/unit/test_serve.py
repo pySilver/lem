@@ -365,6 +365,18 @@ class MovedBaseRead(unittest.TestCase):
                   self.ev(9, "merge.review", verdict="merge", calls=False, by="claude/opus:high", tip="def456789", carried="abc123456"))
         self.assertEqual(self.owed(*landed), [("merge", "gift-note", "merger")])
 
+    def test_a_read_on_the_checks_base_after_a_revert_answers_lems_base_refusal(self):
+        # main went back to the checks' tree after the refusal: the brief named the checks' own base, and its
+        # read, with no call on a move, answers the refusal, so the server merges, the owner's merge too
+        first = (*self.proposed(), self.ev(2, "merge.review", verdict="merge", calls=False, by="claude/opus:high", tip="abc123456"))
+        back = (*first, self.refused(3), self.ev(4, "session.wake", session="S1", why="refused"),
+                self.ev(5, "merge.review", verdict="merge", calls=False, by="claude/opus:high", tip="abc123456", base="m1m1m1m1m"))
+        self.assertEqual(self.owed(*back), [("merge", "gift-note", "merger")])
+        his = (*self.proposed(), self.refused(3, by="owner"), self.ev(4, "session.wake", session="S1", why="refused"),
+               self.ev(5, "merge.review", verdict="call", calls=True, why="it is careful", by="claude/opus:high", tip="abc123456", base="m1m1m1m1m"),
+               self.ev(5, "merge.stands", by="owner", tip="abc123456", after="a read of the base back on the checks' tree", base="m1m1m1m1m"))
+        self.assertEqual(self.owed(*his), [("merge", "gift-note", "owner")])
+
     def test_another_round_with_no_refusal_before_it_starts_no_merge(self):
         again = (*self.proposed(), self.read(2, "another round"))
         t = self.model(*again).tasks[0]

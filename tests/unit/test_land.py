@@ -831,6 +831,17 @@ class ReadOfAMovedBase(unittest.TestCase):
         self.assertFalse(land.refusal_answered({"tip": TIP, "from": "github", "said": "a required review"}, TIP))
         self.assertFalse(land.refusal_answered(None, TIP))
 
+    def test_a_read_on_the_checks_base_answers_lems_base_refusal_too(self) -> None:
+        # main moved, the merge was refused, then a revert gave main the checks' tree again: the brief named
+        # the checks' own base, its read has no call on a move, and it answers the refusal as a safe read does
+        base = {"tip": TIP, "by": "merger", "from": "lem", "kind": "base"}
+        self.assertTrue(land.read_answers(base, TIP, None, True))
+        self.assertTrue(land.read_answers(base, TIP, "safe", False))
+        self.assertFalse(land.read_answers(base, TIP, "another round", False))
+        self.assertFalse(land.read_answers(base, TIP, None, False))
+        self.assertFalse(land.read_answers({**base, "kind": "rule"}, TIP, None, True))
+        self.assertFalse(land.read_answers({"tip": TIP, "from": "github", "said": "a required review"}, TIP, None, True))
+
     def test_the_line_names_both_bases_and_the_why(self) -> None:
         line = land.base_line("main", M1, M2, "B changed only docs/board.md.")
         self.assertEqual(line, f"The checks ran on main at {M1[:9]}; it merged on main at {M2[:9]}, after the merge agent's read of what moved: B changed only docs/board.md.")
