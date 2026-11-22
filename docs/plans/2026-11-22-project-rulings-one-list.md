@@ -63,8 +63,10 @@ The list, numbered as the reviewer gave it in its first turn:
    the judge's sources does not lead to the history. **A design choice**: the kept decision (the judge
    reads the list's bullets, and this repository's history and choices stay in its own `lem-gate:`
    lesson line) against the changed one (the gate's brief carries the project's `lem-gate:` lines to
-   the judge, and the judge reads the opening line of the part a bullet stands in). `stages/plan.md`,
-   step 5, takes it after the talk.
+   the judge, and the judge reads the opening line of the part a bullet stands in). The ladder took it after the
+   talk, and the question gate settled it as `cheap` for the kept decision, as task 2 writes it:
+   either pick is a few lines of two texts, reversed in one commit, and only Lem's own list has a
+   choices part and a history (decision 5 of the task's record).
 4. **Which commands refuse the folder form.** `lem corrections list` reads `.lem/project.toml` through
    `corrections.py::collects`, which reads one key and never refuses. Refuted once: `collects` is the
    hook's, which a settings error must not stop. Held: criterion 2.2 says every command that reads the
