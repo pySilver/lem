@@ -15,6 +15,7 @@ import HotkeysController from './hotkeys.js';
 import MarkdownController from './markdown.js';
 import PanelController from './panel.js';
 import PushController from './push.js';
+import SearchController from './search.js';
 import SplitterController from './splitter.js';
 import StreamController from './stream.js';
 import TipController from './tip.js';
@@ -35,6 +36,7 @@ export const CONTROLLERS = {
   markdown: MarkdownController,
   panel: PanelController,
   push: PushController,
+  search: SearchController,
   splitter: SplitterController,
   stream: StreamController,
   tip: TipController,

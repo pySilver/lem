@@ -5,7 +5,9 @@
 # (cursor.js): J, K and the arrows in a column, H, L and the arrows to the next column you can see, Enter and Escape,
 # the mark through a morph, and no key in a field or with a modifier. The mark of "Waits for you": J, K and the arrows
 # over its rows, Enter on a row answered in the task's session (the stand-in's `session select`) and on a merge row (the
-# panel, no button), and the mark through a morph. A check adds to the demo's log only the state lines it needs, as a
+# panel, no button), and the mark through a morph. The search over every card (search.js): Cmd-K and Ctrl-K, also from a
+# field, and the search buttons open it, letters typed filter and order it, Enter, a click and Escape, and the box through
+# a morph. A check adds to the demo's log only the state lines it needs, as a
 # lead's `lem project state` and `lem session open` write them. Each check that needs Chrome prints a SKIP line of its
 # own where Node or Chrome is missing.
 # shellcheck source-path=SCRIPTDIR
@@ -338,15 +340,165 @@ PY
   fi
 }
 
+# The checks of the search over every card (search.js, criteria 1, 3, 6 and 7 of docs/plans/2026-11-22-board-card-search.md),
+# after those of "Waits for you": the tasks the criteria name are added to the demo's log first, as a lead's `lem project
+# state` writes them, and the backlog item into the demo's backlog folder. Each `s-*` print step gives a label and the
+# state, "OPEN | FOCUS | TYPED | PANEL | ROWS": whether the box is open, "field" when its field has the focus, what the
+# field holds, the task of the open panel ("-" for none), and the first six rows shown in their order, the marked one
+# with a "*" before its name.
+search_checks() {
+  local out=$WORK/search.out phone=$WORK/search-phone.out item=boards-done-column
+  "$PY" "$WORK/event.py" "$LOG" board-card-search held "the criteria wait for the owner"
+  "$PY" "$WORK/event.py" "$LOG" clear-a-reported-deadline building "task 1 of 2"
+  "$PY" "$WORK/event.py" "$LOG" old-export-fix parked "the owner parked it"
+  printf -- "---\nworth: yes\nadded: 2026-11-22\n---\n\n# The board's done column has no limit\n\nDone keeps every card.\n" > "$DEMO/docs/backlog/$item.md"
+  "$PY" - "$BASE" "$WORK" "$PY" "$LOG" "$item" > "$WORK/search.json" <<'PY'
+import json, shlex, sys
+base, work, py, log, item = sys.argv[1:]
+STATE = ("(() => { const box = document.getElementById('search'); const q = box?.querySelector('[data-search-target=query]');"
+         " const panel = document.querySelector('#task > .panel');"
+         " const rows = [...document.querySelectorAll('#search-list a.sr:not([data-js-out])')].slice(0, 6).map(r => (r.hasAttribute('data-js-cur') ? '*' : '') + r.dataset.slug);"
+         " return [box?.hasAttribute('data-js-open') ? 'open' : 'closed', q && document.activeElement === q ? 'field' : 'away', q?.value ?? '',"
+         " panel ? panel.dataset.task : '-', rows.join(',')].join(' | '); })()")
+def until(label, cond):
+    """a print step that waits up to 15 s for COND, then gives LABEL and the state"""
+    return {"print": f"new Promise(done => {{ const end = Date.now() + 15000; const tick = () => (({cond}) || Date.now() > end) ? done([{json.dumps(label)}, {STATE}]) : setTimeout(tick, 100); tick(); }})"}
+def at(label):
+    return {"print": f"[{json.dumps(label)}, {STATE}]"}
+def ask(label, expr):
+    return {"print": f"[{json.dumps(label)}, {expr}]"}
+def key(name, code=None, **more):
+    vk = {"Enter": 13, "Escape": 27}.get(name, 0)
+    return {"key": name, "code": code or name, "vk": vk, "after": 100, **({"text": "\r"} if name == "Enter" else {}), **more}
+def typed(text):
+    """the keys of TEXT, each typed as a keyboard types it"""
+    return [key(c, "Space" if c == " " else f"Key{c.upper()}", text=c) for c in text]
+CMD_K, CTRL_K, ESC = key("k", "KeyK", modifiers=4), key("k", "KeyK", modifiers=2), key("Escape")
+def go(url, ready):
+    return [{"goto": url, "wait": 300}, until("ready", f"document.readyState === 'complete' && window.Turbo && document.querySelector('#search') && {ready}"), {"wait": 300}]
+rank = ("(() => { const ids = [...document.querySelectorAll('#search-list a.sr:not([data-js-out])')].map(r => r.dataset.slug);"
+        " return [ids.indexOf('board-card-search'), ids.indexOf('clear-a-reported-deadline')].join(' '); })()")
+shown = "[...document.querySelectorAll('#search-list a.sr:not([data-js-out])')].map(r => r.dataset.slug).join(',')"
+steps = [
+    # Cmd-K on Activity: the box, the cursor in it, the tasks that have not ended, the first marked
+    *go(f"{base}/activity", "true"), at("s-before"), CMD_K, at("s-cmdk"),
+    ask("s-empty", "(() => { const rows = [...document.querySelectorAll('#search-list a.sr')]; const out = rows.filter(r => !r.hasAttribute('data-js-out'));"
+                   " return [out.length > 0 && out.every(r => r.dataset.open), rows.some(r => !r.dataset.open && r.hasAttribute('data-js-out'))].join(' '); })()"),
+    # the rule as letters typed: crdsrch, then card, then the words of a parked task and of a backlog item
+    *typed("crdsrch"), at("s-crdsrch"),
+    {"eval": "document.querySelector('#search [data-search-target=query]').select()"}, *typed("card"), ask("s-card", rank),
+    {"eval": "document.querySelector('#search [data-search-target=query]').select()"}, *typed("export"), ask("s-export", shown),
+    {"eval": "document.querySelector('#search [data-search-target=query]').select()"}, *typed("done col"), ask("s-donecol", shown),
+    {"eval": "document.querySelector('#search [data-search-target=query]').select()"}, *typed("zzqx"),
+    ask("s-none", "(() => { const n = document.querySelector('#search .search-none'); return [document.querySelectorAll('#search-list a.sr:not([data-js-out])').length, n.getClientRects().length > 0].join(' '); })()"),
+    ask("s-rule", "[LemKit.match('crdsrch', 'Board card search'), LemKit.match('card', 'Board card search'), LemKit.match('card', 'Clear a reported deadline'),"
+                  " LemKit.match('CARD S', 'board card search'), LemKit.match('dc', 'cd'), LemKit.match('', 'any')].join(' ')"),
+    # Escape closes it with no pick; the arrows move the mark
+    ESC, at("s-esc-none"),
+    CMD_K, *typed("card"), key("ArrowDown"), at("s-down"), key("ArrowUp"), key("ArrowUp"), at("s-up"), ESC,
+    # Enter on crdsrch: the box goes and the task's panel opens beside the view
+    CMD_K, *typed("crdsrch"), key("Enter"), until("s-enter", "document.querySelector('#task > .panel')"),
+    # Escape in the box with the panel open: the box goes, the panel stays, and the focus goes back where it was
+    {"eval": "window.lemBefore = document.activeElement"}, CMD_K, *typed("old"), ESC, at("s-escape"),
+    ask("s-back", "String(document.activeElement === window.lemBefore && document.activeElement !== document.body)"),
+    # a click on a backlog item's row: the Backlog view, with that item open and under the cursor
+    CMD_K, *typed("done col"), {"click": f"#sr-item-{item}"},
+    until("s-item", f"location.pathname.endsWith('/backlog') && document.getElementById('item-{item}')?.open"),
+    ask("s-item-at", f"(() => {{ const n = document.getElementById('item-{item}'); const b = n.getBoundingClientRect();"
+                     f" return [location.hash, n.open, n.hasAttribute('data-js-cur'), b.top >= 0 && b.top < innerHeight].join(' '); }})()"),
+    # / on the Backlog is still its filter's key; Cmd-K and Ctrl-K open the box from that field, and Escape gives it back
+    {"eval": "document.activeElement.blur()"}, key("/", "Slash", text="/"),
+    ask("s-slash", "[document.activeElement?.id ?? '-', document.getElementById('search').hasAttribute('data-js-open')].join(' ')"),
+    CMD_K, at("s-cmdk-field"), ESC, ask("s-esc-field", "document.activeElement?.id ?? '-'"), CTRL_K, at("s-ctrlk"), ESC,
+    # the search button of the bar
+    {"click": ".bar .search-open"}, at("s-button"), ESC,
+    # a new event while the box is open: it stays open with the letters, and the new card's row is filtered too
+    *go(f"{base}/", "document.querySelector('#kanban')"), CMD_K, *typed("crdsrch"),
+    {"sh": " ".join(map(shlex.quote, [py, f"{work}/event.py", log, "refund-note-wording", "building", "task 1 of 2"]))},
+    until("s-morph", "document.querySelector('#card-refund-note-wording') && document.querySelector('#sr-task-refund-note-wording')"),
+    ask("s-morph-new", "String(document.getElementById('sr-task-refund-note-wording')?.hasAttribute('data-js-out'))"),
+]
+print(json.dumps({"width": 1440, "height": 900, "steps": steps}))
+PY
+  "$PY" - "$BASE" > "$WORK/search-phone.json" <<'PY'
+import json, sys
+base = sys.argv[1]
+STATE = ("(() => { const box = document.getElementById('search'); const q = box?.querySelector('[data-search-target=query]');"
+         " return [box?.hasAttribute('data-js-open') ? 'open' : 'closed', q && document.activeElement === q ? 'field' : 'away'].join(' '); })()")
+print(json.dumps({"width": 390, "height": 844, "mobile": True, "steps": [
+    {"goto": f"{base}/", "wait": 2500}, {"print": f"['p-before', {STATE}]"}, {"click": ".mbar .search-open"}, {"print": f"['p-button', {STATE}]"}]}))
+PY
+  drive "$WORK/search.json" "$out"
+  drive "$WORK/search-phone.json" "$phone"
+  local cmdk crdsrch down up
+  cmdk=$(seen "$out" s-cmdk)
+  down=$(seen "$out" s-down) up=$(seen "$out" s-up)
+  down=${down##*| } up=${up##*| }
+  if [ "$(seen "$out" s-before | cut -d'|' -f1-4)" = "closed | away |  | - " ] && [[ $cmdk == "open | field |  | - | *"* ]] && [[ ${cmdk##*| } == \** ]] \
+    && [ "$(seen "$out" s-empty)" = "true true" ]; then
+    pass "Cmd-K on Activity opens the search with the cursor in its field, listing the tasks that have not ended with the first one marked"
+  else
+    fail "Cmd-K on Activity: $(cat "$out")"
+  fi
+  if [ "$(seen "$out" s-slash)" = "bl-q-shop false" ] && [ "$(seen "$out" s-cmdk-field | cut -d'|' -f1-2)" = "open | field " ] \
+    && [ "$(seen "$out" s-esc-field)" = "bl-q-shop" ] && [ "$(seen "$out" s-ctrlk | cut -d'|' -f1-2)" = "open | field " ] \
+    && [ "$(seen "$out" s-button | cut -d'|' -f1-2)" = "open | field " ] \
+    && [ "$(seen "$phone" p-before)" = "closed away" ] && [ "$(seen "$phone" p-button)" = "open field" ]; then
+    pass "/ on the Backlog still goes to its filter, Cmd-K and Ctrl-K open the search from that field and Escape gives the focus back to it, and the search button opens it on a large screen and on a phone"
+  else
+    fail "the keys from a field and the buttons: $(cat "$out") / phone: $(cat "$phone")"
+  fi
+  crdsrch=$(seen "$out" s-crdsrch)
+  if [[ $crdsrch == "open | field | crdsrch | - | *board-card-search"* ]] && [[ $crdsrch != *",*"* ]] \
+    && "$PY" -c 'import sys; a, b = map(int, sys.argv[1].split()); sys.exit(not (0 <= a < b))' "$(seen "$out" s-card)" \
+    && [ "$(seen "$out" s-none)" = "0 true" ] && [ "$(seen "$out" s-rule)" = "11 4 16 6  0" ] \
+    && [[ $down == [^*]*,\** ]] && [[ $up == \*board-card-search,* ]]; then
+    pass "crdsrch lists Board card search first and marks it, card lists it above Clear a reported deadline, letters no title holds say so, and the arrows move the mark"
+  else
+    fail "the match and its order: $(cat "$out")"
+  fi
+  if [[ ",$(seen "$out" s-export)," == *",old-export-fix,"* ]] && [[ ",$(seen "$out" s-donecol)," == *",$item,"* ]] \
+    && [[ ",$(seen "$out" s-export),$(seen "$out" s-donecol)," != *",board-card-search,"* ]]; then
+    pass "export finds the parked task Old export fix, and done col finds the backlog item The board's done column has no limit, and neither lists Board card search"
+  else
+    fail "a parked task and a backlog item: $(cat "$out")"
+  fi
+  if [ "$(seen "$out" s-enter | cut -d'|' -f1,4)" = "closed | board-card-search " ]; then
+    pass "Enter on crdsrch closes the box and opens the panel of board-card-search beside the view"
+  else
+    fail "Enter on a result: $(cat "$out")"
+  fi
+  if [ "$(seen "$out" s-esc-none | cut -d'|' -f1,4)" = "closed | - " ] && [ "$(seen "$out" s-escape | cut -d'|' -f1,3,4)" = "closed |  | board-card-search " ] \
+    && [ "$(seen "$out" s-back)" = "true" ]; then
+    pass "Escape closes the box with no pick and empties it, an open panel stays open, and the focus goes back where it was"
+  else
+    fail "Escape in the box: $(cat "$out")"
+  fi
+  if [ "$(seen "$out" s-item | cut -d'|' -f1)" = "closed " ] && [ "$(seen "$out" s-item-at)" = "#item-$item true true true" ]; then
+    pass "a click on a backlog item's row closes the box and shows the Backlog view with that item open, under the cursor and in view"
+  else
+    fail "a click on a backlog item: $(cat "$out")"
+  fi
+  if [ "$(seen "$out" s-morph | cut -d'|' -f1-3)" = "open | field | crdsrch " ] && [[ "$(seen "$out" s-morph)" == *"| *board-card-search"* ]] \
+    && [ "$(seen "$out" s-morph-new)" = "true" ]; then
+    pass "a new event while the box is open keeps it open with the letters typed and the mark, and the new task's row is filtered by them too"
+  else
+    fail "the box through a morph: $(cat "$out")"
+  fi
+}
+
 if [ -z "$NODE" ]; then
   skip_function tasks_view_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function waits_view_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
+  skip_function search_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
 elif [ -z "$CHROME_AT" ]; then
   skip_function tasks_view_checks "no Chrome here (set CHROME to the browser)"
   skip_function waits_view_checks "no Chrome here (set CHROME to the browser)"
+  skip_function search_checks "no Chrome here (set CHROME to the browser)"
 else
   tasks_view_checks
   waits_view_checks
+  search_checks
 fi
 
 finish

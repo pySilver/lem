@@ -431,19 +431,23 @@ def search_box(ctx: Ctx) -> Markup:
     one row for each card (`bm.search_rows`), in the order it lists them with nothing typed. The search
     controller opens it (`data-js-open`, which a morph keeps), filters and orders the rows by the title in
     `data-title`, shows only the rows with `data-open` while nothing is typed, and picks a row by its link:
-    a task's opens its panel as its card does, a backlog item's opens the Backlog view on that item."""
+    a task's opens its panel as its card does, a backlog item's opens the Backlog view on that item. A task's
+    row carries `data-task`, as a task's row of the sidebar does, so the view's mark goes to its card
+    (cursor.js) and Escape after the panel gives the focus to that card."""
     def link(r: dict) -> dict:
         return task_link(ctx, r["slug"]) if r["kind"] == "task" else {"href": f"{ctx.href('backlog')}#item-{quote(r['slug'], safe='')}"}
 
     rows = [h("a", {"class": f"sr a-{r['actor']}", "id": f"sr-{r['kind']}-{r['slug']}", "role": "option", "tabindex": "-1", **link(r),
-                    "data-search-target": "row", "data-kind": r["kind"], "data-slug": r["slug"], "data-title": r["title"], "data-open": "1" if r["open"] else None},
+                    "data-search-target": "row", "data-kind": r["kind"], "data-slug": r["slug"], "data-title": r["title"], "data-open": "1" if r["open"] else None,
+                    "data-task": r["slug"] if r["kind"] == "task" else None},
               h("span", {"class": "sr-title"}, r["title"]), h("span", {"class": "pill sr-chip"}, h("i"), h("span", None, r["chip"])))
             for r in bm.search_rows(ctx.model, ctx.backlog)]
-    return h("div", {"class": "search", "id": "search", "data-controller": "search", "role": "dialog", "aria-modal": "true", "aria-label": "Search every card"},
+    return h("div", {"class": "search", "id": "search", "data-controller": "search", "data-action": "click->search#click", "role": "dialog", "aria-modal": "true", "aria-label": "Search every card"},
              h("div", {"class": "search-box"},
                h("label", {"class": "search-field"}, icon(ctx, "magnifying-glass"),
                  h("input", {"id": f"search-q-{ctx.workspace}", "type": "search", "placeholder": "Search every card by its title", "aria-label": "Search every card by its title",
-                             "autocomplete": "off", "spellcheck": "false", "aria-controls": "search-list", "data-search-target": "query", "data-turbo-permanent": True}),
+                             "autocomplete": "off", "spellcheck": "false", "aria-controls": "search-list", "data-action": "input->search#input", "data-search-target": "query",
+                             "data-turbo-permanent": True}),
                  h("kbd", None, "Esc")),
                h("div", {"class": "search-list", "id": "search-list", "role": "listbox", "aria-label": "The cards of the workspace"}, rows,
                  h("div", {"class": "search-none", "data-search-target": "none", "data-js-out": True}, "No card has these letters in its title.")),

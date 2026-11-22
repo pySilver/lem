@@ -6,7 +6,8 @@
 // address follows with no visit, so that a shared link and a refresh show the same list. A chip (a worth,
 // a fact, All) is a visit of its address, with the words typed so far. J and K move a cursor over the
 // items shown, Enter opens or closes the one under it, S copies the line that starts a task from it,
-// and / goes to the field.
+// and / goes to the field. The item the address names (#item-SLUG, as the search's row of an item links to it) opens, takes the
+// cursor and comes into view, when the page comes and when the address's # changes.
 import {Controller} from '@hotwired/stimulus';
 
 export default class extends Controller {
@@ -15,12 +16,29 @@ export default class extends Controller {
 
   connect() {
     this.onMorph = () => this.filter(false);
+    this.onHash = () => this.named();
     document.addEventListener('turbo:morph', this.onMorph);
+    window.addEventListener('hashchange', this.onHash);
     this.filter(false);
+    this.named();
   }
 
   disconnect() {
     document.removeEventListener('turbo:morph', this.onMorph);
+    window.removeEventListener('hashchange', this.onHash);
+  }
+
+  // the item the address names, open, under the cursor and in view; words in the field that hide it go, and the
+  // address keeps its # (no history entry)
+  named() {
+    let id = '';
+    try { id = decodeURIComponent(location.hash.slice(1)); } catch { return; }
+    const item = id.startsWith('item-') ? this.itemTargets.find(node => node.id === id) : null;
+    if (!item) return;
+    if (item.hasAttribute('data-js-out') && this.hasQueryTarget && this.queryTarget.value) { this.queryTarget.value = ''; this.filter(false); }
+    item.open = true;
+    for (const other of this.itemTargets) other.toggleAttribute('data-js-cur', other === item);
+    requestAnimationFrame(() => item.scrollIntoView({block: 'start'}));
   }
 
   // the filter as the address has it
