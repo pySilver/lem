@@ -101,7 +101,6 @@ def main() -> None:
         parts = [text[:start], text[start:end], text[end:]]
         parts[0] = parts[0].replace(HIDE_NIGHT, HIDE_DAY)
     else:
-        start = end = None
         parts = [text, "", ""]
     outside = parts[0] + parts[2]
     missing = sorted(set(re.findall(r"#[0-9a-f]{6}", outside)) - set(NIGHT))
