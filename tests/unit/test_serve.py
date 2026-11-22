@@ -258,8 +258,11 @@ class Duties(unittest.TestCase):
                 # no proposed tip: a press that got past the acts is refused at the tip, and nothing merges
                 return {}
 
+        # the merge agent's read of the moved base asked for another round, and the refusal it keeps waits for the new landing
         base = (self.ev(0, "proposed", green=True, not_green=[], tip="abc123456"), self.state(1, "open", self.PR),
-                self.ev(2, "merge.refused", by="owner", via="server", kind="base", said="origin/main moved after the checks ran", tip="abc123456", **{"from": "lem"}))
+                self.ev(2, "merge.review", verdict="merge", calls=False, by="claude", tip="abc123456", base="m2m2m2m2m", base_call="another round",
+                        base_why="B changed skills/lem/scripts/land.py, which the change edits too"),
+                self.ev(2, "merge.refused", by="owner", via="server", kind="base", said="the merge agent asks for another round of the checks", tip="abc123456", **{"from": "lem"}))
         note = serve.NOTES.get(serve.act_merge(Space(self.model(*base)), "gift-note", {"confirm": "yes", "tip": "abc123456"}, "board"))
         self.assertEqual(note["state"], "refused")
         self.assertIn("Lem lands it again", note["said"])
@@ -293,6 +296,103 @@ class Duties(unittest.TestCase):
 
 
 
+class MovedBaseRead(unittest.TestCase):
+    """The merge agent's read of a moved base answers Lem's refusal of the merge when it says `safe`, and
+    answers nothing when it says `another round` (criteria 1 and 4 of
+    docs/plans/2026-11-22-moved-base-merge-agent-call.md, and its plan talk's questions 3 and 6)."""
+
+    PR = Duties.PR
+    ev = staticmethod(Duties.ev)
+
+    def model(self, *events: dict):
+        return bm.derive(list(events), [], 1_800_000_000_000, meta={})
+
+    def proposed(self) -> tuple:
+        return (self.ev(0, "proposed", green=True, not_green=[], tip="abc123456"), self.state(1, "open", self.PR))
+
+    def state(self, minute: float, status: str, text: str) -> dict:
+        return self.ev(minute, "task.state", status=status, text=text, lines=[])
+
+    def refused(self, minute: float, by: str = "merger", kind: str = "base", said: str = "origin/main moved after the checks ran") -> dict:
+        return self.ev(minute, "merge.refused", by=by, via="server", kind=kind, said=said, tip="abc123456", **{"from": "lem"})
+
+    def read(self, minute: float, call: str, verdict: str = "merge", calls: bool = False, base: str = "m2m2m2m2m") -> dict:
+        return self.ev(minute, "merge.review", verdict=verdict, calls=calls, by="claude/opus:high", tip="abc123456",
+                       base=base, base_call=call, base_why="B changed only docs/board.md, which the change does not read")
+
+    def owed(self, *events: dict) -> list:
+        return serve.duties(self.model(*events), {}, set())
+
+    def test_a_safe_read_answers_lems_base_refusal_and_the_server_merges(self):
+        first = (*self.proposed(), self.ev(2, "merge.review", verdict="merge", calls=False, by="claude/opus:high", tip="abc123456"))
+        refused = (*first, self.refused(3))
+        self.assertEqual(self.owed(*refused), [("wake", "gift-note", "refused")])
+        safe = (*refused, self.ev(4, "session.wake", session="S1", why="refused"), self.read(5, "safe"))
+        t = self.model(*safe).tasks[0]
+        self.assertIsNone(t.refused)
+        self.assertTrue(serve.merge_due(t, {}, set()))
+        self.assertEqual(self.owed(*safe), [("merge", "gift-note", "merger")])
+        # the first read already saw the move, and no refusal came first
+        self.assertEqual(self.owed(*self.proposed(), self.read(2, "safe")), [("merge", "gift-note", "merger")])
+
+    def test_the_owners_merge_a_moved_base_refused_goes_through_on_a_safe_read(self):
+        refused = (*self.proposed(), self.ev(2, "merge.review", verdict="call", calls=True, why="it is careful", by="claude/opus:high", tip="abc123456"),
+                   self.refused(3, by="owner"))
+        self.assertEqual(self.owed(*refused), [("wake", "gift-note", "refused")])
+        # a careful change still gets `Verdict: call.`: the merge agent merges nothing, and his merge stands
+        safe = (*refused, self.ev(4, "session.wake", session="S1", why="refused"), self.read(5, "safe", verdict="call", calls=True),
+                self.ev(5, "merge.stands", by="owner", tip="abc123456", **{"from": "abc123456"}))
+        t = self.model(*safe).tasks[0]
+        self.assertTrue(serve.stands_due(t, {}, set()))
+        self.assertFalse(serve.merge_due(t, {}, set()))
+        self.assertEqual(self.owed(*safe), [("merge", "gift-note", "owner")])
+
+    def test_another_round_merges_nothing_and_the_session_lands_it_again(self):
+        refused = (*self.proposed(), self.ev(2, "merge.review", verdict="merge", calls=False, by="claude/opus:high", tip="abc123456"), self.refused(3))
+        woken = (*refused, self.ev(4, "session.wake", session="S1", why="refused"))
+        # the record of an another-round read keeps a base refusal of its tip, with the read's why
+        again = (*woken, self.read(5, "another round"), self.refused(5, said="the merge agent asks for another round of the checks: B renamed a function the change calls"))
+        t = self.model(*again).tasks[0]
+        self.assertIsNotNone(t.refused)
+        self.assertFalse(serve.merge_due(t, {}, set()))
+        self.assertEqual(self.owed(*again), [("wake", "gift-note", "refused")])
+        # a later read that says `safe` does not answer the refusal an another-round read keeps: only the new landing does
+        later = (*again, self.ev(6, "session.wake", session="S1", why="refused"), self.read(7, "safe"))
+        self.assertIsNotNone(self.model(*later).tasks[0].refused)
+        self.assertEqual(self.owed(*later), [])
+        # the new landing's proposal makes a new try
+        landed = (*later, self.ev(8, "proposed", green=True, not_green=[], tip="def456789"), self.state(9, "open", self.PR),
+                  self.ev(9, "merge.review", verdict="merge", calls=False, by="claude/opus:high", tip="def456789", carried="abc123456"))
+        self.assertEqual(self.owed(*landed), [("merge", "gift-note", "merger")])
+
+    def test_another_round_with_no_refusal_before_it_starts_no_merge(self):
+        again = (*self.proposed(), self.read(2, "another round"))
+        t = self.model(*again).tasks[0]
+        self.assertFalse(serve.merge_due(t, {}, set()))
+        stands = (*again, self.ev(3, "merge.stands", by="owner", tip="abc123456", **{"from": "abc123456"}))
+        self.assertFalse(serve.stands_due(self.model(*stands).tasks[0], {}, set()))
+        self.assertEqual(self.owed(*stands), [])
+
+    def test_no_read_answers_githubs_refusal_or_a_rules(self):
+        merge = (*self.proposed(), self.ev(2, "merge.review", verdict="merge", calls=False, by="claude/opus:high", tip="abc123456"))
+        github = (*merge, self.ev(3, "merge.refused", by="merger", via="server", said="Required status check is expected", tip="abc123456", **{"from": "github"}),
+                  self.read(4, "safe"))
+        self.assertIsNotNone(self.model(*github).tasks[0].refused)
+        self.assertNotIn(("merge", "gift-note", "merger"), self.owed(*github))
+        rule = (*merge, self.refused(3, kind="rule", said="the request is not green"), self.read(4, "safe"))
+        self.assertIsNotNone(self.model(*rule).tasks[0].refused)
+        self.assertNotIn(("merge", "gift-note", "merger"), self.owed(*rule))
+
+    def test_a_read_of_m2_does_not_cover_m3(self):
+        safe = (*self.proposed(), self.read(2, "safe", base="m2m2m2m2m"))
+        # the merge on m3 is refused for a new read: nothing merges until it says safe
+        m3 = (*safe, self.refused(3, said="origin/main moved since the read of m2m2m2m2m"))
+        self.assertEqual(self.owed(*m3), [("wake", "gift-note", "refused")])
+        self.assertEqual(self.owed(*m3, self.ev(4, "session.wake", session="S1", why="refused")), [])
+        read = (*m3, self.ev(4, "session.wake", session="S1", why="refused"), self.read(5, "safe", base="m3m3m3m3m"))
+        self.assertEqual(self.owed(*read), [("merge", "gift-note", "merger")])
+
+
 class DutyKey(unittest.TestCase):
     def test_a_failed_merge_waits_for_its_own_tip_only(self) -> None:
         old = serve.duty_key("merge", "gift-note", "merger", {"proposed": "aaa111"})
@@ -300,6 +400,40 @@ class DutyKey(unittest.TestCase):
         self.assertNotEqual(old, new)  # the task landed again: the new tip is merged at the next look
         self.assertEqual(old, serve.duty_key("merge", "gift-note", "merger", {"proposed": "aaa111"}))
         self.assertEqual(serve.duty_key("wake", "gift-note", "merged", {}), ("wake", "gift-note", "merged"))
+
+    def test_a_failed_merge_waits_for_its_own_read_only(self) -> None:
+        # a refused merge waits DUTY_RETRY for the read it ran on; a new read of the moved base makes a new key
+        tip = "a" * 40
+        first = serve.duty_key("merge", "gift-note", "merger", {"proposed": tip, "merge_review": {"tip": tip, "at": "2026-11-22T10:00:00Z"}})
+        second = serve.duty_key("merge", "gift-note", "merger", {"proposed": tip, "merge_review": {"tip": tip, "at": "2026-11-22T10:04:00Z"}})
+        self.assertNotEqual(first, second)
+        self.assertEqual(first, serve.duty_key("merge", "gift-note", "merger", {"proposed": tip, "merge_review": {"tip": tip, "at": "2026-11-22T10:00:00Z"}}))
+        # a review of another tip is no read of this one
+        self.assertEqual(serve.duty_key("merge", "gift-note", "owner", {"proposed": tip, "merge_review": {"tip": "b" * 40, "at": "2026-11-22T10:00:00Z"}}),
+                         serve.duty_key("merge", "gift-note", "owner", {"proposed": tip}))
+
+    def test_the_merge_after_a_new_safe_read_runs_at_the_next_look(self) -> None:
+        from types import SimpleNamespace
+        from unittest import mock
+        tip = "abc123456" + "0" * 31
+        ev = Duties.ev
+        events = [ev(0, "proposed", green=True, not_green=[], tip=tip[:9]), ev(1, "task.state", status="open", text=Duties.PR, lines=[]),
+                  ev(2, "merge.review", verdict="merge", calls=False, by="claude", tip=tip[:9], base="m2m2m2m2m", base_call="safe", base_why="docs only")]
+        landing = {"proposed": tip, "merge_review": {"tip": tip, "verdict": "merge", "at": "2026-11-22T10:00:00Z"}}
+        w = SimpleNamespace(name="shop", forge={}, kept=set(), failed={}, model=lambda: bm.derive(list(events), [], 1_800_000_000_000, meta={}),
+                            landing_of=lambda slug: landing)
+        started = []
+        with mock.patch.object(serve, "merge_in_thread", lambda workspace, slug, landing, by, tip, failed=None, standing=False: (started.append(by), failed())), \
+                mock.patch.object(serve.time, "monotonic", lambda: 1000.0):
+            serve.run_duties(w, now=1000.0)
+            # the merge on m2 failed for the read of m2: the next look waits DUTY_RETRY for that read
+            serve.run_duties(w, now=1010.0)
+            self.assertEqual(started, ["merger"])
+            # a new read of the moved base said safe: its merge runs at the server's next look
+            events[-1] = {**events[-1], "base": "m3m3m3m3m"}
+            landing["merge_review"] = {**landing["merge_review"], "at": "2026-11-22T10:04:00Z"}
+            serve.run_duties(w, now=1020.0)
+        self.assertEqual(started, ["merger", "merger"])
 
 
 class Prune(unittest.TestCase):

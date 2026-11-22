@@ -206,7 +206,10 @@ class Overview(unittest.TestCase):
 
     def test_after_a_moved_base_the_page_offers_no_merge_and_its_step_says_lem_lands_it_again(self):
         proposed = (ev(0, "proposed", green=True, not_green=[], tip="abc123456"), state(1, "open", "pull request https://github.com/acme/shop/pull/41"))
-        refused = (*proposed, ev(2, "merge.refused", by="owner", via="server", kind="base", said="origin/main moved after the checks ran", tip="abc123456", **{"from": "lem"}))
+        # the merge agent's read of the moved base asked for another round, and the refusal it keeps waits for the new landing
+        refused = (*proposed, ev(2, "merge.review", verdict="merge", calls=False, by="claude", tip="abc123456", base="m2m2m2m2m", base_call="another round",
+                                 base_why="B changed skills/lem/scripts/land.py, which the change edits too"),
+                   ev(2, "merge.refused", by="owner", via="server", kind="base", said="the merge agent asks for another round of the checks", tip="abc123456", **{"from": "lem"}))
 
         def page(*events):
             ctx = pages.Ctx(host="h", workspace="w", model=model(*events), asset=lambda name: name, can_act=True)

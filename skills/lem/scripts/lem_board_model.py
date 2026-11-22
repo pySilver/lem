@@ -471,8 +471,9 @@ class Task:
     opened: dict | None = None
     session_closed: int | None = None
     wakes: list = field(default_factory=list)
-    # the merge agent's review of the newest proposal (`merge.review`), and the refusal of a merge of it
-    # (`merge.refused`), GitHub's or, for the merge agent's merge, Lem's own (`from`)
+    # the merge agent's review of the newest proposal (`merge.review`), with its call on a moved base
+    # (`base_call`, `safe` or `another round`), and the refusal of a merge of it (`merge.refused`),
+    # GitHub's or Lem's own (`from`, and Lem's `kind`), until a read that answers it (`answers_refusal`)
     merge_review: dict | None = None
     refused: dict | None = None
     # set by `derive` once every event is read
@@ -616,6 +617,23 @@ def case_runs(steps: list[str]) -> list[dict]:
     return [r for r in runs if r["steps"] or r["label"]]
 
 
+def same_tip(a: object, b: object) -> bool:
+    """Whether two names of a commit are one commit: an event keeps a short id, a record the whole one."""
+    return bool(a and b) and (str(a).startswith(str(b)) or str(b).startswith(str(a)))
+
+
+def answers_refusal(refused: dict | None, before: dict | None, review: dict, proposed: object) -> bool:
+    """Whether a merge review (REVIEW) answers the refusal on record (REFUSED), as land.py's record of
+    it clears `merge_refused`: a read of the proposed tip (PROPOSED) whose call on the moved base is
+    `safe` answers Lem's refusal of that tip because the base moved (`kind: base`), unless the newest
+    read of that tip before it (BEFORE) said `another round`, whose refusal only the new landing
+    answers. No read answers any other refusal: GitHub's, a rule's, a tip's."""
+    tip = review.get("tip")
+    return bool(refused and review.get("base_call") == "safe" and refused.get("from") == "lem" and refused.get("kind") == "base"
+                and same_tip(refused.get("tip"), tip) and (not proposed or same_tip(proposed, tip))
+                and not (before and same_tip(before.get("tip"), tip) and before.get("base_call") == "another round"))
+
+
 def fold(t: Task, e: dict, ts: int) -> None:
     """One event of a task into what the task holds."""
     event = str(e.get("event"))
@@ -657,10 +675,14 @@ def fold(t: Task, e: dict, ts: int) -> None:
         t.talk_start = None
         return
     if event == "merge.review":
-        t.merge_review = {"ts": ts, "verdict": e.get("verdict"), "calls": e.get("calls") is True, "why": e.get("why"), "by": e.get("by"), "tip": e.get("tip")}
+        review = {"ts": ts, "verdict": e.get("verdict"), "calls": e.get("calls") is True, "why": e.get("why"), "by": e.get("by"), "tip": e.get("tip"),
+                  "base": e.get("base"), "base_call": e.get("base_call"), "base_why": e.get("base_why")}
+        if answers_refusal(t.refused, t.merge_review, review, (t.proposal or {}).get("tip")):
+            t.refused = None
+        t.merge_review = review
         return
     if event == "merge.refused":
-        t.refused = {"ts": ts, "order": len(t.events), "said": e.get("said"), "by": e.get("by"), "tip": e.get("tip"), "from": e.get("from")}
+        t.refused = {"ts": ts, "order": len(t.events), "said": e.get("said"), "by": e.get("by"), "tip": e.get("tip"), "from": e.get("from"), "kind": e.get("kind")}
         return
     # a landing that waits: its checks for the machine's load, or its merge call for another's merge
     if event in WAITS:
@@ -954,14 +976,17 @@ MERGE_WAITS = {
 def merge_wait(t: Task) -> str | None:
     """Who the merge of an `open` task waits for, None for any other task. "reads": the merge agent,
     since no review of the tip Lem proposed last is written (a review of an older tip counts for
-    none; one that `propose` carried onto this tip is its `merge.review` too). "merges": the board's
-    server, since the review says `merge`, calls nobody and no merge of that tip was refused, or the
-    owner's merge stands for that tip (`merge.stands`). "relands": the task's session, since Lem
-    refused the merge because the base moved after the checks ran (`merge.refused` with `kind: base`),
-    and the session lands it again. "owner": the owner, for a review that calls him, any other refused
-    merge, and an open task with no proposal on record. Only "owner" is a row of "Waits for you"; the
-    owner's own merge on the task's page stays in every case but "relands", where a press meets the same
-    tip on the same moved base and is refused again (`acts_of`)."""
+    none; one that `propose` carried onto this tip is its `merge.review` too), or since Lem refused
+    the merge because the base moved (`merge.refused` with `kind: base`) and no read of that tip said
+    `another round`: the task's session starts a fresh merge agent, which reads what moved. "merges":
+    the board's server, since the review says `merge`, calls nobody and no merge of that tip was
+    refused, or the owner's merge stands for that tip (`merge.stands`); a read whose call on the moved
+    base is `safe` answers Lem's refusal (`answers_refusal`). "relands": the task's session, since a
+    read of that tip said `another round` of the moved base, and the session lands it again, until the
+    next proposal. "owner": the owner, for a review that calls him, any other refused merge, and an
+    open task with no proposal on record. Only "owner" is a row of "Waits for you"; the owner's own
+    merge on the task's page stays in every case but "relands", where a press meets the base refusal
+    that only the new landing answers and is refused again (`acts_of`)."""
     if t.status != "open":
         return None
     if not t.proposal:
@@ -971,14 +996,18 @@ def merge_wait(t: Task) -> str | None:
     def same(of: object) -> bool:
         return bool(tip and of) and (str(tip).startswith(str(of)) or str(of).startswith(str(tip)))
 
-    # the events since the proposal, the newest last: the refusal's kind and a merge of the owner's that stands are read there
+    # the events since the proposal, the newest last: a read of the moved base and a merge of the owner's that stands are read there
     since = t.events[t.proposal["order"]:]
+    again = any(e.get("event") == "merge.review" and e.get("base_call") == "another round" and same(e.get("tip")) for e in since)
     if t.refused:
-        refusal = next((e for e in reversed(since) if e.get("event") == "merge.refused"), {})
-        return "relands" if refusal.get("from") == "lem" and refusal.get("kind") == "base" else "owner"
+        if t.refused.get("from") == "lem" and t.refused.get("kind") == "base":
+            return "relands" if again else "reads"
+        return "owner"
+    r = t.merge_review
+    if r and same(r.get("tip")) and r.get("base_call") == "another round":
+        return "relands"
     if any(e.get("event") == "merge.stands" and same(e.get("tip")) for e in since):
         return "merges"
-    r = t.merge_review
     if not r or (tip and r.get("tip") and not same(r.get("tip"))):
         return "reads"
     return "merges" if r.get("verdict") == "merge" and not r.get("calls") else "owner"
@@ -1563,6 +1592,22 @@ def summary_said(e: dict) -> str:
     return f"{plural(n, 'event')} of a task that ended more than state.keep_days ago, in one event that keeps its status, its end and its pull request"
 
 
+def merge_review_said(e: dict) -> dict:
+    """The merge agent's read in the feed: its verdict, and on a moved base its call (`base_call`) on the
+    base it read, with that call's sentence of why (`base_why`) beside the verdict's."""
+    call, calls = e.get("base_call"), e.get("calls")
+    verdict = "it calls you" if calls else "it merges"
+    sub = " · ".join(str(x) for x in (e.get("why"), e.get("base_why")) if x) or (f"by {e['by']}" if e.get("by") else "")
+    if call not in ("safe", "another round"):
+        return {"info": {"actor": "you" if calls else "gate", "icon": "file"}, "head": "The merge agent read the task", "text": verdict, "sub": sub}
+    base = f"the moved base {str(e['base'])[:9]}" if e.get("base") else "the moved base"
+    if call == "safe":
+        return {"info": {"actor": "you" if calls else "gate", "icon": "file"}, "head": "The merge agent read the task and the moved base",
+                "text": f"{base} is safe; {verdict}", "sub": sub}
+    return {"info": {"actor": "gate", "icon": "file"}, "head": "The merge agent read the task and the moved base",
+            "text": f"{base} needs another round of the checks: Lem lands it again", "sub": e.get("base_why") or sub}
+
+
 def _approved_head(e: dict) -> str:
     return {"owner": "You approved the acceptance criteria", "lem": "Taken for the fast track in your name", "read": "The personas’ read froze the criteria"}.get(e.get("by"), f"Criteria approved by {e.get('by')}")
 
@@ -1613,8 +1658,7 @@ SAYS = {
                               "text": ("the merge agent’s merge, which the board’s server runs" if e.get("by") == "merger" and e.get("via") == "server"
                                        else "the merge agent’s merge" if e.get("by") == "merger" else "your merge" if e.get("by") == "owner" else "")
                                       + ("; " if e.get("by") else "") + "it reads the base branch first"},
-    "merge.review": lambda e: {"info": {"actor": "you" if e.get("calls") else "gate", "icon": "file"}, "head": "The merge agent read the task",
-                               "text": "it calls you" if e.get("calls") else "it merges", "sub": e.get("why") or (f"by {e['by']}" if e.get("by") else "")},
+    "merge.review": merge_review_said,
     "merge.refused": lambda e: {"info": {"actor": "bad", "icon": "alert"}, "head": "Lem refused the merge agent’s merge" if e.get("from") == "lem" else "GitHub refused the merge", "text": e.get("said") or ""},
     "gate.start": lambda e: {"info": {"actor": "gate", "icon": "play"}, "head": "The checks started", "text": f"{plural(e.get('commands') or 0, 'command')} on {e.get('tip') or '?'}"},
     "gate.end": gate_end_said,
