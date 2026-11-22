@@ -72,7 +72,9 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     (("skills/*", "agents/*"), ("lem-command", "unit")),
     # Lem's page on GitHub Pages, and the workflow whose copy step the suite runs
     (("site/*", ".github/workflows/pages.yml"), ("test-site",)),
-    (("docs/settings.md", "assets/night.py", "assets/lem.svg", "assets/lem-night.svg", "assets/lem-mark.svg", "assets/lem-mark-night.svg"), ("lem-settings",)),
+    (("docs/settings.md", "assets/night.py", "assets/lem-mark.svg", "assets/lem-mark-night.svg"), ("lem-settings",)),
+    # The scene: lem-settings writes its night file again, and test-site reads its motion and its colors
+    (("assets/lem.svg", "assets/lem-night.svg"), ("lem-settings", "test-site")),
     # The suites' own code.
     (("tests/lib.sh",), ("lem-*",)),
     (("tests/checks.sh",), ("lem-*", "test-ask", "test-site", "test-gate-panel", "shellcheck")),
@@ -90,7 +92,7 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
 ]
 # The files the Chrome suites are run for: each row that names one of them is all of their own.
 CHROME_OWN = {"test-ask": ("skills/lem-ask/*", "bin/lem-ask", "tests/checks.sh"),
-              "test-site": ("site/*", ".github/workflows/pages.yml", "tests/checks.sh")}
+              "test-site": ("site/*", ".github/workflows/pages.yml", "tests/checks.sh", "assets/lem.svg", "assets/lem-night.svg")}
 
 
 def suites() -> list[str]:

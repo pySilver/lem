@@ -13,26 +13,30 @@
 <main>
 
 <section id="start" class="opening">
-  <nav class="top" aria-label="Pages">
-    <a href="#board">The board</a>
-    <a href="#flow">How a task goes</a>
-    <a href="#phone">On your phone</a>
-    <a href="#install">Install</a>
-    <a href="https://github.com/pySilver/lem">GitHub</a>
-  </nav>
-  <h1 class="logo">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="assets/lem-night.svg">
-      <img src="assets/lem.svg" alt="Lem: a tall hooded figure holds one line, and four figures hang from it" width="560" height="202">
-    </picture>
-  </h1>
-  <p class="lead">Type a request in plain words, and get a pull request whose first line says green or not green.</p>
-  <p class="sub">Agents plan, build, test and review the change in your repository. Lem is a plugin for Claude Code that works closely with agterm.</p>
-  <div class="install" aria-label="Install">
-    <div class="cmd"><code>claude plugin marketplace add pySilver/lem --scope project</code><button class="copy" type="button">Copy</button></div>
-    <div class="cmd"><code>claude plugin install lem@lem --scope project</code><button class="copy" type="button">Copy</button></div>
+  <div class="hero">
+    <nav class="top" aria-label="Pages">
+      <a href="#board">The board</a>
+      <a href="#flow">How a task goes</a>
+      <a href="#phone">On your phone</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/pySilver/lem">GitHub</a>
+    </nav>
+    <h1 class="logo">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="assets/lem-night.svg">
+        <img src="assets/lem.svg" alt="Lem: a tall hooded figure with one red eye holds a long line over a field. Four small figures and the word Lem hang from it, and a pulse of light runs along the line." width="1600" height="640">
+      </picture>
+    </h1>
+    <div class="words">
+      <p class="lead">Type a request in plain words, and get a pull request whose first line says green or not green.</p>
+      <p class="sub">Agents plan, build, test and review the change in your repository. Lem is a plugin for Claude Code that works closely with agterm.</p>
+      <div class="install" aria-label="Install">
+        <div class="cmd"><code>claude plugin marketplace add pySilver/lem --scope project</code><button class="copy" type="button">Copy</button></div>
+        <div class="cmd"><code>claude plugin install lem@lem --scope project</code><button class="copy" type="button">Copy</button></div>
+      </div>
+      <p class="needs">Lem needs <a href="https://agterm.com">agterm</a>. Run the two lines in your repository, then type <code>/lem init</code>.</p>
+    </div>
   </div>
-  <p class="needs">Lem needs <a href="https://agterm.com">agterm</a>. Run the two lines in your repository, then type <code>/lem init</code>.</p>
   <figure class="showcase">
     <div class="screens">
       <div class="frame desk">

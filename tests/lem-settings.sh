@@ -1493,6 +1493,34 @@ if [ "$night" = 0 ]; then
 else
   fail "a night logo differs from what assets/night.py writes from the day file: run it again"
 fi
+# night.py on small scenes: the night sky's group keeps its colors and the rest goes through NIGHT, the
+# rule that hides a sky is swapped; a color that is no six-digit lowercase hex, inside the night sky too,
+# and a scene with the mark of one sky and not the other, are refused with the fix
+night_sky() {
+  printf '%s\n' '<svg><style>.c2-sky-night { display: none; }</style>' "<g class=\"c2-sky-day\"><rect fill=\"$1\"/></g>" \
+    "<g class=\"c2-sky-night\"><g><rect fill=\"$2\"/></g><rect fill=\"#c7a95a\"/></g>" "<rect fill=\"#b5c5c0\"/></svg>" > "$WORK/sky.svg"
+  "$PY" -B "$PWD/assets/night.py" "$WORK/sky.svg" "$WORK/sky-night.svg" 2>&1
+}
+sky_ok=$(night_sky '#b5c5c0' '#b5c5c0' && cat "$WORK/sky-night.svg")
+sky_want=$(printf '%s\n' '<svg><style>.c2n-sky-day { display: none; }</style>' '<g class="c2n-sky-day"><rect fill="#0e1a21"/></g>' \
+  '<g class="c2n-sky-night"><g><rect fill="#b5c5c0"/></g><rect fill="#c7a95a"/></g>' '<rect fill="#0e1a21"/></svg>')
+sky_short=$(night_sky '#b5c5c0' '#fff' || true)
+sky_upper=$(night_sky '#B5C5C0' '#b5c5c0' || true)
+sky_named=$(night_sky '#b5c5c0' 'red' || true)
+sky_function=$(night_sky '#b5c5c0' 'rgb(1, 2, 3)' || true)
+printf '%s\n' '<svg><g class="c2-sky-day"><rect fill="#b5c5c0"/></g></svg>' > "$WORK/one-sky.svg"
+sky_one=$("$PY" -B "$PWD/assets/night.py" "$WORK/one-sky.svg" "$WORK/one-sky-night.svg" 2>&1 || true)
+printf '%s\n' '<svg><style>.c2-sky-night { display: none; }</style><g class="c2-sky-night"><rect fill="#b5c5c0"/></g></svg>' > "$WORK/one-sky.svg"
+sky_other=$("$PY" -B "$PWD/assets/night.py" "$WORK/one-sky.svg" "$WORK/one-sky-night.svg" 2>&1 || true)
+hex_fix="is no six-digit lowercase hex; write each color as #rrggbb"
+if [ "$sky_ok" = "$sky_want" ] && grep -qF "#fff $hex_fix" <<<"$sky_short" && grep -qF "#B5C5C0 $hex_fix" <<<"$sky_upper" \
+  && grep -qF "fill red $hex_fix" <<<"$sky_named" && grep -qF "fill rgb(1, 2, 3) $hex_fix" <<<"$sky_function" \
+  && grep -qF "1 group(s) of the day sky and 0 of the night sky; draw at least one" <<<"$sky_one" \
+  && grep -qF "0 group(s) of the day sky and 1 of the night sky" <<<"$sky_other"; then
+  pass "night.py keeps the night sky's colors as written and maps the rest, swaps the rule that hides a sky, and refuses a short, an uppercase, a named or a functional color, inside the night sky too, and a scene with one sky's mark only"
+else
+  fail "night.py on small scenes: $sky_ok / $sky_short / $sky_upper / $sky_named / $sky_function / $sky_one / $sky_other"
+fi
 # The onboarding page's header carries the two marks, the day one and then the night one, each its logo file line for
 # line. The board's pages read the two files themselves (lem_board_pages.marks).
 marks=()

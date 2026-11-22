@@ -3,8 +3,9 @@
 # by hand, .github/workflows/pages.yml. The suite takes the workflow's own copy step out of pages.yml
 # by its name, runs it in a throwaway folder that holds a copy of site/ and assets/, and reads the page
 # there, as Pages would serve it. The checks of the text, the links, the colors and the workflow run
-# everywhere; the checks of a drawn page (the first screen at 1280 px, the copy buttons, the light and
-# the dark theme) need headless Chrome, and print SKIP lines where none starts.
+# everywhere; the checks of a drawn page (the first screen at 1280 px, the scene behind the hero, a phone
+# at 390 px, each hero text's contrast, the copy buttons, the light and the dark theme) need headless Chrome,
+# and print SKIP lines where none starts.
 # LEM_SITE_SHOTS=DIR also writes pictures of the page there: 1280 x 800 and the whole page, light and dark.
 set -eEuo pipefail
 
@@ -357,6 +358,319 @@ for href in guides:
     elif found.group(2) and found.group(2) not in heading_slugs(root / found.group(1)):
         problems.append(f"{href}: {found.group(1)} has no heading #{found.group(2)}")
 verdict["guides"] = "; ".join(problems)
+
+# 7: the scene, assets/lem.svg, and the night file assets/night.py writes from it; the README and the page show both
+SCENES = {"day": root / "assets/lem.svg", "night": root / "assets/lem-night.svg"}
+scenes = {theme: path.read_text(encoding="utf-8") if path.is_file() else "" for theme, path in SCENES.items()}
+def attrs_of(tag):
+    return dict(re.findall(r'([\w:-]+)="([^"]*)"', tag))
+def seconds(value):
+    found = re.fullmatch(r"(-?[\d.]+)(m?s)", value.strip())
+    return float(found.group(1)) / (1000 if found.group(2) == "ms" else 1) if found else None
+def rules(svg):
+    """Each rule of the scene's style outside its keyframes and media rules: selector to its declarations."""
+    style = "\n".join(re.findall(r"(?s)<style>(.*?)</style>", svg))
+    flat_style = re.sub(r"@(?:keyframes|media)[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}", "", style)
+    return {sel.strip(): dict((k.strip(), v.strip()) for k, v in re.findall(r"([\w-]+)\s*:\s*([^;]+)", body))
+            for sel, body in re.findall(r"([^{}]+)\{([^{}]*)\}", flat_style)}
+def frames(svg, name):
+    """The keyframes NAME as a list of (percent, declarations)."""
+    found = re.search(r"@keyframes\s+" + re.escape(name) + r"\s*\{((?:[^{}]*\{[^{}]*\})*)[^{}]*\}", svg)
+    out = []
+    for stops, body in re.findall(r"([^{}]+)\{([^{}]*)\}", found.group(1) if found else ""):
+        decl = dict((k.strip(), v.strip()) for k, v in re.findall(r"([\w-]+)\s*:\s*([^;]+)", body))
+        for stop in stops.split(","):
+            stop = stop.strip()
+            out.append((0.0 if stop == "from" else 100.0 if stop == "to" else float(stop.rstrip("%")), decl))
+    return sorted(out, key=lambda pair: pair[0])
+def animation(rule):
+    """The name, the duration and the delay of a rule's animation shorthand."""
+    parts = (rule or {}).get("animation", "").split()
+    times = [seconds(p) for p in parts if seconds(p) is not None]
+    names = [p for p in parts if seconds(p) is None and p not in ("linear", "ease-in-out", "ease", "infinite", "alternate", "none", "!important")]
+    return (names[0] if names else None, times[0] if times else None, times[1] if len(times) > 1 else 0.0)
+def elements(svg, cls):
+    return [attrs_of(tag) for tag in re.findall(r"<\w+\b[^>]*\bclass=\"" + re.escape(cls) + r"\"[^>]*>", svg)]
+def inline(attrs, key):
+    found = re.search(re.escape(key) + r"\s*:\s*([^;]+)", attrs.get("style", ""))
+    return found.group(1).strip() if found else None
+def hexes(svg):
+    return set(re.findall(r"#[0-9a-f]{6}\b", svg))
+
+# criterion 3: the pulse on the wire, the pegs' flash and the tiles, one cycle of 8 seconds with a rest
+problems = []
+for theme, svg in scenes.items():
+    style = rules(svg)
+    pulses = elements(svg, "pulse")
+    if len(pulses) != 3:
+        problems.append(f"the {theme} scene has {len(pulses)} paths of the pulse, not 3")
+    for pulse in pulses:
+        dash = [float(v) for v in (inline(pulse, "stroke-dasharray") or "0 0").split()]
+        start, name = float(inline(pulse, "stroke-dashoffset") or "nan"), inline(pulse, "animation-name")
+        keys = frames(svg, name or "")
+        offsets = [(at, float(d["stroke-dashoffset"])) for at, d in keys if "stroke-dashoffset" in d]
+        if pulse.get("pathLength") != "1000" or len(dash) != 2 or dash[1] < 1000 + dash[0] or start != dash[0]:
+            problems.append(f"a pulse of the {theme} scene does not rest before the line's start: pathLength {pulse.get('pathLength')}, dash {dash}, offset {start}")
+        elif not offsets or offsets[0] != (0.0, dash[0]) or -offsets[-1][1] < 1000 or min(at for at, off in offsets if -off >= 1000) > 90:
+            problems.append(f"the pulse {name} of the {theme} scene does not run from the left edge past the right one with a rest: {offsets}")
+    flashes, drips, tiles = elements(svg, "flash"), elements(svg, "drip"), elements(svg, "tile")
+    if len(flashes) != 8 or len(drips) != 8:
+        problems.append(f"the {theme} scene flashes {len(flashes)} pegs and runs down {len(drips)} strands, not the 8 of each")
+    if len(tiles) != 42:
+        problems.append(f"the {theme} scene lights {len(tiles)} tiles, not the 41 of the word and its cursor")
+    letters = {"L": [], "e": [], "m": [], "cursor": []}
+    for tile in tiles:
+        x = float(re.match(r"M([\d.]+)", tile.get("d", "M0")).group(1))
+        letters["L" if x < 400 else "e" if x < 490 else "m" if x < 580 else "cursor"].append(seconds(inline(tile, "animation-delay") or "0s"))
+    means = [sum(v) / len(v) if v else None for v in letters.values()]
+    if None in means or means != sorted(means):
+        problems.append(f"the {theme} scene's letters do not light from left to right: mean delays {means}")
+    for cls in ("pulse", "flash", "drip", "glow", "tile"):
+        name, duration, _ = animation(style.get("." + cls))
+        if duration != 8:
+            problems.append(f"the {theme} scene's .{cls} runs {name} in {duration} s, not the cycle of 8 s")
+verdict["scene_wire"] = "; ".join(problems)
+
+# criterion 4: about a hundred stars, each on its own timing, and the aurora by night; haze, rays and a shimmer by day
+problems = []
+for theme, svg in scenes.items():
+    style, prefix = rules(svg), "c2n" if theme == "night" else "c2"
+    hidden = [sel for sel, decl in style.items() if decl.get("display") == "none"]
+    want = [f".{prefix}-sky-day"] if theme == "night" else [f".{prefix}-sky-night"]
+    if hidden != want:
+        problems.append(f"the {theme} scene hides {hidden}, not {want}")
+    stars = re.search(r'<g class="stars">(.*?)</g>', svg)
+    timings = re.findall(r'<circle\b[^>]*style="animation-duration:([\d.]+s);animation-delay:(-?[\d.]+s)"', stars.group(1)) if stars else []
+    if not 90 <= len(timings) <= 120 or len(set(timings)) < 0.9 * len(timings):
+        problems.append(f"the {theme} scene has {len(timings)} stars, {len(set(timings))} timings of their own")
+    for cls, name in ((".band1", "drift1"), (".band2", "drift2"), (".haze", "haze"), (".heat1", "heat1"), (".heat2", "heat2"),
+                      (".ray", "ray"), (".stars circle, .star", "twinkle")):
+        got, duration, _ = animation(style.get(cls))
+        if got != name or not duration or not frames(svg, name):
+            problems.append(f"the {theme} scene's {cls} runs {got} in {duration} s, not the keyframes {name}")
+    for cls in ("band1", "band2"):
+        if not elements(svg, cls):
+            problems.append(f"the {theme} scene draws no aurora band .{cls}")
+    if not re.search(r'<feTurbulence\b', svg) or not elements(svg, "fan") or not elements(svg, "haze"):
+        problems.append(f"the {theme} scene draws no shimmer, rays or haze")
+verdict["scene_sky"] = "; ".join(problems)
+
+# criterion 5: one red eye that glows, blinks every 5 to 7 seconds, flares as the pulse passes the figure; one red in both
+problems, reds = [], {}
+for theme, svg in scenes.items():
+    style = rules(svg)
+    eye = re.search(r'<g class="eye">(.*?)</g>', svg)
+    name, blink, _ = animation(style.get(".eye"))
+    if not eye or not (5 <= (blink or 0) <= 7) or not frames(svg, name or ""):
+        problems.append(f"the {theme} scene's eye blinks {name} every {blink} s, not every 5 to 7 s")
+    elif not any(float(d.get("opacity", 1)) < .5 for _, d in frames(svg, name)) or any(float(d.get("opacity", 1)) < 1 for at, d in frames(svg, name) if at in (0, 100)):
+        problems.append(f"the {theme} scene's eye does not glow and dim for a moment: {frames(svg, name)}")
+    name, period, delay = animation(style.get(".flare"))
+    flash_at = sorted((float(f["cx"]), seconds(inline(f, "animation-delay") or "0s")) for f in elements(svg, "flash"))
+    around = [t for x, t in flash_at if x < 130][-1:] + [t for x, t in flash_at if x > 130][:1]
+    if not elements(svg, "flare") or period != 8 or style.get(".flare", {}).get("opacity") != "0" or len(around) != 2 or not around[0] <= delay <= around[1]:
+        problems.append(f"the {theme} scene's eye flares {name} at {delay} s of {period} s, not as the pulse passes the figure between the flashes at {around}")
+    colors = hexes(eye.group(1) if eye else "") | hexes(re.search(r'<radialGradient id="c2n?-eye">.*?</radialGradient>', svg).group(0) if re.search(r'<radialGradient id="c2n?-eye">', svg) else "")
+    reds[theme] = colors
+    if not colors or any(not (int(c[1:3], 16) > 200 and int(c[3:5], 16) < 80 and int(c[5:7], 16) < 80) for c in colors):
+        problems.append(f"the {theme} scene's eye is {sorted(colors)}, not a red")
+if reds.get("day") != reds.get("night"):
+    problems.append(f"the eye is {sorted(reds.get('day', []))} by day and {sorted(reds.get('night', []))} at night")
+verdict["scene_eye"] = "; ".join(problems)
+
+# criterion 7: one rule stops every animation, nothing animates past it, and each light rests dark
+problems = []
+for theme, svg in scenes.items():
+    style, media = rules(svg), re.findall(r"@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{\s*([^{}]*)\{([^{}]*)\}\s*\}", svg)
+    if len(re.findall(r"@media", svg)) != 1 or media != [("* ", " animation: none !important; ")]:
+        problems.append(f"the {theme} scene's rules for reduce motion are {media}, not the one * {{ animation: none !important; }}")
+    smil = sorted(set(re.findall(r"<(animate\w*|set)\b", svg)))
+    if smil:
+        problems.append(f"the {theme} scene animates with {smil}, which the rule does not stop")
+    for cls in ("flash", "glow", "tile", "flare"):
+        if style.get("." + cls, {}).get("opacity") != "0":
+            problems.append(f"the {theme} scene's .{cls} does not rest unlit")
+    drip = style.get(".drip", {})
+    if not drip or drip.get("stroke-dashoffset") != (drip.get("stroke-dasharray", "") + " -").split()[0]:
+        problems.append(f"the {theme} scene's .drip does not rest before its strand: {drip}")
+verdict["scene_still"] = "; ".join(problems)
+
+# criteria 8 and 9: the files are pictures with nothing to fetch and no script, of the scene's frame, each under 50 KB
+problems = []
+for theme, svg in scenes.items():
+    size = len(svg.encode("utf-8"))
+    if not svg or size >= 50000:
+        problems.append(f"the {theme} scene is {size} bytes, not under 50,000")
+    head = attrs_of(re.match(r"<svg\b[^>]*>", svg).group(0)) if re.match(r"<svg\b[^>]*>", svg) else {}
+    if (head.get("viewBox"), head.get("width"), head.get("height")) != ("0 0 1600 640", "1600", "640"):
+        problems.append(f"the {theme} scene's frame is {head.get('viewBox')} at {head.get('width')} x {head.get('height')}")
+    outside = re.findall(r"<script\b|<foreignObject\b|<image\b|\son\w+=|@import|(?:href|src)=\"(?!#)[^\"]*\"|url\((?!#)[^)]*\)", svg)
+    if outside:
+        problems.append(f"the {theme} scene holds {sorted(set(outside))}")
+verdict["scene_file"] = "; ".join(problems)
+
+# every color of the scene a six-digit lowercase hex, no name and no function
+PAINT = re.compile(r'\b(fill|stroke|stop-color|flood-color|lighting-color|color)(?:="([^"]*)"|\s*:\s*([^;}"]*))')
+problems = []
+for theme, svg in scenes.items():
+    wrong = [c for c in re.findall(r"#[0-9A-Fa-f]{3,8}\b", svg) if not re.fullmatch(r"#[0-9a-f]{6}", c)]
+    for found in PAINT.finditer(svg):
+        value = (found.group(2) if found.group(2) is not None else found.group(3)).strip()
+        if not re.fullmatch(r"#[0-9a-f]{6}|none|url\(#[\w-]+\)", value) and not re.fullmatch(r"#[0-9A-Fa-f]{3,8}", value):
+            wrong.append(f"{found.group(1)} {value}")
+    if wrong:
+        problems.append(f"the {theme} scene has {sorted(set(wrong))}")
+verdict["scene_hex"] = "; ".join(problems)
+
+# criterion 6, its static half (decision 9): one bound color for each theme from every color the scene holds, the
+# lightest red, green and blue at night and the darkest by day, and nothing in the file that paints outside it. A mix,
+# an opacity, a blur and a mask stay inside; a filter may add only a constant color, which joins the bound.
+CHILDREN = ("feMergeNode", "feFuncR", "feFuncG", "feFuncB", "feFuncA")
+def paint_rule(svg):
+    """What can paint outside the bound, and the constant colors the scene's filters add to it."""
+    problems, constants = [], []
+    for found in re.findall(r"(?i)mix-blend-mode|background-blend-mode|plus-lighter|\b(?:brightness|contrast|saturate|invert|sepia|hue-rotate|grayscale|drop-shadow)\(", svg):
+        problems.append(f"the blend or the filter {found}")
+    for fid, body in re.findall(r'(?s)<filter\b[^>]*?\bid="([^"]*)"[^>]*>(.*?)</filter>', svg):
+        tags = [(tag, attrs_of(rest)) for tag, rest in re.findall(r"<(fe\w+)\b([^>]*)>", body)]
+        chain, inputs, made = [], [], {}
+        for tag, attrs in tags:
+            if tag == "feMergeNode" and chain and chain[-1][0] == "feMerge":
+                inputs[-1].append(("in", attrs.get("in")))
+                continue
+            if tag in CHILDREN:
+                continue
+            k = len(chain)
+            chain.append((tag, attrs))
+            inputs.append([] if tag in ("feMerge", "feTurbulence", "feFlood", "feImage") else [("in", attrs.get("in"))])
+            if tag in ("feComposite", "feBlend", "feDisplacementMap"):
+                inputs[-1].append(("in2", attrs.get("in2")))
+        consumers = {k: [] for k in range(len(chain))}
+        for k, slots in enumerate(inputs):
+            for slot, name in slots:
+                source = k - 1 if name is None else max((j for j in range(k) if chain[j][1].get("result") == name), default=None)
+                if source is not None and source >= 0:
+                    consumers[source].append((k, slot))
+        def constant(attrs):
+            values = [float(v) for v in attrs.get("values", "").replace(",", " ").split()]
+            if attrs.get("type", "matrix") != "matrix" or len(values) != 20 or any(values[r * 5 + c] for r in range(3) for c in range(4)):
+                return None
+            return "#" + "".join(f"{round(min(max(values[r * 5 + 4], 0), 1) * 255):02x}" for r in range(3))
+        for k, (tag, attrs) in enumerate(chain):
+            if tag in ("feGaussianBlur", "feOffset", "feMerge", "feDisplacementMap", "feTile"):
+                continue
+            if tag == "feComposite" and attrs.get("operator", "over") != "arithmetic":
+                continue
+            if tag == "feFlood" and re.fullmatch(r"#[0-9a-f]{6}", attrs.get("flood-color", "")):
+                continue
+            if tag == "feColorMatrix" and constant(attrs):
+                constants.append(constant(attrs))
+                continue
+            if tag == "feTurbulence":
+                fine = all((chain[j][0] == "feColorMatrix" and slot == "in" and constant(chain[j][1])) or (chain[j][0] == "feDisplacementMap" and slot == "in2")
+                           for j, slot in consumers[k])
+                if fine and k != len(chain) - 1:
+                    continue
+                problems.append(f"the filter {fid}: an feTurbulence that paints its own colors")
+                continue
+            problems.append(f"the filter {fid}: {tag}{' ' + attrs.get('operator', '') if tag == 'feComposite' else ''}")
+    return problems, constants
+def bound(svg, dark):
+    colors = hexes(svg) | set(paint_rule(svg)[1])
+    pick = max if dark else min
+    return "#" + "".join(f"{pick(int(c[i:i + 2], 16) for c in colors):02x}" for i in (1, 3, 5)) if colors else ""
+SHIMMER = '<filter id="f"><feTurbulence type="fractalNoise" baseFrequency=".018 .32" numOctaves="2" seed="4"/><feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 .95  0 0 0 0 .8  0 0 0 2.6 -1.25"/></filter>'
+BARE = '<filter id="f"><feTurbulence type="fractalNoise" baseFrequency=".02" numOctaves="2"/></filter>'
+problems = []
+if paint_rule(SHIMMER) != ([], ["#fff2cc"]):
+    problems.append(f"the owner's shimmer filter gives {paint_rule(SHIMMER)}, not a pass with #fff2cc")
+if not paint_rule(BARE)[0]:
+    problems.append("a bare feTurbulence passes")
+for theme, svg in scenes.items():
+    problems += [f"the {theme} scene: {p}" for p in paint_rule(svg)[0]]
+verdict["scene_paint"] = "; ".join(problems)
+verdict["bound_day"], verdict["bound_night"] = bound(scenes["day"], False), bound(scenes["night"], True)
+
+# criterion 2, the file's half: where the figure starts and the word with its cursor ends, in the frame's units,
+# for the drawn check at 390 px. The figure is the paths under <!-- the coat --> and <!-- the cowl ... -->, the word
+# its lit tiles (class tile), each through the translate and scale of every group around it.
+def path_xs(d):
+    """Every x a path's points and control points reach, in its own units; refuses an arc and a smooth curve,
+    whose reach its own numbers do not show."""
+    if re.search(r"[AaSsTt]", d):
+        raise ValueError("an arc or a smooth curve")
+    xs, x, y, start = [], 0.0, 0.0, (0.0, 0.0)
+    for cmd, args in re.findall(r"([MmLlHhVvCcQqZz])([^MmLlHhVvCcQqZz]*)", d):
+        nums = [float(n) for n in re.findall(r"-?(?:\d+\.?\d*|\.\d+)(?:[eE]-?\d+)?", args)]
+        kind, rel = cmd.upper(), cmd.islower()
+        if kind == "Z":
+            x, y = start
+            continue
+        step = {"M": 2, "L": 2, "H": 1, "V": 1, "C": 6, "Q": 4}[kind]
+        for i in range(0, len(nums) - step + 1, step):
+            chunk = nums[i:i + step]
+            if kind == "H":
+                x = x + chunk[0] if rel else chunk[0]
+            elif kind == "V":
+                y = y + chunk[0] if rel else chunk[0]
+            else:
+                points = [(chunk[j] + (x if rel else 0), chunk[j + 1] + (y if rel else 0)) for j in range(0, step, 2)]
+                xs += [px for px, _ in points]
+                x, y = points[-1]
+                if kind == "M" and i == 0:
+                    start = (x, y)
+            xs.append(x)
+    return xs
+def transform_of(attrs):
+    """A transform of translates and scales as (scale, dx, dy); None for any other."""
+    text, out = attrs.get("transform", ""), (1.0, 0.0, 0.0)
+    for name, args in re.findall(r"(\w+)\(([^)]*)\)", text):
+        nums = [float(n) for n in re.findall(r"-?(?:\d+\.?\d*|\.\d+)", args)]
+        if name == "translate" and nums:
+            out = (out[0], out[1] + out[0] * nums[0], out[2] + out[0] * (nums[1] if len(nums) > 1 else 0))
+        elif name == "scale" and len(nums) == 1:
+            out = (out[0] * nums[0], out[1], out[2])
+        else:
+            return None
+    return out
+def frame_span(svg):
+    stack, section, figure, word, problems = [(1.0, 0.0, 0.0)], None, [], [], []
+    for found in re.finditer(r"(?s)<!--(.*?)-->|<(/?)(\w+)\b([^>]*?)(/?)>", svg):
+        if found.group(1) is not None:
+            note = found.group(1).strip()
+            section = "figure" if note.startswith(("the coat", "the cowl")) else None
+            continue
+        closing, tag, rest, lone = found.group(2), found.group(3), found.group(4), found.group(5)
+        if tag != "g" and tag != "path":
+            continue
+        if closing:
+            if tag == "g" and len(stack) > 1:
+                stack.pop()
+            continue
+        attrs, outer = attrs_of(rest), stack[-1]
+        own = transform_of(attrs)
+        whole = None if outer is None or own is None else (outer[0] * own[0], outer[1] + outer[0] * own[1], outer[2] + outer[0] * own[2])
+        if tag == "g":
+            if not lone:
+                stack.append(whole)
+            continue
+        into = word if attrs.get("class") == "tile" else figure if section == "figure" else None
+        if into is None:
+            continue
+        if whole is None:
+            problems.append("a path of the figure or the word under a transform other than translate and scale")
+            continue
+        try:
+            into += [whole[1] + whole[0] * x for x in path_xs(attrs.get("d", ""))]
+        except ValueError as error:
+            problems.append(f"a path of the figure or the word with {error}")
+    if not figure:
+        problems.append("no path under <!-- the coat --> or <!-- the cowl -->")
+    if not word:
+        problems.append("no lit tile (class tile)")
+    return problems, (round(min(figure), 1) if figure else None, round(max(word), 1) if word else None)
+problems, span = frame_span(scenes["day"])
+verdict["scene_span"], verdict["span"] = "; ".join(problems), list(span)
 print(json.dumps(verdict))
 PY
 )
@@ -401,6 +715,14 @@ if ok pictures; then pass "the logo and the pictures of the board, the phone and
 if ok sizes; then pass "each picture of the board says its size as half the pixels of its files, light and dark"; else fail "the sizes of the pictures: $WHY"; fi
 if ok colors; then pass "style.css has the six hues of lem.css with the same values, and every other color is a grey or a mix of those"; else fail "the colors: $WHY"; fi
 if ok switch; then pass "the page has no control that switches the theme: its one kind of button copies a line"; else fail "a theme switch: $WHY"; fi
+# the scene, assets/lem.svg and assets/lem-night.svg, in the files
+if ok scene_wire; then pass "in both scene files a pulse runs along the wire from before its left end to past its right end in a cycle of 8 s with a rest, each of the 8 pegs flashes, and the 42 tiles light letter by letter"; else fail "the pulse on the wire: $WHY"; fi
+if ok scene_sky; then pass "the day scene shows its sky with haze, rays and a shimmer, the night scene its sky with about a hundred stars on timings of their own and two drifting aurora bands"; else fail "the sky: $WHY"; fi
+if ok scene_eye; then pass "in both scene files one red eye glows, blinks every 5 to 7 s and flares as the pulse passes the figure, in the same red"; else fail "the eye: $WHY"; fi
+if ok scene_still; then pass "each scene file has one rule for reduce motion that stops every animation, no animation it would not stop, and each light rests unlit"; else fail "reduce motion: $WHY"; fi
+if ok scene_file; then pass "each scene file is 1600 x 640, under 50,000 bytes, with no script and nothing from another file or host"; else fail "the scene files: $WHY"; fi
+if ok scene_hex; then pass "every color of each scene file is a six-digit lowercase hex"; else fail "the scene's colors: $WHY"; fi
+if ok scene_paint; then ok bound_day || true; bound="day $WHY"; ok bound_night || true; pass "nothing in a scene file paints outside its bound color ($bound, night $WHY), and the rule passes the owner's shimmer filter and refuses a bare feTurbulence"; else fail "the paint of the scene: $WHY"; fi
 
 # ---- the checks of a drawn page ----
 chrome=""
@@ -411,66 +733,258 @@ done
 # MAC_CHROMIUM_TMPDIR, not TMPDIR (measured on 2026-11-17); elsewhere it reads TMPDIR.
 mkdir -p "$WORK/chrome-tmp"
 headless() { TMPDIR="$WORK/chrome-tmp" MAC_CHROMIUM_TMPDIR="$WORK/chrome-tmp" "$chrome" --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" --hide-scrollbars "$@" 2>/dev/null || true; }
-# probe NAME SCRIPT: a copy of the page with SCRIPT at the end of its body, beside it in the folder
+# probe NAME SCRIPT: a copy of the page with SCRIPT at the end of its body, beside it in the folder. SCRIPT
+# calls report(out): the JSON goes into a <pre> of the page, and to the page around it when it is framed.
+REPORT='const report = out => { const text = JSON.stringify(out); document.body.insertAdjacentHTML("beforeend", "<pre id=\"probe-out\"></pre>"); document.getElementById("probe-out").textContent = text; if (parent !== window) parent.postMessage(text, "*"); };'
 probe() {
   "$PY" -I -c 'import sys; page, out, script = sys.argv[1:]; text = open(page, encoding="utf-8").read(); open(out, "w", encoding="utf-8").write(text.replace("</body>", f"<script>{script}</script>\n</body>", 1))' \
-    "$SITE/index.html" "$SITE/$1.html" "$2"
+    "$SITE/index.html" "$SITE/$1.html" "$REPORT
+$2"
 }
 # result FILE: the JSON a probe wrote into the page Chrome printed
 result() { "$PY" -I -c 'import html, re, sys; found = re.search(r"<pre id=\"probe-out\">(.*?)</pre>", open(sys.argv[1], encoding="utf-8").read(), re.S); print(html.unescape(found.group(1)) if found else "")' "$1"; }
+# A phone's window: headless Chrome draws no window under 500 px wide (measured on 2026-11-22), so phone.html
+# frames a probe at 390 px from the top left corner, with the probe's own query, and prints what it reports.
+[ -d "$SITE" ] && cat > "$SITE/phone.html" <<'HTML'
+<!doctype html>
+<html><head><meta charset="utf-8"><style>body { margin: 0; } iframe { display: block; border: 0; width: 390px; height: 1400px; }</style></head>
+<body><script>
+addEventListener("message", event => { const out = document.createElement("pre"); out.id = "probe-out"; out.textContent = event.data; document.body.append(out); });
+const frame = document.createElement("iframe");
+frame.src = new URLSearchParams(location.search).get("page") + location.search;
+document.body.prepend(frame);
+</script></body></html>
+HTML
 # The probe of the first screen and the copy buttons. Each button is clicked with a stand-in for the
-# clipboard, which notes what it was given.
+# clipboard, which notes what it was given. It also notes the scene: its box and its layer's (the picture
+# around it), how it is fitted, and for each hero text whether a point at its middle hits the text, on top.
 probe screen '
 window.addEventListener("load", async () => {
   const copied = [];
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async text => { copied.push(text); } } });
-  const bottom = el => el ? Math.ceil(el.getBoundingClientRect().bottom + scrollY) : null;
+  const box = el => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top + scrollY, bottom: r.bottom + scrollY }; };
   const first = document.querySelector("section");
-  const out = { width: innerWidth };
-  out.parts = {
-    logo: bottom(first.querySelector("picture img")),
-    line: bottom(first.querySelector(".lead")),
-    needs: bottom(first.querySelector(".needs")),
-  };
-  first.querySelectorAll(".cmd code").forEach((code, i) => { out.parts["line " + (i + 1)] = bottom(code); });
-  first.querySelectorAll("button.copy").forEach((button, i) => { out.parts["copy button " + (i + 1)] = bottom(button); });
+  const scene = first.querySelector("picture img");
+  const out = { width: innerWidth, client: document.documentElement.clientWidth };
+  const texts = { headline: first.querySelector(".lead"), lead: first.querySelector(".sub"), "agterm note": first.querySelector(".needs") };
+  first.querySelectorAll(".cmd code").forEach((code, i) => { texts["install line " + (i + 1)] = code; });
+  first.querySelectorAll("button.copy").forEach((button, i) => { texts["copy button " + (i + 1)] = button; });
+  out.parts = { scene: Math.ceil(box(scene).bottom) };
+  out.texts = {};
+  out.onTop = {};
+  for (const [name, el] of Object.entries(texts)) {
+    out.parts[name] = el ? Math.ceil(box(el).bottom) : null;
+    if (!el) continue;
+    out.texts[name] = box(el);
+    el.scrollIntoView({ block: "center", behavior: "instant" });
+    const r = el.getBoundingClientRect(), hit = document.elementFromPoint((r.left + r.right) / 2, (r.top + r.bottom) / 2);
+    out.onTop[name] = !!hit && el.contains(hit);
+  }
+  scrollTo({ top: 0, behavior: "instant" });
+  const style = getComputedStyle(scene);
+  out.scene = Object.assign(box(scene), { natural: [scene.naturalWidth, scene.naturalHeight], fit: style.objectFit, position: style.objectPosition,
+    radius: style.borderTopLeftRadius, shadow: style.boxShadow });
+  out.layer = box(scene.parentElement);
   const buttons = [...document.querySelectorAll("button.copy")];
   for (const button of buttons) { button.click(); await new Promise(done => setTimeout(done, 20)); }
   out.copied = copied;
   out.own = buttons.map(button => button.parentElement.querySelector("code").textContent);
-  document.body.insertAdjacentHTML("beforeend", "<pre id=\"probe-out\"></pre>");
-  document.getElementById("probe-out").textContent = JSON.stringify(out);
+  report(out);
 });'
 # The probe of a theme: which picture each <picture> took, whether it loaded, and the background.
 probe theme '
 window.addEventListener("load", () => {
   const img = selector => document.querySelector(selector);
   const logo = img("section picture img"), board = img("img[src*=board]");
-  const out = {
+  report({
     dark: matchMedia("(prefers-color-scheme: dark)").matches,
     background: getComputedStyle(document.body).backgroundColor,
     logo: logo.currentSrc.replace(/^.*?\/_site\//, ""), logoWidth: logo.naturalWidth,
     board: board.currentSrc.replace(/^.*?\/_site\//, ""), boardWidth: board.naturalWidth,
+  });
+});'
+# The probe of the contrast (criterion 6): the scene drawn as one solid color, the bound of its theme from the
+# query (?bound=RRGGBB), which is the worst any moment of the motion can paint behind a text. It notes the color
+# and the boxes of each run of hero text, then hides the text itself, so that a picture of the window shows what
+# stands behind each run: the bound under the page shade, or the solid box of an install line or a button.
+probe contrast '
+const first = document.querySelector("section");
+const scene = first.querySelector("picture img");
+const bound = "#" + new URLSearchParams(location.search).get("bound");
+scene.parentElement.querySelectorAll("source").forEach(source => source.remove());
+scene.src = "data:image/svg+xml," + encodeURIComponent("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1600\" height=\"640\"><rect width=\"1600\" height=\"640\" fill=\"" + bound + "\"/></svg>");
+window.addEventListener("load", () => {
+  const runs = [];
+  const add = (name, el) => {
+    if (!el) { runs.push({ name, color: null, rects: [] }); return; }
+    const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let node = walk.nextNode(); node; node = walk.nextNode()) {
+      if (!node.textContent.trim()) continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      runs.push({ name, text: node.textContent.trim().slice(0, 40), color: getComputedStyle(node.parentElement).color,
+        rects: [...range.getClientRects()].map(r => [r.left, r.top, r.right, r.bottom]) });
+    }
   };
-  document.body.insertAdjacentHTML("beforeend", "<pre id=\"probe-out\"></pre>");
-  document.getElementById("probe-out").textContent = JSON.stringify(out);
+  add("the headline", first.querySelector(".lead"));
+  add("the lead", first.querySelector(".sub"));
+  first.querySelectorAll(".cmd code").forEach((code, i) => {
+    add("install line " + (i + 1), code);
+    const r = code.getClientRects()[0];
+    runs.push({ name: "install line " + (i + 1), text: "its $", color: getComputedStyle(code, "::before").color, rects: r ? [[r.left, r.top, r.right, r.bottom]] : [] });
+  });
+  first.querySelectorAll("button.copy").forEach((button, i) => add("copy button " + (i + 1), button));
+  add("the agterm note", first.querySelector(".needs"));
+  document.head.insertAdjacentHTML("beforeend", "<style>section:first-of-type *, section:first-of-type *::before, section:first-of-type *::after { -webkit-text-fill-color: transparent !important; text-decoration-color: transparent !important; text-shadow: none !important; }</style>");
+  report({ width: innerWidth, dpr: devicePixelRatio, bound, runs });
 });'
 
 # DRAWN MODE FILE...: the verdict on what a probe printed, empty when nothing is wrong, exit 1 when something is
 DRAWN=$(cat <<'PY'
-import json, sys
+import json, re, sys, zlib
 mode, *files = sys.argv[1:]
 def load(path):
     try:
         return json.load(open(path))
     except ValueError:
         sys.exit("the probe printed nothing")
-wrong = []
+def png(path):
+    """The rows of an 8-bit RGB or RGBA picture, each a bytearray, and the bytes of one pixel."""
+    data = open(path, "rb").read()
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        sys.exit(f"{path} is no PNG picture")
+    at, chunks, head = 8, [], None
+    while at < len(data):
+        size, kind = int.from_bytes(data[at:at + 4], "big"), data[at + 4:at + 8]
+        if kind == b"IHDR":
+            head = data[at + 8:at + 8 + size]
+        elif kind == b"IDAT":
+            chunks.append(data[at + 8:at + 8 + size])
+        at += 12 + size
+    width, height, depth, kind, laced = int.from_bytes(head[0:4], "big"), int.from_bytes(head[4:8], "big"), head[8], head[9], head[12]
+    if depth != 8 or kind not in (2, 6) or laced:
+        sys.exit(f"{path} is a PNG of depth {depth}, color type {kind}, interlace {laced}, which this check does not read")
+    step = 3 if kind == 2 else 4
+    raw, stride, rows, prev = zlib.decompress(b"".join(chunks)), width * step, [], bytearray(width * step)
+    for y in range(height):
+        kind_of_row, line = raw[y * (stride + 1)], bytearray(raw[y * (stride + 1) + 1:(y + 1) * (stride + 1)])
+        if kind_of_row == 1:
+            for i in range(step, stride):
+                line[i] = (line[i] + line[i - step]) & 255
+        elif kind_of_row == 2:
+            line = bytearray((a + b) & 255 for a, b in zip(line, prev))
+        elif kind_of_row == 3:
+            for i in range(stride):
+                line[i] = (line[i] + ((line[i - step] if i >= step else 0) + prev[i]) // 2) & 255
+        elif kind_of_row == 4:
+            for i in range(stride):
+                a, b, c = (line[i - step] if i >= step else 0), prev[i], (prev[i - step] if i >= step else 0)
+                pa, pb, pc = abs(b - c), abs(a - c), abs(a + b - 2 * c)
+                line[i] = (line[i] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
+        rows.append(line)
+        prev = line
+    return width, height, step, rows
+def color(text):
+    """A computed CSS color as red, green, blue in 0 to 1 and an alpha."""
+    found = re.fullmatch(r"rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)", text or "")
+    if found:
+        return [float(found.group(i)) / 255 for i in (1, 2, 3)], float(found.group(4) or 1)
+    found = re.fullmatch(r"color\(srgb ([-\d.e]+) ([-\d.e]+) ([-\d.e]+)(?: / ([\d.]+))?\)", text or "")
+    if found:
+        return [min(max(float(found.group(i)), 0), 1) for i in (1, 2, 3)], float(found.group(4) or 1)
+    return None
+def luminance(rgb):
+    return sum(w * (c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4) for w, c in zip((0.2126, 0.7152, 0.0722), rgb))
+def contrast(a, b):
+    la, lb = luminance(a), luminance(b)
+    return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
+wrong, said = [], ""
 if mode == "screen":
     d = load(files[0])
     wrong = [f"{name} ends at {end} px" for name, end in d["parts"].items() if end is None or end > 800]
     if d["width"] != 1280:
         wrong.append(f"the window is {d['width']} px wide")
+elif mode == "layer":
+    # criterion 1: the scene from edge to edge, from the top of the page, unboxed, with every hero text inside its layer and on top
+    d = load(files[0])
+    scene, layer = d["scene"], d["layer"]
+    if scene["left"] > 0 or scene["right"] < d["client"] or scene["top"] > 0:
+        wrong.append(f"the scene spans x {scene['left']} to {scene['right']} from y {scene['top']}, not the window's {d['client']} px from its top")
+    if layer["left"] > 0 or layer["right"] < d["client"] or layer["top"] > 0:
+        wrong.append(f"the scene's layer spans x {layer['left']} to {layer['right']} from y {layer['top']}")
+    if scene["radius"] not in ("0px", "") or scene["shadow"] != "none":
+        wrong.append(f"the scene is boxed: corner {scene['radius']}, shadow {scene['shadow']}")
+    for name, box in d["texts"].items():
+        if box["top"] < layer["top"] or box["bottom"] > layer["bottom"]:
+            wrong.append(f"{name} (y {box['top']:.0f} to {box['bottom']:.0f}) is outside the layer (y {layer['top']:.0f} to {layer['bottom']:.0f})")
+    wrong += [f"{name} is under something else at its middle" for name, top in d["onTop"].items() if not top]
+    if len(d["texts"]) != 7:
+        wrong.append(f"the probe found {sorted(d['texts'])}, not the 7 hero texts")
+elif mode == "phone":
+    # criterion 2: at 390 px the figure and the word with its cursor are inside the window, and the scene keeps its ratio
+    d, static = load(files[0]), load(files[1])
+    scene, (left, right) = d["scene"], static.get("span") or [None, None]
+    natural, box_w, box_h = scene["natural"], scene["right"] - scene["left"], scene["bottom"] - scene["top"]
+    if static.get("scene_span") or left is None:
+        wrong.append(f"the scene file: {static.get('scene_span')}")
+    elif d["width"] != 390 or d["client"] != 390:
+        wrong.append(f"the frame is {d['width']} px wide, {d['client']} px inside, not 390")
+    elif natural != [1600, 640]:
+        wrong.append(f"the scene loaded at {natural}, not 1600 x 640")
+    else:
+        if scene["fit"] == "cover":
+            scale_x = scale_y = max(box_w / 1600, box_h / 640)
+        elif scene["fit"] == "contain":
+            scale_x = scale_y = min(box_w / 1600, box_h / 640)
+        else:
+            scale_x, scale_y = box_w / 1600, box_h / 640
+        place = re.match(r"([\d.]+)%", scene["position"] or "")
+        if abs(scale_x - scale_y) > 0.002:
+            wrong.append(f"the scene is squeezed: {scale_x:.3f} across and {scale_y:.3f} down")
+        elif not place:
+            wrong.append(f"the scene is placed at {scene['position']}, not at a share of the window across")
+        else:
+            shift = scene["left"] + (box_w - 1600 * scale_x) * float(place.group(1)) / 100
+            seen = (shift + left * scale_x, shift + right * scale_x)
+            if seen[0] < 0 or seen[1] > d["client"]:
+                wrong.append(f"the figure starts at x {seen[0]:.1f} and the word ends at x {seen[1]:.1f} of the {d['client']} px window")
+            said = f"the scene is {box_h:.0f} px high, the figure starts at x {seen[0]:.0f} and the word ends at x {seen[1]:.0f}"
+elif mode == "contrast":
+    # criterion 6: each run of hero text against what stands behind it, at its weakest pixel, with the scene at its bound
+    d, picture, static, theme = load(files[0]), files[1], load(files[2]), files[3]
+    width, height, step, rows = png(picture)
+    want = "#" + static.get(f"bound_{theme}", "").lstrip("#")
+    if d["bound"] != want:
+        wrong.append(f"the probe drew the scene as {d['bound']}, not the {theme} bound {want}")
+    if d["dpr"] != 1:
+        wrong.append(f"the window draws {d['dpr']} pixels to the px")
+    names = {run["name"] for run in d["runs"]}
+    if len(names) != 7:
+        wrong.append(f"the probe found {sorted(names)}, not the 7 hero texts")
+    weakest = (99.0, "")
+    for run in d["runs"]:
+        ink, cache = color(run["color"]), {}
+        if ink is None or not run["rects"]:
+            wrong.append(f"{run['name']}: no text or the color {run['color']}")
+            continue
+        worst = 99.0
+        for x0, y0, x1, y1 in run["rects"]:
+            # one px in from each side, off the edge of a box around the text
+            for y in range(int(y0) + 1, min(int(y1 + 0.999) - 1, height)):
+                line = rows[y]
+                for x in range(int(x0) + 1, min(int(x1 + 0.999) - 1, width)):
+                    pixel = bytes(line[x * step:x * step + 3])
+                    if pixel not in cache:
+                        back = [c / 255 for c in pixel]
+                        cache[pixel] = contrast([ink[1] * f + (1 - ink[1]) * b for f, b in zip(ink[0], back)], back)
+                    worst = min(worst, cache[pixel])
+        if worst == 99.0:
+            wrong.append(f"{run['name']}: its boxes hold no pixel of the picture")
+        elif worst < 4.5:
+            wrong.append(f"{run['name']} ({run['text']!r}) reaches {worst:.2f} to 1")
+        if worst < weakest[0]:
+            weakest = (worst, run["name"])
+    said = f"the weakest is {weakest[1]} at {weakest[0]:.1f} to 1"
 elif mode == "copy":
     d = load(files[0])
     lines = ["claude plugin marketplace add pySilver/lem --scope project", "claude plugin install lem@lem --scope project"]
@@ -489,11 +1003,32 @@ elif mode == "differ":
     light, dark = (load(path)["background"] for path in files)
     if light == dark:
         wrong.append(f"both draws have the background {light}")
-print("; ".join(wrong))
+print("; ".join(wrong) if wrong else said)
 sys.exit(bool(wrong))
 PY
 )
 drawn() { "$PY" -I -B -c "$DRAWN" "$@" 2>&1; }
+
+# contrast_of THEME: the contrast probe drawn at 1280 x 800 and at 390 px in THEME (day or night), the scene at
+# the bound color of that theme from the static checks; prints the weakest run of each, or what fell short
+contrast_of() {
+  local theme=$1 scheme=1 bound width size url why said=""
+  [ "$theme" = night ] && scheme=0
+  ok "bound_$theme" || true
+  bound=${WHY#\#}
+  for place in "1280 1280,800 contrast.html?bound=$bound" "390 500,1400 phone.html?page=contrast.html&bound=$bound"; do
+    read -r width size url <<< "$place"
+    headless --window-size="$size" --force-device-scale-factor=1 --blink-settings=preferredColorScheme=$scheme --virtual-time-budget=5000 --dump-dom "file://$SITE/$url" > "$WORK/contrast-$theme-$width.dom"
+    headless --window-size="$size" --force-device-scale-factor=1 --blink-settings=preferredColorScheme=$scheme --virtual-time-budget=5000 --screenshot="$WORK/contrast-$theme-$width.png" "file://$SITE/$url"
+    result "$WORK/contrast-$theme-$width.dom" > "$WORK/contrast-$theme-$width.json"
+    if ! why=$(drawn contrast "$WORK/contrast-$theme-$width.json" "$WORK/contrast-$theme-$width.png" "$WORK/static.json" "$theme"); then
+      echo "at $width px: $why"
+      return 1
+    fi
+    said="$said${said:+; }at $width px $why"
+  done
+  echo "bound #$bound; $said"
+}
 
 drawn_checks() {
   # criterion 1: the first screen at 1280 px. The height of the window takes no part: the page uses no
@@ -501,14 +1036,38 @@ drawn_checks() {
   headless --window-size=1280,800 --virtual-time-budget=5000 --dump-dom "file://$SITE/screen.html" > "$WORK/screen.dom"
   result "$WORK/screen.dom" > "$WORK/screen.json"
   if why=$(drawn screen "$WORK/screen.json"); then
-    pass "at 1280 x 800 the logo, the line, both install lines, both copy buttons and the line \"Lem needs agterm.\" are in the first screen"
+    pass "at 1280 x 800 the scene, the headline, the lead, both install lines, both copy buttons and the line \"Lem needs agterm.\" are in the first screen"
   else
     fail "the first screen at 1280 x 800: $why"
+  fi
+  if why=$(drawn layer "$WORK/screen.json"); then
+    pass "at 1280 x 800 the scene reaches the window's left and right edge from the top of the page, with no box, and its layer holds the seven hero texts, each on top of it"
+  else
+    fail "the scene behind the hero at 1280 x 800: $why"
   fi
   if why=$(drawn copy "$WORK/screen.json"); then
     pass "each of the four copy buttons copies the install line of its own row"
   else
     fail "the copy buttons: $why"
+  fi
+  # criterion 2: a phone, 390 px wide, in a frame (phone.html)
+  headless --window-size=500,1400 --virtual-time-budget=5000 --dump-dom "file://$SITE/phone.html?page=screen.html" > "$WORK/phone.dom"
+  result "$WORK/phone.dom" > "$WORK/phone.json"
+  if why=$(drawn phone "$WORK/phone.json" "$WORK/static.json"); then
+    pass "at 390 px the scene is cut at its sides around its center and keeps its ratio, and the hooded figure and the word Lem with its cursor are inside the window ($why)"
+  else
+    fail "the scene at 390 px: $why"
+  fi
+  # criterion 6: each hero text against the scene at its theme's bound color, under the page's shade, at 1280 x 800 and at 390 px
+  if why=$(contrast_of day); then
+    pass "in the day theme every hero text keeps 4.5 to 1 against the scene at its bound color under the page's shade, or against its own solid box: $why"
+  else
+    fail "the contrast in the day theme: $why"
+  fi
+  if why=$(contrast_of night); then
+    pass "in the night theme every hero text keeps 4.5 to 1 against the scene at its bound color under the page's shade, or against its own solid box: $why"
+  else
+    fail "the contrast in the night theme: $why"
   fi
   # criterion 4: the page drawn in the light and in the dark theme, by Chrome's preferred color scheme
   headless --window-size=1280,800 --blink-settings=preferredColorScheme=1 --virtual-time-budget=5000 --dump-dom "file://$SITE/theme.html" > "$WORK/light.dom"

@@ -31,6 +31,7 @@ body {
   color: var(--fg);
   font: 16px/1.6 -apple-system, BlinkMacSystemFont, "SF Pro Text", ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
 }
 main, footer { max-width: 1080px; margin: 0 auto; padding: 0 32px; }
 a { color: var(--link); text-underline-offset: 3px; text-decoration-thickness: 1px; }
@@ -41,18 +42,39 @@ b { font-weight: 650; }
 :focus-visible { outline: 2px solid var(--gate); outline-offset: 2px; border-radius: 4px; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }
 
-/* ---- the opening: the logo, the line and the install, all in the first screen ---- */
+/* ---- the opening: the scene from edge to edge behind the line and the install, all in the first screen ---- */
 .opening { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 0 0 72px; }
-.top { align-self: stretch; display: flex; justify-content: flex-end; gap: 26px; padding: 22px 0 30px; font-size: 14px; }
-.top a { color: var(--dim); text-decoration: none; }
-.top a:hover { color: var(--fg); }
-.logo { margin: 0 0 30px; line-height: 0; }
-.logo img { display: block; width: 560px; max-width: 100%; height: auto; border-radius: 10px; box-shadow: 0 18px 50px -18px color-mix(in srgb, var(--you) 45%, transparent); }
+/* The hero is the scene's layer, as wide as the window, from the top of the page to the end of the agterm
+   note, with the text on top of it. The scene fills the layer's top at the height --scene, cut at its sides
+   and never squeezed: a window W px wide shows W x 640 / --scene of the frame's 1600 units, around x 800.
+   --scene is 40vw, the whole frame, from 650 px up; 260 px below that; 75vw where that is less. So a 390 px
+   phone still shows the figure (from x 384) and the word with its cursor (to x 1224.8), 2 x 424.8 units.
+   The text starts low in the scene, under the figures' feet. */
+.hero {
+  --scene: max(40vw, min(260px, 75vw)); --shade: 150px;
+  position: relative; isolation: isolate; align-self: stretch; display: flex; flex-direction: column; align-items: center;
+  padding-top: calc(var(--scene) * .76);
+}
+.top { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: flex-end; gap: 26px; padding: 22px 0; font-size: 14px; }
+.top a { color: var(--fg); text-decoration: none; }
+.top a:hover { text-decoration: underline; }
+.logo { position: absolute; z-index: -1; top: 0; bottom: 0; left: calc(50% - 50vw); width: 100vw; margin: 0; line-height: 0; }
+.logo picture { display: block; height: 100%; }
+.logo img { display: block; width: 100%; height: var(--scene); object-fit: cover; object-position: 50% 0; }
+/* the shade: the scene fades into the page's background above the headline, is 82% of it at the headline's
+   top and all of it 60 px lower, so each text keeps 4.5 to 1 against the scene's darkest (day) or lightest
+   (night) color; tests/test-site.sh draws the scene in that color and measures it */
+.words { position: relative; align-self: stretch; display: flex; flex-direction: column; align-items: center; }
+.words::before {
+  content: ""; position: absolute; z-index: -1; top: calc(0px - var(--shade)); bottom: 0; left: calc(50% - 50vw); width: 100vw;
+  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--bg) 40%, transparent) calc(var(--shade) * .6),
+    color-mix(in srgb, var(--bg) 82%, transparent) var(--shade), var(--bg) calc(var(--shade) + 60px));
+}
 .lead { margin: 0; max-width: 23em; font-size: 31px; line-height: 1.25; font-weight: 700; letter-spacing: -.018em; text-wrap: balance; }
 .sub { margin: 14px 0 0; max-width: 38em; font-size: 17px; color: var(--dim); text-wrap: balance; }
 .opening .install { margin-top: 26px; }
 .needs { margin: 14px 0 0; font-size: 14px; color: var(--dim); }
-.needs code { font-size: 13px; }
+.needs code { font-size: 13px; color: var(--fg); }
 
 /* the two install lines, each with its copy button */
 .install {
@@ -208,7 +230,11 @@ footer { border-top: 1px solid var(--line); padding-top: 44px; padding-bottom: 5
   main, footer { padding: 0 20px; }
   .lead { font-size: 25px; }
   h2 { font-size: 26px; }
-  .top { flex-wrap: wrap; justify-content: center; gap: 8px 20px; }
+  .top { position: static; align-self: stretch; flex-wrap: wrap; justify-content: center; gap: 8px 20px; padding-bottom: 18px; }
+  /* the nav above the scene, and the scene in the flow: the text overlaps its lower quarter */
+  .hero { padding-top: 0; --shade: 90px; }
+  .logo { position: relative; top: auto; bottom: auto; left: auto; }
+  .words { margin-top: calc(var(--scene) * -.24); }
   .columns, .points, .cards, .verdict { grid-template-columns: minmax(0, 1fr); }
   .track { grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .steps { grid-template-columns: minmax(0, 1fr); gap: 18px; }

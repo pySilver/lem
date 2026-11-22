@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/lem-night.svg">
-    <img src="assets/lem.svg" alt="Lem: a tall hooded figure holds one line, and four figures hang from it" width="720">
+    <img src="assets/lem.svg" alt="Lem: a tall hooded figure with one red eye holds a long line over a field. Four small figures and the word Lem hang from it, and a pulse of light runs along the line." width="720">
   </picture>
 </p>
 
