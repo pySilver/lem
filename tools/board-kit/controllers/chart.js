@@ -14,11 +14,11 @@ const ZOOM = {min: 0.2, max: 6};
 
 export default class extends Controller {
   connect() {
-    this.sized = new ResizeObserver(() => this.fit());
+    this.sized = new ResizeObserver(() => this.fitBox());
     this.sized.observe(this.element);
-    this.onDrawn = () => { this.text = null; this.fit(); if (view.chart === this) view.show(this); };
+    this.onDrawn = () => { this.text = null; this.fitBox(); if (view.chart === this) view.show(this); };
     this.element.addEventListener('lem:chart', this.onDrawn);
-    this.fit();
+    this.fitBox();
   }
 
   disconnect() {
@@ -37,7 +37,7 @@ export default class extends Controller {
     return this.text;
   }
 
-  fit() {
+  fitBox() {
     const box = this.box, svg = this.svg;
     if (!box || !svg) return;
     const style = getComputedStyle(box);
@@ -103,7 +103,7 @@ const view = {
     dialog.addEventListener('click', ev => {
       const zoom = ev.target.closest?.('[data-zoom]')?.dataset.zoom;
       if (zoom === 'close') dialog.close();
-      else if (zoom === 'fit') this.fit();
+      else if (zoom === 'fit') this.fitWindow();
       else if (zoom) this.zoomBy(zoom === 'in' ? 1.25 : 0.8);
     });
     dialog.addEventListener('close', () => { this.chart = null; dialog.querySelector('.cl-pane').replaceChildren(); this.back?.focus?.({preventScroll: true}); this.back = null; });
@@ -112,7 +112,7 @@ const view = {
       ev.stopPropagation();
       if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
       const step = 60;
-      const act = {'+': () => this.zoomBy(1.25), '=': () => this.zoomBy(1.25), '-': () => this.zoomBy(0.8), 0: () => this.fit(),
+      const act = {'+': () => this.zoomBy(1.25), '=': () => this.zoomBy(1.25), '-': () => this.zoomBy(0.8), 0: () => this.fitWindow(),
                    ArrowLeft: () => this.move(step, 0), ArrowRight: () => this.move(-step, 0), ArrowUp: () => this.move(0, step), ArrowDown: () => this.move(0, -step)}[ev.key];
       if (act && !ev.target.closest?.('button')) { ev.preventDefault(); act(); }
     });
@@ -169,10 +169,10 @@ const view = {
     dialog.setAttribute('aria-label', named ? `The chart: ${named}` : 'The chart');
     if (!dialog.open) dialog.showModal();
     dialog.querySelector('.cl-stage').focus({preventScroll: true, focusVisible: false});
-    this.fit();
+    this.fitWindow();
   },
 
-  fit() {
+  fitWindow() {
     const stage = this.stage();
     if (!stage) return;
     const room = {w: stage.clientWidth - 48, h: stage.clientHeight - 48};
