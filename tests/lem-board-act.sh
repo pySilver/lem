@@ -160,17 +160,26 @@ M=$SERVER/$HOST/fix-shop/tasks/word-in-file
 bare=$(post "$M/merge" "$SERVER" "tip=$TIP")
 bare_page=$(curl -fsS "${bare#* }" | words)
 confirm=$(curl -fsS "$M/merge" | words)
+# a form that carries another commit than the one proposed, as a confirm step read before a new proposal does
+stale=$(post "$M/merge" "$SERVER" "confirm=yes" "tip=0000000000000000000000000000000000000000")
+stale_page=$(curl -fsS "${stale#* }" | words)
+if [ "${stale%% *}" = 303 ] && grep -qF "Not done. The branch was proposed again since the confirm step showed it: nothing was merged. Read the confirm step again." <<<"$stale_page" \
+  && [ "$(status_in "$SHOP" word-in-file)" = open ] && [ "$(events "$SHOP" merge.start word-in-file)" = 0 ] && [ "$(git -C "$ORIGIN" log -1 --format=%s main)" = "chore: start" ]; then
+  pass "a merge whose form carries another commit than the one proposed now merges nothing, and its page says to read the confirm step again"
+else
+  fail "the merge of a commit the confirm step did not show: $stale / $(status_in "$SHOP" word-in-file) / $(grep -o "Not done[^<]*" <<<"$stale_page" | head -c 300)"
+fi
 merged=$(post "$M/merge" "$SERVER" "confirm=yes" "tip=$TIP")
 soon test "$(status_in "$SHOP" word-in-file)" = landed
 soon grep -q '"event": "board.act", "task": "word-in-file"' "$SHOP/.lem/state/events.jsonl"
 merged_page=$(curl -fsS "${merged#* }" | words)
-if grep -qF "Not done. A merge runs only from its confirm step" <<<"$bare_page" && grep -qF "Merge · confirm Green" <<<"$confirm" && grep -qF "${TIP:0:12}" <<<"$confirm" \
+if grep -qF "Not done. A merge runs only from its confirm step" <<<"$bare_page" && grep -qF "Merge #1 · confirm Green" <<<"$confirm" && grep -qF "${TIP:0:12}" <<<"$confirm" \
   && grep -qF "Lands as one commit: fix: the word is in the file" <<<"$confirm" && [ "${merged%% *}" = 303 ] && [ "$(status_in "$SHOP" word-in-file)" = landed ] \
   && [ "$(git -C "$ORIGIN" log -1 --format=%s main)" = "fix: the word is in the file" ] && grep -qF "Done. Merged: pull request #1 is on main" <<<"$merged_page" \
   && [ "$(grep '"event": "board.act", "task": "word-in-file"' "$SHOP/.lem/state/events.jsonl" | field '(d["act"], d["via"])')" = "('merge', 'the board, on this Mac')" ]; then
   pass "a merge runs only from its confirm step, which says green first and names the commit; then land.py lands the branch on the owner's word, and the task's page says what came of it"
 else
-  fail "the merge: $bare / $(grep -o "Not done[^<]*" <<<"$bare_page" | head -c 200) / $(grep -o "Merge · confirm.\{0,300\}" <<<"$confirm") / $merged / $(status_in "$SHOP" word-in-file) / $(git -C "$ORIGIN" log -1 --format=%s main) / $(grep -o "Done\..\{0,200\}" <<<"$merged_page")"
+  fail "the merge: $bare / $(grep -o "Not done[^<]*" <<<"$bare_page" | head -c 200) / $(grep -o "Merge #1 · confirm.\{0,300\}" <<<"$confirm") / $merged / $(status_in "$SHOP" word-in-file) / $(git -C "$ORIGIN" log -1 --format=%s main) / $(grep -o "Done\..\{0,200\}" <<<"$merged_page")"
 fi
 
 # "Open a session" for the task with no session: one `lem session open` with the reason of a task that never had

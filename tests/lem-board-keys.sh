@@ -487,18 +487,179 @@ PY
   fi
 }
 
+# The confirm step of a merge, which on a phone is an overlay whose button comes on when its text was read to the end
+# (lem_board_task.py `merge_step`, the `sheet` controller, board.css). The demo writes no landing record, so a merge step
+# has no button: merge.py writes what land.py keeps and logs for an open task. `merge.py landing STATE TASK PR TIP`: its
+# landing.json with the proposed tip and the pull request; `merge.py review LOG TASK`: a review's careful call;
+# `merge.py proposed LOG TASK TIP N`: a proposal of TIP that is not green for the first N of the demo's four reasons
+# (green for 0); `merge.py open LOG TASK PR`: the state open with the pull request.
+cat > "$WORK/merge.py" <<'PY'
+import json, sys
+from datetime import datetime, timezone
+from pathlib import Path
+REASONS = ["decision 1 was taken without the owner (Where the refund line goes on the receipt): \"B: a line of its own under the items, then the total\", by the dialectic",
+           "the owner did not approve the criteria: they were approved while the task ran without the owner",
+           "the bar is lower in `tests/test_receipt.py` (one assertion fewer)",
+           "two rounds reviewed it: the last one left no must-fix, and round 1 left 1 must-fix that pull request #44 answers"]
+verb, where, task, *more = sys.argv[1:]
+def log(event, **fields):
+    with open(where, "a", encoding="utf-8") as out:
+        out.write(json.dumps({"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": event, "task": task, **fields}) + "\n")
+if verb == "landing":
+    pr, tip = more
+    folder = Path(where) / "tasks" / task
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "landing.json").write_text(json.dumps({"pr": {"number": int(pr), "url": f"https://github.com/acme/shop/pull/{pr}"}, "proposed": tip,
+                                                     "title": f"feat: {task}", "branch": f"feat/{task}"}, indent=2) + "\n")
+elif verb == "review":
+    log("review", attempt=3, round=3, kind="round", verdict="clean", must_fix=0, should=0, nit=0, answered=["codex", "claude"], silent=[], ran=[], left_out=[],
+        careful=True, careful_why="the total under the refund is money the customer pays")
+elif verb == "proposed":
+    tip, n = more
+    log("proposed", green=int(n) == 0, not_green=REASONS[:int(n)], tip=tip[:9])
+elif verb == "open":
+    log("task.state", status="open", text=f"pull request https://github.com/acme/shop/pull/{more[0]}", lines=["not green"], ask=task)
+PY
+
+# The checks of the confirm step, after the other checks of the block: pull request 44 of refund-line-on-receipt, not
+# green for four reasons and careful, at a phone's width with a height where its text goes on below the screen (390 x
+# 664) and at 390 x 844, where it fits; a green open task of the check's own; a desktop's screen; and the page with its
+# scripts off, whose click posts the form as the browser sends it.
+confirm_checks() {
+  local refund=refund-line-on-receipt green=coupon-code-in-email tip moved shorter out=$WORK/confirm
+  tip=$(git -C "$DEMO" rev-parse "feat/$refund")
+  moved=1111111111111111111111111111111111111111 shorter=2222222222222222222222222222222222222222
+  "$PY" "$WORK/merge.py" landing "$DEMO/.lem/state" "$refund" 44 "$tip"
+  "$PY" "$WORK/merge.py" review "$LOG" "$refund"
+  "$PY" "$WORK/merge.py" proposed "$LOG" "$green" 3333333333333333333333333333333333333333 0
+  "$PY" "$WORK/merge.py" open "$LOG" "$green" 45
+  "$PY" "$WORK/merge.py" landing "$DEMO/.lem/state" "$green" 45 3333333333333333333333333333333333333333
+  "$PY" - "$BASE" "$WORK" "$PY" "$LOG" "$DEMO/.lem/state" "$refund" "$green" "$moved" "$shorter" <<'PY'
+import json, shlex, sys
+base, work, py, log, state, refund, green, moved, shorter = sys.argv[1:]
+step = f"{base}/tasks/{refund}/merge?in=waits"
+# the card's facts: whether the controller marked it, its position, the head's, the button's and Back's top and bottom,
+# the parts of the body in their order, the facts in theirs, the button's aria-disabled and label, the body's scroll and
+# its height and its content's, whether the note's end is below the body's, and the class of what has the focus
+FACTS = ("(() => { const c = document.querySelector('#confirm'), body = c.querySelector('.cf-body'), b = c.querySelector('.cf-foot button'), note = c.querySelector('.cf-note');"
+         " const at = n => n ? [Math.round(n.getBoundingClientRect().top), Math.round(n.getBoundingClientRect().bottom)] : null;"
+         " return {sheet: c.hasAttribute('data-js-sheet'), position: getComputedStyle(c).position, head: at(c.querySelector('.cf-head .eyebrow')), headWords: c.querySelector('.cf-head').textContent.trim(),"
+         " button: at(b), back: at(c.querySelector('.cf-foot a.btn')), backWords: c.querySelector('.cf-foot a.btn').textContent.trim(), screen: innerHeight,"
+         " parts: [...body.children].map(n => n.className.split(' ').find(k => ['cf-first', 'reasons', 'cf-careful-why', 'cf-facts', 'cf-note'].includes(k)) ?? n.className).join(' '),"
+         " facts: [...body.querySelectorAll('.cf-facts dt')].map(n => n.id.replace('cf-dt-', '')).join(' '),"
+         " disabled: b.getAttribute('aria-disabled'), label: b.textContent.trim(), top: Math.round(body.scrollTop), height: body.clientHeight, content: body.scrollHeight,"
+         " noteBelow: note.getBoundingClientRect().bottom > body.getBoundingClientRect().bottom + 1, noteEnd: Math.round(note.getBoundingClientRect().bottom), buttonTop: Math.round(b.getBoundingClientRect().top),"
+         " fixed: [c, ...c.querySelectorAll('*')].some(n => ['fixed', 'sticky'].includes(getComputedStyle(n).position)), focus: document.activeElement?.className ?? '-',"
+         " commit: c.querySelector('#cf-dd-commit .mono')?.textContent ?? '-' }; })()")
+def until(label, cond):
+    """a print step that waits up to 15 s for COND, then gives LABEL and the card's facts"""
+    return {"print": f"new Promise(done => {{ const end = Date.now() + 15000; const tick = () => (({cond}) || Date.now() > end) ? done([{json.dumps(label)}, {FACTS}]) : setTimeout(tick, 100); tick(); }})"}
+def at(label):
+    return {"print": f"[{json.dumps(label)}, {FACTS}]"}
+def sh(*argv):
+    return {"sh": " ".join(map(shlex.quote, argv))}
+def acts(label):
+    return sh(py, "-c", "import json, sys; print(json.dumps([sys.argv[1], sum('\"board.act\"' in line for line in open(sys.argv[2]))]))", label, log)
+ready = "document.readyState === 'complete' && document.querySelector('#confirm[data-js-sheet]')"
+to_end = {"eval": "(() => { const b = document.querySelector('#confirm .cf-body'); b.scrollTop = b.scrollHeight; })()", "after": 500}
+specs = {
+    # the text goes on below the screen: the button is off and a tap posts nothing, then on at the end; a new proposal,
+    # and one that brings a shorter text to a body scrolled to just above its end, each start the read again at the top
+    "gate": {"width": 390, "height": 664, "mobile": True, "steps": [
+        {"goto": step, "wait": 300}, until("open", ready), {"wait": 300}, at("opened"),
+        acts("acts-before"), {"click": "#confirm .cf-foot button"}, {"wait": 700}, {"print": "['tapped', location.pathname + location.search]"}, acts("acts-after"), at("after-tap"),
+        to_end, at("end"),
+        sh(py, f"{work}/merge.py", "landing", state, refund, "44", moved), sh(py, f"{work}/merge.py", "proposed", log, refund, moved, "4"),
+        until("moved", f"document.querySelector('#cf-dd-commit .mono')?.textContent === '{moved[:12]}'"), {"wait": 400}, at("moved-after"),
+        {"eval": "(() => { const b = document.querySelector('#confirm .cf-body'); b.scrollTop = b.scrollHeight - b.clientHeight - 12; })()", "after": 500}, at("near"),
+        sh(py, f"{work}/merge.py", "landing", state, refund, "44", shorter), sh(py, f"{work}/merge.py", "proposed", log, refund, shorter, "3"),
+        until("shorter", f"document.querySelector('#cf-dd-commit .mono')?.textContent === '{shorter[:12]}'"), {"wait": 400}, at("shorter-after"),
+    ]},
+    # the screen of criterion 1, where the text of #44 fits
+    "phone": {"width": 390, "height": 844, "mobile": True, "steps": [{"goto": step, "wait": 300}, until("open", ready), {"wait": 300}, at("phone")]},
+    "green": {"width": 390, "height": 844, "mobile": True, "steps": [{"goto": f"{base}/tasks/{green}/merge?in=waits", "wait": 300}, until("open", ready), {"wait": 300}, at("green")]},
+    "desk": {"width": 1440, "height": 900, "steps": [{"goto": step, "wait": 300}, until("open", ready), {"wait": 300}, at("desk")]},
+    # with no script: no controller, so no overlay; the click posts the form, and the server's guard takes it
+    "noscript": {"width": 390, "height": 844, "mobile": True, "noscript": True, "posts": True, "steps": [
+        {"goto": step, "wait": 2500},
+        {"print": "['page', (() => { const p = document.querySelector('.panel'); return [typeof window.Turbo, p.scrollHeight > p.clientHeight].join(' '); })()]"}, at("off"),
+        {"click": "#confirm .cf-foot button"}, {"wait": 1500}, {"print": "['answer', document.body.innerText.slice(0, 300)]"}]},
+}
+for name, spec in specs.items():
+    with open(f"{work}/confirm-{name}.json", "w", encoding="utf-8") as out:
+        json.dump(spec, out)
+PY
+  # the order: the phone's, the green task's and the desktop's look before the gate's proposals move #44, and the merge last
+  drive "$WORK/confirm-phone.json" "$out-phone.out"
+  drive "$WORK/confirm-green.json" "$out-green.out"
+  drive "$WORK/confirm-desk.json" "$out-desk.out"
+  drive "$WORK/confirm-gate.json" "$out-gate.out"
+  drive "$WORK/confirm-noscript.json" "$out-noscript.out"
+  # fact OUT LABEL EXPR: EXPR over the facts the spec printed under LABEL (d), "nothing printed" when it printed none
+  fact() { seen "$1" "$2" | "$PY" -c 'import ast, json, sys; t = sys.stdin.read().strip()
+try:
+    d = ast.literal_eval(t)
+except (ValueError, SyntaxError):
+    print("nothing printed"); sys.exit()
+print(eval(sys.argv[1], {"d": d}))' "$3"; }
+  local phone=$out-phone.out gate=$out-gate.out
+  if [ "$(fact "$phone" phone 'd["sheet"] and d["position"] == "fixed" and d["head"][0] >= 0 and d["button"][1] <= d["screen"] and d["back"][1] <= d["screen"] and d["back"][0] > d["button"][0]')" = True ] \
+    && [ "$(fact "$phone" phone 'd["headWords"]')" = "Merge #44 · confirm" ] && [ "$(fact "$phone" phone 'd["backWords"]')" = Back ] \
+    && [ "$(fact "$phone" phone 'd["parts"]')" = "cf-first reasons cf-careful-why cf-facts cf-note" ] && [ "$(fact "$phone" phone 'd["facts"]')" = "pr commit branch into as" ] \
+    && [ "$(fact "$gate" opened 'd["focus"]')" = cf-head ]; then
+    pass "on a phone of 390 x 844 the merge step of #44 is an overlay: the head Merge #44 · confirm at its top and the focus on it, the body in the order green or not green, the reasons, Careful:, the facts and the note, and the button and Back inside the screen"
+  else
+    fail "the merge step's overlay on a phone: $(cat "$phone") / $(seen "$gate" opened)"
+  fi
+  if [ "$(fact "$gate" opened 'd["sheet"] and d["noteBelow"] and d["button"][1] <= d["screen"]')" = True ] && [ "$(fact "$gate" opened 'd["disabled"], d["label"]')" = "('true', 'Read to the end ↓')" ] \
+    && [ "$(seen "$gate" tapped)" = "/$HOST/shop/tasks/$refund/merge?in=waits" ] && [ "$(seen "$gate" acts-before)" = "$(seen "$gate" acts-after)" ] && [ "$(seen "$gate" acts-after)" != "nothing printed" ] \
+    && [ "$(fact "$gate" after-tap 'd["label"]')" = "Read to the end ↓" ] \
+    && [ "$(fact "$gate" end 'd["disabled"], d["label"]')" = "(None, 'Merge pull request #44')" ]; then
+    pass "while the text of #44 goes on below the screen its button is off and reads Read to the end ↓, a tap on it posts nothing, and after the body is scrolled to its end it reads Merge pull request #44 and is on"
+  else
+    fail "the button gated by the read: $(cat "$gate")"
+  fi
+  if [ "$(fact "$gate" moved-after 'd["commit"], d["top"], d["disabled"], d["label"]')" = "('${moved:0:12}', 0, 'true', 'Read to the end ↓')" ] \
+    && [ "$(fact "$gate" near 'd["top"] > 0 and d["disabled"] == "true"')" = True ] \
+    && [ "$(fact "$gate" shorter-after 'd["commit"], d["top"], d["content"] > d["height"], d["disabled"], d["label"]')" = "('${shorter:0:12}', 0, True, 'true', 'Read to the end ↓')" ]; then
+    pass "a new proposal of #44 after its read brings the body back to its top with the button off, and so does one with a shorter text that comes while the body stands just above its end"
+  else
+    fail "the read after a morph to another text: $(seen "$gate" moved-after) / $(seen "$gate" near) / $(seen "$gate" shorter-after)"
+  fi
+  if [ "$(fact "$out-green.out" green 'd["sheet"], d["position"], d["content"] <= d["height"], d["disabled"], d["label"]')" = "(True, 'fixed', True, None, 'Merge pull request #45')" ]; then
+    pass "the merge step of a green pull request whose text fits on a phone's screen has its button on from the first look"
+  else
+    fail "the green merge step on a phone: $(cat "$out-green.out")"
+  fi
+  if [ "$(fact "$out-desk.out" desk 'd["sheet"], d["fixed"], d["disabled"], d["label"], d["buttonTop"] > d["noteEnd"], d["headWords"], d["backWords"]')" = "(True, False, None, 'Merge pull request #44', True, 'Merge #44 · confirm', 'Back')" ]; then
+    pass "on a desktop's screen of 1440 x 900 the merge step of #44 has no fixed part, and its button is on, below its text in the page"
+  else
+    fail "the merge step on a desktop: $(cat "$out-desk.out")"
+  fi
+  if [ "$(seen "$out-noscript.out" page)" = "undefined true" ] \
+    && [ "$(fact "$out-noscript.out" off 'd["sheet"], d["fixed"], d["disabled"], d["label"], d["buttonTop"] > d["noteEnd"]')" = "(False, False, None, 'Merge pull request #44', True)" ] \
+    && [ "$(seen "$out-noscript.out" post)" = "$BASE/tasks/$refund/merge confirm=yes&tip=$shorter&in=waits" ]; then
+    pass "with no script the merge step of #44 is one page that scrolls, its button is on at the end of its text, and its click posts the form with confirm=yes and the commit the page showed"
+  else
+    fail "the merge step with no script: $(cat "$out-noscript.out")"
+  fi
+}
+
 if [ -z "$NODE" ]; then
   skip_function tasks_view_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function waits_view_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function search_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
+  skip_function confirm_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
 elif [ -z "$CHROME_AT" ]; then
   skip_function tasks_view_checks "no Chrome here (set CHROME to the browser)"
   skip_function waits_view_checks "no Chrome here (set CHROME to the browser)"
   skip_function search_checks "no Chrome here (set CHROME to the browser)"
+  skip_function confirm_checks "no Chrome here (set CHROME to the browser)"
 else
   tasks_view_checks
   waits_view_checks
   search_checks
+  confirm_checks
 fi
 
 finish

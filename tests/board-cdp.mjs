@@ -1,8 +1,9 @@
 // node tests/board-cdp.mjs SPEC.json: drive headless Chrome over the DevTools protocol, for the board's
 // pictures (tests/board-showcase.py), tests/lem-serve.sh's typing into a page, the keys of tests/lem-board-keys.sh and a builder's look at a page. SPEC has a viewport (`width`,
 // `height`, `scale`, `mobile` for a phone's emulation), `dark` for the color scheme, `ua` for another
-// user agent, and `steps`: {goto, wait}, {wait}, {eval}, {print}, {click} (with `tap`, a finger's touch, as a
-// phone gets it), {sh} (a command, its output printed), {key} (with `code`, `vk`, `text`, `modifiers`), {shot}. Chrome runs
+// user agent, `noscript` for a page with its scripts off, `posts` to print each POST it sends, and `steps`:
+// {goto, wait}, {wait}, {eval}, {print}, {click} (with `tap`, a finger's touch, as a phone gets it), {sh} (a
+// command, its output printed), {key} (with `code`, `vk`, `text`, `modifiers`), {shot}. Chrome runs
 // with a throwaway profile and the mock keychain, and the profile goes at the end. CHROME names the
 // browser; by default Google Chrome's place on macOS, else the first of google-chrome and chromium.
 import {spawn, execSync} from 'node:child_process';
@@ -32,13 +33,21 @@ try {
   await new Promise(r => ws.addEventListener('open', r));
   let id = 0;
   const waiting = new Map();
-  ws.addEventListener('message', ev => { const m = JSON.parse(ev.data); if (m.id && waiting.has(m.id)) { waiting.get(m.id)(m); waiting.delete(m.id); } });
+  ws.addEventListener('message', ev => {
+    const m = JSON.parse(ev.data);
+    if (m.id && waiting.has(m.id)) { waiting.get(m.id)(m); waiting.delete(m.id); }
+    // `posts`: each POST the page sends, as ["post", "URL BODY"]
+    else if (m.method === 'Network.requestWillBeSent' && m.params.request.method === 'POST') console.log(JSON.stringify(['post', `${m.params.request.url} ${m.params.request.postData ?? ''}`]));
+  });
   const send = (method, params = {}) => new Promise(r => { const n = ++id; waiting.set(n, r); ws.send(JSON.stringify({id: n, method, params})); });
   const w = spec.width ?? 1440, h = spec.height ?? 900;
   await send('Emulation.setDeviceMetricsOverride', {width: w, height: h, deviceScaleFactor: spec.scale ?? 1, mobile: Boolean(spec.mobile)});
   if (spec.mobile) await send('Emulation.setTouchEmulationEnabled', {enabled: true, maxTouchPoints: 5});
   await send('Emulation.setEmulatedMedia', {features: [{name: 'prefers-color-scheme', value: spec.dark ? 'dark' : 'light'}]});
   if (spec.ua) await send('Emulation.setUserAgentOverride', {userAgent: spec.ua});
+  // `noscript`: the page's own scripts do not run, as in a browser with JavaScript off; the steps' own evaluations still do
+  if (spec.noscript) await send('Emulation.setScriptExecutionDisabled', {value: true});
+  if (spec.posts) await send('Network.enable');
   await send('Page.enable');
   await send('Runtime.enable');
   for (const step of spec.steps) {
