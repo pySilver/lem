@@ -1,10 +1,11 @@
 """The name of a task's plan file: the one place that builds it and finds it.
 
 The settings' `paths.plan_file` is a pattern of the tokens `YYYY`, `MM` and `DD`, the day the plan
-was written, and `<slug>`, the task's (`project.py` checks it). `project.py` and `criteria.py` import this file; it writes nothing, and of the state
-folder it reads only `resumed-from.txt`, the file that names the task a resumed one came from
-(`lem project resume`): a task resumed as SLUG-2 works on a branch cut from the old one's tip, so its
-plan is the old slug's file until its lead writes one of its own name.
+was written, and `<slug>`, the task's (`project.py` checks it). `project.py` and `criteria.py`
+import this file; it writes nothing, and of the state folder it reads only `resumed-from.txt`, the
+file that names the task a resumed one came from (`lem project resume`): a task resumed as SLUG-2
+works on a branch cut from the old one's tip, so its plan is the old slug's file until its lead
+writes one of its own name.
 """
 
 import re
@@ -48,8 +49,9 @@ def resumed_from(tasks: Path, slug: str) -> list[str]:
 
 
 def found(folder: Path, pattern: str, slug: str, before: list[str] | tuple[str, ...] = ()) -> Path | None:
-    """The task's plan in the plans folder: a file of the name the pattern gives. Of several, the one of the newest day. With BEFORE, the tasks a resumed task came
-    from (`resumed_from`), the plan of the nearest of them that has one when the task has none of its own."""
+    """The task's plan in the plans folder: a file of the name the pattern gives. Of several, the one
+    of the newest day. With BEFORE, the tasks a resumed task came from (`resumed_from`), the plan of
+    the nearest of them that has one when the task has none of its own."""
     if not folder.is_dir():
         return None
     for name in (slug, *before):
