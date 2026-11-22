@@ -51,12 +51,12 @@ A task's worktree has no `.env` file or test database. Put the commands that mak
 In git:
 
 - `.lem/project.toml`: the [settings](settings.md).
-- `.lem/profile.md`, `.lem/personas/`, `.lem/lessons.md`: the product, the people that a change
-  affects, and how agents work here.
-- `docs/plans/`, `docs/rulings/`, `docs/backlog/`: the plans, your product decisions, and work for
-  later. The [settings](settings.md#paths) can move the plans and the rulings.
-- `.claude/rules/`: your code rules, which Lem only reads.
-- `.revmux/`: the folder of the review tool.
+- `.lem/profile.md`, `.lem/personas/`: the product, and the people that a change affects.
+- `.lem/lessons.md`: your corrections of how an agent does a step in this repository.
+- `docs/rulings/`: your decisions about what the product does, which no agent reopens without
+  asking you.
+- `docs/plans/`, `docs/backlog/`: the plans, and work for later. The [settings](settings.md#paths)
+  can move the plans and the rulings.
 
 Not in git:
 
@@ -71,7 +71,9 @@ For all repositories, in `~/.config/lem/` (or `$XDG_CONFIG_HOME/lem/`):
   - `[handoff]`: the number of tokens where a session compacts, which `lem project handoff
     --tokens N` sets;
   - `[seats]`: the seats `merger` and `session`, which you write by hand;
-  - `[serve]` and `[peers]`: the settings of the board server.
+  - `[serve]`: the board server's port, which `lem serve --port N` sets, and its door for your
+    phone;
+  - `[peers]`: the other computers of the board.
 - `workspaces.json`, `serve.log`: the repositories that the board server shows, and its output.
 - `push-key.pem`, `push.json`: the key and the devices of the notifications.
 
