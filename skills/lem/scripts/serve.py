@@ -120,7 +120,7 @@ state that is the browser's (the folded columns, the folded sidebar, the panel's
 is expanded) comes in the cookie PREFS_COOKIE.
 
 The stream of the pages is HTTP/1.0 with no length, so it ends when the socket closes, with one
-thread for each. Each message is the default event, with no `event:` line: `id:` is the version of
+thread for each. Each message but the ping below is the default event, with no `event:` line: `id:` is the version of
 the workspace's `events.jsonl`, its inode and its number of lines in one id (`bm.log_version`), and
 `data:` `<turbo-stream action="refresh">`, at which the page fetches itself again and morphs in what
 changed. A message goes when the log grew or `lem project prune` replaced it, or when a file

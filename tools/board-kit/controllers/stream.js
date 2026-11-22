@@ -16,9 +16,9 @@
 // and no `ping` event, which the server sends every 10 s of quiet) takes its stream as down, as does one
 // whose new stream did not open within that time. A stream that fails is closed here, never left to the
 // browser's own reconnect, so every new one is this page's open, and the page says "reconnecting" until it
-// opens. While the stream is down the page opens a new stream every POLL_MS and refreshes itself, but
-// only after the server answered a light request within ASK_MS: a refresh that finds no server would make
-// Turbo reload the page into the browser's error.
+// opens. While the stream is down the page, every POLL_MS, opens a new stream when none is opening and
+// refreshes itself, but only after the server answered a light request within ASK_MS: a refresh that finds
+// no server would make Turbo reload the page into the browser's error.
 import {Controller} from '@hotwired/stimulus';
 import {ago} from './time.js';
 
