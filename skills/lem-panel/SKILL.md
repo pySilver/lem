@@ -17,7 +17,7 @@ each from what they would actually see, and the user gets a card instead of a li
   measure at full scale first, or how fresh a copy of the data must be. A technical question brings
   the people who run and build the system, never a shopper.
 - **It does not run** on a question the code, a test, a probe or an existing ruling can answer.
-  Check the project's rulings first (in mybaze, `docs/rulings/`): a ruled question is quoted,
+  Check the project's rulings first (the list `lem project path rulings` prints): a ruled question is quoted,
   never re-asked.
 - **It does not decide intent or taste.** "Do we want this at all" and "which looks right" stay
   the user's. The panel can still tell the user what each choice looks like to the people it

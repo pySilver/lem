@@ -38,8 +38,8 @@ corrected does it:
    - what a review should catch or stop raising: the lens, the review profile or the
      rejected-findings list (`lem project path review`). That folder is the review tool's own:
      Lem never moves, links or reshapes it, and a lesson still writes a line into a file there;
-   - a decision about the product that outlives the task: a ruling, a file in the rulings folder
-     (`lem project path rulings`) named as `lem project ruling-file SLUG` prints it (`name`);
+   - a decision about the product that outlives the task: a ruling, one bullet of the rulings
+     list (`lem project path rulings`), written as "A ruling" below says;
    - a command shape a pattern can match: a hook or a commit check of the repository that refuses
      it and names the replacement;
    - none of these: one line in the project's lessons file (`lem project path lessons`), which the
@@ -61,6 +61,30 @@ guide file, a persona or a lens could hold: it is the last target, and it stays 
 read whole. Every session reads it before each subcommand, so each line of it is paid for at every
 step and a wrong one is carried into every task: when it grows, move a line's detail down into the
 file that owns its step, or into a ruling, and leave the one sentence that points there.
+
+## A ruling
+
+A project's rulings are one list, the file `lem project path rulings` prints, and a ruling is one
+bullet of it under the `##` heading of its group: the rule in one sentence in bold, then the day
+the owner ruled it in parentheses. The owner approves "a refund never makes an invoice negative"
+on 2026-11-22, and the list gets, under `## Invoices`:
+
+```markdown
+- **A refund never makes an invoice negative.** (2026-11-22)
+```
+
+- **Only on his approval.** A bullet is written only when the owner approved that ruling: in a
+  session on his "apply" (step 3), in a retro or the correction queue as a move he approved. A
+  ruling never goes in as a first-time lesson nobody was asked about.
+- **Its group.** Put it under a heading the list has when one fits. When none does, add the
+  group's `##` heading at the end of the list, with the bullet under it. A list that does not
+  exist yet is made with its `#` title, `# The owner's rulings`, and the group's heading.
+- **One ruling in force for each question.** A ruling that replaces one of the list takes its
+  bullet's place, and one that changes a part of another changes that bullet's words: the list
+  never holds two rulings that disagree. A bullet leaves the list only on the owner's word.
+- **Its words.** Where the sentence alone could mislead, at most three lines after it say how far
+  it reaches, his words in quotes only where they are the rule or its limit. No history in a
+  bullet: git keeps the old words.
 
 ## retro
 
@@ -93,8 +117,8 @@ for what came back:
 - a choice that climbed past the personas and held: the same question decided by the dialectic or
   the experts in two tasks or more, or one such pick that the owner kept when he read its pull
   request. The next task pays for that climb again unless the answer is where the first level
-  finds it, so propose it to the owner as a ruling, in his rulings folder, with both tasks. It is
-  his to approve: a pick of the experts is no ruling of his until he says so.
+  finds it, so propose it to the owner as a ruling, a bullet of his rulings list, with both tasks.
+  It is his to approve: a pick of the experts is no ruling of his until he says so.
 
 Where the project has naps (`stages/nap.md`), the retro also reads their waking notes,
 `naps/*/waking.md` in the folder `lem project state-dir` prints, of each nap whose time, the start
@@ -113,7 +137,8 @@ the form Lem's question page takes: one question for each proposal, its prompt t
 line, its body the file, the change and the case, and the options approve, reject and later. Then
 it ends, with its closing report. `lem project waiting` lists the file, and a bare `/lem` says "the
 retro of DATE proposes N changes"; on the owner's word Lem opens the proposals on one page, as
-`stages/status.md` says, and makes each move he approved. First-time lessons are recorded without a question. The retro's closing report still names every
+`stages/status.md` says, and makes each move he approved. First-time lessons are recorded without a question, except a
+ruling, which is a move also the first time ("A ruling"). The retro's closing report still names every
 file it changed, a first-time record included, with what changed and why.
 
 ## The correction queue
@@ -141,7 +166,9 @@ lem corrections lessons   # what earlier retros recorded
    - **not a lesson**: the reply moved the work on and teaches nothing for later. Record it.
    - **a lesson, the first time**: say it in one sentence an agent could follow next time. When a
      file already says it, there is no edit. Otherwise put it in the file that owns the step, as
-     step 2 of "learn" says, with the lessons file as the last choice. Nobody is asked.
+     step 2 of "learn" says, with the lessons file as the last choice. Nobody is asked, unless
+     the file is the rulings list: a ruling is put to the owner as a move, as a lesson that came
+     back is, also the first time ("A ruling").
    - **a lesson that came back**: the same lesson in two or more sessions or on two or more days,
      in this run's groups or in `lessons`, or one that a file already held when the owner had to
      say it again. Name the record that did not hold and why it did not reach the step: never
