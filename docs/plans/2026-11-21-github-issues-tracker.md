@@ -188,13 +188,24 @@ flowchart TD
      request closed on GitHub, which `lem land merged` writes) or `answered` takes the tracker's
      missing steps of `ticket_owed`, as `stages/land.md` already says for its land phase, before
      the session's end.
+   - A pull request closed on GitHub while no session runs for its task (decision 18):
+     `phase_of` in `skills/lem/scripts/session.py` admits a `dropped` task whose worktree is still
+     there, as it admits a `landed` one, so the server's existing duty `wake ... merged`
+     (`serve.py`, `duties`) opens its session with no click and no focus. That session takes the
+     tracker's owed steps (the drop comment, the assignee Lem added), puts the line that the issue
+     stays open on a record the board or `/lem status` shows (the task's own record, not only a
+     line said in a session that closes at once once nobody selects it), runs `lem land clean`,
+     and closes. The same holds for a Linear ticket. Test: the case of `phase_of` in
+     `tests/unit/test_session.py`, and the server's wake of a task closed on GitHub in
+     `tests/lem-board-act.sh`.
    - `skills/lem/stages/status.md`: a task whose `ticket_owed` is not empty names the tracker's
      step that pays it, which for GitHub is one line, `lem issue STEP SLUG`, that any session or
      the owner runs.
    Files: `skills/lem/stages/init.md`, `skills/lem/stages/new.md`, `skills/lem/stages/correct.md`,
    `skills/lem/stages/investigate.md`, `skills/lem/prompts/session.md`,
-   `skills/lem/stages/status.md`, and `skills/lem/harness/claude-code/onboarding.md` only if it
-   names the tracker.
+   `skills/lem/stages/status.md`, `skills/lem/scripts/session.py`, `tests/unit/test_session.py`,
+   `tests/lem-board-act.sh`, and `skills/lem/harness/claude-code/onboarding.md` only if it names
+   the tracker.
 4. **The documents** (criterion 9, and what the change makes false). A new guide
    `docs/github-issues.md`, "Connect GitHub Issues", in STE, under 800 words, in the shape of
    `docs/linear.md`; `docs/linear.md` loses "Lem supports no other tracker";
@@ -239,6 +250,9 @@ flowchart TD
   steps, one at a time, as `lem-linear`'s steps are run today (decision 14, the gate).
 - Two opens of one ticket in the same moment are refused by a mark only one task can take
   (decision 17, the dialectic, after both personas chose it).
+- A pull request closed on GitHub with no live session gets its task's session from the server's
+  existing wake, as a merged one does, and that session pays what the ticket is owed (decision 18,
+  the experts).
 
 ## What it will not verify
 
@@ -265,50 +279,57 @@ The reviewer's list, numbered as it came, and how each question ended:
    another repository; a layer over "the issue is origin's" (cite: the ask, criterion 3). Held
    again: origin can move between the read of the issue (`new.md`, "Open the task", step 1) and
    `task-dir` (step 3), so the saved repository is already the other one. A design choice:
-   the kept layer against a repository read from the issue itself; the ladder takes it.
+   the kept layer against a repository read from the issue itself. Decision 10, the gate
+   (checkable, "correct by construction"): the repository read from the issue.
 2. **What proves Lem added a particular assignee?** (Task 2, `start`; `cmd_ticket_step`.)
    Repaired (25e83d0), at the cause: the assignee's step is written before `gh` adds the login,
    with the login, and a removal removes that login only when it is on the issue. Held: a
    cut-off between the record and the add, then the same login assigned by hand, is removed at
    the drop though Lem never added it. Refuted: three rare steps in a row, and the login is the
    one Lem set out to add. Held again. A design choice: the record before the add against the
-   record after it; the ladder takes it.
+   record after it. Decision 11, the gate (cheap): the record before the add stands.
 3. **When does an ended task release responsibility for its assignee?** (Task 1, the claim;
    `RETURNED`.) Repaired (25e83d0), a layer over `RETURNED` (existing code): a ticket goes back only
    when its old task owes nothing. Held: the refusal names `lem issue` as the way to pay, which a
-   Linear task cannot use. Not refuted. A design choice; the ladder takes it.
+   Linear task cannot use. Not refuted. A design choice. Decision 12, the gate (checkable, a
+   refusal names the fix): the step is named by the tracker's kind.
 4. **Where does criterion 2's one-task rule hold across entry points?** (Task 1; `cmd_task_dir`,
    `cmd_resume`, `taken_on_remote`.) Repaired (25e83d0), at the cause: one claim for `task-dir` and
    `resume`, and the number read as an integer. The race of two opens was not covered. Held: a
    stall of `ls-remote` lets two opens of one issue both pass. Refuted: two sessions given the
    same issue within one remote call, and the Linear claim has the same window. Held again. A
-   design choice: no lock against a claim that cannot race; the ladder takes it.
+   design choice: no lock against a claim that cannot race. Decision 17, the dialectic, after
+   both personas chose it: a mark only one task can take.
 5. **What local state permits each issue write?** (Task 2.) Repaired (25e83d0), at the cause: each
    write refuses a status it does not belong to. Held: `start` admits a `queued` or `held` task,
    and a drop that runs between a start's record and its add removes nothing, so the add lands
    after it. Refuted: `start.md` step 3 is the one caller, after `building`. Held again. A design
-   choice; the ladder takes it.
+   choice. Decision 13, the gate (cheap): the status guard as it stands.
 6. **Who runs the missing ticket steps after the task ends?** (Task 3; `session.md`, `phase_of`,
    `session_need`.) Repaired (25e83d0), at the cause: the tracker's step before the worktree's
    removal, the wake of a dropped task runs the owed steps, and the status names the line. Held: a
    pull request closed on GitHub while no session lives gets no session, so no first call. Not
-   refuted. A design choice; the ladder takes it.
+   refuted. A design choice. Decision 18, the experts (both): Lem opens the task's session for a
+   pull request closed on GitHub, as for a merged one, after the dialectic confirmed that the
+   server alone could not tell the owner the issue is open (criterion 6).
 7. **What makes the comment a one-time write when calls overlap?** (Task 2; `cmd_ticket_step`.)
    Refuted: only a task's own session runs its steps. Held: task 3 offers the owed line to any
    session while the first may still wait on GitHub. Refuted: the window is seconds inside the
-   owner's own drop. Held again. A design choice: no lock against a lock; the ladder takes it.
+   owner's own drop. Held again. A design choice: no lock against a lock. Decision 14, the gate
+   (cheap): no lock.
 8. **How does the issue body reach the task's own session?** (Task 2, `read`; `new.md`,
    `investigate.md`.) Repaired (25e83d0), at the cause: `read` gives the author, and the ask is
    the title and the text. Held: criterion 3 says "Only the text is the request", so the title is
    no part of it. Refuted: the owner's outcome in `task.md` says the title is the ask, and
    criterion 3's "only" sets the text against the comments. Held again. A design choice; the
-   ladder takes it, as a question of what the approved criterion says.
+   ladder took it as a question of what the approved criterion says. Decision 15, the gate
+   (checkable, `lem-linear`'s "read"): the text is the ask, the title only when it is empty.
 9. **Which record supplies the landed comment?** (Task 2, `land`; `cmd_propose`, `outcome_of`.)
    Repaired (25e83d0), at the cause: the comment's words come from the record (`proposal`,
    `outcome_of`), never from the caller. Held: a cut-off in `cmd_propose` leaves the verdict
    behind the pull request, and `outcome_of` names the outcome of the shape, which a narrower
    recorded criterion no longer matches. Refuted: a rare gap, and the comment links the pull
-   request. Held again. A design choice; the ladder takes it.
+   request. Held again. A design choice. Decision 16, the gate (cheap): the record as it stands.
 10. **What facts make onboarding choose GitHub?** (Task 3, `init.md`.) Repaired (25e83d0): the
     check counts issues of any state, and only Linear keys are Linear's evidence. Closed. Settled by
     the two, not checked by the review.
@@ -335,7 +356,8 @@ The mechanisms the repairs added, with the decision each sits on and the reviewe
 No question was raised after the first turn. No addition was refused as unpriced in the
 reviewer's turns; the defender priced and declined two of its own: a stored repository beside
 `#42` in the first answer to question 1 (repaired later), and a lock against two opens or two
-calls (questions 4 and 7), which the ladder now weighs.
+calls (questions 4 and 7): the ladder added the mark against two opens (decision 17) and kept no
+lock for two calls (decision 14).
 
 What changed in the plan, by task:
 
