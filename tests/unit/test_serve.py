@@ -342,6 +342,14 @@ class Prune(unittest.TestCase):
         self.assertEqual(line, "serve.py: shop: `lem project prune` exited 1: removed 0 working files; skipped tasks/x: its state.md does not read; "
                                "failed tasks/y/a.log: Permission denied\n")
 
+    def test_the_log_names_the_events_a_prune_summarized(self):
+        from unittest import mock
+        import subprocess
+        said = '{"said": "removed 0 working files, replaced the 60 events of 1 such tasks", "bytes": 0, "events": 60, "skipped": [], "failed": []}'
+        with mock.patch.object(serve, "lem_run", return_value=subprocess.CompletedProcess([], 0, said, "")):
+            ran = serve.prune_once(self.Place(), now=1000.0)
+        self.assertEqual(serve.prune_line("shop", ran), "serve.py: shop: `lem project prune` exited 0: removed 0 working files, replaced the 60 events of 1 such tasks\n")
+
 
 class Look(unittest.TestCase):
     """`bin/lem`'s look for the server: its pid file, and whether that process lives."""

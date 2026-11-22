@@ -8,7 +8,9 @@ tests/lem-state.sh's.
 """
 
 import contextlib
+import importlib
 import io
+import json
 import shlex
 import shutil
 import sys
@@ -776,6 +778,329 @@ class TicketClaim(unittest.TestCase):
         self.assertIn(f"{self.state / 'tickets' / '42'}", said)
         self.assertIn("names the task 'gone-task', whose folder is not there", said)
         self.assertIn("remove the mark (rm", said)
+
+
+# The moment the cases below count back from, once for the run: a fixture and its assertions name the same second.
+MOMENT = project.datetime.now(project.timezone.utc)
+
+
+def back(days: float, seconds: int = 0) -> str:
+    """A `ts` DAYS before MOMENT, and SECONDS after that."""
+    return (MOMENT - project.timedelta(days=days) + project.timedelta(seconds=seconds)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def block(days: float, status: str, text: str) -> str:
+    """A state.md of one block, DAYS before now."""
+    return f"{back(days)[:16]}Z {status}: {text}\n"
+
+
+PULL_12 = "https://github.com/acme/shop/pull/12"
+
+
+class Summarized(unittest.TestCase):
+    """The log of criterion 1 in a state folder of its own: `report-dates` landed 35 days ago with pull
+    request 12 and 60 events, `invoice-fix` landed 4 days ago, `gift-note` builds, and `old-idea` was
+    parked 65 days ago. `state.keep_days` is 30."""
+
+    def setUp(self):
+        from unittest import mock
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.root = Path(folder.name)
+        self.state = self.root / "state"
+        self.state.mkdir()
+        project.STATE_ROOTS[self.root] = self.state
+        self.addCleanup(project.STATE_ROOTS.pop, self.root)
+        for patched in (mock.patch.object(project, "load", return_value={"state": {"keep_days": 30, "from": ".lem/project.toml"}}),
+                        mock.patch.object(project, "owner_records", return_value=[])):
+            patched.start()
+            self.addCleanup(patched.stop)
+        self.task("report-dates", block(35, "landed", "main: pull request 12 is merged"))
+        self.task("invoice-fix", block(4, "landed", "main: pull request 14 is merged"))
+        self.task("gift-note", block(2, "building", "lead: builder"))
+        self.task("old-idea", block(65, "parked", "the owner put it aside"))
+        self.log = self.state / "events.jsonl"
+        self.log.write_bytes(b"".join(json.dumps(record, ensure_ascii=False).encode("utf-8") + b"\n" for record in self.records()))
+        self.before = self.log.read_bytes()
+
+    def task(self, slug: str, state: str) -> None:
+        directory = self.state / "tasks" / slug
+        (directory / "reports").mkdir(parents=True)
+        (directory / "state.md").write_text(state, encoding="utf-8")
+        (directory / "ask.txt").write_text(f"The ask of {slug}.\n", encoding="utf-8")
+
+    @staticmethod
+    def state_event(ts: str, slug: str, status: str, text: str, *lines: str, **more) -> dict:
+        return {"ts": ts, "event": "task.state", "task": slug, "status": status, "text": text, "lines": list(lines), "ask": f"The ask of {slug}.", **more}
+
+    def records(self) -> list[dict]:
+        rd = "report-dates"
+        mine = [
+            {"ts": back(41), "event": "task.mode", "task": rd, "mode": "alone", "by": "lem", "words": "the night of 2026-10-01", "all": False, "was": "with-owner"},
+            self.state_event(back(41, 1), rd, "held", "the interview waits for the owner", "type: feat, because the report shows no dates"),
+            self.state_event(back(40), rd, "building", "lead: builder", "plan committed with 2 tasks", branch="feat/report-dates", head="abc1234", subject="feat: dates"),
+        ]
+        mine += [{"ts": back(39, n), "event": "gate", "task": rd, "command": f"check {n}", "exit": 0, "last": "ok", "tip": "abc1234"} for n in range(51)]
+        mine += [
+            {"ts": back(38), "event": "review", "task": rd, "attempt": 1, "round": 1, "of": 1, "kind": "read", "verdict": "clean", "must_fix": 0, "should": 0, "nit": 0,
+             "tip": "abc1234", "careful": True, "careful_why": "it changes the report every merchant reads"},
+            {"ts": back(37), "event": "proposed", "task": rd, "green": True, "not_green": [], "tip": "abc1234"},
+            self.state_event(back(37, 1), rd, "open", "the pull request waits for its merge", f"pull request: {PULL_12}", "green"),
+            {"ts": back(37, 2), "event": "session.transcript", "task": rd, "claude": "c1", "transcript": "/t/c1.jsonl", "source": "startup"},
+            {"ts": back(36), "event": "merge.review", "task": rd, "verdict": "merge", "calls": False, "why": "it reads well", "by": "claude", "tip": "abc1234"},
+            self.state_event(back(35), rd, "landed", "main: pull request 12 is merged"),
+        ]
+        others = [
+            self.state_event(back(70), "old-idea", "building", "lead: builder"),
+            self.state_event(back(65), "old-idea", "parked", "the owner put it aside"),
+            self.state_event(back(39, 30), "invoice-fix", "building", "lead: builder"),
+            self.state_event(back(4), "invoice-fix", "landed", "main: pull request 14 is merged"),
+            self.state_event(back(3), "gift-note", "building", "lead: builder"),
+            {"ts": back(2), "event": "session.transcript", "task": "gift-note", "claude": "c2", "transcript": "/t/c2.jsonl", "source": "startup"},
+        ]
+        # report-dates' events among the others, in the order of their times
+        return sorted(mine + others, key=lambda record: record["ts"])
+
+    def lines(self) -> list[bytes]:
+        return self.log.read_bytes().split(b"\n")[:-1]
+
+    def prune(self, dry: bool = False) -> dict:
+        answer, code = project.cmd_prune(self.root, dry, None)
+        self.assertEqual(code, 0, answer)
+        return answer
+
+    def test_an_old_ended_task_becomes_one_summary_and_every_other_line_stays_as_it_was(self):
+        bm = importlib.import_module("lem_board_model")
+        events = [json.loads(line) for line in self.before.split(b"\n")[:-1]]
+        self.assertEqual(sum(1 for e in events if e["task"] == "report-dates"), 60)
+        card = bm.derive(events, [], bm.now_ms()).by_slug["report-dates"]
+        answer = self.prune()
+        self.assertEqual(answer["summarized"], [{"task": "report-dates", "status": "landed", "events": 60}])
+        self.assertEqual(answer["events"], 60)
+        self.assertIn("replaced the 60 events of 1 such tasks with one summary event each", answer["said"])
+        old_lines = self.before.split(b"\n")[:-1]
+        kept = [line for line in old_lines if json.loads(line)["task"] != "report-dates"]
+        new_lines = self.lines()
+        summary = [json.loads(line) for line in new_lines if json.loads(line)["task"] == "report-dates"]
+        self.assertEqual(len(summary), 1, new_lines)
+        # every other line byte for byte, in its order, with the summary in the place of the task's newest event
+        self.assertEqual([line for line in new_lines if json.loads(line)["task"] != "report-dates"], kept)
+        newest = max(n for n, line in enumerate(old_lines) if json.loads(line)["task"] == "report-dates")
+        self.assertEqual(new_lines.index(next(line for line in new_lines if b'"task.summary"' in line)), newest - 59)
+        s = summary[0]
+        self.assertEqual((s["event"], s["status"], s["text"], s["lines"]), ("task.summary", "landed", "main: pull request 12 is merged", []))
+        # the facts the board's model reads from the 60 events
+        self.assertEqual((s["since"], s["first"], s["last"]), (project.stamp_ms(card.since), project.stamp_ms(card.first), project.stamp_ms(card.last_ts)))
+        self.assertEqual((s["since"], s["first"]), (back(35), back(41, 1)))
+        self.assertEqual(s["ts"], back(35))
+        self.assertEqual(s["pr"], {"url": PULL_12, "n": "12", "repo": "acme/shop"})
+        self.assertEqual(s["pr"], bm.pr_of(card))
+        self.assertEqual(s["type"], {"type": "feat", "why": "the report shows no dates"})
+        self.assertEqual(s["lead"], "builder")
+        self.assertEqual(s["careful"], bm.careful_of(card))
+        self.assertEqual(s["proposal"], {"ts": back(37), "green": True, "reasons": [], "tip": "abc1234"})
+        self.assertEqual((s["ask"], s["branch"], s["night"], s["events"]), ("The ask of report-dates.", "feat/report-dates", "2026-10-01", 60))
+        self.assertEqual((s["opened"], s["newest"]), (back(41), back(35)))
+        self.assertFalse(s["talked"])
+        # a parked task and every task that has not ended stay whole however old
+        self.assertEqual(sum(1 for line in new_lines if b'"old-idea"' in line), 2)
+
+    def test_a_second_prune_leaves_the_log_as_it_is(self):
+        self.prune()
+        after = self.log.read_bytes()
+        inode = self.log.stat().st_ino
+        again = self.prune()
+        self.assertEqual(self.log.read_bytes(), after)
+        self.assertEqual(self.log.stat().st_ino, inode, "a prune that summarizes nothing writes no new log")
+        self.assertEqual((again["summarized"], again["events"]), ([], 0))
+        # and the summarized task stays old, dated by its summary
+        calls = {call["task"]: call for call in project.task_calls([{"slug": "report-dates", "state": block(35, "landed", "x")}],
+                                                                   project.log_events(self.root), project.datetime.now(project.timezone.utc) - project.timedelta(days=30))}
+        self.assertEqual((calls["report-dates"]["call"], calls["report-dates"]["last_event"]), ("old", back(35)))
+
+    def test_a_dry_run_names_the_task_with_the_count_of_its_events_and_changes_no_file(self):
+        answer = self.prune(dry=True)
+        self.assertEqual(answer["summarized"], [{"task": "report-dates", "status": "landed", "events": 60}])
+        self.assertIn("would replace the 60 events of 1 such tasks", answer["said"])
+        self.assertEqual(self.log.read_bytes(), self.before)
+        self.assertEqual(sorted(path.name for path in self.state.iterdir()), ["events.jsonl", "tasks"], "a dry run opens no lock file and leaves no new log")
+
+    def test_a_summary_with_a_newer_event_is_summarized_again_over_the_old_one(self):
+        self.prune()
+        # a hook logged a transcript of the task after its summary, and the days passed again
+        lines = self.lines()
+        late = {"ts": back(31), "event": "session.transcript", "task": "report-dates", "claude": "c3", "transcript": "/t/c3.jsonl", "source": "resume"}
+        at = next(n for n, line in enumerate(lines) if json.loads(line)["ts"] > late["ts"])
+        lines.insert(at, json.dumps(late).encode("utf-8"))
+        self.log.write_bytes(b"".join(line + b"\n" for line in lines))
+        first = next(json.loads(line) for line in lines if b'"task.summary"' in line)
+        answer = self.prune()
+        self.assertEqual(answer["summarized"], [{"task": "report-dates", "status": "landed", "events": 2}])
+        again = [json.loads(line) for line in self.lines() if json.loads(line)["task"] == "report-dates"]
+        self.assertEqual(len(again), 1)
+        self.assertEqual(again[0], {**first, "ts": back(31), "events": 61})
+
+    def test_an_append_waits_for_the_lock_of_the_log(self):
+        import threading
+        written = threading.Event()
+
+        def append():
+            project.append_event(self.root, "session.wake", "gift-note", {"why": "a test"})
+            written.set()
+        with project.lem_state.events_lock(self.state):
+            writer = threading.Thread(target=append)
+            writer.start()
+            self.assertFalse(written.wait(0.5), "an append went on while another held the log's lock")
+            self.assertNotIn(b'"session.wake"', self.log.read_bytes())
+        writer.join(5)
+        self.assertTrue(written.is_set())
+        self.assertIn(b'"session.wake"', self.lines()[-1])
+
+    def paused_prune(self, while_paused) -> dict:
+        """Run `prune` in a thread that stops between its read of the log and its write of the new one,
+        call WHILE_PAUSED there, then let it go on; prune's answer."""
+        import threading
+        from unittest import mock
+        read, go, said = threading.Event(), threading.Event(), {}
+        real = project.summarized_log
+
+        def paused(lines, made):
+            read.set()
+            go.wait(10)
+            return real(lines, made)
+
+        def run():
+            said["answer"] = project.cmd_prune(self.root, False, None)
+        with mock.patch.object(project, "summarized_log", side_effect=paused):
+            pruner = threading.Thread(target=run)
+            pruner.start()
+            self.assertTrue(read.wait(10))
+            while_paused()
+            go.set()
+            pruner.join(10)
+        return said["answer"][0]
+
+    def test_a_state_and_a_transcript_written_from_other_processes_while_prune_writes_are_in_the_new_log(self):
+        import subprocess
+        scripts = str(Path(project.__file__).resolve().parent)
+        setup = f"import sys; from pathlib import Path; sys.path.insert(0, {scripts!r}); import project, session_hook; root, state = Path({str(self.root)!r}), Path({str(self.state)!r}); project.STATE_ROOTS[root] = state; "
+        writes = [
+            setup + 'project.append_event(root, "task.state", "gift-note", {"status": "ready", "text": "the build is done", "lines": []})',
+            setup + 'session_hook.keep_transcript(state, "gift-note", {"session_id": "c9", "transcript_path": "/t/c9.jsonl", "source": "startup"})',
+        ]
+        started = []
+
+        def write_now():
+            started.extend(subprocess.Popen([sys.executable, "-B", "-c", code]) for code in writes)
+            for _ in range(20):
+                if all(one.poll() is None for one in started):
+                    break
+            import time
+            time.sleep(0.7)
+            # both wait for the lock that prune holds
+            self.assertEqual([one.poll() for one in started], [None, None])
+            self.assertEqual(self.log.read_bytes(), self.before)
+        answer = self.paused_prune(write_now)
+        self.assertEqual([one.wait(10) for one in started], [0, 0])
+        self.assertEqual(answer["summarized"], [{"task": "report-dates", "status": "landed", "events": 60}])
+        records = [json.loads(line) for line in self.lines()]
+        gift = [(r["event"], r.get("status") or r.get("claude")) for r in records if r["task"] == "gift-note"]
+        self.assertEqual(gift[:2], [("task.state", "building"), ("session.transcript", "c2")])
+        self.assertEqual(sorted(gift[2:]), [("session.transcript", "c9"), ("task.state", "ready")])
+        self.assertEqual([r["event"] for r in records if r["task"] == "report-dates"], ["task.summary"])
+        self.assertEqual(len(records), len(set(json.dumps(r, sort_keys=True) for r in records)), "an event is in the log twice")
+
+    def test_an_append_with_no_lock_between_the_read_and_the_replace_goes_on_in_the_new_log(self):
+        old = {"ts": back(0), "event": "session.wake", "task": "gift-note", "why": "a writer of an older Lem"}
+
+        def unlocked():
+            with self.log.open("a", encoding="utf-8") as out:
+                out.write(json.dumps(old) + "\n")
+        self.paused_prune(unlocked)
+        lines = self.lines()
+        self.assertEqual(json.loads(lines[-1]), old)
+        self.assertEqual(sum(1 for line in lines if b'"task.summary"' in line), 1)
+
+    def test_the_log_command_refuses_a_summary(self):
+        with self.assertRaises(project.SettingsError) as said:
+            project.cmd_log(self.root, "gift-note", "task.summary", ["status=landed"])
+        self.assertIn("written by `lem project prune` only", str(said.exception))
+        self.assertEqual(self.log.read_bytes(), self.before)
+
+    def test_tasks_read_the_same_night_and_times_from_the_summary(self):
+        before = {t["slug"]: t for t in project.read_tasks(self.root)}["report-dates"]
+        self.prune()
+        self.assertEqual([json.loads(line)["event"] for line in self.lines() if json.loads(line)["task"] == "report-dates"], ["task.summary"])
+        after = {t["slug"]: t for t in project.read_tasks(self.root)}["report-dates"]
+        self.assertEqual((after["status"], after["since"], after["night"], after["proposal"]), (before["status"], before["since"], before["night"], before["proposal"]))
+        self.assertEqual(after["night"], "2026-10-01")
+
+
+class ResumeSummarized(unittest.TestCase):
+    """`lem project resume` of a dropped task, `card-foot`, with its breaker that waits and its handoff:
+    refused once its events became its summary, and resumed while they are whole."""
+
+    def setUp(self):
+        from unittest import mock
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.root = Path(folder.name).resolve()
+        self.state = self.root / "state"
+        project.STATE_ROOTS[self.root] = self.state
+        self.addCleanup(project.STATE_ROOTS.pop, self.root)
+        self.directory = self.state / "tasks" / "card-foot"
+        (self.directory / "reports").mkdir(parents=True)
+        (self.directory / "state.md").write_text(block(35, "dropped", "the owner dropped it"), encoding="utf-8")
+        (self.directory / "ask.txt").write_text("Put the card's foot under the total\n", encoding="utf-8")
+        (self.directory / "handoff.md").write_text("# Handoff\n", encoding="utf-8")
+        (self.directory / "decisions.jsonl").write_text(json.dumps({"kind": "breaker", "id": 1, "document": "breaker-1.md"}) + "\n", encoding="utf-8")
+        self.log = self.state / "events.jsonl"
+        self.log.write_text("".join(json.dumps(record) + "\n" for record in [
+            {"ts": back(40), "event": "task.state", "task": "card-foot", "status": "building", "text": "lead: builder", "lines": [], "branch": "feat/card-foot"},
+            {"ts": back(39), "event": "criteria.approved", "task": "card-foot", "number": 1, "by": "owner"},
+            {"ts": back(35), "event": "task.state", "task": "card-foot", "status": "dropped", "text": "the owner dropped it", "lines": []},
+        ]), encoding="utf-8")
+        settings = {"places": {"worktrees": {"path": str(self.root / ".lem" / "worktrees")}}, "state": {"keep_days": 30, "from": ".lem/project.toml"}}
+        for patched in (mock.patch.object(project, "load", return_value=settings), mock.patch.object(project, "main_checkout", return_value=self.root),
+                        mock.patch.object(project, "cmd_worktree", return_value={"worktree": str(self.root / ".lem" / "worktrees" / "card-foot-2")}),
+                        mock.patch.object(project, "cmd_state", return_value={"since": "2026-11-05T10:00Z"})):
+            patched.start()
+            self.addCleanup(patched.stop)
+
+    def summarize(self) -> None:
+        answer, code = project.cmd_prune(self.root, False, None)
+        self.assertEqual((code, answer["summarized"]), (0, [{"task": "card-foot", "status": "dropped", "events": 3}]))
+
+    def test_a_dropped_task_whose_events_became_a_summary_is_refused_with_its_ask(self):
+        from unittest import mock
+        self.summarize()
+        with mock.patch.object(project, "taken_on_remote") as remote, self.assertRaises(project.SettingsError) as said:
+            project.cmd_resume(self.root, "card-foot")
+        message = str(said.exception)
+        self.assertIn("the events of 'card-foot' (its approved criteria, the personas' read, its decisions' events) became one summary event past state.keep_days", message)
+        self.assertIn("so a resumed task would start with none of them", message)
+        self.assertIn("A new task with its ask is the way on", message)
+        self.assertTrue(message.endswith("\n/lem Put the card's foot under the total"), message)
+        remote.assert_not_called()
+        self.assertFalse((self.state / "tasks" / "card-foot-2").exists())
+
+    def test_a_dropped_task_whose_events_are_whole_resumes_as_before(self):
+        from unittest import mock
+        with mock.patch.object(project, "taken_on_remote"):
+            said = project.cmd_resume(self.root, "card-foot")
+        self.assertEqual((said["task"], said["resumed"], said["from"]), ("card-foot-2", "dropped", "card-foot"))
+        carried = [json.loads(line) for line in self.log.read_text(encoding="utf-8").splitlines() if json.loads(line)["task"] == "card-foot-2"]
+        self.assertEqual([(e["event"], e["from"], e["was_at"]) for e in carried], [("criteria.approved", "card-foot", back(39))])
+
+    def test_a_resume_whose_log_is_summarized_after_its_read_carries_what_it_read(self):
+        from unittest import mock
+        # the board server's prune summarizes the task while the resume asks origin for the new branch
+        with mock.patch.object(project, "taken_on_remote", side_effect=lambda *args: self.summarize()):
+            said = project.cmd_resume(self.root, "card-foot")
+        self.assertEqual(said["task"], "card-foot-2")
+        records = [json.loads(line) for line in self.log.read_text(encoding="utf-8").splitlines()]
+        self.assertEqual([r["event"] for r in records if r["task"] == "card-foot"], ["task.summary"])
+        self.assertEqual([(r["event"], r["from"]) for r in records if r["task"] == "card-foot-2"], [("criteria.approved", "card-foot")])
 
 
 if __name__ == "__main__":

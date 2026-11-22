@@ -340,6 +340,7 @@ import signal
 import shutil
 import stat
 import subprocess
+import tempfile
 import time
 import tomllib
 from collections.abc import Iterator
@@ -1970,7 +1971,8 @@ def task_directory(root: Path, slug: str) -> Path:
 
 
 def append_event(root: Path, event: str, slug: str, fields: dict) -> dict:
-    """Append one record to the log."""
+    """Append one record to the log, under the log's lock: a `prune` that rewrites the log either
+    has not read it yet, or has put its new file in place, and the record goes into the file that stays."""
     record = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": event, "task": slug, **fields}
     line = json.dumps(record, ensure_ascii=False)
     try:
@@ -1979,7 +1981,7 @@ def append_event(root: Path, event: str, slug: str, fields: dict) -> dict:
         # a `key:=json` value may spell a lone surrogate, "\udcff", which no UTF-8 file can hold
         raise SettingsError(f"a field of the event is not UTF-8 text ({line[max(0, error.start - 20):error.start]!r} comes before it); give its text in UTF-8") from error
     directory = state_root(root)
-    with (directory / "events.jsonl").open("a", encoding="utf-8") as log:
+    with lem_state.events_lock(directory), (directory / lem_state.EVENTS).open("a", encoding="utf-8") as log:
         log.write(line + "\n")
     return record
 
@@ -2124,7 +2126,8 @@ def resumed_slug(root: Path, slug: str) -> str:
 
 def cmd_resume(root: Path, slug: str) -> dict:
     """The owner's word to go on with a task he put aside: a parked one comes back as it was, and a
-    dropped one goes on in a new task that starts from its files and its branch."""
+    dropped one goes on in a new task that starts from its files and its branch. A dropped task whose
+    events became its summary (SUMMARY) is refused: the events a resumed task carries over are gone."""
     directory = task_directory(root, slug)
     blocks = blocks_of(text_of(directory / "state.md")) if (directory / "state.md").is_file() else []
     now = blocks[0]["status"] if blocks else None
@@ -2140,6 +2143,16 @@ def cmd_resume(root: Path, slug: str) -> dict:
         raise SettingsError(
             f"the task {slug!r} is {now or 'new'}: `resume` takes a parked task or a dropped one. "
             + ("An ended task stays ended, and new work for it is a new ask (`/lem new`)" if now in ENDED else "This one goes on as it is"),
+        )
+    # The log, read once: the summary's check, the old branch and the events carried over all come from
+    # this one read, so a prune that summarizes the task while git runs changes nothing that is copied.
+    log = log_events(root, "resume reads the task's events from the log, so it made nothing")
+    ask = text_of(directory / "ask.txt").strip() if (directory / "ask.txt").is_file() else (ask_of(directory) or slug)
+    if any(event.get("task") == slug and event.get("event") == SUMMARY for event in log):
+        raise SettingsError(
+            f"the events of {slug!r} (its approved criteria, the personas' read, its decisions' events) became one summary event "
+            f"past {KEEP_KEY} (nothing of it was logged for that many days), so a resumed task would start with none of them. "
+            f"A new task with its ask is the way on: type\n/lem {ask}",
         )
     record = directory / "decisions.jsonl"
     lines = [json.loads(line) for line in lem_state.jsonl_lines(text_of(record)) if line.strip()] if record.is_file() else []
@@ -2160,13 +2173,12 @@ def cmd_resume(root: Path, slug: str) -> dict:
     kind = typed["type"] if typed else "feat"
     branch = f"{kind}/{new}"
     # the old branch, as the newest state event that saw the task's worktree named it
-    old = next((event.get("branch") for event in reversed(events_named(root, "task.state")) if event.get("task") == slug and event.get("branch")), None)
+    old = next((event.get("branch") for event in reversed(log) if event.get("event") == "task.state" and event.get("task") == slug and event.get("branch")), None)
     exists = old is not None and subprocess.run(["git", "-C", str(main), "rev-parse", "--verify", "--quiet", f"refs/heads/{old}"],
                                                 capture_output=True, text=True, check=False).returncode == 0
     target = state_root(root) / "tasks" / new
     if target.exists():
         raise SettingsError(f"{target} exists already: no task is resumed into another task's folder")
-    ask = text_of(directory / "ask.txt").strip() if (directory / "ask.txt").is_file() else (ask_of(directory) or slug)
     taken_on_remote(root, new, branch)
     claim: contextlib.AbstractContextManager = contextlib.nullcontext()
     if (directory / "ticket.txt").is_file():
@@ -2199,8 +2211,9 @@ def cmd_resume(root: Path, slug: str) -> dict:
     # In the log's own order, each with the time it had (`was_at`, the first task's time for a task
     # resumed twice): the landing compares his approval with a read by those times, and finds his
     # word to skip a read before the approval that followed it.
-    for event in events_named(root, *RESUMED_EVENTS, *(f"decision.{kind}" for kind in ("taken", "breaker", "criterion"))):
-        if event.get("task") == slug:
+    carried = {*RESUMED_EVENTS, *(f"decision.{kind}" for kind in ("taken", "breaker", "criterion"))}
+    for event in log:
+        if event.get("task") == slug and isinstance(event.get("event"), str) and event["event"] in carried:
             append_event(root, event["event"], new, {**{key: value for key, value in event.items() if key not in ("ts", "event", "task", "was_at")},
                                                      "from": slug, "was_at": event.get("was_at") or event["ts"]})
     try:
@@ -2283,6 +2296,8 @@ def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
     task_directory(root, slug)
     if event == "task.state":
         raise SettingsError("task.state is written by `lem project state`, which also writes the state block")
+    if event == SUMMARY:
+        raise SettingsError(f"{SUMMARY} is written by `lem project prune` only, in place of the events of a task that ended more than {KEEP_KEY} days ago")
     if event in ("task.mode", OWNER):
         raise SettingsError(f"{event} is written by `lem project owner` and `task-dir --night` only: the owner's status is his words, kept in the machine's mark and never in a repository's log, and a night's mark is the night's")
     fields: dict[str, object] = {}
@@ -2549,13 +2564,20 @@ NIGHT_WORDS = re.compile(r"the night of (\d{4}-\d{2}-\d{2})")
 # The `event` of each record of the owner's status, which names no task (`owner`): a record of the
 # machine's mark, never of a repository's log, which `log` refuses it.
 OWNER = "owner"
+# The one event that stands for all the events of a task that ended more than `state.keep_days` ago,
+# which only `prune` writes (`summary_of`): the facts each reader of the log read from those events.
+SUMMARY = "task.summary"
 
 
 def nights(modes: list[dict]) -> dict[str, str]:
     """The night that opened each task, as its date, from the first `task.mode` event Lem wrote in
-    the night's words. The owner's "back" later takes neither the date nor the night's span away."""
+    the night's words, or from the task's summary, which keeps that date. The owner's "back" later
+    takes neither the date nor the night's span away."""
     found: dict[str, str] = {}
     for record in modes:
+        if record.get("event") == SUMMARY and isinstance(record.get("night"), str):
+            found.setdefault(record.get("task"), record["night"])
+            continue
         night = NIGHT_WORDS.fullmatch(str(record.get("words", ""))) if record.get("event") == "task.mode" and record.get("by") == "lem" else None
         if night:
             found.setdefault(record.get("task"), night[1])
@@ -2993,15 +3015,22 @@ def read_tasks(root: Path, settings: dict | None = None) -> list[dict]:
     tasks = []
     talks = newest_events(root, "plan.talk")
     investigations = newest_events(root, "investigation")
-    # each task's own mark and its first and newest state, from the repository's log
-    presence = events_named(root, "task.mode", "task.state")
+    # each task's own mark and its first and newest state, from the repository's log; a task whose
+    # events became its summary has both times and its night's date there, and no mark of its own
+    presence = events_named(root, "task.mode", "task.state", SUMMARY)
     opened: dict[str, str] = {}
     newest: dict[str, str] = {}
     for record in presence:
+        if record.get("event") == SUMMARY:
+            if record.get("opened"):
+                opened.setdefault(record.get("task"), record["opened"])
+            if record.get("newest"):
+                newest[record.get("task")] = record["newest"]
+            continue
         opened.setdefault(record.get("task"), record["ts"])
         newest[record.get("task")] = record["ts"]
-    presence = [record for record in presence if record.get("event") != "task.state"]
     night = nights(presence)
+    presence = [record for record in presence if record.get("event") == "task.mode"]
     # and the owner's status, the machine's. An `owner` event a repository's log may still hold is not
     # read: the mark is the one place of his status.
     presence = merged(presence, owner_records())
@@ -3573,7 +3602,8 @@ def task_calls(found: list[dict], events: list[dict], cutoff: datetime) -> list[
     state yet, or a status that is not ended: never touched), `young` (ended, and its newest event is
     after `cutoff`), `old` (ended, and nothing of it was logged since `cutoff`: its working files go), or
     `skip`, with `why`: a state.md that does not read, or a log that does not agree with it, is never
-    guessed at."""
+    guessed at. A task's summary (SUMMARY) is its stated status, and its `ts` the time of its newest
+    event, so a task whose events became its summary stays `old`."""
     newest: dict[str, str] = {}
     stated: dict[str, str] = {}
     for record in events:
@@ -3581,7 +3611,7 @@ def task_calls(found: list[dict], events: list[dict], cutoff: datetime) -> list[
         if not isinstance(task, str) or not isinstance(ts, str):
             continue
         newest[task] = max(newest.get(task, ts), ts)
-        if record.get("event") == "task.state":
+        if record.get("event") in ("task.state", SUMMARY):
             stated[task] = str(record.get("status"))
     calls = []
     for task in found:
@@ -3718,9 +3748,9 @@ def stamp_of(seconds: float) -> str:
     return datetime.fromtimestamp(seconds, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def log_events(root: Path) -> list[dict]:
-    """Every event of the repository's log, oldest first. A line that does not read stops the caller:
-    `prune` dates each ended task by the log, and removes nothing by a guess."""
+def log_events(root: Path, why: str = "prune dates each task by the log, so it removed nothing") -> list[dict]:
+    """Every event of the repository's log, oldest first. A line that does not read stops the caller,
+    WHY says how: `prune` dates each ended task by the log, and removes nothing by a guess."""
     log = state_root(root) / "events.jsonl"
     if not log.is_file():
         return []
@@ -3731,17 +3761,161 @@ def log_events(root: Path) -> list[dict]:
         try:
             record = json.loads(line)
         except ValueError as error:
-            raise SettingsError(f"{log}:{number} does not read as JSON ({error}), and prune dates each task by the log, so it removed nothing; "
+            raise SettingsError(f"{log}:{number} does not read as JSON ({error}), and {why}; "
                                 "the log is written by project.py, never by hand: correct or remove that line") from error
         if isinstance(record, dict):
             found.append(record)
     return found
 
 
+def stamp_ms(ms: int) -> str:
+    """A time of the board's model, in ms, as the log writes a `ts`."""
+    return datetime.fromtimestamp(ms / 1000, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def summary_of(slug: str, records: list[dict], now: int) -> dict:
+    """The one SUMMARY event that stands for RECORDS, every event of the ended task SLUG in the log's
+    order. Each fact is the one the function that reads it from the events gives, so that a reader of
+    the summary and a reader of the events cannot disagree: the board's model (`lem_board_model`
+    `derive`, then `settle` for the newest block, `since`, `first` and `last`, `pr_of`, the card's
+    `type`, `lead_of`, `careful_of`, `proposal` and `investigation`, and whether a plan talk ended
+    before the newest block, which `said_of` reads), `read_tasks` for `opened` and `newest` (the first
+    and newest `task.mode` or `task.state`), and `nights` for `night`. `ts` is the time of the task's
+    newest event, which `prune` dates the task by. A task whose events hold its summary and newer
+    events gets one new summary: the old one is the task's past, a newer fact replaces its old one,
+    and `events` adds the old count to the newer events."""
+    bm = importlib.import_module("lem_board_model")
+    old = next((record for record in reversed(records) if record.get("event") == SUMMARY), None)
+    rest = [record for record in records if record is not old]
+    task = bm.derive(rest, [], now).by_slug.get(slug)
+    stated = task is not None and any(record.get("event") == "task.state" and bm.at(record.get("ts")) is not None for record in rest)
+    past = old or {}
+    if not stated and old is None:
+        raise SettingsError(f"the task {slug!r} has no state event in the log to summarize; prune summarizes only a task the log dates")
+
+    def newer(fact: object, key: str) -> object:
+        return fact if fact is not None else past.get(key)
+
+    if stated:
+        block = task.blocks[-1]
+        # the run of the newest status goes back into the old summary when every newer block has that status too
+        since = past["since"] if old and old.get("status") == task.status and all(b["status"] == task.status for b in task.blocks) else stamp_ms(task.since)
+        facts = {"status": task.status, "text": task.text, "lines": list(block["lines"]), "since": since,
+                 "first": past.get("first") or stamp_ms(task.first), "last": stamp_ms(task.last_ts),
+                 "talked": bool(past.get("talked")) or bm.talked_before(task, block["ts"])}
+    else:
+        facts = {key: past.get(key) for key in ("status", "text", "lines", "since", "first", "last", "talked")}
+    times = [record["ts"] for record in rest if record.get("event") in ("task.mode", "task.state") and isinstance(record.get("ts"), str)]
+    proposal = task.proposal if task else None
+    investigation = task.investigation if task else None
+    return {
+        "ts": max(record["ts"] for record in records if isinstance(record.get("ts"), str)), "event": SUMMARY, "task": slug,
+        "status": facts["status"], "text": facts["text"], "lines": facts["lines"], "since": facts["since"], "first": facts["first"], "last": facts["last"],
+        "opened": past.get("opened") or (times[0] if times else None), "newest": times[-1] if times else past.get("newest"),
+        "pr": newer(bm.pr_of(task) if stated else None, "pr"),
+        "ask": newer(task.ask if task else None, "ask"), "branch": newer(task.branch if task else None, "branch"),
+        "type": newer(task.type if task else None, "type"),
+        "lead": newer(bm.lead_of(task) if task and task.lead else None, "lead"),
+        "careful": newer(bm.careful_of(task) if task else None, "careful"),
+        "proposal": newer({"ts": stamp_ms(proposal["ts"]), "green": proposal["green"], "reasons": proposal["reasons"], "tip": proposal["tip"]} if proposal else None, "proposal"),
+        "investigation": newer({**investigation, "ts": stamp_ms(investigation["ts"])} if investigation else None, "investigation"),
+        "talked": facts["talked"],
+        "night": nights(records).get(slug),
+        "events": int(past.get("events") or 0) + len(rest),
+    }
+
+
+def summaries(records: list[dict | None], calls: list[dict], now: int) -> dict[str, tuple[dict, int]]:
+    """The summary of each task that `task_calls` calls `old`, by its slug, with how many lines of
+    the log it replaces, from RECORDS, the log's records in its order (None for a line that is no
+    record). A task whose events are already its one summary gets none: a second prune writes nothing."""
+    old = {call["task"] for call in calls if call["call"] == "old"}
+    mine: dict[str, list[dict]] = {}
+    for record in records:
+        if record is not None and isinstance(record.get("task"), str) and record["task"] in old:
+            mine.setdefault(record["task"], []).append(record)
+    return {slug: (summary_of(slug, found, now), len(found)) for slug, found in mine.items()
+            if not (len(found) == 1 and found[0].get("event") == SUMMARY)}
+
+
+def log_lines(data: bytes, log: Path) -> tuple[list[tuple[bytes, dict | None]], int]:
+    """The whole lines of DATA, the bytes of the event log LOG, each as it is with its record (None for
+    a blank line or a value that is no object), and how many bytes they take: a line that is being
+    written has no newline yet, and is not read. A line that does not read stops the caller, as in
+    `log_events`."""
+    whole = data.rfind(b"\n") + 1
+    lines: list[tuple[bytes, dict | None]] = []
+    for number, raw in enumerate(data[:whole].split(b"\n")[:-1], 1):
+        if not raw.strip():
+            lines.append((raw, None))
+            continue
+        try:
+            record = json.loads(raw.decode("utf-8"))
+        except ValueError as error:
+            raise SettingsError(f"{log}:{number} does not read as JSON ({error}), and prune dates each task by the log, so it removed nothing; "
+                                "the log is written by project.py, never by hand: correct or remove that line") from error
+        lines.append((raw, record if isinstance(record, dict) else None))
+    return lines, whole
+
+
+def summarized_log(lines: list[tuple[bytes, dict | None]], made: dict[str, tuple[dict, int]]) -> bytes:
+    """The log's LINES with the events of each task of MADE replaced by its summary, in the place of
+    the task's newest line; every other line byte for byte, in its order."""
+    last = {record["task"]: n for n, (_raw, record) in enumerate(lines) if record is not None and isinstance(record.get("task"), str) and record["task"] in made}
+    out = []
+    for n, (raw, record) in enumerate(lines):
+        task = record.get("task") if record is not None else None
+        if isinstance(task, str) and task in made:
+            if last[task] == n:
+                out.append(json.dumps(made[task][0], ensure_ascii=False).encode("utf-8"))
+            continue
+        out.append(raw)
+    return b"".join(line + b"\n" for line in out)
+
+
+def rewrite_log(state: Path, found: list[dict], cutoff: datetime, now: int) -> tuple[list[dict], dict[str, tuple[dict, int]]]:
+    """Under the log's lock, which the caller holds: read the event log, call each task (`task_calls`),
+    and when a task's events become its summary, write the new log whole to a file of the state folder
+    and put it in the log's place. The new file has a new inode, so a reader that reads the log on from
+    where it stopped reads it whole. The old file stays open across the replace: what a writer that
+    takes no lock (a task's session of an older Lem) appended to it after the read goes on at the end
+    of the new log."""
+    log = state / lem_state.EVENTS
+    try:
+        handle = log.open("rb")
+    except FileNotFoundError:
+        return task_calls(found, [], cutoff), {}
+    with handle:
+        lines, whole = log_lines(handle.read(), log)
+        records = [record for _raw, record in lines]
+        calls = task_calls(found, [record for record in records if record is not None], cutoff)
+        made = summaries(records, calls, now)
+        if not made:
+            return calls, made
+        descriptor, name = tempfile.mkstemp(dir=state, prefix=".events.", suffix=".new")
+        try:
+            with os.fdopen(descriptor, "wb") as out:
+                out.write(summarized_log(lines, made))
+                out.flush()
+                os.fsync(out.fileno())
+            os.chmod(name, stat.S_IMODE(os.fstat(handle.fileno()).st_mode))
+            os.replace(name, log)
+        except BaseException:
+            Path(name).unlink(missing_ok=True)
+            raise
+        handle.seek(whole)
+        carried = handle.read()
+        if carried:
+            with log.open("ab") as out:
+                out.write(carried)
+    return calls, made
+
+
 def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
     """Remove what the state folder no longer needs, older than `state.keep_days` (or, in a dry run,
-    --days): the working files of each task that ended (`lem_artifacts.working`), and the old entries
-    of PRUNED. With `dry`, only say what would go. The answer, and the exit: 1 when a removal failed.
+    --days): the working files of each task that ended (`lem_artifacts.working`), the events of each
+    such task, which become its one summary event (`rewrite_log`), and the old entries of PRUNED. With
+    `dry`, only say what would go. The answer, and the exit: 1 when a removal failed.
     The answer's `from` says where the number came from: the project's settings, this machine's own
     file, Lem's default, or `--days N`."""
     if days is not None and not dry:
@@ -3759,7 +3933,6 @@ def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
     remover = Remover(state, dry)
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=keep)
-    events = log_events(root)
     tasks_folder = state / "tasks"
     found, links = [], []
     if tasks_folder.is_symlink():
@@ -3783,7 +3956,17 @@ def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
             found.append({"slug": directory.name, "state": text})
     for link in links:
         remover.skipped.append({"path": f"tasks/{link.name}", "why": "a link, which prune never follows and never removes"})
-    calls = task_calls(found, events, cutoff)
+    # An ended task past the days has its events replaced with one summary event. A dry run takes no lock
+    # and writes nothing: it reads the log as it is, and says what a removal would summarize.
+    moment = int(now.timestamp() * 1000)
+    if dry:
+        events = log_events(root)
+        calls = task_calls(found, events, cutoff)
+        made = summaries(events, calls, moment)
+    else:
+        with lem_state.events_lock(state):
+            calls, made = rewrite_log(state, found, cutoff, moment)
+    summarized = [{"task": slug, "status": summary["status"], "events": count} for slug, (summary, count) in made.items()]
     pruned_tasks, counts = [], {"open": 0, "young": 0, "old": 0}
     for call in calls:
         if call["call"] in counts:
@@ -3846,11 +4029,13 @@ def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
     total = sum(task["bytes"] for task in pruned_tasks) + sum(folder["bytes"] for folder in folders)
     files = sum(len(task["files"]) for task in pruned_tasks)
     verb = "would remove" if dry else "removed"
+    replaced = sum(one["events"] for one in summarized)
     answer = {
         "dry_run": dry, "keep_days": keep, "from": source, "before": stamp_of(cutoff.timestamp()),
-        "state": str(state), "tasks": pruned_tasks, "folders": folders, "bytes": total,
-        "said": f"{verb} {files} working files of {len(pruned_tasks)} ended tasks with no event since {stamp_of(cutoff.timestamp())[:10]}, and {len(folders)} old folders "
-                f"and copies, {total / 1_000_000:.1f} MB",
+        "state": str(state), "tasks": pruned_tasks, "summarized": summarized, "events": replaced, "folders": folders, "bytes": total,
+        "said": f"{verb} {files} working files of {len(pruned_tasks)} ended tasks with no event since {stamp_of(cutoff.timestamp())[:10]}, "
+                f"{'would replace' if dry else 'replaced'} the {replaced} events of {len(summarized)} such tasks with one summary event each, "
+                f"and {verb} {len(folders)} old folders and copies, {total / 1_000_000:.1f} MB",
         "open": counts["open"], "young": counts["young"], "old": counts["old"], "skipped": remover.skipped, "failed": remover.failed,
     }
     return answer, 1 if remover.failed else 0

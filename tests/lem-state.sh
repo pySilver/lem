@@ -336,4 +336,37 @@ else
   fail "the prune by the machine's own days: $by_project / $by_higher / $by_days / $by_lower / $no_days"
 fi
 
+# An ended task past state.keep_days has its events replaced with one summary event, and still ends what waits for it:
+# a task queued after it starts, and a new task cannot take its name. The log is in the state folder, so no file of git
+# and no branch changes.
+SM=$WORK/summary-repo
+git init -q -b main "$SM" && ident "$SM" && commit "$SM" start && project --repo "$SM" init --base main >/dev/null
+SMS=$(project --repo "$SM" state-dir)
+git -C "$SM" add -A && git -C "$SM" commit -q -m "chore: settings"
+project --repo "$SM" task-dir report-dates --ask "Show the dates on the report." >/dev/null
+project --repo "$SM" state report-dates building "lead: builder" >/dev/null
+project --repo "$SM" state report-dates landed "main: pull request 12 is merged" >/dev/null
+"$PY" -c 'import json, sys
+from datetime import datetime, timedelta, timezone
+old = (datetime.now(timezone.utc) - timedelta(days=40)).strftime("%Y-%m-%dT%H:%M:%SZ")
+lines = open(sys.argv[1], encoding="utf-8").read().split("\n")
+for n, line in enumerate(lines):
+    if line.strip() and json.loads(line).get("task") == "report-dates":
+        lines[n] = line.replace(json.loads(line)["ts"], old, 1)
+open(sys.argv[1], "w", encoding="utf-8").write("\n".join(lines))' "$SMS/events.jsonl"
+branches_before=$(git -C "$SM" for-each-ref --format='%(refname) %(objectname)')
+summarized=$(project --repo "$SM" prune | field 'd["summarized"]')
+logged=$("$PY" -c 'import json, sys; print([json.loads(l)["event"] for l in open(sys.argv[1], encoding="utf-8") if json.loads(l)["task"] == "report-dates"])' "$SMS/events.jsonl")
+project --repo "$SM" task-dir report-dates-in-export --ask "Put the report's dates in the export." >/dev/null
+project --repo "$SM" state report-dates-in-export queued "it needs the dates that report-dates adds" "after: report-dates" >/dev/null
+starts=$(status_of project --repo "$SM" may-start report-dates-in-export)
+taken=$(project --repo "$SM" task-dir report-dates --ask "Show the dates again." 2>&1 || true)
+if [ "$summarized" = "[{'task': 'report-dates', 'status': 'landed', 'events': 2}]" ] && [ "$logged" = "['task.summary']" ] && [ "$starts" = 0 ] \
+  && grep -qF "the task 'report-dates' is landed; a new task takes a slug of its own" <<<"$taken" \
+  && [ -z "$(git -C "$SM" status --porcelain --untracked-files=all)" ] && [ "$(git -C "$SM" for-each-ref --format='%(refname) %(objectname)')" = "$branches_before" ]; then
+  pass "lem project prune replaces the events of a task that ended before state.keep_days with one summary event, and a task queued after it still starts and a new task still cannot take its name, with no file of git and no branch changed"
+else
+  fail "the summary of an old task: $summarized / $logged / $starts / $taken / $(git -C "$SM" status --porcelain --untracked-files=all)"
+fi
+
 finish

@@ -2119,13 +2119,13 @@ def prune_once(workspace: Workspace, now: float | None = None) -> dict | None:
         answer = json.loads(ran.stdout)
     except ValueError:
         return {"exit": ran.returncode or 1, "said": said_of(ran), "skipped": [], "failed": []}
-    return {"exit": ran.returncode, "said": answer.get("said") or said_of(ran), "bytes": answer.get("bytes", 0),
+    return {"exit": ran.returncode, "said": answer.get("said") or said_of(ran), "bytes": answer.get("bytes", 0), "events": answer.get("events", 0),
             "skipped": answer.get("skipped") or [], "failed": answer.get("failed") or []}
 
 
 def prune_line(name: str, ran: dict) -> str | None:
-    """The server's log line for a run of `prune`: none when it removed, skipped and failed nothing."""
-    if ran["exit"] == 0 and not ran.get("bytes") and not ran["skipped"] and not ran["failed"]:
+    """The server's log line for a run of `prune`: none when it removed, summarized, skipped and failed nothing."""
+    if ran["exit"] == 0 and not ran.get("bytes") and not ran.get("events") and not ran["skipped"] and not ran["failed"]:
         return None
     parts = [f"serve.py: {name}: `lem project prune` exited {ran['exit']}: {ran['said']}"]
     parts += [f"skipped {one['path']}: {one['why']}" for one in ran["skipped"]]
