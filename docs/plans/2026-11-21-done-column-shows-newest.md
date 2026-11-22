@@ -11,17 +11,25 @@ Size: full, because the board and the picker each change, and the board gets a p
    2. The owner opens the board's Tasks view.
    3. Done shows 20 cards, the 20 tasks that ended last, the newest on top.
    4. The 5 tasks that ended first have no card in Done.
+   - test: `python3 -B -m unittest tests.unit.test_board_pages.Done.test_done_draws_the_20_tasks_that_ended_last_the_newest_on_top` in `tests/unit/test_board_pages.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_model.Workspace.test_done_keeps_every_ended_task_and_the_ones_after_its_newest_20_are_the_older` in `tests/unit/test_board_model.py`
 2. Done's head counts every ended task: with 25 ended tasks, Done's head says 25 while it shows 20 cards, and so does its tab on the phone.
+   - test: `python3 -B -m unittest tests.unit.test_board_pages.Done.test_dones_head_and_its_phone_tab_count_every_ended_task` in `tests/unit/test_board_pages.py`
 3. Under the 20 cards, one row counts the rest and leads to them:
    1. With 25 ended tasks, the row under the 20 cards says "5 older".
    2. A click on that row opens a list of those 5 tasks.
    3. With 20 ended tasks or fewer, Done shows each of them and no such row.
    4. The list opens as a page of the board, and the board's own Tasks link goes back to the columns.
+   - test: `python3 -B -m unittest tests.unit.test_board_pages.Done.test_a_row_under_the_20_cards_counts_the_rest_and_leads_to_their_list` in `tests/unit/test_board_pages.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_pages.Done.test_with_20_ended_tasks_or_fewer_done_draws_each_and_no_row` in `tests/unit/test_board_pages.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_pages.Done.test_the_list_is_a_page_of_the_board_whose_tasks_link_goes_back_to_the_columns` in `tests/unit/test_board_pages.py`
 4. The list of older tasks shows each task that has no card in Done, newest first, with its title, how it ended, when, and a link to its board, and to its pull request when it has one: with 25 ended tasks it lists the 5 that ended first, the one that ended last of them on top, and a click on one opens that task's board.
+   - test: `python3 -B -m unittest tests.unit.test_board_pages.Older` in `tests/unit/test_board_pages.py`
 5. The picker lists the 20 tasks that ended last, whenever they ended:
    1. A repository whose 3 tasks all ended a month ago shows those 3 in the picker.
    2. A repository with 25 ended tasks shows the 20 that ended last.
    3. The tasks that wait for the owner or build stay above the ended ones, as today.
+   - test: `python3 -B -m unittest tests.unit.test_picker.Ended` in `tests/unit/test_picker.py`
 
 ## Tasks
 
