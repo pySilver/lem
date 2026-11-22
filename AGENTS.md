@@ -253,11 +253,13 @@ Each script's module docstring says what it does and why; this list says where e
   after every update.
 - `agents/lem-builder.md`: the builder, as a Claude Code agent definition; its body is the builder's
   standing rules, and `harness/claude-code.md` says how it is used and overridden.
-- `assets/`: the logo (`lem.svg`), the figure alone (`lem-mark.svg`), and both in the night palette
-  (`*-night.svg`, written by `night.py`). `assets/screens/` holds the board's pictures, light and
-  dark, made by `tests/board-showcase.py`: `board-*` (the kanban), `task-*` (a task on "Overview"),
-  `backlog-*` and `phone-*`. The README shows `board-*` and `phone-*`, `docs/board.md` `phone-*`,
-  `docs/when-lem-needs-you.md` `task-*`, the site all three, and no page `backlog-*`.
+- `assets/`: the logo (`lem.svg`, the animated scene with both skies), the figure alone
+  (`lem-mark.svg`), and the night file of each (`*-night.svg`), which `night.py` writes in the night
+  palette, with the scene's night sky in its own colors. `assets/screens/` holds the board's
+  pictures, light and dark, made by `tests/board-showcase.py`: `board-*` (the kanban), `task-*` (a
+  task on "Overview"), `backlog-*` and `phone-*`. The README shows `board-*` and `phone-*`,
+  `docs/board.md` `phone-*`, `docs/when-lem-needs-you.md` `task-*`, the site all three, and no page
+  `backlog-*`.
 - `site/`: Lem's page on GitHub Pages, `index.html` and `style.css`, written from the README and the
   guides in their STE, in the board's look (the six hues of `lem.css` at the same values), light or
   dark by the visitor's theme, with the copy buttons as its one script and nothing from another
