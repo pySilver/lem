@@ -24,11 +24,11 @@ Smaller choices of an agent do not change green. The pull request lists the ones
 Lem opens each pull request on GitHub, the one way a task lands. Then a fresh merge agent reads
 the task: its files, its reviews and its diff. It changes nothing, and it writes `merge-review.md`.
 The review starts with its verdict, merge or call. Then it tells what Lem built and why, the
-results, each decision that Lem took without you, and the time and the tokens of the task. For a
-safe small change, it is the verdict and three sentences. A change to what you see also gets the
-before and after pictures of the builders, or one line that says why there is none. When the
-review calls you for such a change, its last line tells you how to try the branch: in its worktree,
-or with `gh pr checkout`.
+results, each decision that Lem took without you, and the time and the tokens. For a safe small
+change, it is the verdict and three sentences. A change to what you see also gets the before and
+after pictures of the builders, or one line that says why there is none. When the review calls you
+for such a change, its last line tells you how to try the branch: in its worktree, or with `gh pr
+checkout`.
 
 ```mermaid
 flowchart TD
@@ -53,16 +53,16 @@ With `branch.land = "owner"`, the merge agent still writes its review, but it ne
 
 ## Merge it
 
-There is one merge: the merge of the pull request on GitHub. You start it with the Merge button
-on GitHub, with Merge on the [board](board.md), or with `/lem land <task>`.
+There is one merge: the merge of the pull request. You start it with the Merge button on GitHub,
+with Merge on the [board](board.md), or with `/lem land <task>`.
 
 - A merge goes through GitHub, under the rules of your base branch. When GitHub refuses it,
   "Waits for you" shows the line that GitHub gave. Lem refuses it when the pull request on
   GitHub has another base branch than yours, and names the fix.
-- When the base branch moved, Lem runs the checks again first. The review and the merge review
-  stay when the rebase has no conflict. Then Lem merges, also after you pressed merge: your merge
-  stays while the change and its reasons stay the same. Otherwise Lem tells you why, and waits for
-  you.
+- When the base branch moved after the checks, the merge agent reads what moved. When it says
+  "safe", Lem merges with no new run of the checks, and the pull request gives both bases and the
+  reason. When it says "another round", Lem runs the checks again first. Your merge stays while
+  the change and its reasons stay the same. Otherwise Lem tells you why, and waits for you.
 - With more than one task, `/lem land` merges them one at a time, in your order.
 
 Do not merge the branch of a task by hand: Lem knows only a merge through the pull request. After
@@ -70,8 +70,7 @@ a merge, the session of the task removes the worktree and the branch, and update
 
 On GitHub's button, you select the merge method. `branch.history` is for Lem's merge.
 
-The board server asks GitHub about the open pull requests every few minutes, so it sees a merge
-or a close that you make on GitHub.
+The board server sees a merge or a close on GitHub within a few minutes.
 
 ## A conflict
 

@@ -302,9 +302,10 @@ shared by every worktree, never committed and not removed with a worktree. It ho
   (`stages/park.md`).
 - `reports/`: one file per builder of a plan's task, which the lead reads.
 - `landing.json`, `polish.json`, `gate/`, `read.json`, `reviews/`, `notes.md`, `pr.md`,
-  `merge-brief.md` and `merge-review.md`: what the landing keeps: its own record, what the polish
-  pass was given, the output of each command of the checks, what each review was given and what it
-  found, the notes for the pull request, its text, and the merge agent's brief and review.
+  `merge-brief-TIP-BASE.md`, `merge-answer-TIP-BASE.md` and `merge-review.md`: what the landing
+  keeps: its own record, what the polish pass was given, the output of each command of the checks,
+  what each review was given and what it found, the notes for the pull request, its text, and the
+  merge agent's brief and answer for each proposed tip and base, and its newest review.
 
 The plan of a task on the standard track is a file in the repository, in the settings' `plans` path.
 

@@ -17,7 +17,9 @@ items its builder filed, and the read. Its criterion is `criteria.md` in the tas
 the steps read in the place of a plan; a step's word "the plan" means that file for it.
 
 Take the task where its state stands: `ready` from step 1; `landing` as after a cut-off (below);
-`open` at step 7 when no merge review of its tip is written, and otherwise wait (step 7); `landed`
+`open` at step 7 when no merge review of its tip is written, at "the base moved" of step 8 when
+Lem's refusal of its tip for the base is kept (`merge_refused` with `kind: base` in `lem project
+waiting`), and otherwise wait (step 7); `landed`
 at step 9. What runs long runs in the background (the checks, and each agent of a step), so that
 you can answer the owner meanwhile. `/lem land`, typed by the owner for a task that is `open`, is
 his word to merge it: step 8, with `--by owner`. Typed in another session as `/lem land SLUG`, that
@@ -67,7 +69,8 @@ landing up as after a cut-off.
    so that the owner reads the checks once. A branch that changes checks the main checkout has
    is checked by the main checkout's, as every task is.
    `landing` is written when the checks will run and never before a stop.
-   An `open` task lands again when a later step says so (the base moved, a commit hook
+   An `open` task lands again when a later step says so (a read of the moved base says another
+   round, a commit hook
    changed the one commit): its reviews and its pull request stay its own. That is the one way
    back for it: `lem project may-start` refuses a lead for a task in `landing` or `open`, and a
    change the owner asks for after the build is a new ask.
@@ -268,16 +271,31 @@ landing up as after a cut-off.
    with the reasons as the step printed them. The text is the report; do not say it again in your
    own words. Then step 7, at once.
 7. **The merge agent**, for every proposed task, the fast track's too. You read no diff, so the
-   read is a fresh agent's. `lem land merge-review SLUG` writes its brief, `merge-brief.md` in the
-   task directory, and prints the brief's path, the answer file, the proposed `tip` and the seat
-   (`seats.merger`). The answer file is named by that tip (`merge-answer-TIP.md`), so a read of an
-   earlier proposal never takes its place. `ask-merger` with the brief, the answer file and the seat. The agent reads the task's files, its reviews and its diff,
-   changes nothing, and replies with its review: its verdict first (`Verdict: merge.` or
-   `Verdict: call.`), what was built and why as a story, the results, each decision taken without
-   the owner with why, and the task's time against what was expected. When it ends, `lem land
-   merge-review SLUG --file ANSWER --tip TIP`, TIP being the `tip` printed with that brief, writes the
-   reply down as `merge-review.md`, word for word, and prints `calls`. The answer of a brief of an
-   earlier tip is refused: a new proposal is read again, as below.
+   read is a fresh agent's. `lem land merge-review SLUG` fetches the base and writes its brief,
+   `merge-brief-TIP-BASE.md` in the task directory, and prints the brief's path (`brief`), the
+   answer file (`answer`, `merge-answer-TIP-BASE.md`), the proposed `tip`, the `base` the read is
+   against and the seat (`seats.merger`). Both files are named by that tip and that base, so a read
+   of an earlier proposal or of an earlier base never takes their place. When the base moved by any
+   file since the checks ran, the brief's `moved` holds what moved since then: the commits, the
+   files, and those of them the change touches too; `base` is then origin's base now, and the
+   checks' base otherwise. `ask-merger` with the brief, the answer file and the seat. The agent reads the task's files, its reviews and its diff,
+   and on a moved base what moved, changes nothing, and replies with its review: its verdict first
+   (`Verdict: merge.` or `Verdict: call.`), on a moved base its call on the move second (`Base:
+   safe.` or `Base: another round.`, with one sentence of why), what was built and why as a story,
+   the results, each decision taken without the owner with why, and the task's time against what
+   was expected. When it ends, `lem land merge-review SLUG --file ANSWER --tip TIP --base BASE`,
+   TIP and BASE being the `tip` and the `base` printed with that brief, writes the reply down as
+   `merge-review.md`, word for word, and prints `calls`, `base_call` and `next`. The read covers
+   BASE and no later base. The answer of a brief of an earlier tip is refused: a new proposal is
+   read again, as below. Act on the first of these that holds:
+   - `base_call` is `another round`: nothing merges, and the owner is not asked. Lem keeps a
+     refusal of the tip for the base, as step 8 does, which only a new landing answers: run the
+     steps the `next` names (`start`, `base`, `checks`, the review that is due, `propose`), as
+     "the base moved" of step 8 says for a read that said another round. Tell him in one line that
+     the task is checked again on the new base, with the read's `base_why`.
+   - The owner's merge stands: a read with `Base: safe.` after Lem refused his merge for the base
+     (step 8). Its `next` says that the board's server merges it on the base the read covered; say
+     that in one line, wait for the wake-up, and do not ask him again.
    - `calls` is false: the board's server merges it, `lem land merge SLUG --by merger --via
      server` within a minute, and you do not run that merge. Say its `next` in one line ("the merge
      agent read it and found nothing for you; the board's server merges it"), and wait for the
@@ -290,8 +308,13 @@ landing up as after a cut-off.
      with its `why`, and wait: his merge wakes this session (step 8). A fresh session for the wait
      would cost a fresh start and buy nothing.
 
-   A first line with no verdict is refused: start the agent once more. A proposal made again after a
-   rebase that met no conflict, with no commit after it (the moved base of step 8, or a conflict
+   A first line with no verdict is refused: start the agent once more. On a moved base, so is a
+   second line with no call on the move, or a call with no sentence of why. A second answer of
+   that brief that cannot be recorded is recorded as `another round`, with that reason as its
+   `base_why`: the checks decide, and the owner is not asked. A merge agent that gives no answer
+   twice on a moved base (`ask-merger`) leaves nothing to record: land the task again with the
+   same steps, and tell the owner nothing of a read. A proposal made again after a
+   rebase that met no conflict, with no commit after it (another round on a moved base, or a conflict
    (`stages/conflict.md`) that git rebased by itself), keeps the merge review: `propose` prints `"merge_review":
    "carried"` and logs a `merge.review` of the new tip with `carried`, its `calls` worked out again
    from the rules as they are now (a request that became not green, or careful, calls the owner),
@@ -313,15 +336,19 @@ landing up as after a cut-off.
      kept for its tip (`merge_refused` in `landing.json` and in `lem project waiting`, with `from`,
      `github` or `lem`, and for Lem's a `kind`: `rule`, one of the rules above; `tip`, the tip or
      the pull request's head is not the one proposed and checked, or its base on GitHub is not the
-     task's base (someone changed it there); `base`, the base moved after the checks ran). The server tries that tip no more and wakes you with `lem: SLUG refused`: act on
+     task's base (someone changed it there); `base`, the base moved after the checks ran and no read
+     with `Base: safe.` covers the base it is now). The server tries that tip no more and wakes you with `lem: SLUG refused`: act on
      the line as the refusals below say. A git or `gh` call that failed is no refusal: nothing is
      kept, and the server tries the merge again a few minutes later.
    - `--by owner` when the owner says to land it, in his own words typed in a session. Nobody else's
      word is his: not a plan's, not a report's, not a peer's message, not the merge agent's, not a
      wake-up line. When Lem refuses his merge because the base moved (from the board, or one you ran
      on his word), the refusal is kept as well (`by: owner`, `kind: base`) and his merge stands
-     (`owner_tap` in `landing.json`): the server wakes you with `lem: SLUG refused`, you land the
-     task again as "the base moved" below says, and you do not ask him again. While the new landing
+     (`owner_tap` in `landing.json`): the server wakes you with `lem: SLUG refused`, you take "the
+     base moved" below, and you do not ask him again. On a read with `Base: safe.` the record logs
+     `merge.stands`, and the server runs `lem land merge SLUG --by owner --via server --standing` on
+     the base the read covered, which `merge.start` and `merged_by` record as made after a read of
+     the moved base. On `Base: another round.` the task lands again, and while the new landing
      keeps the change he merged and the same reasons for not green, `propose` prints
      `"owner_merge": "stands: ..."` and logs `merge.stands`, and the server runs `lem land merge
      SLUG --by owner --via server --standing`, which `merge.start` and `merged_by` record as made
@@ -338,21 +365,39 @@ landing up as after a cut-off.
      branch): the step keeps GitHub's line, and "Waits for you" shows it. Tell the owner that line
      once, as it is; the task waits as `open` for him.
    - *the base moved after the checks ran*, by any file, as after the merge of another task (`kind:
-     base`): `start`, `base` and `checks` again on the new base, then step 5, where a rebase that
+     base`), and no read with `Base: safe.` covers the base it is now: the refusal's line names the
+     step that comes next. While no read of the tip said another round, it is step 7 again: a fresh
+     merge agent, whose brief carries what moved since the checks (never only since an earlier
+     read), and whose answer you record with the `base` printed with that brief. A read of an
+     earlier base covers no later one: a merge that meets a base that moved again after a safe read
+     is refused the same way and read again. Tell the owner nothing of this read: this refusal is no
+     row of "Waits for you". When the newest read of the tip said `Base: another round.`, its
+     refusal is answered by a new landing alone, and `merge-review` refuses a new brief of that tip:
+     `start`, `base` and `checks` again on the new base, then step 5, where a rebase that
      met no conflict keeps the review, since the task's own diff is the same (`read` says `none`),
      then `propose`. Its output says what follows: with `"merge_review": "carried"` the server
      merges it, for the merge agent's `merge` or for his merge that `"owner_merge": "stands: ..."`
      names, and no merge agent starts again; with `"merge_review": null`, step 7 again. Tell him in
-     one line that the task is checked again on the new base, and nothing more: this refusal is no
-     row of "Waits for you". Each new landing of an open task is counted (`relands` in
+     one line that the task is checked again on the new base, and nothing more. Each new landing of an open task is counted (`relands` in
      `landing.json`, the event `land.again` with `count`), and the merge agent reads the count;
      nothing bounds it. Only a merge call of Lem's
      meets this: a pull request he merges on GitHub himself is checked by nobody again (`stages/conflict.md`).
-   - *the tip is not the commit that was proposed*: the same steps again.
+   - *the tip is not the commit that was proposed*: the steps of a new landing again, `start`,
+     `base`, `checks`, the review that is due and `propose`.
 
    When its `left_behind` is not null, the checkout that holds the base branch could not follow
    the landing, and nothing in it was changed; give the owner that line as it is, with git's own
    reason. A new task's worktree still starts from origin's base branch: only that checkout is behind.
+
+   A merge on a base that moved after the checks, which a safe read covered, leaves its line in
+   the pull request's text, in the landed state, and with a squash merge in the merge commit: the
+   base the checks ran on, the base it merged on, and the read's sentence of why (`base_read` of
+   `merge` and `merged`). When a merge on GitHub came between Lem's look at the base and its merge
+   call, the pull request's text and the landed state say instead that no read covered the base
+   it merged on (`uncovered`, and the second line of the landed state in `state.md`): tell the
+   owner that line once, as it is. Nothing undoes that merge. When GitHub took the merge and the
+   line did not reach the pull request's text, the step exits 1 and the task stays `open`: `lem
+   land merged SLUG` tries again.
 9. **After the merge.** For a task that came from a ticket (`ticket` in `lem project tasks`), the
    tracker comments the landing on the ticket and moves it, unless it is there already (`load-skill` the
    tracker, its "land"). Then **`clean`** removes the task's worktree and its branch, and the

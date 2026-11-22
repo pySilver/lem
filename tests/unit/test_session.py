@@ -521,7 +521,7 @@ class EveryBrief(unittest.TestCase):
                 wrong += [f"{path.relative_to(root)}: {line}" for line in self.old_lines(text)]
         self.assertEqual(wrong, [])
         # the lead's, the fast track's, the talk's, the scout's, the investigator's, the review's, a
-        # landing builder's, session.md's and merge-brief.md's
+        # landing builder's, session.md's and the merge brief's (merge-brief-TIP-BASE.md)
         self.assertGreaterEqual(briefs, 9)
 
     def test_the_old_forms_are_found_and_a_stage_readers_line_is_not(self):

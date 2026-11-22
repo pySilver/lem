@@ -15,9 +15,10 @@ plan, or `criteria.md` on the fast track), `files` (the pull request's text `pr.
 words, the request, the report, the notes, an investigation or a breaker's document, where the task
 has them), the `reviews`, the command that lists its `decisions`, whether it is `green` and why not,
 why it is `careful`, `land` (the settings' `branch.land`), `owner_merges`, `time`, `tokens` and
-`relands`, how many times this proposal landed again (a moved base, a conflict), `pictures`, the
-pictures of the task's `media/` folder by their paths from the task directory, and `try`, the two
-ways the owner gets the branch to try it himself.
+`relands`, how many times this proposal landed again (another round on a moved base, a conflict),
+`pictures`, the pictures of the task's `media/` folder by their paths from the task directory,
+`try`, the two ways the owner gets the branch to try it himself, the `base` your read is against,
+and `moved`, what moved on that base since the checks ran, or null when nothing did.
 
 ## Read
 
@@ -38,6 +39,43 @@ ways the owner gets the branch to try it himself.
    their subagents used, and `tokens.covers` says what the number leaves out: it is a fact for the
    owner, and a reason to look only beside a time far over the expected one. Nothing bounds `relands`; more than one or two says that the base moves
    faster than the checks run.
+5. When `moved` is not null: what moved, below.
+
+## A moved base
+
+When `moved` is not null, other changes reached the base after this task's checks ran, and nothing
+has checked this change on top of them. `moved.checks_ran_on` is the base the checks ran on,
+`moved.base_now` and `base` the base your read covers, `moved.range` the commits between them,
+`moved.commits` each one's short id and subject, `moved.files` the files they changed, and
+`moved.overlap` those of them this change touches too. Your read covers `base` and no later one:
+when the base moves again before the merge, a fresh agent reads it again.
+
+Your call is whether this change merges on that base as it is, or needs another round of the
+checks on it. No rule of files makes it for you. Read:
+
+1. The commits that moved: `git -C WORKTREE log MOVED` and `git -C WORKTREE diff MOVED`, MOVED
+   being `moved.range`, beside the change's own diff of `range`.
+2. The overlap: each file both edit. Read both edits of it, not only the lines near each other.
+3. What the change uses from files it does not edit: a function or a class it calls, a setting or
+   an environment variable it reads, a fixture, a helper or a test data file its tests load, a
+   command's flag, a schema. Take the names from the change's diff and look for each in the moved
+   diff. A moved commit that renamed, removed or changed one of them breaks this change though no
+   file overlaps.
+4. The other way round: what the moved commits use that this change alters. A moved commit that
+   calls a function this change renames, or tests a behavior this change changes, breaks too.
+5. What every check rests on: a dependency or its lock file, the commands of the checks, the
+   project's settings, the test runner's configuration, a fixture that many tests share.
+
+The move is **safe** when you can say why none of that holds: the moved commits change documents
+this change does not read, or code that shares no name with it and that its tests do not reach.
+It needs **another round** when one of them holds, or when you cannot rule one out from what you
+read. In doubt, another round: it costs one more run of the checks, which runs without the owner,
+while a wrong "safe" lands a change that no check ran on.
+
+The call on the base stands beside your verdict, not in its place: a careful change still gets
+`Verdict: call.`, and its base line says whether his merge may go through on this base. On
+`Base: another round.` nothing merges: the task lands again and its checks run on the new base,
+and your verdict goes on to the new tip when the rebase meets no conflict.
 
 ## Decide
 
@@ -55,8 +93,16 @@ ways the owner gets the branch to try it himself.
 ## Write
 
 Your review is markdown, and its first line is the verdict, exactly `Verdict: merge.` or
-`Verdict: call.`, followed by one sentence that says why. The landing reads that line; nothing
-else of it is parsed.
+`Verdict: call.`, followed by one sentence that says why. When `moved` is not null, the second
+line is your call on the base, exactly `Base: safe.` or `Base: another round.`, followed on the
+same line by one sentence that says why: what moved, and why it does or does not touch this change
+("Base: safe. The one commit that moved changes only docs/board.md, which this change and its tests
+do not read."). The landing reads those two lines; nothing else of it is parsed. It refuses a reply
+with no call on a moved base, or a call with no sentence, and asks a fresh agent again; a second
+such reply counts as another round. The sentence of a safe call goes word for word into the pull
+request's text and, with a squash merge, into the merge commit, beside the base the checks ran on
+and the base the change merged on: write it for someone who reads the history a year later, with
+the files by name.
 
 Then, in this order, each part only when it holds something:
 
@@ -87,9 +133,11 @@ Then, in this order, each part only when it holds something:
 The review is always shorter than what you read, and it grows only with what he must read. For a
 safe change on the fast track (green, not careful, one criterion that the change holds) it is the
 verdict line and at most three sentences after it, 60 words in all (a bound by guess): what changed, that its test
-proves it, and the time. No heading, no list, no story and no chart then; the parts above are for
-every other review. The pictures or the no-picture line of a change to what a person sees still go
-in: they come after those words, and the 60 do not count them. Count the words before you reply: the review of such a change in a scratch
+proves it, and the time. On a moved base the base line comes second, and it is not counted in
+the 60 words: it is one sentence, and it stands alone in the pull request and the commit. No
+heading, no list, no story and no chart then; the parts above are for every other review. The
+pictures or the no-picture line of a change to what a person sees still go in: they come after
+those words, and the 60 do not count them. Count the words before you reply: the review of such a change in a scratch
 repository ran to 140 words (pySilver/lem-scratch#13, 2026-11-21). Plain words, short sentences, no emoji; the owner reads English as a second language and
 has little time.
 
