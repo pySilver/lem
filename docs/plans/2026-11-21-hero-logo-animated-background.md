@@ -94,7 +94,12 @@ each side on each question, a second answer of each side on questions 2 and 3, a
    worst color": the refusal list rejects `feColorMatrix`, which both day shimmer filters of
    the owner's sample use (`samples/sky-day.svg:30-36`, red, green and blue set to
    `1 .95 .8`, alpha from the noise), and lets `feTurbulence` paint colors outside the file's
-   hex values. A design choice, decided after the talk (`stages/plan.md`, step 5).
+   hex values. A design choice. After the talk the gate judged it checkable among three
+   options: A, the list as the talk left it; B, pictures at chosen moments; C, the bound with
+   the list corrected so that a filter paints only a constant color the bound takes in. A's list
+   run over the sample refuses it, B misses the moments between its pictures, and C passes the
+   sample (`#fff2cc`, alpha from the noise): decision 9, `--by gate`, option C, now in the
+   decision on contrast.
 4. **The stills in the pull request's text.** `pr_text()` in `skills/lem/scripts/land.py` takes
    the landing's own lines and `notes.md`, and reads nothing from the plan's folder. Settled:
    `report.md` and `notes.md` carry an image line for each still at the pushed commit; `MEDIA`
@@ -115,7 +120,8 @@ Mechanisms a repair added:
   `assets/night.py` and the byte check in `tests/lem-settings.sh`. Closed by the reviewer as that
   layer; it stays.
 - The static refusal of colors outside the bound (question 3): a layer over "Contrast is checked
-  against the worst color", whose cite is criterion 6. It held, and goes to step 5.
+  against the worst color", whose cite is criterion 6. It held; the gate's pick, decision 9,
+  replaced its list with the rule that a filter paints only a constant color the bound takes in.
 
 No question was raised after the first turn. No addition was refused as unpriced.
 
@@ -132,7 +138,7 @@ link (question 4).
 - **The scene replaces `assets/lem.svg` and `assets/lem-night.svg` in place.** The README, the page, the Pages step and the check "copied" already name these two files, so the README shows the scene with no edit of its `<picture>` and the Pages step is unchanged. Rests on the owner's answer "The README shows the animated scene too" (decision 2) and the scout's list of every file that names them.
 - **One day file holds both skies; `night.py` writes the night file.** The byte-equal check of the night files stays, and so does the rule that the drawing changes in the day file only. A night file drawn by hand would need a second check of its own. Rests on `assets/night.py` and `tests/lem-settings.sh`. If both skies do not fit in 50 KB, the builder keeps the size and says how. The night sky's group keeps its own colors through `night.py` (task 1), because its colors share hex values with the day colors that `NIGHT` maps for the mark.
 - **The shade under the text is the page's, not the scene's.** The README shows the scene with no text on it, so a shade inside the file would darken the README's lower half for nothing. Rests on criterion 8 and the samples' `h-shade` gradient.
-- **Contrast is checked against the worst color, not against moments.** The check builds, for each theme, one bound color from every color the scene file holds: at night the largest red, green and blue of any of them, by day the smallest. It lays the page's shade over it at its weakest across each hero text's box, and asks for 4.5 to 1. This holds "at every moment" by construction, overlaps included: source-over compositing, opacity, blur and a mask each give a weighted mix of the colors under them, never a color lighter than the lightest or darker than the darkest (the talk's question 3). So the static check of the scene files also refuses what can leave that range: a `mix-blend-mode`, `plus-lighter`, `feBlend`, `feComposite` with `arithmetic`, `feColorMatrix`, `feComponentTransfer` and a `brightness()` or `contrast()` filter. Pictures at a few moments would miss the one between them.
+- **Contrast is checked against the worst color, not against moments.** The check builds, for each theme, one bound color from every color the scene file holds: at night the largest red, green and blue of any of them, by day the smallest. It lays the page's shade over it at its weakest across each hero text's box, and asks for 4.5 to 1. This holds "at every moment" by construction, overlaps included: source-over compositing, opacity, blur and a mask each give a weighted mix of the colors under them, never a color lighter than the lightest or darker than the darkest (the talk's question 3). So the static check of the scene files lets a filter paint only a constant color the bound takes in: an `feColorMatrix` whose red, green and blue rows have zeros in their first four columns adds its constant color to the bound (the day shimmer's `h-heat` and `h-heat2` in the owner's sample give `#fff2cc`, with only the alpha from the noise); `feTurbulence` passes only into such a matrix or as the map of `feDisplacementMap`, which moves pixels and paints no new color; every other primitive that paints color (`feBlend`, `feComposite` with `arithmetic`, `feComponentTransfer`, `feFlood` with a color the file does not hold, a bare `feTurbulence`) and every blend mode (`mix-blend-mode`, `plus-lighter`) and `brightness()` or `contrast()` filter is refused. A unit case runs the check over the owner's day sample, which passes, and over a bare `feTurbulence`, which fails. Decision 9, by the gate, after the talk's question 3. Pictures at a few moments would miss the one between them.
 - **The stills of criteria 7 and 8 are files in the plan's folder, and the pull request shows them by link.** The landing turns a link to the task's `media/` folder into its caption, since the forge has no such file (`MEDIA` in `skills/lem/scripts/land.py`), so a picture the pull request shows has to be on the branch. The pull request's text is the landing's own lines and `notes.md` (`pr_text()` in `land.py`), and nothing reads the plan's folder into it (the talk's question 4). So the lead's `report.md` names both stills under "What the owner gets" with one image line each, and the landing's `notes.md` carries them under `## Worth a look`, each as `![…](https://github.com/pySilver/lem/raw/TIP/docs/plans/2026-11-21-hero-logo-animated-background/still-day.png)`, TIP being the branch's commit that `propose` pushes. That the forge draws such a link in a pull request's text is untested.
 
 ## What it will not verify
