@@ -180,6 +180,97 @@ flowchart TD
    Files: `tests/board-showcase.py`, `assets/screens/` only where a picture changed, `docs/board.md`, `AGENTS.md`, and `README.md` or
    `site/index.html` only where one says how the merge step looks.
 
+## Plan talk
+
+Who argued the plan: the reviewer, Codex, GPT 6.2 Sol, high (its pane's status line); the defender,
+Claude Code, Opus 5.5, high (the `defender:` line of the task's state). Two model families. 7 turns, 10
+questions, within the bound of 4 × 10 + 2. Agreement carries no authority: the review before the pull
+request reads each settled position as a claim.
+
+The reviewer's list, as it came:
+
+1. **The read keyed on the tip** (task 1, "The read belongs to the text it read"): after a morph to
+   another commit the body keeps its scroll position, and a new review changes the "Careful:" line
+   on the same tip. Repaired at the cause: the key is the digest of the body's own HTML, and a new
+   key scrolls the body to its top. It held on the case of a body with no completed read, which the
+   text then left where it was (`merge_step()`, `serve.py` `Handler.refreshes`); the refutation (no
+   kept key, nothing to compare) did not close it: the owner stops just before the end of commit A,
+   a refresh to B shortens the body, and the old position reaches B's end. **A design choice**: the
+   kept decision (compare against the key of a completed read) against the reversed one (compare
+   against the key the body last showed). Decision 1 of the ladder below.
+2. **The read stays on when the body grows** (tasks 1 and 2): a fold opened or a picture loaded
+   after the first fit. Repaired at the cause: a `ResizeObserver` turns the button off when the
+   content grows and the end is out of view (criteria 3 and 5). Settled, `lem_board_pages.py`
+   `reason_list`, `entry.js`; settled by the two, not checked by the review.
+3. **The approval with no script** (task 2, criterion 8): `P.md_block()` puts the criteria in a
+   `<template>`, so no text is above the button. First refuted (criterion 8 says "as they do today"),
+   it held: criterion 8 also puts the button at the end of the text. Repaired at the cause: a
+   `<noscript>` with the criteria as plain text after the markdown block, and a script-off check.
+   Settled; settled by the two, not checked by the review.
+4. **The refusal note under the approval overlay** (task 2): a refused approval comes back to the
+   criteria tab with its note above the card (`note_card()`, `serve.py` `Handler.board_act`).
+   Repaired at the cause: the note goes first into the approval card's body while the card holds the
+   form. Settled; settled by the two, not checked by the review.
+5. **The overlay after a morph takes the form away** (tasks 1 and 2): `not_now()` keeps the id
+   `confirm`, and `app.js` keeps every `data-js-*` attribute. Repaired at the cause: the CSS also
+   needs the class `cf-sheet`, which the server renders only with the form. Settled; settled by the
+   two, not checked by the review.
+6. **A resize during a request** (task 1): the controller took `disabled` away from a button Turbo
+   had turned off. Repaired at the cause: the gate never writes `disabled`; it sets `aria-disabled`
+   and cancels the form's `submit`. It held on the label: after a fetch that fails on the network,
+   Turbo's `resetSubmitterText` puts back "Merge pull request" while the gate is off, until the next
+   scroll; the refutation (safe side, rare) did not close it, since criterion 3 asks for "Read to the
+   end ↓" in that state. **A design choice**: decision 2 of the ladder below.
+7. **The focus behind the overlay** (tasks 1 and 2): `panel.js` focuses the task's title behind it.
+   Repaired as a layer over the fixed overlay of criteria 1 and 5: the focus moves to the overlay's
+   head. It held: Shift+Tab reaches the covered tabs, and on the criteria tab of a task with no
+   session the covered "Open a session" (`head_acts()`, `serve.py` `act_session`), which starts a
+   session and logs a `board.act`. The refutation (nothing behind merges, parks or approves) did not
+   close it. **A design choice**: decision 3 of the ladder below.
+8. **The desktop layout under the new wrappers** (criterion 7): `.confirm > p` and the gaps of the
+   card and of `.approve-body`, and "Cancel" against criterion 1's "Back". Repaired: the wrappers are
+   `display: contents` outside the overlay, the `.confirm > p` rules also name `.cf-body > p`, and
+   the link reads "Back" on every screen. It held on the approval's 12 px gap; refuted: the foot
+   can be the last child of `.approve-body`, which keeps it, and a fixed foot leaves the flow
+   whatever its parent (a headless Chrome probe of a fixed child in a scroller with
+   `container-type: inline-size`). Settled; settled by the two, not checked by the review.
+9. **The browser cases for the approved examples** (tasks 1 and 2): no careful call on #44, no green
+   pull request with no reasons, no fit case for park and approval, and a script-off case that stops
+   at the button. Repaired: a careful review event, a green case, fit cases, and a script-off click
+   that posts. It held: #41 and #38 end landed (`tests/board-showcase.py` `afternoon`), and a merge
+   token alone does not prove the fields passed (`act_merge` returns a running merge's token before
+   it reads them). The refutation (the plan's rule to add what a check needs) did not close it.
+   **A design choice**: decision 4 of the ladder below.
+10. **Criterion 6's proof on the base commit**: the whole `tests/lem-board-act.sh` fails on the base
+    for the new head words, not for the guard. Repaired: criteria 6, 7 and 8 take
+    `- no test: the change keeps behavior; the suite holds it`, with the checks that hold each named.
+    Settled; settled by the two, not checked by the review.
+
+Mechanisms the repairs added, with what they sit on and the reviewer's word:
+
+- the body's digest as the read's key, and the scroll to the top on a new key (question 1): at the
+  cause, on "The read belongs to the text it read", which rests on criteria 3 and 5;
+- the `ResizeObserver` (question 2): at the cause, on the same decision, criteria 3 and 5;
+- the `<noscript>` text of the approval (question 3): at the cause, on criterion 8;
+- the note inside the approval card (question 4): at the cause, on the overlay of criterion 5;
+- the class `cf-sheet` (question 5): at the cause, on "The overlay comes only on a step that has
+  its button";
+- the gate by `aria-disabled` and a cancelled `submit` (question 6): at the cause, on criterion 3;
+- the focus move to the overlay's head (question 7): a layer over the fixed overlay of criteria 1
+  and 5.
+
+Raised, not argued: task 1 says the criterion 8 checks pass on the base commit by design, but task
+2's script-off check of the approval's text fails there, since the base's `P.md_block()` shows no
+text (task 1, the test lines; task 2, the browser checks).
+
+Refused as unpriced: none.
+
+What changed in the plan, by question and by task: task 1 took questions 1, 2, 5, 6, 7, 8, 9 and 10
+(the key, the observer, the class, the gate, the focus, the wrappers and "Back", the browser cases,
+the test lines); task 2 took questions 3, 4, 8 and 9 (the `<noscript>`, the note in the card, the
+foot inside `.approve-body`, the fit and script-off cases); the decisions took each of them; "Outside
+the change" holds the other markdown blocks of the board.
+
 ## Decisions
 
 - **The head of the merge step reads "Merge #N · confirm", and the foot's link reads "Back", on
