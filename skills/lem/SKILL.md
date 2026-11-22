@@ -17,7 +17,7 @@ and no question open, whatever its type (a fix of one rule, a typo, a rename, a 
 of a document). One builder makes it and judges what it saw outside it by the bar of rule 6 of
 the builder's standing rules (`agents/lem-builder.md`, or a project's own): it fixes a cheap
 defect in a commit of its own and files an item only over the bar. The machine
-checks and one read review it, it has no polish pass, and the merge agent reads it and merges it. Every other request takes the standard track, and the flow asks for his attention at
+checks and one read review it. It has no polish pass, and the merge agent reads it and merges it. Every other request takes the standard track, and the flow asks for his attention at
 three touches: the shape, an interview while a scout reads the code around his ask, which ends
 with the criteria that the personas read before he does and that he approves, so that they are
 the contract in plain language and become the tests; a circuit breaker, the one stop of a build,
