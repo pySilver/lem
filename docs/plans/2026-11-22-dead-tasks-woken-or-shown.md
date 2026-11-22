@@ -10,15 +10,32 @@ Size: full, because the board server gets a new duty in three steps, a task's se
    1. merge-leaves-board-lock is in `landing`. Its last event, the end of the checks, is at 10:54.
    2. After that, its session writes nothing, and no subagent or shell command of it runs.
    3. At 11:39 the board server sends the session a message that asks where the task stands and tells it to go on with its next step.
+   - test: `python3 -B -m unittest tests.unit.test_signs.ReadSigns tests.unit.test_signs.Transcript tests.unit.test_signs.Folder tests.unit.test_signs.List` in `tests/unit/test_signs.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_model.StoppedSession.test_45_minutes_after_the_newest_sign_the_status_message_is_due tests.unit.test_board_model.StoppedSession.test_the_numbers_are_the_owners` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_serve.StoppedSession.test_a_landing_with_no_event_for_hours_is_woken tests.unit.test_serve.StoppedSession.test_the_step_names_the_session_it_is_for` in `tests/unit/test_serve.py`
+   - test: `python3 -B -m unittest tests.unit.test_session.Guard.test_the_status_message_goes_to_the_live_session_and_never_opens_one tests.unit.test_session.Guard.test_session_goes_only_with_the_guards_steps` in `tests/unit/test_session.py`
 2. A session with any sign of work in the last 45 minutes gets no message: a landing whose checks run for 50 minutes with no event gets none, because the shell command of its checks still runs.
+   - test: `python3 -B -m unittest tests.unit.test_signs.ReadSigns.test_a_bash_command_of_the_session_is_a_shell tests.unit.test_signs.ReadSigns.test_a_hooks_process_and_caffeinate_are_no_shell` in `tests/unit/test_signs.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_model.StoppedSession.test_a_shell_command_that_runs_is_work_and_signs_that_do_not_read_are_no_evidence` in `tests/unit/test_board_model.py`
 3. The status message restarts nothing. When the session shows a sign of work in the 10 minutes after the message, Lem does nothing more for that stop.
+   - test: `python3 -B -m unittest tests.unit.test_board_model.StoppedSession.test_a_sign_in_the_10_minutes_ends_that_stop` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_session.Guard.test_a_sign_of_work_since_the_look_makes_the_act_act_on_nothing` in `tests/unit/test_session.py`
 4. When the 10 minutes pass with no sign of work, Lem looks once more, and only when there is still none does it open a fresh session for the task, from its state and its handoff. The old pane stays open, since the board server closes no session; when it wakes later, it sees the newer session and closes itself.
    1. 11:49. merge-leaves-board-lock still shows no sign of work.
    2. Lem looks again, and there is still none.
    3. Lem opens a fresh session for the task. That session reads the state, `landing` after the checks passed, and runs `lem land propose`.
+   - test: `python3 -B -m unittest tests.unit.test_board_model.StoppedSession.test_the_restart_is_due_10_minutes_after_the_message_with_no_sign tests.unit.test_board_model.StoppedSession.test_the_fresh_sessions_clock_starts_at_its_open` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_serve.StoppedSession.test_ten_minutes_after_the_message_the_task_is_restarted_then_its_stop_logged` in `tests/unit/test_serve.py`
+   - test: `python3 -B -m unittest tests.unit.test_session.Guard.test_each_step_acts_only_while_the_rule_still_gives_it tests.unit.test_session.Guard.test_a_task_out_of_its_phase_a_gone_or_other_session_and_signs_that_do_not_read tests.unit.test_session.Guard.test_the_restart_opens_beside_the_old_pane_and_tells_it` in `tests/unit/test_session.py`
 5. Lem restarts a task once for one stop. When the fresh session also gets the message and shows no sign of work in the 10 minutes after it, Lem opens no third session: the task shows in "Waits for you" as "stopped", with a button that opens a fresh session.
+   - test: `python3 -B -m unittest tests.unit.test_board_model.StoppedSession.test_a_fresh_session_that_stops_too_is_logged_once_and_not_restarted tests.unit.test_board_model.StoppedSession.test_a_work_event_after_the_restart_makes_a_new_restart_possible tests.unit.test_board_model.StoppedSession.test_a_stop_stands_until_a_work_event_or_a_session_opens` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_model.StoppedRow.test_a_stop_is_a_row_with_the_button_that_opens_a_fresh_session tests.unit.test_board_model.StoppedRow.test_no_row_before_the_stop_is_logged_or_after_a_session_opens_or_the_agent_works tests.unit.test_board_model.StoppedRow.test_a_stopped_session_that_is_gone_is_the_no_session_row_alone tests.unit.test_board_model.StoppedRow.test_a_stop_takes_the_place_of_a_wake_nobody_took tests.unit.test_board_model.StoppedRow.test_lem_project_waiting_lists_the_stop_as_the_board_has_it` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_serve.StoppedOpen.test_the_button_opens_beside_the_stopped_session tests.unit.test_serve.StoppedOpen.test_an_open_that_finds_work_says_so_and_opens_nothing` in `tests/unit/test_serve.py`
+   - test: `python3 -B -m unittest tests.unit.test_session.Guard.test_the_stop_is_logged_with_its_session tests.unit.test_session.Guard.test_the_owners_open_of_a_stopped_task_acts_until_its_session_works_again tests.unit.test_session.Guard.test_the_status_message_is_never_a_wake_nobody_answered` in `tests/unit/test_session.py`
 6. The task's timeline shows each act of Lem's: the status message, the restart and the stop, each with its time.
+   - test: `python3 -B -m unittest tests.unit.test_board_model.StoppedRow.test_the_timeline_says_each_act_of_the_guard_with_its_time` in `tests/unit/test_board_model.py`
 7. A task that waits for the owner (`held`), a queued task, a planned task, a blocked task, a task whose pull request is open, a parked task and an ended task get no message, whatever the time since their last event.
+   - test: `python3 -B -m unittest tests.unit.test_board_model.StoppedSession.test_a_task_out_of_building_ready_and_landing_gets_nothing` in `tests/unit/test_board_model.py`
 
 ## How it works
 
