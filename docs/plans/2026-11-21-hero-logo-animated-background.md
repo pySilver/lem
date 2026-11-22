@@ -52,7 +52,7 @@ flowchart LR
 2. **The hero.** The page lays the scene behind the hero text from edge to edge. Serves criteria 1, 2, 6 and 9 (the page's side).
    - `site/index.html` keeps the `<picture>` with `assets/lem.svg` and its night source in the first section, so the checks "first" and "theme" of `tests/test-site.sh` still hold; its `width` and `height` take the scene's frame, and its alt text says what the scene shows.
    - `site/style.css` breaks the scene out of `main`'s 1080 px to the window's width as a layer behind the hero text, from the top of the page to the end of the agterm note, never behind the board pictures of `.showcase` in the same section, and draws a shade from the scene to `var(--bg)` under the text, so the text keeps 4.5 to 1 against the scene's worst color at that place. The boxed frame, the rounded corners and the ochre shadow go. The install lines keep their solid box.
-   - The layer's height sets how much of the frame's width shows, since the scene is cut at its sides and never squeezed: at a width W and a height H a window shows W × 640 / H units of the 1600-unit frame, around its center. So at 390 px wide the layer is at most 390 × 640 / S px high, S being the span of the frame from the hood's left edge to the word's right edge in the final drawing (x 405 to about 1138 in `wire-day.svg`, the hood's path and the last tile under its `translate(224 40) scale(1.6)`, so about 340 px), and the hero text below that height stands on the page's background, reached through the shade (the talk's question 2).
+   - The layer's height sets how much of the frame's width shows, since the scene is cut at its sides and never squeezed: at a width W and a height H a window shows W × 640 / H units of the 1600-unit frame, around its center. So at 390 px wide the layer is at most 390 × 640 / (2 × max(800 − left, right − 800)) px high, left being the hood's left edge and right the word's right edge in the final drawing, since the crop stays centered at x 800 (x 404.8 and 1137.9 in `wire-day.svg`, the hood's path and the last tile under its `translate(224 40) scale(1.6)`, so 2 × 395 units and about 316 px; decision 8, by the gate), and the hero text below that height stands on the page's background, reached through the shade (the talk's question 2).
    - `tests/test-site.sh` gains drawn checks: the scene reaches both edges at 1280 x 800 with the first screen as today; the probe of the first screen records the lead (`.sub`) too, beside the headline and the agterm note (the talk's question 6); at 390 px the figure and the word are inside the window, and the scene's ratio is kept; each hero text's contrast against the worst color behind it, in each theme.
    - Files: `site/index.html`, `site/style.css`, `tests/test-site.sh`, and `README.md` only for the alt text, so the README and the page say the same.
 3. **The documents.** Corrects what the change makes false:
@@ -81,7 +81,9 @@ each side on each question, a second answer of each side on questions 2 and 3, a
    to the word, gave about 340 px; with the crop fixed at x 800 the window must reach 395 units
    to each side, so the cap is about 316 px. The defender conceded the number and refuted the
    failure: Task 2's drawn check at 390 px catches a cut hood. The reviewer held: the plan's
-   prose still gives 340 px. A design choice, decided after the talk (`stages/plan.md`, step 5).
+   prose still gives 340 px. A design choice. After the talk the gate judged it checkable, and
+   the arithmetic showed the reviewer's side: decision 8, `--by gate`, the cap of
+   390 x 640 / (2 x max(800 - left, right - 800)), about 316 px, now in task 2.
 3. **The contrast bound under moving, overlapping light.** Overlapping bands, a star and a
    varying shade, the reviewer said, are not bounded by one glow and one shade value. Repaired:
    one bound color for each theme from the largest (night) or smallest (day) red, green and blue
