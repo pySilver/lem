@@ -163,9 +163,14 @@ and the state say in one line what happened ("rebased on main after the forge ca
 conflicting; one conflict in shop/dates.py, resolved by a builder; the checks passed again"). A conflict that `base` meets is kept in `landing.json` with the tip before the rebase and
 whether a review covered the change then; the builder that resolves it rebases the branch itself,
 and the next `base` finds the rewritten commits by that tip, gives the polish pass's commits their
-new names, and keeps the resolution. A review that saw the change and left no must-fix stands
+new names, and keeps the resolution. The newest review that saw the change stands as it was
 through a rebase that git made with no conflict, also when the base changed a file of the change in
-other lines: `base` carries it onto the new base, for a careful request too. A builder's resolution gets one read of what it
+other lines: `base` carries it onto the new base, for a careful request too, and a must-fix it left
+stays open, so the request is not green for it in the same words (`review_carries`). The pull
+request's text and the `proposed` event say so ("the review carried over the rebase, and its open
+must-fix"). Whether that review also left no must-fix is what a conflict's record keeps as covered:
+with an open must-fix a resolved conflict gets the rules of the change, not one read of the
+resolution, and keeps the reason no review covers it. A builder's resolution gets one read of what it
 changed (`git range-diff` of the commits before and after the rebase), or the project's full set
 for a careful request; that read is no round, and anything committed after the resolution is
 reviewed as a change like any other.
@@ -985,7 +990,7 @@ def start_locked(task: Task, conflicting: bool = False) -> dict:
         # Each new landing of a proposal is counted, for the merge agent's facts: nothing bounds them,
         # since the checks run outside the merge lock and a busy base can move again meanwhile.
         relands = int(task.kept().get("relands") or 0) + 1
-        task.keep(sync={"conflicting": conflicting, "onto": None, "moved": None, "conflict": None, "resolved": False},
+        task.keep(sync={"conflicting": conflicting, "onto": None, "moved": None, "conflict": None, "resolved": False, "carried": None},
                   conflict=None, resolution=None, rebase_carried=None, rebase_uncovered=None, relands=relands)
         script("project.py", task.main, "log", task.slug, "land.again", f"count:={relands}", f"conflicting:={json.dumps(conflicting)}")
     if task.record["status"] != "landing":
@@ -1013,13 +1018,17 @@ def cmd_base(task: Task) -> dict:
     # A conflict this landing met before: a builder rebased the branch since and resolved it, or
     # left it as it was. Its record keeps the tip before any rebase, whether a review covered it, and why not.
     pending = kept.get("conflict")
+    answered = [read for read in kept.get("reads", []) if read["answered"]]
+    # what a rebase with no conflict carries: the newest review that answered, while it saw this
+    # change, with whatever it left open (read before the rebase, on the branch as it is)
+    carries = not (pending and before != pending["before"]) and review_carries(answered, backlog_of(task), change(task))
     if pending:
         covered = pending["covered"]
         uncovered = pending["uncovered"]
     else:
-        # covered: the newest review that answered saw this change and left nothing to fix in it
-        answered = [read for read in kept.get("reads", []) if read["answered"]]
-        covered = bool(answered) and not answered[-1]["must_fix"] and covers(task, answered[-1], change(task))
+        # covered: the newest review that answered saw this change and left nothing to fix in it,
+        # which a conflict's record keeps: it decides between one read of the resolution and the rules of the change
+        covered = carries and not answered[-1]["must_fix"]
         # why it is not, for the owner's merge that `propose` ends after this rebase (`tap_after`)
         uncovered = why_uncovered(answered, backlog_of(task), change(task))
     rebased = run(["git", "-C", str(task.worktree), "rebase", task.onto], check=False)
@@ -1057,6 +1066,8 @@ def cmd_base(task: Task) -> dict:
     # the tip a rebase with no conflict made of the tip before it, while the review carried: what was
     # said of that tip at the merge (the merge agent's review, the owner's merge) is kept for this one
     updates: dict = {"base": onto, "gated": None, "tree": None, "conflict": None, "rebase_carried": None, "rebase_uncovered": None}
+    # the review this rebase carried, with what it left open, for the pull request's text (`synced`)
+    carried = None
     if resolved:
         # What the review saw is the change before the conflict; what the builder chose where the
         # two sides met is new, and gets one read of its own (`due`).
@@ -1064,20 +1075,22 @@ def cmd_base(task: Task) -> dict:
             "files": pending["files"], "before": origin, "after": tip, "base": pending["base"], "onto": onto,
             "covered": covered, "patch": now["patch"], "read": None,
         }
-    elif tip != origin and covered:
-        # A rebase that git made with no conflict keeps the review of the change: the newest review
-        # that answered covers the change on the new base too.
+    elif tip != origin and carries:
+        # A rebase that git made with no conflict keeps the review of the change as it was: the newest
+        # review that answered covers the change on the new base too, and a must-fix it left stays
+        # open, a reason for not green in the same words (`due_of`).
         reads = task.kept().get("reads", [])
         last = max(index for index, read in enumerate(reads) if read["answered"])
         reads[last] = {**reads[last], "carried": [*reads[last].get("carried", []), {"patch": now["patch"], "contents": now["contents"], "onto": onto[:9]}]}
         updates["reads"] = reads
         updates["rebase_carried"] = {"from": origin, "to": tip}
-    if tip != origin and not covered:
+        carried = {"round": reads[last]["round"], "must_fix": reads[last]["must_fix"]}
+    if tip != origin and not (covered if resolved else carries):
         # the tip a rebase made while no review covered the change, and why: the words of the owner's
         # merge that `propose` of this tip ends
         updates["rebase_uncovered"] = {"from": origin, "to": tip, "why": uncovered}
     if kept.get("sync"):
-        updates["sync"] = {**task.kept()["sync"], "onto": onto[:9], "moved": tip != origin, "resolved": resolved or task.kept()["sync"].get("resolved", False)}
+        updates["sync"] = {**task.kept()["sync"], "onto": onto[:9], "moved": tip != origin, "resolved": resolved or task.kept()["sync"].get("resolved", False), "carried": carried}
     # a new base or a new tip means the last result of the checks is about another tree
     task.keep(**updates)
     return {"task": task.slug, "onto": task.onto, "base": onto, "tip": tip, "moved": tip != before, "ahead": ahead, "resolved": pending["files"] if resolved else None}
@@ -1286,10 +1299,19 @@ def covered(folder: str, read: dict, now: dict) -> bool:
     return any(covers_one(folder, seen, now) for seen in [read, *read.get("carried", [])])
 
 
+def review_carries(answered: list[dict], folder: str, now: dict) -> bool:
+    """Whether a rebase with no conflict carries the review onto the new base, from the reviews that
+    answered, in order, the backlog folder and the change as it is now: the newest one covers the
+    change, whatever it left open. A must-fix it left stays open on the new tip, a reason for not
+    green in the same words (`due_of`). That it also left no must-fix is the `covered` of a
+    conflict's record, which `why_uncovered` gives the reason against."""
+    return bool(answered) and covered(folder, answered[-1], now)
+
+
 def why_uncovered(answered: list[dict], folder: str, now: dict) -> str | None:
     """Why no review covers the change as it is now, from the reviews that answered, in order, and the
     backlog folder: the newest one's words, for the owner whose merge `propose` ends. None when the
-    newest one covers it, which is when `cmd_base`'s `covered` is true."""
+    newest one covers it and left no must-fix, which is when `cmd_base`'s `covered` is true."""
     if not answered:
         return "no review answered for the change"
     last = answered[-1]
@@ -3159,7 +3181,19 @@ def synced(task: Task) -> str | None:
     if files and sync.get("resolved"):
         line += f"; one conflict in {files[0]}" if len(files) == 1 else f"; conflicts in {len(files)} files, {', '.join(files)}"
         line += ", resolved by a builder"
+    said = review_line(sync.get("carried"))
+    if said:
+        line += f"; {said}"
     return line + "; the checks passed again"
+
+
+def review_line(carried: dict | None) -> str | None:
+    """What a rebase with no conflict carried of the review (`carried` of the kept `sync`: the round
+    and the must-fix it left), in the words of the pull request's text and of the `proposed` event;
+    None when it carried none."""
+    if not carried:
+        return None
+    return "the review carried over the rebase" + (", and its open must-fix" if carried["must_fix"] else "")
 
 
 def edited_line(bar: dict) -> list[str]:
@@ -3599,7 +3633,10 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
         pr = {"number": int(number), "url": url}
     # The events come after the forge's step: a proposal that the forge or the push refused is none.
     # for the retro: how often a request is not green, and for which reason
-    script("project.py", task.worktree, "log", task.slug, "proposed", f"green:={json.dumps(not reasons)}", f"not_green:={json.dumps(reasons)}", f"tip={tip[:9]}")
+    # and, for a landing that started from `open`, what the rebase carried of the review
+    review = review_line((kept.get("sync") or {}).get("carried"))
+    script("project.py", task.worktree, "log", task.slug, "proposed", f"green:={json.dumps(not reasons)}", f"not_green:={json.dumps(reasons)}", f"tip={tip[:9]}",
+           *([f"review={review}"] if review else []))
     moved = synced(task)
     task.keep(pr=pr, proposed=tip, title=title, not_green=reasons)
     carried = carry_merge(task, kept, tip, state, reasons)

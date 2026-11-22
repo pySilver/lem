@@ -469,6 +469,31 @@ class MovedBase(unittest.TestCase):
         self.assert_why([self.READ], fixed, "no review read what changed after round 1")
         self.assert_why([self.READ], self.NOW, None)
 
+    def test_a_rebase_with_no_conflict_carries_the_newest_review_with_what_it_left_open(self) -> None:
+        fixed = {"patch": "p2", "contents": {"shop.txt": {"base": "b1", "tip": "t2", "modes": ["100644", "100644"]}}}
+        open_one = {**self.READ, "round": 2, "must_fix": 1}
+        self.assertTrue(land.review_carries([self.READ], "docs/backlog", self.NOW))
+        # round 2 left 1 must-fix at the tip it read, and nothing came after it: the review carries, its must-fix too
+        self.assertTrue(land.review_carries([self.READ, open_one], "docs/backlog", self.NOW))
+        # the form an earlier rebase carried covers the change as well
+        self.assertTrue(land.review_carries([{**open_one, "carried": [{"patch": "p2", "contents": fixed["contents"], "onto": "abc"}]}], "docs/backlog", fixed))
+        # no review answered, or a commit came after the newest one: nothing carries
+        self.assertFalse(land.review_carries([], "docs/backlog", self.NOW))
+        self.assertFalse(land.review_carries([self.READ, open_one], "docs/backlog", fixed))
+        # an earlier review that covers the change carries nothing when a newer one does not
+        self.assertFalse(land.review_carries([self.READ, {**self.READ, "round": 2, "patch": "p0", "contents": None}], "docs/backlog", self.NOW))
+
+    def test_a_covered_change_with_an_open_must_fix_keeps_its_reason(self) -> None:
+        # the review carries over a clean rebase, and a conflict on it still keeps why no review covers it with nothing to fix
+        open_one = {**self.READ, "round": 2, "must_fix": 1}
+        self.assertTrue(land.review_carries([self.READ, open_one], "docs/backlog", self.NOW))
+        self.assert_why([self.READ, open_one], self.NOW, "round 2 left 1 must-fix, and no review read the change after it")
+
+    def test_the_line_of_a_carried_review_names_its_open_must_fix(self) -> None:
+        self.assertIsNone(land.review_line(None))
+        self.assertEqual(land.review_line({"round": 1, "must_fix": 0}), "the review carried over the rebase")
+        self.assertEqual(land.review_line({"round": 2, "must_fix": 1}), "the review carried over the rebase, and its open must-fix")
+
     def test_an_ended_merge_says_that_no_review_covers_the_change(self) -> None:
         tap = {"tip": "aaa", "not_green": ["two rounds reviewed it"], "via": "server", "at": "2026-11-22T10:00:00Z"}
         uncovered = {"from": "aaa", "to": "bbb", "why": "round 2 left 1 must-fix, and no review read the change after it"}

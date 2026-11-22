@@ -461,11 +461,12 @@ if [ "$(status_in "$GWS" w-one)" = landed ] && [ "$waited" = open ] && grep -qF 
   && [ "$(field 'd["task"]' <<<"$started" 2>&1)" = w-two ] && grep -qF "the base moved: the checks run again" "$GWS/.lem/state/tasks/w-two/state.md" \
   && [ "$(field '(d["moved"], d["resolved"])' <<<"$based" 2>&1)" = "(True, None)" ] && [ "$(field 'd["done"]' <<<"$polished" 2>&1)" = True ] \
   && [ "$(field '(d["due"], d["why"])' <<<"$due_after" 2>&1)" = "('none', 'round 1 reviewed this change and left no must-fix')" ] \
-  && [ "$(field '(d["pull_request"]["number"], d["green"], d["synced"])' <<<"$again" 2>&1)" = "(8, True, 'rebased on main; the checks passed again')" ] \
+  && [ "$(field '(d["pull_request"]["number"], d["green"], d["synced"])' <<<"$again" 2>&1)" = "(8, True, 'rebased on main; the review carried over the rebase; the checks passed again')" ] \
   && [ "$(status_in "$GWS" w-two)" = open ] && [ "$(git -C "$GWO" rev-parse refs/heads/fix/w-two)" = "$(git -C "$tree" rev-parse HEAD)" ] \
   && git -C "$tree" merge-base --is-ancestor "$(git -C "$GWO" rev-parse main)" HEAD \
-  && [ "$(gw_state '(sum(c[:2] == ["pr", "create"] for c in d["calls"]), [c[2] for c in d["calls"] if c[:2] == ["pr", "edit"]], "Rebased on main; the checks passed again." in d["prs"]["8"]["body"])')" = "(2, ['8'], True)" ] \
-  && sed -n 3p "$text" | grep -qxF "Rebased on main; the checks passed again." && grep -qxF "rebased on main; the checks passed again" "$GWS/.lem/state/tasks/w-two/state.md"; then
+  && [ "$(gw_state '(sum(c[:2] == ["pr", "create"] for c in d["calls"]), [c[2] for c in d["calls"] if c[:2] == ["pr", "edit"]], "Rebased on main; the review carried over the rebase; the checks passed again." in d["prs"]["8"]["body"])')" = "(2, ['8'], True)" ] \
+  && sed -n 3p "$text" | grep -qxF "Rebased on main; the review carried over the rebase; the checks passed again." \
+  && grep -qxF "rebased on main; the review carried over the rebase; the checks passed again" "$GWS/.lem/state/tasks/w-two/state.md"; then
   pass "after a merge an open task with no conflict waits as it is; the owner's word to land it is refused on the moved base with the steps, and they bring it onto the new base: the polish pass and the review it had stand through a rebase with no conflict, the checks run again, and propose pushes it and keeps its pull request, whose text and state say what happened in one line"
 else
   fail "an open task after a merge: $waited / $refused / $started / $based / $polished / $due_after / $again"
