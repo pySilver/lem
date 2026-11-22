@@ -22,6 +22,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts"))
 inbox = importlib.import_module("lem_inbox")
 bm = importlib.import_module("lem_board_model")
+land = importlib.import_module("land")
 
 START = datetime(2026, 11, 22, 9, 0, tzinfo=timezone.utc)
 NOW = int((START + timedelta(hours=2)).timestamp() * 1000)
@@ -29,6 +30,10 @@ RD = "report-dates"
 TAILNET = "https://mac.tail0.ts.net:50026/"
 AWAY = {"ts": "2026-11-22T08:00:00Z", "event": "owner", "away": True, "words": "/lem im-away"}
 BACK = {"ts": "2026-11-22T10:30:00Z", "event": "owner", "away": False, "words": "/lem im-back"}
+# whole commits, as landing.json keeps `proposed`; the `proposed` and `merge.review` events keep their first 9 digits (land.py)
+FOOTER = "abc1234def567890abc1234def567890abc12345"
+FIRST = "aaa1110000000000000000000000000000000001"
+SECOND = "bbb2220000000000000000000000000000000002"
 
 
 def ev(minute: float, event: str, task: str = RD, **fields) -> dict:
@@ -118,10 +123,12 @@ class InFolder(unittest.TestCase):
         self.addCleanup(which.stop)
         self.plannotator = Plannotator()
         self.woken: list[str] = []
+        self.landings: dict[str, dict] = {}
         self.m = None
 
     def watcher(self, wakes: bool = True) -> "inbox.Watcher":
-        space = SimpleNamespace(name="shop", path="/repo/shop", state=self.state, model=lambda: self.m, plan_of=lambda slug: None)
+        space = SimpleNamespace(name="shop", path="/repo/shop", state=self.state, model=lambda: self.m, plan_of=lambda slug: None,
+                                landing_of=lambda slug: self.landings.get(slug, {}))
         return inbox.Watcher(lambda: [space], lambda name, slug: f"https://mac.tail0.ts.net:4537/mac/{name}/tasks/{slug}",
                              lambda space, slug: self.woken.append(slug) or wakes, runner=self.plannotator, log=lambda line: None)
 
@@ -161,8 +168,8 @@ class Sends(InFolder):
             state(0, "dropped", "nobody builds it", task="gift-note"),
             state(1, "queued", "it starts after gift-note", "after: gift-note", task="gift-totals"),
             state(0, "open", "the pull request waits for its merge", "pull request: https://github.com/acme/shop/pull/12", task="footer"),
-            ev(1, "proposed", "footer", green=True, not_green=[], tip="abc1234def"),
-            ev(2, "merge.review", "footer", verdict="call", calls=True, why="Verdict: call. It changes the footer of every page.", by="claude", tip="abc1234def"),
+            ev(1, "proposed", "footer", green=True, not_green=[], tip=FOOTER[:9]),
+            ev(2, "merge.review", "footer", verdict="call", calls=True, why="Verdict: call. It changes the footer of every page.", by="claude", tip=FOOTER[:9]),
             *opened(0.5, task="footer", claude="c-f"),
             state(0, "building", "task 1 of 3", task="no-session"),
         ]
@@ -172,17 +179,18 @@ class Sends(InFolder):
         m = model(*events, owner=[AWAY], sessions=sessions)
         rows = bm.waits_of(m)
         self.assertIn("review:footer", [r["key"] for r in rows])
-        things = inbox.things_of(rows, m, bm)
+        self.landings = {"footer": {"proposed": FOOTER}}
+        things = inbox.things_of(rows, m, bm, lambda slug: self.landings.get(slug, {}).get("proposed"))
         self.assertEqual(sorted((t["key"], t["form"]) for t in things.values()), [
             ("after_dropped:gift-totals", "note"), ("blocked:login-fixture", "question"), ("breaker:report-dates:1", "question"),
             ("held:notes-in-order", "question"), ("merge:footer", "question"), ("session:no-session", "note")])
-        self.assertEqual(things["merge:footer"]["tip"], "abc1234def")
+        self.assertEqual(things["merge:footer"]["tip"], FOOTER)
         self.m = m
         self.watcher().look()
         bodies = {c["payload"]["thread"]: c for c in self.plannotator.sends()}
         self.assertEqual(set(bodies), {RD, "notes-in-order", "login-fixture", "gift-totals", "footer", "no-session"})
         merge = bodies["footer"]["payload"]["body"]
-        self.assertIn("Merge pull request #12 of footer at commit abc1234def?", merge)
+        self.assertIn(f"Merge pull request #12 of footer at commit {FOOTER}?", merge)
         self.assertIn("It changes the footer of every page", merge)
         self.assertIn("- [ ] Merge\n- [ ] Not now", merge)
         self.assertIn("Your order: “after the export task”", bodies["notes-in-order"]["payload"]["body"])
@@ -347,17 +355,19 @@ class Withdraws(InFolder):
 
     def test_a_new_proposal_is_a_new_merge_question_and_a_refused_merge_a_note(self):
         footer = [*opened(0), state(1, "open", "the pull request waits", "pull request: https://github.com/acme/shop/pull/12", task=RD),
-                  ev(1, "proposed", green=True, not_green=[], tip="aaa111"), ev(2, "merge.review", verdict="call", calls=True, why="Verdict: call. It is wide.", tip="aaa111")]
+                  ev(1, "proposed", green=True, not_green=[], tip=FIRST[:9]), ev(2, "merge.review", verdict="call", calls=True, why="Verdict: call. It is wide.", tip=FIRST[:9])]
+        self.landings = {RD: {"proposed": FIRST}}
         self.m = model(*footer, owner=[AWAY])
         w = self.watcher()
         w.look()
-        self.assertIn("at commit aaa111?", self.plannotator.sends()[-1]["payload"]["body"])
-        again = [*footer, ev(3, "proposed", green=True, not_green=[], tip="bbb222"), ev(4, "merge.review", verdict="call", calls=True, why="Verdict: call. Still wide.", tip="bbb222")]
+        self.assertIn(f"at commit {FIRST}?", self.plannotator.sends()[-1]["payload"]["body"])
+        again = [*footer, ev(3, "proposed", green=True, not_green=[], tip=SECOND[:9]), ev(4, "merge.review", verdict="call", calls=True, why="Verdict: call. Still wide.", tip=SECOND[:9])]
+        self.landings = {RD: {"proposed": SECOND}}
         self.m = model(*again, owner=[AWAY])
         self.assertEqual([d["did"] for d in w.look()], ["withdrew", "sent"])
-        self.assertIn("at commit bbb222?", self.plannotator.sends()[-1]["payload"]["body"])
-        self.assertEqual(self.record()["sent"][0]["tip"], "bbb222")
-        refused = [*again, ev(5, "merge.refused", said="the base branch needs a review", by="owner", tip="bbb222", **{"from": "github"})]
+        self.assertIn(f"at commit {SECOND}?", self.plannotator.sends()[-1]["payload"]["body"])
+        self.assertEqual(self.record()["sent"][0]["tip"], SECOND)
+        refused = [*again, ev(5, "merge.refused", said="the base branch needs a review", by="owner", tip=SECOND[:9], **{"from": "github"})]
         self.m = model(*refused, owner=[AWAY])
         self.assertEqual([d["did"] for d in w.look()], ["withdrew", "sent"])
         note = self.plannotator.sends()[-1]
@@ -367,13 +377,103 @@ class Withdraws(InFolder):
 
     def test_after_im_back_a_question_its_row_no_longer_asks_is_withdrawn_and_nothing_new_is_sent(self):
         footer = [*opened(0), state(1, "open", "the pull request waits", "pull request: https://github.com/acme/shop/pull/12", task=RD),
-                  ev(1, "proposed", green=True, not_green=[], tip="aaa111"), ev(2, "merge.review", verdict="call", calls=True, why="Verdict: call.", tip="aaa111")]
+                  ev(1, "proposed", green=True, not_green=[], tip=FIRST[:9]), ev(2, "merge.review", verdict="call", calls=True, why="Verdict: call.", tip=FIRST[:9])]
+        self.landings = {RD: {"proposed": FIRST}}
         self.m = model(*footer, owner=[AWAY])
         w = self.watcher()
         w.look()
-        self.m = model(*footer, ev(5, "merge.refused", said="a review is required", by="owner", tip="aaa111", **{"from": "github"}), owner=[AWAY, BACK])
+        self.m = model(*footer, ev(5, "merge.refused", said="a review is required", by="owner", tip=FIRST[:9], **{"from": "github"}), owner=[AWAY, BACK])
         self.assertEqual([d["did"] for d in w.look()], ["withdrew"])
         self.assertEqual((len(self.plannotator.sends()), self.record()["sent"]), (2, []))
+
+
+class ReviewOne(InFolder):
+    """The findings of the first review of away-questions-reach-phone, each on the input it named."""
+
+    def test_a_failed_send_goes_again_only_while_he_is_away_for_the_same_thing_and_wakes_the_session(self):
+        # finding 1: after /lem im-back, a send that failed is forgotten, not posted and withdrawn
+        self.m = model(*BREAKER, owner=[AWAY])
+        w = self.watcher()
+        self.plannotator.fail = "inbox_unreachable: the Inbox did not answer"
+        w.look()
+        self.plannotator.fail = None
+        self.m = model(*BREAKER, owner=[AWAY, BACK])
+        self.assertEqual([d["did"] for d in w.look()], ["forgot"])
+        self.assertEqual((len(self.plannotator.sends()), self.record()["sent"]), (1, []))
+        calls = len(self.plannotator.calls)
+        self.assertEqual(w.look(), [])
+        self.assertEqual(len(self.plannotator.calls), calls, "with nothing in the record and no mark, no look asks the Inbox")
+        # a refusal that never clears is forgotten once the row left, and the row's next thing is sent
+        self.m = model(*BREAKER, owner=[AWAY])
+        self.plannotator.fail = "invalid_request: the body is too long"
+        w.look()
+        self.m = model(*BREAKER, ev(4, "decision.taken", id=2, what="Where the dates go", chose="A", why="his word", by="owner", breaker=1),
+                       state(4, "building", "task 1 of 2: the build goes on"), *breaker(6, 2), owner=[AWAY])
+        self.plannotator.fail = None
+        self.assertEqual([(d["did"], d["key"]) for d in w.look()], [("forgot", "breaker:report-dates:1"), ("sent", "breaker:report-dates:2")])
+        # finding 6: a question that a later look sends again wakes the task's session
+        self.woken.clear()
+        self.m = model(*BREAKER, *breaker(8, 3), owner=[AWAY])
+        self.plannotator.fail = "inbox_unreachable: the Inbox did not answer"
+        w.look()
+        self.plannotator.fail = None
+        self.assertIn(("sent", "breaker:report-dates:3"), [(d["did"], d["key"]) for d in w.look()])
+        self.assertEqual(self.woken, [RD])
+
+    def test_the_merge_question_names_the_whole_commit_that_lem_land_merge_takes(self):
+        # finding 2: the `proposed` event keeps 9 digits; the question names the 40 of landing.json
+        footer = [*opened(0), state(1, "open", "the pull request waits", "pull request: https://github.com/acme/shop/pull/12"),
+                  ev(1, "proposed", green=True, not_green=[], tip=FOOTER[:9]), ev(2, "merge.review", verdict="call", calls=True, why="Verdict: call.", tip=FOOTER[:9])]
+        self.landings = {RD: {"proposed": FOOTER}}
+        self.m = model(*footer, owner=[AWAY])
+        self.watcher().look()
+        body = self.plannotator.sends()[-1]["payload"]["body"]
+        named = body.split("at commit ", 1)[1].split("?", 1)[0]
+        self.assertIsNone(land.expected_refusal(named, FOOTER, RD))
+        self.assertEqual(self.record()["sent"][0]["tip"], FOOTER)
+        # a landing record of another proposal, or none, names no commit: a note, and no merge question
+        for landing in ({"proposed": SECOND}, {}):
+            with self.subTest(landing=landing):
+                m = model(*footer, owner=[AWAY])
+                thing = inbox.things_of(bm.waits_of(m), m, bm, lambda slug: landing.get("proposed"))[f"merge:{RD}"]
+                self.assertEqual((thing["form"], thing["asks"]), ("note", False))
+
+    def test_after_im_back_a_session_that_ends_leaves_the_open_question(self):
+        # finding 3: the session's own row stands for the task, and the breaker behind it still waits
+        w = self.watcher()
+        self.m = model(*BREAKER, owner=[AWAY])
+        w.look()
+        gone = {RD: {"live": False, "agent": False, "unanswered": False, "session": None, "worktree": True}}
+        self.m = model(*BREAKER, owner=[AWAY, BACK], sessions=gone)
+        self.assertIn("breaker:report-dates:1", [r["key"] for r in bm.waits_of(self.m)])
+        self.assertEqual(w.look(), [])
+        self.assertEqual([(r["key"], r["message_id"]) for r in self.record()["sent"]], [("breaker:report-dates:1", "msg_1")])
+        self.assertEqual(len(self.plannotator.sends()), 1)
+
+    def test_a_withdrawal_says_where_the_wait_went_without_naming_the_mac(self):
+        # finding 4: a row that left says it was settled outside the thread; a changed thing, that a newer message follows
+        w = self.watcher()
+        self.m = model(*BREAKER, owner=[AWAY])
+        w.look()
+        self.m = model(*BREAKER, *opened(40, session="S-2", claude="c-new"), owner=[AWAY])
+        w.look()
+        self.assertEqual(self.plannotator.sends()[1]["payload"]["body"], inbox.REPLACED)
+        self.m = model(*BREAKER, *opened(40, session="S-2", claude="c-new"), state(41, "parked", "the owner parked it from the board"), owner=[AWAY])
+        w.look()
+        self.assertEqual(self.plannotator.sends()[-1]["payload"]["body"], inbox.WITHDRAWN)
+        self.assertNotIn("Mac", inbox.WITHDRAWN + inbox.REPLACED)
+
+    def test_a_session_that_has_not_logged_its_claude_session_yet_gets_nothing_until_it_does(self):
+        # finding 7: a new session.open with no session.transcript yet, within the board's grace, is no note
+        fresh = [state(0, "building", "task 1 of 2"), *opened(1), *breaker(), ev(119, "session.open", session="S-2", name=RD, phase="build")]
+        self.m = model(*fresh, owner=[AWAY])
+        self.assertEqual(self.watcher().look(), [])
+        self.assertEqual(self.plannotator.sends(), [])
+        # past the grace, a live session with no Claude Code session on record gets the note
+        late = [state(0, "building", "task 1 of 2"), *opened(1), *breaker(), ev(100, "session.open", session="S-2", name=RD, phase="build")]
+        self.m = model(*late, owner=[AWAY])
+        self.watcher().look()
+        self.assertEqual([c["session"] for c in self.plannotator.sends()], [None])
 
 
 if __name__ == "__main__":
