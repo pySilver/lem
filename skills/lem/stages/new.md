@@ -218,11 +218,11 @@ The task's own session, in the shape, from its first message.
    standing text by its place in the plugin and never by a folder: the plugin's folder changes with
    each update, and the `lem` on the reader's PATH is the Lem loaded when it starts. The ask is in
    `task.md`, in the owner's words. The brief is a file because a task may wait in the queue or
-   get a second lead, and each start has to find the same answers: an ask of `/lem plan` writes `stop after the plan: yes` here, and that line is what keeps a
-   plan from being built. When the owner called the task careful in the ask, add the line
-   `careful: the owner says so` and log his words, as `stages/correct.md` says. The lead still
-   writes the plan: it reads that line as a yes (`stages/plan.md`, step 2), and the plan talk
-   needs a plan to talk about.
+   get a second lead, and each start has to find the same answers: an ask of `/lem plan` writes
+   `stop after the plan: yes` here, and that line is what keeps a plan from being built. When the
+   owner called the task careful in the ask, add the line `careful: the owner says so` and log his
+   words, as `stages/correct.md` says. The lead still writes the plan: it reads that line as a yes
+   (`stages/plan.md`, step 2), and the plan talk needs a plan to talk about.
 7. **Does it wait for another task?** In two cases, and in no other:
    - *his order*, as step 1 read it, while the task he named has not landed or been answered;
    - *a need*: the later ask needs what the earlier one changes, while the earlier one has not
