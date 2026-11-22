@@ -1431,6 +1431,12 @@ def glob_regex(glob: str) -> re.Pattern[str]:
     return re.compile("".join(out))
 
 
+def glob_patterns(glob: str) -> list[re.Pattern[str]]:
+    """The patterns one glob of a rule file's `paths:` stands for, one for each of its brace forms, with
+    a leading `./` taken off; a path is covered when one of them matches it whole."""
+    return [glob_regex(one) for one in braces(glob.removeprefix("./"))]
+
+
 def rule_scope(file: Path, name: str) -> list[str] | None:
     """The globs a rule file scopes itself to, or None for one that covers every path.
 
@@ -1531,7 +1537,7 @@ def cmd_rules(settings: dict, files: list[str], commits: str | None) -> None:
             rules.append({"file": str(file), "scope": "every path"})
             continue
         try:
-            patterns = [(glob, glob_regex(one)) for glob in globs for one in braces(glob.removeprefix("./"))]
+            patterns = [(glob, pattern) for glob in globs for pattern in glob_patterns(glob)]
         except re.error as error:
             raise SettingsError(f"{shown}: a glob of its `paths:` does not read as a pattern ({error}); correct it, most likely a `[` with no `]` or a range that runs backwards") from error
         covers = sorted({name for name in changed for _, pattern in patterns if pattern.fullmatch(name)})

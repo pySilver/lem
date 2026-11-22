@@ -19,8 +19,8 @@ import project  # noqa: E402
 
 
 def matches(glob: str, path: str) -> bool:
-    """Whether a glob of `paths:` covers the path, the way `cmd_rules` asks: each of its brace forms, the whole path."""
-    return any(project.glob_regex(one).fullmatch(path) for one in project.braces(glob.removeprefix("./")))
+    """Whether a glob of `paths:` covers the path, through `glob_patterns`, which `cmd_rules` asks too."""
+    return any(pattern.fullmatch(path) for pattern in project.glob_patterns(glob))
 
 
 class Braces(unittest.TestCase):
