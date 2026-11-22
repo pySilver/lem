@@ -130,7 +130,9 @@ owner reads.
 
 - **what the owner gets**, in one or two sentences, and how to see it. When behavior changed, the
   run that shows it follows them, told as `prompts/writing.md` tells a story, with the chart of a
-  new flow and the builders' pictures of `media/`: the owner's "What was built" opens with this part;
+  new flow and the builders' pictures of `media/`, or, for a change to what a person sees that has
+  none, a builder's one line of why it took none (`No picture: REASON`): the owner's "What was
+  built" opens with this part, and the merge agent's review shows the pictures or that line;
 - **the criteria**: each criterion of the plan with the tests that hold it. Before the report, write
   under each criterion in the plan its tests (`- test: ...`, or `- no test: REASON` for a criterion
   no test can hold, such as a sentence of a document, and `- no test: the change keeps behavior; the
