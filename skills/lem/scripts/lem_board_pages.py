@@ -358,6 +358,10 @@ def head(ctx_title: str, asset) -> list:
         h("title", None, ctx_title),
         h("meta", {"name": "turbo-refresh-method", "content": "morph"}),
         h("meta", {"name": "turbo-refresh-scroll", "content": "preserve"}),
+        # No link prefetch: Turbo 8 gives the next request of a link's address the answer it fetched for
+        # the link, the stream's refresh too, and a task link's answer is the panel alone (`Turbo-Frame:
+        # task`), which the morph would make the whole page of
+        h("meta", {"name": "turbo-prefetch", "content": "false"}),
         h("meta", {"name": "theme-color", "content": THEME["light"], "media": "(prefers-color-scheme: light)"}),
         h("meta", {"name": "theme-color", "content": THEME["dark"], "media": "(prefers-color-scheme: dark)"}),
         h("meta", {"name": "apple-mobile-web-app-capable", "content": "yes"}),

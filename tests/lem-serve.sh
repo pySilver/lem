@@ -403,10 +403,70 @@ tapped_checks() {
     fail "the phone's page after the refresh: the server's inbox $inbox_before then $inbox_after, the page's inbox icon and sidebar $shown"
   fi
 }
+# The owner's merges on the phone, in headless Chrome at a phone's size: a finger opens the panel of
+# refund-line-on-receipt, the page logs its inbox icon and its sidebar's "Waits for you" at each change of the page (a
+# MutationObserver), and within seconds the merge's events are written as land.py writes them for the board's merge
+# (`--by owner --via server`; the demo has no confirm form). On one page Lem refuses the merge because the base moved
+# (`merge.refused`, kind `base`: the task lands again, and waits for its session, not for him). Then the task is
+# proposed again and the merge agent's review calls the owner, and on a second page the merge goes through (the task
+# lands). Each page prints the server's count (/api/workspaces) before the events and again 5 seconds after them. Every
+# pair a page logged is two equal numbers, the page went from the first count to the second, and its last pair is the
+# second; the second page's is also the count the server's board shows.
+merge_checks() {
+  printf '%s\n' 'import json, sys, urllib.request' 'print("count", json.load(urllib.request.urlopen(sys.argv[1]))[0]["waits"])' > "$WORK/count.py"
+  for end in refused merged; do
+    "$PY" -c 'import json, shlex, sys; base, server, project, demo, py, work, end = sys.argv[1:]
+log = [py, "-B", project, "--repo", demo, "log", "refund-line-on-receipt"]
+events = [log + ["merge.start", "by=owner", "via=server"], {
+  "refused": log + ["merge.refused", "by=owner", "via=server", "from=lem", "kind=base", "said=origin/main moved after the checks ran, by files (shop/receipt.py)", "tip=e269cde1d"],
+  "merged": [py, "-B", project, "--repo", demo, "state", "refund-line-on-receipt", "landed", "main: pull request https://github.com/acme/shop/pull/44 is merged"]}[end]]
+count = shlex.join([py, "-I", work + "/count.py", server + "/api/workspaces"])
+pair = "[document.querySelector(\".m-waits span\")?.textContent ?? \"none\", document.querySelector(\".side-head em\")?.textContent ?? \"none\"]"
+print(json.dumps({"width": 390, "height": 844, "mobile": True, "steps": [
+  {"goto": base + "/", "wait": 2500},
+  {"click": "#card-refund-line-on-receipt .tc-link", "tap": True, "after": 2500},
+  {"eval": f"window.lemPairs = [{pair}]; new MutationObserver(() => window.lemPairs.push({pair})).observe(document.documentElement, {{subtree: true, childList: true, characterData: true, attributes: true}})"},
+  {"sh": " && ".join([count] + [shlex.join(e) + " >/dev/null" for e in events]), "after": 5000},
+  {"sh": count},
+  {"print": "JSON.stringify(window.lemPairs)"}]}))' \
+      "$BASE" "$SERVER" "$PROJECT" "$DEMO" "$PY" "$WORK" "$end" > "$WORK/merge-$end.json"
+    node tests/board-cdp.mjs "$WORK/merge-$end.json" > "$WORK/merge-$end.out" 2>&1 || true
+    if [ "$end" = refused ]; then
+      project --repo "$DEMO" log refund-line-on-receipt proposed "green:=false" 'not_green:=["the owner did not approve the criteria"]' tip=7a51c0d >/dev/null
+      project --repo "$DEMO" log refund-line-on-receipt merge.review verdict=call "calls:=true" by=claude tip=7a51c0d2e "why=Verdict: call. The base moved under the receipt." >/dev/null
+    fi
+  done
+  # for each page: the server's two counts, the pairs it logged as each change of a pair, and what is wrong with them
+  seen=$("$PY" -c 'import json, sys; board = sys.argv[1]
+def changes(items): return [x for i, x in enumerate(items) if i == 0 or x != items[i - 1]]
+said = {}
+for end, file in zip(("refused", "merged"), sys.argv[2:]):
+    lines = open(file).read().splitlines()
+    counts = [line.split()[1] for line in lines if line.startswith("count ")]
+    try:
+        pairs = json.loads(json.loads(lines[-1]))
+    except (ValueError, IndexError):
+        pairs = []
+    last = counts[-1] if counts else None
+    said[end] = {"counts": counts, "pairs": changes(pairs), "wrong": [w for w, bad in (
+        ("a tap found no element", any(line.startswith("no element") for line in lines)),
+        ("the count did not move", len(counts) != 2 or counts[0] == counts[1]),
+        ("two counts of the page differ", any(a != b for a, b in pairs)),
+        ("the page did not go from the first count to the second", [a for a, _ in changes(pairs)] != changes(counts)),
+        ("the last pair is not the server count", not pairs or pairs[-1] != [last, last] or (end == "merged" and last != board))) if bad]}
+print(json.dumps({**said, "wrong": said["refused"]["wrong"] + said["merged"]["wrong"]}))' "$(inbox)" "$WORK/merge-refused.out" "$WORK/merge-merged.out")
+  if [ "$(field 'd["wrong"]' <<<"$seen")" = "[]" ]; then
+    pass "the owner's merge from a task's panel on a phone, refused because the base moved or gone through: the inbox icon and the sidebar's Waits for you show the same number after every change of the page, the server's"
+  else
+    fail "the counts of a phone page through the owner's merges: $seen"
+  fi
+}
 if command -v node >/dev/null 2>&1 && { [ -x "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ] || command -v google-chrome >/dev/null 2>&1 || command -v chromium >/dev/null 2>&1; }; then
   tapped_checks
+  merge_checks
 else
   skip_function tapped_checks "no Node, or no Chrome or Chromium found"
+  skip_function merge_checks "no Node, or no Chrome or Chromium found"
 fi
 
 # lem board, with a stand-in for agtermctl that prints a tree and records its calls: the board opens at the server's
