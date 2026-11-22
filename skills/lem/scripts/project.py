@@ -2636,7 +2636,9 @@ def opening_line_facts(directory: Path, main: Path, status: str, lines: list[str
     if not quote and item and (main / ask).is_file():
         title = next((row.lstrip("# ").strip() for row in text_of(main / ask).splitlines() if row.startswith("# ")), None)
         quote = title and first_sentence(title)
-    quote = quote or (first_sentence(ask) if ask else None)
+    # ask.txt keeps the command that carried his words (`/lem After the gift note: ...`); the quote is his words alone
+    words = re.sub(r"^/lem\s+", "", ask)
+    quote = quote or (first_sentence(words) if words else None)
     return {
         "type": typed["type"], "path": path, "quote": quote and in_his_words(quote),
         "branch": named if BRANCH_NAME.fullmatch(named) else branch,

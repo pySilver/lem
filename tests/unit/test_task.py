@@ -380,6 +380,13 @@ class FirstLine(unittest.TestCase):
         found = self.say("queued", "it needs the export's column", "after: gift-note-in-export", "investigation: bug", "type: fix, because x")
         self.assertIn("starts when that task lands or is answered. Then an investigator finds the cause first.", found)
 
+    def test_the_ask_is_quoted_without_the_lem_that_carried_it(self):
+        # no outcome, no criterion, no backlog item: the quote falls back to ask.txt, which keeps the command
+        self.write("ask.txt", "/lem After the gift note: the export keeps the notes in their order\n")
+        said = self.say("held", "the interview waits for the owner", "type: feat, because a new order")
+        self.assertTrue(said.startswith('feat: "after the gift note: the export keeps the notes in their order". Standard track:'), said)
+        self.assertNotIn("/lem After", said)
+
     def test_another_session_names_the_task_and_its_commands(self):
         self.write("ask.txt", "the footer says Terms, not Terms and Conditions\n")
         self.write("criteria.md", "## Acceptance criteria\n\nSize: small, because one word.\n\n1. The footer says Terms.\n")
