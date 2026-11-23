@@ -178,7 +178,7 @@ asked=$(grep '"event": "board.act", "task": "stock-on-product-page"' "$STATE/eve
 if [ "${other%% *}" = 403 ] && [ "${mine%% *}" = 303 ] && [ "$approved" = "('owner', 1)" ] && [ "$asked" = "('approve', 'the board, through the tailnet door')" ] \
   && grep -qxF "wake stock-on-product-page --why owner" "$LEM_SESSION_CALLS" \
   && ! grep -rqF "owner@example.com" "$STATE/events.jsonl" "$STATE/tasks/stock-on-product-page" \
-  && ! curl -fsS "$BASE/waits" | grep -qF "stock-on-product-page/approve"; then
+  && ! grep -qF "stock-on-product-page/approve" <<<"$(curl -fsS "$BASE/waits")"; then
   pass "through the door another login is refused, and the owner's yes is the owner's approval of the criteria, with where he asked and never his login, and the word to the task's session"
 else
   fail "the approval through the door: $other / $mine / $approved / $asked"
