@@ -381,8 +381,8 @@ def edited(text: str, table: str, key: str, value: object, name: object) -> str:
     """The text of a TOML file with KEY of TABLE set to VALUE, or taken out with None, and every other
     line as it was, its comments too. It replaces the one line `KEY = ...` inside `[TABLE]`, adds the
     line after the table's last line, or adds the table at the end of the text. Taken out, the line
-    goes; a table left with no line goes with its header. The new text is read back and compared with
-    the old one's values: each table and key as it was, and only KEY of TABLE set or gone. A text where
+    goes; a table left with no line goes with its header, and a comment on the header's line stays as a
+    line of its own. The new text is read back and compared with the old one's values: each table and key as it was, and only KEY of TABLE set or gone. A text where
     they differ is refused with the fix: a key the old text writes in another form (a dotted key at the
     top, an inline table, a list over several lines) ends there, and the file stays as it is. NAME is
     the file's name in a refusal."""
@@ -422,10 +422,15 @@ def edited(text: str, table: str, key: str, value: object, name: object) -> str:
             del lines[found]
             stop -= 1
             if not any(content(line) for line in lines[header + 1:stop]):
-                del lines[header]
-                # the blank line that set the table apart goes with it, at the end of the text or before another blank
-                if header and not lines[header - 1].strip() and (header == len(lines) or not lines[header].strip()):
-                    del lines[header - 1]
+                said = TABLE_LINE.fullmatch(lines[header].rstrip("\r\n")).group(3)
+                if said:
+                    # a comment on the header's own line stays, as a line of its own
+                    lines[header] = said + "\n"
+                else:
+                    del lines[header]
+                    # the blank line that set the table apart goes with it, at the end of the text or before another blank
+                    if header and not lines[header - 1].strip() and (header == len(lines) or not lines[header].strip()):
+                        del lines[header - 1]
     elif found is not None:
         line = lines[found]
         indent = line[:len(line) - len(line.lstrip())]

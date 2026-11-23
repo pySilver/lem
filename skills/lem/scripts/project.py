@@ -1541,7 +1541,8 @@ def set_value(scope: str, name: str, value: str) -> object:
         experts_of({"seats": {"experts": parts}}, where)
         return parts
     agents, why, example = SEATS[name]
-    return parse_seat(value, f"{where}: seats.{name}", agents, why, example, True)["seat"]
+    # the example of SEATS may leave out a part, as the files may; the one `set` names is whole, as it asks
+    return parse_seat(value, f"{where}: seats.{name}", agents, why, example if name in WHOLE_SEATS else DEFAULT_SEATS[name], True)["seat"]
 
 
 def seats_checked(tables: dict, name: Path) -> None:
@@ -1563,9 +1564,10 @@ def local_checked(file: Path) -> None:
 def cmd_set(root: Path, scope: str, name: str, words: list[str]) -> dict:
     """Write one line of `[seats]`, or with `default` take it out: `global` in the home folder's
     `settings.toml`, for each repository on this machine that names none, `local` in this machine's own
-    file of the repository, in the main checkout. The value is checked first, then the file whole: a wrong one is
-    refused with its fix, and the file stays as it was. Every other line of the file stays, its
-    comments too (`lem_state.edited`). It gives the seat as `show` then reads it, with its `from`."""
+    file of the repository, in the main checkout. The value is checked first, then the file whole, then
+    the repository's settings: a wrong one is refused with its fix, and the file stays as it was. Every
+    other line of the file stays, its comments too (`lem_state.edited`). It gives the seat as `show`
+    then reads it, with its `from`."""
     if scope not in SCOPES:
         raise SettingsError(f"set takes global, which writes {home_name()} for each repository on this machine that names none, "
                             f"or local, which writes {LOCAL} of this repository for this machine only; not {scope!r}. "
@@ -1581,6 +1583,8 @@ def cmd_set(root: Path, scope: str, name: str, words: list[str]) -> dict:
         file = main_checkout(root) / LOCAL
         local_checked(file)
         place = str(LOCAL)
+    # the repository's settings too, which the answer reads after the write: a refusal comes before anything is written
+    load(root)
     try:
         lem_state.write_edits(file, [("seats", name, value)], SET_FIRST[scope])
     except lem_state.StateError as error:

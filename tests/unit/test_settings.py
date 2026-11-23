@@ -9,6 +9,7 @@ fact only git shows, and tests/lem-settings.sh checks it in real repositories.
 import contextlib
 import io
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -657,6 +658,14 @@ class SetSeat(Home):
         self.assertEqual(project.lem_state.edited(text, "seats", "reviewer", None, "machine.toml"), "[load]\nstart = 6\n\n[serve]\nport = 4500\n")
         self.assertEqual(project.lem_state.edited('[load]\nstart = 6\n\n[seats]\nreviewer = "x/y:z"\n', "seats", "reviewer", None, "machine.toml"), "[load]\nstart = 6\n")
 
+    def test_a_table_taken_out_keeps_the_comment_on_its_header(self):
+        # criterion 6: "Each other line and comment of that file stays as it was", the comment after a header too
+        text = '[load]\nstart = 4\n\n[seats] # office Mac\nreviewer = "codex/a:high"\n'
+        self.assertEqual(project.lem_state.edited(text, "seats", "reviewer", None, "machine.toml"), "[load]\nstart = 4\n\n# office Mac\n")
+        self.write(self.home_file, "[seats]  # office Mac", 'reviewer = "codex/gpt-6.2-sol:high"')
+        self.set("global", "reviewer", "default")
+        self.assertEqual(self.home_file.read_text(encoding="utf-8"), "# office Mac\n")
+
     def test_the_experts_are_written_as_a_list(self):
         said = self.set("global", "experts", "claude/fable:high,codex/gpt-6.2-astra:high")
         self.assertIn('experts = ["claude/fable:high", "codex/gpt-6.2-astra:high"]\n', self.home_file.read_text(encoding="utf-8"))
@@ -688,6 +697,11 @@ class SetSeat(Home):
         self.write(self.home_file, "[state]", "keep_days = 3")
         self.assertNames(self.refused(self.set, "global", "reviewer", "claude/opus:high"), "[state] is not valid in this file")
         self.assertEqual(self.home_file.read_text(encoding="utf-8"), "[state]\nkeep_days = 3\n")
+        # a repository whose settings do not load is refused before the home folder's file is written for every repository
+        self.home_file.unlink()
+        self.settings.write_text('[branch]\nbase = "main"\nland = "x"\n', encoding="utf-8")
+        self.assertNames(self.refused(self.set, "global", "reviewer", "codex/gpt-6.2-sol:high"), "branch.land")
+        self.assertFalse(self.home_file.exists())
 
     def test_false_is_for_the_fallback_only_and_every_seat_is_whole(self):
         for name in ("reviewer", "planner", "merger", "session", "experts"):
@@ -696,7 +710,11 @@ class SetSeat(Home):
         # the merge agent's and the session's seat may leave out a part in a file, and `set` takes only a whole one
         for name, given in (("merger", "claude"), ("session", "claude:high")):
             with self.subTest(name=name):
-                self.assertNames(self.refused(project.set_value, "local", name, given), f"seats.{name}", "written whole")
+                message = self.refused(project.set_value, "local", name, given)
+                self.assertNames(message, f"seats.{name}", "written whole")
+                # the example it names is one that `set` takes
+                example = re.search(r'written whole, as "([^"]+)"', message).group(1)
+                self.assertEqual(project.set_value("local", name, example), example)
         self.assertNames(self.refused(project.set_value, "local", "fallback", "true"), "seats.fallback = true is no seat")
         self.assertNames(self.refused(project.set_value, "local", "helper", "claude/opus:high"), "not 'helper'", "reviewer, planner, merger, session, experts, fallback")
         self.assertIsNone(project.set_value("local", "merger", "default"))
