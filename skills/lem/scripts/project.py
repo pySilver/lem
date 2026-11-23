@@ -243,26 +243,30 @@ the one map): a table in another file is refused, and the refusal names the file
 `settings.toml` files hold the rest, and for a setting that more than one of them may hold, the
 nearest that holds it wins: `.lem/settings.local.toml`, then `.lem/settings.toml`, then the home
 folder's `settings.toml`, then Lem's default. `show` names in `from` the file each such value came
-from: each seat, each expert, the fallback, `naps.on` and `state.keep_days`. It gives `corrections.collect`, the
-machine's yes or no to the correction queue, with `from` too: `machine.toml`, which `lem corrections
-collect yes|no` writes, or Lem's default, which is no, and which `/lem init` asks about.
+from: each seat, each expert, the fallback, `naps.on` and `state.keep_days`. It gives
+`corrections.collect`, the machine's yes or no to the correction queue, with `from` too:
+`machine.toml`, which `lem corrections collect yes|no` writes, or Lem's default, which is no, and
+which `/lem init` asks about.
 
 The home folder's `settings.toml` is the developer's own for every repository on the machine: each
-seat and the fallback (`[seats]`), and the question page's defaults (`[ask]`, which only that page
-reads; here only its keys are checked). What guards a team's repository (`[flow]`, `[checks]`, `[branch]`, `[paths]`,
-`[tracker]`) is valid in the team's file only. `keep_days` is a repository's (the owner,
+seat and the fallback (`[seats]`, which `lem project set global` writes), and the question page's
+defaults (`[ask]`, which only that page reads; here only its keys are checked). What guards a team's
+repository (`[flow]`, `[checks]`, `[branch]`, `[paths]`, `[tracker]`) is valid in the team's file
+only. `keep_days` is a repository's (the owner,
 2026-11-21), and so is the naps' switch: this file refuses `[state]` and `[naps]` too.
 
 `.lem/settings.local.toml` is one person's or one day's choice on one machine for one repository:
-who sits in the reviewer's pane (the usual reviewer is down, or out of tokens) and on which model
-the defender of a plan talk runs, a no to the naps, which spend that person's tokens, and how many
-days the state folder keeps old files on this machine's disk. It is not committed (`init` writes
+who sits in each seat of this repository, before the team's file and the home folder's
+`settings.toml` (`lem project set local` writes it; an agent that gives an error needs no edit
+here, since `seats.fallback` stands in for it), a no to the naps, which spend that person's tokens,
+and how many days the state folder keeps old files on this machine's disk. It is not committed (`init` writes
 `.lem/.gitignore` for it), and it is read from the main checkout, because a task's worktree has no
 copy of a file git does not track. It may hold `[seats]`, `[naps]` with `on = false` and `[state]`
 with `keep_days`, and nothing else: the checks, what must never go wrong, the protected branches
 and who lands are the project's rules, and a file nobody reviews must not open them. For the same
 reason it can switch the naps off for its person and never on: nobody's tokens are spent because of
-a file that git does not show. `show` names each setting that came from it in `local.overrides`.
+a file that git does not show. `show` names each setting that came from it: a seat by its `from`,
+any other in `local.overrides`.
 
 The rules for the code are the markdown files of `.claude/rules`, the folder Claude Code loads by
 itself; Lem writes none of them and moves none. A file scopes itself to paths in its frontmatter,
