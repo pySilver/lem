@@ -124,6 +124,9 @@ def owner_mark() -> Path:
 MACHINE = "machine.toml"
 # The lock that spaces two starts of the checks that waited for the load, in the same folder.
 LOAD_LOCK = "load.lock"
+# The machine's one line of the runs of the checks that wait for the load, a folder beside it: one
+# file for each run that waits, which that run holds locked while it waits (`land.py` `wait_for_load`).
+LOAD_LINE = "load.line"
 # The output of the board server that starts on demand (`serve.py`), in the same folder.
 SERVE_LOG = "serve.log"
 # The board server's pid and its main port, one line `PID PORT`, which it writes at its start and removes
