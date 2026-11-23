@@ -84,7 +84,10 @@ commit that the question names.
 - With more than one task, `/lem land` merges them one at a time, in your order.
 
 Do not merge the branch of a task by hand: Lem knows only a merge through the pull request. After
-a merge, the session of the task removes the worktree and the branch, and updates the ticket of the task.
+a merge, the session of the task removes the worktree, the branch and its copy on GitHub, and
+updates the ticket of the task. A branch that Lem rebased after its push also goes when it holds the
+change that GitHub merged. A branch with a change that GitHub did not merge stays, and Lem tells you
+what changed and how to delete it.
 
 On GitHub's button, you select the merge method. `branch.history` is for Lem's merge.
 

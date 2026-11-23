@@ -29,8 +29,10 @@ cleans up.
 
 GitHub tells nobody when the owner merges or closes a pull request there. The board's server asks
 it, runs `lem land merged SLUG`, and wakes this session (`prompts/session.md`, "A wake-up"). After
-a merge on GitHub the state is `landed`: step 9, where `clean` removes the branch only when its tip
-is the commit GitHub merged: a commit a builder added after that is work nobody merged, and the
+a merge on GitHub the state is `landed`: step 9, where `clean` removes the branch only when it holds
+nothing GitHub did not merge: the base holds its tip, its tip is the commit GitHub merged, or its tip
+holds the same content as the head Lem pushed last and GitHub merged, rebased after that push. A
+change a builder made after the push or after the merged commit is work nobody merged, and the local
 branch stays. After a close with no merge it is `dropped` with the line "the pull request was
 closed on the forge", and it ends in the order "A wake-up" gives: the tracker's missing steps, the
 state block that says where its ticket stays, `clean`, which removes its worktree, and last one line
@@ -444,8 +446,17 @@ landing up as after a cut-off.
 9. **After the merge.** For a task that came from a ticket (`ticket` in `lem project tasks`), the
    tracker comments the landing on the ticket and moves it, unless it is there already (`load-skill` the
    tracker, its "land"). Then **`clean`** removes the task's worktree and its branch, and the
-   forge's copy of the branch when the pull request was merged there. It refuses a worktree with changes or
-   files of its own: those are someone's work until the owner says otherwise. Do what the
+   forge's copy of the branch when the pull request was merged there and that copy is still the
+   merged head. It refuses a worktree with changes or files of its own: those are someone's work
+   until the owner says otherwise. The branch goes when the base holds its tip, when its tip is the
+   commit the forge merged, or when the forge merged the head Lem pushed last and the tip holds the
+   same content on its own base: the landing rebased it after that push, and nothing pushed the
+   rebase. `rebased` of clean's output says that in one sentence; give it to the owner as it is.
+   When the tip holds a change made after that push, the forge's copy goes, the local branch stays
+   and `clean` exits 0: `branch_left` names the commit that changed, or the files, with the `git
+   range-diff` that shows the difference and the `git branch -D` that deletes the branch. Give the
+   owner that line. Any other tip the forge did not merge keeps the branch and the forge's copy, and
+   `clean` exits 1 with what the branch holds. Do what the
    project's `AGENTS.md` adds for a removed worktree (a test database, a container), and close
    the plan talk's pair when one is still open. Then a nap, when the settings have the naps on and
    `lem project may-nap` says one may (`stages/nap.md`), and the close of this session, its last
