@@ -154,6 +154,63 @@ flowchart TD
    and any page that `git grep -n -e "records stay" -e "files stay" -e "working files"` shows to
    say that an old ended task keeps its documents.
 
+## Plan talk
+
+Who argued the plan: the reviewer, Codex, GPT 6.2 Sol at high effort as its pane's status line
+showed it; the defender, Claude Code, Opus 5.5 at high effort, as the `defender:` line of the
+task's state gives it. Two model families. Six turns, within the bound of 34 (4 × 8 + 2).
+
+The list, numbered as the reviewer gave it:
+
+1. **A resume while prune removes the files it copies** (`cmd_resume`, `taken_on_remote`). A design
+   choice. The repair (decision 5): the resume reads every file it carries before its one read of
+   the log, and prune writes the summary before any removal; the reviewer: "holds, at the cause",
+   a read can still fail before the log read. The defender's refutation: every read and the log
+   read come before the first write of `cmd_resume`, so a failed read changes nothing and the next
+   resume refuses with the ask. The reviewer held again: a picture of `media/` that prune cannot
+   remove and the resume cannot read fails each retry before the summary check, so the owner never
+   gets the refusal with the ask that criterion 5 names. Step 5 of `stages/plan.md` takes it.
+2. **An answered task's `investigation.md`** (`now_card`, `answered_words`, `investigate.md` step 5).
+   Settled: the criterion stays (decision 6), and task 2 makes both texts name the report only while
+   it is there; task 3 corrects step 5. Settled by the two, not checked by the review.
+3. **The page says the files left before or without their removal** (`summary_card`, `cmd_prune`).
+   A design choice. The defender refuted first: the removal loop runs for every `old` task, so the
+   next run finishes it, and a failure is logged. The reviewer held: a folder that denies removal
+   stays so, and the page goes on saying the files left. The repair: the card takes its claim from
+   the folder through task 1's function, and when files remain it says that prune could not remove
+   them and that the server's log says why; the reviewer: "holds, at the cause", a page read between
+   `rewrite_log` and the removal says prune could not remove a file it has not reached yet. Step 5
+   of `stages/plan.md` takes it.
+4. **The case's day and the time prune counts** (`task_calls`, `last <= cutoff`). Settled: the test
+   of criterion 1 puts the run past the cutoff by its time, and task 3 writes the time from the
+   newest event. Settled by the two, not checked by the review.
+5. **The number on the page after the owner changes it** (decision 3, `local_keep_days`). Settled:
+   the card states the rule and today's number, never a number of days at which the files left.
+   Settled by the two, not checked by the review.
+6. **The plan on Artifacts of a task whose worktree stayed** (`Handler.task`, `task_plan`). Settled:
+   task 2's check allows the plan beside the small record when the worktree holds it. Settled by the
+   two, not checked by the review.
+7. **A link the new list skips** (`Remover.inside`, the `link.txt` check). Settled: the list gives
+   every path that is no folder, links and files that are not plain among them, so `Remover` names
+   each in `skipped`. Settled by the two, not checked by the review.
+8. **A removal of empty files that the server does not log** (`prune_once`, `prune_line`). Settled,
+   at the cause: `prune_once` carries the count of removed files, and `prune_line` logs a run that
+   removed any. Settled by the two, not checked by the review.
+
+Mechanisms the repairs added: the read order of `cmd_resume` (decision 5), on the order of
+`cmd_prune` and the summary check of `cmd_resume`, which exist; "at the cause". The card's read of
+the folder (task 2), which changed the card's read of the summary alone; "at the cause". The count
+of removed files in `prune_once` (task 1), on `cmd_prune`'s record of each removed path; "at the
+cause". No layer stayed.
+
+No question was raised after the first turn. No addition was refused as unpriced.
+
+What changed in the plan, by task: task 1, the function's paths (links, files that are not plain,
+empty files), the order of prune written down, the read order of `cmd_resume`, `prune_once` and
+`prune_line`, the time of criterion 1's case, and two tests more; task 2, the card's rule and its
+read of the folder, `now_card`, `answered_words` and the plan on Artifacts, with their tests; task 3,
+the time as `task_calls` counts it and `investigate.md` step 5; decisions 3, 5 and 6.
+
 ## Decisions
 
 1. **The small record is eight files, each kept for one reader.** `state.md`: `read_tasks` (the status
