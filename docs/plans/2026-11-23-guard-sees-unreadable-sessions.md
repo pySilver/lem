@@ -10,13 +10,22 @@ Size: full, because the guard's rule for a session it cannot read changes in the
    1. merge-leaves-board-lock is in `landing`, and its newest event is `gate.end` at 10:54 UTC.
    2. Its session is live, and `lem session list` gives `"signs": false` for it.
    3. At 11:39 the board's server sends `lem: merge-leaves-board-lock status` to that session.
+   - test: `python3 -B -m unittest tests.unit.test_board_model.StoppedSession.test_criterion_1_signs_that_do_not_read_get_the_message_45_minutes_after_the_newest_event tests.unit.test_board_model.StoppedSession.test_a_quiet_task_whose_signs_do_not_read_is_woken_or_shown` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_serve.StoppedSession.test_a_session_whose_signs_do_not_read_gets_the_message_then_its_stop_and_never_a_restart` in `tests/unit/test_serve.py`
+   - test: `python3 -B -m unittest tests.unit.test_session.Guard.test_the_status_message_and_the_stop_of_a_session_lem_cannot_read_say_so_on_their_records` in `tests/unit/test_session.py`
 2. When 10 more minutes pass with no event of the task, "Waits for you" shows the task as stopped, says that Lem cannot read its session, and offers "Open a session", and Lem opens no second session by itself:
    1. The message of criterion 1 went out at 11:39.
    2. At 11:49 the task still has no new event.
    3. "Waits for you" shows merge-leaves-board-lock as stopped because Lem cannot read its session, with "Open a session".
    4. No fresh session of the task opens until the owner clicks.
+   - test: `python3 -B -m unittest tests.unit.test_board_model.StoppedSession.test_criterion_2_ten_minutes_after_the_message_signs_that_do_not_read_give_the_stop_never_a_restart tests.unit.test_board_model.StoppedRow.test_criterion_2_an_unread_stop_is_the_row_stopped_that_says_lem_cannot_read_the_session tests.unit.test_board_model.StoppedRow.test_the_timeline_says_an_unread_wake_and_stop_in_words_of_their_own tests.unit.test_board_model.StoppedRow.test_lem_project_waiting_says_that_lem_cannot_read_the_stopped_session` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_session.Guard.test_the_owners_open_of_an_unread_stop_acts_and_a_named_restart_over_a_standing_stop_never_does` in `tests/unit/test_session.py`
+   - test: `python3 -B -m unittest tests.unit.test_inbox.ReviewTwo.test_the_note_of_a_stop_lem_cannot_read_says_so_and_names_no_fresh_session_that_took_its_place` in `tests/unit/test_inbox.py`
 3. An event of the task's own work ends the wait and removes the row, and the guard's own message is no such event: a state block that merge-leaves-board-lock writes at 11:42 stops the row of 11:49 from coming, and the 45 minutes count again from 11:42.
+   - test: `python3 -B -m unittest tests.unit.test_board_model.StoppedSession.test_criterion_3_a_work_event_ends_the_wait_and_the_guards_own_message_is_none tests.unit.test_board_model.StoppedRow.test_the_timeline_says_that_a_stop_over_new_work_leaves_nothing_waiting` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_session.Guard.test_a_stop_logged_after_a_state_block_of_the_same_moment_says_that_nothing_waits` in `tests/unit/test_session.py`
 4. A session that Lem can read keeps the guard of today: the message after 45 minutes with no sign of work, a fresh session beside it 10 minutes later, and the "stopped" row when the fresh one stops too.
+   - no test: the change keeps behavior; the suite holds it
 
 ## How it works
 
