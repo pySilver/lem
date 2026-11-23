@@ -8,14 +8,17 @@ Size: full, because the change is careful and rests on one real talk in agterm b
 
 1. A plan talk's Claude Code reviewer reads the repository and cannot change a file of it:
    1. A talk opens in a throwaway repository on this Mac, with the owner's own Claude Code settings and the reviewer `claude/opus:high`.
-   2. The reviewer reads `plan.md` and runs `git log` there.
+   2. The reviewer reads `plan.md` and runs `git log` there, with no question in the reviewer's pane.
    3. The reviewer tries to write a line into `plan.md` with its file tool, and once more with a shell command.
    4. Claude Code refuses both writes with no question in the reviewer's pane, and `git status` in the repository shows no change.
+   5. The reviewer tries a write into a second worktree of the throwaway repository, as another task's worktree in the main checkout, and Claude Code refuses it.
+   6. The probe runs once more with every shell command and every edit allowed and the questions skipped, as a teammate's settings may have them, and gets the same refusals.
    - no test: one real talk in agterm shows it; its screens and `git status` go into the builder's report, since no suite starts agterm and Claude Code
 2. The reviewer still answers through the mailbox:
    1. In the same talk, the reviewer writes a long answer into a file under `/tmp`, outside the repository.
    2. It sends its message, which names that file, with `mailbox-chat.py say`, and the send prints no error.
    3. The message reaches the defender's pane, and the defender reads the file.
+   4. A write into the home folder, outside `/tmp`, is refused.
    - no test: the same real talk shows it, with the three receipts in the builder's report
 3. `skills/lem/harness/claude-code/second-opinion.md` gives the launch line that the talk showed, and only that one: its Claude Code line starts Claude Code with the seat's model and effort, the reviewer's brief, and a guard that refuses every write into a repository and lets the mailbox send and the write under `/tmp` through. The guard is only on the launch line, or in a file of Lem's that the line names: Lem writes no file in the developer's Claude Code settings and none in the repository. When the talk did not show criteria 1 and 2, the harness file stays as it is, the backlog item in Lem's own `docs/backlog/` says what the talk showed, and the pull request says that the reviewer can still write.
    - no test: a sentence of the harness file
@@ -34,16 +37,21 @@ flowchart TD
 1. **The probe, then the real talk.** First find the guard with `claude -p` runs in a throwaway
    git repository under the task directory, each with the owner's own settings loaded and one
    candidate guard (decisions 1 to 5): an `Edit` of `plan.md`, a `Write` of a new file there, a
-   shell write there (`echo x >> plan.md`), a shell write of `/tmp/lem-reviewer-probe.txt`, and
-   `git log`. Keep the narrowest guard that refuses the three repository writes and lets the
-   other two through. Then open a pair in agterm whose session and panes start in Lem's main
+   shell write there (`echo x >> plan.md`), a shell write into a second worktree of that
+   repository (`git worktree add`, made before the run), a shell write of a file in the home
+   folder, a shell write of `/tmp/lem-reviewer-probe.txt`, and `git log`. Keep the narrowest guard
+   that refuses the five writes outside `/tmp` and lets the other two through with no question.
+   Run the kept guard once more with `--permission-mode bypassPermissions` and `--allowedTools`
+   for every shell command and every file tool, as a teammate's settings may allow, and record
+   that the same writes are refused (criterion 1, step 6). Then open a pair in agterm whose session and panes start in Lem's main
    checkout, as a real talk's pair does (`plan-talk.md`, step 1, `MAIN`): a Claude Code agent as
    the defender in one pane, and the Claude Code reviewer in the other, started by the
    `second-opinion` steps with the candidate line and `skills/lem/prompts/reviewer.md` as its
    brief. The defender's message names the throwaway repository as the directory to work in, as a
    real talk names the worktree, and sends a short `plan.md` there with one wrong path. It asks the
    reviewer to read it, run `git log`, fix the path itself with its file tool, then with a shell
-   command, and to answer with its long text in a file under `/tmp` and a short `say` that names
+   command, write one line into the repository's second worktree and one into a file in the home
+   folder, and to answer with its long text in a file under `/tmp` and a short `say` that names
    the file. Record each refusal and its words, that no permission question showed in the
    reviewer's pane, the reviewer's screen, `git status` of the throwaway repository and of the main
    checkout, the `/tmp` file, the send's JSON and the defender's receipt, and the model and effort
