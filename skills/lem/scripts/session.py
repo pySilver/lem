@@ -119,7 +119,8 @@ Each entry whose session is live (`live`) says what Claude Code's own files say 
 (`lem_signs`): `sign`, the time of the newest turn of the session's main thread or of any of its
 subagents, or null; `shell`, true while a shell command of the session runs; and `signs`, false when
 neither could be read (no `session.transcript` record of that agterm session, or no live process of
-it). A session that is not live has `sign` null and both false.
+it). A record of that session whose transcript's first prompt is another task's launch line counts
+for none. A session that is not live has `sign` null and both false.
 
 The guard of a stopped session is the board server's (`serve.py`, `duties`; the rule is
 `lem_board_model.stop_due`): 45 minutes with no sign of work in a task in `building`, `ready` or
@@ -684,7 +685,7 @@ def guard_check(root: Path, slug: str, step: str, named: str | None, where: dict
         agent = node is not None and agent_runs(node) is True
         records = [record for record in events if record.get("event") == lem_signs.EVENT and record.get("task") == slug]
         if alive and lem_signs.own_records(records, session):
-            signs = lem_signs.signs_of(records, session, process_table())
+            signs = lem_signs.signs_of(records, session, process_table(), slug)
     m.sessions = {slug: {"live": alive, "agent": agent, "unanswered": False, "session": session, **signs}}
     reason = guard_refusal(t, m, step, named)
     read = signs.get("signs") is True
@@ -1044,7 +1045,7 @@ def cmd_list(root: Path) -> list[dict]:
             records = [record for record in transcripts if record.get("task") == slug]
             if lem_signs.own_records(records, session) and not table:
                 table.append(process_table())
-            signs = lem_signs.signs_of(records, session, table[0] if table else None)
+            signs = lem_signs.signs_of(records, session, table[0] if table else None, slug)
         out.append({"task": slug, "session": session, "name": node.get("name") if node else opened.get("name"), "phase": phase,
                     "opened_in": opened.get("phase"), "why": opened.get("why"), "since": opened["ts"], "workspace": opened.get("workspace"), "live": node is not None,
                     "agent": agent_runs(node) if node else False, "selected": bool(node and node.get("active")),

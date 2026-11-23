@@ -18,10 +18,18 @@ launch line. Without it, or without the task's directory in the state folder of 
 session runs in, the hook prints nothing and exits 0: a session that is no task's is no business of
 Lem's. Claude Code takes a PreCompact hook's output as the instructions of the summary, and a
 SessionStart hook's for the source `compact` as context after it (its hooks reference, read for the
-shape of task 4, 2026-11-21). No hook reads a transcript: `lem_tokens` reads the ones the record names,
-for the tokens of the task. The record is one line appended to `events.jsonl`, in the form `lem project
+shape of task 4, 2026-11-21). The record is one line appended to `events.jsonl`, in the form `lem project
 log` writes, under the log's lock (`lem_state.events_lock`), as every writer of the log appends. It exits
 0 whatever happens, a failure too.
+
+The record says what the hook saw, not whose transcript it is. Its `task` and its `session` are the
+hook's environment's, `LEM_TASK` and `AGTERM_SESSION_ID`, and Claude Code's background host keeps the
+environment of the pane that started it: a fork that another task's session makes in that host is
+logged under the first pane's task (6fe214ec, a fork of the session of merge-leaves-board-lock,
+logged under board-card-search on 2026-11-22). The hook cannot tell: its input names no parent
+session. No hook reads a transcript. The readers, `lem_tokens` and `lem_signs`, take a transcript's
+task from its first prompt, the launch line of the task's session, and the record's `task` only when
+that prompt names no task (`lem_tokens`).
 
 The plugin starts it through `lem_python.py` beside this file, as the other hooks.
 """
@@ -74,7 +82,10 @@ def newest_phase(log, slug: str) -> str | None:
 def transcript_record(log, slug: str, claude: str, session: str | None) -> bool:
     """Whether the event log, the lines of LOG, already holds this Claude Code session of the task in
     this agterm session: a background host of Claude Code that runs with another pane's environment
-    logs the same Claude id under another `session` (`lem_signs`)."""
+    logs the same Claude id under another `session` (`lem_signs`). A record's `task` and `session` are
+    the hook's environment's, which that host keeps from the pane that started it, so a record may
+    name a transcript of another task; the readers take a transcript's task from its first prompt
+    (`lem_tokens`)."""
     import json
     for line in log:
         if f'"{slug}"' not in line or '"session.transcript"' not in line:

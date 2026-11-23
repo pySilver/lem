@@ -48,6 +48,8 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     (("skills/lem/scripts/lem_sibling.py", "skills/lem/scripts/decisions.py", "skills/lem/scripts/criteria.py"),
      ("lem-land-*", "lem-decisions", "lem-serial", "lem-settings", "lem-state", "lem-machine", "lem-command", "lem-picker", "test-ask-expert", "lem-board-act")),
     (("skills/lem/scripts/land.py",), ("lem-land-*", "lem-serial", "lem-command", "lem-board-act")),
+    # the merge brief's `tokens`, which land.py reads through lem_tokens.py
+    (("skills/lem/scripts/lem_tokens.py",), ("lem-land-*",)),
     (("skills/lem/scripts/board.py",), ("lem-serve", "lem-settings", "lem-machine", "lem-command", "lem-picker")),
     # the board server and the pages it draws, and the afternoon its block serves
     (("skills/lem/scripts/serve.py", "skills/lem/scripts/serve_hook.py", "skills/lem/scripts/lem_board_*.py", "skills/lem/scripts/lem_html.py",
@@ -58,9 +60,10 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     (("tests/board-cdp.mjs",), ("lem-serve", "lem-board-keys")),
     # two machines under one address: the server that passes another's pages through, and the list of both
     (("skills/lem/scripts/serve.py", "skills/lem/scripts/lem_peers.py", "skills/lem/scripts/lem_board_pages.py"), ("lem-peers",)),
-    # `lem session list` reads each live session's signs of work through lem_signs.py
-    (("skills/lem/scripts/picker.py", "skills/lem/scripts/session.py", "skills/lem/scripts/lem_signs.py"), ("lem-picker", "lem-command")),
-    (("skills/lem/scripts/session.py", "skills/lem/scripts/lem_signs.py", "skills/lem/scripts/session_hook.py", "skills/lem/templates/handoff.md"), ("lem-session", "lem-command")),
+    # `lem session list` reads each live session's signs of work through lem_signs.py, which takes the task a transcript names from lem_tokens.py
+    (("skills/lem/scripts/picker.py", "skills/lem/scripts/session.py", "skills/lem/scripts/lem_signs.py", "skills/lem/scripts/lem_tokens.py"), ("lem-picker", "lem-command")),
+    (("skills/lem/scripts/session.py", "skills/lem/scripts/lem_signs.py", "skills/lem/scripts/lem_tokens.py", "skills/lem/scripts/session_hook.py",
+      "skills/lem/templates/handoff.md"), ("lem-session", "lem-command")),
     (("skills/lem/scripts/corrections.py", "skills/lem/scripts/jev.py", "hooks/*", "bin/lem-jev"), ("lem-machine", "lem-state", "lem-command")),
     (("skills/lem/scripts/doctor.py", "scripts/setup.py", ".claude-plugin/*", "agents/*"), ("lem-machine", "lem-command")),
     (("bin/lem", "skills/lem/scripts/lem_python.py"), ("lem-command", "lem-machine")),

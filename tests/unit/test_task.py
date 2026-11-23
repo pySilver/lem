@@ -982,7 +982,9 @@ class Summarized(unittest.TestCase):
         self.assertEqual(answer["summarized"], [{"task": "report-dates", "status": "landed", "events": 2}])
         again = [json.loads(line) for line in self.lines() if json.loads(line)["task"] == "report-dates"]
         self.assertEqual(len(again), 1)
-        self.assertEqual(again[0], {**first, "ts": back(31), "events": 61})
+        # the newer transcript joins the old summary's, after them
+        self.assertEqual(first["transcripts"], ["/t/c1.jsonl"])
+        self.assertEqual(again[0], {**first, "ts": back(31), "transcripts": ["/t/c1.jsonl", "/t/c3.jsonl"], "events": 61})
         self.assertEqual(again[0]["size"], "full", "a second summary keeps the criteria's size")
 
     def test_an_append_waits_for_the_lock_of_the_log(self):

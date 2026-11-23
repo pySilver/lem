@@ -24,6 +24,21 @@ def reply(message: str, given: int, said: int, read: int = 0, wrote: int = 0, si
                       "output_tokens_details": {"thinking_tokens": 1}, "service_tier": "standard"}}}
 
 
+def prompt(text: str, kind: str | None = None) -> dict:
+    """A transcript's user record, in the form 6fe214ec has (2026-11-22): a fork's records carry `sessionKind: bg`."""
+    return {"type": "user", "message": {"role": "user", "content": text}, **({"sessionKind": kind} if kind else {})}
+
+
+def launch(slug: str) -> str:
+    """The first prompt `lem session open` gives the session of task SLUG (session.py `launch_line`)."""
+    return f"Read /Users/dev/shop/.lem/state/tasks/{slug}/session.md and follow it."
+
+
+# the records Claude Code writes before a session's first prompt, and a meta prompt, as 6fe214ec has them
+HEAD = ({"type": "ai-title"}, {"type": "permission-mode"}, {"type": "queue-operation"},
+        {"type": "user", "isMeta": True, "message": {"role": "user", "content": "<local-command-caveat>x</local-command-caveat>"}})
+
+
 def write(file: Path, *records: object) -> None:
     file.parent.mkdir(parents=True, exist_ok=True)
     file.write_text("".join((record if isinstance(record, str) else json.dumps(record)) + "\n" for record in records), encoding="utf-8")
@@ -81,6 +96,93 @@ class Tokens(unittest.TestCase):
             log.write(json.dumps({"ts": "2026-11-21T10:00:02Z", "event": "session.transcript", "task": SLUG, "claude": "bbb",
                                   "transcript": named, "source": "resume"}, ensure_ascii=False) + "\n")
         self.assertEqual(lem_tokens.transcripts_of(self.state, SLUG), [str(kept), named])
+
+
+
+class FirstPrompt(unittest.TestCase):
+    """Which task a transcript counts for: the task its first prompt names, else the task its record names
+    (criteria 1 and 2 of the task a-forked-transcript-of-claude-code-s-daemon-is-logged-on-the-task-of-another-pane)."""
+
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory()
+        self.addCleanup(self.folder.cleanup)
+        root = Path(self.folder.name)
+        self.state = root / "state"
+        self.state.mkdir()
+        self.projects = root / "projects" / "-shop"
+
+    def log(self, *records: dict) -> None:
+        write(self.state / "events.jsonl", {"ts": "2026-11-22T01:33:00Z", "event": "session.open", "task": "board-card-search", "session": "S-1"}, *records)
+
+    @staticmethod
+    def logged(task: str, path: Path, source: str = "startup", at: str = "2026-11-22T01:33:27Z") -> dict:
+        return {"ts": at, "event": "session.transcript", "task": task, "claude": path.stem, "transcript": str(path), "source": source}
+
+    def test_a_fork_logged_under_another_task_counts_for_the_task_its_first_prompt_names_once(self):
+        search, merge, fork = (self.projects / f"{name}.jsonl" for name in ("search", "merge", "6fe214ec"))
+        write(search, *HEAD, prompt(launch("board-card-search")), reply("a1", 1, 10))
+        write(merge, *HEAD, prompt(launch("merge-leaves-board-lock")), reply("b1", 1, 200))
+        # the fork copies its parent's first prompt, and the hook in the host of board-card-search's pane logged it there
+        write(fork, *HEAD, prompt(launch("merge-leaves-board-lock"), "bg"), reply("f1", 1, 3000), reply("f1", 1, 3000))
+        self.log(self.logged("board-card-search", search), self.logged("merge-leaves-board-lock", merge),
+                 self.logged("board-card-search", fork, "fork", "2026-11-22T10:45:56Z"))
+        self.assertEqual(lem_tokens.transcripts_of(self.state, "board-card-search"), [str(search)])
+        self.assertEqual(lem_tokens.transcripts_of(self.state, "merge-leaves-board-lock"), [str(merge), str(fork)])
+        search_count = lem_tokens.task_tokens(self.state, "board-card-search")
+        merge_count = lem_tokens.task_tokens(self.state, "merge-leaves-board-lock")
+        self.assertEqual((search_count["output"], search_count["sessions"]), (10, 1))
+        self.assertEqual((merge_count["output"], merge_count["sessions"]), (3200, 2))
+
+    def test_a_transcript_whose_first_prompt_names_no_task_counts_for_its_records_task(self):
+        cleared, pasted = self.projects / "cleared.jsonl", self.projects / "pasted.jsonl"
+        # the owner's /clear in the pane of gift-note: the new transcript starts with his own words
+        write(cleared, *HEAD, prompt("now make the note shorter"), reply("c1", 1, 7))
+        # a launch line's path among other words names no task
+        write(pasted, prompt(f"look at {launch('board-card-search')} and tell me"), reply("p1", 1, 5))
+        # beside them in the same log, a fork of board-card-search logged under gift-note, which counts for none of gift-note's
+        fork = self.projects / "fork.jsonl"
+        write(fork, prompt(launch("board-card-search"), "bg"), reply("f1", 1, 900))
+        self.log(self.logged(SLUG, cleared, "clear"), self.logged(SLUG, fork, "fork"), self.logged(SLUG, pasted, "clear"))
+        self.assertEqual(lem_tokens.transcripts_of(self.state, SLUG), [str(cleared), str(pasted)])
+        self.assertEqual(lem_tokens.transcripts_of(self.state, "board-card-search"), [str(fork)])
+        self.assertEqual(lem_tokens.task_tokens(self.state, SLUG)["output"], 12)
+
+    def test_a_transcript_that_is_gone_is_missing_for_its_records_task_only(self):
+        self.log(self.logged(SLUG, self.projects / "gone.jsonl"))
+        found = lem_tokens.task_tokens(self.state, SLUG)
+        self.assertEqual((found["sessions"], found["missing"]), (0, 1))
+        self.assertIsNone(lem_tokens.task_tokens(self.state, "board-card-search"))
+
+    def test_a_fork_named_in_the_summary_of_an_ended_task_counts_for_the_open_task_its_first_prompt_names(self):
+        own, merge, fork = (self.projects / f"{name}.jsonl" for name in ("search", "merge", "6fe214ec"))
+        write(own, prompt(launch("board-card-search")), reply("a1", 1, 10))
+        write(merge, prompt(launch("merge-leaves-board-lock")), reply("b1", 1, 200))
+        write(fork, prompt(launch("merge-leaves-board-lock"), "bg"), reply("f1", 1, 3000))
+        # lem project prune made board-card-search's events one summary, which keeps their transcripts
+        summary = {"ts": "2026-11-22T12:00:00Z", "event": "task.summary", "task": "board-card-search", "status": "landed",
+                   "transcripts": [str(own), str(fork)], "events": 40}
+        write(self.state / "events.jsonl", summary, self.logged("merge-leaves-board-lock", merge))
+        self.assertEqual(lem_tokens.transcripts_of(self.state, "merge-leaves-board-lock"), [str(fork), str(merge)])
+        self.assertEqual(lem_tokens.task_tokens(self.state, "merge-leaves-board-lock")["output"], 3200)
+        self.assertEqual(lem_tokens.transcripts_of(self.state, "board-card-search"), [str(own)])
+
+    def test_the_first_prompt_names_a_task_only_when_it_is_a_launch_line_whole(self):
+        self.assertEqual(lem_tokens.task_named(launch("merge-leaves-board-lock")), "merge-leaves-board-lock")
+        # the launch line of a task that ended names it still: the rule reads no state
+        self.assertEqual(lem_tokens.task_named("Read /Users/dev/my shop/.lem/state/tasks/old-task/session.md and follow it."), "old-task")
+        for text in (None, "", "now make the note shorter", launch("gift-note") + " Then stop.", "Please " + launch("gift-note"),
+                     "Read /Users/dev/shop/tasks/gift-note/session.md and follow it.", "Read /Users/dev/shop/.lem/state/tasks/Gift_Note/session.md and follow it."):
+            self.assertIsNone(lem_tokens.task_named(text), text)
+
+    def test_the_first_prompt_is_the_first_user_record_that_is_not_meta(self):
+        file = self.projects / "t.jsonl"
+        write(file, *HEAD, "{half", {"type": "user", "message": {"role": "user", "content": [{"type": "text", "text": launch(SLUG)}]}}, prompt("later words"))
+        self.assertEqual(lem_tokens.first_prompt(file), launch(SLUG))
+        write(file, {"type": "user", "message": {"content": [{"type": "image", "source": {}}, {"type": "text", "text": launch(SLUG)}]}})
+        self.assertEqual(lem_tokens.first_prompt(file), "")
+        write(file, *HEAD)
+        self.assertIsNone(lem_tokens.first_prompt(file))
+        self.assertIsNone(lem_tokens.first_prompt(self.projects / "gone.jsonl"))
 
 
 if __name__ == "__main__":

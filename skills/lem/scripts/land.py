@@ -4685,7 +4685,8 @@ def cmd_merge_review(task: Task, record: str | None, read_tip: str | None = None
             "owner_merges": refusal,
             "time": task_time(events_all(task), task.slug),
             # the tokens of the task's Claude Code sessions and their subagents, with what the number
-            # leaves out (`covers`); null when the log names no transcript of the task
+            # leaves out (`covers`); null when no transcript the log names counts for the task
+            # (`lem_tokens.transcripts_of`)
             "tokens": lem_tokens.task_tokens(task.directory.parent.parent, task.slug),
             # how many times this proposal landed again (a base that moved, a conflict): nothing bounds them
             "relands": int(kept.get("relands") or 0),
