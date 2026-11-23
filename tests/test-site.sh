@@ -4,7 +4,7 @@
 # by its name, runs it in a throwaway folder that holds a copy of site/ and assets/, and reads the page
 # there, as Pages would serve it. The checks of the text, the links, the colors and the workflow run
 # everywhere; the checks of a drawn page (the first screen at 1280 px, the scene behind the hero, a phone
-# at 390 px, each hero text's contrast, the copy buttons, the light and the dark theme) need headless Chrome,
+# at 390 and at 360 px, each hero text's contrast, the copy buttons, the light and the dark theme) need headless Chrome,
 # and print SKIP lines where none starts.
 # LEM_SITE_SHOTS=DIR also writes pictures of the page there: 1280 x 800 and the whole page, light and dark.
 set -eEuo pipefail
@@ -253,6 +253,18 @@ verdict["pictures"] = "; ".join(p for p in (picture_of("assets/lem.svg", "assets
                                              picture_of("assets/screens/board-light.png", "assets/screens/board-dark.png"),
                                              picture_of("assets/screens/phone-light.png", "assets/screens/phone-dark.png"),
                                              picture_of("assets/screens/task-light.png", "assets/screens/task-dark.png")) if p)
+# the tab icon for each theme (docs/plans/2026-11-23-logo-eyes-signal-and-favicon.md, criterion 6). The HTML
+# standard (link type "icon") has the browser take, of the icons whose media apply, the last one in tree order:
+# the day mark with no media first, then the night mark for a dark theme, then the day mark for a light theme.
+# So a dark theme takes the night mark, a light theme the day mark, a browser that ignores media the last, the
+# day mark, and one that reads media but not the feature only the first, the day mark.
+ICONS = [("assets/lem-mark.svg", None), ("assets/lem-mark-night.svg", "(prefers-color-scheme: dark)"),
+         ("assets/lem-mark.svg", "(prefers-color-scheme: light)")]
+icons = top.find(lambda n: n.tag == "link" and "icon" in (n.attrs.get("rel") or "").lower().split())
+got = [(node.attrs.get("href"), node.attrs.get("media")) for node in icons]
+problems = [] if got == ICONS else [f"the icon lines give {got}, not {ICONS}"]
+problems += [f"the icon {node.attrs.get('href')} has the type {node.attrs.get('type')}, not image/svg+xml" for node in icons if node.attrs.get("type") != "image/svg+xml"]
+verdict["icons"] = "; ".join(problems)
 # each picture of the board says its size in CSS pixels, half the file's pixels (the pictures are drawn at
 # two device pixels for each pixel), so the page keeps its place before the picture loads
 def png_size(path):
@@ -336,7 +348,7 @@ for action in ("actions/checkout@", "actions/configure-pages@", "actions/upload-
         problems.append(f"it uses no {action}")
 verdict["workflow"] = "; ".join(problems)
 published = sorted(str(path.relative_to(site)) for path in site.rglob("*") if path.is_file()) if site.is_dir() else []
-want = ["assets/lem-mark.svg", "assets/lem-night.svg", "assets/lem.svg", "assets/screens/board-dark.png", "assets/screens/board-light.png", "assets/screens/phone-dark.png",
+want = ["assets/lem-mark-night.svg", "assets/lem-mark.svg", "assets/lem-night.svg", "assets/lem.svg", "assets/screens/board-dark.png", "assets/screens/board-light.png", "assets/screens/phone-dark.png",
         "assets/screens/phone-light.png", "assets/screens/task-dark.png", "assets/screens/task-light.png", "index.html", "style.css"]
 named = sorted({node.attrs.get(key) for node in top.find(lambda n: n.tag in ("img", "source", "link")) for key in ("src", "srcset", "href")
                 if node.attrs.get(key) and not re.match(r"(https?:)?//", node.attrs.get(key))})
@@ -716,10 +728,11 @@ for theme, svg in scenes.items():
 verdict["scene_paint"] = "; ".join(problems)
 verdict["bound_day"], verdict["bound_night"] = bound(scenes["day"], False), bound(scenes["night"], True)
 
-# criterion 2, the file's half: where the figure starts and the word with its cursor ends, in the frame's units,
-# for the drawn check at 390 px. The figure is the paths under <!-- the coat --> and <!-- the cowl ... -->, the word
-# the paths of its drawn letters and its cursor under <!-- the word ... -->, each through the translate and scale of
-# every group around it.
+# criterion 2, the file's half: where the four small agents and the figure start and where the word with its cursor
+# ends, in the frame's units, for the drawn checks at 390 and 360 px. The figure is the paths under <!-- the coat -->
+# and <!-- the cowl ... -->, the agents the paths of the four groups under <!-- the smaller ones -->, the word the
+# paths of its drawn letters and its cursor under <!-- the word ... -->, each through the translate and scale of every
+# group around it.
 def path_xs(d):
     """Every x a path's points and control points reach, in its own units; refuses an arc and a smooth curve,
     whose reach its own numbers do not show."""
@@ -760,11 +773,13 @@ def transform_of(attrs):
             return None
     return out
 def frame_span(svg):
-    stack, section, figure, word, problems = [(1.0, 0.0, 0.0)], None, [], [], []
+    stack, section, figure, agents, word, problems = [(1.0, 0.0, 0.0)], None, [], [], [], []
+    groups = set()
     for found in re.finditer(r"(?s)<!--(.*?)-->|<(/?)(\w+)\b([^>]*?)(/?)>", svg):
         if found.group(1) is not None:
             note = found.group(1).strip()
-            section = "figure" if note.startswith(("the coat", "the cowl")) else "word" if note.startswith("the word") else None
+            section = ("figure" if note.startswith(("the coat", "the cowl")) else "agents" if note.startswith("the smaller ones")
+                       else "word" if note.startswith("the word") else None)
             continue
         closing, tag, rest, lone = found.group(2), found.group(3), found.group(4), found.group(5)
         if tag != "g" and tag != "path":
@@ -780,21 +795,26 @@ def frame_span(svg):
             if not lone:
                 stack.append(whole)
             continue
-        into = figure if section == "figure" else word if section == "word" else None
+        into = {"figure": figure, "agents": agents, "word": word}.get(section)
         if into is None:
             continue
         if whole is None:
-            problems.append("a path of the figure or the word under a transform other than translate and scale")
+            problems.append(f"a path of the {section} under a transform other than translate and scale")
             continue
         try:
             into += [whole[1] + whole[0] * x for x in path_xs(attrs.get("d", ""))]
         except ValueError as error:
-            problems.append(f"a path of the figure or the word with {error}")
+            problems.append(f"a path of the {section} with {error}")
+        if section == "agents":
+            groups.add(whole)
     if not figure:
         problems.append("no path under <!-- the coat --> or <!-- the cowl -->")
+    if len(groups) != 4:
+        problems.append(f"{len(groups)} groups of paths under <!-- the smaller ones -->, not the four agents")
     if not word:
         problems.append("no path under <!-- the word -->")
-    return problems, (round(min(figure), 1) if figure else None, round(max(word), 1) if word else None)
+    left = figure + agents
+    return problems, (round(min(left), 1) if left else None, round(max(word + agents), 1) if word else None)
 problems, span = frame_span(scenes["day"])
 verdict["scene_span"], verdict["span"] = "; ".join(problems), list(span)
 print(json.dumps(verdict))
@@ -815,7 +835,7 @@ ok() {
 # criterion 6: the workflow and the folder its step makes
 if ok trigger; then pass "pages.yml runs only on Run workflow (workflow_dispatch), never on a push, a pull request or a schedule"; else fail "pages.yml's triggers: $WHY"; fi
 if ok workflow; then pass "pages.yml has the Pages permissions, the github-pages environment, and GitHub's Pages actions"; else fail "pages.yml: $WHY"; fi
-if [ -z "$copy_said" ] && ok copied; then pass "the step \"$STEP_NAME\" of pages.yml makes a folder of index.html, style.css, the logo for each theme, its figure alone for the tab and the six pictures of the board, at the paths the page names"; else fail "the step \"$STEP_NAME\": ${copy_said:-$WHY}"; fi
+if [ -z "$copy_said" ] && ok copied; then pass "the step \"$STEP_NAME\" of pages.yml makes a folder of index.html, style.css, the logo and its figure alone for the tab, each for each theme, and the six pictures of the board, at the paths the page names"; else fail "the step \"$STEP_NAME\": ${copy_said:-$WHY}"; fi
 if ok guides; then pass "every guide link of the page names a file of docs/ in the checkout, and each # part a heading of that file"; else fail "the guide links: $WHY"; fi
 # criterion 5: what site/ holds
 if ok tracked; then pass "git tracks index.html and style.css under site/, and nothing else"; else fail "site/ in git: $WHY"; fi
@@ -838,6 +858,7 @@ if ok plugin; then pass "the page calls Lem a plugin for Claude Code that works 
 if ok captions; then pass "every example dialog has a caption that says illustration, and every caption of a picture of the board says demo data"; else fail "the captions: $WHY"; fi
 # criterion 4, in the files
 if ok pictures; then pass "the logo and the pictures of the board, the phone and a task each have a dark source"; else fail "the pictures: $WHY"; fi
+if ok icons; then pass "the tab icon is three SVG lines in order: assets/lem-mark.svg with no media, assets/lem-mark-night.svg for a dark theme, assets/lem-mark.svg for a light theme"; else fail "the tab icon: $WHY"; fi
 if ok sizes; then pass "each picture of the board says its size as half the pixels of its files, light and dark"; else fail "the sizes of the pictures: $WHY"; fi
 if ok colors; then pass "style.css has the six hues of lem.css with the same values, and every other color is a grey or a mix of those"; else fail "the colors: $WHY"; fi
 if ok switch; then pass "the page has no control that switches the theme: its one kind of button copies a line"; else fail "a theme switch: $WHY"; fi
@@ -872,14 +893,17 @@ $2"
 # result FILE: the JSON a probe wrote into the page Chrome printed
 result() { "$PY" -I -c 'import html, re, sys; found = re.search(r"<pre id=\"probe-out\">(.*?)</pre>", open(sys.argv[1], encoding="utf-8").read(), re.S); print(html.unescape(found.group(1)) if found else "")' "$1"; }
 # A phone's window: headless Chrome draws no window under 500 px wide (measured on 2026-11-22), so phone.html
-# frames a probe at 390 px from the top left corner, with the probe's own query, and prints what it reports.
+# frames a probe from the top left corner, 390 px wide or as wide as its query's width, with the probe's own
+# query, and prints what it reports.
 [ -d "$SITE" ] && cat > "$SITE/phone.html" <<'HTML'
 <!doctype html>
 <html><head><meta charset="utf-8"><style>body { margin: 0; } iframe { display: block; border: 0; width: 390px; height: 1400px; }</style></head>
 <body><script>
 addEventListener("message", event => { const out = document.createElement("pre"); out.id = "probe-out"; out.textContent = event.data; document.body.append(out); });
+const query = new URLSearchParams(location.search);
 const frame = document.createElement("iframe");
-frame.src = new URLSearchParams(location.search).get("page") + location.search;
+if (query.get("width")) frame.style.width = query.get("width") + "px";
+frame.src = query.get("page") + location.search;
 document.body.prepend(frame);
 </script></body></html>
 HTML
@@ -1049,14 +1073,15 @@ elif mode == "layer":
     if len(d["texts"]) != 7:
         wrong.append(f"the probe found {sorted(d['texts'])}, not the 7 hero texts")
 elif mode == "phone":
-    # criterion 2: at 390 px the figure and the word with its cursor are inside the window, and the scene keeps its ratio
-    d, static = load(files[0]), load(files[1])
+    # criterion 2: at a phone's width (390 or 360 px) the four small agents, the figure and the word with its cursor
+    # are inside the window, and the scene keeps its ratio
+    d, static, width = load(files[0]), load(files[1]), int(files[2])
     scene, (left, right) = d["scene"], static.get("span") or [None, None]
     natural, box_w, box_h = scene["natural"], scene["right"] - scene["left"], scene["bottom"] - scene["top"]
     if static.get("scene_span") or left is None:
         wrong.append(f"the scene file: {static.get('scene_span')}")
-    elif d["width"] != 390 or d["client"] != 390:
-        wrong.append(f"the frame is {d['width']} px wide, {d['client']} px inside, not 390")
+    elif d["width"] != width or d["client"] != width:
+        wrong.append(f"the frame is {d['width']} px wide, {d['client']} px inside, not {width}")
     elif natural != [1600, 640]:
         wrong.append(f"the scene loaded at {natural}, not 1600 x 640")
     else:
@@ -1075,8 +1100,8 @@ elif mode == "phone":
             shift = scene["left"] + (box_w - 1600 * scale_x) * float(place.group(1)) / 100
             seen = (shift + left * scale_x, shift + right * scale_x)
             if seen[0] < 0 or seen[1] > d["client"]:
-                wrong.append(f"the figure starts at x {seen[0]:.1f} and the word ends at x {seen[1]:.1f} of the {d['client']} px window")
-            said = f"the scene is {box_h:.0f} px high, the figure starts at x {seen[0]:.0f} and the word ends at x {seen[1]:.0f}"
+                wrong.append(f"the left outer agent starts at x {seen[0]:.1f} and the word ends at x {seen[1]:.1f} of the {d['client']} px window")
+            said = f"the scene is {box_h:.0f} px high, the left outer agent starts at x {seen[0]:.1f} and the word ends at x {seen[1]:.0f}"
 elif mode == "contrast":
     # criterion 6: each run of hero text against what stands behind it, at its weakest pixel, with the scene at its bound
     d, picture, static, theme = load(files[0]), files[1], load(files[2]), files[3]
@@ -1136,6 +1161,12 @@ sys.exit(bool(wrong))
 PY
 )
 drawn() { "$PY" -I -B -c "$DRAWN" "$@" 2>&1; }
+# phone_at WIDTH: the probe of the first screen in a frame WIDTH px wide, and the verdict of the phone on it
+phone_at() {
+  headless --window-size=500,1400 --virtual-time-budget=5000 --dump-dom "file://$SITE/phone.html?page=screen.html&width=$1" > "$WORK/phone-$1.dom"
+  result "$WORK/phone-$1.dom" > "$WORK/phone-$1.json"
+  drawn phone "$WORK/phone-$1.json" "$WORK/static.json" "$1"
+}
 
 # contrast_of THEME: the contrast probe drawn at 1280 x 800 and at 390 px in THEME (day or night), the scene at
 # the bound color of that theme from the static checks; prints the weakest run of each, or what fell short
@@ -1178,13 +1209,16 @@ drawn_checks() {
   else
     fail "the copy buttons: $why"
   fi
-  # criterion 2: a phone, 390 px wide, in a frame (phone.html)
-  headless --window-size=500,1400 --virtual-time-budget=5000 --dump-dom "file://$SITE/phone.html?page=screen.html" > "$WORK/phone.dom"
-  result "$WORK/phone.dom" > "$WORK/phone.json"
-  if why=$(drawn phone "$WORK/phone.json" "$WORK/static.json"); then
-    pass "at 390 px the scene is cut at its sides around its center and keeps its ratio, and the hooded figure and the word Lem with its cursor are inside the window ($why)"
+  # criterion 2: a phone, 390 px wide and 360 px wide, in a frame (phone.html)
+  if why=$(phone_at 390); then
+    pass "at 390 px the scene is cut at its sides around its center and keeps its ratio, and the four small agents, the hooded figure and the word Lem with its cursor are inside the window ($why)"
   else
     fail "the scene at 390 px: $why"
+  fi
+  if why=$(phone_at 360); then
+    pass "at 360 px the scene is cut at its sides around its center and keeps its ratio, and the four small agents, the hooded figure and the word Lem with its cursor are inside the window ($why)"
+  else
+    fail "the scene at 360 px: $why"
   fi
   # criterion 6: each hero text against the scene at its theme's bound color, under the page's shade, at 1280 x 800 and at 390 px
   if why=$(contrast_of day); then
