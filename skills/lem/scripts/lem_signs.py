@@ -1,8 +1,8 @@
 """The signs of work of a task's Claude Code session, from Claude Code's own files, for `lem session list`.
 
-    read_signs(records, session, turns, processes, table)
+    read_signs(records, session, turns, processes, table, slug, named)
                     the pure rule: {"sign", "shell", "signs"} from the facts below
-    facts_of(records, session, table)
+    facts_of(records, session, table, slug)
                     the facts, read from the files the records name
 
 Three facts tell whether a task's session still works, beside the task's own events (which the
@@ -20,6 +20,13 @@ Where each fact is, as read on this Mac with Claude Code 2.1.330 on 2026-11-22:
   (`AGTERM_SESSION_ID`). Only the records whose `session` is the task's newest session count, in no
   regard to case: the old pane's `/clear`, or a background host of Claude Code that runs with another
   pane's environment, writes a record of another session. A record with no `session` counts for none.
+- A record of the task's newest session whose transcript's first prompt is the launch line of another
+  task counts for none either: a fork that another task's session makes in a background host started
+  from this task's pane is logged under this task and this pane (6fe214ec, a fork of the session of
+  merge-leaves-board-lock, logged under board-card-search on 2026-11-22). The task a first prompt
+  names is `lem_tokens`' rule (`first_prompt`, `task_named`), read only for the records of the newest
+  session, so that no old pane's transcript is opened; a first prompt that names no task (a `/clear`)
+  keeps the record's task.
 - A transcript is `FOLDER/projects/NAME/ID.jsonl`, one JSON record a line. Its newest sign is the
   `timestamp` of its newest record whose `type` is `user` or `assistant` (a prompt, a tool's result,
   a reply), read from the file's end; never the file's time. A message that reaches an idle or parked
@@ -46,6 +53,8 @@ and never a fresh session that the owner did not open.
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+
+import lem_tokens  # the task a transcript's first prompt names; the scripts' folder is on the path of every importer
 
 # the record types that are a turn of the session (see the module docstring, 2026-11-22)
 TURNS = ("user", "assistant")
@@ -107,18 +116,21 @@ def table_rows(table: str) -> list[tuple[int, int, str]]:
     return rows
 
 
-def read_signs(records: list[dict], session: str | None, turns: dict[str, list], processes: dict[str, list], table: str | None) -> dict:
-    """The signs of work of the agterm session SESSION, from the facts:
+def read_signs(records: list[dict], session: str | None, turns: dict[str, list], processes: dict[str, list], table: str | None,
+               slug: str, named: dict[str, str | None]) -> dict:
+    """The signs of work of the agterm session SESSION of the task SLUG, from the facts:
 
     RECORDS     the task's `session.transcript` events
     TURNS       {transcript: [newest turn of the transcript, of each subagent, ...]}, each a time or None
     PROCESSES   {Claude Code folder: [the process files of its `sessions/`, each a dict]}
     TABLE       the text of `ps -A -o pid=,ppid=,command=`, or None when it could not be read
+    NAMED       {transcript: the task its first prompt names, or None}
 
-    It gives `sign`, the newest of those turns or None, `shell`, whether a direct child of the
+    Of the session's records, one whose transcript names another task than SLUG counts for none. It
+    gives `sign`, the newest of those turns or None, `shell`, whether a direct child of the
     session's Claude Code process sources the shell's snapshot, and `signs`, whether there was
     something to read: a record of the session, and a live process of it in a process file."""
-    mine = own_records(records, session)
+    mine = [record for record in own_records(records, session) if named.get(record["transcript"]) in (None, slug)]
     times = [found for record in mine for text in turns.get(record["transcript"], []) if (found := when(text))]
     sign = max(times).strftime("%Y-%m-%dT%H:%M:%SZ") if times else None
     ids = {record["claude"] for record in mine}
@@ -155,12 +167,19 @@ def file_turn(path: Path) -> str | None:
         return None
 
 
-def facts_of(records: list[dict], session: str | None, table: str | None) -> dict:
-    """The facts `read_signs` takes, read from the files the session's records name: the newest turn
-    of each transcript and of each of its subagents, and the process files of each transcript's folder."""
+def facts_of(records: list[dict], session: str | None, table: str | None, slug: str) -> dict:
+    """The facts `read_signs` takes, read from the files the session's records name: the task each
+    transcript's first prompt names, and, for a transcript that names no other task than SLUG, the
+    newest turn of it and of each of its subagents, and the process files of its folder. No file of
+    a record of another session is opened."""
     turns: dict[str, list] = {}
     processes: dict[str, list] = {}
+    named: dict[str, str | None] = {}
     for record in own_records(records, session):
+        if record["transcript"] not in named:
+            named[record["transcript"]] = lem_tokens.task_named(lem_tokens.first_prompt(Path(record["transcript"])))
+        if named[record["transcript"]] not in (None, slug):
+            continue
         transcript = Path(record["transcript"])
         subagents = sorted((transcript.parent / transcript.stem / "subagents").glob("agent-*.jsonl"))
         turns[record["transcript"]] = [file_turn(path) for path in (transcript, *subagents) if path.is_file()]
@@ -173,9 +192,9 @@ def facts_of(records: list[dict], session: str | None, table: str | None) -> dic
                 except (OSError, ValueError):
                     continue
             processes[folder] = found
-    return {"records": records, "session": session, "turns": turns, "processes": processes, "table": table}
+    return {"records": records, "session": session, "turns": turns, "processes": processes, "table": table, "slug": slug, "named": named}
 
 
-def signs_of(records: list[dict], session: str | None, table: str | None) -> dict:
-    """`read_signs` over the facts read now."""
-    return read_signs(**facts_of(records, session, table))
+def signs_of(records: list[dict], session: str | None, table: str | None, slug: str) -> dict:
+    """`read_signs` over the facts read now, for the task SLUG."""
+    return read_signs(**facts_of(records, session, table, slug))

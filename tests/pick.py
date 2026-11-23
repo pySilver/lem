@@ -58,9 +58,10 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     (("tests/board-cdp.mjs",), ("lem-serve", "lem-board-keys")),
     # two machines under one address: the server that passes another's pages through, and the list of both
     (("skills/lem/scripts/serve.py", "skills/lem/scripts/lem_peers.py", "skills/lem/scripts/lem_board_pages.py"), ("lem-peers",)),
-    # `lem session list` reads each live session's signs of work through lem_signs.py
-    (("skills/lem/scripts/picker.py", "skills/lem/scripts/session.py", "skills/lem/scripts/lem_signs.py"), ("lem-picker", "lem-command")),
-    (("skills/lem/scripts/session.py", "skills/lem/scripts/lem_signs.py", "skills/lem/scripts/session_hook.py", "skills/lem/templates/handoff.md"), ("lem-session", "lem-command")),
+    # `lem session list` reads each live session's signs of work through lem_signs.py, which takes the task a transcript names from lem_tokens.py
+    (("skills/lem/scripts/picker.py", "skills/lem/scripts/session.py", "skills/lem/scripts/lem_signs.py", "skills/lem/scripts/lem_tokens.py"), ("lem-picker", "lem-command")),
+    (("skills/lem/scripts/session.py", "skills/lem/scripts/lem_signs.py", "skills/lem/scripts/lem_tokens.py", "skills/lem/scripts/session_hook.py",
+      "skills/lem/templates/handoff.md"), ("lem-session", "lem-command")),
     (("skills/lem/scripts/corrections.py", "skills/lem/scripts/jev.py", "hooks/*", "bin/lem-jev"), ("lem-machine", "lem-state", "lem-command")),
     (("skills/lem/scripts/doctor.py", "scripts/setup.py", ".claude-plugin/*", "agents/*"), ("lem-machine", "lem-command")),
     (("bin/lem", "skills/lem/scripts/lem_python.py"), ("lem-command", "lem-machine")),
