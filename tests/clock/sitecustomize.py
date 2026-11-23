@@ -7,18 +7,18 @@ clock. `PYTHONPATH=tests/clock LEM_TEST_LATER=60 bash tests/lem-picker.sh` holds
 picker's block fixes every age it expects.
 """
 
-import datetime
+import datetime as dt
 import os
 import sys
 
 _later = os.environ.get("LEM_TEST_LATER")
 
 if _later and "--list" in sys.argv:
-    _shift = datetime.timedelta(seconds=int(_later))
+    _shift = dt.timedelta(seconds=int(_later))
 
-    class _Later(datetime.datetime):
+    class _Later(dt.datetime):
         @classmethod
-        def now(cls, tz=None):
+        def now(cls, tz: "dt.tzinfo | None" = None) -> "_Later":
             return super().now(tz) + _shift
 
-    datetime.datetime = _Later
+    dt.datetime = _Later

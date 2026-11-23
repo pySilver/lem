@@ -51,7 +51,7 @@ def flat(text: str) -> str:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) != 2 or argv[0] != "--base":
+    if len(argv) != 2 or argv[0] != "--base":  # noqa: PLR2004 - --base and its commit
         sys.exit(
             "moved.py: name the commit before the move, as --base COMMIT (479bef6 for this plan)"
         )

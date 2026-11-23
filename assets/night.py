@@ -100,10 +100,11 @@ FINE = re.compile(r"#[0-9a-f]{6}|none|url\(#[\w-]+\)")
 
 def refuse(text: str) -> None:
     """Exit on every color that is not a six-digit lowercase hex, inside the night sky too."""
-    wrong = []
-    for found in re.finditer(r"#[0-9A-Fa-f]{3,8}\b", text):
-        if not re.fullmatch(r"#[0-9a-f]{6}", found.group(0)):
-            wrong.append(found.group(0))
+    wrong = [
+        found.group(0)
+        for found in re.finditer(r"#[0-9A-Fa-f]{3,8}\b", text)
+        if not re.fullmatch(r"#[0-9a-f]{6}", found.group(0))
+    ]
     for found in PAINT.finditer(text):
         value = (
             found.group(2) if found.group(2) is not None else found.group(3)
@@ -128,7 +129,7 @@ def night_group(text: str) -> tuple[int, int]:
 
 
 def main() -> None:
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 3:  # noqa: PLR2004 - the script, SOURCE and TARGET
         sys.exit("usage: night.py SOURCE TARGET")
     text = Path(sys.argv[1]).read_text()
     refuse(text)
@@ -154,9 +155,10 @@ def main() -> None:
         sys.exit(
             f"night.py: no night color for {', '.join(missing)}; add each to NIGHT"
         )
-    paint = lambda part: re.sub(
-        r"#[0-9a-f]{6}", lambda found: NIGHT[found.group(0)], part
-    )
+
+    def paint(part: str) -> str:
+        return re.sub(r"#[0-9a-f]{6}", lambda found: NIGHT[found.group(0)], part)
+
     text = paint(parts[0]) + parts[1] + paint(parts[2])
     # The ids get an `n`, so that the day and the night picture can stand inline in one page.
     text = re.sub(r"\b(c2m?)-", r"\1n-", text)

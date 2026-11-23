@@ -7,6 +7,7 @@ stopped` is printed and the exit is 124. A suite's EXIT trap runs on TERM, so a 
 way still removes its folder. A TERM or an INT to this process goes on to the group.
 """
 
+import contextlib
 import os
 import signal
 import subprocess
@@ -16,10 +17,8 @@ GRACE = 10
 
 
 def signal_group(group: int, sign: int) -> None:
-    try:
+    with contextlib.suppress(ProcessLookupError):
         os.killpg(group, sign)
-    except ProcessLookupError:
-        pass
 
 
 def main() -> int:
@@ -37,10 +36,8 @@ def main() -> int:
     except subprocess.TimeoutExpired:
         pass
     signal_group(proc.pid, signal.SIGTERM)
-    try:
+    with contextlib.suppress(subprocess.TimeoutExpired):
         proc.wait(timeout=GRACE)
-    except subprocess.TimeoutExpired:
-        pass
     signal_group(proc.pid, signal.SIGKILL)
     proc.wait()
     print(f"FAIL {name} did not end in {seconds} s, and was stopped", flush=True)

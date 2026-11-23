@@ -48,6 +48,7 @@ import urllib.request
 import zlib
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import IO, cast
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS = ROOT / "skills" / "lem" / "scripts"
@@ -67,6 +68,7 @@ def run(*args: str, cwd: Path | None = None) -> str:
         args,
         capture_output=True,
         text=True,
+        check=False,
         cwd=cwd,
         env={
             **os.environ,
@@ -234,10 +236,7 @@ class Shop:
     def session(self, slug: str, minutes: float, phase: str, why: str) -> None:
         """The task's agterm session opened MINUTES before NOW, as `lem session open` logs it: an id of agterm's
         form, made from the task's name and the minute, so that each run writes the same."""
-        sid = "%08X-0000-4000-8000-%012X" % (
-            zlib.crc32(slug.encode()),
-            int(minutes * 10),
-        )
+        sid = f"{zlib.crc32(slug.encode()):08X}-0000-4000-8000-{int(minutes * 10):012X}"
         self.log(
             slug,
             minutes,
@@ -814,23 +813,20 @@ def afternoon(shop: Shop) -> None:
         tree,
         "docs(plans): the order date on the invoice",
         {
-            "docs/plans/2026-11-17-order-date-on-invoice.md": "\n".join(
-                [
-                    "# The order date on the invoice",
-                    "",
-                    "## Acceptance criteria",
-                    "",
-                    "Size: full, because the invoice gets a new line.",
-                    "",
-                    '1. The invoice of order 1042, placed on 3 May, says "Ordered 3 May 2026" under its number.',
-                    "   - test: `sh tests/order-date.sh` in `tests/order-date.sh`",
-                    "",
-                    "## Tasks",
-                    "",
-                    "1. The date under the order's number.",
-                    "2. The date in the shop's language.",
-                    "",
-                ]
+            "docs/plans/2026-11-17-order-date-on-invoice.md": (
+                "# The order date on the invoice\n"
+                "\n"
+                "## Acceptance criteria\n"
+                "\n"
+                "Size: full, because the invoice gets a new line.\n"
+                "\n"
+                '1. The invoice of order 1042, placed on 3 May, says "Ordered 3 May 2026" under its number.\n'
+                "   - test: `sh tests/order-date.sh` in `tests/order-date.sh`\n"
+                "\n"
+                "## Tasks\n"
+                "\n"
+                "1. The date under the order's number.\n"
+                "2. The date in the shop's language.\n"
             )
         },
     )
@@ -1154,7 +1150,7 @@ def png(
     )
 
 
-def receipt(after: bool) -> bytes:
+def receipt(*, after: bool) -> bytes:
     """The receipt of order 1042, before and after the refund line: lines of text as gray bars."""
     ink, dim, line, ok = (40, 38, 34), (150, 146, 140), (226, 224, 219), (98, 151, 66)
     rows = [
@@ -1361,8 +1357,8 @@ def refund_line(s: Shop) -> None:
     s.state(t, 520, "building", "task 2 of 2")
     s.log(t, 519.5, "builder.start", "job=task 2 of 2")
     (folder / "media").mkdir(exist_ok=True)
-    (folder / "media" / "receipt-before.png").write_bytes(receipt(False))
-    (folder / "media" / "receipt-after.png").write_bytes(receipt(True))
+    (folder / "media" / "receipt-before.png").write_bytes(receipt(after=False))
+    (folder / "media" / "receipt-after.png").write_bytes(receipt(after=True))
     (folder / "report.md").write_text(
         "# Report\n\nThe refund line is in, under the items, and the total under it.\n\n"
         "![The receipt of order 1042 after a refund of 30.00 EUR](media/receipt-after.png)\n*The refund reads `-30.00` in green; the total under it is 70.00.*\n"
@@ -1433,9 +1429,11 @@ def refund_line(s: Shop) -> None:
     reasons = [
         'decision 1 was taken without the owner (Where the refund line goes on the receipt): "B: a line of its own under the items, then the total", by the dialectic',
         f"the owner did not approve the criteria: they were approved on {TODAY} while the task ran without the owner",
-        "the bar is lower in `tests/test_receipt.py` (one assertion fewer). The builder: the old check read the total from a fixed row of the receipt, which the refund line moves; "
-        "`test_total_after_refund` reads the same value by its label, which is what a customer reads. The review: the reason holds; the new test covers the row the old one read, "
-        "and no other test lost a line. The resolution of round 1 did not touch the file",
+        (
+            "the bar is lower in `tests/test_receipt.py` (one assertion fewer). The builder: the old check read the total from a fixed row of the receipt, which the refund line moves; "
+            "`test_total_after_refund` reads the same value by its label, which is what a customer reads. The review: the reason holds; the new test covers the row the old one read, "
+            "and no other test lost a line. The resolution of round 1 did not touch the file"
+        ),
         "two rounds reviewed it: the last one left no must-fix, and round 1 left 1 must-fix that pull request #44 answers",
     ]
     s.log(
@@ -1638,6 +1636,7 @@ def shots(out: Path, base: str) -> None:
                 [node, str(ROOT / "tests" / "board-cdp.mjs"), str(spec_file)],
                 capture_output=True,
                 text=True,
+                check=False,
                 timeout=120,
             )
             spec_file.unlink()
@@ -1682,7 +1681,8 @@ def main() -> None:
             env=env,
             text=True,
         )
-        said = json.loads(server.stdout.readline())
+        # stdout=PIPE above: the process has its stdout
+        said = json.loads(cast("IO[str]", server.stdout).readline())
         facts = {}
         for _ in range(50):
             try:

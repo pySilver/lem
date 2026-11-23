@@ -34,5 +34,5 @@ if step and len(args) == 2 and args[0] == "-u" and args[1].startswith("+"):
 for folder in os.environ.get("PATH", "").split(os.pathsep):
     found = Path(folder or ".", "date")
     if found.is_file() and os.access(found, os.X_OK) and found.resolve().parent != here:
-        os.execv(found, [str(found), *args])
+        os.execv(found, [str(found), *args])  # noqa: S606 - the stand-in becomes the system's date
 sys.exit("tests/clock/date: no other date on PATH")
