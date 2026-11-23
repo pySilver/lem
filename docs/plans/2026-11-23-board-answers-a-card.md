@@ -62,7 +62,9 @@ flowchart TD
      `hook_stop`, which know a page by that folder, stay as they are (talk, question 9).
    - One end counts, and every end of a card goes through one file: `cards/PAGEID.end.json`, made as a
      link of a finished file, as `link_mark` in `project.py` makes a mark (the JSON written whole to
-     `cards/PAGEID.end.json.PID.new`, then `os.link` to the name, which fails when the name is there),
+     a temporary name unique to its writer, `cards/PAGEID.end.json.PID.THREAD.TOKEN.new` with a
+     random token, since the board server's threads share one PID; then `os.link` to the name,
+     which fails when the name is there, and the temporary file removed: decision 7),
      so that a reader never sees a part of it and a writer that stops leaves no empty name (talk,
      question 4). Whoever links it first owns the card's end, and the other one reads it: the board's
      server with an answer, or `lem-ask` in the session with a pick, a dismissal or a `lem-ask close`
@@ -120,7 +122,12 @@ flowchart TD
      is its `values`, with a preset or with none once a slider moved it (`finish` sends `selected: []`
      and `from` then); a question with `optional: true` answered with nothing is an answer; a `text`
      question's answer is its text (talk, question 8). A `dismissed` beacon (the page's `pagehide`)
-     records nothing and answers 204. Otherwise it links the card's end file (task 1); when the link
+     records nothing and answers 204. Then it asks agterm for the page's result (`agtermctl session
+     overlay result --page PAGEID`, the read `wait_page` makes): when agterm holds a submitted answer
+     that no waiter has read, it refuses with "An answer was given on the card at the Mac: the task's
+     session takes it", and records nothing; when agterm does not answer, it refuses with what agterm
+     said, since it cannot tell (decision 8). A read only: the server never submits or closes the
+     page. Otherwise it links the card's end file (task 1); when the link
      fails, it lost to the session's pick, dismissal or close, and it refuses with what that file
      says. When it wins, it logs `card.answered from=board via=…` and `board.act act=answer`, and
      answers 200 with "Your answer is on record: the task's session takes it."
@@ -385,6 +392,25 @@ None.
    the tailnet. The listener alone does not tell a phone: a second computer joined under one
    address, or this Mac on the tailnet address, comes through the door too (talk, question 11). By
    the lead.
+6. **An answer typed in the session, or an Inbox reply, claims nothing on the board's record.** A
+   board answer that lands in the seconds the session acts on his typed word is told "on record",
+   then takes no effect, and the session says so in one line (task 4). Plan talk, question 3; the
+   gate: cheap (record 6 of `lem decisions list`).
+7. **The temporary name of an end file or a record is unique to its writer**, PID, thread and a
+   random token, since the board server's threads share one PID and a shared `NAME.PID.new` let the
+   second writer's answer land in the first one's linked file (a probe in the task directory,
+   2026-11-23). Plan talk, question 4; the gate: checkable (record 3).
+8. **The board reads agterm's result for a card's page before it takes the card's answer**, and
+   refuses when agterm holds a submitted answer that no waiter read, so that a pick at the Mac in
+   the seconds between two waits counts first, as criterion 4's case says (task 2). A read, never a
+   submit or a close. Plan talk, question 6; the gate: checkable (record 8).
+9. **A row's key names its state block by the block's `ts`, to the second.** Plan talk, question 7;
+   the gate: cheap (record 5).
+10. **A merge gets no away card**: the board's merge row with its Merge is the one place to answer
+    it, and "Not now" is no act (decision 3). Plan talk, question 10; the gate: checkable (record
+    7).
+11. **`device` comes from the request's headers, with the User-Agent whole and `via` beside it**
+    (decision 5). Plan talk, question 11; the gate: cheap (record 4).
 
 ## What this plan will not verify
 
