@@ -72,7 +72,8 @@ b { font-weight: 650; }
     color-mix(in srgb, var(--bg) 82%, transparent) var(--shade), var(--bg) calc(var(--shade) + 60px));
 }
 .lead { margin: 0; max-width: 23em; font-size: 31px; line-height: 1.25; font-weight: 700; letter-spacing: -.018em; text-wrap: balance; }
-.sub { margin: 14px 0 0; max-width: 38em; font-size: 17px; color: var(--dim); text-wrap: balance; }
+.for { margin: 12px 0 0; max-width: 40em; font-size: 19px; line-height: 1.4; font-weight: 600; text-wrap: balance; }
+.sub { margin: 12px 0 0; max-width: 38em; font-size: 17px; color: var(--dim); text-wrap: balance; }
 .opening .install { margin-top: 26px; }
 .needs { margin: 14px 0 0; font-size: 14px; color: var(--dim); }
 .needs code { font-size: 13px; color: var(--fg); }
@@ -101,6 +102,9 @@ h2 { margin: 0 0 14px; font-size: 32px; line-height: 1.2; font-weight: 720; lett
 .text p { margin: 0 0 14px; max-width: 40em; }
 .text p:last-child { margin-bottom: 0; }
 .columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 36px; align-items: start; margin-top: 34px; }
+
+/* how a task goes: the three touches as cards, a line under them, then the diagram */
+.touches-more { margin: 16px 0 30px; color: var(--dim); font-size: 15px; }
 
 /* the diagram: one row for each track, in seven columns, so that both rows end at one pull request and one merge */
 .flow { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 24px 26px 18px; display: flex; flex-direction: column; gap: 18px; }
@@ -192,7 +196,7 @@ h2 { margin: 0 0 14px; font-size: 32px; line-height: 1.2; font-weight: 720; lett
 }
 .setup .more { margin: 18px 0 0; padding-top: 14px; border-top: 1px solid var(--line); font-size: 14.5px; color: var(--dim); }
 
-/* many tasks at once: three cards, then the verdict of a pull request beside a task's picture */
+/* cards in a row (the three touches, many tasks at once), and the verdict of a pull request beside a task's picture */
 .cards { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .cards li { padding: 18px 20px 20px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
 .cards b { font-size: 16.5px; line-height: 1.3; }
@@ -210,6 +214,23 @@ h2 { margin: 0 0 14px; font-size: 32px; line-height: 1.2; font-weight: 720; lett
 .frame.crop { aspect-ratio: 1 / 1.152; }
 .frame.crop img { width: 259.7%; max-width: none; margin-left: -159.7%; margin-top: -8.1%; }
 
+/* the guarantees: one line each, with the mark of a check, then what careful means */
+.guarantees { list-style: none; margin: 8px 0 0; padding: 4px 22px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); }
+.guarantees li { position: relative; padding: 13px 0 13px 30px; font-size: 16.5px; }
+.guarantees li + li { border-top: 1px solid var(--line); }
+.guarantees li::before {
+  content: ""; position: absolute; left: 4px; top: calc(13px + .45em); width: 11px; height: 6px;
+  border-left: 2px solid var(--ok); border-bottom: 2px solid var(--ok); transform: rotate(-45deg);
+}
+.careful { margin: 18px 0 0; max-width: 46em; color: var(--dim); font-size: 16px; }
+.careful b { color: var(--fg); }
+
+/* the four files of what Lem learns, and the two trackers */
+.cards.files { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.cards.pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cards li a { margin-top: 6px; font-size: 14.5px; }
+.text.below { margin-top: 26px; }
+
 /* the main tools */
 .tools { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 .tools li { padding: 3px 11px; border-radius: 999px; background: var(--card-hi); border: 1px solid var(--line); font-size: 14px; }
@@ -225,7 +246,7 @@ footer { border-top: 1px solid var(--line); padding-top: 44px; padding-bottom: 5
 
 /* a narrow window: the columns stack, and each track reads from top to bottom */
 @media (max-width: 1100px) {
-  .views { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .views, .cards.files { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 860px) {
   main, footer { padding: 0 20px; }
@@ -236,7 +257,7 @@ footer { border-top: 1px solid var(--line); padding-top: 44px; padding-bottom: 5
   .hero { padding-top: 0; --shade: 90px; }
   .logo { position: relative; top: auto; bottom: auto; left: auto; }
   .words { margin-top: calc(var(--scene) * -.24); }
-  .columns, .points, .cards, .verdict { grid-template-columns: minmax(0, 1fr); }
+  .columns, .points, .cards, .cards.files, .cards.pair, .verdict { grid-template-columns: minmax(0, 1fr); }
   .track { grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .steps { grid-template-columns: minmax(0, 1fr); gap: 18px; }
   .fast .step:nth-child(2) { grid-column: auto; }

@@ -8,6 +8,9 @@
 # Lem
 
 Type a request in plain words, and get a pull request whose first line says green or not green.
+
+For a developer who works alone, and for a team on Linear or GitHub Issues.
+
 Agents plan, build, test and review the change in your repository. A fresh merge agent reads each
 pull request, merges a green one that is not careful, and calls you for the rest.
 
@@ -125,10 +128,9 @@ drop.
 
 The board shows each task, what waits for you, the backlog and the activity, and it updates by
 itself. You can approve criteria, merge and park a task there. Add it to the Home Screen of your
-phone. Lem then sends a notification each time something starts to wait for you. While you are
-away, what waits for you also goes to your
-[Plannotator Inbox](docs/when-lem-needs-you.md#answer-from-the-inbox), and you can answer it there
-from your phone. The boards of two computers can share one address.
+phone. Lem then sends a notification each time something starts to wait for you. A team shares the
+settings in git, the tickets and the pull requests. Each developer has their own board, with the
+tasks on their own computer. The boards of two computers can share one address.
 
 <p align="center">
   <picture>
@@ -178,3 +180,7 @@ steps.
 - [Settings](docs/settings.md)
 - [Connect Linear](docs/linear.md)
 - [Connect GitHub Issues](docs/github-issues.md)
+
+## License
+
+Lem has the [MIT License](LICENSE).
