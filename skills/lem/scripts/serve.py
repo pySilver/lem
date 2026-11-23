@@ -123,7 +123,8 @@ The stream of the pages is HTTP/1.0 with no length, so it ends when the socket c
 thread for each. Each message but the ping below is the default event, with no `event:` line: `id:` is the version of
 the workspace's `events.jsonl`, its inode and its number of lines in one id (`bm.log_version`), and
 `data:` `<turbo-stream action="refresh">`, at which the page fetches itself again and morphs in what
-changed. A message goes when the log grew or `lem project prune` replaced it, or when a file
+changed; while the page posts a form, the refresh waits for the post's end (the stream controller,
+`tools/board-kit/controllers/stream.js`). A message goes when the log grew or `lem project prune` replaced it, or when a file
 the pages read beside it changed: the owner's mark, the settings, the
 demo mark, the backlog's folder, and with `?task=SLUG` (a page with a task open) each file of that
 task's folder, so that an artifact written with no event still shows. The thread looks every
