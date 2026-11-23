@@ -13,7 +13,9 @@ import sys
 import tempfile
 import types
 import unittest
+from collections.abc import Callable
 from pathlib import Path
+from typing import IO, cast
 from unittest import mock
 
 sys.dont_write_bytecode = True
@@ -460,23 +462,21 @@ class Bar(unittest.TestCase):
         self.assertNotIn("own_patterns", result)
 
     def test_the_plan_gives_each_file_its_reason(self) -> None:
-        plan = "\n".join(
-            [
-                "# bar-change",
-                "",
-                "## Tasks",
-                "",
-                "- calc.py: a line of another section is no reason.",
-                "",
-                "## The bar",
-                "",
-                "- calc.py: the import registers a plugin.",
-                "- `tests/test_base.py`: the sum moved to another module with its test.",
-                "",
-                "## Notes",
-                "",
-                "- plug.py: after the section, no reason either.",
-            ]
+        plan = (
+            "# bar-change\n"
+            "\n"
+            "## Tasks\n"
+            "\n"
+            "- calc.py: a line of another section is no reason.\n"
+            "\n"
+            "## The bar\n"
+            "\n"
+            "- calc.py: the import registers a plugin.\n"
+            "- `tests/test_base.py`: the sum moved to another module with its test.\n"
+            "\n"
+            "## Notes\n"
+            "\n"
+            "- plug.py: after the section, no reason either."
         )
         result = bar(
             patch("calc.py", plus=(f"import os  {NOQA}: F401",)),
@@ -910,6 +910,7 @@ class WhoMerges(unittest.TestCase):
         land_: str = "agent",
         careful: tuple[str, ...] = (),
         reasons: tuple[str, ...] = (),
+        *,
         called: bool = True,
         verdict: str | None = "merge",
     ) -> str | None:
@@ -918,38 +919,47 @@ class WhoMerges(unittest.TestCase):
             land_,
             list(careful),
             list(reasons),
-            called,
-            {"verdict": verdict} if verdict else None,
+            called=called,
+            review={"verdict": verdict} if verdict else None,
         )
 
     def test_a_green_request_that_is_not_careful_with_a_merge_verdict(self) -> None:
         self.assertIsNone(self.refusal())
 
     def test_the_owner_merges_where_the_settings_say_so(self) -> None:
-        self.assertIn('branch.land is "owner"', self.refusal(land_="owner"))
+        self.assertIn(
+            'branch.land is "owner"', cast("str", self.refusal(land_="owner"))
+        )
 
     def test_a_careful_request_calls_him_whatever_the_review_found(self) -> None:
         self.assertIn(
             "a careful request is merged by the owner",
-            self.refusal(careful=("its plan says careful: yes",)),
+            cast("str", self.refusal(careful=("its plan says careful: yes",))),
         )
 
     def test_a_request_that_is_not_green_calls_him(self) -> None:
         self.assertIn(
             "the request is not green (decision 1 was taken without the owner)",
-            self.refusal(reasons=("decision 1 was taken without the owner",)),
+            cast(
+                "str", self.refusal(reasons=("decision 1 was taken without the owner",))
+            ),
         )
 
     def test_no_careful_call_of_the_review_calls_him(self) -> None:
         self.assertIn(
-            "no review that answered made the careful call", self.refusal(called=False)
+            "no review that answered made the careful call",
+            cast("str", self.refusal(called=False)),
         )
 
     def test_no_merge_review_or_a_call_keeps_the_merge_his(self) -> None:
         self.assertIn(
-            "lem land merge-review gift-note --file FILE", self.refusal(verdict=None)
+            "lem land merge-review gift-note --file FILE",
+            cast("str", self.refusal(verdict=None)),
         )
-        self.assertIn("the merge review calls the owner", self.refusal(verdict="call"))
+        self.assertIn(
+            "the merge review calls the owner",
+            cast("str", self.refusal(verdict="call")),
+        )
 
 
 class MergeReview(unittest.TestCase):
@@ -972,12 +982,22 @@ class MergeReview(unittest.TestCase):
         self,
     ) -> None:
         # the first is asked again, the second is a review that calls the owner, as an agent that gives no answer twice
-        self.assertEqual(land.unread_next(None, False, None, 1), "again")
-        self.assertEqual(land.unread_next(None, False, None, 2), "owner")
-        self.assertEqual(land.unread_next(None, False, None, 3), "owner")
+        self.assertEqual(
+            land.unread_next(None, moved=False, base_call=None, tries=1), "again"
+        )
+        self.assertEqual(
+            land.unread_next(None, moved=False, base_call=None, tries=2), "owner"
+        )
+        self.assertEqual(
+            land.unread_next(None, moved=False, base_call=None, tries=3), "owner"
+        )
         # an answer with a verdict is recorded as it is
-        self.assertIsNone(land.unread_next("merge", False, None, 1))
-        self.assertIsNone(land.unread_next("call", False, None, 2))
+        self.assertIsNone(
+            land.unread_next("merge", moved=False, base_call=None, tries=1)
+        )
+        self.assertIsNone(
+            land.unread_next("call", moved=False, base_call=None, tries=2)
+        )
 
     def test_the_why_of_a_second_answer_with_no_verdict_says_what_the_two_answers_hold(
         self,
@@ -1152,8 +1172,10 @@ class MergeSeat(unittest.TestCase):
             [(call.args[2], call.args[5]) for call in noted.call_args_list],
             [
                 (
-                    "- the merge agent was to be `claude/opus:high` in place of `codex/gpt-6.2-sol:high`: Codex had no tokens; "
-                    "then Claude Code gave an error too: Claude Code had no login",
+                    (
+                        "- the merge agent was to be `claude/opus:high` in place of `codex/gpt-6.2-sol:high`: Codex had no tokens; "
+                        "then Claude Code gave an error too: Claude Code had no login"
+                    ),
                     "- the merge agent was `claude/opus:high` in place of `codex/gpt-6.2-sol:high`: Codex had no tokens",
                 )
             ],
@@ -2235,10 +2257,12 @@ class TakenFromPolish(unittest.TestCase):
     }
 
     def taken(
-        self, polish: dict | None = None, small: bool = False, **now: object
+        self, polish: dict | None = None, *, small: bool = False, **now: object
     ) -> dict | None:
         return land.taken_from_polish(
-            self.POLISH if polish is None else polish, {**self.INPUTS, **now}, small
+            self.POLISH if polish is None else polish,
+            {**self.INPUTS, **now},
+            small=small,
         )
 
     def test_the_tip_the_pass_ended_on_takes_its_result_and_names_the_pass_and_its_commit(
@@ -2253,7 +2277,8 @@ class TakenFromPolish(unittest.TestCase):
     ) -> None:
         # origin's base took commits of its own: the merge-base of the tip and it is still the base commit of both runs
         self.assertEqual(
-            self.taken(base=self.BASE)["taken"], {"from": "polish", "at": self.TIP}
+            cast("dict", self.taken(base=self.BASE))["taken"],
+            {"from": "polish", "at": self.TIP},
         )
 
     def test_the_fast_track_runs_the_tests(self) -> None:
@@ -2263,7 +2288,7 @@ class TakenFromPolish(unittest.TestCase):
         self.assertIsNone(self.taken({**self.POLISH, "commits": 0, "criteria": None}))
 
     def test_no_pass_or_one_not_done_runs_the_tests(self) -> None:
-        self.assertIsNone(land.taken_from_polish(None, self.INPUTS, False))
+        self.assertIsNone(land.taken_from_polish(None, self.INPUTS, small=False))
         self.assertIsNone(self.taken({"before": self.TIP, "done": False}))
 
     def test_a_commit_after_the_pass_runs_the_tests(self) -> None:
@@ -2279,10 +2304,14 @@ class TakenFromPolish(unittest.TestCase):
 
     def test_after_decides_nothing_when_the_inputs_are_the_same(self) -> None:
         self.assertEqual(
-            self.taken({**self.POLISH, "after": "f0" * 20})["taken"]["at"], self.TIP
+            cast("dict", self.taken({**self.POLISH, "after": "f0" * 20}))["taken"][
+                "at"
+            ],
+            self.TIP,
         )
         self.assertEqual(
-            self.taken({**self.POLISH, "after": None})["taken"]["at"], self.TIP
+            cast("dict", self.taken({**self.POLISH, "after": None}))["taken"]["at"],
+            self.TIP,
         )
 
     def test_a_merge_base_that_moved_under_the_same_tip_runs_the_tests(self) -> None:
@@ -2299,7 +2328,7 @@ class TakenFromPolish(unittest.TestCase):
         self.assertIsNone(self.taken(setup=["npm ci"]))
 
     def test_no_inputs_now_or_a_run_with_none_runs_the_tests(self) -> None:
-        self.assertIsNone(land.taken_from_polish(self.POLISH, None, False))
+        self.assertIsNone(land.taken_from_polish(self.POLISH, None, small=False))
         self.assertIsNone(
             self.taken({**self.POLISH, "criteria": {**self.RAN, "inputs": None}})
         )
@@ -2362,14 +2391,27 @@ class ReadOfAMovedBase(unittest.TestCase):
     ) -> None:
         safe = ("safe", "B changed only docs/board.md.")
         # no verdict on its first line, with a base call or none: asked again, then another round, never the owner
-        self.assertEqual(land.unread_next(None, True, safe, 1), "again")
-        self.assertEqual(land.unread_next(None, True, safe, 2), "another round")
-        self.assertEqual(land.unread_next(None, True, None, 2), "another round")
+        self.assertEqual(
+            land.unread_next(None, moved=True, base_call=safe, tries=1), "again"
+        )
+        self.assertEqual(
+            land.unread_next(None, moved=True, base_call=safe, tries=2), "another round"
+        )
+        self.assertEqual(
+            land.unread_next(None, moved=True, base_call=None, tries=2), "another round"
+        )
         # a verdict and no base call: the same
-        self.assertEqual(land.unread_next("merge", True, None, 1), "again")
-        self.assertEqual(land.unread_next("merge", True, None, 2), "another round")
+        self.assertEqual(
+            land.unread_next("merge", moved=True, base_call=None, tries=1), "again"
+        )
+        self.assertEqual(
+            land.unread_next("merge", moved=True, base_call=None, tries=2),
+            "another round",
+        )
         # a verdict and a base call is recorded as it is
-        self.assertIsNone(land.unread_next("merge", True, safe, 1))
+        self.assertIsNone(
+            land.unread_next("merge", moved=True, base_call=safe, tries=1)
+        )
 
     def test_what_moved_beside_the_change(self) -> None:
         moved = land.moved_of(
@@ -2454,17 +2496,21 @@ class ReadOfAMovedBase(unittest.TestCase):
         # main moved, the merge was refused, then a revert gave main the checks' tree again: the brief named
         # the checks' own base, its read has no call on a move, and it answers the refusal as a safe read does
         base = {"tip": TIP, "by": "merger", "from": "lem", "kind": "base"}
-        self.assertTrue(land.read_answers(base, TIP, None, True))
-        self.assertTrue(land.read_answers(base, TIP, "safe", False))
-        self.assertFalse(land.read_answers(base, TIP, "another round", False))
-        self.assertFalse(land.read_answers(base, TIP, None, False))
-        self.assertFalse(land.read_answers({**base, "kind": "rule"}, TIP, None, True))
+        self.assertTrue(land.read_answers(base, TIP, None, on_checks_base=True))
+        self.assertTrue(land.read_answers(base, TIP, "safe", on_checks_base=False))
+        self.assertFalse(
+            land.read_answers(base, TIP, "another round", on_checks_base=False)
+        )
+        self.assertFalse(land.read_answers(base, TIP, None, on_checks_base=False))
+        self.assertFalse(
+            land.read_answers({**base, "kind": "rule"}, TIP, None, on_checks_base=True)
+        )
         self.assertFalse(
             land.read_answers(
                 {"tip": TIP, "from": "github", "said": "a required review"},
                 TIP,
                 None,
-                True,
+                on_checks_base=True,
             )
         )
 
@@ -2485,7 +2531,12 @@ class ReadOfAMovedBase(unittest.TestCase):
 
     def test_the_refusal_names_the_read_or_a_new_landing(self) -> None:
         read = land.moved_refusal(
-            "gift-note", "origin/main", ["docs/board.md"], "merger", None, False
+            "gift-note",
+            "origin/main",
+            ["docs/board.md"],
+            "merger",
+            None,
+            round_said=False,
         )
         self.assertIn(
             "origin/main moved after the checks ran, by files (docs/board.md)", read
@@ -2498,7 +2549,7 @@ class ReadOfAMovedBase(unittest.TestCase):
             ["docs/board.md", "a", "b", "c", "d", "e"],
             "owner",
             M2,
-            False,
+            round_said=False,
         )
         self.assertIn(
             f"the read of {M2[:9]} said safe, and it covers no later base", later
@@ -2509,7 +2560,7 @@ class ReadOfAMovedBase(unittest.TestCase):
             later,
         )
         again = land.moved_refusal(
-            "gift-note", "origin/main", ["land.py"], "merger", None, True
+            "gift-note", "origin/main", ["land.py"], "merger", None, round_said=True
         )
         self.assertIn("the merge agent's read of this tip said another round", again)
         self.assertIn("lem land start", again)
@@ -2526,7 +2577,7 @@ class ReadOfAMovedBase(unittest.TestCase):
             "base_call": "another round",
             "base_why": "B renamed total",
         }
-        carried = land.carried_review(review, "b" * 40, False, None, TIP)
+        carried = land.carried_review(review, "b" * 40, calls=False, why=None, old=TIP)
         self.assertEqual(
             carried,
             {
@@ -2911,17 +2962,18 @@ class AGoneRunLosesItsPlace(LineCase):
             stdout=subprocess.PIPE,
             text=True,
         )
-        self.addCleanup(child.stdout.close)
+        stdout, stdin = cast("IO[str]", child.stdout), cast("IO[str]", child.stdin)
+        self.addCleanup(stdout.close)
         self.addCleanup(child.wait)
-        self.addCleanup(child.stdin.close)
-        self.assertEqual(child.stdout.readline().strip(), "held")
+        self.addCleanup(stdin.close)
+        self.assertEqual(stdout.readline().strip(), "held")
         return child
 
     def test_an_entry_whose_process_ended_is_removed_and_the_next_run_starts(
         self,
     ) -> None:
         child = self.holder()
-        child.stdin.close()
+        cast("IO[str]", child.stdin).close()
         child.wait()
         own = self.join(LEM_TASK, "12:01")
         self.assertTrue(self.look(own, "12:02")["go"])
@@ -2951,7 +3003,10 @@ class TheWait(LineCase):
     for: what it logs while it waits behind another run, and what a stop leaves."""
 
     def run_wait(
-        self, slug: str, loads: list[float], sleep=None
+        self,
+        slug: str,
+        loads: list[float],
+        sleep: Callable[[float], None] | None = None,
     ) -> tuple[dict | None, list[tuple]]:
         logged: list[tuple] = []
         task = types.SimpleNamespace(slug=slug, main=self.lem, worktree=self.lem)

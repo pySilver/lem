@@ -634,9 +634,11 @@ import subprocess
 import tempfile
 import time
 import tomllib
+from collections.abc import Callable, Generator, Iterator
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import TextIO
+from types import ModuleType
+from typing import Any, TextIO, cast
 
 SCRIPTS = Path(__file__).resolve().parent
 # How this script calls a sibling: in this process, as one command of it.
@@ -691,6 +693,18 @@ READ_AT = 800
 # A plan of more tasks than this is large: it gets a round at the least, and a plan talk before
 # any code. The three-touches plan's own line (2026-11-15), not a measurement.
 LARGE_AFTER = 3
+# A review that no source answered is started once more; after this many in a row that nobody
+# answered, the request goes on to the owner as not reviewed (`stages/land.md`, step 5).
+SILENT_REVIEWS = 2
+# The rounds of review a change gets: what the last of them leaves open goes to the owner
+# (`stages/land.md`, step 5).
+ROUNDS = 2
+# The personas' reads of the criteria in a row that nobody answered after which the request is
+# proposed as not green (`stages/interview.md`, step 5; `stages/land.md`, step 6).
+SILENT_READS = 2
+# The commits of origin's copy of a branch that a refusal names one by one; it counts the rest.
+# The length of the text, not a measurement.
+NAMED_COMMITS = 10
 # The plan's own call whether the task is careful, as `stages/plan.md` step 2 has the lead write it:
 # one line under the plan's title, before its first `##` heading. A line further down is no call:
 # the plan talk's record or a fenced block may quote one.
@@ -908,7 +922,7 @@ REFUSALS = ("rule", "tip", "base")
 
 
 def run(
-    args: list[str], cwd: Path | None = None, check: bool = True
+    args: list[str], cwd: Path | None = None, *, check: bool = True
 ) -> subprocess.CompletedProcess:
     ran = subprocess.run(args, cwd=cwd, capture_output=True, text=True, check=False)
     if check and ran.returncode != 0:
@@ -1042,11 +1056,12 @@ class Task:
             if tasks is not None
             else json.loads(script("project.py", self.repo, "tasks").stdout)
         )
-        self.record = next((task for task in tasks if task["slug"] == self.slug), None)
-        if self.record is None:
+        record = next((task for task in tasks if task["slug"] == self.slug), None)
+        if record is None:
             raise LandError(
                 f"no task {self.slug!r}; the tasks are: {', '.join(task['slug'] for task in tasks) or 'none yet'}"
             )
+        self.record: dict[str, Any] = record
 
     def need_worktree(self) -> None:
         if not (self.worktree / ".git").exists():
@@ -1196,9 +1211,15 @@ class Task:
             return there
         named = "; ".join(
             f'{sha[:9]} {author} "{subject}"'
-            for sha, author, subject in (line.split("\0", 2) for line in theirs[:10])
+            for sha, author, subject in (
+                line.split("\0", 2) for line in theirs[:NAMED_COMMITS]
+            )
         )
-        more = f", and {len(theirs) - 10} more" if len(theirs) > 10 else ""
+        more = (
+            f", and {len(theirs) - NAMED_COMMITS} more"
+            if len(theirs) > NAMED_COMMITS
+            else ""
+        )
         raise LandError(
             f"origin's {branch} holds {len(theirs)} commit(s) that Lem did not push and the task's branch does not hold: {named}{more}. "
             f"A push would remove them. Bring them into the task's worktree with `git -C {self.worktree} pull --rebase origin {branch}`, "
@@ -1206,7 +1227,7 @@ class Task:
         )
 
 
-def cmd_start(task: Task, conflicting: bool = False) -> dict:
+def cmd_start(task: Task, *, conflicting: bool = False) -> dict:
     # Two starts at one moment take turns to read the tasks' states and write `landing`, under the
     # lock of the state folder. The lock is the kernel's, and it goes with the process, however
     # that ends. It holds no task back: any number of tasks are in `landing` at once.
@@ -1222,10 +1243,10 @@ def cmd_start(task: Task, conflicting: bool = False) -> dict:
     with lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         task.read_states()
-        return start_locked(task, conflicting)
+        return start_locked(task, conflicting=conflicting)
 
 
-def start_locked(task: Task, conflicting: bool = False) -> dict:
+def start_locked(task: Task, *, conflicting: bool = False) -> dict:
     # a task `start` blocked for want of a command of the checks is taken back as a `ready` one
     again = task.blocked_by_start()
     if task.record["status"] not in ("ready", "landing", "open") and not again:
@@ -1505,7 +1526,7 @@ def holds_commit(task: Task, commit: str | None, tip: str) -> bool:
                 str(task.worktree),
                 "merge-base",
                 "--is-ancestor",
-                str(commit),
+                commit,
                 tip,
             ],
             check=False,
@@ -1548,7 +1569,7 @@ def test_files(found: dict) -> list[str]:
     )
 
 
-def cmd_polish(task: Task, done: bool) -> dict:
+def cmd_polish(task: Task, *, done: bool) -> dict:
     """The polish pass: what its builder gets, and after the builder, the check of what it did."""
     task.need_landing()
     task.need_worktree()
@@ -1574,7 +1595,7 @@ def cmd_polish(task: Task, done: bool) -> dict:
             else [Path(found["plan"]).relative_to(task.worktree).as_posix()]
         ),
     ]
-    polish = kept.get("polish")
+    polish: dict[str, Any] | None = kept.get("polish")
     if not done:
         # A pass that started and is not done keeps the tip it started at: a run that is cut off,
         # or a second start, must not take the builder's first commits for the task's own.
@@ -1728,7 +1749,7 @@ def polish_missing(task: Task, tip: str, found: dict) -> str | None:
 
 
 def taken_from_polish(
-    polish: dict | None, now: dict | None, small: bool
+    polish: dict | None, now: dict | None, *, small: bool
 ) -> dict | None:
     """The polish pass's result of the criteria's tests when the checks take it in place of a run of
     their own, with `taken`, which names the pass and its commit; None when the checks run the tests.
@@ -1804,7 +1825,8 @@ def change(task: Task) -> dict:
     ).stdout.split("\0")
     # each head is ":MODE_BASE MODE_TIP BLOB_BASE BLOB_TIP STATUS"
     heads = {
-        path: head.lstrip(":").split() for head, path in zip(listed[0::2], listed[1::2])
+        path: head.lstrip(":").split()
+        for head, path in zip(listed[0::2], listed[1::2], strict=False)
     }
     contents = {
         path: {"base": head[2], "tip": head[3], "modes": head[:2]}
@@ -1851,7 +1873,9 @@ def task_item(task: Task) -> str | None:
     )
 
 
-def item_of_ask(ask: str, folder: str, roots: tuple[str, ...], at_base) -> str | None:
+def item_of_ask(
+    ask: str, folder: str, roots: tuple[str, ...], at_base: Callable[[str], bool]
+) -> str | None:
     """The item a task was started from: its ASK, stripped, is one path and nothing else, of a file
     of the backlog folder FOLDER itself whose name ends in `.md`, and AT_BASE finds it at the base
     commit. The board's "Start a task" writes the path relative to the root; the night may write it
@@ -1988,7 +2012,9 @@ def covers_one(folder: str, read: dict, now: dict, own: str | None = None) -> bo
     )
 
 
-def defects_of(value: object, attempt: int, folder: str, at_base) -> list[dict]:
+def defects_of(
+    value: object, attempt: int, folder: str, at_base: Callable[[str], bool]
+) -> list[dict]:
     """The defects outside the change as the record of ATTEMPT names them, each with the review's call
     on it (`bar`, `why`, `open`) and its number (`r2.1`); `0` is none, and a count is refused. FOLDER
     is the backlog folder, and AT_BASE tells whether a path is a file at the base commit: an `open`
@@ -2062,7 +2088,7 @@ def outside_of(read: dict) -> list[dict]:
     return read.get("outside", [])
 
 
-def to_file(reads: list[dict], in_tip) -> list[dict]:
+def to_file(reads: list[dict], in_tip: Callable[[str], bool]) -> list[dict]:
     """Each defect outside the change that waits for an item: one of a review that answered, called
     over the bar, with no item yet, and whose `open` item IN_TIP does not find in the tip. The base may
     remove or join that item after the review while a rebase keeps the review: then it is filed."""
@@ -2217,7 +2243,7 @@ def slug_of(text: str) -> str:
     return slug if len(slug) <= SLUG_AT else slug[:SLUG_AT].rsplit("-", 1)[0]
 
 
-def names_for(defect: dict):
+def names_for(defect: dict) -> Iterator[str]:
     """The file names an item of this defect may take, in turn: its slug, the slug with a suffix
     from its `where` (`src/json.py:parse` gives `-json-parse`), then that with a number."""
     slug = slug_of(defect["title"])
@@ -2338,13 +2364,14 @@ def base_items(task: Task, base: str) -> list[dict]:
     for path in paths:
         end = out.index(b"\n", at)
         head, at = out[at:end].split(), end + 1
-        size = int(head[2]) if len(head) == 3 else 0
+        present = len(head) == 3  # noqa: PLR2004 - git's head of an object it found: its name, type and size
+        size = int(head[2]) if present else 0
         item = (
             item_text(out[at : at + size].decode("utf-8", errors="replace"))
-            if len(head) == 3
+            if present
             else None
         )
-        at += size + (1 if len(head) == 3 else 0)
+        at += size + (1 if present else 0)
         front, lines = item or ({}, [])
         found.append(
             {
@@ -2505,9 +2532,11 @@ def careful(task: Task, now: dict) -> list[str]:
         why.append("the owner says so")
     if plan_careful(task):
         why.append("the plan says so")
-    for edited in (settings_edit(task, now), local_settings_edit(task, now)):
-        if edited:
-            why.append(edited)
+    why.extend(
+        edited
+        for edited in (settings_edit(task, now), local_settings_edit(task, now))
+        if edited
+    )
     call = review_call(task)
     if call and call["careful"]:
         why.append(f"the review says so: {reason(call['why'])}")
@@ -2687,7 +2716,7 @@ def bar_of(diff: str, rows: list[str], plan: str, files: list[str]) -> dict:
     }
 
 
-def bar_refusal(lowered: list[dict], small: bool) -> str | None:
+def bar_refusal(lowered: list[dict], *, small: bool) -> str | None:
     """The checks' refusal of a bar lowered with no reason, or None. The fast track gives no reason:
     it has no plan, and a lowered bar never takes the fast track."""
     unexplained = [entry for entry in lowered if not entry["reason"]]
@@ -2747,6 +2776,12 @@ LOAD_SAY = 300
 LOAD_SPACING = 60
 # Lem's own merge calls go one at a time, under this lock of the state folder.
 MERGE_LOCK = "merge.lock"
+# The answers of the merge agent for one tip and base that cannot be recorded: the first is asked
+# again of a fresh merge agent, and at this many the next step goes on without one (`unread_next`).
+MERGER_TRIES = 2
+# The files of a moved base that a refusal names; it ends with `...` for more. The length of the
+# text, not a measurement.
+NAMED_FILES = 5
 
 
 def load_now() -> float:
@@ -2816,7 +2851,7 @@ def line_why(first: dict, own: dict) -> str:
     return "longer" if first["since"] < own["since"] else "first"
 
 
-def waited_for(state: Path, project) -> set[str]:
+def waited_for(state: Path, project: ModuleType) -> set[str]:
     """The tasks that another open task of the repository whose state folder is STATE waits for: the
     slug of the `after:` line of each task whose newest state block is `queued`, or `blocked` with the
     line BASE_RED. Read with `project.py`'s own readers of a block. A task gone between the list of the
@@ -2839,7 +2874,7 @@ def waited_for(state: Path, project) -> set[str]:
     return named
 
 
-def line_state(project, repo: str) -> Path:
+def line_state(project: ModuleType, repo: str) -> Path:
     """The state folder of a repository of the line, as `project.py` finds it (`state_root`)."""
     return project.state_root(Path(repo))
 
@@ -2973,7 +3008,7 @@ def gate_look(lock: TextIO, folder: Path, own: dict, load: float, start: float) 
         if isinstance(last, dict) and isinstance(last.get("at"), (int, float))
         else None
     )
-    if gap is not None and 0 <= gap < LOAD_SPACING:
+    if gap is not None and isinstance(last, dict) and 0 <= gap < LOAD_SPACING:
         return {
             "go": False,
             "reason": "after",
@@ -3101,7 +3136,7 @@ def seconds_since(stamp: str, now: datetime | None = None) -> int:
     return max(0, int(((now or datetime.now(UTC)) - then).total_seconds()))
 
 
-def duration(seconds: int) -> str:
+def duration(seconds: float) -> str:
     """Seconds in the words a person reads: `26 s`, `4 min 26 s`, `14 min`."""
     minutes, rest = divmod(int(seconds), 60)
     if not minutes:
@@ -3236,7 +3271,7 @@ def held_refusal(slug: str, step: str, holder: dict | None) -> str:
 
 
 @contextlib.contextmanager
-def step_lock(task: Task, step: str):
+def step_lock(task: Task, step: str) -> Generator[None, None, None]:
     """Hold the task's one step lock for as long as the step runs, however it ends, with the step's
     name, process and start in its file; a step of the same task meanwhile is refused with that
     holder. The commands a step starts do not get the lock's file (Popen closes it in them), so a
@@ -3353,7 +3388,9 @@ def checks_status(task: Task) -> dict:
         else None,
         "last_seconds": last,
         "overdue": overdue,
-        "say": overdue_say(task.slug, seconds, last) if overdue else None,
+        "say": overdue_say(task.slug, seconds, last)
+        if overdue and seconds is not None and last is not None
+        else None,
         "ended": ended_of(own[-1] if own else None, task.slug),
     }
 
@@ -3784,7 +3821,7 @@ def checks_body(
         "lines": now["lines"],
         "in_parts": now["lines"] > READ_AT,
     }
-    refused = bar_refusal(result["bar"]["lowered"], found["small"])
+    refused = bar_refusal(result["bar"]["lowered"], small=found["small"])
     if refused:
         result.update(
             result="refused",
@@ -3834,10 +3871,8 @@ def end_group(running: list[subprocess.Popen], grace: float = GRACE) -> None:
                 except (ProcessLookupError, PermissionError):
                     break
                 if proc.poll() is None:
-                    try:
+                    with contextlib.suppress(subprocess.TimeoutExpired):
                         proc.wait(timeout=0.05)
-                    except subprocess.TimeoutExpired:
-                        pass
                 else:
                     time.sleep(0.05)
             else:
@@ -4006,9 +4041,9 @@ def due(task: Task) -> dict:
         kept.get("resolution"),
         careful(task, now),
         tasks,
-        found["small"],
-        backlog_of(task),
-        task_item(task),
+        small=found["small"],
+        folder=backlog_of(task),
+        own=task_item(task),
     )
 
 
@@ -4018,6 +4053,7 @@ def due_of(
     resolution: dict | None,
     why_careful: list[str],
     tasks: int,
+    *,
     small: bool,
     folder: str,
     own: str | None = None,
@@ -4028,7 +4064,7 @@ def due_of(
     answered = [read for read in reads if read["answered"]]
     # The read of a conflict's resolution is no round: the two rounds are of the change itself.
     rounds = [read for read in answered if read.get("of") != "resolution"]
-    facts = {
+    facts: dict[str, Any] = {
         "round": len(rounds) + 1,
         "careful": why_careful,
         "tasks": tasks,
@@ -4068,7 +4104,7 @@ def due_of(
                 "range_diff": f"git range-diff {resolution['base'][:12]}..{resolution['before'][:12]} {resolution['onto'][:12]}..{resolution['after'][:12]}",
             },
         )
-        if silent >= 2:
+        if silent >= SILENT_REVIEWS:
             return {
                 "due": "owner",
                 "why": f"not reviewed: the read of the conflict's resolution in {files} was started twice and no source answered",
@@ -4125,13 +4161,13 @@ def due_of(
             "why": f"round {last['round']} reviewed this change and left no must-fix",
             **facts,
         }
-    if len(rounds) >= 2:
+    if len(rounds) >= ROUNDS:
         return {
             "due": "owner",
             "why": f"two rounds reviewed it: {', and '.join(unmet)}",
             **facts,
         }
-    if silent >= 2:
+    if silent >= SILENT_REVIEWS:
         return {
             "due": "owner",
             "why": "not reviewed: the review was started twice and no source answered",
@@ -4468,7 +4504,7 @@ def read_skipped(task: Task) -> tuple[dict | None, str | None]:
 
 
 def interview_unapproved(
-    events: list[dict], approvals: list[dict], small: bool
+    events: list[dict], approvals: list[dict], *, small: bool
 ) -> bool:
     """Whether a task on the standard track had an interview (`interview.start` among its EVENTS) and
     its criteria carry no approval of the owner's, nor one made while it ran without him (`alone`):
@@ -4783,7 +4819,7 @@ def bar_file(main: Path) -> dict:
     return {"file": "agents/lem-builder.md", "of": "lem"}
 
 
-def cmd_file(task: Task, again: bool) -> dict:
+def cmd_file(task: Task, *, again: bool) -> dict:
     """File each defect a review saw outside the change and called over the bar as an item of the
     backlog, and commit the items. A defect under the bar, or cheap, is a line of the pull request and
     no file; one whose `open` item the tip holds is that item."""
@@ -4792,7 +4828,7 @@ def cmd_file(task: Task, again: bool) -> dict:
     reads = task.kept().get("reads", [])
     tip = git(task.worktree, "rev-parse", "HEAD")
     folder = backlog_of(task)
-    today = date.today().isoformat()
+    today = date.today().isoformat()  # noqa: DTZ011 - the item's day as a person reads it, the local one
     filed, same, open_, gone, written = [], [], [], [], {}
     for read in reads:
         if not read["answered"]:
@@ -4837,6 +4873,7 @@ def cmd_file(task: Task, again: bool) -> dict:
                             "item": path,
                         }
                     )
+                    defect["item"] = path
                     break
                 if not (file.exists() or file.is_symlink()):
                     file.parent.mkdir(parents=True, exist_ok=True)
@@ -4854,8 +4891,8 @@ def cmd_file(task: Task, again: bool) -> dict:
                         }
                     )
                     written.setdefault(read["round"], []).append(path)
+                    defect["item"] = path
                     break
-            defect["item"] = path
     # One commit for each round, of its new items and nothing else: the worktree was clean. A commit
     # hook of the project may refuse the message, which has Lem's form and not the project's: the
     # items stay written, and a builder commits them in the project's form, after which a second
@@ -5193,7 +5230,7 @@ def cmd_read(task: Task, record: str | None) -> dict:
         "outside": outside,
         "careful": call,
         "careful_why": call_why.strip() if isinstance(call_why, str) else None,
-        "date": date.today().isoformat(),
+        "date": date.today().isoformat(),  # noqa: DTZ011 - the review's day as a person reads it, the local one
         "verdict": "not reviewed"
         if not answered
         else "must-fix"
@@ -5224,6 +5261,7 @@ def cmd_read(task: Task, record: str | None) -> dict:
     if (
         answered
         and call
+        and isinstance(call_why, str)
         and not plan_careful(task)
         and not any(
             record.get("event") == "careful.missed" for record in events_of(task)
@@ -5266,7 +5304,7 @@ def not_green(task: Task, state: dict) -> list[str]:
         )
     # the personas' read of the criteria, started twice with no answer: the criteria went on unread
     read = criteria_read_of(task)
-    if read is not None and unanswered(task) >= 2:
+    if read is not None and unanswered(task) >= SILENT_READS:
         quiet = "".join(
             f"; no answer from {source['name']} ({source['why']})"
             for source in read.get("silent", [])
@@ -5303,14 +5341,11 @@ def not_green(task: Task, state: dict) -> list[str]:
         )
     # a change that a later approval of his took over is his, and no cause of not green
     found = criteria_of(task)
-    for change in (
-        change
+    reasons.extend(
+        f"criterion {change['criterion']} {CHANGE_HOW[change['how']]} during the build: {change_why(task, change)}"
         for change in found["history"]
         if change["taken_over_by"] is None and not owners_change(task, change)
-    ):
-        reasons.append(
-            f"criterion {change['criterion']} {CHANGE_HOW[change['how']]} during the build: {change_why(task, change)}"
-        )
+    )
     # criteria approved without him, which no approval of his took over: the newest approval is the one that holds
     approval = found.get("approved") or {}
     if approval.get("by") == "alone":
@@ -5520,7 +5555,7 @@ def criteria_check_line(held: dict) -> str:
     )
 
 
-def criterion_lines(criterion: dict, chart: bool = False) -> list[str]:
+def criterion_lines(criterion: dict, *, chart: bool = False) -> list[str]:
     """One criterion as a numbered item: its sentence, the steps of its case under it, and its chart
     when `chart` (the pull request leaves the chart to the owner's page)."""
     out = [
@@ -5538,11 +5573,11 @@ def criterion_lines(criterion: dict, chart: bool = False) -> list[str]:
     return out
 
 
-def criteria_lines(found: dict, held: dict, chart: bool = False) -> list[str]:
+def criteria_lines(found: dict, held: dict, *, chart: bool = False) -> list[str]:
     """Each criterion of the text, with its case, each of its tests and what the check gave, or its line of no test."""
     out = []
     for criterion in found["criteria"]:
-        out += criterion_lines(criterion, chart)
+        out += criterion_lines(criterion, chart=chart)
         for test in criterion["tests"]:
             proof = held.get((criterion["n"], test["command"]))
             out.append(
@@ -5722,12 +5757,12 @@ def small_text(task: Task, notes: str, state: dict) -> str:
         "",
     ]
     out += issue_line(task)
-    approval = found.get("approved") or {}
+    approval: dict[str, Any] = found.get("approved") or {}
     by = {
         "lem": f" Lem approved it in the owner's name on {approval.get('at', '')[:10]}; the personas did not read it.",
         # a night's task, or a request someone else wrote: not the owner's own sentence, so not his approval either
         "alone": f" Lem approved it on {approval.get('at', '')[:10]} without the owner ({'the night opened the task' if task.record.get('night') else 'someone else wrote the request'}); the personas did not read it.",
-    }.get(approval.get("by"), "")
+    }.get(approval.get("by", ""), "")
     out += [
         "## The acceptance criterion",
         "",
@@ -5876,7 +5911,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
             f"- check, `{command['command']}`{' (serial, under the lock)' if command.get('serial') else ''}: {command['last'] or f'exit {code}'}"
         )
     out.append(criteria_check_line(checked_criteria(checks)))
-    out.append(polished(kept.get("polish")))
+    out.append(polished(cast("dict", kept.get("polish"))))
     read = criteria_read_of(task)
     out.append(
         read_line(
@@ -5887,8 +5922,8 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
             criteria_waited(events_of(task)),
         )
     )
-    if unread(read, found):
-        out.append(unread(read, found))
+    if changed := unread(read, found):
+        out.append(changed)
     if (task.directory / "scout.md").is_file():
         # no path: the pull request is read on the forge, where a file of this machine leads nowhere
         out.append(
@@ -5951,10 +5986,10 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
         ]
     if talk_due(task, state):
         # propose refuses a request whose plan called for a talk with none on record, so there is one here
-        out.append(talked(talk_of(task)))
-    elif untalked(task, state):
+        out.append(talked(cast("dict", talk_of(task))))
+    elif no_talk := untalked(task, state):
         # careful after its plan: the full set ran and a person merges, so this is no cause of not green
-        out.append(untalked(task, state))
+        out.append(no_talk)
     # each seat that stood in for another, a fact of the request and no reason of not green
     out += stand_in_lines(task)
     out.append(careful_line(task, state))
@@ -6045,7 +6080,7 @@ def important(decision: dict) -> bool:
     )
 
 
-def story_lines(decision: dict) -> list[str]:
+def story_lines(decision: dict[str, Any]) -> list[str]:
     """The story of a decision as its record keeps it: the case in its numbered steps, how it is known,
     and the cause. Nothing when the record has no case."""
     if not decision.get("case"):
@@ -6053,7 +6088,7 @@ def story_lines(decision: dict) -> list[str]:
     known = {
         "reproduced": "reproduced",
         "derived": "derived from the code, not run",
-    }.get(decision.get("case_was"), decision.get("case_was"))
+    }.get(decision.get("case_was", ""), decision.get("case_was"))
     out = [
         f"**The case**{f' ({known})' if known else ''}:",
         "",
@@ -6193,7 +6228,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
                 f"Only the owner skips a read, at the interview and when every criterion names only the developer: Lem writes the owner's word with {read_skip_form(task.slug)}, "
                 "and the owner approves the criteria after it, both before a lead starts",
             )
-    if read is not None and not read["answered"] and unanswered(task) < 2:
+    if read is not None and not read["answered"] and unanswered(task) < SILENT_READS:
         raise LandError(
             f"nobody answered the newest read of {task.slug}'s criteria: it is started once more, and its record written again with `lem project log {task.slug} criteria.read` "
             "(`stages/interview.md`, step 5; for the standard track from a complete request `stages/plan.md`, step 1). "
@@ -6219,7 +6254,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     # A request that had an interview ends it with his yes, whatever the read found: a step that skipped
     # it, and a lead that then froze the criteria as a complete request's, do not make it his.
     if interview_unapproved(
-        events_of(task), found.get("approvals", []), found["small"]
+        events_of(task), found.get("approvals", []), small=found["small"]
     ):
         raise LandError(
             f"{task.slug} had an interview (`interview.start` in the event log), and its criteria carry no approval of the owner's: the interview ends with "
@@ -6479,14 +6514,14 @@ def carry_merge(
             task.settings["branch"]["land"],
             state["careful"],
             reasons,
-            review_call(task) is not None,
-            {"verdict": "merge"},
+            called=review_call(task) is not None,
+            review={"verdict": "merge"},
         )
         calls = review.get("verdict") == "call" or refusal is not None
         why = refusal or (
             review.get("why") if review.get("verdict") == "call" else None
         )
-        review = carried_review(review, tip, calls, why, old)
+        review = carried_review(review, tip, calls=calls, why=why, old=old)
         task.keep(merge_review=review)
         script(
             "project.py",
@@ -6556,6 +6591,7 @@ def merger_refusal(
     land: str,
     careful: list[str],
     reasons: list[str],
+    *,
     called: bool,
     review: dict | None,
 ) -> str | None:
@@ -6616,13 +6652,13 @@ def tip_carry(
         bool(uncovered) and uncovered.get("from") == old and uncovered.get("to") == new
     )
     if not (resolution and resolution.get("before") == old):
-        if uncovers:
+        if uncovers and uncovered:
             return None, f"no review covers the change: {uncovered['why']}"
         if (rebased or uncovered or {}).get("from") == old:
             return None, "a commit came after the rebase"
         return None, "a commit came after the tip proposed before"
     met = "the rebase met a conflict, and"
-    if uncovers:
+    if uncovers and uncovered:
         return None, f"{met} no review covers the change: {uncovered['why']}"
     reads = kept.get("reads", [])
     read = resolution_read(kept)
@@ -6809,8 +6845,8 @@ def may_merge(task: Task, by: str) -> None:
         task.settings["branch"]["land"],
         state["careful"],
         not_green(task, state),
-        review_call(task) is not None,
-        merge_review_of(task),
+        called=review_call(task) is not None,
+        review=merge_review_of(task),
     )
     if refusal:
         raise Refusal("rule", refusal)
@@ -7060,7 +7096,9 @@ def forge_look(main: Path, base: str, numbers: list[int]) -> dict[int, dict]:
 
 
 @contextlib.contextmanager
-def merge_lock(task: Task, by: str, via: str, standing: bool = False):
+def merge_lock(
+    task: Task, by: str, via: str, *, standing: bool = False
+) -> Generator[None, None, None]:
     """Hold the repository's one lock of Lem's merge calls while this one runs. A call that finds it
     held logs `merge.wait` with the task that holds it and waits; whoever holds it is done in seconds
     (a fetch, a merge on the forge or a push). The call reads the base branch after it takes it."""
@@ -7109,7 +7147,7 @@ def merge_lock(task: Task, by: str, via: str, standing: bool = False):
             "merge.start",
             f"by={by}",
             f"via={via}",
-            *start_after(task, standing),
+            *start_after(task, standing=standing),
         )
         try:
             yield
@@ -7119,7 +7157,7 @@ def merge_lock(task: Task, by: str, via: str, standing: bool = False):
             handle.flush()
 
 
-def start_after(task: Task, standing: bool) -> list[str]:
+def start_after(task: Task, *, standing: bool) -> list[str]:
     """What `merge.start` says the merge comes after: a read of the merge agent that said a move of the
     base since the checks is safe for the proposed tip (`after` and the `base` it read), or the owner's
     merge that stood through a new landing (`a re-check`); nothing for a plain merge."""
@@ -7241,7 +7279,7 @@ def base_call_of(text: str) -> tuple[str, str] | None:
     that is not empty: (`safe` or `another round`, its sentence of why), or None when that line gives
     no call, or a call with no sentence of why."""
     lines = [line for line in text.splitlines() if line.strip()]
-    if len(lines) < 2:
+    if len(lines) < 2:  # noqa: PLR2004 - the call is the review's second line
         return None
     found = BASE_CALL.match(lines[1].strip().lstrip("#*> ").strip())
     if not found:
@@ -7251,7 +7289,11 @@ def base_call_of(text: str) -> tuple[str, str] | None:
 
 
 def unread_next(
-    verdict: str | None, moved: bool, base_call: tuple[str, str] | None, tries: int
+    verdict: str | None,
+    *,
+    moved: bool,
+    base_call: tuple[str, str] | None,
+    tries: int,
 ) -> str | None:
     """What an answer of the merge agent leads to when it cannot be recorded as it is, from its facts: its
     VERDICT (`verdict_of`), whether its brief's base MOVED since the checks, its BASE_CALL on that move
@@ -7261,7 +7303,7 @@ def unread_next(
     `owner` on a base that did not move, a review that calls the owner, as no answer twice does."""
     if verdict is not None and (not moved or base_call is not None):
         return None
-    if tries < 2:
+    if tries < MERGER_TRIES:
         return "again"
     return "another round" if moved else "owner"
 
@@ -7339,7 +7381,7 @@ def refusal_answered(refused: object, tip: str) -> bool:
 
 
 def read_answers(
-    refused: object, tip: str, base_call: str | None, on_checks_base: bool
+    refused: object, tip: str, base_call: str | None, *, on_checks_base: bool
 ) -> bool:
     """Whether the record of a read of TIP answers the refusal on record (REFUSED, `refusal_answered`):
     a read with `Base: safe.` (BASE_CALL), or a read whose brief named the checks' own base
@@ -7370,13 +7412,14 @@ def moved_refusal(
     files: list[str],
     by: str,
     covered: str | None,
+    *,
     round_said: bool,
 ) -> str:
     """Why a merge on a base that moved after the checks by FILES is refused, and the step that comes
     next: the merge agent's read of what moved, or a new landing when a read of the tip said
     `Base: another round.` (ROUND_SAID). COVERED is the base an earlier read with `Base: safe.` covered,
     which covers no later base."""
-    said = f"{onto} moved after the checks ran, by files ({', '.join(files[:5])}{', ...' if len(files) > 5 else ''})"
+    said = f"{onto} moved after the checks ran, by files ({', '.join(files[:NAMED_FILES])}{', ...' if len(files) > NAMED_FILES else ''})"
     if round_said:
         then = (
             "the owner's merge stands while the change and the reasons it is not green stay the same, and the board's server merges it after the proposal"
@@ -7401,7 +7444,7 @@ def moved_refusal(
 
 
 def carried_review(
-    review: dict, tip: str, calls: bool, why: str | None, old: str
+    review: dict, tip: str, *, calls: bool, why: str | None, old: str | None
 ) -> dict:
     """The merge agent's review of the proposed tip OLD as `propose` carries it onto TIP after a new
     landing: its verdict, with whether it calls the owner as the rules say now. Its call on a moved base
@@ -7503,8 +7546,8 @@ def cmd_merge_review(
         land,
         state["careful"],
         reasons,
-        review_call(task) is not None,
-        {"verdict": "merge"},
+        called=review_call(task) is not None,
+        review={"verdict": "merge"},
     )
     if record is None:
         # origin's base now, after a fetch: a move since the checks is read in this brief, so one read answers both questions
@@ -7513,7 +7556,7 @@ def cmd_merge_review(
         moved = moved_facts(task, kept["base"], base_now, tip)
         base = base_now if moved else kept["base"]
         found = criteria_of(task)
-        files = {
+        files: dict[str, str | list[str]] = {
             name: str(task.directory / file)
             for name, file in (
                 ("pull_request_text", "pr.md"),
@@ -7675,7 +7718,7 @@ def cmd_merge_review(
             else 1
         )
         task.keep(merge_unread={"tip": tip, "base": read_on, "count": tries})
-        then = unread_next(verdict, moved, call, tries)
+        then = unread_next(verdict, moved=moved, base_call=call, tries=tries)
         if then == "again":
             raise LandError(f"{problem}; the merge agent is asked again")
         if then == "another round":
@@ -7773,7 +7816,10 @@ def cmd_merge_review(
             f"tip={tip[:9]}",
         )
     elif read_answers(
-        kept.get("merge_refused"), tip, call[0] if call else None, not moved
+        kept.get("merge_refused"),
+        tip,
+        call[0] if call else None,
+        on_checks_base=not moved,
     ):
         # A safe read, or a read on the checks' own base after main went back to their tree, answers Lem's
         # refusal of this tip for the moved base, so landing.json, `lem project waiting` and the board agree;
@@ -7851,6 +7897,7 @@ def cmd_merge(
     by: str,
     message: str | None,
     via: str,
+    *,
     standing: bool = False,
     expected: str | None = None,
 ) -> dict:
@@ -7867,11 +7914,11 @@ def cmd_merge(
     wrong = expected_refusal(expected, task.kept().get("proposed"), task.slug)
     if wrong:
         raise LandError(wrong)
-    with merge_lock(task, by, via, standing):
+    with merge_lock(task, by, via, standing=standing):
         # another call may have merged this task, or the owner closed it, while this one waited
         task.read_states()
         try:
-            return merge_locked(task, by, message, via, standing)
+            return merge_locked(task, by, message, via, standing=standing)
         except Refusal as error:
             # A refusal by Lem's rules is kept for that tip (`kept_refusal`), so that the server tries it
             # no more and wakes the task's session: the merge agent's, which runs with nobody to read
@@ -7922,7 +7969,7 @@ def cmd_merge(
 
 
 def merge_locked(
-    task: Task, by: str, message: str | None, via: str, standing: bool = False
+    task: Task, by: str, message: str | None, via: str, *, standing: bool = False
 ) -> dict:
     """The one merge of a task's pull request, the owner's and the merge agent's alike: through
     GitHub, at the commit that was proposed, on the base it was checked on, or on the base a read of
@@ -7987,7 +8034,7 @@ def merge_locked(
     if moved:
         review = merge_review_of(task)
         covered = read_base(review, tip, kept.get("another_round"))
-        if not covered or changed(task, covered, base_now):
+        if not covered or review is None or changed(task, covered, base_now):
             raise Refusal(
                 "base",
                 moved_refusal(
@@ -7996,7 +8043,7 @@ def merge_locked(
                     moved,
                     by,
                     covered,
-                    kept.get("another_round") == tip,
+                    round_said=kept.get("another_round") == tip,
                 ),
             )
         line = base_line(task.base, kept["base"], covered, review["base_why"])
@@ -8019,7 +8066,7 @@ def merge_locked(
         [
             "--squash",
             "--subject",
-            message,
+            cast("str", message),
             *(["--body", record["line"]] if record else []),
         ]
         if squash
@@ -8094,7 +8141,7 @@ def first_differ(replayed: list[str], own: list[str]) -> int | None:
     return next(
         (
             place
-            for place, (made, held) in enumerate(zip(replayed, own))
+            for place, (made, held) in enumerate(zip(replayed, own, strict=True))
             if made != held
         ),
         None,
@@ -8399,11 +8446,11 @@ def cmd_clean(task: Task) -> dict:
 def step(task: Task, args: argparse.Namespace) -> dict:
     """One step of a task's landing, which `main` runs under the task's step lock."""
     if args.command == "start":
-        return cmd_start(task, args.conflicting)
+        return cmd_start(task, conflicting=args.conflicting)
     if args.command == "base":
         return cmd_base(task)
     if args.command == "polish":
-        return cmd_polish(task, args.done)
+        return cmd_polish(task, done=args.done)
     if args.command == "checks":
         return cmd_checks(task)
     here = Path.cwd()
@@ -8413,7 +8460,7 @@ def step(task: Task, args: argparse.Namespace) -> dict:
             args.record and task_file(args.record, "--record", task.directory, here),
         )
     if args.command == "file":
-        return cmd_file(task, args.again)
+        return cmd_file(task, again=args.again)
     if args.command == "propose":
         return cmd_propose(
             task, args.title, task_file(args.notes, "--notes", task.directory, here)
@@ -8430,7 +8477,14 @@ def step(task: Task, args: argparse.Namespace) -> dict:
             args.base,
         )
     if args.command == "merge":
-        return cmd_merge(task, args.by, args.message, args.via, args.standing, args.tip)
+        return cmd_merge(
+            task,
+            args.by,
+            args.message,
+            args.via,
+            standing=args.standing,
+            expected=args.tip,
+        )
     if args.command == "merged":
         return cmd_merged(task)
     return cmd_clean(task)

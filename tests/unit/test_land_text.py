@@ -12,7 +12,9 @@ import json
 import sys
 import tempfile
 import unittest
+from collections.abc import Sequence
 from pathlib import Path
+from typing import Any, cast
 
 sys.dont_write_bytecode = True
 sys.path.insert(
@@ -237,7 +239,7 @@ class Proposal(unittest.TestCase):
 
     def task(
         self,
-        lines: list[dict] = (),
+        lines: Sequence[dict] = (),
         found: dict | None = None,
         kept: dict | None = None,
         record: dict | None = None,
@@ -284,7 +286,9 @@ class Proposal(unittest.TestCase):
         }
 
     def reasons(self, *lines: dict, **given: object) -> list[str]:
-        return land.not_green(self.task(list(lines), **given), self.state())
+        return land.not_green(
+            self.task(list(lines), **cast("dict[str, Any]", given)), self.state()
+        )
 
 
 class PicksWithoutHim(Proposal):
@@ -915,8 +919,10 @@ class StandIns(Proposal):
         self.assertEqual(
             self.checks(land.pr_text(task, "", self.state())),
             [
-                "- the reviewer was to be `codex/gpt-6.2-sol:high` in place of `claude/opus:high`: Claude Code did not know the model; "
-                "then Codex gave an error too: Codex is not on this Mac"
+                (
+                    "- the reviewer was to be `codex/gpt-6.2-sol:high` in place of `claude/opus:high`: Claude Code did not know the model; "
+                    "then Codex gave an error too: Codex is not on this Mac"
+                )
             ],
         )
         # a block after the owner's go on is of the named seat, and no failure of the stand-in
@@ -1289,7 +1295,13 @@ class Due(unittest.TestCase):
         tasks: int = 1,
     ) -> dict:
         return land.due_of(
-            now or self.now(), reads, None, list(careful), tasks, False, self.FOLDER
+            now or self.now(),
+            reads,
+            None,
+            list(careful),
+            tasks,
+            small=False,
+            folder=self.FOLDER,
         )
 
     def test_a_change_with_no_review_gets_one_read(self) -> None:
