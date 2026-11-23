@@ -455,6 +455,50 @@ class InterviewTurns(unittest.TestCase):
         self.assertEqual(bm.describe(self.at(12, "read.skip.asked"), m)["head"], "Lem asked whether to skip the personas’ read")
 
 
+class WaitStart(unittest.TestCase):
+    """A wait for the owner counts from its own held block, not from an earlier held block of another
+    wait: the case of one-home-folder-for-lem on 2026-11-23, whose criteria waited from 11:39:31 UTC
+    while the board said "Waits for you 1h 48m", "since 10:55" (local), the time of its interview's
+    block. The events are the ones its log holds, read at 11:44:04 UTC, the time of the owner's
+    screenshot."""
+
+    SLUG = "one-home-folder-for-lem"
+    NOW = "2026-11-23T11:44:04Z"
+    CRITERIA = "2026-11-23T11:39:31Z"
+
+    def at(self, ts: str, event: str, **fields) -> dict:
+        return {"ts": ts, "event": event, "task": self.SLUG, **fields}
+
+    def board(self):
+        events = [
+            self.at("2026-11-23T09:53:42Z", "session.open", session="S1", name=self.SLUG, phase="shape", why="new"),
+            self.at("2026-11-23T09:55:24Z", "task.state", status="held", text="the interview waits for the owner",
+                    lines=["type: feat, because the reviewer seat starts to hold for the whole machine"]),
+            self.at("2026-11-23T09:55:36Z", "scout.start"),
+            self.at("2026-11-23T09:56:19Z", "interview.start"),
+            self.at("2026-11-23T09:58:27Z", "scout"),
+            self.at("2026-11-23T11:35:19Z", "interview.end"),
+            self.at("2026-11-23T11:36:00Z", "criteria.read.start", by="lem"),
+            self.at("2026-11-23T11:37:48Z", "criteria.read", by="lem", asked=3, answered=3, families=["opus"], silent=[], criteria=10,
+                    flagged=6, split=False, digest="70aebe27373c"),
+            self.at(self.CRITERIA, "task.state", status="held", text="the criteria wait for the owner",
+                    lines=["the personas doubt 6 of 10 criteria; criterion 5, the correction queue's switch, is wrong for two of them"]),
+        ]
+        return bm.derive(events, [], bm.at(self.NOW))
+
+    def test_the_criteria_wait_counts_from_its_own_block_on_the_row_the_pill_and_in_this_state(self):
+        m = self.board()
+        t = m.by_slug[self.SLUG]
+        began = bm.at(self.CRITERIA)
+        # the task waits for the owner's yes, as it did: only the start of the wait is wrong
+        self.assertEqual((t.for_owner, [w["kind"] for w in bm.waits_of(m)]), (True, ["criteria"]))
+        self.assertEqual(bm.waits_of(m)[0]["since"], began, "the row of Waits for you counts from the interview's block, 09:55:24 UTC")
+        ctx = pages.Ctx(host="h", workspace="w", model=m, asset=lambda name: name, task=self.SLUG, tab="overview")
+        self.assertIn(f'data-since="{began}"', str(task_pages.pill(ctx, t)), "the pill counts from the interview's block")
+        facts = str(join(task_pages.facts(ctx, t, [])))
+        self.assertIn(f'data-since="{began}"', facts, "In this state counts from the interview's block")
+
+
 class Sessions(unittest.TestCase):
     """When a task is stuck for want of its session (a row of "Waits for you", which the push sends), and
     when the board offers "Open a session" (plan-task-4.md section 7, item 2)."""
