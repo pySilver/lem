@@ -349,6 +349,34 @@ class Close(unittest.TestCase):
         self.assertEqual(closed, [("session", "close", "--target", "s-1", "--undoable")])
 
 
+class JobLine(unittest.TestCase):
+    # agterm's foreground of an agent the cronn job's script starts: the owner's wrapper execs claude with
+    # its own words first, then the job's JOB_ARGS, then the prompt (the shape of `agtermctl tree --json`, 2026-11-23)
+    AGENT = ["/Users/someone/.local/bin/claude", "--settings", "/Users/someone/.claude/gateway.json", "--model", "claude-opus-5-5", "--effort", "high"]
+
+    def test_an_agent_a_job_started_with_its_line_last(self):
+        for line in ("/lem night", "/lem night 2", "/lem night 12", "/lem retro"):
+            self.assertEqual(session.job_line({"foreground": [*self.AGENT, line]}), line)
+        self.assertEqual(session.job_line({"foreground": ["node", "/opt/lib/claude", "/lem retro"]}), "/lem retro")
+        self.assertEqual(session.job_line({"foreground": ["codex", " /lem  night 3 "]}), "/lem night 3")
+
+    def test_an_agent_the_owner_started_or_a_line_that_is_no_job(self):
+        # he started claude with no prompt and typed /lem retro into it
+        self.assertIsNone(session.job_line({"foreground": self.AGENT}))
+        self.assertIsNone(session.job_line({"foreground": ["/usr/local/bin/claude", "--resume", "b8927615"]}))
+        for line in ("/lem night 0", "/lem night two", "/lem retro now", "/lem new the footer says Terms", "/lem status", "/lem"):
+            self.assertIsNone(session.job_line({"foreground": [*self.AGENT, line]}), line)
+        # a task's session: the launch line's shell, whose -c string is the last word
+        ground = ["/opt/homebrew/bin/fish", "-l", "-c", "LEM_TASK=x claude \"Read /x/session.md and follow it.\""]
+        self.assertIsNone(session.job_line({"foreground": ground}))
+        self.assertIsNone(session.job_line({"foreground": ["/bin/sh", "-c", "claude '/lem night'"]}))
+        # no agent before the line, an idle shell, and a pane agterm has not drawn
+        self.assertIsNone(session.job_line({"foreground": ["/bin/echo", "/lem night"]}))
+        self.assertIsNone(session.job_line({"foreground": ["/lem night"]}))
+        self.assertIsNone(session.job_line({"foreground": None, "realized": True}))
+        self.assertIsNone(session.job_line({"realized": False}))
+
+
 class Wake(unittest.TestCase):
     OPENS = [{"event": "session.open", "task": SLUG, "session": "S-1", "ts": "2026-11-22T10:00:00Z"}]
 

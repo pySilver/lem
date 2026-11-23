@@ -12,6 +12,11 @@
     lem session close SLUG [--session ID] --why handoff|ended|owner [--when-unselected]
                                  log the close, then close the session; never one the owner has selected,
                                  and with --session only one a `session.open` of SLUG names
+    lem session close-job [--session ID]
+                                 close the session of a scheduled night or retro, its own last step,
+                                 once the owner has left it; never a task's session, and never one
+                                 whose agent a job did not start with `/lem night`, `/lem night N`
+                                 or `/lem retro`
     lem session handoff SLUG --check
                                  check handoff.md against `templates/handoff.md`
     lem session talk SLUG --from TEXT [--leave TEXT ...]
@@ -105,6 +110,16 @@ not answer one look is asked again at the next.
 woken while it waits (a new `session.wake` of that session in the log): the session has work again,
 as a queued task's session does at `lem: SLUG queue`, and the close of its next change of phase or
 of its end is the one that closes it.
+
+`close-job` is the last step of a scheduled night or retro, whose session no task owns. Its session
+is the caller's (`AGTERM_SESSION_ID`) or the one `--session` names. It refuses the id that a
+`session.open` of a task names, with the line that closes it under its task, and a session whose
+`foreground` in agterm's tree is not an agent's command with the job's line as its last word
+(`job_line`): the cronn job's script starts the agent with the prompt as its last argument, so a
+session where the owner typed `/lem retro` into an agent he started himself is refused and stays
+his. Then it waits while the owner has the session selected, as `close --when-unselected` does,
+and closes it with agterm's undo. It logs no event: every record of the event log names its task
+(`project.append_event`), and a job's session has none.
 
 `wake` sends `lem: SLUG WHY` to the left pane of the task's live session and logs `session.wake`
 (with `--head`, the head the pull request had, so that a conflict is woken once for each head); the
@@ -210,6 +225,9 @@ TALK = "talk.md"
 AGENTS = ("claude", "codex")
 # A shell's option that runs the next word as a command: `-c`, a cluster with it (`-lc`), or fish's `--command`.
 SHELL_COMMAND = re.compile(r"-[a-zA-Z]*c[a-zA-Z]*|--command")
+# The line a scheduled job starts its agent with, the last word of the agent's command: `/lem night`,
+# `/lem night N` (`stages/night.md`) and `/lem retro` (`stages/init.md`, step 7).
+JOB_LINE = re.compile(r"/lem (?:night(?: [1-9][0-9]*)?|retro)")
 # A word of a command that sets a variable for it, `NAME=value`.
 ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=.*", re.S)
 # A session opened this long ago counts as live while its agent starts: the login shell runs first,
@@ -400,6 +418,24 @@ def agent_runs(node: dict) -> bool | None:
                 return True
         return False
     return None if node.get("realized") is False else False
+
+
+def job_line(node: dict) -> str | None:
+    """The job's line of a session that a scheduled job started for one run, else None, from agterm's
+    tree: its `foreground` is an agent's command (a word before the last whose file is an agent's, as
+    `agent_runs` reads it) whose last word is the line (JOB_LINE). The cronn skill's job script ends
+    in `exec ... "$JOB_AGENT" $JOB_ARGS "$JOB_PROMPT"` (`agent-session-job.sh`, read 2026-11-23), and
+    agterm gives the argv of the pane's foreground process word by word (`agtermctl tree --json`,
+    2026-11-23), so the prompt is the last word. An agent the owner started with no prompt, where he
+    typed `/lem retro`, has no such word; neither has a shell whose `-c` string holds the line."""
+    ground = node.get("foreground")
+    if not isinstance(ground, list) or len(ground) < 2:
+        return None
+    words = [str(word) for word in ground]
+    line = " ".join(words[-1].split())
+    if not JOB_LINE.fullmatch(line):
+        return None
+    return line if any(Path(word).name in AGENTS for word in words[:-1]) else None
 
 
 def live(node: dict | None, opened: dict | None, now: datetime) -> bool:
@@ -882,6 +918,33 @@ def cmd_close(root: Path, slug: str, session: str | None, why: str, when_unselec
     return {"task": slug, "session": session, "why": why, "closed": True}
 
 
+def cmd_close_job(root: Path, session: str | None, every: float) -> dict:
+    where = place()
+    session = session or where["session"]
+    if not session:
+        raise SessionError("no session to close: run it in the job's own agterm session, which sets AGTERM_SESSION_ID, or name the session with --session ID")
+    opened = [record for record in project.events_named(root, "session.open") if str(record.get("session", "")).upper() == session.upper()]
+    if opened:
+        slug = str(opened[-1].get("task"))
+        raise SessionError(f"{session} is the session of the task {slug}, and a task's session closes under its task: "
+                           f"`lem session close {slug} --session {session} --why ended --when-unselected`")
+    node = node_of(tree(where), session)
+    if node is None:
+        return {"session": session, "closed": False, "says": f"the session {session} is no longer in agterm's tree"}
+    line = job_line(node)
+    if line is None:
+        raise SessionError(f"the session `{node.get('name')}` is the owner's: no scheduled job started its agent for this run, since its command "
+                           f"(agterm's foreground {json.dumps(node.get('foreground'), ensure_ascii=False)}) does not end in `/lem night`, `/lem night N` or `/lem retro`; "
+                           "it stays open, and the owner closes it himself")
+    while node.get("active"):
+        time.sleep(every)
+        node = node_of(tree(where), session)
+        if node is None:
+            return {"session": session, "job": line, "closed": False, "says": f"the session {session} is no longer in agterm's tree"}
+    ctl(where, "session", "close", "--target", session, "--undoable")
+    return {"session": session, "job": line, "closed": True}
+
+
 def cmd_handoff(root: Path, slug: str) -> dict:
     file = project.task_directory(root, slug) / HANDOFF
     if not file.is_file():
@@ -1263,7 +1326,10 @@ def main(argv: list[str] | None = None) -> None:
     closing.add_argument("--why", required=True, choices=CLOSES)
     closing.add_argument("--when-unselected", action="store_true", help="wait until the owner has left the session, then close it; a wake of the session meanwhile ends the wait with no close")
     closing.add_argument("--every", type=float, default=CLOSE_EVERY, help=argparse.SUPPRESS)
-    handoff = commands.add_parser("handoff", help="check the task's handoff.md against templates/handoff.md")
+    job = commands.add_parser("close-job", help="close this session of a scheduled night or retro once the owner has left it; a task's session, or one no job started, is refused")
+    job.add_argument("--session", metavar="ID", help="the job's session (default: AGTERM_SESSION_ID, the caller's)")
+    job.add_argument("--every", type=float, default=CLOSE_EVERY, help=argparse.SUPPRESS)
+    handoff =commands.add_parser("handoff", help="check the task's handoff.md against templates/handoff.md")
     handoff.add_argument("slug")
     handoff.add_argument("--check", action="store_true", required=True)
     talk = commands.add_parser("talk", help="copy the turns of this session about the task's ask into its talk.md")
@@ -1304,6 +1370,8 @@ def main(argv: list[str] | None = None) -> None:
             result = cmd_next(root, args.slug, args.same)
         elif args.command == "close":
             result = cmd_close(root, args.slug, args.session, args.why, args.when_unselected, max(0.01, args.every))
+        elif args.command == "close-job":
+            result = cmd_close_job(root, args.session, max(0.01, args.every))
         elif args.command == "handoff":
             result = cmd_handoff(root, args.slug)
         elif args.command == "talk":
