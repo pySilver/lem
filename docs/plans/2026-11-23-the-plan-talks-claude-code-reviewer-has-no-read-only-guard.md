@@ -168,6 +168,11 @@ sentence on what the guard does not hold (question 2); the chart's question (que
    criterion 1, step 2, working is task 1's finding; when it does not, the working directory alone
    is the second candidate, and the harness then names the developer's grants under home as
    outside the guard. The exact path forms (`/tmp` or `/private/tmp`, `~`) are task 1's finding too.
+   Task 1 found that `allowWrite` of `/tmp` refused every write under `/tmp` and `/private/tmp`
+   opened both (runs `d1`, `d3`, `d4`), and that a `.` in `denyWrite` of a settings file means that
+   file's own folder (run `d6`), so the guard allows `/private/tmp` and denies the working
+   directory with the rule `Edit(./**)` under `permissions.deny` (run `d7`), beside `denyWrite` of
+   `~`, which left the reads working (run `c2-main` and the second talk).
 4. **The send runs outside the sandbox, and no sandboxed command reaches agterm's socket.**
    `mailbox-chat.py say` talks to agterm over its Unix socket (`ctl_args` in
    `~/.local/bin/mailbox-chat.py` passes `$AGTERM_SOCKET`), and that socket also starts a session
@@ -183,6 +188,9 @@ sentence on what the guard does not hold (question 2); the chart's question (que
    command that runs outside the sandbox (`second-opinion.md`, step 2). A send with another
    program set in front (`AGTERMCTL=... mailbox-chat.py say --file F`) and a plain
    `agtermctl session new` are probes of task 1, and both must stay refused.
+   Task 1 found both refused at agterm's socket (runs `c2-main` and `step6`), and that the guard
+   needs `sandbox.autoAllowBashIfSandboxed`, whose default is false since 2.1.324, or every
+   sandboxed command goes to the owner's auto-mode classifier; no run with it showed a question.
 5. **The developer's own settings still load.** No `--setting-sources`, no `--safe-mode`, no
    `--restricted`: the reviewer receives its mail through his mailbox hook, and his login and model
    settings stay his. What his settings add that runs outside the sandbox (an `excludedCommands`
@@ -192,7 +200,12 @@ sentence on what the guard does not hold (question 2); the chart's question (que
    prompt gains one sentence of decision 4: each answer is a file under `/tmp`, sent with
    `mailbox-chat.py say --file PATH`; the Claude side of the mailbox sends with a heredoc by
    default (`~/.claude/skills/mailbox-chat/SKILL.md`, "Sending"), and that call stays sandboxed
-   with no socket.
+   with no socket. Task 1 found that this sentence let the reviewer join the send to its writes in
+   one shell call, which stayed in the sandbox and failed at the socket (the first talk), so the
+   sentence is "Write each answer into a file under /tmp, then send it with mailbox-chat.py say
+   --file PATH as a shell command of its own, with nothing before or after it.", which sent (the
+   second talk); and the guard is a file Lem ships, `harness/claude-code/reviewer-guard.json`,
+   named by `--settings`, since a `.` in a JSON string on the line resolved wrong (run `d8`).
 7. **A socket grant in the developer's own settings is outside the guard, and the harness says
    so.** The plan talk's question 1, a design choice; the question gate took the kept decision as
    cheap (decision 5 of the task's record, 2026-11-23). `allowUnixSockets` merges across settings
