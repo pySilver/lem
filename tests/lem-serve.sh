@@ -178,7 +178,7 @@ for tab in "" /criteria /checks /timeline /artifacts; do every_tab="$every_tab $
 left=$(find "$TD" -type f ! -name '*.lock' | sed "s|^$TD/||" | sort | tr '\n' ' ')
 # a page that saw the log before the prune reconnects: the log is another file, so it is told at once
 curl -sN --max-time 2 "$BASE/stream?since=$version_before" > "$WORK/stream-pruned.out" 2>/dev/null || true
-if [ "$(field '[(t["task"], sorted(t["files"])) for t in d["tasks"]]' <<<"$pruned_board")" = "[('order-date-on-invoice', ['criteria.json', 'media/a.png', 'media/b.png', 'page.html', 'report.md', 'reviews/order-date-on-invoice/01-initial/agents/a.jsonl', 'reviews/order-date-on-invoice/01-initial/report.md', 'scratch.txt'])]" ] \
+if [ "$(field '[(t["task"], sorted(t["files"])) for t in d["tasks"]]' <<<"$pruned_board")" = "[('order-date-on-invoice', ['criteria.json', 'media/a.png', 'media/b.png', 'page.html', 'release.txt', 'report.md', 'reviews/order-date-on-invoice/01-initial/agents/a.jsonl', 'reviews/order-date-on-invoice/01-initial/report.md', 'scratch.txt'])]" ] \
   && [ "$(field '[(t["task"], t["status"]) for t in d["summarized"]]' <<<"$pruned_board")" = "[('order-date-on-invoice', 'landed')]" ] \
   && [ "$left" = "ask.txt state.md task.md " ] && [ ! -e "$TD/media" ] && [ ! -e "$TD/reviews" ] \
   && [ "$ended_tabs" = " 200 200 200 200 200 404 200 404 404 404" ] && grep -qF "scratch.txt" <<<"$art_before" && ! grep -qF "scratch.txt" <<<"$art_after" \
