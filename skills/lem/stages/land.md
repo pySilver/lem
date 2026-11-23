@@ -455,8 +455,10 @@ landing up as after a cut-off.
    When the tip holds a change made after that push, the forge's copy goes, the local branch stays
    and `clean` exits 0: `branch_left` names the commit that changed, or the files, with the `git
    range-diff` that shows the difference and the `git branch -D` that deletes the branch. Give the
-   owner that line. Any other tip the forge did not merge keeps the branch and the forge's copy, and
-   `clean` exits 1 with what the branch holds. Do what the
+   owner that line. Every other tip that is not the merged commit keeps the branch and the forge's
+   copy, and `clean` exits 1 with what the branch holds: a tip the forge did not merge, and a tip the
+   forge merged inside its own head after its "Update branch", where the message gives the `git
+   branch -D` that deletes it. Do what the
    project's `AGENTS.md` adds for a removed worktree (a test database, a container), and close
    the plan talk's pair when one is still open. Then a nap, when the settings have the naps on and
    `lem project may-nap` says one may (`stages/nap.md`), and the close of this session, its last
