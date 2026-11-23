@@ -550,7 +550,7 @@ class MergeSeat(unittest.TestCase):
     its answer takes `by`: the seat that read, never a new read of the settings; and a task its merge agent's
     seat blocked, whose pull request `lem land merged` still takes."""
 
-    CODEX = {"agent": "codex", "model": "gpt-6.2-sol", "effort": "high", "seat": "codex/gpt-6.2-sol:high", "from": ".lem/project.toml"}
+    CODEX = {"agent": "codex", "model": "gpt-6.2-sol", "effort": "high", "seat": "codex/gpt-6.2-sol:high", "from": ".lem/settings.toml"}
     STAND_IN = {"agent": "claude", "model": "opus", "effort": "high", "seat": "claude/opus:high", "from": "stand-in"}
 
     def test_the_record_names_the_seat_kept_with_its_brief(self) -> None:

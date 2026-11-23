@@ -343,7 +343,7 @@ class SeatCall(unittest.TestCase):
                          {"took": {"agent": "claude", "model": "opus", "effort": "high", "seat": "claude/opus:high"}})
 
     def test_a_project_with_no_fallback_blocks_in_the_words_of_criterion_5(self):
-        self.assertEqual(project.seat_call("reviewer", "codex/gpt-6.2-sol:high", "tokens", {"seat": False, "from": ".lem/project.toml"}),
+        self.assertEqual(project.seat_call("reviewer", "codex/gpt-6.2-sol:high", "tokens", {"seat": False, "from": ".lem/settings.toml"}),
                          {"block": "the reviewer `codex/gpt-6.2-sol:high` gave an error: no tokens, and this project permits no fallback"})
 
     def test_the_stand_in_that_fails_too_and_a_fallback_that_is_the_named_seat_block(self):
@@ -377,7 +377,7 @@ class FailedLine(Refuses):
 
 class SeatCommands(Refuses):
     """`lem project seat`, `seat-failed` and `seat-again` over a task of a git repository of its own in a temporary
-    folder, with a temporary XDG_CONFIG_HOME, so that no machine.toml and no state folder of this machine is read."""
+    folder, with a temporary XDG_CONFIG_HOME, so that no settings file and no state folder of this machine is read."""
 
     def setUp(self):
         self.kept = os.environ.get("XDG_CONFIG_HOME")
