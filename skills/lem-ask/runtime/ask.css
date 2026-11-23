@@ -306,6 +306,32 @@ kbd { font: 600 10.5px/1 var(--mono); padding: 2px 5px; border-radius: 4px; bord
   .hd-opts.grid, .hd-opts.compare { grid-template-columns: 1fr 1fr; }
   .hd-pc, .hd-tune { grid-template-columns: 1fr; }
 }
+/* a phone: one card in each row, so that a preview and the pros and cons beside it are not half a screen wide,
+   and a long line of code wraps, as the board's own code does, instead of hiding its end past the box's edge */
+@media (max-width: 480px) {
+  .hd-opts.grid, .hd-opts.compare { grid-template-columns: 1fr; }
+  .hd-code { white-space: pre-wrap; overflow-wrap: anywhere; }
+}
+
+/* a touch screen (a phone, through Lem's board): no keyboard, so no key hints, and every control a
+   finger's size, at least 32 px each way (WCAG 2.2's minimum target is 24) */
+@media (hover: none) and (pointer: coarse) {
+  .hd-keys, .hd-tabkey, .hd-btn kbd { display: none; }
+  .hd-status { flex: 1; }
+  .hd-text textarea { padding-right: 12px; }
+  .hd-btn { padding: 9px 16px; }
+  .hd-tab { padding: 7px 12px 7px 8px; }
+  .hd-seg button { padding: 8px; }
+  .hd-replay { padding: 8px 10px; bottom: 4px; }
+  .hd-ctl-r { min-width: 32px; min-height: 32px; margin: -9px -8px -9px 0; }
+  .hd-ctl input[type=range] { height: 32px; }
+  .hd-ctl input[type=range]::-webkit-slider-thumb { width: 24px; height: 24px; margin-top: -10px; }
+  .hd-ctl.hue input[type=range]::-webkit-slider-thumb { margin-top: -8px; }
+  .hd-ctl input[type=checkbox] { width: 52px; height: 32px; border-radius: 16px; }
+  .hd-ctl input[type=checkbox]::after { width: 28px; height: 28px; }
+  .hd-ctl input[type=checkbox]:checked::after { transform: translateX(20px); }
+  .hd-ctl input[type=color] { height: 36px; }
+}
 
 /* ===================== style: minimal ===================== */
 .hd[data-style="minimal"] .hd-opts.list { gap: 0; border-top: 1px solid var(--line); }

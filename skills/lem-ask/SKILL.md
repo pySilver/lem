@@ -348,6 +348,9 @@ the page agterm shows, and `PAGEID.json`, what it asks (its questions, their opt
 to talk). It is logged as `card.asked`, and Lem's board shows the card from there and takes its answer.
 A run outside a task keeps nothing.
 
+On the board the page offers no **Discuss in chat**, since the board takes an answer with a note and never a
+wish to talk; in agterm it keeps it. On a touch screen (the board on a phone) the page shows no key hints.
+
 A card ends once, in `cards/PAGEID.end.json`, and the first end recorded counts: a pick or a dismissal on
 the card in the session, a `lem-ask close`, or the owner's answer on the board.
 
