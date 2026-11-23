@@ -14,7 +14,8 @@ floor, which is one read by the review agent itself, `propose`, and the merge ag
 3): its builder judged what it saw outside the change by the bar of rule 6 of the builder's standing
 rules. Its criterion's check runs once, in the checks, and its pull request is short: green or not
 green, the acceptance criterion, the checks, the read, and at its end what was seen outside the
-change: the items filed, the cheap defects fixed on the way, and those an open item holds. Its criterion is `criteria.md` in the task directory, which
+change: the items filed, the cheap defects fixed on the way, and the others seen and not filed: those an open item holds,
+and a review's cheap ones that nobody fixed. Its criterion is `criteria.md` in the task directory, which
 the steps read in the place of a plan; a step's word "the plan" means that file for it.
 
 Take the task where its state stands: `ready` from step 1; `landing` as after a cut-off (below);
@@ -302,7 +303,7 @@ landing up as after a cut-off.
    `worth: no` with its `Decided against:` line; a notes line keeps `under:` with its reason. Then
    run the step again: it does not ask Jev about that finding a second time, and the line of each
    finding in the pull request ends with Jev's score, or with why Jev was not asked (no key, no
-   answer, off in the settings). Jev's read never stops the landing for good.
+   answer, too long, off in the settings, no bar in the file of rule 6). Jev's read never stops the landing for good.
 
    The step writes the text of the pull request (`pr.md` in the task directory): the first line
    says green or not green, and each reason it is not green stands before everything else; then

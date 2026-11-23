@@ -49,7 +49,7 @@ its reason.
    whose case its records do not show, is refuted with what you read.
 3. **It clears the bar of rule 6** of your standing rules, read with the thing the proposal would
    change as the defect: the step it names goes wrong now, in this repository, and the records it
-   cites show it. That bar is your one measure of what is worth an item; add no second one. A
+   cites show it. That bar is your one measure of what passes; add no second one. A
    first-time lesson that the records show once and that asks the owner nothing (no ruling, no
    setting) is under it: refute it as "a first-time lesson, with no question in it". It comes back
    to a later retro as a lesson that came back when the owner has to give it again.

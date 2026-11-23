@@ -4277,7 +4277,8 @@ def check_alike(task: Task, waiting: list[tuple[dict, dict]], tip: str) -> dict[
     (`ask_alike`), its scores kept in `landing.json` under `alike`, by the finding's digest
     (`finding_key`) and the item's path. A LandError that names each defect Jev reads as one an item
     holds, with its items (`alike_named`) and the two ways on; otherwise what Jev said of each defect,
-    by its number: `none named`, or `Jev: not asked (WHY)`."""
+    by its number: `none named`, `Jev: not asked (WHY)`, or `no item to compare` when the backlog
+    folder at TIP holds no item."""
     if not waiting:
         return {}
     items = items_at(task, tip)
