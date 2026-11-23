@@ -11,26 +11,36 @@ Size: full, because the change reaches the landing's bar check, the builder's ru
    2. It calls this under the bar: no user is confused, no contract breaks.
    3. The branch gets `docs/backlog/format-day-pads-with-a-space.md` with `worth: no`.
    4. The pull request lists that file under the defects filed as not worth it.
+   - test: `python3 -B -m unittest tests.unit.test_land.TheItemOfADefect tests.unit.test_land.DefectsOutside` in `tests/unit/test_land.py`
 2. Outside the task, an agent fixes on the branch only text that does not run (a comment, a docstring, a sentence of a document) and a finding that a check of the project reports and its rerun shows fixed; any other defect outside the task, a refactor or a removal of code that looks unused too, becomes an item by the bar, and the squash commit's body names each fix outside the task:
    1. The polish pass of task export-notes finds a docstring of `lem_state.py` that the code no longer matches, and CSS rules in `board.css` that match no element; the task changed neither file.
    2. It corrects the docstring in a commit of its own.
    3. It leaves the CSS rules, and files them under the bar as a `worth: no` item.
    4. The squash commit on `main` says in its body that the docstring of `lem_state.py` was corrected on the way.
+   - test: `python3 -B -m unittest tests.unit.test_land.TheSquashBody tests.unit.test_the_bar` in `tests/unit/test_land.py`, `tests/unit/test_the_bar.py`
 3. A proposal that the night's or the retro's reviewer refutes becomes a `worth: no` item beside the reviewer's other items: retro of 2026-11-24 proposal 6, refuted as "a first-time lesson, with no question in it", is an item with `worth: no` that holds that reason.
+   - test: `python3 -B -m unittest tests.unit.test_proposals.RefutedItem` in `tests/unit/test_proposals.py`
 4. The count on the Backlog key never counts a `worth: no` item, and the Backlog view still lists it under "Decided against": with 2 reviewer's items that wait for the owner and 1 refuted one, the key shows 2, and the view shows all 3.
+   - test: `python3 -B -m unittest tests.unit.test_board_model.Search.test_criterion_4_a_refuted_item_of_the_reviewer_is_not_counted_and_is_under_decided_against tests.unit.test_board_pages.RefutedAndAddedBy.test_criterion_4_two_waiting_and_one_refuted_give_2_on_the_key_and_3_in_the_view_the_refuted_one_under_decided_against` in `tests/unit/test_board_model.py`, `tests/unit/test_board_pages.py`
 5. The card of a backlog item shows who added it, on which day and in which task, read from the commit that added its file, and no item gets an author field in its frontmatter: the card of `clean-refuses-a-branch-rebased-after-its-push-and-blames-the-forge.md` says it was added by pySilver on 2026-11-22.
+   - test: `python3 -B -m unittest tests.unit.test_board.AddedBy tests.unit.test_board_pages.RefutedAndAddedBy.test_criterion_5_the_card_says_who_added_the_item_on_which_day_and_in_which_task` in `tests/unit/test_board.py`, `tests/unit/test_board_pages.py`
 6. `lem land propose` refuses every "Seen, not filed" line and every "Left open" finding that has no bar call and no reason, whoever wrote it, and names the line:
    1. The landing session of task seat-defaults-and-fallback writes by hand "Seen, not filed: `land.py:cmd_start` writes over `reviews/review-1.*`", with no bar call.
    2. `lem land propose` refuses, names that line, and says: give it a bar call and a reason, or file it.
    3. The session files it, or calls it under the bar with its reason; then `propose` goes on.
+   - test: `python3 -B -m unittest tests.unit.test_land.TheNotesLines` in `tests/unit/test_land.py`
 7. Lem asks Jev one plain question about each finding the agent calls under the bar, once for each text, records the score, and refuses one time when Jev reads it as over the bar; the agent's second answer with its reason stands, and the pull request shows the agent's call beside Jev's score:
    1. The agent calls the `cmd_start` finding under the bar, with a reason.
    2. Jev's score for "is this over the bar?" is over the line `land.py` names; `propose` refuses one time: Jev reads this as over the bar, file it or give your reason.
    3. The agent keeps "under" with its reason; `propose` goes on and does not ask Jev again about that text.
    4. The pull request's line reads: under the bar (the agent's reason), Jev's score beside it.
+   - test: `python3 -B -m unittest tests.unit.test_land.TheReadOfEachFinding tests.unit.test_land.TheBarJevReads tests.unit.test_land.TheSpecOfAFinding tests.unit.test_land.TheFindingsUnderTheBar tests.unit.test_land.JevOnTheLines` in `tests/unit/test_land.py`
 8. Before an agent files a finding, Lem asks Jev, for each existing item, whether the finding is the same defect, and names the three items with the highest scores at most; the agent reads those items and decides: a review that sees the space padding of `format_day` again gets `format-day-pads-with-a-space.md` named, reads it, and files nothing new.
+   - test: `python3 -B -m unittest tests.unit.test_land.TheItemsThatMayHoldAFinding tests.unit.test_land.AnOverDefectOfARefutedItem` in `tests/unit/test_land.py`
 9. With no `JEV_API_KEY` on the machine, or no answer from Jev, the landing goes on as without Jev, and the pull request's line says "Jev: not asked (no key)" or "Jev: not asked (no answer)".
+   - test: `python3 -B -m unittest tests.unit.test_land.JevAsk` in `tests/unit/test_land.py`
 10. Lem sends a finding's text to Jev unless the project's `.lem/settings.toml` says `findings = false` under `[jev]`; with no such key it sends: a repository whose settings say `findings = false` gets "Jev: not asked (off in the settings)" on each line, and sends nothing.
+   - test: `python3 -B -m unittest tests.unit.test_settings_files.Nearest.test_jev_reads_each_finding_unless_the_teams_file_says_no` in `tests/unit/test_settings_files.py`
 
 ## How it works
 
