@@ -1367,11 +1367,13 @@ def main(argv: list[str] | None = None) -> None:
         root = project.repo_root(Path(args.repo))
         if getattr(args, "session", None) and args.command in ("open", "wake") and args.why not in ("stopped", "status"):
             raise SessionError(f"--session goes with `open --why stopped` and `wake --why status`, the steps of the guard of a stopped session; `{args.command} --why {args.why}` takes the task's newest session")
-        if args.command != "list" and project.SLUG.fullmatch(args.slug):
-            # the release rule (lem_release) for a command that names one task: the close, and the wake and
-            # the open of a session after a merge on GitHub, whose session cleans the task, pass
+        slug = getattr(args, "slug", None)
+        if slug is not None and project.SLUG.fullmatch(slug):
+            # the release rule (lem_release) for a command that names one task (`list` and `close-job` name
+            # none): the close, and the wake and the open of a session after a merge on GitHub, whose session
+            # cleans the task, pass
             ends = args.command == "close" or (args.command in ("open", "wake") and args.why == "merged")
-            stopped = lem_release.check(project.state_root(root) / "tasks" / args.slug, passes=ends)
+            stopped = lem_release.check(project.state_root(root) / "tasks" / slug, passes=ends)
             if stopped:
                 raise SessionError(stopped)
         if args.command == "open":
