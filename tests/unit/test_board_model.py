@@ -1029,7 +1029,7 @@ class Summary(unittest.TestCase):
         # the activity says what the one event stands for
         said = bm.describe(next(e for e in after.events if e["task"] == "report-dates"), after)
         self.assertEqual(said["head"], "Its events became one summary")
-        self.assertTrue(said["text"].startswith("60 events of a task that ended more than state.keep_days ago"))
+        self.assertTrue(said["text"].startswith("60 events in one event that keeps the task's status, its end and its pull request: nothing of the task happened for state.keep_days days after its end"))
 
     def test_a_summary_with_a_newer_state_dates_since_from_the_run_its_past_began(self):
         log = summarized(sorted(report_dates() + self.OTHERS, key=lambda e: e["ts"]), "report-dates")

@@ -156,8 +156,9 @@ not wanted, while the task has a finding for them; so an answer has its own comm
 
 1. Unless `answered` is written down, or a comment on the ticket ends with `lem: SLUG answered`:
    `save_comment` with the answer as the task's state gives it in one line (the newest
-   `investigation` in `lem project tasks`: its `line`, and its `where` when it has one), and that
-   the report is in the task's directory, not on the ticket. Its last line is `lem: SLUG answered`.
+   `investigation` in `lem project tasks`: its `line`, and its `where` when it has one), and, while
+   the task's directory holds the report (`investigation.md`), that it is there, not on the
+   ticket. Its last line is `lem: SLUG answered`.
    Then write the step `answered` down.
 2. No status change, as for a drop. Tell the owner which status the ticket has now: whether an
    answer closes the ticket is his call, and he moves it.

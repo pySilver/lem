@@ -86,9 +86,12 @@ task.
    its pull request names the cause in one line, from the record. A task that ended here closes
    its session last, as `prompts/session.md` says under "The end".
 5. **A task from the report.** He can start one with `/lem new` and the report's path, as he can
-   with a backlog item: the new task's ask is his words, and the report its written context. Copy
-   the report into the new task's directory as `investigation.md`, name it in its `task.md`, and
-   take its path in step 4 of "The request": when the report and his words settle what is wanted, that is the standard
-   track from a complete request, and when they ask for one plain change, the fast track.
- The
-   answered task's branch may hold a test the new task can take.
+   with a backlog item: the new task's ask is his words, and the report its written context. The
+   report stays in the answered task's directory until nothing of the task happened for
+   `state.keep_days` days; then `lem project prune` removes it with every file but the task's small
+   record. A task from the report starts within that time; after it, it starts from the answer's
+   line on the board (the newest `investigation` of `lem project tasks`) and his words, with no
+   report. Copy the report into the new task's directory as `investigation.md`, name it in its
+   `task.md`, and take its path in step 4 of "The request": when the report and his words settle
+   what is wanted, that is the standard track from a complete request, and when they ask for one
+   plain change, the fast track. The answered task's branch may hold a test the new task can take.

@@ -159,8 +159,9 @@ FAMILIES = {1: "one model family", 2: "two model families"}
 CHECKS = ("polish", "gate", "task.red", "gate.end", "review", "review.filed", "proposed")
 LANDING_STARTS = ("polish.start", "gate.start", "review.start", "builder.start")
 WAITS = ("gate.wait", "merge.wait")
-# The one event that stands for every event of a task that ended before `state.keep_days`, which only
-# `lem project prune` writes (project.py SUMMARY, `summary_of`), in the place of the task's newest event.
+# The one event that stands for every event of an ended task that nothing happened in for
+# `state.keep_days` days, which only `lem project prune` writes (project.py SUMMARY, `summary_of`),
+# in the place of the task's newest event.
 SUMMARY = "task.summary"
 # How a run of the checks ended, by the `result` of its `gate.end` (land.py RESULTS).
 CHECKS_END = {
@@ -1818,7 +1819,7 @@ SUMMARY_HEAD = "Its events became one summary"
 def summary_said(e: dict) -> str:
     """What a task's summary stands for, in the words of the board: how many events, and why."""
     n = e.get("events") if isinstance(e.get("events"), int) else 0
-    return f"{plural(n, 'event')} of a task that ended more than state.keep_days ago, in one event that keeps its status, its end and its pull request"
+    return f"{plural(n, 'event')} in one event that keeps the task's status, its end and its pull request: nothing of the task happened for state.keep_days days after its end"
 
 
 def merge_review_said(e: dict) -> dict:

@@ -228,8 +228,9 @@ Each script's module docstring says what it does and why; this list says where e
   (`panels/`, which `lem cast run-dir` makes), `forge.json`, the board
   server's last look at GitHub, and `inbox.json`, its record of the owner's Inbox: its last look at
   the Inbox and each thing it sent there. `lem project prune` removes from it what is older than
-  `state.keep_days`, and makes the events of each task that ended before then one summary event of
-  the log. `.lem/worktrees/` holds
+  `state.keep_days`: of a task that ended and that nothing happened in for that many days, every
+  file but its small record (`lem_artifacts.SMALL_RECORD`), and its events become one summary event
+  of the log. `.lem/worktrees/` holds
   the tasks' worktrees. `.revmux/` is the review tool's configuration for this repository.
 - The naps, an optional part: `prompts/nap.md` is written after the owner's own nap routine and
   keeps its voice (a change is tried with one real nap, and its dream is read: a brief that makes a

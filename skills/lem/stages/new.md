@@ -23,8 +23,8 @@ of his text), runs step 3 with his words or the item's path as the ask, and step
    not `dropped` or `answered`, open no second one: say which task it is and where it stands.
 2. **The slug.** Two to five plain words that say what the owner gets ("report-dates-stay-whole"),
    never a code. A slug that a `landed`, an `answered` or a `dropped` task has is taken, since that
-   task's files stay under it, and so is the slug of an open task with other words: add a word, as
-   `task-dir` says when it refuses.
+   task's files stay under it (past `state.keep_days`, its small record alone), and so is the slug
+   of an open task with other words: add a word, as `task-dir` says when it refuses.
 3. **The task directory**, with the ask as the owner gave it:
 
    ```bash

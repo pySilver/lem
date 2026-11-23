@@ -76,12 +76,13 @@ An optional agent that reads the recent tasks and leaves a note for the retro.
 ## `[state]`
 
 Lem keeps the files of its work in `.lem/state/`, and git does not see this folder. The board
-server removes the old files from it each hour. It removes the working files of a task that ended:
-the notes of an agent, the archive of a review round, a picture that no document shows. It keeps
-the documents and the records of the task. In the event log, it replaces all the events of that
-task with one summary event, and the board shows the task in Done as before. Its Overview shows
-what the summary keeps, and tabs 2 to 4 of its panel tell you that their details went with the
-events. `/lem resume` cannot
+server removes the old files from it each hour. When nothing of a task that ended happened for
+`state.keep_days` days, the server removes all the files of the task except a small record: its
+state, its request, its pull request, and the files of its ticket and of a resume. After that, a
+retro or a nap finds no report and no decisions of the task. In the event log, the server replaces
+all the events of the task with one summary event, and the board shows the task in Done as before.
+Its Overview tells you what stayed, and tabs 2 to 4 of its panel tell you that their details went
+with the events. `/lem resume` cannot
 start a dropped task again after this: type `/lem` and its request to start a new task. The server
 also removes a question to the experts, the folder of a persona panel, a nap and a copy of the
 personas that nobody used for that number of days. To see what a number removes, type
@@ -89,7 +90,7 @@ personas that nobody used for that number of days. To see what a number removes,
 
 | Setting | Default | Use |
 | --- | --- | --- |
-| `state.keep_days` | `30` | the days after which an old file goes, and the events of a task that ended become one summary event. Lem counts from the last event of a task that ended, and from the last write of a folder. A dropped task whose events became a summary cannot be resumed. A whole number, `1` or more. A computer can set its own number in `.lem/project.local.toml` |
+| `state.keep_days` | `30` | the days after which an old file goes. When nothing of a task that ended happened for this number of days, the task keeps only its small record, and its events become one summary event. Lem counts from the last event of the task, and from the last write of a folder. A dropped task whose events became a summary cannot be resumed. A whole number, `1` or more. A computer can set its own number in `.lem/project.local.toml` |
 
 ## `[tracker]`
 

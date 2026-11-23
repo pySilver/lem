@@ -93,10 +93,12 @@ on 2026-11-22, and the list gets, under `## Invoices`:
 "not verified" and "outside defects" lines of each `report.md`, the reviews and the proposals
 in the event log (`review` and `proposed` events: the rounds, the counts, who answered, and each
 reason a request was not green; `careful.missed` events: a change the review called careful and
-its plan's own call did not, with the round and the review's reason), and the owner's corrections, from the project's correction queue when it keeps one (below). Past
-`state.keep_days`, `lem project prune` makes all the events of an ended task one `task.summary`,
-which holds none of those events (only the newest proposal's green and reasons), so a retro more
-than that apart from the one before reads only the newer tasks' events. It looks
+its plan's own call did not, with the round and the review's reason), and the owner's corrections, from the project's correction queue when it keeps one (below). When
+nothing of an ended task happened for `state.keep_days` days, `lem project prune` makes all its
+events one `task.summary`, which holds none of those events (only the newest proposal's green and reasons), and removes every
+file of the task but its small record (`lem_artifacts.SMALL_RECORD`): no `report.md` and no
+`decisions.jsonl` stay. So a retro more than that apart from the one before reads only the newer
+tasks' reports, decisions and events. It looks
 for what came back:
 
 - a correction the owner gave more than once: the record it had did not reach the step; move it

@@ -107,10 +107,11 @@ team that adopts Lem may have its own.
                                     written down as started
     lem project prune [--dry-run [--days N]]
                                     remove what the state folder no longer needs, older than
-                                    `state.keep_days` days, replace all the events of each task that
-                                    ended before then with one summary event, and say what went, which
-                                    tasks it summarized with the count of their events, and where the
-                                    number came from, as JSON; the board server runs it. --dry-run
+                                    `state.keep_days` days, leave each ended task with no event in
+                                    that time its small record only and its events one summary
+                                    event, and say what went, which tasks it summarized with the
+                                    count of their events, and where the number came from, as JSON;
+                                    the board server runs it. --dry-run
                                     removes nothing, writes nothing and says what would go, and --days
                                     says it for another number than the settings'
 
@@ -479,7 +480,9 @@ SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 #   parked    put aside on the owner's word (`/lem park`): its worktree, branch and files stay, nothing
 #             waits for him, and `resume` brings back the block it put aside
 STATES = ("queued", "building", "planned", "held", "blocked", "ready", "landing", "open", "landed", "dropped", "answered", "parked")
-# The states a task does not leave: its files stay under its slug, and nothing of it waits.
+# The states a task does not leave: its folder stays under its slug, whole until `prune` finds
+# nothing of the task for `state.keep_days` days and leaves its small record only, and nothing of
+# it waits.
 ENDED = ("landed", "dropped", "answered")
 # The state of a task the owner put aside, and the states it is put aside from: no lead runs in them.
 # A task whose lead builds is parked after the lead stops, and one with its landing is dropped or merged.
@@ -2378,7 +2381,7 @@ def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
     if event == "task.state":
         raise SettingsError("task.state is written by `lem project state`, which also writes the state block")
     if event == SUMMARY:
-        raise SettingsError(f"{SUMMARY} is written by `lem project prune` only, in place of the events of a task that ended more than {KEEP_KEY} days ago")
+        raise SettingsError(f"{SUMMARY} is written by `lem project prune` only, in place of the events of an ended task that nothing happened in for {KEEP_KEY} days")
     if event in ("task.mode", OWNER):
         raise SettingsError(f"{event} is written by `lem project owner` and `task-dir --night` only: the owner's status is his words, kept in the machine's mark and never in a repository's log, and a night's mark is the night's")
     fields: dict[str, object] = {}
@@ -2645,8 +2648,9 @@ NIGHT_WORDS = re.compile(r"the night of (\d{4}-\d{2}-\d{2})")
 # The `event` of each record of the owner's status, which names no task (`owner`): a record of the
 # machine's mark, never of a repository's log, which `log` refuses it.
 OWNER = "owner"
-# The one event that stands for all the events of a task that ended more than `state.keep_days` ago,
-# which only `prune` writes (`summary_of`): the facts each reader of the log read from those events.
+# The one event that stands for all the events of an ended task that nothing happened in for
+# `state.keep_days` days, which only `prune` writes (`summary_of`): the facts each reader of the log
+# read from those events.
 SUMMARY = "task.summary"
 
 
