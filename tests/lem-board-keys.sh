@@ -962,8 +962,8 @@ PY
 }
 
 # A card answered on a phone (the phone half of criteria 1 and 3 of board-answers-a-card, and 2's row that leaves): on
-# "Waits for you" at 390 x 844, with an iPhone's user agent, the row of refund-rounding's card shows its question; a tap
-# on it opens the card's step as the overlay of the whole screen, with the same page as in agterm, both options and the
+# "Waits for you" at 390 x 844, with an iPhone's user agent, the row of refund-rounding's card shows its question, in the
+# task's stack, which a tap opens; a tap on the row opens the card's step as the overlay of the whole screen, with the same page as in agterm, both options and the
 # note field, and no key hint or Discuss in chat. A note with no pick is refused with the board's line, nothing is
 # recorded and the row stays; Only the total with a note is on record as the owner's from the phone, the page says so,
 # and the row leaves the list with no reload. After card_tune_checks.
@@ -991,7 +991,11 @@ print(json.dumps({"width": 390, "height": 844, "mobile": True,
                   "ua": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1", "steps": [
     {"goto": f"{base}/waits", "wait": 300},
     until("row", f"document.readyState === 'complete' && window.Turbo && document.querySelector('{row} a.wr-verb')", f"document.querySelector('{row} a.wr-verb')?.textContent.trim() ?? '-'"),
-    {"wait": 800}, {"eval": "window.lemStay = 1"},
+    {"wait": 800},
+    # the cards card_kinds_checks kept make refund-rounding a task of two or more things, so its row is in the task's
+    # stack, closed as the page comes: a tap on the stack's summary opens it first
+    {"click": "#wait-stack-refund-rounding:not([open]) > summary", "tap": True, "after": 500},
+    {"eval": "window.lemStay = 1"},
     {"click": f"{row} a.wr-verb", "tap": True, "after": 300},
     until("opened", f"document.getElementById('card-step')?.hasAttribute('data-js-sheet') && {doc}?.querySelector('.hd-opt')", "location.pathname"),
     {"wait": 500}, {"print": f"['look', {LOOK}]"},
