@@ -126,10 +126,13 @@ h2 { margin: 0 0 14px; font-size: 32px; line-height: 1.2; font-weight: 720; lett
   content: ""; position: absolute; top: calc(50% - 3.25px); right: -20px; width: 5px; height: 5px;
   border-top: 1.5px solid var(--faint); border-right: 1.5px solid var(--faint); transform: rotate(45deg);
 }
-.step.you { border-color: color-mix(in srgb, var(--you) 70%, transparent); background: color-mix(in srgb, var(--you) 13%, var(--bg)); }
-.step.you b { color: var(--you-ink); }
 .legend { margin: 2px 0 0; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--dim); }
-.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--you); }
+/* the dot "You can act here": the one mark of a step of the developer, which leads the title of its card and of
+   its step. In the row of seven steps a title fills its step, so there the dot sits on the step's top edge, over the title */
+.dot { display: block; flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--you); }
+.touches b, .step b { display: flex; align-items: flex-start; gap: 9px; }
+.touches b .dot { margin-top: calc(.65em - 5px); }
+.step b .dot { position: absolute; top: -5px; left: 12px; }
 
 /* an example dialog, as in the README: who speaks, and what */
 .dialog { margin: 0; }
@@ -262,6 +265,7 @@ footer { border-top: 1px solid var(--line); padding-top: 44px; padding-bottom: 5
   .steps { grid-template-columns: minmax(0, 1fr); gap: 18px; }
   .fast .step:nth-child(2) { grid-column: auto; }
   .step { min-height: 0; }
+  .step b .dot { position: static; margin-top: calc(.65em - 5px); }
   .step:not(:last-child)::after { top: auto; right: auto; bottom: -13px; left: 24px; width: 1.5px; height: 10px; }
   .step:not(:last-child)::before { top: auto; right: auto; bottom: -14px; left: 21.75px; transform: rotate(135deg); }
   .verdict { margin-top: 40px; }

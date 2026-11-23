@@ -4,8 +4,8 @@
 # by its name, runs it in a throwaway folder that holds a copy of site/ and assets/, and reads the page
 # there, as Pages would serve it. The checks of the text, the links, the colors and the workflow run
 # everywhere; the checks of a drawn page (the first screen at 1280 px, the scene behind the hero, a phone
-# at 390 and at 360 px, each hero text's contrast, the copy buttons, the light and the dark theme) need headless Chrome,
-# and print SKIP lines where none starts.
+# at 390 and at 360 px, each hero text's contrast, the copy buttons, the light and the dark theme, the dot of
+# each step of the developer) need headless Chrome, and print SKIP lines where none starts.
 # LEM_SITE_SHOTS=DIR also writes pictures of the page there: 1280 x 800 and the whole page, light and dark.
 set -eEuo pipefail
 
@@ -179,6 +179,12 @@ else:
         problems.append(f"the fast track's steps for the developer are {fast}")
     if len(standard) != 3 or not ("Interview" in standard[0] and "criteria" in standard[1] and "merge" in standard[2]):
         problems.append(f"the standard track's steps for the developer are {standard}")
+# criterion 9 of the plan 2026-11-23-landing-page-asks-little: the dot "You can act here" on each step of the developer, and on no other step
+dots_in = lambda node: len(node.find(lambda n: "dot" in n.classes()))
+for step in body.find(lambda n: "step" in n.classes()):
+    mine = "you" in step.classes()
+    if dots_in(step) != (1 if mine else 0):
+        problems.append(f"the step {flat(step.text())!r} holds {dots_in(step)} dots, not {1 if mine else 0}")
 verdict["diagram"] = "; ".join(problems)
 verdict["green"] = "" if "Green means you can merge without a read." in flat(visible) else "the sentence is not on the page"
 
@@ -243,6 +249,43 @@ else:
     if len(talks) != 2 or (diagram and any(place(flow_part, talk) < place(flow_part, diagram[0]) for talk in talks)):
         problems.append(f"it holds {len(talks)} dialogs after the diagram, not 2")
 verdict["touches"] = "; ".join(problems)
+
+# criterion 9: the dot "You can act here" is the one mark of a step of the developer. Each card of the three touches
+# holds one; a dot stands only in a step of the developer, a card of a touch or the legend, its key; and no rule of
+# the stylesheet gives a step of the developer, or anything in it, a border, a background or a color of its own
+problems = []
+cards = [li for touches in body.find(lambda n: "touches" in n.classes() and n.tag == "ol") for li in touches.kids if isinstance(li, Node) and li.tag == "li"]
+problems += [f"the card {flat(card.text())!r} holds {dots_in(card)} dots, not 1" for card in cards if dots_in(card) != 1]
+if len(cards) != 3:
+    problems.append(f"the page has {len(cards)} cards of the three touches")
+legends = body.find(lambda n: "legend" in n.classes())
+if len(legends) != 1 or dots_in(legends[0]) != 1 or flat(legends[0].text()) != "You can act here.":
+    problems.append("the diagram has no one legend \"You can act here.\" with its dot")
+homes = [node for node in body.walk() if ("step" in node.classes() and "you" in node.classes()) or node in cards or node in legends]
+def home_of(node):
+    while node is not None and node not in homes:
+        node = node.parent
+    return node
+strays = [f"<{dot.parent.tag}> {flat(dot.parent.text())[:40]!r}" for dot in body.find(lambda n: "dot" in n.classes()) if home_of(dot) is None]
+if strays:
+    problems.append(f"a dot stands outside the steps of the developer, the three cards and the legend, in {strays}")
+PAINT = re.compile(r"^(border|background|color|outline|box-shadow)(-|$)")
+def names_you(selector):
+    """True when the selector can reach a step of the developer or something in it: a compound with the class you and
+    no class a step lacks, or a :has() that asks for a dot or for you."""
+    if re.search(r":has\([^)]*\.(dot|you)\b", selector):
+        return True
+    for part in re.split(r"\s*[\s>+~]\s*", re.sub(r"::?[\w-]+(\([^)]*\))?", "", selector).strip()):
+        classes, tag = re.findall(r"\.([\w-]+)", part), re.match(r"[a-z]\w*", part)
+        if "you" in classes and set(classes) <= {"step", "you"} and (tag is None or tag.group(0) == "li"):
+            return True
+    return False
+for selectors, body_of in re.findall(r"([^{}]+)\{([^{}]*)\}", re.sub(r"(?s)/\*.*?\*/", "", css)):
+    paints = [prop for prop in re.findall(r"(?:^|;)\s*([\w-]+)\s*:", body_of) if PAINT.match(prop)]
+    hit = [flat(selector) for selector in selectors.split(",") if names_you(flat(selector))]
+    if hit and paints:
+        problems.append(f"style.css gives {hit} {paints}")
+verdict["dot"] = "; ".join(problems)
 
 # criterion 3: section 02 holds each bullet of the README's "What you can rely on", the sentence of careful, and the green block with its picture
 problems = []
@@ -1016,13 +1059,14 @@ if ok first; then pass "the opening has the logo, the README's line, the two ins
 # criterion 2
 if ok sections; then pass "the page is nine sections in order (the opening, how a task goes, what you can rely on, the board, the phone, many tasks at once, Lem learns your repository, start from a ticket, the install) and a footer, and the nav links the board, the flow, the phone and the install"; else fail "the sections: $WHY"; fi
 if ok words; then ok words_count || true; pass "the page has 800 to 1600 words of visible text ($WHY)"; else fail "the visible text: $WHY, not 800 to 1600"; fi
-if ok diagram; then pass "the diagram's fast track has one step for the developer, the merge; the standard track three: the interview, the criteria, the merge"; else fail "the diagram: $WHY"; fi
+if ok diagram; then pass "the diagram's fast track has one step for the developer, the merge; the standard track three: the interview, the criteria, the merge; each of these holds one dot, and no other step holds one"; else fail "the diagram: $WHY"; fi
 if ok green; then pass "the page says \"Green means you can merge without a read.\""; else fail "the green sentence: $WHY"; fi
 if ok again; then pass "the second install block has the two lines, and a sentence that names .lem/ links the removal steps of docs/install.md"; else fail "the second install block: $WHY"; fi
 if ok footer; then pass "the footer links the seven guides, the settings and the repository"; else fail "the footer: $WHY"; fi
 # the plan 2026-11-23-landing-page-asks-little, by its criteria
 if ok for_line; then pass "the hero says \"For a developer who works alone, and for a team on Linear or GitHub Issues.\" directly after the lead line, and the README says it as the paragraph under its lead sentence"; else fail "who Lem is for: $WHY"; fi
 if ok touches; then pass "section 01, \"A task needs you three times at most\", shows the three touches as three cards, then the diagram, then the two dialogs"; else fail "section 01: $WHY"; fi
+if ok dot; then pass "the dot \"You can act here\" is the one mark of a step of the developer: each card of the three touches holds one, no dot stands outside those steps, those cards and the legend, and style.css gives a step of the developer no border, background or color of its own"; else fail "the dot: $WHY"; fi
 if ok rely; then pass "section 02, \"What you can rely on\", holds each bullet of the README's list, the sentence of careful, and the green block with the task's picture"; else fail "section 02: $WHY"; fi
 if ok learns; then pass "\"Lem learns your repository\" names the profile, the personas, the lessons and the rulings, each a file in git, and Codex as the second model family"; else fail "Lem learns your repository: $WHY"; fi
 if ok tickets; then pass "\"Start from a ticket\" shows /lem new ABC-12 and /lem new 42 as text with the two guides' headings, and the page and the README say what a team shares and that each developer has their own board"; else fail "start from a ticket: $WHY"; fi
@@ -1127,7 +1171,17 @@ probe theme '
 window.addEventListener("load", () => {
   const img = selector => document.querySelector(selector);
   const logo = img("section picture img"), board = img("img[src*=board]");
+  // the dot "You can act here" as drawn: each place that holds one, the dot box and color in it, and how each step of the diagram looks
+  const edges = el => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; };
+  const marks = [...document.querySelectorAll(".step.you, ol.touches > li, .legend")].map(el => ({
+    name: el.textContent.trim().replace(/\s+/g, " ").slice(0, 30), box: edges(el),
+    dots: [...el.querySelectorAll(".dot")].map(dot => ({ box: edges(dot), color: getComputedStyle(dot).backgroundColor, seen: getComputedStyle(dot).visibility })) }));
+  const steps = [...document.querySelectorAll(".step")].map(el => {
+    const style = getComputedStyle(el), title = getComputedStyle(el.querySelector("b"));
+    return { you: el.classList.contains("you"), look: [style.borderTopColor, style.backgroundColor, style.boxShadow, style.outlineStyle, title.color, title.backgroundColor].join(" | ") };
+  });
   report({
+    marks, steps,
     dark: matchMedia("(prefers-color-scheme: dark)").matches,
     background: getComputedStyle(document.body).backgroundColor,
     logo: logo.currentSrc.replace(/^.*?\/_site\//, ""), logoWidth: logo.naturalWidth,
@@ -1336,6 +1390,32 @@ elif mode == "differ":
     light, dark = (load(path)["background"] for path in files)
     if light == dark:
         wrong.append(f"both draws have the background {light}")
+elif mode == "dots":
+    # criterion 9 of the plan 2026-11-23-landing-page-asks-little, as drawn in each theme: the four steps of the
+    # developer, the three cards and the legend each show one dot of 10 x 10 px on their box, all in one color, and
+    # a step of the developer looks like every other step
+    for theme, path in zip(("light", "dark"), files):
+        d = load(path)
+        if len(d["marks"]) != 8:
+            wrong.append(f"in the {theme} theme {len(d['marks'])} places hold a dot, not 8")
+        colors = set()
+        for mark in d["marks"]:
+            if len(mark["dots"]) != 1:
+                wrong.append(f"in the {theme} theme {mark['name']!r} shows {len(mark['dots'])} dots")
+                continue
+            dot, (left, top, right, bottom) = mark["dots"][0], mark["box"]
+            x0, y0, x1, y1 = dot["box"]
+            if abs(x1 - x0 - 10) > .5 or abs(y1 - y0 - 10) > .5 or dot["seen"] != "visible":
+                wrong.append(f"in the {theme} theme the dot of {mark['name']!r} draws {x1 - x0:.1f} x {y1 - y0:.1f} px, {dot['seen']}")
+            if not (left <= (x0 + x1) / 2 <= right and top <= (y0 + y1) / 2 <= bottom):
+                wrong.append(f"in the {theme} theme the dot of {mark['name']!r} has its middle outside its box")
+            colors.add(dot["color"])
+        rgb = color(next(iter(colors))) if len(colors) == 1 else None
+        if rgb is None or rgb[1] < 1:
+            wrong.append(f"in the {theme} theme the dots are {sorted(colors)}, not one solid color")
+        looks = {step["look"] for step in d["steps"] if step["you"]}, {step["look"] for step in d["steps"] if not step["you"]}
+        if looks[0] != looks[1] or len(looks[1]) != 1:
+            wrong.append(f"in the {theme} theme a step of the developer looks {sorted(looks[0])}, the others {sorted(looks[1])}")
 print("; ".join(wrong) if wrong else said)
 sys.exit(bool(wrong))
 PY
@@ -1430,6 +1510,11 @@ drawn_checks() {
     pass "the light and the dark draw differ in their background, so the theme took"
   else
     fail "the themes: $why"
+  fi
+  if why=$(drawn dots "$WORK/light.json" "$WORK/dark.json"); then
+    pass "in the light and the dark theme each step of the developer, each card of the three touches and the legend show one dot of 10 x 10 px on their box, in one color, and a step of the developer looks like every other step"
+  else
+    fail "the dot as drawn: $why"
   fi
 }
 
