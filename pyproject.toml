@@ -109,19 +109,24 @@ ignore = [
     "TRY301", # a refusal raised inside its own `try` is how a command stops with a message
     "PLC0415", # a script imports a sibling on the path that needs it, after it put the folder on sys.path
     "S603", # Lem's work is to run git, gh, agtermctl and a project's own checks,
-    "S607", # each named in a list of arguments, found on PATH
+    "S607", # each named in a list of arguments, found on PATH,
+    "S606", # and a launcher becomes the script it starts (os.execv)
     "UP036", # a script's first lines tell an old python3 what Lem needs, so they must stay
     "N818", # an exception is named for what happened (Refusal, NotFound)
 ]
 
-# The typographic marks of a text for a person: the apostrophe, the en dash and the times sign.
-allowed-confusables = ["’", "–", "×"]
+# The typographic marks of a text for a person: the apostrophe, the en dash, the times sign, and
+# the sign between the parts of a title as agterm shows it.
+allowed-confusables = ["’", "–", "×", "›"]
 
 [tool.ruff.lint.per-file-ignores]
 # The two files that every command and every hook starts under any python3: they keep to os.path
 # and to what Python 3.9 has.
 "bin/lem" = ["PTH"]
 "skills/lem/scripts/lem_python.py" = ["PTH"]
+# lem-ask shows a path as its caller wrote it, in a page's address and in each message (`./x.json`,
+# a TMPDIR with `//`), and pathlib would rewrite that text.
+"skills/lem-ask/bin/lem-ask" = ["PTH"]
 "tests/**" = [
     "PLR2004", # a test compares with the value it expects
     "FBT003", # and passes it by position

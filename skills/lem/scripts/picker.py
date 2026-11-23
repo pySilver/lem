@@ -39,7 +39,7 @@ from pathlib import Path
 
 if Path(os.path.realpath(__file__)).parts[-7:-5] == ("plugins", "marketplaces"):
     # this file is PLUGINS/marketplaces/NAME/skills/lem/scripts/picker.py: the clone is the folder four up
-    os.execv(  # noqa: S606 - the clone's bin/lem takes this process's place, with the same arguments
+    os.execv(
         sys.executable,
         [
             sys.executable,

@@ -61,7 +61,7 @@ DEFAULTS = HERE / "defaults.json"
 # The keys of the table [ask] of Lem's home settings file; `lem project` takes the same five (project.py TABLES).
 ASK_KEYS = ("style", "size", "review", "browser", "status")
 STATUS_KEYS = ("asking", "answered")
-OUTDIR = os.path.join(os.environ.get("TMPDIR", "/tmp"), "lem-ask")  # noqa: PTH118, S108 - the folder prints as TMPDIR is written, a // kept; /tmp when TMPDIR names none
+OUTDIR = os.path.join(os.environ.get("TMPDIR", "/tmp"), "lem-ask")  # noqa: S108 - the folder prints as TMPDIR is written, a // kept; /tmp when TMPDIR names none
 # Seconds an old page stays in OUTDIR, for debugging.
 PAGE_KEEP = 86400
 MERMAID_URL = "https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.min.js"
@@ -105,7 +105,7 @@ def load_spec(arg: str | None) -> dict[str, Any]:
             die(f"the spec on stdin is not UTF-8 text: {e}")
     else:
         try:
-            with open(os.path.expanduser(arg), encoding="utf-8") as f:  # noqa: PTH111, PTH123 - the message shows the path as its caller wrote it, and Path.expanduser raises on a ~user it does not know
+            with open(os.path.expanduser(arg), encoding="utf-8") as f:
                 raw = f.read()
         except UnicodeDecodeError as e:
             die(f"the spec {arg} is not UTF-8 text: {e}")
@@ -471,11 +471,11 @@ def load_files(node: object, base: str) -> None:
             die(
                 f"{k} block: `file` is the path of a file in quotes, got {json.dumps(shown)}"
             )
-        p = os.path.expanduser(shown)  # noqa: PTH111 - Path.expanduser raises on a ~user it does not know
+        p = os.path.expanduser(shown)
         if not Path(p).is_absolute():
-            p = os.path.join(base, p)  # noqa: PTH118 - the message shows the path as its caller wrote it, a ./ kept
+            p = os.path.join(base, p)
         try:
-            with open(p, encoding="utf-8") as f:  # noqa: PTH123 - the message shows the path as its caller wrote it, a ./ kept
+            with open(p, encoding="utf-8") as f:
                 text = f.read()
         except (OSError, UnicodeDecodeError) as e:
             die(f"{k} block: cannot read {shown}: {e}")
@@ -496,7 +496,7 @@ def load_files(node: object, base: str) -> None:
                 node.setdefault(
                     "title", f"{shown}:{first}-{last}" if "lines" in src else shown
                 )
-                ext = os.path.splitext(p)[1].lstrip(".")  # noqa: PTH122 - a name of leading dots, as ..py, has no extension here, where Path.suffix gives one
+                ext = os.path.splitext(p)[1].lstrip(".")
                 if ext:
                     node.setdefault("lang", ext)
         node[k] = text
@@ -514,7 +514,7 @@ def embed_images(node: object, base: str) -> None:
                 and not v.startswith(("http://", "https://", "data:"))
             ):
                 # Path(base, p) is p itself when p is absolute
-                p = Path(base, os.path.expanduser(v))  # noqa: PTH111 - Path.expanduser raises on a ~user it does not know
+                p = Path(base, os.path.expanduser(v))
                 if not p.is_file():
                     node[k] = ""
                     node.setdefault("alt", f"missing image: {v}")
@@ -559,9 +559,9 @@ def mermaid_js() -> str:
         return hashlib.sha256(data).hexdigest() == MERMAID_SHA256
 
     cache = lem_folder("XDG_CACHE_HOME", ".cache")
-    file = os.path.join(cache, MERMAID_NAME)  # noqa: PTH118 - the messages show the file as XDG_CACHE_HOME is written
+    file = os.path.join(cache, MERMAID_NAME)
     try:
-        with open(file, "rb") as f:  # noqa: PTH123 - the message shows the file as XDG_CACHE_HOME is written
+        with open(file, "rb") as f:
             data = f.read()
         if verified(data):
             return data.decode("utf-8")
@@ -589,11 +589,11 @@ def mermaid_js() -> str:
         )
         return ""
     try:
-        os.makedirs(cache, exist_ok=True)  # noqa: PTH103 - the message shows the folder as XDG_CACHE_HOME is written
+        os.makedirs(cache, exist_ok=True)
         tmp = file + f".{os.getpid()}.tmp"
-        with open(tmp, "wb") as f:  # noqa: PTH123 - the message shows the file as XDG_CACHE_HOME is written
+        with open(tmp, "wb") as f:
             f.write(data)
-        os.replace(tmp, file)  # noqa: PTH105 - the message shows the files as XDG_CACHE_HOME is written
+        os.replace(tmp, file)
     except (
         OSError
     ) as e:  # the page still gets the verified bundle; only the cache is lost
@@ -637,7 +637,7 @@ def build_html(spec: dict[str, Any], base: str) -> str:
 
 def write_page(html: str) -> str:
     try:
-        os.makedirs(OUTDIR, exist_ok=True)  # noqa: PTH103 - the message shows the folder as TMPDIR is written
+        os.makedirs(OUTDIR, exist_ok=True)
     except OSError as e:
         die(
             f"cannot make the folder for the page, {OUTDIR}: {e}; point TMPDIR at a folder this user may write"
@@ -651,10 +651,10 @@ def write_page(html: str) -> str:
                 old.unlink()
         except OSError:
             pass
-    path = os.path.join(  # noqa: PTH118 - the page's path prints as TMPDIR is written
+    path = os.path.join(
         OUTDIR, time.strftime("%Y%m%d-%H%M%S-") + secrets.token_hex(3) + ".html"
     )
-    with open(path, "w", encoding="utf-8") as f:  # noqa: PTH123 - an error shows the path as TMPDIR is written
+    with open(path, "w", encoding="utf-8") as f:
         f.write(html)
     return path
 
@@ -670,22 +670,22 @@ def lem_folder(variable: str, fallback: str) -> str:
     read from the folder each command starts in."""
     named = os.environ.get(variable, "")
     if not named:
-        return os.path.join(os.path.expanduser("~"), fallback, "lem")  # noqa: PTH111, PTH118 - with no HOME and no passwd entry this gives ~, where Path.home() raises
+        return os.path.join(os.path.expanduser("~"), fallback, "lem")
     if not Path(named).is_absolute():
         raise DefaultsError(
             f"{variable} is {named!r}, a relative path: set it to an absolute path, or unset it for ~/{fallback}"
         )
-    return os.path.join(named, "lem")  # noqa: PTH118 - the folder prints as the variable is written, a // kept
+    return os.path.join(named, "lem")
 
 
 def settings_file() -> str:
     """Lem's settings file of the home folder, whose table [ask] holds the user's own defaults."""
-    return os.path.join(lem_folder("XDG_CONFIG_HOME", ".config"), "settings.toml")  # noqa: PTH118 - the file prints as XDG_CONFIG_HOME is written, a // kept
+    return os.path.join(lem_folder("XDG_CONFIG_HOME", ".config"), "settings.toml")
 
 
 def shown(path: str) -> str:
     """A file of the home directory as a person writes it, ~/.config/lem/settings.toml; another as it is."""
-    home = os.path.expanduser("~")  # noqa: PTH111 - with no HOME and no passwd entry this gives ~, where Path.home() raises
+    home = os.path.expanduser("~")
     return (
         "~/" + os.path.relpath(path, home)
         if path.startswith(home.rstrip(os.sep) + os.sep)
@@ -1415,7 +1415,7 @@ def main() -> None:
 
     if a.cmd == "ask":
         base = (
-            str(Path(os.path.abspath(a.spec)).parent)  # noqa: PTH100 - as written, where resolve() would follow a link
+            str(Path(os.path.abspath(a.spec)).parent)
             if a.spec not in (None, "-")
             else str(Path.cwd())
         )
@@ -1442,7 +1442,7 @@ def main() -> None:
         for name in a.names:
             path = next(
                 (
-                    os.path.join(d, name + ".json")  # noqa: PTH118 - the messages show the path as the demo's name writes it
+                    os.path.join(d, name + ".json")
                     for d in (DEMOS, TEMPLATES)
                     if (d / (name + ".json")).is_file()
                 ),
@@ -1450,7 +1450,7 @@ def main() -> None:
             )
             if not path:
                 die(f"no demo or template named {name!r}")
-            code = ask(load_spec(path), a, os.path.dirname(path))  # noqa: PTH120 - the messages show the folder as the demo's name writes it
+            code = ask(load_spec(path), a, os.path.dirname(path))
             if code not in (0, 2):
                 break
         sys.exit(code)
@@ -1459,13 +1459,13 @@ def main() -> None:
         check_spec(spec)
         apply_defaults(spec)
         base = (
-            str(Path(os.path.abspath(a.spec)).parent)  # noqa: PTH100 - as written, where resolve() would follow a link
+            str(Path(os.path.abspath(a.spec)).parent)
             if a.spec != "-"
             else str(Path.cwd())
         )
         html = build_html(spec, base)
         try:
-            with open(a.out, "w", encoding="utf-8") as f:  # noqa: PTH123 - the message shows the path as its caller wrote it
+            with open(a.out, "w", encoding="utf-8") as f:
                 f.write(html)
         except OSError as e:
             die(f"cannot write the page to {a.out}: {e}")

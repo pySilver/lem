@@ -234,20 +234,20 @@ class Keymap(unittest.TestCase):
         command, script = self.SCRIPTS
         self.assertEqual(
             self.runs(
-                f'command "Lem tasks ›" ctrl+cmd+t --error-hud /opt/homebrew/bin/python3 {command} picker'  # noqa: RUF001 - the picker's title, as agterm shows it
+                f'command "Lem tasks ›" ctrl+cmd+t --error-hud /opt/homebrew/bin/python3 {command} picker'
             ),
             command,
         )
         self.assertEqual(
             self.runs(
-                'command "Lem tasks ›"  ctrl+cmd+t  --error-hud /opt/homebrew/bin/python3 ~/.claude/plugins/marketplaces/lem/bin/lem picker'  # noqa: RUF001 - the picker's title, as agterm shows it
+                'command "Lem tasks ›"  ctrl+cmd+t  --error-hud /opt/homebrew/bin/python3 ~/.claude/plugins/marketplaces/lem/bin/lem picker'
             ),
             command,
         )
         # the form of the line the doctor printed before, as a Mac's keymap holds it (2026-11-23)
         self.assertEqual(
             self.runs(
-                'command "Lem tasks ›"  ctrl+cmd+t  --error-hud /opt/homebrew/bin/python3 ~/.claude/plugins/marketplaces/lem/skills/lem/scripts/picker.py'  # noqa: RUF001 - the picker's title, as agterm shows it
+                'command "Lem tasks ›"  ctrl+cmd+t  --error-hud /opt/homebrew/bin/python3 ~/.claude/plugins/marketplaces/lem/skills/lem/scripts/picker.py'
             ),
             script,
         )

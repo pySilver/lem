@@ -574,7 +574,7 @@ def picker() -> dict:
         }
     root, kept = found
     command, script = root / COMMAND, root / PICKER
-    line = f'command "Lem tasks ›" {CHORD} --error-hud {shlex.quote(interpreter())} {shlex.quote(str(command))} picker'  # noqa: RUF001 - the picker's title, as agterm shows it
+    line = f'command "Lem tasks ›" {CHORD} --error-hud {shlex.quote(interpreter())} {shlex.quote(str(command))} picker'
     try:
         runs = [
             keymap_runs(said, home, (command, script))

@@ -194,7 +194,7 @@ def hook(argv: "list[str]") -> None:
         return
     python = find(python3=False)
     if python is not None:
-        os.execv(python, [python, "-B", script, *args])  # noqa: S606 - the hook becomes the script
+        os.execv(python, [python, "-B", script, *args])
 
 
 if __name__ == "__main__":

@@ -225,7 +225,7 @@ def run(script: str, args: list, command: str, *, look: bool = False) -> None:
             sys.exit(lem_python.missing(command))
     if look:
         look_for_server(python)
-    os.execv(python, [python, "-B", script, *args])  # noqa: S606 - the command becomes the script
+    os.execv(python, [python, "-B", script, *args])
 
 
 def release(called: str) -> "str | None":
@@ -272,8 +272,8 @@ def main() -> None:
     target = release(called)
     if target is not None:
         if sys.executable:
-            os.execv(sys.executable, [sys.executable, target, *sys.argv[1:]])  # noqa: S606 - the clone becomes the release
-        os.execv(target, [target, *sys.argv[1:]])  # noqa: S606 - the clone becomes the release
+            os.execv(sys.executable, [sys.executable, target, *sys.argv[1:]])
+        os.execv(target, [target, *sys.argv[1:]])
     if called in ALIASES:
         run(os.path.join(ROOT, ALIASES[called]), sys.argv[1:], called)
     args = sys.argv[1:]
