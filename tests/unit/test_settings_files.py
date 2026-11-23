@@ -8,6 +8,7 @@ the map's.
     python3 -B -m unittest discover -s tests/unit
 """
 
+import importlib
 import os
 import re
 import runpy
@@ -21,8 +22,8 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts"))
-import lem_state  # noqa: E402
-import project  # noqa: E402
+lem_state = importlib.import_module("lem_state")
+project = importlib.import_module("project")
 
 ROOT = Path("/lem-unit/repo")
 LEM = Path(__file__).resolve().parents[2]
