@@ -311,6 +311,9 @@ def message_of(thing: dict, row: dict, m, bm, *, task_dir: Path, plan_file: Path
     if thing["form"] == NOTE:
         if kind == "after_dropped":
             body = no_session(t, link_line, f"\n\n{bm.answer_of(t)}")
+        elif kind == "stopped" and row.get("unread"):
+            body = (f"The session of {slug} stopped, and Lem cannot read it: no event of the task came after the status message. "
+                    f"Lem opens no second session by itself. Open a fresh one on the board: {link_line}")
         elif kind == "stopped":
             body = f"The session of {slug} stopped, and so did the fresh one that took its place. Open a fresh one on the board: {link_line}"
         elif kind == "merge" and t.refused:

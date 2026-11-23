@@ -1503,16 +1503,95 @@ class StoppedRow(unittest.TestCase):
             self.assertIn(head, html)
         self.assertEqual(html.count(bm.stamp(self.ms("12:44"), m.now)), 1)
 
-    def test_lem_project_waiting_lists_the_stop_as_the_board_has_it(self):
+    def unread_model(self, *events: dict, at: str = "11:50"):
+        return self.model(*events, at=at, session="S1", sign=None, signs=False)
+
+    def test_criterion_2_an_unread_stop_is_the_row_stopped_that_says_lem_cannot_read_the_session(self):
+        events = (*self.landing(), self.ev("11:39", "session.wake", session="S1", why="status", unread=True),
+                  self.ev("11:49", "session.stopped", session="S1", unread=True))
+        m = self.unread_model(*events)
+        t = m.by_slug["gift-note"]
+        rows = bm.waits_of(m)
+        self.assertEqual([(w["key"], w["kind"], bm.wait_say(w)["verb"], w["since"]) for w in rows],
+                         [("stopped:gift-note", "stopped", "Its session stopped, and Lem cannot read it: open a fresh one", self.ms("11:49"))])
+        say = bm.wait_say(rows[0])
+        self.assertEqual((say["actor"], say["to"], say["note"]), ("bad", "overview", "since Lem logged the stop"))
+        for words in ("Lem cannot read whether the task’s session works", "the status message after 45 minutes with no event of the task",
+                      "no event of the task in the 10 minutes after it", "Lem opens no second session by itself", "open a session here or on the task’s header"):
+            self.assertIn(words, say["where"])
+        # no fresh session took its place, so the readable row's words are not said
+        self.assertNotIn("fresh session that took its place", say["where"])
+        self.assertTrue(bm.opens_session(t, m))
+        self.assertIn("Lem cannot read whether", bm.waits_for(t, rows)["where"])
+        html = str(pages.waits_page(pages.Ctx(host="h", workspace="w", model=m, asset=lambda name: name, can_act=True)))
+        row = html[html.index('id="wait-stopped-gift-note"'):]
+        row = row[:row.index("</article>")]
+        self.assertIn("Open a session", row)
+        self.assertIn("Lem cannot read it", row)
+        # a work event of the task after the stop removes the row; the readable stop keeps its own verb
+        worked = (*events, self.ev("11:55", "task.state", status="landing", text="the pull request waits for its checks", lines=[]))
+        self.assertEqual(bm.waits_of(self.unread_model(*worked, at="11:56")), [])
+        self.assertEqual([bm.wait_say(w)["verb"] for w in bm.waits_of(self.model(*self.stopped(), at="13:00", session="S2", sign=None))],
+                         ["Its session stopped: open a fresh one"])
+
+    def test_the_timeline_says_an_unread_wake_and_stop_in_words_of_their_own(self):
+        events = (*self.landing(), self.ev("11:39", "session.wake", session="S1", why="status", unread=True),
+                  self.ev("11:49", "session.stopped", session="S1", unread=True))
+        m = self.unread_model(*events)
+        said = {e["event"]: bm.describe(e, m) for e in m.by_slug["gift-note"].events if e["event"] in ("session.wake", "session.stopped")}
+        wake, stop = said["session.wake"], said["session.stopped"]
+        self.assertEqual(wake["head"], "The board’s server asked the task’s session for its status")
+        self.assertEqual(wake["text"], "no event of the task for 45 minutes, and Lem cannot read its session: it says where the task stands and goes on with its next step")
+        self.assertEqual((stop["head"], stop["info"]["actor"]), ("The task’s session stopped", "bad"))
+        self.assertEqual(stop["text"], "no event of the task in the 10 minutes after the status message, and Lem cannot read its session: "
+                                       "“Open a session” on the board starts a fresh one")
+        # the readable wake and stop keep today's words
+        readable = self.model(*self.stopped(), at="13:00", session="S2", sign=None)
+        kept = {(e["event"], e.get("why")): bm.describe(e, readable) for e in readable.by_slug["gift-note"].events}
+        self.assertEqual(kept[("session.wake", "status")]["text"], "no sign of work for 45 minutes: it says where the task stands and goes on with its next step")
+        self.assertEqual(kept[("session.stopped", None)]["text"], "no sign of work after the status message, nor in the fresh session: “Open a session” on the board starts another")
+
+    def test_the_timeline_says_that_a_stop_over_new_work_leaves_nothing_waiting(self):
+        # a state block logged after the look at 11:49 but before the stop's record: the stop never stood
+        raced = (*self.landing(), self.ev("11:39", "session.wake", session="S1", why="status", unread=True),
+                 self.ev("11:49", "task.state", status="landing", text="the pull request waits for its checks", lines=[]),
+                 self.ev("11:49", "session.stopped", session="S1", unread=True))
+        m = self.unread_model(*raced)
+        t = m.by_slug["gift-note"]
+        stop = next(e for e in t.events if e["event"] == "session.stopped")
+        said = bm.describe(stop, m)
+        self.assertEqual((said["head"], said["info"]["actor"]), ("Lem logged a stop of the task’s session, but the task worked", "quiet"))
+        self.assertIn("so the stop does not stand and nothing waits for you", said["text"])
+        self.assertEqual(bm.waits_of(m), [])
+        # the same in the task's Activity
+        ctx = pages.Ctx(host="h", workspace="w", model=m, asset=lambda name: name, task="gift-note", tab="timeline")
+        self.assertIn("but the task worked", str(task_pages.feed_card(ctx, t)))
+        # a stop that stood keeps its words when work comes after it: the work ends the row, not what the stop was
+        wake, block, stop_record = raced[-3:]
+        later = self.unread_model(*self.landing(), wake, stop_record, block, at="11:50")
+        stood = next(e for e in later.by_slug["gift-note"].events if e["event"] == "session.stopped")
+        self.assertEqual(bm.describe(stood, later)["head"], "The task’s session stopped")
+        # a record that is not one of the task's own events is no such stop
+        self.assertFalse(bm.stop_over_work(t, dict(stop)))
+
+    def waiting(self, m) -> dict:
         from unittest import mock
         project = importlib.import_module("project")
-        m = self.model(*self.stopped(), at="13:00", session="S2", sign=None)
         task = {"slug": "gift-note", "ask": "a gift note", "since": "2026-11-22T12:44:00Z", "night": None, "state": "", "status": "landing"}
         pending = mock.Mock(returncode=0, stdout=json.dumps({"waiting": [], "ended": []}))
         with tempfile.TemporaryDirectory() as state, \
              mock.patch.object(project, "load", return_value={}), mock.patch.object(project, "read_tasks", return_value=[task]), \
              mock.patch.object(project, "waiting_model", return_value=(m, None)), mock.patch.object(project.subprocess, "run", return_value=pending), \
              mock.patch.object(project, "owner_records", return_value=[]), mock.patch.object(project, "state_root", return_value=Path(state)):
-            found = project.cmd_waiting(Path("/lem-unit/repo"))
-        self.assertEqual([(e["task"], e["open"]) for e in found["stopped"]], [("gift-note", "lem session open gift-note --why stopped")])
+            return project.cmd_waiting(Path("/lem-unit/repo"))
+
+    def test_lem_project_waiting_lists_the_stop_as_the_board_has_it(self):
+        found = self.waiting(self.model(*self.stopped(), at="13:00", session="S2", sign=None))
+        self.assertEqual([(e["task"], e["open"], e["unread"]) for e in found["stopped"]], [("gift-note", "lem session open gift-note --why stopped", False)])
         self.assertEqual((found["rows"], found["no_session"], found["count"]), ([{"key": "stopped:gift-note", "kind": "stopped", "task": "gift-note"}], [], 1))
+
+    def test_lem_project_waiting_says_that_lem_cannot_read_the_stopped_session(self):
+        events = (*self.landing(), self.ev("11:39", "session.wake", session="S1", why="status", unread=True),
+                  self.ev("11:49", "session.stopped", session="S1", unread=True))
+        found = self.waiting(self.unread_model(*events))
+        self.assertEqual([(e["task"], e["open"], e["unread"]) for e in found["stopped"]], [("gift-note", "lem session open gift-note --why stopped", True)])
