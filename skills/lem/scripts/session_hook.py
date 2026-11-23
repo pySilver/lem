@@ -38,6 +38,13 @@ import os
 import sys
 from datetime import UTC
 
+# The names of the annotations below, for the type checker alone: the hook imports nothing at its
+# start that a session which is no task's does not need.
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+    from pathlib import Path
+
 # How long git may take to name the main checkout. A guess: it answers in milliseconds, and a stuck
 # git must not hold the hook.
 GIT_TIMEOUT = 2
@@ -75,7 +82,7 @@ def restored(
     return "\n".join(lines)
 
 
-def newest_phase(log, slug: str) -> str | None:
+def newest_phase(log: "Iterable[str]", slug: str) -> str | None:
     """The phase of the task's newest `session.open` in the event log, the lines of LOG."""
     import json
 
@@ -92,7 +99,9 @@ def newest_phase(log, slug: str) -> str | None:
     return phase
 
 
-def transcript_record(log, slug: str, claude: str, session: str | None) -> bool:
+def transcript_record(
+    log: "Iterable[str]", slug: str, claude: str, session: str | None
+) -> bool:
     """Whether the event log, the lines of LOG, already holds this Claude Code session of the task in
     this agterm session: a background host of Claude Code that runs with another pane's environment
     logs the same Claude id under another `session` (`lem_signs`). A record's `task` and `session` are
@@ -117,11 +126,14 @@ def transcript_record(log, slug: str, claude: str, session: str | None) -> bool:
     return False
 
 
-def keep_transcript(state, slug: str, event: dict, session: str | None = None) -> None:
+def keep_transcript(
+    state: "Path", slug: str, event: dict, session: str | None = None
+) -> None:
     """Log the task's Claude Code session, its id and its transcript's path from the hook's input, and
     SESSION, the agterm session the hook runs in, once for each Claude id and agterm session."""
     import json
     from datetime import datetime
+    from pathlib import Path
 
     claude, transcript = event.get("session_id"), event.get("transcript_path")
     if not (
@@ -137,10 +149,8 @@ def keep_transcript(state, slug: str, event: dict, session: str | None = None) -
     # under the log's lock, as `lem project log` appends: a prune that rewrites the log either comes
     # after this record or put its new file in place before the read
     with lem_state.events_lock(state):
-        with (
-            log.open(encoding="utf-8", errors="replace")
-            if log.is_file()
-            else open(os.devnull)
+        with (log if log.is_file() else Path(os.devnull)).open(
+            encoding="utf-8", errors="replace"
         ) as lines:
             if transcript_record(lines, slug, claude, session):
                 return
@@ -178,7 +188,7 @@ def main() -> None:
     if not isinstance(event, dict):
         return
     folder = event.get("cwd") if isinstance(event.get("cwd"), str) else None
-    folder = folder or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+    folder = folder or os.environ.get("CLAUDE_PROJECT_DIR") or Path.cwd()
     try:
         state = (
             lem_state.main_checkout(Path(folder), timeout=GIT_TIMEOUT) / lem_state.STATE
@@ -191,10 +201,8 @@ def main() -> None:
     name = event.get("hook_event_name")
     if name == "PreCompact":
         log = state / "events.jsonl"
-        with (
-            log.open(encoding="utf-8", errors="replace")
-            if log.is_file()
-            else open(os.devnull)
+        with (log if log.is_file() else Path(os.devnull)).open(
+            encoding="utf-8", errors="replace"
         ) as lines:
             print(instructions(slug, newest_phase(lines, slug)))
     elif name == "SessionStart":
@@ -225,8 +233,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    try:
+    try:  # noqa: SIM105 - contextlib is one more import at the start of every session
         main()
-    except BaseException:  # noqa: BLE001 - a hook that fails must not fail the session
+    except BaseException:  # noqa: BLE001, S110 - a hook that fails must not fail the session
         pass
     sys.exit(0)

@@ -84,7 +84,13 @@ def launch(slug: str) -> str:
 
 class ReadSigns(unittest.TestCase):
     def signs(
-        self, records=None, turns=None, processes=None, ps=None, pane=PANE, mains=None
+        self,
+        records: list[dict] | None = None,
+        turns: dict[str, list] | None = None,
+        processes: dict[str, list] | None = None,
+        ps: str | None = None,
+        pane: str | None = PANE,
+        mains: dict[str, list] | None = None,
     ) -> dict:
         return lem_signs.read_signs(
             [record()] if records is None else records,
@@ -373,7 +379,7 @@ class Transcript(unittest.TestCase):
                     )
 
 
-def user(content, **flags) -> dict:
+def user(content: object, **flags: object) -> dict:
     return {
         "type": "user",
         "timestamp": "2026-11-23T11:42:52.100Z",
@@ -382,7 +388,7 @@ def user(content, **flags) -> dict:
     }
 
 
-def assistant(stop_reason, *content: dict, **flags) -> dict:
+def assistant(stop_reason: str | None, *content: dict, **flags: object) -> dict:
     return {
         "type": "assistant",
         "timestamp": "2026-11-23T11:42:55.300Z",
@@ -771,6 +777,7 @@ class List(unittest.TestCase):
         logged: list[dict],
         ps: str | None,
         task: str = SLUG,
+        *,
         read: bool = False,
     ) -> dict:
         """The entry's signs, with the facts of the transcript at TRANSCRIPT, or with READ the facts read from

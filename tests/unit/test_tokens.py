@@ -26,6 +26,7 @@ def reply(
     said: int,
     read: int = 0,
     wrote: int = 0,
+    *,
     side: bool = False,
 ) -> dict:
     return {

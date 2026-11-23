@@ -17,9 +17,14 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest import mock
+
+if TYPE_CHECKING:
+    import lem_board_model
 
 sys.dont_write_bytecode = True
 SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts"
@@ -245,7 +250,10 @@ class Phase(unittest.TestCase):
         ]
         for facts, phase in cases:
             with self.subTest(facts=facts):
-                self.assertEqual(session.phase_of(SLUG, *facts, ""), phase)
+                self.assertEqual(
+                    session.phase_of(SLUG, *facts[:3], worktree=facts[3], state=""),
+                    phase,
+                )
 
     def test_a_block_of_the_merge_agents_seat_is_the_landings_and_one_of_the_talk_the_builds(
         self,
@@ -256,10 +264,15 @@ class Phase(unittest.TestCase):
         )
         first = merger.splitlines()[0].split(": ", 1)[1]
         self.assertEqual(
-            session.phase_of(SLUG, "blocked", first, "standard", True, merger), "land"
+            session.phase_of(
+                SLUG, "blocked", first, "standard", worktree=True, state=merger
+            ),
+            "land",
         )
         self.assertEqual(
-            session.phase_of(SLUG, "blocked", first, "standard", True, reviewer),
+            session.phase_of(
+                SLUG, "blocked", first, "standard", worktree=True, state=reviewer
+            ),
             "build",
         )
         # a block's own lines, as a change of phase reads each block of its run
@@ -269,9 +282,9 @@ class Phase(unittest.TestCase):
                 "blocked",
                 first,
                 "standard",
-                True,
-                "",
-                ["the seat that failed: merger"],
+                worktree=True,
+                state="",
+                lines=["the seat that failed: merger"],
             ),
             "land",
         )
@@ -305,15 +318,20 @@ class Phase(unittest.TestCase):
                 "queued",
                 'the owner\'s order: "After coupon: unit cases"',
                 "standard",
-                False,
-                state,
+                worktree=False,
+                state=state,
             ),
             "shape",
         )
         need = "2026-11-21T10:00Z queued: needs the export's column\nafter: coupon\ninvestigation: bug"
         self.assertEqual(
             session.phase_of(
-                SLUG, "queued", "needs the export's column", None, False, need
+                SLUG,
+                "queued",
+                "needs the export's column",
+                None,
+                worktree=False,
+                state=need,
             ),
             "shape",
         )
@@ -332,8 +350,8 @@ class Phase(unittest.TestCase):
                         "queued",
                         "needs the export's column",
                         "standard",
-                        True,
-                        state,
+                        worktree=True,
+                        state=state,
                     ),
                     "build",
                 )
@@ -350,7 +368,7 @@ class Phase(unittest.TestCase):
                 self.subTest(facts=facts),
                 self.assertRaises(session.SessionError) as raised,
             ):
-                session.phase_of(SLUG, *facts, "")
+                session.phase_of(SLUG, *facts[:3], worktree=facts[3], state="")
             self.assertIn(says, str(raised.exception))
 
     def test_a_dropped_task_whose_worktree_stays_gets_its_land_session(self) -> None:
@@ -358,13 +376,19 @@ class Phase(unittest.TestCase):
         # which pays what its ticket is owed and cleans up, as it does for a merged one
         closed = "the pull request was closed on the forge"
         self.assertEqual(
-            session.phase_of(SLUG, "dropped", closed, "standard", True, ""), "land"
+            session.phase_of(
+                SLUG, "dropped", closed, "standard", worktree=True, state=""
+            ),
+            "land",
         )
         self.assertEqual(
-            session.phase_of(SLUG, "dropped", closed, "fast", True, ""), "fast"
+            session.phase_of(SLUG, "dropped", closed, "fast", worktree=True, state=""),
+            "fast",
         )
         with self.assertRaises(session.SessionError) as raised:
-            session.phase_of(SLUG, "dropped", closed, "standard", False, "")
+            session.phase_of(
+                SLUG, "dropped", closed, "standard", worktree=False, state=""
+            )
         self.assertIn("is dropped", str(raised.exception))
 
     def test_a_quiet_talk_ends_the_wait_after_45_minutes_counted_from_the_later_of_the_file_and_the_wait(
@@ -537,7 +561,7 @@ class FirstLine(unittest.TestCase):
     """`wait --first-line`: the task's first line for the session where the owner typed the request,
     or null with the reason."""
 
-    def state(self, status: str, text: str, *lines: str, **more) -> dict:
+    def state(self, status: str, text: str, *lines: str, **more: object) -> dict:
         return {
             "event": "task.state",
             "task": SLUG,
@@ -557,22 +581,22 @@ class FirstLine(unittest.TestCase):
         )
         asked = self.state("held", "the request waits for one answer")
         self.assertEqual(
-            session.first_line_end(SLUG, [asked, said], False),
+            session.first_line_end(SLUG, [asked, said], night=False),
             {"task": SLUG, "say": "gift-note · fix: x.", "gone": False},
         )
         # the one question of the request has no type and no line: the wait goes on
-        self.assertIsNone(session.first_line_end(SLUG, [asked], False))
-        self.assertIsNone(session.first_line_end(SLUG, [], False))
+        self.assertIsNone(session.first_line_end(SLUG, [asked], night=False))
+        self.assertIsNone(session.first_line_end(SLUG, [], night=False))
 
     def test_a_block_no_line_will_follow(self) -> None:
         typed = self.state(
             "building", "small change: one builder", "type: docs, because a line"
         )
-        night = session.first_line_end(SLUG, [typed], True)
+        night = session.first_line_end(SLUG, [typed], night=True)
         self.assertEqual((night["say"], night["gone"]), (None, False))
         self.assertIn("a task of the night", night["why"])
         self.assertIn(
-            "has no line", session.first_line_end(SLUG, [typed], False)["why"]
+            "has no line", session.first_line_end(SLUG, [typed], night=False)["why"]
         )
         # the hold of an order that named no task: his answer brings the line, in the task's own session
         held = session.first_line_end(
@@ -584,7 +608,7 @@ class FirstLine(unittest.TestCase):
                     "type: feat, because x",
                 )
             ],
-            False,
+            night=False,
         )
         self.assertEqual((held["say"], held["gone"]), (None, False))
         self.assertIn(f"{SLUG} is held: the order waits for the owner", held["why"])
@@ -596,7 +620,7 @@ class FirstLine(unittest.TestCase):
                     self.state("held", "the request waits for one answer"),
                     self.state(status, "the owner dropped it"),
                 ],
-                False,
+                night=False,
             )
             self.assertEqual(ended["say"], None, status)
             self.assertIn(f"{SLUG} is {status} before its first line", ended["why"])
@@ -685,7 +709,7 @@ class Close(unittest.TestCase):
             ),
         ):
             return session.cmd_close(
-                ROOT, SLUG, session_id, "handoff", False, 0.01
+                ROOT, SLUG, session_id, "handoff", when_unselected=False, every=0.01
             ), closed
 
     def test_a_close_by_id_closes_only_a_session_of_that_task(self) -> None:
@@ -777,7 +801,7 @@ class Wake(unittest.TestCase):
         }
     ]
 
-    def wake(self, why: str, alive: bool) -> tuple[dict, list, list]:
+    def wake(self, why: str, *, alive: bool) -> tuple[dict, list, list]:
         sent, logged = [], []
         with (
             mock.patch.object(
@@ -823,13 +847,13 @@ class Wake(unittest.TestCase):
     def test_the_inbox_wakes_a_live_session_and_opens_none(self) -> None:
         # the board server's word when a thing of the task went to the Inbox, or a reply came for a gone session
         self.assertIn("inbox", session.WAKES)
-        done, sent, logged = self.wake("inbox", True)
+        done, sent, logged = self.wake("inbox", alive=True)
         self.assertEqual((done["woke"], done["opened"]), (True, False))
         self.assertEqual(
             sent, [("msg", "send", "lem: gift-note inbox", "--to", "S-1:left")]
         )
         self.assertEqual(logged, [("session.wake", {"session": "S-1", "why": "inbox"})])
-        done, sent, logged = self.wake("inbox", False)
+        done, sent, logged = self.wake("inbox", alive=False)
         self.assertEqual(
             (done["woke"], done["opened"], sent, logged), (False, False, [], [])
         )
@@ -1114,7 +1138,10 @@ class SessionBrief(unittest.TestCase):
         self.assertNotIn("/plugins/", text)
         first = text.splitlines()[0]
         self.assertRegex(first, BRIEF_LINE)
-        self.assertEqual(BRIEF_LINE.fullmatch(first)["name"], "session")
+        found = BRIEF_LINE.fullmatch(first)
+        if found is None:
+            self.fail(f"the brief's first line is not in its form: {first!r}")
+        self.assertEqual(found["name"], "session")
 
     def test_after_an_update_the_first_line_leads_to_the_new_folder(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -1133,6 +1160,8 @@ class SessionBrief(unittest.TestCase):
             text = self.written_by(cache / "0.2.0")
             # the update: the session's PATH holds the bin/ of 0.2.1, the plugin loaded now
             lem = shutil.which("lem", path=str(cache / "0.2.1/bin"))
+            if lem is None:
+                self.fail("no lem in the bin/ of 0.2.1")
             ran = subprocess.run(
                 [lem, "version"],
                 capture_output=True,
@@ -1143,10 +1172,11 @@ class SessionBrief(unittest.TestCase):
             root = Path(json.loads(ran.stdout)["root"])
             first = text.splitlines()[0]
             self.assertRegex(first, BRIEF_LINE)
+            found = BRIEF_LINE.match(first)
+            if found is None:
+                self.fail(f"the brief's first line is not in its form: {first!r}")
             self.assertEqual(
-                (
-                    root / f"skills/lem/prompts/{BRIEF_LINE.match(first)['name']}.md"
-                ).read_text(),
+                (root / f"skills/lem/prompts/{found['name']}.md").read_text(),
                 "Lem 0.2.1\n",
             )
 
@@ -1242,7 +1272,7 @@ class NoFocus(unittest.TestCase):
     TAKE = re.compile(r"take[-_]focus")
     SELECT = re.compile(r"\"session\",\s*\"select\"")
 
-    def files(self):
+    def files(self) -> Iterator[tuple[str, str]]:
         root = SCRIPTS.parents[2]
         for place in ("skills", "agents"):
             for path in sorted((root / place).rglob("*")):
@@ -1530,7 +1560,7 @@ class Guard(unittest.TestCase):
     NODES = [{"id": "S1", "name": SLUG, "workspace": "W1", "foreground": ["claude"]}]
 
     @staticmethod
-    def ev(hhmm: str, event: str, **fields) -> dict:
+    def ev(hhmm: str, event: str, **fields: object) -> dict:
         return {"ts": f"2026-11-22T{hhmm}:00Z", "event": event, "task": SLUG, **fields}
 
     def landing(self, status: str = "landing") -> list[dict]:
@@ -1565,7 +1595,12 @@ class Guard(unittest.TestCase):
         ]
 
     def refusal(
-        self, events: list[dict], step: str, at: str, named: str | None = "S1", **entry
+        self,
+        events: list[dict],
+        step: str,
+        at: str,
+        named: str | None = "S1",
+        **entry: object,
     ) -> str | None:
         bm = session.board_model()
         now = int(
@@ -1756,7 +1791,14 @@ class Guard(unittest.TestCase):
         seen = []
         real = session.guard_refusal
 
-        def spy(t, m, step, named):
+        def spy(
+            t: "lem_board_model.Task | None",
+            m: "lem_board_model.Model",
+            step: str,
+            named: object,
+        ) -> str | None:
+            if m.sessions is None:
+                self.fail("the guard's model holds no sessions")
             seen.append(dict(m.sessions[SLUG]))
             return real(t, m, step, named)
 
@@ -1922,9 +1964,11 @@ class Guard(unittest.TestCase):
         ]
         check = session.guard_check
 
-        def raced(*args):
+        def raced(
+            root: Path, slug: str, step: str, named: str | None, where: dict
+        ) -> tuple[dict | None, str | None, bool]:
             # the session appends its state block under the log's lock, between the look and the stop
-            found = check(*args)
+            found = check(root, slug, step, named, where)
             project.append_event(
                 ROOT,
                 "task.state",
@@ -1955,7 +1999,7 @@ class Guard(unittest.TestCase):
     def run_act(
         self,
         events: list[dict],
-        act,
+        act: Callable[[], dict],
         signs: dict | None = None,
         nodes: list | None = None,
         at: str = "15:37",
@@ -1973,7 +2017,7 @@ class Guard(unittest.TestCase):
             )
             sent = []
 
-            def ctl(where, *args, window=True):
+            def ctl(where: dict, *args: str, window: bool = True) -> str:
                 sent.append(args)
                 return (
                     json.dumps({"result": {"id": "S2"}})

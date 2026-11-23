@@ -2132,7 +2132,12 @@ class Sessions(unittest.TestCase):
                 with self.subTest(status=status, worktree=worktree):
                     try:
                         session.phase_of(
-                            "gift-note", status, "it ended", None, worktree, ""
+                            "gift-note",
+                            status,
+                            "it ended",
+                            None,
+                            worktree=worktree,
+                            state="",
                         )
                         gets = True
                     except session.SessionError:

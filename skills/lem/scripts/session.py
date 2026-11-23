@@ -195,8 +195,14 @@ import shlex
 import shutil
 import subprocess
 import time
+from collections.abc import Generator, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
+from types import ModuleType
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    import lem_board_model
 
 SCRIPTS = Path(__file__).resolve().parent
 SKILL = SCRIPTS.parent
@@ -323,6 +329,7 @@ def phase_of(
     status: str | None,
     line: str | None,
     track: str | None,
+    *,
     worktree: bool,
     state: str,
     lines: list[str] | None = None,
@@ -378,8 +385,13 @@ def phase_of(
 
 
 def phase_left(
-    slug: str, blocks: list[dict], track: str | None, now: str, start: str, state: str
-) -> str:
+    slug: str,
+    blocks: list[dict],
+    track: str | None,
+    now: str,
+    start: str | None,
+    state: str,
+) -> str | None:
     """The phase a change of phase leaves: the phase of the newest state block before the run of blocks
     that gives NOW, the phase the task is in. BLOCKS are the `task.state` records the caller's session
     wrote, the ones after its `session.open`, oldest first, each with `status` and `text`; START is the
@@ -393,9 +405,9 @@ def phase_left(
                 block.get("status"),
                 block.get("text"),
                 track,
-                True,
-                state,
-                block.get("lines") or [],
+                worktree=True,
+                state=state,
+                lines=block.get("lines") or [],
             )
         except SessionError:
             continue
@@ -451,7 +463,7 @@ def first_line(task: dict) -> str | None:
     return found["text"] if found else None
 
 
-def first_line_end(slug: str, records: list[dict], night: bool) -> dict | None:
+def first_line_end(slug: str, records: list[dict], *, night: bool) -> dict | None:
     """The end of `wait --first-line` from the task's `task.state` events, oldest first: its first
     line as another session says it, or None with the reason when a block came that no line will
     follow (a block with a type and no line, a task parked or ended first, or the hold of an order
@@ -531,7 +543,8 @@ def job_line(node: dict) -> str | None:
     2026-11-23), so the prompt is the last word. An agent the owner started with no prompt, where he
     typed `/lem retro`, has no such word; neither has a shell whose `-c` string holds the line."""
     ground = node.get("foreground")
-    if not isinstance(ground, list) or len(ground) < 2:
+    # an agent's command and the line after it
+    if not isinstance(ground, list) or not ground[1:]:
         return None
     words = [str(word) for word in ground]
     line = " ".join(words[-1].split())
@@ -559,7 +572,8 @@ def newest_opens(events: list[dict]) -> dict[str, dict]:
     found: dict[str, dict] = {}
     for record in events:
         if record.get("event") == "session.open":
-            found[record.get("task")] = record
+            # project.append_event writes each record with its task's slug
+            found[cast("str", record.get("task"))] = record
     return found
 
 
@@ -616,7 +630,8 @@ def handoff_form(text: str, slug: str) -> dict:
                 missing.append(
                     f"a path and a status on each line of ## Changed files, as `PATH`: STATUS, and these lines have none: {'; '.join(repr(line) for line in wrong)}"
                 )
-    if missing:
+    # no first line in the form is one thing it lacks
+    if missing or found is None:
         raise SessionError(
             f"{HANDOFF} of {slug} is not in the form of `templates/handoff.md`: it lacks "
             + "; ".join(missing)
@@ -629,7 +644,7 @@ def handoff_form(text: str, slug: str) -> dict:
     }
 
 
-def plugin_dir(root: Path, environ: dict) -> str | None:
+def plugin_dir(root: Path, environ: Mapping[str, str]) -> str | None:
     """What `--plugin-dir` names on the launch line of a task's session and of the plan talk's pair
     (`lem session plugin-dir`): None when ROOT, this Lem's plugin folder, is under
     Claude Code's plugin folders (`plugins/` of CLAUDE_CONFIG_DIR, else of `~/.claude`), where the new
@@ -769,7 +784,7 @@ def tree(where: dict) -> list[dict]:
     ]
 
 
-def node_of(nodes: list[dict], session: str | None) -> dict | None:
+def node_of(nodes: list[dict], session: object) -> dict | None:
     return next(
         (
             node
@@ -796,7 +811,7 @@ def left_pane(node: dict) -> str:
 
 def login_shell() -> str:
     shell = pwd.getpwuid(os.getuid()).pw_shell
-    if not shell or not os.path.isabs(shell):
+    if not shell or not Path(shell).is_absolute():
         raise SessionError(
             "the owner's login shell is not known to the system (no absolute path in the user database): agterm needs it to find claude"
         )
@@ -816,7 +831,7 @@ def worktree_of(root: Path, settings: dict, slug: str) -> Path | None:
 
 
 @contextlib.contextmanager
-def task_lock(directory: Path):
+def task_lock(directory: Path) -> Generator[None, None, None]:
     with (directory / LOCK).open("a") as handle:
         fcntl.flock(handle, fcntl.LOCK_EX)
         try:
@@ -842,8 +857,8 @@ def facts_of(root: Path, slug: str) -> dict:
         task["status"],
         first_line(task),
         task["track"],
-        worktree is not None,
-        written,
+        worktree=worktree is not None,
+        state=written,
     )
     return {
         "directory": directory,
@@ -882,7 +897,12 @@ def workspace_for(
 # ---- the guard of a stopped session ----
 
 
-def guard_refusal(t, m, step: str, named: str | None) -> str | None:
+def guard_refusal(
+    t: "lem_board_model.Task | None",
+    m: "lem_board_model.Model",
+    step: str,
+    named: object,
+) -> str | None:
     """Why the act of STEP (`status`, `restart` or `stopped`) of the guard of a stopped session acts on
     nothing, a key of REFUSALS, or None when it acts. T is the task in M, the board's model of the event
     log as it is now (None for a task with no state), whose `sessions` holds the one entry of T's newest
@@ -924,11 +944,11 @@ def guard_refusal(t, m, step: str, named: str | None) -> str | None:
     return None if due is not None and due["step"] == step else "working"
 
 
-def board_model():
+def board_model() -> ModuleType:
     return importlib.import_module("lem_board_model")
 
 
-def model_now(root: Path):
+def model_now(root: Path) -> tuple["lem_board_model.Model", list[dict]]:
     """The board's model of the event log as it is now, and the log's records."""
     bm = board_model()
     state = project.state_root(root)
@@ -1101,8 +1121,9 @@ def cmd_open(
         node = node_of(nodes, newest.get("session") if newest else None)
         if (
             newest
+            and node is not None
             and live(node, newest, datetime.now(UTC))
-            and str(newest["session"]).upper() != str(replacing or "").upper()
+            and str(newest["session"]).upper() != (replacing or "").upper()
         ):
             return {
                 "task": slug,
@@ -1189,7 +1210,7 @@ def cmd_open(
     }
 
 
-def cmd_next(root: Path, slug: str, same: bool) -> dict:
+def cmd_next(root: Path, slug: str, *, same: bool) -> dict:
     where = place()
     directory = project.task_directory(root, slug)
     opens = newest_opens(project.events_named(root, *EVENTS))
@@ -1308,6 +1329,7 @@ def cmd_close(
     slug: str,
     session: str | None,
     why: str,
+    *,
     when_unselected: bool,
     every: float,
 ) -> dict:
@@ -1467,7 +1489,7 @@ def cmd_wake(
         }
     newest = newest_opens(project.events_named(root, *EVENTS)).get(slug)
     node = node_of(tree(where), newest.get("session") if newest else None)
-    if newest and live(node, newest, datetime.now(UTC)):
+    if newest and node is not None and live(node, newest, datetime.now(UTC)):
         session = str(newest["session"])
         ctl(
             where,
@@ -1671,7 +1693,7 @@ def cmd_first_line(root: Path, slug: str, every: float, bound: float) -> dict:
             night = bool(
                 project.nights(project.events_named(root, "task.mode")).get(slug)
             )
-            found = first_line_end(slug, records, night)
+            found = first_line_end(slug, records, night=night)
             if found is not None:
                 return found
             gone = gone_session(root, slug, where)
@@ -1729,8 +1751,8 @@ def cmd_list(root: Path) -> list[dict]:
                     task["status"],
                     first_line(task),
                     task["track"],
-                    worktree_of(root, settings, slug) is not None,
-                    written,
+                    worktree=worktree_of(root, settings, slug) is not None,
+                    state=written,
                 )
                 if task
                 else None
@@ -1847,9 +1869,7 @@ def typed_text(content: object) -> tuple[str, str | None]:
         plugin, colon, skill = command.lstrip("/").partition(":")
         if colon and plugin == skill:
             command = "/" + plugin
-        args = (
-            COMMAND_ARGS.search(text)[1] if COMMAND_ARGS.search(text) else ""
-        ).strip()
+        args = (given[1] if (given := COMMAND_ARGS.search(text)) else "").strip()
         return (f"{command} {args}" if args else command), args
     return text, None
 
@@ -2013,11 +2033,15 @@ def talk_range(
     )
 
 
+# the length of a time to its minute: `2026-11-19T14:17`
+STAMP_TO_MINUTE = 16
+
+
 def when(stamp_text: str | None) -> str:
     """`2026-11-19T14:17:34.495Z` as `2026-11-19 14:17 UTC`."""
     return (
         f"{stamp_text[:10]} {stamp_text[11:16]} UTC"
-        if stamp_text and len(stamp_text) >= 16
+        if stamp_text and len(stamp_text) >= STAMP_TO_MINUTE
         else "an unknown time"
     )
 
@@ -2027,8 +2051,10 @@ def talk_text(slug: str, kept: list[dict], left: list[dict], source: Path) -> st
     lines = [
         f"# The talk that led to the ask of {slug}",
         "",
-        f"Copied word for word from the session where it was asked ({source.name}): {len(kept)} turns, {owners} of the owner and {len(kept) - owners} of the agent, "
-        f'from the owner\'s turn of {when(kept[0]["at"])} that starts "{first_words(kept[0]["text"])}" to the newest turn.',
+        (
+            f"Copied word for word from the session where it was asked ({source.name}): {len(kept)} turns, {owners} of the owner and {len(kept) - owners} of the agent, "
+            f'from the owner\'s turn of {when(kept[0]["at"])} that starts "{first_words(kept[0]["text"])}" to the newest turn.'
+        ),
         "",
     ]
     if left:
@@ -2291,15 +2317,15 @@ def main(argv: list[str] | None = None) -> None:
         if args.command == "open":
             result: object = cmd_open(root, args.slug, args.why, named=args.session)
         elif args.command == "next":
-            result = cmd_next(root, args.slug, args.same)
+            result = cmd_next(root, args.slug, same=args.same)
         elif args.command == "close":
             result = cmd_close(
                 root,
                 args.slug,
                 args.session,
                 args.why,
-                args.when_unselected,
-                max(0.01, args.every),
+                when_unselected=args.when_unselected,
+                every=max(0.01, args.every),
             )
         elif args.command == "close-job":
             result = cmd_close_job(root, args.session, max(0.01, args.every))

@@ -73,6 +73,7 @@ and never a fresh session that the owner did not open.
 """
 
 import json
+from collections.abc import Iterable, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -107,7 +108,7 @@ def own_records(records: list[dict], session: str | None) -> list[dict]:
     the strings `claude` and `transcript`."""
     if not session:
         return []
-    want = str(session).upper()
+    want = session.upper()
     return [
         record
         for record in records
@@ -125,9 +126,7 @@ def folder_of(transcript: str) -> str | None:
     """The Claude Code folder of a transcript `FOLDER/projects/NAME/ID.jsonl`, or None for a path that is
     not in that form."""
     parents = Path(transcript).parents
-    return (
-        str(parents[2]) if len(parents) > 2 and parents[1].name == "projects" else None
-    )
+    return str(parents[2]) if parents[2:] and parents[1].name == "projects" else None
 
 
 def when(text: object) -> datetime | None:
@@ -140,7 +139,7 @@ def when(text: object) -> datetime | None:
     return (found if found.tzinfo else found.replace(tzinfo=UTC)).astimezone(UTC)
 
 
-def newest_turn(lines) -> str | None:
+def newest_turn(lines: Iterable[str | bytes]) -> str | None:
     """The `timestamp` of the first turn among LINES, a transcript's lines from its newest to its oldest
     (bytes or text), as Lem writes a time (`%Y-%m-%dT%H:%M:%SZ`); None when no line is a turn."""
     for raw in lines:
@@ -174,7 +173,7 @@ def texts_of(record: dict) -> list[str]:
     return []
 
 
-def turn_of(lines) -> str | None:
+def turn_of(lines: Iterable[str | bytes]) -> str | None:
     """`RUNS` or `ENDED` by the newest decisive record among LINES, a main transcript's lines from its
     newest to its oldest (bytes or text), by the rule of the module docstring; None when no record
     decides."""
@@ -216,11 +215,10 @@ def table_rows(table: str) -> list[tuple[int, int, str]]:
     """The rows of `ps -A -o pid=,ppid=,command=`: pid, parent pid and command line."""
     rows = []
     for line in table.splitlines():
-        parts = line.split(None, 2)
-        if len(parts) >= 2 and parts[0].isdigit() and parts[1].isdigit():
-            rows.append(
-                (int(parts[0]), int(parts[1]), parts[2] if len(parts) > 2 else "")
-            )
+        # a line of fewer parts leaves "" in their place, which is no pid
+        pid, ppid, command = [*line.split(None, 2), "", ""][:3]
+        if pid.isdigit() and ppid.isdigit():
+            rows.append((int(pid), int(ppid), command))
     return rows
 
 
@@ -281,14 +279,14 @@ def read_signs(
     newest = [
         (found, main[1])
         for record in mine
-        if len(main := mains.get(record["transcript"]) or []) == 2
+        if len(main := mains.get(record["transcript"]) or []) == 2  # noqa: PLR2004 - MAINS holds a pair
         and (found := when(main[0]))
     ]
     turn = max(newest, key=lambda pair: pair[0])[1] if newest else None
     return {"sign": sign, "shell": shell, "signs": True, "turn": turn}
 
 
-def tail_lines(path: Path, block: int = BLOCK):
+def tail_lines(path: Path, block: int = BLOCK) -> Iterator[bytes]:
     """The lines of a file from its end to its start, as bytes, read BLOCK bytes at a time."""
     with path.open("rb") as handle:
         handle.seek(0, 2)
