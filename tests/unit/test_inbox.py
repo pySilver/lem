@@ -57,10 +57,10 @@ def breaker(minute: float = 2, number: int = 1, task: str = RD) -> list[dict]:
 
 BREAKER = [state(0, "building", "task 1 of 2"), *opened(1), *breaker()]
 
+
 def bkey(number: int = 1, minute: float = 2, task: str = RD) -> str:
     """The key of the row of breaker NUMBER, whose held block came MINUTE minutes after START (lem_board_model.answer_row)."""
     return f"breaker:{task}:{number}:" + (START + timedelta(minutes=minute)).strftime("%Y%m%dT%H%M%SZ")
-
 
 
 def model(*events: dict, owner=(), sessions=None):

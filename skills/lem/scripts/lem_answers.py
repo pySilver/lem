@@ -141,10 +141,6 @@ def answer_of_block(task: Path, slug: str, ts: str | None) -> dict | None:
     return min(found, key=lambda r: str(r.get("at") or "")) if found else None
 
 
-def local_time(ts: str) -> str:
-    return lem_cards.local_time(ts)
-
-
 def took_effect(made: dict) -> str:
     """What the answer on record says, in one sentence: "You picked Drop for breaker 1 at 15:40, from the phone"."""
     try:
@@ -154,4 +150,4 @@ def took_effect(made: dict) -> str:
     what = {"plan": "for the plan", "breaker": f"for breaker {parts['number']}", "skip": "on “Skip the persona read?”",
             "criterion": "on “Approve this criterion?”"}.get(parts["kind"], "")
     device = f", from the {made['device']}" if made.get("device") else ""
-    return f"You picked {made.get('label') or made.get('option')} {what} at {local_time(made.get('at'))}{device}".replace("  ", " ")
+    return f"You picked {made.get('label') or made.get('option')} {what} at {lem_cards.local_time(made.get('at'))}{device}".replace("  ", " ")

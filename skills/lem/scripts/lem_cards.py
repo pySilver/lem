@@ -100,9 +100,15 @@ def questions_of(spec: dict) -> list[dict]:
     return out
 
 
+def fresh_name(path: Path) -> Path:
+    """A name beside PATH unique to its writer: the PID, the thread and a random token, since the board
+    server's threads share one PID."""
+    return path.with_name(f"{path.name}.{os.getpid()}.{threading.get_ident()}.{secrets.token_hex(8)}.new")
+
+
 def write_whole(path: Path, data: bytes) -> None:
     """Write DATA to PATH so that a reader sees the old file or the new one, never a part."""
-    fresh = path.with_name(f"{path.name}.{os.getpid()}.{threading.get_ident()}.{secrets.token_hex(8)}.new")
+    fresh = fresh_name(path)
     try:
         with open(fresh, "xb") as file:
             file.write(data)
@@ -118,7 +124,7 @@ def link_whole(target: Path, data: bytes) -> bool:
     had. A reader never sees a part of it, and a writer that stops leaves no empty name. The one end of a
     card (`end`) and the record of a row's answer (lem_answers) are written so."""
     target.parent.mkdir(exist_ok=True)
-    fresh = target.with_name(f"{target.name}.{os.getpid()}.{threading.get_ident()}.{secrets.token_hex(8)}.new")
+    fresh = fresh_name(target)
     try:
         with open(fresh, "xb") as file:
             file.write(data)
@@ -218,10 +224,9 @@ def local_time(stamp: str) -> str:
 def took_effect(record: dict) -> str:
     """What the end on record says, in one sentence: "B was taken on the board at 15:42, from the phone"."""
     at = local_time(record.get("at"))
+    where = "on the board" if record.get("from") == "board" else "in the session"
     if record.get("status") == "answered":
-        where = "on the board" if record.get("from") == "board" else "in the session"
         device = f", from the {record['device']}" if record.get("from") == "board" and record.get("device") else ""
         return f"{words(record.get('answer'))} was taken {where} at {at}{device}"
     how = "dismissed" if record.get("status") == "dismissed" else "closed"
-    where = "on the board" if record.get("from") == "board" else "in the session"
     return f"the card was {how} {where} at {at}"
