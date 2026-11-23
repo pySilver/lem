@@ -208,6 +208,71 @@ if grep -qF "the forge merged ${update:0:9}, which is not the tip of fix/pr-upda
 else
   fail "clean after an Update branch on the forge: $updated_clean"
 fi
+# The base moved with an edit two lines above a line the branch changes, so the landing rebased the branch after its push,
+# and nothing pushed the rebase; the owner merged the pushed head on the forge as one commit. The edit changes git's patch id
+# of that commit and not its content: clean removes the branch and the forge's copy, and says it was a rebase after the push.
+git -C "$gh_other" pull -q origin main
+printf '%s\n' one two three four five six seven eight > "$gh_other/lines.txt" && git -C "$gh_other" add -A && git -C "$gh_other" commit -q -m "feat: lines" && git -C "$gh_other" push -q origin main
+git -C "$GHS" pull -q --ff-only origin main
+small_task_in "$GHS" pr-rebased w.txt sixteen
+tree=$GHS/.lem/worktrees/pr-rebased
+printf '%s\n' one two three four FIVE six seven eight > "$tree/lines.txt" && git -C "$tree" commit -q -am "fix: five"
+echo more > "$tree/w2.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: more"
+gh_checked pr-rebased && gh_land read pr-rebased --record "$(clean pr-rebased 1)" >/dev/null && gh_land propose pr-rebased --title "fix: sixteen" --notes "$NOTES" >/dev/null
+pushed_head=$(git -C "$tree" rev-parse HEAD)
+rebased_pr=$(gh_state 'next(n for n, pr in d["prs"].items() if pr["head"] == "fix/pr-rebased")')
+git -C "$gh_other" pull -q origin main
+printf '%s\n' one two THREE four five six seven eight > "$gh_other/lines.txt" && git -C "$gh_other" commit -q -am "feat: three" && git -C "$gh_other" push -q origin main
+gh_land start pr-rebased >/dev/null && gh_land base pr-rebased >/dev/null
+rebased_tip=$(git -C "$tree" rev-parse HEAD)
+git -C "$gh_other" fetch -q origin && git -C "$gh_other" merge -q --squash origin/fix/pr-rebased && git -C "$gh_other" commit -q -m "fix: sixteen (#$rebased_pr)" && git -C "$gh_other" push -q origin main
+gh_set "d['prs']['$rebased_pr'].update(state='MERGED', merge='$(git -C "$gh_other" rev-parse HEAD)')"
+gh_land merged pr-rebased >/dev/null
+rebased_clean=$(gh_land clean pr-rebased 2>&1 || true)
+if [ "$rebased_tip" != "$pushed_head" ] \
+  && [ "$(git -C "$GHS" show "$pushed_head~1" | git patch-id --stable | cut -d' ' -f1)" != "$(git -C "$GHS" show "$rebased_tip~1" | git patch-id --stable | cut -d' ' -f1)" ] \
+  && [ "$(field '(d["worktree"], d["branch"], d["remote"], d["branch_left"])' <<<"$rebased_clean")" = "(True, 'fix/pr-rebased', 'fix/pr-rebased', None)" ] \
+  && grep -qF "fix/pr-rebased was rebased after its push: its tip ${rebased_tip:0:9} holds the same change as ${pushed_head:0:9}, the head Lem pushed, and the forge merged the same 3 commits" <<<"$(field 'd["rebased"]' <<<"$rebased_clean")" \
+  && [ -z "$(git -C "$GHS" branch --list fix/pr-rebased)" ] && [ -z "$(git -C "$GHO" branch --list fix/pr-rebased)" ]; then
+  pass "a branch the landing rebased after its push, whose pushed head the forge merged, goes with the forge's copy, also when the base moved next to a line it changes, and clean says it was a rebase after the push of the same commits"
+else
+  fail "clean after a rebase after the push: $rebased_clean"
+fi
+# The landing rebased the branch over a base that already holds one hunk of its first commit, and a builder then changed one
+# space inside a string of its third commit, which git's patch id does not see; the owner merged the pushed head. The branch
+# holds a change the merged head does not hold: its local copy stays, the forge's goes, and clean names the third commit.
+git -C "$gh_other" pull -q origin main
+printf '%s\n' one two three four five six seven eight nine ten > "$gh_other/names.txt" && git -C "$gh_other" add -A && git -C "$gh_other" commit -q -m "feat: names" && git -C "$gh_other" push -q origin main
+git -C "$GHS" pull -q --ff-only origin main
+small_task_in "$GHS" pr-rewritten x.txt seventeen
+tree=$GHS/.lem/worktrees/pr-rewritten
+printf '%s\n' one TWO three four five six seven eight NINE ten > "$tree/names.txt" && git -C "$tree" commit -q -a --amend --no-edit
+echo more > "$tree/x2.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: more"
+printf '%s\n' 'NAME = "ab"' > "$tree/name.py" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: the name"
+gh_checked pr-rewritten && gh_land read pr-rewritten --record "$(clean pr-rewritten 1)" >/dev/null && gh_land propose pr-rewritten --title "fix: seventeen" --notes "$NOTES" >/dev/null
+pushed_head=$(git -C "$tree" rev-parse HEAD)
+rewritten_pr=$(gh_state 'next(n for n, pr in d["prs"].items() if pr["head"] == "fix/pr-rewritten")')
+git -C "$gh_other" pull -q origin main
+printf '%s\n' one TWO three four five six seven eight nine ten > "$gh_other/names.txt" && git -C "$gh_other" commit -q -am "feat: two" && git -C "$gh_other" push -q origin main
+gh_land start pr-rewritten >/dev/null && gh_land base pr-rewritten >/dev/null
+printf '%s\n' 'NAME = "a b"' > "$tree/name.py" && git -C "$tree" commit -q -a --amend --no-edit
+changed_tip=$(git -C "$tree" rev-parse HEAD)
+git -C "$gh_other" fetch -q origin && git -C "$gh_other" merge -q --squash origin/fix/pr-rewritten && git -C "$gh_other" commit -q -m "fix: seventeen (#$rewritten_pr)" && git -C "$gh_other" push -q origin main
+gh_set "d['prs']['$rewritten_pr'].update(state='MERGED', merge='$(git -C "$gh_other" rev-parse HEAD)')"
+gh_land merged pr-rewritten >/dev/null
+rewritten_clean=$(gh_land clean pr-rewritten 2>&1 || true)
+rewritten_left=$(field 'd["branch_left"]' <<<"$rewritten_clean" 2>/dev/null || true)
+# shellcheck disable=SC2016  # the backticks are the message's own
+if [ "$(git -C "$GHS" show "$pushed_head" | git patch-id --stable | cut -d' ' -f1)" = "$(git -C "$GHS" show "$changed_tip" | git patch-id --stable | cut -d' ' -f1)" ] \
+  && [ "$(field '(d["worktree"], d["branch"], d["remote"], d["rebased"])' <<<"$rewritten_clean")" = "(True, None, 'fix/pr-rewritten', None)" ] \
+  && grep -qF "fix/pr-rewritten was changed after its push: the forge merged ${pushed_head:0:9}, the head Lem pushed, and the tip ${changed_tip:0:9} differs from it in its commit ${changed_tip:0:9} \"fix: the name\"" <<<"$rewritten_left" \
+  && grep -qF '`git range-diff ' <<<"$rewritten_left" && grep -qF '`git branch -D fix/pr-rewritten` removes the branch' <<<"$rewritten_left" \
+  && ! grep -qF "made on the forge" <<<"$rewritten_left" \
+  && [ -n "$(git -C "$GHS" branch --list fix/pr-rewritten)" ] && [ -z "$(git -C "$GHO" branch --list fix/pr-rewritten)" ]; then
+  pass "a branch changed after its push, whose pushed head the forge merged, keeps its local copy and loses the forge's, and clean names the commit that changed, also for one space that git's patch id does not see, and the commands that show and remove it, not a commit made on the forge"
+else
+  fail "clean after a change after the push: $rewritten_clean"
+fi
 # A proposal the forge's step refused is none: no `proposed` event, and the task keeps the landing line.
 # With no `gh` on PATH the refusal names the command; a forge that fails is said with what it said.
 small_task_in "$GHS" pr-guards r.txt twelve
