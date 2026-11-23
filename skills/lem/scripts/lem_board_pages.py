@@ -2,7 +2,7 @@
 
     kanban_page(ctx)     /HOST/WORKSPACE/            the tasks in four columns, by who acts
     older_page(ctx)      /HOST/WORKSPACE/done        the ended tasks Done has no card for, from its foot row
-    waits_page(ctx)      /HOST/WORKSPACE/waits       one row for each thing the owner does
+    waits_page(ctx)      /HOST/WORKSPACE/waits       one row for each thing the owner does, a task's two or more in one stack
     backlog_page(ctx)    /HOST/WORKSPACE/backlog     the reviewer's items, then the backlog's items by their worth
     activity_page(ctx)   /HOST/WORKSPACE/activity    where the time went, and every event
     index_page(...)      /                           the workspaces of this machine
@@ -420,7 +420,8 @@ def layout(ctx: Ctx, title: str, summary: str, view: Markup, *, stage_cls: str =
     of the page's grid of its own, so it stays at the foot of the window however long the view's list is, and
     the list scrolls above it."""
     m = ctx.model
-    waits = bm.waits_of(m)
+    # the rows grouped by task: each count of what waits counts a task once, however many things it has
+    waits = bm.wait_stacks(bm.waits_of(m))
     railed = bool(ctx.prefs.get("rail"))
     trouble = ctx.problems
     meta = m.meta
@@ -438,7 +439,7 @@ def layout(ctx: Ctx, title: str, summary: str, view: Markup, *, stage_cls: str =
                    search_button(ctx, "m-search"),
                    new_task_link(ctx, "m-new") if ctx.can_act else None,
                    h("a", {"class": f"m-waits{' you' if waits else ''}", "href": ctx.href("waits"),
-                           "aria-label": f"{bm.plural(len(waits), 'thing')} {'waits' if len(waits) == 1 else 'wait'} for you: open the list"},
+                           "aria-label": f"{bm.plural(len(waits), 'task')} {'waits' if len(waits) == 1 else 'wait'} for you: open the list"},
                      icon(ctx, "inbox"), h("span", None, len(waits)))),
                  topbar(ctx, title, summary),
                  h("main", stage_attrs(ctx, stage_cls), view, task_frame(ctx)),
@@ -485,9 +486,11 @@ def search_box(ctx: Ctx) -> Markup:
 
 
 def sidebar(ctx: Ctx, waits: list, repo: str) -> Markup:
+    """The sidebar: the workspace, its notices, what waits for the owner, one row for each task of WAITS (its
+    rows grouped by task, `wait_stacks`), and the views, each with its count."""
     m = ctx.model
     trouble = ctx.problems
-    rows = [wait_row(ctx, w) for w in waits] or [h("div", {"class": "w-none", "id": "w-none"}, icon(ctx, "circle-check"), "Nothing waits for you")]
+    rows = [wait_row(ctx, s["rows"][0], len(s["rows"])) for s in waits] or [h("div", {"class": "w-none", "id": "w-none"}, icon(ctx, "circle-check"), "Nothing waits for you")]
     tasks_open = sum(1 for t in m.tasks if not t.closed)
     # the Backlog key counts the reviewer's items no task holds: what waits for the owner's start or drop
     counts = {"tasks": tasks_open, "waits": len(waits), "backlog": bm.undecided(ctx.backlog)}
@@ -501,7 +504,7 @@ def sidebar(ctx: Ctx, waits: list, repo: str) -> Markup:
              h("div", {"class": "rail", "id": "rail", "aria-label": "Lem, folded"}, rail(ctx, waits, counts)),
              h("div", {"class": "notices", "id": "notices"}, notices(ctx)),
              h("div", {"class": "side-head"}, "Waits for you",
-               h("em", {"class": "you" if waits else None, "title": f"{bm.plural(len(waits), 'thing')} you do, in {bm.plural(len({w['t'].slug for w in waits}), 'task')}"}, len(waits))),
+               h("em", {"class": "you" if waits else None, "title": f"{bm.plural(sum(len(s['rows']) for s in waits), 'thing')} you do, in {bm.plural(len(waits), 'task')}"}, len(waits))),
              h("div", {"id": "waits", "class": f"wlist{' many' if len(waits) > 1 else ''}", "role": "list", "aria-label": "Waits for you", "data-controller": "edges"}, rows),
              h("div", {"class": "side-head"}, "Views"),
              h("nav", {"id": "views", "class": "views", "aria-label": "Views"},
@@ -521,14 +524,17 @@ def side_fold(ctx: Ctx) -> Markup:
              icon(ctx, "chevron-left"))
 
 
-def wait_row(ctx: Ctx, w: dict) -> Markup:
-    """One row of "Waits for you" in the sidebar: what, of which task, since when; its hover says where he answers."""
+def wait_row(ctx: Ctx, w: dict, things: int = 1) -> Markup:
+    """One row of "Waits for you" in the sidebar, for one task: what, of which task, since when; its hover says
+    where he answers. W is the task's first thing; a task with more THINGS says how many on its row, which
+    opens nothing here: the view's stack and the task's Overview list each."""
     t, c = w["t"], w["c"]
     say = bm.wait_say(w)
     where = say.get("where") or bm.answer_of(t)
     # the thing that waits, under the verb: a breaker's what (a merge review's row carries the review's record, which says it in `where`)
     what = f"{c.what}\n" if w["kind"] == "breaker" and c is not None else ""
-    title = f"{say['verb']} · {t.title}\n{what}Where you answer: {where}"
+    more = f"\n{bm.plural(things, 'thing')} of this task wait for you: Waits for you lists each" if things > 1 else ""
+    title = f"{say['verb']} · {t.title}\n{what}Where you answer: {where}{more}"
     sel = t.slug == ctx.task
     return h("a", {"class": f"wi a-{say.get('actor', 'you')}{' sel' if sel else ''}", "id": f"w-{w['key'].replace(':', '-')}", "role": "listitem", "title": title,
                    "data-task": t.slug, "aria-current": "page" if sel else None,
@@ -536,7 +542,8 @@ def wait_row(ctx: Ctx, w: dict) -> Markup:
              h("span", {"class": "fi"}, icon(ctx, say["icon"])),
              h("span", {"class": "wi-verb"}, say["verb"]),
              h("span", {"class": "wi-time", "title": say["note"]}, since(w["since"], ctx.model.now)),
-             h("span", {"class": "wi-task"}, t.title))
+             h("span", {"class": "wi-task"}, t.title),
+             h("span", {"class": "wi-n"}, bm.plural(things, "thing")) if things > 1 else None)
 
 
 def notices(ctx: Ctx) -> list:
@@ -566,7 +573,7 @@ def rail(ctx: Ctx, waits: list, counts: dict) -> list:
         return h("em", {"class": cls}, count) if count is not None else None
 
     out = [h("a", {"class": f"rbtn{' a-you' if waits else ''}", "href": ctx.href("waits"), "id": "rail-waits",
-                   "title": f"{bm.plural(len(waits), 'thing')} {'waits' if len(waits) == 1 else 'wait'} for you" if waits else "Nothing waits for you"},
+                   "title": f"{bm.plural(len(waits), 'task')} {'waits' if len(waits) == 1 else 'wait'} for you" if waits else "Nothing waits for you"},
              icon(ctx, "inbox"), em(len(waits), "you" if waits else None)), h("hr")]
     for v in VIEWS:
         if v["key"] == "waits":
@@ -927,59 +934,88 @@ def reason_list(ctx: Ctx, t: bm.Task, reasons: list, key: str) -> Markup:
 # ---- "Waits for you" ----
 
 def waits_page(ctx: Ctx) -> Markup:
-    """One row for each thing the owner does, the most pressing first: what he does, in which task,
-    since when, where he answers, and for a merge green or not green with the pull request."""
+    """One entry for each task with something the owner does, the most pressing first: a task with one
+    thing is that thing's row, and a task with two or more is one stack (`wait_stack`), closed as the
+    server draws it, that opens on its rows. A row says what he does, in which task, since when, where he
+    answers, and for a merge green or not green with the pull request."""
     ctx.view = "waits"
     m = ctx.model
-    rows = []
-    for w in bm.waits_of(m):
-        t, c = w["t"], w["c"]
-        say = bm.wait_say(w)
-        where = say.get("where") or bm.answer_of(t)
-        facts = []
-        if w["kind"] == "breaker":
-            facts.append(h("div", {"class": "wr-what"}, rich(ctx, c.what or "")))
-            facts.append(h("div", {"class": "wr-sub"}, rich(ctx, bm.cap(bm.stop_words(c)))))
-        if w["kind"] == "merge":
-            verdict = bm.verdict_of(t)
-            pr = bm.pr_of(t)
-            marks = []
-            if verdict is not None:
-                marks.append(tag(ctx, "check" if verdict["green"] else "alert", "green" if verdict["green"] else "not green", "ok" if verdict["green"] else "you",
-                                 bm.GREEN if verdict["green"] else None))
-            if pr:
-                marks.append(h("a", {"class": "tag c-gate", "href": pr["url"], "target": "_blank", "rel": "noopener", "title": f"Open the pull request on the forge: {pr['url']}"},
-                               icon(ctx, "pull"), h("span", None, f"{pr['repo']}#{pr['n']}")))
-            if marks:
-                facts.append(h("div", {"class": "wr-marks"}, marks))
-            if verdict and not verdict["green"]:
-                facts.append(reason_list(ctx, t, verdict["reasons"], f"wr-{t.slug}"))
-            elif verdict and verdict["green"]:
-                facts.append(h("div", {"class": "wr-sub"}, bm.cap(bm.GREEN.lower()) + "."))
-        elif w["kind"] in ("held", "criteria") and t.shown and say["verb"].lower() != t.shown.lower():
-            facts.append(h("div", {"class": "wr-sub"}, rich(ctx, bm.cap(t.shown))))
-        acts = row_acts(ctx, w)
-        rows.append(h("article", {"class": f"wrow a-{say.get('actor', 'you')}", "id": f"wait-{w['key'].replace(':', '-')}", "data-task": t.slug},
-                      h("span", {"class": "fi"}, icon(ctx, say["icon"])),
-                      h("div", {"class": "wr-main"},
-                        h("div", {"class": "wr-top"}, h("a", verb_link(ctx, w, say), say["verb"]),
-                          h("span", {"class": "wr-time", "title": say["note"]}, since(w["since"], m.now))),
-                        h("a", {"class": "wr-task", **task_link(ctx, t.slug, say["to"])}, t.title, h("span", {"class": "wr-state"}, f" · {t.info['label']}")),
-                        facts,
-                        acts,
-                        h("div", {"class": "wr-where"}, h("b", None, "Where you answer: "), rich(ctx, where)))))
+    stacks = bm.wait_stacks(bm.waits_of(m))
+    rows = [wait_article(ctx, s["rows"][0]) if len(s["rows"]) == 1 else wait_stack(ctx, s) for s in stacks]
     if not rows:
         rows = [h("div", {"class": "wait-none"}, icon(ctx, "circle-check"), h("div", None, h("b", None, "Nothing waits for you."),
                   " A breaker, criteria to approve, a plan to read, a pull request to merge or a task with no session shows here when it comes."))]
-    n = len(bm.waits_of(m))
-    summary = f"{bm.plural(n, 'thing')} you do, the most pressing first" if n else "Nothing waits for you"
-    # the cursor controller's mark over the rows (cursor.js), one group, the verb as each row's link and a
-    # click on the verb or the title marking the row; the parked tasks under the rows are no item of it
-    listing = h("div", {"class": "waits-list", "id": "waits-list", "data-controller": "cursor", "data-cursor-item-value": "article.wrow",
-                        "data-cursor-link-value": "a.wr-verb", "data-cursor-pick-value": "a.wr-verb, a.wr-task",
+    n = len(stacks)
+    summary = f"{bm.plural(n, 'task')} {'waits' if n == 1 else 'wait'} for you, the most pressing first" if n else "Nothing waits for you"
+    # the cursor controller's mark over the entries (cursor.js), one group: a row, whose link is its verb, and
+    # a stack, whose link is its summary, so that Enter on a marked stack is the browser's own, which opens and
+    # closes it; the rows of an open stack are items too, and those of a closed one are hidden, which the
+    # cursor passes over. A click on a verb, a title or a stack's summary marks its entry; the parked tasks
+    # under the entries are no item of it
+    listing = h("div", {"class": "waits-list", "id": "waits-list", "data-controller": "cursor", "data-cursor-item-value": "article.wrow, details.wstack",
+                        "data-cursor-link-value": "a.wr-verb, summary.wst-head", "data-cursor-pick-value": "a.wr-verb, a.wr-task, summary.wst-head",
                         "data-action": "keydown@window->cursor#key click->cursor#pick"}, rows, parked_group(ctx))
-    keys = keys_line(("J", "K", "↑", "↓"), "move", ("Enter",), "go", id_="waits-keys") if n else None
+    stacked = any(len(s["rows"]) > 1 for s in stacks)
+    keys = keys_line(("J", "K", "↑", "↓"), "move", ("Enter",), "go or open" if stacked else "go", id_="waits-keys") if n else None
     return layout(ctx, "Waits for you", summary, h("div", {"class": "view scroll", "id": "waits-view"}, listing, push_row(ctx, "page")), keys=keys)
+
+
+def wait_article(ctx: Ctx, w: dict) -> Markup:
+    """One row of "Waits for you", for one thing the owner does: its verb, its time, its task, its facts,
+    its buttons and where he answers."""
+    m = ctx.model
+    t, c = w["t"], w["c"]
+    say = bm.wait_say(w)
+    where = say.get("where") or bm.answer_of(t)
+    facts = []
+    if w["kind"] == "breaker":
+        facts.append(h("div", {"class": "wr-what"}, rich(ctx, c.what or "")))
+        facts.append(h("div", {"class": "wr-sub"}, rich(ctx, bm.cap(bm.stop_words(c)))))
+    if w["kind"] == "merge":
+        verdict = bm.verdict_of(t)
+        pr = bm.pr_of(t)
+        marks = []
+        if verdict is not None:
+            marks.append(tag(ctx, "check" if verdict["green"] else "alert", "green" if verdict["green"] else "not green", "ok" if verdict["green"] else "you",
+                             bm.GREEN if verdict["green"] else None))
+        if pr:
+            marks.append(h("a", {"class": "tag c-gate", "href": pr["url"], "target": "_blank", "rel": "noopener", "title": f"Open the pull request on the forge: {pr['url']}"},
+                           icon(ctx, "pull"), h("span", None, f"{pr['repo']}#{pr['n']}")))
+        if marks:
+            facts.append(h("div", {"class": "wr-marks"}, marks))
+        if verdict and not verdict["green"]:
+            facts.append(reason_list(ctx, t, verdict["reasons"], f"wr-{t.slug}"))
+        elif verdict and verdict["green"]:
+            facts.append(h("div", {"class": "wr-sub"}, bm.cap(bm.GREEN.lower()) + "."))
+    elif w["kind"] in ("held", "criteria") and t.shown and say["verb"].lower() != t.shown.lower():
+        facts.append(h("div", {"class": "wr-sub"}, rich(ctx, bm.cap(t.shown))))
+    return h("article", {"class": f"wrow a-{say.get('actor', 'you')}", "id": f"wait-{w['key'].replace(':', '-')}", "data-task": t.slug},
+             h("span", {"class": "fi"}, icon(ctx, say["icon"])),
+             h("div", {"class": "wr-main"},
+               h("div", {"class": "wr-top"}, h("a", verb_link(ctx, w, say), say["verb"]),
+                 h("span", {"class": "wr-time", "title": say["note"]}, since(w["since"], m.now))),
+               h("a", {"class": "wr-task", **task_link(ctx, t.slug, say["to"])}, t.title, h("span", {"class": "wr-state"}, f" · {t.info['label']}")),
+               facts,
+               row_acts(ctx, w),
+               h("div", {"class": "wr-where"}, h("b", None, "Where you answer: "), rich(ctx, where))))
+
+
+def wait_stack(ctx: Ctx, stack: dict) -> Markup:
+    """A task with two or more things the owner does, as one entry of "Waits for you": a <details>, closed as
+    the server draws it, whose summary says the task, its first thing in its words, icon and color, and how
+    many things; it opens on each thing's own row (`wait_article`), with its time and its buttons. A morph
+    keeps it open (app.js), and the summary holds no link, so that a click anywhere on it opens and closes it."""
+    t, first = stack["t"], stack["rows"][0]
+    say = bm.wait_say(first)
+    things = bm.plural(len(stack["rows"]), "thing")
+    return h("details", {"class": f"wstack a-{say.get('actor', 'you')}", "id": f"wait-stack-{t.slug}", "data-task": t.slug},
+             h("summary", {"class": "wrow wst-head", "title": f"{things} of {t.title} wait for you: a click shows each"},
+               h("span", {"class": "fi"}, icon(ctx, say["icon"])),
+               h("div", {"class": "wr-main"},
+                 h("div", {"class": "wr-top"}, h("span", {"class": "wst-title"}, t.title),
+                   h("span", {"class": "wst-n"}, things), icon(ctx, "chevron-right", "ic chev")),
+                 h("div", {"class": "wst-first"}, say["verb"], h("span", {"class": "wr-state"}, f" · {t.info['label']}")))),
+             h("div", {"class": "wst-rows"}, [wait_article(ctx, w) for w in stack["rows"]]))
 
 
 def verb_link(ctx: Ctx, w: dict, say: dict) -> dict:

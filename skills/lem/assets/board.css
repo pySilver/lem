@@ -61,6 +61,8 @@ body { font-size: 14px; line-height: 1.5; }
 .wi-verb { font-weight: 620; font-size: 13px; line-height: 1.35; color: var(--ink); min-width: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
 .wi-task { grid-column: 2 / span 2; font-size: 12.5px; line-height: 1.35; color: var(--dim); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wi-time { font: 11.5px/1.6 var(--mono); color: var(--dim); white-space: nowrap; }
+/* a task with two or more things in the sidebar: its first thing's row, and how many under its task */
+.wi-n { grid-column: 2 / span 2; font: 11.5px/1.4 var(--mono); color: var(--dim); }
 .w-none { display: flex; align-items: center; gap: 8px; padding: 6px 16px 4px; color: var(--dim); font-size: 13px; }
 .w-none .ic { color: color-mix(in srgb, var(--ok) 58%, var(--fg)); }
 .views { display: flex; flex-direction: column; gap: 2px; padding: 4px 8px; }
@@ -596,6 +598,26 @@ pre.code { margin: 0; font: 12.5px/1.6 var(--mono); white-space: pre-wrap; overf
 .app .wait-none { display: flex; gap: 12px; align-items: flex-start; padding: 22px 24px; border-radius: 12px; border: 1px dashed var(--line-strong); color: var(--dim); max-width: 980px; }
 .app .wait-none .ic { font-size: 18px; margin-top: 3px; color: color-mix(in srgb, var(--ok) 58%, var(--fg)); }
 .app .wait-none b { color: var(--fg); }
+/* a task with two or more things: one stack, a <details> whose summary is a row in the rows' look, with a second card's
+   edge under it while it is closed, the chevron of the reasons' folds and "N things" where a row has its time; open, its
+   rows stand under it, each with its own time and buttons */
+.app .wstack { display: flex; flex-direction: column; gap: 8px; }
+.app .wstack > summary { list-style: none; cursor: pointer; }
+.app .wstack > summary::-webkit-details-marker { display: none; }
+.app .wstack:not([open]) > summary { box-shadow: inset 3px 0 0 var(--actor), 0 4px 0 -1px var(--tile), 0 5px 0 -1px var(--line-strong); }
+.app .wstack > summary:hover { background: var(--tile-hi); }
+.app .wstack > summary:focus-visible { outline-offset: -2px; }
+.app .wstack[data-js-cur] > summary { box-shadow: inset 3px 0 0 var(--actor), 0 0 0 2px var(--accent); }
+.app .wstack[data-js-cur] > summary:focus-visible { outline: none; }
+.app .wst-title { flex: 1; min-width: 0; font-weight: 680; font-size: 15.5px; line-height: 1.35; color: var(--ink); overflow-wrap: anywhere; }
+.app .wst-n { flex: none; font: 600 12px var(--mono); color: var(--dim); white-space: nowrap; }
+.app .wst-head .chev { flex: none; align-self: center; font-size: 10px; color: var(--dim); transition: transform .15s; }
+.app .wstack[open] > summary .chev { transform: rotate(90deg); }
+.app .wst-first { font-size: 14px; font-weight: 600; color: var(--fg); overflow-wrap: anywhere; }
+.app .wst-rows { display: flex; flex-direction: column; gap: 8px; margin-left: 22px; padding-left: 12px; border-left: 2px solid var(--line); }
+/* the rows of a closed stack have no box, so the cursor passes over them (`shown` in cursor.js): Chrome keeps a box for what a
+   closed <details> hides */
+.app .wstack:not([open]) > .wst-rows { display: none; }
 
 /* the backlog: an item opens as a <details> */
 .app .bl-item > summary { list-style: none; }
@@ -655,6 +677,7 @@ html:has(.app.plain) { overflow: auto; height: auto; }
   .app .m-waits { text-decoration: none; }
   .app .waits-list { gap: 10px; }
   .app .wrow { padding: 13px 14px 13px 13px; gap: 4px 12px; }
+  .app .wst-rows { margin-left: 8px; padding-left: 8px; }
   .app .tl { --tl-label: 96px; }
   /* a phone's axis keeps its first and last time, which have room for their words */
   .app .tl-tick:not(.first, .last) { display: none; }

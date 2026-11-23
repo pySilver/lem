@@ -313,6 +313,45 @@ class Merge(unittest.TestCase):
         self.assertIn("GitHub said: Required status check is expected.", say["where"])
 
 
+class WaitStacks(unittest.TestCase):
+    """The rows of "Waits for you" grouped by task (`wait_stacks`), each group in the place of its first
+    row: a task whose merge review calls the owner is one group of its two things (criteria 1 and 3 of
+    docs/plans/2026-11-23-one-row-for-a-merge-call.md)."""
+
+    @staticmethod
+    def calls(task: str, minute: float, number: int) -> tuple:
+        """TASK proposed, open at MINUTE with pull request NUMBER, and its merge review calling the owner a minute later"""
+        return (ev(minute - 1, "proposed", task, green=True, not_green=[], tip=f"{task[:3]}123456"),
+                state(minute, "open", f"pull request https://github.com/acme/shop/pull/{number}", task=task),
+                ev(minute + 1, "merge.review", task, verdict="call", calls=True, why="Verdict: call. It is careful.", by="claude", tip=f"{task[:3]}123456"))
+
+    @staticmethod
+    def groups(m) -> list:
+        return [(s["t"].slug, [w["key"] for w in s["rows"]]) for s in bm.wait_stacks(bm.waits_of(m))]
+
+    def test_a_task_of_two_things_is_one_group_in_the_place_of_its_first_and_another_tasks_row_after_it(self):
+        # the merge of board-card waits since minute 5, before the merge of the logo's task (minute 10), and after
+        # the logo's merge review, so that the rows are the logo's, board-card's, the logo's
+        m = model(*self.calls("logo-eyes", 10, 73), state(5, "open", "pull request https://github.com/acme/shop/pull/42", "green", task="board-card"))
+        self.assertEqual([w["key"] for w in bm.waits_of(m)], ["review:logo-eyes", "merge:board-card", "merge:logo-eyes"])
+        self.assertEqual(self.groups(m), [("logo-eyes", ["review:logo-eyes", "merge:logo-eyes"]), ("board-card", ["merge:board-card"])])
+        stack = bm.wait_stacks(bm.waits_of(m))[0]
+        self.assertEqual([bm.wait_say(w)["verb"] for w in stack["rows"]], ["Read the merge review", "Merge the pull request #73"])
+        self.assertIs(stack["t"], m.by_slug["logo-eyes"])
+
+    def test_a_task_of_one_thing_is_a_group_of_its_one_row(self):
+        m = model(state(0, "held", "the interview waits for the owner", task="board-answers-a-card"))
+        self.assertEqual(self.groups(m), [("board-answers-a-card", ["held:board-answers-a-card"])])
+
+    def test_two_tasks_of_two_things_are_two_groups_in_the_order_of_their_first_rows(self):
+        m = model(*self.calls("receipt", 20, 44), *self.calls("logo-eyes", 10, 73))
+        self.assertEqual([w["key"] for w in bm.waits_of(m)], ["review:logo-eyes", "review:receipt", "merge:logo-eyes", "merge:receipt"])
+        self.assertEqual(self.groups(m), [("logo-eyes", ["review:logo-eyes", "merge:logo-eyes"]), ("receipt", ["review:receipt", "merge:receipt"])])
+
+    def test_nothing_waits_no_group(self):
+        self.assertEqual(bm.wait_stacks([]), [])
+
+
 class Acts(unittest.TestCase):
     """What the board offers the owner to do on a task (serve.py's acts)."""
 

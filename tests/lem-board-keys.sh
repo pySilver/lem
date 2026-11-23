@@ -5,7 +5,8 @@
 # (cursor.js): J, K and the arrows in a column, H, L and the arrows to the next column you can see, Enter and Escape,
 # the mark through a morph, and no key in a field or with a modifier. The mark of "Waits for you": J, K and the arrows
 # over its rows, Enter on a row answered in the task's session (the stand-in's `session select`) and on a merge row (the
-# panel, no button), and the mark through a morph. The search over every card (search.js): Cmd-K and Ctrl-K, also from a
+# panel, no button, inside its task's stack), and the mark through a morph. The stack of a task with two things, which a
+# click or a tap opens and closes, on a wide screen and at a phone's width. The search over every card (search.js): Cmd-K and Ctrl-K, also from a
 # field, and the search buttons open it, letters typed filter and order it, Enter, a click and Escape, and the box through
 # a morph. The confirm step of a merge, a park and an approval: on a phone an overlay whose button comes on when its
 # text was read to the end, on a desktop and with no script as before. The arrow that folds the sidebar, in a wide
@@ -73,6 +74,22 @@ with open(log, "a", encoding="utf-8") as out:
                           "text": text, "lines": [], "ask": text}) + "\n")
 PY
 
+# entries.py: the entries of "Waits for you" in the page on stdin, as JSON: `shown`, the ids of the rows and stacks you
+# see while every stack is closed, in their order, and `stacks`, the ids of each stack's rows
+cat > "$WORK/entries.py" <<'PY'
+import json, re, sys
+shown, stacks, inside = [], {}, None
+for tag, name in re.findall(r'<(article class="wrow[^"]*"|details class="wstack[^"]*"|/details)(?: id="([^"]+)")?', sys.stdin.read()):
+    if tag == "/details":
+        inside = None
+    elif tag.startswith("details"):
+        shown.append(name)
+        inside = stacks[name] = []
+    else:
+        (shown if inside is None else inside).append(name)
+print(json.dumps({"shown": shown, "stacks": stacks}))
+PY
+
 # held.py LOG TASK SESSION ASK: a task the owner asked for, its session opened and its interview waiting for him, written
 # now at the end of the demo's log
 cat > "$WORK/held.py" <<'PY'
@@ -86,7 +103,7 @@ with open(log, "a", encoding="utf-8") as out:
 PY
 
 TASKS_KEYS="J K ↑ ↓ move · H L ← → column · Enter open · Esc close"
-WAITS_KEYS="J K ↑ ↓ move · Enter go"
+WAITS_KEYS="J K ↑ ↓ move · Enter go or open"
 kanban=$(got "$BASE/")
 if words <<<"$kanban" | grep -qF "$TASKS_KEYS" && grep -qF '<div class="keys" id="kanban-keys">' <<<"$kanban" \
   && grep -qF 'data-controller="cursor"' <<<"$kanban"; then
@@ -281,19 +298,25 @@ tasks_view_checks() {
 
 # The checks of "Waits for you", after the Tasks view's: a task whose interview waits for the owner, with its session
 # open (a demo marks a session live from the log alone), is added first. Each print step gives a label and the state,
-# "MARK FOCUS PANEL": the id of the row with the mark, of the row whose link has the focus, and the task of the open
-# panel, each "-" for none; a `calls-*` step gives the stand-in agtermctl's calls so far, joined by "|".
+# "MARK FOCUS PANEL": the id of the row or stack with the mark, of the row or stack whose link or summary has the focus,
+# and the task of the open panel, each "-" for none; a `calls-*` step gives the stand-in agtermctl's calls so far,
+# joined by "|". The merge row of the afternoon is inside the stack of its task, which a click opens first.
 waits_view_checks() {
-  local out=$WORK/waits.out held=order-search session=0F5EA2C1-0000-4000-8000-0000000000C1 rows first merge select
+  local out=$WORK/waits.out held=order-search session=0F5EA2C1-0000-4000-8000-0000000000C1 entries first merge select
   "$PY" "$WORK/held.py" "$LOG" "$held" "$session" "Search the orders by customer name"
-  rows=$(got "$BASE/waits" | grep -oE '<article class="wrow[^"]*" id="wait-[^"]+"' | sed -E 's/.*id="//; s/"$//' | tr '\n' ' ')
+  entries=$(got "$BASE/waits" | "$PY" "$WORK/entries.py")
   : > "$AGT_CALLS"
-  "$PY" - "$BASE" "$WORK" "$PY" "$LOG" "$AGT_CALLS" "$held" "$rows" > "$WORK/waits.json" <<'PY'
+  "$PY" - "$BASE" "$WORK" "$PY" "$LOG" "$AGT_CALLS" "$held" "$entries" > "$WORK/waits.json" <<'PY'
 import json, shlex, sys
-base, work, py, log, calls, held, ids = sys.argv[1:]
-rows = ids.split()
-mine, merge = f"wait-held-{held}", next((r for r in rows if r.startswith("wait-merge-")), "")
-STATE = ("(() => { const cur = document.querySelector('#waits-list [data-js-cur]'); const focus = document.activeElement?.closest('article.wrow');"
+base, work, py, log, calls, held, entries = sys.argv[1:]
+entries = json.loads(entries)
+rows = entries["shown"]
+mine = f"wait-held-{held}"
+merge = next((r for ids in [rows, *entries["stacks"].values()] for r in ids if r.startswith("wait-merge-")), "")
+# the stack the merge row is in, and the entries you see once it is open
+stack = next((s for s, ids in entries["stacks"].items() if merge in ids), "")
+opened = [r for e in rows for r in ([e, *entries["stacks"][e]] if e == stack else [e])]
+STATE = ("(() => { const cur = document.querySelector('#waits-list [data-js-cur]'); const focus = document.activeElement?.closest('article.wrow, details.wstack');"
          " const panel = document.querySelector('#task > .panel');"
          " return [cur ? cur.id : '-', focus ? focus.id : '-', panel ? panel.dataset.task : '-'].join(' '); })()")
 def until(label, cond):
@@ -307,9 +330,9 @@ def key(name, code=None):
     vk = {"Enter": 13, "Escape": 27}.get(name, 0)
     return {"key": name, "code": code or name, "vk": vk, "after": 100, **({"text": "\r"} if name == "Enter" else {})}
 J, K = key("j", "KeyJ"), key("k", "KeyK")
-def moves(src, dst):
-    """the J or K presses that take the mark from row SRC to row DST"""
-    a, b = rows.index(src), rows.index(dst)
+def moves(src, dst, over=rows):
+    """the J or K presses that take the mark from entry SRC to entry DST, over the entries OVER you see"""
+    a, b = over.index(src), over.index(dst)
     return [J] * (b - a) if b > a else [K] * (a - b)
 def sh(*argv):
     return {"sh": " ".join(map(shlex.quote, argv))}
@@ -327,11 +350,13 @@ steps = [
     *moves(rows[0], mine), at("at-held"), key("Enter"), *seen_calls("calls-enter"), at("after-enter"), where("where-enter"),
     {"eval": "document.activeElement.blur()"}, key("Enter"), *seen_calls("calls-blur"), at("after-blur"),
     {"click": f"#{mine} .wr-verb"}, *seen_calls("calls-click"), at("after-click"), where("where-click"),
-    # Enter on a merge row opens the task's panel, and no button of the row is pressed; Escape gives the focus back to it
-    *(moves(mine, merge) if merge else []), at("at-merge"), key("Enter"), until("merge-enter", "document.querySelector('#task > .panel')"), where("where-merge"),
+    # Enter on a merge row opens the task's panel, and no button of the row is pressed; Escape gives the focus back to it.
+    # A merge row in a stack: a click on the stack's summary opens it and marks it, and J goes on into its rows
+    *((moves(mine, stack) + [{"click": f"#{stack} > summary", "after": 300}, *moves(stack, merge, opened)]) if stack else moves(mine, merge) if merge else []),
+    at("at-merge"), key("Enter"), until("merge-enter", "document.querySelector('#task > .panel')"), where("where-merge"),
     key("Escape"), until("merge-escape", gone), *seen_calls("calls-merge"),
     # the mark through a morph: a new row comes, then the marked row leaves
-    *(moves(merge, mine) if merge else []), at("pre-morph"),
+    *(moves(merge, mine, opened if stack else rows) if merge else []), at("pre-morph"),
     sh(py, f"{work}/event.py", log, "keys-other-wait", "held", "the interview waits for the owner"), until("new-row", "document.querySelector('#wait-held-keys-other-wait')"),
     sh(py, f"{work}/event.py", log, held, "building", "task 1 of 2"), until("row-gone", f"!document.querySelector('#{mine}')"),
     J, at("after-gone"), {"print": "['first', document.querySelector('#waits-list article.wrow')?.id ?? '-']"},
@@ -339,8 +364,8 @@ steps = [
 print(json.dumps({"width": 1440, "height": 900, "steps": steps}))
 PY
   drive "$WORK/waits.json" "$out"
-  read -r first _ <<<"$rows"
-  merge=$(tr ' ' '\n' <<<"$rows" | grep -m1 '^wait-merge-' || true)
+  first=$(field 'd["shown"][0]' <<<"$entries")
+  merge=$(field 'next((r for ids in [d["shown"], *d["stacks"].values()] for r in ids if r.startswith("wait-merge-")), "")' <<<"$entries")
   mine=wait-held-$held
   if [ "$(seen "$out" ready)" != "nothing printed" ] && [ -n "$first" ] && [ "$(seen "$out" none)" = "- - -" ] \
     && [ "$(seen "$out" j1)" = "$first $first -" ] && [ "$(seen "$out" k1)" = "$first $first -" ] && [ "$(seen "$out" up)" = "$first $first -" ] \
@@ -361,7 +386,7 @@ PY
   if [ -n "$merge" ] && [ "$(seen "$out" at-merge)" = "$merge $merge -" ] && [ "$(seen "$out" merge-enter)" = "$merge - ${merge#wait-merge-}" ] \
     && [ "$(seen "$out" where-merge)" = "/$HOST/shop/tasks/${merge#wait-merge-} no-confirm" ] && [ "$(seen "$out" merge-escape)" = "$merge $merge -" ] \
     && [ "$(seen "$out" calls-merge)" = "$select|$select|$select" ]; then
-    pass "Enter on a marked merge row opens the task's panel and presses none of the row's buttons, and Escape gives the focus back to the marked row"
+    pass "Enter on a marked merge row, in its task's stack that a click opened, opens the task's panel and presses none of the row's buttons, and Escape gives the focus back to the marked row"
   else
     fail "Enter on a merge row ($merge): $(cat "$out")"
   fi
@@ -371,6 +396,58 @@ PY
   else
     fail "the mark of a row through a morph: $(cat "$out")"
   fi
+}
+
+# The stack of a task with two or more things that wait for the owner (criterion 2 of
+# docs/plans/2026-11-23-one-row-for-a-merge-call.md): refund-line-on-receipt, whose merge review calls the owner and whose
+# merge waits for him, is one stack, closed as the page comes. A click on its summary opens it, with each thing its own row,
+# its own time and its own button, the Merge button on the merge row; a second click closes it. On a wide screen with a
+# mouse, and at a phone's width with a finger. Each print step gives a label and the stack's facts: whether it is open,
+# the rows of it you see, the top line of each (its verb and its time), the buttons you see on its merge row, and its
+# summary's words.
+stack_checks() {
+  local out=$WORK/stack
+  "$PY" - "$BASE" "$WORK" <<'PY'
+import json, sys
+base, work = sys.argv[1:]
+FACTS = ("(() => { const s = document.querySelector('#wait-stack-refund-line-on-receipt'); if (!s) return 'no stack';"
+         " const seen = n => n.getClientRects().length > 0, words = n => n.innerText.replace(/\\s+/g, ' ').trim();"
+         " const rows = [...s.querySelectorAll('article.wrow')].filter(seen);"
+         " return {open: s.open, rows: rows.map(n => n.id), tops: rows.map(n => words(n.querySelector('.wr-top'))),"
+         " merge: [...s.querySelectorAll('#wait-merge-refund-line-on-receipt .wr-acts .btn')].filter(seen).map(words),"
+         " head: words(s.querySelector('summary'))}; })()")
+def at(label):
+    return {"print": f"[{json.dumps(label)}, {FACTS}]"}
+for name, size, tap in (("wide", {"width": 1440, "height": 900}, False), ("phone", {"width": 390, "height": 844, "mobile": True}, True)):
+    click = {"click": "#wait-stack-refund-line-on-receipt > summary", "after": 500, **({"tap": True} if tap else {})}
+    steps = [{"goto": f"{base}/waits", "wait": 300},
+             {"print": "new Promise(done => { const end = Date.now() + 15000; const tick = () => (document.readyState === 'complete' && window.Turbo"
+                       " && document.querySelector('#wait-stack-refund-line-on-receipt')) || Date.now() > end ? done(['ready', 'yes']) : setTimeout(tick, 100); tick(); })"},
+             {"wait": 300}, at("closed"), click, at("opened"), click, at("closed-again")]
+    with open(f"{work}/stack-{name}.json", "w", encoding="utf-8") as spec:
+        json.dump({**size, "steps": steps}, spec)
+PY
+  drive "$WORK/stack-wide.json" "$out-wide.out"
+  drive "$WORK/stack-phone.json" "$out-phone.out"
+  if stack_ok "$out-wide.out"; then
+    pass "on a wide screen the stack of refund-line-on-receipt comes closed with its title, its first thing and 2 things; a click opens it on its two rows, each with its verb and its time and the Merge button on the merge row, and a second click closes it"
+  else
+    fail "the stack on a wide screen: $(cat "$out-wide.out")"
+  fi
+  if stack_ok "$out-phone.out"; then
+    pass "at a phone's width a tap opens the stack of refund-line-on-receipt on its two rows, each with its time and the Merge button on the merge row, and a second tap closes it"
+  else
+    fail "the stack at a phone's width: $(cat "$out-phone.out")"
+  fi
+}
+# stack_ok OUT: whether the stack's facts in OUT are closed, then open on its two rows, then closed again
+stack_ok() {
+  local rows="['wait-review-refund-line-on-receipt', 'wait-merge-refund-line-on-receipt']"
+  [ "$(fact "$1" closed '(d["open"], d["rows"], d["merge"])')" = "(False, [], [])" ] \
+    && [ "$(fact "$1" closed 'd["head"]')" = "Refund line on receipt 2 things Read the merge review · Waits for the merge" ] \
+    && [ "$(fact "$1" opened '(d["open"], d["rows"], d["merge"])')" = "(True, $rows, ['Merge…'])" ] \
+    && [ "$(fact "$1" opened '[__import__("re").sub(r" \d+[smhd]( \d+[smh])?$", "", t) for t in d["tops"]] == ["Read the merge review", "Merge the pull request #44"] and all(t[-1] in "smhd" for t in d["tops"])')" = True ] \
+    && [ "$(fact "$1" closed-again '(d["open"], d["rows"], d["merge"])')" = "(False, [], [])" ]
 }
 
 # The checks of the search over every card (search.js, criteria 1, 3, 6 and 7 of docs/plans/2026-11-22-board-card-search.md),
@@ -925,6 +1002,7 @@ if [ -z "$NODE" ]; then
   skip_function foot_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function tasks_view_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function waits_view_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
+  skip_function stack_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function search_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function confirm_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function step_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
@@ -934,6 +1012,7 @@ elif [ -z "$CHROME_AT" ]; then
   skip_function foot_checks "no Chrome here (set CHROME to the browser)"
   skip_function tasks_view_checks "no Chrome here (set CHROME to the browser)"
   skip_function waits_view_checks "no Chrome here (set CHROME to the browser)"
+  skip_function stack_checks "no Chrome here (set CHROME to the browser)"
   skip_function search_checks "no Chrome here (set CHROME to the browser)"
   skip_function confirm_checks "no Chrome here (set CHROME to the browser)"
   skip_function step_checks "no Chrome here (set CHROME to the browser)"
@@ -942,6 +1021,7 @@ elif [ -z "$CHROME_AT" ]; then
 else
   tasks_view_checks
   waits_view_checks
+  stack_checks
   search_checks
   confirm_checks
   step_checks
