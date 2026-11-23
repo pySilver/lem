@@ -292,10 +292,12 @@ if sys.version_info < (3, 11):
 import argparse
 import contextlib
 import email.header
+import email.message
 import errno
 import fcntl
 import gzip
 import hashlib
+import http.client
 import http.cookies
 import importlib
 import json
@@ -308,12 +310,15 @@ import socket
 import subprocess
 import threading
 import time
+import types
 import urllib.error
 import urllib.request
+from collections.abc import Callable, Generator
 from datetime import UTC, datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import cast
 from urllib.parse import parse_qs, quote, unquote, urlencode, urlsplit
 
 SCRIPTS = Path(__file__).resolve().parent
@@ -334,6 +339,8 @@ lem_release = importlib.import_module("lem_release")
 
 # A port that no common tool takes by default (a pick, not a measurement).
 PORT = 4536
+# The first number past the highest TCP port, 65535.
+PORT_LIMIT = 65536
 HOST = "127.0.0.1"
 # How often, at most, the server counts a workspace's tasks again for the list of workspaces, and
 # reads the settings and the backlog again for a page. A guess: a phone does not need fresher counts
@@ -542,6 +549,8 @@ class Workspace:
     def worktree_of(self, slug: str) -> Path | None:
         """Where the task's worktree is, as the settings place it, or None when the settings do not read."""
         settings = self.settings()
+        if settings is None:
+            return None
         try:
             root = Path(settings["root"])
             return (
@@ -606,7 +615,7 @@ class Workspace:
         self.reader.read_settings(board)
         return self.reader.settings
 
-    def plan_of(self, slug: str):
+    def plan_of(self, slug: str) -> tuple[Path, str] | None:
         """The task's plan in its worktree, as the artifacts list it, or None."""
         settings = self.settings()
         if not settings:
@@ -808,7 +817,7 @@ def asset_link(name: str) -> str:
     return f"/{HOSTNAME}/assets/{name}?v={DIGESTS[key]}"
 
 
-def keep_days_of(reader) -> int | None:
+def keep_days_of(reader: "bm.Reader") -> int | None:
     """The workspace's `state.keep_days` as its settings give it now (`lem_project.load`, this machine's own
     number too), for the page of a task whose files prune removed; None while the settings do not read,
     which the page shows among its problems, never a number of an older read."""
@@ -865,12 +874,12 @@ def decoded(value: str) -> str:
     uses for a login that is not plain ASCII; the value as it came when it does not decode."""
     try:
         return str(email.header.make_header(email.header.decode_header(value)))
-    except (ValueError, LookupError, UnicodeError):
+    except (ValueError, LookupError):
         return value
 
 
 def door_refusal(
-    headers, method: str, owner: str, served: str, port: int
+    headers: email.message.Message, method: str, owner: str, served: str, port: int
 ) -> str | None:
     """Whether the door lets a request in: None when it does, else the one line its 403 says.
 
@@ -901,7 +910,7 @@ def door_refusal(
         if any(value not in ("same-origin", "none") for value in fetch):
             return "A change comes only from the board's own page, and this request comes from another site."
         origins = {f"https://{served.lower()}:{port}"} | (
-            {f"https://{served.lower()}"} if port == 443 else set()
+            {f"https://{served.lower()}"} if port == http.client.HTTPS_PORT else set()
         )
         if any(
             value.strip().lower() not in origins for value in seen.get("origin", [])
@@ -925,7 +934,7 @@ class Door:
     def url(self) -> str:
         return (
             f"https://{self.name}:{self.port}/"
-            if self.port != 443
+            if self.port != http.client.HTTPS_PORT
             else f"https://{self.name}/"
         )
 
@@ -960,7 +969,9 @@ def own_names(port: int, host: str = HOST) -> set[str]:
     return names | {f"{name}:{port}" for name in names}
 
 
-def host_refusal(headers, port: int, host: str = HOST) -> str | None:
+def host_refusal(
+    headers: email.message.Message, port: int, host: str = HOST
+) -> str | None:
     """Whether the main listener reads a request: None when its one `Host` is a name of its own
     (`own_names`), else the line its 403 says. A page of another site whose name the site points at this
     machine (DNS rebinding) carries that site's name, so the board's files never reach that site's script."""
@@ -972,7 +983,7 @@ def host_refusal(headers, port: int, host: str = HOST) -> str | None:
     return None
 
 
-def stop_refusal(client: str, headers) -> str | None:
+def stop_refusal(client: str, headers: email.message.Message) -> str | None:
     """Whether the main listener takes a request to stop the server: None when it does, else the line
     its 403 says. Only a program on this machine stops it: the request comes from the loopback address,
     and it carries no `Origin` and no `Sec-Fetch-Site`, one of which a browser adds to each request of
@@ -987,7 +998,9 @@ def stop_refusal(client: str, headers) -> str | None:
     return None
 
 
-def action_refusal(client: str, headers, port: int) -> str | None:
+def action_refusal(
+    client: str, headers: email.message.Message, port: int
+) -> str | None:
     """Whether the main listener takes an act of a page (one of agterm, the board's notifications, an act
     on a task): None when it does, else the line its 403 says.
     Only a page of this board on this machine asks it: the request comes from the loopback address, its
@@ -1023,6 +1036,8 @@ AGTERMCTL_PLACES = (
 )
 # How long one call of agtermctl may take. A guess: agterm answers its socket at once.
 AGTERM_TIMEOUT = 10
+# The largest JSON body of an act of agterm that the server reads, in bytes.
+AGTERM_BYTES = 4096
 
 
 class AgtermRefused(Exception):
@@ -1361,7 +1376,7 @@ def act_session(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
         workspace.look_sessions()
         return {
             "ok": False,
-            "said": f"{NOT_OPENED.get(opened.get('why'), opened.get('say') or 'No session was opened')}.",
+            "said": f"{NOT_OPENED.get(opened.get('why', ''), opened.get('say') or 'No session was opened')}.",
         }
     name = opened.get("name") if isinstance(opened, dict) else None
     workspace.look_sessions()
@@ -1398,7 +1413,9 @@ def slug_of(text: str, words: int | None = SLUG_WORDS) -> str:
     return "-".join(plain[:words] if words else plain)
 
 
-def item_slug(stem: str, ended, taken) -> str:
+def item_slug(
+    stem: str, ended: Callable[[str], bool], taken: Callable[[str], bool]
+) -> str:
     """The slug of a task started from a backlog item that no task holds: its file's STEM (or its plain
     words, `slug_of`, for a stem that is no slug), or, when ENDED(slug) says that a task of that slug
     ended, the stem with the first `-2`, `-3` that TAKEN(slug) says no task has: an item whose task was
@@ -1556,7 +1573,7 @@ def act_merge(workspace: Workspace, slug: str, form: dict, via: str) -> str:
     conflict's text instead."""
     t = task_of(workspace, slug)
     stands = bm.stands_said(t, seen=workspace.model().seen) if t is not None else None
-    if stands:
+    if stands and t is not None:
         with NOTES.lock:
             running = NOTES.merging.get((workspace.name, slug))
         return running or NOTES.put(
@@ -1619,7 +1636,7 @@ def merge_tip_of(landing: dict, by: str) -> str:
 
 
 def merge_args(
-    landing: dict, slug: str, by: str, tip: str, standing: bool = False
+    landing: dict, slug: str, by: str, tip: str, *, standing: bool = False
 ) -> list[str]:
     """land.py's MERGE_STEP for a task, `--by BY --via server --tip TIP`, TIP being the commit the
     merge is for (the one the owner saw, or the one the merge agent read), with the proposal's title as
@@ -1654,7 +1671,7 @@ def merge_apart(workspace: Workspace, *args: str) -> subprocess.CompletedProcess
             "-B",
             str(SCRIPTS / "land.py"),
             "--repo",
-            str(workspace.path),
+            workspace.path,
             *args,
         ],
         capture_output=True,
@@ -1669,8 +1686,9 @@ def merge_in_thread(
     landing: dict,
     by: str,
     tip: str,
-    after=None,
-    failed=None,
+    after: Callable[[], str] | None = None,
+    failed: Callable[[], None] | None = None,
+    *,
     standing: bool = False,
 ) -> str:
     """Run the merge of a task, the owner's or the merge agent's (`merge_args`), in a thread of its own,
@@ -1693,7 +1711,7 @@ def merge_in_thread(
         else f"the branch {landing.get('branch') or slug}"
     )
     base = landing.get("base") or "the base branch"
-    args = merge_args(landing, slug, by, tip, standing)
+    args = merge_args(landing, slug, by, tip, standing=standing)
     token, new = NOTES.start_merge(
         (workspace.name, slug),
         task=slug,
@@ -1747,7 +1765,7 @@ def merge_in_thread(
 
 
 # The listeners of this process, the main one first; `listen` fills it.
-SERVERS: list = []
+SERVERS: list[ThreadingHTTPServer] = []
 
 
 def stop_all() -> None:
@@ -1768,7 +1786,7 @@ def behind(given: str | None, version: str) -> bool:
     """Whether a page that names the id it saw (GIVEN) is behind the log's version now: any id that is
     not the version now, also one of the same count on a log that `lem project prune` replaced. A request
     with no id is no page that saw a version."""
-    return bool(given and given.strip()) and given.strip() != version
+    return given is not None and bool(given.strip()) and given.strip() != version
 
 
 def ping(version: str) -> bytes:
@@ -1901,7 +1919,7 @@ class Look:
         return version, (changed if first or changed or moved else None)
 
 
-def listed(folder: Path, deep: bool) -> list[tuple[str, int, int]]:
+def listed(folder: Path, *, deep: bool) -> list[tuple[str, int, int]]:
     """The files of a folder that are not hidden, each with its size and its change time in ns; with
     `deep`, the files of its folders too, by their path under it. A folder that does not read lists
     what it read."""
@@ -1913,13 +1931,14 @@ def listed(folder: Path, deep: bool) -> list[tuple[str, int, int]]:
         for name in names:
             if name.startswith("."):
                 continue
+            file = Path(at) / name
             try:
-                facts = os.stat(os.path.join(at, name))
+                facts = file.stat()
             except OSError:
                 continue
             found.append(
                 (
-                    os.path.relpath(os.path.join(at, name), folder),
+                    os.path.relpath(file, folder),
                     facts.st_size,
                     facts.st_mtime_ns,
                 )
@@ -1939,11 +1958,15 @@ class Handler(BaseHTTPRequestHandler):
     peers: "lem_peers.Peers"
     timeout = REQUEST_TIMEOUT
 
-    def log_message(self, format: str, *args) -> None:  # noqa: A002 - the base class names it so
+    def log_message(self, format: str, *args: object) -> None:  # noqa: A002 - the base class names it so
         if self.verbose:
             sys.stderr.write(
                 f"serve.py: {'door ' if self.door else ''}{self.address_string()} {format % args}\n"
             )
+
+    def listen_port(self) -> int:
+        # the port of the listener this request came to: each of them is a ThreadingHTTPServer (`bind`)
+        return cast("ThreadingHTTPServer", self.server).server_address[1]
 
     def do_HEAD(self) -> None:
         if not self.refused(body=False):
@@ -1964,12 +1987,12 @@ class Handler(BaseHTTPRequestHandler):
         if self.door is None and self.command == "POST" and path == "/api/server/stop":
             said = stop_refusal(self.client_address[0], self.headers)
             if said:
-                return self.text(HTTPStatus.FORBIDDEN, said, True)
+                return self.text(HTTPStatus.FORBIDDEN, said, body=True)
             self.send(
                 HTTPStatus.ACCEPTED,
                 json.dumps({"stopping": True, "pid": os.getpid()}).encode("utf-8"),
                 "application/json",
-                True,
+                body=True,
             )
             threading.Thread(target=stop_all, daemon=True).start()
             return None
@@ -1983,7 +2006,7 @@ class Handler(BaseHTTPRequestHandler):
         if (
             self.door is None
             and self.command == "POST"
-            and len(parts) == 4
+            and len(parts) == 4  # noqa: PLR2004 - the address HOST/NAME/agterm/ACT
             and parts[0] == HOSTNAME
             and parts[2] == "agterm"
             and parts[3] in AGTERM_ACTS
@@ -1991,7 +2014,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.agterm(parts[1], parts[3])
         if (
             self.command == "POST"
-            and len(parts) == 5
+            and len(parts) == 5  # noqa: PLR2004 - the address HOST/NAME/tasks/SLUG/ACT
             and parts[0] == HOSTNAME
             and parts[2] == "tasks"
             and parts[4] in BOARD_ACTS
@@ -2000,7 +2023,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.board_act(parts[1], parts[3], parts[4])
         if (
             self.command == "POST"
-            and len(parts) == 3
+            and len(parts) == 3  # noqa: PLR2004 - the address HOST/NAME/start
             and parts[0] == HOSTNAME
             and parts[2] == "start"
             and not lem_peers.hopped(self.headers)
@@ -2008,7 +2031,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.board_start(parts[1])
         if (
             self.command == "POST"
-            and len(parts) == 4
+            and len(parts) == 4  # noqa: PLR2004 - the address HOST/NAME/backlog/drop
             and parts[0] == HOSTNAME
             and parts[2:] == ["backlog", "drop"]
             and not lem_peers.hopped(self.headers)
@@ -2019,43 +2042,45 @@ class Handler(BaseHTTPRequestHandler):
                 HTTPStatus.METHOD_NOT_ALLOWED,
                 f"This page is the board of the machine {parts[0]}, which this server only shows: open {parts[0]}'s own board to act on it.\n".encode(),
                 "text/plain; charset=utf-8",
-                True,
-                {"Allow": "GET, HEAD"},
+                body=True,
+                headers={"Allow": "GET, HEAD"},
             )
-        self.send(
+        return self.send(
             HTTPStatus.METHOD_NOT_ALLOWED,
             b"This address takes no action: it is only read.\n",
             "text/plain; charset=utf-8",
-            True,
-            {"Allow": "GET, HEAD"},
+            body=True,
+            headers={"Allow": "GET, HEAD"},
         )
 
     def agterm(self, name: str, act: str) -> None:
         """One act of agterm for a page of the workspace NAME: its checks (`action_refusal`), then
         `agterm_act`; the answer is JSON, `{"done": true, "said": ...}` or `{"done": false, "said": ...}`."""
 
-        def answer(status: int, done: bool, said: str) -> None:
+        def answer(status: int, *, done: bool, said: str) -> None:
             self.send(
                 status,
                 json.dumps({"done": done, "said": said}).encode("utf-8"),
                 "application/json",
-                True,
+                body=True,
             )
 
-        port = self.server.server_address[1]
+        port = self.listen_port()
         said = action_refusal(self.client_address[0], self.headers, port)
         if said:
-            return answer(HTTPStatus.FORBIDDEN, False, said)
+            return answer(HTTPStatus.FORBIDDEN, done=False, said=said)
         workspace = self.machine.one(name)
         if workspace is None:
             return answer(
-                HTTPStatus.NOT_FOUND, False, f"No workspace {name!r} on this machine."
+                HTTPStatus.NOT_FOUND,
+                done=False,
+                said=f"No workspace {name!r} on this machine.",
             )
         try:
             length = int(self.headers.get("Content-Length") or 0)
             asked = (
-                json.loads(self.rfile.read(min(length, 4096)) or b"{}")
-                if 0 < length <= 4096
+                json.loads(self.rfile.read(min(length, AGTERM_BYTES)) or b"{}")
+                if 0 < length <= AGTERM_BYTES
                 else None
             )
         except (ValueError, OSError):
@@ -2063,14 +2088,14 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(asked, dict):
             return answer(
                 HTTPStatus.BAD_REQUEST,
-                False,
-                "The request carries no JSON object of at most 4096 bytes.",
+                done=False,
+                said=f"The request carries no JSON object of at most {AGTERM_BYTES} bytes.",
             )
         try:
             done = agterm_act(workspace, act, asked)
         except AgtermRefused as error:
-            return answer(HTTPStatus.UNPROCESSABLE_ENTITY, False, str(error))
-        return answer(HTTPStatus.OK, True, done)
+            return answer(HTTPStatus.UNPROCESSABLE_ENTITY, done=False, said=str(error))
+        return answer(HTTPStatus.OK, done=True, said=done)
 
     def board_act(self, name: str, slug: str, act: str) -> None:
         """One act of the board on a task of the workspace NAME, from a form of its page: the owner's yes
@@ -2082,21 +2107,21 @@ class Handler(BaseHTTPRequestHandler):
         happens next, or the script's own line when it refused."""
         if self.door is None:
             said = action_refusal(
-                self.client_address[0], self.headers, self.server.server_address[1]
+                self.client_address[0], self.headers, self.listen_port()
             )
             if said:
-                return self.text(HTTPStatus.FORBIDDEN, said, True)
+                return self.text(HTTPStatus.FORBIDDEN, said, body=True)
         workspace = self.machine.one(name)
         if workspace is None or not TASK_SLUG.fullmatch(slug):
             return self.missing(
-                f"No workspace {name!r} or no task {slug!r} on this machine.", True
+                f"No workspace {name!r} or no task {slug!r} on this machine.", body=True
             )
         form = self.form()
         if form is None:
             return self.text(
                 HTTPStatus.BAD_REQUEST,
                 f"The request carries no form of the board: form fields of at most {FORM_BYTES} bytes.",
-                True,
+                body=True,
             )
         via = bm.VIA["door" if self.door is not None else "local"]
         if act == "merge":
@@ -2117,19 +2142,19 @@ class Handler(BaseHTTPRequestHandler):
             if form.get("in") in pages.UNDER and form.get("in") != "tasks"
             else None
         )
-        tab = form.get("tab") if form.get("tab") in ("criteria",) else ""
+        tab = form.get("tab") if form.get("tab") == "criteria" else ""
         query = urlencode({**({"in": under} if under else {}), "note": token})
         to = (
             f"/{quote(HOSTNAME)}/{quote(name)}/tasks/{quote(slug)}"
             + (f"/{tab}" if tab else "")
             + f"?{query}"
         )
-        self.send(
+        return self.send(
             HTTPStatus.SEE_OTHER,
             b"",
             "text/plain; charset=utf-8",
-            True,
-            {"Location": to},
+            body=True,
+            headers={"Location": to},
         )
 
     def board_start(self, name: str) -> None:
@@ -2138,19 +2163,19 @@ class Handler(BaseHTTPRequestHandler):
         page with the note of the result, or, when no task is on record, back to the form or the backlog."""
         if self.door is None:
             said = action_refusal(
-                self.client_address[0], self.headers, self.server.server_address[1]
+                self.client_address[0], self.headers, self.listen_port()
             )
             if said:
-                return self.text(HTTPStatus.FORBIDDEN, said, True)
+                return self.text(HTTPStatus.FORBIDDEN, said, body=True)
         workspace = self.machine.one(name)
         if workspace is None:
-            return self.missing(f"No workspace {name!r} on this machine.", True)
+            return self.missing(f"No workspace {name!r} on this machine.", body=True)
         form = self.form()
         if form is None:
             return self.text(
                 HTTPStatus.BAD_REQUEST,
                 f"The request carries no form of the board: form fields of at most {FORM_BYTES} bytes.",
-                True,
+                body=True,
             )
         result = act_start(
             workspace, form, bm.VIA["door" if self.door is not None else "local"]
@@ -2168,12 +2193,12 @@ class Handler(BaseHTTPRequestHandler):
             to = f"{base}/tasks/{quote(slug)}?{urlencode({'note': token})}"
         else:
             to = f"{base}/{'backlog' if form.get('item') else 'new'}?{urlencode({'note': token})}"
-        self.send(
+        return self.send(
             HTTPStatus.SEE_OTHER,
             b"",
             "text/plain; charset=utf-8",
-            True,
-            {"Location": to},
+            body=True,
+            headers={"Location": to},
         )
 
     def board_drop(self, name: str) -> None:
@@ -2182,19 +2207,19 @@ class Handler(BaseHTTPRequestHandler):
         Backlog view with the note of the result."""
         if self.door is None:
             said = action_refusal(
-                self.client_address[0], self.headers, self.server.server_address[1]
+                self.client_address[0], self.headers, self.listen_port()
             )
             if said:
-                return self.text(HTTPStatus.FORBIDDEN, said, True)
+                return self.text(HTTPStatus.FORBIDDEN, said, body=True)
         workspace = self.machine.one(name)
         if workspace is None:
-            return self.missing(f"No workspace {name!r} on this machine.", True)
+            return self.missing(f"No workspace {name!r} on this machine.", body=True)
         form = self.form()
         if form is None:
             return self.text(
                 HTTPStatus.BAD_REQUEST,
                 f"The request carries no form of the board: form fields of at most {FORM_BYTES} bytes.",
-                True,
+                body=True,
             )
         result = act_drop(workspace, form)
         token = NOTES.put(
@@ -2204,12 +2229,12 @@ class Handler(BaseHTTPRequestHandler):
             said=result["said"],
         )
         workspace.acted += 1
-        self.send(
+        return self.send(
             HTTPStatus.SEE_OTHER,
             b"",
             "text/plain; charset=utf-8",
-            True,
-            {
+            body=True,
+            headers={
                 "Location": f"/{quote(HOSTNAME)}/{quote(name)}/backlog?{urlencode({'note': token})}"
             },
         )
@@ -2233,7 +2258,7 @@ class Handler(BaseHTTPRequestHandler):
             return None
         return {key: values[-1] for key, values in fields.items()}
 
-    def push_read(self, path: str, body: bool) -> None:
+    def push_read(self, path: str, *, body: bool) -> None:
         """The board's notifications, read: the service worker, the machine's public key (made at first
         use), and what the worker shows for the newest push (lem_push)."""
         if path == "/sw.js":
@@ -2241,15 +2266,15 @@ class Handler(BaseHTTPRequestHandler):
                 HTTPStatus.OK,
                 SERVICE_WORKER.read_bytes(),
                 TYPES[".js"],
-                body,
-                {"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"},
+                body=body,
+                headers={"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"},
             )
         if path == "/api/push/latest":
             return self.send(
                 HTTPStatus.OK,
                 json.dumps(lem_push.latest()).encode("utf-8"),
                 "application/json",
-                body,
+                body=body,
             )
         try:
             said = {"key": lem_push.machine_key()[1]}
@@ -2258,10 +2283,13 @@ class Handler(BaseHTTPRequestHandler):
                 HTTPStatus.SERVICE_UNAVAILABLE,
                 json.dumps({"said": str(error)}).encode("utf-8"),
                 "application/json",
-                body,
+                body=body,
             )
         return self.send(
-            HTTPStatus.OK, json.dumps(said).encode("utf-8"), "application/json", body
+            HTTPStatus.OK,
+            json.dumps(said).encode("utf-8"),
+            "application/json",
+            body=body,
         )
 
     def push_act(self, act: str) -> None:
@@ -2272,11 +2300,11 @@ class Handler(BaseHTTPRequestHandler):
 
         def answer(status: int, said: dict) -> None:
             self.send(
-                status, json.dumps(said).encode("utf-8"), "application/json", True
+                status, json.dumps(said).encode("utf-8"), "application/json", body=True
             )
 
         if self.door is None and action_refusal(
-            self.client_address[0], self.headers, self.server.server_address[1]
+            self.client_address[0], self.headers, self.listen_port()
         ):
             return answer(
                 HTTPStatus.FORBIDDEN,
@@ -2316,14 +2344,12 @@ class Handler(BaseHTTPRequestHandler):
 
     do_POST = do_PUT = do_PATCH = do_DELETE = do_OPTIONS = act  # noqa: N815 - the base class looks them up by these names
 
-    def refused(self, body: bool) -> bool:
+    def refused(self, *, body: bool) -> bool:
         """Check the request and answer 403 when it is refused; True then. At the door, the whole check
         (`door_refusal`); on the main listener, its `Host` (`host_refusal`)."""
         door = self.door
         if door is None:
-            said = host_refusal(
-                self.headers, self.server.server_address[1], self.listen_host
-            )
+            said = host_refusal(self.headers, self.listen_port(), self.listen_host)
         else:
             said = door_refusal(
                 self.headers, self.command, door.owner, door.name, door.port
@@ -2334,10 +2360,8 @@ class Handler(BaseHTTPRequestHandler):
                 )
         if said is None:
             return False
-        try:
-            self.text(HTTPStatus.FORBIDDEN, said, body)
-        except (BrokenPipeError, ConnectionResetError):
-            pass
+        with contextlib.suppress(BrokenPipeError, ConnectionResetError):
+            self.text(HTTPStatus.FORBIDDEN, said, body=body)
         return True
 
     def send(
@@ -2345,6 +2369,7 @@ class Handler(BaseHTTPRequestHandler):
         status: int,
         data: bytes,
         kind: str,
+        *,
         body: bool,
         headers: dict | None = None,
     ) -> None:
@@ -2361,17 +2386,24 @@ class Handler(BaseHTTPRequestHandler):
         if body:
             self.wfile.write(data)
 
-    def text(self, status: int, said: str, body: bool) -> None:
+    def text(self, status: int, said: str, *, body: bool) -> None:
         self.send(
-            status, (said + "\n").encode("utf-8"), "text/plain; charset=utf-8", body
+            status,
+            (said + "\n").encode("utf-8"),
+            "text/plain; charset=utf-8",
+            body=body,
         )
 
-    def redirect(self, to: str, body: bool) -> None:
+    def redirect(self, to: str, *, body: bool) -> None:
         self.send(
-            HTTPStatus.FOUND, b"", "text/plain; charset=utf-8", body, {"Location": to}
+            HTTPStatus.FOUND,
+            b"",
+            "text/plain; charset=utf-8",
+            body=body,
+            headers={"Location": to},
         )
 
-    def answer(self, body: bool) -> None:
+    def answer(self, *, body: bool) -> None:
         split = urlsplit(self.path)
         path = unquote(split.path)
         machine = self.machine
@@ -2379,33 +2411,35 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/":
                 listing = self.spaces()
                 if len(listing) == 1 and listing[0]["url"]:
-                    return self.redirect(listing[0]["url"], body)
+                    return self.redirect(listing[0]["url"], body=body)
                 return self.html(
-                    HTTPStatus.OK, pages.index_page(HOSTNAME, listing, asset_link), body
+                    HTTPStatus.OK,
+                    pages.index_page(HOSTNAME, listing, asset_link),
+                    body=body,
                 )
             if path == "/api/workspaces":
                 return self.send(
                     HTTPStatus.OK,
                     json.dumps(self.spaces()).encode("utf-8"),
                     "application/json",
-                    body,
+                    body=body,
                 )
             if path == "/api/server":
                 return self.send(
                     HTTPStatus.OK,
                     json.dumps({**RUNNING, "push": lem_push.status()}).encode("utf-8"),
                     "application/json",
-                    body,
+                    body=body,
                 )
             if path in ("/sw.js", "/api/push/key", "/api/push/latest"):
-                return self.push_read(path, body)
+                return self.push_read(path, body=body)
             if path == "/manifest.webmanifest":
                 return self.send(
                     HTTPStatus.OK,
                     pages.manifest(asset_link).encode("utf-8"),
                     TYPES[".webmanifest"],
-                    body,
-                    {"Cache-Control": "no-cache"},
+                    body=body,
+                    headers={"Cache-Control": "no-cache"},
                 )
             first, slash, rest = path[1:].partition("/")
             peer = (
@@ -2414,13 +2448,13 @@ class Handler(BaseHTTPRequestHandler):
                 else self.peers.get(first)
             )
             if peer is not None:
-                return self.forwarded(peer, body)
-            if path.startswith("/assets/") or path.startswith(f"/{HOSTNAME}/assets/"):
+                return self.forwarded(peer, body=body)
+            if path.startswith(("/assets/", f"/{HOSTNAME}/assets/")):
                 file = ASSETS.get(
                     path.removeprefix(f"/{HOSTNAME}").removeprefix("/assets/")
                 )
                 if file is None or not file.is_file():
-                    return self.text(HTTPStatus.NOT_FOUND, "Not found.", body)
+                    return self.text(HTTPStatus.NOT_FOUND, "Not found.", body=body)
                 data, more = file.read_bytes(), self.caching(split.query)
                 if file.suffix in (".js", ".css") and "gzip" in (
                     self.headers.get("Accept-Encoding") or ""
@@ -2429,26 +2463,32 @@ class Handler(BaseHTTPRequestHandler):
                         packed(file, data),
                         {**more, "Content-Encoding": "gzip", "Vary": "Accept-Encoding"},
                     )
-                return self.send(HTTPStatus.OK, data, TYPES[file.suffix], body, more)
+                return self.send(
+                    HTTPStatus.OK, data, TYPES[file.suffix], body=body, headers=more
+                )
             if first in ALIASES:
                 # the machine's other name: the same page under the one in every address
                 return self.redirect(
                     f"/{quote(HOSTNAME)}/{quote(rest)}"
                     + (f"?{split.query}" if split.query else ""),
-                    body,
+                    body=body,
                 )
             if first == HOSTNAME:
                 name, slash, rest = rest.partition("/")
                 workspace = machine.one(name) if name else None
                 if workspace is None:
-                    return self.missing(f"No workspace {name!r} on this machine.", body)
+                    return self.missing(
+                        f"No workspace {name!r} on this machine.", body=body
+                    )
                 if not slash:
-                    return self.redirect(f"/{quote(HOSTNAME)}/{quote(name)}/", body)
-                return self.in_workspace(workspace, rest, split.query, body)
+                    return self.redirect(
+                        f"/{quote(HOSTNAME)}/{quote(name)}/", body=body
+                    )
+                return self.in_workspace(workspace, rest, split.query, body=body)
             # an address with no machine's name in it: the same page under it, or the kanban for an address no page has
             workspace = machine.one(first)
             if workspace is None:
-                return self.missing(f"No page {path!r} on this server.", body)
+                return self.missing(f"No page {path!r} on this server.", body=body)
             known = (
                 rest.split("/")[0] in PAGES
                 or rest == "stream"
@@ -2456,10 +2496,10 @@ class Handler(BaseHTTPRequestHandler):
             )
             to = f"/{quote(HOSTNAME)}/{quote(first)}/{quote(rest) if known else ''}"
             return self.redirect(
-                to + (f"?{split.query}" if split.query and known else ""), body
+                to + (f"?{split.query}" if split.query and known else ""), body=body
             )
         except (lem_state.StateError, lem_project.SettingsError) as error:
-            return self.failed(str(error), body)
+            return self.failed(str(error), body=body)
         except (BrokenPipeError, ConnectionResetError):
             return None
 
@@ -2473,14 +2513,14 @@ class Handler(BaseHTTPRequestHandler):
             )
         return lem_peers.merged(own, HOSTNAME, self.peers.states())
 
-    def forwarded(self, peer, body: bool) -> None:
+    def forwarded(self, peer: "lem_peers.Peer", *, body: bool) -> None:
         """A page, a file or a stream of a joined machine, passed through (`lem_peers.forward`); a machine
         that does not answer gets a page that says so."""
         if self.command not in ("GET", "HEAD"):
             return self.text(
                 HTTPStatus.METHOD_NOT_ALLOWED,
                 "Only a read passes to another machine.",
-                body,
+                body=body,
             )
         try:
             lem_peers.forward(
@@ -2496,31 +2536,31 @@ class Handler(BaseHTTPRequestHandler):
                     f"{peer.name} may sleep, or its board server may not run: `lem serve --tailscale` on {peer.name} "
                     "starts it with its door. The workspaces of the machines that answer are at /.",
                 ),
-                body,
+                body=body,
             )
 
     def in_workspace(
-        self, workspace: Workspace, rest: str, query: str, body: bool
+        self, workspace: Workspace, rest: str, query: str, *, body: bool
     ) -> None:
         """A page, or the stream, of one workspace."""
         if rest in PAGES:
-            return self.page(workspace, PAGES[rest], query, body)
+            return self.page(workspace, PAGES[rest], query, body=body)
         if rest == "tasks" or rest.startswith("tasks/"):
             return self.task(
-                workspace, rest.removeprefix("tasks").strip("/"), query, body
+                workspace, rest.removeprefix("tasks").strip("/"), query, body=body
             )
         if rest == "stream":
             return (
                 self.refreshes(workspace, query)
                 if body
-                else self.send(HTTPStatus.OK, b"", "text/event-stream", False)
+                else self.send(HTTPStatus.OK, b"", "text/event-stream", body=False)
             )
         return self.missing(
-            f"No page {rest!r} in the workspace {workspace.name}.", body
+            f"No page {rest!r} in the workspace {workspace.name}.", body=body
         )
 
     def context(
-        self, workspace: Workspace, query: str, fresh_backlog: bool = False
+        self, workspace: Workspace, query: str, *, fresh_backlog: bool = False
     ) -> "pages.Ctx":
         """What a page of the workspace is drawn from, read now."""
         model = workspace.model()
@@ -2557,7 +2597,7 @@ class Handler(BaseHTTPRequestHandler):
             note=NOTES.get((parse_qs(query).get("note") or [None])[0]),
         )
 
-    def page(self, workspace: Workspace, name: str, query: str, body: bool) -> None:
+    def page(self, workspace: Workspace, name: str, query: str, *, body: bool) -> None:
         """One page of the workspace, rendered from its model now; with the header `Turbo-Frame: task`
         (the panel's close), the empty frame alone."""
         try:
@@ -2569,14 +2609,14 @@ class Handler(BaseHTTPRequestHandler):
             if self.headers.get("Turbo-Frame") == "task":
                 ctx.view = {v: k for k, v in PAGES.items()}[name] or "tasks"
                 status, html_ = task_pages.frame_page(ctx)
-                return self.html(status, html_, body)
+                return self.html(status, html_, body=body)
             html_ = getattr(pages, name)(ctx)
         except Exception as error:  # noqa: BLE001 - a page that fails says why, and the server goes on
-            return self.broke(workspace, name, error, body)
-        return self.html(HTTPStatus.OK, html_, body)
+            return self.broke(workspace, name, error, body=body)
+        return self.html(HTTPStatus.OK, html_, body=body)
 
     def broke(
-        self, workspace: Workspace, name: str, error: Exception, body: bool
+        self, workspace: Workspace, name: str, error: Exception, *, body: bool
     ) -> None:
         sys.stderr.write(
             f"serve.py: the page {name} of {workspace.path} failed: {error!r}\n"
@@ -2585,24 +2625,24 @@ class Handler(BaseHTTPRequestHandler):
 
         traceback.print_exc()
         return self.failed(
-            f"The page of {workspace.name} was not drawn: {error!r}.", body
+            f"The page of {workspace.name} was not drawn: {error!r}.", body=body
         )
 
-    def task(self, workspace: Workspace, rest: str, query: str, body: bool) -> None:
+    def task(self, workspace: Workspace, rest: str, query: str, *, body: bool) -> None:
         """The board of one task: `SLUG`, `SLUG/TAB`, `SLUG/artifacts/PATH/`, and `SLUG/raw/PATH`, an HTML
         artifact. The view under the panel is `?in=VIEW`, the kanban by default."""
         slug, _, more = rest.partition("/")
         if not TASK_SLUG.fullmatch(slug):
             return self.missing(
                 f"No task {slug!r} in the workspace {workspace.name}: a task's name is lower-case words joined by hyphens.",
-                body,
+                body=body,
             )
         tab, _, path = more.partition("/")
         path = path.strip("/")
         if tab == "raw":
-            return self.raw(workspace, slug, path, body)
+            return self.raw(workspace, slug, path, body=body)
         if tab == "media":
-            return self.media(workspace, slug, path, body)
+            return self.media(workspace, slug, path, body=body)
         try:
             ctx = self.context(workspace, query)
             under = (parse_qs(query).get("in") or ["tasks"])[0]
@@ -2630,7 +2670,7 @@ class Handler(BaseHTTPRequestHandler):
             ctx.folder_of = lambda task: task_pages.folder_of(state, task)
             ctx.media_href = lambda task: f"{ctx.base}/tasks/{quote(task)}/media/"
 
-            def artifact(task: str, file: str):
+            def artifact(task: str, file: str) -> dict | None:
                 found = lem_artifacts.one(state / "tasks" / task, task, file, plan)
                 return found[0] if found else None
 
@@ -2644,10 +2684,10 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 status, html_ = task_pages.task_page(ctx)
         except Exception as error:  # noqa: BLE001 - a page that fails says why, and the server goes on
-            return self.broke(workspace, f"task {slug}", error, body)
-        return self.html(status, html_, body)
+            return self.broke(workspace, f"task {slug}", error, body=body)
+        return self.html(status, html_, body=body)
 
-    def raw(self, workspace: Workspace, slug: str, path: str, body: bool) -> None:
+    def raw(self, workspace: Workspace, slug: str, path: str, *, body: bool) -> None:
         """An HTML artifact of a task, as it is, for the panel's sandboxed frame: only a file the task's
         artifacts list as a page, and under a sandbox of its own, so that opened alone it runs as no page
         of the board's origin."""
@@ -2657,61 +2697,61 @@ class Handler(BaseHTTPRequestHandler):
             else None
         )
         if not found or found[0]["kind"] != "html":
-            return self.text(HTTPStatus.NOT_FOUND, "Not found.", body)
+            return self.text(HTTPStatus.NOT_FOUND, "Not found.", body=body)
         try:
             data = found[1].read_bytes()
         except OSError:
-            return self.text(HTTPStatus.NOT_FOUND, "Not found.", body)
+            return self.text(HTTPStatus.NOT_FOUND, "Not found.", body=body)
         # a link of the page that opens a tab of its own (the pull request) may leave the sandbox; an in-page link scrolls the frame
         return self.send(
             HTTPStatus.OK,
             data,
             TYPES[".html"],
-            body,
-            {
+            body=body,
+            headers={
                 "Content-Security-Policy": "sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox"
             },
         )
 
-    def media(self, workspace: Workspace, slug: str, path: str, body: bool) -> None:
+    def media(self, workspace: Workspace, slug: str, path: str, *, body: bool) -> None:
         """A picture of the task's media folder, for a document that shows it: a file under `media/` with
         no hidden part, whose extension and first bytes are one picture format (`image_type`); anything
         else, an SVG among them, is not found."""
         folder = workspace.state / "tasks" / slug / "media"
         parts = [part for part in path.split("/") if part]
         if not parts or any(part.startswith(".") for part in parts):
-            return self.text(HTTPStatus.NOT_FOUND, "Not found.", body)
+            return self.text(HTTPStatus.NOT_FOUND, "Not found.", body=body)
         file = folder.joinpath(*parts)
         try:
             if not file.is_file() or not file.resolve().is_relative_to(
                 folder.resolve()
             ):
-                return self.text(HTTPStatus.NOT_FOUND, "Not found.", body)
+                return self.text(HTTPStatus.NOT_FOUND, "Not found.", body=body)
             data = file.read_bytes()
         except OSError:
-            return self.text(HTTPStatus.NOT_FOUND, "Not found.", body)
+            return self.text(HTTPStatus.NOT_FOUND, "Not found.", body=body)
         kind = lem_artifacts.image_type(file.name, data[:16])
         if kind is None:
             return self.text(
                 HTTPStatus.NOT_FOUND,
                 "Not found: the board shows only a PNG, JPEG, GIF or WebP picture from a task's media folder.",
-                body,
+                body=body,
             )
         return self.send(
             HTTPStatus.OK,
             data,
             kind,
-            body,
-            {
+            body=body,
+            headers={
                 "Cache-Control": "no-cache",
                 "Content-Security-Policy": "default-src 'none'; sandbox",
             },
         )
 
-    def html(self, status: int, text: str, body: bool) -> None:
-        self.send(status, text.encode("utf-8"), TYPES[".html"], body)
+    def html(self, status: int, text: str, *, body: bool) -> None:
+        self.send(status, text.encode("utf-8"), TYPES[".html"], body=body)
 
-    def missing(self, said: str, body: bool) -> None:
+    def missing(self, said: str, *, body: bool) -> None:
         self.html(
             HTTPStatus.NOT_FOUND,
             pages.error_page(
@@ -2720,10 +2760,10 @@ class Handler(BaseHTTPRequestHandler):
                 asset_link,
                 "The list of the workspaces of this machine is at /.",
             ),
-            body,
+            body=body,
         )
 
-    def failed(self, said: str, body: bool) -> None:
+    def failed(self, said: str, *, body: bool) -> None:
         self.html(
             HTTPStatus.INTERNAL_SERVER_ERROR,
             pages.error_page(
@@ -2732,7 +2772,7 @@ class Handler(BaseHTTPRequestHandler):
                 asset_link,
                 "The server's log says more: lem serve writes it to serve.log in Lem's home folder.",
             ),
-            body,
+            body=body,
         )
 
     def refreshes(self, workspace: Workspace, query: str) -> None:
@@ -2776,10 +2816,8 @@ class Handler(BaseHTTPRequestHandler):
             files["backlog"] = backlog
         # the reviewer's items, which the reviewer writes and a drop or a landing removes with no line of the log
         files["reviewer"] = workspace.state / lem_project.STATE_BACKLOG
-        try:
+        with contextlib.suppress(lem_state.StateError):
             files["owner"] = lem_state.owner_mark()
-        except lem_state.StateError:
-            pass
         look = Look(workspace.state, files)
         version, _ = look.changes()
         acted = workspace.acted
@@ -2901,6 +2939,8 @@ def forge_once(workspace: Workspace, now: int | None = None) -> list[dict]:
         return []
     workspace.forge["looked"] = now
     settings = workspace.settings()
+    if settings is None:
+        return []
     main = Path(settings["main"])
     if not shutil.which("gh"):
         workspace.forge["problem"] = (
@@ -3004,7 +3044,7 @@ def keep_forge_look(state: Path, seen: dict, now: int) -> None:
             json.dumps({"looked": looked, "seen": seen}, indent=1) + "\n",
             encoding="utf-8",
         )
-        os.replace(temporary, file)
+        temporary.replace(file)
     except OSError as error:
         temporary.unlink(missing_ok=True)
         sys.stderr.write(
@@ -3056,7 +3096,10 @@ def wait_start(t: "bm.Task") -> int:
 
 
 def duties(
-    model: "bm.Model", seen: dict, kept: set, merging: set = frozenset()
+    model: "bm.Model",
+    seen: dict,
+    kept: set,
+    merging: set[str] | frozenset[str] = frozenset(),
 ) -> list[tuple[str, str, str]]:
     """What the server owes the tasks of a workspace now, each `(VERB, SLUG, WHY)` for `lem session VERB
     SLUG --why WHY`, or `("merge", SLUG, "merger")` for the merge agent's merge, read from the files and
@@ -3173,7 +3216,7 @@ STOP_DUTIES = {
 }
 
 
-def merge_due(t: "bm.Task", seen: dict, merging: set) -> bool:
+def merge_due(t: "bm.Task", seen: dict, merging: set[str] | frozenset[str]) -> bool:
     """Whether the server runs the merge agent's merge of an open task now: the merge agent's review is
     of the tip Lem proposed last, says `merge`, calls nobody and does not say `another round` of a
     moved base (the task's session lands it again); no merge of that tip was refused, or the refusal
@@ -3210,7 +3253,7 @@ def refusal_of(t: "bm.Task") -> dict:
     )
 
 
-def stands_due(t: "bm.Task", seen: dict, merging: set) -> bool:
+def stands_due(t: "bm.Task", seen: dict, merging: set[str] | frozenset[str]) -> bool:
     """Whether the server runs the owner's merge that a moved base refused now: `merge.stands` is logged
     for the tip Lem proposed last, by `propose` after a new landing or by the record of a read that
     answered Lem's refusal because the base moved (a read of the moved base that said `safe`, or a
@@ -3290,7 +3333,7 @@ def run_duties(workspace: Workspace, now: float | None = None) -> list[dict]:
     now = time.monotonic() if now is None else now
     model = workspace.model()
     seen = workspace.forge.get("seen") or {}
-    ran = []
+    ran: list[dict] = []
     for verb, slug, why in duties(
         model, seen, workspace.kept, NOTES.running(workspace.name)
     ):
@@ -3518,12 +3561,12 @@ def tailscale_cli() -> str | None:
     """The tailscale CLI by its absolute path: the one on PATH, else the first of TAILSCALE_PLACES."""
     found = shutil.which("tailscale")
     if found:
-        return os.path.abspath(found)
+        return str(Path(found).absolute())
     return next(
         (
             place
             for place in TAILSCALE_PLACES
-            if os.path.isfile(place) and os.access(place, os.X_OK)
+            if Path(place).is_file() and os.access(place, os.X_OK)
         ),
         None,
     )
@@ -3565,7 +3608,7 @@ def tailscale_json(
     return data
 
 
-def tailnet(cli: str, strict: bool = True) -> dict:
+def tailnet(cli: str, *, strict: bool = True) -> dict:
     """This Mac on the tailnet: its served name (`Self.DNSName`) and the owner's login (`Self.UserID`
     in `User`). With `strict`, also what the door needs: a connected backend, a node that a person
     owns (no tag) and HTTPS certificates."""
@@ -3656,9 +3699,8 @@ def served_target(cli: str, name: str, port: int) -> tuple[bool, str | None, boo
     funnel = (
         status.get("AllowFunnel") if isinstance(status.get("AllowFunnel"), dict) else {}
     )
-    site = (
-        web.get(f"{name}:{port}") if isinstance(web.get(f"{name}:{port}"), dict) else {}
-    )
+    site = web.get(f"{name}:{port}")
+    site = site if isinstance(site, dict) else {}
     handlers = site.get("Handlers") if isinstance(site.get("Handlers"), dict) else {}
     root = (
         handlers.get("/")
@@ -3779,7 +3821,7 @@ def git_commit(root: Path) -> str | None:
             ):
                 parts = line.split()
                 if (
-                    len(parts) == 2
+                    len(parts) == 2  # noqa: PLR2004 - a line of packed-refs is a commit and a ref
                     and parts[1] == ref
                     and not line.startswith(("#", "^"))
                 ):
@@ -3828,7 +3870,7 @@ def serve_settings() -> dict:
         "tailscale_port": table.get("tailscale_port", TAILNET_PORT),
     }
     for key, flag in (("port", "--port"), ("tailscale_port", "--tailscale-port")):
-        if not 0 < settings[key] < 65536:
+        if not 0 < settings[key] < PORT_LIMIT:
             raise ServeError(
                 f"serve.{key} in {lem_state.machine_file()} is {settings[key]}, which is no port: `lem serve {flag} N` writes one from 1 to 65535"
             )
@@ -3840,7 +3882,9 @@ def serve_settings() -> dict:
     return settings
 
 
-def reach(request, timeout: float):
+def reach(
+    request: str | urllib.request.Request, timeout: float
+) -> http.client.HTTPResponse:
     """Open a request to this machine's own server, past any proxy of the environment."""
     return urllib.request.build_opener(urllib.request.ProxyHandler({})).open(
         request, timeout=timeout
@@ -3900,7 +3944,7 @@ def ask(port: int, timeout: float = ASK_TIMEOUT) -> dict | None:
 
 
 @contextlib.contextmanager
-def start_lock():
+def start_lock() -> Generator[None, None, None]:
     """Hold SERVE_LOCK, so that two starts at one moment make one server; wait for another's at most as
     long as its stop and its start may take."""
     home = lem_state.config()
@@ -4023,7 +4067,7 @@ def outdated(facts: dict) -> bool:
     return mine > theirs or (mine == theirs and facts["version"] != code_version())
 
 
-def shown(facts: dict | None, started: bool) -> dict:
+def shown(facts: dict | None, *, started: bool) -> dict:
     """What `--ensure` prints of a server."""
     if facts is None:
         return {
@@ -4050,7 +4094,7 @@ def ensure_held(settings: dict) -> dict:
     found = ask(settings["port"])
     if os.environ.get(NO_START[0]) == NO_START[1]:
         return {
-            **shown(found, False),
+            **shown(found, started=False),
             "said": f"{NO_START[0]}={NO_START[1]} is set: no server starts and none ends",
         }
     door = settings["tailscale_port"] if settings["tailscale"] else None
@@ -4059,10 +4103,10 @@ def ensure_held(settings: dict) -> dict:
         and found.get("tailscale_port") == door
         and not outdated(found)
     ):
-        return shown(found, False)
+        return shown(found, started=False)
     if found is not None:
         stop_server(settings["port"], found)
-    return shown(start_server(settings), True)
+    return shown(start_server(settings), started=True)
 
 
 def ensure() -> dict:
@@ -4082,7 +4126,7 @@ def stop() -> dict:
         return {"stopped": True, "pid": found["pid"], "version": found["version"]}
 
 
-def configure(args) -> dict:
+def configure(args: argparse.Namespace) -> dict:
     """Write the machine's `[serve]` from the flags given, end a server on a port it no longer serves,
     make sure the server runs the new way, and take Lem's tailnet entry out where the door closed."""
     # What `write_machine` would refuse (a file that does not read, another table or key that is not
@@ -4155,7 +4199,7 @@ def detach_from_session() -> None:
         )
         if found:
             os.environ["PATH"] = os.pathsep.join(
-                [os.path.dirname(found), *filter(None, [os.environ.get("PATH")])]
+                [str(Path(found).parent), *filter(None, [os.environ.get("PATH")])]
             )
 
 
@@ -4183,7 +4227,7 @@ def remove_pid() -> None:
         pass
 
 
-def listen(host: str, verbose: bool, settings: dict) -> None:
+def listen(host: str, *, verbose: bool, settings: dict) -> None:
     """Serve in the foreground, the way the settings say, until a stop, SIGTERM or Ctrl-C."""
     detach_from_session()
     port = settings["port"]
@@ -4222,7 +4266,11 @@ def listen(host: str, verbose: bool, settings: dict) -> None:
         raise
     bound = server.server_address[1]
     shown_host = f"[{host}]" if ":" in host else host
-    said = {"host": host, "port": bound, "url": f"http://{shown_host}:{bound}/"}
+    said: dict[str, object] = {
+        "host": host,
+        "port": bound,
+        "url": f"http://{shown_host}:{bound}/",
+    }
     if door is not None:
         # the entry stays when the server stops: `lem serve --tailscale-off` takes it out
         said["tailscale"] = {
@@ -4275,7 +4323,7 @@ def listen(host: str, verbose: bool, settings: dict) -> None:
         flush=True,
     )
 
-    def stop_now(_signum, _frame) -> None:
+    def stop_now(_signum: int, _frame: types.FrameType | None) -> None:
         raise KeyboardInterrupt
 
     signal.signal(signal.SIGTERM, stop_now)
@@ -4430,7 +4478,7 @@ def main() -> None:
             (args.port, "--port"),
             (args.tailscale_port, "--tailscale-port"),
         ):
-            if value is not None and not 0 < value < 65536:
+            if value is not None and not 0 < value < PORT_LIMIT:
                 raise ServeError(f"{flag} {value} is no port: give one from 1 to 65535")
         if args.ensure:
             print(json.dumps(ensure(), indent=2))
@@ -4457,7 +4505,7 @@ def main() -> None:
                     gone = lem_state.main_checkout(Path(directory))
                 except lem_state.StateError:
                     # a repository that is gone is still taken out by the path it had
-                    gone = Path(os.path.abspath(directory))
+                    gone = Path(os.path.abspath(directory))  # noqa: PTH100 - abspath folds `..` and follows no link; pathlib has no such call
                 if not lem_state.unregister(gone):
                     raise ServeError(
                         f"{gone} is not in the list of workspaces; `lem serve --list` shows it"
@@ -4468,7 +4516,7 @@ def main() -> None:
         if args.push_test:
             sent = lem_push.send_all()
             said = (
-                f"{len(sent)} {'device' if len(sent) == 1 else 'devices'}; the push service took {sum(r['status'] == 201 for r in sent)}"
+                f"{len(sent)} {'device' if len(sent) == 1 else 'devices'}; the push service took {sum(r['status'] == HTTPStatus.CREATED for r in sent)}"
                 if sent
                 else 'no device has turned the board\'s notifications on: open the board on the device, then "Notify this device" on Waits for you'
             )
@@ -4503,7 +4551,7 @@ def main() -> None:
             settle_names()
             print(json.dumps(Machine().listing(), indent=2))
             return
-        listen(args.host or HOST, args.verbose, serve_settings())
+        listen(args.host or HOST, verbose=args.verbose, settings=serve_settings())
     except (ServeError, lem_state.StateError, lem_push.PushError) as error:
         sys.exit(f"serve.py: {error}")
 

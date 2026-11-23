@@ -13,8 +13,10 @@ import json
 import subprocess
 import sys
 import unittest
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import IO, cast
 from unittest import mock
 
 sys.dont_write_bytecode = True
@@ -55,7 +57,7 @@ class Door(unittest.TestCase):
             door(Host=SERVED, Tailscale_User_Login="guest@example.com"),
             serve.NOT_THE_OWNER,
         )
-        self.assertIn("carries none", door(Host=SERVED))
+        self.assertIn("carries none", door(Host=SERVED) or "")
         self.assertEqual(
             serve.door_refusal(
                 headers(
@@ -74,19 +76,18 @@ class Door(unittest.TestCase):
     def test_a_request_through_funnel_is_refused_whatever_its_login(self) -> None:
         self.assertIn(
             "Funnel",
-            door(
-                Host=SERVED, Tailscale_User_Login=OWNER, Tailscale_Funnel_Request="?1"
-            ),
+            door(Host=SERVED, Tailscale_User_Login=OWNER, Tailscale_Funnel_Request="?1")
+            or "",
         )
 
     def test_another_host_name_is_refused(self) -> None:
         self.assertIn(
             "not the board's name",
-            door(Host="evil.example.com", Tailscale_User_Login=OWNER),
+            door(Host="evil.example.com", Tailscale_User_Login=OWNER) or "",
         )
         self.assertIn(
             "not the board's name",
-            door(Host=f"{SERVED}:443", Tailscale_User_Login=OWNER),
+            door(Host=f"{SERVED}:443", Tailscale_User_Login=OWNER) or "",
         )
 
     def test_a_post_from_another_site_is_refused_and_one_from_the_board_is_let_in(
@@ -110,7 +111,8 @@ class Door(unittest.TestCase):
                 Tailscale_User_Login=OWNER,
                 Origin=own,
                 Sec_Fetch_Site="cross-site",
-            ),
+            )
+            or "",
         )
         self.assertIn(
             "another origin",
@@ -119,7 +121,8 @@ class Door(unittest.TestCase):
                 Host=SERVED,
                 Tailscale_User_Login=OWNER,
                 Origin="https://evil.example.com",
-            ),
+            )
+            or "",
         )
 
 
@@ -148,7 +151,8 @@ class Actions(unittest.TestCase):
             "on this Mac",
             self.refusal(
                 "100.64.0.2", Host="127.0.0.1:4536", Origin="http://127.0.0.1:4536"
-            ),
+            )
+            or "",
         )
         self.assertIn(
             "another site",
@@ -156,27 +160,30 @@ class Actions(unittest.TestCase):
                 Host="127.0.0.1:4536",
                 Origin="http://127.0.0.1:4536",
                 Sec_Fetch_Site="cross-site",
-            ),
+            )
+            or "",
         )
         self.assertIn(
             "another origin",
-            self.refusal(Host="127.0.0.1:4536", Origin="http://evil.example.com"),
+            self.refusal(Host="127.0.0.1:4536", Origin="http://evil.example.com") or "",
         )
-        self.assertIn("or none", self.refusal(Host="127.0.0.1:4536"))
+        self.assertIn("or none", self.refusal(Host="127.0.0.1:4536") or "")
         # a form of a page whose policy sends no referrer posts `Origin: null`: still refused, so the board's
         # pages send `Referrer-Policy: same-origin` (`Handler.send`)
         self.assertIn(
             "or none",
             self.refusal(
                 Host="127.0.0.1:4536", Origin="null", Sec_Fetch_Site="same-origin"
-            ),
+            )
+            or "",
         )
         # a name of another site that resolves to 127.0.0.1 carries that name in Host
         self.assertIn(
             "not the board's own",
             self.refusal(
                 Host="evil.example.com:4536", Origin="http://evil.example.com:4536"
-            ),
+            )
+            or "",
         )
 
 
@@ -213,9 +220,9 @@ class StartBehind(unittest.TestCase):
         )
         self.assertIn(
             "The Lem this project's sessions load is 0.1.6, and this board runs Lem 0.3.0",
-            said,
+            said or "",
         )
-        self.assertIn("/plugin marketplace update lem", said)
+        self.assertIn("/plugin marketplace update lem", said or "")
 
     def test_a_project_one_release_behind_or_with_none_of_its_own_starts(self) -> None:
         self.assertIsNone(
@@ -343,7 +350,9 @@ class Duties(unittest.TestCase):
     PR = "pull request https://github.com/acme/shop/pull/41"
 
     @staticmethod
-    def ev(minute: float, event: str, task: str = "gift-note", **fields) -> dict:
+    def ev(
+        minute: float, event: str, task: str = "gift-note", **fields: object
+    ) -> dict:
         return {
             "ts": f"2026-11-20T09:{minute:02d}:00Z",
             "event": event,
@@ -363,7 +372,9 @@ class Duties(unittest.TestCase):
             minute, "task.state", task, status=status, text=text, lines=list(lines)
         )
 
-    def model(self, *events: dict, sessions=None, demo: bool = False):
+    def model(
+        self, *events: dict, sessions: dict | None = None, demo: bool = False
+    ) -> "bm.Model":
         m = bm.derive(
             list(events), [], 1_800_000_000_000, meta={"demo": True} if demo else {}
         )
@@ -802,7 +813,7 @@ class Duties(unittest.TestCase):
                 "gift-note",
                 "owner",
                 "def456789" + "0" * 31,
-                True,
+                standing=True,
             ),
             [
                 "merge",
@@ -824,13 +835,13 @@ class Duties(unittest.TestCase):
         class Space:
             name = "shop"
 
-            def __init__(self, m) -> None:
+            def __init__(self, m: "bm.Model") -> None:
                 self.m = m
 
-            def model(self):
+            def model(self) -> "bm.Model":
                 return self.m
 
-            def landing_of(self, slug):
+            def landing_of(self, slug: str) -> dict:
                 # no proposed tip: a press that got past the acts is refused at the tip, and nothing merges
                 return {}
 
@@ -885,7 +896,7 @@ class Duties(unittest.TestCase):
             "with the commits and the files that moved since the checks, and the answer names its base (`--base`); the owner's merge "
             "stands, and goes through after a read that says `Base: safe.`; on `Base: another round.` the task lands again"
         )
-        landing = {
+        landing: dict = {
             "proposed": tip,
             "pr": {"number": 41, "url": "https://github.com/acme/shop/pull/41"},
             "base": "main",
@@ -910,13 +921,13 @@ class Duties(unittest.TestCase):
         class Space:
             name, acted = "shop", 0
 
-            def landing_of(self, slug):
+            def landing_of(self, slug: str) -> dict:
                 return landing
 
-            def model(self):
+            def model(self) -> "bm.Model":
                 return model(*events)
 
-        def refused(*args):
+        def refused(workspace: object, *args: str) -> subprocess.CompletedProcess:
             # what land.py's cmd_merge keeps for his merge that the moved base refused, and the refusal it logs
             landing.update(
                 merge_refused={
@@ -949,7 +960,12 @@ class Duties(unittest.TestCase):
             return subprocess.CompletedProcess(args, 1, "", said + "\n")
 
         class Now:
-            def __init__(self, target, name=None, daemon=None) -> None:
+            def __init__(
+                self,
+                target: Callable[[], None],
+                name: str | None = None,
+                daemon: object = None,
+            ) -> None:
                 self.target = target
 
             def start(self) -> None:
@@ -996,14 +1012,14 @@ class Duties(unittest.TestCase):
             ),
         )
 
-    def space(self, m, landing: dict):
+    def space(self, m: "bm.Model", landing: dict) -> object:
         class Space:
             name, acted = "shop", 0
 
-            def model(self):
+            def model(self) -> "bm.Model":
                 return m
 
-            def landing_of(self, slug):
+            def landing_of(self, slug: str) -> dict:
                 return landing
 
         return Space()
@@ -1075,7 +1091,12 @@ class Duties(unittest.TestCase):
         self.addCleanup(serve.NOTES.merging.pop, ("shop", "gift-note"), None)
 
         class Now:
-            def __init__(self, target, name=None, daemon=None) -> None:
+            def __init__(
+                self,
+                target: Callable[[], None],
+                name: str | None = None,
+                daemon: object = None,
+            ) -> None:
                 self.target = target
 
             def start(self) -> None:
@@ -1166,7 +1187,7 @@ class MovedBaseRead(unittest.TestCase):
     PR = Duties.PR
     ev = staticmethod(Duties.ev)
 
-    def model(self, *events: dict):
+    def model(self, *events: dict) -> "bm.Model":
         return bm.derive(list(events), [], 1_800_000_000_000, meta={})
 
     def proposed(self) -> tuple:
@@ -1201,6 +1222,7 @@ class MovedBaseRead(unittest.TestCase):
         minute: float,
         call: str,
         verdict: str = "merge",
+        *,
         calls: bool = False,
         base: str = "m2m2m2m2m",
     ) -> dict:
@@ -1463,7 +1485,7 @@ class StoppedSession(unittest.TestCase):
     stop (`bm.stop_due`, whose cases are in test_board_model.py)."""
 
     @staticmethod
-    def ev(hhmm: str, event: str, **fields) -> dict:
+    def ev(hhmm: str, event: str, **fields: object) -> dict:
         return {
             "ts": f"2026-11-22T{hhmm}{'' if hhmm.count(':') == 2 else ':00'}Z",
             "event": event,
@@ -1485,6 +1507,7 @@ class StoppedSession(unittest.TestCase):
     def live(
         session: str = "S1",
         sign: str | None = "2026-11-22T10:15:42Z",
+        *,
         shell: bool = False,
         signs: bool = True,
     ) -> dict:
@@ -1501,9 +1524,10 @@ class StoppedSession(unittest.TestCase):
             }
         }
 
-    def landing(self) -> tuple:
+    @classmethod
+    def landing(cls) -> tuple:
         return (
-            self.ev(
+            cls.ev(
                 "01:33",
                 "session.open",
                 session="S1",
@@ -1511,15 +1535,15 @@ class StoppedSession(unittest.TestCase):
                 phase="land",
                 why="handoff",
             ),
-            self.ev(
+            cls.ev(
                 "10:15",
                 "task.state",
                 status="landing",
                 text="the base moved: the checks run again",
                 lines=[],
             ),
-            self.ev("10:18", "gate.start", tip="5ccc53d36", commands=1),
-            self.ev(
+            cls.ev("10:18", "gate.start", tip="5ccc53d36", commands=1),
+            cls.ev(
                 "10:22",
                 "gate",
                 command="bash tests/all.sh",
@@ -1527,12 +1551,10 @@ class StoppedSession(unittest.TestCase):
                 last="all suites passed",
                 tip="5ccc53d36",
             ),
-            self.ev(
-                "10:54", "gate.end", result="passed", seconds=2156, tip="5ccc53d36"
-            ),
+            cls.ev("10:54", "gate.end", result="passed", seconds=2156, tip="5ccc53d36"),
         )
 
-    def model(self, *events: dict, at: str, sessions: dict | None = None):
+    def model(self, *events: dict, at: str, sessions: dict | None = None) -> "bm.Model":
         m = bm.derive(list(events), [], self.now(at))
         m.sessions = self.live() if sessions is None else sessions
         return m
@@ -1811,19 +1833,19 @@ class StoppedOpen(unittest.TestCase):
     class Space:
         name = "shop"
 
-        def __init__(self, m) -> None:
+        def __init__(self, m: "bm.Model") -> None:
             self.m, self.looked = m, 0
 
-        def model(self):
+        def model(self) -> "bm.Model":
             return self.m
 
         def look_sessions(self) -> None:
             self.looked += 1
 
-    def stopped(self, live: bool = True) -> "StoppedOpen.Space":
+    def stopped(self, *, live: bool = True) -> "StoppedOpen.Space":
         s = StoppedSession
         events = (
-            *s.landing(s),
+            *s.landing(),
             s.ev("11:39", "session.wake", session="S1", why="status"),
             s.ev(
                 "11:49",
@@ -1851,7 +1873,7 @@ class StoppedOpen(unittest.TestCase):
         }
         return self.Space(m)
 
-    def act(self, space, printed: dict) -> tuple[dict, list, list]:
+    def act(self, space: "StoppedOpen.Space", printed: dict) -> tuple[dict, list, list]:
         asked = []
         ran = mock.Mock(
             side_effect=lambda workspace, *args: (
@@ -1885,7 +1907,7 @@ class StoppedOpen(unittest.TestCase):
 
     def test_an_open_that_finds_work_says_so_and_opens_nothing(self) -> None:
         space = self.stopped()
-        said, asked, logged = self.act(
+        said, _, logged = self.act(
             space,
             {
                 "task": "gift-note",
@@ -2029,7 +2051,7 @@ class DutyKey(unittest.TestCase):
             mock.patch.object(
                 serve,
                 "merge_in_thread",
-                lambda workspace, slug, landing, by, tip, failed=None, standing=False: (
+                lambda workspace, slug, landing, by, tip, failed, standing=False: (
                     started.append(by),
                     failed(),
                 ),
@@ -2061,10 +2083,10 @@ class ForgeLookBesideAMerge(unittest.TestCase):
             self.state = Path("/lem-unit/shop/.lem/state")
             self.forge: dict = {"looked": None, "problem": None, "done": set()}
 
-        def model(self):
+        def model(self) -> object:
             return type("Model", (), {"meta": {}})()
 
-        def settings(self):
+        def settings(self) -> dict:
             return {"main": self.path, "branch": {"base": "main"}}
 
     def test_a_task_whose_merge_runs_gets_no_merged_and_no_problem_line_and_another_still_gets_its_line(
@@ -2092,7 +2114,7 @@ class ForgeLookBesideAMerge(unittest.TestCase):
         )
         ran = []
 
-        def run(path, repo, *args):
+        def run(path: Path, repo: Path, *args: str) -> subprocess.CompletedProcess:
             ran.append(args)
             return subprocess.CompletedProcess(
                 [],
@@ -2134,7 +2156,7 @@ class ForgeLookBesideAMerge(unittest.TestCase):
             {"task": "gift-note", "n": 1, "url": "https://github.com/acme/shop/pull/1"}
         ]
 
-        def look(main, base, due):
+        def look(main: Path, base: str, due: list[int]) -> dict:
             # the merge's process ends while `gh` answers: its thread takes the task off NOTES.merging
             serve.NOTES.merging.pop(("shop", "gift-note"))
             return {1: {"state": "MERGED"}}
@@ -2149,7 +2171,7 @@ class ForgeLookBesideAMerge(unittest.TestCase):
         )
         ran = []
 
-        def run(path, repo, *args):
+        def run(path: Path, repo: Path, *args: str) -> subprocess.CompletedProcess:
             ran.append(args)
             return subprocess.CompletedProcess(
                 [],
@@ -2181,7 +2203,7 @@ class Prune(unittest.TestCase):
     look and each PRUNE_SECONDS after, never for example tasks, and one log line when it did something."""
 
     class Place:
-        def __init__(self, demo: bool = False) -> None:
+        def __init__(self, *, demo: bool = False) -> None:
             self.name, self.path, self.pruned, self.demo = (
                 "shop",
                 "/lem-unit/shop",
@@ -2189,10 +2211,10 @@ class Prune(unittest.TestCase):
                 demo,
             )
 
-        def model(self):
+        def model(self) -> object:
             return type("Model", (), {"meta": {"demo": True} if self.demo else {}})()
 
-        def settings(self):
+        def settings(self) -> dict:
             return {"root": self.path}
 
     def test_it_runs_at_the_first_look_then_each_period_and_never_for_example_tasks(
@@ -2204,7 +2226,9 @@ class Prune(unittest.TestCase):
         ran = []
         said = '{"said": "removed 3 files", "files": 3, "bytes": 120, "skipped": [], "failed": []}'
 
-        def run(workspace, file, *args):
+        def run(
+            workspace: object, file: str, *args: str
+        ) -> subprocess.CompletedProcess:
             ran.append((file, *args))
             return subprocess.CompletedProcess([], 0, said, "")
 
@@ -2299,8 +2323,12 @@ class KeepDays(unittest.TestCase):
     none while they do not read, even with an older read on hand."""
 
     @staticmethod
-    def reader(settings, problems=None):
-        return type("Reader", (), {"settings": settings, "problems": problems or {}})()
+    def reader(settings: object, problems: dict | None = None) -> "bm.Reader":
+        # a stand-in with the two facts keep_days_of reads
+        return cast(
+            "bm.Reader",
+            type("Reader", (), {"settings": settings, "problems": problems or {}})(),
+        )
 
     def test_the_page_gets_the_settings_number_of_now(self) -> None:
         self.assertEqual(
@@ -2402,7 +2430,10 @@ class Look(unittest.TestCase):
         path = Path(__file__).resolve().parents[2] / "bin" / "lem"
         loader = importlib.machinery.SourceFileLoader("lem_command", str(path))
         command = importlib.util.module_from_spec(
-            importlib.util.spec_from_loader("lem_command", loader)
+            cast(
+                "importlib.machinery.ModuleSpec",
+                importlib.util.spec_from_loader("lem_command", loader),
+            )
         )
         loader.exec_module(command)
         with tempfile.TemporaryDirectory() as folder:
@@ -2433,7 +2464,10 @@ class Look(unittest.TestCase):
         path = Path(__file__).resolve().parents[2] / "bin" / "lem"
         loader = importlib.machinery.SourceFileLoader("lem_command", str(path))
         command = importlib.util.module_from_spec(
-            importlib.util.spec_from_loader("lem_command", loader)
+            cast(
+                "importlib.machinery.ModuleSpec",
+                importlib.util.spec_from_loader("lem_command", loader),
+            )
         )
         loader.exec_module(command)
         started = []
@@ -2469,7 +2503,6 @@ class LogLook(unittest.TestCase):
         self,
     ) -> None:
         import json
-        import os
         import tempfile
 
         with tempfile.TemporaryDirectory() as folder:
@@ -2528,7 +2561,7 @@ class LogLook(unittest.TestCase):
                     ]
                 )
             )
-            os.replace(new, log)
+            new.replace(log)
             now, changed = look.changes()
             self.assertIsNotNone(
                 changed, "the same count of lines on a new log is a change"
@@ -2548,7 +2581,6 @@ class LogLook(unittest.TestCase):
     def test_a_log_replaced_between_the_look_at_its_name_and_its_open_is_counted_from_its_start(
         self,
     ) -> None:
-        import os
         import tempfile
         from unittest import mock
 
@@ -2564,10 +2596,10 @@ class LogLook(unittest.TestCase):
             new.write_bytes(b"{}\n" * 3)
             real_open = Path.open
 
-            def open_after_replace(path, *args, **kwargs):
+            def open_after_replace(path: Path, mode: str = "r") -> IO:
                 if path == log and new.exists():
-                    os.replace(new, log)
-                return real_open(path, *args, **kwargs)
+                    new.replace(log)
+                return real_open(path, mode)
 
             with mock.patch.object(Path, "open", open_after_replace):
                 self.assertEqual(look.count(), 3)
@@ -2593,10 +2625,10 @@ class Configure(unittest.TestCase):
         self.home.stop()
         self.folder.cleanup()
 
-    def configure(self, port: int):
-        from types import SimpleNamespace
+    def configure(self, port: int) -> tuple[object, mock.Mock, mock.Mock, mock.Mock]:
+        import argparse
 
-        args = SimpleNamespace(
+        args = argparse.Namespace(
             port=port, tailscale_port=None, tailscale=False, tailscale_off=False
         )
         with (
