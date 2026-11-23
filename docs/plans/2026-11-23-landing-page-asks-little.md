@@ -10,19 +10,30 @@ Size: full, because the page gets four new sections and a new order, and the REA
    1. A visitor opens the page in a window of 1280 x 800.
    2. Under the lead line, the visitor reads "For a developer who works alone, and for a team on Linear or GitHub Issues."
    3. The two install lines, both copy buttons and "Lem needs agterm." are still in that first screen.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh` (its checks for_line and the drawn first screen, layer and contrast checks)
 2. Section 01, "A task needs you three times at most", shows the three touches of `docs/when-lem-needs-you.md` as three cards: the shape (the interview and your yes to the criteria), a circuit breaker, and a pull request that the merge agent calls you for. Below the cards are the two tracks and the two dialogs of the present page, each dialog still captioned as an illustration.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh` (its checks touches and captions)
 3. Section 02, "What you can rely on", lists the five guarantees of the README in their words, then the block "Green, or not green with each reason" with its sentence "Green means you can merge without a read." and its picture. One sentence says what "careful" means, after `docs/flow.md`: a change that can affect what you said must never go wrong is careful, every reviewer reads it, and you merge it.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh` (its checks rely and green)
 4. A section "Lem learns your repository" names the profile, the personas, the lessons and the rulings, and says that each is a file in your repository's git. It says that a second model family, Codex, reviews the larger changes and answers as a second expert.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh` (its checks learns)
 5. A section "Start from a ticket" shows `/lem new ABC-12` for a Linear ticket and `/lem new 42` for a GitHub issue. It says what a team shares and what stays with each developer:
    1. Ana and Ben work on one repository with Lem and Linear.
    2. They share the settings in git, the tickets and the pull requests.
    3. Ana's board shows the tasks on Ana's computer, and Ben's board shows the tasks on Ben's.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh` (its checks tickets)
 6. The install section keeps its present block and its link to the removal steps, and says that Lem is MIT, with a link to `LICENSE`.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh` (its checks license, again and guides)
 7. The README holds each new fact the page states that no guide states: the line of criterion 1, what a team shares and that each developer has their own board, and that Lem is MIT.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh` (its checks for_line, tickets and license, which read README.md)
 8. Neither the page nor the README names the Plannotator Inbox: `grep -i plannotator site/index.html README.md` prints nothing. The guides keep their own lines.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh` (its checks no_inbox)
 9. The dot "You can act here" is the one mark of the page for a step of the owner: each such step in the diagram and on the three cards carries it, and no other sign marks one.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh` (its checks diagram, dot and the dot as drawn)
 10. The sections "The board", "On your phone" and "Many tasks at once" keep their text, except the Inbox sentence of criterion 8 and the green block that moves to section 02. The page's order is: the hero, 01, 02, the board, on your phone, many tasks at once, Lem learns your repository, start from a ticket, install.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh` (its checks sections and kept)
 11. The copy buttons stay the page's one script, and `bash tests/test-site.sh` passes. Its list of sections follows the new page, and its upper limit of visible words rises to the new count, rounded up to the next hundred.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh` (its checks switch, words and the whole suite)
 
 ## The page after the change
 
