@@ -460,8 +460,9 @@ fi
 git -C "$CQ" worktree remove --force "$WORK/corr-wt"
 gid=$(field 'd["groups"][0]["id"]' <<<"$out")
 if [ "$(status_of corr record "$gid" --decision lesson --verdict unasked)" = 1 ] && [ "$(status_of corr record nope --decision not_lesson --verdict unasked)" = 1 ] \
+  && [ "$(status_of corr record "$gid" --decision lesson --verdict unasked --lesson "Never push to a branch the settings do not name.")" = 1 ] \
   && [ "$(corr show "$gid" | field 'len(d)')" = 2 ]; then
-  pass "a lesson without its sentence and an unknown group are refused, and show gives every entry of a group"
+  pass "a lesson without its sentence or without its file and an unknown group are refused, and show gives every entry of a group"
 else
   fail "record refusals"
 fi

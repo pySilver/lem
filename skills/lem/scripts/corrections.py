@@ -10,7 +10,7 @@ should learn a lesson from. The retro, a big model, decides about each.
     lem corrections list                unreviewed groups as JSON, most sessions first
     lem corrections show ID             every entry of one group in full
     lem corrections lessons             the lessons earlier retros recorded, with their targets
-    lem corrections record ID --decision lesson|not_lesson --verdict VERDICT [--target PATH] [--lesson TEXT]
+    lem corrections record ID --decision lesson|not_lesson --verdict VERDICT [--target PATH --lesson TEXT]   (a lesson needs both)
                                         write down what was decided about a group
 
 It is an optional part, and it is the owner's choice twice. The hook sends the owner's message
@@ -490,6 +490,11 @@ def cmd_lessons(where: Path) -> None:
 def cmd_record(where: Path, gid: str, decision: str, verdict: str, target: str | None, lesson: str | None) -> None:
     if decision == "lesson" and not (lesson or "").strip():
         raise QueueError("a lesson needs --lesson: the sentence an agent could follow next time")
+    # A lesson with no file is read by no later session, and the retro's list then counts it as
+    # kept: two such rows were recorded before this refusal (corrections-reviews.jsonl, 2026-11-20
+    # and 2026-11-21 UTC).
+    if decision == "lesson" and not (target or "").strip():
+        raise QueueError("a lesson needs --target: the file the lesson went to, or the one that already holds it")
     entries = unreviewed(where).get(gid)
     if not entries:
         raise QueueError(f"no unreviewed group {gid}; `lem corrections list` gives the ids")
