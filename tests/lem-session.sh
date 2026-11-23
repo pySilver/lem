@@ -203,11 +203,19 @@ fi
 # The wait: it ends when the task's state is one it names, and with the first event of a name logged after its start.
 sess wait gift-note --until open,landed --every 0.1 > "$WORK/waited" 2>&1 &
 waiter=$!
+# a plan.talk logged before the event waiter starts, which it does not count; the next one is logged again until the
+# waiter ends (60 s at most), since nothing tells when a waiter in the background has started under the load of all.sh
+pr log gift-note plan.talk reviewer=codex turns:=2 questions:=0 settled:=0 open:=0 repaired:=0 design:=0 unargued:=0 root:=0 layer:=0 shared:=0 >/dev/null
 sess wait gift-note --event plan.talk --every 0.1 > "$WORK/talked" 2>&1 &
 talker=$!
-sleep 0.5
-pr log gift-note plan.talk reviewer=codex turns:=2 questions:=0 settled:=0 open:=0 repaired:=0 design:=0 unargued:=0 root:=0 layer:=0 shared:=0 >/dev/null
-wait "$talker"
+tries=0
+while kill -0 "$talker" 2>/dev/null && [ "$tries" -lt 600 ]; do
+  pr log gift-note plan.talk reviewer=codex turns:=3 questions:=0 settled:=0 open:=0 repaired:=0 design:=0 unargued:=0 root:=0 layer:=0 shared:=0 >/dev/null
+  tries=$((tries + 1))
+  sleep 0.1
+done
+kill "$talker" 2>/dev/null || true
+wait "$talker" || true
 pr state gift-note ready "the report is written" >/dev/null
 pr state gift-note landing "the checks run" >/dev/null
 pr state gift-note open "proposed" >/dev/null
@@ -226,7 +234,7 @@ waiter=$!
 sleep 0.3
 "$PY" -c 'import json, sys; n = json.load(open(sys.argv[1])); json.dump([x for x in n if x["id"] != "S-2"], open(sys.argv[1], "w"))' "$TREE"
 wait "$waiter"
-if [ "$(field '(d["status"], d["line"], d["gone"])' < "$WORK/waited" 2>&1)" = "('open', 'proposed', False)" ] && [ "$(field 'd["event"]["event"]' < "$WORK/talked" 2>&1)" = "plan.talk" ] \
+if [ "$(field '(d["status"], d["line"], d["gone"])' < "$WORK/waited" 2>&1)" = "('open', 'proposed', False)" ] && [ "$(field '(d["event"]["event"], d["event"]["turns"])' < "$WORK/talked" 2>&1)" = "('plan.talk', 3)" ] \
   && [ "$(field '(d["gone"], d["session"], d["status"])' < "$WORK/gone" 2>&1)" = "(True, 'S-2', 'open')" ] && grep -qF "lem session open gift-note --why dead" "$WORK/gone" \
   && [ "$companion_lived" = 1 ] && [ "$(field '(d["gone"], d["companion"], d["status"])' < "$WORK/companion" 2>&1)" = "(True, 'C-9', 'open')" ] && grep -qF "## Plan talk" "$WORK/companion"; then
   pass "wait ends when the task's state is one it names, at the first event of its name logged after its start, when the task's session is gone, and with --companion when that companion is gone, which it says"
