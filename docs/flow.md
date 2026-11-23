@@ -90,6 +90,8 @@ for a larger change. A builder fixes each must-fix, in two rounds at most. Then 
 
 Many tasks build and land at the same time, and Lem merges one at a time. The checks start only
 while the load of your computer is below 40. Set a different limit with `lem project load --start
-N`. A request waits for a
-task whose result it needs, or that you put before it, until that task merges or gets its answer.
+N`. When many tasks wait for the checks, the task that waits longest starts first, for all the
+repositories on your computer. A task that another task waits for starts before it. A request
+waits for a task whose result it needs, or that you put before it, until that task merges or gets
+its answer.
 When that task is dropped, the request [waits for you](when-lem-needs-you.md#what-waits-for-you).

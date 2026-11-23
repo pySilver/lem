@@ -221,8 +221,9 @@ Each script's module docstring says what it does and why; this list says where e
   `owner.jsonl`, the owner's away and back; `machine.toml`, this machine's settings, `[load]`,
   `[serve]`, `[peers]`, `[seats]` (`merger` and `session`, for a repository whose settings name
   none) and `[handoff]`; `workspaces.json`, the repositories the server shows; and what the server
-  and the checks keep there: `serve.lock`, `serve.log`, `load.lock`, the push key `push-key.pem` and
-  the devices `push.json`.
+  and the checks keep there: `serve.lock`, `serve.log`, `load.lock`, `load.line/` (the line of the
+  runs of the checks that wait for the load, one locked file for each), the push key `push-key.pem`
+  and the devices `push.json`.
 - `.lem/`: Lem's own settings, profile, cast and lessons, in the places every repository has them.
   Its `state/`, which git ignores, is the state of a repository's Lem: the tasks, the event log,
   the night reports, the naps, the experts' folders, a panel's copies, the panels' folders

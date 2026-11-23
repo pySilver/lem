@@ -4,12 +4,17 @@ What only git can show stays in the blocks of tests/, which run the real command
 repositories; here a rule gets the text git gave and is asked for its result.
 """
 
+import datetime as dt
 import importlib
+import json
+import os
+import subprocess
 import sys
 import tempfile
 import types
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts"))
@@ -1212,3 +1217,326 @@ class BarFile(unittest.TestCase):
             own.parent.mkdir(parents=True)
             own.write_text("---\nname: lem-builder\n---\n")
             self.assertEqual(land.bar_file(Path(main)), {"file": str(own), "of": "project"})
+
+
+# The load gate's line, with the stories' slugs and times of 2026-11-23 (UTC).
+LEM_TASK = "fast-track-checks-documents"
+TALK_TASK = "plan-talk-plugin-dir"
+
+
+def at(clock: str) -> float:
+    """The time of CLOCK, `HH:MM` UTC of the stories' day, as `time.time()` gives it."""
+    hours, minutes = map(int, clock.split(":"))
+    return dt.datetime(2026, 11, 23, hours, minutes, tzinfo=dt.timezone.utc).timestamp()
+
+
+def repository(parent: Path, name: str) -> Path:
+    """A throwaway repository: its state folder is where `project.py` finds it, under its main checkout."""
+    path = parent / name
+    path.mkdir()
+    subprocess.run(["git", "init", "-q", str(path)], check=True)
+    return path
+
+
+def block(repo: Path, slug: str, *texts: str) -> None:
+    """The task SLUG's state.md in REPO, its blocks newest first, each `STATUS: LINE` with its other lines."""
+    stamp = "2026-11-23T12:05Z"
+    file = repo / ".lem" / "state" / "tasks" / slug / "state.md"
+    file.parent.mkdir(parents=True, exist_ok=True)
+    file.write_text("\n\n".join(f"{stamp} {text}" for text in texts) + "\n", encoding="utf-8")
+
+
+class LineCase(unittest.TestCase):
+    """The looks of runs that wait, played on one line in a home folder of their own, with the clock
+    and the load as each case gives them. Each run is an entry with a process id of its own, held
+    by an open file of this process, as its own process holds it."""
+
+    def setUp(self) -> None:
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.home = Path(folder.name) / "home"
+        self.home.mkdir()
+        self.folder = self.home / "load.line"
+        self.lock = (self.home / "load.lock").open("a+", encoding="utf-8")
+        self.addCleanup(self.lock.close)
+        self.lem = repository(Path(folder.name), "lem")
+        self.pids = iter(range(90001, 90100))
+
+    def join(self, slug: str, clock: str, repo: Path | None = None) -> dict:
+        with mock.patch("time.time", return_value=at(clock)):
+            own = land.line_join(self.folder, slug, str(repo or self.lem), next(self.pids))
+        self.addCleanup(land.line_leave, own)
+        return own
+
+    def look(self, own: dict, clock: str, load: float = 30.0, start: float = 40.0) -> dict:
+        with mock.patch("time.time", return_value=at(clock)):
+            return land.gate_look(self.lock, self.folder, own, load, start)
+
+    def names(self) -> list[str]:
+        return sorted(path.name for path in self.folder.glob("*.json"))
+
+
+class TheLongestWaitStartsFirst(LineCase):
+    """Criterion 1: when the load falls below the number, the landing that waits longest starts its
+    checks first, whichever landing looks at the load first."""
+
+    def test_the_order_puts_the_wait_that_began_first_first(self) -> None:
+        line = [{"task": TALK_TASK, "repo": "/r/lem", "since": at("12:17"), "wanted": False},
+                {"task": LEM_TASK, "repo": "/r/lem", "since": at("12:01"), "wanted": False}]
+        self.assertEqual([entry["task"] for entry in land.line_order(line)], [LEM_TASK, TALK_TASK])
+
+    def test_the_run_that_looks_first_waits_behind_the_longer_wait(self) -> None:
+        first = self.join(LEM_TASK, "12:01")
+        talk = self.join(TALK_TASK, "12:17")
+        # 12:19, the load at 30 under the number 40: the plan talk's task looks first, and waits on
+        look = self.look(talk, "12:19")
+        self.assertEqual((look["go"], look["reason"], look["behind"], look["behind_repo"], look["why"]), (False, "behind", LEM_TASK, None, "longer"))
+        self.assertEqual(self.names(), ["90001.json", "90002.json"])
+        # the longest wait starts at its own look, writes the last start and leaves the line
+        self.assertTrue(self.look(first, "12:19")["go"])
+        self.lock.seek(0)
+        self.assertEqual(json.loads(self.lock.read())["task"], LEM_TASK)
+        self.assertEqual(self.names(), ["90002.json"])
+        # a minute later, with the load still under the number, the plan talk's task starts
+        self.assertEqual(self.look(talk, "12:19")["reason"], "after")
+        self.assertTrue(self.look(talk, "12:20")["go"])
+        self.assertEqual(self.names(), [])
+
+
+class OneLineForTheMachine(LineCase):
+    """Criterion 2: the line is one for all the repositories on the machine."""
+
+    def test_a_landing_of_one_repository_starts_before_a_later_one_of_another(self) -> None:
+        mybaze = repository(self.lem.parent, "mybaze")
+        lem = self.join("keys-help-in-a-sticky-footer", "12:01")
+        other = self.join("search-filters", "12:05", mybaze)
+        look = self.look(other, "12:06")
+        self.assertEqual((look["go"], look["behind"], look["behind_repo"], look["why"]), (False, "keys-help-in-a-sticky-footer", str(self.lem), "longer"))
+        self.assertTrue(self.look(lem, "12:06")["go"])
+
+
+class WantedGoesFirst(LineCase):
+    """Criterion 3: a landing that another open task of its repository waits for, by the `after:` line
+    of a queued task or of a task blocked by a red base, goes before the longest wait; of two such
+    landings the one that waits longest goes first."""
+
+    def test_the_order_puts_a_wanted_landing_before_a_longer_wait(self) -> None:
+        line = [{"task": "keys-help-in-a-sticky-footer", "repo": "/r/lem", "since": at("12:00"), "wanted": False},
+                {"task": "fix-red-base", "repo": "/r/lem", "since": at("12:10"), "wanted": True},
+                {"task": "fix-flaky-test", "repo": "/r/lem", "since": at("12:05"), "wanted": True}]
+        self.assertEqual([entry["task"] for entry in land.line_order(line)], ["fix-flaky-test", "fix-red-base", "keys-help-in-a-sticky-footer"])
+
+    def test_the_tasks_waited_for_are_read_from_queued_and_red_base_blocks(self) -> None:
+        block(self.lem, "new-sessions-open-at-tail", "blocked: the base is red\nafter: fix-red-base")
+        block(self.lem, "board-filters", "queued: waits for one task to land\nafter: fix-flaky-test")
+        # blocked for another reason, and an `after:` line in an older block only: no wait for a landing
+        block(self.lem, "two-builders-failed", "blocked: a builder ended two times with no report\nafter: other-one")
+        block(self.lem, "started-since", "building: the lead builds", "queued: waits for one task to land\nafter: an-old-one")
+        project = land.lem_sibling.module(land.SCRIPTS / "project.py")
+        self.assertEqual(land.waited_for(land.line_state(project, str(self.lem)), project), {"fix-red-base", "fix-flaky-test"})
+
+    def test_the_repair_of_a_red_base_starts_before_the_longest_wait(self) -> None:
+        keys = self.join("keys-help-in-a-sticky-footer", "12:00")
+        block(self.lem, "new-sessions-open-at-tail", "blocked: the base is red\nafter: fix-red-base")
+        repair = self.join("fix-red-base", "12:10")
+        look = self.look(keys, "12:11")
+        self.assertEqual((look["go"], look["behind"], look["why"]), (False, "fix-red-base", "wanted"))
+        self.assertTrue(self.look(repair, "12:11")["go"])
+        # keys-help-in-a-sticky-footer starts after it, a minute later
+        self.assertTrue(self.look(keys, "12:12")["go"])
+
+    def test_a_task_queued_after_the_entries_were_made_counts_at_the_next_look(self) -> None:
+        keys = self.join("keys-help-in-a-sticky-footer", "12:00")
+        repair = self.join("fix-red-base", "12:10")
+        self.assertEqual(self.look(repair, "12:11", load=45)["behind"], "keys-help-in-a-sticky-footer")
+        block(self.lem, "board-filters", "queued: waits for one task to land\nafter: fix-red-base")
+        self.assertEqual(self.look(keys, "12:12")["behind"], "fix-red-base")
+        self.assertTrue(self.look(repair, "12:12")["go"])
+
+    def test_another_repository_whose_state_does_not_read_counts_as_wanted_by_no_task(self) -> None:
+        gone = self.lem.parent / "moved-away"
+        keys = self.join("keys-help-in-a-sticky-footer", "12:00")
+        self.join("fix-red-base", "11:50", gone)
+        look = self.look(keys, "12:11")
+        self.assertEqual((look["behind"], look["why"], look["unread"]), ("fix-red-base", "longer", [str(gone)]))
+        self.assertIn("the state of moved-away does not read, so its landings count as wanted by no task",
+                      land.wait_say("keys-help-in-a-sticky-footer", 30, 40, behind="fix-red-base", behind_repo=str(gone), why="longer", unread=look["unread"]))
+
+    def test_the_runs_own_repository_whose_state_does_not_read_refuses_the_run(self) -> None:
+        own = self.join("fix-red-base", "12:10", self.lem.parent / "moved-away")
+        with self.assertRaises(land.LandError):
+            self.look(own, "12:11")
+
+
+class ASecondWaitCountsFromItsStart(LineCase):
+    """Criterion 4: a landing that waits a second time, after a repair, counts its wait from the start of that second wait."""
+
+    def test_the_second_wait_goes_after_a_wait_that_began_before_it(self) -> None:
+        keys = self.join("keys-help-in-a-sticky-footer", "11:58")
+        self.assertTrue(self.look(keys, "12:00")["go"])
+        tail = self.join("new-sessions-open-at-tail", "12:10")
+        again = self.join("keys-help-in-a-sticky-footer", "12:20")
+        self.assertEqual(again["since"], at("12:20"))
+        look = self.look(again, "12:21")
+        self.assertEqual((look["behind"], look["why"]), ("new-sessions-open-at-tail", "longer"))
+        self.assertTrue(self.look(tail, "12:21")["go"])
+
+
+class TheLoadStillDecides(LineCase):
+    """Criterion 5: while the load is above the number no landing starts, also the first in the line,
+    and the next start comes a minute after the one before."""
+
+    def test_the_first_in_the_line_does_not_start_while_the_load_is_above_the_number(self) -> None:
+        first = self.join(LEM_TASK, "12:01")
+        talk = self.join(TALK_TASK, "12:17")
+        self.assertEqual(self.look(first, "12:18", load=45)["reason"], "load")
+        self.assertEqual(self.look(first, "12:18", load=40)["reason"], "load")
+        # the run behind says where it stands in the line, also while the load is above the number
+        self.assertEqual(self.look(talk, "12:18", load=45)["reason"], "behind")
+        self.assertEqual(self.names(), ["90001.json", "90002.json"])
+
+    def test_alone_under_the_number_a_run_starts_at_its_first_look(self) -> None:
+        own = self.join(LEM_TASK, "12:01")
+        self.assertTrue(self.look(own, "12:01")["go"])
+        self.lock.seek(0)
+        self.assertEqual(json.loads(self.lock.read()), {"at": at("12:01"), "task": LEM_TASK, "repo": str(self.lem)})
+
+    def test_the_next_start_comes_a_minute_after_the_one_before(self) -> None:
+        self.lock.write(json.dumps({"at": at("12:00"), "task": "keys-help-in-a-sticky-footer", "repo": str(self.lem)}) + "\n")
+        self.lock.flush()
+        own = self.join(LEM_TASK, "12:00")
+        look = self.look(own, "12:00")
+        self.assertEqual((look["go"], look["reason"], look["after"], look["gap"]), (False, "after", "keys-help-in-a-sticky-footer", 0))
+        self.assertTrue(self.look(own, "12:01")["go"])
+
+
+class AGoneRunLosesItsPlace(LineCase):
+    """Criterion 6: a landing whose checks process is gone loses its place, and the next one starts at
+    its own next look; one whose process still runs keeps its place, whatever became of its session."""
+
+    HOLD = ("import fcntl, json, sys\n"
+            "handle = open(sys.argv[1], 'a+')\n"
+            "fcntl.flock(handle, fcntl.LOCK_EX)\n"
+            "handle.write(json.dumps({'pid': 1, 'task': 'fix-red-base', 'repo': sys.argv[2], 'since': float(sys.argv[3])}) + '\\n')\n"
+            "handle.flush()\n"
+            "print('held', flush=True)\n"
+            "sys.stdin.read()\n")
+
+    def holder(self) -> subprocess.Popen:
+        self.folder.mkdir(exist_ok=True)
+        child = subprocess.Popen([sys.executable, "-c", self.HOLD, str(self.folder / "4242.json"), str(self.lem), str(at("11:50"))],
+                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        self.addCleanup(child.stdout.close)
+        self.addCleanup(child.wait)
+        self.addCleanup(child.stdin.close)
+        self.assertEqual(child.stdout.readline().strip(), "held")
+        return child
+
+    def test_an_entry_whose_process_ended_is_removed_and_the_next_run_starts(self) -> None:
+        child = self.holder()
+        child.stdin.close()
+        child.wait()
+        own = self.join(LEM_TASK, "12:01")
+        self.assertTrue(self.look(own, "12:02")["go"])
+        self.assertEqual(self.names(), [])
+
+    def test_an_entry_whose_process_still_runs_keeps_its_place(self) -> None:
+        self.holder()
+        own = self.join(LEM_TASK, "12:01")
+        look = self.look(own, "12:30")
+        self.assertEqual((look["go"], look["behind"], look["why"]), (False, "fix-red-base", "longer"))
+        self.assertEqual(self.names(), ["4242.json", "90001.json"])
+
+    def test_a_half_written_entry_with_no_holder_is_removed(self) -> None:
+        self.folder.mkdir()
+        (self.folder / "4242.json").write_text('{"pid": 4242, "task": "fix-red-ba', encoding="utf-8")
+        own = self.join(LEM_TASK, "12:01")
+        self.assertTrue(self.look(own, "12:02")["go"])
+        self.assertEqual(self.names(), [])
+
+
+class TheWait(LineCase):
+    """`land.wait_for_load` as a whole, with the load, the clock's sleep and the event log stood in
+    for: what it logs while it waits behind another run, and what a stop leaves."""
+
+    def run_wait(self, slug: str, loads: list[float], sleep=None) -> tuple[dict | None, list[tuple]]:
+        logged: list[tuple] = []
+        task = types.SimpleNamespace(slug=slug, main=self.lem, worktree=self.lem)
+        with mock.patch.object(land.lem_state, "machine_file", return_value=self.home / "machine.toml"), \
+                mock.patch.object(land, "load_now", side_effect=loads), mock.patch("time.sleep", side_effect=sleep or (lambda _: None)), \
+                mock.patch.object(land, "script", side_effect=lambda *args: logged.append(args)):
+            return land.wait_for_load(task, pid=91001), logged
+
+    def test_a_run_behind_another_logs_the_first_and_why_then_starts_when_it_left(self) -> None:
+        first = self.join(LEM_TASK, "12:01")
+
+        def sleep(_: float) -> None:
+            # the first starts while this run sleeps, and leaves the line
+            land.line_leave(first)
+
+        done, logged = self.run_wait(TALK_TASK, [30.0, 30.0], sleep)
+        self.assertEqual(done, {"start": 40.0, "load": 30.0, "waited": True})
+        self.assertEqual(len(logged), 1)
+        fields = logged[0][2:]
+        self.assertEqual(fields[:3], ("log", TALK_TASK, "gate.wait"))
+        self.assertIn("behind=" + LEM_TASK, fields)
+        self.assertIn("why=longer", fields)
+        self.assertFalse(any(field.startswith("behind_repo=") for field in fields))
+        self.assertIn(f"say={TALK_TASK}: the checks wait behind {LEM_TASK}, which waits longer; they start below 40", fields)
+        # it left the line at its start
+        self.assertEqual(self.names(), [])
+
+    def test_a_stop_in_the_wait_takes_the_run_out_of_the_line(self) -> None:
+        def stop(_: float) -> None:
+            raise KeyboardInterrupt
+
+        with self.assertRaises(KeyboardInterrupt):
+            self.run_wait(LEM_TASK, [45.0], stop)
+        self.assertEqual(self.names(), [])
+
+    def test_a_stop_in_the_wait_logs_the_runs_one_end_stopped(self) -> None:
+        logged: list[tuple] = []
+        task = types.SimpleNamespace(slug=LEM_TASK, main=self.lem, worktree=self.lem)
+        with mock.patch.object(land, "checks_ready", return_value=("a" * 40, {}, ["true"])), \
+                mock.patch.object(land, "wait_for_load", side_effect=KeyboardInterrupt), \
+                mock.patch.object(land, "script", side_effect=lambda *args: logged.append(args)):
+            with self.assertRaises(land.LandError) as caught:
+                land.checks_run(task, {"stopping": True, "done": False})
+        self.assertIn("stopped before their first command", str(caught.exception))
+        self.assertEqual(logged, [("project.py", self.lem, "log", LEM_TASK, "gate.end", "result=stopped", "seconds:=0", "tip=aaaaaaaaa",
+                                   f"say={land.checks_say(LEM_TASK, 'stopped')}")])
+
+
+class WaitsBehindSays(unittest.TestCase):
+    """Criterion 7, the half of `lem land checks --status`: a run that waits behind another says
+    behind which, and why, in its line and in the `waits` of `--status`."""
+
+    def test_the_line_for_each_why(self) -> None:
+        said = {why: land.wait_say(TALK_TASK, 30, 40, behind=LEM_TASK, why=why) for why in ("longer", "wanted", "first")}
+        self.assertEqual(said["longer"], f"{TALK_TASK}: the checks wait behind {LEM_TASK}, which waits longer; they start below 40")
+        self.assertEqual(said["wanted"], f"{TALK_TASK}: the checks wait behind {LEM_TASK}, which another task waits for; they start below 40")
+        self.assertEqual(said["first"], f"{TALK_TASK}: the checks wait behind {LEM_TASK}, which is first in the line; they start below 40")
+        self.assertEqual(land.wait_say(TALK_TASK, 30, 40, behind="search-filters", behind_repo="/Users/me/mybaze", why="longer"),
+                         f"{TALK_TASK}: the checks wait behind search-filters of mybaze, which waits longer; they start below 40")
+        # the first's own line says the load, as today
+        self.assertEqual(land.wait_say(LEM_TASK, 45, 40), f"{LEM_TASK}: the checks wait for the load: 45, they start below 40")
+
+    def test_two_waits_of_one_moment_say_which_is_first_in_the_line(self) -> None:
+        line = [{"task": TALK_TASK, "repo": "/r/lem", "since": at("12:17"), "wanted": False},
+                {"task": LEM_TASK, "repo": "/r/lem", "since": at("12:17"), "wanted": False}]
+        first, second = land.line_order(line)
+        self.assertEqual((first["task"], land.line_why(first, second)), (LEM_TASK, "first"))
+
+    def test_the_waits_of_status_name_the_first_and_why(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            state = Path(folder)
+            task = types.SimpleNamespace(slug=TALK_TASK, directory=state / "tasks" / TALK_TASK)
+            task.directory.mkdir(parents=True)
+            (task.directory / "step.lock").write_text(json.dumps({"step": "checks", "pid": os.getpid(), "since": "2026-11-23T12:17:00Z"}), encoding="utf-8")
+            for why in ("longer", "wanted", "first"):
+                say = land.wait_say(TALK_TASK, 30, 40, behind=LEM_TASK, behind_repo="/Users/me/mybaze", why=why)
+                record = {"ts": "2026-11-23T12:19:00Z", "event": "gate.wait", "task": TALK_TASK, "load": 30, "start": 40,
+                          "behind": LEM_TASK, "behind_repo": "/Users/me/mybaze", "why": why, "say": say}
+                (state / "events.jsonl").write_text(json.dumps(record) + "\n", encoding="utf-8")
+                self.assertEqual(land.checks_status(task)["waits"],
+                                 {"load": 30, "start": 40, "behind": LEM_TASK, "behind_repo": "/Users/me/mybaze", "why": why, "say": say})

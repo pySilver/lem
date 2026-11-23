@@ -125,10 +125,75 @@ class Landing(unittest.TestCase):
         going = one(state(0, "landing", "the checks start"), ev(1, "gate.wait", load=9.5, start=6), ev(2, "gate.start", commands=2))
         self.assertEqual(bm.card_line(going, bm.LANE["checks"]), "The checks start")
 
+    def test_a_landing_that_waits_with_no_task_ahead_keeps_its_load_and_after_words(self):
+        after = one(state(0, "landing", "the checks start"), ev(1, "gate.wait", load=3.0, start=6, after="keys-help"))
+        self.assertEqual(bm.card_line(after, bm.LANE["checks"]), "Its checks wait a minute after the checks of keys-help started")
+        self.assertEqual(bm.SAYS["gate.wait"](after.events[-1])["text"], "a minute after the checks of keys-help started")
+        load = one(state(0, "landing", "the checks start"), ev(1, "gate.wait", load=9.5, start=6))
+        self.assertEqual(bm.SAYS["gate.wait"](load.events[-1])["text"], "for the load: 9.5, they start below 6")
+
     def test_a_result_on_another_tip_starts_a_new_run_of_the_checks(self):
         t = one(state(0, "landing", "the checks start"), ev(1, "gate", command="make test", exit=1, tip="aaa"),
                 ev(5, "gate", command="make test", exit=0, tip="bbb"), ev(6, "gate", command="make lint", exit=0, tip="bbb"))
         self.assertEqual(([g["tip"] for g in t.gates], t.gate_bad), (["bbb", "bbb"], 0))
+
+
+class WaitsBehind(unittest.TestCase):
+    """The machine's one line of the landings that wait (land.py, `wait_for_load`): a run that is not first
+    logs `gate.wait` with `behind`, `why` and, for a first of another repository, `behind_repo`; the card,
+    the large card's head, what the task waits for and the feed say which landing it waits behind and why."""
+
+    SLUG = "plugin-dir-for-the-plan-talk"
+    FIRST = "fast-track-checks-documents"
+
+    def waiting(self, **fields) -> "bm.Task":
+        return one(state(0, "landing", "the checks start", task=self.SLUG), ev(1, "gate.wait", self.SLUG, load=50.0, start=40, **fields))
+
+    def test_criterion_7_a_landing_behind_one_that_waits_longer_says_so_on_the_card_and_in_the_feed(self):
+        t = self.waiting(behind=self.FIRST, why="longer")
+        said = "Its checks wait behind fast-track-checks-documents, which waits longer"
+        self.assertEqual(bm.card_line(t, bm.LANE["checks"]), said)
+        self.assertEqual(bm.now_head(t), said)
+        self.assertEqual(bm.waits_for(t, [])["text"], said)
+        self.assertEqual(bm.SAYS["gate.wait"](t.events[-1]), {"info": {"actor": "quiet", "icon": "clock"}, "head": "The checks wait",
+                                                             "text": "behind fast-track-checks-documents, which waits longer"})
+        # the first itself waits for the load, in today's words
+        first = one(state(0, "landing", "the checks start", task=self.FIRST), ev(1, "gate.wait", self.FIRST, load=50.0, start=40))
+        self.assertEqual(bm.card_line(first, bm.LANE["checks"]), "Waits for the load: 50.0, starts below 40")
+
+    def test_each_why_has_its_words(self):
+        for why, said in (("wanted", "which another task waits for"), ("longer", "which waits longer"), ("first", "which is first in the line")):
+            with self.subTest(why=why):
+                t = self.waiting(behind="fix-red-base", why=why)
+                self.assertEqual(bm.card_line(t, bm.LANE["checks"]), f"Its checks wait behind fix-red-base, {said}")
+                self.assertEqual(bm.SAYS["gate.wait"](t.events[-1])["text"], f"behind fix-red-base, {said}")
+
+    def test_a_first_of_another_repository_is_named_with_its_folder(self):
+        t = self.waiting(behind="new-sessions-open-at-tail", behind_repo="/Users/someone/Projects/mybaze", why="wanted")
+        self.assertEqual(bm.card_line(t, bm.LANE["checks"]), "Its checks wait behind new-sessions-open-at-tail of mybaze, which another task waits for")
+        self.assertEqual(bm.SAYS["gate.wait"](t.events[-1])["text"], "behind new-sessions-open-at-tail of mybaze, which another task waits for")
+
+    def test_behind_goes_before_a_minute_after_the_last_start(self):
+        t = self.waiting(behind=self.FIRST, why="longer", after="keys-help")
+        self.assertEqual(bm.card_line(t, bm.LANE["checks"]), "Its checks wait behind fast-track-checks-documents, which waits longer")
+
+    def test_a_stop_while_it_waited_ends_the_wait_and_reads_as_the_stopped_checks_with_no_count(self):
+        t = one(state(0, "landing", "the checks start", task=self.SLUG), ev(1, "gate.wait", self.SLUG, load=50.0, start=40, behind=self.FIRST, why="longer"),
+                ev(5, "gate.end", self.SLUG, result="stopped", seconds=0, tip="abc123456", say=f"{self.SLUG}: the checks were stopped; the landing waits for your word"))
+        self.assertIsNone(bm.waits_now(t))
+        self.assertEqual(t.info["label"], "Checks stopped")
+        self.assertTrue(bm.card_line(t, bm.LANE["checks"]).startswith("The checks were stopped; the landing waits for your word."))
+        self.assertEqual(bm.SAYS["gate.end"](t.events[-1])["head"], "The checks were stopped")
+        tm = bm.time_of(t, bm.time_end(t, NOW), {"gates": 2, "serial": 0})
+        ends = [(s["head"], s["sub"]) for s in tm["spans"] if s["row"] == "checks"]
+        self.assertEqual(ends, [("The checks were stopped", "stopped while they waited, before their first command")])
+
+    def test_a_run_stopped_after_its_start_keeps_its_count_of_commands(self):
+        t = one(state(0, "landing", "the checks start"), ev(1, "gate.start", commands=2, tip="abc123456"),
+                ev(2, "gate", command="make test", exit=0, last="ok", tip="abc123456"),
+                ev(4, "gate.end", result="stopped", seconds=180, tip="abc123456", say="gift-note: the checks were stopped; the landing waits for your word"))
+        tm = bm.time_of(t, bm.time_end(t, NOW), {"gates": 2, "serial": 0})
+        self.assertIn(("The checks were stopped", "1 of 2 commands done · 3m 00s"), [(s["head"], s["sub"]) for s in tm["spans"] if s["row"] == "checks"])
 
 
 class TakenFromPolish(unittest.TestCase):

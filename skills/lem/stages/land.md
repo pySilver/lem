@@ -55,7 +55,7 @@ A step that was cut off (a session that ended, a machine that slept) is run agai
 one finds what the run before it finished.
 While the task is in `landing`, run `lem land checks SLUG --status` at each of your turns. When
 its `overdue` turns true, say its `say` once, with no question. Its `waits` (the checks wait for
-the machine's load) is no news: the board shows it. Checks that a session before you started are
+the machine's load, or behind another landing) is no news: the board shows it. Checks that a session before you started are
 not yours: while they run, start no step of the task, since their end wakes that session and not
 you. Once they ended, say the `resumed` line of `ended` once, never their own `say`, and take the
 landing up as after a cut-off.
@@ -96,9 +96,13 @@ landing up as after a cut-off.
    - Before the first command, the load gate: the start number of this machine, the developer's
      (`lem project load --start N`, one number for every repository on it) or else Lem's 40. The
      step waits while the machine's load average is at or above it, and starts when the load is
-     below it. A new number, or `--start none`, reaches a run that waits at its next look (15 s). Two runs that waited start a minute apart, so that the load shows the first before the
-     second reads it. The step logs each wait (`gate.wait`), and the board shows it in the task's
-     own card ("waits for the load: 55, starts below 40"); `--status` gives it as `waits`. Say
+     below it. A new number, or `--start none`, reaches a run that waits at its next look (15 s). The
+     runs that wait form one line for the machine, of every repository on it: a landing another open
+     task waits for (by its `after:` line) goes first, then the one that waits longest, and only the
+     first in the line starts. Two runs that waited start a minute apart, so that the load shows the
+     first before the second reads it. The step logs each wait (`gate.wait`), and the board shows it in the task's
+     own card ("waits for the load: 55, starts below 40", or "its checks wait behind
+     fast-track-checks-documents, which waits longer"); `--status` gives it as `waits`. Say
      nothing of a wait: it is no news, and it needs nobody. Only `lem project load --start none`
      takes the gate away on a machine; `lem doctor` gives the line that sets a number.
    - Every command of the settings' `checks.commands` runs at the root of the task's worktree,

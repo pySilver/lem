@@ -23,9 +23,10 @@ past which a task's session compacts itself, which `lem project handoff --tokens
 repositories whose boards `lem serve` shows
 (`workspaces_file()`, `workspaces.json`, which `lem project task-dir`, `lem session open`, `lem board`
 and `lem serve --add` write). A read never
-makes that folder: only a write of one of the three does, and beside them it holds `load.lock`, which
-spaces the starts of the checks that waited for the load, and the board server's `serve.lock` and
-`serve.log`.
+makes that folder: a write does, of one of the three, of the load gate or of the board server's start.
+Beside them it holds `load.lock`, which spaces the starts of the checks that waited for the load,
+`load.line/`, the machine's one line of the runs of the checks that wait, one locked file for each,
+and the board server's `serve.lock` and `serve.log`.
 """
 
 import contextlib
@@ -124,6 +125,9 @@ def owner_mark() -> Path:
 MACHINE = "machine.toml"
 # The lock that spaces two starts of the checks that waited for the load, in the same folder.
 LOAD_LOCK = "load.lock"
+# The machine's one line of the runs of the checks that wait for the load, a folder beside it: one
+# file for each run that waits, which that run holds locked while it waits (`land.py` `wait_for_load`).
+LOAD_LINE = "load.line"
 # The output of the board server that starts on demand (`serve.py`), in the same folder.
 SERVE_LOG = "serve.log"
 # The board server's pid and its main port, one line `PID PORT`, which it writes at its start and removes

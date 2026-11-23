@@ -713,9 +713,9 @@ def fold(t: Task, e: dict, ts: int) -> None:
     if event == "merge.refused":
         t.refused = {"ts": ts, "order": len(t.events), "said": e.get("said"), "by": e.get("by"), "tip": e.get("tip"), "from": e.get("from"), "kind": e.get("kind")}
         return
-    # a landing that waits: its checks for the machine's load, or its merge call for another's merge
+    # a landing that waits: its checks for the machine's load or behind another landing, or its merge call for another's merge
     if event in WAITS:
-        t.waits = {"ts": ts, "event": event, "load": e.get("load"), "start": e.get("start"), "after": e.get("after")}
+        t.waits = {"ts": ts, "event": event, **{k: e.get(k) for k in ("load", "start", "after", "behind", "behind_repo", "why")}}
         return
     t.waits = None
     # the newest step of the landing that started and has not ended yet
@@ -1278,9 +1278,22 @@ def search_rows(m: Model, backlog: dict | None) -> list[dict]:
 
 # ---- what the views say ----
 
+# Why the checks wait behind the first in the machine's line, by the `why` of its `gate.wait` (land.py).
+BEHIND_WHY = {"wanted": "which another task waits for", "longer": "which waits longer", "first": "which is first in the line"}
+
+
+def behind_said(w: dict) -> str:
+    """The landing that a run waits behind, and why that one goes first: "OTHER, which waits longer",
+    with "of REPO" after OTHER when it is of another repository (`behind_repo`, the folder's name)."""
+    repo = Path(str(w["behind_repo"])).name if w.get("behind_repo") else ""
+    return f"{w['behind']}{' of ' + repo if repo else ''}, {BEHIND_WHY.get(w.get('why'), BEHIND_WHY['first'])}"
+
+
 def waits_say(w: dict) -> str:
     if w["event"] == "merge.wait":
         return f"Waits for the merge of {w.get('after') or 'another task'}"
+    if w.get("behind"):
+        return f"Its checks wait behind {behind_said(w)}"
     return f"Its checks wait a minute after the checks of {w['after']} started" if w.get("after") else f"Waits for the load: {w.get('load')}, starts below {w.get('start')}"
 
 
@@ -2039,7 +2052,8 @@ SAYS = {
     "builder.start": lambda e: {"info": {"actor": "lead", "icon": "code"}, "head": "A builder started", "text": job_of(e)},
     "polish.start": lambda e: {"info": {"actor": "lead", "icon": "code"}, "head": "The polish pass started", "text": f"on {e.get('before') or '?'}"},
     "gate.wait": lambda e: {"info": {"actor": "quiet", "icon": "clock"}, "head": "The checks wait",
-                            "text": f"a minute after the checks of {e['after']} started" if e.get("after") else f"for the load: {e.get('load')}, they start below {e.get('start')}"},
+                            "text": f"behind {behind_said(e)}" if e.get("behind")
+                            else f"a minute after the checks of {e['after']} started" if e.get("after") else f"for the load: {e.get('load')}, they start below {e.get('start')}"},
     "merge.wait": lambda e: {"info": {"actor": "quiet", "icon": "clock"}, "head": "The merge call waits", "text": f"for the merge of {e.get('after') or 'another task'}"},
     "merge.start": lambda e: {"info": {"actor": "gate", "icon": "play"}, "head": "Lem’s merge call started",
                               "text": ("the merge agent’s merge, which the board’s server runs" if e.get("by") == "merger" and e.get("via") == "server"
@@ -2845,9 +2859,12 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
                     prev = max(prev, x)
                 # drawn also with no width: a refusal often shares its second with the event before it,
                 # and its head is the one place that says how the run ended
+                # a run stopped while it waited for the load or its turn logs its `gate.end` and no `gate.start`
+                waited = checks is None and e.get("result") == "stopped"
                 sub = [refused_of(e) if e.get("result") == "refused" else "",
+                       "stopped while they waited, before their first command" if waited else "",
                        f"{checks['done']} of {plural(checks['total'], 'command')} done" if checks and checks["total"] is not None else "",
-                       span(e["seconds"] * 1000) if isinstance(e.get("seconds"), (int, float)) and not isinstance(e.get("seconds"), bool) else ""]
+                       span(e["seconds"] * 1000) if isinstance(e.get("seconds"), (int, float)) and not isinstance(e.get("seconds"), bool) and not waited else ""]
                 spans.append({"row": "checks", "from": prev, "to": max(prev, x), "head": checks_end(e.get("result"))["head"], "sub": " · ".join(s for s in sub if s), "live": False})
                 checks = None
             elif ev == "review":

@@ -163,7 +163,7 @@
   <p class="intro">Each task has its own worktree. A task waits for another task only when it needs the result of that task, or when you put that task first.</p>
   <ul class="cards">
     <li><b>A session for each task</b> <span>Type your next request in any session. It opens a session of its own, while the other tasks build.</span></li>
-    <li><b>Checks under your load limit</b> <span>The checks start only while the load of your computer is below 40, or below the limit that you set.</span></li>
+    <li><b>Checks under your load limit</b> <span>The checks start only while the load of your computer is below 40, or below the limit that you set. The task that waits longest starts first. A task that another task waits for starts before it.</span></li>
     <li><b>One merge at a time</b> <span>Lem merges one task at a time. When the base branch moved, the merge agent reads what moved, and Lem runs the checks again only when the agent asks.</span></li>
   </ul>
   <div class="columns verdict">

@@ -90,7 +90,8 @@ error of the step itself; `stopped` for a stop), `seconds` from its start, `tip`
 a run that took the polish pass's result of the criteria's tests in place of its own run: the commit
 that run was on, which logs no `task.red` of its own), and `say`, the one line for the owner, with
 the slug, the result and the next step, and no question ("SLUG: the checks passed; the review runs,
-nothing for you"). The step prints `say` in its JSON at every end after
+nothing for you"). A run stopped while it waited at the load gate is its `gate.end` alone, `stopped`, with
+`seconds` 0, since none of its commands started. The step prints `say` in its JSON at every end after
 `gate.start`, a red, refused or stopped one before its exit 1. The run clears the result an earlier
 run kept before its first command, so a run cut off with no chance to clean up leaves none for its
 tip. `--status` gives `running` (the step lock is held by `checks`), `since` and `seconds` of the
@@ -203,9 +204,14 @@ What two landings share is the machine and the base branch, and each has one rul
 only while the machine's load average is below the start number of this machine (`[load] start` in
 `machine.toml`, beside the owner's mark, else Lem's 40): a run waits before its first command,
 logs `gate.wait` with the load and the number while it waits, and starts when the load is below the
-number. Two runs that wait start at least `LOAD_SPACING` seconds apart, so that the load average
-shows the first before the second reads it. `lem project load --start none` takes the gate away on
-one machine (`lem doctor` gives the line that sets a number). And Lem's own merge calls (`merge`) go one at a time,
+number. The runs that wait form one line for the machine, of every repository on it (`load.line/`
+beside `load.lock`, one locked file for each run): the one another open task waits for goes first
+(the `after:` line of a queued task, or of a task blocked by a red base), then the one whose wait
+began first, and only the first in the line starts. A run behind another logs `gate.wait` with
+`behind` and `why`, also while the load is above the number, and a run whose process is gone loses
+its place at the next look of another. Two runs that wait start at least `LOAD_SPACING` seconds
+apart, so that the load average shows the first before the second reads it. `lem project load
+--start none` takes the gate away on one machine (`lem doctor` gives the line that sets a number). And Lem's own merge calls (`merge`) go one at a time,
 under `merge.lock` of the state folder: a second call logs `merge.wait` with the task that holds
 it, waits, and reads the base branch after it takes the lock, so that it meets the merge before it.
 The commands of `checks.serial` still take the repository's one lock for them; nothing else does.
@@ -605,6 +611,7 @@ import tomllib
 import time
 from datetime import date, datetime, timezone
 from pathlib import Path
+from typing import TextIO
 
 SCRIPTS = Path(__file__).resolve().parent
 # How this script calls a sibling: in this process, as one command of it.
@@ -2007,57 +2014,239 @@ def load_now() -> float:
     return round(os.getloadavg()[0], 1)
 
 
-def wait_say(slug: str, load: float, start: float, after: str | None = None) -> str:
-    """The one line of a run of the checks that waits, for the owner and the board."""
-    if after:
-        return f"{slug}: the checks wait a minute after the checks of {after} started, so that the load shows them; then they start below {start:g}"
-    return f"{slug}: the checks wait for the load: {load:g}, they start below {start:g}"
+# The words of `why` in a wait behind another run: the first in the line is one another task waits
+# for and this run is not, its wait began earlier, or the two began at one moment and the tie-break
+# put it first.
+BEHIND_WHY = {"wanted": "which another task waits for", "longer": "which waits longer", "first": "which is first in the line"}
+# The line of a task that its session blocked because the base branch fails a check (`stages/land.md`,
+# step 4, the same words as `lem_board_model.BASE_RED`): its `after:` line names the repair it waits for.
+BASE_RED = "the base is red"
 
 
-def wait_for_load(task: Task) -> dict | None:
-    """Wait, before the first command of the checks, until the machine's load average is below the start
-    number of this machine (`lem_state.load_start`), and until LOAD_SPACING seconds passed since the last
-    start under the gate on this machine, of any repository. Logs `gate.wait` when it waits, again each
-    LOAD_SAY seconds while it waits. None when the developer took the gate away on this machine. The
-    number is read again at each look, so that a run that waits takes the developer's new number, or
-    starts at once when he took the gate away."""
-    path = lem_state.machine_file().parent / lem_state.LOAD_LOCK
-    said: tuple[str, float] | None = None
-    waited = False
-    while True:
+def wait_say(slug: str, load: float, start: float, after: str | None = None, *, behind: str | None = None, behind_repo: str | None = None,
+             why: str | None = None, unread: list[str] | None = None) -> str:
+    """The one line of a run of the checks that waits, for the owner and the board. `behind` is the
+    first in the line when it is another run, `behind_repo` its repository when that is not this run's,
+    and `unread` the repositories whose state did not read at this look."""
+    if behind:
+        other = behind + (f" of {Path(behind_repo).name}" if behind_repo else "")
+        said = f"{slug}: the checks wait behind {other}, {BEHIND_WHY[why or 'first']}; they start below {start:g}"
+    elif after:
+        said = f"{slug}: the checks wait a minute after the checks of {after} started, so that the load shows them; then they start below {start:g}"
+    else:
+        said = f"{slug}: the checks wait for the load: {load:g}, they start below {start:g}"
+    return said + "".join(f"; the state of {Path(repo).name} does not read, so its landings count as wanted by no task" for repo in unread or [])
+
+
+def line_order(entries: list[dict]) -> list[dict]:
+    """The machine's line of the runs that wait, first first: the ones another task waits for
+    (`wanted`), then by the time each wait began (`since`), then by the task and the repository, so
+    that every run reads the same first, also of two waits that began at one moment."""
+    return sorted(entries, key=lambda entry: (not entry["wanted"], entry["since"], entry["task"], entry["repo"]))
+
+
+def line_why(first: dict, own: dict) -> str:
+    """Why FIRST goes before OWN in the line: `wanted`, `longer` or `first` (BEHIND_WHY)."""
+    if first["wanted"] and not own["wanted"]:
+        return "wanted"
+    return "longer" if first["since"] < own["since"] else "first"
+
+
+def waited_for(state: Path, project) -> set[str]:
+    """The tasks that another open task of the repository whose state folder is STATE waits for: the
+    slug of the `after:` line of each task whose newest state block is `queued`, or `blocked` with the
+    line BASE_RED. Read with `project.py`'s own readers of a block. A task gone between the list of the
+    folder and the read of its file is no task."""
+    named = set()
+    for file in sorted((state / "tasks").glob("*/state.md")):
         try:
-            start = lem_state.load_start()
-        except lem_state.StateError as error:
-            raise LandError(str(error)) from error
-        if start is None:
-            return {"start": None, "waited": waited} if waited else None
-        load = load_now()
-        after = None
-        if load < start:
-            with path.open("a+", encoding="utf-8") as handle:
-                # held for a read and a write only, so that two runs that wait take turns
-                fcntl.flock(handle, fcntl.LOCK_EX)
-                handle.seek(0)
+            blocks = project.blocks_of(project.text_of(file))
+        except FileNotFoundError:
+            continue
+        if not blocks:
+            continue
+        lines = [line.strip() for line in blocks[0]["lines"]]
+        if blocks[0]["status"] == "queued" or (blocks[0]["status"] == "blocked" and BASE_RED in lines):
+            slug = project.after_in(lines)
+            if slug:
+                named.add(slug)
+    return named
+
+
+def line_state(project, repo: str) -> Path:
+    """The state folder of a repository of the line, as `project.py` finds it (`state_root`)."""
+    return project.state_root(Path(repo))
+
+
+def line_wanted(entries: list[dict], own_repo: str) -> list[str]:
+    """Mark each entry of the line `wanted` when another open task of its repository waits for it,
+    read now from that repository's state folder, once for each repository. Gives the repositories
+    whose state does not read (the checkout moved or is gone): for this look their entries count as
+    wanted by no task. The run's own repository that does not read refuses the run, as every step does."""
+    path = SCRIPTS / "project.py"
+    # a stand-in in project.py's place (a test's copy of the scripts) answers commands only: no task waits
+    project = lem_sibling.module(path) if lem_sibling.in_form(path) else None
+    named: dict[str, set[str]] = {}
+    unread = []
+    for repo in sorted({entry["repo"] for entry in entries}):
+        if project is None:
+            named[repo] = set()
+            continue
+        try:
+            named[repo] = waited_for(line_state(project, repo), project)
+        except project.SettingsError as error:
+            if repo == own_repo:
+                raise LandError(str(error)) from error
+            named[repo] = set()
+            unread.append(repo)
+    for entry in entries:
+        entry["wanted"] = entry["task"] in named[entry["repo"]]
+    return unread
+
+
+def line_join(folder: Path, slug: str, repo: str, pid: int) -> dict:
+    """The run's own entry in the line, made under the hold of LOAD_LOCK: its file `PID.json`, locked
+    for the whole wait, with the task, its repository and the time its wait began, written whole once."""
+    folder.mkdir(parents=True, exist_ok=True)
+    file = folder / f"{pid}.json"
+    # "a+" and a truncate after the lock: a file is emptied only by the one that holds it
+    handle = file.open("a+", encoding="utf-8")
+    try:
+        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        handle.close()
+        raise LandError(f"the line of the load gate holds {file} for a run that still waits, with this process's id {pid}; "
+                        f"`lem land checks --status` of the task says which run waits") from None
+    entry = {"task": slug, "repo": repo, "since": time.time()}
+    handle.seek(0)
+    handle.truncate()
+    handle.write(json.dumps({"pid": pid, **entry}) + "\n")
+    handle.flush()
+    return {**entry, "name": file.name, "file": file, "handle": handle}
+
+
+def line_leave(own: dict) -> None:
+    """The run leaves the line: its file goes, then its lock with the handle. A reader that opened the
+    file before it went reads it as held, and one that opens it after finds no file."""
+    with contextlib.suppress(FileNotFoundError):
+        own["file"].unlink()
+    own["handle"].close()
+
+
+def line_live(folder: Path, own_name: str) -> list[dict]:
+    """The other runs that wait, under the hold of LOAD_LOCK. An entry is live while a process holds
+    its file's lock, however late its look comes; a lock that a shared try takes is held by no process,
+    so its run is gone (it ended, was stopped or killed, or died in the middle of its write), and its
+    file is removed. Nothing else ends an entry."""
+    live = []
+    for file in sorted(folder.glob("*.json")):
+        if file.name == own_name:
+            continue
+        try:
+            handle = file.open("r", encoding="utf-8")
+        except FileNotFoundError:
+            continue
+        with handle:
+            try:
+                fcntl.flock(handle, fcntl.LOCK_SH | fcntl.LOCK_NB)
+            except BlockingIOError:
                 try:
-                    last = json.loads(handle.read() or "null")
+                    record = json.loads(handle.read())
                 except ValueError:
-                    last = None
-                gap = time.time() - last["at"] if isinstance(last, dict) and isinstance(last.get("at"), (int, float)) else None
-                if gap is None or gap >= LOAD_SPACING or gap < 0:
-                    handle.seek(0)
-                    handle.truncate()
-                    handle.write(json.dumps({"at": time.time(), "task": task.slug, "repo": str(task.main)}) + "\n")
-                    handle.flush()
-                    return {"start": start, "load": load, "waited": waited}
-                after = str(last.get("task") or "another task")
-        # a new line when the reason changed, or after LOAD_SAY seconds of the same one
-        reason = "after" if after else "load"
-        if said is None or said[0] != reason or time.monotonic() - said[1] >= LOAD_SAY:
-            script("project.py", task.worktree, "log", task.slug, "gate.wait", f"load:={load}", f"start:={start:g}",
-                   *([f"after={after}"] if after else []), f"say={wait_say(task.slug, load, start, after)}")
-            said = (reason, time.monotonic())
-            waited = True
-        time.sleep(LOAD_LOOK if not after else min(LOAD_LOOK, max(1.0, LOAD_SPACING - gap)))
+                    record = None
+                # a held file is written whole under LOAD_LOCK, which this look holds; one that does not read is no run
+                if isinstance(record, dict) and isinstance(record.get("task"), str) and isinstance(record.get("repo"), str) \
+                        and isinstance(record.get("since"), (int, float)):
+                    live.append({"task": record["task"], "repo": record["repo"], "since": record["since"], "name": file.name})
+                continue
+            with contextlib.suppress(FileNotFoundError):
+                file.unlink()
+    return live
+
+
+def gate_look(lock: TextIO, folder: Path, own: dict, load: float, start: float) -> dict:
+    """One look of a run that waits, under the hold of LOAD_LOCK (LOCK, the open lock file, which holds
+    the last start): the line now, read whole, and whether this run starts. It starts only when it is
+    first in the line, the load is below START and LOAD_SPACING passed since the last start; then it
+    writes the last start and leaves the line in the same hold. Otherwise the reason it waits: `behind`
+    the first, also while the load is above the number; `load`; or `after` the last start, with its `gap`."""
+    entries = [*line_live(folder, own["name"]), own]
+    unread = line_wanted(entries, own["repo"])
+    first = line_order(entries)[0]
+    if first is not own:
+        return {"go": False, "reason": "behind", "behind": first["task"], "behind_repo": first["repo"] if first["repo"] != own["repo"] else None,
+                "why": line_why(first, own), "unread": unread}
+    if load >= start:
+        return {"go": False, "reason": "load", "unread": unread}
+    lock.seek(0)
+    try:
+        last = json.loads(lock.read() or "null")
+    except ValueError:
+        last = None
+    gap = time.time() - last["at"] if isinstance(last, dict) and isinstance(last.get("at"), (int, float)) else None
+    if gap is not None and 0 <= gap < LOAD_SPACING:
+        return {"go": False, "reason": "after", "after": str(last.get("task") or "another task"), "gap": gap, "unread": unread}
+    lock.seek(0)
+    lock.truncate()
+    lock.write(json.dumps({"at": time.time(), "task": own["task"], "repo": own["repo"]}) + "\n")
+    lock.flush()
+    line_leave(own)
+    return {"go": True, "unread": unread}
+
+
+def wait_for_load(task: Task, pid: int | None = None) -> dict | None:
+    """Wait, before the first command of the checks, until this run is first in the machine's one line
+    of the runs that wait (`line_order`), the machine's load average is below the start number of this
+    machine (`lem_state.load_start`), and LOAD_SPACING seconds passed since the last start under the
+    gate on this machine, of any repository. The run is in the line from its first look to its end, by
+    its own locked file (`line_join`, PID the file's name); it leaves the line when it starts, and in a
+    `finally` when its wait ends in any other way, and a run that is killed leaves it by the lock it
+    loses. Logs `gate.wait` when it waits, again when the reason or the first in the line changes and
+    each LOAD_SAY seconds. None when the developer took the gate away on this machine. The number is
+    read again at each look, so that a run that waits takes the developer's new number, or starts at
+    once when he took the gate away."""
+    home = lem_state.machine_file().parent
+    folder = home / lem_state.LOAD_LINE
+    said: tuple[tuple, float] | None = None
+    waited = False
+    own: dict | None = None
+    try:
+        while True:
+            try:
+                start = lem_state.load_start()
+            except lem_state.StateError as error:
+                raise LandError(str(error)) from error
+            if start is None:
+                return {"start": None, "waited": waited} if waited else None
+            load = load_now()
+            folder.mkdir(parents=True, exist_ok=True)
+            with (home / lem_state.LOAD_LOCK).open("a+", encoding="utf-8") as handle:
+                # one look at a time on the machine: no look reads the line while another changes it
+                fcntl.flock(handle, fcntl.LOCK_EX)
+                if own is None:
+                    own = line_join(folder, task.slug, str(task.main), os.getpid() if pid is None else pid)
+                look = gate_look(handle, folder, own, load, start)
+            if look["go"]:
+                own = None
+                return {"start": start, "load": load, "waited": waited}
+            unread = look["unread"]
+            # a new line when the reason or the first in the line changed, or after LOAD_SAY seconds of the same
+            reason = (look["reason"], look.get("behind"), look.get("behind_repo"), look.get("why"), tuple(unread))
+            if said is None or said[0] != reason or time.monotonic() - said[1] >= LOAD_SAY:
+                fields = [f"after={look['after']}"] if look["reason"] == "after" else []
+                if look["reason"] == "behind":
+                    fields += [f"behind={look['behind']}", *([f"behind_repo={look['behind_repo']}"] if look["behind_repo"] else []), f"why={look['why']}"]
+                # the first repository whose state did not read; the line for the owner names each
+                fields += [f"unread={unread[0]}"] if unread else []
+                say = wait_say(task.slug, load, start, look.get("after"), behind=look.get("behind"), behind_repo=look.get("behind_repo"),
+                               why=look.get("why"), unread=unread)
+                script("project.py", task.worktree, "log", task.slug, "gate.wait", f"load:={load}", f"start:={start:g}", *fields, f"say={say}")
+                said = (reason, time.monotonic())
+                waited = True
+            time.sleep(min(LOAD_LOOK, max(1.0, LOAD_SPACING - look["gap"])) if look["reason"] == "after" else LOAD_LOOK)
+    finally:
+        if own is not None:
+            line_leave(own)
 
 
 def now_utc() -> str:
@@ -2223,7 +2412,7 @@ def gate_ends(task: Task) -> list[dict]:
 
 def waits_of(task: Task, since: str) -> dict | None:
     """The newest `gate.wait` of the task's run that holds the step lock since `since`, while no
-    `gate.start` came after it: the run waits for the load."""
+    `gate.start` came after it: the run waits at the load gate, for the load or behind another run."""
     log = task.directory.parent.parent / "events.jsonl"
     found = None
     for line in lem_state.jsonl_lines(log.read_text(encoding="utf-8")) if log.is_file() else []:
@@ -2244,7 +2433,7 @@ def waits_of(task: Task, since: str) -> dict | None:
 
 def checks_status(task: Task) -> dict:
     """Whether the task's checks run, for how long, against their last finished run, and how the last
-    run ended. A run that waits for the load says so in `waits`, and its time counts from its start."""
+    run ended. A run that waits at the load gate says so in `waits`, and its time counts from its start."""
     holder = running_checks(task)
     ends = gate_ends(task)
     last = last_seconds(ends)
@@ -2254,8 +2443,8 @@ def checks_status(task: Task) -> dict:
     if seen and "started" in seen:
         since = seen["started"]
     elif seen:
-        # the run holds the lock and waits for the load: none of its commands started yet
-        waits = {key: seen[key] for key in ("load", "start", "after", "say") if key in seen}
+        # the run holds the lock and waits for the load or behind another run: none of its commands started yet
+        waits = {key: seen[key] for key in ("load", "start", "after", "behind", "behind_repo", "why", "say") if key in seen}
     seconds = seconds_since(since) if isinstance(since, str) and not waits else None
     overdue = holder is not None and is_overdue(seconds, last)
     own = [end for end in ends if end.get("task") == task.slug]
@@ -2342,13 +2531,22 @@ def cmd_checks(task: Task) -> dict:
 
 
 def checks_run(task: Task, flags: dict) -> dict:
+    stopped = f"the checks were stopped before their first command; `lem land checks {task.slug}` runs them again"
     try:
         tip, found, commands = checks_ready(task)
+    except KeyboardInterrupt:
+        raise LandError(stopped) from None
+    try:
         # the load gate, after every refusal the step makes before it runs anything, so that a run
         # that would be refused does not wait first
         gated = wait_for_load(task)
     except KeyboardInterrupt:
-        raise LandError(f"the checks were stopped before their first command; `lem land checks {task.slug}` runs them again") from None
+        # a stop while the run waits: its one `gate.end`, so that the board's wait ends and `--status` gives the end
+        with contextlib.suppress(LandError):
+            # the stop is the step's refusal, also when the event log refuses the end
+            script("project.py", task.worktree, "log", task.slug, "gate.end", "result=stopped", "seconds:=0", f"tip={tip[:9]}",
+                   f"say={checks_say(task.slug, 'stopped')}")
+        raise LandError(stopped) from None
     logs = task.directory / "gate"
     logs.mkdir(exist_ok=True)
     # The commands that need the machine to themselves come after the others, each under the
