@@ -310,9 +310,10 @@ key and the value. Per call, a flag or the same key in the spec wins:
   install registered it) re-posts the asking glyph when a turn ends with a question page still open, set to
   clear when the user visits. `--no-status` leaves the glyph alone.
 - `--chromeless` hides the overlay's title strip.
-- Outside agterm it opens nothing (exit 3, `no-agterm`). With `--browser`, or `browser = true` under `[ask]`
-  in the user's defaults, it serves the page on `127.0.0.1` and opens the default browser instead, inside agterm
-  too; the answer comes back the same way, and closing the tab counts as dismissed. That path lives only as
+- Outside agterm it opens nothing (exit 3, `no-agterm`). With `--browser` it serves the page on `127.0.0.1`
+  and opens the default browser instead, inside agterm too; `browser = true` under `[ask]` in the user's
+  defaults does the same outside agterm only. The answer comes back the same way, and closing the tab counts
+  as dismissed. That path lives only as
   long as the command: no `--no-wait`, and a timed-out browser question cannot be resumed.
 - `AGTERMCTL` points at `agtermctl` when it is not on `PATH`.
 - Mermaid is downloaded once to `~/.cache/lem/` (`$XDG_CACHE_HOME/lem`) on first use and checked against a pinned sha256 on
