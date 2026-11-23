@@ -152,6 +152,8 @@ from the file. Point at the file instead and `lem-ask` reads it when it builds t
 - A `controls` question adds `values` (`{"radius": 12, "hue": 174, "shadow": true}`). `selected` holds a
   preset only if the user kept it untouched; `from` names the preset they started from and then changed.
 - `extra` appears when page JavaScript called `api.setExtra(...)`.
+- `from` appears on the answer of a card in a task's session of Lem: `session` for a pick on the card,
+  `board` for the owner's answer on Lem's board (see [A card of a task's session](#a-card-of-a-tasks-session)).
 - Exit 0 `status: "chat"` (with `text`): the user pressed **Discuss in chat** — they want to talk it
   through in the terminal. Stop and ask there; do not pick for them.
 - Exit 2 `status: "dismissed"`: closed unanswered (⌘W). Treat as "not now": don't re-open the same
@@ -337,6 +339,25 @@ open, set to clear when the user visits the session to answer or close it. When 
 somewhere else, `lem-ask close` (or `lem-ask close <pageID>` for that page only) closes the page this session
 shows, only when it is one of lem-ask's, and prints `"status": "closed"`, or `"gone"` when none is up; the
 waiting call then ends as `dismissed`, which needs no act.
+
+## A card of a task's session
+
+In a task's session of Lem (`LEM_TASK` names the task, and the repository it runs in has that task's
+folder in its state folder), each card is kept in `cards/` of the task's folder: `PAGEID.html`, a copy of
+the page agterm shows, and `PAGEID.json`, what it asks (its questions, their options, whether it offers
+to talk). It is logged as `card.asked`, and Lem's board shows the card from there and takes its answer.
+A run outside a task keeps nothing.
+
+A card ends once, in `cards/PAGEID.end.json`, and the first end recorded counts: a pick or a dismissal on
+the card in the session, a `lem-ask close`, or the owner's answer on the board.
+
+- A pick on the card carries `"from": "session"`.
+- The board's answer ends the `lem-ask ask` or `wait` that waits on the card: it closes its own page and
+  prints the answer as the card's own, with `"from": "board"`, `via` (`local`, the board on this Mac, or
+  `door`, through the tailnet), `device` (`phone` or `computer`) and a `said` line, exit 0. A `lem-ask
+  wait <pageID>` after an exit 4 finds an answer the board took in between.
+- When the board's answer was recorded first, a pick, a dismissal or a `lem-ask close` in the session is
+  not taken: the output is the board's answer, exit 0, with a `said` line that names both.
 
 ## Recommending
 

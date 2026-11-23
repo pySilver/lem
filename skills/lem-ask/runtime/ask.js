@@ -1,6 +1,7 @@
 /* lem-ask runtime: renders the spec in <script id="hd-spec"> and hands the answer back.
    Answer path, first that applies: agterm page bridge (session.overlay.submit), the local
-   HTTP fallback server (POST /answer), else a preview banner showing the JSON. */
+   HTTP fallback server or the board (POST answer, a path relative to the page; the reply's `said`
+   is shown, and a refusal leaves the page to answer again), else a preview banner showing the JSON. */
 (function () {
   "use strict";
   const SPEC = JSON.parse(document.getElementById("hd-spec").textContent);
@@ -582,8 +583,14 @@
     try {
       if (window.agterm && window.agterm.request) { await window.agterm.request("session.overlay.submit", { args: { value } }); return; }
       if (location.protocol.startsWith("http")) {
-        await fetch("/answer", { method: "POST", headers: { "content-type": "application/json" }, body: value });
-        document.body.appendChild($("div", "hd-done", "Answer sent — you can close this tab.")); return;
+        // A path relative to the page: the browser fallback serves it at / and takes /answer, and the
+        // board serves a card under .../cards/PAGEID/ and takes the card's own answer route there.
+        const r = await fetch("answer", { method: "POST", headers: { "content-type": "application/json" }, body: value });
+        let reply = {};
+        try { reply = JSON.parse((await r.text()) || "{}") || {}; } catch (e) { reply = {}; }
+        const said = typeof reply.said === "string" ? reply.said : "";
+        if (!r.ok) { finished = false; clearTimeout(flashT); status.textContent = said || "The answer was not taken (" + r.status + ")"; return; }
+        document.body.appendChild($("div", "hd-done", esc(said || "Answer sent — you can close this tab."))); return;
       }
       document.body.appendChild($("div", "hd-done", `<div>Preview mode (no agterm bridge). Answer:<pre>${esc(JSON.stringify(v, null, 2))}</pre></div>`));
       console.log("[lem-ask] answer", value);
@@ -759,6 +766,6 @@
   ready = true; flush();
   if (SPEC.script) { try { new Function("api", SPEC.script)(api); } catch (e) { app.appendChild($("pre", "hd-err", "script: " + esc(e.message || e))); } }
   if (!window.agterm && location.protocol.startsWith("http"))
-    window.addEventListener("pagehide", () => { if (!finished) navigator.sendBeacon("/answer", JSON.stringify({ status: "dismissed" })); });
+    window.addEventListener("pagehide", () => { if (!finished) navigator.sendBeacon("answer", JSON.stringify({ status: "dismissed" })); });
   window.focus();
 })();

@@ -20,7 +20,9 @@ unanswered), 3 no way to show it (outside agterm without --browser, or an unatte
 4 still pending after --timeout (run `lem-ask wait ID`), 5 the session already shows an overlay,
 1 error.
 
-Environment: AGTERMCTL (path to agtermctl). The personal defaults are the table [ask] of Lem's own
+Environment: AGTERMCTL (path to agtermctl), LEM_TASK (a task's session of Lem: the card is kept in the
+task's folder, where Lem's board answers it too, and the first answer recorded counts; the answer then
+carries "from": "session" or "board"). The personal defaults are the table [ask] of Lem's own
 settings file, $XDG_CONFIG_HOME/lem/settings.toml or ~/.config/lem/settings.toml (`browser = true`
 there opens the page in the browser outside agterm); the mermaid bundle is kept in
 $XDG_CACHE_HOME/lem or ~/.cache/lem.
@@ -47,6 +49,7 @@ import time
 import tomllib
 import urllib.request
 import webbrowser
+from pathlib import Path
 
 HERE = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))  # the skill's directory: this file is bin/lem-ask
 RUNTIME = os.path.join(HERE, "runtime")
@@ -638,6 +641,27 @@ def pending_page():
     return None
 
 
+def shown_page(s, page_id=None):
+    """The id of the question page of this script that the session node S shows (that one, when an id
+    is given), or None."""
+    ours = os.path.realpath(OUTDIR) + os.sep  # agterm reports /tmp/… where TMPDIR says /private/tmp/…
+    return next((o.get("id") for o in s.get("htmlOverlays") or []
+                 if o.get("file") and os.path.realpath(o["file"]).startswith(ours) and page_id in (None, o.get("id"))), None)
+
+
+def close_overlay(page):
+    """Close the overlay this session shows, which the caller found to be PAGE; what agterm said
+    when it did not close it, else None."""
+    r = ctl("session", "overlay", "close", "--target", os.environ["AGTERM_SESSION_ID"], "--json", check=False)
+    try:
+        reply = json.loads(r.stdout)
+    except json.JSONDecodeError:
+        return (r.stderr or r.stdout).strip() or f"agtermctl session overlay close exited {r.returncode}"
+    if not reply.get("ok", True) or r.returncode != 0:
+        return f"agterm did not close page {page}: {reply.get('error') or (r.stderr or r.stdout).strip()}"
+    return None
+
+
 def close_page(page_id=None):
     """Close the question page this session shows, the one named when an id is given: a card whose
     answer came from somewhere else (the owner answered it in his inbox), so that it asks no more.
@@ -646,26 +670,32 @@ def close_page(page_id=None):
     that page is one of this script's: another tool's overlay (a diff review, a plan annotation) is
     not ours to close, and neither is another question than the one named. With none of ours open
     there is nothing to close, which is no error. The `lem-ask ask` or `wait` that waits on the page
-    then ends as a dismissal (exit 2)."""
+    then ends as a dismissal (exit 2).
+
+    A card of a task's session ends as `closed` in the task's folder first (`lem_cards.end`). When
+    the board's answer is on record already, the close is not taken: the page still closes, and the
+    output is the board's answer, exit 0, with a `said` line that names both."""
     if not in_agterm():
         die("not inside agterm, so there is no page to close", 3)
     s = this_session()
     if s is None:
         die("agterm did not say what this session shows; run `agtermctl tree --json` to see why")
-    ours = os.path.realpath(OUTDIR) + os.sep
-    page = next((o.get("id") for o in s.get("htmlOverlays") or []
-                 if o.get("file") and os.path.realpath(o["file"]).startswith(ours) and page_id in (None, o.get("id"))), None)
+    page = shown_page(s, page_id)
     if page is None:
         emit({"status": "gone", "pageID": page_id,
               "hint": "no question page of lem-ask is open on this session" + (f" with the id {page_id}" if page_id else "")
                       + ": nothing was closed"}, 0)
-    r = ctl("session", "overlay", "close", "--target", os.environ["AGTERM_SESSION_ID"], "--json", check=False)
-    try:
-        reply = json.loads(r.stdout)
-    except json.JSONDecodeError:
-        die((r.stderr or r.stdout).strip() or f"agtermctl session overlay close exited {r.returncode}")
-    if not reply.get("ok", True) or r.returncode != 0:
-        die(f"agterm did not close page {page}: {reply.get('error') or (r.stderr or r.stdout).strip()}")
+    card = card_of(page)
+    lost = None
+    if card is not None:
+        won, on_record = card.end("closed")
+        lost = None if won else on_record
+    if error := close_overlay(page):
+        if lost is None:
+            die(error + (": the card's end is on record as closed, so a pick on it is not taken" if card is not None else ""))
+        print(f"lem-ask: {error}", file=sys.stderr)
+    if lost is not None:
+        emit(*card.output(lost, "closed"))
     emit({"status": "closed", "pageID": page}, 0)
 
 
@@ -711,6 +741,115 @@ def hook_stop():
     except Exception:  # noqa: BLE001 - a hook must never take the session down with it
         return
 
+# ---------- a card of a task's session ----------
+
+def lem_cards():
+    """`lem_cards`, the record of a task's cards, from Lem's scripts beside this skill in the plugin."""
+    scripts = os.path.join(os.path.dirname(HERE), "lem", "scripts")
+    if scripts not in sys.path:
+        sys.path.insert(0, scripts)
+    sys.dont_write_bytecode = True
+    import lem_cards as module  # only a run in a task's session reads it
+    return module
+
+
+def task_folder():
+    """The folder of the task this session works on (`LEM_TASK`, which a task's session has), when
+    the repository it runs in has that task; else None, and the run keeps no card."""
+    if not os.environ.get("LEM_TASK"):
+        return None
+    return lem_cards().task_folder(Path(os.getcwd()), os.environ["LEM_TASK"])
+
+
+class Card:
+    """A card of a task's session: its page and the task's folder that keeps it, whose end file
+    says whether it is open and which answer counts (`lem_cards`)."""
+
+    def __init__(self, task, page):
+        self.task, self.page, self.cards = task, page, lem_cards()
+
+    def ended(self):
+        try:
+            return self.cards.ended(self.task, self.page)
+        except self.cards.CardError as e:
+            die(str(e))
+
+    def end(self, status, answer=None):
+        """End the card from this session: (True, the record) when this end counts, else (False, the end on record)."""
+        try:
+            return self.cards.end(self.task, self.page, status, "session", answer)
+        except (OSError, self.cards.CardError) as e:
+            die(f"the end of card {self.page} cannot be recorded in {self.task}: {e}")
+
+    def output(self, on_record, mine=None):
+        """What this run prints for the end on record, and its exit code: the answer on record as the
+        card's own answer, with `from`, else a dismissal (exit 2). MINE is this session's own end that
+        came after it, an answer or "dismissed" or "closed", which `said` names as not taken."""
+        if on_record.get("status") == "answered":
+            out = dict(on_record.get("answer") or {})
+            out.update({"pageID": self.page, "from": on_record.get("from")})
+            out.update({k: on_record[k] for k in ("via", "device") if k in on_record})
+            code = 0
+        else:
+            out, code = {"status": "dismissed", "pageID": self.page}, 2
+        took = self.cards.took_effect(on_record)
+        if isinstance(mine, dict):
+            said = f"Two answers came before the session read either, and the one recorded first counts: {took}; {self.cards.words(mine)} on the card in the session was not taken."
+        elif mine in ("dismissed", "closed"):
+            said = f"{took}, and it counts; the card's {'dismissal' if mine == 'dismissed' else 'close'} in the session came after it and was not taken."
+        else:
+            said = f"{took}."
+        out["said"] = said[:1].upper() + said[1:]
+        return out, code
+
+
+def card_of(page):
+    """The card PAGE of the task this session works on, or None when its folder keeps no such card."""
+    task = task_folder()
+    if task is None or not page:
+        return None
+    try:
+        return Card(task, page) if lem_cards().card(task, page) is not None else None
+    except lem_cards().CardError:
+        return None
+
+
+def keep_card(path, page, spec):
+    """Keep the card PAGE, whose page agterm shows from PATH, in the folder of the task this session
+    works on, when there is one: the board reads it there. A card that cannot be kept is said on
+    stderr and still waits for its answer in the session."""
+    task = task_folder()
+    if task is None or not page:
+        return None
+    cards = lem_cards()
+    try:
+        with open(path, "rb") as f:
+            cards.keep(task, page, f.read(), spec, os.environ.get("AGTERM_SESSION_ID"))
+    except (OSError, cards.CardError) as e:
+        print(f"lem-ask: the card {page} is not kept in {task}, so the board does not show it: {e}", file=sys.stderr)
+        return None
+    return Card(task, page)
+
+
+def peek(page_id):
+    """agterm's outcome of the page in one read, never an error: an answer, "dismissed", or None."""
+    r = ctl("session", "overlay", "result", "--page", page_id, "--json", check=False)
+    try:
+        o = json.loads(r.stdout).get("result", {}).get("pageOutcome", {})
+        if o.get("outcome") == "submitted":
+            return json.loads(o.get("value") or "{}")
+    except (json.JSONDecodeError, AttributeError):
+        return None
+    return "dismissed" if o.get("outcome") == "dismissed" else None
+
+
+def close_after_board(page_id):
+    """Close this session's own page of a card the board answered, while it is still shown."""
+    s = this_session()
+    if s is not None and shown_page(s, page_id) and (error := close_overlay(page_id)):
+        print(f"lem-ask: the board's answer counts, and the page stays up: {error}", file=sys.stderr)
+
+
 def open_overlay(path, a, spec):
     args = ["session", "overlay", "open", "--html", path, "--js", "--target", os.environ["AGTERM_SESSION_ID"], "--json"]
     if a.follow:
@@ -745,7 +884,11 @@ def open_overlay(path, a, spec):
     return res.get("pageID") or res.get("id")
 
 
-def wait_page(page_id, timeout, status=True):
+def wait_page(page_id, timeout, status=True, card=None):
+    """Wait for the page's answer. A CARD of a task's session (`Card`) ends once: each poll, the
+    first too, reads its end file, and an end on record (the board's answer, or an earlier end in
+    the session) is the output; a pick or a dismissal here links the end file first, and when
+    another end was there already, that end is the output and this one is not taken."""
     deadline = time.time() + timeout
     glyphs = defaults().get("status", {})
     asking = glyphs.get("asking", ["blocked"])
@@ -755,6 +898,14 @@ def wait_page(page_id, timeout, status=True):
     unreadable = 0
     try:
         while True:
+            on_record = card.ended() if card is not None else None
+            if on_record is not None:
+                mine = peek(page_id) if on_record.get("from") == "board" else None
+                if on_record.get("status") == "answered" and on_record.get("from") == "board":
+                    close_after_board(page_id)
+                out, code = card.output(on_record, mine if isinstance(mine, dict) else None)
+                print(json.dumps(out, ensure_ascii=False, indent=1))
+                return code
             r = ctl("session", "overlay", "result", "--page", page_id, "--json", check=False)
             try:
                 reply = json.loads(r.stdout)
@@ -774,10 +925,23 @@ def wait_page(page_id, timeout, status=True):
                     ans = json.loads(o.get("value") or "{}")
                 except json.JSONDecodeError:
                     ans = {"status": "answered", "answers": {"answer": {"selected": [], "labels": [], "text": o.get("value")}}}
+                if card is not None:
+                    won, on_record = card.end("answered", ans)
+                    if not won:
+                        out, code = card.output(on_record, ans)
+                        print(json.dumps(out, ensure_ascii=False, indent=1))
+                        return code
+                    ans["from"] = "session"
                 ans["pageID"] = page_id
                 print(json.dumps(ans, ensure_ascii=False, indent=1))
                 return 0
             if out == "dismissed":
+                if card is not None:
+                    won, on_record = card.end("dismissed")
+                    if not won:
+                        out, code = card.output(on_record, "dismissed")
+                        print(json.dumps(out, ensure_ascii=False, indent=1))
+                        return code
                 print(json.dumps({"status": "dismissed", "pageID": page_id}))
                 return 2
             if time.time() > deadline:
@@ -879,10 +1043,11 @@ def ask(spec, a, base):
         return ask_in_browser(html, a.timeout)
     path = write_page(html)
     page = open_overlay(path, a, spec)
+    card = keep_card(path, page, spec)
     if a.no_wait:
         print(json.dumps({"status": "open", "pageID": page, "file": path}))
         return 0
-    return wait_page(page, a.timeout, status=not a.no_status)
+    return wait_page(page, a.timeout, status=not a.no_status, card=card)
 
 
 def quick_spec(a):
@@ -965,7 +1130,7 @@ def main():
     if a.cmd == "wait":
         if not in_agterm():
             die("not inside agterm", 3)
-        sys.exit(wait_page(a.page_id, a.timeout, status=not a.no_status))
+        sys.exit(wait_page(a.page_id, a.timeout, status=not a.no_status, card=card_of(a.page_id)))
     if a.cmd == "close":
         close_page(a.page_id)
     if a.cmd == "templates":

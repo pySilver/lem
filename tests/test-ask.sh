@@ -32,13 +32,14 @@ for f in "$MERMAID_CACHE"/mermaid-*.min.js; do
 done
 
 skipped=0
-# The checks of this file: each call of pass in it, but six of them run once for each item, so
+# The checks of this file: each call of pass in it, but seven of them run once for each item, so
 # they count each item: every template and demo rendered, every call of expect (and of bad and
-# stub, which call it), of refuses and of check below; and before the pages are loaded, each page
-# and each markdown case. A call whose name is a variable is a helper's own, inside its definition.
-helpers=$(grep -cE '^[[:space:]]*(bad|expect|refuses|check|stub) "[^$]' "$SUITE_FILE")
+# stub, which call it), of refuses, of check and of card below; and before the pages are loaded,
+# each page and each markdown case. A call whose name is a variable is a helper's own, inside its
+# definition.
+helpers=$(grep -cE '^[[:space:]]*(bad|expect|refuses|check|stub|card) "[^$]' "$SUITE_FILE")
 specs=("$SKILL"/templates/*.json "$SKILL"/demos/*.json)
-collected "$(($(count_checks "$SUITE_FILE") - 6 + helpers + ${#specs[@]}))"
+collected "$(($(count_checks "$SUITE_FILE") - 7 + helpers + ${#specs[@]}))"
 
 # expect NAME CODE STATUS -- CMD...: CMD exits CODE and prints JSON whose status is STATUS.
 expect() {
@@ -361,6 +362,143 @@ if printf '%s' "$own" | "$PY" -I -B -c 'import json,sys; sys.exit(json.load(sys.
 else
   fail "busy carries the page id only for a question page"
 fi
+
+# A card of a task's session (LEM_TASK), with agtermctl stubbed, in a throwaway repository of its own for
+# each scenario that has the task's folder: the card kept there, and its one end (lem_cards.end) from the
+# session or from the board, of which the first one recorded counts. The board's answer is written the way
+# the board's server writes it, by lem_cards.end, while the card's own lem-ask waits.
+CARDS=$(cat <<'PY'
+import contextlib, glob, importlib.machinery, importlib.util, io, json, os, subprocess, sys, types
+from pathlib import Path
+loader = importlib.machinery.SourceFileLoader("lem-ask", sys.argv[1])
+mod = importlib.util.module_from_spec(importlib.util.spec_from_loader("lem-ask", loader))
+loader.exec_module(mod)
+scenario = sys.argv[2]
+repo = Path(sys.argv[3]) / scenario
+task = repo / ".lem" / "state" / "tasks" / "export-notes"
+task.mkdir(parents=True)
+subprocess.run(["git", "init", "-q", str(repo)], check=True)
+os.chdir(repo)
+os.environ.update(AGTERM_SESSION_ID="S1", AGTERM_ENABLED="1", LEM_TASK="export-notes")
+os.environ.pop("AGTERM_WINDOW_ID", None)
+if scenario == "no-task":
+    del os.environ["LEM_TASK"]
+if scenario == "other-task":
+    os.environ["LEM_TASK"] = "import-notes"
+mod.time.sleep = lambda s: None
+mod.agtermctl = lambda: "/usr/bin/true"  # in_agterm() also wants the binary; CI runners have none
+cards = mod.lem_cards()
+SPEC = {"prompt": "Keep the empty cell?", "options": [{"id": "a", "label": "yes"}, {"id": "b", "label": "no, write a dash"}]}
+def answer(oid, label, note=None):
+    one = {"selected": [oid], "labels": [label]}
+    if note:
+        one["text"] = note
+    return {"status": "answered", "answers": {"answer": one}}
+A, B = answer("a", "yes"), answer("b", "no, write a dash", "a dash, as in the invoice export")
+def board():
+    return cards.end(task, "P1", "answered", "board", B, via="door", device="phone", agent="Mozilla/5.0 (iPhone)")
+calls, polls, shown = [], [0], [True]
+def reply(stdout, code=0):
+    return types.SimpleNamespace(stdout=stdout, stderr="", returncode=code)
+def outcome(o, value=None):
+    found = {"pageID": "P1", "outcome": o}
+    if value is not None:
+        found["value"] = json.dumps(value)
+    return reply(json.dumps({"ok": True, "result": {"pageOutcome": found}}))
+def result(n):
+    if scenario in ("ask-keeps", "no-task", "other-task"):
+        return outcome("submitted", B) if n >= 3 else outcome("pending")
+    if scenario == "board" and n == 2:
+        board()  # the owner taps B on his phone while the card's own lem-ask waits
+    if scenario == "both" and n == 2:
+        board()  # the board records B first, and then the waiter reads the owner's A, picked at the Mac
+        return outcome("submitted", A)
+    if scenario == "dismissed":
+        return outcome("dismissed")
+    return outcome("pending")
+def ctl(*args, check=True):
+    calls.append(list(args))
+    if args[:3] == ("session", "overlay", "open"):
+        return reply(json.dumps({"ok": True, "result": {"pageID": "P1"}}))
+    if args[0] == "tree":
+        overlays = [{"file": os.path.join(mod.OUTDIR, "x.html"), "id": "P1"}] if shown[0] else []
+        return reply(json.dumps({"ok": True, "result": {"tree": {"workspaces": [{"sessions": [{"id": "S1", "htmlOverlays": overlays}]}]}}}))
+    if args[:3] == ("session", "overlay", "close"):
+        if args[args.index("--target") + 1] != "S1":
+            sys.exit(7)  # it closed an overlay of another session
+        shown[0] = False
+        return reply('{"ok":true}')
+    if args[:3] == ("session", "overlay", "result"):
+        polls[0] += 1
+        return result(polls[0])
+    sys.exit(6)  # a call of agtermctl no scenario expects
+mod.ctl = ctl
+a = types.SimpleNamespace(browser=False, no_wait=False, style=None, review=None, timeout=2, no_status=True,
+                          follow=False, size=None, full=False, chromeless=False)
+printed = io.StringIO()
+with contextlib.redirect_stdout(printed):
+    try:
+        if scenario in ("wait-board", "close-wins", "close-loses"):
+            cards.keep(task, "P1", b"<p>the card</p>", SPEC, "S1")
+            if scenario != "close-wins":
+                board()
+            code = mod.close_page() if scenario.startswith("close") else mod.wait_page("P1", 2, status=False, card=mod.card_of("P1"))
+        else:
+            code = mod.ask(json.loads(json.dumps(SPEC)), a, str(repo))
+    except SystemExit as stop:
+        code = stop.code
+lines = [line for line in printed.getvalue().splitlines() if line.strip()]
+try:
+    out = json.loads(printed.getvalue())
+except ValueError:
+    out = json.loads(lines[-1]) if lines else None
+kept = sorted(p.name for p in (task / "cards").iterdir()) if (task / "cards").is_dir() else []
+log = repo / ".lem" / "state" / "events.jsonl"
+events = [json.loads(line) for line in log.read_text().splitlines()] if log.is_file() else []
+pages = sorted(glob.glob(os.path.join(mod.OUTDIR, "*.html")), key=os.path.getmtime)
+same = bool(pages) and (task / "cards" / "P1.html").is_file() and open(pages[-1], "rb").read() == (task / "cards" / "P1.html").read_bytes()
+print(json.dumps({"code": code, "out": out, "calls": calls, "polls": polls[0], "kept": kept, "events": events, "html_same": same,
+                  "card": cards.card(task, "P1") if (task / "cards").is_dir() else None,
+                  "end": cards.ended(task, "P1") if (task / "cards").is_dir() else None}))
+PY
+)
+card() {  # card NAME SCENARIO PYTHON-EXPR-ON-r
+  local got
+  got=$("$PY" -I -B -c "$CARDS" "$B" "$2" "$WORK/cards" 2>"$WORK/card-$2.err" | tail -1 || true)
+  if printf '%s' "$got" | "$PY" -I -B -c "import json,sys; r=json.load(sys.stdin); sys.exit(not ($3))" 2>/dev/null; then pass "$1"; else fail "$1: $got $(cat "$WORK/card-$2.err")"; fi
+}
+mkdir -p "$WORK/cards"
+card "a card of a task's session is kept in the task's folder: the page's own bytes, its questions and options, and card.asked; a pick in the session ends it from the session" ask-keeps \
+  'r["code"] == 0 and r["out"]["from"] == "session" and r["html_same"] and r["card"]["page"] == "P1" and r["card"]["session"] == "S1"
+   and r["card"]["chat"] is True and [q["id"] for q in r["card"]["questions"]] == ["answer"]
+   and [(o["id"], o["label"]) for o in r["card"]["questions"][0]["options"]] == [("a", "yes"), ("b", "no, write a dash")]
+   and r["end"]["status"] == "answered" and r["end"]["from"] == "session" and r["end"]["answer"]["answers"]["answer"]["selected"] == ["b"]
+   and [(e["event"], e["page"]) for e in r["events"]] == [("card.asked", "P1"), ("card.answered", "P1")] and r["events"][0]["prompt"] == "Keep the empty cell?"'
+card "a run outside a task keeps no card and ends as today" no-task \
+  'r["code"] == 0 and "from" not in r["out"] and r["out"]["answers"]["answer"]["selected"] == ["b"] and r["kept"] == [] and r["events"] == []'
+card "a run whose task has no folder in the repository keeps no card" other-task \
+  'r["code"] == 0 and "from" not in r["out"] and r["kept"] == [] and r["events"] == []'
+card "the board's answer ends the waiting card: lem-ask closes its own page and prints B and the note, from the board, via and device" board \
+  'r["code"] == 0 and r["out"]["from"] == "board" and r["out"]["via"] == "door" and r["out"]["device"] == "phone"
+   and r["out"]["answers"]["answer"] == {"selected": ["b"], "labels": ["no, write a dash"], "text": "a dash, as in the invoice export"}
+   and ["session", "overlay", "close", "--target", "S1", "--json"] in r["calls"]
+   and not any(c[:3] == ["session", "overlay", "submit"] for c in r["calls"])
+   and [(e["event"], e.get("from")) for e in r["events"]] == [("card.asked", None), ("card.answered", "board")]'
+card "two answers before the session reads either: the board's, recorded first, counts, and said names both" both \
+  'r["code"] == 0 and r["out"]["from"] == "board" and r["out"]["answers"]["answer"]["selected"] == ["b"]
+   and "on the board" in r["out"]["said"] and "yes on the card in the session was not taken" in r["out"]["said"]
+   and r["end"]["from"] == "board" and [e["event"] for e in r["events"]].count("card.answered") == 1'
+card "a wait after an exit 4 finds the board's answer at its first poll" wait-board \
+  'r["code"] == 0 and r["out"]["from"] == "board" and r["out"]["answers"]["answer"]["selected"] == ["b"] and r["polls"] == 1'
+card "a dismissal in the session ends the card as dismissed, and logs card.closed" dismissed \
+  'r["code"] == 2 and r["out"]["status"] == "dismissed" and r["end"]["status"] == "dismissed" and r["end"]["from"] == "session"
+   and r["events"][-1]["event"] == "card.closed" and r["events"][-1]["status"] == "dismissed"'
+card "lem-ask close ends the card as closed before it closes the page" close-wins \
+  'r["code"] == 0 and r["out"]["status"] == "closed" and r["end"]["status"] == "closed" and r["end"]["from"] == "session"
+   and r["events"][-1]["event"] == "card.closed" and ["session", "overlay", "close", "--target", "S1", "--json"] in r["calls"]'
+card "lem-ask close after the board's answer is not taken: the page closes, and the output is the board's answer" close-loses \
+  'r["code"] == 0 and r["out"]["status"] == "answered" and r["out"]["from"] == "board" and "close in the session came after it" in r["out"]["said"]
+   and r["end"]["from"] == "board" and ["session", "overlay", "close", "--target", "S1", "--json"] in r["calls"]'
 
 # The asking glyph against status hooks. The plugin's async Stop hook acts only when a question page is open,
 # re-posts the asking status (with --auto-reset) whenever another hook posted over it, and stops once the
@@ -715,12 +853,74 @@ PY
   else
     fail "a wide table or a long path: $why"
   fi
+  # The runtime posts its answer to `answer`, a path relative to the page: a page served under
+  # /tasks/export-notes/cards/P1/ posts to that card's own route. A refusal (409) shows the reply's
+  # `said` and leaves the page to answer again, and a 200 shows its `said`. The spec's own script picks
+  # B and submits, and submits again 800 ms later: the refused page sends twice, the taken one once.
+  mkdir -p "$WORK/post"
+  printf '%s' '{"prompt": "Keep the empty cell?", "options": [{"id": "a", "label": "yes"}, {"id": "b", "label": "no, write a dash"}], "script": "api.select(\"answer\", \"b\"); api.submit(); setTimeout(() => api.submit(), 800);"}' > "$WORK/post/card.json"
+  "$PY" -I -B "$B" render "$WORK/post/card.json" -o "$WORK/post/card.html" >/dev/null
+  POSTED=$(cat <<'PY'
+import http.server, json, re, subprocess, sys, threading
+chrome, page, work = sys.argv[1], open(sys.argv[2], "rb").read(), sys.argv[3]
+ROUTE = "/tasks/export-notes/cards/P1/"
+def run(code, said):
+    posts = []
+    class H(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+        def do_GET(self):
+            self.send_response(200 if self.path == ROUTE else 404)
+            self.send_header("content-type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(page if self.path == ROUTE else b"")
+        def do_POST(self):
+            posts.append((self.path, json.loads(self.rfile.read(int(self.headers.get("content-length", 0))) or b"{}")))
+            body = json.dumps({"said": said}).encode()
+            self.send_response(code)
+            self.send_header("content-type", "application/json")
+            self.send_header("content-length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    dom = subprocess.run([chrome, "--headless=new", "--disable-gpu", "--no-sandbox", "--no-first-run", "--use-mock-keychain",
+                          f"--user-data-dir={work}/chrome", "--virtual-time-budget=3000", "--dump-dom",
+                          f"http://127.0.0.1:{server.server_address[1]}{ROUTE}"], capture_output=True, text=True, timeout=60).stdout
+    server.shutdown()
+    status = re.search(r'<span class="hd-status">(.*?)</span>', dom)
+    return posts, status.group(1) if status else None, 'class="hd-done"' in dom, dom
+wrong = []
+posts, status, done, dom = run(409, "A was taken in the session at 15:42")
+# the page's pagehide beacon, when Chrome leaves the refused page open, goes to the same route
+answers = [path for path, body in posts if body.get("status") == "answered"]
+if answers != ["/tasks/export-notes/cards/P1/answer"] * 2 or {path for path, _ in posts} != {"/tasks/export-notes/cards/P1/answer"}:
+    wrong.append(f"the refused page posted {posts}, not two answers to the card's own answer route")
+if posts and posts[0][1].get("answers", {}).get("answer", {}).get("selected") != ["b"]:
+    wrong.append(f"the refused page posted {posts[0][1]}")
+if status != "A was taken in the session at 15:42" or done:
+    wrong.append(f"the refused page shows {status!r} in its status line, and its done banner: {done}")
+posts, status, done, dom = run(200, "Your answer is on record")
+if [path for path, body in posts if body.get("status") == "answered"] != ["/tasks/export-notes/cards/P1/answer"]:
+    wrong.append(f"the taken page posted to {[path for path, _ in posts]}, not once to the card's own answer route")
+if not re.search(r'class="hd-done"[^>]*>Your answer is on record<', dom):
+    wrong.append("the taken page does not show the reply's said")
+print("; ".join(wrong))
+sys.exit(bool(wrong))
+PY
+)
+  if why=$("$PY" -I -B -c "$POSTED" "$chrome" "$WORK/post/card.html" "$WORK"); then
+    pass "the page posts its answer to the answer route beside it, shows a refusal's said and can answer again, and shows the said of an answer taken"
+  else
+    fail "the page's post to the route beside it: $why"
+  fi
 else
   for f in "${pages[@]}"; do skip "page loads: $(basename "$f" .html): no Chrome or Chromium found"; done
   for n in "${mdnames[@]}"; do skip "markdown $n: no Chrome or Chromium found"; done
   skip "a question's own context and body are shown: no Chrome or Chromium found"
   skip "a page of one question shows that question's context: no Chrome or Chromium found"
   skip "at 900 px a wide table scrolls inside its own box: no Chrome or Chromium found"
+  skip "the page posts its answer to the answer route beside it: no Chrome or Chromium found"
 fi
 
 results_add_up
