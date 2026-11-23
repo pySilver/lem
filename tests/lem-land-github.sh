@@ -262,11 +262,10 @@ gh_set "d['prs']['$rewritten_pr'].update(state='MERGED', merge='$(git -C "$gh_ot
 gh_land merged pr-rewritten >/dev/null
 rewritten_clean=$(gh_land clean pr-rewritten 2>&1 || true)
 rewritten_left=$(field 'd["branch_left"]' <<<"$rewritten_clean" 2>/dev/null || true)
-# shellcheck disable=SC2016  # the backticks are the message's own
 if [ "$(git -C "$GHS" show "$pushed_head" | git patch-id --stable | cut -d' ' -f1)" = "$(git -C "$GHS" show "$changed_tip" | git patch-id --stable | cut -d' ' -f1)" ] \
   && [ "$(field '(d["worktree"], d["branch"], d["remote"], d["rebased"])' <<<"$rewritten_clean")" = "(True, None, 'fix/pr-rewritten', None)" ] \
   && grep -qF "fix/pr-rewritten was changed after its push: the forge merged ${pushed_head:0:9}, the head Lem pushed, and the tip ${changed_tip:0:9} differs from it in its commit ${changed_tip:0:9} \"fix: the name\"" <<<"$rewritten_left" \
-  && grep -qF '`git range-diff ' <<<"$rewritten_left" && grep -qF '`git branch -D fix/pr-rewritten` removes the branch' <<<"$rewritten_left" \
+  && grep -qF "\`git range-diff " <<<"$rewritten_left" && grep -qF "\`git branch -D fix/pr-rewritten\` removes the branch" <<<"$rewritten_left" \
   && ! grep -qF "made on the forge" <<<"$rewritten_left" \
   && [ -n "$(git -C "$GHS" branch --list fix/pr-rewritten)" ] && [ -z "$(git -C "$GHO" branch --list fix/pr-rewritten)" ]; then
   pass "a branch changed after its push, whose pushed head the forge merged, keeps its local copy and loses the forge's, and clean names the commit that changed, also for one space that git's patch id does not see, and the commands that show and remove it, not a commit made on the forge"
