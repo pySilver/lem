@@ -34,12 +34,20 @@ The developer's own settings for every repository on the machine are the folder'
 the team's, in git, and `.lem/settings.local.toml`, the developer's own for that one repository:
 the nearest file that holds a setting wins. Each table of the four files is valid in some of them
 only (`TABLE_PLACES`, the one map), and a table in another file is refused with the file where it
-is valid (`misplaced`).
+is valid (`misplaced`). `lem project set` writes one line of `[seats]` in the folder's `settings.toml`
+or in a repository's `.lem/settings.local.toml` (`write_edits`), and keeps every other line of the
+file, the owner's comments too (`edited`).
+
+It also holds the words of a seat whose agent gave an error (`SEAT_ERRORS`, `SEAT_NAMES`), which
+`lem project seat-failed` writes into a block and `land.py` into the pull request's line of a stand-in,
+so that both say one error in one way.
 """
 
 import contextlib
+import copy
 import fcntl
 import os
+import re
 import subprocess
 import tomllib
 from pathlib import Path
@@ -169,7 +177,7 @@ LOCAL_SETTINGS = Path(".lem") / "settings.local.toml"
 # alone, and nothing overrides it; what guards a team's repository is in the team's file alone; the
 # question page's defaults are the developer's (the plan of one-home-folder-for-lem, 2026-11-23,
 # "How it works", decisions 2 and 3). Which keys of a table one file may hold is `project.py`'s
-# (`HOME_KEYS`, `local_naps_off`).
+# (`local_naps_off`).
 TABLE_PLACES = {
     "load": ("machine",), "serve": ("machine",), "peers": ("machine",), "handoff": ("machine",), "corrections": ("machine",),
     "seats": ("home", "team", "local"),
@@ -265,7 +273,6 @@ def checked_table(tables: dict, name: str) -> dict:
         raise StateError(f"{name} in {file} is no table; {fix}")
     for key, value in table.items():
         if MACHINE_KEYS[name] is None:
-            import re
             if not re.fullmatch(PEER_NAME, key) or isinstance(value, bool) or not isinstance(value, int) or not 0 < value < 65536:
                 raise StateError(f"{name}.{key} in {file} is no machine's name with a port of its door; delete the line, or {fix}")
             continue
@@ -326,6 +333,173 @@ def write_machine(name: str, values: dict | None) -> None:
         except BaseException:
             Path(temporary).unlink(missing_ok=True)
             raise
+
+
+def toml_string(value: str) -> str:
+    """A string as TOML writes it. JSON's own escapes would turn a character outside the basic plane into two halves TOML refuses."""
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return '"' + "".join(f"\\u{ord(c):04x}" if ord(c) < 0x20 or ord(c) == 0x7F else c for c in escaped) + '"'
+
+
+def toml_value(value: object) -> str:
+    """A value of a settings file as TOML writes it: a string, a list of them, true or false, a number."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, str):
+        return toml_string(value)
+    if isinstance(value, list):
+        return "[" + ", ".join(toml_value(item) for item in value) + "]"
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return repr(value) if isinstance(value, float) else str(value)
+
+
+# A line that opens a table, `[name]`, or an array of tables, `[[name]]`, with a comment after it or none.
+TABLE_LINE = re.compile(r"\s*(\[\[?)\s*([^\[\]]*?)\s*\]\]?\s*(#.*)?")
+# a key `edited` writes: a bare key of TOML, so that its line is found again by its name
+BARE_KEY = re.compile(r"[A-Za-z0-9_-]+")
+
+
+def content(line: str) -> bool:
+    """Whether a line of a TOML file says something: not blank, and not a comment."""
+    return bool(line.strip()) and not line.lstrip().startswith("#")
+
+
+def comment_after(value: str) -> str:
+    """The comment that follows the value on its line, with its `#` and the spaces before it; empty when the
+    line has none. A `#` inside a string is part of the value: the comment starts at the first `#` before
+    which the value reads."""
+    for at, char in enumerate(value):
+        if char == "#":
+            try:
+                tomllib.loads("value = " + value[:at])
+            except tomllib.TOMLDecodeError:
+                continue
+            return value[len(value[:at].rstrip()):].rstrip("\r\n")
+    return ""
+
+
+def edited(text: str, table: str, key: str, value: object, name: object) -> str:
+    """The text of a TOML file with KEY of TABLE set to VALUE, or taken out with None, and every other
+    line as it was, its comments too. It replaces the one line `KEY = ...` inside `[TABLE]`, adds the
+    line after the table's last line, or adds the table at the end of the text. Taken out, the line
+    goes; a table left with no line goes with its header, and a comment on the header's line stays as a
+    line of its own. The new text is read back and compared with the old one's values: each table and key as it was, and only KEY of TABLE set or gone. A text where
+    they differ is refused with the fix: a key the old text writes in another form (a dotted key at the
+    top, an inline table, a list over several lines) ends there, and the file stays as it is. NAME is
+    the file's name in a refusal."""
+    fix = f"write `{key}` on one line under `[{table}]` in {name}, then run this again"
+    if not BARE_KEY.fullmatch(key):
+        raise StateError(f"{key!r} is no key Lem writes in {name}")
+    try:
+        before = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as error:
+        raise StateError(f"{name} does not read as TOML ({error}); correct it by hand, then run this again") from error
+    old = before.get(table, {})
+    if not isinstance(old, dict):
+        raise StateError(f"{table} in {name} is no table; {fix}")
+    if value is None and key not in old:
+        return text
+    if value is not None and key in old and type(old[key]) is type(value) and old[key] == value:
+        return text
+    lines = text.splitlines(keepends=True)
+    if lines and not lines[-1].endswith("\n"):
+        lines[-1] += "\n"
+    header, stop = None, len(lines)
+    for number, line in enumerate(lines):
+        opened = TABLE_LINE.fullmatch(line.rstrip("\r\n"))
+        if not opened:
+            continue
+        if header is not None:
+            stop = number
+            break
+        if opened.group(1) == "[" and opened.group(2) == table:
+            header = number
+    found = None
+    if header is not None:
+        found = next((number for number in range(header + 1, stop) if re.match(rf"\s*{re.escape(key)}\s*=", lines[number])), None)
+    written = f"{key} = {toml_value(value)}" if value is not None else None
+    if value is None:
+        if found is not None:
+            del lines[found]
+            stop -= 1
+            if not any(content(line) for line in lines[header + 1:stop]):
+                said = TABLE_LINE.fullmatch(lines[header].rstrip("\r\n")).group(3)
+                if said:
+                    # a comment on the header's own line stays, as a line of its own
+                    lines[header] = said + "\n"
+                else:
+                    del lines[header]
+                    # the blank line that set the table apart goes with it, at the end of the text or before another blank
+                    if header and not lines[header - 1].strip() and (header == len(lines) or not lines[header].strip()):
+                        del lines[header - 1]
+    elif found is not None:
+        line = lines[found]
+        indent = line[:len(line) - len(line.lstrip())]
+        comment = comment_after(line.split("=", 1)[1])
+        lines[found] = f"{indent}{written}{comment}\n"
+    elif header is not None:
+        last = max((number for number in range(header + 1, stop) if content(lines[number])), default=header)
+        lines.insert(last + 1, written + "\n")
+    else:
+        if lines and lines[-1].strip():
+            lines.append("\n")
+        lines += [f"[{table}]\n", written + "\n"]
+    after_text = "".join(lines)
+    expected = copy.deepcopy(before)
+    if value is None:
+        del expected[table][key]
+        if not expected[table]:
+            del expected[table]
+    else:
+        expected.setdefault(table, {})[key] = value
+    try:
+        after = tomllib.loads(after_text)
+    except tomllib.TOMLDecodeError as error:
+        raise StateError(f"{name}: the line of {table}.{key} is not one Lem can change ({error}); {fix}") from error
+    if after != expected:
+        raise StateError(f"{name}: {table}.{key} is not written as one line `{key} = ...` under `[{table}]`; {fix}")
+    return after_text
+
+
+def lems_own(line: str, first_line: str | None) -> bool:
+    """Whether a line is one that Lem wrote and nobody else: blank, or the first line of a file it made."""
+    said = line.strip()
+    return not said or said == first_line
+
+
+def write_edits(file: Path, edits: list[tuple[str, str, object]], first_line: str | None = None, text: str | None = None) -> None:
+    """Apply each edit, (TABLE, KEY, VALUE or None), to the file's text in turn (`edited`), then write the
+    result through a temporary file beside it and a rename over it; nothing is written when one edit
+    is refused. A new file starts with FIRST_LINE, a comment. A file left with nothing but Lem's own
+    lines goes (`lems_own`); one that keeps a comment of the owner's stays, with the comment, even with
+    no table left. TEXT is the file's text when the caller read it already."""
+    import tempfile
+    if text is None:
+        try:
+            text = file.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            text = ""
+    old = text
+    if first_line and not text.strip():
+        text = first_line + "\n\n"
+    for table, key, value in edits:
+        text = edited(text, table, key, value, file)
+    if text == old:
+        return
+    if all(lems_own(line, first_line) for line in text.splitlines()):
+        file.unlink(missing_ok=True)
+        return
+    file.parent.mkdir(parents=True, exist_ok=True)
+    handle, temporary = tempfile.mkstemp(dir=file.parent, prefix=f".{file.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as out:
+            out.write(text)
+        os.chmod(temporary, file.stat().st_mode & 0o777 if file.exists() else 0o644)
+        os.replace(temporary, file)
+    except BaseException:
+        Path(temporary).unlink(missing_ok=True)
+        raise
 
 
 # The repositories whose boards `lem serve` shows: a JSON list of their main checkouts' absolute paths,
@@ -456,3 +630,30 @@ def folder(start: Path, timeout: float | None = None) -> Path:
     if not ignore.is_file():
         ignore.write_text(IGNORE, encoding="utf-8")
     return new
+
+
+# A seat whose agent gave an error, in a task's records: `lem project seat-failed` decides whether the
+# fallback stands in or the task is blocked, and the pull request lists each stand-in (`land.py`). The words
+# of both come from here, so that the block's line and the pull request's line say one error in one way.
+# The four errors a stand-in takes (`--error KIND`), each as the pull request says it after the agent's
+# name ("Codex had no tokens") and as the block's line says it after "gave an error: ".
+SEAT_ERRORS = {
+    "missing": {"pr": "is not on this Mac", "block": "the program is not on this Mac"},
+    "login": {"pr": "had no login", "block": "no login"},
+    "tokens": {"pr": "had no tokens", "block": "no tokens"},
+    "model": {"pr": "did not know the model", "block": "an unknown model"},
+}
+# The seats a stand-in may take, each by the name the records give it; the experts and a task's own
+# session take none (the owner's criterion 8 of seat-defaults-and-fallback, 2026-11-23).
+SEAT_NAMES = {"reviewer": "the reviewer", "planner": "the planner", "merger": "the merge agent"}
+# An agent of a seat by the name a person knows it by.
+AGENT_NAMES = {"claude": "Claude Code", "codex": "Codex"}
+# The fixed line of a block that a seat's error wrote, `the seat that failed: SEAT`: the owner's go on
+# (`lem project seat-again`) finds the seat to try again by it, and the session its phase.
+FAILED_SEAT = "the seat that failed: "
+
+
+def agent_name(line: str) -> str:
+    """The agent of a seat's line (`agent/model:effort`) by its name, as `AGENT_NAMES` gives it."""
+    agent = line.partition("/")[0].partition(":")[0]
+    return AGENT_NAMES.get(agent, agent)

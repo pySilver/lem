@@ -115,7 +115,7 @@ bullet.
   (2026-11-17, 2026-11-18)
 - **The state of Lem is not in the git directory.** `tests/lem-state.sh: "the state is in .lem/state
   of the main checkout, also for a script run"` (2026-11-17)
-- **Not every section of the settings stays.** `tests/lem-settings.sh: "the team's file holds 19
+- **Not every section of the settings stays.** `tests/lem-settings.sh: "the team's file holds 20
   keys, the same in show, in the file init writes"`; `tests/lem-machine.sh: "a new settings file has no
   [tools]: Lem asks with its own page"`;
   `tests/unit/test_settings.py::UnknownNames.test_a_key_of_paths_with_the_keys_it_knows`
@@ -131,10 +131,10 @@ bullet.
   `tests/lem-settings.sh: "the rulings file is a setting"`;
   `tests/lem-settings.sh: "a plan's name is paths.plan_file, YYYY-MM-DD-<slug>.md by default"`
   (2026-11-17, 2026-11-18, 2026-11-22)
-- **One machine may name its own reviewer for a while.** `tests/lem-settings.sh: "reviewer
-  AGENT/MODEL:EFFORT, run in a worktree, writes this machine's seat in the main checkout"`;
-  `tests/lem-settings.sh: "reviewer default gives the project's reviewer back and keeps what else
-  the machine set"`; `tests/lem-settings.sh: "the machine's own file may not hold the checks or any
+- **One machine may name its own reviewer for a while.** `tests/lem-settings.sh: "set local
+  reviewer AGENT/MODEL:EFFORT, run in a worktree, writes this machine's seat in the main checkout"`;
+  `tests/lem-settings.sh: "set local reviewer default gives the project's reviewer back and keeps
+  what else the machine set"`; `tests/lem-settings.sh: "the machine's own file may not hold the checks or any
   other rule of the project"` (decided 2026-11-14 and 2026-11-15)
 - **As a plugin, the correction hook comes with the install.** `tests/lem-machine.sh: "the plugin
   manifest names lem and a version of three numbers, which is the release"` (2026-11-15)

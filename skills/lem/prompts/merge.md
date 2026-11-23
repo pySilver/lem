@@ -21,8 +21,10 @@ why it is `careful`, `land` (the settings' `branch.land`), `owner_merges`, `time
 to the backlog folder by its `item` path and its `title`, whoever filed it, `bar`, the file whose
 rule 6 holds the bar of an item for this project (the one the project's builders read: when
 `bar.of` is `project`, `bar.file` is the project's own by its whole path; when it is `lem`,
-`bar.file` is a path in the folder that `lem version` prints as `root`), the `base` your read is
-against, and `moved`, what moved on that base since the checks ran, or null when nothing did.
+`bar.file` is a path in the folder that `lem version` prints as `root`), `stand_ins`, each seat
+that stood in for another in this task (the reviewer, the planner or the merger), for which seat
+and why, the `base` your read is against, and `moved`, what moved on that base since the checks
+ran, or null when nothing did.
 
 ## Read
 
@@ -104,6 +106,9 @@ resolves one and the one read of the resolution finds nothing, on a request that
 - **Merge** otherwise. A green change that is not careful, that does what its criteria say, with
   nothing you would show him, is merged at once. That is the point of you: his attention goes only
   where something waits for it.
+
+A seat that stood in (`stand_ins`, and its line under the pull request's checks) is a fact of the
+request, and no reason to call him: the plan talk ran, or the read was made, by the seat it names.
 
 ## Write
 

@@ -72,9 +72,10 @@ Not in git:
 For all repositories, in `~/.config/lem/` (or `$XDG_CONFIG_HOME/lem/`):
 
 - `owner.jsonl`: your away status.
-- `settings.toml`: your settings for every repository, which you write by hand:
-  - `[seats]`: the seats `merger` and `session`;
-  - `[ask]`: the look of the question page.
+- `settings.toml`: your settings for every repository:
+  - `[seats]`: the [seats](settings.md#seats) and the fallback for each repository that names
+    none, which `/lem set global NAME VALUE` sets;
+  - `[ask]`: the look of the question page, which you write by hand.
 - `machine.toml`: the settings of this computer, which no other file overrides:
   - `[load]`: the load limit for the checks, 40 when you set none. `lem project load --start N`
     sets it, and `lem project load --start none` removes the limit;

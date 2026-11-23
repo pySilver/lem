@@ -20,9 +20,15 @@ team that adopts Lem may have its own.
                                     three: the reviewer on Codex and two experts, or with
                                     `--codex no` (the machine check found no Codex) the
                                     reviewer on Claude and one expert
-    lem project reviewer AGENT[/MODEL[:EFFORT]]
-                                    who reviews on this machine, until `reviewer default`
-    lem project reviewer default    the project's own reviewer again
+    lem project set global|local NAME VALUE
+                                    write one line of [seats]: global in ~/.config/lem/settings.toml,
+                                    for each repository on this machine that names none, local in
+                                    this repository's .lem/settings.local.toml, for this machine only.
+                                    NAME is reviewer, planner, merger, session, experts or fallback;
+                                    VALUE a whole seat, one or two joined by a comma for experts,
+                                    false for fallback only, or default, which takes the line out.
+                                    Every other line of the file stays; nothing writes
+                                    .lem/settings.toml. It prints the seat show then gives
     lem project load [--start N|none]
                                     the load average under which the checks of a landing start on
                                     this machine (40 when none is set), and the load now; --start
@@ -61,6 +67,21 @@ team that adopts Lem may have its own.
                                     it that names one prints it, with the hold's type line. It
                                     refuses a type line, the owner's order, a `then:` line and the
                                     line of the one open task that fits in another form
+    lem project seat SLUG SEAT      the seat in use for the task, as `show` parses one: the fallback
+                                    while it stands in for SEAT (`from` is `stand-in`), else the seat
+                                    the settings name, with its `from`; every stage that opens a seat
+                                    takes it here
+    lem project seat-failed SLUG reviewer|planner|merger --seat LINE --error missing|login|tokens|model [--said TEXT]
+                                    the agent on LINE, the seat the stage opened, gave one of the four
+                                    errors: the fallback stands in for SEAT from now on (it prints the
+                                    seat to open, with `say`), or the task is `blocked` with the seat
+                                    and the error and the line `the seat that failed: SEAT` (it prints
+                                    `blocked: true` with `say`): when the fallback is false, when it
+                                    is LINE, or when its agent may not sit in SEAT. The experts and
+                                    the session take no fallback
+    lem project seat-again SLUG     the owner's go on over such a block: the block before it comes
+                                    back, the stand-in ends, and the seat the settings name is tried again.
+                                    No other state but a park, another block or an end comes over it
     lem project tasks               every task's ask, status and newest state block, as JSON
     lem project owner away|back --words TEXT
                                     the owner says that he is away, or back again: his words as typed,
@@ -223,27 +244,30 @@ the one map): a table in another file is refused, and the refusal names the file
 `settings.toml` files hold the rest, and for a setting that more than one of them may hold, the
 nearest that holds it wins: `.lem/settings.local.toml`, then `.lem/settings.toml`, then the home
 folder's `settings.toml`, then Lem's default. `show` names in `from` the file each such value came
-from: each seat, each expert, `naps.on` and `state.keep_days`. It gives `corrections.collect`, the
-machine's yes or no to the correction queue, with `from` too: `machine.toml`, which `lem corrections
-collect yes|no` writes, or Lem's default, which is no, and which `/lem init` asks about.
+from: each seat, each expert, the fallback, `naps.on` and `state.keep_days`. It gives
+`corrections.collect`, the machine's yes or no to the correction queue, with `from` too:
+`machine.toml`, which `lem corrections collect yes|no` writes, or Lem's default, which is no, and
+which `/lem init` asks about.
 
-The home folder's `settings.toml` is the developer's own for every repository on the machine: the
-merge agent's and a task session's seats (`[seats]` with `merger` and `session` only, `HOME_KEYS`),
-and the question page's defaults (`[ask]`, which only that page reads; here only its keys are
-checked). What guards a team's repository (`[flow]`, `[checks]`, `[branch]`, `[paths]`,
-`[tracker]`) is valid in the team's file only. `keep_days` is a repository's (the owner,
+The home folder's `settings.toml` is the developer's own for every repository on the machine: each
+seat and the fallback (`[seats]`, which `lem project set global` writes), and the question page's
+defaults (`[ask]`, which only that page reads; here only its keys are checked). What guards a team's
+repository (`[flow]`, `[checks]`, `[branch]`, `[paths]`, `[tracker]`) is valid in the team's file
+only. `keep_days` is a repository's (the owner,
 2026-11-21), and so is the naps' switch: this file refuses `[state]` and `[naps]` too.
 
 `.lem/settings.local.toml` is one person's or one day's choice on one machine for one repository:
-who sits in the reviewer's pane (the usual reviewer is down, or out of tokens) and on which model
-the defender of a plan talk runs, a no to the naps, which spend that person's tokens, and how many
-days the state folder keeps old files on this machine's disk. It is not committed (`init` writes
+who sits in each seat of this repository, before the team's file and the home folder's
+`settings.toml` (`lem project set local` writes it; an agent that gives an error needs no edit
+here, since `seats.fallback` stands in for it), a no to the naps, which spend that person's tokens,
+and how many days the state folder keeps old files on this machine's disk. It is not committed (`init` writes
 `.lem/.gitignore` for it), and it is read from the main checkout, because a task's worktree has no
 copy of a file git does not track. It may hold `[seats]`, `[naps]` with `on = false` and `[state]`
 with `keep_days`, and nothing else: the checks, what must never go wrong, the protected branches
 and who lands are the project's rules, and a file nobody reviews must not open them. For the same
 reason it can switch the naps off for its person and never on: nobody's tokens are spent because of
-a file that git does not show. `show` names each setting that came from it in `local.overrides`.
+a file that git does not show. `show` names each setting that came from it: a seat by its `from`,
+any other in `local.overrides`.
 
 The rules for the code are the markdown files of `.claude/rules`, the folder Claude Code loads by
 itself; Lem writes none of them and moves none. A file scopes itself to paths in its frontmatter,
@@ -293,21 +317,35 @@ A seat is one string, `agent/model:effort`: `seats.reviewer`, the agent in the r
 `seats.planner`, the defender of a plan talk; `seats.merger`, the merge agent, which reads each
 proposed task and merges it or calls the owner; `seats.session`, the agent of each task's own
 session (`lem session open`), only `claude` for now; and `seats.experts`, the one or two experts, the
-last level of the ladder of a decision in doubt. Each seat is the local file's when it names one,
-else the team's; the merge agent's and the session's are then the developer's own for all his
-repositories (`[seats] merger` and `session` in the home folder's `settings.toml`), else Lem's
-default, `claude/opus:high` (`SEAT_DEFAULT`). `show` gives each seat and each expert with `from`,
-the file it came from, or "Lem's default". `show` marks each expert `here` when its agent is on this
+last level of the ladder of a decision in doubt. Each seat comes from the first of four places that
+names it: this machine's own file for the repository (`.lem/settings.local.toml` of the main
+checkout), the team's file (the branch's copy in a task's worktree), the developer's own file for
+all his repositories (`[seats]` of the home folder's `settings.toml`, `lem_state.home_settings_file()`), else Lem's
+default (`DEFAULT_SEATS`: `claude/opus:high` for the reviewer, the defender, the merge agent and the
+session, and `EXPERTS`). A file's seat replaces the ones after it whole, and the experts' list too.
+`show` gives each seat, and each expert, with `from`: the file's name as above, or `Lem's default`.
+`seats.fallback`, from the same four places, is the seat that stands in for the reviewer, the
+defender or the merge agent when its agent gives an error: a whole seat turns it on, `false` turns
+it off, and with no line in any place it is `claude/opus:high` (`FALLBACK`); `show` gives it as a
+seat with `from`, or as `{"seat": false, "from": ...}`. The experts and the session take no
+fallback. When a stage sees one of the four errors of a seat's agent (the program is not on the Mac,
+no login, no tokens, an unknown model; a slow agent is none), `seat-failed` alone decides, under the
+task's lock: the fallback stands in, logged as `seat.stand-in`, and holds that seat for the task until
+it ends or the owner's go on (`seat-again`, which logs `seat.again`); or the task is `blocked`, logged
+as `seat.blocked`, when the fallback is off, is the seat that failed, or has an agent that may not sit
+in that seat. `seat SLUG SEAT` is the seat in use, the one every opener starts. `show` marks each expert `here` when its agent is on this
 machine (Claude Code always, Codex when its command is on PATH): only those answer, so without
-Codex the default's one Claude expert answers alone. The reviewer's, the defender's and each
-expert's seat is written whole, and `show` and `reviewer` refuse one that leaves out its model or its
-effort (the owner, 2026-11-18: "I think it should be explicitly `agent/model:effort` in all 3; not
-simply "claude" or "codex""); `init` writes the three so. The merge agent's and the session's seat
-may leave out the effort (`claude/opus`), and the model too (`claude`, `claude:high`): the part
-a named seat leaves out is that agent's own default, and Lem passes nothing for it. `show`
-gives each seat parsed, as `agent`, `model`, `effort` and the `seat` as written; a file with no
-planner or no experts gets Lem's (`PLANNER`, `EXPERTS`), and one with no reviewer gets none, which
-the stage that needs it asks the owner for.
+Codex the default's one Claude expert answers alone. The reviewer's, the defender's, each
+expert's and the fallback's seat is written whole, in each of the three files, and `show` and
+`set` refuse one that leaves out its model or its effort (the owner, 2026-11-18: "I think it
+should be explicitly `agent/model:effort` in all 3; not simply "claude" or "codex""); `init` writes
+the three so. The merge agent's and the session's seat may leave out the effort (`claude/opus`), and
+the model too (`claude`, `claude:high`): the part a named seat leaves out is that agent's own
+default, and Lem passes nothing for it; `set` still takes only a whole seat for them. `show` gives
+each seat parsed, as `agent`, `model`, `effort` and the `seat` as written, with its `from`. `set
+global` and `set local` write one line of `[seats]` in the home folder's `settings.toml` or in this
+machine's own file for the repository, and keep every other line of it (`lem_state.edited`); no
+command writes the team's file, and none writes a seat into `machine.toml`, which refuses `[seats]`.
 
 A plan's file is named by `paths.plan_file`, a pattern of the tokens `YYYY`, `MM`, `DD` and
 `<slug>`, `YYYY-MM-DD-<slug>.md` unless the settings say otherwise. A task's plan is found by it:
@@ -430,6 +468,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import threading
 import time
 import tomllib
 from collections.abc import Iterator
@@ -452,10 +491,6 @@ LOCAL = lem_state.LOCAL_SETTINGS
 # the tables one machine may set for itself in one repository; of [naps] only `on = false`, and of
 # [state] its one key, `keep_days` (`lem_state.TABLE_PLACES`)
 LOCAL_TABLES = tuple(table for table, places in lem_state.TABLE_PLACES.items() if "local" in places)
-# The keys a table of the home folder's `settings.toml` may hold, where it holds fewer than its own:
-# of the seats, the merge agent's and a task session's, which keep their rules of today (decision 3 of
-# the plan of one-home-folder-for-lem, 2026-11-23).
-HOME_KEYS = {"seats": ("merger", "session")}
 # What Lem reads beside its settings, each in one place with no setting (the owner's note of
 # 2026-11-18 on the plan, task 1b of docs/plans/2026-11-18-core-and-two-modes.md): Lem's own files,
 # the rules for the code in the folder Claude Code loads by itself, the review tool's folder, and the
@@ -499,9 +534,8 @@ REVIEWERS = ("claude", "codex")
 # it starts. The three seats of WHOLE_SEATS are written whole (the owner, 2026-11-18: "I think it
 # should be explicitly `agent/model:effort` in all 3; not simply "claude" or "codex""); a part left out
 # of the merge agent's or a task session's seat is the agent's own default, and Lem passes nothing for it;
-# a seat nobody names is SEAT_DEFAULT, written whole.
+# a seat nobody names is Lem's own (DEFAULT_SEATS), written whole.
 SEAT_FORM = "agent/model:effort"
-SEAT_KEYS = ("agent", "model", "effort")
 WHOLE_SEATS = ("reviewer", "planner", "experts")
 # The defender's seat: the agent Lem starts in the companion of a plan talk, which defends the
 # plan against the reviewer. Only Claude Code, because the harness was checked in no other agent.
@@ -510,6 +544,10 @@ PLANNER = "claude/opus:high"
 # The reviewer's seat that `init` writes for each agent: Codex when the machine has it, since two
 # model families disagree more usefully than one family twice, and Claude otherwise.
 REVIEWER_SEATS = {"codex": "codex/gpt-6.2-sol:high", "claude": "claude/opus:high"}
+# The reviewer's seat when no file names one: Claude, which is where Lem runs, so that a repository
+# that names none has a reviewer on every machine (the owner, 2026-11-23, in the ask of the task
+# seat-defaults-and-fallback: "`claude/opus:high` is used to review plans").
+REVIEWER = "claude/opus:high"
 # The experts, the last level of the ladder of a decision in doubt: one or two seats, each named by its
 # place, `fable` for the first seat and `astra` for the second, whatever model sits there, so that a
 # record (`advisers` of `decisions.py log --by experts`) says one expert or two. The default is the newest Fable of
@@ -531,11 +569,28 @@ SEATS = {
 # The merge agent's and a task session's seat when no file names one (the owner, 2026-11-22:
 # "`seats.merger`, `seats.session` should default to `claude/opus:high`").
 SEAT_DEFAULT = "claude/opus:high"
-# The seats that take the developer's own for all his repositories (the home folder's `settings.toml`)
-# when the repository names none, and SEAT_DEFAULT when he names none either.
-HOME_SEATS = HOME_KEYS["seats"]
-# Where a value came from when no file names it: a seat, an expert, `naps.on`, `state.keep_days`.
+# Lem's own seat of each of SEATS, the last of its four places (`seat_of`): this machine's own file for
+# the repository, the team's file, the developer's file for all his repositories (the home folder's
+# `settings.toml`), then this.
+DEFAULT_SEATS = {"reviewer": REVIEWER, "planner": PLANNER, "merger": SEAT_DEFAULT, "session": SEAT_DEFAULT}
+# The seat that stands in for the reviewer, the planner or the merge agent when its agent gives an
+# error, from the same four places; `false` in one turns the fallback off. On unless a file says
+# otherwise (the owner, 2026-11-23: "and keep fallback: on (default)"; of the key: "y, one key").
+FALLBACK = "claude/opus:high"
+# Where a value came from when no file names it: a seat, an expert, the fallback, `naps.on`,
+# `state.keep_days`.
 DEFAULT_FROM = "Lem's default"
+# What `seat` gives as `from` for a seat in which the fallback stands in for the task (`seat-failed`).
+STAND_IN = "stand-in"
+# The events of a seat whose agent gave an error, which only `seat-failed` and `seat-again` write: the
+# fallback that stands in (`seat=SEAT failed=LINE took=FALLBACK error=KIND`), the block
+# (`seat=SEAT failed=LINE error=KIND`), and the owner's go on (`seat=SEAT`), after which the seat the
+# settings name opens again. A stand-in holds for its seat until the task ends or that go on.
+SEAT_EVENTS = ("seat.stand-in", "seat.blocked", "seat.again")
+# the fixed line of a block that a seat's error wrote, which `state` takes in this form only
+FAILED_LINE = re.compile(re.escape(lem_state.FAILED_SEAT) + r"(?P<seat>" + "|".join(lem_state.SEAT_NAMES) + r")")
+# the first line of the owner's go on over such a block
+GO_ON = "the owner's go on: "
 # A plan's file name: its default, and its tokens; `lem_plans` builds and finds the name.
 PLAN_FILE = lem_plans.PLAN_FILE
 PLAN_TOKENS = lem_plans.TOKENS
@@ -551,7 +606,8 @@ SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 #   held      it waits for the owner: the criteria, one more fact, a step of his, the task his order names
 #             (`the order waits for the owner`, ORDER_WAIT), or a breaker's document (`breaker N waits for
 #             the owner`); no choice of the build waits for him, the ladder decides it
-#   blocked   the task stopped on something its session could not settle: the base is red, or a builder ended two times with no report
+#   blocked   the task stopped on something its session could not settle: the base is red, a builder ended two times with no report,
+#             or a seat's agent gave an error and no fallback could stand in (`seat-failed`, the line `the seat that failed: SEAT`)
 #   ready     the report is written and the branch waits for its checks
 #   landing   the checks and the read run on it, or a builder repairs what they or the base showed
 #   open      it is proposed: its pull request is open, and it waits for the merge agent's read and the merge
@@ -606,7 +662,7 @@ TABLES: dict[str, tuple[str, ...]] = {
     "branch": ("base", "land", "history", "protected"),
     "checks": ("commands", "setup", "serial"),
     "flow": ("topics",),
-    "seats": ("reviewer", "planner", "merger", "session", "experts"),
+    "seats": ("reviewer", "planner", "merger", "session", "experts", "fallback"),
     "tracker": ("kind",),
     "naps": ("on",),
     "state": ("keep_days",),
@@ -734,9 +790,12 @@ serial = []
 topics = []
 
 [seats]
-# Who sits where, each as "agent/model:effort". The reviewer, the planner and each expert are
-# written whole: Lem refuses "codex" or "codex/gpt-6.2-sol" there. A part left out of the merger
-# or the session ("claude", "claude:high") takes that agent's own default.
+# Who sits where, each as "agent/model:effort". The reviewer, the planner, each expert and the
+# fallback are written whole: Lem refuses "codex" or "codex/gpt-6.2-sol" there. A part left out of
+# the merger or the session ("claude", "claude:high") takes that agent's own default. Each seat comes
+# from the first file that names it: .lem/settings.local.toml, this file, the developer's
+# ~/.config/lem/settings.toml for all his repositories, then Lem's own, "claude/opus:high" for each
+# seat but the experts.
 # The reviewer, on the agent "claude" or "codex". Lem's builders build; this one talks the plan of
 # a careful or large task through with its defender, in the other pane of the pair the task's lead
 # opens for the talk. The same family twice is allowed.
@@ -746,17 +805,19 @@ reviewer = "{reviewer}"
 # now.
 planner = "{planner}"
 # The merge agent, which reads each proposed task and merges it or calls the owner: "claude" or
-# "codex", read-only. Left out, it is the seat the developer names for all his repositories
-# (`[seats] merger` in ~/.config/lem/settings.toml), else "claude/opus:high".
+# "codex", read-only.
 # merger = "agent/model:effort"
-# The agent of each task's own session in agterm: "claude" only for now. Left out, it is the seat the
-# developer names for all his repositories (`[seats] session` in ~/.config/lem/settings.toml), else
-# "claude/opus:high".
+# The agent of each task's own session in agterm: "claude" only for now.
 # session = "agent/model:effort"
 # The experts, the last level of the ladder of a decision in doubt, at the same moment and read-only: two
 # model families, so that their agreement is worth more than two of one. Where the machine has one
 # of their agents, that expert answers alone.
 experts = [{experts}]
+# The seat that stands in for the reviewer, the planner or the merge agent when its agent gives an
+# error (it is not on the machine, or says it has no login, no tokens or no such model), so that the
+# task goes on and the pull request says so. false turns it off: the task then waits for the owner.
+# Left out, it is "claude/opus:high".
+# fallback = "agent/model:effort"
 
 # The tracker a task's ask may come from: "linear" or "github". Leave it out when the project has
 # none. Lem reads a ticket into a task, marks it when its work starts, and comments the landing.
@@ -865,10 +926,8 @@ def unreadable_argument(argv: list[str]) -> str | None:
     return None
 
 
-def toml_string(value: str) -> str:
-    """A string as TOML writes it. JSON's own escapes would turn a character outside the basic plane into two halves TOML refuses."""
-    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
-    return '"' + "".join(f"\\u{ord(c):04x}" if ord(c) < 0x20 or ord(c) == 0x7F else c for c in escaped) + '"'
+# a string as TOML writes it, for the template and the refusals; the line edit of a settings file writes the same
+toml_string = lem_state.toml_string
 
 
 def read_settings(file: Path, name: Path, place: str) -> dict:
@@ -927,8 +986,8 @@ DIFFERS_SAID: list[bool] = []
 
 def settings_of(text: str, name: Path | str, place: str) -> dict:
     """The text of one settings file as a dict, checked as `read_settings` says: a table Lem does not
-    know, a table whose place is another file (named in the refusal), and a key the table may not
-    hold there are refused."""
+    know, a table whose place is another file (named in the refusal), and a key the table does not
+    have are refused."""
     try:
         raw = tomllib.loads(text)
     except tomllib.TOMLDecodeError as error:
@@ -944,24 +1003,7 @@ def settings_of(text: str, name: Path | str, place: str) -> dict:
         for key in body:
             if key not in TABLES[table]:
                 raise SettingsError(f"{name}: unknown key {table}.{key}{nearest(key, TABLES[table])}")
-            if place == "home" and key not in HOME_KEYS.get(table, TABLES[table]):
-                others = [one for one in ("team", "local") if one in lem_state.TABLE_PLACES[table]]
-                raise SettingsError(
-                    f"{name}: {table}.{key} is not valid in this file, which holds only {' and '.join(HOME_KEYS[table])} of [{table}]: "
-                    f"its place is {' or '.join(lem_state.place_name(one) for one in others)}",
-                )
     return raw
-
-
-def toml_value(value: object) -> str:
-    """A value of a settings file as TOML writes it: a string, a list of strings, true or false, a number."""
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, str):
-        return toml_string(value)
-    if isinstance(value, list):
-        return "[" + ", ".join(toml_value(item) for item in value) + "]"
-    return str(value)
 
 
 def flow_of(raw: dict, name: Path) -> dict:
@@ -1023,20 +1065,68 @@ def home_name() -> str:
     return lem_state.shown(lem_state.home_settings_file())
 
 
-def seat_of(which: str, raw: dict, local: dict, home: dict) -> dict:
-    """One seat, with `from`, the file it came from: the local file's, else the team's, else, for a
-    seat of HOME_SEATS, the home folder's `settings.toml`, else Lem's default (PLANNER, SEAT_DEFAULT,
-    or no reviewer). Each file's seat is checked, the ones a nearer file wins over too."""
-    team, own = seat(raw, SETTINGS, which), seat(local, LOCAL, which)
-    mine = seat(home, Path(home_name()), which) if which in HOME_SEATS else None
-    for found, where in ((own, str(LOCAL)), (team, str(SETTINGS)), (mine, home_name())):
-        if found is not None:
-            return {**found, "from": where}
-    if which == "planner":
-        return {**seat({"seats": {which: PLANNER}}, Path(DEFAULT_FROM), which), "from": DEFAULT_FROM}
-    if which in HOME_SEATS:
-        return {**parse_seat(SEAT_DEFAULT, DEFAULT_FROM, *SEATS[which]), "from": DEFAULT_FROM}
-    return {**{key: None for key in SEAT_KEYS}, "seat": None, "from": DEFAULT_FROM}
+def places_of(local: dict, raw: dict, home: dict) -> list[tuple[dict, Path]]:
+    """The three files a seat may come from, first to last, each as its tables and the name `from`
+    gives it: this machine's own file for the repository, the team's file, and the developer's file
+    for all his repositories, the home folder's `settings.toml`."""
+    return [(local, LOCAL), (raw, SETTINGS), (home, Path(home_name()))]
+
+
+def first_of(found: list[tuple[object, Path]]) -> tuple[object, str]:
+    """The first value a place gives, with that place's name as `from`; else None, from Lem's default."""
+    for value, name in found:
+        if value is not None:
+            return value, str(name)
+    return None, DEFAULT_FROM
+
+
+def seat_of(which: str, local: dict, raw: dict, home: dict) -> dict:
+    """One seat of SEATS with `from`, the place it came from: the first of the three files that
+    names it (`places_of`), else Lem's own (DEFAULT_SEATS). Each file's seat is checked, the ones
+    after the first too, so that a wrong line is refused wherever it is."""
+    found = [(seat(tables, name, which), name) for tables, name in places_of(local, raw, home)]
+    chosen, place = first_of(found)
+    if chosen is None:
+        chosen = seat({"seats": {which: DEFAULT_SEATS[which]}}, Path(DEFAULT_FROM), which)
+    return {**chosen, "from": place}
+
+
+def experts_from(local: dict, raw: dict, home: dict) -> list[dict]:
+    """The experts with `from` on each, from the first of the three files that names them, else
+    Lem's (EXPERTS). A file's list replaces the one after it whole."""
+    found = [(experts_of(tables, name), name) for tables, name in places_of(local, raw, home)]
+    chosen, place = first_of(found)
+    if chosen is None:
+        chosen = experts_of({"seats": {"experts": list(EXPERTS)}}, Path(DEFAULT_FROM))
+    return [{**expert, "from": place} for expert in chosen]
+
+
+def fallback_of(raw: dict, name: Path) -> dict | None:
+    """The fallback one file names, checked: a whole seat, which turns it on, or `false`, which turns
+    it off; None when the file names none."""
+    given = raw.get("seats", {}).get("fallback")
+    if given is None:
+        return None
+    if given is False:
+        return {"seat": False}
+    where = f"{name}: seats.fallback"
+    form = (f'a whole seat, "{SEAT_FORM}", as "{FALLBACK}", which stands in for the reviewer, the planner or the merger '
+            "when its agent gives an error, or false, which turns the fallback off")
+    if given is True:
+        raise SettingsError(f"{where} = true is no seat: it is {form}. Leave the line out for Lem's, \"{FALLBACK}\"")
+    if isinstance(given, str) and not given.strip():
+        raise SettingsError(f"{where} is empty: it is {form}. Leave the line out for Lem's, \"{FALLBACK}\"")
+    return parse_seat(given, where, REVIEWERS, "the agents Lem can start in a seat's place", FALLBACK, True)
+
+
+def fallback_from(local: dict, raw: dict, home: dict) -> dict:
+    """The fallback with `from`, from the first of the three files that names it, else Lem's
+    (FALLBACK): `{"seat": false, "from": ...}` when it is off."""
+    found = [(fallback_of(tables, name), name) for tables, name in places_of(local, raw, home)]
+    chosen, place = first_of(found)
+    if chosen is None:
+        chosen = fallback_of({"seats": {"fallback": FALLBACK}}, Path(DEFAULT_FROM))
+    return {**chosen, "from": place}
 
 
 def agent_here(agent: str) -> bool:
@@ -1241,18 +1331,11 @@ def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, commit
     if base in protected:
         raise SettingsError(f"{SETTINGS}: branch.base = {base!r} is in branch.protected, so no task could land")
 
-    # A nearer seat replaces a farther one whole: its model and effort belong to its own agent.
-    seats: dict = {}
-    for which in SEATS:
-        seats[which] = seat_of(which, raw, local, home or {})
-        if seats[which]["from"] == str(LOCAL):
-            overridden.append(f"seats.{which}")
-    team_experts, local_experts = experts_of(raw, SETTINGS), experts_of(local, LOCAL)
-    experts, where = (local_experts, str(LOCAL)) if local_experts is not None else (team_experts, str(SETTINGS)) if team_experts is not None else (
-        experts_of({"seats": {"experts": list(EXPERTS)}}, Path(DEFAULT_FROM)), DEFAULT_FROM)
-    seats["experts"] = [{**expert, "from": where} for expert in experts]
-    if local_experts is not None:
-        overridden.append("seats.experts")
+    # Each seat is the first of its four places, whole: a model and an effort belong to the agent of the
+    # line they are on. `from` names the place, so the seats stay out of `local.overrides`.
+    seats: dict = {which: seat_of(which, local, raw, home or {}) for which in SEATS}
+    seats["experts"] = experts_from(local, raw, home or {})
+    seats["fallback"] = fallback_from(local, raw, home or {})
     # the machine's own switch of the correction queue, which no file of a repository may hold; with no
     # line it is Lem's default, no, and the hook sends nothing
     machine_corrections = (machine or {}).get("corrections", {})
@@ -1314,7 +1397,7 @@ def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, commit
         # read from the main checkout's settings, in a task's worktree too, or from this machine's own
         # file; `from` names which, as each seat's does
         "state": state,
-        # what this machine set for itself, so a report can say that the reviewer is not the project's
+        # what this machine set for itself in the tables that are not seats; a seat's `from` says it of the seat
         "local": {"file": str(local_file) if local_file.is_file() else None, "overrides": overridden},
     }
 
@@ -1424,41 +1507,107 @@ def cmd_init(root: Path, base: str | None, codex: str) -> None:
     print(file)
 
 
-def cmd_reviewer(root: Path, words: list[str]) -> None:
-    """Write, or with `default` remove, this machine's own reviewer seat."""
-    file = main_checkout(root) / LOCAL
+# What `set` writes: each seat, and the seat that stands in when one fails; with the words it says each by,
+# a seat that can fail by the name its block and the pull request give it (`lem_state.SEAT_NAMES`).
+SET_NAMES = (*SEATS, "experts", "fallback")
+SET_WORDS = {**lem_state.SEAT_NAMES, "session": "a task's session", "experts": "the experts", "fallback": "the fallback"}
+# Where `set` writes: the developer's file for all his repositories (the home folder's `settings.toml`),
+# or this machine's own file for this one. The team's file is everybody's, edited by hand and committed,
+# and no command writes it.
+SCOPES = ("global", "local")
+# the first line of a file `set` makes; a file left with nothing but it and blank lines goes, and one with a comment of the owner's stays
+SET_FIRST = {"global": "# Your own settings for Lem, for every repository on this machine. `lem project set global NAME VALUE` writes a seat.",
+             "local": "# This machine's own settings for Lem, for this repository. Not committed; `lem project set local NAME VALUE` writes a seat."}
+
+
+def set_value(scope: str, name: str, value: str) -> object:
+    """What `set SCOPE NAME VALUE` writes, checked by the rule `show` reads it with: a whole seat for
+    each seat (the merge agent's and the session's too), one or two whole seats joined by a comma for
+    the experts, written as a list, `false` for the fallback only; None for `default`, which takes the
+    line out."""
+    if name not in SET_NAMES:
+        raise SettingsError(f"set takes a seat or fallback as NAME, not {name!r}{nearest(name, SET_NAMES)}")
+    if value == "default":
+        return None
+    where = Path(f"set {scope} {name}")
+    if value == "false":
+        if name != "fallback":
+            raise SettingsError(f"{where}: false is for fallback only, which it turns off; {SET_WORDS[name]} takes a whole seat, \"{SEAT_FORM}\", "
+                                f"or default, which takes the line out")
+        return False
+    if name == "fallback":
+        # `true` is refused as the settings refuse it, with the line to leave out
+        return fallback_of({"seats": {"fallback": True if value == "true" else value}}, where)["seat"]
+    if name == "experts":
+        parts = [part.strip() for part in value.split(",")]
+        if len(parts) > len(EXPERT_PLACES):
+            raise SettingsError(f"{where}: {value!r} names {len(parts)} seats, and the experts are one or two whole seats joined by a comma, "
+                                f"as `set {scope} experts {','.join(EXPERTS)}`")
+        experts_of({"seats": {"experts": parts}}, where)
+        return parts
+    agents, why, example = SEATS[name]
+    # the example of SEATS may leave out a part, as the files may; the one `set` names is whole, as it asks
+    return parse_seat(value, f"{where}: seats.{name}", agents, why, example if name in WHOLE_SEATS else DEFAULT_SEATS[name], True)["seat"]
+
+
+def seats_checked(tables: dict, name: Path) -> None:
+    """The seats of one settings file, each by the rule `show` reads it with; it refuses with a SettingsError and the fix."""
+    for which in SEATS:
+        seat(tables, name, which)
+    experts_of(tables, name)
+    fallback_of(tables, name)
+
+
+def local_checked(file: Path) -> None:
+    """This machine's own file for the repository, read and checked whole; it refuses with a SettingsError and the fix."""
     local = read_settings(file, LOCAL, "local")
-    # What the file already holds is checked before any of it is written again: a wrong value is
-    # refused with its fix, and the file stays as the owner left it.
     local_naps_off(local)
     local_keep_days(local)
-    seat(local, LOCAL, "reviewer")
-    seat(local, LOCAL, "planner")
-    experts_of(local, LOCAL)
-    if words == ["default"]:
-        local.get("seats", {}).pop("reviewer", None)
+    seats_checked(local, LOCAL)
+
+
+def cmd_set(root: Path, scope: str, name: str, words: list[str]) -> dict:
+    """Write one line of `[seats]`, or with `default` take it out: `global` in the home folder's
+    `settings.toml`, for each repository on this machine that names none, `local` in this machine's own
+    file of the repository, in the main checkout. The value is checked first, then the file whole, then
+    the repository's settings: a wrong one is refused with its fix, and the file stays as it was. Every
+    other line of the file stays, its comments too (`lem_state.edited`). It gives the seat as `show`
+    then reads it, with its `from`."""
+    if scope not in SCOPES:
+        raise SettingsError(f"set takes global, which writes {home_name()} for each repository on this machine that names none, "
+                            f"or local, which writes {LOCAL} of this repository for this machine only; not {scope!r}. "
+                            f"{SETTINGS} is the project's, edited by hand and committed: no command writes it")
+    if len(words) != 1:
+        raise SettingsError(f"set {scope} {name} takes one VALUE, a whole seat \"{SEAT_FORM}\", as `set {scope} reviewer {REVIEWER_SEATS['codex']}`, "
+                            f"or default; not {len(words)} words")
+    value = set_value(scope, name, words[0])
+    if scope == "global":
+        file, place = lem_state.home_settings_file(), home_name()
+        seats_checked(read_settings(file, Path(place), "home"), Path(place))
     else:
-        if len(words) != 1:
-            raise SettingsError(
-                f'reviewer takes one seat, "{SEAT_FORM}", as `reviewer {REVIEWER_SEATS["codex"]}`, or the word default; '
-                f"not {len(words)} words",
-            )
-        parse_seat(words[0], "the reviewer", REVIEWERS, SEATS["reviewer"][1], SEATS["reviewer"][2], True)
-        local.setdefault("seats", {})["reviewer"] = words[0]
-    lines = ["# This machine's own settings for Lem. Not committed; `lem project reviewer` writes the seat."]
-    for table in LOCAL_TABLES:
-        body = local.get(table) or {}
-        if body:
-            # a value here is a word in quotes, a list of them, the one `false` the naps table may
-            # hold, or the state table's number of days
-            lines += ["", f"[{table}]", *(f"{key} = {toml_value(value)}" for key, value in body.items())]
-    if len(lines) == 1:
-        file.unlink(missing_ok=True)
+        file = main_checkout(root) / LOCAL
+        local_checked(file)
+        place = str(LOCAL)
+    # the repository's settings too, which the answer reads after the write: a refusal comes before anything is written
+    load(root)
+    try:
+        lem_state.write_edits(file, [("seats", name, value)], SET_FIRST[scope])
+    except lem_state.StateError as error:
+        raise SettingsError(str(error)) from error
+    except OSError as error:
+        raise SettingsError(f"{file} was not written ({error.strerror}); make its folder writable, then run this again") from error
+    found = load(root)["seats"][name]
+    if name == "experts":
+        shown, source, verb = ", ".join(expert["seat"] for expert in found), found[0]["from"], "are"
     else:
-        file.parent.mkdir(exist_ok=True)
-        file.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    resolved = load(root)
-    print(json.dumps({"reviewer": resolved["seats"]["reviewer"], "local": resolved["local"]}, indent=2))
+        shown, source, verb = ("off" if found["seat"] is False else found["seat"]), found["from"], "is"
+    said = f"{SET_WORDS[name]} here {verb} {shown}, from {source}"
+    if value is None:
+        said += f"; {place} names none"
+    elif source != place:
+        said += f", which comes before {place}"
+    return {"scope": scope, "file": str(file), "name": name, "line": None if value is None else f"{name} = {lem_state.toml_value(value)}",
+            "seat": found, "said": said}
 
 
 def braces(pattern: str) -> list[str]:
@@ -2146,9 +2295,35 @@ def parked_refusal(slug: str, now: str | None, status: str, resumed: bool = Fals
     return None
 
 
-def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: bool = False, resumed: bool = False) -> dict:
+# The task directories whose state lock each thread of this process holds (`state_locked`), so that a
+# command that decides under the lock (`seat-failed`, `seat-again`) writes its block through `cmd_state`
+# without waiting for itself: a second flock of the same file in one process waits for the first. By
+# thread, since another thread of the board's server is another writer.
+LOCKS_HELD: set[tuple[int, Path]] = set()
+
+
+@contextlib.contextmanager
+def state_locked(directory: Path) -> Iterator[None]:
+    """Hold the lock of one task's state.md (STATE_LOCK in its directory), or go on under it when this
+    thread holds it already."""
+    mine = (threading.get_ident(), directory)
+    if mine in LOCKS_HELD:
+        yield
+        return
+    with (directory / STATE_LOCK).open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        LOCKS_HELD.add(mine)
+        try:
+            yield
+        finally:
+            LOCKS_HELD.discard(mine)
+
+
+def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: bool = False, resumed: bool = False, again: bool = False) -> dict:
     """Put a new block at the top of the task's state.md, and the same as an event in the log.
-    `resumed` is `resume`'s own write over a parked task, the one way out of `parked` but a drop."""
+    `resumed` is `resume`'s own write over a parked task, the one way out of `parked` but a drop;
+    `again` is `seat-again`'s, the one way from `blocked` back to `open`, and the one way over a block
+    with `the seat that failed: SEAT` but a park, another block or an end."""
     directory = task_directory(root, slug)
     settings = load(root)
     if status not in STATES:
@@ -2164,8 +2339,7 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
     # one writer at a time, from the read of the newest status through the event's append: the lead's
     # `building` and the owner's drop at one moment would else each read the old status, and one block
     # would be lost or land above the drop
-    with (directory / STATE_LOCK).open("a") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+    with state_locked(directory):
         # the status the newest block gives, read from this task's file alone
         written = text_of(directory / "state.md").strip() if (directory / "state.md").is_file() else ""
         first = STATE_LINE.fullmatch(written.split("\n\n")[0].splitlines()[0]) if written else None
@@ -2183,6 +2357,17 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
         refused = parked_refusal(slug, now, status, resumed)
         if refused:
             raise SettingsError(refused)
+        if now == "blocked" and status == "open" and not again:
+            # a merge agent's seat that failed blocks an open task, and only the owner's go on opens it again
+            raise SettingsError(f"the task {slug!r} is blocked, and only the owner's go on gives `open` back: `lem project seat-again {slug}` writes it, "
+                                "when the block names the seat that failed")
+        held_seat = failed_seat(written.split("\n\n")[0].splitlines()) if now == "blocked" else None
+        if held_seat and not again and status not in ("blocked", PARKED, *ENDED):
+            # a seat's block waits for the owner: a lead's state written after it (the `building` of a pair whose
+            # defender's seat failed at its open) would take the task out of "Waits for you" with no go on
+            raise SettingsError(f"the task {slug!r} is blocked with `{lem_state.FAILED_SEAT}{held_seat}`, and only the owner's go on lifts that block: "
+                                f"`lem project seat-again {slug}` writes the state before it. A lead that wrote no state since it opened the pair "
+                                "takes the block as its wait gives it")
         if status == "answered":
             answered_form(root, directory, slug)
         # the time is the clock's, never a writer's estimate
@@ -2237,6 +2422,149 @@ def blocks_of(text: str) -> list[dict]:
         if found:
             out.append({"status": found["status"], "lines": [found["text"], *rows[1:]]})
     return out
+
+
+def failed_seat(lines: list[str]) -> str | None:
+    """The seat a block names as the one that failed (`the seat that failed: SEAT`), or None."""
+    return next((found["seat"] for found in map(FAILED_LINE.fullmatch, (line.strip() for line in lines)) if found), None)
+
+
+def stand_in_of(events: list[dict], which: str) -> dict | None:
+    """The `seat.stand-in` that holds WHICH for a task: its newest, when no `seat.again` of WHICH came
+    after it; else None. EVENTS are the task's seat events in the log's order."""
+    held = None
+    for event in events:
+        if event.get("seat") != which:
+            continue
+        if event.get("event") == "seat.stand-in":
+            held = event
+        elif event.get("event") == "seat.again":
+            held = None
+    return held
+
+
+def seat_events(root: Path, slug: str) -> list[dict]:
+    """The task's seat events (SEAT_EVENTS), oldest first."""
+    return [event for event in events_named(root, *SEAT_EVENTS) if event.get("task") == slug]
+
+
+def seat_name_refusal(which: str, command: str) -> str | None:
+    """Why WHICH is no seat that COMMAND takes; None when it is one of SEATS."""
+    if which in SEATS:
+        return None
+    if which == "experts":
+        return (f"`{command}` takes one seat, and the experts are one or two that take no fallback seat: when one expert's agent gives an error, "
+                "the other answers alone; `lem project show` gives them as seats.experts")
+    return f"{which!r} is no seat{nearest(which, tuple(SEATS))}; a seat is one of {', '.join(SEATS)}"
+
+
+def cmd_seat(root: Path, slug: str, which: str) -> dict:
+    """The seat in use for a task: the fallback that stands in for it (`from` is STAND_IN), or else the
+    seat the settings name, as `show` gives it. Every stage that opens a seat's agent takes it here."""
+    task_directory(root, slug)
+    refused = seat_name_refusal(which, "lem project seat")
+    if refused:
+        raise SettingsError(refused)
+    settings = load(root)
+    held = stand_in_of(seat_events(root, slug), which)
+    if held is None:
+        return {"task": slug, "name": which, **settings["seats"][which]}
+    agents, why, example = SEATS[which]
+    parsed = parse_seat(held.get("took"), f"the stand-in of {which} in the event log", agents, why, example, which in WHOLE_SEATS)
+    return {"task": slug, "name": which, **parsed, "from": STAND_IN, "for": held.get("failed"), "error": held.get("error")}
+
+
+def seat_call(which: str, line: str, kind: str, fallback: dict) -> dict:
+    """What a seat whose agent on LINE gave the error KIND comes to, with FALLBACK as `show` gives it:
+    `{"took": SEAT}`, the fallback's seat parsed, which stands in; or `{"block": LINE}`, the first line of
+    the block, when the fallback is off, when it is the seat that failed (a stand-in that failed too,
+    or a fallback that is the seat the settings name), or when its agent may not sit in WHICH."""
+    name = lem_state.SEAT_NAMES[which]
+    head = call_head(which, line, kind)
+    if fallback["seat"] is False:
+        return {"block": f"{head}, and this project permits no fallback"}
+    if fallback["seat"] == line:
+        return {"block": f"{head}, and it was the fallback"}
+    agents = SEATS[which][0]
+    if fallback["agent"] not in agents:
+        takes = " or ".join(lem_state.AGENT_NAMES.get(agent, agent) for agent in agents)
+        return {"block": f"{head}, and its fallback `{fallback['seat']}` cannot sit in {name}'s seat, which takes {takes} only"}
+    return {"took": {key: fallback[key] for key in ("agent", "model", "effort", "seat")}}
+
+
+def cmd_seat_failed(root: Path, slug: str, which: str, line: str, kind: str, said: str | None) -> dict:
+    """A seat's agent gave one of the four errors: the fallback stands in for WHICH from now on, logged
+    as `seat.stand-in`, or the task is blocked, with the block's line and the fixed line FAILED_LINE,
+    logged as `seat.blocked`. LINE is the seat the stage opened, as `seat` printed it, so the record
+    names the agent that failed and not the settings at a later moment. Decided under the task's lock."""
+    directory = task_directory(root, slug)
+    if which in ("session", "experts"):
+        raise SettingsError(
+            f"the {which} take no fallback seat: " + ("when one expert's agent gives an error, the other expert answers alone"
+                                                      if which == "experts" else "the session seat is the Claude session that runs the task")
+            + "; `seat-failed` takes the reviewer, the planner or the merger")
+    if which not in lem_state.SEAT_NAMES:
+        raise SettingsError(f"{which!r} is no seat{nearest(which, tuple(lem_state.SEAT_NAMES))}; `seat-failed` takes {', '.join(lem_state.SEAT_NAMES)}")
+    if kind not in lem_state.SEAT_ERRORS:
+        raise SettingsError(f"--error {kind!r} is none of the four errors of a seat's agent: {', '.join(lem_state.SEAT_ERRORS)} "
+                            "(the program is not on the Mac, no login, no tokens, an unknown model). A slow agent is no error: wait for it")
+    agents, why, example = SEATS[which]
+    parse_seat(line, "--seat", agents, why, example, which in WHOLE_SEATS)
+    if said is not None and (not said.strip() or "\n" in said):
+        raise SettingsError("--said is the agent's own line of the error, one line of text")
+    settings = load(root)
+    with state_locked(directory):
+        call = seat_call(which, line, kind, settings["seats"]["fallback"])
+        words = {"seat": which, "failed": line, "error": kind, **({"said": said.strip()} if said else {})}
+        if "took" in call:
+            took = call["took"]
+            say = f"{call_head(which, line, kind)}; `{took['seat']}` stands in for it from now on, and the pull request says so"
+            append_event(root, "seat.stand-in", slug, {**words, "took": took["seat"], "say": say})
+            return {"task": slug, "name": which, "blocked": False, **took, "from": STAND_IN, "for": line, "error": kind, "say": say}
+        # the block first: a state `state` refuses (an ended task) leaves no event of a block behind
+        written = cmd_state(root, slug, "blocked", [call["block"], f"{lem_state.FAILED_SEAT}{which}"])
+        append_event(root, "seat.blocked", slug, {**words, "say": call["block"]})
+    return {"task": slug, "name": which, "blocked": True, "status": "blocked", "since": written["since"], "failed": line, "error": kind, "say": call["block"]}
+
+
+def call_head(which: str, line: str, kind: str) -> str:
+    """The words of a seat's error, as both the stand-in's line and the block's begin."""
+    return f"{lem_state.SEAT_NAMES[which]} `{line}` gave an error: {lem_state.SEAT_ERRORS[kind]['block']}"
+
+
+def cmd_seat_again(root: Path, slug: str) -> dict:
+    """The owner's go on over a task that a seat's error blocked: the block before it comes back (the
+    plan talk's `building`, the merge agent's `open`) under one line for each seat it tries again, and
+    `seat.again` ends each stand-in of that seat, so the seat the settings name opens. A run of such
+    blocks at the top is gone over together: each of their seats is tried again."""
+    directory = task_directory(root, slug)
+    settings = load(root)
+    with state_locked(directory):
+        blocks = blocks_of(text_of(directory / "state.md")) if (directory / "state.md").is_file() else []
+        seats: list[str] = []
+        count = 0
+        for block in blocks:
+            named = failed_seat(block["lines"]) if block["status"] == "blocked" else None
+            if named is None:
+                break
+            count += 1
+            if named not in seats:
+                seats.append(named)
+        if not seats:
+            now = f"{blocks[0]['status']}: {blocks[0]['lines'][0]}" if blocks else "with no state"
+            raise SettingsError(f"the task {slug!r} is {now}, and its newest block has no line `{lem_state.FAILED_SEAT}SEAT`: the owner's go on tries again "
+                                "a seat whose agent gave an error, and this task waits for no such seat")
+        before = blocks[count] if count < len(blocks) else None
+        if before is None:
+            raise SettingsError(f"the task {slug!r} has no block before the seat's block to bring back: write its state by hand")
+        tried = [{"name": which, **settings["seats"][which]} for which in seats]
+        lines = [f"{GO_ON}{lem_state.SEAT_NAMES[seat['name']]} {seat['seat']} is tried again" for seat in tried]
+        # the lines of the block before, without the lines of an earlier go on, which this one's replace
+        kept = [line for line in before["lines"] if not line.startswith(GO_ON)]
+        written = cmd_state(root, slug, before["status"], [*lines, *kept], again=True)
+        for which, said in zip(seats, lines):
+            append_event(root, "seat.again", slug, {"seat": which, "say": said})
+    return {"task": slug, "status": before["status"], "since": written["since"], **tried[0], "tried": tried, "say": "; ".join(lines)}
 
 
 def resumed_slug(root: Path, slug: str) -> str:
@@ -2566,6 +2894,9 @@ def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
         raise SettingsError("task.state is written by `lem project state`, which also writes the state block")
     if event == SUMMARY:
         raise SettingsError(f"{SUMMARY} is written by `lem project prune` only, in place of the events of an ended task that nothing happened in for {KEEP_KEY} days")
+    if event in SEAT_EVENTS:
+        raise SettingsError(f"{event} is written by `lem project seat-failed` and `lem project seat-again` only, with the block they write: "
+                            f"a stage that saw a seat's agent give an error runs `lem project seat-failed {slug} SEAT --seat LINE --error KIND`")
     if event in ("task.mode", OWNER):
         raise SettingsError(f"{event} is written by `lem project owner` and `task-dir --night` only: the owner's status is his words, kept in the machine's mark and never in a repository's log, and a night's mark is the night's")
     fields: dict[str, object] = {}
@@ -3045,6 +3376,9 @@ def fixed_form(line: str) -> None:
                             f"`then: the fast track` or `then: the lead`")
     if text.startswith("the one open task") and text != FITS_LINE:
         raise SettingsError(f"the line {text!r} is not in its form: write it as `{FITS_LINE}`")
+    if text.startswith(lem_state.FAILED_SEAT.strip()) and not FAILED_LINE.fullmatch(text):
+        raise SettingsError(f"the line {text!r} is not in its form: write it as `{lem_state.FAILED_SEAT}SEAT`, SEAT one of {', '.join(lem_state.SEAT_NAMES)}; "
+                            "`lem project seat-failed` writes it")
 
 
 def correction(fast: bool, task: str | None) -> str:
@@ -4838,7 +5172,10 @@ def main(argv: list[str] | None = None) -> None:
     init = commands.add_parser("init")
     init.add_argument("--base")
     init.add_argument("--codex", choices=("yes", "no"), default="yes", help="whether the machine check found Codex: no writes the reviewer on Claude (default: yes)")
-    commands.add_parser("reviewer").add_argument("words", nargs="+", metavar="AGENT[/MODEL[:EFFORT]]|default")
+    set_seat = commands.add_parser("set", help="write one seat, or the fallback, for every repository on this machine (global) or for this one on this machine (local)")
+    set_seat.add_argument("scope", metavar="global|local")
+    set_seat.add_argument("name", metavar="|".join(SET_NAMES))
+    set_seat.add_argument("words", nargs="+", metavar="AGENT/MODEL:EFFORT|default|false")
     plan_file = commands.add_parser("plan-file", help="the name a task's plan takes, and the plan the plans folder holds")
     plan_file.add_argument("slug")
     plan_file.add_argument("--date", metavar="YYYY-MM-DD", help="the day the plan is written (default: today, in UTC)")
@@ -4857,6 +5194,17 @@ def main(argv: list[str] | None = None) -> None:
     state.add_argument("status")
     state.add_argument("lines", nargs="+", metavar="LINE")
     state.add_argument("--start-over", action="store_true", help="ready over a task in landing or open: its landing starts over, as land.py's message says")
+    seat_now = commands.add_parser("seat", help="the seat in use for a task: the fallback while it stands in, else the seat the settings name")
+    seat_now.add_argument("slug")
+    seat_now.add_argument("seat", metavar="|".join(SEATS))
+    failed = commands.add_parser("seat-failed", help="a seat's agent gave an error: the fallback stands in for it, or the task is blocked for the owner")
+    failed.add_argument("slug")
+    failed.add_argument("seat", metavar="|".join(lem_state.SEAT_NAMES))
+    failed.add_argument("--seat", dest="line", required=True, metavar="AGENT/MODEL:EFFORT", help="the seat the stage opened, as `lem project seat` printed it")
+    failed.add_argument("--error", required=True, metavar="|".join(lem_state.SEAT_ERRORS),
+                        help="missing: the program is not on the Mac; login, tokens, model: the agent's own message of no login, no tokens or an unknown model")
+    failed.add_argument("--said", metavar="TEXT", help="the agent's own line of the error, kept in the event")
+    commands.add_parser("seat-again", help="the owner's go on over a task a seat's error blocked: the seat the settings name is tried again").add_argument("slug")
     commands.add_parser("tasks")
     commands.add_parser("resume", help="bring a parked task back on the owner's word, or open a new task from a dropped one's handoff or notes and its branch").add_argument("slug")
     owner = commands.add_parser("owner", help="the owner says that he is away, or back again, for every repository on this machine; watch waits for his next word")
@@ -4908,8 +5256,8 @@ def main(argv: list[str] | None = None) -> None:
         if args.command == "init":
             cmd_init(root, args.base, args.codex)
             return
-        if args.command == "reviewer":
-            cmd_reviewer(root, args.words)
+        if args.command == "set":
+            print(json.dumps(cmd_set(root, args.scope, args.name, args.words), indent=2))
             return
         if args.command == "task-dir":
             cmd_task_dir(root, args.slug, args.ask, args.ticket, args.branch, args.night, args.ticket_repo)
@@ -4919,6 +5267,15 @@ def main(argv: list[str] | None = None) -> None:
             return
         if args.command == "resume":
             print(json.dumps(cmd_resume(root, args.slug), indent=2))
+            return
+        if args.command == "seat":
+            print(json.dumps(cmd_seat(root, args.slug, args.seat), indent=2))
+            return
+        if args.command == "seat-failed":
+            print(json.dumps(cmd_seat_failed(root, args.slug, args.seat, args.line, args.error, args.said), indent=2))
+            return
+        if args.command == "seat-again":
+            print(json.dumps(cmd_seat_again(root, args.slug), indent=2))
             return
         if args.command == "tasks":
             print(json.dumps(read_tasks(root), indent=2))

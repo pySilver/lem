@@ -198,22 +198,46 @@ with each of its lines and that one. Your report says the same. A task he named 
       task directory: the task directory's absolute path
       ```
 
-   2. Open the pair (`open-task-session`, the plan talk's) with that file, on the settings'
-      `seats.planner`, and write the state `building` with the lines `the plan talk runs`, `lead:
-      session` and `defender: MODEL, EFFORT`, as the pair's status line shows them (the harness
-      file says how to read them).
-   3. `run-in-background` with `lem session wait SLUG --until planned,held --companion ID`, `ID`
-      the pair's id from its open. Its end wakes you: close the pair (`open-task-session`). On
-      `planned` with `the plan talk is done`, write the state `building` with the line `lead:
-      builder`, and go on at step 3, which now finds the record. On `held`, the defender tripped
-      the breaker: take it up as `stages/breaker.md` says under "After it". On `"companion"`, the
-      pair is gone and no state came: read `talk` in `lem project --repo WORKTREE tasks` and the
-      plan's `## Plan talk` first. A record there means the talk ended and its defender stopped
-      before its state: go on as on `planned`. No record: open the pair once more at step 2; when
-      that one is gone with no record too, write the state `held` with the line `the plan talk's
-      pair ended twice with no record: its screen is the owner's to read`. A defender that stops
-      but stays live in its pane (a usage limit, a question on its screen) ends no wait: the board
-      shows `the plan talk runs` until the owner looks at the pair.
+   2. Open the pair (`open-task-session`, the plan talk's) with that file, on the seat that `lem
+      project --repo WORKTREE seat SLUG planner` prints, and write the state `building` with the
+      lines `the plan talk runs`, `lead: session` and `defender: MODEL, EFFORT`, as the pair's
+      status line shows them (the harness file says how to read them). A pair whose agent gives
+      an error at its open is a seat that failed, and the harness file says how its stand-in
+      opens, or the block of step 3 comes. When `lem project state` refuses that `building`
+      because the task is `blocked` with `the seat that failed:`, a seat of the pair failed before
+      you wrote it: write nothing over the block, and go on at step 3, whose wait gives it.
+   3. `run-in-background` with `lem session wait SLUG --until planned,held,blocked --companion ID
+      --quiet TASK_DIR/talk-turns.md`, `ID` the pair's id from its open and `TASK_DIR` the task
+      directory, where the defender keeps the talk's turns as they come. Its end wakes you:
+      - `planned` with `the plan talk is done`: close the pair (`open-task-session`), write the
+        state `building` with the line `lead: builder`, and go on at step 3, which now finds the
+        record.
+      - `held`: the defender tripped the breaker. Close the pair and take it up as
+        `stages/breaker.md` says under "After it".
+      - `blocked`: a seat of the talk gave an error, and no fallback could stand in for it. Close
+        the pair, mark this session as waiting for the owner (`mark-waiting`), then say the
+        block's first line in one line, the last text of your turn, and wait. On his "go on",
+        run `lem project --repo WORKTREE seat-again SLUG`, which writes `building` again and
+        names the seat it tries again, and open the pair at step 2 once more: its defender goes
+        on from `talk-turns.md`.
+      - `"companion"`: the pair is gone and no state came. Read `talk` in `lem project --repo
+        WORKTREE tasks` and the plan's `## Plan talk` first. A record there means the talk ended
+        and its defender stopped before its state: go on as on `planned`. No record: open the
+        pair once more at step 2; when that one is gone with no record too, write the state
+        `held` with the line `the plan talk's pair ended twice with no record: its screen is the
+        owner's to read`.
+      - `"quiet": true`: `talk-turns.md` has not changed for 45 minutes, and an agent that stopped
+        at a limit and stays live in its pane sends nothing. Read the screen of each pane of the
+        pair (the harness file says how). One of the four errors of the seats (the harness file's
+        `second-opinion`) on the defender's pane is `lem project --repo WORKTREE seat-failed SLUG
+        planner`, on the reviewer's pane `lem project --repo WORKTREE seat-failed SLUG
+        reviewer`, each with `--seat` the seat that `lem project seat` gave when that pane
+        opened, which it still prints while no stand-in came after. Then close the pair: on a
+        seat to open, open the pair at step 2 again, whose defender goes on from
+        `talk-turns.md`; on `blocked: true`, take the block above. No error on either screen: run
+        the same wait again, since a slow agent is no error. The 45 minutes are the guard's
+        number for a session with no sign of work (the owner's, 2026-11-22), taken here as a
+        guess for a talk.
    A task that becomes careful after its plan, by the owner's word, by the review's call or
    by an edit of `.lem/settings.toml`, gets no talk afterwards: the landing's full
    review reads the code that exists.

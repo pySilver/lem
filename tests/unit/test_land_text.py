@@ -355,6 +355,50 @@ class TheText(Proposal):
                 self.assertNotIn("the cause", land.pr_text(self.task(record=record), "", self.state()))
 
 
+class StandIns(Proposal):
+    """Each seat that stood in for another is one line of the pull request's checks, a fact and no reason of
+    not green, on either track; one that gave an error itself says so on its line."""
+
+    STOOD = {"event": "seat.stand-in", "seat": "reviewer", "failed": "codex/gpt-6.2-sol:high", "took": "claude/opus:high", "error": "tokens"}
+    LINE = "- the reviewer was `claude/opus:high` in place of `codex/gpt-6.2-sol:high`: Codex had no tokens"
+
+    def checks(self, text: str) -> list[str]:
+        part = text.split("## Checks", 1)[1].split("\n## ", 1)[0]
+        return [line for line in part.splitlines() if " in place of " in line]
+
+    def test_one_stand_in_is_its_line_and_no_reason_of_not_green(self):
+        # criterion 4, word for word
+        task = self.task(events=(self.STOOD,))
+        self.assertEqual(self.checks(land.pr_text(task, "", self.state())), [self.LINE])
+        self.assertEqual(land.not_green(task, self.state()), [])
+        self.assertEqual(land.pr_text(task, "", self.state()).splitlines()[0], land.GREEN)
+
+    def test_every_stand_in_is_listed_also_one_a_block_of_another_cause_followed(self):
+        merger = {"event": "seat.stand-in", "seat": "merger", "failed": "codex/gpt-6.2-sol:high", "took": "claude/opus:high", "error": "missing"}
+        blocked = {"event": "seat.blocked", "seat": "reviewer", "failed": "codex/gpt-6.2-sol:high", "error": "tokens"}
+        task = self.task(events=(self.STOOD, blocked, {"event": "seat.again", "seat": "reviewer"}, merger))
+        self.assertEqual(self.checks(land.pr_text(task, "", self.state())),
+                         [self.LINE, "- the merge agent was `claude/opus:high` in place of `codex/gpt-6.2-sol:high`: Codex is not on this Mac"])
+
+    def test_a_stand_in_whose_own_start_failed_says_so(self):
+        stood = {**self.STOOD, "failed": "claude/opus:high", "took": "codex/gpt-6.2-sol:high", "error": "model"}
+        failed = {"event": "seat.blocked", "seat": "reviewer", "failed": "codex/gpt-6.2-sol:high", "error": "missing"}
+        task = self.task(events=(stood, failed))
+        self.assertEqual(self.checks(land.pr_text(task, "", self.state())),
+                         ["- the reviewer was to be `codex/gpt-6.2-sol:high` in place of `claude/opus:high`: Claude Code did not know the model; "
+                          "then Codex gave an error too: Codex is not on this Mac"])
+        # a block after the owner's go on is of the named seat, and no failure of the stand-in
+        again = self.task(events=(stood, {"event": "seat.again", "seat": "reviewer"}, failed))
+        self.assertEqual(land.stand_ins_of(land.events_of(again))[0]["failed_too"], None)
+
+    def test_the_fast_track_lists_it_too(self):
+        from unittest import mock
+        small = "## Acceptance criteria\n\nSize: small, because one word changes.\n\n1. The file holds the word y.\n   - test: `sh tests/t.sh` in `tests/t.sh`\n"
+        task = self.task(found=found_of(small, approved=approval("owner", plan=small)), events=(self.STOOD,))
+        with mock.patch.object(land, "builder_filed", return_value=[]):
+            self.assertEqual(self.checks(land.pr_text(task, "none\n", self.state())), [self.LINE])
+
+
 class TheCriteriasCheck(Proposal):
     """The line of the check of the criteria among the pull request's checks: run by the checks, or taken
     from the polish pass at its commit and not run again."""

@@ -16,7 +16,9 @@ its task directory. `SKILL_DIR` is the directory above this file's.
    done`, a defender before you finished it: stop. Otherwise read `task.md`, `directions.md` when it
    is there, the acceptance criteria (`lem criteria --repo WORKTREE approved SLUG`), the lead's
    `report.md`, and the plan on the task's branch, in the settings' `plans` path, with the code it
-   rests on.
+   rests on. When `talk-turns.md` is in the task directory, a defender or a reviewer before you
+   stopped in the talk: read it whole, and go on from it as `stages/talk.md` says under "A talk
+   that goes on".
 3. **Hold the talk** by `stages/talk.md`, with the reviewer's seat at its effort.
    You are the plan's side in it: you answer each question with one repair or one refutation
    with a cite, and you check each claim of the reviewer's in the code before you answer.
@@ -33,6 +35,9 @@ its task directory. `SKILL_DIR` is the directory above this file's.
    A step that is his to do, such as the trust prompt of the reviewer's agent, or a step your agent
    refuses you: say it in one line here, with where he does it, mark this session as waiting
    for him (`mark-waiting`), and go on when he says it is done. Never go around a refusal.
+   A reviewer whose agent gives an error is no step of his: `lem project seat-failed` decides
+   (`stages/talk.md`, "A seat that fails"). When it wrote `blocked`, stop, and wait for nothing
+   in this session: the lead closes the pair and takes the owner's "go on".
 6. **The close**, in this order:
    - the record and the `plan.talk` event of `stages/talk.md`, then close the reviewer's pane;
    - each question the talk left open, by step 5 and its ladder, whose agents run in this

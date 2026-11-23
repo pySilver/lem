@@ -309,8 +309,9 @@ landing up as after a cut-off.
    read is a fresh agent's. `lem land merge-review SLUG` fetches the base and writes its brief,
    `merge-brief-TIP-BASE.md` in the task directory, and prints the brief's path (`brief`), the
    answer file (`answer`, `merge-answer-TIP-BASE.md`), the proposed `tip`, the `base` the read is
-   against and the seat (`seats.merger`). Both files are named by that tip and that base, so a read
-   of an earlier proposal or of an earlier base never takes their place. When the base moved by any
+   against and the seat (`lem project seat SLUG merger`: a stand-in while one holds, else
+   `seats.merger`). Both files are named by that tip and that base, so a read of an earlier
+   proposal or of an earlier base never takes their place. When the base moved by any
    file since the checks ran, the brief's `moved` holds what moved since then: the commits, the
    files, and those of them the change touches too; `base` is then origin's base now, and the
    checks' base otherwise. `ask-merger` with the brief, the answer file and the seat. The agent reads the task's files, its reviews and its diff,

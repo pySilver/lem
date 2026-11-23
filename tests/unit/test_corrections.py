@@ -209,10 +209,11 @@ def calls_of(name: str) -> set:
 
 
 class TheHomeFoldersWriters(unittest.TestCase):
-    """Every writer of `machine.toml` is a command the owner runs, and nothing writes the home folder's
-    `settings.toml` (criterion 7 of one-home-folder-for-lem): no hook and no update of the plugin writes
-    either. A new writer fails here, and is added on purpose. That the hooks write neither file when they
-    run is checked in tests/lem-machine.sh."""
+    """Every writer of `machine.toml` is a command the owner runs, and so is the one writer of the home
+    folder's `settings.toml`, `lem project set global` (criterion 7 of one-home-folder-for-lem, and
+    criterion 6 of seat-defaults-and-fallback): no hook and no update of the plugin writes either. A new
+    writer fails here, and is added on purpose. That the hooks write neither file when they run is
+    checked in tests/lem-machine.sh."""
 
     def test_the_writers_of_the_machines_file_are_the_owners_commands(self):
         self.assertEqual(calls_of("write_machine") - {("lem_state.py", "write_machine")}, {
@@ -220,9 +221,10 @@ class TheHomeFoldersWriters(unittest.TestCase):
             ("lem_peers.py", "join"), ("lem_peers.py", "leave"), ("corrections.py", "cmd_collect"),
         })
 
-    def test_the_home_settings_file_is_read_and_never_written(self):
-        self.assertEqual(calls_of("home_settings_file"), {("project.py", "home_name"), ("project.py", "load"), ("lem_state.py", "place_name")})
-        self.assertEqual(calls_of("write_home_settings"), set())
+    def test_the_home_settings_file_is_written_by_set_global_alone(self):
+        self.assertEqual(calls_of("home_settings_file"), {("project.py", "home_name"), ("project.py", "load"), ("lem_state.py", "place_name"),
+                                                          ("project.py", "cmd_set")})
+        self.assertEqual(calls_of("write_edits") - {("lem_state.py", "write_edits")}, {("project.py", "cmd_set")})
 
     def test_the_hooks_reach_no_writer(self):
         # the plugin's hooks are these three scripts; the board server's starts `serve.py --ensure`, which writes no setting

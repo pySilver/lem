@@ -41,7 +41,7 @@ if [ "$shown_keys" = "$template_keys" ] && [ "$shown_keys" = "['commands', 'seri
 else
   fail "the [checks] keys of the template: $template_keys, of show: $shown_keys"
 fi
-# The team's file holds 19 keys, one to one in show (with a tracker, whose one key is its kind), in the file init writes (a
+# The team's file holds 20 keys, one to one in show (with a tracker, whose one key is its kind), in the file init writes (a
 # commented line counts) and on the settings page, of the tables valid in the team's file. `from`, the file a value came
 # from (naps.from, state.from), is no key.
 printf '%s\n' '' '[tracker]' 'kind = "linear"' > "$WORK/tracker.toml"
@@ -60,8 +60,8 @@ print(sorted(found))' "$NEW/.lem/settings.toml")
 paged=$("$PY" -I -B -c 'import re, sys; sys.path.insert(0, sys.argv[2]); import lem_state
 found = re.findall(r"^\| `(\w+)\.(\w+)` \|", open(sys.argv[1], encoding="utf-8").read(), re.M)
 print(sorted({f"{table}.{key}" for table, key in found if "team" in lem_state.TABLE_PLACES.get(table, ())}))' "$PWD/docs/settings.md" "$PWD/skills/lem/scripts")
-if [ "$shown" = "$written" ] && [ "$shown" = "$paged" ] && [ "$("$PY" -c 'import sys; print(len(eval(sys.argv[1])))' "$shown")" = 19 ]; then
-  pass "the team's file holds 19 keys, the same in show, in the file init writes and on the settings page"
+if [ "$shown" = "$written" ] && [ "$shown" = "$paged" ] && [ "$("$PY" -c 'import sys; print(len(eval(sys.argv[1])))' "$shown")" = 20 ]; then
+  pass "the team's file holds 20 keys, the same in show, in the file init writes and on the settings page"
 else
   fail "the keys of the settings: show $shown / the file $written / the page $paged"
 fi
@@ -167,19 +167,26 @@ if [ "$code" = 1 ] && grep -qF "project.py: $OLD/.lem/settings.toml: unknown key
 else
   fail "unknown key: $code / $err"
 fi
-# A seat has one `:` at most, and the reviewer's is written whole: the reviewer command refuses a second `:` and a
-# seat with no model or no effort, and writes nothing.
+# A seat has one `:` at most, and the reviewer's is written whole: set refuses a second `:` and a seat with no
+# model or no effort, and writes nothing. The command reviewer is no command of Lem's: set local reviewer does its work.
 settings '[branch]' 'base = "master"'
 code=0
-two_colons=$(project --repo "$OLD" reviewer claude/opus:high:max 2>&1) || code=$?
+two_colons=$(project --repo "$OLD" set local reviewer claude/opus:high:max 2>&1) || code=$?
 short_code=0
-short=$(project --repo "$OLD" reviewer codex 2>&1) || short_code=$?
-if [ "$code" = 1 ] && grep -qF "the reviewer = 'claude/opus:high:max' holds 2 \`:\`, and a seat has one at most, before the effort" <<<"$two_colons" \
-  && [ "$short_code" = 1 ] && grep -qF "project.py: the reviewer = 'codex' names no model and no effort: it is one string, \"agent/model:effort\", written whole, as \"codex/gpt-6.2-sol:high\"" <<<"$short" \
+short=$(project --repo "$OLD" set local reviewer codex 2>&1) || short_code=$?
+gone_code=0
+gone=$(project --repo "$OLD" reviewer claude/opus:high 2>&1) || gone_code=$?
+if [ "$code" = 1 ] && grep -qF "set local reviewer: seats.reviewer = 'claude/opus:high:max' holds 2 \`:\`, and a seat has one at most, before the effort" <<<"$two_colons" \
+  && [ "$short_code" = 1 ] && grep -qF "project.py: set local reviewer: seats.reviewer = 'codex' names no model and no effort: it is one string, \"agent/model:effort\", written whole, as \"codex/gpt-6.2-sol:high\"" <<<"$short" \
   && ! grep -q Traceback <<<"$short" && [ ! -e "$OLD/.lem/settings.local.toml" ]; then
-  pass "reviewer refuses a seat with two colons, naming the colons, and a seat with no model and no effort, showing the whole form, and writes nothing"
+  pass "set local reviewer refuses a seat with two colons, naming the colons, and a seat with no model and no effort, showing the whole form, and writes nothing"
 else
   fail "a seat with two colons or a short seat: $code / $two_colons / $short_code / $short"
+fi
+if [ "$gone_code" = 2 ] && grep -qF "invalid choice: 'reviewer'" <<<"$gone" && [ ! -e "$OLD/.lem/settings.local.toml" ]; then
+  pass "reviewer is no command of lem project, with no alias, and writes nothing"
+else
+  fail "the old reviewer command: $gone_code / $gone"
 fi
 # The settings refuse a reviewer's seat that is not whole, in the project's file and in this machine's own.
 settings '[branch]' 'base = "master"' '[seats]' 'reviewer = "codex:high"'
@@ -539,29 +546,29 @@ fi
 
 # This machine's own settings: read from the main checkout in a worktree too, only seats and the few keys one machine may set.
 settings '[branch]' 'base = "master"' '[seats]' 'reviewer = "codex/the-usual:high"'
-out=$(project --repo "$WORK/wt" reviewer claude/a-claude-model:high)
-if [ "$(field '(d["reviewer"], d["local"]["overrides"])' <<<"$out")" = "({'agent': 'claude', 'model': 'a-claude-model', 'effort': 'high', 'seat': 'claude/a-claude-model:high', 'from': '.lem/settings.local.toml'}, ['seats.reviewer'])" ] \
+out=$(project --repo "$WORK/wt" set local reviewer claude/a-claude-model:high)
+if [ "$(field '(d["seat"], d["file"])' <<<"$out")" = "({'agent': 'claude', 'model': 'a-claude-model', 'effort': 'high', 'seat': 'claude/a-claude-model:high', 'from': '.lem/settings.local.toml'}, '$OLD/.lem/settings.local.toml')" ] \
   && [ -f "$OLD/.lem/settings.local.toml" ] && [ ! -e "$WORK/wt/.lem/settings.local.toml" ] && grep -qxF 'reviewer = "claude/a-claude-model:high"' "$OLD/.lem/settings.local.toml" \
   && [ "$(project --repo "$OLD" show | field '(d["seats"]["reviewer"]["agent"], d["seats"]["reviewer"]["model"], d["local"]["file"])')" = "('claude', 'a-claude-model', '$OLD/.lem/settings.local.toml')" ]; then
-  pass "reviewer AGENT/MODEL:EFFORT, run in a worktree, writes this machine's seat in the main checkout in the same form; it replaces the project's seat whole and show says so"
+  pass "set local reviewer AGENT/MODEL:EFFORT, run in a worktree, writes this machine's seat in the main checkout in the same form; it replaces the project's seat whole and its from says so"
 else
   fail "reviewer override: $out"
 fi
 # A value the owner wrote by hand keeps every character through a rewrite: a rocket, a quote, a backslash.
 printf '%s\n' 'planner = "claude/my\"own\"-🚀\\x:high"' >> "$OLD/.lem/settings.local.toml"
-project --repo "$OLD" reviewer claude/opus:high >/dev/null
-out=$(project --repo "$OLD" reviewer default)
-if [ "$(field '(d["reviewer"]["agent"], d["reviewer"]["model"], d["reviewer"]["effort"], d["local"]["overrides"])' <<<"$out")" = "('codex', 'the-usual', 'high', ['seats.planner'])" ] \
+project --repo "$OLD" set local reviewer claude/opus:high >/dev/null
+out=$(project --repo "$OLD" set local reviewer default)
+if [ "$(field '(d["seat"]["agent"], d["seat"]["model"], d["seat"]["effort"], d["seat"]["from"])' <<<"$out")" = "('codex', 'the-usual', 'high', '.lem/settings.toml')" ] \
   && [ "$(project --repo "$OLD" show | field 'd["seats"]["planner"]["model"]')" = 'my"own"-🚀\x' ] && ! grep -q "^reviewer" "$OLD/.lem/settings.local.toml"; then
-  pass "reviewer default gives the project's reviewer back and keeps what else the machine set, character for character"
+  pass "set local reviewer default gives the project's reviewer back and keeps what else the machine set, character for character"
 else
-  fail "reviewer default: $out / $(cat "$OLD/.lem/settings.local.toml")"
+  fail "set local reviewer default: $out / $(cat "$OLD/.lem/settings.local.toml")"
 fi
 printf '%s\n' '[checks]' 'commands = []' > "$OLD/.lem/settings.local.toml"
 code=0
 err=$(project --repo "$OLD" show 2>&1) || code=$?
 if [ "$code" = 1 ] && grep -qF ".lem/settings.local.toml: [checks] is not valid in this file: its place is .lem/settings.toml; move the table there" <<<"$err" \
-  && [ "$(status_of project --repo "$OLD" reviewer claude/opus:high)" = 1 ]; then
+  && [ "$(status_of project --repo "$OLD" set local reviewer claude/opus:high)" = 1 ]; then
   pass "the machine's own file may not hold the checks or any other rule of the project"
 else
   fail "the checks in the local file: $err"
@@ -571,17 +578,17 @@ printf '%s\n' '[corrections]' 'collect = false' > "$OLD/.lem/settings.local.toml
 code=0
 err=$(project --repo "$OLD" show 2>&1) || code=$?
 kept=$(cat "$OLD/.lem/settings.local.toml")
-rewrite=$(status_of project --repo "$OLD" reviewer claude/opus:high)
+rewrite=$(status_of project --repo "$OLD" set local reviewer claude/opus:high)
 if [ "$code" = 1 ] && grep -qF "project.py: .lem/settings.local.toml: [corrections] is not valid in this file: its place is $XDG_CONFIG_HOME/lem/machine.toml; move the table there" <<<"$err" \
   && [ "$rewrite" = 1 ] && [ "$kept" = "$(printf '%s\n' '[corrections]' 'collect = false')" ]; then
-  pass "the machine's own file for a repository refuses the correction queue's table and names machine.toml, and reviewer leaves the file as it was"
+  pass "the machine's own file for a repository refuses the correction queue's table and names machine.toml, and set local leaves the file as it was"
 else
   fail "corrections in the local file: $code / $err / $rewrite / $kept"
 fi
 printf '%s\n' '[seats]' 'planner = 42' > "$OLD/.lem/settings.local.toml"
 code=0
-err=$(project --repo "$OLD" reviewer claude/opus:high 2>&1) || code=$?
-if [ "$code" = 1 ] && [ "$(status_of project --repo "$OLD" reviewer default)" = 1 ] \
+err=$(project --repo "$OLD" set local reviewer claude/opus:high 2>&1) || code=$?
+if [ "$code" = 1 ] && [ "$(status_of project --repo "$OLD" set local reviewer default)" = 1 ] \
   && grep -q "project.py: .lem/settings.local.toml: seats.planner = 42 must be" <<<"$err" && ! grep -q Traceback <<<"$err" \
   && [ "$(cat "$OLD/.lem/settings.local.toml")" = "$(printf '%s\n' '[seats]' 'planner = 42')" ]; then
   pass "a wrong value already in the machine's own file is refused with its fix, and the file is left as it was"
@@ -589,31 +596,31 @@ else
   fail "a number as the local defender's seat: $err"
 fi
 rm "$OLD/.lem/settings.local.toml"
-words=$(project --repo "$OLD" reviewer codex gpt-6.1-sol high 2>&1 || true)
-gemini=$(project --repo "$OLD" reviewer gemini/pro 2>&1 || true)
-if [ "$(status_of project --repo "$OLD" reviewer gemini)" = 1 ] && grep -qF "reviewer takes one seat, \"agent/model:effort\", as \`reviewer codex/gpt-6.2-sol:high\`" <<<"$words" \
-  && grep -qF "the agent 'gemini' must be claude or codex" <<<"$gemini" && [ "$(status_of project --repo "$OLD" reviewer codex/)" = 1 ] && [ ! -e "$OLD/.lem/settings.local.toml" ]; then
-  pass "reviewer refuses an agent that cannot review, a seat in three words and a seat that does not parse, and writes nothing then"
+words=$(project --repo "$OLD" set local reviewer codex gpt-6.1-sol high 2>&1 || true)
+gemini=$(project --repo "$OLD" set local reviewer gemini/pro 2>&1 || true)
+if [ "$(status_of project --repo "$OLD" set local reviewer gemini)" = 1 ] && grep -qF "set local reviewer takes one VALUE, a whole seat \"agent/model:effort\", as \`set local reviewer codex/gpt-6.2-sol:high\`, or default; not 3 words" <<<"$words" \
+  && grep -qF "the agent 'gemini' must be claude or codex" <<<"$gemini" && [ "$(status_of project --repo "$OLD" set local reviewer codex/)" = 1 ] && [ ! -e "$OLD/.lem/settings.local.toml" ]; then
+  pass "set local reviewer refuses an agent that cannot review, a seat in three words and a seat that does not parse, and writes nothing then"
 else
-  fail "reviewer refusals: $words / $gemini"
+  fail "set local reviewer refusals: $words / $gemini"
 fi
-project --repo "$OLD" reviewer codex/gpt-6.2-sol:high >/dev/null && project --repo "$OLD" reviewer default >/dev/null
+project --repo "$OLD" set local reviewer codex/gpt-6.2-sol:high >/dev/null && project --repo "$OLD" set local reviewer default >/dev/null
 if [ ! -e "$OLD/.lem/settings.local.toml" ]; then pass "a local file with nothing left in it is removed"; else fail "empty local file stays"; fi
-# One machine may name its own defender and experts too, read from the main checkout, and a rewrite of the reviewer's seat keeps them.
+# One machine may name its own defender and experts too, read from the main checkout, and a write of the reviewer's seat keeps them.
 settings '[branch]' 'base = "master"' '[seats]' 'planner = "claude/the-usual:high"'
 printf '%s\n' '[seats]' 'planner = "claude/a-local-model:max"' 'experts = ["claude/opus:high", "codex/gpt-6.1-sol:high"]' > "$OLD/.lem/settings.local.toml"
-local_seat=$(project --repo "$WORK/wt" show | field '(d["seats"]["planner"], [e["seat"] for e in d["seats"]["experts"]], d["local"]["overrides"])' 2>&1 || true)
-project --repo "$OLD" reviewer codex/gpt-6.2-sol:high >/dev/null 2>&1 || true
-both=$(project --repo "$OLD" show | field '(d["seats"]["planner"]["model"], d["seats"]["reviewer"]["agent"], len(d["seats"]["experts"]), d["local"]["overrides"])' 2>&1 || true)
-project --repo "$OLD" reviewer default >/dev/null 2>&1 || true
-kept=$(project --repo "$OLD" show | field '(d["seats"]["planner"]["model"], d["local"]["overrides"])' 2>&1 || true)
+local_seat=$(project --repo "$WORK/wt" show | field '(d["seats"]["planner"], [(e["seat"], e["from"]) for e in d["seats"]["experts"]], d["local"]["overrides"])' 2>&1 || true)
+project --repo "$OLD" set local reviewer codex/gpt-6.2-sol:high >/dev/null 2>&1 || true
+both=$(project --repo "$OLD" show | field '(d["seats"]["planner"]["model"], d["seats"]["reviewer"]["agent"], len(d["seats"]["experts"]), [d["seats"][which]["from"] for which in ("reviewer", "planner")])' 2>&1 || true)
+project --repo "$OLD" set local reviewer default >/dev/null 2>&1 || true
+kept=$(project --repo "$OLD" show | field '(d["seats"]["planner"]["model"], d["seats"]["reviewer"]["from"])' 2>&1 || true)
 printf '%s\n' '[seats]' 'planner = "codex"' > "$OLD/.lem/settings.local.toml"
-err=$(project --repo "$OLD" reviewer claude/opus:high 2>&1 || true)
-if [ "$local_seat" = "({'agent': 'claude', 'model': 'a-local-model', 'effort': 'max', 'seat': 'claude/a-local-model:max', 'from': '.lem/settings.local.toml'}, ['claude/opus:high', 'codex/gpt-6.1-sol:high'], ['seats.planner', 'seats.experts'])" ] \
-  && [ "$both" = "('a-local-model', 'codex', 2, ['seats.reviewer', 'seats.planner', 'seats.experts'])" ] && [ "$kept" = "('a-local-model', ['seats.planner', 'seats.experts'])" ] \
+err=$(project --repo "$OLD" set local reviewer claude/opus:high 2>&1 || true)
+if [ "$local_seat" = "({'agent': 'claude', 'model': 'a-local-model', 'effort': 'max', 'seat': 'claude/a-local-model:max', 'from': '.lem/settings.local.toml'}, [('claude/opus:high', '.lem/settings.local.toml'), ('codex/gpt-6.1-sol:high', '.lem/settings.local.toml')], [])" ] \
+  && [ "$both" = "('a-local-model', 'codex', 2, ['.lem/settings.local.toml', '.lem/settings.local.toml'])" ] && [ "$kept" = "('a-local-model', \"Lem's default\")" ] \
   && grep -qF "project.py: .lem/settings.local.toml: seats.planner = 'codex': the agent 'codex' must be claude" <<<"$err" \
   && [ "$(cat "$OLD/.lem/settings.local.toml")" = "$(printf '%s\n' '[seats]' 'planner = "codex"')" ]; then
-  pass "the machine's own file may name the defender's seat and the experts, which replace the project's whole and show says so; reviewer keeps them through a rewrite, and refuses a wrong one already there, leaving the file as it was"
+  pass "the machine's own file may name the defender's seat and the experts, which replace the project's whole and their from says so; set local reviewer keeps them through a write, and refuses a wrong one already there, leaving the file as it was"
 else
   fail "the defender's seat in the local file: $local_seat / $both / $kept / $err"
 fi
@@ -625,21 +632,21 @@ printf '%s\n' '[naps]' 'on = false' > "$OLD/.lem/settings.local.toml"
 machine=$(project --repo "$OLD" show 2>&1 | field '(d["naps"]["on"], d["local"]["overrides"])' 2>&1 || true)
 in_tree=$(project --repo "$WORK/wt" show 2>&1 | field '(d["naps"]["on"], "naps.on" in d["local"]["overrides"])' 2>&1 || true)
 asleep=$(project --repo "$OLD" may-nap 2>&1 | field '(d["may"], d["why"])' 2>&1 || true)
-project --repo "$OLD" reviewer claude/opus:high >/dev/null 2>&1 && project --repo "$OLD" reviewer default >/dev/null 2>&1 || true
+project --repo "$OLD" set local reviewer claude/opus:high >/dev/null 2>&1 && project --repo "$OLD" set local reviewer default >/dev/null 2>&1 || true
 rewritten=$(cat "$OLD/.lem/settings.local.toml")
 printf '%s\n' '[naps]' 'on = true' > "$OLD/.lem/settings.local.toml"
 naps_yes=$(project --repo "$OLD" show 2>&1 || true)
-naps_yes_code=$(status_of project --repo "$OLD" reviewer claude/opus:high)
+naps_yes_code=$(status_of project --repo "$OLD" set local reviewer claude/opus:high)
 printf '%s\n' '[naps]' 'when = "night"' > "$OLD/.lem/settings.local.toml"
 naps_key=$(project --repo "$OLD" show 2>&1 || true)
 printf '%s\n' '[flow]' 'topics = ["a price"]' > "$OLD/.lem/settings.local.toml"
 flow_topics=$(project --repo "$OLD" show 2>&1 || true)
-flow_key_code=$(status_of project --repo "$OLD" reviewer claude/opus:high)
+flow_key_code=$(status_of project --repo "$OLD" set local reviewer claude/opus:high)
 rm "$OLD/.lem/settings.local.toml"
 alone=$(project --repo "$OLD" show 2>&1 | field '(d["naps"]["on"], d["local"]["overrides"])' 2>&1 || true)
 # shellcheck disable=SC2016  # the backticks are the refusal's own marks around a line
 if [ "$machine" = "(False, ['naps.on'])" ] && [ "$in_tree" = "(False, True)" ] && [ "$asleep" = "(False, 'the naps are off on this machine (naps.on = false in .lem/settings.local.toml)')" ] \
-  && [ "$rewritten" = "$(printf '%s\n' "# This machine's own settings for Lem. Not committed; \`lem project reviewer\` writes the seat." '' '[naps]' 'on = false')" ] \
+  && [ "$rewritten" = "$(printf '%s\n' '[naps]' 'on = false')" ] \
   && grep -qF ".lem/settings.local.toml: naps.on = True is not for this file. It may say \`on = false\`" <<<"$naps_yes" \
   && grep -qF "only .lem/settings.toml, which everybody reads in git, switches the naps on" <<<"$naps_yes" && [ "$naps_yes_code" = 1 ] \
   && grep -qF ".lem/settings.local.toml: unknown key naps.when; valid: on" <<<"$naps_key" \
@@ -656,21 +663,21 @@ project_days=$(project --repo "$OLD" show 2>&1 | field '(d["state"], d["local"][
 printf '%s\n' '[state]' 'keep_days = 3' > "$OLD/.lem/settings.local.toml"
 lower=$(project --repo "$OLD" show 2>&1 | field '(d["state"], d["local"]["overrides"])' 2>&1 || true)
 lower_tree=$(project --repo "$WORK/wt" show 2>&1 | field 'd["state"]' 2>&1 || true)
-project --repo "$OLD" reviewer claude/opus:high >/dev/null 2>&1 && project --repo "$OLD" reviewer default >/dev/null 2>&1 || true
+project --repo "$OLD" set local reviewer claude/opus:high >/dev/null 2>&1 && project --repo "$OLD" set local reviewer default >/dev/null 2>&1 || true
 days_kept=$(cat "$OLD/.lem/settings.local.toml")
 printf '%s\n' '[state]' 'keep_days = 60' > "$OLD/.lem/settings.local.toml"
 higher=$(project --repo "$OLD" show 2>&1 | field 'd["state"]' 2>&1 || true)
 printf '%s\n' '[state]' 'keep_days = 0' > "$OLD/.lem/settings.local.toml"
 days_zero_code=0
 days_zero=$(project --repo "$OLD" show 2>&1) || days_zero_code=$?
-days_zero_reviewer=$(status_of project --repo "$OLD" reviewer claude/opus:high)
+days_zero_reviewer=$(status_of project --repo "$OLD" set local reviewer claude/opus:high)
 printf '%s\n' '[state]' 'days = 7' > "$OLD/.lem/settings.local.toml"
 days_key=$(project --repo "$OLD" show 2>&1 || true)
 rm "$OLD/.lem/settings.local.toml"
 if [ "$project_days" = "({'keep_days': 14, 'from': '.lem/settings.toml'}, [])" ] \
   && [ "$lower" = "({'keep_days': 3, 'from': '.lem/settings.local.toml'}, ['state.keep_days'])" ] \
   && [ "$lower_tree" = "{'keep_days': 3, 'from': '.lem/settings.local.toml'}" ] \
-  && [ "$days_kept" = "$(printf '%s\n' "# This machine's own settings for Lem. Not committed; \`lem project reviewer\` writes the seat." '' '[state]' 'keep_days = 3')" ] \
+  && [ "$days_kept" = "$(printf '%s\n' '[state]' 'keep_days = 3')" ] \
   && [ "$higher" = "{'keep_days': 60, 'from': '.lem/settings.local.toml'}" ] \
   && [ "$days_zero_code" = 1 ] && [ "$days_zero_reviewer" = 1 ] && ! grep -q Traceback <<<"$days_zero" \
   && grep -qF "project.py: .lem/settings.local.toml: state.keep_days = 0 must be a whole number of days, 1 or more, as keep_days = 30; leave the line out for the number of .lem/settings.toml" <<<"$days_zero" \
@@ -686,7 +693,7 @@ name"
 git init -q -b main "$ODD"
 commit "$ODD" start
 project --repo "$ODD" init --base main >/dev/null
-project --repo "$ODD" reviewer claude/opus:high >/dev/null
+project --repo "$ODD" set local reviewer claude/opus:high >/dev/null
 git -C "$ODD" worktree add -q "$WORK/odd-wt" -b feat/odd
 if [ "$(project --repo "$WORK/odd-wt" show | field '(d["seats"]["reviewer"]["agent"], d["main"] == d["local"]["file"][:len(d["main"])], "\n" in d["main"])')" = "('claude', True, True)" ]; then
   pass "the main checkout is found whole when its path holds a line break, so a worktree reads its local settings"

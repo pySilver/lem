@@ -91,12 +91,15 @@ class Places(Home):
         message = self.refused(read, "home", "[state]", "keep_days = 3")
         self.assertIn("[state] is not valid in this file: its place is .lem/settings.toml or .lem/settings.local.toml", message)
 
-    def test_the_home_file_holds_the_merge_agent_and_the_session_of_the_seats(self):
-        self.assertEqual(read("home", "[seats]", 'merger = "claude/opus:high"', 'session = "claude"'), {"seats": {"merger": "claude/opus:high", "session": "claude"}})
-        for key in ("reviewer", "planner", "experts"):
-            with self.subTest(key=key):
-                message = self.refused(read, "home", "[seats]", f'{key} = "claude/opus:high"')
-                self.assertIn(f"seats.{key} is not valid in this file, which holds only merger and session of [seats]: its place is .lem/settings.toml or .lem/settings.local.toml", message)
+    def test_the_home_file_holds_every_seat_and_the_fallback(self):
+        # the seats of seat-defaults-and-fallback, criteria 1 and 2 under the owner's decision 41
+        lines = ('reviewer = "codex/gpt-6.2-sol:high"', 'planner = "claude/opus:high"', 'merger = "claude/opus:high"', 'session = "claude"',
+                 'experts = ["claude/fable:high"]', "fallback = false")
+        self.assertEqual(read("home", "[seats]", *lines), {"seats": {"reviewer": "codex/gpt-6.2-sol:high", "planner": "claude/opus:high", "merger": "claude/opus:high",
+                                                                    "session": "claude", "experts": ["claude/fable:high"], "fallback": False}})
+        # every seat is valid here, and a key that names no seat is still refused, with the nearest
+        message = self.refused(read, "home", "[seats]", 'reviwer = "claude/opus:high"')
+        self.assertIn("home: unknown key seats.reviwer; did you mean 'reviewer'?", message)
 
     def test_the_question_pages_defaults_are_the_home_files_only(self):
         self.assertEqual(read("home", "[ask]", 'style = "minimal"'), {"ask": {"style": "minimal"}})

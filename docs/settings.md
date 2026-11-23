@@ -11,7 +11,7 @@ stops Lem, and the message names the fix.
 | --- | --- | --- | --- |
 | `.lem/settings.toml` | the team's, for this repository | yes | the rules that guard a change, and the team's seats. `/lem init` writes it |
 | `.lem/settings.local.toml` | yours, for this repository | no | your seats, a no to the naps, and the days of the old files on this computer |
-| `~/.config/lem/settings.toml` | yours, for every repository on this computer | no | the merge agent, the session of each task, and the look of the question page |
+| `~/.config/lem/settings.toml` | yours, for every repository on this computer | no | your seats, and the look of the question page |
 | `~/.config/lem/machine.toml` | this computer's | no | what is true for the whole computer: the load limit, the board server, the other computers, the compaction and the correction queue |
 
 ## Which file wins
@@ -39,7 +39,7 @@ valid.
 | Table | `~/.config/lem/machine.toml` | `~/.config/lem/settings.toml` | `.lem/settings.toml` | `.lem/settings.local.toml` |
 | --- | --- | --- | --- | --- |
 | `[load]`, `[serve]`, `[peers]`, `[handoff]`, `[corrections]` | yes | no | no | no |
-| `[seats]` | no | only `merger` and `session` | yes | yes |
+| `[seats]` | no | yes | yes | yes |
 | `[ask]` | no | yes | no | no |
 | `[flow]`, `[checks]`, `[branch]`, `[paths]`, `[tracker]` | no | no | yes | no |
 | `[naps]` | no | no | yes | only `on = false` |
@@ -90,18 +90,40 @@ merge.
 ### `[seats]`
 
 A seat is one string, `agent/model:effort`. Write all three parts for `seats.reviewer`,
-`seats.planner` and each of `seats.experts`: Lem stops at `"codex"` or `"codex/gpt-6.2-sol"` there.
-In `seats.merger` and `seats.session`, a part that you do not write takes the default of the agent.
-A persona names its own seats in the frontmatter of its file, in the same form:
-`seats: ["claude/opus:high"]`. A persona file without it uses the seats of the panel.
+`seats.planner`, `seats.fallback` and each of `seats.experts`: Lem stops at `"codex"` or
+`"codex/gpt-6.2-sol"` there. In `seats.merger` and `seats.session`, a part that you do not write
+takes the default of the agent. A persona names its own seats in the frontmatter of its file, in
+the same form: `seats: ["claude/opus:high"]`. A persona file without it uses the seats of the panel.
+
+Lem takes each seat, and `seats.fallback`, from the first of four places that names it:
+
+1. `.lem/settings.local.toml`: you, for this repository;
+2. `.lem/settings.toml`: the team;
+3. `[seats]` in `~/.config/lem/settings.toml`: you, for all repositories;
+4. the default of Lem, in the table below.
+
+`lem project show` gives each seat and its place. `/lem set local NAME VALUE` writes a line of
+`.lem/settings.local.toml`, and `/lem set global NAME VALUE` writes a line of
+`~/.config/lem/settings.toml`. NAME is a seat or `fallback`. VALUE is a whole seat, one or two
+whole seats with a comma between them for `experts`, `false` for `fallback`, or `default`, which
+removes the line. The other lines and the comments of the file stay. No command writes
+`.lem/settings.toml`.
+
+When the agent of the reviewer, the planner or the merge agent gives an error, the fallback seat
+starts in its place, and the task goes on. An error is a program that is not on this computer, no
+login, no tokens, or a model that the agent does not know. A slow agent is not an error. The pull
+request names the seat that stood in, the seat that failed and the error. This does not make it not green. With
+`fallback = false`, or when the fallback cannot stand in, the task stops and waits for you. Type
+"go on" in the session of the task, and Lem tries the seat again.
 
 | Setting | Default | Use |
 | --- | --- | --- |
-| `seats.reviewer` | `"codex/gpt-6.2-sol:high"`, or `"claude/opus:high"` without Codex | the reviewer of the plan talk |
-| `seats.planner` | `"claude/opus:high"` | the defender of the plan in the plan talk: only `claude` |
+| `seats.reviewer` | the seat in `~/.config/lem/settings.toml`, else `"claude/opus:high"`. `/lem init` writes `"codex/gpt-6.2-sol:high"`, or `"claude/opus:high"` without Codex | the reviewer of the plan talk |
+| `seats.planner` | the seat in `~/.config/lem/settings.toml`, else `"claude/opus:high"` | the defender of the plan in the plan talk: only `claude` |
 | `seats.merger` | the seat in `~/.config/lem/settings.toml`, else `"claude/opus:high"` | the merge agent: `claude` or `codex` |
 | `seats.session` | the seat in `~/.config/lem/settings.toml`, else `"claude/opus:high"` | the agent of the session of each task: only `claude` |
-| `seats.experts` | `["claude/fable:high", "codex/gpt-6.2-astra:high"]` | the experts of a decision in doubt. Without Codex, one answers alone |
+| `seats.experts` | the list in `~/.config/lem/settings.toml`, else `["claude/fable:high", "codex/gpt-6.2-astra:high"]` | the experts of a decision in doubt. Without Codex, one answers alone |
+| `seats.fallback` | the line in `~/.config/lem/settings.toml`, else `"claude/opus:high"` | the seat that Lem starts in place of the reviewer, the planner or the merge agent when its agent gives an error. Write all three parts. `false` turns the fallback off, and then the task waits for you |
 
 ### `[naps]`
 
@@ -146,19 +168,19 @@ these.
 
 | Table | What it can say |
 | --- | --- |
-| `[seats]` | a seat for this computer, in the same form. `/lem reviewer codex/gpt-6.2-sol:high` writes the reviewer, and `/lem reviewer default` removes it |
+| `[seats]` | a seat or `fallback` for this computer, in the same form. It replaces the line of the team. `/lem set local reviewer codex/gpt-6.2-sol:high` writes the reviewer, and `/lem set local reviewer default` removes it |
 | `[naps]` | only `on = false` |
 | `[state]` | only `keep_days`: the days for the old files of this computer. Lem uses this number on this computer, also when it is lower or higher than the number of the project |
 
 ## `~/.config/lem/settings.toml`
 
-Your settings for every repository on this computer. You write this file by hand, and no command
-of Lem writes it. A repository file that names the same seat wins.
+Your settings for every repository on this computer. `/lem set global NAME VALUE` writes a line
+of `[seats]` and keeps the other lines. You write `[ask]` by hand. A repository file that names the
+same seat wins.
 
 | Setting | Default | Use |
 | --- | --- | --- |
-| `seats.merger` | `"claude/opus:high"` | the merge agent, in the form of [`[seats]`](#seats) |
-| `seats.session` | `"claude/opus:high"` | the agent of the session of each task |
+| `seats.reviewer`, `seats.planner`, `seats.merger`, `seats.session`, `seats.experts`, `seats.fallback` | as in [`[seats]`](#seats) | each seat and the fallback, in the form of [`[seats]`](#seats) |
 | `ask.style` | `"refined"` | the look of the question page: `"refined"`, `"minimal"`, `"bold"` or `"terminal"` |
 | `ask.size` | `"auto"` | the size of the question page: a percent of the pane, `"auto"` or `"full"` |
 | `ask.review` | `"auto"` | the list of your answers before Lem gets them: `"auto"`, `"always"`, `"never"`, `true` or `false` |

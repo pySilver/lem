@@ -424,7 +424,11 @@ task whose scout read the code has one line that says the criteria were written 
 The text names no file of the task directory: the pull request is read on the forge, where no
 path of this machine leads anywhere.
 A request of the type fix whose investigation found its cause has one more line with that cause
-and its place, from the newest `investigation` event; a question's has none.
+and its place, from the newest `investigation` event; a question's has none. On either track the
+checks hold one line for each seat that stood in for another (each `seat.stand-in` of the task,
+with no filter, `stand_in_line`): which seat stood in, for which seat, and why, in the words of
+`lem_state.SEAT_ERRORS`; one whose own seat then gave an error too says so. It is a fact of the
+request and no cause of not green.
 `propose` refuses a task on the standard track with no `criteria.read`, unless the owner skipped the read: that word
 of the owner's, which Lem asks for only when every criterion names only the developer, is a decision
 of the owner's with the two texts of `READ_SKIP`, and it counts only with a later approval of
@@ -463,7 +467,11 @@ that base (`checks_ran_on`), the base now (`base_now`), the `range` between them
 touches too: always from the checks' base, never from an earlier read, so a read sees every move
 since the checks. `base` is origin's base when `moved` is not null, and the checks' base otherwise.
 It prints the brief, the answer file the agent's reply goes to (`merge-answer-TIP-BASE.md`), the
-tip, the base, and the seat that starts it, `seats.merger` as `lem project show` resolves it. The
+tip, the base, and the seat that starts it, the one `lem project seat SLUG merger` gives (the
+fallback while it stands in for the merger, else `seats.merger`), which it keeps with the brief in
+`landing.json` (`merge_seats`, by the brief's tip and base). After `lem project seat-failed SLUG
+merger` printed a stand-in, `merge-review` runs again: the brief of the same tip and base is
+written again, and the stand-in's seat takes the failed one's place beside it. The
 agent changes nothing. Its reply opens with its verdict, `Verdict: merge.` or `Verdict: call.`; on a
 moved base its second line is its call on the move, `Base: safe.` or `Base: another round.`, then one
 sentence of why. `merge-review --file FILE --tip TIP --base BASE` takes the tip and the base the brief
@@ -475,7 +483,8 @@ decide and the owner is not asked; on a base that did not move the second reply 
 verdict is recorded as a review that calls the owner, with no verdict and a why that names the
 verdict a lower line of it gives, if any (`unread_next`, `unread_why`). It writes the reply as
 `merge-review.md`, keeps `merge_review` in `landing.json` (the proposed tip, the verdict, `calls`,
-`why`, the seat as `by`, the time as `at`, the `base` the read covered, and its `base_call` and
+`why`, the seat kept with its brief as `by`, never a new read of the settings, so it names the seat
+that read, the time as `at`, the `base` the read covered, and its `base_call` and
 `base_why`, null with no move) and logs one `merge.review` with the same for each read, so the log
 keeps the why of every base call. `calls` is true for the verdict `call`, for a `merge` that
 `owner_merges` overrules, and for that second reply with no verdict: the owner is called, and
@@ -488,7 +497,11 @@ N`, which a review that calls the owner ends with, `filed`, each item the branch
 folder by its path and title, whoever filed it, and `bar`, the file whose rule 6 holds the bar of an
 item as `spawn-builder` picks the builder: the project's own `.claude/agents/lem-builder.md` in the
 main checkout by its whole path when it is there (`of`: `project`), else `agents/lem-builder.md` in
-Lem's plugin folder (`of`: `lem`). The agent calls the owner for an item under that bar.
+Lem's plugin folder (`of`: `lem`). The agent calls the owner for an item under that bar. The facts
+hold `stand_ins` as well, each seat that stood in for another in the task (`stand_ins_of`), a fact
+of the request and no reason to call him. A merge agent's stand-in comes after the pull request is
+open: before the read is written down, `--file` adds the stand-in's line to the pull request's text
+on GitHub once, and to `pr.md`.
 
 A read with `Base: safe.` answers Lem's own refusal of a merge of its tip because the base moved
 (`merge_refused` with `kind: base`), and so does a read whose brief named the checks' own base,
@@ -502,8 +515,9 @@ the session and the board says that it lands again; the task lands again with no
 owner. Only that new landing answers such a refusal: `merge-review` refuses a brief or an answer of a
 tip whose read said another round.
 
-`merged` asks GitHub about a pull request the owner may have merged or closed there. A merged one
-finishes as a landing does. A closed one with no merge ends the task: its state becomes `dropped`
+`merged` asks GitHub about a pull request the owner may have merged or closed there, of an `open`
+task, or of one its merge agent's seat blocked (`the seat that failed: merger`), whose pull request
+stays open while it waits for the owner's go on. A merged one finishes as a landing does. A closed one with no merge ends the task: its state becomes `dropped`
 with the line "the pull request was closed on the forge", so nothing of it waits and nobody cleans
 it by hand; `clean` then removes the worktree, and the branch keeps its commits, with how to delete
 it. A task that goes on after all is a new request. One that is still open is "not merged yet"
@@ -3086,6 +3100,62 @@ def talked(talk: dict) -> str:
     )
 
 
+def stand_ins_of(events: list[dict]) -> list[dict]:
+    """Each seat that stood in for another in the task, from its `seat.stand-in` events (EVENTS, the
+    task's own, oldest first), every one, with no filter: the seat, the one it stood in for, the error,
+    the agent's words, and `failed_too`, the error of the stand-in itself when a `seat.blocked` of that
+    seat names its seat as the one that failed, before any later `seat.again` of it (at its start, or
+    later). A stand-in that a block of another cause followed did its part of the work before it."""
+    out = []
+    for number, event in enumerate(events):
+        if event.get("event") != "seat.stand-in":
+            continue
+        then = None
+        for later in events[number + 1:]:
+            if later.get("seat") != event.get("seat"):
+                continue
+            if later.get("event") == "seat.again":
+                break
+            if later.get("event") == "seat.blocked" and later.get("failed") == event.get("took"):
+                then = later
+                break
+        out.append({"seat": event.get("seat"), "took": event.get("took"), "failed": event.get("failed"), "error": event.get("error"), "said": event.get("said"),
+                    "at": event.get("ts"), "failed_too": {"error": then.get("error"), "said": then.get("said")} if then else None})
+    return out
+
+
+def stand_in_line(stand_in: dict) -> str:
+    """One stand-in as a line of the pull request's checks, a fact and no reason of not green: which
+    seat stood in, for which seat, and why; and, when it gave an error itself, that too."""
+    name = lem_state.SEAT_NAMES.get(stand_in["seat"], stand_in["seat"])
+    failed, took = stand_in["failed"], stand_in["took"]
+    why = f"{lem_state.agent_name(failed)} {lem_state.SEAT_ERRORS[stand_in['error']]['pr']}"
+    too = stand_in["failed_too"]
+    if not too:
+        return f"- {name} was `{took}` in place of `{failed}`: {why}"
+    return (f"- {name} was to be `{took}` in place of `{failed}`: {why}; then {lem_state.agent_name(took)} gave an error too: "
+            f"{lem_state.agent_name(took)} {lem_state.SEAT_ERRORS[too['error']]['pr']}")
+
+
+def stand_in_lines(task: Task) -> list[str]:
+    """The line of each seat that stood in for another in the task, in the order of the log."""
+    return [stand_in_line(stand_in) for stand_in in stand_ins_of(events_of(task))]
+
+
+def merger_noted(task: Task, pr: dict, then: str) -> None:
+    """The line of each stand-in of the merge agent in the pull request's text on GitHub and in pr.md, once
+    (`noted`). A merge agent's stand-in comes after the pull request is open, so both steps that follow it
+    run this: the record of a read (`merge-review --file`) and every path to `landed` (`forge_done`), which
+    a merge on GitHub takes while the stand-in reads or after it blocked the task. A stand-in that gave an
+    error after its line went in has that line replaced by the one that says so. THEN is the refusal's
+    words on what stays and what tries again."""
+    for stand_in in stand_ins_of(events_of(task)):
+        if stand_in["seat"] != "merger":
+            continue
+        earlier = stand_in_line({**stand_in, "failed_too": None}) if stand_in["failed_too"] else None
+        noted(task, pr, stand_in_line(stand_in), "the line of the merge agent's stand-in", then, earlier)
+
+
 def polished(polish: dict) -> str:
     """The polish pass as one line of the pull request's checks, from what `polish --done` logged.
     The checks refuse a task on the standard track with no pass that is done."""
@@ -3934,6 +4004,8 @@ def small_text(task: Task, notes: str, state: dict) -> str:
         said = f"{read['verdict']}, {read['must_fix']} must-fix, {read['should']} should, {read['nit']} nit" if read["answered"] else "not reviewed"
         said += outside_words(read, fixed)
         out.append(f"- the review, round {read['round']} ({KIND_SAYS[read['kind']]}; {who}): {said}")
+    # each seat that stood in for another, a fact of the request and no reason of not green
+    out += stand_in_lines(task)
     out.append(careful_line(task, state))
     decisions = [*breaker_lines(task), *(decided(decision) for decision in task.decisions())]
     if decisions:
@@ -4009,6 +4081,8 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     elif untalked(task, state):
         # careful after its plan: the full set ran and a person merges, so this is no cause of not green
         out.append(untalked(task, state))
+    # each seat that stood in for another, a fact of the request and no reason of not green
+    out += stand_in_lines(task)
     out.append(careful_line(task, state))
     out += ["", "## Decisions of the build", "", *([*breaker_lines(task), *(decided(decision) for decision in task.decisions())] or ["none"])]
     out += folded_stories(task)
@@ -4563,10 +4637,11 @@ def base_refusal(view: dict, base: str, url: str, slug: str) -> str | None:
 def forge_done(task: Task, view: dict) -> dict:
     """The bookkeeping of a pull request GitHub merged, the one step every path to `landed` takes: Lem's
     merge, and `lem land merged` of a merge GitHub took later or the owner made there. A merge on a base
-    that moved after the checks leaves its line in the pull request's text first (`moved_line`); a
-    failed edit leaves the task `open` with this step's error, and the next `lem land merged` tries again.
-    A task started from a reviewer's item of the state folder (`state_item`) removes the item's file the
-    same way, before `landed`; a dropped task never comes here, so its item is undecided again."""
+    that moved after the checks leaves its line in the pull request's text first (`moved_line`), and so
+    does each stand-in of the merge agent (`merger_noted`); a failed edit leaves the task as it was with
+    this step's error, and the next `lem land merged` tries again. A task started from a reviewer's item
+    of the state folder (`state_item`) removes the item's file the same way, before `landed`; a dropped
+    task never comes here, so its item is undecided again."""
     pr = task.kept()["pr"]
     # a merge into another branch than the base is no landing: the task stays as it is, and the owner reads why
     wrong = base_refusal(view, task.base, pr["url"], task.slug)
@@ -4576,7 +4651,9 @@ def forge_done(task: Task, view: dict) -> dict:
     merged = (view.get("mergeCommit") or {}).get("oid")
     line, uncovered = moved_line(task, merged)
     if line:
-        noted(task, pr, line)
+        noted(task, pr, line, f"GitHub merged {pr['url']}, and the line of its merge on the moved base",
+              f"the task stays open, and `lem land merged {task.slug}` tries again")
+    merger_noted(task, pr, f"GitHub merged {pr['url']}; the task stays as it was, and `lem land merged {task.slug}` tries again")
     item = state_item(task)
     removed = remove_item(task.state_folder, item, task.slug, pr["url"]) if item else False
     # the commit of the branch that the forge merged: `clean` removes the branch only when it holds nothing after it
@@ -4604,19 +4681,33 @@ def moved_line(task: Task, merged: str | None) -> tuple[str | None, bool]:
     return record["line"], False
 
 
-def noted(task: Task, pr: dict, line: str) -> None:
-    """LINE in the pull request's text on GitHub, once: added at its end when the text lacks it, and in
-    `pr.md`, the task's copy of that text, which the board shows."""
-    body = json.loads(gh(task, "pr", "view", str(pr["number"]), "--json", "body").stdout).get("body") or ""
+def noted_body(body: str, line: str, replaces: str | None = None) -> str | None:
+    """The pull request's text BODY with LINE in it once, or None when it holds LINE already: in the place
+    of the line REPLACES, an earlier form of the same fact, when the text holds that line, else at its end."""
     if line in body:
+        return None
+    lines = body.rstrip("\n").split("\n")
+    if replaces is not None and replaces in lines:
+        lines[lines.index(replaces)] = line
+        return "\n".join(lines) + "\n"
+    return body.rstrip("\n") + "\n\n" + line + "\n"
+
+
+def noted(task: Task, pr: dict, line: str, what: str, then: str, replaces: str | None = None) -> None:
+    """LINE in the pull request's text on GitHub, once (`noted_body`): in the place of REPLACES, or added
+    at its end when the text lacks it, and in `pr.md`, the task's copy of that text, which the board shows.
+    A failed edit is refused with WHAT, the line as the owner knows it, and THEN, what stays and what
+    tries again."""
+    body = json.loads(gh(task, "pr", "view", str(pr["number"]), "--json", "body").stdout).get("body") or ""
+    new = noted_body(body, line, replaces)
+    if new is None:
         return
     text = task.directory / "pr.md"
-    write_whole(text, body.rstrip("\n") + "\n\n" + line + "\n")
+    write_whole(text, new)
     edited = gh(task, "pr", "edit", str(pr["number"]), "--body-file", str(text), check=False)
     if edited.returncode != 0:
         said = [one.strip() for one in (edited.stderr or edited.stdout).splitlines() if one.strip()]
-        raise LandError(f"GitHub merged {pr['url']}, and the line of its merge on the moved base did not reach the pull request's text "
-                        f"(gh pr edit said: {said[-1] if said else edited.returncode}); the task stays open, and `lem land merged {task.slug}` tries again")
+        raise LandError(f"{what} did not reach the pull request's text (gh pr edit said: {said[-1] if said else edited.returncode}); {then}")
 
 
 def viewed(task: Task, pr: dict | None = None) -> dict:
@@ -4625,9 +4716,17 @@ def viewed(task: Task, pr: dict | None = None) -> dict:
     return json.loads(gh(task, "pr", "view", str(pr["number"]), "--json", "state,headRefOid,mergeCommit,mergeable,baseRefName").stdout)
 
 
+def merger_blocked(record: dict) -> bool:
+    """Whether a task is `blocked` by its merge agent's seat (`the seat that failed: merger` in its newest
+    block): its pull request stays open, and a merge on GitHub while it waits still lands it."""
+    lines = (record.get("state") or "").splitlines()
+    return record.get("status") == "blocked" and f"{lem_state.FAILED_SEAT}merger" in (line.strip() for line in lines)
+
+
 def cmd_merged(task: Task) -> dict:
-    # `landing` too: the owner may merge on the forge while an open task runs its checks again
-    if task.record["status"] not in ("open", "landing") or not task.kept().get("pr"):
+    # `landing` too: the owner may merge on the forge while an open task runs its checks again; and a task its
+    # merge agent's seat blocked, whose pull request is open while it waits for the owner's go on
+    if (task.record["status"] not in ("open", "landing") and not merger_blocked(task.record)) or not task.kept().get("pr"):
         raise LandError(f"the task is {task.record['status']!r} and has {'a' if task.kept().get('pr') else 'no'} pull request; this step is for a task whose pull request the owner merged")
     view = viewed(task)
     if view["state"] == "MERGED":
@@ -4908,6 +5007,27 @@ def carried_review(review: dict, tip: str, calls: bool, why: str | None, old: st
     return {**kept, "tip": tip, "calls": calls, "why": why, "carried_from": old}
 
 
+def merger_seat(task: Task) -> dict:
+    """The merge agent's seat in use for the task, as `lem project seat SLUG merger` prints it: the
+    fallback while it stands in for the merger, else the settings' `seats.merger`."""
+    found = json.loads(script("project.py", task.main, "seat", task.slug, "merger").stdout)
+    return {key: found.get(key) for key in ("agent", "model", "effort", "seat", "from")}
+
+
+def seats_kept(kept: object, tip: str, base: str, seat: dict) -> dict:
+    """The seats kept with the merge agent's briefs (`merge_seats` of landing.json, KEPT) once the brief
+    of TIP on BASE was written for SEAT: that brief's seat is SEAT, a stand-in's in the place of the one
+    that failed on the same brief, and the briefs of an earlier tip go."""
+    earlier = kept if isinstance(kept, dict) else {}
+    return {**{key: value for key, value in earlier.items() if key.startswith(f"{tip}-")}, f"{tip}-{base}": seat}
+
+
+def seat_of_brief(kept: object, tip: str, base: str) -> dict | None:
+    """The seat kept with the brief of TIP on BASE (`seats_kept`), the one that reads it; None for none."""
+    seat = kept.get(f"{tip}-{base}") if isinstance(kept, dict) else None
+    return seat if isinstance(seat, dict) and seat.get("seat") else None
+
+
 def brief_file(task: Task, tip: str, base: str) -> Path:
     """The merge agent's brief of a proposed tip on one base, so that the brief of a later base never
     takes the place of the one an agent was started with."""
@@ -4952,7 +5072,6 @@ def cmd_merge_review(task: Task, record: str | None, read_tip: str | None = None
     state = due(task)
     reasons = not_green(task, state)
     land = task.settings["branch"]["land"]
-    seat = task.settings["seats"]["merger"]
     # whether the merge agent may merge when it finds nothing: every rule but its own verdict
     refusal = merger_refusal(task.slug, land, state["careful"], reasons, review_call(task) is not None, {"verdict": "merge"})
     if record is None:
@@ -4994,10 +5113,17 @@ def cmd_merge_review(task: Task, record: str | None, read_tip: str | None = None
             "bar": bar_file(task.main),
             # how the owner tries the branch himself, the last line of a review that calls him
             "try": try_of(task.main, task.worktree, kept["pr"]),
+            # each seat that stood in for another in this task, for which seat and why: a fact, and no reason to call the owner
+            "stand_ins": [{key: stand_in[key] for key in ("seat", "took", "failed", "error", "failed_too")} for stand_in in stand_ins_of(events_of(task))],
             # the base this read is against, and what moved on it since the checks ran (null when nothing moved);
             # on a moved base the answer's second line is `Base: safe.` or `Base: another round.`, then one sentence of why
             "base": base, "moved": moved,
         }
+        # The seat in use, a stand-in while one holds: it is kept with this brief, by its tip and base, so the
+        # record of its answer names the seat that read it, whatever the settings say by then. After a stand-in
+        # this step runs again for the same brief, and the stand-in's seat takes the failed one's place.
+        seat = merger_seat(task)
+        task.keep(merge_seats=seats_kept(kept.get("merge_seats"), tip, base, seat))
         brief = brief_file(task, tip, base)
         write_whole(brief, "\n".join([
             # by its place in the plugin, never by this Lem's folder, which an update of the plugin replaces
@@ -5020,6 +5146,11 @@ def cmd_merge_review(task: Task, record: str | None, read_tip: str | None = None
             f"--base is {read_on!r}, and no brief of {tip[:12]} on that base was written: --base is the whole commit `lem land merge-review {task.slug}` printed as `base` "
             "with the brief the merge agent read; its answer is not written down",
         )
+    # the seat that read: the one kept with the brief, never a new read of the settings
+    seat = seat_of_brief(kept.get("merge_seats"), tip, read_on)
+    if seat is None:
+        raise LandError(f"no seat is kept with the brief of {tip[:12]} on {read_on[:12]}, so the record could not name the seat that read it: "
+                        f"`lem land merge-review {task.slug}` writes the brief again with its seat, and a fresh merge agent reads it")
     try:
         text = Path(record).read_text(encoding="utf-8")
     except OSError as error:
@@ -5055,6 +5186,8 @@ def cmd_merge_review(task: Task, record: str | None, read_tip: str | None = None
         why = unread_why(lower_verdict(text), refusal)
     else:
         why = refusal if refusal else (next(line for line in text.splitlines() if line.strip()).strip().lstrip("#*> ").strip() if verdict == "call" else None)
+    # the merge agent's stand-ins go into the pull request's text before the read is written down, so a failed edit leaves the read to record again
+    merger_noted(task, kept["pr"], f"the read is not written down, and the same `lem land merge-review {task.slug} --file` tries again")
     write_whole(task.directory / "merge-review.md", text if text.endswith("\n") else text + "\n")
     review = {"tip": tip, "verdict": verdict, "calls": calls, "why": why, "by": seat["seat"], "at": now_utc(), "base": read_on,
               "base_call": call[0] if call else None, "base_why": call[1] if call else None}
