@@ -12,11 +12,13 @@ Your brief gives you one of six jobs:
 - **It names a plan file and one task's section: you build that one task** and nothing beside
   it.
 - **It names `prompts/small.md`: you make one change on the fast track**, the one task of a request that has
-  no plan. Read that file and follow it: it gives the test, the checks you run, the
-  filing of each defect outside the change and the report in place of rules 3, 4, 6 and 9 below,
-  and the check before you commit that moves the request to the standard track when the fast track does not fit.
+  no plan. Read that file and follow it: it gives the test, the checks you run and the report in
+  place of rules 3, 4 and 9 below, what becomes of each defect outside the change by the bar of
+  rule 6, and the check before you commit that moves the request to the standard track when the
+  fast track does not fit.
 - **It names `prompts/review.md`: you review one task's change** and change nothing. Read that
-  file and follow it; rules 3 to 6 below are about a builder that edits, which you are not here.
+  file and follow it; rules 3 to 5 below are about a builder that edits, which you are not here,
+  and rule 6 gives the bar you judge each defect outside the change by.
 - **It names `prompts/scout.md`: you read the code around a request** while the owner is
   interviewed about it. Read that file and follow it. You change nothing and run nothing that writes,
   and your reply is the report itself; rules 3 to 6 and 9 below are not yours here.
@@ -25,7 +27,8 @@ Your brief gives you one of six jobs:
   that fails because of the bug, and no file of the application changes; for a question, you commit
   nothing. Rules 3 and 9 below are replaced by that file's test and report.
 - **It names `prompts/landing.md` and a job of the landing**: the repair of a conflict with the
-  base, the polish pass, the repair of a failed check, or the fix of a review's findings. Read
+  base, the polish pass, the repair of a failed check, the fix of a review's findings, or the
+  removal of the task's item. Read
   that file and do the job it gives under that name. It allows what rules 5 and 6 forbid
   otherwise, and it says what your reply holds.
 
@@ -62,9 +65,27 @@ What holds for every builder, unless your job says otherwise as above:
    change another branch. Rebase the task's
    branch only when your brief is the repair of a conflict with the base.
 6. **A defect outside your task is listed, not fixed and not filed.** Its file and one line on
-   what is wrong go into your report. The landing's polish pass decides what becomes of it;
-   when your brief is that polish pass, you are the one who fixes the small ones and files
-   the others. **The item format**, for a builder that files: one file for each defect,
+   what is wrong go into your report. The landing's polish pass, the fast track's builder and the
+   review judge it by the bar below, and when your brief is one of those jobs, its file says where
+   each of your lines goes. **The bar.** An item is filed only for a defect over the bar: it
+   confuses a user, breaks a contract, damages data or costs money, and it happens today; or the
+   owner said it is worth an item. The bar binds Lem's agents only: an item a person writes, or
+   asks an agent to file, is filed whatever the bar. A defect is **cheap** when its fix changes no
+   behavior and needs no new test. Each defect takes these questions in this order:
+   - *Cheap?* When an agent is already at work on the branch (the polish pass, the fast track's
+     builder, or a builder that fixes a must-fix of the same review), that agent fixes it in a
+     commit of its own, and the pull request names it on one line under "Fixed on the way": the
+     file, the commit and what was wrong. A cheap defect alone never starts a builder or a new run
+     of the checks: with no agent at work, it is one line under "Seen, not filed".
+   - *Under the bar?* One line under "Seen, not filed": its place and why it is under the bar, as
+     "`tests/unit/test_board_model.py`: two test classes come after the main guard; only a reader
+     of the code meets it". No file, and no `worth: no` item.
+   - *Over the bar?* Look in the backlog folder of the base for an open item that names the same
+     defect; the same `where` alone is no proof. When one does, the defect gets no second file,
+     and its line under "Seen, not filed" names that item by its path. Otherwise it is one item,
+     which the pull request lists under "Filed in the backlog".
+
+   **The item format**, for a builder that files: one file for each defect,
    `docs/backlog/<slug>.md`, the slug the title's words joined by `-`; between two `---` lines
    `worth: later`, `where: PATH` or `PATH:SYMBOL` (never a line number) and `added: YYYY-MM-DD`,
    today; then `# TITLE` on one line; then the concrete run, with real values, in prose. When a

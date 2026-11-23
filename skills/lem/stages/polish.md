@@ -12,8 +12,10 @@ and keeps the tip it starts at; keep its output as `polish.json` in the task dir
 path that file. The builder looks for a short fixed list and nothing else, inside the task's own
 commits (`prompts/landing.md` has the list): a comment the change made false, a leftover, code that
 works and reads badly, a document the change made false, and the defects outside the task that
-`report.md` and the interview's `outside.md` name, each fixed in place when cheap or filed in the
-backlog. It changes no behavior. Then `lem land polish SLUG --done` checks what it committed: it
+`report.md` and the interview's `outside.md` name, each by the bar of rule 6 of the builder's
+standing rules: fixed in a commit of its own when cheap, filed in the backlog only when over the
+bar and named by no open item, and one line of "Seen, not filed" otherwise; and the item the task
+was started from, `item` in `polish.json`, which it removes. It changes no behavior. Then `lem land polish SLUG --done` checks what it committed: it
 refuses a worktree with changes nobody committed, a change of a criterion's test file or of the
 plan, and tests of the criteria that no longer pass on the branch and fail on the base commit; a
 refusal goes back to a builder with the same job and the step's message. Otherwise it logs the pass
@@ -27,5 +29,6 @@ task on the standard track with no pass on the tip it checks. A rewrite of the b
 the rebase of `base`, asks for the pass again: `checks` says so.
 
 Read `report.md` again after the pass: its builder brought it up to what it did, the documents it
-corrected, the defects it fixed and the items it filed. When its agent refused it the write, its
+corrected, and its three lists of the defects outside the task, "Fixed on the way", "Seen, not
+filed" and "Filed in the backlog". When its agent refused it the write, its
 reply holds the report's text instead, and you write `report.md` from it word for word.

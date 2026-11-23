@@ -522,8 +522,8 @@ resolved=$(gw_land base w-four 2>&1 || true)
 polished=$(gw_land polish w-four 2>&1 || true)
 gw_land checks w-four >/dev/null 2>&1 || true
 due_read=$(gw_land read w-four 2>&1 || true)
-# the read sees one defect outside the change, which file commits on top of the resolution: that commit asks for no other read
-seen='{"kind": "read", "answered": ["codex"], "outside": [{"where": "shop.txt", "title": "The shop has no closing line", "what": "shop.txt ends with no line that says the shop is closed, on the base commit too."}]}'
+# the read sees one defect outside the change, over the bar, which file commits on top of the resolution: that commit asks for no other read
+seen='{"kind": "read", "answered": ["codex"], "outside": [{"where": "shop.txt", "title": "The shop has no closing line", "what": "shop.txt ends with no line that says the shop is closed, on the base commit too.", "bar": "over"}]}'
 recorded=$(gw_land read w-four --record "$(record w-four 2 "$seen")" 2>&1 || true)
 filed=$(gw_land file w-four 2>&1 || true)
 due_after=$(gw_land read w-four 2>&1 || true)

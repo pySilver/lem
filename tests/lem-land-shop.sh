@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # The landing: land.py takes one task from `ready` through the machine checks and one read to a pull
 # request on GitHub, the merge agent's read, and from there to the base branch. This block's origin is
-# on GitHub through the stand-in for `gh` (lib.sh); lem-land-backlog.sh files what a review saw outside
-# the change, and lem-land-github.sh holds the forge's own cases.
+# on GitHub through the stand-in for `gh` (lib.sh); lem-land-backlog.sh holds what a review saw outside
+# the change, judged by the bar (an item, a fix or a line of the pull request), a task's own item and
+# the items in the merge agent's brief, and lem-land-github.sh holds the forge's own cases.
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
@@ -81,11 +82,11 @@ err=$(land --repo "$SHOP" propose first-change --title "fix: the file is there" 
 out=$(land --repo "$SHOP" read first-change)
 base=$(git -C "$SHOP" rev-parse origin/main)
 if grep -q "a review is due before anything is proposed, one read at the least" <<<"$err" && [ "$(status first-change)" = landing ] \
-  && [ "$(field '(d["due"], d["floor"], d["round"], d["in_parts"], sorted(d["inputs"]), d["inputs"]["range"], [r.split("/.claude/")[-1] for r in d["inputs"]["rules"]], d["inputs"]["filed"])' <<<"$out")" \
-  = "('review', 'read', 1, False, ['bar', 'filed', 'plan', 'range', 'review', 'rules', 'topics', 'words', 'worktree'], '$base..$tip', ['rules/tests.md'], [])" ] \
+  && [ "$(field '(d["due"], d["floor"], d["round"], d["in_parts"], sorted(d["inputs"]), d["inputs"]["range"], [r.split("/.claude/")[-1] for r in d["inputs"]["rules"]], d["inputs"]["filed"], d["inputs"]["backlog"])' <<<"$out")" \
+  = "('review', 'read', 1, False, ['backlog', 'bar', 'filed', 'plan', 'range', 'review', 'rules', 'topics', 'words', 'worktree'], '$base..$tip', ['rules/tests.md'], [], [])" ] \
   && [ "$(cat "$(field 'd["inputs"]["words"]' <<<"$out")")" = "Put yes into ok.txt." ] && [ -f "$(field 'd["inputs"]["plan"]' <<<"$out")" ] \
   && [ "$(field 'd["inputs"]["review"]' <<<"$out")" = "$SHOP/.revmux" ]; then
-  pass "nothing is proposed before its review; for a request that is not careful the floor is one read, and a reviewer gets the owner's words, the plan, the range, the rule files of the changed files, the project's topics and the folder of the review tool"
+  pass "nothing is proposed before its review; for a request that is not careful the floor is one read, and a reviewer gets the owner's words, the plan, the range, the rule files of the changed files, the project's topics, the items of the backlog and the folder of the review tool"
 else
   fail "the read that is due: $err / $out"
 fi

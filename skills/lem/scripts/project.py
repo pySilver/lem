@@ -2405,7 +2405,7 @@ def read_form(fields: dict) -> None:
 # read at `criteria.read`, an investigation at `investigation`, a builder's job at the next state
 # block or step of the landing after it, the polish pass at `polish`, the checks at `gate.end`, and
 # the review at `review`.
-BUILDER_JOBS = ("the small change", "the repair of a conflict with the base", "the repair of a failed check", "the fix of a review's findings")
+BUILDER_JOBS = ("the small change", "the repair of a conflict with the base", "the repair of a failed check", "the fix of a review's findings", "the removal of the task's item")
 TASK_JOB = re.compile(r"task [1-9]\d* of [1-9]\d*")
 STARTS: dict[str, tuple[str, dict[str, tuple[str, ...] | None]]] = {
     "interview.start": ("interview.start takes nothing", {}),

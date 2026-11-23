@@ -17,8 +17,12 @@ has them), the `reviews`, the command that lists its `decisions`, whether it is 
 why it is `careful`, `land` (the settings' `branch.land`), `owner_merges`, `time`, `tokens` and
 `relands`, how many times this proposal landed again (another round on a moved base, a conflict),
 `pictures`, the pictures of the task's `media/` folder by their paths from the task directory,
-`try`, the two ways the owner gets the branch to try it himself, the `base` your read is against,
-and `moved`, what moved on that base since the checks ran, or null when nothing did.
+`try`, the two ways the owner gets the branch to try it himself, `filed`, each item the branch adds
+to the backlog folder by its `item` path and its `title`, whoever filed it, `bar`, the file whose
+rule 6 holds the bar of an item for this project (the one the project's builders read: when
+`bar.of` is `project`, `bar.file` is the project's own by its whole path; when it is `lem`,
+`bar.file` is a path in the folder that `lem version` prints as `root`), the `base` your read is
+against, and `moved`, what moved on that base since the checks ran, or null when nothing did.
 
 ## Read
 
@@ -39,7 +43,11 @@ and `moved`, what moved on that base since the checks ran, or null when nothing 
    their subagents used, and `tokens.covers` says what the number leaves out: it is a fact for the
    owner, and a reason to look only beside a time far over the expected one. Nothing bounds `relands`; more than one or two says that the base moves
    faster than the checks run.
-5. When `moved` is not null: what moved, below.
+5. What the task saw outside its change: rule 6 of `bar.file`, then each item of `filed`, whole,
+   and the lines of the pull request's text under `## Filed in the backlog`, `## Fixed on the way`
+   and `## Seen, not filed`. For each item, does it meet the bar of rule 6? For each line under
+   "Seen, not filed", is its defect under that bar, or held by the open item the line names?
+6. When `moved` is not null: what moved, below.
 
 ## A moved base
 
@@ -87,6 +95,12 @@ resolves one and the one read of the resolution finds nothing, on a request that
 - **Call** when you found something a person must see before it lands: a defect the review missed,
   a criterion the change does not hold, a decision whose pick you would not take, a time so far
   over the expected one that the reason matters.
+- **Call** when an item of `filed` does not meet the bar of rule 6 in the file the brief names as
+  `bar`: the sentence after your verdict names that item by its path. An item the owner wrote, or
+  asked an agent to file, meets it whatever it says, as rule 6 gives.
+- **Call** when a line under "Seen, not filed" names a defect you find over that bar, unless the
+  line names an open item of the backlog that holds that same defect: that defect has its item,
+  and the line is no call.
 - **Merge** otherwise. A green change that is not careful, that does what its criteria say, with
   nothing you would show him, is merged at once. That is the point of you: his attention goes only
   where something waits for it.

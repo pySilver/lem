@@ -109,7 +109,7 @@ bash tests/lem-decisions.sh    # a task's decisions, each taken by a level of th
 bash tests/lem-land-shop.sh    # the landing from `ready` through the checks and one read to a pull request, the merge agent's read and the merge, on the stand-in for gh
 bash tests/lem-land-local.sh   # the landing in two halves of about equal time: decisions, criteria and the personas' read in the pull request's text here,
 bash tests/lem-land-review.sh  # and the polish pass, the review, the bar, what makes a request careful and who merges it here
-bash tests/lem-land-backlog.sh # what a review saw outside the change, filed as backlog items
+bash tests/lem-land-backlog.sh # what a review saw outside the change, judged by the bar: an item, a fix or a line of the pull request; a task's own item; the items in the merge agent's brief
 bash tests/lem-land-github.sh  # the forge's own cases, and a remote that is not GitHub, which lands nothing
 bash tests/lem-land-guards.sh  # the landing's guards and refusals, each next step run as the refusal names it
 bash tests/lem-land-small.sh   # the fast track's landing, and what keeps it safe

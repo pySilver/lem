@@ -127,7 +127,7 @@ fi
 
 # A small change's builder files what it saw outside the change, in a commit of its own after the change's:
 # no polish pass runs or starts, the gate, the check of the criteria and the bar take the item as a document of
-# the change, the read covers it, and the pull request lists it.
+# the change, the read covers it, and the pull request lists it under its own heading, at the end of the text.
 tree=$(small_in date-outside small)
 built date-outside "$tree"
 item=docs/backlog/a-range-over-two-months-repeats-the-year.md
@@ -145,7 +145,7 @@ outside_green=$(s propose date-outside --title "fix(report): the date column nev
 text=$(dir_of date-outside)/pr.md
 if grep -qF "the fast track has no polish pass" <<<"$no_polish" && grep -qF "\`lem land checks date-outside\`" <<<"$no_polish" \
   && [ "$outside_gate" = "(True, True, [], ['date-outside.css', '$item'])" ] && [ "$outside_due" = "('none', [])" ] && [ "$outside_green" = True ] \
-  && grep -qxF -- "- filed in the backlog by the builder: \`$item\`" "$text" && ! grep -q 'polish' "$text" \
+  && [ "$(sed -n '/^## Filed in the backlog$/,$p' "$text" | tr '\n' '|')" = "## Filed in the backlog||- \`$item\`: a range over two months repeats the year|" ] && ! grep -q 'polish' "$text" \
   && ! grep -q "\"event\": \"polish.start\", \"task\": \"date-outside\"" "$SMALL/.lem/state/events.jsonl"; then
   pass "a small change whose builder filed a defect outside it in its own commit has no polish pass, which refuses to start: the gate, the check of the criteria and the bar pass with the item, the read covers it, and the pull request lists it"
 else

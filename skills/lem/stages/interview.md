@@ -64,8 +64,9 @@ Criteria that wait for his yes with no interview (a lead's, of a complete reques
    A defect outside the request, that he names or that the scout's report shows, is no part of
    the task and is not lost: write it to `outside.md` in the task directory, one line each, with
    its place (`path` or `path:symbol`) and what is wrong. Do not ask him whether to file it, and
-   do not put it into the criteria. The landing's polish pass fixes a cheap one in place and files
-   each other one in the backlog, and the pull request lists what was filed.
+   do not put it into the criteria. The landing's polish pass takes each one by the bar of rule 6
+   of the builder's standing rules, and the pull request lists what it fixed, what it filed and
+   what it saw and did not file.
 4. **The criteria**, when the scout's report is in and not before. Write them from his words, the
    directions, the project's profile and the report, in the form `lem criteria --help` shows: the
    `## Acceptance criteria` heading, the line `Size: full, because ...`, and numbered criteria, each

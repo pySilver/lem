@@ -44,11 +44,18 @@ def lowered(result: dict) -> list[tuple[str, str]]:
 
 
 class DefectsOutside(unittest.TestCase):
-    """`land.defects_of`: the defects a review's record names outside the change."""
+    """`land.defects_of` and `land.to_file`: the defects a review's record names outside the change,
+    with the review's call on each by the bar of rule 6, and the ones that wait for an item."""
+
+    # the base's backlog folder holds one item
+    BASE = {"docs/backlog/the-first-line-skips-a-bold-outcome.md"}
+
+    def of(self, value: object, attempt: int = 2) -> list[dict]:
+        return land.defects_of(value, attempt, "docs/backlog", lambda path: path in self.BASE)
 
     def refusal(self, value: object) -> str:
         with self.assertRaises(land.LandError) as raised:
-            land.defects_of(value)
+            self.of(value)
         return str(raised.exception)
 
     def test_a_count_is_refused(self) -> None:
@@ -62,13 +69,59 @@ class DefectsOutside(unittest.TestCase):
         self.assertIn('"title"', said)
 
     def test_zero_is_no_defect_and_nothing_to_file(self) -> None:
-        self.assertEqual(land.defects_of(0), [])
-        self.assertEqual(land.to_file([{"round": 1, "answered": True, "outside": land.defects_of(0)}]), [])
+        self.assertEqual(self.of(0), [])
+        self.assertEqual(land.to_file([{"round": 1, "answered": True, "outside": self.of(0)}], lambda path: True), [])
 
-    def test_a_named_defect_is_kept_and_waits_to_be_filed(self) -> None:
+    def test_a_defect_with_no_bar_or_another_word_is_refused(self) -> None:
+        for value, says in ((DEFECT, "has no `bar`"), ({**DEFECT, "bar": "low"}, "has the bar 'low'")):
+            with self.subTest(bar=value.get("bar")):
+                said = self.refusal([value])
+                self.assertIn(f"the defect r2.1 outside the change (\"{DEFECT['title']}\") {says}", said)
+                self.assertIn("the bar of rule 6", said)
+                self.assertIn('"over"', said)
+
+    def test_under_or_cheap_with_no_why_is_refused(self) -> None:
+        for call in ("under", "cheap"):
+            with self.subTest(bar=call):
+                said = self.refusal([{**DEFECT, "bar": "over"}, {**DEFECT, "bar": call}])
+                self.assertIn(f"the defect r2.2 outside the change (\"{DEFECT['title']}\") is {call}, and has no `why`", said)
+        self.assertIn("`why` of the defect r2.1", self.refusal([{**DEFECT, "bar": "under", "why": "two\nlines"}]))
+
+    def test_an_open_that_is_no_file_of_the_backlog_folder_at_the_base_is_refused(self) -> None:
+        for open_ in ("docs/backlog/gone.md", "docs/other/the-first-line-skips-a-bold-outcome.md", "docs/backlog/../backlog/the-first-line-skips-a-bold-outcome.md", 3):
+            with self.subTest(open=open_):
+                said = self.refusal([{**DEFECT, "bar": "over", "open": open_}])
+                self.assertIn("`open` of the defect r2.1", said)
+                self.assertIn("no file of the backlog folder docs/backlog at the base", said)
+
+    def test_a_key_of_its_own_is_refused(self) -> None:
+        self.assertIn("has item:", self.refusal([{**DEFECT, "bar": "over", "item": "docs/backlog/x.md"}]))
+
+    def test_each_entry_gets_its_number_and_keeps_the_call(self) -> None:
         padded = {key: f" {text} " for key, text in DEFECT.items()}
-        self.assertEqual(land.defects_of([padded]), [DEFECT])
-        self.assertEqual(land.to_file([{"round": 2, "answered": True, "outside": [DEFECT]}]), [{"round": 2, **DEFECT}])
+        kept = self.of([{**padded, "bar": "over"}, {**DEFECT, "bar": "cheap", "why": " a comment that says the opposite "},
+                        {**DEFECT, "bar": "over", "open": "docs/backlog/the-first-line-skips-a-bold-outcome.md"}])
+        self.assertEqual(kept, [
+            {**DEFECT, "bar": "over", "number": "r2.1"},
+            {**DEFECT, "bar": "cheap", "why": "a comment that says the opposite", "number": "r2.2"},
+            {**DEFECT, "bar": "over", "open": "docs/backlog/the-first-line-skips-a-bold-outcome.md", "number": "r2.3"},
+        ])
+
+    def test_only_an_over_defect_with_no_item_and_no_open_item_in_the_tip_waits_to_be_filed(self) -> None:
+        held = "docs/backlog/the-first-line-skips-a-bold-outcome.md"
+        outside = self.of([
+            {**DEFECT, "bar": "over"},
+            {**DEFECT, "bar": "under", "why": "only a reader of the code meets it"},
+            {**DEFECT, "bar": "cheap", "why": "an outdated suppression"},
+            {**DEFECT, "bar": "over", "open": held},
+        ])
+        reads = [{"round": 1, "answered": True, "outside": outside}]
+        self.assertEqual(land.to_file(reads, lambda path: path == held), [{"round": 1, "number": "r2.1", **DEFECT}])
+        # the base joined the open item after the review, and a rebase kept the review: the defect is filed
+        self.assertEqual([entry["number"] for entry in land.to_file(reads, lambda path: False)], ["r2.1", "r2.4"])
+        # one with its item waits for nothing, nor one of a review nobody answered
+        outside[0]["item"] = "docs/backlog/empty-input-crashes-the-parser.md"
+        self.assertEqual(land.to_file([*reads, {"round": 2, "answered": False, "outside": outside}], lambda path: path == held), [])
 
 
 class Bar(unittest.TestCase):
@@ -1006,3 +1059,20 @@ class ReadOfAMovedBase(unittest.TestCase):
         carried = land.carried_review(review, "b" * 40, False, None, TIP)
         self.assertEqual(carried, {"tip": "b" * 40, "verdict": "merge", "calls": False, "why": None, "by": "claude/opus:high", "at": "2026-11-22T10:00:00Z",
                                    "carried_from": TIP})
+
+
+class BarFile(unittest.TestCase):
+    """`land.bar_file`: the merge brief names the rule 6 the project's builders read, as `spawn-builder` picks the builder."""
+
+    def test_lem_s_own_by_its_place_in_the_plugin_when_the_project_has_none(self) -> None:
+        with tempfile.TemporaryDirectory() as main:
+            self.assertEqual(land.bar_file(Path(main)), {"file": "agents/lem-builder.md", "of": "lem"})
+            # the plugin's file is at that place, three folders above the scripts
+            self.assertTrue((Path(land.SCRIPTS).parents[2] / land.bar_file(Path(main))["file"]).is_file())
+
+    def test_the_project_s_own_builder_by_its_whole_path(self) -> None:
+        with tempfile.TemporaryDirectory() as main:
+            own = Path(main) / ".claude" / "agents" / "lem-builder.md"
+            own.parent.mkdir(parents=True)
+            own.write_text("---\nname: lem-builder\n---\n")
+            self.assertEqual(land.bar_file(Path(main)), {"file": str(own), "of": "project"})

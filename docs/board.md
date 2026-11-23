@@ -42,7 +42,7 @@ closes the panel:
 Buttons on "Waits for you" and the task pages do what Lem does on your words:
 
 - **New task** (`+`, or the key `N`): type a request, and Lem opens the session of the new task.
-  A backlog item has **Start a task**.
+  A backlog item has **Start a task**, and that task removes the item on its branch.
 - **Approve the criteria**: your yes to the criteria.
 - **Merge**: a page shows green or not green, the pull request and the commit first. You cannot
   undo a merge. On a phone, the page opens over the task, and its button becomes active when you

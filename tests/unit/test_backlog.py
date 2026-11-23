@@ -1,6 +1,7 @@
 """land.py's rules for the backlog items a review's defects outside the change become, each called in
-this process: which names an item may take, whether an item file is a given defect, and whether a
-review still covers a change that only added items after it.
+this process: which names an item may take, whether an item file is a given defect, whether a
+review still covers a change that only added items after it or removed the task's own, and which
+item a task was started from.
 
 What only git can show (the commits `lem land file` makes, an item removed by a commit, a review
 that a later commit asks to run again) stays in tests/lem-land-backlog.sh.
@@ -139,6 +140,20 @@ class Covers(unittest.TestCase):
         self.assertTrue(land.covers_one(FOLDER,bare, {**REVIEWED}))
         self.assertFalse(land.covers_one(FOLDER,bare, now(**{"docs/backlog/new.md": entry(NONE, "c" * 40)})))
 
+    def test_the_deletion_of_the_tasks_own_item_keeps_the_review(self) -> None:
+        own = "docs/backlog/existing.md"
+        deleted = now(**{own: entry("d" * 40, NONE)})
+        self.assertTrue(land.covers_one(FOLDER, REVIEWED, deleted, own))
+        self.assertTrue(land.covers_one(FOLDER, REVIEWED, now(**{own: entry("d" * 40, NONE), "docs/backlog/new.md": entry(NONE, "c" * 40)}), own))
+        self.assertTrue(land.covered(FOLDER, REVIEWED, deleted, own))
+        self.assertIsNone(land.why_uncovered([{**REVIEWED, "round": 1, "must_fix": 0}], FOLDER, deleted, own))
+
+    def test_an_edit_of_the_tasks_own_item_or_the_deletion_of_another_asks_for_another(self) -> None:
+        own = "docs/backlog/existing.md"
+        self.assertFalse(land.covers_one(FOLDER, REVIEWED, now(**{own: entry("d" * 40, "e" * 40)}), own))
+        self.assertFalse(land.covers_one(FOLDER, REVIEWED, now(**{"docs/backlog/other.md": entry("d" * 40, NONE)}), own))
+        self.assertFalse(land.covers_one(FOLDER, REVIEWED, now(**{own: entry("d" * 40, NONE)})))
+
     def test_a_form_a_rebase_carried_covers_too(self) -> None:
         rebased = {"patch": "rebased", "contents": {"app.txt": entry("1" * 40, "2" * 40)}}
         read = {"patch": "older", "contents": {"app.txt": entry("a" * 40, "9" * 40)}, "carried": [rebased]}
@@ -146,15 +161,106 @@ class Covers(unittest.TestCase):
         self.assertFalse(land.covers(TASK, {**read, "carried": []}, {**rebased}))
 
 
+class TaskItem(unittest.TestCase):
+    """`land.item_of_ask`: the backlog item a task was started from, found from its ask and the base."""
+
+    ROOTS = ("/lem-unit/repo", "/private/lem-unit/repo")
+    # the files of the base commit
+    BASE = {"docs/backlog/two-guides.md", "docs/backlog/old/two-guides.md", "docs/backlog/notes.txt", "docs/two-guides.md"}
+
+    def item(self, ask: str) -> str | None:
+        return land.item_of_ask(ask, FOLDER, self.ROOTS, self.BASE.__contains__)
+
+    def test_the_path_alone_as_the_board_and_the_night_write_it(self) -> None:
+        self.assertEqual(self.item("docs/backlog/two-guides.md\n"), "docs/backlog/two-guides.md")
+        self.assertEqual(self.item("  docs/backlog/two-guides.md  "), "docs/backlog/two-guides.md")
+        self.assertEqual(self.item("/lem-unit/repo/docs/backlog/two-guides.md\n"), "docs/backlog/two-guides.md")
+        self.assertEqual(self.item("/private/lem-unit/repo/docs/backlog/two-guides.md"), "docs/backlog/two-guides.md")
+
+    def test_an_ask_with_a_word_beside_the_path_has_no_item(self) -> None:
+        self.assertIsNone(self.item("Do docs/backlog/two-guides.md"))
+        self.assertIsNone(self.item("docs/backlog/two-guides.md, and keep the README short"))
+        self.assertIsNone(self.item("docs/backlog/two-guides.md\nand the README too"))
+        self.assertIsNone(self.item("`docs/backlog/two-guides.md`"))
+
+    def test_a_path_outside_the_folder_or_one_the_base_lacks_is_no_item(self) -> None:
+        self.assertIsNone(self.item("docs/two-guides.md"))
+        self.assertIsNone(self.item("docs/backlog/old/two-guides.md"))
+        self.assertIsNone(self.item("docs/backlog/notes.txt"))
+        self.assertIsNone(self.item("docs/backlog/gone.md"))
+        self.assertIsNone(self.item("docs/backlog/../backlog/two-guides.md"))
+        self.assertIsNone(self.item("/elsewhere/repo/docs/backlog/two-guides.md"))
+        self.assertIsNone(self.item("/lem-unit/repo-old/docs/backlog/two-guides.md"))
+        self.assertIsNone(self.item(""))
+
+
 class Unfiled(unittest.TestCase):
-    """`land.to_file`: a defect waits to be filed until it has an item, whatever the branch holds."""
+    """`land.to_file`: a defect over the bar waits to be filed until it has an item, whatever the branch holds."""
 
     def test_a_defect_with_an_item_or_of_a_review_nobody_answered_waits_for_nothing(self) -> None:
         reads = [
-            {"round": 1, "answered": True, "outside": [{**D, "item": "docs/backlog/an-item-from-before-json-parse.md"}, E]},
-            {"round": 2, "answered": False, "outside": [D]},
+            {"round": 1, "answered": True, "outside": [{**D, "bar": "over", "number": "r1.1", "item": "docs/backlog/an-item-from-before-json-parse.md"}, {**E, "bar": "over", "number": "r1.2"}]},
+            {"round": 2, "answered": False, "outside": [{**D, "bar": "over", "number": "r2.1"}]},
         ]
-        self.assertEqual(land.to_file(reads), [{"round": 1, **E}])
+        self.assertEqual(land.to_file(reads, lambda path: False), [{"round": 1, "number": "r1.2", **E}])
+
+
+# The notes of a task on the standard track as `tests/lib.sh` writes them, with nothing outside the change.
+NOTES = "## Decisions\n\nnone\n\n## Left open\n\nnone\n\n## Worth a look\n\n- the one line of the file.\n\n## Filed in the backlog\n\nnone\n\n## Not done\n\nnone\n"
+
+
+def entry_of(defect: dict, call: str, number: str, **more: str) -> dict:
+    """One entry of `outside` as `lem land read --record` keeps it."""
+    return {**defect, "bar": call, "number": number, **more}
+
+
+class TheText(unittest.TestCase):
+    """What the pull request's text says of the defects outside the change: `land.outside_parts`,
+    `land.named_by` and `land.with_outside`."""
+
+    GUARD = {"where": "tests/unit/test_board_model.py", "title": "two test classes come after the main guard", "what": "python3 -m unittest of the file runs them, a reader does not find them."}
+
+    def test_an_under_defect_is_one_line_with_its_place_and_why_and_no_item(self) -> None:
+        reads = [{"round": 1, "answered": True, "outside": [entry_of(self.GUARD, "under", "r1.1", why="only a reader of the code meets it")]}]
+        self.assertEqual(land.outside_parts(reads, ""), ([], ["- `tests/unit/test_board_model.py`: two test classes come after the main guard; only a reader of the code meets it"]))
+
+    def test_an_open_entry_names_its_item_and_a_filed_one_is_under_filed(self) -> None:
+        held = "docs/backlog/the-first-line-skips-a-bold-outcome.md"
+        reads = [{"round": 1, "answered": True, "outside": [
+            entry_of(D, "over", "r1.1", open=held),
+            entry_of(E, "over", "r1.2", item="docs/backlog/an-item-from-before-json-parse.md"),
+        ]}]
+        filed, seen = land.outside_parts(reads, "")
+        self.assertEqual(filed, ["- `docs/backlog/an-item-from-before-json-parse.md`: An item from before"])
+        self.assertEqual(seen, [f"- `src/json.py:parse`: An item from before; an open item holds it, `{held}`"])
+
+    def test_a_cheap_entry_is_a_line_unless_a_fix_line_names_its_number(self) -> None:
+        # D and E have one place and one title: only the number tells them apart
+        reads = [{"round": 1, "answered": True, "outside": [entry_of(D, "cheap", "r1.1", why="a comment says the opposite"), entry_of(E, "cheap", "r1.2", why="a comment says the opposite")]},
+                 {"round": 2, "answered": True, "outside": [entry_of(D, "cheap", "r2.1", why="an outdated suppression")]}]
+        line = "- `src/json.py:parse`: An item from before; a comment says the opposite"
+        # nobody fixed one: each is a line, a second round's among them
+        self.assertEqual(land.outside_parts(reads, "")[1], [line, line, "- `src/json.py:parse`: An item from before; an outdated suppression"])
+        # a fix line for r1.2 leaves r1.1's line, and r1.20 or r11.2 is no fix of r1.2
+        self.assertEqual(land.outside_parts(reads, "- `src/json.py` (abc1234): r1.2, the comment said the opposite")[1], [line, "- `src/json.py:parse`: An item from before; an outdated suppression"])
+        self.assertEqual(len(land.outside_parts(reads, "- r1.20 and r11.2 were fixed")[1]), 3)
+        self.assertTrue(land.named_by("r1.2", "fixed r1.2."))
+
+    def test_notes_with_nothing_outside_come_back_as_they_are(self) -> None:
+        self.assertEqual(land.with_outside(NOTES, [], []), NOTES)
+
+    def test_the_records_lines_join_the_notes_and_a_lone_none_gives_way(self) -> None:
+        out = land.with_outside(NOTES, ["- `docs/backlog/x.md`: X"], ["- `a.py`: a; why"])
+        self.assertEqual([line for line in out.splitlines() if line.startswith("## ")],
+                         ["## Decisions", "## Left open", "## Worth a look", "## Filed in the backlog", "## Seen, not filed", "## Not done"])
+        self.assertIn("## Filed in the backlog\n\n- `docs/backlog/x.md`: X\n\n## Seen, not filed\n\n- `a.py`: a; why\n\n## Not done", out)
+
+    def test_the_seen_lines_come_after_the_notes_fixed_lines_and_keep_the_notes_own(self) -> None:
+        notes = NOTES.replace("## Not done", "## Fixed on the way\n\n- `b.py` (abc1234): a false docstring\n\n## Seen, not filed\n\n- `c.py`: polish saw it; why\n\n## Not done")
+        out = land.with_outside(notes, ["- `docs/backlog/x.md`: X"], ["- `a.py`: a; why"])
+        self.assertIn("## Fixed on the way\n\n- `b.py` (abc1234): a false docstring\n\n## Seen, not filed\n\n- `c.py`: polish saw it; why\n- `a.py`: a; why\n\n## Not done", out)
+        # an item the notes list already is not written twice
+        self.assertEqual(land.with_outside(out, ["- `docs/backlog/x.md`: X"], []), out)
 
 
 if __name__ == "__main__":
