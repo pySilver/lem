@@ -208,7 +208,9 @@ the one map): a table in another file is refused, and the refusal names the file
 `settings.toml` files hold the rest, and for a setting that more than one of them may hold, the
 nearest that holds it wins: `.lem/settings.local.toml`, then `.lem/settings.toml`, then the home
 folder's `settings.toml`, then Lem's default. `show` names in `from` the file each such value came
-from: each seat, each expert, `naps.on` and `state.keep_days`.
+from: each seat, each expert, `naps.on` and `state.keep_days`. It gives `corrections.collect`, the
+machine's yes or no to the correction queue, with `from` too: `machine.toml`, which `lem corrections
+collect yes|no` writes, or Lem's default, which is no, and which `/lem init` asks about.
 
 The home folder's `settings.toml` is the developer's own for every repository on the machine: the
 merge agent's and a task session's seats (`[seats]` with `merger` and `session` only, `HOME_KEYS`),
@@ -1225,8 +1227,11 @@ def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, commit
     seats["experts"] = [{**expert, "from": where} for expert in experts]
     if local_experts is not None:
         overridden.append("seats.experts")
-    # the machine's own switch of the correction queue, which no file of a repository may hold
-    collect = (machine or {}).get("corrections", {}).get("collect", False)
+    # the machine's own switch of the correction queue, which no file of a repository may hold; with no
+    # line it is Lem's default, no, and the hook sends nothing
+    machine_corrections = (machine or {}).get("corrections", {})
+    corrections = ({"collect": machine_corrections["collect"], "from": lem_state.shown(lem_state.machine_file())} if "collect" in machine_corrections
+                   else {"collect": False, "from": DEFAULT_FROM})
     tracker = None
     if "tracker" in raw:
         given = raw["tracker"]
@@ -1277,7 +1282,7 @@ def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, commit
         # read from the main checkout's settings, in a task's worktree too
         "flow": flow,
         "seats": seats,
-        "corrections": {"collect": collect},
+        "corrections": corrections,
         "tracker": tracker,
         "naps": naps,
         # read from the main checkout's settings, in a task's worktree too, or from this machine's own

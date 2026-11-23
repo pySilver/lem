@@ -7,6 +7,7 @@ asks a small decision model about each message the owner types, and queues the o
 should learn a lesson from. The retro, a big model, decides about each.
 
     lem corrections hook                the hook an agent runs on each message of the owner
+    lem corrections collect yes|no      the machine's yes or no to the queue, for every repository on it
     lem corrections list                unreviewed groups as JSON, most sessions first
     lem corrections show ID             every entry of one group in full
     lem corrections lessons             the lessons earlier retros recorded, with their targets
@@ -20,15 +21,17 @@ proposal would change, and the proposal's name (`retro of 2026-11-24 #3`) in its
 and `lessons` gives it with that verdict: a lesson in no file yet, which the retro never proposes
 to remove.
 
-It is an optional part, and it is the owner's choice twice. The hook sends the owner's message
-and the agent message it answers to the Jev decision model, through `jev.py` beside this file, so
-it runs only in a repository whose settings say `corrections.collect = true`: the tracked file, so the
-yes is the repository's and everybody sees it. The hook comes with Lem's plugin
-(`hooks/hooks.json`), and nobody registers it. A settings file that names the hook too makes a
-second place; the machine check (`doctor.py`) names such a file with the entry to delete from it
-by hand. One person keeps their own
-messages out with `collect = false` under `[corrections]` in `.lem/project.local.toml`. In every
-other repository the hook exits at once.
+It is an optional part, and the developer's choice for his machine. The hook sends the message he
+types and the agent message it answers to the Jev decision model, through `jev.py` beside this file,
+so it runs only where `collect = true` under `[corrections]` in `machine.toml` of Lem's home folder
+(`lem_state.machine_file()`) says yes, and only in a repository that uses Lem (`.lem/settings.toml`).
+The switch is the machine's alone: it holds in every repository on the machine, no file of a
+repository can hold it (`project.py` refuses the table there), and `lem corrections collect yes|no`
+writes it, through `lem_state.write_machine`, which keeps the other tables of the file. With no
+such line, or a file that does not read, the hook sends nothing: a message leaves the machine only
+on his yes. The hook comes with Lem's plugin (`hooks/hooks.json`), and nobody registers it. A
+settings file that names the hook too makes a second place; the machine check (`doctor.py`) names
+such a file with the entry to delete from it by hand. Anywhere else the hook exits at once.
 
 A hook that starts twice for one message (the plugin's, and an entry in a settings file) still judges each message once. Claude Code starts one copy for
 each place, at the same moment. The first copy claims the message (the session and the words,
@@ -38,7 +41,8 @@ double judgment and a line in the log, never the message.
 
 The hook does not wait for Jev: it hands the message to a detached copy of itself and exits 0
 with no output. Its own waits are bounded: it gives up the read of the event and each of its git
-calls (three in a repository that says yes) after WAIT_SECONDS each. The copy checks the project's yes again, asks Jev, and appends the
+calls (two on a machine that says yes, none on one that does not) after WAIT_SECONDS each. The copy
+checks the machine's yes again, asks Jev, and appends the
 message to the queue when Jev's probability of "lesson" is at least FLAG_AT. Jev is a pre-filter, and a loose one on purpose. With this question
 at 0.3, on 150 replies their owner had labeled, it caught 22 of 27 lessons and flagged 63 replies
 that were none (mybaze, 2026-11-07, tuned on that same sample, so the true rate is lower).
@@ -156,7 +160,7 @@ def folder(cwd: str, quiet: bool = False) -> Path | None:
 def uses_lem(cwd: str) -> bool:
     """Whether the main checkout of this repository has Lem's settings; no answer from git is a no."""
     try:
-        return (lem_state.main_checkout(Path(cwd), timeout=WAIT_SECONDS) / ".lem" / "project.toml").is_file()
+        return (lem_state.main_checkout(Path(cwd), timeout=WAIT_SECONDS) / lem_state.TEAM_SETTINGS).is_file()
     except lem_state.StateError:
         return False
 
@@ -165,7 +169,7 @@ def settings_refused(cwd: str) -> str | None:
     """Why `project.py` refuses this repository's settings, or None when it reads them. The retro's
     `list` asks it first, so that a settings file Lem cannot read stops it as it stops every command
     that reads the settings; the hook never asks it, since a settings error must not stop the
-    developer's session, and reads its one key through `collects`."""
+    developer's session, and reads the machine's switch through `collects`."""
     import project
 
     try:
@@ -175,36 +179,27 @@ def settings_refused(cwd: str) -> str | None:
     return None
 
 
-def collects(cwd: str) -> bool:
-    """Whether this repository's settings turn the queue on. Anything that cannot be read is a no."""
-    import tomllib
+def machine_says_yes() -> bool:
+    """Whether `machine.toml` of Lem's home folder says `collect = true` under `[corrections]`. It is
+    read as `lem project show` reads it, so the two never disagree; but where `show` refuses a file
+    that does not read, or one with a table or a value that is not valid there, this is a no, and
+    so is a file with no such line (the plan of one-home-folder-for-lem, 2026-11-23, decision 6)."""
+    try:
+        return lem_state.machine_table("corrections").get("collect") is True
+    # StateError: a file that does not read or holds what is not valid there, or a relative
+    # XDG_CONFIG_HOME; the others are a guard, since a hook's failure must not reach the message
+    except (lem_state.StateError, OSError, ValueError):
+        return False
 
+
+def collects(cwd: str) -> bool:
+    """Whether the hook sends the messages typed in this directory: the machine says yes, and the
+    repository uses Lem. The machine's file is read first, so that a machine that says no costs no
+    git call. Anything that cannot be read is a no."""
+    if not machine_says_yes():
+        return False
     top = git(cwd, "rev-parse", "--show-toplevel")
-    file = Path(top) / ".lem" / "project.toml" if top else None
-    if file is None or not file.is_file():
-        return False
-    try:
-        if tomllib.loads(file.read_text(encoding="utf-8")).get("corrections", {}).get("collect") is not True:
-            return False
-    # ValueError: a file that is not TOML, or not UTF-8 text
-    except (ValueError, OSError):
-        return False
-    # One person's no, in the file of this machine that git does not track. It is in the main
-    # checkout, the first one git lists, as project.py reads it: a worktree has no copy of it.
-    # Whatever leaves the answer open is a no: no list from git, a file that does not read.
-    listed = git(cwd, "worktree", "list", "--porcelain", "-z")
-    first = next((field.removeprefix("worktree ") for field in (listed or "").split("\0") if field.startswith("worktree ")), None)
-    if first is None:
-        return False
-    own = Path(first) / ".lem" / "project.local.toml"
-    if not own.is_file():
-        return True
-    try:
-        table = tomllib.loads(own.read_text(encoding="utf-8")).get("corrections")
-    except (ValueError, OSError):
-        return False
-    # a table that says nothing about the queue leaves the project's yes; any other shape is a no
-    return table is None or (isinstance(table, dict) and "collect" not in table)
+    return top is not None and (Path(top) / lem_state.TEAM_SETTINGS).is_file()
 
 
 def append(path: Path, record: dict) -> None:
@@ -402,7 +397,7 @@ def cmd_worker(path: str) -> None:
     payload = json.loads(file.read_text(encoding="utf-8"))
     file.unlink(missing_ok=True)
     where = folder(payload["cwd"], quiet=True)
-    # The project's yes is checked here again, at the last moment before anything is sent: the
+    # The machine's yes is checked here again, at the last moment before anything is sent: the
     # owner may have turned the queue off since the hook looked, and this half can be run alone.
     if where is None or not collects(payload["cwd"]):
         return
@@ -456,6 +451,17 @@ def unreviewed(where: Path) -> dict[str, list[dict]]:
 def trimmed(text: str, limit: int) -> str:
     flat = " ".join(text.split())
     return flat if len(flat) <= limit else f"{flat[:limit]} ... [{len(flat) - limit} more characters]"
+
+
+def cmd_collect(answer: str) -> None:
+    """Write the developer's yes or no to the queue as `collect` under `[corrections]` of the machine's
+    file, and nothing else: `write_machine` keeps every other table, and refuses a file it cannot keep."""
+    collect = answer == "yes"
+    try:
+        lem_state.write_machine("corrections", {"collect": collect})
+    except lem_state.StateError as error:
+        raise QueueError(str(error)) from error
+    print(json.dumps({"collect": collect, "file": str(lem_state.machine_file())}))
 
 
 def cmd_list(where: Path, cwd: str) -> None:
@@ -522,6 +528,8 @@ def arguments() -> argparse.ArgumentParser:
     for name in ("hook", "list", "lessons"):
         commands.add_parser(name)
     commands.add_parser("worker").add_argument("payload", help="the file the hook wrote; internal")
+    commands.add_parser("collect", help="the owner's yes or no to the queue, for every repository on this machine").add_argument(
+        "answer", choices=("yes", "no"), help="yes: the hook sends each message the owner types to the Jev model; no: it sends nothing")
     commands.add_parser("show").add_argument("id")
     record = commands.add_parser("record")
     record.add_argument("id")
@@ -541,6 +549,13 @@ def main() -> None:
         return
     if args.command == "worker":
         cmd_worker(args.payload)
+        return
+    if args.command == "collect":
+        # the machine's, so it needs no repository
+        try:
+            cmd_collect(args.answer)
+        except QueueError as error:
+            sys.exit(f"corrections.py: {error}")
         return
     for arg in sys.argv[1:]:
         try:

@@ -4,12 +4,14 @@ A part of `../claude-code.md`, read when the correction queue is offered, turned
 
 ## The correction hook
 
-For a project that keeps a correction queue (`stages/learn.md`). The hook exits at once in every
-repository whose settings do not say `corrections.collect = true`. That line is in the tracked
-settings file, so it is the repository's yes: it holds for everybody who works there with the
-hook and a key of the Jev model, and everybody can read it in git. Say that to the owner before he
-says yes, in those words. One person says no for themselves with `collect = false` under
-`[corrections]` in `.lem/project.local.toml`; that file can never say yes.
+For a machine whose owner keeps a correction queue (`stages/learn.md`). The switch is the
+machine's: `collect` under `[corrections]` in `~/.config/lem/machine.toml`, which `lem corrections
+collect yes` or `lem corrections collect no` writes. It holds in every repository on the machine that
+uses Lem, and no file of a repository can hold it: `lem project show` refuses the table in
+`.lem/settings.toml` and in `.lem/settings.local.toml`, and names `machine.toml` as its place. The
+no is the line `collect = false` there, and a machine with no such line is a no too: the hook exits
+at once, and sends nothing. `lem project show` gives the answer as `corrections.collect`, with
+`from`, the file or "Lem's default".
 
 The hook comes with the plugin, in its `hooks/hooks.json`, and nobody registers anything. It
 starts on each message in every repository where the plugin is on.
@@ -32,6 +34,7 @@ from it by hand. Say that in one line, and do not edit the file: it is the owner
   repository since 2026-11-07; it is not a measurement.
 - What fails goes to `corrections.log` in Lem's state folder (`.lem/state/`), and
   `lem corrections list` counts it.
-- The yes is a line of the tracked settings, which a task's branch and the owner's review carry
-  like any other change. A hook that sends the owner's messages to an outside service is his to
-  turn on: the line goes in only on his yes, in his words.
+- The yes is a line of a file in the owner's home, which no branch and no review carries. A hook
+  that sends the owner's messages to an outside service is his to turn on: the command runs only
+  on his answer, in his words. With a `machine.toml` that does not read, the hook sends nothing and
+  prints nothing, and `lem project show` refuses with the file's name.

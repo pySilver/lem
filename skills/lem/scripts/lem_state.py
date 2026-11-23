@@ -18,7 +18,8 @@ average under which the checks of a landing start, which the developer sets with
 `--port` and `--tailscale-port` write, `[peers]`, the other machines whose boards it shows beside
 this one's, which `lem serve --join` and `--leave` write, `[handoff]`, the number of tokens past
 which a task's session compacts itself, which `lem project handoff --tokens N` writes, and
-`[corrections]`, the developer's yes or no to the correction queue, `collect`), and the
+`[corrections]`, the developer's yes or no to the correction queue, `collect`, which `lem corrections
+collect yes|no` writes), and the
 repositories whose boards `lem serve` shows
 (`workspaces_file()`, `workspaces.json`, which `lem project task-dir`, `lem session open`, `lem board`
 and `lem serve --add` write). Nothing overrides what `machine.toml` says. A read never
@@ -154,7 +155,7 @@ MACHINE_KEYS = {"load": {"start": (int, float)}, "serve": {"tailscale": bool, "p
 MACHINE_FIX = {"load": "`lem project load --start N` writes it", "serve": "`lem serve --port N` or `lem serve --tailscale` writes it",
                "peers": "`lem serve --join HOST` and `--leave HOST` write it",
                "handoff": "`lem project handoff --tokens N` writes it, and `--tokens default` takes it out",
-               "corrections": "the developer writes it, as collect = false or collect = true"}
+               "corrections": "`lem corrections collect yes` or `lem corrections collect no` writes it"}
 # A machine's name on the tailnet, as a key of `[peers]`: one DNS label, in lower case.
 PEER_NAME = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
 # The developer's own settings for every repository on this machine, in the same folder, and a
