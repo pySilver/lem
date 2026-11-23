@@ -2106,8 +2106,11 @@ GITHUB_REMOTE = re.compile(r"(https://|ssh://git@|git@)github\.com[:/]")
 
 
 def open_prs(model: "bm.Model") -> list[dict]:
-    """Each task that is `open` with a pull request, as the model has it: its name and its number."""
-    return [{"task": t.slug, "n": int(bm.pr_of(t)["n"]), "url": bm.pr_of(t)["url"]} for t in model.tasks if t.status == "open" and bm.pr_of(t)]
+    """Each task that is `open` with a pull request, as the model has it: its name and its number. A task
+    its merge agent's seat blocked counts as open (`failed_seat`): its pull request waits for the owner's
+    go on, and a merge on GitHub meanwhile still lands it."""
+    return [{"task": t.slug, "n": int(bm.pr_of(t)["n"]), "url": bm.pr_of(t)["url"]} for t in model.tasks
+            if (t.status == "open" or t.failed_seat == "merger") and bm.pr_of(t)]
 
 
 def has_forge(workspace: Workspace, model: "bm.Model") -> bool:

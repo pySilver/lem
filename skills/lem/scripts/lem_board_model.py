@@ -70,6 +70,12 @@ NEW_TEXT = "its session opened and reads the request; it wrote no state yet"
 # The line with which a landing writes `blocked` while the base branch fails a check (stages/land.md
 # step 4): the task's session waits for the task that repairs the base, and nothing waits for the owner.
 BASE_RED = "the base is red"
+# The fixed line of a block that a seat's error wrote (project.py FAILED_LINE, `lem project seat-failed`):
+# the seat whose agent gave an error, and no fallback could stand in for it. A block of the merge agent's
+# seat keeps its pull request, which the server's look at GitHub still watches (serve.py `open_prs`).
+FAILED_SEAT = re.compile(r"the seat that failed: (reviewer|planner|merger)")
+# each such seat as the records name it (lem_state.SEAT_NAMES)
+SEAT_WORDS = {"reviewer": "the reviewer", "planner": "the planner", "merger": "the merge agent"}
 # The states a task does not leave (project.py ENDED): nobody acts, and nothing of it waits.
 ENDED = ("landed", "dropped", "answered")
 # The ended states whose task still gets a session while its worktree is there, as session.py's `phase_of`
@@ -543,6 +549,8 @@ class Task:
     gate_bad: int = 0
     # `blocked` while the base branch fails a check (BASE_RED): its session waits for the repair, not for the owner
     base_red: bool = False
+    # the seat a `blocked` task's newest block names as the one that failed (FAILED_SEAT), or None
+    failed_seat: str | None = None
     # each Claude Code session of the task, as the plugin's SessionStart hook logged it (`session.transcript`):
     # its id and the path of its transcript, which lem_tokens reads
     transcripts: list = field(default_factory=list)
@@ -946,6 +954,7 @@ def settle(t: Task, now: int, away: bool = False) -> None:
     t.waits_after = t.status == "queued" and waits_for_task(last)
     t.merge_wait = merge_wait(t)
     t.base_red = t.status == "blocked" and BASE_RED in [line.strip() for line in lines_of(last)]
+    t.failed_seat = next((found[1] for found in map(FAILED_SEAT.fullmatch, (line.strip() for line in lines_of(last))) if found), None) if t.status == "blocked" else None
     # who acts on a held task's criteria: while Lem writes them or the personas read them, it waits for
     # nothing of the owner's; and while it runs without him, Lem settles its need without him
     t.turn, t.reading = turn_of(t, last) if t.status == "held" and not t.approved and not t.helped and not t.breaker else (None, None)
@@ -2102,6 +2111,12 @@ SAYS = {
                            "head": "Proposed: green" if e.get("green") else "Proposed: not green", "text": " · ".join(map(str, e.get("not_green") or []))},
     "plan.talk.start": lambda e: {"info": {"actor": "gate", "icon": "split"}, "head": "The plan talk started", "text": f"with {e.get('reviewer')}"},
     "plan.talk": lambda e: {"info": {"actor": "gate", "icon": "split"}, "head": "The plan talk ended", "text": f"with {e.get('reviewer')}: {talk_counts(e)}"},
+    # a seat's agent gave an error (`lem project seat-failed`): the fallback stood in, or the task waits for your go on
+    "seat.stand-in": lambda e: {"info": {"actor": "lem", "icon": "split"}, "head": f"The fallback stood in for {SEAT_WORDS.get(e.get('seat'), 'a seat')}",
+                                "text": f"{e.get('took')} in place of {e.get('failed')}", "sub": e.get("said") or e.get("error") or ""},
+    "seat.blocked": lambda e: {"info": {"actor": "you", "icon": "alert"}, "head": f"The seat of {SEAT_WORDS.get(e.get('seat'), 'a seat')} gave an error, and no fallback stood in",
+                               "text": e.get("say") or e.get("failed") or "", "sub": e.get("said") or ""},
+    "seat.again": lambda e: {"info": {"actor": "you", "icon": "user"}, "head": "Your go on: the seat is tried again", "text": e.get("say") or e.get("seat") or ""},
     "careful.missed": lambda e: {"info": {"actor": "bad", "icon": "alert"}, "head": "Careful by the review, not by the plan", "text": f"round {e.get('round') or '?'}: {e.get('why')}"},
     "investigation": lambda e: {"info": {"actor": "you" if e.get("call") == "not-reproduced" else "done", "icon": "eye"},
                                 "head": CALLS.get(e.get("call"), {}).get("head", f"The investigation: {e.get('call')}"), "text": e.get("line"), "sub": investigation_sub(e)},

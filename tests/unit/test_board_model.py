@@ -1023,6 +1023,39 @@ class ReleaseStop(unittest.TestCase):
         self.assertEqual(bm.waits_of(model(state(0, "open", Merge.PR), self.stop(5), state(6, "dropped", "dropped"))), [])
 
 
+class SeatThatFailed(unittest.TestCase):
+    """A task a seat's error blocked (`lem project seat-failed`) is a row of "Waits for you" with its first line, as
+    any blocked task; the timeline says each stand-in, block and go on; and a block of the merge agent's seat keeps
+    its pull request in the server's look at GitHub."""
+
+    LINE = "the reviewer `codex/gpt-6.2-sol:high` gave an error: no tokens, and this project permits no fallback"
+    PR = "pull request https://github.com/acme/shop/pull/41"
+
+    def test_the_block_is_his_row_with_its_line(self):
+        m = model(state(0, "building", "the plan talk runs", "lead: session"), state(5, "blocked", self.LINE, "the seat that failed: reviewer"))
+        t = m.tasks[0]
+        self.assertEqual((t.failed_seat, t.text, t.lane), ("reviewer", self.LINE, "you"))
+        self.assertEqual([w["key"] for w in bm.waits_of(m)], ["blocked:gift-note"])
+        self.assertIn(self.LINE, bm.wait_say(bm.waits_of(m)[0])["where"])
+        self.assertIsNone(one(state(0, "blocked", "the base is red", "after: fix-the-base")).failed_seat)
+
+    def test_the_timeline_says_each_seat_event(self):
+        m = model(state(0, "building", "the plan talk runs"))
+        stood = bm.describe(ev(1, "seat.stand-in", seat="reviewer", failed="codex/gpt-6.2-sol:high", took="claude/opus:high", error="tokens", said="no tokens left"), m)
+        self.assertEqual((stood["head"], stood["text"], stood["sub"]), ("The fallback stood in for the reviewer", "claude/opus:high in place of codex/gpt-6.2-sol:high", "no tokens left"))
+        blocked = bm.describe(ev(2, "seat.blocked", seat="merger", failed="codex/gpt-6.2-sol:high", error="tokens", say=self.LINE), m)
+        self.assertEqual((blocked["head"], blocked["text"], blocked["info"]["actor"]), ("The seat of the merge agent gave an error, and no fallback stood in", self.LINE, "you"))
+        again = bm.describe(ev(3, "seat.again", seat="reviewer", say="the owner's go on: the reviewer codex/gpt-6.2-sol:high is tried again"), m)
+        self.assertEqual((again["head"], again["text"]), ("Your go on: the seat is tried again", "the owner's go on: the reviewer codex/gpt-6.2-sol:high is tried again"))
+
+    def test_a_block_of_the_merge_agent_keeps_its_pull_request_in_the_look_at_github(self):
+        serve = importlib.import_module("serve")
+        merger = self.LINE.replace("the reviewer", "the merge agent")
+        m = model(state(0, "open", self.PR), state(5, "blocked", merger, "the seat that failed: merger"),
+                  state(0, "open", self.PR.replace("41", "42"), task="other"), state(5, "blocked", self.LINE, "the seat that failed: reviewer", task="other"))
+        self.assertEqual([pr["task"] for pr in serve.open_prs(m)], ["gift-note"])
+
+
 class NewTask(unittest.TestCase):
     """A task whose session opened and wrote no state block is on the board from its first minute."""
 
