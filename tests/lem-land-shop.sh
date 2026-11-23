@@ -822,4 +822,37 @@ else
   fail "a read on the checks' base after a revert: $back_refused / $back_read / $back_cleared / $back_merged / $(git -C "$MBO" log -3 --format=%s main)"
 fi
 
+# A task started from a reviewer's item of the state folder, which git never holds: its file leaves with the landing, by
+# Lem's merge and by `merged`; a removal that fails leaves the task open for `merged`; a pull request closed on GitHub
+# drops the task and leaves the file, so the item is undecided again.
+mkdir -p "$MB/.lem/state/backlog"
+# mb_item SLUG FILE: the reviewer's item SLUG.md, and a task of the moved-base shop started from it, to its pull request
+mb_item() {
+  printf '%s\n' '---' 'worth: later' 'where: tests/lem-serve.sh' 'added: 2026-11-24' '---' "# $1" '' 'A check fails by chance.' > "$MB/.lem/state/backlog/$1.md"
+  mb_task "$1" "$2" && printf '%s\n' ".lem/state/backlog/$1.md" > "$MB/.lem/state/tasks/$1/ask.txt" && mb_land "$1"
+}
+mb_item mb-item-lem item-lem.txt
+by_lem=$(land --repo "$MB" merge mb-item-lem --by owner --message "fix: mb-item-lem")
+mb_item mb-item-again item-again.txt
+chmod 555 "$MB/.lem/state/backlog"
+not_removed=$(land --repo "$MB" merge mb-item-again --by owner --message "fix: mb-item-again" 2>&1 || true)
+open_again=$(status_in "$MB" mb-item-again)
+chmod 755 "$MB/.lem/state/backlog"
+by_merged=$(land --repo "$MB" merged mb-item-again)
+mb_item mb-item-closed item-closed.txt
+"$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); d["prs"][sys.argv[2]]["state"] = "CLOSED"; json.dump(d, open(sys.argv[1], "w"))' \
+  "$MB.origin.git.gh.json" "$(mb_kept mb-item-closed pr 'd["number"]')"
+closed=$(land --repo "$MB" merged mb-item-closed)
+if [ "$(status_in "$MB" mb-item-lem)" = landed ] && [ ! -e "$MB/.lem/state/backlog/mb-item-lem.md" ] \
+  && [ "$(field 'd["item"]' <<<"$by_lem")" = "{'path': '.lem/state/backlog/mb-item-lem.md', 'removed': True}" ] \
+  && grep -qF "was not removed" <<<"$not_removed" && grep -qF "the task stays open, and \`lem land merged mb-item-again\` tries again" <<<"$not_removed" \
+  && [ "$open_again" = open ] && [ "$(git -C "$MBO" show main:item-again.txt)" = yes ] \
+  && [ "$(status_in "$MB" mb-item-again)" = landed ] && [ ! -e "$MB/.lem/state/backlog/mb-item-again.md" ] \
+  && [ "$(field 'd["item"]' <<<"$by_merged")" = "{'path': '.lem/state/backlog/mb-item-again.md', 'removed': True}" ] \
+  && [ "$(field 'd["state"]' <<<"$closed")" = dropped ] && [ -f "$MB/.lem/state/backlog/mb-item-closed.md" ]; then
+  pass "a task started from a reviewer's item of the state folder removes the item's file when it lands, by Lem's merge and by merged; a removal that fails leaves the task open and merged removes it; a pull request closed on GitHub drops the task and leaves the file"
+else
+  fail "the reviewer's item at the landing: $by_lem / $not_removed / $open_again / $by_merged / $closed / $(ls "$MB/.lem/state/backlog")"
+fi
+
 finish

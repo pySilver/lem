@@ -6,7 +6,7 @@
 // together first and the drawn order between two of the same. The first row shown is marked, the arrows
 // move the mark, and Enter or a click picks a row: the box closes and the row's link is followed, so a task
 // opens in its panel as its card does and a backlog item opens the Backlog view on that item (backlog.js
-// reads #item-SLUG). Escape, or a click beside the box, closes it with no pick and gives the focus back.
+// reads #item-KEY). Escape, or a click beside the box, closes it with no pick and gives the focus back.
 //
 // The keys are read on window in the capture phase, before every controller's keydown@window (drawer.js's
 // Escape, cursor.js, backlog.js, hotkeys.js), and a key the box takes stops there, so the panel and the

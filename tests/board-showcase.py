@@ -6,11 +6,13 @@ for tests/lem-serve.sh.
                                                      story-*, phone-review-*, phone-merge-off-* and phone-merge-on-*, light and dark
     python3 tests/board-showcase.py --demo DIR       the repository alone, in DIR; print its path and its state folder as JSON
 
-It is ten tasks a team could have on one afternoon, written by Lem's own scripts (project.py,
+It is eleven tasks a team could have on one afternoon, written by Lem's own scripts (project.py,
 criteria.py, decisions.py) in a throwaway repository, with a task in every column: two that build,
 one in its checks, a breaker and criteria that wait for the owner, a pull request the merge agent calls
 the owner for, a typo the merge agent found nothing in and the board's server merged, another landed task,
-an answered question, and one task the owner parked after its breaker. Each task has the `session.open`
+an answered question, one task the owner parked after its breaker, and one he parked that he started from a
+reviewer's item. The night and the retro proposed, and the reviewer passed two proposals into the state
+folder's backlog: that item, held by the parked task, and one that is undecided. Each task has the `session.open`
 of its agterm session, as `lem session open` logs it, and one that builds has none, so that "Waits for
 you" has its row "No session runs this task"; the pull request that is not green has the merge agent's
 review (`merge-review.md` and its `merge.review`), which calls the owner, and the landing's record (`landing.json`) that
@@ -557,9 +559,38 @@ def afternoon(shop: Shop) -> None:
     (s.repo / "invoice").mkdir()
     (s.repo / "invoice" / "footer.py").write_text("def footer(order):\n    return order.shop.address\n")
     (folder / "invoice-footer-wraps.md").write_text(FOOTER_ITEM.format(today=TODAY))
+    # the places the reviewer's items below name
+    (s.repo / "AGENTS.md").write_text("# The shop\n\nRun `make test` and `make lint` before a commit.\n")
+    (s.repo / "tests").mkdir()
+    (s.repo / "tests" / "test_export.py").write_text("def test_monthly():\n    assert True\n")
     (folder / "export-in-one-query.md").write_text(f"---\nworth: later\nadded: {TODAY}\n---\n\n# Read the monthly export in one query\n\nThe investigation of the slow export found one query for each order. One query for the month would take the minute away.\n")
     s.git("add", "-A")
     s.git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "docs: the backlog")
+
+    # The night's and the retro's proposals, and the reviewer's verdicts, through `lem project proposals`: two items of
+    # the state folder's backlog, one undecided and one a queued task holds, and one proposal refuted.
+    night = s.work / "night.json"
+    night.write_text(json.dumps({"read": "the free search of the night", "proposals": [
+        {"area": "tests", "move": "Make the check of the monthly export wait for its file", "where": "tests/test_export.py:test_monthly",
+         "body": "The check read the export before its file was whole, and failed once in the last ten runs.", "source": "the checks of coupon-has-a-slug"}]}))
+    s.project("proposals", "add", "--kind", "night", "--date", TODAY, "--file", str(night))
+    retro = s.work / "retro.json"
+    retro.write_text(json.dumps({"read": "the tasks and the naps since the retro before", "proposals": [
+        {"area": "lessons", "move": "Read the receipt's total by its label, never by its row", "where": "AGENTS.md",
+         "body": "A refund line moved the total's row, and a test that read the row failed.", "source": "the task refund-line-on-receipt's records"},
+        {"area": "lessons", "move": "Run make lint before each commit", "where": "AGENTS.md",
+         "body": "A builder forgot it once.", "source": "the task coupon-has-a-slug's records"}]}))
+    s.project("proposals", "add", "--kind", "retro", "--date", TODAY, "--file", str(retro))
+    verdicts = s.work / "verdicts.json"
+    verdicts.write_text(json.dumps({"verdicts": [
+        {"proposal": f"night of {TODAY} #1", "passed": "tests"}, {"proposal": f"retro of {TODAY} #1", "passed": "lessons"},
+        {"proposal": f"retro of {TODAY} #2", "refuted": "a first-time lesson, with no question in it"}],
+        "titles": {"tests": "The export's check fails by chance", "lessons": "Read the receipt's total by its label"}}))
+    s.project("proposals", "verdict", "--file", str(verdicts))
+    t = "export-check-by-chance"
+    s.task(t, ".lem/state/backlog/the-export-s-check-fails-by-chance.md")
+    s.state(t, 7, "queued", "it starts after refund-rounding", "after: refund-rounding")
+    s.state(t, 6, "parked", "the owner parked it: the check waits for the new export")
 
 
 # The merge agent's review of the task that is not green, in the form of skills/lem/prompts/merge.md: the

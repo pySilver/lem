@@ -133,6 +133,52 @@ else
   fail "close after a wake: $(cat "$WORK/kept") / $(cat "$CALLS") / $(events)"
 fi
 
+# A scheduled night's or retro's session closes itself at its end: at once while the owner looks at another session,
+# after he left it while he looks at it, and only when a job started its agent with the job's line as its last word.
+# The foreground is the shape agterm's tree gives for an agent that the cronn job's script execs (2026-11-23).
+"$PY" - "$TREE" <<'PY'
+import json, sys
+nodes = json.load(open(sys.argv[1]))
+agent = ["/Users/someone/.local/bin/claude", "--settings", "/Users/someone/.claude/gateway.json", "--model", "claude-opus-5-5", "--effort", "high"]
+nodes += [{"id": "J-1", "name": "shop-night-1124", "workspace": "W-JOBS", "foreground": [*agent, "/lem night 2"]},
+          {"id": "J-2", "name": "shop-retro-1124", "workspace": "W-JOBS", "foreground": [*agent, "/lem retro"]},
+          {"id": "J-3", "name": "my own claude", "workspace": "W-JOBS", "foreground": agent}]
+for node in nodes:
+    node["active"] = node["id"] == "S-HIS"
+json.dump(nodes, open(sys.argv[1], "w"))
+PY
+rm -f "$CALLS"
+logged=$(wc -l < "$STATE/events.jsonl")
+night=$(AS=J-1 sess close-job 2>&1 || true)
+"$PY" -c 'import json, sys; n = json.load(open(sys.argv[1])); [x.update(active=(x["id"] == "J-2")) for x in n]; json.dump(n, open(sys.argv[1], "w"))' "$TREE"
+AS=J-2 sess close-job --every 0.1 > "$WORK/retro" 2>&1 &
+waiter=$!
+sleep 0.5
+looked=$(calls_of close J-2)
+"$PY" -c 'import json, sys; n = json.load(open(sys.argv[1])); [x.update(active=(x["id"] == "S-HIS")) for x in n]; json.dump(n, open(sys.argv[1], "w"))' "$TREE"
+wait "$waiter"
+if [ "$(field '(d["session"], d["job"], d["closed"])' <<<"$night" 2>&1)" = "('J-1', '/lem night 2', True)" ] \
+  && grep -qF '["session", "close", "--target", "J-1", "--undoable"' "$CALLS" && [ -z "$looked" ] \
+  && [ "$(field '(d["session"], d["job"], d["closed"])' < "$WORK/retro" 2>&1)" = "('J-2', '/lem retro', True)" ] \
+  && grep -qF '["session", "close", "--target", "J-2", "--undoable"' "$CALLS" && [ "$(wc -l < "$STATE/events.jsonl")" = "$logged" ]; then
+  pass "close-job closes the session of a scheduled night or retro with agterm's undo: at once while the owner looks at another session, after he left it while he looks at it, one whose agent the job started with /lem night 2 too, and logs no event"
+else
+  fail "close-job: $night / $looked / $(cat "$WORK/retro") / $(cat "$CALLS")"
+fi
+
+rm -f "$CALLS"
+owners=$(AS=J-3 sess close-job 2>&1; echo "exit $?")
+tasks=$(AS=S-2 sess close-job 2>&1; echo "exit $?")
+nobody=$(AS="" sess close-job 2>&1; echo "exit $?")
+if grep -qF "the session \`my own claude\` is the owner's: no scheduled job started its agent for this run" <<<"$owners" && [ "$(tail -n 1 <<<"$owners")" = "exit 1" ] \
+  && grep -qF "S-2 is the session of the task gift-note, and a task's session closes under its task: \`lem session close gift-note --session S-2 --why ended --when-unselected\`" <<<"$tasks" \
+  && [ "$(tail -n 1 <<<"$tasks")" = "exit 1" ] && grep -qF "no session to close" <<<"$nobody" && [ "$(tail -n 1 <<<"$nobody")" = "exit 1" ] \
+  && [ -z "$(calls_of session close)" ] && grep -qF '"J-3"' "$TREE"; then
+  pass "close-job refuses a session whose agent no job started with its line, which stays the owner's, a task's session with the line that closes it under its task, and a call from no session, each with exit 1 and closing nothing"
+else
+  fail "the refusals of close-job: $owners / $tasks / $nobody / $(cat "$CALLS")"
+fi
+
 # The wake: a live session gets the pane message and the record; a task with none gets a new session.
 pr task-dir coupon-slug --ask "the coupon has a slug" >/dev/null
 pr state coupon-slug held "the interview waits for the owner" "type: feat, because a coupon gets a slug" >/dev/null

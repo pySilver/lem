@@ -46,7 +46,7 @@ COMMANDS = {
     "board": ("skills/lem/scripts/board.py", "the board of all tasks, or of one task (--task SLUG)"),
     "serve": ("skills/lem/scripts/serve.py", "the boards of every repository on this machine, and of the machines joined with --join, over HTTP, for a browser on another device: --ensure starts it"),
     "picker": ("skills/lem/scripts/picker.py", "agterm's picker over the tasks, which goes to the live session of the one picked, else opens its board (--list prints the rows)"),
-    "session": ("skills/lem/scripts/session.py", "a task's own session in agterm: open, next, close, wake, wait, list, its handoff and the copy of the talk"),
+    "session": ("skills/lem/scripts/session.py", "a task's own session in agterm: open, next, close, wake, wait, list, its handoff and the copy of the talk; and close-job, the end of a scheduled night or retro"),
     "doctor": ("skills/lem/scripts/doctor.py", "the machine check: the tools Lem needs and recommends"),
     "corrections": ("skills/lem/scripts/corrections.py", "the queue of the owner's corrections, for a retro"),
     "experts": ("skills/lem-ask-expert/scripts/experts.py", "the experts' brief of one question, and the record of their answers"),

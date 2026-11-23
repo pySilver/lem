@@ -57,9 +57,7 @@ with each kind's entry under its key, and leave out a kind that has none:
 10. `pull_requests`: each open pull request whose merge waits for him, its address, and green or
     each reason it is not (one the merge agent still reads, or that the board's server merges after
     a `merge` verdict, is not in the list); when `merge_refused` holds GitHub's or Lem's line, that
-    line; a task with a `night` says "of the night";
-11. `retros`: "the retro of DATE proposes N changes" for each file; a file with a `problem` is
-    named with it.
+    line; a task with a `night` says "of the night".
 
 When `sessions.known` is false, say in one line that the tasks' sessions are not known, with
 `sessions.said`: no task with no session can show then.
@@ -72,16 +70,7 @@ one line, from `lem project tasks`.
 own session: name it for each, from `lem session list` (the task's newest session, and whether it
 is `live`). One with no live session gets "no session" on the board, whose button opens one.
 `/lem status SLUG` opens the task's session when something of it waits for him and none runs,
-`lem session open SLUG --why owner`, and says its `say`. A pull request he reads on GitHub,
-and a retro's proposals he answers below, on his word.
-
-A retro's proposals are his to answer, and they wait until he says so: on his word ("open
-them"), `ask-owner` with one page that holds each of them as a question of its own, each with
-the three answers approve, reject and later. A proposal shows the move it would make, with the
-file, the change and the case that asks for it, as the retro wrote it. For each answer: approve
-makes the move as `stages/learn.md` says, reject records it as rejected there, later keeps it.
-Rewrite the retro's file with the proposals answered later only, and remove it when none is left,
-so that the list names what still waits.
+`lem session open SLUG --why owner`, and says its `say`. A pull request he reads on GitHub.
 
 A dropped, landed or answered task has no choice that waits. A task whose status is null has a
 state nobody wrote through the script: say so. A task with a `ticket_owed` ended, and its ticket in

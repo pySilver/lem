@@ -204,8 +204,9 @@ class Keys(unittest.TestCase):
         the row of the page between the stage and the status line, in no view's list, and the main column's grid
         gives it a row of its own under the stage's, so the line stays at the window's foot and the list scrolls above it."""
         events = [*ended(3), state(61, "held", "the criteria wait for the owner", task="gift-note")]
-        backlog = {"folder": "docs/backlog", "items": [{"slug": f"item-{i}", "path": f"docs/backlog/item-{i}.md", "title": f"Item {i}", "worth": "later"}
-                                                       for i in range(40)]}
+        backlog = {"folder": "docs/backlog", "reviewer_folder": ".lem/state/backlog",
+                   "items": [{"slug": f"item-{i}", "key": f"item-{i}", "path": f"docs/backlog/item-{i}.md", "title": f"Item {i}", "worth": "later", "reviewer": False}
+                             for i in range(40)]}
         ctx = pages.Ctx(host="h", workspace="w", model=bm.derive(events, [], NOW), asset=lambda name: name, backlog=backlog)
         for view, draw, line in (("tasks", pages.kanban_page, "J K ↑ ↓ move · H L ← → column · Enter open · Esc close"),
                                  ("waits", pages.waits_page, "J K ↑ ↓ move · Enter go"),
@@ -283,7 +284,7 @@ class Search(unittest.TestCase):
     docs/plans/2026-11-22-board-card-search.md): closed on every page of the workspace, one row for each card
     with its title, its chip and the link a pick follows, and its button in the bar and in the phone's bar."""
 
-    BACKLOG = {"folder": "docs/backlog", "items": [{"slug": "the-board-s-done-column-has-no-limit", "path": "docs/backlog/the-board-s-done-column-has-no-limit.md",
+    BACKLOG = {"folder": "docs/backlog", "reviewer_folder": ".lem/state/backlog", "items": [{"slug": "the-board-s-done-column-has-no-limit", "key": "the-board-s-done-column-has-no-limit", "path": "docs/backlog/the-board-s-done-column-has-no-limit.md",
                                                      "title": "The board's done column has no limit", "worth": "yes"}]}
 
     def ctx(self, **kw) -> "pages.Ctx":
@@ -415,6 +416,89 @@ class StandsNote(unittest.TestCase):
         carried = [*self.refused(), self.ev(13, "proposed", green=True, not_green=[], tip="def456789"), state(14, "open", "pull request https://github.com/acme/shop/pull/60", task="gift-note"),
                    self.ev(14, "merge.stands", by="owner", tip="def456789", **{"from": self.TIP[:9]})]
         self.assertEqual(self.note(carried), "")
+
+
+class ReviewerItems(unittest.TestCase):
+    """The reviewer's items on the Backlog view (criteria 6 and 7 of
+    docs/plans/2026-11-23-scheduled-runs-one-branch.md): a group of their own, each undecided one with
+    "Start a task" and "Drop", which post its path; a held one with the task that holds it and no act;
+    an item of the backlog folder with no "Drop"; and the count of the undecided ones on the "Backlog" key."""
+
+    BACKLOG = {"folder": "docs/backlog", "reviewer_folder": ".lem/state/backlog", "read": "2026-11-20T10:00:00Z", "items": [
+        {"slug": "tests-flaky-check", "key": "tests-flaky-check", "path": "docs/backlog/tests-flaky-check.md", "reviewer": False,
+         "title": "A developer's item of the same stem", "worth": "later", "where": "", "added": "", "state": "", "body": "Mine."},
+        {"slug": "the-board-s-colors", "key": "-the-board-s-colors", "path": ".lem/state/backlog/the-board-s-colors.md", "reviewer": True, "held": None,
+         "title": "The board's colors", "worth": "later", "where": "", "added": "", "state": "", "body": "The reviewer passed 1 proposal about the board on 2026-11-23: retro of 2026-11-23 #7."},
+        {"slug": "tests-flaky-check", "key": "-tests-flaky-check", "path": ".lem/state/backlog/tests-flaky-check.md", "reviewer": True,
+         "held": {"task": "tests-flaky-check", "status": "building"},
+         "title": "A check of the board fails by chance", "worth": "later", "where": "", "added": "", "state": "", "body": "From the night of 2026-11-24, proposal 1."},
+    ]}
+
+    def page(self, can_act: bool = True) -> str:
+        events = [state(1, "building", "task 1 of 2", task="tests-flaky-check")]
+        return str(pages.backlog_page(pages.Ctx(host="h", workspace="w", model=bm.derive(events, [], NOW), asset=lambda name: name,
+                                                backlog=self.BACKLOG, can_act=can_act)))
+
+    def item(self, html: str, key: str) -> str:
+        return html.split(f'id="item-{key}"', 1)[1].split("</details>", 1)[0]
+
+    def test_the_reviewer_s_group_comes_first_the_undecided_one_first(self):
+        html = self.page()
+        group = html.split('id="group-reviewer"', 1)[1].split('class="bl-group', 1)[0]
+        self.assertIn("The reviewer&#x27;s items", group)
+        self.assertLess(group.index('id="item--the-board-s-colors"'), group.index('id="item--tests-flaky-check"'))
+        self.assertNotIn('id="item-tests-flaky-check"', group)
+        self.assertLess(html.index('id="group-reviewer"'), html.index('id="item-tests-flaky-check"'))
+
+    def test_an_undecided_item_has_start_and_drop_each_posting_its_path(self):
+        undecided = self.item(self.page(), "-the-board-s-colors")
+        self.assertIn(">undecided<", undecided)
+        self.assertIn('action="/h/w/start"', undecided)
+        self.assertIn('action="/h/w/backlog/drop"', undecided)
+        self.assertEqual(undecided.count('name="item" value=".lem/state/backlog/the-board-s-colors.md"'), 2)
+        self.assertIn("<span>Drop</span>", undecided)
+        # the proposal's name is code, so that its number is no link to a pull request
+        self.assertIn("`retro of 2026-11-23 #7`", undecided)
+
+    def test_a_held_item_names_its_task_and_has_no_act(self):
+        held = self.item(self.page(), "-tests-flaky-check")
+        self.assertIn(">held by tests-flaky-check<", held)
+        self.assertIn("(building) builds this item", held)
+        self.assertNotIn("<form", held)
+
+    def test_an_item_of_the_backlog_folder_has_no_drop_and_starts_by_its_path(self):
+        mine = self.item(self.page(), "tests-flaky-check")
+        self.assertIn('name="item" value="docs/backlog/tests-flaky-check.md"', mine)
+        self.assertNotIn("backlog/drop", mine)
+
+    def test_the_backlog_key_counts_the_undecided_items_of_the_reviewer(self):
+        html = self.page()
+        key = re.search(r'<a class="vbtn" id="view-backlog"[^>]*>(.*?)</a>', html)[1]
+        self.assertRegex(key, r"<em title=\"The reviewer&#x27;s items that wait for your start or drop\">1</em>")
+        self.assertRegex(re.search(r'<a class="rbtn" href="[^"]*" id="rail-backlog"[^>]*>(.*?)</a>', html)[1], r"<em>1</em>")
+
+    def test_a_page_that_cannot_act_gives_the_line_to_type_and_no_form(self):
+        undecided = self.item(self.page(can_act=False), "-the-board-s-colors")
+        self.assertIn("/lem new .lem/state/backlog/the-board-s-colors.md", undecided)
+        self.assertIn("Drop it on this board on the Mac or through the tailnet door.", undecided)
+        self.assertNotIn("<form", undecided)
+
+
+class ItemSlug(unittest.TestCase):
+    """The slug of a task started from a backlog item (`serve.item_slug`): the stem, or the stem with the
+    first free `-2`, `-3` when a task of the stem ended, so that an item whose task was dropped starts
+    again (criterion 9 and the plan's task 2)."""
+
+    def test_the_stem_while_no_task_of_it_ended(self):
+        self.assertEqual(serve.item_slug("tests-flaky-check", lambda slug: False, lambda slug: False), "tests-flaky-check")
+
+    def test_the_first_free_number_after_a_task_of_the_stem_ended(self):
+        taken = {"tests-flaky-check", "tests-flaky-check-2"}
+        self.assertEqual(serve.item_slug("tests-flaky-check", lambda slug: slug == "tests-flaky-check", taken.__contains__), "tests-flaky-check-3")
+        self.assertEqual(serve.item_slug("tests-flaky-check", lambda slug: True, lambda slug: False), "tests-flaky-check-2")
+
+    def test_a_stem_that_is_no_slug_gives_its_plain_words(self):
+        self.assertEqual(serve.item_slug("Two_Guides", lambda slug: False, lambda slug: False), "two-guides")
 
 
 if __name__ == "__main__":

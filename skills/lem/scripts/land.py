@@ -351,6 +351,15 @@ of a builder of the landing as the next step. That commit asks for the checks ag
 does, since a command of the project may read the file; it asks for no other review, since the
 item holds no code (`covers_one`).
 
+A task started from a reviewer's item, a file of `.lem/state/backlog/` that git never holds, has the
+path of that file as its ask, by project.py's rule of the board's mark and the owner's drop, with no
+base to find it at (`state_item_of_ask`, `backlog_item_of` of project.py). No
+commit can remove it, so `forge_done`, which every path to `landed` takes, removes the file from the
+main checkout's state folder before it writes `landed`, and prints `item`, with its path and whether
+it was still there to remove: a file gone already is no error. A removal that fails leaves the task
+`open` with the step's error, and the next `lem land merged` tries again. A dropped task leaves the
+file, and the item is undecided again.
+
 The text of the pull request lists what the reviews saw outside the change under three headings,
 each written only when it has a line, after `## Filed in the backlog`: the review's items join the
 notes' lines there; `## Fixed on the way` holds the notes' lines, one for each cheap defect a
@@ -872,6 +881,8 @@ class Task:
         self.base = self.settings["branch"]["base"]
         self.repo = repo
         self.read_states(tasks)
+        # the main checkout's state folder, as `project.state_root` gives it, also from a task's worktree
+        self.state_folder = state
         self.directory = state / "tasks" / slug
         # -z: a NUL ends each field and an empty field ends each worktree, so a path with a line break stays whole
         listed = run(["git", "-C", str(repo), "worktree", "list", "--porcelain", "-z"]).stdout
@@ -1408,6 +1419,41 @@ def item_of_ask(ask: str, folder: str, roots: tuple[str, ...], at_base) -> str |
     if parent != folder or not name.endswith(".md"):
         return None
     return path if at_base(path) else None
+
+
+def state_item_of_ask(ask: str, state: Path) -> str | None:
+    """The reviewer's item a task was started from, a file of `.lem/state/backlog/` that git never
+    holds, so no commit of a task's branch removes it and the landing removes the file itself
+    (`forge_done`): project.py's one rule, `backlog_item_of`, over ASK and the main checkout's state
+    folder STATE. The path relative to the root, whether the file is there or not, or None."""
+    path = SCRIPTS / "project.py"
+    if not lem_sibling.in_form(path):
+        raise LandError(f"{path} has no main(argv), so the landing cannot read by its rule which backlog item of the state folder a task was started from")
+    return lem_sibling.module(path).backlog_item_of(state, ask)
+
+
+def state_item(task: Task) -> str | None:
+    """The reviewer's item the task was started from, by `state_item_of_ask` over its `ask.txt`, or None."""
+    file = task.directory / "ask.txt"
+    if not file.is_file():
+        return None
+    return state_item_of_ask(file.read_text(encoding="utf-8", errors="replace"), task.state_folder)
+
+
+def remove_item(state: Path, item: str, slug: str, url: str) -> bool:
+    """Remove the file of the reviewer's item ITEM (`state_item`) from the state folder STATE, for the
+    task SLUG whose pull request URL GitHub merged. False when it is gone already, which is no error. A
+    removal that fails raises the landing's error, so the task stays `open` and the next `lem land
+    merged` tries again."""
+    file = state / "backlog" / item.rpartition("/")[2]
+    try:
+        file.unlink()
+    except FileNotFoundError:
+        return False
+    except OSError as error:
+        raise LandError(f"GitHub merged {url}, and the file of the backlog item the task was started from, {file}, was not removed "
+                        f"({error.strerror or error}); the task stays open, and `lem land merged {slug}` tries again") from error
+    return True
 
 
 def covers(task: Task, read: dict, now: dict, own: str | None = None) -> bool:
@@ -4514,7 +4560,9 @@ def forge_done(task: Task, view: dict) -> dict:
     """The bookkeeping of a pull request GitHub merged, the one step every path to `landed` takes: Lem's
     merge, and `lem land merged` of a merge GitHub took later or the owner made there. A merge on a base
     that moved after the checks leaves its line in the pull request's text first (`moved_line`); a
-    failed edit leaves the task `open` with this step's error, and the next `lem land merged` tries again."""
+    failed edit leaves the task `open` with this step's error, and the next `lem land merged` tries again.
+    A task started from a reviewer's item of the state folder (`state_item`) removes the item's file the
+    same way, before `landed`; a dropped task never comes here, so its item is undecided again."""
     pr = task.kept()["pr"]
     # a merge into another branch than the base is no landing: the task stays as it is, and the owner reads why
     wrong = base_refusal(view, task.base, pr["url"], task.slug)
@@ -4525,11 +4573,14 @@ def forge_done(task: Task, view: dict) -> dict:
     line, uncovered = moved_line(task, merged)
     if line:
         noted(task, pr, line)
+    item = state_item(task)
+    removed = remove_item(task.state_folder, item, task.slug, pr["url"]) if item else False
     # the commit of the branch that the forge merged: `clean` removes the branch only when it holds nothing after it
     task.keep(merged=merged or True, merged_head=view["headRefOid"])
     left_behind = follow(task)
     task.state("landed", f"{task.base}: pull request {pr['url']} is merged", *([line] if line else []))
     return {"task": task.slug, "base": task.base, "pull_request": pr, "merged": merged, "left_behind": left_behind, "base_read": line,
+            **({"item": {"path": item, "removed": removed}} if item else {}),
             **({"uncovered": f"{task.slug}: {line}"} if uncovered else {})}
 
 

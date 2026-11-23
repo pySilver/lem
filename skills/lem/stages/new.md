@@ -11,8 +11,10 @@ chooses the path names it.
 
 The part of the session where the owner typed the request. The night takes the same steps, with no
 talk to copy. The board's "+" and a backlog item's "Start a task" are the board
-server's: it names the task by a fixed rule (an item's file's stem, else the first five plain words
-of his text), runs step 3 with his words or the item's path as the ask, and step 5.
+server's: it names the task by a fixed rule (an item's file's stem, with the first free `-2`, `-3`
+after it when a task of that stem ended, else the first five plain words of his text), runs step 3
+with his words or the item's path as the ask, and step 5. It refuses an item that a task that has
+not ended holds, and names that task.
 
 1. **An ask that is a ticket.** When the ask is a ticket's id or its URL and `lem project show`
    gives a `tracker`, the tracker reads it (`load-skill` the skill `tracker.kind` names, its

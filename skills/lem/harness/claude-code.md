@@ -101,6 +101,8 @@ one level down. The persona agents of a lead's read of its acceptance criteria s
 The scout of an interview is a builder too, with `prompts/scout.md` as its brief, and so are the
 investigator of a bug or a question, with `prompts/investigator.md`, and the one builder of the
 fast track, with `prompts/small.md`: each starts from the task's session, and its reply comes there.
+The reviewer of the proposals, with `prompts/proposals.md`, is a builder too, and starts from the
+retro's session, which no task owns.
 A builder has no pane of its own, so no reviewer sits beside it and the owner cannot type to it. A
 careful or large plan gets a pair for its talk for that reason: the talk needs the reviewer's pane
 and the mailbox.
@@ -113,7 +115,11 @@ checks, `lem session wait SLUG --until STATE,...` for the end of another session
 every 10 seconds, a guess; it also ends when that task's session is gone from agterm's tree, with
 `"gone": true`, its `session`, the task's `status` and a `say` that names `lem session open SLUG
 --why dead`; with `--companion ID` it ends too when that companion is gone, with `"gone": true`
-and its `companion`; its other ends print `"gone": false`), and the `lem session close` line that `lem session next` prints. Keep
+and its `companion`; its other ends print `"gone": false`), the `lem session close` line that `lem session next` prints, and
+`lem session close-job`, the last step of a scheduled night or retro, which waits while the owner
+has its session selected (its JSON says `closed`, false for a session gone from agterm's tree; its
+refusal, on exit 1, names whose the session is, or says "no session to close" with no agterm
+session). Keep
 the name of each background task you started, and while one runs start no second of its kind. The tool names the background task
 and tells you when the command exits, also while the session waits between two of the owner's
 messages: the Bash tool's description in Claude Code 2.1.328 (read 2026-11-19) says that it

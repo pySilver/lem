@@ -3,7 +3,7 @@
     kanban_page(ctx)     /HOST/WORKSPACE/            the tasks in four columns, by who acts
     older_page(ctx)      /HOST/WORKSPACE/done        the ended tasks Done has no card for, from its foot row
     waits_page(ctx)      /HOST/WORKSPACE/waits       one row for each thing the owner does
-    backlog_page(ctx)    /HOST/WORKSPACE/backlog     the backlog's items by their worth
+    backlog_page(ctx)    /HOST/WORKSPACE/backlog     the reviewer's items, then the backlog's items by their worth
     activity_page(ctx)   /HOST/WORKSPACE/activity    where the time went, and every event
     index_page(...)      /                           the workspaces of this machine
     error_page(...)                                  a route that failed, with its reason
@@ -54,6 +54,7 @@ from urllib.parse import quote
 
 from lem_html import Markup, h, page
 import lem_board_model as bm
+import project as lem_project
 
 ASSETS = Path(__file__).resolve().parent.parent / "assets"
 LEM_ROOT = Path(__file__).resolve().parents[3]
@@ -73,6 +74,8 @@ VIEWS = [
     {"key": "activity", "path": "activity", "label": "Activity", "icon": "list-timeline", "kbd": "A", "code": "KeyA"},
 ]
 VIEW = {v["key"]: v for v in VIEWS}
+# What the count on a view's key counts, where its label alone does not say it.
+COUNT_SAYS = {"backlog": "The reviewer's items that wait for your start or drop"}
 # The ended tasks Done has no card for, as a page of the workspace: Done's foot row is its way in, and it is no key
 # of the views.
 OLDER = {"key": "done", "path": "done", "label": "Older ended tasks"}
@@ -486,8 +489,8 @@ def sidebar(ctx: Ctx, waits: list, repo: str) -> Markup:
     trouble = ctx.problems
     rows = [wait_row(ctx, w) for w in waits] or [h("div", {"class": "w-none", "id": "w-none"}, icon(ctx, "circle-check"), "Nothing waits for you")]
     tasks_open = sum(1 for t in m.tasks if not t.closed)
-    backlog = ctx.backlog
-    counts = {"tasks": tasks_open, "waits": len(waits), "backlog": sum(1 for it in backlog["items"] if it.get("worth") != "no") if backlog else None}
+    # the Backlog key counts the reviewer's items no task holds: what waits for the owner's start or drop
+    counts = {"tasks": tasks_open, "waits": len(waits), "backlog": bm.undecided(ctx.backlog)}
     return h("aside", {"class": "side", "id": "side", "aria-label": "Lem"},
              h("div", {"class": "brand"},
                h("div", {"class": "mark"}, marks()),
@@ -505,7 +508,7 @@ def sidebar(ctx: Ctx, waits: list, repo: str) -> Markup:
                [h("a", {"class": "vbtn", "id": f"view-{v['key']}", "href": ctx.href(v["key"]), "aria-current": "page" if ctx.view == v["key"] else None,
                         "title": f"Key {v['kbd']}, with no Shift", "data-hotkey": v["code"]},
                   icon(ctx, v["icon"]), v["label"], h("kbd", None, v["kbd"]),
-                  h("em", None, counts[v["key"]]) if counts.get(v["key"]) is not None else None) for v in VIEWS]),
+                  h("em", {"title": COUNT_SAYS.get(v["key"])}, counts[v["key"]]) if counts.get(v["key"]) is not None else None) for v in VIEWS]),
              push_row(ctx, "side"),
              h("div", {"class": "side-foot", "id": "side-foot"}, switcher(ctx), side_fold(ctx)))
 
@@ -1120,25 +1123,45 @@ def backlog_item(ctx: Ctx, it: dict) -> Markup:
     else:
         place = h("span", {"class": "bl-where"}, where or "no place in the code named")
     cmd = f"/lem new {it['path']}"
-    if ctx.can_act:
+    held = it.get("held") if it.get("reviewer") else None
+    if held:
+        side.insert(0, t_(f"held by {held['task']}", f"The task {held['task']} builds this item", "lead"))
+    elif it.get("reviewer"):
+        side.insert(0, t_("undecided", "No task builds this item, and you have not dropped it", "you"))
+    if held:
+        who = (h("a", {"class": "bl-task", **task_link(ctx, held["task"])}, held["task"]) if ctx.model.by_slug.get(held["task"]) is not None
+               else h("code", None, held["task"]))
         actions = h("div", {"class": "bl-actions"},
-                    h("form", {"class": "act-form", "method": "post", "action": f"{ctx.base}/start", "data-turbo-frame": "_top"},
-                      h("input", {"type": "hidden", "name": "item", "value": it["slug"]}),
-                      h("button", {"class": "btn go", "type": "submit", "data-turbo-submits-with": "Starting…"}, icon(ctx, "play"), h("span", None, "Start a task"))),
-                    h("span", {"class": "bl-note"}, "Lem opens the task's own session in agterm, which reads this item."))
+                    h("span", {"class": "bl-note"}, "The task ", who, f" ({held['status'] or 'new'}) builds this item. It leaves the backlog with that task's landing, "
+                                                                     "and is undecided again when the task is dropped."))
+    elif ctx.can_act:
+        start = h("form", {"class": "act-form", "method": "post", "action": f"{ctx.base}/start", "data-turbo-frame": "_top"},
+                  h("input", {"type": "hidden", "name": "item", "value": it["path"]}),
+                  h("button", {"class": "btn go", "type": "submit", "data-turbo-submits-with": "Starting…"}, icon(ctx, "play"), h("span", None, "Start a task")))
+        drop = (h("form", {"class": "act-form", "method": "post", "action": f"{ctx.base}/backlog/drop", "data-turbo-frame": "_top"},
+                  h("input", {"type": "hidden", "name": "item", "value": it["path"]}),
+                  h("button", {"class": "btn", "type": "submit", "data-turbo-submits-with": "Dropping…"}, icon(ctx, "x"), h("span", None, "Drop")))
+                if it.get("reviewer") else None)
+        note = ("Start a task opens its own session in agterm, which reads this item. Drop removes the file, and the day's record of the proposals "
+                "keeps the drop, so no later reviewer proposes it again." if it.get("reviewer") else "Lem opens the task's own session in agterm, which reads this item.")
+        actions = h("div", {"class": "bl-actions"}, start, drop, h("span", {"class": "bl-note"}, note))
     elif SAFE_PATH.fullmatch(it["path"]):
         actions = h("div", {"class": "bl-actions"}, h("span", {"class": "bl-note"}, "To start a task, type in any session: "), h("code", None, cmd),
                     h("button", {"class": "ibtn copy", "type": "button", "data-controller": "copy", "data-copy-text-value": cmd, "data-action": "copy#copy",
-                                 "title": "Copy the line", "aria-label": "Copy the line"}, icon(ctx, "copy"), icon(ctx, "check", "ic done")))
+                                 "title": "Copy the line", "aria-label": "Copy the line"}, icon(ctx, "copy"), icon(ctx, "check", "ic done")),
+                    h("span", {"class": "bl-note"}, "Drop it on this board on the Mac or through the tailnet door.") if it.get("reviewer") else None)
     else:
         actions = h("div", {"class": "bl-actions"}, h("span", {"class": "bl-note bad"},
                     "The name of this file has a character that a line to type would not keep. Start the task yourself in a session, with your own words."))
     body = it.get("body") or ""
-    return h("details", {"class": "bl-item", "id": f"item-{it['slug']}", "data-backlog-target": "item", "data-worth": bm.worth_of(it),
+    if it.get("reviewer"):
+        # a proposal's name (`retro of 2026-11-23 #7`) as code, so that its number is not read as a pull request
+        body = lem_project.PROPOSAL_NAME.sub(lambda found: f"`{found[0]}`", body)
+    return h("details", {"class": "bl-item", "id": f"item-{it['key']}", "data-backlog-target": "item", "data-worth": bm.worth_of(it),
                          "data-stale": "1" if it.get("where_problem") else None, "data-new": "1" if it.get("state") in ("new", "edited") else None},
              h("summary", {"class": "bl-head"}, h("span", {"class": "bl-title"}, rich(ctx, it["title"])), h("span", {"class": "bl-side"}, side), place),
              h("div", {"class": "bl-body"},
-               md_block(ctx, f"bl-{it['slug']}", body, cls="bl-text") if body else h("div", {"class": "bl-text dim"}, "The item has no text below its title."),
+               md_block(ctx, f"bl-{it['key']}", body, cls="bl-text") if body else h("div", {"class": "bl-text dim"}, "The item has no text below its title."),
                actions))
 
 
@@ -1149,15 +1172,22 @@ def backlog_page(ctx: Ctx) -> Markup:
     items = backlog["items"] if backlog else []
     f = {"q": "", "worth": "", "only": "", **(ctx.filters or {})}
     groups = []
+    mine = bm.reviewer_items(items)
+    if mine:
+        # the reviewer's items in a group of their own, the undecided ones first: the proposals of the night and the retro that passed its read
+        groups.append(h("div", {"class": "bl-group a-you", "id": "group-reviewer", "data-backlog-target": "group"},
+                        h("div", {"class": "lane-head", "title": f"What the night and the retro proposed and the reviewer passed, in {backlog['reviewer_folder']}: start a task or drop it"},
+                          h("i"), "The reviewer's items", h("em", None, len(mine))), [backlog_item(ctx, it) for it in mine]))
     for g in bm.BY_WORTH:
-        mine = [it for it in items if bm.worth_of(it) == g["key"]]
+        mine = [it for it in items if not it.get("reviewer") and bm.worth_of(it) == g["key"]]
         if mine:
             groups.append(h("div", {"class": f"bl-group a-{g['actor']}{' recessive' if g.get('recessive') else ''}", "id": f"group-{g['key']}", "data-backlog-target": "group"},
                             h("div", {"class": "lane-head"}, h("i"), g["name"], h("em", None, len(mine))), [backlog_item(ctx, it) for it in mine]))
     if backlog is None:
         empty = h("div", {"class": "lane-empty"}, "The backlog was not read: the status bar says why.")
     elif not items:
-        empty = h("div", {"class": "lane-empty"}, f"No item in {backlog['folder']}. The polish pass of a landing files items, and /backlog adds one.")
+        empty = h("div", {"class": "lane-empty"}, f"No item in {backlog['folder']} or {backlog['reviewer_folder']}. The polish pass of a landing files items, "
+                                                  "/backlog adds one, and the reviewer of the night's and the retro's proposals writes its own.")
     else:
         empty = None
     stale = sum(1 for it in items if it.get("where_problem"))
@@ -1166,7 +1196,10 @@ def backlog_page(ctx: Ctx) -> Markup:
     sum_ = ""
     if backlog:
         read = bm.at(backlog.get("read"))
-        sum_ = (f"{bm.plural(len(items), 'item')} in {backlog['folder']}{f' · {broken} cannot be read' if broken else ''}"
+        theirs = bm.reviewer_items(items)
+        reviewer = f" · {len(theirs)} of the reviewer in {backlog['reviewer_folder']}, {bm.undecided(backlog)} undecided" if theirs else ""
+        sum_ = (f"{bm.plural(len(items) - len(theirs), 'item')} in {backlog['folder']}{reviewer}"
+                f"{f' · {broken} cannot be read' if broken else ''}"
                 f"{f' · read {bm.stamp(read, m.now)}' if read else ''}")
 
     def chip_(key: str, value: str, label: str, n: int, actor: str, title: str) -> Markup:
@@ -1183,7 +1216,7 @@ def backlog_page(ctx: Ctx) -> Markup:
     filtered = bool(f["q"] or f["worth"] or f["only"])
     view = h("div", {"class": "view scroll", "id": "backlog-view"},
              h("div", {"class": "backlog", "id": "backlog", "data-controller": "backlog", "data-action": "keydown@window->backlog#key", "data-backlog-base-value": ctx.href("backlog")},
-               act_note(ctx, ctx.note if ctx.note and ctx.note.get("act") == "start" else None),
+               act_note(ctx, ctx.note if ctx.note and ctx.note.get("act") in ("start", "drop") else None),
                h("div", {"class": "bl-bar"},
                  h("input", {"id": f"bl-q-{ctx.workspace}", "type": "search", "placeholder": "Filter by the words of a title, a text or a place", "aria-label": "Filter the items of the backlog",
                              "autocomplete": "off", "spellcheck": "false", "value": f["q"] or None, "data-backlog-target": "query", "data-turbo-permanent": True,
@@ -1197,7 +1230,7 @@ def backlog_page(ctx: Ctx) -> Markup:
                h("div", {"class": "dim small bl-sum"}, h("span", {"data-backlog-target": "count"}), sum_),
                h("div", {"class": "backlog", "id": "bl-groups"}, groups, empty,
                  h("div", {"class": "lane-empty", "data-backlog-target": "none", "data-js-out": True}, "No item fits the filter."))))
-    return layout(ctx, "Backlog", "The items of the backlog, by the worth each one gives itself", view,
+    return layout(ctx, "Backlog", "The reviewer's items, then the items of the backlog by the worth each one gives itself", view,
                   keys=keys_line(("/",), "filter", ("J", "K"), "move", ("Enter",), "open or close", ("R",), "read again", id_="backlog-keys"))
 
 

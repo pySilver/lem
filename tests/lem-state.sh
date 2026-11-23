@@ -264,12 +264,16 @@ mkdir -p "$PS/experts/2026-01-02-101010-an-old-question" "$PS/experts/$new_quest
 printf 'q\n' > "$PS/experts/2026-01-02-101010-an-old-question/brief.md" && printf 'p\n' > "$PS/panels/2026-01-02-an-old-panel/answer.md"
 printf 'd\n' > "$PS/naps/2020-01-02-0300-an-old-dream/dream.md" && printf 'c\n' > "$PS/personas-cast/0123abc/merchant.md" && printf 'c\n' > "$PS/personas-cast/4567def/merchant.md"
 ln -s "$WORK" "$PS/panels/2026-01-03-a-link"
+# the records of the proposals and the reviewer's items stay, however old: a drop and a refute are read on every later morning
+mkdir -p "$PS/retros" "$PS/night" "$PS/backlog"
+printf '{}\n' > "$PS/retros/2026-01-02.json" && printf '{}\n' > "$PS/night/2026-01-02.json" && printf '# An old item\n' > "$PS/backlog/an-old-item.md"
 "$PY" -c 'import os, sys, time
 old = time.time() - 40 * 86400
 for top in sys.argv[1:]:
     for root, dirs, files in os.walk(top):
         for name in files: os.utime(os.path.join(root, name), (old, old))
-    os.utime(top, (old, old))' "$PS/experts/2026-01-02-101010-an-old-question" "$PS/experts/notes" "$PS/panels/2026-01-02-an-old-panel" "$PS/personas-cast/0123abc"
+    os.utime(top, (old, old))' "$PS/experts/2026-01-02-101010-an-old-question" "$PS/experts/notes" "$PS/panels/2026-01-02-an-old-panel" "$PS/personas-cast/0123abc" \
+  "$PS/retros" "$PS/night" "$PS/backlog"
 listing() { (cd "$PS" && find . -not -type d | LC_ALL=C sort | tr '\n' ' '); }
 # a task's files but the lock files at its top, from its folder
 task_files() { (cd "$PS/tasks/$1" && find . -not -type d | sed 's|^\./||' | awk '!/^[^\/]*\.lock$/' | LC_ALL=C sort | tr '\n' ' '); }
@@ -306,10 +310,11 @@ if [ "$before_dry" = "$after_dry" ] && [ "$(field '(d["dry_run"], d["keep_days"]
   && [ ! -e "$PS/experts/2026-01-02-101010-an-old-question" ] && [ -d "$PS/experts/notes" ] && [ -d "$PS/experts/$new_question" ] \
   && [ ! -e "$PS/panels/2026-01-02-an-old-panel" ] && [ -L "$PS/panels/2026-01-03-a-link" ] && [ -d "$WORK/no-repo" ] \
   && [ ! -e "$PS/naps/2020-01-02-0300-an-old-dream" ] && [ -d "$PS/naps/$new_dream" ] && [ ! -e "$PS/personas-cast/0123abc" ] && [ -d "$PS/personas-cast/4567def" ] \
+  && [ -f "$PS/retros/2026-01-02.json" ] && [ -f "$PS/night/2026-01-02.json" ] && [ -f "$PS/backlog/an-old-item.md" ] \
   && grep -qF "'tasks/broken-state'" <<<"$(field '[s["path"] for s in d["skipped"]]' <<<"$again")" && grep -qF "'tasks/old-landed/link.txt'" <<<"$(field '[s["path"] for s in d["skipped"]]' <<<"$again")" \
   && grep -qF "'panels/2026-01-03-a-link'" <<<"$(field '[s["path"] for s in d["skipped"]]' <<<"$again")" \
   && [ "$tasks_after" = "[('old-dropped', 'dropped', [], None), ('old-landed', 'landed', ['started', 'landed'], 'https://github.com/acme/shop/pull/1')]" ]; then
-  pass "lem project prune leaves a task that ended before state.keep_days its small record only (its state, its request, its pull request, its ticket's files) and removes the old folders of the experts, the panels, the naps and the cast's copies; tasks gives the task's status and pull request, a task queued after it starts, task-dir refuses its name, and a run after the one that finished it removes nothing; an open task, one that landed 10 days ago and a state that does not read keep every file, a link is never followed, a failed removal is named with exit 1 and the next run finishes it, and a dry run removes nothing"
+  pass "lem project prune leaves a task that ended before state.keep_days its small record only (its state, its request, its pull request, its ticket's files), removes the old folders of the experts, the panels, the naps and the cast's copies, and keeps the records of the proposals and the reviewer's items; tasks gives the task's status and pull request, a task queued after it starts, task-dir refuses its name, and a run after the one that finished it removes nothing; an open task, one that landed 10 days ago and a state that does not read keep every file, a link is never followed, a failed removal is named with exit 1 and the next run finishes it, and a dry run removes nothing"
 else
   fail "the prune: $dry / $dry_all / $no_days / $real_code / $real / $again / $third / $tasks_after / $after_starts / $old_taken / old-landed: $(task_files old-landed) / young-landed: $(task_files young-landed) / $(listing)"
 fi

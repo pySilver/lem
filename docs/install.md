@@ -55,8 +55,8 @@ In git:
 - `.lem/profile.md`, `.lem/personas/`: the product, and the people that a change affects.
 - `.lem/lessons.md`: your corrections of how an agent does a step in this repository.
 - `docs/rulings.md`: your decisions about what the product does, which no agent reopens without
-  asking you. The rulings are one file, with one bullet for each decision. A retro adds a bullet
-  only after you approve the ruling, in a pull request.
+  asking you. The rulings are one file, with one bullet for each decision. A retro only proposes a
+  ruling. The bullet comes in the pull request of a task that you start from its backlog item.
 - `docs/plans/`, `docs/backlog/`: the plans, and work for later. The [settings](settings.md#paths)
   can move the plans and the rulings.
 

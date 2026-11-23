@@ -106,9 +106,12 @@ listed as not reachable, with when it last answered, and never slows a page.
                                the owner's acts on a task (below), on the main listener and through the door; a 303 to
                                the task's page, whose `?note=` says what came of the act
     GET /HOST/NAME/new         the form of a new task in the owner's words ("+")
-    POST /HOST/NAME/start      a new task, from that form (`words`) or from a backlog item (`item`, its file's stem),
-                               through the same checks as an act on a task; a 303 to the new task's page, or back to
-                               the form or the backlog when nothing started
+    POST /HOST/NAME/start      a new task, from that form (`words`) or from a backlog item (`item`, its path from the
+                               root of the main checkout), through the same checks as an act on a task; a 303 to the
+                               new task's page, or back to the form or the backlog when nothing started
+    POST /HOST/NAME/backlog/drop
+                               the owner's drop of a reviewer's item (`item`, its path), through the same checks; a 303
+                               to the backlog with the note of the result
     GET /PEER/...              a page, a file or the stream of a machine joined, passed through from it
     GET /ALIAS/...             the same page under HOST
     GET /NAME/...              an address with no machine's name in it: a redirect to the same page under HOST
@@ -126,7 +129,7 @@ the workspace's `events.jsonl`, its inode and its number of lines in one id (`bm
 changed; while the page posts a form, the refresh waits for the post's end (the stream controller,
 `tools/board-kit/controllers/stream.js`). A message goes when the log grew or `lem project prune` replaced it, or when a file
 the pages read beside it changed: the owner's mark, the settings, the
-demo mark, the backlog's folder, and with `?task=SLUG` (a page with a task open) each file of that
+demo mark, the backlog's folder, the reviewer's folder, and with `?task=SLUG` (a page with a task open) each file of that
 task's folder, so that an artifact written with no event still shows. The thread looks every
 WATCH_SECONDS, so a burst of events is one message, and ends when its client hung up. A stream with
 nothing to say sends a `ping` event every PING_SECONDS: the page sees it (Turbo renders only the default
@@ -216,13 +219,17 @@ with his line of why; and a fresh session of a task none of whose sessions lives
 session open SLUG --why dead`, or `--why owner` for a task that never had one, or `--why stopped`
 beside the live session of a task whose stop the guard logged, which opens nothing when that session
 works again; and a new task (`act_start`), from his words on the form of "+" or from a backlog item's
-"Start a task": its slug by a fixed rule (an item's file's stem; else the first SLUG_WORDS plain words
-of his text, in lower case, joined by hyphens), `lem project task-dir SLUG --ask ASK` (his words, or the
-item's path as the night gives it), then `lem session open SLUG --why new` with no focus, whose agent
-reads the type and the track itself. A task whose session opened and wrote no state yet is on the board
-as starting (`lem_board_model.NEW`), so its acts and "Open a session" work. Each act the script took is
-logged as `board.act` with where he asked (`via`: the board on this Mac, or through the tailnet door),
-never his login. A merge runs in a thread of its own, since it reads the base branch and asks the forge,
+"Start a task": an item that a task that has not ended holds by its path is refused with that task's
+name; its slug by a fixed rule (an item's file's stem, with the first free `-2`, `-3` when a task of the
+stem ended; else the first SLUG_WORDS plain words of his text, in lower case, joined by hyphens), `lem
+project task-dir SLUG --ask ASK` (his words, or the item's path as the night gives it), then `lem
+session open SLUG --why new` with no focus, whose agent reads the type and the track itself; and the
+drop of a reviewer's item from its "Drop" (`act_drop`), `lem project proposals drop PATH`, one call
+that refuses while a task that has not ended holds the item. A task whose session opened and wrote no
+state yet is on the board as starting (`lem_board_model.NEW`), so its acts and "Open a session" work.
+Each act on a task the script took is logged as `board.act` with where he asked (`via`: the board on
+this Mac, or through the tailnet door), never his login; a drop is kept in the day's record of the
+proposals instead. A merge runs in a thread of its own, since it reads the base branch and asks the forge,
 and as a process of its own outside SCRIPT_LOCK (`merge_apart`), so that a slow forge holds no other act
 of the board; the process takes the task's step lock and the repository's merge lock itself, so two
 merges of one repository still take turns. The answer is at once, its page says that it runs, and the
@@ -1151,28 +1158,53 @@ def slug_of(text: str, words: int | None = SLUG_WORDS) -> str:
     return "-".join(plain[:words] if words else plain)
 
 
+def item_slug(stem: str, ended, taken) -> str:
+    """The slug of a task started from a backlog item that no task holds: its file's STEM (or its plain
+    words, `slug_of`, for a stem that is no slug), or, when ENDED(slug) says that a task of that slug
+    ended, the stem with the first `-2`, `-3` that TAKEN(slug) says no task has: an item whose task was
+    dropped is undecided again and starts again. A task of the stem that has not ended keeps the stem,
+    which the start then refuses."""
+    slug = stem if TASK_SLUG.fullmatch(stem) else slug_of(stem, None)
+    if not slug or not ended(slug):
+        return slug
+    n = 2
+    while taken(f"{slug}-{n}"):
+        n += 1
+    return f"{slug}-{n}"
+
+
 def act_start(workspace: Workspace, form: dict, via: str) -> dict:
     """A new task, on the owner's word from the board: from his words (`words`, the form of "+") or from a
-    backlog item (`item`, its file's stem). The slug is the item's stem, or the first SLUG_WORDS plain
-    words of his text; `lem project task-dir SLUG --ask ASK` makes its directory, with his words or the
-    item's path as the ask, as the night gives one; `lem session open SLUG --why new` opens its session
-    with no focus. A slug of a task that runs is refused here, and one of a task that ended by task-dir,
-    with its own line. What came of it, with `slug` when the task is on record."""
+    backlog item (`item`, its path from the root of the main checkout, of the backlog folder or of the
+    reviewer's folder, so that two items of one stem stay two). An item a task that has not ended holds by
+    its path (project.py's `item_holder`, the rule of the drop and of the board's mark) is refused with that
+    task. The slug is the item's slug (`item_slug`), or the first SLUG_WORDS plain words of his text;
+    `lem project task-dir SLUG --ask ASK` makes its directory, with his words or the item's path as the
+    ask, as the night gives one; `lem session open SLUG --why new` opens its session with no focus. A slug
+    of a task that runs is refused here, and one of a task that ended by task-dir, with its own line. What
+    came of it, with `slug` when the task is on record."""
     item = str(form.get("item") or "").strip()
     words = " ".join(str(form.get("words") or "").split())[:WORDS_CHARS]
+    model = workspace.model()
     if item:
         backlog = workspace.reader.read_backlog(board, fresh=True) or {}
-        found = next((it for it in backlog.get("items") or [] if it.get("slug") == item), None)
+        found = next((it for it in backlog.get("items") or [] if it.get("path") == item), None)
         if found is None:
-            return {"ok": False, "said": f"No item {item!r} is in the backlog now: read the backlog again."}
-        slug, ask = item if TASK_SLUG.fullmatch(item) else slug_of(item, None), str(found["path"])
+            return {"ok": False, "said": f"No item {item} is in the backlog now: read the backlog again."}
+        holder = lem_project.item_holder(workspace.state, item)
+        if holder:
+            return {"ok": False, "said": f"This item has a task already: {holder['task']}, {holder['status'] or 'new'}."}
+        tasks = workspace.state / "tasks"
+        slug = item_slug(found["slug"], lambda name: (t := model.by_slug.get(name)) is not None and t.closed,
+                         lambda name: name in model.by_slug or (tasks / name).exists())
+        ask = item
     elif words:
         slug, ask = slug_of(words), words
     else:
         return {"ok": False, "said": "Type a few words that say what the task is: they are its ask, and its first words its name."}
     if not slug:
         return {"ok": False, "said": "The words hold no plain letter or digit (a to z, 0 to 9) for the task's name: begin with such a word."}
-    known = workspace.model().by_slug.get(slug)
+    known = model.by_slug.get(slug)
     if known is not None and known.blocks and not known.closed:
         return {"ok": False, "slug": slug, "said": f"{slug} is a task already, and it is {known.info['label'].lower()}: say the new one in other words."}
     made = lem_run(workspace, "project.py", "task-dir", slug, "--ask", ask)
@@ -1189,6 +1221,29 @@ def act_start(workspace: Workspace, form: dict, via: str) -> dict:
     name = (opened.get("name") if isinstance(opened, dict) else None) or slug
     workspace.look_sessions()
     return {"ok": True, "slug": slug, "said": f"Lem opened the session {name} in agterm, at the end of its workspace. Its agent reads the ask, and takes its type and its track." + asked}
+
+
+def act_drop(workspace: Workspace, form: dict) -> dict:
+    """The owner's drop of a reviewer's item from the board (`item`, its path from the root of the main
+    checkout): `lem project proposals drop PATH`, one call under SCRIPT_LOCK, which reads whether a task
+    that has not ended holds the item and refuses with that task, else keeps the drop in the day's record
+    of each of its proposals and removes the file; a start from the board comes before it or after it,
+    never between the two. An item of the backlog folder is refused by the same call: it leaves that
+    folder on a branch. The event log gets no line, as no task is the drop's: the record is the day's
+    file of the proposals. What came of it."""
+    item = str(form.get("item") or "").strip()
+    if not item:
+        return {"ok": False, "said": "The drop names no item: open the backlog again, and press Drop on the item."}
+    ran = lem_run(workspace, "project.py", "proposals", "drop", item)
+    if ran.returncode != 0:
+        return {"ok": False, "said": said_of(ran)}
+    try:
+        done = json.loads(ran.stdout)
+    except ValueError:
+        done = {}
+    names = ", ".join(done.get("proposals") or []) if isinstance(done, dict) else ""
+    return {"ok": True, "said": f"Dropped: {item} is gone from the backlog, and the day's record keeps the drop of {names or 'its proposals'}, "
+                                "so no later reviewer proposes it again."}
 
 
 def act_merge(workspace: Workspace, slug: str, form: dict, via: str) -> str:
@@ -1525,6 +1580,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.board_act(parts[1], parts[3], parts[4])
         if self.command == "POST" and len(parts) == 3 and parts[0] == HOSTNAME and parts[2] == "start" and not lem_peers.hopped(self.headers):
             return self.board_start(parts[1])
+        if self.command == "POST" and len(parts) == 4 and parts[0] == HOSTNAME and parts[2:] == ["backlog", "drop"] and not lem_peers.hopped(self.headers):
+            return self.board_drop(parts[1])
         if not lem_peers.hopped(self.headers) and self.peers.get(parts[0]) is not None:
             return self.send(HTTPStatus.METHOD_NOT_ALLOWED, f"This page is the board of the machine {parts[0]}, which this server only shows: open {parts[0]}'s own board to act on it.\n".encode("utf-8"),
                              "text/plain; charset=utf-8", True, {"Allow": "GET, HEAD"})
@@ -1611,6 +1668,25 @@ class Handler(BaseHTTPRequestHandler):
         else:
             to = f"{base}/{'backlog' if form.get('item') else 'new'}?{urlencode({'note': token})}"
         self.send(HTTPStatus.SEE_OTHER, b"", "text/plain; charset=utf-8", True, {"Location": to})
+
+    def board_drop(self, name: str) -> None:
+        """The owner's drop of a reviewer's item of the workspace NAME, from its "Drop" on the Backlog view,
+        through the checks of an act on a task (`board_act`), then `act_drop`. The answer is a 303 to the
+        Backlog view with the note of the result."""
+        if self.door is None:
+            said = action_refusal(self.client_address[0], self.headers, self.server.server_address[1])
+            if said:
+                return self.text(HTTPStatus.FORBIDDEN, said, True)
+        workspace = self.machine.one(name)
+        if workspace is None:
+            return self.missing(f"No workspace {name!r} on this machine.", True)
+        form = self.form()
+        if form is None:
+            return self.text(HTTPStatus.BAD_REQUEST, f"The request carries no form of the board: form fields of at most {FORM_BYTES} bytes.", True)
+        result = act_drop(workspace, form)
+        token = NOTES.put(task=None, act="drop", state="done" if result["ok"] else "refused", said=result["said"])
+        workspace.acted += 1
+        self.send(HTTPStatus.SEE_OTHER, b"", "text/plain; charset=utf-8", True, {"Location": f"/{quote(HOSTNAME)}/{quote(name)}/backlog?{urlencode({'note': token})}"})
 
     def form(self) -> dict | None:
         """The fields of a form the board posts (urlencoded, one value each), or None for any other body."""
@@ -1941,6 +2017,8 @@ class Handler(BaseHTTPRequestHandler):
         backlog = workspace.backlog_folder()
         if backlog is not None:
             files["backlog"] = backlog
+        # the reviewer's items, which the reviewer writes and a drop or a landing removes with no line of the log
+        files["reviewer"] = workspace.state / lem_project.STATE_BACKLOG
         try:
             files["owner"] = lem_state.owner_mark()
         except lem_state.StateError:

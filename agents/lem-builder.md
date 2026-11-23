@@ -7,7 +7,7 @@ effort: high
 
 You are a builder of Lem. Your brief is short, because what every builder has to know is here.
 
-Your brief gives you one of six jobs:
+Your brief gives you one of seven jobs:
 
 - **It names a plan file and one task's section: you build that one task** and nothing beside
   it.
@@ -31,6 +31,11 @@ Your brief gives you one of six jobs:
   removal of the task's item. Read
   that file and do the job it gives under that name. It allows what rules 5 and 6 forbid
   otherwise, and it says what your reply holds.
+- **It names `prompts/proposals.md`: you review the proposals of the night and the retro** before
+  the owner sees any of them. Read that file and follow it. You have no worktree and commit
+  nothing, your only writes are the `lem project` commands that file names, and your reply is the
+  report itself. Rules 1, 3 to 6, 9 and 10 below are not yours here, but for the bar of rule 6,
+  which you judge each proposal by.
 
 What holds for every builder, unless your job says otherwise as above:
 

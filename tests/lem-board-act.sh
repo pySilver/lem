@@ -287,13 +287,13 @@ else
 fi
 
 # A new task from the board: the owner's words on the form of "+" name it by their first five plain words, and a backlog
-# item by its file's stem; each gets its directory with its ask and its session with no focus. A slug of a task that
+# item, posted by its path, by its file's stem; each gets its directory with its ask and its session with no focus. A slug of a task that
 # runs is refused by the server, and one of a task that ended by task-dir, as it says.
 : > "$LEM_SESSION_CALLS"
 new_form=$(curl -fsS "$BASE/new" | words)
 started=$(post "$SERVER/$HOST/shop/start" "$SERVER" "words=  Add the gift note to the CSV export, please  ")
 started_page=$(curl -fsS "${started#* }" | words)
-item=$(post "$SERVER/$HOST/shop/start" "$SERVER" "item=export-in-one-query")
+item=$(post "$SERVER/$HOST/shop/start" "$SERVER" "item=docs/backlog/export-in-one-query.md")
 running=$(post "$SERVER/$HOST/shop/start" "$SERVER" "words=Stock on product page")
 running_page=$(curl -fsS "${running#* }" | words)
 ended_slug=$(post "$SERVER/$HOST/shop/start" "$SERVER" "words=order date on invoice")
@@ -316,6 +316,45 @@ if grep -qF "What should Lem do?" <<<"$new_form" && [[ "$started" == "303 $SERVE
   pass "a new task starts from the board: the owner's words name it by their first five plain words and a backlog item by its stem, each gets its ask and its session with no focus, and a slug that runs or ended, or whose words differ, is refused with why"
 else
   fail "a new task from the board: $started / ${started_page:0:300} / $item / $(cat "$LEM_SESSION_CALLS") / ${running_page:0:300} / $ended_slug / ${ended_page:0:300} / ${other_page:0:300}"
+fi
+
+# The reviewer's items of the afternoon (criteria 6, 7 and 9 of docs/plans/2026-11-23-scheduled-runs-one-branch.md):
+# "Drop" on the undecided one removes its file and keeps the drop in the retro's record; "Drop" and "Start a task" on
+# the one the parked task export-check-by-chance holds are refused with that task's name, and so is a drop of an item
+# of the backlog folder. Once the owner drops that task the item is undecided again and starts as its stem; once that
+# task is dropped too, it starts again as the stem with -2.
+REVIEWED=.lem/state/backlog/the-export-s-check-fails-by-chance.md
+: > "$LEM_SESSION_CALLS"
+view=$(curl -fsS "$BASE/backlog")
+dropped=$(post "$BASE/backlog/drop" "$SERVER" "item=.lem/state/backlog/read-the-receipt-s-total-by-its-label.md")
+dropped_page=$(curl -fsS "${dropped#* }")
+held_drop=$(post "$BASE/backlog/drop" "$SERVER" "item=$REVIEWED")
+held_drop_page=$(curl -fsS "${held_drop#* }" | words)
+held_start=$(post "$BASE/start" "$SERVER" "item=$REVIEWED")
+held_start_page=$(curl -fsS "${held_start#* }" | words)
+tracked=$(post "$BASE/backlog/drop" "$SERVER" "item=docs/backlog/invoice-footer-wraps.md")
+tracked_page=$(curl -fsS "${tracked#* }" | words)
+project --repo "$DEMO" state export-check-by-chance dropped "the owner dropped it" >/dev/null
+again_view=$(curl -fsS "$BASE/backlog")
+restarted=$(post "$BASE/start" "$SERVER" "item=$REVIEWED")
+project --repo "$DEMO" state the-export-s-check-fails-by-chance dropped "the owner dropped it" >/dev/null
+third=$(post "$BASE/start" "$SERVER" "item=$REVIEWED")
+retro=$(field '[(e["number"], e["said"], e["item"]) for e in d["dropped"]]' < "$STATE/retros/$(date -u +%Y-%m-%d).json")
+if grep -qF 'id="item--read-the-receipt-s-total-by-its-label"' <<<"$view" && grep -qF '>held by export-check-by-chance<' <<<"$view" \
+  && [[ "$dropped" == "303 $BASE/backlog?note="* ]] && [ ! -e "$DEMO/.lem/state/backlog/read-the-receipt-s-total-by-its-label.md" ] \
+  && [ "$retro" = "[(1, 'the owner dropped it', '.lem/state/backlog/read-the-receipt-s-total-by-its-label.md')]" ] \
+  && grep -qF "Done. Dropped: .lem/state/backlog/read-the-receipt-s-total-by-its-label.md is gone from the backlog" <<<"$(words <<<"$dropped_page")" \
+  && ! grep -qF 'id="item--read-the-receipt-s-total-by-its-label"' <<<"$dropped_page" \
+  && [[ "$held_drop" == "303 $BASE/backlog?note="* ]] && grep -qF "Not done. project.py: the task export-check-by-chance (parked) builds the item $REVIEWED" <<<"$held_drop_page" && grep -qF "so it is not dropped" <<<"$held_drop_page" \
+  && [ -f "$DEMO/$REVIEWED" ] && [[ "$held_start" == "303 $BASE/backlog?note="* ]] && grep -qF "Not done. This item has a task already: export-check-by-chance, parked." <<<"$held_start_page" \
+  && grep -qF "docs/backlog/invoice-footer-wraps.md ' is not the path of an item of .lem/state/backlog/" <<<"$tracked_page" && [ -f "$DEMO/docs/backlog/invoice-footer-wraps.md" ] \
+  && grep -qF '<span>undecided</span>' <<<"$(grep -o 'id="item--the-export-s-check-fails-by-chance".*' <<<"$again_view" | head -c 2000)" \
+  && [[ "$restarted" == "303 $BASE/tasks/the-export-s-check-fails-by-chance?note="* ]] && [ "$(cat "$STATE/tasks/the-export-s-check-fails-by-chance/ask.txt")" = "$REVIEWED" ] \
+  && [[ "$third" == "303 $BASE/tasks/the-export-s-check-fails-by-chance-2?note="* ]] && [ "$(cat "$STATE/tasks/the-export-s-check-fails-by-chance-2/ask.txt")" = "$REVIEWED" ] \
+  && [ "$(grep -c '^open ' "$LEM_SESSION_CALLS")" = 2 ]; then
+  pass "Drop on a reviewer's item removes its file and keeps the drop in the retro's record; Drop and Start a task on an item a task holds are refused with that task, and so is a drop of the backlog folder's item; an item whose task was dropped is undecided again and starts as its stem, then with -2"
+else
+  fail "the reviewer's items: $dropped / $retro / $(words <<<"$dropped_page" | grep -o "Done. Dropped.\{0,160\}") / $held_drop / $(grep -o "Not done.\{0,240\}" <<<"$held_drop_page") / $held_start / $(grep -o "Not done.\{0,120\}" <<<"$held_start_page") / $(grep -o "Not done.\{0,200\}" <<<"$tracked_page") / $restarted / $third / $(cat "$LEM_SESSION_CALLS")"
 fi
 
 # The server's duties, over a repository the server does not show, so that only this process acts on it: a pull

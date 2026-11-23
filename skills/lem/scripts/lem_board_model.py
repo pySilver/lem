@@ -1255,10 +1255,12 @@ def worth_of(it: dict) -> str:
 def search_rows(m: Model, backlog: dict | None) -> list[dict]:
     """One row for each card of the workspace, in the order the search lists them with nothing typed:
     the tasks of the columns that have not ended, each column in the kanban's order; the parked tasks;
-    every ended task, the newest first, also those Done draws no card for; then the backlog's items by
-    their worth. Each row has its title, whether it is a task that has not ended (`open`), the color of
-    its place (`actor`) and its chip: `COLUMN · STATUS`, `parked`, `STATUS DAY` for an ended task (the day
-    it ended, on this machine's clock, as `stamp` reads it), `Backlog · worth: WORTH`. Only this model
+    every ended task, the newest first, also those Done draws no card for; then the reviewer's items,
+    the undecided ones first (`reviewer_items`); then the other backlog items by their worth. Each row
+    has its title, whether it is a task that has not ended (`open`), the color of its place (`actor`),
+    its chip: `COLUMN · STATUS`, `parked`, `STATUS DAY` for an ended task (the day it ended, on this
+    machine's clock, as `stamp` reads it), `Backlog · undecided` or `Backlog · held by SLUG` for a
+    reviewer's item, `Backlog · worth: WORTH`; and an item's `slug` is its `key`. Only this model
     and this backlog come in, so no other workspace and no joined machine does."""
     def task_row(t: Task, open_: bool, actor: str, chip: str) -> dict:
         return {"kind": "task", "slug": t.slug, "title": t.title, "open": open_, "actor": actor, "chip": chip}
@@ -1270,10 +1272,24 @@ def search_rows(m: Model, backlog: dict | None) -> list[dict]:
     rows += [task_row(t, True, STATUS[PARKED]["actor"], PARKED) for t in m.parked]
     rows += [task_row(t, False, LANE["done"]["actor"], f"{t.status} {local(t.since).date().isoformat()}") for t in m.lane["done"]]
     items = (backlog or {}).get("items") or []
+    rows += [{"kind": "item", "slug": it["key"], "title": flat(it.get("title") or it["slug"]), "open": False, "actor": "lead" if it.get("held") else "you",
+              "chip": f"Backlog · held by {it['held']['task']}" if it.get("held") else "Backlog · undecided"} for it in reviewer_items(items)]
     for g in BY_WORTH:
-        rows += [{"kind": "item", "slug": it["slug"], "title": flat(it.get("title") or it["slug"]), "open": False, "actor": g["actor"],
-                  "chip": f"Backlog · worth: {g['key']}"} for it in items if worth_of(it) == g["key"]]
+        rows += [{"kind": "item", "slug": it["key"], "title": flat(it.get("title") or it["slug"]), "open": False, "actor": g["actor"],
+                  "chip": f"Backlog · worth: {g['key']}"} for it in items if not it.get("reviewer") and worth_of(it) == g["key"]]
     return rows
+
+
+def reviewer_items(items: list[dict]) -> list[dict]:
+    """The reviewer's items of a backlog's read (`board.backlog`), the undecided ones first, each part
+    in the order of the read."""
+    mine = [it for it in items if it.get("reviewer")]
+    return [it for it in mine if not it.get("held")] + [it for it in mine if it.get("held")]
+
+
+def undecided(backlog: dict | None) -> int | None:
+    """How many of the reviewer's items no task holds, the count on the "Backlog" key; None with no read."""
+    return None if backlog is None else sum(1 for it in backlog.get("items") or [] if it.get("reviewer") and not it.get("held"))
 
 
 # ---- what the views say ----
@@ -1798,7 +1814,7 @@ def held_back(m: Model) -> set[str]:
 
 def waits_of(m: Model) -> list[dict]:
     """The rows of "Waits for you": one for each thing the owner does, as `lem project waiting` lists
-    them (without the retro's proposals, and with the plans he reads), the most pressing first."""
+    them (with the plans he reads), the most pressing first."""
     rows = []
     for t in m.tasks:
         # a task stuck for want of its session: the one row of a merged or dropped task whose cleanup did not run
@@ -3195,14 +3211,18 @@ class Reader:
 
     def read_backlog(self, board, fresh: bool = False) -> dict | None:
         """The backlog's items as `board.backlog` reads them, at most once in `settle_seconds`, or now with
-        `fresh` or when a file of its folder changed (a name, a size or a time)."""
+        `fresh`, when a file of its folder or of the reviewer's folder changed (a name, a size or a
+        time), or when the event log grew, since a task's start, landing or drop changes which
+        reviewer's item a task holds."""
         with self.lock:
             self.read_settings(board)
             if self.settings is None:
                 return self.backlog
             try:
-                folder = Path(self.settings["main"]) / Path(self.settings["places"]["backlog"]["path"]).relative_to(self.settings["root"])
-                listing = sorted((f.name, f.stat().st_size, f.stat().st_mtime_ns) for f in folder.iterdir()) if folder.is_dir() else []
+                folders = (Path(self.settings["main"]) / Path(self.settings["places"]["backlog"]["path"]).relative_to(self.settings["root"]),
+                           board.reviewer_folder(self.settings))
+                listing = [sorted((f.name, f.stat().st_size, f.stat().st_mtime_ns) for f in folder.iterdir()) if folder.is_dir() else [] for folder in folders]
+                listing.append(self.log_lines)
             except (KeyError, ValueError, OSError):
                 listing = None
             moved = listing != self.stamps.get("backlog")
