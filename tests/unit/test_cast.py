@@ -11,6 +11,7 @@ import importlib
 import sys
 import tempfile
 import unittest
+from collections.abc import Callable
 from pathlib import Path
 from unittest import mock
 
@@ -32,7 +33,7 @@ def no_codex(agent: str) -> bool:
     return agent == "claude"
 
 
-def seats(*lines: str, here=everywhere) -> dict:
+def seats(*lines: str, here: Callable[[str], bool] = everywhere) -> dict:
     """The seats of a persona whose file opens with a frontmatter of these lines."""
     meta, _ = cast.frontmatter(
         "---\n" + "".join(f"{line}\n" for line in lines) + "---\n" + BODY, FILE
@@ -41,7 +42,7 @@ def seats(*lines: str, here=everywhere) -> dict:
 
 
 class Refuses(unittest.TestCase):
-    def refused(self, call, *args) -> str:
+    def refused(self, call: Callable[..., object], *args: object) -> str:
         with self.assertRaises(cast.CastError) as caught:
             call(*args)
         return str(caught.exception)

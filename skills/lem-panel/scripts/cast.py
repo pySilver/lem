@@ -80,13 +80,16 @@ if sys.version_info < (3, 11):
         f"cast.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it"
     )
 
-import datetime
+import contextlib
+import datetime as dt
 import hashlib
 import json
 import os
 import re
 import shutil
 import subprocess
+import typing
+from collections.abc import Callable
 from pathlib import Path
 
 # Lem's scripts, beside this skill in the same plugin: `lem_state` is the one place that says where the state is.
@@ -115,7 +118,7 @@ SEATS_LINE = 'seats: ["claude/opus:high", "codex/gpt-6.2-sol:high"]'
 # own, once on Opus and once on the other family through the paired Codex's `persona` agent, whose
 # model that agent's own definition names. Their names are the answer files' (`<stem>.opus.md`,
 # `<stem>.sol.md`).
-DEFAULT_SEATS = (
+DEFAULT_SEATS: tuple[dict[str, typing.Any], ...] = (
     {
         "seat": "claude/opus",
         "agent": "claude",
@@ -189,7 +192,9 @@ def seat_name(seat: dict) -> str:
 
 
 def seats_of(
-    meta: dict[str, str], path: Path, here=project.agent_here
+    meta: dict[str, str],
+    path: Path,
+    here: Callable[[str], bool] = project.agent_here,
 ) -> dict[str, object]:
     """The seats a persona answers on: its file's `seats`, each checked as a seat of the settings is,
     or the panel's DEFAULT_SEATS when its file names none. A seat whose agent is not on this machine
@@ -236,7 +241,9 @@ def seats_of(
     }
 
 
-def persona(root: Path, path: Path, here=project.agent_here) -> dict[str, object]:
+def persona(
+    root: Path, path: Path, here: Callable[[str], bool] = project.agent_here
+) -> dict[str, object]:
     """One persona as the panel reads it: its stem and file, its seats, and `person`, the file a
     persona's agent reads as who it is: the file itself, or, when it has a frontmatter, its text
     without it, written once in Lem's state folder."""
@@ -264,7 +271,7 @@ def persona(root: Path, path: Path, here=project.agent_here) -> dict[str, object
     }
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> typing.NoReturn:
     print(f"cast: {message}", file=sys.stderr)
     sys.exit(1)
 
@@ -272,11 +279,12 @@ def fail(message: str) -> None:
 def configure(root: Path) -> None:
     """Take the places of the personas and the profile from the project's settings, which this checks
     first: a settings file that does not read stops the panel."""
-    global PROJECT_CAST, PROJECT_PROFILE
+    global PROJECT_CAST, PROJECT_PROFILE  # noqa: PLW0603 - the places hold for the whole run, and every reader takes them from here
     done = subprocess.run(
         [sys.executable, "-B", str(PROJECT_SETTINGS), "--repo", str(root), "show"],
         capture_output=True,
         text=True,
+        check=False,
     )
     if done.returncode != 0:
         fail(done.stderr.strip() or "could not read the project's settings")
@@ -288,7 +296,7 @@ def configure(root: Path) -> None:
 
 def git(cwd: Path, *args: str) -> str:
     done = subprocess.run(
-        ["git", "-C", str(cwd), *args], capture_output=True, text=True
+        ["git", "-C", str(cwd), *args], capture_output=True, text=True, check=False
     )
     return done.stdout.strip() if done.returncode == 0 else ""
 
@@ -341,7 +349,9 @@ def default_refs(root: Path) -> list[str]:
     for name in names:
         local, upstream = f"refs/heads/{name}", f"refs/remotes/origin/{name}"
         pair = [ref for ref in (local, upstream) if commit_of(root, ref)]
-        if len(pair) == 2 and commit_of(root, local) != commit_of(root, upstream):
+        if pair == [local, upstream] and commit_of(root, local) != commit_of(
+            root, upstream
+        ):
             local_is_behind = (
                 subprocess.run(
                     [
@@ -353,6 +363,7 @@ def default_refs(root: Path) -> list[str]:
                         local,
                         upstream,
                     ],
+                    check=False,
                 ).returncode
                 == 0
             )
@@ -383,6 +394,7 @@ def default_branch_cast(root: Path) -> tuple[str, Path, str] | None:
                 body = subprocess.run(
                     ["git", "-C", str(root), "show", f"{sha}:{name}"],
                     capture_output=True,
+                    check=False,
                 )
                 if body.returncode:
                     fail(
@@ -412,7 +424,8 @@ def follows_default(root: Path, ref: str, path: str) -> bool:
     if not base:
         return False
     committed = subprocess.run(
-        ["git", "-C", str(root), "diff", "--quiet", base, "HEAD", "--", path]
+        ["git", "-C", str(root), "diff", "--quiet", base, "HEAD", "--", path],
+        check=False,
     ).returncode
     pending = git(root, "status", "--porcelain", "--untracked-files=all", "--", path)
     if committed or pending:
@@ -448,10 +461,8 @@ def read_now(copy: Path) -> None:
     """Write the time of this read on a copy in the state folder: `lem project prune` removes a copy
     by its last write, so a copy a panel still reads stays. A copy that cannot take the time is read
     all the same."""
-    try:
+    with contextlib.suppress(OSError):
         os.utime(copy)
-    except OSError:
-        pass
 
 
 def profile(root: Path) -> dict[str, str] | None:
@@ -472,7 +483,9 @@ def profile(root: Path) -> dict[str, str] | None:
         ):
             break
         body = subprocess.run(
-            ["git", "-C", str(root), "show", f"{sha}:{there}"], capture_output=True
+            ["git", "-C", str(root), "show", f"{sha}:{there}"],
+            capture_output=True,
+            check=False,
         )
         if body.returncode:
             fail(
@@ -501,9 +514,11 @@ def resolve(root: Path) -> dict[str, object]:
         raise AssertionError
     # each persona's seats and the text its agent reads, from the files of the cast that was found
     try:
+        # pick() lists the personas as a list of records
+        listed = typing.cast("list[dict[str, object]]", found_cast["personas"])
         found_cast["personas"] = [
-            persona(root, Path(str(one["path"]))) for one in found_cast["personas"]
-        ]  # type: ignore[union-attr]
+            persona(root, Path(str(one["path"]))) for one in listed
+        ]
     except CastError as error:
         fail(str(error))
     return found_cast
@@ -569,11 +584,11 @@ def init(root: Path) -> None:
 
 
 def run_dir(root: Path, slug: str) -> None:
-    if not slug or "/" in slug or slug.startswith(".") or slug.startswith("-"):
+    if not slug or "/" in slug or slug.startswith((".", "-")):
         fail(f"a slug is one plain path segment, not {slug!r}")
     panels = cache(root, PANELS)
     panels.mkdir(exist_ok=True)
-    target = panels / f"{datetime.date.today().isoformat()}-{slug}"
+    target = panels / f"{dt.date.today().isoformat()}-{slug}"  # noqa: DTZ011 - a panel's folder is named for the owner's local day
     if target.exists():
         fail(f"{target} already exists; add a suffix such as -2 to the slug")
     target.mkdir()
@@ -594,7 +609,7 @@ def main(argv: list[str]) -> None:
         print(json.dumps(resolve(root), indent=2))
     elif argv == ["init"]:
         init(root)
-    elif len(argv) == 2 and argv[0] == "run-dir":
+    elif argv[:-1] == ["run-dir"]:
         run_dir(root, argv[1])
     else:
         fail(f"unexpected arguments {argv!r}; see the usage in this script's docstring")
