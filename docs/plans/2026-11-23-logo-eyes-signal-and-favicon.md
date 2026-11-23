@@ -33,6 +33,67 @@ Size: full, because the change redraws the animation of both scenes, links a sec
 2. **The tab icon.** Criterion 6. In `site/index.html` the icon lines give `assets/lem-mark.svg` to a light theme and to a browser that does not choose by theme, and `assets/lem-mark-night.svg` to a dark theme. Two lines, in this order: first `assets/lem-mark-night.svg` with `media="(prefers-color-scheme: dark)"`, then `assets/lem-mark.svg` with `media="(prefers-color-scheme: light)"`, both `type="image/svg+xml"`. The HTML standard (link type "icon") says that the user agent selects "the most appropriate icon according to the type, media, and sizes attributes", and "If there are multiple equally appropriate icons, user agents must use the last one declared in tree order": so a browser that reads `media` finds one icon that applies in each theme, and a browser that ignores `media` finds two equal icons and takes the last, the day mark. A day line with no `media` would apply in a dark theme too and, as the last, win there. The board's two lines in `skills/lem/scripts/lem_board_pages.py` take the same form, one `media` on each, with the light line first. The check of the page's icon lines holds this order and these `media` values. `.github/workflows/pages.yml` copies `assets/lem-mark-night.svg` too. `tests/test-site.sh`: the published list (`want`) holds `assets/lem-mark-night.svg`, and a check reads the page's icon lines. The two marks themselves do not change, so `skills/lem/assets/handover.html` and the board's inlined marks stay. Files: `site/index.html`, `.github/workflows/pages.yml`, `tests/test-site.sh`.
 3. **The documents.** Criterion 7, the rest. The alt text of the logo in `README.md` and in `site/index.html`, the same words in both, says first that it is Lem's logo and stays short. The logo's bullet in `docs/rulings/rulings.md` names the signal from Lem's hands and the red eyes of its four agents in place of "the current on the wire" and "one red eye", and gains the day 2026-11-23. The status line of `docs/plans/2026-11-21-hero-logo-animated-background.md` names this plan where it changed that plan's criteria 3, 5 and 7. A sweep of `README.md`, `docs/`, `site/`, `AGENTS.md` and `skills/` for any other text that describes the pulse, the lit tiles or one red eye, each corrected. Files: `README.md`, `site/index.html`, `docs/rulings/rulings.md`, `docs/plans/2026-11-21-hero-logo-animated-background.md`.
 
+## Plan talk
+
+Argued by the reviewer, Codex `gpt-6.2-sol` at high effort as its pane's status line showed them
+("GPT 6.2 Sol high"), and the defender, Claude Opus 5.5 at high effort (the `defender:` line of
+the task's state). Seven turns: the request, the reviewer's list of six questions, one answer of
+each side on each question, a second answer of each side on questions 1 and 3, and the close.
+The repairs are commit 9d5ad0ca.
+
+1. **The page's crop at 390 px cuts the left outer agent.** The left outer hood is at frame x 280
+   to 288 (`translate(34 204) scale(.6)` inside `translate(224 40) scale(1.6)`, `assets/lem.svg`),
+   and `.hero`'s `--scene` in `site/style.css` shows x 320 to 1280 at 390 px, so a Pages visit on
+   a phone loses that agent's signal and eye. Repaired with the decision "The page's crop stays as
+   it is", which names the limit. The reviewer held: the earlier plan's criterion 2 asks for a side
+   crop, not for its amount, and this task's criterion 2 names a Pages visit and the outer eyes.
+   The defender refuted: the amount is set, `docs/plans/2026-11-21-hero-logo-animated-background.md`
+   task 2 ("the page uses 260 px (decision 18)"), and this task's criteria name no width; showing
+   the outer agent at 390 px takes a hero of about 240 px, which reopens that decision and its
+   contrast checks. Held a second time: a design choice, the kept crop against a lower hero.
+   `stages/plan.md`, step 5, takes it.
+2. **The short run from the hands to the pegs moves light along the wire.** The plan's first
+   decision runs the glow on the wire between the hands (x 118 to 142) and the pegs (x 81.5 and
+   178.5, then 42 and 218). The reviewer: criterion 3's "no pulse runs along the wire" bans that
+   too; the other route is a glow at the hands, then a glow that starts at the top of each string.
+   The plan: criterion 3 opens "Nothing else", which leaves out criterion 2's glow, and criterion
+   2's "leaves both of Lem's hands … runs down the four strings" needs a path from the hands to the
+   pegs. What a visitor sees under each route is not the two agents' to settle: open, not argued
+   further; `stages/plan.md`, step 5, takes it with both positions.
+3. **The icon order.** The plan's guess, a day line with no `media` and a dark line after it,
+   gives a browser that ignores `media` the night mark, since the HTML standard (link type
+   "icon") has the user agent "use the last one declared in tree order" among equal icons.
+   Repaired at the cause: the night mark with `media="(prefers-color-scheme: dark)"` first, the
+   day mark with `media="(prefers-color-scheme: light)"` last. The reviewer held on the repair's
+   new text: a browser that reads `media` and does not know the feature matches neither line, and
+   criterion 6 gives such a browser the day mark. The defender refuted with the input priced: in
+   the Can I Use data (`caniuse-lite` 1.0.30001547, features `link-icon-svg` and
+   `prefers-color-scheme`) that browser is Firefox 41 to 66 alone, out of support since 2019, and
+   it would show no tab icon. The reviewer held: the gap is real though cheap, and that copy of
+   the data ends its Safari entries at 17.1, so it shows nothing of current Safari. Held a second
+   time: a design choice, the two lines against three (the day mark with no `media` first, then
+   the two lines of the repair). `stages/plan.md`, step 5, takes it.
+4. **The still scene with no unlit dot has no agents' eyes.** The plan let the builder draw no
+   unlit dot, and under reduce motion the lit eyes rest at `opacity: 0`, so criterion 1 fails in
+   the still scene of criterion 5. Repaired at the cause: each eye has an unlit dot of `#ff2a1a`
+   that no animation touches, under its lit element. Settled (the reviewer: closed, at the cause),
+   settled by the two, not checked by the review.
+5. **A check of order alone passes an eye that lights late.** Repaired at the cause: the check
+   holds one departure moment for both hands, one moment for the inner pair and a later one for
+   the outer pair, and each eye's start within 0.2 s of its strand's computed arrival. Settled
+   (closed, at the cause), settled by the two, not checked by the review.
+6. **`python3 assets/night.py` with no paths exits with its usage line.** Repaired: the command
+   is `python3 assets/night.py assets/lem.svg assets/lem-night.svg`, as `tests/lem-settings.sh`
+   runs it; the reviewer ran it and its output matched the committed night scene byte for byte.
+   Settled, settled by the two, not checked by the review.
+
+No mechanism was added: the repairs changed decisions of the plan (3, 4 and 5 at the cause) or
+named one (1). No question was raised after the first turn, and no addition was refused.
+
+What changed in the plan, by task: task 1, the agents' eyes (question 4), the checks of the
+signal's times (question 5) and the night command (question 6); task 2, the icon lines and their
+check (question 3); the decisions, "The page's crop stays as it is" (question 1).
+
 ## Decisions
 
 - **The glow runs on the wire only between the hands and the agents' pegs.** The strands hang from pegs on the wire (x 42, 81.5, 178.5, 218), and the hands hold the wire at x 118 to 142, so a signal from the hands to the strands has to cross that piece. It stops at the outer pegs and never reaches the left end or the word's pegs. It rests on criterion 2 ("leaves both of Lem's hands … runs down the four strings") and reads criterion 3's "no pulse runs along the wire" as the long pulse of today. The other reading, a glow at the hands and then a glow that starts at the top of each strand, is open to the plan talk.
