@@ -6,7 +6,7 @@ careful: yes, because the checks start to remove files from a task's worktree be
 
 Size: full, because the change removes files from a task's worktree before the checks, a careful part of the landing.
 
-1. Before the checks run their first command, Lem removes each `__pycache__` folder of the task's worktree that git ignores, and nothing else that git ignores; the output of `lem land checks` names each folder it removed.
+1. Before the checks run their first command, Lem removes each `__pycache__` folder of the task's own worktree that git ignores by itself, and nothing else: a `__pycache__` inside a folder that git ignores as a whole, such as `.venv/`, stays with that folder; the output of `lem land checks` names each folder it removed.
    1. A builder of task X ran `python3 -m unittest tests.unit.test_land` in X's worktree, without `-B`, and left `skills/lem/scripts/__pycache__/land.cpython-315.pyc` there.
    2. X's worktree also holds an ignored `.env`, and an ignored `.venv/` folder with a `__pycache__` folder inside it.
    3. `lem land checks X` runs, and its first command, `bash tests/all.sh`, starts with no `skills/lem/scripts/__pycache__` in the worktree.
@@ -29,6 +29,7 @@ Size: full, because the change removes files from a task's worktree before the c
 - **The fix is in the checks, not only in the builder's text.** Rule 10 of `agents/lem-builder.md` already asks a builder to remove a `__pycache__` of its runs, and in moved-base-merge-agent-call (2026-11-22) two builders left one all the same; its test, `git status --short`, shows no ignored file. A text that a builder already missed twice is no fix; one call of git before the first command is. Cost on a small task: one `git ls-files` per run of the checks (unmeasured estimate: well under a second).
 - **Only a folder named `__pycache__` that git lists as ignored on its own goes.** Python writes it and rebuilds it from the source, so its removal loses nothing. Every other ignored file may be the developer's (`.env`) or a setup's output (`node_modules/`, `.venv/`), and Lem cannot tell those from a leftover. A `__pycache__` inside an ignored folder is part of that folder and stays.
 - **The builder texts stay as they are.** Rule 10 of `agents/lem-builder.md`, `prompts/small.md`, `prompts/investigator.md` and `prompts/review.md` ask for an empty `git status --short`, which is still true of what git does not ignore; the ignored bytecode is now the checks' to remove.
+- **The pull request gets no line for a removed cache** (the owner's answer B1, 2026-11-23): a removed cache changes no result of the change's code, and the checks' output and log keep the line.
 - **The four suites' own check for a `__pycache__` stays** (decision 1 of the task's record): it catches a script that writes bytecode during the run, and step 6 of the criterion keeps that.
 
 ## What this plan does not verify
