@@ -12,12 +12,12 @@ line as written. The settings refuse a reviewer's seat with no model or no effor
 is there names all three. The effort is the one of its pane for the plan talk, which is the one
 thing this pane opens for.
 When the settings name no reviewer (each part null), ask the owner once and write the answer into
-`.lem/project.toml` as that line, whole.
+`.lem/settings.toml` as that line, whole.
 
 The seat may be this machine's own for a while: the usual reviewer is down, or out of tokens.
 `/lem reviewer AGENT/MODEL:EFFORT` (`/lem reviewer codex/gpt-6.2-sol:high`, or `/lem reviewer
 claude/opus:high`) runs `lem project reviewer` with that seat, which
-writes it into `.lem/project.local.toml` in the same form, a file git does not track; `/lem
+writes it into `.lem/settings.local.toml` in the same form, a file git does not track; `/lem
 reviewer default` removes it. Never change the seat by yourself. When the reviewer does not answer, or
 says it is out of tokens, ask the owner once whether the other agent reviews for now, and write
 the seat on his yes. While `lem project show` lists `seats.reviewer` under `local.overrides`,

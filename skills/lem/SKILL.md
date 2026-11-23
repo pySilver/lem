@@ -1,6 +1,6 @@
 ---
 name: lem
-description: "Lem coordinates the work of coding agents in one repository: `/lem new`, `plan`, `build`, `land`, `night`, `status`, `serve`, `reviewer`, `learn`, `retro` and `init`, or `/lem` followed by an ask in plain words. Each task gets an agterm session of its own, from its shape with the owner to its merge, with a fresh agent at each change of phase: a lead and its builders on the standard track, one builder on the fast track. Each branch goes through the machine checks and a review to a pull request that says green or not green, many at the same time, and a merge agent reads it. It reads the repository's own settings (`.lem/project.toml`: checks, what must never go wrong, who lands) and its personas, lessons, rulings and rules, and gives a change that reaches what must never go wrong the full review and a person's merge. Use when the user says \"lem\", \"/lem\", \"lem new\", \"lem status\", \"lem serve\", \"put the board on my phone\", \"lem land\", \"lem night\", \"lem init\", \"lem retro\", \"ask Lem\" or \"tell Lem\"."
+description: "Lem coordinates the work of coding agents in one repository: `/lem new`, `plan`, `build`, `land`, `night`, `status`, `serve`, `reviewer`, `learn`, `retro` and `init`, or `/lem` followed by an ask in plain words. Each task gets an agterm session of its own, from its shape with the owner to its merge, with a fresh agent at each change of phase: a lead and its builders on the standard track, one builder on the fast track. Each branch goes through the machine checks and a review to a pull request that says green or not green, many at the same time, and a merge agent reads it. It reads the repository's own settings (`.lem/settings.toml`: checks, what must never go wrong, who lands) and its personas, lessons, rulings and rules, and gives a change that reaches what must never go wrong the full review and a person's merge. Use when the user says \"lem\", \"/lem\", \"lem new\", \"lem status\", \"lem serve\", \"put the board on my phone\", \"lem land\", \"lem night\", \"lem init\", \"lem retro\", \"ask Lem\" or \"tell Lem\"."
 ---
 
 # Lem
@@ -224,8 +224,8 @@ so do the end of a command it runs in the background and a wake-up from the boar
   its report, and the owner may overrule a "no" at any time before the landing. The `[flow]`
   table is read from the main checkout's settings, also in a task's worktree (as the base branch's
   commit has them while another branch is checked out there), so a branch cannot lift what guards
-  it, and a change that edits `.lem/project.toml` at all, or puts the
-  machine's own `.lem/project.local.toml` into git, is careful by the landing's own rule: the file is Lem's, it says who merges and where a task lands as well
+  it, and a change that edits `.lem/settings.toml` at all, or puts the
+  machine's own `.lem/settings.local.toml` into git, is careful by the landing's own rule: the file is Lem's, it says who merges and where a task lands as well
   as what is careful and what the checks run, and a task rarely edits it.
 - **No count of tasks stops a start.** By day each start is the owner's own request: "Why block
   him?" (2026-11-18). `lem project may-start SLUG` refuses only a task that gets no lead (in

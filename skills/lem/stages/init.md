@@ -15,7 +15,7 @@ drafts wait for you` when the hand-over page is shown, and at the end `landed` o
 the three replies below say. The first onboarding in Lem's own repository wrote none, and
 every later status listed a task whose state nobody wrote (2026-11-17).
 
-On a repository that already has `.lem/project.toml`, `/lem init` finishes an onboarding: it
+On a repository that already has `.lem/settings.toml`, `/lem init` finishes an onboarding: it
 changes no setting that is there. Run step 1, skip the command of step 4 (it refuses a settings
 file that exists, and that is right), and do steps 2, 3 and 5 only for what is missing or
 unfinished: a path `lem project show` marks as not existing, and a cast of fewer than two
@@ -133,7 +133,7 @@ for a yes. Stop after the third.
 lem project init --base BRANCH --codex yes
 ```
 
-Then edit `.lem/project.toml` with the three answers and the assumptions of step 6:
+Then edit `.lem/settings.toml` with the three answers and the assumptions of step 6:
 
 - the commands of the checks from `examined.md`. `checks.commands` is the whole suite, which runs one time,
   in the checks before the pull request; no builder runs it. When git hooks run at a commit,
@@ -168,7 +168,7 @@ Then edit `.lem/project.toml` with the three answers and the assumptions of step
   what Lem writes to an issue a task came from (an assignee at the start, one comment at the end,
   the close at a landing), which the repository shows to everyone who can read it. For a
   repository on GitHub whose issues are on and hold no issue, the page says so in one line, and
-  that `[tracker]` with `kind = "github"` in `.lem/project.toml` connects them later;
+  that `[tracker]` with `kind = "github"` in `.lem/settings.toml` connects them later;
 - the seats, each whole, as `agent/model:effort`: the command writes them, with `--codex no` when
   step 1 found no Codex. The reviewer is Codex when step 1 found it, since two model families
   disagree more usefully than one family twice and a reviewer on another provider's quota does not
@@ -242,7 +242,7 @@ persona file that is there is overwritten.
 - **The checks of a new project** do not exist yet. Leave `checks.commands` empty and name "set up
   the checks" (formatter, linter, type checker, a first test) as the task to run first: no task
   lands through this skill before it. That task's branch writes the commands into
-  `checks.commands` of its own `.lem/project.toml`, and the landing checks it with them
+  `checks.commands` of its own `.lem/settings.toml`, and the landing checks it with them
   (`stages/land.md`, step 1); its pull request is not green, so that the owner reads the checks. The onboarding's own branch is not a task: it holds
   settings and drafts, and step 6 lands it.
 - **The review configuration**: the review tool's own starter set, in the review tool's own

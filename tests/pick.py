@@ -97,7 +97,11 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     (("AGENTS.md", "docs/rulings/*", "docs/plans/2026-11-21-rulings-as-one-list.md"), ("unit",)),
     # The install guide's table of tools, whose tier words tests/unit/test_doctor.py checks against doctor.py
     (("docs/install.md",), ("unit",)),
-    # What no suite reads, except docs/rulings/, the plan of the list and docs/install.md, which the rows above give the unit level;
+    # The texts tests/unit/test_settings_files.py reads for a settings file's old name, and the settings page,
+    # whose table of where each table is valid it checks against lem_state.TABLE_PLACES
+    (("README.md", "site/*", "bin/*", "hooks/*", "docs/flow.md", "docs/when-lem-needs-you.md", "docs/pull-request.md", "docs/board.md",
+      "docs/linear.md", "docs/github-issues.md", "docs/settings.md", "docs/free-hour.md"), ("unit",)),
+    # What no suite reads, except docs/rulings/, the plan of the list, README.md and the guides, which the rows above give the unit level;
     # tests/clock/ is a late clock that a criterion's command puts on PYTHONPATH or PATH, and tools/ is the maintainer's build of the board's kit, whose built files are under skills/lem/assets/.
     (("tools/*", "docs/*", "README.md", "CLAUDE.md", "LICENSE", "NOTICE", ".gitignore", ".lem/*", ".revmux/*", ".github/*",
       "assets/*", "tests/clock/*"), ()),

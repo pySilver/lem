@@ -61,8 +61,8 @@ BLOCK = re.compile(r'tests/(?P<file>[\w-]+\.sh): "(?P<text>[^"]+)"')
 SCRIPT = re.compile(r"(?P<file>skills/\S+\.py): (?P<name>\w+)")
 # The paths the list names in another repository, each with where it is.
 ELSEWHERE = {".claude/rules": "the folder of rules in a project that adopts Lem"}
-# The paths git ignores (`.lem/.gitignore`), which a clone never holds: one machine's settings, by its name and by the name the rulings list still gives it.
-IGNORED = (".lem/settings.local.toml", ".lem/project.local.toml")
+# The paths git ignores (`.lem/.gitignore`), which a clone never holds: one machine's settings.
+IGNORED = (".lem/settings.local.toml",)
 # The files that may name a file the list took the place of: the record of the task that made those
 # files, and the plan of the move, whose table names each.
 MAY_NAME = ("docs/plans/2026-11-21-agents-md-read-on-demand/map.json", "docs/plans/2026-11-21-rulings-as-one-list.md")

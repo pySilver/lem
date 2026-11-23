@@ -215,7 +215,7 @@ with each of its lines and that one. Your report says the same. A task he named 
       but stays live in its pane (a usage limit, a question on its screen) ends no wait: the board
       shows `the plan talk runs` until the owner looks at the pair.
    A task that becomes careful after its plan, by the owner's word, by the review's call or
-   by an edit of `.lem/project.toml`, gets no talk afterwards: the landing's full
+   by an edit of `.lem/settings.toml`, gets no talk afterwards: the landing's full
    review reads the code that exists.
 5. **A decision of the plan in doubt climbs the ladder, and the work goes on.** A decision the
    lead may take is logged with `--by lead` (`stages/build.md`, "A choice in the build", step 1).

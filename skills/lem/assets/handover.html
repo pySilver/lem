@@ -234,8 +234,8 @@
     <h2>Read these three first</h2>
     <p>Each is a draft. I open them for you one after the other, and your notes are my corrections.</p>
     <ol class="reads">
-      <li><b>What must not go wrong</b><span>a sentence for each, in your words: <code>flow.topics</code> in <code>.lem/project.toml</code></span></li>
-      <li><b>The checks</b><span><code>checks.commands</code> in <code>.lem/project.toml</code></span></li>
+      <li><b>What must not go wrong</b><span>a sentence for each, in your words: <code>flow.topics</code> in <code>.lem/settings.toml</code></span></li>
+      <li><b>The checks</b><span><code>checks.commands</code> in <code>.lem/settings.toml</code></span></li>
       <li><b>The people</b><span><code>.lem/personas/NAME.md</code>, and each one that is a thin guess for you to correct</span></li>
     </ol>
   </section>
@@ -253,7 +253,7 @@
   </section>
 
   <section class="box">
-    <h2>The settings <span class="n mono">.lem/project.toml</span></h2>
+    <h2>The settings <span class="n mono">.lem/settings.toml</span></h2>
     <table>
       <thead><tr><th>Setting</th><th>Value</th><th>From</th></tr></thead>
       <tbody>
@@ -308,11 +308,12 @@
 
   <section class="box quiet">
     <h2>Offers: say one by its name</h2>
-    <!-- one line each, none a question: the correction queue with what a yes sends where (a yes
-         puts corrections.collect = true into the settings draft; the hook comes with the plugin), each
-         recommended tool that is absent with its guide, cronn, the scheduled jobs, the paragraph
-         for AGENTS.md, and the allow rules when a new session here starts in no auto mode, with the
-         line that takes them: ! cp .lem/state/tasks/onboarding/settings.proposed.json .claude/settings.local.json -->
+    <!-- one line each, none a question: each recommended tool that is absent with its guide,
+         cronn, the scheduled jobs, the paragraph for AGENTS.md, and the allow rules when a new
+         session here starts in no auto mode, with the line that takes them:
+         ! cp .lem/state/tasks/onboarding/settings.proposed.json .claude/settings.local.json
+         The correction queue is no offer: its switch is the machine's, and step 6 of init asks about
+         it before this page, on the first onboarding of a machine only. -->
     <ul>
       <li><b>NAME</b> WHAT IT GIVES, AND WHAT A YES DOES</li>
       <li><b>naps</b> now and then, after a task ends, an agent reads the recent tasks and leaves a note for the retro. It costs an agent's session of some minutes, a few times a day while Lem works, and nobody has shown that it helps. A yes sets <code>naps.on = true</code>.</li>

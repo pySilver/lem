@@ -177,10 +177,10 @@ Each script's module docstring says what it does and why; this list says where e
 - `skills/lem/harness/`: the capability contract, `README.md`, and one file for each agent, a core with
   its parts in a folder of the agent's name (`claude-code/`).
 - `skills/lem/scripts/`, each a command of `lem` or a module the commands share:
-  - `project.py` (`lem project`): a repository's settings and the one place of each file Lem reads
-    beside them (`PLACES`), a task's state and directory, the event log, the owner's status and its
+  - `project.py` (`lem project`): Lem's settings from four files (`lem_state.TABLE_PLACES`, where
+    each table is valid), the one place of each file Lem reads beside them (`PLACES`), a task's state and directory, the event log, the owner's status and its
     watch, `waiting` (the one list of what waits for the owner), `prune` (what the state folder
-    keeps, `state.keep_days`, which one machine's `.lem/project.local.toml` may set for itself),
+    keeps, `state.keep_days`, which one machine's `.lem/settings.local.toml` may set for itself),
     `proposals` (the night's and the retro's proposals, the reviewer's verdicts, the owner's drop),
     and the machine's `load` and `handoff` numbers.
   - `session.py` (`lem session`): a task's own session in agterm, its change of phase, its wake-up,
@@ -224,14 +224,16 @@ Each script's module docstring says what it does and why; this list says where e
   runs: the built files are committed. Its `README.md` says how to build and how to add a Stimulus
   controller to `controllers/`.
 - Lem's home folder, `$XDG_CONFIG_HOME/lem` or `~/.config/lem` (`lem_state.config()`):
-  `owner.jsonl`, the owner's away and back; `machine.toml`, this machine's settings, `[load]`,
-  `[serve]`, `[peers]`, `[seats]` (`merger` and `session`, for a repository whose settings name
-  none) and `[handoff]`; `workspaces.json`, the repositories the server shows; and what the server
-  and the checks keep there: `serve.lock`, `serve.log`, `load.lock`, `load.line/` (the line of the
-  runs of the checks that wait for the load, one locked file for each), the push key `push-key.pem`
-  and the devices `push.json`.
-- `.lem/`: Lem's own settings, profile, cast and lessons, in the places every repository has them.
-  Its `state/`, which git ignores, is the state of a repository's Lem: the tasks, the event log,
+  `owner.jsonl`, the owner's away and back; `machine.toml`, the machine's settings, which no
+  file overrides, `[load]`, `[serve]`, `[peers]`, `[handoff]` and `[corrections]`, written through
+  `lem_state.write_machine`; `settings.toml`, the developer's own for every repository, `[seats]`
+  (which a repository's files override) and `[ask]`, the question page's defaults;
+  `workspaces.json`, the repositories the server shows; and what the server and the checks keep
+  there: `serve.lock`, `serve.log`, `load.lock`, `load.line/` (the line of
+  the runs of the checks that wait for the load, one locked file for each), the push key
+  `push-key.pem` and the devices `push.json`.
+- `.lem/`: Lem's settings (the team's `settings.toml` and one developer's
+  `settings.local.toml`), profile, cast and lessons, in the places every repository has them. Its `state/`, which git ignores, is the state of a repository's Lem: the tasks, the event log,
   the night reports, the records of the night's and the retro's proposals (`night/` and `retros/`,
   a file for each day), the reviewer's backlog items (`backlog/`) and `proposals.lock` over both,
   the naps, the experts' folders, a panel's copies, the panels' folders (`panels/`, which
@@ -250,8 +252,9 @@ Each script's module docstring says what it does and why; this list says where e
   of under 800 words, or a bit more when needed: `flow.md` (how a task goes, with the one diagram), `when-lem-needs-you.md`,
   `pull-request.md` (what green means, the merge review, the merge, a conflict), `board.md` (the
   board, the phone, two machines under one address, the server), `install.md`, `linear.md` and
-  `github-issues.md`; and `settings.md`, the reference, one table for each table of the settings,
-  one to one with `project.py` (`tests/lem-settings.sh` checks it). How Lem works inside is in this file and the
+  `github-issues.md`; and `settings.md`, the reference, one table for each file and each table of
+  the team's file, one to one with `project.py` (`tests/lem-settings.sh` and
+  `tests/unit/test_settings_files.py` check it). How Lem works inside is in this file and the
   skill. Beside them: `free-hour.md` (how the night of this repository searches and proposes),
   `rulings/`, with `rulings.md`, the list of the owner's rulings and of the session's choices open
   to him, and `history.md`, what a test or one place holds of them, `backlog/`, Lem's own deferred

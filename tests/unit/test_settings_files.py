@@ -1,13 +1,17 @@
 """The four files of Lem's settings, as calls of the functions that hold their rules: where each table is
 valid (`lem_state.TABLE_PLACES`), which file wins for a setting more than one may hold (`project.decide`),
 and how `machine.toml` is written (`lem_state.write_machine`). Which checkout supplies a repository's two
-files is a fact only git shows, and tests/lem-settings.sh checks it with `lem project show`.
+files is a fact only git shows, and tests/lem-settings.sh checks it with `lem project show`. The texts of
+Lem name the files by these names only, and the settings page's table of where each table is valid is
+the map's.
 
     python3 -B -m unittest discover -s tests/unit
 """
 
 import os
+import re
 import runpy
+import subprocess
 import sys
 import tempfile
 import threading
@@ -21,6 +25,19 @@ import lem_state  # noqa: E402
 import project  # noqa: E402
 
 ROOT = Path("/lem-unit/repo")
+LEM = Path(__file__).resolve().parents[2]
+# The texts of Lem that name a settings file: the skills, the command, the hooks, the README, the
+# agent document, the site and the guides. A plan, a backlog item and the history of the rulings keep
+# the names of their day.
+TEXTS = ("skills/", "bin/", "hooks/", "README.md", "AGENTS.md", "site/", "docs/")
+OLD_TEXTS = ("docs/plans/", "docs/backlog/", "docs/rulings/history.md")
+# A name of the settings file before 2026-11-23, and not `pyproject.toml`.
+OLD_NAME = re.compile(r"(?<![\w-])project(?:\.local)?\.toml")
+PAGE = LEM / "docs/settings.md"
+# The heading of each file in the settings page's table of where each table is valid, as its place in
+# `lem_state.TABLE_PLACES`.
+PAGE_FILES = {"~/.config/lem/machine.toml": "machine", "~/.config/lem/settings.toml": "home",
+              ".lem/settings.toml": "team", ".lem/settings.local.toml": "local"}
 
 
 class Home(unittest.TestCase):
@@ -208,6 +225,38 @@ class MachineFile(Home):
         writer.join(10)
         self.assertTrue((lem_state.config() / lem_state.MACHINE_LOCK).is_file())
         self.assertEqual(lem_state.machine_tables(), {"serve": {"port": 4500}, "load": {"start": 6}, "handoff": {"tokens": 0}})
+
+
+class Texts(unittest.TestCase):
+    def test_no_text_of_lem_names_project_toml_or_project_local_toml(self):
+        listed = subprocess.run(["git", "-C", str(LEM), "ls-files", "--", *TEXTS], capture_output=True, text=True, check=False)
+        self.assertEqual(listed.returncode, 0, f"git ls-files failed in {LEM}: {listed.stderr.strip()}; run the test in a clone of Lem")
+        files = [name for name in listed.stdout.split() if not name.startswith(OLD_TEXTS)]
+        self.assertIn("docs/settings.md", files)
+        for name in files:
+            try:
+                text = (LEM / name).read_text(encoding="utf-8")
+            except (UnicodeDecodeError, FileNotFoundError):
+                continue
+            for number, line in enumerate(text.split("\n"), 1):
+                if OLD_NAME.search(line):
+                    with self.subTest(file=name, line=number):
+                        self.fail(f"{name}:{number} names {OLD_NAME.search(line)[0]}: the settings are .lem/settings.toml, "
+                                  f".lem/settings.local.toml and ~/.config/lem/settings.toml")
+
+    def test_the_settings_page_says_where_each_table_is_valid_as_the_map_does(self):
+        text = PAGE.read_text(encoding="utf-8").split("\n## Where each table is valid\n", 1)
+        self.assertEqual(len(text), 2, 'docs/settings.md has no section "Where each table is valid"')
+        rows = [[cell.strip() for cell in line.strip().strip("|").split("|")] for line in text[1].split("\n## ", 1)[0].split("\n") if line.startswith("|")]
+        self.assertGreater(len(rows), 2, "the section holds no table")
+        places = [PAGE_FILES.get(cell.strip("`")) for cell in rows[0][1:]]
+        self.assertEqual(sorted(filter(None, places)), sorted(PAGE_FILES.values()), f"the table's files are {rows[0][1:]}")
+        found = {}
+        for row in rows[2:]:
+            for table in re.findall(r"`\[(\w+)\]`", row[0]):
+                found[table] = tuple(place for place, cell in zip(places, row[1:]) if cell != "no")
+        self.assertEqual({table: tuple(sorted(valid)) for table, valid in found.items()},
+                         {table: tuple(sorted(valid)) for table, valid in lem_state.TABLE_PLACES.items()})
 
 
 if __name__ == "__main__":

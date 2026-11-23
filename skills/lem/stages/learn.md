@@ -199,8 +199,9 @@ no lesson by itself.
 An optional part. A session that is corrected does not always record it, and a correction that
 is given again is what a retro is for. So a project may keep a queue: a hook asks a small
 decision model about each message the owner types, and queues the ones an agent should learn a
-lesson from. The project's settings turn it on (`corrections.collect`), and `stages/init.md` says
-how the owner agrees to it. `lem project show` says whether it is on. When it is off, skip this
+lesson from. The machine's own file turns it on, for every repository on that machine (`collect`
+under `[corrections]` of `~/.config/lem/machine.toml`), and `stages/init.md` says how the owner
+agrees to it. `lem project show` says whether it is on. When it is off, skip this
 section.
 
 ```bash
