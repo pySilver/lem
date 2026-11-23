@@ -191,6 +191,89 @@ flowchart TD
      are approved or what the board answers.
    - `skills/lem/SKILL.md`, only where it says that a change of the criteria is approved.
 
+## Plan talk
+
+Argued by the reviewer, Codex with GPT 6.2 Sol at high effort (its pane's status line: "GPT 6.2 Sol
+high"), and the defender, Claude Code with Opus 5.5 at high effort (the `defender:` line of the
+task's state). Two model families. Seven turns: the request, the list of ten questions, the plan's
+answers, the reviewer's word, the plan's second answers, the reviewer's word, and "nothing
+further". The bound of these rules is 42 turns.
+
+The list, numbered as the reviewer gave it:
+
+1. **An approval for the old text can end the new wait.** Design choice. Repaired in task 1: the
+   change runs under `criteria.lock`, and `cmd_approve` reads the file and checks `--shown` under it.
+   The reviewer: a layer over decision 5, which holds still: the lock orders the commands, not the
+   answers, so a board Yes that commits after the session took a typed No and before its change
+   wins, while "While the owner is needed" (`prompts/session.md`) gives a board answer after the
+   session's read no effect. The plan: that Yes is his own, to the bytes he saw (`act_approve`,
+   `--shown`), and the change then refuses and the session says which answer was taken, the form
+   of that same part; the input is not realistic. Goes to the ladder (step 5).
+2. **The lead's own wait cannot use the planned change command.** Design choice. Repaired in tasks
+   1 and 3: the refusal is "the criteria have an approval" instead of "a `lead:` line", and the lead
+   writes `criteria.md` for its wait and copies an approved change into the plan. The reviewer,
+   confirmed by the plan: a task that grew from the fast track keeps its `--small` approval
+   (`stages/new.md`, "The fast track"), so the new refusal still refuses his No on its full
+   criteria. Positions: refuse with any approval, against refuse only with an approval of the
+   standard track or one after the newest held block. Goes to the ladder.
+3. **An earlier skip answer can mask the criteria No.** Settled: `answer_of_block` gives the newest
+   record of the block (task 2); two criteria waits in one second have no ordinary path
+   (`turn_of`). Settled by the two, not checked by the review.
+4. **A stop can leave the old wait with the new text.** Design choice. Repaired in tasks 1 and 3:
+   `criteria-before.json` keeps the text he answered and the block's `ts`, and a retry finishes the
+   change; the session runs the change again when the old block is still the newest. The
+   reviewer: a layer over decision 2, which holds still: after a stop inside the command,
+   `criteria_waiting` reads the new text under the old wait, and the board's Approve takes it
+   before the session shows old beside new (criterion 4). The plan: a stop inside one process
+   between two writes, then his Approve before the session runs again; his yes is to bytes he
+   read. Goes to the ladder.
+5. **An away mark can start the build without the requested Yes.** Settled: decision 6, the ruling
+   "A task runs with him or alone, and he can let go at any stage", and `stages/away.md`'s
+   `--alone`, which is never his yes. Settled by the two, not checked by the review.
+6. **A new board can offer a No that the installed session cannot take.** Design choice. Repaired
+   in task 2: `answer_row` gives no row for a task begun on an older release than the board's.
+   The reviewer: a layer over decision 1, which holds still: by age the guard also hides the rows
+   of a task of the release before when that release has the reader, at every later update. The
+   plan: that costs one release of answers in the session and loses nothing. Positions: a guard by
+   age, against a guard by the first release that has the reader. Goes to the ladder.
+7. **The Waits for you row can accept Yes without the old text.** Settled: the standard track's
+   row keeps "Read and approve…" in `row_acts` (task 2). Settled by the two, not checked by the
+   review.
+8. **The parser accepts a draft that the approval command refuses.** Settled: `lem criteria change`
+   refuses a test line as `cmd_approve` does (task 1). Settled by the two, not checked by the
+   review.
+9. **A removal changes the numbers of the criteria that follow it.** Design choice. Repaired in task
+   1: pairs by text through `SequenceMatcher`. The reviewer, confirmed by the plan: two adjacent
+   edits give one replace block of two to two, which the plan's rule shows as two removed and two
+   added, not as two changed pairs (criterion 4). Positions: the plan's rule, against a replace
+   block of N to N paired one by one. Goes to the ladder.
+10. **The pull request can lose the history of a change after the read.** Design choice. The plan
+   refuted first (`unread` compares the final digest with the read's); the reviewer held it, and
+   the plan repaired task 1: `read_line` counts the change events after the read. The reviewer: a
+   layer over decision 2, the same decision as question 4: a retry after a stop between the event
+   and the held block logs the change twice, and the count says two. Goes to the ladder.
+
+The mechanisms the repairs added, with the reviewer's word:
+
+- the change under `criteria.lock`, and `cmd_approve`'s read under it (question 1): a layer over
+  decision 5, which cites `act_approve` and `--shown` in `serve.py`;
+- `criteria-before.json` with the block's `ts`, and the retry that finishes a change (question 4):
+  a layer over decision 2, which cites criterion 1;
+- the release guard in `answer_row` (question 6): a layer over decision 1, which cites
+  `answer_row`, `act_answer` and `act_approve`;
+- the count of change events in `read_line` (question 10): a layer over decision 2;
+- the refusal by approval (question 2), the newest record of a block (question 3), the test-line
+  refusal (question 8) and the pairing by text (question 9): at the cause.
+
+Decision 2 was named by two questions, 4 and 10. No question was raised after the first turn, and
+no addition was refused as unpriced.
+
+What changed in the plan, by task: task 1 took the lock (1), the kept text and the retry (4), the
+pairing by text (9), the test-line refusal (8), the refusal by approval (2) and the count in the
+pull request (10); task 2 took the release guard (6), the newest answer of a block (3) and the row
+of "Waits for you" (7); task 3 took the session's retry (4) and the lead's `criteria.md` and copy
+(2); decision 4 names `criteria-before.json`, decision 5 the lock, and decision 6 is new (5).
+
 ## Decisions of the plan
 
 1. **The standard track's criteria row is of the kind `criterion`, the fast track's kind.** The key
