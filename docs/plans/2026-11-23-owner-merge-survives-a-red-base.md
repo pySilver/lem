@@ -13,12 +13,18 @@ Size: full, because it changes what the landing keeps when a task waits for a re
    4. The task waits as `blocked`, "the base is red", and then is `ready`, "the base is green again".
    5. `lem land start` runs, the rebase meets no conflict, and no commit comes after it.
    6. `lem land propose` prints `owner_merge` as `stands: ...`, and the board's server merges pull request 75 with no new question to the owner.
+   - test: `bash tests/lem-land-shop.sh` in `tests/lem-land-shop.sh`
 2. A wait for a red base changes nothing of what a new landing carries: the reviews, the merge agent's review, the count of new landings and a conflict's resolution carry as they carry after a moved base with no wait between. In the run of criterion 1, no second full review round runs, no fresh merge agent reads the task, and the pull request's text says what carried.
+   - test: `bash tests/lem-land-shop.sh` in `tests/lem-land-shop.sh`
 3. When the owner's standing merge cannot stand after a red base, `lem land propose` prints `owner_merge` as `ended: WHY`, never `null`:
    1. Steps 1 to 4 of criterion 1 run.
    2. After the rebase, a builder adds a commit that repairs a failed check.
    3. `lem land propose` prints `ended: ` with the reason that a commit came after the rebase, and the session tells the owner that reason in one line.
+   - test: `bash tests/lem-land-shop.sh` in `tests/lem-land-shop.sh`
 4. `lem project state SLUG ready --start-over` still starts the landing over with nothing carried, and when the owner's merge stood, the end of his merge is told to him as `ended: WHY`, with the start over as WHY: the owner's standing merge of pull request 75 does not end with no word when its landing starts over.
+   - test: `bash tests/lem-land-shop.sh` in `tests/lem-land-shop.sh`
+   - test: `python3 -B -m unittest tests.unit.test_task.StartOver` in `tests/unit/test_task.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_task.Feed.test_the_end_of_the_owners_merge_is_said_with_its_why` in `tests/unit/test_board_task.py`
 
 ## How it works
 
