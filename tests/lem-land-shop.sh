@@ -748,6 +748,32 @@ if grep -qF "the owner's merge stands, and goes through after a read that says \
 else
   fail "the owner's merge on a moved base: $pressed / $tap / $stands / $stood / $(git -C "$MBO" log -3 --format=%s main)"
 fi
+# His merge stands through a red base too: the read of what moved says another round, the new landing's checks are red
+# because the base is, so the session holds the task blocked until the base is green again and lands it again from ready;
+# the change and the reasons it is not green are the ones he saw, so propose says his merge stands.
+mb_task mb-red red.txt && mb_land mb-red
+mb_move docs/board.md >/dev/null
+land --repo "$MB" merge mb-red --by owner >/dev/null 2>&1 || true
+red_tap=$(mb_kept mb-red owner_tap 'd["tip"] == "'"$(mb_kept mb-red proposed d)"'"')
+merge_read "$MB" mb-red merge "another round" >/dev/null
+land --repo "$MB" start mb-red >/dev/null && land --repo "$MB" base mb-red >/dev/null
+project --repo "$MB" state mb-red blocked "the base is red" "after: mb-base-fix" >/dev/null
+mb_move docs/board.md >/dev/null
+project --repo "$MB" state mb-red ready "the base is green again" >/dev/null
+land --repo "$MB" start mb-red >/dev/null && land --repo "$MB" base mb-red >/dev/null && polish_in "$MB" mb-red && land --repo "$MB" checks mb-red >/dev/null
+red_due=$(land --repo "$MB" read mb-red)
+if [ "$(field 'd["due"]' <<<"$red_due")" != none ]; then
+  land --repo "$MB" read mb-red --record "$(record mb-red "$(field 'd["round"]' <<<"$red_due")" "$MB_READ")" >/dev/null
+fi
+red_again=$(land --repo "$MB" propose mb-red --title "fix: mb-red" --notes "$NOTES" 2>&1 || true)
+red_tree=$(project --repo "$MB" worktree-dir mb-red)
+if [ "$red_tap" = True ] && [ "$(field 'str(d["owner_merge"]).startswith("stands")' <<<"$red_again")" = True ] \
+  && [ "$(mb_kept mb-red owner_tap 'd and d["tip"]')" = "$(git -C "$red_tree" rev-parse HEAD)" ]; then
+  pass "the owner's merge that a moved base refused stands through a red base: the task blocked until the base is green again lands once more from ready, and propose says his merge stands on the new tip while the change and the reasons it is not green are the ones he saw"
+else
+  fail "the owner's merge through a red base: $red_tap / $red_due / $red_again / $(mb_kept mb-red owner_tap d)"
+fi
+project --repo "$MB" state mb-red dropped "the test is over" >/dev/null
 
 # A safe read never lets the merge agent merge what it may not merge today: a careful request still waits for the owner.
 mb_settings agent squash
