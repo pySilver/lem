@@ -2545,8 +2545,8 @@ def cmd_seat_again(root: Path, slug: str) -> dict:
         # the lines of the block before, without the lines of an earlier go on, which this one's replace
         kept = [line for line in before["lines"] if not line.startswith(GO_ON)]
         written = cmd_state(root, slug, before["status"], [*lines, *kept], again=True)
-        for which in seats:
-            append_event(root, "seat.again", slug, {"seat": which, "say": lines[seats.index(which)]})
+        for which, said in zip(seats, lines):
+            append_event(root, "seat.again", slug, {"seat": which, "say": said})
     return {"task": slug, "status": before["status"], "since": written["since"], **tried[0], "tried": tried, "say": "; ".join(lines)}
 
 

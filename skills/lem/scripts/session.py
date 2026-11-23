@@ -322,9 +322,10 @@ def phase_of(slug: str, status: str | None, line: str | None, track: str | None,
     if status == "queued" and not lead_started(state):
         return "shape"
     if status == "blocked":
-        newest = project.blocks_of(state)[:1] if lines is None else []
-        below = lines if lines is not None else (newest[0]["lines"][1:] if newest else [])
-        return "land" if project.failed_seat([line or "", *below]) == "merger" else "build"
+        if lines is None:
+            newest = project.blocks_of(state)
+            lines = newest[0]["lines"][1:] if newest else []
+        return "land" if project.failed_seat([line or "", *lines]) == "merger" else "build"
     if status in ("queued", "building", "planned"):
         return "build"
     return "land"
