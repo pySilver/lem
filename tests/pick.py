@@ -48,6 +48,8 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     (("skills/lem/scripts/lem_sibling.py", "skills/lem/scripts/decisions.py", "skills/lem/scripts/criteria.py"),
      ("lem-land-*", "lem-decisions", "lem-serial", "lem-settings", "lem-state", "lem-machine", "lem-command", "lem-picker", "test-ask-expert", "lem-board-act")),
     (("skills/lem/scripts/land.py",), ("lem-land-*", "lem-serial", "lem-command", "lem-board-act")),
+    # the merge brief's `tokens`, which land.py reads through lem_tokens.py
+    (("skills/lem/scripts/lem_tokens.py",), ("lem-land-*",)),
     (("skills/lem/scripts/board.py",), ("lem-serve", "lem-settings", "lem-machine", "lem-command", "lem-picker")),
     # the board server and the pages it draws, and the afternoon its block serves
     (("skills/lem/scripts/serve.py", "skills/lem/scripts/serve_hook.py", "skills/lem/scripts/lem_board_*.py", "skills/lem/scripts/lem_html.py",
