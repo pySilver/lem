@@ -125,14 +125,21 @@ The guard of a stopped session is the board server's (`serve.py`, `duties`; the 
 `landing` give `wake --why status`, which sends `lem: SLUG status`; 10 minutes more give `open --why
 stopped`, a fresh session beside the old one, which it renames `SLUG · replaced` and sends `lem: SLUG
 replaced` (logged as that session's `session.wake`); once that restart is spent, `stopped` logs
-`session.stopped`. Each of the three looks once more in the task's lock before it acts
-(`guard_check`): the task is still in one of those statuses, its newest session is the one `--session`
-names and still lives, its signs read, no shell command of it runs, and the rule still gives that step,
-so that no sign of work came since the step was due. Else it acts on nothing, exits 0 and prints
-`acted: false` with `why` (`working`, `status`, `gone` or `unread`), and the server's next look asks
-again. `open --why stopped` also acts while the task's stop stands and no sign of work came after it:
-the owner's "Open a session" on a stopped task. The status message never opens a session: a gone
-pane is the board's "No session runs this task".
+`session.stopped`. For a session whose signs do not read, the clock is the task's events and its
+newest open alone: 45 minutes with no event of the task give the status message, logged with
+`unread: true`, and 10 minutes more with none give `stopped` at once, logged with `unread: true`,
+since Lem opens no second session by itself beside a session it cannot read. Each of the three looks
+once more in the task's lock before it acts (`guard_check`): the task is still in one of those
+statuses, its newest session is the one `--session` names and still lives with an agent in its pane,
+no shell command of it runs, and the rule still gives that step, so that no sign of work came since
+the step was due. Else it acts on nothing, exits 0 and prints `acted: false` with `why` (`working`,
+`status`, `gone` or `unread`, a restart beside signs that do not read), and the server's next look
+asks again. While a stop stands, no restart is due; `open --why stopped` with no `--session` acts
+then, and when the signs read, only while no sign of work came after the stop: the owner's "Open a
+session" on a stopped task. A stop stands while no event of the task's work came after the status
+message before it, so a state block logged in the moment of the stop leaves nothing waiting, and
+`stopped` says so. The status message never opens a session: a gone pane is the board's "No session
+runs this task".
 
 `talk` copies the turns of this Claude Code session word for word: from the newest owner turn
 whose text starts with TEXT to the newest turn, each with who said it and only its text, less each
@@ -183,7 +190,7 @@ REFUSALS = {
     "working": "its session showed a sign of work since the step was due, or a shell command of it runs, or the step was taken already",
     "status": "the task is no longer in building, ready or landing",
     "gone": "the session the step was for is not the task's newest any more, or it no longer lives in agterm",
-    "unread": "its session's signs of work do not read (no transcript record of that session, or no live process of it), and Lem acts only on plain evidence",
+    "unread": "its session's signs of work do not read (no transcript record of that session, or no live process of it), and Lem opens a fresh session beside such a session only on the owner's \"Open a session\" over its logged stop",
 }
 BRIEF = "session.md"
 HANDOFF = "handoff.md"
@@ -614,24 +621,29 @@ def guard_refusal(t, m, step: str, named: str | None) -> str | None:
     log as it is now (None for a task with no state), whose `sessions` holds the one entry of T's newest
     session as read now in the task's lock; NAMED is the session the board server named, or None.
 
-    It acts when the task is still in GUARDED, its newest session is the one named and still lives, its
-    signs read, no shell command of it runs, and the rule (`lem_board_model.stop_due`) still gives STEP
-    over the new facts, so that no sign of work came since the time the step was due from. A `restart`
-    acts too while the task's stop stands (`stop_stands`) and no sign of work came after it: the owner's
-    "Open a session" on a stopped task, which names no session."""
+    It acts when the task is still in GUARDED, its newest session is the one named and still lives with
+    an agent in its pane, no shell command of it runs, and the rule (`lem_board_model.stop_due`) still
+    gives STEP over the new facts, so that no sign of work came since the time the step was due from;
+    signs that do not read are facts of that rule, which gives them `status` and `stopped`. A `restart`
+    that names no session acts while the task's stop stands (`stop_stands`) and, when the signs read, no
+    sign of work came after it: the owner's "Open a session" on a stopped task. A `restart` that names
+    one (the server's duty) never acts over a standing stop, and never when the signs do not read: Lem
+    opens no second session by itself beside a session it cannot read."""
     bm = board_model()
     f = (m.sessions or {}).get(t.slug) if t is not None else None
     if t is None or t.status not in bm.GUARDED:
         return "status"
     if not f or not (f.get("live") is True and f.get("agent") is True) or (named and str(named).upper() != str(f.get("session") or "").upper()):
         return "gone"
-    if f.get("signs") is not True:
-        return "unread"
     if f.get("shell") is not False:
         return "working"
-    stood = bm.stop_stands(t) if step == "restart" else None
-    if stood is not None:
-        return None if (bm.at(f.get("sign")) or 0) <= (bm.at(stood.get("ts")) or 0) else "working"
+    read = f.get("signs") is True
+    if step == "restart":
+        stood = bm.stop_stands(t)
+        if stood is not None and not named:
+            return None if not read or (bm.at(f.get("sign")) or 0) <= (bm.at(stood.get("ts")) or 0) else "working"
+        if not read:
+            return "unread"
     due = bm.stop_due(t, m)
     return None if due is not None and due["step"] == step else "working"
 
@@ -640,35 +652,45 @@ def board_model():
     return importlib.import_module("lem_board_model")
 
 
-def guard_check(root: Path, slug: str, step: str, named: str | None, where: dict) -> tuple[dict | None, str | None]:
-    """The look once more of the guard of a stopped session, run in the task's lock before its act: the
-    board's model of the event log now, the task's newest session in agterm's tree, and its signs of work
-    read now. Its refusal, `acted: false` with its reason for the caller to print, or None; and the
-    session the act is for."""
+def model_now(root: Path):
+    """The board's model of the event log as it is now, and the log's records."""
     bm = board_model()
     state = project.state_root(root)
     reader = bm.Reader(project.main_checkout(root), state)
     reader.read_log()
     if "events" in reader.problems:
         raise SessionError(f"{state / 'events.jsonl'}: {reader.problems['events']}; the log is written by project.py, never by hand")
-    m = bm.derive(reader.events, [], bm.now_ms())
+    return bm.derive(reader.events, [], bm.now_ms()), reader.events
+
+
+def guard_check(root: Path, slug: str, step: str, named: str | None, where: dict) -> tuple[dict | None, str | None, bool]:
+    """The look once more of the guard of a stopped session, run in the task's lock before its act: the
+    board's model of the event log now, the task's newest session in agterm's tree (`agent` is true only
+    for an agent agterm sees in its pane, as `list` gives it), and its signs of work read now. Its
+    refusal, `acted: false` with its reason for the caller to print, or None; the session the act is
+    for; and whether its signs read, for the record of the act."""
+    bm = board_model()
+    m, events = model_now(root)
     t = m.by_slug.get(slug)
     t = t if t is not None and t.blocks else None
-    newest = newest_opens(reader.events).get(slug)
+    newest = newest_opens(events).get(slug)
     session = str(newest["session"]) if newest and newest.get("session") else None
-    alive = False
+    alive = agent = False
     signs = {"sign": None, "shell": False, "signs": False}
     if session is not None and t is not None and t.status in bm.GUARDED:
-        alive = live(node_of(tree(where), session), newest, datetime.now(timezone.utc))
-        records = [record for record in reader.events if record.get("event") == lem_signs.EVENT and record.get("task") == slug]
+        node = node_of(tree(where), session)
+        alive = live(node, newest, datetime.now(timezone.utc))
+        agent = node is not None and agent_runs(node) is True
+        records = [record for record in events if record.get("event") == lem_signs.EVENT and record.get("task") == slug]
         if alive and lem_signs.own_records(records, session):
             signs = lem_signs.signs_of(records, session, process_table())
-    m.sessions = {slug: {"live": alive, "agent": alive, "unanswered": False, "session": session, **signs}}
+    m.sessions = {slug: {"live": alive, "agent": agent, "unanswered": False, "session": session, **signs}}
     reason = guard_refusal(t, m, step, named)
+    read = signs.get("signs") is True
     if reason is None:
-        return None, session
+        return None, session, read
     return {"task": slug, "session": session, "acted": False, "why": reason,
-            "say": f"Lem did nothing for {slug}: {REFUSALS[reason]}; the board server's next look asks again"}, session
+            "say": f"Lem did nothing for {slug}: {REFUSALS[reason]}; the board server's next look asks again"}, session, read
 
 
 def tell_replaced(root: Path, where: dict, slug: str, old: str) -> dict:
@@ -689,13 +711,20 @@ def cmd_stopped(root: Path, slug: str, named: str | None) -> dict:
     where = place()
     directory = project.task_directory(root, slug)
     with task_lock(directory):
-        refused, session = guard_check(root, slug, "stopped", named, where)
+        refused, session, read = guard_check(root, slug, "stopped", named, where)
         if refused is not None:
             return refused
-        project.append_event(root, "session.stopped", slug, {"session": session})
+        project.append_event(root, "session.stopped", slug, {"session": session, **({} if read else {"unread": True})})
+        # a state block is appended under the log's lock, not the task's, so it may come between the look and the stop
+        t = model_now(root)[0].by_slug.get(slug)
+        stands = t is not None and board_model().stop_stands(t) is not None
+    if not stands:
+        return {"task": slug, "session": session, "acted": True,
+                "say": f"the stop of {slug} is logged, but work of the task came before it, so the stop does not stand and nothing waits for the owner"}
+    why = (f"Lem cannot read its session's signs of work, and no event of the task came in the {board_model().ANSWER_MS // 60000} minutes after the status message" if not read
+           else "its session showed no sign of work after the status message and after its restart")
     return {"task": slug, "session": session, "acted": True,
-            "say": f"the stop of {slug} is logged: its session showed no sign of work after the status message and after its restart, "
-                   f"so it waits for the owner, whose `lem session open {slug} --why stopped` opens a fresh session"}
+            "say": f"the stop of {slug} is logged: {why}, so it waits for the owner, whose `lem session open {slug} --why stopped` opens a fresh session"}
 
 
 # ---- the commands ----
@@ -708,7 +737,7 @@ def cmd_open(root: Path, slug: str, why: str, replacing: str | None = None, name
     with task_lock(directory):
         if why == "stopped":
             # the restart of the guard, or the owner's open of a stopped task: beside the live session it replaces
-            refused, replacing = guard_check(root, slug, "restart", named, where)
+            refused, replacing, _ = guard_check(root, slug, "restart", named, where)
             if refused is not None:
                 return refused
         facts = facts_of(root, slug)
@@ -855,11 +884,12 @@ def cmd_wake(root: Path, slug: str, why: str, head: str | None, named: str | Non
     if why == "status":
         # the guard's status message: to the live session it was due for, never a new session in its place
         with task_lock(directory):
-            refused, session = guard_check(root, slug, "status", named, where)
+            refused, session, read = guard_check(root, slug, "status", named, where)
             if refused is not None:
                 return refused
             ctl(where, "msg", "send", f"lem: {slug} status", "--to", f"{session}:left", window=False)
-            project.append_event(root, "session.wake", slug, {"session": session, "why": why})
+            # a wake from the task's events alone says so, so that its words say which clock sent it
+            project.append_event(root, "session.wake", slug, {"session": session, "why": why, **({} if read else {"unread": True})})
         return {"task": slug, "session": session, "why": why, "acted": True, "woke": True, "opened": False,
                 "say": f"the session of {slug} got `lem: {slug} status`, which asks where the task stands and to go on with its next step"}
     newest = newest_opens(project.events_named(root, *EVENTS)).get(slug)

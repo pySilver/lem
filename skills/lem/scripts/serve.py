@@ -163,9 +163,11 @@ workspace, one call at a time with the server's other calls into Lem's scripts (
   (`lem_board_model.stop_due`): for a task in `building`, `ready` or `landing` whose live session
   showed no sign of work for 45 minutes, `wake SLUG --why status`; 10 minutes after it with still no
   sign, `open SLUG --why stopped`, a fresh session beside the old pane, once for one stop; and when
-  that restart is spent, `stopped SLUG`, which logs the stop for the owner's row "stopped". Each looks
-  once more in the task's lock and acts on nothing (`acted: false`) when the step is no longer due. A
-  duty whose command failed waits DUTY_RETRY;
+  that restart is spent, `stopped SLUG`, which logs the stop for the owner's row "stopped". A session
+  whose signs do not read gets the status message after 45 minutes with no event of the task, and
+  `stopped SLUG` 10 minutes after it with still none, never a restart: the owner's "Open a session"
+  opens the fresh one. Each looks once more in the task's lock and acts on nothing (`acted: false`)
+  when the step is no longer due. A duty whose command failed waits DUTY_RETRY;
 - the merge agent's merge (`merge_due`): for an open task whose merge agent's review of the tip Lem
   proposed last says `merge`, calls nobody and does not say `another round` of a moved base, with no
   refused merge of that tip that no read answered and none running, the server runs land.py's
@@ -1082,7 +1084,7 @@ def act_park(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
 NOT_OPENED = {"working": "Its session works again, so no session was opened",
               "gone": "Its session is gone from agterm, so no session was opened beside it: the board offers a fresh one in its place within a minute",
               "status": "The task is no longer building, ready or landing, so no session was opened",
-              "unread": "The board cannot read whether its session works, so no session was opened: try again in a minute"}
+              "unread": "The board cannot read whether its session works, and its stop no longer waits for you, so no session was opened beside it"}
 
 
 def act_session(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
@@ -2139,14 +2141,17 @@ def duties(model: "bm.Model", seen: dict, kept: set, merging: set = frozenset())
       session was woken or opened since the refusal: the merge agent's, by GitHub or by Lem's rules, and
       the owner's when Lem refused it because the base moved (`kind: base`, `refusal_of`).
     - `wake … status`: a task in `building`, `ready` or `landing` whose live session showed no sign of
-      work for 45 minutes (`bm.stop_due`): the line that asks the session where the task stands.
-    - `open … stopped`: the same task 10 minutes after that line with still no sign of work, when Lem
-      did not restart it since its newest work event: a fresh session beside the old pane.
-    - `stopped … stopped`: the same once the restart was spent: `lem session stopped SLUG` logs the
-      stop, once, and the owner's "Waits for you" shows it.
+      work for 45 minutes (`bm.stop_due`), or, when its signs do not read, no event of the task for 45
+      minutes: the line that asks the session where the task stands.
+    - `open … stopped`: the same task 10 minutes after that line with still no sign of work, when its
+      signs read, Lem did not restart it since its newest work event and no stop of it stands: a fresh
+      session beside the old pane.
+    - `stopped … stopped`: the same once the restart was spent, or at once when its signs do not read:
+      `lem session stopped SLUG` logs the stop, once, and the owner's "Waits for you" shows it.
     Each of the three names the session it is for (`--session`), and `lem session` looks once more in
-    the task's lock before it acts: a sign of work since, a status that changed, a session that is gone
-    or signs that do not read make it act on nothing (`acted: false`), and the next look asks again."""
+    the task's lock before it acts: a sign of work since, a status that changed, a session that is gone,
+    or a restart beside signs that do not read or over a standing stop make it act on nothing (`acted:
+    false`), and the next look asks again."""
     if model.meta.get("demo"):
         return []
     out = []

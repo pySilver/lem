@@ -1299,12 +1299,11 @@ class StoppedSession(unittest.TestCase):
         self.assertIsNone(self.due(*self.landing(), at="11:39", sign="2026-11-22T11:30:00Z"))
         self.assertEqual(self.due(*self.landing(), at="12:15", sign="2026-11-22T11:30:00Z"), ("status", "S1", self.ms("11:30")))
 
-    def test_a_shell_command_that_runs_is_work_and_signs_that_do_not_read_are_no_evidence(self):
+    def test_a_shell_command_that_runs_is_work_and_a_session_that_is_not_live_gets_nothing(self):
         # the checks of a landing run for 50 minutes with no event: their shell command is the sign
         checks = (*self.landing()[:3],)
         self.assertIsNone(self.due(*checks, at="11:08", shell=True))
         self.assertEqual(self.due(*checks, at="11:08"), ("status", "S1", self.ms("10:18")))
-        self.assertIsNone(self.due(*self.landing(), at="15:37", signs=False))
         self.assertIsNone(self.due(*self.landing(), at="15:37", live=False))
         m = self.model(*self.landing(), at="15:37")
         m.sessions = None
@@ -1374,6 +1373,53 @@ class StoppedSession(unittest.TestCase):
         t = m.by_slug["gift-note"]
         rows = [w["kind"] for w in bm.waits_of(m) if w["t"] is t]
         self.assertTrue(bm.stop_due(t, m) is not None or rows, "a live session quiet since 10:54 whose signs do not read gets no step of the guard and no row")
+
+    def unread(self) -> dict:
+        # the signs of #37 as `lem session list` gave them: no record of its own, so nothing read
+        return {"sign": None, "signs": False}
+
+    def test_criterion_1_signs_that_do_not_read_get_the_message_45_minutes_after_the_newest_event(self):
+        self.assertIsNone(self.due(*self.landing(), at="11:38:59", **self.unread()))
+        self.assertEqual(self.due(*self.landing(), at="11:39", **self.unread()), ("status", "S1", self.ms("10:54")))
+        # a turn's time read beside signs that do not read is no sign of work: the clock stays at 10:54
+        self.assertEqual(self.due(*self.landing(), at="11:39", sign="2026-11-22T11:30:00Z", signs=False), ("status", "S1", self.ms("10:54")))
+        # no agent in the pane, or a shell command that runs, still gets nothing
+        m = self.model(*self.landing(), at="11:39", **self.unread())
+        m.sessions["gift-note"]["agent"] = None
+        self.assertIsNone(bm.stop_due(m.by_slug["gift-note"], m))
+        self.assertIsNone(self.due(*self.landing(), at="11:39", sign=None, signs=False, shell=True))
+
+    def test_criterion_2_ten_minutes_after_the_message_signs_that_do_not_read_give_the_stop_never_a_restart(self):
+        self.assertIsNone(self.due(*self.woken(), at="11:48:59", **self.unread()))
+        self.assertEqual(self.due(*self.woken(), at="11:49", **self.unread()), ("stopped", "S1", self.ms("11:39")))
+        self.assertEqual(self.due(*self.woken(), at="15:37", **self.unread()), ("stopped", "S1", self.ms("11:39")))
+        stopped = (*self.woken(), self.ev("11:49", "session.stopped", session="S1", unread=True))
+        for at in ("11:49:20", "11:50", "17:00"):
+            self.assertIsNone(self.due(*stopped, at=at, **self.unread()), at)
+        # at 11:50 the signs read again, with the turn of 10:15: a logged stop waits for the owner, so no restart
+        self.assertIsNone(self.due(*stopped, at="11:50"))
+        self.assertEqual(bm.stop_stands(self.model(*stopped, at="11:50").by_slug["gift-note"])["session"], "S1")
+
+    def test_criterion_3_a_work_event_ends_the_wait_and_the_guards_own_message_is_none(self):
+        block = self.ev("11:42", "task.state", status="landing", text="the pull request waits for its checks", lines=[])
+        self.assertIsNone(self.due(*self.woken(), block, at="11:49", **self.unread()))
+        self.assertIsNone(self.due(*self.woken(), block, at="12:26:59", **self.unread()))
+        self.assertEqual(self.due(*self.woken(), block, at="12:27", **self.unread()), ("status", "S1", self.ms("11:42")))
+        m = self.model(*self.woken(), block, at="11:49", **self.unread())
+        self.assertEqual([w["kind"] for w in bm.waits_of(m) if w["t"].slug == "gift-note"], [])
+        # a state block logged after the look at 11:49 but before the stop's record: the log's order decides
+        raced = (*self.woken(), self.ev("11:49", "task.state", status="landing", text="the pull request waits for its checks", lines=[]),
+                 self.ev("11:49", "session.stopped", session="S1", unread=True))
+        m = self.model(*raced, at="11:50", **self.unread())
+        t = m.by_slug["gift-note"]
+        self.assertEqual((bm.stop_stands(t), bm.stopped_of(t, m), [w["kind"] for w in bm.waits_of(m) if w["t"] is t]), (None, None, []))
+        self.assertIsNone(self.due(*raced, at="12:33:59", **self.unread()))
+        self.assertEqual(self.due(*raced, at="12:34", **self.unread()), ("status", "S1", self.ms("11:49")))
+
+    def test_criterion_4_a_readable_stop_and_a_newer_turn_still_give_the_status_message(self):
+        stopped = (*self.restarted(), self.ev("12:37", "session.wake", session="S2", why="status"), self.ev("12:47", "session.stopped", session="S2"))
+        self.assertIsNone(self.due(*stopped, at="13:44", session="S2", sign="2026-11-22T13:00:00Z"))
+        self.assertEqual(self.due(*stopped, at="13:45", session="S2", sign="2026-11-22T13:00:00Z"), ("status", "S2", self.ms("13:00")))
 
     def test_the_numbers_are_the_owners(self):
         self.assertEqual((bm.QUIET_MS, bm.ANSWER_MS), (45 * 60 * 1000, 10 * 60 * 1000))

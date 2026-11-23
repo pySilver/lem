@@ -1431,48 +1431,59 @@ def stop_due(t: Task, m: Model) -> dict | None:
     """The step of the guard of a stopped session that is due for the task now, or None: `{"step", "session",
     "from"}`, the step (`status`, `restart` or `stopped`), the session it is for, and the time in ms it is
     due from. Only for a task in GUARDED (so not parked, held, queued, planned, blocked, open or ended)
-    whose session lives (`live_of`), whose signs of work read (`signs`) and in which no shell command runs
+    whose session lives with an agent in its pane (`live_of`, `agent`) and in which no shell command runs
     (`shell`); never while the server has not asked (`Model.sessions` None) and never in a demo workspace.
 
-    Its newest sign of work is the newest of the session's own `sign` (its newest turn, or a subagent's),
-    the task's newest work event (`work_event`) and its newest `session.open`, so that a fresh session's
-    clock starts at its open. Then:
+    Its newest sign of work is the newest of the task's newest work event (`work_event`) and its newest
+    `session.open`, so that a fresh session's clock starts at its open, and, when the session's signs
+    read (`signs`), the session's own `sign` (its newest turn, or a subagent's). When they do not read,
+    `sign` is not used, even when it holds a time: a turn with no live process to back it is no proof
+    that the session works now. Then:
 
     - `status`, from that sign, QUIET_MS after it, when no status wake (`session.wake why=status`) came
       after it;
-    - `restart`, from that wake, ANSWER_MS after it, when no `session.open why=stopped` came after the
-      task's newest work event: one restart for one stop, spent until the task's agent logs work again;
-    - `stopped`, from that wake, ANSWER_MS after it, when one did and no `session.stopped` came after the
-      wake, so that a stop is logged once.
+    - with signs that read, `restart`, from that wake, ANSWER_MS after it, when no `session.open
+      why=stopped` came after the task's newest work event and no stop of the task stands (`stop_stands`):
+      one restart for one stop, spent until the task's agent logs work again, and a logged stop waits for
+      the owner's "Open a session";
+    - `stopped`, from that wake, ANSWER_MS after it, when no `session.stopped` came after the wake, so
+      that a stop is logged once: with signs that read once the restart is spent, and with signs that do
+      not read at once, since Lem never restarts by itself beside a session it cannot read.
 
     A wake in the same second as a sign counts as before it: the session that answers at once works."""
     if m.sessions is None or m.meta.get("demo") or t.status not in GUARDED:
         return None
     f = m.sessions.get(t.slug) or {}
-    if not (f.get("live") is True and f.get("agent") is True) or f.get("signs") is not True or f.get("shell") is not False:
+    if not (f.get("live") is True and f.get("agent") is True) or f.get("shell") is not False:
         return None
+    read = f.get("signs") is True
     work = next((i for i in range(len(t.events) - 1, -1, -1) if work_event(t.events[i])), -1)
-    times = [at(f.get("sign")) or 0, (t.opened or {}).get("ts") or 0, (at(t.events[work].get("ts")) or 0) if work >= 0 else 0]
-    since = max(times)
+    times = [(t.opened or {}).get("ts") or 0, (at(t.events[work].get("ts")) or 0) if work >= 0 else 0]
+    since = max(times + ([at(f.get("sign")) or 0] if read else []))
     session = f.get("session") or t.session
     wake = next((w for w in t.wakes if w.get("why") == "status" and w["ts"] > since), None)
     if wake is None:
         return {"step": "status", "session": session, "from": since} if m.now - since >= QUIET_MS else None
     if m.now - wake["ts"] < ANSWER_MS:
         return None
-    later = t.events[work + 1:]
-    if not any(e.get("event") == "session.open" and e.get("why") == "stopped" for e in later):
-        return {"step": "restart", "session": session, "from": wake["ts"]}
+    if read and not any(e.get("event") == "session.open" and e.get("why") == "stopped" for e in t.events[work + 1:]):
+        return None if stop_stands(t) is not None else {"step": "restart", "session": session, "from": wake["ts"]}
     if any(e.get("event") == "session.stopped" for e in t.events[wake["order"]:]):
         return None
     return {"step": "stopped", "session": session, "from": wake["ts"]}
 
 
 def stop_stands(t: Task) -> dict | None:
-    """The task's newest `session.stopped` while no work event (`work_event`) and no `session.open` came
-    after it: the stop the guard logged, which waits for the owner's "Open a session"; else None."""
+    """The task's newest `session.stopped` while no work event (`work_event`) came after the newest status
+    wake before it (`session.wake why=status`) and no `session.open` came after it: the stop the guard
+    logged, which waits for the owner's "Open a session"; else None. A work event between that wake and
+    the stop is a state block the session appended in the moment the guard looked: the order of the log
+    decides, and such a stop stands over nothing."""
     found = next((i for i in range(len(t.events) - 1, -1, -1) if t.events[i].get("event") == "session.stopped"), None)
-    if found is None or any(work_event(e) or e.get("event") == "session.open" for e in t.events[found + 1:]):
+    if found is None:
+        return None
+    wake = next((i for i in range(found - 1, -1, -1) if t.events[i].get("event") == "session.wake" and t.events[i].get("why") == "status"), found)
+    if any(work_event(e) for e in t.events[wake + 1:]) or any(e.get("event") == "session.open" for e in t.events[found + 1:]):
         return None
     return t.events[found]
 
