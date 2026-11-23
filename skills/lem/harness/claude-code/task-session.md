@@ -72,7 +72,9 @@ task owns, with the same wait and the same `--undoable`. It refuses the id of a 
 with the `lem session close` line that closes it, and a session whose `foreground` in `agtermctl
 tree --json` is not an agent's command with `/lem night`, `/lem night N` or `/lem retro` as its last
 word: the job's script starts the agent with the prompt as its last argument, so an agent the owner
-started and typed `/lem retro` into keeps its session. Not run yet in a session a real job opened.
+started and typed `/lem retro` into keeps its session. With no `AGTERM_SESSION_ID` and no
+`--session` it refuses with "no session to close", and a session gone from agterm's tree is exit 0
+with `"closed": false`. Not run yet in a session a real job opened.
 
 ## The context's number
 

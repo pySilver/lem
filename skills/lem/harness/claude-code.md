@@ -117,8 +117,9 @@ every 10 seconds, a guess; it also ends when that task's session is gone from ag
 --why dead`; with `--companion ID` it ends too when that companion is gone, with `"gone": true`
 and its `companion`; its other ends print `"gone": false`), the `lem session close` line that `lem session next` prints, and
 `lem session close-job`, the last step of a scheduled night or retro, which waits while the owner
-has its session selected (its JSON says `closed`; its refusal, on exit 1, names whose the session
-is). Keep
+has its session selected (its JSON says `closed`, false for a session gone from agterm's tree; its
+refusal, on exit 1, names whose the session is, or says "no session to close" with no agterm
+session). Keep
 the name of each background task you started, and while one runs start no second of its kind. The tool names the background task
 and tells you when the command exits, also while the session waits between two of the owner's
 messages: the Bash tool's description in Claude Code 2.1.328 (read 2026-11-19) says that it
