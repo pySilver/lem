@@ -137,7 +137,9 @@ class StreamOpen(unittest.TestCase):
 
 class Names(unittest.TestCase):
     def test_the_tailnet_name_is_the_address_and_the_host_name_its_alias(self):
-        self.assertEqual(serve.names_of("MacBook-Pro-SLVR.tail1234.ts.net"), ("macbook-pro-slvr", (serve.SHORT_NAME,)))
+        # A label made from the host's own short name, so that no host's short name is the label.
+        tailnet_name = f"Office-{serve.SHORT_NAME}.tail1234.ts.net"
+        self.assertEqual(serve.names_of(tailnet_name), (f"office-{serve.SHORT_NAME}", (serve.SHORT_NAME,)))
 
     def test_with_no_tailnet_the_short_host_name_alone(self):
         self.assertEqual(serve.names_of(None), (serve.SHORT_NAME, ()))
