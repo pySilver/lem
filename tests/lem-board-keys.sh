@@ -8,7 +8,8 @@
 # panel, no button), and the mark through a morph. The search over every card (search.js): Cmd-K and Ctrl-K, also from a
 # field, and the search buttons open it, letters typed filter and order it, Enter, a click and Escape, and the box through
 # a morph. The confirm step of a merge, a park and an approval: on a phone an overlay whose button comes on when its
-# text was read to the end, on a desktop and with no script as before. A check adds to the demo's log only the state
+# text was read to the end, on a desktop and with no script as before. The start of a task from a backlog item, which
+# ends on the new task's page while the stream refreshes the backlog. A check adds to the demo's log only the state
 # lines it needs, as a lead's `lem project state` and `lem session open` write them. Each check that needs Chrome
 # prints a SKIP line of its own where Node or Chrome is missing.
 # shellcheck source-path=SCRIPTDIR
@@ -29,6 +30,28 @@ chmod +x "$FAKE/agtermctl"
 export PATH="$FAKE:$PATH" AGT_CALLS="$WORK/calls" AGT_TREE="$WORK/tree.json"
 DEMO=$("$PY" -B tests/board-showcase.py --demo "$WORK/demo" | field 'd["repo"]')
 LOG=$DEMO/.lem/state/events.jsonl
+
+# A stand-in for `lem session` behind the server (LEM_SESSION_SCRIPT), for the start from a backlog item: `open SLUG
+# --why new` logs the session.open of SLUG as session.py does, takes 2 s as agterm's calls of a real open may (an
+# unmeasured estimate), records the call in START_CALLS and prints what session.py prints. Every other command is
+# session.py's own, so the other checks of this block meet the real one.
+cat > "$WORK/session-standin.py" <<'PY'
+import json, os, sys, time
+from datetime import datetime, timezone
+args = sys.argv[1:]
+verb = args[2:3]
+if verb != ["open"] or args[4:6] != ["--why", "new"]:
+    os.execv(sys.executable, [sys.executable, "-B", os.environ["REAL_SESSION"], *args])
+slug = args[3]
+with open(os.environ["START_LOG"], "a", encoding="utf-8") as out:
+    out.write(json.dumps({"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": "session.open", "task": slug, "session": "S-START",
+                          "name": slug, "phase": "shape", "why": "new", "workspace": "demo"}) + "\n")
+time.sleep(2)
+with open(os.environ["START_CALLS"], "a", encoding="utf-8") as calls:
+    calls.write(" ".join(args[2:]) + "\n")
+print(json.dumps({"task": slug, "session": "S-START", "name": slug, "phase": "shape", "already": False, "say": f"{slug}: a session opened"}))
+PY
+export LEM_SESSION_SCRIPT=$WORK/session-standin.py REAL_SESSION=$PWD/skills/lem/scripts/session.py START_LOG=$LOG START_CALLS=$WORK/start-calls
 "$PY" -B "$SERVE" --add "$DEMO" >/dev/null
 serve_up
 SERVER=http://127.0.0.1:$SERVE_PORT
@@ -771,24 +794,58 @@ PY
   fi
 }
 
+# The start of a task from a backlog item, last in the block since its new task is a card of the Tasks view: a click on
+# "Start a task" of export-in-one-query posts the item, and while the server opens its session the task's lines come
+# into the log, so the stream sends the page a refresh during the post. The page ends on the new task's page, never
+# back on the backlog with the button as it was.
+start_checks() {
+  local item=export-in-one-query out=$WORK/start.out
+  "$PY" - "$BASE" "$item" > "$WORK/start.json" <<'PY'
+import json, sys
+base, item = sys.argv[1:]
+where = ("(() => { const b = document.querySelector('#item-" + item + " button[type=submit]');"
+         " return location.pathname + ' | ' + (b ? b.textContent.trim() : '-'); })()")
+steps = [
+    {"goto": f"{base}/backlog", "wait": 300},
+    {"print": "new Promise(done => { const end = Date.now() + 15000; const tick = () => ((document.readyState === 'complete' && window.Turbo"
+              f" && document.querySelector('#item-{item}')) || Date.now() > end) ? done(['ready', location.pathname]) : setTimeout(tick, 100); tick(); }})"},
+    {"wait": 1000},
+    {"eval": f"document.getElementById('item-{item}').open = true", "after": 300},
+    {"click": f"#item-{item} button[type=submit]", "after": 100},
+    {"print": f"new Promise(done => {{ const end = Date.now() + 15000; const tick = () => (location.pathname.endsWith('/tasks/{item}') || Date.now() > end)"
+              f" ? done(['started', {where}]) : setTimeout(tick, 100); tick(); }})"},
+]
+print(json.dumps({"width": 1440, "height": 900, "steps": steps}))
+PY
+  drive "$WORK/start.json" "$out"
+  if [ "$(seen "$out" started)" = "/$HOST/shop/tasks/$item | -" ] && grep -qxF "open $item --why new" "$WORK/start-calls"; then
+    pass "a click on Start a task of a backlog item opens the task's session and ends on the new task's page, also when the stream refreshes the backlog while the post waits for the session"
+  else
+    fail "the start from a backlog item (where the page ended | its button): $(cat "$out") / session calls: $(cat "$WORK/start-calls" 2>/dev/null || echo none)"
+  fi
+}
+
 if [ -z "$NODE" ]; then
   skip_function tasks_view_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function waits_view_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function search_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function confirm_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function step_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
+  skip_function start_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
 elif [ -z "$CHROME_AT" ]; then
   skip_function tasks_view_checks "no Chrome here (set CHROME to the browser)"
   skip_function waits_view_checks "no Chrome here (set CHROME to the browser)"
   skip_function search_checks "no Chrome here (set CHROME to the browser)"
   skip_function confirm_checks "no Chrome here (set CHROME to the browser)"
   skip_function step_checks "no Chrome here (set CHROME to the browser)"
+  skip_function start_checks "no Chrome here (set CHROME to the browser)"
 else
   tasks_view_checks
   waits_view_checks
   search_checks
   confirm_checks
   step_checks
+  start_checks
 fi
 
 finish
