@@ -3561,7 +3561,7 @@ def tailscale_cli() -> str | None:
     """The tailscale CLI by its absolute path: the one on PATH, else the first of TAILSCALE_PLACES."""
     found = shutil.which("tailscale")
     if found:
-        return str(Path(found).absolute())
+        return os.path.abspath(found)  # noqa: PTH100 - Path.absolute keeps `..`, which abspath folds, and the path shows in a failure's message
     return next(
         (
             place
