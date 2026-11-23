@@ -12,6 +12,13 @@
 // kept whole: a log that `lem project prune` replaced has another inode, so the page is told also when the
 // count is the same. With a task open (its address), the stream watches that task's files too (`&task=`).
 //
+// A refresh that comes while a form of the page is posted waits for the post's end: Turbo's visit of the
+// refresh would stop the post, so the page would never follow its answer (the start of a task from a
+// backlog item stayed on the backlog while its session opened, 2026-11-23). An act's own lines come into
+// the log before it answers, so its refresh comes during the post. At the post's end, an answer with a
+// page drops the refresh, since that page was drawn after the lines and Turbo shows it; a post that ended
+// with no page to show (the network failed, nothing answered) gets the refresh then.
+//
 // iOS drops an EventSource in the background, or keeps a dead one that still says it is open, and a
 // network can stop forwarding and keep the connection open. So a page that comes back into view, or out
 // of the back-forward cache, opens a new stream; and a page that heard nothing for SILENCE_MS (no message
@@ -44,6 +51,19 @@ export default class extends Controller {
     this.onPageShow = ev => { if (ev.persisted) { this.owed = true; this.open(); } };
     // a visit to another task opens the stream again for that task's files
     this.onVisit = () => { if (this.task() !== this.watching) this.open(); };
+    // the forms being posted, and whether a refresh waits for their end
+    this.posts = new Set();
+    this.held = false;
+    this.onPostStart = ev => this.posts.add(ev.detail.formSubmission);
+    this.onPostEnd = ev => this.posted(ev.detail);
+    this.onRender = ev => {
+      if (ev.detail.newStream?.action !== 'refresh' || !this.posts.size) return;
+      ev.preventDefault();
+      this.held = true;
+    };
+    document.addEventListener('turbo:submit-start', this.onPostStart);
+    document.addEventListener('turbo:submit-end', this.onPostEnd);
+    document.addEventListener('turbo:before-stream-render', this.onRender);
     document.addEventListener('visibilitychange', this.onShow);
     window.addEventListener('pageshow', this.onPageShow);
     document.addEventListener('turbo:load', this.onVisit);
@@ -54,6 +74,9 @@ export default class extends Controller {
   }
 
   disconnect() {
+    document.removeEventListener('turbo:submit-start', this.onPostStart);
+    document.removeEventListener('turbo:submit-end', this.onPostEnd);
+    document.removeEventListener('turbo:before-stream-render', this.onRender);
     document.removeEventListener('visibilitychange', this.onShow);
     window.removeEventListener('pageshow', this.onPageShow);
     document.removeEventListener('turbo:load', this.onVisit);
@@ -106,6 +129,14 @@ export default class extends Controller {
     window.Turbo.disconnectStreamSource(this.source);
     this.source.close();
     this.source = null;
+  }
+
+  // a post ended: a refresh it held is dropped when Turbo shows the answer's page, else rendered now
+  posted({formSubmission, fetchResponse}) {
+    this.posts.delete(formSubmission);
+    if (this.posts.size || !this.held) return;
+    this.held = false;
+    if (!fetchResponse?.isHTML) window.Turbo.renderStreamMessage(REFRESH);
   }
 
   // the stream is down from now, unless it already was, and the page may miss a change until a new one opens
