@@ -7,6 +7,8 @@ careful: yes, because tasks 1 and 2 change how the correction hook decides to se
 Size: full, because the settings files get new names in every repository, and the correction hook and the question page read a new place.
 
 1. The settings file has one name, `settings.toml`, in three places: `~/.config/lem/settings.toml` is the developer's own, for every repository on his Mac, `REPO/.lem/settings.toml` is the team's and is in git, and `REPO/.lem/settings.local.toml` is the developer's own for that one repository and is not in git. Git ignores `.lem/settings.local.toml` in an onboarded repository. Lem reads no file named `project.toml` or `project.local.toml`: a repository that has only `.lem/project.toml` is a repository that was never onboarded.
+   - test: `bash tests/lem-settings.sh` in `tests/lem-settings.sh`, `tests/lib.sh`
+   - test: `python3 -B -m unittest tests.unit.test_settings_files` in `tests/unit/test_settings_files.py`
 2. For a setting that more than one of the three files may hold, the nearest file that holds it wins, and `lem project show` names the file each such value came from:
    1. `~/.config/lem/settings.toml` says `merger = "claude/opus:high"` under `[seats]`.
    2. `mybaze/.lem/settings.toml` says `merger = "codex/gpt-6.2-sol:high"` under `[seats]`.
@@ -14,17 +16,34 @@ Size: full, because the settings files get new names in every repository, and th
    4. `mybaze/.lem/settings.local.toml` says `merger = "claude/fable:high"` under `[seats]`. In `mybaze`, the merge agent is now `claude/fable:high`, from the local file.
    5. In `lem`, whose files name no merger, it is `claude/opus:high`, from the home file.
    6. With the line in no file, it is `claude/opus:high`, and `lem project show` says "Lem's default".
+   - test: `bash tests/lem-settings.sh` in `tests/lem-settings.sh`, `tests/lib.sh`
+   - test: `python3 -B -m unittest tests.unit.test_settings_files` in `tests/unit/test_settings_files.py`
 3. `~/.config/lem/machine.toml` holds only what is true for the whole Mac, which no other file overrides: `[load]`, `[serve]`, `[peers]`, `[handoff]` and `[corrections]`. A `[seats]` table there is refused, and the refusal names `~/.config/lem/settings.toml` as its place.
+   - test: `python3 -B -m unittest tests.unit.test_settings_files` in `tests/unit/test_settings_files.py`
+   - test: `python3 -B -m unittest tests.unit.test_session` in `tests/unit/test_session.py`
 4. What guards a team's repository is valid in the team's file only: Lem refuses `[flow]`, `[checks]`, `[branch]`, `[paths]` and `[tracker]` in `~/.config/lem/settings.toml` and in `.lem/settings.local.toml`, and names `.lem/settings.toml` as their place. `keep_days` under `[state]` is valid in the team's file and in `.lem/settings.local.toml`, and is refused in the home file.
+   - test: `python3 -B -m unittest tests.unit.test_settings_files` in `tests/unit/test_settings_files.py`
+   - test: `bash tests/lem-settings.sh` in `tests/lem-settings.sh`, `tests/lib.sh`
 5. The correction queue's switch, `collect` under `[corrections]`, is the Mac's alone: it is valid in `~/.config/lem/machine.toml` only, and holds in every repository on that Mac:
    1. `~/.config/lem/machine.toml` says `collect = false`. In `lem` and in `mybaze`, the hook sends nothing.
    2. A team member writes `collect = true` under `[corrections]` in `mybaze/.lem/settings.toml`. Lem refuses that table and names `~/.config/lem/machine.toml` as its place, and the hook still sends nothing. It refuses the table in `.lem/settings.local.toml` the same way.
    3. The developer changes his own line to `collect = true`. The hook now sends his typed messages to the provider of the Jev model in each repository on his Mac, `lem-scratch` too.
+   - test: `bash tests/lem-machine.sh` in `tests/lem-machine.sh`, `tests/lib.sh`
+   - test: `python3 -B -m unittest tests.unit.test_corrections` in `tests/unit/test_corrections.py`
 6. When the correction hook cannot read `~/.config/lem/machine.toml` (a file that is no valid TOML), it sends nothing, prints nothing, and the developer's message goes on as he typed it. The next `lem project show` refuses, and names the file that does not read.
+   - test: `bash tests/lem-machine.sh` in `tests/lem-machine.sh`, `tests/lib.sh`
+   - test: `python3 -B -m unittest tests.unit.test_corrections` in `tests/unit/test_corrections.py`
 7. `/lem init` asks about the correction queue one time for a Mac: the first run, with no `[corrections]` table in `~/.config/lem/machine.toml`, asks and writes the developer's answer there; a run in a second repository asks nothing about the queue and writes no `[corrections]` table. The question says what the hook sends (each message that he types, with the agent's message before it), where it sends it (the provider of the Jev model), and the line that turns it off. No update of the plugin writes into `machine.toml` or `settings.toml` of `~/.config/lem/`.
+   - test: `bash tests/lem-machine.sh` in `tests/lem-machine.sh`, `tests/lib.sh`
+   - test: `python3 -B -m unittest tests.unit.test_corrections` in `tests/unit/test_corrections.py`
 8. The question page takes its defaults from the table `[ask]` of `~/.config/lem/settings.toml`, and keeps its cache in `~/.cache/lem/`: a `style` the developer writes under `[ask]` is the style of the next page, in place of `refined`. Lem reads and writes no file under `~/.config/lem-ask/` or `~/.cache/lem-ask/`.
+   - test: `bash tests/test-ask.sh` in `tests/test-ask.sh`, `tests/checks.sh`
+   - test: `python3 -B -m unittest tests.unit.test_settings_files` in `tests/unit/test_settings_files.py`
 9. A first cast of personas comes from Lem's built-in cast only: `lem cast init` in a new repository copies the built-in cast also when `~/.config/personas/cast/` holds files, and no text of Lem names a cast of the user's.
+   - test: `bash tests/test-gate-panel.sh` in `tests/test-gate-panel.sh`, `tests/checks.sh`
 10. The guides say where each setting is: `docs/settings.md` has one table for each of the three `settings.toml` files and one for `machine.toml`, and `docs/install.md`, `AGENTS.md` and the site name the files by their new names. `docs/settings.md` says which file wins, which kind of setting goes in which file and which tables each file refuses, and `docs/install.md` says how a developer turns the correction queue off for his Mac.
+   - test: `python3 -B -m unittest tests.unit.test_settings_files.Texts` in `tests/unit/test_settings_files.py`
+   - test: `bash tests/lem-settings.sh` in `tests/lem-settings.sh`, `tests/lib.sh`
 
 ## How it works
 
