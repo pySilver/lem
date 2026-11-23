@@ -31,3 +31,14 @@ A round's line, run from the main checkout: `revmux --task SLUG --run 01-initial
 focused --workdir WORKTREE --tasks-dir TASK_DIR/reviews --no-tui`; both checkouts were clean
 after it (revmux v0.2.7, 2026-11-16). The flag `--config-dir PATH` does not name a project
 folder: it puts PATH in the place of the user's own config folder (revmux v0.2.7, 2026-11-15).
+A round runs in the foreground, always: the review agent runs its line as a plain `Bash` call,
+with no `run_in_background` and no watch of the round's event log, and reads the round's
+result when the line ends. This replaces step 2 of the skill, "Run it in the background", and
+the watch its step 4 arms (`revmux:revmux` 0.5.6, 2026-11-23); its stdout still goes to the
+output file beside the round. The call takes the tool's largest `timeout`, 600000 ms (Claude
+Code 2.1.331). In a subagent, which the review agent is, a foreground command past its
+`timeout` is stopped with what it started, and the call returns exit 143 and "Command timed
+out": it does not go on in the background (a `sleep 20` under a 5-second limit, Claude Code
+2.1.331, 2026-11-23). A round that the limit stopped has no result: its record is the one of
+step 6 of `prompts/review.md` for a round in which no source answered, each source in `silent`
+with "stopped at the Bash tool's time limit".
