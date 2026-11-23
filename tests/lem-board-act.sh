@@ -811,7 +811,6 @@ spec = {"prompt": "Round each line of a refund, or only its total?", "options": 
 lem_cards.keep(task, sys.argv[3], lem_cards.html_file(task, sys.argv[2]).read_bytes(), spec, "S-FRESH")
 ' "$STATE/tasks/refund-rounding" "$OLD_CARD" "$CARD"
 CARD_END=$STATE/tasks/refund-rounding/cards/$CARD.end.json
-IPHONE='Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1'
 # card_post JSON [ORIGIN]: the card's own page posts its answer; prints the status and the reply's said
 card_post() {
   curl -s -w '\n%{http_code}' -H "Origin: ${2:-$SERVER}" -H 'Sec-Fetch-Site: same-origin' -H 'Content-Type: application/json' -A "$IPHONE" \
