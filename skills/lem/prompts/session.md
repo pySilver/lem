@@ -101,9 +101,10 @@ and closes itself when it wakes, and it handed nothing over: go on from the stat
 - **The landing**: `ready`, `landing`, `open`, or a task that ended and whose worktree is still
   there: `SKILL_DIR/stages/land.md`, for this task only. `blocked` with the line `the seat that
   failed: merger` is the landing's too: the merge agent's seat gave an error, no fallback stood in
-  for it, and its pull request stays open. Say the block's first line in one line, mark this
-  session as waiting for the owner (`mark-waiting`), and on his "go on" run `lem project
-  seat-again SLUG`, then take step 7 of `SKILL_DIR/stages/land.md`.
+  for it, and its pull request stays open. Mark this session as waiting for the owner
+  (`mark-waiting`) first, then say the block's first line in one line, the last text of your
+  turn, and on his "go on" run `lem project seat-again SLUG`, then take step 7 of
+  `SKILL_DIR/stages/land.md`.
 - **Nothing to do**: `parked`, or an ended task with its worktree gone. Say so in one line, and
   close this session (below).
 

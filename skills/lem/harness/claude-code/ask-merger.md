@@ -37,9 +37,10 @@ on: say its `say` in one line, run `lem land merge-review SLUG` again, which wri
 the same tip and base again and keeps the stand-in's seat with it, and start the agent on the
 `seat`, the `brief` and the `answer` that this second run printed, so that the record names the
 seat that read. Or it prints `blocked: true`: the task is `blocked` with the seat and the error,
-and "Waits for you" shows it; its pull request stays open. Say its `say` in one line, mark this
-session as waiting for the owner (`mark-waiting`), and wait for his "go on": then `lem project
-seat-again SLUG`, `lem land merge-review SLUG` again, and the agent on the seat it prints.
+and "Waits for you" shows it; its pull request stays open. Mark this session as waiting for the
+owner (`mark-waiting`) first, then say its `say` in one line, the last text of your turn, and wait
+for his "go on": then `lem project seat-again SLUG`, `lem land merge-review SLUG` again, and the
+agent on the seat it prints.
 
 Any other non-zero exit, or no answer file, is a merge agent that did not answer: start it once
 more. After a second such end on a base that did not move (`moved` of the brief's facts is null),

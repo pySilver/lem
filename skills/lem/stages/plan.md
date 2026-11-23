@@ -215,10 +215,11 @@ with each of its lines and that one. Your report says the same. A task he named 
       - `held`: the defender tripped the breaker. Close the pair and take it up as
         `stages/breaker.md` says under "After it".
       - `blocked`: a seat of the talk gave an error, and no fallback could stand in for it. Close
-        the pair, say the block's first line in one line, mark this session as waiting for the
-        owner (`mark-waiting`), and wait. On his "go on", run `lem project --repo WORKTREE
-        seat-again SLUG`, which writes `building` again and names the seat it tries again, and
-        open the pair at step 2 once more: its defender goes on from `talk-turns.md`.
+        the pair, mark this session as waiting for the owner (`mark-waiting`), then say the
+        block's first line in one line, the last text of your turn, and wait. On his "go on",
+        run `lem project --repo WORKTREE seat-again SLUG`, which writes `building` again and
+        names the seat it tries again, and open the pair at step 2 once more: its defender goes
+        on from `talk-turns.md`.
       - `"companion"`: the pair is gone and no state came. Read `talk` in `lem project --repo
         WORKTREE tasks` and the plan's `## Plan talk` first. A record there means the talk ended
         and its defender stopped before its state: go on as on `planned`. No record: open the
