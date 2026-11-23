@@ -179,7 +179,7 @@ if grep -q "the forge merged ${head:0:9}, and the branch has commits after it" <
   && [ "$left" = "('fix/pr-squashed', None, True)" ] && [ "$on_forge" = "$later" ] && [ -n "$(git -C "$GHO" branch --list archive/fix/pr-squashed)" ] \
   && [ "$(field '(d["worktree"], d["branch"], d["remote"])' <<<"$cleaned")" = "(False, 'fix/pr-squashed', 'fix/pr-squashed')" ] \
   && [ -z "$(git -C "$GHS" branch --list fix/pr-squashed)" ] && [ -z "$(git -C "$GHO" branch --list fix/pr-squashed)" ]; then
-  pass "after a merge the forge made as one commit, the branch goes only when its tip is the commit that was merged; a deletion the forge refuses is an error that keeps the local branch; the forge's copy stays when it holds a later commit, whatever another branch with the same last words holds; and a run with nothing in the way removes both"
+  pass "after a merge the forge made as one commit, the branch goes only when it holds nothing that was not merged; a deletion the forge refuses is an error that keeps the local branch; the forge's copy stays when it holds a later commit, whatever another branch with the same last words holds; and a run with nothing in the way removes both"
 else
   fail "clean after a merge on the forge: $after / $kept_branch / $refused / $still / $left / $cleaned"
 fi
@@ -271,6 +271,32 @@ if [ "$(git -C "$GHS" show "$pushed_head" | git patch-id --stable | cut -d' ' -f
   pass "a branch changed after its push, whose pushed head the forge merged, keeps its local copy and loses the forge's, and clean names the commit that changed, also for one space that git's patch id does not see, and the commands that show and remove it, not a commit made on the forge"
 else
   fail "clean after a change after the push: $rewritten_clean"
+fi
+# The landing rebased the branch after its push over a base that moved, and the owner merged the pushed head on the forge with a
+# merge commit: the base then holds the pushed head itself, so its base is no longer the base the base branch shares with it.
+# The branch holds the same change, and goes with the forge's copy, as after a merge as one commit.
+git -C "$gh_other" pull -q origin main
+small_task_in "$GHS" pr-merge-commit y.txt eighteen
+tree=$GHS/.lem/worktrees/pr-merge-commit
+echo more > "$tree/y2.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: more"
+gh_checked pr-merge-commit && gh_land read pr-merge-commit --record "$(clean pr-merge-commit 1)" >/dev/null && gh_land propose pr-merge-commit --title "fix: eighteen" --notes "$NOTES" >/dev/null
+pushed_head=$(git -C "$tree" rev-parse HEAD)
+merge_commit_pr=$(gh_state 'next(n for n, pr in d["prs"].items() if pr["head"] == "fix/pr-merge-commit")')
+git -C "$gh_other" pull -q origin main
+echo other > "$gh_other/other.txt" && git -C "$gh_other" add -A && git -C "$gh_other" commit -q -m "feat: other" && git -C "$gh_other" push -q origin main
+gh_land start pr-merge-commit >/dev/null && gh_land base pr-merge-commit >/dev/null
+merge_commit_tip=$(git -C "$tree" rev-parse HEAD)
+git -C "$gh_other" fetch -q origin && git -C "$gh_other" merge -q --no-ff -m "Merge pull request #$merge_commit_pr" origin/fix/pr-merge-commit && git -C "$gh_other" push -q origin main
+gh_set "d['prs']['$merge_commit_pr'].update(state='MERGED', merge='$(git -C "$gh_other" rev-parse HEAD)')"
+gh_land merged pr-merge-commit >/dev/null
+merge_commit_clean=$(gh_land clean pr-merge-commit 2>&1 || true)
+if [ "$merge_commit_tip" != "$pushed_head" ] \
+  && [ "$(field '(d["worktree"], d["branch"], d["remote"], d["branch_left"])' <<<"$merge_commit_clean")" = "(True, 'fix/pr-merge-commit', 'fix/pr-merge-commit', None)" ] \
+  && grep -qF "fix/pr-merge-commit was rebased after its push: its tip ${merge_commit_tip:0:9} holds the same change as ${pushed_head:0:9}, the head Lem pushed, and the forge merged the same 2 commits" <<<"$(field 'd["rebased"]' <<<"$merge_commit_clean")" \
+  && [ -z "$(git -C "$GHS" branch --list fix/pr-merge-commit)" ] && [ -z "$(git -C "$GHO" branch --list fix/pr-merge-commit)" ]; then
+  pass "a branch the landing rebased after its push, whose pushed head the forge merged with a merge commit, goes with the forge's copy, and clean says it was a rebase after the push of the same commits"
+else
+  fail "clean after a rebase after the push and a merge commit: $merge_commit_clean"
 fi
 # A proposal the forge's step refused is none: no `proposed` event, and the task keeps the landing line.
 # With no `gh` on PATH the refusal names the command; a forge that fails is said with what it said.

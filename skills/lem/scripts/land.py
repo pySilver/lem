@@ -4974,10 +4974,14 @@ def after_push(task: Task, branch: str, tip: str, merged: str) -> tuple[bool, st
     must give the tip's tree. Git's patch id is not the proof, as `change` says: it ignores spaces and
     changes with its context lines, which a base that moved next to the change gives. The commit named
     is the one a replay of the merged head's commits onto the tip's base, as the rebase made them,
-    first gives another tree than the tip's commit at its place; the files when none can be named."""
+    first gives another tree than the tip's commit at its place; the files when none can be named.
+
+    The merged head's base is where it meets the tip's base, not where it meets the base branch: a
+    merge commit on the forge puts the merged head itself on the base branch, where a squash or its
+    "Rebase and merge" leaves it off it, and the tip's base is older than any of the three merges."""
     where = task.main
-    base_merged = git(where, "merge-base", merged, task.onto)
     base_tip = git(where, "merge-base", tip, task.onto)
+    base_merged = git(where, "merge-base", merged, base_tip)
     together = run(["git", "-C", str(where), "merge-tree", "--write-tree", "--merge-base", base_merged, base_tip, merged], check=False)
     if together.returncode not in (0, 1):
         raise LandError(f"git merge-tree of {merged[:9]} onto {base_tip[:9]} failed: {(together.stderr or together.stdout).strip()}")
@@ -5096,16 +5100,15 @@ def cmd_clean(task: Task) -> dict:
                 # holds the same change.
                 same, said = after_push(task, branch, tip, merged)
                 drop_forge_copy(task, branch, removed)
-                if not same:
-                    removed["branch_left"] = said
-                    return {"task": task.slug, **removed}
-                removed["rebased"] = said
+                if same:
+                    git(task.main, "branch", "-D", branch)
+                    return {"task": task.slug, **removed, "branch": branch, "rebased": said}
+                return {"task": task.slug, **removed, "branch_left": said}
             else:
                 after = (f"; the forge merged {merged[:9]}, which is not the tip of {branch} and which this checkout does not hold: "
                          f"a commit made on the forge after the tip, as its \"Update branch\" makes. `git log {branch}` shows what the branch holds, "
                          f"and `git branch -D {branch}` removes it")
-        if not removed["rebased"]:
-            raise LandError(f"{task.onto} does not hold the tip of {branch}, so the branch stays{after}")
+        raise LandError(f"{task.onto} does not hold the tip of {branch}, so the branch stays{after}")
     else:
         drop_forge_copy(task, branch, removed)
     git(task.main, "branch", "-D", branch)
