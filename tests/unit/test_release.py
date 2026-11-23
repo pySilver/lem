@@ -501,13 +501,13 @@ class Check(unittest.TestCase):
         (self.task / "release.txt").write_text("0.2.0\n", encoding="utf-8")
 
         @lem_release.one_command
-        def ending():
+        def ending() -> str | None:
             self.assertIsNone(lem_release.check(self.task, passes=True))
             # a command it runs in this process for the same task (`lem project log` in `lem land merged`)
             return nested()
 
         @lem_release.one_command
-        def nested():
+        def nested() -> str | None:
             return lem_release.check(self.task)
 
         self.assertIsNone(ending())

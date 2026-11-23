@@ -17,6 +17,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from collections.abc import Callable
 from pathlib import Path
 
 sys.dont_write_bytecode = True
@@ -29,7 +30,7 @@ project = importlib.import_module("project")
 class Refuses(unittest.TestCase):
     """A rule that refuses raises SettingsError, whose words name the fix."""
 
-    def refused(self, call, *args) -> str:
+    def refused(self, call: Callable[..., object], *args: object) -> str:
         with self.assertRaises(project.SettingsError) as caught:
             call(*args)
         return str(caught.exception)
@@ -131,7 +132,7 @@ class TicketOwed(unittest.TestCase):
 class InvestigationForm(Refuses):
     """What an investigation found: its type, its call, one line, a fix's place and whether it reproduced the bug."""
 
-    def fix(self, **changes) -> dict:
+    def fix(self, **changes: object) -> dict:
         return {
             "type": "fix",
             "call": "full",
@@ -275,7 +276,7 @@ class ReadForm(Refuses):
         {"name": "the clerk, opus", "why": "the model was at capacity"},
     ]
 
-    def read(self, **changes) -> dict:
+    def read(self, **changes: object) -> dict:
         return {
             "by": "lead",
             "asked": 2,
@@ -549,7 +550,7 @@ class TalkStartForm(Refuses):
 class TalkForm(Refuses):
     """A plan talk's record: its reviewer and its counts, which agree with each other."""
 
-    def talk(self, **changes) -> dict:
+    def talk(self, **changes: object) -> dict:
         return {
             "reviewer": "codex",
             "turns": 6,

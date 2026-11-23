@@ -15,7 +15,9 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from collections.abc import Callable
 from pathlib import Path
+from typing import cast
 from unittest import mock
 
 sys.dont_write_bytecode = True
@@ -44,7 +46,7 @@ def settings(*lines: str, local: dict | None = None) -> dict:
 class Refuses(unittest.TestCase):
     """A helper: the message of the SettingsError a call raises."""
 
-    def refused(self, call, *args) -> str:
+    def refused(self, call: Callable[..., object], *args: object) -> str:
         with self.assertRaises(project.SettingsError) as caught:
             call(*args)
         return str(caught.exception)
@@ -52,7 +54,7 @@ class Refuses(unittest.TestCase):
     def refused_settings(self, *lines: str) -> str:
         return self.refused(settings, *lines)
 
-    def assertNames(self, message: str, *parts: str) -> None:
+    def assertNames(self, message: str, *parts: str) -> None:  # noqa: N802 - named as unittest's own assert methods
         for part in parts:
             self.assertIn(part, message)
 
@@ -369,7 +371,7 @@ class KeepDays(Refuses):
         for value in ("0", "-3", "7.5", '"7"', "true"):
             with self.subTest(value=value):
                 message = self.refused(
-                    lambda: settings(
+                    lambda value=value: settings(
                         "[state]",
                         "keep_days = 7",
                         local=local("[state]", f"keep_days = {value}"),
@@ -997,7 +999,7 @@ class Seats(Home):
         ):
             with self.subTest(lines=lines):
                 message = self.refused(
-                    lambda: self.seats(
+                    lambda lines=lines: self.seats(
                         ("[branch]", 'base = "main"'), (), self.home(*lines)
                     )
                 )
@@ -1058,17 +1060,19 @@ class Seats(Home):
     ) -> None:
         # criterion 8: the fallback is one key of the reviewer, the planner and the merge agent; the experts keep
         # their rule that one answers alone where its agent is missing, and the session seat is Claude only
-        with tempfile.TemporaryDirectory() as folder:
-            with mock.patch.dict(os.environ, {"PATH": str(Path(folder) / "none")}):
-                found = self.seats(
-                    ("[seats]", 'fallback = "codex/gpt-6.2-sol:high"'),
-                    (),
-                    {
-                        "seats": {
-                            "experts": ["claude/fable:high", "codex/gpt-6.2-astra:high"]
-                        }
-                    },
-                )
+        with (
+            tempfile.TemporaryDirectory() as folder,
+            mock.patch.dict(os.environ, {"PATH": str(Path(folder) / "none")}),
+        ):
+            found = self.seats(
+                ("[seats]", 'fallback = "codex/gpt-6.2-sol:high"'),
+                (),
+                {
+                    "seats": {
+                        "experts": ["claude/fable:high", "codex/gpt-6.2-astra:high"]
+                    }
+                },
+            )
         self.assertEqual(
             [(e["seat"], e["here"]) for e in found["experts"]],
             [("claude/fable:high", True), ("codex/gpt-6.2-astra:high", False)],
@@ -1509,7 +1513,9 @@ class SetSeat(Home):
                 message = self.refused(project.set_value, "local", name, given)
                 self.assertNames(message, f"seats.{name}", "written whole")
                 # the example it names is one that `set` takes
-                example = re.search(r'written whole, as "([^"]+)"', message).group(1)
+                example = cast(
+                    "re.Match[str]", re.search(r'written whole, as "([^"]+)"', message)
+                ).group(1)
                 self.assertEqual(project.set_value("local", name, example), example)
         self.assertNames(
             self.refused(project.set_value, "local", "fallback", "true"),

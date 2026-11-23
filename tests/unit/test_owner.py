@@ -22,7 +22,7 @@ project = importlib.import_module("project")
 SLUG = "report-dates"
 
 
-def mark(ts: str, away: bool, words: str) -> dict:
+def mark(ts: str, *, away: bool, words: str) -> dict:
     return {
         "ts": ts,
         "event": "owner",
@@ -93,8 +93,8 @@ class Mark(unittest.TestCase):
             "".join(
                 project.json.dumps(record) + "\n"
                 for record in (
-                    mark("2026-11-19T14:05:00Z", True, "/lem im-away"),
-                    mark("2026-11-19T16:30:00Z", False, "/lem im-back"),
+                    mark("2026-11-19T14:05:00Z", away=True, words="/lem im-away"),
+                    mark("2026-11-19T16:30:00Z", away=False, words="/lem im-back"),
                 )
             ),
             encoding="utf-8",
@@ -116,7 +116,7 @@ class Mark(unittest.TestCase):
         words = "away\u2028now\u2029and\x85later"
         (folder / "owner.jsonl").write_text(
             project.json.dumps(
-                mark("2026-11-19T14:05:00Z", True, words), ensure_ascii=False
+                mark("2026-11-19T14:05:00Z", away=True, words=words), ensure_ascii=False
             )
             + "\n",
             encoding="utf-8",
@@ -131,7 +131,7 @@ class Mark(unittest.TestCase):
         folder = Path(self.folder.name) / "lem"
         folder.mkdir()
         (folder / "owner.jsonl").write_text(
-            project.json.dumps(mark("2026-11-19T14:05:00Z", True, "x"))
+            project.json.dumps(mark("2026-11-19T14:05:00Z", away=True, words="x"))
             + "\nnot json\n",
             encoding="utf-8",
         )
@@ -149,8 +149,8 @@ class Spans(unittest.TestCase):
         records = project.merged(
             [night("2026-11-19T02:00:00Z")],
             [
-                mark("2026-11-19T01:00:00Z", True, "I'm away"),
-                mark("2026-11-19T02:10:00Z", False, "/lem im-back"),
+                mark("2026-11-19T01:00:00Z", away=True, words="I'm away"),
+                mark("2026-11-19T02:10:00Z", away=False, words="/lem im-back"),
             ],
         )
         spans = project.runs_without_owner(SLUG, records, "2026-11-19T02:00:00Z")
@@ -163,8 +163,8 @@ class Spans(unittest.TestCase):
         records = project.merged(
             [],
             [
-                mark("2026-11-19T14:05:00Z", True, "/lem im-away"),
-                mark("2026-11-19T16:30:00Z", False, "/lem im-back"),
+                mark("2026-11-19T14:05:00Z", away=True, words="/lem im-away"),
+                mark("2026-11-19T16:30:00Z", away=False, words="/lem im-back"),
             ],
         )
         spans = project.runs_without_owner(SLUG, records, "2026-11-19T14:00:00Z")
@@ -193,8 +193,8 @@ class Spans(unittest.TestCase):
     ) -> None:
         events = [night("2026-11-19T14:05:00Z")]
         marks = [
-            mark("2026-11-19T14:05:00Z", True, "away"),
-            mark("2026-11-19T14:05:00Z", False, "back"),
+            mark("2026-11-19T14:05:00Z", away=True, words="away"),
+            mark("2026-11-19T14:05:00Z", away=False, words="back"),
         ]
         self.assertEqual(
             [
@@ -208,8 +208,8 @@ class Spans(unittest.TestCase):
         records = project.merged(
             [],
             [
-                mark("2026-11-19T10:00:00Z", True, "away"),
-                mark("2026-11-19T11:00:00Z", False, "back"),
+                mark("2026-11-19T10:00:00Z", away=True, words="away"),
+                mark("2026-11-19T11:00:00Z", away=False, words="back"),
             ],
         )
         self.assertEqual(

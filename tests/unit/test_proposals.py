@@ -13,6 +13,7 @@ import json
 import sys
 import tempfile
 import unittest
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -68,7 +69,7 @@ class Records(unittest.TestCase):
             project.record_file(self.state, kind, day).read_text(encoding="utf-8")
         )
 
-    def refused(self, call, *args) -> str:
+    def refused(self, call: Callable[..., object], *args: object) -> str:
         with self.assertRaises(project.SettingsError) as caught:
             call(*args)
         return str(caught.exception)

@@ -18,6 +18,7 @@ import tempfile
 import threading
 import time
 import unittest
+from collections.abc import Callable
 from pathlib import Path
 
 sys.dont_write_bytecode = True
@@ -68,7 +69,7 @@ class Home(unittest.TestCase):
         file.write_text(text, encoding="utf-8")
         return file
 
-    def refused(self, call, *args) -> str:
+    def refused(self, call: Callable[..., object], *args: object) -> str:
         with self.assertRaises((project.SettingsError, lem_state.StateError)) as caught:
             call(*args)
         return str(caught.exception)
@@ -237,7 +238,7 @@ class Nearest(Home):
             ROOT, ROOT, raw, read("local", *local), raw, None, read("home", *home)
         )
 
-    def merger(self, **files) -> tuple:
+    def merger(self, **files: tuple) -> tuple:
         found = self.decided(**files)["seats"]["merger"]
         return found["seat"], found["from"]
 
@@ -420,10 +421,10 @@ class Texts(unittest.TestCase):
             except (UnicodeDecodeError, FileNotFoundError):
                 continue
             for number, line in enumerate(text.split("\n"), 1):
-                if OLD_NAME.search(line):
+                if found := OLD_NAME.search(line):
                     with self.subTest(file=name, line=number):
                         self.fail(
-                            f"{name}:{number} names {OLD_NAME.search(line)[0]}: the settings are .lem/settings.toml, "
+                            f"{name}:{number} names {found[0]}: the settings are .lem/settings.toml, "
                             f".lem/settings.local.toml and ~/.config/lem/settings.toml"
                         )
 
@@ -444,15 +445,17 @@ class Texts(unittest.TestCase):
         self.assertGreater(len(rows), 2, "the section holds no table")
         places = [PAGE_FILES.get(cell.strip("`")) for cell in rows[0][1:]]
         self.assertEqual(
-            sorted(filter(None, places)),
+            sorted(place for place in places if place),
             sorted(PAGE_FILES.values()),
             f"the table's files are {rows[0][1:]}",
         )
-        found = {}
+        found: dict[str, tuple] = {}
         for row in rows[2:]:
             for table in re.findall(r"`\[(\w+)\]`", row[0]):
                 found[table] = tuple(
-                    place for place, cell in zip(places, row[1:]) if cell != "no"
+                    place
+                    for place, cell in zip(places, row[1:], strict=False)
+                    if cell != "no"
                 )
         self.assertEqual(
             {table: tuple(sorted(valid)) for table, valid in found.items()},
