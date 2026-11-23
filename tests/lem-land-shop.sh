@@ -773,7 +773,210 @@ if [ "$red_tap" = True ] && [ "$(field 'str(d["owner_merge"]).startswith("stands
 else
   fail "the owner's merge through a red base: $red_tap / $red_due / $red_again / $(mb_kept mb-red owner_tap d)"
 fi
-project --repo "$MB" state mb-red dropped "the test is over" >/dev/null
+# It goes on as the server goes on: propose logged that his merge stands for the new tip, and the server's run of his
+# merge lands it. What the cut landing carried, carried: no second review, no fresh merge agent, one new landing.
+red_new=$(git -C "$red_tree" rev-parse HEAD)
+red_landed=$(land --repo "$MB" merge mb-red --by owner --via server --standing --tip "$red_new" 2>&1 || true)
+red_line="rebased on main; the review carried over the rebase; the merge review carried over the rebase; the checks passed again"
+if [ "$(field 'd["due"]' <<<"$red_due")" = none ] && [ "$(field '(d["merge_review"], d["merge_review_why"], d["synced"])' <<<"$red_again")" = "('carried', None, '$red_line')" ] \
+  && [ "$(mb_events mb-red review)" = 1 ] && [ "$(mb_events mb-red land.again)" = 1 ] && [ "$(mb_kept mb-red relands d)" = 1 ] \
+  && [ "$(mb_body mb-red "'''$red_line''' in d.lower()")" = True ] \
+  && [ "$(mb_logged mb-red merge.stands 'd["tip"]')" = "['${red_new:0:9}']" ] && [ "$(mb_events mb-red merge.ended)" = 0 ] \
+  && [ "$(status_in "$MB" mb-red)" = landed ] && [ "$(mb_kept mb-red merged_by '(d["by"], d["via"])')" = "('owner', 'server')" ]; then
+  pass "through a red base the new landing goes on with what it carried: no second review and no fresh merge agent, one new landing counted, the pull request's text says what carried, and the board's server lands the owner's standing merge of the new tip"
+else
+  fail "what carries through a red base: $red_due / $red_again / $red_landed / $(mb_events mb-red review) / $(mb_events mb-red land.again) / $(mb_logged mb-red merge.stands d)"
+fi
+
+# The steps of the path through a red base that the checks below share: mb_refused SLUG, the owner's merge refused on a
+# moved base and kept, then the merge agent's read of what moved, which says another round; mb_wait SLUG, the new
+# landing's start and first rebase, then its wait for the red base as blocked; mb_green SLUG, the base green again.
+mb_refused() { mb_move docs/board.md >/dev/null; land --repo "$MB" merge "$1" --by owner >/dev/null 2>&1 || true; merge_read "$MB" "$1" merge "another round" >/dev/null; }
+mb_wait() { land --repo "$MB" start "$1" >/dev/null && land --repo "$MB" base "$1" >/dev/null && project --repo "$MB" state "$1" blocked "the base is red" "after: mb-base-fix" >/dev/null; }
+mb_green() { project --repo "$MB" state "$1" ready "the base is green again" >/dev/null; }
+# mb_again SLUG [RECORD]: after the wait, the landing from start to the read: a review that is due is written down with
+# RECORD (a read that found nothing by default)
+mb_again() {
+  local due
+  land --repo "$MB" start "$1" >/dev/null && land --repo "$MB" base "$1" >/dev/null && polish_in "$MB" "$1" && land --repo "$MB" checks "$1" >/dev/null || return 1
+  due=$(land --repo "$MB" read "$1")
+  if [ "$(field 'd["due"]' <<<"$due")" != none ]; then land --repo "$MB" read "$1" --record "$(record "$1" "$(field 'd["attempt"]' <<<"$due")" "${2:-$MB_READ}")" >/dev/null; fi
+}
+# mb_meet FILE: origin's main gives FILE words of its own, so that a task that adds FILE meets a conflict on its next rebase
+mb_meet() { git -C "$MBX" pull -q --ff-only origin main && echo theirs > "$MBX/$1" && git -C "$MBX" add -A && git -C "$MBX" commit -q -m "fix: $1 on main" && git -C "$MBX" push -q origin main; }
+# mb_resolve SLUG FILE: the builder's resolution of that conflict, here the test's: the task's words stay
+mb_resolve() {
+  local tree
+  tree=$(project --repo "$MB" worktree-dir "$1")
+  git -C "$tree" rebase -q origin/main >/dev/null 2>&1 || true
+  echo yes > "$tree/$2" && git -C "$tree" add "$2" && GIT_EDITOR=true git -C "$tree" rebase --continue >/dev/null 2>&1
+}
+# mb_keys SLUG: the keys landing.json holds, sorted
+mb_keys() { "$PY" -c 'import json, sys; print(sorted(json.load(open(sys.argv[1]))))' "$MB/.lem/state/tasks/$1/landing.json"; }
+
+# A commit after the second rebase changes the change he merged: propose says his merge ended and why, never null, and logs it.
+mb_task mb-late late.txt && mb_land mb-late
+mb_refused mb-late && mb_wait mb-late
+mb_move docs/board.md >/dev/null
+mb_green mb-late
+late_tree=$(project --repo "$MB" worktree-dir mb-late)
+land --repo "$MB" start mb-late >/dev/null && land --repo "$MB" base mb-late >/dev/null
+echo repaired > "$late_tree/repair.txt" && git -C "$late_tree" add repair.txt && git -C "$late_tree" commit -q -m "fix: the failed check"
+late_due=$(land --repo "$MB" checks mb-late >/dev/null && land --repo "$MB" read mb-late)
+land --repo "$MB" read mb-late --record "$(record mb-late "$(field 'd["attempt"]' <<<"$late_due")" "$MB_READ")" >/dev/null
+late=$(land --repo "$MB" propose mb-late --title "fix: mb-late" --notes "$NOTES" 2>&1 || true)
+if [ "$(field 'd["owner_merge"]' <<<"$late")" = "ended: a commit came after the rebase; the owner merges it again" ] \
+  && [ "$(mb_logged mb-late merge.ended '(d["by"], d["why"])')" = "[('owner', 'a commit came after the rebase')]" ] && [ "$(mb_kept mb-late owner_tap d)" = None ]; then
+  pass "a commit after the rebase that follows a red base ends the owner's standing merge: propose prints ended with that reason, never null, and logs merge.ended once"
+else
+  fail "a commit after the second rebase: $late_due / $late / $(mb_logged mb-late merge.ended d)"
+fi
+project --repo "$MB" state mb-late dropped "the test is over" >/dev/null
+
+# A start over still starts over, with nothing carried, and the end of his standing merge is told: start prints it as
+# ended with the start over's reason and logs merge.ended once; a start over with no standing merge prints null.
+mb_task mb-over over.txt && mb_land mb-over
+mb_move docs/board.md >/dev/null
+land --repo "$MB" merge mb-over --by owner >/dev/null 2>&1 || true
+over_tip=$(mb_kept mb-over owner_tap 'd["tip"]')
+project --repo "$MB" state mb-over ready --start-over "the owner asked for a fresh landing" >/dev/null
+over=$(land --repo "$MB" start mb-over)
+over_keys=$(mb_keys mb-over)
+project --repo "$MB" state mb-over ready --start-over "the landing is cut again" >/dev/null
+over_none=$(land --repo "$MB" start mb-over | field 'd["owner_merge"]')
+if [ "$(field 'd["owner_merge"]' <<<"$over")" = "ended: the landing started over: the owner asked for a fresh landing; the owner merges it again" ] \
+  && [ "$(mb_logged mb-over merge.ended '(d["tip"], d["why"])')" = "[('${over_tip:0:9}', 'the landing started over: the owner asked for a fresh landing')]" ] \
+  && [ "$over_keys" = "['branch', 'polish', 'pr', 'pushed']" ] && [ "$over_none" = None ] && [ "$(mb_events mb-over land.again)" = 0 ]; then
+  pass "ready --start-over over an open task with the owner's standing merge starts the landing over with only the pull request's keys, and start prints his merge as ended with the start over's reason and logs merge.ended once; a start over with no standing merge prints null"
+else
+  fail "a start over with his standing merge: $over / $over_keys / $over_none / $(mb_logged mb-over merge.ended d)"
+fi
+project --repo "$MB" state mb-over dropped "the test is over" >/dev/null
+
+# The check for a command of the checks comes after what start does with the record: an open task's new landing is
+# counted once, though start refused it and ran again; a start over is not lost through that refusal, which says the end
+# of his merge, and the retry keeps only the pull request's keys.
+mb_task mb-gate gate.txt && mb_land mb-gate
+mb_move docs/board.md >/dev/null
+land --repo "$MB" merge mb-gate --by owner >/dev/null 2>&1 || true
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' 'history = "keep"' > "$MB/.lem/settings.toml"
+gate_refused=$(land --repo "$MB" start mb-gate 2>&1 || true)
+gate_blocked=$(status_in "$MB" mb-gate)
+mb_settings agent keep
+land --repo "$MB" start mb-gate >/dev/null
+gate_counted="$(mb_kept mb-gate relands d) $(mb_events mb-gate land.again) $(mb_kept mb-gate sync '(d["conflicting"], d["onto"])') $(mb_kept mb-gate owner_tap 'd is not None') $(status_in "$MB" mb-gate)"
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' 'history = "keep"' > "$MB/.lem/settings.toml"
+project --repo "$MB" state mb-gate ready --start-over "the gate was cut off" >/dev/null
+over_refused=$(land --repo "$MB" start mb-gate 2>&1 || true)
+over_kept=$(mb_keys mb-gate)
+mb_settings agent keep
+over_retry=$(land --repo "$MB" start mb-gate | field 'd["owner_merge"]')
+if grep -qF "no command in its checks" <<<"$gate_refused" && [ "$gate_blocked" = blocked ] && [ "$gate_counted" = "1 1 (False, None) True landing" ] \
+  && grep -qF "The owner's merge ended: the landing started over: the gate was cut off; the owner merges it again" <<<"$over_refused" \
+  && [ "$over_kept" = "['polish', 'pr', 'pushed']" ] && [ "$over_retry" = None ] && [ "$(mb_events mb-gate merge.ended)" = 1 ] && [ "$(status_in "$MB" mb-gate)" = landing ]; then
+  pass "start counts an open task's new landing before it refuses a project with no command of the checks, and its retry counts it no second time; a start over refused the same way has already ended the owner's merge, which the refusal says, and the retry starts over with only the pull request's keys"
+else
+  fail "start's refusal for want of a command of the checks: $gate_refused / $gate_blocked / $gate_counted / $over_refused / $over_kept / $over_retry"
+fi
+project --repo "$MB" state mb-gate dropped "the test is over" >/dev/null
+
+# A conflict on the second rebase, after a clean first one and the wait: the second rebase starts again from the tip
+# proposed before, so the conflict's tip before is that one, and a resolution whose read finds nothing carries the merge
+# review and his merge on a request that is not careful; on a careful one his merge ends with the careful reason.
+mb_task mb-meet meet.txt && mb_land mb-meet
+meet_t0=$(mb_kept mb-meet proposed d)
+mb_refused mb-meet && mb_wait mb-meet
+mb_meet meet.txt
+mb_green mb-meet
+land --repo "$MB" start mb-meet >/dev/null
+meet_stop=$(land --repo "$MB" base mb-meet 2>/dev/null || true)
+meet_before=$(mb_kept mb-meet conflict 'd["before"]')
+mb_resolve mb-meet meet.txt
+mb_again mb-meet
+meet=$(land --repo "$MB" propose mb-meet --title "fix: mb-meet" --notes "$NOTES" 2>&1 || true)
+WARY_READ='{"kind": "full", "ran": [{"name": "default", "why": "the request is careful"}], "answered": ["codex"]}'
+mb_task mb-wary wary.txt
+echo 'careful: the owner says so' >> "$MB/.lem/state/tasks/mb-wary/brief.md"
+mb_land mb-wary "$WARY_READ" "$MIG"
+mb_refused mb-wary && mb_wait mb-wary
+mb_meet wary.txt
+mb_green mb-wary
+land --repo "$MB" start mb-wary >/dev/null && land --repo "$MB" base mb-wary >/dev/null 2>&1 || true
+mb_resolve mb-wary wary.txt
+mb_again mb-wary "$WARY_READ"
+wary=$(land --repo "$MB" propose mb-wary --title "fix: mb-wary" --notes "$MIG" 2>&1 || true)
+if [ "$(field 'd["conflict"]' <<<"$meet_stop")" = "['meet.txt']" ] && [ "$meet_before" = "$meet_t0" ] && [ "$(mb_kept mb-meet resolution 'd["before"]')" = "$meet_t0" ] \
+  && [ "$(field '(d["merge_review"], d["owner_merge"].split(":")[0])' <<<"$meet")" = "('carried', 'stands')" ] \
+  && [ "$(field 'd["owner_merge"]' <<<"$wary")" = "ended: the rebase met a conflict, and the request is careful: the owner says so; the owner merges it again" ]; then
+  pass "a conflict on the rebase after a red base is met from the tip proposed before, and its resolution with a read that found nothing carries the merge review and the owner's merge on a request that is not careful; on a careful one his merge ends with the careful reason"
+else
+  fail "a conflict after a red base: $meet_stop / $meet_before / $meet_t0 / $meet / $wary"
+fi
+project --repo "$MB" state mb-meet dropped "the test is over" >/dev/null
+project --repo "$MB" state mb-wary dropped "the test is over" >/dev/null
+
+# The probe of decision 6 (probe-two-rebases.py, git 2.55.0): a branch of two commits, a red base that repeats the first
+# commit's edit, so that git leaves that commit out of the first rebase, and a repair that reverts the red base whole.
+# After the wait the second rebase starts again from the tip proposed before, so the branch holds both commits again.
+mb_task mb-probe probe.txt
+probe_tree=$(project --repo "$MB" worktree-dir mb-probe)
+echo new > "$probe_tree/feature.txt" && git -C "$probe_tree" add feature.txt && git -C "$probe_tree" commit -q -m "feat: the feature"
+echo new > "$probe_tree/label.txt" && git -C "$probe_tree" add label.txt && git -C "$probe_tree" commit -q -m "feat: the label"
+mb_land mb-probe
+probe_t0=$(mb_kept mb-probe proposed d)
+git -C "$MBX" pull -q --ff-only origin main && echo new > "$MBX/feature.txt" && echo broken > "$MBX/broken.txt"
+git -C "$MBX" add -A && git -C "$MBX" commit -q -m "fix: the red base" && git -C "$MBX" push -q origin main
+land --repo "$MB" merge mb-probe --by owner >/dev/null 2>&1 || true
+merge_read "$MB" mb-probe merge "another round" >/dev/null
+mb_wait mb-probe
+probe_dropped=$(git -C "$probe_tree" log --format=%s origin/main..HEAD | grep -c "the feature" || true)
+git -C "$MBX" revert --no-edit HEAD >/dev/null && git -C "$MBX" push -q origin main
+mb_green mb-probe
+mb_again mb-probe
+probe_held="$(git -C "$probe_tree" rev-list --count origin/main..HEAD) $(git -C "$probe_tree" show HEAD:feature.txt) $(git -C "$probe_tree" show HEAD:label.txt)"
+probe_carried=$(mb_kept mb-probe rebase_carried '(d["from"], d["to"])')
+probe=$(land --repo "$MB" propose mb-probe --title "fix: mb-probe" --notes "$NOTES" 2>&1 || true)
+probe_new=$(git -C "$probe_tree" rev-parse HEAD)
+if [ "$probe_dropped" = 0 ] && [ "$probe_held" = "3 new new" ] && [ "$probe_carried" = "('$probe_t0', '$probe_new')" ] \
+  && [ "$(field 'd["owner_merge"].split(":")[0]' <<<"$probe")" = stands ]; then
+  pass "a second rebase after a red base starts again from the tip proposed before: the commit git left out of the first rebase, onto a base that repeated its edit, is on the branch again once the base reverted it, and the owner's merge stands for the whole change"
+else
+  fail "the probe's two rebases: $probe_dropped / $probe_held / $probe_carried / $probe_t0 / $probe"
+fi
+# base run twice with no move in one landing: the record is still one rebase from the tip proposed before
+probe_first=$(mb_kept mb-probe proposed d)
+mb_refused mb-probe && mb_wait mb-probe
+mb_green mb-probe
+land --repo "$MB" start mb-probe >/dev/null && land --repo "$MB" base mb-probe >/dev/null && land --repo "$MB" base mb-probe >/dev/null
+polish_in "$MB" mb-probe && land --repo "$MB" checks mb-probe >/dev/null
+twice_carried=$(mb_kept mb-probe rebase_carried 'd["from"]')
+twice=$(land --repo "$MB" propose mb-probe --title "fix: mb-probe" --notes "$NOTES" 2>&1 || true)
+if [ "$twice_carried" = "$probe_first" ] && [ "$(field 'd["owner_merge"].split(":")[0]' <<<"$twice")" = stands ]; then
+  pass "base run twice with no move of the base in one landing keeps one rebase from the tip proposed before, and the owner's merge still stands"
+else
+  fail "base twice with no move: $twice_carried / $probe_first / $twice"
+fi
+project --repo "$MB" state mb-probe dropped "the test is over" >/dev/null
+
+# A commit added to the branch after the proposal, then the new landing, a clean first rebase, the wait and the second
+# rebase: the second rebase starts again from the tip before Lem's own first one, so the commit is still on the branch,
+# and propose says what one rebase with no wait says.
+mb_task mb-tip tip.txt && mb_land mb-tip
+mb_refused mb-tip
+tip_tree=$(project --repo "$MB" worktree-dir mb-tip)
+echo more > "$tip_tree/more.txt" && git -C "$tip_tree" add more.txt && git -C "$tip_tree" commit -q -m "fix: one more file"
+mb_wait mb-tip
+mb_move docs/board.md >/dev/null
+mb_green mb-tip
+mb_again mb-tip
+tip_held=$(git -C "$tip_tree" log --format=%s origin/main..HEAD | grep -c "one more file" || true)
+tip=$(land --repo "$MB" propose mb-tip --title "fix: mb-tip" --notes "$NOTES" 2>&1 || true)
+if [ "$tip_held" = 1 ] && [ "$(field 'd["owner_merge"]' <<<"$tip")" = "ended: a commit came after the tip proposed before; the owner merges it again" ]; then
+  pass "a commit added after the proposal stays on the branch through the two rebases of a red base, and propose ends the owner's merge with the reason one rebase with no wait gives"
+else
+  fail "a commit after the proposal and two rebases: $tip_held / $tip"
+fi
+project --repo "$MB" state mb-tip dropped "the test is over" >/dev/null
 
 # A safe read never lets the merge agent merge what it may not merge today: a careful request still waits for the owner.
 mb_settings agent squash

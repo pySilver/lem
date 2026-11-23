@@ -2277,6 +2277,10 @@ SAYS = {
                                         else "the merge agent read it on the base the checks ran on, which main has again"
                                         if e.get("after") == "a read of the base back on the checks' tree"
                                         else "the new landing kept the change you merged") + ": the board’s server runs it, and nobody asks you again"},
+    # land.py logs it when your standing merge ends: at `start` of a landing that starts over, or at a proposal
+    # whose change or reasons for not green are not the ones you merged (`why`)
+    "merge.ended": lambda e: {"info": {"actor": "you", "icon": "alert"}, "head": "Your merge ended",
+                              "text": f"{e.get('why') or 'no reason given'}: you merge it again"},
     "merge.refused": lambda e: {"info": {"actor": "bad", "icon": "alert"}, "head": "Lem refused the merge agent’s merge" if e.get("from") == "lem" else "GitHub refused the merge", "text": e.get("said") or ""},
     "gate.start": lambda e: {"info": {"actor": "gate", "icon": "play"}, "head": "The checks started", "text": f"{plural(e.get('commands') or 0, 'command')} on {e.get('tip') or '?'}"},
     "gate.end": gate_end_said,

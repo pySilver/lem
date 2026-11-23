@@ -599,6 +599,44 @@ class OneWriter(unittest.TestCase):
         self.assertEqual(events, ["building", "dropped"])
 
 
+class StartOver(unittest.TestCase):
+    """`ready --start-over` writes the line `lem land start` reads, by itself: the writer does not type it."""
+
+    def write(self, status: str, lines: list[str], start_over: bool) -> list[str]:
+        from unittest import mock
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        directory = Path(folder.name)
+        (directory / "state.md").write_text("2026-11-23T17:31Z blocked: the base is red\nafter: mb-base-fix\n", encoding="utf-8")
+        with mock.patch.object(project, "task_directory", return_value=directory), mock.patch.object(project, "load", return_value={}), \
+                mock.patch.object(project, "task_worktree", return_value={}), mock.patch.object(project, "opening_line", return_value=None), \
+                mock.patch.object(project, "append_event"):
+            project.cmd_state(ROOT, "mb-red", status, lines, start_over)
+        return (directory / "state.md").read_text(encoding="utf-8").split("\n\n")[0].splitlines()
+
+    def test_the_flag_writes_the_line_under_why_and_a_plain_ready_has_none(self):
+        over = self.write("ready", ["the gate was cut off", "after: mb-base-fix"], True)
+        self.assertEqual(over[1:], [project.START_OVER, "after: mb-base-fix"])
+        self.assertTrue(over[0].endswith(" ready: the gate was cut off"))
+        plain = self.write("ready", ["the base is green again"], False)
+        self.assertNotIn(project.START_OVER, plain[1:])
+        # a WHY of the same words gets the line no second time
+        same = self.write("ready", [project.START_OVER], True)
+        self.assertEqual(len(same), 1)
+
+    def test_the_landing_reads_the_same_line(self):
+        land = importlib.import_module("land")
+        self.assertEqual(land.START_OVER, project.START_OVER)
+        task = object.__new__(land.Task)
+        task.record = {"status": "ready", "state": "2026-11-23T17:51Z ready: the gate was cut off\nthe landing starts over"}
+        self.assertTrue(task.starts_over())
+        self.assertEqual(task.block_lines()[0], "the gate was cut off")
+        task.record = {"status": "ready", "state": "2026-11-23T17:51Z ready: the base is green again"}
+        self.assertFalse(task.starts_over())
+        task.record = {"status": "ready", "state": "2026-11-23T17:51Z ready: the landing starts over"}
+        self.assertTrue(task.starts_over())
+
+
 class Prune(unittest.TestCase):
     """What `lem project prune` does with each task, from its state.md and the event log alone: an open
     task is never touched, an ended one goes once nothing of it was logged for the days, and a state that
