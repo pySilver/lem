@@ -786,7 +786,10 @@ class Guard(unittest.TestCase):
                  mock.patch.object(session.project, "events_named", side_effect=lambda root, *names: [e for e in (opened, woke) if e["event"] in names]), \
                  mock.patch.object(session.project, "load", return_value={}), mock.patch.object(session.project, "read_tasks", return_value=[]), \
                  mock.patch.object(session, "ctl", return_value=json.dumps([{"text": f"lem: {SLUG} {why}"}])):
-                return session.cmd_list(ROOT)[0]["unanswered"]
+                entry = session.cmd_list(ROOT)[0]
+            # no transcript record of the session: its signs read nothing, and no turn either
+            self.assertEqual({key: entry[key] for key in ("sign", "shell", "signs", "turn")}, self.UNREAD)
+            return entry["unanswered"]
 
         self.assertEqual((unanswered("owner"), unanswered("status")), (True, False))
 
@@ -797,7 +800,20 @@ class Guard(unittest.TestCase):
         self.assertIsNone(self.refusal(stopped, "restart", "13:30", named=None, sign=None))
         self.assertEqual(self.refusal(stopped, "restart", "13:30", named=None, sign="2026-11-22T13:00:00Z"), "working")
 
-    UNREAD = {"sign": None, "shell": False, "signs": False}
+    UNREAD = {"sign": None, "shell": False, "signs": False, "turn": None}
+
+    def test_the_guards_look_at_a_task_out_of_its_phase_reads_no_signs_and_no_turn(self):
+        seen = []
+        real = session.guard_refusal
+
+        def spy(t, m, step, named):
+            seen.append(dict(m.sessions[SLUG]))
+            return real(t, m, step, named)
+
+        with mock.patch.object(session, "guard_refusal", side_effect=spy):
+            refused, _, _ = self.run_act(self.landing("held"), lambda: session.guard_check(ROOT, SLUG, "status", "S1", {}))[0]
+        self.assertEqual(refused["why"], "status")
+        self.assertEqual({key: seen[0][key] for key in ("sign", "shell", "signs", "turn")}, self.UNREAD)
 
     def unread_stop(self) -> list[dict]:
         return [*self.landing(), self.ev("11:39", "session.wake", session="S1", why="status", unread=True),

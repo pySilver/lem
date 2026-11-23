@@ -3266,8 +3266,9 @@ def waiting_model(root: Path, settings: dict):
     """The board's model of the repository as the board server builds it (`lem_board_model`), for
     `waiting`: the event log, the owner's mark, the demo mark (board.py `meta_of`), the forge's last look
     that the server wrote (`lem_board_model.FORGE_LOOK`), and the task sessions, which it asks `lem session
-    list` for itself (`waiting_sessions`). With the model, what the session said of the sessions: None when
-    they are known, else why not."""
+    list` for itself (`waiting_sessions`), with the turn of the session that runs this command left as one
+    Lem cannot tell (`lem_board_model.own_turn_unread`), since that turn runs while it asks. With the model,
+    what the session said of the sessions: None when they are known, else why not."""
     bm = importlib.import_module("lem_board_model")
     state = state_root(root)
     reader = bm.Reader(main_checkout(root), state)
@@ -3278,7 +3279,9 @@ def waiting_model(root: Path, settings: dict):
     model.seen = (bm.forge_look(state) or {}).get("seen")
     said = None
     if not model.meta["demo"]:
-        model.sessions, said = waiting_sessions(root, settings, model, bm)
+        sessions, said = waiting_sessions(root, settings, model, bm)
+        caller = os.environ.get("AGTERM_SESSION_ID") or os.environ.get("AGT_SESSION_ID") or None
+        bm.put_sessions(model, bm.own_turn_unread(sessions, caller))
     return model, said
 
 

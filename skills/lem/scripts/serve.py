@@ -493,13 +493,15 @@ class Workspace:
         self.session_problem: str | None = None
         self.kept: set[str] = set()
         self.needs: dict[str, str] = {}
+        # the held tasks whose session works on the owner's answer at the last look (`lem_board_model.put_sessions`)
+        self.works: set[str] = set()
         self.failed: dict[tuple, float] = {}
         # when the server last ran `lem project prune` here (`prune_once`), on the monotonic clock
         self.pruned: float | None = None
 
     def model(self) -> "bm.Model":
         found = self.reader.current(board)
-        found.sessions = self.sessions
+        bm.put_sessions(found, self.sessions)
         # the server's own look, once it looked; before it, the last look on file (bm.FORGE_LOOK), which the Reader read
         if self.forge.get("seen") is not None:
             found.seen = self.forge["seen"]
@@ -518,7 +520,8 @@ class Workspace:
         """Ask `lem session list` which task sessions live, for the board's rows and its "Open a session"
         (`Model.sessions`), with the worktree of each task that ended and still has one. Nothing for a demo
         workspace, which has no agterm of its own to ask. A page open on the workspace gets a refresh when
-        a task becomes stuck for want of its session, or stops being so."""
+        a task becomes stuck for want of its session, or stops being so, and when a held task's session
+        starts or ends a turn on the owner's answer (`lem_board_model.put_sessions`)."""
         model = self.reader.current(board)
         if model.meta.get("demo") or not self.settings():
             self.sessions = None
@@ -539,10 +542,11 @@ class Workspace:
             return
         self.sessions = bm.sessions_of(entries, kept)
         self.session_problem = None
-        model.sessions = self.sessions
+        bm.put_sessions(model, self.sessions)
         needs = {t.slug: need for t in model.tasks if (need := bm.session_need(t, model))}
-        if needs != self.needs:
-            self.needs = needs
+        works = {t.slug for t in model.tasks if t.works}
+        if needs != self.needs or works != self.works:
+            self.needs, self.works = needs, works
             self.acted += 1
 
     def backlog_folder(self) -> Path | None:

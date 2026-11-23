@@ -30,7 +30,7 @@
                                  waiting session is gone (`"gone": true, "companion": ID`)
     lem session list             each task's newest session: live, agent, selected, the phase the task is
                                  in now and the one the session opened in, unanswered, and its signs
-                                 of work (sign, shell, signs)
+                                 of work (sign, shell, signs, turn)
     lem session plugin-dir       the folder that `--plugin-dir` names on a launch line of this Lem, or
                                  null when this Lem is the installed plugin: the task's session and
                                  the plan talk's pair run the Lem that opened them
@@ -123,10 +123,12 @@ the guard itself ends.
 
 Each entry whose session is live (`live`) says what Claude Code's own files say of its work
 (`lem_signs`): `sign`, the time of the newest turn of the session's main thread or of any of its
-subagents, or null; `shell`, true while a shell command of the session runs; and `signs`, false when
+subagents, or null; `shell`, true while a shell command of the session runs; `signs`, false when
 neither could be read (no `session.transcript` record of that agterm session, or no live process of
-it). A record of that session whose transcript's first prompt is another task's launch line counts
-for none. A session that is not live has `sign` null and both false.
+it); and `turn`, `"runs"` while the newest turn of the session's main thread runs, `"ended"` when it
+ended, or null when no record of it tells or `signs` is false. A record of that session whose
+transcript's first prompt is another task's launch line counts for none. A session that is not live
+has `sign` and `turn` null and both others false.
 
 The guard of a stopped session is the board server's (`serve.py`, `duties`; the rule is
 `lem_board_model.stop_due`): 45 minutes with no sign of work in a task in `building`, `ready` or
@@ -685,7 +687,7 @@ def guard_check(root: Path, slug: str, step: str, named: str | None, where: dict
     newest = newest_opens(events).get(slug)
     session = str(newest["session"]) if newest and newest.get("session") else None
     alive = agent = False
-    signs = {"sign": None, "shell": False, "signs": False}
+    signs = {"sign": None, "shell": False, "signs": False, "turn": None}
     if session is not None and t is not None and t.status in bm.GUARDED:
         node = node_of(tree(where), session)
         alive = live(node, newest, datetime.now(timezone.utc))
@@ -693,7 +695,7 @@ def guard_check(root: Path, slug: str, step: str, named: str | None, where: dict
         records = [record for record in events if record.get("event") == lem_signs.EVENT and record.get("task") == slug]
         if alive and lem_signs.own_records(records, session):
             signs = lem_signs.signs_of(records, session, process_table(), slug)
-    m.sessions = {slug: {"live": alive, "agent": agent, "unanswered": False, "session": session, **signs}}
+    bm.put_sessions(m, {slug: {"live": alive, "agent": agent, "unanswered": False, "session": session, **signs}})
     reason = guard_refusal(t, m, step, named)
     read = signs.get("signs") is True
     if reason is None:
@@ -1047,7 +1049,7 @@ def cmd_list(root: Path) -> list[dict]:
         if node is not None and wake is not None and wake.get("why") != "status" and (now - stamp(wake["ts"])).total_seconds() >= UNANSWERED_AFTER:
             mailbox = ctl(where, "msg", "read", "--as", f"{session}:{left_pane(node)}", "--json", window=False)
             unanswered = f"lem: {slug} {wake.get('why')}" in mailbox
-        signs = {"sign": None, "shell": False, "signs": False}
+        signs = {"sign": None, "shell": False, "signs": False, "turn": None}
         if live(node, opened, now):
             records = [record for record in transcripts if record.get("task") == slug]
             if lem_signs.own_records(records, session) and not table:

@@ -430,10 +430,10 @@ class Duties(unittest.TestCase):
 
     def test_the_list_of_sessions_reads_by_task(self):
         listed = serve.session_entries('[{"task": "gift-note", "session": "S1", "live": true, "agent": false, "unanswered": false, "phase": "build", '
-                                       '"sign": "2026-11-22T10:15:42Z", "shell": true, "signs": true}]')
-        # the session's signs of work go on to the model, which the guard of a stopped session reads
+                                       '"sign": "2026-11-22T10:15:42Z", "shell": true, "signs": true, "turn": "runs"}]')
+        # the session's signs of work go on to the model, which the guard of a stopped session and the rows of a held task read
         self.assertEqual(listed, {"gift-note": {"live": True, "agent": False, "unanswered": False, "session": "S1", "name": None,
-                                                "sign": "2026-11-22T10:15:42Z", "shell": True, "signs": True}})
+                                                "sign": "2026-11-22T10:15:42Z", "shell": True, "signs": True, "turn": "runs"}})
         self.assertEqual(serve.session_entries('{"sessions": []}'), {})
         with self.assertRaises(ValueError):
             serve.session_entries('{"said": "no"}')
@@ -863,6 +863,34 @@ class Prune(unittest.TestCase):
         with mock.patch.object(serve, "lem_run", return_value=subprocess.CompletedProcess([], 0, said, "")):
             ran = serve.prune_once(self.Place(), now=1000.0)
         self.assertEqual(serve.prune_line("shop", ran), "serve.py: shop: `lem project prune` exited 0: removed 0 working files, replaced the 60 events of 1 such tasks\n")
+
+
+class WorkingSession(unittest.TestCase):
+    """A held task whose session works on the owner's answer, as the server's look at the task sessions
+    sees it on the model it keeps (waits-for-you-only-when-it-waits, criteria 1 and 2): the rows of a page
+    and of the server's count follow each look, and an open page gets a refresh when the turn starts or ends."""
+
+    EVENTS = [{"ts": "2026-11-23T09:53:42Z", "event": "session.open", "task": "gift-note", "session": "S1", "name": "gift-note", "phase": "shape", "why": "new"},
+              {"ts": "2026-11-23T11:39:31Z", "event": "task.state", "task": "gift-note", "status": "held", "text": "the criteria wait for the owner", "lines": []}]
+
+    def test_each_look_at_the_sessions_puts_the_turn_on_the_kept_model(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            space = serve.Workspace("shop", folder)
+            kept = bm.derive(list(self.EVENTS), [], bm.at("2026-11-23T11:43:00Z"))
+            space.reader.current = lambda board: kept
+            space.settings = lambda: {"root": folder}
+
+            def look(turn: str) -> list:
+                said = json.dumps([{"task": "gift-note", "session": "S1", "live": True, "agent": True, "unanswered": False, "turn": turn}])
+                with mock.patch.object(serve, "session_run", return_value=subprocess.CompletedProcess(["list"], 0, said, "")):
+                    space.look_sessions()
+                return [w["key"] for w in bm.waits_of(space.model())]
+
+            self.assertEqual((look("ended"), space.acted), (["held:gift-note"], 0))
+            self.assertEqual((look("runs"), space.acted), ([], 1))
+            self.assertEqual((look("runs"), space.acted), ([], 1))
+            self.assertEqual((look("ended"), space.acted), (["held:gift-note"], 2))
 
 
 class Look(unittest.TestCase):

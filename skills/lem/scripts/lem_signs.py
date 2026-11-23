@@ -1,16 +1,20 @@
 """The signs of work of a task's Claude Code session, from Claude Code's own files, for `lem session list`.
 
-    read_signs(records, session, turns, processes, table, slug, named)
-                    the pure rule: {"sign", "shell", "signs"} from the facts below
+    read_signs(records, session, turns, processes, table, slug, named, mains)
+                    the pure rule: {"sign", "shell", "signs", "turn"} from the facts below
+    turn_of(lines)  the pure rule of `turn`, over a transcript's lines from its end
     facts_of(records, session, table, slug)
                     the facts, read from the files the records name
 
-Three facts tell whether a task's session still works, beside the task's own events (which the
+Four facts tell whether a task's session still works, beside the task's own events (which the
 board's model reads): when its main thread or one of its subagents last wrote a turn (`sign`),
-whether a shell command of the session runs now (`shell`), and whether the two could be read at all
-(`signs`). The board server's guard of a stopped session (`serve.py`) sends a message only when
-`shell` is false and the task's newest sign of work is old: with `signs` true the newest of `sign`
-and of the task's events, with `signs` false the task's events alone.
+whether a shell command of the session runs now (`shell`), whether those could be read at all
+(`signs`), and whether the newest turn of the session's main thread still runs (`turn`: `"runs"`,
+`"ended"`, or None when no record tells). The board server's guard of a stopped session
+(`serve.py`) sends a message only when `shell` is false and the task's newest sign of work is old:
+with `signs` true the newest of `sign` and of the task's events, with `signs` false the task's
+events alone. A held task of the owner's whose `turn` runs is Lem's work and no row of what waits
+for him until that turn ends (`lem_board_model.put_sessions`).
 
 Where each fact is, as read on this Mac with Claude Code 2.1.330 on 2026-11-22:
 
@@ -32,6 +36,24 @@ Where each fact is, as read on this Mac with Claude Code 2.1.330 on 2026-11-22:
   a reply), read from the file's end; never the file's time. A message that reaches an idle or parked
   pane writes a `queue-operation` record and runs no turn, and `attachment`, `system`, `cost-state`,
   `continued-in` and `api-request` records are no turn either.
+- `turn` is read from the newest decisive record of the main transcript, from its end, and of the
+  session's records only from the transcript whose main thread wrote the newest turn (`turn_of`).
+  An `assistant` record with `stop_reason` `tool_use` runs, unless its tool is the question widget
+  (`AskUserQuestion`), which asks the owner and so ends the turn; one with any other `stop_reason`
+  (`end_turn`, `stop_sequence`, `refusal`, `max_tokens`) ended, and one with none is skipped. A
+  `user` record that is an interrupt (`[Request interrupted`) ended; one of a local command (its
+  text starts with `<command-name>`, `<command-message>`, `<command-args>`, `<local-command-`,
+  `<bash-input>`, `<bash-stdout>` or `<bash-stderr>`) or a compaction's summary
+  (`isCompactSummary`) is skipped, since none runs a turn; any other `user` record (a prompt, a
+  tool's result, a task notification, a skill's text) runs. Every other type, and every
+  `isSidechain` record, is skipped. Three probes of 2026-11-23 over the 300 newest transcripts on
+  this Mac, Claude Code 2.1.294 to 2.1.330: the main thread's assistant records stopped 53,528
+  times on `tool_use`, 5,411 on `end_turn`, 29 on `stop_sequence` (an API error's message), 3 on
+  null and 1 on `refusal`; a `turn_duration` record followed 4,114 of 4,122 ended turns but none
+  of 8 interrupts, so it is no mark of an end; and Claude Code's own `status` in `sessions/PID.json`
+  read `busy` for 4 of 26 live sessions whose main transcript had ended on `end_turn`, so it is no
+  mark of a running turn. A subagent's transcript is never read for `turn`: an interview's scout
+  runs in the background while the session's turn has ended on its question to the owner.
 - A subagent writes `FOLDER/projects/NAME/ID/subagents/agent-*.jsonl` (each with an
   `agent-*.meta.json` beside it), read by the same rule.
 - The process of a Claude Code session is `FOLDER/sessions/PID.json`, with `pid` and `sessionId`,
@@ -42,9 +64,9 @@ Where each fact is, as read on this Mac with Claude Code 2.1.330 on 2026-11-22:
   subagent's Bash command has the same parent and the same form (seen with a subagent's
   `sleep 40`, 2026-11-22). Other children, a hook's process or `caffeinate`, are no shell command.
 
-`signs` is false when no record of the session names a transcript, when no process file of the
-transcript's folder names one of the session's Claude Code ids, or when no such pid is in the
-process table: with no process to read there is no evidence that no shell runs, and a guard that
+`signs` is false, and `turn` None, when no record of the session names a transcript, when no
+process file of the transcript's folder names one of the session's Claude Code ids, or when no such
+pid is in the process table: with no process to read there is no evidence that no shell runs, and a guard that
 restarted such a session could put two agents on one task. So the guard counts only the task's
 events for it (`lem_board_model.stop_due`): the status message, then the owner's row "stopped",
 and never a fresh session that the owner did not open.
@@ -58,6 +80,13 @@ import lem_tokens  # the task a transcript's first prompt names; the scripts' fo
 
 # the record types that are a turn of the session (see the module docstring, 2026-11-22)
 TURNS = ("user", "assistant")
+# what `turn` says of the session's main thread (see the module docstring, 2026-11-23)
+RUNS, ENDED = "runs", "ended"
+# the stop reason of an assistant record whose tool runs, and the one tool of it that asks the owner
+TOOL_USE, ASKS = "tool_use", "AskUserQuestion"
+# the start of a user record's text that is an interrupt, and of one that is a local command
+INTERRUPT = "[Request interrupted"
+LOCAL = ("<command-name>", "<command-message>", "<command-args>", "<local-command-", "<bash-input>", "<bash-stdout>", "<bash-stderr>")
 # the mark of a Bash tool's command line: it sources the shell's snapshot first
 SNAPSHOT = "shell-snapshots/snapshot-"
 # how much of a transcript is read at a time from its end
@@ -106,6 +135,48 @@ def newest_turn(lines) -> str | None:
     return None
 
 
+def texts_of(record: dict) -> list[str]:
+    """The text of a record's message: its content when that is a string, else each of its text parts."""
+    message = record.get("message")
+    content = message.get("content") if isinstance(message, dict) else None
+    if isinstance(content, str):
+        return [content]
+    if isinstance(content, list):
+        return [part["text"] for part in content if isinstance(part, dict) and part.get("type") == "text" and isinstance(part.get("text"), str)]
+    return []
+
+
+def turn_of(lines) -> str | None:
+    """`RUNS` or `ENDED` by the newest decisive record among LINES, a main transcript's lines from its
+    newest to its oldest (bytes or text), by the rule of the module docstring; None when no record
+    decides."""
+    for raw in lines:
+        try:
+            record = json.loads(raw)
+        except ValueError:
+            continue
+        if not isinstance(record, dict) or record.get("isSidechain"):
+            continue
+        if record.get("type") == "assistant":
+            message = record["message"] if isinstance(record.get("message"), dict) else {}
+            reason = message.get("stop_reason")
+            if not reason:
+                continue
+            if reason != TOOL_USE:
+                return ENDED
+            content = message.get("content")
+            asks = isinstance(content, list) and any(isinstance(part, dict) and part.get("type") == "tool_use" and part.get("name") == ASKS for part in content)
+            return ENDED if asks else RUNS
+        if record.get("type") == "user":
+            texts = texts_of(record)
+            if any(text.startswith(INTERRUPT) for text in texts):
+                return ENDED
+            if record.get("isCompactSummary") or (texts and texts[0].startswith(LOCAL)):
+                continue
+            return RUNS
+    return None
+
+
 def table_rows(table: str) -> list[tuple[int, int, str]]:
     """The rows of `ps -A -o pid=,ppid=,command=`: pid, parent pid and command line."""
     rows = []
@@ -117,7 +188,7 @@ def table_rows(table: str) -> list[tuple[int, int, str]]:
 
 
 def read_signs(records: list[dict], session: str | None, turns: dict[str, list], processes: dict[str, list], table: str | None,
-               slug: str, named: dict[str, str | None]) -> dict:
+               slug: str, named: dict[str, str | None], mains: dict[str, list]) -> dict:
     """The signs of work of the agterm session SESSION of the task SLUG, from the facts:
 
     RECORDS     the task's `session.transcript` events
@@ -125,11 +196,14 @@ def read_signs(records: list[dict], session: str | None, turns: dict[str, list],
     PROCESSES   {Claude Code folder: [the process files of its `sessions/`, each a dict]}
     TABLE       the text of `ps -A -o pid=,ppid=,command=`, or None when it could not be read
     NAMED       {transcript: the task its first prompt names, or None}
+    MAINS       {transcript: [newest turn of its main thread, `turn_of` its main thread]}
 
     Of the session's records, one whose transcript names another task than SLUG counts for none. It
     gives `sign`, the newest of those turns or None, `shell`, whether a direct child of the
-    session's Claude Code process sources the shell's snapshot, and `signs`, whether there was
-    something to read: a record of the session, and a live process of it in a process file."""
+    session's Claude Code process sources the shell's snapshot, `signs`, whether there was
+    something to read: a record of the session, and a live process of it in a process file, and
+    `turn`, the main thread's turn of the transcript whose main thread wrote the newest turn, None
+    when `signs` is false."""
     mine = [record for record in own_records(records, session) if named.get(record["transcript"]) in (None, slug)]
     times = [found for record in mine for text in turns.get(record["transcript"], []) if (found := when(text))]
     sign = max(times).strftime("%Y-%m-%dT%H:%M:%SZ") if times else None
@@ -140,9 +214,11 @@ def read_signs(records: list[dict], session: str | None, turns: dict[str, list],
     rows = table_rows(table) if table is not None else []
     running = pids & {pid for pid, _, _ in rows}
     if not mine or not running:
-        return {"sign": sign, "shell": False, "signs": False}
+        return {"sign": sign, "shell": False, "signs": False, "turn": None}
     shell = any(parent in running and SNAPSHOT in command for _, parent, command in rows)
-    return {"sign": sign, "shell": shell, "signs": True}
+    newest = [(found, main[1]) for record in mine if len(main := mains.get(record["transcript"]) or []) == 2 and (found := when(main[0]))]
+    turn = max(newest, key=lambda pair: pair[0])[1] if newest else None
+    return {"sign": sign, "shell": shell, "signs": True, "turn": turn}
 
 
 def tail_lines(path: Path, block: int = BLOCK):
@@ -167,12 +243,21 @@ def file_turn(path: Path) -> str | None:
         return None
 
 
+def file_main(path: Path) -> list:
+    """[the newest turn, `turn_of`] of the main transcript at PATH, each read from its end."""
+    try:
+        return [newest_turn(tail_lines(path)), turn_of(tail_lines(path))]
+    except OSError:
+        return [None, None]
+
+
 def facts_of(records: list[dict], session: str | None, table: str | None, slug: str) -> dict:
     """The facts `read_signs` takes, read from the files the session's records name: the task each
     transcript's first prompt names, and, for a transcript that names no other task than SLUG, the
-    newest turn of it and of each of its subagents, and the process files of its folder. No file of
-    a record of another session is opened."""
+    newest turn of it and of each of its subagents, the newest turn and the turn of its main thread
+    alone, and the process files of its folder. No file of a record of another session is opened."""
     turns: dict[str, list] = {}
+    mains: dict[str, list] = {}
     processes: dict[str, list] = {}
     named: dict[str, str | None] = {}
     for record in own_records(records, session):
@@ -183,6 +268,8 @@ def facts_of(records: list[dict], session: str | None, table: str | None, slug: 
         transcript = Path(record["transcript"])
         subagents = sorted((transcript.parent / transcript.stem / "subagents").glob("agent-*.jsonl"))
         turns[record["transcript"]] = [file_turn(path) for path in (transcript, *subagents) if path.is_file()]
+        if transcript.is_file():
+            mains[record["transcript"]] = file_main(transcript)
         folder = folder_of(record["transcript"])
         if folder and folder not in processes:
             found = []
@@ -192,7 +279,7 @@ def facts_of(records: list[dict], session: str | None, table: str | None, slug: 
                 except (OSError, ValueError):
                     continue
             processes[folder] = found
-    return {"records": records, "session": session, "turns": turns, "processes": processes, "table": table, "slug": slug, "named": named}
+    return {"records": records, "session": session, "turns": turns, "processes": processes, "table": table, "slug": slug, "named": named, "mains": mains}
 
 
 def signs_of(records: list[dict], session: str | None, table: str | None, slug: str) -> dict:

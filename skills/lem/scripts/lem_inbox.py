@@ -5,8 +5,9 @@ list of what waits for the owner (`lem_board_model.waits_of`) every LOOK_SECONDS
 away (`/lem im-away`, the model's `away`) and the Inbox runs on this Mac with a tailnet address, each
 row of the list goes to the Inbox once, in the thread named by the task's slug. A row that left the
 list has its open question withdrawn, the mark either way, so that the phone shows "No longer
-applies"; a question he answered in the Inbox gets nothing. At `/lem im-back` nothing is withdrawn,
-and after it nothing new is sent.
+applies", unless the task's session holds it back while it works on his answer (`plan`); a
+question he answered in the Inbox gets nothing. At `/lem im-back` nothing is withdrawn, and after
+it nothing new is sent.
 
 What a row becomes (`things_of`, `thing_of`, pure functions over the model):
 
@@ -31,9 +32,12 @@ What a row becomes (`things_of`, `thing_of`, pure functions over the model):
   dropped one, a refused merge, an open task with no proposal, no review of its tip or
   no whole commit of it on record.
 
-The rule (`plan`): a recorded thing that still matches its row stays. One whose row left, or whose
-thing changed, leaves the record: a question is withdrawn (a message as the same session, with
-`reply_to` its message and `supersedes` a list of its id), a note is only forgotten. While the mark
+The rule (`plan`): a row that the task's working session holds back (`lem_board_model.held_back`: a
+held task whose session's turn runs on his answer) keeps its recorded thing as it stands, away or not:
+it is neither withdrawn, forgotten nor sent again, so that a turn the Inbox's own wake started sends
+nothing when it ends on the same block. Of every other recorded thing, one that still matches its row
+stays, and one whose row left, or whose thing changed, leaves the record: a question is withdrawn (a
+message as the same session, with `reply_to` its message and `supersedes` a list of its id), a note is only forgotten. While the mark
 does not say away, or the door is closed, a thing whose session alone changed, or whose form changed
 with it, stays, and so does one whose row still waits behind its task's session row: the question stays
 open after `/lem im-back`, and while he is away it is withdrawn only when a newer message follows it.
@@ -243,10 +247,13 @@ def session_side(a: dict, b: dict) -> bool:
     return all(a.get(part) == b.get(part) for part in ("asks", "tip", "block"))
 
 
-def plan(want: dict, sent: list[dict], away: bool, door: bool, behind: set | frozenset = frozenset()) -> dict:
+def plan(want: dict, sent: list[dict], away: bool, door: bool, behind: set | frozenset = frozenset(),
+         held: set | frozenset = frozenset()) -> dict:
     """What a look does, from the things the rows are now (WANT, by key), the record's things (SENT),
-    the owner's mark (AWAY), whether the door is open (DOOR), and the keys of rows that still wait but
-    are no thing now (BEHIND: behind their task's session row, or with a session not told yet):
+    the owner's mark (AWAY), whether the door is open (DOOR), the keys of rows that still wait but
+    are no thing now (BEHIND: behind their task's session row, or with a session not told yet), and the
+    keys of rows that a working session holds back (HELD, `lem_board_model.held_back`), whose recorded
+    thing is neither withdrawn, forgotten nor sent again, away or not:
     `withdraw`, the recorded questions to withdraw; `replaced`, the keys of those a newer message of the
     same thread follows (the mark says away and the door is open); `forget`, the recorded notes, and the
     things whose call never answered, to drop; `retry`, those to send again with their payload; `send`,
@@ -255,6 +262,9 @@ def plan(want: dict, sent: list[dict], away: bool, door: bool, behind: set | fro
     for r in sent:
         key = r["key"]
         w = want.get(key)
+        if key in held:
+            # the task's session works on his answer: its question stays as it was sent, until the turn ends
+            continue
         if not r.get("message_id"):
             # written before a call that never answered: sent again only as the same thing while he is away
             if away and r.get("payload") and w is not None and same(r, w):
@@ -533,7 +543,7 @@ class Watcher:
         rows = bm.waits_of(m)
         by_key = {r["key"]: r for r in rows}
         want = things_of(rows, m, bm, lambda slug: space.landing_of(slug).get("proposed"))
-        steps = plan(want, record["sent"], away, door["tailnet_url"] is not None, {r["key"] for r in rows} - want.keys())
+        steps = plan(want, record["sent"], away, door["tailnet_url"] is not None, {r["key"] for r in rows} - want.keys(), bm.held_back(m))
         done: list[dict] = []
         problems: list[str] = []
 
