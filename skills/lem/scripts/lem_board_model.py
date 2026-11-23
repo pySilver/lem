@@ -1101,11 +1101,17 @@ def works_of(t: Task, m: Model) -> bool:
     """Whether a held task of the owner's is Lem's work now: its session lives with an agent in its pane
     (`live_of`) and that session's newest turn runs (`turn` "runs", lem_signs). A task with no session
     facts, a session that is not live, and a turn that ended or that Lem cannot read stay the owner's. A
-    breaker's held task follows the same rule: while its session works on his help, nothing of it waits."""
-    if t.status != "held" or not t.for_owner or m.sessions is None:
+    breaker's held task follows the same rule: while its session works on his help, nothing of it waits.
+    A task that is Lem's work already (`t.works`) was the owner's in what `settle` gave it."""
+    if t.status != "held" or not (t.for_owner or t.works) or m.sessions is None:
         return False
     f = m.sessions.get(t.slug) or {}
     return f.get("live") is True and f.get("agent") is True and f.get("turn") == "runs"
+
+
+# One put of the sessions at a time (`put_sessions`): the board server's request threads, its forge thread,
+# its Inbox thread and its push watcher each put them on the one model the Reader keeps
+SESSIONS_LOCK = threading.Lock()
 
 
 def put_sessions(m: Model, sessions: dict | None) -> None:
@@ -1113,19 +1119,37 @@ def put_sessions(m: Model, sessions: dict | None) -> None:
     on a model, and with it who acts on each held task: one whose session's turn runs (`works_of`) is Lem's
     work, with no row of "Waits for you" (`waits_of`), WORKS_INFO, and its card under Lem's work; one whose
     turn ended gets back what `settle` gave it. The board server sets the sessions again on a model it
-    keeps (`Reader.current`), so this gives the same model for the same sessions however often it runs.
-    Every place that sets `Model.sessions` calls it: serve.py, `lem project waiting` and the guard of a
-    stopped session."""
-    m.sessions = sessions
-    for t in m.tasks:
-        if t.settled is not None:
-            t.for_owner, t.info, t.shown, t.lane = t.settled["for_owner"], dict(t.settled["info"]), t.settled["shown"], t.settled["lane"]
-            t.settled = None
-        t.works = works_of(t, m)
-        if t.works:
-            t.settled = {"for_owner": t.for_owner, "info": dict(t.info), "shown": t.shown, "lane": t.lane}
-            t.for_owner, t.info, t.shown, t.lane = False, dict(WORKS_INFO), WORKS_SAYS, "build"
-    sort_lists(m)
+    keeps (`Reader.current`), from more than one thread, so the puts take SESSIONS_LOCK in turn, and a
+    task changes only when who acts on it changes: the same sessions give the same model however often
+    they are put. Every place that sets `Model.sessions` calls it: serve.py, `lem project waiting` and the
+    guard of a stopped session."""
+    with SESSIONS_LOCK:
+        m.sessions = sessions
+        changed = False
+        for t in m.tasks:
+            works = works_of(t, m)
+            if works == t.works:
+                continue
+            if works:
+                t.settled = {"for_owner": t.for_owner, "info": dict(t.info), "shown": t.shown, "lane": t.lane}
+                t.for_owner, t.info, t.shown, t.lane = False, dict(WORKS_INFO), WORKS_SAYS, "build"
+            elif t.settled is not None:
+                t.for_owner, t.info, t.shown, t.lane = t.settled["for_owner"], dict(t.settled["info"]), t.settled["shown"], t.settled["lane"]
+                t.settled = None
+            t.works = works
+            changed = True
+        if changed:
+            sort_lists(m)
+
+
+def own_turn_unread(sessions: dict | None, caller: str | None) -> dict | None:
+    """The task sessions as the session that asks for them reads them (CALLER, its own agterm session id, or
+    None outside agterm): it asks inside its own turn, which then always runs, so the turn of its own entry is
+    one Lem cannot tell (None), and the task it holds keeps its row (`works_of`). The wake of a breaker's
+    session reads its row in `lem project waiting` to put up its card."""
+    if not sessions or not caller:
+        return sessions
+    return {slug: {**f, "turn": None} if f.get("session") == caller else f for slug, f in sessions.items()}
 
 
 def lanes_sorted(key: str, tasks: list) -> list:

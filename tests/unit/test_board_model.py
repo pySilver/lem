@@ -8,9 +8,11 @@ task whose events became one summary: its card, its followers, its board and the
 
 import importlib
 import json
+import os
 import re
 import sys
 import tempfile
+import threading
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -647,21 +649,66 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
         bm.put_sessions(blocked, self.sessions("runs", slug="gift-note"))
         self.assertEqual(([w["key"] for w in bm.waits_of(blocked)], blocked.tasks[0].works), (["blocked:gift-note"], False))
 
-    def test_lem_project_waiting_lists_the_task_only_once_the_turn_ended(self):
+    def test_two_threads_that_put_the_same_sessions_at_once_leave_the_task_lems_work(self):
+        # the board server's request threads, its forge thread and its Inbox thread each put the sessions on the one
+        # model the Reader keeps: here the first put waits inside the held task while a second one puts the same sessions
+        m = self.board(now=self.RUNS)
+        bm.put_sessions(m, self.sessions("runs"))
+        inside, go = threading.Event(), threading.Event()
+        real = bm.works_of
+
+        def held_up(t, model):
+            if t.slug == self.SLUG and not inside.is_set():
+                inside.set()
+                go.wait(5)
+            return real(t, model)
+
+        problems: list = []
+
+        def put():
+            try:
+                bm.put_sessions(m, self.sessions("runs"))
+            except Exception as error:  # the thread's own error, which the test reports
+                problems.append(error)
+
+        with mock.patch.object(bm, "works_of", held_up):
+            first = threading.Thread(target=put)
+            first.start()
+            self.assertTrue(inside.wait(5))
+            second = threading.Thread(target=put)
+            second.start()
+            # a put that took no lock runs to its end here, inside the first one's
+            second.join(1)
+            go.set()
+            first.join(5)
+            second.join(5)
+        t = m.by_slug[self.SLUG]
+        self.assertEqual(problems, [])
+        self.assertEqual((self.rows(m), t.works, t.for_owner, t.lane, m.for_owner, bm.held_back(m)), ([], True, False, "build", [], {f"held:{self.SLUG}"}))
+
+    def waiting(self, turn: str, caller: str | None = None) -> list:
+        """The keys of the rows `lem project waiting` lists at 11:43, with the session's turn TURN, asked from the
+        agterm session CALLER (none: outside agterm)."""
         project = importlib.import_module("project")
+        env = {k: v for k, v in os.environ.items() if k not in ("AGTERM_SESSION_ID", "AGT_SESSION_ID")} | ({"AGTERM_SESSION_ID": caller} if caller else {})
+        with tempfile.TemporaryDirectory() as folder:
+            state_folder = Path(folder)
+            (state_folder / "events.jsonl").write_text("".join(json.dumps(e) + "\n" for e in self.events()), encoding="utf-8")
+            with mock.patch.object(project, "state_root", return_value=state_folder), mock.patch.object(project, "main_checkout", return_value=state_folder), \
+                 mock.patch.object(project, "owner_records", return_value=[]), mock.patch.object(project, "waiting_sessions", return_value=(self.sessions(turn), None)), \
+                 mock.patch.object(bm, "now_ms", return_value=bm.at(self.RUNS)), mock.patch.dict(os.environ, env, clear=True):
+                found, _ = project.waiting_model(Path("/lem-unit/repo"), {})
+        return [w["key"] for w in bm.waits_of(found)]
 
-        def waiting(turn: str) -> list:
-            with tempfile.TemporaryDirectory() as folder:
-                state_folder = Path(folder)
-                (state_folder / "events.jsonl").write_text("".join(json.dumps(e) + "\n" for e in self.events()), encoding="utf-8")
-                with mock.patch.object(project, "state_root", return_value=state_folder), mock.patch.object(project, "main_checkout", return_value=state_folder), \
-                     mock.patch.object(project, "owner_records", return_value=[]), mock.patch.object(project, "waiting_sessions", return_value=(self.sessions(turn), None)), \
-                     mock.patch.object(bm, "now_ms", return_value=bm.at(self.RUNS)):
-                    found, _ = project.waiting_model(Path("/lem-unit/repo"), {})
-            return [w["key"] for w in bm.waits_of(found)]
+    def test_lem_project_waiting_lists_the_task_only_once_the_turn_ended(self):
+        self.assertEqual(self.waiting("runs"), [])
+        self.assertEqual(self.waiting("ended"), [f"held:{self.SLUG}"])
 
-        self.assertEqual(waiting("runs"), [])
-        self.assertEqual(waiting("ended"), [f"held:{self.SLUG}"])
+    def test_the_tasks_own_session_finds_its_row_in_lem_project_waiting_while_its_turn_runs(self):
+        # the session asks inside its own turn, which then runs: a breaker's wake reads its row there to put up its card
+        self.assertEqual(self.waiting("runs", caller="S1"), [f"held:{self.SLUG}"])
+        # another session's ask still reads the task's turn
+        self.assertEqual(self.waiting("runs", caller="S2"), [])
 
 
 class Sessions(unittest.TestCase):
