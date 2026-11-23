@@ -52,8 +52,8 @@ flowchart TD
    either place.** Serves criteria 2, 4 and 8.
    - When `lem-ask ask` (or `q`) runs with `LEM_TASK` set (a task's session has it: `session_hook.py`
      docstring) and the task's directory exists in the state folder of the repository it runs in, it
-     keeps the card in that directory, `cards/PAGEID.html` (the page's exact bytes, the same file it
-     opens in agterm) and `cards/PAGEID.json` (the page id, the agterm session, the time it went up,
+     keeps the card in that directory, `cards/PAGEID.html` (a copy of the page's exact bytes, which
+     agterm shows from its own file under `OUTDIR`) and `cards/PAGEID.json` (the page id, the agterm session, the time it went up,
      and per question its id, mode and option ids and labels, and whether chat is allowed), and logs
      `card.asked` in the task's event log with the page id and the first question's prompt. A run with
      no `LEM_TASK`, or none whose task directory exists, keeps nothing, as today. The page id exists
