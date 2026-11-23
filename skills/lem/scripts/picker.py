@@ -39,11 +39,21 @@ import sys
 
 if os.path.realpath(__file__).split(os.sep)[-7:-5] == ["plugins", "marketplaces"]:
     # this file is PLUGINS/marketplaces/NAME/skills/lem/scripts/picker.py: the clone is the folder four up
-    os.execv(sys.executable, [sys.executable, os.path.join(os.path.realpath(__file__).rsplit(os.sep, 4)[0], "bin", "lem"), "picker", *sys.argv[1:]])
+    os.execv(
+        sys.executable,
+        [
+            sys.executable,
+            os.path.join(os.path.realpath(__file__).rsplit(os.sep, 4)[0], "bin", "lem"),
+            "picker",
+            *sys.argv[1:],
+        ],
+    )
 
 if sys.version_info < (3, 11):
     # an old python3 must still load this file, so that it can say what it needs and not a traceback
-    sys.exit(f"picker.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; name a newer one in the keymap line")
+    sys.exit(
+        f"picker.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; name a newer one in the keymap line"
+    )
 
 import argparse
 import importlib
@@ -82,7 +92,13 @@ def age(since: str | None, now: datetime) -> str:
     """How long ago a state was written, in the shortest words: now, 5m, 3h, 2d."""
     if not since:
         return ""
-    minutes = int((now - datetime.strptime(since, "%Y-%m-%dT%H:%MZ").replace(tzinfo=timezone.utc)).total_seconds() // 60)
+    minutes = int(
+        (
+            now
+            - datetime.strptime(since, "%Y-%m-%dT%H:%MZ").replace(tzinfo=timezone.utc)
+        ).total_seconds()
+        // 60
+    )
     if minutes < 1:
         return "now"
     if minutes < 60:
@@ -95,7 +111,12 @@ def age(since: str | None, now: datetime) -> str:
 def label(task: dict) -> str:
     """The task's ask in the owner's words, on one line; its slug in words when it has none. agterm
     refuses a label with a control character, so none stays."""
-    words = " ".join("".join(ch if ch.isprintable() else " " for ch in task["ask"] or "").split()) or task["slug"].replace("-", " ").capitalize()
+    words = (
+        " ".join(
+            "".join(ch if ch.isprintable() else " " for ch in task["ask"] or "").split()
+        )
+        or task["slug"].replace("-", " ").capitalize()
+    )
     return words if len(words) <= 100 else words[:99].rstrip() + "…"
 
 
@@ -104,7 +125,13 @@ def state_words(task: dict, waits: str | None) -> str:
         return waits
     # every line of the newest block, its first too, as `lem project state` writes it
     newest = project.blocks_of(task["state"] or "")
-    if task["status"] == "building" and newest and any(line.strip().startswith("investigation:") for line in newest[0]["lines"]):
+    if (
+        task["status"] == "building"
+        and newest
+        and any(
+            line.strip().startswith("investigation:") for line in newest[0]["lines"]
+        )
+    ):
         return INVESTIGATING
     return WORDS.get(task["status"], UNKNOWN)
 
@@ -115,12 +142,24 @@ def pull_request(task: dict) -> str:
     if not proposal:
         return ""
     number = NUMBER.search(proposal["pull_request"] or "")
-    return " ".join(([f"#{number[1]}"] if number else []) + ["green" if proposal["green"] else "not green"])
+    return " ".join(
+        ([f"#{number[1]}"] if number else [])
+        + ["green" if proposal["green"] else "not green"]
+    )
 
 
 def row(task: dict, now: datetime, waits: str | None = None) -> dict:
-    parts = [state_words(task, waits), TRACKS.get(task["track"] or "", ""), age(task["since"], now), pull_request(task)]
-    return {"id": task["slug"], "label": label(task), "subtitle": " · ".join(part for part in parts if part)}
+    parts = [
+        state_words(task, waits),
+        TRACKS.get(task["track"] or "", ""),
+        age(task["since"], now),
+        pull_request(task),
+    ]
+    return {
+        "id": task["slug"],
+        "label": label(task),
+        "subtitle": " · ".join(part for part in parts if part),
+    }
 
 
 def breaker_words(number: int) -> str:
@@ -152,19 +191,35 @@ def rows(root: Path, now: datetime) -> list[dict]:
     for key in ("blocked", "plans", "pull_requests", "no_session", "stopped"):
         for entry in waiting[key]:
             add(entry["task"])
+
     def newest(task: dict) -> str:
         return task["since"] or ""
 
     # what an agent or the checks work on now, then what waits for Lem, the newest first in each
-    building = [task for task in tasks.values() if task["slug"] not in seen and task["status"] not in project.ENDED]
-    for task in sorted(sorted(building, key=newest, reverse=True), key=lambda task: ACTIVE.index(task["status"]) if task["status"] in ACTIVE else len(ACTIVE)):
+    building = [
+        task
+        for task in tasks.values()
+        if task["slug"] not in seen and task["status"] not in project.ENDED
+    ]
+    for task in sorted(
+        sorted(building, key=newest, reverse=True),
+        key=lambda task: (
+            ACTIVE.index(task["status"]) if task["status"] in ACTIVE else len(ACTIVE)
+        ),
+    ):
         add(task["slug"])
     # the ended tasks Done draws as cards, by the board's own number, so that the two lists cannot drift
     ended = [task for task in tasks.values() if task["status"] in project.ENDED]
-    for task in sorted(ended, key=newest, reverse=True)[:lem_board_model.DONE_SHOWN]:
+    for task in sorted(ended, key=newest, reverse=True)[: lem_board_model.DONE_SHOWN]:
         add(task["slug"])
     count = len(tasks)
-    out.append({"id": ALL, "label": "All tasks", "subtitle": f"the board of every task · {count} task{'s' if count != 1 else ''}"})
+    out.append(
+        {
+            "id": ALL,
+            "label": "All tasks",
+            "subtitle": f"the board of every task · {count} task{'s' if count != 1 else ''}",
+        }
+    )
     return out
 
 
@@ -173,9 +228,13 @@ def lem_root(start: str) -> Path:
     try:
         root = project.repo_root(Path(start))
     except project.SettingsError as error:
-        raise PickerError(f"{error}: start the picker from a session in a repository of Lem") from error
+        raise PickerError(
+            f"{error}: start the picker from a session in a repository of Lem"
+        ) from error
     if not (root / project.SETTINGS).is_file():
-        raise PickerError(f"{root} is no repository of Lem: it has no {project.SETTINGS}; /lem init sets it up")
+        raise PickerError(
+            f"{root} is no repository of Lem: it has no {project.SETTINGS}; /lem init sets it up"
+        )
     return root
 
 
@@ -183,21 +242,42 @@ def pick(found: list[dict]) -> str | None:
     """Open agterm's picker over the rows; the id picked, or None when the owner closed it."""
     ctl = shutil.which("agtermctl")
     if not ctl:
-        raise PickerError("agtermctl is not on the PATH of this command: install agterm's command line tool (Help > Install Command Line Tool)")
+        raise PickerError(
+            "agtermctl is not on the PATH of this command: install agterm's command line tool (Help > Install Command Line Tool)"
+        )
     socket = os.environ.get("AGT_SOCKET", "")
     if not (socket and os.environ.get("AGT_SESSION_ID")):
-        raise PickerError("not started from an agterm chord: AGT_SOCKET and AGT_SESSION_ID are not set; `lem picker --list` prints the rows")
+        raise PickerError(
+            "not started from an agterm chord: AGT_SOCKET and AGT_SESSION_ID are not set; `lem picker --list` prints the rows"
+        )
     window = os.environ.get("AGT_WINDOW_ID", "")
-    ran = subprocess.run([ctl, "pick", "--prompt", "Open the board of a task", *(["--window", window] if window else []), "--socket", socket],
-                         input=json.dumps(found), capture_output=True, text=True, check=False)
+    ran = subprocess.run(
+        [
+            ctl,
+            "pick",
+            "--prompt",
+            "Open the board of a task",
+            *(["--window", window] if window else []),
+            "--socket",
+            socket,
+        ],
+        input=json.dumps(found),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     if ran.returncode == 2:
         return None
     if ran.returncode != 0:
-        raise PickerError(f"agtermctl pick failed: {(ran.stderr or ran.stdout).strip() or f'exit {ran.returncode}'}")
+        raise PickerError(
+            f"agtermctl pick failed: {(ran.stderr or ran.stdout).strip() or f'exit {ran.returncode}'}"
+        )
     try:
         answer = json.loads(ran.stdout)
     except ValueError as error:
-        raise PickerError(f"agtermctl pick answered no JSON: {ran.stdout.strip()[:200]}") from error
+        raise PickerError(
+            f"agtermctl pick answered no JSON: {ran.stdout.strip()[:200]}"
+        ) from error
     if answer.get("result") != "picked":
         return None
     chosen = str(answer.get("id", ""))
@@ -217,13 +297,21 @@ def live_session(root: Path, slug: str) -> str | None:
         node = session.node_of(session.tree(chord_place()), newest.get("session"))
     except session.SessionError as error:
         raise PickerError(str(error)) from error
-    return str(newest["session"]) if session.live(node, newest, datetime.now(timezone.utc)) else None
+    return (
+        str(newest["session"])
+        if session.live(node, newest, datetime.now(timezone.utc))
+        else None
+    )
 
 
 def chord_place() -> dict:
     """Where the chord was pressed, as `lem session` takes a place: agterm's socket, and no window, so that
     the whole tree answers."""
-    return {"session": os.environ.get("AGT_SESSION_ID", ""), "socket": os.environ.get("AGT_SOCKET", ""), "window": ""}
+    return {
+        "session": os.environ.get("AGT_SESSION_ID", ""),
+        "socket": os.environ.get("AGT_SOCKET", ""),
+        "window": "",
+    }
 
 
 def select_session(target: str) -> None:
@@ -236,17 +324,43 @@ def select_session(target: str) -> None:
 
 def open_board(root: Path, chosen: str) -> None:
     """The board of the task picked, or of all tasks, as `lem board` opens it."""
-    ran = subprocess.run([sys.executable, "-B", str(SCRIPTS / "board.py"), "--repo", str(root), "--follow", *([] if chosen == ALL else ["--task", chosen])],
-                         capture_output=True, text=True, check=False)
+    ran = subprocess.run(
+        [
+            sys.executable,
+            "-B",
+            str(SCRIPTS / "board.py"),
+            "--repo",
+            str(root),
+            "--follow",
+            *([] if chosen == ALL else ["--task", chosen]),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     if ran.returncode != 0:
         said = (ran.stderr or ran.stdout).strip().splitlines()
-        raise PickerError((said[-1] if said else f"lem board exited {ran.returncode}").removeprefix("board.py: "))
+        raise PickerError(
+            (said[-1] if said else f"lem board exited {ran.returncode}").removeprefix(
+                "board.py: "
+            )
+        )
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(prog="lem picker", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--repo", default=os.environ.get("AGT_SESSION_PWD") or ".", help="a directory inside the checkout (default: the session's, else the current one)")
-    parser.add_argument("--list", action="store_true", help="print the rows as JSON and open nothing")
+    parser = argparse.ArgumentParser(
+        prog="lem picker",
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--repo",
+        default=os.environ.get("AGT_SESSION_PWD") or ".",
+        help="a directory inside the checkout (default: the session's, else the current one)",
+    )
+    parser.add_argument(
+        "--list", action="store_true", help="print the rows as JSON and open nothing"
+    )
     args = parser.parse_args(argv)
     try:
         root = lem_root(args.repo)

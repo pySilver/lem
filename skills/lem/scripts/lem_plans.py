@@ -19,7 +19,10 @@ def regex(pattern: str, slug: str) -> re.Pattern[str]:
     """The names a pattern gives a task's plan, on any day: each token as what it stands for."""
     out, at = [], 0
     for found in re.finditer(r"YYYY|MM|DD|<slug>", pattern):
-        out += [re.escape(pattern[at:found.start()]), re.escape(slug) if found.group() == "<slug>" else TOKENS[found.group()]]
+        out += [
+            re.escape(pattern[at : found.start()]),
+            re.escape(slug) if found.group() == "<slug>" else TOKENS[found.group()],
+        ]
         at = found.end()
     out.append(re.escape(pattern[at:]))
     return re.compile("".join(out))
@@ -28,7 +31,12 @@ def regex(pattern: str, slug: str) -> re.Pattern[str]:
 def name(pattern: str, slug: str, day: str) -> str:
     """The name a task's plan takes when it is written on DAY (YYYY-MM-DD)."""
     year, month, date_ = day.split("-")
-    return pattern.replace("<slug>", slug).replace("YYYY", year).replace("MM", month).replace("DD", date_)
+    return (
+        pattern.replace("<slug>", slug)
+        .replace("YYYY", year)
+        .replace("MM", month)
+        .replace("DD", date_)
+    )
 
 
 # The file of a resumed task's directory that names the task it came from (project.py's RESUMED_FROM).
@@ -48,7 +56,9 @@ def resumed_from(tasks: Path, slug: str) -> list[str]:
     return chain
 
 
-def found(folder: Path, pattern: str, slug: str, before: list[str] | tuple[str, ...] = ()) -> Path | None:
+def found(
+    folder: Path, pattern: str, slug: str, before: list[str] | tuple[str, ...] = ()
+) -> Path | None:
     """The task's plan in the plans folder: a file of the name the pattern gives. Of several, the one
     of the newest day. With BEFORE, the tasks a resumed task came from (`resumed_from`), the plan of
     the nearest of them that has one when the task has none of its own."""
@@ -61,7 +71,17 @@ def found(folder: Path, pattern: str, slug: str, before: list[str] | tuple[str, 
             match = form.fullmatch(file.name)
             if match and file.is_file():
                 groups = match.groupdict()
-                hits.append(((groups.get("Y") or "", groups.get("M") or "", groups.get("D") or ""), file.name, file))
+                hits.append(
+                    (
+                        (
+                            groups.get("Y") or "",
+                            groups.get("M") or "",
+                            groups.get("D") or "",
+                        ),
+                        file.name,
+                        file,
+                    )
+                )
         if hits:
             return max(hits)[2]
     return None

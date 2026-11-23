@@ -15,7 +15,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.dont_write_bytecode = True
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts"))
+sys.path.insert(
+    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
+)
 bm = importlib.import_module("lem_board_model")
 pages = importlib.import_module("lem_board_pages")
 task_pages = importlib.import_module("lem_board_task")
@@ -27,8 +29,14 @@ ENDED = ("landed", "dropped", "answered")
 
 
 def state(minute: float, status: str, text: str, *lines: str, task: str) -> dict:
-    return {"ts": (START + timedelta(minutes=minute)).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": "task.state", "task": task,
-            "status": status, "text": text, "lines": list(lines)}
+    return {
+        "ts": (START + timedelta(minutes=minute)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "event": "task.state",
+        "task": task,
+        "status": status,
+        "text": text,
+        "lines": list(lines),
+    }
 
 
 def ended(n: int) -> list:
@@ -42,12 +50,19 @@ def ended(n: int) -> list:
 
 
 def ctx_of(events: list) -> "pages.Ctx":
-    return pages.Ctx(host="h", workspace="w", model=bm.derive(events, [], NOW), asset=lambda name: name)
+    return pages.Ctx(
+        host="h",
+        workspace="w",
+        model=bm.derive(events, [], NOW),
+        asset=lambda name: name,
+    )
 
 
 def column(html: str, key: str) -> str:
     """One column of the kanban, from its section to the next one."""
-    return re.split(r'<section class="col [^"]*" id="col-', html.split(f'id="col-{key}"', 1)[1])[0]
+    return re.split(
+        r'<section class="col [^"]*" id="col-', html.split(f'id="col-{key}"', 1)[1]
+    )[0]
 
 
 def cards(html: str) -> list:
@@ -57,23 +72,31 @@ def cards(html: str) -> list:
 class Done(unittest.TestCase):
     def test_done_draws_the_20_tasks_that_ended_last_the_newest_on_top(self):
         html = str(pages.kanban_page(ctx_of(ended(25))))
-        self.assertEqual(cards(column(html, "done")), [f"task-{i:02d}" for i in range(24, 4, -1)])
+        self.assertEqual(
+            cards(column(html, "done")), [f"task-{i:02d}" for i in range(24, 4, -1)]
+        )
         for i in range(5):
             self.assertNotIn(f'id="card-task-{i:02d}"', html)
 
     def test_dones_head_and_its_phone_tab_count_every_ended_task(self):
         html = str(pages.kanban_page(ctx_of(ended(25))))
         self.assertEqual(len(cards(column(html, "done"))), 20)
-        self.assertRegex(column(html, "done"), r'<span class="col-name">Done</span><em>25</em>')
+        self.assertRegex(
+            column(html, "done"), r'<span class="col-name">Done</span><em>25</em>'
+        )
         self.assertRegex(html, r'id="ktab-done"[^>]*><i></i>Done<em>25</em></button>')
 
     def test_a_row_under_the_20_cards_counts_the_rest_and_leads_to_their_list(self):
         done = column(str(pages.kanban_page(ctx_of(ended(25)))), "done")
-        row = re.search(r'<a class="col-more" id="done-older" href="([^"]+)"[^>]*>(.*?)</a>', done)
+        row = re.search(
+            r'<a class="col-more" id="done-older" href="([^"]+)"[^>]*>(.*?)</a>', done
+        )
         self.assertIsNotNone(row)
         self.assertEqual(row[1], "/h/w/done")
         self.assertIn("<span>5 older</span>", row[2])
-        self.assertGreater(done.index('id="done-older"'), done.index('id="card-task-05"'))
+        self.assertGreater(
+            done.index('id="done-older"'), done.index('id="card-task-05"')
+        )
 
     def test_with_20_ended_tasks_or_fewer_done_draws_each_and_no_row(self):
         for n in (20, 3):
@@ -81,32 +104,49 @@ class Done(unittest.TestCase):
             self.assertEqual(len(cards(done)), n)
             self.assertNotIn("done-older", done)
 
-    def test_the_list_is_a_page_of_the_board_whose_tasks_link_goes_back_to_the_columns(self):
+    def test_the_list_is_a_page_of_the_board_whose_tasks_link_goes_back_to_the_columns(
+        self,
+    ):
         self.assertEqual(serve.PAGES["done"], "older_page")
         html = str(getattr(pages, serve.PAGES["done"])(ctx_of(ended(25))))
         self.assertIn('id="side"', html)
         self.assertRegex(html, r'<a class="vbtn" id="view-tasks" href="/h/w/"')
         self.assertNotIn('id="view-done"', html)
-        self.assertIn('<h2>Older ended tasks</h2>', html)
+        self.assertIn("<h2>Older ended tasks</h2>", html)
 
 
 class Older(unittest.TestCase):
     def rows(self, html: str) -> list:
-        return re.findall(r'<div class="row [^"]*" id="older-([a-z0-9-]+)">(.*?)</span></div>', html)
+        return re.findall(
+            r'<div class="row [^"]*" id="older-([a-z0-9-]+)">(.*?)</span></div>', html
+        )
 
-    def test_it_lists_the_tasks_done_has_no_card_for_newest_first_each_with_how_and_when_it_ended(self):
+    def test_it_lists_the_tasks_done_has_no_card_for_newest_first_each_with_how_and_when_it_ended(
+        self,
+    ):
         ctx = ctx_of(ended(25))
         html = str(pages.older_page(ctx))
         rows = self.rows(html)
-        self.assertEqual([slug for slug, _ in rows], ["task-04", "task-03", "task-02", "task-01", "task-00"])
+        self.assertEqual(
+            [slug for slug, _ in rows],
+            ["task-04", "task-03", "task-02", "task-01", "task-00"],
+        )
         words = {slug: re.sub(r"<[^>]+>", " ", body) for slug, body in rows}
-        for slug, how in (("task-04", "Dropped"), ("task-03", "Landed"), ("task-02", "Answered"), ("task-01", "Dropped"), ("task-00", "Landed")):
+        for slug, how in (
+            ("task-04", "Dropped"),
+            ("task-03", "Landed"),
+            ("task-02", "Answered"),
+            ("task-01", "Dropped"),
+            ("task-00", "Landed"),
+        ):
             t = ctx.model.by_slug[slug]
             self.assertIn(t.title, words[slug])
             self.assertIn(how, words[slug])
             self.assertIn(bm.stamp(t.since, NOW), words[slug])
 
-    def test_each_row_opens_the_tasks_board_over_the_list_and_its_pull_request_when_it_has_one(self):
+    def test_each_row_opens_the_tasks_board_over_the_list_and_its_pull_request_when_it_has_one(
+        self,
+    ):
         html = str(pages.older_page(ctx_of(ended(25))))
         rows = dict(self.rows(html))
         self.assertIn('href="/h/w/tasks/task-04?in=done"', rows["task-04"])
@@ -129,9 +169,16 @@ class Older(unittest.TestCase):
 
 
 class Views(unittest.TestCase):
-    def test_each_view_button_shows_its_plain_key_on_the_button_and_takes_that_key(self):
+    def test_each_view_button_shows_its_plain_key_on_the_button_and_takes_that_key(
+        self,
+    ):
         html = str(pages.kanban_page(ctx_of(ended(3))))
-        for key, label, kbd in (("tasks", "Tasks", "T"), ("waits", "Waits for you", "W"), ("backlog", "Backlog", "B"), ("activity", "Activity", "A")):
+        for key, label, kbd in (
+            ("tasks", "Tasks", "T"),
+            ("waits", "Waits for you", "W"),
+            ("backlog", "Backlog", "B"),
+            ("activity", "Activity", "A"),
+        ):
             button = re.search(rf'<a class="vbtn" id="view-{key}"[^>]*>(.*?)</a>', html)
             self.assertIsNotNone(button, key)
             self.assertIn(f'data-hotkey="Key{kbd}"', button[0])
@@ -148,10 +195,15 @@ class SideFold(unittest.TestCase):
         return str(pages.kanban_page(ctx))
 
     def fold(self, html: str) -> re.Match:
-        return re.search(r'<button id="side-fold" class="ibtn" type="button" data-action="fold#side" title="([^"]+)" aria-label="([^"]+)">'
-                         r'<svg class="ic" aria-hidden="true"><use href="#i-chevron-left"></use></svg></button>', html)
+        return re.search(
+            r'<button id="side-fold" class="ibtn" type="button" data-action="fold#side" title="([^"]+)" aria-label="([^"]+)">'
+            r'<svg class="ic" aria-hidden="true"><use href="#i-chevron-left"></use></svg></button>',
+            html,
+        )
 
-    def test_an_open_sidebar_has_an_arrow_that_points_left_at_its_foot_and_the_old_icon_is_gone(self):
+    def test_an_open_sidebar_has_an_arrow_that_points_left_at_its_foot_and_the_old_icon_is_gone(
+        self,
+    ):
         html = self.page(rail=False)
         self.assertRegex(html, r'<div class="shell" id="shell"')
         found = self.fold(html)
@@ -170,15 +222,24 @@ class SideFold(unittest.TestCase):
         self.assertRegex(html, r'<div class="shell railed" id="shell"')
         found = self.fold(html)
         self.assertIsNotNone(found)
-        self.assertEqual((found[1], found[2]), ("Unfold the sidebar", "Unfold the sidebar"))
-        self.assertIn('id="side-fold"', html.split('id="side-foot"', 1)[1].split("</aside>", 1)[0])
+        self.assertEqual(
+            (found[1], found[2]), ("Unfold the sidebar", "Unfold the sidebar")
+        )
+        self.assertIn(
+            'id="side-fold"', html.split('id="side-foot"', 1)[1].split("</aside>", 1)[0]
+        )
 
     def test_the_rail_shows_the_foot_with_the_arrow_alone_turned_to_the_right(self):
         css = (pages.ASSETS / "board.css").read_text(encoding="utf-8")
-        hidden = re.search(r"\.shell\.railed \.side > :not\(([^)]*)\) \{ display: none !important; \}", css)
+        hidden = re.search(
+            r"\.shell\.railed \.side > :not\(([^)]*)\) \{ display: none !important; \}",
+            css,
+        )
         self.assertIsNotNone(hidden)
         self.assertIn(".side-foot", hidden[1])
-        self.assertIn(".shell.railed .side-foot > :not(#side-fold) { display: none; }", css)
+        self.assertIn(
+            ".shell.railed .side-foot > :not(#side-fold) { display: none; }", css
+        )
         self.assertIn(".shell.railed #side-fold .ic { transform: scaleX(-1); }", css)
 
     def test_a_click_says_the_next_click_on_the_arrow(self):
@@ -188,40 +249,95 @@ class SideFold(unittest.TestCase):
 
 
 class Keys(unittest.TestCase):
-    def test_the_kanban_carries_the_cursor_over_its_cards_and_one_line_of_its_keys(self):
+    def test_the_kanban_carries_the_cursor_over_its_cards_and_one_line_of_its_keys(
+        self,
+    ):
         html = str(pages.kanban_page(ctx_of(ended(3))))
         kanban = re.search(r'<div class="view kanban" id="kanban"[^>]*>', html)[0]
-        for attr in ('data-controller="cursor"', 'data-cursor-item-value="article.tc"', 'data-cursor-group-value="section.col"',
-                     'data-cursor-link-value=".tc-link"', 'data-action="keydown@window-&gt;cursor#key click-&gt;cursor#pick"'):
+        for attr in (
+            'data-controller="cursor"',
+            'data-cursor-item-value="article.tc"',
+            'data-cursor-group-value="section.col"',
+            'data-cursor-link-value=".tc-link"',
+            'data-action="keydown@window-&gt;cursor#key click-&gt;cursor#pick"',
+        ):
             self.assertIn(attr, kanban)
         line = re.search(r'<div class="keys" id="kanban-keys">(.*?)</div>', html)
         self.assertIsNotNone(line)
-        self.assertEqual(" ".join(re.sub(r"<[^>]+>", " ", line[1]).split()), "J K ↑ ↓ move · H L ← → column · Enter open · Esc close")
-        self.assertEqual(re.findall(r"<kbd>([^<]+)</kbd>", line[1]), ["J", "K", "↑", "↓", "H", "L", "←", "→", "Enter", "Esc"])
+        self.assertEqual(
+            " ".join(re.sub(r"<[^>]+>", " ", line[1]).split()),
+            "J K ↑ ↓ move · H L ← → column · Enter open · Esc close",
+        )
+        self.assertEqual(
+            re.findall(r"<kbd>([^<]+)</kbd>", line[1]),
+            ["J", "K", "↑", "↓", "H", "L", "←", "→", "Enter", "Esc"],
+        )
         self.assertEqual(html.count('class="keys"'), 1)
 
     def test_each_view_has_its_line_of_keys_in_one_foot_under_the_stage(self):
         """The task keys-help-in-a-sticky-footer: on Tasks, Waits for you, Backlog and Activity the line of keys is
         the row of the page between the stage and the status line, in no view's list, and the main column's grid
         gives it a row of its own under the stage's, so the line stays at the window's foot and the list scrolls above it."""
-        events = [*ended(3), state(61, "held", "the criteria wait for the owner", task="gift-note")]
-        backlog = {"folder": "docs/backlog", "reviewer_folder": ".lem/state/backlog",
-                   "items": [{"slug": f"item-{i}", "key": f"item-{i}", "path": f"docs/backlog/item-{i}.md", "title": f"Item {i}", "worth": "later", "reviewer": False}
-                             for i in range(40)]}
-        ctx = pages.Ctx(host="h", workspace="w", model=bm.derive(events, [], NOW), asset=lambda name: name, backlog=backlog)
-        for view, draw, line in (("tasks", pages.kanban_page, "J K ↑ ↓ move · H L ← → column · Enter open · Esc close"),
-                                 ("waits", pages.waits_page, "J K ↑ ↓ move · Enter go"),
-                                 ("backlog", pages.backlog_page, "/ filter · J K move · Enter open or close · R read again"),
-                                 ("activity", pages.activity_page, "T W B A view")):
+        events = [
+            *ended(3),
+            state(61, "held", "the criteria wait for the owner", task="gift-note"),
+        ]
+        backlog = {
+            "folder": "docs/backlog",
+            "reviewer_folder": ".lem/state/backlog",
+            "items": [
+                {
+                    "slug": f"item-{i}",
+                    "key": f"item-{i}",
+                    "path": f"docs/backlog/item-{i}.md",
+                    "title": f"Item {i}",
+                    "worth": "later",
+                    "reviewer": False,
+                }
+                for i in range(40)
+            ],
+        }
+        ctx = pages.Ctx(
+            host="h",
+            workspace="w",
+            model=bm.derive(events, [], NOW),
+            asset=lambda name: name,
+            backlog=backlog,
+        )
+        for view, draw, line in (
+            (
+                "tasks",
+                pages.kanban_page,
+                "J K ↑ ↓ move · H L ← → column · Enter open · Esc close",
+            ),
+            ("waits", pages.waits_page, "J K ↑ ↓ move · Enter go"),
+            (
+                "backlog",
+                pages.backlog_page,
+                "/ filter · J K move · Enter open or close · R read again",
+            ),
+            ("activity", pages.activity_page, "T W B A view"),
+        ):
             with self.subTest(view=view):
                 html = str(draw(ctx))
-                foot = re.search(r'</main>(<div class="keys" id="([a-z]+)-keys">(.*?)</div>)<footer class="status', html)
-                self.assertIsNotNone(foot, f"no line of keys between the stage and the status line on {view}")
+                foot = re.search(
+                    r'</main>(<div class="keys" id="([a-z]+)-keys">(.*?)</div>)<footer class="status',
+                    html,
+                )
+                self.assertIsNotNone(
+                    foot,
+                    f"no line of keys between the stage and the status line on {view}",
+                )
                 self.assertEqual(foot[2], "kanban" if view == "tasks" else view)
-                self.assertEqual(" ".join(re.sub(r"<[^>]+>", " ", foot[3]).split()), line)
+                self.assertEqual(
+                    " ".join(re.sub(r"<[^>]+>", " ", foot[3]).split()), line
+                )
                 self.assertEqual(html.count('class="keys"'), 1)
         css = (pages.ASSETS / "board.css").read_text(encoding="utf-8")
-        self.assertIn(".main { display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto;", css)
+        self.assertIn(
+            ".main { display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto;",
+            css,
+        )
         self.assertIn(".main > .keys {", css)
 
 
@@ -229,47 +345,104 @@ class WaitsVerb(unittest.TestCase):
     """The verb of a row of "Waits for you" goes where the owner acts: on a page for this Mac, for a row he
     answers in the task's session while it lives, the jump of agterm; elsewhere the task's panel alone."""
 
-    OPEN = {"ts": (START + timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": "session.open", "task": "gift-note", "session": "S1", "name": "gift-note"}
+    OPEN = {
+        "ts": (START + timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "event": "session.open",
+        "task": "gift-note",
+        "session": "S1",
+        "name": "gift-note",
+    }
 
     def verb(self, *events, row="held", local=True, sessions=None) -> str:
         """The verb link of the row ROW-gift-note"""
         m = bm.derive([self.OPEN, *events], [], NOW)
-        m.sessions = {"gift-note": {"live": True, "agent": True, "session": "S1"}} if sessions is None else sessions
-        html = str(pages.waits_page(pages.Ctx(host="h", workspace="w", model=m, asset=lambda name: name, local=local)))
-        verbs = re.findall(rf'<article class="wrow[^"]*" id="wait-{row}-gift-note"[^>]*>.*?(<a class="wr-verb"[^>]*>)', html)
+        m.sessions = (
+            {"gift-note": {"live": True, "agent": True, "session": "S1"}}
+            if sessions is None
+            else sessions
+        )
+        html = str(
+            pages.waits_page(
+                pages.Ctx(
+                    host="h",
+                    workspace="w",
+                    model=m,
+                    asset=lambda name: name,
+                    local=local,
+                )
+            )
+        )
+        verbs = re.findall(
+            rf'<article class="wrow[^"]*" id="wait-{row}-gift-note"[^>]*>.*?(<a class="wr-verb"[^>]*>)',
+            html,
+        )
         self.assertEqual(len(verbs), 1, verbs)
         return verbs[0]
 
-    def test_a_held_row_on_a_page_for_this_mac_with_a_live_session_jumps_to_it_and_keeps_its_address(self):
-        verb = self.verb(state(2, "held", "the interview waits for the owner", task="gift-note"))
+    def test_a_held_row_on_a_page_for_this_mac_with_a_live_session_jumps_to_it_and_keeps_its_address(
+        self,
+    ):
+        verb = self.verb(
+            state(2, "held", "the interview waits for the owner", task="gift-note")
+        )
         self.assertIn('data-action="agterm#jump"', verb)
         self.assertIn('data-agterm-session-param="S1"', verb)
         self.assertIn('href="/h/w/tasks/gift-note?in=waits"', verb)
 
     def test_no_jump_on_a_page_that_is_not_for_this_mac_or_with_no_live_session(self):
         held = state(2, "held", "the interview waits for the owner", task="gift-note")
-        for verb in (self.verb(held, local=False), self.verb(held, sessions={"gift-note": {"live": False, "session": "S1"}})):
+        for verb in (
+            self.verb(held, local=False),
+            self.verb(held, sessions={"gift-note": {"live": False, "session": "S1"}}),
+        ):
             self.assertNotIn("agterm#jump", verb)
             self.assertNotIn("data-agterm-session-param", verb)
             self.assertIn('href="/h/w/tasks/gift-note?in=waits"', verb)
 
     def test_no_jump_for_a_merge_row(self):
-        verb = self.verb(state(2, "open", "pull request https://github.com/acme/shop/pull/41", task="gift-note"), row="merge")
+        verb = self.verb(
+            state(
+                2,
+                "open",
+                "pull request https://github.com/acme/shop/pull/41",
+                task="gift-note",
+            ),
+            row="merge",
+        )
         self.assertNotIn("agterm#jump", verb)
         self.assertIn('href="/h/w/tasks/gift-note?in=waits"', verb)
 
     def test_the_list_carries_the_cursor_over_its_rows_and_one_line_of_its_keys(self):
-        m = bm.derive([self.OPEN, state(2, "held", "the interview waits for the owner", task="gift-note")], [], NOW)
-        html = str(pages.waits_page(pages.Ctx(host="h", workspace="w", model=m, asset=lambda name: name)))
+        m = bm.derive(
+            [
+                self.OPEN,
+                state(2, "held", "the interview waits for the owner", task="gift-note"),
+            ],
+            [],
+            NOW,
+        )
+        html = str(
+            pages.waits_page(
+                pages.Ctx(host="h", workspace="w", model=m, asset=lambda name: name)
+            )
+        )
         listing = re.search(r'<div class="waits-list" id="waits-list"[^>]*>', html)
         self.assertIsNotNone(listing)
-        for attr in ('data-controller="cursor"', 'data-cursor-item-value="article.wrow, details.wstack"', 'data-cursor-link-value="a.wr-verb, summary.wst-head"',
-                     'data-cursor-pick-value="a.wr-verb, a.wr-task, summary.wst-head"', 'data-action="keydown@window-&gt;cursor#key click-&gt;cursor#pick"'):
+        for attr in (
+            'data-controller="cursor"',
+            'data-cursor-item-value="article.wrow, details.wstack"',
+            'data-cursor-link-value="a.wr-verb, summary.wst-head"',
+            'data-cursor-pick-value="a.wr-verb, a.wr-task, summary.wst-head"',
+            'data-action="keydown@window-&gt;cursor#key click-&gt;cursor#pick"',
+        ):
             self.assertIn(attr, listing[0])
         self.assertNotIn("data-cursor-group-value", listing[0])
         line = re.search(r'<div class="keys" id="waits-keys">(.*?)</div>', html)
         self.assertIsNotNone(line)
-        self.assertEqual(" ".join(re.sub(r"<[^>]+>", " ", line[1]).split()), "J K ↑ ↓ move · Enter go")
+        self.assertEqual(
+            " ".join(re.sub(r"<[^>]+>", " ", line[1]).split()),
+            "J K ↑ ↓ move · Enter go",
+        )
         self.assertEqual(html.count('class="keys"'), 1)
         # the title link of the row opens the panel and carries no jump
         self.assertNotIn("agterm", re.search(r'<a class="wr-task"[^>]*>', html)[0])
@@ -293,53 +466,142 @@ class WaitStack(unittest.TestCase):
             return (START + timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
         # NOW is minute 120: the pull request opened at 112:59 (7m 01s), the review came at 115:38 (4m 22s)
-        logo = [{"ts": at(112), "event": "proposed", "task": self.LOGO, "green": False, "not_green": ["a test was deleted"], "tip": "abc123456"},
-                state(120 - 421 / 60, "open", "pull request https://github.com/acme/shop/pull/73", task=self.LOGO),
-                {"ts": at(120 - 262 / 60), "event": "merge.review", "task": self.LOGO, "verdict": "call", "calls": True,
-                 "why": "Verdict: call. It redraws the owner's logo.", "by": "claude", "tip": "abc123456"}]
-        return [*([state(87, "held", "the interview waits for the owner", task=self.CARD)] if card else []), *logo]
+        logo = [
+            {
+                "ts": at(112),
+                "event": "proposed",
+                "task": self.LOGO,
+                "green": False,
+                "not_green": ["a test was deleted"],
+                "tip": "abc123456",
+            },
+            state(
+                120 - 421 / 60,
+                "open",
+                "pull request https://github.com/acme/shop/pull/73",
+                task=self.LOGO,
+            ),
+            {
+                "ts": at(120 - 262 / 60),
+                "event": "merge.review",
+                "task": self.LOGO,
+                "verdict": "call",
+                "calls": True,
+                "why": "Verdict: call. It redraws the owner's logo.",
+                "by": "claude",
+                "tip": "abc123456",
+            },
+        ]
+        return [
+            *(
+                [state(87, "held", "the interview waits for the owner", task=self.CARD)]
+                if card
+                else []
+            ),
+            *logo,
+        ]
 
     def page(self, **kw) -> str:
         m = bm.derive(self.events(**kw), [], NOW)
-        return str(pages.waits_page(pages.Ctx(host="h", workspace="w", model=m, asset=lambda name: name, can_act=True)))
+        return str(
+            pages.waits_page(
+                pages.Ctx(
+                    host="h",
+                    workspace="w",
+                    model=m,
+                    asset=lambda name: name,
+                    can_act=True,
+                )
+            )
+        )
 
     @staticmethod
     def stack(html: str, slug: str) -> str:
-        found = re.search(rf'<details class="wstack[^"]*" id="wait-stack-{slug}"[^>]*>.*?</details>', html, re.S)
+        found = re.search(
+            rf'<details class="wstack[^"]*" id="wait-stack-{slug}"[^>]*>.*?</details>',
+            html,
+            re.S,
+        )
         return found[0] if found else ""
 
     @staticmethod
     def words(html: str) -> str:
         return " ".join(re.sub(r"<[^>]+>", " ", html).split())
 
-    def test_a_task_of_two_things_is_one_closed_stack_in_the_place_of_its_first_thing(self):
+    def test_a_task_of_two_things_is_one_closed_stack_in_the_place_of_its_first_thing(
+        self,
+    ):
         html = self.page()
         stack = self.stack(html, self.LOGO)
         self.assertTrue(stack, "no stack of the logo's task")
         opening = re.match(r"<details[^>]*>", stack)[0]
         self.assertNotIn(" open", opening)
         self.assertIn(f'data-task="{self.LOGO}"', opening)
-        summary = re.search(r'<summary class="wrow wst-head"[^>]*>(.*?)</summary>', stack, re.S)
+        summary = re.search(
+            r'<summary class="wrow wst-head"[^>]*>(.*?)</summary>', stack, re.S
+        )
         self.assertIsNotNone(summary)
-        self.assertEqual(self.words(summary[1]), "Logo eyes signal and favicon 2 things Read the merge review · Waits for the merge")
+        self.assertEqual(
+            self.words(summary[1]),
+            "Logo eyes signal and favicon 2 things Read the merge review · Waits for the merge",
+        )
         self.assertNotIn("<a ", summary[1])
         # the entries of the list in their order: the interview's row, then the stack where the merge review's row stood
         listing = html.split('id="waits-list"', 1)[1].split('id="parked"', 1)[0]
-        self.assertEqual(re.findall(r'<(?:article class="wrow[^"]*"|details class="wstack[^"]*") id="(wait-[a-z0-9-]+)"', listing),
-                         [f"wait-held-{self.CARD}", f"wait-stack-{self.LOGO}", f"wait-review-{self.LOGO}", f"wait-merge-{self.LOGO}"])
+        self.assertEqual(
+            re.findall(
+                r'<(?:article class="wrow[^"]*"|details class="wstack[^"]*") id="(wait-[a-z0-9-]+)"',
+                listing,
+            ),
+            [
+                f"wait-held-{self.CARD}",
+                f"wait-stack-{self.LOGO}",
+                f"wait-review-{self.LOGO}",
+                f"wait-merge-{self.LOGO}",
+            ],
+        )
         self.assertEqual(listing.count('<details class="wstack'), 1)
         cursor = re.search(r'<div class="waits-list" id="waits-list"[^>]*>', html)[0]
-        for attr in ('data-cursor-item-value="article.wrow, details.wstack"', 'data-cursor-link-value="a.wr-verb, summary.wst-head"',
-                     'data-cursor-pick-value="a.wr-verb, a.wr-task, summary.wst-head"'):
+        for attr in (
+            'data-cursor-item-value="article.wrow, details.wstack"',
+            'data-cursor-link-value="a.wr-verb, summary.wst-head"',
+            'data-cursor-pick-value="a.wr-verb, a.wr-task, summary.wst-head"',
+        ):
             self.assertIn(attr, cursor)
-        self.assertEqual(self.words(re.search(r'<div class="keys" id="waits-keys">(.*?)</div>', html)[1]), "J K ↑ ↓ move · Enter go or open")
+        self.assertEqual(
+            self.words(
+                re.search(r'<div class="keys" id="waits-keys">(.*?)</div>', html)[1]
+            ),
+            "J K ↑ ↓ move · Enter go or open",
+        )
 
-    def test_the_stack_holds_each_thing_as_its_own_row_with_its_time_and_the_merge_button_on_the_merge_row(self):
+    def test_the_stack_holds_each_thing_as_its_own_row_with_its_time_and_the_merge_button_on_the_merge_row(
+        self,
+    ):
         stack = self.stack(self.page(), self.LOGO)
-        rows = dict(re.findall(r'<article class="wrow[^"]*" id="wait-([a-z]+)-' + self.LOGO + r'"[^>]*>(.*?)</article>', stack, re.S))
+        rows = dict(
+            re.findall(
+                r'<article class="wrow[^"]*" id="wait-([a-z]+)-'
+                + self.LOGO
+                + r'"[^>]*>(.*?)</article>',
+                stack,
+                re.S,
+            )
+        )
         self.assertEqual(list(rows), ["review", "merge"])
-        tops = {kind: self.words(re.search(r'<div class="wr-top">(.*?)</div>', row, re.S)[1]) for kind, row in rows.items()}
-        self.assertEqual(tops, {"review": "Read the merge review 4m 22s", "merge": "Merge the pull request #73 7m 01s"})
+        tops = {
+            kind: self.words(
+                re.search(r'<div class="wr-top">(.*?)</div>', row, re.S)[1]
+            )
+            for kind, row in rows.items()
+        }
+        self.assertEqual(
+            tops,
+            {
+                "review": "Read the merge review 4m 22s",
+                "merge": "Merge the pull request #73 7m 01s",
+            },
+        )
         self.assertIn("Merge…", rows["merge"])
         self.assertNotIn("Merge…", rows["review"])
         self.assertNotIn("Merge…", re.search(r"<summary.*?</summary>", stack, re.S)[0])
@@ -347,35 +609,83 @@ class WaitStack(unittest.TestCase):
 
     def test_a_task_of_one_thing_is_its_plain_row_as_today(self):
         html = self.page()
-        row = re.search(rf'<article class="wrow[^"]*" id="wait-held-{self.CARD}"[^>]*>(.*?)</article>', html, re.S)
+        row = re.search(
+            rf'<article class="wrow[^"]*" id="wait-held-{self.CARD}"[^>]*>(.*?)</article>',
+            html,
+            re.S,
+        )
         self.assertIsNotNone(row)
-        self.assertEqual(self.words(re.search(r'<div class="wr-top">(.*?)</div>', row[1], re.S)[1]), "The interview waits for you 33m")
+        self.assertEqual(
+            self.words(re.search(r'<div class="wr-top">(.*?)</div>', row[1], re.S)[1]),
+            "The interview waits for you 33m",
+        )
         self.assertFalse(self.stack(html, self.CARD))
         self.assertNotIn("1 thing", html)
         self.assertNotIn(f'id="wait-stack-{self.CARD}"', html)
         # a page whose every task has one thing has no stack and the keys of today
-        alone = str(pages.waits_page(pages.Ctx(host="h", workspace="w", model=bm.derive(self.events()[:1], [], NOW), asset=lambda name: name)))
-        self.assertNotIn("<details class=\"wstack", alone)
-        self.assertEqual(self.words(re.search(r'<div class="keys" id="waits-keys">(.*?)</div>', alone)[1]), "J K ↑ ↓ move · Enter go")
-        side = re.search(r'<div id="waits" class="wlist[^"]*"[^>]*>(.*?)</div><div class="side-head">Views', alone, re.S)[1]
+        alone = str(
+            pages.waits_page(
+                pages.Ctx(
+                    host="h",
+                    workspace="w",
+                    model=bm.derive(self.events()[:1], [], NOW),
+                    asset=lambda name: name,
+                )
+            )
+        )
+        self.assertNotIn('<details class="wstack', alone)
+        self.assertEqual(
+            self.words(
+                re.search(r'<div class="keys" id="waits-keys">(.*?)</div>', alone)[1]
+            ),
+            "J K ↑ ↓ move · Enter go",
+        )
+        side = re.search(
+            r'<div id="waits" class="wlist[^"]*"[^>]*>(.*?)</div><div class="side-head">Views',
+            alone,
+            re.S,
+        )[1]
         self.assertNotIn("wi-n", side)
 
     def test_each_count_counts_a_stack_once(self):
         html = self.page()
-        self.assertRegex(html, r'<div class="side-head">Waits for you<em class="you" title="3 things you do, in 2 tasks">2</em></div>')
+        self.assertRegex(
+            html,
+            r'<div class="side-head">Waits for you<em class="you" title="3 things you do, in 2 tasks">2</em></div>',
+        )
         self.assertRegex(html, r'id="view-waits"[^>]*>.*?<em>2</em></a>')
-        self.assertRegex(html, r'id="rail-waits" title="2 tasks wait for you"><svg[^>]*>.*?</svg><em class="you">2</em></a>')
-        self.assertRegex(html, r'<a class="m-waits you" href="[^"]+" aria-label="2 tasks wait for you: open the list"><svg[^>]*>.*?</svg><span>2</span></a>')
-        self.assertIn("<title>Waits for you · Lem · w · 0 build · 2 for you</title>", html)
+        self.assertRegex(
+            html,
+            r'id="rail-waits" title="2 tasks wait for you"><svg[^>]*>.*?</svg><em class="you">2</em></a>',
+        )
+        self.assertRegex(
+            html,
+            r'<a class="m-waits you" href="[^"]+" aria-label="2 tasks wait for you: open the list"><svg[^>]*>.*?</svg><span>2</span></a>',
+        )
+        self.assertIn(
+            "<title>Waits for you · Lem · w · 0 build · 2 for you</title>", html
+        )
         self.assertIn("2 tasks wait for you, the most pressing first", html)
         # the sidebar: one row for each task, the logo's its first thing's with how many it has
-        side = re.search(r'<div id="waits" class="wlist[^"]*"[^>]*>(.*?)</div><div class="side-head">Views', html, re.S)[1]
-        self.assertEqual(re.findall(r'<a class="wi[^"]*" id="(w-[a-z0-9-]+)"', side), [f"w-held-{self.CARD}", f"w-review-{self.LOGO}"])
+        side = re.search(
+            r'<div id="waits" class="wlist[^"]*"[^>]*>(.*?)</div><div class="side-head">Views',
+            html,
+            re.S,
+        )[1]
+        self.assertEqual(
+            re.findall(r'<a class="wi[^"]*" id="(w-[a-z0-9-]+)"', side),
+            [f"w-held-{self.CARD}", f"w-review-{self.LOGO}"],
+        )
         self.assertIn('<span class="wi-n">2 things</span>', side)
         self.assertEqual(side.count("wi-n"), 1)
         # the server's count of the workspace, which /api/workspaces gives
         m = bm.derive(self.events(), [], NOW)
-        space = types.SimpleNamespace(counted=float("-inf"), counts={}, model=lambda: m, reader=types.SimpleNamespace(problems={}))
+        space = types.SimpleNamespace(
+            counted=float("-inf"),
+            counts={},
+            model=lambda: m,
+            reader=types.SimpleNamespace(problems={}),
+        )
         self.assertEqual(serve.Workspace.count(space)["waits"], 2)
         self.assertEqual(len(bm.waits_of(m)), 3)
 
@@ -385,23 +695,56 @@ class Search(unittest.TestCase):
     docs/plans/2026-11-22-board-card-search.md): closed on every page of the workspace, one row for each card
     with its title, its chip and the link a pick follows, and its button in the bar and in the phone's bar."""
 
-    BACKLOG = {"folder": "docs/backlog", "reviewer_folder": ".lem/state/backlog", "items": [{"slug": "the-board-s-done-column-has-no-limit", "key": "the-board-s-done-column-has-no-limit", "path": "docs/backlog/the-board-s-done-column-has-no-limit.md",
-                                                     "title": "The board's done column has no limit", "worth": "yes"}]}
+    BACKLOG = {
+        "folder": "docs/backlog",
+        "reviewer_folder": ".lem/state/backlog",
+        "items": [
+            {
+                "slug": "the-board-s-done-column-has-no-limit",
+                "key": "the-board-s-done-column-has-no-limit",
+                "path": "docs/backlog/the-board-s-done-column-has-no-limit.md",
+                "title": "The board's done column has no limit",
+                "worth": "yes",
+            }
+        ],
+    }
 
     def ctx(self, **kw) -> "pages.Ctx":
-        events = [*ended(22), state(61, "held", "the criteria wait for the owner", task="board-card-search"),
-                  state(62, "parked", "wait for the merchants", task="old-export-fix")]
-        return pages.Ctx(host="h", workspace="w", model=bm.derive(events, [], NOW), asset=lambda name: name, backlog=self.BACKLOG, **kw)
+        events = [
+            *ended(22),
+            state(
+                61, "held", "the criteria wait for the owner", task="board-card-search"
+            ),
+            state(62, "parked", "wait for the merchants", task="old-export-fix"),
+        ]
+        return pages.Ctx(
+            host="h",
+            workspace="w",
+            model=bm.derive(events, [], NOW),
+            asset=lambda name: name,
+            backlog=self.BACKLOG,
+            **kw,
+        )
 
     def box(self, html: str) -> str:
-        found = re.findall(r'<div class="search" id="search"[^>]*>.*?<div class="keys search-keys" id="search-keys">.*?</div></div></div>', html, re.S)
+        found = re.findall(
+            r'<div class="search" id="search"[^>]*>.*?<div class="keys search-keys" id="search-keys">.*?</div></div></div>',
+            html,
+            re.S,
+        )
         self.assertEqual(len(found), 1)
         return found[0]
 
     def test_every_page_of_the_workspace_draws_the_box_once_closed_with_its_field(self):
         ctx = self.ctx()
-        drawn = {"tasks": pages.kanban_page(ctx), "waits": pages.waits_page(ctx), "backlog": pages.backlog_page(ctx), "activity": pages.activity_page(ctx),
-                 "done": pages.older_page(ctx), "new": pages.new_page(ctx)}
+        drawn = {
+            "tasks": pages.kanban_page(ctx),
+            "waits": pages.waits_page(ctx),
+            "backlog": pages.backlog_page(ctx),
+            "activity": pages.activity_page(ctx),
+            "done": pages.older_page(ctx),
+            "new": pages.new_page(ctx),
+        }
         task_ctx = self.ctx()
         task_ctx.task = "board-card-search"
         drawn["task"] = task_pages.task_page(task_ctx)[1]
@@ -414,9 +757,15 @@ class Search(unittest.TestCase):
             self.assertNotIn("data-js-open", head, name)
             self.assertIn('data-controller="search"', head, name)
             self.assertIn('role="dialog"', head, name)
-            self.assertRegex(box, r'<input id="search-q-w" type="search"[^>]*data-search-target="query"[^>]*data-turbo-permanent>', name)
+            self.assertRegex(
+                box,
+                r'<input id="search-q-w" type="search"[^>]*data-search-target="query"[^>]*data-turbo-permanent>',
+                name,
+            )
             self.assertIn('data-search-target="none" data-js-out', box, name)
-            self.assertEqual(len(re.findall(r'<a class="sr ', box)), 22 + 2 + 1 + 1, name)
+            self.assertEqual(
+                len(re.findall(r'<a class="sr ', box)), 22 + 2 + 1 + 1, name
+            )
 
     def test_each_row_has_its_title_its_chip_and_the_link_a_card_has(self):
         ctx = self.ctx()
@@ -424,14 +773,29 @@ class Search(unittest.TestCase):
         box = self.box(html)
 
         def row(slug, kind="task"):
-            return re.search(rf'<a class="sr [^"]*" id="sr-{kind}-{slug}"[^>]*>(.*?)</a>', box, re.S)
+            return re.search(
+                rf'<a class="sr [^"]*" id="sr-{kind}-{slug}"[^>]*>(.*?)</a>', box, re.S
+            )
 
         held = row("board-card-search")
         self.assertIsNotNone(held)
-        for attr in ('class="sr a-you"', 'role="option"', 'href="/h/w/tasks/board-card-search?in=waits"', 'data-turbo-frame="task"', 'data-turbo-action="advance"',
-                     'data-search-target="row"', 'data-kind="task"', 'data-slug="board-card-search"', 'data-title="Board card search"', 'data-open="1"'):
+        for attr in (
+            'class="sr a-you"',
+            'role="option"',
+            'href="/h/w/tasks/board-card-search?in=waits"',
+            'data-turbo-frame="task"',
+            'data-turbo-action="advance"',
+            'data-search-target="row"',
+            'data-kind="task"',
+            'data-slug="board-card-search"',
+            'data-title="Board card search"',
+            'data-open="1"',
+        ):
             self.assertIn(attr, held[0])
-        self.assertIn('<span class="sr-title">Board card search</span><span class="pill sr-chip"><i></i><span>Waits for you · held</span></span>', held[1])
+        self.assertIn(
+            '<span class="sr-title">Board card search</span><span class="pill sr-chip"><i></i><span>Waits for you · held</span></span>',
+            held[1],
+        )
         parked = row("old-export-fix")
         self.assertIn('data-open="1"', parked[0])
         self.assertIn("<span>parked</span>", parked[1])
@@ -441,32 +805,53 @@ class Search(unittest.TestCase):
         self.assertNotIn('id="card-task-00"', str(pages.kanban_page(self.ctx())))
         self.assertNotIn("data-open", old[0])
         self.assertIn('class="sr a-done"', old[0])
-        self.assertIn(f"<span>landed {bm.local(ctx.model.by_slug['task-00'].since).date().isoformat()}</span>", old[1])
+        self.assertIn(
+            f"<span>landed {bm.local(ctx.model.by_slug['task-00'].since).date().isoformat()}</span>",
+            old[1],
+        )
         item = row("the-board-s-done-column-has-no-limit", "item")
-        for attr in ('class="sr a-gate"', 'href="/h/w/backlog#item-the-board-s-done-column-has-no-limit"', 'data-kind="item"', 'data-title="The board&#x27;s done column has no limit"'):
+        for attr in (
+            'class="sr a-gate"',
+            'href="/h/w/backlog#item-the-board-s-done-column-has-no-limit"',
+            'data-kind="item"',
+            'data-title="The board&#x27;s done column has no limit"',
+        ):
             self.assertIn(attr, item[0])
         self.assertNotIn("data-open", item[0])
         self.assertNotIn("data-turbo-frame", item[0])
         self.assertIn("<span>Backlog · worth: yes</span>", item[1])
         # the order: the columns, the parked task, the ended ones newest first, the backlog
         order = re.findall(r'id="sr-([a-z]+-[a-z0-9-]+)"', box)
-        self.assertEqual(order[:4], ["task-board-card-search", "task-builds", "task-old-export-fix", "task-task-21"])
-        self.assertEqual(order[-2:], ["task-task-00", "item-the-board-s-done-column-has-no-limit"])
+        self.assertEqual(
+            order[:4],
+            [
+                "task-board-card-search",
+                "task-builds",
+                "task-old-export-fix",
+                "task-task-21",
+            ],
+        )
+        self.assertEqual(
+            order[-2:], ["task-task-00", "item-the-board-s-done-column-has-no-limit"]
+        )
 
     def test_the_bar_and_the_phones_bar_have_the_button_that_names_its_key(self):
         html = str(pages.activity_page(self.ctx()))
         for bar in ("bar", "mbar"):
             header = re.search(rf'<header class="{bar}">(.*?)</header>', html, re.S)
             self.assertIsNotNone(header, bar)
-            button = re.search(r'<button class="btn search-open [^"]*"[^>]*>(.*?)</button>', header[1], re.S)
+            button = re.search(
+                r'<button class="btn search-open [^"]*"[^>]*>(.*?)</button>',
+                header[1],
+                re.S,
+            )
             self.assertIsNotNone(button, bar)
-            self.assertIn('data-search-open', button[0])
+            self.assertIn("data-search-open", button[0])
             self.assertIn('aria-controls="search"', button[0])
             self.assertRegex(button[0], r'title="[^"]*Cmd-K[^"]*"')
             self.assertRegex(button[0], r'aria-label="[^"]*Cmd-K[^"]*"')
             self.assertIn('<use href="#i-magnifying-glass">', button[1])
         self.assertIn('<symbol id="i-magnifying-glass"', html)
-
 
 
 class StandsNote(unittest.TestCase):
@@ -475,47 +860,135 @@ class StandsNote(unittest.TestCase):
     (guard-sees-unreadable-sessions, 2026-11-23, #60)."""
 
     TIP = "faac6eb3b" + "0" * 31
-    NOTE = {"task": "gift-note", "act": "merge", "state": "stands", "tip": TIP,
-            "said": "Your merge stands. It goes through when the merge agent’s read of the new base says safe."}
+    NOTE = {
+        "task": "gift-note",
+        "act": "merge",
+        "state": "stands",
+        "tip": TIP,
+        "said": "Your merge stands. It goes through when the merge agent’s read of the new base says safe.",
+    }
 
     @staticmethod
     def ev(minute: float, event: str, **fields) -> dict:
-        return {"ts": (START + timedelta(minutes=minute)).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": event, "task": "gift-note", **fields}
+        return {
+            "ts": (START + timedelta(minutes=minute)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "event": event,
+            "task": "gift-note",
+            **fields,
+        }
 
     def refused(self) -> list:
-        return [self.ev(0, "proposed", green=True, not_green=[], tip=self.TIP[:9]), state(1, "open", "pull request https://github.com/acme/shop/pull/60", task="gift-note"),
-                self.ev(8, "merge.refused", by="owner", via="server", kind="base", said="origin/main moved after the checks ran", tip=self.TIP[:9], **{"from": "lem"})]
+        return [
+            self.ev(0, "proposed", green=True, not_green=[], tip=self.TIP[:9]),
+            state(
+                1,
+                "open",
+                "pull request https://github.com/acme/shop/pull/60",
+                task="gift-note",
+            ),
+            self.ev(
+                8,
+                "merge.refused",
+                by="owner",
+                via="server",
+                kind="base",
+                said="origin/main moved after the checks ran",
+                tip=self.TIP[:9],
+                **{"from": "lem"},
+            ),
+        ]
 
     def note(self, events: list) -> str:
         return str(pages.act_note(ctx_of(events), self.NOTE) or "")
 
-    def test_while_the_read_runs_the_note_says_his_merge_stands_in_the_look_of_a_wait(self):
+    def test_while_the_read_runs_the_note_says_his_merge_stands_in_the_look_of_a_wait(
+        self,
+    ):
         html = self.note(self.refused())
-        self.assertIn("Your merge stands. It goes through when the merge agent’s read of the new base says safe.", html)
+        self.assertIn(
+            "Your merge stands. It goes through when the merge agent’s read of the new base says safe.",
+            html,
+        )
         self.assertIn("a-gate", html)
         self.assertIn("#i-clock", html)
         self.assertNotIn("Not done.", html)
         self.assertNotIn("v-word", html)
 
     def test_once_the_server_runs_it_the_note_says_the_sentence_of_that_span(self):
-        safe = self.ev(11, "merge.review", verdict="call", calls=True, by="claude", tip=self.TIP[:9], base="d48c6a9bd", base_call="safe", base_why="docs only")
-        stands = self.ev(11, "merge.stands", by="owner", tip=self.TIP[:9], base="d48c6a9bd")
+        safe = self.ev(
+            11,
+            "merge.review",
+            verdict="call",
+            calls=True,
+            by="claude",
+            tip=self.TIP[:9],
+            base="d48c6a9bd",
+            base_call="safe",
+            base_why="docs only",
+        )
+        stands = self.ev(
+            11, "merge.stands", by="owner", tip=self.TIP[:9], base="d48c6a9bd"
+        )
         html = self.note([*self.refused(), safe, stands])
         self.assertIn("Your merge stands. Lem merges it now.", html)
         self.assertNotIn("goes through when", html)
 
     def test_once_it_ends_the_note_is_not_drawn(self):
-        merged = [*self.refused(), state(20, "landed", "main: pull request https://github.com/acme/shop/pull/60 is merged", task="gift-note")]
+        merged = [
+            *self.refused(),
+            state(
+                20,
+                "landed",
+                "main: pull request https://github.com/acme/shop/pull/60 is merged",
+                task="gift-note",
+            ),
+        ]
         self.assertEqual(self.note(merged), "")
         # the server's merge of it started: the span ended, and a try that ends with no refusal on record
         # leaves the page as it is, with his Merge
-        safe = self.ev(11, "merge.review", verdict="call", calls=True, by="claude", tip=self.TIP[:9], base="d48c6a9bd", base_call="safe", base_why="docs only")
-        started = [*self.refused(), safe, self.ev(11, "merge.stands", by="owner", tip=self.TIP[:9], base="d48c6a9bd"),
-                   self.ev(12, "merge.start", by="owner", via="server", after="a read of the moved base", base="d48c6a9bd")]
+        safe = self.ev(
+            11,
+            "merge.review",
+            verdict="call",
+            calls=True,
+            by="claude",
+            tip=self.TIP[:9],
+            base="d48c6a9bd",
+            base_call="safe",
+            base_why="docs only",
+        )
+        started = [
+            *self.refused(),
+            safe,
+            self.ev(11, "merge.stands", by="owner", tip=self.TIP[:9], base="d48c6a9bd"),
+            self.ev(
+                12,
+                "merge.start",
+                by="owner",
+                via="server",
+                after="a read of the moved base",
+                base="d48c6a9bd",
+            ),
+        ]
         self.assertEqual(self.note(started), "")
         # a new proposal carried his merge to another tip: the note of the old tip is not drawn
-        carried = [*self.refused(), self.ev(13, "proposed", green=True, not_green=[], tip="def456789"), state(14, "open", "pull request https://github.com/acme/shop/pull/60", task="gift-note"),
-                   self.ev(14, "merge.stands", by="owner", tip="def456789", **{"from": self.TIP[:9]})]
+        carried = [
+            *self.refused(),
+            self.ev(13, "proposed", green=True, not_green=[], tip="def456789"),
+            state(
+                14,
+                "open",
+                "pull request https://github.com/acme/shop/pull/60",
+                task="gift-note",
+            ),
+            self.ev(
+                14,
+                "merge.stands",
+                by="owner",
+                tip="def456789",
+                **{"from": self.TIP[:9]},
+            ),
+        ]
         self.assertEqual(self.note(carried), "")
 
 
@@ -525,20 +998,66 @@ class ReviewerItems(unittest.TestCase):
     "Start a task" and "Drop", which post its path; a held one with the task that holds it and no act;
     an item of the backlog folder with no "Drop"; and the count of the undecided ones on the "Backlog" key."""
 
-    BACKLOG = {"folder": "docs/backlog", "reviewer_folder": ".lem/state/backlog", "read": "2026-11-20T10:00:00Z", "items": [
-        {"slug": "tests-flaky-check", "key": "tests-flaky-check", "path": "docs/backlog/tests-flaky-check.md", "reviewer": False,
-         "title": "A developer's item of the same stem", "worth": "later", "where": "", "added": "", "state": "", "body": "Mine."},
-        {"slug": "the-board-s-colors", "key": "-the-board-s-colors", "path": ".lem/state/backlog/the-board-s-colors.md", "reviewer": True, "held": None,
-         "title": "The board's colors", "worth": "later", "where": "", "added": "", "state": "", "body": "The reviewer passed 1 proposal about the board on 2026-11-23: retro of 2026-11-23 #7."},
-        {"slug": "tests-flaky-check", "key": "-tests-flaky-check", "path": ".lem/state/backlog/tests-flaky-check.md", "reviewer": True,
-         "held": {"task": "tests-flaky-check", "status": "building"},
-         "title": "A check of the board fails by chance", "worth": "later", "where": "", "added": "", "state": "", "body": "From the night of 2026-11-24, proposal 1."},
-    ]}
+    BACKLOG = {
+        "folder": "docs/backlog",
+        "reviewer_folder": ".lem/state/backlog",
+        "read": "2026-11-20T10:00:00Z",
+        "items": [
+            {
+                "slug": "tests-flaky-check",
+                "key": "tests-flaky-check",
+                "path": "docs/backlog/tests-flaky-check.md",
+                "reviewer": False,
+                "title": "A developer's item of the same stem",
+                "worth": "later",
+                "where": "",
+                "added": "",
+                "state": "",
+                "body": "Mine.",
+            },
+            {
+                "slug": "the-board-s-colors",
+                "key": "-the-board-s-colors",
+                "path": ".lem/state/backlog/the-board-s-colors.md",
+                "reviewer": True,
+                "held": None,
+                "title": "The board's colors",
+                "worth": "later",
+                "where": "",
+                "added": "",
+                "state": "",
+                "body": "The reviewer passed 1 proposal about the board on 2026-11-23: retro of 2026-11-23 #7.",
+            },
+            {
+                "slug": "tests-flaky-check",
+                "key": "-tests-flaky-check",
+                "path": ".lem/state/backlog/tests-flaky-check.md",
+                "reviewer": True,
+                "held": {"task": "tests-flaky-check", "status": "building"},
+                "title": "A check of the board fails by chance",
+                "worth": "later",
+                "where": "",
+                "added": "",
+                "state": "",
+                "body": "From the night of 2026-11-24, proposal 1.",
+            },
+        ],
+    }
 
     def page(self, can_act: bool = True) -> str:
         events = [state(1, "building", "task 1 of 2", task="tests-flaky-check")]
-        return str(pages.backlog_page(pages.Ctx(host="h", workspace="w", model=bm.derive(events, [], NOW), asset=lambda name: name,
-                                                backlog=self.BACKLOG, can_act=can_act)))
+        return str(
+            pages.backlog_page(
+                pages.Ctx(
+                    host="h",
+                    workspace="w",
+                    model=bm.derive(events, [], NOW),
+                    asset=lambda name: name,
+                    backlog=self.BACKLOG,
+                    can_act=can_act,
+                )
+            )
+        )
 
     def item(self, html: str, key: str) -> str:
         return html.split(f'id="item-{key}"', 1)[1].split("</details>", 1)[0]
@@ -547,16 +1066,26 @@ class ReviewerItems(unittest.TestCase):
         html = self.page()
         group = html.split('id="group-reviewer"', 1)[1].split('class="bl-group', 1)[0]
         self.assertIn("The reviewer&#x27;s items", group)
-        self.assertLess(group.index('id="item--the-board-s-colors"'), group.index('id="item--tests-flaky-check"'))
+        self.assertLess(
+            group.index('id="item--the-board-s-colors"'),
+            group.index('id="item--tests-flaky-check"'),
+        )
         self.assertNotIn('id="item-tests-flaky-check"', group)
-        self.assertLess(html.index('id="group-reviewer"'), html.index('id="item-tests-flaky-check"'))
+        self.assertLess(
+            html.index('id="group-reviewer"'), html.index('id="item-tests-flaky-check"')
+        )
 
     def test_an_undecided_item_has_start_and_drop_each_posting_its_path(self):
         undecided = self.item(self.page(), "-the-board-s-colors")
         self.assertIn(">undecided<", undecided)
         self.assertIn('action="/h/w/start"', undecided)
         self.assertIn('action="/h/w/backlog/drop"', undecided)
-        self.assertEqual(undecided.count('name="item" value=".lem/state/backlog/the-board-s-colors.md"'), 2)
+        self.assertEqual(
+            undecided.count(
+                'name="item" value=".lem/state/backlog/the-board-s-colors.md"'
+            ),
+            2,
+        )
         self.assertIn("<span>Drop</span>", undecided)
         # the proposal's name is code, so that its number is no link to a pull request
         self.assertIn("`retro of 2026-11-23 #7`", undecided)
@@ -575,13 +1104,23 @@ class ReviewerItems(unittest.TestCase):
     def test_the_backlog_key_counts_the_undecided_items_of_the_reviewer(self):
         html = self.page()
         key = re.search(r'<a class="vbtn" id="view-backlog"[^>]*>(.*?)</a>', html)[1]
-        self.assertRegex(key, r"<em title=\"The reviewer&#x27;s items that wait for your start or drop\">1</em>")
-        self.assertRegex(re.search(r'<a class="rbtn" href="[^"]*" id="rail-backlog"[^>]*>(.*?)</a>', html)[1], r"<em>1</em>")
+        self.assertRegex(
+            key,
+            r"<em title=\"The reviewer&#x27;s items that wait for your start or drop\">1</em>",
+        )
+        self.assertRegex(
+            re.search(
+                r'<a class="rbtn" href="[^"]*" id="rail-backlog"[^>]*>(.*?)</a>', html
+            )[1],
+            r"<em>1</em>",
+        )
 
     def test_a_page_that_cannot_act_gives_the_line_to_type_and_no_form(self):
         undecided = self.item(self.page(can_act=False), "-the-board-s-colors")
         self.assertIn("/lem new .lem/state/backlog/the-board-s-colors.md", undecided)
-        self.assertIn("Drop it on this board on the Mac or through the tailnet door.", undecided)
+        self.assertIn(
+            "Drop it on this board on the Mac or through the tailnet door.", undecided
+        )
         self.assertNotIn("<form", undecided)
 
 
@@ -591,15 +1130,33 @@ class ItemSlug(unittest.TestCase):
     again (criterion 9 and the plan's task 2)."""
 
     def test_the_stem_while_no_task_of_it_ended(self):
-        self.assertEqual(serve.item_slug("tests-flaky-check", lambda slug: False, lambda slug: False), "tests-flaky-check")
+        self.assertEqual(
+            serve.item_slug(
+                "tests-flaky-check", lambda slug: False, lambda slug: False
+            ),
+            "tests-flaky-check",
+        )
 
     def test_the_first_free_number_after_a_task_of_the_stem_ended(self):
         taken = {"tests-flaky-check", "tests-flaky-check-2"}
-        self.assertEqual(serve.item_slug("tests-flaky-check", lambda slug: slug == "tests-flaky-check", taken.__contains__), "tests-flaky-check-3")
-        self.assertEqual(serve.item_slug("tests-flaky-check", lambda slug: True, lambda slug: False), "tests-flaky-check-2")
+        self.assertEqual(
+            serve.item_slug(
+                "tests-flaky-check",
+                lambda slug: slug == "tests-flaky-check",
+                taken.__contains__,
+            ),
+            "tests-flaky-check-3",
+        )
+        self.assertEqual(
+            serve.item_slug("tests-flaky-check", lambda slug: True, lambda slug: False),
+            "tests-flaky-check-2",
+        )
 
     def test_a_stem_that_is_no_slug_gives_its_plain_words(self):
-        self.assertEqual(serve.item_slug("Two_Guides", lambda slug: False, lambda slug: False), "two-guides")
+        self.assertEqual(
+            serve.item_slug("Two_Guides", lambda slug: False, lambda slug: False),
+            "two-guides",
+        )
 
 
 if __name__ == "__main__":

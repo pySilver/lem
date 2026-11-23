@@ -72,7 +72,9 @@ import sys
 
 if sys.version_info < (3, 11):
     # an old python3 must still load this file, so that it can say what it needs and not a traceback
-    sys.exit(f"corrections.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it")
+    sys.exit(
+        f"corrections.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it"
+    )
 
 import argparse
 import hashlib
@@ -110,8 +112,16 @@ DECISIONS = ("lesson", "not_lesson")
 VERDICTS = ("accepted", "changed", "rejected", "proposed", "missed", "unasked")
 # Text an agent's own machinery puts into a user turn; none of it is the owner's words.
 INJECTED = (
-    "<", "[peer chat]", "[agterm mailbox", "Caveat:", "This session is being continued", "[Request interrupted",
-    "Base directory for this skill", "Stop hook", "[SYSTEM", "Another Claude session",
+    "<",
+    "[peer chat]",
+    "[agterm mailbox",
+    "Caveat:",
+    "This session is being continued",
+    "[Request interrupted",
+    "Base directory for this skill",
+    "Stop hook",
+    "[SYSTEM",
+    "Another Claude session",
 )
 TRANSCRIPT_TAIL_BYTES = 4_000_000
 OWNER_TRIM = 500
@@ -147,7 +157,13 @@ class QueueError(Exception):
 
 def git(cwd: str, *args: str) -> str | None:
     try:
-        ran = subprocess.run(["git", "-C", cwd, *args], capture_output=True, text=True, check=False, timeout=WAIT_SECONDS)
+        ran = subprocess.run(
+            ["git", "-C", cwd, *args],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=WAIT_SECONDS,
+        )
     except (OSError, subprocess.TimeoutExpired):
         return None
     return ran.stdout.strip() if ran.returncode == 0 and ran.stdout.strip() else None
@@ -167,7 +183,10 @@ def folder(cwd: str, quiet: bool = False) -> Path | None:
 def uses_lem(cwd: str) -> bool:
     """Whether the main checkout of this repository has Lem's settings; no answer from git is a no."""
     try:
-        return (lem_state.main_checkout(Path(cwd), timeout=WAIT_SECONDS) / lem_state.TEAM_SETTINGS).is_file()
+        return (
+            lem_state.main_checkout(Path(cwd), timeout=WAIT_SECONDS)
+            / lem_state.TEAM_SETTINGS
+        ).is_file()
     except lem_state.StateError:
         return False
 
@@ -225,17 +244,22 @@ def read_jsonl(path: Path) -> list[dict]:
         try:
             line = raw.decode("utf-8")
         except UnicodeDecodeError as error:
-            raise QueueError(f"{path}:{number} is not UTF-8 text (byte {error.start} does not read); this script writes the file, so correct or remove that line") from error
+            raise QueueError(
+                f"{path}:{number} is not UTF-8 text (byte {error.start} does not read); this script writes the file, so correct or remove that line"
+            ) from error
         if not line.strip():
             continue
         try:
             records.append(json.loads(line))
         except ValueError as error:
-            raise QueueError(f"{path}:{number} does not read as JSON ({error}); this script writes the file, so correct or remove that line") from error
+            raise QueueError(
+                f"{path}:{number} does not read as JSON ({error}); this script writes the file, so correct or remove that line"
+            ) from error
     return records
 
 
 # ---- the hook ----
+
 
 def last_agent_text(transcript: str) -> str:
     """The newest text an agent wrote in a Claude Code transcript; empty when there is none."""
@@ -254,7 +278,11 @@ def last_agent_text(transcript: str) -> str:
             continue
         content = (record.get("message") or {}).get("content")
         if isinstance(content, list):
-            text = "\n".join(block.get("text", "") for block in content if isinstance(block, dict) and block.get("type") == "text").strip()
+            text = "\n".join(
+                block.get("text", "")
+                for block in content
+                if isinstance(block, dict) and block.get("type") == "text"
+            ).strip()
             if text:
                 return text
     return ""
@@ -316,7 +344,12 @@ def claim(where: Path, session: str, prompt: str) -> Path | None:
             continue
         if stale:
             set_aside_if_stale(entry)
-    path = claims / hashlib.sha256(f"{session}\0{prompt}".encode("utf-8", "surrogatepass")).hexdigest()
+    path = (
+        claims
+        / hashlib.sha256(
+            f"{session}\0{prompt}".encode("utf-8", "surrogatepass")
+        ).hexdigest()
+    )
     # a stale claim of the same words is replaced; three tries are for copies that replace it together
     for _ in range(3):
         try:
@@ -343,7 +376,12 @@ def cmd_hook() -> None:
         prompt = (event.get("prompt") or "").strip()
         # the event's directory first: the hook's own may be a worktree that is already removed
         cwd = event.get("cwd") or os.getcwd()
-        if not prompt or prompt.startswith(INJECTED) or prompt.startswith("/") or not collects(cwd):
+        if (
+            not prompt
+            or prompt.startswith(INJECTED)
+            or prompt.startswith("/")
+            or not collects(cwd)
+        ):
             return
         # One message, one judgment, however many places registered the hook. The event names no
         # message, so the claim is of the session and the words. With no session id nothing tells
@@ -359,23 +397,39 @@ def cmd_hook() -> None:
                 if where is not None:
                     try:
                         # a note, not an error: the message is judged, so `list` does not count it among the failures
-                        append(where / "corrections.log", {"ts": now(), "session": session, "note": (
-                            f"the hook could not claim the message ({error}); it was judged as usual, and a second "
-                            "registration of the hook may queue it twice")})
+                        append(
+                            where / "corrections.log",
+                            {
+                                "ts": now(),
+                                "session": session,
+                                "note": (
+                                    f"the hook could not claim the message ({error}); it was judged as usual, and a second "
+                                    "registration of the hook may queue it twice"
+                                ),
+                            },
+                        )
                     except Exception:  # noqa: BLE001
                         pass
             else:
                 if claimed is None:
                     return
-        payload = {"prompt": prompt, "cwd": cwd, "session": session, "transcript": event.get("transcript_path", "")}
+        payload = {
+            "prompt": prompt,
+            "cwd": cwd,
+            "session": session,
+            "transcript": event.get("transcript_path", ""),
+        }
         # Through a file only the owner can read, not a pipe: a long message would fill a pipe
         # and hold this hook until the copy reads it.
         handle, path = tempfile.mkstemp(prefix="lem-correction-", suffix=".json")
         with os.fdopen(handle, "w", encoding="utf-8") as file:
             json.dump(payload, file)
         subprocess.Popen(
-            [sys.executable, "-B", __file__, "worker", path], stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True,
+            [sys.executable, "-B", __file__, "worker", path],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
         )
     except Exception as error:  # noqa: BLE001 - a hook failure is logged where the retro reads it, never shown
         try:
@@ -390,7 +444,13 @@ def cmd_hook() -> None:
             if where is None and uses_lem(cwd or os.getcwd()):
                 where = folder(cwd or os.getcwd(), quiet=True)
             if where is not None:
-                append(where / "corrections.log", {"ts": now(), "error": f"the hook failed before it could judge a message: {error}"})
+                append(
+                    where / "corrections.log",
+                    {
+                        "ts": now(),
+                        "error": f"the hook failed before it could judge a message: {error}",
+                    },
+                )
         except Exception:  # noqa: BLE001
             pass
 
@@ -412,31 +472,66 @@ def cmd_worker(path: str) -> None:
     stamp = now()
     other = os.environ.get("LEM_JEV")
     jev = [other] if other else [sys.executable, "-B", str(JEV)]
-    previous = last_agent_text(payload.get("transcript", "")) or "(no agent message before this one)"
+    previous = (
+        last_agent_text(payload.get("transcript", ""))
+        or "(no agent message before this one)"
+    )
     state = f"--- the agent's last message ---\n{previous}\n\n--- the owner's reply ---\n{payload['prompt']}"
     try:
-        ran = subprocess.run([*jev, "-"], input=json.dumps({"state": state, "questions": {"lesson": QUESTION}}),
-                             capture_output=True, text=True, timeout=180, check=False)
+        ran = subprocess.run(
+            [*jev, "-"],
+            input=json.dumps({"state": state, "questions": {"lesson": QUESTION}}),
+            capture_output=True,
+            text=True,
+            timeout=180,
+            check=False,
+        )
     except (OSError, subprocess.TimeoutExpired) as error:
-        append(log, {"ts": stamp, "session": payload.get("session"), "error": f"jev did not run: {error}"})
+        append(
+            log,
+            {
+                "ts": stamp,
+                "session": payload.get("session"),
+                "error": f"jev did not run: {error}",
+            },
+        )
         return
-    entry = {"ts": stamp, "session": payload.get("session"), "cwd": payload["cwd"], "owner": payload["prompt"], "previous": previous}
+    entry = {
+        "ts": stamp,
+        "session": payload.get("session"),
+        "cwd": payload["cwd"],
+        "owner": payload["prompt"],
+        "previous": previous,
+    }
     if ran.returncode == 3:
         # too long for Jev to judge well: the retro reads it instead
-        append(where / "corrections.jsonl", {**entry, "p_lesson": None, "why": "too long for Jev"})
+        append(
+            where / "corrections.jsonl",
+            {**entry, "p_lesson": None, "why": "too long for Jev"},
+        )
         return
     try:
         if ran.returncode:
             raise ValueError(ran.stderr.strip()[:500] or f"jev exited {ran.returncode}")
-        p_lesson = (json.loads(ran.stdout)["answers"]["lesson"].get("probabilities") or {}).get("lesson", 0)
+        p_lesson = (
+            json.loads(ran.stdout)["answers"]["lesson"].get("probabilities") or {}
+        ).get("lesson", 0)
     except (ValueError, KeyError, TypeError, AttributeError) as error:
-        append(log, {"ts": stamp, "session": payload.get("session"), "error": f"jev gave no answer: {error}"})
+        append(
+            log,
+            {
+                "ts": stamp,
+                "session": payload.get("session"),
+                "error": f"jev gave no answer: {error}",
+            },
+        )
         return
     if p_lesson >= FLAG_AT:
         append(where / "corrections.jsonl", {**entry, "p_lesson": p_lesson})
 
 
 # ---- what the retro reads ----
+
 
 def group_id(owner: str) -> str:
     return hashlib.sha1(" ".join(owner.split()).encode()).hexdigest()[:8]
@@ -446,7 +541,10 @@ def unreviewed(where: Path) -> dict[str, list[dict]]:
     """Every entry no retro decided about, grouped by the owner's text: one sentence sent to eight
     sessions is one group of eight, not eight things to judge. An entry is known by its time, its
     session and its words together: two messages of one second in one session are two entries."""
-    reviewed = {(review["ts"], review["session"], review.get("group")) for review in read_jsonl(where / "corrections-reviews.jsonl")}
+    reviewed = {
+        (review["ts"], review["session"], review.get("group"))
+        for review in read_jsonl(where / "corrections-reviews.jsonl")
+    }
     groups: dict[str, list[dict]] = {}
     for entry in read_jsonl(where / "corrections.jsonl"):
         gid = group_id(entry["owner"])
@@ -457,7 +555,11 @@ def unreviewed(where: Path) -> dict[str, list[dict]]:
 
 def trimmed(text: str, limit: int) -> str:
     flat = " ".join(text.split())
-    return flat if len(flat) <= limit else f"{flat[:limit]} ... [{len(flat) - limit} more characters]"
+    return (
+        flat
+        if len(flat) <= limit
+        else f"{flat[:limit]} ... [{len(flat) - limit} more characters]"
+    )
 
 
 def cmd_collect(answer: str) -> None:
@@ -467,7 +569,9 @@ def cmd_collect(answer: str) -> None:
     try:
         lem_state.write_machine("corrections", {"collect": collect})
     except OSError as error:
-        raise QueueError(f"{lem_state.machine_file()} was not written ({error.strerror}); make its folder writable, then run this again") from error
+        raise QueueError(
+            f"{lem_state.machine_file()} was not written ({error.strerror}); make its folder writable, then run this again"
+        ) from error
     except lem_state.StateError as error:
         raise QueueError(str(error)) from error
     print(json.dumps({"collect": collect, "file": str(lem_state.machine_file())}))
@@ -475,27 +579,61 @@ def cmd_collect(answer: str) -> None:
 
 def cmd_list(where: Path, cwd: str) -> None:
     groups = unreviewed(where)
-    ordered = sorted(groups.items(), key=lambda item: (-len({e["session"] for e in item[1]}), max(e["ts"] for e in item[1])))
+    ordered = sorted(
+        groups.items(),
+        key=lambda item: (
+            -len({e["session"] for e in item[1]}),
+            max(e["ts"] for e in item[1]),
+        ),
+    )
     # a line with a note is of a message that was judged: only an error is a message nobody judged
-    failures = [line for line in read_jsonl(where / "corrections.log") if "error" in line]
-    print(json.dumps({
-        "collect": collects(cwd),
-        # messages the hook failed on were never judged: say this before anything else
-        "failures": {"count": len(failures), "newest": failures[-1] if failures else None},
-        "entries": sum(len(entries) for entries in groups.values()),
-        "groups": [{
-            "id": gid, "entries": len(entries), "sessions": len({e["session"] for e in entries}),
-            "days": sorted({e["ts"][:10] for e in entries}),
-            "p_lesson_max": max((e["p_lesson"] for e in entries if e["p_lesson"] is not None), default=None),
-            "owner": trimmed(entries[0]["owner"], OWNER_TRIM), "answered": trimmed(entries[0].get("previous") or "", PREVIOUS_TRIM),
-        } for gid, entries in ordered],
-    }, indent=2, ensure_ascii=False))
+    failures = [
+        line for line in read_jsonl(where / "corrections.log") if "error" in line
+    ]
+    print(
+        json.dumps(
+            {
+                "collect": collects(cwd),
+                # messages the hook failed on were never judged: say this before anything else
+                "failures": {
+                    "count": len(failures),
+                    "newest": failures[-1] if failures else None,
+                },
+                "entries": sum(len(entries) for entries in groups.values()),
+                "groups": [
+                    {
+                        "id": gid,
+                        "entries": len(entries),
+                        "sessions": len({e["session"] for e in entries}),
+                        "days": sorted({e["ts"][:10] for e in entries}),
+                        "p_lesson_max": max(
+                            (
+                                e["p_lesson"]
+                                for e in entries
+                                if e["p_lesson"] is not None
+                            ),
+                            default=None,
+                        ),
+                        "owner": trimmed(entries[0]["owner"], OWNER_TRIM),
+                        "answered": trimmed(
+                            entries[0].get("previous") or "", PREVIOUS_TRIM
+                        ),
+                    }
+                    for gid, entries in ordered
+                ],
+            },
+            indent=2,
+            ensure_ascii=False,
+        )
+    )
 
 
 def cmd_show(where: Path, gid: str) -> None:
     entries = unreviewed(where).get(gid)
     if not entries:
-        raise QueueError(f"no unreviewed group {gid}; `lem corrections list` gives the ids")
+        raise QueueError(
+            f"no unreviewed group {gid}; `lem corrections list` gives the ids"
+        )
     print(json.dumps(entries, indent=2, ensure_ascii=False))
 
 
@@ -503,51 +641,128 @@ def cmd_lessons(where: Path) -> None:
     seen: dict[tuple[str, str, str], dict] = {}
     for review in read_jsonl(where / "corrections-reviews.jsonl"):
         if review["decision"] == "lesson":
-            key = (review.get("lesson") or "", review.get("target") or "", review["verdict"])
-            row = seen.setdefault(key, {"lesson": key[0], "target": key[1] or None, "verdict": key[2], "entries": 0, "days": set()})
+            key = (
+                review.get("lesson") or "",
+                review.get("target") or "",
+                review["verdict"],
+            )
+            row = seen.setdefault(
+                key,
+                {
+                    "lesson": key[0],
+                    "target": key[1] or None,
+                    "verdict": key[2],
+                    "entries": 0,
+                    "days": set(),
+                },
+            )
             row["entries"] += 1
             row["days"].add(review["ts"][:10])
     rows = sorted(seen.values(), key=lambda row: -row["entries"])
-    print(json.dumps([{**row, "days": sorted(row["days"])} for row in rows], indent=2, ensure_ascii=False))
+    print(
+        json.dumps(
+            [{**row, "days": sorted(row["days"])} for row in rows],
+            indent=2,
+            ensure_ascii=False,
+        )
+    )
 
 
-def cmd_record(where: Path, gid: str, decision: str, verdict: str, target: str | None, lesson: str | None) -> None:
+def cmd_record(
+    where: Path,
+    gid: str,
+    decision: str,
+    verdict: str,
+    target: str | None,
+    lesson: str | None,
+) -> None:
     if decision == "lesson" and not (lesson or "").strip():
-        raise QueueError("a lesson needs --lesson: the sentence an agent could follow next time")
+        raise QueueError(
+            "a lesson needs --lesson: the sentence an agent could follow next time"
+        )
     # A lesson with no file is read by no later session, and the retro's list then counts it as
     # kept: two such rows were recorded before this refusal (corrections-reviews.jsonl, 2026-11-20
     # and 2026-11-21 UTC).
     if decision == "lesson" and not (target or "").strip():
-        raise QueueError("a lesson needs --target: the file the lesson went to, the one that already holds it, or the file its proposal would change")
+        raise QueueError(
+            "a lesson needs --target: the file the lesson went to, the one that already holds it, or the file its proposal would change"
+        )
     entries = unreviewed(where).get(gid)
     if not entries:
-        raise QueueError(f"no unreviewed group {gid}; `lem corrections list` gives the ids")
+        raise QueueError(
+            f"no unreviewed group {gid}; `lem corrections list` gives the ids"
+        )
     for entry in entries:
-        append(where / "corrections-reviews.jsonl", {
-            "ts": entry["ts"], "session": entry["session"], "group": gid, "p_lesson": entry["p_lesson"], "reviewed": now(),
-            "decision": decision, "verdict": verdict, "target": target, "lesson": lesson,
-        })
-    print(json.dumps({"group": gid, "entries": len(entries), "decision": decision, "verdict": verdict}))
+        append(
+            where / "corrections-reviews.jsonl",
+            {
+                "ts": entry["ts"],
+                "session": entry["session"],
+                "group": gid,
+                "p_lesson": entry["p_lesson"],
+                "reviewed": now(),
+                "decision": decision,
+                "verdict": verdict,
+                "target": target,
+                "lesson": lesson,
+            },
+        )
+    print(
+        json.dumps(
+            {
+                "group": gid,
+                "entries": len(entries),
+                "decision": decision,
+                "verdict": verdict,
+            }
+        )
+    )
 
 
 def arguments() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="lem corrections", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")
+    parser = argparse.ArgumentParser(
+        prog="lem corrections",
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--repo",
+        default=".",
+        help="a directory inside the checkout (default: the current one)",
+    )
     commands = parser.add_subparsers(dest="command", required=True)
     for name in ("hook", "list", "lessons"):
         commands.add_parser(name)
-    commands.add_parser("worker").add_argument("payload", help="the file the hook wrote; internal")
-    commands.add_parser("collect", help="the owner's yes or no to the queue, for every repository on this machine").add_argument(
-        "answer", choices=("yes", "no"), help="yes: the hook sends each message the owner types to the Jev model; no: it sends nothing")
+    commands.add_parser("worker").add_argument(
+        "payload", help="the file the hook wrote; internal"
+    )
+    commands.add_parser(
+        "collect",
+        help="the owner's yes or no to the queue, for every repository on this machine",
+    ).add_argument(
+        "answer",
+        choices=("yes", "no"),
+        help="yes: the hook sends each message the owner types to the Jev model; no: it sends nothing",
+    )
     commands.add_parser("show").add_argument("id")
     record = commands.add_parser("record")
     record.add_argument("id")
     record.add_argument("--decision", required=True, choices=DECISIONS)
-    record.add_argument("--verdict", required=True, choices=VERDICTS,
-                        help="the owner's answer to a move put to him (accepted, changed, rejected); proposed, for a lesson that went into "
-                             "a proposal of the retro; missed, for a \"not a lesson\" entry the owner said was one; unasked, for a group nothing was asked about")
-    record.add_argument("--target", help="the file the lesson went to, the one that already holds it, or for proposed the file the proposal would change")
-    record.add_argument("--lesson", help="the lesson in one sentence; for proposed, with the proposal's name (retro of 2026-11-24 #3)")
+    record.add_argument(
+        "--verdict",
+        required=True,
+        choices=VERDICTS,
+        help="the owner's answer to a move put to him (accepted, changed, rejected); proposed, for a lesson that went into "
+        'a proposal of the retro; missed, for a "not a lesson" entry the owner said was one; unasked, for a group nothing was asked about',
+    )
+    record.add_argument(
+        "--target",
+        help="the file the lesson went to, the one that already holds it, or for proposed the file the proposal would change",
+    )
+    record.add_argument(
+        "--lesson",
+        help="the lesson in one sentence; for proposed, with the proposal's name (retro of 2026-11-24 #3)",
+    )
     return parser
 
 
@@ -570,7 +785,9 @@ def main() -> None:
         try:
             arg.encode("utf-8")
         except UnicodeEncodeError:
-            sys.exit(f"corrections.py: the argument {os.fsencode(arg)!r} is not UTF-8 text; give it in UTF-8")
+            sys.exit(
+                f"corrections.py: the argument {os.fsencode(arg)!r} is not UTF-8 text; give it in UTF-8"
+            )
     if git(args.repo, "rev-parse", "--git-dir") is None:
         sys.exit(f"corrections.py: {args.repo} is not inside a git checkout")
     if args.command == "list" and (refused := settings_refused(args.repo)):
@@ -584,7 +801,9 @@ def main() -> None:
         elif args.command == "lessons":
             cmd_lessons(where)
         else:
-            cmd_record(where, args.id, args.decision, args.verdict, args.target, args.lesson)
+            cmd_record(
+                where, args.id, args.decision, args.verdict, args.target, args.lesson
+            )
     except QueueError as error:
         sys.exit(f"corrections.py: {error}")
 

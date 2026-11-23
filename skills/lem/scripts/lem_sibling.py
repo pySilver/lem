@@ -50,7 +50,10 @@ def in_form(path: Path) -> bool:
     """Whether the file defines `main(argv)` at its top level: only such a script runs in this process."""
     if path not in FORMS:
         try:
-            FORMS[path] = re.search(r"^def main\(argv\b", path.read_text(encoding="utf-8"), re.M) is not None
+            FORMS[path] = (
+                re.search(r"^def main\(argv\b", path.read_text(encoding="utf-8"), re.M)
+                is not None
+            )
         except (OSError, UnicodeDecodeError):
             FORMS[path] = False
     return FORMS[path]
@@ -92,7 +95,12 @@ def run(path: Path, repo: Path, *args: str) -> subprocess.CompletedProcess:
     the file is not in the form for it."""
     argv = ["--repo", str(repo), *args]
     if (path.name, args[0] if args else "") in APART or not in_form(path):
-        return subprocess.run([sys.executable, "-B", str(path), *argv], capture_output=True, text=True, check=False)
+        return subprocess.run(
+            [sys.executable, "-B", str(path), *argv],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
     out, err = io.StringIO(), io.StringIO()
     code = 0
     with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
@@ -103,4 +111,6 @@ def run(path: Path, repo: Path, *args: str) -> subprocess.CompletedProcess:
         except Exception:  # noqa: BLE001 - a crash of the sibling is its exit 1 with the traceback, as a process gave it
             err.write(traceback.format_exc())
             code = 1
-    return subprocess.CompletedProcess([sys.executable, "-B", str(path), *argv], code, out.getvalue(), err.getvalue())
+    return subprocess.CompletedProcess(
+        [sys.executable, "-B", str(path), *argv], code, out.getvalue(), err.getvalue()
+    )

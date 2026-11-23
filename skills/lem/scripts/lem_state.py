@@ -83,7 +83,13 @@ def jsonl_lines(text: str) -> list[str]:
 
 def git(start: Path, args: list, timeout: float | None) -> str | None:
     try:
-        ran = subprocess.run(["git", "-C", str(start), *args], capture_output=True, text=True, check=False, timeout=timeout)
+        ran = subprocess.run(
+            ["git", "-C", str(start), *args],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=timeout,
+        )
     except (OSError, subprocess.TimeoutExpired):
         return None
     return ran.stdout if ran.returncode == 0 else None
@@ -107,9 +113,18 @@ def main_checkout(start: Path, timeout: float | None = None) -> Path:
         return CHECKOUTS[key]
     # -z ends each field with a NUL: a path may hold a line break, and a split on lines would cut it
     listed = git(start, ["worktree", "list", "--porcelain", "-z"], timeout)
-    first = next((field[len("worktree "):] for field in (listed or "").split("\0") if field.startswith("worktree ")), None)
+    first = next(
+        (
+            field[len("worktree ") :]
+            for field in (listed or "").split("\0")
+            if field.startswith("worktree ")
+        ),
+        None,
+    )
     if not first:
-        raise StateError(f"git lists no worktree for {start}: Lem's state belongs to a repository, so run this inside its checkout")
+        raise StateError(
+            f"git lists no worktree for {start}: Lem's state belongs to a repository, so run this inside its checkout"
+        )
     CHECKOUTS[key] = Path(first)
     return CHECKOUTS[key]
 
@@ -122,7 +137,9 @@ def config() -> Path:
         return Path.home() / ".config" / "lem"
     if not os.path.isabs(named):
         # a relative path would be read from the folder each command starts in, so two repositories would read two marks
-        raise StateError(f"XDG_CONFIG_HOME is {named!r}, a relative path: Lem keeps the owner's status under it for every repository, so set it to an absolute path, or unset it for ~/.config")
+        raise StateError(
+            f"XDG_CONFIG_HOME is {named!r}, a relative path: Lem keeps the owner's status under it for every repository, so set it to an absolute path, or unset it for ~/.config"
+        )
     return Path(named) / "lem"
 
 
@@ -157,13 +174,21 @@ SERVE_PID = "serve.pid"
 # The keys of each table of the file, with the type each holds; what `write_machine` writes. The keys of
 # `[peers]` are not fixed: each is a machine's name on the tailnet (PEER_NAME), and its value the port
 # of that machine's tailnet door.
-MACHINE_KEYS = {"load": {"start": (int, float)}, "serve": {"tailscale": bool, "port": int, "tailscale_port": int}, "peers": None,
-                "handoff": {"tokens": int}, "corrections": {"collect": bool}}
+MACHINE_KEYS = {
+    "load": {"start": (int, float)},
+    "serve": {"tailscale": bool, "port": int, "tailscale_port": int},
+    "peers": None,
+    "handoff": {"tokens": int},
+    "corrections": {"collect": bool},
+}
 # The lines that write each table, for a refusal of the file.
-MACHINE_FIX = {"load": "`lem project load --start N` writes it", "serve": "`lem serve --port N` or `lem serve --tailscale` writes it",
-               "peers": "`lem serve --join HOST` and `--leave HOST` write it",
-               "handoff": "`lem project handoff --tokens N` writes it, and `--tokens default` takes it out",
-               "corrections": "`lem corrections collect yes` or `lem corrections collect no` writes it"}
+MACHINE_FIX = {
+    "load": "`lem project load --start N` writes it",
+    "serve": "`lem serve --port N` or `lem serve --tailscale` writes it",
+    "peers": "`lem serve --join HOST` and `--leave HOST` write it",
+    "handoff": "`lem project handoff --tokens N` writes it, and `--tokens default` takes it out",
+    "corrections": "`lem corrections collect yes` or `lem corrections collect no` writes it",
+}
 # A machine's name on the tailnet, as a key of `[peers]`: one DNS label, in lower case.
 PEER_NAME = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
 # The developer's own settings for every repository on this machine, in the same folder, and a
@@ -179,10 +204,18 @@ LOCAL_SETTINGS = Path(".lem") / "settings.local.toml"
 # "How it works", decisions 2 and 3). Which keys of a table one file may hold is `project.py`'s
 # (`local_naps_off`).
 TABLE_PLACES = {
-    "load": ("machine",), "serve": ("machine",), "peers": ("machine",), "handoff": ("machine",), "corrections": ("machine",),
+    "load": ("machine",),
+    "serve": ("machine",),
+    "peers": ("machine",),
+    "handoff": ("machine",),
+    "corrections": ("machine",),
     "seats": ("home", "team", "local"),
     "ask": ("home",),
-    "flow": ("team",), "checks": ("team",), "branch": ("team",), "paths": ("team",), "tracker": ("team",),
+    "flow": ("team",),
+    "checks": ("team",),
+    "branch": ("team",),
+    "paths": ("team",),
+    "tracker": ("team",),
     "naps": ("team", "local"),
     "state": ("team", "local"),
 }
@@ -251,7 +284,9 @@ def machine_tables() -> dict:
     except OSError as error:
         raise StateError(f"{file} cannot be read ({error.strerror}); {fix}") from error
     except UnicodeDecodeError as error:
-        raise StateError(f"{file} is not UTF-8 text (byte {error.start} does not read); {fix}") from error
+        raise StateError(
+            f"{file} is not UTF-8 text (byte {error.start} does not read); {fix}"
+        ) from error
     try:
         tables = tomllib.loads(text)
     except tomllib.TOMLDecodeError as error:
@@ -273,14 +308,27 @@ def checked_table(tables: dict, name: str) -> dict:
         raise StateError(f"{name} in {file} is no table; {fix}")
     for key, value in table.items():
         if MACHINE_KEYS[name] is None:
-            if not re.fullmatch(PEER_NAME, key) or isinstance(value, bool) or not isinstance(value, int) or not 0 < value < 65536:
-                raise StateError(f"{name}.{key} in {file} is no machine's name with a port of its door; delete the line, or {fix}")
+            if (
+                not re.fullmatch(PEER_NAME, key)
+                or isinstance(value, bool)
+                or not isinstance(value, int)
+                or not 0 < value < 65536
+            ):
+                raise StateError(
+                    f"{name}.{key} in {file} is no machine's name with a port of its door; delete the line, or {fix}"
+                )
             continue
         kind = MACHINE_KEYS[name].get(key)
         if kind is None:
-            raise StateError(f"{name}.{key} in {file} is no setting of Lem's (the keys of [{name}] are {', '.join(MACHINE_KEYS[name])}); delete the line, or {fix}")
-        if (isinstance(value, bool) and kind is not bool) or not isinstance(value, kind):
-            raise StateError(f"{name}.{key} in {file} is {value!r}, of the wrong type; {fix}")
+            raise StateError(
+                f"{name}.{key} in {file} is no setting of Lem's (the keys of [{name}] are {', '.join(MACHINE_KEYS[name])}); delete the line, or {fix}"
+            )
+        if (isinstance(value, bool) and kind is not bool) or not isinstance(
+            value, kind
+        ):
+            raise StateError(
+                f"{name}.{key} in {file} is {value!r}, of the wrong type; {fix}"
+            )
     return table
 
 
@@ -296,7 +344,9 @@ def kept_tables(name: str) -> dict:
     replaces it. A caller that must not act on a write that would be refused (`serve.py` `configure`,
     before it stops a server) calls this first."""
     found = machine_tables()
-    return {table: dict(checked_table(found, table)) for table in found if table != name}
+    return {
+        table: dict(checked_table(found, table)) for table in found if table != name
+    }
 
 
 def write_machine(name: str, values: dict | None) -> None:
@@ -308,6 +358,7 @@ def write_machine(name: str, values: dict | None) -> None:
     beside it, then a rename over it, under the lock of MACHINE_LOCK from the read to the rename, so that
     two writers at one moment each keep the other's table. With no table left, the file goes."""
     import tempfile
+
     file = machine_file()
     with machine_lock():
         tables = kept_tables(name)
@@ -316,15 +367,27 @@ def write_machine(name: str, values: dict | None) -> None:
         if not tables:
             file.unlink(missing_ok=True)
             return
-        lines = ["# this machine's own settings, for every repository on it; nothing overrides them"]
+        lines = [
+            "# this machine's own settings, for every repository on it; nothing overrides them"
+        ]
         for table in MACHINE_KEYS:
             if table not in tables:
                 continue
             lines += ["", f"[{table}]", f"# {MACHINE_FIX[table]}"]
             for key, value in tables[table].items():
-                shown_value = ("true" if value else "false") if isinstance(value, bool) else (str(int(value)) if isinstance(value, float) and value.is_integer() else str(value))
+                shown_value = (
+                    ("true" if value else "false")
+                    if isinstance(value, bool)
+                    else (
+                        str(int(value))
+                        if isinstance(value, float) and value.is_integer()
+                        else str(value)
+                    )
+                )
                 lines.append(f"{key} = {shown_value}")
-        handle, temporary = tempfile.mkstemp(dir=file.parent, prefix=f".{file.name}.", suffix=".tmp")
+        handle, temporary = tempfile.mkstemp(
+            dir=file.parent, prefix=f".{file.name}.", suffix=".tmp"
+        )
         try:
             with os.fdopen(handle, "w", encoding="utf-8") as out:
                 out.write("\n".join(lines) + "\n")
@@ -338,7 +401,14 @@ def write_machine(name: str, values: dict | None) -> None:
 def toml_string(value: str) -> str:
     """A string as TOML writes it. JSON's own escapes would turn a character outside the basic plane into two halves TOML refuses."""
     escaped = value.replace("\\", "\\\\").replace('"', '\\"')
-    return '"' + "".join(f"\\u{ord(c):04x}" if ord(c) < 0x20 or ord(c) == 0x7F else c for c in escaped) + '"'
+    return (
+        '"'
+        + "".join(
+            f"\\u{ord(c):04x}" if ord(c) < 0x20 or ord(c) == 0x7F else c
+            for c in escaped
+        )
+        + '"'
+    )
 
 
 def toml_value(value: object) -> str:
@@ -375,7 +445,7 @@ def comment_after(value: str) -> str:
                 tomllib.loads("value = " + value[:at])
             except tomllib.TOMLDecodeError:
                 continue
-            return value[len(value[:at].rstrip()):].rstrip("\r\n")
+            return value[len(value[:at].rstrip()) :].rstrip("\r\n")
     return ""
 
 
@@ -394,13 +464,20 @@ def edited(text: str, table: str, key: str, value: object, name: object) -> str:
     try:
         before = tomllib.loads(text)
     except tomllib.TOMLDecodeError as error:
-        raise StateError(f"{name} does not read as TOML ({error}); correct it by hand, then run this again") from error
+        raise StateError(
+            f"{name} does not read as TOML ({error}); correct it by hand, then run this again"
+        ) from error
     old = before.get(table, {})
     if not isinstance(old, dict):
         raise StateError(f"{table} in {name} is no table; {fix}")
     if value is None and key not in old:
         return text
-    if value is not None and key in old and type(old[key]) is type(value) and old[key] == value:
+    if (
+        value is not None
+        and key in old
+        and type(old[key]) is type(value)
+        and old[key] == value
+    ):
         return text
     lines = text.splitlines(keepends=True)
     if lines and not lines[-1].endswith("\n"):
@@ -417,13 +494,20 @@ def edited(text: str, table: str, key: str, value: object, name: object) -> str:
             header = number
     found = None
     if header is not None:
-        found = next((number for number in range(header + 1, stop) if re.match(rf"\s*{re.escape(key)}\s*=", lines[number])), None)
+        found = next(
+            (
+                number
+                for number in range(header + 1, stop)
+                if re.match(rf"\s*{re.escape(key)}\s*=", lines[number])
+            ),
+            None,
+        )
     written = f"{key} = {toml_value(value)}" if value is not None else None
     if value is None:
         if found is not None:
             del lines[found]
             stop -= 1
-            if not any(content(line) for line in lines[header + 1:stop]):
+            if not any(content(line) for line in lines[header + 1 : stop]):
                 said = TABLE_LINE.fullmatch(lines[header].rstrip("\r\n")).group(3)
                 if said:
                     # a comment on the header's own line stays, as a line of its own
@@ -431,15 +515,22 @@ def edited(text: str, table: str, key: str, value: object, name: object) -> str:
                 else:
                     del lines[header]
                     # the blank line that set the table apart goes with it, at the end of the text or before another blank
-                    if header and not lines[header - 1].strip() and (header == len(lines) or not lines[header].strip()):
+                    if (
+                        header
+                        and not lines[header - 1].strip()
+                        and (header == len(lines) or not lines[header].strip())
+                    ):
                         del lines[header - 1]
     elif found is not None:
         line = lines[found]
-        indent = line[:len(line) - len(line.lstrip())]
+        indent = line[: len(line) - len(line.lstrip())]
         comment = comment_after(line.split("=", 1)[1])
         lines[found] = f"{indent}{written}{comment}\n"
     elif header is not None:
-        last = max((number for number in range(header + 1, stop) if content(lines[number])), default=header)
+        last = max(
+            (number for number in range(header + 1, stop) if content(lines[number])),
+            default=header,
+        )
         lines.insert(last + 1, written + "\n")
     else:
         if lines and lines[-1].strip():
@@ -456,9 +547,13 @@ def edited(text: str, table: str, key: str, value: object, name: object) -> str:
     try:
         after = tomllib.loads(after_text)
     except tomllib.TOMLDecodeError as error:
-        raise StateError(f"{name}: the line of {table}.{key} is not one Lem can change ({error}); {fix}") from error
+        raise StateError(
+            f"{name}: the line of {table}.{key} is not one Lem can change ({error}); {fix}"
+        ) from error
     if after != expected:
-        raise StateError(f"{name}: {table}.{key} is not written as one line `{key} = ...` under `[{table}]`; {fix}")
+        raise StateError(
+            f"{name}: {table}.{key} is not written as one line `{key} = ...` under `[{table}]`; {fix}"
+        )
     return after_text
 
 
@@ -468,13 +563,19 @@ def lems_own(line: str, first_line: str | None) -> bool:
     return not said or said == first_line
 
 
-def write_edits(file: Path, edits: list[tuple[str, str, object]], first_line: str | None = None, text: str | None = None) -> None:
+def write_edits(
+    file: Path,
+    edits: list[tuple[str, str, object]],
+    first_line: str | None = None,
+    text: str | None = None,
+) -> None:
     """Apply each edit, (TABLE, KEY, VALUE or None), to the file's text in turn (`edited`), then write the
     result through a temporary file beside it and a rename over it; nothing is written when one edit
     is refused. A new file starts with FIRST_LINE, a comment. A file left with nothing but Lem's own
     lines goes (`lems_own`); one that keeps a comment of the owner's stays, with the comment, even with
     no table left. TEXT is the file's text when the caller read it already."""
     import tempfile
+
     if text is None:
         try:
             text = file.read_text(encoding="utf-8")
@@ -491,7 +592,9 @@ def write_edits(file: Path, edits: list[tuple[str, str, object]], first_line: st
         file.unlink(missing_ok=True)
         return
     file.parent.mkdir(parents=True, exist_ok=True)
-    handle, temporary = tempfile.mkstemp(dir=file.parent, prefix=f".{file.name}.", suffix=".tmp")
+    handle, temporary = tempfile.mkstemp(
+        dir=file.parent, prefix=f".{file.name}.", suffix=".tmp"
+    )
     try:
         with os.fdopen(handle, "w", encoding="utf-8") as out:
             out.write(text)
@@ -525,11 +628,14 @@ def workspaces() -> list[str]:
     except OSError as error:
         raise StateError(f"{file} cannot be read ({error.strerror}); {fix}") from error
     import json
+
     try:
         listed = json.loads(text)
     except ValueError as error:
         raise StateError(f"{file} does not read as JSON ({error}); {fix}") from error
-    if not isinstance(listed, list) or not all(isinstance(path, str) and os.path.isabs(path) for path in listed):
+    if not isinstance(listed, list) or not all(
+        isinstance(path, str) and os.path.isabs(path) for path in listed
+    ):
         raise StateError(f"{file} is not a list of absolute paths; {fix}")
     return listed
 
@@ -540,9 +646,12 @@ def write_workspaces(paths: list[str]) -> None:
     may lose one entry, which the next `lem board` of that repository writes again."""
     import json
     import tempfile
+
     file = workspaces_file()
     file.parent.mkdir(parents=True, exist_ok=True)
-    handle, temporary = tempfile.mkstemp(dir=file.parent, prefix=f".{file.name}.", suffix=".tmp")
+    handle, temporary = tempfile.mkstemp(
+        dir=file.parent, prefix=f".{file.name}.", suffix=".tmp"
+    )
     try:
         with os.fdopen(handle, "w", encoding="utf-8") as out:
             out.write(json.dumps(paths, indent=2) + "\n")
@@ -595,8 +704,10 @@ def handoff_tokens():
     if value == 0:
         return None
     if value < HANDOFF_FLOOR:
-        raise StateError(f"handoff.tokens in {machine_file()} is {value!r}, and it is 0 (Claude Code's own trigger) or {HANDOFF_FLOOR} or more, "
-                         f"since Claude Code refuses a window under {HANDOFF_FLOOR}; {MACHINE_FIX['handoff']}")
+        raise StateError(
+            f"handoff.tokens in {machine_file()} is {value!r}, and it is 0 (Claude Code's own trigger) or {HANDOFF_FLOOR} or more, "
+            f"since Claude Code refuses a window under {HANDOFF_FLOOR}; {MACHINE_FIX['handoff']}"
+        )
     return value
 
 
@@ -618,7 +729,9 @@ def load_start():
     if value == 0:
         return None
     if value < 0:
-        raise StateError(f"load.start in {machine_file()} is {value!r}, and it is a load average above 0, or 0 for no gate; {MACHINE_FIX['load']}")
+        raise StateError(
+            f"load.start in {machine_file()} is {value!r}, and it is a load average above 0, or 0 for no gate; {MACHINE_FIX['load']}"
+        )
     return float(value)
 
 
@@ -645,7 +758,11 @@ SEAT_ERRORS = {
 }
 # The seats a stand-in may take, each by the name the records give it; the experts and a task's own
 # session take none (the owner's criterion 8 of seat-defaults-and-fallback, 2026-11-23).
-SEAT_NAMES = {"reviewer": "the reviewer", "planner": "the planner", "merger": "the merge agent"}
+SEAT_NAMES = {
+    "reviewer": "the reviewer",
+    "planner": "the planner",
+    "merger": "the merge agent",
+}
 # An agent of a seat by the name a person knows it by.
 AGENT_NAMES = {"claude": "Claude Code", "codex": "Codex"}
 # The fixed line of a block that a seat's error wrote, `the seat that failed: SEAT`: the owner's go on

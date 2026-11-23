@@ -39,7 +39,9 @@ import sys
 
 if sys.version_info < (3, 11):
     # an old python3 must still load this file, so that it can say what it needs and not a traceback
-    sys.exit(f"board.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it")
+    sys.exit(
+        f"board.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it"
+    )
 
 import argparse
 import importlib
@@ -80,10 +82,16 @@ def env(*names: str) -> str:
 def project(repo: str, *args: str) -> str:
     """One command of project.py, so the board reads a repository the way every stage does."""
     ran = subprocess.run(
-        [sys.executable, "-B", str(SCRIPTS / "project.py"), "--repo", repo, *args], capture_output=True, text=True, check=False,
+        [sys.executable, "-B", str(SCRIPTS / "project.py"), "--repo", repo, *args],
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if ran.returncode != 0:
-        raise BoardError(ran.stderr.strip().removeprefix("project.py: ") or f"project.py {args[0]} failed")
+        raise BoardError(
+            ran.stderr.strip().removeprefix("project.py: ")
+            or f"project.py {args[0]} failed"
+        )
     # a line project.py writes on stderr when it succeeds (the settings read from the base branch) is this script's to say too
     if ran.returncode == 0 and ran.stderr:
         sys.stderr.write(ran.stderr)
@@ -110,7 +118,11 @@ def where_problem(root: Path, where: str) -> str:
         return "the file cannot be read"
     if target.suffix == ".md":
         return "" if symbol in text else "the heading is not in the file"
-    missing = [part for part in symbol.split(".") if part and not re.search(rf"\b{re.escape(part)}\b", text)]
+    missing = [
+        part
+        for part in symbol.split(".")
+        if part and not re.search(rf"\b{re.escape(part)}\b", text)
+    ]
     return f"not in the file: {'.'.join(missing)}" if missing else ""
 
 
@@ -130,7 +142,7 @@ def parse_item(text: str) -> tuple[dict[str, str], str, str]:
                     fields[key.strip()] = value.strip().strip("\"'")
     title = re.search(r"(?m)^#\s+(.+)$", body)
     if title:
-        body = body[: title.start()] + body[title.end():]
+        body = body[: title.start()] + body[title.end() :]
     return fields, (title.group(1).replace("`", "").strip() if title else ""), body
 
 
@@ -149,12 +161,22 @@ def unwrapped(lines: list[str]) -> list[str]:
         mark = re.match(r"^\s*(```|~~~)", line)
         if fence is not None or mark:
             if mark:
-                fence = mark[1] if fence is None else (None if line.strip().startswith(fence) else fence)
+                fence = (
+                    mark[1]
+                    if fence is None
+                    else (None if line.strip().startswith(fence) else fence)
+                )
             out.append(line)
             continue
         prev = out[-1] if out else ""
-        joins = line.strip() and prev.strip() and not BLOCK.match(line) and not prev.rstrip().endswith(":") \
-            and not re.match(r"^\s*(```|~~~|\||#)", prev) and not prev.endswith("  ")
+        joins = (
+            line.strip()
+            and prev.strip()
+            and not BLOCK.match(line)
+            and not prev.rstrip().endswith(":")
+            and not re.match(r"^\s*(```|~~~|\||#)", prev)
+            and not prev.endswith("  ")
+        )
         if joins:
             out[-1] = f"{prev.rstrip()} {line.strip()}"
         else:
@@ -171,7 +193,7 @@ def outcome(text: str) -> str:
     if not found:
         return ""
     out, fence = [], None
-    for line in text[found.end():].splitlines():
+    for line in text[found.end() :].splitlines():
         mark = re.match(r"^\s*(```|~~~)", line)
         if mark and fence is None:
             fence = mark[1]
@@ -191,16 +213,39 @@ def filed(worktree: Path, onto: str, folder: str) -> list[dict] | None:
         return None
 
     def git(*args: str) -> str | None:
-        ran = subprocess.run(["git", "-C", str(worktree), *args], capture_output=True, text=True, check=False)
+        ran = subprocess.run(
+            ["git", "-C", str(worktree), *args],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
         return ran.stdout if ran.returncode == 0 else None
 
     base = git("merge-base", "HEAD", onto)
-    added = git("diff", "--name-only", "--diff-filter=A", "--no-renames", "-z", base.strip(), "HEAD", "--", folder) if base else None
+    added = (
+        git(
+            "diff",
+            "--name-only",
+            "--diff-filter=A",
+            "--no-renames",
+            "-z",
+            base.strip(),
+            "HEAD",
+            "--",
+            folder,
+        )
+        if base
+        else None
+    )
     if added is None:
         return None
     items = []
     # the items of the folder itself, as the board's tab "Backlog" reads them: a file in a folder under it is no item
-    for path in sorted(name for name in added.split("\0") if name.endswith(".md") and name.rpartition("/")[0] == folder):
+    for path in sorted(
+        name
+        for name in added.split("\0")
+        if name.endswith(".md") and name.rpartition("/")[0] == folder
+    ):
         text = git("show", f"HEAD:{path}") or ""
         items.append({"path": path, "title": parse_item(text)[1] or Path(path).stem})
     return items
@@ -221,21 +266,31 @@ def backlog(settings: dict) -> dict:
     reads and changes nothing."""
     main = Path(settings["main"])
     # the main checkout's copy: a task's worktree has the backlog as its branch left it
-    folder = main / Path(settings["places"]["backlog"]["path"]).relative_to(settings["root"])
+    folder = main / Path(settings["places"]["backlog"]["path"]).relative_to(
+        settings["root"]
+    )
     relative = folder.relative_to(main).as_posix()
     mine = reviewer_folder(settings)
-    feed: dict = {"folder": relative, "reviewer_folder": mine.relative_to(main).as_posix(),
-                  "read": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "items": []}
+    feed: dict = {
+        "folder": relative,
+        "reviewer_folder": mine.relative_to(main).as_posix(),
+        "read": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "items": [],
+    }
 
     def git(*args: str) -> str:
-        ran = subprocess.run(["git", "-C", str(main), *args], capture_output=True, text=True, check=False)
+        ran = subprocess.run(
+            ["git", "-C", str(main), *args], capture_output=True, text=True, check=False
+        )
         return ran.stdout if ran.returncode == 0 else ""
 
     # what git does not have committed yet: an item the closing pass filed a minute ago is `new`
     changed = {}
     if folder.is_dir():
         # --untracked-files=all: a folder git does not know yet is listed file by file, not as one line
-        for entry in git("status", "--porcelain", "--untracked-files=all", "-z", "--", relative).split("\0"):
+        for entry in git(
+            "status", "--porcelain", "--untracked-files=all", "-z", "--", relative
+        ).split("\0"):
             if len(entry) > 3:
                 code = entry[:2]
                 changed[entry[3:]] = "new" if code == "??" or "A" in code else "edited"
@@ -247,27 +302,47 @@ def backlog(settings: dict) -> dict:
             if reviewer and lem_project.backlog_item_of(state, rel) is None:
                 # a file named `.md` alone: no item by the rule the drop and the landing read
                 continue
-            whose = {"slug": file.stem, "key": f"-{file.stem}" if reviewer else file.stem, "path": rel, "reviewer": reviewer,
-                     **({"held": lem_project.item_holder(state, rel)} if reviewer else {})}
+            whose = {
+                "slug": file.stem,
+                "key": f"-{file.stem}" if reviewer else file.stem,
+                "path": rel,
+                "reviewer": reviewer,
+                **({"held": lem_project.item_holder(state, rel)} if reviewer else {}),
+            }
             try:
                 text = file.read_text(encoding="utf-8", errors="replace")
             except OSError as error:
                 # A link to a file that moved, or a folder with an item's name: shown, not hidden, and
                 # the other items are still read.
-                feed["items"].append({
-                    **whose, "title": file.stem, "worth": "unset", "where": "", "where_problem": "", "added": "",
-                    "state": "unreadable", "body": f"This item cannot be read: {error.strerror or error}.",
-                })
+                feed["items"].append(
+                    {
+                        **whose,
+                        "title": file.stem,
+                        "worth": "unset",
+                        "where": "",
+                        "where_problem": "",
+                        "added": "",
+                        "state": "unreadable",
+                        "body": f"This item cannot be read: {error.strerror or error}.",
+                    }
+                )
                 continue
             fields, title, body = parse_item(text)
             where = fields.get("where", "")
-            feed["items"].append({
-                **whose, "title": title or file.stem,
-                "worth": fields.get("worth") if fields.get("worth") in ("yes", "later", "no") else "unset",
-                "where": where, "where_problem": where_problem(main, where) if where else "",
-                "added": fields.get("added", ""), "state": "" if reviewer else changed.get(rel, ""),
-                "body": body.strip(),
-            })
+            feed["items"].append(
+                {
+                    **whose,
+                    "title": title or file.stem,
+                    "worth": fields.get("worth")
+                    if fields.get("worth") in ("yes", "later", "no")
+                    else "unset",
+                    "where": where,
+                    "where_problem": where_problem(main, where) if where else "",
+                    "added": fields.get("added", ""),
+                    "state": "" if reviewer else changed.get(rel, ""),
+                    "body": body.strip(),
+                }
+            )
     return feed
 
 
@@ -280,11 +355,15 @@ def meta_of(settings: dict, state: Path, demo: bool = False) -> dict:
     the mark is a file beside the events because it is a fact about the data and not about one open."""
     marker = state / "demo"
     if demo:
-        marker.write_text("The tasks in this folder are examples, written by a fixture. board.py --demo made this file.\n")
+        marker.write_text(
+            "The tasks in this folder are examples, written by a fixture. board.py --demo made this file.\n"
+        )
     return {
         # the main checkout names the repository; a worktree's folder is named after its task
-        "repo": Path(settings["main"]).name, "base": settings["branch"]["base"],
-        "gates": len(settings["checks"]["commands"]) + len(settings["checks"]["serial"]),
+        "repo": Path(settings["main"]).name,
+        "base": settings["branch"]["base"],
+        "gates": len(settings["checks"]["commands"])
+        + len(settings["checks"]["serial"]),
         "serial": len(settings["checks"]["serial"]),
         "demo": marker.is_file(),
     }
@@ -297,9 +376,14 @@ def state_of(repo: str, slug: str | None, demo: bool) -> tuple[Path, dict]:
     settings = json.loads(project(repo, "show"))
     if slug is not None:
         if not SLUG.fullmatch(slug):
-            raise BoardError(f"slug {slug!r} must be lower-case words joined by hyphens")
+            raise BoardError(
+                f"slug {slug!r} must be lower-case words joined by hyphens"
+            )
         if not (state / "tasks" / slug).is_dir():
-            known = ", ".join(task["slug"] for task in json.loads(project(repo, "tasks"))) or "none yet"
+            known = (
+                ", ".join(task["slug"] for task in json.loads(project(repo, "tasks")))
+                or "none yet"
+            )
             raise BoardError(f"no task {slug!r}; the tasks are: {known}")
     meta_of(settings, state, demo)
     return state, settings
@@ -316,7 +400,9 @@ def register(state: Path) -> None:
     try:
         lem_state.register(main)
     except (OSError, lem_state.StateError) as error:
-        raise BoardError(f"{main} is not in the list of workspaces `lem serve` shows, so it has no board: {error}") from error
+        raise BoardError(
+            f"{main} is not in the list of workspaces `lem serve` shows, so it has no board: {error}"
+        ) from error
 
 
 # How long a run that opens the board waits for `lem serve --ensure`: its longest path, a wait for
@@ -334,17 +420,31 @@ def ensure_server() -> dict:
     """Make sure the board server runs, with `lem serve --ensure`, and return what it printed: the
     server's address in `url`. A server that does not run is a BoardError that says why."""
     try:
-        ran = subprocess.run([sys.executable, "-B", str(SCRIPTS / "serve.py"), "--ensure"], capture_output=True, text=True, check=False, timeout=SERVE_WAIT)
+        ran = subprocess.run(
+            [sys.executable, "-B", str(SCRIPTS / "serve.py"), "--ensure"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=SERVE_WAIT,
+        )
     except (OSError, subprocess.TimeoutExpired) as error:
-        raise BoardError(f"`lem serve --ensure` did not finish ({error}), and the board is the server's page: run `lem serve --ensure` to see why") from error
+        raise BoardError(
+            f"`lem serve --ensure` did not finish ({error}), and the board is the server's page: run `lem serve --ensure` to see why"
+        ) from error
     if ran.returncode != 0:
-        raise BoardError(f"the board server does not run: {(ran.stderr or ran.stdout).strip().removeprefix('serve.py: ')}")
+        raise BoardError(
+            f"the board server does not run: {(ran.stderr or ran.stdout).strip().removeprefix('serve.py: ')}"
+        )
     try:
         found = json.loads(ran.stdout)
     except ValueError as error:
-        raise BoardError(f"`lem serve --ensure` printed no JSON ({error}): {ran.stdout.strip()[:200]}") from error
+        raise BoardError(
+            f"`lem serve --ensure` printed no JSON ({error}): {ran.stdout.strip()[:200]}"
+        ) from error
     if not found.get("running") or not found.get("url"):
-        raise BoardError(f"the board server does not run: {found.get('said') or 'lem serve --ensure started none'}; `lem serve --ensure` starts it")
+        raise BoardError(
+            f"the board server does not run: {found.get('said') or 'lem serve --ensure started none'}; `lem serve --ensure` starts it"
+        )
     return found
 
 
@@ -352,13 +452,27 @@ def address(server: str, main: Path, slug: str | None) -> str:
     """The address of the repository's board, or of one task, as the server names it: its list of
     workspaces has the repository's main checkout with the board's path."""
     try:
-        with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(f"{server.rstrip('/')}/api/workspaces", timeout=ASK_WAIT) as reply:
+        with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(
+            f"{server.rstrip('/')}/api/workspaces", timeout=ASK_WAIT
+        ) as reply:
             spaces = json.loads(reply.read())
     except (urllib.error.URLError, OSError, ValueError) as error:
-        raise BoardError(f"the board server at {server} did not list its workspaces ({error}): `lem serve --ensure` says whether it runs") from error
-    found = next((space for space in spaces if isinstance(space, dict) and os.path.realpath(space.get("path", "")) == os.path.realpath(main)), None)
+        raise BoardError(
+            f"the board server at {server} did not list its workspaces ({error}): `lem serve --ensure` says whether it runs"
+        ) from error
+    found = next(
+        (
+            space
+            for space in spaces
+            if isinstance(space, dict)
+            and os.path.realpath(space.get("path", "")) == os.path.realpath(main)
+        ),
+        None,
+    )
     if found is None:
-        raise BoardError(f"the board server at {server} does not show {main}: `lem serve --list` names what it shows, and `lem serve --add {main}` adds it")
+        raise BoardError(
+            f"the board server at {server} does not show {main}: `lem serve --list` names what it shows, and `lem serve --add {main}` adds it"
+        )
     url = server.rstrip("/") + found["url"]
     return url + (f"tasks/{quote(slug)}" if slug else "")
 
@@ -366,42 +480,88 @@ def address(server: str, main: Path, slug: str | None) -> str:
 def ctl(socket: str, *args: str) -> str:
     # agtermctl never reads the socket from the environment, and a bare call may reach another
     # agterm than the one that hosts this session.
-    ran = subprocess.run(["agtermctl", *args, "--socket", socket], capture_output=True, text=True, check=False)
+    ran = subprocess.run(
+        ["agtermctl", *args, "--socket", socket],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     if ran.returncode != 0:
-        raise BoardError(f"agtermctl {' '.join(args[:3])} failed: {(ran.stderr or ran.stdout).strip()}")
+        raise BoardError(
+            f"agtermctl {' '.join(args[:3])} failed: {(ran.stderr or ran.stdout).strip()}"
+        )
     return ran.stdout
 
 
-def show(opens: list[str], shows, name: str, session: str, socket: str, window: str, follow: bool, again) -> dict:
+def show(
+    opens: list[str],
+    shows,
+    name: str,
+    session: str,
+    socket: str,
+    window: str,
+    follow: bool,
+    again,
+) -> dict:
     """Open a page as a companion of the session's group (`opens`: the flags of `session overlay open`
     that name the page), or keep the one that is there: `shows(overlay)` says whether a page companion
     is it, and `again(overlay)` whether it opens anew rather than reloads where it stands."""
     in_window = ["--window", window] if window else []
     tree = json.loads(ctl(socket, "tree", "--json", *in_window))["result"]["tree"]
-    live = [s for workspace in tree.get("workspaces", []) for s in workspace.get("sessions", [])]
+    live = [
+        s
+        for workspace in tree.get("workspaces", [])
+        for s in workspace.get("sessions", [])
+    ]
     owner = next((s for s in live if s["id"].upper() == session.upper()), None)
     if owner is None:
-        raise BoardError(f"this session ({session}) is not in the window agterm answered for")
+        raise BoardError(
+            f"this session ({session}) is not in the window agterm answered for"
+        )
     # A companion's companion becomes its sibling, so the parent is the top of the group.
     parent = (owner.get("parent") or owner["id"]).upper()
 
     def overlay(node: dict) -> dict | None:
-        return next((page for page in node.get("htmlOverlays") or [] if shows(page)), None)
+        return next(
+            (page for page in node.get("htmlOverlays") or [] if shows(page)), None
+        )
 
     # A page is known by what it shows, under this session's own group. Its name is not enough: two
     # Lems of two repositories may be companions of one top session, and each has a board.
-    named = [s for s in live if s.get("content") == "page" and (s.get("parent") or "").upper() == parent and overlay(s)]
+    named = [
+        s
+        for s in live
+        if s.get("content") == "page"
+        and (s.get("parent") or "").upper() == parent
+        and overlay(s)
+    ]
     kept = named[0] if named and not again(overlay(named[0])) else None
     stale = [s for s in named if s is not kept]
     if stale:
-        ctl(socket, "session", "close", *[arg for s in stale for arg in ("--target", s["id"])])
+        ctl(
+            socket,
+            "session",
+            "close",
+            *[arg for s in stale for arg in ("--target", s["id"])],
+        )
     if kept:
         target = kept["id"]
         ctl(socket, "session", "overlay", "reload", "--current", "--target", target)
         if kept.get("name") != name:
             ctl(socket, "session", "rename", name, "--target", target)
     else:
-        opened = ctl(socket, "session", "overlay", "open", *opens, "--js", "--companion", "--target", parent, "--json")
+        opened = ctl(
+            socket,
+            "session",
+            "overlay",
+            "open",
+            *opens,
+            "--js",
+            "--companion",
+            "--target",
+            parent,
+            "--json",
+        )
         target = json.loads(opened)["result"]["id"]
         ctl(socket, "session", "rename", name, "--target", target)
     ctl(socket, "session", "tint", TINT, "--on", "icon,name", "--target", target)
@@ -414,55 +574,119 @@ def open_page(page: Path, args: argparse.Namespace, session: str, socket: str) -
     """One page of Lem to read, opened as the board opens: a page companion of the session's group,
     known by the file it shows, so the same file shown again reloads its companion."""
     if args.task or args.demo or args.no_open:
-        raise BoardError("--page opens one file; --task, --demo and --no-open belong to the board")
+        raise BoardError(
+            "--page opens one file; --task, --demo and --no-open belong to the board"
+        )
     page = page.resolve()
     if not page.is_file() or page.suffix.lower() not in (".html", ".htm"):
         raise BoardError(f"--page {page} is not an HTML file: give the page to open")
     if not (session and socket):
-        raise BoardError("not inside an agterm session, so no companion can open; give the owner the file's path instead")
+        raise BoardError(
+            "not inside an agterm session, so no companion can open; give the owner the file's path instead"
+        )
     name = args.name or page.stem
 
     def shows(overlay: dict) -> bool:
         file = overlay.get("file") or ""
         return bool(file) and os.path.realpath(file) == os.path.realpath(page)
 
-    return {"page": str(page), "name": name, **show(["--html", str(page), "--cwd", str(page.parent)], shows, name, session, socket,
-                                                    env("AGT_WINDOW_ID", "AGTERM_WINDOW_ID"), args.follow, lambda overlay: False)}
+    return {
+        "page": str(page),
+        "name": name,
+        **show(
+            ["--html", str(page), "--cwd", str(page.parent)],
+            shows,
+            name,
+            session,
+            socket,
+            env("AGT_WINDOW_ID", "AGTERM_WINDOW_ID"),
+            args.follow,
+            lambda overlay: False,
+        ),
+    }
 
 
-def open_board(url: str, base: str, task: bool, name: str, session: str, socket: str, follow: bool) -> dict:
+def open_board(
+    url: str, base: str, task: bool, name: str, session: str, socket: str, follow: bool
+) -> dict:
     """The board as a page companion of the session's group, known by the address of its workspace
     (`base`): the one that shows it is reloaded where it stands, or, for a task's board when it shows
     another page, opened again at the task's address."""
+
     def shows(overlay: dict) -> bool:
-        return any(str(overlay.get(key) or "").startswith(base) for key in ("url", "page"))
+        return any(
+            str(overlay.get(key) or "").startswith(base) for key in ("url", "page")
+        )
 
     def again(overlay: dict) -> bool:
-        return task and str(overlay.get("page") or overlay.get("url") or "").split("?")[0].rstrip("/") != url.rstrip("/")
+        return task and str(overlay.get("page") or overlay.get("url") or "").split("?")[
+            0
+        ].rstrip("/") != url.rstrip("/")
 
-    return show(["--url", url, "--persistent"], shows, name, session, socket, env("AGT_WINDOW_ID", "AGTERM_WINDOW_ID"), follow, again)
+    return show(
+        ["--url", url, "--persistent"],
+        shows,
+        name,
+        session,
+        socket,
+        env("AGT_WINDOW_ID", "AGTERM_WINDOW_ID"),
+        follow,
+        again,
+    )
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="lem board", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--repo", default=env("AGT_SESSION_PWD") or ".", help="a directory inside the checkout (default: the current one)")
-    parser.add_argument("--task", metavar="SLUG", help="open the board of this task instead of the board of all tasks")
-    parser.add_argument("--follow", action="store_true", help="switch to the board after it opens")
-    parser.add_argument("--no-open", action="store_true", help="make sure the server runs and print the board's address; open nothing")
-    parser.add_argument("--demo", action="store_true", help="the state folder holds example tasks: every board of it says so from now on")
-    parser.add_argument("--page", metavar="FILE", help="open this HTML file as a page companion, as the board opens, or reload the one that shows it")
-    parser.add_argument("--name", help="with --page: the companion's name (default: the file's name)")
+    parser = argparse.ArgumentParser(
+        prog="lem board",
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--repo",
+        default=env("AGT_SESSION_PWD") or ".",
+        help="a directory inside the checkout (default: the current one)",
+    )
+    parser.add_argument(
+        "--task",
+        metavar="SLUG",
+        help="open the board of this task instead of the board of all tasks",
+    )
+    parser.add_argument(
+        "--follow", action="store_true", help="switch to the board after it opens"
+    )
+    parser.add_argument(
+        "--no-open",
+        action="store_true",
+        help="make sure the server runs and print the board's address; open nothing",
+    )
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="the state folder holds example tasks: every board of it says so from now on",
+    )
+    parser.add_argument(
+        "--page",
+        metavar="FILE",
+        help="open this HTML file as a page companion, as the board opens, or reload the one that shows it",
+    )
+    parser.add_argument(
+        "--name", help="with --page: the companion's name (default: the file's name)"
+    )
     args = parser.parse_args()
     session = env("AGT_SESSION_ID", "AGTERM_SESSION_ID")
     socket = env("AGT_SOCKET", "AGTERM_SOCKET")
     try:
         if args.page is not None:
-            print(json.dumps(open_page(Path(args.page), args, session, socket), indent=2))
+            print(
+                json.dumps(open_page(Path(args.page), args, session, socket), indent=2)
+            )
             return
         if args.name is not None:
             raise BoardError("--name goes with --page: the board names itself")
         if not args.no_open and not (session and socket):
-            raise BoardError("not inside an agterm session; --no-open prints the board's address without one")
+            raise BoardError(
+                "not inside an agterm session; --no-open prints the board's address without one"
+            )
         state, settings = state_of(args.repo, args.task, args.demo)
         register(state)
         server = ensure_server()
@@ -473,9 +697,19 @@ def main() -> None:
         result: dict = {"url": url, "name": f"Lem board · {main_dir.name}"}
         if server.get("tailscale"):
             # the same board through the tailnet door, for the owner's phone
-            result["tailnet_url"] = server["tailscale"].rstrip("/") + url.removeprefix(server["url"].rstrip("/"))
+            result["tailnet_url"] = server["tailscale"].rstrip("/") + url.removeprefix(
+                server["url"].rstrip("/")
+            )
         if not args.no_open:
-            result |= open_board(url, base, args.task is not None, result["name"], session, socket, args.follow)
+            result |= open_board(
+                url,
+                base,
+                args.task is not None,
+                result["name"],
+                session,
+                socket,
+                args.follow,
+            )
     except BoardError as error:
         sys.exit(f"board.py: {error}")
     print(json.dumps(result, indent=2))

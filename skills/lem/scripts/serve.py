@@ -286,7 +286,9 @@ import sys
 
 if sys.version_info < (3, 11):
     # an old python3 must still load this file, so that it can say what it needs and not a traceback
-    sys.exit(f"serve.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it")
+    sys.exit(
+        f"serve.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it"
+    )
 
 import argparse
 import contextlib
@@ -365,8 +367,14 @@ def reserved() -> tuple[str, ...]:
 
 # The files of the plugin the pages link, by the name in their address (`/assets/NAME`).
 ICONS = board.SCRIPTS.parent / "assets" / "icons"
-ASSETS = {"lem.css": board.STYLE, "lem.js": board.PALETTE, "board.css": board.BOARD_STYLE, "board-app.js": board.VENDOR / "board-app.js",
-          "mermaid.min.js": board.VENDOR / "mermaid.min.js", **{file.name: file for file in sorted(ICONS.glob("*.png"))}}
+ASSETS = {
+    "lem.css": board.STYLE,
+    "lem.js": board.PALETTE,
+    "board.css": board.BOARD_STYLE,
+    "board-app.js": board.VENDOR / "board-app.js",
+    "mermaid.min.js": board.VENDOR / "mermaid.min.js",
+    **{file.name: file for file in sorted(ICONS.glob("*.png"))},
+}
 # The look of the control of the board's notifications, and their service worker, which `/sw.js` sends
 # from the root so that its scope is the whole board (lem_push).
 ASSETS["push.css"] = board.SCRIPTS.parent / "assets" / "push.css"
@@ -377,7 +385,14 @@ PUSH_ACTS = ("subscribe", "unsubscribe", "test")
 # 2.7 MB as it is and about a quarter of that compressed, which a phone feels.
 PACKED: dict[tuple, bytes] = {}
 # The views of a workspace the server renders, by the rest of their address.
-PAGES = {"": "kanban_page", "waits": "waits_page", "backlog": "backlog_page", "activity": "activity_page", "done": "older_page", "new": "new_page"}
+PAGES = {
+    "": "kanban_page",
+    "waits": "waits_page",
+    "backlog": "backlog_page",
+    "activity": "activity_page",
+    "done": "older_page",
+    "new": "new_page",
+}
 # The one cookie of the board's own state (tools/board-kit/controllers/prefs.js).
 PREFS_COOKIE = "lem_board"
 # The panel's widths a dragged width may take, in px: a guess at what any screen and any panel holds.
@@ -386,8 +401,14 @@ PANEL_WIDTHS = (300, 4000)
 NATIVE = re.compile(r"\b(Turbo|Hotwire) Native\b")
 # A task's name in an address, as project.py names its folder.
 TASK_SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
-TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
-         ".json": "application/json", ".png": "image/png", ".webmanifest": "application/manifest+json"}
+TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".json": "application/json",
+    ".png": "image/png",
+    ".webmanifest": "application/manifest+json",
+}
 # How long a request's connection may stay silent before the server drops it, so that a stop, which
 # waits for the requests in flight, never waits for a client that sends nothing. A guess: a request
 # of the board is answered in well under a second.
@@ -400,7 +421,11 @@ TAILNET_PORT = 4537
 # Where the tailscale CLI is, after the PATH: a process started with a short PATH has none of these
 # (2026-11-20, on the standalone Tailscale 1.104.7 for macOS, whose /usr/local/bin/tailscale wraps the
 # app's binary).
-TAILSCALE_PLACES = ("/usr/local/bin/tailscale", "/Applications/Tailscale.app/Contents/MacOS/Tailscale", "/opt/homebrew/bin/tailscale")
+TAILSCALE_PLACES = (
+    "/usr/local/bin/tailscale",
+    "/Applications/Tailscale.app/Contents/MacOS/Tailscale",
+    "/opt/homebrew/bin/tailscale",
+)
 # How long one call of the tailscale CLI may take before the server gives up on it. A guess.
 TAILSCALE_TIMEOUT = 20
 # How often, at most, a request whose login is not the owner's makes the door read the owner's login
@@ -520,7 +545,11 @@ class Workspace:
         settings = self.settings()
         try:
             root = Path(settings["root"])
-            return Path(settings["main"]) / Path(settings["places"]["worktrees"]["path"]).relative_to(root) / slug
+            return (
+                Path(settings["main"])
+                / Path(settings["places"]["worktrees"]["path"]).relative_to(root)
+                / slug
+            )
         except (KeyError, TypeError, ValueError):
             return None
 
@@ -546,12 +575,17 @@ class Workspace:
                 raise ValueError(said_of(ran))
             entries = session_entries(ran.stdout)
         except ValueError as error:
-            self.sessions, self.session_problem = None, f"the board cannot tell which task sessions run: `lem session list` said {error}"
+            self.sessions, self.session_problem = (
+                None,
+                f"the board cannot tell which task sessions run: `lem session list` said {error}",
+            )
             return
         self.sessions = bm.sessions_of(entries, kept)
         self.session_problem = None
         bm.put_sessions(model, self.sessions)
-        needs = {t.slug: need for t in model.tasks if (need := bm.session_need(t, model))}
+        needs = {
+            t.slug: need for t in model.tasks if (need := bm.session_need(t, model))
+        }
         works = {t.slug for t in model.tasks if t.works}
         if needs != self.needs or works != self.works:
             self.needs, self.works = needs, works
@@ -563,7 +597,9 @@ class Workspace:
         if not settings:
             return None
         try:
-            return Path(settings["main"]) / Path(settings["places"]["backlog"]["path"]).relative_to(settings["root"])
+            return Path(settings["main"]) / Path(
+                settings["places"]["backlog"]["path"]
+            ).relative_to(settings["root"])
         except (KeyError, ValueError):
             return None
 
@@ -588,11 +624,20 @@ class Workspace:
         plan = self.plan_of(slug)
         try:
             if plan:
-                return criteria.parse(plan[0].read_text(encoding="utf-8", errors="replace"), plan[1]).get("how") or ""
+                return (
+                    criteria.parse(
+                        plan[0].read_text(encoding="utf-8", errors="replace"), plan[1]
+                    ).get("how")
+                    or ""
+                )
         except (OSError, criteria.CriteriaError):
             pass
         try:
-            record = json.loads((self.state / "tasks" / slug / "criteria.json").read_text(encoding="utf-8"))
+            record = json.loads(
+                (self.state / "tasks" / slug / "criteria.json").read_text(
+                    encoding="utf-8"
+                )
+            )
             return str(record.get("how") or "") if isinstance(record, dict) else ""
         except (OSError, ValueError):
             return ""
@@ -608,8 +653,16 @@ class Workspace:
         if settings:
             try:
                 main, root = Path(settings["main"]), Path(settings["root"])
-                worktree = main / Path(settings["places"]["worktrees"]["path"]).relative_to(root) / slug
-                backlog = Path(settings["places"]["backlog"]["path"]).relative_to(root).as_posix()
+                worktree = (
+                    main
+                    / Path(settings["places"]["worktrees"]["path"]).relative_to(root)
+                    / slug
+                )
+                backlog = (
+                    Path(settings["places"]["backlog"]["path"])
+                    .relative_to(root)
+                    .as_posix()
+                )
                 onto = self.onto_of(main, settings["branch"]["base"] or "")
             except (KeyError, ValueError):
                 worktree = backlog = None
@@ -622,7 +675,15 @@ class Workspace:
         if not base:
             return ""
         if self.onto is None or time.monotonic() - self.onto[0] >= REFRESH_SECONDS:
-            remote = subprocess.run(["git", "-C", str(main), "remote", "get-url", "origin"], capture_output=True, text=True, check=False).returncode == 0
+            remote = (
+                subprocess.run(
+                    ["git", "-C", str(main), "remote", "get-url", "origin"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                ).returncode
+                == 0
+            )
             self.onto = (time.monotonic(), f"origin/{base}" if remote else base)
         return self.onto[1]
 
@@ -636,13 +697,21 @@ class Workspace:
             data = file.read_bytes()
         except OSError:
             return None
-        return {"path": str(file), "text": data.decode("utf-8", errors="replace"), "digest": hashlib.sha256(data).hexdigest()[:16]}
+        return {
+            "path": str(file),
+            "text": data.decode("utf-8", errors="replace"),
+            "digest": hashlib.sha256(data).hexdigest()[:16],
+        }
 
     def landing_of(self, slug: str) -> dict:
         """The task's landing record (land.py's `landing.json`: the tip it proposed, its pull request and
         title), with the base branch and `branch.history` of the settings; {} when it does not read."""
         try:
-            record = json.loads((self.state / "tasks" / slug / "landing.json").read_text(encoding="utf-8"))
+            record = json.loads(
+                (self.state / "tasks" / slug / "landing.json").read_text(
+                    encoding="utf-8"
+                )
+            )
         except (OSError, ValueError):
             return {}
         if not isinstance(record, dict):
@@ -659,11 +728,22 @@ class Workspace:
         try:
             model = self.model()
         except Exception as error:  # noqa: BLE001 - a workspace that cannot be read says why, and the others still show
-            self.counts = {"waits": None, "building": None, "checks": None, "running": None, "problem": str(error)}
+            self.counts = {
+                "waits": None,
+                "building": None,
+                "checks": None,
+                "running": None,
+                "problem": str(error),
+            }
         else:
             building = sum(t.status == "building" for t in model.tasks)
             checks = sum(t.status == "landing" for t in model.tasks)
-            self.counts = {"waits": len(bm.wait_stacks(bm.waits_of(model))), "building": building, "checks": checks, "running": building + checks}
+            self.counts = {
+                "waits": len(bm.wait_stacks(bm.waits_of(model))),
+                "building": building,
+                "checks": checks,
+                "running": building + checks,
+            }
             if self.reader.problems:
                 self.counts["problem"] = "; ".join(self.reader.problems.values())
         self.counted = time.monotonic()
@@ -684,7 +764,11 @@ class Machine:
             kept = {}
             for name, path in listed:
                 old = self.known.get(name)
-                kept[name] = old if old is not None and old.path == path else Workspace(name, path)
+                kept[name] = (
+                    old
+                    if old is not None and old.path == path
+                    else Workspace(name, path)
+                )
             self.known = kept
         return [kept[name] for name, path in listed if live(path)]
 
@@ -696,7 +780,15 @@ class Machine:
         return found if found is not None and live(found.path) else None
 
     def listing(self) -> list[dict]:
-        return [{"name": w.name, "path": w.path, "url": f"/{quote(HOSTNAME)}/{quote(w.name)}/", **w.count()} for w in self.workspaces()]
+        return [
+            {
+                "name": w.name,
+                "path": w.path,
+                "url": f"/{quote(HOSTNAME)}/{quote(w.name)}/",
+                **w.count(),
+            }
+            for w in self.workspaces()
+        ]
 
 
 # The content hash of each asset, by its path and its change time, so that an address changes with the file.
@@ -743,10 +835,30 @@ def prefs_of(header: str | None) -> dict:
         return {}
     if not isinstance(value, dict):
         return {}
-    folded = [key for key in value.get("folded") or [] if isinstance(key, str) and key in bm.LANE] if isinstance(value.get("folded"), list) else []
+    folded = (
+        [
+            key
+            for key in value.get("folded") or []
+            if isinstance(key, str) and key in bm.LANE
+        ]
+        if isinstance(value.get("folded"), list)
+        else []
+    )
     width = value.get("pw")
-    width = width if isinstance(width, int) and not isinstance(width, bool) and PANEL_WIDTHS[0] <= width <= PANEL_WIDTHS[1] else None
-    return {"folded": folded, "rail": value.get("rail") is True, "pw": width, "full": value.get("full") is True, "head": value.get("head") is True}
+    width = (
+        width
+        if isinstance(width, int)
+        and not isinstance(width, bool)
+        and PANEL_WIDTHS[0] <= width <= PANEL_WIDTHS[1]
+        else None
+    )
+    return {
+        "folded": folded,
+        "rail": value.get("rail") is True,
+        "pw": width,
+        "full": value.get("full") is True,
+        "head": value.get("head") is True,
+    }
 
 
 def decoded(value: str) -> str:
@@ -758,7 +870,9 @@ def decoded(value: str) -> str:
         return value
 
 
-def door_refusal(headers, method: str, owner: str, served: str, port: int) -> str | None:
+def door_refusal(
+    headers, method: str, owner: str, served: str, port: int
+) -> str | None:
     """Whether the door lets a request in: None when it does, else the one line its 403 says.
 
     `headers` is any mapping or message whose `items()` gives each header once for each time it came;
@@ -778,14 +892,21 @@ def door_refusal(headers, method: str, owner: str, served: str, port: int) -> st
     logins = seen.get("tailscale-user-login", [])
     if not logins:
         return "Only the owner's own Tailscale login opens this board, and this request carries none."
-    if len(logins) > 1 or decoded(logins[0]).strip().casefold() != owner.strip().casefold():
+    if (
+        len(logins) > 1
+        or decoded(logins[0]).strip().casefold() != owner.strip().casefold()
+    ):
         return NOT_THE_OWNER
     if method.upper() not in ("GET", "HEAD"):
         fetch = [value.strip().lower() for value in seen.get("sec-fetch-site", [])]
         if any(value not in ("same-origin", "none") for value in fetch):
             return "A change comes only from the board's own page, and this request comes from another site."
-        origins = {f"https://{served.lower()}:{port}"} | ({f"https://{served.lower()}"} if port == 443 else set())
-        if any(value.strip().lower() not in origins for value in seen.get("origin", [])):
+        origins = {f"https://{served.lower()}:{port}"} | (
+            {f"https://{served.lower()}"} if port == 443 else set()
+        )
+        if any(
+            value.strip().lower() not in origins for value in seen.get("origin", [])
+        ):
             return "A change comes only from the board's own page, and this request names another origin."
     return None
 
@@ -803,7 +924,11 @@ class Door:
         self.read_at = time.monotonic()
 
     def url(self) -> str:
-        return f"https://{self.name}:{self.port}/" if self.port != 443 else f"https://{self.name}/"
+        return (
+            f"https://{self.name}:{self.port}/"
+            if self.port != 443
+            else f"https://{self.name}/"
+        )
 
     def reread(self) -> bool:
         """Read the owner's login again, at most once in LOGIN_RECHECK_SECONDS; True when it changed."""
@@ -814,7 +939,9 @@ class Door:
             try:
                 facts = tailnet(self.cli)
             except ServeError as error:
-                sys.stderr.write(f"serve.py: the owner's login was not read again: {error}\n")
+                sys.stderr.write(
+                    f"serve.py: the owner's login was not read again: {error}\n"
+                )
                 return False
             changed = facts["login"] != self.owner
             self.owner = facts["login"]
@@ -838,7 +965,9 @@ def host_refusal(headers, port: int, host: str = HOST) -> str | None:
     """Whether the main listener reads a request: None when its one `Host` is a name of its own
     (`own_names`), else the line its 403 says. A page of another site whose name the site points at this
     machine (DNS rebinding) carries that site's name, so the board's files never reach that site's script."""
-    seen = [value.strip().lower() for key, value in headers.items() if key.lower() == "host"]
+    seen = [
+        value.strip().lower() for key, value in headers.items() if key.lower() == "host"
+    ]
     if len(seen) != 1 or seen[0] not in own_names(port, host):
         return "This address is not the board's own on this Mac: open it as http://127.0.0.1:PORT/."
     return None
@@ -850,7 +979,9 @@ def stop_refusal(client: str, headers) -> str | None:
     and it carries no `Origin` and no `Sec-Fetch-Site`, one of which a browser adds to each request of
     a web page, so that no page can stop the server."""
     if client not in LOOPBACK:
-        return "Only a program on this machine stops the server: `lem serve --stop` there."
+        return (
+            "Only a program on this machine stops the server: `lem serve --stop` there."
+        )
     names = {key.lower() for key, _ in headers.items()}
     if "origin" in names or "sec-fetch-site" in names:
         return "A web page does not stop the server: `lem serve --stop` on this machine does."
@@ -886,7 +1017,11 @@ AGTERM_ACTS = ("select",)
 # A session's id as agterm gives it.
 SESSION_ID = re.compile(r"[A-Za-z0-9-]{1,64}")
 # Where agtermctl is when the PATH of the server has none: the app's own binary.
-AGTERMCTL_PLACES = ("/Applications/agterm.app/Contents/MacOS/agtermctl", "/opt/homebrew/bin/agtermctl", "/usr/local/bin/agtermctl")
+AGTERMCTL_PLACES = (
+    "/Applications/agterm.app/Contents/MacOS/agtermctl",
+    "/opt/homebrew/bin/agtermctl",
+    "/usr/local/bin/agtermctl",
+)
 # How long one call of agtermctl may take. A guess: agterm answers its socket at once.
 AGTERM_TIMEOUT = 10
 
@@ -899,19 +1034,35 @@ def agterm_act(workspace: "Workspace", act: str, asked: dict) -> str:
     """The jump to a task's session for a page of the workspace, on the owner's click, and what was done;
     AgtermRefused says why not. Only the session of a task's newest `session.open` is taken, and agtermctl
     finds agterm's socket itself (measured with no `--socket`, plan-task-4.md's trial, 2026-11-21)."""
-    ctl = shutil.which("agtermctl") or next((place for place in AGTERMCTL_PLACES if os.access(place, os.X_OK)), None)
+    ctl = shutil.which("agtermctl") or next(
+        (place for place in AGTERMCTL_PLACES if os.access(place, os.X_OK)), None
+    )
     if ctl is None:
-        raise AgtermRefused("agtermctl is not on this Mac: install agterm's command line tool (Help > Install Command Line Tool).")
+        raise AgtermRefused(
+            "agtermctl is not on this Mac: install agterm's command line tool (Help > Install Command Line Tool)."
+        )
     session = asked.get("session")
     named = {t.session.upper() for t in workspace.model().tasks if t.session}
-    if not isinstance(session, str) or not SESSION_ID.fullmatch(session) or session.upper() not in named:
+    if (
+        not isinstance(session, str)
+        or not SESSION_ID.fullmatch(session)
+        or session.upper() not in named
+    ):
         raise AgtermRefused("That is no session of this workspace's tasks.")
     try:
-        ran = subprocess.run([ctl, "session", "select", "--target", session], capture_output=True, text=True, check=False, timeout=AGTERM_TIMEOUT)
+        ran = subprocess.run(
+            [ctl, "session", "select", "--target", session],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=AGTERM_TIMEOUT,
+        )
     except (OSError, subprocess.TimeoutExpired) as error:
         raise AgtermRefused(f"agtermctl session did not answer ({error}).") from error
     if ran.returncode != 0:
-        raise AgtermRefused(f"agtermctl session select failed: {(ran.stderr or ran.stdout).strip() or f'exit {ran.returncode}'}.")
+        raise AgtermRefused(
+            f"agtermctl session select failed: {(ran.stderr or ran.stdout).strip() or f'exit {ran.returncode}'}."
+        )
     return "Switched to the session."
 
 
@@ -944,7 +1095,9 @@ class Notes:
         token = os.urandom(6).hex()
         with self.lock:
             now = time.monotonic()
-            self.kept = {k: v for k, v in self.kept.items() if now - v["at"] < NOTE_SECONDS}
+            self.kept = {
+                k: v for k, v in self.kept.items() if now - v["at"] < NOTE_SECONDS
+            }
             self.kept[token] = {**note, "at": now}
         return token
 
@@ -956,7 +1109,11 @@ class Notes:
     def get(self, token: str | None) -> dict | None:
         with self.lock:
             found = self.kept.get(token or "")
-            return dict(found) if found and time.monotonic() - found["at"] < NOTE_SECONDS else None
+            return (
+                dict(found)
+                if found and time.monotonic() - found["at"] < NOTE_SECONDS
+                else None
+            )
 
     def start_merge(self, key: tuple[str, str], **note: object) -> tuple[str, bool]:
         """The token of the merge of a task: the one that runs, or a new one that this call starts (True)."""
@@ -980,7 +1137,11 @@ NOTES = Notes()
 
 def said_of(ran: subprocess.CompletedProcess) -> str:
     """The script's own line: the last line it wrote to stderr, or to stdout, or its exit."""
-    lines = [line.strip() for line in (ran.stderr or ran.stdout or "").splitlines() if line.strip()]
+    lines = [
+        line.strip()
+        for line in (ran.stderr or ran.stdout or "").splitlines()
+        if line.strip()
+    ]
     return lines[-1] if lines else f"it exited {ran.returncode} and said nothing"
 
 
@@ -1011,8 +1172,14 @@ session_entries = bm.session_entries
 def asked_from(workspace: Workspace, slug: str, act: str, via: str) -> str:
     """Log who asked for an act that the script took, as the event `board.act`: the act and where the
     owner's word came from (bm.VIA), never his login. "" when it is written, else why not."""
-    ran = lem_run(workspace, "project.py", "log", slug, "board.act", f"act={act}", f"via={via}")
-    return "" if ran.returncode == 0 else f" The record of where you asked was not written: {said_of(ran)}"
+    ran = lem_run(
+        workspace, "project.py", "log", slug, "board.act", f"act={act}", f"via={via}"
+    )
+    return (
+        ""
+        if ran.returncode == 0
+        else f" The record of where you asked was not written: {said_of(ran)}"
+    )
 
 
 def task_of(workspace: Workspace, slug: str) -> "bm.Task | None":
@@ -1033,7 +1200,9 @@ def inbox_wake(workspace: Workspace, slug: str) -> bool:
     for it: `lem session wake SLUG --why inbox`, which opens no session. Whether a live session got it."""
     ran = session_run(workspace, "wake", slug, "--why", "inbox")
     if ran.returncode != 0:
-        sys.stderr.write(f"serve.py: {workspace.name}: `lem session wake {slug} --why inbox` exited {ran.returncode}: {said_of(ran)}\n")
+        sys.stderr.write(
+            f"serve.py: {workspace.name}: `lem session wake {slug} --why inbox` exited {ran.returncode}: {said_of(ran)}\n"
+        )
         return False
     try:
         told = json.loads(ran.stdout)
@@ -1055,7 +1224,12 @@ def tell_session(workspace: Workspace, slug: str) -> dict:
         told = {}
     told = told if isinstance(told, dict) else {}
     workspace.look_sessions()
-    return {"woke": bool(told.get("woke")), "opened": bool(told.get("opened")), "name": told.get("name"), "said": ""}
+    return {
+        "woke": bool(told.get("woke")),
+        "opened": bool(told.get("opened")),
+        "name": told.get("name"),
+        "said": "",
+    }
 
 
 def act_approve(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
@@ -1064,14 +1238,33 @@ def act_approve(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
     t = task_of(workspace, slug)
     model = workspace.model()
     if t is None or "approve" not in bm.acts_of(t, model.seen):
-        return {"ok": False, "said": f"The criteria of {slug} do not wait for your yes now" + (f": it is {t.info['label'].lower()}." if t else ".")}
+        return {
+            "ok": False,
+            "said": f"The criteria of {slug} do not wait for your yes now"
+            + (f": it is {t.info['label'].lower()}." if t else "."),
+        }
     waiting = workspace.criteria_waiting(slug)
     if waiting is None:
-        return {"ok": False, "said": "criteria.md is not in the task directory yet: the task's session writes it. Approve the criteria there."}
+        return {
+            "ok": False,
+            "said": "criteria.md is not in the task directory yet: the task's session writes it. Approve the criteria there.",
+        }
     if form.get("digest") != waiting["digest"]:
-        return {"ok": False, "said": "The criteria changed since the page showed them. Read them again, then approve."}
+        return {
+            "ok": False,
+            "said": "The criteria changed since the page showed them. Read them again, then approve.",
+        }
     # the digest goes with the file, so that the step approves the bytes the page showed or nothing
-    ran = lem_run(workspace, "criteria.py", "approve", slug, "--file", waiting["path"], "--shown", waiting["digest"])
+    ran = lem_run(
+        workspace,
+        "criteria.py",
+        "approve",
+        slug,
+        "--file",
+        waiting["path"],
+        "--shown",
+        waiting["digest"],
+    )
     if ran.returncode != 0:
         return {"ok": False, "said": said_of(ran)}
     asked = asked_from(workspace, slug, "approve", via)
@@ -1082,7 +1275,10 @@ def act_approve(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
         then = "No session of the task ran: Lem opened one in agterm, at the end of its workspace, and it goes on to the build."
     else:
         then = f"The task’s session was not told: {told['said']} Open a session of the task here, and it goes on to the build."
-    return {"ok": True, "said": f"Your yes to the criteria is on record. {then}" + asked}
+    return {
+        "ok": True,
+        "said": f"Your yes to the criteria is on record. {then}" + asked,
+    }
 
 
 def act_park(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
@@ -1090,24 +1286,41 @@ def act_park(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
     his one line of why (`/lem park`, stages/park.md)."""
     t = task_of(workspace, slug)
     if t is None or "park" not in bm.acts_of(t, workspace.model().seen):
-        return {"ok": False, "said": f"No breaker of {slug} waits for you now: the board parks a task whose breaker stopped its build."}
-    why = " ".join(str(form.get("why") or "").split())[:WHY_CHARS] or "the owner parked it"
+        return {
+            "ok": False,
+            "said": f"No breaker of {slug} waits for you now: the board parks a task whose breaker stopped its build.",
+        }
+    why = (
+        " ".join(str(form.get("why") or "").split())[:WHY_CHARS]
+        or "the owner parked it"
+    )
     ran = lem_run(workspace, "project.py", "state", slug, "parked", why)
     if ran.returncode != 0:
         return {"ok": False, "said": said_of(ran)}
     asked = asked_from(workspace, slug, "park", via)
     told = tell_session(workspace, slug)
-    ends = ("Its session got word of it, and closes once you have left it. " if told["woke"]
-            else "" if not told["said"] else f"Its session was not told ({told['said']}): close it yourself in agterm. ")
-    return {"ok": True, "said": f"The task is parked. {ends}/lem resume {slug} in any session brings it back." + asked}
+    ends = (
+        "Its session got word of it, and closes once you have left it. "
+        if told["woke"]
+        else ""
+        if not told["said"]
+        else f"Its session was not told ({told['said']}): close it yourself in agterm. "
+    )
+    return {
+        "ok": True,
+        "said": f"The task is parked. {ends}/lem resume {slug} in any session brings it back."
+        + asked,
+    }
 
 
 # What the board says when the owner's "Open a session" of a stopped task opened nothing (`lem session open
 # SLUG --why stopped` printed `acted: false`), by its `why` (session.py REFUSALS).
-NOT_OPENED = {"working": "Its session works again, so no session was opened",
-              "gone": "Its session is gone from agterm, so no session was opened beside it: the board offers a fresh one in its place within a minute",
-              "status": "The task is no longer building, ready or landing, so no session was opened",
-              "unread": "The board cannot read whether its session works, and its stop no longer waits for you, so no session was opened beside it"}
+NOT_OPENED = {
+    "working": "Its session works again, so no session was opened",
+    "gone": "Its session is gone from agterm, so no session was opened beside it: the board offers a fresh one in its place within a minute",
+    "status": "The task is no longer building, ready or landing, so no session was opened",
+    "unread": "The board cannot read whether its session works, and its stop no longer waits for you, so no session was opened beside it",
+}
 
 
 def act_session(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
@@ -1121,11 +1334,24 @@ def act_session(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
     model = workspace.model()
     if t is None or not bm.opens_session(t, model):
         live = bm.live_of(t, model) if t else None
-        why = ("its session runs: go to it in agterm" if live and live["live"] else "the board does not know yet whether its session runs; look again in a minute" if t and live is None
-               else f"it is {t.info['label'].lower()}" if t else "no such task is on record")
+        why = (
+            "its session runs: go to it in agterm"
+            if live and live["live"]
+            else "the board does not know yet whether its session runs; look again in a minute"
+            if t and live is None
+            else f"it is {t.info['label'].lower()}"
+            if t
+            else "no such task is on record"
+        )
         return {"ok": False, "said": f"No session of {slug} was opened: {why}."}
     stopped = bm.stopped_of(t, model) is not None
-    ran = session_run(workspace, "open", slug, "--why", "stopped" if stopped else "dead" if t.opened else "owner")
+    ran = session_run(
+        workspace,
+        "open",
+        slug,
+        "--why",
+        "stopped" if stopped else "dead" if t.opened else "owner",
+    )
     if ran.returncode != 0:
         return {"ok": False, "said": said_of(ran)}
     try:
@@ -1134,14 +1360,28 @@ def act_session(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
         opened = {}
     if isinstance(opened, dict) and opened.get("acted") is False:
         workspace.look_sessions()
-        return {"ok": False, "said": f"{NOT_OPENED.get(opened.get('why'), opened.get('say') or 'No session was opened')}."}
+        return {
+            "ok": False,
+            "said": f"{NOT_OPENED.get(opened.get('why'), opened.get('say') or 'No session was opened')}.",
+        }
     name = opened.get("name") if isinstance(opened, dict) else None
     workspace.look_sessions()
     if isinstance(opened, dict) and opened.get("already"):
-        return {"ok": True, "said": f"The session {name or 'of the task'} runs already: go to it in agterm." + asked_from(workspace, slug, "session", via)}
-    beside = f" beside the one that stopped, which agterm now names “{slug} · replaced”" if stopped else ""
-    return {"ok": True, "said": f"A session of the task opened in agterm{f', “{name}”' if name else ''}, at the end of its workspace{beside}. Its agent reads the task’s state and goes on from there."
-            + asked_from(workspace, slug, "session", via)}
+        return {
+            "ok": True,
+            "said": f"The session {name or 'of the task'} runs already: go to it in agterm."
+            + asked_from(workspace, slug, "session", via),
+        }
+    beside = (
+        f" beside the one that stopped, which agterm now names “{slug} · replaced”"
+        if stopped
+        else ""
+    )
+    return {
+        "ok": True,
+        "said": f"A session of the task opened in agterm{f', “{name}”' if name else ''}, at the end of its workspace{beside}. Its agent reads the task’s state and goes on from there."
+        + asked_from(workspace, slug, "session", via),
+    }
 
 
 # How many plain words of the owner's text name a task he starts from the board: a slug is two to five
@@ -1185,9 +1425,11 @@ def release_behind(workspace: Workspace) -> str | None:
     release = lem_release.chosen(lem_release.installs(), workspace.path, version)
     if lem_release.numbers(release) >= lem_release.numbers(lem_release.BEFORE):
         return None
-    return (f"The Lem this project's sessions load is {release}, and this board runs Lem {version}, which reads only tasks begun on {lem_release.BEFORE} "
-            f"or {version}: a task started here would stop at its first step. {lem_release.UPDATE} in a Claude Code session of this project "
-            "brings the newer release; then start the task again.")
+    return (
+        f"The Lem this project's sessions load is {release}, and this board runs Lem {version}, which reads only tasks begun on {lem_release.BEFORE} "
+        f"or {version}: a task started here would stop at its first step. {lem_release.UPDATE} in a Claude Code session of this project "
+        "brings the newer release; then start the task again."
+    )
 
 
 def act_start(workspace: Workspace, form: dict, via: str) -> dict:
@@ -1206,25 +1448,46 @@ def act_start(workspace: Workspace, form: dict, via: str) -> dict:
     model = workspace.model()
     if item:
         backlog = workspace.reader.read_backlog(board, fresh=True) or {}
-        found = next((it for it in backlog.get("items") or [] if it.get("path") == item), None)
+        found = next(
+            (it for it in backlog.get("items") or [] if it.get("path") == item), None
+        )
         if found is None:
-            return {"ok": False, "said": f"No item {item} is in the backlog now: read the backlog again."}
+            return {
+                "ok": False,
+                "said": f"No item {item} is in the backlog now: read the backlog again.",
+            }
         holder = lem_project.item_holder(workspace.state, item)
         if holder:
-            return {"ok": False, "said": f"This item has a task already: {holder['task']}, {holder['status'] or 'new'}."}
+            return {
+                "ok": False,
+                "said": f"This item has a task already: {holder['task']}, {holder['status'] or 'new'}.",
+            }
         tasks = workspace.state / "tasks"
-        slug = item_slug(found["slug"], lambda name: (t := model.by_slug.get(name)) is not None and t.closed,
-                         lambda name: name in model.by_slug or (tasks / name).exists())
+        slug = item_slug(
+            found["slug"],
+            lambda name: (t := model.by_slug.get(name)) is not None and t.closed,
+            lambda name: name in model.by_slug or (tasks / name).exists(),
+        )
         ask = item
     elif words:
         slug, ask = slug_of(words), words
     else:
-        return {"ok": False, "said": "Type a few words that say what the task is: they are its ask, and its first words its name."}
+        return {
+            "ok": False,
+            "said": "Type a few words that say what the task is: they are its ask, and its first words its name.",
+        }
     if not slug:
-        return {"ok": False, "said": "The words hold no plain letter or digit (a to z, 0 to 9) for the task's name: begin with such a word."}
+        return {
+            "ok": False,
+            "said": "The words hold no plain letter or digit (a to z, 0 to 9) for the task's name: begin with such a word.",
+        }
     known = model.by_slug.get(slug)
     if known is not None and known.blocks and not known.closed:
-        return {"ok": False, "slug": slug, "said": f"{slug} is a task already, and it is {known.info['label'].lower()}: say the new one in other words."}
+        return {
+            "ok": False,
+            "slug": slug,
+            "said": f"{slug} is a task already, and it is {known.info['label'].lower()}: say the new one in other words.",
+        }
     behind = release_behind(workspace)
     if behind:
         return {"ok": False, "said": behind}
@@ -1234,14 +1497,24 @@ def act_start(workspace: Workspace, form: dict, via: str) -> dict:
     asked = asked_from(workspace, slug, "start", via)
     ran = session_run(workspace, "open", slug, "--why", "new")
     if ran.returncode != 0:
-        return {"ok": False, "slug": slug, "said": f"The task {slug} is on record, and its session did not open: {said_of(ran)}" + asked}
+        return {
+            "ok": False,
+            "slug": slug,
+            "said": f"The task {slug} is on record, and its session did not open: {said_of(ran)}"
+            + asked,
+        }
     try:
         opened = json.loads(ran.stdout)
     except ValueError:
         opened = {}
     name = (opened.get("name") if isinstance(opened, dict) else None) or slug
     workspace.look_sessions()
-    return {"ok": True, "slug": slug, "said": f"Lem opened the session {name} in agterm, at the end of its workspace. Its agent reads the ask, and takes its type and its track." + asked}
+    return {
+        "ok": True,
+        "slug": slug,
+        "said": f"Lem opened the session {name} in agterm, at the end of its workspace. Its agent reads the ask, and takes its type and its track."
+        + asked,
+    }
 
 
 def act_drop(workspace: Workspace, form: dict) -> dict:
@@ -1254,7 +1527,10 @@ def act_drop(workspace: Workspace, form: dict) -> dict:
     file of the proposals. What came of it."""
     item = str(form.get("item") or "").strip()
     if not item:
-        return {"ok": False, "said": "The drop names no item: open the backlog again, and press Drop on the item."}
+        return {
+            "ok": False,
+            "said": "The drop names no item: open the backlog again, and press Drop on the item.",
+        }
     ran = lem_run(workspace, "project.py", "proposals", "drop", item)
     if ran.returncode != 0:
         return {"ok": False, "said": said_of(ran)}
@@ -1263,8 +1539,11 @@ def act_drop(workspace: Workspace, form: dict) -> dict:
     except ValueError:
         done = {}
     names = ", ".join(done.get("proposals") or []) if isinstance(done, dict) else ""
-    return {"ok": True, "said": f"Dropped: {item} is gone from the backlog, and the day's record keeps the drop of {names or 'its proposals'}, "
-                                "so no later reviewer proposes it again."}
+    return {
+        "ok": True,
+        "said": f"Dropped: {item} is gone from the backlog, and the day's record keeps the drop of {names or 'its proposals'}, "
+        "so no later reviewer proposes it again.",
+    }
 
 
 def act_merge(workspace: Workspace, slug: str, form: dict, via: str) -> str:
@@ -1281,25 +1560,54 @@ def act_merge(workspace: Workspace, slug: str, form: dict, via: str) -> str:
     if stands:
         with NOTES.lock:
             running = NOTES.merging.get((workspace.name, slug))
-        return running or NOTES.put(task=slug, act="merge", state="stands", tip=(t.proposal or {}).get("tip"), said=stands)
+        return running or NOTES.put(
+            task=slug,
+            act="merge",
+            state="stands",
+            tip=(t.proposal or {}).get("tip"),
+            said=stands,
+        )
     if t is None or "merge" not in bm.acts_of(t, workspace.model().seen):
-        said = (f"{slug} is not open for a merge now: it is {t.info['label'].lower()}." if t and t.status != "open"
-                else f"Lem lands it again: the base moved after the checks ran, so a merge of {slug} now is refused the same way. "
-                     "The task’s session lands it again, and its new proposal is open for a merge." if t and t.merge_wait == "relands"
-                else f"The forge calls the pull request of {slug} conflicting: the task’s session brings it onto the base first." if t else f"No task {slug} is on record.")
+        said = (
+            f"{slug} is not open for a merge now: it is {t.info['label'].lower()}."
+            if t and t.status != "open"
+            else f"Lem lands it again: the base moved after the checks ran, so a merge of {slug} now is refused the same way. "
+            "The task’s session lands it again, and its new proposal is open for a merge."
+            if t and t.merge_wait == "relands"
+            else f"The forge calls the pull request of {slug} conflicting: the task’s session brings it onto the base first."
+            if t
+            else f"No task {slug} is on record."
+        )
         return NOTES.put(task=slug, act="merge", state="refused", said=said)
     with NOTES.lock:
         running = NOTES.merging.get((workspace.name, slug))
     if running:
         return running
     if form.get("confirm") != "yes":
-        return NOTES.put(task=slug, act="merge", state="refused", said="A merge runs only from its confirm step, which names the pull request and the commit: nothing was merged.")
+        return NOTES.put(
+            task=slug,
+            act="merge",
+            state="refused",
+            said="A merge runs only from its confirm step, which names the pull request and the commit: nothing was merged.",
+        )
     landing = workspace.landing_of(slug)
     tip = str(landing.get("proposed") or "")
     if not tip or form.get("tip") != tip:
-        return NOTES.put(task=slug, act="merge", state="refused", said="The branch was proposed again since the confirm step showed it: nothing was merged. Read the confirm step again.")
+        return NOTES.put(
+            task=slug,
+            act="merge",
+            state="refused",
+            said="The branch was proposed again since the confirm step showed it: nothing was merged. Read the confirm step again.",
+        )
     # the tip the confirm step showed goes with the merge: land.py merges that proposal or nothing
-    return merge_in_thread(workspace, slug, landing, "owner", tip, lambda: asked_from(workspace, slug, "merge", via))
+    return merge_in_thread(
+        workspace,
+        slug,
+        landing,
+        "owner",
+        tip,
+        lambda: asked_from(workspace, slug, "merge", via),
+    )
 
 
 def merge_tip_of(landing: dict, by: str) -> str:
@@ -1311,13 +1619,25 @@ def merge_tip_of(landing: dict, by: str) -> str:
     return str(kept.get("tip") or "") if isinstance(kept, dict) else ""
 
 
-def merge_args(landing: dict, slug: str, by: str, tip: str, standing: bool = False) -> list[str]:
+def merge_args(
+    landing: dict, slug: str, by: str, tip: str, standing: bool = False
+) -> list[str]:
     """land.py's MERGE_STEP for a task, `--by BY --via server --tip TIP`, TIP being the commit the
     merge is for (the one the owner saw, or the one the merge agent read), with the proposal's title as
     the one commit's subject where the history is squashed, and `--standing` for the owner's merge that
     a moved base refused and that stood through the new landing or a read of the moved base that said
     `safe`."""
-    args = [MERGE_STEP, slug, "--by", by, "--via", "server", "--tip", tip, *(["--standing"] if standing else [])]
+    args = [
+        MERGE_STEP,
+        slug,
+        "--by",
+        by,
+        "--via",
+        "server",
+        "--tip",
+        tip,
+        *(["--standing"] if standing else []),
+    ]
     if landing.get("history") == "squash" and landing.get("title"):
         args += ["--message", str(landing["title"])]
     return args
@@ -1329,11 +1649,31 @@ def merge_apart(workspace: Workspace, *args: str) -> subprocess.CompletedProcess
     forge, and the server's other calls go on meanwhile. The process takes the task's step lock and the
     repository's merge lock itself, as a task's session that runs `lem land merge` does, so two merges of
     one repository still take turns; its output is its own and mixes with no call in this process."""
-    return subprocess.run([sys.executable, "-B", str(SCRIPTS / "land.py"), "--repo", str(workspace.path), *args],
-                          capture_output=True, text=True, check=False)
+    return subprocess.run(
+        [
+            sys.executable,
+            "-B",
+            str(SCRIPTS / "land.py"),
+            "--repo",
+            str(workspace.path),
+            *args,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
 
-def merge_in_thread(workspace: Workspace, slug: str, landing: dict, by: str, tip: str, after=None, failed=None, standing: bool = False) -> str:
+def merge_in_thread(
+    workspace: Workspace,
+    slug: str,
+    landing: dict,
+    by: str,
+    tip: str,
+    after=None,
+    failed=None,
+    standing: bool = False,
+) -> str:
     """Run the merge of a task, the owner's or the merge agent's (`merge_args`), in a thread of its own,
     as a process of its own (`merge_apart`), and the token of its note at once: the note says that it
     runs (NOTES.merging, which the board reads as "Merging…") until the step ends. A task whose merge
@@ -1348,11 +1688,21 @@ def merge_in_thread(workspace: Workspace, slug: str, landing: dict, by: str, tip
     with TIP and the sentence of the span that holds (`bm.stands_said`); any other exit 1 is `refused`,
     with land.py's line."""
     pr = landing.get("pr") if isinstance(landing.get("pr"), dict) else None
-    what = f"pull request #{pr['number']}" if pr and pr.get("number") else f"the branch {landing.get('branch') or slug}"
+    what = (
+        f"pull request #{pr['number']}"
+        if pr and pr.get("number")
+        else f"the branch {landing.get('branch') or slug}"
+    )
     base = landing.get("base") or "the base branch"
     args = merge_args(landing, slug, by, tip, standing)
-    token, new = NOTES.start_merge((workspace.name, slug), task=slug, act="merge", state="running", tip=tip,
-                                   said=f"Lem merges {what} into {base}. The page shows the result when it ends.")
+    token, new = NOTES.start_merge(
+        (workspace.name, slug),
+        task=slug,
+        act="merge",
+        state="running",
+        tip=tip,
+        said=f"Lem merges {what} into {base}. The page shows the result when it ends.",
+    )
     if not new:
         return token
     his = by == "owner" and not standing
@@ -1373,8 +1723,12 @@ def merge_in_thread(workspace: Workspace, slug: str, landing: dict, by: str, tip
                 return
             ran = merge_apart(workspace, *args)
             if ran.returncode == 0:
-                NOTES.change(token, state="done", said=f"Merged: {what} is on {base}. Within a minute the board’s server wakes the task’s session, or opens one, which removes its worktree, and its branch when it holds nothing that was not merged."
-                             + (after() if after else ""))
+                NOTES.change(
+                    token,
+                    state="done",
+                    said=f"Merged: {what} is on {base}. Within a minute the board’s server wakes the task’s session, or opens one, which removes its worktree, and its branch when it holds nothing that was not merged."
+                    + (after() if after else ""),
+                )
             else:
                 if not stands():
                     NOTES.change(token, state="refused", said=said_of(ran))
@@ -1408,7 +1762,9 @@ def stop_all() -> None:
 def refresh(version: str) -> bytes:
     """One message of a served page's stream: Turbo's `refresh`, the default event, its id the version of
     the event log (`bm.log_version`: its inode and its count of lines)."""
-    return f'id: {version}\ndata: <turbo-stream action="refresh"></turbo-stream>\n\n'.encode("utf-8")
+    return f'id: {version}\ndata: <turbo-stream action="refresh"></turbo-stream>\n\n'.encode(
+        "utf-8"
+    )
 
 
 def behind(given: str | None, version: str) -> bool:
@@ -1424,7 +1780,9 @@ def ping(version: str) -> bytes:
     return f"id: {version}\nevent: ping\ndata: {version}\n\n".encode("utf-8")
 
 
-def opens_with_refresh(rendered: str | None, since: str | None, last_id: str | None, version: str) -> bool:
+def opens_with_refresh(
+    rendered: str | None, since: str | None, last_id: str | None, version: str
+) -> bool:
     """Whether a stream gets a refresh the moment it opens, from its request and the log's version now.
     A page's open after a render (its load, or a visit to another task) names the id its page shows
     (`rendered`), and gets one only when it is behind the log (`behind`). An open after the page may
@@ -1469,7 +1827,11 @@ class Look:
                 facts = os.fstat(handle.fileno())
             except OSError:
                 return self.lines
-            start = self.log_at[1] if self.log_at[0] == facts.st_ino and facts.st_size >= self.log_at[1] else 0
+            start = (
+                self.log_at[1]
+                if self.log_at[0] == facts.st_ino and facts.st_size >= self.log_at[1]
+                else 0
+            )
             if start == 0:
                 self.lines = 0
             left = facts.st_size - start
@@ -1519,13 +1881,20 @@ class Look:
             if path.is_dir():
                 # a folder whose files are read elsewhere (the backlog, a task's folder): a change of a name, a size or a time in it
                 listing = listed(path, deep=name == "task")
-                now[name] = (hashlib.sha256(repr(listing).encode("utf-8")).hexdigest(), max((x[2] for x in listing), default=0))
+                now[name] = (
+                    hashlib.sha256(repr(listing).encode("utf-8")).hexdigest(),
+                    max((x[2] for x in listing), default=0),
+                )
             else:
                 got = self.digest(path)
                 if got:
                     now[name] = got
         before = self.told or {}
-        changed = {name: now[name][1] // 1_000_000 for name in now if before.get(name) != now[name][0]}
+        changed = {
+            name: now[name][1] // 1_000_000
+            for name in now
+            if before.get(name) != now[name][0]
+        }
         changed |= {name: None for name in before if name not in now}
         first = self.told is None
         # a log that `lem project prune` replaced is a change also when its count is the same
@@ -1541,7 +1910,9 @@ def listed(folder: Path, deep: bool) -> list[tuple[str, int, int]]:
     what it read."""
     found = []
     for at, folders, names in os.walk(folder):
-        folders[:] = sorted(name for name in folders if not name.startswith(".")) if deep else []
+        folders[:] = (
+            sorted(name for name in folders if not name.startswith(".")) if deep else []
+        )
         for name in names:
             if name.startswith("."):
                 continue
@@ -1549,7 +1920,13 @@ def listed(folder: Path, deep: bool) -> list[tuple[str, int, int]]:
                 facts = os.stat(os.path.join(at, name))
             except OSError:
                 continue
-            found.append((os.path.relpath(os.path.join(at, name), folder), facts.st_size, facts.st_mtime_ns))
+            found.append(
+                (
+                    os.path.relpath(os.path.join(at, name), folder),
+                    facts.st_size,
+                    facts.st_mtime_ns,
+                )
+            )
     return sorted(found)
 
 
@@ -1567,7 +1944,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def log_message(self, format: str, *args) -> None:  # noqa: A002 - the base class names it so
         if self.verbose:
-            sys.stderr.write(f"serve.py: {'door ' if self.door else ''}{self.address_string()} {format % args}\n")
+            sys.stderr.write(
+                f"serve.py: {'door ' if self.door else ''}{self.address_string()} {format % args}\n"
+            )
 
     def do_HEAD(self) -> None:  # noqa: N802 - the base class names it so
         if not self.refused(body=False):
@@ -1589,30 +1968,84 @@ class Handler(BaseHTTPRequestHandler):
             said = stop_refusal(self.client_address[0], self.headers)
             if said:
                 return self.text(HTTPStatus.FORBIDDEN, said, True)
-            self.send(HTTPStatus.ACCEPTED, json.dumps({"stopping": True, "pid": os.getpid()}).encode("utf-8"), "application/json", True)
+            self.send(
+                HTTPStatus.ACCEPTED,
+                json.dumps({"stopping": True, "pid": os.getpid()}).encode("utf-8"),
+                "application/json",
+                True,
+            )
             threading.Thread(target=stop_all, daemon=True).start()
             return
-        if self.command == "POST" and path.startswith("/api/push/") and path.removeprefix("/api/push/") in PUSH_ACTS:
+        if (
+            self.command == "POST"
+            and path.startswith("/api/push/")
+            and path.removeprefix("/api/push/") in PUSH_ACTS
+        ):
             return self.push_act(path.removeprefix("/api/push/"))
         parts = unquote(path).strip("/").split("/")
-        if self.door is None and self.command == "POST" and len(parts) == 4 and parts[0] == HOSTNAME and parts[2] == "agterm" and parts[3] in AGTERM_ACTS:
+        if (
+            self.door is None
+            and self.command == "POST"
+            and len(parts) == 4
+            and parts[0] == HOSTNAME
+            and parts[2] == "agterm"
+            and parts[3] in AGTERM_ACTS
+        ):
             return self.agterm(parts[1], parts[3])
-        if self.command == "POST" and len(parts) == 5 and parts[0] == HOSTNAME and parts[2] == "tasks" and parts[4] in BOARD_ACTS and not lem_peers.hopped(self.headers):
+        if (
+            self.command == "POST"
+            and len(parts) == 5
+            and parts[0] == HOSTNAME
+            and parts[2] == "tasks"
+            and parts[4] in BOARD_ACTS
+            and not lem_peers.hopped(self.headers)
+        ):
             return self.board_act(parts[1], parts[3], parts[4])
-        if self.command == "POST" and len(parts) == 3 and parts[0] == HOSTNAME and parts[2] == "start" and not lem_peers.hopped(self.headers):
+        if (
+            self.command == "POST"
+            and len(parts) == 3
+            and parts[0] == HOSTNAME
+            and parts[2] == "start"
+            and not lem_peers.hopped(self.headers)
+        ):
             return self.board_start(parts[1])
-        if self.command == "POST" and len(parts) == 4 and parts[0] == HOSTNAME and parts[2:] == ["backlog", "drop"] and not lem_peers.hopped(self.headers):
+        if (
+            self.command == "POST"
+            and len(parts) == 4
+            and parts[0] == HOSTNAME
+            and parts[2:] == ["backlog", "drop"]
+            and not lem_peers.hopped(self.headers)
+        ):
             return self.board_drop(parts[1])
         if not lem_peers.hopped(self.headers) and self.peers.get(parts[0]) is not None:
-            return self.send(HTTPStatus.METHOD_NOT_ALLOWED, f"This page is the board of the machine {parts[0]}, which this server only shows: open {parts[0]}'s own board to act on it.\n".encode("utf-8"),
-                             "text/plain; charset=utf-8", True, {"Allow": "GET, HEAD"})
-        self.send(HTTPStatus.METHOD_NOT_ALLOWED, b"This address takes no action: it is only read.\n", "text/plain; charset=utf-8", True, {"Allow": "GET, HEAD"})
+            return self.send(
+                HTTPStatus.METHOD_NOT_ALLOWED,
+                f"This page is the board of the machine {parts[0]}, which this server only shows: open {parts[0]}'s own board to act on it.\n".encode(
+                    "utf-8"
+                ),
+                "text/plain; charset=utf-8",
+                True,
+                {"Allow": "GET, HEAD"},
+            )
+        self.send(
+            HTTPStatus.METHOD_NOT_ALLOWED,
+            b"This address takes no action: it is only read.\n",
+            "text/plain; charset=utf-8",
+            True,
+            {"Allow": "GET, HEAD"},
+        )
 
     def agterm(self, name: str, act: str) -> None:
         """One act of agterm for a page of the workspace NAME: its checks (`action_refusal`), then
         `agterm_act`; the answer is JSON, `{"done": true, "said": ...}` or `{"done": false, "said": ...}`."""
+
         def answer(status: int, done: bool, said: str) -> None:
-            self.send(status, json.dumps({"done": done, "said": said}).encode("utf-8"), "application/json", True)
+            self.send(
+                status,
+                json.dumps({"done": done, "said": said}).encode("utf-8"),
+                "application/json",
+                True,
+            )
 
         port = self.server.server_address[1]
         said = action_refusal(self.client_address[0], self.headers, port)
@@ -1620,14 +2053,24 @@ class Handler(BaseHTTPRequestHandler):
             return answer(HTTPStatus.FORBIDDEN, False, said)
         workspace = self.machine.one(name)
         if workspace is None:
-            return answer(HTTPStatus.NOT_FOUND, False, f"No workspace {name!r} on this machine.")
+            return answer(
+                HTTPStatus.NOT_FOUND, False, f"No workspace {name!r} on this machine."
+            )
         try:
             length = int(self.headers.get("Content-Length") or 0)
-            asked = json.loads(self.rfile.read(min(length, 4096)) or b"{}") if 0 < length <= 4096 else None
+            asked = (
+                json.loads(self.rfile.read(min(length, 4096)) or b"{}")
+                if 0 < length <= 4096
+                else None
+            )
         except (ValueError, OSError):
             asked = None
         if not isinstance(asked, dict):
-            return answer(HTTPStatus.BAD_REQUEST, False, "The request carries no JSON object of at most 4096 bytes.")
+            return answer(
+                HTTPStatus.BAD_REQUEST,
+                False,
+                "The request carries no JSON object of at most 4096 bytes.",
+            )
         try:
             done = agterm_act(workspace, act, asked)
         except AgtermRefused as error:
@@ -1643,34 +2086,65 @@ class Handler(BaseHTTPRequestHandler):
         the task's page, whose address names the note of the result (`?note=`): what was done and what
         happens next, or the script's own line when it refused."""
         if self.door is None:
-            said = action_refusal(self.client_address[0], self.headers, self.server.server_address[1])
+            said = action_refusal(
+                self.client_address[0], self.headers, self.server.server_address[1]
+            )
             if said:
                 return self.text(HTTPStatus.FORBIDDEN, said, True)
         workspace = self.machine.one(name)
         if workspace is None or not TASK_SLUG.fullmatch(slug):
-            return self.missing(f"No workspace {name!r} or no task {slug!r} on this machine.", True)
+            return self.missing(
+                f"No workspace {name!r} or no task {slug!r} on this machine.", True
+            )
         form = self.form()
         if form is None:
-            return self.text(HTTPStatus.BAD_REQUEST, f"The request carries no form of the board: form fields of at most {FORM_BYTES} bytes.", True)
+            return self.text(
+                HTTPStatus.BAD_REQUEST,
+                f"The request carries no form of the board: form fields of at most {FORM_BYTES} bytes.",
+                True,
+            )
         via = bm.VIA["door" if self.door is not None else "local"]
         if act == "merge":
             token = act_merge(workspace, slug, form, via)
         else:
-            result = {"approve": act_approve, "park": act_park, "session": act_session}[act](workspace, slug, form, via)
-            token = NOTES.put(task=slug, act=act, state="done" if result["ok"] else "refused", said=result["said"])
+            result = {"approve": act_approve, "park": act_park, "session": act_session}[
+                act
+            ](workspace, slug, form, via)
+            token = NOTES.put(
+                task=slug,
+                act=act,
+                state="done" if result["ok"] else "refused",
+                said=result["said"],
+            )
             workspace.acted += 1
-        under = form.get("in") if form.get("in") in pages.UNDER and form.get("in") != "tasks" else None
+        under = (
+            form.get("in")
+            if form.get("in") in pages.UNDER and form.get("in") != "tasks"
+            else None
+        )
         tab = form.get("tab") if form.get("tab") in ("criteria",) else ""
         query = urlencode({**({"in": under} if under else {}), "note": token})
-        to = f"/{quote(HOSTNAME)}/{quote(name)}/tasks/{quote(slug)}" + (f"/{tab}" if tab else "") + f"?{query}"
-        self.send(HTTPStatus.SEE_OTHER, b"", "text/plain; charset=utf-8", True, {"Location": to})
+        to = (
+            f"/{quote(HOSTNAME)}/{quote(name)}/tasks/{quote(slug)}"
+            + (f"/{tab}" if tab else "")
+            + f"?{query}"
+        )
+        self.send(
+            HTTPStatus.SEE_OTHER,
+            b"",
+            "text/plain; charset=utf-8",
+            True,
+            {"Location": to},
+        )
 
     def board_start(self, name: str) -> None:
         """A new task of the workspace NAME, from the form of "+" or a backlog item's "Start a task", through
         the checks of an act on a task (`board_act`), then `act_start`. The answer is a 303 to the new task's
         page with the note of the result, or, when no task is on record, back to the form or the backlog."""
         if self.door is None:
-            said = action_refusal(self.client_address[0], self.headers, self.server.server_address[1])
+            said = action_refusal(
+                self.client_address[0], self.headers, self.server.server_address[1]
+            )
             if said:
                 return self.text(HTTPStatus.FORBIDDEN, said, True)
         workspace = self.machine.one(name)
@@ -1678,24 +2152,43 @@ class Handler(BaseHTTPRequestHandler):
             return self.missing(f"No workspace {name!r} on this machine.", True)
         form = self.form()
         if form is None:
-            return self.text(HTTPStatus.BAD_REQUEST, f"The request carries no form of the board: form fields of at most {FORM_BYTES} bytes.", True)
-        result = act_start(workspace, form, bm.VIA["door" if self.door is not None else "local"])
+            return self.text(
+                HTTPStatus.BAD_REQUEST,
+                f"The request carries no form of the board: form fields of at most {FORM_BYTES} bytes.",
+                True,
+            )
+        result = act_start(
+            workspace, form, bm.VIA["door" if self.door is not None else "local"]
+        )
         slug = result.get("slug")
-        token = NOTES.put(task=slug, act="start", state="done" if result["ok"] else "refused", said=result["said"])
+        token = NOTES.put(
+            task=slug,
+            act="start",
+            state="done" if result["ok"] else "refused",
+            said=result["said"],
+        )
         workspace.acted += 1
         base = f"/{quote(HOSTNAME)}/{quote(name)}"
         if slug and workspace.model().by_slug.get(slug) is not None:
             to = f"{base}/tasks/{quote(slug)}?{urlencode({'note': token})}"
         else:
             to = f"{base}/{'backlog' if form.get('item') else 'new'}?{urlencode({'note': token})}"
-        self.send(HTTPStatus.SEE_OTHER, b"", "text/plain; charset=utf-8", True, {"Location": to})
+        self.send(
+            HTTPStatus.SEE_OTHER,
+            b"",
+            "text/plain; charset=utf-8",
+            True,
+            {"Location": to},
+        )
 
     def board_drop(self, name: str) -> None:
         """The owner's drop of a reviewer's item of the workspace NAME, from its "Drop" on the Backlog view,
         through the checks of an act on a task (`board_act`), then `act_drop`. The answer is a 303 to the
         Backlog view with the note of the result."""
         if self.door is None:
-            said = action_refusal(self.client_address[0], self.headers, self.server.server_address[1])
+            said = action_refusal(
+                self.client_address[0], self.headers, self.server.server_address[1]
+            )
             if said:
                 return self.text(HTTPStatus.FORBIDDEN, said, True)
         workspace = self.machine.one(name)
@@ -1703,11 +2196,28 @@ class Handler(BaseHTTPRequestHandler):
             return self.missing(f"No workspace {name!r} on this machine.", True)
         form = self.form()
         if form is None:
-            return self.text(HTTPStatus.BAD_REQUEST, f"The request carries no form of the board: form fields of at most {FORM_BYTES} bytes.", True)
+            return self.text(
+                HTTPStatus.BAD_REQUEST,
+                f"The request carries no form of the board: form fields of at most {FORM_BYTES} bytes.",
+                True,
+            )
         result = act_drop(workspace, form)
-        token = NOTES.put(task=None, act="drop", state="done" if result["ok"] else "refused", said=result["said"])
+        token = NOTES.put(
+            task=None,
+            act="drop",
+            state="done" if result["ok"] else "refused",
+            said=result["said"],
+        )
         workspace.acted += 1
-        self.send(HTTPStatus.SEE_OTHER, b"", "text/plain; charset=utf-8", True, {"Location": f"/{quote(HOSTNAME)}/{quote(name)}/backlog?{urlencode({'note': token})}"})
+        self.send(
+            HTTPStatus.SEE_OTHER,
+            b"",
+            "text/plain; charset=utf-8",
+            True,
+            {
+                "Location": f"/{quote(HOSTNAME)}/{quote(name)}/backlog?{urlencode({'note': token})}"
+            },
+        )
 
     def form(self) -> dict | None:
         """The fields of a form the board posts (urlencoded, one value each), or None for any other body."""
@@ -1719,7 +2229,11 @@ class Handler(BaseHTTPRequestHandler):
         if kind != "application/x-www-form-urlencoded" or not 0 <= length <= FORM_BYTES:
             return None
         try:
-            fields = parse_qs(self.rfile.read(length).decode("utf-8"), keep_blank_values=True, max_num_fields=20)
+            fields = parse_qs(
+                self.rfile.read(length).decode("utf-8"),
+                keep_blank_values=True,
+                max_num_fields=20,
+            )
         except (UnicodeDecodeError, ValueError, OSError):
             return None
         return {key: values[-1] for key, values in fields.items()}
@@ -1728,37 +2242,79 @@ class Handler(BaseHTTPRequestHandler):
         """The board's notifications, read: the service worker, the machine's public key (made at first
         use), and what the worker shows for the newest push (lem_push)."""
         if path == "/sw.js":
-            return self.send(HTTPStatus.OK, SERVICE_WORKER.read_bytes(), TYPES[".js"], body, {"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"})
+            return self.send(
+                HTTPStatus.OK,
+                SERVICE_WORKER.read_bytes(),
+                TYPES[".js"],
+                body,
+                {"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"},
+            )
         if path == "/api/push/latest":
-            return self.send(HTTPStatus.OK, json.dumps(lem_push.latest()).encode("utf-8"), "application/json", body)
+            return self.send(
+                HTTPStatus.OK,
+                json.dumps(lem_push.latest()).encode("utf-8"),
+                "application/json",
+                body,
+            )
         try:
             said = {"key": lem_push.machine_key()[1]}
         except lem_push.PushError as error:
-            return self.send(HTTPStatus.SERVICE_UNAVAILABLE, json.dumps({"said": str(error)}).encode("utf-8"), "application/json", body)
-        return self.send(HTTPStatus.OK, json.dumps(said).encode("utf-8"), "application/json", body)
+            return self.send(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                json.dumps({"said": str(error)}).encode("utf-8"),
+                "application/json",
+                body,
+            )
+        return self.send(
+            HTTPStatus.OK, json.dumps(said).encode("utf-8"), "application/json", body
+        )
 
     def push_act(self, act: str) -> None:
         """A device turns the board's notifications on or off, or asks for a test push to itself, with
         its subscription as JSON. At the door the owner's login and the board's origin were checked
         (`door_refusal`); on the main listener the request must come from the board's own page on this
         Mac (`action_refusal`). The answer is JSON, with `said` when it is refused."""
-        def answer(status: int, said: dict) -> None:
-            self.send(status, json.dumps(said).encode("utf-8"), "application/json", True)
 
-        if self.door is None and action_refusal(self.client_address[0], self.headers, self.server.server_address[1]):
-            return answer(HTTPStatus.FORBIDDEN, {"said": "The board's notifications are turned on only from the board's own page, on this Mac or through the tailnet door."})
+        def answer(status: int, said: dict) -> None:
+            self.send(
+                status, json.dumps(said).encode("utf-8"), "application/json", True
+            )
+
+        if self.door is None and action_refusal(
+            self.client_address[0], self.headers, self.server.server_address[1]
+        ):
+            return answer(
+                HTTPStatus.FORBIDDEN,
+                {
+                    "said": "The board's notifications are turned on only from the board's own page, on this Mac or through the tailnet door."
+                },
+            )
         try:
             length = int(self.headers.get("Content-Length") or 0)
-            given = json.loads(self.rfile.read(length)) if 0 < length <= lem_push.MAX_BODY else None
+            given = (
+                json.loads(self.rfile.read(length))
+                if 0 < length <= lem_push.MAX_BODY
+                else None
+            )
         except (ValueError, OSError):
             given = None
         if not isinstance(given, dict):
-            return answer(HTTPStatus.BAD_REQUEST, {"said": f"The request carries no JSON object of at most {lem_push.MAX_BODY} bytes."})
+            return answer(
+                HTTPStatus.BAD_REQUEST,
+                {
+                    "said": f"The request carries no JSON object of at most {lem_push.MAX_BODY} bytes."
+                },
+            )
         try:
             if act == "subscribe":
-                return answer(HTTPStatus.OK, lem_push.subscribe(given, self.headers.get("User-Agent") or ""))
+                return answer(
+                    HTTPStatus.OK,
+                    lem_push.subscribe(given, self.headers.get("User-Agent") or ""),
+                )
             if act == "unsubscribe":
-                return answer(HTTPStatus.OK, lem_push.unsubscribe(given.get("endpoint")))
+                return answer(
+                    HTTPStatus.OK, lem_push.unsubscribe(given.get("endpoint"))
+                )
             return answer(HTTPStatus.OK, lem_push.send_test(given.get("endpoint")))
         except lem_push.PushError as error:
             return answer(HTTPStatus.UNPROCESSABLE_ENTITY, {"said": str(error)})
@@ -1770,11 +2326,17 @@ class Handler(BaseHTTPRequestHandler):
         (`door_refusal`); on the main listener, its `Host` (`host_refusal`)."""
         door = self.door
         if door is None:
-            said = host_refusal(self.headers, self.server.server_address[1], self.listen_host)
+            said = host_refusal(
+                self.headers, self.server.server_address[1], self.listen_host
+            )
         else:
-            said = door_refusal(self.headers, self.command, door.owner, door.name, door.port)
+            said = door_refusal(
+                self.headers, self.command, door.owner, door.name, door.port
+            )
             if said == NOT_THE_OWNER and door.reread():
-                said = door_refusal(self.headers, self.command, door.owner, door.name, door.port)
+                said = door_refusal(
+                    self.headers, self.command, door.owner, door.name, door.port
+                )
         if said is None:
             return False
         try:
@@ -1783,7 +2345,14 @@ class Handler(BaseHTTPRequestHandler):
             pass
         return True
 
-    def send(self, status: int, data: bytes, kind: str, body: bool, headers: dict | None = None) -> None:
+    def send(
+        self,
+        status: int,
+        data: bytes,
+        kind: str,
+        body: bool,
+        headers: dict | None = None,
+    ) -> None:
         self.send_response(status)
         self.send_header("Content-Type", kind)
         self.send_header("Content-Length", str(len(data)))
@@ -1798,10 +2367,14 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(data)
 
     def text(self, status: int, said: str, body: bool) -> None:
-        self.send(status, (said + "\n").encode("utf-8"), "text/plain; charset=utf-8", body)
+        self.send(
+            status, (said + "\n").encode("utf-8"), "text/plain; charset=utf-8", body
+        )
 
     def redirect(self, to: str, body: bool) -> None:
-        self.send(HTTPStatus.FOUND, b"", "text/plain; charset=utf-8", body, {"Location": to})
+        self.send(
+            HTTPStatus.FOUND, b"", "text/plain; charset=utf-8", body, {"Location": to}
+        )
 
     def answer(self, body: bool) -> None:
         split = urlsplit(self.path)
@@ -1812,30 +2385,63 @@ class Handler(BaseHTTPRequestHandler):
                 listing = self.spaces()
                 if len(listing) == 1 and listing[0]["url"]:
                     return self.redirect(listing[0]["url"], body)
-                return self.html(HTTPStatus.OK, pages.index_page(HOSTNAME, listing, asset_link), body)
+                return self.html(
+                    HTTPStatus.OK, pages.index_page(HOSTNAME, listing, asset_link), body
+                )
             if path == "/api/workspaces":
-                return self.send(HTTPStatus.OK, json.dumps(self.spaces()).encode("utf-8"), "application/json", body)
+                return self.send(
+                    HTTPStatus.OK,
+                    json.dumps(self.spaces()).encode("utf-8"),
+                    "application/json",
+                    body,
+                )
             if path == "/api/server":
-                return self.send(HTTPStatus.OK, json.dumps({**RUNNING, "push": lem_push.status()}).encode("utf-8"), "application/json", body)
+                return self.send(
+                    HTTPStatus.OK,
+                    json.dumps({**RUNNING, "push": lem_push.status()}).encode("utf-8"),
+                    "application/json",
+                    body,
+                )
             if path in ("/sw.js", "/api/push/key", "/api/push/latest"):
                 return self.push_read(path, body)
             if path == "/manifest.webmanifest":
-                return self.send(HTTPStatus.OK, pages.manifest(asset_link).encode("utf-8"), TYPES[".webmanifest"], body, {"Cache-Control": "no-cache"})
+                return self.send(
+                    HTTPStatus.OK,
+                    pages.manifest(asset_link).encode("utf-8"),
+                    TYPES[".webmanifest"],
+                    body,
+                    {"Cache-Control": "no-cache"},
+                )
             first, slash, rest = path[1:].partition("/")
-            peer = None if lem_peers.hopped(self.headers) or first == HOSTNAME else self.peers.get(first)
+            peer = (
+                None
+                if lem_peers.hopped(self.headers) or first == HOSTNAME
+                else self.peers.get(first)
+            )
             if peer is not None:
                 return self.forwarded(peer, body)
             if path.startswith("/assets/") or path.startswith(f"/{HOSTNAME}/assets/"):
-                file = ASSETS.get(path.removeprefix(f"/{HOSTNAME}").removeprefix("/assets/"))
+                file = ASSETS.get(
+                    path.removeprefix(f"/{HOSTNAME}").removeprefix("/assets/")
+                )
                 if file is None or not file.is_file():
                     return self.text(HTTPStatus.NOT_FOUND, "Not found.", body)
                 data, more = file.read_bytes(), self.caching(split.query)
-                if file.suffix in (".js", ".css") and "gzip" in (self.headers.get("Accept-Encoding") or ""):
-                    data, more = packed(file, data), {**more, "Content-Encoding": "gzip", "Vary": "Accept-Encoding"}
+                if file.suffix in (".js", ".css") and "gzip" in (
+                    self.headers.get("Accept-Encoding") or ""
+                ):
+                    data, more = (
+                        packed(file, data),
+                        {**more, "Content-Encoding": "gzip", "Vary": "Accept-Encoding"},
+                    )
                 return self.send(HTTPStatus.OK, data, TYPES[file.suffix], body, more)
             if first in ALIASES:
                 # the machine's other name: the same page under the one in every address
-                return self.redirect(f"/{quote(HOSTNAME)}/{quote(rest)}" + (f"?{split.query}" if split.query else ""), body)
+                return self.redirect(
+                    f"/{quote(HOSTNAME)}/{quote(rest)}"
+                    + (f"?{split.query}" if split.query else ""),
+                    body,
+                )
             if first == HOSTNAME:
                 name, slash, rest = rest.partition("/")
                 workspace = machine.one(name) if name else None
@@ -1848,9 +2454,15 @@ class Handler(BaseHTTPRequestHandler):
             workspace = machine.one(first)
             if workspace is None:
                 return self.missing(f"No page {path!r} on this server.", body)
-            known = rest.split("/")[0] in PAGES or rest == "stream" or rest.startswith("tasks/")
+            known = (
+                rest.split("/")[0] in PAGES
+                or rest == "stream"
+                or rest.startswith("tasks/")
+            )
             to = f"/{quote(HOSTNAME)}/{quote(first)}/{quote(rest) if known else ''}"
-            return self.redirect(to + (f"?{split.query}" if split.query and known else ""), body)
+            return self.redirect(
+                to + (f"?{split.query}" if split.query and known else ""), body
+            )
         except (lem_state.StateError, lem_project.SettingsError) as error:
             return self.failed(str(error), body)
         except (BrokenPipeError, ConnectionResetError):
@@ -1861,52 +2473,104 @@ class Handler(BaseHTTPRequestHandler):
         request of another machine's server, this machine's in the list that server sent."""
         own = self.machine.listing()
         if lem_peers.hopped(self.headers):
-            return lem_peers.with_own(lem_peers.spaces_of(self.headers.get(lem_peers.SPACES)), own, HOSTNAME)
+            return lem_peers.with_own(
+                lem_peers.spaces_of(self.headers.get(lem_peers.SPACES)), own, HOSTNAME
+            )
         return lem_peers.merged(own, HOSTNAME, self.peers.states())
 
     def forwarded(self, peer, body: bool) -> None:
         """A page, a file or a stream of a joined machine, passed through (`lem_peers.forward`); a machine
         that does not answer gets a page that says so."""
         if self.command not in ("GET", "HEAD"):
-            return self.text(HTTPStatus.METHOD_NOT_ALLOWED, "Only a read passes to another machine.", body)
+            return self.text(
+                HTTPStatus.METHOD_NOT_ALLOWED,
+                "Only a read passes to another machine.",
+                body,
+            )
         try:
-            lem_peers.forward(self, peer, self.peers.base(peer), STOPPING, self.spaces())
+            lem_peers.forward(
+                self, peer, self.peers.base(peer), STOPPING, self.spaces()
+            )
         except lem_peers.PeerError as error:
-            self.html(HTTPStatus.BAD_GATEWAY, pages.error_page(f"{peer.name} is not reachable", f"{error}.", asset_link,
-                                                               f"{peer.name} may sleep, or its board server may not run: `lem serve --tailscale` on {peer.name} "
-                                                               "starts it with its door. The workspaces of the machines that answer are at /."), body)
+            self.html(
+                HTTPStatus.BAD_GATEWAY,
+                pages.error_page(
+                    f"{peer.name} is not reachable",
+                    f"{error}.",
+                    asset_link,
+                    f"{peer.name} may sleep, or its board server may not run: `lem serve --tailscale` on {peer.name} "
+                    "starts it with its door. The workspaces of the machines that answer are at /.",
+                ),
+                body,
+            )
 
-    def in_workspace(self, workspace: Workspace, rest: str, query: str, body: bool) -> None:
+    def in_workspace(
+        self, workspace: Workspace, rest: str, query: str, body: bool
+    ) -> None:
         """A page, or the stream, of one workspace."""
         if rest in PAGES:
             return self.page(workspace, PAGES[rest], query, body)
         if rest == "tasks" or rest.startswith("tasks/"):
-            return self.task(workspace, rest.removeprefix("tasks").strip("/"), query, body)
+            return self.task(
+                workspace, rest.removeprefix("tasks").strip("/"), query, body
+            )
         if rest == "stream":
-            return self.refreshes(workspace, query) if body else self.send(HTTPStatus.OK, b"", "text/event-stream", False)
-        return self.missing(f"No page {rest!r} in the workspace {workspace.name}.", body)
+            return (
+                self.refreshes(workspace, query)
+                if body
+                else self.send(HTTPStatus.OK, b"", "text/event-stream", False)
+            )
+        return self.missing(
+            f"No page {rest!r} in the workspace {workspace.name}.", body
+        )
 
-    def context(self, workspace: Workspace, query: str, fresh_backlog: bool = False) -> "pages.Ctx":
+    def context(
+        self, workspace: Workspace, query: str, fresh_backlog: bool = False
+    ) -> "pages.Ctx":
         """What a page of the workspace is drawn from, read now."""
         model = workspace.model()
         reader = workspace.reader
         backlog = reader.read_backlog(board, fresh=fresh_backlog)
-        return pages.Ctx(host=HOSTNAME, workspace=workspace.name, model=model, asset=asset_link, prefs=prefs_of(self.headers.get("Cookie")),
-                         backlog=backlog, problems=[*reader.problems.values(), *([workspace.session_problem] if workspace.session_problem else [])],
-                         read_at=model.now, events=len(reader.events), log_id=reader.log_id(), keep_days=keep_days_of(reader),
-                         spaces=self.spaces(), native=bool(NATIVE.search(self.headers.get("User-Agent") or "")),
-                         local=self.door is None and self.client_address[0] in LOOPBACK and not lem_peers.hopped(self.headers),
-                         forge_look=dict(workspace.forge), filters=pages.backlog_filter(parse_qs(query)),
-                         # the board's acts: on this Mac, or through the door for the owner's login; never on a page another machine passed through
-                         can_act=not lem_peers.hopped(self.headers) and (self.door is not None or self.client_address[0] in LOOPBACK),
-                         criteria_waiting=workspace.criteria_waiting, landing_of=workspace.landing_of, merging=NOTES.running(workspace.name),
-                         note=NOTES.get((parse_qs(query).get("note") or [None])[0]))
+        return pages.Ctx(
+            host=HOSTNAME,
+            workspace=workspace.name,
+            model=model,
+            asset=asset_link,
+            prefs=prefs_of(self.headers.get("Cookie")),
+            backlog=backlog,
+            problems=[
+                *reader.problems.values(),
+                *([workspace.session_problem] if workspace.session_problem else []),
+            ],
+            read_at=model.now,
+            events=len(reader.events),
+            log_id=reader.log_id(),
+            keep_days=keep_days_of(reader),
+            spaces=self.spaces(),
+            native=bool(NATIVE.search(self.headers.get("User-Agent") or "")),
+            local=self.door is None
+            and self.client_address[0] in LOOPBACK
+            and not lem_peers.hopped(self.headers),
+            forge_look=dict(workspace.forge),
+            filters=pages.backlog_filter(parse_qs(query)),
+            # the board's acts: on this Mac, or through the door for the owner's login; never on a page another machine passed through
+            can_act=not lem_peers.hopped(self.headers)
+            and (self.door is not None or self.client_address[0] in LOOPBACK),
+            criteria_waiting=workspace.criteria_waiting,
+            landing_of=workspace.landing_of,
+            merging=NOTES.running(workspace.name),
+            note=NOTES.get((parse_qs(query).get("note") or [None])[0]),
+        )
 
     def page(self, workspace: Workspace, name: str, query: str, body: bool) -> None:
         """One page of the workspace, rendered from its model now; with the header `Turbo-Frame: task`
         (the panel's close), the empty frame alone."""
         try:
-            ctx = self.context(workspace, query, fresh_backlog=name == "backlog_page" and "read" in parse_qs(query))
+            ctx = self.context(
+                workspace,
+                query,
+                fresh_backlog=name == "backlog_page" and "read" in parse_qs(query),
+            )
             if self.headers.get("Turbo-Frame") == "task":
                 ctx.view = {v: k for k, v in PAGES.items()}[name] or "tasks"
                 status, html_ = task_pages.frame_page(ctx)
@@ -1916,18 +2580,28 @@ class Handler(BaseHTTPRequestHandler):
             return self.broke(workspace, name, error, body)
         return self.html(HTTPStatus.OK, html_, body)
 
-    def broke(self, workspace: Workspace, name: str, error: Exception, body: bool) -> None:
-        sys.stderr.write(f"serve.py: the page {name} of {workspace.path} failed: {error!r}\n")
+    def broke(
+        self, workspace: Workspace, name: str, error: Exception, body: bool
+    ) -> None:
+        sys.stderr.write(
+            f"serve.py: the page {name} of {workspace.path} failed: {error!r}\n"
+        )
         import traceback
+
         traceback.print_exc()
-        return self.failed(f"The page of {workspace.name} was not drawn: {error!r}.", body)
+        return self.failed(
+            f"The page of {workspace.name} was not drawn: {error!r}.", body
+        )
 
     def task(self, workspace: Workspace, rest: str, query: str, body: bool) -> None:
         """The board of one task: `SLUG`, `SLUG/TAB`, `SLUG/artifacts/PATH/`, and `SLUG/raw/PATH`, an HTML
         artifact. The view under the panel is `?in=VIEW`, the kanban by default."""
         slug, _, more = rest.partition("/")
         if not TASK_SLUG.fullmatch(slug):
-            return self.missing(f"No task {slug!r} in the workspace {workspace.name}: a task's name is lower-case words joined by hyphens.", body)
+            return self.missing(
+                f"No task {slug!r} in the workspace {workspace.name}: a task's name is lower-case words joined by hyphens.",
+                body,
+            )
         tab, _, path = more.partition("/")
         path = path.strip("/")
         if tab == "raw":
@@ -1938,16 +2612,24 @@ class Handler(BaseHTTPRequestHandler):
             ctx = self.context(workspace, query)
             under = (parse_qs(query).get("in") or ["tasks"])[0]
             ctx.view = under if under in pages.UNDER else "tasks"
-            ctx.task, ctx.tab, ctx.file = slug, tab or "overview", (path or None) if tab == "artifacts" else None
+            ctx.task, ctx.tab, ctx.file = (
+                slug,
+                tab or "overview",
+                (path or None) if tab == "artifacts" else None,
+            )
             if path and tab != "artifacts":
                 ctx.tab = f"{tab}/{path}"
             state = workspace.state
             plan = workspace.plan_of(slug)
             try:
                 ctx.artifact_files = task_pages.artifact_files(state, slug, plan)
-                ctx.artifact_map = task_pages.artifact_map(state, slug, ctx.artifact_files)
+                ctx.artifact_map = task_pages.artifact_map(
+                    state, slug, ctx.artifact_files
+                )
             except OSError as error:
-                ctx.artifacts_problem = f"the files of the task do not read: {error.strerror or error}"
+                ctx.artifacts_problem = (
+                    f"the files of the task do not read: {error.strerror or error}"
+                )
             ctx.told = workspace.told_of
             ctx.how_of = workspace.how_of
             ctx.folder_of = lambda task: task_pages.folder_of(state, task)
@@ -1958,7 +2640,10 @@ class Handler(BaseHTTPRequestHandler):
                 return found[0] if found else None
 
             ctx.artifact = artifact
-            ctx.raw_href = lambda task, file: f"{ctx.base}/tasks/{quote(task)}/raw/" + "/".join(quote(part, safe="") for part in file.split("/"))
+            ctx.raw_href = lambda task, file: (
+                f"{ctx.base}/tasks/{quote(task)}/raw/"
+                + "/".join(quote(part, safe="") for part in file.split("/"))
+            )
             if self.headers.get("Turbo-Frame") == "task":
                 status, html_ = task_pages.frame_page(ctx)
             else:
@@ -1971,7 +2656,11 @@ class Handler(BaseHTTPRequestHandler):
         """An HTML artifact of a task, as it is, for the panel's sandboxed frame: only a file the task's
         artifacts list as a page, and under a sandbox of its own, so that opened alone it runs as no page
         of the board's origin."""
-        found = lem_artifacts.one(workspace.state / "tasks" / slug, slug, path) if path else None
+        found = (
+            lem_artifacts.one(workspace.state / "tasks" / slug, slug, path)
+            if path
+            else None
+        )
         if not found or found[0]["kind"] != "html":
             return self.text(HTTPStatus.NOT_FOUND, "Not found.", body)
         try:
@@ -1979,7 +2668,15 @@ class Handler(BaseHTTPRequestHandler):
         except OSError:
             return self.text(HTTPStatus.NOT_FOUND, "Not found.", body)
         # a link of the page that opens a tab of its own (the pull request) may leave the sandbox; an in-page link scrolls the frame
-        return self.send(HTTPStatus.OK, data, TYPES[".html"], body, {"Content-Security-Policy": "sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox"})
+        return self.send(
+            HTTPStatus.OK,
+            data,
+            TYPES[".html"],
+            body,
+            {
+                "Content-Security-Policy": "sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox"
+            },
+        )
 
     def media(self, workspace: Workspace, slug: str, path: str, body: bool) -> None:
         """A picture of the task's media folder, for a document that shows it: a file under `media/` with
@@ -1991,24 +2688,57 @@ class Handler(BaseHTTPRequestHandler):
             return self.text(HTTPStatus.NOT_FOUND, "Not found.", body)
         file = folder.joinpath(*parts)
         try:
-            if not file.is_file() or not file.resolve().is_relative_to(folder.resolve()):
+            if not file.is_file() or not file.resolve().is_relative_to(
+                folder.resolve()
+            ):
                 return self.text(HTTPStatus.NOT_FOUND, "Not found.", body)
             data = file.read_bytes()
         except OSError:
             return self.text(HTTPStatus.NOT_FOUND, "Not found.", body)
         kind = lem_artifacts.image_type(file.name, data[:16])
         if kind is None:
-            return self.text(HTTPStatus.NOT_FOUND, "Not found: the board shows only a PNG, JPEG, GIF or WebP picture from a task's media folder.", body)
-        return self.send(HTTPStatus.OK, data, kind, body, {"Cache-Control": "no-cache", "Content-Security-Policy": "default-src 'none'; sandbox"})
+            return self.text(
+                HTTPStatus.NOT_FOUND,
+                "Not found: the board shows only a PNG, JPEG, GIF or WebP picture from a task's media folder.",
+                body,
+            )
+        return self.send(
+            HTTPStatus.OK,
+            data,
+            kind,
+            body,
+            {
+                "Cache-Control": "no-cache",
+                "Content-Security-Policy": "default-src 'none'; sandbox",
+            },
+        )
 
     def html(self, status: int, text: str, body: bool) -> None:
         self.send(status, text.encode("utf-8"), TYPES[".html"], body)
 
     def missing(self, said: str, body: bool) -> None:
-        self.html(HTTPStatus.NOT_FOUND, pages.error_page("Not found", said, asset_link, "The list of the workspaces of this machine is at /."), body)
+        self.html(
+            HTTPStatus.NOT_FOUND,
+            pages.error_page(
+                "Not found",
+                said,
+                asset_link,
+                "The list of the workspaces of this machine is at /.",
+            ),
+            body,
+        )
 
     def failed(self, said: str, body: bool) -> None:
-        self.html(HTTPStatus.INTERNAL_SERVER_ERROR, pages.error_page("The board failed", said, asset_link, "The server's log says more: lem serve writes it to serve.log in Lem's home folder."), body)
+        self.html(
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            pages.error_page(
+                "The board failed",
+                said,
+                asset_link,
+                "The server's log says more: lem serve writes it to serve.log in Lem's home folder.",
+            ),
+            body,
+        )
 
     def refreshes(self, workspace: Workspace, query: str) -> None:
         """Server-sent events for the served pages: a Turbo `refresh` each time the workspace's log grew or
@@ -2021,17 +2751,28 @@ class Handler(BaseHTTPRequestHandler):
         change (`?since=ID`, `Last-Event-ID`) gets one at once whatever the log (`opens_with_refresh`).
         The thread ends when its client hung up or the server stops."""
         asked = parse_qs(query)
-        rendered, since = ((asked.get(key) or [None])[0] for key in ("rendered", "since"))
+        rendered, since = (
+            (asked.get(key) or [None])[0] for key in ("rendered", "since")
+        )
         self.send_response(HTTPStatus.OK)
-        for key, value in {"Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
-                           "Referrer-Policy": "same-origin", "X-Accel-Buffering": "no", "Connection": "close"}.items():
+        for key, value in {
+            "Content-Type": "text/event-stream; charset=utf-8",
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+            "Referrer-Policy": "same-origin",
+            "X-Accel-Buffering": "no",
+            "Connection": "close",
+        }.items():
             self.send_header(key, value)
         self.end_headers()
         self.close_connection = True
         # the Inbox's record too, which the Inbox thread writes only when a look changed it (lem_inbox), so that a
         # task's page shows the link to its thread, or why there is none, within seconds of the send
-        files = {"demo": workspace.state / "demo", "inbox": workspace.state / bm.INBOX_LOOK,
-                 "settings": Path(workspace.path) / lem_state.TEAM_SETTINGS}
+        files = {
+            "demo": workspace.state / "demo",
+            "inbox": workspace.state / bm.INBOX_LOOK,
+            "settings": Path(workspace.path) / lem_state.TEAM_SETTINGS,
+        }
         task = (asked.get("task") or [""])[0]
         if TASK_SLUG.fullmatch(task) and (workspace.state / "tasks" / task).is_dir():
             files["task"] = workspace.state / "tasks" / task
@@ -2048,7 +2789,13 @@ class Handler(BaseHTTPRequestHandler):
         version, _ = look.changes()
         acted = workspace.acted
         try:
-            self.wfile.write(refresh(version) if opens_with_refresh(rendered, since, self.headers.get("Last-Event-ID"), version) else b": open\n\n")
+            self.wfile.write(
+                refresh(version)
+                if opens_with_refresh(
+                    rendered, since, self.headers.get("Last-Event-ID"), version
+                )
+                else b": open\n\n"
+            )
             quiet = time.monotonic()
             while not STOPPING.wait(WATCH_SECONDS):
                 if self.hung_up():
@@ -2080,7 +2827,11 @@ class Handler(BaseHTTPRequestHandler):
     def caching(self, query: str) -> dict:
         """A file whose address carries `?v=` (a hash of its content) is kept for a year; any other
         is asked again each time, with its ETag."""
-        return {"Cache-Control": "public, max-age=31536000, immutable"} if parse_qs(query).get("v") else {"Cache-Control": "no-cache"}
+        return (
+            {"Cache-Control": "public, max-age=31536000, immutable"}
+            if parse_qs(query).get("v")
+            else {"Cache-Control": "no-cache"}
+        )
 
 
 def packed(file: Path, data: bytes) -> bytes:
@@ -2109,8 +2860,11 @@ def open_prs(model: "bm.Model") -> list[dict]:
     """Each task that is `open` with a pull request, as the model has it: its name and its number. A task
     its merge agent's seat blocked counts as open (`failed_seat`): its pull request waits for the owner's
     go on, and a merge on GitHub meanwhile still lands it."""
-    return [{"task": t.slug, "n": int(bm.pr_of(t)["n"]), "url": bm.pr_of(t)["url"]} for t in model.tasks
-            if (t.status == "open" or t.failed_seat == "merger") and bm.pr_of(t)]
+    return [
+        {"task": t.slug, "n": int(bm.pr_of(t)["n"]), "url": bm.pr_of(t)["url"]}
+        for t in model.tasks
+        if (t.status == "open" or t.failed_seat == "merger") and bm.pr_of(t)
+    ]
 
 
 def has_forge(workspace: Workspace, model: "bm.Model") -> bool:
@@ -2118,7 +2872,12 @@ def has_forge(workspace: Workspace, model: "bm.Model") -> bool:
     settings = workspace.settings()
     if model.meta.get("demo") or not settings:
         return False
-    url = subprocess.run(["git", "-C", str(settings["main"]), "config", "--get", "remote.origin.url"], capture_output=True, text=True, check=False).stdout.strip()
+    url = subprocess.run(
+        ["git", "-C", str(settings["main"]), "config", "--get", "remote.origin.url"],
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout.strip()
     return bool(GITHUB_REMOTE.match(url))
 
 
@@ -2136,14 +2895,22 @@ def forge_once(workspace: Workspace, now: int | None = None) -> list[dict]:
     if not prs:
         workspace.forge["problem"] = None
         return []
-    due = bm.forge_due(prs, workspace.forge["looked"], now, FORGE_SECONDS * 1000, prs and has_forge(workspace, model))
+    due = bm.forge_due(
+        prs,
+        workspace.forge["looked"],
+        now,
+        FORGE_SECONDS * 1000,
+        prs and has_forge(workspace, model),
+    )
     if not due:
         return []
     workspace.forge["looked"] = now
     settings = workspace.settings()
     main = Path(settings["main"])
     if not shutil.which("gh"):
-        workspace.forge["problem"] = "the board cannot ask GitHub about the open pull requests: the `gh` command is not on PATH (install it and run `gh auth login`)"
+        workspace.forge["problem"] = (
+            "the board cannot ask GitHub about the open pull requests: the `gh` command is not on PATH (install it and run `gh auth login`)"
+        )
         return []
     land = lem_sibling.module(SCRIPTS / "land.py")
     try:
@@ -2151,13 +2918,25 @@ def forge_once(workspace: Workspace, now: int | None = None) -> list[dict]:
             looked = land.forge_look(main, str(settings["branch"]["base"]), due)
     except (land.LandError, ValueError, OSError) as error:
         said = str(error)
-        why = "`gh` is not signed in to github.com (`gh auth login` signs it in)" if "auth" in said.lower() or "login" in said.lower() else said
-        workspace.forge["problem"] = f"the board cannot ask GitHub about the open pull requests: {why}"
+        why = (
+            "`gh` is not signed in to github.com (`gh auth login` signs it in)"
+            if "auth" in said.lower() or "login" in said.lower()
+            else said
+        )
+        workspace.forge["problem"] = (
+            f"the board cannot ask GitHub about the open pull requests: {why}"
+        )
         return []
     workspace.forge["problem"] = None
     # what the forge says of each open pull request's merge with the base, on which head: the board's
     # conflict mark (`Model.seen`) and the duty of a conflict read it
-    seen = {pr["task"]: {"mergeable": (looked.get(pr["n"]) or {}).get("mergeable"), "head": (looked.get(pr["n"]) or {}).get("headRefOid")} for pr in prs}
+    seen = {
+        pr["task"]: {
+            "mergeable": (looked.get(pr["n"]) or {}).get("mergeable"),
+            "head": (looked.get(pr["n"]) or {}).get("headRefOid"),
+        }
+        for pr in prs
+    }
     if seen != workspace.forge.get("seen"):
         # an open page shows a conflict that came or went
         workspace.acted += 1
@@ -2175,7 +2954,9 @@ def forge_once(workspace: Workspace, now: int | None = None) -> list[dict]:
             continue
         state = (looked.get(pr["n"]) or {}).get("state")
         key = (pr["task"], pr["n"])
-        if state not in ("MERGED", "CLOSED") or not merged_due(key, workspace.forge["done"], failed, clock):
+        if state not in ("MERGED", "CLOSED") or not merged_due(
+            key, workspace.forge["done"], failed, clock
+        ):
             if key in failed and key not in workspace.forge["done"]:
                 workspace.forge["problem"] = failed[key][1]
             continue
@@ -2187,7 +2968,15 @@ def forge_once(workspace: Workspace, now: int | None = None) -> list[dict]:
                 said = [json.loads(result.stdout).get("state") or "landed"]
             except (ValueError, AttributeError):
                 said = ["done"]
-        ran.append({"task": pr["task"], "pr": pr["n"], "state": state, "exit": result.returncode, "said": said[-1] if said else ""})
+        ran.append(
+            {
+                "task": pr["task"],
+                "pr": pr["n"],
+                "state": state,
+                "exit": result.returncode,
+                "said": said[-1] if said else "",
+            }
+        )
         if result.returncode == 0:
             # done only once it ran: a failure is tried again after DUTY_RETRY
             workspace.forge["done"].add(key)
@@ -2203,7 +2992,9 @@ def merged_due(key: tuple, done: set, failed: dict, clock: float) -> bool:
     """Whether the server runs `lem land merged` for a pull request the forge called merged or closed
     now: not once it ran (DONE), and not within DUTY_RETRY of a failed try (FAILED, by key: its time
     on CLOCK's scale and its line)."""
-    return key not in done and (key not in failed or clock - failed[key][0] >= DUTY_RETRY)
+    return key not in done and (
+        key not in failed or clock - failed[key][0] >= DUTY_RETRY
+    )
 
 
 def keep_forge_look(state: Path, seen: dict, now: int) -> None:
@@ -2211,14 +3002,21 @@ def keep_forge_look(state: Path, seen: dict, now: int) -> None:
     and a rename, so that the board's model and `lem project waiting` read what the server saw. A write
     that fails is a line in the server's log: the server's own look still holds in memory."""
     file = state / bm.FORGE_LOOK
-    looked = datetime.fromtimestamp(now / 1000, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    looked = datetime.fromtimestamp(now / 1000, timezone.utc).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
     temporary = file.with_name(f".{file.name}.{os.getpid()}.tmp")
     try:
-        temporary.write_text(json.dumps({"looked": looked, "seen": seen}, indent=1) + "\n", encoding="utf-8")
+        temporary.write_text(
+            json.dumps({"looked": looked, "seen": seen}, indent=1) + "\n",
+            encoding="utf-8",
+        )
         os.replace(temporary, file)
     except OSError as error:
         temporary.unlink(missing_ok=True)
-        sys.stderr.write(f"serve.py: the forge's look was not written to {file}: {error}\n")
+        sys.stderr.write(
+            f"serve.py: the forge's look was not written to {file}: {error}\n"
+        )
 
 
 # ---- the server's duties across tasks ----
@@ -2233,7 +3031,9 @@ CLOSED_ON_FORGE = "the pull request was closed on the forge"
 
 def same_head(head: object, tip: object) -> bool:
     """A head the forge names and a tip Lem proposed are one commit, whichever is the shorter."""
-    return bool(head and tip) and (str(head).startswith(str(tip)) or str(tip).startswith(str(head)))
+    return bool(head and tip) and (
+        str(head).startswith(str(tip)) or str(tip).startswith(str(head))
+    )
 
 
 def run_start(t: "bm.Task") -> int:
@@ -2248,15 +3048,23 @@ def wait_start(t: "bm.Task") -> int:
     """The place in a queued task's events of the first block of its wait now: the run of `queued` blocks
     with the `after:` line of the newest one. A queued block behind another task starts a new wait, so a
     session opened or woken for the wait before it does not count for this one."""
+
     def after(block: dict) -> list[str]:
         return [line for line in bm.lines_of(block) if line.startswith("after: ")]
+
     i = len(t.blocks) - 1
-    while i > 0 and t.blocks[i - 1]["status"] == "queued" and after(t.blocks[i - 1]) == after(t.blocks[i]):
+    while (
+        i > 0
+        and t.blocks[i - 1]["status"] == "queued"
+        and after(t.blocks[i - 1]) == after(t.blocks[i])
+    ):
         i -= 1
     return t.blocks[i]["order"]
 
 
-def duties(model: "bm.Model", seen: dict, kept: set, merging: set = frozenset()) -> list[tuple[str, str, str]]:
+def duties(
+    model: "bm.Model", seen: dict, kept: set, merging: set = frozenset()
+) -> list[tuple[str, str, str]]:
     """What the server owes the tasks of a workspace now, each `(VERB, SLUG, WHY)` for `lem session VERB
     SLUG --why WHY`, or `("merge", SLUG, "merger")` for the merge agent's merge, read from the files and
     the forge's last look (`seen`, by task) alone, so that a pause of the server loses nothing; MERGING
@@ -2302,28 +3110,55 @@ def duties(model: "bm.Model", seen: dict, kept: set, merging: set = frozenset())
         return []
     out = []
     for t in model.tasks:
-        ended = t.status == "landed" or (t.status == "dropped" and t.text.startswith(CLOSED_ON_FORGE))
+        ended = t.status == "landed" or (
+            t.status == "dropped" and t.text.startswith(CLOSED_ON_FORGE)
+        )
         if ended and t.slug in kept:
             since = run_start(t)
-            if not any(w["order"] > since for w in t.wakes) and not (t.opened and t.opened["order"] > since):
+            if not any(w["order"] > since for w in t.wakes) and not (
+                t.opened and t.opened["order"] > since
+            ):
                 out.append(("wake", t.slug, "merged"))
         elif t.status == "open" and t.proposal:
             look = seen.get(t.slug) or {}
             since = t.proposal["order"]
-            woke = any(w["order"] > since and w.get("why") in ("conflict", None) for w in t.wakes) or bool(t.opened and t.opened["order"] > since and t.opened.get("why") == "conflict")
-            if look.get("mergeable") == "CONFLICTING" and same_head(look.get("head"), t.proposal.get("tip")) and not woke:
+            woke = any(
+                w["order"] > since and w.get("why") in ("conflict", None)
+                for w in t.wakes
+            ) or bool(
+                t.opened
+                and t.opened["order"] > since
+                and t.opened.get("why") == "conflict"
+            )
+            if (
+                look.get("mergeable") == "CONFLICTING"
+                and same_head(look.get("head"), t.proposal.get("tip"))
+                and not woke
+            ):
                 out.append(("wake", t.slug, "conflict"))
             elif stands_due(t, seen, merging):
                 out.append(("merge", t.slug, "owner"))
             elif merge_due(t, seen, merging):
                 out.append(("merge", t.slug, "merger"))
-            elif t.refused and (t.refused.get("by") == "merger" or (refusal_of(t).get("from") == "lem" and refusal_of(t).get("kind") == "base")):
+            elif t.refused and (
+                t.refused.get("by") == "merger"
+                or (
+                    refusal_of(t).get("from") == "lem"
+                    and refusal_of(t).get("kind") == "base"
+                )
+            ):
                 after = t.refused["order"]
-                if not any(w["order"] > after for w in t.wakes) and not (t.opened and t.opened["order"] > after):
+                if not any(w["order"] > after for w in t.wakes) and not (
+                    t.opened and t.opened["order"] > after
+                ):
                     out.append(("wake", t.slug, "refused"))
         elif (due := bm.stop_due(t, model)) is not None:
             out.append(STOP_DUTIES[due["step"]](t.slug))
-        elif t.status == "queued" and bm.after_ended(t, model) and model.sessions is not None:
+        elif (
+            t.status == "queued"
+            and bm.after_ended(t, model)
+            and model.sessions is not None
+        ):
             live = bm.live_of(t, model) or {}
             since = wait_start(t)
             if t.opened and t.opened["order"] > since:
@@ -2338,8 +3173,11 @@ def duties(model: "bm.Model", seen: dict, kept: set, merging: set = frozenset())
 
 
 # The duty of each step of the guard of a stopped session (`bm.stop_due`), as `(VERB, SLUG, WHY)`.
-STOP_DUTIES = {"status": lambda slug: ("wake", slug, "status"), "restart": lambda slug: ("open", slug, "stopped"),
-               "stopped": lambda slug: ("stopped", slug, "stopped")}
+STOP_DUTIES = {
+    "status": lambda slug: ("wake", slug, "status"),
+    "restart": lambda slug: ("open", slug, "stopped"),
+    "stopped": lambda slug: ("stopped", slug, "stopped"),
+}
 
 
 def merge_due(t: "bm.Task", seen: dict, merging: set) -> bool:
@@ -2351,21 +3189,32 @@ def merge_due(t: "bm.Task", seen: dict, merging: set) -> bool:
     review, make a new try); the forge does not call it conflicting (its session brings it onto the
     base first); and this server runs no merge of it (MERGING)."""
     review = t.merge_review
-    return bool(t.status == "open" and t.proposal and review and review.get("verdict") == "merge" and not review.get("calls")
-                and review.get("base_call") != "another round"
-                and same_head(review.get("tip"), t.proposal.get("tip")) and not t.refused
-                and not bm.conflicts(t, seen) and t.slug not in merging)
+    return bool(
+        t.status == "open"
+        and t.proposal
+        and review
+        and review.get("verdict") == "merge"
+        and not review.get("calls")
+        and review.get("base_call") != "another round"
+        and same_head(review.get("tip"), t.proposal.get("tip"))
+        and not t.refused
+        and not bm.conflicts(t, seen)
+        and t.slug not in merging
+    )
 
 
 def since_proposal(t: "bm.Task") -> list[dict]:
     """The task's events after its newest proposal, oldest first; [] with none."""
-    return t.events[t.proposal["order"]:] if t.proposal else []
+    return t.events[t.proposal["order"] :] if t.proposal else []
 
 
 def refusal_of(t: "bm.Task") -> dict:
     """The newest refusal of a merge of the tip Lem proposed last, as its `merge.refused` event has it
     (`by`, `via`, `from`, and for Lem's own `kind`), or {}."""
-    return next((e for e in reversed(since_proposal(t)) if e.get("event") == "merge.refused"), {})
+    return next(
+        (e for e in reversed(since_proposal(t)) if e.get("event") == "merge.refused"),
+        {},
+    )
 
 
 def stands_due(t: "bm.Task", seen: dict, merging: set) -> bool:
@@ -2378,9 +3227,21 @@ def stands_due(t: "bm.Task", seen: dict, merging: set) -> bool:
     server runs no merge of it (MERGING)."""
     tip = (t.proposal or {}).get("tip")
     review = t.merge_review or {}
-    again = same_head(review.get("tip"), tip) and review.get("base_call") == "another round"
-    return bool(t.status == "open" and t.proposal and not t.refused and not again and not bm.conflicts(t, seen) and t.slug not in merging
-                and any(e.get("event") == "merge.stands" and same_head(e.get("tip"), tip) for e in since_proposal(t)))
+    again = (
+        same_head(review.get("tip"), tip) and review.get("base_call") == "another round"
+    )
+    return bool(
+        t.status == "open"
+        and t.proposal
+        and not t.refused
+        and not again
+        and not bm.conflicts(t, seen)
+        and t.slug not in merging
+        and any(
+            e.get("event") == "merge.stands" and same_head(e.get("tip"), tip)
+            for e in since_proposal(t)
+        )
+    )
 
 
 def duty_key(verb: str, slug: str, why: str, landing: dict) -> tuple:
@@ -2392,20 +3253,38 @@ def duty_key(verb: str, slug: str, why: str, landing: dict) -> tuple:
     if verb != "merge":
         return (verb, slug, why)
     proposed = str(landing.get("proposed") or "")
-    review = landing.get("merge_review") if isinstance(landing.get("merge_review"), dict) else {}
-    read = str(review.get("at") or "") if proposed and review.get("tip") == proposed else ""
+    review = (
+        landing.get("merge_review")
+        if isinstance(landing.get("merge_review"), dict)
+        else {}
+    )
+    read = (
+        str(review.get("at") or "")
+        if proposed and review.get("tip") == proposed
+        else ""
+    )
     return (verb, slug, why, proposed, read)
 
 
-def duty_args(verb: str, slug: str, why: str, seen: dict, model: "bm.Model") -> list[str]:
+def duty_args(
+    verb: str, slug: str, why: str, seen: dict, model: "bm.Model"
+) -> list[str]:
     """The words of `lem session` for one duty. A conflict's wake keeps the head the forge named on its
     record (`session.wake`), one wake for each head. A step of the guard of a stopped session names the
     session it is for, the one `lem session list` gave (`Model.sessions`), so that the act refuses
     another one; the stop is `lem session stopped SLUG`, which has no why."""
     head = (seen.get(slug) or {}).get("head") if why == "conflict" else None
-    named = ((model.sessions or {}).get(slug) or {}).get("session") if why in ("status", "stopped") else None
+    named = (
+        ((model.sessions or {}).get(slug) or {}).get("session")
+        if why in ("status", "stopped")
+        else None
+    )
     words = [verb, slug] + ([] if verb == "stopped" else ["--why", why])
-    return words + (["--head", str(head)] if head else []) + (["--session", str(named)] if named else [])
+    return (
+        words
+        + (["--head", str(head)] if head else [])
+        + (["--session", str(named)] if named else [])
+    )
 
 
 def run_duties(workspace: Workspace, now: float | None = None) -> list[dict]:
@@ -2419,19 +3298,41 @@ def run_duties(workspace: Workspace, now: float | None = None) -> list[dict]:
     model = workspace.model()
     seen = workspace.forge.get("seen") or {}
     ran = []
-    for verb, slug, why in duties(model, seen, workspace.kept, NOTES.running(workspace.name)):
-        key = duty_key(verb, slug, why, workspace.landing_of(slug) if verb == "merge" else {})
+    for verb, slug, why in duties(
+        model, seen, workspace.kept, NOTES.running(workspace.name)
+    ):
+        key = duty_key(
+            verb, slug, why, workspace.landing_of(slug) if verb == "merge" else {}
+        )
         if key in workspace.failed and now - workspace.failed[key] < DUTY_RETRY:
             continue
         if verb == "merge":
+
             def failed(key: tuple = key) -> None:
                 # a refusal land.py kept ends the duty for that tip; any other end waits DUTY_RETRY
                 workspace.failed[key] = time.monotonic()
+
             # `why` is who merges: the merge agent, or the owner whose merge stood through a new landing
             # or a safe read of the moved base
             landing = workspace.landing_of(slug)
-            merge_in_thread(workspace, slug, landing, why, merge_tip_of(landing, why), failed=failed, standing=why == "owner")
-            ran.append({"verb": verb, "task": slug, "why": why, "exit": None, "said": "started"})
+            merge_in_thread(
+                workspace,
+                slug,
+                landing,
+                why,
+                merge_tip_of(landing, why),
+                failed=failed,
+                standing=why == "owner",
+            )
+            ran.append(
+                {
+                    "verb": verb,
+                    "task": slug,
+                    "why": why,
+                    "exit": None,
+                    "said": "started",
+                }
+            )
             continue
         words = duty_args(verb, slug, why, seen, model)
         result = session_run(workspace, *words)
@@ -2439,8 +3340,16 @@ def run_duties(workspace: Workspace, now: float | None = None) -> list[dict]:
             workspace.failed.pop(key, None)
         else:
             workspace.failed[key] = now
-        ran.append({"verb": verb, "task": slug, "why": why, "words": words, "exit": result.returncode,
-                    "said": said_of(result) if result.returncode else not_acted(result)})
+        ran.append(
+            {
+                "verb": verb,
+                "task": slug,
+                "why": why,
+                "words": words,
+                "exit": result.returncode,
+                "said": said_of(result) if result.returncode else not_acted(result),
+            }
+        )
     return ran
 
 
@@ -2451,7 +3360,11 @@ def not_acted(ran: subprocess.CompletedProcess) -> str:
         said = json.loads(ran.stdout)
     except ValueError:
         return ""
-    return str(said.get("say") or said.get("why") or "") if isinstance(said, dict) and said.get("acted") is False else ""
+    return (
+        str(said.get("say") or said.get("why") or "")
+        if isinstance(said, dict) and said.get("acted") is False
+        else ""
+    )
 
 
 # How often the server runs `lem project prune` for one workspace. A guess (2026-11-21): the number it
@@ -2475,18 +3388,40 @@ def prune_once(workspace: Workspace, now: float | None = None) -> dict | None:
     try:
         answer = json.loads(ran.stdout)
     except ValueError:
-        return {"exit": ran.returncode or 1, "said": said_of(ran), "skipped": [], "failed": []}
-    return {"exit": ran.returncode, "said": answer.get("said") or said_of(ran), "files": answer.get("files", 0), "folders": len(answer.get("folders") or []),
-            "bytes": answer.get("bytes", 0), "events": answer.get("events", 0), "skipped": answer.get("skipped") or [], "failed": answer.get("failed") or []}
+        return {
+            "exit": ran.returncode or 1,
+            "said": said_of(ran),
+            "skipped": [],
+            "failed": [],
+        }
+    return {
+        "exit": ran.returncode,
+        "said": answer.get("said") or said_of(ran),
+        "files": answer.get("files", 0),
+        "folders": len(answer.get("folders") or []),
+        "bytes": answer.get("bytes", 0),
+        "events": answer.get("events", 0),
+        "skipped": answer.get("skipped") or [],
+        "failed": answer.get("failed") or [],
+    }
 
 
 def prune_line(name: str, ran: dict) -> str | None:
     """The server's log line for a run of `prune`: none when it removed, summarized, skipped and failed
     nothing. A removed file counts when it was empty too, so a run of 0 bytes may have a line."""
-    if (ran["exit"] == 0 and not ran.get("files") and not ran.get("folders") and not ran.get("bytes") and not ran.get("events")
-            and not ran["skipped"] and not ran["failed"]):
+    if (
+        ran["exit"] == 0
+        and not ran.get("files")
+        and not ran.get("folders")
+        and not ran.get("bytes")
+        and not ran.get("events")
+        and not ran["skipped"]
+        and not ran["failed"]
+    ):
         return None
-    parts = [f"serve.py: {name}: `lem project prune` exited {ran['exit']}: {ran['said']}"]
+    parts = [
+        f"serve.py: {name}: `lem project prune` exited {ran['exit']}: {ran['said']}"
+    ]
     parts += [f"skipped {one['path']}: {one['why']}" for one in ran["skipped"]]
     parts += [f"failed {one['path']}: {one['error']}" for one in ran["failed"]]
     return "; ".join(parts) + "\n"
@@ -2500,29 +3435,45 @@ def forge_loop(machine: "Machine") -> None:
         for workspace in machine.workspaces():
             try:
                 for one in forge_once(workspace):
-                    sys.stderr.write(f"serve.py: {workspace.name}: pull request {one['pr']} of {one['task']} is {one['state'].lower()} on GitHub; "
-                                     f"`lem land merged {one['task']}` exited {one['exit']}: {one['said']}\n")
+                    sys.stderr.write(
+                        f"serve.py: {workspace.name}: pull request {one['pr']} of {one['task']} is {one['state'].lower()} on GitHub; "
+                        f"`lem land merged {one['task']}` exited {one['exit']}: {one['said']}\n"
+                    )
             except Exception as error:  # noqa: BLE001 - one workspace that fails says why, and the others are still looked at
-                workspace.forge["problem"] = f"the board's look at GitHub failed: {error!r}"
+                workspace.forge["problem"] = (
+                    f"the board's look at GitHub failed: {error!r}"
+                )
             try:
                 workspace.look_sessions()
                 for one in run_duties(workspace):
                     if one["verb"] == "merge":
                         owner = one["why"] == "owner"
-                        sys.stderr.write(f"serve.py: {workspace.name}: `lem land merge {one['task']} --by {one['why']} --via server{' --standing' if owner else ''}` started, "
-                                         + ("after the owner's merge stood through a new landing or a safe read of the moved base\n" if owner else "after the merge agent's verdict `merge`\n"))
+                        sys.stderr.write(
+                            f"serve.py: {workspace.name}: `lem land merge {one['task']} --by {one['why']} --via server{' --standing' if owner else ''}` started, "
+                            + (
+                                "after the owner's merge stood through a new landing or a safe read of the moved base\n"
+                                if owner
+                                else "after the merge agent's verdict `merge`\n"
+                            )
+                        )
                         continue
-                    sys.stderr.write(f"serve.py: {workspace.name}: `lem session {' '.join(one['words'])}` exited {one['exit']}"
-                                     f"{': ' + one['said'] if one['said'] else ''}\n")
+                    sys.stderr.write(
+                        f"serve.py: {workspace.name}: `lem session {' '.join(one['words'])}` exited {one['exit']}"
+                        f"{': ' + one['said'] if one['said'] else ''}\n"
+                    )
             except Exception as error:  # noqa: BLE001 - as above: one workspace that fails says why
-                workspace.session_problem = f"the board's look at the task sessions failed: {error!r}"
+                workspace.session_problem = (
+                    f"the board's look at the task sessions failed: {error!r}"
+                )
             try:
                 ran = prune_once(workspace)
                 line = prune_line(workspace.name, ran) if ran else None
                 if line:
                     sys.stderr.write(line)
             except Exception as error:  # noqa: BLE001 - as above: one workspace that fails says why
-                sys.stderr.write(f"serve.py: {workspace.name}: `lem project prune` failed: {error!r}\n")
+                sys.stderr.write(
+                    f"serve.py: {workspace.name}: `lem project prune` failed: {error!r}\n"
+                )
 
 
 def checkout_of(directory: str) -> Path:
@@ -2536,7 +3487,9 @@ def address(host: str, port: int) -> tuple[int, tuple]:
     try:
         found = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
     except socket.gaierror as error:
-        raise ServeError(f"--host {host} does not resolve to an address of this machine ({error.strerror}): name an address of it") from error
+        raise ServeError(
+            f"--host {host} does not resolve to an address of this machine ({error.strerror}): name an address of it"
+        ) from error
     family, _, _, _, where = found[0]
     return family, where
 
@@ -2555,9 +3508,13 @@ def bind(host: str, port: int, handler: type, flag: str) -> ThreadingHTTPServer:
         return Server(where[:2] if family == socket.AF_INET else where, handler)
     except OSError as error:
         if error.errno == errno.EADDRINUSE:
-            raise ServeError(f"port {port} on {host} is in use: another `lem serve` runs (`lem serve --stop` ends it), "
-                             f"or another program; name a free one with `lem serve {flag} N`") from error
-        raise ServeError(f"cannot listen on {host}:{port} ({error.strerror}): name an address of this machine with --host, or another port with {flag}") from error
+            raise ServeError(
+                f"port {port} on {host} is in use: another `lem serve` runs (`lem serve --stop` ends it), "
+                f"or another program; name a free one with `lem serve {flag} N`"
+            ) from error
+        raise ServeError(
+            f"cannot listen on {host}:{port} ({error.strerror}): name an address of this machine with --host, or another port with {flag}"
+        ) from error
 
 
 # What the tailnet door says when it cannot start: the Mac itself is still served without it.
@@ -2569,26 +3526,43 @@ def tailscale_cli() -> str | None:
     found = shutil.which("tailscale")
     if found:
         return os.path.abspath(found)
-    return next((place for place in TAILSCALE_PLACES if os.path.isfile(place) and os.access(place, os.X_OK)), None)
+    return next(
+        (
+            place
+            for place in TAILSCALE_PLACES
+            if os.path.isfile(place) and os.access(place, os.X_OK)
+        ),
+        None,
+    )
 
 
 def need_cli() -> str:
     cli = tailscale_cli()
     if cli is None:
-        raise ServeError(f"no tailscale CLI on this Mac (not on PATH, nor at {', '.join(TAILSCALE_PLACES)}): install Tailscale "
-                         f"from https://tailscale.com/download on this Mac and on the phone, and sign both in with the owner's account; {STILL_LOCAL}")
+        raise ServeError(
+            f"no tailscale CLI on this Mac (not on PATH, nor at {', '.join(TAILSCALE_PLACES)}): install Tailscale "
+            f"from https://tailscale.com/download on this Mac and on the phone, and sign both in with the owner's account; {STILL_LOCAL}"
+        )
     return cli
 
 
-def tailscale_json(cli: str, args: list[str], timeout: float = TAILSCALE_TIMEOUT) -> dict:
+def tailscale_json(
+    cli: str, args: list[str], timeout: float = TAILSCALE_TIMEOUT
+) -> dict:
     """What `tailscale ARGS` prints, read as JSON; an empty answer is an empty object."""
     said = f"`tailscale {' '.join(args)}`"
     try:
-        ran = subprocess.run([cli, *args], capture_output=True, text=True, check=False, timeout=timeout)
+        ran = subprocess.run(
+            [cli, *args], capture_output=True, text=True, check=False, timeout=timeout
+        )
     except (OSError, subprocess.TimeoutExpired) as error:
-        raise ServeError(f"{said} did not run ({error}): start the Tailscale app, then try again; {STILL_LOCAL}") from error
+        raise ServeError(
+            f"{said} did not run ({error}): start the Tailscale app, then try again; {STILL_LOCAL}"
+        ) from error
     if ran.returncode != 0:
-        raise ServeError(f"{said} failed: {(ran.stderr or ran.stdout).strip()}; start the Tailscale app and connect, then try again; {STILL_LOCAL}")
+        raise ServeError(
+            f"{said} failed: {(ran.stderr or ran.stdout).strip()}; start the Tailscale app and connect, then try again; {STILL_LOCAL}"
+        )
     try:
         data = json.loads(ran.stdout) if ran.stdout.strip() else {}
     except ValueError as error:
@@ -2605,20 +3579,28 @@ def tailnet(cli: str, strict: bool = True) -> dict:
     status = tailscale_json(cli, ["status", "--json"])
     state = status.get("BackendState")
     if state != "Running":
-        raise ServeError(f"Tailscale is not connected on this Mac (its state is {state}): open Tailscale and connect, then try again; {STILL_LOCAL}")
+        raise ServeError(
+            f"Tailscale is not connected on this Mac (its state is {state}): open Tailscale and connect, then try again; {STILL_LOCAL}"
+        )
     me = status.get("Self") if isinstance(status.get("Self"), dict) else {}
     if strict and me.get("Tags"):
-        raise ServeError("this Mac is a tagged node of the tailnet, so no person owns it and Tailscale sends no login for the door to check: "
-                         f"sign this Mac in to Tailscale with the owner's own account; {STILL_LOCAL}")
+        raise ServeError(
+            "this Mac is a tagged node of the tailnet, so no person owns it and Tailscale sends no login for the door to check: "
+            f"sign this Mac in to Tailscale with the owner's own account; {STILL_LOCAL}"
+        )
     if strict and not status.get("CertDomains"):
-        raise ServeError("HTTPS certificates are off for this tailnet: turn on MagicDNS and HTTPS in the Tailscale admin console "
-                         f"(https://tailscale.com/kb/1153/enabling-https), then try again; {STILL_LOCAL}")
+        raise ServeError(
+            "HTTPS certificates are off for this tailnet: turn on MagicDNS and HTTPS in the Tailscale admin console "
+            f"(https://tailscale.com/kb/1153/enabling-https), then try again; {STILL_LOCAL}"
+        )
     users = status.get("User") if isinstance(status.get("User"), dict) else {}
     user = users.get(str(me.get("UserID")))
     name = str(me.get("DNSName") or "").rstrip(".")
     login = user.get("LoginName") if isinstance(user, dict) else None
     if not name or not isinstance(login, str) or not login:
-        raise ServeError(f"`tailscale status --json` names no DNS name or no login for this Mac: sign it in to Tailscale with the owner's account; {STILL_LOCAL}")
+        raise ServeError(
+            f"`tailscale status --json` names no DNS name or no login for this Mac: sign it in to Tailscale with the owner's account; {STILL_LOCAL}"
+        )
     return {"name": name, "login": login}
 
 
@@ -2644,7 +3626,9 @@ def machine_names(tailnet_name: str | None = None) -> tuple[str, tuple[str, ...]
             except ServeError:
                 status = {}
             me = status.get("Self") if isinstance(status.get("Self"), dict) else {}
-            if status.get("BackendState") == "Running" and isinstance(me.get("DNSName"), str):
+            if status.get("BackendState") == "Running" and isinstance(
+                me.get("DNSName"), str
+            ):
                 tailnet_name = me["DNSName"].rstrip(".")
     return names_of(tailnet_name)
 
@@ -2676,12 +3660,24 @@ def served_target(cli: str, name: str, port: int) -> tuple[bool, str | None, boo
     status = tailscale_json(cli, ["serve", "status", "--json"])
     tcp = status.get("TCP") if isinstance(status.get("TCP"), dict) else {}
     web = status.get("Web") if isinstance(status.get("Web"), dict) else {}
-    funnel = status.get("AllowFunnel") if isinstance(status.get("AllowFunnel"), dict) else {}
-    site = web.get(f"{name}:{port}") if isinstance(web.get(f"{name}:{port}"), dict) else {}
+    funnel = (
+        status.get("AllowFunnel") if isinstance(status.get("AllowFunnel"), dict) else {}
+    )
+    site = (
+        web.get(f"{name}:{port}") if isinstance(web.get(f"{name}:{port}"), dict) else {}
+    )
     handlers = site.get("Handlers") if isinstance(site.get("Handlers"), dict) else {}
-    root = handlers.get("/") if len(handlers) == 1 and isinstance(handlers.get("/"), dict) else {}
+    root = (
+        handlers.get("/")
+        if len(handlers) == 1 and isinstance(handlers.get("/"), dict)
+        else {}
+    )
     target = root.get("Proxy") if isinstance(root.get("Proxy"), str) else None
-    return str(port) in tcp or bool(handlers), (target.rstrip("/") if target else None), bool(funnel.get(f"{name}:{port}"))
+    return (
+        str(port) in tcp or bool(handlers),
+        (target.rstrip("/") if target else None),
+        bool(funnel.get(f"{name}:{port}")),
+    )
 
 
 def publish(cli: str, name: str, port: int) -> str:
@@ -2690,21 +3686,35 @@ def publish(cli: str, name: str, port: int) -> str:
     door = door_address(port)
     held, target, funnel = served_target(cli, name, port)
     if funnel:
-        raise ServeError(f"Tailscale Funnel is on for port {port}, which would put the board on the internet: "
-                         f"`tailscale funnel --https={port} off` turns it off, or name another port with --tailscale-port")
+        raise ServeError(
+            f"Tailscale Funnel is on for port {port}, which would put the board on the internet: "
+            f"`tailscale funnel --https={port} off` turns it off, or name another port with --tailscale-port"
+        )
     if held and target == door:
         return "kept"
     if held:
-        raise ServeError(f"port {port} of this Mac on the tailnet already serves {target or 'another target'}, and Lem never takes "
-                         "a port from another entry: name a free one with --tailscale-port (`tailscale serve status` lists the ports in use)")
+        raise ServeError(
+            f"port {port} of this Mac on the tailnet already serves {target or 'another target'}, and Lem never takes "
+            "a port from another entry: name a free one with --tailscale-port (`tailscale serve status` lists the ports in use)"
+        )
     try:
-        ran = subprocess.run([cli, "serve", "--bg", f"--https={port}", door], capture_output=True, text=True, check=False, timeout=TAILSCALE_TIMEOUT)
+        ran = subprocess.run(
+            [cli, "serve", "--bg", f"--https={port}", door],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=TAILSCALE_TIMEOUT,
+        )
     except (OSError, subprocess.TimeoutExpired) as error:
-        raise ServeError(f"`tailscale serve --bg --https={port} {door}` did not run ({error}); {STILL_LOCAL}") from error
+        raise ServeError(
+            f"`tailscale serve --bg --https={port} {door}` did not run ({error}); {STILL_LOCAL}"
+        ) from error
     held, target, _ = served_target(cli, name, port)
     if ran.returncode != 0 or target != door:
-        raise ServeError(f"`tailscale serve --bg --https={port} {door}` did not put the door on the tailnet: "
-                         f"{(ran.stderr or ran.stdout).strip() or 'the entry is not there'}; {STILL_LOCAL}")
+        raise ServeError(
+            f"`tailscale serve --bg --https={port} {door}` did not put the door on the tailnet: "
+            f"{(ran.stderr or ran.stdout).strip() or 'the entry is not there'}; {STILL_LOCAL}"
+        )
     return "published"
 
 
@@ -2715,16 +3725,32 @@ def tailscale_off(port: int) -> dict:
     door = door_address(port)
     held, target, _ = served_target(cli, name, port)
     if not held:
-        return {"removed": False, "port": port, "said": f"port {port} of this Mac on the tailnet serves nothing; there is nothing of Lem's to take out"}
+        return {
+            "removed": False,
+            "port": port,
+            "said": f"port {port} of this Mac on the tailnet serves nothing; there is nothing of Lem's to take out",
+        }
     if target != door:
-        raise ServeError(f"port {port} of this Mac on the tailnet serves {target or 'another target'}, not Lem's door ({door}): "
-                         "Lem leaves another entry as it is; name Lem's port with --tailscale-port")
+        raise ServeError(
+            f"port {port} of this Mac on the tailnet serves {target or 'another target'}, not Lem's door ({door}): "
+            "Lem leaves another entry as it is; name Lem's port with --tailscale-port"
+        )
     try:
-        ran = subprocess.run([cli, "serve", f"--https={port}", "off"], capture_output=True, text=True, check=False, timeout=TAILSCALE_TIMEOUT)
+        ran = subprocess.run(
+            [cli, "serve", f"--https={port}", "off"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=TAILSCALE_TIMEOUT,
+        )
     except (OSError, subprocess.TimeoutExpired) as error:
-        raise ServeError(f"`tailscale serve --https={port} off` did not run ({error}): run it by hand") from error
+        raise ServeError(
+            f"`tailscale serve --https={port} off` did not run ({error}): run it by hand"
+        ) from error
     if ran.returncode != 0 or served_target(cli, name, port)[0]:
-        raise ServeError(f"`tailscale serve --https={port} off` did not take the entry out: {(ran.stderr or ran.stdout).strip()}; run it by hand")
+        raise ServeError(
+            f"`tailscale serve --https={port} off` did not take the entry out: {(ran.stderr or ran.stdout).strip()}; run it by hand"
+        )
     return {"removed": True, "port": port, "url": f"https://{name}:{port}/"}
 
 
@@ -2748,14 +3774,22 @@ def git_commit(root: Path) -> str | None:
         ref = head.removeprefix("ref:").strip()
         common = gitdir
         if (gitdir / "commondir").is_file():
-            common = (gitdir / (gitdir / "commondir").read_text(encoding="utf-8").strip()).resolve()
+            common = (
+                gitdir / (gitdir / "commondir").read_text(encoding="utf-8").strip()
+            ).resolve()
         for place in (gitdir, common):
             if (place / ref).is_file():
                 return (place / ref).read_text(encoding="utf-8").strip() or None
         if (common / "packed-refs").is_file():
-            for line in (common / "packed-refs").read_text(encoding="utf-8").splitlines():
+            for line in (
+                (common / "packed-refs").read_text(encoding="utf-8").splitlines()
+            ):
                 parts = line.split()
-                if len(parts) == 2 and parts[1] == ref and not line.startswith(("#", "^")):
+                if (
+                    len(parts) == 2
+                    and parts[1] == ref
+                    and not line.startswith(("#", "^"))
+                ):
                     return parts[0]
     except OSError:
         return None
@@ -2766,7 +3800,9 @@ def code_version(root: Path = LEM_ROOT) -> str:
     """The identity of the code in the folder of Lem `root`: the plugin's version when its manifest
     names one, else the commit of the folder, else the newest change time of its scripts."""
     try:
-        manifest = json.loads((root / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+        manifest = json.loads(
+            (root / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8")
+        )
     except (OSError, ValueError):
         manifest = {}
     named = manifest.get("version") if isinstance(manifest, dict) else None
@@ -2781,31 +3817,50 @@ def code_version(root: Path = LEM_ROOT) -> str:
 def code_stamp(root: Path = LEM_ROOT) -> int:
     """The newest change time of the scripts in the folder of Lem `root`, in ns: of two codes, the
     newer one has the larger stamp, as an update writes its files anew."""
-    return max((file.stat().st_mtime_ns for file in (root / "skills" / "lem" / "scripts").glob("*.py")), default=0)
+    return max(
+        (
+            file.stat().st_mtime_ns
+            for file in (root / "skills" / "lem" / "scripts").glob("*.py")
+        ),
+        default=0,
+    )
 
 
 def serve_settings() -> dict:
     """How the server runs on this machine: `[serve]` of the machine's file, with the defaults."""
     table = lem_state.machine_table("serve")
-    settings = {"tailscale": table.get("tailscale", False), "port": table.get("port", PORT), "tailscale_port": table.get("tailscale_port", TAILNET_PORT)}
+    settings = {
+        "tailscale": table.get("tailscale", False),
+        "port": table.get("port", PORT),
+        "tailscale_port": table.get("tailscale_port", TAILNET_PORT),
+    }
     for key, flag in (("port", "--port"), ("tailscale_port", "--tailscale-port")):
         if not 0 < settings[key] < 65536:
-            raise ServeError(f"serve.{key} in {lem_state.machine_file()} is {settings[key]}, which is no port: `lem serve {flag} N` writes one from 1 to 65535")
+            raise ServeError(
+                f"serve.{key} in {lem_state.machine_file()} is {settings[key]}, which is no port: `lem serve {flag} N` writes one from 1 to 65535"
+            )
     if settings["tailscale"] and settings["port"] == settings["tailscale_port"]:
-        raise ServeError(f"serve.port and serve.tailscale_port in {lem_state.machine_file()} are both {settings['port']}: the door needs a port of its own; "
-                         "`lem serve --tailscale-port N` writes another")
+        raise ServeError(
+            f"serve.port and serve.tailscale_port in {lem_state.machine_file()} are both {settings['port']}: the door needs a port of its own; "
+            "`lem serve --tailscale-port N` writes another"
+        )
     return settings
 
 
 def reach(request, timeout: float):
     """Open a request to this machine's own server, past any proxy of the environment."""
-    return urllib.request.build_opener(urllib.request.ProxyHandler({})).open(request, timeout=timeout)
+    return urllib.request.build_opener(urllib.request.ProxyHandler({})).open(
+        request, timeout=timeout
+    )
 
 
 def nobody_listens(error: Exception) -> bool:
     """Whether a failed request found nothing that listens."""
     reason = getattr(error, "reason", error)
-    return isinstance(reason, ConnectionRefusedError) or getattr(reason, "errno", None) == errno.ECONNREFUSED
+    return (
+        isinstance(reason, ConnectionRefusedError)
+        or getattr(reason, "errno", None) == errno.ECONNREFUSED
+    )
 
 
 def ask(port: int, timeout: float = ASK_TIMEOUT) -> dict | None:
@@ -2818,23 +3873,36 @@ def ask(port: int, timeout: float = ASK_TIMEOUT) -> dict | None:
         with reach(where, timeout) as reply:
             text, server = reply.read(65536), reply.headers.get("Server") or ""
     except urllib.error.HTTPError as error:
-        raise ServeError(f"port {port} on {HOST} is held by another program, which answered {where} with {error.code} "
-                         f"({error.headers.get('Server') or 'no Server header'}): end it, {fix}") from error
+        raise ServeError(
+            f"port {port} on {HOST} is held by another program, which answered {where} with {error.code} "
+            f"({error.headers.get('Server') or 'no Server header'}): end it, {fix}"
+        ) from error
     except (urllib.error.URLError, OSError) as error:
         if nobody_listens(error):
             return None
-        raise ServeError(f"port {port} on {HOST} takes connections and gave no answer in {timeout:g} s ({getattr(error, 'reason', error)}): "
-                         f"end the program that holds it (`lsof -nP -iTCP:{port} -sTCP:LISTEN` names it), {fix}") from error
+        raise ServeError(
+            f"port {port} on {HOST} takes connections and gave no answer in {timeout:g} s ({getattr(error, 'reason', error)}): "
+            f"end the program that holds it (`lsof -nP -iTCP:{port} -sTCP:LISTEN` names it), {fix}"
+        ) from error
     try:
         facts = json.loads(text)
     except ValueError:
         facts = None
-    if not server.startswith(Handler.server_version) or not isinstance(facts, dict) or not isinstance(facts.get("pid"), int) or not isinstance(facts.get("version"), str):
-        raise ServeError(f"port {port} on {HOST} is held by another program ({server or 'no Server header'}), which does not answer {where} as "
-                         f"Lem's server: end it (`lsof -nP -iTCP:{port} -sTCP:LISTEN` names it), {fix}")
+    if (
+        not server.startswith(Handler.server_version)
+        or not isinstance(facts, dict)
+        or not isinstance(facts.get("pid"), int)
+        or not isinstance(facts.get("version"), str)
+    ):
+        raise ServeError(
+            f"port {port} on {HOST} is held by another program ({server or 'no Server header'}), which does not answer {where} as "
+            f"Lem's server: end it (`lsof -nP -iTCP:{port} -sTCP:LISTEN` names it), {fix}"
+        )
     if facts.get("config") != str(lem_state.config()):
-        raise ServeError(f"port {port} on {HOST} is held by the `lem serve` (pid {facts['pid']}) of another home folder of Lem, {facts.get('config')}, "
-                         f"and this one is {lem_state.config()}: end it with `kill {facts['pid']}`, {fix}")
+        raise ServeError(
+            f"port {port} on {HOST} is held by the `lem serve` (pid {facts['pid']}) of another home folder of Lem, {facts.get('config')}, "
+            f"and this one is {lem_state.config()}: end it with `kill {facts['pid']}`, {fix}"
+        )
     return facts
 
 
@@ -2853,7 +3921,9 @@ def start_lock():
                 break
             except BlockingIOError:
                 if time.monotonic() > deadline:
-                    raise ServeError(f"another start of the server holds {path} for over {START_WAIT + STOP_WAIT} s: wait a moment, then run this again") from None
+                    raise ServeError(
+                        f"another start of the server holds {path} for over {START_WAIT + STOP_WAIT} s: wait a moment, then run this again"
+                    ) from None
                 time.sleep(0.1)
         try:
             yield
@@ -2867,14 +3937,23 @@ def stop_server(port: int, facts: dict) -> None:
     pid = facts["pid"]
     fix = f"end it with `kill {pid}`, then run this again"
     try:
-        with reach(urllib.request.Request(f"http://{HOST}:{port}/api/server/stop", data=b"", method="POST"), ASK_TIMEOUT) as reply:
+        with reach(
+            urllib.request.Request(
+                f"http://{HOST}:{port}/api/server/stop", data=b"", method="POST"
+            ),
+            ASK_TIMEOUT,
+        ) as reply:
             reply.read()
     except urllib.error.HTTPError as error:
-        raise ServeError(f"the server (pid {pid}) on port {port} refused the stop ({error.code}: {error.read(500).decode('utf-8', 'replace').strip()}); {fix}") from error
+        raise ServeError(
+            f"the server (pid {pid}) on port {port} refused the stop ({error.code}: {error.read(500).decode('utf-8', 'replace').strip()}); {fix}"
+        ) from error
     except (urllib.error.URLError, OSError) as error:
         if nobody_listens(error):
             return
-        raise ServeError(f"the server (pid {pid}) on port {port} did not take the stop ({getattr(error, 'reason', error)}); {fix}") from error
+        raise ServeError(
+            f"the server (pid {pid}) on port {port} did not take the stop ({getattr(error, 'reason', error)}); {fix}"
+        ) from error
     deadline = time.monotonic() + STOP_WAIT
     while time.monotonic() < deadline:
         try:
@@ -2883,7 +3962,9 @@ def stop_server(port: int, facts: dict) -> None:
         except ServeError:
             pass
         time.sleep(0.1)
-    raise ServeError(f"the server (pid {pid}) on port {port} did not end in {STOP_WAIT} s; {fix}")
+    raise ServeError(
+        f"the server (pid {pid}) on port {port} did not end in {STOP_WAIT} s; {fix}"
+    )
 
 
 def start_server(settings: dict) -> dict:
@@ -2898,18 +3979,36 @@ def start_server(settings: dict) -> dict:
         pass
     with log.open("ab") as out:
         offset = out.tell()
-        out.write(f"{datetime.now(timezone.utc).isoformat(timespec='seconds')} lem serve --ensure starts a server of {code_version()} from {LEM_ROOT}\n".encode("utf-8"))
+        out.write(
+            f"{datetime.now(timezone.utc).isoformat(timespec='seconds')} lem serve --ensure starts a server of {code_version()} from {LEM_ROOT}\n".encode(
+                "utf-8"
+            )
+        )
         out.flush()
-        child = subprocess.Popen([sys.executable, "-B", str(SCRIPTS / "serve.py")], stdin=subprocess.DEVNULL, stdout=out, stderr=out,
-                                 start_new_session=True, close_fds=True, cwd=str(home))
+        child = subprocess.Popen(
+            [sys.executable, "-B", str(SCRIPTS / "serve.py")],
+            stdin=subprocess.DEVNULL,
+            stdout=out,
+            stderr=out,
+            start_new_session=True,
+            close_fds=True,
+            cwd=str(home),
+        )
     deadline = time.monotonic() + START_WAIT
     while time.monotonic() < deadline:
         code = child.poll()
         if code is not None:
             with log.open("rb") as handle:
                 handle.seek(offset)
-                said = " ".join(handle.read().decode("utf-8", "replace").strip().splitlines()[1:][-4:])
-            raise ServeError(f"the server ended at its start with status {code}: {said or 'it said nothing'} (its log is {log})")
+                said = " ".join(
+                    handle.read()
+                    .decode("utf-8", "replace")
+                    .strip()
+                    .splitlines()[1:][-4:]
+                )
+            raise ServeError(
+                f"the server ended at its start with status {code}: {said or 'it said nothing'} (its log is {log})"
+            )
         try:
             facts = ask(settings["port"], timeout=0.5)
         except ServeError:
@@ -2919,7 +4018,9 @@ def start_server(settings: dict) -> dict:
             child.returncode = 0
             return facts
         time.sleep(0.1)
-    raise ServeError(f"the server (pid {child.pid}) gave no answer in {START_WAIT} s; it may still start, and `lem serve --ensure` says so then. Its log is {log}")
+    raise ServeError(
+        f"the server (pid {child.pid}) gave no answer in {START_WAIT} s; it may still start, and `lem serve --ensure` says so then. Its log is {log}"
+    )
 
 
 def outdated(facts: dict) -> bool:
@@ -2934,8 +4035,22 @@ def outdated(facts: dict) -> bool:
 def shown(facts: dict | None, started: bool) -> dict:
     """What `--ensure` prints of a server."""
     if facts is None:
-        return {"running": False, "started": False, "pid": None, "url": None, "tailscale": None, "version": None}
-    return {"running": True, "started": started, "pid": facts["pid"], "url": facts.get("url"), "tailscale": facts.get("tailscale"), "version": facts["version"]}
+        return {
+            "running": False,
+            "started": False,
+            "pid": None,
+            "url": None,
+            "tailscale": None,
+            "version": None,
+        }
+    return {
+        "running": True,
+        "started": started,
+        "pid": facts["pid"],
+        "url": facts.get("url"),
+        "tailscale": facts.get("tailscale"),
+        "version": facts["version"],
+    }
 
 
 def ensure_held(settings: dict) -> dict:
@@ -2943,9 +4058,16 @@ def ensure_held(settings: dict) -> dict:
     code is not `outdated`, else end it and start one of this code."""
     found = ask(settings["port"])
     if os.environ.get(NO_START[0]) == NO_START[1]:
-        return {**shown(found, False), "said": f"{NO_START[0]}={NO_START[1]} is set: no server starts and none ends"}
+        return {
+            **shown(found, False),
+            "said": f"{NO_START[0]}={NO_START[1]} is set: no server starts and none ends",
+        }
     door = settings["tailscale_port"] if settings["tailscale"] else None
-    if found is not None and found.get("tailscale_port") == door and not outdated(found):
+    if (
+        found is not None
+        and found.get("tailscale_port") == door
+        and not outdated(found)
+    ):
         return shown(found, False)
     if found is not None:
         stop_server(settings["port"], found)
@@ -2990,7 +4112,9 @@ def configure(args) -> dict:
     if args.tailscale or args.tailscale_off:
         after["tailscale"] = bool(args.tailscale)
     if after["tailscale"] and after["port"] == after["tailscale_port"]:
-        raise ServeError(f"the main port and the door's port would both be {after['port']}: the door needs a port of its own; name another with --tailscale-port")
+        raise ServeError(
+            f"the main port and the door's port would both be {after['port']}: the door needs a port of its own; name another with --tailscale-port"
+        )
     if after["tailscale"]:
         # what the door needs, checked now, so that nothing is written that would stop every start
         tailnet(need_cli())
@@ -3003,12 +4127,22 @@ def configure(args) -> dict:
             if old is not None:
                 stop_server(before["port"], old)
         lem_state.write_machine("serve", after)
-        said = {**ensure_held(after), "settings": after, "file": str(lem_state.machine_file())}
-    if args.tailscale_off or (before["tailscale"] and before["tailscale_port"] != after["tailscale_port"]):
+        said = {
+            **ensure_held(after),
+            "settings": after,
+            "file": str(lem_state.machine_file()),
+        }
+    if args.tailscale_off or (
+        before["tailscale"] and before["tailscale_port"] != after["tailscale_port"]
+    ):
         try:
             said["tailscale_entry"] = tailscale_off(before["tailscale_port"])
         except ServeError as error:
-            said["tailscale_entry"] = {"removed": False, "port": before["tailscale_port"], "said": str(error)}
+            said["tailscale_entry"] = {
+                "removed": False,
+                "port": before["tailscale_port"],
+                "said": str(error),
+            }
     return said
 
 
@@ -3025,9 +4159,13 @@ def detach_from_session() -> None:
     for name in [name for name in os.environ if SESSION_VARIABLES.fullmatch(name)]:
         del os.environ[name]
     if not shutil.which("agtermctl"):
-        found = next((place for place in AGTERMCTL_PLACES if os.access(place, os.X_OK)), None)
+        found = next(
+            (place for place in AGTERMCTL_PLACES if os.access(place, os.X_OK)), None
+        )
         if found:
-            os.environ["PATH"] = os.pathsep.join([os.path.dirname(found), *filter(None, [os.environ.get("PATH")])])
+            os.environ["PATH"] = os.pathsep.join(
+                [os.path.dirname(found), *filter(None, [os.environ.get("PATH")])]
+            )
 
 
 def pid_file() -> Path:
@@ -3066,7 +4204,9 @@ def listen(host: str, verbose: bool, settings: dict) -> None:
     door = None
     if tailnet_port is not None:
         if tailnet_port == port and host in (HOST, "localhost"):
-            raise ServeError(f"the main port and the door's port are both {port}: the door needs a port of its own; `lem serve --tailscale-port N` writes another")
+            raise ServeError(
+                f"the main port and the door's port are both {port}: the door needs a port of its own; `lem serve --tailscale-port N` writes another"
+            )
         cli = need_cli()
         facts = tailnet(cli)
         door = Door(cli, facts["name"], tailnet_port, facts["login"])
@@ -3076,7 +4216,14 @@ def listen(host: str, verbose: bool, settings: dict) -> None:
     entry = None
     try:
         if door is not None:
-            servers.append(bind(HOST, door.port, type("DoorHandler", (Handler,), {"door": door}), "--tailscale-port"))
+            servers.append(
+                bind(
+                    HOST,
+                    door.port,
+                    type("DoorHandler", (Handler,), {"door": door}),
+                    "--tailscale-port",
+                )
+            )
             entry = publish(door.cli, door.name, door.port)
     except BaseException:
         for each in servers:
@@ -3087,21 +4234,55 @@ def listen(host: str, verbose: bool, settings: dict) -> None:
     said = {"host": host, "port": bound, "url": f"http://{shown_host}:{bound}/"}
     if door is not None:
         # the entry stays when the server stops: `lem serve --tailscale-off` takes it out
-        said["tailscale"] = {"url": door.url(), "login": door.owner, "port": door.port, "door": door_address(door.port), "entry": entry}
-    RUNNING.update({
-        "pid": os.getpid(), "version": code_version(), "stamp": code_stamp(), "root": str(LEM_ROOT), "config": str(lem_state.config()),
-        "started": datetime.now(timezone.utc).isoformat(timespec="seconds"), "port": bound, "url": said["url"], "host": HOSTNAME, "aliases": list(ALIASES),
-        "tailscale": door.url() if door else None, "tailscale_port": door.port if door else None,
-    })
+        said["tailscale"] = {
+            "url": door.url(),
+            "login": door.owner,
+            "port": door.port,
+            "door": door_address(door.port),
+            "entry": entry,
+        }
+    RUNNING.update(
+        {
+            "pid": os.getpid(),
+            "version": code_version(),
+            "stamp": code_stamp(),
+            "root": str(LEM_ROOT),
+            "config": str(lem_state.config()),
+            "started": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "port": bound,
+            "url": said["url"],
+            "host": HOSTNAME,
+            "aliases": list(ALIASES),
+            "tailscale": door.url() if door else None,
+            "tailscale_port": door.port if door else None,
+        }
+    )
     SERVERS[:] = servers
     write_pid(bound)
     # the board's notifications: a look at each workspace's list of what waits, in a thread of its own (lem_push)
-    watcher = lem_push.Watcher(lambda: [(w.name, w.path, w.model) for w in Handler.machine.workspaces()], HOSTNAME)
+    watcher = lem_push.Watcher(
+        lambda: [(w.name, w.path, w.model) for w in Handler.machine.workspaces()],
+        HOSTNAME,
+    )
     threading.Thread(target=watcher.run, args=(STOPPING,), daemon=True).start()
     # the owner's Inbox while he is away: a look at the same lists, in a thread of its own (lem_inbox)
     inbox = lem_inbox.Watcher(Handler.machine.workspaces, inbox_link, inbox_wake)
-    threading.Thread(target=inbox.run, args=(STOPPING,), daemon=True, name="inbox").start()
-    print(json.dumps({**said, "version": RUNNING["version"], "workspaces": [{"name": w["name"], "path": w["path"]} for w in Handler.machine.listing()]}), flush=True)
+    threading.Thread(
+        target=inbox.run, args=(STOPPING,), daemon=True, name="inbox"
+    ).start()
+    print(
+        json.dumps(
+            {
+                **said,
+                "version": RUNNING["version"],
+                "workspaces": [
+                    {"name": w["name"], "path": w["path"]}
+                    for w in Handler.machine.listing()
+                ],
+            }
+        ),
+        flush=True,
+    )
 
     def stop_now(_signum, _frame) -> None:
         raise KeyboardInterrupt
@@ -3109,7 +4290,9 @@ def listen(host: str, verbose: bool, settings: dict) -> None:
     signal.signal(signal.SIGTERM, stop_now)
     for each in servers[1:]:
         threading.Thread(target=each.serve_forever, daemon=True).start()
-    threading.Thread(target=forge_loop, args=(Handler.machine,), daemon=True, name="forge").start()
+    threading.Thread(
+        target=forge_loop, args=(Handler.machine,), daemon=True, name="forge"
+    ).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -3125,51 +4308,137 @@ def listen(host: str, verbose: bool, settings: dict) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="lem serve", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--ensure", action="store_true",
-                        help="make sure one server runs for this machine, from this code, the way the machine's settings say: keep the one that "
-                        "runs, or end one of older code and start this one, as a process of its own; print it as JSON. Safe to run twice at once")
-    parser.add_argument("--stop", action="store_true", help="end the server that runs, and print what ended")
-    parser.add_argument("--tailscale", action="store_true",
-                        help="from now on, open the tailnet door too: a second listener on 127.0.0.1 at the door's port, behind `tailscale serve "
-                        "--bg --https=PORT`, which lets in only the owner's own Tailscale login. Written to the machine's settings, then as --ensure. "
-                        "The entry stays when the server stops, and Tailscale keeps it across a restart; --tailscale-off takes it out. Funnel is never used")
-    parser.add_argument("--tailscale-off", action="store_true",
-                        help="from now on, no door: written to the machine's settings, then as --ensure, and Lem's entry of the door's port goes "
-                        "out of `tailscale serve`, only when it points at Lem's door")
-    parser.add_argument("--port", type=int, metavar="N", help=f"from now on, serve port N on 127.0.0.1 (default: {PORT}): written to the machine's settings, then as --ensure")
-    parser.add_argument("--tailscale-port", type=int, metavar="N",
-                        help=f"from now on, the door's HTTPS port on the tailnet, and its port on 127.0.0.1 (default: {TAILNET_PORT}): written to the "
-                        "machine's settings, then as --ensure; a port that another entry of `tailscale serve` holds is refused")
-    parser.add_argument("--host", help=f"the foreground server only: the address to listen on (default: {HOST}, this machine only). The server has no "
-                        "login and shows the tasks' files and the copied talk of interviews: name only an address that the owner's own devices alone "
-                        "reach; for a tailnet, keep the default and use --tailscale")
-    parser.add_argument("--verbose", action="store_true", help="the foreground server only: log each request on stderr")
-    parser.add_argument("--add", metavar="DIR", action="append", help="put the repository DIR is in into the list of workspaces, and exit")
-    parser.add_argument("--remove", metavar="DIR", action="append", help="take the repository DIR is in out of the list of workspaces, and exit")
-    parser.add_argument("--list", action="store_true", help="print the workspaces as the server shows them, as JSON, and exit")
-    parser.add_argument("--push-test", action="store_true",
-                        help="send one push to every device that turned the board's notifications on, and print each push service's status "
-                        "code as JSON (201: it took the push); a device the service no longer knows (404, 410) goes off the list")
-    parser.add_argument("--join", metavar="HOST[:PORT]",
-                        help="show the boards of the machine HOST of the tailnet on this machine's board too, under /HOST/, and exit: HOST runs "
-                        "`lem serve --tailscale`, and PORT is its door's port when it is not this machine's own. It asks HOST once and says what it "
-                        "found; a machine that does not answer is joined all the same. The running server takes it at its next look")
-    parser.add_argument("--leave", metavar="HOST", help="show the boards of HOST no more, and exit")
-    parser.add_argument("--peers", action="store_true", help="print each machine joined, its address and whether it answers now, as JSON, and exit")
+    parser = argparse.ArgumentParser(
+        prog="lem serve",
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--ensure",
+        action="store_true",
+        help="make sure one server runs for this machine, from this code, the way the machine's settings say: keep the one that "
+        "runs, or end one of older code and start this one, as a process of its own; print it as JSON. Safe to run twice at once",
+    )
+    parser.add_argument(
+        "--stop",
+        action="store_true",
+        help="end the server that runs, and print what ended",
+    )
+    parser.add_argument(
+        "--tailscale",
+        action="store_true",
+        help="from now on, open the tailnet door too: a second listener on 127.0.0.1 at the door's port, behind `tailscale serve "
+        "--bg --https=PORT`, which lets in only the owner's own Tailscale login. Written to the machine's settings, then as --ensure. "
+        "The entry stays when the server stops, and Tailscale keeps it across a restart; --tailscale-off takes it out. Funnel is never used",
+    )
+    parser.add_argument(
+        "--tailscale-off",
+        action="store_true",
+        help="from now on, no door: written to the machine's settings, then as --ensure, and Lem's entry of the door's port goes "
+        "out of `tailscale serve`, only when it points at Lem's door",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        metavar="N",
+        help=f"from now on, serve port N on 127.0.0.1 (default: {PORT}): written to the machine's settings, then as --ensure",
+    )
+    parser.add_argument(
+        "--tailscale-port",
+        type=int,
+        metavar="N",
+        help=f"from now on, the door's HTTPS port on the tailnet, and its port on 127.0.0.1 (default: {TAILNET_PORT}): written to the "
+        "machine's settings, then as --ensure; a port that another entry of `tailscale serve` holds is refused",
+    )
+    parser.add_argument(
+        "--host",
+        help=f"the foreground server only: the address to listen on (default: {HOST}, this machine only). The server has no "
+        "login and shows the tasks' files and the copied talk of interviews: name only an address that the owner's own devices alone "
+        "reach; for a tailnet, keep the default and use --tailscale",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="the foreground server only: log each request on stderr",
+    )
+    parser.add_argument(
+        "--add",
+        metavar="DIR",
+        action="append",
+        help="put the repository DIR is in into the list of workspaces, and exit",
+    )
+    parser.add_argument(
+        "--remove",
+        metavar="DIR",
+        action="append",
+        help="take the repository DIR is in out of the list of workspaces, and exit",
+    )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="print the workspaces as the server shows them, as JSON, and exit",
+    )
+    parser.add_argument(
+        "--push-test",
+        action="store_true",
+        help="send one push to every device that turned the board's notifications on, and print each push service's status "
+        "code as JSON (201: it took the push); a device the service no longer knows (404, 410) goes off the list",
+    )
+    parser.add_argument(
+        "--join",
+        metavar="HOST[:PORT]",
+        help="show the boards of the machine HOST of the tailnet on this machine's board too, under /HOST/, and exit: HOST runs "
+        "`lem serve --tailscale`, and PORT is its door's port when it is not this machine's own. It asks HOST once and says what it "
+        "found; a machine that does not answer is joined all the same. The running server takes it at its next look",
+    )
+    parser.add_argument(
+        "--leave", metavar="HOST", help="show the boards of HOST no more, and exit"
+    )
+    parser.add_argument(
+        "--peers",
+        action="store_true",
+        help="print each machine joined, its address and whether it answers now, as JSON, and exit",
+    )
     args = parser.parse_args()
     try:
-        settings_flags = args.tailscale or args.tailscale_off or args.port is not None or args.tailscale_port is not None
-        actions = [name for name, on in (("--add", args.add), ("--remove", args.remove), ("--list", args.list), ("--ensure", args.ensure),
-                                         ("--stop", args.stop), ("a setting", settings_flags), ("--push-test", args.push_test),
-                                         ("--join", args.join), ("--leave", args.leave), ("--peers", args.peers)) if on]
+        settings_flags = (
+            args.tailscale
+            or args.tailscale_off
+            or args.port is not None
+            or args.tailscale_port is not None
+        )
+        actions = [
+            name
+            for name, on in (
+                ("--add", args.add),
+                ("--remove", args.remove),
+                ("--list", args.list),
+                ("--ensure", args.ensure),
+                ("--stop", args.stop),
+                ("a setting", settings_flags),
+                ("--push-test", args.push_test),
+                ("--join", args.join),
+                ("--leave", args.leave),
+                ("--peers", args.peers),
+            )
+            if on
+        ]
         if len(actions) > 1 and set(actions) != {"--add", "--remove"}:
-            raise ServeError(f"{' and '.join(actions)} are two commands: give one of them")
+            raise ServeError(
+                f"{' and '.join(actions)} are two commands: give one of them"
+            )
         if args.tailscale and args.tailscale_off:
-            raise ServeError("--tailscale and --tailscale-off say two things: give one of them")
+            raise ServeError(
+                "--tailscale and --tailscale-off say two things: give one of them"
+            )
         if actions and (args.host is not None or args.verbose):
-            raise ServeError("--host and --verbose belong to the foreground server, plain `lem serve`; the server that starts on demand serves 127.0.0.1")
-        for value, flag in ((args.port, "--port"), (args.tailscale_port, "--tailscale-port")):
+            raise ServeError(
+                "--host and --verbose belong to the foreground server, plain `lem serve`; the server that starts on demand serves 127.0.0.1"
+            )
+        for value, flag in (
+            (args.port, "--port"),
+            (args.tailscale_port, "--tailscale-port"),
+        ):
             if value is not None and not 0 < value < 65536:
                 raise ServeError(f"{flag} {value} is no port: give one from 1 to 65535")
         if args.ensure:
@@ -3186,8 +4455,12 @@ def main() -> None:
             for directory in args.add or []:
                 main_dir = checkout_of(directory)
                 if not (main_dir / ".lem").is_dir():
-                    raise ServeError(f"{main_dir} has no .lem folder: Lem is not set up there; run /lem init in it first")
-                done["added" if lem_state.register(main_dir) else "kept"].append(str(main_dir))
+                    raise ServeError(
+                        f"{main_dir} has no .lem folder: Lem is not set up there; run /lem init in it first"
+                    )
+                done["added" if lem_state.register(main_dir) else "kept"].append(
+                    str(main_dir)
+                )
             for directory in args.remove or []:
                 try:
                     gone = lem_state.main_checkout(Path(directory))
@@ -3195,23 +4468,42 @@ def main() -> None:
                     # a repository that is gone is still taken out by the path it had
                     gone = Path(os.path.abspath(directory))
                 if not lem_state.unregister(gone):
-                    raise ServeError(f"{gone} is not in the list of workspaces; `lem serve --list` shows it")
+                    raise ServeError(
+                        f"{gone} is not in the list of workspaces; `lem serve --list` shows it"
+                    )
                 done["removed"].append(str(gone))
             print(json.dumps({**done, "workspaces": lem_state.workspaces()}, indent=2))
             return
         if args.push_test:
             sent = lem_push.send_all()
-            said = (f"{len(sent)} {'device' if len(sent) == 1 else 'devices'}; the push service took {sum(r['status'] == 201 for r in sent)}" if sent else
-                    "no device has turned the board's notifications on: open the board on the device, then \"Notify this device\" on Waits for you")
-            print(json.dumps({"devices": len(sent), "results": sent, "said": said}, indent=2))
+            said = (
+                f"{len(sent)} {'device' if len(sent) == 1 else 'devices'}; the push service took {sum(r['status'] == 201 for r in sent)}"
+                if sent
+                else 'no device has turned the board\'s notifications on: open the board on the device, then "Notify this device" on Waits for you'
+            )
+            print(
+                json.dumps(
+                    {"devices": len(sent), "results": sent, "said": said}, indent=2
+                )
+            )
             return
         if args.join or args.leave or args.peers:
             try:
                 if args.join:
                     settle_names()
-                    said = lem_peers.join(args.join, HOSTNAME, reserved(), serve_settings()["tailscale_port"], tailnet_status)
+                    said = lem_peers.join(
+                        args.join,
+                        HOSTNAME,
+                        reserved(),
+                        serve_settings()["tailscale_port"],
+                        tailnet_status,
+                    )
                 else:
-                    said = lem_peers.leave(args.leave) if args.leave else lem_peers.report(tailnet_status)
+                    said = (
+                        lem_peers.leave(args.leave)
+                        if args.leave
+                        else lem_peers.report(tailnet_status)
+                    )
             except lem_peers.PeerError as error:
                 raise ServeError(str(error)) from error
             print(json.dumps(said, indent=2))

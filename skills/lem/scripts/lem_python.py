@@ -32,8 +32,18 @@ FIX = "`brew install python`, or `uv python install` where uv is the tool"
 # that is already there (`--no-python-downloads`), since a command of Lem downloads nothing by itself.
 # `--no-project`, so that the folder's own `.python-version` does not narrow the answer. After PATH, where
 # uv's installer and Homebrew put it.
-UV_FALLBACKS = (os.path.expanduser("~/.local/bin/uv"), "/opt/homebrew/bin/uv", "/usr/local/bin/uv")
-UV_ASKS = ("python", "find", "--no-project", "--no-python-downloads", f">={FLOOR[0]}.{FLOOR[1]}")
+UV_FALLBACKS = (
+    os.path.expanduser("~/.local/bin/uv"),
+    "/opt/homebrew/bin/uv",
+    "/usr/local/bin/uv",
+)
+UV_ASKS = (
+    "python",
+    "find",
+    "--no-project",
+    "--no-python-downloads",
+    f">={FLOOR[0]}.{FLOOR[1]}",
+)
 # `python3.N`, the name every installer (python.org, Homebrew, uv, mise) gives each minor version. No
 # list of N: the folders of PATH are read for every such name, so a version newer than this file is
 # found too.
@@ -50,39 +60,85 @@ def version(path: str) -> "tuple[int, int] | None":
     if named:
         return 3, int(named.group(1))
     try:
-        ran = subprocess.run([path, "-I", "-c", "import sys; print(*sys.version_info[:2])"], stdin=subprocess.DEVNULL,
-                             capture_output=True, text=True, timeout=5, check=False)
+        ran = subprocess.run(
+            [path, "-I", "-c", "import sys; print(*sys.version_info[:2])"],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
     except (OSError, subprocess.SubprocessError):
         return None
     parts = ran.stdout.split()
-    if ran.returncode != 0 or len(parts) != 2 or not all(part.isdigit() for part in parts):
+    if (
+        ran.returncode != 0
+        or len(parts) != 2
+        or not all(part.isdigit() for part in parts)
+    ):
         return None
     return int(parts[0]), int(parts[1])
 
 
 def from_uv(folders: "list[str]", fallbacks: "tuple[str, ...]") -> "str | None":
     """The Python of FLOOR or newer that uv knows, or None: uv from FOLDERS, else the first of FALLBACKS."""
-    uv = next((path for path in [os.path.join(folder, "uv") for folder in folders] + list(fallbacks) if runnable(path)), None)
+    uv = next(
+        (
+            path
+            for path in [os.path.join(folder, "uv") for folder in folders]
+            + list(fallbacks)
+            if runnable(path)
+        ),
+        None,
+    )
     if uv is None:
         return None
     try:
-        ran = subprocess.run([uv, *UV_ASKS], stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=10, check=False)
+        ran = subprocess.run(
+            [uv, *UV_ASKS],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
     except (OSError, subprocess.SubprocessError):
         return None
     path = ran.stdout.strip()
-    return path if ran.returncode == 0 and runnable(path) and (version(path) or (0, 0)) >= FLOOR else None
+    return (
+        path
+        if ran.returncode == 0 and runnable(path) and (version(path) or (0, 0)) >= FLOOR
+        else None
+    )
 
 
-def find(search: "str | None" = None, python3: bool = True, fallbacks: "tuple[str, ...]" = FALLBACKS,
-         uv: "tuple[str, ...]" = UV_FALLBACKS) -> "str | None":
+def find(
+    search: "str | None" = None,
+    python3: bool = True,
+    fallbacks: "tuple[str, ...]" = FALLBACKS,
+    uv: "tuple[str, ...]" = UV_FALLBACKS,
+) -> "str | None":
     """The path of a Python of FLOOR or newer, or None. In this order: `python3` on the search path
     (PATH when SEARCH is None) when it is new enough, which a caller that runs under that python3
     skips with python3=False; the newest `python3.N` of FLOOR or newer on the search path, the first
     of its name in the path's order; the first of FALLBACKS that is new enough; the one uv knows
     (`from_uv`), with uv from the search path or from UV."""
-    folders = [folder for folder in (os.environ.get("PATH", "") if search is None else search).split(os.pathsep) if folder]
+    folders = [
+        folder
+        for folder in (os.environ.get("PATH", "") if search is None else search).split(
+            os.pathsep
+        )
+        if folder
+    ]
     if python3:
-        first = next((os.path.join(folder, "python3") for folder in folders if runnable(os.path.join(folder, "python3"))), None)
+        first = next(
+            (
+                os.path.join(folder, "python3")
+                for folder in folders
+                if runnable(os.path.join(folder, "python3"))
+            ),
+            None,
+        )
         if first is not None and (version(first) or (0, 0)) >= FLOOR:
             return first
     best = None
@@ -93,20 +149,33 @@ def find(search: "str | None" = None, python3: bool = True, fallbacks: "tuple[st
             continue
         for name in names:
             named = NAMED.fullmatch(name)
-            if not named or (3, int(named.group(1))) < FLOOR or (best is not None and int(named.group(1)) <= best[0]):
+            if (
+                not named
+                or (3, int(named.group(1))) < FLOOR
+                or (best is not None and int(named.group(1)) <= best[0])
+            ):
                 continue
             if runnable(os.path.join(folder, name)):
                 best = (int(named.group(1)), os.path.join(folder, name))
     if best is not None:
         return best[1]
-    brewed = next((path for path in fallbacks if runnable(path) and (version(path) or (0, 0)) >= FLOOR), None)
+    brewed = next(
+        (
+            path
+            for path in fallbacks
+            if runnable(path) and (version(path) or (0, 0)) >= FLOOR
+        ),
+        None,
+    )
     return brewed or from_uv(folders, uv)
 
 
 def missing(command: str) -> str:
     """The one line a command says when the machine has no Python of FLOOR or newer."""
-    return (f"{command}: Lem needs Python 3.11 or newer, and python3 is {sys.version.split()[0]}, with no python3.N of 3.11 "
-            f"or newer on PATH and none from Homebrew or uv; run {FIX}")
+    return (
+        f"{command}: Lem needs Python 3.11 or newer, and python3 is {sys.version.split()[0]}, with no python3.N of 3.11 "
+        f"or newer on PATH and none from Homebrew or uv; run {FIX}"
+    )
 
 
 def hook(argv: "list[str]") -> None:

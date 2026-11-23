@@ -22,7 +22,9 @@ step = os.environ.get("LEM_TEST_DATE_STEP")
 if step and len(args) == 2 and args[0] == "-u" and args[1].startswith("+"):
     home = os.environ.get("XDG_CONFIG_HOME")
     if not home:
-        sys.exit("tests/clock/date: LEM_TEST_DATE_STEP needs the run's own XDG_CONFIG_HOME, which tests/lib.sh exports")
+        sys.exit(
+            "tests/clock/date: LEM_TEST_DATE_STEP needs the run's own XDG_CONFIG_HOME, which tests/lib.sh exports"
+        )
     calls = Path(home) / "date-calls"
     done = int(calls.read_text()) if calls.exists() else 0
     calls.write_text(str(done + 1))

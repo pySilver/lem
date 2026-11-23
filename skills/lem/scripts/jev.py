@@ -88,15 +88,21 @@ def timeout_seconds() -> float:
     except ValueError:
         seconds = 0.0
     if not 0 < seconds < float("inf"):
-        raise SpecError(f"JEV_TIMEOUT={raw!r} is not a number of seconds above 0; set it as JEV_TIMEOUT=120, or unset it for {TIMEOUT_SECONDS:g}")
+        raise SpecError(
+            f"JEV_TIMEOUT={raw!r} is not a number of seconds above 0; set it as JEV_TIMEOUT=120, or unset it for {TIMEOUT_SECONDS:g}"
+        )
     return seconds
 
 
 def load(arg: str) -> dict:
     try:
-        text = (sys.stdin.buffer.read() if arg == "-" else Path(arg).read_bytes()).decode("utf-8")
+        text = (
+            sys.stdin.buffer.read() if arg == "-" else Path(arg).read_bytes()
+        ).decode("utf-8")
     except UnicodeDecodeError as error:
-        raise SpecError(f"the spec ({'stdin' if arg == '-' else arg}) is not UTF-8 text (byte {error.start} does not read)") from error
+        raise SpecError(
+            f"the spec ({'stdin' if arg == '-' else arg}) is not UTF-8 text (byte {error.start} does not read)"
+        ) from error
     try:
         spec = json.loads(text)
     except ValueError as error:
@@ -112,7 +118,11 @@ def filled(text: object) -> bool:
 
 def number(value: object) -> bool:
     """A number from 0 to 1, as Jev gives a probability or a confidence; a JSON true is not one."""
-    return isinstance(value, (int, float)) and not isinstance(value, bool) and 0 <= value <= 1
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and 0 <= value <= 1
+    )
 
 
 def question_body(name: str, question: object) -> dict:
@@ -120,27 +130,41 @@ def question_body(name: str, question: object) -> dict:
     if not isinstance(question, dict) or question.get("type") not in TYPES:
         given = question.get("type") if isinstance(question, dict) else None
         named = f"has type {given!r}" if given is not None else "names no type"
-        raise SpecError(f'question {name!r} {named}; give it "type": "choice" (with choices) or "type": "noul" (a yes/no question)')
+        raise SpecError(
+            f'question {name!r} {named}; give it "type": "choice" (with choices) or "type": "noul" (a yes/no question)'
+        )
     kind = question["type"]
     instructions = question.get("instructions")
     if kind == "choice":
         if set(question) - {"type", "instructions", "choices"}:
-            raise SpecError(f"question {name!r} is a choice and takes only type, instructions and choices; yes and no belong to a noul")
+            raise SpecError(
+                f"question {name!r} is a choice and takes only type, instructions and choices; yes and no belong to a noul"
+            )
         if not filled(instructions):
             raise SpecError(f"question {name!r} needs instructions")
         choices = question.get("choices")
-        if not isinstance(choices, dict) or len(choices) < 2 or not all(filled(v) for v in choices.values()):
-            raise SpecError(f"question {name!r} needs at least two choices, each with a meaning")
+        if (
+            not isinstance(choices, dict)
+            or len(choices) < 2
+            or not all(filled(v) for v in choices.values())
+        ):
+            raise SpecError(
+                f"question {name!r} needs at least two choices, each with a meaning"
+            )
         return {"type": "choice", "instructions": instructions, "criteria": choices}
     if set(question) - {"type", "instructions", "yes", "no"}:
-        raise SpecError(f"question {name!r} is a noul and takes only type, instructions, yes and no; choices belong to a choice")
+        raise SpecError(
+            f"question {name!r} is a noul and takes only type, instructions, yes and no; choices belong to a choice"
+        )
     if not filled(instructions):
         raise SpecError(f"question {name!r} needs instructions")
     body = {"type": "noul", "instructions": instructions}
     said = [key for key in ("yes", "no") if key in question]
     if said:
         if len(said) == 1 or not (filled(question["yes"]) and filled(question["no"])):
-            raise SpecError(f"question {name!r} needs both yes and no, each a text that says what that answer means, or neither")
+            raise SpecError(
+                f"question {name!r} needs both yes and no, each a text that says what that answer means, or neither"
+            )
         body["criteria"] = {"true": question["yes"], "false": question["no"]}
     return body
 
@@ -156,15 +180,25 @@ def build(spec: dict) -> dict:
     elif isinstance(state, (dict, list)) and state:
         state_text = json.dumps(state, ensure_ascii=False)
     else:
-        raise SpecError("state must be a non-empty string, or a non-empty JSON object or array")
+        raise SpecError(
+            "state must be a non-empty string, or a non-empty JSON object or array"
+        )
     questions = spec.get("questions")
     if not isinstance(questions, dict) or not questions:
         raise SpecError("questions must be a non-empty object")
-    body_questions = {name: question_body(name, question) for name, question in questions.items()}
-    body = {"model": spec.get("model") or DEFAULT_MODEL, "state": state, "questions": body_questions}
+    body_questions = {
+        name: question_body(name, question) for name, question in questions.items()
+    }
+    body = {
+        "model": spec.get("model") or DEFAULT_MODEL,
+        "state": state,
+        "questions": body_questions,
+    }
     size = len(state_text.encode()) + len(json.dumps(body_questions).encode())
     if size > LIMIT_BYTES:
-        raise OverflowError(f"the input is {size} bytes, over the {LIMIT_BYTES} past which OpenRouter runs Jev in its slower, less accurate long-context mode; send it to a big model, never a cut-down copy")
+        raise OverflowError(
+            f"the input is {size} bytes, over the {LIMIT_BYTES} past which OpenRouter runs Jev in its slower, less accurate long-context mode; send it to a big model, never a cut-down copy"
+        )
     return body
 
 
@@ -174,11 +208,28 @@ def answer(name: str, kind: str, given: object) -> dict:
         if kind == "noul" and number(given.get("noul")):
             return {"type": "noul", "noul": given["noul"]}
         probabilities = given.get("probabilities")
-        if (kind == "choice" and isinstance(given.get("choice"), str) and number(given.get("confidence"))
-                and isinstance(probabilities, dict) and probabilities and all(number(p) for p in probabilities.values())):
-            return {"type": "choice", "choice": given["choice"], "confidence": given["confidence"], "probabilities": probabilities}
-    must = "a noul, a number from 0 to 1" if kind == "noul" else "a choice, a confidence and probabilities"
-    raise RuntimeError(f"the reply's answer to question {name!r}, a {kind}, lacks {must}: {json.dumps(given)[:400]}")
+        if (
+            kind == "choice"
+            and isinstance(given.get("choice"), str)
+            and number(given.get("confidence"))
+            and isinstance(probabilities, dict)
+            and probabilities
+            and all(number(p) for p in probabilities.values())
+        ):
+            return {
+                "type": "choice",
+                "choice": given["choice"],
+                "confidence": given["confidence"],
+                "probabilities": probabilities,
+            }
+    must = (
+        "a noul, a number from 0 to 1"
+        if kind == "noul"
+        else "a choice, a confidence and probabilities"
+    )
+    raise RuntimeError(
+        f"the reply's answer to question {name!r}, a {kind}, lacks {must}: {json.dumps(given)[:400]}"
+    )
 
 
 def read(reply: object, questions: dict) -> dict:
@@ -186,11 +237,16 @@ def read(reply: object, questions: dict) -> dict:
     QUESTIONS is the request's, which says each question's type."""
     answers = reply.get("answers") if isinstance(reply, dict) else None
     if not isinstance(answers, dict) or set(answers) != set(questions):
-        raise RuntimeError(f"the reply does not answer every question: {json.dumps(reply)[:400]}")
+        raise RuntimeError(
+            f"the reply does not answer every question: {json.dumps(reply)[:400]}"
+        )
     usage = reply.get("usage")
     return {
         "model": reply.get("model"),
-        "answers": {name: answer(name, questions[name]["type"], answers[name]) for name in questions},
+        "answers": {
+            name: answer(name, questions[name]["type"], answers[name])
+            for name in questions
+        },
         "cost": usage.get("cost") if isinstance(usage, dict) else None,
     }
 
@@ -199,7 +255,9 @@ def key() -> str:
     """The key: JEV_API_KEY, the one name Lem reads for it."""
     found = os.environ.get(KEY, "")
     if not found:
-        raise RuntimeError(f"{KEY} is not set in this process's environment, and it is the one name Lem reads for the key; put the key of the Jev model's provider there")
+        raise RuntimeError(
+            f"{KEY} is not set in this process's environment, and it is the one name Lem reads for the key; put the key of the Jev model's provider there"
+        )
     return found
 
 
@@ -207,7 +265,9 @@ def address() -> str:
     """JEV_API_URL, or OpenRouter's address when it is not set."""
     found = os.environ.get("JEV_API_URL", "").strip() or URL
     if not found.startswith(("https://", "http://")):
-        raise SpecError(f"JEV_API_URL={found!r} is not an address; set it as the provider's decisions endpoint, as JEV_API_URL={URL}, or unset it for OpenRouter")
+        raise SpecError(
+            f"JEV_API_URL={found!r} is not an address; set it as the provider's decisions endpoint, as JEV_API_URL={URL}, or unset it for OpenRouter"
+        )
     return found
 
 
@@ -215,20 +275,35 @@ def ask(body: dict, timeout: float) -> dict:
     secret = key()
     url = address()
     where = "OpenRouter" if url == URL else url
-    context = ssl.create_default_context(cafile=str(MACOS_CA_BUNDLE)) if MACOS_CA_BUNDLE.is_file() else ssl.create_default_context()
+    context = (
+        ssl.create_default_context(cafile=str(MACOS_CA_BUNDLE))
+        if MACOS_CA_BUNDLE.is_file()
+        else ssl.create_default_context()
+    )
     request = urllib.request.Request(
-        url, data=json.dumps(body).encode(), method="POST",
-        headers={"Authorization": f"Bearer {secret}", "Content-Type": "application/json"},
+        url,
+        data=json.dumps(body).encode(),
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {secret}",
+            "Content-Type": "application/json",
+        },
     )
     try:
-        with urllib.request.urlopen(request, timeout=timeout, context=context) as response:
+        with urllib.request.urlopen(
+            request, timeout=timeout, context=context
+        ) as response:
             reply = json.load(response)
     except urllib.error.HTTPError as error:
-        raise RuntimeError(f"{where} answered HTTP {error.code}: {error.read().decode(errors='replace')[:400]}") from error
+        raise RuntimeError(
+            f"{where} answered HTTP {error.code}: {error.read().decode(errors='replace')[:400]}"
+        ) from error
     except urllib.error.URLError as error:
         raise RuntimeError(f"{where} could not be reached: {error.reason}") from error
     except ValueError as error:
-        raise RuntimeError(f"{where} answered with a reply that is not JSON: {error}") from error
+        raise RuntimeError(
+            f"{where} answered with a reply that is not JSON: {error}"
+        ) from error
     return read(reply, body["questions"])
 
 
@@ -244,7 +319,17 @@ def main(argv: list[str]) -> int:
         if check:
             # what a request would use, and no key's value: the address, and which variable gives the key
             given = KEY if os.environ.get(KEY) else None
-            print(json.dumps({"ok": True, "model": body["model"], "questions": sorted(body["questions"]), "url": address(), "key_from": given}))
+            print(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "model": body["model"],
+                        "questions": sorted(body["questions"]),
+                        "url": address(),
+                        "key_from": given,
+                    }
+                )
+            )
             return 0
         print(json.dumps(ask(body, timeout)))
         return 0

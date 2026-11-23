@@ -42,8 +42,15 @@ from pathlib import Path
 # review tool's log can be megabytes. A guess, not a measurement.
 CAP = 300_000
 # The sections of every task's map, in their order, and the group of the working files after them.
-SECTIONS = (("request", "Request"), ("criteria", "Criteria"), ("plan", "Plan"), ("build", "Build"), ("checks", "Checks"), ("review", "Review"),
-            ("pr", "Pull request"))
+SECTIONS = (
+    ("request", "Request"),
+    ("criteria", "Criteria"),
+    ("plan", "Plan"),
+    ("build", "Build"),
+    ("checks", "Checks"),
+    ("review", "Review"),
+    ("pr", "Pull request"),
+)
 WORK = "work"
 GROUPS = (*(key for key, _ in SECTIONS), WORK)
 
@@ -101,32 +108,72 @@ SMALL_RECORD = (
     "state.md",
     # its ask, and the first line of task.md for a task with no ask.txt: `tasks`, and the line of
     # `/lem` that a refused resume ends with
-    "ask.txt", "task.md",
+    "ask.txt",
+    "task.md",
     # its pull request, which `lem project tasks` shows (`proposal`)
     "landing.json",
     # its ticket, the issue's repository and what Lem did to it: the steps it still owes (`ticket_owed`)
     # and the task that holds the ticket now (`ticket_held_by`)
-    "ticket.txt", "ticket-repo.txt", "ticket-steps.txt",
+    "ticket.txt",
+    "ticket-repo.txt",
+    "ticket-steps.txt",
     # the task a resumed one came from, which a resume's new name and the ticket's holder follow back
     "resumed-from.txt",
 )
 # The tabs, by their key, as a record's line names them.
-TAB_NAMES = {"criteria": "Criteria and decisions", "checks": "Checks and review", "timeline": "Timeline"}
+TAB_NAMES = {
+    "criteria": "Criteria and decisions",
+    "checks": "Checks and review",
+    "timeline": "Timeline",
+}
 # The pictures a document may show, and their types; an SVG is no picture here, since it can carry a script.
-IMAGES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp"}
+IMAGES = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+}
 # A path in a document's text that names a picture of the task's media folder.
-MEDIA_REF = re.compile(r"(?:^|[(\s\"'/])(media/[A-Za-z0-9._/-]+\.(?:png|jpe?g|gif|webp))\b", re.I)
+MEDIA_REF = re.compile(
+    r"(?:^|[(\s\"'/])(media/[A-Za-z0-9._/-]+\.(?:png|jpe?g|gif|webp))\b", re.I
+)
 
 
 KINDS = {
-    ".md": "markdown", ".markdown": "markdown",
-    ".txt": "text", ".py": "text", ".js": "text", ".css": "text", ".toml": "text", ".yaml": "text", ".yml": "text",
-    ".sh": "text", ".diff": "text", ".patch": "text", ".csv": "text", ".svg": "text",
-    ".json": "json", ".jsonl": "jsonl",
-    ".log": "log", ".out": "log", ".err": "log",
-    ".html": "html", ".htm": "html",
-    ".png": "image", ".jpg": "image", ".jpeg": "image", ".gif": "image", ".webp": "image", ".ico": "binary",
-    ".pdf": "binary", ".zip": "binary", ".gz": "binary", ".tar": "binary", ".sqlite": "binary", ".db": "binary",
+    ".md": "markdown",
+    ".markdown": "markdown",
+    ".txt": "text",
+    ".py": "text",
+    ".js": "text",
+    ".css": "text",
+    ".toml": "text",
+    ".yaml": "text",
+    ".yml": "text",
+    ".sh": "text",
+    ".diff": "text",
+    ".patch": "text",
+    ".csv": "text",
+    ".svg": "text",
+    ".json": "json",
+    ".jsonl": "jsonl",
+    ".log": "log",
+    ".out": "log",
+    ".err": "log",
+    ".html": "html",
+    ".htm": "html",
+    ".png": "image",
+    ".jpg": "image",
+    ".jpeg": "image",
+    ".gif": "image",
+    ".webp": "image",
+    ".ico": "binary",
+    ".pdf": "binary",
+    ".zip": "binary",
+    ".gz": "binary",
+    ".tar": "binary",
+    ".sqlite": "binary",
+    ".db": "binary",
 }
 
 
@@ -136,10 +183,17 @@ def image_type(name: str, head: bytes) -> str | None:
     want = IMAGES.get(Path(name).suffix.lower())
     if want is None:
         return None
-    found = ("image/png" if head.startswith(b"\x89PNG\r\n\x1a\n") else
-             "image/jpeg" if head.startswith(b"\xff\xd8\xff") else
-             "image/gif" if head[:6] in (b"GIF87a", b"GIF89a") else
-             "image/webp" if head[:4] == b"RIFF" and head[8:12] == b"WEBP" else None)
+    found = (
+        "image/png"
+        if head.startswith(b"\x89PNG\r\n\x1a\n")
+        else "image/jpeg"
+        if head.startswith(b"\xff\xd8\xff")
+        else "image/gif"
+        if head[:6] in (b"GIF87a", b"GIF89a")
+        else "image/webp"
+        if head[:4] == b"RIFF" and head[8:12] == b"WEBP"
+        else None
+    )
     return found if found == want else None
 
 
@@ -155,43 +209,115 @@ def place(path: str) -> dict:
         return {"group": group, "title": title, "role": "doc"}
     if path in RECORDS:
         of, label, tab = RECORDS[path]
-        return {"group": DOCS[of][0], "title": f"{DOCS[of][1]} ({label})", "role": "record", "of": of, "label": label, "tab": tab}
+        return {
+            "group": DOCS[of][0],
+            "title": f"{DOCS[of][1]} ({label})",
+            "role": "record",
+            "of": of,
+            "label": label,
+            "tab": tab,
+        }
     # the merge agent's brief of one proposed tip on one base (land.py `brief_file`)
     brief = re.fullmatch(r"merge-brief-([0-9a-f]+)-([0-9a-f]+)\.md", path)
     if brief:
-        return {"group": "pr", "title": f"The merge agent's brief of {brief.group(1)[:9]} on {brief.group(2)[:9]}", "role": "doc"}
+        return {
+            "group": "pr",
+            "title": f"The merge agent's brief of {brief.group(1)[:9]} on {brief.group(2)[:9]}",
+            "role": "doc",
+        }
     breaker = re.fullmatch(r"breaker-(\d+)\.md", path)
     if breaker:
-        return {"group": "build", "title": f"What stopped the build: breaker {breaker.group(1)}", "role": "doc"}
+        return {
+            "group": "build",
+            "title": f"What stopped the build: breaker {breaker.group(1)}",
+            "role": "doc",
+        }
     if path.startswith("reports/") and suffix == "md":
-        return {"group": "build", "title": f"Report: {path.removeprefix('reports/').removesuffix('.md')}", "role": "doc"}
+        return {
+            "group": "build",
+            "title": f"Report: {path.removeprefix('reports/').removesuffix('.md')}",
+            "role": "doc",
+        }
     if path.startswith("gate/"):
         number = re.fullmatch(r"0*(\d+)\.log", path.removeprefix("gate/"))
-        return {"group": "checks", "title": f"Check {number.group(1)} output" if number else f"Check output: {path.removeprefix('gate/')}", "role": "doc"}
+        return {
+            "group": "checks",
+            "title": f"Check {number.group(1)} output"
+            if number
+            else f"Check output: {path.removeprefix('gate/')}",
+            "role": "doc",
+        }
     if re.fullmatch(r"red(-.+)?\.json", path):
-        return {"group": "criteria", "title": "Criteria fail on the base (record)", "role": "record", "of": "criteria.md", "label": "red on the base", "tab": "criteria"}
+        return {
+            "group": "criteria",
+            "title": "Criteria fail on the base (record)",
+            "role": "record",
+            "of": "criteria.md",
+            "label": "red on the base",
+            "tab": "criteria",
+        }
     review = re.fullmatch(r"reviews/review-0*(\d+)\.(md|json)", path)
     if review:
         if review.group(2) == "md":
-            return {"group": "review", "title": f"Review {review.group(1)}", "role": "doc"}
-        return {"group": "review", "title": f"Review {review.group(1)} (record)", "role": "record", "of": path[:-5] + ".md", "label": "record", "tab": "checks"}
+            return {
+                "group": "review",
+                "title": f"Review {review.group(1)}",
+                "role": "doc",
+            }
+        return {
+            "group": "review",
+            "title": f"Review {review.group(1)} (record)",
+            "role": "record",
+            "of": path[:-5] + ".md",
+            "label": "record",
+            "tab": "checks",
+        }
     # the review tool's archive of one round: reviews/TASK/NN-LABEL/..., and its run's own files beside them
     archive = re.fullmatch(r"reviews/[^/]+/(\d+-[^/]+)/(.+)", path)
     if archive:
         if archive.group(2) == "report.md":
-            return {"group": "review", "title": f"Review round {archive.group(1)}", "role": "doc"}
-        return {"group": WORK, "title": archive.group(2), "role": "work", "folder": f"Review round {archive.group(1)}"}
+            return {
+                "group": "review",
+                "title": f"Review round {archive.group(1)}",
+                "role": "doc",
+            }
+        return {
+            "group": WORK,
+            "title": archive.group(2),
+            "role": "work",
+            "folder": f"Review round {archive.group(1)}",
+        }
     run = re.fullmatch(r"reviews/[a-z]+-(\d+-[^/]+)\.(json|log)", path)
     if run:
-        return {"group": WORK, "title": name, "role": "work", "folder": f"Review round {run.group(1)}"}
+        return {
+            "group": WORK,
+            "title": name,
+            "role": "work",
+            "folder": f"Review round {run.group(1)}",
+        }
     if "/" not in path and suffix in ("html", "htm"):
         return {"group": "pr", "title": name, "role": "doc"}
     if path.startswith("media/"):
-        return {"group": WORK, "title": path.removeprefix("media/"), "role": "work", "folder": "Pictures"}
+        return {
+            "group": WORK,
+            "title": path.removeprefix("media/"),
+            "role": "work",
+            "folder": "Pictures",
+        }
     if path.startswith("ladder/"):
-        return {"group": WORK, "title": path.removeprefix("ladder/"), "role": "work", "folder": "The ladder's notes"}
+        return {
+            "group": WORK,
+            "title": path.removeprefix("ladder/"),
+            "role": "work",
+            "folder": "The ladder's notes",
+        }
     folder = path.rpartition("/")[0]
-    return {"group": WORK, "title": name if folder else path, "role": "work", "folder": folder or None}
+    return {
+        "group": WORK,
+        "title": name if folder else path,
+        "role": "work",
+        "folder": folder or None,
+    }
 
 
 def arrange(entries: list[dict], shows: dict[str, list[str]] | None = None) -> dict:
@@ -214,19 +340,42 @@ def arrange(entries: list[dict], shows: dict[str, list[str]] | None = None) -> d
         if role == "record" and e.get("of") in by_path:
             attached.setdefault(e["of"], []).append(e)
         elif e["path"] in shown_by:
-            attached.setdefault(shown_by[e["path"]], []).append({**e, "label": e["path"].removeprefix("media/")})
+            attached.setdefault(shown_by[e["path"]], []).append(
+                {**e, "label": e["path"].removeprefix("media/")}
+            )
         elif role == "doc":
             docs.append(e)
         else:
-            folder = e.get("folder") or ("Records with no document" if role == "record" else None)
+            folder = e.get("folder") or (
+                "Records with no document" if role == "record" else None
+            )
             work.append({**e, "folder": folder})
-    sections = [{"key": key, "name": name, "docs": [{**d, "attached": attached.get(d["path"], [])} for d in docs if d["group"] == key]}
-                for key, name in SECTIONS]
+    sections = [
+        {
+            "key": key,
+            "name": name,
+            "docs": [
+                {**d, "attached": attached.get(d["path"], [])}
+                for d in docs
+                if d["group"] == key
+            ],
+        }
+        for key, name in SECTIONS
+    ]
     folders: dict = {}
     for e in work:
         folders.setdefault(e["folder"], []).append(e)
-    return {"sections": sections, "work": [{"folder": f, "files": files_} for f, files_ in sorted(folders.items(), key=lambda x: (x[0] is not None, x[0] or ""))],
-            "count": len(docs), "work_count": len(work)}
+    return {
+        "sections": sections,
+        "work": [
+            {"folder": f, "files": files_}
+            for f, files_ in sorted(
+                folders.items(), key=lambda x: (x[0] is not None, x[0] or "")
+            )
+        ],
+        "count": len(docs),
+        "work_count": len(work),
+    }
 
 
 def kind_of(file: Path) -> str:
@@ -246,7 +395,9 @@ def stamp(seconds: float) -> str:
     return datetime.fromtimestamp(seconds, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def entry(file: Path, path: str, where: dict, href: str | None, read: bool = True) -> dict | None:
+def entry(
+    file: Path, path: str, where: dict, href: str | None, read: bool = True
+) -> dict | None:
     """One file's entry; None for an empty file, which shows nothing, and for a link to a file that
     is gone. A file that cannot be read is listed with no text, and the others are still read. With
     `read` false the entry has no text: the board lists the files and reads only the one shown."""
@@ -257,7 +408,14 @@ def entry(file: Path, path: str, where: dict, href: str | None, read: bool = Tru
     if facts.st_size == 0:
         return None
     kind = kind_of(file)
-    found: dict = {"path": path, **where, "kind": kind, "bytes": facts.st_size, "mtime": stamp(facts.st_mtime), "text": None}
+    found: dict = {
+        "path": path,
+        **where,
+        "kind": kind,
+        "bytes": facts.st_size,
+        "mtime": stamp(facts.st_mtime),
+        "text": None,
+    }
     if facts.st_size > CAP and kind not in ("html", "binary", "image"):
         found["cut"] = True
     if kind == "html":
@@ -273,7 +431,9 @@ def entry(file: Path, path: str, where: dict, href: str | None, read: bool = Tru
     return found
 
 
-def files(directory: Path, slug: str, plan: tuple[Path, str] | None = None, read: bool = True) -> list[dict]:
+def files(
+    directory: Path, slug: str, plan: tuple[Path, str] | None = None, read: bool = True
+) -> list[dict]:
     """The entries of a task's files: each file of its directory but a lock, an empty file and a
     hidden one, and its plan when `plan` gives the file and its path from the repository root; with
     `read` false, with no text (`entry`)."""
@@ -289,13 +449,28 @@ def files(directory: Path, slug: str, plan: tuple[Path, str] | None = None, read
             if made:
                 found.append(made)
     if plan is not None:
-        made = entry(plan[0], plan[1], {"group": "plan", "title": "The plan", "role": "doc", "first": True}, None, read)
+        made = entry(
+            plan[0],
+            plan[1],
+            {"group": "plan", "title": "The plan", "role": "doc", "first": True},
+            None,
+            read,
+        )
         if made:
             found.append(made)
-    return sorted(found, key=lambda item: (GROUPS.index(item["group"]), not item.get("first"), item["path"]))
+    return sorted(
+        found,
+        key=lambda item: (
+            GROUPS.index(item["group"]),
+            not item.get("first"),
+            item["path"],
+        ),
+    )
 
 
-def one(directory: Path, slug: str, path: str, plan: tuple[Path, str] | None = None) -> tuple[dict, Path] | None:
+def one(
+    directory: Path, slug: str, path: str, plan: tuple[Path, str] | None = None
+) -> tuple[dict, Path] | None:
     """The entry of one file of a task, with its text, and the file itself: `path` as `files` names it
     (from the task directory, or the plan's path from the repository root); None for a path that is no
     entry of the task's, so that nothing outside its files is ever read by a name a request gives."""
@@ -311,7 +486,11 @@ def one(directory: Path, slug: str, path: str, plan: tuple[Path, str] | None = N
                 return None
         except OSError:
             return None
-    where = {key: value for key, value in listed[path].items() if key not in ("path", "kind", "bytes", "mtime", "text", "cut", "href")}
+    where = {
+        key: value
+        for key, value in listed[path].items()
+        if key not in ("path", "kind", "bytes", "mtime", "text", "cut", "href")
+    }
     found = entry(file, path, where, listed[path].get("href"))
     return (found, file) if found else None
 
@@ -323,7 +502,13 @@ def pictures_named(directory: Path, entries: list[dict]) -> dict[str, list[str]]
         return {}
     named = {}
     for e in entries:
-        if e["kind"] != "markdown" or e.get("role") != "doc" or e.get("cut") or e["path"].startswith("/") or e.get("first"):
+        if (
+            e["kind"] != "markdown"
+            or e.get("role") != "doc"
+            or e.get("cut")
+            or e["path"].startswith("/")
+            or e.get("first")
+        ):
             continue
         try:
             text = (directory / e["path"]).read_text(encoding="utf-8", errors="replace")
@@ -347,6 +532,7 @@ def outside_record(directory: Path) -> list[str]:
     def unlisted(error: OSError) -> None:
         if error.filename and Path(error.filename) != directory:
             found.append(Path(error.filename).relative_to(directory).as_posix())
+
     for at, folders, names in os.walk(directory, onerror=unlisted):
         top = Path(at) == directory
         for name in folders:

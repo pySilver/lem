@@ -18,7 +18,9 @@ from types import SimpleNamespace
 from unittest import mock
 
 sys.dont_write_bytecode = True
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts"))
+sys.path.insert(
+    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
+)
 push = importlib.import_module("lem_push")
 bm = importlib.import_module("lem_board_model")
 
@@ -33,7 +35,10 @@ class InHome(unittest.TestCase):
 
     def setUp(self) -> None:
         self.folder = tempfile.TemporaryDirectory()
-        patcher = mock.patch.dict(os.environ, {"XDG_CONFIG_HOME": self.folder.name, push.SWITCH[0]: push.SWITCH[1]})
+        patcher = mock.patch.dict(
+            os.environ,
+            {"XDG_CONFIG_HOME": self.folder.name, push.SWITCH[0]: push.SWITCH[1]},
+        )
         patcher.start()
         self.addCleanup(patcher.stop)
         self.addCleanup(self.folder.cleanup)
@@ -51,9 +56,34 @@ class Signature(InHome):
         work = Path(self.folder.name)
         (work / "sig.der").write_bytes(push.raw_to_der(raw))
         (work / "data").write_bytes(data)
-        subprocess.run([push.openssl(), "ec", "-in", str(path), "-pubout", "-out", str(work / "pub.pem")], capture_output=True, check=True)
-        checked = subprocess.run([push.openssl(), "dgst", "-sha256", "-verify", str(work / "pub.pem"), "-signature", str(work / "sig.der"), str(work / "data")],
-                                 capture_output=True, text=True, check=False)
+        subprocess.run(
+            [
+                push.openssl(),
+                "ec",
+                "-in",
+                str(path),
+                "-pubout",
+                "-out",
+                str(work / "pub.pem"),
+            ],
+            capture_output=True,
+            check=True,
+        )
+        checked = subprocess.run(
+            [
+                push.openssl(),
+                "dgst",
+                "-sha256",
+                "-verify",
+                str(work / "pub.pem"),
+                "-signature",
+                str(work / "sig.der"),
+                str(work / "data"),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
         self.assertIn("Verified OK", checked.stdout)
 
     def test_the_token_names_the_push_services_origin_and_ends_within_a_day(self):
@@ -71,7 +101,15 @@ class Signature(InHome):
 class Der(unittest.TestCase):
     def test_short_and_padded_numbers_become_32_bytes_each(self):
         r, s = b"\x00" + b"\x80" + b"\x01" * 31, b"\x05"
-        der = b"\x30" + bytes([4 + len(r) + len(s)]) + b"\x02" + bytes([len(r)]) + r + b"\x02\x01" + s
+        der = (
+            b"\x30"
+            + bytes([4 + len(r) + len(s)])
+            + b"\x02"
+            + bytes([len(r)])
+            + r
+            + b"\x02\x01"
+            + s
+        )
         raw = push.der_to_raw(der)
         self.assertEqual(raw, b"\x80" + b"\x01" * 31 + b"\x00" * 31 + b"\x05")
         self.assertEqual(push.der_to_raw(push.raw_to_der(raw)), raw)
@@ -100,20 +138,40 @@ class News(unittest.TestCase):
 
 class Endpoints(unittest.TestCase):
     def test_only_https_at_a_push_service_a_browser_uses(self):
-        for taken in (FCM, APPLE, "https://updates.push.services.mozilla.com/wpush/v2/x", "https://wns2-par02p.notify.windows.com/w/?token=x",
-                      "https://fcm.googleapis.com:443/fcm/send/x"):
+        for taken in (
+            FCM,
+            APPLE,
+            "https://updates.push.services.mozilla.com/wpush/v2/x",
+            "https://wns2-par02p.notify.windows.com/w/?token=x",
+            "https://fcm.googleapis.com:443/fcm/send/x",
+        ):
             self.assertIsNone(push.refusal(taken), taken)
-        for refused in ("http://fcm.googleapis.com/fcm/send/x", "https://fcm.googleapis.com:8443/x", "https://127.0.0.1/x", "https://[::1]/x",
-                        "https://fcm.googleapis.com.evil.example/x", "https://push.apple.com/x", "https://evil.example/x", "https://u:p@fcm.googleapis.com/x",
-                        None, "", "https://fcm.googleapis.com/" + "x" * 2100):
+        for refused in (
+            "http://fcm.googleapis.com/fcm/send/x",
+            "https://fcm.googleapis.com:8443/x",
+            "https://127.0.0.1/x",
+            "https://[::1]/x",
+            "https://fcm.googleapis.com.evil.example/x",
+            "https://push.apple.com/x",
+            "https://evil.example/x",
+            "https://u:p@fcm.googleapis.com/x",
+            None,
+            "",
+            "https://fcm.googleapis.com/" + "x" * 2100,
+        ):
             self.assertIsNotNone(push.refusal(refused), refused)
 
 
 @unittest.skipUnless(HAS_OPENSSL, NO_OPENSSL)
 class Sending(InHome):
-    def test_a_device_its_service_no_longer_knows_goes_and_the_token_is_used_again(self):
+    def test_a_device_its_service_no_longer_knows_goes_and_the_token_is_used_again(
+        self,
+    ):
         for endpoint in (FCM, APPLE, FCM + "-gone"):
-            push.subscribe({"endpoint": endpoint, "keys": {"p256dh": "k", "auth": "a"}}, "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0) AppleWebKit/605 Safari/604")
+            push.subscribe(
+                {"endpoint": endpoint, "keys": {"p256dh": "k", "auth": "a"}},
+                "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0) AppleWebKit/605 Safari/604",
+            )
         sent = []
 
         def stand_in(endpoint, headers):
@@ -121,36 +179,66 @@ class Sending(InHome):
             return (410, "gone") if endpoint.endswith("-gone") else (201, "")
 
         pusher = push.Pusher(send=stand_in)
-        results = pusher.send(push.read_state()["devices"], {"title": "T", "body": "B", "url": "/x"})
+        results = pusher.send(
+            push.read_state()["devices"], {"title": "T", "body": "B", "url": "/x"}
+        )
         pusher.send(push.read_state()["devices"])
         self.assertEqual([r["status"] for r in results], [201, 201, 410])
-        self.assertEqual([d["endpoint"] for d in push.read_state()["devices"]], [FCM, APPLE])
+        self.assertEqual(
+            [d["endpoint"] for d in push.read_state()["devices"]], [FCM, APPLE]
+        )
         self.assertEqual(push.read_state()["devices"][0]["device"], "iPhone · Safari")
         self.assertEqual(push.latest()["title"], "T")
         headers = sent[0][1]
-        self.assertEqual((headers["TTL"], headers["Urgency"], headers["Topic"]), (str(push.TTL_SECONDS), "high", push.TOPIC))
-        self.assertRegex(headers["Authorization"], r"^vapid t=[\w-]+\.[\w-]+\.[\w-]+, k=[\w-]+$")
+        self.assertEqual(
+            (headers["TTL"], headers["Urgency"], headers["Topic"]),
+            (str(push.TTL_SECONDS), "high", push.TOPIC),
+        )
+        self.assertRegex(
+            headers["Authorization"], r"^vapid t=[\w-]+\.[\w-]+\.[\w-]+, k=[\w-]+$"
+        )
         self.assertEqual(sent[0][1]["Authorization"], sent[3][1]["Authorization"])
 
-    def test_a_row_gained_while_the_owner_is_away_is_sent_and_a_demo_sends_nothing(self):
+    def test_a_row_gained_while_the_owner_is_away_is_sent_and_a_demo_sends_nothing(
+        self,
+    ):
         push.subscribe({"endpoint": FCM}, "")
         sent = []
-        pusher = push.Pusher(send=lambda endpoint, headers: sent.append(endpoint) or (201, ""))
+        pusher = push.Pusher(
+            send=lambda endpoint, headers: sent.append(endpoint) or (201, "")
+        )
         rows = {"now": []}
         task = SimpleNamespace(title="Footer terms typo", slug="footer-terms-typo")
         model = SimpleNamespace(meta={}, away=None)
         demo = SimpleNamespace(meta={"demo": True}, away=None)
         clock = {"now": 1000.0}
-        watcher = push.Watcher(lambda: [("shop", "/repo/shop", lambda: model), ("demo", "/repo/demo", lambda: demo)], "mac", pusher, log=lambda line: None,
-                               now=lambda: clock["now"])
-        with mock.patch.object(bm, "waits_of", lambda m: rows["now"]), \
-                mock.patch.object(bm, "wait_say", lambda w: {"verb": "Merge the pull request #41", "to": "overview"}):
+        watcher = push.Watcher(
+            lambda: [
+                ("shop", "/repo/shop", lambda: model),
+                ("demo", "/repo/demo", lambda: demo),
+            ],
+            "mac",
+            pusher,
+            log=lambda line: None,
+            now=lambda: clock["now"],
+        )
+        with (
+            mock.patch.object(bm, "waits_of", lambda m: rows["now"]),
+            mock.patch.object(
+                bm,
+                "wait_say",
+                lambda w: {"verb": "Merge the pull request #41", "to": "overview"},
+            ),
+        ):
             watcher.look()
             rows["now"] = [{"key": "merge:footer-terms-typo", "t": task}]
             model.away = {"since": 0, "words": ""}
             clock["now"] += 10
             self.assertEqual(len(watcher.look()), 1)
-            rows["now"] = [{"key": "merge:footer-terms-typo", "t": task}, {"key": "breaker:footer-terms-typo:1", "t": task}]
+            rows["now"] = [
+                {"key": "merge:footer-terms-typo", "t": task},
+                {"key": "breaker:footer-terms-typo:1", "t": task},
+            ]
             model.away = None
             clock["now"] += 10
             done = watcher.look()
@@ -159,24 +247,73 @@ class Sending(InHome):
         self.assertEqual(push.latest()["url"], "/mac/shop/tasks/footer-terms-typo")
         self.assertNotIn("/repo/demo", push.read_state()["seen"])
 
-    def test_no_push_goes_for_a_held_task_while_its_session_works_and_one_when_its_turn_ended(self):
+    def test_no_push_goes_for_a_held_task_while_its_session_works_and_one_when_its_turn_ended(
+        self,
+    ):
         # waits-for-you-only-when-it-waits, criteria 1 and 2: the push follows the rows of Waits for you
         push.subscribe({"endpoint": FCM}, "")
         sent = []
-        pusher = push.Pusher(send=lambda endpoint, headers: sent.append(endpoint) or (201, ""))
-        building = [{"ts": "2026-11-23T11:00:00Z", "event": "task.state", "task": "gift-note", "status": "building", "text": "task 1 of 2", "lines": []}]
-        stopped = [*building, {"ts": "2026-11-23T11:20:00Z", "event": "decision.breaker", "task": "gift-note", "id": 1, "kind": "breaker", "cause": "criteria",
-                               "what": "The gift note has no place", "document": "breaker.md"},
-                   {"ts": "2026-11-23T11:20:00Z", "event": "task.state", "task": "gift-note", "status": "held", "text": "breaker 1 waits for the owner", "lines": []}]
+        pusher = push.Pusher(
+            send=lambda endpoint, headers: sent.append(endpoint) or (201, "")
+        )
+        building = [
+            {
+                "ts": "2026-11-23T11:00:00Z",
+                "event": "task.state",
+                "task": "gift-note",
+                "status": "building",
+                "text": "task 1 of 2",
+                "lines": [],
+            }
+        ]
+        stopped = [
+            *building,
+            {
+                "ts": "2026-11-23T11:20:00Z",
+                "event": "decision.breaker",
+                "task": "gift-note",
+                "id": 1,
+                "kind": "breaker",
+                "cause": "criteria",
+                "what": "The gift note has no place",
+                "document": "breaker.md",
+            },
+            {
+                "ts": "2026-11-23T11:20:00Z",
+                "event": "task.state",
+                "task": "gift-note",
+                "status": "held",
+                "text": "breaker 1 waits for the owner",
+                "lines": [],
+            },
+        ]
 
         def model(events, turn):
             m = bm.derive(events, [], bm.at("2026-11-23T11:30:00Z"))
-            bm.put_sessions(m, {"gift-note": {"live": True, "agent": True, "unanswered": False, "session": "S1", "worktree": False, "turn": turn}})
+            bm.put_sessions(
+                m,
+                {
+                    "gift-note": {
+                        "live": True,
+                        "agent": True,
+                        "unanswered": False,
+                        "session": "S1",
+                        "worktree": False,
+                        "turn": turn,
+                    }
+                },
+            )
             return m
 
         now = {"model": model(building, "runs")}
         clock = {"now": 1000.0}
-        watcher = push.Watcher(lambda: [("shop", "/repo/shop", lambda: now["model"])], "mac", pusher, log=lambda line: None, now=lambda: clock["now"])
+        watcher = push.Watcher(
+            lambda: [("shop", "/repo/shop", lambda: now["model"])],
+            "mac",
+            pusher,
+            log=lambda line: None,
+            now=lambda: clock["now"],
+        )
         self.assertEqual(watcher.look(), [])
         for turn, pushes in (("runs", 0), ("ended", 1)):
             now["model"] = model(stopped, turn)

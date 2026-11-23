@@ -76,7 +76,9 @@ import sys
 if sys.version_info < (3, 11):
     # an old python3 must still load this file, so that it can say what it needs and not a traceback;
     # the project's settings, which every command reads first, need tomllib
-    sys.exit(f"cast.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it")
+    sys.exit(
+        f"cast.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it"
+    )
 
 import datetime
 import hashlib
@@ -100,7 +102,9 @@ PROJECT_PROFILE = Path(".lem") / "profile.md"
 # The folder of Lem's state folder that holds each panel's own folder.
 PANELS = "panels"
 BUILT_IN = Path(__file__).resolve().parent.parent / "cast"
-PROJECT_SETTINGS = Path(__file__).resolve().parents[2] / "lem" / "scripts" / "project.py"
+PROJECT_SETTINGS = (
+    Path(__file__).resolve().parents[2] / "lem" / "scripts" / "project.py"
+)
 
 # A persona's own seats, in the frontmatter of its file: the one key, the agents that can answer as
 # a persona, and the line to write.
@@ -112,7 +116,13 @@ SEATS_LINE = 'seats: ["claude/opus:high", "codex/gpt-6.2-sol:high"]'
 # model that agent's own definition names. Their names are the answer files' (`<stem>.opus.md`,
 # `<stem>.sol.md`).
 DEFAULT_SEATS = (
-    {"seat": "claude/opus", "agent": "claude", "model": "opus", "effort": None, "name": "opus"},
+    {
+        "seat": "claude/opus",
+        "agent": "claude",
+        "model": "opus",
+        "effort": None,
+        "name": "opus",
+    },
     {"seat": "codex", "agent": "codex", "model": None, "effort": None, "name": "sol"},
 )
 
@@ -130,9 +140,18 @@ def frontmatter(text: str, path: Path) -> tuple[dict[str, str], str]:
     lines = text.splitlines(keepends=True)
     if not lines or lines[0].rstrip("\r\n") != "---":
         return {}, text
-    end = next((n for n, line in enumerate(lines[1:], start=1) if line.rstrip("\r\n") == "---"), None)
+    end = next(
+        (
+            n
+            for n, line in enumerate(lines[1:], start=1)
+            if line.rstrip("\r\n") == "---"
+        ),
+        None,
+    )
     if end is None:
-        raise CastError(f"{path} opens a frontmatter with `---` on its first line and no `---` line closes it: close it, or take the first line out")
+        raise CastError(
+            f"{path} opens a frontmatter with `---` on its first line and no `---` line closes it: close it, or take the first line out"
+        )
     meta: dict[str, str] = {}
     for number, line in enumerate(lines[1:end], start=2):
         bare = line.strip()
@@ -141,11 +160,17 @@ def frontmatter(text: str, path: Path) -> tuple[dict[str, str], str]:
         key, colon, value = bare.partition(":")
         key = key.strip()
         if not colon or not key:
-            raise CastError(f"{path}, line {number}: {bare!r} is no `key: value` line; a persona's frontmatter holds one line, {SEATS_LINE}")
+            raise CastError(
+                f"{path}, line {number}: {bare!r} is no `key: value` line; a persona's frontmatter holds one line, {SEATS_LINE}"
+            )
         if key != SEATS_KEY:
-            raise CastError(f"{path}, line {number}: the frontmatter of a persona knows only `{SEATS_KEY}`, not {key!r}; write {SEATS_LINE}, or take the line out")
+            raise CastError(
+                f"{path}, line {number}: the frontmatter of a persona knows only `{SEATS_KEY}`, not {key!r}; write {SEATS_LINE}, or take the line out"
+            )
         if key in meta:
-            raise CastError(f"{path}, line {number}: `{key}` is written twice; keep one line, {SEATS_LINE}")
+            raise CastError(
+                f"{path}, line {number}: `{key}` is written twice; keep one line, {SEATS_LINE}"
+            )
         meta[key] = value.strip()
     return meta, "".join(lines[end + 1 :]).lstrip("\r\n")
 
@@ -155,11 +180,17 @@ def seat_name(seat: dict) -> str:
     (`gpt-6.2-sol` is sol), or its agent when it names no model; the experts' names follow the same rule."""
     if not seat["model"]:
         return seat["agent"]
-    words = [word for word in re.split(r"[-_.]", seat["model"].lower()) if re.search(r"[a-z]", word)]
+    words = [
+        word
+        for word in re.split(r"[-_.]", seat["model"].lower())
+        if re.search(r"[a-z]", word)
+    ]
     return words[-1] if words else seat["model"].lower()
 
 
-def seats_of(meta: dict[str, str], path: Path, here=project.agent_here) -> dict[str, object]:
+def seats_of(
+    meta: dict[str, str], path: Path, here=project.agent_here
+) -> dict[str, object]:
     """The seats a persona answers on: its file's `seats`, each checked as a seat of the settings is,
     or the panel's DEFAULT_SEATS when its file names none. A seat whose agent is not on this machine
     (`here`) is left out, as the panel leaves out its second family without Codex."""
@@ -179,7 +210,13 @@ def seats_of(meta: dict[str, str], path: Path, here=project.agent_here) -> dict[
         named, source = [], "file"
         for number, text in enumerate(given):
             try:
-                seat = project.parse_seat(text, f"{path}: seats[{number}]", PERSONA_AGENTS, "the agents a persona is started with", "claude/opus:high")
+                seat = project.parse_seat(
+                    text,
+                    f"{path}: seats[{number}]",
+                    PERSONA_AGENTS,
+                    "the agents a persona is started with",
+                    "claude/opus:high",
+                )
             except project.SettingsError as error:
                 raise CastError(f"{error}. The line is {SEATS_LINE}") from error
             named.append({**seat, "name": seat_name(seat)})
@@ -192,7 +229,9 @@ def seats_of(meta: dict[str, str], path: Path, here=project.agent_here) -> dict[
             )
     return {
         "seats": [{**seat, "here": True} for seat in named if here(seat["agent"])],
-        "left_out": [{**seat, "here": False} for seat in named if not here(seat["agent"])],
+        "left_out": [
+            {**seat, "here": False} for seat in named if not here(seat["agent"])
+        ],
         "seats_from": source,
     }
 
@@ -204,13 +243,25 @@ def persona(root: Path, path: Path, here=project.agent_here) -> dict[str, object
     try:
         text = path.read_text(encoding="utf-8")
     except UnicodeDecodeError as error:
-        raise CastError(f"{path} is not UTF-8 text (byte {error.start} does not read): save it as UTF-8") from error
+        raise CastError(
+            f"{path} is not UTF-8 text (byte {error.start} does not read): save it as UTF-8"
+        ) from error
     meta, body = frontmatter(text, path)
     found = {"stem": path.stem, "path": str(path), **seats_of(meta, path, here)}
     if body == text:
         return {**found, "person": str(path)}
     digest = hashlib.sha256(body.encode("utf-8")).hexdigest()[:16]
-    return {**found, "person": str(state_file(root, "personas-person", f"{path.stem}-{digest}.md", body.encode("utf-8")))}
+    return {
+        **found,
+        "person": str(
+            state_file(
+                root,
+                "personas-person",
+                f"{path.stem}-{digest}.md",
+                body.encode("utf-8"),
+            )
+        ),
+    }
 
 
 def fail(message: str) -> None:
@@ -223,7 +274,9 @@ def configure(root: Path) -> None:
     first: a settings file that does not read stops the panel."""
     global PROJECT_CAST, PROJECT_PROFILE
     done = subprocess.run(
-        [sys.executable, "-B", str(PROJECT_SETTINGS), "--repo", str(root), "show"], capture_output=True, text=True
+        [sys.executable, "-B", str(PROJECT_SETTINGS), "--repo", str(root), "show"],
+        capture_output=True,
+        text=True,
     )
     if done.returncode != 0:
         fail(done.stderr.strip() or "could not read the project's settings")
@@ -234,7 +287,9 @@ def configure(root: Path) -> None:
 
 
 def git(cwd: Path, *args: str) -> str:
-    done = subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, text=True)
+    done = subprocess.run(
+        ["git", "-C", str(cwd), *args], capture_output=True, text=True
+    )
     return done.stdout.strip() if done.returncode == 0 else ""
 
 
@@ -277,15 +332,30 @@ def default_refs(root: Path) -> list[str]:
     diverged, the local one is.
     """
     remote_head = git(root, "symbolic-ref", "--quiet", "refs/remotes/origin/HEAD")
-    names = [remote_head.removeprefix("refs/remotes/origin/")] if remote_head else ["master", "main", "trunk"]
+    names = (
+        [remote_head.removeprefix("refs/remotes/origin/")]
+        if remote_head
+        else ["master", "main", "trunk"]
+    )
     refs: list[str] = []
     for name in names:
         local, upstream = f"refs/heads/{name}", f"refs/remotes/origin/{name}"
         pair = [ref for ref in (local, upstream) if commit_of(root, ref)]
         if len(pair) == 2 and commit_of(root, local) != commit_of(root, upstream):
-            local_is_behind = subprocess.run(
-                ["git", "-C", str(root), "merge-base", "--is-ancestor", local, upstream],
-            ).returncode == 0
+            local_is_behind = (
+                subprocess.run(
+                    [
+                        "git",
+                        "-C",
+                        str(root),
+                        "merge-base",
+                        "--is-ancestor",
+                        local,
+                        upstream,
+                    ],
+                ).returncode
+                == 0
+            )
             if local_is_behind:
                 pair.reverse()
         refs += pair
@@ -297,7 +367,9 @@ def default_branch_cast(root: Path) -> tuple[str, Path, str] | None:
     for ref in default_refs(root):
         sha = commit_of(root, ref)
         label = ref.removeprefix("refs/heads/").removeprefix("refs/remotes/")
-        listed = git(root, "ls-tree", "--name-only", sha, "--", f"{PROJECT_CAST.as_posix()}/")
+        listed = git(
+            root, "ls-tree", "--name-only", sha, "--", f"{PROJECT_CAST.as_posix()}/"
+        )
         names = [n for n in listed.splitlines() if n.endswith(".md")]
         if not any(is_persona(n) for n in names):
             continue
@@ -308,9 +380,14 @@ def default_branch_cast(root: Path) -> tuple[str, Path, str] | None:
             staging = target.with_name(f"{sha}.{os.getpid()}.partial")
             staging.mkdir(parents=True)
             for name in names:
-                body = subprocess.run(["git", "-C", str(root), "show", f"{sha}:{name}"], capture_output=True)
+                body = subprocess.run(
+                    ["git", "-C", str(root), "show", f"{sha}:{name}"],
+                    capture_output=True,
+                )
                 if body.returncode:
-                    fail(f"could not read {name} at {label} ({sha[:9]}): {body.stderr.decode().strip()}")
+                    fail(
+                        f"could not read {name} at {label} ({sha[:9]}): {body.stderr.decode().strip()}"
+                    )
                 (staging / Path(name).name).write_bytes(body.stdout)
             try:
                 staging.rename(target)
@@ -334,11 +411,15 @@ def follows_default(root: Path, ref: str, path: str) -> bool:
     base = git(root, "merge-base", "HEAD", ref)
     if not base:
         return False
-    committed = subprocess.run(["git", "-C", str(root), "diff", "--quiet", base, "HEAD", "--", path]).returncode
+    committed = subprocess.run(
+        ["git", "-C", str(root), "diff", "--quiet", base, "HEAD", "--", path]
+    ).returncode
     pending = git(root, "status", "--porcelain", "--untracked-files=all", "--", path)
     if committed or pending:
         return False
-    return git(root, "rev-parse", f"HEAD:{path}") != git(root, "rev-parse", f"{ref}:{path}")
+    return git(root, "rev-parse", f"HEAD:{path}") != git(
+        root, "rev-parse", f"{ref}:{path}"
+    )
 
 
 def state_file(root: Path, folder: str, name: str, body: bytes) -> Path:
@@ -386,13 +467,17 @@ def profile(root: Path) -> dict[str, str] | None:
         there = PROJECT_PROFILE.as_posix()
         if git(root, "cat-file", "-t", f"{sha}:{there}") != "blob":
             continue
-        if local.is_file() and not follows_default(root, ref, PROJECT_PROFILE.as_posix()):
+        if local.is_file() and not follows_default(
+            root, ref, PROJECT_PROFILE.as_posix()
+        ):
             break
         body = subprocess.run(
             ["git", "-C", str(root), "show", f"{sha}:{there}"], capture_output=True
         )
         if body.returncode:
-            fail(f"could not read {there} at {label} ({sha[:9]}): {body.stderr.decode().strip()}")
+            fail(
+                f"could not read {there} at {label} ({sha[:9]}): {body.stderr.decode().strip()}"
+            )
         # Named by the file's own blob id, so every commit that leaves the profile unchanged reuses
         # one copy instead of adding another.
         blob = git(root, "rev-parse", f"{sha}:{there}")
@@ -416,7 +501,9 @@ def resolve(root: Path) -> dict[str, object]:
         raise AssertionError
     # each persona's seats and the text its agent reads, from the files of the cast that was found
     try:
-        found_cast["personas"] = [persona(root, Path(str(one["path"]))) for one in found_cast["personas"]]  # type: ignore[union-attr]
+        found_cast["personas"] = [
+            persona(root, Path(str(one["path"]))) for one in found_cast["personas"]
+        ]  # type: ignore[union-attr]
     except CastError as error:
         fail(str(error))
     return found_cast
@@ -426,12 +513,16 @@ def starting(root: Path) -> dict[str, object]:
     """Where `init` copies a first cast from: the cast shipped beside this script, and nothing else."""
     found = pick(root, [("built-in", "panel", BUILT_IN)])
     if found is None:
-        fail(f"no persona files to start from; the built-in cast at {BUILT_IN} is missing")
+        fail(
+            f"no persona files to start from; the built-in cast at {BUILT_IN} is missing"
+        )
         raise AssertionError
     return found
 
 
-def pick(root: Path, candidates: list[tuple[str, str, Path]]) -> dict[str, object] | None:
+def pick(
+    root: Path, candidates: list[tuple[str, str, Path]]
+) -> dict[str, object] | None:
     for layer, source, directory in candidates:
         found_personas = personas(directory)
         if found_personas:
@@ -452,7 +543,9 @@ def project_cast(root: Path) -> dict[str, object] | None:
     candidates: list[tuple[str, str, Path]] = []
     found = default_branch_cast(root)
     local = bool(personas(root / PROJECT_CAST))
-    if found and (not local or follows_default(root, found[2], PROJECT_CAST.as_posix())):
+    if found and (
+        not local or follows_default(root, found[2], PROJECT_CAST.as_posix())
+    ):
         candidates.append(("project", found[0], found[1]))
     candidates.append(("project", "checkout", root / PROJECT_CAST))
     return pick(root, candidates)
@@ -464,7 +557,9 @@ def init(root: Path) -> None:
         fail(f"{target} already holds files; edit them there")
     there = project_cast(root)
     if there is not None:
-        fail(f"the default branch already has a cast ({there['source']}); rebase onto it instead")
+        fail(
+            f"the default branch already has a cast ({there['source']}); rebase onto it instead"
+        )
     cast = starting(root)
     source = Path(str(cast["dir"]))
     target.mkdir(parents=True, exist_ok=True)

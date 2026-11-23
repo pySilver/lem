@@ -42,23 +42,65 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 # the name of a link to this file in bin/ -> the script it runs, relative to the plugin's folder
-ALIASES = {"lem-ask": "skills/lem-ask/bin/lem-ask", "lem-jev": "skills/lem/scripts/jev.py"}
+ALIASES = {
+    "lem-ask": "skills/lem-ask/bin/lem-ask",
+    "lem-jev": "skills/lem/scripts/jev.py",
+}
 
 # name -> (the script, relative to the plugin's folder; what it does, in one line)
 COMMANDS = {
-    "project": ("skills/lem/scripts/project.py", "a repository's settings, a task's state and directory, the event log, the queue, and what waits for the owner"),
-    "land": ("skills/lem/scripts/land.py", "the landing, one step at a time: checks, review, pull request, the merge agent's read, the merge and the cleanup"),
-    "criteria": ("skills/lem/scripts/criteria.py", "a task's acceptance criteria: approve, show, record, and red on the base"),
-    "decisions": ("skills/lem/scripts/decisions.py", "a task's decisions, each taken without the owner, and its breakers"),
-    "board": ("skills/lem/scripts/board.py", "the board of all tasks, or of one task (--task SLUG)"),
-    "serve": ("skills/lem/scripts/serve.py", "the boards of every repository on this machine, and of the machines joined with --join, over HTTP, for a browser on another device: --ensure starts it"),
-    "picker": ("skills/lem/scripts/picker.py", "agterm's picker over the tasks, which goes to the live session of the one picked, else opens its board (--list prints the rows)"),
-    "session": ("skills/lem/scripts/session.py", "a task's own session in agterm: open, next, close, wake, wait, list, its handoff and the copy of the talk; and close-job, the end of a scheduled night or retro"),
-    "doctor": ("skills/lem/scripts/doctor.py", "the machine check: the tools Lem needs and recommends"),
-    "corrections": ("skills/lem/scripts/corrections.py", "the queue of the owner's corrections, for a retro"),
-    "experts": ("skills/lem-ask-expert/scripts/experts.py", "the experts' brief of one question, and the record of their answers"),
-    "cast": ("skills/lem-panel/scripts/cast.py", "the persona panel's cast and profile, and a panel's run folder"),
-    "issue": ("skills/lem-github/scripts/issues.py", "the GitHub tracker: check, read an issue, and a task's start, land, drop and answer on its issue"),
+    "project": (
+        "skills/lem/scripts/project.py",
+        "a repository's settings, a task's state and directory, the event log, the queue, and what waits for the owner",
+    ),
+    "land": (
+        "skills/lem/scripts/land.py",
+        "the landing, one step at a time: checks, review, pull request, the merge agent's read, the merge and the cleanup",
+    ),
+    "criteria": (
+        "skills/lem/scripts/criteria.py",
+        "a task's acceptance criteria: approve, show, record, and red on the base",
+    ),
+    "decisions": (
+        "skills/lem/scripts/decisions.py",
+        "a task's decisions, each taken without the owner, and its breakers",
+    ),
+    "board": (
+        "skills/lem/scripts/board.py",
+        "the board of all tasks, or of one task (--task SLUG)",
+    ),
+    "serve": (
+        "skills/lem/scripts/serve.py",
+        "the boards of every repository on this machine, and of the machines joined with --join, over HTTP, for a browser on another device: --ensure starts it",
+    ),
+    "picker": (
+        "skills/lem/scripts/picker.py",
+        "agterm's picker over the tasks, which goes to the live session of the one picked, else opens its board (--list prints the rows)",
+    ),
+    "session": (
+        "skills/lem/scripts/session.py",
+        "a task's own session in agterm: open, next, close, wake, wait, list, its handoff and the copy of the talk; and close-job, the end of a scheduled night or retro",
+    ),
+    "doctor": (
+        "skills/lem/scripts/doctor.py",
+        "the machine check: the tools Lem needs and recommends",
+    ),
+    "corrections": (
+        "skills/lem/scripts/corrections.py",
+        "the queue of the owner's corrections, for a retro",
+    ),
+    "experts": (
+        "skills/lem-ask-expert/scripts/experts.py",
+        "the experts' brief of one question, and the record of their answers",
+    ),
+    "cast": (
+        "skills/lem-panel/scripts/cast.py",
+        "the persona panel's cast and profile, and a panel's run folder",
+    ),
+    "issue": (
+        "skills/lem-github/scripts/issues.py",
+        "the GitHub tracker: check, read an issue, and a task's start, land, drop and answer on its issue",
+    ),
 }
 
 
@@ -77,7 +119,9 @@ def home():  # no annotation of `str | None`: this file loads under any python3
     named = os.environ.get("XDG_CONFIG_HOME", "")
     if named and not os.path.isabs(named):
         return None
-    return os.path.join(named or os.path.join(os.path.expanduser("~"), ".config"), "lem")
+    return os.path.join(
+        named or os.path.join(os.path.expanduser("~"), ".config"), "lem"
+    )
 
 
 def server_lives(folder: str) -> bool:
@@ -113,31 +157,56 @@ def look_for_server(python: str) -> None:
     try:
         os.makedirs(folder, exist_ok=True)
         with open(os.path.join(folder, SERVE_LOG), "ab") as log:
-            subprocess.Popen([python, "-B", os.path.join(ROOT, "skills", "lem", "scripts", "serve.py"), "--ensure"], stdin=subprocess.DEVNULL,
-                             stdout=log, stderr=log, start_new_session=True, close_fds=True, cwd=folder)
+            subprocess.Popen(
+                [
+                    python,
+                    "-B",
+                    os.path.join(ROOT, "skills", "lem", "scripts", "serve.py"),
+                    "--ensure",
+                ],
+                stdin=subprocess.DEVNULL,
+                stdout=log,
+                stderr=log,
+                start_new_session=True,
+                close_fds=True,
+                cwd=folder,
+            )
     except Exception:  # noqa: BLE001 - the command goes on without the board
         return
 
 
 def names() -> str:
     width = max(len(name) for name in COMMANDS)
-    lines = ["lem NAME ARGS... runs one of Lem's scripts; `lem NAME --help` gives its own help.", ""]
+    lines = [
+        "lem NAME ARGS... runs one of Lem's scripts; `lem NAME --help` gives its own help.",
+        "",
+    ]
     lines += [f"  {name:<{width}}  {about}" for name, (_, about) in COMMANDS.items()]
-    lines += [f"  {'version':<{width}}  the plugin's version and the commit of its folder, as JSON",
-              f"  {'help':<{width}}  this list", "",
-              "lem-ask (the question page) and lem-jev (the Jev model) are commands of their own."]
+    lines += [
+        f"  {'version':<{width}}  the plugin's version and the commit of its folder, as JSON",
+        f"  {'help':<{width}}  this list",
+        "",
+        "lem-ask (the question page) and lem-jev (the Jev model) are commands of their own.",
+    ]
     return "\n".join(lines) + "\n"
 
 
 def version() -> dict:
     found = {"root": ROOT, "version": None, "commit": None}
     try:
-        with open(os.path.join(ROOT, ".claude-plugin", "plugin.json"), encoding="utf-8") as manifest:
+        with open(
+            os.path.join(ROOT, ".claude-plugin", "plugin.json"), encoding="utf-8"
+        ) as manifest:
             found["version"] = json.load(manifest).get("version")
     except (OSError, ValueError):
         pass
     if os.path.exists(os.path.join(ROOT, ".git")):
-        ran = subprocess.run(["git", "-C", ROOT, "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=False)
+        ran = subprocess.run(
+            ["git", "-C", ROOT, "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
         if ran.returncode == 0:
             found["commit"] = ran.stdout.strip()
     return found
@@ -159,19 +228,26 @@ def run(script: str, args: list, command: str, look: bool = False) -> None:
     os.execv(python, [python, "-B", script, *args])
 
 
-def release(called: str):  # no annotation of `str | None`: this file loads under any python3
+def release(
+    called: str,
+):  # no annotation of `str | None`: this file loads under any python3
     """The file of the newest installed release that CALLED (`lem`, `lem-ask` or `lem-jev`) stands for,
     when this file is in a marketplace clone; None elsewhere. The clone holds the head of `main`, which
     no release holds, so nothing of it runs but this. A clone with no release listed exits 1."""
     market = os.path.dirname(ROOT)
     plugins = os.path.dirname(market)
-    if os.path.basename(market) != "marketplaces" or os.path.basename(plugins) != "plugins":
+    if (
+        os.path.basename(market) != "marketplaces"
+        or os.path.basename(plugins) != "plugins"
+    ):
         return None
     key = "lem@" + os.path.basename(ROOT)
     name = called if called in ALIASES else "lem"
     newest = None
     try:
-        with open(os.path.join(plugins, "installed_plugins.json"), encoding="utf-8") as listed:
+        with open(
+            os.path.join(plugins, "installed_plugins.json"), encoding="utf-8"
+        ) as listed:
             installs = json.load(listed).get("plugins", {}).get(key, [])
     except (OSError, ValueError, AttributeError):
         installs = []
@@ -185,9 +261,11 @@ def release(called: str):  # no annotation of `str | None`: this file loads unde
         if os.path.isfile(target) and (newest is None or number > newest[0]):
             newest = (number, target)
     if newest is None:
-        sys.exit(f"lem: {ROOT} is the marketplace clone of {key}, which holds the head of main and no release, and "
-                 f"{os.path.join(plugins, 'installed_plugins.json')} lists no release of it to run: the owner installs one with "
-                 f"`claude plugin install {key}`")
+        sys.exit(
+            f"lem: {ROOT} is the marketplace clone of {key}, which holds the head of main and no release, and "
+            f"{os.path.join(plugins, 'installed_plugins.json')} lists no release of it to run: the owner installs one with "
+            f"`claude plugin install {key}`"
+        )
     return newest[1]
 
 
@@ -209,11 +287,15 @@ def main() -> None:
         print(json.dumps(version(), indent=2))
         return
     if name not in COMMANDS:
-        sys.stderr.write(f"lem: {name!r} is no command of Lem's; the names are:\n\n" + names())
+        sys.stderr.write(
+            f"lem: {name!r} is no command of Lem's; the names are:\n\n" + names()
+        )
         sys.exit(1)
     script = os.path.join(ROOT, COMMANDS[name][0])
     if not os.path.isfile(script):
-        sys.exit(f"lem: {script} is not there: the plugin's folder {ROOT} is not whole; install the plugin again")
+        sys.exit(
+            f"lem: {script} is not there: the plugin's folder {ROOT} is not whole; install the plugin again"
+        )
     run(script, rest, "lem", look=name not in NO_LOOK)
 
 

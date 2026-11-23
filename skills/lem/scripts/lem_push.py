@@ -94,7 +94,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lem_state  # noqa: E402  (beside this file)
 
 # Where openssl is, by its absolute path: macOS's own first, then Homebrew's.
-OPENSSL_PLACES = ("/usr/bin/openssl", "/opt/homebrew/bin/openssl", "/usr/local/bin/openssl")
+OPENSSL_PLACES = (
+    "/usr/bin/openssl",
+    "/opt/homebrew/bin/openssl",
+    "/usr/local/bin/openssl",
+)
 # The files in Lem's home folder.
 KEY_FILE = "push-key.pem"
 STATE_FILE = "push.json"
@@ -147,6 +151,7 @@ class PushError(Exception):
 
 # ---- the key and the token ----
 
+
 def b64url(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
@@ -165,7 +170,7 @@ def der_to_raw(der: bytes) -> bytes:
         if at + 2 > len(der) or der[at] != 0x02:
             raise PushError("openssl's signature is no DER sequence of two integers")
         size = der[at + 1]
-        value = der[at + 2:at + 2 + size]
+        value = der[at + 2 : at + 2 + size]
         if len(value) != size:
             raise PushError("openssl's signature is cut short")
         value = value.lstrip(b"\0")
@@ -195,21 +200,38 @@ def raw_to_der(raw: bytes) -> bytes:
 
 def openssl() -> str:
     """openssl by its absolute path, or a refusal that names the fix."""
-    found = next((place for place in OPENSSL_PLACES if os.path.isfile(place) and os.access(place, os.X_OK)), None)
+    found = next(
+        (
+            place
+            for place in OPENSSL_PLACES
+            if os.path.isfile(place) and os.access(place, os.X_OK)
+        ),
+        None,
+    )
     if found is None:
-        raise PushError(f"the board's notifications sign with openssl (ES256), and this machine has none at {', '.join(OPENSSL_PLACES)}: "
-                        "install it (`brew install openssl@3`), then turn notifications on again")
+        raise PushError(
+            f"the board's notifications sign with openssl (ES256), and this machine has none at {', '.join(OPENSSL_PLACES)}: "
+            "install it (`brew install openssl@3`), then turn notifications on again"
+        )
     return found
 
 
 def run_openssl(args: list[str], data: bytes | None = None) -> bytes:
     tool = openssl()
     try:
-        ran = subprocess.run([tool, *args], input=data, capture_output=True, check=False, timeout=SEND_TIMEOUT)
+        ran = subprocess.run(
+            [tool, *args],
+            input=data,
+            capture_output=True,
+            check=False,
+            timeout=SEND_TIMEOUT,
+        )
     except (OSError, subprocess.TimeoutExpired) as error:
         raise PushError(f"`openssl {args[0]}` did not run ({error})") from error
     if ran.returncode != 0:
-        raise PushError(f"`openssl {args[0]}` failed: {ran.stderr.decode('utf-8', 'replace').strip() or f'exit {ran.returncode}'}")
+        raise PushError(
+            f"`openssl {args[0]}` failed: {ran.stderr.decode('utf-8', 'replace').strip() or f'exit {ran.returncode}'}"
+        )
     return ran.stdout
 
 
@@ -230,10 +252,14 @@ def make_key(path: Path) -> None:
     """A new P-256 key pair in PATH, mode 0600 from its first byte: openssl writes into a file
     `mkstemp` made, which is renamed over PATH."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    handle, temporary = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    handle, temporary = tempfile.mkstemp(
+        dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
+    )
     os.close(handle)
     try:
-        run_openssl(["ecparam", "-name", "prime256v1", "-genkey", "-noout", "-out", temporary])
+        run_openssl(
+            ["ecparam", "-name", "prime256v1", "-genkey", "-noout", "-out", temporary]
+        )
         os.chmod(temporary, 0o600)
         os.replace(temporary, path)
     except BaseException:
@@ -247,7 +273,9 @@ def public_key_of(path: Path) -> str:
     # a P-256 SubjectPublicKeyInfo is 91 bytes, and its last 65 are the point
     point = der[-65:]
     if len(der) != 91 or point[0] != 0x04:
-        raise PushError(f"{path} holds no P-256 key: delete it, and the next turn-on makes a new one (each device then turns notifications on again)")
+        raise PushError(
+            f"{path} holds no P-256 key: delete it, and the next turn-on makes a new one (each device then turns notifications on again)"
+        )
     return b64url(point)
 
 
@@ -276,10 +304,25 @@ def audience(endpoint: str) -> str:
     return f"{parts.scheme}://{parts.netloc.lower()}"
 
 
-def token(aud: str, now: float, path: Path, subject: str = SUBJECT, lifetime: int = TOKEN_LIFETIME) -> str:
+def token(
+    aud: str,
+    now: float,
+    path: Path,
+    subject: str = SUBJECT,
+    lifetime: int = TOKEN_LIFETIME,
+) -> str:
     """A VAPID JWT for one push service, signed with the key file PATH."""
-    head = b64url(json.dumps({"typ": "JWT", "alg": "ES256"}, separators=(",", ":")).encode("utf-8"))
-    claims = b64url(json.dumps({"aud": aud, "exp": int(now) + lifetime, "sub": subject}, separators=(",", ":")).encode("utf-8"))
+    head = b64url(
+        json.dumps({"typ": "JWT", "alg": "ES256"}, separators=(",", ":")).encode(
+            "utf-8"
+        )
+    )
+    claims = b64url(
+        json.dumps(
+            {"aud": aud, "exp": int(now) + lifetime, "sub": subject},
+            separators=(",", ":"),
+        ).encode("utf-8")
+    )
     signed = f"{head}.{claims}"
     return f"{signed}.{b64url(sign(path, signed.encode('ascii')))}"
 
@@ -290,6 +333,7 @@ def claims_of(jwt: str) -> dict:
 
 
 # ---- the endpoint ----
+
 
 def refusal(endpoint) -> str | None:
     """Whether a device's endpoint is taken: None when it is, else the line that says why not. Only
@@ -302,24 +346,57 @@ def refusal(endpoint) -> str | None:
     except ValueError:
         return "The subscription's endpoint is no address."
     host = (parts.hostname or "").lower()
-    if parts.scheme != "https" or parts.username or parts.password or port not in (None, 443):
+    if (
+        parts.scheme != "https"
+        or parts.username
+        or parts.password
+        or port not in (None, 443)
+    ):
         return "The subscription's endpoint is not https on its usual port, as every push service's is."
     with contextlib.suppress(ValueError):
         ipaddress.ip_address(host)
         return "The subscription's endpoint is an IP address, and a push service has a name."
-    if host not in PUSH_HOSTS and not any(host.endswith(domain) and len(host) > len(domain) for domain in PUSH_DOMAINS):
-        return (f"{host} is no push service a browser uses (Apple's *.push.apple.com, Google's fcm.googleapis.com, "
-                "Mozilla's updates.push.services.mozilla.com, Microsoft's *.notify.windows.com).")
+    if host not in PUSH_HOSTS and not any(
+        host.endswith(domain) and len(host) > len(domain) for domain in PUSH_DOMAINS
+    ):
+        return (
+            f"{host} is no push service a browser uses (Apple's *.push.apple.com, Google's fcm.googleapis.com, "
+            "Mozilla's updates.push.services.mozilla.com, Microsoft's *.notify.windows.com)."
+        )
     return None
 
 
 def device_of(agent: str) -> str:
     """A browser's user agent in short: the device and the browser, `iPhone · Safari`."""
     agent = agent or ""
-    device = next((name for pattern, name in ((r"iPhone", "iPhone"), (r"iPad", "iPad"), (r"Android", "Android"), (r"Macintosh|Mac OS X", "Mac"),
-                                              (r"Windows", "Windows"), (r"Linux|X11", "Linux")) if re.search(pattern, agent)), "a device")
-    browser = next((name for pattern, name in ((r"Edg/", "Edge"), (r"Firefox/|FxiOS/", "Firefox"), (r"Chrome/|CriOS/", "Chrome"),
-                                               (r"Safari/|AppleWebKit/", "Safari")) if re.search(pattern, agent)), "a browser")
+    device = next(
+        (
+            name
+            for pattern, name in (
+                (r"iPhone", "iPhone"),
+                (r"iPad", "iPad"),
+                (r"Android", "Android"),
+                (r"Macintosh|Mac OS X", "Mac"),
+                (r"Windows", "Windows"),
+                (r"Linux|X11", "Linux"),
+            )
+            if re.search(pattern, agent)
+        ),
+        "a device",
+    )
+    browser = next(
+        (
+            name
+            for pattern, name in (
+                (r"Edg/", "Edge"),
+                (r"Firefox/|FxiOS/", "Firefox"),
+                (r"Chrome/|CriOS/", "Chrome"),
+                (r"Safari/|AppleWebKit/", "Safari"),
+            )
+            if re.search(pattern, agent)
+        ),
+        "a browser",
+    )
     return f"{device} · {browser}"
 
 
@@ -357,9 +434,17 @@ def read_state() -> dict:
     try:
         state = json.loads(text)
     except ValueError as error:
-        raise PushError(f"{file} does not read as JSON ({error}): delete it, and turn notifications on again on each device") from error
-    if not isinstance(state, dict) or not isinstance(state.get("devices", []), list) or not isinstance(state.get("seen", {}), dict):
-        raise PushError(f"{file} is not the shape Lem writes: delete it, and turn notifications on again on each device")
+        raise PushError(
+            f"{file} does not read as JSON ({error}): delete it, and turn notifications on again on each device"
+        ) from error
+    if (
+        not isinstance(state, dict)
+        or not isinstance(state.get("devices", []), list)
+        or not isinstance(state.get("seen", {}), dict)
+    ):
+        raise PushError(
+            f"{file} is not the shape Lem writes: delete it, and turn notifications on again on each device"
+        )
     return {**empty(), **state}
 
 
@@ -367,7 +452,9 @@ def write_state(state: dict) -> None:
     """Write `push.json` whole, mode 0600: a temporary file beside it, then a rename over it."""
     file = home() / STATE_FILE
     file.parent.mkdir(parents=True, exist_ok=True)
-    handle, temporary = tempfile.mkstemp(dir=file.parent, prefix=f".{file.name}.", suffix=".tmp")
+    handle, temporary = tempfile.mkstemp(
+        dir=file.parent, prefix=f".{file.name}.", suffix=".tmp"
+    )
     try:
         with os.fdopen(handle, "w", encoding="utf-8") as out:
             out.write(json.dumps(state, indent=2) + "\n")
@@ -378,29 +465,49 @@ def write_state(state: dict) -> None:
 
 
 def stamp(seconds: float | None = None) -> str:
-    return datetime.fromtimestamp(time.time() if seconds is None else seconds, timezone.utc).isoformat(timespec="seconds")
+    return datetime.fromtimestamp(
+        time.time() if seconds is None else seconds, timezone.utc
+    ).isoformat(timespec="seconds")
 
 
 def subscribe(given, agent: str) -> dict:
     """Keep a device's subscription (the browser's `PushSubscription.toJSON()`, and `workspaces`, a list
     of names, for fewer than all): a new endpoint is added, a known one is replaced."""
     if not isinstance(given, dict):
-        raise PushError("The request carries no subscription: a JSON object with its endpoint.")
+        raise PushError(
+            "The request carries no subscription: a JSON object with its endpoint."
+        )
     endpoint = given.get("endpoint")
     said = refusal(endpoint)
     if said:
         raise PushError(said)
     keys = given.get("keys") if isinstance(given.get("keys"), dict) else {}
-    keys = {name: value for name, value in keys.items() if name in ("p256dh", "auth") and isinstance(value, str) and len(value) <= 200}
+    keys = {
+        name: value
+        for name, value in keys.items()
+        if name in ("p256dh", "auth") and isinstance(value, str) and len(value) <= 200
+    }
     wanted = given.get("workspaces")
-    if wanted is not None and not (isinstance(wanted, list) and all(isinstance(name, str) for name in wanted)):
-        raise PushError("`workspaces` is a list of the workspaces' names, or absent for all of them.")
-    entry = {"endpoint": endpoint, "keys": keys, "added": stamp(), "device": device_of(agent), "workspaces": wanted}
+    if wanted is not None and not (
+        isinstance(wanted, list) and all(isinstance(name, str) for name in wanted)
+    ):
+        raise PushError(
+            "`workspaces` is a list of the workspaces' names, or absent for all of them."
+        )
+    entry = {
+        "endpoint": endpoint,
+        "keys": keys,
+        "added": stamp(),
+        "device": device_of(agent),
+        "workspaces": wanted,
+    }
     with held():
         state = read_state()
         others = [d for d in state["devices"] if d.get("endpoint") != endpoint]
         if len(others) >= MAX_DEVICES:
-            raise PushError(f"{MAX_DEVICES} devices get the board's notifications already: turn them off on one first.")
+            raise PushError(
+                f"{MAX_DEVICES} devices get the board's notifications already: turn them off on one first."
+            )
         state["devices"] = [*others, entry]
         write_state(state)
     return {"on": True, "device": entry["device"], "devices": len(state["devices"])}
@@ -423,8 +530,19 @@ def status() -> dict:
         state = read_state()
     except PushError as error:
         return {"devices": [], "last": None, "problem": str(error)}
-    return {"devices": [{"device": d.get("device"), "added": d.get("added"), "workspaces": d.get("workspaces")} for d in state["devices"]],
-            "last": state.get("last"), "key": key_path().is_file(), "problem": WATCH_PROBLEM.get("said")}
+    return {
+        "devices": [
+            {
+                "device": d.get("device"),
+                "added": d.get("added"),
+                "workspaces": d.get("workspaces"),
+            }
+            for d in state["devices"]
+        ],
+        "last": state.get("last"),
+        "key": key_path().is_file(),
+        "problem": WATCH_PROBLEM.get("said"),
+    }
 
 
 def latest() -> dict:
@@ -438,14 +556,21 @@ def latest() -> dict:
 
 # ---- the send ----
 
+
 def post(endpoint: str, headers: dict) -> tuple[int | None, str]:
     """One push, an empty POST, and the push service's status and the start of its answer; None and why
     when no answer came. With LEM_PUSH=record, a line in `push-record.jsonl` and 201, with no request."""
     if os.environ.get(SWITCH[0]) == SWITCH[1]:
         auth = headers.get("Authorization", "")
         jwt = re.search(r"t=([^,\s]+)", auth)
-        line = {"at": stamp(), "endpoint": endpoint, "TTL": headers.get("TTL"), "Urgency": headers.get("Urgency"), "Topic": headers.get("Topic"),
-                "claims": claims_of(jwt[1]) if jwt else None}
+        line = {
+            "at": stamp(),
+            "endpoint": endpoint,
+            "TTL": headers.get("TTL"),
+            "Urgency": headers.get("Urgency"),
+            "Topic": headers.get("Topic"),
+            "claims": claims_of(jwt[1]) if jwt else None,
+        }
         with (home() / RECORD_FILE).open("a", encoding="utf-8") as out:
             out.write(json.dumps(line) + "\n")
         return 201, "recorded, not sent (LEM_PUSH=record)"
@@ -493,19 +618,46 @@ class Pusher:
             endpoint = device.get("endpoint")
             refused = refusal(endpoint)
             if refused:
-                results.append({"device": device.get("device"), "status": None, "said": refused, "gone": False})
+                results.append(
+                    {
+                        "device": device.get("device"),
+                        "status": None,
+                        "said": refused,
+                        "gone": False,
+                    }
+                )
                 continue
-            headers = {"TTL": str(TTL_SECONDS), "Urgency": URGENCY, "Topic": TOPIC, "Content-Length": "0",
-                       "Authorization": f"vapid t={self.token(audience(endpoint), path)}, k={public}"}
+            headers = {
+                "TTL": str(TTL_SECONDS),
+                "Urgency": URGENCY,
+                "Topic": TOPIC,
+                "Content-Length": "0",
+                "Authorization": f"vapid t={self.token(audience(endpoint), path)}, k={public}",
+            }
             code, answer = self.send_one(endpoint, headers)
-            results.append({"device": device.get("device"), "service": urlsplit(endpoint).hostname, "status": code, "said": answer[:300],
-                            "gone": code in (404, 410), "endpoint": endpoint})
+            results.append(
+                {
+                    "device": device.get("device"),
+                    "service": urlsplit(endpoint).hostname,
+                    "status": code,
+                    "said": answer[:300],
+                    "gone": code in (404, 410),
+                    "endpoint": endpoint,
+                }
+            )
         gone = {r["endpoint"] for r in results if r.get("gone")}
         with held():
             state = read_state()
             if gone:
-                state["devices"] = [d for d in state["devices"] if d.get("endpoint") not in gone]
-            state["last"] = {"at": stamp(self.now()), "results": [{k: v for k, v in r.items() if k != "endpoint"} for r in results]}
+                state["devices"] = [
+                    d for d in state["devices"] if d.get("endpoint") not in gone
+                ]
+            state["last"] = {
+                "at": stamp(self.now()),
+                "results": [
+                    {k: v for k, v in r.items() if k != "endpoint"} for r in results
+                ],
+            }
             write_state(state)
         return [{k: v for k, v in r.items() if k != "endpoint"} for r in results]
 
@@ -513,33 +665,63 @@ class Pusher:
 def send_all(pusher: Pusher | None = None) -> list[dict]:
     """One push to every device, with a sentence that says it is a test: `lem serve --push-test`."""
     devices = read_state()["devices"]
-    return (pusher or Pusher()).send(devices, {"title": "Lem", "body": "A test from lem serve: notifications reach this device.", "url": "/", "tag": "lem-test"})
+    return (pusher or Pusher()).send(
+        devices,
+        {
+            "title": "Lem",
+            "body": "A test from lem serve: notifications reach this device.",
+            "url": "/",
+            "tag": "lem-test",
+        },
+    )
 
 
 def send_test(endpoint, pusher: Pusher | None = None) -> dict:
     """One push to the one device that asks for it from the board (`POST /api/push/test`)."""
-    device = next((d for d in read_state()["devices"] if d.get("endpoint") == endpoint), None)
+    device = next(
+        (d for d in read_state()["devices"] if d.get("endpoint") == endpoint), None
+    )
     if device is None:
-        raise PushError("This device is not on the list: turn notifications off and on again.")
-    said = {"title": "Lem", "body": "A test from the board: notifications reach this device.", "url": "/", "tag": "lem-test"}
+        raise PushError(
+            "This device is not on the list: turn notifications off and on again."
+        )
+    said = {
+        "title": "Lem",
+        "body": "A test from the board: notifications reach this device.",
+        "url": "/",
+        "tag": "lem-test",
+    }
     return (pusher or Pusher()).send([device], said)[0]
 
 
 # ---- what is new, and the watcher ----
 
-def gained(memory: dict | None, rows: list[str], now: float, flap: float = FLAP_SECONDS) -> tuple[list[str], dict]:
+
+def gained(
+    memory: dict | None, rows: list[str], now: float, flap: float = FLAP_SECONDS
+) -> tuple[list[str], dict]:
     """The rows of a workspace's list that are news, and the memory to keep, from the memory of the last
     look (None when there is none: everything is recorded and nothing is news). A row is news when the
     last look did not have it, unless it left less than FLAP seconds ago."""
     if not isinstance(memory, dict):
         return [], {"rows": sorted(set(rows)), "gone": {}}
     before = set(memory.get("rows") or [])
-    gone = {key: at for key, at in (memory.get("gone") or {}).items() if isinstance(at, (int, float))}
+    gone = {
+        key: at
+        for key, at in (memory.get("gone") or {}).items()
+        if isinstance(at, (int, float))
+    }
     now_rows = set(rows)
-    news = [key for key in dict.fromkeys(rows) if key not in before and not (key in gone and now - gone[key] < flap)]
+    news = [
+        key
+        for key in dict.fromkeys(rows)
+        if key not in before and not (key in gone and now - gone[key] < flap)
+    ]
     for key in before - now_rows:
         gone[key] = now
-    gone = {key: at for key, at in gone.items() if key not in now_rows and now - at < flap}
+    gone = {
+        key: at for key, at in gone.items() if key not in now_rows and now - at < flap
+    }
     return news, {"rows": sorted(now_rows), "gone": gone}
 
 
@@ -557,7 +739,9 @@ class Watcher:
     `spaces()` gives each workspace as (name, path, a function that reads its model); `host` is the
     machine's name in the board's addresses."""
 
-    def __init__(self, spaces, host: str, pusher: Pusher | None = None, log=None, now=time.time) -> None:
+    def __init__(
+        self, spaces, host: str, pusher: Pusher | None = None, log=None, now=time.time
+    ) -> None:
         self.spaces = spaces
         self.host = host
         self.pusher = pusher or Pusher(now=now)
@@ -611,14 +795,20 @@ class Watcher:
         t = row["t"]
         more = f" · and {len(news) - 1} more" if len(news) > 1 else ""
         tab = "" if say["to"] == "overview" else f"/{quote(say['to'], safe='')}"
-        said = {"title": say["verb"], "body": f"{t.title} · {name}{more}", "url": f"/{quote(self.host)}/{quote(name)}/tasks/{quote(t.slug, safe='')}{tab}",
-                "tag": f"lem-{row['key']}"}
+        said = {
+            "title": say["verb"],
+            "body": f"{t.title} · {name}{more}",
+            "url": f"/{quote(self.host)}/{quote(name)}/tasks/{quote(t.slug, safe='')}{tab}",
+            "tag": f"lem-{row['key']}",
+        }
         named = {space for space, _ in news}
         to = [d for d in devices if any(wants(d, space) for space in named)]
         sent = self.pusher.send(to, said)
         bad = [r for r in sent if r["status"] != 201]
         for r in bad:
-            self.log(f"a push to {r['device']} got {r['status'] or 'no answer'}: {r['said'][:160]}{' (removed: the push service no longer knows it)' if r['gone'] else ''}")
+            self.log(
+                f"a push to {r['device']} got {r['status'] or 'no answer'}: {r['said'][:160]}{' (removed: the push service no longer knows it)' if r['gone'] else ''}"
+            )
         return sent
 
     def run(self, stopping: threading.Event) -> None:

@@ -26,7 +26,9 @@ def paragraphs(text: str) -> list[tuple[int, str]]:
     """Each paragraph of the two sections, with its first line (1-based)."""
     lines = text.split("\n")
     if FIRST not in lines or AFTER not in lines:
-        sys.exit(f"moved.py: AGENTS.md at that commit has no {FIRST!r} or no {AFTER!r}; name the commit before the move as --base")
+        sys.exit(
+            f"moved.py: AGENTS.md at that commit has no {FIRST!r} or no {AFTER!r}; name the commit before the move as --base"
+        )
     out: list[tuple[int, list[str]]] = []
     current = None
     for number in range(lines.index(FIRST) + 1, lines.index(AFTER)):
@@ -52,17 +54,43 @@ def flat(text: str) -> str:
 
 def main(argv: list[str]) -> int:
     if len(argv) != 2 or argv[0] != "--base":
-        sys.exit("moved.py: name the commit before the move, as --base COMMIT (479bef6 for this plan)")
-    shown = subprocess.run(["git", "-C", str(ROOT), "show", f"{argv[1]}:AGENTS.md"], capture_output=True, text=True, check=False)
+        sys.exit(
+            "moved.py: name the commit before the move, as --base COMMIT (479bef6 for this plan)"
+        )
+    shown = subprocess.run(
+        ["git", "-C", str(ROOT), "show", f"{argv[1]}:AGENTS.md"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     if shown.returncode != 0:
-        sys.exit(f"moved.py: git show {argv[1]}:AGENTS.md failed: {shown.stderr.strip()}; name a commit git knows as --base")
+        sys.exit(
+            f"moved.py: git show {argv[1]}:AGENTS.md failed: {shown.stderr.strip()}; name a commit git knows as --base"
+        )
     files = sorted(path for folder in FOLDERS for path in (ROOT / folder).glob("*.md"))
     if not files:
-        sys.exit(f"moved.py: no file in {' or '.join(FOLDERS)}; the move has not run in this checkout")
+        sys.exit(
+            f"moved.py: no file in {' or '.join(FOLDERS)}; the move has not run in this checkout"
+        )
     texts = [flat(path.read_text(encoding="utf-8")) for path in files]
     compared = paragraphs(shown.stdout)
-    missing = [{"line": first, "starts": flat(body)[:80]} for first, body in compared if not any(flat(body) in text for text in texts)]
-    print(json.dumps({"base": argv[1], "files": len(files), "compared": len(compared), "found": len(compared) - len(missing), "missing": missing}, indent=1))
+    missing = [
+        {"line": first, "starts": flat(body)[:80]}
+        for first, body in compared
+        if not any(flat(body) in text for text in texts)
+    ]
+    print(
+        json.dumps(
+            {
+                "base": argv[1],
+                "files": len(files),
+                "compared": len(compared),
+                "found": len(compared) - len(missing),
+                "missing": missing,
+            },
+            indent=1,
+        )
+    )
     return 1 if missing else 0
 
 

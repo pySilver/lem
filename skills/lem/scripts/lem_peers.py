@@ -82,9 +82,27 @@ STREAM_SILENCE = 35
 # How often a stream's watch looks whether its client hung up or the server stops.
 WATCH_SECONDS = 0.5
 # The request headers that pass to a peer, and the answer's headers that pass back.
-FORWARDED = ("Accept", "Turbo-Frame", "User-Agent", "Last-Event-ID", "If-None-Match", "If-Modified-Since")
-RETURNED = ("Content-Type", "Cache-Control", "ETag", "Last-Modified", "Location", "Content-Security-Policy", "X-Content-Type-Options",
-            "Referrer-Policy", "Allow", "Vary", "X-Accel-Buffering")
+FORWARDED = (
+    "Accept",
+    "Turbo-Frame",
+    "User-Agent",
+    "Last-Event-ID",
+    "If-None-Match",
+    "If-Modified-Since",
+)
+RETURNED = (
+    "Content-Type",
+    "Cache-Control",
+    "ETag",
+    "Last-Modified",
+    "Location",
+    "Content-Security-Policy",
+    "X-Content-Type-Options",
+    "Referrer-Policy",
+    "Allow",
+    "Vary",
+    "X-Accel-Buffering",
+)
 # The board's one cookie (serve.PREFS_COOKIE), the only cookie that passes either way.
 COOKIE = "lem_board"
 # Over this size the list of workspaces does not go to a peer's page, whose switcher then lists its own.
@@ -107,11 +125,19 @@ def peer_name(given: str, suffix: str | None) -> str:
     if "." in name:
         first, _, rest = name.partition(".")
         if not suffix or rest != suffix.lower().rstrip("."):
-            where = f"this tailnet's names end in .{suffix}" if suffix else "this Mac reads no tailnet now"
-            raise PeerError(f"{given} is no machine of this tailnet ({where}): give the machine's name, the first part of its address")
+            where = (
+                f"this tailnet's names end in .{suffix}"
+                if suffix
+                else "this Mac reads no tailnet now"
+            )
+            raise PeerError(
+                f"{given} is no machine of this tailnet ({where}): give the machine's name, the first part of its address"
+            )
         name = first
     if not label(name):
-        raise PeerError(f"{given!r} is no machine's name on a tailnet: one word of letters, digits and hyphens, as `tailscale status` lists it")
+        raise PeerError(
+            f"{given!r} is no machine's name on a tailnet: one word of letters, digits and hyphens, as `tailscale status` lists it"
+        )
     return name
 
 
@@ -119,7 +145,9 @@ def parse_join(given: str, suffix: str | None) -> tuple[str, int | None]:
     """`HOST` or `HOST:PORT` of `--join`: the machine's name and its door's port, None when not given."""
     host, colon, port = given.rpartition(":") if ":" in given else (given, "", "")
     if colon and not (port.isdigit() and 0 < int(port) < 65536):
-        raise PeerError(f"{port!r} in {given} is no port: give one from 1 to 65535, or none for this machine's own door port")
+        raise PeerError(
+            f"{port!r} in {given} is no port: give one from 1 to 65535, or none for this machine's own door port"
+        )
     return peer_name(host, suffix), int(port) if colon else None
 
 
@@ -129,7 +157,9 @@ def test_name() -> str | None:
     if not given:
         return None
     if not label(given):
-        raise PeerError(f"{NAME_SWITCH}={given!r} is no machine's name: one word of lower-case letters, digits and hyphens")
+        raise PeerError(
+            f"{NAME_SWITCH}={given!r} is no machine's name: one word of lower-case letters, digits and hyphens"
+        )
     return given
 
 
@@ -148,7 +178,14 @@ def tailnet_facts(status: dict) -> dict:
     each other machine's name."""
     suffix = str(status.get("MagicDNSSuffix") or "").rstrip(".")
     peers = status.get("Peer") if isinstance(status.get("Peer"), dict) else {}
-    names = sorted({str(p.get("DNSName") or "").split(".")[0].lower() for p in peers.values() if isinstance(p, dict) and p.get("DNSName")} - {""})
+    names = sorted(
+        {
+            str(p.get("DNSName") or "").split(".")[0].lower()
+            for p in peers.values()
+            if isinstance(p, dict) and p.get("DNSName")
+        }
+        - {""}
+    )
     return {"suffix": suffix, "machines": names}
 
 
@@ -158,7 +195,9 @@ def base_of(name: str, port: int, suffix: str | None) -> str:
     if switched:
         return switched if "://" in switched else f"https://{switched}:{port}"
     if not suffix:
-        raise PeerError("this Mac reads no tailnet now (`tailscale status --json` gave no MagicDNS suffix): open Tailscale and connect")
+        raise PeerError(
+            "this Mac reads no tailnet now (`tailscale status --json` gave no MagicDNS suffix): open Tailscale and connect"
+        )
     return f"https://{name}.{suffix}:{port}"
 
 
@@ -188,7 +227,9 @@ def kept_location(location: str, peer: str, base: str) -> str | None:
 def request_headers(incoming, spaces: list | None = None) -> dict:
     """The headers of a request to a peer: the ones a page needs (FORWARDED), the board's own cookie and
     no other, HOP, and the list of the workspaces (SPACES) when it is given and not too long."""
-    out = {name: incoming.get(name) for name in FORWARDED if incoming.get(name) is not None}
+    out = {
+        name: incoming.get(name) for name in FORWARDED if incoming.get(name) is not None
+    }
     cookie = incoming.get("Cookie")
     if cookie:
         try:
@@ -199,14 +240,36 @@ def request_headers(incoming, spaces: list | None = None) -> dict:
             out["Cookie"] = f"{COOKIE}={jar[COOKIE].coded_value}"
     out[HOP] = "1"
     if spaces:
-        said = json.dumps([{key: row.get(key) for key in ("host", "name", "path", "waits", "building", "checks", "running", "problem", "reachable", "answered", "said")}
-                           for row in spaces], separators=(",", ":"))
+        said = json.dumps(
+            [
+                {
+                    key: row.get(key)
+                    for key in (
+                        "host",
+                        "name",
+                        "path",
+                        "waits",
+                        "building",
+                        "checks",
+                        "running",
+                        "problem",
+                        "reachable",
+                        "answered",
+                        "said",
+                    )
+                }
+                for row in spaces
+            ],
+            separators=(",", ":"),
+        )
         if len(said) <= SPACES_CAP:
             out[SPACES] = said
     return out
 
 
-def reply_headers(headers: list[tuple[str, str]], peer: str, base: str) -> list[tuple[str, str]]:
+def reply_headers(
+    headers: list[tuple[str, str]], peer: str, base: str
+) -> list[tuple[str, str]]:
     """The headers of a peer's answer that go back (RETURNED), `Location` kept inside `/PEER/`, and of the
     cookies only the board's own."""
     out = []
@@ -227,26 +290,47 @@ def reply_headers(headers: list[tuple[str, str]], peer: str, base: str) -> list[
 def row_of(given: dict, host: str) -> dict | None:
     """One workspace of a peer's list, as the entry shows it: its address built here from its machine and
     its name, never taken from the answer; None when the entry is not a workspace."""
-    if not isinstance(given, dict) or not isinstance(given.get("name"), str) or not given["name"]:
+    if (
+        not isinstance(given, dict)
+        or not isinstance(given.get("name"), str)
+        or not given["name"]
+    ):
         return None
-    row = {"host": host, "name": given["name"], "path": given.get("path") if isinstance(given.get("path"), str) else "",
-           "url": f"/{quote(host)}/{quote(given['name'])}/"}
+    row = {
+        "host": host,
+        "name": given["name"],
+        "path": given.get("path") if isinstance(given.get("path"), str) else "",
+        "url": f"/{quote(host)}/{quote(given['name'])}/",
+    }
     for key in ("waits", "building", "checks", "running"):
         value = given.get(key)
-        row[key] = value if isinstance(value, int) and not isinstance(value, bool) else None
+        row[key] = (
+            value if isinstance(value, int) and not isinstance(value, bool) else None
+        )
     if isinstance(given.get("problem"), str):
         row["problem"] = given["problem"]
     for key, kind in (("reachable", bool), ("said", str)):
         if isinstance(given.get(key), kind):
             row[key] = given[key]
-    if isinstance(given.get("answered"), int) and not isinstance(given.get("answered"), bool):
+    if isinstance(given.get("answered"), int) and not isinstance(
+        given.get("answered"), bool
+    ):
         row["answered"] = given["answered"]
     return row
 
 
 def gray(row: dict, answered: int | None, said: str) -> dict:
     """A workspace of a peer that does not answer: its name and place as last known, no counts."""
-    return {**row, "waits": None, "building": None, "checks": None, "running": None, "reachable": False, "answered": answered, "said": said}
+    return {
+        **row,
+        "waits": None,
+        "building": None,
+        "checks": None,
+        "running": None,
+        "reachable": False,
+        "answered": answered,
+        "said": said,
+    }
 
 
 def merged(own: list, me: str, states: list[dict]) -> list:
@@ -258,15 +342,34 @@ def merged(own: list, me: str, states: list[dict]) -> list:
         name = state["name"]
         if name == me:
             continue
-        rows = [r for r in (row_of(given, name) for given in state.get("rows") or []) if r is not None]
-        said = state.get("said") or ("no answer yet" if state.get("reachable") is None else "")
+        rows = [
+            r
+            for r in (row_of(given, name) for given in state.get("rows") or [])
+            if r is not None
+        ]
+        said = state.get("said") or (
+            "no answer yet" if state.get("reachable") is None else ""
+        )
         if state.get("reachable"):
             out += rows
         elif rows:
             out += [gray(row, state.get("answered"), said) for row in rows]
         else:
-            out.append({"host": name, "name": "", "path": "", "url": "", "waits": None, "building": None, "checks": None, "running": None,
-                        "reachable": False, "answered": state.get("answered"), "said": said})
+            out.append(
+                {
+                    "host": name,
+                    "name": "",
+                    "path": "",
+                    "url": "",
+                    "waits": None,
+                    "building": None,
+                    "checks": None,
+                    "running": None,
+                    "reachable": False,
+                    "answered": state.get("answered"),
+                    "said": said,
+                }
+            )
     return out
 
 
@@ -289,10 +392,30 @@ def spaces_of(header: str | None) -> list:
         row = row_of(each, host)
         if row is not None:
             out.append(row)
-        elif isinstance(each.get("name"), str) and not each["name"] and each.get("reachable") is False:
-            out.append({"host": host, "name": "", "path": "", "url": "", "waits": None, "building": None, "checks": None, "running": None,
-                        "reachable": False, "answered": each.get("answered") if isinstance(each.get("answered"), int) else None,
-                        "said": each.get("said") if isinstance(each.get("said"), str) else ""})
+        elif (
+            isinstance(each.get("name"), str)
+            and not each["name"]
+            and each.get("reachable") is False
+        ):
+            out.append(
+                {
+                    "host": host,
+                    "name": "",
+                    "path": "",
+                    "url": "",
+                    "waits": None,
+                    "building": None,
+                    "checks": None,
+                    "running": None,
+                    "reachable": False,
+                    "answered": each.get("answered")
+                    if isinstance(each.get("answered"), int)
+                    else None,
+                    "said": each.get("said")
+                    if isinstance(each.get("said"), str)
+                    else "",
+                }
+            )
     return out
 
 
@@ -301,11 +424,20 @@ def with_own(given: list, own: list, me: str) -> list:
     of its first; with nothing sent, this machine's rows alone."""
     mine = [{**row, "host": me} for row in own]
     others = [row for row in given if row.get("host") != me]
-    at = next((sum(1 for row in given[:index] if row.get("host") != me) for index, row in enumerate(given) if row.get("host") == me), len(others))
+    at = next(
+        (
+            sum(1 for row in given[:index] if row.get("host") != me)
+            for index, row in enumerate(given)
+            if row.get("host") == me
+        ),
+        len(others),
+    )
     return others[:at] + mine + others[at:]
 
 
-def connect(base: str, timeout: float) -> tuple[http.client.HTTPConnection, socket.socket]:
+def connect(
+    base: str, timeout: float
+) -> tuple[http.client.HTTPConnection, socket.socket]:
     """A connection to a peer's base address, open, and its socket. The system's certificates check an
     address of https."""
     split = urlsplit(base)
@@ -313,12 +445,21 @@ def connect(base: str, timeout: float) -> tuple[http.client.HTTPConnection, sock
         raise PeerError(f"{base} is no address of a peer")
     try:
         if split.scheme == "https":
-            conn: http.client.HTTPConnection = http.client.HTTPSConnection(split.hostname, split.port or 443, timeout=timeout, context=ssl.create_default_context())
+            conn: http.client.HTTPConnection = http.client.HTTPSConnection(
+                split.hostname,
+                split.port or 443,
+                timeout=timeout,
+                context=ssl.create_default_context(),
+            )
         else:
-            conn = http.client.HTTPConnection(split.hostname, split.port or 80, timeout=timeout)
+            conn = http.client.HTTPConnection(
+                split.hostname, split.port or 80, timeout=timeout
+            )
         conn.connect()
     except (OSError, http.client.HTTPException) as error:
-        raise PeerError(f"{split.netloc} does not answer ({getattr(error, 'reason', None) or error})") from error
+        raise PeerError(
+            f"{split.netloc} does not answer ({getattr(error, 'reason', None) or error})"
+        ) from error
     return conn, conn.sock
 
 
@@ -330,16 +471,22 @@ def ask_json(base: str, path: str, timeout: float = LIST_TIMEOUT):
         reply = conn.getresponse()
         data = reply.read(1_000_000)
     except (OSError, http.client.HTTPException) as error:
-        raise PeerError(f"{urlsplit(base).netloc} did not answer {path} ({error})") from error
+        raise PeerError(
+            f"{urlsplit(base).netloc} did not answer {path} ({error})"
+        ) from error
     finally:
         conn.close()
     if reply.status != 200:
         line = data.decode("utf-8", "replace").strip().splitlines()
-        raise PeerError(f"{urlsplit(base).netloc} answered {path} with {reply.status}{f': {line[0][:200]}' if line else ''}")
+        raise PeerError(
+            f"{urlsplit(base).netloc} answered {path} with {reply.status}{f': {line[0][:200]}' if line else ''}"
+        )
     try:
         return json.loads(data)
     except ValueError as error:
-        raise PeerError(f"{urlsplit(base).netloc} answered {path} with no JSON: is it a server of Lem?") from error
+        raise PeerError(
+            f"{urlsplit(base).netloc} answered {path} with no JSON: is it a server of Lem?"
+        ) from error
 
 
 class Peer:
@@ -358,7 +505,14 @@ class Peer:
 
     def state(self) -> dict:
         with self.lock:
-            return {"name": self.name, "port": self.port, "rows": list(self.rows), "answered": self.answered, "reachable": self.reachable, "said": self.said}
+            return {
+                "name": self.name,
+                "port": self.port,
+                "rows": list(self.rows),
+                "answered": self.answered,
+                "reachable": self.reachable,
+                "said": self.said,
+            }
 
     def failed(self, said: str) -> None:
         with self.lock:
@@ -370,23 +524,43 @@ class Peer:
             where = base()
             listed = ask_json(where, "/api/workspaces")
             if not isinstance(listed, list):
-                raise PeerError(f"{self.name} answered /api/workspaces with no list: is it a server of Lem?")
-            other = next((str(row.get("url")) for row in listed if isinstance(row, dict) and isinstance(row.get("url"), str)
-                          and not row["url"].startswith(f"/{self.name}/")), None)
+                raise PeerError(
+                    f"{self.name} answered /api/workspaces with no list: is it a server of Lem?"
+                )
+            other = next(
+                (
+                    str(row.get("url"))
+                    for row in listed
+                    if isinstance(row, dict)
+                    and isinstance(row.get("url"), str)
+                    and not row["url"].startswith(f"/{self.name}/")
+                ),
+                None,
+            )
             if other is not None:
-                raise PeerError(f"{self.name} shows its boards under another name ({other}): `lem serve --leave {self.name}` and "
-                                f"`lem serve --join` with the name in that address")
+                raise PeerError(
+                    f"{self.name} shows its boards under another name ({other}): `lem serve --leave {self.name}` and "
+                    f"`lem serve --join` with the name in that address"
+                )
         except PeerError as error:
             self.failed(str(error))
             return
         with self.lock:
-            self.rows, self.answered, self.reachable, self.said, self.looked = listed, int(time.time() * 1000), True, "", time.monotonic()
+            self.rows, self.answered, self.reachable, self.said, self.looked = (
+                listed,
+                int(time.time() * 1000),
+                True,
+                "",
+                time.monotonic(),
+            )
 
     def fresh(self, base) -> bool:
         """Ask the list again, in a thread of its own, when it is older than LIST_FRESH and no question is
         out; say whether this call asked."""
         with self.lock:
-            if time.monotonic() - self.looked < LIST_FRESH or (self.asking is not None and not self.asking.is_set()):
+            if time.monotonic() - self.looked < LIST_FRESH or (
+                self.asking is not None and not self.asking.is_set()
+            ):
                 return False
             asking = self.asking = threading.Event()
 
@@ -431,7 +605,9 @@ class Peers:
             kept = {}
             for name, port in table.items():
                 old = self.known.get(name)
-                kept[name] = old if old is not None and old.port == port else Peer(name, port)
+                kept[name] = (
+                    old if old is not None and old.port == port else Peer(name, port)
+                )
             self.known = kept
             return list(kept.values())
 
@@ -439,14 +615,20 @@ class Peers:
         return next((peer for peer in self.all() if peer.name == name), None)
 
     def base(self, peer: Peer) -> str:
-        return base_of(peer.name, peer.port, None if peer.name in test_addresses() else self.tailnet_suffix())
+        return base_of(
+            peer.name,
+            peer.port,
+            None if peer.name in test_addresses() else self.tailnet_suffix(),
+        )
 
     def states(self, wait: float = LIST_WAIT) -> list[dict]:
         """Each peer's last answer, asked again where it is old; all asked at once, so the wait is one wait."""
         peers = self.all()
         deadline = time.monotonic() + wait
         # only the look that asked waits, and only for a peer that answered at its last look or was never asked
-        started = [peer for peer in peers if peer.fresh(lambda peer=peer: self.base(peer))]
+        started = [
+            peer for peer in peers if peer.fresh(lambda peer=peer: self.base(peer))
+        ]
         for peer in started:
             with peer.lock:
                 asking, hoping = peer.asking, peer.reachable is not False
@@ -464,8 +646,12 @@ def probe(base: str) -> dict:
         return {"reachable": False, "said": str(error)}
     if not isinstance(server, dict) or not isinstance(listed, list):
         return {"reachable": False, "said": "it answers, and not as a server of Lem"}
-    return {"reachable": True, "host": server.get("host"), "version": server.get("version"),
-            "workspaces": [row.get("name") for row in listed if isinstance(row, dict)]}
+    return {
+        "reachable": True,
+        "host": server.get("host"),
+        "version": server.get("version"),
+        "workspaces": [row.get("name") for row in listed if isinstance(row, dict)],
+    }
 
 
 def join(given: str, me: str, reserved: tuple[str, ...], own_port: int, status) -> dict:
@@ -481,26 +667,43 @@ def join(given: str, me: str, reserved: tuple[str, ...], own_port: int, status) 
         trouble = error
     name, port = parse_join(given, facts.get("suffix"))
     if name == me or name in reserved:
-        raise PeerError(f"{name} is this machine's own name (or a word of the server's own): join another machine")
+        raise PeerError(
+            f"{name} is this machine's own name (or a word of the server's own): join another machine"
+        )
     if name not in addresses:
         if trouble is not None:
-            raise PeerError(f"the tailnet does not read on this Mac ({trouble}): the boards of another machine come over the tailnet")
+            raise PeerError(
+                f"the tailnet does not read on this Mac ({trouble}): the boards of another machine come over the tailnet"
+            )
         if name not in facts["machines"]:
-            raise PeerError(f"no machine of this tailnet is named {name}: `tailscale status` lists {', '.join(facts['machines']) or 'none'}")
+            raise PeerError(
+                f"no machine of this tailnet is named {name}: `tailscale status` lists {', '.join(facts['machines']) or 'none'}"
+            )
     port = port or own_port
     base = base_of(name, port, facts.get("suffix"))
     found = probe(base)
     if found["reachable"] and found.get("host") != name:
-        raise PeerError(f"{base} answers as the machine {found.get('host')!r}, not {name}: join it by that name")
+        raise PeerError(
+            f"{base} answers as the machine {found.get('host')!r}, not {name}: join it by that name"
+        )
     table = {key: value for key, value in Peers(status).table().items() if key != name}
     lem_state.write_machine("peers", {**table, name: port})
     if found["reachable"]:
         said = f"{name} answers ({found.get('version')}): its {len(found['workspaces'])} workspace(s) show on this machine's board, under /{name}/"
     else:
-        said = (f"{name} is joined, and does not answer now: {found['said']}. It may sleep, or its server may not run (`lem serve --tailscale` "
-                f"there opens its door); its workspaces show when it answers")
-    return {"joined": name, "port": port, "url": base, **{key: found.get(key) for key in ("reachable", "version", "workspaces")},
-            "said": said, "file": str(lem_state.machine_file()), "server": "the running server reads the list at each look: nothing to restart"}
+        said = (
+            f"{name} is joined, and does not answer now: {found['said']}. It may sleep, or its server may not run (`lem serve --tailscale` "
+            f"there opens its door); its workspaces show when it answers"
+        )
+    return {
+        "joined": name,
+        "port": port,
+        "url": base,
+        **{key: found.get(key) for key in ("reachable", "version", "workspaces")},
+        "said": said,
+        "file": str(lem_state.machine_file()),
+        "server": "the running server reads the list at each look: nothing to restart",
+    }
 
 
 def leave(given: str) -> dict:
@@ -508,7 +711,9 @@ def leave(given: str) -> dict:
     name = given.strip().lower().rstrip(".").split(".")[0]
     table = Peers(lambda: {}).table()
     if name not in table:
-        raise PeerError(f"{name} is not joined: `lem serve --peers` lists the machines that are")
+        raise PeerError(
+            f"{name} is not joined: `lem serve --peers` lists the machines that are"
+        )
     rest = {key: value for key, value in table.items() if key != name}
     lem_state.write_machine("peers", rest or None)
     return {"left": name, "peers": sorted(rest), "file": str(lem_state.machine_file())}
@@ -522,13 +727,23 @@ def report(status) -> dict:
         try:
             base = peers.base(peer)
         except PeerError as error:
-            out.append({"name": peer.name, "port": peer.port, "url": None, "reachable": False, "said": str(error)})
+            out.append(
+                {
+                    "name": peer.name,
+                    "port": peer.port,
+                    "url": None,
+                    "reachable": False,
+                    "said": str(error),
+                }
+            )
             continue
         out.append({"name": peer.name, "port": peer.port, "url": base, **probe(base)})
     return {"peers": out, "file": str(lem_state.machine_file())}
 
 
-def forward(handler, peer: Peer, base: str, stopping: threading.Event, spaces: list) -> None:
+def forward(
+    handler, peer: Peer, base: str, stopping: threading.Event, spaces: list
+) -> None:
     """Pass one request of the handler to the peer at the same address, and its answer back: a page, a
     file or a stream. PeerError, before anything was sent, says why the peer was not reached."""
     split = urlsplit(handler.path)
@@ -536,7 +751,9 @@ def forward(handler, peer: Peer, base: str, stopping: threading.Event, spaces: l
     try:
         conn, raw = connect(base, CONNECT_TIMEOUT)
         raw.settimeout(PAGE_TIMEOUT)
-        conn.request(handler.command, target, headers=request_headers(handler.headers, spaces))
+        conn.request(
+            handler.command, target, headers=request_headers(handler.headers, spaces)
+        )
         reply = conn.getresponse()
         stream = (reply.getheader("Content-Type") or "").startswith("text/event-stream")
         data = b"" if stream or handler.command == "HEAD" else reply.read()
@@ -557,7 +774,12 @@ def forward(handler, peer: Peer, base: str, stopping: threading.Event, spaces: l
             handler.send_header("Connection", "close")
             handler.close_connection = True
         else:
-            handler.send_header("Content-Length", reply.getheader("Content-Length") if handler.command == "HEAD" and reply.getheader("Content-Length") else str(len(data)))
+            handler.send_header(
+                "Content-Length",
+                reply.getheader("Content-Length")
+                if handler.command == "HEAD" and reply.getheader("Content-Length")
+                else str(len(data)),
+            )
         handler.end_headers()
         if handler.command == "HEAD":
             return

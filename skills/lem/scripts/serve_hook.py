@@ -33,7 +33,11 @@ def main() -> None:
         event = json.loads(sys.stdin.read() or "{}")
     except ValueError:
         event = {}
-    folder = event.get("cwd") if isinstance(event, dict) and isinstance(event.get("cwd"), str) else None
+    folder = (
+        event.get("cwd")
+        if isinstance(event, dict) and isinstance(event.get("cwd"), str)
+        else None
+    )
     folder = folder or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
     try:
         root = lem_state.main_checkout(Path(folder), timeout=GIT_TIMEOUT)
@@ -44,8 +48,15 @@ def main() -> None:
     home = lem_state.config()
     home.mkdir(parents=True, exist_ok=True)
     with (home / lem_state.SERVE_LOG).open("ab") as log:
-        subprocess.Popen([sys.executable, "-B", str(here / "serve.py"), "--ensure"], stdin=subprocess.DEVNULL, stdout=log, stderr=log,
-                         start_new_session=True, close_fds=True, cwd=str(home))
+        subprocess.Popen(
+            [sys.executable, "-B", str(here / "serve.py"), "--ensure"],
+            stdin=subprocess.DEVNULL,
+            stdout=log,
+            stderr=log,
+            start_new_session=True,
+            close_fds=True,
+            cwd=str(home),
+        )
 
 
 if __name__ == "__main__":

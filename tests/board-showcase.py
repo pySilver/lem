@@ -64,9 +64,21 @@ INBOX_TAILNET = "https://studio.tail4e2a.ts.net:8443/"
 
 
 def run(*args: str, cwd: Path | None = None) -> str:
-    ran = subprocess.run(args, capture_output=True, text=True, cwd=cwd, env={**os.environ, "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"})
+    ran = subprocess.run(
+        args,
+        capture_output=True,
+        text=True,
+        cwd=cwd,
+        env={
+            **os.environ,
+            "GIT_CONFIG_GLOBAL": "/dev/null",
+            "GIT_CONFIG_NOSYSTEM": "1",
+        },
+    )
     if ran.returncode != 0:
-        sys.exit(f"board-showcase: {' '.join(args[:4])}: {ran.stderr.strip() or ran.stdout.strip()}")
+        sys.exit(
+            f"board-showcase: {' '.join(args[:4])}: {ran.stderr.strip() or ran.stdout.strip()}"
+        )
     return ran.stdout
 
 
@@ -80,34 +92,85 @@ class Shop:
         run("git", "init", "-q", "-b", "main", str(self.repo))
         (self.repo / "app.txt").write_text("one\n")
         self.git("add", "-A")
-        self.git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "chore: start")
+        self.git(
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@t",
+            "commit",
+            "-q",
+            "-m",
+            "chore: start",
+        )
         self.project("init", "--base", "main")
         toml = self.repo / ".lem" / "settings.toml"
-        text, count = re.subn(r"(?m)^commands = \[\]$", 'commands = ["make test", "make lint"]', toml.read_text(), count=1)
+        text, count = re.subn(
+            r"(?m)^commands = \[\]$",
+            'commands = ["make test", "make lint"]',
+            toml.read_text(),
+            count=1,
+        )
         if not count:
             sys.exit("board-showcase: the settings have no empty gate commands to fill")
         toml.write_text(text)
         self.git("add", "-A")
-        self.git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "chore: the settings")
+        self.git(
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@t",
+            "commit",
+            "-q",
+            "-m",
+            "chore: the settings",
+        )
         self.dir = Path(self.project("state-dir").strip())
         # the mark first, so that no script of the afternoon puts this repository into a list of workspaces
-        (self.dir / "demo").write_text("The tasks in this folder are examples, written by tests/board-showcase.py.\n")
+        (self.dir / "demo").write_text(
+            "The tasks in this folder are examples, written by tests/board-showcase.py.\n"
+        )
 
     def git(self, *args: str) -> str:
         return run("git", "-C", str(self.repo), *args)
 
     def project(self, *args: str) -> str:
-        return run(sys.executable, "-B", str(SCRIPTS / "project.py"), "--repo", str(self.repo), *args)
+        return run(
+            sys.executable,
+            "-B",
+            str(SCRIPTS / "project.py"),
+            "--repo",
+            str(self.repo),
+            *args,
+        )
 
     def criteria(self, *args: str) -> str:
-        return run(sys.executable, "-B", str(SCRIPTS / "criteria.py"), "--repo", str(self.repo), *args)
+        return run(
+            sys.executable,
+            "-B",
+            str(SCRIPTS / "criteria.py"),
+            "--repo",
+            str(self.repo),
+            *args,
+        )
 
     def commit_in(self, tree: Path, message: str, files: dict[str, str]) -> None:
         for name, text in files.items():
             (tree / name).parent.mkdir(parents=True, exist_ok=True)
             (tree / name).write_text(text)
         run("git", "-C", str(tree), "add", "-A")
-        run("git", "-C", str(tree), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", message)
+        run(
+            "git",
+            "-C",
+            str(tree),
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@t",
+            "commit",
+            "-q",
+            "-m",
+            message,
+        )
 
     def head(self, tree: Path) -> str:
         return run("git", "-C", str(tree), "rev-parse", "--short=9", "HEAD").strip()
@@ -129,14 +192,41 @@ class Shop:
 
     def criteria_file(self, slug: str, size: str, why: str, *criteria: str) -> Path:
         path = self.work / f"{slug}.md"
-        path.write_text("\n".join(["## Acceptance criteria", "", f"Size: {size}, because {why}", "", *(f"{n}. {text}" for n, text in enumerate(criteria, 1))]) + "\n")
+        path.write_text(
+            "\n".join(
+                [
+                    "## Acceptance criteria",
+                    "",
+                    f"Size: {size}, because {why}",
+                    "",
+                    *(f"{n}. {text}" for n, text in enumerate(criteria, 1)),
+                ]
+            )
+            + "\n"
+        )
         return path
 
     def read(self, slug: str, minutes: float, file: Path, flagged: int) -> None:
-        digest = json.loads(self.criteria("digest", slug, "--file", str(file)))["digest"]
-        count = sum(1 for line in file.read_text().splitlines() if re.match(r"\d+\. ", line))
-        self.log(slug, minutes, "criteria.read", "by=lem", "asked:=3", "answered:=3", 'families:=["opus", "sol"]', "silent:=[]",
-                 f"criteria:={count}", f"flagged:={flagged}", "split:=false", f"digest={digest}")
+        digest = json.loads(self.criteria("digest", slug, "--file", str(file)))[
+            "digest"
+        ]
+        count = sum(
+            1 for line in file.read_text().splitlines() if re.match(r"\d+\. ", line)
+        )
+        self.log(
+            slug,
+            minutes,
+            "criteria.read",
+            "by=lem",
+            "asked:=3",
+            "answered:=3",
+            'families:=["opus", "sol"]',
+            "silent:=[]",
+            f"criteria:={count}",
+            f"flagged:={flagged}",
+            "split:=false",
+            f"digest={digest}",
+        )
 
     def approve(self, slug: str, minutes: float, file: Path, *flags: str) -> None:
         self.criteria("approve", slug, "--file", str(file), *flags)
@@ -145,40 +235,75 @@ class Shop:
     def session(self, slug: str, minutes: float, phase: str, why: str) -> None:
         """The task's agterm session opened MINUTES before NOW, as `lem session open` logs it: an id of agterm's
         form, made from the task's name and the minute, so that each run writes the same."""
-        sid = "%08X-0000-4000-8000-%012X" % (zlib.crc32(slug.encode()), int(minutes * 10))
-        self.log(slug, minutes, "session.open", f"session={sid}", f"name={slug}", f"phase={phase}", f"why={why}", "workspace=demo")
+        sid = "%08X-0000-4000-8000-%012X" % (
+            zlib.crc32(slug.encode()),
+            int(minutes * 10),
+        )
+        self.log(
+            slug,
+            minutes,
+            "session.open",
+            f"session={sid}",
+            f"name={slug}",
+            f"phase={phase}",
+            f"why={why}",
+            "workspace=demo",
+        )
 
     def closed(self, slug: str, minutes: float, why: str) -> None:
         self.log(slug, minutes, "session.close", f"why={why}")
 
     def decide(self, slug: str, minutes: float, *args: str) -> None:
-        run(sys.executable, "-B", str(SCRIPTS / "decisions.py"), "--repo", str(self.repo), *args)
+        run(
+            sys.executable,
+            "-B",
+            str(SCRIPTS / "decisions.py"),
+            "--repo",
+            str(self.repo),
+            *args,
+        )
         self.at(slug, minutes)
 
     def retime(self) -> None:
         """Each task's events, in the order the scripts wrote them, get the times of their steps."""
         log = self.dir / "events.jsonl"
-        rows = [json.loads(line) for line in log.read_text().splitlines() if line.strip()]
+        rows = [
+            json.loads(line) for line in log.read_text().splitlines() if line.strip()
+        ]
         seen: dict[str, int] = {}
         for row in rows:
             slug = row["task"]
             times = self.times.get(slug, [])
             k = seen.get(slug, 0)
             if k >= len(times):
-                sys.exit(f"board-showcase: {slug} wrote more events than it has times: {[r['event'] for r in rows if r['task'] == slug]}")
-            row["ts"] = (NOW - timedelta(minutes=times[k])).strftime("%Y-%m-%dT%H:%M:%SZ")
+                sys.exit(
+                    f"board-showcase: {slug} wrote more events than it has times: {[r['event'] for r in rows if r['task'] == slug]}"
+                )
+            row["ts"] = (NOW - timedelta(minutes=times[k])).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            )
             if "at" in row:
                 # a line of decisions.jsonl carries its own time, which the board takes before the event's
                 row["at"] = row["ts"]
             seen[slug] = k + 1
-        short = [slug for slug, times in self.times.items() if seen.get(slug, 0) != len(times)]
+        short = [
+            slug
+            for slug, times in self.times.items()
+            if seen.get(slug, 0) != len(times)
+        ]
         if short:
-            sys.exit(f"board-showcase: these tasks have more times than events: {short}")
-        log.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows))
+            sys.exit(
+                f"board-showcase: these tasks have more times than events: {short}"
+            )
+        log.write_text(
+            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows)
+        )
 
 
-FOOTER_ITEM = ("---\nworth: yes\nwhere: invoice/footer.py:footer\nadded: {today}\n---\n\n# The invoice footer wraps on A5\n\n"
-               "Seen in the polish pass of the order date: the footer's last line wraps when the invoice prints on A5.\n")
+FOOTER_ITEM = (
+    "---\nworth: yes\nwhere: invoice/footer.py:footer\nadded: {today}\n---\n\n# The invoice footer wraps on A5\n\n"
+    "Seen in the polish pass of the order date: the footer's last line wraps when the invoice prints on A5.\n"
+)
 
 
 # The breaker's document of the task on its second task of three, in the form of templates/breaker.md: the
@@ -340,51 +465,150 @@ def afternoon(shop: Shop) -> None:
     t = "footer-terms-typo"
     s.task(t, 'The footer says "Terms and condtions"')
     s.session(t, 52.5, "fast", "new")
-    s.approve(t, 52, s.criteria_file(t, "small", "the request is one sentence.", 'The footer says "Terms and conditions".'), "--small")
-    s.state(t, 52, "building", "small change: one builder", "type: fix, because the footer shows a typo today")
+    s.approve(
+        t,
+        52,
+        s.criteria_file(
+            t,
+            "small",
+            "the request is one sentence.",
+            'The footer says "Terms and conditions".',
+        ),
+        "--small",
+    )
+    s.state(
+        t,
+        52,
+        "building",
+        "small change: one builder",
+        "type: fix, because the footer shows a typo today",
+    )
     s.log(t, 51.5, "builder.start", "job=the small change")
     s.state(t, 44, "ready", "the report is written")
     s.state(t, 43.5, "landing", "the checks start")
     s.log(t, 43, "gate.start", "tip=4c1d2e3f5", "commands:=2")
-    s.log(t, 40.5, "gate", "command=make test", "exit:=0", "last=212 passed", "tip=4c1d2e3")
-    s.log(t, 39.5, "gate", "command=make lint", "exit:=0", "last=All checks passed", "tip=4c1d2e3")
-    s.log(t, 39, "task.red", "ok:=true", "digest=000000000000", "base=0a1b2c3d4", "tip=4c1d2e3f5", "tests:=[]", "without_a_test:=[]", "run_without:=[]")
+    s.log(
+        t,
+        40.5,
+        "gate",
+        "command=make test",
+        "exit:=0",
+        "last=212 passed",
+        "tip=4c1d2e3",
+    )
+    s.log(
+        t,
+        39.5,
+        "gate",
+        "command=make lint",
+        "exit:=0",
+        "last=All checks passed",
+        "tip=4c1d2e3",
+    )
+    s.log(
+        t,
+        39,
+        "task.red",
+        "ok:=true",
+        "digest=000000000000",
+        "base=0a1b2c3d4",
+        "tip=4c1d2e3f5",
+        "tests:=[]",
+        "without_a_test:=[]",
+        "run_without:=[]",
+    )
     s.log(t, 38.5, "review.start", "attempt:=1", "floor=read")
-    s.log(t, 35, "review", "attempt:=1", "round:=1", "kind=read", "verdict=clean", "must_fix:=0", "should:=0", "nit:=1", 'answered:=["codex"]',
-          "silent:=[]", "ran:=[]", "left_out:=[]", "tip=4c1d2e3")
+    s.log(
+        t,
+        35,
+        "review",
+        "attempt:=1",
+        "round:=1",
+        "kind=read",
+        "verdict=clean",
+        "must_fix:=0",
+        "should:=0",
+        "nit:=1",
+        'answered:=["codex"]',
+        "silent:=[]",
+        "ran:=[]",
+        "left_out:=[]",
+        "tip=4c1d2e3",
+    )
     s.log(t, 34, "proposed", "green:=true", "not_green:=[]", "tip=4c1d2e3")
     s.state(t, 34, "open", "pull request https://github.com/acme/shop/pull/41", "green")
     folder = s.dir / "tasks" / t
     (folder / "merge-review.md").write_text(TYPO_REVIEW)
-    s.log(t, 33, "merge.review", "verdict=merge", "calls:=false", "by=claude", "tip=4c1d2e3")
+    s.log(
+        t,
+        33,
+        "merge.review",
+        "verdict=merge",
+        "calls:=false",
+        "by=claude",
+        "tip=4c1d2e3",
+    )
     s.log(t, 32.5, "merge.start", "by=merger", "via=server")
-    s.state(t, 32, "landed", "main: pull request https://github.com/acme/shop/pull/41 is merged")
+    s.state(
+        t,
+        32,
+        "landed",
+        "main: pull request https://github.com/acme/shop/pull/41 is merged",
+    )
     s.closed(t, 31, "ended")
 
     # A task on the fast track in its checks: the first command passed, the second runs.
     t = "coupon-has-a-slug"
     s.task(t, "Give each coupon a slug for its link")
     s.session(t, 30.5, "fast", "new")
-    s.approve(t, 30, s.criteria_file(t, "small", "the request is one sentence.", "A coupon named Summer Sale has the slug summer-sale."), "--small")
-    s.state(t, 30, "building", "small change: one builder", "type: feat, because a coupon gets a new field")
+    s.approve(
+        t,
+        30,
+        s.criteria_file(
+            t,
+            "small",
+            "the request is one sentence.",
+            "A coupon named Summer Sale has the slug summer-sale.",
+        ),
+        "--small",
+    )
+    s.state(
+        t,
+        30,
+        "building",
+        "small change: one builder",
+        "type: feat, because a coupon gets a new field",
+    )
     s.log(t, 29.5, "builder.start", "job=the small change")
     s.state(t, 9, "ready", "the report is written")
     s.state(t, 8.5, "landing", "the checks start")
     s.log(t, 8, "gate.start", "tip=7e8f9a0b1", "commands:=2")
-    s.log(t, 5, "gate", "command=make test", "exit:=0", "last=213 passed", "tip=7e8f9a0")
+    s.log(
+        t, 5, "gate", "command=make test", "exit:=0", "last=213 passed", "tip=7e8f9a0"
+    )
 
     # A task on the standard track, on its second task of three.
     t = "gift-note-in-export"
     s.task(t, "Add the gift note to the CSV export")
     s.session(t, 150.5, "shape", "new")
-    s.state(t, 150, "held", "the interview waits for the owner", "type: feat, because the export gets a new column")
+    s.state(
+        t,
+        150,
+        "held",
+        "the interview waits for the owner",
+        "type: feat, because the export gets a new column",
+    )
     s.log(t, 149.5, "scout.start")
     s.log(t, 149, "interview.start")
     s.log(t, 147, "scout")
     s.log(t, 141, "interview.end")
-    gift = s.criteria_file(t, "full", "the export gets a new column and two readers of it.",
-                        'An order with the gift note "for Ania" has that text in the last column of its row.',
-                        "An order with no gift note has an empty cell, not the word None.")
+    gift = s.criteria_file(
+        t,
+        "full",
+        "the export gets a new column and two readers of it.",
+        'An order with the gift note "for Ania" has that text in the last column of its row.',
+        "An order with no gift note has an empty cell, not the word None.",
+    )
     s.log(t, 138, "criteria.read.start", "by=lem")
     s.read(t, 133, gift, 0)
     s.state(t, 133, "held", "the criteria wait for the owner")
@@ -405,40 +629,89 @@ def afternoon(shop: Shop) -> None:
     # the board's server sent the breaker to the owner's Inbox as the task's session (lem_inbox.Watcher, which
     # sends nothing for a demo, so the record is written here as it writes it); a page says so only while his
     # mark says away, which this afternoon has not
-    sent = {"key": f"breaker:{t}:1", "task": t, "kind": "breaker", "form": "question", "asks": True, "session": "6f1c2a9e-demo", "tip": None,
-            "message_id": "msg_01DEMOGIFTNOTEBREAKER1", "thread_id": "msg_01DEMOGIFTNOTEBREAKER1",
-            "thread_url": "http://plannotator.localhost:50026/#thread=msg_01DEMOGIFTNOTEBREAKER1", "questions": ["q1"], "woke": []}
-    (s.dir / "inbox.json").write_text(json.dumps({"running": True, "url": "http://plannotator.localhost:50026/", "tailnet_url": INBOX_TAILNET,
-                                                  "why": None, "said": "", "problem": None, "sent": [sent]}, indent=2) + "\n")
+    sent = {
+        "key": f"breaker:{t}:1",
+        "task": t,
+        "kind": "breaker",
+        "form": "question",
+        "asks": True,
+        "session": "6f1c2a9e-demo",
+        "tip": None,
+        "message_id": "msg_01DEMOGIFTNOTEBREAKER1",
+        "thread_id": "msg_01DEMOGIFTNOTEBREAKER1",
+        "thread_url": "http://plannotator.localhost:50026/#thread=msg_01DEMOGIFTNOTEBREAKER1",
+        "questions": ["q1"],
+        "woke": [],
+    }
+    (s.dir / "inbox.json").write_text(
+        json.dumps(
+            {
+                "running": True,
+                "url": "http://plannotator.localhost:50026/",
+                "tailnet_url": INBOX_TAILNET,
+                "why": None,
+                "said": "",
+                "problem": None,
+                "sent": [sent],
+            },
+            indent=2,
+        )
+        + "\n"
+    )
 
     # A task whose breaker stopped it before a step no "no" undoes, which the owner then parked.
     t = "fee-notice-to-merchants"
     s.task(t, "Tell each merchant about the new card fee by mail")
     s.session(t, 260.5, "build", "new")
-    s.state(t, 260, "building", "lead: builder", "type: feat, because the merchants get a new mail")
+    s.state(
+        t,
+        260,
+        "building",
+        "lead: builder",
+        "type: feat, because the merchants get a new mail",
+    )
     s.state(t, 238, "building", "plan committed, 2 tasks")
     s.state(t, 237, "building", "task 2 of 2")
     s.log(t, 236.5, "builder.start", "job=task 2 of 2")
     (s.dir / "tasks" / t / "breaker.md").write_text(FEE_BREAKER.replace("{slug}", t))
-    (s.dir / "tasks" / t / "handoff.md").write_text("# Handoff\n\nSettled: the mail's text and its list of 212 merchants. Open: whether the fee date stands. "
-                                                   "Next: `make send-fee-notice`, after his word.\n")
-    s.decide(t, 205, "breaker", t, "--cause", "irreversible", "--irreversible", "person")
+    (s.dir / "tasks" / t / "handoff.md").write_text(
+        "# Handoff\n\nSettled: the mail's text and its list of 212 merchants. Open: whether the fee date stands. "
+        "Next: `make send-fee-notice`, after his word.\n"
+    )
+    s.decide(
+        t, 205, "breaker", t, "--cause", "irreversible", "--irreversible", "person"
+    )
     s.at(t, 205)
-    s.state(t, 190, "parked", "the owner parked it: wait for the merchants' association to confirm the fee date")
+    s.state(
+        t,
+        190,
+        "parked",
+        "the owner parked it: wait for the merchants' association to confirm the fee date",
+    )
     s.closed(t, 189.5, "owner")
 
     # Criteria the personas read, with one flagged, which wait for his yes.
     t = "stock-on-product-page"
     s.task(t, "Show how many are left on the product page")
     s.session(t, 31.5, "shape", "new")
-    s.state(t, 31, "held", "the interview waits for the owner", "type: feat, because the product page gets a new line")
+    s.state(
+        t,
+        31,
+        "held",
+        "the interview waits for the owner",
+        "type: feat, because the product page gets a new line",
+    )
     s.log(t, 30.5, "scout.start")
     s.log(t, 30, "interview.start")
     s.log(t, 28, "scout")
     s.log(t, 22, "interview.end")
-    stock = s.criteria_file(t, "full", "the product page gets a new line.",
-                         'A product with 3 in stock says "3 left" under its price.',
-                         'A product with none in stock says "Sold out" and no number.')
+    stock = s.criteria_file(
+        t,
+        "full",
+        "the product page gets a new line.",
+        'A product with 3 in stock says "3 left" under its price.',
+        'A product with none in stock says "Sold out" and no number.',
+    )
     s.log(t, 19, "criteria.read.start", "by=lem")
     s.read(t, 14, stock, 1)
     s.state(t, 14, "held", "the criteria wait for the owner")
@@ -449,10 +722,21 @@ def afternoon(shop: Shop) -> None:
     t = "refund-rounding"
     s.task(t, "Round refunds the way the payment provider does")
     s.session(t, 95.5, "shape", "new")
-    s.state(t, 95, "held", "the interview waits for the owner", "type: feat, because refunds get a new rule")
+    s.state(
+        t,
+        95,
+        "held",
+        "the interview waits for the owner",
+        "type: feat, because refunds get a new rule",
+    )
     s.log(t, 94.5, "interview.start")
     s.log(t, 86, "interview.end")
-    refund = s.criteria_file(t, "full", "refunds get a new rule.", "A refund of 10.005 EUR pays back 10.01 EUR, as the provider rounds it.")
+    refund = s.criteria_file(
+        t,
+        "full",
+        "refunds get a new rule.",
+        "A refund of 10.005 EUR pays back 10.01 EUR, as the provider rounds it.",
+    )
     s.log(t, 82, "criteria.read.start", "by=lem")
     s.read(t, 78, refund, 0)
     s.state(t, 78, "held", "the criteria wait for the owner")
@@ -465,26 +749,59 @@ def afternoon(shop: Shop) -> None:
     # "Open a session" (a demo workspace knows a session from the log alone, and this task has none)
     t = "cart-total-after-coupon"
     s.task(t, "The cart total is wrong after a coupon since yesterday")
-    s.state(t, 12, "building", "an investigator reproduces the bug and finds its cause", "investigation: bug",
-            "type: fix, because the ask says the total is wrong since yesterday")
+    s.state(
+        t,
+        12,
+        "building",
+        "an investigator reproduces the bug and finds its cause",
+        "investigation: bug",
+        "type: fix, because the ask says the total is wrong since yesterday",
+    )
     s.log(t, 11.5, "investigation.start", "type=fix")
 
     # A task on the standard track that landed today, from its interview to the merge.
     t = "order-date-on-invoice"
     s.task(t, "Print the order date on the invoice")
     # task.md as Lem writes it at new: its outcome is what the board of one task shows in "What we are building"
-    (s.dir / "tasks" / t / "task.md").write_text("\n".join([
-        f"# {t}", "", "## The ask, verbatim", "", "Print the order date on the invoice", "",
-        "## Type", "", "feat, because the invoice gets a new line", "", "## Outcome", "",
-        "Each invoice says when its order was placed, under the order's number, in the shop's language.",
-        "A customer who asks about an old order finds the date on the paper they already have.", ""]))
+    (s.dir / "tasks" / t / "task.md").write_text(
+        "\n".join(
+            [
+                f"# {t}",
+                "",
+                "## The ask, verbatim",
+                "",
+                "Print the order date on the invoice",
+                "",
+                "## Type",
+                "",
+                "feat, because the invoice gets a new line",
+                "",
+                "## Outcome",
+                "",
+                "Each invoice says when its order was placed, under the order's number, in the shop's language.",
+                "A customer who asks about an old order finds the date on the paper they already have.",
+                "",
+            ]
+        )
+    )
     s.session(t, 330.5, "shape", "new")
-    s.state(t, 330, "held", "the interview waits for the owner", "type: feat, because the invoice gets a new line")
+    s.state(
+        t,
+        330,
+        "held",
+        "the interview waits for the owner",
+        "type: feat, because the invoice gets a new line",
+    )
     s.log(t, 329.5, "scout.start")
     s.log(t, 329, "interview.start")
     s.log(t, 327, "scout")
     s.log(t, 321, "interview.end")
-    date = s.criteria_file(t, "full", "the invoice gets a new line.", 'The invoice of order 1042, placed on 3 May, says "Ordered 3 May 2026" under its number.')
+    date = s.criteria_file(
+        t,
+        "full",
+        "the invoice gets a new line.",
+        'The invoice of order 1042, placed on 3 May, says "Ordered 3 May 2026" under its number.',
+    )
     s.log(t, 318, "criteria.read.start", "by=lem")
     s.read(t, 314, date, 0)
     s.state(t, 314, "held", "the criteria wait for the owner")
@@ -494,11 +811,30 @@ def afternoon(shop: Shop) -> None:
     # the base commit, as a real build does.
     tree = Path(s.project("worktree-dir", t).strip())
     s.git("worktree", "add", "-q", "-b", f"feat/{t}", str(tree), "main")
-    s.commit_in(tree, "docs(plans): the order date on the invoice", {"docs/plans/2026-11-17-order-date-on-invoice.md": "\n".join([
-        "# The order date on the invoice", "", "## Acceptance criteria", "", "Size: full, because the invoice gets a new line.", "",
-        '1. The invoice of order 1042, placed on 3 May, says "Ordered 3 May 2026" under its number.',
-        "   - test: `sh tests/order-date.sh` in `tests/order-date.sh`", "", "## Tasks", "",
-        "1. The date under the order's number.", "2. The date in the shop's language.", ""])})
+    s.commit_in(
+        tree,
+        "docs(plans): the order date on the invoice",
+        {
+            "docs/plans/2026-11-17-order-date-on-invoice.md": "\n".join(
+                [
+                    "# The order date on the invoice",
+                    "",
+                    "## Acceptance criteria",
+                    "",
+                    "Size: full, because the invoice gets a new line.",
+                    "",
+                    '1. The invoice of order 1042, placed on 3 May, says "Ordered 3 May 2026" under its number.',
+                    "   - test: `sh tests/order-date.sh` in `tests/order-date.sh`",
+                    "",
+                    "## Tasks",
+                    "",
+                    "1. The date under the order's number.",
+                    "2. The date in the shop's language.",
+                    "",
+                ]
+            )
+        },
+    )
     s.session(t, 308.5, "build", "handoff")
     s.state(t, 308, "building", "lead: builder")
     s.state(t, 296, "building", "plan committed, 2 tasks")
@@ -506,13 +842,23 @@ def afternoon(shop: Shop) -> None:
     s.at(t, 295.5)
     s.state(t, 295, "building", "task 1 of 2")
     s.log(t, 294.5, "builder.start", "job=task 1 of 2")
-    s.commit_in(tree, "feat(invoice): the order date under the order's number", {
-        "invoice/date.py": 'def ordered(order):\n    return f"Ordered {order.placed:%-d %B %Y}"\n',
-        "tests/order-date.sh": "#!/bin/sh\ngrep -q 'Ordered {order.placed' invoice/date.py\n"})
+    s.commit_in(
+        tree,
+        "feat(invoice): the order date under the order's number",
+        {
+            "invoice/date.py": 'def ordered(order):\n    return f"Ordered {order.placed:%-d %B %Y}"\n',
+            "tests/order-date.sh": "#!/bin/sh\ngrep -q 'Ordered {order.placed' invoice/date.py\n",
+        },
+    )
     s.state(t, 268, "building", "task 2 of 2")
     s.log(t, 267.5, "builder.start", "job=task 2 of 2")
-    s.commit_in(tree, "feat(invoice): the order date in the shop's language", {
-        "invoice/date.py": 'def ordered(order):\n    return f"Ordered {order.placed:%-d %B %Y}"\n\n\ndef language(order):\n    return order.shop.language\n'})
+    s.commit_in(
+        tree,
+        "feat(invoice): the order date in the shop's language",
+        {
+            "invoice/date.py": 'def ordered(order):\n    return f"Ordered {order.placed:%-d %B %Y}"\n\n\ndef language(order):\n    return order.shop.language\n'
+        },
+    )
     s.criteria("red", t)
     s.at(t, 247)
     s.state(t, 246, "ready", "the report is written")
@@ -520,72 +866,216 @@ def afternoon(shop: Shop) -> None:
     s.state(t, 245, "landing", "the checks start")
     before = s.head(tree)
     s.log(t, 244, "polish.start", f"before={before}")
-    s.commit_in(tree, "style(invoice): one name for the date's format", {
-        "invoice/date.py": 'DATE = "%-d %B %Y"\n\n\ndef ordered(order):\n    return f"Ordered {order.placed:%-d %B %Y}"\n\n\ndef language(order):\n    return order.shop.language\n'})
+    s.commit_in(
+        tree,
+        "style(invoice): one name for the date's format",
+        {
+            "invoice/date.py": 'DATE = "%-d %B %Y"\n\n\ndef ordered(order):\n    return f"Ordered {order.placed:%-d %B %Y}"\n\n\ndef language(order):\n    return order.shop.language\n'
+        },
+    )
     # the polish pass files a defect it saw outside the change, in a commit of its own: the board of the
     # task lists it on "Overview", and the backlog of the main checkout has it once the task landed
-    s.commit_in(tree, "docs(backlog): the invoice footer wraps on A5", {"docs/backlog/invoice-footer-wraps.md": FOOTER_ITEM.format(today=TODAY)})
+    s.commit_in(
+        tree,
+        "docs(backlog): the invoice footer wraps on A5",
+        {"docs/backlog/invoice-footer-wraps.md": FOOTER_ITEM.format(today=TODAY)},
+    )
     tip = s.head(tree)
-    s.log(t, 236, "polish", f"before={before[:7]}", f"after={tip[:7]}", "commits:=2", 'filed:=["docs/backlog/invoice-footer-wraps.md"]')
+    s.log(
+        t,
+        236,
+        "polish",
+        f"before={before[:7]}",
+        f"after={tip[:7]}",
+        "commits:=2",
+        'filed:=["docs/backlog/invoice-footer-wraps.md"]',
+    )
     s.log(t, 235.5, "gate.start", f"tip={tip}", "commands:=2")
-    s.log(t, 232, "gate", "command=make test", "exit:=0", "last=214 passed", f"tip={tip[:7]}")
-    s.log(t, 231, "gate", "command=make lint", "exit:=0", "last=All checks passed", f"tip={tip[:7]}")
+    s.log(
+        t,
+        232,
+        "gate",
+        "command=make test",
+        "exit:=0",
+        "last=214 passed",
+        f"tip={tip[:7]}",
+    )
+    s.log(
+        t,
+        231,
+        "gate",
+        "command=make lint",
+        "exit:=0",
+        "last=All checks passed",
+        f"tip={tip[:7]}",
+    )
     s.criteria("red", t)
     s.at(t, 230.5)
     s.log(t, 230, "review.start", "attempt:=1", "floor=round")
-    s.log(t, 219, "review", "attempt:=1", "round:=1", "kind=round", "verdict=clean", "must_fix:=0", "should:=1", "nit:=2", 'answered:=["codex", "claude"]',
-          "silent:=[]", 'ran:=[{"name": "correctness", "why": "the invoice changes"}]', 'left_out:=[{"name": "security", "why": "no input is read"}]', f"tip={tip[:7]}")
+    s.log(
+        t,
+        219,
+        "review",
+        "attempt:=1",
+        "round:=1",
+        "kind=round",
+        "verdict=clean",
+        "must_fix:=0",
+        "should:=1",
+        "nit:=2",
+        'answered:=["codex", "claude"]',
+        "silent:=[]",
+        'ran:=[{"name": "correctness", "why": "the invoice changes"}]',
+        'left_out:=[{"name": "security", "why": "no input is read"}]',
+        f"tip={tip[:7]}",
+    )
     s.log(t, 218, "proposed", "green:=true", "not_green:=[]", f"tip={tip[:7]}")
-    s.state(t, 218, "open", "pull request https://github.com/acme/shop/pull/38", "green")
-    s.state(t, 160, "landed", "main: pull request https://github.com/acme/shop/pull/38 is merged")
+    s.state(
+        t, 218, "open", "pull request https://github.com/acme/shop/pull/38", "green"
+    )
+    s.state(
+        t,
+        160,
+        "landed",
+        "main: pull request https://github.com/acme/shop/pull/38 is merged",
+    )
     s.closed(t, 158, "ended")
 
     # A question, answered by its investigation.
     t = "why-export-is-slow"
     s.task(t, "Why does the monthly export take a minute?")
     s.session(t, 205.5, "build", "new")
-    s.state(t, 205, "building", "an investigator finds the answer", "investigation: question", "type: question, because the ask asks why")
+    s.state(
+        t,
+        205,
+        "building",
+        "an investigator finds the answer",
+        "investigation: question",
+        "type: question, because the ask asks why",
+    )
     s.log(t, 204.5, "investigation.start", "type=question")
     # written as plain lines, as an agent writes a short report: the board keeps its line breaks
-    (s.dir / "tasks" / t / "investigation.md").write_text("# Investigation\n\nThe export reads every order of the month one query at a time.\n"
-                                                         "A month of 4,000 orders makes 4,000 queries.\nEach query waits about 15 ms for the database.\n")
-    s.log(t, 186, "investigation", "type=question", "call=answer", "line=the export reads each order of the month with its own query", "where=reports/export.py:monthly")
-    s.state(t, 185, "answered", "the answer: one query for each order", "report: investigation.md")
+    (s.dir / "tasks" / t / "investigation.md").write_text(
+        "# Investigation\n\nThe export reads every order of the month one query at a time.\n"
+        "A month of 4,000 orders makes 4,000 queries.\nEach query waits about 15 ms for the database.\n"
+    )
+    s.log(
+        t,
+        186,
+        "investigation",
+        "type=question",
+        "call=answer",
+        "line=the export reads each order of the month with its own query",
+        "where=reports/export.py:monthly",
+    )
+    s.state(
+        t,
+        185,
+        "answered",
+        "the answer: one query for each order",
+        "report: investigation.md",
+    )
     s.closed(t, 184.5, "ended")
 
     # Two items of the backlog.
     folder = s.repo / "docs" / "backlog"
     folder.mkdir(parents=True)
     (s.repo / "invoice").mkdir()
-    (s.repo / "invoice" / "footer.py").write_text("def footer(order):\n    return order.shop.address\n")
+    (s.repo / "invoice" / "footer.py").write_text(
+        "def footer(order):\n    return order.shop.address\n"
+    )
     (folder / "invoice-footer-wraps.md").write_text(FOOTER_ITEM.format(today=TODAY))
     # the places the reviewer's items below name
-    (s.repo / "AGENTS.md").write_text("# The shop\n\nRun `make test` and `make lint` before a commit.\n")
+    (s.repo / "AGENTS.md").write_text(
+        "# The shop\n\nRun `make test` and `make lint` before a commit.\n"
+    )
     (s.repo / "tests").mkdir()
-    (s.repo / "tests" / "test_export.py").write_text("def test_monthly():\n    assert True\n")
-    (folder / "export-in-one-query.md").write_text(f"---\nworth: later\nadded: {TODAY}\n---\n\n# Read the monthly export in one query\n\nThe investigation of the slow export found one query for each order. One query for the month would take the minute away.\n")
+    (s.repo / "tests" / "test_export.py").write_text(
+        "def test_monthly():\n    assert True\n"
+    )
+    (folder / "export-in-one-query.md").write_text(
+        f"---\nworth: later\nadded: {TODAY}\n---\n\n# Read the monthly export in one query\n\nThe investigation of the slow export found one query for each order. One query for the month would take the minute away.\n"
+    )
     s.git("add", "-A")
-    s.git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "docs: the backlog")
+    s.git(
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@t",
+        "commit",
+        "-q",
+        "-m",
+        "docs: the backlog",
+    )
 
     # The night's and the retro's proposals, and the reviewer's verdicts, through `lem project proposals`: two items of
     # the state folder's backlog, one undecided and one a queued task holds, and one proposal refuted.
     night = s.work / "night.json"
-    night.write_text(json.dumps({"read": "the free search of the night", "proposals": [
-        {"area": "tests", "move": "Make the check of the monthly export wait for its file", "where": "tests/test_export.py:test_monthly",
-         "body": "The check read the export before its file was whole, and failed once in the last ten runs.", "source": "the checks of coupon-has-a-slug"}]}))
-    s.project("proposals", "add", "--kind", "night", "--date", TODAY, "--file", str(night))
+    night.write_text(
+        json.dumps(
+            {
+                "read": "the free search of the night",
+                "proposals": [
+                    {
+                        "area": "tests",
+                        "move": "Make the check of the monthly export wait for its file",
+                        "where": "tests/test_export.py:test_monthly",
+                        "body": "The check read the export before its file was whole, and failed once in the last ten runs.",
+                        "source": "the checks of coupon-has-a-slug",
+                    }
+                ],
+            }
+        )
+    )
+    s.project(
+        "proposals", "add", "--kind", "night", "--date", TODAY, "--file", str(night)
+    )
     retro = s.work / "retro.json"
-    retro.write_text(json.dumps({"read": "the tasks and the naps since the retro before", "proposals": [
-        {"area": "lessons", "move": "Read the receipt's total by its label, never by its row", "where": "AGENTS.md",
-         "body": "A refund line moved the total's row, and a test that read the row failed.", "source": "the task refund-line-on-receipt's records"},
-        {"area": "lessons", "move": "Run make lint before each commit", "where": "AGENTS.md",
-         "body": "A builder forgot it once.", "source": "the task coupon-has-a-slug's records"}]}))
-    s.project("proposals", "add", "--kind", "retro", "--date", TODAY, "--file", str(retro))
+    retro.write_text(
+        json.dumps(
+            {
+                "read": "the tasks and the naps since the retro before",
+                "proposals": [
+                    {
+                        "area": "lessons",
+                        "move": "Read the receipt's total by its label, never by its row",
+                        "where": "AGENTS.md",
+                        "body": "A refund line moved the total's row, and a test that read the row failed.",
+                        "source": "the task refund-line-on-receipt's records",
+                    },
+                    {
+                        "area": "lessons",
+                        "move": "Run make lint before each commit",
+                        "where": "AGENTS.md",
+                        "body": "A builder forgot it once.",
+                        "source": "the task coupon-has-a-slug's records",
+                    },
+                ],
+            }
+        )
+    )
+    s.project(
+        "proposals", "add", "--kind", "retro", "--date", TODAY, "--file", str(retro)
+    )
     verdicts = s.work / "verdicts.json"
-    verdicts.write_text(json.dumps({"verdicts": [
-        {"proposal": f"night of {TODAY} #1", "passed": "tests"}, {"proposal": f"retro of {TODAY} #1", "passed": "lessons"},
-        {"proposal": f"retro of {TODAY} #2", "refuted": "a first-time lesson, with no question in it"}],
-        "titles": {"tests": "The export's check fails by chance", "lessons": "Read the receipt's total by its label"}}))
+    verdicts.write_text(
+        json.dumps(
+            {
+                "verdicts": [
+                    {"proposal": f"night of {TODAY} #1", "passed": "tests"},
+                    {"proposal": f"retro of {TODAY} #1", "passed": "lessons"},
+                    {
+                        "proposal": f"retro of {TODAY} #2",
+                        "refuted": "a first-time lesson, with no question in it",
+                    },
+                ],
+                "titles": {
+                    "tests": "The export's check fails by chance",
+                    "lessons": "Read the receipt's total by its label",
+                },
+            }
+        )
+    )
     s.project("proposals", "verdict", "--file", str(verdicts))
     t = "export-check-by-chance"
     s.task(t, ".lem/state/backlog/the-export-s-check-fails-by-chance.md")
@@ -634,29 +1124,56 @@ After:
 """
 
 
-def png(width: int, height: int, rows: list[tuple[int, int, int, int, tuple[int, int, int]]], back: tuple[int, int, int] = (250, 248, 243)) -> bytes:
+def png(
+    width: int,
+    height: int,
+    rows: list[tuple[int, int, int, int, tuple[int, int, int]]],
+    back: tuple[int, int, int] = (250, 248, 243),
+) -> bytes:
     """A small PNG of flat boxes, (x, y, w, h, color) each on BACK: the demo's stand-in for a screenshot."""
     pixels = [bytearray(back * width) for _ in range(height)]
     for x, y, w, h, color in rows:
         for yy in range(max(0, y), min(height, y + h)):
-            pixels[yy][3 * max(0, x):3 * min(width, x + w)] = bytes(color) * (min(width, x + w) - max(0, x))
+            pixels[yy][3 * max(0, x) : 3 * min(width, x + w)] = bytes(color) * (
+                min(width, x + w) - max(0, x)
+            )
     raw = b"".join(b"\0" + bytes(row) for row in pixels)
 
     def chunk(kind: bytes, data: bytes) -> bytes:
-        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+        return (
+            struct.pack(">I", len(data))
+            + kind
+            + data
+            + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+        )
 
-    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b"")
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+        + chunk(b"IDAT", zlib.compress(raw, 9))
+        + chunk(b"IEND", b"")
+    )
 
 
 def receipt(after: bool) -> bytes:
     """The receipt of order 1042, before and after the refund line: lines of text as gray bars."""
     ink, dim, line, ok = (40, 38, 34), (150, 146, 140), (226, 224, 219), (98, 151, 66)
-    rows = [(0, 0, 360, 240, (255, 255, 255)), (24, 22, 150, 12, ink), (24, 46, 90, 8, dim)]
+    rows = [
+        (0, 0, 360, 240, (255, 255, 255)),
+        (24, 22, 150, 12, ink),
+        (24, 46, 90, 8, dim),
+    ]
     for k, w in enumerate((210, 180, 230)):
         rows += [(24, 72 + 22 * k, w, 8, dim), (290, 72 + 22 * k, 46, 8, dim)]
     rows += [(24, 142, 312, 1, line), (24, 156, 70, 10, ink), (282, 156, 54, 10, ink)]
     if after:
-        rows += [(20, 178, 320, 22, (236, 244, 230)), (24, 184, 120, 9, ok), (284, 184, 52, 9, ok), (24, 214, 90, 10, ink), (282, 214, 54, 10, ink)]
+        rows += [
+            (20, 178, 320, 22, (236, 244, 230)),
+            (24, 184, 120, 9, ok),
+            (284, 184, 52, 9, ok),
+            (24, 214, 90, 10, ink),
+            (282, 214, 54, 10, ink),
+        ]
     return png(360, 240, rows)
 
 
@@ -677,32 +1194,108 @@ def refund_line(s: Shop) -> None:
     s.at(t, 610)
     s.session(t, 609.5, "shape", "night")
     folder = s.dir / "tasks" / t
-    (folder / "task.md").write_text("\n".join([
-        f"# {t}", "", "## The ask, verbatim", "", "Show a refund as a line of its own on the receipt", "", "## Type", "", "feat, because the receipt gets a new line", "",
-        "## Outcome", "", "**A refund shows on the receipt as a line of its own, and the total under it is what the customer paid.**", "",
-        "Today:", "1. Order 1042 is 100.00 EUR.", "2. A refund of 30.00 EUR comes in.", "3. The receipt shows 70.00 EUR, and no line says why.", "",
-        "After:", "1. Order 1042 is 100.00 EUR.", "2. A refund of 30.00 EUR comes in.", "3. The receipt shows `Refund -30.00` under the items, and `Total 70.00` under it.", "",
-        "```mermaid", DEMO_CHART, "```", "",
-        "| Receipt | Today | After |", "| --- | --- | --- |", "| The refund | not shown | a line of its own, in green |", "| The total | 70.00 | 70.00, under the refund |", ""]))
-    s.state(t, 605, "held", "the interview waits for the owner", "type: feat, because the receipt gets a new line")
+    (folder / "task.md").write_text(
+        "\n".join(
+            [
+                f"# {t}",
+                "",
+                "## The ask, verbatim",
+                "",
+                "Show a refund as a line of its own on the receipt",
+                "",
+                "## Type",
+                "",
+                "feat, because the receipt gets a new line",
+                "",
+                "## Outcome",
+                "",
+                "**A refund shows on the receipt as a line of its own, and the total under it is what the customer paid.**",
+                "",
+                "Today:",
+                "1. Order 1042 is 100.00 EUR.",
+                "2. A refund of 30.00 EUR comes in.",
+                "3. The receipt shows 70.00 EUR, and no line says why.",
+                "",
+                "After:",
+                "1. Order 1042 is 100.00 EUR.",
+                "2. A refund of 30.00 EUR comes in.",
+                "3. The receipt shows `Refund -30.00` under the items, and `Total 70.00` under it.",
+                "",
+                "```mermaid",
+                DEMO_CHART,
+                "```",
+                "",
+                "| Receipt | Today | After |",
+                "| --- | --- | --- |",
+                "| The refund | not shown | a line of its own, in green |",
+                "| The total | 70.00 | 70.00, under the refund |",
+                "",
+            ]
+        )
+    )
+    s.state(
+        t,
+        605,
+        "held",
+        "the interview waits for the owner",
+        "type: feat, because the receipt gets a new line",
+    )
     crit = s.work / f"{t}.md"
-    body = ["## Acceptance criteria", "", "Size: full, because the receipt gets a new line and a rule for a refund larger than the total.", "",
-            "1. A refund shows on the receipt as a line of its own, and the total stands under it:",
-            "   1. Order 1042 is 100.00 EUR, and a refund of 30.00 EUR comes in.",
-            "   2. The receipt shows `Refund -30.00` under the items.", "   3. The total under it is 70.00.",
-            "", "   ```mermaid", *(f"   {line}" for line in DEMO_CHART.splitlines()), "   ```", "",
-            "2. A refund larger than the total shows 0.00 and a credit note for the rest."]
+    body = [
+        "## Acceptance criteria",
+        "",
+        "Size: full, because the receipt gets a new line and a rule for a refund larger than the total.",
+        "",
+        "1. A refund shows on the receipt as a line of its own, and the total stands under it:",
+        "   1. Order 1042 is 100.00 EUR, and a refund of 30.00 EUR comes in.",
+        "   2. The receipt shows `Refund -30.00` under the items.",
+        "   3. The total under it is 70.00.",
+        "",
+        "   ```mermaid",
+        *(f"   {line}" for line in DEMO_CHART.splitlines()),
+        "   ```",
+        "",
+        "2. A refund larger than the total shows 0.00 and a credit note for the rest.",
+    ]
     crit.write_text("\n".join(body) + "\n")
     s.approve(t, 598, crit, "--alone")
     tree = Path(s.project("worktree-dir", t).strip())
     s.git("worktree", "add", "-q", "-b", f"feat/{t}", str(tree), "main")
     test = "   - test: `sh tests/refund.sh` in `tests/refund.sh`"
-    plan = [*body[:-1], test, "", body[-1], test, "",
-            "## How it works", "", "A refund becomes a line of the receipt; the rule for one larger than the total is the second branch.", "",
-            "```mermaid", "flowchart LR", '  A["The refund event"] --> B["The receipt\'s lines"]', '  B --> C{"Refund larger than the total?"}',
-            '  C -->|"no"| D["Refund line, then the total"]', '  C -->|"yes"| E["Total 0.00, then a credit note"]', "```", "", "## Tasks", "", "1. The refund line.", "2. The credit note.", ""]
-    s.commit_in(tree, "docs(plans): the refund line on the receipt", {f"docs/plans/{TODAY}-{t}.md": "# The refund line on the receipt\n\n" + "\n".join(plan),
-                                                                     "tests/refund.sh": "#!/bin/sh\nexit 0\n"})
+    plan = [
+        *body[:-1],
+        test,
+        "",
+        body[-1],
+        test,
+        "",
+        "## How it works",
+        "",
+        "A refund becomes a line of the receipt; the rule for one larger than the total is the second branch.",
+        "",
+        "```mermaid",
+        "flowchart LR",
+        '  A["The refund event"] --> B["The receipt\'s lines"]',
+        '  B --> C{"Refund larger than the total?"}',
+        '  C -->|"no"| D["Refund line, then the total"]',
+        '  C -->|"yes"| E["Total 0.00, then a credit note"]',
+        "```",
+        "",
+        "## Tasks",
+        "",
+        "1. The refund line.",
+        "2. The credit note.",
+        "",
+    ]
+    s.commit_in(
+        tree,
+        "docs(plans): the refund line on the receipt",
+        {
+            f"docs/plans/{TODAY}-{t}.md": "# The refund line on the receipt\n\n"
+            + "\n".join(plan),
+            "tests/refund.sh": "#!/bin/sh\nexit 0\n",
+        },
+    )
     s.state(t, 596, "building", "lead: builder")
     s.state(t, 590, "building", "plan committed, 2 tasks")
     s.criteria("record", t)
@@ -711,42 +1304,133 @@ def refund_line(s: Shop) -> None:
     s.log(t, 587.5, "builder.start", "job=task 1 of 2")
     # a decision of the build in doubt: the ladder climbed to the dialectic, whose pick is taken at once
     chart = s.work / f"{t}-decision.mmd"
-    chart.write_text('flowchart TD\n  A["The receipt has its items"] --> B{"Where does the refund go?"}\n  B -->|"A"| C["In the items: the total reads as a price"]\n'
-                     '  B -->|"B"| D["Under the items: the total stands under it"]\n  B -->|"C"| E["In a footer: the customer looks for it"]\n')
-    s.decide(t, 560, "log", t, "--by", "dialectic", "--what", "Where the refund line goes on the receipt",
-             "--case", "1. Order 1042 has three items, 100.00 EUR.\n2. A refund of 30.00 EUR comes in.\n3. The receipt prints its lines in the order of the choice.\n"
-                       "4. A customer reads the last line above the total as the price of an item.",
-             "--case-was", "derived", "--cause", "The receipt prints every line of an order in one list, and the total is the last of them.",
-             "--option", "A: in the items, as a negative price", "--option", "B: a line of its own under the items, then the total",
-             "--option", "C: in the footer, beside the payment", "--chose", "B: a line of its own under the items, then the total",
-             "--why", "the total stands under what changed it", "--said", "the developer picked B, the support person picked B, the accountant leaned to C",
-             "--level", "gate=no ruling covers it", "--level", "personas=two for B, one for C: no clear pick",
-             "--level", "dialectic=B held: the case against it found no reader that takes the last line above the total as an item",
-             "--chart", str(chart))
-    s.decide(t, 540, "log", t, "--by", "lead", "--what", "How the refund line is colored", "--chose", "the theme's green, as a credit",
-             "--why", "a refund is money back to the customer, which the shop's receipts show in green")
+    chart.write_text(
+        'flowchart TD\n  A["The receipt has its items"] --> B{"Where does the refund go?"}\n  B -->|"A"| C["In the items: the total reads as a price"]\n'
+        '  B -->|"B"| D["Under the items: the total stands under it"]\n  B -->|"C"| E["In a footer: the customer looks for it"]\n'
+    )
+    s.decide(
+        t,
+        560,
+        "log",
+        t,
+        "--by",
+        "dialectic",
+        "--what",
+        "Where the refund line goes on the receipt",
+        "--case",
+        "1. Order 1042 has three items, 100.00 EUR.\n2. A refund of 30.00 EUR comes in.\n3. The receipt prints its lines in the order of the choice.\n"
+        "4. A customer reads the last line above the total as the price of an item.",
+        "--case-was",
+        "derived",
+        "--cause",
+        "The receipt prints every line of an order in one list, and the total is the last of them.",
+        "--option",
+        "A: in the items, as a negative price",
+        "--option",
+        "B: a line of its own under the items, then the total",
+        "--option",
+        "C: in the footer, beside the payment",
+        "--chose",
+        "B: a line of its own under the items, then the total",
+        "--why",
+        "the total stands under what changed it",
+        "--said",
+        "the developer picked B, the support person picked B, the accountant leaned to C",
+        "--level",
+        "gate=no ruling covers it",
+        "--level",
+        "personas=two for B, one for C: no clear pick",
+        "--level",
+        "dialectic=B held: the case against it found no reader that takes the last line above the total as an item",
+        "--chart",
+        str(chart),
+    )
+    s.decide(
+        t,
+        540,
+        "log",
+        t,
+        "--by",
+        "lead",
+        "--what",
+        "How the refund line is colored",
+        "--chose",
+        "the theme's green, as a credit",
+        "--why",
+        "a refund is money back to the customer, which the shop's receipts show in green",
+    )
     s.state(t, 520, "building", "task 2 of 2")
     s.log(t, 519.5, "builder.start", "job=task 2 of 2")
     (folder / "media").mkdir(exist_ok=True)
     (folder / "media" / "receipt-before.png").write_bytes(receipt(False))
     (folder / "media" / "receipt-after.png").write_bytes(receipt(True))
-    (folder / "report.md").write_text("# Report\n\nThe refund line is in, under the items, and the total under it.\n\n"
-                                      "![The receipt of order 1042 after a refund of 30.00 EUR](media/receipt-after.png)\n*The refund reads `-30.00` in green; the total under it is 70.00.*\n")
+    (folder / "report.md").write_text(
+        "# Report\n\nThe refund line is in, under the items, and the total under it.\n\n"
+        "![The receipt of order 1042 after a refund of 30.00 EUR](media/receipt-after.png)\n*The refund reads `-30.00` in green; the total under it is 70.00.*\n"
+    )
     s.state(t, 480, "ready", "the report is written")
     s.session(t, 479.5, "land", "handoff")
     s.state(t, 479, "landing", "the checks start")
     tip = s.head(tree)
     s.log(t, 478, "gate.start", f"tip={tip}", "commands:=2")
     (folder / "gate").mkdir(exist_ok=True)
-    (folder / "gate" / "01.log").write_text("\x1b[32m....................\x1b[0m\n214 passed in 3.1s\n")
+    (folder / "gate" / "01.log").write_text(
+        "\x1b[32m....................\x1b[0m\n214 passed in 3.1s\n"
+    )
     (folder / "gate" / "02.log").write_text("All checks passed!\n")
-    s.log(t, 475, "gate", "command=make test", "exit:=0", "last=214 passed", f"tip={tip[:7]}")
-    s.log(t, 474, "gate", "command=make lint", "exit:=0", "last=All checks passed", f"tip={tip[:7]}")
+    s.log(
+        t,
+        475,
+        "gate",
+        "command=make test",
+        "exit:=0",
+        "last=214 passed",
+        f"tip={tip[:7]}",
+    )
+    s.log(
+        t,
+        474,
+        "gate",
+        "command=make lint",
+        "exit:=0",
+        "last=All checks passed",
+        f"tip={tip[:7]}",
+    )
     s.log(t, 473, "review.start", "attempt:=1", "floor=round")
-    s.log(t, 462, "review", "attempt:=1", "round:=1", "kind=round", "verdict=must-fix", "must_fix:=1", "should:=1", "nit:=0", 'answered:=["codex", "claude"]',
-          "silent:=[]", 'ran:=[{"name": "correctness", "why": "the total changes"}]', "left_out:=[]", f"tip={tip[:7]}")
-    s.log(t, 450, "review", "attempt:=2", "round:=2", "kind=round", "verdict=clean", "must_fix:=0", "should:=0", "nit:=1", 'answered:=["codex", "claude"]',
-          "silent:=[]", 'ran:=[{"name": "correctness", "why": "the total changes"}]', "left_out:=[]", f"tip={tip[:7]}")
+    s.log(
+        t,
+        462,
+        "review",
+        "attempt:=1",
+        "round:=1",
+        "kind=round",
+        "verdict=must-fix",
+        "must_fix:=1",
+        "should:=1",
+        "nit:=0",
+        'answered:=["codex", "claude"]',
+        "silent:=[]",
+        'ran:=[{"name": "correctness", "why": "the total changes"}]',
+        "left_out:=[]",
+        f"tip={tip[:7]}",
+    )
+    s.log(
+        t,
+        450,
+        "review",
+        "attempt:=2",
+        "round:=2",
+        "kind=round",
+        "verdict=clean",
+        "must_fix:=0",
+        "should:=0",
+        "nit:=1",
+        'answered:=["codex", "claude"]',
+        "silent:=[]",
+        'ran:=[{"name": "correctness", "why": "the total changes"}]',
+        "left_out:=[]",
+        f"tip={tip[:7]}",
+    )
     reasons = [
         'decision 1 was taken without the owner (Where the refund line goes on the receipt): "B: a line of its own under the items, then the total", by the dialectic',
         f"the owner did not approve the criteria: they were approved on {TODAY} while the task ran without the owner",
@@ -755,50 +1439,136 @@ def refund_line(s: Shop) -> None:
         "and no other test lost a line. The resolution of round 1 did not touch the file",
         "two rounds reviewed it: the last one left no must-fix, and round 1 left 1 must-fix that pull request #44 answers",
     ]
-    s.log(t, 448, "proposed", "green:=false", f"not_green:={json.dumps(reasons)}", f"tip={tip[:7]}")
-    s.state(t, 448, "open", "pull request https://github.com/acme/shop/pull/44", "not green")
+    s.log(
+        t,
+        448,
+        "proposed",
+        "green:=false",
+        f"not_green:={json.dumps(reasons)}",
+        f"tip={tip[:7]}",
+    )
+    s.state(
+        t, 448, "open", "pull request https://github.com/acme/shop/pull/44", "not green"
+    )
     # the merge agent's read of it (land.py `merge-review`): a request that is not green is the owner's to merge, so it calls him
     (folder / "merge-review.md").write_text(MERGE_REVIEW)
     why = "Verdict: call. The change does what both criteria say; it is not green for two choices taken without you, and I would keep both."
-    s.log(t, 440, "merge.review", "verdict=call", "calls:=true", "by=claude", f"tip={tip[:9]}", f"why={why}")
+    s.log(
+        t,
+        440,
+        "merge.review",
+        "verdict=call",
+        "calls:=true",
+        "by=claude",
+        f"tip={tip[:9]}",
+        f"why={why}",
+    )
     # the landing's record of an open task, in land.py's form (`propose`, `merge-review`): the whole commit it proposed and
     # its pull request, which the merge step shows and its form carries, and the merge agent's review of that commit
     whole = run("git", "-C", str(tree), "rev-parse", "HEAD").strip()
-    (folder / "landing.json").write_text(json.dumps({
-        "branch": f"feat/{t}", "pushed": whole, "pr": {"number": 44, "url": "https://github.com/acme/shop/pull/44"}, "proposed": whole,
-        "title": "feat(receipt): a refund shows as a line of its own", "not_green": reasons,
-        "merge_review": {"tip": whole, "verdict": "call", "calls": True, "why": why, "by": "claude", "at": (NOW - timedelta(minutes=440)).strftime("%Y-%m-%dT%H:%M:%SZ")},
-    }, indent=2) + "\n")
-    (folder / "pr.md").write_text("feat(receipt): a refund shows as a line of its own\n\nNot green: four reasons, in `decisions.md`.\n\n"
-                                  "<details><summary>Decision 1, its story: where the refund line goes</summary>\n\n"
-                                  "1. Order 1042 has three items.\n2. A refund of 30.00 EUR comes in.\n\n```mermaid\n" + chart.read_text() + "```\n\n</details>\n")
-    (folder / "decisions.md").write_text("\n".join([
-        "# Decisions: a refund shows as a line of its own", "", "> [!CAUTION]", "> **2 things wait for the owner.**", ">",
-        "> 1. Decision 1 was taken without the owner, by the dialectic: \"B: a line of its own under the items, then the total\".", "> 2. The criteria were approved while the task ran without the owner.", "",
-        "Pull request [#44](https://github.com/acme/shop/pull/44). 2 decisions: 1 by the dialectic, taken without the owner; 1 by the lead.", "",
-        "| # | The decision | Taken | Who decided | What it costs | What undoes it |", "| --- | --- | --- | --- | --- | --- |",
-        "| [1](#1-where-the-refund-line-goes-on-the-receipt) | Where the refund line goes on the receipt | B. A line of its own under the items, then the total | the dialectic, without the owner; **not green** | nothing more | a change of the template, one line |",
-        "| 2 | How the refund line is colored | the theme's green, as a credit | the lead | nothing | the theme's color |", "",
-        "## 1. Where the refund line goes on the receipt", "", "**The case** (derived from the code, not run):", "",
-        "1. Order 1042 has three items, 100.00 EUR.", "2. A refund of 30.00 EUR comes in.", "3. A customer reads the last line above the total as the price of an item.", "",
-        "**This or that:**", "", "- A. In the items, as a negative price", "- **B. A line of its own under the items, then the total** (taken)", "- C. In the footer, beside the payment", "",
-        "```mermaid", chart.read_text().rstrip(), "```", ""]))
-    (folder / "built.md").write_text("# What was built: a refund shows as a line of its own\n\n> [!NOTE]\n> A demo task: no run made these files.\n\n"
-                                     "## What was built\n\n![The receipt before](media/receipt-before.png)\n*Before: no line says why the total is 70.00.*\n\n"
-                                     "![The receipt after](media/receipt-after.png)\n*After: the refund is a line of its own.*\n")
-    rows = "".join(f"<tr><td>{n}</td><td>{what}</td><td>{took}</td><td><span class=\"pill {c}\">{who}</span></td></tr>"
-                   for n, what, took, who, c in ((1, "Where the refund line goes on the receipt", "B. A line of its own under the items, then the total", "the dialectic, without the owner", "bad"),
-                                                (2, "How the refund line is colored", "the theme's green, as a credit", "the lead", "muted")))
+    (folder / "landing.json").write_text(
+        json.dumps(
+            {
+                "branch": f"feat/{t}",
+                "pushed": whole,
+                "pr": {"number": 44, "url": "https://github.com/acme/shop/pull/44"},
+                "proposed": whole,
+                "title": "feat(receipt): a refund shows as a line of its own",
+                "not_green": reasons,
+                "merge_review": {
+                    "tip": whole,
+                    "verdict": "call",
+                    "calls": True,
+                    "why": why,
+                    "by": "claude",
+                    "at": (NOW - timedelta(minutes=440)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+    (folder / "pr.md").write_text(
+        "feat(receipt): a refund shows as a line of its own\n\nNot green: four reasons, in `decisions.md`.\n\n"
+        "<details><summary>Decision 1, its story: where the refund line goes</summary>\n\n"
+        "1. Order 1042 has three items.\n2. A refund of 30.00 EUR comes in.\n\n```mermaid\n"
+        + chart.read_text()
+        + "```\n\n</details>\n"
+    )
+    (folder / "decisions.md").write_text(
+        "\n".join(
+            [
+                "# Decisions: a refund shows as a line of its own",
+                "",
+                "> [!CAUTION]",
+                "> **2 things wait for the owner.**",
+                ">",
+                '> 1. Decision 1 was taken without the owner, by the dialectic: "B: a line of its own under the items, then the total".',
+                "> 2. The criteria were approved while the task ran without the owner.",
+                "",
+                "Pull request [#44](https://github.com/acme/shop/pull/44). 2 decisions: 1 by the dialectic, taken without the owner; 1 by the lead.",
+                "",
+                "| # | The decision | Taken | Who decided | What it costs | What undoes it |",
+                "| --- | --- | --- | --- | --- | --- |",
+                "| [1](#1-where-the-refund-line-goes-on-the-receipt) | Where the refund line goes on the receipt | B. A line of its own under the items, then the total | the dialectic, without the owner; **not green** | nothing more | a change of the template, one line |",
+                "| 2 | How the refund line is colored | the theme's green, as a credit | the lead | nothing | the theme's color |",
+                "",
+                "## 1. Where the refund line goes on the receipt",
+                "",
+                "**The case** (derived from the code, not run):",
+                "",
+                "1. Order 1042 has three items, 100.00 EUR.",
+                "2. A refund of 30.00 EUR comes in.",
+                "3. A customer reads the last line above the total as the price of an item.",
+                "",
+                "**This or that:**",
+                "",
+                "- A. In the items, as a negative price",
+                "- **B. A line of its own under the items, then the total** (taken)",
+                "- C. In the footer, beside the payment",
+                "",
+                "```mermaid",
+                chart.read_text().rstrip(),
+                "```",
+                "",
+            ]
+        )
+    )
+    (folder / "built.md").write_text(
+        "# What was built: a refund shows as a line of its own\n\n> [!NOTE]\n> A demo task: no run made these files.\n\n"
+        "## What was built\n\n![The receipt before](media/receipt-before.png)\n*Before: no line says why the total is 70.00.*\n\n"
+        "![The receipt after](media/receipt-after.png)\n*After: the refund is a line of its own.*\n"
+    )
+    rows = "".join(
+        f'<tr><td>{n}</td><td>{what}</td><td>{took}</td><td><span class="pill {c}">{who}</span></td></tr>'
+        for n, what, took, who, c in (
+            (
+                1,
+                "Where the refund line goes on the receipt",
+                "B. A line of its own under the items, then the total",
+                "the dialectic, without the owner",
+                "bad",
+            ),
+            (
+                2,
+                "How the refund line is colored",
+                "the theme's green, as a credit",
+                "the lead",
+                "muted",
+            ),
+        )
+    )
     (folder / "page.html").write_text(
-        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>A refund shows as a line of its own</title><style>"
+        '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>A refund shows as a line of its own</title><style>'
         "body{font:15px/1.6 -apple-system,sans-serif;margin:0;padding:0 28px 40px;color:#222;background:#fbf9f5} nav{position:sticky;top:0;background:#f1efeb;padding:8px 0;display:flex;gap:8px}"
         "nav a{padding:2px 9px;border:1px solid #ddd;border-radius:999px;color:#222;text-decoration:none} [id]{scroll-margin-top:52px} section{min-height:520px}"
         ".tbl{overflow-x:auto} table{border-collapse:collapse;min-width:900px} td,th{text-align:left;padding:6px 10px;border-bottom:1px solid #ddd;vertical-align:top}"
         ".pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;border:1px solid currentColor;white-space:nowrap} .bad{color:#ae4022} .muted{color:#777}"
-        "</style></head><body><h1 id=\"top\">A refund shows as a line of its own</h1><nav><a href=\"#asked\">What was asked</a><a href=\"#decisions\">Decisions</a><a href=\"#top\">Top</a></nav>"
-        "<section id=\"asked\"><h2>What was asked</h2><p>Show a refund as a line of its own on the receipt.</p></section>"
-        f"<section id=\"decisions\"><h2>Decisions</h2><div class=\"tbl\"><table><tr><th>#</th><th>The decision</th><th>Taken</th><th>Who decided</th></tr>{rows}</table></div></section>"
-        "</body></html>\n")
+        '</style></head><body><h1 id="top">A refund shows as a line of its own</h1><nav><a href="#asked">What was asked</a><a href="#decisions">Decisions</a><a href="#top">Top</a></nav>'
+        '<section id="asked"><h2>What was asked</h2><p>Show a refund as a line of its own on the receipt.</p></section>'
+        f'<section id="decisions"><h2>Decisions</h2><div class="tbl"><table><tr><th>#</th><th>The decision</th><th>Taken</th><th>Who decided</th></tr>{rows}</table></div></section>'
+        "</body></html>\n"
+    )
 
 
 def free_port() -> int:
@@ -820,29 +1590,62 @@ def shots(out: Path, base: str) -> None:
     """Each picture, light and dark, through tests/board-cdp.mjs."""
     node = shutil.which("node")
     if node is None:
-        sys.exit("board-showcase: the pictures need Node (tests/board-cdp.mjs drives Chrome)")
+        sys.exit(
+            "board-showcase: the pictures need Node (tests/board-cdp.mjs drives Chrome)"
+        )
     # the task of the picture of one task: its Overview, with the merge review that calls the owner first; `story` is the
     # same page scrolled to the story of its outcome and its chart
     task = f"{base}tasks/refund-line-on-receipt"
-    story = [{"eval": "const tab = document.querySelector('.tabbody'), after = [...document.querySelectorAll('.building .b-md p')].find(p => p.textContent.trim() === 'After:');"
-                      " tab.scrollTop += after.getBoundingClientRect().top - tab.getBoundingClientRect().top - 14", "after": 800}]
+    story = [
+        {
+            "eval": "const tab = document.querySelector('.tabbody'), after = [...document.querySelectorAll('.building .b-md p')].find(p => p.textContent.trim() === 'After:');"
+            " tab.scrollTop += after.getBoundingClientRect().top - tab.getBoundingClientRect().top - 14",
+            "after": 800,
+        }
+    ]
     # its merge step on a phone, as it opens (the button off) and with its body scrolled to the end (the button on)
-    to_end = [{"eval": "const body = document.querySelector('#confirm .cf-body'); body.scrollTop = body.scrollHeight", "after": 800}]
-    pictures = {"board": (base, (WIDTH, HEIGHT), False, []), "task": (task, (WIDTH, HEIGHT), False, []), "backlog": (f"{base}backlog", (WIDTH, HEIGHT), False, []),
-                "phone": (base, PHONE, True, []), "waits": (f"{base}waits", (WIDTH, HEIGHT), False, []), "phone-waits": (f"{base}waits", PHONE, True, []),
-                "story": (task, (WIDTH, HEIGHT), False, story), "phone-review": (task, PHONE, True, []),
-                "phone-merge-off": (f"{task}/merge", MERGE_PHONE, True, []), "phone-merge-on": (f"{task}/merge", MERGE_PHONE, True, to_end)}
+    to_end = [
+        {
+            "eval": "const body = document.querySelector('#confirm .cf-body'); body.scrollTop = body.scrollHeight",
+            "after": 800,
+        }
+    ]
+    pictures = {
+        "board": (base, (WIDTH, HEIGHT), False, []),
+        "task": (task, (WIDTH, HEIGHT), False, []),
+        "backlog": (f"{base}backlog", (WIDTH, HEIGHT), False, []),
+        "phone": (base, PHONE, True, []),
+        "waits": (f"{base}waits", (WIDTH, HEIGHT), False, []),
+        "phone-waits": (f"{base}waits", PHONE, True, []),
+        "story": (task, (WIDTH, HEIGHT), False, story),
+        "phone-review": (task, PHONE, True, []),
+        "phone-merge-off": (f"{task}/merge", MERGE_PHONE, True, []),
+        "phone-merge-on": (f"{task}/merge", MERGE_PHONE, True, to_end),
+    }
     for name, (url, (width, height), mobile, steps) in pictures.items():
         for theme in ("light", "dark"):
             target = out / f"{name}-{theme}.png"
-            spec = {"width": width, "height": height, "scale": 2, "mobile": mobile, "dark": theme == "dark",
-                    "steps": [{"goto": url, "wait": 3500}, *steps, {"shot": str(target)}]}
+            spec = {
+                "width": width,
+                "height": height,
+                "scale": 2,
+                "mobile": mobile,
+                "dark": theme == "dark",
+                "steps": [{"goto": url, "wait": 3500}, *steps, {"shot": str(target)}],
+            }
             spec_file = out / f".{name}-{theme}.json"
             spec_file.write_text(json.dumps(spec))
-            ran = subprocess.run([node, str(ROOT / "tests" / "board-cdp.mjs"), str(spec_file)], capture_output=True, text=True, timeout=120)
+            ran = subprocess.run(
+                [node, str(ROOT / "tests" / "board-cdp.mjs"), str(spec_file)],
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
             spec_file.unlink()
             if ran.returncode != 0 or not target.is_file():
-                sys.exit(f"board-showcase: no picture {target}: {(ran.stderr or ran.stdout).strip()[-400:]}")
+                sys.exit(
+                    f"board-showcase: no picture {target}: {(ran.stderr or ran.stdout).strip()[-400:]}"
+                )
             print(f"shot {target} ({width} x {height})")
 
 
@@ -869,20 +1672,32 @@ def main() -> None:
     try:
         shop = build(work)
         (work / "config" / "lem").mkdir(parents=True, exist_ok=True)
-        (work / "config" / "lem" / "machine.toml").write_text(f"[serve]\nport = {port}\n")
+        (work / "config" / "lem" / "machine.toml").write_text(
+            f"[serve]\nport = {port}\n"
+        )
         run(sys.executable, "-B", str(SCRIPTS / "serve.py"), "--add", str(shop.repo))
-        server = subprocess.Popen([sys.executable, "-B", str(SCRIPTS / "serve.py")], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=env, text=True)
+        server = subprocess.Popen(
+            [sys.executable, "-B", str(SCRIPTS / "serve.py")],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            env=env,
+            text=True,
+        )
         said = json.loads(server.stdout.readline())
         facts = {}
         for _ in range(50):
             try:
-                with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(f"http://127.0.0.1:{port}/api/workspaces", timeout=2) as reply:
+                with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(
+                    f"http://127.0.0.1:{port}/api/workspaces", timeout=2
+                ) as reply:
                     facts = json.loads(reply.read())[0]
                 break
             except OSError:
                 time.sleep(0.1)
         if not facts:
-            sys.exit(f"board-showcase: the server on port {port} listed no workspace ({said})")
+            sys.exit(
+                f"board-showcase: the server on port {port} listed no workspace ({said})"
+            )
         shots(out, f"http://127.0.0.1:{port}{facts['url']}")
     finally:
         if server is not None:

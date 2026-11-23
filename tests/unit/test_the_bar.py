@@ -22,11 +22,20 @@ sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
 BUILDER = ROOT / "agents/lem-builder.md"
 # The bar, word for word as criterion 1 of docs/plans/2026-11-22-backlog-filing-judged.md gives it.
-BAR = ("An item is filed only for a defect over the bar: it confuses a user, breaks a contract, damages data or costs "
-       "money, and it happens today; or the owner said it is worth an item.")
+BAR = (
+    "An item is filed only for a defect over the bar: it confuses a user, breaks a contract, damages data or costs "
+    "money, and it happens today; or the owner said it is worth an item."
+)
 # The parts of the bar a copy would carry, each one rare enough in Lem's prose that it is found
 # nowhere else (none was, 2026-11-22).
-PARTS = ("confuses a user", "breaks a contract", "damages data", "costs money", "happens today", "said it is worth an item")
+PARTS = (
+    "confuses a user",
+    "breaks a contract",
+    "damages data",
+    "costs money",
+    "happens today",
+    "said it is worth an item",
+)
 # The files that send an agent to judge a defect outside a task, or say what that agent does.
 NAMERS = (
     "skills/lem/prompts/landing.md",
@@ -51,7 +60,7 @@ def rule_6() -> str:
     """The text of rule 6 of the builder's standing rules, from its number to rule 7's."""
     text = flat(BUILDER.read_text())
     start = text.index("6. A defect outside your task")
-    return text[start:text.index("7. You ask nobody.", start)]
+    return text[start : text.index("7. You ask nobody.", start)]
 
 
 class TheBar(unittest.TestCase):
@@ -63,26 +72,37 @@ class TheBar(unittest.TestCase):
 
     def test_rule_6_says_its_limit_what_is_cheap_and_the_three_outcomes(self) -> None:
         rule = rule_6()
-        for words in ("The bar binds Lem's agents only: an item a person writes, or asks an agent to file, is filed whatever the bar.",
-                      "A defect is cheap when its fix changes no behavior and needs no new test.",
-                      "A cheap defect alone never starts a builder or a new run of the checks",
-                      '"Fixed on the way": the file, the commit and what was wrong',
-                      '"Seen, not filed": its place and why it is under the bar',
-                      "Look in the backlog folder of the base for an open item that names the same defect",
-                      '"Filed in the backlog"'):
+        for words in (
+            "The bar binds Lem's agents only: an item a person writes, or asks an agent to file, is filed whatever the bar.",
+            "A defect is cheap when its fix changes no behavior and needs no new test.",
+            "A cheap defect alone never starts a builder or a new run of the checks",
+            '"Fixed on the way": the file, the commit and what was wrong',
+            '"Seen, not filed": its place and why it is under the bar',
+            "Look in the backlog folder of the base for an open item that names the same defect",
+            '"Filed in the backlog"',
+        ):
             with self.subTest(words=words):
                 self.assertIn(words, rule)
 
     def test_rule_6_keeps_a_plan_builder_to_its_list(self) -> None:
-        self.assertTrue(rule_6().startswith("6. A defect outside your task is listed, not fixed and not filed."))
+        self.assertTrue(
+            rule_6().startswith(
+                "6. A defect outside your task is listed, not fixed and not filed."
+            )
+        )
 
-    def test_each_file_that_sends_an_agent_to_a_defect_names_the_bar_of_rule_6(self) -> None:
+    def test_each_file_that_sends_an_agent_to_a_defect_names_the_bar_of_rule_6(
+        self,
+    ) -> None:
         for name in NAMERS:
             with self.subTest(file=name):
                 self.assertIn("the bar of rule 6", flat((ROOT / name).read_text()))
 
     def test_no_other_file_of_lem_copies_a_part_of_the_bar(self) -> None:
-        files = sorted({*(ROOT / "skills/lem").rglob("*.md"), *(ROOT / "agents").glob("*.md")} - {BUILDER})
+        files = sorted(
+            {*(ROOT / "skills/lem").rglob("*.md"), *(ROOT / "agents").glob("*.md")}
+            - {BUILDER}
+        )
         self.assertTrue(files)
         for path in files:
             text = flat(path.read_text()).lower()

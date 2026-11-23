@@ -20,7 +20,23 @@ import html
 from collections.abc import Iterable
 
 # The elements that have no end tag.
-VOID = frozenset({"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"})
+VOID = frozenset(
+    {
+        "area",
+        "base",
+        "br",
+        "col",
+        "embed",
+        "hr",
+        "img",
+        "input",
+        "link",
+        "meta",
+        "source",
+        "track",
+        "wbr",
+    }
+)
 
 
 class Markup(str):
@@ -51,7 +67,9 @@ def flat(kids: Iterable) -> Iterable:
     for kid in kids:
         if kid is None or kid is False or kid == "":
             continue
-        if isinstance(kid, (list, tuple)) or (hasattr(kid, "__iter__") and hasattr(kid, "__next__")):
+        if isinstance(kid, (list, tuple)) or (
+            hasattr(kid, "__iter__") and hasattr(kid, "__next__")
+        ):
             yield from flat(kid)
         else:
             yield kid
@@ -62,7 +80,7 @@ def attributes(attrs: dict | None) -> str:
     for key, value in (attrs or {}).items():
         if value is None or value is False:
             continue
-        if not key or any(c in key for c in ' "\'<>/=\t\n'):
+        if not key or any(c in key for c in " \"'<>/=\t\n"):
             raise ValueError(f"{key!r} is no attribute name")
         out.append(f" {key}" if value is True else f' {key}="{escape(value)}"')
     return "".join(out)
@@ -88,4 +106,6 @@ def join(parts: Iterable, between: object = "") -> Markup:
 
 def page(head: Iterable, body: Markup, attrs: dict | None = None) -> Markup:
     """A whole document: the doctype, `<html lang="en">` with `attrs`, the head's parts and the body."""
-    return Markup("<!doctype html>\n") + h("html", {"lang": "en", **(attrs or {})}, h("head", None, *head), body)
+    return Markup("<!doctype html>\n") + h(
+        "html", {"lang": "en", **(attrs or {})}, h("head", None, *head), body
+    )

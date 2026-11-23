@@ -10,7 +10,9 @@ import unittest
 from pathlib import Path
 
 sys.dont_write_bytecode = True
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts"))
+sys.path.insert(
+    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
+)
 lem_html = importlib.import_module("lem_html")
 h, Markup = lem_html.h, lem_html.Markup
 
@@ -32,14 +34,31 @@ class Escape(unittest.TestCase):
         # a str added to Markup is escaped, so a slice or a join cannot let one through
         self.assertEqual(Markup("<br>") + "<i>", "<br>&lt;i&gt;")
         self.assertEqual("<i>" + Markup("<br>"), "&lt;i&gt;<br>")
-        self.assertEqual(lem_html.join(["<i>", Markup("<br>")], " · "), "&lt;i&gt; · <br>")
+        self.assertEqual(
+            lem_html.join(["<i>", Markup("<br>")], " · "), "&lt;i&gt; · <br>"
+        )
 
     def test_empty_children_and_false_attributes_are_left_out_and_true_is_bare(self):
-        self.assertEqual(h("div", {"hidden": True, "title": None, "open": False}, None, False, "", [None, "a", ("b",)], 0), "<div hidden>ab0</div>")
+        self.assertEqual(
+            h(
+                "div",
+                {"hidden": True, "title": None, "open": False},
+                None,
+                False,
+                "",
+                [None, "a", ("b",)],
+                0,
+            ),
+            "<div hidden>ab0</div>",
+        )
         self.assertEqual(h("input", {"value": '"'}), '<input value="&quot;">')
 
     def test_a_name_that_would_break_the_tag_is_refused(self):
-        for tag, attrs in (("a onclick", None), ("a", {'x" onload="y': 1}), ("a", {"x y": 1})):
+        for tag, attrs in (
+            ("a onclick", None),
+            ("a", {'x" onload="y': 1}),
+            ("a", {"x y": 1}),
+        ):
             with self.subTest(tag=tag, attrs=attrs), self.assertRaises(ValueError):
                 h(tag, attrs)
         with self.assertRaises(ValueError):
@@ -47,7 +66,9 @@ class Escape(unittest.TestCase):
 
     def test_a_page_is_a_doctype_and_one_html_element(self):
         got = lem_html.page([h("title", None, TITLE)], h("body"))
-        self.assertTrue(got.startswith('<!doctype html>\n<html lang="en"><head><title>&lt;/a&gt;'))
+        self.assertTrue(
+            got.startswith('<!doctype html>\n<html lang="en"><head><title>&lt;/a&gt;')
+        )
         self.assertTrue(got.endswith("<body></body></html>"))
 
 

@@ -116,10 +116,27 @@ CALL_SECONDS = 60
 # Plannotator's data folder (`PLANNOTATOR_DATA_DIR`, `XDG_DATA_HOME`, `HOME`) among them, so that
 # `status` and every call see the same Inbox.
 SESSION_VARIABLES = (
-    "PLANNOTATOR_SESSION_TAG", "T3CODE_THREAD_ID", "PI_SESSION_ID", "CODEX_THREAD_ID", "QWEN_CODE_SESSION_ID", "DSH_SESSION_ID",
-    "DSH_PLANNOTATOR_SESSION_ID", "DSH_PLANNOTATOR_SESSION_FOR", "MUSE_SESSION_ID",
-    "CLAUDECODE", "OMPCODE", "QWEN_CODE", "OPENCODE", "GEMINI_CLI", "COPILOT_CLI", "CURSOR_AGENT", "DSH_SHELL",
-    "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_CHILD_SESSION", "PLANNOTATOR_SESSION_PROJECT", "PLANNOTATOR_CWD",
+    "PLANNOTATOR_SESSION_TAG",
+    "T3CODE_THREAD_ID",
+    "PI_SESSION_ID",
+    "CODEX_THREAD_ID",
+    "QWEN_CODE_SESSION_ID",
+    "DSH_SESSION_ID",
+    "DSH_PLANNOTATOR_SESSION_ID",
+    "DSH_PLANNOTATOR_SESSION_FOR",
+    "MUSE_SESSION_ID",
+    "CLAUDECODE",
+    "OMPCODE",
+    "QWEN_CODE",
+    "OPENCODE",
+    "GEMINI_CLI",
+    "COPILOT_CLI",
+    "CURSOR_AGENT",
+    "DSH_SHELL",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "PLANNOTATOR_SESSION_PROJECT",
+    "PLANNOTATOR_CWD",
 )
 # Why nothing went to the Inbox at the door's last look, the record's `why`, which the board's page
 # says in words (task 2 of away-questions-reach-phone).
@@ -154,12 +171,18 @@ class InboxError(Exception):
 
 
 def now_iso(seconds: float | None = None) -> str:
-    return datetime.fromtimestamp(time.time() if seconds is None else seconds, timezone.utc).isoformat(timespec="seconds")
+    return datetime.fromtimestamp(
+        time.time() if seconds is None else seconds, timezone.utc
+    ).isoformat(timespec="seconds")
 
 
 def environment(env: dict | None = None) -> dict:
     """The environment of every call: the server's, less the variables that name a session."""
-    return {name: value for name, value in (os.environ if env is None else env).items() if name not in SESSION_VARIABLES}
+    return {
+        name: value
+        for name, value in (os.environ if env is None else env).items()
+        if name not in SESSION_VARIABLES
+    }
 
 
 # --- the rule: pure functions over the model -------------------------------------------------------
@@ -169,9 +192,17 @@ def claude_of(t) -> str | None:
     """The task's newest Claude Code session: the `claude` of its newest `session.transcript` after its
     newest `session.open`, whose `source` is not `fork`; None when there is none."""
     events = t.events
-    start = max((i for i, e in enumerate(events) if e.get("event") == "session.open"), default=-1)
-    for e in reversed(events[start + 1:]):
-        if e.get("event") == "session.transcript" and e.get("source") != "fork" and isinstance(e.get("claude"), str) and e["claude"]:
+    start = max(
+        (i for i, e in enumerate(events) if e.get("event") == "session.open"),
+        default=-1,
+    )
+    for e in reversed(events[start + 1 :]):
+        if (
+            e.get("event") == "session.transcript"
+            and e.get("source") != "fork"
+            and isinstance(e.get("claude"), str)
+            and e["claude"]
+        ):
             return e["claude"]
     return None
 
@@ -199,7 +230,13 @@ def commit_of(t, whole) -> str | None:
     keeps them); None otherwise, and the merge then asks nothing."""
     short = (t.proposal or {}).get("tip")
     full = whole(t.slug) if whole and short else None
-    return full if isinstance(full, str) and COMMIT.fullmatch(full) and full.startswith(str(short)) else None
+    return (
+        full
+        if isinstance(full, str)
+        and COMMIT.fullmatch(full)
+        and full.startswith(str(short))
+        else None
+    )
 
 
 def thing_of(row: dict, m, bm, whole=None) -> dict | None:
@@ -211,15 +248,31 @@ def thing_of(row: dict, m, bm, whole=None) -> dict | None:
     tip = commit_of(t, whole) if kind == "merge" else None
     # what the row itself allows, apart from who can take the reply: a task with no session, one whose
     # session stopped, one queued after a dropped task, a refused merge and a merge with no review of its tip or no whole commit ask nothing
-    can = kind not in ("session", "stopped", "after_dropped") and (kind != "merge" or (merge_asks(t, bm) and tip is not None))
+    can = kind not in ("session", "stopped", "after_dropped") and (
+        kind != "merge" or (merge_asks(t, bm) and tip is not None)
+    )
     live = answers(t, m, bm)
-    if can and live and claude is None and t.opened and m.now - t.opened["ts"] < bm.GRACE_MS:
+    if (
+        can
+        and live
+        and claude is None
+        and t.opened
+        and m.now - t.opened["ts"] < bm.GRACE_MS
+    ):
         return None
     asks = can and live and claude is not None
     if kind == "merge" and tip is None:
         tip = (t.proposal or {}).get("tip")
-    return {"key": row["key"], "task": t.slug, "kind": kind, "form": QUESTION if asks else NOTE, "asks": can,
-            "session": claude if asks else None, "tip": str(tip) if tip else None, "block": t.last_ts}
+    return {
+        "key": row["key"],
+        "task": t.slug,
+        "kind": kind,
+        "form": QUESTION if asks else NOTE,
+        "asks": can,
+        "session": claude if asks else None,
+        "tip": str(tip) if tip else None,
+        "block": t.last_ts,
+    }
 
 
 def things_of(rows: list[dict], m, bm, whole=None) -> dict:
@@ -229,7 +282,9 @@ def things_of(rows: list[dict], m, bm, whole=None) -> dict:
     without = {r["t"].slug for r in rows if r["kind"] in ("session", "stopped")}
     out = {}
     for row in rows:
-        if row["kind"] == "review" or (row["kind"] not in ("session", "stopped") and row["t"].slug in without):
+        if row["kind"] == "review" or (
+            row["kind"] not in ("session", "stopped") and row["t"].slug in without
+        ):
             continue
         thing = thing_of(row, m, bm, whole)
         if thing is not None:
@@ -247,8 +302,14 @@ def session_side(a: dict, b: dict) -> bool:
     return all(a.get(part) == b.get(part) for part in ("asks", "tip", "block"))
 
 
-def plan(want: dict, sent: list[dict], away: bool, door: bool, behind: set | frozenset = frozenset(),
-         held: set | frozenset = frozenset()) -> dict:
+def plan(
+    want: dict,
+    sent: list[dict],
+    away: bool,
+    door: bool,
+    behind: set | frozenset = frozenset(),
+    held: set | frozenset = frozenset(),
+) -> dict:
     """What a look does, from the things the rows are now (WANT, by key), the record's things (SENT),
     the owner's mark (AWAY), whether the door is open (DOOR), the keys of rows that still wait but
     are no thing now (BEHIND: behind their task's session row, or with a session not told yet), and the
@@ -276,7 +337,9 @@ def plan(want: dict, sent: list[dict], away: bool, door: bool, behind: set | fro
             continue
         if w is not None and same(r, w):
             continue
-        if not (away and door) and ((w is not None and session_side(r, w)) or (w is None and key in behind)):
+        if not (away and door) and (
+            (w is not None and session_side(r, w)) or (w is None and key in behind)
+        ):
             continue
         if r.get("form") == QUESTION:
             withdraw.append(r)
@@ -287,7 +350,13 @@ def plan(want: dict, sent: list[dict], away: bool, door: bool, behind: set | fro
         leaving.add(key)
     kept = {r["key"] for r in sent} - leaving
     send = [w for key, w in want.items() if key not in kept] if away and door else []
-    return {"withdraw": withdraw, "replaced": replaced, "forget": forget, "retry": retry, "send": send}
+    return {
+        "withdraw": withdraw,
+        "replaced": replaced,
+        "forget": forget,
+        "retry": retry,
+        "send": send,
+    }
 
 
 # --- the bodies --------------------------------------------------------------------------------------
@@ -301,7 +370,9 @@ def no_session(t, link_line: str, extra: str = "") -> str:
     return f"{t.slug} has no session; open it on the board: {link_line}{extra}"
 
 
-def block(kind: str, prompt: str, context: str, choices: tuple = (), stopped: str = "") -> str:
+def block(
+    kind: str, prompt: str, context: str, choices: tuple = (), stopped: str = ""
+) -> str:
     """A question block of the Inbox (`plannotator inbox --help`, "Asking the reviewer questions")."""
     parts = [f":::{kind}", prompt, "", context]
     if stopped:
@@ -311,7 +382,16 @@ def block(kind: str, prompt: str, context: str, choices: tuple = (), stopped: st
     return "\n".join(parts + [":::"])
 
 
-def message_of(thing: dict, row: dict, m, bm, *, task_dir: Path, plan_file: Path | None, link_line: str) -> dict:
+def message_of(
+    thing: dict,
+    row: dict,
+    m,
+    bm,
+    *,
+    task_dir: Path,
+    plan_file: Path | None,
+    link_line: str,
+) -> dict:
     """The send's subject, body and attachments for a thing: the same case as the task's session says, by
     the row's kind (the plan of away-questions-reach-phone, task 1, "The message")."""
     t, kind = row["t"], row["kind"]
@@ -322,19 +402,28 @@ def message_of(thing: dict, row: dict, m, bm, *, task_dir: Path, plan_file: Path
         if kind == "after_dropped":
             body = no_session(t, link_line, f"\n\n{bm.answer_of(t)}")
         elif kind == "stopped" and row.get("unread"):
-            body = (f"The session of {slug} stopped, and Lem cannot read it: no event of the task came after the status message. "
-                    f"Lem opens no second session by itself. Open a fresh one on the board: {link_line}")
+            body = (
+                f"The session of {slug} stopped, and Lem cannot read it: no event of the task came after the status message. "
+                f"Lem opens no second session by itself. Open a fresh one on the board: {link_line}"
+            )
         elif kind == "stopped":
             body = f"The session of {slug} stopped, and so did the fresh one that took its place. Open a fresh one on the board: {link_line}"
         elif kind == "merge" and t.refused:
             said = t.refused.get("said") or "nothing"
             body = f"The merge of {slug} did not go through: {said}\n\nThe task on the board: {link_line}"
         elif kind == "merge" and answers(t, m, bm) and claude_of(t):
-            missing = ("no proposal of Lem's on record" if not t.proposal else "no merge review of the commit Lem proposed last" if not merge_asks(t, bm)
-                       else "no whole commit of Lem's last proposal on record")
+            missing = (
+                "no proposal of Lem's on record"
+                if not t.proposal
+                else "no merge review of the commit Lem proposed last"
+                if not merge_asks(t, bm)
+                else "no whole commit of Lem's last proposal on record"
+            )
             body = f"{verb}: the pull request of {slug} waits for you with {missing}. Open it on the board: {link_line}"
         else:
-            body = no_session(t, link_line, "" if kind == "session" else f"\n\nWhat waits: {verb}.")
+            body = no_session(
+                t, link_line, "" if kind == "session" else f"\n\nWhat waits: {verb}."
+            )
         return {"subject": f"{slug}: {verb}", "body": body, "attachments": attachments}
     state_line = t.shown or t.text
     if kind == "breaker":
@@ -345,10 +434,17 @@ def message_of(thing: dict, row: dict, m, bm, *, task_dir: Path, plan_file: Path
         except OSError:
             text = ""
         what = bm.flat(d.what) if d.what else state_line
-        body = (text or f"Breaker {d.id} of {slug}: {what}") + "\n\n" + block(
-            "question", f"Breaker {d.id} of {slug}: help, park or drop?",
-            f"{what.rstrip('.')}. The task's session waits for your answer. Help: write how it goes on in your answer's note.",
-            ("Help", "Park", "Drop"), f"the build of {slug} stopped at breaker {d.id}")
+        body = (
+            (text or f"Breaker {d.id} of {slug}: {what}")
+            + "\n\n"
+            + block(
+                "question",
+                f"Breaker {d.id} of {slug}: help, park or drop?",
+                f"{what.rstrip('.')}. The task's session waits for your answer. Help: write how it goes on in your answer's note.",
+                ("Help", "Park", "Drop"),
+                f"the build of {slug} stopped at breaker {d.id}",
+            )
+        )
     elif kind == "merge":
         pr = bm.pr_of(t)
         number = f" #{pr['n']}" if pr else ""
@@ -356,27 +452,51 @@ def message_of(thing: dict, row: dict, m, bm, *, task_dir: Path, plan_file: Path
         tip = thing["tip"]
         why = bm.review_why(t.merge_review)
         body = f"The merge review of {slug}: {why}\n\n" + block(
-            "question", f"Merge pull request{number} of {slug} at commit {tip}?",
+            "question",
+            f"Merge pull request{number} of {slug} at commit {tip}?",
             f"The pull request{number}{url}, at the commit {tip}: your answer is for that commit only. The merge agent calls you: {why}",
-            ("Merge", "Not now"), f"the merge of {slug} waits for you")
+            ("Merge", "Not now"),
+            f"the merge of {slug} waits for you",
+        )
     elif kind == "plan":
         if plan_file is not None:
             attachments.append(str(plan_file))
-        body = block("question", f"Build the plan of {slug}, or drop it?",
-                     f"{state_line}. The plan is attached: read it, mark it, then answer." if plan_file else f"{state_line}.",
-                     ("Build", "Drop"), f"the build of {slug} waits for your word")
+        body = block(
+            "question",
+            f"Build the plan of {slug}, or drop it?",
+            f"{state_line}. The plan is attached: read it, mark it, then answer."
+            if plan_file
+            else f"{state_line}.",
+            ("Build", "Drop"),
+            f"the build of {slug} waits for your word",
+        )
     elif kind == "held" and ORDER.match(t.text or ""):
         words = ORDER.match(t.text).group(1)
-        body = block("question-text", f"Which task should {slug} wait for?",
-                     f"Your order: “{words}”. No open task fits it alone. Name the task to queue it after, or answer “no order”.",
-                     stopped=f"{slug} waits for your answer")
+        body = block(
+            "question-text",
+            f"Which task should {slug} wait for?",
+            f"Your order: “{words}”. No open task fits it alone. Name the task to queue it after, or answer “no order”.",
+            stopped=f"{slug} waits for your answer",
+        )
     elif kind == "blocked":
-        body = block("question-text", f"{slug} stopped: what should its session do?",
-                     f"The task's session stopped on something it cannot settle alone: “{state_line}”. Tell it what to do, or answer /lem drop {slug}.",
-                     stopped=f"{slug} stopped")
+        body = block(
+            "question-text",
+            f"{slug} stopped: what should its session do?",
+            f"The task's session stopped on something it cannot settle alone: “{state_line}”. Tell it what to do, or answer /lem drop {slug}.",
+            stopped=f"{slug} stopped",
+        )
     else:
-        body = block("question-text", f"{slug}: {verb}", f"“{state_line}”. {bm.answer_of(t)}", stopped=f"{slug} waits for you")
-    return {"subject": f"{slug}: {verb}", "body": f"{body}\n\nThe task on the board: {link_line}", "attachments": attachments}
+        body = block(
+            "question-text",
+            f"{slug}: {verb}",
+            f"“{state_line}”. {bm.answer_of(t)}",
+            stopped=f"{slug} waits for you",
+        )
+    return {
+        "subject": f"{slug}: {verb}",
+        "body": f"{body}\n\nThe task on the board: {link_line}",
+        "attachments": attachments,
+    }
 
 
 # --- the record --------------------------------------------------------------------------------------
@@ -405,7 +525,9 @@ def read_record(state: Path) -> dict:
         found = {}
     if not isinstance(found, dict):
         found = {}
-    found["sent"] = [s for s in found.get("sent") or [] if isinstance(s, dict) and s.get("key")]
+    found["sent"] = [
+        s for s in found.get("sent") or [] if isinstance(s, dict) and s.get("key")
+    ]
     return found
 
 
@@ -413,28 +535,47 @@ def write_record(state: Path, record: dict) -> None:
     """Write `inbox.json` whole: a file beside it, then a rename over it."""
     file = state / RECORD
     fresh = file.with_name(f".{file.name}.{os.getpid()}.{threading.get_ident()}.tmp")
-    fresh.write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    fresh.write_text(
+        json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
     fresh.replace(file)
 
 
 def unlooked(record: dict) -> str:
     """The record as text without the time of its look, to tell whether a look changed it."""
-    return json.dumps({k: v for k, v in record.items() if k != "looked"}, sort_keys=True)
+    return json.dumps(
+        {k: v for k, v in record.items() if k != "looked"}, sort_keys=True
+    )
 
 
 # --- the calls ---------------------------------------------------------------------------------------
 
 
-def run_cli(args: list[str], *, cwd: str, stdin: str | None = None, runner=subprocess.run) -> tuple[int, str, str]:
+def run_cli(
+    args: list[str], *, cwd: str, stdin: str | None = None, runner=subprocess.run
+) -> tuple[int, str, str]:
     """One run of `plannotator ARGS`, with the environment less the session's variables; its exit,
     stdout and stderr. A time limit is exit 124, a program that does not start exit 127."""
     program = shutil.which("plannotator")
     if program is None:
         return 127, "", "plannotator is not on the board server's PATH"
     try:
-        ran = runner([program, *args], input=stdin, capture_output=True, text=True, cwd=cwd, env=environment(), timeout=CALL_SECONDS, check=False)
+        ran = runner(
+            [program, *args],
+            input=stdin,
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+            env=environment(),
+            timeout=CALL_SECONDS,
+            check=False,
+        )
     except subprocess.TimeoutExpired:
-        return 124, "", f"`plannotator {' '.join(args[:3])}` took more than {CALL_SECONDS} s"
+        return (
+            124,
+            "",
+            f"`plannotator {' '.join(args[:3])}` took more than {CALL_SECONDS} s",
+        )
     except OSError as error:
         return 127, "", f"plannotator did not start: {error}"
     return ran.returncode, ran.stdout or "", ran.stderr or ""
@@ -445,30 +586,79 @@ def door_of(cwd: str, runner=subprocess.run) -> dict:
     is not open for a send, `why` (WHYS) and Plannotator's own words in `said`."""
     code, out, err = run_cli(["inbox", "status", "--json"], cwd=cwd, runner=runner)
     if code == 127:
-        return {"running": False, "url": None, "tailnet_url": None, "why": NOT_INSTALLED, "said": err.strip()}
+        return {
+            "running": False,
+            "url": None,
+            "tailnet_url": None,
+            "why": NOT_INSTALLED,
+            "said": err.strip(),
+        }
     try:
         status = json.loads(out) if out.strip() else {}
     except ValueError:
         status = {}
     status = status if isinstance(status, dict) else {}
     running = code == 0 and status.get("running") is True and bool(status.get("url"))
-    tailnet = status.get("tailnet_url") if running and isinstance(status.get("tailnet_url"), str) and status.get("tailnet_url") else None
-    why = None if running and tailnet else NO_TAILNET if running else NOT_ANSWERING if code == 2 else NOT_RUNNING if code == 1 else FAILED
-    return {"running": running, "url": status.get("url") if running else None, "tailnet_url": tailnet, "why": why,
-            "said": "" if why is None else (err.strip() or str(status.get("reason") or ""))[:300]}
+    tailnet = (
+        status.get("tailnet_url")
+        if running
+        and isinstance(status.get("tailnet_url"), str)
+        and status.get("tailnet_url")
+        else None
+    )
+    why = (
+        None
+        if running and tailnet
+        else NO_TAILNET
+        if running
+        else NOT_ANSWERING
+        if code == 2
+        else NOT_RUNNING
+        if code == 1
+        else FAILED
+    )
+    return {
+        "running": running,
+        "url": status.get("url") if running else None,
+        "tailnet_url": tailnet,
+        "why": why,
+        "said": ""
+        if why is None
+        else (err.strip() or str(status.get("reason") or ""))[:300],
+    }
 
 
-def call(action: str, payload: dict, *, cwd: str, session: str | None = None, runner=subprocess.run) -> dict:
+def call(
+    action: str,
+    payload: dict,
+    *,
+    cwd: str,
+    session: str | None = None,
+    runner=subprocess.run,
+) -> dict:
     """`plannotator inbox call [--session claude-code:ID] ACTION -` with PAYLOAD on stdin; its JSON
     result. InboxError with Plannotator's line for a failure."""
-    args = ["inbox", "call", *(["--session", f"claude-code:{session}"] if session else []), action, "-"]
+    args = [
+        "inbox",
+        "call",
+        *(["--session", f"claude-code:{session}"] if session else []),
+        action,
+        "-",
+    ]
     code, out, err = run_cli(args, cwd=cwd, stdin=json.dumps(payload), runner=runner)
     if code != 0:
-        raise InboxError(err.strip().splitlines()[-1] if err.strip() else f"`plannotator inbox call {action}` exited {code}", err)
+        raise InboxError(
+            err.strip().splitlines()[-1]
+            if err.strip()
+            else f"`plannotator inbox call {action}` exited {code}",
+            err,
+        )
     try:
         result = json.loads(out)
     except ValueError as error:
-        raise InboxError(f"`plannotator inbox call {action}` printed no JSON") from error
+        raise InboxError(
+            f"`plannotator inbox call {action}` printed no JSON"
+        ) from error
     if not isinstance(result, dict):
         raise InboxError(f"`plannotator inbox call {action}` printed no JSON object")
     return result
@@ -480,7 +670,11 @@ def replies_after(thread: dict, message_id: str) -> list[str]:
     ids = [m.get("id") for m in messages]
     if message_id not in ids:
         return []
-    return [m["id"] for m in messages[ids.index(message_id) + 1:] if (m.get("author") or {}).get("kind") == "person" and m.get("id")]
+    return [
+        m["id"]
+        for m in messages[ids.index(message_id) + 1 :]
+        if (m.get("author") or {}).get("kind") == "person" and m.get("id")
+    ]
 
 
 # --- the watcher -------------------------------------------------------------------------------------
@@ -493,7 +687,9 @@ class Watcher:
     `wake(space, slug)` runs `lem session wake SLUG --why inbox` and returns whether a live session got
     the word."""
 
-    def __init__(self, spaces, link, wake, *, runner=subprocess.run, log=None, now=time.time) -> None:
+    def __init__(
+        self, spaces, link, wake, *, runner=subprocess.run, log=None, now=time.time
+    ) -> None:
         import lem_board_model as bm  # here: the rule's functions take the model's module as an argument, and only the watcher holds it
 
         self.bm = bm
@@ -539,11 +735,26 @@ class Watcher:
             return []
         door = door_of(cwd, self.runner)
         written = {"text": unlooked(record)}
-        record.update(running=door["running"], url=door["url"], tailnet_url=door["tailnet_url"], why=door["why"], said=door["said"])
+        record.update(
+            running=door["running"],
+            url=door["url"],
+            tailnet_url=door["tailnet_url"],
+            why=door["why"],
+            said=door["said"],
+        )
         rows = bm.waits_of(m)
         by_key = {r["key"]: r for r in rows}
-        want = things_of(rows, m, bm, lambda slug: space.landing_of(slug).get("proposed"))
-        steps = plan(want, record["sent"], away, door["tailnet_url"] is not None, {r["key"] for r in rows} - want.keys(), bm.held_back(m))
+        want = things_of(
+            rows, m, bm, lambda slug: space.landing_of(slug).get("proposed")
+        )
+        steps = plan(
+            want,
+            record["sent"],
+            away,
+            door["tailnet_url"] is not None,
+            {r["key"] for r in rows} - want.keys(),
+            bm.held_back(m),
+        )
         done: list[dict] = []
         problems: list[str] = []
 
@@ -566,7 +777,13 @@ class Watcher:
         # a thing written before a call that never answered: the same payload and key again
         for r in steps["retry"]:
             try:
-                result = call("send_message", r["payload"], cwd=cwd, session=r.get("session"), runner=self.runner)
+                result = call(
+                    "send_message",
+                    r["payload"],
+                    cwd=cwd,
+                    session=r.get("session"),
+                    runner=self.runner,
+                )
             except InboxError as error:
                 problems.append(f"the send of {r['key']} again: {error}")
                 continue
@@ -577,12 +794,26 @@ class Watcher:
                 self.wake(space, r["task"])
         for r in steps["withdraw"]:
             body = REPLACED if r["key"] in steps["replaced"] else WITHDRAWN
-            payload = {"body": body, "reply_to": r["message_id"], "supersedes": [r["message_id"]], "idempotency_key": f"{r['idempotency_key']}-withdrawn"}
+            payload = {
+                "body": body,
+                "reply_to": r["message_id"],
+                "supersedes": [r["message_id"]],
+                "idempotency_key": f"{r['idempotency_key']}-withdrawn",
+            }
             try:
-                call("send_message", payload, cwd=cwd, session=r.get("session"), runner=self.runner)
+                call(
+                    "send_message",
+                    payload,
+                    cwd=cwd,
+                    session=r.get("session"),
+                    runner=self.runner,
+                )
                 did = "withdrew"
             except InboxError as error:
-                if not any(line.startswith(ANSWERED.format(id=r["message_id"])) for line in error.said.splitlines()):
+                if not any(
+                    line.startswith(ANSWERED.format(id=r["message_id"]))
+                    for line in error.said.splitlines()
+                ):
                     problems.append(f"the withdrawal of {r['key']}: {error}")
                     continue
                 did = "answered"
@@ -595,15 +826,39 @@ class Watcher:
                 continue
             row = by_key[thing["key"]]
             found = space.plan_of(thing["task"]) if thing["kind"] == "plan" else None
-            message = message_of(thing, row, m, bm, task_dir=state / "tasks" / thing["task"], plan_file=found[0] if found else None,
-                                 link_line=task_link(self.link, space.name, thing["task"]))
+            message = message_of(
+                thing,
+                row,
+                m,
+                bm,
+                task_dir=state / "tasks" / thing["task"],
+                plan_file=found[0] if found else None,
+                link_line=task_link(self.link, space.name, thing["task"]),
+            )
             key = f"lem-{space.name}-{thing['key']}-{secrets.token_hex(6)}"
-            payload = {**{k: v for k, v in message.items() if v}, "thread": thing["task"], "project_path": cwd, "idempotency_key": key}
-            entry = {**thing, "idempotency_key": key, "payload": payload, "at": now_iso(self.now()), "woke": []}
+            payload = {
+                **{k: v for k, v in message.items() if v},
+                "thread": thing["task"],
+                "project_path": cwd,
+                "idempotency_key": key,
+            }
+            entry = {
+                **thing,
+                "idempotency_key": key,
+                "payload": payload,
+                "at": now_iso(self.now()),
+                "woke": [],
+            }
             record["sent"].append(entry)
             save()
             try:
-                result = call("send_message", payload, cwd=cwd, session=thing["session"], runner=self.runner)
+                result = call(
+                    "send_message",
+                    payload,
+                    cwd=cwd,
+                    session=thing["session"],
+                    runner=self.runner,
+                )
             except InboxError as error:
                 problems.append(f"the send of {thing['key']}: {error}")
                 continue
@@ -621,24 +876,52 @@ class Watcher:
     @staticmethod
     def sent_as(entry: dict, result: dict) -> None:
         """What the Inbox answered to a send, into the thing's record; its payload is no longer needed."""
-        entry.update(message_id=result.get("message_id"), thread_id=result.get("thread_id"), thread_url=result.get("url"),
-                     questions=[q.get("key") for q in result.get("questions") or [] if isinstance(q, dict) and q.get("key")])
+        entry.update(
+            message_id=result.get("message_id"),
+            thread_id=result.get("thread_id"),
+            thread_url=result.get("url"),
+            questions=[
+                q.get("key")
+                for q in result.get("questions") or []
+                if isinstance(q, dict) and q.get("key")
+            ],
+        )
         entry.pop("payload", None)
 
-    def replies(self, space, m, record: dict, cwd: str, problems: list[str]) -> list[dict]:
+    def replies(
+        self, space, m, record: dict, cwd: str, problems: list[str]
+    ) -> list[dict]:
         """Wake the task's live session once for each reply of the owner's in a thread whose question went
         as a session that no longer runs the task (decision 11 of away-questions-reach-phone)."""
         done = []
         for r in record["sent"]:
             t = m.by_slug.get(r.get("task"))
-            if r.get("form") != QUESTION or not r.get("message_id") or t is None or claude_of(t) == r.get("session"):
+            if (
+                r.get("form") != QUESTION
+                or not r.get("message_id")
+                or t is None
+                or claude_of(t) == r.get("session")
+            ):
                 continue
             try:
-                thread = call("read_thread", {"message_id": r["message_id"], "format": "full", "project_path": cwd}, cwd=cwd, runner=self.runner)
+                thread = call(
+                    "read_thread",
+                    {
+                        "message_id": r["message_id"],
+                        "format": "full",
+                        "project_path": cwd,
+                    },
+                    cwd=cwd,
+                    runner=self.runner,
+                )
             except InboxError as error:
                 problems.append(f"the read of {r['key']}'s thread: {error}")
                 continue
-            fresh = [one for one in replies_after(thread, r["message_id"]) if one not in r.setdefault("woke", [])]
+            fresh = [
+                one
+                for one in replies_after(thread, r["message_id"])
+                if one not in r.setdefault("woke", [])
+            ]
             if fresh and self.wake(space, r["task"]):
                 r["woke"] += fresh
                 done.append({"workspace": space.name, "did": "woke", "key": r["key"]})

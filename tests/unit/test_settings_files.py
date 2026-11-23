@@ -21,7 +21,9 @@ import unittest
 from pathlib import Path
 
 sys.dont_write_bytecode = True
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts"))
+sys.path.insert(
+    0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts")
+)
 lem_state = importlib.import_module("lem_state")
 project = importlib.import_module("project")
 
@@ -37,8 +39,12 @@ OLD_NAME = re.compile(r"(?<![\w-])project(?:\.local)?\.toml")
 PAGE = LEM / "docs/settings.md"
 # The heading of each file in the settings page's table of where each table is valid, as its place in
 # `lem_state.TABLE_PLACES`.
-PAGE_FILES = {"~/.config/lem/machine.toml": "machine", "~/.config/lem/settings.toml": "home",
-              ".lem/settings.toml": "team", ".lem/settings.local.toml": "local"}
+PAGE_FILES = {
+    "~/.config/lem/machine.toml": "machine",
+    "~/.config/lem/settings.toml": "home",
+    ".lem/settings.toml": "team",
+    ".lem/settings.local.toml": "local",
+}
 
 
 class Home(unittest.TestCase):
@@ -77,64 +83,143 @@ class Places(Home):
     (criteria 3 and 4 of one-home-folder-for-lem)."""
 
     def test_what_guards_a_team_is_valid_in_the_teams_file_only(self):
-        for table, line in (("flow", "topics = []"), ("checks", "commands = []"), ("branch", 'base = "main"'), ("paths", 'plans = "docs/plans"'),
-                            ("tracker", 'kind = "linear"')):
+        for table, line in (
+            ("flow", "topics = []"),
+            ("checks", "commands = []"),
+            ("branch", 'base = "main"'),
+            ("paths", 'plans = "docs/plans"'),
+            ("tracker", 'kind = "linear"'),
+        ):
             self.assertEqual(read("team", f"[{table}]", line), {table: tomllike(line)})
             for place in ("home", "local"):
                 with self.subTest(table=table, place=place):
                     message = self.refused(read, place, f"[{table}]", line)
-                    self.assertIn(f"{place}: [{table}] is not valid in this file: its place is .lem/settings.toml; move the table there", message)
+                    self.assertIn(
+                        f"{place}: [{table}] is not valid in this file: its place is .lem/settings.toml; move the table there",
+                        message,
+                    )
 
     def test_keep_days_is_a_repositorys_and_refused_in_the_home_file(self):
-        self.assertEqual(read("team", "[state]", "keep_days = 7"), {"state": {"keep_days": 7}})
-        self.assertEqual(read("local", "[state]", "keep_days = 3"), {"state": {"keep_days": 3}})
+        self.assertEqual(
+            read("team", "[state]", "keep_days = 7"), {"state": {"keep_days": 7}}
+        )
+        self.assertEqual(
+            read("local", "[state]", "keep_days = 3"), {"state": {"keep_days": 3}}
+        )
         message = self.refused(read, "home", "[state]", "keep_days = 3")
-        self.assertIn("[state] is not valid in this file: its place is .lem/settings.toml or .lem/settings.local.toml", message)
+        self.assertIn(
+            "[state] is not valid in this file: its place is .lem/settings.toml or .lem/settings.local.toml",
+            message,
+        )
 
     def test_the_home_file_holds_every_seat_and_the_fallback(self):
         # the seats of seat-defaults-and-fallback, criteria 1 and 2 under the owner's decision 41
-        lines = ('reviewer = "codex/gpt-6.2-sol:high"', 'planner = "claude/opus:high"', 'merger = "claude/opus:high"', 'session = "claude"',
-                 'experts = ["claude/fable:high"]', "fallback = false")
-        self.assertEqual(read("home", "[seats]", *lines), {"seats": {"reviewer": "codex/gpt-6.2-sol:high", "planner": "claude/opus:high", "merger": "claude/opus:high",
-                                                                    "session": "claude", "experts": ["claude/fable:high"], "fallback": False}})
+        lines = (
+            'reviewer = "codex/gpt-6.2-sol:high"',
+            'planner = "claude/opus:high"',
+            'merger = "claude/opus:high"',
+            'session = "claude"',
+            'experts = ["claude/fable:high"]',
+            "fallback = false",
+        )
+        self.assertEqual(
+            read("home", "[seats]", *lines),
+            {
+                "seats": {
+                    "reviewer": "codex/gpt-6.2-sol:high",
+                    "planner": "claude/opus:high",
+                    "merger": "claude/opus:high",
+                    "session": "claude",
+                    "experts": ["claude/fable:high"],
+                    "fallback": False,
+                }
+            },
+        )
         # every seat is valid here, and a key that names no seat is still refused, with the nearest
         message = self.refused(read, "home", "[seats]", 'reviwer = "claude/opus:high"')
-        self.assertIn("home: unknown key seats.reviwer; did you mean 'reviewer'?", message)
+        self.assertIn(
+            "home: unknown key seats.reviwer; did you mean 'reviewer'?", message
+        )
 
     def test_the_question_pages_defaults_are_the_home_files_only(self):
-        self.assertEqual(read("home", "[ask]", 'style = "minimal"'), {"ask": {"style": "minimal"}})
-        self.assertIn("unknown key ask.colour", self.refused(read, "home", "[ask]", 'colour = "red"'))
+        self.assertEqual(
+            read("home", "[ask]", 'style = "minimal"'), {"ask": {"style": "minimal"}}
+        )
+        self.assertIn(
+            "unknown key ask.colour",
+            self.refused(read, "home", "[ask]", 'colour = "red"'),
+        )
         for place in ("team", "local"):
             with self.subTest(place=place):
-                self.assertIn(f"[ask] is not valid in this file: its place is {project.home_name()}", self.refused(read, place, "[ask]", 'style = "minimal"'))
+                self.assertIn(
+                    f"[ask] is not valid in this file: its place is {project.home_name()}",
+                    self.refused(read, place, "[ask]", 'style = "minimal"'),
+                )
         file = self.written('[ask]\nstyle = "minimal"\n')
-        self.assertIn(f"{file}: [ask] is not valid in this file: its place is {project.home_name()}", self.refused(lem_state.machine_tables))
+        self.assertIn(
+            f"{file}: [ask] is not valid in this file: its place is {project.home_name()}",
+            self.refused(lem_state.machine_tables),
+        )
 
     def test_the_question_page_takes_the_keys_of_ask_that_lem_project_takes(self):
         # lem-ask runs alone and imports nothing of Lem's, so its own list of the keys is held to project.py's here
-        page = runpy.run_path(str(Path(__file__).resolve().parents[2] / "skills" / "lem-ask" / "bin" / "lem-ask"), run_name="lem_ask")
+        page = runpy.run_path(
+            str(
+                Path(__file__).resolve().parents[2]
+                / "skills"
+                / "lem-ask"
+                / "bin"
+                / "lem-ask"
+            ),
+            run_name="lem_ask",
+        )
         self.assertEqual(tuple(page["ASK_KEYS"]), project.TABLES["ask"])
 
     def test_what_is_true_for_the_whole_machine_is_its_files_only(self):
-        for table, line in (("load", "start = 4"), ("serve", "port = 4500"), ("peers", "mini = 4600"), ("handoff", "tokens = 0"), ("corrections", "collect = false")):
+        for table, line in (
+            ("load", "start = 4"),
+            ("serve", "port = 4500"),
+            ("peers", "mini = 4600"),
+            ("handoff", "tokens = 0"),
+            ("corrections", "collect = false"),
+        ):
             for place in ("home", "team", "local"):
                 with self.subTest(table=table, place=place):
-                    self.assertIn(f"[{table}] is not valid in this file: its place is {lem_state.shown(lem_state.machine_file())}", self.refused(read, place, f"[{table}]", line))
+                    self.assertIn(
+                        f"[{table}] is not valid in this file: its place is {lem_state.shown(lem_state.machine_file())}",
+                        self.refused(read, place, f"[{table}]", line),
+                    )
 
     def test_the_machines_file_refuses_the_seats_and_names_the_home_settings(self):
-        file = self.written('[load]\nstart = 4\n\n[seats]\nmerger = "claude/opus:high"\n')
-        for call in (lem_state.machine_tables, lem_state.load_start, lem_state.handoff_tokens):
+        file = self.written(
+            '[load]\nstart = 4\n\n[seats]\nmerger = "claude/opus:high"\n'
+        )
+        for call in (
+            lem_state.machine_tables,
+            lem_state.load_start,
+            lem_state.handoff_tokens,
+        ):
             with self.subTest(call=call.__name__):
                 message = self.refused(call)
-                self.assertIn(f"{file}: [seats] is not valid in this file: its place is {lem_state.shown(lem_state.home_settings_file())}", message)
+                self.assertIn(
+                    f"{file}: [seats] is not valid in this file: its place is {lem_state.shown(lem_state.home_settings_file())}",
+                    message,
+                )
 
     def test_a_name_of_the_home_folder_is_written_from_the_home_directory(self):
-        self.assertEqual(lem_state.shown(Path.home() / ".config" / "lem" / "settings.toml"), "~/.config/lem/settings.toml")
-        self.assertEqual(lem_state.shown(Path("/elsewhere/lem/settings.toml")), "/elsewhere/lem/settings.toml")
+        self.assertEqual(
+            lem_state.shown(Path.home() / ".config" / "lem" / "settings.toml"),
+            "~/.config/lem/settings.toml",
+        )
+        self.assertEqual(
+            lem_state.shown(Path("/elsewhere/lem/settings.toml")),
+            "/elsewhere/lem/settings.toml",
+        )
 
 
 def tomllike(line: str) -> dict:
     import tomllib
+
     return tomllib.loads(line)
 
 
@@ -144,7 +229,9 @@ class Nearest(Home):
 
     def decided(self, team: tuple = (), local: tuple = (), home: tuple = ()) -> dict:
         raw = read("team", *team)
-        return project.decide(ROOT, ROOT, raw, read("local", *local), raw, None, read("home", *home))
+        return project.decide(
+            ROOT, ROOT, raw, read("local", *local), raw, None, read("home", *home)
+        )
 
     def merger(self, **files) -> tuple:
         found = self.decided(**files)["seats"]["merger"]
@@ -154,27 +241,77 @@ class Nearest(Home):
         home = ("[seats]", 'merger = "claude/opus:high"')
         team = ("[seats]", 'merger = "codex/gpt-6.2-sol:high"')
         local = ("[seats]", 'merger = "claude/fable:high"')
-        self.assertEqual(self.merger(home=home, team=team), ("codex/gpt-6.2-sol:high", ".lem/settings.toml"))
-        self.assertEqual(self.merger(home=home, team=team, local=local), ("claude/fable:high", ".lem/settings.local.toml"))
-        self.assertEqual(self.merger(home=home), ("claude/opus:high", project.home_name()))
+        self.assertEqual(
+            self.merger(home=home, team=team),
+            ("codex/gpt-6.2-sol:high", ".lem/settings.toml"),
+        )
+        self.assertEqual(
+            self.merger(home=home, team=team, local=local),
+            ("claude/fable:high", ".lem/settings.local.toml"),
+        )
+        self.assertEqual(
+            self.merger(home=home), ("claude/opus:high", project.home_name())
+        )
         self.assertEqual(self.merger(), ("claude/opus:high", "Lem's default"))
 
     def test_each_seat_and_each_expert_names_its_file(self):
-        found = self.decided(team=("[seats]", 'reviewer = "codex/gpt-6.2-sol:high"'), local=("[seats]", 'planner = "claude/fable:high"'),
-                             home=("[seats]", 'session = "claude:high"'))["seats"]
-        self.assertEqual({which: found[which]["from"] for which in ("reviewer", "planner", "merger", "session")},
-                         {"reviewer": ".lem/settings.toml", "planner": ".lem/settings.local.toml", "merger": "Lem's default", "session": project.home_name()})
-        self.assertEqual({expert["from"] for expert in found["experts"]}, {"Lem's default"})
-        mine = self.decided(team=("[seats]", 'experts = ["claude/opus:high"]'), local=("[seats]", 'experts = ["claude/fable:high"]'))["seats"]["experts"]
-        self.assertEqual([(expert["seat"], expert["from"]) for expert in mine], [("claude/fable:high", ".lem/settings.local.toml")])
+        found = self.decided(
+            team=("[seats]", 'reviewer = "codex/gpt-6.2-sol:high"'),
+            local=("[seats]", 'planner = "claude/fable:high"'),
+            home=("[seats]", 'session = "claude:high"'),
+        )["seats"]
+        self.assertEqual(
+            {
+                which: found[which]["from"]
+                for which in ("reviewer", "planner", "merger", "session")
+            },
+            {
+                "reviewer": ".lem/settings.toml",
+                "planner": ".lem/settings.local.toml",
+                "merger": "Lem's default",
+                "session": project.home_name(),
+            },
+        )
+        self.assertEqual(
+            {expert["from"] for expert in found["experts"]}, {"Lem's default"}
+        )
+        mine = self.decided(
+            team=("[seats]", 'experts = ["claude/opus:high"]'),
+            local=("[seats]", 'experts = ["claude/fable:high"]'),
+        )["seats"]["experts"]
+        self.assertEqual(
+            [(expert["seat"], expert["from"]) for expert in mine],
+            [("claude/fable:high", ".lem/settings.local.toml")],
+        )
 
     def test_the_naps_and_the_days_name_their_file(self):
         found = self.decided()
-        self.assertEqual((found["naps"], found["state"]), ({"on": False, "from": "Lem's default"}, {"keep_days": 30, "from": "Lem's default"}))
+        self.assertEqual(
+            (found["naps"], found["state"]),
+            (
+                {"on": False, "from": "Lem's default"},
+                {"keep_days": 30, "from": "Lem's default"},
+            ),
+        )
         found = self.decided(team=("[naps]", "on = true", "[state]", "keep_days = 7"))
-        self.assertEqual((found["naps"], found["state"]), ({"on": True, "from": ".lem/settings.toml"}, {"keep_days": 7, "from": ".lem/settings.toml"}))
-        found = self.decided(team=("[naps]", "on = true", "[state]", "keep_days = 7"), local=("[naps]", "on = false", "[state]", "keep_days = 3"))
-        self.assertEqual((found["naps"], found["state"]), ({"on": False, "from": ".lem/settings.local.toml"}, {"keep_days": 3, "from": ".lem/settings.local.toml"}))
+        self.assertEqual(
+            (found["naps"], found["state"]),
+            (
+                {"on": True, "from": ".lem/settings.toml"},
+                {"keep_days": 7, "from": ".lem/settings.toml"},
+            ),
+        )
+        found = self.decided(
+            team=("[naps]", "on = true", "[state]", "keep_days = 7"),
+            local=("[naps]", "on = false", "[state]", "keep_days = 3"),
+        )
+        self.assertEqual(
+            (found["naps"], found["state"]),
+            (
+                {"on": False, "from": ".lem/settings.local.toml"},
+                {"keep_days": 3, "from": ".lem/settings.local.toml"},
+            ),
+        )
         self.assertEqual(found["local"]["overrides"], ["naps.on", "state.keep_days"])
 
 
@@ -185,19 +322,35 @@ class MachineFile(Home):
     def test_it_keeps_the_corrections_when_it_writes_another_table(self):
         self.written("[corrections]\ncollect = false\n\n[serve]\nport = 4500\n")
         lem_state.write_machine("load", {"start": 12})
-        self.assertEqual(lem_state.machine_tables(), {"load": {"start": 12}, "serve": {"port": 4500}, "corrections": {"collect": False}})
+        self.assertEqual(
+            lem_state.machine_tables(),
+            {
+                "load": {"start": 12},
+                "serve": {"port": 4500},
+                "corrections": {"collect": False},
+            },
+        )
         self.assertEqual(lem_state.machine_table("corrections"), {"collect": False})
 
-    def test_a_file_with_the_seats_stays_as_it_is_and_the_refusal_names_their_place(self):
+    def test_a_file_with_the_seats_stays_as_it_is_and_the_refusal_names_their_place(
+        self,
+    ):
         text = '[load]\nstart = 4\n\n[seats]\nmerger = "claude/opus:high"\n'
         file = self.written(text)
         message = self.refused(lem_state.write_machine, "load", {"start": 12})
-        self.assertIn(f"{file}: [seats] is not valid in this file: its place is {lem_state.shown(lem_state.home_settings_file())}", message)
+        self.assertIn(
+            f"{file}: [seats] is not valid in this file: its place is {lem_state.shown(lem_state.home_settings_file())}",
+            message,
+        )
         self.assertEqual(file.read_text(encoding="utf-8"), text)
 
     def test_a_file_that_does_not_read_stays_as_it_is_and_the_refusal_names_it(self):
-        for text, says in (("[load\nstart = 4\n", "does not read as TOML"), ("[colours]\nmain = 1\n", "[colours] is no table of Lem's"),
-                           ("[load]\nbegin = 4\n", "load.begin"), ("[corrections]\ncollect = 1\n", "corrections.collect")):
+        for text, says in (
+            ("[load\nstart = 4\n", "does not read as TOML"),
+            ("[colours]\nmain = 1\n", "[colours] is no table of Lem's"),
+            ("[load]\nbegin = 4\n", "load.begin"),
+            ("[corrections]\ncollect = 1\n", "corrections.collect"),
+        ):
             with self.subTest(text=text):
                 file = self.written(text)
                 message = self.refused(lem_state.write_machine, "serve", {"port": 4500})
@@ -225,17 +378,33 @@ class MachineFile(Home):
             # after this holder wrote, and keeps the table this holder added
             time.sleep(0.3)
             self.assertFalse(done.is_set())
-            lem_state.machine_file().write_text("[serve]\nport = 4500\n\n[load]\nstart = 6\n", encoding="utf-8")
+            lem_state.machine_file().write_text(
+                "[serve]\nport = 4500\n\n[load]\nstart = 6\n", encoding="utf-8"
+            )
         writer.join(10)
         self.assertTrue((lem_state.config() / lem_state.MACHINE_LOCK).is_file())
-        self.assertEqual(lem_state.machine_tables(), {"serve": {"port": 4500}, "load": {"start": 6}, "handoff": {"tokens": 0}})
+        self.assertEqual(
+            lem_state.machine_tables(),
+            {"serve": {"port": 4500}, "load": {"start": 6}, "handoff": {"tokens": 0}},
+        )
 
 
 class Texts(unittest.TestCase):
     def test_no_text_of_lem_names_project_toml_or_project_local_toml(self):
-        listed = subprocess.run(["git", "-C", str(LEM), "ls-files", "--", *TEXTS], capture_output=True, text=True, check=False)
-        self.assertEqual(listed.returncode, 0, f"git ls-files failed in {LEM}: {listed.stderr.strip()}; run the test in a clone of Lem")
-        files = [name for name in listed.stdout.split() if not name.startswith(OLD_TEXTS)]
+        listed = subprocess.run(
+            ["git", "-C", str(LEM), "ls-files", "--", *TEXTS],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            listed.returncode,
+            0,
+            f"git ls-files failed in {LEM}: {listed.stderr.strip()}; run the test in a clone of Lem",
+        )
+        files = [
+            name for name in listed.stdout.split() if not name.startswith(OLD_TEXTS)
+        ]
         self.assertIn("docs/settings.md", files)
         for name in files:
             try:
@@ -245,22 +414,43 @@ class Texts(unittest.TestCase):
             for number, line in enumerate(text.split("\n"), 1):
                 if OLD_NAME.search(line):
                     with self.subTest(file=name, line=number):
-                        self.fail(f"{name}:{number} names {OLD_NAME.search(line)[0]}: the settings are .lem/settings.toml, "
-                                  f".lem/settings.local.toml and ~/.config/lem/settings.toml")
+                        self.fail(
+                            f"{name}:{number} names {OLD_NAME.search(line)[0]}: the settings are .lem/settings.toml, "
+                            f".lem/settings.local.toml and ~/.config/lem/settings.toml"
+                        )
 
     def test_the_settings_page_says_where_each_table_is_valid_as_the_map_does(self):
-        text = PAGE.read_text(encoding="utf-8").split("\n## Where each table is valid\n", 1)
-        self.assertEqual(len(text), 2, 'docs/settings.md has no section "Where each table is valid"')
-        rows = [[cell.strip() for cell in line.strip().strip("|").split("|")] for line in text[1].split("\n## ", 1)[0].split("\n") if line.startswith("|")]
+        text = PAGE.read_text(encoding="utf-8").split(
+            "\n## Where each table is valid\n", 1
+        )
+        self.assertEqual(
+            len(text), 2, 'docs/settings.md has no section "Where each table is valid"'
+        )
+        rows = [
+            [cell.strip() for cell in line.strip().strip("|").split("|")]
+            for line in text[1].split("\n## ", 1)[0].split("\n")
+            if line.startswith("|")
+        ]
         self.assertGreater(len(rows), 2, "the section holds no table")
         places = [PAGE_FILES.get(cell.strip("`")) for cell in rows[0][1:]]
-        self.assertEqual(sorted(filter(None, places)), sorted(PAGE_FILES.values()), f"the table's files are {rows[0][1:]}")
+        self.assertEqual(
+            sorted(filter(None, places)),
+            sorted(PAGE_FILES.values()),
+            f"the table's files are {rows[0][1:]}",
+        )
         found = {}
         for row in rows[2:]:
             for table in re.findall(r"`\[(\w+)\]`", row[0]):
-                found[table] = tuple(place for place, cell in zip(places, row[1:]) if cell != "no")
-        self.assertEqual({table: tuple(sorted(valid)) for table, valid in found.items()},
-                         {table: tuple(sorted(valid)) for table, valid in lem_state.TABLE_PLACES.items()})
+                found[table] = tuple(
+                    place for place, cell in zip(places, row[1:]) if cell != "no"
+                )
+        self.assertEqual(
+            {table: tuple(sorted(valid)) for table, valid in found.items()},
+            {
+                table: tuple(sorted(valid))
+                for table, valid in lem_state.TABLE_PLACES.items()
+            },
+        )
 
 
 if __name__ == "__main__":

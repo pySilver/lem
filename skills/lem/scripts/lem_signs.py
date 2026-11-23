@@ -86,7 +86,15 @@ RUNS, ENDED = "runs", "ended"
 TOOL_USE, ASKS = "tool_use", "AskUserQuestion"
 # the start of a user record's text that is an interrupt, and of one that is a local command
 INTERRUPT = "[Request interrupted"
-LOCAL = ("<command-name>", "<command-message>", "<command-args>", "<local-command-", "<bash-input>", "<bash-stdout>", "<bash-stderr>")
+LOCAL = (
+    "<command-name>",
+    "<command-message>",
+    "<command-args>",
+    "<local-command-",
+    "<bash-input>",
+    "<bash-stdout>",
+    "<bash-stderr>",
+)
 # the mark of a Bash tool's command line: it sources the shell's snapshot first
 SNAPSHOT = "shell-snapshots/snapshot-"
 # how much of a transcript is read at a time from its end
@@ -100,16 +108,26 @@ def own_records(records: list[dict], session: str | None) -> list[dict]:
     if not session:
         return []
     want = str(session).upper()
-    return [record for record in records
-            if record.get("event", EVENT) == EVENT and isinstance(record.get("session"), str) and record["session"].upper() == want
-            and isinstance(record.get("claude"), str) and record["claude"] and isinstance(record.get("transcript"), str) and record["transcript"]]
+    return [
+        record
+        for record in records
+        if record.get("event", EVENT) == EVENT
+        and isinstance(record.get("session"), str)
+        and record["session"].upper() == want
+        and isinstance(record.get("claude"), str)
+        and record["claude"]
+        and isinstance(record.get("transcript"), str)
+        and record["transcript"]
+    ]
 
 
 def folder_of(transcript: str) -> str | None:
     """The Claude Code folder of a transcript `FOLDER/projects/NAME/ID.jsonl`, or None for a path that is
     not in that form."""
     parents = Path(transcript).parents
-    return str(parents[2]) if len(parents) > 2 and parents[1].name == "projects" else None
+    return (
+        str(parents[2]) if len(parents) > 2 and parents[1].name == "projects" else None
+    )
 
 
 def when(text: object) -> datetime | None:
@@ -119,7 +137,9 @@ def when(text: object) -> datetime | None:
         found = datetime.fromisoformat(text)
     except ValueError:
         return None
-    return (found if found.tzinfo else found.replace(tzinfo=timezone.utc)).astimezone(timezone.utc)
+    return (found if found.tzinfo else found.replace(tzinfo=timezone.utc)).astimezone(
+        timezone.utc
+    )
 
 
 def newest_turn(lines) -> str | None:
@@ -130,7 +150,11 @@ def newest_turn(lines) -> str | None:
             record = json.loads(raw)
         except ValueError:
             continue
-        if isinstance(record, dict) and record.get("type") in TURNS and (found := when(record.get("timestamp"))):
+        if (
+            isinstance(record, dict)
+            and record.get("type") in TURNS
+            and (found := when(record.get("timestamp")))
+        ):
             return found.strftime("%Y-%m-%dT%H:%M:%SZ")
     return None
 
@@ -142,7 +166,13 @@ def texts_of(record: dict) -> list[str]:
     if isinstance(content, str):
         return [content]
     if isinstance(content, list):
-        return [part["text"] for part in content if isinstance(part, dict) and part.get("type") == "text" and isinstance(part.get("text"), str)]
+        return [
+            part["text"]
+            for part in content
+            if isinstance(part, dict)
+            and part.get("type") == "text"
+            and isinstance(part.get("text"), str)
+        ]
     return []
 
 
@@ -158,14 +188,21 @@ def turn_of(lines) -> str | None:
         if not isinstance(record, dict) or record.get("isSidechain"):
             continue
         if record.get("type") == "assistant":
-            message = record["message"] if isinstance(record.get("message"), dict) else {}
+            message = (
+                record["message"] if isinstance(record.get("message"), dict) else {}
+            )
             reason = message.get("stop_reason")
             if not reason:
                 continue
             if reason != TOOL_USE:
                 return ENDED
             content = message.get("content")
-            asks = isinstance(content, list) and any(isinstance(part, dict) and part.get("type") == "tool_use" and part.get("name") == ASKS for part in content)
+            asks = isinstance(content, list) and any(
+                isinstance(part, dict)
+                and part.get("type") == "tool_use"
+                and part.get("name") == ASKS
+                for part in content
+            )
             return ENDED if asks else RUNS
         if record.get("type") == "user":
             texts = texts_of(record)
@@ -183,12 +220,22 @@ def table_rows(table: str) -> list[tuple[int, int, str]]:
     for line in table.splitlines():
         parts = line.split(None, 2)
         if len(parts) >= 2 and parts[0].isdigit() and parts[1].isdigit():
-            rows.append((int(parts[0]), int(parts[1]), parts[2] if len(parts) > 2 else ""))
+            rows.append(
+                (int(parts[0]), int(parts[1]), parts[2] if len(parts) > 2 else "")
+            )
     return rows
 
 
-def read_signs(records: list[dict], session: str | None, turns: dict[str, list], processes: dict[str, list], table: str | None,
-               slug: str, named: dict[str, str | None], mains: dict[str, list]) -> dict:
+def read_signs(
+    records: list[dict],
+    session: str | None,
+    turns: dict[str, list],
+    processes: dict[str, list],
+    table: str | None,
+    slug: str,
+    named: dict[str, str | None],
+    mains: dict[str, list],
+) -> dict:
     """The signs of work of the agterm session SESSION of the task SLUG, from the facts:
 
     RECORDS     the task's `session.transcript` events
@@ -204,19 +251,41 @@ def read_signs(records: list[dict], session: str | None, turns: dict[str, list],
     something to read: a record of the session, and a live process of it in a process file, and
     `turn`, the main thread's turn of the transcript whose main thread wrote the newest turn, None
     when `signs` is false."""
-    mine = [record for record in own_records(records, session) if named.get(record["transcript"]) in (None, slug)]
-    times = [found for record in mine for text in turns.get(record["transcript"], []) if (found := when(text))]
+    mine = [
+        record
+        for record in own_records(records, session)
+        if named.get(record["transcript"]) in (None, slug)
+    ]
+    times = [
+        found
+        for record in mine
+        for text in turns.get(record["transcript"], [])
+        if (found := when(text))
+    ]
     sign = max(times).strftime("%Y-%m-%dT%H:%M:%SZ") if times else None
     ids = {record["claude"] for record in mine}
     folders = {folder for record in mine if (folder := folder_of(record["transcript"]))}
-    pids = {int(process["pid"]) for folder in folders for process in processes.get(folder, [])
-            if isinstance(process, dict) and process.get("sessionId") in ids and str(process.get("pid", "")).isdigit()}
+    pids = {
+        int(process["pid"])
+        for folder in folders
+        for process in processes.get(folder, [])
+        if isinstance(process, dict)
+        and process.get("sessionId") in ids
+        and str(process.get("pid", "")).isdigit()
+    }
     rows = table_rows(table) if table is not None else []
     running = pids & {pid for pid, _, _ in rows}
     if not mine or not running:
         return {"sign": sign, "shell": False, "signs": False, "turn": None}
-    shell = any(parent in running and SNAPSHOT in command for _, parent, command in rows)
-    newest = [(found, main[1]) for record in mine if len(main := mains.get(record["transcript"]) or []) == 2 and (found := when(main[0]))]
+    shell = any(
+        parent in running and SNAPSHOT in command for _, parent, command in rows
+    )
+    newest = [
+        (found, main[1])
+        for record in mine
+        if len(main := mains.get(record["transcript"]) or []) == 2
+        and (found := when(main[0]))
+    ]
     turn = max(newest, key=lambda pair: pair[0])[1] if newest else None
     return {"sign": sign, "shell": shell, "signs": True, "turn": turn}
 
@@ -251,7 +320,9 @@ def file_main(path: Path) -> list:
         return [None, None]
 
 
-def facts_of(records: list[dict], session: str | None, table: str | None, slug: str) -> dict:
+def facts_of(
+    records: list[dict], session: str | None, table: str | None, slug: str
+) -> dict:
     """The facts `read_signs` takes, read from the files the session's records name: the task each
     transcript's first prompt names, and, for a transcript that names no other task than SLUG, the
     newest turn of it and of each of its subagents, the newest turn and the turn of its main thread
@@ -262,12 +333,18 @@ def facts_of(records: list[dict], session: str | None, table: str | None, slug: 
     named: dict[str, str | None] = {}
     for record in own_records(records, session):
         if record["transcript"] not in named:
-            named[record["transcript"]] = lem_tokens.task_named(lem_tokens.first_prompt(Path(record["transcript"])))
+            named[record["transcript"]] = lem_tokens.task_named(
+                lem_tokens.first_prompt(Path(record["transcript"]))
+            )
         if named[record["transcript"]] not in (None, slug):
             continue
         transcript = Path(record["transcript"])
-        subagents = sorted((transcript.parent / transcript.stem / "subagents").glob("agent-*.jsonl"))
-        turns[record["transcript"]] = [file_turn(path) for path in (transcript, *subagents) if path.is_file()]
+        subagents = sorted(
+            (transcript.parent / transcript.stem / "subagents").glob("agent-*.jsonl")
+        )
+        turns[record["transcript"]] = [
+            file_turn(path) for path in (transcript, *subagents) if path.is_file()
+        ]
         if transcript.is_file():
             mains[record["transcript"]] = file_main(transcript)
         folder = folder_of(record["transcript"])
@@ -275,13 +352,26 @@ def facts_of(records: list[dict], session: str | None, table: str | None, slug: 
             found = []
             for path in sorted(Path(folder, "sessions").glob("*.json")):
                 try:
-                    found.append(json.loads(path.read_text(encoding="utf-8", errors="replace")))
+                    found.append(
+                        json.loads(path.read_text(encoding="utf-8", errors="replace"))
+                    )
                 except (OSError, ValueError):
                     continue
             processes[folder] = found
-    return {"records": records, "session": session, "turns": turns, "processes": processes, "table": table, "slug": slug, "named": named, "mains": mains}
+    return {
+        "records": records,
+        "session": session,
+        "turns": turns,
+        "processes": processes,
+        "table": table,
+        "slug": slug,
+        "named": named,
+        "mains": mains,
+    }
 
 
-def signs_of(records: list[dict], session: str | None, table: str | None, slug: str) -> dict:
+def signs_of(
+    records: list[dict], session: str | None, table: str | None, slug: str
+) -> dict:
     """`read_signs` over the facts read now, for the task SLUG."""
     return read_signs(**facts_of(records, session, table, slug))

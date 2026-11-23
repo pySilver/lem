@@ -63,13 +63,19 @@ USER_SCOPES = ("user", "managed")
 UPDATE = "/plugin marketplace update lem"
 
 # The task directories a command of this process has passed already, while one runs (`one_command`).
-CLEARED: contextvars.ContextVar[frozenset | None] = contextvars.ContextVar("lem_release_cleared", default=None)
+CLEARED: contextvars.ContextVar[frozenset | None] = contextvars.ContextVar(
+    "lem_release_cleared", default=None
+)
 
 
 def numbers(version: object) -> tuple[int, ...] | None:
     """`0.3.0` as (0, 3, 0); None for anything that is not numbers joined by dots."""
     parts = str(version).strip().split(".") if isinstance(version, str) else []
-    return tuple(int(part) for part in parts) if parts and all(part.isdigit() for part in parts) else None
+    return (
+        tuple(int(part) for part in parts)
+        if parts and all(part.isdigit() for part in parts)
+        else None
+    )
 
 
 def stop(slug: str, began: str, version: str, before: str) -> dict | None:
@@ -77,14 +83,22 @@ def stop(slug: str, began: str, version: str, before: str) -> dict | None:
     the stop, `{"kind": "old"|"new", "say": MESSAGE}`. BEFORE is the release just before VERSION."""
     mark, now, prior = numbers(began), numbers(version), numbers(before)
     if mark is None or now is None or prior is None:
-        raise ValueError(f"a release is numbers joined by dots, as 0.3.0: {began!r}, {version!r}, {before!r}")
+        raise ValueError(
+            f"a release is numbers joined by dots, as 0.3.0: {began!r}, {version!r}, {before!r}"
+        )
     if mark > now:
-        return {"kind": "new", "say": f"{slug} began on Lem {began}, which is newer than this Lem, {version}, so this Lem does nothing with it. "
-                                      f"{UPDATE} in Claude Code brings the newer release, and a new session of the project loads it"}
+        return {
+            "kind": "new",
+            "say": f"{slug} began on Lem {began}, which is newer than this Lem, {version}, so this Lem does nothing with it. "
+            f"{UPDATE} in Claude Code brings the newer release, and a new session of the project loads it",
+        }
     if mark < prior:
-        return {"kind": "old", "say": f"{slug} began on Lem {began}, and Lem {version} reads only tasks begun on {before} or {version}. "
-                                      f"Your branch and its commits stay. /lem drop {slug}, then /lem resume {slug}, starts a new task on {version} "
-                                      "from that branch and from the notes the task left."}
+        return {
+            "kind": "old",
+            "say": f"{slug} began on Lem {began}, and Lem {version} reads only tasks begun on {before} or {version}. "
+            f"Your branch and its commits stay. /lem drop {slug}, then /lem resume {slug}, starts a new task on {version} "
+            "from that branch and from the notes the task left.",
+        }
     return None
 
 
@@ -103,7 +117,11 @@ def installed(listed: object, main: str) -> str | None:
             if not isinstance(entry, dict) or numbers(entry.get("version")) is None:
                 continue
             where = entry.get("projectPath")
-            if entry.get("scope") in PROJECT_SCOPES and isinstance(where, str) and os.path.realpath(where) == here:
+            if (
+                entry.get("scope") in PROJECT_SCOPES
+                and isinstance(where, str)
+                and os.path.realpath(where) == here
+            ):
                 own.append(entry["version"])
             elif entry.get("scope") in USER_SCOPES:
                 user.append(entry["version"])
@@ -115,7 +133,9 @@ def chosen(listed: object, main: str, version: str) -> str:
     """The mark of a task that opens now in the checkout MAIN: the release its sessions load
     (`installed`), else VERSION, this Lem's own, and never newer than VERSION."""
     found = installed(listed, main)
-    return found if found is not None and numbers(found) <= numbers(version) else version
+    return (
+        found if found is not None and numbers(found) <= numbers(version) else version
+    )
 
 
 def running() -> str:
@@ -124,9 +144,13 @@ def running() -> str:
     try:
         version = json.loads(MANIFEST.read_text(encoding="utf-8")).get("version")
     except (OSError, ValueError, AttributeError) as error:
-        raise ValueError(f"Lem's manifest {MANIFEST} does not read ({error}), so this Lem cannot tell its release: install Lem again") from error
+        raise ValueError(
+            f"Lem's manifest {MANIFEST} does not read ({error}), so this Lem cannot tell its release: install Lem again"
+        ) from error
     if numbers(version) is None:
-        raise ValueError(f"Lem's manifest {MANIFEST} gives the version {version!r}, which is no release: plugin.json names one, as \"version\": \"0.3.0\"")
+        raise ValueError(
+            f'Lem\'s manifest {MANIFEST} gives the version {version!r}, which is no release: plugin.json names one, as "version": "0.3.0"'
+        )
     return version
 
 
@@ -136,14 +160,19 @@ def installs(environ: dict | None = None) -> object:
     environ = os.environ if environ is None else environ
     home = Path(environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
     try:
-        return json.loads((home / "plugins" / "installed_plugins.json").read_text(encoding="utf-8"))
+        return json.loads(
+            (home / "plugins" / "installed_plugins.json").read_text(encoding="utf-8")
+        )
     except (OSError, ValueError):
         return None
 
 
 def mark(directory: Path, main: Path) -> None:
     """Write the mark of a task that opens now, once: a mark that is there stays."""
-    with contextlib.suppress(FileExistsError), (directory / MARK).open("x", encoding="utf-8") as out:
+    with (
+        contextlib.suppress(FileExistsError),
+        (directory / MARK).open("x", encoding="utf-8") as out,
+    ):
         out.write(chosen(installs(), str(main), running()) + "\n")
 
 
@@ -154,12 +183,20 @@ def began_on(directory: Path) -> str:
         return UNMARKED
     found = file.read_text(encoding="utf-8", errors="replace").strip()
     if numbers(found) is None:
-        raise ValueError(f"{file} says {found!r}, which is no release: it holds one line, the release the task began on, as {UNMARKED}")
+        raise ValueError(
+            f"{file} says {found!r}, which is no release: it holds one line, the release the task began on, as {UNMARKED}"
+        )
     return found
 
 
 def git(where: Path, *args: str) -> str | None:
-    ran = subprocess.run(["git", "-C", str(where), *args], capture_output=True, text=True, check=False, stdin=subprocess.DEVNULL)
+    ran = subprocess.run(
+        ["git", "-C", str(where), *args],
+        capture_output=True,
+        text=True,
+        check=False,
+        stdin=subprocess.DEVNULL,
+    )
     return ran.stdout if ran.returncode == 0 else None
 
 
@@ -170,21 +207,44 @@ def branch_of(main: Path, slug: str) -> str | None:
     worktree runs on (`head-name` of `rebase-merge/` or `rebase-apply/` in its git folder)."""
     path = os.path.realpath(main / ".lem" / "worktrees" / slug)
     listed = git(main, "worktree", "list", "--porcelain", "-z") or ""
-    entry = next((fields for fields in (block.split("\0") for block in listed.split("\0\0"))
-                  if fields[0].startswith("worktree ") and os.path.realpath(fields[0].removeprefix("worktree ")) == path), None)
+    entry = next(
+        (
+            fields
+            for fields in (block.split("\0") for block in listed.split("\0\0"))
+            if fields[0].startswith("worktree ")
+            and os.path.realpath(fields[0].removeprefix("worktree ")) == path
+        ),
+        None,
+    )
     if entry is None:
         return None
-    named = next((field.removeprefix("branch refs/heads/") for field in entry if field.startswith("branch refs/heads/")), None)
+    named = next(
+        (
+            field.removeprefix("branch refs/heads/")
+            for field in entry
+            if field.startswith("branch refs/heads/")
+        ),
+        None,
+    )
     if named:
         return named
-    common = (git(main, "rev-parse", "--path-format=absolute", "--git-common-dir") or "").strip()
+    common = (
+        git(main, "rev-parse", "--path-format=absolute", "--git-common-dir") or ""
+    ).strip()
     for gitdir in sorted(Path(common).glob("worktrees/*/gitdir")) if common else []:
-        if os.path.realpath(gitdir.read_text(encoding="utf-8", errors="replace").strip()) != os.path.realpath(os.path.join(path, ".git")):
+        if os.path.realpath(
+            gitdir.read_text(encoding="utf-8", errors="replace").strip()
+        ) != os.path.realpath(os.path.join(path, ".git")):
             continue
         for folder in ("rebase-merge", "rebase-apply"):
             head = gitdir.parent / folder / "head-name"
             if head.is_file():
-                return head.read_text(encoding="utf-8", errors="replace").strip().removeprefix("refs/heads/") or None
+                return (
+                    head.read_text(encoding="utf-8", errors="replace")
+                    .strip()
+                    .removeprefix("refs/heads/")
+                    or None
+                )
     return None
 
 
@@ -193,7 +253,11 @@ def stopped_already(log: Path, slug: str, version: str) -> bool:
     `task.state` after it but an end of the task. The drop that passes, then the resume of the dropped
     task, logs no second stop."""
     standing = False
-    for line in lem_state.jsonl_lines(log.read_text(encoding="utf-8", errors="replace")) if log.is_file() else []:
+    for line in (
+        lem_state.jsonl_lines(log.read_text(encoding="utf-8", errors="replace"))
+        if log.is_file()
+        else []
+    ):
         try:
             record = json.loads(line)
         except ValueError:
@@ -217,8 +281,15 @@ def log_stop(directory: Path, began: str, version: str, say: str) -> None:
         log = state / lem_state.EVENTS
         if stopped_already(log, slug, version):
             return
-        record = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": STOP, "task": slug,
-                  "began": began, "running": version, "branch": branch, "say": say}
+        record = {
+            "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "event": STOP,
+            "task": slug,
+            "began": began,
+            "running": version,
+            "branch": branch,
+            "say": say,
+        }
         with log.open("a", encoding="utf-8") as out:
             out.write(json.dumps(record, ensure_ascii=False) + "\n")
 
@@ -251,6 +322,7 @@ def check(directory: Path, passes: bool = False) -> str | None:
 def one_command(main):
     """A script's `main` as one command: what it passes (`check`) holds for the commands it runs in
     this process, and for no command after it."""
+
     @functools.wraps(main)
     def run(*args, **kwargs):
         token = CLEARED.set(CLEARED.get() or frozenset())
@@ -258,4 +330,5 @@ def one_command(main):
             return main(*args, **kwargs)
         finally:
             CLEARED.reset(token)
+
     return run

@@ -52,10 +52,17 @@ EVENT = "session.transcript"
 # of its `session.transcript` records
 SUMMARY = "task.summary"
 # the usage's keys, by the name of each sum
-SUMS = {"input": "input_tokens", "output": "output_tokens", "cache_read": "cache_read_input_tokens", "cache_write": "cache_creation_input_tokens"}
+SUMS = {
+    "input": "input_tokens",
+    "output": "output_tokens",
+    "cache_read": "cache_read_input_tokens",
+    "cache_write": "cache_creation_input_tokens",
+}
 # the first prompt of a task's session, `launch_line` in session.py: TASK_DIR is the state folder's
 # `tasks/SLUG`, and the state folder is `.lem/state` of the main checkout (lem_state STATE)
-LAUNCH = re.compile(r"Read [^\n]*/\.lem/state/tasks/(?P<slug>[a-z0-9]+(?:-[a-z0-9]+)*)/session\.md and follow it\.")
+LAUNCH = re.compile(
+    r"Read [^\n]*/\.lem/state/tasks/(?P<slug>[a-z0-9]+(?:-[a-z0-9]+)*)/session\.md and follow it\."
+)
 
 
 def task_named(text: str | None) -> str | None:
@@ -76,13 +83,26 @@ def first_prompt(file: Path) -> str | None:
                     record = json.loads(raw.decode("utf-8", errors="replace"))
                 except ValueError:
                     continue
-                if not isinstance(record, dict) or record.get("type") != "user" or record.get("isMeta"):
+                if (
+                    not isinstance(record, dict)
+                    or record.get("type") != "user"
+                    or record.get("isMeta")
+                ):
                     continue
-                content = record.get("message", {}).get("content") if isinstance(record.get("message"), dict) else None
+                content = (
+                    record.get("message", {}).get("content")
+                    if isinstance(record.get("message"), dict)
+                    else None
+                )
                 if isinstance(content, str):
                     return content
                 blocks = content if isinstance(content, list) else []
-                if blocks and all(isinstance(block, dict) and block.get("type") == "text" and isinstance(block.get("text"), str) for block in blocks):
+                if blocks and all(
+                    isinstance(block, dict)
+                    and block.get("type") == "text"
+                    and isinstance(block.get("text"), str)
+                    for block in blocks
+                ):
                     return "\n".join(block["text"] for block in blocks)
                 return ""
     except OSError:
@@ -96,7 +116,9 @@ def logged(state: Path) -> list[tuple[str, str]]:
     summary's task."""
     found: list[tuple[str, str]] = []
     try:
-        lines = lem_state.jsonl_lines((state / "events.jsonl").read_text(encoding="utf-8", errors="replace"))
+        lines = lem_state.jsonl_lines(
+            (state / "events.jsonl").read_text(encoding="utf-8", errors="replace")
+        )
     except OSError:
         return found
     for line in lines:
@@ -110,11 +132,15 @@ def logged(state: Path) -> list[tuple[str, str]]:
             continue
         if record.get("event") == EVENT:
             paths = [record.get("transcript")]
-        elif record.get("event") == SUMMARY and isinstance(record.get("transcripts"), list):
+        elif record.get("event") == SUMMARY and isinstance(
+            record.get("transcripts"), list
+        ):
             paths = record["transcripts"]
         else:
             continue
-        found += [(record["task"], path) for path in paths if isinstance(path, str) and path]
+        found += [
+            (record["task"], path) for path in paths if isinstance(path, str) and path
+        ]
     return found
 
 
@@ -146,7 +172,11 @@ def add_file(file: Path, sums: dict, seen: set, counts: dict) -> bool:
         except ValueError:
             counts["unread"] += 1
             continue
-        if not isinstance(record, dict) or record.get("type") != "assistant" or not isinstance(record.get("message"), dict):
+        if (
+            not isinstance(record, dict)
+            or record.get("type") != "assistant"
+            or not isinstance(record.get("message"), dict)
+        ):
             continue
         message = record["message"]
         usage = message.get("usage")
@@ -186,7 +216,13 @@ def task_tokens(state: Path, slug: str) -> dict | None:
         for agent in sorted(folder.glob("agent-*.jsonl")) if folder.is_dir() else []:
             if add_file(agent, sums, seen, counts):
                 counts["subagents"] += 1
-    gone = f"; {counts['missing']} transcript{'s' if counts['missing'] != 1 else ''} the log names {'are' if counts['missing'] != 1 else 'is'} gone" if counts["missing"] else ""
-    covers = (f"the Claude Code sessions of the task on this machine ({counts['sessions']}) and their subagents ({counts['subagents']}){gone}; "
-              "a Codex reviewer, an expert of another provider and a session on another machine are not in it")
+    gone = (
+        f"; {counts['missing']} transcript{'s' if counts['missing'] != 1 else ''} the log names {'are' if counts['missing'] != 1 else 'is'} gone"
+        if counts["missing"]
+        else ""
+    )
+    covers = (
+        f"the Claude Code sessions of the task on this machine ({counts['sessions']}) and their subagents ({counts['subagents']}){gone}; "
+        "a Codex reviewer, an expert of another provider and a session on another machine are not in it"
+    )
     return {**sums, **counts, "covers": covers}

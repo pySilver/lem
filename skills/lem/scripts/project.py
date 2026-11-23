@@ -451,7 +451,9 @@ import sys
 
 if sys.version_info < (3, 11):
     # an old python3 must still load this file, so that it can say what it needs and not a traceback
-    sys.exit(f"project.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it")
+    sys.exit(
+        f"project.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it"
+    )
 
 import argparse
 import contextlib
@@ -490,7 +492,9 @@ SETTINGS = lem_state.TEAM_SETTINGS
 LOCAL = lem_state.LOCAL_SETTINGS
 # the tables one machine may set for itself in one repository; of [naps] only `on = false`, and of
 # [state] its one key, `keep_days` (`lem_state.TABLE_PLACES`)
-LOCAL_TABLES = tuple(table for table, places in lem_state.TABLE_PLACES.items() if "local" in places)
+LOCAL_TABLES = tuple(
+    table for table, places in lem_state.TABLE_PLACES.items() if "local" in places
+)
 # What Lem reads beside its settings, each in one place with no setting (the owner's note of
 # 2026-11-18 on the plan, task 1b of docs/plans/2026-11-18-core-and-two-modes.md): Lem's own files,
 # the rules for the code in the folder Claude Code loads by itself, the review tool's folder, and the
@@ -559,12 +563,24 @@ EXPERTS = ("claude/fable:high", "codex/gpt-6.2-astra:high")
 EXPERT_PLACES = ("fable", "astra")
 # seat -> (the agents that may sit in it, why only those, an example of the line)
 SEATS = {
-    "reviewer": (REVIEWERS, "the agents that can sit in the reviewer's pane", REVIEWER_SEATS["codex"]),
+    "reviewer": (
+        REVIEWERS,
+        "the agents that can sit in the reviewer's pane",
+        REVIEWER_SEATS["codex"],
+    ),
     "planner": (PLANNERS, "the harness was checked in Claude Code only", PLANNER),
-    "merger": (REVIEWERS, "the agents the harness starts a merge agent with, read-only", "claude:high"),
+    "merger": (
+        REVIEWERS,
+        "the agents the harness starts a merge agent with, read-only",
+        "claude:high",
+    ),
     # A task's own session is a top-level agent that `lem session open` starts in agterm: Claude Code
     # only, since the launch line, the two hooks and the compaction were checked there only.
-    "session": (("claude",), "a task's session runs Claude Code only for now", "claude:high"),
+    "session": (
+        ("claude",),
+        "a task's session runs Claude Code only for now",
+        "claude:high",
+    ),
 }
 # The merge agent's and a task session's seat when no file names one (the owner, 2026-11-22:
 # "`seats.merger`, `seats.session` should default to `claude/opus:high`").
@@ -572,7 +588,12 @@ SEAT_DEFAULT = "claude/opus:high"
 # Lem's own seat of each of SEATS, the last of its four places (`seat_of`): this machine's own file for
 # the repository, the team's file, the developer's file for all his repositories (the home folder's
 # `settings.toml`), then this.
-DEFAULT_SEATS = {"reviewer": REVIEWER, "planner": PLANNER, "merger": SEAT_DEFAULT, "session": SEAT_DEFAULT}
+DEFAULT_SEATS = {
+    "reviewer": REVIEWER,
+    "planner": PLANNER,
+    "merger": SEAT_DEFAULT,
+    "session": SEAT_DEFAULT,
+}
 # The seat that stands in for the reviewer, the planner or the merge agent when its agent gives an
 # error, from the same four places; `false` in one turns the fallback off. On unless a file says
 # otherwise (the owner, 2026-11-23: "and keep fallback: on (default)"; of the key: "y, one key").
@@ -588,7 +609,12 @@ STAND_IN = "stand-in"
 # settings name opens again. A stand-in holds for its seat until the task ends or that go on.
 SEAT_EVENTS = ("seat.stand-in", "seat.blocked", "seat.again")
 # the fixed line of a block that a seat's error wrote, which `state` takes in this form only
-FAILED_LINE = re.compile(re.escape(lem_state.FAILED_SEAT) + r"(?P<seat>" + "|".join(lem_state.SEAT_NAMES) + r")")
+FAILED_LINE = re.compile(
+    re.escape(lem_state.FAILED_SEAT)
+    + r"(?P<seat>"
+    + "|".join(lem_state.SEAT_NAMES)
+    + r")"
+)
 # the first line of the owner's go on over such a block
 GO_ON = "the owner's go on: "
 # A plan's file name: its default, and its tokens; `lem_plans` builds and finds the name.
@@ -616,7 +642,20 @@ SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 #   answered  it ended with a report and nothing to merge: a question answered, or a bug that is none
 #   parked    put aside on the owner's word (`/lem park`): its worktree, branch and files stay, nothing
 #             waits for him, and `resume` brings back the block it put aside
-STATES = ("queued", "building", "planned", "held", "blocked", "ready", "landing", "open", "landed", "dropped", "answered", "parked")
+STATES = (
+    "queued",
+    "building",
+    "planned",
+    "held",
+    "blocked",
+    "ready",
+    "landing",
+    "open",
+    "landed",
+    "dropped",
+    "answered",
+    "parked",
+)
 # The states a task does not leave: its folder stays under its slug, whole until `prune` finds
 # nothing of the task for `state.keep_days` days and leaves its small record only, and nothing of
 # it waits.
@@ -644,7 +683,10 @@ TYPE_LINE = re.compile(r"type:\s*(?P<type>[^,\s]+)\s*(?:,\s*because\s+(?P<why>.+
 # that sets the task's next path (`stages/investigate.md`). A fix goes on by the fast track (`small`)
 # or the standard track (`full`), or it is no bug; two of the calls end the task with its report, as `answered`.
 
-CALLS = {"fix": ("small", "full", "not-a-bug", "not-reproduced"), "question": ("answer",)}
+CALLS = {
+    "fix": ("small", "full", "not-a-bug", "not-reproduced"),
+    "question": ("answer",),
+}
 ANSWERING = ("not-a-bug", "answer")
 # The states in which the task loads the machine: a lead builds, or the checks run and a builder may
 # repair a conflict or a red check.
@@ -656,7 +698,9 @@ SERIAL_LOCK = "serial.lock"
 # the lock of one task's state.md, in its task directory (`cmd_state`)
 STATE_LOCK = "state.lock"
 # The first line of a state block: the time in UTC, the status, one line of text.
-STATE_LINE = re.compile(r"(?P<since>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z) (?P<status>[a-z]+): (?P<text>.+)")
+STATE_LINE = re.compile(
+    r"(?P<since>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z) (?P<status>[a-z]+): (?P<text>.+)"
+)
 TABLES: dict[str, tuple[str, ...]] = {
     "paths": ("plans", "plan_file", "rulings"),
     "branch": ("base", "land", "history", "protected"),
@@ -694,7 +738,15 @@ LOGIN = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?")
 #   landed     the ticket got the status for work that landed; an issue is closed as completed
 #   dropped    the ticket got the comment that its task was dropped
 #   answered   the ticket got the comment with its task's answer: not a bug, or the answer to a question
-TICKET_STEPS = ("started", "assigned", "unassigned", "commented", "landed", "dropped", "answered")
+TICKET_STEPS = (
+    "started",
+    "assigned",
+    "unassigned",
+    "commented",
+    "landed",
+    "dropped",
+    "answered",
+)
 # The steps a task's end writes (`ticket_owed`), which pass the release rule as the end itself does
 TICKET_ENDS = ("unassigned", "commented", "landed", "dropped", "answered")
 # The ended states that give a task's ticket back, once the task owes it nothing (`ticket_owed`): a
@@ -857,7 +909,10 @@ class SettingsError(Exception):
 
 def repo_root(start: Path) -> Path:
     found = subprocess.run(
-        ["git", "-C", str(start), "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=False,
+        ["git", "-C", str(start), "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if found.returncode != 0:
         raise SettingsError(f"{start} is not inside a git checkout")
@@ -880,20 +935,26 @@ def commands(value: object, where: str) -> list[str]:
     """A list of shell commands. An empty one runs nothing and exits 0, so checks of it are green."""
     found = strings(value, where)
     if any(not item.strip() for item in found):
-        raise SettingsError(f"{where} holds an empty command, which passes without running anything; take it out of the list")
+        raise SettingsError(
+            f"{where} holds an empty command, which passes without running anything; take it out of the list"
+        )
     return found
 
 
 def inside(root: Path, relative: str, where: str) -> Path:
     if Path(relative).is_absolute():
-        raise SettingsError(f"{where} = {relative!r} must be relative to the root of the checkout")
+        raise SettingsError(
+            f"{where} = {relative!r} must be relative to the root of the checkout"
+        )
     resolved = (root / relative).resolve()
     if not resolved.is_relative_to(root.resolve()):
         raise SettingsError(f"{where} = {relative!r} leaves the repository")
     if resolved == root.resolve():
         # every path names a folder or a file of its own: the root would read the whole checkout as
         # backlog items or rules, and a worktrees folder there ignores every file of the project
-        raise SettingsError(f"{where} = {relative!r} names the root of the checkout; name a folder or a file inside it, or leave the line out for the default")
+        raise SettingsError(
+            f"{where} = {relative!r} names the root of the checkout; name a folder or a file inside it, or leave the line out for the default"
+        )
     return resolved
 
 
@@ -912,7 +973,9 @@ def text_of(file: Path) -> str:
     try:
         return file.read_text(encoding="utf-8")
     except UnicodeDecodeError as error:
-        raise SettingsError(f"{file} is not UTF-8 text (byte {error.start} does not read); save it as UTF-8") from error
+        raise SettingsError(
+            f"{file} is not UTF-8 text (byte {error.start} does not read); save it as UTF-8"
+        ) from error
 
 
 def unreadable_argument(argv: list[str]) -> str | None:
@@ -922,7 +985,9 @@ def unreadable_argument(argv: list[str]) -> str | None:
         try:
             arg.encode("utf-8")
         except UnicodeEncodeError:
-            return f"the argument {os.fsencode(arg)!r} is not UTF-8 text; give it in UTF-8"
+            return (
+                f"the argument {os.fsencode(arg)!r} is not UTF-8 text; give it in UTF-8"
+            )
     return None
 
 
@@ -944,14 +1009,27 @@ def committed_settings(main: Path) -> dict | None:
     are only in the working tree or on its own branch). The base is the branch the file names, so
     the first file read is the remote's default branch's, then the one of the branch the main
     checkout's own copy names; a file that names another base is read on that branch."""
+
     def shown(branch: str) -> str | None:
-        ran = subprocess.run(["git", "-C", str(main), "show", f"refs/heads/{branch}:{SETTINGS.as_posix()}"], capture_output=True, check=False)
+        ran = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(main),
+                "show",
+                f"refs/heads/{branch}:{SETTINGS.as_posix()}",
+            ],
+            capture_output=True,
+            check=False,
+        )
         if ran.returncode != 0:
             return None
         try:
             return ran.stdout.decode("utf-8")
         except UnicodeDecodeError as error:
-            raise SettingsError(f"{branch}:{SETTINGS} is not UTF-8 text (byte {error.start} does not read); save it as UTF-8") from error
+            raise SettingsError(
+                f"{branch}:{SETTINGS} is not UTF-8 text (byte {error.start} does not read); save it as UTF-8"
+            ) from error
 
     def names(text: str) -> str | None:
         try:
@@ -965,7 +1043,9 @@ def committed_settings(main: Path) -> dict | None:
         own = names(working.read_text(encoding="utf-8")) if working.is_file() else None
     except UnicodeDecodeError:
         own = None
-    for start in dict.fromkeys(branch for branch in (default_branch(main), own) if branch):
+    for start in dict.fromkeys(
+        branch for branch in (default_branch(main), own) if branch
+    ):
         text = shown(start)
         if text is None:
             continue
@@ -973,9 +1053,16 @@ def committed_settings(main: Path) -> dict | None:
         if named != start:
             other = shown(named)
             if other is None:
-                raise SettingsError(f"{start}:{SETTINGS} names {named!r} as branch.base, and {named} holds no {SETTINGS}: the base branch's own file is the one Lem reads")
+                raise SettingsError(
+                    f"{start}:{SETTINGS} names {named!r} as branch.base, and {named} holds no {SETTINGS}: the base branch's own file is the one Lem reads"
+                )
             start, text = named, other
-        commit = subprocess.run(["git", "-C", str(main), "rev-parse", f"refs/heads/{start}"], capture_output=True, text=True, check=False).stdout.strip()
+        commit = subprocess.run(
+            ["git", "-C", str(main), "rev-parse", f"refs/heads/{start}"],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout.strip()
         return {"text": text, "branch": start, "commit": commit}
     return None
 
@@ -994,7 +1081,9 @@ def settings_of(text: str, name: Path | str, place: str) -> dict:
         raise SettingsError(f"{name}: {error}") from error
     for table, body in raw.items():
         if table not in lem_state.TABLE_PLACES:
-            raise SettingsError(f"{name}: unknown table [{table}]{nearest(table, tuple(lem_state.TABLE_PLACES))}")
+            raise SettingsError(
+                f"{name}: unknown table [{table}]{nearest(table, tuple(lem_state.TABLE_PLACES))}"
+            )
         wrong = lem_state.misplaced(table, place)
         if wrong:
             raise SettingsError(f"{name}: {wrong}")
@@ -1002,7 +1091,9 @@ def settings_of(text: str, name: Path | str, place: str) -> dict:
             raise SettingsError(f"{name}: [{table}] must be a table")
         for key in body:
             if key not in TABLES[table]:
-                raise SettingsError(f"{name}: unknown key {table}.{key}{nearest(key, TABLES[table])}")
+                raise SettingsError(
+                    f"{name}: unknown key {table}.{key}{nearest(key, TABLES[table])}"
+                )
     return raw
 
 
@@ -1011,7 +1102,14 @@ def flow_of(raw: dict, name: Path) -> dict:
     return {"topics": strings(raw.get("flow", {}).get("topics", []), "flow.topics")}
 
 
-def parse_seat(text: object, where: str, agents: tuple[str, ...], why: str, example: str, whole: bool = False) -> dict:
+def parse_seat(
+    text: object,
+    where: str,
+    agents: tuple[str, ...],
+    why: str,
+    example: str,
+    whole: bool = False,
+) -> dict:
     """One seat, `agent/model:effort`, as its parts: the agent, the model and the effort, each None
     when the line leaves it out, and the line as written. The effort is what follows the one `:`
     after the model, or after the agent when the line names no model; a second `:` is refused. A
@@ -1023,11 +1121,17 @@ def parse_seat(text: object, where: str, agents: tuple[str, ...], why: str, exam
     if not isinstance(text, str):
         raise SettingsError(f"{where} = {text!r} must be {form}")
     if not text.strip():
-        raise SettingsError(f"{where} is empty: it is {form}. Leave the line out for Lem's default")
+        raise SettingsError(
+            f"{where} is empty: it is {form}. Leave the line out for Lem's default"
+        )
     if any(char.isspace() for char in text):
-        raise SettingsError(f"{where} = {text!r} holds a space: it is {form}, with no space in it")
+        raise SettingsError(
+            f"{where} = {text!r} holds a space: it is {form}, with no space in it"
+        )
     if text.count(":") > 1:
-        raise SettingsError(f"{where} = {text!r} holds {text.count(':')} `:`, and a seat has one at most, before the effort: it is {form}")
+        raise SettingsError(
+            f"{where} = {text!r} holds {text.count(':')} `:`, and a seat has one at most, before the effort: it is {form}"
+        )
     agent, slash, rest = text.partition("/")
     if slash:
         model, colon, effort = rest.partition(":")
@@ -1035,20 +1139,39 @@ def parse_seat(text: object, where: str, agents: tuple[str, ...], why: str, exam
         agent, colon, effort = agent.partition(":")
         model = None
     if not agent:
-        raise SettingsError(f"{where} = {text!r} names no agent before the `/`: it is {form}")
+        raise SettingsError(
+            f"{where} = {text!r} names no agent before the `/`: it is {form}"
+        )
     if whole:
         if agent not in agents:
-            raise SettingsError(f"{where} = {text!r}: the agent {agent!r} must be {' or '.join(agents)}: {why}")
-        missing = [part for part, value in (("model", model), ("effort", effort)) if not value]
+            raise SettingsError(
+                f"{where} = {text!r}: the agent {agent!r} must be {' or '.join(agents)}: {why}"
+            )
+        missing = [
+            part for part, value in (("model", model), ("effort", effort)) if not value
+        ]
         if missing:
-            raise SettingsError(f"{where} = {text!r} names no {' and no '.join(missing)}: it is {form}")
+            raise SettingsError(
+                f"{where} = {text!r} names no {' and no '.join(missing)}: it is {form}"
+            )
     if slash and not model:
-        raise SettingsError(f"{where} = {text!r} names no model after the `/`: leave the `/` out with the model, as \"{agent}\", or write {form}")
+        raise SettingsError(
+            f'{where} = {text!r} names no model after the `/`: leave the `/` out with the model, as "{agent}", or write {form}'
+        )
     if colon and not effort:
-        raise SettingsError(f"{where} = {text!r} names no effort after the `:`: leave the `:` out with the effort, or write {form}")
+        raise SettingsError(
+            f"{where} = {text!r} names no effort after the `:`: leave the `:` out with the effort, or write {form}"
+        )
     if agent not in agents:
-        raise SettingsError(f"{where} = {text!r}: the agent {agent!r} must be {' or '.join(agents)}: {why}")
-    return {"agent": agent, "model": model or None, "effort": effort or None, "seat": text}
+        raise SettingsError(
+            f"{where} = {text!r}: the agent {agent!r} must be {' or '.join(agents)}: {why}"
+        )
+    return {
+        "agent": agent,
+        "model": model or None,
+        "effort": effort or None,
+        "seat": text,
+    }
 
 
 def seat(raw: dict, name: Path, which: str = "reviewer") -> dict | None:
@@ -1057,7 +1180,9 @@ def seat(raw: dict, name: Path, which: str = "reviewer") -> dict | None:
     given = raw.get("seats", {}).get(which)
     if given is None:
         return None
-    return parse_seat(given, f"{name}: seats.{which}", agents, why, example, which in WHOLE_SEATS)
+    return parse_seat(
+        given, f"{name}: seats.{which}", agents, why, example, which in WHOLE_SEATS
+    )
 
 
 def home_name() -> str:
@@ -1084,17 +1209,24 @@ def seat_of(which: str, local: dict, raw: dict, home: dict) -> dict:
     """One seat of SEATS with `from`, the place it came from: the first of the three files that
     names it (`places_of`), else Lem's own (DEFAULT_SEATS). Each file's seat is checked, the ones
     after the first too, so that a wrong line is refused wherever it is."""
-    found = [(seat(tables, name, which), name) for tables, name in places_of(local, raw, home)]
+    found = [
+        (seat(tables, name, which), name)
+        for tables, name in places_of(local, raw, home)
+    ]
     chosen, place = first_of(found)
     if chosen is None:
-        chosen = seat({"seats": {which: DEFAULT_SEATS[which]}}, Path(DEFAULT_FROM), which)
+        chosen = seat(
+            {"seats": {which: DEFAULT_SEATS[which]}}, Path(DEFAULT_FROM), which
+        )
     return {**chosen, "from": place}
 
 
 def experts_from(local: dict, raw: dict, home: dict) -> list[dict]:
     """The experts with `from` on each, from the first of the three files that names them, else
     Lem's (EXPERTS). A file's list replaces the one after it whole."""
-    found = [(experts_of(tables, name), name) for tables, name in places_of(local, raw, home)]
+    found = [
+        (experts_of(tables, name), name) for tables, name in places_of(local, raw, home)
+    ]
     chosen, place = first_of(found)
     if chosen is None:
         chosen = experts_of({"seats": {"experts": list(EXPERTS)}}, Path(DEFAULT_FROM))
@@ -1110,19 +1242,35 @@ def fallback_of(raw: dict, name: Path) -> dict | None:
     if given is False:
         return {"seat": False}
     where = f"{name}: seats.fallback"
-    form = (f'a whole seat, "{SEAT_FORM}", as "{FALLBACK}", which stands in for the reviewer, the planner or the merger '
-            "when its agent gives an error, or false, which turns the fallback off")
+    form = (
+        f'a whole seat, "{SEAT_FORM}", as "{FALLBACK}", which stands in for the reviewer, the planner or the merger '
+        "when its agent gives an error, or false, which turns the fallback off"
+    )
     if given is True:
-        raise SettingsError(f"{where} = true is no seat: it is {form}. Leave the line out for Lem's, \"{FALLBACK}\"")
+        raise SettingsError(
+            f'{where} = true is no seat: it is {form}. Leave the line out for Lem\'s, "{FALLBACK}"'
+        )
     if isinstance(given, str) and not given.strip():
-        raise SettingsError(f"{where} is empty: it is {form}. Leave the line out for Lem's, \"{FALLBACK}\"")
-    return parse_seat(given, where, REVIEWERS, "the agents Lem can start in a seat's place", FALLBACK, True)
+        raise SettingsError(
+            f'{where} is empty: it is {form}. Leave the line out for Lem\'s, "{FALLBACK}"'
+        )
+    return parse_seat(
+        given,
+        where,
+        REVIEWERS,
+        "the agents Lem can start in a seat's place",
+        FALLBACK,
+        True,
+    )
 
 
 def fallback_from(local: dict, raw: dict, home: dict) -> dict:
     """The fallback with `from`, from the first of the three files that names it, else Lem's
     (FALLBACK): `{"seat": false, "from": ...}` when it is off."""
-    found = [(fallback_of(tables, name), name) for tables, name in places_of(local, raw, home)]
+    found = [
+        (fallback_of(tables, name), name)
+        for tables, name in places_of(local, raw, home)
+    ]
     chosen, place = first_of(found)
     if chosen is None:
         chosen = fallback_of({"seats": {"fallback": FALLBACK}}, Path(DEFAULT_FROM))
@@ -1147,7 +1295,17 @@ def experts_of(raw: dict, name: Path) -> list[dict] | None:
             "the ladder asks two experts at most",
         )
     found = [
-        {**parse_seat(one, f"{name}: seats.experts[{number}]", REVIEWERS, "the agents the harness starts an expert with", EXPERTS[number], True), "place": place}
+        {
+            **parse_seat(
+                one,
+                f"{name}: seats.experts[{number}]",
+                REVIEWERS,
+                "the agents the harness starts an expert with",
+                EXPERTS[number],
+                True,
+            ),
+            "place": place,
+        }
         for number, (one, place) in enumerate(zip(given, EXPERT_PLACES))
     ]
     return [{**expert, "here": agent_here(expert["agent"])} for expert in found]
@@ -1160,18 +1318,30 @@ def file_pattern_of(raw: dict, name: Path) -> str:
     pattern = raw.get("paths", {}).get(key, default)
     where = f"{name}: paths.{key}"
     if not isinstance(pattern, str) or not pattern.strip():
-        raise SettingsError(f'{where} = {pattern!r} must be a file name in quotes, as {key} = "{default}"')
+        raise SettingsError(
+            f'{where} = {pattern!r} must be a file name in quotes, as {key} = "{default}"'
+        )
     if pattern.count("<slug>") != 1:
-        raise SettingsError(f'{where} = {pattern!r} must hold <slug> once, where the {what}\'s slug goes, as {key} = "{default}": without it no {what} can be told from another')
+        raise SettingsError(
+            f'{where} = {pattern!r} must hold <slug> once, where the {what}\'s slug goes, as {key} = "{default}": without it no {what} can be told from another'
+        )
     if "/" in pattern or "\\" in pattern:
-        raise SettingsError(f"{where} = {pattern!r} is a file name in the {folder} folder, with no folder in it; paths.{folder} names the folder")
+        raise SettingsError(
+            f"{where} = {pattern!r} is a file name in the {folder} folder, with no folder in it; paths.{folder} names the folder"
+        )
     if not pattern.endswith(".md"):
-        raise SettingsError(f"{where} = {pattern!r} must end with .md: a {what} is a markdown file")
+        raise SettingsError(
+            f"{where} = {pattern!r} must end with .md: a {what} is a markdown file"
+        )
     if re.search(r"<(?!slug>)[^>]*>", pattern):
-        raise SettingsError(f"{where} = {pattern!r} holds a token Lem does not know; it knows YYYY, MM, DD and <slug>")
+        raise SettingsError(
+            f"{where} = {pattern!r} holds a token Lem does not know; it knows YYYY, MM, DD and <slug>"
+        )
     twice = [token for token in PLAN_TOKENS if pattern.count(token) > 1]
     if twice:
-        raise SettingsError(f"{where} = {pattern!r} holds {twice[0]} twice; each of YYYY, MM, DD and <slug> stands in it once at most")
+        raise SettingsError(
+            f"{where} = {pattern!r} holds {twice[0]} twice; each of YYYY, MM, DD and <slug> stands in it once at most"
+        )
     return pattern
 
 
@@ -1181,7 +1351,9 @@ def local_naps_off(local: dict) -> bool:
     naps = local.get("naps", {})
     for key in naps:
         if key != "on":
-            raise SettingsError(f"{LOCAL}: naps.{key} is the project's and belongs in {SETTINGS}; this file may hold only `on = false` under [naps]")
+            raise SettingsError(
+                f"{LOCAL}: naps.{key} is the project's and belongs in {SETTINGS}; this file may hold only `on = false` under [naps]"
+            )
     if "on" not in naps:
         return False
     if naps["on"] is not False:
@@ -1208,7 +1380,9 @@ def keep_days_of(value: object, where: str, left_out: str = str(KEEP_DAYS)) -> i
     more. 0 would take all but a task's small record at the first look after it ended, while the owner
     may still read its board. `left_out` is what the number is without the line."""
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
-        raise SettingsError(f"{where} = {value!r} must be a whole number of days, 1 or more, as keep_days = {KEEP_DAYS}; leave the line out for {left_out}")
+        raise SettingsError(
+            f"{where} = {value!r} must be a whole number of days, 1 or more, as keep_days = {KEEP_DAYS}; leave the line out for {left_out}"
+        )
     return value
 
 
@@ -1219,7 +1393,10 @@ def state_of(raw: dict, name: Path) -> dict:
     given = raw.get("state", {}).get("keep_days")
     if given is None:
         return {"keep_days": KEEP_DAYS, "from": DEFAULT_FROM}
-    return {"keep_days": keep_days_of(given, f"{name}: {KEEP_KEY}"), "from": str(SETTINGS)}
+    return {
+        "keep_days": keep_days_of(given, f"{name}: {KEEP_KEY}"),
+        "from": str(SETTINGS),
+    }
 
 
 def local_keep_days(local: dict) -> int | None:
@@ -1242,9 +1419,20 @@ def load(root: Path) -> dict:
     # base branch's newest commit has it. Before any commit of the base holds the file (an
     # onboarding), the working tree's is read.
     committed = committed_settings(main)
-    if committed and subprocess.run(["git", "-C", str(main), "branch", "--show-current"], capture_output=True, text=True, check=False).stdout.strip() == committed["branch"]:
+    if (
+        committed
+        and subprocess.run(
+            ["git", "-C", str(main), "branch", "--show-current"],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout.strip()
+        == committed["branch"]
+    ):
         committed = None
-    base_file = Path(f"{committed['branch']}:{SETTINGS}") if committed else main / SETTINGS
+    base_file = (
+        Path(f"{committed['branch']}:{SETTINGS}") if committed else main / SETTINGS
+    )
 
     def base_raw() -> dict:
         if not committed:
@@ -1253,7 +1441,9 @@ def load(root: Path) -> dict:
             return settings_of(committed["text"], base_file, "team")
         except SettingsError as error:
             # the fix is an edit of the file, and it counts once the base holds it
-            raise SettingsError(f"Lem reads {SETTINGS} as {committed['branch']} has it, so a fix counts once it is committed there. {error}") from error
+            raise SettingsError(
+                f"Lem reads {SETTINGS} as {committed['branch']} has it, so a fix counts once it is committed there. {error}"
+            ) from error
 
     if main.resolve() == root.resolve():
         raw = base_raw()
@@ -1280,8 +1470,16 @@ def load(root: Path) -> dict:
     return decide(root, main, raw, local, on_base, committed, home, machine)
 
 
-def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, committed: dict | None, home: dict | None = None,
-           machine: dict | None = None) -> dict:
+def decide(
+    root: Path,
+    main: Path,
+    raw: dict,
+    local: dict,
+    on_base: dict,
+    committed: dict | None,
+    home: dict | None = None,
+    machine: dict | None = None,
+) -> dict:
     """The settings from the tables `load` read: the team's file's (`raw`, the branch's copy in a
     task's worktree), this machine's own file's for the repository (`local`), and the base branch's
     copy (`on_base`, the same table as `raw` in the main checkout), with `committed` the commit of the
@@ -1290,7 +1488,9 @@ def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, commit
     Every value is checked here; it refuses with a SettingsError."""
     file = root / SETTINGS
     local_file = main / LOCAL
-    base_file = Path(f"{committed['branch']}:{SETTINGS}") if committed else main / SETTINGS
+    base_file = (
+        Path(f"{committed['branch']}:{SETTINGS}") if committed else main / SETTINGS
+    )
     # What must never go wrong, and the owner's wait, are the base branch's: the branch that a
     # rule guards does not get to lift it. The branch's own table is still checked.
     flow = flow_of(raw, SETTINGS)
@@ -1305,31 +1505,46 @@ def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, commit
             raise SettingsError(f"{SETTINGS}: paths.{name} must be a string")
         resolved = inside(root, relative, f"paths.{name}")
         if name == "rulings" and not relative.endswith(".md"):
-            raise SettingsError(f"{SETTINGS}: paths.rulings = {relative!r} is no markdown file: {RULINGS_FORM}")
+            raise SettingsError(
+                f"{SETTINGS}: paths.rulings = {relative!r} is no markdown file: {RULINGS_FORM}"
+            )
         if name == "rulings" and resolved.is_dir():
-            raise SettingsError(f"{SETTINGS}: paths.rulings = {relative!r} is a folder: {RULINGS_FORM}")
+            raise SettingsError(
+                f"{SETTINGS}: paths.rulings = {relative!r} is a folder: {RULINGS_FORM}"
+            )
         paths[name] = {"path": str(resolved), "exists": resolved.exists()}
     # a pattern, not a path: the name of a plan's file in the plans folder
     paths["plan_file"] = {"pattern": file_pattern_of(raw, SETTINGS)}
     # what Lem reads beside the settings, each in its one place: no setting names them
-    places = {name: {"path": str(root.resolve() / place), "exists": (root / place).exists()} for name, place in PLACES.items()}
+    places = {
+        name: {"path": str(root.resolve() / place), "exists": (root / place).exists()}
+        for name, place in PLACES.items()
+    }
 
     branch = raw.get("branch", {})
     base = branch.get("base")
     if base is not None and not isinstance(base, str):
         raise SettingsError(f"{SETTINGS}: branch.base must be a string")
     if base is not None and not base.strip():
-        raise SettingsError(f"{SETTINGS}: branch.base = {base!r} names no branch; write the branch tasks start from and land on, as base = \"main\"")
+        raise SettingsError(
+            f'{SETTINGS}: branch.base = {base!r} names no branch; write the branch tasks start from and land on, as base = "main"'
+        )
     land = branch.get("land", LAND_DEFAULT)
     if land not in LAND:
-        raise SettingsError(f"{SETTINGS}: branch.land = {land!r} must be one of {', '.join(LAND)}")
+        raise SettingsError(
+            f"{SETTINGS}: branch.land = {land!r} must be one of {', '.join(LAND)}"
+        )
 
     history = branch.get("history", HISTORY_DEFAULT)
     if history not in HISTORY:
-        raise SettingsError(f"{SETTINGS}: branch.history = {history!r} must be one of {', '.join(HISTORY)}")
-    protected =strings(branch.get("protected", []), "branch.protected")
+        raise SettingsError(
+            f"{SETTINGS}: branch.history = {history!r} must be one of {', '.join(HISTORY)}"
+        )
+    protected = strings(branch.get("protected", []), "branch.protected")
     if base in protected:
-        raise SettingsError(f"{SETTINGS}: branch.base = {base!r} is in branch.protected, so no task could land")
+        raise SettingsError(
+            f"{SETTINGS}: branch.base = {base!r} is in branch.protected, so no task could land"
+        )
 
     # Each seat is the first of its four places, whole: a model and an effort belong to the agent of the
     # line they are on. `from` names the place, so the seats stay out of `local.overrides`.
@@ -1339,18 +1554,30 @@ def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, commit
     # the machine's own switch of the correction queue, which no file of a repository may hold; with no
     # line it is Lem's default, no, and the hook sends nothing
     machine_corrections = (machine or {}).get("corrections", {})
-    corrections = ({"collect": machine_corrections["collect"], "from": lem_state.shown(lem_state.machine_file())} if "collect" in machine_corrections
-                   else {"collect": False, "from": DEFAULT_FROM})
+    corrections = (
+        {
+            "collect": machine_corrections["collect"],
+            "from": lem_state.shown(lem_state.machine_file()),
+        }
+        if "collect" in machine_corrections
+        else {"collect": False, "from": DEFAULT_FROM}
+    )
     tracker = None
     if "tracker" in raw:
         given = raw["tracker"]
         for key, value in given.items():
             if not isinstance(value, str) or not value.strip():
-                raise SettingsError(f"{SETTINGS}: tracker.{key} must be a word in quotes, not {value!r}")
+                raise SettingsError(
+                    f"{SETTINGS}: tracker.{key} must be a word in quotes, not {value!r}"
+                )
         if "kind" not in given:
-            raise SettingsError(f"{SETTINGS}: [tracker] needs kind; leave the whole table out when the project has no tracker")
+            raise SettingsError(
+                f"{SETTINGS}: [tracker] needs kind; leave the whole table out when the project has no tracker"
+            )
         if given["kind"] not in TRACKERS:
-            raise SettingsError(f"{SETTINGS}: tracker.kind = {given['kind']!r} must be one of {', '.join(TRACKERS)}")
+            raise SettingsError(
+                f"{SETTINGS}: tracker.kind = {given['kind']!r} must be one of {', '.join(TRACKERS)}"
+            )
         tracker = {"kind": given["kind"]}
     # The naps spend the tokens of whoever works on this machine, so their switch is the base
     # branch's too: a task's branch that switches them on has not been agreed to yet.
@@ -1378,15 +1605,34 @@ def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, commit
         "main": str(main),
         "settings": str(file) if file.is_file() or committed else None,
         # where the settings were read: the working tree, or the base branch's commit while another branch is checked out
-        "settings_from": (f"{committed['branch']}@{committed['commit'][:9]}" if committed else "the working tree")
-        if main.resolve() == root.resolve() else "this worktree's branch, with [flow], [naps] and [state] from " + (f"{committed['branch']}@{committed['commit'][:9]}" if committed else "the main checkout"),
+        "settings_from": (
+            f"{committed['branch']}@{committed['commit'][:9]}"
+            if committed
+            else "the working tree"
+        )
+        if main.resolve() == root.resolve()
+        else "this worktree's branch, with [flow], [naps] and [state] from "
+        + (
+            f"{committed['branch']}@{committed['commit'][:9]}"
+            if committed
+            else "the main checkout"
+        ),
         "paths": paths,
         "places": places,
-        "branch": {"base": base, "land": land, "history": history, "protected": protected},
+        "branch": {
+            "base": base,
+            "land": land,
+            "history": history,
+            "protected": protected,
+        },
         "checks": {
-            "commands": commands(raw.get("checks", {}).get("commands", []), "checks.commands"),
+            "commands": commands(
+                raw.get("checks", {}).get("commands", []), "checks.commands"
+            ),
             "setup": commands(raw.get("checks", {}).get("setup", []), "checks.setup"),
-            "serial": commands(raw.get("checks", {}).get("serial", []), "checks.serial"),
+            "serial": commands(
+                raw.get("checks", {}).get("serial", []), "checks.serial"
+            ),
         },
         # read from the main checkout's settings, in a task's worktree too
         "flow": flow,
@@ -1398,13 +1644,18 @@ def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, commit
         # file; `from` names which, as each seat's does
         "state": state,
         # what this machine set for itself in the tables that are not seats; a seat's `from` says it of the seat
-        "local": {"file": str(local_file) if local_file.is_file() else None, "overrides": overridden},
+        "local": {
+            "file": str(local_file) if local_file.is_file() else None,
+            "overrides": overridden,
+        },
     }
 
 
 def cmd_path(settings: dict, name: str) -> None:
     if name == "plan_file":
-        raise SettingsError("paths.plan_file is the pattern of a plan's name, not a path: `lem project plan-file SLUG` prints the name of a plan's file")
+        raise SettingsError(
+            "paths.plan_file is the pattern of a plan's name, not a path: `lem project plan-file SLUG` prints the name of a plan's file"
+        )
     found = {**settings["places"], **{key: settings["paths"][key] for key in PATHS}}
     if name not in found:
         raise SettingsError(f"no path named {name!r}{nearest(name, tuple(found))}")
@@ -1426,7 +1677,18 @@ def cmd_plan_file(settings: dict, slug: str, day: str | None) -> None:
     before = lem_plans.resumed_from(state_root(Path(settings["root"])) / "tasks", slug)
     found = lem_plans.found(folder, pattern, slug, before)
     name = lem_plans.name(pattern, slug, day)
-    print(json.dumps({"slug": slug, "pattern": pattern, "name": name, "path": str(folder / name), "found": str(found) if found else None}, indent=2))
+    print(
+        json.dumps(
+            {
+                "slug": slug,
+                "pattern": pattern,
+                "name": name,
+                "path": str(folder / name),
+                "found": str(found) if found else None,
+            },
+            indent=2,
+        )
+    )
 
 
 def cmd_may_land(settings: dict, target: str) -> None:
@@ -1439,21 +1701,48 @@ def may_land(settings: dict, target: str) -> str:
     landing calls it with the settings it loaded; whether the branch exists is asked of git each time."""
     branch = settings["branch"]
     if target in branch["protected"]:
-        raise SettingsError(f"{target!r} is protected in {SETTINGS}: nothing lands on it or is pushed to it")
+        raise SettingsError(
+            f"{target!r} is protected in {SETTINGS}: nothing lands on it or is pushed to it"
+        )
     if branch["base"] is None:
-        raise SettingsError(f"{SETTINGS} names no branch.base, so no branch can be landed on")
+        raise SettingsError(
+            f"{SETTINGS} names no branch.base, so no branch can be landed on"
+        )
     if target != branch["base"]:
-        raise SettingsError(f"tasks of this project land on {branch['base']!r}, not on {target!r}")
-    found = subprocess.run(["git", "-C", settings["root"], "rev-parse", "--verify", "--quiet", f"refs/heads/{target}"], capture_output=True, text=True, check=False)
+        raise SettingsError(
+            f"tasks of this project land on {branch['base']!r}, not on {target!r}"
+        )
+    found = subprocess.run(
+        [
+            "git",
+            "-C",
+            settings["root"],
+            "rev-parse",
+            "--verify",
+            "--quiet",
+            f"refs/heads/{target}",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     if found.returncode != 0:
-        raise SettingsError(f"branch.base = {target!r} is no branch of this repository; correct it in {SETTINGS}, or make the branch first")
-    return f"{target}: tasks land here; " + ("the merge agent merges a green request that is not careful" if branch["land"] == "agent" else "the owner merges")
+        raise SettingsError(
+            f"branch.base = {target!r} is no branch of this repository; correct it in {SETTINGS}, or make the branch first"
+        )
+    return f"{target}: tasks land here; " + (
+        "the merge agent merges a green request that is not careful"
+        if branch["land"] == "agent"
+        else "the owner merges"
+    )
 
 
 def default_branch(root: Path) -> str | None:
     head = subprocess.run(
         ["git", "-C", str(root), "symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     return head.stdout.strip().removeprefix("origin/") if head.returncode == 0 else None
 
@@ -1478,30 +1767,53 @@ def cmd_init(root: Path, base: str | None, codex: str) -> None:
         raise SettingsError(f"{SETTINGS} already exists; edit it")
     # A task ends as a GitHub pull request, so a remote elsewhere could land nothing. A repository with
     # no remote yet gets its settings, and the first proposal asks for the remote.
-    origin = subprocess.run(["git", "-C", str(root), "config", "--get", "remote.origin.url"], capture_output=True, text=True, check=False).stdout.strip()
+    origin = subprocess.run(
+        ["git", "-C", str(root), "config", "--get", "remote.origin.url"],
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout.strip()
     if origin and not GITHUB.match(origin):
         raise SettingsError(
             f"origin is {origin}, and Lem lands through GitHub pull requests only: point origin at the repository on GitHub "
             "(`git remote set-url origin git@github.com:OWNER/REPO.git`), then run init again",
         )
     if not origin:
-        print("project.py: this repository has no remote origin yet; Lem lands through GitHub pull requests, so add it "
-              "(`git remote add origin git@github.com:OWNER/REPO.git`) before the first landing", file=sys.stderr)
+        print(
+            "project.py: this repository has no remote origin yet; Lem lands through GitHub pull requests, so add it "
+            "(`git remote add origin git@github.com:OWNER/REPO.git`) before the first landing",
+            file=sys.stderr,
+        )
     base = base or default_branch(root)
     if not base:
-        raise SettingsError("cannot tell the base branch (no origin/HEAD); pass --base NAME")
+        raise SettingsError(
+            "cannot tell the base branch (no origin/HEAD); pass --base NAME"
+        )
     file.parent.mkdir(exist_ok=True)
     # a whole seat for each of the three, of the agents the machine has
-    file.write_text(TEMPLATE.format(
-        plans=PATHS["plans"], plan_file=PLAN_FILE, rulings=PATHS["rulings"], base=base,
-        reviewer=REVIEWER_SEATS["codex" if codex == "yes" else "claude"], planner=PLANNER,
-        experts=", ".join(toml_string(one) for one in EXPERTS if codex == "yes" or one.startswith("claude")),
-    ), encoding="utf-8")
+    file.write_text(
+        TEMPLATE.format(
+            plans=PATHS["plans"],
+            plan_file=PLAN_FILE,
+            rulings=PATHS["rulings"],
+            base=base,
+            reviewer=REVIEWER_SEATS["codex" if codex == "yes" else "claude"],
+            planner=PLANNER,
+            experts=", ".join(
+                toml_string(one)
+                for one in EXPERTS
+                if codex == "yes" or one.startswith("claude")
+            ),
+        ),
+        encoding="utf-8",
+    )
     # one machine's own settings and Lem's state are never committed (the state folder also holds an
     # ignore file of its own, `lem_state.py`)
     ignore = file.parent / ".gitignore"
     known = text_of(ignore).splitlines() if ignore.is_file() else []
-    missing = [line for line in (LOCAL.name, f"{lem_state.STATE.name}/") if line not in known]
+    missing = [
+        line for line in (LOCAL.name, f"{lem_state.STATE.name}/") if line not in known
+    ]
     if missing:
         ignore.write_text("\n".join([*known, *missing]) + "\n", encoding="utf-8")
     print(file)
@@ -1510,14 +1822,21 @@ def cmd_init(root: Path, base: str | None, codex: str) -> None:
 # What `set` writes: each seat, and the seat that stands in when one fails; with the words it says each by,
 # a seat that can fail by the name its block and the pull request give it (`lem_state.SEAT_NAMES`).
 SET_NAMES = (*SEATS, "experts", "fallback")
-SET_WORDS = {**lem_state.SEAT_NAMES, "session": "a task's session", "experts": "the experts", "fallback": "the fallback"}
+SET_WORDS = {
+    **lem_state.SEAT_NAMES,
+    "session": "a task's session",
+    "experts": "the experts",
+    "fallback": "the fallback",
+}
 # Where `set` writes: the developer's file for all his repositories (the home folder's `settings.toml`),
 # or this machine's own file for this one. The team's file is everybody's, edited by hand and committed,
 # and no command writes it.
 SCOPES = ("global", "local")
 # the first line of a file `set` makes; a file left with nothing but it and blank lines goes, and one with a comment of the owner's stays
-SET_FIRST = {"global": "# Your own settings for Lem, for every repository on this machine. `lem project set global NAME VALUE` writes a seat.",
-             "local": "# This machine's own settings for Lem, for this repository. Not committed; `lem project set local NAME VALUE` writes a seat."}
+SET_FIRST = {
+    "global": "# Your own settings for Lem, for every repository on this machine. `lem project set global NAME VALUE` writes a seat.",
+    "local": "# This machine's own settings for Lem, for this repository. Not committed; `lem project set local NAME VALUE` writes a seat.",
+}
 
 
 def set_value(scope: str, name: str, value: str) -> object:
@@ -1526,28 +1845,43 @@ def set_value(scope: str, name: str, value: str) -> object:
     the experts, written as a list, `false` for the fallback only; None for `default`, which takes the
     line out."""
     if name not in SET_NAMES:
-        raise SettingsError(f"set takes a seat or fallback as NAME, not {name!r}{nearest(name, SET_NAMES)}")
+        raise SettingsError(
+            f"set takes a seat or fallback as NAME, not {name!r}{nearest(name, SET_NAMES)}"
+        )
     if value == "default":
         return None
     where = Path(f"set {scope} {name}")
     if value == "false":
         if name != "fallback":
-            raise SettingsError(f"{where}: false is for fallback only, which it turns off; {SET_WORDS[name]} takes a whole seat, \"{SEAT_FORM}\", "
-                                f"or default, which takes the line out")
+            raise SettingsError(
+                f'{where}: false is for fallback only, which it turns off; {SET_WORDS[name]} takes a whole seat, "{SEAT_FORM}", '
+                f"or default, which takes the line out"
+            )
         return False
     if name == "fallback":
         # `true` is refused as the settings refuse it, with the line to leave out
-        return fallback_of({"seats": {"fallback": True if value == "true" else value}}, where)["seat"]
+        return fallback_of(
+            {"seats": {"fallback": True if value == "true" else value}}, where
+        )["seat"]
     if name == "experts":
         parts = [part.strip() for part in value.split(",")]
         if len(parts) > len(EXPERT_PLACES):
-            raise SettingsError(f"{where}: {value!r} names {len(parts)} seats, and the experts are one or two whole seats joined by a comma, "
-                                f"as `set {scope} experts {','.join(EXPERTS)}`")
+            raise SettingsError(
+                f"{where}: {value!r} names {len(parts)} seats, and the experts are one or two whole seats joined by a comma, "
+                f"as `set {scope} experts {','.join(EXPERTS)}`"
+            )
         experts_of({"seats": {"experts": parts}}, where)
         return parts
     agents, why, example = SEATS[name]
     # the example of SEATS may leave out a part, as the files may; the one `set` names is whole, as it asks
-    return parse_seat(value, f"{where}: seats.{name}", agents, why, example if name in WHOLE_SEATS else DEFAULT_SEATS[name], True)["seat"]
+    return parse_seat(
+        value,
+        f"{where}: seats.{name}",
+        agents,
+        why,
+        example if name in WHOLE_SEATS else DEFAULT_SEATS[name],
+        True,
+    )["seat"]
 
 
 def seats_checked(tables: dict, name: Path) -> None:
@@ -1574,12 +1908,16 @@ def cmd_set(root: Path, scope: str, name: str, words: list[str]) -> dict:
     other line of the file stays, its comments too (`lem_state.edited`). It gives the seat as `show`
     then reads it, with its `from`."""
     if scope not in SCOPES:
-        raise SettingsError(f"set takes global, which writes {home_name()} for each repository on this machine that names none, "
-                            f"or local, which writes {LOCAL} of this repository for this machine only; not {scope!r}. "
-                            f"{SETTINGS} is the project's, edited by hand and committed: no command writes it")
+        raise SettingsError(
+            f"set takes global, which writes {home_name()} for each repository on this machine that names none, "
+            f"or local, which writes {LOCAL} of this repository for this machine only; not {scope!r}. "
+            f"{SETTINGS} is the project's, edited by hand and committed: no command writes it"
+        )
     if len(words) != 1:
-        raise SettingsError(f"set {scope} {name} takes one VALUE, a whole seat \"{SEAT_FORM}\", as `set {scope} reviewer {REVIEWER_SEATS['codex']}`, "
-                            f"or default; not {len(words)} words")
+        raise SettingsError(
+            f'set {scope} {name} takes one VALUE, a whole seat "{SEAT_FORM}", as `set {scope} reviewer {REVIEWER_SEATS["codex"]}`, '
+            f"or default; not {len(words)} words"
+        )
     value = set_value(scope, name, words[0])
     if scope == "global":
         file, place = lem_state.home_settings_file(), home_name()
@@ -1595,19 +1933,35 @@ def cmd_set(root: Path, scope: str, name: str, words: list[str]) -> dict:
     except lem_state.StateError as error:
         raise SettingsError(str(error)) from error
     except OSError as error:
-        raise SettingsError(f"{file} was not written ({error.strerror}); make its folder writable, then run this again") from error
+        raise SettingsError(
+            f"{file} was not written ({error.strerror}); make its folder writable, then run this again"
+        ) from error
     found = load(root)["seats"][name]
     if name == "experts":
-        shown, source, verb = ", ".join(expert["seat"] for expert in found), found[0]["from"], "are"
+        shown, source, verb = (
+            ", ".join(expert["seat"] for expert in found),
+            found[0]["from"],
+            "are",
+        )
     else:
-        shown, source, verb = ("off" if found["seat"] is False else found["seat"]), found["from"], "is"
+        shown, source, verb = (
+            ("off" if found["seat"] is False else found["seat"]),
+            found["from"],
+            "is",
+        )
     said = f"{SET_WORDS[name]} here {verb} {shown}, from {source}"
     if value is None:
         said += f"; {place} names none"
     elif source != place:
         said += f", which comes before {place}"
-    return {"scope": scope, "file": str(file), "name": name, "line": None if value is None else f"{name} = {lem_state.toml_value(value)}",
-            "seat": found, "said": said}
+    return {
+        "scope": scope,
+        "file": str(file),
+        "name": name,
+        "line": None if value is None else f"{name} = {lem_state.toml_value(value)}",
+        "seat": found,
+        "said": said,
+    }
 
 
 def braces(pattern: str) -> list[str]:
@@ -1630,8 +1984,12 @@ def braces(pattern: str) -> list[str]:
                     last = j + 1
             parts.append(pattern[last:i])
             if len(parts) == 1:
-                return [pattern[: i + 1] + rest for rest in braces(pattern[i + 1:])]
-            return [done for part in parts for done in braces(pattern[:start] + part + pattern[i + 1:])]
+                return [pattern[: i + 1] + rest for rest in braces(pattern[i + 1 :])]
+            return [
+                done
+                for part in parts
+                for done in braces(pattern[:start] + part + pattern[i + 1 :])
+            ]
     return [pattern]
 
 
@@ -1648,7 +2006,11 @@ def glob_regex(glob: str) -> re.Pattern[str]:
     out, i = [], 0
     while i < len(glob):
         char = glob[i]
-        whole = glob.startswith("**", i) and (i == 0 or glob[i - 1] == "/") and (i + 2 == len(glob) or glob[i + 2] == "/")
+        whole = (
+            glob.startswith("**", i)
+            and (i == 0 or glob[i - 1] == "/")
+            and (i + 2 == len(glob) or glob[i + 2] == "/")
+        )
         if whole and i + 2 < len(glob):
             out.append("(?:.*/)?")
             i += 3
@@ -1661,9 +2023,9 @@ def glob_regex(glob: str) -> re.Pattern[str]:
         elif char == "?":
             out.append("[^/]")
             i += 1
-        elif char == "[" and "]" in glob[i + 2:]:
+        elif char == "[" and "]" in glob[i + 2 :]:
             end = glob.index("]", i + 2)
-            inner = glob[i + 1:end]
+            inner = glob[i + 1 : end]
             inner = "^" + inner[1:] if inner[0] == "!" else inner
             out.append("[" + inner.replace("\\", "\\\\") + "]")
             i = end + 1
@@ -1703,7 +2065,9 @@ def rule_scope(file: Path, name: str) -> list[str] | None:
                 return text[:i].strip()
         return text.strip()
 
-    end = next((i for i, line in enumerate(lines[1:], 1) if line.strip() == "---"), None)
+    end = next(
+        (i for i, line in enumerate(lines[1:], 1) if line.strip() == "---"), None
+    )
     if end is None:
         return None
     block = lines[1:end]
@@ -1729,20 +2093,29 @@ def rule_scope(file: Path, name: str) -> list[str] | None:
     elif rest:
         items = [rest]
     else:
-        for follow in block[at + 1:]:
+        for follow in block[at + 1 :]:
             if not follow.strip() or follow.lstrip().startswith("#"):
                 continue
             item = re.match(r"\s*-\s+(.*)$", follow)
             if item:
                 items.append(bare(item.group(1)))
             elif follow[:1].isspace():
-                raise SettingsError(f"{name}: a line under `paths:` is not a list item ({follow.strip()!r}); write each glob as `  - \"GLOB\"`")
+                raise SettingsError(
+                    f'{name}: a line under `paths:` is not a list item ({follow.strip()!r}); write each glob as `  - "GLOB"`'
+                )
             else:
                 break
     globs = [item.strip() for item in items]
-    globs = [glob[1:-1] if len(glob) > 1 and glob[0] == glob[-1] and glob[0] in "\"'" else glob for glob in globs]
+    globs = [
+        glob[1:-1]
+        if len(glob) > 1 and glob[0] == glob[-1] and glob[0] in "\"'"
+        else glob
+        for glob in globs
+    ]
     if not globs or not all(globs):
-        raise SettingsError(f"{name}: its `paths:` names no glob; write each glob under it as `  - \"GLOB\"`, or take the line out so the file covers every path")
+        raise SettingsError(
+            f'{name}: its `paths:` names no glob; write each glob under it as `  - "GLOB"`, or take the line out so the file covers every path'
+        )
     return globs
 
 
@@ -1756,36 +2129,95 @@ def cmd_rules(settings: dict, files: list[str], commits: str | None) -> None:
         # points at. The last name is kept as written, since the file may be a link or be gone.
         full = root / file
         if full == root or full.name in ("", ".", ".."):
-            raise SettingsError(f"{file} does not name a file; name the files a change touches")
+            raise SettingsError(
+                f"{file} does not name a file; name the files a change touches"
+            )
         full = Path(os.path.realpath(full.parent)) / full.name
         if not full.is_relative_to(root) or full == root:
-            raise SettingsError(f"{file} is not inside {root}; name files of this repository")
+            raise SettingsError(
+                f"{file} is not inside {root}; name files of this repository"
+            )
         changed.append(full.relative_to(root).as_posix())
     if commits:
         # --no-renames: a file that moved counts under its old path and its new one, each with its rules
-        listed = subprocess.run(["git", "-C", str(root), "diff", "--name-only", "--no-renames", "-z", commits], capture_output=True, text=True, check=False)
+        listed = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(root),
+                "diff",
+                "--name-only",
+                "--no-renames",
+                "-z",
+                commits,
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
         if listed.returncode != 0:
-            raise SettingsError(f"git diff --name-only {commits} failed: {listed.stderr.strip()}")
+            raise SettingsError(
+                f"git diff --name-only {commits} failed: {listed.stderr.strip()}"
+            )
         changed += [name for name in listed.stdout.split("\0") if name]
     changed = sorted(set(changed))
     if not files and not commits:
-        raise SettingsError("rules needs the files a change touches: name them, or pass --range BASE..TIP")
+        raise SettingsError(
+            "rules needs the files a change touches: name them, or pass --range BASE..TIP"
+        )
     folder = Path(settings["root"]).resolve() / PLACES["rules"]
     rules = []
     for file in rule_files(folder):
-        shown = file.relative_to(root).as_posix() if file.is_relative_to(root) else str(file)
+        shown = (
+            file.relative_to(root).as_posix()
+            if file.is_relative_to(root)
+            else str(file)
+        )
         globs = rule_scope(file, shown)
         if globs is None:
             rules.append({"file": str(file), "scope": "every path"})
             continue
         try:
-            patterns = [(glob, pattern) for glob in globs for pattern in glob_patterns(glob)]
+            patterns = [
+                (glob, pattern) for glob in globs for pattern in glob_patterns(glob)
+            ]
         except re.error as error:
-            raise SettingsError(f"{shown}: a glob of its `paths:` does not read as a pattern ({error}); correct it, most likely a `[` with no `]` or a range that runs backwards") from error
-        covers = sorted({name for name in changed for _, pattern in patterns if pattern.fullmatch(name)})
+            raise SettingsError(
+                f"{shown}: a glob of its `paths:` does not read as a pattern ({error}); correct it, most likely a `[` with no `]` or a range that runs backwards"
+            ) from error
+        covers = sorted(
+            {
+                name
+                for name in changed
+                for _, pattern in patterns
+                if pattern.fullmatch(name)
+            }
+        )
         if covers:
-            rules.append({"file": str(file), "scope": sorted({glob for glob, pattern in patterns if any(pattern.fullmatch(name) for name in changed)}), "covers": covers})
-    print(json.dumps({"folder": str(folder), "exists": folder.is_dir(), "files": changed, "rules": rules}, indent=2))
+            rules.append(
+                {
+                    "file": str(file),
+                    "scope": sorted(
+                        {
+                            glob
+                            for glob, pattern in patterns
+                            if any(pattern.fullmatch(name) for name in changed)
+                        }
+                    ),
+                    "covers": covers,
+                }
+            )
+    print(
+        json.dumps(
+            {
+                "folder": str(folder),
+                "exists": folder.is_dir(),
+                "files": changed,
+                "rules": rules,
+            },
+            indent=2,
+        )
+    )
 
 
 STATE_ROOTS: dict[Path, Path] = {}
@@ -1806,20 +2238,56 @@ def taken_on_remote(root: Path, slug: str, branch: str | None) -> None:
     machine. The name is the one `--branch` gives, else TYPE/SLUG for every type a task takes. One
     question to origin; a repository with no remote has nobody to collide with, and an origin that
     does not answer is said on stderr, since the push of `lem land propose` refuses such a branch too."""
-    if subprocess.run(["git", "-C", str(root), "remote", "get-url", "origin"], capture_output=True, text=True, check=False).returncode != 0:
+    if (
+        subprocess.run(
+            ["git", "-C", str(root), "remote", "get-url", "origin"],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).returncode
+        != 0
+    ):
         return
     names = [branch] if branch else [f"{kind}/{slug}" for kind in TYPES]
-    asked = subprocess.run(["git", "-C", str(root), "ls-remote", "--heads", "origin", *(f"refs/heads/{name}" for name in names)],
-                           capture_output=True, text=True, check=False, stdin=subprocess.DEVNULL)
+    asked = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(root),
+            "ls-remote",
+            "--heads",
+            "origin",
+            *(f"refs/heads/{name}" for name in names),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        stdin=subprocess.DEVNULL,
+    )
     if asked.returncode != 0:
-        said = [line.strip() for line in (asked.stderr or asked.stdout).splitlines() if line.strip()]
-        print(f"project.py: origin did not answer ({said[-1] if said else 'git ls-remote failed'}), so nothing checked that no branch of {slug!r} is there already", file=sys.stderr)
+        said = [
+            line.strip()
+            for line in (asked.stderr or asked.stdout).splitlines()
+            if line.strip()
+        ]
+        print(
+            f"project.py: origin did not answer ({said[-1] if said else 'git ls-remote failed'}), so nothing checked that no branch of {slug!r} is there already",
+            file=sys.stderr,
+        )
         return
-    there = sorted({line.split("\t", 1)[1].removeprefix("refs/heads/") for line in asked.stdout.splitlines() if "\t" in line} & set(names))
+    there = sorted(
+        {
+            line.split("\t", 1)[1].removeprefix("refs/heads/")
+            for line in asked.stdout.splitlines()
+            if "\t" in line
+        }
+        & set(names)
+    )
     if there:
         raise SettingsError(
             f"origin has the branch {there[0]} already, and no task here holds it: somebody's work, or a task of another machine. "
-            "A new task takes a branch of its own: add a word to the slug" + (", or give another --branch" if branch else ""),
+            "A new task takes a branch of its own: add a word to the slug"
+            + (", or give another --branch" if branch else ""),
         )
 
 
@@ -1828,8 +2296,10 @@ def ask_refusal(slug: str, kept: str | None, ask: str) -> str | None:
     the same words again are a retry and pass, and other words are another request under the same name."""
     if kept is None or kept.strip() == ask.strip():
         return None
-    return (f"the task {slug!r} holds other words already ({kept.strip()!r}), and a task's words are written once: "
-            f"this is another request under the same name, so choose another name for it (add a word to the slug)")
+    return (
+        f"the task {slug!r} holds other words already ({kept.strip()!r}), and a task's words are written once: "
+        f"this is another request under the same name, so choose another name for it (add a word to the slug)"
+    )
 
 
 def ticket_id(tracker: dict | None, given: str) -> str:
@@ -1837,15 +2307,21 @@ def ticket_id(tracker: dict | None, given: str) -> str:
     upper case (MBZ-12), a GitHub issue's number after `#` (#42). A project with no tracker takes no
     ticket: no tracker would act on it, and `ticket_owed` gives nothing with none."""
     if tracker is None:
-        raise SettingsError(f"--ticket {given!r} names a tracker's ticket, and {SETTINGS} has no [tracker]: add the table with its kind "
-                            "(kind = \"linear\" or kind = \"github\"), or open the task with --ask alone")
+        raise SettingsError(
+            f"--ticket {given!r} names a tracker's ticket, and {SETTINGS} has no [tracker]: add the table with its kind "
+            '(kind = "linear" or kind = "github"), or open the task with --ask alone'
+        )
     if tracker["kind"] == "github":
         found = ISSUE.fullmatch(given)
         if not found or int(found[1]) == 0:
-            raise SettingsError(f"--ticket {given!r} is not an issue's number, such as 42 or #42: the project's tracker is github")
+            raise SettingsError(
+                f"--ticket {given!r} is not an issue's number, such as 42 or #42: the project's tracker is github"
+            )
         return f"#{int(found[1])}"
     if not TICKET.fullmatch(given):
-        raise SettingsError(f"--ticket {given!r} is not a ticket's id, such as MBZ-12: the project's tracker is {tracker['kind']}")
+        raise SettingsError(
+            f"--ticket {given!r} is not a ticket's id, such as MBZ-12: the project's tracker is {tracker['kind']}"
+        )
     return given.upper()
 
 
@@ -1858,13 +2334,21 @@ def holder_refusal(task: dict, ticket: str, kind: str | None) -> str:
     """Why a new task cannot take TICKET, which TASK holds, with the way on."""
     slug = task["slug"]
     if task["status"] == "landed":
-        return (f"the task {slug!r} landed the ticket {ticket}, and a ticket that landed stays with its task: "
-                "start the new task from the owner's own words (--ask), with no --ticket")
+        return (
+            f"the task {slug!r} landed the ticket {ticket}, and a ticket that landed stays with its task: "
+            "start the new task from the owner's own words (--ask), with no --ticket"
+        )
     if task["status"] in RETURNED:
         step = PAID_BY[task["status"]]
-        pay = f"the line `lem issue {step} {slug}`" if kind == "github" else f"the lem-linear skill's step `{step}` for {slug}, run from a session"
-        return (f"the task {slug!r} is {task['status']} and still owes the ticket {ticket} {', '.join(task['ticket_owed'])}: "
-                f"pay it with {pay}, then open this task again")
+        pay = (
+            f"the line `lem issue {step} {slug}`"
+            if kind == "github"
+            else f"the lem-linear skill's step `{step}` for {slug}, run from a session"
+        )
+        return (
+            f"the task {slug!r} is {task['status']} and still owes the ticket {ticket} {', '.join(task['ticket_owed'])}: "
+            f"pay it with {pay}, then open this task again"
+        )
     return f"the task {slug!r} already holds the ticket {ticket}; go on with that task, or drop it first"
 
 
@@ -1873,7 +2357,14 @@ def mark_of(root: Path, ticket: str) -> Path:
     return state_root(root) / TICKET_MARKS / ticket.lstrip("#")
 
 
-def claim_ticket(root: Path, slug: str, ticket: str, tasks: list[dict], kind: str | None, succeeds: str | None = None) -> Path | None:
+def claim_ticket(
+    root: Path,
+    slug: str,
+    ticket: str,
+    tasks: list[dict],
+    kind: str | None,
+    succeeds: str | None = None,
+) -> Path | None:
     """Take TICKET for the task SLUG, or refuse it with the task that holds it. `task-dir` and
     `resume` both call it; SUCCEEDS is the dropped task a resumed one goes on from, whose mark moves.
 
@@ -1901,12 +2392,31 @@ def claim_ticket(root: Path, slug: str, ticket: str, tasks: list[dict], kind: st
             take_over(mark, holder, ticket)
             continue
         if task is None and not (state_root(root) / "tasks" / holder).is_dir():
-            raise SettingsError(f"the ticket {ticket} has a mark, {mark}, that names the task {holder!r}, whose folder is not there: a task that opens "
-                                f"in this moment, or a mark left behind. When no task {holder!r} opens, remove the mark (rm '{mark}') and open this task again")
-        raise SettingsError(holder_refusal(task or {"slug": holder, "status": None, "ticket_owed": []}, ticket, kind))
+            raise SettingsError(
+                f"the ticket {ticket} has a mark, {mark}, that names the task {holder!r}, whose folder is not there: a task that opens "
+                f"in this moment, or a mark left behind. When no task {holder!r} opens, remove the mark (rm '{mark}') and open this task again"
+            )
+        raise SettingsError(
+            holder_refusal(
+                task or {"slug": holder, "status": None, "ticket_owed": []},
+                ticket,
+                kind,
+            )
+        )
     else:
-        raise SettingsError(f"the mark of the ticket {ticket}, {mark}, changed hands three times while this task asked for it: open this task again")
-    other = next((task for task in tasks if task["ticket"] == ticket and task["slug"] not in (slug, succeeds) and not released(task)), None)
+        raise SettingsError(
+            f"the mark of the ticket {ticket}, {mark}, changed hands three times while this task asked for it: open this task again"
+        )
+    other = next(
+        (
+            task
+            for task in tasks
+            if task["ticket"] == ticket
+            and task["slug"] not in (slug, succeeds)
+            and not released(task)
+        ),
+        None,
+    )
     if other:
         # a task that holds the ticket with no mark: a task the hand moved, or one of a state folder from before the marks
         if made:
@@ -1916,7 +2426,14 @@ def claim_ticket(root: Path, slug: str, ticket: str, tasks: list[dict], kind: st
 
 
 @contextlib.contextmanager
-def held_ticket(root: Path, slug: str, ticket: str, tasks: list[dict], kind: str | None, succeeds: str | None = None) -> Iterator[None]:
+def held_ticket(
+    root: Path,
+    slug: str,
+    ticket: str,
+    tasks: list[dict],
+    kind: str | None,
+    succeeds: str | None = None,
+) -> Iterator[None]:
     """Take TICKET for the task SLUG (`claim_ticket`) for the rest of an opening, `task-dir`'s or
     `resume`'s: a refusal raised in the block gives back the mark this claim made, to the dropped
     task SUCCEEDS when the claim took it from that one, so that no mark names a task that never opened."""
@@ -1929,7 +2446,12 @@ def held_ticket(root: Path, slug: str, ticket: str, tasks: list[dict], kind: str
     try:
         yield
     except BaseException:
-        if made and unmark(made, slug) is None and succeeds is not None and before == succeeds:
+        if (
+            made
+            and unmark(made, slug) is None
+            and succeeds is not None
+            and before == succeeds
+        ):
             link_mark(made, succeeds)
         raise
 
@@ -1974,7 +2496,9 @@ def take_over(mark: Path, holder: str, ticket: str) -> None:
     (`unmark`), and refuse when another open took it in the meantime."""
     moved = unmark(mark, holder)
     if moved is not None:
-        raise SettingsError(f"the task {moved!r} took the ticket {ticket} in this moment; go on with that task")
+        raise SettingsError(
+            f"the task {moved!r} took the ticket {ticket} in this moment; go on with that task"
+        )
 
 
 def give_back(root: Path, slug: str) -> None:
@@ -1983,7 +2507,11 @@ def give_back(root: Path, slug: str) -> None:
     directory = state_root(root) / "tasks" / slug
     if not (directory / "ticket.txt").is_file():
         return
-    blocks = blocks_of(text_of(directory / "state.md")) if (directory / "state.md").is_file() else []
+    blocks = (
+        blocks_of(text_of(directory / "state.md"))
+        if (directory / "state.md").is_file()
+        else []
+    )
     status = blocks[0]["status"] if blocks else None
     names, _ = ticket_steps_of(directory)
     if status not in RETURNED or ticket_owed(status, names, load(root)["tracker"]):
@@ -1994,35 +2522,65 @@ def give_back(root: Path, slug: str) -> None:
 def ticket_steps_of(directory: Path) -> tuple[list[str], str | None]:
     """The steps written down for a task's ticket, one a line, and the login of the line `assigned LOGIN`."""
     file = directory / "ticket-steps.txt"
-    rows = [line.split() for line in text_of(file).splitlines() if line.strip()] if file.is_file() else []
-    login = next((row[1] for row in rows if row[0] == "assigned" and len(row) > 1), None)
+    rows = (
+        [line.split() for line in text_of(file).splitlines() if line.strip()]
+        if file.is_file()
+        else []
+    )
+    login = next(
+        (row[1] for row in rows if row[0] == "assigned" and len(row) > 1), None
+    )
     return [row[0] for row in rows], login
 
 
-def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None, branch: str | None = None, night: str | None = None,
-                 ticket_repo: str | None = None) -> None:
+def cmd_task_dir(
+    root: Path,
+    slug: str,
+    ask: str | None,
+    ticket: str | None,
+    branch: str | None = None,
+    night: str | None = None,
+    ticket_repo: str | None = None,
+) -> None:
     if not SLUG.fullmatch(slug):
         raise SettingsError(f"slug {slug!r} must be lower-case words joined by hyphens")
     if ask is not None and not ask.strip():
-        raise SettingsError("--ask is the owner's words for this task, and they are empty")
+        raise SettingsError(
+            "--ask is the owner's words for this task, and they are empty"
+        )
     if night is not None:
         if ask is None:
-            raise SettingsError("--night marks a task the night opens, so it goes with --ask, the backlog item's path")
+            raise SettingsError(
+                "--night marks a task the night opens, so it goes with --ask, the backlog item's path"
+            )
         try:
             date.fromisoformat(night)
         except ValueError:
-            raise SettingsError(f"--night is the night's date, YYYY-MM-DD, not {night!r}") from None
+            raise SettingsError(
+                f"--night is the night's date, YYYY-MM-DD, not {night!r}"
+            ) from None
     if ask is not None or ticket is not None:
         # This call opens a task. A slug whose task has ended keeps that task's files, its state and
         # what was done to its ticket: a new task under it would start with another task's record.
-        ended = next((task["status"] for task in read_tasks(root) if task["slug"] == slug and task["status"] in ENDED), None)
+        ended = next(
+            (
+                task["status"]
+                for task in read_tasks(root)
+                if task["slug"] == slug and task["status"] in ENDED
+            ),
+            None,
+        )
         if ended:
-            raise SettingsError(f"the task {slug!r} is {ended}; a new task takes a slug of its own: add a word to this one")
+            raise SettingsError(
+                f"the task {slug!r} is {ended}; a new task takes a slug of its own: add a word to this one"
+            )
     if ask is not None and (gone := dropped_item_refusal(state_root(root), ask)):
         # the reviewer's item the board showed is gone: the owner dropped it in the meantime
         raise SettingsError(gone)
     if ticket_repo is not None and ticket is None:
-        raise SettingsError("--ticket-repo is the repository of the issue the task came from, so it goes with --ticket")
+        raise SettingsError(
+            "--ticket-repo is the repository of the issue the task came from, so it goes with --ticket"
+        )
     directory = state_root(root) / "tasks" / slug
     claim: contextlib.AbstractContextManager = contextlib.nullcontext()
     if ticket is not None:
@@ -2030,18 +2588,32 @@ def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None, bra
         ticket = ticket_id(tracker, ticket)
         if tracker["kind"] == "github":
             if ticket_repo is None:
-                raise SettingsError(f"--ticket {ticket} is an issue of GitHub, and the task keeps the repository of the issue that was read: "
-                                    "give it as --ticket-repo OWNER/REPO, from the address `lem issue read` gave")
+                raise SettingsError(
+                    f"--ticket {ticket} is an issue of GitHub, and the task keeps the repository of the issue that was read: "
+                    "give it as --ticket-repo OWNER/REPO, from the address `lem issue read` gave"
+                )
             if not ISSUE_REPO.fullmatch(ticket_repo):
-                raise SettingsError(f"--ticket-repo {ticket_repo!r} is not a repository of GitHub: give it as OWNER/REPO, from the issue's address")
+                raise SettingsError(
+                    f"--ticket-repo {ticket_repo!r} is not a repository of GitHub: give it as OWNER/REPO, from the issue's address"
+                )
         elif ticket_repo is not None:
-            raise SettingsError(f"--ticket-repo names the repository of a GitHub issue, and the project's tracker is {tracker['kind']}: leave it out")
+            raise SettingsError(
+                f"--ticket-repo names the repository of a GitHub issue, and the project's tracker is {tracker['kind']}: leave it out"
+            )
         tasks = read_tasks(root)
         mine = next((task for task in tasks if task["slug"] == slug), None)
-        if mine and mine["ticket"] and (mine["ticket"], mine["ticket_repo"]) != (ticket, ticket_repo):
+        if (
+            mine
+            and mine["ticket"]
+            and (mine["ticket"], mine["ticket_repo"]) != (ticket, ticket_repo)
+        ):
             # two tickets with one title would give one slug: the first task keeps its ticket
-            held = mine["ticket"] + (f" of {mine['ticket_repo']}" if mine["ticket_repo"] else "")
-            raise SettingsError(f"the task {slug!r} already holds the ticket {held}; give the task for {ticket} another slug")
+            held = mine["ticket"] + (
+                f" of {mine['ticket_repo']}" if mine["ticket_repo"] else ""
+            )
+            raise SettingsError(
+                f"the task {slug!r} already holds the ticket {held}; give the task for {ticket} another slug"
+            )
         # one ticket is one task: a second task for it would be a second branch for the same work
         claim = held_ticket(root, slug, ticket, tasks, tracker["kind"])
     with claim:
@@ -2075,10 +2647,25 @@ def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None, bra
         if ticket is not None:
             (directory / "ticket.txt").write_text(ticket + "\n", encoding="utf-8")
             if ticket_repo is not None:
-                (directory / "ticket-repo.txt").write_text(ticket_repo + "\n", encoding="utf-8")
-    if night is not None and not any(record.get("task") == slug for record in events_named(root, "task.mode")):
+                (directory / "ticket-repo.txt").write_text(
+                    ticket_repo + "\n", encoding="utf-8"
+                )
+    if night is not None and not any(
+        record.get("task") == slug for record in events_named(root, "task.mode")
+    ):
         # the night's mark
-        append_event(root, "task.mode", slug, {"mode": "alone", "by": "lem", "words": f"the night of {night}", "all": False, "was": "with-owner"})
+        append_event(
+            root,
+            "task.mode",
+            slug,
+            {
+                "mode": "alone",
+                "by": "lem",
+                "words": f"the night of {night}",
+                "all": False,
+                "was": "with-owner",
+            },
+        )
     register_checkout(root)
     print(directory)
 
@@ -2095,7 +2682,10 @@ def register_checkout(root: Path) -> None:
     try:
         lem_state.register(main)
     except (OSError, lem_state.StateError) as error:
-        print(f"project.py: {main} is not in the list of workspaces the board server shows ({error}); `lem serve --add {main}` puts it there", file=sys.stderr)
+        print(
+            f"project.py: {main} is not in the list of workspaces the board server shows ({error}); `lem serve --add {main}` puts it there",
+            file=sys.stderr,
+        )
 
 
 def cmd_ticket_step(root: Path, slug: str, step: str, login: str | None = None) -> None:
@@ -2109,32 +2699,66 @@ def cmd_ticket_step(root: Path, slug: str, step: str, login: str | None = None) 
     if step not in TICKET_STEPS:
         raise SettingsError(f"{step!r} is not a step{nearest(step, TICKET_STEPS)}")
     if step == "assigned" and login is None:
-        raise SettingsError("the step 'assigned' keeps the login Lem adds as the issue's assignee: give it as --login LOGIN")
+        raise SettingsError(
+            "the step 'assigned' keeps the login Lem adds as the issue's assignee: give it as --login LOGIN"
+        )
     if step != "assigned" and login is not None:
-        raise SettingsError(f"--login goes with the step 'assigned' only, not with {step!r}")
+        raise SettingsError(
+            f"--login goes with the step 'assigned' only, not with {step!r}"
+        )
     if login is not None and not LOGIN.fullmatch(login):
-        raise SettingsError(f"--login {login!r} is not a login of GitHub: give the login `gh api user --jq .login` prints")
+        raise SettingsError(
+            f"--login {login!r} is not a login of GitHub: give the login `gh api user --jq .login` prints"
+        )
     file = directory / "ticket-steps.txt"
     steps, _ = ticket_steps_of(directory)
     if step in steps:
         # the caller should have looked first: a step that is written down was done, and is not done again
-        raise SettingsError(f"the step {step!r} is already written down for {text_of(ticket).strip()}: it was done, do not do it again")
+        raise SettingsError(
+            f"the step {step!r} is already written down for {text_of(ticket).strip()}: it was done, do not do it again"
+        )
     if step == "unassigned" and "assigned" not in steps:
-        raise SettingsError(f"the step 'unassigned' undoes the step 'assigned', which is not written down for {text_of(ticket).strip()}: Lem added nobody to remove")
-    rows = [line.strip() for line in text_of(file).splitlines() if line.strip()] if file.is_file() else []
-    file.write_text("\n".join([*rows, f"{step} {login}" if login else step]) + "\n", encoding="utf-8")
+        raise SettingsError(
+            f"the step 'unassigned' undoes the step 'assigned', which is not written down for {text_of(ticket).strip()}: Lem added nobody to remove"
+        )
+    rows = (
+        [line.strip() for line in text_of(file).splitlines() if line.strip()]
+        if file.is_file()
+        else []
+    )
+    file.write_text(
+        "\n".join([*rows, f"{step} {login}" if login else step]) + "\n",
+        encoding="utf-8",
+    )
     give_back(root, slug)
     steps, assignee = ticket_steps_of(directory)
-    print(json.dumps({"slug": slug, "ticket": text_of(ticket).strip(), "steps": steps, "assignee": assignee}))
+    print(
+        json.dumps(
+            {
+                "slug": slug,
+                "ticket": text_of(ticket).strip(),
+                "steps": steps,
+                "assignee": assignee,
+            }
+        )
+    )
 
 
 def ask_of(directory: Path) -> str | None:
     """What the owner asked for: the words `task-dir --ask` kept, else the first words of task.md without their markup."""
     for name in ("ask.txt", "task.md"):
         file = directory / name
-        lines = [line.strip() for line in text_of(file).splitlines() if line.strip()] if file.is_file() else []
+        lines = (
+            [line.strip() for line in text_of(file).splitlines() if line.strip()]
+            if file.is_file()
+            else []
+        )
         if lines:
-            return " ".join(lines) if name == "ask.txt" else lines[0].lstrip("#> ").strip() or None
+            return (
+                " ".join(lines)
+                if name == "ask.txt"
+                else lines[0].lstrip("#> ").strip() or None
+            )
     return None
 
 
@@ -2156,11 +2780,22 @@ def cmd_worktree(root: Path, settings: dict, slug: str, branch: str) -> dict:
     base branch as origin has it now, after a fetch: the local base branch may be days old. It gets
     no upstream, so that no `git push` of a builder's reaches the base. With no remote, or an
     origin that does not answer (said in one line on stderr), it starts from the local base branch."""
+
     def git(*args: str) -> subprocess.CompletedProcess:
-        return subprocess.run(["git", "-C", str(main), *args], capture_output=True, text=True, check=False, stdin=subprocess.DEVNULL)
+        return subprocess.run(
+            ["git", "-C", str(main), *args],
+            capture_output=True,
+            text=True,
+            check=False,
+            stdin=subprocess.DEVNULL,
+        )
 
     def said(ran: subprocess.CompletedProcess) -> str:
-        lines = [line.strip() for line in (ran.stderr or ran.stdout).splitlines() if line.strip()]
+        lines = [
+            line.strip()
+            for line in (ran.stderr or ran.stdout).splitlines()
+            if line.strip()
+        ]
         return lines[-1] if lines else f"exit {ran.returncode}"
 
     main = main_checkout(root)
@@ -2170,16 +2805,33 @@ def cmd_worktree(root: Path, settings: dict, slug: str, branch: str) -> dict:
         raise SettingsError(f"{branch!r} is not a name git takes for a branch")
     base = settings["branch"]["base"]
     if base is None:
-        raise SettingsError(f"{SETTINGS} names no branch.base, so a new task has nothing to start from")
+        raise SettingsError(
+            f"{SETTINGS} names no branch.base, so a new task has nothing to start from"
+        )
     if branch == base or branch in settings["branch"]["protected"]:
-        raise SettingsError(f"{branch!r} is the base branch or a protected one; a task works on a branch of its own")
+        raise SettingsError(
+            f"{branch!r} is the base branch or a protected one; a task works on a branch of its own"
+        )
     parent = Path(settings["places"]["worktrees"]["path"])
     place = main / parent.relative_to(root.resolve()) / slug
     if (place / ".git").exists():
-        on = subprocess.run(["git", "-C", str(place), "branch", "--show-current"], capture_output=True, text=True, check=False).stdout.strip()
+        on = subprocess.run(
+            ["git", "-C", str(place), "branch", "--show-current"],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout.strip()
         if on != branch:
-            raise SettingsError(f"{place} is a worktree on {on or 'no branch'}, not on {branch}: the task's worktree is the one on its branch")
-        return {"task": slug, "worktree": str(place), "branch": branch, "made": False, "from": None}
+            raise SettingsError(
+                f"{place} is a worktree on {on or 'no branch'}, not on {branch}: the task's worktree is the one on its branch"
+            )
+        return {
+            "task": slug,
+            "worktree": str(place),
+            "branch": branch,
+            "made": False,
+            "from": None,
+        }
     place.parent.mkdir(parents=True, exist_ok=True)
     if not (place.parent / ".gitignore").is_file():
         (place.parent / ".gitignore").write_text("*\n", encoding="utf-8")
@@ -2193,13 +2845,31 @@ def cmd_worktree(root: Path, settings: dict, slug: str, branch: str) -> dict:
             if fetched.returncode == 0:
                 start = f"origin/{base}"
             else:
-                print(f"project.py: origin did not answer ({said(fetched)}), so {slug} starts from the local {base} as it is now", file=sys.stderr)
+                print(
+                    f"project.py: origin did not answer ({said(fetched)}), so {slug} starts from the local {base} as it is now",
+                    file=sys.stderr,
+                )
         made = git("worktree", "add", "--no-track", "-b", branch, str(place), start)
     if made.returncode != 0:
-        raise SettingsError(f"git could not make the worktree {place} on {branch}: {said(made)}")
-    commit = subprocess.run(["git", "-C", str(place), "rev-parse", "HEAD"], capture_output=True, text=True, check=False).stdout.strip()
+        raise SettingsError(
+            f"git could not make the worktree {place} on {branch}: {said(made)}"
+        )
+    commit = subprocess.run(
+        ["git", "-C", str(place), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout.strip()
     setup = worktree_setup(root, settings, slug, place)
-    return {"task": slug, "worktree": str(place), "branch": branch, "made": True, "from": start, "commit": commit, "setup": setup}
+    return {
+        "task": slug,
+        "worktree": str(place),
+        "branch": branch,
+        "made": True,
+        "from": start,
+        "commit": commit,
+        "setup": setup,
+    }
 
 
 def worktree_setup(root: Path, settings: dict, slug: str, place: Path) -> list[dict]:
@@ -2213,12 +2883,24 @@ def worktree_setup(root: Path, settings: dict, slug: str, place: Path) -> list[d
     if not settings["checks"]["setup"]:
         return done
     directory = state_root(root) / "tasks" / slug
-    log = directory / "setup.log" if directory.is_dir() else place.parent / f"{slug}.setup.log"
+    log = (
+        directory / "setup.log"
+        if directory.is_dir()
+        else place.parent / f"{slug}.setup.log"
+    )
     with log.open("w", encoding="utf-8") as out:
         for command in settings["checks"]["setup"]:
             out.write(f"$ {command}\n")
             out.flush()
-            code = subprocess.run(command, shell=True, cwd=place, stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, check=False).returncode
+            code = subprocess.run(
+                command,
+                shell=True,
+                cwd=place,
+                stdout=out,
+                stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
+                check=False,
+            ).returncode
             done.append({"command": command, "exit": code})
             if code != 0:
                 raise SettingsError(
@@ -2233,22 +2915,34 @@ def task_directory(root: Path, slug: str) -> Path:
         raise SettingsError(f"slug {slug!r} must be lower-case words joined by hyphens")
     directory = state_root(root) / "tasks" / slug
     if not directory.is_dir():
-        raise SettingsError(f"no task {slug!r}; `lem project task-dir {slug}` makes its directory")
+        raise SettingsError(
+            f"no task {slug!r}; `lem project task-dir {slug}` makes its directory"
+        )
     return directory
 
 
 def append_event(root: Path, event: str, slug: str, fields: dict) -> dict:
     """Append one record to the log, under the log's lock: a `prune` that rewrites the log either
     has not read it yet, or has put its new file in place, and the record goes into the file that stays."""
-    record = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": event, "task": slug, **fields}
+    record = {
+        "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "event": event,
+        "task": slug,
+        **fields,
+    }
     line = json.dumps(record, ensure_ascii=False)
     try:
         line.encode("utf-8")
     except UnicodeEncodeError as error:
         # a `key:=json` value may spell a lone surrogate, "\udcff", which no UTF-8 file can hold
-        raise SettingsError(f"a field of the event is not UTF-8 text ({line[max(0, error.start - 20):error.start]!r} comes before it); give its text in UTF-8") from error
+        raise SettingsError(
+            f"a field of the event is not UTF-8 text ({line[max(0, error.start - 20) : error.start]!r} comes before it); give its text in UTF-8"
+        ) from error
     directory = state_root(root)
-    with lem_state.events_lock(directory), (directory / lem_state.EVENTS).open("a", encoding="utf-8") as log:
+    with (
+        lem_state.events_lock(directory),
+        (directory / lem_state.EVENTS).open("a", encoding="utf-8") as log,
+    ):
         log.write(line + "\n")
     return record
 
@@ -2257,41 +2951,78 @@ def task_plan(root: Path, settings: dict, slug: str) -> tuple[Path, str] | None:
     """The task's plan in its worktree, with its path from the repository root, as the board's
     artifacts explorer lists it; None when the task has no worktree or its plan is not written."""
     resolved = root.resolve()
-    worktree = main_checkout(root) / Path(settings["places"]["worktrees"]["path"]).relative_to(resolved) / slug
+    worktree = (
+        main_checkout(root)
+        / Path(settings["places"]["worktrees"]["path"]).relative_to(resolved)
+        / slug
+    )
     if not (worktree / ".git").exists():
         return None
     folder = Path(settings["paths"]["plans"]["path"]).relative_to(resolved)
-    found = lem_plans.found(worktree / folder, settings["paths"]["plan_file"]["pattern"], slug, lem_plans.resumed_from(state_root(root) / "tasks", slug))
+    found = lem_plans.found(
+        worktree / folder,
+        settings["paths"]["plan_file"]["pattern"],
+        slug,
+        lem_plans.resumed_from(state_root(root) / "tasks", slug),
+    )
     return (found, (folder / found.name).as_posix()) if found else None
 
 
 def task_worktree(root: Path, settings: dict, slug: str) -> dict:
     """The branch and the newest commit of the task's worktree; nothing when it has no worktree."""
+
     def git(where: Path, *args: str) -> str | None:
-        ran = subprocess.run(["git", "-C", str(where), *args], capture_output=True, text=True, check=False)
-        return ran.stdout.strip() if ran.returncode == 0 and ran.stdout.strip() else None
+        ran = subprocess.run(
+            ["git", "-C", str(where), *args],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return (
+            ran.stdout.strip() if ran.returncode == 0 and ran.stdout.strip() else None
+        )
 
     # Worktrees hang off the main checkout, and this may run in one of them.
-    path = main_checkout(root) / Path(settings["places"]["worktrees"]["path"]).relative_to(root.resolve()) / slug
+    path = (
+        main_checkout(root)
+        / Path(settings["places"]["worktrees"]["path"]).relative_to(root.resolve())
+        / slug
+    )
     if not (path / ".git").exists():
         return {}
     commit = git(path, "log", "-1", "--format=%h%x00%s")
     head, _, subject = (commit or "").partition("\0")
-    found = {"branch": git(path, "branch", "--show-current"), "head": head or None, "subject": subject or None}
+    found = {
+        "branch": git(path, "branch", "--show-current"),
+        "head": head or None,
+        "subject": subject or None,
+    }
     return {key: value for key, value in found.items() if value}
 
 
-def parked_refusal(slug: str, now: str | None, status: str, resumed: bool = False) -> str | None:
+def parked_refusal(
+    slug: str, now: str | None, status: str, resumed: bool = False
+) -> str | None:
     """Why `state` refuses STATUS over a task whose newest status is NOW, for the park: a parked task
     leaves `parked` only by a drop or by `resume`, and only a task no agent works on is parked."""
     if now == PARKED and status not in (PARKED, "dropped") and not resumed:
-        return (f"the task {slug!r} is parked: the owner put it aside, and a reply or a message about {slug} that comes now is a stale wake-up. "
-                f"`lem project resume {slug}` brings it back on his word, and `dropped` ends it")
+        return (
+            f"the task {slug!r} is parked: the owner put it aside, and a reply or a message about {slug} that comes now is a stale wake-up. "
+            f"`lem project resume {slug}` brings it back on his word, and `dropped` ends it"
+        )
     if status == PARKED and now not in (*PARKABLE, PARKED):
-        return (f"the task {slug!r} is {now or 'new'}, and only a task that no agent works on is parked ({', '.join(PARKABLE)}): "
-                + ("its lead or its investigator works now, so park it once it stops, or drop it now" if now == "building"
-                   else "its build is done: its landing goes on, or the owner drops it" if now in ("ready", *WITH_LANDING)
-                   else "an ended task stays ended" if now in ENDED else "nothing of it runs to put aside"))
+        return (
+            f"the task {slug!r} is {now or 'new'}, and only a task that no agent works on is parked ({', '.join(PARKABLE)}): "
+            + (
+                "its lead or its investigator works now, so park it once it stops, or drop it now"
+                if now == "building"
+                else "its build is done: its landing goes on, or the owner drops it"
+                if now in ("ready", *WITH_LANDING)
+                else "an ended task stays ended"
+                if now in ENDED
+                else "nothing of it runs to put aside"
+            )
+        )
     return None
 
 
@@ -2319,7 +3050,15 @@ def state_locked(directory: Path) -> Iterator[None]:
             LOCKS_HELD.discard(mine)
 
 
-def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: bool = False, resumed: bool = False, again: bool = False) -> dict:
+def cmd_state(
+    root: Path,
+    slug: str,
+    status: str,
+    lines: list[str],
+    start_over: bool = False,
+    resumed: bool = False,
+    again: bool = False,
+) -> dict:
     """Put a new block at the top of the task's state.md, and the same as an event in the log.
     `resumed` is `resume`'s own write over a parked task, the one way out of `parked` but a drop;
     `again` is `seat-again`'s, the one way from `blocked` back to `open`, and the one way over a block
@@ -2327,12 +3066,18 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
     directory = task_directory(root, slug)
     settings = load(root)
     if status not in STATES:
-        raise SettingsError(f"status {status!r} is not one a task has{nearest(status, STATES)}")
+        raise SettingsError(
+            f"status {status!r} is not one a task has{nearest(status, STATES)}"
+        )
     if start_over and status != "ready":
-        raise SettingsError(f"--start-over gives a landing's line back, and only the state ready does that, not {status}")
+        raise SettingsError(
+            f"--start-over gives a landing's line back, and only the state ready does that, not {status}"
+        )
     if any(not line.strip() or "\n" in line for line in lines):
         # a blank line ends a block, so one inside a block would hide the lines after it
-        raise SettingsError("each LINE of a state block is one line of text, and none is empty")
+        raise SettingsError(
+            "each LINE of a state block is one line of text, and none is empty"
+        )
     for line in lines:
         type_line(line)
         fixed_form(line)
@@ -2341,15 +3086,27 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
     # would be lost or land above the drop
     with state_locked(directory):
         # the status the newest block gives, read from this task's file alone
-        written = text_of(directory / "state.md").strip() if (directory / "state.md").is_file() else ""
-        first = STATE_LINE.fullmatch(written.split("\n\n")[0].splitlines()[0]) if written else None
+        written = (
+            text_of(directory / "state.md").strip()
+            if (directory / "state.md").is_file()
+            else ""
+        )
+        first = (
+            STATE_LINE.fullmatch(written.split("\n\n")[0].splitlines()[0])
+            if written
+            else None
+        )
         now = first["status"] if first else None
         if now in ENDED and status != now:
             raise SettingsError(
                 f"the task {slug!r} is {now}, and an ended task stays ended: new work for it is a new ask (`/lem new`), "
                 f"whose task takes a slug of its own. A reply or a message about {slug} that comes now is a stale wake-up, and nothing is done for it",
             )
-        if now in WITH_LANDING and status in LEADS_WRITE and not (status == "ready" and start_over):
+        if (
+            now in WITH_LANDING
+            and status in LEADS_WRITE
+            and not (status == "ready" and start_over)
+        ):
             raise SettingsError(
                 f"the task {slug!r} is {now}: it is with its landing, and a reply or a message about {slug} that comes now is a stale wake-up, "
                 f"and no state is written for it; what the landing needs, land.py says itself",
@@ -2359,35 +3116,66 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
             raise SettingsError(refused)
         if now == "blocked" and status == "open" and not again:
             # a merge agent's seat that failed blocks an open task, and only the owner's go on opens it again
-            raise SettingsError(f"the task {slug!r} is blocked, and only the owner's go on gives `open` back: `lem project seat-again {slug}` writes it, "
-                                "when the block names the seat that failed")
-        held_seat = failed_seat(written.split("\n\n")[0].splitlines()) if now == "blocked" else None
+            raise SettingsError(
+                f"the task {slug!r} is blocked, and only the owner's go on gives `open` back: `lem project seat-again {slug}` writes it, "
+                "when the block names the seat that failed"
+            )
+        held_seat = (
+            failed_seat(written.split("\n\n")[0].splitlines())
+            if now == "blocked"
+            else None
+        )
         if held_seat and not again and status not in ("blocked", PARKED, *ENDED):
             # a seat's block waits for the owner: a lead's state written after it (the `building` of a pair whose
             # defender's seat failed at its open) would take the task out of "Waits for you" with no go on
-            raise SettingsError(f"the task {slug!r} is blocked with `{lem_state.FAILED_SEAT}{held_seat}`, and only the owner's go on lifts that block: "
-                                f"`lem project seat-again {slug}` writes the state before it. A lead that wrote no state since it opened the pair "
-                                "takes the block as its wait gives it")
+            raise SettingsError(
+                f"the task {slug!r} is blocked with `{lem_state.FAILED_SEAT}{held_seat}`, and only the owner's go on lifts that block: "
+                f"`lem project seat-again {slug}` writes the state before it. A lead that wrote no state since it opened the pair "
+                "takes the block as its wait gives it"
+            )
         if status == "answered":
             answered_form(root, directory, slug)
         # the time is the clock's, never a writer's estimate
         since = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
-        block = "\n".join([f"{since} {status}: {lines[0].strip()}", *(line.strip() for line in lines[1:])])
+        block = "\n".join(
+            [
+                f"{since} {status}: {lines[0].strip()}",
+                *(line.strip() for line in lines[1:]),
+            ]
+        )
         file = directory / "state.md"
         older = text_of(file).strip() if file.is_file() else ""
         # the process's id in the name: two writers at one moment never write one new file
         fresh = directory / f"state.md.{os.getpid()}.new"
-        fresh.write_text(block + ("\n\n" + older if older else "") + "\n", encoding="utf-8")
+        fresh.write_text(
+            block + ("\n\n" + older if older else "") + "\n", encoding="utf-8"
+        )
         fresh.replace(file)
         worktree = task_worktree(root, settings, slug)
         # the task's first line, for the block that names its path: the session says it, the board shows it,
         # and the session where he typed the request says its named form (`lem session wait SLUG --first-line`)
-        said = opening_line(root, directory, slug, status, lines, older, worktree.get("branch"))
-        append_event(root, "task.state", slug, {
-            "status": status, "text": lines[0].strip(), "lines": [line.strip() for line in lines[1:]],
-            "ask": ask_of(directory), **worktree, **(said or {}),
-        })
-    return {"slug": slug, "status": status, "since": since, **({"say": said["say"]} if said else {})}
+        said = opening_line(
+            root, directory, slug, status, lines, older, worktree.get("branch")
+        )
+        append_event(
+            root,
+            "task.state",
+            slug,
+            {
+                "status": status,
+                "text": lines[0].strip(),
+                "lines": [line.strip() for line in lines[1:]],
+                "ask": ask_of(directory),
+                **worktree,
+                **(said or {}),
+            },
+        )
+    return {
+        "slug": slug,
+        "status": status,
+        "since": since,
+        **({"say": said["say"]} if said else {}),
+    }
 
 
 # What `resume` copies from a dropped task into the new one: the documents a fresh agent goes on
@@ -2396,19 +3184,50 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
 # each breaker's document (`breaker-N.md`, RESUMED_GLOBS) and the breaker's pictures (`media/`). The
 # landing's own files (`landing.json`, `gate/`, `reviews/`, `pr.md`) stay with the old task: the new
 # one lands anew.
-RESUMED_FILES = ("task.md", "talk.md", "directions.md", "interview-notes.md", "scout.md", "investigation.md", "outside.md",
-                 "criteria.md", "criteria-read.md", "criteria.json", "decisions.jsonl", "handoff.md", "ticket.txt", "ticket-repo.txt",
-                 lem_release.MARK)
+RESUMED_FILES = (
+    "task.md",
+    "talk.md",
+    "directions.md",
+    "interview-notes.md",
+    "scout.md",
+    "investigation.md",
+    "outside.md",
+    "criteria.md",
+    "criteria-read.md",
+    "criteria.json",
+    "decisions.jsonl",
+    "handoff.md",
+    "ticket.txt",
+    "ticket-repo.txt",
+    lem_release.MARK,
+)
 RESUMED_GLOBS = ("breaker-*.md",)
 # What the resume of a task the release stop blocked copies: the documents an agent reads as text and
 # the ticket, and no record (`criteria.json`, `decisions.jsonl`). That task began two releases back or
 # more, and a release reads the records of the release just before it and no older ones (lem_release).
-RESUMED_NOTES = (*(name for name in RESUMED_FILES if name.endswith(".md")), "ticket.txt", "ticket-repo.txt")
+RESUMED_NOTES = (
+    *(name for name in RESUMED_FILES if name.endswith(".md")),
+    "ticket.txt",
+    "ticket-repo.txt",
+)
 # The events of a dropped task that the new one takes with it, under its own slug and with `from`, in
 # the log's order and each with its own time as `was_at`: what the landing and the board read of its
 # criteria, its decisions, its plan talk and its investigation, each stage's start with its end.
-RESUMED_EVENTS = ("criteria.read.start", "criteria.read", "criteria.approved", "task.criteria", "plan.talk.start", "plan.talk",
-                  "investigation.start", "investigation", "interview.start", "interview.end", "read.skip.asked", "scout.start", "scout")
+RESUMED_EVENTS = (
+    "criteria.read.start",
+    "criteria.read",
+    "criteria.approved",
+    "task.criteria",
+    "plan.talk.start",
+    "plan.talk",
+    "investigation.start",
+    "investigation",
+    "interview.start",
+    "interview.end",
+    "read.skip.asked",
+    "scout.start",
+    "scout",
+)
 # The file of a resumed task that names the task it came from.
 RESUMED_FROM = lem_plans.RESUMED_FROM
 
@@ -2426,7 +3245,14 @@ def blocks_of(text: str) -> list[dict]:
 
 def failed_seat(lines: list[str]) -> str | None:
     """The seat a block names as the one that failed (`the seat that failed: SEAT`), or None."""
-    return next((found["seat"] for found in map(FAILED_LINE.fullmatch, (line.strip() for line in lines)) if found), None)
+    return next(
+        (
+            found["seat"]
+            for found in map(FAILED_LINE.fullmatch, (line.strip() for line in lines))
+            if found
+        ),
+        None,
+    )
 
 
 def stand_in_of(events: list[dict], which: str) -> dict | None:
@@ -2445,7 +3271,9 @@ def stand_in_of(events: list[dict], which: str) -> dict | None:
 
 def seat_events(root: Path, slug: str) -> list[dict]:
     """The task's seat events (SEAT_EVENTS), oldest first."""
-    return [event for event in events_named(root, *SEAT_EVENTS) if event.get("task") == slug]
+    return [
+        event for event in events_named(root, *SEAT_EVENTS) if event.get("task") == slug
+    ]
 
 
 def seat_name_refusal(which: str, command: str) -> str | None:
@@ -2453,8 +3281,10 @@ def seat_name_refusal(which: str, command: str) -> str | None:
     if which in SEATS:
         return None
     if which == "experts":
-        return (f"`{command}` takes one seat, and the experts are one or two that take no fallback seat: when one expert's agent gives an error, "
-                "the other answers alone; `lem project show` gives them as seats.experts")
+        return (
+            f"`{command}` takes one seat, and the experts are one or two that take no fallback seat: when one expert's agent gives an error, "
+            "the other answers alone; `lem project show` gives them as seats.experts"
+        )
     return f"{which!r} is no seat{nearest(which, tuple(SEATS))}; a seat is one of {', '.join(SEATS)}"
 
 
@@ -2470,8 +3300,22 @@ def cmd_seat(root: Path, slug: str, which: str) -> dict:
     if held is None:
         return {"task": slug, "name": which, **settings["seats"][which]}
     agents, why, example = SEATS[which]
-    parsed = parse_seat(held.get("took"), f"the stand-in of {which} in the event log", agents, why, example, which in WHOLE_SEATS)
-    return {"task": slug, "name": which, **parsed, "from": STAND_IN, "for": held.get("failed"), "error": held.get("error")}
+    parsed = parse_seat(
+        held.get("took"),
+        f"the stand-in of {which} in the event log",
+        agents,
+        why,
+        example,
+        which in WHOLE_SEATS,
+    )
+    return {
+        "task": slug,
+        "name": which,
+        **parsed,
+        "from": STAND_IN,
+        "for": held.get("failed"),
+        "error": held.get("error"),
+    }
 
 
 def seat_call(which: str, line: str, kind: str, fallback: dict) -> dict:
@@ -2488,11 +3332,17 @@ def seat_call(which: str, line: str, kind: str, fallback: dict) -> dict:
     agents = SEATS[which][0]
     if fallback["agent"] not in agents:
         takes = " or ".join(lem_state.AGENT_NAMES.get(agent, agent) for agent in agents)
-        return {"block": f"{head}, and its fallback `{fallback['seat']}` cannot sit in {name}'s seat, which takes {takes} only"}
-    return {"took": {key: fallback[key] for key in ("agent", "model", "effort", "seat")}}
+        return {
+            "block": f"{head}, and its fallback `{fallback['seat']}` cannot sit in {name}'s seat, which takes {takes} only"
+        }
+    return {
+        "took": {key: fallback[key] for key in ("agent", "model", "effort", "seat")}
+    }
 
 
-def cmd_seat_failed(root: Path, slug: str, which: str, line: str, kind: str, said: str | None) -> dict:
+def cmd_seat_failed(
+    root: Path, slug: str, which: str, line: str, kind: str, said: str | None
+) -> dict:
     """A seat's agent gave one of the four errors: the fallback stands in for WHICH from now on, logged
     as `seat.stand-in`, or the task is blocked, with the block's line and the fixed line FAILED_LINE,
     logged as `seat.blocked`. LINE is the seat the stage opened, as `seat` printed it, so the record
@@ -2500,31 +3350,69 @@ def cmd_seat_failed(root: Path, slug: str, which: str, line: str, kind: str, sai
     directory = task_directory(root, slug)
     if which in ("session", "experts"):
         raise SettingsError(
-            f"the {which} take no fallback seat: " + ("when one expert's agent gives an error, the other expert answers alone"
-                                                      if which == "experts" else "the session seat is the Claude session that runs the task")
-            + "; `seat-failed` takes the reviewer, the planner or the merger")
+            f"the {which} take no fallback seat: "
+            + (
+                "when one expert's agent gives an error, the other expert answers alone"
+                if which == "experts"
+                else "the session seat is the Claude session that runs the task"
+            )
+            + "; `seat-failed` takes the reviewer, the planner or the merger"
+        )
     if which not in lem_state.SEAT_NAMES:
-        raise SettingsError(f"{which!r} is no seat{nearest(which, tuple(lem_state.SEAT_NAMES))}; `seat-failed` takes {', '.join(lem_state.SEAT_NAMES)}")
+        raise SettingsError(
+            f"{which!r} is no seat{nearest(which, tuple(lem_state.SEAT_NAMES))}; `seat-failed` takes {', '.join(lem_state.SEAT_NAMES)}"
+        )
     if kind not in lem_state.SEAT_ERRORS:
-        raise SettingsError(f"--error {kind!r} is none of the four errors of a seat's agent: {', '.join(lem_state.SEAT_ERRORS)} "
-                            "(the program is not on the Mac, no login, no tokens, an unknown model). A slow agent is no error: wait for it")
+        raise SettingsError(
+            f"--error {kind!r} is none of the four errors of a seat's agent: {', '.join(lem_state.SEAT_ERRORS)} "
+            "(the program is not on the Mac, no login, no tokens, an unknown model). A slow agent is no error: wait for it"
+        )
     agents, why, example = SEATS[which]
     parse_seat(line, "--seat", agents, why, example, which in WHOLE_SEATS)
     if said is not None and (not said.strip() or "\n" in said):
-        raise SettingsError("--said is the agent's own line of the error, one line of text")
+        raise SettingsError(
+            "--said is the agent's own line of the error, one line of text"
+        )
     settings = load(root)
     with state_locked(directory):
         call = seat_call(which, line, kind, settings["seats"]["fallback"])
-        words = {"seat": which, "failed": line, "error": kind, **({"said": said.strip()} if said else {})}
+        words = {
+            "seat": which,
+            "failed": line,
+            "error": kind,
+            **({"said": said.strip()} if said else {}),
+        }
         if "took" in call:
             took = call["took"]
             say = f"{call_head(which, line, kind)}; `{took['seat']}` stands in for it from now on, and the pull request says so"
-            append_event(root, "seat.stand-in", slug, {**words, "took": took["seat"], "say": say})
-            return {"task": slug, "name": which, "blocked": False, **took, "from": STAND_IN, "for": line, "error": kind, "say": say}
+            append_event(
+                root, "seat.stand-in", slug, {**words, "took": took["seat"], "say": say}
+            )
+            return {
+                "task": slug,
+                "name": which,
+                "blocked": False,
+                **took,
+                "from": STAND_IN,
+                "for": line,
+                "error": kind,
+                "say": say,
+            }
         # the block first: a state `state` refuses (an ended task) leaves no event of a block behind
-        written = cmd_state(root, slug, "blocked", [call["block"], f"{lem_state.FAILED_SEAT}{which}"])
+        written = cmd_state(
+            root, slug, "blocked", [call["block"], f"{lem_state.FAILED_SEAT}{which}"]
+        )
         append_event(root, "seat.blocked", slug, {**words, "say": call["block"]})
-    return {"task": slug, "name": which, "blocked": True, "status": "blocked", "since": written["since"], "failed": line, "error": kind, "say": call["block"]}
+    return {
+        "task": slug,
+        "name": which,
+        "blocked": True,
+        "status": "blocked",
+        "since": written["since"],
+        "failed": line,
+        "error": kind,
+        "say": call["block"],
+    }
 
 
 def call_head(which: str, line: str, kind: str) -> str:
@@ -2540,31 +3428,55 @@ def cmd_seat_again(root: Path, slug: str) -> dict:
     directory = task_directory(root, slug)
     settings = load(root)
     with state_locked(directory):
-        blocks = blocks_of(text_of(directory / "state.md")) if (directory / "state.md").is_file() else []
+        blocks = (
+            blocks_of(text_of(directory / "state.md"))
+            if (directory / "state.md").is_file()
+            else []
+        )
         seats: list[str] = []
         count = 0
         for block in blocks:
-            named = failed_seat(block["lines"]) if block["status"] == "blocked" else None
+            named = (
+                failed_seat(block["lines"]) if block["status"] == "blocked" else None
+            )
             if named is None:
                 break
             count += 1
             if named not in seats:
                 seats.append(named)
         if not seats:
-            now = f"{blocks[0]['status']}: {blocks[0]['lines'][0]}" if blocks else "with no state"
-            raise SettingsError(f"the task {slug!r} is {now}, and its newest block has no line `{lem_state.FAILED_SEAT}SEAT`: the owner's go on tries again "
-                                "a seat whose agent gave an error, and this task waits for no such seat")
+            now = (
+                f"{blocks[0]['status']}: {blocks[0]['lines'][0]}"
+                if blocks
+                else "with no state"
+            )
+            raise SettingsError(
+                f"the task {slug!r} is {now}, and its newest block has no line `{lem_state.FAILED_SEAT}SEAT`: the owner's go on tries again "
+                "a seat whose agent gave an error, and this task waits for no such seat"
+            )
         before = blocks[count] if count < len(blocks) else None
         if before is None:
-            raise SettingsError(f"the task {slug!r} has no block before the seat's block to bring back: write its state by hand")
+            raise SettingsError(
+                f"the task {slug!r} has no block before the seat's block to bring back: write its state by hand"
+            )
         tried = [{"name": which, **settings["seats"][which]} for which in seats]
-        lines = [f"{GO_ON}{lem_state.SEAT_NAMES[seat['name']]} {seat['seat']} is tried again" for seat in tried]
+        lines = [
+            f"{GO_ON}{lem_state.SEAT_NAMES[seat['name']]} {seat['seat']} is tried again"
+            for seat in tried
+        ]
         # the lines of the block before, without the lines of an earlier go on, which this one's replace
         kept = [line for line in before["lines"] if not line.startswith(GO_ON)]
         written = cmd_state(root, slug, before["status"], [*lines, *kept], again=True)
         for which, said in zip(seats, lines):
             append_event(root, "seat.again", slug, {"seat": which, "say": said})
-    return {"task": slug, "status": before["status"], "since": written["since"], **tried[0], "tried": tried, "say": "; ".join(lines)}
+    return {
+        "task": slug,
+        "status": before["status"],
+        "since": written["since"],
+        **tried[0],
+        "tried": tried,
+        "say": "; ".join(lines),
+    }
 
 
 def resumed_slug(root: Path, slug: str) -> str:
@@ -2572,12 +3484,16 @@ def resumed_slug(root: Path, slug: str) -> str:
     from, when it came from one) with the next free number, `gift-note-2`, then `gift-note-3`."""
     first = slug
     while (state_root(root) / "tasks" / first / RESUMED_FROM).is_file():
-        first = text_of(state_root(root) / "tasks" / first / RESUMED_FROM).strip() or first
+        first = (
+            text_of(state_root(root) / "tasks" / first / RESUMED_FROM).strip() or first
+        )
     taken = {path.name for path in (state_root(root) / "tasks").iterdir()}
     return next(f"{first}-{n}" for n in range(2, 1000) if f"{first}-{n}" not in taken)
 
 
-def resumed_reads(directory: Path) -> tuple[dict[str, tuple[bytes, os.stat_result]], list[str], str | None]:
+def resumed_reads(
+    directory: Path,
+) -> tuple[dict[str, tuple[bytes, os.stat_result]], list[str], str | None]:
     """What a resume carries from the dropped task's folder, read whole before anything is written: the
     bytes and the facts of each file of RESUMED_FILES, RESUMED_GLOBS, brief.md and media/, by its path
     in the folder; the folders of media/; and the first read that failed, with its error, or None."""
@@ -2598,12 +3514,25 @@ def resumed_reads(directory: Path) -> tuple[dict[str, tuple[bytes, os.stat_resul
         except OSError as error:
             return f"{file} does not read: {error}"
         return None
-    names = [directory / name for name in (*RESUMED_FILES, "brief.md") if (directory / name).is_file()]
-    names += [found for pattern in RESUMED_GLOBS for found in sorted(directory.glob(pattern))]
+
+    names = [
+        directory / name
+        for name in (*RESUMED_FILES, "brief.md")
+        if (directory / name).is_file()
+    ]
+    names += [
+        found for pattern in RESUMED_GLOBS for found in sorted(directory.glob(pattern))
+    ]
     media = directory / "media"
     unlisted: list[str] = []
     if media.is_dir():
-        for at, inner, files in os.walk(media, followlinks=True, onerror=lambda error: unlisted.append(f"{error.filename} does not list: {error}")):
+        for at, inner, files in os.walk(
+            media,
+            followlinks=True,
+            onerror=lambda error: unlisted.append(
+                f"{error.filename} does not list: {error}"
+            ),
+        ):
             folders.append(Path(at).relative_to(directory).as_posix())
             inner.sort()
             names += [Path(at) / name for name in sorted(files)]
@@ -2618,7 +3547,9 @@ def resumed_reads(directory: Path) -> tuple[dict[str, tuple[bytes, os.stat_resul
 
 def summarized_refusal(log: list[dict], slug: str, ask: str) -> None:
     """The refusal of a resume of SLUG once the log holds its summary: the events it would carry are gone."""
-    if any(event.get("task") == slug and event.get("event") == SUMMARY for event in log):
+    if any(
+        event.get("task") == slug and event.get("event") == SUMMARY for event in log
+    ):
         raise SettingsError(
             f"the events of {slug!r} (its approved criteria, the personas' read, its decisions' events) became one summary event "
             f"past {KEEP_KEY} (nothing of it was logged for that many days), so a resumed task would start with none of them. "
@@ -2631,10 +3562,20 @@ def resumed_files(names: list[str], notes: bool) -> list[str]:
     RESUMED_FILES and RESUMED_GLOBS, or with NOTES, for a task the release stop blocked, the
     documents and the ticket alone (RESUMED_NOTES)."""
     kept = RESUMED_NOTES if notes else RESUMED_FILES
-    return sorted(name for name in set(names) if name in kept or any(fnmatch.fnmatchcase(name, pattern) for pattern in RESUMED_GLOBS))
+    return sorted(
+        name
+        for name in set(names)
+        if name in kept
+        or any(fnmatch.fnmatchcase(name, pattern) for pattern in RESUMED_GLOBS)
+    )
 
 
-def write_resumed(target: Path, carried: dict[str, tuple[bytes, os.stat_result]], folders: list[str], notes: bool) -> None:
+def write_resumed(
+    target: Path,
+    carried: dict[str, tuple[bytes, os.stat_result]],
+    folders: list[str],
+    notes: bool,
+) -> None:
     """Write into TARGET what `resumed_files` chooses of the files a resume read (`resumed_reads`), and the
     pictures of `media/` with its folders, each file as it was read, with its mode and its times, as a
     copy keeps them."""
@@ -2651,39 +3592,94 @@ def write_resumed(target: Path, carried: dict[str, tuple[bytes, os.stat_result]]
 
 def went_on_in(root: Path, slug: str) -> str | None:
     """The task a dropped task SLUG went on in already (its `resumed-from.txt` names SLUG), or None."""
-    return next((path.parent.name for path in sorted((state_root(root) / "tasks").glob(f"*/{RESUMED_FROM}")) if text_of(path).strip() == slug), None)
+    return next(
+        (
+            path.parent.name
+            for path in sorted((state_root(root) / "tasks").glob(f"*/{RESUMED_FROM}"))
+            if text_of(path).strip() == slug
+        ),
+        None,
+    )
 
 
 def has_branch(main: Path, name: str | None) -> bool:
     """Whether the checkout MAIN has the local branch NAME."""
-    return name is not None and subprocess.run(["git", "-C", str(main), "rev-parse", "--verify", "--quiet", f"refs/heads/{name}"],
-                                               capture_output=True, text=True, check=False).returncode == 0
+    return (
+        name is not None
+        and subprocess.run(
+            [
+                "git",
+                "-C",
+                str(main),
+                "rev-parse",
+                "--verify",
+                "--quiet",
+                f"refs/heads/{name}",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).returncode
+        == 0
+    )
 
 
-def open_resumed(root: Path, settings: dict, main: Path, slug: str, new: str, branch: str | None, source: str | None, ticket: str | None) -> Path:
+def open_resumed(
+    root: Path,
+    settings: dict,
+    main: Path,
+    slug: str,
+    new: str,
+    branch: str | None,
+    source: str | None,
+    ticket: str | None,
+) -> Path:
     """The folder of NEW, the task that a resume of the dropped task SLUG opens, made with its `reports/`.
     It refuses a folder that is there already and a BRANCH that origin has; the TICKET of SLUG, when it
     has one, goes on with NEW; and BRANCH is cut from SOURCE in the checkout MAIN when SOURCE is given."""
     target = state_root(root) / "tasks" / new
     if target.exists():
-        raise SettingsError(f"{target} exists already: no task is resumed into another task's folder")
+        raise SettingsError(
+            f"{target} exists already: no task is resumed into another task's folder"
+        )
     taken_on_remote(root, new, branch)
     claim: contextlib.AbstractContextManager = contextlib.nullcontext()
     if ticket is not None:
         # the ticket goes on with the work, as for a new task: refused while another task holds it,
         # and the dropped task's mark moves to the new slug, and back to it when git refuses the branch
-        claim = held_ticket(root, new, ticket, read_tasks(root, settings), (settings["tracker"] or {}).get("kind"), succeeds=slug)
+        claim = held_ticket(
+            root,
+            new,
+            ticket,
+            read_tasks(root, settings),
+            (settings["tracker"] or {}).get("kind"),
+            succeeds=slug,
+        )
     with claim:
         if source is not None:
-            made = subprocess.run(["git", "-C", str(main), "branch", "--no-track", str(branch), source], capture_output=True, text=True, check=False)
+            made = subprocess.run(
+                ["git", "-C", str(main), "branch", "--no-track", str(branch), source],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
             if made.returncode != 0:
-                raise SettingsError(f"git could not make {branch} from {source}: {(made.stderr or made.stdout).strip()}")
+                raise SettingsError(
+                    f"git could not make {branch} from {source}: {(made.stderr or made.stdout).strip()}"
+                )
     (target / "reports").mkdir(parents=True)
     return target
 
 
-def resume_as_request(root: Path, slug: str, directory: Path, ask: str, stops: list[dict],
-                      carried: dict[str, tuple[bytes, os.stat_result]], folders: list[str]) -> dict:
+def resume_as_request(
+    root: Path,
+    slug: str,
+    directory: Path,
+    ask: str,
+    stops: list[dict],
+    carried: dict[str, tuple[bytes, os.stat_result]],
+    folders: list[str],
+) -> dict:
     """The resume of a dropped task that the release stop blocked (STOPS, its `release.stop` events,
     oldest first), with the files the resume read of it (CARRIED, FOLDERS): a new request on this
     release, which reads no record of the old one. Its branch is cut from the branch the newest stop
@@ -2694,18 +3690,33 @@ def resume_as_request(root: Path, slug: str, directory: Path, ask: str, stops: l
     the proposal of its criteria."""
     again = went_on_in(root, slug)
     if again:
-        raise SettingsError(f"the dropped task {slug!r} goes on in {again!r} already: `lem project resume {again}` when that one is parked or dropped too")
+        raise SettingsError(
+            f"the dropped task {slug!r} goes on in {again!r} already: `lem project resume {again}` when that one is parked or dropped too"
+        )
     settings = load(root)
     main = main_checkout(root)
     new = resumed_slug(root, slug)
-    old = next((stop.get("branch") for stop in reversed(stops) if isinstance(stop.get("branch"), str) and stop.get("branch")), None)
+    old = next(
+        (
+            stop.get("branch")
+            for stop in reversed(stops)
+            if isinstance(stop.get("branch"), str) and stop.get("branch")
+        ),
+        None,
+    )
     exists = has_branch(main, old)
     # the type of the old branch's name (`fix/invoice-totals`), since the old state's type line is a
     # record of a release two back; the new session takes the type anew, and keeps this branch
     first = old.split("/", 1)[0] if exists and "/" in old else None
     branch = f"{first if first in TYPES else 'feat'}/{new}" if exists else None
-    ticket = text_of(directory / "ticket.txt").strip() if (directory / "ticket.txt").is_file() else None
-    target = open_resumed(root, settings, main, slug, new, branch, old if exists else None, ticket)
+    ticket = (
+        text_of(directory / "ticket.txt").strip()
+        if (directory / "ticket.txt").is_file()
+        else None
+    )
+    target = open_resumed(
+        root, settings, main, slug, new, branch, old if exists else None, ticket
+    )
     try:
         lem_release.mark(target, main)
     except ValueError as error:
@@ -2713,12 +3724,28 @@ def resume_as_request(root: Path, slug: str, directory: Path, ask: str, stops: l
     (target / "ask.txt").write_text(ask + "\n", encoding="utf-8")
     write_resumed(target, carried, folders, notes=True)
     (target / RESUMED_FROM).write_text(slug + "\n", encoding="utf-8")
-    gone = f"the branch {old} is gone" if old else f"git named no branch of {slug} when Lem stopped it"
-    return {"task": new, "resumed": "request", "from": slug, "branch": branch, "from_branch": old if exists else None, "missing": None if exists else old,
-            "status": None, "next": f"lem session open {new} --why new",
-            "says": f"{slug} stays dropped; {new} is a new request on this release, from the notes {slug} left and "
-                    + (f"the commits of {old}, on {branch}" if exists else f"the base branch, since {gone}")
-                    + f": `lem session open {new} --why new` opens its session, which takes its shape anew"}
+    gone = (
+        f"the branch {old} is gone"
+        if old
+        else f"git named no branch of {slug} when Lem stopped it"
+    )
+    return {
+        "task": new,
+        "resumed": "request",
+        "from": slug,
+        "branch": branch,
+        "from_branch": old if exists else None,
+        "missing": None if exists else old,
+        "status": None,
+        "next": f"lem session open {new} --why new",
+        "says": f"{slug} stays dropped; {new} is a new request on this release, from the notes {slug} left and "
+        + (
+            f"the commits of {old}, on {branch}"
+            if exists
+            else f"the base branch, since {gone}"
+        )
+        + f": `lem session open {new} --why new` opens its session, which takes its shape anew",
+    }
 
 
 def cmd_resume(root: Path, slug: str) -> dict:
@@ -2728,7 +3755,11 @@ def cmd_resume(root: Path, slug: str) -> dict:
     so are the files, since prune keeps only its small record. A dropped task the release stop blocked
     goes on as a new request (`resume_as_request`)."""
     directory = task_directory(root, slug)
-    blocks = blocks_of(text_of(directory / "state.md")) if (directory / "state.md").is_file() else []
+    blocks = (
+        blocks_of(text_of(directory / "state.md"))
+        if (directory / "state.md").is_file()
+        else []
+    )
     now = blocks[0]["status"] if blocks else None
     if now in (PARKED, "dropped"):
         # a parked task two releases back stops before it is brought back; a dropped one passes, since
@@ -2739,42 +3770,99 @@ def cmd_resume(root: Path, slug: str) -> dict:
     if now == PARKED:
         before = next((block for block in blocks if block["status"] != PARKED), None)
         if before is None:
-            raise SettingsError(f"the task {slug!r} has no block before its park to bring back: write its state by hand")
+            raise SettingsError(
+                f"the task {slug!r} has no block before its park to bring back: write its state by hand"
+            )
         written = cmd_state(root, slug, before["status"], before["lines"], resumed=True)
-        breaker = re.fullmatch(r"breaker ([1-9]\d*) waits for the owner", before["lines"][0])
-        return {"task": slug, "resumed": "parked", "status": before["status"], "line": before["lines"][0], "since": written["since"],
-                "breaker": int(breaker[1]) if breaker else None, "says": f"{slug} goes on in its own worktree from where it was put aside"}
+        breaker = re.fullmatch(
+            r"breaker ([1-9]\d*) waits for the owner", before["lines"][0]
+        )
+        return {
+            "task": slug,
+            "resumed": "parked",
+            "status": before["status"],
+            "line": before["lines"][0],
+            "since": written["since"],
+            "breaker": int(breaker[1]) if breaker else None,
+            "says": f"{slug} goes on in its own worktree from where it was put aside",
+        }
     if now != "dropped":
         raise SettingsError(
             f"the task {slug!r} is {now or 'new'}: `resume` takes a parked task or a dropped one. "
-            + ("An ended task stays ended, and new work for it is a new ask (`/lem new`)" if now in ENDED else "This one goes on as it is"),
+            + (
+                "An ended task stays ended, and new work for it is a new ask (`/lem new`)"
+                if now in ENDED
+                else "This one goes on as it is"
+            ),
         )
     # The log, then every file the new task takes, then the log again. Prune writes a task's summary
     # before it removes any file of it, so a second read with no summary comes after reads of files that
     # no removal had reached; the old branch and the events carried over come from that second read. A
     # summary in the first read refuses before any file is read, so a file that prune could not remove
     # and that does not read meets the same refusal; a read that fails stops the resume before any write.
-    ask = text_of(directory / "ask.txt").strip() if (directory / "ask.txt").is_file() else (ask_of(directory) or slug)
-    summarized_refusal(log_events(root, "resume reads the task's events from the log, so it made nothing"), slug, ask)
+    ask = (
+        text_of(directory / "ask.txt").strip()
+        if (directory / "ask.txt").is_file()
+        else (ask_of(directory) or slug)
+    )
+    summarized_refusal(
+        log_events(
+            root, "resume reads the task's events from the log, so it made nothing"
+        ),
+        slug,
+        ask,
+    )
     carried_files, media_folders, failed = resumed_reads(directory)
-    log = log_events(root, "resume reads the task's events from the log, so it made nothing")
+    log = log_events(
+        root, "resume reads the task's events from the log, so it made nothing"
+    )
     summarized_refusal(log, slug, ask)
     if failed:
-        raise SettingsError(f"resume reads every file it carries before it writes, and {failed}, so it made nothing: make it readable, then resume again")
+        raise SettingsError(
+            f"resume reads every file it carries before it writes, and {failed}, so it made nothing: make it readable, then resume again"
+        )
 
     # a task the release stop blocked goes on as a new request; it reads no record of the old one
-    stops = [event for event in log if event.get("task") == slug and event.get("event") == lem_release.STOP]
+    stops = [
+        event
+        for event in log
+        if event.get("task") == slug and event.get("event") == lem_release.STOP
+    ]
     if stops:
-        return resume_as_request(root, slug, directory, ask, stops, carried_files, media_folders)
+        return resume_as_request(
+            root, slug, directory, ask, stops, carried_files, media_folders
+        )
 
     def carried_text(name: str) -> str:
         try:
             return carried_files[name][0].decode("utf-8")
         except UnicodeDecodeError as error:
-            raise SettingsError(f"{directory / name} is not UTF-8 text (byte {error.start} does not read); save it as UTF-8") from error
-    lines = [json.loads(line) for line in lem_state.jsonl_lines(carried_text("decisions.jsonl")) if line.strip()] if "decisions.jsonl" in carried_files else []
-    helped = {line.get("breaker") for line in lines if line.get("kind") == "taken" and "breaker" in line}
-    breaker = next((line for line in reversed(lines) if line.get("kind") == "breaker" and line["id"] not in helped), None)
+            raise SettingsError(
+                f"{directory / name} is not UTF-8 text (byte {error.start} does not read); save it as UTF-8"
+            ) from error
+
+    lines = (
+        [
+            json.loads(line)
+            for line in lem_state.jsonl_lines(carried_text("decisions.jsonl"))
+            if line.strip()
+        ]
+        if "decisions.jsonl" in carried_files
+        else []
+    )
+    helped = {
+        line.get("breaker")
+        for line in lines
+        if line.get("kind") == "taken" and "breaker" in line
+    }
+    breaker = next(
+        (
+            line
+            for line in reversed(lines)
+            if line.get("kind") == "breaker" and line["id"] not in helped
+        ),
+        None,
+    )
     if breaker is None or "handoff.md" not in carried_files:
         raise SettingsError(
             f"the task {slug!r} was dropped with no breaker that waits and its handoff beside it, so there is no talk to go back to: "
@@ -2782,7 +3870,9 @@ def cmd_resume(root: Path, slug: str) -> dict:
         )
     again = went_on_in(root, slug)
     if again:
-        raise SettingsError(f"the dropped task {slug!r} goes on in {again!r} already: `lem project resume {again}` when that one is parked or dropped too")
+        raise SettingsError(
+            f"the dropped task {slug!r} goes on in {again!r} already: `lem project resume {again}` when that one is parked or dropped too"
+        )
     settings = load(root)
     main = main_checkout(root)
     new = resumed_slug(root, slug)
@@ -2790,42 +3880,127 @@ def cmd_resume(root: Path, slug: str) -> dict:
     kind = typed["type"] if typed else "feat"
     branch = f"{kind}/{new}"
     # the old branch, as the newest state event that saw the task's worktree named it
-    old = next((event.get("branch") for event in reversed(log) if event.get("event") == "task.state" and event.get("task") == slug and event.get("branch")), None)
+    old = next(
+        (
+            event.get("branch")
+            for event in reversed(log)
+            if event.get("event") == "task.state"
+            and event.get("task") == slug
+            and event.get("branch")
+        ),
+        None,
+    )
     exists = has_branch(main, old)
-    ticket = carried_text("ticket.txt").strip() if "ticket.txt" in carried_files else None
-    target = open_resumed(root, settings, main, slug, new, branch, old if exists else None, ticket)
+    ticket = (
+        carried_text("ticket.txt").strip() if "ticket.txt" in carried_files else None
+    )
+    target = open_resumed(
+        root, settings, main, slug, new, branch, old if exists else None, ticket
+    )
     (target / "ask.txt").write_text(ask + "\n", encoding="utf-8")
     write_resumed(target, carried_files, media_folders, notes=False)
     (target / RESUMED_FROM).write_text(slug + "\n", encoding="utf-8")
-    worktree = main / Path(settings["places"]["worktrees"]["path"]).relative_to(root.resolve()) / new
+    worktree = (
+        main
+        / Path(settings["places"]["worktrees"]["path"]).relative_to(root.resolve())
+        / new
+    )
     if "brief.md" in carried_files:
         # the old brief with this task's own lines: a fresh lead reads where it works from it
-        own = {"task": new, "branch": branch, "worktree": str(worktree), "task directory": str(target)}
-        rows = [f"{row.split(':', 1)[0]}: {own[row.split(':', 1)[0]]}" if row.split(":", 1)[0] in own else row
-                for row in carried_text("brief.md").splitlines()]
-        (target / "brief.md").write_text("\n".join([*rows, f"resumed from: {slug}; read handoff.md and {breaker.get('document') or 'the breaker document'} in the task directory first"]) + "\n", encoding="utf-8")
+        own = {
+            "task": new,
+            "branch": branch,
+            "worktree": str(worktree),
+            "task directory": str(target),
+        }
+        rows = [
+            f"{row.split(':', 1)[0]}: {own[row.split(':', 1)[0]]}"
+            if row.split(":", 1)[0] in own
+            else row
+            for row in carried_text("brief.md").splitlines()
+        ]
+        (target / "brief.md").write_text(
+            "\n".join(
+                [
+                    *rows,
+                    f"resumed from: {slug}; read handoff.md and {breaker.get('document') or 'the breaker document'} in the task directory first",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
     # In the log's own order, each with the time it had (`was_at`, the first task's time for a task
     # resumed twice): the landing compares his approval with a read by those times, and finds his
     # word to skip a read before the approval that followed it.
-    carried = {*RESUMED_EVENTS, *(f"decision.{kind}" for kind in ("taken", "breaker", "criterion"))}
+    carried = {
+        *RESUMED_EVENTS,
+        *(f"decision.{kind}" for kind in ("taken", "breaker", "criterion")),
+    }
     for event in log:
-        if event.get("task") == slug and isinstance(event.get("event"), str) and event["event"] in carried:
-            append_event(root, event["event"], new, {**{key: value for key, value in event.items() if key not in ("ts", "event", "task", "was_at")},
-                                                     "from": slug, "was_at": event.get("was_at") or event["ts"]})
+        if (
+            event.get("task") == slug
+            and isinstance(event.get("event"), str)
+            and event["event"] in carried
+        ):
+            append_event(
+                root,
+                event["event"],
+                new,
+                {
+                    **{
+                        key: value
+                        for key, value in event.items()
+                        if key not in ("ts", "event", "task", "was_at")
+                    },
+                    "from": slug,
+                    "was_at": event.get("was_at") or event["ts"],
+                },
+            )
     try:
         made_tree = cmd_worktree(root, settings, new, branch)
     except SettingsError as error:
         # the task is whole without its worktree's last step (a `checks.setup` that failed, or git): its
         # state goes on record, so that it waits as the resumed task it is, and the error says what is left
-        cmd_state(root, new, "held", [f"breaker {breaker['id']} waits for the owner", f"resumed from {slug}, which was dropped",
-                                      *([f"type: {kind}, because {typed['why']}"] if typed else [])])
-        raise SettingsError(f"{slug} goes on in {new}, which is held by its breaker {breaker['id']} as a resumed task should be, and its worktree is not whole: {error}") from None
-    written = cmd_state(root, new, "held", [f"breaker {breaker['id']} waits for the owner", f"resumed from {slug}, which was dropped",
-                                            *([f"type: {kind}, because {typed['why']}"] if typed else [])])
-    return {"task": new, "resumed": "dropped", "from": slug, "branch": branch, "from_branch": old if exists else None,
-            "worktree": made_tree["worktree"], "breaker": breaker["id"], "status": "held", "since": written["since"],
-            "says": f"{slug} stays dropped; {new} goes on from its handoff and "
-                    + (f"the commits of {old}" if exists else f"the base branch, since the branch {old or 'of ' + slug} is gone")}
+        cmd_state(
+            root,
+            new,
+            "held",
+            [
+                f"breaker {breaker['id']} waits for the owner",
+                f"resumed from {slug}, which was dropped",
+                *([f"type: {kind}, because {typed['why']}"] if typed else []),
+            ],
+        )
+        raise SettingsError(
+            f"{slug} goes on in {new}, which is held by its breaker {breaker['id']} as a resumed task should be, and its worktree is not whole: {error}"
+        ) from None
+    written = cmd_state(
+        root,
+        new,
+        "held",
+        [
+            f"breaker {breaker['id']} waits for the owner",
+            f"resumed from {slug}, which was dropped",
+            *([f"type: {kind}, because {typed['why']}"] if typed else []),
+        ],
+    )
+    return {
+        "task": new,
+        "resumed": "dropped",
+        "from": slug,
+        "branch": branch,
+        "from_branch": old if exists else None,
+        "worktree": made_tree["worktree"],
+        "breaker": breaker["id"],
+        "status": "held",
+        "since": written["since"],
+        "says": f"{slug} stays dropped; {new} goes on from its handoff and "
+        + (
+            f"the commits of {old}"
+            if exists
+            else f"the base branch, since the branch {old or 'of ' + slug} is gone"
+        ),
+    }
 
 
 def type_line(line: str) -> dict | None:
@@ -2837,9 +4012,13 @@ def type_line(line: str) -> dict | None:
     found = TYPE_LINE.fullmatch(text)
     kind = found["type"] if found else text.removeprefix("type:").strip()
     if kind not in TYPES:
-        raise SettingsError(f"{kind!r} is not a type of request{nearest(kind, TYPES)}; a type line reads `type: TYPE, because WHY`, with TYPE one of {', '.join(TYPES)}")
+        raise SettingsError(
+            f"{kind!r} is not a type of request{nearest(kind, TYPES)}; a type line reads `type: TYPE, because WHY`, with TYPE one of {', '.join(TYPES)}"
+        )
     if not found or not found["why"]:
-        raise SettingsError(f"the line {text!r} names the type without its reason: write it as `type: {kind}, because ...`")
+        raise SettingsError(
+            f"the line {text!r} names the type without its reason: write it as `type: {kind}, because ...`"
+        )
     return {"type": kind, "why": found["why"].strip()}
 
 
@@ -2866,39 +4045,69 @@ def investigation_form(fields: dict) -> None:
     form = "investigation takes type=fix|question call=CALL line=TEXT [where=PATH:SYMBOL] [reproduced:=true|false, for a fix]"
     allowed = {"type", "call", "line", "where", "reproduced"}
     if not {"type", "call", "line"} <= set(fields) <= allowed:
-        raise SettingsError(f"{form}, and nothing else; this one has {', '.join(sorted(fields)) or 'no field'}")
+        raise SettingsError(
+            f"{form}, and nothing else; this one has {', '.join(sorted(fields)) or 'no field'}"
+        )
     kind, call = fields["type"], fields["call"]
     if kind not in CALLS:
         raise SettingsError(f"{form}: type is fix or question, not {kind!r}")
     if call not in CALLS[kind]:
-        raise SettingsError(f"{form}: call is small, full, not-a-bug or not-reproduced for a fix, and answer for a question; this one is {call!r} for a {kind}")
-    if not isinstance(fields["line"], str) or not fields["line"].strip() or "\n" in fields["line"]:
-        raise SettingsError(f"{form}: line is one line of text: the cause, the answer, or what was tried")
-    if "where" in fields and (not isinstance(fields["where"], str) or not fields["where"].strip()):
-        raise SettingsError(f"{form}: where is the cause's file and symbol, as path:symbol")
+        raise SettingsError(
+            f"{form}: call is small, full, not-a-bug or not-reproduced for a fix, and answer for a question; this one is {call!r} for a {kind}"
+        )
+    if (
+        not isinstance(fields["line"], str)
+        or not fields["line"].strip()
+        or "\n" in fields["line"]
+    ):
+        raise SettingsError(
+            f"{form}: line is one line of text: the cause, the answer, or what was tried"
+        )
+    if "where" in fields and (
+        not isinstance(fields["where"], str) or not fields["where"].strip()
+    ):
+        raise SettingsError(
+            f"{form}: where is the cause's file and symbol, as path:symbol"
+        )
     if kind == "question" and "reproduced" in fields:
-        raise SettingsError(f"{form}: reproduced is a fix's; the investigation of a question answers it and reproduces nothing")
+        raise SettingsError(
+            f"{form}: reproduced is a fix's; the investigation of a question answers it and reproduces nothing"
+        )
     if kind == "fix":
         if not isinstance(fields.get("reproduced"), bool):
-            raise SettingsError(f"{form}: a fix's record says whether the bug was reproduced, as reproduced:=true or reproduced:=false, written with :=")
+            raise SettingsError(
+                f"{form}: a fix's record says whether the bug was reproduced, as reproduced:=true or reproduced:=false, written with :="
+            )
         if call in ("small", "full") and not fields.get("where"):
-            raise SettingsError(f"{form}: a plain cause has a place: where names the cause's file and symbol")
+            raise SettingsError(
+                f"{form}: a plain cause has a place: where names the cause's file and symbol"
+            )
         if call == "not-reproduced" and fields["reproduced"]:
-            raise SettingsError(f"{form}: not-reproduced is a bug that was not reproduced, and this record says it was")
+            raise SettingsError(
+                f"{form}: not-reproduced is a bug that was not reproduced, and this record says it was"
+            )
 
 
 def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
     """Append one event about a task; `state` is the only writer of task.state."""
     task_directory(root, slug)
     if event == "task.state":
-        raise SettingsError("task.state is written by `lem project state`, which also writes the state block")
+        raise SettingsError(
+            "task.state is written by `lem project state`, which also writes the state block"
+        )
     if event == SUMMARY:
-        raise SettingsError(f"{SUMMARY} is written by `lem project prune` only, in place of the events of an ended task that nothing happened in for {KEEP_KEY} days")
+        raise SettingsError(
+            f"{SUMMARY} is written by `lem project prune` only, in place of the events of an ended task that nothing happened in for {KEEP_KEY} days"
+        )
     if event in SEAT_EVENTS:
-        raise SettingsError(f"{event} is written by `lem project seat-failed` and `lem project seat-again` only, with the block they write: "
-                            f"a stage that saw a seat's agent give an error runs `lem project seat-failed {slug} SEAT --seat LINE --error KIND`")
+        raise SettingsError(
+            f"{event} is written by `lem project seat-failed` and `lem project seat-again` only, with the block they write: "
+            f"a stage that saw a seat's agent give an error runs `lem project seat-failed {slug} SEAT --seat LINE --error KIND`"
+        )
     if event in ("task.mode", OWNER):
-        raise SettingsError(f"{event} is written by `lem project owner` and `task-dir --night` only: the owner's status is his words, kept in the machine's mark and never in a repository's log, and a night's mark is the night's")
+        raise SettingsError(
+            f"{event} is written by `lem project owner` and `task-dir --night` only: the owner's status is his words, kept in the machine's mark and never in a repository's log, and a night's mark is the night's"
+        )
     fields: dict[str, object] = {}
     for pair in pairs:
         key, separator, raw = pair.partition("=")
@@ -2907,7 +4116,9 @@ def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
         if not separator or not key:
             raise SettingsError(f"{pair!r} is neither key=value nor key:=json")
         if key in fields or key in ("ts", "event", "task"):
-            raise SettingsError(f"field {key!r} is given twice or is one the log sets itself")
+            raise SettingsError(
+                f"field {key!r} is given twice or is one the log sets itself"
+            )
         try:
             fields[key] = json.loads(raw) if typed else raw
         except json.JSONDecodeError as error:
@@ -2934,46 +4145,87 @@ def read_form(fields: dict) -> None:
     families split, and the digest of the criteria it read (`lem criteria digest`)."""
     form = (
         "criteria.read takes by=lem|lead asked:=N answered:=N families:='[\"FAMILY\", ...]' "
-        "silent:='[{\"name\": SOURCE, \"why\": WHY}, ...]' criteria:=N flagged:=N split:=true|false digest=DIGEST"
+        'silent:=\'[{"name": SOURCE, "why": WHY}, ...]\' criteria:=N flagged:=N split:=true|false digest=DIGEST'
     )
     counts = ("asked", "answered", "criteria", "flagged")
     if set(fields) != {"by", "families", "silent", "split", "digest", *counts}:
-        raise SettingsError(f"{form}, and nothing else; this one has {', '.join(sorted(fields)) or 'no field'}")
+        raise SettingsError(
+            f"{form}, and nothing else; this one has {', '.join(sorted(fields)) or 'no field'}"
+        )
     if fields["by"] not in ("lem", "lead"):
-        raise SettingsError(f"{form}: by is lem, when Lem ran the read in its session, or lead, when the task's lead ran it")
-    if not all(isinstance(fields[key], int) and not isinstance(fields[key], bool) and fields[key] >= 0 for key in counts):
-        raise SettingsError(f"{form}: each N is a whole number, written with := so that it stays one")
+        raise SettingsError(
+            f"{form}: by is lem, when Lem ran the read in its session, or lead, when the task's lead ran it"
+        )
+    if not all(
+        isinstance(fields[key], int)
+        and not isinstance(fields[key], bool)
+        and fields[key] >= 0
+        for key in counts
+    ):
+        raise SettingsError(
+            f"{form}: each N is a whole number, written with := so that it stays one"
+        )
     families = fields["families"]
-    if not isinstance(families, list) or not all(isinstance(name, str) and name.strip() for name in families) or len(set(families)) != len(families) \
-            or (fields["answered"] and not families):
-        raise SettingsError(f"{form}: families is the list of the model families that answered, each named once, as in families:='[\"opus\", \"sol\"]'")
+    if (
+        not isinstance(families, list)
+        or not all(isinstance(name, str) and name.strip() for name in families)
+        or len(set(families)) != len(families)
+        or (fields["answered"] and not families)
+    ):
+        raise SettingsError(
+            f'{form}: families is the list of the model families that answered, each named once, as in families:=\'["opus", "sol"]\''
+        )
     silent = fields["silent"]
     if not isinstance(silent, list) or not all(
-        isinstance(item, dict) and set(item) == {"name", "why"} and all(isinstance(value, str) and value.strip() for value in item.values()) for item in silent
+        isinstance(item, dict)
+        and set(item) == {"name", "why"}
+        and all(isinstance(value, str) and value.strip() for value in item.values())
+        for item in silent
     ):
-        raise SettingsError(f"{form}: silent is a list of {{\"name\": ..., \"why\": ...}}, one for each source that did not answer; [] when every one did")
+        raise SettingsError(
+            f'{form}: silent is a list of {{"name": ..., "why": ...}}, one for each source that did not answer; [] when every one did'
+        )
     if not isinstance(fields["split"], bool):
-        raise SettingsError(f"{form}: split is true when the two families answered a criterion differently, false otherwise, written with :=")
-    if not isinstance(fields["digest"], str) or not re.fullmatch(r"[0-9a-f]{12}", fields["digest"]):
-        raise SettingsError(f"{form}: digest is the twelve characters `lem criteria digest` prints for the criteria that were read")
+        raise SettingsError(
+            f"{form}: split is true when the two families answered a criterion differently, false otherwise, written with :="
+        )
+    if not isinstance(fields["digest"], str) or not re.fullmatch(
+        r"[0-9a-f]{12}", fields["digest"]
+    ):
+        raise SettingsError(
+            f"{form}: digest is the twelve characters `lem criteria digest` prints for the criteria that were read"
+        )
     # every project's cast has two people or more
     if fields["asked"] < 2:
         raise SettingsError(f"{form}: a read asks two personas at the least")
     if fields["answered"] > fields["asked"]:
-        raise SettingsError(f"{form}: answered is at most asked; 0 is a read in which nobody answered")
+        raise SettingsError(
+            f"{form}: answered is at most asked; 0 is a read in which nobody answered"
+        )
     # A read in which nobody answered is written down too, and started once more: the landing
     # counts two in a row as the criteria going on unread, and the request as not green.
-    if fields["answered"] == 0 and (families or fields["flagged"] or fields["split"] or len(silent) < fields["asked"]):
+    if fields["answered"] == 0 and (
+        families
+        or fields["flagged"]
+        or fields["split"]
+        or len(silent) < fields["asked"]
+    ):
         raise SettingsError(
             f"{form}: a read in which nobody answered has families:='[]', flagged:=0 and split:=false, "
             "and silent names each source that was asked, one for each persona at the least, with why",
         )
     if fields["answered"] < fields["asked"] and not silent:
-        raise SettingsError(f"{form}: when fewer answered than were asked, silent names each source that did not, with why")
+        raise SettingsError(
+            f"{form}: when fewer answered than were asked, silent names each source that did not, with why"
+        )
     if fields["criteria"] < 1 or fields["flagged"] > fields["criteria"]:
-        raise SettingsError(f"{form}: a read has one criterion at the least, and no more criteria flagged than it read")
+        raise SettingsError(
+            f"{form}: a read has one criterion at the least, and no more criteria flagged than it read"
+        )
     if fields["split"] and len(families) < 2:
-        raise SettingsError(f"{form}: a split is between two model families, and families names one")
+        raise SettingsError(
+            f"{form}: a split is between two model families, and families names one"
+        )
 
 
 # The start of each stage that logs its end and had no start, so that the board draws a span from
@@ -2986,23 +4238,50 @@ def read_form(fields: dict) -> None:
 # read at `criteria.read`, an investigation at `investigation`, a builder's job at the next state
 # block or step of the landing after it, the polish pass at `polish`, the checks at `gate.end`, and
 # the review at `review`.
-BUILDER_JOBS = ("the small change", "the repair of a conflict with the base", "the repair of a failed check", "the fix of a review's findings", "the removal of the task's item")
+BUILDER_JOBS = (
+    "the small change",
+    "the repair of a conflict with the base",
+    "the repair of a failed check",
+    "the fix of a review's findings",
+    "the removal of the task's item",
+)
 TASK_JOB = re.compile(r"task [1-9]\d* of [1-9]\d*")
 STARTS: dict[str, tuple[str, dict[str, tuple[str, ...] | None]]] = {
     "interview.start": ("interview.start takes nothing", {}),
-    "interview.end": ("interview.end, the end of the questions to the owner, takes nothing", {}),
+    "interview.end": (
+        "interview.end, the end of the questions to the owner, takes nothing",
+        {},
+    ),
     "scout.start": ("scout.start takes nothing", {}),
     "scout": ("scout, the end of the scout's read, takes nothing", {}),
-    "read.skip.asked": ("read.skip.asked, the question whether the owner skips the personas' read, takes nothing", {}),
-    "criteria.read.start": ("criteria.read.start takes by=lem|lead, and nothing else", {"by": ("lem", "lead")}),
-    "investigation.start": ("investigation.start takes type=fix|question, and nothing else", {"type": ("fix", "question")}),
+    "read.skip.asked": (
+        "read.skip.asked, the question whether the owner skips the personas' read, takes nothing",
+        {},
+    ),
+    "criteria.read.start": (
+        "criteria.read.start takes by=lem|lead, and nothing else",
+        {"by": ("lem", "lead")},
+    ),
+    "investigation.start": (
+        "investigation.start takes type=fix|question, and nothing else",
+        {"type": ("fix", "question")},
+    ),
     "builder.start": (
         f"builder.start takes job=JOB, and nothing else: `task N of M`, or one of {', '.join(BUILDER_JOBS)}; the polish pass logs its own start (`lem land polish`)",
         {"job": None},
     ),
-    "polish.start": ("polish.start takes before=TIP, and land.py polish writes it", {"before": None}),
-    "gate.start": ("gate.start takes tip=TIP commands:=N, and land.py checks writes it", {"tip": None, "commands": None}),
-    "review.start": ("review.start takes attempt:=N floor=read|round|full, and land.py read writes it", {"attempt": None, "floor": ("read", "round", "full")}),
+    "polish.start": (
+        "polish.start takes before=TIP, and land.py polish writes it",
+        {"before": None},
+    ),
+    "gate.start": (
+        "gate.start takes tip=TIP commands:=N, and land.py checks writes it",
+        {"tip": None, "commands": None},
+    ),
+    "review.start": (
+        "review.start takes attempt:=N floor=read|round|full, and land.py read writes it",
+        {"attempt": None, "floor": ("read", "round", "full")},
+    ),
 }
 
 
@@ -3010,25 +4289,45 @@ def start_form(event: str, fields: dict) -> None:
     """A stage's start has one form, so that the board can draw its span from it to its end."""
     form, wants = STARTS[event]
     if set(fields) != set(wants):
-        raise SettingsError(f"{form}; this one has {', '.join(sorted(fields)) or 'no field'}")
+        raise SettingsError(
+            f"{form}; this one has {', '.join(sorted(fields)) or 'no field'}"
+        )
     for key, allowed in wants.items():
         value = fields[key]
         if allowed is not None and value not in allowed:
             raise SettingsError(f"{form}; {key} is {value!r}")
-    if event == "builder.start" and not (fields["job"] in BUILDER_JOBS or (isinstance(fields["job"], str) and TASK_JOB.fullmatch(fields["job"]))):
+    if event == "builder.start" and not (
+        fields["job"] in BUILDER_JOBS
+        or (isinstance(fields["job"], str) and TASK_JOB.fullmatch(fields["job"]))
+    ):
         raise SettingsError(f"{form}; job is {fields['job']!r}")
-    if event in ("polish.start", "gate.start") and not (isinstance(fields.get("before", fields.get("tip")), str) and re.fullmatch(r"[0-9a-f]{7,40}", fields.get("before", fields.get("tip")))):
+    if event in ("polish.start", "gate.start") and not (
+        isinstance(fields.get("before", fields.get("tip")), str)
+        and re.fullmatch(r"[0-9a-f]{7,40}", fields.get("before", fields.get("tip")))
+    ):
         raise SettingsError(f"{form}; the tip is a commit, as git names it")
     for key in ("commands", "attempt"):
-        if key in fields and not (isinstance(fields[key], int) and not isinstance(fields[key], bool) and fields[key] >= 1):
-            raise SettingsError(f"{form}; {key} is a whole number, 1 or more, written with :=")
+        if key in fields and not (
+            isinstance(fields[key], int)
+            and not isinstance(fields[key], bool)
+            and fields[key] >= 1
+        ):
+            raise SettingsError(
+                f"{form}; {key} is a whole number, 1 or more, written with :="
+            )
 
 
 def talk_start_form(fields: dict) -> None:
     """The start of a plan talk, written when the reviewer's seat opens, so that the board can draw
     the talk's minutes from two events: it names the reviewer, and nothing else."""
-    if set(fields) != {"reviewer"} or not isinstance(fields["reviewer"], str) or not fields["reviewer"].strip():
-        raise SettingsError(f"plan.talk.start takes reviewer=AGENT, and nothing else; this one has {', '.join(sorted(fields)) or 'no field'}")
+    if (
+        set(fields) != {"reviewer"}
+        or not isinstance(fields["reviewer"], str)
+        or not fields["reviewer"].strip()
+    ):
+        raise SettingsError(
+            f"plan.talk.start takes reviewer=AGENT, and nothing else; this one has {', '.join(sorted(fields)) or 'no field'}"
+        )
 
 
 # The most turns a talk of N questions has by its rules: the reviewer's list, two answers of the defender
@@ -3051,26 +4350,58 @@ def talk_form(fields: dict) -> None:
     mechanism over a decision the plan cites (a criterion, a ruling, existing code) and stayed; and
     `shared`, the decisions two questions named."""
     form = "plan.talk takes reviewer=AGENT turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N root:=N layer:=N shared:=N"
-    counts = ("turns", "questions", "settled", "open", "repaired", "design", "unargued", "root", "layer", "shared")
+    counts = (
+        "turns",
+        "questions",
+        "settled",
+        "open",
+        "repaired",
+        "design",
+        "unargued",
+        "root",
+        "layer",
+        "shared",
+    )
     if set(fields) != {"reviewer", *counts}:
-        raise SettingsError(f"{form}, and nothing else; this one has {', '.join(sorted(fields)) or 'no field'}")
+        raise SettingsError(
+            f"{form}, and nothing else; this one has {', '.join(sorted(fields)) or 'no field'}"
+        )
     if not isinstance(fields["reviewer"], str) or not fields["reviewer"].strip():
-        raise SettingsError(f"{form}: reviewer names the agent that argued the plan with its defender")
-    if not all(isinstance(fields[key], int) and not isinstance(fields[key], bool) and fields[key] >= 0 for key in counts):
-        raise SettingsError(f"{form}: each N is a whole number, written with := so that it stays one")
+        raise SettingsError(
+            f"{form}: reviewer names the agent that argued the plan with its defender"
+        )
+    if not all(
+        isinstance(fields[key], int)
+        and not isinstance(fields[key], bool)
+        and fields[key] >= 0
+        for key in counts
+    ):
+        raise SettingsError(
+            f"{form}: each N is a whole number, written with := so that it stays one"
+        )
     turns, questions = fields["turns"], fields["questions"]
     # A floor against an empty record, not a measure of a good talk. A reviewer that found nothing
     # says so in its first turn, and the defender closes: a talk of no question has those two turns.
     if turns < 2:
-        raise SettingsError(f"{form}: a talk has two turns at the least: the reviewer's list, which may be empty, and the close")
+        raise SettingsError(
+            f"{form}: a talk has two turns at the least: the reviewer's list, which may be empty, and the close"
+        )
     if questions == 0 and fields["unargued"] and turns <= TURNS_AROUND:
-        raise SettingsError(f"{form}: a talk of no question and two turns has no turn after the list, so unargued is 0")
+        raise SettingsError(
+            f"{form}: a talk of no question and two turns has no turn after the list, so unargued is 0"
+        )
     if fields["settled"] + fields["open"] != questions:
-        raise SettingsError(f"{form}: each question of the reviewer's first list ends settled or left open, so settled and open add up to questions")
+        raise SettingsError(
+            f"{form}: each question of the reviewer's first list ends settled or left open, so settled and open add up to questions"
+        )
     if fields["design"] > fields["open"]:
-        raise SettingsError(f"{form}: a design choice is a question left open because it held a second time, so design is at most open")
+        raise SettingsError(
+            f"{form}: a design choice is a question left open because it held a second time, so design is at most open"
+        )
     if fields["repaired"] > questions:
-        raise SettingsError(f"{form}: repaired counts the questions whose answer changed the plan, so repaired is at most questions")
+        raise SettingsError(
+            f"{form}: repaired counts the questions whose answer changed the plan, so repaired is at most questions"
+        )
     if fields["root"] + fields["layer"] > fields["repaired"]:
         raise SettingsError(
             f"{form}: a repair either changed a decision of the plan (root) or put a mechanism over a decision with a cite (layer), "
@@ -3081,7 +4412,12 @@ def talk_form(fields: dict) -> None:
     # the companion open and the request unproposed for ever.
 
 
-def ticket_owed(status: str | None, steps: list[str], tracker: dict | None, held_by: str | None = None) -> list[str]:
+def ticket_owed(
+    status: str | None,
+    steps: list[str],
+    tracker: dict | None,
+    held_by: str | None = None,
+) -> list[str]:
     """The steps a ticket still waits for, now that its task has ended. A session may be cut off
     between a task's last state and the tracker, and this is how the next one sees it. HELD_BY is the
     task that holds the ticket now when it is another one (`ticket_held_by`): the dropped task a
@@ -3108,15 +4444,19 @@ def proposal(directory: Path) -> dict | None:
         return None
     # every task's record is read here, so one that does not read stops `tasks` for all: the message says how to start that landing over
     way_out = (
-        f"land.py writes it whole, so something else wrote it. Move it aside, then `lem project state {directory.name} ready --start-over \"WHY\"` "
+        f'land.py writes it whole, so something else wrote it. Move it aside, then `lem project state {directory.name} ready --start-over "WHY"` '
         f"and `lem land start {directory.name}` start the landing over: its checks and its review run again"
     )
     try:
         kept = json.loads(kept_file.read_bytes().decode("utf-8"))
     except ValueError as error:
-        raise SettingsError(f"{kept_file} does not read as JSON ({error}); {way_out}") from error
+        raise SettingsError(
+            f"{kept_file} does not read as JSON ({error}); {way_out}"
+        ) from error
     if not isinstance(kept, dict):
-        raise SettingsError(f"{kept_file} is not an object, as the landing's record is; {way_out}")
+        raise SettingsError(
+            f"{kept_file} is not an object, as the landing's record is; {way_out}"
+        )
     if not kept.get("proposed"):
         return None
     reasons = kept.get("not_green", [])
@@ -3124,12 +4464,32 @@ def proposal(directory: Path) -> dict | None:
     # asked, on the head Lem pushed: null when nothing asked, the forge did not know, or the head moved since.
     forge = kept.get("forge") if isinstance(kept.get("forge"), dict) else {}
     pushed = kept.get("pushed") or kept.get("proposed")
-    conflict = {"CONFLICTING": True, "MERGEABLE": False}.get(forge.get("mergeable")) if pushed and forge.get("head") == pushed else None
+    conflict = (
+        {"CONFLICTING": True, "MERGEABLE": False}.get(forge.get("mergeable"))
+        if pushed and forge.get("head") == pushed
+        else None
+    )
     # the merge agent's review of the proposed tip, and GitHub's refusal of a merge after it
-    review = kept.get("merge_review") if isinstance(kept.get("merge_review"), dict) and kept["merge_review"].get("tip") == kept["proposed"] else None
-    refused = kept.get("merge_refused") if isinstance(kept.get("merge_refused"), dict) and kept["merge_refused"].get("tip") == kept["proposed"] else None
-    return {"pull_request": (kept.get("pr") or {}).get("url"), "green": not reasons, "not_green": reasons, "conflict": conflict,
-            "merge_review": review, "merge_refused": refused}
+    review = (
+        kept.get("merge_review")
+        if isinstance(kept.get("merge_review"), dict)
+        and kept["merge_review"].get("tip") == kept["proposed"]
+        else None
+    )
+    refused = (
+        kept.get("merge_refused")
+        if isinstance(kept.get("merge_refused"), dict)
+        and kept["merge_refused"].get("tip") == kept["proposed"]
+        else None
+    )
+    return {
+        "pull_request": (kept.get("pr") or {}).get("url"),
+        "green": not reasons,
+        "not_green": reasons,
+        "conflict": conflict,
+        "merge_review": review,
+        "merge_refused": refused,
+    }
 
 
 def events_named(root: Path, *events: str) -> list[dict]:
@@ -3143,7 +4503,9 @@ def events_named(root: Path, *events: str) -> list[dict]:
         try:
             record = json.loads(line)
         except ValueError as error:
-            raise SettingsError(f"{log}:{number} does not read as JSON ({error}); the log is written by project.py, never by hand") from error
+            raise SettingsError(
+                f"{log}:{number} does not read as JSON ({error}); the log is written by project.py, never by hand"
+            ) from error
         if record.get("event") in events:
             found.append(record)
     return found
@@ -3178,7 +4540,11 @@ def nights(modes: list[dict]) -> dict[str, str]:
         if record.get("event") == SUMMARY and isinstance(record.get("night"), str):
             found.setdefault(record.get("task"), record["night"])
             continue
-        night = NIGHT_WORDS.fullmatch(str(record.get("words", ""))) if record.get("event") == "task.mode" and record.get("by") == "lem" else None
+        night = (
+            NIGHT_WORDS.fullmatch(str(record.get("words", "")))
+            if record.get("event") == "task.mode" and record.get("by") == "lem"
+            else None
+        )
         if night:
             found.setdefault(record.get("task"), night[1])
     return found
@@ -3200,9 +4566,17 @@ def owner_records() -> list[dict]:
         try:
             record = json.loads(line)
         except ValueError as error:
-            raise SettingsError(f"{mark}:{number} does not read as JSON ({error}); the file is written by `lem project owner`, never by hand") from error
-        if not isinstance(record, dict) or record.get("event") != OWNER or not isinstance(record.get("ts"), str):
-            raise SettingsError(f"{mark}:{number} is no record of the owner's status; the file is written by `lem project owner`, never by hand")
+            raise SettingsError(
+                f"{mark}:{number} does not read as JSON ({error}); the file is written by `lem project owner`, never by hand"
+            ) from error
+        if (
+            not isinstance(record, dict)
+            or record.get("event") != OWNER
+            or not isinstance(record.get("ts"), str)
+        ):
+            raise SettingsError(
+                f"{mark}:{number} is no record of the owner's status; the file is written by `lem project owner`, never by hand"
+            )
         found.append(record)
     return found
 
@@ -3211,14 +4585,23 @@ def append_owner(root: Path, away: bool, words: str) -> dict:
     """Append one record of the owner's status to the machine's mark, made with its folder when it
     is absent. One short line in one write with O_APPEND: two repositories that write at once each
     add their own line whole, so no lock is kept beside it."""
-    record = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": OWNER, "task": None, "away": away, "by": "owner", "words": words,
-              # where he typed it, for a reader of the file; no script acts on it
-              "repo": str(main_checkout(root))}
+    record = {
+        "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "event": OWNER,
+        "task": None,
+        "away": away,
+        "by": "owner",
+        "words": words,
+        # where he typed it, for a reader of the file; no script acts on it
+        "repo": str(main_checkout(root)),
+    }
     line = json.dumps(record, ensure_ascii=False) + "\n"
     try:
         data = line.encode("utf-8")
     except UnicodeEncodeError as error:
-        raise SettingsError(f"--words are not UTF-8 text ({line[max(0, error.start - 20):error.start]!r} comes before it); give the owner's words in UTF-8") from error
+        raise SettingsError(
+            f"--words are not UTF-8 text ({line[max(0, error.start - 20) : error.start]!r} comes before it); give the owner's words in UTF-8"
+        ) from error
     try:
         mark = lem_state.owner_mark()
     except lem_state.StateError as error:
@@ -3247,9 +4630,20 @@ def merged(events: list[dict], marks: list[dict]) -> list[dict]:
 
 def owner_now(records: list[dict]) -> dict:
     """The owner's status from the newest `owner` record: there, the default, or away since then."""
-    newest = next((record for record in reversed(records) if record.get("event") == OWNER and record.get("task") is None), None)
+    newest = next(
+        (
+            record
+            for record in reversed(records)
+            if record.get("event") == OWNER and record.get("task") is None
+        ),
+        None,
+    )
     if newest is None or not newest.get("away"):
-        return {"away": False, "since": newest["ts"] if newest else None, "words": newest.get("words") if newest else None}
+        return {
+            "away": False,
+            "since": newest["ts"] if newest else None,
+            "words": newest.get("words") if newest else None,
+        }
     return {"away": True, "since": newest["ts"], "words": newest.get("words")}
 
 
@@ -3261,6 +4655,7 @@ def runs_without_owner(slug: str, records: list[dict], first: str | None) -> lis
     whatever his status. No span starts before `first`, the task's first event, since a task opened
     while he is away runs without him from its opening. `records` are the task marks of the
     repository's log and the records of the machine's mark, in the order of their `ts`."""
+
     def said(record: dict) -> dict:
         return {"by": record.get("by", "owner"), "words": record.get("words")}
 
@@ -3279,13 +4674,22 @@ def runs_without_owner(slug: str, records: list[dict], first: str | None) -> lis
             continue
         start = own or away
         if start and (not spans or spans[-1]["to"] is not None):
-            spans.append({"from": max(start["ts"], first or start["ts"]), "to": None, "started": said(start), "ended": None})
+            spans.append(
+                {
+                    "from": max(start["ts"], first or start["ts"]),
+                    "to": None,
+                    "started": said(start),
+                    "ended": None,
+                }
+            )
         elif not start and spans and spans[-1]["to"] is None:
             if first and record["ts"] < first:
                 # an away and a back that both came before the task opened are no span of it
                 spans.pop()
             else:
-                spans[-1].update(to=max(record["ts"], spans[-1]["from"]), ended=said(record))
+                spans[-1].update(
+                    to=max(record["ts"], spans[-1]["from"]), ended=said(record)
+                )
     return spans
 
 
@@ -3312,7 +4716,9 @@ LEAD_LINE = re.compile(r"lead: (builder|session)\b")
 INTERVIEW_WAIT = "the interview waits for the owner"
 # The state line of a task on the fast track whose one criterion waits for the owner's yes before its
 # builder starts: a request someone else wrote, while he is there (`stages/new.md`, "The fast track", step 1).
-FAST_WAIT = "the criteria wait for the owner: a small change that someone else asked for"
+FAST_WAIT = (
+    "the criteria wait for the owner: a small change that someone else asked for"
+)
 # The first line of a `held` block whose order names no task Lem can tell, while he is away (step 1 of
 # "The request"), in whatever form the rest of it has: it names no path, so its first line comes with
 # the first block after his answer that names one, which may take its type line from this block.
@@ -3331,7 +4737,12 @@ def track_of(text: str) -> str | None:
         said = found["text"] if found else line.strip()
         if said == FAST_BUILDER or said == FAST_WAIT:
             return "fast"
-        if FAST_GREW.search(said) or LEAD_LINE.match(said) or said.startswith(CRITERIA_WAIT) or said.startswith(INTERVIEW_WAIT):
+        if (
+            FAST_GREW.search(said)
+            or LEAD_LINE.match(said)
+            or said.startswith(CRITERIA_WAIT)
+            or said.startswith(INTERVIEW_WAIT)
+        ):
             return "standard"
     return None
 
@@ -3352,7 +4763,11 @@ ORDER_LINE = re.compile(r"the owner's order: \"(?P<words>.*)\"")
 # The line of a block that is the owner's order (`stages/new.md`, step 7 of "The request"), in whatever form the rest has.
 ORDER_START = "the owner's order:"
 THEN_LINE = re.compile(r"then: (?P<path>the interview|the fast track|the lead)")
-THEN_PATHS = {"the interview": "interview", "the fast track": "fast", "the lead": "complete"}
+THEN_PATHS = {
+    "the interview": "interview",
+    "the fast track": "fast",
+    "the lead": "complete",
+}
 FITS_LINE = "the one open task that fits his words"
 CAREFUL_LINE = re.compile(r"careful:\s*(?P<why>.+)", re.IGNORECASE)
 BRANCH_NAME = re.compile(r"[\w][\w./+-]*")
@@ -3369,16 +4784,26 @@ def fixed_form(line: str) -> None:
     out his order because of how a line was typed. Every other line is free."""
     text = line.strip()
     if text.startswith(ORDER_START) and not ORDER_LINE.fullmatch(text):
-        raise SettingsError(f"the line {text!r} starts as the owner's order and is not in its form: write it as "
-                            f"`the owner's order: \"HIS WORDS\"`, his words on one line between double quotes")
+        raise SettingsError(
+            f"the line {text!r} starts as the owner's order and is not in its form: write it as "
+            f'`the owner\'s order: "HIS WORDS"`, his words on one line between double quotes'
+        )
     if text.startswith("then:") and not THEN_LINE.fullmatch(text):
-        raise SettingsError(f"the line {text!r} names no path a wait ends in: write `then: the interview`, "
-                            f"`then: the fast track` or `then: the lead`")
+        raise SettingsError(
+            f"the line {text!r} names no path a wait ends in: write `then: the interview`, "
+            f"`then: the fast track` or `then: the lead`"
+        )
     if text.startswith("the one open task") and text != FITS_LINE:
-        raise SettingsError(f"the line {text!r} is not in its form: write it as `{FITS_LINE}`")
-    if text.startswith(lem_state.FAILED_SEAT.strip()) and not FAILED_LINE.fullmatch(text):
-        raise SettingsError(f"the line {text!r} is not in its form: write it as `{lem_state.FAILED_SEAT}SEAT`, SEAT one of {', '.join(lem_state.SEAT_NAMES)}; "
-                            "`lem project seat-failed` writes it")
+        raise SettingsError(
+            f"the line {text!r} is not in its form: write it as `{FITS_LINE}`"
+        )
+    if text.startswith(lem_state.FAILED_SEAT.strip()) and not FAILED_LINE.fullmatch(
+        text
+    ):
+        raise SettingsError(
+            f"the line {text!r} is not in its form: write it as `{lem_state.FAILED_SEAT}SEAT`, SEAT one of {', '.join(lem_state.SEAT_NAMES)}; "
+            "`lem project seat-failed` writes it"
+        )
 
 
 def correction(fast: bool, task: str | None) -> str:
@@ -3402,7 +4827,12 @@ def in_his_words(text: str) -> str:
     """A sentence as the middle of a line: its first word lower-cased when it is an ordinary word
     with a capital ("The footer says" reads "the footer says"), never a name such as README or I."""
     word = text.split(" ", 1)[0]
-    if len(word) > 1 and word[0].isupper() and word[1:].isalpha() and word[1:].islower():
+    if (
+        len(word) > 1
+        and word[0].isupper()
+        and word[1:].isalpha()
+        and word[1:].islower()
+    ):
         return word[0].lower() + text[1:]
     return text
 
@@ -3415,9 +4845,13 @@ def criterion_of(text: str) -> str | None:
         if not found:
             continue
         said = [found[1]]
-        for more in rows[at + 1:]:
+        for more in rows[at + 1 :]:
             # its sentence goes on on the lines indented under it, up to its case, a test line or a chart
-            if not more.strip() or not more.startswith((" ", "\t")) or re.match(r"\s*(\d+\.|[-*+]|```)", more):
+            if (
+                not more.strip()
+                or not more.startswith((" ", "\t"))
+                or re.match(r"\s*(\d+\.|[-*+]|```)", more)
+            ):
                 break
             said.append(more.strip())
         return first_sentence(" ".join(said)) or None
@@ -3434,7 +4868,7 @@ def outcome_of(text: str) -> str | None:
         return None
     paragraph: list[str] = []
     fenced = False
-    for row in text[found.end():].splitlines():
+    for row in text[found.end() :].splitlines():
         line = row.strip()
         if line.startswith("```"):
             fenced = not fenced
@@ -3446,8 +4880,18 @@ def outcome_of(text: str) -> str | None:
         # a code span names never closes the label, as in BOLD_RUN
         label = re.match(r"\*\*((?:`[^`]*`|[^*`])*)\*\*(:?)", line)
         bold = bool(re.match(r"\*\*[^*\s]", line)) and not (
-            label and (len(label[1].split()) <= 3 or label[1].rstrip().endswith(":") or label[2]))
-        prose = line and not fenced and (bold or not re.match(r"(\d+\.|[-*+>|!]|\*\*)", line))
+            label
+            and (
+                len(label[1].split()) <= 3
+                or label[1].rstrip().endswith(":")
+                or label[2]
+            )
+        )
+        prose = (
+            line
+            and not fenced
+            and (bold or not re.match(r"(\d+\.|[-*+>|!]|\*\*)", line))
+        )
         if prose:
             paragraph.append(line)
             continue
@@ -3458,13 +4902,20 @@ def outcome_of(text: str) -> str | None:
     return first_sentence(said) if len(said.split()) > 3 else None
 
 
-def opening_line_facts(directory: Path, main: Path, status: str, lines: list[str], branch: str | None,
-                       held: list[str] | None = None) -> dict | None:
+def opening_line_facts(
+    directory: Path,
+    main: Path,
+    status: str,
+    lines: list[str],
+    branch: str | None,
+    held: list[str] | None = None,
+) -> dict | None:
     """What the first line of a task says, from its records at the moment its first block is written,
     or None for a block that names no path. `lines` are the block's lines, its first among them;
     `branch` is the branch of the task's worktree, when it has one; `held` the lines of the hold of
     an order that named no task (ORDER_WAIT) before it, whose type and `careful:` lines stand for a
     block that has none of its own."""
+
     def file(name: str) -> str:
         return text_of(directory / name) if (directory / name).is_file() else ""
 
@@ -3474,10 +4925,18 @@ def opening_line_facts(directory: Path, main: Path, status: str, lines: list[str
         return None
     brief = file("brief.md")
     said = [line.strip() for line in lines]
-    investigation = next((found[1] for found in map(INVESTIGATION_LINE.fullmatch, said) if found), None)
-    after = next((found["slug"] for found in map(AFTER_LINE.fullmatch, said) if found), None)
+    investigation = next(
+        (found[1] for found in map(INVESTIGATION_LINE.fullmatch, said) if found), None
+    )
+    after = next(
+        (found["slug"] for found in map(AFTER_LINE.fullmatch, said) if found), None
+    )
     order = ORDER_LINE.fullmatch(said[0]) if status == "queued" and after else None
-    then = next((found["path"] for found in map(THEN_LINE.fullmatch, said) if found), None) if status == "queued" else None
+    then = (
+        next((found["path"] for found in map(THEN_LINE.fullmatch, said) if found), None)
+        if status == "queued"
+        else None
+    )
     if status == "held" and said[0] == INTERVIEW_WAIT:
         path = "interview"
     elif status == "held" and said[0] == FAST_WAIT:
@@ -3486,35 +4945,79 @@ def opening_line_facts(directory: Path, main: Path, status: str, lines: list[str
         path = "investigation"
     elif then:
         path = THEN_PATHS[then]
-    elif status in ("building", "queued") and FAST_BUILDER in said or status == "queued" and "prompts/small.md" in brief:
+    elif (
+        status in ("building", "queued")
+        and FAST_BUILDER in said
+        or status == "queued"
+        and "prompts/small.md" in brief
+    ):
         path = "fast"
-    elif status == "building" and any(LEAD_LINE.match(line) for line in said) or status == "queued" and "prompts/lead.md" in brief:
+    elif (
+        status == "building"
+        and any(LEAD_LINE.match(line) for line in said)
+        or status == "queued"
+        and "prompts/lead.md" in brief
+    ):
         path = "complete"
     else:
         return None
     brief_rows = [row.strip() for row in brief.splitlines()]
-    named = next((row.split(":", 1)[1].strip() for row in brief_rows if row.startswith("branch:")), "")
-    careful = next((found["why"].strip() for found in map(CAREFUL_LINE.fullmatch, [*said, *held, *brief_rows]) if found), None)
+    named = next(
+        (
+            row.split(":", 1)[1].strip()
+            for row in brief_rows
+            if row.startswith("branch:")
+        ),
+        "",
+    )
+    careful = next(
+        (
+            found["why"].strip()
+            for found in map(CAREFUL_LINE.fullmatch, [*said, *held, *brief_rows])
+            if found
+        ),
+        None,
+    )
     ask = " ".join(file("ask.txt").split())
     item = re.fullmatch(r"\S*backlog/\S+\.md", ask)
     quote = criterion_of(file("criteria.md")) if path == "fast" else None
     quote = quote or outcome_of(file("task.md"))
     if not quote and item and (main / ask).is_file():
-        title = next((row.lstrip("# ").strip() for row in text_of(main / ask).splitlines() if row.startswith("# ")), None)
+        title = next(
+            (
+                row.lstrip("# ").strip()
+                for row in text_of(main / ask).splitlines()
+                if row.startswith("# ")
+            ),
+            None,
+        )
         quote = title and first_sentence(title)
     # ask.txt keeps the command that carried his words (`/lem After the gift note: ...`); the quote is his words alone
     words = re.sub(r"^/lem\s+", "", ask)
     quote = quote or (first_sentence(words) if words else None)
     return {
-        "type": typed["type"], "path": path, "quote": quote and in_his_words(quote),
+        "type": typed["type"],
+        "path": path,
+        "quote": quote and in_his_words(quote),
         "branch": named if BRANCH_NAME.fullmatch(named) else branch,
-        "careful": careful, "after": after, "slug": directory.name,
-        "order": order["words"] if order else None, "fits": FITS_LINE in said,
-        "plan": "stop after the plan: yes" in brief_rows, "someone_else": "request by: someone else" in brief_rows,
+        "careful": careful,
+        "after": after,
+        "slug": directory.name,
+        "order": order["words"] if order else None,
+        "fits": FITS_LINE in said,
+        "plan": "stop after the plan: yes" in brief_rows,
+        "someone_else": "request by: someone else" in brief_rows,
         # a first block before the builder's: on the fast track his yes to someone else's criterion comes first
         "before_builder": status != "building",
-        "stands_in": ("the ticket" if (directory / "ticket.txt").is_file() else "the backlog item" if item
-                      else "the investigation's report" if (directory / "investigation.md").is_file() else "your request"),
+        "stands_in": (
+            "the ticket"
+            if (directory / "ticket.txt").is_file()
+            else "the backlog item"
+            if item
+            else "the investigation's report"
+            if (directory / "investigation.md").is_file()
+            else "your request"
+        ),
         "question": investigation == "question" or typed["type"] == "question",
     }
 
@@ -3528,25 +5031,43 @@ def compose_opening_line(facts: dict, task: str | None = None) -> str:
         words.append(f"Careful: {why}.")
     # his words between double quotes, with a double quote of his own as a single one
     quote = facts["quote"].replace('"', "'") if facts.get("quote") else None
-    words.append(f"{facts['type']}: \"{quote}\"." if quote else f"{facts['type']}.")
+    words.append(f'{facts["type"]}: "{quote}".' if quote else f"{facts['type']}.")
     if facts.get("branch"):
         words.append(f"Branch {facts['branch']}.")
     path = facts["path"]
     # another session speaks of the task's session, where the interview runs and the answer comes
-    here, teller = ("in its own session", "Then its session tells you") if task else ("here", "Then I tell you")
-    standard = "Standard track, because you asked for its plan:" if facts.get("plan") else "Standard track:"
-    then = "After that a lead writes the plan and stops for you to read it." if facts.get("plan") else "After that it runs to the pull request without you."
+    here, teller = (
+        ("in its own session", "Then its session tells you")
+        if task
+        else ("here", "Then I tell you")
+    )
+    standard = (
+        "Standard track, because you asked for its plan:"
+        if facts.get("plan")
+        else "Standard track:"
+    )
+    then = (
+        "After that a lead writes the plan and stops for you to read it."
+        if facts.get("plan")
+        else "After that it runs to the pull request without you."
+    )
     # A block with an `after:` line waits on every path: the wait comes before the steps of the track,
     # which run when it ends, and those steps follow the `after:` line ("Then ..."). Only what names
     # his order (as you said, the one open task that fits, his word that starts it before that)
     # follows the order line, so a free order line still leaves the wait in the line.
     waiting = bool(facts.get("after"))
     if facts.get("order") is not None:
-        start = f"\"start {task or facts['slug']} now\" starts it before that."
-        which = f"the one open task that fits \"{facts['order'].replace(chr(34), chr(39))}\";" if facts.get("fits") else "as you said;"
+        start = f'"start {task or facts["slug"]} now" starts it before that.'
+        which = (
+            f'the one open task that fits "{facts["order"].replace(chr(34), chr(39))}";'
+            if facts.get("fits")
+            else "as you said;"
+        )
         words.append(f"It waits for {facts['after']}, {which} {start}")
     elif waiting:
-        words.append(f"It waits for {facts['after']}, and starts when that task lands or is answered.")
+        words.append(
+            f"It waits for {facts['after']}, and starts when that task lands or is answered."
+        )
     if waiting:
         standard = "Then the s" + standard[1:]
     if path == "fast":
@@ -3554,21 +5075,41 @@ def compose_opening_line(facts: dict, task: str | None = None) -> str:
         if facts.get("someone_else"):
             # someone else's request: his yes comes before the builder while he is there (`FAST_WAIT`, or a
             # wait that ends in it); a first block that is the builder's own was approved without him
-            nothing = ("Someone else wrote the request, so its criterion waits for your yes before the builder starts." if facts.get("before_builder")
-                       else "Nothing waits for you but the pull request, which calls you: you did not approve its criterion.")
+            nothing = (
+                "Someone else wrote the request, so its criterion waits for your yes before the builder starts."
+                if facts.get("before_builder")
+                else "Nothing waits for you but the pull request, which calls you: you did not approve its criterion."
+            )
         steps = "Then the f" + FAST_STEPS[1:] if waiting else FAST_STEPS
         words += [steps, nothing, correction(True, task)]
     elif path == "interview":
         now = "" if waiting else " now"
-        words += [f"{standard} an interview {here}{now}, then acceptance criteria for your yes.", then, correction(False, task)]
+        words += [
+            f"{standard} an interview {here}{now}, then acceptance criteria for your yes.",
+            then,
+            correction(False, task),
+        ]
     elif path == "complete":
-        read = ("a lead writes acceptance criteria, the personas read them, and they wait for your yes." if facts.get("someone_else")
-                else "a lead writes acceptance criteria, and the personas read them.")
-        words += [f"{standard.rstrip(':')}, with no interview, since {facts['stands_in']} says what is wanted: {read}", then, correction(False, task)]
+        read = (
+            "a lead writes acceptance criteria, the personas read them, and they wait for your yes."
+            if facts.get("someone_else")
+            else "a lead writes acceptance criteria, and the personas read them."
+        )
+        words += [
+            f"{standard.rstrip(':')}, with no interview, since {facts['stands_in']} says what is wanted: {read}",
+            then,
+            correction(False, task),
+        ]
     else:
         investigator = "Then an investigator" if waiting else "An investigator"
-        words += ([f"{investigator} finds the answer first.", f"{teller} the answer."] if facts.get("question")
-                  else [f"{investigator} finds the cause first.", f"{teller} what it found: the fast track, the standard track, or no bug."])
+        words += (
+            [f"{investigator} finds the answer first.", f"{teller} the answer."]
+            if facts.get("question")
+            else [
+                f"{investigator} finds the cause first.",
+                f"{teller} what it found: the fast track, the standard track, or no bug.",
+            ]
+        )
     return " ".join(word for word in words if word)
 
 
@@ -3578,22 +5119,41 @@ def held_order(directory: Path, main: Path, older: str) -> list[str] | None:
     its type from; None when an OLDER block said the first line already: one that names a type and is
     no such hold, or one after a hold that names the task's path with the hold's type."""
     held: list[str] = []
-    for part in reversed([part for part in older.strip().split("\n\n") if part.strip()]):
+    for part in reversed(
+        [part for part in older.strip().split("\n\n") if part.strip()]
+    ):
         rows = part.splitlines()
         found = STATE_LINE.fullmatch(rows[0])
         lines = [found["text"], *rows[1:]] if found else rows
-        if found and found["status"] == "held" and lines[0].strip().startswith(ORDER_WAIT):
+        if (
+            found
+            and found["status"] == "held"
+            and lines[0].strip().startswith(ORDER_WAIT)
+        ):
             held += lines
             continue
         if type_of(part) is not None:
             return None
-        if held and found and opening_line_facts(directory, main, found["status"], lines, None, held) is not None:
+        if (
+            held
+            and found
+            and opening_line_facts(directory, main, found["status"], lines, None, held)
+            is not None
+        ):
             return None
     return held
 
 
-def opening_line_of(directory: Path, main: Path, status: str, lines: list[str], older: str, branch: str | None, night: bool,
-                    task: str | None = None) -> str | None:
+def opening_line_of(
+    directory: Path,
+    main: Path,
+    status: str,
+    lines: list[str],
+    older: str,
+    branch: str | None,
+    night: bool,
+    task: str | None = None,
+) -> str | None:
     """The `say` of a state block: the task's first line when this block is the first that names its
     path with its type (no OLDER block of state.md said it, `held_order`), and the task is no night's,
     whose report names it. A hold of his order names no path: the first block after his answer that
@@ -3606,7 +5166,15 @@ def opening_line_of(directory: Path, main: Path, status: str, lines: list[str], 
     return compose_opening_line(facts, task) if facts else None
 
 
-def opening_line(root: Path, directory: Path, slug: str, status: str, lines: list[str], older: str, branch: str | None) -> dict | None:
+def opening_line(
+    root: Path,
+    directory: Path,
+    slug: str,
+    status: str,
+    lines: list[str],
+    older: str,
+    branch: str | None,
+) -> dict | None:
     """`opening_line_of` for a task of this repository, with its night's mark read from the log: the
     `say` of the task's own session and the `say_named` of the session the owner typed the request in,
     both from the same facts, or None."""
@@ -3616,7 +5184,16 @@ def opening_line(root: Path, directory: Path, slug: str, status: str, lines: lis
     night = bool(nights(events_named(root, "task.mode")).get(slug))
     main = main_checkout(root)
     say = opening_line_of(directory, main, status, lines, older, branch, night)
-    return {"say": say, "say_named": opening_line_of(directory, main, status, lines, older, branch, night, slug)} if say else None
+    return (
+        {
+            "say": say,
+            "say_named": opening_line_of(
+                directory, main, status, lines, older, branch, night, slug
+            ),
+        }
+        if say
+        else None
+    )
 
 
 def read_tasks(root: Path, settings: dict | None = None) -> list[dict]:
@@ -3645,7 +5222,9 @@ def read_tasks(root: Path, settings: dict | None = None) -> list[dict]:
     # read: the mark is the one place of his status.
     presence = merged(presence, owner_records())
     parent = state_root(root) / "tasks"
-    for directory in sorted(d for d in (parent.iterdir() if parent.is_dir() else ()) if d.is_dir()):
+    for directory in sorted(
+        d for d in (parent.iterdir() if parent.is_dir() else ()) if d.is_dir()
+    ):
         state = directory / "state.md"
         # state.md is newest block first; a block ends at the first blank line
         written = text_of(state) if state.is_file() else ""
@@ -3654,53 +5233,78 @@ def read_tasks(root: Path, settings: dict | None = None) -> list[dict]:
         known = first is not None and first["status"] in STATES
         # an ended task ran without the owner only up to its last event: an "away" after it is no span of it
         ended = known and first["status"] in ENDED and directory.name in newest
-        spans = runs_without_owner(directory.name, [record for record in presence if record["ts"] <= newest[directory.name]] if ended else presence, opened.get(directory.name))
+        spans = runs_without_owner(
+            directory.name,
+            [record for record in presence if record["ts"] <= newest[directory.name]]
+            if ended
+            else presence,
+            opened.get(directory.name),
+        )
         alone = bool(spans) and spans[-1]["to"] is None
         steps, assignee = ticket_steps_of(directory)
-        tasks.append({
-            "slug": directory.name,
-            "ask": ask_of(directory),
-            # the tracker's ticket the ask came from; a dropped or answered task gives its ticket back once it owes it nothing
-            "ticket": text_of(directory / "ticket.txt").strip() or None if (directory / "ticket.txt").is_file() else None,
-            # the repository of a GitHub issue, OWNER/REPO from the address its read gave, or null
-            "ticket_repo": text_of(directory / "ticket-repo.txt").strip() or None if (directory / "ticket-repo.txt").is_file() else None,
-            # what Lem did to that ticket so far (TICKET_STEPS), by name
-            "ticket_steps": steps,
-            # the login Lem set out to add as the issue's assignee (`assigned LOGIN`), or null
-            "ticket_assignee": assignee,
-            # the task that holds the ticket now when it is another one (a resume went on from this one), or null
-            "ticket_held_by": None,
-            "ticket_owed": [],
-            # null when no block was written through `project.py state`: nobody can tell who acts next
-            "status": first["status"] if known else None,
-            "since": first["since"] if known else None,
-            "state": block,
-            # what the landing proposed to the owner, for the status and the board: where, and green or why not
-            "proposal": proposal(directory),
-            # the newest record of its plan talk, as `log plan.talk` wrote it, or null when it had none
-            "talk": talks.get(directory.name),
-            # the type of the request with its reason, from the newest block that names it, or null
-            "type": type_of(written),
-            # `fast` or `standard`, from the newest state line that tells it (`track_of`), or null
-            "track": track_of(written),
-            # what the investigation of a fix or a question found, as `log investigation` wrote it last, or null
-            "investigation": investigations.get(directory.name),
-            # with the owner or without him now, and since when: from the owner's status and the task's own mark (`runs_without_owner`)
-            "mode": "alone" if alone else "with-owner",
-            "mode_since": (spans[-1]["from"] if alone else spans[-1]["to"]) if spans else None,
-            # each span in which it ran without the owner, with the words that started and ended it, for the pull request
-            "without_owner": spans,
-            # the date of the night that opened it, or null for a task of the day
-            "night": night.get(directory.name),
-        })
+        tasks.append(
+            {
+                "slug": directory.name,
+                "ask": ask_of(directory),
+                # the tracker's ticket the ask came from; a dropped or answered task gives its ticket back once it owes it nothing
+                "ticket": text_of(directory / "ticket.txt").strip() or None
+                if (directory / "ticket.txt").is_file()
+                else None,
+                # the repository of a GitHub issue, OWNER/REPO from the address its read gave, or null
+                "ticket_repo": text_of(directory / "ticket-repo.txt").strip() or None
+                if (directory / "ticket-repo.txt").is_file()
+                else None,
+                # what Lem did to that ticket so far (TICKET_STEPS), by name
+                "ticket_steps": steps,
+                # the login Lem set out to add as the issue's assignee (`assigned LOGIN`), or null
+                "ticket_assignee": assignee,
+                # the task that holds the ticket now when it is another one (a resume went on from this one), or null
+                "ticket_held_by": None,
+                "ticket_owed": [],
+                # null when no block was written through `project.py state`: nobody can tell who acts next
+                "status": first["status"] if known else None,
+                "since": first["since"] if known else None,
+                "state": block,
+                # what the landing proposed to the owner, for the status and the board: where, and green or why not
+                "proposal": proposal(directory),
+                # the newest record of its plan talk, as `log plan.talk` wrote it, or null when it had none
+                "talk": talks.get(directory.name),
+                # the type of the request with its reason, from the newest block that names it, or null
+                "type": type_of(written),
+                # `fast` or `standard`, from the newest state line that tells it (`track_of`), or null
+                "track": track_of(written),
+                # what the investigation of a fix or a question found, as `log investigation` wrote it last, or null
+                "investigation": investigations.get(directory.name),
+                # with the owner or without him now, and since when: from the owner's status and the task's own mark (`runs_without_owner`)
+                "mode": "alone" if alone else "with-owner",
+                "mode_since": (spans[-1]["from"] if alone else spans[-1]["to"])
+                if spans
+                else None,
+                # each span in which it ran without the owner, with the words that started and ended it, for the pull request
+                "without_owner": spans,
+                # the date of the night that opened it, or null for a task of the day
+                "night": night.get(directory.name),
+            }
+        )
     if any(task["ticket"] for task in tasks):
         # only a project with a ticket needs its settings here; a broken settings file then stops this, loudly
         tracker = (settings or load(root))["tracker"]
-        went_on = {text_of(parent / task["slug"] / RESUMED_FROM).strip(): task for task in tasks if (parent / task["slug"] / RESUMED_FROM).is_file()}
+        went_on = {
+            text_of(parent / task["slug"] / RESUMED_FROM).strip(): task
+            for task in tasks
+            if (parent / task["slug"] / RESUMED_FROM).is_file()
+        }
         for task in tasks:
             if task["ticket"]:
-                task["ticket_held_by"] = ticket_held_by(root, task, went_on.get(task["slug"]))
-                task["ticket_owed"] = ticket_owed(task["status"], task["ticket_steps"], tracker, task["ticket_held_by"])
+                task["ticket_held_by"] = ticket_held_by(
+                    root, task, went_on.get(task["slug"])
+                )
+                task["ticket_owed"] = ticket_owed(
+                    task["status"],
+                    task["ticket_steps"],
+                    tracker,
+                    task["ticket_held_by"],
+                )
     return tasks
 
 
@@ -3725,8 +5329,8 @@ def queued_refusal(slug: str, after: str, other: str | None) -> str:
         f"the task {slug!r} is queued after {after!r}, which is {other or 'no task'}: it starts when {after} is landed or answered. "
         f"When it waits because it needs the result of {after} and no longer does, write its state `queued` again without the `after:` line. "
         f"When the block's first line says `the owner's order`, only the owner's word removes the order: log his words first "
-        f"(`lem decisions log {slug} --by owner --words \"HIS WORDS\" ...`), then write its state `queued` again without the `after:` line "
-        f"and with the line `the owner's order was removed: \"HIS WORDS\"`"
+        f'(`lem decisions log {slug} --by owner --words "HIS WORDS" ...`), then write its state `queued` again without the `after:` line '
+        f'and with the line `the owner\'s order was removed: "HIS WORDS"`'
     )
 
 
@@ -3739,7 +5343,9 @@ def after_in(lines: list[str]) -> str | None:
     """The task that the `after:` line of a block names, read from each of its LINES, its first among
     them, as `after_of` of the board's model reads the newest block: the refusal of `may-start` and the
     row of "Waits for you" name the same task. None for a block with no such line."""
-    return next((found["slug"] for found in map(AFTER_LINE.fullmatch, lines) if found), None)
+    return next(
+        (found["slug"] for found in map(AFTER_LINE.fullmatch, lines) if found), None
+    )
 
 
 def start_commands(slug: str, lines: list[str]) -> list[str]:
@@ -3752,9 +5358,35 @@ def start_commands(slug: str, lines: list[str]) -> list[str]:
     if not any(line.startswith(ORDER_START) for line in lines):
         return [shlex.join(["lem", "project", "state", slug, "queued", *kept])]
     return [
-        shlex.join(["lem", "decisions", "log", slug, "--by", "owner", "--what", "the owner's order", "--chose", "start now",
-                    "--why", "his word", "--words", HIS_WORDS]),
-        shlex.join(["lem", "project", "state", slug, "queued", *kept, f'the owner\'s order was removed: "{HIS_WORDS}"']),
+        shlex.join(
+            [
+                "lem",
+                "decisions",
+                "log",
+                slug,
+                "--by",
+                "owner",
+                "--what",
+                "the owner's order",
+                "--chose",
+                "start now",
+                "--why",
+                "his word",
+                "--words",
+                HIS_WORDS,
+            ]
+        ),
+        shlex.join(
+            [
+                "lem",
+                "project",
+                "state",
+                slug,
+                "queued",
+                *kept,
+                f'the owner\'s order was removed: "{HIS_WORDS}"',
+            ]
+        ),
     ]
 
 
@@ -3763,15 +5395,19 @@ def dropped_refusal(slug: str, after: str, lines: list[str]) -> str:
     owner's word, and the commands of his "start SLUG now", composed from the LINES of its newest block,
     are printed whole, one to a line, for the agent to run on his word."""
     commands = start_commands(slug, lines)
-    how = (f"Run them as printed, one command to a line, with his words as he typed them, on one line, in place of {HIS_WORDS}, "
-           f"inside its single quotes, where a single quote of his is written '\\'':" if len(commands) > 1 else "Run it as printed:")
+    how = (
+        f"Run them as printed, one command to a line, with his words as he typed them, on one line, in place of {HIS_WORDS}, "
+        f"inside its single quotes, where a single quote of his is written '\\'':"
+        if len(commands) > 1
+        else "Run it as printed:"
+    )
     return (
         f"the task {slug!r} is queued after {after!r}, which was dropped, so the result it waited for never came: it stays queued for the owner's word, "
-        f"\"start {slug} now\" or `/lem drop {slug}`, and nothing below runs before it. On his \"start {slug} now\", or his \"start it\" for this task, "
+        f'"start {slug} now" or `/lem drop {slug}`, and nothing below runs before it. On his "start {slug} now", or his "start it" for this task, '
         f"run `lem project may-start {slug}` once more and run the commands that it prints then, never ones printed before his word: "
         f"a correction between the two (`/lem standard-track {slug}`) changes the block they copy. {how}\n"
         + "\n".join(commands)
-        + f"\nThen the task starts, as `stages/start.md`, \"`/lem build`\", says. On his `/lem drop {slug}`, drop it as `stages/correct.md`, \"drop\", says"
+        + f'\nThen the task starts, as `stages/start.md`, "`/lem build`", says. On his `/lem drop {slug}`, drop it as `stages/correct.md`, "drop", says'
     )
 
 
@@ -3784,9 +5420,13 @@ def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
     tasks = read_tasks(root, settings)
     status = next((task["status"] for task in tasks if task["slug"] == slug), None)
     if status in ENDED:
-        raise SettingsError(f"the task {slug!r} is {status}: an ended task gets no lead, and new work for it is a new ask (`/lem new`) with a slug of its own")
+        raise SettingsError(
+            f"the task {slug!r} is {status}: an ended task gets no lead, and new work for it is a new ask (`/lem new`) with a slug of its own"
+        )
     if status == PARKED:
-        raise SettingsError(f"the task {slug!r} is parked: it gets no lead until the owner's `/lem resume {slug}` (`lem project resume {slug}`) brings it back")
+        raise SettingsError(
+            f"the task {slug!r} is parked: it gets no lead until the owner's `/lem resume {slug}` (`lem project resume {slug}`) brings it back"
+        )
     if status in ("landing", "open"):
         raise SettingsError(
             f"the task {slug!r} is {status}: its build is done, and it gets no lead. Its landing goes on with `land.py` "
@@ -3799,7 +5439,11 @@ def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
     # `after:` line to tell whether it waits, from every line of the newest block as the board reads it,
     # and behind a dropped task the order line too, to print the commands of the owner's word.
     mine = next((task for task in tasks if task["slug"] == slug), None)
-    lines = blocks_of(mine["state"])[0]["lines"] if mine and status == "queued" and mine["state"] else []
+    lines = (
+        blocks_of(mine["state"])[0]["lines"]
+        if mine and status == "queued" and mine["state"]
+        else []
+    )
     after = after_in(lines)
     if after:
         other = next((task["status"] for task in tasks if task["slug"] == after), None)
@@ -3808,7 +5452,11 @@ def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
             raise SettingsError(dropped_refusal(slug, after, lines))
         if other not in ENDED:
             raise SettingsError(queued_refusal(slug, after, other))
-    running = [task["slug"] for task in tasks if task["status"] in RUNNING and task["slug"] != slug]
+    running = [
+        task["slug"]
+        for task in tasks
+        if task["status"] in RUNNING and task["slug"] != slug
+    ]
     print(json.dumps({"running": running}))
 
 
@@ -3826,7 +5474,12 @@ BREAKER_WAIT = re.compile(r"breaker ([1-9]\d*) waits for the owner")
 
 def waiting_brief(task: dict) -> dict:
     """What the list of what waits says of every task it names."""
-    return {"task": task["slug"], "ask": task["ask"], "since": task["since"], "night": task["night"]}
+    return {
+        "task": task["slug"],
+        "ask": task["ask"],
+        "since": task["since"],
+        "night": task["night"],
+    }
 
 
 def waiting_model(root: Path, settings: dict):
@@ -3841,30 +5494,61 @@ def waiting_model(root: Path, settings: dict):
     reader = bm.Reader(main_checkout(root), state)
     reader.read_log()
     if "events" in reader.problems:
-        raise SettingsError(f"{state / 'events.jsonl'}: {reader.problems['events']}; the log is written by project.py, never by hand")
-    model = bm.derive(reader.events, owner_records(), bm.now_ms(), meta={"demo": (state / "demo").is_file()})
+        raise SettingsError(
+            f"{state / 'events.jsonl'}: {reader.problems['events']}; the log is written by project.py, never by hand"
+        )
+    model = bm.derive(
+        reader.events,
+        owner_records(),
+        bm.now_ms(),
+        meta={"demo": (state / "demo").is_file()},
+    )
     model.seen = (bm.forge_look(state) or {}).get("seen")
     said = None
     if not model.meta["demo"]:
         sessions, said = waiting_sessions(root, settings, model, bm)
-        caller = os.environ.get("AGTERM_SESSION_ID") or os.environ.get("AGT_SESSION_ID") or None
+        caller = (
+            os.environ.get("AGTERM_SESSION_ID")
+            or os.environ.get("AGT_SESSION_ID")
+            or None
+        )
         bm.put_sessions(model, bm.own_turn_unread(sessions, caller))
     return model, said
 
 
-def waiting_sessions(root: Path, settings: dict, model, bm) -> tuple[dict | None, str | None]:
+def waiting_sessions(
+    root: Path, settings: dict, model, bm
+) -> tuple[dict | None, str | None]:
     """The task sessions as the board server knows them (`lem_board_model.sessions_of`): what `lem session
     list` says, with the ended tasks whose worktree is still there; and None with why, when the list
     cannot be had (no agterm). A log with no `session.open` has no session to ask agterm about."""
-    parent = main_checkout(root) / Path(settings["places"]["worktrees"]["path"]).relative_to(root.resolve())
+    parent = main_checkout(root) / Path(
+        settings["places"]["worktrees"]["path"]
+    ).relative_to(root.resolve())
     kept = {t.slug for t in model.tasks if t.closed and (parent / t.slug).is_dir()}
     if not any(t.opened for t in model.tasks):
         return bm.sessions_of({}, kept), None
-    ran = subprocess.run([sys.executable, "-B", str(Path(__file__).resolve().parent / "session.py"), "--repo", str(root), "list"],
-                         capture_output=True, text=True, check=False, stdin=subprocess.DEVNULL)
+    ran = subprocess.run(
+        [
+            sys.executable,
+            "-B",
+            str(Path(__file__).resolve().parent / "session.py"),
+            "--repo",
+            str(root),
+            "list",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        stdin=subprocess.DEVNULL,
+    )
     try:
         if ran.returncode != 0:
-            lines = [line.strip() for line in (ran.stderr or ran.stdout).splitlines() if line.strip()]
+            lines = [
+                line.strip()
+                for line in (ran.stderr or ran.stdout).splitlines()
+                if line.strip()
+            ]
             raise ValueError(lines[-1] if lines else f"it exited {ran.returncode}")
         return bm.sessions_of(bm.session_entries(ran.stdout), kept), None
     except ValueError as error:
@@ -3872,7 +5556,11 @@ def waiting_sessions(root: Path, settings: dict, model, bm) -> tuple[dict | None
 
 
 def first_line_of(task: dict) -> str | None:
-    found = STATE_LINE.fullmatch(task["state"].splitlines()[0]) if task.get("state") else None
+    found = (
+        STATE_LINE.fullmatch(task["state"].splitlines()[0])
+        if task.get("state")
+        else None
+    )
     return found["text"] if found else None
 
 
@@ -3887,10 +5575,24 @@ def cmd_waiting(root: Path) -> dict:
     model, unknown = waiting_model(root, settings)
     bm = importlib.import_module("lem_board_model")
     rows = [row for row in bm.waits_of(model) if row["t"].slug in tasks]
-    asked = subprocess.run([sys.executable, "-B", str(Path(__file__).resolve().parent / "decisions.py"), "--repo", str(root), "pending"],
-                           capture_output=True, text=True, check=False)
+    asked = subprocess.run(
+        [
+            sys.executable,
+            "-B",
+            str(Path(__file__).resolve().parent / "decisions.py"),
+            "--repo",
+            str(root),
+            "pending",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     if asked.returncode != 0:
-        raise SettingsError(asked.stderr.strip().removeprefix("decisions.py: ") or "decisions.py pending failed")
+        raise SettingsError(
+            asked.stderr.strip().removeprefix("decisions.py: ")
+            or "decisions.py pending failed"
+        )
     pending = json.loads(asked.stdout)
 
     def brief(row: dict, **more) -> dict:
@@ -3902,18 +5604,47 @@ def cmd_waiting(root: Path) -> dict:
 
     def breaker(row: dict) -> dict:
         number = row["c"].id
-        found = next((item for item in pending["waiting"] if item["task"] == row["t"].slug and item.get("id") == number), None)
-        return found or {"task": row["t"].slug, "id": number, "what": row["c"].what, "status": row["t"].status}
+        found = next(
+            (
+                item
+                for item in pending["waiting"]
+                if item["task"] == row["t"].slug and item.get("id") == number
+            ),
+            None,
+        )
+        return found or {
+            "task": row["t"].slug,
+            "id": number,
+            "what": row["c"].what,
+            "status": row["t"].status,
+        }
 
     def dropped_after(row: dict) -> dict:
         # the row's own words, so that the terminal says what the board says, also for a first line that names neither
         say = bm.wait_say(row)
-        return brief(row, after=row["after"], **{key: say[key] for key in ("verb", "start", "drop", "where")})
+        return brief(
+            row,
+            after=row["after"],
+            **{key: say[key] for key in ("verb", "start", "drop", "where")},
+        )
 
     def pull_request(row: dict) -> dict:
         task = tasks[row["t"].slug]
         proposal = task["proposal"] or {}
-        return {**waiting_brief(task), **{key: proposal.get(key) for key in ("pull_request", "green", "not_green", "conflict", "merge_review", "merge_refused")}}
+        return {
+            **waiting_brief(task),
+            **{
+                key: proposal.get(key)
+                for key in (
+                    "pull_request",
+                    "green",
+                    "not_green",
+                    "conflict",
+                    "merge_review",
+                    "merge_refused",
+                )
+            },
+        }
 
     marks = owner_records()
     found = {
@@ -3925,31 +5656,71 @@ def cmd_waiting(root: Path) -> dict:
         "held": [brief(row) for row in kind("held")],
         "after_dropped": [dropped_after(row) for row in kind("after_dropped")],
         # a task two releases back says the release stop's message as its line (lem_release)
-        "blocked": [brief(row, **({"line": row["say"]} if row.get("say") else {})) for row in kind("blocked")],
+        "blocked": [
+            brief(row, **({"line": row["say"]} if row.get("say") else {}))
+            for row in kind("blocked")
+        ],
         "plans": [brief(row) for row in kind("plan")],
-        "reviews": [brief(row, why=bm.review_why(row["c"]), tip=row["c"].get("tip")) for row in kind("review")],
+        "reviews": [
+            brief(row, why=bm.review_why(row["c"]), tip=row["c"].get("tip"))
+            for row in kind("review")
+        ],
         "pull_requests": [pull_request(row) for row in kind("merge")],
-        "no_session": [brief(row, need="deaf" if row.get("deaf") else "gone") for row in kind("session")],
+        "no_session": [
+            brief(row, need="deaf" if row.get("deaf") else "gone")
+            for row in kind("session")
+        ],
         # a task whose live session the guard of a stopped session logged as stopped, and the open of its button
-        "stopped": [brief(row, open=f"lem session open {row['t'].slug} --why stopped", unread=row["unread"]) for row in kind("stopped")],
+        "stopped": [
+            brief(
+                row,
+                open=f"lem session open {row['t'].slug} --why stopped",
+                unread=row["unread"],
+            )
+            for row in kind("stopped")
+        ],
         # the board's rows in its order, each by its key (`waits_of`): the rows the phone shows
-        "rows": [{"key": row["key"], "kind": row["kind"], "task": row["t"].slug} for row in rows],
+        "rows": [
+            {"key": row["key"], "kind": row["kind"], "task": row["t"].slug}
+            for row in rows
+        ],
         # the same rows grouped by task, as the board draws them (`wait_stacks`): one entry for each task, in the
         # place of its first row, with each of its things in its order and in the row's own words
-        "tasks": [{**waiting_brief(tasks[stack["t"].slug]), "line": first_line_of(tasks[stack["t"].slug]),
-                   "things": [{"key": row["key"], "kind": row["kind"], "verb": bm.wait_say(row)["verb"]} for row in stack["rows"]]}
-                  for stack in bm.wait_stacks(rows)],
+        "tasks": [
+            {
+                **waiting_brief(tasks[stack["t"].slug]),
+                "line": first_line_of(tasks[stack["t"].slug]),
+                "things": [
+                    {
+                        "key": row["key"],
+                        "kind": row["kind"],
+                        "verb": bm.wait_say(row)["verb"],
+                    }
+                    for row in stack["rows"]
+                ],
+            }
+            for stack in bm.wait_stacks(rows)
+        ],
         # what the list knows of the task sessions, which the rows of `no_session` need, and the forge's last look
         "sessions": {"known": unknown is None, "said": unknown},
         "forge": {"looked": (bm.forge_look(state_root(root)) or {}).get("looked")},
     }
     # the report of last night: a night writes it under the day it started, so today's or yesterday's
     today = datetime.now().date()
-    recent = [(state_root(root) / NIGHTS / f"{day.isoformat()}.md") for day in (today, today - timedelta(days=1))]
+    recent = [
+        (state_root(root) / NIGHTS / f"{day.isoformat()}.md")
+        for day in (today, today - timedelta(days=1))
+    ]
     report = next((file for file in recent if file.is_file()), None)
-    found["night_report"] = {"date": report.stem, "file": str(report)} if report else None
+    found["night_report"] = (
+        {"date": report.stem, "file": str(report)} if report else None
+    )
     # the tasks the owner put aside: no row of what waits, and not counted, so a status can name them apart
-    found["parked"] = [{**waiting_brief(task), "line": first_line_of(task)} for task in tasks.values() if task["status"] == PARKED]
+    found["parked"] = [
+        {**waiting_brief(task), "line": first_line_of(task)}
+        for task in tasks.values()
+        if task["status"] == PARKED
+    ]
     # a task counts once, however many of its things wait, as each count of the board does
     found["count"] = len(found["tasks"])
     return found
@@ -3984,10 +5755,12 @@ ITEM_KEY = "proposals"
 PROPOSAL_NAME = re.compile(r"(retro|night) of (\d{4}-\d{2}-\d{2}) #([1-9]\d*)")
 RUN_TIME = "%Y-%m-%dT%H:%M:%SZ"
 # How a record reads, for every refusal of one that does not.
-RECORD_FORM = ("a JSON object with `date` (its day), `kind` (retro or night), `runs` (each with `at`, `read` and the `proposals` it added), "
-               "`proposals` (each with `number`, from 1, `area`, `move`, `body`, `source` and `where`), `refuted` (each with `number`, "
-               "`reason` and `day`), `passed` (each with `number`, `area`, `item` and `day`) and `dropped` (each with `number`, `text`, "
-               "`said`, `day` and `item`)")
+RECORD_FORM = (
+    "a JSON object with `date` (its day), `kind` (retro or night), `runs` (each with `at`, `read` and the `proposals` it added), "
+    "`proposals` (each with `number`, from 1, `area`, `move`, `body`, `source` and `where`), `refuted` (each with `number`, "
+    "`reason` and `day`), `passed` (each with `number`, `area`, `item` and `day`) and `dropped` (each with `number`, `text`, "
+    "`said`, `day` and `item`)"
+)
 
 
 def proposal_name(kind: str, day: str, number: int) -> str:
@@ -4026,7 +5799,10 @@ def record_problem(data: object, kind: str, day: str) -> str | None:
     if data["kind"] != kind:
         return f"its kind is {data['kind']!r}, and its folder holds the {kind}'s"
     for key, keys in ENTRY_KEYS.items():
-        if not isinstance(data[key], list) or not all(isinstance(entry, dict) and sorted(entry) == sorted(keys) for entry in data[key]):
+        if not isinstance(data[key], list) or not all(
+            isinstance(entry, dict) and sorted(entry) == sorted(keys)
+            for entry in data[key]
+        ):
             return f"`{key}` is not a list of entries with {', '.join(keys)}"
     for n, proposal in enumerate(data["proposals"], 1):
         if proposal["number"] != n:
@@ -4039,13 +5815,21 @@ def record_problem(data: object, kind: str, day: str) -> str | None:
     numbers = set(range(1, len(data["proposals"]) + 1))
     added: list = []
     for run in data["runs"]:
-        if not isinstance(run["at"], str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", run["at"]):
+        if not isinstance(run["at"], str) or not re.fullmatch(
+            r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", run["at"]
+        ):
             return f"a run's time, {run['at']!r}, is not YYYY-MM-DDTHH:MM:SSZ"
         if not isinstance(run["read"], str) or not isinstance(run["proposals"], list):
-            return f"the run of {run['at']} has no `read` text or no list of `proposals`"
+            return (
+                f"the run of {run['at']} has no `read` text or no list of `proposals`"
+            )
         added += run["proposals"]
-    if any(not isinstance(n, int) or isinstance(n, bool) for n in added) or sorted(added) != sorted(numbers):
-        return "its runs do not add up to its proposals: each proposal is added by one run"
+    if any(not isinstance(n, int) or isinstance(n, bool) for n in added) or sorted(
+        added
+    ) != sorted(numbers):
+        return (
+            "its runs do not add up to its proposals: each proposal is added by one run"
+        )
     seen: dict[str, set] = {}
     for key in ("refuted", "passed", "dropped"):
         seen[key] = set()
@@ -4081,7 +5865,9 @@ def read_record(file: Path, kind: str) -> dict | None:
             f"{file}: {problem}. The maintaining session converts it by hand into a record of proposals, {RECORD_FORM}: "
             "each question a proposal with no verdict, in one run, so that the next reviewer reads them",
         )
-    raise SettingsError(f"{file}: {problem}. A record is {RECORD_FORM}, and only `lem project proposals` writes one: correct the file by hand into that form")
+    raise SettingsError(
+        f"{file}: {problem}. A record is {RECORD_FORM}, and only `lem project proposals` writes one: correct the file by hand into that form"
+    )
 
 
 def write_whole(file: Path, text: str) -> None:
@@ -4109,7 +5895,9 @@ def records_of(state: Path) -> list[tuple[str, Path, dict]]:
     for kind, folder in PROPOSAL_KINDS.items():
         for file in sorted((state / folder).glob("*.json")):
             if not a_day(file.stem):
-                raise SettingsError(f"{file}: a record of proposals is named by its day, YYYY-MM-DD.json; rename it or move it out of {folder}/")
+                raise SettingsError(
+                    f"{file}: a record of proposals is named by its day, YYYY-MM-DD.json; rename it or move it out of {folder}/"
+                )
             found.append((kind, file, read_record(file, kind)))
     return sorted(found, key=lambda one: (one[2]["date"], one[0]))
 
@@ -4124,7 +5912,9 @@ def spec_of(text: str, where: str) -> dict:
     return spec
 
 
-def cmd_proposals_add(state: Path, kind: str, day: str, spec: dict, now: datetime) -> dict:
+def cmd_proposals_add(
+    state: Path, kind: str, day: str, spec: dict, now: datetime
+) -> dict:
     """Add one run of KIND to its record of DAY, which this makes when it is not there: what the run
     read, and its proposals with the numbers after those already there. Nothing of the record is
     rewritten: a second run of the day keeps the numbers, the verdicts and the drops of the first."""
@@ -4133,59 +5923,136 @@ def cmd_proposals_add(state: Path, kind: str, day: str, spec: dict, now: datetim
     if not a_day(day):
         raise SettingsError(f"--date is the run's day, YYYY-MM-DD, not {day!r}")
     if extra := sorted(set(spec) - {"read", "proposals"}):
-        raise SettingsError(f"the run holds keys add does not take: {', '.join(extra)}; give `read` and `proposals`")
+        raise SettingsError(
+            f"the run holds keys add does not take: {', '.join(extra)}; give `read` and `proposals`"
+        )
     if problem := text_problem(spec.get("read"), "`read`, what the run read,"):
-        raise SettingsError(f"{problem}: say in a line what the run read (the tasks since the last run, the naps, the night's file)")
+        raise SettingsError(
+            f"{problem}: say in a line what the run read (the tasks since the last run, the naps, the night's file)"
+        )
     proposals = spec.get("proposals")
     if not isinstance(proposals, list):
-        raise SettingsError("`proposals` is the run's list of proposals, [] for a run that proposes nothing")
+        raise SettingsError(
+            "`proposals` is the run's list of proposals, [] for a run that proposes nothing"
+        )
     for n, proposal in enumerate(proposals, 1):
         if not isinstance(proposal, dict) or sorted(proposal) != sorted(PROPOSAL_KEYS):
-            raise SettingsError(f"proposal {n} of the run is not an object with {', '.join(PROPOSAL_KEYS)}, and nothing else")
+            raise SettingsError(
+                f"proposal {n} of the run is not an object with {', '.join(PROPOSAL_KEYS)}, and nothing else"
+            )
         for key in PROPOSAL_KEYS:
-            if problem := text_problem(proposal[key], f"the {key} of proposal {n} of the run"):
+            if problem := text_problem(
+                proposal[key], f"the {key} of proposal {n} of the run"
+            ):
                 raise SettingsError(problem)
         if not SLUG.fullmatch(proposal["area"]):
-            raise SettingsError(f"the area of proposal {n} of the run, {proposal['area']!r}, is lower-case words joined by hyphens, as lessons or board")
+            raise SettingsError(
+                f"the area of proposal {n} of the run, {proposal['area']!r}, is lower-case words joined by hyphens, as lessons or board"
+            )
         if "\n" in proposal["move"].strip():
-            raise SettingsError(f"the move of proposal {n} of the run is one line; its body says the rest")
+            raise SettingsError(
+                f"the move of proposal {n} of the run is one line; its body says the rest"
+            )
     file = record_file(state, kind, day)
     at = now.astimezone(timezone.utc).strftime(RUN_TIME)
     with proposals_lock(state):
-        record = read_record(file, kind) or {"date": day, "kind": kind, "runs": [], "proposals": [], "refuted": [], "passed": [], "dropped": []}
+        record = read_record(file, kind) or {
+            "date": day,
+            "kind": kind,
+            "runs": [],
+            "proposals": [],
+            "refuted": [],
+            "passed": [],
+            "dropped": [],
+        }
         first = len(record["proposals"]) + 1
         numbers = list(range(first, first + len(proposals)))
         for number, proposal in zip(numbers, proposals):
-            record["proposals"].append({"number": number, **{key: proposal[key].strip() for key in PROPOSAL_KEYS}})
-        record["runs"].append({"at": at, "read": spec["read"].strip(), "proposals": numbers})
+            record["proposals"].append(
+                {
+                    "number": number,
+                    **{key: proposal[key].strip() for key in PROPOSAL_KEYS},
+                }
+            )
+        record["runs"].append(
+            {"at": at, "read": spec["read"].strip(), "proposals": numbers}
+        )
         write_record(file, record)
-    return {"file": str(file), "kind": kind, "date": day, "at": at, "numbers": numbers, "names": [proposal_name(kind, day, n) for n in numbers]}
+    return {
+        "file": str(file),
+        "kind": kind,
+        "date": day,
+        "at": at,
+        "numbers": numbers,
+        "names": [proposal_name(kind, day, n) for n in numbers],
+    }
 
 
 def cmd_proposals_read(state: Path) -> dict:
     """Every proposal of every record with no verdict yet (a morning whose reviewer did not finish is
     read on the next one), every one refuted, passed or dropped on any day, and the newest run of
     each kind, from whose time the next retro reads."""
-    found: dict = {"undecided": [], "refuted": [], "passed": [], "dropped": [], "newest": {kind: None for kind in PROPOSAL_KINDS}}
+    found: dict = {
+        "undecided": [],
+        "refuted": [],
+        "passed": [],
+        "dropped": [],
+        "newest": {kind: None for kind in PROPOSAL_KINDS},
+    }
     for kind, file, record in records_of(state):
-        verdicts = {key: {entry["number"]: entry for entry in record[key]} for key in ("refuted", "passed", "dropped")}
+        verdicts = {
+            key: {entry["number"]: entry for entry in record[key]}
+            for key in ("refuted", "passed", "dropped")
+        }
         for proposal in record["proposals"]:
-            one = {"name": proposal_name(kind, record["date"], proposal["number"]), "kind": kind, "date": record["date"], **proposal, "file": str(file)}
+            one = {
+                "name": proposal_name(kind, record["date"], proposal["number"]),
+                "kind": kind,
+                "date": record["date"],
+                **proposal,
+                "file": str(file),
+            }
             number = proposal["number"]
             if number in verdicts["dropped"]:
                 dropped = verdicts["dropped"][number]
-                found["dropped"].append({**one, "said": dropped["said"], "day": dropped["day"], "item": dropped["item"]})
+                found["dropped"].append(
+                    {
+                        **one,
+                        "said": dropped["said"],
+                        "day": dropped["day"],
+                        "item": dropped["item"],
+                    }
+                )
             elif number in verdicts["refuted"]:
-                found["refuted"].append({**one, "reason": verdicts["refuted"][number]["reason"], "day": verdicts["refuted"][number]["day"]})
+                found["refuted"].append(
+                    {
+                        **one,
+                        "reason": verdicts["refuted"][number]["reason"],
+                        "day": verdicts["refuted"][number]["day"],
+                    }
+                )
             elif number in verdicts["passed"]:
                 passed = verdicts["passed"][number]
-                found["passed"].append({**one, "item": passed["item"], "day": passed["day"], "there": (state / STATE_BACKLOG / Path(passed["item"]).name).is_file()})
+                found["passed"].append(
+                    {
+                        **one,
+                        "item": passed["item"],
+                        "day": passed["day"],
+                        "there": (
+                            state / STATE_BACKLOG / Path(passed["item"]).name
+                        ).is_file(),
+                    }
+                )
             else:
                 found["undecided"].append(one)
         for run in record["runs"]:
             newest = found["newest"][kind]
             if newest is None or run["at"] > newest["at"]:
-                found["newest"][kind] = {"date": record["date"], "at": run["at"], "read": run["read"]}
+                found["newest"][kind] = {
+                    "date": record["date"],
+                    "at": run["at"],
+                    "read": run["read"],
+                }
     return found
 
 
@@ -4193,17 +6060,38 @@ def item_slug(title: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
 
 
-def item_text(title: str, area: str, today: str, entries: list[tuple[str, dict]]) -> str:
+def item_text(
+    title: str, area: str, today: str, entries: list[tuple[str, dict]]
+) -> str:
     """A reviewer's item in the backlog's item format, with the front-matter key ITEM_KEY that names
     each proposal in it, and for each its move, where it came from, its source and its body."""
     names = [name for name, _ in entries]
-    head = ["---", "worth: later", f"where: {entries[0][1]['where']}", f"added: {today}", f"{ITEM_KEY}: {', '.join(names)}", "---", f"# {title}", ""]
+    head = [
+        "---",
+        "worth: later",
+        f"where: {entries[0][1]['where']}",
+        f"added: {today}",
+        f"{ITEM_KEY}: {', '.join(names)}",
+        "---",
+        f"# {title}",
+        "",
+    ]
     said = names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
-    lines = [*head, f"The reviewer passed {counted(len(names), 'proposal')} about {area} on {today}: {said}.", ""]
+    lines = [
+        *head,
+        f"The reviewer passed {counted(len(names), 'proposal')} about {area} on {today}: {said}.",
+        "",
+    ]
     for name, proposal in entries:
         kind, day, number = PROPOSAL_NAME.fullmatch(name).groups()
-        lines += [f"## {proposal['move']}", "", f"From the {kind} of {day}, proposal {number}. Its source: {proposal['source']}. Where: `{proposal['where']}`.", "",
-                  proposal["body"], ""]
+        lines += [
+            f"## {proposal['move']}",
+            "",
+            f"From the {kind} of {day}, proposal {number}. Its source: {proposal['source']}. Where: `{proposal['where']}`.",
+            "",
+            proposal["body"],
+            "",
+        ]
     return "\n".join(lines)
 
 
@@ -4218,23 +6106,40 @@ def cmd_proposals_verdict(state: Path, spec: dict, today: str) -> dict:
     is written; the items are written before the records, so an interruption leaves a proposal with no
     verdict, which the next read gives again, and never a verdict with no item."""
     if extra := sorted(set(spec) - {"verdicts", "titles"}):
-        raise SettingsError(f"the verdicts hold keys verdict does not take: {', '.join(extra)}; give `verdicts` and `titles`")
+        raise SettingsError(
+            f"the verdicts hold keys verdict does not take: {', '.join(extra)}; give `verdicts` and `titles`"
+        )
     verdicts, titles = spec.get("verdicts"), spec.get("titles", {})
     if not isinstance(verdicts, list) or not verdicts:
-        raise SettingsError('`verdicts` is the list of the reviewer\'s verdicts, each {"proposal": "retro of DATE #N", "refuted": REASON} or {"proposal": ..., "passed": AREA}')
-    if not isinstance(titles, dict) or not all(isinstance(title, str) for title in titles.values()):
-        raise SettingsError('`titles` gives each area that passed the title of its item, {"AREA": "TITLE"}')
+        raise SettingsError(
+            '`verdicts` is the list of the reviewer\'s verdicts, each {"proposal": "retro of DATE #N", "refuted": REASON} or {"proposal": ..., "passed": AREA}'
+        )
+    if not isinstance(titles, dict) or not all(
+        isinstance(title, str) for title in titles.values()
+    ):
+        raise SettingsError(
+            '`titles` gives each area that passed the title of its item, {"AREA": "TITLE"}'
+        )
     with proposals_lock(state):
         records: dict[tuple[str, str], tuple[Path, dict]] = {}
         judged: list[tuple[str, str, str, dict, dict]] = []
         named: set[str] = set()
         for n, verdict in enumerate(verdicts, 1):
-            if not isinstance(verdict, dict) or "proposal" not in verdict or len(set(verdict) & {"refuted", "passed"}) != 1 or len(verdict) != 2:
-                raise SettingsError(f'verdict {n} is not {{"proposal": "retro of DATE #N", "refuted": REASON}} or {{"proposal": ..., "passed": AREA}}')
+            if (
+                not isinstance(verdict, dict)
+                or "proposal" not in verdict
+                or len(set(verdict) & {"refuted", "passed"}) != 1
+                or len(verdict) != 2
+            ):
+                raise SettingsError(
+                    f'verdict {n} is not {{"proposal": "retro of DATE #N", "refuted": REASON}} or {{"proposal": ..., "passed": AREA}}'
+                )
             name = verdict["proposal"]
             found = PROPOSAL_NAME.fullmatch(name) if isinstance(name, str) else None
             if not found:
-                raise SettingsError(f"verdict {n} names {name!r}, and a proposal is named as `lem project proposals read` gives it: retro of DATE #N or night of DATE #N")
+                raise SettingsError(
+                    f"verdict {n} names {name!r}, and a proposal is named as `lem project proposals read` gives it: retro of DATE #N or night of DATE #N"
+                )
             if name in named:
                 raise SettingsError(f"{name} has two verdicts here; give it one")
             named.add(name)
@@ -4243,42 +6148,71 @@ def cmd_proposals_verdict(state: Path, spec: dict, today: str) -> dict:
                 file = record_file(state, kind, day)
                 record = read_record(file, kind)
                 if record is None:
-                    raise SettingsError(f"{name}: there is no record of the {kind} of {day} ({file}); `lem project proposals read` gives the proposals")
+                    raise SettingsError(
+                        f"{name}: there is no record of the {kind} of {day} ({file}); `lem project proposals read` gives the proposals"
+                    )
                 records[(kind, day)] = (file, record)
             record = records[(kind, day)][1]
             if number > len(record["proposals"]):
-                raise SettingsError(f"{name}: the record of the {kind} of {day} has {counted(len(record['proposals']), 'proposal')}")
-            if any(entry["number"] == number for key in ("refuted", "passed") for entry in record[key]):
-                raise SettingsError(f"{name} has a verdict already, which stays: `lem project proposals read` gives the proposals with none")
+                raise SettingsError(
+                    f"{name}: the record of the {kind} of {day} has {counted(len(record['proposals']), 'proposal')}"
+                )
+            if any(
+                entry["number"] == number
+                for key in ("refuted", "passed")
+                for entry in record[key]
+            ):
+                raise SettingsError(
+                    f"{name} has a verdict already, which stays: `lem project proposals read` gives the proposals with none"
+                )
             word = "refuted" if "refuted" in verdict else "passed"
-            if problem := text_problem(verdict[word], f"the {'reason' if word == 'refuted' else 'area'} of the verdict on {name}"):
+            if problem := text_problem(
+                verdict[word],
+                f"the {'reason' if word == 'refuted' else 'area'} of the verdict on {name}",
+            ):
                 raise SettingsError(problem)
             if word == "passed" and not SLUG.fullmatch(verdict[word]):
-                raise SettingsError(f"the area of the verdict on {name}, {verdict[word]!r}, is lower-case words joined by hyphens, as lessons or board")
+                raise SettingsError(
+                    f"the area of the verdict on {name}, {verdict[word]!r}, is lower-case words joined by hyphens, as lessons or board"
+                )
             judged.append((name, kind, word, verdict, record["proposals"][number - 1]))
         areas: dict[str, list[tuple[str, dict]]] = {}
         for name, _kind, word, verdict, proposal in judged:
             if word == "passed":
                 areas.setdefault(verdict["passed"], []).append((name, proposal))
         if missing := [area for area in areas if not (titles.get(area) or "").strip()]:
-            raise SettingsError(f"`titles` gives no title for the area {', '.join(missing)}: each area that passed becomes one item, with the title the reviewer gives it")
+            raise SettingsError(
+                f"`titles` gives no title for the area {', '.join(missing)}: each area that passed becomes one item, with the title the reviewer gives it"
+            )
         if extra := sorted(set(titles) - set(areas)):
-            raise SettingsError(f"`titles` names {', '.join(extra)}, and no proposal passed with that area")
+            raise SettingsError(
+                f"`titles` names {', '.join(extra)}, and no proposal passed with that area"
+            )
         folder = state / STATE_BACKLOG
-        taken = {file.name for file in folder.glob("*.md")} if folder.is_dir() else set()
+        taken = (
+            {file.name for file in folder.glob("*.md")} if folder.is_dir() else set()
+        )
         items: dict[str, dict] = {}
         for area, entries in areas.items():
             title = " ".join(titles[area].split())
             stem = item_slug(title)
             if not stem:
-                raise SettingsError(f"the title of the area {area}, {title!r}, has no word to name its file by")
+                raise SettingsError(
+                    f"the title of the area {area}, {title!r}, has no word to name its file by"
+                )
             name, n = f"{stem}.md", 1
             while name in taken:
                 n += 1
                 name = f"{stem}-{n}.md"
             taken.add(name)
-            items[area] = {"area": area, "title": title, "path": (lem_state.STATE / STATE_BACKLOG / name).as_posix(), "file": folder / name,
-                           "proposals": [one for one, _ in entries], "text": item_text(title, area, today, entries)}
+            items[area] = {
+                "area": area,
+                "title": title,
+                "path": (lem_state.STATE / STATE_BACKLOG / name).as_posix(),
+                "file": folder / name,
+                "proposals": [one for one, _ in entries],
+                "text": item_text(title, area, today, entries),
+            }
         for item in items.values():
             write_whole(item["file"], item["text"])
         for name, kind, word, verdict, _proposal in judged:
@@ -4286,15 +6220,35 @@ def cmd_proposals_verdict(state: Path, spec: dict, today: str) -> dict:
             record = records[(kind, found[2])][1]
             number = int(found[3])
             if word == "refuted":
-                record["refuted"].append({"number": number, "reason": verdict["refuted"].strip(), "day": today})
+                record["refuted"].append(
+                    {
+                        "number": number,
+                        "reason": verdict["refuted"].strip(),
+                        "day": today,
+                    }
+                )
             else:
-                record["passed"].append({"number": number, "area": verdict["passed"], "item": items[verdict["passed"]]["path"], "day": today})
+                record["passed"].append(
+                    {
+                        "number": number,
+                        "area": verdict["passed"],
+                        "item": items[verdict["passed"]]["path"],
+                        "day": today,
+                    }
+                )
         for file, record in records.values():
             write_record(file, record)
     return {
         "day": today,
-        "refuted": [name for name, _kind, word, _verdict, _proposal in judged if word == "refuted"],
-        "items": [{key: item[key] for key in ("area", "title", "path", "proposals")} for item in items.values()],
+        "refuted": [
+            name
+            for name, _kind, word, _verdict, _proposal in judged
+            if word == "refuted"
+        ],
+        "items": [
+            {key: item[key] for key in ("area", "title", "path", "proposals")}
+            for item in items.values()
+        ],
     }
 
 
@@ -4305,10 +6259,20 @@ def ask_path(state: Path, text: str) -> str | None:
     path = text.strip()
     main = state.parent.parent
     if path.startswith("/"):
-        root = next((prefix for prefix in (f"{str(main).rstrip('/')}/", f"{str(main.resolve()).rstrip('/')}/") if path.startswith(prefix)), None)
+        root = next(
+            (
+                prefix
+                for prefix in (
+                    f"{str(main).rstrip('/')}/",
+                    f"{str(main.resolve()).rstrip('/')}/",
+                )
+                if path.startswith(prefix)
+            ),
+            None,
+        )
         if root is None:
             return None
-        path = path[len(root):]
+        path = path[len(root) :]
     return path
 
 
@@ -4321,7 +6285,11 @@ def backlog_item_of(state: Path, text: str) -> str | None:
     if path is None:
         return None
     parent, _, name = path.rpartition("/")
-    if parent != (lem_state.STATE / STATE_BACKLOG).as_posix() or not name.endswith(".md") or name == ".md":
+    if (
+        parent != (lem_state.STATE / STATE_BACKLOG).as_posix()
+        or not name.endswith(".md")
+        or name == ".md"
+    ):
         return None
     return path
 
@@ -4333,11 +6301,17 @@ def item_holder(state: Path, item: str) -> dict | None:
     STATUS}`, with STATUS null for a task that has no state yet; None when no task holds it. The drop
     reads it, and the board's "Start a task" and its mark of a reviewer's item read the same rule."""
     tasks = state / "tasks"
-    for directory in sorted(d for d in (tasks.iterdir() if tasks.is_dir() else ()) if d.is_dir()):
+    for directory in sorted(
+        d for d in (tasks.iterdir() if tasks.is_dir() else ()) if d.is_dir()
+    ):
         ask = directory / "ask.txt"
         if not ask.is_file() or ask_path(state, text_of(ask)) != item:
             continue
-        written = text_of(directory / "state.md").strip() if (directory / "state.md").is_file() else ""
+        written = (
+            text_of(directory / "state.md").strip()
+            if (directory / "state.md").is_file()
+            else ""
+        )
         first = STATE_LINE.fullmatch(written.splitlines()[0]) if written else None
         status = first["status"] if first else None
         if status not in ENDED:
@@ -4362,7 +6336,11 @@ def item_proposals(text: str) -> list[str] | None:
         key, colon, value = line.partition(":")
         if colon and key.strip() == ITEM_KEY:
             names = [name.strip() for name in value.split(",") if name.strip()]
-            return names if names and all(PROPOSAL_NAME.fullmatch(name) for name in names) else None
+            return (
+                names
+                if names and all(PROPOSAL_NAME.fullmatch(name) for name in names)
+                else None
+            )
     return None
 
 
@@ -4373,24 +6351,37 @@ def cmd_proposals_drop(state: Path, given: str, today: str) -> dict:
     a start from the board comes before it or after it, never between its read and its removal."""
     item = backlog_item_of(state, given)
     if item is None:
-        raise ItemRefused(f"{given!r} is not the path of an item of {lem_state.STATE / STATE_BACKLOG}/, such as {lem_state.STATE / STATE_BACKLOG}/NAME.md: "
-                          "only the reviewer's items are dropped here; an item of the backlog folder leaves it on a branch",
-                          {"dropped": False, "item": given, "held_by": None})
+        raise ItemRefused(
+            f"{given!r} is not the path of an item of {lem_state.STATE / STATE_BACKLOG}/, such as {lem_state.STATE / STATE_BACKLOG}/NAME.md: "
+            "only the reviewer's items are dropped here; an item of the backlog folder leaves it on a branch",
+            {"dropped": False, "item": given, "held_by": None},
+        )
     file = state / STATE_BACKLOG / item.rpartition("/")[2]
     with proposals_lock(state):
         if not file.is_file():
-            raise ItemRefused(f"the item {item} is not there: it was dropped, or its task landed; read the backlog again",
-                              {"dropped": False, "item": item, "held_by": None, "gone": True})
+            raise ItemRefused(
+                f"the item {item} is not there: it was dropped, or its task landed; read the backlog again",
+                {"dropped": False, "item": item, "held_by": None, "gone": True},
+            )
         holder = item_holder(state, item)
         if holder:
-            raise ItemRefused(f"the task {holder['task']} ({holder['status'] or 'new'}) builds the item {item}, so it is not dropped: "
-                              f"it leaves with that task's landing, or is undecided again once the owner drops the task",
-                              {"dropped": False, "item": item, "held_by": holder["task"], "status": holder["status"]})
+            raise ItemRefused(
+                f"the task {holder['task']} ({holder['status'] or 'new'}) builds the item {item}, so it is not dropped: "
+                f"it leaves with that task's landing, or is undecided again once the owner drops the task",
+                {
+                    "dropped": False,
+                    "item": item,
+                    "held_by": holder["task"],
+                    "status": holder["status"],
+                },
+            )
         names = item_proposals(text_of(file))
         if names is None:
-            raise ItemRefused(f"the item {item} names no proposal in its `{ITEM_KEY}:` line, so no record keeps its drop: "
-                              "only `lem project proposals verdict` writes the reviewer's items; remove a file it did not write by hand",
-                              {"dropped": False, "item": item, "held_by": None})
+            raise ItemRefused(
+                f"the item {item} names no proposal in its `{ITEM_KEY}:` line, so no record keeps its drop: "
+                "only `lem project proposals verdict` writes the reviewer's items; remove a file it did not write by hand",
+                {"dropped": False, "item": item, "held_by": None},
+            )
         records: dict[tuple[str, str], tuple[Path, dict]] = {}
         for name in names:
             kind, day, number = PROPOSAL_NAME.fullmatch(name).groups()
@@ -4399,12 +6390,25 @@ def cmd_proposals_drop(state: Path, given: str, today: str) -> dict:
                 record_path = record_file(state, kind, day)
                 records[(kind, day)] = (record_path, read_record(record_path, kind))
             record = records[(kind, day)][1]
-            if record is None or not any(entry["number"] == number and entry["item"] == item for entry in record["passed"]):
-                raise ItemRefused(f"the item {item} names {name}, and no record says that it passed into this item, so no record keeps its drop: "
-                                  "the maintaining session compares the item with the records of `lem project proposals read`",
-                                  {"dropped": False, "item": item, "held_by": None})
+            if record is None or not any(
+                entry["number"] == number and entry["item"] == item
+                for entry in record["passed"]
+            ):
+                raise ItemRefused(
+                    f"the item {item} names {name}, and no record says that it passed into this item, so no record keeps its drop: "
+                    "the maintaining session compares the item with the records of `lem project proposals read`",
+                    {"dropped": False, "item": item, "held_by": None},
+                )
             if not any(entry["number"] == number for entry in record["dropped"]):
-                record["dropped"].append({"number": number, "text": record["proposals"][number - 1]["move"], "said": DROPPED_SAID, "day": today, "item": item})
+                record["dropped"].append(
+                    {
+                        "number": number,
+                        "text": record["proposals"][number - 1]["move"],
+                        "said": DROPPED_SAID,
+                        "day": today,
+                        "item": item,
+                    }
+                )
         for record_path, record in records.values():
             write_record(record_path, record)
         file.unlink()
@@ -4429,20 +6433,37 @@ def cmd_owner(root: Path, status: str, words: str | None) -> dict:
     without him, after a back the ones that came back to him (a night's task does not), and none
     after a back while he was there."""
     if status not in ("away", "back"):
-        raise SettingsError(f"the owner is away or back, not {status!r}: `lem project owner away --words \"I'm away\"` or `lem project owner back --words \"I'm back\"`"
-                            " (`lem project owner watch --seen N` watches his status)")
+        raise SettingsError(
+            f'the owner is away or back, not {status!r}: `lem project owner away --words "I\'m away"` or `lem project owner back --words "I\'m back"`'
+            " (`lem project owner watch --seen N` watches his status)"
+        )
     if not words or not words.strip():
-        raise SettingsError("--words are the owner's words as typed (\"I'm away\", \"/lem im-back\"); no script can tell who typed, so they are his only")
+        raise SettingsError(
+            '--words are the owner\'s words as typed ("I\'m away", "/lem im-back"); no script can tell who typed, so they are his only'
+        )
     marks = owner_records()
     now = owner_now(marks)
     away = status == "away"
-    without = [task["slug"] for task in read_tasks(root) if task["status"] not in ENDED and task["mode"] == "alone"]
+    without = [
+        task["slug"]
+        for task in read_tasks(root)
+        if task["status"] not in ENDED and task["mode"] == "alone"
+    ]
     if now["away"] == away:
         return {**now, "written": False, "tasks": without if away else []}
     record = append_owner(root, away, words.strip())
-    after = [task["slug"] for task in read_tasks(root) if task["status"] not in ENDED and task["mode"] == "alone"]
-    return {"away": away, "since": record["ts"], "words": record["words"], "written": True,
-            "tasks": after if away else [slug for slug in without if slug not in after]}
+    after = [
+        task["slug"]
+        for task in read_tasks(root)
+        if task["status"] not in ENDED and task["mode"] == "alone"
+    ]
+    return {
+        "away": away,
+        "since": record["ts"],
+        "words": record["words"],
+        "written": True,
+        "tasks": after if away else [slug for slug in without if slug not in after],
+    }
 
 
 def cmd_owner_watch(root: Path, seen: int, every: int = OWNER_WATCH_SECONDS) -> dict:
@@ -4453,19 +6474,26 @@ def cmd_owner_watch(root: Path, seen: int, every: int = OWNER_WATCH_SECONDS) -> 
     back can share one; the mark is only appended to, so a new record always changes the count. It
     writes nothing. Lem acts on its result."""
     if seen < 0:
-        raise SettingsError(f"--seen is the number of records in the owner's mark, 0 or more, not {seen}: `lem project waiting` gives it as owner.seen")
+        raise SettingsError(
+            f"--seen is the number of records in the owner's mark, 0 or more, not {seen}: `lem project waiting` gives it as owner.seen"
+        )
     marks = owner_records()
 
     def stopped(*_: object) -> None:
         raise KeyboardInterrupt
 
-    before = (signal.signal(signal.SIGTERM, stopped), signal.signal(signal.SIGINT, stopped))
+    before = (
+        signal.signal(signal.SIGTERM, stopped),
+        signal.signal(signal.SIGINT, stopped),
+    )
     try:
         while len(marks) == seen:
             time.sleep(every)
             marks = owner_records()
     except KeyboardInterrupt:
-        raise SettingsError("the watch of the owner's status was stopped; start no other until the reason for the stop is gone") from None
+        raise SettingsError(
+            "the watch of the owner's status was stopped; start no other until the reason for the stop is gone"
+        ) from None
     finally:
         signal.signal(signal.SIGTERM, before[0])
         signal.signal(signal.SIGINT, before[1])
@@ -4486,12 +6514,18 @@ def cmd_load(start: str | None) -> dict:
             except ValueError:
                 value = -1.0
             if not value > 0:
-                raise SettingsError(f"--start is a load average above 0, or none to take the gate away, not {start!r}")
+                raise SettingsError(
+                    f"--start is a load average above 0, or none to take the gate away, not {start!r}"
+                )
         # the file is written whole, with the board server's table kept as it reads
         try:
-            lem_state.write_machine("load", {"start": int(value) if value.is_integer() else value})
+            lem_state.write_machine(
+                "load", {"start": int(value) if value.is_integer() else value}
+            )
         except OSError as error:
-            raise SettingsError(f"{file} was not written ({error.strerror}); make its folder writable, then run this again") from error
+            raise SettingsError(
+                f"{file} was not written ({error.strerror}); make its folder writable, then run this again"
+            ) from error
         except lem_state.StateError as error:
             # a file that does not read, or holds a table that is not valid there, stays as it is
             raise SettingsError(str(error)) from error
@@ -4501,8 +6535,20 @@ def cmd_load(start: str | None) -> dict:
     except lem_state.StateError as error:
         raise SettingsError(str(error)) from error
     now = round(os.getloadavg()[0], 1)
-    return {"file": str(file), "start": number, "default": not written, "load": now, "cores": os.cpu_count(),
-            "gate": None if number is None else ("open" if now < number else f"closed: the checks wait for a load below {number:g}")}
+    return {
+        "file": str(file),
+        "start": number,
+        "default": not written,
+        "load": now,
+        "cores": os.cpu_count(),
+        "gate": None
+        if number is None
+        else (
+            "open"
+            if now < number
+            else f"closed: the checks wait for a load below {number:g}"
+        ),
+    }
 
 
 def cmd_handoff(tokens: str | None) -> dict:
@@ -4516,12 +6562,18 @@ def cmd_handoff(tokens: str | None) -> dict:
         else:
             value = int(tokens) if re.fullmatch(r"\d+", tokens) else -1
             if value != 0 and value < lem_state.HANDOFF_FLOOR:
-                raise SettingsError(f"--tokens is 0 (Claude Code compacts at its own trigger), a whole number of {lem_state.HANDOFF_FLOOR} or more, "
-                                    f"or default for {lem_state.HANDOFF_TOKENS}, not {tokens!r}: Claude Code refuses a window under {lem_state.HANDOFF_FLOOR}")
+                raise SettingsError(
+                    f"--tokens is 0 (Claude Code compacts at its own trigger), a whole number of {lem_state.HANDOFF_FLOOR} or more, "
+                    f"or default for {lem_state.HANDOFF_TOKENS}, not {tokens!r}: Claude Code refuses a window under {lem_state.HANDOFF_FLOOR}"
+                )
         try:
-            lem_state.write_machine("handoff", None if value is None else {"tokens": value})
+            lem_state.write_machine(
+                "handoff", None if value is None else {"tokens": value}
+            )
         except OSError as error:
-            raise SettingsError(f"{file} was not written ({error.strerror}); make its folder writable, then run this again") from error
+            raise SettingsError(
+                f"{file} was not written ({error.strerror}); make its folder writable, then run this again"
+            ) from error
         except lem_state.StateError as error:
             # a file that does not read, or holds a table that is not valid there, stays as it is
             raise SettingsError(str(error)) from error
@@ -4530,9 +6582,14 @@ def cmd_handoff(tokens: str | None) -> dict:
         written = "tokens" in lem_state.machine_table("handoff")
     except lem_state.StateError as error:
         raise SettingsError(str(error)) from error
-    return {"file": str(file), "tokens": number, "default": not written,
-            "said": f"handoff tokens: {number} ({'default' if not written else 'set here'})" if number is not None
-            else "handoff tokens: 0, so Lem sets nothing and Claude Code compacts at its own trigger"}
+    return {
+        "file": str(file),
+        "tokens": number,
+        "default": not written,
+        "said": f"handoff tokens: {number} ({'default' if not written else 'set here'})"
+        if number is not None
+        else "handoff tokens: 0, so Lem sets nothing and Claude Code compacts at its own trigger",
+    }
 
 
 def cmd_serial(root: Path, words: list[str]) -> int:
@@ -4540,34 +6597,51 @@ def cmd_serial(root: Path, words: list[str]) -> int:
     themselves, and give its exit status back. Another run that holds the lock is waited for."""
     words = words[1:] if words[:1] == ["--"] else words
     if not words or not any(word.strip() for word in words):
-        raise SettingsError("serial takes the command to run: `lem project serial -- COMMAND ...`, or one quoted line for the shell")
+        raise SettingsError(
+            "serial takes the command to run: `lem project serial -- COMMAND ...`, or one quoted line for the shell"
+        )
     shown = words[0] if len(words) == 1 else " ".join(words)
     path = state_root(root) / SERIAL_LOCK
     try:
         handle = path.open("a+", encoding="utf-8")
     except OSError as error:
-        raise SettingsError(f"the lock {path} cannot be opened ({error.strerror}); it holds no state, so remove it (`rm -r {path}`) and run this again") from error
+        raise SettingsError(
+            f"the lock {path} cannot be opened ({error.strerror}); it holds no state, so remove it (`rm -r {path}`) and run this again"
+        ) from error
     with handle:
         try:
             fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             handle.seek(0)
             holder = handle.read().strip() or "its holder wrote no line yet"
-            print(f"project.py: another serial test holds the lock ({holder}); this one waits", file=sys.stderr, flush=True)
+            print(
+                f"project.py: another serial test holds the lock ({holder}); this one waits",
+                file=sys.stderr,
+                flush=True,
+            )
             fcntl.flock(handle, fcntl.LOCK_EX)
         handle.seek(0)
         handle.truncate()
-        handle.write(f"pid {os.getpid()}, since {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}, in {os.getcwd()}: {shown}\n")
+        handle.write(
+            f"pid {os.getpid()}, since {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}, in {os.getcwd()}: {shown}\n"
+        )
         handle.flush()
         proc: subprocess.Popen | None = None
 
         def stopped(number: int, _frame: object) -> None:
             raise InterruptedError(number)
 
-        before = {sign: signal.signal(sign, stopped) for sign in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)}
+        before = {
+            sign: signal.signal(sign, stopped)
+            for sign in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
+        }
         try:
             # a group of its own, so that what the command starts ends with it when this run is stopped
-            proc = subprocess.Popen(words[0] if len(words) == 1 else words, shell=len(words) == 1, start_new_session=True)  # noqa: S602
+            proc = subprocess.Popen(
+                words[0] if len(words) == 1 else words,
+                shell=len(words) == 1,
+                start_new_session=True,
+            )  # noqa: S602
             code = proc.wait()
         except InterruptedError as stop:
             code = 128 + stop.args[0]
@@ -4593,6 +6667,8 @@ def cmd_serial(root: Path, words: list[str]) -> int:
             handle.seek(0)
             handle.truncate()
     return code if code >= 0 else 128 - code
+
+
 def nap_time(name: str) -> datetime | None:
     """When the nap of a folder started, from its name; None for a name that holds no such time."""
     found = NAP_NAME.fullmatch(name)
@@ -4627,30 +6703,65 @@ def cmd_may_nap(root: Path) -> None:
     if marker.is_file():
         try:
             asleep = json.loads(text_of(marker))
-            since = datetime.strptime(asleep["since"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+            since = datetime.strptime(asleep["since"], "%Y-%m-%dT%H:%M:%SZ").replace(
+                tzinfo=timezone.utc
+            )
             started = asleep["time"]
             if not isinstance(started, str) or not NAP_NAME.fullmatch(started):
                 raise ValueError(f"time = {started!r}")
         except (ValueError, KeyError, TypeError) as error:
-            raise SettingsError(f"{marker} is not the record may-nap writes ({error}); remove the file, and the next call writes it again") from error
-    answer = {"may": False, "why": "", "folder": str(folder), "time": None, "newest": max(kept)[1].name if kept else None}
+            raise SettingsError(
+                f"{marker} is not the record may-nap writes ({error}); remove the file, and the next call writes it again"
+            ) from error
+    answer = {
+        "may": False,
+        "why": "",
+        "folder": str(folder),
+        "time": None,
+        "newest": max(kept)[1].name if kept else None,
+    }
     # a nap runs until its folder holds waking.md, the last file it writes, and for an hour at most
-    woke = asleep is not None and any((nap / "waking.md").is_file() for _when, nap in kept if nap.name.startswith(started))
-    if asleep is not None and not woke and (now - since).total_seconds() < ASLEEP_MINUTES * 60:
-        answer["why"] = f"a nap runs since {asleep['since']}: it ends when naps/{started}-... holds waking.md, or {ASLEEP_MINUTES} minutes after its start"
+    woke = asleep is not None and any(
+        (nap / "waking.md").is_file()
+        for _when, nap in kept
+        if nap.name.startswith(started)
+    )
+    if (
+        asleep is not None
+        and not woke
+        and (now - since).total_seconds() < ASLEEP_MINUTES * 60
+    ):
+        answer["why"] = (
+            f"a nap runs since {asleep['since']}: it ends when naps/{started}-... holds waking.md, or {ASLEEP_MINUTES} minutes after its start"
+        )
     elif not naps["on"]:
-        answer["why"] = (f"the naps are off on this machine (naps.on = false in {LOCAL})" if "naps.on" in settings["local"]["overrides"]
-                         else f"the naps are off (naps.on = false in {SETTINGS})")
+        answer["why"] = (
+            f"the naps are off on this machine (naps.on = false in {LOCAL})"
+            if "naps.on" in settings["local"]["overrides"]
+            else f"the naps are off (naps.on = false in {SETTINGS})"
+        )
     else:
-        last = max([when for when, _nap in kept] + ([since] if asleep is not None else []), default=None)
+        last = max(
+            [when for when, _nap in kept] + ([since] if asleep is not None else []),
+            default=None,
+        )
         age = (now - last).total_seconds() if last else None
         if age is not None and age < NAPS_GAP_HOURS * 3600:
-            answer["why"] = f"the newest nap started {hours(age)} ago, and {NAPS_GAP_HOURS} hours pass between two naps"
+            answer["why"] = (
+                f"the newest nap started {hours(age)} ago, and {NAPS_GAP_HOURS} hours pass between two naps"
+            )
         else:
             answer["may"] = True
-            answer["why"] = "there is no nap yet" if age is None else f"the newest nap started {hours(age)} ago"
+            answer["why"] = (
+                "there is no nap yet"
+                if age is None
+                else f"the newest nap started {hours(age)} ago"
+            )
             answer["time"] = now.strftime(NAP_TIME)
-            record = {"since": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "time": answer["time"]}
+            record = {
+                "since": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "time": answer["time"],
+            }
             # written whole under another name first, so that a reader never finds half of it
             staging = folder / f"{ASLEEP}.{os.getpid()}"
             staging.write_text(json.dumps(record) + "\n", encoding="utf-8")
@@ -4702,22 +6813,48 @@ def task_calls(found: list[dict], events: list[dict], cutoff: datetime) -> list[
             continue
         first = STATE_LINE.fullmatch(text.strip().split("\n\n")[0].splitlines()[0])
         if first is None or first["status"] not in STATES:
-            calls.append({**call, "call": "skip", "why": "its state.md does not read: the first line of its newest block is not `TIME STATUS: TEXT` with a status Lem knows"})
+            calls.append(
+                {
+                    **call,
+                    "call": "skip",
+                    "why": "its state.md does not read: the first line of its newest block is not `TIME STATUS: TEXT` with a status Lem knows",
+                }
+            )
             continue
         call["status"] = first["status"]
         if first["status"] not in ENDED:
             calls.append({**call, "call": "open"})
             continue
         if slug not in newest:
-            calls.append({**call, "call": "skip", "why": f"its state.md says {first['status']}, and the event log holds no event of it, so the day it ended is not known"})
+            calls.append(
+                {
+                    **call,
+                    "call": "skip",
+                    "why": f"its state.md says {first['status']}, and the event log holds no event of it, so the day it ended is not known",
+                }
+            )
             continue
         if stated.get(slug) != first["status"]:
-            calls.append({**call, "call": "skip", "why": f"its state.md says {first['status']}, and the newest state of it in the event log says {stated.get(slug) or 'nothing'}"})
+            calls.append(
+                {
+                    **call,
+                    "call": "skip",
+                    "why": f"its state.md says {first['status']}, and the newest state of it in the event log says {stated.get(slug) or 'nothing'}",
+                }
+            )
             continue
         try:
-            last = datetime.strptime(newest[slug], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+            last = datetime.strptime(newest[slug], "%Y-%m-%dT%H:%M:%SZ").replace(
+                tzinfo=timezone.utc
+            )
         except ValueError:
-            calls.append({**call, "call": "skip", "why": f"the time of its newest event, {newest[slug]!r}, does not read"})
+            calls.append(
+                {
+                    **call,
+                    "call": "skip",
+                    "why": f"the time of its newest event, {newest[slug]!r}, does not read",
+                }
+            )
             continue
         calls.append({**call, "call": "old" if last <= cutoff else "young"})
     return calls
@@ -4736,20 +6873,31 @@ class Remover:
         self.failed: list[dict] = []
 
     def shown(self, path: Path) -> str:
-        return path.relative_to(self.top).as_posix() if path.is_relative_to(self.top) else str(path)
+        return (
+            path.relative_to(self.top).as_posix()
+            if path.is_relative_to(self.top)
+            else str(path)
+        )
 
     def inside(self, path: Path) -> bool:
         """Whether PATH is no link, and its folder resolves inside the state folder: the one guard of every removal."""
         try:
             if path.is_symlink():
-                self.skipped.append({"path": self.shown(path), "why": "a link, which prune never follows and never removes"})
+                self.skipped.append(
+                    {
+                        "path": self.shown(path),
+                        "why": "a link, which prune never follows and never removes",
+                    }
+                )
                 return False
             parent = path.parent.resolve()
         except OSError as error:
             self.failed.append({"path": self.shown(path), "error": str(error)})
             return False
         if parent != self.top and not parent.is_relative_to(self.top):
-            self.skipped.append({"path": str(path), "why": f"not inside the state folder {self.top}"})
+            self.skipped.append(
+                {"path": str(path), "why": f"not inside the state folder {self.top}"}
+            )
             return False
         return True
 
@@ -4760,7 +6908,9 @@ class Remover:
         try:
             facts = path.lstat()
             if not stat.S_ISREG(facts.st_mode):
-                self.skipped.append({"path": self.shown(path), "why": "not a plain file"})
+                self.skipped.append(
+                    {"path": self.shown(path), "why": "not a plain file"}
+                )
                 return None
             if not self.dry:
                 path.unlink()
@@ -4797,12 +6947,19 @@ class Remover:
                 inner = Path(at) / name
                 if inner.is_symlink():
                     # os.walk lists a link to a folder among the folders, and never goes into it
-                    self.skipped.append({"path": self.shown(inner), "why": "a link, which prune never follows and never removes"})
+                    self.skipped.append(
+                        {
+                            "path": self.shown(inner),
+                            "why": "a link, which prune never follows and never removes",
+                        }
+                    )
                 elif not self.dry:
                     try:
                         inner.rmdir()
                     except OSError as error:
-                        self.failed.append({"path": self.shown(inner), "error": str(error)})
+                        self.failed.append(
+                            {"path": self.shown(inner), "error": str(error)}
+                        )
         if not self.dry:
             try:
                 path.rmdir()
@@ -4834,8 +6991,10 @@ PRUNE_STOPS = "prune dates each task by the log, so it removed nothing"
 
 def unread_line(log: Path, number: int, error: ValueError, why: str) -> SettingsError:
     """The refusal of line NUMBER of the event log LOG, which does not read as JSON; WHY says what it stopped."""
-    return SettingsError(f"{log}:{number} does not read as JSON ({error}), and {why}; "
-                         "the log is written by project.py, never by hand: correct or remove that line")
+    return SettingsError(
+        f"{log}:{number} does not read as JSON ({error}), and {why}; "
+        "the log is written by project.py, never by hand: correct or remove that line"
+    )
 
 
 def log_events(root: Path, why: str = PRUNE_STOPS) -> list[dict]:
@@ -4859,7 +7018,9 @@ def log_events(root: Path, why: str = PRUNE_STOPS) -> list[dict]:
 
 def stamp_ms(ms: int) -> str:
     """A time of the board's model, in ms, as the log writes a `ts`."""
-    return datetime.fromtimestamp(ms / 1000, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.fromtimestamp(ms / 1000, timezone.utc).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
 
 
 def summary_of(slug: str, records: list[dict], now: int) -> dict:
@@ -4877,13 +7038,20 @@ def summary_of(slug: str, records: list[dict], now: int) -> dict:
     events gets one new summary: the old one is the task's past, a newer fact replaces its old one,
     and `events` adds the old count to the newer events."""
     bm = importlib.import_module("lem_board_model")
-    old = next((record for record in reversed(records) if record.get("event") == SUMMARY), None)
+    old = next(
+        (record for record in reversed(records) if record.get("event") == SUMMARY), None
+    )
     rest = [record for record in records if record is not old]
     task = bm.derive(rest, [], now).by_slug.get(slug)
-    stated = task is not None and any(record.get("event") == "task.state" and bm.at(record.get("ts")) is not None for record in rest)
+    stated = task is not None and any(
+        record.get("event") == "task.state" and bm.at(record.get("ts")) is not None
+        for record in rest
+    )
     past = old or {}
     if not stated and old is None:
-        raise SettingsError(f"the task {slug!r} has no state event in the log to summarize; prune summarizes only a task the log dates")
+        raise SettingsError(
+            f"the task {slug!r} has no state event in the log to summarize; prune summarizes only a task the log dates"
+        )
 
     def newer(fact: object, key: str) -> object:
         return fact if fact is not None else past.get(key)
@@ -4891,32 +7059,85 @@ def summary_of(slug: str, records: list[dict], now: int) -> dict:
     if stated:
         block = task.blocks[-1]
         # the run of the newest status goes back into the old summary when every newer block has that status too
-        since = past["since"] if old and old.get("status") == task.status and all(b["status"] == task.status for b in task.blocks) else stamp_ms(task.since)
-        facts = {"status": task.status, "text": task.text, "lines": list(block["lines"]), "since": since,
-                 "first": past.get("first") or stamp_ms(task.first), "last": stamp_ms(task.last_ts),
-                 "talked": bool(past.get("talked")) or bm.talked_before(task, block["ts"])}
+        since = (
+            past["since"]
+            if old
+            and old.get("status") == task.status
+            and all(b["status"] == task.status for b in task.blocks)
+            else stamp_ms(task.since)
+        )
+        facts = {
+            "status": task.status,
+            "text": task.text,
+            "lines": list(block["lines"]),
+            "since": since,
+            "first": past.get("first") or stamp_ms(task.first),
+            "last": stamp_ms(task.last_ts),
+            "talked": bool(past.get("talked")) or bm.talked_before(task, block["ts"]),
+        }
     else:
-        facts = {key: past.get(key) for key in ("status", "text", "lines", "since", "first", "last", "talked")}
-    times = [record["ts"] for record in rest if record.get("event") in ("task.mode", "task.state") and isinstance(record.get("ts"), str)]
+        facts = {
+            key: past.get(key)
+            for key in ("status", "text", "lines", "since", "first", "last", "talked")
+        }
+    times = [
+        record["ts"]
+        for record in rest
+        if record.get("event") in ("task.mode", "task.state")
+        and isinstance(record.get("ts"), str)
+    ]
     proposal = task.proposal if task else None
     investigation = task.investigation if task else None
-    transcripts = [path for path in past.get("transcripts") or [] if isinstance(path, str)]
+    transcripts = [
+        path for path in past.get("transcripts") or [] if isinstance(path, str)
+    ]
     for record in rest:
         path = record.get("transcript")
-        if record.get("event") == "session.transcript" and isinstance(path, str) and path and path not in transcripts:
+        if (
+            record.get("event") == "session.transcript"
+            and isinstance(path, str)
+            and path
+            and path not in transcripts
+        ):
             transcripts.append(path)
     return {
-        "ts": max(record["ts"] for record in records if isinstance(record.get("ts"), str)), "event": SUMMARY, "task": slug,
-        "status": facts["status"], "text": facts["text"], "lines": facts["lines"], "since": facts["since"], "first": facts["first"], "last": facts["last"],
-        "opened": past.get("opened") or (times[0] if times else None), "newest": times[-1] if times else past.get("newest"),
+        "ts": max(
+            record["ts"] for record in records if isinstance(record.get("ts"), str)
+        ),
+        "event": SUMMARY,
+        "task": slug,
+        "status": facts["status"],
+        "text": facts["text"],
+        "lines": facts["lines"],
+        "since": facts["since"],
+        "first": facts["first"],
+        "last": facts["last"],
+        "opened": past.get("opened") or (times[0] if times else None),
+        "newest": times[-1] if times else past.get("newest"),
         "pr": newer(bm.pr_of(task) if stated else None, "pr"),
-        "ask": newer(task.ask if task else None, "ask"), "branch": newer(task.branch if task else None, "branch"),
+        "ask": newer(task.ask if task else None, "ask"),
+        "branch": newer(task.branch if task else None, "branch"),
         "type": newer(task.type if task else None, "type"),
         "size": newer(bm.criteria_size(task) if task else None, "size"),
         "lead": newer(bm.lead_of(task) if task and task.lead else None, "lead"),
         "careful": newer(bm.careful_of(task) if task else None, "careful"),
-        "proposal": newer({"ts": stamp_ms(proposal["ts"]), "green": proposal["green"], "reasons": proposal["reasons"], "tip": proposal["tip"]} if proposal else None, "proposal"),
-        "investigation": newer({**investigation, "ts": stamp_ms(investigation["ts"])} if investigation else None, "investigation"),
+        "proposal": newer(
+            {
+                "ts": stamp_ms(proposal["ts"]),
+                "green": proposal["green"],
+                "reasons": proposal["reasons"],
+                "tip": proposal["tip"],
+            }
+            if proposal
+            else None,
+            "proposal",
+        ),
+        "investigation": newer(
+            {**investigation, "ts": stamp_ms(investigation["ts"])}
+            if investigation
+            else None,
+            "investigation",
+        ),
         "talked": facts["talked"],
         "night": nights(records).get(slug),
         "transcripts": transcripts,
@@ -4924,17 +7145,26 @@ def summary_of(slug: str, records: list[dict], now: int) -> dict:
     }
 
 
-def summaries(records: list[dict | None], calls: list[dict], now: int) -> dict[str, tuple[dict, int]]:
+def summaries(
+    records: list[dict | None], calls: list[dict], now: int
+) -> dict[str, tuple[dict, int]]:
     """The summary of each task that `task_calls` calls `old`, by its slug, with how many lines of
     the log it replaces, from RECORDS, the log's records in its order (None for a line that is no
     record). A task whose events are already its one summary gets none: a second prune writes nothing."""
     old = {call["task"] for call in calls if call["call"] == "old"}
     mine: dict[str, list[dict]] = {}
     for record in records:
-        if record is not None and isinstance(record.get("task"), str) and record["task"] in old:
+        if (
+            record is not None
+            and isinstance(record.get("task"), str)
+            and record["task"] in old
+        ):
             mine.setdefault(record["task"], []).append(record)
-    return {slug: (summary_of(slug, found, now), len(found)) for slug, found in mine.items()
-            if not (len(found) == 1 and found[0].get("event") == SUMMARY)}
+    return {
+        slug: (summary_of(slug, found, now), len(found))
+        for slug, found in mine.items()
+        if not (len(found) == 1 and found[0].get("event") == SUMMARY)
+    }
 
 
 def log_lines(data: bytes, log: Path) -> tuple[list[tuple[bytes, dict | None]], int]:
@@ -4956,22 +7186,34 @@ def log_lines(data: bytes, log: Path) -> tuple[list[tuple[bytes, dict | None]], 
     return lines, whole
 
 
-def summarized_log(lines: list[tuple[bytes, dict | None]], made: dict[str, tuple[dict, int]]) -> bytes:
+def summarized_log(
+    lines: list[tuple[bytes, dict | None]], made: dict[str, tuple[dict, int]]
+) -> bytes:
     """The log's LINES with the events of each task of MADE replaced by its summary, in the place of
     the task's newest line; every other line byte for byte, in its order."""
-    last = {record["task"]: n for n, (_raw, record) in enumerate(lines) if record is not None and isinstance(record.get("task"), str) and record["task"] in made}
+    last = {
+        record["task"]: n
+        for n, (_raw, record) in enumerate(lines)
+        if record is not None
+        and isinstance(record.get("task"), str)
+        and record["task"] in made
+    }
     out = []
     for n, (raw, record) in enumerate(lines):
         task = record.get("task") if record is not None else None
         if isinstance(task, str) and task in made:
             if last[task] == n:
-                out.append(json.dumps(made[task][0], ensure_ascii=False).encode("utf-8"))
+                out.append(
+                    json.dumps(made[task][0], ensure_ascii=False).encode("utf-8")
+                )
             continue
         out.append(raw)
     return b"".join(line + b"\n" for line in out)
 
 
-def rewrite_log(state: Path, found: list[dict], cutoff: datetime, now: int) -> tuple[list[dict], dict[str, tuple[dict, int]]]:
+def rewrite_log(
+    state: Path, found: list[dict], cutoff: datetime, now: int
+) -> tuple[list[dict], dict[str, tuple[dict, int]]]:
     """Under the log's lock, which the caller holds: read the event log, call each task (`task_calls`),
     and when a task's events become its summary, write the new log whole to a file of the state folder
     and put it in the log's place. The new file has a new inode, so a reader that reads the log on from
@@ -4986,7 +7228,9 @@ def rewrite_log(state: Path, found: list[dict], cutoff: datetime, now: int) -> t
     with handle:
         lines, whole = log_lines(handle.read(), log)
         records = [record for _raw, record in lines]
-        calls = task_calls(found, [record for record in records if record is not None], cutoff)
+        calls = task_calls(
+            found, [record for record in records if record is not None], cutoff
+        )
         made = summaries(records, calls, now)
         if not made:
             return calls, made
@@ -5026,17 +7270,28 @@ def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
     if days is not None and (isinstance(days, bool) or days < 0):
         raise SettingsError(f"--days {days} is no number of days: give 0 or more")
     settings = load(root)
-    keep, source = (settings["state"]["keep_days"], settings["state"]["from"]) if days is None else (days, f"--days {days}")
+    keep, source = (
+        (settings["state"]["keep_days"], settings["state"]["from"])
+        if days is None
+        else (days, f"--days {days}")
+    )
     state = state_root(root)
     if state.is_symlink():
-        raise SettingsError(f"{state} is a link, and prune removes nothing through a link: make the state folder a folder of the main checkout")
+        raise SettingsError(
+            f"{state} is a link, and prune removes nothing through a link: make the state folder a folder of the main checkout"
+        )
     remover = Remover(state, dry)
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=keep)
     tasks_folder = state / "tasks"
     found, links = [], []
     if tasks_folder.is_symlink():
-        remover.skipped.append({"path": "tasks", "why": "a link, which prune never follows and never removes"})
+        remover.skipped.append(
+            {
+                "path": "tasks",
+                "why": "a link, which prune never follows and never removes",
+            }
+        )
     elif tasks_folder.is_dir():
         for directory in sorted(tasks_folder.iterdir()):
             if directory.is_symlink():
@@ -5046,16 +7301,31 @@ def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
                 continue
             state_file = directory / "state.md"
             if state_file.is_symlink():
-                remover.skipped.append({"path": f"tasks/{directory.name}", "why": "its state.md is a link, which prune never follows"})
+                remover.skipped.append(
+                    {
+                        "path": f"tasks/{directory.name}",
+                        "why": "its state.md is a link, which prune never follows",
+                    }
+                )
                 continue
             try:
                 text = text_of(state_file) if state_file.is_file() else None
             except (OSError, SettingsError) as error:
-                remover.skipped.append({"path": f"tasks/{directory.name}", "why": f"its state.md does not read: {error}"})
+                remover.skipped.append(
+                    {
+                        "path": f"tasks/{directory.name}",
+                        "why": f"its state.md does not read: {error}",
+                    }
+                )
                 continue
             found.append({"slug": directory.name, "state": text})
     for link in links:
-        remover.skipped.append({"path": f"tasks/{link.name}", "why": "a link, which prune never follows and never removes"})
+        remover.skipped.append(
+            {
+                "path": f"tasks/{link.name}",
+                "why": "a link, which prune never follows and never removes",
+            }
+        )
     # An ended task past the days has its events replaced with one summary event. A dry run takes no lock
     # and writes nothing: it reads the log as it is, and says what a removal would summarize.
     moment = int(now.timestamp() * 1000)
@@ -5066,7 +7336,10 @@ def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
     else:
         with lem_state.events_lock(state):
             calls, made = rewrite_log(state, found, cutoff, moment)
-    summarized = [{"task": slug, "status": summary["status"], "events": count} for slug, (summary, count) in made.items()]
+    summarized = [
+        {"task": slug, "status": summary["status"], "events": count}
+        for slug, (summary, count) in made.items()
+    ]
     pruned_tasks, counts = [], {"open": 0, "young": 0, "old": 0}
     for call in calls:
         if call["call"] in counts:
@@ -5074,7 +7347,9 @@ def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
         if call["call"] in ("open", "young"):
             continue
         if call["call"] == "skip":
-            remover.skipped.append({"path": f"tasks/{call['task']}", "why": call["why"]})
+            remover.skipped.append(
+                {"path": f"tasks/{call['task']}", "why": call["why"]}
+            )
             continue
         # every file of it but its small record, of a task whose events became its summary in an earlier
         # run too: a run that stopped after the summary, or a removal that failed, is finished here
@@ -5096,12 +7371,26 @@ def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
                 except OSError:
                     continue
         if gone:
-            pruned_tasks.append({"task": call["task"], "status": call["status"], "last_event": call["last_event"], "files": gone, "bytes": size, "kept_bytes": kept})
+            pruned_tasks.append(
+                {
+                    "task": call["task"],
+                    "status": call["status"],
+                    "last_event": call["last_event"],
+                    "files": gone,
+                    "bytes": size,
+                    "kept_bytes": kept,
+                }
+            )
     folders = []
     for kind, name, dated, day_named in PRUNED:
         top = state / name
         if top.is_symlink():
-            remover.skipped.append({"path": name, "why": "a link, which prune never follows and never removes"})
+            remover.skipped.append(
+                {
+                    "path": name,
+                    "why": "a link, which prune never follows and never removes",
+                }
+            )
             continue
         if not top.is_dir():
             continue
@@ -5109,7 +7398,12 @@ def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
             if entry.name.startswith(".") or entry.name.endswith(".lock"):
                 continue
             if entry.is_symlink():
-                remover.skipped.append({"path": f"{name}/{entry.name}", "why": "a link, which prune never follows and never removes"})
+                remover.skipped.append(
+                    {
+                        "path": f"{name}/{entry.name}",
+                        "why": "a link, which prune never follows and never removes",
+                    }
+                )
                 continue
             if dated == "named":
                 when = nap_time(entry.name)
@@ -5117,29 +7411,55 @@ def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
                     continue
                 last = when.timestamp()
             else:
-                if day_named and not (entry.is_dir() and DAY_NAME.fullmatch(entry.name)):
+                if day_named and not (
+                    entry.is_dir() and DAY_NAME.fullmatch(entry.name)
+                ):
                     continue
                 try:
                     last = last_write(entry)
                 except OSError as error:
-                    remover.failed.append({"path": f"{name}/{entry.name}", "error": str(error)})
+                    remover.failed.append(
+                        {"path": f"{name}/{entry.name}", "error": str(error)}
+                    )
                     continue
             if last > cutoff.timestamp():
                 continue
             size = remover.tree(entry)
-            folders.append({"kind": kind, "path": f"{name}/{entry.name}", "last": stamp_of(last), "bytes": size})
-    total = sum(task["bytes"] for task in pruned_tasks) + sum(folder["bytes"] for folder in folders)
+            folders.append(
+                {
+                    "kind": kind,
+                    "path": f"{name}/{entry.name}",
+                    "last": stamp_of(last),
+                    "bytes": size,
+                }
+            )
+    total = sum(task["bytes"] for task in pruned_tasks) + sum(
+        folder["bytes"] for folder in folders
+    )
     files = sum(len(task["files"]) for task in pruned_tasks)
     verb = "would remove" if dry else "removed"
     replaced = sum(one["events"] for one in summarized)
     answer = {
-        "dry_run": dry, "keep_days": keep, "from": source, "before": stamp_of(cutoff.timestamp()),
-        "state": str(state), "tasks": pruned_tasks, "summarized": summarized, "events": replaced, "folders": folders, "files": files, "bytes": total,
+        "dry_run": dry,
+        "keep_days": keep,
+        "from": source,
+        "before": stamp_of(cutoff.timestamp()),
+        "state": str(state),
+        "tasks": pruned_tasks,
+        "summarized": summarized,
+        "events": replaced,
+        "folders": folders,
+        "files": files,
+        "bytes": total,
         "said": f"{verb} {files} files of {len(pruned_tasks)} ended tasks with no event since {stamp_of(cutoff.timestamp())[:10]}, "
-                f"so that each keeps only its small record (its state, its request, its pull request, and its ticket's and its resume's files), "
-                f"{'would replace' if dry else 'replaced'} the {replaced} events of {len(summarized)} such tasks with one summary event each, "
-                f"and {verb} {len(folders)} old folders and copies, {total / 1_000_000:.1f} MB",
-        "open": counts["open"], "young": counts["young"], "old": counts["old"], "skipped": remover.skipped, "failed": remover.failed,
+        f"so that each keeps only its small record (its state, its request, its pull request, and its ticket's and its resume's files), "
+        f"{'would replace' if dry else 'replaced'} the {replaced} events of {len(summarized)} such tasks with one summary event each, "
+        f"and {verb} {len(folders)} old folders and copies, {total / 1_000_000:.1f} MB",
+        "open": counts["open"],
+        "young": counts["young"],
+        "old": counts["old"],
+        "skipped": remover.skipped,
+        "failed": remover.failed,
     }
     return answer, 1 if remover.failed else 0
 
@@ -5151,72 +7471,171 @@ def release_refusal(root: Path, args: argparse.Namespace) -> str | None:
     do the tracker's steps of an end at `ticket-step` (TICKET_ENDS), which the Linear skill writes as
     commands of their own after the end."""
     slug = getattr(args, "slug", None)
-    if args.command == "resume" or not isinstance(slug, str) or not SLUG.fullmatch(slug):
+    if (
+        args.command == "resume"
+        or not isinstance(slug, str)
+        or not SLUG.fullmatch(slug)
+    ):
         return None
-    ends = (args.command == "state" and args.status in ENDED) or (args.command == "ticket-step" and args.step in TICKET_ENDS)
+    ends = (args.command == "state" and args.status in ENDED) or (
+        args.command == "ticket-step" and args.step in TICKET_ENDS
+    )
     return lem_release.check(state_root(root) / "tasks" / slug, passes=ends)
 
 
 @lem_release.one_command
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(prog="lem project", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")
+    parser = argparse.ArgumentParser(
+        prog="lem project",
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--repo",
+        default=".",
+        help="a directory inside the checkout (default: the current one)",
+    )
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("show")
     commands.add_parser("path").add_argument("name")
     commands.add_parser("may-land").add_argument("branch")
     commands.add_parser("worktree-dir").add_argument("slug")
-    worktree = commands.add_parser("worktree", help="make a task's worktree, a new branch from origin's base branch")
+    worktree = commands.add_parser(
+        "worktree",
+        help="make a task's worktree, a new branch from origin's base branch",
+    )
     worktree.add_argument("slug")
     worktree.add_argument("branch")
     init = commands.add_parser("init")
     init.add_argument("--base")
-    init.add_argument("--codex", choices=("yes", "no"), default="yes", help="whether the machine check found Codex: no writes the reviewer on Claude (default: yes)")
-    set_seat = commands.add_parser("set", help="write one seat, or the fallback, for every repository on this machine (global) or for this one on this machine (local)")
+    init.add_argument(
+        "--codex",
+        choices=("yes", "no"),
+        default="yes",
+        help="whether the machine check found Codex: no writes the reviewer on Claude (default: yes)",
+    )
+    set_seat = commands.add_parser(
+        "set",
+        help="write one seat, or the fallback, for every repository on this machine (global) or for this one on this machine (local)",
+    )
     set_seat.add_argument("scope", metavar="global|local")
     set_seat.add_argument("name", metavar="|".join(SET_NAMES))
-    set_seat.add_argument("words", nargs="+", metavar="AGENT/MODEL:EFFORT|default|false")
-    plan_file = commands.add_parser("plan-file", help="the name a task's plan takes, and the plan the plans folder holds")
+    set_seat.add_argument(
+        "words", nargs="+", metavar="AGENT/MODEL:EFFORT|default|false"
+    )
+    plan_file = commands.add_parser(
+        "plan-file",
+        help="the name a task's plan takes, and the plan the plans folder holds",
+    )
     plan_file.add_argument("slug")
-    plan_file.add_argument("--date", metavar="YYYY-MM-DD", help="the day the plan is written (default: today, in UTC)")
+    plan_file.add_argument(
+        "--date",
+        metavar="YYYY-MM-DD",
+        help="the day the plan is written (default: today, in UTC)",
+    )
     rules = commands.add_parser("rules")
     rules.add_argument("files", nargs="*", metavar="FILE")
-    rules.add_argument("--range", dest="commits", metavar="BASE..TIP", help="also the files this range of commits changes")
+    rules.add_argument(
+        "--range",
+        dest="commits",
+        metavar="BASE..TIP",
+        help="also the files this range of commits changes",
+    )
     task_dir = commands.add_parser("task-dir")
     task_dir.add_argument("slug")
     task_dir.add_argument("--ask", help="the owner's words for this task, as given")
-    task_dir.add_argument("--ticket", help="the id of the tracker's ticket the ask came from: MBZ-12 for Linear, 42 or #42 for GitHub")
-    task_dir.add_argument("--ticket-repo", metavar="OWNER/REPO", help="with a GitHub issue: the repository of the issue that was read, from its address")
-    task_dir.add_argument("--branch", help="the branch the task takes, when it is not TYPE/SLUG (a tracker's name, the project's own scheme)")
-    task_dir.add_argument("--night", metavar="YYYY-MM-DD", help="the night that opens the task, which then runs without the owner")
+    task_dir.add_argument(
+        "--ticket",
+        help="the id of the tracker's ticket the ask came from: MBZ-12 for Linear, 42 or #42 for GitHub",
+    )
+    task_dir.add_argument(
+        "--ticket-repo",
+        metavar="OWNER/REPO",
+        help="with a GitHub issue: the repository of the issue that was read, from its address",
+    )
+    task_dir.add_argument(
+        "--branch",
+        help="the branch the task takes, when it is not TYPE/SLUG (a tracker's name, the project's own scheme)",
+    )
+    task_dir.add_argument(
+        "--night",
+        metavar="YYYY-MM-DD",
+        help="the night that opens the task, which then runs without the owner",
+    )
     state = commands.add_parser("state")
     state.add_argument("slug")
     state.add_argument("status")
     state.add_argument("lines", nargs="+", metavar="LINE")
-    state.add_argument("--start-over", action="store_true", help="ready over a task in landing or open: its landing starts over, as land.py's message says")
-    seat_now = commands.add_parser("seat", help="the seat in use for a task: the fallback while it stands in, else the seat the settings name")
+    state.add_argument(
+        "--start-over",
+        action="store_true",
+        help="ready over a task in landing or open: its landing starts over, as land.py's message says",
+    )
+    seat_now = commands.add_parser(
+        "seat",
+        help="the seat in use for a task: the fallback while it stands in, else the seat the settings name",
+    )
     seat_now.add_argument("slug")
     seat_now.add_argument("seat", metavar="|".join(SEATS))
-    failed = commands.add_parser("seat-failed", help="a seat's agent gave an error: the fallback stands in for it, or the task is blocked for the owner")
+    failed = commands.add_parser(
+        "seat-failed",
+        help="a seat's agent gave an error: the fallback stands in for it, or the task is blocked for the owner",
+    )
     failed.add_argument("slug")
     failed.add_argument("seat", metavar="|".join(lem_state.SEAT_NAMES))
-    failed.add_argument("--seat", dest="line", required=True, metavar="AGENT/MODEL:EFFORT", help="the seat the stage opened, as `lem project seat` printed it")
-    failed.add_argument("--error", required=True, metavar="|".join(lem_state.SEAT_ERRORS),
-                        help="missing: the program is not on the Mac; login, tokens, model: the agent's own message of no login, no tokens or an unknown model")
-    failed.add_argument("--said", metavar="TEXT", help="the agent's own line of the error, kept in the event")
-    commands.add_parser("seat-again", help="the owner's go on over a task a seat's error blocked: the seat the settings name is tried again").add_argument("slug")
+    failed.add_argument(
+        "--seat",
+        dest="line",
+        required=True,
+        metavar="AGENT/MODEL:EFFORT",
+        help="the seat the stage opened, as `lem project seat` printed it",
+    )
+    failed.add_argument(
+        "--error",
+        required=True,
+        metavar="|".join(lem_state.SEAT_ERRORS),
+        help="missing: the program is not on the Mac; login, tokens, model: the agent's own message of no login, no tokens or an unknown model",
+    )
+    failed.add_argument(
+        "--said",
+        metavar="TEXT",
+        help="the agent's own line of the error, kept in the event",
+    )
+    commands.add_parser(
+        "seat-again",
+        help="the owner's go on over a task a seat's error blocked: the seat the settings name is tried again",
+    ).add_argument("slug")
     commands.add_parser("tasks")
-    commands.add_parser("resume", help="bring a parked task back on the owner's word, or open a new task from a dropped one's handoff or notes and its branch").add_argument("slug")
-    owner = commands.add_parser("owner", help="the owner says that he is away, or back again, for every repository on this machine; watch waits for his next word")
+    commands.add_parser(
+        "resume",
+        help="bring a parked task back on the owner's word, or open a new task from a dropped one's handoff or notes and its branch",
+    ).add_argument("slug")
+    owner = commands.add_parser(
+        "owner",
+        help="the owner says that he is away, or back again, for every repository on this machine; watch waits for his next word",
+    )
     owner.add_argument("status", metavar="away|back|watch")
     owner.add_argument("--words", help="the owner's words as typed (away and back)")
-    owner.add_argument("--seen", type=int, metavar="N", help="watch: the number of records in the owner's mark, owner.seen of `lem project waiting`")
-    owner.add_argument("--every", type=int, default=OWNER_WATCH_SECONDS, metavar="SECONDS",
-                       help=f"watch: seconds between two looks at the mark (default {OWNER_WATCH_SECONDS}); for a test that cannot wait")
+    owner.add_argument(
+        "--seen",
+        type=int,
+        metavar="N",
+        help="watch: the number of records in the owner's mark, owner.seen of `lem project waiting`",
+    )
+    owner.add_argument(
+        "--every",
+        type=int,
+        default=OWNER_WATCH_SECONDS,
+        metavar="SECONDS",
+        help=f"watch: seconds between two looks at the mark (default {OWNER_WATCH_SECONDS}); for a test that cannot wait",
+    )
     step = commands.add_parser("ticket-step")
     step.add_argument("slug")
     step.add_argument("step")
-    step.add_argument("--login", help="with the step assigned: the login Lem adds as the issue's assignee")
+    step.add_argument(
+        "--login",
+        help="with the step assigned: the login Lem adds as the issue's assignee",
+    )
     log = commands.add_parser("log")
     log.add_argument("slug")
     log.add_argument("event")
@@ -5224,27 +7643,86 @@ def main(argv: list[str] | None = None) -> None:
     commands.add_parser("may-start").add_argument("slug")
     commands.add_parser("state-dir")
     commands.add_parser("waiting", help="everything that waits for the owner, as JSON")
-    proposals = commands.add_parser("proposals", help="the records of the night's and the retro's proposals, the reviewer's verdicts, and the owner's drop of an item")
+    proposals = commands.add_parser(
+        "proposals",
+        help="the records of the night's and the retro's proposals, the reviewer's verdicts, and the owner's drop of an item",
+    )
     acts = proposals.add_subparsers(dest="act", required=True)
-    add = acts.add_parser("add", help="add a run's proposals to the record of its day, which this makes when it is not there")
-    add.add_argument("--kind", required=True, choices=tuple(PROPOSAL_KINDS), help="the run: the retro or the night")
-    add.add_argument("--date", metavar="YYYY-MM-DD", help="the run's day (default: today, in UTC)")
-    add.add_argument("--file", required=True, metavar="FILE|-", help='the run as JSON, {"read": TEXT, "proposals": [...]}, or - for stdin')
-    acts.add_parser("read", help="every proposal with no verdict, of any day, with the refuted, passed and dropped ones, and the newest run of each kind")
-    verdict = acts.add_parser("verdict", help="the reviewer's verdict on each proposal; the passed ones of one area become one item of the state folder's backlog")
-    verdict.add_argument("--file", required=True, metavar="FILE|-", help='the verdicts as JSON, {"verdicts": [...], "titles": {AREA: TITLE}}, or - for stdin')
-    acts.add_parser("drop", help="the owner's drop of a reviewer's item, refused while a task that has not ended holds it").add_argument("path", metavar="PATH")
-    serial = commands.add_parser("serial", help="run one test command that two tasks cannot run at the same time, under the repository's one lock")
+    add = acts.add_parser(
+        "add",
+        help="add a run's proposals to the record of its day, which this makes when it is not there",
+    )
+    add.add_argument(
+        "--kind",
+        required=True,
+        choices=tuple(PROPOSAL_KINDS),
+        help="the run: the retro or the night",
+    )
+    add.add_argument(
+        "--date", metavar="YYYY-MM-DD", help="the run's day (default: today, in UTC)"
+    )
+    add.add_argument(
+        "--file",
+        required=True,
+        metavar="FILE|-",
+        help='the run as JSON, {"read": TEXT, "proposals": [...]}, or - for stdin',
+    )
+    acts.add_parser(
+        "read",
+        help="every proposal with no verdict, of any day, with the refuted, passed and dropped ones, and the newest run of each kind",
+    )
+    verdict = acts.add_parser(
+        "verdict",
+        help="the reviewer's verdict on each proposal; the passed ones of one area become one item of the state folder's backlog",
+    )
+    verdict.add_argument(
+        "--file",
+        required=True,
+        metavar="FILE|-",
+        help='the verdicts as JSON, {"verdicts": [...], "titles": {AREA: TITLE}}, or - for stdin',
+    )
+    acts.add_parser(
+        "drop",
+        help="the owner's drop of a reviewer's item, refused while a task that has not ended holds it",
+    ).add_argument("path", metavar="PATH")
+    serial = commands.add_parser(
+        "serial",
+        help="run one test command that two tasks cannot run at the same time, under the repository's one lock",
+    )
     serial.add_argument("words", nargs=argparse.REMAINDER, metavar="-- COMMAND")
     commands.add_parser("may-nap")
-    prune = commands.add_parser("prune", help=f"remove what the state folder no longer needs, older than {KEEP_KEY} days")
-    prune.add_argument("--dry-run", action="store_true", help="remove nothing: say what would go")
-    prune.add_argument("--days", type=int, metavar="N", help=f"with --dry-run: what would go if {KEEP_KEY} were N")
-    load_gate =commands.add_parser("load", help="the load average under which the checks of a landing start on this machine, and the load now")
-    load_gate.add_argument("--start", metavar="N|none", help=f"set the number for every repository on this machine ({lem_state.LOAD_START} when none is set), "
-                                                              "or none to take the gate away")
-    handoff = commands.add_parser("handoff", help="the number of tokens past which a task's session compacts itself, for every repository on this machine")
-    handoff.add_argument("--tokens", metavar="N|default", help="set the number: 0 leaves it to Claude Code, default takes the line out")
+    prune = commands.add_parser(
+        "prune",
+        help=f"remove what the state folder no longer needs, older than {KEEP_KEY} days",
+    )
+    prune.add_argument(
+        "--dry-run", action="store_true", help="remove nothing: say what would go"
+    )
+    prune.add_argument(
+        "--days",
+        type=int,
+        metavar="N",
+        help=f"with --dry-run: what would go if {KEEP_KEY} were N",
+    )
+    load_gate = commands.add_parser(
+        "load",
+        help="the load average under which the checks of a landing start on this machine, and the load now",
+    )
+    load_gate.add_argument(
+        "--start",
+        metavar="N|none",
+        help=f"set the number for every repository on this machine ({lem_state.LOAD_START} when none is set), "
+        "or none to take the gate away",
+    )
+    handoff = commands.add_parser(
+        "handoff",
+        help="the number of tokens past which a task's session compacts itself, for every repository on this machine",
+    )
+    handoff.add_argument(
+        "--tokens",
+        metavar="N|default",
+        help="set the number: 0 leaves it to Claude Code, default takes the line out",
+    )
     args = parser.parse_args(argv)
     if problem := unreadable_argument(sys.argv[1:] if argv is None else argv):
         sys.exit(f"project.py: {problem}")
@@ -5257,13 +7735,27 @@ def main(argv: list[str] | None = None) -> None:
             cmd_init(root, args.base, args.codex)
             return
         if args.command == "set":
-            print(json.dumps(cmd_set(root, args.scope, args.name, args.words), indent=2))
+            print(
+                json.dumps(cmd_set(root, args.scope, args.name, args.words), indent=2)
+            )
             return
         if args.command == "task-dir":
-            cmd_task_dir(root, args.slug, args.ask, args.ticket, args.branch, args.night, args.ticket_repo)
+            cmd_task_dir(
+                root,
+                args.slug,
+                args.ask,
+                args.ticket,
+                args.branch,
+                args.night,
+                args.ticket_repo,
+            )
             return
         if args.command == "state":
-            print(json.dumps(cmd_state(root, args.slug, args.status, args.lines, args.start_over)))
+            print(
+                json.dumps(
+                    cmd_state(root, args.slug, args.status, args.lines, args.start_over)
+                )
+            )
             return
         if args.command == "resume":
             print(json.dumps(cmd_resume(root, args.slug), indent=2))
@@ -5272,7 +7764,14 @@ def main(argv: list[str] | None = None) -> None:
             print(json.dumps(cmd_seat(root, args.slug, args.seat), indent=2))
             return
         if args.command == "seat-failed":
-            print(json.dumps(cmd_seat_failed(root, args.slug, args.seat, args.line, args.error, args.said), indent=2))
+            print(
+                json.dumps(
+                    cmd_seat_failed(
+                        root, args.slug, args.seat, args.line, args.error, args.said
+                    ),
+                    indent=2,
+                )
+            )
             return
         if args.command == "seat-again":
             print(json.dumps(cmd_seat_again(root, args.slug), indent=2))
@@ -5282,14 +7781,20 @@ def main(argv: list[str] | None = None) -> None:
             return
         if args.command == "owner" and args.status == "watch":
             if args.seen is None:
-                raise SettingsError("watch takes --seen N, the number of records in the owner's mark: `lem project waiting` gives it as owner.seen")
+                raise SettingsError(
+                    "watch takes --seen N, the number of records in the owner's mark: `lem project waiting` gives it as owner.seen"
+                )
             if args.words is not None:
-                raise SettingsError("watch takes no --words: it reads the owner's status, and only away and back write it")
+                raise SettingsError(
+                    "watch takes no --words: it reads the owner's status, and only away and back write it"
+                )
             print(json.dumps(cmd_owner_watch(root, args.seen, max(1, args.every))))
             return
         if args.command == "owner":
             if args.seen is not None:
-                raise SettingsError(f"--seen belongs to watch, not to {args.status}: `lem project owner watch --seen N`")
+                raise SettingsError(
+                    f"--seen belongs to watch, not to {args.status}: `lem project owner watch --seen N`"
+                )
             print(json.dumps(cmd_owner(root, args.status, args.words)))
             return
         if args.command == "log":
@@ -5305,7 +7810,9 @@ def main(argv: list[str] | None = None) -> None:
             print(json.dumps(cmd_waiting(root), indent=2))
             return
         if args.command == "proposals":
-            print(json.dumps(proposals_command(root, args), indent=2, ensure_ascii=False))
+            print(
+                json.dumps(proposals_command(root, args), indent=2, ensure_ascii=False)
+            )
             return
         if args.command == "serial":
             sys.exit(cmd_serial(root, args.words))
@@ -5335,7 +7842,11 @@ def main(argv: list[str] | None = None) -> None:
         elif args.command == "worktree-dir":
             cmd_worktree_dir(settings, args.slug)
         elif args.command == "worktree":
-            print(json.dumps(cmd_worktree(root, settings, args.slug, args.branch), indent=2))
+            print(
+                json.dumps(
+                    cmd_worktree(root, settings, args.slug, args.branch), indent=2
+                )
+            )
         elif args.command == "plan-file":
             cmd_plan_file(settings, args.slug, args.date)
         elif args.command == "may-land":
@@ -5343,7 +7854,11 @@ def main(argv: list[str] | None = None) -> None:
         else:
             cmd_may_start(settings, root, args.slug)
     except ItemRefused as error:
-        print(json.dumps({**error.answer, "said": str(error)}, indent=2, ensure_ascii=False))
+        print(
+            json.dumps(
+                {**error.answer, "said": str(error)}, indent=2, ensure_ascii=False
+            )
+        )
         sys.exit(f"project.py: {error}")
     except SettingsError as error:
         sys.exit(f"project.py: {error}")
@@ -5361,10 +7876,14 @@ def proposals_command(root: Path, args: argparse.Namespace) -> dict:
     try:
         text = sys.stdin.read() if args.file == "-" else text_of(Path(args.file))
     except OSError as error:
-        raise SettingsError(f"--file {args.file}: {error.strerror or error}; give the file the JSON is in, or - for stdin") from None
+        raise SettingsError(
+            f"--file {args.file}: {error.strerror or error}; give the file the JSON is in, or - for stdin"
+        ) from None
     spec = spec_of(text, where)
     if args.act == "add":
-        return cmd_proposals_add(state, args.kind, args.date or now.date().isoformat(), spec, now)
+        return cmd_proposals_add(
+            state, args.kind, args.date or now.date().isoformat(), spec, now
+        )
     return cmd_proposals_verdict(state, spec, now.date().isoformat())
 
 
