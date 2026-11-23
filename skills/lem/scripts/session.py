@@ -203,6 +203,8 @@ sys.path.insert(0, str(SCRIPTS))
 project = importlib.import_module("project")
 lem_state = importlib.import_module("lem_state")
 lem_signs = importlib.import_module("lem_signs")
+# the release a task began on, and the rule that stops a command for a task two releases back
+lem_release = importlib.import_module("lem_release")
 
 PHASES = ("shape", "build", "land", "fast")
 WHYS = ("new", "handoff", "dead", "merged", "conflict", "refused", "queue", "night", "owner", "stopped")
@@ -668,7 +670,7 @@ def guard_refusal(t, m, step: str, named: str | None) -> str | None:
     log as it is now (None for a task with no state), whose `sessions` holds the one entry of T's newest
     session as read now in the task's lock; NAMED is the session the board server named, or None.
 
-    It acts when the task is still in GUARDED, its newest session is the one named and still lives with
+    It acts when the guard still watches the task (`guarded`), its newest session is the one named and still lives with
     an agent in its pane, no shell command of it runs, and the rule (`lem_board_model.stop_due`) still
     gives STEP over the new facts, so that no sign of work came since the time the step was due from;
     signs that do not read are facts of that rule, which gives them `status` and `stopped`. A `restart`
@@ -678,7 +680,7 @@ def guard_refusal(t, m, step: str, named: str | None) -> str | None:
     opens no second session by itself beside a session it cannot read."""
     bm = board_model()
     f = (m.sessions or {}).get(t.slug) if t is not None else None
-    if t is None or t.status not in bm.GUARDED:
+    if t is None or not bm.guarded(t):
         return "status"
     if not f or not (f.get("live") is True and f.get("agent") is True) or (named and str(named).upper() != str(f.get("session") or "").upper()):
         return "gone"
@@ -724,7 +726,7 @@ def guard_check(root: Path, slug: str, step: str, named: str | None, where: dict
     session = str(newest["session"]) if newest and newest.get("session") else None
     alive = agent = False
     signs = {"sign": None, "shell": False, "signs": False, "turn": None}
-    if session is not None and t is not None and t.status in bm.GUARDED:
+    if session is not None and t is not None and bm.guarded(t):
         node = node_of(tree(where), session)
         alive = live(node, newest, datetime.now(timezone.utc))
         agent = node is not None and agent_runs(node) is True
@@ -1309,6 +1311,7 @@ def cmd_talk(root: Path, slug: str, start: str, leave: list[str]) -> dict:
             "first": {"at": kept[0]["at"], "words": first_words(kept[0]["text"])}, "left_out": left}
 
 
+@lem_release.one_command
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="lem session", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")
@@ -1364,6 +1367,13 @@ def main(argv: list[str] | None = None) -> None:
         root = project.repo_root(Path(args.repo))
         if getattr(args, "session", None) and args.command in ("open", "wake") and args.why not in ("stopped", "status"):
             raise SessionError(f"--session goes with `open --why stopped` and `wake --why status`, the steps of the guard of a stopped session; `{args.command} --why {args.why}` takes the task's newest session")
+        if args.command != "list" and project.SLUG.fullmatch(args.slug):
+            # the release rule (lem_release) for a command that names one task: the close, and the wake and
+            # the open of a session after a merge on GitHub, whose session cleans the task, pass
+            ends = args.command == "close" or (args.command in ("open", "wake") and args.why == "merged")
+            stopped = lem_release.check(project.state_root(root) / "tasks" / args.slug, passes=ends)
+            if stopped:
+                raise SessionError(stopped)
         if args.command == "open":
             result: object = cmd_open(root, args.slug, args.why, named=args.session)
         elif args.command == "next":

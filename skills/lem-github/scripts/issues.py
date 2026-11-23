@@ -60,6 +60,8 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
 # the settings, the tasks and the record of each step
 project = importlib.import_module("project")
+# the release a task began on, and the rule that stops a command for a task two releases back
+lem_release = importlib.import_module("lem_release")
 
 # origin on GitHub, in the three forms git takes, as OWNER/REPO
 ORIGIN = re.compile(r"(?:https://github\.com/|ssh://git@github\.com/|git@github\.com:)(?P<repo>[^/\s:]+/[^/\s]+?)(?:\.git)?/?")
@@ -238,6 +240,10 @@ def the_task(root: Path, slug: str, step: str) -> tuple[dict, list[dict]]:
     task = next((task for task in tasks if task["slug"] == slug), None)
     if task is None:
         raise IssueError(f"no task {slug!r}; the tasks are: {', '.join(task['slug'] for task in tasks) or 'none yet'}")
+    # the release rule (lem_release), before any call to GitHub: the writes at a task's end pass
+    stopped = lem_release.check(project.state_root(root) / "tasks" / slug, passes=step in ("land", "drop", "answer"))
+    if stopped:
+        raise IssueError(stopped)
     if not task["ticket"]:
         raise IssueError(f"the task {slug!r} came from no issue, so lem issue has nothing to write for it")
     if not task["ticket"].startswith("#") or not task["ticket_repo"]:
@@ -482,6 +488,7 @@ def cmd_check(root: Path) -> tuple[dict, bool]:
     return {**found, "missing": missing, "says": says}, not missing
 
 
+@lem_release.one_command
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="lem issue", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")

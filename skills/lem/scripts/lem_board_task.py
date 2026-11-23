@@ -649,6 +649,7 @@ RECORD_WORDS = (
     (("landing.json",), "its pull request"),
     (("ticket.txt", "ticket-repo.txt", "ticket-steps.txt"), "its ticket’s files"),
     (("resumed-from.txt",), "the name of the task it was resumed from"),
+    (("release.txt",), "the release it began on"),
 )
 
 

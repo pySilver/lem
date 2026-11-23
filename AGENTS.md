@@ -212,8 +212,9 @@ Each script's module docstring says what it does and why; this list says where e
     optional queue of the owner's corrections and its hook. `jev.py` (`lem-jev`): the client of the
     Jev model.
   - `lem_state.py` (the state folder and Lem's home folder), `lem_plans.py` (a plan's file
-    name), `lem_sibling.py` (a sibling's command in the same process) and `lem_python.py` (a
-    Python of 3.11 or newer for `bin/lem` and the hooks).
+    name), `lem_sibling.py` (a sibling's command in the same process), `lem_release.py` (the
+    release a task began on, its `release.txt`, and the rule that stops each command for a task
+    two releases back) and `lem_python.py` (a Python of 3.11 or newer for `bin/lem` and the hooks).
 - `skills/lem/assets/`: what `lem serve` sends under `/assets/`. `board.css` is the board's look,
   the phone's too; `lem.css` and `lem.js` are the look and the palette every page of Lem shares, and
   a new page for the owner links both and brings no style of its own. `push.css` and `sw.js` are the

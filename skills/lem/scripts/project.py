@@ -41,7 +41,8 @@ team that adopts Lem may have its own.
                                     answered and owes the ticket nothing. At a task's opening it
                                     refuses a slug whose branch origin has already: TYPE/SLUG for
                                     every type, or the NAME --branch gives. --night marks the task
-                                    as the night's, which runs it without the owner
+                                    as the night's, which runs it without the owner. A task it opens
+                                    gets its mark, release.txt: the release its project's sessions load
     lem project ticket-step SLUG started|assigned --login LOGIN|unassigned|commented|landed|dropped|answered
                                     write down what Lem did to the task's ticket, once
     lem project worktree-dir SLUG   print where the task's worktree goes, inside a folder git ignores
@@ -137,6 +138,13 @@ it, and a session that replaces another finds it.
 An ended task stays ended. `state` refuses a move out of `landed`, `answered` or `dropped` (the
 same status again is taken), so that a stale wake-up, a lead that finished after a later step,
 cannot reopen it: new work for it is a new ask, with a slug of its own.
+
+Each command that names one task runs the release rule first (`lem_release`): a task begun two
+releases back or more stops it with exit 1 and a message that names the way on, logged once as
+`release.stop`, and its state stays as it is. `state SLUG` with `dropped`, `landed` or `answered`,
+the three ends of a task, and `resume` of a dropped task pass, and log the same stop once; `resume`
+of a parked task stops. A task begun on a newer release than this Lem stops each command, and
+nothing is written.
 
 Every state block is also an event. `events.jsonl` in the state folder is the record, one JSON
 object per line: `ts` (UTC to the second), `event`, `task`, then the event's fields; the board server
@@ -426,6 +434,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lem_artifacts  # noqa: E402
 import lem_plans  # noqa: E402
 import lem_state  # noqa: E402
+
+# The release a task began on, and the rule that stops a command for a task two releases back.
+lem_release = importlib.import_module("lem_release")
 
 # The team's file, in git, and the developer's own for one repository, beside it (`lem_state`).
 SETTINGS = lem_state.TEAM_SETTINGS
@@ -750,9 +761,9 @@ TEMPLATE += f"""
 [state]
 # How many days Lem keeps what it no longer needs in .lem/state/, the folder git never sees: every
 # file of a task that ended and that nothing happened in for that many days but its small record
-# (its state, its request, its pull request, and its ticket's and its resume's files), and a
-# question to the experts, a persona panel's folder, a nap and a copy of the cast that nobody wrote
-# or read in that time. The event log stays. The board server removes them, and
+# (its state, its request, its pull request, its ticket's and its resume's files, and the release it
+# began on), and a question to the experts, a persona panel's folder, a nap and a copy of the cast
+# that nobody wrote or read in that time. The event log stays. The board server removes them, and
 # `lem project prune --dry-run --days 7` shows what 7 would remove. The default, {KEEP_DAYS}, is the
 # owner's word of 2026-11-21, and the two constants it replaces, which were guesses. One person with
 # less free disk, or more, sets a number for their machine alone with `keep_days` under [state] in
@@ -1875,9 +1886,17 @@ def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None, bra
         # one ticket is one task: a second task for it would be a second branch for the same work
         claim = held_ticket(root, slug, ticket, tasks, tracker["kind"])
     with claim:
-        if (ask is not None or ticket is not None) and not directory.is_dir():
+        opens = (ask is not None or ticket is not None) and not directory.is_dir()
+        if opens:
             taken_on_remote(root, slug, branch)
         (directory / "reports").mkdir(parents=True, exist_ok=True)
+        if opens:
+            # the release the task begins on: the one its project's sessions load (lem_release.chosen).
+            # A task whose directory was there already keeps what it has, a mark or none.
+            try:
+                lem_release.mark(directory, main_checkout(root))
+            except ValueError as error:
+                raise SettingsError(str(error)) from None
         if ask is not None:
             # The owner's words, as given. task.md is a document with headings; the board and the
             # status show these words, so they have a file of their own that nothing rewrites: a link
@@ -2270,6 +2289,12 @@ def cmd_resume(root: Path, slug: str) -> dict:
     directory = task_directory(root, slug)
     blocks = blocks_of(text_of(directory / "state.md")) if (directory / "state.md").is_file() else []
     now = blocks[0]["status"] if blocks else None
+    if now in (PARKED, "dropped"):
+        # a parked task two releases back stops before it is brought back; a dropped one passes, since
+        # its way on is a new task (lem_release)
+        stopped = lem_release.check(directory, passes=now == "dropped")
+        if stopped:
+            raise SettingsError(stopped)
     if now == PARKED:
         before = next((block for block in blocks if block["status"] != PARKED), None)
         if before is None:
@@ -3469,7 +3494,8 @@ def cmd_waiting(root: Path) -> dict:
         "criteria": [brief(row) for row in kind("criteria")],
         "held": [brief(row) for row in kind("held")],
         "after_dropped": [dropped_after(row) for row in kind("after_dropped")],
-        "blocked": [brief(row) for row in kind("blocked")],
+        # a task two releases back says the release stop's message as its line (lem_release)
+        "blocked": [brief(row, **({"line": row["say"]} if row.get("say") else {})) for row in kind("blocked")],
         "plans": [brief(row) for row in kind("plan")],
         "reviews": [brief(row, why=bm.review_why(row["c"]), tip=row["c"].get("tip")) for row in kind("review")],
         "pull_requests": [pull_request(row) for row in kind("merge")],
@@ -4680,7 +4706,7 @@ def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
         "dry_run": dry, "keep_days": keep, "from": source, "before": stamp_of(cutoff.timestamp()),
         "state": str(state), "tasks": pruned_tasks, "summarized": summarized, "events": replaced, "folders": folders, "files": files, "bytes": total,
         "said": f"{verb} {files} files of {len(pruned_tasks)} ended tasks with no event since {stamp_of(cutoff.timestamp())[:10]}, "
-                f"so that each keeps only its small record (its state, its request, its pull request, and its ticket's and its resume's files), "
+                f"so that each keeps only its small record (its state, its request, its pull request, its ticket's and its resume's files, and the release it began on), "
                 f"{'would replace' if dry else 'replaced'} the {replaced} events of {len(summarized)} such tasks with one summary event each, "
                 f"and {verb} {len(folders)} old folders and copies, {total / 1_000_000:.1f} MB",
         "open": counts["open"], "young": counts["young"], "old": counts["old"], "skipped": remover.skipped, "failed": remover.failed,
@@ -4688,6 +4714,17 @@ def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
     return answer, 1 if remover.failed else 0
 
 
+def release_refusal(root: Path, args: argparse.Namespace) -> str | None:
+    """The release rule (lem_release) for a command that names one task, before it reads or writes
+    anything; `resume` runs it itself, once it reads whether the task is parked or dropped. The three
+    ends of a task pass at `state`: `land.py` writes `landed` through it at the end of a merge."""
+    slug = getattr(args, "slug", None)
+    if args.command == "resume" or not isinstance(slug, str) or not SLUG.fullmatch(slug):
+        return None
+    return lem_release.check(state_root(root) / "tasks" / slug, passes=args.command == "state" and args.status in ENDED)
+
+
+@lem_release.one_command
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="lem project", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")
@@ -4766,6 +4803,9 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(f"project.py: {problem}")
     try:
         root = repo_root(Path(args.repo))
+        stopped = release_refusal(root, args)
+        if stopped:
+            raise SettingsError(stopped)
         if args.command == "init":
             cmd_init(root, args.base, args.codex)
             return

@@ -116,10 +116,10 @@ An optional agent that reads the recent tasks and leaves a note for the retro.
 Lem keeps the files of its work in `.lem/state/`, and git does not see this folder. The board
 server removes the old files from it each hour. When nothing of a task that ended happened for
 `state.keep_days` days, the server removes all the files of the task except a small record: its
-state, its request, its pull request, and the files of its ticket and of a resume. After that, a
-retro or a nap finds no report and no decisions of the task. In the event log, the server replaces
-all the events of the task with one summary event, and the board shows the task in Done as before.
-Its Overview tells you what stayed, and tabs 2 to 4 of its panel tell you that their details went
+state, its request, its pull request, the files of its ticket and of a resume, and the release it
+began on. After that, a retro or a nap finds no report and no decisions of the task. In the event
+log, the server replaces all the events of the task with one summary event, and the board shows
+the task in Done as before. Its Overview tells you what stayed, and tabs 2 to 4 of its panel tell you that their details went
 with the events. `/lem resume` cannot
 start a dropped task again after this: type `/lem` and its request to start a new task. The server
 also removes a question to the experts, the folder of a persona panel, a nap and a copy of the

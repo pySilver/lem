@@ -329,6 +329,7 @@ lem_push = importlib.import_module("lem_push")
 lem_inbox = importlib.import_module("lem_inbox")
 lem_peers = importlib.import_module("lem_peers")
 lem_sibling = importlib.import_module("lem_sibling")
+lem_release = importlib.import_module("lem_release")
 
 # A port that no common tool takes by default (a pick, not a measurement).
 PORT = 4536
@@ -1173,6 +1174,22 @@ def item_slug(stem: str, ended, taken) -> str:
     return f"{slug}-{n}"
 
 
+def release_behind(workspace: Workspace) -> str | None:
+    """Why the board starts no task for the workspace, or None: the Lem its sessions load is older than
+    this Lem's release before (lem_release.BEFORE). Its new task would carry that release as its mark,
+    and every act of this board on it would stop at once."""
+    try:
+        version = lem_release.running()
+    except ValueError as error:
+        return str(error)
+    release = lem_release.chosen(lem_release.installs(), workspace.path, version)
+    if lem_release.numbers(release) >= lem_release.numbers(lem_release.BEFORE):
+        return None
+    return (f"The Lem this project's sessions load is {release}, and this board runs Lem {version}, which reads only tasks begun on {lem_release.BEFORE} "
+            f"or {version}: a task started here would stop at its first step. {lem_release.UPDATE} in a Claude Code session of this project "
+            "brings the newer release; then start the task again.")
+
+
 def act_start(workspace: Workspace, form: dict, via: str) -> dict:
     """A new task, on the owner's word from the board: from his words (`words`, the form of "+") or from a
     backlog item (`item`, its path from the root of the main checkout, of the backlog folder or of the
@@ -1181,8 +1198,9 @@ def act_start(workspace: Workspace, form: dict, via: str) -> dict:
     task. The slug is the item's slug (`item_slug`), or the first SLUG_WORDS plain words of his text;
     `lem project task-dir SLUG --ask ASK` makes its directory, with his words or the item's path as the
     ask, as the night gives one; `lem session open SLUG --why new` opens its session with no focus. A slug
-    of a task that runs is refused here, and one of a task that ended by task-dir, with its own line. What
-    came of it, with `slug` when the task is on record."""
+    of a task that runs is refused here, and one of a task that ended by task-dir, with its own line, and
+    so is a project whose sessions load a Lem older than this one's release before (`release_behind`).
+    What came of it, with `slug` when the task is on record."""
     item = str(form.get("item") or "").strip()
     words = " ".join(str(form.get("words") or "").split())[:WORDS_CHARS]
     model = workspace.model()
@@ -1207,6 +1225,9 @@ def act_start(workspace: Workspace, form: dict, via: str) -> dict:
     known = model.by_slug.get(slug)
     if known is not None and known.blocks and not known.closed:
         return {"ok": False, "slug": slug, "said": f"{slug} is a task already, and it is {known.info['label'].lower()}: say the new one in other words."}
+    behind = release_behind(workspace)
+    if behind:
+        return {"ok": False, "said": behind}
     made = lem_run(workspace, "project.py", "task-dir", slug, "--ask", ask)
     if made.returncode != 0:
         return {"ok": False, "said": said_of(made)}

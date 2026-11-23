@@ -3,15 +3,28 @@
 GitHub repository at the tag `vNUMBER`. An install and an update take the plugin from that source, so
 they get the commit of the release tag and never the head of `main`.
 
+A task keeps the release it began on (lem_release.py): the rule that a command for a task of this
+release or the one before goes on, and one for a task two releases back stops with the message of
+criterion 4; the mark a task's open writes, from Claude Code's list of installs; and the check each
+command runs, which logs the stop once and lets a command that ends the task go on.
+
     python3 -B -m unittest discover -s tests/unit -p test_release.py
 """
 
+import importlib
 import json
 import re
+import subprocess
+import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(ROOT / "skills" / "lem" / "scripts"))
+lem_release = importlib.import_module("lem_release")
 # The repository every install of the `lem` entry takes the plugin from.
 REPO = "pySilver/lem"
 
@@ -89,6 +102,166 @@ class Repository(unittest.TestCase):
 
     def test_the_repository_names_one_release_in_three_places(self):
         self.assertEqual(release_places(*self.read()), [])
+
+
+# Criterion 4's message, word for word, for invoice-totals begun on 0.2.0 under 0.4.0, whose release before is 0.3.0.
+OLD_STOP = ("invoice-totals began on Lem 0.2.0, and Lem 0.4.0 reads only tasks begun on 0.3.0 or 0.4.0. Your branch and its commits stay. "
+            "/lem drop invoice-totals, then /lem resume invoice-totals, starts a new task on 0.4.0 from that branch and from the notes the task left.")
+
+
+class Rule(unittest.TestCase):
+    def test_a_task_with_no_mark_counts_as_begun_on_the_release_before_marks_and_goes_on(self):
+        self.assertEqual(lem_release.UNMARKED, "0.3.0")
+        self.assertIsNone(lem_release.stop("invoice-totals", lem_release.UNMARKED, "0.4.0", "0.3.0"))
+        with tempfile.TemporaryDirectory() as folder:
+            self.assertEqual(lem_release.began_on(Path(folder)), "0.3.0")
+
+    def test_a_task_of_this_release_or_of_the_release_before_goes_on(self):
+        self.assertIsNone(lem_release.stop("invoice-totals", "0.4.0", "0.4.0", "0.3.0"))
+        self.assertIsNone(lem_release.stop("invoice-totals", "0.3.0", "0.4.0", "0.3.0"))
+
+    def test_a_task_two_releases_back_stops_with_the_message_of_criterion_4(self):
+        self.assertEqual(lem_release.stop("invoice-totals", "0.2.0", "0.4.0", "0.3.0"), {"kind": "old", "say": OLD_STOP})
+
+    def test_a_task_of_a_newer_release_stops_and_names_the_update(self):
+        found = lem_release.stop("invoice-totals", "0.5.0", "0.4.0", "0.3.0")
+        self.assertEqual(found["kind"], "new")
+        self.assertIn("/plugin marketplace update lem", found["say"])
+        self.assertTrue(found["say"].startswith("invoice-totals began on Lem 0.5.0, which is newer than this Lem, 0.4.0"))
+
+    def test_versions_compare_as_numbers_part_by_part(self):
+        self.assertEqual(lem_release.stop("t", "0.9.0", "0.10.0", "0.9.0"), None)
+        self.assertEqual(lem_release.stop("t", "0.8.9", "0.10.0", "0.9.0")["kind"], "old")
+        self.assertEqual(lem_release.stop("t", "0.10.1", "0.10.0", "0.9.0")["kind"], "new")
+
+
+def installs(*entries: dict) -> dict:
+    return {"version": 2, "plugins": {"lem@lem": list(entries), "other@lem": [{"scope": "user", "version": "9.0.0"}]}}
+
+
+class Mark(unittest.TestCase):
+    """The mark a task's open writes: the release its project's sessions load, never newer than this Lem."""
+
+    MAIN = "/lem-unit/shop"
+
+    def test_the_projects_own_install_comes_first(self):
+        listed = installs({"scope": "user", "version": "0.4.0"}, {"scope": "project", "projectPath": self.MAIN, "version": "0.3.0"},
+                          {"scope": "project", "projectPath": "/lem-unit/api", "version": "0.2.0"})
+        self.assertEqual(lem_release.chosen(listed, self.MAIN, "0.4.0"), "0.3.0")
+
+    def test_else_the_users_install(self):
+        listed = installs({"scope": "user", "version": "0.3.0"}, {"scope": "project", "projectPath": "/lem-unit/api", "version": "0.2.0"})
+        self.assertEqual(lem_release.chosen(listed, self.MAIN, "0.4.0"), "0.3.0")
+
+    def test_else_the_running_lems_own(self):
+        for listed in (None, {}, installs({"scope": "project", "projectPath": "/lem-unit/api", "version": "0.2.0"}), installs({"scope": "user", "version": "next"})):
+            with self.subTest(listed=listed):
+                self.assertEqual(lem_release.chosen(listed, self.MAIN, "0.4.0"), "0.4.0")
+
+    def test_never_newer_than_the_running_lem(self):
+        listed = installs({"scope": "project", "projectPath": self.MAIN, "version": "0.5.0"})
+        self.assertEqual(lem_release.chosen(listed, self.MAIN, "0.4.0"), "0.4.0")
+
+
+class Check(unittest.TestCase):
+    """The check each command runs, in a state folder of a throwaway main checkout."""
+
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory()
+        self.main = Path(self.folder.name).resolve() / "shop"
+        subprocess.run(["git", "init", "-q", "-b", "main", str(self.main)], check=True)
+        self.state = self.main / ".lem" / "state"
+        self.task = self.state / "tasks" / "invoice-totals"
+        self.task.mkdir(parents=True)
+        self.version = mock.patch.object(lem_release, "running", lambda: "0.4.0")
+        self.before = mock.patch.object(lem_release, "BEFORE", "0.3.0")
+        self.version.start()
+        self.before.start()
+
+    def tearDown(self):
+        self.version.stop()
+        self.before.stop()
+        self.folder.cleanup()
+
+    def events(self) -> list[dict]:
+        log = self.state / "events.jsonl"
+        return [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()] if log.is_file() else []
+
+    def test_a_task_of_the_release_before_goes_on_and_logs_nothing(self):
+        (self.task / "release.txt").write_text("0.3.0\n", encoding="utf-8")
+        self.assertIsNone(lem_release.check(self.task))
+        self.assertEqual(self.events(), [])
+
+    def test_a_task_two_releases_back_stops_and_logs_the_stop_once(self):
+        (self.task / "release.txt").write_text("0.2.0\n", encoding="utf-8")
+        self.assertEqual(lem_release.check(self.task), OLD_STOP)
+        self.assertEqual(lem_release.check(self.task), OLD_STOP)
+        logged = self.events()
+        self.assertEqual([(e["event"], e["task"], e["began"], e["running"], e["branch"], e["say"]) for e in logged],
+                         [("release.stop", "invoice-totals", "0.2.0", "0.4.0", None, OLD_STOP)])
+
+    def test_a_command_that_ends_the_task_logs_the_same_stop_and_goes_on(self):
+        (self.task / "release.txt").write_text("0.2.0\n", encoding="utf-8")
+        self.assertIsNone(lem_release.check(self.task, passes=True))
+        self.assertEqual([e["say"] for e in self.events()], [OLD_STOP])
+        self.assertEqual(lem_release.check(self.task), OLD_STOP)
+        self.assertEqual(len(self.events()), 1)
+
+    def test_a_task_of_a_newer_release_stops_and_writes_nothing(self):
+        (self.task / "release.txt").write_text("0.5.0\n", encoding="utf-8")
+        for passes in (False, True):
+            self.assertIn("/plugin marketplace update lem", lem_release.check(self.task, passes=passes))
+        self.assertEqual(self.events(), [])
+
+    def test_the_stop_names_the_branch_git_keeps_for_the_tasks_worktree(self):
+        (self.task / "release.txt").write_text("0.2.0\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(self.main), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "base"], check=True)
+        tree = self.main / ".lem" / "worktrees" / "invoice-totals"
+        subprocess.run(["git", "-C", str(self.main), "worktree", "add", "-q", "-b", "fix/invoice-totals", str(tree)], check=True)
+        # a worktree folder removed by hand: git keeps its entry until a prune
+        subprocess.run(["rm", "-rf", str(tree)], check=True)
+        lem_release.check(self.task)
+        self.assertEqual(self.events()[-1]["branch"], "fix/invoice-totals")
+
+    def test_the_stop_names_the_branch_a_rebase_runs_on_in_the_tasks_worktree(self):
+        (self.task / "release.txt").write_text("0.2.0\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(self.main), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "base"], check=True)
+        tree = self.main / ".lem" / "worktrees" / "invoice-totals"
+        subprocess.run(["git", "-C", str(self.main), "worktree", "add", "-q", "-b", "fix/invoice-totals", str(tree)], check=True)
+        # a rebase that stopped on a conflict: the head is detached, and git keeps the branch in head-name
+        subprocess.run(["git", "-C", str(tree), "checkout", "-q", "--detach"], check=True)
+        admin = Path(subprocess.run(["git", "-C", str(tree), "rev-parse", "--absolute-git-dir"], capture_output=True, text=True, check=True).stdout.strip())
+        (admin / "rebase-merge").mkdir()
+        (admin / "rebase-merge" / "head-name").write_text("refs/heads/fix/invoice-totals\n", encoding="utf-8")
+        lem_release.check(self.task)
+        self.assertEqual(self.events()[-1]["branch"], "fix/invoice-totals")
+
+    def test_a_task_that_is_not_there_yet_is_no_stop(self):
+        self.assertIsNone(lem_release.check(self.state / "tasks" / "new-task"))
+
+    def test_a_pass_holds_for_the_commands_of_one_command_and_for_no_command_after_it(self):
+        (self.task / "release.txt").write_text("0.2.0\n", encoding="utf-8")
+
+        @lem_release.one_command
+        def ending():
+            self.assertIsNone(lem_release.check(self.task, passes=True))
+            # a command it runs in this process for the same task (`lem project log` in `lem land merged`)
+            return nested()
+
+        @lem_release.one_command
+        def nested():
+            return lem_release.check(self.task)
+
+        self.assertIsNone(ending())
+        self.assertEqual(nested(), OLD_STOP)
+        self.assertEqual(lem_release.check(self.task), OLD_STOP)
+
+
+class Before(unittest.TestCase):
+    def test_the_release_before_is_older_than_plugin_json(self):
+        version = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))["version"]
+        self.assertEqual(lem_release.running(), version)
+        self.assertLess(lem_release.numbers(lem_release.BEFORE), lem_release.numbers(version))
 
 
 if __name__ == "__main__":

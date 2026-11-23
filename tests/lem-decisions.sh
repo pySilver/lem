@@ -127,6 +127,31 @@ if grep -qF "gift-note-2 goes on in gift-note-3, which is held by its breaker 3"
 else
   fail "a resume with a setup that fails: $unset_up / $whole"
 fi
+# A task two releases back (lem_release): its open marks it with the release its sessions load, here this Lem's own, since
+# Claude Code lists no install in this run (lib.sh). Its first command on a release two later stops with the message of
+# criterion 4 and logs the stop once; the list of what waits names it blocked with the message as its line, its status
+# stays the one its work wrote, and its drop passes.
+project --repo "$DC" task-dir old-release --ask "Keep the old export" >/dev/null
+project --repo "$DC" state old-release building "lead: builder" >/dev/null
+od=$DC/.lem/state/tasks/old-release
+marked=$(cat "$od/release.txt" 2>/dev/null || true)
+printf '0.0.1\n' > "$od/release.txt"
+version=$("$PY" -c 'import json; print(json.load(open(".claude-plugin/plugin.json"))["version"])')
+prior=$("$PY" -B -c 'import sys; sys.path.insert(0, "skills/lem/scripts"); import lem_release; print(lem_release.BEFORE)' 2>/dev/null || true)
+say="old-release began on Lem 0.0.1, and Lem $version reads only tasks begun on $prior or $version. Your branch and its commits stay. /lem drop old-release, then /lem resume old-release, starts a new task on $version from that branch and from the notes the task left."
+stopped=$("$PY" -B "$CRITERIA" --repo "$DC" approved old-release 2>&1; echo "exit $?")
+again=$(status_of "$PY" -B "$CRITERIA" --repo "$DC" approved old-release)
+waits=$(project --repo "$DC" waiting | field '[(t["task"], t["line"]) for t in d["blocked"]]')
+own=$(project --repo "$DC" tasks | field 'next(t["status"] for t in d if t["slug"] == "old-release")')
+ended=$(status_of project --repo "$DC" state old-release dropped "the owner dropped it: it began two releases back")
+stops=$(grep -c '"event": "release.stop", "task": "old-release"' "$DC/.lem/state/events.jsonl" || true)
+if [ "$marked" = "$version" ] && [ -n "$prior" ] && grep -qxF "criteria.py: $say" <<<"$stopped" && [ "$(tail -n 1 <<<"$stopped")" = "exit 1" ] && [ "$again" = 1 ] \
+  && [ "$waits" = "[('old-release', '$say')]" ] && [ "$own" = building ] && [ "$ended" = 0 ] && [ "$stops" = 1 ] \
+  && [ "$(project --repo "$DC" tasks | field 'next(t["status"] for t in d if t["slug"] == "old-release")')" = dropped ]; then
+  pass "a task two releases back stops at its first command with the message that names its release and the way on, logged once; the list of what waits names it blocked with that message, its status stays its own, and its drop passes"
+else
+  fail "a task two releases back: $marked / $stopped / $again / $waits / $own / $ended / $stops"
+fi
 # A task that is dropped or landed has nothing that waits: pending leaves its breakers out and says why, and list still shows them.
 for slug in dropped-task landed-task; do breaker_doc "$DC/.lem/state/tasks/$slug" && decide breaker "$slug" --cause irreversible --irreversible person >/dev/null; done
 project --repo "$DC" state dropped-task dropped "the owner dropped it" >/dev/null && project --repo "$DC" state landed-task landed "main a..b" >/dev/null

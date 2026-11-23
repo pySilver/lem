@@ -977,6 +977,52 @@ class Blocked(unittest.TestCase):
         self.assertIn("waits for the base", bm.now_head(red.tasks[0]))
 
 
+class ReleaseStop(unittest.TestCase):
+    """A task two releases back (lem_release): Lem's first command for it logged `release.stop` and
+    stopped. The board shows it blocked with the message, and its status stays the one of its state,
+    which the forge's watch and land.py read."""
+
+    SAY = ("gift-note began on Lem 0.1.6, and Lem 0.3.0 reads only tasks begun on 0.2.0 or 0.3.0. Your branch and its commits stay. "
+           "/lem drop gift-note, then /lem resume gift-note, starts a new task on 0.3.0 from that branch and from the notes the task left.")
+
+    def stop(self, minute: float) -> dict:
+        return ev(minute, "release.stop", began="0.1.6", running="0.3.0", branch="feat/gift-note", say=self.SAY)
+
+    def test_an_open_task_two_releases_back_is_shown_blocked_with_the_message_and_stays_open(self):
+        m = model(ev(0, "proposed", green=True, not_green=[], tip="abc123456"), state(1, "open", Merge.PR, "green"), self.stop(5))
+        t = m.tasks[0]
+        self.assertEqual((t.status, bm.pr_of(t)["n"]), ("open", "41"))
+        self.assertEqual((t.info["label"], t.info["actor"], t.lane, t.shown), ("Blocked", "you", "you", self.SAY))
+        self.assertEqual(bm.card_line(t, bm.LANE["you"]), f"Blocked: {self.SAY}")
+        self.assertIn(t, m.blocked)
+        rows = bm.waits_of(m)
+        self.assertEqual([(w["kind"], w["key"], w["say"]) for w in rows], [("blocked", "blocked:gift-note", self.SAY)])
+        self.assertEqual(bm.wait_say(rows[0])["where"], self.SAY)
+        # every act of the board would stop in the guard: the drop is the way on
+        self.assertEqual(bm.acts_of(t, None), [])
+
+    def test_a_landing_two_releases_back_is_out_of_the_guard_of_a_stopped_session(self):
+        t = one(state(0, "landing", "the checks run"), self.stop(5))
+        self.assertEqual(t.status, "landing")
+        self.assertIn(t.status, bm.GUARDED)
+        self.assertFalse(bm.guarded(t))
+        self.assertTrue(bm.guarded(one(state(0, "landing", "the checks run"))))
+
+    def test_a_held_task_two_releases_back_stays_blocked_while_its_sessions_turn_runs(self):
+        m = model(state(0, "held", "the criteria wait for the owner"), self.stop(5))
+        entry = {"task": "gift-note", "session": "S1", "name": "gift-note", "live": True, "agent": True, "unanswered": False,
+                 "sign": "2026-11-23T11:42:52Z", "shell": True, "signs": True, "turn": "runs"}
+        bm.put_sessions(m, bm.sessions_of(bm.session_entries(json.dumps([entry])), set()))
+        t = m.tasks[0]
+        self.assertEqual((t.works, t.for_owner, t.lane, t.info["label"], t.shown), (False, True, "you", "Blocked", self.SAY))
+        self.assertEqual([w["key"] for w in bm.waits_of(m)], ["blocked:gift-note"])
+
+    def test_a_state_after_the_stop_is_the_tasks_own_work_again(self):
+        t = one(state(0, "open", Merge.PR), self.stop(5), state(6, "dropped", "the owner dropped it: it began two releases back"))
+        self.assertEqual((t.status, t.release_stop, t.info["label"]), ("dropped", None, "Dropped"))
+        self.assertEqual(bm.waits_of(model(state(0, "open", Merge.PR), self.stop(5), state(6, "dropped", "dropped"))), [])
+
+
 class NewTask(unittest.TestCase):
     """A task whose session opened and wrote no state block is on the board from its first minute."""
 

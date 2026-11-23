@@ -484,7 +484,7 @@ class Map(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             task = Path(folder) / "gift-note"
             files = {"ask.txt": "Add a gift note.", "state.md": "2026-11-20T10:00Z landed: main a..b", "ticket-steps.txt": "started\nassigned octocat\nlanded",
-                     "ticket-repo.txt": "acme/shop", "ticket.txt": "acme/shop#7", "resumed-from.txt": "gift", "task.md": "# Add a gift note",
+                     "ticket-repo.txt": "acme/shop", "ticket.txt": "acme/shop#7", "resumed-from.txt": "gift", "release.txt": "0.3.0", "task.md": "# Add a gift note",
                      "landing.json": "{}", "decisions.jsonl": "{}", "criteria.json": "{}", "report.md": "# Report\n\n![the note](media/a.png)\n",
                      "criteria-page.html": "<p>", "media/a.png": "a", "media/b.png": "b", "reviews/t/01-initial/report.md": "# Round",
                      "reviews/t/01-initial/agents/a.jsonl": "{}", "scratch.txt": "notes", "look/x.png": "x", "empty.txt": "",
@@ -499,9 +499,10 @@ class Map(unittest.TestCase):
                               "report.md", "reports/state.md", "reviews/note.md", "reviews/t/01-initial/agents/a.jsonl", "reviews/t/01-initial/report.md",
                               "reviews/t/round.lock", "scratch.txt"])
             self.assertEqual(sorted(set(files) - set(lem_artifacts.outside_record(task))),
-                             ["ask.txt", "decisions.lock", "landing.json", "resumed-from.txt", "state.lock", "state.md", "task.md", "ticket-repo.txt",
+                             ["ask.txt", "decisions.lock", "landing.json", "release.txt", "resumed-from.txt", "state.lock", "state.md", "task.md", "ticket-repo.txt",
                               "ticket-steps.txt", "ticket.txt"])
             self.assertEqual(lem_artifacts.outside_record(Path(folder) / "no-such-task"), [])
+            self.assertEqual(lem_artifacts.place("release.txt")["role"], "record")
 
     def test_a_picture_is_one_by_its_name_and_its_first_bytes(self):
         png = b"\x89PNG\r\n\x1a\n" + bytes(8)

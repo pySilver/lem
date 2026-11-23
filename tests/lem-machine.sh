@@ -745,6 +745,25 @@ sys.exit(not ok)' "$PWD"; then
 else
   fail "the plugin files in .claude-plugin and bin"
 fi
+# The release before this one (lem_release.BEFORE), which each release moves: the version plugin.json held before its
+# newest change of version, as git shows it. A release that forgot to move it would stop every task of the release
+# before. A clone too shallow to hold that change cannot tell, and says so.
+before=$(git -C "$PWD" log -p --format=%x00 -- .claude-plugin/plugin.json | "$PY" -c 'import json, re, sys
+for change in sys.stdin.read().split("\0"):
+    was = re.findall(r"^-\s*\"version\":\s*\"([^\"]+)\"", change, re.M)
+    now = re.findall(r"^\+\s*\"version\":\s*\"([^\"]+)\"", change, re.M)
+    if was and now:
+        print(was[0], now[0])
+        break')
+read -r was now <<<"${before:-none none}"
+said=$("$PY" -B -c 'import sys; sys.path.insert(0, "skills/lem/scripts"); import lem_release; print(lem_release.BEFORE, lem_release.running())')
+if [ "$was" = none ]; then
+  skip "lem_release.BEFORE is the version plugin.json held before its newest change of version: this clone holds no change of the version (shallow: $(git -C "$PWD" rev-parse --is-shallow-repository))"
+elif [ "$said" = "$was $now" ]; then
+  pass "lem_release.BEFORE is the version plugin.json held before its newest change of version"
+else
+  fail "lem_release.BEFORE and the running release are $said, and plugin.json's newest change of version went from $was to $now: a release moves BEFORE to the release before it"
+fi
 # A machine with Claude Code and no git still gets its rows, not a traceback.
 mkdir -p "$WORK/nogit" && cp "$BIN/claude" "$WORK/nogit/claude"
 out=$(cd "$WORK" && env -i PATH="$WORK/nogit" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" 2>&1 || true)

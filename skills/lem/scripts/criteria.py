@@ -163,6 +163,7 @@ if sys.version_info < (3, 11):
 import argparse
 import fcntl
 import hashlib
+import importlib
 import json
 import os
 import re
@@ -182,6 +183,8 @@ import lem_plans  # noqa: E402
 # How this script calls a sibling: in this process, as one command of it.
 import lem_sibling  # noqa: E402
 import lem_state  # noqa: E402  (how a JSON-lines file is split into its lines)
+# The release a task began on, and the rule that stops a command for a task two releases back.
+lem_release = importlib.import_module("lem_release")
 # How long a command of the check gets after each signal of a stop, in seconds, and how long a serial
 # test's wrapper (`project.py serial`) gets after its term: its own cleanup sends its command a term,
 # waits 3 s, sends a kill and waits 3 s more (`cmd_serial`), and one second is left for its exit, as
@@ -940,6 +943,7 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False, shown: str |
     return {**record, "file": str(task.approved_file)}
 
 
+@lem_release.one_command
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="lem criteria", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the repository (default: the current one)")
@@ -964,6 +968,9 @@ def main(argv: list[str] | None = None) -> None:
         if args.alone and args.file is None:
             raise CriteriaError("--alone needs --file: the criteria approved without the owner, the interview's file or the plan")
         task = Task(Path(args.repo).resolve(), args.slug)
+        stopped = lem_release.check(task.directory)
+        if stopped:
+            raise CriteriaError(stopped)
         if args.step == "approve":
             if args.read:
                 if args.file is not None:

@@ -608,6 +608,7 @@ import argparse
 import contextlib
 import fcntl
 import hashlib
+import importlib
 import json
 import os
 import re
@@ -629,6 +630,9 @@ sys.path.insert(0, str(SCRIPTS))
 import lem_sibling  # noqa: E402
 import lem_state  # noqa: E402
 import lem_tokens  # noqa: E402
+
+# The release a task began on, and the rule that stops a command for a task two releases back.
+lem_release = importlib.import_module("lem_release")
 
 # Who merges: the owner's word, or the merge agent, where the settings and the request allow it.
 BY = ("owner", "merger")
@@ -5393,6 +5397,7 @@ def step(task: Task, args: argparse.Namespace) -> dict:
     return cmd_clean(task)
 
 
+@lem_release.one_command
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="lem land", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")
@@ -5436,6 +5441,11 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
     try:
         task = Task(Path(args.repo), args.slug)
+        # the release rule (lem_release), before the step reads or writes anything: the end of a merge,
+        # the cleanup and the stop of the checks, which a drop runs first, pass
+        stopped = lem_release.check(task.directory, passes=args.command in ("merged", "clean") or (args.command == "checks" and args.stop))
+        if stopped:
+            raise LandError(stopped)
         if args.command == "checks" and (args.status or args.stop):
             # a look and a stop take no lock: they are about the run that holds it
             result = checks_stop(task) if args.stop else checks_status(task)

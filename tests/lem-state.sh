@@ -216,11 +216,11 @@ else
 fi
 
 # What the state folder keeps: `lem project prune` removes, once state.keep_days passed, every file of a task that
-# ended but its small record (its state, its request, its pull request, its ticket's files), and the old folders of the
-# experts, the panels, the naps and the cast's copies. `tasks`, `may-start` and `task-dir` read the pruned task as
-# before, and a run after the one that finished its removal removes nothing; an open task, one that landed 10 days ago
-# and one whose state does not read are not touched; a link is never followed, a removal that fails is named and the
-# next run finishes it, and a dry run removes nothing.
+# ended but its small record (its state, its request, its pull request, its ticket's files, the release it began
+# on), and the old folders of the experts, the panels, the naps and the cast's copies. `tasks`, `may-start` and
+# `task-dir` read the pruned task as before, and a run after the one that finished its removal removes nothing; an
+# open task, one that landed 10 days ago and one whose state does not read are not touched; a link is never
+# followed, a removal that fails is named and the next run finishes it, and a dry run removes nothing.
 PR=$WORK/prune-repo
 git init -q -b main "$PR" && commit "$PR" start && project --repo "$PR" init --base main >/dev/null
 PS=$(project --repo "$PR" state-dir)
@@ -301,10 +301,10 @@ if [ "$before_dry" = "$after_dry" ] && [ "$(field '(d["dry_run"], d["keep_days"]
   && [ "$(field '[f["path"] for f in d["failed"]]' <<<"$real")" = "['tasks/old-landed/locked/held.txt']" ] \
   && [ "$(field 'sorted(f["path"] for f in d["folders"])' <<<"$real")" = "['experts/2026-01-02-101010-an-old-question', 'naps/2020-01-02-0300-an-old-dream', 'panels/2026-01-02-an-old-panel', 'personas-cast/0123abc']" ] \
   && [ "$(field '[(t["task"], t["files"]) for t in d["tasks"]]' <<<"$again")" = "[('old-landed', ['locked/held.txt'])]" ] && [ "$(field '(d["folders"], d["failed"])' <<<"$again")" = "([], [])" ] \
-  && [ "$(task_files old-landed)" = "ask.txt landing.json link.txt state.md ticket-steps.txt " ] && [ "$(task_files old-dropped)" = "ask.txt state.md " ] \
+  && [ "$(task_files old-landed)" = "ask.txt landing.json link.txt release.txt state.md ticket-steps.txt " ] && [ "$(task_files old-dropped)" = "ask.txt release.txt state.md " ] \
   && [ ! -e "$OLD/media" ] && [ ! -e "$OLD/reviews" ] && [ ! -e "$OLD/locked" ] && [ -L "$OLD/link.txt" ] && [ "$(cat "$WORK/outside.txt")" = "kept outside" ] \
-  && [ "$(task_files young-landed)" = "ask.txt decisions.jsonl media/shown.png report.md scratch.txt state.md " ] \
-  && [ "$(task_files still-open)" = "ask.txt decisions.jsonl media/shown.png report.md scratch.txt state.md " ] \
+  && [ "$(task_files young-landed)" = "ask.txt decisions.jsonl media/shown.png release.txt report.md scratch.txt state.md " ] \
+  && [ "$(task_files still-open)" = "ask.txt decisions.jsonl media/shown.png release.txt report.md scratch.txt state.md " ] \
   && [ "$(field '(d["tasks"], d["files"], d["summarized"], d["folders"], d["failed"])' <<<"$third")" = "([], 0, [], [], [])" ] && [ "$before_third" = "$after_third" ] \
   && [ "$after_starts" = 0 ] && grep -qF "the task 'old-landed' is landed; a new task takes a slug of its own" <<<"$old_taken" \
   && [ ! -e "$PS/experts/2026-01-02-101010-an-old-question" ] && [ -d "$PS/experts/notes" ] && [ -d "$PS/experts/$new_question" ] \
@@ -314,7 +314,7 @@ if [ "$before_dry" = "$after_dry" ] && [ "$(field '(d["dry_run"], d["keep_days"]
   && grep -qF "'tasks/broken-state'" <<<"$(field '[s["path"] for s in d["skipped"]]' <<<"$again")" && grep -qF "'tasks/old-landed/link.txt'" <<<"$(field '[s["path"] for s in d["skipped"]]' <<<"$again")" \
   && grep -qF "'panels/2026-01-03-a-link'" <<<"$(field '[s["path"] for s in d["skipped"]]' <<<"$again")" \
   && [ "$tasks_after" = "[('old-dropped', 'dropped', [], None), ('old-landed', 'landed', ['started', 'landed'], 'https://github.com/acme/shop/pull/1')]" ]; then
-  pass "lem project prune leaves a task that ended before state.keep_days its small record only (its state, its request, its pull request, its ticket's files), removes the old folders of the experts, the panels, the naps and the cast's copies, and keeps the records of the proposals and the reviewer's items; tasks gives the task's status and pull request, a task queued after it starts, task-dir refuses its name, and a run after the one that finished it removes nothing; an open task, one that landed 10 days ago and a state that does not read keep every file, a link is never followed, a failed removal is named with exit 1 and the next run finishes it, and a dry run removes nothing"
+  pass "lem project prune leaves a task that ended before state.keep_days its small record only (its state, its request, its pull request, its ticket's files, the release it began on), removes the old folders of the experts, the panels, the naps and the cast's copies, and keeps the records of the proposals and the reviewer's items; tasks gives the task's status and pull request, a task queued after it starts, task-dir refuses its name, and a run after the one that finished it removes nothing; an open task, one that landed 10 days ago and a state that does not read keep every file, a link is never followed, a failed removal is named with exit 1 and the next run finishes it, and a dry run removes nothing"
 else
   fail "the prune: $dry / $dry_all / $no_days / $real_code / $real / $again / $third / $tasks_after / $after_starts / $old_taken / old-landed: $(task_files old-landed) / young-landed: $(task_files young-landed) / $(listing)"
 fi
