@@ -213,9 +213,9 @@ landing, and the record stays whole, with no second count. A second rebase in on
 what one rebase with no wait gives: when the branch is still the tip the newest clean rebase of this
 landing made (`made`, which `filed_on` does not move), and no conflict or resolution is on record,
 `base` throws that tip away (only `propose` pushes, so it was never pushed), moves the branch back to
-the tip that rebase started from, and rebases that tip onto the base now, with the polish pass's names moved back by their place from the tip
-(`through_rebase`). A commit after `made`, or a conflict on the way, is judged as a rebase after it,
-as with no wait.
+the tip that rebase started from, and rebases that tip onto the base now, with the polish pass's
+names moved back by their place from the tip (`through_rebase`). A commit after `made`, or a
+conflict on the way, is judged as a rebase after it, as with no wait.
 
 What two landings share is the machine and the base branch, and each has one rule. The checks start
 only while the machine's load average is below the start number of this machine (`[load] start` in
@@ -261,7 +261,7 @@ that come after the pass, a repair, a fix of a review's findings, the items `fil
 on top of it, and a rebase by `base` gives the pass's commits their new names; any other rewrite
 of the branch asks for the pass again. The pass runs once for a task: `start` of a `ready` task that
 starts over keeps a pass that is done while the branch holds its last commit, and a `ready` task that
-goes on with its landing keeps the whole record (below).
+goes on with its landing keeps the whole record (above).
 
 A review comes before anything is proposed. There are three kinds: one read, which is the
 review tool's smallest profile, for a short and simple change; a round of the review tool with
