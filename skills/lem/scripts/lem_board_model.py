@@ -2030,9 +2030,10 @@ def open_cards(t: Task, m: Model) -> list[dict]:
 
 def answered_in_session(w: dict, m: Model) -> bool:
     """Whether the owner answers a row of "Waits for you" in the task's own session rather than on the
-    board: a held step with no yes of his on the board (the interview and the others; not criteria that
-    wait for his approval there), a task its session stopped, and a session that does not answer. Every
-    other row (a merge, criteria, a breaker's document, a plan, a merge review, a task queued after a
+    board: a held step with no answer of his on the board (the interview and the others; not criteria
+    that wait for his approval there, nor a row with its own buttons, `asks`: "Skip the persona read?"),
+    a task its session stopped, and a session that does not answer. Every other row (a merge, criteria, a
+    breaker's document, a plan, a card of the task's session, a merge review, a task queued after a
     dropped one, a task with no session, a task whose stop the guard of a stopped session logged) he
     answers on the board or in another session."""
     kind = w["kind"]

@@ -2043,7 +2043,8 @@ class Handler(BaseHTTPRequestHandler):
     def card_answer(self, name: str, slug: str, page: str) -> None:
         """The owner's answer to a card of a task's session, posted by the card's own page on the board as
         JSON (`runtime/ask.js`), through the checks of an act on a task (`board_act`), then `act_card`. The
-        answer is JSON, `{"said": ...}`, which the page shows: 200 when it is on record, else the refusal."""
+        answer is JSON, `{"said": ...}`, which the page shows: 200 when it is on record, else the refusal;
+        the page's dismissal, which records nothing, gets 204 and no body."""
         def answer(status: int, said: str | None) -> None:
             if status == HTTPStatus.NO_CONTENT:
                 return self.send(status, b"", "text/plain; charset=utf-8", True)
