@@ -230,6 +230,127 @@ flowchart TD
    - `README.md` and `site/index.html` in the same commit, only where they say what the board does.
    - `skills/lem/SKILL.md`, "The board": the card rows.
 
+## Plan talk
+
+Argued on 2026-11-23 by the reviewer, Codex at GPT 6.2 Sol, effort high (its pane's status line),
+and the defender, Claude Code at Opus 5.5, effort high (the `defender:` line of the task's state).
+Two model families. Six turns; the bound of the rules is 4 × 12 + 2 = 50.
+
+Agreement carries no authority: the review before the pull request reads each settled position as
+a claim.
+
+### The questions, as the reviewer listed them
+
+1. **The card page on the board's origin can post an act.** A spec's `html` and `svg` blocks are
+   raw markup (`block` in `skills/lem-ask/runtime/ask.js`; `tune.json` uses `html`), and a form in
+   one posts with the board's origin, which `action_refusal` in `serve.py` takes. Settled: the CSP
+   adds `form-action 'none'`, `base-uri 'none'`, `object-src 'none'` and `frame-src 'none'` (task 2;
+   decision 2). Settled by the two, not checked by the review.
+2. **Yes on "Approve this criterion?" was not bound to the bytes he read.** Settled: Yes is
+   `act_approve` with the shown digest that `criteria.py approve --shown` checks; No carries the
+   digest too, needs his words, and goes in as "a change of his", which asks his yes again (task 3,
+   task 4). Settled by the two, not checked by the review.
+3. **One answer across the board, the terminal and the Inbox.** A design choice. The plan: the row's
+   record `answers/KEY.json` orders every act of the board on that row (the answer route,
+   `act_park`, `act_approve`, Drop's confirm), and the session reads `board_answer` before it acts
+   on a typed word or an Inbox reply; a board answer whose block is no longer the newest takes no
+   effect, and the session says so (cite: criterion 4, "the one recorded first counts, and the
+   session says in one line which it took and from where"). The reviewer: a typed Park that the
+   session already acts on gives the terminal no claim on the row, so the board accepts a later Drop
+   and reports it on record, then discards it; the later POST should be refused. Decided by the
+   ladder after the talk: decision 6.
+4. **The answer file is written after its exclusive create.** A design choice. The repair made both
+   files a link of a finished file, as `link_mark` in `project.py` makes a mark, named
+   `NAME.PID.new`. The reviewer: `bind` in `serve.py` uses `ThreadingHTTPServer`, so two threads
+   of one process write the same `NAME.PID.new`, and the second write lands in the file the first
+   linked. The defender found no refutation. The choice: the plan's PID name, against a name unique
+   to each writer. Decided by the ladder after the talk: decision 7.
+5. **A dismissal and a board answer were two writes.** Settled, at the cause: every end of a card
+   (an answer, a dismissal, a `lem-ask close`) goes through one file, `cards/PAGEID.end.json`, and
+   the file, not the event, says whether the card is open (task 1, task 2). Settled by the two, not
+   checked by the review.
+6. **A card with no waiter, and a card of an earlier session.** A design choice. Repaired: a card's
+   row stands only while its own agterm session is the one `live_of` gives and is live (task 2).
+   The plan: the gap between the exit 4 of `lem-ask ask --timeout 86400` and the next `lem-ask wait`
+   is a turn of the session, the next wait's first poll reads the end file, and no Lem stage runs
+   `--no-wait` (grep of `skills/lem/`). The reviewer: no deadline bounds when the next wait starts,
+   and a pick the Mac made in agterm in that gap loses to a later board answer. Decided by the
+   ladder after the talk: decision 8.
+7. **A record that hides a breaker for good.** A design choice. Repaired: each row's key names its
+   state block's `ts`, to the second, `board_answer` comes from `lem project tasks`, and a Help
+   that ends with no decision writes the breaker's held block again (task 3, task 4). The plan: the
+   two blocks are separated by the owner's read and tap. The reviewer: `append_event` in
+   `project.py` keeps whole seconds of the wall clock, and a clock correction can repeat a second.
+   Decided by the ladder after the talk: decision 9.
+8. **The Tune card's custom values were refused.** Settled: the refusal is the page's own rule, a
+   `text` with an empty `selected` on a `single` or `multi` question; a `tune` answer is its
+   `values`; task 5 moves a slider after a preset and submits. Settled by the two, not checked by the
+   review.
+9. **The page in the task folder, and the overlay's file.** Settled: `cards/PAGEID.html` is a copy
+   written after `open_overlay` returns the id, and agterm shows its own file under `OUTDIR`, which
+   `pending_page`, `close_page` and `hook_stop` check (task 1). Settled by the two, not checked by
+   the review.
+10. **The away cards the board does not answer.** A design choice. Repaired: decision 3 keeps the
+    text away card of a blocked task and of an order that names no task. The plan: a merge's away
+    card goes too, since "Not now" is no act ("his 'Not now' leaves the pull request open",
+    `ask-owner.md`, "His reply", step 2) and the merge row stays until he merges. The reviewer: the
+    card's "Not now" is an explicit choice that ends the card's command, and whether he needs it is
+    the personas' to say. Decided by the ladder after the talk: decision 10.
+11. **"Mac or phone" was the listener.** A design choice. Repaired: decision 5 records `device`
+    from the request (`Sec-CH-UA-Mobile`, the User-Agent), with the User-Agent whole and `via`
+    beside it. The plan: the request holds nothing more, since a phone in desktop mode says it is a
+    desktop. The reviewer: such a phone is still recorded as `computer`, and whether a browser's
+    report meets criterion 9 is the choice. Decided by the ladder after the talk: decision 11.
+12. **A bare No on the fast track's criterion.** A design choice. Repaired: No needs his words,
+    which go in as "a change of his" (new.md, "The fast track", step 1). The plan: a bare No has no
+    step in the session either, and a question back to him is the session's (criterion 3's ruling).
+    The reviewer: a tap on No is a pick, criterion 7 gives the row a No, and the note is optional in
+    `task.md`; what a bare No should do is the personas' to say. Decided by the ladder after the
+    talk: decision 12.
+
+### Mechanisms the repairs added
+
+- The CSP's `form-action 'none'` and `base-uri 'none'` (question 1): a layer over decision 2, the
+  page on the board's origin, whose cite is `action_refusal` in `serve.py`. The reviewer: closed,
+  layer over decision 2.
+- The one end file of a card (question 5): at the cause, the arbiter of task 1 changed from answers
+  only to every end. The reviewer: closed, at the cause.
+- The link of a finished file (question 4): at the cause, by the reviewer's word, and open.
+- The row's record as the arbiter of every board act on the row (question 3): a layer over task 3's
+  first-answer record, whose cite is criterion 4. The reviewer: holds, layer over it; open.
+- The row bound to the card's own session (question 6): a layer over decision 1, the wake by the
+  card's own command. The reviewer: holds, layer over decision 1; open.
+- The key with its block's `ts` (question 7), `device` (question 11), the narrowed decision 3
+  (question 10), the No that needs his words (question 12) and the digest kept on Yes and No
+  (question 2): at the cause, by the reviewer's word.
+
+### Raised, not argued
+
+- After a successful post the runtime shows the reply's `said` (task 1), but the browser fallback
+  of `lem-ask` (`ask_in_browser`, its `do_POST`) answers an empty 204, so a JSON read of that reply
+  can report a failure after the answer went through. Place: task 1, the `runtime/ask.js` bullet.
+
+### Refused as unpriced
+
+None.
+
+### What changed in the plan
+
+- Task 1: the copy of the page under the task folder (question 9); one end file for each card, a
+  link of a finished file, for an answer, a dismissal and a close (questions 4 and 5); the first
+  poll reads it (question 6).
+- Task 2: the row bound to the card's own live session (question 6); the CSP against a form and a
+  `<base>` (question 1); the refusal as the page's own rule (question 8); the POST that loses the
+  link refuses (question 5).
+- Task 3: keys with their block's `ts` (question 7); the row's record as the arbiter of the
+  board's acts (question 3); Yes through `act_approve` with its digest, No with the digest and his
+  words (questions 2 and 12); `board_answer` from `lem project tasks` only (question 7).
+- Task 4: the session reads `board_answer` before a typed word or an Inbox reply (question 3); a
+  stale record takes no effect (question 3); No's words as "a change of his" (question 12); a Help
+  with no decision writes the breaker's block again (question 7); the away cards (question 10).
+- Task 5: the tune check moves a slider after a preset (question 8).
+- Decisions 2, 3 and 5 (questions 1, 10 and 11).
+
 ## Decisions of the plan
 
 1. **The wake of criterion 2 is the end of the card's own command.** The session runs the card in
