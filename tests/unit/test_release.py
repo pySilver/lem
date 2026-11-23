@@ -111,10 +111,10 @@ OLD_STOP = ("invoice-totals began on Lem 0.2.0, and Lem 0.4.0 reads only tasks b
 
 class Rule(unittest.TestCase):
     def test_a_task_with_no_mark_counts_as_begun_on_the_release_before_marks_and_goes_on(self):
-        self.assertEqual(lem_release.UNMARKED, "0.3.0")
-        self.assertIsNone(lem_release.stop("invoice-totals", lem_release.UNMARKED, "0.4.0", "0.3.0"))
+        self.assertEqual(lem_release.UNMARKED, "0.3.1")
+        self.assertIsNone(lem_release.stop("invoice-totals", lem_release.UNMARKED, "0.4.0", "0.3.1"))
         with tempfile.TemporaryDirectory() as folder:
-            self.assertEqual(lem_release.began_on(Path(folder)), "0.3.0")
+            self.assertEqual(lem_release.began_on(Path(folder)), "0.3.1")
 
     def test_a_task_of_this_release_or_of_the_release_before_goes_on(self):
         self.assertIsNone(lem_release.stop("invoice-totals", "0.4.0", "0.4.0", "0.3.0"))

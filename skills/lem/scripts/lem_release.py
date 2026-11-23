@@ -45,9 +45,9 @@ from pathlib import Path
 import lem_state
 
 # The release just before the version of plugin.json. A release moves it (AGENTS.md, "A release").
-BEFORE = "0.2.0"
+BEFORE = "0.3.0"
 # The release of a task whose directory holds no mark: the tasks that ran when marks came.
-UNMARKED = "0.3.0"
+UNMARKED = "0.3.1"
 # The mark, in the task directory.
 MARK = "release.txt"
 # The event an old task's stop logs.
