@@ -14,7 +14,7 @@ floor, which is one read by the review agent itself, `propose`, and the merge ag
 3): its builder judged what it saw outside the change by the bar of rule 6 of the builder's standing
 rules. Its criterion's check runs once, in the checks, and its pull request is short: green or not
 green, the acceptance criterion, the checks, the read, and at its end what was seen outside the
-change: the items filed, the cheap defects fixed on the way, and the others seen and not filed. Its criterion is `criteria.md` in the task directory, which
+change: the items filed, the cheap defects fixed on the way, and those an open item holds. Its criterion is `criteria.md` in the task directory, which
 the steps read in the place of a plan; a step's word "the plan" means that file for it.
 
 Take the task where its state stands: `ready` from step 1; `landing` as after a cut-off (below);
@@ -220,9 +220,10 @@ landing up as after a cut-off.
    - *defects outside the change* (`to_file` names some, in this output or in a later plain
      `read`): the review saw defects the base already has, and called each one by the bar of
      rule 6 of the builder's standing rules. `lem land file SLUG` writes one item in the backlog
-     folder for each one over the bar whose `open` item the tip does not hold, and commits them
-     on the task's branch; it writes nothing for the others, which the pull request names on a
-     line each under "Seen, not filed" by itself. Those commits ask
+     folder for each one over the bar and each one under it whose `open` item the tip does not
+     hold, `worth: later` or `worth: no` as rule 6 gives, and commits them on the task's branch;
+     it writes nothing for the others, which the pull request names on a line each under "Seen,
+     not filed" by itself. Those commits ask
      for no `checks` again, since they hold no code and no test, and `read` still says `none`: new
      files of the backlog folder are no change the review did not see. An item written by hand
      asks for the checks, as any other commit does. Do this after every record that names some,
@@ -270,7 +271,7 @@ landing up as after a cut-off.
      review that the fix builder's reply names, with its number (`r1.3`). An entry no line here
      names by its number stays under "Seen, not filed".
    - `## Seen, not filed`, when the polish pass saw one: each line of `report.md`'s list, its
-     place and why. The step adds one line for each of the reviews' defects that has no item and
+     place and the open item that holds it. The step adds one line for each of the reviews' defects that has no item and
      that no line under `## Fixed on the way` names, so write none of those here.
    - `## Not done`: what the request asked for and this change does not do, and what was not
      verified.

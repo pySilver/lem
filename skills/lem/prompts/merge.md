@@ -46,9 +46,10 @@ ran, or null when nothing did.
    owner, and a reason to look only beside a time far over the expected one. Nothing bounds `relands`; more than one or two says that the base moves
    faster than the checks run.
 5. What the task saw outside its change: rule 6 of `bar.file`, then each item of `filed`, whole,
-   and the lines of the pull request's text under `## Filed in the backlog`, `## Fixed on the way`
-   and `## Seen, not filed`. For each item, does it meet the bar of rule 6? For each line under
-   "Seen, not filed", is its defect under that bar, or held by the open item the line names?
+   and the lines of the pull request's text under `## Filed in the backlog`, `## Filed as not worth
+   it`, `## Fixed on the way` and `## Seen, not filed`. For each item, does its `worth` follow the
+   bar of rule 6: `later` only over it, `no` only under it? For each line under "Seen, not filed",
+   is its defect under that bar, or held by the open item the line names?
 6. When `moved` is not null: what moved, below.
 
 ## A moved base
@@ -97,8 +98,9 @@ resolves one and the one read of the resolution finds nothing, on a request that
 - **Call** when you found something a person must see before it lands: a defect the review missed,
   a criterion the change does not hold, a decision whose pick you would not take, a time so far
   over the expected one that the reason matters.
-- **Call** when an item of `filed` does not meet the bar of rule 6 in the file the brief names as
-  `bar`: the sentence after your verdict names that item by its path. An item the owner wrote, or
+- **Call** when an item of `filed` has a `worth` the bar of rule 6 in the file the brief names as
+  `bar` does not give it (`later` under the bar, `no` over it): the sentence after your verdict
+  names that item by its path. An item the owner wrote, or
   asked an agent to file, meets it whatever it says, as rule 6 gives.
 - **Call** when a line under "Seen, not filed" names a defect you find over that bar, unless the
   line names an open item of the backlog that holds that same defect: that defect has its item,

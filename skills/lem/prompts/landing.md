@@ -48,17 +48,19 @@ it touches, and look for these in the lines the change wrote or that sit next to
    document, the rules in `.claude/rules`) and correct every sentence the change made false. When the plan
    has a documentation task, check that it missed none.
 5. **The defects outside the task** that `report.md` lists and that `outside.md` names, each by
-   the bar of rule 6 of your standing rules: you are the agent at work on the branch. A cheap one
-   you fix in place, each in a commit of its own, so that its line names one commit. One under the
-   bar, and one that an open item of the backlog folder already names, is a line of "Seen, not
-   filed", with no fix and no file. One over the bar that no open item names you file: one item in the
-   backlog folder, in the item format of rule 6, committed as `docs(backlog):`. You ask nobody.
+   the bar of rule 6 of your standing rules: you are the agent at work on the branch. One that an
+   open item of the backlog folder already names is a line of "Seen, not filed", with no fix and
+   no file. A cheap one you fix in place, each in a commit of its own whose message names it as
+   rule 6 says, so that its line names one commit. Each other one you file: one item in the
+   backlog folder, in the item format of rule 6, `worth: later` over the bar and `worth: no` under
+   it, committed as `docs(backlog):`. A refactor or a removal of code outside the task is one of
+   those items, never a fix of yours. You ask nobody.
 6. **The task's own item.** When `polish.json` gives `item`, the task was started from that
    backlog item and did its work. When the branch still holds it, remove it as "The removal of the
    task's item" below says, in a commit of its own.
 
 Commit each kind on its own (`docs:` for comments and documents, `refactor:` or `chore:` for the
-code), never in one commit with another kind. You change no behavior: a criterion's test file and
+code of the task's own commits), never in one commit with another kind. You change no behavior: a criterion's test file and
 the plan stay as they are, and when a fix would change what a test sees, it is not on the list. Run
 the tests of the criteria (each `- test:` command of the plan) before your first commit and after your
 last, and the tests, the formatter and the linter of the files you touched, as the project's
@@ -69,9 +71,9 @@ Last, bring `report.md` up to what you did: the documents and comments you corre
 leftovers you took out and the task's item you removed, then the defects outside the task in three
 lists of their own. "Fixed on
 the way": one line for each defect you fixed, with the file, the commit and what was wrong.
-"Seen, not filed": one line for each of the others you did not file, with its place and why it is
-under the bar, or the path of the open item that names it. "Filed in the backlog": each item you
-filed, by its first line and its file. Leave its stories, charts and picture links as they are.
+"Seen, not filed": one line for each of the others you did not file, with the path of the open
+item that names it. "Filed in the backlog": each item you filed, by its first line, its file and
+its `worth`. Leave its stories, charts and picture links as they are.
 Lem copies the three lists into the pull request, each under its own heading.
 
 When your agent refuses you the write of a file, do not go around it: put the text in your reply
@@ -138,9 +140,10 @@ fails or the criterion it breaks.
    marked cheap, each by its number (`r1.3`), its place and its title. You fix each of them, each
    in a commit of its own: by rule 6 of your standing rules you are the agent at work on the
    branch. Name each in your reply by its number, with the file, the commit and what was wrong, so
-   that the pull request lists it under "Fixed on the way". The rest you neither fix nor file:
-   Lem's script filed what is over the bar after the review, and the pull request names the others
-   under "Seen, not filed". An item of the backlog folder you leave as it is.
+   that the pull request lists it under "Fixed on the way"; the message of each commit names it
+   as rule 6 says. The rest you neither fix nor file: Lem's script filed an item for each of them
+   after the review, by the review's call, and the pull request names under "Seen, not filed" each
+   one that an open item holds. An item of the backlog folder you leave as it is.
 4. Change nothing else. The next round reviews what you changed, and it is the last one.
 5. Hold your own lines to the list of "The polish pass" above, items 1 to 4: the polish pass ran
    before the review, and no second one follows your fix. Before you commit, read your diff for
