@@ -99,7 +99,20 @@ team that adopts Lem may have its own.
                                     a plan, a merge review, a pull request with green or not, a task with
                                     no session, a task whose session stopped after the status message and
                                     its restart, or after the message alone when Lem cannot read the
-                                    session), each retro's proposals, and last night's report
+                                    session), and last night's report
+    lem project proposals add --kind retro|night [--date YYYY-MM-DD] --file FILE|-
+                                    add a run's proposals to the record of its day, made when it is
+                                    not there, with the numbers after those already there; a run
+                                    of no proposal is kept too
+    lem project proposals read      every proposal with no verdict, of any day, the refuted, passed
+                                    and dropped ones of every day, and the newest run of each kind
+    lem project proposals verdict --file FILE|-
+                                    the reviewer's verdict on each proposal, refuted with its reason
+                                    or passed with its area; the passed ones of one area become one
+                                    item of the state folder's backlog
+    lem project proposals drop PATH the owner's drop of a reviewer's item: refused while a task that
+                                    has not ended holds it; else each proposal's drop is kept in its
+                                    record, and the item's file goes
     lem project plan-file SLUG [--date YYYY-MM-DD]
                                     the name a task's plan takes (`paths.plan_file`), and the plan
                                     of the task the plans folder holds, as JSON
@@ -297,13 +310,33 @@ that opens a fresh session beside it, and `unread`, true for such a session). Ea
 state's first `line`. `rows` is the board's rows in its order, each `{key, kind, task}`. `sessions`
 says whether the sessions are known (`known`) and, when not, why (`said`): then no row of
 `no_session` can show. `forge.looked` is the time of the server's last look at the forge, or null.
-Then each file of a retro's proposals in `retros/` of the state folder (`retros`), which a retro
-started with nobody at the terminal writes in the form Lem's question page takes, one question for
-each proposal. `count` is the rows and the retros' proposals. A task's `night` is the date of the
+`count` is the rows. The proposals of the night and the retro are no row and not counted: they reach
+the owner only as the reviewer's items on the board's "Backlog" view. A task's `night` is the date of the
 night that opened it, or null; its report is `night/DATE.md` in the state folder. `night_report` is the
 report of last night, today's or yesterday's, or null; it waits for no answer and is not counted,
 and neither is `parked`, each task the owner put aside, with the line that says why.
 It reads and writes nothing else.
+
+The proposals of the night and the retro go through a reviewer before the owner sees any (`proposals`).
+Each kind of run keeps one record a day in the state folder, `retros/DATE.json` and `night/DATE.json`
+(beside the night's report, `night/DATE.md`): its `date`, its `kind`, its `runs` (each with its time
+`at`, what it `read`, and the numbers of the `proposals` it added), its `proposals` (each with its
+`number` from 1, its `area`, the `move` in one line, its `body`, its `source` and its `where`, the path
+or `PATH:SYMBOL` it would change), and the verdicts: `refuted` (each with the reviewer's `reason` and
+the `day`), `passed` (each with its `area`, the `item` it went into and the `day`) and `dropped` (each
+with its `text`, `said` "the owner dropped it", the `day` and the `item`). `add` makes the day's
+record when it is not there and appends a run, also a run of no proposal, with the next numbers, and
+never rewrites a number, a verdict or a drop, so a second retro of a day keeps the first one's. `read`
+gives each proposal by its name, `KIND of DATE #N`. `verdict` takes each proposal's verdict once: the
+passed ones of one area become one item of `.lem/state/backlog/`, named by the words of the title the
+reviewer gives the area (`-2`, `-3` when the name is taken), in the backlog's item format with the
+front-matter line `proposals: KIND of DATE #N, ...`; no item when nothing passed. A reviewer's item is
+held while a task that has not ended has its path as its ask, and `drop` refuses it then, with that task
+in its JSON (`held_by`) on stdout; else it keeps the drop of each proposal the item names and removes
+the file, in one call under the records' one lock (`proposals.lock` in the state folder), which `add`
+and `verdict` take too. `task-dir --ask` refuses the path of such an item whose file is gone. A record
+that does not have this form is refused with the fix; one in the form of Lem's question page, which
+the retro wrote before, is converted by hand.
 
 A nap is an optional part (`[naps]`, off unless the owner says yes): a fresh agent that reads the
 recent tasks, dreams, and writes the dream down in a folder of its own, `naps/TIME-WORDS/` in the
@@ -329,8 +362,8 @@ or a nap after that time finds none of them. A task that is open is never touche
 state.md does not read, or whose state the log does not agree with, is named in `skipped` and left
 as it is. Whole entries go from the other folders (PRUNED): a question to the
 experts and a panel's folder after their last write, a nap after the time in its name, and a copy of
-the cast after its last write or read. The event log, the night reports, the retros and the
-correction queue stay. Nothing is removed through a link or outside the state folder, and each
+the cast after its last write or read. The event log, the night reports, the records of the
+proposals (`retros/`, `night/`), the reviewer's items (`backlog/`) and the correction queue stay. Nothing is removed through a link or outside the state folder, and each
 removal that fails is named in `failed`, with exit 1, while the others go on. The board server runs
 it for each workspace (`serve.py`, the duties across tasks); `--dry-run` says what would go and
 removes nothing, and with `--days N` it says that for another number.
@@ -1788,6 +1821,9 @@ def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None, bra
         ended = next((task["status"] for task in read_tasks(root) if task["slug"] == slug and task["status"] in ENDED), None)
         if ended:
             raise SettingsError(f"the task {slug!r} is {ended}; a new task takes a slug of its own: add a word to this one")
+    if ask is not None and (gone := dropped_item_refusal(state_root(root), ask)):
+        # the reviewer's item the board showed is gone: the owner dropped it in the meantime
+        raise SettingsError(gone)
     if ticket_repo is not None and ticket is None:
         raise SettingsError("--ticket-repo is the repository of the issue the task came from, so it goes with --ticket")
     directory = state_root(root) / "tasks" / slug
@@ -3296,29 +3332,14 @@ def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
 
 # The state line of a task whose criteria wait for the owner's yes.
 CRITERIA_WAIT = "the criteria wait for the owner"
-# Where a retro started with nobody at the terminal keeps its proposals: one file a retro, in the
-# state folder, named by its day.
+# Where the retro keeps the record of its proposals, `retros/YYYY-MM-DD.json` in the state folder,
+# one file a day for every run of that day (`proposals add`).
 RETROS = "retros"
-# Where a night keeps its report, `night/YYYY-MM-DD.md` in the state folder (`stages/night.md`).
+# Where a night keeps its report, `night/YYYY-MM-DD.md` in the state folder (`stages/night.md`), and
+# beside it the record of its proposals of the day, `night/YYYY-MM-DD.json`, in the retro's form.
 NIGHTS = "night"
 # A held block's first line while a breaker holds the task (decisions.py BREAKER_WAIT), which `lem session` reads for its phase.
 BREAKER_WAIT = re.compile(r"breaker ([1-9]\d*) waits for the owner")
-
-
-def retro_proposals(file: Path) -> dict:
-    """One retro's file of proposals, as the list of what waits says it: its day, its path and how
-    many proposals still wait (the questions of the page's spec). A file that does not read says why."""
-    entry: dict = {"date": file.stem, "file": str(file)}
-    try:
-        spec = json.loads(text_of(file))
-    except (ValueError, SettingsError) as error:
-        return {**entry, "proposals": None, "problem": f"it does not read as JSON ({error}); the retro writes it again"}
-    questions = spec.get("questions") if isinstance(spec, dict) else None
-    if isinstance(questions, list):
-        return {**entry, "proposals": len(questions)}
-    if isinstance(spec, dict) and "prompt" in spec:
-        return {**entry, "proposals": 1}
-    return {**entry, "proposals": None, "problem": "it holds no question in the form of the question page (`questions`, or one `prompt`)"}
 
 
 def waiting_brief(task: dict) -> dict:
@@ -3427,7 +3448,6 @@ def cmd_waiting(root: Path) -> dict:
         "no_session": [brief(row, need="deaf" if row.get("deaf") else "gone") for row in kind("session")],
         # a task whose live session the guard of a stopped session logged as stopped, and the open of its button
         "stopped": [brief(row, open=f"lem session open {row['t'].slug} --why stopped", unread=row["unread"]) for row in kind("stopped")],
-        "retros": [retro_proposals(file) for file in sorted((state_root(root) / RETROS).glob("*.json"))],
         # the board's rows in its order, each by its key (`waits_of`): the rows the phone shows
         "rows": [{"key": row["key"], "kind": row["kind"], "task": row["t"].slug} for row in rows],
         # what the list knows of the task sessions, which the rows of `no_session` need, and the forge's last look
@@ -3441,8 +3461,461 @@ def cmd_waiting(root: Path) -> dict:
     found["night_report"] = {"date": report.stem, "file": str(report)} if report else None
     # the tasks the owner put aside: no row of what waits, and not counted, so a status can name them apart
     found["parked"] = [{**waiting_brief(task), "line": first_line_of(task)} for task in tasks.values() if task["status"] == PARKED]
-    found["count"] = len(rows) + sum(entry["proposals"] or 1 for entry in found["retros"])
+    found["count"] = len(rows)
     return found
+
+
+# ---- the proposals of the night and the retro, and the reviewer's items (`proposals`) ----
+
+# The two kinds of run that propose, each with its folder of the state folder: one record a day.
+PROPOSAL_KINDS = {"retro": RETROS, "night": NIGHTS}
+# The folder of the reviewer's items in the state folder, which git never sees: one item for each area
+# whose proposals passed, in the backlog's item format (agents/lem-builder.md, rule 6).
+STATE_BACKLOG = "backlog"
+# The one lock of the records and the items, in the state folder: add, verdict and drop each read and
+# write under it, so that two writers at one moment (a retro of the owner's while the reviewer writes
+# its verdicts, a drop from the board) never lose a write.
+PROPOSALS_LOCK = "proposals.lock"
+# The keys of a day's record, of a proposal as add takes it, and of each entry of a record's lists.
+RECORD_KEYS = ("date", "kind", "runs", "proposals", "refuted", "passed", "dropped")
+PROPOSAL_KEYS = ("area", "move", "body", "source", "where")
+ENTRY_KEYS = {
+    "runs": ("at", "read", "proposals"),
+    "proposals": ("number", *PROPOSAL_KEYS),
+    "refuted": ("number", "reason", "day"),
+    "passed": ("number", "area", "item", "day"),
+    "dropped": ("number", "text", "said", "day", "item"),
+}
+# What a drop says in the record, which the reviewer of a later morning reads as the owner's no.
+DROPPED_SAID = "the owner dropped it"
+# The front-matter key of a reviewer's item that names each of its proposals, as `KIND of DATE #N`:
+# where it came from (the retro or the night), its day and its number in that day's record.
+ITEM_KEY = "proposals"
+PROPOSAL_NAME = re.compile(r"(retro|night) of (\d{4}-\d{2}-\d{2}) #([1-9]\d*)")
+RUN_TIME = "%Y-%m-%dT%H:%M:%SZ"
+# How a record reads, for every refusal of one that does not.
+RECORD_FORM = ("a JSON object with `date` (its day), `kind` (retro or night), `runs` (each with `at`, `read` and the `proposals` it added), "
+               "`proposals` (each with `number`, from 1, `area`, `move`, `body`, `source` and `where`), `refuted` (each with `number`, "
+               "`reason` and `day`), `passed` (each with `number`, `area`, `item` and `day`) and `dropped` (each with `number`, `text`, "
+               "`said`, `day` and `item`)")
+
+
+def proposal_name(kind: str, day: str, number: int) -> str:
+    """How an item, a verdict and the read name one proposal: `retro of 2026-11-23 #3`."""
+    return f"{kind} of {day} #{number}"
+
+
+def record_file(state: Path, kind: str, day: str) -> Path:
+    return state / PROPOSAL_KINDS[kind] / f"{day}.json"
+
+
+def a_day(value: object) -> bool:
+    try:
+        return isinstance(value, str) and date.fromisoformat(value).isoformat() == value
+    except ValueError:
+        return False
+
+
+def text_problem(value: object, where: str) -> str | None:
+    return None if isinstance(value, str) and value.strip() else f"{where} is no text"
+
+
+def record_problem(data: object, kind: str, day: str) -> str | None:
+    """Why DATA is not the record of KIND's proposals of DAY, or None when it is. A file in the form
+    of Lem's question page, as the retro wrote it before its proposals went to the reviewer, says so."""
+    if isinstance(data, dict) and ("questions" in data or "prompt" in data):
+        return "it holds questions in the form of the question page, which no longer reads as a record of proposals"
+    if not isinstance(data, dict):
+        return "it is not a JSON object"
+    if missing := [key for key in RECORD_KEYS if key not in data]:
+        return f"it has no {', '.join(missing)}"
+    if extra := sorted(set(data) - set(RECORD_KEYS)):
+        return f"it holds keys a record has not: {', '.join(extra)}"
+    if data["date"] != day:
+        return f"its date is {data['date']!r}, and its name says {day}"
+    if data["kind"] != kind:
+        return f"its kind is {data['kind']!r}, and its folder holds the {kind}'s"
+    for key, keys in ENTRY_KEYS.items():
+        if not isinstance(data[key], list) or not all(isinstance(entry, dict) and sorted(entry) == sorted(keys) for entry in data[key]):
+            return f"`{key}` is not a list of entries with {', '.join(keys)}"
+    for n, proposal in enumerate(data["proposals"], 1):
+        if proposal["number"] != n:
+            return f"its proposal {n} has the number {proposal['number']!r}: the numbers go 1, 2, 3 in order"
+        for key in PROPOSAL_KEYS:
+            if problem := text_problem(proposal[key], f"the {key} of proposal {n}"):
+                return problem
+        if not SLUG.fullmatch(proposal["area"]):
+            return f"the area of proposal {n}, {proposal['area']!r}, is not lower-case words joined by hyphens"
+    numbers = set(range(1, len(data["proposals"]) + 1))
+    added: list = []
+    for run in data["runs"]:
+        if not isinstance(run["at"], str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", run["at"]):
+            return f"a run's time, {run['at']!r}, is not YYYY-MM-DDTHH:MM:SSZ"
+        if not isinstance(run["read"], str) or not isinstance(run["proposals"], list):
+            return f"the run of {run['at']} has no `read` text or no list of `proposals`"
+        added += run["proposals"]
+    if any(not isinstance(n, int) or isinstance(n, bool) for n in added) or sorted(added) != sorted(numbers):
+        return "its runs do not add up to its proposals: each proposal is added by one run"
+    seen: dict[str, set] = {}
+    for key in ("refuted", "passed", "dropped"):
+        seen[key] = set()
+        for entry in data[key]:
+            if entry["number"] not in numbers or entry["number"] in seen[key]:
+                return f"`{key}` names the proposal {entry['number']!r}, which the record has not, or names it twice"
+            if not a_day(entry["day"]):
+                return f"the day of `{key}` of proposal {entry['number']} is not YYYY-MM-DD"
+            seen[key].add(entry["number"])
+    if both := seen["refuted"] & seen["passed"]:
+        return f"the proposal {min(both)} is refuted and passed at once"
+    if not seen["dropped"] <= seen["passed"]:
+        return f"the proposal {min(seen['dropped'] - seen['passed'])} is dropped, and it passed into no item"
+    return None
+
+
+def read_record(file: Path, kind: str) -> dict | None:
+    """The record of FILE, of KIND's proposals, or None when there is no such file. A record that does
+    not read is refused with the fix, since a reviewer that read half of it would judge again what was
+    judged, or miss what was not."""
+    if not file.is_file():
+        return None
+    try:
+        data = json.loads(text_of(file))
+    except ValueError as error:
+        data, problem = None, f"it does not read as JSON ({error})"
+    else:
+        problem = record_problem(data, kind, file.stem)
+    if problem is None:
+        return data
+    if "question page" in problem:
+        raise SettingsError(
+            f"{file}: {problem}. The maintaining session converts it by hand into a record of proposals, {RECORD_FORM}: "
+            "each question a proposal with no verdict, in one run, so that the next reviewer reads them",
+        )
+    raise SettingsError(f"{file}: {problem}. A record is {RECORD_FORM}, and only `lem project proposals` writes one: correct the file by hand into that form")
+
+
+def write_whole(file: Path, text: str) -> None:
+    """Write FILE whole under another name first, so that a reader never finds half of it."""
+    file.parent.mkdir(parents=True, exist_ok=True)
+    staging = file.with_name(f"{file.name}.{os.getpid()}.new")
+    staging.write_text(text, encoding="utf-8")
+    os.replace(staging, file)
+
+
+def write_record(file: Path, data: dict) -> None:
+    write_whole(file, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+
+
+@contextlib.contextmanager
+def proposals_lock(state: Path) -> Iterator[None]:
+    with (state / PROPOSALS_LOCK).open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        yield
+
+
+def records_of(state: Path) -> list[tuple[str, Path, dict]]:
+    """Every record of the state folder, the retro's and the night's, oldest day first: (kind, file, record)."""
+    found = []
+    for kind, folder in PROPOSAL_KINDS.items():
+        for file in sorted((state / folder).glob("*.json")):
+            if not a_day(file.stem):
+                raise SettingsError(f"{file}: a record of proposals is named by its day, YYYY-MM-DD.json; rename it or move it out of {folder}/")
+            found.append((kind, file, read_record(file, kind)))
+    return sorted(found, key=lambda one: (one[2]["date"], one[0]))
+
+
+def spec_of(text: str, where: str) -> dict:
+    try:
+        spec = json.loads(text)
+    except ValueError as error:
+        raise SettingsError(f"{where} does not read as JSON ({error})") from None
+    if not isinstance(spec, dict):
+        raise SettingsError(f"{where} is not a JSON object")
+    return spec
+
+
+def cmd_proposals_add(state: Path, kind: str, day: str, spec: dict, now: datetime) -> dict:
+    """Add one run of KIND to its record of DAY, which this makes when it is not there: what the run
+    read, and its proposals with the numbers after those already there. Nothing of the record is
+    rewritten: a second run of the day keeps the numbers, the verdicts and the drops of the first."""
+    if kind not in PROPOSAL_KINDS:
+        raise SettingsError(f"--kind is retro or night, not {kind!r}")
+    if not a_day(day):
+        raise SettingsError(f"--date is the run's day, YYYY-MM-DD, not {day!r}")
+    if extra := sorted(set(spec) - {"read", "proposals"}):
+        raise SettingsError(f"the run holds keys add does not take: {', '.join(extra)}; give `read` and `proposals`")
+    if problem := text_problem(spec.get("read"), "`read`, what the run read,"):
+        raise SettingsError(f"{problem}: say in a line what the run read (the tasks since the last run, the naps, the night's file)")
+    proposals = spec.get("proposals")
+    if not isinstance(proposals, list):
+        raise SettingsError("`proposals` is the run's list of proposals, [] for a run that proposes nothing")
+    for n, proposal in enumerate(proposals, 1):
+        if not isinstance(proposal, dict) or sorted(proposal) != sorted(PROPOSAL_KEYS):
+            raise SettingsError(f"proposal {n} of the run is not an object with {', '.join(PROPOSAL_KEYS)}, and nothing else")
+        for key in PROPOSAL_KEYS:
+            if problem := text_problem(proposal[key], f"the {key} of proposal {n} of the run"):
+                raise SettingsError(problem)
+        if not SLUG.fullmatch(proposal["area"]):
+            raise SettingsError(f"the area of proposal {n} of the run, {proposal['area']!r}, is lower-case words joined by hyphens, as lessons or board")
+        if "\n" in proposal["move"].strip():
+            raise SettingsError(f"the move of proposal {n} of the run is one line; its body says the rest")
+    file = record_file(state, kind, day)
+    at = now.astimezone(timezone.utc).strftime(RUN_TIME)
+    with proposals_lock(state):
+        record = read_record(file, kind) or {"date": day, "kind": kind, "runs": [], "proposals": [], "refuted": [], "passed": [], "dropped": []}
+        first = len(record["proposals"]) + 1
+        numbers = list(range(first, first + len(proposals)))
+        for number, proposal in zip(numbers, proposals):
+            record["proposals"].append({"number": number, **{key: proposal[key].strip() for key in PROPOSAL_KEYS}})
+        record["runs"].append({"at": at, "read": spec["read"].strip(), "proposals": numbers})
+        write_record(file, record)
+    return {"file": str(file), "kind": kind, "date": day, "at": at, "numbers": numbers, "names": [proposal_name(kind, day, n) for n in numbers]}
+
+
+def cmd_proposals_read(state: Path) -> dict:
+    """Every proposal of every record with no verdict yet (a morning whose reviewer did not finish is
+    read on the next one), every one refuted, passed or dropped on any day, and the newest run of
+    each kind, from whose time the next retro reads."""
+    found: dict = {"undecided": [], "refuted": [], "passed": [], "dropped": [], "newest": {kind: None for kind in PROPOSAL_KINDS}}
+    for kind, file, record in records_of(state):
+        verdicts = {key: {entry["number"]: entry for entry in record[key]} for key in ("refuted", "passed", "dropped")}
+        for proposal in record["proposals"]:
+            one = {"name": proposal_name(kind, record["date"], proposal["number"]), "kind": kind, "date": record["date"], **proposal, "file": str(file)}
+            number = proposal["number"]
+            if number in verdicts["dropped"]:
+                dropped = verdicts["dropped"][number]
+                found["dropped"].append({**one, "said": dropped["said"], "day": dropped["day"], "item": dropped["item"]})
+            elif number in verdicts["refuted"]:
+                found["refuted"].append({**one, "reason": verdicts["refuted"][number]["reason"], "day": verdicts["refuted"][number]["day"]})
+            elif number in verdicts["passed"]:
+                passed = verdicts["passed"][number]
+                found["passed"].append({**one, "item": passed["item"], "day": passed["day"], "there": (state / STATE_BACKLOG / Path(passed["item"]).name).is_file()})
+            else:
+                found["undecided"].append(one)
+        for run in record["runs"]:
+            newest = found["newest"][kind]
+            if newest is None or run["at"] > newest["at"]:
+                found["newest"][kind] = {"date": record["date"], "at": run["at"], "read": run["read"]}
+    return found
+
+
+def item_slug(title: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+
+
+def item_text(title: str, area: str, today: str, entries: list[tuple[str, dict]]) -> str:
+    """A reviewer's item in the backlog's item format, with the front-matter key ITEM_KEY that names
+    each proposal in it, and for each its move, where it came from, its source and its body."""
+    names = [name for name, _ in entries]
+    head = ["---", "worth: later", f"where: {entries[0][1]['where']}", f"added: {today}", f"{ITEM_KEY}: {', '.join(names)}", "---", f"# {title}", ""]
+    said = names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
+    lines = [*head, f"The reviewer passed {counted(len(names), 'proposal')} about {area} on {today}: {said}.", ""]
+    for name, proposal in entries:
+        kind, day, number = PROPOSAL_NAME.fullmatch(name).groups()
+        lines += [f"## {proposal['move']}", "", f"From the {kind} of {day}, proposal {number}. Its source: {proposal['source']}. Where: `{proposal['where']}`.", "",
+                  proposal["body"], ""]
+    return "\n".join(lines)
+
+
+def counted(n: int, word: str) -> str:
+    return f"{n} {word}" if n == 1 else f"{n} {word}s"
+
+
+def cmd_proposals_verdict(state: Path, spec: dict, today: str) -> dict:
+    """The reviewer's verdict on each proposal SPEC names: refuted, with its reason, or passed, with its
+    area. The passed proposals of one area become one item of the state folder's backlog, under the
+    title SPEC gives that area, and no item when nothing passed. Every verdict is checked before any
+    is written; the items are written before the records, so an interruption leaves a proposal with no
+    verdict, which the next read gives again, and never a verdict with no item."""
+    if extra := sorted(set(spec) - {"verdicts", "titles"}):
+        raise SettingsError(f"the verdicts hold keys verdict does not take: {', '.join(extra)}; give `verdicts` and `titles`")
+    verdicts, titles = spec.get("verdicts"), spec.get("titles", {})
+    if not isinstance(verdicts, list) or not verdicts:
+        raise SettingsError('`verdicts` is the list of the reviewer\'s verdicts, each {"proposal": "retro of DATE #N", "refuted": REASON} or {"proposal": ..., "passed": AREA}')
+    if not isinstance(titles, dict) or not all(isinstance(title, str) for title in titles.values()):
+        raise SettingsError('`titles` gives each area that passed the title of its item, {"AREA": "TITLE"}')
+    with proposals_lock(state):
+        records: dict[tuple[str, str], tuple[Path, dict]] = {}
+        judged: list[tuple[str, str, str, dict, dict]] = []
+        named: set[str] = set()
+        for n, verdict in enumerate(verdicts, 1):
+            if not isinstance(verdict, dict) or "proposal" not in verdict or len(set(verdict) & {"refuted", "passed"}) != 1 or len(verdict) != 2:
+                raise SettingsError(f'verdict {n} is not {{"proposal": "retro of DATE #N", "refuted": REASON}} or {{"proposal": ..., "passed": AREA}}')
+            name = verdict["proposal"]
+            found = PROPOSAL_NAME.fullmatch(name) if isinstance(name, str) else None
+            if not found:
+                raise SettingsError(f"verdict {n} names {name!r}, and a proposal is named as `lem project proposals read` gives it: retro of DATE #N or night of DATE #N")
+            if name in named:
+                raise SettingsError(f"{name} has two verdicts here; give it one")
+            named.add(name)
+            kind, day, number = found[1], found[2], int(found[3])
+            if (kind, day) not in records:
+                file = record_file(state, kind, day)
+                record = read_record(file, kind)
+                if record is None:
+                    raise SettingsError(f"{name}: there is no record of the {kind} of {day} ({file}); `lem project proposals read` gives the proposals")
+                records[(kind, day)] = (file, record)
+            record = records[(kind, day)][1]
+            if number > len(record["proposals"]):
+                raise SettingsError(f"{name}: the record of the {kind} of {day} has {counted(len(record['proposals']), 'proposal')}")
+            if any(entry["number"] == number for key in ("refuted", "passed") for entry in record[key]):
+                raise SettingsError(f"{name} has a verdict already, which stays: `lem project proposals read` gives the proposals with none")
+            word = "refuted" if "refuted" in verdict else "passed"
+            if problem := text_problem(verdict[word], f"the {'reason' if word == 'refuted' else 'area'} of the verdict on {name}"):
+                raise SettingsError(problem)
+            if word == "passed" and not SLUG.fullmatch(verdict[word]):
+                raise SettingsError(f"the area of the verdict on {name}, {verdict[word]!r}, is lower-case words joined by hyphens, as lessons or board")
+            judged.append((name, kind, word, verdict, record["proposals"][number - 1]))
+        areas: dict[str, list[tuple[str, dict]]] = {}
+        for name, _kind, word, verdict, proposal in judged:
+            if word == "passed":
+                areas.setdefault(verdict["passed"], []).append((name, proposal))
+        if missing := [area for area in areas if not (titles.get(area) or "").strip()]:
+            raise SettingsError(f"`titles` gives no title for the area {', '.join(missing)}: each area that passed becomes one item, with the title the reviewer gives it")
+        if extra := sorted(set(titles) - set(areas)):
+            raise SettingsError(f"`titles` names {', '.join(extra)}, and no proposal passed with that area")
+        folder = state / STATE_BACKLOG
+        taken = {file.name for file in folder.glob("*.md")} if folder.is_dir() else set()
+        items: dict[str, dict] = {}
+        for area, entries in areas.items():
+            title = " ".join(titles[area].split())
+            stem = item_slug(title)
+            if not stem:
+                raise SettingsError(f"the title of the area {area}, {title!r}, has no word to name its file by")
+            name, n = f"{stem}.md", 1
+            while name in taken:
+                n += 1
+                name = f"{stem}-{n}.md"
+            taken.add(name)
+            items[area] = {"area": area, "title": title, "path": (lem_state.STATE / STATE_BACKLOG / name).as_posix(), "file": folder / name,
+                           "proposals": [one for one, _ in entries], "text": item_text(title, area, today, entries)}
+        for item in items.values():
+            write_whole(item["file"], item["text"])
+        for name, kind, word, verdict, _proposal in judged:
+            found = PROPOSAL_NAME.fullmatch(name)
+            record = records[(kind, found[2])][1]
+            number = int(found[3])
+            if word == "refuted":
+                record["refuted"].append({"number": number, "reason": verdict["refuted"].strip(), "day": today})
+            else:
+                record["passed"].append({"number": number, "area": verdict["passed"], "item": items[verdict["passed"]]["path"], "day": today})
+        for file, record in records.values():
+            write_record(file, record)
+    return {
+        "day": today,
+        "refuted": [name for name, _kind, word, _verdict, _proposal in judged if word == "refuted"],
+        "items": [{key: item[key] for key in ("area", "title", "path", "proposals")} for item in items.values()],
+    }
+
+
+def backlog_item_of(state: Path, text: str) -> str | None:
+    """The reviewer's item TEXT names: TEXT is the path of a file of the state folder's backlog and
+    nothing else, relative to the root of the main checkout as the board's "Start a task" writes it
+    (`.lem/state/backlog/NAME.md`), or whole. The path relative to the root, whether the file is there
+    or not, or None. land.py's `state_item_of_ask` reads a task's ask by the same rule."""
+    path = text.strip()
+    main = state.parent.parent
+    if path.startswith("/"):
+        root = next((prefix for prefix in (f"{str(main).rstrip('/')}/", f"{str(main.resolve()).rstrip('/')}/") if path.startswith(prefix)), None)
+        if root is None:
+            return None
+        path = path[len(root):]
+    parent, _, name = path.rpartition("/")
+    if parent != (lem_state.STATE / STATE_BACKLOG).as_posix() or not name.endswith(".md") or name == ".md":
+        return None
+    return path
+
+
+def item_holder(state: Path, item: str) -> dict | None:
+    """The task that holds the reviewer's item ITEM (a path as `backlog_item_of` gives it): a task whose
+    ask.txt is the item's path and that has not ended, as `{"task": SLUG, "status": STATUS}`, with
+    STATUS null for a task that has no state yet; None when no task holds it. The drop reads it, and
+    the board's "Start a task" reads the same rule."""
+    tasks = state / "tasks"
+    for directory in sorted(d for d in (tasks.iterdir() if tasks.is_dir() else ()) if d.is_dir()):
+        ask = directory / "ask.txt"
+        if not ask.is_file() or backlog_item_of(state, text_of(ask)) != item:
+            continue
+        written = text_of(directory / "state.md").strip() if (directory / "state.md").is_file() else ""
+        first = STATE_LINE.fullmatch(written.splitlines()[0]) if written else None
+        status = first["status"] if first else None
+        if status not in ENDED:
+            return {"task": directory.name, "status": status}
+    return None
+
+
+class ItemRefused(SettingsError):
+    """A drop the records refuse, with its answer as JSON for the board: the task that holds the item, or none."""
+
+    def __init__(self, message: str, answer: dict) -> None:
+        super().__init__(message)
+        self.answer = answer
+
+
+def item_proposals(text: str) -> list[str] | None:
+    """The proposals a reviewer's item names in its front matter (ITEM_KEY), or None when it names none."""
+    if not text.startswith("---"):
+        return None
+    head, mark, _ = text[3:].partition("\n---")
+    for line in head.splitlines() if mark else ():
+        key, colon, value = line.partition(":")
+        if colon and key.strip() == ITEM_KEY:
+            names = [name.strip() for name in value.split(",") if name.strip()]
+            return names if names and all(PROPOSAL_NAME.fullmatch(name) for name in names) else None
+    return None
+
+
+def cmd_proposals_drop(state: Path, given: str, today: str) -> dict:
+    """The owner's drop of a reviewer's item, in one call: refused while a task that has not ended holds
+    it (`item_holder`), with that task; else the drop of each proposal the item names is kept in its
+    day's record, and then the item's file goes. The board's server runs it under its script lock, so
+    a start from the board comes before it or after it, never between its read and its removal."""
+    item = backlog_item_of(state, given)
+    if item is None:
+        raise ItemRefused(f"{given!r} is not the path of an item of {lem_state.STATE / STATE_BACKLOG}/, such as {lem_state.STATE / STATE_BACKLOG}/NAME.md: "
+                          "only the reviewer's items are dropped here; an item of the backlog folder leaves it on a branch",
+                          {"dropped": False, "item": given, "held_by": None})
+    file = state / STATE_BACKLOG / item.rpartition("/")[2]
+    with proposals_lock(state):
+        if not file.is_file():
+            raise ItemRefused(f"the item {item} is not there: it was dropped, or its task landed; read the backlog again",
+                              {"dropped": False, "item": item, "held_by": None, "gone": True})
+        holder = item_holder(state, item)
+        if holder:
+            raise ItemRefused(f"the task {holder['task']} ({holder['status'] or 'new'}) builds the item {item}, so it is not dropped: "
+                              f"it leaves with that task's landing, or is undecided again once the owner drops the task",
+                              {"dropped": False, "item": item, "held_by": holder["task"], "status": holder["status"]})
+        names = item_proposals(text_of(file))
+        if names is None:
+            raise ItemRefused(f"the item {item} names no proposal in its `{ITEM_KEY}:` line, so no record keeps its drop: "
+                              "only `lem project proposals verdict` writes the reviewer's items; remove a file it did not write by hand",
+                              {"dropped": False, "item": item, "held_by": None})
+        records: dict[tuple[str, str], tuple[Path, dict]] = {}
+        for name in names:
+            kind, day, number = PROPOSAL_NAME.fullmatch(name).groups()
+            number = int(number)
+            if (kind, day) not in records:
+                records[(kind, day)] = (record_file(state, kind, day), read_record(record_file(state, kind, day), kind))
+            record = records[(kind, day)][1]
+            if record is None or not any(entry["number"] == number and entry["item"] == item for entry in record["passed"]):
+                raise ItemRefused(f"the item {item} names {name}, and no record says that it passed into this item, so no record keeps its drop: "
+                                  "the maintaining session compares the item with the records of `lem project proposals read`",
+                                  {"dropped": False, "item": item, "held_by": None})
+            if not any(entry["number"] == number for entry in record["dropped"]):
+                record["dropped"].append({"number": number, "text": record["proposals"][number - 1]["move"], "said": DROPPED_SAID, "day": today, "item": item})
+        for record_path, record in records.values():
+            write_record(record_path, record)
+        file.unlink()
+    return {"dropped": True, "item": item, "proposals": names, "day": today}
+
+
+def dropped_item_refusal(state: Path, ask: str) -> str | None:
+    """Why `task-dir --ask` refuses ASK: the path of a reviewer's item whose file is gone, since the
+    owner dropped it after the board showed it. None for every other ask."""
+    item = backlog_item_of(state, ask)
+    if item is None or (state / STATE_BACKLOG / item.rpartition("/")[2]).is_file():
+        return None
+    return f"the item was dropped: read the backlog again ({item} is no longer in the state folder's backlog)"
 
 
 def cmd_owner(root: Path, status: str, words: str | None) -> dict:
@@ -4215,6 +4688,16 @@ def main(argv: list[str] | None = None) -> None:
     commands.add_parser("may-start").add_argument("slug")
     commands.add_parser("state-dir")
     commands.add_parser("waiting", help="everything that waits for the owner, as JSON")
+    proposals = commands.add_parser("proposals", help="the records of the night's and the retro's proposals, the reviewer's verdicts, and the owner's drop of an item")
+    acts = proposals.add_subparsers(dest="act", required=True)
+    add = acts.add_parser("add", help="add a run's proposals to the record of its day, which this makes when it is not there")
+    add.add_argument("--kind", required=True, choices=tuple(PROPOSAL_KINDS), help="the run: the retro or the night")
+    add.add_argument("--date", metavar="YYYY-MM-DD", help="the run's day (default: today, in UTC)")
+    add.add_argument("--file", required=True, metavar="FILE|-", help='the run as JSON, {"read": TEXT, "proposals": [...]}, or - for stdin')
+    acts.add_parser("read", help="every proposal with no verdict, of any day, with the refuted, passed and dropped ones, and the newest run of each kind")
+    verdict = acts.add_parser("verdict", help="the reviewer's verdict on each proposal; the passed ones of one area become one item of the state folder's backlog")
+    verdict.add_argument("--file", required=True, metavar="FILE|-", help='the verdicts as JSON, {"verdicts": [...], "titles": {AREA: TITLE}}, or - for stdin')
+    acts.add_parser("drop", help="the owner's drop of a reviewer's item, refused while a task that has not ended holds it").add_argument("path", metavar="PATH")
     serial = commands.add_parser("serial", help="run one test command that two tasks cannot run at the same time, under the repository's one lock")
     serial.add_argument("words", nargs=argparse.REMAINDER, metavar="-- COMMAND")
     commands.add_parser("may-nap")
@@ -4273,6 +4756,9 @@ def main(argv: list[str] | None = None) -> None:
         if args.command == "waiting":
             print(json.dumps(cmd_waiting(root), indent=2))
             return
+        if args.command == "proposals":
+            print(json.dumps(proposals_command(root, args), indent=2, ensure_ascii=False))
+            return
         if args.command == "serial":
             sys.exit(cmd_serial(root, args.words))
         if args.command == "may-nap":
@@ -4308,8 +4794,30 @@ def main(argv: list[str] | None = None) -> None:
             cmd_may_land(settings, args.branch)
         else:
             cmd_may_start(settings, root, args.slug)
+    except ItemRefused as error:
+        print(json.dumps({**error.answer, "said": str(error)}, indent=2, ensure_ascii=False))
+        sys.exit(f"project.py: {error}")
     except SettingsError as error:
         sys.exit(f"project.py: {error}")
+
+
+def proposals_command(root: Path, args: argparse.Namespace) -> dict:
+    """`lem project proposals ACT`: the day is today in UTC, as the time of a run is."""
+    state = state_root(root)
+    now = datetime.now(timezone.utc)
+    if args.act == "read":
+        return cmd_proposals_read(state)
+    if args.act == "drop":
+        return cmd_proposals_drop(state, args.path, now.date().isoformat())
+    where = "stdin" if args.file == "-" else args.file
+    try:
+        text = sys.stdin.read() if args.file == "-" else text_of(Path(args.file))
+    except OSError as error:
+        raise SettingsError(f"--file {args.file}: {error.strerror or error}; give the file the JSON is in, or - for stdin") from None
+    spec = spec_of(text, where)
+    if args.act == "add":
+        return cmd_proposals_add(state, args.kind, args.date or now.date().isoformat(), spec, now)
+    return cmd_proposals_verdict(state, spec, now.date().isoformat())
 
 
 if __name__ == "__main__":

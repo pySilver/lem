@@ -298,9 +298,10 @@ else
   fail "his start of a task behind a dropped task: $ordered / $needed / $kept / $need_kept / $his_word / $no_word / $may / $need_may"
 fi
 
-# The one list of what waits for the owner: a breaker, criteria that wait for his yes, a step of his, a pull
-# request with green or not whose merge review calls him, and a retro's proposals. An interview whose criteria the
-# personas read is not on it until their read is in, and then it is.
+# The one list of what waits for the owner: a breaker, criteria that wait for his yes, a step of his, and a pull
+# request with green or not whose merge review calls him. A retro's proposals are not on it and not counted, in the
+# record's form or in the old form of the question page: they reach him only as the reviewer's items. An interview whose
+# criteria the personas read is not on it until their read is in, and then it is.
 wq() { project --repo "$WQ" "$@"; }
 for slug in a-breaker his-criteria his-step proposed-one in-read; do wq task-dir "$slug" --ask "The ask of $slug." >/dev/null; done
 wq state in-read held "the interview waits for the owner" "type: feat, because the export gets a note" >/dev/null
@@ -311,10 +312,13 @@ wq state his-criteria held "the criteria wait for the owner" "type: feat, becaus
 wq state his-step held "the reviewer's pane waits for the owner's trust of the folder" >/dev/null
 wq state proposed-one open "pull request https://github.com/acme/shop/pull/7" "not green: the bar is lower" >/dev/null
 printf '%s\n' '{"proposed": "abc1234", "pushed": "abc1234", "forge": {"mergeable": "CONFLICTING", "head": "abc1234"}, "pr": {"number": 7, "url": "https://github.com/acme/shop/pull/7"}, "not_green": ["the bar is lower"], "merge_review": {"tip": "abc1234", "verdict": "call", "calls": true, "why": "Verdict: call. It is not green."}}' > "$WQ/.lem/state/tasks/proposed-one/landing.json"
-mkdir -p "$WQ/.lem/state/retros"
+printf '%s\n' '{"read": "the tasks since the retro before", "proposals": [{"area": "lessons", "move": "Move the rule", "body": "It came back twice.", "source": "the task a-breaker", "where": ".lem/lessons.md"}]}' > "$WORK/retro-run.json"
+wq proposals add --kind retro --date 2026-11-18 --file "$WORK/retro-run.json" >/dev/null
 printf '%s\n' '{"title": "The retro of 2026-11-17", "questions": [{"id": "p1", "prompt": "Move the rule?", "options": ["approve", "reject", "later"]}, {"id": "p2", "prompt": "Drop the step?", "options": ["approve", "reject", "later"]}]}' > "$WQ/.lem/state/retros/2026-11-17.json"
-printf '%s\n' 'not json' > "$WQ/.lem/state/retros/2026-11-18.json"
 listed=$(wq waiting)
+# the drop of a path that is no reviewer's item is refused with exit 1, and its JSON on stdout names no task that holds it
+drop_code=0
+drop_said=$(wq proposals drop docs/backlog/refund-total-zero.md 2>/dev/null) || drop_code=$?
 seen=$( (cat "$XDG_CONFIG_HOME/lem/owner.jsonl" 2>/dev/null || true) | grep -c '' || true)
 wq owner away --words "I'm away" >/dev/null
 away_list=$(wq waiting | field '(d["owner"]["away"], d["owner"]["words"], d["owner"]["since"] is not None, [b["task"] for b in d["breakers"]], d["count"])' 2>&1 || true)
@@ -322,13 +326,14 @@ wq owner back --words "/lem im-back" >/dev/null
 wq log in-read criteria.read by=lem asked:=2 answered:=2 families:='["opus"]' silent:='[]' criteria:=1 flagged:=0 split:=false digest=0123456789ab >/dev/null
 read_in=$(wq waiting | field '([t["task"] for t in d["held"]], d["count"])' 2>&1 || true)
 wq state in-read dropped "the test is over" >/dev/null
-shape=$(field '([(c["task"], c["id"]) for c in d["breakers"]], [(t["task"], t["line"]) for t in d["criteria"]], [(t["task"], t["line"]) for t in d["held"]], [(t["task"], t["pull_request"], t["green"], t["not_green"], t["conflict"]) for t in d["pull_requests"]], [(r["date"], r["proposals"], "problem" in r) for r in d["retros"]], d["count"])' <<<"$listed" 2>&1 || true)
-if [ "$shape" = "([('a-breaker', 1)], [('his-criteria', 'the criteria wait for the owner')], [('his-step', \"the reviewer's pane waits for the owner's trust of the folder\")], [('proposed-one', 'https://github.com/acme/shop/pull/7', False, ['the bar is lower'], True)], [('2026-11-17', 2, False), ('2026-11-18', None, True)], 7)" ] \
+shape=$(field '([(c["task"], c["id"]) for c in d["breakers"]], [(t["task"], t["line"]) for t in d["criteria"]], [(t["task"], t["line"]) for t in d["held"]], [(t["task"], t["pull_request"], t["green"], t["not_green"], t["conflict"]) for t in d["pull_requests"]], "retros" in d, d["count"])' <<<"$listed" 2>&1 || true)
+if [ "$shape" = "([('a-breaker', 1)], [('his-criteria', 'the criteria wait for the owner')], [('his-step', \"the reviewer's pane waits for the owner's trust of the folder\")], [('proposed-one', 'https://github.com/acme/shop/pull/7', False, ['the bar is lower'], True)], False, 4)" ] \
   && [ "$(field '(d["owner"]["away"], d["owner"]["seen"])' <<<"$listed")" = "(False, $seen)" ] && [ "$(field 'd["pull_requests"][0]["ask"]' <<<"$listed")" = "The ask of proposed-one." ] \
-  && [ "$away_list" = "(True, \"I'm away\", True, ['a-breaker'], 6)" ] && [ "$read_in" = "(['in-read', 'his-step'], 8)" ]; then
-  pass "waiting lists in one JSON what waits for the owner: whether he is away, each breaker as decisions.py pending gives it, once though it holds its task, the criteria and the steps that hold a task, each pull request with green or not and whether the forge calls it conflicting, and each retro's proposals, with a file that does not read named as such; while he is away it says so first, since when and in his words, criteria that wait for his yes go on without him, and the breaker still waits for him; an interview whose criteria the personas read is neither listed nor counted until their read is in"
+  && [ "$drop_code" = 1 ] && [ "$(field '(d["dropped"], d["held_by"])' <<<"$drop_said")" = "(False, None)" ] \
+  && [ "$away_list" = "(True, \"I'm away\", True, ['a-breaker'], 3)" ] && [ "$read_in" = "(['in-read', 'his-step'], 5)" ]; then
+  pass "waiting lists in one JSON what waits for the owner: whether he is away, each breaker as decisions.py pending gives it, once though it holds its task, the criteria and the steps that hold a task, and each pull request with green or not and whether the forge calls it conflicting, and neither lists nor counts a retro's proposals, in the record's form or the question page's; while he is away it says so first, since when and in his words, criteria that wait for his yes go on without him, and the breaker still waits for him; an interview whose criteria the personas read is neither listed nor counted until their read is in"
 else
-  fail "waiting: $shape / $away_list / $read_in / $listed"
+  fail "waiting: $shape / $drop_code / $drop_said / $away_list / $read_in / $listed"
 fi
 
 # A night's task is told from a day's task by the night's mark, and the night's brake counts its pull requests that
