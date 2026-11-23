@@ -142,10 +142,13 @@ stateDiagram-v2
    one call: its refusal names the task that holds the item. "Start a task" posts the item's path
    from the root of the main checkout, never its stem alone, and `act_start` finds the item by that
    path, so `tests-flaky-check.md` of `docs/backlog` and of `.lem/state/backlog/` are two items.
-   The slug of a start from an item is its stem, or, when a task of that slug has ended, the stem
-   with the first free `-2`, `-3`: an item whose task was dropped is undecided again and starts
-   again (criterion 9), an item of `docs/backlog` too. A task of that slug that has not ended
-   still refuses, as today. An item of `docs/backlog` gets no "Drop".
+   `act_start` first refuses an item that a task that has not ended holds by its path (the
+   holder rule of "How it works", the one task 1's drop reads), with a line that names that task:
+   "This item has a task already: SLUG, STATUS." The slug of a start from an item no task holds is
+   its stem, or, when a task of that slug has ended, the stem with the first free `-2`, `-3`: an
+   item whose task was dropped is undecided again and starts again (criterion 9), an item of
+   `docs/backlog` too. A task of that slug that has not ended still refuses, as today (decision 11
+   of the task). An item of `docs/backlog` gets no "Drop".
    Files: `board.py`, `serve.py`, `lem_board_model.py`, `lem_board_pages.py`, the board's assets
    and `tools/board-kit` only where a key needs it, `tests/board-showcase.py`, and checks in
    `tests/lem-serve.sh`, `tests/lem-board-act.sh` and the unit level. Serves criteria 6 and 7.
@@ -261,7 +264,9 @@ The reviewer's list, as it gave it:
    The reviewer held: a stale Start chooses `-3` while `-2` holds the item, since `act_start`
    checks the slug and not the holder by the item's path; and a tracked item's task of the same
    stem refuses the reviewer's item. The defender had no refutation of the first. **A design
-   choice**, for the ladder.
+   choice**, for the ladder. The ladder: the gate held it; the two personas chose the reversed
+   decision, a refusal of an item a task holds by its path, against the kept one; the dialectic
+   found no break of it. Task 2 now has that refusal (decision 11 of the task, by the dialectic).
 4. **Which step removes the item for every merge.** Repair: the removal is in `forge_done`, the one
    step every path to `landed` takes, before it writes `landed`; a failed removal leaves the task
    `open` for the next `lem land merged`. **Settled**, at the cause, settled by the two, not checked
