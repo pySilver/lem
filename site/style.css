@@ -199,7 +199,7 @@ h2 { margin: 0 0 14px; font-size: 32px; line-height: 1.2; font-weight: 720; lett
 }
 .setup .more { margin: 18px 0 0; padding-top: 14px; border-top: 1px solid var(--line); font-size: 14.5px; color: var(--dim); }
 
-/* cards in a row (the three touches, many tasks at once), and the verdict of a pull request beside a task's picture */
+/* cards in a row (the three touches, many tasks at once, the four files, the two trackers), and the verdict of a pull request beside a task's picture */
 .cards { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .cards li { padding: 18px 20px 20px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
 .cards b { font-size: 16.5px; line-height: 1.3; }
