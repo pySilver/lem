@@ -703,7 +703,7 @@ def fold(t: Task, e: dict, ts: int) -> None:
     if event == "merge.refused":
         t.refused = {"ts": ts, "order": len(t.events), "said": e.get("said"), "by": e.get("by"), "tip": e.get("tip"), "from": e.get("from"), "kind": e.get("kind")}
         return
-    # a landing that waits: its checks for the machine's load, or its merge call for another's merge
+    # a landing that waits: its checks for the machine's load or behind another landing, or its merge call for another's merge
     if event in WAITS:
         t.waits = {"ts": ts, "event": event, **{k: e.get(k) for k in ("load", "start", "after", "behind", "behind_repo", "why")}}
         return

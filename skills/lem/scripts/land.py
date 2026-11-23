@@ -89,7 +89,7 @@ error of the step itself; `stopped` for a stop), `seconds` from its start, `tip`
 a run that took the polish pass's result of the criteria's tests in place of its own run: the commit
 that run was on, which logs no `task.red` of its own), and `say`, the one line for the owner, with
 the slug, the result and the next step, and no question ("SLUG: the checks passed; the review runs,
-nothing for you"). A run stopped while it waited for the load is its `gate.end` alone, `stopped`, with
+nothing for you"). A run stopped while it waited at the load gate is its `gate.end` alone, `stopped`, with
 `seconds` 0, since none of its commands started. The step prints `say` in its JSON at every end after
 `gate.start`, a red, refused or stopped one before its exit 1. The run clears the result an earlier
 run kept before its first command, so a run cut off with no chance to clean up leaves none for its
@@ -2408,7 +2408,7 @@ def gate_ends(task: Task) -> list[dict]:
 
 def waits_of(task: Task, since: str) -> dict | None:
     """The newest `gate.wait` of the task's run that holds the step lock since `since`, while no
-    `gate.start` came after it: the run waits for the load."""
+    `gate.start` came after it: the run waits at the load gate, for the load or behind another run."""
     log = task.directory.parent.parent / "events.jsonl"
     found = None
     for line in lem_state.jsonl_lines(log.read_text(encoding="utf-8")) if log.is_file() else []:
@@ -2429,7 +2429,7 @@ def waits_of(task: Task, since: str) -> dict | None:
 
 def checks_status(task: Task) -> dict:
     """Whether the task's checks run, for how long, against their last finished run, and how the last
-    run ended. A run that waits for the load says so in `waits`, and its time counts from its start."""
+    run ended. A run that waits at the load gate says so in `waits`, and its time counts from its start."""
     holder = running_checks(task)
     ends = gate_ends(task)
     last = last_seconds(ends)
@@ -2439,7 +2439,7 @@ def checks_status(task: Task) -> dict:
     if seen and "started" in seen:
         since = seen["started"]
     elif seen:
-        # the run holds the lock and waits for the load: none of its commands started yet
+        # the run holds the lock and waits for the load or behind another run: none of its commands started yet
         waits = {key: seen[key] for key in ("load", "start", "after", "behind", "behind_repo", "why", "say") if key in seen}
     seconds = seconds_since(since) if isinstance(since, str) and not waits else None
     overdue = holder is not None and is_overdue(seconds, last)
