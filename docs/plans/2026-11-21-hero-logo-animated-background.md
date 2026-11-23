@@ -1,5 +1,14 @@
 # The hero of Lem's page: the logo scene as a full-width animated background
 
+> **Status: built** in `04f88009`. A later plan changed parts of it,
+> `2026-11-23-logo-eyes-signal-and-favicon.md`: in place of the pulse of criterion 3, a small glow
+> leaves the figure's two hands and runs down the strands of the four small figures, each of which
+> has a red eye of its own that lights as the glow reaches it; no peg flashes, no tile of "Lem"
+> lights up and nothing moves along the wire. The figure's eye of criterion 5 blinks and does not
+> flare. The still pose of criterion 7 has the wire and the word unlit and the four small eyes at
+> rest. Below about 433 px wide the page's scene is 60% of the window's width high (`--scene` in
+> `site/style.css`), where decision 18 kept it 260 px, so a phone shows all four small figures.
+
 careful: yes, because "A change bends a ruling of the owner" is in reach: task 1 redraws the logo, which the ruling "The logo is the owner's pick" lets change only on his word, and a drawing that drifts from the samples he chose, or a night color he never saw, would change his pick without it.
 
 ## Acceptance criteria
