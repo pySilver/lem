@@ -123,6 +123,10 @@ Criteria that wait for his yes with no interview (a lead's, of a complete reques
    lem decisions log SLUG --by owner --what "the personas' read of the criteria" --chose "no read: the criteria name only the developer" --why "HIS ANSWER, AS HE TYPED IT"
    ```
 
+   His Yes or No on the board's row "Skip the persona read?" is the same y or n
+   (`prompts/session.md`, "His answer on the board"): on his Yes the `--why` names its record, its
+   key, `via` and `device`, and his note goes in `--words`.
+
    The landing knows his word by `--by owner` and those two texts, word for word, and takes it
    only with an approval of his after it and before any lead of the task started; the pull request
    then says "the criteria: not read by the personas, on the owner's word (DATE); the owner

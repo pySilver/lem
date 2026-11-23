@@ -33,6 +33,11 @@ def ev(minute: float, event: str, task: str = "gift-note", **fields) -> dict:
     return {"ts": (START + timedelta(minutes=minute)).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": event, "task": task, **fields}
 
 
+def bkey(number: int = 1, minute: float = 20, task: str = "gift-note") -> str:
+    """The key of the row of breaker NUMBER, whose held block came MINUTE minutes after START (`answer_row`)."""
+    return f"breaker:{task}:{number}:" + (START + timedelta(minutes=minute)).strftime("%Y%m%dT%H%M%SZ")
+
+
 def state(minute: float, status: str, text: str, *lines: str, task: str = "gift-note") -> dict:
     return ev(minute, "task.state", task, status=status, text=text, lines=list(lines))
 
@@ -79,7 +84,7 @@ class Breakers(unittest.TestCase):
     def test_a_breaker_is_one_row_until_his_help_and_its_held_block_is_not_a_second(self):
         m = model(state(0, "building", "task 2 of 3"), self.STOP, self.HELD)
         rows = bm.waits_of(m)
-        self.assertEqual([(w["key"], bm.wait_say(w)["verb"]) for w in rows], [("breaker:gift-note:1", "Read the breaker of gift-note")])
+        self.assertEqual([(w["key"], bm.wait_say(w)["verb"]) for w in rows], [(bkey(), "Read the breaker of gift-note")])
         self.assertEqual((m.tasks[0].lane, bm.card_line(m.tasks[0], bm.LANE["you"])), ("you", "The build stopped, and its breaker waits for you"))
         self.assertIn("/lem park gift-note", bm.answer_of(m.tasks[0]))
         helped = model(state(0, "building", "task 2 of 3"), self.STOP, self.HELD,
@@ -531,8 +536,8 @@ class InterviewTurns(unittest.TestCase):
         written = (self.at(5, "interview.end"), self.at(6, "scout"))
         skip = model(*self.interview(*written, self.at(12, "read.skip.asked")))
         t = skip.tasks[0]
-        # the same row as the interview's, with its words, and the same way to the task's session (its need)
-        self.assertEqual(self.rows(skip), [(f"held:{self.SLUG}", "held", "Lem asks whether to skip the personas' read of the criteria", "overview")])
+        # a row of its own, named by the held block, with its words; the board answers it with its Yes and No
+        self.assertEqual(self.rows(skip), [(f"skip:{self.SLUG}:20261120T090000Z", "held", "Lem asks whether to skip the personas' read of the criteria", "overview")])
         self.assertEqual((t.for_owner, t.lane, t.need, bm.who_acts(t)), (True, "you", asking.tasks[0].need, "You act"))
         self.assertIn("y or n", bm.answer_of(t))
         self.assertEqual(bm.acts_of(t, None), [])
@@ -558,7 +563,7 @@ class InterviewTurns(unittest.TestCase):
 
         m = model(*self.interview(), *others, owner=[away])
         t = m.by_slug[self.SLUG]
-        self.assertEqual(sorted(w["key"] for w in bm.waits_of(m)), ["breaker:gift-note:1", f"held:{order}", "held:zero-after-refund"])
+        self.assertEqual(sorted(w["key"] for w in bm.waits_of(m)), [bkey(minute=1), f"held:{order}", "held:zero-after-refund"])
         self.assertEqual((t.for_owner, t.lane, t.goes_on, bm.now_head(t), bm.who_acts(t)), (False, "build", "interview", "Lem goes on without you", "Lem acts"))
         self.assertTrue(bm.card_line(t, bm.LANE["build"]).startswith("Lem goes on without you: "))
         self.assertIn("each in the task's decisions for the pull request", t.shown)
@@ -789,10 +794,10 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
         stop = ev(20, "decision.breaker", id=1, kind="breaker", cause="criteria", what="The gift note has no place", document="breaker.md")
         m = model(state(0, "building", "task 1 of 2"), stop, state(20, "held", "breaker 1 waits for the owner"))
         bm.put_sessions(m, self.sessions("runs", slug="gift-note"))
-        self.assertEqual((bm.waits_of(m), bm.held_back(m)), ([], {"breaker:gift-note:1"}))
+        self.assertEqual((bm.waits_of(m), bm.held_back(m)), ([], {bkey()}))
         self.assertEqual(bm.now_head(m.tasks[0]), "Its session works on your answer")
         bm.put_sessions(m, self.sessions("ended", slug="gift-note"))
-        self.assertEqual([w["key"] for w in bm.waits_of(m)], ["breaker:gift-note:1"])
+        self.assertEqual([w["key"] for w in bm.waits_of(m)], [bkey()])
         blocked = model(state(0, "building", "task 1 of 2"), state(5, "blocked", "the fixture needs a login"))
         bm.put_sessions(blocked, self.sessions("runs", slug="gift-note"))
         self.assertEqual(([w["key"] for w in bm.waits_of(blocked)], blocked.tasks[0].works), (["blocked:gift-note"], False))
@@ -1148,8 +1153,8 @@ class Inbox(unittest.TestCase):
                 **door, "sent": list(sent)}
 
     @staticmethod
-    def thing(key="breaker:gift-note:1", kind="breaker", form="question", asks=True, task="gift-note", **more) -> dict:
-        return {"key": key, "task": task, "kind": kind, "form": form, "asks": asks, "session": "C1" if form == "question" else None,
+    def thing(key=None, kind="breaker", form="question", asks=True, task="gift-note", **more) -> dict:
+        return {"key": key or bkey(), "task": task, "kind": kind, "form": form, "asks": asks, "session": "C1" if form == "question" else None,
                 "message_id": "msg_01ABC", "thread_id": "msg_01ABC", "thread_url": "http://plannotator.localhost:50026/#thread=msg_01ABC", **more}
 
     def breaker(self, record, owner=AWAY, sessions=LIVE):
@@ -1164,7 +1169,7 @@ class Inbox(unittest.TestCase):
             folder = Path(tmp)
             self.assertIsNone(bm.inbox_look(folder))
             (folder / bm.INBOX_LOOK).write_text(json.dumps(self.record(self.thing(), {"task": "gift-note"}, "x")))
-            self.assertEqual([s["key"] for s in bm.inbox_look(folder)["sent"]], ["breaker:gift-note:1"])
+            self.assertEqual([s["key"] for s in bm.inbox_look(folder)["sent"]], [bkey()])
             (folder / bm.INBOX_LOOK).write_text("half")
             self.assertIsNone(bm.inbox_look(folder))
 
@@ -1217,7 +1222,7 @@ class Inbox(unittest.TestCase):
         self.assertIsNone(self.breaker(self.record(self.thing("session:gift-note", "session", "note", False))))
         # a thing that waits for its send again after a call that failed
         unsent = {k: v for k, v in self.thing().items() if k not in ("message_id", "thread_id")}
-        self.assertEqual(self.breaker(self.record(unsent, problem="the send of breaker:gift-note:1: server_error: down"))["why"], bm.INBOX_UNSENT)
+        self.assertEqual(self.breaker(self.record(unsent, problem=f"the send of {bkey()}: server_error: down"))["why"], bm.INBOX_UNSENT)
         self.assertIsNone(self.breaker(self.record(unsent)))
 
     def test_a_note_says_whether_a_session_can_take_a_reply_and_the_merge_review_is_the_merges_thing(self):
@@ -2262,3 +2267,45 @@ class StoppedRow(unittest.TestCase):
                   self.ev("11:49", "session.stopped", session="S1", unread=True))
         found = self.waiting(self.unread_model(*events))
         self.assertEqual([(e["task"], e["open"], e["unread"]) for e in found["stopped"]], [("gift-note", "lem session open gift-note --why stopped", True)])
+
+
+class Cards(unittest.TestCase):
+    """A `lem-ask` card of a task's session (criterion 1 of board-answers-a-card): a row of "Waits for you" with
+    its question while its folder says it is open and the session that put it up is the task's live one."""
+
+    PAGE = "P-1"
+    ASKED = [state(0, "building", "task 1 of 2", task="export-notes"), ev(1, "session.open", "export-notes", session="S1", name="export-notes"),
+             ev(2, "card.asked", "export-notes", page=PAGE, prompt="Keep the empty cell?")]
+
+    def model(self, *more: dict, session: str = "S1", live: bool = True, cards: bool = True):
+        m = model(*self.ASKED, *more)
+        m.sessions = {"export-notes": {"live": live, "agent": live, "unanswered": False, "session": "S1"}}
+        if cards:
+            m.cards = {"export-notes": [{"page": self.PAGE, "prompt": "Keep the empty cell?", "since": bm.at(self.ASKED[2]["ts"]), "session": session, "chat": True}]}
+        return m
+
+    def test_an_open_card_of_the_live_session_is_a_row_with_its_question_whose_verb_opens_the_card(self):
+        m = self.model()
+        rows = [w for w in bm.waits_of(m) if w["kind"] == "card"]
+        self.assertEqual([(w["key"], bm.wait_say(w)["verb"], bm.wait_say(w)["to"]) for w in rows], [("card:export-notes:P-1", "Keep the empty cell?", "card/P-1")])
+        self.assertFalse(bm.answered_in_session(rows[0], m))
+        self.assertIn("never a conversation", bm.wait_say(rows[0])["where"])
+
+    def test_a_card_of_an_earlier_session_or_of_a_session_that_does_not_run_has_no_row(self):
+        for m in (self.model(session="S0"), self.model(live=False), self.model(cards=False)):
+            self.assertEqual([w["key"] for w in bm.waits_of(m) if w["kind"] == "card"], [])
+
+    def test_the_folder_says_which_cards_are_open_and_the_end_event_closes_one_in_the_log(self):
+        lem_cards = importlib.import_module("lem_cards")
+        with tempfile.TemporaryDirectory() as tmp:
+            state_dir = Path(tmp)
+            folder = state_dir / "tasks" / "export-notes"
+            (folder / "cards").mkdir(parents=True)
+            lem_cards.card_file(folder, self.PAGE).write_text(json.dumps({"page": self.PAGE, "session": "S1", "questions": [{"id": "answer", "prompt": "Keep the empty cell?"}]}))
+            m = model(*self.ASKED)
+            self.assertEqual([(c["page"], c["session"], c["prompt"]) for c in bm.cards_look(state_dir, m)["export-notes"]], [(self.PAGE, "S1", "Keep the empty cell?")])
+            lem_cards.end_file(folder, self.PAGE).write_text(json.dumps({"page": self.PAGE, "status": "answered", "from": "board"}))
+            self.assertEqual(bm.cards_look(state_dir, m), {})
+            lem_cards.end_file(folder, self.PAGE).unlink()
+            answered = model(*self.ASKED, ev(3, "card.answered", "export-notes", page=self.PAGE, **{"from": "board"}))
+            self.assertEqual((answered.tasks[0].cards, bm.cards_look(state_dir, answered)), ({}, {}))

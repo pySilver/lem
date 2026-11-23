@@ -12,7 +12,9 @@ one in its checks, a breaker and criteria that wait for the owner, a pull reques
 the owner for, a typo the merge agent found nothing in and the board's server merged, another landed task,
 an answered question, one task the owner parked after its breaker, and one he parked that he started from a
 reviewer's item. The night and the retro proposed, and the reviewer passed two proposals into the state
-folder's backlog: that item, held by the parked task, and one that is undecided. Each task has the `session.open`
+folder's backlog: that item, held by the parked task, and one that is undecided. The careful change's session
+has a `lem-ask` card up (`CARD_SPEC`), kept in its task's folder as lem-ask keeps it, so that "Waits for you" has
+its row and the board serves its page. Each task has the `session.open`
 of its agterm session, as `lem session open` logs it, and one that builds has none, so that "Waits for
 you" has its row "No session runs this task"; the pull request that is not green has the merge agent's
 review (`merge-review.md` and its `merge.review`), which calls the owner, and the landing's record (`landing.json`) that
@@ -77,6 +79,8 @@ class Shop:
         self.repo = work / "shop"
         self.work = work
         self.times: dict[str, list[float]] = {}
+        # the agterm session of each task's newest `session.open`, which a card of the task names
+        self.sids: dict[str, str] = {}
         run("git", "init", "-q", "-b", "main", str(self.repo))
         (self.repo / "app.txt").write_text("one\n")
         self.git("add", "-A")
@@ -146,7 +150,21 @@ class Shop:
         """The task's agterm session opened MINUTES before NOW, as `lem session open` logs it: an id of agterm's
         form, made from the task's name and the minute, so that each run writes the same."""
         sid = "%08X-0000-4000-8000-%012X" % (zlib.crc32(slug.encode()), int(minutes * 10))
+        self.sids[slug] = sid
         self.log(slug, minutes, "session.open", f"session={sid}", f"name={slug}", f"phase={phase}", f"why={why}", "workspace=demo")
+
+    def card(self, slug: str, minutes: float, page: str, spec: dict) -> None:
+        """A `lem-ask` card the task's newest session put up MINUTES before NOW, kept in the task's folder as
+        lem-ask keeps it (`lem_cards.keep`, which logs `card.asked`), with the page `lem-ask render` builds."""
+        spec_file, page_file = self.work / f"{slug}-card.json", self.work / f"{slug}-card.html"
+        spec_file.write_text(json.dumps(spec))
+        run(sys.executable, "-B", str(ROOT / "skills" / "lem-ask" / "bin" / "lem-ask"), "render", str(spec_file), "-o", str(page_file))
+        if str(SCRIPTS) not in sys.path:
+            sys.path.insert(0, str(SCRIPTS))
+        import lem_cards  # Lem's record of a task's cards, as a task's session keeps it
+
+        lem_cards.keep(self.dir / "tasks" / slug, page, page_file.read_bytes(), spec, self.sids[slug])
+        self.at(slug, minutes)
 
     def closed(self, slug: str, minutes: float, why: str) -> None:
         self.log(slug, minutes, "session.close", f"why={why}")
@@ -333,6 +351,21 @@ What the ladder said: a step that cannot be undone is never the ladder's to take
 """
 
 
+# The card of the careful change's session (`refund-rounding`): a `lem-ask` spec as a session writes one, and the
+# agterm page id it went up as.
+CARD_PAGE = "4F9A1C2E-7B3D-4E8F-A1B2-C3D4E5F60718"
+CARD_SPEC = {
+    "title": "Refund rounding",
+    "context": "The payment provider rounds each line of a refund on its own. The shop's receipts round the total once.",
+    "prompt": "Round each line of a refund, or only its total?",
+    "options": [
+        {"id": "line", "label": "Each line", "subtitle": "As the provider does: a refund of three lines can be 1 cent off the total's rounding",
+         "recommended": "The criterion says a refund pays back what the provider pays"},
+        {"id": "total", "label": "Only the total", "subtitle": "As the receipts do today"},
+    ],
+}
+
+
 def afternoon(shop: Shop) -> None:
     s = shop
     # A task on the fast track, built, checked, read once and proposed green: the merge agent finds nothing
@@ -405,7 +438,8 @@ def afternoon(shop: Shop) -> None:
     # the board's server sent the breaker to the owner's Inbox as the task's session (lem_inbox.Watcher, which
     # sends nothing for a demo, so the record is written here as it writes it); a page says so only while his
     # mark says away, which this afternoon has not
-    sent = {"key": f"breaker:{t}:1", "task": t, "kind": "breaker", "form": "question", "asks": True, "session": "6f1c2a9e-demo", "tip": None,
+    # the breaker's row is named by its held block, 20 minutes before NOW (lem_board_model.answer_row)
+    sent = {"key": f"breaker:{t}:1:{(NOW - timedelta(minutes=20)).strftime('%Y%m%dT%H%M%SZ')}", "task": t, "kind": "breaker", "form": "question", "asks": True, "session": "6f1c2a9e-demo", "tip": None,
             "message_id": "msg_01DEMOGIFTNOTEBREAKER1", "thread_id": "msg_01DEMOGIFTNOTEBREAKER1",
             "thread_url": "http://plannotator.localhost:50026/#thread=msg_01DEMOGIFTNOTEBREAKER1", "questions": ["q1"], "woke": []}
     (s.dir / "inbox.json").write_text(json.dumps({"running": True, "url": "http://plannotator.localhost:50026/", "tailnet_url": INBOX_TAILNET,
@@ -460,6 +494,9 @@ def afternoon(shop: Shop) -> None:
     s.session(t, 69.5, "build", "handoff")
     s.state(t, 69, "building", "lead: session")
     s.log(t, 55, "plan.talk.start", "reviewer=codex")
+    # the plan talk meets a choice only the owner makes: the session puts up a card, which waits for his pick,
+    # in agterm and on the board
+    s.card(t, 50, CARD_PAGE, CARD_SPEC)
 
     # A bug whose investigation runs, and whose session is gone: no agent runs it, so it waits for the owner's
     # "Open a session" (a demo workspace knows a session from the log alone, and this task has none)

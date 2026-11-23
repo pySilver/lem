@@ -100,11 +100,19 @@ listed as not reachable, with when it last answered, and never slows a page.
                                `?task=SLUG` watches that task's files too
     POST /HOST/NAME/agterm/select
                                the jump to a task's session, which only agterm does, on the main listener only (below)
-    GET /HOST/NAME/tasks/SLUG/merge, /park
-                               the step of an act that asks first, as the task's panel: a merge's confirm step, a park
-    POST /HOST/NAME/tasks/SLUG/approve, /merge, /park, /session
+    GET /HOST/NAME/tasks/SLUG/merge, /park, /drop
+                               the step of an act that asks first, as the task's panel: a merge's confirm step, a park,
+                               a drop
+    GET /HOST/NAME/tasks/SLUG/card/PAGEID
+                               the step of a card of the task's session, as the task's panel, which frames the card's page
+    GET /HOST/NAME/tasks/SLUG/cards/PAGEID/
+                               the card's own page as `lem-ask` built it, under the card's policy (`card_page`)
+    POST /HOST/NAME/tasks/SLUG/approve, /merge, /park, /session, /answer
                                the owner's acts on a task (below), on the main listener and through the door; a 303 to
                                the task's page, whose `?note=` says what came of the act
+    POST /HOST/NAME/tasks/SLUG/cards/PAGEID/answer
+                               the owner's answer to a card, which its page posts as JSON (`card_answer`), through the
+                               same checks; the reply is JSON, `{"said": ...}`
     GET /HOST/NAME/new         the form of a new task in the owner's words ("+")
     POST /HOST/NAME/start      a new task, from that form (`words`) or from a backlog item (`item`, its path from the
                                root of the main checkout), through the same checks as an act on a task; a 303 to the
@@ -198,11 +206,13 @@ agterm's variables as its caller's place, and the server is no part of any sessi
 
 The server never types into a session, never selects one without the owner's click, never closes one,
 decides nothing, and writes a task's files only through `lem land merged`, the merge agent's `lem land
-merge` and `lem session`, and removes them only through `lem project prune`. A workspace
+merge` and `lem session`, the end of a card the owner answered on the board (`lem_cards.end`), and the
+record of his answer to a row the board answers with its own buttons (`lem_answers.record`), and
+removes them only through `lem project prune`. A workspace
 of example tasks has no forge to ask and no duty, and one whose remote is not GitHub has no forge to ask.
 
 Apart from that, the server reads. Its actions are its own stop, the board's notifications, the owner's
-acts on a task, and the jump to a task's session, which only agterm does and which agterm gives no page
+acts on a task, his answer to a card of a task's session, and the jump to a task's session, which only agterm does and which agterm gives no page
 served over http (an `--url` page has no bridge: measured in agterm 0.41.1 on 2026-11-20). A page drawn
 for the main listener and a client on this Mac (`Ctx.local`) has its button, which posts to
 `agterm/select`. The server takes it only on the main listener, from the loopback address, for its own
@@ -223,13 +233,19 @@ works again; and a new task (`act_start`), from his words on the form of "+" or 
 name; its slug by a fixed rule (an item's file's stem, with the first free `-2`, `-3` when a task of the
 stem ended; else the first SLUG_WORDS plain words of his text, in lower case, joined by hyphens), `lem
 project task-dir SLUG --ask ASK` (his words, or the item's path as the night gives it), then `lem
-session open SLUG --why new` with no focus, whose agent reads the type and the track itself; and the
+session open SLUG --why new` with no focus, whose agent reads the type and the track itself; the
 drop of a reviewer's item from its "Drop" (`act_drop`), `lem project proposals drop PATH`, one call
-that refuses while a task that has not ended holds the item. A task whose session opened and wrote no
-state yet is on the board as starting (`lem_board_model.NEW`), so its acts and "Open a session" work.
-Each act on a task the script took is logged as `board.act` with where he asked (`via`: the board on
-this Mac, or through the tailnet door), never his login; a drop is kept in the day's record of the
-proposals instead. A merge runs in a thread of its own, since it reads the base branch and asks the forge,
+that refuses while a task that has not ended holds the item; and his answer to a row the board answers
+with its own buttons (`act_answer`: a plan's Build or Drop, a breaker's Help, Park or Drop, Yes or No on
+"Skip the persona read?" and on "Approve this criterion?"), which records it as `answers/KEY.json` in the
+task's folder (lem_answers) and wakes the task's session, which acts on it as on his typed word; the
+record of a row's key comes first for every act of the board on that row (a park, a yes to the
+criterion, a drop of the task), and a second act on it is refused with what the record says. A task
+whose session opened and wrote no state yet is on the board as starting (`lem_board_model.NEW`), so its
+acts and "Open a session" work. Each act on a task the script took is logged as `board.act` with where
+he asked (`via`: the board on this Mac, or through the tailnet door), never his login; a drop of a
+reviewer's item is kept in the day's record of the proposals instead. A merge runs in a thread of its
+own, since it reads the base branch and asks the forge,
 and as a process of its own outside SCRIPT_LOCK (`merge_apart`), so that a slow forge holds no other act
 of the board; the process takes the task's step lock and the repository's merge lock itself, so two
 merges of one repository still take turns. The answer is at once, its page says that it runs, and the
@@ -239,6 +255,20 @@ What only the task's session does after an act stays the session's, and the page
 yes and after a park the server sends it `lem session wake SLUG --why owner` (`tell_session`), since it
 may wait for him, and a task that needs a session and has none gets one; after a merge the duty below
 wakes it for the cleanup.
+
+A `lem-ask` card that a task's live session put up is a row of "Waits for you" (lem_board_model
+`open_cards`), and its step in the task's panel frames the card's own page, which the server sends from
+the task's folder as `lem-ask` built it (`card_page`, `cards/PAGEID/`), under a policy that runs only
+the page's own scripts (`card_policy`). The page posts the owner's answer to `cards/PAGEID/answer`
+(`card_answer`, `act_card`), through the checks of an act. The board takes an answer with a note, never a
+conversation: a wish to talk and a note with no option picked are refused, and so is an answer to a card
+that ended, with what took effect. Before it takes one it reads agterm's result for the card's page,
+`agtermctl session overlay result --page PAGEID`, and refuses while agterm holds an answer from the Mac
+that no waiter read (`agterm_card_refusal`). Then it links the card's end file with the answer, from
+the board, with where he asked (`via`), the device the request names (`device_of`) and its User-Agent,
+which logs `card.answered`, and logs `board.act act=answer`. The card's own `lem-ask` in the session sees
+the end at its next poll, closes its own page and ends with the answer, which wakes the session: the
+server sends it nothing.
 
 It has no login of its own. It shows the tasks' files and the copied talk of a new task to anyone
 who reaches its address, so it listens on 127.0.0.1 unless the foreground server's `--host` names
@@ -257,8 +287,8 @@ puts the login of the person who asks into `Tailscale-User-Login`, and the door 
 owner's login, the one this Mac is signed in with (`tailscale status --json`), never a request that
 came through Funnel, and only the Mac's own name in `Host`; a method other than GET and HEAD also
 only from the board's own origin. At the door every such method is answered 405 after the check,
-except the three routes of the board's notifications and the owner's acts on a task, and the stop is no
-route of the door's.
+except the three routes of the board's notifications, the owner's acts on a task and his answer to a
+card, and the stop is no route of the door's.
 
 The board's notifications (`lem_push`): a device turns them on from "Waits for you" or a phone's
 drawer, and its subscription is kept in Lem's home folder. A thread of the server (`lem_push.Watcher`)
@@ -289,6 +319,7 @@ if sys.version_info < (3, 11):
     sys.exit(f"serve.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it")
 
 import argparse
+import base64
 import contextlib
 import email.header
 import http.cookies
@@ -296,6 +327,7 @@ import errno
 import fcntl
 import gzip
 import hashlib
+import html.parser
 import importlib
 import json
 import os
@@ -330,6 +362,8 @@ lem_inbox = importlib.import_module("lem_inbox")
 lem_peers = importlib.import_module("lem_peers")
 lem_sibling = importlib.import_module("lem_sibling")
 lem_release = importlib.import_module("lem_release")
+lem_cards = importlib.import_module("lem_cards")
+lem_answers = importlib.import_module("lem_answers")
 
 # A port that no common tool takes by default (a pick, not a measurement).
 PORT = 4536
@@ -638,6 +672,13 @@ class Workspace:
             return None
         return {"path": str(file), "text": data.decode("utf-8", errors="replace"), "digest": hashlib.sha256(data).hexdigest()[:16]}
 
+    def card_end(self, slug: str, page: str) -> dict | None:
+        """The end on record of the card PAGE of the task (`lem_cards.ended`), or None while it is open or does not read."""
+        try:
+            return lem_cards.ended(self.state / "tasks" / slug, page)
+        except (lem_cards.CardError, OSError):
+            return None
+
     def landing_of(self, slug: str) -> dict:
         """The task's landing record (land.py's `landing.json`: the tip it proposed, its pull request and
         title), with the base branch and `branch.history` of the settings; {} when it does not read."""
@@ -895,11 +936,16 @@ class AgtermRefused(Exception):
     pass
 
 
+def agtermctl() -> str | None:
+    """agtermctl on the server's PATH, else the app's own binary, else None."""
+    return shutil.which("agtermctl") or next((place for place in AGTERMCTL_PLACES if os.access(place, os.X_OK)), None)
+
+
 def agterm_act(workspace: "Workspace", act: str, asked: dict) -> str:
     """The jump to a task's session for a page of the workspace, on the owner's click, and what was done;
     AgtermRefused says why not. Only the session of a task's newest `session.open` is taken, and agtermctl
     finds agterm's socket itself (measured with no `--socket`, plan-task-4.md's trial, 2026-11-21)."""
-    ctl = shutil.which("agtermctl") or next((place for place in AGTERMCTL_PLACES if os.access(place, os.X_OK)), None)
+    ctl = agtermctl()
     if ctl is None:
         raise AgtermRefused("agtermctl is not on this Mac: install agterm's command line tool (Help > Install Command Line Tool).")
     session = asked.get("session")
@@ -917,8 +963,9 @@ def agterm_act(workspace: "Workspace", act: str, asked: dict) -> str:
 
 # ---- the board's acts: the owner's word from a page ----
 
-# The acts a page posts to `/HOST/NAME/tasks/SLUG/ACT`, each the command a session runs on his word.
-BOARD_ACTS = ("approve", "merge", "park", "session")
+# The acts a page posts to `/HOST/NAME/tasks/SLUG/ACT`, each the command a session runs on his word, or,
+# for `answer`, the record of his answer to a row, which the task's session acts on (`act_answer`).
+BOARD_ACTS = ("approve", "merge", "park", "session", "answer")
 # land.py's step that merges an open pull request on the owner's word: `lem land merge SLUG --by owner`.
 MERGE_STEP = "merge"
 # How long the line of an act's result stays for the page whose address names it (`?note=TOKEN`). A
@@ -1008,10 +1055,11 @@ def session_run(workspace: Workspace, *args: str) -> subprocess.CompletedProcess
 session_entries = bm.session_entries
 
 
-def asked_from(workspace: Workspace, slug: str, act: str, via: str) -> str:
+def asked_from(workspace: Workspace, slug: str, act: str, via: str, *more: str) -> str:
     """Log who asked for an act that the script took, as the event `board.act`: the act and where the
-    owner's word came from (bm.VIA), never his login. "" when it is written, else why not."""
-    ran = lem_run(workspace, "project.py", "log", slug, "board.act", f"act={act}", f"via={via}")
+    owner's word came from (bm.VIA), never his login, and MORE fields (`key=`, `option=` of a row's answer).
+    "" when it is written, else why not."""
+    ran = lem_run(workspace, "project.py", "log", slug, "board.act", f"act={act}", f"via={via}", *more)
     return "" if ran.returncode == 0 else f" The record of where you asked was not written: {said_of(ran)}"
 
 
@@ -1058,48 +1106,169 @@ def tell_session(workspace: Workspace, slug: str) -> dict:
     return {"woke": bool(told.get("woke")), "opened": bool(told.get("opened")), "name": told.get("name"), "said": ""}
 
 
-def act_approve(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
+def row_refusal(t: "bm.Task", asks: dict | None, given: object, folder: Path) -> str | None:
+    """Why the board takes no act on the row GIVEN (a row's key, from the page) of the task T, whose row the
+    board answers now is ASKS (`bm.answer_row`), else None: the record of the row's key is the one arbiter
+    of every act of the board on it (lem_answers). A key with an answer on record says what took effect; a
+    key that is not the row that waits now says what holds instead; ASKS with an answer on record says it."""
+    key = str(given or "") or (asks["key"] if asks else "")
+    try:
+        parts = lem_answers.parse(key)
+        made = lem_answers.on_record(folder, key)
+    except lem_answers.AnswerError as error:
+        return f"{bm.cap(str(error))}: nothing was recorded."
+    if made is not None:
+        return f"{lem_answers.took_effect(made)}: the task’s session takes it."
+    if asks is not None and asks["key"] == key:
+        return None
+    what = {"breaker": f"Breaker {parts['number']} of {t.slug}", "plan": f"The plan of {t.slug}", "skip": f"“Skip the persona read?” of {t.slug}",
+            "criterion": f"“Approve this criterion?” of {t.slug}"}[parts["kind"]]
+    if asks is not None and asks["kind"] == parts["kind"] and lem_answers.parse(asks["key"])["number"] == parts["number"]:
+        return f"{what} waits again since {bm.hhmm(t.blocks[-1]['ts'])}, and the page you answered from showed an earlier wait: read it again, then answer. Nothing was recorded."
+    now = f"you parked it at {bm.hhmm(t.since)}" if t.status == bm.PARKED else f"it is {t.info['label'].lower()} since {bm.hhmm(t.since)}"
+    return f"{what} no longer waits: {now}. Nothing was recorded."
+
+
+def told_then(told: dict, then: str) -> str:
+    """What came of the word to the task's session after an act (`tell_session`), with what it does THEN."""
+    if told["woke"]:
+        return f"The task’s session got word of it, and {then}."
+    if told["opened"]:
+        return f"No session of the task ran: Lem opened one in agterm, at the end of its workspace, and it {then.removeprefix('it ')}."
+    return f"The task’s session was not told: {told['said']} Open a session of the task here, and it {then.removeprefix('it ')}."
+
+
+def act_approve(workspace: Workspace, slug: str, form: dict, via: str, heard: dict | None = None) -> dict:
     """The owner's yes to the criteria of the task directory, `lem criteria approve SLUG --file
-    criteria.md`, while they wait for it and are the criteria the page showed (`digest`)."""
+    criteria.md`, while they wait for it and are the criteria the page showed (`digest`). The yes to the
+    one criterion of a small change that someone else asked for is his Yes on that row (`bm.answer_row`):
+    its record is linked first (lem_answers, with HEARD: `via`, `device`, `agent`), and taken back when
+    the approval's script refuses."""
     t = task_of(workspace, slug)
     model = workspace.model()
     if t is None or "approve" not in bm.acts_of(t, model.seen):
         return {"ok": False, "said": f"The criteria of {slug} do not wait for your yes now" + (f": it is {t.info['label'].lower()}." if t else ".")}
+    folder = workspace.state / "tasks" / slug
+    asks = bm.answer_row(t)
+    criterion = asks if asks and asks["kind"] == "criterion" else None
+    if criterion:
+        said = row_refusal(t, criterion, form.get("key"), folder)
+        if said:
+            return {"ok": False, "said": said}
     waiting = workspace.criteria_waiting(slug)
     if waiting is None:
         return {"ok": False, "said": "criteria.md is not in the task directory yet: the task's session writes it. Approve the criteria there."}
     if form.get("digest") != waiting["digest"]:
         return {"ok": False, "said": "The criteria changed since the page showed them. Read them again, then approve."}
+    made = None
+    if criterion:
+        won, made = lem_answers.record(folder, criterion["key"], criterion["question"], "yes", note_of(form), digest=waiting["digest"], **(heard or {}))
+        if not won:
+            return {"ok": False, "said": f"{lem_answers.took_effect(made)}: the task’s session takes it."}
     # the digest goes with the file, so that the step approves the bytes the page showed or nothing
     ran = lem_run(workspace, "criteria.py", "approve", slug, "--file", waiting["path"], "--shown", waiting["digest"])
     if ran.returncode != 0:
+        if made:
+            lem_answers.withdraw(folder, made)
         return {"ok": False, "said": said_of(ran)}
     asked = asked_from(workspace, slug, "approve", via)
-    told = tell_session(workspace, slug)
-    if told["woke"]:
-        then = "The task’s session got word of it, and goes on to the build."
-    elif told["opened"]:
-        then = "No session of the task ran: Lem opened one in agterm, at the end of its workspace, and it goes on to the build."
-    else:
-        then = f"The task’s session was not told: {told['said']} Open a session of the task here, and it goes on to the build."
+    then = told_then(tell_session(workspace, slug), "it goes on to the build")
     return {"ok": True, "said": f"Your yes to the criteria is on record. {then}" + asked}
 
 
-def act_park(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
+def act_park(workspace: Workspace, slug: str, form: dict, via: str, heard: dict | None = None) -> dict:
     """The owner puts aside a task whose breaker waits for him, `lem project state SLUG parked WHY`, with
-    his one line of why (`/lem park`, stages/park.md)."""
+    his one line of why (`/lem park`, stages/park.md). His Park is the answer to the breaker's row
+    (`bm.answer_row`): its record is linked first (lem_answers, with HEARD), and taken back when the
+    state's script refuses."""
     t = task_of(workspace, slug)
     if t is None or "park" not in bm.acts_of(t, workspace.model().seen):
         return {"ok": False, "said": f"No breaker of {slug} waits for you now: the board parks a task whose breaker stopped its build."}
+    folder = workspace.state / "tasks" / slug
+    asks = bm.answer_row(t)
+    asks = asks if asks and asks["kind"] == "breaker" else None
+    made = None
+    if asks:
+        said = row_refusal(t, asks, form.get("key"), folder)
+        if said:
+            return {"ok": False, "said": said}
     why = " ".join(str(form.get("why") or "").split())[:WHY_CHARS] or "the owner parked it"
+    if asks:
+        won, made = lem_answers.record(folder, asks["key"], asks["question"], "park", why, **(heard or {}))
+        if not won:
+            return {"ok": False, "said": f"{lem_answers.took_effect(made)}: the task’s session takes it."}
     ran = lem_run(workspace, "project.py", "state", slug, "parked", why)
     if ran.returncode != 0:
+        if made:
+            lem_answers.withdraw(folder, made)
         return {"ok": False, "said": said_of(ran)}
     asked = asked_from(workspace, slug, "park", via)
     told = tell_session(workspace, slug)
     ends = ("Its session got word of it, and closes once you have left it. " if told["woke"]
             else "" if not told["said"] else f"Its session was not told ({told['said']}): close it yourself in agterm. ")
     return {"ok": True, "said": f"The task is parked. {ends}/lem resume {slug} in any session brings it back." + asked}
+
+
+# The longest note of a row's answer the board takes, in characters (lem_board_pages.NOTE_CHARS, the form's own bound).
+NOTE_CHARS = pages.NOTE_CHARS
+# What the task's session does with each answer it takes from the board, for the act's note.
+ANSWER_THEN = {"build": "it builds the plan", "drop": "it drops the task as on /lem drop", "help": "it takes your words to the lead as your part of the talk",
+               "yes": "it takes your yes", "no": "it takes your no"}
+
+
+def note_of(form: dict) -> str:
+    """The owner's note of an answer, from the form's `words`: its words on one line, at most NOTE_CHARS."""
+    return " ".join(str(form.get("words") or "").split())[:NOTE_CHARS]
+
+
+def act_answer(workspace: Workspace, slug: str, form: dict, heard: dict) -> dict:
+    """The owner's answer to a row the board answers with its own buttons (`bm.answer_row`: a plan, a
+    breaker, "Skip the persona read?", "Approve this criterion?"), from its answer form: the row's `key`,
+    the `option` and his note (`words`). It refuses a key that is not the row that waits now, a key with an
+    answer on record (`row_refusal`), no option, an option the row does not have, Help and the criterion's No
+    with no words, the criterion's No on a text that changed since the page showed it, and a Drop with no
+    confirm. Park is `act_park`, and Yes on the criterion `act_approve`, each of which links the row's record
+    first. Else it links the record (lem_answers, with HEARD), logs `board.act act=answer` and wakes the
+    task's session, which takes the answer as his typed word: the server decides nothing."""
+    t = task_of(workspace, slug)
+    if t is None:
+        return {"ok": False, "said": f"No task {slug} is on record: nothing was recorded."}
+    folder = workspace.state / "tasks" / slug
+    asks = bm.answer_row(t)
+    said = row_refusal(t, asks, form.get("key") or "-", folder)
+    if said:
+        return {"ok": False, "said": said}
+    option, words = str(form.get("option") or ""), note_of(form)
+    if not option:
+        return {"ok": False, "said": "Pick an option first: nothing was recorded."}
+    if option not in asks["options"]:
+        return {"ok": False, "said": f"“{asks['question']}” takes {', '.join(asks['options'].values())}: nothing was recorded."}
+    via = bm.VIA[heard.get("via") or "local"]
+    if option == "park":
+        return act_park(workspace, slug, {**form, "why": words}, via, heard=heard)
+    if asks["kind"] == "criterion" and option == "yes":
+        return act_approve(workspace, slug, form, via, heard=heard)
+    if option == "help" and not words:
+        return {"ok": False, "said": "Help needs your words for the lead: nothing was recorded."}
+    more = {}
+    if asks["kind"] == "criterion":
+        if not words:
+            return {"ok": False, "said": "No needs your words: what should the criterion say? Nothing was recorded."}
+        waiting = workspace.criteria_waiting(slug)
+        if waiting is None or form.get("digest") != waiting["digest"]:
+            return {"ok": False, "said": "The criterion changed since the page showed it. Read it again, then answer: nothing was recorded."}
+        more["digest"] = waiting["digest"]
+    if option == "drop" and form.get("confirm") != "yes":
+        return {"ok": False, "said": "Drop asks for a confirm first: open Drop… and confirm there. Nothing was recorded."}
+    try:
+        won, made = lem_answers.record(folder, asks["key"], asks["question"], option, words, **more, **heard)
+    except (lem_answers.AnswerError, OSError) as error:
+        return {"ok": False, "said": f"The answer was not recorded: {error}."}
+    if not won:
+        return {"ok": False, "said": f"{lem_answers.took_effect(made)}: the task’s session takes it."}
+    asked = asked_from(workspace, slug, "answer", via, f"key={asks['key']}", f"option={option}")
+    then = told_then(tell_session(workspace, slug), ANSWER_THEN[option])
+    return {"ok": True, "said": f"{bm.ANSWER_ON_RECORD} {then}" + asked}
 
 
 # What the board says when the owner's "Open a session" of a stopped task opened nothing (`lem session open
@@ -1142,6 +1311,205 @@ def act_session(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
     beside = f" beside the one that stopped, which agterm now names “{slug} · replaced”" if stopped else ""
     return {"ok": True, "said": f"A session of the task opened in agterm{f', “{name}”' if name else ''}, at the end of its workspace{beside}. Its agent reads the task’s state and goes on from there."
             + asked_from(workspace, slug, "session", via)}
+
+
+# ---- a card of a task's session, answered on the board ----
+
+# The largest answer of a card the board takes, in bytes: the page's JSON, with a note of a few paragraphs
+# and the values of a few sliders (a guess).
+CARD_BYTES = 65536
+# What the board says to a note with no option picked, and to the page's wish to talk: the owner's ruling
+# of 2026-11-23, "The board takes an answer with a note, never a conversation."
+TO_THE_SESSION = "A question goes to the task’s session, at the Mac: nothing was recorded."
+# The words of the end of a card the board recorded (task 1 of board-answers-a-card: the session reads it).
+ON_RECORD = bm.ANSWER_ON_RECORD
+# A request that names a phone, by decision 5 of the plan of board-answers-a-card: the client hint of a
+# mobile browser, or a User-Agent that names an iPhone, an iPad or Android. A phone in a desktop mode says
+# it is a computer, and the record keeps the User-Agent whole beside it.
+PHONE_AGENT = re.compile(r"\b(iPhone|iPad|Android)\b")
+
+
+def device_of(headers) -> str:
+    """`phone` when the request names a phone (PHONE_AGENT, `Sec-CH-UA-Mobile: ?1`), else `computer`."""
+    if (headers.get("Sec-CH-UA-Mobile") or "").strip() == "?1":
+        return "phone"
+    return "phone" if PHONE_AGENT.search(headers.get("User-Agent") or "") else "computer"
+
+
+class PageScripts(html.parser.HTMLParser):
+    """The text of each script a page runs inline: a `<script>` with no `src`, whose `type` is none or
+    JavaScript's. Its `script` and `style` text is read as the browser reads it (CDATA, up to the closing
+    tag), so a spec's text in the page's JSON block is never taken for a tag."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=False)
+        self.found: list[str] = []
+        self.inside: list[str] | None = None
+
+    def handle_starttag(self, tag: str, attrs: list) -> None:
+        if tag != "script":
+            return
+        given = dict(attrs)
+        kind = (given.get("type") or "").strip().lower()
+        self.inside = [] if "src" not in given and kind in ("", "text/javascript", "module", "application/javascript") else None
+
+    def handle_data(self, data: str) -> None:
+        if self.inside is not None:
+            self.inside.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "script" and self.inside is not None:
+            self.found.append("".join(self.inside))
+            self.inside = None
+
+
+def card_policy(page: bytes) -> str:
+    """The Content-Security-Policy of a card's page on the board (decision 2 of board-answers-a-card): it
+    runs only the inline scripts `lem-ask` builds into the page (`build_html`: its runtime and the pinned
+    mermaid bundle), each by its hash, with no `unsafe-eval`, so that a spec's own `script` and `js`
+    blocks, which the runtime runs through `new Function`, and an inline handler in its raw `html` or `svg`
+    markup do not run on the board's origin, where the owner's acts are. `form-action` keeps a form in that
+    markup from posting an act, `base-uri` keeps a `<base>` from moving the runtime's own post, and only
+    the board frames the page. The spec's text is JSON in the page, escaped so that it opens no tag."""
+    reader = PageScripts()
+    reader.feed(page.decode("utf-8", errors="replace"))
+    reader.close()
+    hashes = sorted({"'sha256-" + base64.b64encode(hashlib.sha256(text.encode("utf-8")).digest()).decode("ascii") + "'" for text in reader.found})
+    sources = " ".join(hashes) or "'none'"
+    return f"script-src {sources}; form-action 'none'; base-uri 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'self'"
+
+
+def card_refusal(card: dict, given: object) -> str | None:
+    """Why the board takes no answer GIVEN to CARD (the card's record, `lem_cards.card`), else None. A
+    wish to talk, and a note with no option picked on a question with options, go to the session (the
+    page's own rule: `valid` and `finish` in `runtime/ask.js` send a note alone as a `text` with an empty
+    `selected` on a `single` or `multi` question); a `tune` question's answer is its values, a `text`
+    question's its text, and an `optional` question answered with nothing is an answer. An answer that
+    names a question or an option the card does not have is refused."""
+    if not isinstance(given, dict):
+        return "The card’s page sent no answer: nothing was recorded."
+    if given.get("status") == "chat":
+        return TO_THE_SESSION
+    if given.get("status") != "answered" or not isinstance(given.get("answers"), dict):
+        return "The card’s page sent no answer: nothing was recorded."
+    questions = {str(q.get("id")): q for q in card.get("questions") or [] if isinstance(q, dict)}
+    answers = given["answers"]
+    if set(answers) != set(questions):
+        return "This answer names questions the card does not ask: nothing was recorded. Load the card again."
+    for qid, q in questions.items():
+        a = answers[qid]
+        if not isinstance(a, dict):
+            return "The card’s page sent no answer: nothing was recorded."
+        selected = a.get("selected") if a.get("selected") is not None else []
+        text = a.get("text")
+        if not isinstance(selected, list) or not all(isinstance(x, str) for x in selected) or (text is not None and not isinstance(text, str)):
+            return "The card’s page sent no answer: nothing was recorded."
+        ids = {str(o.get("id")) for o in q.get("options") or [] if isinstance(o, dict)}
+        if not set(selected) <= ids or (q.get("mode") == "single" and len(selected) > 1):
+            return "This answer names an option the card does not have: nothing was recorded. Load the card again."
+        if q.get("mode") in ("single", "multi") and not selected:
+            if (text or "").strip():
+                return TO_THE_SESSION
+            if not q.get("optional"):
+                return "Pick an option first: nothing was recorded."
+        if q.get("mode") == "text" and not (text or "").strip() and not q.get("optional"):
+            return "Type an answer first: nothing was recorded."
+        if q.get("mode") == "tune" and not isinstance(a.get("values"), dict):
+            return "The card’s page sent no values: nothing was recorded."
+    return None
+
+
+def card_answer_of(card: dict, given: dict) -> dict:
+    """The answer the record keeps, from what the page sent (`card_refusal` took it): each question's
+    picks, with the card's own labels of them, its text and its values as the page gave them."""
+    questions = {str(q.get("id")): q for q in card.get("questions") or [] if isinstance(q, dict)}
+    out = {}
+    for qid, q in questions.items():
+        a = given["answers"][qid]
+        labels = {str(o.get("id")): str(o.get("label") or o.get("id")) for o in q.get("options") or [] if isinstance(o, dict)}
+        selected = list(a.get("selected") or [])
+        kept = {"selected": selected, "labels": [labels[x] for x in selected]}
+        for key in ("text", "values", "from", "extra"):
+            if a.get(key) is not None:
+                kept[key] = a[key]
+        out[qid] = kept
+    return {"status": "answered", "answers": out}
+
+
+def agterm_card_refusal(page: str) -> str | None:
+    """agterm's word on the card's page before the board takes an answer (decision 8 of
+    board-answers-a-card), else None: a read of `agtermctl session overlay result --page PAGE`, the read
+    lem-ask's own wait makes. When agterm holds an answer or a dismissal no waiter has read yet, the pick at
+    the Mac came first and the board takes nothing; when agterm does not answer, the board cannot tell. A
+    read only: the server never answers, closes or types into a session's page."""
+    ctl = agtermctl()
+    if ctl is None:
+        return "agtermctl is not on this Mac, so the board cannot tell whether the card was answered at the Mac: nothing was recorded."
+    try:
+        ran = subprocess.run([ctl, "session", "overlay", "result", "--page", page, "--json"], capture_output=True, text=True, check=False, timeout=AGTERM_TIMEOUT)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return f"agterm did not say whether the card was answered at the Mac ({error}): nothing was recorded."
+    try:
+        reply = json.loads(ran.stdout)
+    except ValueError:
+        said = (ran.stderr or ran.stdout).strip() or f"agtermctl exited {ran.returncode}"
+        return f"agterm did not say whether the card was answered at the Mac ({said}): nothing was recorded."
+    if not isinstance(reply, dict) or reply.get("ok") is False:
+        said = reply.get("error") if isinstance(reply, dict) else None
+        return f"agterm did not say whether the card was answered at the Mac ({said or 'no outcome'}): nothing was recorded."
+    outcome = ((reply.get("result") or {}).get("pageOutcome") or {}).get("outcome")
+    if outcome == "submitted":
+        return "An answer was given on the card at the Mac: the task’s session takes it, and nothing was recorded here."
+    if outcome == "dismissed":
+        return "The card was dismissed at the Mac: the task’s session takes it, and nothing was recorded here."
+    return None
+
+
+def act_card(workspace: Workspace, slug: str, page: str, given: object, via: str, device: str, agent: str) -> tuple[int, str | None]:
+    """The owner's answer to the card PAGE of the task's session, from the card's page on the board: the
+    status of the reply and its `said`, which the page shows. In this order it refuses a card that is not
+    open (what took effect), one whose session no longer waits for it, a wish to talk or a note with no
+    pick (`card_refusal`), and an answer agterm already holds (`agterm_card_refusal`); a dismissal, which
+    the page's `pagehide` sends, records nothing (204). Else it ends the card in its folder with the
+    answer, from the board (`lem_cards.end`, which logs `card.answered`), unless the session's own end was
+    linked first, and logs `board.act act=answer`. The end of the card's own `lem-ask` in the session is
+    the wake: the server sends the session nothing."""
+    folder = workspace.state / "tasks" / slug
+    try:
+        card = lem_cards.card(folder, page)
+    except lem_cards.CardError as error:
+        return HTTPStatus.NOT_FOUND, str(error)
+    if card is None:
+        return HTTPStatus.NOT_FOUND, f"No card {page} of {slug} is on record."
+    if isinstance(given, dict) and given.get("status") == "dismissed":
+        return HTTPStatus.NO_CONTENT, None
+    try:
+        end = lem_cards.ended(folder, page)
+    except lem_cards.CardError as error:
+        return HTTPStatus.CONFLICT, f"{error}: nothing was recorded."
+    if end is not None:
+        return HTTPStatus.CONFLICT, f"{bm.cap(lem_cards.took_effect(end))}: nothing was recorded."
+    model = workspace.model()
+    t = task_of(workspace, slug)
+    if t is None or not any(c["page"] == page for c in bm.open_cards(t, model)):
+        live = bm.live_of(t, model) if t else None
+        why = ("the board does not know yet whether the task’s session runs; look again in a minute" if t is not None and live is None and not model.meta.get("demo")
+               else "the session that put it up no longer runs, so nothing waits for this answer")
+        return HTTPStatus.CONFLICT, f"{bm.cap(why)}: nothing was recorded."
+    said = card_refusal(card, given)
+    if said:
+        return HTTPStatus.UNPROCESSABLE_ENTITY, said
+    said = agterm_card_refusal(page)
+    if said:
+        return HTTPStatus.CONFLICT, said
+    try:
+        won, record = lem_cards.end(folder, page, "answered", "board", card_answer_of(card, given), via=via, device=device, agent=agent)
+    except (lem_cards.CardError, OSError) as error:
+        return HTTPStatus.INTERNAL_SERVER_ERROR, f"The answer was not recorded: {error}."
+    if not won:
+        return HTTPStatus.CONFLICT, f"{bm.cap(lem_cards.took_effect(record))}: nothing was recorded."
+    workspace.acted += 1
+    return HTTPStatus.OK, ON_RECORD + asked_from(workspace, slug, "answer", bm.VIA[via])
 
 
 # How many plain words of the owner's text name a task he starts from the board: a slug is two to five
@@ -1599,6 +1967,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.agterm(parts[1], parts[3])
         if self.command == "POST" and len(parts) == 5 and parts[0] == HOSTNAME and parts[2] == "tasks" and parts[4] in BOARD_ACTS and not lem_peers.hopped(self.headers):
             return self.board_act(parts[1], parts[3], parts[4])
+        if (self.command == "POST" and len(parts) == 7 and parts[0] == HOSTNAME and parts[2] == "tasks" and parts[4] == "cards" and parts[6] == "answer"
+                and not lem_peers.hopped(self.headers)):
+            return self.card_answer(parts[1], parts[3], parts[5])
         if self.command == "POST" and len(parts) == 3 and parts[0] == HOSTNAME and parts[2] == "start" and not lem_peers.hopped(self.headers):
             return self.board_start(parts[1])
         if self.command == "POST" and len(parts) == 4 and parts[0] == HOSTNAME and parts[2:] == ["backlog", "drop"] and not lem_peers.hopped(self.headers):
@@ -1652,11 +2023,15 @@ class Handler(BaseHTTPRequestHandler):
         form = self.form()
         if form is None:
             return self.text(HTTPStatus.BAD_REQUEST, f"The request carries no form of the board: form fields of at most {FORM_BYTES} bytes.", True)
-        via = bm.VIA["door" if self.door is not None else "local"]
+        listener = "door" if self.door is not None else "local"
+        via = bm.VIA[listener]
+        # the record of a row's answer keeps where it came from as the card's end does: the listener's key, the device, the User-Agent whole
+        heard = {"via": listener, "device": device_of(self.headers), "agent": self.headers.get("User-Agent") or ""}
         if act == "merge":
             token = act_merge(workspace, slug, form, via)
         else:
-            result = {"approve": act_approve, "park": act_park, "session": act_session}[act](workspace, slug, form, via)
+            result = (act_answer(workspace, slug, form, heard) if act == "answer" else
+                      {"approve": act_approve, "park": act_park, "session": act_session}[act](workspace, slug, form, via, **({} if act == "session" else {"heard": heard})))
             token = NOTES.put(task=slug, act=act, state="done" if result["ok"] else "refused", said=result["said"])
             workspace.acted += 1
         under = form.get("in") if form.get("in") in pages.UNDER and form.get("in") != "tasks" else None
@@ -1664,6 +2039,34 @@ class Handler(BaseHTTPRequestHandler):
         query = urlencode({**({"in": under} if under else {}), "note": token})
         to = f"/{quote(HOSTNAME)}/{quote(name)}/tasks/{quote(slug)}" + (f"/{tab}" if tab else "") + f"?{query}"
         self.send(HTTPStatus.SEE_OTHER, b"", "text/plain; charset=utf-8", True, {"Location": to})
+
+    def card_answer(self, name: str, slug: str, page: str) -> None:
+        """The owner's answer to a card of a task's session, posted by the card's own page on the board as
+        JSON (`runtime/ask.js`), through the checks of an act on a task (`board_act`), then `act_card`. The
+        answer is JSON, `{"said": ...}`, which the page shows: 200 when it is on record, else the refusal;
+        the page's dismissal, which records nothing, gets 204 and no body."""
+        def answer(status: int, said: str | None) -> None:
+            if status == HTTPStatus.NO_CONTENT:
+                return self.send(status, b"", "text/plain; charset=utf-8", True)
+            self.send(status, json.dumps({"said": said}, ensure_ascii=False).encode("utf-8"), "application/json", True)
+
+        if self.door is None:
+            said = action_refusal(self.client_address[0], self.headers, self.server.server_address[1])
+            if said:
+                return answer(HTTPStatus.FORBIDDEN, said)
+        workspace = self.machine.one(name)
+        if workspace is None or not TASK_SLUG.fullmatch(slug):
+            return answer(HTTPStatus.NOT_FOUND, f"No workspace {name!r} or no task {slug!r} on this machine.")
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+            given = json.loads(self.rfile.read(length)) if 0 < length <= CARD_BYTES else None
+        except (ValueError, OSError):
+            given = None
+        if not isinstance(given, dict):
+            return answer(HTTPStatus.BAD_REQUEST, f"The request carries no JSON object of at most {CARD_BYTES} bytes: nothing was recorded.")
+        status, said = act_card(workspace, slug, page, given, "door" if self.door is not None else "local", device_of(self.headers),
+                                self.headers.get("User-Agent") or "")
+        return answer(status, said)
 
     def board_start(self, name: str) -> None:
         """A new task of the workspace NAME, from the form of "+" or a backlog item's "Start a task", through
@@ -1900,6 +2303,7 @@ class Handler(BaseHTTPRequestHandler):
                          # the board's acts: on this Mac, or through the door for the owner's login; never on a page another machine passed through
                          can_act=not lem_peers.hopped(self.headers) and (self.door is not None or self.client_address[0] in LOOPBACK),
                          criteria_waiting=workspace.criteria_waiting, landing_of=workspace.landing_of, merging=NOTES.running(workspace.name),
+                         card_end=workspace.card_end,
                          note=NOTES.get((parse_qs(query).get("note") or [None])[0]))
 
     def page(self, workspace: Workspace, name: str, query: str, body: bool) -> None:
@@ -1932,6 +2336,8 @@ class Handler(BaseHTTPRequestHandler):
         path = path.strip("/")
         if tab == "raw":
             return self.raw(workspace, slug, path, body)
+        if tab == "cards":
+            return self.card_page(workspace, slug, path, urlsplit(self.path).path.endswith("/"), query, body)
         if tab == "media":
             return self.media(workspace, slug, path, body)
         try:
@@ -1939,6 +2345,7 @@ class Handler(BaseHTTPRequestHandler):
             under = (parse_qs(query).get("in") or ["tasks"])[0]
             ctx.view = under if under in pages.UNDER else "tasks"
             ctx.task, ctx.tab, ctx.file = slug, tab or "overview", (path or None) if tab == "artifacts" else None
+            ctx.query = {name: values[-1] for name, values in parse_qs(query).items()}
             if path and tab != "artifacts":
                 ctx.tab = f"{tab}/{path}"
             state = workspace.state
@@ -1980,6 +2387,21 @@ class Handler(BaseHTTPRequestHandler):
             return self.text(HTTPStatus.NOT_FOUND, "Not found.", body)
         # a link of the page that opens a tab of its own (the pull request) may leave the sandbox; an in-page link scrolls the frame
         return self.send(HTTPStatus.OK, data, TYPES[".html"], body, {"Content-Security-Policy": "sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox"})
+
+    def card_page(self, workspace: Workspace, slug: str, page: str, slashed: bool, query: str, body: bool) -> None:
+        """A card of the task's session as `lem-ask` built it (`cards/PAGEID.html`), as it is, under the
+        card's own policy (`card_policy`), at an address that ends in a slash, so that the page's relative
+        `answer` is the card's own route."""
+        folder = workspace.state / "tasks" / slug
+        try:
+            data = lem_cards.html_file(folder, page).read_bytes() if lem_cards.card(folder, page) is not None else None
+        except (lem_cards.CardError, OSError):
+            data = None
+        if data is None:
+            return self.text(HTTPStatus.NOT_FOUND, "Not found: no card of this task has that page.", body)
+        if not slashed:
+            return self.redirect(f"/{quote(HOSTNAME)}/{quote(workspace.name)}/tasks/{quote(slug)}/cards/{quote(page)}/" + (f"?{query}" if query else ""), body)
+        return self.send(HTTPStatus.OK, data, TYPES[".html"], body, {"Content-Security-Policy": card_policy(data)})
 
     def media(self, workspace: Workspace, slug: str, path: str, body: bool) -> None:
         """A picture of the task's media folder, for a document that shows it: a file under `media/` with

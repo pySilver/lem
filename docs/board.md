@@ -47,11 +47,29 @@ Buttons on "Waits for you" and the task pages do what Lem does on your words:
 - **Merge**: a page shows green or not green, the pull request and the commit first. You cannot
   undo a merge. On a phone, the page opens over the task, and its button becomes active when you
   read to the end.
-- **Park it**: puts aside a task that a breaker stopped, with one line of why.
 - **Open a session**: starts a new agent for a task that has no session, or whose session stopped.
 
-On a phone, **Approve the criteria** and **Park it** open over the task in the same way.
-The page then shows the result, or why Lem refused.
+You also answer the questions of a task on the board. Each question has one field for a note:
+
+- **A card**: the question page that the session of a task shows in agterm. **Answer the card**
+  opens the same page, with the same options, pictures and note field.
+- **A plan** that waits for you to read it: **Build** or **Drop**.
+- **A breaker**: **Help**, **Park** or **Drop**. Help sends your note to the lead as your part of
+  the talk, so Help needs a note.
+- **Skip the persona read?** of an interview: **Yes** or **No**.
+- **Approve this criterion?** of a small change that another person asked for: **Yes** or **No**.
+  No needs a note: what the criterion must say.
+
+**Park** and **Drop** ask you to confirm first. Park, and Yes to a criterion, take effect at once.
+The session of the task takes each other answer as your typed word.
+
+The board takes an answer with a note, never a conversation. A note with no option, or
+a request to talk on a card, records nothing, and the row stays: ask in the session at the Mac.
+Only the first answer counts. When a question does not wait any more, the board says which answer
+took effect.
+
+On a phone, **Approve the criteria**, **Park**, **Drop** and a card open over the task in the same
+way. The page then shows the result, or why Lem refused.
 
 ## The reviewer's items
 

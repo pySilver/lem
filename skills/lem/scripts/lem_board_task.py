@@ -48,8 +48,10 @@ import re
 from pathlib import Path
 from urllib.parse import quote
 
+import lem_answers
 import lem_artifacts
 import lem_board_model as bm
+import lem_cards
 import lem_board_pages as P
 from lem_html import Markup, h, join, page
 
@@ -57,8 +59,9 @@ from lem_html import Markup, h, join, page
 TABS = [("overview", "Overview"), ("criteria", "Criteria and decisions"), ("checks", "Checks and review"), ("timeline", "Timeline"), ("artifacts", "Artifacts")]
 TAB = dict(TABS)
 # The steps of the board's acts that ask first, each a page of the panel at /tasks/SLUG/ACT, whose form
-# posts the act (serve.py `board_act`): a merge's confirm step, and a park with its one line of why.
-ACT_TABS = {"merge": "Merge", "park": "Park"}
+# posts the act (serve.py `board_act`): a merge's confirm step, a park with its one line of why, and a drop
+# with the owner's note, whose Confirm posts his Drop to the answer route (serve.py `act_answer`).
+ACT_TABS = {"merge": "Merge", "park": "Park", "drop": "Drop"}
 # How a note of an act's result reads (serve.py `NOTES`): its look, its icon and its first word.
 KIND_ICON = {"markdown": "file-lines", "text": "file", "json": "brackets-curly", "jsonl": "list", "log": "terminal", "html": "globe", "binary": "file-zipper", "image": "image"}
 KIND_WORD = {"markdown": "markdown", "text": "text", "json": "JSON", "jsonl": "JSON lines", "log": "log", "html": "page", "binary": "binary", "image": "picture"}
@@ -370,13 +373,14 @@ def row_action(ctx, t: bm.Task) -> Markup | None:
     return None
 
 
-def owner_lines(ctx, t: bm.Task) -> Markup | None:
+def owner_lines(ctx, t: bm.Task, park_link: bool = True) -> Markup | None:
     """The owner's two other words to a task a breaker holds, or to a parked one, as lines to type in any
-    session; for a breaker, on a page that may act, the way to park it from the board first."""
+    session; for a breaker, on a page that may act, the way to park it from the board first, unless the
+    breaker's answer form above has it (PARK_LINK false)."""
     park = None
     if t.breaker is not None:
         lines = [(f"/lem park {t.slug}", "puts the task aside"), (f"/lem drop {t.slug}", "ends it")]
-        park = P.act_link(ctx, t.slug, "park", "Park it…", "park", frame=True) if ctx.can_act else None
+        park = P.act_link(ctx, t.slug, "park", "Park it…", "park", frame=True) if ctx.can_act and park_link else None
     elif t.status == bm.PARKED:
         lines = [(f"/lem resume {t.slug}", "brings it back as it was"), (f"/lem drop {t.slug}", "ends it")]
     else:
@@ -498,8 +502,12 @@ def breaker_card(ctx, t: bm.Task) -> Markup | None:
     # while he is away and the breaker went to his Inbox, its line says where he answers, once
     inbox = inbox_action(ctx, t) if t.breaker else None
     both = inbox is not None and bm.inbox_of(t, ctx.model)["asks"]
-    where = (h("div", {"class": "b-lines"}, None if both else h("div", {"class": "b-line"}, h("b", None, "Where you answer: "), "help in the task’s session."),
-               inbox or row_action(ctx, t), owner_lines(ctx, t))
+    # on a page that may act, his Help, Park and Drop under the document, until his answer is on record
+    asks = bm.answer_row(t) if t.breaker else None
+    form = P.answer_form(ctx, t, asks, "panel", ctx.view) if asks and asks["kind"] == "breaker" and ctx.can_act and bm.answered_of(t, ctx.model) is None else None
+    said = "help, park or drop it here, or help in the task’s session." if form is not None else "help in the task’s session."
+    where = (h("div", {"class": "b-lines"}, None if both else h("div", {"class": "b-line"}, h("b", None, "Where you answer: "), said),
+               form, inbox or row_action(ctx, t), owner_lines(ctx, t, park_link=form is None))
              if t.breaker else h("div", {"class": "b-lines"}, h("div", {"class": "b-line"}, "The task is parked: this breaker waits for nobody until you bring it back."), owner_lines(ctx, t)))
     return h("section", {"class": f"card building a-{'you' if t.breaker else 'quiet'}", "id": "breaker", "aria-label": "What stopped the build"},
              h("div", {"class": "eyebrow", "title": bm.cap(bm.stop_words(b))}, f"The build stopped · breaker {b.id} · ", h("span", {"title": bm.stamp(b.ts, now)}, P.since(b.ts, now), " ago")),
@@ -528,6 +536,45 @@ def merge_review_card(ctx, t: bm.Task) -> Markup | None:
              h("div", {"class": "b-lines"}, h("div", {"class": "b-line"}, link)))
 
 
+def cards_card(ctx, t: bm.Task) -> Markup | None:
+    """Each `lem-ask` card the task's live session waits on (`bm.open_cards`), first on the Overview: its
+    question, since when, and on a page that may act the way to answer it on the board."""
+    found = bm.open_cards(t, ctx.model)
+    if not found:
+        return None
+    rows_ = []
+    for c in found:
+        go = ctx.can_act and h("a", {"class": "btn go", **P.frame_link(ctx, P.task_href(ctx, t.slug, f"card/{c['page']}"))}, P.icon(ctx, "user"), h("span", None, "Answer the card…"))
+        rows_.append(row(ctx, f"card-{c['page']}", "you", "user",
+                         [h("b", None, P.rich(ctx, bm.cap(c["prompt"] or "The task’s session asks you"))), " ",
+                          sub("Answer it here or in the task’s session at the Mac. A question back goes to the session."), go and h("div", {"class": "wl-actions"}, go)],
+                         P.since(c["since"], ctx.model.now)))
+    return card("cards", "The task’s session asks you", f"{bm.plural(len(found), 'card')} {'waits' if len(found) == 1 else 'wait'} for your answer", rows_, "a-you")
+
+
+def now_answer(ctx, t: bm.Task) -> Markup | None:
+    """The answer form of a plan that waits for the owner's read and of "Skip the persona read?" on the large
+    card (`P.answer_form`), on a page that may act, until his answer is on record. A breaker's is under its
+    document, and the one criterion's under its text on "Criteria and decisions"."""
+    asks = bm.answer_row(t)
+    if not ctx.can_act or asks is None or asks["kind"] not in ("plan", "skip") or bm.answered_of(t, ctx.model) is not None:
+        return None
+    return P.answer_form(ctx, t, asks, "panel", ctx.view)
+
+
+def answered_card(ctx, t: bm.Task) -> Markup | None:
+    """The owner's answer on record for the row the board answers with its own buttons, first on the
+    Overview until the task's session writes its next state block (`bm.answered_of`): that the session takes
+    it, what he picked, when and from where, and his note."""
+    made = bm.answered_of(t, ctx.model)
+    if made is None:
+        return None
+    return h("section", {"class": "card verdict a-gate", "id": "answered", "role": "status", "aria-label": "Your answer"},
+             h("div", {"class": "v-line"}, h("span", {"class": "fi"}, P.icon(ctx, "clock")),
+               h("div", {"class": "v-text"}, h("b", {"class": "v-word"}, bm.ANSWER_ON_RECORD), " ", f"{lem_answers.took_effect(made)}.",
+                 made.get("note") and h("div", {"class": "sub"}, "Your note: “", P.rich(ctx, made["note"]), "”"))))
+
+
 def now_card(ctx, t: bm.Task) -> Markup:
     """What runs now, or what waits for the owner, with where he answers, under the task's first line
     while the block that said it is the task's newest."""
@@ -551,6 +598,7 @@ def now_card(ctx, t: bm.Task) -> Markup:
             # the breaker's call to its document, only while it waits for him: not while the session works on his help
             t.breaker and not t.works and h("div", {"class": "now-ctx"}, "Its document is the first card above: read it, then help, park or drop the task."),
             None if t.breaker else inbox_action(ctx, t) or (row_action(ctx, t) if t.for_owner else None),
+            None if t.breaker else now_answer(ctx, t),
             t.status == bm.PARKED and owner_lines(ctx, t)]
     time = h("span", None, bm.stamp(t.since, now)) if t.closed else P.since(t.since, now)
     return h("section", {"class": f"card now a-{t.info['actor']}", "id": "now"},
@@ -715,7 +763,7 @@ def overview_tab(ctx, t: bm.Task) -> list:
     if t.summary is not None:
         # no phases and no stats: their checks, review and decisions went with the events, and would read as none
         return [summary_card(ctx, t), building(ctx, t), verdict(ctx, t), now_card(ctx, t)]
-    return [merge_review_card(ctx, t), parked_card(ctx, t), breaker_card(ctx, t), building(ctx, t), verdict(ctx, t), now_card(ctx, t), progress(ctx, t)]
+    return [answered_card(ctx, t), cards_card(ctx, t), merge_review_card(ctx, t), parked_card(ctx, t), breaker_card(ctx, t), building(ctx, t), verdict(ctx, t), now_card(ctx, t), progress(ctx, t)]
 
 
 # ---- Criteria and decisions ----
@@ -984,6 +1032,21 @@ def approve_card(ctx, t: bm.Task, note: Markup | None = None) -> Markup | None:
                 f"The personas flagged {r['flagged']} of {bm.criteria_count(r['criteria'] or 0)}{'; the two model families split' if r['split'] else ''}: read the flagged one before you approve."
                 if r["flagged"] or r["split"] else "The personas read them, and nobody was confused.")
     head_ = h("div", {"class": "card-head"}, h("h2", None, "The criteria wait for your yes"), h("div", {"class": "dim small"}, read or "criteria.md in the task directory"))
+    asks = bm.answer_row(t)
+    criterion = asks if asks and asks["kind"] == "criterion" else None
+    made = bm.answered_of(t, ctx.model) if criterion else None
+    if waiting is not None and made is not None:
+        body = [note, P.md_block(ctx, f"waiting-{t.slug}", waiting["text"], slug=t.slug, cls="b-md"),
+                h("p", {"class": "sub"}, f"{bm.ANSWER_ON_RECORD} {lem_answers.took_effect(made)}.")]
+        return h("section", {"class": "card approve a-you", "id": "approve-card"}, head_, h("div", {"class": "approve-body"}, body))
+    if waiting is not None and ctx.can_act and criterion:
+        # the one criterion of a request someone else wrote: his Yes or No under its text, in the one answer
+        # form, with the digest of the text shown (a No needs his words, which go into criteria.md)
+        body = [note, P.md_block(ctx, f"waiting-{t.slug}", waiting["text"], slug=t.slug, cls="b-md"),
+                h("noscript", None, h("pre", {"class": "cf-plain"}, waiting["text"]))]
+        form = P.answer_form(ctx, t, criterion, "panel", ctx.view, digest=waiting["digest"], tab="criteria")
+        return confirm_card("card approve a-you", "Approve the criterion", head_, body,
+                            h("div", {"class": "act-row cf-acts"}, form, act_back(ctx, t, "Back", "cf-back")), True, card_id="approve-card", wrap="approve-body")
     if waiting is not None and ctx.can_act:
         body = [note, P.md_block(ctx, f"waiting-{t.slug}", waiting["text"], slug=t.slug, cls="b-md"),
                 h("noscript", None, h("pre", {"class": "cf-plain"}, waiting["text"]))]
@@ -1351,8 +1414,9 @@ def act_back(ctx, t: bm.Task, label: str, cls: str = "") -> Markup:
     return h("a", {"class": f"btn {cls}".strip(), **P.frame_link(ctx, P.task_href(ctx, t.slug))}, h("span", None, label))
 
 
-def not_now(ctx, t: bm.Task, said: str) -> list:
-    return [h("section", {"class": "card confirm a-quiet", "id": "confirm"}, h("p", None, said), h("div", {"class": "act-row"}, act_back(ctx, t, "Back to the task")))]
+def not_now(ctx, t: bm.Task, said: str, *, card_id: str = "confirm", keep: str | None = None) -> list:
+    return [h("section", {"class": "card confirm a-quiet", "id": card_id, "data-keep": keep}, h("p", None, said),
+              h("div", {"class": "act-row"}, act_back(ctx, t, "Back to the task")))]
 
 
 def merge_step(ctx, t: bm.Task) -> list:
@@ -1414,17 +1478,19 @@ def merge_step(ctx, t: bm.Task) -> list:
                          h("div", {"class": "eyebrow"}, f"Merge #{pr['number']} · confirm" if pr.get("number") else "Merge · confirm"), body, acts, ctx.can_act and bool(tip))]
 
 
-def confirm_card(cls: str, label: str, head_: Markup, body: list, foot: Markup, sheet: bool, *, card_id: str = "confirm", wrap: str | None = None) -> Markup:
+def confirm_card(cls: str, label: str, head_: Markup, body: list, foot: Markup, sheet: bool, *, card_id: str = "confirm", wrap: str | None = None,
+                 keep: str | None = None) -> Markup:
     """The card of an act's step in its three parts: the head, the body with what the owner reads, and the
     foot with the button and the way back, the last two in a box of class WRAP where the card has one
     (the approval's). Outside the overlay the three parts take no box of their own (board.css), so the
     card shows as one column. A card that has its button (SHEET) gets the `sheet` controller and the key of
     its read, the digest of the body as rendered here: on a phone's screen the card is then an overlay
     whose button comes on when the body was scrolled to its end, and any change of what the body says is
-    another key, which the owner reads again from its top."""
+    another key, which the owner reads again from its top. A card with KEEP stays as it is through a
+    refresh that renders the same key (`data-keep`, app.js)."""
     text = h("div", {"class": "cf-body", "data-sheet-target": "body" if sheet else None}, body)
     rest = [text, h("div", {"class": "cf-foot"}, foot)]
-    return h("section", {"class": f"{cls}{' cf-sheet' if sheet else ''}", "id": card_id, "aria-label": label,
+    return h("section", {"class": f"{cls}{' cf-sheet' if sheet else ''}", "id": card_id, "aria-label": label, "data-keep": keep,
                          **({"data-controller": "sheet", "data-sheet-key-value": hashlib.sha256(text.encode()).hexdigest()[:12]} if sheet else {})},
              h("div", {"class": "cf-head", **({"data-sheet-target": "head", "tabindex": "-1"} if sheet else {})}, head_),
              h("div", {"class": wrap}, rest) if wrap else rest)
@@ -1436,12 +1502,19 @@ def park_step(ctx, t: bm.Task) -> list:
     b = t.breaker
     if b is None or "park" not in bm.acts_of(t, ctx.model.seen):
         return not_now(ctx, t, f"Nothing to park: no breaker of this task waits for you. The task is {t.info['label'].lower()}.")
-    # permanent, as the new task's field is: a refresh keeps the line he is typing
+    asks = bm.answer_row(t)
+    key = asks["key"] if asks and asks["kind"] == "breaker" else None
+    made = bm.answered_of(t, ctx.model) if key else None
+    if made is not None:
+        return not_now(ctx, t, f"{lem_answers.took_effect(made)}: the task’s session takes it.")
+    if key and ctx.query.get("key") and ctx.query["key"] != key:
+        return not_now(ctx, t, f"The Park you opened was for a wait of {t.slug} that is over: its breaker waits again. Read it, then answer it on its Overview.")
+    # permanent, as the new task's field is: a refresh keeps the line he is typing; the note of the breaker's form goes with Park…
     field_ = h("label", {"class": "act-field"}, h("span", None, "Why, in one line"),
                h("input", {"id": f"park-why-{ctx.workspace}-{t.slug}", "type": "text", "name": "why", "data-turbo-permanent": True, "maxlength": "300", "autocomplete": "off", "enterkeyhint": "done",
-                           "placeholder": "the owner parked it"}))
+                           "placeholder": "the owner parked it", "value": " ".join(str(ctx.query.get("words") or "").split())[:300] or None}))
     if ctx.can_act:
-        act = P.act_form(ctx, t.slug, "park", "Park the task", "park", "go", "Parking…", {"in": ctx.view if ctx.view != "tasks" else None}, field_, form_cls="act-stack")
+        act = P.act_form(ctx, t.slug, "park", "Park the task", "park", "go", "Parking…", {"in": ctx.view if ctx.view != "tasks" else None, "key": key}, field_, form_cls="act-stack")
         acts = h("div", {"class": "act-row"}, act, act_back(ctx, t, "Back"))
     else:
         acts = h("p", {"class": "sub"}, f"Park it on this board on the Mac or through the tailnet door, or type /lem park {t.slug} in any session.")
@@ -1449,6 +1522,63 @@ def park_step(ctx, t: bm.Task) -> list:
             h("p", {"class": "sub"}, f"A parked task keeps its worktree, its branch and its files. Nothing of it waits for you, and nobody works on it, "
                                      f"until /lem resume {t.slug} in any session brings it back.")]
     return [confirm_card("card confirm a-you", "Park: confirm", h("div", {"class": "eyebrow"}, f"Park · breaker {b.id}"), body, acts, ctx.can_act)]
+
+
+def drop_step(ctx, t: bm.Task) -> list:
+    """The confirm step of a drop from the board, which asks first as a park does: "Drop SLUG?", what waits,
+    what a drop ends, the owner's note (what he typed in the row's form, which Drop… brings), and Confirm,
+    which posts his Drop to the answer route with the row's key (serve.py `act_answer`). The server records
+    it and wakes the task's session, which drops the task as on /lem drop."""
+    asks = bm.answer_row(t)
+    if asks is None or "drop" not in asks["options"]:
+        return not_now(ctx, t, f"Nothing to drop from the board: no plan or breaker of this task waits for you. The task is {t.info['label'].lower()}; "
+                               f"/lem drop {t.slug} in any session ends it.")
+    made = bm.answered_of(t, ctx.model)
+    if made is not None:
+        return not_now(ctx, t, f"{lem_answers.took_effect(made)}: the task’s session takes it.")
+    if ctx.query.get("key") and ctx.query["key"] != asks["key"]:
+        return not_now(ctx, t, f"The Drop you opened was for a wait of {t.slug} that is over. Read what waits now, then answer it on its Overview.")
+    what = (h("p", None, h("b", None, "The build stopped: "), P.rich(ctx, t.breaker.what or ""), f", since {bm.stop_words(t.breaker)}.") if asks["kind"] == "breaker"
+            else h("p", None, h("b", None, "The plan waits for your read: "), "a drop ends the task before its build."))
+    field_ = h("label", {"class": "act-field"}, h("span", None, "Your note, if you like"),
+               h("textarea", {"id": f"drop-words-{ctx.workspace}-{t.slug}", "name": "words", "rows": "2", "data-turbo-permanent": True, "maxlength": str(P.NOTE_CHARS), "autocomplete": "off",
+                              "placeholder": "why, in your words"}, str(ctx.query.get("words") or "")[:P.NOTE_CHARS]))
+    if ctx.can_act:
+        act = P.act_form(ctx, t.slug, "answer", "Confirm", "x", "risk", "Dropping…",
+                         {"key": asks["key"], "option": "drop", "confirm": "yes", "in": ctx.view if ctx.view != "tasks" else None}, field_, form_cls="act-stack")
+        acts = h("div", {"class": "act-row"}, act, act_back(ctx, t, "Back"))
+    else:
+        acts = h("p", {"class": "sub"}, f"Drop it on this board on the Mac or through the tailnet door, or type /lem drop {t.slug} in any session.")
+    body = [what, h("p", {"class": "sub"}, "A drop ends the task: its session gives a ticket what it is still owed, then removes the worktree, and the branch keeps its commits. "
+                                          f"The board records your Drop and wakes the task’s session, which drops it as /lem drop {t.slug} does.")]
+    return [confirm_card("card confirm a-you", "Drop: confirm", h("div", {"class": "eyebrow"}, f"Drop {t.slug}?"), body, acts, ctx.can_act)]
+
+
+def card_step(ctx, t: bm.Task, page_id: str) -> list:
+    """The step of a card of the task's session: the card's own page as `lem-ask` built it, in a frame of
+    the board (serve.py's `card_page`), which posts its answer itself and shows what the board said; on a
+    phone's screen an overlay of the whole screen (`sheet`), as a park's step is. A card that no longer
+    waits says what took effect, and a page that may not act says where to answer.
+
+    The step and what it says once the card ended share their id and, for an answer from the board, their
+    `data-keep`: the board logs the answer before its reply reaches the frame, so the refresh that the log
+    brings would otherwise take the frame away, with what the board said there, before or just after the
+    frame showed it. A step that the board's answer ended stays as the owner saw it until he leaves it; one
+    that the session ended turns into what took effect."""
+    keep = f"card-{page_id}"
+    c = next((c for c in bm.open_cards(t, ctx.model) if c["page"] == page_id), None)
+    if c is None:
+        end = ctx.card_end(t.slug, page_id)
+        said = (f"{bm.cap(lem_cards.took_effect(end))}. This card no longer waits for you." if end
+                else "This card no longer waits for you: the session that put it up no longer runs, or it holds no such card.")
+        return not_now(ctx, t, said, card_id="card-step", keep=keep if end and end.get("from") == "board" else None)
+    if not ctx.can_act:
+        return not_now(ctx, t, "Answer this card on the board on the Mac the task runs on or through its tailnet door, or in the task’s session there.")
+    src = f"{ctx.base}/tasks/{quote(t.slug, safe='')}/cards/{quote(page_id, safe='')}/"
+    frame = h("iframe", {"class": "card-frame", "id": f"card-frame-{page_id}", "src": src, "title": c["prompt"] or "The card of the task’s session"})
+    foot = h("div", {"class": "act-row"}, act_back(ctx, t, "Back"), h("span", {"class": "sub"}, "A question back goes to the task’s session, at the Mac."))
+    return [confirm_card("card confirm a-you card-step", "A card of the task’s session", h("div", {"class": "eyebrow"}, "Card · the task’s session asks"),
+                         [frame], foot, True, card_id="card-step", keep=keep)]
 
 
 def panel(ctx) -> Markup:
@@ -1459,7 +1589,8 @@ def panel(ctx) -> Markup:
     ctx.scope = "task"
     try:
         t = next((x for x in m.tasks if x.slug == slug), None)
-        if ctx.tab not in TAB and ctx.tab not in ACT_TABS:
+        asked = ctx.tab.removeprefix("card/") if ctx.tab.startswith("card/") else None
+        if ctx.tab not in TAB and ctx.tab not in ACT_TABS and not asked:
             raise NotFound(f"A task has no tab {ctx.tab!r}: its tabs are {', '.join(TAB)}.")
         if t is None:
             early = m.by_slug.get(slug)
@@ -1473,10 +1604,10 @@ def panel(ctx) -> Markup:
                 body = artifacts_tab(ctx, t)
                 tab_body = h("div", {"class": "tabbody arts-panel", "id": "tb-artifacts"}, body)
             else:
-                parts = {"overview": overview_tab, "criteria": criteria_tab, "checks": checks_tab, "timeline": timeline_tab,
-                         "merge": merge_step, "park": park_step}[ctx.tab](ctx, t)
+                parts = card_step(ctx, t, asked) if asked else {"overview": overview_tab, "criteria": criteria_tab, "checks": checks_tab, "timeline": timeline_tab,
+                                                              "merge": merge_step, "park": park_step, "drop": drop_step}[ctx.tab](ctx, t)
                 # the criteria tab places the act's note itself: in the approval card while that holds the button
-                tab_body = h("div", {"class": "tabbody", "id": f"tb-{ctx.tab}"}, None if ctx.tab == "criteria" else note_card(ctx, t.slug), parts)
+                tab_body = h("div", {"class": "tabbody", "id": f"tb-{ctx.tab.replace('/', '-')}"}, None if ctx.tab == "criteria" else note_card(ctx, t.slug), parts)
             inner = [head(ctx, t, t.title), tab_nav(ctx, t), tab_body]
         # an HTML page opened among the artifacts takes the panel's height: the header folds as on a phone
         page_open = t is not None and ctx.tab == "artifacts" and ctx.file is not None and any(

@@ -9,7 +9,8 @@
 
 On the fast track, only the third touch can come. One exception: when another person wrote the
 ticket, you say yes to its one acceptance criterion before the build starts. You answer the first
-two in the session of the task. The build asks you nothing.
+two in the session of the task, or on the [board](board.md#act-from-the-board). The build asks you
+nothing.
 
 ## A decision in doubt
 
@@ -36,11 +37,14 @@ A task that takes longer than expected does not stop. The task writes `breaker.m
 broke, its root cause, the options, a recommendation and the assumptions. The board shows it first
 on the task, and sends a notification to [your phone](board.md#the-board-on-your-phone).
 
-Answer in one of three ways:
+Answer in one of three ways, in the session of the task or with the buttons of its row on the
+[board](board.md#act-from-the-board):
 
-- talk about it in the session of the task, and decide;
-- `/lem park <task>`: the worktree, the branch and the files stay;
-- `/lem drop <task>`: the worktree goes, and the files and the commits of the branch stay.
+- talk about it in the session of the task, and decide. On the board, **Help** sends your note
+  to the lead, and the talk starts from it;
+- `/lem park <task>`, or **Park**: the worktree, the branch and the files stay;
+- `/lem drop <task>`, or **Drop**: the worktree goes, and the files and the commits of the branch
+  stay.
 
 While you are away, you can also answer in the [Inbox](#answer-from-the-inbox).
 
@@ -75,13 +79,15 @@ order:
    stopped: "Open a session" starts a fresh agent;
 2. the questions of an interview, and the acceptance criteria that wait for your yes;
 3. the tasks that wait for a step of yours, or for one more fact;
-4. the tasks that wait for a task that you dropped: type "start <task> now" to start the task, or
+4. the questions that the session of a task asks you on a card: answer on the card in agterm, or
+   on the board;
+5. the tasks that wait for a task that you dropped: type "start <task> now" to start the task, or
    `/lem drop <task>` to stop it, in a Lem session of this repository;
-5. the tasks that stopped on a problem that they cannot solve alone, and the tasks of an
+6. the tasks that stopped on a problem that they cannot solve alone, and the tasks of an
    [older release](#a-task-of-an-older-release);
-6. the plans that wait for you to read them;
-7. the merge reviews that call you;
-8. the pull requests that wait for your merge, and each merge that GitHub or Lem refused, each
+7. the plans that wait for you to read them;
+8. the merge reviews that call you;
+9. the pull requests that wait for your merge, and each merge that GitHub or Lem refused, each
    green or with its reasons.
 
 An interview is on the list only while it asks you a question. While Lem writes the acceptance

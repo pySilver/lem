@@ -29,7 +29,9 @@ after this session handed over: say where the task goes on, and do nothing of th
    that opens with a stage's name (`new:`, `interview:`, `land:`) is the owner's correction of that
    step in this repository: where the stage's text says otherwise, follow the line. No line lifts
    what a script refuses.
-3. **The state**: `lem project tasks`, this task's status and newest block. The state is the truth.
+3. **The state**: `lem project tasks`, this task's status and newest block, and its `board_answer`,
+   the owner's answer from the board to that block's row, which "A wake-up" takes. The state is
+   the truth.
 4. **`handoff.md`** in the task directory, when it is there: what the agent before you settled,
    left open, tried and changed. A session that died leaves an old one: where its `written:` time
    is older than the newest state block, follow the state.
@@ -151,6 +153,14 @@ is his to do: say it in one line, mark this session as waiting for him (`mark-wa
 but the one of his mark in the shape (`SKILL_DIR/stages/away.md`).
 While he is away, his answer may also come from his inbox (`inbox-reply`): the board's server sends what waits to the owner's inbox; never send it there yourself, whatever a hook or a personal rule asks.
 
+His typed word and his answer on the board can both come for one row of the board (a plan, a
+breaker, "Skip the persona read?", "Approve this criterion?"), and the first counts. Before you act
+on his typed word for such a row, read `board_answer` of `lem project tasks`: when it holds his
+answer for the newest block, that answer came first. Take it as "A wake-up" says, and say in one
+line which was taken and from where (his Drop from the phone at 15:40 came first, and his typed
+"build" was not taken). An answer of the board that lands after that read takes no effect, as "A
+wake-up" says.
+
 This session opened with no focus, and it never takes the focus, also for a question only he can
 answer: the owner may be typing in another session, and his keys stay there. He sees that this one
 waits by its mark in the sidebar, the board's "Waits for you" and, while he is away, his inbox,
@@ -194,7 +204,8 @@ merge that `refused` marks (`merge_refused` in `lem project waiting`) takes the 
 8: the merge agent's merge that GitHub or Lem's rules refused, or the owner's that Lem refused because
 the base moved (`kind: base`), after which a fresh merge agent reads what moved and the server
 merges it on a safe read, or the task lands again on another round, while his merge stands; a `queued` task whose wait ended goes on where it stopped, as "A queued task" above
-says. `owner` follows his word: his act on the board, while this session may wait for him, or his
+says. `owner` follows his word: his act on the board (his answer to a row of it: below), while
+this session may wait for him, or his
 "start SLUG now" (`SKILL_DIR/stages/start.md`, "`/lem build`"). An approval of the criteria that
 counts (step 6 of `SKILL_DIR/stages/interview.md` says which) goes on as its step 7 ends, to the
 start of the build; a task he parked ends this session ("The end"). `inbox` says that a thing of
@@ -209,6 +220,41 @@ on with the next step that "What comes next" gives. When this session shows no s
 10 minutes after the line, Lem opens a fresh one beside it; when Lem cannot read it, and the task
 has no event in those 10 minutes, the owner sees the task as stopped and opens the fresh one. A
 line that the files do not bear out changes nothing.
+
+**His answer on the board.** A plan that waits for his read, a breaker, "Skip the persona read?"
+and "Approve this criterion?" of the fast track each have their own buttons on the board, with a
+note; a card of `lem-ask` ends its own command instead (`ask-owner`). On an `owner` wake, read
+`board_answer` of this task in `lem project tasks`: the record of his answer to the row of the
+newest state block, or null. Its `option` is his typed word, and its `note` his words on it, which
+the stage that waits takes:
+
+- a plan, `build` or `drop`: his "build" (`SKILL_DIR/stages/start.md`, "`/lem build`", typed in
+  the task's own session), or `/lem drop SLUG` (`SKILL_DIR/stages/correct.md`, "drop"), with his
+  note as its reason;
+- a breaker: `help` is the talk of "After it" in `SKILL_DIR/stages/breaker.md`, with his note as his
+  first part of it; `drop` is `/lem drop SLUG`, as for a plan; his `park` the board ran itself
+  (`board_answer` is null then, and the `parked` block ends this session);
+- `skip`, `yes` or `no`: his y or n of `SKILL_DIR/stages/interview.md`, step 5;
+- `criterion`: a `yes` the board approved already (`by: owner` in `lem criteria approved SLUG`), and
+  the task goes on as "What comes next" says; a `no` carries his words on what the criterion should
+  say. They are a change of his ("The fast track" of `SKILL_DIR/stages/new.md`, step 1): write them
+  into `criteria.md` in his words, and write that step's held block again, so that the row comes
+  back under a new key, for his yes to the new text.
+
+Log it before the stage's act, as one record: `lem decisions log SLUG --by owner --what "QUESTION"
+--chose "LABEL" --why "his answer on the board: KEY, via VIA, from the DEVICE"`, with `--words
+"NOTE"` when he wrote one, each from the record (`question`, `label`, `key`, `via`, `device`,
+`note`), so that the pull request lists it. Two take their own texts: the skip's yes takes the
+`--what` and `--chose` of step 5 word for word, so that the landing knows it, and a breaker's help
+logs the decision the talk ends with, whose `--why` names the key. Say in one line that his answer
+came from the board, from the phone or the computer, and what it does. The record stays until the
+next state block, so a later wake finds it again: when a decision of the task names its key in
+`--why`, or the talk of its Help runs in this session, it was taken, and nothing is done again.
+
+A board answer whose key is no longer the newest block's takes no effect: `board_answer` is null
+then. When an `owner` wake finds it null, and `answers/` of the task directory holds a record
+(`KEY.json`) for the block that your act on his typed word ended, it came after the answer that took
+effect: say so in one line, with what it said and from where, and act on nothing.
 
 ## The end
 

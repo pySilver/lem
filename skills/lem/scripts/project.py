@@ -82,7 +82,7 @@ team that adopts Lem may have its own.
     lem project seat-again SLUG     the owner's go on over such a block: the block before it comes
                                     back, the stand-in ends, and the seat the settings name is tried again.
                                     No other state but a park, another block or an end comes over it
-    lem project tasks               every task's ask, status and newest state block, as JSON
+    lem project tasks               every task's ask, status and newest state block, and the owner's answer from the board to it, as JSON
     lem project owner away|back --words TEXT
                                     the owner says that he is away, or back again: his words as typed,
                                     kept in the machine's mark, so every repository on this machine
@@ -357,12 +357,14 @@ file, or that names a folder, is refused: the retro, the ladder and the question
 `waiting` is the one list of what waits for the owner, which a bare `/lem` says. Its rows are the rows
 of the board's "Waits for you" (`lem_board_model.waits_of`, over the model the board server builds:
 the event log, the owner's mark, the forge's last look that the server keeps in `forge.json` of the
-state folder, and the task sessions, from `lem session list`, which it asks itself when the log has a
+state folder, the open cards of each task's folder, and the task sessions, from `lem session list`, which it asks itself when the log has a
 `session.open`), so the terminal and the phone list the same. First his status (`owner`: `away`,
 `since` and his `words`, from the machine's mark, and `seen`, the number of its records, from which a
 watch of the mark starts); then one group for each kind of row: the breakers that wait, as `lem
 decisions pending` gives them (`breakers`); the tasks `held` with the line `the criteria wait for
-the owner` (`criteria`) and the other `held` ones, a step of his or one more fact (`held`); a task
+the owner` (`criteria`) and the other `held` ones, a step of his or one more fact (`held`); each
+`lem-ask` card that a task's live session put up and waits on, as the task's folder keeps it
+(`cards`, with its `page` and the first question's `prompt`); a task
 `queued` after a task that was dropped (`after_dropped`, with that task as `after` and the row's own
 words: `verb`, `start`, "start SLUG now", `drop`, `/lem drop SLUG`, and `where`, which says that he
 types either one in any Lem session of the repository); a task its session stopped as `blocked` on
@@ -3630,6 +3632,8 @@ def read_tasks(root: Path, settings: dict | None = None) -> list[dict]:
     presence = events_named(root, "task.mode", "task.state", SUMMARY)
     opened: dict[str, str] = {}
     newest: dict[str, str] = {}
+    # the time of each task's newest state block, whose row's answer from the board `board_answer` gives
+    blocks: dict[str, str] = {}
     for record in presence:
         if record.get("event") == SUMMARY:
             if record.get("opened"):
@@ -3639,12 +3643,15 @@ def read_tasks(root: Path, settings: dict | None = None) -> list[dict]:
             continue
         opened.setdefault(record.get("task"), record["ts"])
         newest[record.get("task")] = record["ts"]
+        if record.get("event") == "task.state":
+            blocks[record.get("task")] = record["ts"]
     night = nights(presence)
     presence = [record for record in presence if record.get("event") == "task.mode"]
     # and the owner's status, the machine's. An `owner` event a repository's log may still hold is not
     # read: the mark is the one place of his status.
     presence = merged(presence, owner_records())
     parent = state_root(root) / "tasks"
+    answers = importlib.import_module("lem_answers")
     for directory in sorted(d for d in (parent.iterdir() if parent.is_dir() else ()) if d.is_dir()):
         state = directory / "state.md"
         # state.md is newest block first; a block ends at the first blank line
@@ -3692,6 +3699,9 @@ def read_tasks(root: Path, settings: dict | None = None) -> list[dict]:
             "without_owner": spans,
             # the date of the night that opened it, or null for a task of the day
             "night": night.get(directory.name),
+            # the owner's answer from the board to the row of its newest state block (a plan, a breaker, "Skip the
+            # persona read?", "Approve this criterion?"), as lem_answers recorded it, or null: the task's session reads it on its wake
+            "board_answer": answers.answer_of_block(directory, directory.name, blocks.get(directory.name)),
         })
     if any(task["ticket"] for task in tasks):
         # only a project with a ticket needs its settings here; a broken settings file then stops this, loudly
@@ -3832,10 +3842,12 @@ def waiting_brief(task: dict) -> dict:
 def waiting_model(root: Path, settings: dict):
     """The board's model of the repository as the board server builds it (`lem_board_model`), for
     `waiting`: the event log, the owner's mark, the demo mark (board.py `meta_of`), the forge's last look
-    that the server wrote (`lem_board_model.FORGE_LOOK`), and the task sessions, which it asks `lem session
-    list` for itself (`waiting_sessions`), with the turn of the session that runs this command left as one
-    Lem cannot tell (`lem_board_model.own_turn_unread`), since that turn runs while it asks. With the model,
-    what the session said of the sessions: None when they are known, else why not."""
+    that the server wrote (`lem_board_model.FORGE_LOOK`), the open `lem-ask` cards of each task's folder
+    (`lem_board_model.cards_look`), the answers the board recorded (`lem_board_model.answers_look`), and the
+    task sessions, which it asks `lem session list` for itself (`waiting_sessions`), with the turn of the
+    session that runs this command left as one Lem cannot tell (`lem_board_model.own_turn_unread`), since
+    that turn runs while it asks. With the model, what the session said of the sessions: None when they are
+    known, else why not."""
     bm = importlib.import_module("lem_board_model")
     state = state_root(root)
     reader = bm.Reader(main_checkout(root), state)
@@ -3844,6 +3856,9 @@ def waiting_model(root: Path, settings: dict):
         raise SettingsError(f"{state / 'events.jsonl'}: {reader.problems['events']}; the log is written by project.py, never by hand")
     model = bm.derive(reader.events, owner_records(), bm.now_ms(), meta={"demo": (state / "demo").is_file()})
     model.seen = (bm.forge_look(state) or {}).get("seen")
+    model.cards = bm.cards_look(state, model)
+    # a row the owner answered on the board is the task's session's until its next state block: no row here either
+    model.answers = bm.answers_look(state, model)
     said = None
     if not model.meta["demo"]:
         sessions, said = waiting_sessions(root, settings, model, bm)
@@ -3923,6 +3938,8 @@ def cmd_waiting(root: Path) -> dict:
         "breakers": [breaker(row) for row in kind("breaker")],
         "criteria": [brief(row) for row in kind("criteria")],
         "held": [brief(row) for row in kind("held")],
+        # a `lem-ask` card the task's live session put up and waits on, which he answers on the board or in the session
+        "cards": [brief(row, page=row["c"]["page"], prompt=row["c"]["prompt"]) for row in kind("card")],
         "after_dropped": [dropped_after(row) for row in kind("after_dropped")],
         # a task two releases back says the release stop's message as its line (lem_release)
         "blocked": [brief(row, **({"line": row["say"]} if row.get("say") else {})) for row in kind("blocked")],

@@ -34,6 +34,18 @@ conversation, and put the card up again with the same spec. The overlay covers t
 so two tasks' sessions can show two cards at once, where one session shows one at a time (exit 5,
 `busy`). Not run yet: a card in a task's session.
 
+The card is on the board too: its row in "Waits for you" opens the same page, on the Mac or the
+phone, and his pick there ends the card's own command as a pick on the card does ("A card of a
+task's session" in lem-ask's `SKILL.md`); the command closes its own page first. The output's
+`from` says where the answer came from, `session` or `board`; a board answer also carries `via`
+(`local` or `door`), `device` (`phone` or `computer`) and a `said` line, and so does every answer
+when two came before the command read either. Say the `said` line in the session as it is, one
+line: which answer was taken and from where. Then act on his pick as on his typed word, log his
+decision `--by owner` with the note (the answer's `text`) as `--words`, and the card's `pageID`,
+`from`, `via` and `device` in `--why` ("his pick on the board, card PAGEID, via door, from the
+phone"), and go on. A note with no option and `chat`, above, stay as they are for a pick in the
+session: the board refuses both. Exit 2 with a `said` is a close or a dismissal on record.
+
 ## inbox-reply
 
 The owner's inbox is the Plannotator Inbox. While his mark says away, the board's server sends each
@@ -58,13 +70,14 @@ a thread only to answer a reply of his, as below.
 task, and after his reply came in a thread whose session no longer runs the task. Read `owner` of
 `lem project waiting`:
 
-- **He is away**, and this session waits for him on the task's row there: put up a card with the
-  same answers as the Inbox message, as "A card in a task's session" says, in the background and
-  without `--follow`, so that it takes no focus. A breaker gets Help, Park and Drop; a merge, Merge
-  and Not now, with the pull request and the commit its review read; a plan, Build and Drop; a
-  blocked task or an order of his that names no task, a text answer. Put up no second card for a
-  thing whose card is up. His answer on the card is his typed word, and it is the first answer:
-  the server then withdraws the Inbox question.
+- **He is away**, and this session waits for him on the task's row there: for a blocked task or
+  an order of his that names no task, put up a card with a text answer, as "A card in a task's
+  session" says, in the background and without `--follow`, so that it takes no focus; the board
+  shows it as a card row with its text field. A breaker, a plan, a merge and the two yes/no rows
+  ("Skip the persona read?", "Approve this criterion?") get no card: the board answers each with
+  its own buttons (a merge with Merge; its "Not now" is no act), and a card would be a second row
+  for one thing. Put up no second card for a thing whose card is up. His answer on the card is his
+  typed word, and it is the first answer: the server then withdraws the Inbox question.
 - **He is back**: put up no card; a breaker stays one line and the waiting mark. Read the task's
   thread yourself: `read_thread` with `asked_by: "anyone"` and `project_path` the main checkout
   lists the threads, the one whose `thread_name` is the slug is the task's, and `read_thread` with
@@ -79,7 +92,10 @@ only while that thing still waits:
    his word at the Mac came first, the task is `parked`, a newer state block, another proposal than
    TIP), act on nothing. Answer in the thread, as yourself, that the question no longer applies and
    what took effect, as the board refuses a park whose breaker no longer waits (`act_park` in
-   `serve.py`).
+   `serve.py`). When its `board_answer` holds his answer from the board to that thing's row, the
+   board's answer came first and counts: take it as `prompts/session.md`, "A wake-up", says, and
+   say in one line in the session and in one line in the thread which answer was taken, from where,
+   and that his reply came after it.
 2. Act as on his typed word, by the stage that waits for it, and log his decision with his words,
    `--by owner`: a breaker as "After it" in `stages/breaker.md` says, Help with the words of his note
    as his part of the talk. His "Merge" is `lem land merge SLUG --by owner --tip TIP`, TIP the commit

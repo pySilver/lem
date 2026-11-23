@@ -127,10 +127,11 @@ drop.
 ## The board, also on your phone
 
 The board shows each task, what waits for you, the backlog and the activity, and it updates by
-itself. You can approve criteria, merge and park a task there. Add it to the Home Screen of your
-phone. Lem then sends a notification each time something starts to wait for you. A team shares the
-settings in git, the tickets and the pull requests. Each developer has their own board, with the
-tasks on their own computer. The boards of two computers can share one address.
+itself. There you answer the questions of a task, approve criteria, park or drop a task, and
+merge. Add it to the Home Screen of your phone. Lem then sends a notification each time something
+starts to wait for you. A team shares the settings in git, the tickets and the pull requests. Each
+developer has their own board, with the tasks on their own computer. The boards of two computers
+can share one address.
 
 <p align="center">
   <picture>
