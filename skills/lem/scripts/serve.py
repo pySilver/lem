@@ -1057,7 +1057,7 @@ def act_approve(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
     if told["woke"]:
         then = "The task’s session got word of it, and goes on to the build."
     elif told["opened"]:
-        then = "No session of the task ran: Lem opened one in agterm, at the top of its workspace, and it goes on to the build."
+        then = "No session of the task ran: Lem opened one in agterm, at the end of its workspace, and it goes on to the build."
     else:
         then = f"The task’s session was not told: {told['said']} Open a session of the task here, and it goes on to the build."
     return {"ok": True, "said": f"Your yes to the criteria is on record. {then}" + asked}
@@ -1094,7 +1094,7 @@ def act_session(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
     never did, and `--why stopped` for a task whose stop the guard logged while its session lives
     (`lem_board_model.stopped_of`), which opens beside that session, or opens nothing and says why
     (NOT_OPENED) when the look once more refuses it. The server never selects it: it opens with no
-    focus, at the top of agterm's workspace."""
+    focus, at the end of agterm's workspace."""
     t = task_of(workspace, slug)
     model = workspace.model()
     if t is None or not bm.opens_session(t, model):
@@ -1118,7 +1118,7 @@ def act_session(workspace: Workspace, slug: str, form: dict, via: str) -> dict:
     if isinstance(opened, dict) and opened.get("already"):
         return {"ok": True, "said": f"The session {name or 'of the task'} runs already: go to it in agterm." + asked_from(workspace, slug, "session", via)}
     beside = f" beside the one that stopped, which agterm now names “{slug} · replaced”" if stopped else ""
-    return {"ok": True, "said": f"A session of the task opened in agterm{f', “{name}”' if name else ''}, at the top of its workspace{beside}. Its agent reads the task’s state and goes on from there."
+    return {"ok": True, "said": f"A session of the task opened in agterm{f', “{name}”' if name else ''}, at the end of its workspace{beside}. Its agent reads the task’s state and goes on from there."
             + asked_from(workspace, slug, "session", via)}
 
 
@@ -1174,7 +1174,7 @@ def act_start(workspace: Workspace, form: dict, via: str) -> dict:
         opened = {}
     name = (opened.get("name") if isinstance(opened, dict) else None) or slug
     workspace.look_sessions()
-    return {"ok": True, "slug": slug, "said": f"Lem opened the session {name} in agterm, at the top of its workspace. Its agent reads the ask, and takes its type and its track." + asked}
+    return {"ok": True, "slug": slug, "said": f"Lem opened the session {name} in agterm, at the end of its workspace. Its agent reads the ask, and takes its type and its track." + asked}
 
 
 def act_merge(workspace: Workspace, slug: str, form: dict, via: str) -> str:

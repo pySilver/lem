@@ -185,8 +185,9 @@ printf '%s\n' '#!/bin/sh' "exec '$PY' -I '$WORK/plannotator-standin.py' \"\$@\""
 
 # agterm_standin DIR: a stand-in for agtermctl in DIR, for `lem session` (session.py), which keeps agterm's tree in a
 # file: each call one JSON line in CALLS. TREE is a list of sessions, each with its `workspace`; `tree` groups them by
-# workspace, `session new` adds one (S-1, S-2, ...) that runs claude, `session close` takes its --target away, `rename`
-# and `select` change it, `msg read` gives MAILBOX, and the rest answers ok.
+# workspace, `session new` adds one (S-1, S-2, ...) that runs claude at the end of its workspace, as agterm did on
+# 2026-11-23, `session move --to top|bottom` puts its --target first or last of its workspace, `session close` takes
+# its --target away, `rename` and `select` change it, `msg read` gives MAILBOX, and the rest answers ok.
 agterm_standin() {
   mkdir -p "$1"
   {
@@ -214,6 +215,12 @@ elif args[:2] == ["session", "new"]:
                   "surfaces": [{"kind": "left", "paneID": "P-%d" % number}]})
     save()
     print(json.dumps({"result": {"id": "S-%d" % number}}))
+elif args[:2] == ["session", "move"] and "--to" in args:
+    moved = next(node for node in nodes if node["id"] == value("--target"))
+    nodes.remove(moved)
+    first = next((i for i, node in enumerate(nodes) if node["workspace"] == moved["workspace"]), len(nodes))
+    nodes.insert(first if value("--to") == "top" else len(nodes), moved)
+    save()
 elif args[:2] == ["session", "close"]:
     nodes = [node for node in nodes if node["id"] != value("--target")]
     save()
