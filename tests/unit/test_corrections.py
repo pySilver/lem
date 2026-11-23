@@ -166,6 +166,19 @@ class TheMachinesSwitch(unittest.TestCase):
         self.assertIn(f"{lem_state.machine_file()} does not read as TOML", str(raised.exception))
         self.assertEqual(lem_state.machine_file().read_bytes(), b"not toml [\n")
 
+    @unittest.skipIf(os.geteuid() == 0, "root writes a folder that has no write bit")
+    def test_a_home_folder_that_cannot_be_written_is_refused_with_its_fix(self):
+        folder = lem_state.config()
+        folder.mkdir(parents=True)
+        folder.chmod(0o500)
+        try:
+            with self.assertRaises(corrections.QueueError) as raised:
+                corrections.cmd_collect("no")
+        finally:
+            folder.chmod(0o700)
+        self.assertIn(f"{lem_state.machine_file()} was not written", str(raised.exception))
+        self.assertIn("make its folder writable", str(raised.exception))
+
 
 class Calls(ast.NodeVisitor):
     """Each name a function calls, as `module.name(...)` or `name(...)`, under the outermost function

@@ -459,6 +459,8 @@ def cmd_collect(answer: str) -> None:
     collect = answer == "yes"
     try:
         lem_state.write_machine("corrections", {"collect": collect})
+    except OSError as error:
+        raise QueueError(f"{lem_state.machine_file()} was not written ({error.strerror}); make its folder writable, then run this again") from error
     except lem_state.StateError as error:
         raise QueueError(str(error)) from error
     print(json.dumps({"collect": collect, "file": str(lem_state.machine_file())}))
