@@ -95,6 +95,11 @@ flowchart TD
    - `land.py`'s `unread` already says "the criteria changed after the personas' read, by the
      owner's approval N, and the change was not read" when his approval holds other criteria than
      the read did. A unit case pins it for an approval after a change.
+   - The pull request's line of the read (`land.py`'s `read_line`) also counts the change events of
+     task 1 after the read, whatever the text he approved at the end: "the criteria changed N
+     times after the personas' read, from the owner's notes". So a change from A to B and back to A,
+     whose approved text is the one the personas read and which `unread` rightly leaves out, still
+     shows in the pull request. A unit case for that A, B, A run. (Talk question 10.)
    - Files: `skills/lem/scripts/criteria.py`, perhaps `skills/lem/scripts/project.py` (an event's
      form, if `log` checks it), `tests/unit/test_criteria*.py` or a new unit file,
      `tests/unit/test_land*.py` for `unread`, and the criteria block of `tests/lem-settings.sh` for
