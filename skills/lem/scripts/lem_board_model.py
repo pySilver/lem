@@ -1814,7 +1814,7 @@ def held_back(m: Model) -> set[str]:
 
 def waits_of(m: Model) -> list[dict]:
     """The rows of "Waits for you": one for each thing the owner does, as `lem project waiting` lists
-    them (without the retro's proposals, and with the plans he reads), the most pressing first."""
+    them (with the plans he reads), the most pressing first."""
     rows = []
     for t in m.tasks:
         # a task stuck for want of its session: the one row of a merged or dropped task whose cleanup did not run

@@ -40,9 +40,10 @@ its reason.
 2. **Its facts hold.** Each record its `source` cites exists and says what the proposal says it
    does: a task's decisions (`lem decisions list SLUG`), its `report.md`, the event log, a nap's
    waking note, a correction (`lem corrections show ID` while it waits, `lem corrections lessons`
-   once recorded). Its `where` exists, and the rule it would add is not already there: read the
-   file. A proposal whose rule the file already holds, or whose case its records do not show, is
-   refuted with what you read.
+   once recorded). Its `where` is a file that exists, or a new file whose folder exists and that
+   its `body` says it makes; and the rule it would add is not already there: read the file. A
+   proposal whose rule the file already holds, whose new file its `body` does not name as new, or
+   whose case its records do not show, is refuted with what you read.
 3. **It clears the bar of rule 6** of your standing rules, read with the thing the proposal would
    change as the defect: the step it names goes wrong now, in this repository, and the records it
    cites show it. That bar is your one measure of what is worth an item; add no second one. A

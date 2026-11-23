@@ -189,7 +189,10 @@ no lesson by itself.
 8. **The end.** `run-in-background` with `lem session close-job`, as the last step, after the
    reviewer's reply. It closes the session once the owner is not looking at it. A refusal says
    that the session is the owner's (no job started its agent for this run) or a task's: say its
-   line, and the session stays open.
+   line, and the session stays open. Two answers say that there is nothing to close, and the run
+   ends: exit 0 with `"closed": false`, "the session ID is no longer in agterm's tree", and the
+   refusal "no session to close", for a run with no agterm session (a `claude -p` from a plain
+   shell).
 
 ## The correction queue
 
