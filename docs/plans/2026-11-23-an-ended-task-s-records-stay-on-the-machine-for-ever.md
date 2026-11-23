@@ -107,7 +107,12 @@ flowchart TD
    that removed them and its number as the settings give it now: Lem keeps only this record of a
    task once nothing of it happened for `state.keep_days` days, N now, N being the workspace's
    `state.keep_days` (decision 3). The card states the rule and today's number, never a day or a
-   number of days at which these files left, which the page cannot know. `went_tab` and
+   number of days at which these files left, which the page cannot know. The card takes that claim
+   from the task's folder, not from the summary event alone: it says that the other files left only
+   when task 1's function of `lem_artifacts.py` gives no path of the folder outside the small record.
+   When it gives some (a removal the folder's permissions deny, run after run), the card says that
+   N files of it are still there, which `lem project prune` could not remove, and that the server's
+   log says why. `went_tab` and
    the module docstring (line 30) stop saying that its files stay on Artifacts. Two texts that say a
    pruned answered task's `investigation.md` is in its directory say it only while the directory
    holds it: the line "The report is investigation.md in the task directory" of `now_card` in
@@ -116,7 +121,8 @@ flowchart TD
    past the time would post on the issue. The page gets the
    number from the server, which reads the workspace's settings; a settings file that does not read
    is one of the page's problems (`Ctx.problems`, which the board shows), never a number Lem guessed. Tests:
-   the summary card's unit test in `tests/unit/test_board_model.py` (near line 1081), and the prune
+   the summary card's unit test in `tests/unit/test_board_model.py` (near line 1081), with a
+   summarized task whose folder holds the small record only and one that still holds a file more, and the prune
    block of `tests/lem-serve.sh` (from line 122), which runs a real prune on the afternoon of
    `tests/board-showcase.py`: the old task's Done card and its place in the list of older tasks are
    as before, its Overview says that its other files left and names 30 days, its Artifacts tab lists the
