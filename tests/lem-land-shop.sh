@@ -755,6 +755,33 @@ else
 fi
 project --repo "$MB" state mb-careful dropped "the test is over" >/dev/null
 
+# On a base that did not move, an answer with a heading above its verdict is refused once; the second for the same tip and
+# base is a review that calls the owner with no verdict, whatever its lower line says, so the merge agent merges nothing.
+# The task is green, not careful, with the review's careful call, so only the verdict rule stops the merge.
+mb_task mb-heading heading.txt && mb_land mb-heading
+heading_brief=$(land --repo "$MB" merge-review mb-heading)
+heading_tip=$(field 'd["tip"]' <<<"$heading_brief")
+heading_base=$(field 'd["base"]' <<<"$heading_brief")
+printf '%s\n' '## Review' 'Verdict: merge. The change does what its criterion says.' > "$WORK/mb-heading.md"
+heading_exit=0
+heading_first=$(land --repo "$MB" merge-review mb-heading --file "$WORK/mb-heading.md" --tip "$heading_tip" --base "$heading_base" 2>&1) || heading_exit=$?
+heading_second_exit=0
+heading_second=$(land --repo "$MB" merge-review mb-heading --file "$WORK/mb-heading.md" --tip "$heading_tip" --base "$heading_base" 2>&1) || heading_second_exit=$?
+heading_why="the merge agent twice gave no verdict on its first line; its last answer puts another line above its verdict, \`Verdict: merge.\`"
+heading_waits=$(project --repo "$MB" waiting | field '"mb-heading" in [r["task"] for r in d["reviews"]]')
+heading_merge=$(land --repo "$MB" merge mb-heading --by merger --via server --message "fix: mb-heading" 2>&1 || true)
+if [ "$heading_base" = "$(mb_kept mb-heading base d)" ] && [ "$heading_exit" = 1 ] && grep -qF "the merge agent is asked again" <<<"$heading_first" \
+  && [ "$heading_second_exit" = 0 ] && [ "$(field '(d["verdict"], d["calls"], d["why"], d["next"].startswith("it calls the owner"))' <<<"$heading_second")" = "(None, True, '$heading_why', True)" ] \
+  && [ "$(mb_kept mb-heading merge_review '(d["verdict"], d["calls"], d["why"])')" = "(None, True, '$heading_why')" ] && [ "$(mb_kept mb-heading merge_unread d)" = None ] \
+  && [ "$(mb_logged mb-heading merge.review '("verdict" in d, d["calls"])')" = "[(False, True)]" ] \
+  && cmp -s "$WORK/mb-heading.md" "$MB/.lem/state/tasks/mb-heading/merge-review.md" \
+  && [ "$heading_waits" = True ] && grep -qF "the merge review calls the owner" <<<"$heading_merge" && [ "$(status_in "$MB" mb-heading)" = open ]; then
+  pass "on a base that did not move, a first answer with no verdict on its first line is refused and the merge agent is asked again; the second for the same tip and base is written down as a review that calls the owner, with no verdict and a why that names the lower line's verdict, so \"Read the merge review\" waits for him and the merge agent's merge is refused by the verdict rule"
+else
+  fail "a second answer with no verdict on a base that did not move: $heading_first / $heading_second / $heading_waits / $heading_merge"
+fi
+project --repo "$MB" state mb-heading dropped "the test is over" >/dev/null
+
 # A merge on GitHub outside Lem between Lem's look at the base and its merge call: the merged commit's parent is not the
 # base the read covered, and the pull request's text and the task's state say so.
 mb_task mb-race race.txt && mb_land mb-race

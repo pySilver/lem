@@ -333,15 +333,20 @@ landing up as after a cut-off.
      server is there: each `lem` command starts it when none runs.
    - `calls` is true: the merge waits for the owner. A careful change, a request that is not
      green, and every task of a project whose `branch.land` is `owner` always call him, whatever
-     the agent found; so does a review whose verdict is `call`. "Waits for you" shows "Read the
+     the agent found; so does a review whose verdict is `call`, and a second answer with no verdict
+     on a base that did not move (below). "Waits for you" shows "Read the
      merge review", and the review is the first card of the task on the board. Tell him in one line
      with its `why`, and wait: his merge wakes this session (step 8). A fresh session for the wait
      would cost a fresh start and buy nothing.
 
    A first line with no verdict is refused: start the agent once more. On a moved base, so is a
-   second line with no call on the move, or a call with no sentence of why. A second answer of
-   that brief that cannot be recorded is recorded as `another round`, with that reason as its
-   `base_why`: the checks decide, and the owner is not asked. A merge agent that gives no answer
+   second line with no call on the move, or a call with no sentence of why. There a second answer
+   of that brief that cannot be recorded is recorded as `another round`, with that reason as its
+   `base_why`: the checks decide, and the owner is not asked. On a base that did not move, a second
+   answer of that brief with no verdict is recorded as a review that calls the owner, with no
+   verdict whatever a lower line of it says, and a `why` that names the verdict of that line, if
+   any: "Waits for you" shows "Read the merge review", you start no merge agent again for that tip
+   and base, and its `next` says what follows, as for a read whose verdict is `call`. A merge agent that gives no answer
    twice on a moved base (`ask-merger`) leaves nothing to record: land the task again with the
    same steps, and tell the owner nothing of a read. A proposal made again keeps the merge review
    of the tip proposed before in two cases, each with no commit after it: a rebase that met no
