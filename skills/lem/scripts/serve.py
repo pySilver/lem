@@ -100,11 +100,19 @@ listed as not reachable, with when it last answered, and never slows a page.
                                `?task=SLUG` watches that task's files too
     POST /HOST/NAME/agterm/select
                                the jump to a task's session, which only agterm does, on the main listener only (below)
-    GET /HOST/NAME/tasks/SLUG/merge, /park
-                               the step of an act that asks first, as the task's panel: a merge's confirm step, a park
-    POST /HOST/NAME/tasks/SLUG/approve, /merge, /park, /session
+    GET /HOST/NAME/tasks/SLUG/merge, /park, /drop
+                               the step of an act that asks first, as the task's panel: a merge's confirm step, a park,
+                               a drop
+    GET /HOST/NAME/tasks/SLUG/card/PAGEID
+                               the step of a card of the task's session, as the task's panel, which frames the card's page
+    GET /HOST/NAME/tasks/SLUG/cards/PAGEID/
+                               the card's own page as `lem-ask` built it, under the card's policy (`card_page`)
+    POST /HOST/NAME/tasks/SLUG/approve, /merge, /park, /session, /answer
                                the owner's acts on a task (below), on the main listener and through the door; a 303 to
                                the task's page, whose `?note=` says what came of the act
+    POST /HOST/NAME/tasks/SLUG/cards/PAGEID/answer
+                               the owner's answer to a card, which its page posts as JSON (`card_answer`), through the
+                               same checks; the reply is JSON, `{"said": ...}`
     GET /HOST/NAME/new         the form of a new task in the owner's words ("+")
     POST /HOST/NAME/start      a new task, from that form (`words`) or from a backlog item (`item`, its path from the
                                root of the main checkout), through the same checks as an act on a task; a 303 to the
@@ -955,7 +963,8 @@ def agterm_act(workspace: "Workspace", act: str, asked: dict) -> str:
 
 # ---- the board's acts: the owner's word from a page ----
 
-# The acts a page posts to `/HOST/NAME/tasks/SLUG/ACT`, each the command a session runs on his word.
+# The acts a page posts to `/HOST/NAME/tasks/SLUG/ACT`, each the command a session runs on his word, or,
+# for `answer`, the record of his answer to a row, which the task's session acts on (`act_answer`).
 BOARD_ACTS = ("approve", "merge", "park", "session", "answer")
 # land.py's step that merges an open pull request on the owner's word: `lem land merge SLUG --by owner`.
 MERGE_STEP = "merge"

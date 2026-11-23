@@ -225,8 +225,9 @@ def thing_of(row: dict, m, bm, whole=None) -> dict | None:
 
 def things_of(rows: list[dict], m, bm, whole=None) -> dict:
     """The things of a workspace's rows, by key: none for a merge review (its merge's thing carries it),
-    none for a `lem-ask` card of a task's session, which the board answers, only the session's own note for a task that has a row for its missing, deaf or stopped
-    session, and none for a row whose session cannot be told yet (`thing_of`)."""
+    none for a `lem-ask` card of a task's session, which the board answers, only the session's own note
+    for a task that has a row for its missing, deaf or stopped session, and none for a row whose session
+    cannot be told yet (`thing_of`)."""
     without = {r["t"].slug for r in rows if r["kind"] in ("session", "stopped")}
     out = {}
     for row in rows:

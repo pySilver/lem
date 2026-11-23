@@ -605,8 +605,7 @@ class Model:
     inbox: dict | None = None
     # the open `lem-ask` cards of each task, by its slug, as the files of its folder say (`cards_look`):
     # each card the log names with no end file, with its page, prompt, time and the agterm session that
-    # put it up; None while nothing read the files (`lem project waiting`, a unit case), and then no card
-    # has a row
+    # put it up; None while nothing read the files (a unit case), and then no card has a row
     cards: dict | None = None
     # the answers on record of each task's row that the board answers with its own buttons (`answers_look`),
     # by its slug, the record by the row's key (lem_answers); None while nothing read the files, and then

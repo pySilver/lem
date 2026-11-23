@@ -59,7 +59,8 @@ from lem_html import Markup, h, join, page
 TABS = [("overview", "Overview"), ("criteria", "Criteria and decisions"), ("checks", "Checks and review"), ("timeline", "Timeline"), ("artifacts", "Artifacts")]
 TAB = dict(TABS)
 # The steps of the board's acts that ask first, each a page of the panel at /tasks/SLUG/ACT, whose form
-# posts the act (serve.py `board_act`): a merge's confirm step, and a park with its one line of why.
+# posts the act (serve.py `board_act`): a merge's confirm step, a park with its one line of why, and a drop
+# with the owner's note, whose Confirm posts his Drop to the answer route (serve.py `act_answer`).
 ACT_TABS = {"merge": "Merge", "park": "Park", "drop": "Drop"}
 # How a note of an act's result reads (serve.py `NOTES`): its look, its icon and its first word.
 KIND_ICON = {"markdown": "file-lines", "text": "file", "json": "brackets-curly", "jsonl": "list", "log": "terminal", "html": "globe", "binary": "file-zipper", "image": "image"}
