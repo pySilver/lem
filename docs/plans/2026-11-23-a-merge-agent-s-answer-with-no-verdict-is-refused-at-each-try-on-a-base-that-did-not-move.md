@@ -14,7 +14,7 @@ Size: full, because the rule is one, but it sits in the step that decides whethe
    5. The same command now writes the answer down as the merge review, which calls the owner and says why in plain words: the merge agent twice put another line above its verdict, and its answer says `Verdict: merge.` lower down.
    6. "Waits for you" shows "Read the merge review" for gift-note, and the board's server does not merge it.
 2. On a base that moved, a second answer that cannot be recorded is still recorded as another round of the checks, and the owner is not asked.
-   - no test: the change keeps behavior; the suite holds it
+   - no test: the change keeps behavior, so a test of it passes on the base too; the unit case of task 1 for a second answer with no verdict on its first line on a moved base holds it, which `mb-mute` in `tests/lem-land-shop.sh` does not (it sends a verdict and no base call)
 3. The landing's step of the merge agent, and the agent's own part of the harness, say what follows a second refused answer on a base that did not move.
    - no test: the change is two sentences of a stage file and of a harness file.
 
@@ -46,11 +46,23 @@ flowchart TD
    says what the first answer held beyond that. When `merger_refusal` names a reason too (the
    settings, a careful or not green request), that reason follows after a semicolon. That lower
    line never becomes the verdict: the owner decides. Its `next` is the one of a review that calls the owner. The first such answer is refused as today, and
-   the moved base keeps its rule. A test in `tests/unit/test_land.py` for the rule where it can be a
-   call of a function, and a check in `tests/lem-land-shop.sh` beside the check of the first refused
-   answer (near line 127) for the journey: two answers with no verdict on a base that did not move,
-   the second exits 0 with `calls` true, `lem project waiting` lists the task's merge review, and
-   `lem land merge SLUG --by merger --via server` is refused. In `skills/lem/stages/land.md`, step 7
+   the moved base keeps its rule. The choice of what an answer that cannot be recorded leads to
+   (asked again, another round, or a review that calls the owner) is a function of its facts (the
+   verdict, whether the base moved, the base call, the count of tries for that tip and base), so
+   that `tests/unit/test_land.py` calls it with each input: on a base that did not move, the first
+   answer with no verdict is asked again and the second calls the owner; on a moved base, the
+   second answer with no verdict on its first line is another round, as is the second with a
+   verdict and no base call (the `mb-mute` check of `tests/lem-land-shop.sh` holds only that last
+   one). The journey is one check in `tests/lem-land-shop.sh`, on a task of the moved-base shop
+   (`mb_settings agent squash`, near line 605), never the `first-change` fixture, whose
+   `branch.land = "owner"` refuses the merge agent's merge before any verdict is read: a green
+   task that is not careful, whose review made the careful call, on a base that did not move.
+   `## Review` then `Verdict: merge.` twice: the first exits 1 with "the merge agent is asked
+   again", the second exits 0 with `verdict` null and `calls` true in its JSON, in the kept
+   `merge_review` and with no `verdict` in its `merge.review` event; `lem project waiting` lists the
+   task's merge review; and `lem land merge SLUG --by merger --via server` is refused with "the
+   merge review calls the owner", the refusal of the verdict rule, since every other rule of
+   `merger_refusal` lets that task through. In `skills/lem/stages/land.md`, step 7
    (the paragraph that starts "A first line with no verdict is refused"), and in
    `skills/lem/harness/claude-code/ask-merger.md` (its last paragraph), one sentence each on what
    follows the second refused answer on a base that did not move, and names the "Read the merge
