@@ -10,10 +10,23 @@ Size: full, because the board's model, the list of what waits for the owner and 
    1. one-home-folder-for-lem is held with "the criteria wait for the owner" at 11:39 UTC.
    2. At 11:42 you press "Discuss in chat" on the criteria page, and the session's turn starts.
    3. At 11:43 the board shows the task as Lem's work, and "Waits for you" does not list it.
+   - test: `python3 -B -m unittest tests.unit.test_board_model.SessionAtWork.test_criterion_1_while_the_turn_runs_the_task_is_lems_work_and_no_row` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_model.SessionAtWork.test_lem_project_waiting_lists_the_task_only_once_the_turn_ended` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_push.Sending.test_no_push_goes_for_a_held_task_while_its_session_works_and_one_when_its_turn_ended` in `tests/unit/test_push.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_task.Overview.test_the_panel_says_no_waits_for_while_the_tasks_session_works_on_his_answer` in `tests/unit/test_board_task.py`
+   - test: `python3 -B -m unittest tests.unit.test_signs.Turn.test_a_prompt_and_a_tools_result_run` in `tests/unit/test_signs.py`
 2. When the session's newest turn has ended, the held task waits for you again: at 11:43:33 UTC the session asks you one question in the terminal and its turn ends, and the task is a row of "Waits for you" again. A page that is up counts the same way: its turn has ended, so the task waits for you.
+   - test: `python3 -B -m unittest tests.unit.test_board_model.SessionAtWork.test_criterion_2_when_the_turn_ends_on_the_same_model_the_row_is_back_since_11_39` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_signs.Turn.test_end_turn_after_a_tools_result_ended` in `tests/unit/test_signs.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_task.Overview.test_a_breakers_large_card_sends_him_to_its_document_only_while_the_breaker_waits_for_him` in `tests/unit/test_board_task.py`
 3. When Lem cannot tell whether the session's turn runs (the task has no live session, or Lem finds no transcript of it), the held task shows as it does today: a task with no transcript Lem can read stays under "Waits for you".
+   - test: `python3 -B -m unittest tests.unit.test_board_model.SessionAtWork.test_criterion_3_with_no_turn_lem_can_read_the_task_waits_as_today` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_signs.ReadSigns.test_no_turn_when_the_signs_do_not_read_or_no_record_decides` in `tests/unit/test_signs.py`
 4. The wait counts from the held or blocked block that named this wait, on the row, the pill and "In this state": one-home-folder-for-lem's interview block is at 09:55 UTC and its criteria block at 11:39 UTC, so at 11:44 the row says "since 12:39" local, "5m", not "since 10:55", "1h 48m".
+   - test: `python3 -B -m unittest tests.unit.test_board_model.WaitStart.test_the_criteria_wait_counts_from_its_own_block_on_the_row_the_pill_and_in_this_state` in `tests/unit/test_board_model.py`
 5. A held or blocked block written again with the same first line keeps the clock of its wait: a session that opens again at 12:10 UTC and writes "held: the criteria wait for the owner" once more leaves the wait at 11:39. A task in any other status keeps today's rule: a building task that moves from "task 1 of 3" to "task 2 of 3" counts from when it started to build.
+   - test: `python3 -B -m unittest tests.unit.test_board_model.WaitClock.test_the_same_held_line_written_again_by_a_new_session_keeps_the_wait_at_11_39` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_model.WaitClock.test_a_blocked_task_counts_from_the_block_that_named_its_wait` in `tests/unit/test_board_model.py`
 
 ## How it works
 
