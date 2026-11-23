@@ -11,8 +11,15 @@ Size: full, because the change decides when the board offers the owner's merge o
    2. The owner clicks Merge and confirms it.
    3. `main` moved to `d48c6a9b`, so Lem refuses the merge and keeps the owner's merge standing.
    4. The task's page shows no "Merge #60" button, and the note "Your merge stands. It goes through when the merge agent's read of the new base says safe." It does not say "Not done."
+   - test: `python3 -B -m unittest tests.unit.test_board_model.MovedBase.test_a_merge_the_moved_base_refused_is_not_offered_again_until_the_next_proposal tests.unit.test_board_model.MovedBase.test_his_merge_stands_from_the_refusal_through_the_servers_merge_and_its_sentence_follows_the_span` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_task.Overview.test_while_his_merge_stands_the_page_offers_no_merge_and_its_step_says_it_stands` in `tests/unit/test_board_task.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_pages.StandsNote` in `tests/unit/test_board_pages.py`
+   - test: `python3 -B -m unittest tests.unit.test_serve.Duties.test_his_merge_that_a_moved_base_refused_stands_and_its_note_says_so` in `tests/unit/test_serve.py`
 2. A press of Merge that reaches the server while the owner's merge stands, from a page opened before it, starts no second merge: the answer says that his merge stands, and Lem logs no second refusal of pull request 60.
+   - test: `python3 -B -m unittest tests.unit.test_serve.Duties.test_a_second_press_while_his_merge_stands_starts_nothing_and_says_it_stands tests.unit.test_serve.Duties.test_a_press_whose_request_read_the_model_before_his_refusal_runs_no_second_merge` in `tests/unit/test_serve.py`
 3. When the moved base refused the merge agent's own merge, and the owner never pressed Merge, the Merge button stays on the task's page for him.
+   - test: `python3 -B -m unittest tests.unit.test_board_model.MovedBase.test_a_merge_the_moved_base_refused_is_not_offered_again_until_the_next_proposal` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_task.Overview.test_while_his_merge_stands_the_page_offers_no_merge_and_its_step_says_it_stands` in `tests/unit/test_board_task.py`
 
 ## How it works
 
