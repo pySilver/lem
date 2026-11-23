@@ -1,6 +1,7 @@
 // A mark moved by the keys over the items of a view: the cards of the kanban, in their columns, and the
-// rows of "Waits for you", one group whose link is each row's verb (on a page for this Mac it may carry
-// the agterm controller's jump, which then takes the click and Enter alike). J or
+// rows and the stacks of "Waits for you", one group whose link is each row's verb (on a page for this Mac it may carry
+// the agterm controller's jump, which then takes the click and Enter alike) or each stack's summary, whose
+// Enter is the browser's own, which opens and closes it. J or
 // the down arrow moves it to the next item of its group, K or the up arrow to the one before; H or the
 // left arrow and L or the right arrow to the next group with an item you can see (a folded column and an
 // empty one are passed over), to its item at the height of the marked one or the closest to it. With no

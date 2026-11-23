@@ -53,12 +53,15 @@ start a new task.
 
 A fresh merge agent reads each pull request, writes `merge-review.md`, and merges a green one that
 is not careful. It calls you for every other one, and when it finds a problem. With
-`branch.land = "owner"`, it calls you for each one. Then "Waits for you" shows "Read the merge
-review". [The pull request](pull-request.md) tells more.
+`branch.land = "owner"`, it calls you for each one. Then "Waits for you" shows one stack for the
+task, with "Read the merge review" and "2 things": the review, and the merge of the pull request.
+[The pull request](pull-request.md) tells more.
 
 ## What waits for you
 
-Type `/lem`. Lem opens the board, and gives one list in this order:
+Type `/lem`. Lem opens the board, and gives one list. Each task that waits for you is one entry,
+with the things that you do for it under it. A task has the place of its first thing, in this
+order:
 
 1. the breakers, each task that needs a session and has none, and each task whose session
    stopped: "Open a session" starts a fresh agent;
@@ -77,15 +80,18 @@ criteria, or the personas read them, it is not there. While the session of a tas
 answer, the task is not on the list either. It comes back when the session stops and waits for you
 again. When Lem cannot read the session, the task stays on the list.
 
-The time on a row starts with the step that started its wait. For example, the acceptance criteria
-count from the time that they wait for your yes, not from the start of the interview.
+The time of a thing starts with the step that started its wait. For example, the acceptance
+criteria count from the time that they wait for your yes, not from the start of the interview.
 
 What the night and the retro propose is not on the list. A reviewer agent reads each proposal
 first, and you see only the proposals that pass, as items of the board's
 [**Backlog**](board.md#the-reviewers-items) view.
 
-The [board](board.md) shows the same rows, in the same order, in its view **Waits for you**. When
-Lem cannot read the sessions of agterm, the list says so.
+The [board](board.md) shows the same list, in the same order, in its view **Waits for you**. A
+task with one thing is one row. A task with two or more things is one stack: its title, its first
+thing, and the number of its things. Click the stack to open it. Each thing then shows as a row of
+its own, with its time and its button. The counts of the board count each task one time. When Lem
+cannot read the sessions of agterm, the list says so.
 
 <p align="center">
   <picture>
@@ -111,7 +117,7 @@ you are there. A task of `/lem night` always runs without you, to its pull reque
 
 ### Answer from the Inbox
 
-While you are away, each row of what waits for you also goes to the
+While you are away, each thing that waits for you also goes to the
 [Plannotator](https://github.com/backnotprop/plannotator) Inbox on this computer, in a thread with
 the name of the task. A question there has the same answers as the card in the session of the
 task. On your phone, the [page of the task](board.md#the-board-on-your-phone) links to the thread.

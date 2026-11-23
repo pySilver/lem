@@ -307,11 +307,16 @@ unanswered for 10 minutes); and a task whose live session showed no sign of work
 message and the restart, or, for a session whose signs of work Lem cannot read, no event of the task
 after the status message alone, the stop the board server logged (`stopped`, with `open`, the command
 that opens a fresh session beside it, and `unread`, true for such a session). Each of these has the task's `task`, `ask`, `since`, `night` and its
-state's first `line`. `rows` is the board's rows in its order, each `{key, kind, task}`. `sessions`
+state's first `line`. `rows` is the board's rows in its order, each `{key, kind, task}`. `tasks` is the
+same rows grouped by task, as the board's stacks (`lem_board_model.wait_stacks`): one entry for each
+task in the place of its first row, with the task's `task`, `ask`, `since`, `night` and `line`, and
+`things`, each of its rows in their order as `{key, kind, verb}`, `verb` the row's own words ("Read
+the merge review", "Merge the pull request #73"). `sessions`
 says whether the sessions are known (`known`) and, when not, why (`said`): then no row of
 `no_session` can show. `forge.looked` is the time of the server's last look at the forge, or null.
-`count` is the rows. The proposals of the night and the retro are no row and not counted: they reach
-the owner only as the reviewer's items on the board's "Backlog" view. A task's `night` is the date of the
+`count` is the tasks of `tasks`, each once however many things of it wait. The proposals of the night
+and the retro are no row and not counted: they reach the owner only as the reviewer's items on the
+board's "Backlog" view. A task's `night` is the date of the
 night that opened it, or null; its report is `night/DATE.md` in the state folder. `night_report` is the
 report of last night, today's or yesterday's, or null; it waits for no answer and is not counted,
 and neither is `parked`, each task the owner put aside, with the line that says why.
@@ -3397,7 +3402,8 @@ def first_line_of(task: dict) -> str | None:
 def cmd_waiting(root: Path) -> dict:
     """Everything that waits for the owner, from the files that hold it: nothing here decides or writes.
     Its rows are the rows of the board's "Waits for you" (`lem_board_model.waits_of`), so that the
-    terminal and the phone list the same; each group holds the rows of one kind."""
+    terminal and the phone list the same; each group holds the rows of one kind, and `tasks` holds them
+    grouped by task, as the board's stacks (`lem_board_model.wait_stacks`)."""
     # a broken settings file is an error here too
     settings = load(root)
     tasks = {task["slug"]: task for task in read_tasks(root, settings)}
@@ -3450,6 +3456,11 @@ def cmd_waiting(root: Path) -> dict:
         "stopped": [brief(row, open=f"lem session open {row['t'].slug} --why stopped", unread=row["unread"]) for row in kind("stopped")],
         # the board's rows in its order, each by its key (`waits_of`): the rows the phone shows
         "rows": [{"key": row["key"], "kind": row["kind"], "task": row["t"].slug} for row in rows],
+        # the same rows grouped by task, as the board draws them (`wait_stacks`): one entry for each task, in the
+        # place of its first row, with each of its things in its order and in the row's own words
+        "tasks": [{**waiting_brief(tasks[stack["t"].slug]), "line": first_line_of(tasks[stack["t"].slug]),
+                   "things": [{"key": row["key"], "kind": row["kind"], "verb": bm.wait_say(row)["verb"]} for row in stack["rows"]]}
+                  for stack in bm.wait_stacks(rows)],
         # what the list knows of the task sessions, which the rows of `no_session` need, and the forge's last look
         "sessions": {"known": unknown is None, "said": unknown},
         "forge": {"looked": (bm.forge_look(state_root(root)) or {}).get("looked")},
@@ -3461,7 +3472,8 @@ def cmd_waiting(root: Path) -> dict:
     found["night_report"] = {"date": report.stem, "file": str(report)} if report else None
     # the tasks the owner put aside: no row of what waits, and not counted, so a status can name them apart
     found["parked"] = [{**waiting_brief(task), "line": first_line_of(task)} for task in tasks.values() if task["status"] == PARKED]
-    found["count"] = len(rows)
+    # a task counts once, however many of its things wait, as each count of the board does
+    found["count"] = len(found["tasks"])
     return found
 
 

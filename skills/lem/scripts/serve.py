@@ -65,7 +65,7 @@ HEAD pass. A request that another machine's server forwarded (`Lem-Hop`) is neve
 lists no peer, so two machines that joined each other do not loop. A machine that does not answer is
 listed as not reachable, with when it last answered, and never slows a page.
 
-    GET /                      the workspaces, each with how many things wait for the owner and how many
+    GET /                      the workspaces, each with how many tasks wait for the owner and how many
                                tasks build and land; with one workspace, a redirect to its board
     GET /api/workspaces        the same as JSON, `[{"name", "path", "url", "waits", "building", "checks", "running", "host"}]`;
                                a workspace of a machine that does not answer has `"reachable": false`, `answered`, `said`
@@ -650,9 +650,9 @@ class Workspace:
         return {**record, "base": branch.get("base"), "history": branch.get("history")}
 
     def count(self) -> dict:
-        """How many things wait for the owner (the rows of the board's "Waits for you"), how many tasks
-        build and how many are in their checks and review (`landing`), and the two together (`running`),
-        from the board's model, at most once in REFRESH_SECONDS."""
+        """How many tasks wait for the owner (the entries of the board's "Waits for you", its rows grouped
+        by task, `wait_stacks`), how many tasks build and how many are in their checks and review
+        (`landing`), and the two together (`running`), from the board's model, at most once in REFRESH_SECONDS."""
         if time.monotonic() - self.counted < REFRESH_SECONDS:
             return self.counts
         try:
@@ -662,7 +662,7 @@ class Workspace:
         else:
             building = sum(t.status == "building" for t in model.tasks)
             checks = sum(t.status == "landing" for t in model.tasks)
-            self.counts = {"waits": len(bm.waits_of(model)), "building": building, "checks": checks, "running": building + checks}
+            self.counts = {"waits": len(bm.wait_stacks(bm.waits_of(model))), "building": building, "checks": checks, "running": building + checks}
             if self.reader.problems:
                 self.counts["problem"] = "; ".join(self.reader.problems.values())
         self.counted = time.monotonic()

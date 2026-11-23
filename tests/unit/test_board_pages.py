@@ -9,6 +9,7 @@ import importlib
 import json
 import re
 import sys
+import types
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -262,8 +263,8 @@ class WaitsVerb(unittest.TestCase):
         html = str(pages.waits_page(pages.Ctx(host="h", workspace="w", model=m, asset=lambda name: name)))
         listing = re.search(r'<div class="waits-list" id="waits-list"[^>]*>', html)
         self.assertIsNotNone(listing)
-        for attr in ('data-controller="cursor"', 'data-cursor-item-value="article.wrow"', 'data-cursor-link-value="a.wr-verb"',
-                     'data-cursor-pick-value="a.wr-verb, a.wr-task"', 'data-action="keydown@window-&gt;cursor#key click-&gt;cursor#pick"'):
+        for attr in ('data-controller="cursor"', 'data-cursor-item-value="article.wrow, details.wstack"', 'data-cursor-link-value="a.wr-verb, summary.wst-head"',
+                     'data-cursor-pick-value="a.wr-verb, a.wr-task, summary.wst-head"', 'data-action="keydown@window-&gt;cursor#key click-&gt;cursor#pick"'):
             self.assertIn(attr, listing[0])
         self.assertNotIn("data-cursor-group-value", listing[0])
         line = re.search(r'<div class="keys" id="waits-keys">(.*?)</div>', html)
@@ -277,6 +278,106 @@ class WaitsVerb(unittest.TestCase):
         html = str(pages.waits_page(ctx_of(ended(2))))
         self.assertIn("Nothing waits for you.", html)
         self.assertNotIn('id="waits-keys"', html)
+
+
+class WaitStack(unittest.TestCase):
+    """A task with two or more things that wait for the owner is one stack of "Waits for you", and each count
+    counts it once (criteria 1 to 4 of docs/plans/2026-11-23-one-row-for-a-merge-call.md): "Logo eyes signal
+    and favicon" has its merge review that calls him since 4m 22s and its merge since 7m 01s, and "Board
+    answers a card" its interview since 33 minutes."""
+
+    LOGO, CARD = "logo-eyes-signal-and-favicon", "board-answers-a-card"
+
+    def events(self, *, card: bool = True) -> list:
+        def at(minutes: float) -> str:
+            return (START + timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        # NOW is minute 120: the pull request opened at 112:59 (7m 01s), the review came at 115:38 (4m 22s)
+        logo = [{"ts": at(112), "event": "proposed", "task": self.LOGO, "green": False, "not_green": ["a test was deleted"], "tip": "abc123456"},
+                state(120 - 421 / 60, "open", "pull request https://github.com/acme/shop/pull/73", task=self.LOGO),
+                {"ts": at(120 - 262 / 60), "event": "merge.review", "task": self.LOGO, "verdict": "call", "calls": True,
+                 "why": "Verdict: call. It redraws the owner's logo.", "by": "claude", "tip": "abc123456"}]
+        return [*([state(87, "held", "the interview waits for the owner", task=self.CARD)] if card else []), *logo]
+
+    def page(self, **kw) -> str:
+        m = bm.derive(self.events(**kw), [], NOW)
+        return str(pages.waits_page(pages.Ctx(host="h", workspace="w", model=m, asset=lambda name: name, can_act=True)))
+
+    @staticmethod
+    def stack(html: str, slug: str) -> str:
+        found = re.search(rf'<details class="wstack[^"]*" id="wait-stack-{slug}"[^>]*>.*?</details>', html, re.S)
+        return found[0] if found else ""
+
+    @staticmethod
+    def words(html: str) -> str:
+        return " ".join(re.sub(r"<[^>]+>", " ", html).split())
+
+    def test_a_task_of_two_things_is_one_closed_stack_in_the_place_of_its_first_thing(self):
+        html = self.page()
+        stack = self.stack(html, self.LOGO)
+        self.assertTrue(stack, "no stack of the logo's task")
+        opening = re.match(r"<details[^>]*>", stack)[0]
+        self.assertNotIn(" open", opening)
+        self.assertIn(f'data-task="{self.LOGO}"', opening)
+        summary = re.search(r'<summary class="wrow wst-head"[^>]*>(.*?)</summary>', stack, re.S)
+        self.assertIsNotNone(summary)
+        self.assertEqual(self.words(summary[1]), "Logo eyes signal and favicon 2 things Read the merge review · Waits for the merge")
+        self.assertNotIn("<a ", summary[1])
+        # the entries of the list in their order: the interview's row, then the stack where the merge review's row stood
+        listing = html.split('id="waits-list"', 1)[1].split('id="parked"', 1)[0]
+        self.assertEqual(re.findall(r'<(?:article class="wrow[^"]*"|details class="wstack[^"]*") id="(wait-[a-z0-9-]+)"', listing),
+                         [f"wait-held-{self.CARD}", f"wait-stack-{self.LOGO}", f"wait-review-{self.LOGO}", f"wait-merge-{self.LOGO}"])
+        self.assertEqual(listing.count('<details class="wstack'), 1)
+        cursor = re.search(r'<div class="waits-list" id="waits-list"[^>]*>', html)[0]
+        for attr in ('data-cursor-item-value="article.wrow, details.wstack"', 'data-cursor-link-value="a.wr-verb, summary.wst-head"',
+                     'data-cursor-pick-value="a.wr-verb, a.wr-task, summary.wst-head"'):
+            self.assertIn(attr, cursor)
+        self.assertEqual(self.words(re.search(r'<div class="keys" id="waits-keys">(.*?)</div>', html)[1]), "J K ↑ ↓ move · Enter go or open")
+
+    def test_the_stack_holds_each_thing_as_its_own_row_with_its_time_and_the_merge_button_on_the_merge_row(self):
+        stack = self.stack(self.page(), self.LOGO)
+        rows = dict(re.findall(r'<article class="wrow[^"]*" id="wait-([a-z]+)-' + self.LOGO + r'"[^>]*>(.*?)</article>', stack, re.S))
+        self.assertEqual(list(rows), ["review", "merge"])
+        tops = {kind: self.words(re.search(r'<div class="wr-top">(.*?)</div>', row, re.S)[1]) for kind, row in rows.items()}
+        self.assertEqual(tops, {"review": "Read the merge review 4m 22s", "merge": "Merge the pull request #73 7m 01s"})
+        self.assertIn("Merge…", rows["merge"])
+        self.assertNotIn("Merge…", rows["review"])
+        self.assertNotIn("Merge…", re.search(r"<summary.*?</summary>", stack, re.S)[0])
+        self.assertIn("acme/shop#73", rows["merge"])
+
+    def test_a_task_of_one_thing_is_its_plain_row_as_today(self):
+        html = self.page()
+        row = re.search(rf'<article class="wrow[^"]*" id="wait-held-{self.CARD}"[^>]*>(.*?)</article>', html, re.S)
+        self.assertIsNotNone(row)
+        self.assertEqual(self.words(re.search(r'<div class="wr-top">(.*?)</div>', row[1], re.S)[1]), "The interview waits for you 33m")
+        self.assertFalse(self.stack(html, self.CARD))
+        self.assertNotIn("1 thing", html)
+        self.assertNotIn(f'id="wait-stack-{self.CARD}"', html)
+        # a page whose every task has one thing has no stack and the keys of today
+        alone = str(pages.waits_page(pages.Ctx(host="h", workspace="w", model=bm.derive(self.events()[:1], [], NOW), asset=lambda name: name)))
+        self.assertNotIn("<details class=\"wstack", alone)
+        self.assertEqual(self.words(re.search(r'<div class="keys" id="waits-keys">(.*?)</div>', alone)[1]), "J K ↑ ↓ move · Enter go")
+        side = re.search(r'<div id="waits" class="wlist[^"]*"[^>]*>(.*?)</div><div class="side-head">Views', alone, re.S)[1]
+        self.assertNotIn("wi-n", side)
+
+    def test_each_count_counts_a_stack_once(self):
+        html = self.page()
+        self.assertRegex(html, r'<div class="side-head">Waits for you<em class="you" title="3 things you do, in 2 tasks">2</em></div>')
+        self.assertRegex(html, r'id="view-waits"[^>]*>.*?<em>2</em></a>')
+        self.assertRegex(html, r'id="rail-waits" title="2 tasks wait for you"><svg[^>]*>.*?</svg><em class="you">2</em></a>')
+        self.assertRegex(html, r'<a class="m-waits you" href="[^"]+" aria-label="2 tasks wait for you: open the list"><svg[^>]*>.*?</svg><span>2</span></a>')
+        self.assertIn("<title>Waits for you · Lem · w · 0 build · 2 for you</title>", html)
+        self.assertIn("2 tasks wait for you, the most pressing first", html)
+        # the sidebar: one row for each task, the logo's its first thing's with how many it has
+        side = re.search(r'<div id="waits" class="wlist[^"]*"[^>]*>(.*?)</div><div class="side-head">Views', html, re.S)[1]
+        self.assertEqual(re.findall(r'<a class="wi[^"]*" id="(w-[a-z0-9-]+)"', side), [f"w-held-{self.CARD}", f"w-review-{self.LOGO}"])
+        self.assertIn('<span class="wi-n">2 things</span>', side)
+        self.assertEqual(side.count("wi-n"), 1)
+        # the server's count of the workspace, which /api/workspaces gives
+        m = bm.derive(self.events(), [], NOW)
+        space = types.SimpleNamespace(counted=float("-inf"), counts={}, model=lambda: m, reader=types.SimpleNamespace(problems={}))
+        self.assertEqual(serve.Workspace.count(space)["waits"], 2)
+        self.assertEqual(len(bm.waits_of(m)), 3)
 
 
 class Search(unittest.TestCase):

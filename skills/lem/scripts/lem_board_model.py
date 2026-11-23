@@ -5,6 +5,7 @@ one for the workspace, which the pages of `lem_board_pages` draw.
     model.tasks                 every task with a state block or a session, in the order of its first event
     model.lane["you"]           the tasks of one column of the kanban
     waits_of(model)             one row for each thing the owner does
+    wait_stacks(rows)           those rows grouped by task, as "Waits for you" draws and counts them
     card_line(task, lane)       what a card says
     now_head(task)              what the large card of a task says it does now
     time_of(task, end, meta)    where the time of one task went: its spans, marks and stages
@@ -1850,6 +1851,22 @@ def waits_of(m: Model) -> list[dict]:
         if t.merge_wait == "owner":
             rows.append({"kind": "merge", "key": f"merge:{t.slug}", "t": t, "c": None, "since": t.since, "conflict": conflicts(t, m.seen)})
     return sorted(rows, key=lambda w: (WAIT_ORDER[w["kind"]], w["since"]))
+
+
+def wait_stacks(rows: list[dict]) -> list[dict]:
+    """The rows of "Waits for you" (`waits_of`) grouped by task, as the view and its counts draw them: one
+    group for each task, `{"t": task, "rows": [...]}`, in the place of its first row, its rows in their
+    order. A group of one row is that row; a group of two or more is one stack that opens. The rows stay
+    one for each thing: the pushes and the Inbox read them by their keys."""
+    stacks: list[dict] = []
+    by_slug: dict[str, dict] = {}
+    for w in rows:
+        stack = by_slug.get(w["t"].slug)
+        if stack is None:
+            stack = by_slug[w["t"].slug] = {"t": w["t"], "rows": []}
+            stacks.append(stack)
+        stack["rows"].append(w)
+    return stacks
 
 
 def answered_in_session(w: dict, m: Model) -> bool:

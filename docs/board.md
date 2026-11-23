@@ -17,7 +17,7 @@ The first page lists the repositories that use Lem, each with what waits for you
 | View | Key | It answers |
 | --- | --- | --- |
 | **Tasks** | `T` | Who acts next? One column for each actor. |
-| **Waits for you** | `W` | What must I do? The rows of [what waits for you](when-lem-needs-you.md#what-waits-for-you). |
+| **Waits for you** | `W` | What must I do? [What waits for you](when-lem-needs-you.md#what-waits-for-you): one row for each task, and one stack for a task with two or more things. |
 | **Backlog** | `B` | What waits for later? The [reviewer's items](#the-reviewers-items), then the backlog in groups by worth. |
 | **Activity** | `A` | Where did the time go? A chart of each task, and every event. |
 
@@ -26,7 +26,7 @@ any task or backlog item by its title.
 
 On **Tasks**, `J`, `K`, `↑` and `↓` move a mark in a column, and `H`, `L`, `←` and `→` to the next
 column. On **Waits for you**, `J`, `K`, `↑` and `↓` move it. `Enter` opens the marked task, or the
-session in agterm where you answer its row.
+session in agterm where you answer its row. On a marked stack, `Enter` opens or closes the stack.
 
 A task opens in a panel, or as a page on a phone. The keys `1` to `5` open its tabs, and `Escape`
 closes the panel:
