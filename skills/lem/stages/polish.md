@@ -15,7 +15,9 @@ works and reads badly, a document the change made false, and the defects outside
 `report.md` and the interview's `outside.md` name, each by the bar of rule 6 of the builder's
 standing rules: one line of "Seen, not filed" when an open item names it, fixed in a commit of its
 own when cheap, and otherwise filed in the backlog, `worth: later` over the bar and `worth: no`
-under it; and the item the task
+under it. Before each item it files, it runs `lem land alike SLUG` and reads the items that may
+hold the same defect; an item that says `worth: no` of a defect it calls over the bar gets a new
+`worth: later` item beside it that names it. And the item the task
 was started from, `item` in `polish.json`, which it removes. It changes no behavior. Then `lem land polish SLUG --done` checks what it committed: it
 refuses a worktree with changes nobody committed, a change of a criterion's test file or of the
 plan, and tests of the criteria that no longer pass on the branch and fail on the base commit; a

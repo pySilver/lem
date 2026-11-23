@@ -1589,6 +1589,121 @@ class TheReadOfEachFinding(JevStandIn):
         self.assertEqual(self.sent(), [])
 
 
+class TheItemsThatMayHoldAFinding(unittest.TestCase):
+    """`land.alike_question`, `land.alike_specs`, `land.ask_alike` and `land.alike_named`: before an agent files a
+    finding, Jev is asked of each item of the backlog whether it is the same defect, every item in as many
+    requests as jev.py's limit needs, and the three highest at or over SAME_AT are named (criterion 8)."""
+
+    PADS = {"where": "shop/dates.py:format_day", "title": "format_day pads the day with a space",
+            "run": "format_day of 3 May gives \" 3 May\"; the rest of the shop gives \"03 May\"."}
+    ITEM = {"item": "docs/backlog/format-day-pads-with-a-space.md", "title": "format_day pads the day with a space", "where": "shop/dates.py:format_day",
+            "worth": "no", "first": "format_day of 3 May gives \" 3 May\"."}
+
+    def items(self, count: int) -> list[dict]:
+        return [{"item": f"docs/backlog/item-{n}.md", "title": f"Item {n} " + "word " * 40, "where": f"src/m{n}.py", "worth": "later", "first": "a line " * 20}
+                for n in range(count)]
+
+    def test_one_question_for_each_item_with_its_title_where_and_first_line_that_jev_py_takes(self) -> None:
+        jev = importlib.import_module("jev")
+        question = land.alike_question(self.ITEM)
+        for words in ("format_day pads the day with a space", "where: shop/dates.py:format_day", "the first line of its body: format_day of 3 May"):
+            with self.subTest(words=words):
+                self.assertIn(words, question["instructions"])
+        body = jev.build({"state": land.finding_state(self.PADS), "questions": {"i0": question}})
+        self.assertEqual(set(body["questions"]["i0"]["criteria"]), {"true", "false"})
+        self.assertNotIn("where:", land.alike_question({**self.ITEM, "where": None, "first": None})["instructions"])
+
+    def test_every_item_is_asked_in_requests_each_under_jev_py_s_limit(self) -> None:
+        jev = importlib.import_module("jev")
+        items = self.items(200)
+        specs = land.alike_specs(self.PADS, items, land.jev_fits)
+        self.assertGreater(len(specs), 1)
+        for spec in specs:
+            jev.build(spec)
+            self.assertEqual(spec["state"], self.PADS)
+        self.assertEqual(sorted(int(name[1:]) for spec in specs for name in spec["questions"]), list(range(200)))
+
+    def test_requests_are_split_where_the_next_question_does_not_fit(self) -> None:
+        def fits(spec: dict) -> bool:
+            return len(spec["questions"]) <= 2
+        specs = land.alike_specs(self.PADS, self.items(5), fits)
+        self.assertEqual([list(spec["questions"]) for spec in specs], [["i0", "i1"], ["i2", "i3"], ["i4"]])
+        self.assertIsNone(land.alike_specs(self.PADS, self.items(2), lambda spec: False))
+
+    def test_the_three_highest_at_or_over_same_at_are_named_the_highest_first(self) -> None:
+        items = self.items(5)
+        scores = {item["item"]: score for item, score in zip(items, (0.49, 0.91, 0.5, 0.62, 0.77))}
+        named = land.alike_named(scores, items)
+        self.assertEqual([(item["item"], item["jev"]) for item in named],
+                         [("docs/backlog/item-1.md", "Jev: 0.91"), ("docs/backlog/item-4.md", "Jev: 0.77"), ("docs/backlog/item-3.md", "Jev: 0.62")])
+        self.assertEqual([item["item"] for item in land.alike_named({items[0]["item"]: 0.5, items[1]["item"]: 0.49}, items)], ["docs/backlog/item-0.md"])
+        self.assertEqual(land.SAME_AT, 0.5)
+
+    def test_the_answers_of_each_request_come_back_by_the_item_s_path(self) -> None:
+        items = self.items(3)
+        sent: list[dict] = []
+
+        def answer(spec: dict) -> dict:
+            sent.append(spec)
+            return {"answers": {name: 0.1 * (int(name[1:]) + 1) for name in spec["questions"]}}
+        with mock.patch.object(land, "ask_jev", side_effect=answer), mock.patch.object(land, "jev_fits", lambda spec: len(spec["questions"]) <= 2):
+            said = land.ask_alike(self.PADS, items, True)
+            self.assertEqual(said, {"scores": {"docs/backlog/item-0.md": 0.1, "docs/backlog/item-1.md": 0.2, "docs/backlog/item-2.md": 0.30000000000000004}})
+            self.assertEqual(len(sent), 2)
+            # the scores an earlier run kept are not asked again
+            again = land.ask_alike(self.PADS, items, True, {"docs/backlog/item-0.md": 0.9, "docs/backlog/item-1.md": 0.2})
+            self.assertEqual(again["scores"]["docs/backlog/item-0.md"], 0.9)
+            self.assertEqual([list(spec["questions"]) for spec in sent[2:]], [["i0"]])
+            self.assertEqual(land.ask_alike(self.PADS, items, True, said["scores"]), said)
+            self.assertEqual(len(sent), 3)
+
+    def test_with_nothing_sent_nothing_is_named_and_the_reason_is_said(self) -> None:
+        items = self.items(3)
+        with mock.patch.object(land, "ask_jev", side_effect=[{"answers": {"i0": 0.9, "i1": 0.9}}, {"not_asked": "no answer"}]), \
+                mock.patch.object(land, "jev_fits", lambda spec: len(spec["questions"]) <= 2):
+            self.assertEqual(land.ask_alike(self.PADS, items, True), {"not_asked": "no answer"})
+        with mock.patch.object(land, "ask_jev") as asked:
+            self.assertEqual(land.ask_alike(self.PADS, items, False), {"not_asked": "off in the settings"})
+            asked.assert_not_called()
+        with mock.patch.object(land, "jev_fits", lambda spec: False), mock.patch.object(land, "ask_jev") as asked:
+            self.assertEqual(land.ask_alike(self.PADS, items, True), {"not_asked": "too long"})
+            asked.assert_not_called()
+        with mock.patch.dict(os.environ, {"JEV_API_KEY": ""}):
+            self.assertEqual(land.ask_alike(self.PADS, items, True), {"not_asked": "no key"})
+
+
+class AnOverDefectOfARefutedItem(unittest.TestCase):
+    """`land.to_file`, `land.item_body` and `land.item_name`: a defect called over the bar whose open item says
+    `worth: no` at the tip waits for a new item, `worth: later`, that names the old one; the old one stays
+    (decision 10 of task backlog-refuted-items-and-jev)."""
+
+    OLD = "docs/backlog/format-day-pads-with-a-space.md"
+    PADS = {"where": "shop/dates.py:format_day", "title": "format_day pads with a space", "what": "format_day of 3 May gives \" 3 May\"."}
+
+    def test_an_over_defect_waits_and_an_under_one_is_settled(self) -> None:
+        outside = [{**self.PADS, "bar": "over", "open": self.OLD, "number": "r1.1"}, {**self.PADS, "bar": "under", "why": "w", "open": self.OLD, "number": "r1.2"}]
+        reads = [{"round": 1, "answered": True, "outside": outside}]
+        self.assertEqual([entry["number"] for entry in land.to_file(reads, lambda path: True, lambda path: path == self.OLD)], ["r1.1"])
+        self.assertEqual(land.to_file(reads, lambda path: True, lambda path: False), [])
+        self.assertEqual(land.to_file(reads, lambda path: True), [])
+
+    def test_the_new_item_names_the_old_one_and_is_still_the_defect(self) -> None:
+        text = land.item_body({**self.PADS, "bar": "over"}, 1, "export-notes", "2026-11-24", "2026-11-24", self.OLD)
+        front, lines = land.item_text(text)
+        self.assertEqual(front["worth"], "later")
+        self.assertIn(f"The same defect as `{self.OLD}`, now over the bar.", lines)
+        with tempfile.TemporaryDirectory() as scratch:
+            root = Path(scratch)
+            (root / "docs/backlog").mkdir(parents=True)
+            (root / self.OLD).write_text(land.item_body({**self.PADS, "bar": "under", "why": "w"}, 1, "t", "2026-11-23", "2026-11-23"), encoding="utf-8")
+            # the old item holds the defect word for word, and is still never its new item
+            self.assertEqual(land.item_name(root, "docs/backlog", self.PADS), (self.OLD, True))
+            path, held = land.item_name(root, "docs/backlog", self.PADS, self.OLD)
+            self.assertEqual((path, held), ("docs/backlog/format-day-pads-with-a-space-dates-format-day.md", False))
+            (root / path).write_text(text, encoding="utf-8")
+            self.assertEqual(land.item_name(root, "docs/backlog", self.PADS, self.OLD), (path, True))
+
+
 class JevOnTheLines(unittest.TestCase):
     """`land.jev_notes`: each line of a finding called under the bar ends with what Jev said, under `## Filed as not
     worth it`, `## Left open` and `## Seen, not filed`, and before the first heading on the fast track; once."""

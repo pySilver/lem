@@ -82,7 +82,10 @@ What holds for every builder, unless your job says otherwise as above:
    order:
    - *Held by an open item?* Look in the backlog folder of the base for an open item that names the
      same defect; the same `where` alone is no proof. When one does, the defect gets no second
-     file, and its line under "Seen, not filed" names that item by its path.
+     file, and its line under "Seen, not filed" names that item by its path; but when that item
+     says `worth: no` and your call is over the bar, file a new item with `worth: later` whose run
+     is followed by the line "The same defect as `OLD-PATH`, now over the bar.", and leave the old
+     item as it is.
    - *Cheap?* When an agent is already at work on the branch (the polish pass, the fast track's
      builder, or a builder that fixes a must-fix of the same review), that agent fixes it in a
      commit of its own whose message names it, as `fixed on the way: FILE, what was wrong` in the

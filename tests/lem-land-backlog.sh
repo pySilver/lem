@@ -357,6 +357,89 @@ else
 fi
 project --repo "$BLG" state jev-off dropped "the test is over" >/dev/null
 
+# Before a defect is filed, Jev reads it against each item of the backlog folder at the tip, and the items it reads as
+# the same defect are named for the agent to read (criterion 8). The base holds format-day-pads-with-a-space.md, decided
+# against. A builder's `alike` for the padding seen again names it; with no key it names nothing and lists every item.
+# A review that sees the padding again and one defect of another place: `file` stops, names the item for the first and
+# writes no file of either; `--same` files nothing for the first and files the second, and Jev is asked nothing twice.
+# Then a review that calls the padding over the bar, with that item as its open one, gets a new worth: later item that
+# names the old one, which stays as it is, with no second review and no new run of the checks. The spec, the split into
+# requests and the pick of the three are tests/unit/test_land.py's.
+backlog_repo backlog-alike
+ALK=$WORK/backlog-alike
+pads=docs/backlog/format-day-pads-with-a-space.md
+printf '%s\n' '---' 'worth: no' 'where: shop/dates.py:format_day' 'added: 2026-11-23' '---' '# format_day pads with a space' '' \
+  'format_day of 3 May gives " 3 May", where the rest of the shop gives "03 May".' '' 'Decided against: no user is confused, no contract breaks' > "$ALK/$pads"
+git -C "$ALK" add -A && git -C "$ALK" commit -q -m "docs(backlog): the padding of format_day, decided against" && git -C "$ALK" push -q origin main && git -C "$ALK" fetch -q origin
+ALIKE_LOG=$WORK/alike-sent.log
+printf '#!%s\n' "$PY" > "$WORK/alike-standin"
+cat >> "$WORK/alike-standin" <<'PY'
+# Jev's stand-in: each request on a line of the log; a question about an item of format_day, of a finding of format_day, is 0.91
+import json, os, sys
+spec = json.load(sys.stdin)
+with open(os.environ["JEV_LOG"], "a") as log:
+    log.write(json.dumps(spec) + "\n")
+state = json.dumps(spec["state"])
+scores = {name: 0.91 if "format_day" in state and "format_day" in question["instructions"] else 0.12 for name, question in spec["questions"].items()}
+print(json.dumps({"model": "stand-in", "answers": {name: {"type": "noul", "noul": score} for name, score in scores.items()}, "cost": None}))
+PY
+chmod +x "$WORK/alike-standin" && : > "$ALIKE_LOG"
+# alike_land ARGS...: the landing with a key of no value and the stand-in in Jev's place
+alike_land() { JEV_API_KEY=not-a-real-key LEM_JEV=$WORK/alike-standin JEV_LOG=$ALIKE_LOG land "$@"; }
+SAME='{"where": "shop/dates.py:format_day", "title": "The day of format_day is padded with a space", "what": "format_day of 9 June gives \" 9 June\", on the base commit too.", "bar": "under", "why": "nobody reads the day"}'
+OTHER='{"where": "shop/cart.py:total", "title": "Total rounds half down", "what": "total of 0.125 gives 0.12, on the base commit too.", "bar": "over"}'
+task_in "$ALK" seen-again app.txt two && read_in "$ALK" seen-again
+tree=$(project --repo "$ALK" worktree-dir seen-again)
+checked_in "$ALK" seen-again
+echo 'format_day of 9 June gives " 9 June".' > "$WORK/alike-what.txt"
+named=$(alike_land --repo "$ALK" alike seen-again --where shop/dates.py:format_day --title "The day of format_day is padded with a space" --what "$WORK/alike-what.txt" \
+  | field '[(i["item"], i["jev"], i["worth"]) for i in d["alike"]]')
+unasked=$(land --repo "$ALK" alike seen-again --where shop/dates.py:format_day --title "The day of format_day is padded with a space" --what "$WORK/alike-what.txt" \
+  | field '(d["alike"], d["jev"], sorted(i["item"] for i in d["read"]))')
+land --repo "$ALK" read seen-again --record "$(record seen-again 1 "$a_read, $(outside "$SAME" "$OTHER")")" >/dev/null
+before=$(git -C "$tree" rev-parse HEAD)
+refused=$(alike_land --repo "$ALK" file seen-again 2>&1 || true)
+untouched=$(git -C "$tree" rev-parse HEAD; git -C "$tree" status --porcelain)
+asked_first=$(grep -c '' "$ALIKE_LOG")
+settled=$(alike_land --repo "$ALK" file seen-again --same "r1.1=$pads" | field '([(f["number"], f["item"]) for f in d["filed"]], [(f["number"], f["item"]) for f in d["open"]], d["alike"])')
+asked_then=$(grep -c '' "$ALIKE_LOG")
+green=$(land --repo "$ALK" propose seen-again --title "fix: seen-again" --notes "$NOTES" | field 'd["green"]')
+text=$ALK/.lem/state/tasks/seen-again/pr.md
+if [ "$named" = "[('$pads', 'Jev: 0.91', 'no')]" ] && [ "$unasked" = "([], 'Jev: not asked (no key)', ['docs/backlog/existing.md', '$pads'])" ] \
+  && grep -qF "1 defect(s) to file may be one an item of the backlog holds already, by Jev's read at 0.5 or more: r1.1 \"The day of format_day is padded with a space\" (\`shop/dates.py:format_day\`): \`$pads\` \"format_day pads with a space\" (Jev: 0.91, worth: no)" <<<"$refused" \
+  && grep -qF "Nothing is written" <<<"$refused" && grep -qF -- "--same r1.1=PATH" <<<"$refused" && grep -qF -- "--new r1.1" <<<"$refused" && ! grep -q Traceback <<<"$refused" \
+  && [ "$untouched" = "$before" ] && [ "$asked_first" = 3 ] && [ "$asked_then" = 3 ] \
+  && [ "$settled" = "([('r1.2', 'docs/backlog/total-rounds-half-down.md')], [('r1.1', '$pads')], {'r1.2': 'none named'})" ] \
+  && [ "$(git -C "$tree" ls-files docs/backlog | tr '\n' ' ')" = "docs/backlog/existing.md $pads docs/backlog/total-rounds-half-down.md " ] \
+  && [ "$green" = True ] && grep -qxF -- "- \`shop/dates.py:format_day\`: The day of format_day is padded with a space; under: nobody reads the day; an open item holds it, \`$pads\`" "$text"; then
+  pass "a defect seen again gets the item that holds it named by Jev before anything is filed: alike names it for a builder, file stops and writes no file of that run, --same files nothing for it and files the other, Jev is asked nothing twice, and with no key every item is listed to read"
+else
+  fail "the items that may hold a finding: $named / $unasked / $refused / $untouched / $asked_first $asked_then / $settled / $green / $(git -C "$tree" ls-files docs/backlog | tr '\n' ' ')"
+fi
+project --repo "$ALK" state seen-again dropped "the test is over" >/dev/null
+OVER='{"where": "shop/dates.py:format_day", "title": "format_day pads with a space", "what": "format_day of 3 May gives \" 3 May\", where the rest of the shop gives \"03 May\".", "bar": "over", "open": "docs/backlog/format-day-pads-with-a-space.md"}'
+task_in "$ALK" over-again app.txt three && read_in "$ALK" over-again
+tree=$(project --repo "$ALK" worktree-dir over-again)
+checked_in "$ALK" over-again
+waits=$(land --repo "$ALK" read over-again --record "$(record over-again 1 "$a_read, $(outside "$OVER")")" | field '[f["number"] for f in d["to_file"]]')
+asked_before=$(grep -c '' "$ALIKE_LOG")
+raised=$(alike_land --repo "$ALK" file over-again | field '([(f["number"], f["item"]) for f in d["filed"]], d["open"])')
+new_item=$tree/docs/backlog/format-day-pads-with-a-space-dates-format-day.md
+due=$(land --repo "$ALK" read over-again | field '(d["due"], d["to_file"])')
+green=$(land --repo "$ALK" propose over-again --title "fix: over-again" --notes "$NOTES" | field 'd["green"]')
+text=$ALK/.lem/state/tasks/over-again/pr.md
+if [ "$waits" = "['r1.1']" ] && [ "$raised" = "([('r1.1', 'docs/backlog/format-day-pads-with-a-space-dates-format-day.md')], [])" ] \
+  && [ "$(grep -c '' "$ALIKE_LOG")" = "$asked_before" ] \
+  && [ "$(sed -n 2p "$new_item")" = "worth: later" ] && grep -qxF "The same defect as \`$pads\`, now over the bar." "$new_item" \
+  && [ -z "$(git -C "$tree" diff main -- "$pads")" ] && [ "$due" = "('none', [])" ] && [ "$green" = True ] \
+  && [ "$(grep -c '"event": "gate", "task": "over-again"' "$ALK/.lem/state/events.jsonl")" = 1 ] \
+  && [ "$(sed -n '/^## Filed in the backlog$/,/^## /p' "$text" | grep '^- ')" = "- \`docs/backlog/format-day-pads-with-a-space-dates-format-day.md\`: format_day pads with a space" ]; then
+  pass "a defect called over the bar whose open item says worth: no gets a new worth: later item that names the old one, the old one unchanged, listed under Filed in the backlog, with no second review and no new run of the checks"
+else
+  fail "an over call on a refuted item: $waits / $raised / $due / $green / $(cat "$new_item" 2>/dev/null) / $(git -C "$tree" diff main -- "$pads") / $(cat "$text" 2>/dev/null)"
+fi
+project --repo "$ALK" state over-again dropped "the test is over" >/dev/null
+
 # A task started from a backlog item, whose ask is the item's path alone as the board's "Start a task" writes it,
 # removes that item on its branch: propose stops while the tip holds it and names it, and after a builder's git rm
 # the checks run again, the review still covers the change, and the pull request opens. Which ask names an item,

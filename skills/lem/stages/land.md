@@ -223,7 +223,13 @@ landing up as after a cut-off.
      folder for each one over the bar and each one under it whose `open` item the tip does not
      hold, `worth: later` or `worth: no` as rule 6 gives, and commits them on the task's branch;
      it writes nothing for the others, which the pull request names on a line each under "Seen,
-     not filed" by itself. Those commits ask
+     not filed" by itself. An over defect whose `open` item says `worth: no` gets a new item,
+     `worth: later`, that names the old one, which stays as it is. Before it writes anything, the
+     step asks the Jev model whether each other defect is one an item of the backlog folder holds
+     already; when Jev names an item for any of them, it writes nothing and refuses with each such
+     defect and its items. Read each item named, then run the step again with `--same rN.M=PATH`
+     for a defect that item holds (no file is written for it) or `--new rN.M` for a defect of its
+     own, one for each defect named. With no key or no answer, nothing is named. Those commits ask
      for no `checks` again, since they hold no code and no test, and `read` still says `none`: new
      files of the backlog folder are no change the review did not see. An item written by hand
      asks for the checks, as any other commit does. Do this after every record that names some,

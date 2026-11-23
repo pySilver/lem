@@ -48,9 +48,13 @@ it touches, and look for these in the lines the change wrote or that sit next to
    document, the rules in `.claude/rules`) and correct every sentence the change made false. When the plan
    has a documentation task, check that it missed none.
 5. **The defects outside the task** that `report.md` lists and that `outside.md` names, each by
-   the bar of rule 6 of your standing rules: you are the agent at work on the branch. One that an
-   open item of the backlog folder already names is a line of "Seen, not filed", with no fix and
-   no file. A cheap one you fix in place, each in a commit of its own whose message names it as
+   the bar of rule 6 of your standing rules: you are the agent at work on the branch. Before each
+   item you would file, run `lem land --repo WORKTREE alike SLUG --where WHERE --title TITLE --what
+   FILE` (FILE holds the defect's run) and read each item it names, or each item it lists when Jev
+   was not asked. One that an open item of the backlog folder already names is a line of "Seen,
+   not filed", with no fix and no file. When that item says `worth: no` and your own call is over
+   the bar, file a new item, `worth: later`, with the line "The same defect as `PATH`, now over the
+   bar." after its run, and leave the old item as it is. A cheap one you fix in place, each in a commit of its own whose message names it as
    rule 6 says, so that its line names one commit. Each other one you file: one item in the
    backlog folder, in the item format of rule 6, `worth: later` over the bar and `worth: no` under
    it, committed as `docs(backlog):`. A refactor or a removal of code outside the task is one of

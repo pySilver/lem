@@ -48,8 +48,13 @@ and for a change to what a person sees, "A picture" and "A screenshot" in
    change's, `docs(backlog): the item of SLUG is done`, so that the merge takes it off the board.
 7. **What you saw outside the change.** The fast track has no polish pass, so a defect in code
    outside your change, one the base commit has too, is yours to judge by the bar of rule 6 of
-   your standing rules: you are the agent at work on the branch. One that an open item of the
-   backlog folder already names you neither fix nor file: it is a line of your reply. A cheap one
+   your standing rules: you are the agent at work on the branch. Before each item you would file,
+   run `lem land --repo WORKTREE alike SLUG --where WHERE --title TITLE --what FILE` (FILE holds
+   the defect's run) and read each item it names, or each item it lists when Jev was not asked.
+   One that an open item of the backlog folder already names you neither fix nor file: it is a
+   line of your reply. When that item says `worth: no` and your own call is over the bar, file a
+   new item, `worth: later`, with the line "The same defect as `PATH`, now over the bar." after
+   its run, and leave the old item as it is. A cheap one
    you fix, each in a commit of its own after the change's, with a semantic message that names it
    as rule 6 says, and you run the tests of the file it touches as step 4 says. Each other one is
    one item, in the item format of rule 6, `worth: later` over the bar and `worth: no` under it,
