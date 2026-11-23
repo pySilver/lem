@@ -40,8 +40,10 @@ with each kind's entry under its key, and leave out a kind that has none:
 2. `no_session`: each task whose session is gone (`need: gone`) or does not answer a wake-up
    (`need: deaf`); the board's "Open a session", or `lem session open SLUG --why dead`, opens one;
 3. `stopped`: each task whose live session showed no sign of work after the board server's status
-   message and its one restart, the stop the server logged; the board's "Open a session", or its
-   `open`, `lem session open SLUG --why stopped`, opens a fresh one beside it;
+   message and its one restart, or, for a session Lem cannot read, no event of the task after the
+   status message alone, the stop the server logged; when its `unread` is true, you say that Lem
+   cannot read the task's session; the board's "Open a session", or its `open`, `lem session open
+   SLUG --why stopped`, opens a fresh one beside it;
 4. `criteria`: each task whose acceptance criteria wait for his yes;
 5. `held`: each task that waits for a step of his or one more fact, with that step;
 6. `after_dropped`: each task queued after a task that was dropped, with its `where` as it is: the

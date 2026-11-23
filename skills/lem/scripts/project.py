@@ -98,7 +98,8 @@ team that adopts Lem may have its own.
                                     "Waits for you" (a breaker, criteria or a step of his, a blocked task,
                                     a plan, a merge review, a pull request with green or not, a task with
                                     no session, a task whose session stopped after the status message and
-                                    its restart), each retro's proposals, and last night's report
+                                    its restart, or after the message alone when Lem cannot read the
+                                    session), each retro's proposals, and last night's report
     lem project plan-file SLUG [--date YYYY-MM-DD]
                                     the name a task's plan takes (`paths.plan_file`), and the plan
                                     of the task the plans folder holds, as JSON
@@ -288,8 +289,9 @@ of the pushed head at the last `lem land merged`, null when nothing asked or the
 `merge_review` and `merge_refused`, each null when the task has no `landing.json`); and a task stuck
 for want of its session (`no_session`, with `need`: `gone`, no live session, or `deaf`, a wake-up
 unanswered for 10 minutes); and a task whose live session showed no sign of work after the status
-message and the restart, the stop the board server logged (`stopped`, with `open`, the command that
-opens a fresh session beside it). Each of these has the task's `task`, `ask`, `since`, `night` and its
+message and the restart, or, for a session whose signs of work Lem cannot read, no event of the task
+after the status message alone, the stop the board server logged (`stopped`, with `open`, the command
+that opens a fresh session beside it, and `unread`, true for such a session). Each of these has the task's `task`, `ask`, `since`, `night` and its
 state's first `line`. `rows` is the board's rows in its order, each `{key, kind, task}`. `sessions`
 says whether the sessions are known (`known`) and, when not, why (`said`): then no row of
 `no_session` can show. `forge.looked` is the time of the server's last look at the forge, or null.
@@ -3356,7 +3358,7 @@ def cmd_waiting(root: Path) -> dict:
         "pull_requests": [pull_request(row) for row in kind("merge")],
         "no_session": [brief(row, need="deaf" if row.get("deaf") else "gone") for row in kind("session")],
         # a task whose live session the guard of a stopped session logged as stopped, and the open of its button
-        "stopped": [brief(row, open=f"lem session open {row['t'].slug} --why stopped") for row in kind("stopped")],
+        "stopped": [brief(row, open=f"lem session open {row['t'].slug} --why stopped", unread=row["unread"]) for row in kind("stopped")],
         "retros": [retro_proposals(file) for file in sorted((state_root(root) / RETROS).glob("*.json"))],
         # the board's rows in its order, each by its key (`waits_of`): the rows the phone shows
         "rows": [{"key": row["key"], "kind": row["kind"], "task": row["t"].slug} for row in rows],

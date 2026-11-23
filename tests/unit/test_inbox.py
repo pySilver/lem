@@ -541,6 +541,18 @@ class ReviewTwo(InFolder):
         said = bm.inbox_of(self.m.tasks[0], self.m)
         self.assertEqual((said["asks"], said["gone"]), (False, True))
 
+    def test_the_note_of_a_stop_lem_cannot_read_says_so_and_names_no_fresh_session_that_took_its_place(self):
+        stuck = [state(0, "building", "task 1 of 2"), *opened(1), ev(46, "session.wake", session="S-1", why="status", unread=True),
+                 ev(56, "session.stopped", session="S-1", unread=True)]
+        self.m = model(*stuck, owner=[AWAY])
+        self.assertEqual([r["kind"] for r in bm.waits_of(self.m)], ["stopped"])
+        self.assertEqual([d["did"] for d in self.watcher().look()], ["sent"])
+        sent = self.plannotator.sends()[0]
+        self.assertEqual(sent["payload"]["body"], "The session of report-dates stopped, and Lem cannot read it: no event of the task came after the status message. "
+                         "Lem opens no second session by itself. Open a fresh one on the board: "
+                         "[report-dates on the board](https://mac.tail0.ts.net:4537/mac/shop/tasks/report-dates)")
+        self.assertEqual(self.woken, [])
+
 
 if __name__ == "__main__":
     unittest.main()

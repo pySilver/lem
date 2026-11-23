@@ -87,7 +87,7 @@ a merge: the summary took the handoff's form, and the state came back after it (
 Nothing of a task's session watches GitHub or another task. The board's server runs `lem session
 wake SLUG --why merged|conflict|refused|queue|owner|inbox|status` (`owner` after his approval or his park on
 the board, `inbox` after a question it sent to his Inbox or his reply in a thread whose session is gone,
-`status` the guard's status message after 45 minutes with no sign of work), which sends `agtermctl msg send "lem: SLUG WHY" --to
+`status` the guard's status message after 45 minutes with no sign of work, or with no event of the task when the signs do not read), which sends `agtermctl msg send "lem: SLUG WHY" --to
 ID:left` to the task's live session, or opens one when none lives (never for `inbox` or `status`). `replaced`
 is sent only by `lem session open SLUG --why stopped`, to the old session beside the fresh one. In the trial of 2026-11-21 the
 idle agent took a turn within 15 s each time, five sends in two sessions, two of them after about

@@ -670,7 +670,7 @@ def fold(t: Task, e: dict, ts: int) -> None:
             t.session, t.session_closed = None, ts
         return
     if event == "session.wake":
-        t.wakes.append({"ts": ts, "order": len(t.events), "why": e.get("why"), "session": e.get("session")})
+        t.wakes.append({"ts": ts, "order": len(t.events), "why": e.get("why"), "session": e.get("session"), "unread": e.get("unread") is True})
         return
     if event == "session.stopped":
         # the guard's record of a stop (`stop_stands`), read from `t.events`: no step of the task's own
@@ -1431,50 +1431,81 @@ def stop_due(t: Task, m: Model) -> dict | None:
     """The step of the guard of a stopped session that is due for the task now, or None: `{"step", "session",
     "from"}`, the step (`status`, `restart` or `stopped`), the session it is for, and the time in ms it is
     due from. Only for a task in GUARDED (so not parked, held, queued, planned, blocked, open or ended)
-    whose session lives (`live_of`), whose signs of work read (`signs`) and in which no shell command runs
+    whose session lives with an agent in its pane (`live_of`, `agent`) and in which no shell command runs
     (`shell`); never while the server has not asked (`Model.sessions` None) and never in a demo workspace.
 
-    Its newest sign of work is the newest of the session's own `sign` (its newest turn, or a subagent's),
-    the task's newest work event (`work_event`) and its newest `session.open`, so that a fresh session's
-    clock starts at its open. Then:
+    Its newest sign of work is the newest of the task's newest work event (`work_event`) and its newest
+    `session.open`, so that a fresh session's clock starts at its open, and, when the session's signs
+    read (`signs`), the session's own `sign` (its newest turn, or a subagent's). When they do not read,
+    `sign` is not used, even when it holds a time: a turn with no live process to back it is no proof
+    that the session works now. Each of the two clocks counts only the status wake (`session.wake
+    why=status`) that it sent, which `cmd_wake` marks `unread` when the signs do not read, so that a wake
+    of one clock never starts the ANSWER_MS of the other; the wake before a stop that stands counts for
+    both, so that a change of the signs gives a logged stop no second message and no second stop. Then:
 
-    - `status`, from that sign, QUIET_MS after it, when no status wake (`session.wake why=status`) came
-      after it;
-    - `restart`, from that wake, ANSWER_MS after it, when no `session.open why=stopped` came after the
-      task's newest work event: one restart for one stop, spent until the task's agent logs work again;
-    - `stopped`, from that wake, ANSWER_MS after it, when one did and no `session.stopped` came after the
-      wake, so that a stop is logged once.
+    - `status`, from that sign, QUIET_MS after it, when no status wake of its clock came after it;
+    - with signs that read, `restart`, from that wake, ANSWER_MS after it, when no `session.open
+      why=stopped` came after the task's newest work event and no stop of the task stands (`stop_stands`):
+      one restart for one stop, spent until the task's agent logs work again, and a logged stop waits for
+      the owner's "Open a session";
+    - `stopped`, from that wake, ANSWER_MS after it, when no `session.stopped` came after the wake, so
+      that a stop is logged once: with signs that read once the restart is spent, and with signs that do
+      not read at once, since Lem never restarts by itself beside a session it cannot read.
 
     A wake in the same second as a sign counts as before it: the session that answers at once works."""
     if m.sessions is None or m.meta.get("demo") or t.status not in GUARDED:
         return None
     f = m.sessions.get(t.slug) or {}
-    if not (f.get("live") is True and f.get("agent") is True) or f.get("signs") is not True or f.get("shell") is not False:
+    if not (f.get("live") is True and f.get("agent") is True) or f.get("shell") is not False:
         return None
+    read = f.get("signs") is True
     work = next((i for i in range(len(t.events) - 1, -1, -1) if work_event(t.events[i])), -1)
-    times = [at(f.get("sign")) or 0, (t.opened or {}).get("ts") or 0, (at(t.events[work].get("ts")) or 0) if work >= 0 else 0]
-    since = max(times)
+    times = [(t.opened or {}).get("ts") or 0, (at(t.events[work].get("ts")) or 0) if work >= 0 else 0]
+    since = max(times + ([at(f.get("sign")) or 0] if read else []))
     session = f.get("session") or t.session
-    wake = next((w for w in t.wakes if w.get("why") == "status" and w["ts"] > since), None)
+    stop = stop_stands(t)
+    # the order of the status wake before the standing stop (`wake_before`, an index; an order is index + 1)
+    held = wake_before(t, next(i for i, e in enumerate(t.events) if e is stop)) + 1 if stop is not None else None
+    wake = next((w for w in t.wakes if w.get("why") == "status" and w["ts"] > since and (w["unread"] is not read or w["order"] == held)), None)
     if wake is None:
         return {"step": "status", "session": session, "from": since} if m.now - since >= QUIET_MS else None
     if m.now - wake["ts"] < ANSWER_MS:
         return None
-    later = t.events[work + 1:]
-    if not any(e.get("event") == "session.open" and e.get("why") == "stopped" for e in later):
-        return {"step": "restart", "session": session, "from": wake["ts"]}
+    if read and not any(e.get("event") == "session.open" and e.get("why") == "stopped" for e in t.events[work + 1:]):
+        return None if stop is not None else {"step": "restart", "session": session, "from": wake["ts"]}
     if any(e.get("event") == "session.stopped" for e in t.events[wake["order"]:]):
         return None
     return {"step": "stopped", "session": session, "from": wake["ts"]}
 
 
 def stop_stands(t: Task) -> dict | None:
-    """The task's newest `session.stopped` while no work event (`work_event`) and no `session.open` came
-    after it: the stop the guard logged, which waits for the owner's "Open a session"; else None."""
+    """The task's newest `session.stopped` while no work event (`work_event`) came after the newest status
+    wake before it (`session.wake why=status`) and no `session.open` came after it: the stop the guard
+    logged, which waits for the owner's "Open a session"; else None. A work event between that wake and
+    the stop is a state block the session appended in the moment the guard looked: the order of the log
+    decides, and such a stop stands over nothing."""
     found = next((i for i in range(len(t.events) - 1, -1, -1) if t.events[i].get("event") == "session.stopped"), None)
-    if found is None or any(work_event(e) or e.get("event") == "session.open" for e in t.events[found + 1:]):
+    if found is None:
+        return None
+    wake = wake_before(t, found)
+    if any(work_event(e) for e in t.events[wake + 1:]) or any(e.get("event") == "session.open" for e in t.events[found + 1:]):
         return None
     return t.events[found]
+
+
+def wake_before(t: Task, stop: int) -> int:
+    """The place in `t.events` of the newest status wake (`session.wake why=status`) before the stop at
+    STOP, or STOP itself when none came before it."""
+    return next((i for i in range(stop - 1, -1, -1) if t.events[i].get("event") == "session.wake" and t.events[i].get("why") == "status"), stop)
+
+
+def stop_over_work(t: Task, e: dict) -> bool:
+    """Whether the `session.stopped` record E of the task came after work of the task (`work_event`) that
+    followed its status wake: the stop of a look that a state block overtook, which never stood
+    (`stop_stands`), so that nothing waited for the owner when it was logged. E is found by identity, as
+    `derive` keeps each record of the log in `t.events`; a record that is not there is no such stop."""
+    stop = next((i for i, x in enumerate(t.events) if x is e), None)
+    return stop is not None and any(work_event(x) for x in t.events[wake_before(t, stop) + 1:stop])
 
 
 def stopped_of(t: Task, m: Model) -> dict | None:
@@ -1600,8 +1631,10 @@ def waits_of(m: Model) -> list[dict]:
         need = session_need(t, m)
         stop = stopped_of(t, m)
         if stop is not None:
-            # the guard's stop, whose fresh session also answers a wake-up that waits in the stopped one
-            rows.append({"kind": "stopped", "key": f"stopped:{t.slug}", "t": t, "c": None, "since": at(stop.get("ts")) or t.since})
+            # the guard's stop, whose fresh session also answers a wake-up that waits in the stopped one; `unread`
+            # for a session whose signs of work Lem cannot read, stopped after the status message alone
+            rows.append({"kind": "stopped", "key": f"stopped:{t.slug}", "t": t, "c": None, "since": at(stop.get("ts")) or t.since,
+                         "unread": stop.get("unread") is True})
         elif need:
             since = max(t.since if t.closed else t.first, (t.opened or {}).get("ts") or 0)
             rows.append({"kind": "session", "key": f"{'deaf' if need == 'deaf' else 'session'}:{t.slug}", "t": t, "c": None, "since": since, "deaf": need == "deaf"})
@@ -1665,6 +1698,11 @@ def wait_say(w: dict) -> dict:
     if kind == "session" and w.get("deaf"):
         return {"verb": "Its session does not answer", "icon": "alert", "actor": "bad", "to": "overview", "note": "since its session opened",
                 "where": "A wake-up has waited in the task’s session for 10 minutes or more. Look at the session: its agent may wait for an answer, or run a long turn."}
+    if kind == "stopped" and w.get("unread"):
+        return {"verb": "Its session stopped, and Lem cannot read it: open a fresh one", "icon": "alert", "actor": "bad", "to": "overview", "note": "since Lem logged the stop",
+                "where": f"Lem cannot read whether the task’s session works. It sent the session the status message after {QUIET_MS // 60000} minutes with no event of the task, "
+                         f"and saw no event of the task in the {ANSWER_MS // 60000} minutes after it. Lem opens no second session by itself: open a session here or on the "
+                         "task’s header, and a fresh agent reads the task’s state and goes on from there. The old pane stays open in agterm."}
     if kind == "stopped":
         return {"verb": "Its session stopped: open a fresh one", "icon": "alert", "actor": "bad", "to": "overview", "note": "since Lem logged the stop",
                 "where": f"The task’s session showed no sign of work for {QUIET_MS // 60000} minutes, nor in the {ANSWER_MS // 60000} minutes after Lem asked it for its status, "
@@ -1869,7 +1907,8 @@ SAYS = {
                                      "text": {"startup": "a new conversation", "resume": "a resumed conversation", "clear": "after a clear", "compact": "after a compaction", "fork": "a forked conversation"}.get(
                                          e.get("source"), "a conversation")},
     "session.wake": lambda e: ({"info": {"actor": "lem", "icon": "split"}, "head": "The board’s server asked the task’s session for its status",
-                                "text": f"no sign of work for {QUIET_MS // 60000} minutes: it says where the task stands and goes on with its next step"}
+                                "text": (f"no event of the task for {QUIET_MS // 60000} minutes, and Lem cannot read its session" if e.get("unread") is True
+                                         else f"no sign of work for {QUIET_MS // 60000} minutes") + ": it says where the task stands and goes on with its next step"}
                                if e.get("why") == "status" else
                                {"info": {"actor": "quiet", "icon": "split"}, "head": "The board’s server told the old session that a fresh one replaced it",
                                 "text": "it closes itself at the end of its turn"}
@@ -1878,7 +1917,9 @@ SAYS = {
                                 "text": {"merged": "the pull request is merged: the session cleans up", "conflict": "GitHub calls the pull request conflicting: the session brings it onto the base",
                                          "queue": "the task it waited for ended"}.get(e.get("why"), e.get("why") or "")}),
     "session.stopped": lambda e: {"info": {"actor": "bad", "icon": "alert"}, "head": "The task’s session stopped",
-                                  "text": "no sign of work after the status message, nor in the fresh session: “Open a session” on the board starts another"},
+                                  "text": f"no event of the task in the {ANSWER_MS // 60000} minutes after the status message, and Lem cannot read its session: "
+                                          "“Open a session” on the board starts a fresh one" if e.get("unread") is True
+                                          else "no sign of work after the status message, nor in the fresh session: “Open a session” on the board starts another"},
     "decision.taken": lambda e: ({"info": {"actor": "you", "icon": "user"}, "head": f"You helped on breaker {e['breaker']}", "text": e.get("chose"), "sub": f"“{e['words']}”" if e.get("words") else ""}
                                  if e.get("by") == "owner" and e.get("breaker") is not None else
                                  {"info": {"actor": "done", "icon": "check"}, "head": f"Decision {e.get('id')}, by {BY_WHOM.get(e.get('by'), e.get('by'))}", "text": f"{e.get('what')} → {e.get('chose')}"}),
@@ -1890,6 +1931,12 @@ SAYS = {
     "decision.criterion": lambda e: {"info": {"actor": "you", "icon": "alert"}, "head": _criterion_head(e), "text": e.get("why")},
     SUMMARY: lambda e: {"info": STATUS.get(e.get("status"), UNKNOWN), "head": SUMMARY_HEAD, "text": summary_said(e)},
 }
+
+
+def stop_over_work_said(_e: dict) -> dict:
+    """The words of a `session.stopped` that never stood (`stop_over_work`), which `describe` gives in place of SAYS's."""
+    return {"info": {"actor": "quiet", "icon": "split"}, "head": "Lem logged a stop of the task’s session, but the task worked",
+            "text": "work of the task came after the status message and before the stop, so the stop does not stand and nothing waits for you"}
 
 
 def describe(e: dict, m: Model) -> dict:
@@ -1906,6 +1953,9 @@ def describe(e: dict, m: Model) -> dict:
         return {"info": {"actor": "done" if ok else "bad", "icon": "check" if ok else "alert"}, "head": "Check passed" if ok else f"Check failed, exit {e.get('exit')}",
                 "text": e.get("command"), "sub": e.get("last") or "", "title": title, "mono": True}
     say = SAYS.get(e.get("event"))
+    if e.get("event") == "session.stopped" and (t := m.by_slug.get(e.get("task"))) and stop_over_work(t, e):
+        # the stop of a look that a state block overtook: it never stood, and nothing waited for the owner
+        say = stop_over_work_said
     if say:
         said = {"title": title, "sub": "", **say(e)}
         if e.get("from") and e.get("was_at"):

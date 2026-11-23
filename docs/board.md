@@ -106,6 +106,11 @@ The server also monitors each task that builds or lands. When its session does n
 minutes, the server asks the session for its status. After 10 more minutes with no work, the server
 opens a fresh session one time. When that session also stops, the task waits for you as "stopped".
 
+When the server cannot read the work of a session, it uses only the events of the task. After 45
+minutes with no event, it asks the session for its status. After 10 more minutes with no event, the
+task waits for you as "stopped", and the row says that Lem cannot read its session. The server does
+not open a fresh session for it. "Open a session" opens one.
+
 ## Commands
 
 Type these in Claude Code:

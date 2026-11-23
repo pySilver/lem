@@ -747,7 +747,12 @@ class Guard(unittest.TestCase):
         self.assertEqual(self.refusal(self.landing(), "status", "11:39", named="S0"), "gone")
         self.assertIsNone(self.refusal(self.landing(), "status", "11:39", named="s1"))
         self.assertEqual(self.refusal(self.landing(), "status", "11:39", live=False, agent=False), "gone")
-        self.assertEqual(self.refusal(self.landing(), "status", "11:39", signs=False), "unread")
+        # signs that do not read are facts of the rule, which gives them the message and the stop, never a restart
+        woken = [*self.landing(), self.ev("11:39", "session.wake", session="S1", why="status", unread=True)]
+        self.assertIsNone(self.refusal(self.landing(), "status", "11:39", sign=None, signs=False))
+        self.assertIsNone(self.refusal(woken, "stopped", "11:49", sign=None, signs=False))
+        self.assertEqual(self.refusal(woken, "restart", "11:49", sign=None, signs=False), "unread")
+        self.assertEqual(self.refusal(woken, "restart", "11:49", named=None, sign=None, signs=False), "unread")
         self.assertEqual(self.refusal(self.landing(), "status", "11:39", shell=True), "working")
         self.assertEqual(self.refusal([], "status", "11:39"), "status")
 
@@ -774,6 +779,64 @@ class Guard(unittest.TestCase):
                    self.ev("12:34", "session.wake", session="S1", why="status"), self.ev("12:44", "session.stopped", session="S1")]
         self.assertIsNone(self.refusal(stopped, "restart", "13:30", named=None, sign=None))
         self.assertEqual(self.refusal(stopped, "restart", "13:30", named=None, sign="2026-11-22T13:00:00Z"), "working")
+
+    UNREAD = {"sign": None, "shell": False, "signs": False}
+
+    def unread_stop(self) -> list[dict]:
+        return [*self.landing(), self.ev("11:39", "session.wake", session="S1", why="status", unread=True),
+                self.ev("11:49", "session.stopped", session="S1", unread=True)]
+
+    def test_the_owners_open_of_an_unread_stop_acts_and_a_named_restart_over_a_standing_stop_never_does(self):
+        # his click names no session; a turn's time beside signs that do not read is no sign of work
+        self.assertIsNone(self.refusal(self.unread_stop(), "restart", "12:30", named=None, sign=None, signs=False))
+        self.assertIsNone(self.refusal(self.unread_stop(), "restart", "12:30", named=None, sign="2026-11-22T12:00:00Z", signs=False))
+        # the server's duty names one: it refuses in both paths
+        self.assertEqual(self.refusal(self.unread_stop(), "restart", "11:50", sign=None, signs=False), "unread")
+        self.assertEqual(self.refusal(self.unread_stop(), "restart", "11:50"), "working")
+        # a work event after the status message ends the stop, and with it the open
+        worked = [*self.unread_stop(), self.ev("12:00", "task.state", status="landing", text="the checks run again", lines=[])]
+        self.assertEqual(self.refusal(worked, "restart", "12:30", named=None, sign=None, signs=False), "unread")
+
+    def test_a_pane_that_agterm_has_not_drawn_is_no_agent_for_any_step(self):
+        drawn = [{"id": "S1", "name": SLUG, "workspace": "W1", "realized": False}]
+        woken = [*self.landing(), self.ev("11:39", "session.wake", session="S1", why="status")]
+        fresh = [*woken, self.ev("11:49", "session.open", session="S1", name=SLUG, phase="land", why="stopped", workspace="W1"),
+                 self.ev("12:34", "session.wake", session="S1", why="status")]
+        for step, events, act, at in (("status", self.landing(), lambda: session.cmd_wake(ROOT, SLUG, "status", None, "S1"), "11:39"),
+                                      ("restart", woken, lambda: session.cmd_open(ROOT, SLUG, "stopped", named="S1"), "11:49"),
+                                      ("stopped", fresh, lambda: session.cmd_stopped(ROOT, SLUG, "S1"), "12:44")):
+            done, sent, logged = self.run_act(events, act, nodes=drawn, at=at)
+            self.assertEqual((done["acted"], done["why"], sent, logged), (False, "gone", [], []), step)
+
+    def test_the_status_message_and_the_stop_of_a_session_lem_cannot_read_say_so_on_their_records(self):
+        done, sent, logged = self.run_act(self.landing(), lambda: session.cmd_wake(ROOT, SLUG, "status", None, "S1"), signs=self.UNREAD, at="11:39")
+        self.assertEqual((done["acted"], sent), (True, [("msg", "send", f"lem: {SLUG} status", "--to", "S1:left")]))
+        self.assertEqual([(e["event"], e["session"], e["why"], e.get("unread")) for e in logged], [("session.wake", "S1", "status", True)])
+        woken = [*self.landing(), self.ev("11:39", "session.wake", session="S1", why="status", unread=True)]
+        done, sent, logged = self.run_act(woken, lambda: session.cmd_stopped(ROOT, SLUG, "S1"), signs=self.UNREAD, at="11:49")
+        self.assertEqual((done["acted"], sent), (True, []))
+        self.assertEqual([(e["event"], e["session"], e.get("unread")) for e in logged], [("session.stopped", "S1", True)])
+        self.assertIn("Lem cannot read its session's signs of work", done["say"])
+        self.assertIn("waits for the owner", done["say"])
+        # a readable wake and stop carry no such field
+        _, _, logged = self.run_act(self.landing(), lambda: session.cmd_wake(ROOT, SLUG, "status", None, "S1"), at="11:39")
+        self.assertNotIn("unread", logged[0])
+
+    def test_a_stop_logged_after_a_state_block_of_the_same_moment_says_that_nothing_waits(self):
+        woken = [*self.landing(), self.ev("11:39", "session.wake", session="S1", why="status", unread=True)]
+        check = session.guard_check
+
+        def raced(*args):
+            # the session appends its state block under the log's lock, between the look and the stop
+            found = check(*args)
+            project.append_event(ROOT, "task.state", SLUG, {"status": "landing", "text": "the pull request waits for its checks", "lines": []})
+            return found
+
+        with mock.patch.object(session, "guard_check", side_effect=raced):
+            done, _, logged = self.run_act(woken, lambda: session.cmd_stopped(ROOT, SLUG, "S1"), signs=self.UNREAD, at="11:49")
+        self.assertEqual([e["event"] for e in logged], ["task.state", "session.stopped"])
+        self.assertTrue(done["acted"])
+        self.assertIn("the stop does not stand and nothing waits for the owner", done["say"])
 
     def run_act(self, events: list[dict], act, signs: dict | None = None, nodes: list | None = None, at: str = "15:37") -> tuple[dict, list, list]:
         now = int(datetime.strptime(f"2026-11-22T{at}:00Z", "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp() * 1000)

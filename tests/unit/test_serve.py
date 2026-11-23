@@ -459,8 +459,8 @@ class StoppedSession(unittest.TestCase):
         return int(datetime.strptime(text, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp() * 1000)
 
     @staticmethod
-    def live(session: str = "S1", sign: str | None = "2026-11-22T10:15:42Z", shell: bool = False) -> dict:
-        return {"gift-note": {"live": True, "agent": True, "unanswered": False, "session": session, "name": "gift-note", "sign": sign, "shell": shell, "signs": True}}
+    def live(session: str = "S1", sign: str | None = "2026-11-22T10:15:42Z", shell: bool = False, signs: bool = True) -> dict:
+        return {"gift-note": {"live": True, "agent": True, "unanswered": False, "session": session, "name": "gift-note", "sign": sign, "shell": shell, "signs": signs}}
 
     def landing(self) -> tuple:
         return (self.ev("01:33", "session.open", session="S1", name="gift-note", phase="land", why="handoff"),
@@ -501,6 +501,21 @@ class StoppedSession(unittest.TestCase):
         self.assertEqual(self.owed(*again, at="12:44", sessions=self.live("S2", None)), [("stopped", "gift-note", "stopped")])
         logged = (*again, self.ev("12:44", "session.stopped", session="S2"))
         self.assertEqual(self.owed(*logged, at="12:44:20", sessions=self.live("S2", None)), [])
+
+    def test_a_session_whose_signs_do_not_read_gets_the_message_then_its_stop_and_never_a_restart(self):
+        # #37 as `lem session list` gave it all day: "signs": false
+        unread = self.live(sign=None, signs=False)
+        self.assertEqual(self.owed(*self.landing(), at="11:38", sessions=unread), [])
+        self.assertEqual(self.owed(*self.landing(), at="11:39", sessions=unread), [("wake", "gift-note", "status")])
+        woken = (*self.landing(), self.ev("11:39", "session.wake", session="S1", why="status", unread=True))
+        self.assertEqual(self.owed(*woken, at="11:48", sessions=unread), [])
+        self.assertEqual(self.owed(*woken, at="11:49", sessions=unread), [("stopped", "gift-note", "stopped")])
+        self.assertEqual(serve.duty_args("stopped", "gift-note", "stopped", {}, self.model(*woken, at="11:49", sessions=unread)),
+                         ["stopped", "gift-note", "--session", "S1"])
+        logged = (*woken, self.ev("11:49", "session.stopped", session="S1", unread=True))
+        self.assertEqual(self.owed(*logged, at="11:50", sessions=unread), [])
+        # the signs read again at 11:50: the logged stop waits for the owner's click, so no `open … stopped`
+        self.assertEqual(self.owed(*logged, at="11:50"), [])
 
     def test_a_task_that_waits_for_the_owner_or_is_out_of_its_phase_is_not_woken(self):
         for status, text in (("held", "the criteria wait for the owner"), ("queued", "after: other-task"), ("planned", "the plan waits for the owner"),
