@@ -207,6 +207,24 @@ class Check(unittest.TestCase):
         self.assertEqual(lem_release.check(self.task), OLD_STOP)
         self.assertEqual(len(self.events()), 1)
 
+    def test_the_resume_after_the_drop_logs_no_second_stop_and_a_state_of_work_after_a_stop_logs_one(self):
+        (self.task / "release.txt").write_text("0.2.0\n", encoding="utf-8")
+        log = self.state / "events.jsonl"
+
+        def state(status: str) -> None:
+            with log.open("a", encoding="utf-8") as out:
+                out.write(json.dumps({"ts": "2026-11-23T12:00:00Z", "event": "task.state", "task": "invoice-totals", "status": status}) + "\n")
+
+        # the drop passes and logs the stop, then writes its state; the resume of the dropped task passes too
+        self.assertIsNone(lem_release.check(self.task, passes=True))
+        state("dropped")
+        self.assertIsNone(lem_release.check(self.task, passes=True))
+        self.assertEqual([e["event"] for e in self.events()], ["release.stop", "task.state"])
+        # a state of work after the stop (written by another Lem) leaves it standing no more
+        state("building")
+        self.assertEqual(lem_release.check(self.task), OLD_STOP)
+        self.assertEqual([e["event"] for e in self.events()], ["release.stop", "task.state", "task.state", "release.stop"])
+
     def test_a_task_of_a_newer_release_stops_and_writes_nothing(self):
         (self.task / "release.txt").write_text("0.5.0\n", encoding="utf-8")
         for passes in (False, True):

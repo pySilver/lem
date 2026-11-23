@@ -52,6 +52,8 @@ UNMARKED = "0.3.0"
 MARK = "release.txt"
 # The event an old task's stop logs.
 STOP = "release.stop"
+# The three ends of a task, whose state a passing command writes after the stop (project.py ENDED).
+ENDS = ("landed", "dropped", "answered")
 # The plugin's folder, three above this file's (skills/lem/scripts/), and its manifest.
 ROOT = Path(__file__).resolve().parents[3]
 MANIFEST = ROOT / ".claude-plugin" / "plugin.json"
@@ -186,31 +188,34 @@ def branch_of(main: Path, slug: str) -> str | None:
     return None
 
 
-def newest_of(log: Path, slug: str) -> dict | None:
-    """The task's newest event in the log, or None."""
-    if not log.is_file():
-        return None
-    newest = None
-    for line in lem_state.jsonl_lines(log.read_text(encoding="utf-8", errors="replace")):
+def stopped_already(log: Path, slug: str, version: str) -> bool:
+    """Whether the log holds a stop of the task SLUG by this release (VERSION) that still stands: no
+    `task.state` after it but an end of the task. The drop that passes, then the resume of the dropped
+    task, logs no second stop."""
+    standing = False
+    for line in lem_state.jsonl_lines(log.read_text(encoding="utf-8", errors="replace")) if log.is_file() else []:
         try:
             record = json.loads(line)
         except ValueError:
             continue
-        if isinstance(record, dict) and record.get("task") == slug:
-            newest = record
-    return newest
+        if not isinstance(record, dict) or record.get("task") != slug:
+            continue
+        if record.get("event") == STOP:
+            standing = record.get("running") == version
+        elif record.get("event") == "task.state" and record.get("status") not in ENDS:
+            standing = False
+    return standing
 
 
 def log_stop(directory: Path, began: str, version: str, say: str) -> None:
-    """Log the old task's stop, once: not when the task's newest event is a stop of this release."""
+    """Log the old task's stop, once (`stopped_already`)."""
     state = directory.parent.parent
     main = state.parent.parent
     slug = directory.name
     branch = branch_of(main, slug)
     with lem_state.events_lock(state):
         log = state / lem_state.EVENTS
-        newest = newest_of(log, slug)
-        if newest and newest.get("event") == STOP and newest.get("running") == version:
+        if stopped_already(log, slug, version):
             return
         record = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": STOP, "task": slug,
                   "began": began, "running": version, "branch": branch, "say": say}
