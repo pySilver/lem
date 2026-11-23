@@ -33,7 +33,7 @@ and a shopper persona in a fashion catalog took a drawing for a normal product p
 owner answered with "There is no such thing in FASHION as ILLUSTRATION" (mybaze gate log,
 2026-11).
 
-Each project writes its own from `references/profile-template.md`; no user or built-in profile
+Each project writes its own from `references/profile-template.md`; no other profile
 stands in for it. `scripts/cast.py` prints its path as `profile`, from the checkout or, like the
 cast, from the default branch when the checkout has none or holds only an unchanged older copy. When `profile` is null, the panel still
 runs and every card and review says "no project profile"; offer once to draft one from the
@@ -78,11 +78,10 @@ or none that names seats, answers on the panel's own two seats (`seats_from: def
 reads `person`, the path `lem cast` prints for the file without it. A seat that the settings would
 refuse stops `lem cast` with the file and the line to write.
 
-Two more casts exist, and they answer no panel: the user's in `~/.config/personas/cast/` and the
-built-in one in this skill's `cast/` (a person who uses the product, the engineer who runs it,
-the engineer who builds the next change on it and the owner who pays for it). `lem cast init`
-copies the first of them that has a persona file into the project's personas folder, as files to
-rewrite, when the owner asks to set up personas for a project.
+One more cast exists, and it answers no panel: the built-in one in this skill's `cast/` (a person
+who uses the product, the engineer who runs it, the engineer who builds the next change on it and
+the owner who pays for it). `lem cast init` copies it into the project's personas folder, as files
+to rewrite, when the owner asks to set up personas for a project.
 
 A panel brings only the people the question affects, never the whole cast by default. Pick them
 before writing the brief: a persona is in when some option changes what that person sees, does or
