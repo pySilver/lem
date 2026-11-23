@@ -4487,7 +4487,7 @@ def cmd_load(start: str | None) -> dict:
                 value = -1.0
             if not value > 0:
                 raise SettingsError(f"--start is a load average above 0, or none to take the gate away, not {start!r}")
-        # one line of [load], with every other line of the file kept
+        # the file is written whole, with the board server's table kept as it reads
         try:
             lem_state.write_machine("load", {"start": int(value) if value.is_integer() else value})
         except lem_state.StateError as error:
