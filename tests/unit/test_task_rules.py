@@ -486,6 +486,27 @@ class SeatCommands(Refuses):
         project.cmd_seat_failed(root, "plan-talk", "merger", "claude/opus:high", "tokens", None)
         self.assertIn("`lem project seat-again plan-talk` writes it", self.refused(project.cmd_state, root, "plan-talk", "open", ["pull request x"]))
 
+    def test_a_leads_state_never_comes_over_a_seats_block(self):
+        # the defender's seat-failed wrote `blocked` before the lead's `building` of the pair's open: that `building`
+        # would take the task out of "Waits for you", seat-again would refuse it, and the lead's wait would loop
+        root = self.repo("billing-core", 'reviewer = "codex/gpt-6.2-sol:high"', "fallback = false")
+        project.cmd_seat_failed(root, "plan-talk", "reviewer", "codex/gpt-6.2-sol:high", "tokens", None)
+        for status, lines in (("building", ["the plan talk runs", "lead: session", "defender: opus, high"]), ("held", ["one more fact"]),
+                              ("planned", ["the plan talk is done"]), ("ready", ["report written"])):
+            with self.subTest(status=status):
+                message = self.refused(project.cmd_state, root, "plan-talk", status, lines)
+                self.assertIn("the seat that failed: reviewer", message)
+                self.assertIn("`lem project seat-again plan-talk`", message)
+                self.assertEqual(project.read_tasks(root)[0]["status"], "blocked")
+        # the owner's go on lifts it, and a second block of a seat may come over the first
+        self.assertEqual(project.cmd_seat_again(root, "plan-talk")["status"], "building")
+        project.cmd_seat_failed(root, "plan-talk", "reviewer", "codex/gpt-6.2-sol:high", "tokens", None)
+        project.cmd_seat_failed(root, "plan-talk", "planner", "claude/opus:high", "login", None)
+        self.assertEqual(project.read_tasks(root)[0]["status"], "blocked")
+        # the owner's drop and park still come over it
+        project.cmd_state(root, "plan-talk", "parked", ["the owner parked it"])
+        self.assertEqual(project.read_tasks(root)[0]["status"], "parked")
+
 
 if __name__ == "__main__":
     unittest.main()

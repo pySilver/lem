@@ -203,7 +203,9 @@ with each of its lines and that one. Your report says the same. A task he named 
       lines `the plan talk runs`, `lead: session` and `defender: MODEL, EFFORT`, as the pair's
       status line shows them (the harness file says how to read them). A pair whose agent gives
       an error at its open is a seat that failed, and the harness file says how its stand-in
-      opens, or the block of step 3 comes.
+      opens, or the block of step 3 comes. When `lem project state` refuses that `building`
+      because the task is `blocked` with `the seat that failed:`, a seat of the pair failed before
+      you wrote it: write nothing over the block, and go on at step 3, whose wait gives it.
    3. `run-in-background` with `lem session wait SLUG --until planned,held,blocked --companion ID
       --quiet TASK_DIR/talk-turns.md`, `ID` the pair's id from its open and `TASK_DIR` the task
       directory, where the defender keeps the talk's turns as they come. Its end wakes you:

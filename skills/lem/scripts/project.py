@@ -80,7 +80,8 @@ team that adopts Lem may have its own.
                                     is LINE, or when its agent may not sit in SEAT. The experts and
                                     the session take no fallback
     lem project seat-again SLUG     the owner's go on over such a block: the block before it comes
-                                    back, the stand-in ends, and the seat the settings name is tried again
+                                    back, the stand-in ends, and the seat the settings name is tried again.
+                                    No other state but a park, another block or an end comes over it
     lem project tasks               every task's ask, status and newest state block, as JSON
     lem project owner away|back --words TEXT
                                     the owner says that he is away, or back again: his words as typed,
@@ -2321,7 +2322,8 @@ def state_locked(directory: Path) -> Iterator[None]:
 def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: bool = False, resumed: bool = False, again: bool = False) -> dict:
     """Put a new block at the top of the task's state.md, and the same as an event in the log.
     `resumed` is `resume`'s own write over a parked task, the one way out of `parked` but a drop;
-    `again` is `seat-again`'s, the one way from `blocked` back to `open`."""
+    `again` is `seat-again`'s, the one way from `blocked` back to `open`, and the one way over a block
+    with `the seat that failed: SEAT` but a park, another block or an end."""
     directory = task_directory(root, slug)
     settings = load(root)
     if status not in STATES:
@@ -2359,6 +2361,13 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
             # a merge agent's seat that failed blocks an open task, and only the owner's go on opens it again
             raise SettingsError(f"the task {slug!r} is blocked, and only the owner's go on gives `open` back: `lem project seat-again {slug}` writes it, "
                                 "when the block names the seat that failed")
+        held_seat = failed_seat(written.split("\n\n")[0].splitlines()) if now == "blocked" else None
+        if held_seat and not again and status not in ("blocked", PARKED, *ENDED):
+            # a seat's block waits for the owner: a lead's state written after it (the `building` of a pair whose
+            # defender's seat failed at its open) would take the task out of "Waits for you" with no go on
+            raise SettingsError(f"the task {slug!r} is blocked with `{lem_state.FAILED_SEAT}{held_seat}`, and only the owner's go on lifts that block: "
+                                f"`lem project seat-again {slug}` writes the state before it. A lead that wrote no state since it opened the pair "
+                                "takes the block as its wait gives it")
         if status == "answered":
             answered_form(root, directory, slug)
         # the time is the clock's, never a writer's estimate

@@ -46,7 +46,8 @@ A companion session of the lead's, `SLUG · plan talk`, which runs Claude Code w
    runs; a lead after a restart finds it in the tree by its name. Then read the model and the
    effort from the status line on that screen, and write them in the state as `defender: MODEL,
    EFFORT`, never the ones you asked for: the talk's record names them. A status line of the
-   owner's own may show neither: write `unread` for each value the screen does not show.
+   owner's own may show neither: write `unread` for each value the screen does not show. A
+   refusal of that state over a seat's block is the block of `stages/plan.md`, step 4.2.
    A pair whose screen shows one of the four errors of `second-opinion.md` (`command not found:
    claude`, no login, no tokens or a usage limit, a model it does not know), at once or after the
    open with `--wait` of a node that was gone at once, is a seat that failed: close what is left
