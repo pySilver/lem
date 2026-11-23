@@ -754,3 +754,20 @@ class CardStep(unittest.TestCase):
         self.assertNotIn("iframe", said)
         mute = self.ctx(can_act=False)
         self.assertNotIn("iframe", "".join(str(x) for x in task_pages.card_step(mute, mute.model.tasks[0], self.PAGE)))
+
+    def test_the_refresh_after_an_answer_on_the_board_keeps_the_step_and_after_one_in_the_session_says_what_took_effect(self):
+        # the board logs its answer before the frame has the reply: the refresh's render must pair with the open step
+        # (one id) and keep it (one data-keep, app.js), or the morph takes the frame with what the board said away
+        def head(ctx):
+            html = "".join(str(x) for x in task_pages.card_step(ctx, ctx.model.tasks[0], self.PAGE))
+            return html[:html.index(">") + 1]
+        answer = {"status": "answered", "answers": {"answer": {"selected": ["no"], "labels": ["No, write a dash"]}}}
+        opened = head(self.ctx())
+        self.assertIn('id="card-step"', opened)
+        self.assertIn('data-keep="card-P-1"', opened)
+        board = head(self.ctx(open_=False, end={"page": self.PAGE, "status": "answered", "from": "board", "at": "2026-11-20T09:42:00Z", "answer": answer}))
+        self.assertIn('id="card-step"', board)
+        self.assertIn('data-keep="card-P-1"', board)
+        session = head(self.ctx(open_=False, end={"page": self.PAGE, "status": "answered", "from": "session", "at": "2026-11-20T09:42:00Z", "answer": answer}))
+        self.assertIn('id="card-step"', session)
+        self.assertNotIn("data-keep", session)

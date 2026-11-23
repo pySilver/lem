@@ -18,7 +18,8 @@ document.addEventListener('turbo:before-morph-attribute', ev => {
 document.addEventListener('turbo:before-morph-element', ev => {
   // An element the browser drew from the server's text (a markdown artifact, data-keep: its file's
   // path, time and size) stays as it is while its key is the same: the server's version holds the text,
-  // and the page's holds what it rendered.
+  // and the page's holds what it rendered. So does the step of a session's card (its page id), whose
+  // frame holds what the board said to the owner's answer there.
   const keep = ev.target.dataset?.keep;
   if (keep && ev.detail?.newElement?.dataset?.keep === keep) ev.preventDefault();
 });

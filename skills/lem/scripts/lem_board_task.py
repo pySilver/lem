@@ -1414,8 +1414,9 @@ def act_back(ctx, t: bm.Task, label: str, cls: str = "") -> Markup:
     return h("a", {"class": f"btn {cls}".strip(), **P.frame_link(ctx, P.task_href(ctx, t.slug))}, h("span", None, label))
 
 
-def not_now(ctx, t: bm.Task, said: str) -> list:
-    return [h("section", {"class": "card confirm a-quiet", "id": "confirm"}, h("p", None, said), h("div", {"class": "act-row"}, act_back(ctx, t, "Back to the task")))]
+def not_now(ctx, t: bm.Task, said: str, *, card_id: str = "confirm", keep: str | None = None) -> list:
+    return [h("section", {"class": "card confirm a-quiet", "id": card_id, "data-keep": keep}, h("p", None, said),
+              h("div", {"class": "act-row"}, act_back(ctx, t, "Back to the task")))]
 
 
 def merge_step(ctx, t: bm.Task) -> list:
@@ -1477,17 +1478,19 @@ def merge_step(ctx, t: bm.Task) -> list:
                          h("div", {"class": "eyebrow"}, f"Merge #{pr['number']} · confirm" if pr.get("number") else "Merge · confirm"), body, acts, ctx.can_act and bool(tip))]
 
 
-def confirm_card(cls: str, label: str, head_: Markup, body: list, foot: Markup, sheet: bool, *, card_id: str = "confirm", wrap: str | None = None) -> Markup:
+def confirm_card(cls: str, label: str, head_: Markup, body: list, foot: Markup, sheet: bool, *, card_id: str = "confirm", wrap: str | None = None,
+                 keep: str | None = None) -> Markup:
     """The card of an act's step in its three parts: the head, the body with what the owner reads, and the
     foot with the button and the way back, the last two in a box of class WRAP where the card has one
     (the approval's). Outside the overlay the three parts take no box of their own (board.css), so the
     card shows as one column. A card that has its button (SHEET) gets the `sheet` controller and the key of
     its read, the digest of the body as rendered here: on a phone's screen the card is then an overlay
     whose button comes on when the body was scrolled to its end, and any change of what the body says is
-    another key, which the owner reads again from its top."""
+    another key, which the owner reads again from its top. A card with KEEP stays as it is through a
+    refresh that renders the same key (`data-keep`, app.js)."""
     text = h("div", {"class": "cf-body", "data-sheet-target": "body" if sheet else None}, body)
     rest = [text, h("div", {"class": "cf-foot"}, foot)]
-    return h("section", {"class": f"{cls}{' cf-sheet' if sheet else ''}", "id": card_id, "aria-label": label,
+    return h("section", {"class": f"{cls}{' cf-sheet' if sheet else ''}", "id": card_id, "aria-label": label, "data-keep": keep,
                          **({"data-controller": "sheet", "data-sheet-key-value": hashlib.sha256(text.encode()).hexdigest()[:12]} if sheet else {})},
              h("div", {"class": "cf-head", **({"data-sheet-target": "head", "tabindex": "-1"} if sheet else {})}, head_),
              h("div", {"class": wrap}, rest) if wrap else rest)
@@ -1555,20 +1558,27 @@ def card_step(ctx, t: bm.Task, page_id: str) -> list:
     """The step of a card of the task's session: the card's own page as `lem-ask` built it, in a frame of
     the board (serve.py's `card_page`), which posts its answer itself and shows what the board said; on a
     phone's screen an overlay of the whole screen (`sheet`), as a park's step is. A card that no longer
-    waits says what took effect, and a page that may not act says where to answer."""
+    waits says what took effect, and a page that may not act says where to answer.
+
+    The step and what it says once the card ended share their id and, for an answer from the board, their
+    `data-keep`: the board logs the answer before its reply reaches the frame, so the refresh that the log
+    brings would otherwise take the frame away, with what the board said there, before or just after the
+    frame showed it. A step that the board's answer ended stays as the owner saw it until he leaves it; one
+    that the session ended turns into what took effect."""
+    keep = f"card-{page_id}"
     c = next((c for c in bm.open_cards(t, ctx.model) if c["page"] == page_id), None)
     if c is None:
         end = ctx.card_end(t.slug, page_id)
         said = (f"{bm.cap(lem_cards.took_effect(end))}. This card no longer waits for you." if end
                 else "This card no longer waits for you: the session that put it up no longer runs, or it holds no such card.")
-        return not_now(ctx, t, said)
+        return not_now(ctx, t, said, card_id="card-step", keep=keep if end and end.get("from") == "board" else None)
     if not ctx.can_act:
         return not_now(ctx, t, "Answer this card on the board on the Mac the task runs on or through its tailnet door, or in the task’s session there.")
     src = f"{ctx.base}/tasks/{quote(t.slug, safe='')}/cards/{quote(page_id, safe='')}/"
     frame = h("iframe", {"class": "card-frame", "id": f"card-frame-{page_id}", "src": src, "title": c["prompt"] or "The card of the task’s session"})
     foot = h("div", {"class": "act-row"}, act_back(ctx, t, "Back"), h("span", {"class": "sub"}, "A question back goes to the task’s session, at the Mac."))
     return [confirm_card("card confirm a-you card-step", "A card of the task’s session", h("div", {"class": "eyebrow"}, "Card · the task’s session asks"),
-                         [frame], foot, True, card_id="card-step")]
+                         [frame], foot, True, card_id="card-step", keep=keep)]
 
 
 def panel(ctx) -> Markup:
