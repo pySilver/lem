@@ -1971,7 +1971,10 @@ class StoppedSession(unittest.TestCase):
 
     def test_a_stop_stands_until_a_work_event_or_a_session_opens(self):
         stopped = (*self.restarted(), self.ev("12:37", "session.wake", session="S2", why="status"), self.ev("12:47", "session.stopped", session="S2"))
-        task = lambda *events: bm.derive(list(events), [], self.ms("13:00")).by_slug["gift-note"]
+
+        def task(*events):
+            return bm.derive(list(events), [], self.ms("13:00")).by_slug["gift-note"]
+
         self.assertEqual(bm.stop_stands(task(*stopped))["session"], "S2")
         self.assertEqual(bm.stop_stands(task(*stopped, self.ev("12:50", "board.act", act="open", via="board")))["session"], "S2")
         self.assertIsNone(bm.stop_stands(task(*stopped, self.ev("12:50", "session.open", session="S3", name="gift-note", phase="land", why="stopped"))))
