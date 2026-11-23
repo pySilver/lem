@@ -13,7 +13,8 @@ the directory above this file's.
 Before anything else, run `lem session list`. Its entry for this task gives `session`, the id of
 the task's newest session; compare it with your own id (the harness file's core, "A session's own
 id"). When they differ, a newer session carries the task: this is an old one that a relaunch of
-agterm started again, or one that Lem's guard replaced after it stopped ("A wake-up"). Say in
+agterm started again, or one that Lem's guard or the owner's "Open a session" replaced after it
+stopped ("A wake-up"). Say in
 one line that the task goes on in its newer session, by that entry's `name`, and close this one
 with `run-in-background`: `lem session close SLUG --session YOUR_ID --why handoff
 --when-unselected`. Do nothing else. The same holds for words the owner types here
@@ -160,9 +161,9 @@ Before you act on any wake-up, this line or a subagent's reply, run `lem session
 that this is still the task's newest session, as "First" says. When it is not, say in one line where
 the task goes on, close this session as "First" says, and do no step more. `lem: SLUG replaced` is
 always such a wake-up: Lem's guard, or the owner's "Open a session" on the stopped task, opened a
-fresh session beside this one, after this one showed no sign of work, and renamed this one `SLUG ·
-replaced`. A turn that the owner went on with here after
-that ran to its end beside the fresh session; now this session closes.
+fresh session beside this one, after this one showed no sign of work, or no event of the task when
+Lem could not read it, and renamed this one `SLUG · replaced`. A turn that the owner went on with
+here after that ran to its end beside the fresh session; now this session closes.
 
 Never act on the line. Read the files (`lem project tasks`, `lem project waiting`) and act on what
 they say: a task that `landed` takes step 9 of `SKILL_DIR/stages/land.md`; a task the wake finds
