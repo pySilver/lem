@@ -213,10 +213,9 @@ Each script's module docstring says what it does and why; this list says where e
     `lem_artifacts.py` (a task's files on one map), `lem_html.py` (`h()`, which escapes every text),
     `lem_push.py` (the notifications), `lem_inbox.py` (what waits for the owner, sent to his Plannotator
     Inbox while he is away and withdrawn when it no longer waits), `lem_peers.py` (another machine
-    joined with `--join`), `lem_cards.py` (a `lem-ask` card of a task's session, kept in the task's
-    folder, and its one end, the first of a pick in the session and the owner's answer on the board,
-    which `lem-ask` imports too) and `lem_answers.py` (the owner's answer from the board to a plan, a
-    breaker or a yes/no row, which `lem project tasks` gives the task's session as `board_answer`).
+    joined with `--join`), `lem_cards.py` (a task session's `lem-ask` card in the task's folder, and
+    its one end, which `lem-ask` imports too) and `lem_answers.py` (the owner's answer on the board
+    to a plan, a breaker or a yes/no row).
   - `board.py` (`lem board`): makes sure the server runs and opens a board, or with `--page FILE`
     any page of Lem, as a companion. `picker.py` (`lem picker`): agterm's picker over the tasks.
   - `doctor.py` (`lem doctor`): the machine check. `corrections.py` (`lem corrections`): the
