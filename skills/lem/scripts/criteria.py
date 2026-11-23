@@ -82,6 +82,25 @@ works`.
                               approves it. --alone is never his yes either: the pull
                               request is not green for it, and his own approval after it takes over
     lem criteria approved SLUG the approved criteria of the task, or null when it has none
+    lem criteria change SLUG --typed --words NOTE
+    lem criteria change SLUG --file FILE --words NOTE
+    lem criteria change SLUG --pairs
+                              a change of the criteria from the owner's note, on the standard track
+                              while they wait for the owner's yes, which approves nothing: the
+                              criteria wait for the owner's yes again. --typed: record the owner's
+                              No, typed in the task's session, as the answer of the criteria's row
+                              of the board for the newest state block, before the new text is
+                              written; an answer of the board that came first refuses it. --file:
+                              keep the text the owner answered in `criteria-before.json`, write FILE
+                              as the task's `criteria.md`, log `criteria.changed`, and write the
+                              held block `the criteria wait for the owner: changed from the owner's
+                              note`; it prints each changed criterion's text before beside its text
+                              after (`pairs`). Run again with the same file, it ends a change that
+                              stopped in the middle. --pairs: the pairs of the newest change again,
+                              while its wait stands. Refused for a task on the fast track, after an
+                              approval of the standard track (a change is then `lem decisions
+                              criterion`), after any approval since the wait began, and for FILE
+                              with the same criteria or with a test line
     lem criteria digest SLUG [--file FILE]
                               the digest of the `Size` line and the texts of the criteria, without tests: of FILE,
                               or of the task's plan
@@ -161,6 +180,7 @@ if sys.version_info < (3, 11):
     sys.exit(f"criteria.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it")
 
 import argparse
+import difflib
 import fcntl
 import hashlib
 import importlib
@@ -172,6 +192,7 @@ import shutil
 import signal
 import subprocess
 import tempfile
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -183,6 +204,8 @@ import lem_plans  # noqa: E402
 # How this script calls a sibling: in this process, as one command of it.
 import lem_sibling  # noqa: E402
 import lem_state  # noqa: E402  (how a JSON-lines file is split into its lines)
+# The record of the owner's answer to a row of the board, which his typed No on the criteria takes too.
+lem_answers = importlib.import_module("lem_answers")
 # The release a task began on, and the rule that stops a command for a task two releases back.
 lem_release = importlib.import_module("lem_release")
 # How long a command of the check gets after each signal of a stop, in seconds, and how long a serial
@@ -197,6 +220,24 @@ SERIAL_GRACE = 7.0
 SIZES = ("full", "small")
 # The line of a task's brief, or of a block of its state, that says someone else wrote its complete request (land.py's SOMEONE_ELSE).
 SOMEONE_ELSE = "request by: someone else"
+# The first lines of the held blocks under which the owner's yes to criteria waits, as project.py names
+# them (INTERVIEW_WAIT, CRITERIA_WAIT, FAST_WAIT, FAST_GREW): the interview's, any wait of the criteria,
+# and of those the fast track's one criterion of a request someone else wrote, which is no wait of the
+# standard track.
+INTERVIEW_WAIT = "the interview waits for the owner"
+CRITERIA_WAIT = "the criteria wait for the owner"
+FAST_WAIT = "the criteria wait for the owner: a small change that someone else asked for"
+FAST_GREW = re.compile(r"\bthe small change is a full change$")
+# The held line a change of the criteria from the owner's note ends with (`change`): it starts with
+# CRITERIA_WAIT, so project.py's `track_of` reads the standard track and the board's `held_need` the
+# criteria, which take no read before his yes. It is the last write of a change, which the pull
+# request counts (land.py's CHANGED_WAIT).
+CHANGED_WAIT = "the criteria wait for the owner: changed from the owner's note"
+# The text the owner answered, which a change keeps in the task directory before `criteria.md` moves,
+# with the `ts` of the state block it was written under: the newest change only.
+BEFORE = "criteria-before.json"
+# The question of the criteria's row on the standard track, as his typed No records it.
+CRITERIA_QUESTION = "Approve the criteria?"
 HEADING = re.compile(r"^##\s+Acceptance criteria\s*$")
 SIZE = re.compile(r"^Size:\s*(\w+)\s*(?:,\s*because|:|—|-)\s*(.+)$", re.IGNORECASE)
 CRITERION = re.compile(r"^(\d+)\.\s+(.+)$")
@@ -793,17 +834,50 @@ def cmd_red(task: Task) -> dict:
     }
 
 
-def reads_of(task: Task) -> list[dict]:
-    """The task's reads of its criteria, oldest first, from the log `project.py` writes: its
-    `criteria.read` events."""
+def events_of(task: Task, *names: str) -> list[dict]:
+    """The task's events of these names, oldest first, from the log `project.py` writes."""
     log = task.directory.parent.parent / "events.jsonl"
     found = []
     for line in (lem_state.jsonl_lines(log.read_text(encoding="utf-8")) if log.is_file() else []):
-        if '"criteria.read"' in line:
+        if any(f'"{name}"' in line for name in names):
             record = json.loads(line)
-            if record.get("event") == "criteria.read" and record.get("task") == task.slug:
+            if record.get("event") in names and record.get("task") == task.slug:
                 found.append(record)
     return found
+
+
+def reads_of(task: Task) -> list[dict]:
+    """The task's reads of its criteria, oldest first: its `criteria.read` events."""
+    return events_of(task, "criteria.read")
+
+
+def newest_block(task: Task) -> dict | None:
+    """The task's newest state block, as its `task.state` event logged it (`ts`, `status`, `text`,
+    `lines`), with `approved_after`, each approval of its criteria the log holds after it; None for a
+    task with no block. `state` writes the block and its event under one lock, so the log's newest is
+    the block on top of state.md."""
+    events = events_of(task, "task.state", "criteria.approved")
+    at = next((i for i in range(len(events) - 1, -1, -1) if events[i]["event"] == "task.state"), None)
+    if at is None:
+        return None
+    return {**events[at], "approved_after": [event for event in events[at + 1:] if event["event"] == "criteria.approved"]}
+
+
+def row_key(task: Task, block: dict) -> str:
+    """The key of the criteria's row of the board for the state block BLOCK (`lem_answers.key_of`)."""
+    moment = datetime.fromisoformat(str(block["ts"]).replace("Z", "+00:00"))
+    return lem_answers.key_of("criterion", task.slug, int(moment.timestamp() * 1000))
+
+
+def owners_no(task: Task, block: dict | None) -> dict | None:
+    """The owner's No on record for the criteria's row of BLOCK, typed or on the board, or None."""
+    if block is None or block.get("status") != "held":
+        return None
+    try:
+        made = lem_answers.on_record(task.directory, row_key(task, block))
+    except lem_answers.AnswerError as error:
+        raise CriteriaError(str(error)) from error
+    return made if made and made.get("option") == "no" else None
 
 
 # The automatic approvals, which no word of his gave in the moment: the read of a task on the
@@ -851,6 +925,27 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False, shown: str |
     source = Path(file)
     if not source.is_file():
         raise CriteriaError(f"{file} is not a file; --file names the criteria the owner approved, in the form `lem criteria --help` shows")
+    task.directory.mkdir(parents=True, exist_ok=True)
+    # the file is read and checked under the lock that a change of the criteria takes too (`cmd_change`):
+    # of his yes and a change that come at one time, one ends before the other starts
+    with (task.directory / "criteria.lock").open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        return approve_held(task, source, by, plan, shown)
+
+
+def approve_held(task: Task, source: Path, by: str, plan: bool, shown: str | None) -> dict:
+    """`cmd_approve` under the task's criteria.lock: the read of the file, its checks and the write. The
+    owner's yes is refused while his No to the criteria of the newest state block is on record: the
+    first answer counts, and that No changes them (`cmd_change`)."""
+    if by == "owner":
+        said = owners_no(task, newest_block(task))
+        if said:
+            raise CriteriaError(
+                f"the owner said No to the criteria of this wait ({'typed in the session' if said.get('from') == 'session' else 'on the board'}, at {said.get('at')}"
+                + (f", with the words {said['note']!r}" if said.get("note") else "")
+                + f"), and the first answer counts: nothing was approved. The No changes the criteria: `lem criteria change {task.slug} --file FILE --words \"THE OWNER'S NOTE\"` "
+                "writes the changed text and a new wait, and the owner's yes to that text is the approval",
+            )
     data = source.read_bytes()
     if shown is not None and shown_digest(data) != shown:
         raise CriteriaError(
@@ -886,78 +981,298 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False, shown: str |
     criteria = [{key: criterion[key] for key in ("n", "text", "case", "chart")} for criterion in read["criteria"]]
     # one mark for this exact set of approved texts, each with its case; the approval itself is known by its number
     digest = text_digest(read["size"], [whole(criterion) for criterion in criteria])
+    if by in AUTOMATIC:
+        first_contract(task, by)
+    if by == "alone":
+        # the mode at the approval, under the lock: the owner may have come back since the task was read
+        if task.read_mode() != "alone":
+            if other:
+                raise CriteriaError(waits_for_him(task, other, source))
+            raise CriteriaError(f"{task.slug} runs with the owner: the owner's yes approves its criteria (`stages/interview.md`, step 7), and --alone is for a task that runs without the owner")
+        kept = task.approved()
+        # a fast-track task that turned out to need the standard track needs that path's approval, also
+        # when its first was made without the owner (a night's task, a request someone else wrote, while
+        # it still runs without him: the check above); any other approval stands
+        grew = kept is not None and kept["by"] == "alone" and kept.get("size") == "small" and read["size"] == "full"
+        if kept is not None and kept["by"] != "lem" and not grew:
+            raise CriteriaError(
+                f"{task.slug} has approval {kept['number']} of its criteria already (by {kept['by']}): "
+                f"a criterion changes through its record, `lem decisions criterion {task.slug} ...`",
+            )
+    if by == "read":
+        # the standard track from a complete request: the lead freezes the criteria the personas read, and only when nobody was confused
+        reads = reads_of(task)
+        last = reads[-1] if reads else None
+        if last is None or last.get("digest") != digest:
+            raise CriteriaError(
+                f"--read freezes the criteria the newest `criteria.read` of {task.slug} read, and "
+                + ("there is none" if last is None else f"that read was of the criteria with digest {last.get('digest')}, and {source.name} has {digest}")
+                + ": run the read over these criteria first (`stages/plan.md`, step 1)",
+            )
+        # a read nobody answered is started once more; after the second in a row the build goes on
+        if last["answered"] == 0 and (len(reads) < 2 or reads[-2].get("answered") != 0):
+            raise CriteriaError(
+                f"nobody answered the newest read of {task.slug}'s criteria: it is started once more (`stages/plan.md`, step 1); "
+                "after a second read in a row that nobody answered, the build goes on with the criteria as they are",
+            )
+        if last["flagged"] or last["split"]:
+            raise CriteriaError(
+                f"the newest read of {task.slug}'s criteria found {'a flagged criterion' if last['flagged'] else 'a split between the families'}: "
+                "the criteria wait for the owner, and only the owner's approval freezes them",
+            )
+    before = task.approved()
+    history = [*before.get("history", []), {key: value for key, value in before.items() if key not in ("history", "task", "text")}] if before else []
+    record = {
+        "task": task.slug, "number": len(history) + 1, "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        # who approved: the owner; Lem in his name, for a task on the fast track, which does not wait; the
+        # lead's read on the standard track from a complete request, which counts for the plan's check and never as his yes;
+        # or Lem or the lead while the task runs without the owner (`alone`), which is never his yes either
+        "by": by, "size": read["size"], "why": read["why"], "digest": digest, "criteria": criteria, "how": read["how"], "text": text,
+        **({"replaces": before["number"]} if before else {}), "history": history,
+    }
+    task.approved_file.write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    task.log("criteria.approved", by=by, number=record["number"], size=record["size"], why=record["why"], digest=digest, criteria=criteria, **({"replaces": before["number"]} if before else {}))
+    return {**record, "file": str(task.approved_file)}
+
+
+def shown_criterion(criterion: dict) -> dict:
+    """A criterion as a pair of a change shows it: its number, its sentence and the steps of its case."""
+    return {"n": criterion["n"], "text": criterion["text"], "case": list(criterion.get("case") or [])}
+
+
+def pairs(before: list[dict], after: list[dict]) -> list[dict]:
+    """The criteria BEFORE a change and AFTER it, paired by their text and not by their number
+    (`difflib.SequenceMatcher` over `whole` of each, each run of spaces as one): a text that stayed is
+    not shown; a run of N criteria replaced by N is N changed pairs, one by one in order, each with its
+    number before and after; any other run shows its criteria removed, with the number before, and
+    added, with the number after. So the removal of criterion 2 of three shows criterion 2 removed,
+    and criterion 3 kept as the new 2."""
+    old = [" ".join(whole(criterion).split()) for criterion in before]
+    new = [" ".join(whole(criterion).split()) for criterion in after]
+    found: list[dict] = []
+    for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(a=old, b=new, autojunk=False).get_opcodes():
+        if tag == "equal":
+            continue
+        if tag == "replace" and i2 - i1 == j2 - j1:
+            found += [{"change": "changed", "before": shown_criterion(before[i]), "after": shown_criterion(after[j])} for i, j in zip(range(i1, i2), range(j1, j2))]
+            continue
+        found += [{"change": "removed", "before": shown_criterion(before[i])} for i in range(i1, i2)]
+        found += [{"change": "added", "after": shown_criterion(after[j])} for j in range(j1, j2)]
+    return found
+
+
+def change_of(before_text: str, after_text: str, after_name: str = "criteria.md") -> dict:
+    """The criteria of two texts of `criteria.md`, the one the owner answered and the one that waits
+    for his yes now, with their pairs: what the session's page and the board's card show."""
+    before, after = parse(before_text, "the criteria.md the owner answered"), parse(after_text, after_name)
+    return {"before": [shown_criterion(criterion) for criterion in before["criteria"]], "after": [shown_criterion(criterion) for criterion in after["criteria"]],
+            "pairs": pairs(before["criteria"], after["criteria"])}
+
+
+def kept_before(directory: Path) -> dict | None:
+    """The text before the newest change of the criteria, `criteria-before.json` in the task directory
+    DIRECTORY (`ts`, the state block it was written under; `text`; `words`; `at`), or None."""
+    file = directory / BEFORE
+    try:
+        kept = json.loads(file.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError) as error:
+        raise CriteriaError(f"{file} does not read as JSON ({error}); it is written by `lem criteria change` only") from error
+    if not isinstance(kept, dict) or not isinstance(kept.get("ts"), str) or not isinstance(kept.get("text"), str):
+        raise CriteriaError(f"{file} has no `ts` and `text`; it is written by `lem criteria change` only")
+    return kept
+
+
+def write_whole(file: Path, text: str) -> None:
+    """Write TEXT as FILE in one step: a reader sees the old file or the new one, never a part."""
+    fresh = file.with_name(f"{file.name}.{os.getpid()}.new")
+    fresh.write_text(text, encoding="utf-8")
+    fresh.replace(file)
+
+
+def waits_for_change(task: Task, block: dict | None) -> None:
+    """Refuse a change of the criteria, or his typed No, unless the task's criteria wait for the owner's
+    yes on the standard track now, with no approval of that track and none after the newest block."""
+    if block is None or block.get("status") != "held" or not (
+        str(block.get("text")).startswith((INTERVIEW_WAIT, CRITERIA_WAIT)) or FAST_GREW.search(str(block.get("text")))
+    ):
+        now = f"`{block.get('status')}: {block.get('text')}`" if block else "no block at all"
+        raise CriteriaError(
+            f"the criteria of {task.slug} do not wait for the owner's yes: its newest state block is {now}. A change from the owner's note is made "
+            "while the interview's criteria, or a wait of the criteria, are held for the owner's yes",
+        )
+    if block.get("text") == FAST_WAIT:
+        raise CriteriaError(
+            f"{task.slug} is on the fast track: the owner's change of its one criterion goes into criteria.md in the owner's words, and its held block is "
+            "written again (`stages/new.md`, \"The fast track\", step 1); `lem criteria change` is the standard track's",
+        )
+    if block["approved_after"]:
+        last = block["approved_after"][-1]
+        raise CriteriaError(
+            f"approval {last.get('number')} of {task.slug}'s criteria (by {last.get('by')}, at {last.get('ts')}) came after the wait the owner answered, "
+            "and the first answer counts: nothing was changed. The task goes on from that approval; say in one line which answer was taken and from where",
+        )
+    kept = task.approved()
+    if kept is not None and kept.get("size") == "full":
+        raise CriteriaError(
+            f"{task.slug} has approval {kept['number']} of its criteria on the standard track (by {kept['by']}): from then on a criterion changes through its record, "
+            f"`lem decisions criterion {task.slug} --changed N --was TEXT --now TEXT`, and the plan is read against that approval",
+        )
+
+
+def cmd_typed(task: Task, words: str) -> dict:
+    """The owner's No to the criteria that wait for his yes, typed in the task's session, recorded as
+    the answer of the criteria's row of the newest state block (`lem_answers.record`, `from: session`)
+    before the session writes the new text: of his typed word and his answer on the board, the first
+    counts. A record of that row that is there first refuses it, and says what took effect; his own
+    typed No on record already is taken as it is."""
+    note = " ".join(words.split())
+    if not note:
+        raise CriteriaError("--typed needs --words: the owner's note, what the criteria should say")
     task.directory.mkdir(parents=True, exist_ok=True)
     with (task.directory / "criteria.lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
-        if by in AUTOMATIC:
-            first_contract(task, by)
-        if by == "alone":
-            # the mode at the approval, under the lock: the owner may have come back since the task was read
-            if task.read_mode() != "alone":
-                if other:
-                    raise CriteriaError(waits_for_him(task, other, source))
-                raise CriteriaError(f"{task.slug} runs with the owner: the owner's yes approves its criteria (`stages/interview.md`, step 7), and --alone is for a task that runs without the owner")
-            kept = task.approved()
-            # a fast-track task that turned out to need the standard track needs that path's approval, also
-            # when its first was made without the owner (a night's task, a request someone else wrote, while
-            # it still runs without him: the check above); any other approval stands
-            grew = kept is not None and kept["by"] == "alone" and kept.get("size") == "small" and read["size"] == "full"
-            if kept is not None and kept["by"] != "lem" and not grew:
-                raise CriteriaError(
-                    f"{task.slug} has approval {kept['number']} of its criteria already (by {kept['by']}): "
-                    f"a criterion changes through its record, `lem decisions criterion {task.slug} ...`",
-                )
-        if by == "read":
-            # the standard track from a complete request: the lead freezes the criteria the personas read, and only when nobody was confused
-            reads = reads_of(task)
-            last = reads[-1] if reads else None
-            if last is None or last.get("digest") != digest:
-                raise CriteriaError(
-                    f"--read freezes the criteria the newest `criteria.read` of {task.slug} read, and "
-                    + ("there is none" if last is None else f"that read was of the criteria with digest {last.get('digest')}, and {source.name} has {digest}")
-                    + ": run the read over these criteria first (`stages/plan.md`, step 1)",
-                )
-            # a read nobody answered is started once more; after the second in a row the build goes on
-            if last["answered"] == 0 and (len(reads) < 2 or reads[-2].get("answered") != 0):
-                raise CriteriaError(
-                    f"nobody answered the newest read of {task.slug}'s criteria: it is started once more (`stages/plan.md`, step 1); "
-                    "after a second read in a row that nobody answered, the build goes on with the criteria as they are",
-                )
-            if last["flagged"] or last["split"]:
-                raise CriteriaError(
-                    f"the newest read of {task.slug}'s criteria found {'a flagged criterion' if last['flagged'] else 'a split between the families'}: "
-                    "the criteria wait for the owner, and only the owner's approval freezes them",
-                )
-        before = task.approved()
-        history = [*before.get("history", []), {key: value for key, value in before.items() if key not in ("history", "task", "text")}] if before else []
-        record = {
-            "task": task.slug, "number": len(history) + 1, "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            # who approved: the owner; Lem in his name, for a task on the fast track, which does not wait; the
-            # lead's read on the standard track from a complete request, which counts for the plan's check and never as his yes;
-            # or Lem or the lead while the task runs without the owner (`alone`), which is never his yes either
-            "by": by, "size": read["size"], "why": read["why"], "digest": digest, "criteria": criteria, "how": read["how"], "text": text,
-            **({"replaces": before["number"]} if before else {}), "history": history,
-        }
-        task.approved_file.write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        task.log("criteria.approved", by=by, number=record["number"], size=record["size"], why=record["why"], digest=digest, criteria=criteria, **({"replaces": before["number"]} if before else {}))
-    return {**record, "file": str(task.approved_file)}
+        block = newest_block(task)
+        waits_for_change(task, block)
+        key = row_key(task, block)
+        try:
+            won, made = lem_answers.record(task.directory, key, CRITERIA_QUESTION, "no", note, **{"from": "session"})
+        except (lem_answers.AnswerError, OSError) as error:
+            raise CriteriaError(f"the owner's No was not recorded: {error}") from error
+    if not won and not (made.get("option") == "no" and made.get("from") == "session"):
+        raise CriteriaError(
+            f"the owner's answer {made.get('label') or made.get('option')!r} to this wait came first, on the board at {made.get('at')}"
+            + (f", with the words {made['note']!r}" if made.get("note") else "")
+            + ": the typed No is not recorded. Take the board's answer (`board_answer` of `lem project tasks`), and say in one line which was taken and from where",
+        )
+    return {"task": task.slug, "key": key, "recorded": won, "answer": made}
+
+
+def cmd_change(task: Task, file: str, words: str) -> dict:
+    """A change of the criteria from the owner's note: keep the text he answered, write FILE as the
+    task's `criteria.md`, log `criteria.changed`, and write the held block CHANGED_WAIT, so that the
+    criteria wait for his yes again. It approves nothing. It runs whole under the task's criteria.lock,
+    the lock of `cmd_approve`. A change that stopped in the middle (`criteria-before.json` names the
+    newest state block) is finished from FILE, against the text it kept."""
+    note = " ".join(words.split())
+    if not note:
+        raise CriteriaError("change needs --words: the owner's note the change comes from, in the owner's words")
+    source = Path(file)
+    if not source.is_file():
+        raise CriteriaError(f"{file} is not a file; --file names the changed criteria, in the form `lem criteria --help` shows, with no test lines")
+    text = source.read_bytes().decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
+    read = parse(text, source.name)
+    tested = [criterion["n"] for criterion in read["criteria"] if criterion["tests"] or criterion["no_test"]]
+    if tested:
+        raise CriteriaError(f"criterion {tested[0]} of {source.name} has a test line: the criteria that wait for the owner's yes have none, and the lead adds them in the plan")
+    if read["size"] != "full":
+        raise CriteriaError(f"{source.name} says `Size: {read['size']}`: a change from the owner's note keeps the standard track, `Size: full, because ...`")
+    task.directory.mkdir(parents=True, exist_ok=True)
+    with (task.directory / "criteria.lock").open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        block = newest_block(task)
+        waits_for_change(task, block)
+        key = row_key(task, block)
+        made = lem_answers.on_record(task.directory, key)
+        if made is not None and made.get("option") != "no":
+            raise CriteriaError(
+                f"the owner's answer {made.get('label') or made.get('option')!r} to this wait came first, at {made.get('at')}: nothing was changed. "
+                "Take it, and say in one line which answer was taken and from where",
+            )
+        kept = kept_before(task.directory)
+        resumed = kept is not None and kept["ts"] == block["ts"]
+        if resumed:
+            answered = kept["text"]
+        elif task.small_file.is_file():
+            answered = task.small_file.read_text(encoding="utf-8")
+        else:
+            raise CriteriaError(f"{task.small_file} is not there: a change is made to the criteria that wait for the owner's yes, which the interview keeps there")
+        try:
+            change = change_of(answered, text, source.name)
+        except CriteriaError as error:
+            raise CriteriaError(f"the criteria the owner answered do not read: {error}") from error
+        before = parse(answered, "the criteria.md the owner answered")
+        if before["size"] != "full":
+            raise CriteriaError(
+                f"the criteria the owner answered say `Size: small`: the fast track's one criterion takes the owner's change in the owner's words "
+                "(`stages/new.md`, \"The fast track\", step 1)",
+            )
+        if not change["pairs"]:
+            raise CriteriaError(
+                f"{source.name} has the same criteria as the ones the owner answered: nothing changed. Write each criterion the owner's note changes in your own words, "
+                "with a concrete example, then run this again",
+            )
+        if not resumed:
+            # kept before criteria.md moves, so that a stop after the move still knows what he answered
+            write_whole(task.directory / BEFORE, json.dumps({"ts": block["ts"], "text": answered, "words": note, "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")},
+                                                           indent=2, ensure_ascii=False) + "\n")
+        write_whole(task.small_file, text)
+        task.log("criteria.changed", words=note, block=block["ts"], pairs=change["pairs"],
+                 before=text_digest(before["size"], [whole(criterion) for criterion in before["criteria"]]),
+                 after=text_digest(read["size"], [whole(criterion) for criterion in read["criteria"]]))
+        # The new wait is a new row of the board only under a new key, which names its block to the
+        # second (lem_answers): a block written in the second of the one he answered would take his No
+        # on record for an answer to the changed text. At most one second of wait, in a run that fast.
+        until = time.monotonic() + 1.5
+        while datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") <= str(block["ts"]) and time.monotonic() < until:
+            time.sleep(0.05)
+        state = json.loads(script("project.py", task.repo, "state", task.slug, "held", CHANGED_WAIT))
+    return {
+        "task": task.slug, "words": note, "answered": block["ts"], "resumed": resumed, "file": str(task.small_file), "kept": str(task.directory / BEFORE),
+        "shown": shown_digest(text.encode("utf-8")), **change, "state": state,
+    }
+
+
+def cmd_pairs(task: Task) -> dict:
+    """The pairs of the newest change of the criteria again, while its wait stands: the newest state
+    block is CHANGED_WAIT. A change that stopped in the middle is refused with the command that ends it."""
+    block = newest_block(task)
+    kept = kept_before(task.directory)
+    if block is not None and kept is not None and kept["ts"] == block["ts"]:
+        raise CriteriaError(
+            f"a change of {task.slug}'s criteria stopped in the middle: run `lem criteria change {task.slug} --file FILE --words \"THE OWNER'S NOTE\"` "
+            "again with the same file, which ends it",
+        )
+    if block is None or block.get("status") != "held" or block.get("text") != CHANGED_WAIT:
+        now = f"`{block.get('status')}: {block.get('text')}`" if block else "no block at all"
+        raise CriteriaError(f"no change of {task.slug}'s criteria waits for the owner's yes: its newest state block is {now}, not `held: {CHANGED_WAIT}`")
+    if kept is None:
+        raise CriteriaError(f"{task.directory / BEFORE} is not there: the text before the change was not kept; `lem criteria change` keeps it")
+    if not task.small_file.is_file():
+        raise CriteriaError(f"{task.small_file} is not there: the changed criteria wait in it")
+    text = task.small_file.read_text(encoding="utf-8")
+    return {"task": task.slug, "words": kept.get("words"), "answered": kept["ts"], "file": str(task.small_file), "kept": str(task.directory / BEFORE),
+            "shown": shown_digest(task.small_file.read_bytes()), **change_of(kept["text"], text)}
 
 
 @lem_release.one_command
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="lem criteria", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the repository (default: the current one)")
-    parser.add_argument("step", choices=("approve", "approved", "digest", "show", "record", "red", "inputs"))
+    parser.add_argument("step", choices=("approve", "approved", "change", "digest", "show", "record", "red", "inputs"))
     parser.add_argument("slug")
     parser.add_argument("--file", help="with approve: the criteria the owner approved, in the form above and with no test lines; with digest: the criteria to mark")
     parser.add_argument("--small", action="store_true", help="with approve: Lem approves the one criterion of a task on the fast track in the owner's name")
     parser.add_argument("--read", action="store_true", help="with approve: the lead of a task on the standard track from a complete request freezes the criteria a read in which nobody was confused read")
     parser.add_argument("--alone", action="store_true", help="with approve: Lem or the lead approves the criteria of a task while the task runs without the owner")
     parser.add_argument("--shown", metavar="DIGEST", help="with approve --file: the digest of the file's bytes as the owner's page showed them (the board's form gives it); the file changed since is approved by nobody")
+    parser.add_argument("--words", help="with change: the owner's note, in the owner's words")
+    parser.add_argument("--typed", action="store_true", help="with change: record the owner's No typed in the task's session as the answer of the criteria's row, before the changed text is written")
+    parser.add_argument("--pairs", action="store_true", help="with change: print the pairs of the newest change again, while its wait for the owner's yes stands")
     args = parser.parse_args(argv)
     try:
-        if args.file is not None and args.step not in ("approve", "digest"):
-            raise CriteriaError("--file goes with `approve` and `digest`")
+        if args.file is not None and args.step not in ("approve", "change", "digest"):
+            raise CriteriaError("--file goes with `approve`, `change` and `digest`")
+        if (args.words is not None or args.typed or args.pairs) and args.step != "change":
+            raise CriteriaError("--words, --typed and --pairs go with `change`")
+        if args.step == "change" and (args.file is not None) + args.typed + args.pairs != 1:
+            raise CriteriaError(
+                "change takes one of --file FILE (the changed criteria), --typed (the owner's No typed in the session) and --pairs (the pairs again): "
+                "`lem criteria change SLUG --typed --words NOTE`, then `lem criteria change SLUG --file FILE --words NOTE`",
+            )
+        if args.pairs and args.words is not None:
+            raise CriteriaError("--pairs takes no --words: it prints the pairs the newest change wrote")
         if args.shown is not None and (args.step != "approve" or args.file is None or args.small or args.read or args.alone):
             raise CriteriaError("--shown goes with `approve --file FILE`, the owner's own approval of the file his page showed")
         if (args.small or args.read or args.alone) and args.step != "approve":
@@ -988,6 +1303,13 @@ def main(argv: list[str] | None = None) -> None:
                 result = cmd_approve(task, args.file, "alone", plan=True)
             else:
                 result = cmd_approve(task, args.file, "lem" if args.small else "owner", shown=args.shown)
+        elif args.step == "change":
+            if args.pairs:
+                result = cmd_pairs(task)
+            elif args.typed:
+                result = cmd_typed(task, args.words or "")
+            else:
+                result = cmd_change(task, args.file, args.words or "")
         elif args.step == "approved":
             kept = task.approved()
             result = {"task": task.slug, "approved": kept} if kept else {

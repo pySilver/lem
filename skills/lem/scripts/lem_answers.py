@@ -14,7 +14,10 @@ act of the board on that row (the answer route, a park, a yes to the criterion, 
 record before it acts and refuses with what the record says when the link fails. The record holds the
 key, the row's kind and question, the option and its label, the owner's note, `from: board`, `via`
 (`local` or `door`), `device` (`phone` or `computer`), `agent` (the request's User-Agent, whole), the
-time, and for the criterion the digest of the text the page showed. The task's session reads it on its
+time, and for the criterion the digest of the text the page showed. His No to the standard track's
+criteria typed in the task's session is recorded on the same row's key, with `from: session` and no
+`via`, `device` or `agent` (`lem criteria change --typed`), so that of his typed word and his answer
+on the board the first counts. The task's session reads it on its
 wake as `board_answer` of `lem project tasks` (`answer_of_block`).
 """
 

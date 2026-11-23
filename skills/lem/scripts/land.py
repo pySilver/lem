@@ -800,6 +800,9 @@ CRITERIA_WAIT = "the criteria wait for the owner"
 FAST_GREW = re.compile(r"\bthe small change is a full change$")
 # The approvals that end such a wait: the owner's, or one made while the task ran without him.
 WAIT_ENDS = ("owner", "alone")
+# The held line a change of the criteria from the owner's note ends with (criteria.py's CHANGED_WAIT,
+# the last write of `lem criteria change`, which a retry after a stop never writes twice).
+CHANGED_WAIT = "the criteria wait for the owner: changed from the owner's note"
 # How many model families read the criteria, in the words of the pull request.
 FAMILIES = {1: "one model family", 2: "two model families"}
 # The form of the one event that records a plan talk, as `talk_form` in `project.py` checks it.
@@ -3626,15 +3629,34 @@ def approval_said(found: dict, waited: dict | None) -> str:
     return ""
 
 
-def read_line(read: dict | None, found: dict, quiet_reads: int = 0, skipped: dict | None = None, waited: dict | None = None) -> str:
+def changed_after_read(events: list[dict]) -> int:
+    """How many times the criteria changed from the owner's notes after the newest personas' read,
+    from the task's events oldest first: the held blocks CHANGED_WAIT after it, one for each change
+    (`lem criteria change`), whatever text the owner approved at the end. 0 with no read."""
+    read = next((i for i in range(len(events) - 1, -1, -1) if events[i].get("event") == "criteria.read"), None)
+    if read is None:
+        return 0
+    return sum(1 for record in events[read + 1:] if record.get("event") == "task.state" and record.get("status") == "held" and record.get("text") == CHANGED_WAIT)
+
+
+def changes_said(changed: int) -> str:
+    """The part of the read's line that counts the changes from the owner's notes after the read."""
+    if not changed:
+        return ""
+    return f"; the criteria changed {'once' if changed == 1 else f'{changed} times'} after the personas' read, from the owner's notes"
+
+
+def read_line(read: dict | None, found: dict, quiet_reads: int = 0, skipped: dict | None = None, waited: dict | None = None, changed: int = 0) -> str:
     """The personas' read of the criteria and his approval, as one line of the pull request's checks;
     `skipped` is his word to skip the read with his approval after it, as `read_skipped` gives them,
-    and `waited` the criteria's wait for his yes with its end, as `criteria_waited` gives them."""
+    `waited` the criteria's wait for his yes with its end, as `criteria_waited` gives them, and
+    `changed` how many changes from his notes came after the read, as `changed_after_read` counts them."""
     approved = approval_said(found, waited)
     if read and not read["answered"]:
         # propose refuses the first such read, so this is the second in a row at the least
         return (
             f"- the criteria were not read by the personas: {quiet_reads} reads in a row, and none of the {read['asked']} personas asked answered"
+            + changes_said(changed)
             + (f"; {approved}" if approved else "; the build started with no wait for the owner")
         )
     if read:
@@ -3644,6 +3666,7 @@ def read_line(read: dict | None, found: dict, quiet_reads: int = 0, skipped: dic
             + ("nobody confused" if not read["flagged"] else f"{read['flagged']} of {read['criteria']} {'criterion' if read['criteria'] == 1 else 'criteria'} flagged")
             + ("; the two families split" if read["split"] else "")
             + "".join(f"; no answer from {source['name']} ({source['why']})" for source in read["silent"])
+            + changes_said(changed)
         )
         if approved:
             return f"{line}; {approved}"
@@ -4872,7 +4895,7 @@ def pr_text(task: Task, notes: str, state: dict, jev: dict | None = None) -> str
     out.append(criteria_check_line(checked_criteria(checks)))
     out.append(polished(kept.get("polish")))
     read = criteria_read_of(task)
-    out.append(read_line(read, found, unanswered(task), read_skipped(task)[0] if read is None else None, criteria_waited(events_of(task))))
+    out.append(read_line(read, found, unanswered(task), read_skipped(task)[0] if read is None else None, criteria_waited(events_of(task)), changed_after_read(events_of(task))))
     if unread(read, found):
         out.append(unread(read, found))
     if (task.directory / "scout.md").is_file():

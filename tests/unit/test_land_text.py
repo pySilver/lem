@@ -273,6 +273,58 @@ class TheRead(Proposal):
         said = land.unread(read, found_of(plan, approval("owner", 2, plan, LATER, ({**approval("owner"), "digest": "other"},))))
         self.assertEqual(said, "- the criteria changed after the personas' read, by the owner's approval 2, and the change was not read")
 
+    def test_his_yes_after_a_change_from_his_note(self) -> None:
+        """`unread` names his approval of the text a change from his note wrote (`lem criteria change`), which the personas did not read."""
+        read = self.read(ts=AT)
+        changed = PLAN.replace("the word y.", "the word y and its date.")
+        found = found_of(changed, approval("owner", 1, changed, LATER))
+        self.assertEqual(land.unread(read, found), "- the criteria changed after the personas' read, by the owner's approval 1, and the change was not read")
+
+
+class ChangesFromHisNotes(Proposal):
+    """The pull request counts each change of the criteria from his notes after the personas' read (logged
+    decision 7): the held blocks `lem criteria change` writes last, whatever text he approved at the end."""
+
+    READ = {"event": "criteria.read", "by": "lem", "asked": 2, "answered": 2, "families": ["opus"], "silent": [], "criteria": 2, "flagged": 0, "split": False, "ts": AT}
+
+    @staticmethod
+    def changed(at: str) -> list[dict]:
+        """One change, as `lem criteria change` logs it: its event, then its held block."""
+        return [{"event": "criteria.changed", "ts": at, "words": "the note", "pairs": []},
+                {"event": "task.state", "ts": at, "status": "held", "text": land.CHANGED_WAIT, "lines": []}]
+
+    def test_a_change_and_its_way_back_still_show(self) -> None:
+        """A, B, A: the text he approved is the one the personas read, so `unread` says nothing, and the line still counts two changes."""
+        found = found_of(approved=approval("owner", at=LATER))
+        read = {**self.READ, "digest": found["criteria_digest"]}
+        events = [{"event": "task.state", "ts": AT, "status": "held", "text": "the interview waits for the owner", "lines": []}, read,
+                  *self.changed("2026-11-18T10:10:00Z"), *self.changed("2026-11-18T10:20:00Z"), {"event": "criteria.approved", "ts": LATER, "by": "owner", "number": 1}]
+        self.assertEqual(land.changed_after_read(events), 2)
+        self.assertIsNone(land.unread(read, found))
+        said = land.read_line(read, found, waited=land.criteria_waited(events), changed=land.changed_after_read(events))
+        self.assertIn("; nobody confused; the criteria changed 2 times after the personas' read, from the owner's notes; the criteria waited for the owner's yes", said)
+
+    def test_a_retry_after_a_stop_counts_one_change(self) -> None:
+        """A stop between the change's event and its held block, then the run that ends it: two events, one block, one change."""
+        found = found_of(approved=approval("owner", at=LATER))
+        read = {**self.READ, "digest": found["criteria_digest"]}
+        first, _ = self.changed("2026-11-18T10:10:00Z")
+        events = [read, first, *self.changed("2026-11-18T10:12:00Z")]
+        self.assertEqual(land.changed_after_read(events), 1)
+        self.assertIn("the criteria changed once after the personas' read, from the owner's notes", land.read_line(read, found, changed=1))
+
+    def test_a_change_before_the_read_and_no_read(self) -> None:
+        events = [*self.changed(AT), {**self.READ, "ts": LATER}]
+        self.assertEqual(land.changed_after_read(events), 0)
+        self.assertEqual(land.changed_after_read(self.changed(AT)), 0)
+        found = found_of(approved=approval("owner", at=LATER))
+        self.assertNotIn("changed", land.read_line({**self.READ, "digest": found["criteria_digest"]}, found))
+
+    def test_the_text_of_a_proposal_reads_the_changes_from_the_log(self) -> None:
+        found = found_of(approved=approval("owner", at=LATER))
+        task = self.task(found=found, events=({**self.READ, "digest": found["criteria_digest"]}, *self.changed("2026-11-18T10:10:00Z")))
+        self.assertIn("the criteria changed once after the personas' read, from the owner's notes", land.pr_text(task, "", self.state()))
+
 
 class TheWait(Proposal):
     """The criteria that waited for the owner's yes, and the approval that ended the wait, in the line
