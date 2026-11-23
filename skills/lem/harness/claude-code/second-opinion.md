@@ -45,7 +45,28 @@ every report says that the reviewer is this machine's choice, and "same family" 
        prefix rule in `~/.codex/rules/`): it runs outside the sandbox, by Codex's design and by
        his word for every Codex session, and the mailbox's own send is such a command.
        The profile lives on this line only: Lem writes no file of the developer's Codex settings.
-     - Claude Code: `claude --model "MODEL" --effort "EFFORT" --append-system-prompt "$(cat "PATH/prompts/reviewer.md")" "You are the reviewer. Wait for the first message."`
+     - Claude Code: `claude --model "MODEL" --effort "EFFORT" --settings "PATH/harness/claude-code/reviewer-guard.json" --append-system-prompt "$(cat "PATH/prompts/reviewer.md")" "You are the reviewer. Wait for the first message. Write each answer into a file under /tmp, then send it with mailbox-chat.py say --file PATH as a shell command of its own, with nothing before or after it."`
+       The `PATH` after `--file` in the first prompt stays as written: the reviewer puts its own
+       file there. The guard, `harness/claude-code/reviewer-guard.json` in this skill's
+       directory, takes the file tools away (`Edit`, `Write`, `NotebookEdit` under
+       `permissions.deny`) and runs every shell command in Claude Code's sandbox, with no retry
+       outside it and no question to the developer's auto mode (`autoAllowBashIfSandboxed`). The
+       sandbox refuses a write in the home folder (`denyWrite` of `~`), in the working directory
+       (the deny rule `Edit(./**)`, since a `.` in `denyWrite` of a settings file means that
+       file's own folder) and to every Unix socket, agterm's too; it writes `/private/tmp`
+       (an `allowWrite` of `/tmp` opened nothing on macOS) and its own temp folder. The one send,
+       `mailbox-chat.py say --file PATH`, runs outside the sandbox and reaches agterm; joined to
+       another command in one shell call it stays inside and cannot, so the first prompt asks for
+       it as a shell command of its own. In two plan talks in agterm and `claude -p` probe runs
+       (Claude Code 2.1.330, 2026-11-23) Claude Code refused the reviewer's writes to the plan, to
+       a second worktree and to the home folder, and the same under `bypassPermissions`, and the
+       reply reached the defender; the talk that tried the writes had one more sentence in its
+       first prompt, which asked for them. The guard does not hold what the developer's own
+       Claude Code settings open: an `excludedCommands` entry runs outside the sandbox, an
+       `allowUnixSockets` grant of agterm's socket lets a sandboxed command start a session with
+       any command, and a write grant outside the home folder stays writable; nor a repository
+       under `/tmp`. The guard lives on this line only: Lem writes no file of the developer's
+       Claude Code settings.
      Keep the quotes around each value you put in: a skill's folder with a space splits a bare
      path, and zsh stops a bare model such as `opus[1m]` with "no matches found".
      `MODEL` and `EFFORT` are the seat's `model` and `effort` from `lem project show`.
@@ -84,6 +105,6 @@ every report says that the reviewer is this machine's choice, and "same family" 
 Say in the report which family reviewed. Two agents of one family agree more easily than two of
 different ones; the report says "same family" when that was the case.
 
-Not run yet: a Claude Code reviewer started this way (its flags are in `claude --help`, read on
-2026-11-14), and the Codex line in a pane whose login shell is not fish: the line ran in fish
-only, and its status line showed the seat's model and effort (2026-11-22).
+Not run yet: either line in a pane whose login shell is not fish. Both ran in fish only, and
+their status lines showed the seat's model and effort (Codex 2026-11-22, Claude Code
+2026-11-23).
