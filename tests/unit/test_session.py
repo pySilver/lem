@@ -430,6 +430,23 @@ class Launch(unittest.TestCase):
         self.assertIn(' claude --plugin-dir /lem-unit/clones/lem "Read ', line)
         self.assertNotIn("--plugin-dir", session.launch_line("/bin/zsh", SLUG, self.BRIEF, None, {}, None))
 
+    def test_the_plan_talks_pair_reads_the_same_folder(self):
+        # the lead writes the pair's launch line itself (harness/claude-code/plan-talk.md), with the
+        # `plugin_dir` this command prints: a clone's folder, or null for the installed plugin
+        import contextlib
+        import io
+
+        def printed(root: str) -> dict:
+            out = io.StringIO()
+            with mock.patch.object(session, "PLUGIN", Path(root)), \
+                 mock.patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": "/lem-unit/claude"}), \
+                 contextlib.redirect_stdout(out):
+                session.main(["plugin-dir"])
+            return json.loads(out.getvalue())
+
+        self.assertEqual(printed("/lem-unit/clones/lem"), {"plugin_dir": "/lem-unit/clones/lem"})
+        self.assertEqual(printed("/lem-unit/claude/plugins/cache/lem/lem/1.2.0"), {"plugin_dir": None})
+
     def test_a_path_the_line_cannot_carry_is_refused(self):
         # fish reads a backslash inside single quotes as an escape, so no quoting carries one to every shell
         with self.assertRaises(session.SessionError) as raised:

@@ -12,7 +12,7 @@ A companion session of the lead's, `SLUG · plan talk`, which runs Claude Code w
 
    ```bash
    agtermctl session new --parent "$AGTERM_SESSION_ID" --cwd "MAIN" --name "SLUG · plan talk" --no-select \
-     --command "LOGIN_SHELL -l -c 'claude --model \"MODEL\" --effort \"EFFORT\" \"Read BRIEF and follow it.\"'" --socket "$AGTERM_SOCKET"
+     --command "LOGIN_SHELL -l -c 'claude --model \"MODEL\" --effort \"EFFORT\" --plugin-dir \"PLUGIN\" \"Read BRIEF and follow it.\"'" --socket "$AGTERM_SOCKET"
    ```
 
    Keep every quote of the line: the login shell reads the inner command, and zsh stops a bare
@@ -31,6 +31,11 @@ A companion session of the lead's, `SLUG · plan talk`, which runs Claude Code w
    `lem project show` gives parsed from its one line, `claude/MODEL:EFFORT`; the settings refuse a
    defender's seat with no model or no effort. The seat's
    `agent` can only be `claude`, since this agent's file is the only one the contract was checked in.
+   `PLUGIN` is the `plugin_dir` that `lem session plugin-dir` prints, so that the defender runs the
+   Lem of the session that opens it, as the task's session runs the Lem that opened it
+   (`task-session.md`): when this Lem is not the installed plugin (its folder is outside
+   `~/.claude/plugins/`, or outside `plugins/` of `CLAUDE_CONFIG_DIR`), it is that folder; when it
+   is the installed plugin, it is null, and the line leaves out `--plugin-dir \"PLUGIN\"`.
 2. **Confirm it runs**: the command prints the new session's id; keep it, since the lead's wait
    takes it (`lem session wait SLUG --until planned,held --companion ID`). In `agtermctl tree
    --json` the node with that id has a `foreground` that ends in the `claude` line, and its
@@ -45,4 +50,4 @@ A companion session of the lead's, `SLUG · plan talk`, which runs Claude Code w
    dropped: `agtermctl session close --target ID --socket "$AGTERM_SOCKET"`. Its experts and the
    reviewer's pane end with it.
 
-Not run yet: a pair opened from a task's session.
+Not run yet: a pair opened from a task's session, with `--plugin-dir` or without it.
