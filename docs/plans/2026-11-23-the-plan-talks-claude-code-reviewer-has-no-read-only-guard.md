@@ -71,8 +71,9 @@ flowchart TD
    `skills/lem/harness/claude-code/second-opinion.md`, step 2, gives the Claude Code line that ran,
    with one sentence on what the guard refuses and what it lets through, its source and day (the
    talk of this task), and one on what it does not hold, from task 1's record (a command the
-   developer's own settings run outside the sandbox, a write grant of his outside the folder the
-   guard denies, and `/tmp` with the per-user temp folder). When the guard is a file,
+   developer's own settings run outside the sandbox, a grant of agterm's socket in his settings
+   (decision 7), a write grant of his outside the folders the guard denies, and `/tmp` with the
+   per-user temp folder). When the guard is a file,
    it goes in `skills/lem/harness/claude-code/` beside the harness part, and the line names it by
    absolute path, as it names `prompts/reviewer.md`. The last note, "Not run yet", loses the Claude
    Code reviewer; `git rm` of
@@ -154,18 +155,19 @@ sentence on what the guard does not hold (question 2); the chart's question (que
    working directory, the per-user temp folder and every `allowWrite`, `additionalDirectories` or
    `Edit` allow path of each settings scope the session loads (the same reference,
    `sandbox.filesystem.allowWrite`), and `denyWrite` wins inside a writable folder (its
-   `denyWrite`). So the guard denies the whole home folder (`denyWrite` of `~`), which holds the
-   main checkout, the task worktrees under it (`project.py`, `cmd_worktree`) and every path a
-   developer's own grant opens under home, and allows `/tmp` (`allowWrite`). The writable set is
+   `denyWrite`). So the guard denies both the whole home folder and the working directory
+   (`denyWrite` of `~` and of the working directory, decision 8): the main checkout and the task
+   worktrees under it (`project.py`, `cmd_worktree`) wherever the checkout sits, and every path a
+   developer's own grant opens under home; and it allows `/tmp` (`allowWrite`). The writable set is
    then `/tmp`, the per-user temp folder, and a grant of the developer's outside home; the owner's
    `~/.claude/settings.json` has none (no `allowWrite`, no `additionalDirectories`, no `Edit`
    allow rule, read 2026-11-23), and task 2's sentence names that case as outside the guard. A
    repository under `/tmp` stays writable: criterion 3 lets the write under `/tmp` through, and no
    task's worktree or state is there. `/tmp` is the whole folder, not one file: the reviewer's
    message files take any name (decision 4). Whether `~` in `denyWrite` leaves the reads of
-   criterion 1, step 2, working is task 1's finding; when it does not, the working directory is the
-   second candidate, and the harness then names the developer's grants under home as outside the
-   guard. The exact path forms (`/tmp` or `/private/tmp`, `~`) are task 1's finding too.
+   criterion 1, step 2, working is task 1's finding; when it does not, the working directory alone
+   is the second candidate, and the harness then names the developer's grants under home as
+   outside the guard. The exact path forms (`/tmp` or `/private/tmp`, `~`) are task 1's finding too.
 4. **The send runs outside the sandbox, and no sandboxed command reaches agterm's socket.**
    `mailbox-chat.py say` talks to agterm over its Unix socket (`ctl_args` in
    `~/.local/bin/mailbox-chat.py` passes `$AGTERM_SOCKET`), and that socket also starts a session
@@ -191,6 +193,21 @@ sentence on what the guard does not hold (question 2); the chart's question (que
    `mailbox-chat.py say --file PATH`; the Claude side of the mailbox sends with a heredoc by
    default (`~/.claude/skills/mailbox-chat/SKILL.md`, "Sending"), and that call stays sandboxed
    with no socket.
+7. **A socket grant in the developer's own settings is outside the guard, and the harness says
+   so.** The plan talk's question 1, a design choice; the question gate took the kept decision as
+   cheap (decision 5 of the task's record, 2026-11-23). `allowUnixSockets` merges across settings
+   scopes and no key denies a socket another scope allows (the settings reference,
+   `SandboxNetworkConfig`, read 2026-11-23), so a developer whose settings grant agterm's socket
+   has a reviewer that can reach agterm. Task 2's sentence on what the guard does not hold names
+   it, as step 2 of `second-opinion.md` names the Codex reviewer's like limit. The owner's
+   settings have no such grant. Not taken: dropping the developer's settings (it reverses
+   decision 5 and makes criterion 1's setup false), and a read of his settings before the seat
+   opens (the undo of this decision).
+8. **The sandbox denies writes to both the home folder and the working directory.** The plan
+   talk's question 2, a design choice; the question gate found it checkable by criterion 3, "a
+   guard that refuses every write into a repository" (decision 4 of the task's record,
+   2026-11-23): the home folder alone misses a main checkout outside home, and the working
+   directory alone misses a developer's write grant under home. Decision 3 holds it.
 
 ## What it will not verify
 
