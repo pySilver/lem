@@ -64,7 +64,7 @@ export default class extends Controller {
   focus () {
     const from = trigger
     trigger = null
-    if (!from || from.isConnected && this.element.contains(from)) return
+    if (!from || (from.isConnected && this.element.contains(from))) return
     // a tab of the old panel: the same tab of the new one; any other way in: the panel's title
     const target = from.matches('.ptab') ? this.element.querySelector('.ptab[aria-current]') : from.closest('#task') ? null : this.element.querySelector('.p-title')
     target?.focus({ preventScroll: true })

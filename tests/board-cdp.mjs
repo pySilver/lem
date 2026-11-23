@@ -19,7 +19,7 @@ if (!CHROME) throw new Error('no Chrome: set CHROME to the browser to drive')
 const profile = mkdtempSync(join(tmpdir(), 'lem-cdp-'))
 const chrome = spawn(CHROME, ['--headless=new', '--use-mock-keychain', `--user-data-dir=${profile}`, '--remote-debugging-port=0', '--no-first-run',
   '--hide-scrollbars', '--disable-gpu', 'about:blank'], { stdio: 'ignore', env: { ...process.env, TZ: process.env.TZ ?? 'UTC' } })
-const sleep = ms => new Promise(r => setTimeout(r, ms))
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 try {
   let port = null
   for (let i = 0; i < 100 && !port; i++) {
@@ -30,16 +30,20 @@ try {
   const targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json()
   const page = targets.find(t => t.type === 'page')
   const ws = new WebSocket(page.webSocketDebuggerUrl)
-  await new Promise(r => ws.addEventListener('open', r))
+  await new Promise(resolve => ws.addEventListener('open', resolve))
   let id = 0
   const waiting = new Map()
   ws.addEventListener('message', ev => {
     const m = JSON.parse(ev.data)
-    if (m.id && waiting.has(m.id)) { waiting.get(m.id)(m); waiting.delete(m.id) }
-    // `posts`: each POST the page sends, as ["post", "URL BODY"]
-    else if (m.method === 'Network.requestWillBeSent' && m.params.request.method === 'POST') console.log(JSON.stringify(['post', `${m.params.request.url} ${m.params.request.postData ?? ''}`]))
+    if (m.id && waiting.has(m.id)) {
+      waiting.get(m.id)(m)
+      waiting.delete(m.id)
+    } else if (m.method === 'Network.requestWillBeSent' && m.params.request.method === 'POST') {
+      // `posts`: each POST the page sends, as ["post", "URL BODY"]
+      console.log(JSON.stringify(['post', `${m.params.request.url} ${m.params.request.postData ?? ''}`]))
+    }
   })
-  const send = (method, params = {}) => new Promise(r => { const n = ++id; waiting.set(n, r); ws.send(JSON.stringify({ id: n, method, params })) })
+  const send = (method, params = {}) => new Promise(resolve => { const n = ++id; waiting.set(n, resolve); ws.send(JSON.stringify({ id: n, method, params })) })
   const w = spec.width ?? 1440; const h = spec.height ?? 900
   await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: spec.scale ?? 1, mobile: Boolean(spec.mobile) })
   if (spec.mobile) await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 })
@@ -51,10 +55,26 @@ try {
   await send('Page.enable')
   await send('Runtime.enable')
   for (const step of spec.steps) {
-    if (step.goto) { await send('Page.navigate', { url: step.goto }); await sleep(step.wait ?? 1500) }
-    // `size`: the window made [width, height] wide, as a person drags its edge, the page and its cookies kept
-    else if (step.size) { await send('Emulation.setDeviceMetricsOverride', { width: step.size[0], height: step.size[1], deviceScaleFactor: spec.scale ?? 1, mobile: Boolean(spec.mobile) }); await sleep(step.after ?? 300) } else if (step.sh) { console.log(execSync(step.sh, { encoding: 'utf8' }).trim().slice(0, 300)); await sleep(step.after ?? 0) } else if (step.wait) await sleep(step.wait)
-    else if (step.eval) { const r = await send('Runtime.evaluate', { expression: step.eval, awaitPromise: true }); if (r.result?.exceptionDetails) console.log('eval error', JSON.stringify(r.result.exceptionDetails).slice(0, 400)); await sleep(step.after ?? 300) } else if (step.print) { const r = await send('Runtime.evaluate', { expression: step.print, awaitPromise: true, returnByValue: true }); console.log(JSON.stringify(r.result?.result?.value ?? r.result)) } else if (step.click) {
+    if (step.goto) {
+      await send('Page.navigate', { url: step.goto })
+      await sleep(step.wait ?? 1500)
+    } else if (step.size) {
+      // `size`: the window made [width, height] wide, as a person drags its edge, the page and its cookies kept
+      await send('Emulation.setDeviceMetricsOverride', { width: step.size[0], height: step.size[1], deviceScaleFactor: spec.scale ?? 1, mobile: Boolean(spec.mobile) })
+      await sleep(step.after ?? 300)
+    } else if (step.sh) {
+      console.log(execSync(step.sh, { encoding: 'utf8' }).trim().slice(0, 300))
+      await sleep(step.after ?? 0)
+    } else if (step.wait) {
+      await sleep(step.wait)
+    } else if (step.eval) {
+      const r = await send('Runtime.evaluate', { expression: step.eval, awaitPromise: true })
+      if (r.result?.exceptionDetails) console.log('eval error', JSON.stringify(r.result.exceptionDetails).slice(0, 400))
+      await sleep(step.after ?? 300)
+    } else if (step.print) {
+      const r = await send('Runtime.evaluate', { expression: step.print, awaitPromise: true, returnByValue: true })
+      console.log(JSON.stringify(r.result?.result?.value ?? r.result))
+    } else if (step.click) {
       const r = await send('Runtime.evaluate', { expression: `(() => { const n = document.querySelector(${JSON.stringify(step.click)}); if (!n) return null; n.scrollIntoView({block: 'center'}); const b = n.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`, returnByValue: true })
       const at = r.result?.result?.value
       if (!at) { console.log('no element', step.click); continue }

@@ -28,6 +28,8 @@
       .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, '$1<i>$2</i>')
       .replace(/~~([^~]+)~~/g, '<s>$1</s>')
       .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2">$1</a>')
+    // A NUL on each side marks a code span's place, so that the rules above never reach its text.
+    // eslint-disable-next-line no-control-regex
     return s.replace(/\u0000(\d+)\u0000/g, (_, i) => '<code>' + codes[+i] + '</code>')
   }
   const FENCE = /^\s{0,3}(`{3,}|~{3,})(.*)$/; const HEAD = /^(#{1,6})\s+(.*)/; const RULE = /^\s{0,3}([-*_])(\s*\1){2,}\s*$/
@@ -299,6 +301,8 @@
   // every change, so it flushes after each redraw, not only once at startup.
   let ready = false; let mermaidReady = false; let mermaidChain = Promise.resolve()
   function flush () {
+    // A `js` block is code the spec's author wrote for this page, run as `function(el, api)` (SKILL.md).
+    // eslint-disable-next-line no-new-func
     blockJS.splice(0).forEach(([el, code]) => { try { new Function('el', 'api', code)(el, api) } catch (e) { el.appendChild($('pre', 'hd-err', 'js: ' + esc(e.message || e))) } })
     const els = pendingMermaid.splice(0)
     if (els.length) mermaidChain = mermaidChain.then(() => renderMermaid(els))
@@ -786,6 +790,8 @@
   if (qs[0].mode === 'text' && qs[0].ta) qs[0].ta.focus()
   qs.forEach((q) => q.ta && autosize(q.ta))
   ready = true; flush()
+  // The spec's top-level `script` is its author's code too, run once with `api` (SKILL.md).
+  // eslint-disable-next-line no-new-func
   if (SPEC.script) { try { new Function('api', SPEC.script)(api) } catch (e) { app.appendChild($('pre', 'hd-err', 'script: ' + esc(e.message || e))) } }
   if (!window.agterm && location.protocol.startsWith('http')) { window.addEventListener('pagehide', () => { if (!finished) navigator.sendBeacon('/answer', JSON.stringify({ status: 'dismissed' })) }) }
   window.focus()
