@@ -10,15 +10,22 @@ Size: full, because a new install, every release and every task that meets a new
    1. `main` holds `v0.4.0` and, after it, three merged pull requests that no release holds yet.
    2. Ana runs `claude plugin marketplace add pySilver/lem` and installs `lem@lem`; Ben, who has 0.3.0, runs `/plugin marketplace update lem`.
    3. Both get the commit of the tag `v0.4.0`, because the `lem` entry of `.claude-plugin/marketplace.json` names `pySilver/lem` with `"ref": "v0.4.0"`.
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_release.py -k test_the_lem_entry_takes_the_plugin_from_the_release_tag_and_not_from_main` in `tests/unit/test_release.py`
 2. A release names one number in three places, and the machine checks fail when they differ: `plugin.json` says `"version": "0.4.0"`, and the `lem` entry says `"version": "0.4.0"` and `"ref": "v0.4.0"`; with `"ref": "v0.3.0"` the check fails and names the entry's `ref` and the number it expects.
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_release.py -k test_the_repository_names_one_release_in_three_places` in `tests/unit/test_release.py`
 3. A task begun on the release before the installed one goes on and lands:
    1. Ana's task `invoice-totals` begins on Lem 0.3.0.
    2. Her auto-update installs 0.4.0, which changes the form of a record the task already wrote.
    3. The board server opens the task's landing session on 0.4.0.
    4. 0.4.0 reads the task's 0.3.0 records, and the task lands.
+   - test: `bash tests/lem-land-shop.sh` in `tests/lem-land-shop.sh`, `tests/lib.sh`
 4. A task begun two releases back or more stops at Lem's first command for it, the board shows it as blocked, and the message says that nothing of the work is lost and how to go on: `invoice-totals began on Lem 0.2.0, and Lem 0.4.0 reads only tasks begun on 0.3.0 or 0.4.0. Your branch and its commits stay. /lem drop invoice-totals, then /lem resume invoice-totals, starts a new task on 0.4.0 from that branch and from the notes the task left.` The tasks that run when this release lands count as begun on 0.3.1.
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_release.py -k Rule` in `tests/unit/test_release.py`
+   - test: `bash tests/lem-decisions.sh` in `tests/lem-decisions.sh`, `tests/lib.sh`
 5. `AGENTS.md` says how a release is made: the number in `plugin.json` and in the `lem` entry, the entry's `ref`, the tag on that commit, and one push of the commit and the tag on the owner's word; and that a release reads the records of the release just before it, and no older ones. The owner's ruling "No word and no form of a Lem before is kept" becomes "No word of a Lem before is kept; a release reads the records of the release just before it, and no older ones", and the rule "Lem is not released" of `AGENTS.md` goes.
+   - no test: sentences of `AGENTS.md` and of `docs/rulings/rulings.md`.
 6. `docs/install.md` and `site/index.html` say that an update brings the newest release; that a running session keeps its Lem until it ends; that each person installs Lem for themself; that auto-update is off at the first install and is each person's choice, which `/plugin` turns on under "Marketplaces"; where a person sees which release they have; what a person sees whose release is older than a teammate's; and that a bad release is repaired forward, by a newer release.
+   - no test: sentences of `docs/install.md` and `site/index.html`.
 
 ## How it works
 
