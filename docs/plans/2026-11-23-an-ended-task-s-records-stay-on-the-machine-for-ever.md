@@ -57,11 +57,14 @@ flowchart TD
    summary of a task is written (`rewrite_log`) before any file of it is removed, and a run that
    stops between the two, or a removal that fails, is finished by the next run, since the files of
    every `old` task are looked at, a summarized one too.
-   `cmd_resume` reads every file it carries into the new task (`RESUMED_FILES`, the breaker
-   documents, `brief.md`, `media/`, and the `decisions.jsonl` and `handoff.md` its checks read)
-   before its one read of the log, and writes the new task from what it read: with the order of
-   prune above, a read of the log that finds no summary comes after copies that no removal had
-   reached, and a resume that finds the summary is refused as now (decision 5).
+   `cmd_resume` reads the log first and refuses on the task's summary as now; then it reads every
+   file it carries into the new task (`RESUMED_FILES`, the breaker documents, `brief.md`, `media/`,
+   and the `decisions.jsonl` and `handoff.md` its checks read); then it reads the log once more,
+   refuses on a summary found there with the same message, and writes the new task from what it
+   read. With the order of prune above, a second read that finds no summary comes after copies that
+   no removal had reached; a file that prune could not remove and the resume cannot read meets the
+   first read's refusal on every later resume, and a read that fails in the race stops the resume
+   before any write (decision 5).
    `prune_once` in `skills/lem/scripts/serve.py` carries how many files the run removed, and
    `prune_line` logs a run that removed any file, an empty one too, beside the bytes and the
    events it looks at now. The texts that this makes false, in
@@ -93,6 +96,8 @@ flowchart TD
      `tests/unit/test_task.py` runs the new prune, which removes the files, at the point where it
      runs the summary now, and checks that the new task has the old task's `handoff.md`, its breaker
      document and its `decisions.jsonl` as well as its events (decision 5);
+   - a resume of a summarized dropped task whose folder still holds one file it cannot read refuses
+     with `/lem` and the ask, and makes nothing (decision 5, criterion 5);
    - the `prune_line` test of `tests/unit/test_serve.py` (near line 730): a run that removed one empty
      file, with 0 bytes and no events, gets a line.
    The prune block of `tests/lem-serve.sh` (from line 122) runs a real prune and reads the old task's
@@ -110,9 +115,9 @@ flowchart TD
    number of days at which these files left, which the page cannot know. The card takes that claim
    from the task's folder, not from the summary event alone: it says that the other files left only
    when task 1's function of `lem_artifacts.py` gives no path of the folder outside the small record.
-   When it gives some (a removal the folder's permissions deny, run after run), the card says that
-   N files of it are still there, which `lem project prune` could not remove, and that the server's
-   log says why. `went_tab` and
+   When it gives some (a removal loop that has not ended yet, or a removal the folder's permissions
+   deny, run after run), the card says only that N files of it are still there, with no claim of why
+   (option C of question 3 of the plan talk, number 5 of `lem decisions list`). `went_tab` and
    the module docstring (line 30) stop saying that its files stay on Artifacts. Two texts that say a
    pruned answered task's `investigation.md` is in its directory say it only while the directory
    holds it: the line "The report is investigation.md in the task directory" of `now_card` in
@@ -169,7 +174,9 @@ The list, numbered as the reviewer gave it:
    read come before the first write of `cmd_resume`, so a failed read changes nothing and the next
    resume refuses with the ask. The reviewer held again: a picture of `media/` that prune cannot
    remove and the resume cannot read fails each retry before the summary check, so the owner never
-   gets the refusal with the ask that criterion 5 names. Step 5 of `stages/plan.md` takes it.
+   gets the refusal with the ask that criterion 5 names. Step 5 of `stages/plan.md` took it: the
+   gate judged it checkable, and option C was taken (number 6 of `lem decisions list`): the resume
+   reads the log and refuses on the summary, then reads its files, then reads the log once more.
 2. **An answered task's `investigation.md`** (`now_card`, `answered_words`, `investigate.md` step 5).
    Settled: the criterion stays (decision 6), and task 2 makes both texts name the report only while
    it is there; task 3 corrects step 5. Settled by the two, not checked by the review.
@@ -180,7 +187,8 @@ The list, numbered as the reviewer gave it:
    the folder through task 1's function, and when files remain it says that prune could not remove
    them and that the server's log says why; the reviewer: "holds, at the cause", a page read between
    `rewrite_log` and the removal says prune could not remove a file it has not reached yet. Step 5
-   of `stages/plan.md` takes it.
+   of `stages/plan.md` took it: the gate judged it cheap, and option C was taken (decision 5 of
+   `lem decisions list`): with files left, the card says only that N files of it are still there.
 4. **The case's day and the time prune counts** (`task_calls`, `last <= cutoff`). Settled: the test
    of criterion 1 puts the run past the cutoff by its time, and task 3 writes the time from the
    newest event. Settled by the two, not checked by the review.
@@ -233,14 +241,16 @@ the time as `task_calls` counts it and `investigate.md` step 5; decisions 3, 5 a
    (`local_keep_days` lets one machine do so), and claims no number of days at which the files left.
 4. **The summary event does not change.** It already keeps the status, the end, the day and the pull
    request (`summary_of`), and the board reads it; nothing of this task needs a new key there.
-5. **A resume reads what it carries before it reads the log.** Today prune removes no file that a
+5. **A resume reads the log, then what it carries, then the log again.** Today prune removes no file that a
    resume copies, so the comment of `cmd_resume` ("a prune that summarizes the task while git runs
    changes nothing that is copied") holds for the events alone. Once prune removes `handoff.md`, the
    breaker documents and `decisions.jsonl`, a prune whose first `old` call of a dropped task falls
    while the resume asks the remote (`taken_on_remote`) leaves a new task `held` with no handoff and
-   no breaker document. The order closes it with no lock and no new check: prune writes the summary
-   before it removes a file, and the resume reads its files before it reads the log, so a log with
-   no summary proves that the files were read whole. It rests on the summary check `cmd_resume` has
+   no breaker document. The order closes it with no lock: prune writes the summary before it
+   removes a file, and the resume reads its files between two reads of the log, so a second read
+   with no summary proves that the files were read whole, and the first read gives criterion 5's
+   refusal before any file is read (the gate's pick of the talk's question 1, number 6 of
+   `lem decisions list`). It rests on the summary check `cmd_resume` has
    (`SUMMARY` in its one read of the log) and on the order of `cmd_prune` (`rewrite_log`, then the
    removals), and it reaches `cmd_resume` alone.
 6. **An answered task's `investigation.md` is not in the small record.** Criterion 1 as the owner
