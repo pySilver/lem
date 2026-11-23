@@ -272,14 +272,14 @@ if [ "$told" = "[('docs/backlog/empty-input-crashes-the-parser.md', 'src/json.py
   && [ "$(sed -n 2p "$under")" = "worth: no" ] && [ "$(sed -n 6p "$under")" = "# two test classes come after the main guard" ] \
   && [ "$(tail -n 1 "$under")" = "Decided against: only a reader of the code meets it" ] \
   && [ "$(grep '^## ' "$text" | tail -6 | tr '\n' '|')" = "## Worth a look|## Filed in the backlog|## Filed as not worth it|## Fixed on the way|## Seen, not filed|## Not done|" ] \
-  && [ "$(sed -n '/^## Filed as not worth it$/,/^## Fixed on the way$/p' "$text" | grep '^- ')" = "- \`docs/backlog/two-test-classes-come-after-the-main-guard.md\`: two test classes come after the main guard" ] \
+  && [ "$(sed -n '/^## Filed as not worth it$/,/^## Fixed on the way$/p' "$text" | grep '^- ')" = "- \`docs/backlog/two-test-classes-come-after-the-main-guard.md\`: two test classes come after the main guard; Jev: not asked (no key)" ] \
   && grep -qxF -- "- \`docs/backlog/f-crashes-on-none.md\`: F crashes on None" "$text" && grep -qxF -- "- \`docs/backlog/g-loses-the-last-row.md\`: G loses the last row" "$text" \
   && grep -qxF -- "- \`src/json.py:parse\`: Empty input crashes the parser; an open item holds it, \`docs/backlog/empty-input-crashes-the-parser.md\`" <<<"$seen" \
   && [ "$(grep -cxF -- "- \`src/c.py:h\`: A comment says the opposite; cheap: a comment, no behavior" <<<"$seen")" = 1 ] && [ "$(grep -c '^- ' <<<"$seen")" = 3 ] \
-  && grep -qxF -- "$hand; under: a second landing is rare, and git keeps each review" <<<"$seen" \
+  && grep -qxF -- "$hand; under: a second landing is rare, and git keeps each review; Jev: not asked (no key)" <<<"$seen" \
   && grep -qF "it saw 6 defects outside the change, filed as \`docs/backlog/f-crashes-on-none.md\`, \`docs/backlog/two-test-classes-come-after-the-main-guard.md\`, \`docs/backlog/g-loses-the-last-row.md\`; 1 fixed on the way; 2 seen, not filed" "$text" \
   && [ "$(grep -c '"event": "gate", "task": "judged"' "$BLG/.lem/state/events.jsonl")" = 1 ] && [ -z "$(git -C "$tree" status --porcelain)" ]; then
-  pass "a review judges each defect outside the change by the bar: one over it is an item with worth: later, one under it an item with worth: no that ends with the review's reason and is listed under Filed as not worth it, each other one is a line under Seen, not filed, a cheap one that a fix line names by its number left out, and no new run of the checks"
+  pass "a review judges each defect outside the change by the bar: one over it is an item with worth: later, one under it an item with worth: no that ends with the review's reason and is listed under Filed as not worth it, each other one is a line under Seen, not filed, a cheap one that a fix line names by its number left out, and no new run of the checks; with no JEV_API_KEY each line of a finding under the bar ends with Jev: not asked (no key)"
 else
   fail "the defects a review judged: $told / $nowhere / $judged / $filing / $numbers / $green / $(git -C "$tree" ls-files docs/backlog | tr '\n' ' ') / $(cat "$under" 2>/dev/null) / $(cat "$text" 2>/dev/null)"
 fi
@@ -290,6 +290,72 @@ else
   fail "a hand-written line with no call: $bare / $green"
 fi
 project --repo "$BLG" state judged dropped "the test is over" >/dev/null
+
+# Jev reads each finding called under the bar once, whoever wrote it: the item a review's under defect became and a
+# line of the notes with its under: call. A stand-in for Jev logs each request it gets and answers 0.82, over the
+# line, so the first propose stops one time and names both; the second goes on, asks nothing again, and the pull
+# request ends each line with Jev's score. A landing that starts over keeps Jev's read. In a repository whose team
+# settings say findings = false under [jev], nothing is sent and each line says so. The spec, the bar's sentence, a
+# failed request and the refusal's rules are tests/unit/test_land.py's.
+JEV_LOG=$WORK/jev-sent.log
+cat > "$WORK/jev-standin" <<'SH'
+#!/bin/sh
+# Jev's stand-in: each request on a line of the log, and the score of JEV_NOUL for the question "over"
+tr '\n' ' ' >> "$JEV_LOG" && echo >> "$JEV_LOG"
+printf '{"model": "stand-in", "answers": {"over": {"type": "noul", "noul": %s}}, "cost": null}\n' "$JEV_NOUL"
+SH
+chmod +x "$WORK/jev-standin" && : > "$JEV_LOG"
+# jev_land ARGS...: the landing with a key of no value and the stand-in in Jev's place
+jev_land() { JEV_API_KEY=not-a-real-key LEM_JEV=$WORK/jev-standin JEV_LOG=$JEV_LOG JEV_NOUL=0.82 land "$@"; }
+V='{"where": "src/v.py:tidy", "title": "Tidy keeps a stray space", "what": "tidy of \"a  b\" returns \"a  b\", on the base commit too.", "bar": "under", "why": "nobody reads the tidied text"}'
+jev_notes() {
+  printf '%s\n' '## Decisions' '' 'none' '' '## Left open' '' 'none' '' '## Worth a look' '' 'none' '' '## Filed in the backlog' '' 'none' '' \
+    '## Seen, not filed' '' "- \`land.py:cmd_start\` writes over \`reviews/review-1.*\`; under: $1" '' '## Not done' '' 'none' > "$WORK/jev-notes.md"
+}
+task_in "$BLG" jev-read jev.txt five && read_in "$BLG" jev-read
+tree=$(project --repo "$BLG" worktree-dir jev-read)
+checked_in "$BLG" jev-read
+land --repo "$BLG" read jev-read --record "$(record jev-read 1 "$a_read, $(outside "$V")")" >/dev/null
+land --repo "$BLG" file jev-read >/dev/null
+jev_notes "a second landing is rare, and git keeps each review"
+refused=$(jev_land --repo "$BLG" propose jev-read --title "fix: jev-read" --notes "$WORK/jev-notes.md" 2>&1 || true)
+first_asked=$(grep -c '' "$JEV_LOG")
+jev_notes "git keeps each review, and a second landing reads the newest"
+green=$(jev_land --repo "$BLG" propose jev-read --title "fix: jev-read" --notes "$WORK/jev-notes.md" | field 'd["green"]')
+asked=$(grep -c '' "$JEV_LOG")
+text=$BLG/.lem/state/tasks/jev-read/pr.md
+project --repo "$BLG" state jev-read ready --start-over "the test lands it again" >/dev/null && land --repo "$BLG" start jev-read >/dev/null
+kept_read=$(kept_in "$BLG" jev-read jev | "$PY" -c 'import ast, sys; print(sorted((e.get("score"), e.get("refused")) for e in ast.literal_eval(sys.stdin.read()).values()))')
+if grep -qF "2 finding(s) called under the bar, which Jev reads as over it at 0.7 or more: \`docs/backlog/tidy-keeps-a-stray-space.md\` (Jev: 0.82); \"- \`land.py:cmd_start\` writes over \`reviews/review-1.*\`; under: a second landing is rare, and git keeps each review\" (Jev: 0.82)" <<<"$refused" \
+  && grep -qF "make the item \`worth: later\`, or keep \`worth: no\` with its \`Decided against:\` line" <<<"$refused" && ! grep -q Traceback <<<"$refused" \
+  && [ "$first_asked" = 2 ] && [ "$asked" = 2 ] && [ "$green" = True ] \
+  && grep -qF '"where": "src/v.py:tidy", "title": "Tidy keeps a stray space"' "$JEV_LOG" && grep -qF '"no": "The finding does not meet that bar."' "$JEV_LOG" \
+  && grep -qF '"yes": "The finding meets the bar: ' "$JEV_LOG" && ! grep -qE "nobody reads the tidied text|a second landing is rare" "$JEV_LOG" \
+  && grep -qxF -- "- \`docs/backlog/tidy-keeps-a-stray-space.md\`: Tidy keeps a stray space; Jev: 0.82" "$text" \
+  && grep -qxF -- "- \`land.py:cmd_start\` writes over \`reviews/review-1.*\`; under: git keeps each review, and a second landing reads the newest; Jev: 0.82" "$text" \
+  && [ "$kept_read" = "[(0.82, True), (0.82, True)]" ]; then
+  pass "Jev reads each finding called under the bar once, an under item and a notes line, with the bar from rule 6 and none of the agent's reasons; a read over the line stops propose one time and names both, the second propose goes on and asks nothing again, each line ends with Jev's score, and a landing that starts over keeps the read"
+else
+  fail "Jev's read of the findings under the bar: $refused / $first_asked $asked / $green / $kept_read / $(cat "$JEV_LOG") / $(cat "$text" 2>/dev/null)"
+fi
+project --repo "$BLG" state jev-read dropped "the test is over" >/dev/null
+task_in "$BLG" jev-off jev-off.txt six && read_in "$BLG" jev-off
+checked_in "$BLG" jev-off
+land --repo "$BLG" read jev-off --record "$(record jev-off 1 "$a_read, $(outside "$V")")" >/dev/null
+land --repo "$BLG" file jev-off >/dev/null
+cp "$BLG/.lem/settings.toml" "$WORK/settings-before-jev.toml" && printf '%s\n' '[jev]' 'findings = false' >> "$BLG/.lem/settings.toml"
+jev_notes "a second landing is rare"
+off=$(jev_land --repo "$BLG" propose jev-off --title "fix: jev-off" --notes "$WORK/jev-notes.md" | field 'd["green"]' 2>&1 || true)
+cp "$WORK/settings-before-jev.toml" "$BLG/.lem/settings.toml"
+text=$BLG/.lem/state/tasks/jev-off/pr.md
+if [ "$off" = True ] && [ "$(grep -c '' "$JEV_LOG")" = 2 ] \
+  && grep -qxF -- "- \`docs/backlog/tidy-keeps-a-stray-space.md\`: Tidy keeps a stray space; Jev: not asked (off in the settings)" "$text" \
+  && grep -qxF -- "- \`land.py:cmd_start\` writes over \`reviews/review-1.*\`; under: a second landing is rare; Jev: not asked (off in the settings)" "$text"; then
+  pass "a repository whose team settings say findings = false under [jev] sends no finding to Jev, with a key on the machine, and each line of a finding under the bar says Jev was not asked, off in the settings"
+else
+  fail "Jev off in the settings: $off / $(cat "$JEV_LOG") / $(cat "$text" 2>/dev/null)"
+fi
+project --repo "$BLG" state jev-off dropped "the test is over" >/dev/null
 
 # A task started from a backlog item, whose ask is the item's path alone as the board's "Start a task" writes it,
 # removes that item on its branch: propose stops while the tip holds it and names it, and after a builder's git rm

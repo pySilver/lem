@@ -612,13 +612,15 @@ def jev_key() -> dict:
     url = os.environ.get("JEV_API_URL", "").strip()
     detail = f"JEV_API_KEY, to {url or 'OpenRouter'}" if given else "JEV_API_KEY is not set, and it is the one name Lem reads for the key"
     row = {"name": "Jev key", "need": "optional", "found": given, "detail": detail,
-           "used_for": "the Jev decision model, which the correction queue and a card's framing check ask"}
+           "used_for": "the Jev decision model, which the correction queue, a card's framing check and the landing's read of each finding "
+                       "called under the bar ask"}
     if collects_here():
         return {**row, "need": "required", "detail": f"{detail}; the correction queue is on here (collect = true under [corrections] in {machine_name()})",
                 "without_it": "the correction hook writes each message of the owner to .lem/state/corrections.log as a failure, the queue stays "
                               f"empty, and the retro reads nothing. Put {JEV_WHERE}, or turn the "
                               "queue off for every repository on this machine with `lem corrections collect no`"}
-    return {**row, "without_it": "a card's framing check gets no answer, and the correction queue, which is off here, would stay empty if it "
+    return {**row, "without_it": "a card's framing check gets no answer, a pull request says \"Jev: not asked (no key)\" on the line of each "
+                                 "finding called under the bar, and the correction queue, which is off here, would stay empty if it "
                                  f"were on; put {JEV_WHERE}"}
 
 

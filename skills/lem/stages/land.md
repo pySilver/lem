@@ -288,6 +288,16 @@ landing up as after a cut-off.
    step again. A should finding takes the same calls: a missing test is `under:` with why a test is
    not worth it now, or an item.
 
+   Then the step asks the Jev model once about each finding called under the bar: each item the
+   branch adds with `worth: no`, and each `under:` line of those parts of the notes. When Jev reads
+   one as over the bar, `propose` refuses one time and names it with its score. Look at the finding
+   again, or have a builder do it: an item it now calls over the bar becomes `worth: later` in a
+   commit of its own, and `checks` runs before the step again; an item it keeps under the bar keeps
+   `worth: no` with its `Decided against:` line; a notes line keeps `under:` with its reason. Then
+   run the step again: it does not ask Jev about that finding a second time, and the line of each
+   finding in the pull request ends with Jev's score, or with why Jev was not asked (no key, no
+   answer, off in the settings). Jev's read never stops the landing for good.
+
    The step writes the text of the pull request (`pr.md` in the task directory): the first line
    says green or not green, and each reason it is not green stands before everything else; then
    the request in the owner's words, the criteria with their tests, each check with what it
