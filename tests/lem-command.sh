@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # The command `lem` (bin/lem): each name runs its script with the arguments, stdin, stdout, stderr
 # and exit status as they came, `lem` alone and `lem help` list the names, an unknown name is
-# refused, nothing writes bytecode, `lem version` names the plugin's version and commit, and no
-# text of Lem tells anyone to run a script of Lem's by its path.
+# refused, nothing writes bytecode, `lem version` names the plugin's version and commit, `lem` in
+# Lem's marketplace clone runs the newest installed release, and no text of Lem tells anyone to run a
+# script of Lem's by its path.
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
@@ -223,6 +224,44 @@ if [ "$(cat "$WORK/siblings.out")" = same ]; then
   pass "a sibling's command in the caller's process ends as its own process would: sys.exit with a text, a number or none, a plain end, and a crash with its traceback and exit 1; a command of APART and a file with no main(argv) each run as a process of their own"
 else
   fail "a sibling's command in the caller's process: $(cat "$WORK/siblings.out")"
+fi
+
+# In Lem's marketplace clone (PLUGINS/marketplaces/NAME), which holds the head of main, lem runs no script of the clone:
+# it becomes the bin/lem of the newest release of lem@NAME in PLUGINS/installed_plugins.json, by number and not by text,
+# with every argument, its output and its exit status, and lem-ask the release's lem-ask; an install of another
+# marketplace is not one of them. With no release listed it exits 1 and names the install.
+PLUGINS=$WORK/claude/plugins
+CLONE=$PLUGINS/marketplaces/lem
+mkdir -p "$CLONE/bin" && cp "$LEM" "$CLONE/bin/lem" && ln -s lem "$CLONE/bin/lem-ask"
+"$PY" -I - "$PLUGINS" <<'PY'
+import json, sys
+from pathlib import Path
+plugins = Path(sys.argv[1])
+def release(name, number):
+    folder = plugins / "cache" / name / "lem" / number
+    (folder / "bin").mkdir(parents=True)
+    (folder / "bin" / "lem").write_text(f"import os, sys\nprint({number!r}, os.path.basename(sys.argv[0]), '|'.join(sys.argv[1:]) + '|')\nsys.exit(5)\n")
+    (folder / "bin" / "lem-ask").symlink_to("lem")
+    return str(folder)
+listed = {"lem@lem": [{"scope": "project", "projectPath": "/r/shop", "installPath": release("lem", "0.9.0"), "version": "0.9.0"},
+                      {"scope": "user", "installPath": release("lem", "0.10.0"), "version": "0.10.0"},
+                      {"scope": "project", "projectPath": "/r/old", "installPath": release("lem", "0.2.0"), "version": "0.2.0"},
+                      {"scope": "project", "projectPath": "/r/odd", "installPath": "/nowhere", "version": "a commit"}],
+          "lem@fork": [{"scope": "user", "installPath": release("fork", "9.0.0"), "version": "9.0.0"}]}
+(plugins / "installed_plugins.json").write_text(json.dumps({"version": 2, "plugins": listed}))
+PY
+set +e
+handed=$("$CLONE/bin/lem" picker --repo "a b" 'x"y' 2>&1); handed_code=$?
+asked=$("$CLONE/bin/lem-ask" --help 2>&1); asked_code=$?
+printf '{"version": 2, "plugins": {"lem@fork": []}}\n' > "$PLUGINS/installed_plugins.json"
+none=$("$CLONE/bin/lem" version 2>"$WORK/none"); none_code=$?
+set -e
+if [ "$handed" = "0.10.0 lem picker|--repo|a b|x\"y|" ] && [ "$handed_code" = 5 ] && [ "$asked" = "0.10.0 lem-ask --help|" ] && [ "$asked_code" = 5 ] \
+  && [ "$none_code" = 1 ] && [ -z "$none" ] && grep -qF "lem: $CLONE is the marketplace clone of lem@lem, which holds the head of main and no release" "$WORK/none" \
+  && grep -qF "the owner installs one with \`claude plugin install lem@lem\`" "$WORK/none"; then
+  pass "lem in Lem's marketplace clone runs the newest installed release of that marketplace's lem, 0.10.0 before 0.9.0, with its arguments, output and exit status, and lem-ask the release's lem-ask; with no release listed it exits 1 and names the install"
+else
+  fail "lem in the marketplace clone: $handed ($handed_code) / $asked ($asked_code) / $none_code $none $(cat "$WORK/none")"
 fi
 
 finish

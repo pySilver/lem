@@ -27,9 +27,19 @@ agent. Nothing is typed into a pane. Escape opens nothing. Every failure exits 1
 which agterm shows when the keymap line carries `--error-hud`: no repository of Lem in the session, no
 task yet, no `agtermctl`, or a picker or a board that failed (a board server that does not run among
 them).
+
+In Lem's marketplace clone (`PLUGINS/marketplaces/NAME`), which holds the head of `main` and no
+release, this file runs nothing of its own: it becomes the clone's `bin/lem picker` with the same
+arguments, which runs the newest installed release. The keymap lines that the doctor printed before
+it gave `bin/lem picker` name this file in that clone, and they stay on the machines that have them.
 """
 
+import os
 import sys
+
+if os.path.realpath(__file__).split(os.sep)[-7:-5] == ["plugins", "marketplaces"]:
+    # this file is PLUGINS/marketplaces/NAME/skills/lem/scripts/picker.py: the clone is the folder four up
+    os.execv(sys.executable, [sys.executable, os.path.join(os.path.realpath(__file__).rsplit(os.sep, 4)[0], "bin", "lem"), "picker", *sys.argv[1:]])
 
 if sys.version_info < (3, 11):
     # an old python3 must still load this file, so that it can say what it needs and not a traceback
@@ -38,7 +48,6 @@ if sys.version_info < (3, 11):
 import argparse
 import importlib
 import json
-import os
 import re
 import shutil
 import subprocess

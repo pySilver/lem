@@ -25,6 +25,13 @@ goes on without a wait. `serve` itself, `board` and `doctor`, which look at the 
 take no look, and `LEM_SERVE=off` turns it off, which the test suites set. This file loads under any python3, and
 when that python3 is older than Lem's scripts need, it runs the script under the newer Python that
 `lem_python.find()` finds, or says in one line what to install.
+
+In Lem's marketplace clone (`PLUGINS/marketplaces/NAME`, which Claude Code pulls from the head of
+`main`), this file runs no script of its own: it becomes the `bin/lem` of the newest release of
+`lem@NAME` that Claude Code's `PLUGINS/installed_plugins.json` lists, with the same arguments
+(`release()`). A line outside Claude Code names the clone's path, which outlives every update (the
+doctor's keymap line of the task picker, and its start of the board server), and runs a release
+through it, never the head of `main`. With no such release listed, it exits 1 and names the install.
 """
 
 import json
@@ -152,8 +159,45 @@ def run(script: str, args: list, command: str, look: bool = False) -> None:
     os.execv(python, [python, "-B", script, *args])
 
 
+def release(called: str):  # no annotation of `str | None`: this file loads under any python3
+    """The file of the newest installed release that CALLED (`lem`, `lem-ask` or `lem-jev`) stands for,
+    when this file is in a marketplace clone; None elsewhere. The clone holds the head of `main`, which
+    no release holds, so nothing of it runs but this. A clone with no release listed exits 1."""
+    market = os.path.dirname(ROOT)
+    plugins = os.path.dirname(market)
+    if os.path.basename(market) != "marketplaces" or os.path.basename(plugins) != "plugins":
+        return None
+    key = "lem@" + os.path.basename(ROOT)
+    name = called if called in ALIASES else "lem"
+    newest = None
+    try:
+        with open(os.path.join(plugins, "installed_plugins.json"), encoding="utf-8") as listed:
+            installs = json.load(listed).get("plugins", {}).get(key, [])
+    except (OSError, ValueError, AttributeError):
+        installs = []
+    # Claude Code's own file: an entry of another shape, or a version that is not numbers, is no release
+    for entry in installs if isinstance(installs, list) else []:
+        try:
+            number = tuple(int(part) for part in entry["version"].split("."))
+            target = os.path.join(entry["installPath"], "bin", name)
+        except (ValueError, AttributeError, KeyError, TypeError):
+            continue
+        if os.path.isfile(target) and (newest is None or number > newest[0]):
+            newest = (number, target)
+    if newest is None:
+        sys.exit(f"lem: {ROOT} is the marketplace clone of {key}, which holds the head of main and no release, and "
+                 f"{os.path.join(plugins, 'installed_plugins.json')} lists no release of it to run: the owner installs one with "
+                 f"`claude plugin install {key}`")
+    return newest[1]
+
+
 def main() -> None:
     called = os.path.basename(sys.argv[0])
+    target = release(called)
+    if target is not None:
+        if sys.executable:
+            os.execv(sys.executable, [sys.executable, target, *sys.argv[1:]])
+        os.execv(target, [target, *sys.argv[1:]])
     if called in ALIASES:
         run(os.path.join(ROOT, ALIASES[called]), sys.argv[1:], called)
     args = sys.argv[1:]
