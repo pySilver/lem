@@ -1,9 +1,10 @@
-"""The rule picker's two rules, as calls of the functions that hold them: a glob's brace groups as the
-globs they stand for (`braces`), and a glob of a rule file's `paths:` as a pattern over a path
-relative to the root (`glob_regex`). Which rule files the picker finds (in a subfolder, through a
-link, not twice through a loop of links), what it reads from their frontmatter, a file that moved
-in a range of commits, and the refusals of `lem project rules` are facts only the file system, git
-and the real command show: tests/lem-settings.sh runs one journey for them.
+"""The rule picker's two rules, as calls of the functions that hold them: a glob's brace
+groups as the globs they stand for (`braces`), and a glob of a rule file's `paths:` as a
+pattern over a path relative to the root (`glob_regex`). Which rule files the picker
+finds (in a subfolder, through a link, not twice through a loop of links), what it reads
+from their frontmatter, a file that moved in a range of commits, and the refusals of
+`lem project rules` are facts only the file system, git and the real command show:
+tests/lem-settings.sh runs one journey for them.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -22,7 +23,8 @@ project = importlib.import_module("project")
 
 
 def matches(glob: str, path: str) -> bool:
-    """Whether a glob of `paths:` covers the path, through `glob_patterns`, which `cmd_rules` asks too."""
+    """Whether a glob of `paths:` covers the path, through `glob_patterns`, which
+    `cmd_rules` asks too."""
     return any(pattern.fullmatch(path) for pattern in project.glob_patterns(glob))
 
 
@@ -62,7 +64,8 @@ class Braces(unittest.TestCase):
 
 
 class GlobRegex(unittest.TestCase):
-    """The forms Claude Code documents for `paths:`, and the two it does not document."""
+    """The forms Claude Code documents for `paths:`, and the two it does
+    not document."""
 
     def assert_covers(
         self, glob: str, covered: list[str], not_covered: list[str]
@@ -187,7 +190,8 @@ class GlobRegex(unittest.TestCase):
         self.assert_covers("v[!0-9].md", ["vx.md"], ["v1.md"])
 
     def test_a_class_that_does_not_read_raises_a_regex_error(self) -> None:
-        # cmd_rules turns this error into its refusal with the fix; tests/lem-settings.sh runs that refusal once
+        # cmd_rules turns this error into its refusal with the fix;
+        # tests/lem-settings.sh runs that refusal once
         for glob in ("src/[z-a].ts", "src/[!].ts"):
             with self.subTest(glob=glob), self.assertRaises(re.error):
                 project.glob_regex(glob)

@@ -1,6 +1,7 @@
-"""lem_python.find(), the search for a Python of 3.11 or newer that `bin/lem` and the plugin's hooks
-make when the first `python3` is older, over stand-in folders of a PATH. A stand-in `python3` says
-its version as Python would; a `python3.N` is known by its name and never started.
+"""lem_python.find(), the search for a Python of 3.11 or newer that `bin/lem` and the
+plugin's hooks make when the first `python3` is older, over stand-in folders of a PATH.
+A stand-in `python3` says its version as Python would; a `python3.N` is known by its
+name and never started.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -26,7 +27,8 @@ class Find(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.home)
 
     def stand_in(self, folder: str, name: str, says: str = "3 9") -> str:
-        """An executable NAME in FOLDER under the test's home that prints SAYS, as `python3 -c` would."""
+        """An executable NAME in FOLDER under the test's home that prints SAYS, as
+        `python3 -c` would."""
         path = self.home / folder / name
         path.parent.mkdir(exist_ok=True)
         path.write_text(f"#!/bin/sh\necho {says}\n", encoding="utf-8")

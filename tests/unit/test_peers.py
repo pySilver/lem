@@ -1,7 +1,7 @@
-"""lem_peers.py's rules, each called in this process: a machine's name for `--join`, the loop guard, the
-list of two machines' workspaces and its order, a machine that does not answer, a redirect kept inside
-the peer's addresses, and the headers that pass. Two servers that pass pages and a stream through run
-in tests/lem-peers.sh.
+"""lem_peers.py's rules, each called in this process: a machine's name for `--join`, the
+loop guard, the list of two machines' workspaces and its order, a machine that does not
+answer, a redirect kept inside the peer's addresses, and the headers that pass. Two
+servers that pass pages and a stream through run in tests/lem-peers.sh.
 
     python3 -B -m unittest discover -s tests/unit
 """

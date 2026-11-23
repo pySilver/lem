@@ -1,5 +1,6 @@
-"""corrections.py's rules that read a file and return a result, each called in this process. The hook,
-the queue and the review are facts of real runs, in tests/lem-machine.sh.
+"""corrections.py's rules that read a file and return a result, each called in this
+process. The hook, the queue and the review are facts of real runs,
+in tests/lem-machine.sh.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -32,7 +33,8 @@ def said(text: str) -> dict:
 
 
 class LastAgentText(unittest.TestCase):
-    """The newest text an agent wrote, from a Claude Code transcript, one JSON record a line."""
+    """The newest text an agent wrote, from a Claude Code transcript, one JSON record
+    a line."""
 
     def test_a_text_that_holds_a_line_separator_is_the_newest_text(self) -> None:
         # Claude Code's JSON keeps U+2028 and U+2029 as they are inside a string
@@ -50,9 +52,10 @@ class LastAgentText(unittest.TestCase):
 
 
 class ProposedLesson(unittest.TestCase):
-    """A retro changes no file: a lesson it finds goes into a proposal of its day, and its group is
-    recorded `proposed`, with the file the proposal would change and the proposal's name, so that
-    `lessons` gives it as a lesson in no file yet (stages/learn.md, "The correction queue")."""
+    """A retro changes no file: a lesson it finds goes into a proposal of its day, and
+    its group is recorded `proposed`, with the file the proposal would change and the
+    proposal's name, so that `lessons` gives it as a lesson in no file yet
+    (stages/learn.md, "The correction queue")."""
 
     LESSON = "A night names the item it left out and why (retro of 2026-11-24 #3)."
     TARGET = "skills/lem/stages/night.md"
@@ -112,9 +115,10 @@ class ProposedLesson(unittest.TestCase):
 
 
 class TheMachinesSwitch(unittest.TestCase):
-    """Whether the hook sends: `collect = true` under `[corrections]` in `machine.toml`, and a repository
-    with `.lem/settings.toml` (criteria 5 and 6 of one-home-folder-for-lem). Each case has its own home
-    folder, as XDG_CONFIG_HOME, and its own repository, whose top git names through `corrections.git`."""
+    """Whether the hook sends: `collect = true` under `[corrections]` in `machine.toml`,
+    and a repository with `.lem/settings.toml` (criteria 5 and 6 of
+    one-home-folder-for-lem). Each case has its own home folder, as XDG_CONFIG_HOME, and
+    its own repository, whose top git names through `corrections.git`."""
 
     def setUp(self) -> None:
         self.kept = os.environ.get("XDG_CONFIG_HOME")
@@ -260,7 +264,8 @@ class TheMachinesSwitch(unittest.TestCase):
         self.assertEqual(lem_state.machine_file().read_bytes(), b"not toml [\n")
 
     def test_a_home_folder_that_cannot_be_written_is_refused_with_its_fix(self) -> None:
-        # a file where the home folder's parent should be: the write fails for root too, which a folder with no write bit does not stop
+        # a file where the home folder's parent should be: the write fails for root too,
+        # which a folder with no write bit does not stop
         Path(os.environ["XDG_CONFIG_HOME"]).write_text("", encoding="utf-8")
         with self.assertRaises(corrections.QueueError) as raised:
             corrections.cmd_collect("no")
@@ -272,8 +277,8 @@ class TheMachinesSwitch(unittest.TestCase):
 
 
 class Calls(ast.NodeVisitor):
-    """Each name a function calls, as `module.name(...)` or `name(...)`, under the outermost function
-    of the file that holds the call."""
+    """Each name a function calls, as `module.name(...)` or `name(...)`, under the
+    outermost function of the file that holds the call."""
 
     function: str | None
 
@@ -305,7 +310,8 @@ CALLS: dict = {}
 
 
 def calls_of(name: str) -> set:
-    """Each (file, function) of Lem's scripts, those of every skill and `bin/lem`, that calls `name`."""
+    """Each (file, function) of Lem's scripts, those of every skill and `bin/lem`, that
+    calls `name`."""
     if not CALLS:
         for file in [
             *sorted(SCRIPTS.parent.parent.glob("*/scripts/*.py")),
@@ -316,11 +322,12 @@ def calls_of(name: str) -> set:
 
 
 class TheHomeFoldersWriters(unittest.TestCase):
-    """Every writer of `machine.toml` is a command the owner runs, and so is the one writer of the home
-    folder's `settings.toml`, `lem project set global` (criterion 7 of one-home-folder-for-lem, and
-    criterion 6 of seat-defaults-and-fallback): no hook and no update of the plugin writes either. A new
-    writer fails here, and is added on purpose. That the hooks write neither file when they run is
-    checked in tests/lem-machine.sh."""
+    """Every writer of `machine.toml` is a command the owner runs, and so is the one
+    writer of the home folder's `settings.toml`, `lem project set global` (criterion 7
+    of one-home-folder-for-lem, and criterion 6 of seat-defaults-and-fallback): no hook
+    and no update of the plugin writes either. A new writer fails here, and is added on
+    purpose. That the hooks write neither file when they run is checked
+    in tests/lem-machine.sh."""
 
     def test_the_writers_of_the_machines_file_are_the_owners_commands(self) -> None:
         self.assertEqual(
@@ -351,7 +358,8 @@ class TheHomeFoldersWriters(unittest.TestCase):
         )
 
     def test_the_hooks_reach_no_writer(self) -> None:
-        # the plugin's hooks are these three scripts; the board server's starts `serve.py --ensure`, which writes no setting
+        # the plugin's hooks are these three scripts; the board server's starts
+        # `serve.py --ensure`, which writes no setting
         hooks = json.loads(
             (SCRIPTS.parent.parent.parent / "hooks" / "hooks.json").read_text(
                 encoding="utf-8"

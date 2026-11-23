@@ -1,10 +1,12 @@
-"""limit.py SECONDS NAME -- COMMAND...: run COMMAND with a time limit, for the runners of the suites.
+"""limit.py SECONDS NAME -- COMMAND...: run COMMAND with a time limit, for the runners
+of the suites.
 
-COMMAND runs in a process group of its own, with this process's stdin, stdout and stderr, and the
-exit is COMMAND's. When it runs longer than SECONDS, the group gets TERM, and 10 seconds later KILL
-for whatever of it is still there; then the line `FAIL NAME did not end in SECONDS s, and was
-stopped` is printed and the exit is 124. A suite's EXIT trap runs on TERM, so a suite cut off this
-way still removes its folder. A TERM or an INT to this process goes on to the group.
+COMMAND runs in a process group of its own, with this process's stdin, stdout and
+stderr, and the exit is COMMAND's. When it runs longer than SECONDS, the group gets
+TERM, and 10 seconds later KILL for whatever of it is still there; then the line `FAIL
+NAME did not end in SECONDS s, and was stopped` is printed and the exit is 124. A
+suite's EXIT trap runs on TERM, so a suite cut off this way still removes its folder. A
+TERM or an INT to this process goes on to the group.
 """
 
 import contextlib
@@ -31,7 +33,8 @@ def main() -> int:
         signal.signal(sign, lambda got, _frame: signal_group(proc.pid, got))
     try:
         code = proc.wait(timeout=seconds)
-        # a suite ended by a signal exits as a shell says it: 128 and the signal's number
+        # a suite ended by a signal exits as a shell says it: 128 and the
+        # signal's number
         return 128 - code if code < 0 else code
     except subprocess.TimeoutExpired:
         pass

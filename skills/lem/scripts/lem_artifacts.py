@@ -1,36 +1,42 @@
-"""The files of a task, as the board's artifacts explorer reads them, in one map for every project.
+"""The files of a task, as the board's artifacts explorer reads them, in one map for
+every project.
 
-`files` lists a task's files with no text: an entry for each file of the task directory and for the
-task's plan, with the file's path, its section, a title a person reads, its role, its kind, its size and
-its time. `one` gives one of them with its text, only by a path the list holds, so that a request reads
-nothing outside the task's files. An HTML page carries no text but `href`, its path in the task
-directory, since the board shows it in a frame from the server's raw route; a picture carries neither,
-and the board shows it from the media route, after `image_type` says it is one.
+`files` lists a task's files with no text: an entry for each file of the task directory
+and for the task's plan, with the file's path, its section, a title a person reads, its
+role, its kind, its size and its time. `one` gives one of them with its text, only by a
+path the list holds, so that a request reads nothing outside the task's files. An HTML
+page carries no text but `href`, its path in the task directory, since the board shows
+it in a frame from the server's raw route; a picture carries neither, and the board
+shows it from the media route, after `image_type` says it is one.
 
-`arrange` puts the entries on the map: the seven sections, always all of them, in the order a task
-runs and with the same names (SECTIONS), then the working files. A file is one of three roles:
+`arrange` puts the entries on the map: the seven sections, always all of them, in the
+order a task runs and with the same names (SECTIONS), then the working files. A file is
+one of three roles:
 
 - a document, which a person reads: a row of its section;
-- a record, the machine's JSON that a tab of the board already shows readable: a small link in the row
-  of the document it belongs to (`criteria.json` beside "Acceptance criteria", `decisions.jsonl` beside
-  "Decisions"), with the tab that shows it (`tab`); a record whose document is not there is a working file;
-- a working file: an agent's scratch, the review tool's archive of a round, a record with no document,
-  a picture no document shows, and every file this map does not know. They are one folded group at the
-  end, by their folder, so nothing is unreachable and nothing new makes a section of its own.
+- a record, the machine's JSON that a tab of the board already shows readable: a small
+  link in the row of the document it belongs to (`criteria.json` beside "Acceptance
+  criteria", `decisions.jsonl` beside "Decisions"), with the tab that shows it (`tab`);
+  a record whose document is not there is a working file;
+- a working file: an agent's scratch, the review tool's archive of a round, a record
+  with no document, a picture no document shows, and every file this map does not know.
+  They are one folded group at the end, by their folder, so nothing is unreachable and
+  nothing new makes a section of its own.
 
-A review round of the review tool is one document of "Review", its own `report.md`, and the rest of
-its archive is a folder of "Working files". A picture of `media/` belongs to the document whose text
-names it (`shows`).
+A review round of the review tool is one document of "Review", its own `report.md`, and
+the rest of its archive is a folder of "Working files". A picture of `media/` belongs to
+the document whose text names it (`shows`).
 
-`outside_record` gives what a task loses once it ended long ago (`lem project prune`): every path of
-its folder but its small record (SMALL_RECORD), the few files that a reader of Lem still reads of an
-ended task, and the lock files at the top of the folder. Its documents, its records and its pictures
-go with the rest: the owner's word (2026-11-21, confirmed on 2026-11-23) is that the machine keeps
-no whole history of a task.
+`outside_record` gives what a task loses once it ended long ago (`lem project prune`):
+every path of its folder but its small record (SMALL_RECORD), the few files that a
+reader of Lem still reads of an ended task, and the lock files at the top of the folder.
+Its documents, its records and its pictures go with the rest: the owner's word
+(2026-11-21, confirmed on 2026-11-23) is that the machine keeps no whole history of
+a task.
 
-The plan is no file of the task directory: it lives in the task's worktree, on its branch. The caller
-finds it (`project.py`'s `task_plan`) and passes it in, so this file imports nothing of Lem's. A task
-with no worktree or no plan has no plan entry.
+The plan is no file of the task directory: it lives in the task's worktree, on its
+branch. The caller finds it (`project.py`'s `task_plan`) and passes it in, so this file
+imports nothing of Lem's. A task with no worktree or no plan has no plan entry.
 """
 
 import contextlib
@@ -39,10 +45,11 @@ import re
 from datetime import UTC, datetime
 from pathlib import Path
 
-# A file over this many bytes is listed with no text: the page draws each file it shows, and a
-# review tool's log can be megabytes. A guess, not a measurement.
+# A file over this many bytes is listed with no text: the page draws each file it shows,
+# and a review tool's log can be megabytes. A guess, not a measurement.
 CAP = 300_000
-# The sections of every task's map, in their order, and the group of the working files after them.
+# The sections of every task's map, in their order, and the group of the working files
+# after them.
 SECTIONS = (
     ("request", "Request"),
     ("criteria", "Criteria"),
@@ -82,43 +89,48 @@ DOCS = {
     "merge-review.md": ("pr", "The merge review"),
     "handover.html": ("pr", "The hand-over page"),
 }
-# The records, by their name: the document they belong to, the word of their link, and the tab of the
-# board that shows them readable.
+# The records, by their name: the document they belong to, the word of their link, and
+# the tab of the board that shows them readable.
 RECORDS = {
     "criteria.json": ("criteria.md", "record", "criteria"),
     "decisions.jsonl": ("pr.md", "decisions", "criteria"),
     "polish.json": ("report.md", "polish pass", "checks"),
     "landing.json": ("pr.md", "landing", "checks"),
     "read.json": ("pr.md", "review's read", "checks"),
-    # the task's state, newest block first, which `lem project tasks`, the nap and a session read
+    # the task's state, newest block first, which `lem project tasks`, the nap and a
+    # session read
     "state.md": ("ask.txt", "state", "timeline"),
-    # what Lem did to the task's ticket, which `lem project tasks` reads to say what is still owed
+    # what Lem did to the task's ticket, which `lem project tasks` reads to say what is
+    # still owed
     "ticket-steps.txt": ("ticket.txt", "ticket steps", None),
-    # the repository of a GitHub issue, which each write of `lem issue` compares with origin's
+    # the repository of a GitHub issue, which each write of `lem issue` compares
+    # with origin's
     "ticket-repo.txt": ("ticket.txt", "ticket repository", None),
     # the task a resumed one came from, which a resume and a plan's name follow back
     "resumed-from.txt": ("ask.txt", "resumed from", None),
-    # the release the task began on, which each command of Lem for the task reads first (lem_release)
+    # the release the task began on, which each command of Lem for the task reads
+    # first (lem_release)
     "release.txt": ("ask.txt", "release", None),
 }
-# The small record of a task: what stays of its folder once it ended long ago (`outside_record`), each
-# file for the readers that need it after the end.
+# The small record of a task: what stays of its folder once it ended long ago
+# (`outside_record`), each file for the readers that need it after the end.
 SMALL_RECORD = (
-    # its status, which `lem project tasks`, `may-start`, a task queued behind it and `task-dir` read,
-    # and which a second prune reads to find it ended
+    # its status, which `lem project tasks`, `may-start`, a task queued behind it and
+    # `task-dir` read, and which a second prune reads to find it ended
     "state.md",
-    # its ask, and the first line of task.md for a task with no ask.txt: `tasks`, and the line of
-    # `/lem` that a refused resume ends with
+    # its ask, and the first line of task.md for a task with no ask.txt: `tasks`, and
+    # the line of `/lem` that a refused resume ends with
     "ask.txt",
     "task.md",
     # its pull request, which `lem project tasks` shows (`proposal`)
     "landing.json",
-    # its ticket, the issue's repository and what Lem did to it: the steps it still owes (`ticket_owed`)
-    # and the task that holds the ticket now (`ticket_held_by`)
+    # its ticket, the issue's repository and what Lem did to it: the steps it still owes
+    # (`ticket_owed`) and the task that holds the ticket now (`ticket_held_by`)
     "ticket.txt",
     "ticket-repo.txt",
     "ticket-steps.txt",
-    # the task a resumed one came from, which a resume's new name and the ticket's holder follow back
+    # the task a resumed one came from, which a resume's new name and the ticket's
+    # holder follow back
     "resumed-from.txt",
 )
 # The tabs, by their key, as a record's line names them.
@@ -127,7 +139,8 @@ TAB_NAMES = {
     "checks": "Checks and review",
     "timeline": "Timeline",
 }
-# The pictures a document may show, and their types; an SVG is no picture here, since it can carry a script.
+# The pictures a document may show, and their types; an SVG is no picture here, since it
+# can carry a script.
 IMAGES = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
@@ -179,8 +192,9 @@ KINDS = {
 
 
 def image_type(name: str, head: bytes) -> str | None:
-    """The type of a picture the board shows: by its extension AND its first bytes, which must be the
-    same format; None for anything else (an SVG, a text with a picture's name)."""
+    """The type of a picture the board shows: by its extension AND its first bytes,
+    which must be the same format; None for anything else (an SVG, a text with a
+    picture's name)."""
     want = IMAGES.get(Path(name).suffix.lower())
     if want is None:
         return None
@@ -199,9 +213,10 @@ def image_type(name: str, head: bytes) -> str | None:
 
 
 def place(path: str) -> dict:
-    """Where a file of the task directory goes on the map, from its path relative to it: its section
-    (`group`), its title, its role (`doc`, `record` or `work`), and for a record the document it belongs
-    to (`of`), its link's word (`label`) and its tab; for a working file its folder (`folder`)."""
+    """Where a file of the task directory goes on the map, from its path relative to it:
+    its section (`group`), its title, its role (`doc`, `record` or `work`), and for a
+    record the document it belongs to (`of`), its link's word (`label`) and its tab; for
+    a working file its folder (`folder`)."""
     name = path.rpartition("/")[2]
     _, _, suffix = name.rpartition(".")
     suffix = suffix.lower()
@@ -223,7 +238,10 @@ def place(path: str) -> dict:
     if brief:
         return {
             "group": "pr",
-            "title": f"The merge agent's brief of {brief.group(1)[:9]} on {brief.group(2)[:9]}",
+            "title": (
+                f"The merge agent's brief of {brief.group(1)[:9]} on "
+                f"{brief.group(2)[:9]}"
+            ),
             "role": "doc",
         }
     breaker = re.fullmatch(r"breaker-(\d+)\.md", path)
@@ -273,7 +291,8 @@ def place(path: str) -> dict:
             "label": "record",
             "tab": "checks",
         }
-    # the review tool's archive of one round: reviews/TASK/NN-LABEL/..., and its run's own files beside them
+    # the review tool's archive of one round: reviews/TASK/NN-LABEL/..., and its run's
+    # own files beside them
     archive = re.fullmatch(r"reviews/[^/]+/(\d+-[^/]+)/(.+)", path)
     if archive:
         if archive.group(2) == "report.md":
@@ -322,11 +341,12 @@ def place(path: str) -> dict:
 
 
 def arrange(entries: list[dict], shows: dict[str, list[str]] | None = None) -> dict:
-    """The map of a task's entries (`files`): `sections`, the seven in their order, each with its
-    documents and each document with what belongs to it (`attached`: its records, its source, the
-    pictures it shows); and `work`, the working files by their folder. A record whose document is not
-    listed, and a picture that no document shows, is a working file. `shows` gives the pictures each
-    document's text names, by the document's path. `count` is the number of documents."""
+    """The map of a task's entries (`files`): `sections`, the seven in their order, each
+    with its documents and each document with what belongs to it (`attached`: its
+    records, its source, the pictures it shows); and `work`, the working files by their
+    folder. A record whose document is not listed, and a picture that no document shows,
+    is a working file. `shows` gives the pictures each document's text names, by the
+    document's path. `count` is the number of documents."""
     by_path = {e["path"]: e for e in entries}
     shown_by = {}
     for doc, pictures in (shows or {}).items():
@@ -380,8 +400,8 @@ def arrange(entries: list[dict], shows: dict[str, list[str]] | None = None) -> d
 
 
 def kind_of(file: Path) -> str:
-    """The kind of a file, from its extension; one with an unknown extension is binary when its
-    first bytes hold a NUL, and text otherwise."""
+    """The kind of a file, from its extension; one with an unknown extension is binary
+    when its first bytes hold a NUL, and text otherwise."""
     known = KINDS.get(file.suffix.lower())
     if known:
         return known
@@ -399,9 +419,10 @@ def stamp(seconds: float) -> str:
 def entry(
     file: Path, path: str, where: dict, href: str | None, *, read: bool = True
 ) -> dict | None:
-    """One file's entry; None for an empty file, which shows nothing, and for a link to a file that
-    is gone. A file that cannot be read is listed with no text, and the others are still read. With
-    `read` false the entry has no text: the board lists the files and reads only the one shown."""
+    """One file's entry; None for an empty file, which shows nothing, and for a link to
+    a file that is gone. A file that cannot be read is listed with no text, and the
+    others are still read. With `read` false the entry has no text: the board lists the
+    files and reads only the one shown."""
     try:
         facts = file.stat()
     except OSError:
@@ -437,9 +458,9 @@ def files(
     *,
     read: bool = True,
 ) -> list[dict]:
-    """The entries of a task's files: each file of its directory but a lock, an empty file and a
-    hidden one, and its plan when `plan` gives the file and its path from the repository root; with
-    `read` false, with no text (`entry`)."""
+    """The entries of a task's files: each file of its directory but a lock, an empty
+    file and a hidden one, and its plan when `plan` gives the file and its path from the
+    repository root; with `read` false, with no text (`entry`)."""
     found = []
     for at, folders, names in os.walk(directory):
         folders[:] = sorted(name for name in folders if not name.startswith("."))
@@ -474,9 +495,10 @@ def files(
 def one(
     directory: Path, slug: str, path: str, plan: tuple[Path, str] | None = None
 ) -> tuple[dict, Path] | None:
-    """The entry of one file of a task, with its text, and the file itself: `path` as `files` names it
-    (from the task directory, or the plan's path from the repository root); None for a path that is no
-    entry of the task's, so that nothing outside its files is ever read by a name a request gives."""
+    """The entry of one file of a task, with its text, and the file itself: `path` as
+    `files` names it (from the task directory, or the plan's path from the repository
+    root); None for a path that is no entry of the task's, so that nothing outside its
+    files is ever read by a name a request gives."""
     listed = {item["path"]: item for item in files(directory, slug, plan, read=False)}
     if path not in listed:
         return None
@@ -499,8 +521,9 @@ def one(
 
 
 def pictures_named(directory: Path, entries: list[dict]) -> dict[str, list[str]]:
-    """The pictures of `media/` each markdown document of the task names, by the document's path: read
-    only when the task has a picture, and only the documents of the task directory."""
+    """The pictures of `media/` each markdown document of the task names, by the
+    document's path: read only when the task has a picture, and only the documents of
+    the task directory."""
     if not any(e["path"].startswith("media/") for e in entries):
         return {}
     named = {}
@@ -524,12 +547,13 @@ def pictures_named(directory: Path, entries: list[dict]) -> dict[str, list[str]]
 
 
 def outside_record(directory: Path) -> list[str]:
-    """The paths of a task's folder that are not its small record, from the folder, sorted: each path
-    at any depth that is no folder, but the files of SMALL_RECORD and the lock files at the top of the
-    folder. A lock file stays, since one removed while another process holds it lets a second writer
-    lock a new file of the same name. No link is followed: a link, to a file or to a folder, is a path
-    of its own, and so is a file that is not plain and a folder that does not list, so that the one
-    who removes them names each one it cannot remove. None of them is opened."""
+    """The paths of a task's folder that are not its small record, from the folder,
+    sorted: each path at any depth that is no folder, but the files of SMALL_RECORD and
+    the lock files at the top of the folder. A lock file stays, since one removed while
+    another process holds it lets a second writer lock a new file of the same name. No
+    link is followed: a link, to a file or to a folder, is a path of its own, and so is
+    a file that is not plain and a folder that does not list, so that the one who
+    removes them names each one it cannot remove. None of them is opened."""
     found = []
 
     def unlisted(error: OSError) -> None:

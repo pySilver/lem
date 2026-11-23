@@ -1,37 +1,43 @@
-"""The board of a normal afternoon in one shop, for the README's pictures, for a look at the board, and
-for tests/lem-serve.sh.
+"""The board of a normal afternoon in one shop, for the README's pictures, for a look at
+the board, and for tests/lem-serve.sh.
 
     python3 tests/board-showcase.py OUT              the pictures, into OUT: board-*, task-*, backlog-*, phone-*, waits-*, phone-waits-*,
                                                      story-*, phone-review-*, phone-merge-off-* and phone-merge-on-*, light and dark
     python3 tests/board-showcase.py --demo DIR       the repository alone, in DIR; print its path and its state folder as JSON
 
-It is eleven tasks a team could have on one afternoon, written by Lem's own scripts (project.py,
-criteria.py, decisions.py) in a throwaway repository, with a task in every column: two that build,
-one in its checks, a breaker and criteria that wait for the owner, a pull request the merge agent calls
-the owner for, a typo the merge agent found nothing in and the board's server merged, another landed task,
-an answered question, one task the owner parked after its breaker, and one he parked that he started from a
-reviewer's item. The night and the retro proposed, and the reviewer passed two proposals into the state
-folder's backlog: that item, held by the parked task, and one that is undecided. Each task has the `session.open`
-of its agterm session, as `lem session open` logs it, and one that builds has none, so that "Waits for
-you" has its row "No session runs this task"; the pull request that is not green has the merge agent's
-review (`merge-review.md` and its `merge.review`), which calls the owner, and the landing's record (`landing.json`) that
-every open task has, so that its merge step has its button. The breaker's question is in the board server's record
-of the owner's Inbox (`inbox.json`), which a page shows only while his mark says away. The landed task has a `task.md`
-with its outcome, and its polish pass files one backlog item on its branch, so that its "Overview"
-shows "What we are building" whole; the task of the picture of one task (`refund_line`) has every form
-a document of Lem's takes, and its picture shows the merge review that calls the owner. The scripts write the
-events seconds apart, and their times are then moved to the minutes before
-NOW, the minute the run started, that a run would have spaced them. The state folder is marked as demo
-data, as `lem board --demo` marks one, before the first task: `lem project task-dir` and `lem session
-open` put no repository with that mark into the machine's list of workspaces.
+It is eleven tasks a team could have on one afternoon, written by Lem's own scripts
+(project.py, criteria.py, decisions.py) in a throwaway repository, with a task in every
+column: two that build, one in its checks, a breaker and criteria that wait for the
+owner, a pull request the merge agent calls the owner for, a typo the merge agent found
+nothing in and the board's server merged, another landed task, an answered question, one
+task the owner parked after its breaker, and one he parked that he started from a
+reviewer's item. The night and the retro proposed, and the reviewer passed two proposals
+into the state folder's backlog: that item, held by the parked task, and one that is
+undecided. Each task has the `session.open` of its agterm session, as `lem session open`
+logs it, and one that builds has none, so that "Waits for you" has its row "No session
+runs this task"; the pull request that is not green has the merge agent's review
+(`merge-review.md` and its `merge.review`), which calls the owner, and the landing's
+record (`landing.json`) that every open task has, so that its merge step has its button.
+The breaker's question is in the board server's record of the owner's Inbox
+(`inbox.json`), which a page shows only while his mark says away. The landed task has a
+`task.md` with its outcome, and its polish pass files one backlog item on its branch, so
+that its "Overview" shows "What we are building" whole; the task of the picture of one
+task (`refund_line`) has every form a document of Lem's takes, and its picture shows the
+merge review that calls the owner. The scripts write the events seconds apart, and their
+times are then moved to the minutes before NOW, the minute the run started, that a run
+would have spaced them. The state folder is marked as demo data, as `lem board --demo`
+marks one, before the first task: `lem project task-dir` and `lem session open` put no
+repository with that mark into the machine's list of workspaces.
 
-The pictures are of the board as `lem serve` sends it: a server of this checkout on a free port, with
-a home folder of Lem of its own (XDG_CONFIG_HOME), shows the repository, and headless Chrome takes each
-picture through the DevTools protocol (tests/board-cdp.mjs, which needs Node): 1440 x 900 px for the
-desktop and 390 x 844 px for a phone, both at two device pixels for each pixel, with the color scheme
-the picture's theme names. The merge step of pull request 44 on a phone, as it opens with its button off
-(phone-merge-off-*) and with its text scrolled to the end and the button on (phone-merge-on-*), is 390 x
-664 px, since its whole text fits at 390 x 844 (MERGE_PHONE).
+The pictures are of the board as `lem serve` sends it: a server of this checkout on a
+free port, with a home folder of Lem of its own (XDG_CONFIG_HOME), shows the repository,
+and headless Chrome takes each picture through the DevTools protocol
+(tests/board-cdp.mjs, which needs Node): 1440 x 900 px for the desktop and 390 x 844 px
+for a phone, both at two device pixels for each pixel, with the color scheme the
+picture's theme names. The merge step of pull request 44 on a phone, as it opens with
+its button off (phone-merge-off-*) and with its text scrolled to the end and the button
+on (phone-merge-on-*), is 390 x 664 px, since its whole text fits at 390 x
+844 (MERGE_PHONE).
 """
 
 import json
@@ -56,8 +62,9 @@ NOW = datetime.now(UTC).replace(second=0, microsecond=0)
 TODAY = NOW.strftime("%Y-%m-%d")
 WIDTH, HEIGHT = 1440, 900
 PHONE = (390, 844)
-# The screen of the merge step's pictures: at PHONE the whole text of pull request 44 fits in the overlay (its body 675 px
-# of 675, measured 2026-11-22), so its button is on at once; at 664 px it goes on below the body's end (495 px of 609).
+# The screen of the merge step's pictures: at PHONE the whole text of pull request 44
+# fits in the overlay (its body 675 px of 675, measured 2026-11-22), so its button is on
+# at once; at 664 px it goes on below the body's end (495 px of 609).
 MERGE_PHONE = (390, 664)
 # the tailnet address of the owner's Inbox in this afternoon's record of it (inbox.json)
 INBOX_TAILNET = "https://studio.tail4e2a.ts.net:8443/"
@@ -78,13 +85,15 @@ def run(*args: str, cwd: Path | None = None) -> str:
     )
     if ran.returncode != 0:
         sys.exit(
-            f"board-showcase: {' '.join(args[:4])}: {ran.stderr.strip() or ran.stdout.strip()}"
+            f"board-showcase: {' '.join(args[:4])}: "
+            f"{ran.stderr.strip() or ran.stdout.strip()}"
         )
     return ran.stdout
 
 
 class Shop:
-    """A repository with Lem's settings, and the steps of each task with the minute (before NOW) it ran at."""
+    """A repository with Lem's settings, and the steps of each task with the minute
+    (before NOW) it ran at."""
 
     def __init__(self, work: Path) -> None:
         self.repo = work / "shop"
@@ -126,9 +135,11 @@ class Shop:
             "chore: the settings",
         )
         self.dir = Path(self.project("state-dir").strip())
-        # the mark first, so that no script of the afternoon puts this repository into a list of workspaces
+        # the mark first, so that no script of the afternoon puts this repository into a
+        # list of workspaces
         (self.dir / "demo").write_text(
-            "The tasks in this folder are examples, written by tests/board-showcase.py.\n"
+            "The tasks in this folder are examples, "
+            "written by tests/board-showcase.py.\n"
         )
 
     def git(self, *args: str) -> str:
@@ -234,8 +245,9 @@ class Shop:
         self.at(slug, minutes)
 
     def session(self, slug: str, minutes: float, phase: str, why: str) -> None:
-        """The task's agterm session opened MINUTES before NOW, as `lem session open` logs it: an id of agterm's
-        form, made from the task's name and the minute, so that each run writes the same."""
+        """The task's agterm session opened MINUTES before NOW, as `lem session open`
+        logs it: an id of agterm's form, made from the task's name and the minute, so
+        that each run writes the same."""
         sid = f"{zlib.crc32(slug.encode()):08X}-0000-4000-8000-{int(minutes * 10):012X}"
         self.log(
             slug,
@@ -263,7 +275,8 @@ class Shop:
         self.at(slug, minutes)
 
     def retime(self) -> None:
-        """Each task's events, in the order the scripts wrote them, get the times of their steps."""
+        """Each task's events, in the order the scripts wrote them, get the times of
+        their steps."""
         log = self.dir / "events.jsonl"
         rows = [
             json.loads(line) for line in log.read_text().splitlines() if line.strip()
@@ -275,13 +288,15 @@ class Shop:
             k = seen.get(slug, 0)
             if k >= len(times):
                 sys.exit(
-                    f"board-showcase: {slug} wrote more events than it has times: {[r['event'] for r in rows if r['task'] == slug]}"
+                    f"board-showcase: {slug} wrote more events than it has times: "
+                    f"{[r['event'] for r in rows if r['task'] == slug]}"
                 )
             row["ts"] = (NOW - timedelta(minutes=times[k])).strftime(
                 "%Y-%m-%dT%H:%M:%SZ"
             )
             if "at" in row:
-                # a line of decisions.jsonl carries its own time, which the board takes before the event's
+                # a line of decisions.jsonl carries its own time, which the board takes
+                # before the event's
                 row["at"] = row["ts"]
             seen[slug] = k + 1
         short = [
@@ -299,14 +314,17 @@ class Shop:
 
 
 FOOTER_ITEM = (
-    "---\nworth: yes\nwhere: invoice/footer.py:footer\nadded: {today}\n---\n\n# The invoice footer wraps on A5\n\n"
-    "Seen in the polish pass of the order date: the footer's last line wraps when the invoice prints on A5.\n"
+    "---\nworth: yes\nwhere: invoice/footer.py:footer\nadded: {today}\n---\n\n"
+    "# The invoice footer wraps on A5\n\n"
+    "Seen in the polish pass of the order date: the footer's last line wraps when the "
+    "invoice prints on A5.\n"
 )
 
 
-# The breaker's document of the task on its second task of three, in the form of templates/breaker.md: the
-# picture of the task's Overview shows it, so it is written as the owner would read it. A paragraph is one
-# line, since the board's markdown keeps each line break.
+# The breaker's document of the task on its second task of three, in the form of
+# templates/breaker.md: the picture of the task's Overview shows it, so it is written as
+# the owner would read it. A paragraph is one line, since the board's markdown keeps
+# each line break.
 GIFT_BREAKER = """# The gift note has no place in the export that keeps criterion 1 and the export's readers
 
 > [!IMPORTANT]
@@ -458,8 +476,9 @@ What the ladder said: a step that cannot be undone is never the ladder's to take
 
 def afternoon(shop: Shop) -> None:
     s = shop
-    # A task on the fast track, built, checked, read once and proposed green: the merge agent finds nothing
-    # for the owner, and the board's server merges it (`lem land merge --by merger --via server`).
+    # A task on the fast track, built, checked, read once and proposed green: the merge
+    # agent finds nothing for the owner, and the board's server merges it (`lem land
+    # merge --by merger --via server`).
     t = "footer-terms-typo"
     s.task(t, 'The footer says "Terms and condtions"')
     s.session(t, 52.5, "fast", "new")
@@ -604,7 +623,10 @@ def afternoon(shop: Shop) -> None:
         t,
         "full",
         "the export gets a new column and two readers of it.",
-        'An order with the gift note "for Ania" has that text in the last column of its row.',
+        (
+            'An order with the gift note "for Ania" has that text in the '
+            "last column of its row."
+        ),
         "An order with no gift note has an empty cell, not the word None.",
     )
     s.log(t, 138, "criteria.read.start", "by=lem")
@@ -618,15 +640,17 @@ def afternoon(shop: Shop) -> None:
     s.log(t, 110.5, "builder.start", "job=task 1 of 3")
     s.state(t, 74, "building", "task 2 of 3")
     s.log(t, 73.5, "builder.start", "job=task 2 of 3")
-    # the build meets a choice that no option settles inside the criteria: the circuit breaker stops it, with
-    # the lead's document and handoff in the task directory (templates/breaker.md)
+    # the build meets a choice that no option settles inside the criteria: the circuit
+    # breaker stops it, with the lead's document and handoff in the task
+    # directory (templates/breaker.md)
     (s.dir / "tasks" / t / "breaker.md").write_text(GIFT_BREAKER.replace("{slug}", t))
     (s.dir / "tasks" / t / "handoff.md").write_text(GIFT_HANDOFF)
     s.decide(t, 20, "breaker", t, "--cause", "criteria")
     s.at(t, 20)
-    # the board's server sent the breaker to the owner's Inbox as the task's session (lem_inbox.Watcher, which
-    # sends nothing for a demo, so the record is written here as it writes it); a page says so only while his
-    # mark says away, which this afternoon has not
+    # the board's server sent the breaker to the owner's Inbox as the task's session
+    # (lem_inbox.Watcher, which sends nothing for a demo, so the record is written here
+    # as it writes it); a page says so only while his mark says away, which this
+    # afternoon has not
     sent = {
         "key": f"breaker:{t}:1",
         "task": t,
@@ -657,7 +681,8 @@ def afternoon(shop: Shop) -> None:
         + "\n"
     )
 
-    # A task whose breaker stopped it before a step no "no" undoes, which the owner then parked.
+    # A task whose breaker stopped it before a step no "no" undoes, which the owner
+    # then parked.
     t = "fee-notice-to-merchants"
     s.task(t, "Tell each merchant about the new card fee by mail")
     s.session(t, 260.5, "build", "new")
@@ -673,8 +698,9 @@ def afternoon(shop: Shop) -> None:
     s.log(t, 236.5, "builder.start", "job=task 2 of 2")
     (s.dir / "tasks" / t / "breaker.md").write_text(FEE_BREAKER.replace("{slug}", t))
     (s.dir / "tasks" / t / "handoff.md").write_text(
-        "# Handoff\n\nSettled: the mail's text and its list of 212 merchants. Open: whether the fee date stands. "
-        "Next: `make send-fee-notice`, after his word.\n"
+        "# Handoff\n\nSettled: the mail's text and its list of 212 merchants. "
+        "Open: whether the fee date stands. Next: `make send-fee-notice`, "
+        "after his word.\n"
     )
     s.decide(
         t, 205, "breaker", t, "--cause", "irreversible", "--irreversible", "person"
@@ -684,7 +710,10 @@ def afternoon(shop: Shop) -> None:
         t,
         190,
         "parked",
-        "the owner parked it: wait for the merchants' association to confirm the fee date",
+        (
+            "the owner parked it: wait for the merchants' association "
+            "to confirm the fee date"
+        ),
     )
     s.closed(t, 189.5, "owner")
 
@@ -713,10 +742,12 @@ def afternoon(shop: Shop) -> None:
     s.log(t, 19, "criteria.read.start", "by=lem")
     s.read(t, 14, stock, 1)
     s.state(t, 14, "held", "the criteria wait for the owner")
-    # its session keeps them in the task directory, where the board shows them with the owner's button
+    # its session keeps them in the task directory, where the board shows them with the
+    # owner's button
     (s.dir / "tasks" / t / "criteria.md").write_text(stock.read_text())
 
-    # A careful change: its plan is talked through with the reviewer before anything is built.
+    # A careful change: its plan is talked through with the reviewer before anything
+    # is built.
     t = "refund-rounding"
     s.task(t, "Round refunds the way the payment provider does")
     s.session(t, 95.5, "shape", "new")
@@ -743,8 +774,9 @@ def afternoon(shop: Shop) -> None:
     s.state(t, 69, "building", "lead: session")
     s.log(t, 55, "plan.talk.start", "reviewer=codex")
 
-    # A bug whose investigation runs, and whose session is gone: no agent runs it, so it waits for the owner's
-    # "Open a session" (a demo workspace knows a session from the log alone, and this task has none)
+    # A bug whose investigation runs, and whose session is gone: no agent runs it, so it
+    # waits for the owner's "Open a session" (a demo workspace knows a session from the
+    # log alone, and this task has none)
     t = "cart-total-after-coupon"
     s.task(t, "The cart total is wrong after a coupon since yesterday")
     s.state(
@@ -760,7 +792,8 @@ def afternoon(shop: Shop) -> None:
     # A task on the standard track that landed today, from its interview to the merge.
     t = "order-date-on-invoice"
     s.task(t, "Print the order date on the invoice")
-    # task.md as Lem writes it at new: its outcome is what the board of one task shows in "What we are building"
+    # task.md as Lem writes it at new: its outcome is what the board of one task shows
+    # in "What we are building"
     (s.dir / "tasks" / t / "task.md").write_text(
         "\n".join(
             [
@@ -776,8 +809,14 @@ def afternoon(shop: Shop) -> None:
                 "",
                 "## Outcome",
                 "",
-                "Each invoice says when its order was placed, under the order's number, in the shop's language.",
-                "A customer who asks about an old order finds the date on the paper they already have.",
+                (
+                    "Each invoice says when its order was placed, under the order's "
+                    "number, in the shop's language."
+                ),
+                (
+                    "A customer who asks about an old order finds the date on the "
+                    "paper they already have."
+                ),
                 "",
             ]
         )
@@ -798,15 +837,18 @@ def afternoon(shop: Shop) -> None:
         t,
         "full",
         "the invoice gets a new line.",
-        'The invoice of order 1042, placed on 3 May, says "Ordered 3 May 2026" under its number.',
+        (
+            "The invoice of order 1042, placed on 3 May, "
+            'says "Ordered 3 May 2026" under its number.'
+        ),
     )
     s.log(t, 318, "criteria.read.start", "by=lem")
     s.read(t, 314, date, 0)
     s.state(t, 314, "held", "the criteria wait for the owner")
     s.approve(t, 309, date)
-    # Its worktree and its branch, with the plan, the commits of the build and of the polish pass: the
-    # state blocks carry the newest commit, and criteria.py checks the criterion's test on the branch and on
-    # the base commit, as a real build does.
+    # Its worktree and its branch, with the plan, the commits of the build and of the
+    # polish pass: the state blocks carry the newest commit, and criteria.py checks the
+    # criterion's test on the branch and on the base commit, as a real build does.
     tree = Path(s.project("worktree-dir", t).strip())
     s.git("worktree", "add", "-q", "-b", f"feat/{t}", str(tree), "main")
     s.commit_in(
@@ -820,7 +862,8 @@ def afternoon(shop: Shop) -> None:
                 "\n"
                 "Size: full, because the invoice gets a new line.\n"
                 "\n"
-                '1. The invoice of order 1042, placed on 3 May, says "Ordered 3 May 2026" under its number.\n'
+                '1. The invoice of order 1042, placed on 3 May, says "Ordered 3 May '
+                '2026" under its number.\n'
                 "   - test: `sh tests/order-date.sh` in `tests/order-date.sh`\n"
                 "\n"
                 "## Tasks\n"
@@ -841,8 +884,12 @@ def afternoon(shop: Shop) -> None:
         tree,
         "feat(invoice): the order date under the order's number",
         {
-            "invoice/date.py": 'def ordered(order):\n    return f"Ordered {order.placed:%-d %B %Y}"\n',
-            "tests/order-date.sh": "#!/bin/sh\ngrep -q 'Ordered {order.placed' invoice/date.py\n",
+            "invoice/date.py": (
+                'def ordered(order):\n    return f"Ordered {order.placed:%-d %B %Y}"\n'
+            ),
+            "tests/order-date.sh": (
+                "#!/bin/sh\ngrep -q 'Ordered {order.placed' invoice/date.py\n"
+            ),
         },
     )
     s.state(t, 268, "building", "task 2 of 2")
@@ -851,7 +898,10 @@ def afternoon(shop: Shop) -> None:
         tree,
         "feat(invoice): the order date in the shop's language",
         {
-            "invoice/date.py": 'def ordered(order):\n    return f"Ordered {order.placed:%-d %B %Y}"\n\n\ndef language(order):\n    return order.shop.language\n'
+            "invoice/date.py": (
+                'def ordered(order):\n    return f"Ordered {order.placed:%-d %B '
+                '%Y}"\n\n\ndef language(order):\n    return order.shop.language\n'
+            )
         },
     )
     s.criteria("red", t)
@@ -865,11 +915,16 @@ def afternoon(shop: Shop) -> None:
         tree,
         "style(invoice): one name for the date's format",
         {
-            "invoice/date.py": 'DATE = "%-d %B %Y"\n\n\ndef ordered(order):\n    return f"Ordered {order.placed:%-d %B %Y}"\n\n\ndef language(order):\n    return order.shop.language\n'
+            "invoice/date.py": (
+                'DATE = "%-d %B %Y"\n\n\ndef ordered(order):\n'
+                '    return f"Ordered {order.placed:%-d %B %Y}"\n\n\n'
+                "def language(order):\n    return order.shop.language\n"
+            )
         },
     )
-    # the polish pass files a defect it saw outside the change, in a commit of its own: the board of the
-    # task lists it on "Overview", and the backlog of the main checkout has it once the task landed
+    # the polish pass files a defect it saw outside the change, in a commit of its own:
+    # the board of the task lists it on "Overview", and the backlog of the main checkout
+    # has it once the task landed
     s.commit_in(
         tree,
         "docs(backlog): the invoice footer wraps on A5",
@@ -949,10 +1004,13 @@ def afternoon(shop: Shop) -> None:
         "type: question, because the ask asks why",
     )
     s.log(t, 204.5, "investigation.start", "type=question")
-    # written as plain lines, as an agent writes a short report: the board keeps its line breaks
+    # written as plain lines, as an agent writes a short report: the board keeps its
+    # line breaks
     (s.dir / "tasks" / t / "investigation.md").write_text(
-        "# Investigation\n\nThe export reads every order of the month one query at a time.\n"
-        "A month of 4,000 orders makes 4,000 queries.\nEach query waits about 15 ms for the database.\n"
+        "# Investigation\n\nThe export reads every order of the month one query at a "
+        "time.\n"
+        "A month of 4,000 orders makes 4,000 queries.\n"
+        "Each query waits about 15 ms for the database.\n"
     )
     s.log(
         t,
@@ -989,7 +1047,9 @@ def afternoon(shop: Shop) -> None:
         "def test_monthly():\n    assert True\n"
     )
     (folder / "export-in-one-query.md").write_text(
-        f"---\nworth: later\nadded: {TODAY}\n---\n\n# Read the monthly export in one query\n\nThe investigation of the slow export found one query for each order. One query for the month would take the minute away.\n"
+        f"---\nworth: later\nadded: {TODAY}\n---\n\n# Read the monthly export in one "
+        "query\n\nThe investigation of the slow export found one query for each order. "
+        "One query for the month would take the minute away.\n"
     )
     s.git("add", "-A")
     s.git(
@@ -1003,8 +1063,9 @@ def afternoon(shop: Shop) -> None:
         "docs: the backlog",
     )
 
-    # The night's and the retro's proposals, and the reviewer's verdicts, through `lem project proposals`: two items of
-    # the state folder's backlog, one undecided and one a queued task holds, and one proposal refuted.
+    # The night's and the retro's proposals, and the reviewer's verdicts, through
+    # `lem project proposals`: two items of the state folder's backlog, one undecided
+    # and one a queued task holds, and one proposal refuted.
     night = s.work / "night.json"
     night.write_text(
         json.dumps(
@@ -1013,9 +1074,14 @@ def afternoon(shop: Shop) -> None:
                 "proposals": [
                     {
                         "area": "tests",
-                        "move": "Make the check of the monthly export wait for its file",
+                        "move": (
+                            "Make the check of the monthly export wait for its file"
+                        ),
                         "where": "tests/test_export.py:test_monthly",
-                        "body": "The check read the export before its file was whole, and failed once in the last ten runs.",
+                        "body": (
+                            "The check read the export before its file was whole, and "
+                            "failed once in the last ten runs."
+                        ),
                         "source": "the checks of coupon-has-a-slug",
                     }
                 ],
@@ -1033,9 +1099,14 @@ def afternoon(shop: Shop) -> None:
                 "proposals": [
                     {
                         "area": "lessons",
-                        "move": "Read the receipt's total by its label, never by its row",
+                        "move": (
+                            "Read the receipt's total by its label, never by its row"
+                        ),
                         "where": "AGENTS.md",
-                        "body": "A refund line moved the total's row, and a test that read the row failed.",
+                        "body": (
+                            "A refund line moved the total's row, "
+                            "and a test that read the row failed."
+                        ),
                         "source": "the task refund-line-on-receipt's records",
                     },
                     {
@@ -1078,8 +1149,9 @@ def afternoon(shop: Shop) -> None:
     s.state(t, 6, "parked", "the owner parked it: the check waits for the new export")
 
 
-# The merge agent's review of the task that is not green, in the form of skills/lem/prompts/merge.md: the
-# pictures of "Waits for you" and of the task's Overview show it, so it is written as the owner would read it.
+# The merge agent's review of the task that is not green, in the form of
+# skills/lem/prompts/merge.md: the pictures of "Waits for you" and of the task's
+# Overview show it, so it is written as the owner would read it.
 TYPO_REVIEW = """Verdict: merge. The footer says "Terms and conditions", as the criterion asks, and nothing else changed.
 
 **What was built, and why.** You asked to fix the typo in the footer. One word of the template changed.
@@ -1125,7 +1197,8 @@ def png(
     rows: list[tuple[int, int, int, int, tuple[int, int, int]]],
     back: tuple[int, int, int] = (250, 248, 243),
 ) -> bytes:
-    """A small PNG of flat boxes, (x, y, w, h, color) each on BACK: the demo's stand-in for a screenshot."""
+    """A small PNG of flat boxes, (x, y, w, h, color) each on BACK: the demo's stand-in
+    for a screenshot."""
     pixels = [bytearray(back * width) for _ in range(height)]
     for x, y, w, h, color in rows:
         for yy in range(max(0, y), min(height, y + h)):
@@ -1151,7 +1224,8 @@ def png(
 
 
 def receipt(*, after: bool) -> bytes:
-    """The receipt of order 1042, before and after the refund line: lines of text as gray bars."""
+    """The receipt of order 1042, before and after the refund line: lines of text as
+    gray bars."""
     ink, dim, line, ok = (40, 38, 34), (150, 146, 140), (226, 224, 219), (98, 151, 66)
     rows = [
         (0, 0, 360, 240, (255, 255, 255)),
@@ -1180,10 +1254,11 @@ DEMO_CHART = """flowchart TD
 
 
 def refund_line(s: Shop) -> None:
-    """A task of the night that shows every form a document of Lem's takes: an outcome with Today and
-    After and a chart, a criterion with its case and its chart, the plan's chart, an important decision
-    with its story and a chart, a pull request that is not green for four reasons, a before and an after
-    picture, a wide table, and the owner's page with links inside it."""
+    """A task of the night that shows every form a document of Lem's takes: an outcome
+    with Today and After and a chart, a criterion with its case and its chart, the
+    plan's chart, an important decision with its story and a chart, a pull request that
+    is not green for four reasons, a before and an after picture, a wide table, and the
+    owner's page with links inside it."""
     t = "refund-line-on-receipt"
     s.task(t, "Show a refund as a line of its own on the receipt", "--night", TODAY)
     s.at(t, 610)
@@ -1204,7 +1279,10 @@ def refund_line(s: Shop) -> None:
                 "",
                 "## Outcome",
                 "",
-                "**A refund shows on the receipt as a line of its own, and the total under it is what the customer paid.**",
+                (
+                    "**A refund shows on the receipt as a line of its own, and the "
+                    "total under it is what the customer paid.**"
+                ),
                 "",
                 "Today:",
                 "1. Order 1042 is 100.00 EUR.",
@@ -1214,7 +1292,10 @@ def refund_line(s: Shop) -> None:
                 "After:",
                 "1. Order 1042 is 100.00 EUR.",
                 "2. A refund of 30.00 EUR comes in.",
-                "3. The receipt shows `Refund -30.00` under the items, and `Total 70.00` under it.",
+                (
+                    "3. The receipt shows `Refund -30.00` under the items, and "
+                    "`Total 70.00` under it."
+                ),
                 "",
                 "```mermaid",
                 DEMO_CHART,
@@ -1239,9 +1320,15 @@ def refund_line(s: Shop) -> None:
     body = [
         "## Acceptance criteria",
         "",
-        "Size: full, because the receipt gets a new line and a rule for a refund larger than the total.",
+        (
+            "Size: full, because the receipt gets a new line and a rule for a refund "
+            "larger than the total."
+        ),
         "",
-        "1. A refund shows on the receipt as a line of its own, and the total stands under it:",
+        (
+            "1. A refund shows on the receipt as a line of its own, "
+            "and the total stands under it:"
+        ),
         "   1. Order 1042 is 100.00 EUR, and a refund of 30.00 EUR comes in.",
         "   2. The receipt shows `Refund -30.00` under the items.",
         "   3. The total under it is 70.00.",
@@ -1266,7 +1353,10 @@ def refund_line(s: Shop) -> None:
         "",
         "## How it works",
         "",
-        "A refund becomes a line of the receipt; the rule for one larger than the total is the second branch.",
+        (
+            "A refund becomes a line of the receipt; the rule for one larger than the "
+            "total is the second branch."
+        ),
         "",
         "```mermaid",
         "flowchart LR",
@@ -1297,11 +1387,14 @@ def refund_line(s: Shop) -> None:
     s.at(t, 589)
     s.state(t, 588, "building", "task 1 of 2")
     s.log(t, 587.5, "builder.start", "job=task 1 of 2")
-    # a decision of the build in doubt: the ladder climbed to the dialectic, whose pick is taken at once
+    # a decision of the build in doubt: the ladder climbed to the dialectic, whose pick
+    # is taken at once
     chart = s.work / f"{t}-decision.mmd"
     chart.write_text(
-        'flowchart TD\n  A["The receipt has its items"] --> B{"Where does the refund go?"}\n  B -->|"A"| C["In the items: the total reads as a price"]\n'
-        '  B -->|"B"| D["Under the items: the total stands under it"]\n  B -->|"C"| E["In a footer: the customer looks for it"]\n'
+        'flowchart TD\n  A["The receipt has its items"] --> B{"Where does the refund '
+        'go?"}\n  B -->|"A"| C["In the items: the total reads as a price"]\n'
+        '  B -->|"B"| D["Under the items: the total stands under it"]\n'
+        '  B -->|"C"| E["In a footer: the customer looks for it"]\n'
     )
     s.decide(
         t,
@@ -1313,12 +1406,19 @@ def refund_line(s: Shop) -> None:
         "--what",
         "Where the refund line goes on the receipt",
         "--case",
-        "1. Order 1042 has three items, 100.00 EUR.\n2. A refund of 30.00 EUR comes in.\n3. The receipt prints its lines in the order of the choice.\n"
-        "4. A customer reads the last line above the total as the price of an item.",
+        (
+            "1. Order 1042 has three items, 100.00 EUR.\n"
+            "2. A refund of 30.00 EUR comes in.\n3. The receipt prints its lines in "
+            "the order of the choice.\n"
+            "4. A customer reads the last line above the total as the price of an item."
+        ),
         "--case-was",
         "derived",
         "--cause",
-        "The receipt prints every line of an order in one list, and the total is the last of them.",
+        (
+            "The receipt prints every line of an order in one list, "
+            "and the total is the last of them."
+        ),
         "--option",
         "A: in the items, as a negative price",
         "--option",
@@ -1330,13 +1430,19 @@ def refund_line(s: Shop) -> None:
         "--why",
         "the total stands under what changed it",
         "--said",
-        "the developer picked B, the support person picked B, the accountant leaned to C",
+        (
+            "the developer picked B, the support person picked B, "
+            "the accountant leaned to C"
+        ),
         "--level",
         "gate=no ruling covers it",
         "--level",
         "personas=two for B, one for C: no clear pick",
         "--level",
-        "dialectic=B held: the case against it found no reader that takes the last line above the total as an item",
+        (
+            "dialectic=B held: the case against it found no reader that takes the last "
+            "line above the total as an item"
+        ),
         "--chart",
         str(chart),
     )
@@ -1352,7 +1458,10 @@ def refund_line(s: Shop) -> None:
         "--chose",
         "the theme's green, as a credit",
         "--why",
-        "a refund is money back to the customer, which the shop's receipts show in green",
+        (
+            "a refund is money back to the customer, "
+            "which the shop's receipts show in green"
+        ),
     )
     s.state(t, 520, "building", "task 2 of 2")
     s.log(t, 519.5, "builder.start", "job=task 2 of 2")
@@ -1360,8 +1469,11 @@ def refund_line(s: Shop) -> None:
     (folder / "media" / "receipt-before.png").write_bytes(receipt(after=False))
     (folder / "media" / "receipt-after.png").write_bytes(receipt(after=True))
     (folder / "report.md").write_text(
-        "# Report\n\nThe refund line is in, under the items, and the total under it.\n\n"
-        "![The receipt of order 1042 after a refund of 30.00 EUR](media/receipt-after.png)\n*The refund reads `-30.00` in green; the total under it is 70.00.*\n"
+        "# Report\n\nThe refund line is in, under the items, and the total under "
+        "it.\n\n"
+        "![The receipt of order 1042 after a refund of 30.00 "
+        "EUR](media/receipt-after.png)\n*The refund reads `-30.00` in green; "
+        "the total under it is 70.00.*\n"
     )
     s.state(t, 480, "ready", "the report is written")
     s.session(t, 479.5, "land", "handoff")
@@ -1427,14 +1539,27 @@ def refund_line(s: Shop) -> None:
         f"tip={tip[:7]}",
     )
     reasons = [
-        'decision 1 was taken without the owner (Where the refund line goes on the receipt): "B: a line of its own under the items, then the total", by the dialectic',
-        f"the owner did not approve the criteria: they were approved on {TODAY} while the task ran without the owner",
         (
-            "the bar is lower in `tests/test_receipt.py` (one assertion fewer). The builder: the old check read the total from a fixed row of the receipt, which the refund line moves; "
-            "`test_total_after_refund` reads the same value by its label, which is what a customer reads. The review: the reason holds; the new test covers the row the old one read, "
-            "and no other test lost a line. The resolution of round 1 did not touch the file"
+            "decision 1 was taken without the owner (Where the refund line goes on the "
+            'receipt): "B: a line of its own under the items, then the total", '
+            "by the dialectic"
         ),
-        "two rounds reviewed it: the last one left no must-fix, and round 1 left 1 must-fix that pull request #44 answers",
+        (
+            f"the owner did not approve the criteria: they were approved on {TODAY} "
+            "while the task ran without the owner"
+        ),
+        (
+            "the bar is lower in `tests/test_receipt.py` (one assertion fewer). "
+            "The builder: the old check read the total from a fixed row of the "
+            "receipt, which the refund line moves; `test_total_after_refund` reads the "
+            "same value by its label, which is what a customer reads. The review: "
+            "the reason holds; the new test covers the row the old one read, and no "
+            "other test lost a line. The resolution of round 1 did not touch the file"
+        ),
+        (
+            "two rounds reviewed it: the last one left no must-fix, and round 1 left 1 "
+            "must-fix that pull request #44 answers"
+        ),
     ]
     s.log(
         t,
@@ -1447,9 +1572,13 @@ def refund_line(s: Shop) -> None:
     s.state(
         t, 448, "open", "pull request https://github.com/acme/shop/pull/44", "not green"
     )
-    # the merge agent's read of it (land.py `merge-review`): a request that is not green is the owner's to merge, so it calls him
+    # the merge agent's read of it (land.py `merge-review`): a request that is not green
+    # is the owner's to merge, so it calls him
     (folder / "merge-review.md").write_text(MERGE_REVIEW)
-    why = "Verdict: call. The change does what both criteria say; it is not green for two choices taken without you, and I would keep both."
+    why = (
+        "Verdict: call. The change does what both criteria say; it is not green for "
+        "two choices taken without you, and I would keep both."
+    )
     s.log(
         t,
         440,
@@ -1460,8 +1589,9 @@ def refund_line(s: Shop) -> None:
         f"tip={tip[:9]}",
         f"why={why}",
     )
-    # the landing's record of an open task, in land.py's form (`propose`, `merge-review`): the whole commit it proposed and
-    # its pull request, which the merge step shows and its form carries, and the merge agent's review of that commit
+    # the landing's record of an open task, in land.py's form (`propose`,
+    # `merge-review`): the whole commit it proposed and its pull request, which the
+    # merge step shows and its form carries, and the merge agent's review of that commit
     whole = run("git", "-C", str(tree), "rev-parse", "HEAD").strip()
     (folder / "landing.json").write_text(
         json.dumps(
@@ -1486,9 +1616,14 @@ def refund_line(s: Shop) -> None:
         + "\n"
     )
     (folder / "pr.md").write_text(
-        "feat(receipt): a refund shows as a line of its own\n\nNot green: four reasons, in `decisions.md`.\n\n"
-        "<details><summary>Decision 1, its story: where the refund line goes</summary>\n\n"
-        "1. Order 1042 has three items.\n2. A refund of 30.00 EUR comes in.\n\n```mermaid\n"
+        (
+            "feat(receipt): a refund shows as a line of its own\n\n"
+            "Not green: four reasons, in `decisions.md`.\n\n"
+            "<details><summary>Decision 1, its story: where the refund line "
+            "goes</summary>\n\n"
+            "1. Order 1042 has three items.\n2. A refund of 30.00 EUR "
+            "comes in.\n\n```mermaid\n"
+        )
         + chart.read_text()
         + "```\n\n</details>\n"
     )
@@ -1500,15 +1635,34 @@ def refund_line(s: Shop) -> None:
                 "> [!CAUTION]",
                 "> **2 things wait for the owner.**",
                 ">",
-                '> 1. Decision 1 was taken without the owner, by the dialectic: "B: a line of its own under the items, then the total".',
+                (
+                    "> 1. Decision 1 was taken without the owner, by the dialectic: "
+                    '"B: a line of its own under the items, then the total".'
+                ),
                 "> 2. The criteria were approved while the task ran without the owner.",
                 "",
-                "Pull request [#44](https://github.com/acme/shop/pull/44). 2 decisions: 1 by the dialectic, taken without the owner; 1 by the lead.",
+                (
+                    "Pull request [#44](https://github.com/acme/shop/pull/44). "
+                    "2 decisions: 1 by the dialectic, taken without the owner; "
+                    "1 by the lead."
+                ),
                 "",
-                "| # | The decision | Taken | Who decided | What it costs | What undoes it |",
+                (
+                    "| # | The decision | Taken | Who decided | What it "
+                    "costs | What undoes it |"
+                ),
                 "| --- | --- | --- | --- | --- | --- |",
-                "| [1](#1-where-the-refund-line-goes-on-the-receipt) | Where the refund line goes on the receipt | B. A line of its own under the items, then the total | the dialectic, without the owner; **not green** | nothing more | a change of the template, one line |",
-                "| 2 | How the refund line is colored | the theme's green, as a credit | the lead | nothing | the theme's color |",
+                (
+                    "| [1](#1-where-the-refund-line-goes-on-the-receipt) | Where the "
+                    "refund line goes on the receipt | B. A line of its own under the "
+                    "items, then the total | the dialectic, without the owner; "
+                    "**not green** | nothing more | a change of the template, "
+                    "one line |"
+                ),
+                (
+                    "| 2 | How the refund line is colored | the theme's green, as a "
+                    "credit | the lead | nothing | the theme's color |"
+                ),
                 "",
                 "## 1. Where the refund line goes on the receipt",
                 "",
@@ -1516,7 +1670,10 @@ def refund_line(s: Shop) -> None:
                 "",
                 "1. Order 1042 has three items, 100.00 EUR.",
                 "2. A refund of 30.00 EUR comes in.",
-                "3. A customer reads the last line above the total as the price of an item.",
+                (
+                    "3. A customer reads the last line above the total "
+                    "as the price of an item."
+                ),
                 "",
                 "**This or that:**",
                 "",
@@ -1532,12 +1689,18 @@ def refund_line(s: Shop) -> None:
         )
     )
     (folder / "built.md").write_text(
-        "# What was built: a refund shows as a line of its own\n\n> [!NOTE]\n> A demo task: no run made these files.\n\n"
-        "## What was built\n\n![The receipt before](media/receipt-before.png)\n*Before: no line says why the total is 70.00.*\n\n"
-        "![The receipt after](media/receipt-after.png)\n*After: the refund is a line of its own.*\n"
+        "# What was built: a refund shows as a line of its own\n\n> [!NOTE]\n"
+        "> A demo task: no run made these files.\n\n"
+        "## What was built\n\n![The receipt before](media/receipt-before.png)\n"
+        "*Before: no line says why the total is 70.00.*\n\n"
+        "![The receipt after](media/receipt-after.png)\n"
+        "*After: the refund is a line of its own.*\n"
     )
     rows = "".join(
-        f'<tr><td>{n}</td><td>{what}</td><td>{took}</td><td><span class="pill {c}">{who}</span></td></tr>'
+        (
+            f'<tr><td>{n}</td><td>{what}</td><td>{took}</td><td><span class="pill '
+            f'{c}">{who}</span></td></tr>'
+        )
         for n, what, took, who, c in (
             (
                 1,
@@ -1556,15 +1719,26 @@ def refund_line(s: Shop) -> None:
         )
     )
     (folder / "page.html").write_text(
-        '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>A refund shows as a line of its own</title><style>'
-        "body{font:15px/1.6 -apple-system,sans-serif;margin:0;padding:0 28px 40px;color:#222;background:#fbf9f5} nav{position:sticky;top:0;background:#f1efeb;padding:8px 0;display:flex;gap:8px}"
-        "nav a{padding:2px 9px;border:1px solid #ddd;border-radius:999px;color:#222;text-decoration:none} [id]{scroll-margin-top:52px} section{min-height:520px}"
-        ".tbl{overflow-x:auto} table{border-collapse:collapse;min-width:900px} td,th{text-align:left;padding:6px 10px;border-bottom:1px solid #ddd;vertical-align:top}"
-        ".pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;border:1px solid currentColor;white-space:nowrap} .bad{color:#ae4022} .muted{color:#777}"
-        '</style></head><body><h1 id="top">A refund shows as a line of its own</h1><nav><a href="#asked">What was asked</a><a href="#decisions">Decisions</a><a href="#top">Top</a></nav>'
-        '<section id="asked"><h2>What was asked</h2><p>Show a refund as a line of its own on the receipt.</p></section>'
-        f'<section id="decisions"><h2>Decisions</h2><div class="tbl"><table><tr><th>#</th><th>The decision</th><th>Taken</th><th>Who decided</th></tr>{rows}</table></div></section>'
-        "</body></html>\n"
+        '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>A refund '
+        "shows as a line of its own</title><style>body{font:15px/1.6 "
+        "-apple-system,sans-serif;margin:0;padding:0 28px "
+        "40px;color:#222;background:#fbf9f5} "
+        "nav{position:sticky;top:0;background:#f1efeb;padding:8px "
+        "0;display:flex;gap:8px}nav a{padding:2px 9px;border:1px solid "
+        "#ddd;border-radius:999px;color:#222;text-decoration:none} "
+        "[id]{scroll-margin-top:52px} section{min-height:520px}.tbl{overflow-x:auto} "
+        "table{border-collapse:collapse;min-width:900px} "
+        "td,th{text-align:left;padding:6px 10px;border-bottom:1px solid "
+        "#ddd;vertical-align:top}.pill{display:inline-block;padding:1px "
+        "9px;border-radius:999px;font-size:12px;border:1px solid "
+        "currentColor;white-space:nowrap} .bad{color:#ae4022} "
+        '.muted{color:#777}</style></head><body><h1 id="top">A refund shows as a line '
+        'of its own</h1><nav><a href="#asked">What was asked</a><a '
+        'href="#decisions">Decisions</a><a href="#top">Top</a></nav><section '
+        'id="asked"><h2>What was asked</h2><p>Show a refund as a line of its own on '
+        'the receipt.</p></section><section id="decisions"><h2>Decisions</h2><div '
+        'class="tbl"><table><tr><th>#</th><th>The decision</th><th>Taken</th><th>Who '
+        f"decided</th></tr>{rows}</table></div></section></body></html>\n"
     )
 
 
@@ -1575,7 +1749,8 @@ def free_port() -> int:
 
 
 def build(work: Path) -> Shop:
-    """The repository of the afternoon in WORK, with its times moved to the minutes before NOW."""
+    """The repository of the afternoon in WORK, with its times moved to the minutes
+    before NOW."""
     shop = Shop(work)
     afternoon(shop)
     refund_line(shop)
@@ -1590,20 +1765,30 @@ def shots(out: Path, base: str) -> None:
         sys.exit(
             "board-showcase: the pictures need Node (tests/board-cdp.mjs drives Chrome)"
         )
-    # the task of the picture of one task: its Overview, with the merge review that calls the owner first; `story` is the
-    # same page scrolled to the story of its outcome and its chart
+    # the task of the picture of one task: its Overview, with the merge review that
+    # calls the owner first; `story` is the same page scrolled to the story of its
+    # outcome and its chart
     task = f"{base}tasks/refund-line-on-receipt"
     story = [
         {
-            "eval": "const tab = document.querySelector('.tabbody'), after = [...document.querySelectorAll('.building .b-md p')].find(p => p.textContent.trim() === 'After:');"
-            " tab.scrollTop += after.getBoundingClientRect().top - tab.getBoundingClientRect().top - 14",
+            "eval": (
+                "const tab = document.querySelector('.tabbody'), after = "
+                "[...document.querySelectorAll('.building .b-md p')].find(p => "
+                "p.textContent.trim() === 'After:'); tab.scrollTop += "
+                "after.getBoundingClientRect().top - "
+                "tab.getBoundingClientRect().top - 14"
+            ),
             "after": 800,
         }
     ]
-    # its merge step on a phone, as it opens (the button off) and with its body scrolled to the end (the button on)
+    # its merge step on a phone, as it opens (the button off) and with its body scrolled
+    # to the end (the button on)
     to_end = [
         {
-            "eval": "const body = document.querySelector('#confirm .cf-body'); body.scrollTop = body.scrollHeight",
+            "eval": (
+                "const body = document.querySelector('#confirm .cf-body'); "
+                "body.scrollTop = body.scrollHeight"
+            ),
             "after": 800,
         }
     ]
@@ -1642,7 +1827,8 @@ def shots(out: Path, base: str) -> None:
             spec_file.unlink()
             if ran.returncode != 0 or not target.is_file():
                 sys.exit(
-                    f"board-showcase: no picture {target}: {(ran.stderr or ran.stdout).strip()[-400:]}"
+                    f"board-showcase: no picture {target}: "
+                    f"{(ran.stderr or ran.stdout).strip()[-400:]}"
                 )
             print(f"shot {target} ({width} x {height})")
 
@@ -1660,8 +1846,9 @@ def main() -> None:
     out = Path(args[0]).resolve()
     out.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix="lem-showcase-"))
-    # the owner's status of this afternoon: no mark, so he is there, whatever the machine's own mark says;
-    # and a list of workspaces with this one repository, served by a server of its own
+    # the owner's status of this afternoon: no mark, so he is there, whatever the
+    # machine's own mark says; and a list of workspaces with this one repository, served
+    # by a server of its own
     env = {k: v for k, v in os.environ.items() if not k.startswith(("AGTERM_", "AGT_"))}
     env |= {"XDG_CONFIG_HOME": str(work / "config"), "LEM_SERVE": "off"}
     os.environ.update(env)
@@ -1695,7 +1882,8 @@ def main() -> None:
                 time.sleep(0.1)
         if not facts:
             sys.exit(
-                f"board-showcase: the server on port {port} listed no workspace ({said})"
+                f"board-showcase: the server on port {port} listed "
+                f"no workspace ({said})"
             )
         shots(out, f"http://127.0.0.1:{port}{facts['url']}")
     finally:

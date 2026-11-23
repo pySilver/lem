@@ -1,14 +1,16 @@
 """The short AGENTS.md and the owner's rulings as one list.
 
-docs/rulings/rulings.md is the list: one bullet for each ruling of the owner in force, under the
-heading of its group, and in its last part the choices of the maintaining session that are open to
-him. A bullet is its rule in one sentence in bold, at most three lines that say more, and its day.
-docs/rulings/history.md holds what left the list, each line with what keeps it now: a test, which
-must exist, so that a renamed or removed test fails here and the rule does not drift; or one place,
-which must exist. The plan of the move has one row for each file the list took the place of, and no
-tracked file still names one of those files.
+docs/rulings/rulings.md is the list: one bullet for each ruling of the owner in force,
+under the heading of its group, and in its last part the choices of the maintaining
+session that are open to him. A bullet is its rule in one sentence in bold, at most
+three lines that say more, and its day. docs/rulings/history.md holds what left the
+list, each line with what keeps it now: a test, which must exist, so that a renamed or
+removed test fails here and the rule does not drift; or one place, which must exist. The
+plan of the move has one row for each file the list took the place of, and no tracked
+file still names one of those files.
 
-It reads only the repository's own files and `git ls-files`, so a missing file is a failed case.
+It reads only the repository's own files and `git ls-files`, so a missing file is a
+failed case.
 
     python3 -B -m unittest discover -s tests/unit -p test_agents_md.py
 """
@@ -28,9 +30,9 @@ LIST = ROOT / "docs/rulings/rulings.md"
 HISTORY = ROOT / "docs/rulings/history.md"
 FREE_HOUR = ROOT / "docs/free-hour.md"
 PLAN = ROOT / "docs/plans/2026-11-21-rulings-as-one-list.md"
-# AGENTS.md was 6,142 words by wc -w with a sentence and a link for each ruling, and 3,638 with the
-# list in its own file (2026-11-21): the bound is that size with some room, the session's choice,
-# not a measured need.
+# AGENTS.md was 6,142 words by wc -w with a sentence and a link for each ruling, and
+# 3,638 with the list in its own file (2026-11-21): the bound is that size with some
+# room, the session's choice, not a measured need.
 WORDS = 4200
 GROUPS = [
     "What Lem is, and who it is for",
@@ -64,10 +66,11 @@ BLOCK = re.compile(r'tests/(?P<file>[\w-]+\.sh): "(?P<text>[^"]+)"')
 SCRIPT = re.compile(r"(?P<file>skills/\S+\.py): (?P<name>\w+)")
 # The paths the list names in another repository, each with where it is.
 ELSEWHERE = {".claude/rules": "the folder of rules in a project that adopts Lem"}
-# The paths git ignores (`.lem/.gitignore`), which a clone never holds: one machine's settings.
+# The paths git ignores (`.lem/.gitignore`), which a clone never holds: one
+# machine's settings.
 IGNORED = (".lem/settings.local.toml",)
-# The files that may name a file the list took the place of: the record of the task that made those
-# files, and the plan of the move, whose table names each.
+# The files that may name a file the list took the place of: the record of the task that
+# made those files, and the plan of the move, whose table names each.
 MAY_NAME = (
     "docs/plans/2026-11-21-agents-md-read-on-demand/map.json",
     "docs/plans/2026-11-21-rulings-as-one-list.md",
@@ -105,8 +108,8 @@ def first_line_under(path: Path, heading: str) -> str:
 
 
 def description_lines(lines: list[str]) -> int:
-    """The lines of a bullet that hold words after its sentence in bold, its day left out (a day
-    may wrap onto a line of its own)."""
+    """The lines of a bullet that hold words after its sentence in bold, its day left
+    out (a day may wrap onto a line of its own)."""
     text = "\n".join(line.strip() for line in lines)[2:]
     text = DAY.sub("", text.rstrip())
     bold = re.match(r"\*\*[^*]+\*\*", text)
@@ -137,14 +140,15 @@ def tracked() -> list[str]:
     )
     if ran.returncode != 0:
         raise AssertionError(
-            f"git ls-files failed in {ROOT}: {ran.stderr.strip()}; run the test in a clone of Lem"
+            f"git ls-files failed in {ROOT}: {ran.stderr.strip()}; "
+            "run the test in a clone of Lem"
         )
     return ran.stdout.split()
 
 
 def defined(path: Path, name: str, cls: str | None = None) -> bool:
-    """Whether a Python file defines the function NAME (in the class CLS when one is given), or a
-    module-level NAME."""
+    """Whether a Python file defines the function NAME (in the class CLS when one is
+    given), or a module-level NAME."""
     tree = ast.parse(path.read_text(encoding="utf-8"))
     scopes = (
         [
@@ -175,7 +179,8 @@ def defined(path: Path, name: str, cls: str | None = None) -> bool:
 
 
 def has_check(path: Path, text: str) -> bool:
-    """Whether a block's file has a check, a call of `pass "..."`, whose text starts with TEXT."""
+    """Whether a block's file has a check, a call of `pass "..."`, whose text starts
+    with TEXT."""
     return any(
         line[line.find('pass "') + 6 :].startswith(text)
         for line in path.read_text(encoding="utf-8").split("\n")
@@ -204,7 +209,10 @@ class TheList(unittest.TestCase):
                 day = DAY.search(text)
                 self.assertIsNotNone(
                     day,
-                    "a bullet ends with its day in parentheses, (YYYY-MM-DD) or (decided YYYY-MM-DD)",
+                    (
+                        "a bullet ends with its day in parentheses, "
+                        "(YYYY-MM-DD) or (decided YYYY-MM-DD)"
+                    ),
                 )
                 self.assertEqual(
                     # assertIsNotNone above: a day was found
@@ -252,9 +260,10 @@ class TheList(unittest.TestCase):
         )
 
     def test_each_path_the_list_names_exists(self) -> None:
-        # A path is a name in backticks with a slash between two names, no space, no `:`, `@` or `*`,
-        # no placeholder (`<slug>`, SLUG) and no leading `/` (a command), outside his quoted words. It
-        # resolves from the root or from the skill's folder skills/lem/.
+        # A path is a name in backticks with a slash between two names, no space, no
+        # `:`, `@` or `*`, no placeholder (`<slug>`, SLUG) and no leading `/` (a
+        # command), outside his quoted words. It resolves from the root or from the
+        # skill's folder skills/lem/.
         text = QUOTED.sub('""', flat(LIST.read_text(encoding="utf-8")))
         for match in CODE.finditer(text):
             name = match[1]
@@ -292,11 +301,15 @@ class TheHistory(unittest.TestCase):
         self.assertRegex(
             opening,
             r"`[0-9a-f]{7,40}`",
-            "the opening names the commit that still holds the files the list took the place of",
+            (
+                "the opening names the commit that still holds the files the "
+                "list took the place of"
+            ),
         )
 
     def test_each_rule_a_test_holds_names_a_guard_that_exists(self) -> None:
-        # His "it will not drift": a test renamed or removed fails here, and its rule goes back to the list.
+        # His "it will not drift": a test renamed or removed fails here, and its rule
+        # goes back to the list.
         for line in self.lines(HELD):
             with self.subTest(line=line[:80]):
                 self.assertIsNotNone(DAY.search(line), "a line ends with its day")
@@ -309,7 +322,11 @@ class TheHistory(unittest.TestCase):
                 ]
                 self.assertTrue(
                     guards,
-                    'a line names its guard: `tests/unit/FILE.py::test_name`, `tests/FILE.sh: "the check\'s first words"` or `skills/.../FILE.py: function`',
+                    (
+                        "a line names its guard: `tests/unit/FILE.py::test_name`, "
+                        '`tests/FILE.sh: "the check\'s first words"` '
+                        "or `skills/.../FILE.py: function`"
+                    ),
                 )
                 for guard in guards:
                     if match := UNIT.fullmatch(guard):
@@ -356,7 +373,10 @@ class TheMove(unittest.TestCase):
                 self.assertEqual(
                     len(stems),
                     count,
-                    f"the plan's table has {len(stems)} rows of {folder}, which held {count} files",
+                    (
+                        f"the plan's table has {len(stems)} rows of {folder}, "
+                        f"which held {count} files"
+                    ),
                 )
                 self.assertTrue(
                     all(re.fullmatch(r"[a-z0-9-]+", stem) for stem in stems),
@@ -370,7 +390,10 @@ class TheMove(unittest.TestCase):
         )
         self.assertFalse(
             (ROOT / ".lem/decisions").exists(),
-            ".lem/decisions is gone: its choices are in the list's last part or in the history",
+            (
+                ".lem/decisions is gone: its choices are in the list's last "
+                "part or in the history"
+            ),
         )
 
     def test_no_file_names_a_file_the_list_took_the_place_of(self) -> None:
@@ -397,7 +420,11 @@ class TheMove(unittest.TestCase):
                 with self.subTest(file=path, name=match[0]):
                     self.assertFalse(
                         gone,
-                        f"{path} names {match[0]}: cite the rule's sentence in quotes with docs/rulings/rulings.md or docs/rulings/history.md",
+                        (
+                            f"{path} names {match[0]}: cite the rule's sentence in "
+                            "quotes with docs/rulings/rulings.md or "
+                            "docs/rulings/history.md"
+                        ),
                     )
 
 
@@ -443,24 +470,34 @@ class ShortAgents(unittest.TestCase):
             "The owner's rulings",
             "Rules for a change here",
             "Checks",
-            "A project that uses Lem gets Lem's improvements only through the agreed paths",
+            (
+                "A project that uses Lem gets Lem's improvements only "
+                "through the agreed paths"
+            ),
         ):
             with self.subTest(name=name):
                 self.assertIn(
                     f'"{name}"',
                     page,
-                    f'docs/free-hour.md no longer cites "{name}": take it out of this list',
+                    (
+                        f'docs/free-hour.md no longer cites "{name}": '
+                        "take it out of this list"
+                    ),
                 )
                 self.assertIn(
                     name,
                     found,
-                    f'"{name}", which docs/free-hour.md cites, is no heading of AGENTS.md and no bullet of the list',
+                    (
+                        f'"{name}", which docs/free-hour.md cites, is no heading of '
+                        "AGENTS.md and no bullet of the list"
+                    ),
                 )
 
 
 class NoScheduledBranch(unittest.TestCase):
-    """Criterion 1 of scheduled-runs-one-branch: no scheduled job makes a branch in Lem's own
-    repository; the night's free hour writes proposals, and the scheduled retro takes no free hour."""
+    """Criterion 1 of scheduled-runs-one-branch: no scheduled job makes a branch in
+    Lem's own repository; the night's free hour writes proposals, and the scheduled
+    retro takes no free hour."""
 
     def maintainer_bullet(self) -> str:
         found = [
@@ -473,7 +510,10 @@ class NoScheduledBranch(unittest.TestCase):
         self.assertEqual(
             len(found),
             1,
-            "AGENTS.md has one bullet on a maintainer's session with nobody at the terminal",
+            (
+                "AGENTS.md has one bullet on a maintainer's session with "
+                "nobody at the terminal"
+            ),
         )
         return found[0]
 
@@ -487,7 +527,10 @@ class NoScheduledBranch(unittest.TestCase):
         self.assertNotRegex(
             page,
             r'-b\s+"?free-hour/',
-            "docs/free-hour.md tells the hour to make a free-hour/ branch; the hour makes none",
+            (
+                "docs/free-hour.md tells the hour to make a free-hour/ branch; "
+                "the hour makes none"
+            ),
         )
         self.assertIn("make no branch and no worktree", flat(page))
 
@@ -500,7 +543,10 @@ class NoScheduledBranch(unittest.TestCase):
             "writes what it finds as proposals into the night's file of the day", bullet
         )
         self.assertIn(
-            "The scheduled `/lem retro` of this repository takes no free hour: it is a retro only.",
+            (
+                "The scheduled `/lem retro` of this repository takes no free hour: "
+                "it is a retro only."
+            ),
             bullet,
         )
         self.assertNotIn(

@@ -1,7 +1,8 @@
-"""lem_push.py's rules, each called in this process: the ES256 signature in the form a JWS carries, the
-VAPID token's claims and life, what is news in a list of what waits, which endpoints are taken, and a
-device that its push service no longer knows. No case sends a push: the send is a stand-in, and the
-switch LEM_PUSH=record is set for the whole file. The routes run in tests/lem-serve.sh.
+"""lem_push.py's rules, each called in this process: the ES256 signature in the form a
+JWS carries, the VAPID token's claims and life, what is news in a list of what waits,
+which endpoints are taken, and a device that its push service no longer knows. No case
+sends a push: the send is a stand-in, and the switch LEM_PUSH=record is set for the
+whole file. The routes run in tests/lem-serve.sh.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -35,7 +36,8 @@ APPLE = "https://web.push.apple.com/QGxlbS10ZXN0"
 
 
 class InHome(unittest.TestCase):
-    """Each case runs with a folder of its own as XDG_CONFIG_HOME, with the record switch on."""
+    """Each case runs with a folder of its own as XDG_CONFIG_HOME, with the record
+    switch on."""
 
     def setUp(self) -> None:
         self.folder = tempfile.TemporaryDirectory()
@@ -260,7 +262,8 @@ class Sending(InHome):
     def test_no_push_goes_for_a_held_task_while_its_session_works_and_one_when_its_turn_ended(
         self,
     ) -> None:
-        # waits-for-you-only-when-it-waits, criteria 1 and 2: the push follows the rows of Waits for you
+        # waits-for-you-only-when-it-waits, criteria 1 and 2: the push follows the rows
+        # of Waits for you
         push.subscribe({"endpoint": FCM}, "")
         sent = []
         pusher = push.Pusher(

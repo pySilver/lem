@@ -1,10 +1,11 @@
-"""The rules of a task's state and of the event log, as calls of the functions that hold them: the
-type line of a state block (`type_line`), the steps a ticket still waits for (`ticket_owed`), and the
-form of each record `lem project log` checks before it appends (`investigation_form`, `read_form`,
-`start_form`, `talk_start_form`, `talk_form`). Each rule takes the fields and returns or refuses
-with the words a refusal of the real command prints. That `state` and `log` call these rules, refuse
-with exit 1 and append nothing then, and that `tasks` gives the newest record, are facts only the
-real command shows: tests/lem-settings.sh runs one journey for each.
+"""The rules of a task's state and of the event log, as calls of the functions that hold
+them: the type line of a state block (`type_line`), the steps a ticket still waits for
+(`ticket_owed`), and the form of each record `lem project log` checks before it appends
+(`investigation_form`, `read_form`, `start_form`, `talk_start_form`, `talk_form`). Each
+rule takes the fields and returns or refuses with the words a refusal of the real
+command prints. That `state` and `log` call these rules, refuse with exit 1 and append
+nothing then, and that `tasks` gives the newest record, are facts only the real command
+shows: tests/lem-settings.sh runs one journey for each.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -37,7 +38,8 @@ class Refuses(unittest.TestCase):
 
 
 class TypeLine(Refuses):
-    """`type: TYPE, because WHY`, which the status and the board read from a state block."""
+    """`type: TYPE, because WHY`, which the status and the board read from a
+    state block."""
 
     def test_a_line_that_names_no_type_is_free(self) -> None:
         self.assertIsNone(project.type_line("lead: builder"))
@@ -76,13 +78,17 @@ class TypeLine(Refuses):
 
     def test_a_type_without_its_reason(self) -> None:
         self.assertIn(
-            "the line 'type: fix' names the type without its reason: write it as `type: fix, because ...`",
+            (
+                "the line 'type: fix' names the type without its reason: "
+                "write it as `type: fix, because ...`"
+            ),
             self.refused(project.type_line, "type: fix"),
         )
 
 
 class TicketOwed(unittest.TestCase):
-    """The steps a ticket still waits for once its task ended, from its status and the steps written down."""
+    """The steps a ticket still waits for once its task ended, from its status and the
+    steps written down."""
 
     TRACKER = {"kind": "linear"}
 
@@ -130,7 +136,8 @@ class TicketOwed(unittest.TestCase):
 
 
 class InvestigationForm(Refuses):
-    """What an investigation found: its type, its call, one line, a fix's place and whether it reproduced the bug."""
+    """What an investigation found: its type, its call, one line, a fix's place and
+    whether it reproduced the bug."""
 
     def fix(self, **changes: object) -> dict:
         return {
@@ -197,7 +204,10 @@ class InvestigationForm(Refuses):
 
     def test_a_call_the_type_does_not_have(self) -> None:
         self.assertIn(
-            "call is small, full, not-a-bug or not-reproduced for a fix, and answer for a question; this one is 'maybe' for a fix",
+            (
+                "call is small, full, not-a-bug or not-reproduced for a fix, and "
+                "answer for a question; this one is 'maybe' for a fix"
+            ),
             self.refused(
                 project.investigation_form,
                 self.fix(call="maybe", line="x", reproduced=False),
@@ -260,7 +270,10 @@ class InvestigationForm(Refuses):
 
     def test_not_reproduced_that_says_it_was(self) -> None:
         self.assertIn(
-            "not-reproduced is a bug that was not reproduced, and this record says it was",
+            (
+                "not-reproduced is a bug that was not reproduced, "
+                "and this record says it was"
+            ),
             self.refused(
                 project.investigation_form,
                 self.fix(call="not-reproduced", line="a refund of 10 gave 90"),
@@ -322,7 +335,10 @@ class ReadForm(Refuses):
         message = self.refused(project.read_form, fields)
         self.assertIn("criteria.read takes by=lem|lead asked:=N answered:=N", message)
         self.assertIn(
-            "and nothing else; this one has answered, asked, by, criteria, digest, families, flagged, split",
+            (
+                "and nothing else; this one has answered, asked, by, criteria, digest, "
+                "families, flagged, split"
+            ),
             message,
         )
 
@@ -421,7 +437,10 @@ class ReadForm(Refuses):
         )
 
     def test_no_criterion_or_more_flagged_than_read(self) -> None:
-        said = "a read has one criterion at the least, and no more criteria flagged than it read"
+        said = (
+            "a read has one criterion at the least, and no more "
+            "criteria flagged than it read"
+        )
         self.assertIn(said, self.refused(project.read_form, self.read(flagged=2)))
         self.assertIn(said, self.refused(project.read_form, self.read(criteria=0)))
 
@@ -461,7 +480,10 @@ class StartForm(Refuses):
 
     def test_a_start_without_its_field(self) -> None:
         self.assertIn(
-            "criteria.read.start takes by=lem|lead, and nothing else; this one has no field",
+            (
+                "criteria.read.start takes by=lem|lead, and nothing else; "
+                "this one has no field"
+            ),
             self.refused(project.start_form, "criteria.read.start", {}),
         )
 
@@ -548,7 +570,8 @@ class TalkStartForm(Refuses):
 
 
 class TalkForm(Refuses):
-    """A plan talk's record: its reviewer and its counts, which agree with each other."""
+    """A plan talk's record: its reviewer and its counts, which agree with
+    each other."""
 
     def talk(self, **changes: object) -> dict:
         return {
@@ -587,7 +610,8 @@ class TalkForm(Refuses):
         )
 
     def test_what_breaks_a_rule_of_the_talk_and_not_a_count_is_taken(self) -> None:
-        # more decisions two questions named than design choices, and more turns than its bound
+        # more decisions two questions named than design choices, and more turns than
+        # its bound
         self.assertIsNone(project.talk_form(self.talk(shared=2)))
         self.assertIsNone(
             project.talk_form(
@@ -629,7 +653,10 @@ class TalkForm(Refuses):
         message = self.refused(project.talk_form, fields)
         self.assertIn("plan.talk takes reviewer=AGENT turns:=N", message)
         self.assertIn(
-            "and nothing else; this one has design, open, questions, repaired, reviewer, settled, turns, unargued",
+            (
+                "and nothing else; this one has design, open, questions, repaired, "
+                "reviewer, settled, turns, unargued"
+            ),
             message,
         )
         self.assertIn(
@@ -673,7 +700,10 @@ class TalkForm(Refuses):
         self,
     ) -> None:
         self.assertIn(
-            "a talk of no question and two turns has no turn after the list, so unargued is 0",
+            (
+                "a talk of no question and two turns has no turn after the list, "
+                "so unargued is 0"
+            ),
             self.refused(
                 project.talk_form,
                 self.talk(
@@ -736,8 +766,9 @@ CLAUDE = {
 
 
 class SeatCall(unittest.TestCase):
-    """`seat_call`: what a seat whose agent gave one of the four errors comes to, the fallback's seat that
-    stands in or the first line of the block, from the seat that failed, its error and the fallback."""
+    """`seat_call`: what a seat whose agent gave one of the four errors comes to, the
+    fallback's seat that stands in or the first line of the block, from the seat that
+    failed, its error and the fallback."""
 
     def test_the_fallback_stands_in_for_a_reviewer_with_no_tokens(self) -> None:
         # criterion 3: a Codex reviewer with no tokens, the fallback claude/opus:high
@@ -764,18 +795,25 @@ class SeatCall(unittest.TestCase):
                 {"seat": False, "from": ".lem/settings.toml"},
             ),
             {
-                "block": "the reviewer `codex/gpt-6.2-sol:high` gave an error: no tokens, and this project permits no fallback"
+                "block": (
+                    "the reviewer `codex/gpt-6.2-sol:high` gave an error: "
+                    "no tokens, and this project permits no fallback"
+                )
             },
         )
 
     def test_the_stand_in_that_fails_too_and_a_fallback_that_is_the_named_seat_block(
         self,
     ) -> None:
-        # one rule for both: the seat that failed is the fallback, a stand-in's or a reviewer the settings name so
+        # one rule for both: the seat that failed is the fallback, a stand-in's or a
+        # reviewer the settings name so
         self.assertEqual(
             project.seat_call("reviewer", "claude/opus:high", "login", CLAUDE),
             {
-                "block": "the reviewer `claude/opus:high` gave an error: no login, and it was the fallback"
+                "block": (
+                    "the reviewer `claude/opus:high` gave an error: no login, "
+                    "and it was the fallback"
+                )
             },
         )
 
@@ -785,8 +823,11 @@ class SeatCall(unittest.TestCase):
         self.assertEqual(
             project.seat_call("planner", "claude/opus:high", "model", CODEX),
             {
-                "block": "the planner `claude/opus:high` gave an error: an unknown model, and its fallback `codex/gpt-6.2-sol:high` "
-                "cannot sit in the planner's seat, which takes Claude Code only"
+                "block": (
+                    "the planner `claude/opus:high` gave an error: an unknown model, "
+                    "and its fallback `codex/gpt-6.2-sol:high` cannot sit in the "
+                    "planner's seat, which takes Claude Code only"
+                )
             },
         )
 
@@ -798,7 +839,8 @@ class SeatCall(unittest.TestCase):
 
 
 class FailedLine(Refuses):
-    """The fixed line of a block a seat's error wrote, `the seat that failed: SEAT`, which `state` takes in that form only."""
+    """The fixed line of a block a seat's error wrote, `the seat that failed: SEAT`,
+    which `state` takes in that form only."""
 
     def test_the_line_of_each_seat_and_its_seat(self) -> None:
         for seat in ("reviewer", "planner", "merger"):
@@ -825,8 +867,9 @@ class FailedLine(Refuses):
 
 
 class SeatCommands(Refuses):
-    """`lem project seat`, `seat-failed` and `seat-again` over a task of a git repository of its own in a temporary
-    folder, with a temporary XDG_CONFIG_HOME, so that no settings file and no state folder of this machine is read."""
+    """`lem project seat`, `seat-failed` and `seat-again` over a task of a git
+    repository of its own in a temporary folder, with a temporary XDG_CONFIG_HOME, so
+    that no settings file and no state folder of this machine is read."""
 
     def setUp(self) -> None:
         self.kept = os.environ.get("XDG_CONFIG_HOME")
@@ -842,7 +885,8 @@ class SeatCommands(Refuses):
             os.environ["XDG_CONFIG_HOME"] = self.kept
 
     def repo(self, name: str, *seats: str) -> Path:
-        """A repository NAME whose settings' [seats] hold SEATS, with the careful task `plan-talk` in its plan talk."""
+        """A repository NAME whose settings' [seats] hold SEATS, with the careful task
+        `plan-talk` in its plan talk."""
         root = Path(os.environ["XDG_CONFIG_HOME"]).parent / name
         subprocess.run(["git", "init", "-q", "-b", "main", str(root)], check=True)
         (root / ".lem").mkdir()
@@ -867,7 +911,8 @@ class SeatCommands(Refuses):
     def test_a_codex_reviewer_with_no_tokens_takes_the_fallback_and_keeps_it(
         self,
     ) -> None:
-        # criterion 3: mybaze names Codex as its reviewer, and its fallback is Lem's default
+        # criterion 3: mybaze names Codex as its reviewer, and its fallback is
+        # Lem's default
         root = self.repo("mybaze", 'reviewer = "codex/gpt-6.2-sol:high"')
         self.assertEqual(
             project.cmd_seat(root, "plan-talk", "reviewer")["seat"],
@@ -887,7 +932,11 @@ class SeatCommands(Refuses):
         )
         self.assertEqual(
             said["say"],
-            "the reviewer `codex/gpt-6.2-sol:high` gave an error: no tokens; `claude/opus:high` stands in for it from now on, and the pull request says so",
+            (
+                "the reviewer `codex/gpt-6.2-sol:high` gave an error: "
+                "no tokens; `claude/opus:high` stands in for it from now on, "
+                "and the pull request says so"
+            ),
         )
         [event] = self.events(root, "seat.stand-in")
         self.assertEqual(
@@ -900,7 +949,8 @@ class SeatCommands(Refuses):
                 "said": "You have no tokens left",
             },
         )
-        # the task goes on: no block, and every later open of the reviewer takes the stand-in
+        # the task goes on: no block, and every later open of the reviewer takes
+        # the stand-in
         self.assertEqual(project.read_tasks(root)[0]["status"], "building")
         now = project.cmd_seat(root, "plan-talk", "reviewer")
         self.assertEqual(
@@ -922,7 +972,10 @@ class SeatCommands(Refuses):
         said = project.cmd_seat_failed(
             root, "plan-talk", "reviewer", "codex/gpt-6.2-sol:high", "tokens", None
         )
-        line = "the reviewer `codex/gpt-6.2-sol:high` gave an error: no tokens, and this project permits no fallback"
+        line = (
+            "the reviewer `codex/gpt-6.2-sol:high` gave an error: no tokens, and this "
+            "project permits no fallback"
+        )
         self.assertEqual(
             (said["blocked"], said["status"], said["say"]), (True, "blocked", line)
         )
@@ -981,7 +1034,10 @@ class SeatCommands(Refuses):
         )
         self.assertEqual(
             said["say"],
-            "the reviewer `claude/opus:high` gave an error: no login, and it was the fallback",
+            (
+                "the reviewer `claude/opus:high` gave an error: no login, "
+                "and it was the fallback"
+            ),
         )
         self.assertEqual(project.read_tasks(root)[0]["status"], "blocked")
         project.cmd_seat_again(root, "plan-talk")
@@ -1090,7 +1146,8 @@ class SeatCommands(Refuses):
     def test_the_owners_go_on_over_a_merge_agents_block_gives_open_with_its_pull_request(
         self,
     ) -> None:
-        # criterion 5, the merge agent's seat: an open task, its merge agent with no tokens and no fallback, then the go on
+        # criterion 5, the merge agent's seat: an open task, its merge agent with no
+        # tokens and no fallback, then the go on
         root = self.repo(
             "billing-core", 'merger = "codex/gpt-6.2-sol:high"', "fallback = false"
         )
@@ -1108,7 +1165,10 @@ class SeatCommands(Refuses):
             (said["blocked"], said["say"]),
             (
                 True,
-                "the merge agent `codex/gpt-6.2-sol:high` gave an error: no tokens, and this project permits no fallback",
+                (
+                    "the merge agent `codex/gpt-6.2-sol:high` gave an error: "
+                    "no tokens, and this project permits no fallback"
+                ),
             ),
         )
         again = project.cmd_seat_again(root, "plan-talk")
@@ -1122,7 +1182,10 @@ class SeatCommands(Refuses):
             (task["status"], lines[0].split(" ", 2)[2]),
             (
                 "open",
-                "the owner's go on: the merge agent codex/gpt-6.2-sol:high is tried again",
+                (
+                    "the owner's go on: the merge agent codex/gpt-6.2-sol:high is "
+                    "tried again"
+                ),
             ),
         )
         self.assertEqual(
@@ -1134,8 +1197,9 @@ class SeatCommands(Refuses):
         )
 
     def test_a_leads_state_never_comes_over_a_seats_block(self) -> None:
-        # the defender's seat-failed wrote `blocked` before the lead's `building` of the pair's open: that `building`
-        # would take the task out of "Waits for you", seat-again would refuse it, and the lead's wait would loop
+        # the defender's seat-failed wrote `blocked` before the lead's `building` of the
+        # pair's open: that `building` would take the task out of "Waits for you",
+        # seat-again would refuse it, and the lead's wait would loop
         root = self.repo(
             "billing-core", 'reviewer = "codex/gpt-6.2-sol:high"', "fallback = false"
         )
@@ -1158,7 +1222,8 @@ class SeatCommands(Refuses):
                 self.assertIn("the seat that failed: reviewer", message)
                 self.assertIn("`lem project seat-again plan-talk`", message)
                 self.assertEqual(project.read_tasks(root)[0]["status"], "blocked")
-        # the owner's go on lifts it, and a second block of a seat may come over the first
+        # the owner's go on lifts it, and a second block of a seat may come over
+        # the first
         self.assertEqual(
             project.cmd_seat_again(root, "plan-talk")["status"], "building"
         )

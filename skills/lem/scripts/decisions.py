@@ -1,23 +1,26 @@
-"""The decisions of one task, each taken without the owner, and the breakers that stopped it.
+"""The decisions of one task, each taken without the owner, and the breakers that
+stopped it.
 
-A build meets choices its plan did not see. Most are the lead's own: the acceptance criteria stay
-true, so the lead decides and writes the decision down. A choice that changes a criterion, or whose
-options each cost a person something, climbs a ladder of opinions (`stages/ladder.md`): the gate,
-the personas, the dialectic, the experts, each only when the one before left it open; the lead
-applies its counts, since the lead reads the code. The ladder always decides: its pick is taken at
-once and logged here, with the owner there or away, and nothing waits for him. A pick past the
-personas makes the pull request not green, and he reads it there. "I'd rather review the PR and
-request a fix then find a work blocked on some question that automated anwers could answer right"
-(the owner, 2026-11-20).
+A build meets choices its plan did not see. Most are the lead's own: the acceptance
+criteria stay true, so the lead decides and writes the decision down. A choice that
+changes a criterion, or whose options each cost a person something, climbs a ladder of
+opinions (`stages/ladder.md`): the gate, the personas, the dialectic, the experts, each
+only when the one before left it open; the lead applies its counts, since the lead reads
+the code. The ladder always decides: its pick is taken at once and logged here, with the
+owner there or away, and nothing waits for him. A pick past the personas makes the pull
+request not green, and he reads it there. "I'd rather review the PR and request a fix
+then find a work blocked on some question that automated anwers could answer right" (the
+owner, 2026-11-20).
 
-Only the circuit breaker stops a task, for two causes and no others: the next step cannot be
-reversed by a later "no" (`irreversible`), or no option of the ladder keeps the outcome the owner
-approved (`criteria`: a changed rule of an approved criterion; a changed example is a criterion
-change of `criterion`). The lead commits what it has, writes `handoff.md` and `breaker.md` in the
-task directory, and `breaker` records it, keeps the document under the breaker's number
-(`breaker-N.md`, so that a second breaker of the task never writes over the first one's), and holds
-the task. The owner reads the document and helps
-(his decision is `log --by owner --breaker N`), parks the task or drops it.
+Only the circuit breaker stops a task, for two causes and no others: the next step
+cannot be reversed by a later "no" (`irreversible`), or no option of the ladder keeps
+the outcome the owner approved (`criteria`: a changed rule of an approved criterion; a
+changed example is a criterion change of `criterion`). The lead commits what it has,
+writes `handoff.md` and `breaker.md` in the task directory, and `breaker` records it,
+keeps the document under the breaker's number (`breaker-N.md`, so that a second breaker
+of the task never writes over the first one's), and holds the task. The owner reads the
+document and helps (his decision is `log --by owner --breaker N`), parks the task or
+drops it.
 
     lem decisions log SLUG --what TEXT --chose TEXT --why TEXT
                  --by lead|gate|personas|dialectic|experts|owner|lem
@@ -66,55 +69,63 @@ the task. The owner reads the document and helps
                             has none waiting, and its breakers are named under `ended`
     lem decisions list SLUG  every decision and breaker of the task, each as it stands now
 
-`--chart FILE`, on `log`, is one mermaid chart of the decision, in a file because a chart's text
-does not pass through every shell: the text of the chart, with or without its ```mermaid fence,
-kept with its line breaks. A flowchart's node and edge texts are each in double quotes (the owner's
-rule for every chart); a file that is empty, longer than CHART_MOST characters, of no chart type
-mermaid draws, or a flowchart with a text out of quotes is refused.
+`--chart FILE`, on `log`, is one mermaid chart of the decision, in a file because a
+chart's text does not pass through every shell: the text of the chart, with or without
+its ```mermaid fence, kept with its line breaks. A flowchart's node and edge texts are
+each in double quotes (the owner's rule for every chart); a file that is empty, longer
+than CHART_MOST characters, of no chart type mermaid draws, or a flowchart with a text
+out of quotes is refused.
 
-The record is `decisions.jsonl` in the task's directory, one line for each thing that happened;
-each line is also an event in the log the board draws. A decision and a breaker share one row of
-numbers, so "decision 3" and "breaker 4" never name the same line.
+The record is `decisions.jsonl` in the task's directory, one line for each thing that
+happened; each line is also an event in the log the board draws. A decision and a
+breaker share one row of numbers, so "decision 3" and "breaker 4" never name the
+same line.
 
-A criterion change is a line of the same record, with a number of its own (`change`). It applies
-to the newest approval of the criteria (`criteria.json`, which `lem criteria approve` writes) and names
-that approval by its number, so a later approval starts from its criteria again, also when its text
-is one approved before. `changes` keeps every change in `history`: one that a later approval of
-the owner's took over is the owner's, and the pull request shows it as approved by the owner
-afterwards. `criterion` computes the criteria as they stand after every earlier change, and refuses a change whose criterion N is not the
-text `--was` names: a wrong record never enters. Texts are compared with each run of spaces as
-one, as a criterion written over two lines reads; they are kept as typed. A task with no approved
-criteria has no criterion changes: its plan's criteria are their one source.
+A criterion change is a line of the same record, with a number of its own (`change`). It
+applies to the newest approval of the criteria (`criteria.json`, which
+`lem criteria approve` writes) and names that approval by its number, so a later
+approval starts from its criteria again, also when its text is one approved before.
+`changes` keeps every change in `history`: one that a later approval of the owner's took
+over is the owner's, and the pull request shows it as approved by the owner afterwards.
+`criterion` computes the criteria as they stand after every earlier change, and refuses
+a change whose criterion N is not the text `--was` names: a wrong record never enters.
+Texts are compared with each run of spaces as one, as a criterion written over two lines
+reads; they are kept as typed. A task with no approved criteria has no criterion
+changes: its plan's criteria are their one source.
 
-A count decides each level, not a model, and the lead applies it: the script checks one count
-only, two persona votes or more, all for the option taken. It reads no answer of an agent, and
-it moves another count in only when a real run shows a lead that records a level wrongly.
+A count decides each level, not a model, and the lead applies it: the script checks one
+count only, two persona votes or more, all for the option taken. It reads no answer of
+an agent, and it moves another count in only when a real run shows a lead that records a
+level wrongly.
 
-`--irreversible` names why a later "no" cannot undo the step, by one of four kinds and no other:
-`data` (it destroys or rewrites data outside the worktree), `system` (it writes to a system
-outside the repository, beyond what the settings already allow, such as the tracker's ticket),
-`person` (it sends something to a person), `money` (it spends money). The lead says which; no
-code can tell.
+`--irreversible` names why a later "no" cannot undo the step, by one of four kinds and
+no other: `data` (it destroys or rewrites data outside the worktree), `system` (it
+writes to a system outside the repository, beyond what the settings already allow, such
+as the tracker's ticket), `person` (it sends something to a person), `money` (it spends
+money). The lead says which; no code can tell.
 
-The experts are the settings' `seats.experts` whose agent is on this machine (`here` in `lem
-project show`): two agents of two model families, or, on a machine with one of the agents, one
-expert alone; the owner asked for them as the way out when the owner is not there to answer
-(2026-11-16). On the ladder they are its last level, and their pick is logged `--by experts`:
-both picked it, or the one expert did. `log --by experts` writes which places answer on this
-machine (`advisers`), so that the record says one expert or two. The pull request is not green for
-their pick.
+The experts are the settings' `seats.experts` whose agent is on this machine (`here` in
+`lem project show`): two agents of two model families, or, on a machine with one of the
+agents, one expert alone; the owner asked for them as the way out when the owner is not
+there to answer (2026-11-16). On the ladder they are its last level, and their pick is
+logged `--by experts`: both picked it, or the one expert did. `log --by experts` writes
+which places answer on this machine (`advisers`), so that the record says one expert or
+two. The pull request is not green for their pick.
 
-Every write reads the record and checks the state under one lock, so two writers never take one
-number. A task that is dropped, landed or answered takes no write at all, read under the same lock:
-nobody builds it, and its record stays as it ended.
+Every write reads the record and checks the state under one lock, so two writers never
+take one number. A task that is dropped, landed or answered takes no write at all, read
+under the same lock: nobody builds it, and its record stays as it ended.
 """
 
 import sys
 
 if sys.version_info < (3, 11):
-    # an old python3 must still load this file, so that it can say what it needs and not a traceback
+    # an old python3 must still load this file, so that it can say what it needs and not
+    # a traceback
     sys.exit(
-        f"decisions.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it"
+        "decisions.py: Lem needs Python 3.11 or newer, and this python3 is "
+        f"{sys.version.split()[0]}; put a newer one first on PATH, "
+        "or run this file with it"
     )
 
 import argparse
@@ -135,34 +146,41 @@ sys.path.insert(0, str(SCRIPTS))
 import lem_sibling  # noqa: E402
 import lem_state  # noqa: E402  (how a JSON-lines file is split into its lines)
 
-# The release a task began on, and the rule that stops a command for a task two releases back.
+# The release a task began on, and the rule that stops a command for a task two
+# releases back.
 lem_release = importlib.import_module("lem_release")
 
-# Who took a decision: the lead, a level of the ladder (`stages/ladder.md`), the owner, or Lem.
+# Who took a decision: the lead, a level of the ladder (`stages/ladder.md`), the owner,
+# or Lem.
 BY = ("lead", "gate", "personas", "dialectic", "experts", "owner", "lem")
 # The task states in which nothing of a task waits any more, as project.py's ENDED.
 ENDED = ("dropped", "landed", "answered")
-# The states of a task that is with its landing: its build is done, and no breaker stops it there.
+# The states of a task that is with its landing: its build is done, and no breaker stops
+# it there.
 WITH_LANDING = ("landing", "open")
-# The task state that put a task aside on the owner's word (`/lem park`): its breaker still waits, for nobody now.
+# The task state that put a task aside on the owner's word (`/lem park`): its breaker
+# still waits, for nobody now.
 PARKED = "parked"
 # How the case of a decision is known: the lead ran it, or read it out of the code.
 CASE_WAS = ("reproduced", "derived")
-# The fewest numbered steps of a case: a decision's, and the case and the runs of Today and After
-# in a breaker's document.
+# The fewest numbered steps of a case: a decision's, and the case and the runs of Today
+# and After in a breaker's document.
 FEWEST_STEPS = 2
 # The fewest votes of the personas that settle a decision, all for the option taken
 # (`stages/ladder.md`, level 2).
 FEWEST_VOTES = 2
-# The fewest lines that start with `|` in the options of a breaker's document: the head of the
-# table, its rule and one option.
+# The fewest lines that start with `|` in the options of a breaker's document: the head
+# of the table, its rule and one option.
 FEWEST_OPTION_ROWS = 3
-# Who took a decision that went past the personas: a log by one of them is important and carries its story.
+# Who took a decision that went past the personas: a log by one of them is important and
+# carries its story.
 PAST_PERSONAS = ("dialectic", "experts")
-# The longest chart a record keeps, in characters: about a dozen nodes is the form's own bound
-# (`prompts/writing.md`), and this is a guess at three times that, not a measurement.
+# The longest chart a record keeps, in characters: about a dozen nodes is the form's own
+# bound (`prompts/writing.md`), and this is a guess at three times that, not
+# a measurement.
 CHART_MOST = 4000
-# The first word of a chart mermaid draws (mermaid 11, its diagram types); the record takes no other.
+# The first word of a chart mermaid draws (mermaid 11, its diagram types); the record
+# takes no other.
 CHART_TYPES = (
     "flowchart",
     "graph",
@@ -197,27 +215,35 @@ CAUSES = {
     "irreversible": "the next step cannot be reversed by a later no",
     "criteria": "no option of the ladder keeps the outcome the owner approved",
 }
-# The breaker's document and the handoff beside it, by their names in the task directory. The record keeps
-# the document under the breaker's number (`kept_document`), so each breaker of a task has its own.
+# The breaker's document and the handoff beside it, by their names in the task
+# directory. The record keeps the document under the breaker's number (`kept_document`),
+# so each breaker of a task has its own.
 BREAKER_DOC = "breaker.md"
 BREAKER_KEPT = "breaker-{id}.md"
 HANDOFF = "handoff.md"
-# The parts of the breaker's document, as `templates/breaker.md` has them: each a `## ` heading
-# that opens with these words, in any case, and what its text must hold.
+# The parts of the breaker's document, as `templates/breaker.md` has them: each a `## `
+# heading that opens with these words, in any case, and what its text must hold.
 BREAKER_PARTS = {
     "today and after": "the run of Today and the run of After, each in numbered steps",
-    "the case": "the case that broke, in numbered steps, with its chart in a ```mermaid block",
-    "the root cause": "why the case became possible, and how far the same cause reaches",
+    "the case": (
+        "the case that broke, in numbered steps, with its chart in a ```mermaid block"
+    ),
+    "the root cause": (
+        "why the case became possible, and how far the same cause reaches"
+    ),
     "the options": "the options as this or that, in a table, with what each leads to",
     "the recommendation": "the option you would take, and why",
     "the assumptions": "what the document takes as true, one item each",
 }
-# The state line of a task that a breaker holds, which project.py, session.py and the board read.
+# The state line of a task that a breaker holds, which project.py, session.py and the
+# board read.
 BREAKER_WAIT = re.compile(r"breaker ([1-9]\d*) waits for the owner")
 # Why a later "no" cannot undo a step. A fixed list: see the text above.
 IRREVERSIBLE = {
     "data": "it destroys or rewrites data outside the worktree",
-    "system": "it writes to a system outside the repository, beyond what the settings allow",
+    "system": (
+        "it writes to a system outside the repository, beyond what the settings allow"
+    ),
     "person": "it sends something to a person",
     "money": "it spends money",
 }
@@ -233,7 +259,8 @@ def script(name: str, repo: Path, *args: str) -> str:
         raise DecisionError(
             ran.stderr.strip().removeprefix(f"{name}: ") or f"{name} {args[0]} failed"
         )
-    # a line project.py writes on stderr when it succeeds (the settings read from the base branch) is this script's to say too
+    # a line project.py writes on stderr when it succeeds (the settings read from the
+    # base branch) is this script's to say too
     if ran.returncode == 0 and ran.stderr:
         sys.stderr.write(ran.stderr)
     return ran.stdout
@@ -255,8 +282,9 @@ class Task:
         tasks: list[dict] | None = None,
         state: Path | None = None,
     ) -> None:
-        """`tasks` and `state`, when given, are `lem project tasks` and `state-dir` as this process
-        read them already: `pending` reads them once for every task it lists."""
+        """`tasks` and `state`, when given, are `lem project tasks` and `state-dir` as
+        this process read them already: `pending` reads them once for every task
+        it lists."""
         self.repo = repo
         self.slug = slug
         self.status = self.read_status(tasks)
@@ -268,13 +296,15 @@ class Task:
         self.file = self.directory / "decisions.jsonl"
 
     def read_status(self, tasks: list[dict] | None = None) -> str | None:
-        """The task's status now, from its state file: a task may be dropped while a command runs."""
+        """The task's status now, from its state file: a task may be dropped while a
+        command runs."""
         if tasks is None:
             tasks = json.loads(script("project.py", self.repo, "tasks"))
         record = next((task for task in tasks if task["slug"] == self.slug), None)
         if record is None:
             raise DecisionError(
-                f"no task {self.slug!r}; the tasks are: {', '.join(task['slug'] for task in tasks) or 'none yet'}"
+                f"no task {self.slug!r}; the tasks are: "
+                f"{', '.join(task['slug'] for task in tasks) or 'none yet'}"
             )
         return record["status"]
 
@@ -286,7 +316,8 @@ class Task:
             written = self.file.read_text(encoding="utf-8")
         except UnicodeDecodeError as error:
             raise DecisionError(
-                f"{self.file} is not UTF-8 text (byte {error.start} does not read); the file is written by this script only"
+                f"{self.file} is not UTF-8 text (byte {error.start} does not read); "
+                "the file is written by this script only"
             ) from error
         for number, line in enumerate(lem_state.jsonl_lines(written), start=1):
             if line.strip():
@@ -294,13 +325,15 @@ class Task:
                     out.append(json.loads(line))
                 except ValueError as error:
                     raise DecisionError(
-                        f"{self.file}:{number} does not read as JSON ({error}); the file is written by this script only"
+                        f"{self.file}:{number} does not read as JSON ({error}); "
+                        "the file is written by this script only"
                     ) from error
         return out
 
     def decisions(self) -> list[dict]:
-        """Each decision and each breaker as it stands now: its first line, and a breaker with the
-        owner's help that settled it (`helped`, by the number of his decision)."""
+        """Each decision and each breaker as it stands now: its first line, and a
+        breaker with the owner's help that settled it (`helped`, by the number of
+        his decision)."""
         found: dict[int, dict] = {}
         for line in self.lines():
             if line["kind"] == "taken":
@@ -314,7 +347,8 @@ class Task:
         return [found[key] for key in sorted(found)]
 
     def approved(self) -> dict | None:
-        """The criteria the owner approved, as `lem criteria approve` kept them; none for a task without."""
+        """The criteria the owner approved, as `lem criteria approve` kept them; none
+        for a task without."""
         kept = self.directory / "criteria.json"
         if not kept.is_file():
             return None
@@ -322,17 +356,20 @@ class Task:
             return json.loads(kept.read_text(encoding="utf-8"))
         except ValueError as error:
             raise DecisionError(
-                f"{kept} does not read as JSON ({error}); it is written by `lem criteria approve` only"
+                f"{kept} does not read as JSON ({error}); it is written by "
+                "`lem criteria approve` only"
             ) from error
 
     def changes(self, lines: list[dict] | None = None) -> dict:
-        """The approvals, the recorded changes of the criteria in order, and the criteria they give.
+        """The approvals, the recorded changes of the criteria in order, and the
+        criteria they give.
 
-        An approval is known by its number, not by its text: one of a text approved before is still
-        a new one. The expected criteria are the newest approval's with the changes recorded after
-        it. Every change of the task stays in `history`, each with the approval it applied to and,
-        when an approval of the owner's came after it, that approval's number (`taken_over_by`): his
-        approval of the criteria made the change his."""
+        An approval is known by its number, not by its text: one of a text approved
+        before is still a new one. The expected criteria are the newest approval's with
+        the changes recorded after it. Every change of the task stays in `history`, each
+        with the approval it applied to and, when an approval of the owner's came after
+        it, that approval's number (`taken_over_by`): his approval of the criteria made
+        the change his."""
         approved = self.approved()
         if approved is None:
             return {
@@ -389,24 +426,29 @@ class Task:
             word = "breaker" if kind == "breaker" else "decision"
             those = [str(d["id"]) for d in known if d["kind"] == kind]
             raise DecisionError(
-                f"no {word} {number} in {self.slug}; its {word}s: {', '.join(those) or 'none'} (`lem decisions list {self.slug}`)"
+                f"no {word} {number} in {self.slug}; "
+                f"its {word}s: {', '.join(those) or 'none'} "
+                f"(`lem decisions list {self.slug}`)"
             )
         return found
 
     def add(self, make: Callable[[list[dict]], list[dict]]) -> list[dict]:
-        """Write the lines `make` gives for the record as it is under the lock, so a state is
-        checked and changed in one step and two writers never take one number; then each line
-        as an event. `make` refuses by raising, and then nothing is written. A task that ended
-        takes no write: nobody builds it, so nothing of it is decided or waits any more."""
+        """Write the lines `make` gives for the record as it is under the lock, so a
+        state is checked and changed in one step and two writers never take one number;
+        then each line as an event. `make` refuses by raising, and then nothing is
+        written. A task that ended takes no write: nobody builds it, so nothing of it is
+        decided or waits any more."""
         self.directory.mkdir(parents=True, exist_ok=True)
         with (self.directory / "decisions.lock").open("w") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
-            # read again under the lock: the task may have ended while this command waited for it
+            # read again under the lock: the task may have ended while this command
+            # waited for it
             self.status = self.read_status()
             if self.status in ENDED:
                 raise DecisionError(
-                    f"{self.slug} is {self.status}: nothing of it is decided or waits any more, so this is not written. "
-                    f"Its record stays as it is (`lem decisions list {self.slug}`); new work is a new ask",
+                    f"{self.slug} is {self.status}: nothing of it is decided or waits "
+                    "any more, so this is not written. Its record stays as it is "
+                    f"(`lem decisions list {self.slug}`); new work is a new ask",
                 )
             lines = make(self.decisions())
             with self.file.open("a", encoding="utf-8") as handle:
@@ -441,34 +483,40 @@ def typed(value: str | None, flag: str) -> str:
 
 
 def whole(criterion: dict) -> str:
-    """An approved criterion as `lem criteria` compares it: its sentence and the steps of its case,
-    one to a line (criteria.py's `whole`). A change of a step is a change of the criterion."""
+    """An approved criterion as `lem criteria` compares it: its sentence and the steps
+    of its case, one to a line (criteria.py's `whole`). A change of a step is a change
+    of the criterion."""
     return "\n".join([criterion["text"], *criterion.get("case", [])])
 
 
 def same(one: str, other: str) -> bool:
-    """Two texts of a criterion are the same when they differ only in runs of spaces, as a criterion
-    written over two lines reads as one line with one space."""
+    """Two texts of a criterion are the same when they differ only in runs of spaces, as
+    a criterion written over two lines reads as one line with one space."""
     return one.split() == other.split()
 
 
 def applied(criteria: list[str], change: dict) -> list[str]:
-    """The criteria after one change; a change whose criterion N is not the text it names is refused."""
+    """The criteria after one change; a change whose criterion N is not the text it
+    names is refused."""
     number, out = change["criterion"], list(criteria)
     if change["how"] == "added":
         if not 1 <= number <= len(out) + 1:
             raise DecisionError(
-                f"an added criterion goes at a number from 1 to {len(out) + 1}, and this one is {number}"
+                f"an added criterion goes at a number from 1 to {len(out) + 1}, "
+                f"and this one is {number}"
             )
         out.insert(number - 1, change["now"])
         return out
     if not 1 <= number <= len(out):
         raise DecisionError(
-            f"there is no criterion {number}: the criteria are 1 to {len(out)} after every earlier change"
+            f"there is no criterion {number}: the criteria are 1 to {len(out)} "
+            "after every earlier change"
         )
     if not same(out[number - 1], change["was"]):
         raise DecisionError(
-            f"criterion {number} is {out[number - 1]!r} after every earlier change, and --was says {change['was']!r}; `lem decisions changes SLUG` gives the criteria as they stand"
+            f"criterion {number} is {out[number - 1]!r} after every earlier change, "
+            f"and --was says {change['was']!r}; `lem decisions changes SLUG` gives the "
+            "criteria as they stand"
         )
     if change["how"] == "changed":
         out[number - 1] = change["now"]
@@ -497,14 +545,18 @@ def cmd_log(task: Task, args: argparse.Namespace) -> dict:
     )
     if args.by == "personas" and not votes:
         raise DecisionError(
-            '--by personas needs a --vote for each answer of a persona, "PERSONA, FAMILY=OPTION", and --said: who answered and what each picked'
+            '--by personas needs a --vote for each answer of a persona, "PERSONA, '
+            'FAMILY=OPTION", and --said: who answered and what each picked'
         )
     # The one count the script checks (`stages/ladder.md`, level 2).
     if args.by == "personas":
         other = [name for name, option in votes if option != chose]
         if len(votes) < FEWEST_VOTES or other:
             raise DecisionError(
-                f"the personas settle a decision with two votes or more, all for the option taken ({chose!r}); "
+                (
+                    "the personas settle a decision with two votes or more, all for "
+                    f"the option taken ({chose!r}); "
+                )
                 + (
                     f"{', '.join(other)} voted otherwise"
                     if other
@@ -514,13 +566,15 @@ def cmd_log(task: Task, args: argparse.Namespace) -> dict:
             )
     if args.unsettled and args.by != "lead":
         raise DecisionError(
-            "--unsettled is the lead's pick that no level settled: it goes with --by lead"
+            "--unsettled is the lead's pick that no level settled: "
+            "it goes with --by lead"
         )
     breaker = getattr(args, "breaker", None)
     words = getattr(args, "words", None)
     if (breaker is not None or words is not None) and args.by != "owner":
         raise DecisionError(
-            "--breaker and --words are the owner's: his help on a breaker, in his own words, goes with --by owner"
+            "--breaker and --words are the owner's: his help on a breaker, in his own "
+            "words, goes with --by owner"
         )
     line = {
         "at": stamp(now()),
@@ -542,7 +596,10 @@ def cmd_log(task: Task, args: argparse.Namespace) -> dict:
         line.update(
             story(
                 args,
-                f"{who} is important, and carries its story, which the owner reads at the pull request"
+                (
+                    f"{who} is important, and carries its story, "
+                    "which the owner reads at the pull request"
+                )
                 if important
                 else "a story",
             )
@@ -575,11 +632,14 @@ def cmd_log(task: Task, args: argparse.Namespace) -> dict:
             stopped = task.one(breaker, known, "breaker")
             if stopped["state"] != "waits":
                 raise DecisionError(
-                    f"breaker {breaker} of {task.slug} is helped already, by decision {stopped['help']}: a later word of the owner's is a decision of its own, with no --breaker"
+                    f"breaker {breaker} of {task.slug} is helped already, by decision "
+                    f"{stopped['help']}: a later word of the owner's is a decision of "
+                    "its own, with no --breaker"
                 )
             if task.status == PARKED:
                 raise DecisionError(
-                    f"{task.slug} is parked: `lem project resume {task.slug}` brings its breaker back first, then his help settles it"
+                    f"{task.slug} is parked: `lem project resume {task.slug}` brings "
+                    "its breaker back first, then his help settles it"
                 )
         return [{"id": len(known) + 1, **line}]
 
@@ -587,7 +647,8 @@ def cmd_log(task: Task, args: argparse.Namespace) -> dict:
 
 
 def cmd_criterion(task: Task, args: argparse.Namespace) -> dict:
-    """Record one change of an approved criterion, checked against the criteria as they stand."""
+    """Record one change of an approved criterion, checked against the criteria as
+    they stand."""
     how = [
         name
         for name in ("changed", "added", "removed")
@@ -602,7 +663,8 @@ def cmd_criterion(task: Task, args: argparse.Namespace) -> dict:
     for key in ("was", "now"):
         if key in wants and getattr(args, key) is None:
             raise DecisionError(
-                f"--{how} needs --{key}: the criterion's text {'before' if key == 'was' else 'after'} the change, word for word"
+                f"--{how} needs --{key}: the criterion's text "
+                f"{'before' if key == 'was' else 'after'} the change, word for word"
             )
         if key not in wants and getattr(args, key) is not None:
             raise DecisionError(
@@ -615,11 +677,13 @@ def cmd_criterion(task: Task, args: argparse.Namespace) -> dict:
             )
     if (args.decision is None) == (args.by is None):
         raise DecisionError(
-            "a criterion change names --decision ID, the decision of the record that led to it, or --by lead|personas when none did: one of the two"
+            "a criterion change names --decision ID, the decision of the record that "
+            "led to it, or --by lead|personas when none did: one of the two"
         )
     if args.by == "personas" and not args.said:
         raise DecisionError(
-            "--by personas needs --said: who answered and what each picked, in one or two sentences"
+            "--by personas needs --said: who answered and what each picked, "
+            "in one or two sentences"
         )
     if args.said is not None and args.by != "personas":
         raise DecisionError(
@@ -628,8 +692,9 @@ def cmd_criterion(task: Task, args: argparse.Namespace) -> dict:
     approved = task.approved()
     if approved is None:
         raise DecisionError(
-            f"{task.slug} has no approved criteria, so no change of them is recorded: its plan's criteria are their one source. "
-            "Approved criteria are kept by `lem criteria approve`",
+            f"{task.slug} has no approved criteria, so no change of them is recorded: "
+            "its plan's criteria are their one source. Approved criteria are kept by "
+            "`lem criteria approve`",
         )
     line = {
         "at": stamp(now()),
@@ -650,10 +715,12 @@ def cmd_criterion(task: Task, args: argparse.Namespace) -> dict:
 
     def make(known: list[dict]) -> list[dict]:
         if args.decision is not None:
-            # a decision that is on record: a pick of the ladder, or the owner's help on a breaker
+            # a decision that is on record: a pick of the ladder, or the owner's help on
+            # a breaker
             task.one(args.decision, known)
         lines = task.lines()
-        # the same computation the check of the criteria makes, with this change last: a wrong record never enters
+        # the same computation the check of the criteria makes, with this change last: a
+        # wrong record never enters
         task.changes([*lines, line])
         return [
             {
@@ -667,22 +734,25 @@ def cmd_criterion(task: Task, args: argparse.Namespace) -> dict:
 
 
 def steps(value: str | None) -> str:
-    """The case of a decision as typed, one step to a line: two numbered steps at the least."""
+    """The case of a decision as typed, one step to a line: two numbered steps at
+    the least."""
     lines = [
         line.rstrip() for line in (value or "").strip().splitlines() if line.strip()
     ]
     numbered = [line for line in lines if re.match(r"\s*\d+[.)]\s+\S", line)]
     if len(numbered) < FEWEST_STEPS:
         raise DecisionError(
-            '--case is one concrete case that ends badly, in numbered steps, one to a line ("1. ...", "2. ..."), '
-            f"with real names and values and where each step was read; this one has {len(numbered)} numbered step{'' if len(numbered) == 1 else 's'}",
+            "--case is one concrete case that ends badly, in numbered steps, one to a "
+            'line ("1. ...", "2. ..."), with real names and values and where each '
+            f"step was read; this one has {len(numbered)} numbered "
+            f"step{'' if len(numbered) == 1 else 's'}",
         )
     return "\n".join(lines)
 
 
 def story(args: argparse.Namespace, what: str | None = None) -> dict:
-    """The case of a decision: --case in numbered steps, --case-was, --cause. WHAT names a log's
-    story, whose missing fields are named first."""
+    """The case of a decision: --case in numbered steps, --case-was, --cause. WHAT names
+    a log's story, whose missing fields are named first."""
     missing = [
         flag
         for flag, value in (
@@ -694,8 +764,10 @@ def story(args: argparse.Namespace, what: str | None = None) -> dict:
     ]
     if missing and what:
         raise DecisionError(
-            f"{what}: --case, one concrete run in numbered steps, one to a line, --case-was reproduced|derived, and --cause, one line on why it "
-            f"became possible and how far that reaches (`prompts/writing.md`); this one has no {', no '.join(missing)}",
+            f"{what}: --case, one concrete run in numbered steps, one to a line, "
+            "--case-was reproduced|derived, and --cause, one line on why it became "
+            "possible and how far that reaches (`prompts/writing.md`); "
+            f"this one has no {', no '.join(missing)}",
         )
     case = steps(args.case)
     if args.case_was not in CASE_WAS:
@@ -710,24 +782,28 @@ def story(args: argparse.Namespace, what: str | None = None) -> dict:
 
 
 def chart(file: str) -> str:
-    """The text of one mermaid chart, from FILE, with its line breaks and without its fence."""
+    """The text of one mermaid chart, from FILE, with its line breaks and without
+    its fence."""
     source = Path(file)
     if not source.is_file():
         raise DecisionError(
-            f"--chart names a file that holds one mermaid chart, and {file} is not a file; write the chart into a file first"
+            f"--chart names a file that holds one mermaid chart, and {file} is not a "
+            "file; write the chart into a file first"
         )
     try:
         written = source.read_text(encoding="utf-8")
     except UnicodeDecodeError as error:
         raise DecisionError(
-            f"{file} is not UTF-8 text (byte {error.start} does not read); write the chart in UTF-8"
+            f"{file} is not UTF-8 text (byte {error.start} does not read); "
+            "write the chart in UTF-8"
         ) from error
     rows = written.strip("\n").splitlines()
     fence = re.match(r"\s*(`{3,}|~{3,})\s*(\w*)\s*$", rows[0]) if rows else None
     if fence:
         if fence.group(2) not in ("", "mermaid"):
             raise DecisionError(
-                f"{file} holds a ```{fence.group(2)} block, and --chart takes one mermaid chart: its text, or its text in a ```mermaid fence"
+                f"{file} holds a ```{fence.group(2)} block, and --chart takes one "
+                "mermaid chart: its text, or its text in a ```mermaid fence"
             )
         rows = rows[1:]
         if rows and rows[-1].strip() == fence.group(1):
@@ -735,23 +811,28 @@ def chart(file: str) -> str:
     body = "\n".join(row.rstrip() for row in rows).strip("\n")
     if not body.strip():
         raise DecisionError(
-            f"{file} holds no chart: --chart takes one mermaid chart, its text or its text in a ```mermaid fence"
+            f"{file} holds no chart: --chart takes one mermaid chart, its text or its "
+            "text in a ```mermaid fence"
         )
     if len(body) > CHART_MOST:
         raise DecisionError(
-            f"the chart in {file} has {len(body)} characters, and a record keeps {CHART_MOST} at the most: one chart for one idea, about a dozen nodes (`prompts/writing.md`)"
+            f"the chart in {file} has {len(body)} characters, and a record keeps "
+            f"{CHART_MOST} at the most: one chart for one idea, "
+            "about a dozen nodes (`prompts/writing.md`)"
         )
     head = chart_type(body)
     if head not in CHART_TYPES:
         raise DecisionError(
-            f"the chart in {file} opens with {head!r}, which is no chart type mermaid draws; it opens with one of them, as `flowchart TD` or `sequenceDiagram`"
+            f"the chart in {file} opens with {head!r}, which is no chart type mermaid "
+            "draws; it opens with one of them, as `flowchart TD` or `sequenceDiagram`"
         )
     if head in ("flowchart", "graph"):
         bare = unquoted(body)
         if bare:
             raise DecisionError(
-                f"the chart in {file} has a text out of double quotes, {bare!r}: every node's and edge's text of a flowchart is in double quotes, "
-                'as A["The total shows 0"] -->|"yes"| B["A credit note"]',
+                f"the chart in {file} has a text out of double quotes, {bare!r}: "
+                "every node's and edge's text of a flowchart is in double quotes, as "
+                'A["The total shows 0"] -->|"yes"| B["A credit note"]',
             )
     return body
 
@@ -788,7 +869,8 @@ NO_TEXT = (
     "subgraph",
     "end",
 )
-# A node's shape opening right after its id, and an edge's text between pipes or between `--` and its arrow.
+# A node's shape opening right after its id, and an edge's text between pipes or between
+# `--` and its arrow.
 SHAPE = re.compile(
     r"[A-Za-z0-9_]+(\[\[|\[\(|\(\[|\(\(\(|\(\(|\{\{|\[/|\[\\|\[|\(|\{|>)"
 )
@@ -797,10 +879,12 @@ SPOKEN = re.compile(r"(?<![-=])(?:--|==)\s+([^\s\->=][^>]*?)\s+(?:-->|==>|---|==
 
 
 def unquoted(body: str) -> str | None:
-    """The first node or edge text of a flowchart that is not in double quotes; none when each is.
-    A check of the common forms, not a parser: it reads a row with its quoted texts taken out."""
+    """The first node or edge text of a flowchart that is not in double quotes; none
+    when each is. A check of the common forms, not a parser: it reads a row with its
+    quoted texts taken out."""
     rows = body.splitlines()
-    # the rows after the one that names the chart's type: front matter before it holds no node
+    # the rows after the one that names the chart's type: front matter before it holds
+    # no node
     start = next(
         i
         for i, row in enumerate(rows)
@@ -822,8 +906,8 @@ def unquoted(body: str) -> str | None:
 
 
 def experts_here(repo: Path) -> list[str]:
-    """The places of the settings' experts whose agent is on this machine: both, or the one that can
-    answer (`here` in `lem project show`)."""
+    """The places of the settings' experts whose agent is on this machine: both, or the
+    one that can answer (`here` in `lem project show`)."""
     found = [
         expert["place"]
         for expert in json.loads(script("project.py", repo, "show"))["seats"]["experts"]
@@ -831,19 +915,21 @@ def experts_here(repo: Path) -> list[str]:
     ]
     if not found:
         raise DecisionError(
-            'no expert of the settings\' seats.experts can answer on this machine: name a seat of an agent it has, as experts = ["claude/fable:high"]'
+            "no expert of the settings' seats.experts can answer on this machine: "
+            'name a seat of an agent it has, as experts = ["claude/fable:high"]'
         )
     return found
 
 
 def breaker_document(file: Path) -> str:
-    """The title of a breaker's document, after a check of its parts (BREAKER_PARTS); refused with
-    each part it lacks, so the owner never reads a bare question."""
+    """The title of a breaker's document, after a check of its parts (BREAKER_PARTS);
+    refused with each part it lacks, so the owner never reads a bare question."""
     try:
         written = file.read_text(encoding="utf-8")
     except UnicodeDecodeError as error:
         raise DecisionError(
-            f"{file} is not UTF-8 text (byte {error.start} does not read); write it in UTF-8"
+            f"{file} is not UTF-8 text (byte {error.start} does not read); "
+            "write it in UTF-8"
         ) from error
     title = next(
         (line[2:].strip() for line in written.splitlines() if line.startswith("# ")),
@@ -902,50 +988,63 @@ def breaker_document(file: Path) -> str:
         raise DecisionError(
             f"{file} is no breaker's document yet: it lacks "
             + "; ".join(missing)
-            + ". `templates/breaker.md` of the skill is its form: the owner reads it far from the task, so it brings the context back",
+            + (
+                ". `templates/breaker.md` of the skill is its form: the owner reads it "
+                "far from the task, so it brings the context back"
+            ),
         )
     return " ".join(title.split())
 
 
 def kept_document(document: Path, number: int) -> str:
-    """Keep the breaker's document under its number, `breaker-N.md` beside it, and give that name: the
-    agent writes `breaker.md` each time, and a later breaker of the task never writes over this one's."""
+    """Keep the breaker's document under its number, `breaker-N.md` beside it, and give
+    that name: the agent writes `breaker.md` each time, and a later breaker of the task
+    never writes over this one's."""
     kept = document.with_name(BREAKER_KEPT.format(id=number))
     document.replace(kept)
     return kept.name
 
 
 def cmd_breaker(task: Task, args: argparse.Namespace) -> dict:
-    """The circuit breaker: record it with its cause and its document, then hold the task."""
+    """The circuit breaker: record it with its cause and its document, then hold
+    the task."""
     if args.cause == "irreversible" and args.irreversible is None:
         raise DecisionError(
-            "--cause irreversible names its kind: --irreversible data|system|person|money"
+            "--cause irreversible names its kind: "
+            "--irreversible data|system|person|money"
         )
     if args.cause != "irreversible" and args.irreversible is not None:
         raise DecisionError(
-            "--irreversible goes with --cause irreversible; the cause criteria is a rule of an approved criterion that no option keeps"
+            "--irreversible goes with --cause irreversible; the cause criteria is a "
+            "rule of an approved criterion that no option keeps"
         )
     if task.status in WITH_LANDING:
         raise DecisionError(
-            f"{task.slug} is {task.status}: its build is done, and no breaker stops a landing. A step of the landing that only the owner may take is his word, as `stages/land.md` says"
+            f"{task.slug} is {task.status}: its build is done, and no breaker stops a "
+            "landing. A step of the landing that only the owner may take is his word, "
+            "as `stages/land.md` says"
         )
     document = Path(args.document) if args.document else task.directory / BREAKER_DOC
     if not document.is_absolute():
         document = Path.cwd() / document
     if not document.is_file():
         raise DecisionError(
-            f"{document} is not a file: write the breaker's document first, {BREAKER_DOC} in the task directory, in the form of `templates/breaker.md`"
+            f"{document} is not a file: write the breaker's document first, "
+            f"{BREAKER_DOC} in the task directory, "
+            "in the form of `templates/breaker.md`"
         )
     if document.resolve().parent != task.directory.resolve():
         raise DecisionError(
-            f"{document} is not in the task directory {task.directory}: the board and a fresh agent read the breaker's document there"
+            f"{document} is not in the task directory {task.directory}: "
+            "the board and a fresh agent read the breaker's document there"
         )
     title = breaker_document(document)
     handoff = task.directory / HANDOFF
     if not handoff.is_file() or not handoff.read_text(encoding="utf-8").strip():
         raise DecisionError(
-            f"{handoff} is missing: the agent that stops writes the handoff beside the document (what is settled, what is open, the next step, "
-            "what was tried and failed), so that a fresh agent goes on from it a week later",
+            f"{handoff} is missing: the agent that stops writes the handoff beside the "
+            "document (what is settled, what is open, the next step, what was tried "
+            "and failed), so that a fresh agent goes on from it a week later",
         )
     dirty = subprocess.run(
         ["git", "-C", str(task.repo), "status", "--porcelain", "--untracked-files=no"],
@@ -955,7 +1054,8 @@ def cmd_breaker(task: Task, args: argparse.Namespace) -> dict:
     )
     if dirty.returncode == 0 and dirty.stdout.strip():
         raise DecisionError(
-            f"the worktree {task.repo} has uncommitted changes of tracked files ({len(dirty.stdout.splitlines())}): commit what the task has first, "
+            f"the worktree {task.repo} has uncommitted changes of tracked files "
+            f"({len(dirty.stdout.splitlines())}): commit what the task has first, "
             "since a dropped task's worktree goes and only its branch stays",
         )
     line = {
@@ -974,7 +1074,8 @@ def cmd_breaker(task: Task, args: argparse.Namespace) -> dict:
         )
         if waiting:
             raise DecisionError(
-                f"breaker {waiting['id']} of {task.slug} waits for the owner already: one breaker holds a task at a time, and its document says it"
+                f"breaker {waiting['id']} of {task.slug} waits for the owner already: "
+                "one breaker holds a task at a time, and its document says it"
             )
         number = len(known) + 1
         return [{"id": number, **line, "document": kept_document(document, number)}]
@@ -994,8 +1095,11 @@ def cmd_breaker(task: Task, args: argparse.Namespace) -> dict:
     )
     return {
         **made,
-        "next": "the task stops here, and the other tasks build on. Stop as `stages/build.md` ends: the report, then your reply; "
-        "Lem puts the document to the owner, who helps, parks the task or drops it",
+        "next": (
+            "the task stops here, and the other tasks build on. "
+            "Stop as `stages/build.md` ends: the report, then your reply; "
+            "Lem puts the document to the owner, who helps, parks the task or drops it"
+        ),
     }
 
 
@@ -1008,9 +1112,11 @@ def shown(task: Task, decision: dict) -> dict:
 
 
 def cmd_pending(repo: Path, slug: str | None) -> dict:
-    """The breakers that wait for the owner. A parked task's wait for nobody now; a dropped, landed or
-    answered task has none: nobody builds it, and the record stays for `list`."""
-    # Every task, from one read of the tasks and of the state folder: nothing here writes either.
+    """The breakers that wait for the owner. A parked task's wait for nobody now; a
+    dropped, landed or answered task has none: nobody builds it, and the record stays
+    for `list`."""
+    # Every task, from one read of the tasks and of the state folder: nothing here
+    # writes either.
     listed = json.loads(script("project.py", repo, "tasks")) if not slug else None
     state = Path(script("project.py", repo, "state-dir").strip()) if listed else None
     slugs = [slug] if slug else [task["slug"] for task in listed or []]
@@ -1028,7 +1134,10 @@ def cmd_pending(repo: Path, slug: str | None) -> dict:
                         "task": task.slug,
                         "status": task.status,
                         "breakers": [d["id"] for d in open_ones],
-                        "says": f"the task is {task.status}: its breakers no longer wait for anybody",
+                        "says": (
+                            f"the task is {task.status}: its breakers no "
+                            "longer wait for anybody"
+                        ),
                     }
                 )
         else:
@@ -1065,7 +1174,10 @@ def main(argv: list[str] | None = None) -> None:
         "--option",
         action="append",
         metavar="TEXT",
-        help='each option the decision had, word for word, as "LABEL: what the person sees after it"',
+        help=(
+            'each option the decision had, word for word, as "LABEL: '
+            'what the person sees after it"'
+        ),
     )
     log.add_argument(
         "--vote",
@@ -1087,14 +1199,19 @@ def main(argv: list[str] | None = None) -> None:
     log.add_argument(
         "--case",
         metavar="STEPS",
-        help="one concrete run in numbered steps, one to a line: required --by dialectic, --by experts and with --unsettled",
+        help=(
+            "one concrete run in numbered steps, one to a line: "
+            "required --by dialectic, --by experts and with --unsettled"
+        ),
     )
     log.add_argument(
         "--case-was", metavar="HOW", help="reproduced, or derived from the code"
     )
     log.add_argument(
         "--cause",
-        help="one line: why the case became possible, and how far the same cause reaches",
+        help=(
+            "one line: why the case became possible, and how far the same cause reaches"
+        ),
     )
     log.add_argument(
         "--chart",
@@ -1157,14 +1274,19 @@ def main(argv: list[str] | None = None) -> None:
     commands.add_parser("changes").add_argument("slug")
     breaker = commands.add_parser(
         "breaker",
-        help="the circuit breaker: record the stop with its cause and its document, and hold the task",
+        help=(
+            "the circuit breaker: record the stop with its cause and its document, "
+            "and hold the task"
+        ),
     )
     breaker.add_argument("slug")
     breaker.add_argument(
         "--cause",
         required=True,
         choices=tuple(CAUSES),
-        help="the next step cannot be reversed, or no option keeps the approved criteria",
+        help=(
+            "the next step cannot be reversed, or no option keeps the approved criteria"
+        ),
     )
     breaker.add_argument(
         "--irreversible",
@@ -1174,7 +1296,9 @@ def main(argv: list[str] | None = None) -> None:
     breaker.add_argument(
         "--document",
         metavar="FILE",
-        help=f"the breaker's document, {BREAKER_DOC} of the task directory unless named",
+        help=(
+            f"the breaker's document, {BREAKER_DOC} of the task directory unless named"
+        ),
     )
     pending = commands.add_parser("pending")
     pending.add_argument("slug", nargs="?")
@@ -1186,7 +1310,8 @@ def main(argv: list[str] | None = None) -> None:
         except UnicodeEncodeError:
             # the record would hold it, and the event log and the pull request after it
             sys.exit(
-                f"decisions.py: the argument {os.fsencode(arg)!r} is not UTF-8 text; give it in UTF-8"
+                f"decisions.py: the argument {os.fsencode(arg)!r} is not UTF-8 text; "
+                "give it in UTF-8"
             )
     repo = Path(args.repo)
     try:

@@ -1,7 +1,7 @@
-"""jev.py, Lem's client of the Jev decision model: build(), which checks a spec and makes the request
-body of a choice and of a noul, and read(), which makes the printed reply from Jev's. No case sends a
-request; the replies are in the form a real request through OpenRouter gave on 2026-11-23
-(`{"type": "noul", "noul": 0.98}` for a noul).
+"""jev.py, Lem's client of the Jev decision model: build(), which checks a spec and
+makes the request body of a choice and of a noul, and read(), which makes the printed
+reply from Jev's. No case sends a request; the replies are in the form a real request
+through OpenRouter gave on 2026-11-23 (`{"type": "noul", "noul": 0.98}` for a noul).
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -111,12 +111,18 @@ class Build(unittest.TestCase):
 
     def test_a_noul_with_choices_and_a_choice_with_yes_or_no_are_refused(self) -> None:
         self.assertIn(
-            "is a noul and takes only type, instructions, yes and no; choices belong to a choice",
+            (
+                "is a noul and takes only type, instructions, yes and no; "
+                "choices belong to a choice"
+            ),
             self.refused(spec({**NOUL, "choices": CHOICE["choices"]})),
         )
         for extra in ({"yes": "y"}, {"no": "n"}, {"yes": "y", "no": "n"}):
             self.assertIn(
-                "is a choice and takes only type, instructions and choices; yes and no belong to a noul",
+                (
+                    "is a choice and takes only type, instructions and choices; "
+                    "yes and no belong to a noul"
+                ),
                 self.refused(spec({**CHOICE, **extra})),
             )
 
@@ -129,7 +135,10 @@ class Build(unittest.TestCase):
             {"yes": "y", "no": 1},
         ):
             self.assertIn(
-                "needs both yes and no, each a text that says what that answer means, or neither",
+                (
+                    "needs both yes and no, each a text that says what that "
+                    "answer means, or neither"
+                ),
                 self.refused(spec({**NOUL, **extra})),
             )
 
@@ -170,7 +179,8 @@ class Build(unittest.TestCase):
 
     def test_a_state_object_counts_the_bytes_of_its_json_text(self) -> None:
         questions = json.dumps(jev.build(spec(NOUL))["questions"]).encode()
-        # the JSON text of {"facts": "ééé..."} is 13 bytes and the text's own: an é is two bytes of UTF-8, not a six-byte escape
+        # the JSON text of {"facts": "ééé..."} is 13 bytes and the text's own: an é is
+        # two bytes of UTF-8, not a six-byte escape
         room = jev.LIMIT_BYTES - len(questions) - len('{"facts": ""}')
         fits = {"facts": "é" * (room // 2)}
         self.assertEqual(
@@ -262,7 +272,10 @@ class Read(unittest.TestCase):
         ):
             message = self.failed({"lesson": self.CHOSEN, "corrects": given})
             self.assertIn(
-                "the reply's answer to question 'corrects', a noul, lacks a noul, a number from 0 to 1",
+                (
+                    "the reply's answer to question 'corrects', a noul, lacks a noul, "
+                    "a number from 0 to 1"
+                ),
                 message,
             )
 
@@ -285,7 +298,10 @@ class Read(unittest.TestCase):
         for given in broken:
             message = self.failed({"lesson": given, "corrects": noul})
             self.assertIn(
-                "the reply's answer to question 'lesson', a choice, lacks a choice, a confidence and probabilities",
+                (
+                    "the reply's answer to question 'lesson', a choice, lacks a "
+                    "choice, a confidence and probabilities"
+                ),
                 message,
             )
 

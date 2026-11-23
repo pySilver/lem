@@ -1,7 +1,8 @@
-"""The experts' rules for the part of a brief that says who the code is for, as calls of experts.py's
-functions: each persona's first heading and its "Who they are", short, and the profile's path, from
-what `lem cast` prints. The brief files the commands write, and a project with no personas, are
-checked through the real command in tests/test-ask-expert.sh.
+"""The experts' rules for the part of a brief that says who the code is for, as calls of
+experts.py's functions: each persona's first heading and its "Who they are", short, and
+the profile's path, from what `lem cast` prints. The brief files the commands write, and
+a project with no personas, are checked through the real command in
+tests/test-ask-expert.sh.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -82,7 +83,8 @@ class Audience(unittest.TestCase):
     ) -> None:
         with tempfile.TemporaryDirectory() as top:
             merchant, user = Path(top) / "merchant.md", Path(top) / "user.md"
-            # the file a persona's agent reads, without its frontmatter, is what the part is taken from
+            # the file a persona's agent reads, without its frontmatter, is what the
+            # part is taken from
             merchant.write_text(
                 '---\nseats: ["claude/opus:high"]\n---\n' + MERCHANT, encoding="utf-8"
             )
@@ -102,11 +104,17 @@ class Audience(unittest.TestCase):
             text = experts.audience_text(found)
         self.assertTrue(text.startswith("## Who the code is for\n"))
         self.assertIn(
-            "The project's profile, `/repo/.lem/profile.md`, says what the product is and who uses it: read it first.",
+            (
+                "The project's profile, `/repo/.lem/profile.md`, says what the product "
+                "is and who uses it: read it first."
+            ),
             text,
         )
         self.assertIn(
-            f"- **A merchant who sells shoes** (`{merchant}`): Sells shoes in two shops and online.",
+            (
+                f"- **A merchant who sells shoes** (`{merchant}`): "
+                "Sells shoes in two shops and online."
+            ),
             text,
         )
         self.assertIn(
@@ -114,7 +122,10 @@ class Audience(unittest.TestCase):
             text,
         )
         self.assertIn(
-            "Weigh each option by what it does to these people. You still decide as an engineer",
+            (
+                "Weigh each option by what it does to these people. "
+                "You still decide as an engineer"
+            ),
             text,
         )
         self.assertIn("you answer as none of them", text)

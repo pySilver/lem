@@ -13,10 +13,11 @@ suite (`bash tests/all.sh`). The Chrome suites, test-ask and test-site, run only
 their own files, not for a script they also start. The whole suite runs once before the base branch
 moves: this list is for the turns before that.
 
-The map was read from the suites' text on 2026-11-18, and the row of test-site on 2026-11-19 and 2026-11-23 (the
-scripts each one starts, and the files of this repository it reads), not measured by a trace. A script's change reaches every suite that runs
-a script that calls it: land.py, criteria.py and decisions.py call their siblings in their own
-process (`skills/lem/scripts/lem_sibling.py`).
+The map was read from the suites' text on 2026-11-18, and the row of test-site on
+2026-11-19 and 2026-11-23 (the scripts each one starts, and the files of this repository
+it reads), not measured by a trace. A script's change reaches every suite that runs a
+script that calls it: land.py, criteria.py and decisions.py call their siblings in their
+own process (`skills/lem/scripts/lem_sibling.py`).
 """
 
 import fnmatch
@@ -28,10 +29,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 TESTS = ROOT / "tests"
 
-# The name that runs everything: a change to how the suites run is checked by a run of them all.
+# The name that runs everything: a change to how the suites run is checked by a run of
+# them all.
 EVERYTHING = "all"
-# The suites that are not a file tests/NAME.sh of their own: the map's check, and the unit level,
-# one file or more for each script in tests/unit/, which tests/all.sh runs as `python3 -B tests/unit`.
+# The suites that are not a file tests/NAME.sh of their own: the map's check, and the
+# unit level, one file or more for each script in tests/unit/, which tests/all.sh runs
+# as `python3 -B tests/unit`.
 COMMANDS = {
     "pick": "python3 tests/pick.py --check",
     "unit": "python3 -B -m unittest discover -s tests/unit",
@@ -39,15 +42,17 @@ COMMANDS = {
 }
 CHROME = ("test-ask", "test-site")
 
-# (the files, the suites that read them). A file pattern is fnmatch's over the path from the root,
-# where `*` also crosses a `/`; a suite may be a pattern over the suites' names. A row with no suite
-# names files nothing reads. A suite's own file, tests/NAME.sh, runs that suite and is in no row.
+# (the files, the suites that read them). A file pattern is fnmatch's over the path from
+# the root, where `*` also crosses a `/`; a suite may be a pattern over the suites'
+# names. A row with no suite names files nothing reads. A suite's own file,
+# tests/NAME.sh, runs that suite and is in no row.
 MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
-    # Lem's scripts, and the suites that run them, directly or through a script that calls them. The
-    # unit level calls their functions, and every file of it is its own.
+    # Lem's scripts, and the suites that run them, directly or through a script that
+    # calls them. The unit level calls their functions, and every file of it is its own.
     (("skills/lem/scripts/*", "tests/unit/*"), ("unit",)),
-    # `lem project waiting` builds the board's model, and asks `lem session list` when the log has a session; every
-    # command that names one task runs the release rule (lem_release.py) first
+    # `lem project waiting` builds the board's model, and asks `lem session list` when
+    # the log has a session; every command that names one task runs the release rule
+    # (lem_release.py) first
     (
         (
             "skills/lem/scripts/project.py",
@@ -107,11 +112,14 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
             "lem-command",
         ),
     ),
-    # the server's thread that sends what waits to the owner's Inbox, which every server loads and lem-board-act runs on the stand-in for plannotator
+    # the server's thread that sends what waits to the owner's Inbox, which every server
+    # loads and lem-board-act runs on the stand-in for plannotator
     (("skills/lem/scripts/lem_inbox.py",), ("lem-board-act", "lem-serve")),
-    # the driver of headless Chrome, through which lem-serve types into a page of the board and lem-board-keys presses the board's keys
+    # the driver of headless Chrome, through which lem-serve types into a page of the
+    # board and lem-board-keys presses the board's keys
     (("tests/board-cdp.mjs",), ("lem-serve", "lem-board-keys")),
-    # two machines under one address: the server that passes another's pages through, and the list of both
+    # two machines under one address: the server that passes another's pages through,
+    # and the list of both
     (
         (
             "skills/lem/scripts/serve.py",
@@ -120,7 +128,8 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ),
         ("lem-peers",),
     ),
-    # `lem session list` reads each live session's signs of work through lem_signs.py, which takes the task a transcript names from lem_tokens.py
+    # `lem session list` reads each live session's signs of work through lem_signs.py,
+    # which takes the task a transcript names from lem_tokens.py
     (
         (
             "skills/lem/scripts/picker.py",
@@ -165,17 +174,20 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ("skills/lem-gate/*", "skills/lem-panel/*"),
         ("test-gate-panel", "lem-state", "lem-command"),
     ),
-    # the experts' brief names the personas through the panel's cast.py; the unit level calls both scripts' functions
+    # the experts' brief names the personas through the panel's cast.py; the unit level
+    # calls both scripts' functions
     (("skills/lem-panel/scripts/*",), ("test-ask-expert", "unit")),
     (("skills/lem-ask-expert/scripts/*",), ("unit",)),
-    # the GitHub tracker's script, which tests/unit/test_issues.py runs over a stand-in for gh; `lem issue --help` is lem-command's
+    # the GitHub tracker's script, which tests/unit/test_issues.py runs over a stand-in
+    # for gh; `lem issue --help` is lem-command's
     (("skills/lem-github/scripts/*",), ("unit", "lem-command")),
-    # Texts a suite reads: every text under skills/ and agents/, none of which may tell anyone to run
-    # a script by its path (lem-command), nor name a Lem text by a folder in a brief's first line
-    # (tests/unit/test_session.py).
+    # Texts a suite reads: every text under skills/ and agents/, none of which may tell
+    # anyone to run a script by its path (lem-command), nor name a Lem text by a folder
+    # in a brief's first line (tests/unit/test_session.py).
     (("skills/*/SKILL.md",), ("test-gate-panel",)),
     (("skills/*", "agents/*"), ("lem-command", "unit")),
-    # Lem's page on GitHub Pages, the workflow whose copy step the suite runs, and the README, which states the page's facts
+    # Lem's page on GitHub Pages, the workflow whose copy step the suite runs, and the
+    # README, which states the page's facts
     (("site/*", ".github/workflows/pages.yml", "README.md"), ("test-site",)),
     (
         (
@@ -186,7 +198,8 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ),
         ("lem-settings",),
     ),
-    # The scene: lem-settings writes its night file again, and test-site reads its motion and its colors
+    # The scene: lem-settings writes its night file again, and test-site reads its
+    # motion and its colors
     (("assets/lem.svg", "assets/lem-night.svg"), ("lem-settings", "test-site")),
     # The suites' own code.
     (("tests/lib.sh",), ("lem-*",)),
@@ -201,16 +214,19 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     (("tests/pick.py",), ("pick",)),
     # the driver of headless Chrome: the board's pictures, and lem-serve's phone page
     (("tests/board-cdp.mjs",), ("lem-serve",)),
-    # The short AGENTS.md, the list of rulings and its history, and the plan whose table has a row for each
-    # file the list took the place of, which tests/unit/test_agents_md.py reads
+    # The short AGENTS.md, the list of rulings and its history, and the plan whose table
+    # has a row for each file the list took the place of, which
+    # tests/unit/test_agents_md.py reads
     (
         ("AGENTS.md", "docs/rulings/*", "docs/plans/2026-11-21-rulings-as-one-list.md"),
         ("unit",),
     ),
-    # The install guide's table of tools, whose tier words tests/unit/test_doctor.py checks against doctor.py
+    # The install guide's table of tools, whose tier words tests/unit/test_doctor.py
+    # checks against doctor.py
     (("docs/install.md",), ("unit",)),
-    # The texts tests/unit/test_settings_files.py reads for a settings file's old name, and the settings page,
-    # whose table of where each table is valid it checks against lem_state.TABLE_PLACES
+    # The texts tests/unit/test_settings_files.py reads for a settings file's old name,
+    # and the settings page, whose table of where each table is valid it checks
+    # against lem_state.TABLE_PLACES
     (
         (
             "README.md",
@@ -228,8 +244,9 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ),
         ("unit",),
     ),
-    # The code's style: ruff and pyrefly read every Python file and their settings, ESLint every
-    # JavaScript file and its own. The suite brings both tools itself (uv.lock, package-lock.json).
+    # The code's style: ruff and pyrefly read every Python file and their settings,
+    # ESLint every JavaScript file and its own. The suite brings both tools itself
+    # (uv.lock, package-lock.json).
     (
         (
             "*.py",
@@ -268,7 +285,8 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         (),
     ),
 ]
-# The files the Chrome suites are run for: each row that names one of them is all of their own.
+# The files the Chrome suites are run for: each row that names one of them is all of
+# their own.
 CHROME_OWN = {
     "test-ask": ("skills/lem-ask/*", "bin/lem-ask", "tests/checks.sh"),
     "test-site": (
@@ -299,7 +317,8 @@ def expand(names: tuple[str, ...], known: list[str]) -> set[str]:
         matched = [EVERYTHING] if name == EVERYTHING else fnmatch.filter(known, name)
         if not matched:
             raise SystemExit(
-                f"pick.py: the map names {name!r}, and no suite has that name; correct its row in MAP"
+                f"pick.py: the map names {name!r}, and no suite has that name; "
+                "correct its row in MAP"
             )
         out.update(matched)
     return out
@@ -367,7 +386,8 @@ def changed(base: str) -> list[str]:
         )
         if ran.returncode != 0:
             raise SystemExit(
-                f"pick.py: git {' '.join(args)} failed: {ran.stderr.strip()}; name a commit or a branch git knows as BASE"
+                f"pick.py: git {' '.join(args)} failed: {ran.stderr.strip()}; "
+                "name a commit or a branch git knows as BASE"
             )
         return [line for line in ran.stdout.splitlines() if line]
 
@@ -377,10 +397,10 @@ def changed(base: str) -> list[str]:
 
 
 def check() -> int:
-    """The map's own check, in the form of a suite: every file git tracks is in the map or is a
-    suite's own file, every script and hook is read by a suite, each suite is in tests/all.sh, each
-    block in tests/test-lem.sh, the map names only suites there are, and a Chrome suite only for
-    its own files."""
+    """The map's own check, in the form of a suite: every file git tracks is in the map
+    or is a suite's own file, every script and hook is read by a suite, each suite is in
+    tests/all.sh, each block in tests/test-lem.sh, the map names only suites there are,
+    and a Chrome suite only for its own files."""
     known = suites()
     tracked = subprocess.run(
         ["git", "-C", str(ROOT), "ls-files"], capture_output=True, text=True, check=True
@@ -393,7 +413,8 @@ def check() -> int:
     listed_blocks = set(
         re.findall(r"[\w-]+", " ".join(re.findall(r"blocks\+?=\(([^)]*)\)", blocks)))
     )
-    # Lem's own scripts and hooks: a test helper of tests/ is in the map, and need not be read by a suite
+    # Lem's own scripts and hooks: a test helper of tests/ is in the map, and need not
+    # be read by a suite
     scripts = [
         path
         for path in tracked
@@ -410,7 +431,10 @@ def check() -> int:
             checks.append(
                 (
                     f"{path} is in the map",
-                    "no row of MAP names it: add it to the row of the suites that read it, or to the last row",
+                    (
+                        "no row of MAP names it: add it to the row of the suites that "
+                        "read it, or to the last row"
+                    ),
                 )
             )
     for path in scripts:
@@ -455,7 +479,10 @@ def check() -> int:
                         f"the row of {files[0]} names {suite} only for its own files",
                         None
                         if not strange
-                        else f"{', '.join(strange)} is no file of {suite}'s; CHROME_OWN lists them",
+                        else (
+                            f"{', '.join(strange)} is no file of {suite}'s; "
+                            "CHROME_OWN lists them"
+                        ),
                     )
                 )
     print(f"collected {len(checks)}")

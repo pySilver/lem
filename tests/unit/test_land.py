@@ -1,7 +1,7 @@
 """land.py's rules that take facts and return a result, each called in this process.
 
-What only git can show stays in the blocks of tests/, which run the real commands in throwaway
-repositories; here a rule gets the text git gave and is asked for its result.
+What only git can show stays in the blocks of tests/, which run the real commands in
+throwaway repositories; here a rule gets the text git gave and is asked for its result.
 """
 
 import datetime as dt
@@ -31,8 +31,8 @@ DEFECT = {
     "what": "parse with an empty string raises IndexError, on the base commit too.",
 }
 
-# The bar's marks of a Python file, each written in two pieces: the bar reads a .py file's marks,
-# and this file adds none of the ones it feeds it.
+# The bar's marks of a Python file, each written in two pieces: the bar reads a .py
+# file's marks, and this file adds none of the ones it feeds it.
 NOQA = "#" + " noqa"
 SKIP = "pytest.mark" + ".skip"
 FLAKY = "pytest.mark" + ".flaky"
@@ -47,8 +47,9 @@ def patch(
     new: bool = False,
     gone: bool = False,
 ) -> str:
-    """One file's part of `git diff -U0 -M`: its header, then one hunk of the lines that went and came.
-    `was` is the name before a move, `new` a file the base lacks, `gone` one the tip lacks."""
+    """One file's part of `git diff -U0 -M`: its header, then one hunk of the lines that
+    went and came. `was` is the name before a move, `new` a file the base lacks, `gone`
+    one the tip lacks."""
     before = was or path
     lines = [
         f"diff --git a/{before} b/{path}",
@@ -67,7 +68,8 @@ def bar(
     plan: str = "",
     files: tuple[str, ...] = (),
 ) -> dict:
-    """land.bar_of over the parts of a diff, the name-status rows, the plan and the changed files."""
+    """land.bar_of over the parts of a diff, the name-status rows, the plan and the
+    changed files."""
     return land.bar_of("\n".join(patches), list(rows), plan, list(files))
 
 
@@ -77,8 +79,9 @@ def lowered(result: dict) -> list[tuple[str, str]]:
 
 
 class DefectsOutside(unittest.TestCase):
-    """`land.defects_of` and `land.to_file`: the defects a review's record names outside the change,
-    with the review's call on each by the bar of rule 6, and the ones that wait for an item."""
+    """`land.defects_of` and `land.to_file`: the defects a review's record names outside
+    the change, with the review's call on each by the bar of rule 6, and the ones that
+    wait for an item."""
 
     # the base's backlog folder holds one item
     BASE = {"docs/backlog/the-first-line-skips-a-bold-outcome.md"}
@@ -134,7 +137,10 @@ class DefectsOutside(unittest.TestCase):
                     [{**DEFECT, "bar": "over"}, {**DEFECT, "bar": call}]
                 )
                 self.assertIn(
-                    f'the defect r2.2 outside the change ("{DEFECT["title"]}") is {call}, and has no `why`',
+                    (
+                        f'the defect r2.2 outside the change ("{DEFECT["title"]}") is '
+                        f"{call}, and has no `why`"
+                    ),
                     said,
                 )
         self.assertIn(
@@ -213,7 +219,8 @@ class DefectsOutside(unittest.TestCase):
             land.to_file(reads, lambda path: path == held),
             [{"round": 1, "number": "r2.1", **DEFECT}],
         )
-        # the base joined the open item after the review, and a rebase kept the review: the defect is filed
+        # the base joined the open item after the review, and a rebase kept the review:
+        # the defect is filed
         self.assertEqual(
             [entry["number"] for entry in land.to_file(reads, lambda path: False)],
             ["r2.1", "r2.4"],
@@ -359,7 +366,10 @@ class Bar(unittest.TestCase):
                 "pyproject.toml",
                 plus=(
                     "[tool.pytest.ini_options]",
-                    "addopts = \"--deselect tests/test_calc.py::test_add -k 'not slow' --reruns 3\"",
+                    (
+                        'addopts = "--deselect tests/test_calc.py::test_add -k '
+                        "'not slow' --reruns 3\""
+                    ),
                 ),
             ),
             patch(
@@ -498,7 +508,8 @@ class Bar(unittest.TestCase):
 
 
 class BarRefusal(unittest.TestCase):
-    """`land.bar_refusal`: what the checks say of a bar lowered with no reason, on each track."""
+    """`land.bar_refusal`: what the checks say of a bar lowered with no reason, on
+    each track."""
 
     def test_the_fast_track_has_no_plan_and_names_the_standard_track(self) -> None:
         found = bar(patch("tests/test_old.py", plus=(f"@{SKIP}",), new=True), plan="")
@@ -542,7 +553,8 @@ def gate_end(
 
 
 class ChecksSay(unittest.TestCase):
-    """`land.checks_say`: the one line for the owner at each end of a run of the checks, with no question."""
+    """`land.checks_say`: the one line for the owner at each end of a run of the checks,
+    with no question."""
 
     def test_a_passed_run_names_the_review(self) -> None:
         self.assertEqual(
@@ -554,13 +566,19 @@ class ChecksSay(unittest.TestCase):
         for due in ("none", "owner"):
             self.assertEqual(
                 land.checks_say(SLUG, "passed", next_due=due),
-                f"{SLUG}: the checks passed; no review is due, so it is proposed, nothing for you",
+                (
+                    f"{SLUG}: the checks passed; no review is due, so it is proposed, "
+                    "nothing for you"
+                ),
             )
 
     def test_a_red_run_names_each_command_and_the_repair(self) -> None:
         self.assertEqual(
             land.checks_say(SLUG, "red", red=["bash tests/all.sh"]),
-            f"{SLUG}: the checks are red on bash tests/all.sh; a builder repairs it, nothing for you",
+            (
+                f"{SLUG}: the checks are red on bash tests/all.sh; "
+                "a builder repairs it, nothing for you"
+            ),
         )
         self.assertIn(
             "on ruff check . and pytest -q;",
@@ -573,7 +591,10 @@ class ChecksSay(unittest.TestCase):
         )
         self.assertEqual(
             said,
-            f"{SLUG}: the checks refused the change: a criterion's test does not hold; a builder repairs it, nothing for you",
+            (
+                f"{SLUG}: the checks refused the change: a criterion's test does not "
+                "hold; a builder repairs it, nothing for you"
+            ),
         )
 
     def test_a_stopped_run_waits_for_the_owner(self) -> None:
@@ -598,11 +619,13 @@ class ChecksSay(unittest.TestCase):
 
 
 class StaleBytecode(unittest.TestCase):
-    """`land.bytecode_of` and its parts: the ignored `__pycache__` folders the checks remove before their
-    first command, from git's list of what it ignores and the folders above that a rule ignores."""
+    """`land.bytecode_of` and its parts: the ignored `__pycache__` folders the checks
+    remove before their first command, from git's list of what it ignores and the
+    folders above that a rule ignores."""
 
-    # git's list in a worktree with the rules `__pycache__/`, `.env`, `.venv/` and `build/`, a force-added
-    # `build/.gitkeep`, and an untracked `shop/` that holds only its cache
+    # git's list in a worktree with the rules `__pycache__/`, `.env`, `.venv/` and
+    # `build/`, a force-added `build/.gitkeep`, and an untracked `shop/` that holds only
+    # its cache
     LISTED = [
         ".env",
         ".venv/",
@@ -682,7 +705,8 @@ class StaleBytecode(unittest.TestCase):
 
 
 class RemoveBytecode(unittest.TestCase):
-    """`land.remove_bytecode`: one folder goes whole; a link or what is no folder stays, and a link inside is not followed."""
+    """`land.remove_bytecode`: one folder goes whole; a link or what is no folder stays,
+    and a link inside is not followed."""
 
     def test_a_folder_goes_and_a_link_inside_it_is_not_followed(self) -> None:
         with tempfile.TemporaryDirectory() as made:
@@ -769,7 +793,8 @@ class Duration(unittest.TestCase):
 
 
 class LastRun(unittest.TestCase):
-    """`land.last_seconds`: the length of the checks' last finished run, from the event log."""
+    """`land.last_seconds`: the length of the checks' last finished run, from the
+    event log."""
 
     def test_the_newest_passed_end_of_any_task(self) -> None:
         events = [
@@ -795,7 +820,8 @@ class LastRun(unittest.TestCase):
 
 
 class Overdue(unittest.TestCase):
-    """`land.is_overdue` and `land.overdue_say`: checks that run more than three times as long as their last finished run."""
+    """`land.is_overdue` and `land.overdue_say`: checks that run more than three times
+    as long as their last finished run."""
 
     def test_more_than_three_times_is_overdue(self) -> None:
         # the last run of lem-landing-page's checks: 4 min 26 s (2026-11-19)
@@ -808,9 +834,10 @@ class Overdue(unittest.TestCase):
         self.assertFalse(land.is_overdue(None, 266))
 
     def test_a_short_last_run_is_no_measure_in_the_first_minute(self) -> None:
-        # the guards check's last run of `true` rounds to 0 s (hero-logo-animated-background, gate/01.log)
-        # or to 1 s under the load of tests/all.sh (load-gate-default-forty), and a slow run read at 3 s
-        # or 5 s was called overdue (2026-11-22)
+        # the guards check's last run of `true` rounds to 0 s
+        # (hero-logo-animated-background, gate/01.log) or to 1 s under the load of
+        # tests/all.sh (load-gate-default-forty), and a slow run read at 3 s or 5 s was
+        # called overdue (2026-11-22)
         for last in (0, 1, 2):
             self.assertFalse(land.is_overdue(3, last))
             self.assertFalse(land.is_overdue(5, last))
@@ -827,12 +854,16 @@ class Overdue(unittest.TestCase):
     def test_the_line_says_both_lengths_and_the_stop(self) -> None:
         self.assertEqual(
             land.overdue_say(SLUG, 840, 266),
-            f'{SLUG}: the checks run for 14 min, more than three times their last run of 4 min 26 s; "stop the checks" stops them',
+            (
+                f"{SLUG}: the checks run for 14 min, more than three times their last "
+                'run of 4 min 26 s; "stop the checks" stops them'
+            ),
         )
 
 
 class Resumed(unittest.TestCase):
-    """`land.resumed_line` and `land.ended_of`: what a session that did not start the run says of its end."""
+    """`land.resumed_line` and `land.ended_of`: what a session that did not start the
+    run says of its end."""
 
     def test_a_passed_end_is_past_and_the_landing_goes_on_from_its_first_step(
         self,
@@ -840,7 +871,10 @@ class Resumed(unittest.TestCase):
         said = land.resumed_line(SLUG, gate_end(SLUG, "passed", 266))
         self.assertEqual(
             said,
-            f"{SLUG}: its last run of the checks ended at 2026-11-19 10:22 UTC, passed; the landing goes on from its first step, as after a cut-off",
+            (
+                f"{SLUG}: its last run of the checks ended at 2026-11-19 10:22 UTC, "
+                "passed; the landing goes on from its first step, as after a cut-off"
+            ),
         )
         self.assertNotIn("the review runs", said)
 
@@ -868,7 +902,8 @@ class Resumed(unittest.TestCase):
 
 
 class HeldRefusal(unittest.TestCase):
-    """`land.held_refusal`: what a step of a task says when another step of it holds the task's step lock."""
+    """`land.held_refusal`: what a step of a task says when another step of it holds the
+    task's step lock."""
 
     HOLDER = {"step": "checks", "pid": 4242, "since": "2026-11-19T10:18:18Z"}
 
@@ -877,7 +912,10 @@ class HeldRefusal(unittest.TestCase):
     ) -> None:
         said = land.held_refusal(SLUG, "checks", self.HOLDER)
         self.assertIn(
-            f"the checks of {SLUG} already run (since 2026-11-19 10:18 UTC, in process 4242): a second run is refused",
+            (
+                f"the checks of {SLUG} already run (since 2026-11-19 10:18 UTC, in "
+                "process 4242): a second run is refused"
+            ),
             said,
         )
         self.assertIn(f"`lem land checks {SLUG} --status`", said)
@@ -902,8 +940,9 @@ if __name__ == "__main__":
 
 
 class WhoMerges(unittest.TestCase):
-    """Who may merge a proposed request: the merge agent only a green one that is not careful, with the
-    review's careful call and its own verdict to merge, where the settings let it; the owner always."""
+    """Who may merge a proposed request: the merge agent only a green one that is not
+    careful, with the review's careful call and its own verdict to merge, where the
+    settings let it; the owner always."""
 
     def refusal(
         self,
@@ -963,8 +1002,8 @@ class WhoMerges(unittest.TestCase):
 
 
 class MergeReview(unittest.TestCase):
-    """The merge agent's verdict is the first line of its review, and the task's time is measured
-    against the earlier tasks of its track in the event log."""
+    """The merge agent's verdict is the first line of its review, and the task's time is
+    measured against the earlier tasks of its track in the event log."""
 
     def test_the_verdict_is_the_first_line(self) -> None:
         self.assertEqual(
@@ -981,7 +1020,8 @@ class MergeReview(unittest.TestCase):
     def test_an_answer_with_no_verdict_on_a_base_that_did_not_move_calls_the_owner_the_second_time(
         self,
     ) -> None:
-        # the first is asked again, the second is a review that calls the owner, as an agent that gives no answer twice
+        # the first is asked again, the second is a review that calls the owner, as an
+        # agent that gives no answer twice
         self.assertEqual(
             land.unread_next(None, moved=False, base_call=None, tries=1), "again"
         )
@@ -1016,16 +1056,29 @@ class MergeReview(unittest.TestCase):
         self.assertIsNone(land.lower_verdict("Verdict: merge. Fine."))
         self.assertEqual(
             land.unread_why(land.lower_verdict(answer), None),
-            "the merge agent twice gave no verdict on its first line; its last answer puts another line above its verdict, `Verdict: merge.`",
+            (
+                "the merge agent twice gave no verdict on its first line; "
+                "its last answer puts another line above its verdict, `Verdict: merge.`"
+            ),
         )
         self.assertEqual(
             land.unread_why(None, None),
-            "the merge agent twice gave no verdict on its first line; its last answer gives no verdict at all",
+            (
+                "the merge agent twice gave no verdict on its first line; "
+                "its last answer gives no verdict at all"
+            ),
         )
-        careful = "a careful request is merged by the owner, whatever the settings say (its plan says careful: yes); it waits as `open` for his word"
+        careful = (
+            "a careful request is merged by the owner, whatever the settings say (its "
+            "plan says careful: yes); it waits as `open` for his word"
+        )
         self.assertEqual(
             land.unread_why("call", careful),
-            f"the merge agent twice gave no verdict on its first line; its last answer puts another line above its verdict, `Verdict: call.`; {careful}",
+            (
+                "the merge agent twice gave no verdict on its first line; "
+                "its last answer puts another line above its verdict, "
+                f"`Verdict: call.`; {careful}"
+            ),
         )
 
     def test_the_time_against_the_median_of_the_same_track(self) -> None:
@@ -1050,9 +1103,10 @@ class MergeReview(unittest.TestCase):
 
 
 class MergeSeat(unittest.TestCase):
-    """The seat kept with each brief of the merge agent (`merge_seats` of landing.json), from which the record of
-    its answer takes `by`: the seat that read, never a new read of the settings; and a task its merge agent's
-    seat blocked, whose pull request `lem land merged` still takes."""
+    """The seat kept with each brief of the merge agent (`merge_seats` of landing.json),
+    from which the record of its answer takes `by`: the seat that read, never a new read
+    of the settings; and a task its merge agent's seat blocked, whose pull request
+    `lem land merged` still takes."""
 
     CODEX = {
         "agent": "codex",
@@ -1081,7 +1135,8 @@ class MergeSeat(unittest.TestCase):
     def test_a_stand_in_on_the_same_tip_and_base_takes_the_failed_seats_place(
         self,
     ) -> None:
-        # merge-review, seat-failed SLUG merger, merge-review again: the same brief, and the stand-in reads it
+        # merge-review, seat-failed SLUG merger, merge-review again: the same brief, and
+        # the stand-in reads it
         kept = land.seats_kept(
             land.seats_kept(None, "aaa", "b1", self.CODEX), "aaa", "b1", self.STAND_IN
         )
@@ -1107,10 +1162,14 @@ class MergeSeat(unittest.TestCase):
     def test_a_stand_in_that_failed_after_its_line_has_one_line_that_says_so(
         self,
     ) -> None:
-        plain = "- the merge agent was `claude/opus:high` in place of `codex/gpt-6.2-sol:high`: Codex had no tokens"
+        plain = (
+            "- the merge agent was `claude/opus:high` in place of "
+            "`codex/gpt-6.2-sol:high`: Codex had no tokens"
+        )
         too = (
-            "- the merge agent was to be `claude/opus:high` in place of `codex/gpt-6.2-sol:high`: Codex had no tokens; "
-            "then Claude Code gave an error too: Claude Code had no login"
+            "- the merge agent was to be `claude/opus:high` in place of "
+            "`codex/gpt-6.2-sol:high`: Codex had no tokens; then Claude Code gave an "
+            "error too: Claude Code had no login"
         )
         body = f"## Checks\n\n- the checks ran\n\n{plain}\n"
         self.assertEqual(
@@ -1125,7 +1184,8 @@ class MergeSeat(unittest.TestCase):
         )
 
     def test_a_merge_on_github_after_the_stand_in_failed_notes_its_line(self) -> None:
-        # forge_done, the one step to `landed`, notes each stand-in of the merge agent, also with no read after the block
+        # forge_done, the one step to `landed`, notes each stand-in of the merge agent,
+        # also with no read after the block
         from unittest import mock
 
         events = [
@@ -1173,17 +1233,25 @@ class MergeSeat(unittest.TestCase):
             [
                 (
                     (
-                        "- the merge agent was to be `claude/opus:high` in place of `codex/gpt-6.2-sol:high`: Codex had no tokens; "
+                        "- the merge agent was to be `claude/opus:high` in place of "
+                        "`codex/gpt-6.2-sol:high`: Codex had no tokens; "
                         "then Claude Code gave an error too: Claude Code had no login"
                     ),
-                    "- the merge agent was `claude/opus:high` in place of `codex/gpt-6.2-sol:high`: Codex had no tokens",
+                    (
+                        "- the merge agent was `claude/opus:high` in place of "
+                        "`codex/gpt-6.2-sol:high`: Codex had no tokens"
+                    ),
                 )
             ],
         )
         task.state.assert_called_once()
 
     def test_a_task_its_merge_agent_blocked_keeps_its_pull_request(self) -> None:
-        block = "2026-11-23T10:00Z blocked: the merge agent `codex/gpt-6.2-sol:high` gave an error: no tokens, and this project permits no fallback\nthe seat that failed: merger"
+        block = (
+            "2026-11-23T10:00Z blocked: the merge agent `codex/gpt-6.2-sol:high` gave "
+            "an error: no tokens, and this project permits no fallback\n"
+            "the seat that failed: merger"
+        )
         self.assertTrue(land.merger_blocked({"status": "blocked", "state": block}))
         self.assertFalse(
             land.merger_blocked(
@@ -1202,8 +1270,9 @@ class MergeSeat(unittest.TestCase):
 
 
 class MergeBriefPictures(unittest.TestCase):
-    """`land.pictures_of`: the pictures of the task's `media/` folder that the merge brief names, each
-    a picture the board's media route shows, by its path from the task directory."""
+    """`land.pictures_of`: the pictures of the task's `media/` folder that the merge
+    brief names, each a picture the board's media route shows, by its path from the
+    task directory."""
 
     def setUp(self) -> None:
         folder = tempfile.TemporaryDirectory()
@@ -1249,7 +1318,8 @@ class MergeBriefPictures(unittest.TestCase):
 
 
 class MergeBriefTry(unittest.TestCase):
-    """`land.try_of`: the two ways the owner gets the branch, which a review that calls him ends with."""
+    """`land.try_of`: the two ways the owner gets the branch, which a review that calls
+    him ends with."""
 
     PR = {"number": 41, "url": "https://github.com/example/shop/pull/41"}
 
@@ -1271,8 +1341,9 @@ class MergeBriefTry(unittest.TestCase):
 
 
 class MovedBase(unittest.TestCase):
-    """A merge that the moved base refused: which refusals are kept for the tip, when what was said of
-    the tip at the merge holds for the tip of the new landing, and when the owner's merge stands."""
+    """A merge that the moved base refused: which refusals are kept for the tip, when
+    what was said of the tip at the merge holds for the tip of the new landing, and when
+    the owner's merge stands."""
 
     def test_only_a_rule_of_lem_is_kept_for_the_tip(self) -> None:
         self.assertTrue(
@@ -1303,7 +1374,8 @@ class MovedBase(unittest.TestCase):
             ),
             ("rebase", None),
         )
-        # a commit after the rebase, a tip no record names, or a first proposal carry nothing
+        # a commit after the rebase, a tip no record names, or a first proposal
+        # carry nothing
         self.assertEqual(
             land.tip_carry({"proposed": "aaa", "rebase_carried": rebased}, "ccc", []),
             (None, "a commit came after the rebase"),
@@ -1349,7 +1421,8 @@ class MovedBase(unittest.TestCase):
             None,
         )
 
-    # the reviews that answered, as `cmd_base` reads them: round 1 of a change whose patch is p1
+    # the reviews that answered, as `cmd_base` reads them: round 1 of a change whose
+    # patch is p1
     READ = {
         "answered": ["codex"],
         "round": 1,
@@ -1369,7 +1442,8 @@ class MovedBase(unittest.TestCase):
     def assert_why(self, answered: list[dict], now: dict, expected: str | None) -> None:
         why = land.why_uncovered(answered, "docs/backlog", now)
         self.assertEqual(why, expected)
-        # the reason is None exactly when the rule of `cmd_base` says that a review covers the change
+        # the reason is None exactly when the rule of `cmd_base` says that a review
+        # covers the change
         held = (
             bool(answered)
             and not answered[-1]["must_fix"]
@@ -1387,7 +1461,8 @@ class MovedBase(unittest.TestCase):
             },
         }
         self.assert_why([], self.NOW, "no review answered for the change")
-        # round 2, at the tip it read, left 1 must-fix; a builder fixed it and no review read the fix
+        # round 2, at the tip it read, left 1 must-fix; a builder fixed it and no review
+        # read the fix
         self.assert_why(
             [self.READ, {**self.READ, "round": 2, "must_fix": 1}],
             fixed,
@@ -1407,7 +1482,8 @@ class MovedBase(unittest.TestCase):
         }
         open_one = {**self.READ, "round": 2, "must_fix": 1}
         self.assertTrue(land.review_carries([self.READ], "docs/backlog", self.NOW))
-        # round 2 left 1 must-fix at the tip it read, and nothing came after it: the review carries, its must-fix too
+        # round 2 left 1 must-fix at the tip it read, and nothing came after it: the
+        # review carries, its must-fix too
         self.assertTrue(
             land.review_carries([self.READ, open_one], "docs/backlog", self.NOW)
         )
@@ -1435,7 +1511,8 @@ class MovedBase(unittest.TestCase):
         self.assertFalse(
             land.review_carries([self.READ, open_one], "docs/backlog", fixed)
         )
-        # an earlier review that covers the change carries nothing when a newer one does not
+        # an earlier review that covers the change carries nothing when a newer one
+        # does not
         self.assertFalse(
             land.review_carries(
                 [self.READ, {**self.READ, "round": 2, "patch": "p0", "contents": None}],
@@ -1445,7 +1522,8 @@ class MovedBase(unittest.TestCase):
         )
 
     def test_a_covered_change_with_an_open_must_fix_keeps_its_reason(self) -> None:
-        # the review carries over a clean rebase, and a conflict on it still keeps why no review covers it with nothing to fix
+        # the review carries over a clean rebase, and a conflict on it still keeps why
+        # no review covers it with nothing to fix
         open_one = {**self.READ, "round": 2, "must_fix": 1}
         self.assertTrue(
             land.review_carries([self.READ, open_one], "docs/backlog", self.NOW)
@@ -1483,7 +1561,10 @@ class MovedBase(unittest.TestCase):
         ended = land.moved_carry(kept, "bbb", [], ["two rounds reviewed it"])
         self.assertEqual(
             ended["owner_why"],
-            "no review covers the change: round 2 left 1 must-fix, and no review read the change after it",
+            (
+                "no review covers the change: round 2 left 1 must-fix, and no review "
+                "read the change after it"
+            ),
         )
         self.assertNotIn("conflict", ended["owner_why"])
         # a commit after that rebase is a cause of its own
@@ -1492,8 +1573,9 @@ class MovedBase(unittest.TestCase):
             "a commit came after the rebase",
         )
 
-    # A proposal of aaa with the merge agent's verdict and the owner's merge, a conflict, and a builder's
-    # resolution from aaa to bbb whose read is attempt 3; round 1 read the change, careful false.
+    # A proposal of aaa with the merge agent's verdict and the owner's merge, a
+    # conflict, and a builder's resolution from aaa to bbb whose read is attempt 3;
+    # round 1 read the change, careful false.
     ROUND = {
         "attempt": 1,
         "round": 1,
@@ -1563,7 +1645,10 @@ class MovedBase(unittest.TestCase):
         self.assertEqual(carry["review"], "one read of the resolution")
         self.assertEqual(
             land.merge_line(carry),
-            "the merge review carried over the resolved conflict: the resolution read found nothing",
+            (
+                "the merge review carried over the resolved conflict: "
+                "the resolution read found nothing"
+            ),
         )
 
     def test_a_read_of_a_resolution_with_a_finding_carries_nothing(self) -> None:
@@ -1584,9 +1669,13 @@ class MovedBase(unittest.TestCase):
             self.assertEqual(carry["owner_why"], carry["merge_why"])
             self.assertEqual(
                 land.merge_line(carry),
-                f"a fresh merge agent reads it: {met} the read of its resolution found {said}",
+                (
+                    f"a fresh merge agent reads it: {met} the read of its "
+                    f"resolution found {said}"
+                ),
             )
-        # the fix of a must-fix is a commit after the resolution; the read's counts stay the reason
+        # the fix of a must-fix is a commit after the resolution; the read's counts stay
+        # the reason
         fixed = land.moved_carry(
             {**self.RESOLVED, "reads": [self.ROUND, {**self.SOLVED, "must_fix": 1}]},
             "ccc",
@@ -1633,7 +1722,8 @@ class MovedBase(unittest.TestCase):
     def test_a_rounds_careful_call_holds_against_a_resolution_read_that_makes_none(
         self,
     ) -> None:
-        # round 1 called it careful; the read of the resolution said it is not, so `careful` now gives no reason
+        # round 1 called it careful; the read of the resolution said it is not, so
+        # `careful` now gives no reason
         called = {
             **self.ROUND,
             "kind": "full",
@@ -1643,7 +1733,10 @@ class MovedBase(unittest.TestCase):
         carry = self.resolved(reads=[called, self.SOLVED])
         self.assertEqual(
             carry["merge_why"],
-            "the rebase met a conflict, and the request is careful: the review says so: it reaches the topic of payments",
+            (
+                "the rebase met a conflict, and the request is careful: "
+                "the review says so: it reaches the topic of payments"
+            ),
         )
         self.assertFalse(carry["merge_review"])
 
@@ -1661,7 +1754,8 @@ class MovedBase(unittest.TestCase):
     def test_the_items_filed_after_a_clean_read_of_the_resolution_keep_its_carry(
         self,
     ) -> None:
-        # the read of the resolution found nothing in the change and saw one defect outside it, which `file` commits on top
+        # the read of the resolution found nothing in the change and saw one defect
+        # outside it, which `file` commits on top
         seen = {
             **self.SOLVED,
             "outside": [
@@ -1678,7 +1772,8 @@ class MovedBase(unittest.TestCase):
             (carry["how"], carry["merge_review"], carry["owner_merge"]),
             ("resolution", True, "stands"),
         )
-        # the tip a rebase with no conflict made, carried or not, moves the same way; a record of another tip stays
+        # the tip a rebase with no conflict made, carried or not, moves the same way; a
+        # record of another tip stays
         rebased = {
             "proposed": "aaa",
             "rebase_carried": {"from": "aaa", "to": "bbb"},
@@ -1708,7 +1803,10 @@ class MovedBase(unittest.TestCase):
                 (carry["how"], carry["merge_why"]),
                 (
                     None,
-                    "the rebase met a conflict, and the base moved again after its resolution",
+                    (
+                        "the rebase met a conflict, and the base moved "
+                        "again after its resolution"
+                    ),
                 ),
             )
 
@@ -1736,7 +1834,10 @@ class MovedBase(unittest.TestCase):
         )
         self.assertEqual(
             carry["merge_why"],
-            "the rebase met a conflict, and no review covers the change: round 2 left 1 must-fix, and no review read the change after it",
+            (
+                "the rebase met a conflict, and no review covers the change: "
+                "round 2 left 1 must-fix, and no review read the change after it"
+            ),
         )
 
     def test_a_carrying_tip_with_no_merge_review_on_record_starts_the_first_one(
@@ -1760,16 +1861,23 @@ class MovedBase(unittest.TestCase):
             self.assertEqual(carry["owner_merge"], "stands")
             self.assertEqual(
                 land.merge_line(carry),
-                "a fresh merge agent reads it: no merge review of the earlier tip was on record",
+                (
+                    "a fresh merge agent reads it: no merge review of the "
+                    "earlier tip was on record"
+                ),
             )
 
     def test_a_carrying_tip_whose_reasons_for_not_green_changed_words_ends_only_the_owners_merge(
         self,
     ) -> None:
-        # the read of the resolution words a lowered bar in its own words, so the reasons are not the ones he saw
+        # the read of the resolution words a lowered bar in its own words, so the
+        # reasons are not the ones he saw
         carry = self.resolved(
             reasons=(
-                "the bar is lower in tests/a.py: the read says the builder's reason holds",
+                (
+                    "the bar is lower in tests/a.py: the read says the "
+                    "builder's reason holds"
+                ),
             )
         )
         self.assertEqual(
@@ -1778,7 +1886,10 @@ class MovedBase(unittest.TestCase):
         )
         self.assertEqual(
             carry["owner_why"],
-            "the reasons the request is not green are not the ones the owner saw when he merged it",
+            (
+                "the reasons the request is not green are not the ones the "
+                "owner saw when he merged it"
+            ),
         )
 
     def test_the_line_of_a_moved_base_says_what_carried(self) -> None:
@@ -1792,14 +1903,22 @@ class MovedBase(unittest.TestCase):
         }
         self.assertEqual(
             land.sync_line({**sync, "carry": self.resolved()}, "main"),
-            "rebased on main after the forge called it conflicting; one conflict in shop.txt, resolved by a builder; one read of the resolution; "
-            "the merge review carried over the resolved conflict: the resolution read found nothing; the checks passed again",
+            (
+                "rebased on main after the forge called it conflicting; "
+                "one conflict in shop.txt, resolved by a builder; one read of the "
+                "resolution; the merge review carried over the resolved conflict: "
+                "the resolution read found nothing; the checks passed again"
+            ),
         )
         careful = self.resolved(why_careful=("the owner says so",))
         self.assertEqual(
             land.sync_line({**sync, "carry": careful}, "main"),
-            "rebased on main after the forge called it conflicting; one conflict in shop.txt, resolved by a builder; one read of the resolution; "
-            "a fresh merge agent reads it: the rebase met a conflict, and the request is careful: the owner says so; the checks passed again",
+            (
+                "rebased on main after the forge called it conflicting; "
+                "one conflict in shop.txt, resolved by a builder; one read of the "
+                "resolution; a fresh merge agent reads it: the rebase met a conflict, "
+                "and the request is careful: the owner says so; the checks passed again"
+            ),
         )
         rebased = land.moved_carry(
             {
@@ -1822,12 +1941,17 @@ class MovedBase(unittest.TestCase):
                 },
                 "main",
             ),
-            "rebased on main; the review carried over the rebase, and its open must-fix; the merge review carried over the rebase; the checks passed again",
+            (
+                "rebased on main; the review carried over the rebase, and its open "
+                "must-fix; the merge review carried over the rebase; "
+                "the checks passed again"
+            ),
         )
 
 
 class TaskFile(unittest.TestCase):
-    """A file a step names: from the working directory, else by its path inside the task directory."""
+    """A file a step names: from the working directory, else by its path inside the
+    task directory."""
 
     def setUp(self) -> None:
         folder = tempfile.TemporaryDirectory()
@@ -1877,8 +2001,9 @@ class TaskFile(unittest.TestCase):
 
 
 class EventLog(unittest.TestCase):
-    """Each reader of the repository's event log, with an event whose words hold the characters that
-    str.splitlines breaks at and json.dumps(ensure_ascii=False) keeps."""
+    """Each reader of the repository's event log, with an event whose words hold the
+    characters that str.splitlines breaks at and json.dumps(ensure_ascii=False)
+    keeps."""
 
     WORDS = "a\u2028b\u2029c\x85d"
 
@@ -1933,8 +2058,8 @@ class EventLog(unittest.TestCase):
 
 
 class ResumedRead(unittest.TestCase):
-    """A read a resumed task copied from the task it came from is compared with his approval by the
-    time it had there (`was_at`), not by the time of the copy."""
+    """A read a resumed task copied from the task it came from is compared with his
+    approval by the time it had there (`was_at`), not by the time of the copy."""
 
     APPROVED = {
         "approvals": [
@@ -1965,9 +2090,9 @@ class ResumedRead(unittest.TestCase):
 
 
 class InterviewApproved(unittest.TestCase):
-    """`land.interview_unapproved`: a task that had an interview is proposed only over criteria the
-    owner approved, or that were approved while it ran without him; a complete request (no interview)
-    and the fast track ask nothing of it."""
+    """`land.interview_unapproved`: a task that had an interview is proposed only over
+    criteria the owner approved, or that were approved while it ran without him; a
+    complete request (no interview) and the fast track ask nothing of it."""
 
     INTERVIEW = [
         {"event": "interview.start", "task": "gift-note"},
@@ -2003,8 +2128,9 @@ class InterviewApproved(unittest.TestCase):
 
 
 class FailedAttempt(unittest.TestCase):
-    """`land.failed_attempt`: the record of a review that got no answer at all, which counts as an
-    attempt with no careful call: nobody answered, a reason for each silent source, no finding."""
+    """`land.failed_attempt`: the record of a review that got no answer at all, which
+    counts as an attempt with no careful call: nobody answered, a reason for each silent
+    source, no finding."""
 
     DIED = {
         "attempt": 1,
@@ -2039,8 +2165,9 @@ class FailedAttempt(unittest.TestCase):
 
 
 class ReadOfATip(unittest.TestCase):
-    """A review's record and a merge agent's answer are of the tip their brief named: the record names
-    it and one of another tip is refused, and each proposed tip has an answer file of its own."""
+    """A review's record and a merge agent's answer are of the tip their brief named:
+    the record names it and one of another tip is refused, and each proposed tip has an
+    answer file of its own."""
 
     def test_the_record_of_the_tip_now(self) -> None:
         self.assertIsNone(land.record_tip_refusal("a" * 40, "a" * 40, "gift-note"))
@@ -2048,7 +2175,10 @@ class ReadOfATip(unittest.TestCase):
     def test_the_record_of_an_earlier_tip_is_refused(self) -> None:
         said = land.record_tip_refusal("a" * 40, "b" * 40, "gift-note")
         self.assertIn(
-            f"the record is of the review of {'a' * 12}, and the branch is at {'b' * 12} now",
+            (
+                f"the record is of the review of {'a' * 12}, "
+                f"and the branch is at {'b' * 12} now"
+            ),
             said,
         )
         self.assertIn("`lem land read gift-note`", said)
@@ -2079,7 +2209,8 @@ class ReadOfATip(unittest.TestCase):
             land.answer_file(task, "a" * 40, "c" * 40),
             land.answer_file(task, "b" * 40, "c" * 40),
         )
-        # a brief for a later base never takes the place of the brief an agent was started with
+        # a brief for a later base never takes the place of the brief an agent was
+        # started with
         self.assertNotEqual(
             land.brief_file(task, "a" * 40, "c" * 40),
             land.brief_file(task, "a" * 40, "d" * 40),
@@ -2087,7 +2218,8 @@ class ReadOfATip(unittest.TestCase):
 
 
 class ExpectedTip(unittest.TestCase):
-    """`land.expected_refusal`: a merge given the tip its caller saw (`--tip`) merges that proposal only."""
+    """`land.expected_refusal`: a merge given the tip its caller saw (`--tip`) merges
+    that proposal only."""
 
     def test_the_tip_that_was_proposed(self) -> None:
         self.assertIsNone(land.expected_refusal("a" * 40, "a" * 40, "gift-note"))
@@ -2111,8 +2243,9 @@ class ExpectedTip(unittest.TestCase):
 
 
 class ForgeBase(unittest.TestCase):
-    """`land.base_refusal`: a pull request whose base on GitHub is not the task's base is neither merged
-    nor recorded as landed, and the refusal names the branch GitHub has."""
+    """`land.base_refusal`: a pull request whose base on GitHub is not the task's base
+    is neither merged nor recorded as landed, and the refusal names the branch
+    GitHub has."""
 
     VIEW = {"state": "OPEN", "baseRefName": "main", "headRefOid": "a" * 40}
 
@@ -2146,8 +2279,9 @@ class ForgeBase(unittest.TestCase):
 
 
 class ProtectedBranch(unittest.TestCase):
-    """`land.protected_refusal`: the name of the branch Lem pushes or deletes, checked against the
-    settings where it does so: the base and each protected branch are refused, with the way out."""
+    """`land.protected_refusal`: the name of the branch Lem pushes or deletes, checked
+    against the settings where it does so: the base and each protected branch are
+    refused, with the way out."""
 
     BRANCH = {"base": "main", "protected": ["release", "fix/gift-note"]}
 
@@ -2167,14 +2301,16 @@ class ProtectedBranch(unittest.TestCase):
 
 
 class FirstDiffer(unittest.TestCase):
-    """`land.first_differ`: the trees of a replay of the merged head's commits and the trees of the
-    branch's own commits, pair by pair: the place of the first pair that differs, or None."""
+    """`land.first_differ`: the trees of a replay of the merged head's commits and the
+    trees of the branch's own commits, pair by pair: the place of the first pair that
+    differs, or None."""
 
     def test_the_same_trees_name_no_commit(self) -> None:
         self.assertIsNone(land.first_differ(["a1", "b2", "c3"], ["a1", "b2", "c3"]))
 
     def test_the_first_pair_that_differs(self) -> None:
-        # the third commit changed, and the trees after it differ too: the third is named
+        # the third commit changed, and the trees after it differ too: the third
+        # is named
         self.assertEqual(
             land.first_differ(["a1", "b2", "c3", "d4"], ["a1", "b2", "c9", "d9"]), 2
         )
@@ -2182,8 +2318,9 @@ class FirstDiffer(unittest.TestCase):
 
 
 class SameChecks(unittest.TestCase):
-    """`land.same_checks`: a green result holds only for the commands that ran, in their order and with
-    their serial flags; a command added, removed, moved to `serial` or none at all asks for the checks."""
+    """`land.same_checks`: a green result holds only for the commands that ran, in their
+    order and with their serial flags; a command added, removed, moved to `serial` or
+    none at all asks for the checks."""
 
     SAVED = [
         {"command": "python3 -m unittest", "exit": 0},
@@ -2215,9 +2352,10 @@ class SameChecks(unittest.TestCase):
 
 
 class TakenFromPolish(unittest.TestCase):
-    """`land.taken_from_polish`: the checks take the polish pass's result of the criteria's tests only
-    when the pass committed anything, on the standard track, and the five inputs its run reported are
-    the ones `lem criteria inputs` gives now; in every other case they run the tests themselves."""
+    """`land.taken_from_polish`: the checks take the polish pass's result of the
+    criteria's tests only when the pass committed anything, on the standard track, and
+    the five inputs its run reported are the ones `lem criteria inputs` gives now; in
+    every other case they run the tests themselves."""
 
     TIP, BASE, PLAN = (
         "a1b2c3d" + "0" * 33,
@@ -2275,7 +2413,8 @@ class TakenFromPolish(unittest.TestCase):
     def test_a_base_branch_that_moved_on_with_the_same_merge_base_changes_nothing(
         self,
     ) -> None:
-        # origin's base took commits of its own: the merge-base of the tip and it is still the base commit of both runs
+        # origin's base took commits of its own: the merge-base of the tip and it is
+        # still the base commit of both runs
         self.assertEqual(
             cast("dict", self.taken(base=self.BASE))["taken"],
             {"from": "polish", "at": self.TIP},
@@ -2297,7 +2436,8 @@ class TakenFromPolish(unittest.TestCase):
 
     def test_a_rebased_tip_runs_the_tests_though_after_has_its_new_name(self) -> None:
         rebased = "f0" * 20
-        # `through_rebase` gives `after` the rebased commit's name; the run still names the tip it ran on
+        # `through_rebase` gives `after` the rebased commit's name; the run still names
+        # the tip it ran on
         self.assertIsNone(
             self.taken({**self.POLISH, "after": rebased}, tip=rebased, base="d0" * 20)
         )
@@ -2315,7 +2455,8 @@ class TakenFromPolish(unittest.TestCase):
         )
 
     def test_a_merge_base_that_moved_under_the_same_tip_runs_the_tests(self) -> None:
-        # the base branch took in a commit of the branch: the same tip has another base commit
+        # the base branch took in a commit of the branch: the same tip has another
+        # base commit
         self.assertIsNone(self.taken(base="d0" * 20))
 
     def test_another_plan_file_runs_the_tests(self) -> None:
@@ -2350,20 +2491,22 @@ TIP = "a" * 40
 
 
 class ReadOfAMovedBase(unittest.TestCase):
-    """A base that moved after the checks: what the merge agent's brief says moved, its call on the move
-    as its answer's second line, which base a read covers, what a safe read answers, the line of the
-    merge, and what `propose` carries onto a new tip."""
+    """A base that moved after the checks: what the merge agent's brief says moved, its
+    call on the move as its answer's second line, which base a read covers, what a safe
+    read answers, the line of the merge, and what `propose` carries onto a new tip."""
 
     def test_the_base_call_is_the_second_line(self) -> None:
         self.assertEqual(
             land.base_call_of(
-                "Verdict: merge. Fine.\nBase: safe. B changed only docs/board.md.\n\nMore."
+                "Verdict: merge. Fine.\nBase: safe. B changed only "
+                "docs/board.md.\n\nMore."
             ),
             ("safe", "B changed only docs/board.md."),
         )
         self.assertEqual(
             land.base_call_of(
-                "**Verdict: call.** Careful.\n**Base: another round.** B renamed `total`, which the change calls."
+                "**Verdict: call.** Careful.\n**Base: another round.** B renamed "
+                "`total`, which the change calls."
             ),
             ("another round", "B renamed `total`, which the change calls."),
         )
@@ -2390,7 +2533,8 @@ class ReadOfAMovedBase(unittest.TestCase):
         self,
     ) -> None:
         safe = ("safe", "B changed only docs/board.md.")
-        # no verdict on its first line, with a base call or none: asked again, then another round, never the owner
+        # no verdict on its first line, with a base call or none: asked again, then
+        # another round, never the owner
         self.assertEqual(
             land.unread_next(None, moved=True, base_call=safe, tries=1), "again"
         )
@@ -2493,8 +2637,9 @@ class ReadOfAMovedBase(unittest.TestCase):
         self.assertFalse(land.refusal_answered(None, TIP))
 
     def test_a_read_on_the_checks_base_answers_lems_base_refusal_too(self) -> None:
-        # main moved, the merge was refused, then a revert gave main the checks' tree again: the brief named
-        # the checks' own base, its read has no call on a move, and it answers the refusal as a safe read does
+        # main moved, the merge was refused, then a revert gave main the checks' tree
+        # again: the brief named the checks' own base, its read has no call on a move,
+        # and it answers the refusal as a safe read does
         base = {"tip": TIP, "by": "merger", "from": "lem", "kind": "base"}
         self.assertTrue(land.read_answers(base, TIP, None, on_checks_base=True))
         self.assertTrue(land.read_answers(base, TIP, "safe", on_checks_base=False))
@@ -2518,13 +2663,20 @@ class ReadOfAMovedBase(unittest.TestCase):
         line = land.base_line("main", M1, M2, "B changed only docs/board.md.")
         self.assertEqual(
             line,
-            f"The checks ran on main at {M1[:9]}; it merged on main at {M2[:9]}, after the merge agent's read of what moved: B changed only docs/board.md.",
+            (
+                f"The checks ran on main at {M1[:9]}; it merged on main at {M2[:9]}, "
+                "after the merge agent's read of what moved: "
+                "B changed only docs/board.md."
+            ),
         )
 
     def test_a_base_no_read_covered_is_named(self) -> None:
         line = land.uncovered_line("main", M1, M3, M2)
         self.assertIn(
-            f"it merged on main at {M3[:9]}, which no read of the merge agent covered (its read covered {M2[:9]})",
+            (
+                f"it merged on main at {M3[:9]}, which no read of the merge agent "
+                f"covered (its read covered {M2[:9]})"
+            ),
             line,
         )
         self.assertIn(f"The checks ran on main at {M1[:9]}", line)
@@ -2556,7 +2708,10 @@ class ReadOfAMovedBase(unittest.TestCase):
         )
         self.assertIn("(docs/board.md, a, b, c, d, ...)", later)
         self.assertIn(
-            "the owner's merge stands, and goes through after a read that says `Base: safe.`",
+            (
+                "the owner's merge stands, and goes through after a read "
+                "that says `Base: safe.`"
+            ),
             later,
         )
         again = land.moved_refusal(
@@ -2593,7 +2748,8 @@ class ReadOfAMovedBase(unittest.TestCase):
 
 
 class BarFile(unittest.TestCase):
-    """`land.bar_file`: the merge brief names the rule 6 the project's builders read, as `spawn-builder` picks the builder."""
+    """`land.bar_file`: the merge brief names the rule 6 the project's builders read, as
+    `spawn-builder` picks the builder."""
 
     def test_lem_s_own_by_its_place_in_the_plugin_when_the_project_has_none(
         self,
@@ -2632,7 +2788,8 @@ def at(clock: str) -> float:
 
 
 def repository(parent: Path, name: str) -> Path:
-    """A throwaway repository: its state folder is where `project.py` finds it, under its main checkout."""
+    """A throwaway repository: its state folder is where `project.py` finds it, under
+    its main checkout."""
     path = parent / name
     path.mkdir()
     subprocess.run(["git", "init", "-q", str(path)], check=True)
@@ -2640,7 +2797,8 @@ def repository(parent: Path, name: str) -> Path:
 
 
 def block(repo: Path, slug: str, *texts: str) -> None:
-    """The task SLUG's state.md in REPO, its blocks newest first, each `STATUS: LINE` with its other lines."""
+    """The task SLUG's state.md in REPO, its blocks newest first, each `STATUS: LINE`
+    with its other lines."""
     stamp = "2026-11-23T12:05Z"
     file = repo / ".lem" / "state" / "tasks" / slug / "state.md"
     file.parent.mkdir(parents=True, exist_ok=True)
@@ -2650,9 +2808,10 @@ def block(repo: Path, slug: str, *texts: str) -> None:
 
 
 class LineCase(unittest.TestCase):
-    """The looks of runs that wait, played on one line in a home folder of their own, with the clock
-    and the load as each case gives them. Each run is an entry with a process id of its own, held
-    by an open file of this process, as its own process holds it."""
+    """The looks of runs that wait, played on one line in a home folder of their own,
+    with the clock and the load as each case gives them. Each run is an entry with a
+    process id of its own, held by an open file of this process, as its own process
+    holds it."""
 
     def setUp(self) -> None:
         folder = tempfile.TemporaryDirectory()
@@ -2684,8 +2843,8 @@ class LineCase(unittest.TestCase):
 
 
 class TheLongestWaitStartsFirst(LineCase):
-    """Criterion 1: when the load falls below the number, the landing that waits longest starts its
-    checks first, whichever landing looks at the load first."""
+    """Criterion 1: when the load falls below the number, the landing that waits longest
+    starts its checks first, whichever landing looks at the load first."""
 
     def test_the_order_puts_the_wait_that_began_first_first(self) -> None:
         line = [
@@ -2704,7 +2863,8 @@ class TheLongestWaitStartsFirst(LineCase):
     def test_the_run_that_looks_first_waits_behind_the_longer_wait(self) -> None:
         first = self.join(LEM_TASK, "12:01")
         talk = self.join(TALK_TASK, "12:17")
-        # 12:19, the load at 30 under the number 40: the plan talk's task looks first, and waits on
+        # 12:19, the load at 30 under the number 40: the plan talk's task looks first,
+        # and waits on
         look = self.look(talk, "12:19")
         self.assertEqual(
             (
@@ -2717,12 +2877,14 @@ class TheLongestWaitStartsFirst(LineCase):
             (False, "behind", LEM_TASK, None, "longer"),
         )
         self.assertEqual(self.names(), ["90001.json", "90002.json"])
-        # the longest wait starts at its own look, writes the last start and leaves the line
+        # the longest wait starts at its own look, writes the last start and leaves
+        # the line
         self.assertTrue(self.look(first, "12:19")["go"])
         self.lock.seek(0)
         self.assertEqual(json.loads(self.lock.read())["task"], LEM_TASK)
         self.assertEqual(self.names(), ["90002.json"])
-        # a minute later, with the load still under the number, the plan talk's task starts
+        # a minute later, with the load still under the number, the plan talk's
+        # task starts
         self.assertEqual(self.look(talk, "12:19")["reason"], "after")
         self.assertTrue(self.look(talk, "12:20")["go"])
         self.assertEqual(self.names(), [])
@@ -2746,9 +2908,9 @@ class OneLineForTheMachine(LineCase):
 
 
 class WantedGoesFirst(LineCase):
-    """Criterion 3: a landing that another open task of its repository waits for, by the `after:` line
-    of a queued task or of a task blocked by a red base, goes before the longest wait; of two such
-    landings the one that waits longest goes first."""
+    """Criterion 3: a landing that another open task of its repository waits for, by the
+    `after:` line of a queued task or of a task blocked by a red base, goes before the
+    longest wait; of two such landings the one that waits longest goes first."""
 
     def test_the_order_puts_a_wanted_landing_before_a_longer_wait(self) -> None:
         line = [
@@ -2789,7 +2951,8 @@ class WantedGoesFirst(LineCase):
             "board-filters",
             "queued: waits for one task to land\nafter: fix-flaky-test",
         )
-        # blocked for another reason, and an `after:` line in an older block only: no wait for a landing
+        # blocked for another reason, and an `after:` line in an older block only: no
+        # wait for a landing
         block(
             self.lem,
             "two-builders-failed",
@@ -2852,7 +3015,10 @@ class WantedGoesFirst(LineCase):
             ("fix-red-base", "longer", [str(gone)]),
         )
         self.assertIn(
-            "the state of moved-away does not read, so its landings count as wanted by no task",
+            (
+                "the state of moved-away does not read, so its landings "
+                "count as wanted by no task"
+            ),
             land.wait_say(
                 "keys-help-in-a-sticky-footer",
                 30,
@@ -2873,7 +3039,8 @@ class WantedGoesFirst(LineCase):
 
 
 class ASecondWaitCountsFromItsStart(LineCase):
-    """Criterion 4: a landing that waits a second time, after a repair, counts its wait from the start of that second wait."""
+    """Criterion 4: a landing that waits a second time, after a repair, counts its wait
+    from the start of that second wait."""
 
     def test_the_second_wait_goes_after_a_wait_that_began_before_it(self) -> None:
         keys = self.join("keys-help-in-a-sticky-footer", "11:58")
@@ -2889,8 +3056,8 @@ class ASecondWaitCountsFromItsStart(LineCase):
 
 
 class TheLoadStillDecides(LineCase):
-    """Criterion 5: while the load is above the number no landing starts, also the first in the line,
-    and the next start comes a minute after the one before."""
+    """Criterion 5: while the load is above the number no landing starts, also the first
+    in the line, and the next start comes a minute after the one before."""
 
     def test_the_first_in_the_line_does_not_start_while_the_load_is_above_the_number(
         self,
@@ -2899,7 +3066,8 @@ class TheLoadStillDecides(LineCase):
         talk = self.join(TALK_TASK, "12:17")
         self.assertEqual(self.look(first, "12:18", load=45)["reason"], "load")
         self.assertEqual(self.look(first, "12:18", load=40)["reason"], "load")
-        # the run behind says where it stands in the line, also while the load is above the number
+        # the run behind says where it stands in the line, also while the load is above
+        # the number
         self.assertEqual(self.look(talk, "12:18", load=45)["reason"], "behind")
         self.assertEqual(self.names(), ["90001.json", "90002.json"])
 
@@ -2934,14 +3102,16 @@ class TheLoadStillDecides(LineCase):
 
 
 class AGoneRunLosesItsPlace(LineCase):
-    """Criterion 6: a landing whose checks process is gone loses its place, and the next one starts at
-    its own next look; one whose process still runs keeps its place, whatever became of its session."""
+    """Criterion 6: a landing whose checks process is gone loses its place, and the next
+    one starts at its own next look; one whose process still runs keeps its place,
+    whatever became of its session."""
 
     HOLD = (
         "import fcntl, json, sys\n"
         "handle = open(sys.argv[1], 'a+')\n"
         "fcntl.flock(handle, fcntl.LOCK_EX)\n"
-        "handle.write(json.dumps({'pid': 1, 'task': 'fix-red-base', 'repo': sys.argv[2], 'since': float(sys.argv[3])}) + '\\n')\n"
+        "handle.write(json.dumps({'pid': 1, 'task': 'fix-red-base', 'repo': "
+        "sys.argv[2], 'since': float(sys.argv[3])}) + '\\n')\n"
         "handle.flush()\n"
         "print('held', flush=True)\n"
         "sys.stdin.read()\n"
@@ -2999,8 +3169,9 @@ class AGoneRunLosesItsPlace(LineCase):
 
 
 class TheWait(LineCase):
-    """`land.wait_for_load` as a whole, with the load, the clock's sleep and the event log stood in
-    for: what it logs while it waits behind another run, and what a stop leaves."""
+    """`land.wait_for_load` as a whole, with the load, the clock's sleep and the event
+    log stood in for: what it logs while it waits behind another run, and what a
+    stop leaves."""
 
     def run_wait(
         self,
@@ -3040,7 +3211,10 @@ class TheWait(LineCase):
         self.assertIn("why=longer", fields)
         self.assertFalse(any(field.startswith("behind_repo=") for field in fields))
         self.assertIn(
-            f"say={TALK_TASK}: the checks wait behind {LEM_TASK}, which waits longer; they start below 40",
+            (
+                f"say={TALK_TASK}: the checks wait behind {LEM_TASK}, which waits "
+                "longer; they start below 40"
+            ),
             fields,
         )
         # it left the line at its start
@@ -3088,8 +3262,8 @@ class TheWait(LineCase):
 
 
 class WaitsBehindSays(unittest.TestCase):
-    """Criterion 7, the half of `lem land checks --status`: a run that waits behind another says
-    behind which, and why, in its line and in the `waits` of `--status`."""
+    """Criterion 7, the half of `lem land checks --status`: a run that waits behind
+    another says behind which, and why, in its line and in the `waits` of `--status`."""
 
     def test_the_line_for_each_why(self) -> None:
         said = {
@@ -3098,15 +3272,24 @@ class WaitsBehindSays(unittest.TestCase):
         }
         self.assertEqual(
             said["longer"],
-            f"{TALK_TASK}: the checks wait behind {LEM_TASK}, which waits longer; they start below 40",
+            (
+                f"{TALK_TASK}: the checks wait behind {LEM_TASK}, which waits longer; "
+                "they start below 40"
+            ),
         )
         self.assertEqual(
             said["wanted"],
-            f"{TALK_TASK}: the checks wait behind {LEM_TASK}, which another task waits for; they start below 40",
+            (
+                f"{TALK_TASK}: the checks wait behind {LEM_TASK}, which another task "
+                "waits for; they start below 40"
+            ),
         )
         self.assertEqual(
             said["first"],
-            f"{TALK_TASK}: the checks wait behind {LEM_TASK}, which is first in the line; they start below 40",
+            (
+                f"{TALK_TASK}: the checks wait behind {LEM_TASK}, which is first in "
+                "the line; they start below 40"
+            ),
         )
         self.assertEqual(
             land.wait_say(
@@ -3117,7 +3300,10 @@ class WaitsBehindSays(unittest.TestCase):
                 behind_repo="/Users/me/mybaze",
                 why="longer",
             ),
-            f"{TALK_TASK}: the checks wait behind search-filters of mybaze, which waits longer; they start below 40",
+            (
+                f"{TALK_TASK}: the checks wait behind search-filters of mybaze, which "
+                "waits longer; they start below 40"
+            ),
         )
         # the first's own line says the load, as today
         self.assertEqual(

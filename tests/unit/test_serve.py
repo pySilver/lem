@@ -1,8 +1,9 @@
-"""serve.py's rules, each called in this process: who the tailnet door lets in, who may ask the main
-listener for an act, the note of a merge that runs, whether a page's stream gets a refresh as it
-opens, and its ping, the machine's names in an address, which duty
-the server owes the tasks, when it runs `lem project prune`, and the number of `state.keep_days` a page
-says. The routes, the stream and the start on demand run in tests/lem-serve.sh, with a server.
+"""serve.py's rules, each called in this process: who the tailnet door lets in, who may
+ask the main listener for an act, the note of a merge that runs, whether a page's stream
+gets a refresh as it opens, and its ping, the machine's names in an address, which duty
+the server owes the tasks, when it runs `lem project prune`, and the number of
+`state.keep_days` a page says. The routes, the stream and the start on demand run in
+tests/lem-serve.sh, with a server.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -32,8 +33,8 @@ PORT = 4537
 
 
 def headers(*pairs: tuple[str, str], **given: str) -> email.message.Message:
-    """Request headers as the server's handler has them, each name once for each time it came; `_` in
-    a keyword's name is `-`."""
+    """Request headers as the server's handler has them, each name once for each time it
+    came; `_` in a keyword's name is `-`."""
     message = email.message.Message()
     for name, value in [
         *pairs,
@@ -127,7 +128,8 @@ class Door(unittest.TestCase):
 
 
 class Actions(unittest.TestCase):
-    """The main listener's acts (of agterm, of the board on a task): only a page of the board on this Mac asks them."""
+    """The main listener's acts (of agterm, of the board on a task): only a page of the
+    board on this Mac asks them."""
 
     def refusal(self, client: str = "127.0.0.1", **given: str) -> str | None:
         return serve.action_refusal(client, headers(**given), 4536)
@@ -168,8 +170,9 @@ class Actions(unittest.TestCase):
             self.refusal(Host="127.0.0.1:4536", Origin="http://evil.example.com") or "",
         )
         self.assertIn("or none", self.refusal(Host="127.0.0.1:4536") or "")
-        # a form of a page whose policy sends no referrer posts `Origin: null`: still refused, so the board's
-        # pages send `Referrer-Policy: same-origin` (`Handler.send`)
+        # a form of a page whose policy sends no referrer posts `Origin: null`: still
+        # refused, so the board's pages send `Referrer-Policy: same-origin`
+        # (`Handler.send`)
         self.assertIn(
             "or none",
             self.refusal(
@@ -188,9 +191,10 @@ class Actions(unittest.TestCase):
 
 
 class StartBehind(unittest.TestCase):
-    """The board starts no task for a project whose sessions load a Lem older than the board's release
-    before (lem_release.BEFORE): its new task's mark would be that release, and every act of the board
-    on it would stop at once. One release behind starts, with that release as its mark."""
+    """The board starts no task for a project whose sessions load a Lem older than the
+    board's release before (lem_release.BEFORE): its new task's mark would be that
+    release, and every act of the board on it would stop at once. One release behind
+    starts, with that release as its mark."""
 
     def behind(self, listed: dict) -> str | None:
         workspace = serve.Workspace.__new__(serve.Workspace)
@@ -219,7 +223,10 @@ class StartBehind(unittest.TestCase):
             }
         )
         self.assertIn(
-            "The Lem this project's sessions load is 0.1.6, and this board runs Lem 0.3.0",
+            (
+                "The Lem this project's sessions load is 0.1.6, "
+                "and this board runs Lem 0.3.0"
+            ),
             said or "",
         )
         self.assertIn("/plugin marketplace update lem", said or "")
@@ -248,8 +255,8 @@ class StartBehind(unittest.TestCase):
 
 
 class Reads(unittest.TestCase):
-    """The main listener reads a request only for a `Host` of its own: a name of another site that points
-    at this machine (DNS rebinding) reads nothing."""
+    """The main listener reads a request only for a `Host` of its own: a name of another
+    site that points at this machine (DNS rebinding) reads nothing."""
 
     def test_its_own_names_are_read_and_another_is_refused(self) -> None:
         for host in (
@@ -292,14 +299,16 @@ class Notes(unittest.TestCase):
 
 
 class StreamOpen(unittest.TestCase):
-    """Whether a page's stream gets a refresh the moment it opens (`opens_with_refresh`)."""
+    """Whether a page's stream gets a refresh the moment it opens
+    (`opens_with_refresh`)."""
 
     def test_a_first_open_gets_one_only_when_the_log_is_no_longer_at_its_render(
         self,
     ) -> None:
         self.assertFalse(serve.opens_with_refresh("8812-142", None, None, "8812-142"))
         self.assertTrue(serve.opens_with_refresh("8812-141", None, None, "8812-142"))
-        # the same count on a log that `lem project prune` replaced, and a shorter one, are behind too
+        # the same count on a log that `lem project prune` replaced, and a shorter one,
+        # are behind too
         self.assertTrue(serve.opens_with_refresh("8812-142", None, None, "9301-142"))
         self.assertTrue(serve.opens_with_refresh("8812-143", None, None, "9301-142"))
 
@@ -326,7 +335,8 @@ class StreamOpen(unittest.TestCase):
 
 class Names(unittest.TestCase):
     def test_the_tailnet_name_is_the_address_and_the_host_name_its_alias(self) -> None:
-        # A label made from the host's own short name, so that no host's short name is the label.
+        # A label made from the host's own short name, so that no host's short name is
+        # the label.
         tailnet_name = f"Office-{serve.SHORT_NAME}.tail1234.ts.net"
         self.assertEqual(
             serve.names_of(tailnet_name),
@@ -345,7 +355,8 @@ class Names(unittest.TestCase):
 
 
 class Duties(unittest.TestCase):
-    """What the server owes the tasks, read from the files and the forge's last look alone."""
+    """What the server owes the tasks, read from the files and the forge's last
+    look alone."""
 
     PR = "pull request https://github.com/acme/shop/pull/41"
 
@@ -484,7 +495,8 @@ class Duties(unittest.TestCase):
     def test_a_queued_task_whose_session_lives_is_woken_once_when_its_task_ended(
         self,
     ) -> None:
-        # the session the ask was typed in, opened before the queue, which the owner keeps selected
+        # the session the ask was typed in, opened before the queue, which the owner
+        # keeps selected
         typed = (
             self.ev(0, "session.open", session="S1", why="new"),
             self.state(1, "landed", "main: pull request ... is merged", task="coupon"),
@@ -537,7 +549,8 @@ class Duties(unittest.TestCase):
     def test_a_task_queued_again_behind_a_second_task_gets_its_turn_when_that_one_ends(
         self,
     ) -> None:
-        # its first wait ended, its session read the need again and queued it behind card-foot
+        # its first wait ended, its session read the need again and queued it
+        # behind card-foot
         first = (
             self.state(0, "landed", "main: pull request ... is merged", task="coupon"),
             self.state(1, "open", self.PR, task="card-foot"),
@@ -659,7 +672,8 @@ class Duties(unittest.TestCase):
             ),
         )
         self.assertEqual(serve.duties(self.model(*other_tip), {}, set()), [])
-        # a refused try is not tried again on that tip, and the task's session is woken once for it
+        # a refused try is not tried again on that tip, and the task's session is woken
+        # once for it
         refused = (
             *merge,
             self.ev(
@@ -721,7 +735,8 @@ class Duties(unittest.TestCase):
             self.ev(0, "proposed", green=True, not_green=[], tip="abc123456"),
             self.state(1, "open", self.PR),
         )
-        # the owner's merge from the board met a moved base: Lem kept it, and the task's session is woken once
+        # the owner's merge from the board met a moved base: Lem kept it, and the task's
+        # session is woken once
         base = (
             *proposed,
             self.ev(
@@ -763,7 +778,8 @@ class Duties(unittest.TestCase):
             ),
         )
         self.assertEqual(serve.duties(self.model(*github), {}, set()), [])
-        # the new landing's proposal carried the merge agent's review, and his merge stands for its tip
+        # the new landing's proposal carried the merge agent's review, and his merge
+        # stands for its tip
         again = (
             *base,
             self.ev(4, "proposed", green=True, not_green=[], tip="def456789"),
@@ -831,7 +847,8 @@ class Duties(unittest.TestCase):
         )
 
     def test_a_press_after_a_moved_base_is_refused_as_lem_lands_it_again(self) -> None:
-        # the page offers no Merge while Lem lands it again; a press sent anyway is refused for that, not for a conflict
+        # the page offers no Merge while Lem lands it again; a press sent anyway is
+        # refused for that, not for a conflict
         class Space:
             name = "shop"
 
@@ -842,10 +859,12 @@ class Duties(unittest.TestCase):
                 return self.m
 
             def landing_of(self, slug: str) -> dict:
-                # no proposed tip: a press that got past the acts is refused at the tip, and nothing merges
+                # no proposed tip: a press that got past the acts is refused at the tip,
+                # and nothing merges
                 return {}
 
-        # the merge agent's read of the moved base asked for another round, and the refusal it keeps waits for the new landing
+        # the merge agent's read of the moved base asked for another round, and the
+        # refusal it keeps waits for the new landing
         base = (
             self.ev(0, "proposed", green=True, not_green=[], tip="abc123456"),
             self.state(1, "open", self.PR),
@@ -858,7 +877,9 @@ class Duties(unittest.TestCase):
                 tip="abc123456",
                 base="m2m2m2m2m",
                 base_call="another round",
-                base_why="B changed skills/lem/scripts/land.py, which the change edits too",
+                base_why=(
+                    "B changed skills/lem/scripts/land.py, which the change edits too"
+                ),
             ),
             self.ev(
                 2,
@@ -886,22 +907,27 @@ class Duties(unittest.TestCase):
     def test_his_merge_that_a_moved_base_refused_stands_and_its_note_says_so(
         self,
     ) -> None:
-        # guard-sees-unreadable-sessions, 2026-11-23 10:38: his merge of #60 met a moved base; land.py kept it
-        # (`owner_tap`), and the server ran it after the merge agent's safe read at 10:41. Meanwhile his note
-        # said "Not done." over land.py's line: his merge stood, and nothing of it was refused for good
+        # guard-sees-unreadable-sessions, 2026-11-23 10:38: his merge of #60 met a moved
+        # base; land.py kept it (`owner_tap`), and the server ran it after the merge
+        # agent's safe read at 10:41. Meanwhile his note said "Not done." over land.py's
+        # line: his merge stood, and nothing of it was refused for good
         tip = "abc123456" + "0" * 31
         said = (
-            "land.py: origin/main moved after the checks ran, by files (docs/rulings/rulings.md); the read of ea54c2a2c said safe, "
-            "and it covers no later base. A fresh merge agent reads what moved: `lem land merge-review gift-note` writes its brief, "
-            "with the commits and the files that moved since the checks, and the answer names its base (`--base`); the owner's merge "
-            "stands, and goes through after a read that says `Base: safe.`; on `Base: another round.` the task lands again"
+            "land.py: origin/main moved after the checks ran, by files "
+            "(docs/rulings/rulings.md); the read of ea54c2a2c said safe, and it covers "
+            "no later base. A fresh merge agent reads what moved: "
+            "`lem land merge-review gift-note` writes its brief, with the commits and "
+            "the files that moved since the checks, and the answer names its base "
+            "(`--base`); the owner's merge stands, and goes through after a read that "
+            "says `Base: safe.`; on `Base: another round.` the task lands again"
         )
         landing: dict = {
             "proposed": tip,
             "pr": {"number": 41, "url": "https://github.com/acme/shop/pull/41"},
             "base": "main",
         }
-        # the events of the task, which the server's model reads again after land.py exits
+        # the events of the task, which the server's model reads again after
+        # land.py exits
         events = [
             self.ev(0, "proposed", green=True, not_green=[], tip=tip[:9]),
             self.state(1, "open", self.PR),
@@ -928,7 +954,8 @@ class Duties(unittest.TestCase):
                 return model(*events)
 
         def refused(workspace: object, *args: str) -> subprocess.CompletedProcess:
-            # what land.py's cmd_merge keeps for his merge that the moved base refused, and the refusal it logs
+            # what land.py's cmd_merge keeps for his merge that the moved base refused,
+            # and the refusal it logs
             landing.update(
                 merge_refused={
                     "tip": tip,
@@ -982,11 +1009,15 @@ class Duties(unittest.TestCase):
         self.assertIn("stands", note["said"])
         self.assertEqual(
             note["said"],
-            "Your merge stands. It goes through when the merge agent’s read of the new base says safe.",
+            (
+                "Your merge stands. It goes through when the merge agent’s read of "
+                "the new base says safe."
+            ),
         )
 
     def standing(self, tip: str) -> tuple:
-        # #60 at 10:38:03: the merge agent's read called him, his merge met a moved base, and Lem keeps it
+        # #60 at 10:38:03: the merge agent's read called him, his merge met a moved
+        # base, and Lem keeps it
         return (
             self.ev(0, "proposed", green=True, not_green=[], tip=tip[:9]),
             self.state(1, "open", self.PR),
@@ -1031,7 +1062,8 @@ class Duties(unittest.TestCase):
         landing = {"proposed": tip, "pr": {"number": 60}, "base": "main"}
         ran, threads = [], []
         space = self.space(self.model(*self.standing(tip)), landing)
-        # a merge this test starts by mistake leaves no task in NOTES.merging for the tests after it
+        # a merge this test starts by mistake leaves no task in NOTES.merging for the
+        # tests after it
         self.addCleanup(serve.NOTES.merging.pop, ("shop", "gift-note"), None)
         with (
             mock.patch.object(serve, "merge_apart", lambda *args: ran.append(args)),
@@ -1048,7 +1080,10 @@ class Duties(unittest.TestCase):
                 (note["state"], note["said"]),
                 (
                     "stands",
-                    "Your merge stands. It goes through when the merge agent’s read of the new base says safe.",
+                    (
+                        "Your merge stands. It goes through when the merge agent’s "
+                        "read of the new base says safe."
+                    ),
                 ),
             )
             self.assertTrue(bm.same_tip(note["tip"], tip))
@@ -1062,7 +1097,8 @@ class Duties(unittest.TestCase):
                 "t0k3n",
             )
             serve.NOTES.merging.pop(("shop", "gift-note"), None)
-            # while the forge calls the pull request conflicting, the answer is the conflict's text
+            # while the forge calls the pull request conflicting, the answer is the
+            # conflict's text
             conflicting = self.model(*self.standing(tip))
             conflicting.seen = {
                 "gift-note": {"mergeable": "CONFLICTING", "head": tip[:12]}
@@ -1083,8 +1119,9 @@ class Duties(unittest.TestCase):
     def test_a_press_whose_request_read_the_model_before_his_refusal_runs_no_second_merge(
         self,
     ) -> None:
-        # the press's request read the model before the first merge's refusal was logged, and reached the
-        # worker after it: the worker reads the task again, and land.py does not run
+        # the press's request read the model before the first merge's refusal was
+        # logged, and reached the worker after it: the worker reads the task again, and
+        # land.py does not run
         tip = "faac6eb3b" + "0" * 31
         landing = {"proposed": tip, "pr": {"number": 60}, "base": "main"}
         ran = []
@@ -1120,13 +1157,17 @@ class Duties(unittest.TestCase):
             (note["state"], note["said"]),
             (
                 "stands",
-                "Your merge stands. It goes through when the merge agent’s read of the new base says safe.",
+                (
+                    "Your merge stands. It goes through when the merge agent’s read of "
+                    "the new base says safe."
+                ),
             ),
         )
         self.assertNotIn(("shop", "gift-note"), serve.NOTES.merging)
 
     def test_the_servers_merge_takes_the_tip_that_was_read(self) -> None:
-        # the merge agent's merge is of the tip its review read, the owner's that stood of the tip he merged
+        # the merge agent's merge is of the tip its review read, the owner's that stood
+        # of the tip he merged
         landing = {
             "proposed": "c" * 40,
             "merge_review": {"tip": "a" * 40, "verdict": "merge"},
@@ -1154,10 +1195,12 @@ class Duties(unittest.TestCase):
 
     def test_the_list_of_sessions_reads_by_task(self) -> None:
         listed = serve.session_entries(
-            '[{"task": "gift-note", "session": "S1", "live": true, "agent": false, "unanswered": false, "phase": "build", '
-            '"sign": "2026-11-22T10:15:42Z", "shell": true, "signs": true, "turn": "runs"}]'
+            '[{"task": "gift-note", "session": "S1", "live": true, "agent": '
+            'false, "unanswered": false, "phase": "build", "sign": '
+            '"2026-11-22T10:15:42Z", "shell": true, "signs": true, "turn": "runs"}]'
         )
-        # the session's signs of work go on to the model, which the guard of a stopped session and the rows of a held task read
+        # the session's signs of work go on to the model, which the guard of a stopped
+        # session and the rows of a held task read
         self.assertEqual(
             listed,
             {
@@ -1180,9 +1223,10 @@ class Duties(unittest.TestCase):
 
 
 class MovedBaseRead(unittest.TestCase):
-    """The merge agent's read of a moved base answers Lem's refusal of the merge when it says `safe`, and
-    answers nothing when it says `another round` (criteria 1 and 4 of
-    docs/plans/2026-11-22-moved-base-merge-agent-call.md, and its plan talk's questions 3 and 6)."""
+    """The merge agent's read of a moved base answers Lem's refusal of the merge when it
+    says `safe`, and answers nothing when it says `another round` (criteria 1 and 4 of
+    docs/plans/2026-11-22-moved-base-merge-agent-call.md, and its plan talk's questions
+    3 and 6)."""
 
     PR = Duties.PR
     ev = staticmethod(Duties.ev)
@@ -1287,7 +1331,8 @@ class MovedBaseRead(unittest.TestCase):
             self.refused(3, by="owner"),
         )
         self.assertEqual(self.owed(*refused), [("wake", "gift-note", "refused")])
-        # a careful change still gets `Verdict: call.`: the merge agent merges nothing, and his merge stands
+        # a careful change still gets `Verdict: call.`: the merge agent merges nothing,
+        # and his merge stands
         safe = (
             *refused,
             self.ev(4, "session.wake", session="S1", why="refused"),
@@ -1315,20 +1360,25 @@ class MovedBaseRead(unittest.TestCase):
             self.refused(3),
         )
         woken = (*refused, self.ev(4, "session.wake", session="S1", why="refused"))
-        # the record of an another-round read keeps a base refusal of its tip, with the read's why
+        # the record of an another-round read keeps a base refusal of its tip, with the
+        # read's why
         again = (
             *woken,
             self.read(5, "another round"),
             self.refused(
                 5,
-                said="the merge agent asks for another round of the checks: B renamed a function the change calls",
+                said=(
+                    "the merge agent asks for another round of the checks: "
+                    "B renamed a function the change calls"
+                ),
             ),
         )
         t = self.model(*again).tasks[0]
         self.assertIsNotNone(t.refused)
         self.assertFalse(serve.merge_due(t, {}, set()))
         self.assertEqual(self.owed(*again), [("wake", "gift-note", "refused")])
-        # a later read that says `safe` does not answer the refusal an another-round read keeps: only the new landing does
+        # a later read that says `safe` does not answer the refusal an another-round
+        # read keeps: only the new landing does
         later = (
             *again,
             self.ev(6, "session.wake", session="S1", why="refused"),
@@ -1356,8 +1406,9 @@ class MovedBaseRead(unittest.TestCase):
     def test_a_read_on_the_checks_base_after_a_revert_answers_lems_base_refusal(
         self,
     ) -> None:
-        # main went back to the checks' tree after the refusal: the brief named the checks' own base, and its
-        # read, with no call on a move, answers the refusal, so the server merges, the owner's merge too
+        # main went back to the checks' tree after the refusal: the brief named the
+        # checks' own base, and its read, with no call on a move, answers the refusal,
+        # so the server merges, the owner's merge too
         first = (
             *self.proposed(),
             self.ev(
@@ -1477,12 +1528,13 @@ class MovedBaseRead(unittest.TestCase):
 
 
 class StoppedSession(unittest.TestCase):
-    """A task in its phase whose session stopped: live in agterm, an agent in its pane, and no sign of work
-    for hours. The case of 2026-11-22 (merge-leaves-board-lock, #37): its checks ended at 10:54, the
-    conversation had gone on in a background process of Claude Code that carried another task's pane,
-    and that process stopped; at 15:37 the task still stood in `landing` and nothing woke it. The server
-    owes it the status message at 11:39, the restart at 11:49 and, when the fresh session stops too, the
-    stop (`bm.stop_due`, whose cases are in test_board_model.py)."""
+    """A task in its phase whose session stopped: live in agterm, an agent in its pane,
+    and no sign of work for hours. The case of 2026-11-22 (merge-leaves-board-lock,
+    #37): its checks ended at 10:54, the conversation had gone on in a background
+    process of Claude Code that carried another task's pane, and that process stopped;
+    at 15:37 the task still stood in `landing` and nothing woke it. The server owes it
+    the status message at 11:39, the restart at 11:49 and, when the fresh session stops
+    too, the stop (`bm.stop_due`, whose cases are in test_board_model.py)."""
 
     @staticmethod
     def ev(hhmm: str, event: str, **fields: object) -> dict:
@@ -1580,7 +1632,8 @@ class StoppedSession(unittest.TestCase):
     def test_a_session_that_still_works_is_not_woken(self) -> None:
         working = (*self.landing(), self.ev("15:35", "gate.wait", load=48.0, start=40))
         self.assertEqual(self.owed(*working, at="15:37"), [])
-        # the checks run for 50 minutes with no event: their shell command is the sign of work
+        # the checks run for 50 minutes with no event: their shell command is the sign
+        # of work
         self.assertEqual(
             self.owed(*self.landing()[:3], at="11:08", sessions=self.live(shell=True)),
             [],
@@ -1666,7 +1719,8 @@ class StoppedSession(unittest.TestCase):
             self.ev("11:49", "session.stopped", session="S1", unread=True),
         )
         self.assertEqual(self.owed(*logged, at="11:50", sessions=unread), [])
-        # the signs read again at 11:50: the logged stop waits for the owner's click, so no `open … stopped`
+        # the signs read again at 11:50: the logged stop waits for the owner's click, so
+        # no `open … stopped`
         self.assertEqual(self.owed(*logged, at="11:50"), [])
 
     def test_a_task_that_waits_for_the_owner_or_is_out_of_its_phase_is_not_woken(
@@ -1707,7 +1761,10 @@ class StoppedSession(unittest.TestCase):
     def test_a_task_two_releases_back_is_not_woken_and_its_pull_request_is_still_watched(
         self,
     ) -> None:
-        say = "gift-note began on Lem 0.1.6, and Lem 0.3.0 reads only tasks begun on 0.2.0 or 0.3.0. ..."
+        say = (
+            "gift-note began on Lem 0.1.6, and Lem 0.3.0 reads only tasks begun "
+            "on 0.2.0 or 0.3.0. ..."
+        )
         stopped = (
             *self.landing(),
             self.ev(
@@ -1778,7 +1835,10 @@ class StoppedSession(unittest.TestCase):
         refused = subprocess.CompletedProcess(
             [],
             0,
-            '{"task": "gift-note", "acted": false, "why": "working", "say": "Lem did nothing for gift-note: ..."}',
+            (
+                '{"task": "gift-note", "acted": false, "why": "working", "say": '
+                '"Lem did nothing for gift-note: ..."}'
+            ),
             "",
         )
         self.assertEqual(serve.not_acted(refused), "Lem did nothing for gift-note: ...")
@@ -1826,9 +1886,10 @@ class StoppedSession(unittest.TestCase):
 
 
 class StoppedOpen(unittest.TestCase):
-    """The owner's "Open a session" on a task whose stop the guard logged (criterion 5): `lem session open
-    SLUG --why stopped` beside its live session, and when the look once more finds work, the owner's words
-    and no session; a stopped session that is gone takes the open of a task with none."""
+    """The owner's "Open a session" on a task whose stop the guard logged (criterion 5):
+    `lem session open SLUG --why stopped` beside its live session, and when the look
+    once more finds work, the owner's words and no session; a stopped session that is
+    gone takes the open of a task with none."""
 
     class Space:
         name = "shop"
@@ -1962,7 +2023,8 @@ class DutyKey(unittest.TestCase):
         )
 
     def test_a_failed_merge_waits_for_its_own_read_only(self) -> None:
-        # a refused merge waits DUTY_RETRY for the read it ran on; a new read of the moved base makes a new key
+        # a refused merge waits DUTY_RETRY for the read it ran on; a new read of the
+        # moved base makes a new key
         tip = "a" * 40
         first = serve.duty_key(
             "merge",
@@ -2059,10 +2121,12 @@ class DutyKey(unittest.TestCase):
             mock.patch.object(serve.time, "monotonic", lambda: 1000.0),
         ):
             serve.run_duties(w, now=1000.0)
-            # the merge on m2 failed for the read of m2: the next look waits DUTY_RETRY for that read
+            # the merge on m2 failed for the read of m2: the next look waits DUTY_RETRY
+            # for that read
             serve.run_duties(w, now=1010.0)
             self.assertEqual(started, ["merger"])
-            # a new read of the moved base said safe: its merge runs at the server's next look
+            # a new read of the moved base said safe: its merge runs at the server's
+            # next look
             events[-1] = {**events[-1], "base": "m3m3m3m3m"}
             landing["merge_review"] = {
                 **landing["merge_review"],
@@ -2073,9 +2137,10 @@ class DutyKey(unittest.TestCase):
 
 
 class ForgeLookBesideAMerge(unittest.TestCase):
-    """The look at the forge leaves a task whose merge this server runs to that merge, also when the merge
-    ends during the look: no `lem land merged` for it, and no line on the status bar that it failed.
-    GitHub, land.py's look and the bookkeeping are stand-ins; one call of `forge_once` each."""
+    """The look at the forge leaves a task whose merge this server runs to that merge,
+    also when the merge ends during the look: no `lem land merged` for it, and no line
+    on the status bar that it failed. GitHub, land.py's look and the bookkeeping are
+    stand-ins; one call of `forge_once` each."""
 
     class Place:
         def __init__(self) -> None:
@@ -2141,8 +2206,11 @@ class ForgeLookBesideAMerge(unittest.TestCase):
         self.assertNotIn("gift-note", place.forge["problem"])
         self.assertEqual(
             place.forge["problem"],
-            "`lem land merged tax-line` failed after GitHub called pull request 2 merged: "
-            "land.py: another step of the task runs; run it again when it ends; the board tries it again in a few minutes",
+            (
+                "`lem land merged tax-line` failed after GitHub called pull request 2 "
+                "merged: land.py: another step of the task runs; run it again when it "
+                "ends; the board tries it again in a few minutes"
+            ),
         )
         self.assertEqual(list(place.forge["failed"]), [("tax-line", 2)])
 
@@ -2157,7 +2225,8 @@ class ForgeLookBesideAMerge(unittest.TestCase):
         ]
 
         def look(main: Path, base: str, due: list[int]) -> dict:
-            # the merge's process ends while `gh` answers: its thread takes the task off NOTES.merging
+            # the merge's process ends while `gh` answers: its thread takes the task
+            # off NOTES.merging
             serve.NOTES.merging.pop(("shop", "gift-note"))
             return {1: {"state": "MERGED"}}
 
@@ -2177,7 +2246,10 @@ class ForgeLookBesideAMerge(unittest.TestCase):
                 [],
                 1,
                 "",
-                "land.py: the task is 'landed' and has a pull request; it is merged already\n",
+                (
+                    "land.py: the task is 'landed' and has a pull request; "
+                    "it is merged already\n"
+                ),
             )
 
         place = self.Place()
@@ -2199,8 +2271,9 @@ class ForgeLookBesideAMerge(unittest.TestCase):
 
 
 class Prune(unittest.TestCase):
-    """The keeping of the state folder, a duty of the server across tasks: `lem project prune` at the first
-    look and each PRUNE_SECONDS after, never for example tasks, and one log line when it did something."""
+    """The keeping of the state folder, a duty of the server across tasks:
+    `lem project prune` at the first look and each PRUNE_SECONDS after, never for
+    example tasks, and one log line when it did something."""
 
     class Place:
         def __init__(self, *, demo: bool = False) -> None:
@@ -2224,7 +2297,10 @@ class Prune(unittest.TestCase):
         from unittest import mock
 
         ran = []
-        said = '{"said": "removed 3 files", "files": 3, "bytes": 120, "skipped": [], "failed": []}'
+        said = (
+            '{"said": "removed 3 files", "files": 3, "bytes": 120, "skipped": '
+            '[], "failed": []}'
+        )
 
         def run(
             workspace: object, file: str, *args: str
@@ -2271,8 +2347,11 @@ class Prune(unittest.TestCase):
         )
         self.assertEqual(
             line,
-            "serve.py: shop: `lem project prune` exited 1: removed 0 files; skipped tasks/x: its state.md does not read; "
-            "failed tasks/y/a.log: Permission denied\n",
+            (
+                "serve.py: shop: `lem project prune` exited 1: removed 0 files; "
+                "skipped tasks/x: its state.md does not read; failed tasks/y/a.log: "
+                "Permission denied\n"
+            ),
         )
 
     def test_the_log_names_a_run_that_removed_only_an_empty_file(self) -> None:
@@ -2280,8 +2359,9 @@ class Prune(unittest.TestCase):
         from unittest import mock
 
         said = (
-            '{"said": "removed 1 files of 1 ended tasks", "tasks": [{"task": "x", "files": ["empty.txt"], "bytes": 0}], "files": 1, '
-            '"folders": [], "bytes": 0, "events": 0, "skipped": [], "failed": []}'
+            '{"said": "removed 1 files of 1 ended tasks", "tasks": [{"task": '
+            '"x", "files": ["empty.txt"], "bytes": 0}], "files": 1, "folders": '
+            '[], "bytes": 0, "events": 0, "skipped": [], "failed": []}'
         )
         with mock.patch.object(
             serve, "lem_run", return_value=subprocess.CompletedProcess([], 0, said, "")
@@ -2290,7 +2370,10 @@ class Prune(unittest.TestCase):
         self.assertEqual((ran["files"], ran["bytes"], ran["events"]), (1, 0, 0))
         self.assertEqual(
             serve.prune_line("shop", ran),
-            "serve.py: shop: `lem project prune` exited 0: removed 1 files of 1 ended tasks\n",
+            (
+                "serve.py: shop: `lem project prune` exited 0: "
+                "removed 1 files of 1 ended tasks\n"
+            ),
         )
         empty_folder = {
             **ran,
@@ -2300,27 +2383,36 @@ class Prune(unittest.TestCase):
         }
         self.assertEqual(
             serve.prune_line("shop", empty_folder),
-            "serve.py: shop: `lem project prune` exited 0: removed 0 files, and removed 1 old folders and copies, 0.0 MB\n",
+            (
+                "serve.py: shop: `lem project prune` exited 0: removed 0 files, and "
+                "removed 1 old folders and copies, 0.0 MB\n"
+            ),
         )
 
     def test_the_log_names_the_events_a_prune_summarized(self) -> None:
         import subprocess
         from unittest import mock
 
-        said = '{"said": "removed 0 files, replaced the 60 events of 1 such tasks", "files": 0, "bytes": 0, "events": 60, "skipped": [], "failed": []}'
+        said = (
+            '{"said": "removed 0 files, replaced the 60 events of 1 such tasks", '
+            '"files": 0, "bytes": 0, "events": 60, "skipped": [], "failed": []}'
+        )
         with mock.patch.object(
             serve, "lem_run", return_value=subprocess.CompletedProcess([], 0, said, "")
         ):
             ran = serve.prune_once(self.Place(), now=1000.0)
         self.assertEqual(
             serve.prune_line("shop", ran),
-            "serve.py: shop: `lem project prune` exited 0: removed 0 files, replaced the 60 events of 1 such tasks\n",
+            (
+                "serve.py: shop: `lem project prune` exited 0: removed 0 files, "
+                "replaced the 60 events of 1 such tasks\n"
+            ),
         )
 
 
 class KeepDays(unittest.TestCase):
-    """The number of `state.keep_days` the page of a pruned task says: the settings' as they read now, and
-    none while they do not read, even with an older read on hand."""
+    """The number of `state.keep_days` the page of a pruned task says: the settings' as
+    they read now, and none while they do not read, even with an older read on hand."""
 
     @staticmethod
     def reader(settings: object, problems: dict | None = None) -> "bm.Reader":
@@ -2357,9 +2449,10 @@ class KeepDays(unittest.TestCase):
 
 
 class WorkingSession(unittest.TestCase):
-    """A held task whose session works on the owner's answer, as the server's look at the task sessions
-    sees it on the model it keeps (waits-for-you-only-when-it-waits, criteria 1 and 2): the rows of a page
-    and of the server's count follow each look, and an open page gets a refresh when the turn starts or ends."""
+    """A held task whose session works on the owner's answer, as the server's look at
+    the task sessions sees it on the model it keeps (waits-for-you-only-when-it-waits,
+    criteria 1 and 2): the rows of a page and of the server's count follow each look,
+    and an open page gets a refresh when the turn starts or ends."""
 
     EVENTS = [
         {
@@ -2495,9 +2588,10 @@ class Look(unittest.TestCase):
 
 
 class LogLook(unittest.TestCase):
-    """The stream's look at the event log after `lem project prune` replaced it (criterion 4 of the task
-    old-task-events-summarized): a change is told also when the count of lines is the same, and a page that
-    reconnects with the id from before the rewrite is told at once."""
+    """The stream's look at the event log after `lem project prune` replaced it
+    (criterion 4 of the task old-task-events-summarized): a change is told also when the
+    count of lines is the same, and a page that reconnects with the id from before the
+    rewrite is told at once."""
 
     def test_three_old_events_that_become_one_while_two_new_ones_come_are_a_change(
         self,
@@ -2568,14 +2662,18 @@ class LogLook(unittest.TestCase):
             )
             self.assertEqual(now, bm.log_version(log.stat().st_ino, 4))
             self.assertNotEqual(now, version)
-            # a page that reconnects with the id it saw before the rewrite is behind; one with the id now, or none, is not
+            # a page that reconnects with the id it saw before the rewrite is behind;
+            # one with the id now, or none, is not
             self.assertTrue(serve.behind(version, now))
             self.assertFalse(serve.behind(now, now))
             self.assertFalse(serve.behind(None, now))
             self.assertFalse(serve.behind("", now))
             self.assertEqual(
                 serve.refresh(now),
-                f'id: {now}\ndata: <turbo-stream action="refresh"></turbo-stream>\n\n'.encode(),
+                (
+                    f"id: {now}\ndata: <turbo-stream "
+                    'action="refresh"></turbo-stream>\n\n'
+                ).encode(),
             )
 
     def test_a_log_replaced_between_the_look_at_its_name_and_its_open_is_counted_from_its_start(
@@ -2607,9 +2705,10 @@ class LogLook(unittest.TestCase):
 
 
 class Configure(unittest.TestCase):
-    """`lem serve --port N` (`configure`): what the machine's file holds decides whether it stops the
-    running board, and it never stops one when the write that follows would be refused. Each case has a
-    home folder of its own as XDG_CONFIG_HOME; the server it would stop and the one it starts are stand-ins."""
+    """`lem serve --port N` (`configure`): what the machine's file holds decides whether
+    it stops the running board, and it never stops one when the write that follows would
+    be refused. Each case has a home folder of its own as XDG_CONFIG_HOME; the server it
+    would stop and the one it starts are stand-ins."""
 
     def setUp(self) -> None:
         import os

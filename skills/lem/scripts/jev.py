@@ -67,10 +67,12 @@ DEFAULT_MODEL = os.environ.get("JEV_MODEL", "typesafe/jev-1.14")
 LIMIT_BYTES = 32_000
 # the types of Jev's questions that Lem sends
 TYPES = ("choice", "noul")
-# the default of JEV_TIMEOUT; main() reads the variable, so a wrong value is a message, not a traceback at import
+# the default of JEV_TIMEOUT; main() reads the variable, so a wrong value is a message,
+# not a traceback at import
 TIMEOUT_SECONDS = 120.0
 # macOS keeps its root certificates here. A python.org interpreter that never ran its
-# "Install Certificates" step has none of its own and fails every TLS handshake without this.
+# "Install Certificates" step has none of its own and fails every TLS handshake
+# without this.
 MACOS_CA_BUNDLE = Path("/etc/ssl/cert.pem")
 
 
@@ -79,7 +81,8 @@ class SpecError(Exception):
 
 
 def timeout_seconds() -> float:
-    """JEV_TIMEOUT, the seconds one request may take: a number above 0, or TIMEOUT_SECONDS when it is unset."""
+    """JEV_TIMEOUT, the seconds one request may take: a number above 0, or
+    TIMEOUT_SECONDS when it is unset."""
     raw = os.environ.get("JEV_TIMEOUT")
     if raw is None:
         return TIMEOUT_SECONDS
@@ -89,7 +92,8 @@ def timeout_seconds() -> float:
         seconds = 0.0
     if not 0 < seconds < float("inf"):
         raise SpecError(
-            f"JEV_TIMEOUT={raw!r} is not a number of seconds above 0; set it as JEV_TIMEOUT=120, or unset it for {TIMEOUT_SECONDS:g}"
+            f"JEV_TIMEOUT={raw!r} is not a number of seconds above 0; "
+            f"set it as JEV_TIMEOUT=120, or unset it for {TIMEOUT_SECONDS:g}"
         )
     return seconds
 
@@ -101,7 +105,8 @@ def load(arg: str) -> dict:
         ).decode("utf-8")
     except UnicodeDecodeError as error:
         raise SpecError(
-            f"the spec ({'stdin' if arg == '-' else arg}) is not UTF-8 text (byte {error.start} does not read)"
+            f"the spec ({'stdin' if arg == '-' else arg}) is not UTF-8 text (byte "
+            f"{error.start} does not read)"
         ) from error
     try:
         spec = json.loads(text)
@@ -117,7 +122,8 @@ def filled(text: object) -> bool:
 
 
 def number(value: object) -> bool:
-    """A number from 0 to 1, as Jev gives a probability or a confidence; a JSON true is not one."""
+    """A number from 0 to 1, as Jev gives a probability or a confidence; a JSON true is
+    not one."""
     return (
         isinstance(value, (int, float))
         and not isinstance(value, bool)
@@ -131,14 +137,16 @@ def question_body(name: str, question: object) -> dict:
         given = question.get("type") if isinstance(question, dict) else None
         named = f"has type {given!r}" if given is not None else "names no type"
         raise SpecError(
-            f'question {name!r} {named}; give it "type": "choice" (with choices) or "type": "noul" (a yes/no question)'
+            f'question {name!r} {named}; give it "type": "choice" (with choices) or '
+            '"type": "noul" (a yes/no question)'
         )
     kind = question["type"]
     instructions = question.get("instructions")
     if kind == "choice":
         if set(question) - {"type", "instructions", "choices"}:
             raise SpecError(
-                f"question {name!r} is a choice and takes only type, instructions and choices; yes and no belong to a noul"
+                f"question {name!r} is a choice and takes only type, instructions and "
+                "choices; yes and no belong to a noul"
             )
         if not filled(instructions):
             raise SpecError(f"question {name!r} needs instructions")
@@ -154,7 +162,8 @@ def question_body(name: str, question: object) -> dict:
         return {"type": "choice", "instructions": instructions, "criteria": choices}
     if set(question) - {"type", "instructions", "yes", "no"}:
         raise SpecError(
-            f"question {name!r} is a noul and takes only type, instructions, yes and no; choices belong to a choice"
+            f"question {name!r} is a noul and takes only type, instructions, yes and "
+            "no; choices belong to a choice"
         )
     if not filled(instructions):
         raise SpecError(f"question {name!r} needs instructions")
@@ -163,7 +172,8 @@ def question_body(name: str, question: object) -> dict:
     if said:
         if len(said) == 1 or not (filled(question["yes"]) and filled(question["no"])):
             raise SpecError(
-                f"question {name!r} needs both yes and no, each a text that says what that answer means, or neither"
+                f"question {name!r} needs both yes and no, each a text that says what "
+                "that answer means, or neither"
             )
         body["criteria"] = {"true": question["yes"], "false": question["no"]}
     return body
@@ -197,13 +207,16 @@ def build(spec: dict) -> dict:
     size = len(state_text.encode()) + len(json.dumps(body_questions).encode())
     if size > LIMIT_BYTES:
         raise OverflowError(
-            f"the input is {size} bytes, over the {LIMIT_BYTES} past which OpenRouter runs Jev in its slower, less accurate long-context mode; send it to a big model, never a cut-down copy"
+            f"the input is {size} bytes, over the {LIMIT_BYTES} past which OpenRouter "
+            "runs Jev in its slower, less accurate long-context mode; send it to a big "
+            "model, never a cut-down copy"
         )
     return body
 
 
 def answer(name: str, kind: str, given: object) -> dict:
-    """One answer of the printed reply, for a question of type KIND, or a RuntimeError that names the question."""
+    """One answer of the printed reply, for a question of type KIND, or a RuntimeError
+    that names the question."""
     if isinstance(given, dict) and given.get("type", kind) == kind:
         if kind == "noul" and number(given.get("noul")):
             return {"type": "noul", "noul": given["noul"]}
@@ -228,13 +241,14 @@ def answer(name: str, kind: str, given: object) -> dict:
         else "a choice, a confidence and probabilities"
     )
     raise RuntimeError(
-        f"the reply's answer to question {name!r}, a {kind}, lacks {must}: {json.dumps(given)[:400]}"
+        f"the reply's answer to question {name!r}, a {kind}, "
+        f"lacks {must}: {json.dumps(given)[:400]}"
     )
 
 
 def read(reply: object, questions: dict) -> dict:
-    """The printed reply from Jev's: each question's answer by its type, the model and the cost.
-    QUESTIONS is the request's, which says each question's type."""
+    """The printed reply from Jev's: each question's answer by its type, the model and
+    the cost. QUESTIONS is the request's, which says each question's type."""
     answers = reply.get("answers") if isinstance(reply, dict) else None
     if (
         not isinstance(reply, dict)
@@ -260,7 +274,8 @@ def key() -> str:
     found = os.environ.get(KEY, "")
     if not found:
         raise RuntimeError(
-            f"{KEY} is not set in this process's environment, and it is the one name Lem reads for the key; put the key of the Jev model's provider there"
+            f"{KEY} is not set in this process's environment, and it is the one name "
+            "Lem reads for the key; put the key of the Jev model's provider there"
         )
     return found
 
@@ -270,7 +285,8 @@ def address() -> str:
     found = os.environ.get("JEV_API_URL", "").strip() or URL
     if not found.startswith(("https://", "http://")):
         raise SpecError(
-            f"JEV_API_URL={found!r} is not an address; set it as the provider's decisions endpoint, as JEV_API_URL={URL}, or unset it for OpenRouter"
+            f"JEV_API_URL={found!r} is not an address; set it as the provider's "
+            f"decisions endpoint, as JEV_API_URL={URL}, or unset it for OpenRouter"
         )
     return found
 
@@ -300,7 +316,8 @@ def ask(body: dict, timeout: float) -> dict:
             reply = json.load(response)
     except urllib.error.HTTPError as error:
         raise RuntimeError(
-            f"{where} answered HTTP {error.code}: {error.read().decode(errors='replace')[:400]}"
+            f"{where} answered HTTP {error.code}: "
+            f"{error.read().decode(errors='replace')[:400]}"
         ) from error
     except urllib.error.URLError as error:
         raise RuntimeError(f"{where} could not be reached: {error.reason}") from error
@@ -321,7 +338,8 @@ def main(argv: list[str]) -> int:
         timeout = timeout_seconds()
         body = build(load(args[0]))
         if check:
-            # what a request would use, and no key's value: the address, and which variable gives the key
+            # what a request would use, and no key's value: the address, and which
+            # variable gives the key
             given = KEY if os.environ.get(KEY) else None
             print(
                 json.dumps(

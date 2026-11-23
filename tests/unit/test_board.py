@@ -1,8 +1,9 @@
-"""board.py's rules for what the board of one task reads beside the page, each called in this
-process: what the owner gets, from a task.md's `## Outcome`, and a backlog item's title.
+"""board.py's rules for what the board of one task reads beside the page, each called in
+this process: what the owner gets, from a task.md's `## Outcome`, and a backlog
+item's title.
 
-Which items a task's branch adds against its merge base is a fact only git shows: tests/lem-serve.sh
-reads it on the board of a task whose branch filed one.
+Which items a task's branch adds against its merge base is a fact only git shows:
+tests/lem-serve.sh reads it on the board of a task whose branch filed one.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -20,8 +21,8 @@ sys.path.insert(
 board = importlib.import_module("board")
 task_pages = importlib.import_module("lem_board_task")
 
-# A task.md as `/lem new` writes it (stages/new.md): the ask, the type, the outcome over two
-# paragraphs with hard-wrapped lines, then the next sections.
+# A task.md as `/lem new` writes it (stages/new.md): the ask, the type, the outcome over
+# two paragraphs with hard-wrapped lines, then the next sections.
 TASK = """# status-boards-steady-look
 
 ## The ask, verbatim
@@ -67,9 +68,11 @@ class Outcome(unittest.TestCase):
         self.assertEqual(
             board.outcome(TASK),
             (
-                "The owner opens the board of all tasks or the board of one task and sees one steady layout in a "
-                "modern developer tool's look: no card changes its shape with its text.\n\n"
-                "The tabbed board of the backlog item is part of it, built with Lem's own CSS and no library.\n\n"
+                "The owner opens the board of all tasks or the board of one task and "
+                "sees one steady layout in a modern developer tool's look: "
+                "no card changes its shape with its text.\n\n"
+                "The tabbed board of the backlog item is part of it, built with Lem's "
+                "own CSS and no library.\n\n"
                 "### A heading under it\n\nIt belongs to the outcome."
             ),
         )
@@ -106,7 +109,10 @@ class ItemTitle(unittest.TestCase):
         )
         self.assertEqual(
             body.strip(),
-            "After this change lands, the pictures of the landing page show the board of tasks 5 and 6.",
+            (
+                "After this change lands, the pictures of the landing page show the "
+                "board of tasks 5 and 6."
+            ),
         )
 
     def test_an_item_with_no_title_line_has_none(self) -> None:
@@ -114,8 +120,9 @@ class ItemTitle(unittest.TestCase):
 
 
 class MetaAndTold(unittest.TestCase):
-    """What the board reads of a repository beside its events: how many commands one run of the
-    checks has, and what "What we are building" says of a task with no worktree."""
+    """What the board reads of a repository beside its events: how many commands one run
+    of the checks has, and what "What we are building" says of a task with
+    no worktree."""
 
     def test_one_run_of_the_checks_counts_the_commands_and_the_serial_ones(
         self,
@@ -154,10 +161,11 @@ class MetaAndTold(unittest.TestCase):
 
 
 class ReviewerItems(unittest.TestCase):
-    """`board.backlog` reads the reviewer's items of `.lem/state/backlog/` beside the backlog folder's,
-    each held by the task whose ask.txt is its path and that has not ended, or undecided (criteria 6, 7
-    and 9 of docs/plans/2026-11-23-scheduled-runs-one-branch.md). The main checkout is a plain folder:
-    git's answer for the backlog folder is not what these cases read."""
+    """`board.backlog` reads the reviewer's items of `.lem/state/backlog/` beside the
+    backlog folder's, each held by the task whose ask.txt is its path and that has not
+    ended, or undecided (criteria 6, 7 and 9 of
+    docs/plans/2026-11-23-scheduled-runs-one-branch.md). The main checkout is a plain
+    folder: git's answer for the backlog folder is not what these cases read."""
 
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
@@ -165,7 +173,10 @@ class ReviewerItems(unittest.TestCase):
         self.state = self.main / ".lem" / "state"
         for folder in (self.main / "docs" / "backlog", self.state / "backlog"):
             folder.mkdir(parents=True)
-        item = "---\nworth: later\nwhere: {where}\nadded: 2026-11-23\nproposals: {names}\n---\n\n# {title}\n\nFrom the retro of 2026-11-23.\n"
+        item = (
+            "---\nworth: later\nwhere: {where}\nadded: 2026-11-23\n"
+            "proposals: {names}\n---\n\n# {title}\n\nFrom the retro of 2026-11-23.\n"
+        )
         (self.state / "backlog" / "the-board-s-colors.md").write_text(
             item.format(
                 where="skills/lem/assets/board.css",
@@ -247,7 +258,8 @@ class ReviewerItems(unittest.TestCase):
             "tests-flaky-check", ".lem/state/backlog/tests-flaky-check.md", "dropped"
         )
         self.assertIsNone(self.items()["-tests-flaky-check"]["held"])
-        # a whole path under the main checkout is the same item, and a task of the backlog folder's item holds no reviewer's item
+        # a whole path under the main checkout is the same item, and a task of the
+        # backlog folder's item holds no reviewer's item
         self.task(
             "tests-flaky-check-2",
             f"{self.main}/.lem/state/backlog/tests-flaky-check.md",
@@ -282,7 +294,8 @@ class ReviewerItems(unittest.TestCase):
         )
 
     def test_a_landed_task_s_item_is_gone_with_its_file(self) -> None:
-        # the landing removes the file (land.py `forge_done`): the next read has no such item
+        # the landing removes the file (land.py `forge_done`): the next read has no
+        # such item
         self.task(
             "tests-flaky-check", ".lem/state/backlog/tests-flaky-check.md", "landed"
         )

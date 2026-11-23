@@ -1,21 +1,23 @@
-"""The plugin's SessionStart hook: start the board server of this machine when a Claude Code session
-starts in a repository that uses Lem.
+"""The plugin's SessionStart hook: start the board server of this machine when a Claude
+Code session starts in a repository that uses Lem.
 
-It reads the hook's event on stdin for the session's folder (`cwd`), finds the main checkout of its
-repository, and when that holds `.lem/settings.toml` it starts `serve.py --ensure` as a process of its
-own, in a new session, with its output appended to the server's log in Lem's home folder, and
-returns at once: the session never waits for the server. Anywhere else it does nothing. It prints
-nothing, since Claude Code takes a SessionStart hook's output as context, and it exits 0 whatever
-happens, a failure too: the board server is no part of a session.
+It reads the hook's event on stdin for the session's folder (`cwd`), finds the main
+checkout of its repository, and when that holds `.lem/settings.toml` it starts
+`serve.py --ensure` as a process of its own, in a new session, with its output appended
+to the server's log in Lem's home folder, and returns at once: the session never waits
+for the server. Anywhere else it does nothing. It prints nothing, since Claude Code
+takes a SessionStart hook's output as context, and it exits 0 whatever happens, a
+failure too: the board server is no part of a session.
 
-The plugin starts it through `lem_python.py` beside this file, which runs it under a Python of 3.11
-or newer when the first `python3` is older, and leaves the session silent when the machine has none.
+The plugin starts it through `lem_python.py` beside this file, which runs it under a
+Python of 3.11 or newer when the first `python3` is older, and leaves the session silent
+when the machine has none.
 """
 
 import sys
 
-# How long git may take to name the main checkout. A guess: it answers in milliseconds, and a stuck
-# git must not hold the hook.
+# How long git may take to name the main checkout. A guess: it answers in milliseconds,
+# and a stuck git must not hold the hook.
 GIT_TIMEOUT = 2
 
 

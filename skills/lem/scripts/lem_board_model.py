@@ -1,5 +1,5 @@
-"""The board's model: a repository's event log and Lem's files read into one object for each task and
-one for the workspace, which the pages of `lem_board_pages` draw.
+"""The board's model: a repository's event log and Lem's files read into one object for
+each task and one for the workspace, which the pages of `lem_board_pages` draw.
 
     model = derive(facts.events, facts.owner, now_ms(), meta=facts.meta)
     model.tasks                 every task with a state block or a session, in the order of its first event
@@ -10,25 +10,28 @@ one for the workspace, which the pages of `lem_board_pages` draw.
     now_head(task)              what the large card of a task says it does now
     time_of(task, end, meta)    where the time of one task went: its spans, marks and stages
 
-The rules are pure functions over data: events in, model out, with the clock given (`now`, in ms), so
-that a unit case calls them with a few events: which status a task is in, who acts, which column it
-stands in, what waits for the owner and where he answers, what a card says, green and its reasons, the
-phases; and for the board of one task, what it waits for, the head of its large card, its criteria as
-they stand and the checks of their tests, which decisions are important and why, a reason of not green
-in plain words and each one cut into a row (`reason_parts`), its progress, and where its time went
-(`time_of`). One rule says which words of a text are a pull request (`pull_refs`), and one says when the
-server asks the forge itself (`forge_due`). A run of the checks ends at its
-`gate.end`, and a landing whose run was stopped, red or refused is Lem's, with the owner's next step in
-words after a stop (`checks_end`). A sentence here is Lem's own and is said as it is.
+The rules are pure functions over data: events in, model out, with the clock given
+(`now`, in ms), so that a unit case calls them with a few events: which status a task is
+in, who acts, which column it stands in, what waits for the owner and where he answers,
+what a card says, green and its reasons, the phases; and for the board of one task, what
+it waits for, the head of its large card, its criteria as they stand and the checks of
+their tests, which decisions are important and why, a reason of not green in plain words
+and each one cut into a row (`reason_parts`), its progress, and where its time went
+(`time_of`). One rule says which words of a text are a pull request (`pull_refs`), and
+one says when the server asks the forge itself (`forge_due`). A run of the checks ends
+at its `gate.end`, and a landing whose run was stopped, red or refused is Lem's, with
+the owner's next step in words after a stop (`checks_end`). A sentence here is Lem's own
+and is said as it is.
 
-The facts come in through the loaders at the end of this file (`Reader`), which read each file only
-when its size or its change time moved, so that a page that renders after a burst of events reads
-the log once: the event log (`events.jsonl`, read on from where the last read stopped, and whole again
-when `lem project prune` put a new one in place), the owner's
-mark (`project.owner_records`), and the settings, the backlog and the meta facts through `board.py`'s
-functions, the board server's last look at the forge (FORGE_LOOK, `Model.seen`), and its record of
-what it sent to the owner's Inbox while he is away (INBOX_LOOK, `Model.inbox`, which `inbox_of` reads
-for a task's page). What does not read is a problem the page says, never an empty board.
+The facts come in through the loaders at the end of this file (`Reader`), which read
+each file only when its size or its change time moved, so that a page that renders after
+a burst of events reads the log once: the event log (`events.jsonl`, read on from where
+the last read stopped, and whole again when `lem project prune` put a new one in place),
+the owner's mark (`project.owner_records`), and the settings, the backlog and the meta
+facts through `board.py`'s functions, the board server's last look at the forge
+(FORGE_LOOK, `Model.seen`), and its record of what it sent to the owner's Inbox while he
+is away (INBOX_LOOK, `Model.inbox`, which `inbox_of` reads for a task's page). What does
+not read is a problem the page says, never an empty board.
 """
 
 import json
@@ -133,7 +136,8 @@ STATUS = {
         "icon": "park",
         "live": False,
     },
-    # the board's own word for a task whose session opened and wrote no state block yet (NEW): no stage writes it
+    # the board's own word for a task whose session opened and wrote no state block yet
+    # (NEW): no stage writes it
     "new": {
         "actor": "lem",
         "who": "Its session",
@@ -150,16 +154,19 @@ UNKNOWN = {
     "icon": "alert",
     "live": False,
 }
-# The status of a task with a `session.open` and no state block: its session reads the request, and the
-# task is on the board from its first minute (`derive`). It is the board's word, never a state of project.py.
+# The status of a task with a `session.open` and no state block: its session reads the
+# request, and the task is on the board from its first minute (`derive`). It is the
+# board's word, never a state of project.py.
 NEW = "new"
 NEW_TEXT = "its session opened and reads the request; it wrote no state yet"
-# The line with which a landing writes `blocked` while the base branch fails a check (stages/land.md
-# step 4): the task's session waits for the task that repairs the base, and nothing waits for the owner.
+# The line with which a landing writes `blocked` while the base branch fails a check
+# (stages/land.md step 4): the task's session waits for the task that repairs the base,
+# and nothing waits for the owner.
 BASE_RED = "the base is red"
-# The fixed line of a block that a seat's error wrote (project.py FAILED_LINE, `lem project seat-failed`):
-# the seat whose agent gave an error, and no fallback could stand in for it. A block of the merge agent's
-# seat keeps its pull request, which the server's look at GitHub still watches (serve.py `open_prs`).
+# The fixed line of a block that a seat's error wrote (project.py FAILED_LINE,
+# `lem project seat-failed`): the seat whose agent gave an error, and no fallback could
+# stand in for it. A block of the merge agent's seat keeps its pull request, which the
+# server's look at GitHub still watches (serve.py `open_prs`).
 FAILED_SEAT = re.compile(r"the seat that failed: (reviewer|planner|merger)")
 # each such seat as the records name it (lem_state.SEAT_NAMES)
 SEAT_WORDS = {
@@ -167,18 +174,22 @@ SEAT_WORDS = {
     "planner": "the planner",
     "merger": "the merge agent",
 }
-# The states a task does not leave (project.py ENDED): nobody acts, and nothing of it waits.
+# The states a task does not leave (project.py ENDED): nobody acts, and nothing of
+# it waits.
 ENDED = ("landed", "dropped", "answered")
-# The ended states whose task still gets a session while its worktree is there, as session.py's `phase_of`
-# admits them: the session cleans up and pays what the ticket is still owed, after a merge or after a pull
-# request closed on GitHub. An `answered` task, or one whose worktree is gone, gets none.
+# The ended states whose task still gets a session while its worktree is there, as
+# session.py's `phase_of` admits them: the session cleans up and pays what the ticket is
+# still owed, after a merge or after a pull request closed on GitHub. An `answered`
+# task, or one whose worktree is gone, gets none.
 CLEANED_BY_SESSION = ("landed", "dropped")
-# The state of a task the owner put aside (`/lem park`, project.py PARKED): nobody acts, and nothing of it
-# waits for him, also when a breaker of it still does; `/lem resume SLUG` brings it back.
+# The state of a task the owner put aside (`/lem park`, project.py PARKED): nobody acts,
+# and nothing of it waits for him, also when a breaker of it still does;
+# `/lem resume SLUG` brings it back.
 PARKED = "parked"
 # The type of a request, from its state line `type: TYPE, because WHY` (stages/new.md).
 TYPES = ("feat", "fix", "docs", "refactor", "perf", "test", "chore", "question")
-# The records' own words for the fast track (SKILL.md), which the page says in the track's name.
+# The records' own words for the fast track (SKILL.md), which the page says in the
+# track's name.
 FAST_BUILDER = re.compile(r"^small change: one builder$")
 FAST_JOB = "the small change"
 FAST_GREW = re.compile(r"\bthe small change is a full change$")
@@ -188,7 +199,9 @@ CALLS = {
     "small": {
         "head": "The investigation found a plain cause: the fast track fixes it",
         "card": "The cause",
-        "now": "A plain cause, which one rule fixes: the task goes on by the fast track",
+        "now": (
+            "A plain cause, which one rule fixes: the task goes on by the fast track"
+        ),
     },
     "full": {
         "head": "The investigation found a plain cause: the standard track",
@@ -212,35 +225,50 @@ CALLS = {
     },
 }
 CRITERIA_WAIT = re.compile(r"\bcriteria wait\b")
-# Who answers a wait for the owner's yes to the criteria: the owner, or `alone` for a task that runs without him.
+# Who answers a wait for the owner's yes to the criteria: the owner, or `alone` for a
+# task that runs without him.
 APPROVERS = ("owner", "alone")
 # The owner's word to skip the personas' read of the criteria (land.py READ_SKIP).
 READ_SKIP = {
     "what": "the personas' read of the criteria",
     "chose": "no read: the criteria name only the developer",
 }
-# Who acts on a held task's criteria, from the events after its newest block (`turn_of`): the owner
-# answers the interview's questions (`asks`), Lem writes the criteria once they ended (`writes`), the
-# owner says whether to skip the personas' read (`skip`), the personas read them (`reads`), and the
-# owner gives his yes once the read is in or he skipped it (`yes`). The three that are his:
+# Who acts on a held task's criteria, from the events after its newest block
+# (`turn_of`): the owner answers the interview's questions (`asks`), Lem writes the
+# criteria once they ended (`writes`), the owner says whether to skip the personas' read
+# (`skip`), the personas read them (`reads`), and the owner gives his yes once the read
+# is in or he skipped it (`yes`). The three that are his:
 OWNER_TURNS = ("asks", "skip", "yes")
-# The statuses whose time counts from the block that named the wait, not from the first block of the status
-# (`settle`): the interview's held block and the criteria's are two waits, and a block written again with
-# the same first line is the same one.
+# The statuses whose time counts from the block that named the wait, not from the first
+# block of the status (`settle`): the interview's held block and the criteria's are two
+# waits, and a block written again with the same first line is the same one.
 WAIT_CLOCKS = ("held", "blocked")
-# The words of Lem's turn and of the skip question, on the card and in the row of "Waits for you".
+# The words of Lem's turn and of the skip question, on the card and in the row of "Waits
+# for you".
 WRITES_SAYS = "Lem writes the criteria; then they come to you."
 SKIP_SAYS = "Lem asks whether to skip the personas' read of the criteria"
-# The first line of a held block whose request waits for the owner's one answer (`stages/new.md`, "The request").
+# The first line of a held block whose request waits for the owner's one answer
+# (`stages/new.md`, "The request").
 ANSWER_WAIT = "the request waits for one answer"
-# What Lem does for a held task's need while the task runs without the owner (`stages/away.md`): the
-# need is the interview, the criteria, or the request's one answer.
+# What Lem does for a held task's need while the task runs without the owner
+# (`stages/away.md`): the need is the interview, the criteria, or the request's
+# one answer.
 GOES_ON = {
-    "interview": "Lem answers the interview with its own guesses, each in the task's decisions for the pull request, and approves the criteria without you",
-    "criteria": "Lem settles the criteria and approves them without you, each step in the task's decisions for the pull request",
-    "answer": "Lem takes the safer read of the request and goes on without you, the read in the task's decisions for the pull request",
+    "interview": (
+        "Lem answers the interview with its own guesses, each in the task's decisions "
+        "for the pull request, and approves the criteria without you"
+    ),
+    "criteria": (
+        "Lem settles the criteria and approves them without you, each step in the "
+        "task's decisions for the pull request"
+    ),
+    "answer": (
+        "Lem takes the safer read of the request and goes on without you, the read in "
+        "the task's decisions for the pull request"
+    ),
 }
-# The lanes are who acts: the owner, a lead and its builders, the machine checks and the review.
+# The lanes are who acts: the owner, a lead and its builders, the machine checks and
+# the review.
 LANES = [
     {
         "key": "you",
@@ -258,9 +286,10 @@ LANES = [
     {"key": "done", "title": "Done", "actor": "done", "empty": "Nothing landed yet"},
 ]
 LANE = {lane["key"]: lane for lane in LANES}
-# The ended tasks Done draws as cards, the newest first: its head counts every ended task, and a page of the board
-# lists the rest. An unmeasured estimate of a column that fits one screen of the large board
-# (docs/plans/2026-11-21-done-column-shows-newest.md, 2026-11-21).
+# The ended tasks Done draws as cards, the newest first: its head counts every ended
+# task, and a page of the board lists the rest. An unmeasured estimate of a column that
+# fits one screen of the large board (docs/plans/2026-11-21-done-column-shows-newest.md,
+# 2026-11-21).
 DONE_SHOWN = 20
 # 'Proposed' is the pull request on GitHub.
 PHASES = ["Criteria", "Plan", "Build", "Checks", "Review", "Proposed", "Landed"]
@@ -281,9 +310,14 @@ LEAD = {
     "session": {
         "tag": "plan talk",
         "chip": "plan talk",
-        "title": "A companion session talks the plan through, with the reviewer in its other pane; an agent builds it after the talk",
+        "title": (
+            "A companion session talks the plan through, with the reviewer in its "
+            "other pane; an agent builds it after the talk"
+        ),
         "head": "Its companion talks the plan through",
-        "stat": "a companion talks the plan through, with the reviewer in its other pane",
+        "stat": (
+            "a companion talks the plan through, with the reviewer in its other pane"
+        ),
     },
     "talked": {
         "tag": "one agent",
@@ -295,14 +329,20 @@ LEAD = {
     "builder": {
         "tag": "one agent",
         "chip": None,
-        "title": "One agent plans this task, and a fresh builder builds each task of its plan",
+        "title": (
+            "One agent plans this task, and a fresh builder "
+            "builds each task of its plan"
+        ),
         "head": "An agent plans and builds it",
         "stat": "one agent plans it, and a fresh builder builds each task of the plan",
     },
     "small": {
         "tag": "one builder",
         "chip": "fast track",
-        "title": "The fast track: one builder makes it, with no lead and no plan, and the landing checks it",
+        "title": (
+            "The fast track: one builder makes it, with no lead and no plan, "
+            "and the landing checks it"
+        ),
         "head": "One builder makes the change",
         "stat": "one builder makes the change, with no lead and no plan",
     },
@@ -322,7 +362,8 @@ BREAKS: dict[object, str] = {
 # A held block's first line while a breaker holds the task (decisions.py BREAKER_WAIT).
 BREAKER_WAIT = re.compile(r"breaker ([1-9]\d*) waits for the owner")
 FAMILIES = {1: "one model family", 2: "two model families"}
-# The events that cut a landing, the starts of its steps, and what a landing waits for (land.py).
+# The events that cut a landing, the starts of its steps, and what a landing waits
+# for (land.py).
 CHECKS = (
     "polish",
     "gate",
@@ -334,12 +375,13 @@ CHECKS = (
 )
 LANDING_STARTS = ("polish.start", "gate.start", "review.start", "builder.start")
 WAITS = ("gate.wait", "merge.wait")
-# The one event that stands for every event of an ended task that nothing happened in for
-# `state.keep_days` days, which only `lem project prune` writes (project.py SUMMARY, `summary_of`),
-# in the place of the task's newest event.
+# The one event that stands for every event of an ended task that nothing happened in
+# for `state.keep_days` days, which only `lem project prune` writes (project.py SUMMARY,
+# `summary_of`), in the place of the task's newest event.
 SUMMARY = "task.summary"
-# The stop of a command for a task two releases back (lem_release.STOP): while it is newer than the task's
-# newest state, the task is shown blocked with its message, and its status stays the one of its state.
+# The stop of a command for a task two releases back (lem_release.STOP): while it is
+# newer than the task's newest state, the task is shown blocked with its message, and
+# its status stays the one of its state.
 RELEASE_STOP = "release.stop"
 # How a run of the checks ended, by the `result` of its `gate.end` (land.py RESULTS).
 CHECKS_END: dict[object, dict[str, str]] = {
@@ -356,7 +398,9 @@ CHECKS_END: dict[object, dict[str, str]] = {
     "refused": {
         "head": "The checks refused the change",
         "label": "Checks refused",
-        "after": "After the checks refused the change: Lem starts a builder that repairs it",
+        "after": (
+            "After the checks refused the change: Lem starts a builder that repairs it"
+        ),
     },
     "stopped": {
         "head": "The checks were stopped",
@@ -375,10 +419,15 @@ KIND: dict[object, str] = {
     "round": "a round with the profiles that fit",
     "full": "the project's full set",
 }
-# What green means, in the words of the first line of a green pull request (`GREEN` in land.py).
-GREEN = "The checks passed with the bar where it was, the review left no must-fix, no criterion changed, and no decision past the personas was taken without an answer"
+# What green means, in the words of the first line of a green pull request (`GREEN`
+# in land.py).
+GREEN = (
+    "The checks passed with the bar where it was, the review left no must-fix, no "
+    "criterion changed, and no decision past the personas was taken without an answer"
+)
 PULL = re.compile(r"\bhttps?://\S+/pull/(\d+)\b")
-# Why a task's session closed (`lem session close --why`), and why one opened or was woken, in words.
+# Why a task's session closed (`lem session close --why`), and why one opened or was
+# woken, in words.
 CLOSED = {
     "handoff": "a fresh session took its place",
     "ended": "the task ended",
@@ -393,10 +442,12 @@ OPENED = {
     "queue": "the task it waited for ended",
     "night": "for the night",
     "owner": "on your word",
-    "stopped": "beside the one that stopped, whose name in agterm now ends in “replaced”",
+    "stopped": (
+        "beside the one that stopped, whose name in agterm now ends in “replaced”"
+    ),
 }
-# How long a task may have no live session before the board says so: the time a session takes from its
-# open to its agent (a guess, plan-task-4.md section 2, 2026-11-21).
+# How long a task may have no live session before the board says so: the time a session
+# takes from its open to its agent (a guess, plan-task-4.md section 2, 2026-11-21).
 GRACE_MS = 2 * 60 * 1000
 # The merge review that calls the owner comes before the merge it is about.
 WAIT_ORDER = {
@@ -421,7 +472,8 @@ def now_ms() -> int:
 
 
 def at(ts: object) -> int | None:
-    """An event's `ts` (ISO 8601, `Z` for UTC) in ms, or None when it does not read as a time."""
+    """An event's `ts` (ISO 8601, `Z` for UTC) in ms, or None when it does not read as
+    a time."""
     if not isinstance(ts, str):
         return None
     try:
@@ -433,8 +485,8 @@ def at(ts: object) -> int | None:
     return int(moment.timestamp() * 1000)
 
 
-# A span says its seconds under ten minutes, and its hours under two days (`span`); a time under five
-# seconds ago is now (`ago`).
+# A span says its seconds under ten minutes, and its hours under two days (`span`); a
+# time under five seconds ago is now (`ago`).
 SECONDS_SHOWN_M = 10
 HOURS_SHOWN_H = 48
 JUST_NOW_MS = 5000
@@ -476,7 +528,8 @@ def day_label(ms: float) -> str:
 
 
 def stamp(ms: float, now: float) -> str:
-    """A clock time, with its date when it is not on the day of `now`: 00:10 and 23:50 do not read as one evening."""
+    """A clock time, with its date when it is not on the day of `now`: 00:10 and 23:50
+    do not read as one evening."""
     return (
         "" if local(ms).date() == local(now).date() else f"{day_label(ms)} "
     ) + hhmm(ms)
@@ -509,7 +562,8 @@ def flat(text: object) -> str:
 
 
 def yours(s: str) -> str:
-    """The stages write what waits for the developer in the third person; the page speaks to him."""
+    """The stages write what waits for the developer in the third person; the page
+    speaks to him."""
     s = re.sub(r"\b(waits?|waiting) for the owner['’]s\b", r"\1 for your", s)
     return re.sub(r"\b(waits?|waiting) for the owner\b", r"\1 for you", s)
 
@@ -520,8 +574,9 @@ def type_line(line: str) -> dict | None:
 
 
 def words(line: object, *, talked: bool = False) -> str | None:
-    """A line of a state block as the page says it: a fixed line of the scripts in words, or left out
-    (None) where the page says it elsewhere; any other line is the agent's own and stays as written."""
+    """A line of a state block as the page says it: a fixed line of the scripts in
+    words, or left out (None) where the page says it elsewhere; any other line is the
+    agent's own and stays as written."""
     s = str(line)
     if re.match(r"^lead: builder\b", s):
         return (
@@ -561,7 +616,8 @@ def words(line: object, *, talked: bool = False) -> str | None:
 
 
 def said_of(block: dict, *, talked: bool = False) -> list[str]:
-    """A state block's lines as the page says them; `talked` when a plan talk ended before it."""
+    """A state block's lines as the page says them; `talked` when a plan talk ended
+    before it."""
     return [
         said
         for said in (
@@ -573,8 +629,8 @@ def said_of(block: dict, *, talked: bool = False) -> list[str]:
 
 
 def held_need(line: object) -> dict | None:
-    """What the task's session waits on the owner for, from the first line of a held block: the
-    interview, the criteria, or the breaker by its number."""
+    """What the task's session waits on the owner for, from the first line of a held
+    block: the interview, the criteria, or the breaker by its number."""
     s = str(line or "")
     if s.startswith("the interview waits for the owner") or FAST_GREW.search(s):
         return {"need": "interview", "number": None}
@@ -609,7 +665,8 @@ def small_block(block: dict) -> bool:
 
 
 def waits_for_task(block: dict) -> bool:
-    """Whether a state block has an `after: SLUG` line: a task it needs, or one the owner's words put it after."""
+    """Whether a state block has an `after: SLUG` line: a task it needs, or one the
+    owner's words put it after."""
     return any(re.fullmatch(r"after: [a-z0-9-]+", line) for line in lines_of(block))
 
 
@@ -622,7 +679,8 @@ def checks_end(result: object) -> dict:
 
 
 def say_of(end: dict) -> str:
-    """The `say` of a `gate.end` without the task's name before it (land.py checks_say: "SLUG: ...")."""
+    """The `say` of a `gate.end` without the task's name before it (land.py checks_say:
+    "SLUG: ...")."""
     return re.sub(r"^[a-z0-9-]+: ", "", str(end.get("say") or ""))
 
 
@@ -639,7 +697,8 @@ def expert_name(key: str) -> str:
 
 
 def talk_counts(x: dict) -> str:
-    """A plan talk's record in words: its questions and turns, how its questions ended, its repairs."""
+    """A plan talk's record in words: its questions and turns, how its questions ended,
+    its repairs."""
     g = lambda k: x.get(k) or 0  # noqa: E731
     over = (
         f", over the bound of {x['bound']} for its {plural(g('questions'), 'question')}"
@@ -647,7 +706,10 @@ def talk_counts(x: dict) -> str:
         else ""
     )
     design = (
-        f", {x['design']} of them {'a design choice' if x['design'] == 1 else 'design choices'}"
+        (
+            f", {x['design']} of them "
+            f"{'a design choice' if x['design'] == 1 else 'design choices'}"
+        )
         if x.get("design")
         else ""
     )
@@ -655,7 +717,10 @@ def talk_counts(x: dict) -> str:
         *([f"{x['root']} at the cause"] if x.get("root") else []),
         *(
             [
-                f"{x['layer']} {'a layer' if x['layer'] == 1 else 'layers'} over a cited decision"
+                (
+                    f"{x['layer']} {'a layer' if x['layer'] == 1 else 'layers'} over a "
+                    "cited decision"
+                )
             ]
             if x.get("layer")
             else []
@@ -668,7 +733,8 @@ def talk_counts(x: dict) -> str:
     ]
     if x.get("shared"):
         parts.append(
-            f"{x['shared']} {'decision' if x['shared'] == 1 else 'decisions'} two questions named"
+            f"{x['shared']} {'decision' if x['shared'] == 1 else 'decisions'} two "
+            "questions named"
         )
     if x.get("unargued"):
         parts.append(f"{x['unargued']} raised, not argued")
@@ -684,7 +750,10 @@ def review_line(r: dict) -> str:
     verdict = (
         "not reviewed"
         if r.get("verdict") == "not reviewed"
-        else f"{r.get('verdict')}, {r.get('must_fix')} must-fix, {r.get('should')} should, {r.get('nit')} nit"
+        else (
+            f"{r.get('verdict')}, {r.get('must_fix')} must-fix, {r.get('should')} "
+            f"should, {r.get('nit')} nit"
+        )
     )
     return f"{head}, {KIND.get(r.get('kind'), r.get('kind'))}: {verdict}"
 
@@ -704,7 +773,8 @@ class Decision:
     said: object = None
     undo: object = None
     options: list = field(default_factory=list)
-    # `taken` for a decision; for a breaker `waits`, or `helped` once a decision of the owner's names it
+    # `taken` for a decision; for a breaker `waits`, or `helped` once a decision of the
+    # owner's names it
     state: str = "taken"
     advisers: list | None = None
     levels: dict | None = None
@@ -712,8 +782,9 @@ class Decision:
     # the owner's help on a breaker: the breaker's number, and his own words
     breaker: int | None = None
     words: object = None
-    # a breaker (decisions.py `breaker`): its cause, the kind of a step no "no" undoes, its document and
-    # handoff in the task directory, and the decision of the owner's that helped it, with its time
+    # a breaker (decisions.py `breaker`): its cause, the kind of a step no "no" undoes,
+    # its document and handoff in the task directory, and the decision of the owner's
+    # that helped it, with its time
     stop: object = None
     irreversible: object = None
     document: object = None
@@ -722,8 +793,9 @@ class Decision:
     helped: int | None = None
     # the dropped task a resumed task carried the record over from (project.py `resume`)
     copied: object = None
-    # the decision's story, when its record has one (decisions.py `log` where it takes them):
-    # the case as numbered steps, how the case is known, the cause, and a mermaid chart
+    # the decision's story, when its record has one (decisions.py `log` where it takes
+    # them): the case as numbered steps, how the case is known, the cause, and a
+    # mermaid chart
     case: list = field(default_factory=list)
     case_was: object = None
     cause: object = None
@@ -761,26 +833,29 @@ class Task:
     polish: dict | None = None
     type: dict | None = None
     investigation: dict | None = None
-    # the task's first line to the owner, as `lem project state` composed it for the block that names its path,
-    # while that block is the task's newest
+    # the task's first line to the owner, as `lem project state` composed it for the
+    # block that names its path, while that block is the task's newest
     opening: str | None = None
     landing_step: dict | None = None
     checks_end: dict | None = None
     waits: dict | None = None
-    # the task's agterm session, from the newest `session.open` (lem session): its id, name, phase, why
-    # and time, when it was closed (`session.close` of that session), and each wake-up (`session.wake`)
+    # the task's agterm session, from the newest `session.open` (lem session): its id,
+    # name, phase, why and time, when it was closed (`session.close` of that session),
+    # and each wake-up (`session.wake`)
     opened: dict | None = None
     session_closed: int | None = None
     wakes: list = field(default_factory=list)
-    # the merge agent's review of the newest proposal (`merge.review`), with its call on a moved base
-    # (`base_call`, `safe` or `another round`), and the refusal of a merge of it (`merge.refused`),
-    # GitHub's or Lem's own (`from`, and Lem's `kind`), until a read that answers it (`answers_refusal`)
+    # the merge agent's review of the newest proposal (`merge.review`), with its call on
+    # a moved base (`base_call`, `safe` or `another round`), and the refusal of a merge
+    # of it (`merge.refused`), GitHub's or Lem's own (`from`, and Lem's `kind`), until a
+    # read that answers it (`answers_refusal`)
     merge_review: dict | None = None
     refused: dict | None = None
-    # the tip of Lem's refusal of the owner's own merge because the base moved, once a read answered it
-    # (`answers_refusal`): the board treats his merge as standing from that read (`owner_stands`), before
-    # its `merge.stands` line, which the server's run of his merge waits for (`stands_due` in serve.py);
-    # a new proposal clears it with the refusal
+    # the tip of Lem's refusal of the owner's own merge because the base moved, once a
+    # read answered it (`answers_refusal`): the board treats his merge as standing from
+    # that read (`owner_stands`), before its `merge.stands` line, which the server's run
+    # of his merge waits for (`stands_due` in serve.py); a new proposal clears it with
+    # the refusal
     stood: str | None = None
     # set by `derive` once every event is read
     status: str = ""
@@ -792,34 +867,42 @@ class Task:
     since: int = 0
     first: int = 0
     closed: bool = False
-    # every decision and breaker of the record, by number; the breaker that waits while the task is open
-    # (`stopped`, also when it is parked), and the one that waits for the owner now (`breaker`)
+    # every decision and breaker of the record, by number; the breaker that waits while
+    # the task is open (`stopped`, also when it is parked), and the one that waits for
+    # the owner now (`breaker`)
     decided: list = field(default_factory=list)
     stopped: Decision | None = None
     breaker: Decision | None = None
     criteria_wait: bool = False
     need: dict | None = None
     approved: dict | None = None
-    # the criteria wait for the owner's yes and it would count now: the need is the criteria, or an
-    # interview whose criteria the personas read (or he skipped the read) after its newest block
+    # the criteria wait for the owner's yes and it would count now: the need is the
+    # criteria, or an interview whose criteria the personas read (or he skipped the
+    # read) after its newest block
     approvable: bool = False
-    # the personas' read of a held task's criteria that runs now (`turn_of`): its `criteria.read.start`
+    # the personas' read of a held task's criteria that runs now (`turn_of`):
+    # its `criteria.read.start`
     reading: dict | None = None
-    # who acts on a held task's criteria now (`turn_of`, OWNER_TURNS), None for any other task
+    # who acts on a held task's criteria now (`turn_of`, OWNER_TURNS), None for any
+    # other task
     turn: str | None = None
-    # the need of a held task that Lem settles without the owner, since the task runs without him now
-    # (his mark says away, or a night's mark): `interview`, `criteria` or `answer` (GOES_ON), else None
+    # the need of a held task that Lem settles without the owner, since the task runs
+    # without him now (his mark says away, or a night's mark): `interview`, `criteria`
+    # or `answer` (GOES_ON), else None
     goes_on: str | None = None
     helped: Decision | None = None
     waits_after: bool = False
-    # the task a queued task waited for, which was dropped (`after_dropped`): it waits for the owner's word
+    # the task a queued task waited for, which was dropped (`after_dropped`): it waits
+    # for the owner's word
     dropped_after: str | None = None
     for_owner: bool = False
-    # a held task of the owner's whose session's newest turn runs (`put_sessions`): Lem's work until that turn
-    # ends; and what `settle` gave it (`for_owner`, `info`, `shown`, `lane`), which it gets back then
+    # a held task of the owner's whose session's newest turn runs (`put_sessions`):
+    # Lem's work until that turn ends; and what `settle` gave it (`for_owner`, `info`,
+    # `shown`, `lane`), which it gets back then
     works: bool = False
     settled: dict | None = None
-    # for an `open` task, who its merge waits for (`merge_wait`): "reads", "merges" or "owner"
+    # for an `open` task, who its merge waits for (`merge_wait`): "reads", "merges"
+    # or "owner"
     merge_wait: str | None = None
     investigating: bool = False
     checks_stop: dict | None = None
@@ -830,17 +913,22 @@ class Task:
     investigated: bool = False
     plan_committed: bool = False
     gate_bad: int = 0
-    # `blocked` while the base branch fails a check (BASE_RED): its session waits for the repair, not for the owner
+    # `blocked` while the base branch fails a check (BASE_RED): its session waits for
+    # the repair, not for the owner
     base_red: bool = False
-    # the seat a `blocked` task's newest block names as the one that failed (FAILED_SEAT), or None
+    # the seat a `blocked` task's newest block names as the one that failed
+    # (FAILED_SEAT), or None
     failed_seat: str | None = None
-    # each Claude Code session of the task, as the plugin's SessionStart hook logged it (`session.transcript`):
-    # its id and the path of its transcript, which lem_tokens reads
+    # each Claude Code session of the task, as the plugin's SessionStart hook logged it
+    # (`session.transcript`): its id and the path of its transcript, which
+    # lem_tokens reads
     transcripts: list = field(default_factory=list)
-    # the task's summary (SUMMARY) as `lem project prune` wrote it, once its events became that one event;
-    # the board of the task says so and shows what it holds (lem_board_task.py)
+    # the task's summary (SUMMARY) as `lem project prune` wrote it, once its events
+    # became that one event; the board of the task says so and shows what it
+    # holds (lem_board_task.py)
     summary: dict | None = None
-    # the newest `release.stop` while no state came after it (RELEASE_STOP): `began`, `running`, `branch`, `say`
+    # the newest `release.stop` while no state came after it (RELEASE_STOP): `began`,
+    # `running`, `branch`, `say`
     release_stop: dict | None = None
 
 
@@ -864,24 +952,28 @@ class Model:
     by_slug: dict
     events: list
     meta: dict = field(default_factory=dict)
-    # what the board server's last look at the forge said of each open task's pull request, by its slug
-    # (`mergeable`, `head`): FORGE_LOOK of the state folder, which serve.py writes at each look (`forge_once`)
-    # and the Reader reads; None while no server has looked
+    # what the board server's last look at the forge said of each open task's pull
+    # request, by its slug (`mergeable`, `head`): FORGE_LOOK of the state folder, which
+    # serve.py writes at each look (`forge_once`) and the Reader reads; None while no
+    # server has looked
     seen: dict | None = None
-    # what the board server's last `lem session list` said of each task's session, by its slug
-    # (`live`: the session is in agterm's tree; `agent`: an agent runs in its pane; `unanswered`: a
-    # wake-up waits in it for 10 minutes; `sign`, `shell`, `signs` and `turn`: the session's own signs of
-    # work, as lem_signs reads them; `worktree`: the task's worktree is still there), which `put_sessions`
-    # puts here for serve.py, `lem project waiting` and the guard; None while the server has not asked (a
-    # demo workspace, or before its first look)
+    # what the board server's last `lem session list` said of each task's session, by
+    # its slug (`live`: the session is in agterm's tree; `agent`: an agent runs in its
+    # pane; `unanswered`: a wake-up waits in it for 10 minutes; `sign`, `shell`, `signs`
+    # and `turn`: the session's own signs of work, as lem_signs reads them; `worktree`:
+    # the task's worktree is still there), which `put_sessions` puts here for serve.py,
+    # `lem project waiting` and the guard; None while the server has not asked (a demo
+    # workspace, or before its first look)
     sessions: dict | None = None
-    # what the board server's Inbox thread last wrote of the owner's Inbox (`inbox_look` of INBOX_LOOK): the
-    # door's last look and each thing it sent; None while no server wrote it
+    # what the board server's Inbox thread last wrote of the owner's Inbox (`inbox_look`
+    # of INBOX_LOOK): the door's last look and each thing it sent; None while no server
+    # wrote it
     inbox: dict | None = None
 
 
 def decision_event(t: Task, e: dict, ts: int) -> None:
-    """One line of decisions.py's record, as project.py logged it; `at` is the record's own time."""
+    """One line of decisions.py's record, as project.py logged it; `at` is the record's
+    own time."""
     kind = str(e.get("event"))[len("decision.") :]
     if e.get("at"):
         ts = at(e["at"]) or ts
@@ -945,7 +1037,8 @@ def decision_event(t: Task, e: dict, ts: int) -> None:
     if d.breaker is None:
         return
     stopped = t.decisions.get(d.breaker)
-    # the owner's help on a breaker the log does not hold is shown as such, never dropped
+    # the owner's help on a breaker the log does not hold is shown as such,
+    # never dropped
     if stopped is None or stopped.kind != "breaker":
         t.orphans.append({"ts": ts, "id": d.id, "breaker": d.breaker, "chose": d.chose})
         return
@@ -953,20 +1046,22 @@ def decision_event(t: Task, e: dict, ts: int) -> None:
 
 
 def case_steps(case: object) -> list[str]:
-    """A record's case as its lines, as written: decisions.py keeps it as one text of numbered lines, a
-    criterion as a list of lines; a line may be a label between two runs ("After:")."""
+    """A record's case as its lines, as written: decisions.py keeps it as one text of
+    numbered lines, a criterion as a list of lines; a line may be a label between two
+    runs ("After:")."""
     lines = case if isinstance(case, list) else str(case or "").splitlines()
     return [str(line).strip() for line in lines if str(line).strip()]
 
 
-# A step of a case, by its number, and a label between two runs of it ("Today:", "After:").
+# A step of a case, by its number, and a label between two runs of it
+# ("Today:", "After:").
 STEP = re.compile(r"^\d+[.)]\s+")
 CASE_LABEL = re.compile(r"^[^.]{1,40}:$")
 
 
 def case_runs(steps: list[str]) -> list[dict]:
-    """A case's lines as its runs: each run's label ("" for none) and its steps without their numbers, so
-    that "Today" and "After" read as two numbered lists."""
+    """A case's lines as its runs: each run's label ("" for none) and its steps without
+    their numbers, so that "Today" and "After" read as two numbered lists."""
     runs: list[dict] = [{"label": "", "steps": []}]
     for line in steps:
         if CASE_LABEL.match(line) and not STEP.match(line):
@@ -977,20 +1072,22 @@ def case_runs(steps: list[str]) -> list[dict]:
 
 
 def same_tip(a: object, b: object) -> bool:
-    """Whether two names of a commit are one commit: an event keeps a short id, a record the whole one."""
+    """Whether two names of a commit are one commit: an event keeps a short id, a record
+    the whole one."""
     return bool(a and b) and (str(a).startswith(str(b)) or str(b).startswith(str(a)))
 
 
 def answers_refusal(
     refused: dict | None, before: dict | None, review: dict, proposed: object
 ) -> bool:
-    """Whether a merge review (REVIEW) answers the refusal on record (REFUSED), as land.py's record of
-    it clears `merge_refused` (`read_answers`): a read of the proposed tip (PROPOSED) whose call on the
-    moved base is `safe`, or that has no call on a move, answers Lem's refusal of that tip because the
-    base moved (`kind: base`), unless the newest read of that tip before it (BEFORE) said `another
-    round`, whose refusal only the new landing answers. land.py records a read with no call only when
-    its brief named the checks' own base: main has their tree again, after a revert. No read answers
-    any other refusal: GitHub's, a rule's, a tip's."""
+    """Whether a merge review (REVIEW) answers the refusal on record (REFUSED), as
+    land.py's record of it clears `merge_refused` (`read_answers`): a read of the
+    proposed tip (PROPOSED) whose call on the moved base is `safe`, or that has no call
+    on a move, answers Lem's refusal of that tip because the base moved (`kind: base`),
+    unless the newest read of that tip before it (BEFORE) said `another round`, whose
+    refusal only the new landing answers. land.py records a read with no call only when
+    its brief named the checks' own base: main has their tree again, after a revert. No
+    read answers any other refusal: GitHub's, a rule's, a tip's."""
     tip = review.get("tip")
     return bool(
         refused
@@ -1063,7 +1160,8 @@ def fold(t: Task, e: dict, ts: int) -> None:
         )
         return
     if event == "session.close":
-        # the close of the newest session; one that names an older session, which a handoff closes after it, changes nothing
+        # the close of the newest session; one that names an older session, which a
+        # handoff closes after it, changes nothing
         if t.opened and (
             not e.get("session") or e.get("session") == t.opened.get("session")
         ):
@@ -1090,7 +1188,8 @@ def fold(t: Task, e: dict, ts: int) -> None:
         }
         return
     if event == "session.stopped":
-        # the guard's record of a stop (`stop_stands`), read from `t.events`: no step of the task's own
+        # the guard's record of a stop (`stop_stands`), read from `t.events`: no step of
+        # the task's own
         return
     if event == "session.transcript":
         t.transcripts.append(
@@ -1163,7 +1262,8 @@ def fold(t: Task, e: dict, ts: int) -> None:
             "kind": e.get("kind"),
         }
         return
-    # a landing that waits: its checks for the machine's load or behind another landing, or its merge call for another's merge
+    # a landing that waits: its checks for the machine's load or behind another landing,
+    # or its merge call for another's merge
     if event in WAITS:
         t.waits = {
             "ts": ts,
@@ -1232,7 +1332,8 @@ def fold(t: Task, e: dict, ts: int) -> None:
         }
         return
     if event == "gate":
-        # a result on another tip starts a new run, and a command's newer result replaces its older one
+        # a result on another tip starts a new run, and a command's newer result
+        # replaces its older one
         result = {
             "ts": ts,
             "command": e.get("command"),
@@ -1245,7 +1346,8 @@ def fold(t: Task, e: dict, ts: int) -> None:
         t.gates = [g for g in t.gates if g["command"] != result["command"]] + [result]
         return
     if event == "review":
-        # a review written down again after a cut-off run has the same attempt: it is one review
+        # a review written down again after a cut-off run has the same attempt: it is
+        # one review
         t.reviews = [
             r
             for r in t.reviews
@@ -1299,7 +1401,8 @@ def fold(t: Task, e: dict, ts: int) -> None:
     text = "" if e.get("text") is None else str(e.get("text"))
     lines = [str(line) for line in (e.get("lines") or [])]
     previous = t.blocks[-1]["status"] if t.blocks else None
-    # a landing that starts is a new run of the gate; a task that comes back from the build starts over
+    # a landing that starts is a new run of the gate; a task that comes back from the
+    # build starts over
     if status == "landing" and previous != "landing":
         t.gates = []
     if status == "landing" and previous == "ready":
@@ -1315,7 +1418,8 @@ def fold(t: Task, e: dict, ts: int) -> None:
     )
     if e.get("ask"):
         t.ask = str(e["ask"])
-    # the first line stands while its block is the task's newest: a later block is a later moment of the task
+    # the first line stands while its block is the task's newest: a later block is a
+    # later moment of the task
     t.opening = str(e["say"]) if e.get("say") else None
     for line in [text, *lines]:
         lead = re.match(r"^lead: (builder|session)\b", line)
@@ -1348,14 +1452,15 @@ def fold(t: Task, e: dict, ts: int) -> None:
 
 
 def fold_summary(t: Task, e: dict, ts: int) -> None:
-    """A task's summary (SUMMARY) as the task's whole past: one block, its newest, which also carries when
-    the run of its status began (`since`), the task's first block (`first`), the pull request any of its
-    blocks named (`pr`) and whether a plan talk ended before it (`talked`); and the facts its card reads
-    from the other events: the ask, the branch, the type, the lead, the proposal and the investigation
-    (the careful call and the criteria's size stay in `t.summary`, which `careful_of` and `criteria_size`
-    read). Each is what this module read from
-    the task's events, since project.py `summary_of` computes it with `derive`, so `settle`, the card,
-    `pr_of`, `careful_of`, `after_ended` and `after_dropped` read a summarized task as before."""
+    """A task's summary (SUMMARY) as the task's whole past: one block, its newest, which
+    also carries when the run of its status began (`since`), the task's first block
+    (`first`), the pull request any of its blocks named (`pr`) and whether a plan talk
+    ended before it (`talked`); and the facts its card reads from the other events: the
+    ask, the branch, the type, the lead, the proposal and the investigation (the careful
+    call and the criteria's size stay in `t.summary`, which `careful_of` and
+    `criteria_size` read). Each is what this module read from the task's events, since
+    project.py `summary_of` computes it with `derive`, so `settle`, the card, `pr_of`,
+    `careful_of`, `after_ended` and `after_dropped` read a summarized task as before."""
     last = at(e.get("last")) or ts
     pr = e.get("pr") if isinstance(e.get("pr"), dict) and e["pr"].get("url") else None
     t.summary = e
@@ -1414,14 +1519,16 @@ def lead_of(t: Task) -> str:
 
 
 def talked_before(t: Task, ms: int) -> bool:
-    """Whether a plan talk ended by MS: one of the task's talks, or the summary's word for its past."""
+    """Whether a plan talk ended by MS: one of the task's talks, or the summary's word
+    for its past."""
     return any(x["ts"] <= ms for x in t.talks) or any(
         b.get("talked") and b["ts"] <= ms for b in t.blocks
     )
 
 
 def skips_read(e: dict) -> bool:
-    """Whether an event is the owner's word to skip the personas' read of the criteria (READ_SKIP)."""
+    """Whether an event is the owner's word to skip the personas' read of the
+    criteria (READ_SKIP)."""
     return (
         e.get("event") == "decision.taken"
         and e.get("by") == "owner"
@@ -1431,14 +1538,15 @@ def skips_read(e: dict) -> bool:
 
 
 def turn_of(t: Task, last: dict) -> tuple[str, dict | None]:
-    """Who acts on a held task's criteria now (OWNER_TURNS), folded over the events after its newest
-    block, and the personas' read that runs now, its `criteria.read.start`, or None. The owner answers
-    the interview's questions until they ended (`interview.end`), and the scout's read changes nothing
-    of that; then Lem writes the criteria, until it asks him whether to skip the read
-    (`read.skip.asked`) or the read starts; after the read (`criteria.read`) or his word to skip it, his
-    yes is what is missing (stages/interview.md, steps 3 and 5). A held block with criteria and no
-    interview has no end of questions, and only its read is not his. A read that started before the
-    newest block is no read of what that block holds."""
+    """Who acts on a held task's criteria now (OWNER_TURNS), folded over the events
+    after its newest block, and the personas' read that runs now, its
+    `criteria.read.start`, or None. The owner answers the interview's questions until
+    they ended (`interview.end`), and the scout's read changes nothing of that; then Lem
+    writes the criteria, until it asks him whether to skip the read (`read.skip.asked`)
+    or the read starts; after the read (`criteria.read`) or his word to skip it, his yes
+    is what is missing (stages/interview.md, steps 3 and 5). A held block with criteria
+    and no interview has no end of questions, and only its read is not his. A read that
+    started before the newest block is no read of what that block holds."""
     turn, read = "asks", None
     for e in t.events[last["order"] :]:
         event = e.get("event")
@@ -1454,12 +1562,13 @@ def turn_of(t: Task, last: dict) -> tuple[str, dict | None]:
 
 
 def goes_on_of(t: Task, last: dict, *, away: bool) -> str | None:
-    """The need of a held task that Lem settles without the owner now (GOES_ON), else None: the task runs
-    without him while his mark says away (`away`), and from a night's own mark (`task.mode`) until it
-    ends, as project.py `runs_without_owner` reads them. Its interview goes on with Lem's guesses, its
-    criteria are approved without him, and its one question takes the safer read (stages/away.md). An
-    order that names no task Lem can tell, an investigation's wait for one more fact and a breaker stay
-    his."""
+    """The need of a held task that Lem settles without the owner now (GOES_ON), else
+    None: the task runs without him while his mark says away (`away`), and from a
+    night's own mark (`task.mode`) until it ends, as project.py `runs_without_owner`
+    reads them. Its interview goes on with Lem's guesses, its criteria are approved
+    without him, and its one question takes the safer read (stages/away.md). An order
+    that names no task Lem can tell, an investigation's wait for one more fact and a
+    breaker stay his."""
     if (
         t.status != "held"
         or t.breaker
@@ -1472,8 +1581,8 @@ def goes_on_of(t: Task, last: dict, *, away: bool) -> str | None:
 
 
 def settle(t: Task, now: int, *, away: bool = False) -> None:
-    """What a task's events add up to, once every one is folded in; `away` when the owner's mark says
-    that he is away."""
+    """What a task's events add up to, once every one is folded in; `away` when the
+    owner's mark says that he is away."""
     last = t.blocks[-1]
     t.status = last["status"]
     t.info = dict(STATUS.get(t.status, UNKNOWN))
@@ -1482,9 +1591,11 @@ def settle(t: Task, now: int, *, away: bool = False) -> None:
     t.shown = shown[0] if shown else ""
     t.more = shown[1:]
     t.last_ts = last["ts"]
-    # "since" is when the task entered the status it has now; a summary's block keeps when its run began, and the task's first block.
-    # A wait of the owner's (WAIT_CLOCKS) counts from the block that named it: an earlier block of the same
-    # status counts only when it said the same first line, since another first line is another wait
+    # "since" is when the task entered the status it has now; a summary's block keeps
+    # when its run began, and the task's first block. A wait of the owner's
+    # (WAIT_CLOCKS) counts from the block that named it: an earlier block of the same
+    # status counts only when it said the same first line, since another first line is
+    # another wait
     i = len(t.blocks) - 1
     while (
         i > 0
@@ -1498,8 +1609,9 @@ def settle(t: Task, now: int, *, away: bool = False) -> None:
     t.since = t.blocks[i].get("since", t.blocks[i]["ts"])
     t.first = t.blocks[0].get("first", t.blocks[0]["ts"])
     t.closed = t.status in ENDED
-    # the breaker that holds the task: one at a time (decisions.py), and none once the task ended; a
-    # parked task's breaker waits for nobody until `/lem resume` brings it back
+    # the breaker that holds the task: one at a time (decisions.py), and none once the
+    # task ended; a parked task's breaker waits for nobody until `/lem resume` brings
+    # it back
     t.decided = sorted(
         t.decisions.values(),
         key=lambda d: d.id if isinstance(d.id, (int, float)) else 0,
@@ -1521,8 +1633,9 @@ def settle(t: Task, now: int, *, away: bool = False) -> None:
         CRITERIA_WAIT.search(" ".join(lines_of(last)))
     )
     t.need = held_need(last["text"]) if t.status == "held" else None
-    # criteria approved and no lead yet: an approval by the owner (or `alone`) after the newest block,
-    # and for an interview after the newest read of its criteria since then, or his word to skip it
+    # criteria approved and no lead yet: an approval by the owner (or `alone`) after the
+    # newest block, and for an interview after the newest read of its criteria since
+    # then, or his word to skip it
     read_in = None
     if t.need and t.need["need"] == "interview":
         read_in = [r["ts"] for r in t.reads if r["order"] > last["order"]] + [
@@ -1560,9 +1673,13 @@ def settle(t: Task, now: int, *, away: bool = False) -> None:
         t.shown = (
             "your yes to the criteria is on record: the task's session starts its build"
             if t.approved["by"] == "owner"
-            else "the criteria were approved without you, as the task runs alone: the task's session starts its build"
+            else (
+                "the criteria were approved without you, as the task runs alone: "
+                "the task's session starts its build"
+            )
         )
-    # the owner's help on the breaker that holds the task is on record: it waits for Lem's start of its lead
+    # the owner's help on the breaker that holds the task is on record: it waits for
+    # Lem's start of its lead
     held = (
         t.decisions.get(t.need["number"])
         if t.need and t.need["need"] == "breaker"
@@ -1577,7 +1694,10 @@ def settle(t: Task, now: int, *, away: bool = False) -> None:
         else None
     )
     if t.helped:
-        t.shown = f"your help on breaker {t.helped.id} is on record: the task's session starts its build again"
+        t.shown = (
+            f"your help on breaker {t.helped.id} is on record: the task's session "
+            "starts its build again"
+        )
     t.waits_after = t.status == "queued" and waits_for_task(last)
     t.merge_wait = merge_wait(t)
     t.base_red = t.status == "blocked" and BASE_RED in [
@@ -1597,8 +1717,9 @@ def settle(t: Task, now: int, *, away: bool = False) -> None:
         if t.status == "blocked"
         else None
     )
-    # who acts on a held task's criteria: while Lem writes them or the personas read them, it waits for
-    # nothing of the owner's; and while it runs without him, Lem settles its need without him
+    # who acts on a held task's criteria: while Lem writes them or the personas read
+    # them, it waits for nothing of the owner's; and while it runs without him, Lem
+    # settles its need without him
     t.turn, t.reading = (
         turn_of(t, last)
         if t.status == "held" and not t.approved and not t.helped and not t.breaker
@@ -1672,8 +1793,9 @@ def settle(t: Task, now: int, *, away: bool = False) -> None:
             "label": "Investigating",
             "icon": "eye",
         }
-    # a landing whose run of the checks was stopped, red or refused, and that has not gone on since, is
-    # Lem's: it waits for the owner's word after a stop, and starts a builder that repairs it after the others
+    # a landing whose run of the checks was stopped, red or refused, and that has not
+    # gone on since, is Lem's: it waits for the owner's word after a stop, and starts a
+    # builder that repairs it after the others
     ended = (
         t.checks_end
         if t.status == "landing"
@@ -1699,13 +1821,17 @@ def settle(t: Task, now: int, *, away: bool = False) -> None:
             else f"{end['head'].lower()}; a builder repairs it, nothing for you"
         )
         t.shown = (
-            f"{said}. In the task's session, /lem land starts them again and /lem drop {t.slug} drops the task"
+            (
+                f"{said}. In the task's session, /lem land starts them again and /lem "
+                f"drop {t.slug} drops the task"
+            )
             if stopped
             else said
         )
     if t.release_stop and not t.closed:
-        # a task two releases back: nothing of it goes on until the owner drops it, so it is his, blocked,
-        # with the stop's message; its status stays the one of its state, which open_prs and land.py read
+        # a task two releases back: nothing of it goes on until the owner drops it, so
+        # it is his, blocked, with the stop's message; its status stays the one of its
+        # state, which open_prs and land.py read
         t.for_owner, t.approvable, t.checks_stop, t.waits = True, False, None, None
         t.info = {**STATUS["blocked"], "actor": "you", "who": "You"}
         t.shown, t.more = t.release_stop["say"], []
@@ -1717,8 +1843,9 @@ def settle(t: Task, now: int, *, away: bool = False) -> None:
         else t.status
     )
     t.owner_rank = OWNER_ORDER.index(rank) if rank in OWNER_ORDER else -1
-    # a parked task stands in no column of who acts: nobody does, and it has a place of its own; an open
-    # task whose merge agent reads it, or whose merge the server runs, stands under the checks and review
+    # a parked task stands in no column of who acts: nobody does, and it has a place of
+    # its own; an open task whose merge agent reads it, or whose merge the server runs,
+    # stands under the checks and review
     t.lane = (
         "you"
         if t.for_owner
@@ -1796,20 +1923,23 @@ MERGE_WAITS = {
 
 
 def merge_wait(t: Task) -> str | None:
-    """Who the merge of an `open` task waits for, None for any other task. "reads": the merge agent,
-    since no review of the tip Lem proposed last is written (a review of an older tip counts for
-    none; one that `propose` carried onto this tip is its `merge.review` too), or since Lem refused
-    the merge because the base moved (`merge.refused` with `kind: base`) and no read of that tip said
-    `another round`: the task's session starts a fresh merge agent, which reads what moved. "merges":
-    the board's server, since the review says `merge`, calls nobody and no merge of that tip was
-    refused, or the owner's merge stands for that tip (`merge.stands`); a read whose call on the moved
-    base is `safe`, or a read on the checks' own base after a revert, answers Lem's refusal
-    (`answers_refusal`). "relands": the task's session, since a read of that tip said `another
-    round` of the moved base, and the session lands it again, until the next proposal. "owner": the owner, for a review that calls him, any other refused merge, and an
-    open task with no proposal on record. Only "owner" is a row of "Waits for you". The owner's own
-    merge on the task's page is offered in "owner", and in "reads" and "merges" while no merge of his
-    stands (`owner_stands`, `acts_of`): never in "relands", where a press meets the base refusal that
-    only the new landing answers and is refused again."""
+    """Who the merge of an `open` task waits for, None for any other task. "reads": the
+    merge agent, since no review of the tip Lem proposed last is written (a review of an
+    older tip counts for none; one that `propose` carried onto this tip is its
+    `merge.review` too), or since Lem refused the merge because the base moved
+    (`merge.refused` with `kind: base`) and no read of that tip said `another round`:
+    the task's session starts a fresh merge agent, which reads what moved. "merges": the
+    board's server, since the review says `merge`, calls nobody and no merge of that tip
+    was refused, or the owner's merge stands for that tip (`merge.stands`); a read whose
+    call on the moved base is `safe`, or a read on the checks' own base after a revert,
+    answers Lem's refusal (`answers_refusal`). "relands": the task's session, since a
+    read of that tip said `another round` of the moved base, and the session lands it
+    again, until the next proposal. "owner": the owner, for a review that calls him, any
+    other refused merge, and an open task with no proposal on record. Only "owner" is a
+    row of "Waits for you". The owner's own merge on the task's page is offered in
+    "owner", and in "reads" and "merges" while no merge of his stands (`owner_stands`,
+    `acts_of`): never in "relands", where a press meets the base refusal that only the
+    new landing answers and is refused again."""
     if t.status != "open":
         return None
     if not t.proposal:
@@ -1819,7 +1949,8 @@ def merge_wait(t: Task) -> str | None:
     def same(of: object) -> bool:
         return same_tip(tip, of)
 
-    # the events since the proposal, the newest last: a read of the moved base and a merge of the owner's that stands are read there
+    # the events since the proposal, the newest last: a read of the moved base and a
+    # merge of the owner's that stands are read there
     since = t.events[t.proposal["order"] :]
     again = any(
         e.get("event") == "merge.review"
@@ -1841,27 +1972,32 @@ def merge_wait(t: Task) -> str | None:
     return "merges" if r.get("verdict") == "merge" and not r.get("calls") else "owner"
 
 
-# What the note of the owner's merge says while it stands, by its span (`stands_span`): the merge agent
-# reads the moved base, or the board's server runs his merge.
+# What the note of the owner's merge says while it stands, by its span (`stands_span`):
+# the merge agent reads the moved base, or the board's server runs his merge.
 STANDS_SAID: dict[object, str] = {
-    "reads": "Your merge stands. It goes through when the merge agent’s read of the new base says safe.",
+    "reads": (
+        "Your merge stands. It goes through when the merge agent’s read of "
+        "the new base says safe."
+    ),
     "merges": "Your merge stands. Lem merges it now.",
 }
 
 
 def stands_span(t: Task) -> str | None:
-    """Where the owner's own merge of the tip Lem proposed last stands, None while it does not: "reads"
-    while Lem's refusal of it because the base moved (`merge.refused`, `by: owner`, `from: lem`, `kind:
-    base`) is the newest, for that tip, and no read of that tip said `another round`, so the merge agent
-    reads what moved and his merge goes through on a read that says `safe`; "merges" while no refusal
-    stands, the newest review of that tip does not say `another round`, and his merge stands for that
-    tip, by `merge.stands` since the proposal (a safe read, or `propose` after a new landing) or by the
-    read that answered his refusal (`Task.stood`, before its `merge.stands` line), and no merge of it
-    started since (`merge.start`), so the board's server is about to run it. Once a try starts, the
-    server's own merge guards a second press (`NOTES.merging` in serve.py), and a try that ends with no
-    refusal on record offers his Merge again, with land.py's line on a press. A refusal of the merge
-    agent's merge is no word of his, and GitHub's refusal of his standing merge waits for him: neither
-    stands."""
+    """Where the owner's own merge of the tip Lem proposed last stands, None while it
+    does not: "reads" while Lem's refusal of it because the base moved (`merge.refused`,
+    `by: owner`, `from: lem`, `kind: base`) is the newest, for that tip, and no read of
+    that tip said `another round`, so the merge agent reads what moved and his merge
+    goes through on a read that says `safe`; "merges" while no refusal stands, the
+    newest review of that tip does not say `another round`, and his merge stands for
+    that tip, by `merge.stands` since the proposal (a safe read, or `propose` after a
+    new landing) or by the read that answered his refusal (`Task.stood`, before its
+    `merge.stands` line), and no merge of it started since (`merge.start`), so the
+    board's server is about to run it. Once a try starts, the server's own merge guards
+    a second press (`NOTES.merging` in serve.py), and a try that ends with no refusal on
+    record offers his Merge again, with land.py's line on a press. A refusal of the
+    merge agent's merge is no word of his, and GitHub's refusal of his standing merge
+    waits for him: neither stands."""
     if t.status != "open" or not t.proposal:
         return None
     tip = t.proposal.get("tip")
@@ -1896,8 +2032,9 @@ def stands_span(t: Task) -> str | None:
         )
     ):
         return None
-    # the span ends at the first try of a merge (`merge.start`) after it began: after the newest
-    # `merge.stands` of that tip, or, before that line, after the refusal the read answered
+    # the span ends at the first try of a merge (`merge.start`) after it began: after
+    # the newest `merge.stands` of that tip, or, before that line, after the refusal the
+    # read answered
     began = max(
         (
             i
@@ -1915,9 +2052,10 @@ def stands_span(t: Task) -> str | None:
 
 
 def owner_stands(t: Task, tip: object = None) -> bool:
-    """Whether the owner's own merge stands (`stands_span`), and, given TIP, whether it stands for that
-    commit, the one a note of his press was for: the one definition the board's Merge button, the note
-    of his merge and the server's guard against a second press read."""
+    """Whether the owner's own merge stands (`stands_span`), and, given TIP, whether it
+    stands for that commit, the one a note of his press was for: the one definition the
+    board's Merge button, the note of his merge and the server's guard against a second
+    press read."""
     span = stands_span(t)
     return span is not None and (
         tip is None or same_tip(tip, (t.proposal or {}).get("tip"))
@@ -1925,10 +2063,10 @@ def owner_stands(t: Task, tip: object = None) -> bool:
 
 
 def stands_said(t: Task, tip: object = None, seen: dict | None = None) -> str | None:
-    """The sentence of the owner's merge while it stands (`owner_stands`, for TIP when given), in the span
-    that holds now (STANDS_SAID); None while it does not stand, and while the forge calls the pull
-    request conflicting (`conflicts`, over SEEN, the board server's last look), where the conflict's
-    own text says what comes next."""
+    """The sentence of the owner's merge while it stands (`owner_stands`, for TIP when
+    given), in the span that holds now (STANDS_SAID); None while it does not stand, and
+    while the forge calls the pull request conflicting (`conflicts`, over SEEN, the
+    board server's last look), where the conflict's own text says what comes next."""
     return (
         STANDS_SAID[stands_span(t)]
         if owner_stands(t, tip) and not conflicts(t, seen)
@@ -1939,9 +2077,9 @@ def stands_said(t: Task, tip: object = None, seen: dict | None = None) -> str | 
 def derive(
     events: list[dict], owner: list[dict], now: int, *, meta: dict | None = None
 ) -> Model:
-    """The model of a workspace: each task from its events, in the order of its first event, and the
-    lists every page reads. `owner` is the records of the owner's mark, oldest first; `meta` the
-    repository's facts (`board.meta_of`)."""
+    """The model of a workspace: each task from its events, in the order of its first
+    event, and the lists every page reads. `owner` is the records of the owner's mark,
+    oldest first; `meta` the repository's facts (`board.meta_of`)."""
     tasks: dict[str, Task] = {}
     said = owner[-1] if owner else None
     away = (
@@ -1964,7 +2102,8 @@ def derive(
         fold(t, e, ts)
     for t in tasks.values():
         if not t.blocks and t.opened:
-            # a task whose session opened and wrote no state yet is on the board from its first minute, as NEW
+            # a task whose session opened and wrote no state yet is on the board from
+            # its first minute, as NEW
             t.blocks.append(
                 {
                     "ts": t.opened["ts"],
@@ -2011,8 +2150,8 @@ def derive(
         events=events,
         meta=meta or {},
     )
-    # a task queued after a dropped task waits for his word, which only the other task's status tells:
-    # it is his on every view, as its row of "Waits for you" says
+    # a task queued after a dropped task waits for his word, which only the other task's
+    # status tells: it is his on every view, as its row of "Waits for you" says
     for t in listed:
         if after_dropped(t, m):
             t.dropped_after, t.for_owner, t.lane, t.owner_rank = (
@@ -2027,8 +2166,8 @@ def derive(
 
 
 def sort_lists(m: Model) -> None:
-    """The lists of who acts, from each task's own `for_owner` and `lane`: the owner's, in the order of
-    what presses most, and each column of the kanban."""
+    """The lists of who acts, from each task's own `for_owner` and `lane`: the owner's,
+    in the order of what presses most, and each column of the kanban."""
     m.for_owner = sorted(
         (t for t in m.tasks if t.for_owner), key=lambda t: (t.owner_rank, t.since)
     )
@@ -2040,8 +2179,9 @@ def sort_lists(m: Model) -> None:
     }
 
 
-# What a held task of the owner's shows while its session's newest turn runs (`put_sessions`): the
-# session works on what he said, and nothing waits for him until that turn ends.
+# What a held task of the owner's shows while its session's newest turn runs
+# (`put_sessions`): the session works on what he said, and nothing waits for him until
+# that turn ends.
 WORKS_INFO = {
     "actor": "lem",
     "who": "The task's session",
@@ -2053,13 +2193,14 @@ WORKS_SAYS = "it waits for you again when the session's turn ends"
 
 
 def works_of(t: Task, m: Model) -> bool:
-    """Whether a held task of the owner's is Lem's work now: its session lives with an agent in its pane
-    (`live_of`) and that session's newest turn runs (`turn` "runs", lem_signs). A task with no session
-    facts, a session that is not live, and a turn that ended or that Lem cannot read stay the owner's. A
-    breaker's held task follows the same rule: while its session works on his help, nothing of it waits.
-    A held task two releases back (RELEASE_STOP) stays the owner's, blocked: every command of its session
-    stops, so no turn of it works on his answer. A task that is Lem's work already (`t.works`) was the
-    owner's in what `settle` gave it."""
+    """Whether a held task of the owner's is Lem's work now: its session lives with an
+    agent in its pane (`live_of`) and that session's newest turn runs (`turn` "runs",
+    lem_signs). A task with no session facts, a session that is not live, and a turn
+    that ended or that Lem cannot read stay the owner's. A breaker's held task follows
+    the same rule: while its session works on his help, nothing of it waits. A held task
+    two releases back (RELEASE_STOP) stays the owner's, blocked: every command of its
+    session stops, so no turn of it works on his answer. A task that is Lem's work
+    already (`t.works`) was the owner's in what `settle` gave it."""
     if (
         t.status != "held"
         or not (t.for_owner or t.works)
@@ -2071,20 +2212,22 @@ def works_of(t: Task, m: Model) -> bool:
     return f.get("live") is True and f.get("agent") is True and f.get("turn") == "runs"
 
 
-# One put of the sessions at a time (`put_sessions`): the board server's request threads, its forge thread,
-# its Inbox thread and its push watcher each put them on the one model the Reader keeps
+# One put of the sessions at a time (`put_sessions`): the board server's request
+# threads, its forge thread, its Inbox thread and its push watcher each put them on the
+# one model the Reader keeps
 SESSIONS_LOCK = threading.Lock()
 
 
 def put_sessions(m: Model, sessions: dict | None) -> None:
-    """Put what `lem session list` said of the task sessions (`sessions_of`, or None while nothing is known)
-    on a model, and with it who acts on each held task: one whose session's turn runs (`works_of`) is Lem's
-    work, with no row of "Waits for you" (`waits_of`), WORKS_INFO, and its card under Lem's work; one whose
-    turn ended gets back what `settle` gave it. The board server sets the sessions again on a model it
-    keeps (`Reader.current`), from more than one thread, so the puts take SESSIONS_LOCK in turn, and a
-    task changes only when who acts on it changes: the same sessions give the same model however often
-    they are put. Every place that sets `Model.sessions` calls it: serve.py, `lem project waiting` and the
-    guard of a stopped session."""
+    """Put what `lem session list` said of the task sessions (`sessions_of`, or None
+    while nothing is known) on a model, and with it who acts on each held task: one
+    whose session's turn runs (`works_of`) is Lem's work, with no row of "Waits for you"
+    (`waits_of`), WORKS_INFO, and its card under Lem's work; one whose turn ended gets
+    back what `settle` gave it. The board server sets the sessions again on a model it
+    keeps (`Reader.current`), from more than one thread, so the puts take SESSIONS_LOCK
+    in turn, and a task changes only when who acts on it changes: the same sessions give
+    the same model however often they are put. Every place that sets `Model.sessions`
+    calls it: serve.py, `lem project waiting` and the guard of a stopped session."""
     with SESSIONS_LOCK:
         m.sessions = sessions
         changed = False
@@ -2120,10 +2263,11 @@ def put_sessions(m: Model, sessions: dict | None) -> None:
 
 
 def own_turn_unread(sessions: dict | None, caller: str | None) -> dict | None:
-    """The task sessions as the session that asks for them reads them (CALLER, its own agterm session id, or
-    None outside agterm): it asks inside its own turn, which then always runs, so the turn of its own entry is
-    one Lem cannot tell (None), and the task it holds keeps its row (`works_of`). The wake of a breaker's
-    session reads its row in `lem project waiting` to put up its card."""
+    """The task sessions as the session that asks for them reads them (CALLER, its own
+    agterm session id, or None outside agterm): it asks inside its own turn, which then
+    always runs, so the turn of its own entry is one Lem cannot tell (None), and the
+    task it holds keeps its row (`works_of`). The wake of a breaker's session reads its
+    row in `lem project waiting` to put up its card."""
     if not sessions or not caller:
         return sessions
     return {
@@ -2133,8 +2277,9 @@ def own_turn_unread(sessions: dict | None, caller: str | None) -> dict | None:
 
 
 def lanes_sorted(key: str, tasks: list) -> list:
-    """A column's tasks in the board's order: the one that waited longest first, except where the
-    newest is the news (Done); in "Waits for you" the most pressing first; a landing on top of the checks."""
+    """A column's tasks in the board's order: the one that waited longest first, except
+    where the newest is the news (Done); in "Waits for you" the most pressing first; a
+    landing on top of the checks."""
     order = lambda t: STATUS_ORDER.index(t.status) if t.status in STATUS else -1  # noqa: E731
     if key == "done":
         return sorted(tasks, key=lambda t: -t.since)
@@ -2153,7 +2298,8 @@ def lanes_sorted(key: str, tasks: list) -> list:
 
 
 def done_older(m: Model) -> list:
-    """The ended tasks Done draws no card for: those after its newest `DONE_SHOWN`, the newest first."""
+    """The ended tasks Done draws no card for: those after its newest `DONE_SHOWN`, the
+    newest first."""
     return m.lane["done"][DONE_SHOWN:]
 
 
@@ -2166,7 +2312,8 @@ BY_WORTH = [
     {"key": "unset", "name": "No verdict in the item", "actor": "quiet"},
     {"key": "no", "name": "Decided against", "actor": "quiet", "recessive": True},
 ]
-# The columns whose tasks have not ended, in the kanban's order: the search lists them first.
+# The columns whose tasks have not ended, in the kanban's order: the search lists
+# them first.
 OPEN_LANES = ("you", "build", "checks")
 
 
@@ -2175,15 +2322,17 @@ def worth_of(it: dict) -> str:
 
 
 def search_rows(m: Model, backlog: dict | None) -> list[dict]:
-    """One row for each card of the workspace, in the order the search lists them with nothing typed:
-    the tasks of the columns that have not ended, each column in the kanban's order; the parked tasks;
-    every ended task, the newest first, also those Done draws no card for; then the reviewer's items,
-    the undecided ones first (`reviewer_items`); then the other backlog items by their worth. Each row
-    has its title, whether it is a task that has not ended (`open`), the color of its place (`actor`),
-    its chip: `COLUMN · STATUS`, `parked`, `STATUS DAY` for an ended task (the day it ended, on this
-    machine's clock, as `stamp` reads it), `Backlog · undecided` or `Backlog · held by SLUG` for a
-    reviewer's item, `Backlog · worth: WORTH`; and an item's `slug` is its `key`. Only this model
-    and this backlog come in, so no other workspace and no joined machine does."""
+    """One row for each card of the workspace, in the order the search lists them with
+    nothing typed: the tasks of the columns that have not ended, each column in the
+    kanban's order; the parked tasks; every ended task, the newest first, also those
+    Done draws no card for; then the reviewer's items, the undecided ones first
+    (`reviewer_items`); then the other backlog items by their worth. Each row has its
+    title, whether it is a task that has not ended (`open`), the color of its place
+    (`actor`), its chip: `COLUMN · STATUS`, `parked`, `STATUS DAY` for an ended task
+    (the day it ended, on this machine's clock, as `stamp` reads it),
+    `Backlog · undecided` or `Backlog · held by SLUG` for a reviewer's item,
+    `Backlog · worth: WORTH`; and an item's `slug` is its `key`. Only this model and
+    this backlog come in, so no other workspace and no joined machine does."""
 
     def task_row(t: Task, *, open_: bool, actor: str, chip: str) -> dict:
         return {
@@ -2248,8 +2397,8 @@ def search_rows(m: Model, backlog: dict | None) -> list[dict]:
 
 
 def reviewer_items(items: list[dict]) -> list[dict]:
-    """The reviewer's items of a backlog's read (`board.backlog`), the undecided ones first, each part
-    in the order of the read."""
+    """The reviewer's items of a backlog's read (`board.backlog`), the undecided ones
+    first, each part in the order of the read."""
     mine = [it for it in items if it.get("reviewer")]
     return [it for it in mine if not it.get("held")] + [
         it for it in mine if it.get("held")
@@ -2257,7 +2406,8 @@ def reviewer_items(items: list[dict]) -> list[dict]:
 
 
 def undecided(backlog: dict | None) -> int | None:
-    """How many of the reviewer's items no task holds, the count on the "Backlog" key; None with no read."""
+    """How many of the reviewer's items no task holds, the count on the "Backlog" key;
+    None with no read."""
     return (
         None
         if backlog is None
@@ -2271,7 +2421,8 @@ def undecided(backlog: dict | None) -> int | None:
 
 # ---- what the views say ----
 
-# Why the checks wait behind the first in the machine's line, by the `why` of its `gate.wait` (land.py).
+# Why the checks wait behind the first in the machine's line, by the `why` of its
+# `gate.wait` (land.py).
 BEHIND_WHY: dict[object, str] = {
     "wanted": "which another task waits for",
     "longer": "which waits longer",
@@ -2280,10 +2431,14 @@ BEHIND_WHY: dict[object, str] = {
 
 
 def behind_said(w: dict) -> str:
-    """The landing that a run waits behind, and why that one goes first: "OTHER, which waits longer",
-    with "of REPO" after OTHER when it is of another repository (`behind_repo`, the folder's name)."""
+    """The landing that a run waits behind, and why that one goes first: "OTHER, which
+    waits longer", with "of REPO" after OTHER when it is of another repository
+    (`behind_repo`, the folder's name)."""
     repo = Path(str(w["behind_repo"])).name if w.get("behind_repo") else ""
-    return f"{w['behind']}{' of ' + repo if repo else ''}, {BEHIND_WHY.get(w.get('why'), BEHIND_WHY['first'])}"
+    return (
+        f"{w['behind']}{' of ' + repo if repo else ''}, "
+        f"{BEHIND_WHY.get(w.get('why'), BEHIND_WHY['first'])}"
+    )
 
 
 def waits_say(w: dict) -> str:
@@ -2327,7 +2482,8 @@ def advisers_of(d: Decision) -> list:
 
 
 def stop_words(d: Decision) -> str:
-    """Why a breaker stopped the build, in the page's words: its cause, and the kind of a step no "no" undoes."""
+    """Why a breaker stopped the build, in the page's words: its cause, and the kind of
+    a step no "no" undoes."""
     said = BREAKS.get(d.stop, str(d.stop or "no cause on record"))
     return (
         f"{said}: {IRREVERSIBLE.get(d.irreversible, d.irreversible)}"
@@ -2337,41 +2493,64 @@ def stop_words(d: Decision) -> str:
 
 
 def parked_of(t: Task) -> dict | None:
-    """A parked task: since when, why (the parked block's first line, in the owner's words), and the
-    command that brings it back; None for a task that is not parked."""
+    """A parked task: since when, why (the parked block's first line, in the owner's
+    words), and the command that brings it back; None for a task that is not parked."""
     if t.status != PARKED:
         return None
     return {"since": t.since, "why": t.text, "resume": f"/lem resume {t.slug}"}
 
 
 def answer_of(t: Task) -> str:
-    """Where the owner answers what waits for him: in the task's own session, or on the board; for a task
-    queued after a dropped task, which no session runs, in any Lem session."""
+    """Where the owner answers what waits for him: in the task's own session, or on the
+    board; for a task queued after a dropped task, which no session runs, in any
+    Lem session."""
     if t.dropped_after:
         start, drop = f"start {t.slug} now", f"/lem drop {t.slug}"
         return (
-            f"It waited for {t.dropped_after}, which was dropped, so the result it waited for never came. Type “{start}” to start it without that result, "
+            f"It waited for {t.dropped_after}, which was dropped, so the result it "
+            f"waited for never came. Type “{start}” to start it without that result, "
             f"or {drop} to end it, in any Lem session of this repository."
         )
     if t.breaker is not None:
         return (
-            f"Read its document, first on the task’s Overview. Help in the task’s session. "
-            f"Or type /lem park {t.slug} to put the task aside, or /lem drop {t.slug} to end it."
+            "Read its document, first on the task’s Overview. Help in the task’s "
+            f"session. Or type /lem park {t.slug} to put the task aside, "
+            f"or /lem drop {t.slug} to end it."
         )
     if t.status == "open":
         return "Merge the pull request on GitHub or on this board."
     if t.need and t.need["need"] == "interview" and t.turn == "skip":
-        return "Lem asks in the task’s session whether to skip the personas’ read of the criteria, since each names only you. Answer y or n there."
+        return (
+            "Lem asks in the task’s session whether to skip the personas’ read of the "
+            "criteria, since each names only you. Answer y or n there."
+        )
     if t.need and t.need["need"] == "interview" and t.turn == "yes":
-        return "The criteria wait for your yes in the task’s session. Approve or change them there, or approve them on this board."
+        return (
+            "The criteria wait for your yes in the task’s session. Approve or change "
+            "them there, or approve them on this board."
+        )
     if t.need and t.need["need"] == "interview":
-        return "The interview runs in the task’s session. Answer its questions there, and approve the criteria at its end."
+        return (
+            "The interview runs in the task’s session. Answer its questions there, and "
+            "approve the criteria at its end."
+        )
     if t.criteria_wait and t.reads and t.reads[-1]["answered"] == 0:
-        return "No persona answered the read of the acceptance criteria. Approve or change them in the task’s session, or approve them on this board."
+        return (
+            "No persona answered the read of the acceptance criteria. "
+            "Approve or change them in the task’s session, "
+            "or approve them on this board."
+        )
     if t.criteria_wait:
-        return "The acceptance criteria, with the personas’ read on top, wait in the task’s session. Approve or change them there, or approve them on this board."
+        return (
+            "The acceptance criteria, with the personas’ read on top, wait in the "
+            "task’s session. Approve or change them there, "
+            "or approve them on this board."
+        )
     if t.status == "held":
-        return f"It waits on what its state says: “{t.shown}”. The task’s session says what to do."
+        return (
+            f"It waits on what its state says: “{t.shown}”. "
+            "The task’s session says what to do."
+        )
     if t.status == "planned":
         return "Read the plan, then tell the task’s session: build it or drop it."
     return f"Tell the task’s session to build it, or type /lem drop {t.slug} to end it."
@@ -2387,8 +2566,8 @@ def after_of(t: Task) -> str | None:
 
 
 def after_ended(t: Task, m: Model) -> bool:
-    """A queued task whose `after:` task landed or was answered: nothing holds it back any more. A
-    dropped one is no such end (`after_dropped`): its result never came."""
+    """A queued task whose `after:` task landed or was answered: nothing holds it back
+    any more. A dropped one is no such end (`after_dropped`): its result never came."""
     after = after_of(t)
     done = m.by_slug.get(after) if after else None
     return (
@@ -2400,8 +2579,8 @@ def after_ended(t: Task, m: Model) -> bool:
 
 
 def after_dropped(t: Task, m: Model) -> bool:
-    """A queued task whose `after:` task was dropped: it stays queued, and the owner says whether it
-    starts without that task's result or is dropped too."""
+    """A queued task whose `after:` task was dropped: it stays queued, and the owner
+    says whether it starts without that task's result or is dropped too."""
     after = after_of(t)
     done = m.by_slug.get(after) if after else None
     return (
@@ -2413,10 +2592,10 @@ def after_dropped(t: Task, m: Model) -> bool:
 
 
 def session_entries(text: str) -> dict[str, dict]:
-    """What `lem session list` printed, by task: a JSON list of entries, each with its `task` and the
-    facts the board reads (`live`, `agent`, `unanswered`, `session`, `name`, and the signs of work
-    `sign`, `shell`, `signs` and `turn`); a list under `sessions` or `tasks` is taken too. ValueError for
-    anything else."""
+    """What `lem session list` printed, by task: a JSON list of entries, each with its
+    `task` and the facts the board reads (`live`, `agent`, `unanswered`, `session`,
+    `name`, and the signs of work `sign`, `shell`, `signs` and `turn`); a list under
+    `sessions` or `tasks` is taken too. ValueError for anything else."""
     data = json.loads(text)
     if isinstance(data, dict):
         data = data.get("sessions", data.get("tasks"))
@@ -2443,22 +2622,25 @@ def session_entries(text: str) -> dict[str, dict]:
 
 
 def sessions_of(entries: dict[str, dict], kept: set[str]) -> dict[str, dict]:
-    """`Model.sessions` from what `lem session list` said (`session_entries`) and the tasks that ended and
-    whose worktree is still there (KEPT): the one form the server and `lem project waiting` give the model."""
+    """`Model.sessions` from what `lem session list` said (`session_entries`) and the
+    tasks that ended and whose worktree is still there (KEPT): the one form the server
+    and `lem project waiting` give the model."""
     return {
         slug: {**entries.get(slug, {}), "worktree": slug in kept}
         for slug in {*entries, *kept}
     }
 
 
-# The board server's last look at the forge, in the state folder: `{"looked": ISO time, "seen": {SLUG:
-# {"mergeable", "head"}}}`, which the server writes at each look (serve.py `forge_once`) and the board's
-# model and `lem project waiting` read (`Model.seen`), so that a page and the terminal say the same.
+# The board server's last look at the forge, in the state folder: `{"looked": ISO time,
+# "seen": {SLUG: {"mergeable", "head"}}}`, which the server writes at each look
+# (serve.py `forge_once`) and the board's model and `lem project waiting` read
+# (`Model.seen`), so that a page and the terminal say the same.
 FORGE_LOOK = "forge.json"
 
 
 def forge_look(state: Path) -> dict | None:
-    """The forge's last look as the server wrote it, or None when there is none or it does not read."""
+    """The forge's last look as the server wrote it, or None when there is none or it
+    does not read."""
     try:
         found = json.loads((state / FORGE_LOOK).read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -2470,34 +2652,62 @@ def forge_look(state: Path) -> dict | None:
     )
 
 
-# The board server's record of the owner's Inbox, in the state folder (`lem_inbox.RECORD`), which only its
-# Inbox thread writes (`lem_inbox.Watcher`): the door's last look (`running`, `tailnet_url`, `why`), the
-# last call that failed (`problem`), and each thing it sent (`sent`: the row's `key`, the `task`, its
-# `kind`, `form` and `asks`, and once the Inbox answered, `message_id` and `thread_id`).
+# The board server's record of the owner's Inbox, in the state folder
+# (`lem_inbox.RECORD`), which only its Inbox thread writes (`lem_inbox.Watcher`): the
+# door's last look (`running`, `tailnet_url`, `why`), the last call that failed
+# (`problem`), and each thing it sent (`sent`: the row's `key`, the `task`, its `kind`,
+# `form` and `asks`, and once the Inbox answered, `message_id` and `thread_id`).
 INBOX_LOOK = "inbox.json"
-# Why no question went to the Inbox, in the page's words, for each `why` of the door (`lem_inbox.WHYS`).
+# Why no question went to the Inbox, in the page's words, for each `why` of the
+# door (`lem_inbox.WHYS`).
 INBOX_WHY = {
-    "not installed": "The Inbox is not installed on this Mac, so no question went there.",
+    "not installed": (
+        "The Inbox is not installed on this Mac, so no question went there."
+    ),
     "not running": "The Inbox does not run on this Mac, so no question went there.",
-    "not answering": "The Inbox on this Mac does not answer, so no question went there.",
-    "no tailnet address": "The Inbox has no tailnet address, so the phone cannot open it.",
-    "failed": "The board’s server could not ask the Inbox on this Mac, so no question went there.",
+    "not answering": (
+        "The Inbox on this Mac does not answer, so no question went there."
+    ),
+    "no tailnet address": (
+        "The Inbox has no tailnet address, so the phone cannot open it."
+    ),
+    "failed": (
+        "The board’s server could not ask the Inbox on this Mac, "
+        "so no question went there."
+    ),
 }
-# The same, for a task whose message went to the Inbox before its door closed: it is there, and the phone cannot reach it now.
+# The same, for a task whose message went to the Inbox before its door closed: it is
+# there, and the phone cannot reach it now.
 INBOX_WHY_SENT = {
-    "not installed": "A message of this task went to the Inbox, but the Inbox is not installed on this Mac now, so the phone cannot open it.",
-    "not running": "A message of this task went to the Inbox, but the Inbox does not run on this Mac now, so the phone cannot open it.",
-    "not answering": "A message of this task went to the Inbox, but the Inbox on this Mac does not answer now, so the phone cannot open it.",
+    "not installed": (
+        "A message of this task went to the Inbox, but the Inbox is not installed on "
+        "this Mac now, so the phone cannot open it."
+    ),
+    "not running": (
+        "A message of this task went to the Inbox, but the Inbox does not run on this "
+        "Mac now, so the phone cannot open it."
+    ),
+    "not answering": (
+        "A message of this task went to the Inbox, but the Inbox on this Mac does not "
+        "answer now, so the phone cannot open it."
+    ),
     "no tailnet address": INBOX_WHY["no tailnet address"],
-    "failed": "A message of this task went to the Inbox, but the board’s server could not ask the Inbox on this Mac now, so the phone cannot open it.",
+    "failed": (
+        "A message of this task went to the Inbox, but the board’s server could not "
+        "ask the Inbox on this Mac now, so the phone cannot open it."
+    ),
 }
-# A thing the record keeps with no answer of the Inbox yet while a call failed: the next look sends it again.
-INBOX_UNSENT = "The board’s server could not send this to the Inbox yet; its next look tries again."
+# A thing the record keeps with no answer of the Inbox yet while a call failed: the next
+# look sends it again.
+INBOX_UNSENT = (
+    "The board’s server could not send this to the Inbox yet; "
+    "its next look tries again."
+)
 
 
 def inbox_look(state: Path) -> dict | None:
-    """The record of the owner's Inbox as the server wrote it, with only the sent things that name a row;
-    None when there is none or it does not read."""
+    """The record of the owner's Inbox as the server wrote it, with only the sent things
+    that name a row; None when there is none or it does not read."""
     try:
         found = json.loads((state / INBOX_LOOK).read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -2515,8 +2725,9 @@ def inbox_look(state: Path) -> dict | None:
 
 
 def thread_link(tailnet: object, thread: object) -> str | None:
-    """The address of a thread of the Inbox through its tailnet address, `TAILNET_URL#thread=ID` (the form
-    `send_message` gave Lem's task sessions on 2026-11-21); None unless the address is http or https."""
+    """The address of a thread of the Inbox through its tailnet address,
+    `TAILNET_URL#thread=ID` (the form `send_message` gave Lem's task sessions on
+    2026-11-21); None unless the address is http or https."""
     if (
         not isinstance(tailnet, str)
         or not re.match(r"https?://[^\s/#?]+", tailnet)
@@ -2530,14 +2741,16 @@ def thread_link(tailnet: object, thread: object) -> str | None:
 
 
 def inbox_of(t: Task, m: Model) -> dict | None:
-    """What a task's page says of the owner's Inbox, from the server's record (`Model.inbox`): None while
-    his mark does not say away, while the task has no row of "Waits for you", and while nothing is known
-    that changes today's line (no record, or nothing of the task sent yet). Else `thread`, the address of
-    the task's thread at the Inbox's tailnet address, with `asks` when a question of the task went there
-    (he answers in either place) or `gone` when only a note went, which no session can take a reply to
-    (`lem_inbox.thing_of`: a task with no session, one whose session does not answer or stopped, one
-    queued after a dropped task); or `why`, the line that says why there is no link. A thing counts only
-    for a row the task has now: the merge review and the merge of a task are its merge's one thing."""
+    """What a task's page says of the owner's Inbox, from the server's record
+    (`Model.inbox`): None while his mark does not say away, while the task has no row of
+    "Waits for you", and while nothing is known that changes today's line (no record, or
+    nothing of the task sent yet). Else `thread`, the address of the task's thread at
+    the Inbox's tailnet address, with `asks` when a question of the task went there (he
+    answers in either place) or `gone` when only a note went, which no session can take
+    a reply to (`lem_inbox.thing_of`: a task with no session, one whose session does not
+    answer or stopped, one queued after a dropped task); or `why`, the line that says
+    why there is no link. A thing counts only for a row the task has now: the merge
+    review and the merge of a task are its merge's one thing."""
     if m.away is None:
         return None
     rows = [w for w in waits_of(m) if w["t"] is t]
@@ -2590,11 +2803,12 @@ def inbox_of(t: Task, m: Model) -> dict | None:
 
 
 def live_of(t: Task, m: Model) -> dict | None:
-    """What is known of the task's session now: `live` (its session is in agterm and an agent runs in
-    it), `unanswered` (a wake-up waits in it for 10 minutes), `worktree` (the task's worktree is still
-    there) and its `session`. From the server's `lem session list` (`Model.sessions`); in a demo
-    workspace, which has no agterm to ask, from the log alone: live while its newest `session.open`
-    has no close. None while nothing is known."""
+    """What is known of the task's session now: `live` (its session is in agterm and an
+    agent runs in it), `unanswered` (a wake-up waits in it for 10 minutes), `worktree`
+    (the task's worktree is still there) and its `session`. From the server's
+    `lem session list` (`Model.sessions`); in a demo workspace, which has no agterm to
+    ask, from the log alone: live while its newest `session.open` has no close. None
+    while nothing is known."""
     if m.sessions is not None:
         f = m.sessions.get(t.slug) or {}
         return {
@@ -2614,17 +2828,19 @@ def live_of(t: Task, m: Model) -> dict | None:
 
 
 def session_need(t: Task, m: Model) -> str | None:
-    """Whether the task is stuck for want of its session, so that a row of "Waits for you" says so:
-    `gone` for a task whose phase needs an agent and that has no live session (2 minutes after its
-    newest session opened, or after the task opened when it never had one), `deaf` for a live session
-    that left a wake-up unanswered for 10 minutes, None otherwise. An `open` task needs its session
-    only while no merge review of its proposed tip is written, since the session runs the merge agent;
-    one whose merge the server runs, or that waits for the owner's merge, has none: at the merge the
-    server wakes or opens a session for the cleanup.
-    A parked task has none, nor a queued one whose task has not ended. An ended task has one only when
-    session.py's `phase_of` gives it a session (CLEANED_BY_SESSION: a merged task, or one whose pull
-    request was closed, the drop GitHub's close wrote) and its worktree is still there, since its cleanup
-    is what needs the session; a dropped task whose worktree is gone has none."""
+    """Whether the task is stuck for want of its session, so that a row of "Waits for
+    you" says so: `gone` for a task whose phase needs an agent and that has no live
+    session (2 minutes after its newest session opened, or after the task opened when it
+    never had one), `deaf` for a live session that left a wake-up unanswered for 10
+    minutes, None otherwise. An `open` task needs its session only while no merge review
+    of its proposed tip is written, since the session runs the merge agent; one whose
+    merge the server runs, or that waits for the owner's merge, has none: at the merge
+    the server wakes or opens a session for the cleanup. A parked task has none, nor a
+    queued one whose task has not ended. An ended task has one only when session.py's
+    `phase_of` gives it a session (CLEANED_BY_SESSION: a merged task, or one whose pull
+    request was closed, the drop GitHub's close wrote) and its worktree is still there,
+    since its cleanup is what needs the session; a dropped task whose worktree is gone
+    has none."""
     if t.status == PARKED:
         return None
     f = live_of(t, m)
@@ -2646,11 +2862,11 @@ def session_need(t: Task, m: Model) -> str | None:
 
 
 def opens_session(t: Task, m: Model) -> bool:
-    """Whether the board offers "Open a session" for the task: nothing says that its session lives, or it
-    lives and the guard of a stopped session logged its stop (`stopped_of`), and `lem session open` would
-    take it, as session.py's `phase_of` says: not ended, except a merged or
-    dropped task whose worktree stays (CLEANED_BY_SESSION); not parked; not queued behind a task that has
-    not ended."""
+    """Whether the board offers "Open a session" for the task: nothing says that its
+    session lives, or it lives and the guard of a stopped session logged its stop
+    (`stopped_of`), and `lem session open` would take it, as session.py's `phase_of`
+    says: not ended, except a merged or dropped task whose worktree stays
+    (CLEANED_BY_SESSION); not parked; not queued behind a task that has not ended."""
     f = live_of(t, m)
     if (
         f is None
@@ -2659,60 +2875,71 @@ def opens_session(t: Task, m: Model) -> bool:
     ):
         return False
     if f["live"]:
-        # a stop the guard logged: the session lives and does nothing, and the open goes beside it
+        # a stop the guard logged: the session lives and does nothing, and the open goes
+        # beside it
         return stopped_of(t, m) is not None
     return not t.closed or (t.status in CLEANED_BY_SESSION and f["worktree"])
 
 
-# The guard of a stopped session (`stop_due`): the statuses whose session works with nobody at it, how long
-# with no sign of work before Lem asks the session for its status, and how long it waits for an answer.
-# The owner's words of 2026-11-22 (the task dead-tasks-woken-or-shown, its directions.md): "lets try
-# 45min" and "I agree with 10min".
+# The guard of a stopped session (`stop_due`): the statuses whose session works with
+# nobody at it, how long with no sign of work before Lem asks the session for its
+# status, and how long it waits for an answer. The owner's words of 2026-11-22 (the task
+# dead-tasks-woken-or-shown, its directions.md): "lets try 45min" and "I agree
+# with 10min".
 GUARDED = ("building", "ready", "landing")
 QUIET_MS = 45 * 60 * 1000
 ANSWER_MS = 10 * 60 * 1000
 
 
 def guarded(t: Task) -> bool:
-    """Whether the guard of a stopped session watches the task: its status is in GUARDED, and no release
-    stop holds it (RELEASE_STOP), whose session would wake every QUIET_MS into the same stop."""
+    """Whether the guard of a stopped session watches the task: its status is in
+    GUARDED, and no release stop holds it (RELEASE_STOP), whose session would wake every
+    QUIET_MS into the same stop."""
     return t.status in GUARDED and t.release_stop is None
 
 
 def work_event(e: dict) -> bool:
-    """Whether an event of a task is work of its agent: any event but the sessions' own (`session.*`, the
-    guard's steps and the hook's records among them) and `board.act`, the board's record of the owner's
-    click, which `serve.py:asked_from` logs after the act it asked for."""
+    """Whether an event of a task is work of its agent: any event but the sessions' own
+    (`session.*`, the guard's steps and the hook's records among them) and `board.act`,
+    the board's record of the owner's click, which `serve.py:asked_from` logs after the
+    act it asked for."""
     event = str(e.get("event") or "")
     return not event.startswith("session.") and event != "board.act"
 
 
 def stop_due(t: Task, m: Model) -> dict | None:
-    """The step of the guard of a stopped session that is due for the task now, or None: `{"step", "session",
-    "from"}`, the step (`status`, `restart` or `stopped`), the session it is for, and the time in ms it is
-    due from. Only for a task the guard watches (`guarded`: in GUARDED, so not parked, held, queued, planned, blocked, open or ended, and with no release stop)
-    whose session lives with an agent in its pane (`live_of`, `agent`) and in which no shell command runs
-    (`shell`); never while the server has not asked (`Model.sessions` None) and never in a demo workspace.
+    """The step of the guard of a stopped session that is due for the task now, or None:
+    `{"step", "session", "from"}`, the step (`status`, `restart` or `stopped`), the
+    session it is for, and the time in ms it is due from. Only for a task the guard
+    watches (`guarded`: in GUARDED, so not parked, held, queued, planned, blocked, open
+    or ended, and with no release stop) whose session lives with an agent in its pane
+    (`live_of`, `agent`) and in which no shell command runs (`shell`); never while the
+    server has not asked (`Model.sessions` None) and never in a demo workspace.
 
-    Its newest sign of work is the newest of the task's newest work event (`work_event`) and its newest
-    `session.open`, so that a fresh session's clock starts at its open, and, when the session's signs
-    read (`signs`), the session's own `sign` (its newest turn, or a subagent's). When they do not read,
-    `sign` is not used, even when it holds a time: a turn with no live process to back it is no proof
-    that the session works now. Each of the two clocks counts only the status wake (`session.wake
-    why=status`) that it sent, which `cmd_wake` marks `unread` when the signs do not read, so that a wake
-    of one clock never starts the ANSWER_MS of the other; the wake before a stop that stands counts for
-    both, so that a change of the signs gives a logged stop no second message and no second stop. Then:
+    Its newest sign of work is the newest of the task's newest work event (`work_event`)
+    and its newest `session.open`, so that a fresh session's clock starts at its open,
+    and, when the session's signs read (`signs`), the session's own `sign` (its newest
+    turn, or a subagent's). When they do not read, `sign` is not used, even when it
+    holds a time: a turn with no live process to back it is no proof that the session
+    works now. Each of the two clocks counts only the status wake
+    (`session.wake why=status`) that it sent, which `cmd_wake` marks `unread` when the
+    signs do not read, so that a wake of one clock never starts the ANSWER_MS of the
+    other; the wake before a stop that stands counts for both, so that a change of the
+    signs gives a logged stop no second message and no second stop. Then:
 
-    - `status`, from that sign, QUIET_MS after it, when no status wake of its clock came after it;
-    - with signs that read, `restart`, from that wake, ANSWER_MS after it, when no `session.open
-      why=stopped` came after the task's newest work event and no stop of the task stands (`stop_stands`):
-      one restart for one stop, spent until the task's agent logs work again, and a logged stop waits for
-      the owner's "Open a session";
-    - `stopped`, from that wake, ANSWER_MS after it, when no `session.stopped` came after the wake, so
-      that a stop is logged once: with signs that read once the restart is spent, and with signs that do
-      not read at once, since Lem never restarts by itself beside a session it cannot read.
+    - `status`, from that sign, QUIET_MS after it, when no status wake of its clock came
+      after it;
+    - with signs that read, `restart`, from that wake, ANSWER_MS after it, when no
+      `session.open why=stopped` came after the task's newest work event and no stop of
+      the task stands (`stop_stands`): one restart for one stop, spent until the task's
+      agent logs work again, and a logged stop waits for the owner's "Open a session";
+    - `stopped`, from that wake, ANSWER_MS after it, when no `session.stopped` came
+      after the wake, so that a stop is logged once: with signs that read once the
+      restart is spent, and with signs that do not read at once, since Lem never
+      restarts by itself beside a session it cannot read.
 
-    A wake in the same second as a sign counts as before it: the session that answers at once works."""
+    A wake in the same second as a sign counts as before it: the session that answers at
+    once works."""
     if m.sessions is None or m.meta.get("demo") or not guarded(t):
         return None
     f = m.sessions.get(t.slug) or {}
@@ -2732,7 +2959,8 @@ def stop_due(t: Task, m: Model) -> dict | None:
     since = max(times + ([at(f.get("sign")) or 0] if read else []))
     session = f.get("session") or t.session
     stop = stop_stands(t)
-    # the order of the status wake before the standing stop (`wake_before`, an index; an order is index + 1)
+    # the order of the status wake before the standing stop (`wake_before`, an index; an
+    # order is index + 1)
     held = (
         wake_before(t, next(i for i, e in enumerate(t.events) if e is stop)) + 1
         if stop is not None
@@ -2771,11 +2999,12 @@ def stop_due(t: Task, m: Model) -> dict | None:
 
 
 def stop_stands(t: Task) -> dict | None:
-    """The task's newest `session.stopped` while no work event (`work_event`) came after the newest status
-    wake before it (`session.wake why=status`) and no `session.open` came after it: the stop the guard
-    logged, which waits for the owner's "Open a session"; else None. A work event between that wake and
-    the stop is a state block the session appended in the moment the guard looked: the order of the log
-    decides, and such a stop stands over nothing."""
+    """The task's newest `session.stopped` while no work event (`work_event`) came after
+    the newest status wake before it (`session.wake why=status`) and no `session.open`
+    came after it: the stop the guard logged, which waits for the owner's "Open a
+    session"; else None. A work event between that wake and the stop is a state block
+    the session appended in the moment the guard looked: the order of the log decides,
+    and such a stop stands over nothing."""
     found = next(
         (
             i
@@ -2795,8 +3024,8 @@ def stop_stands(t: Task) -> dict | None:
 
 
 def wake_before(t: Task, stop: int) -> int:
-    """The place in `t.events` of the newest status wake (`session.wake why=status`) before the stop at
-    STOP, or STOP itself when none came before it."""
+    """The place in `t.events` of the newest status wake (`session.wake why=status`)
+    before the stop at STOP, or STOP itself when none came before it."""
     return next(
         (
             i
@@ -2809,10 +3038,11 @@ def wake_before(t: Task, stop: int) -> int:
 
 
 def stop_over_work(t: Task, e: dict) -> bool:
-    """Whether the `session.stopped` record E of the task came after work of the task (`work_event`) that
-    followed its status wake: the stop of a look that a state block overtook, which never stood
-    (`stop_stands`), so that nothing waited for the owner when it was logged. E is found by identity, as
-    `derive` keeps each record of the log in `t.events`; a record that is not there is no such stop."""
+    """Whether the `session.stopped` record E of the task came after work of the task
+    (`work_event`) that followed its status wake: the stop of a look that a state block
+    overtook, which never stood (`stop_stands`), so that nothing waited for the owner
+    when it was logged. E is found by identity, as `derive` keeps each record of the log
+    in `t.events`; a record that is not there is no such stop."""
     stop = next((i for i, x in enumerate(t.events) if x is e), None)
     return stop is not None and any(
         work_event(x) for x in t.events[wake_before(t, stop) + 1 : stop]
@@ -2820,10 +3050,12 @@ def stop_over_work(t: Task, e: dict) -> bool:
 
 
 def stopped_of(t: Task, m: Model) -> dict | None:
-    """The stop that waits for the owner (`stop_stands`), while the guard watches the task (`guarded`) and its session still
-    lives (`live_of`): the row `stopped` of "Waits for you", whose "Open a session" opens a fresh session
-    beside it (`lem session open SLUG --why stopped`). None otherwise: a stopped session that is gone from
-    agterm is `session_need`'s `gone`, whose open takes no stop, so the two rows never stand together."""
+    """The stop that waits for the owner (`stop_stands`), while the guard watches the
+    task (`guarded`) and its session still lives (`live_of`): the row `stopped` of
+    "Waits for you", whose "Open a session" opens a fresh session beside it
+    (`lem session open SLUG --why stopped`). None otherwise: a stopped session that is
+    gone from agterm is `session_need`'s `gone`, whose open takes no stop, so the two
+    rows never stand together."""
     if not guarded(t):
         return None
     f = live_of(t, m)
@@ -2847,7 +3079,8 @@ def not_green_why(t: Task) -> list:
 
 
 def verdict_of(t: Task) -> dict | None:
-    """What the proposal said: green, or each reason it is not; None before a proposal."""
+    """What the proposal said: green, or each reason it is not; None before
+    a proposal."""
     if t.proposal:
         return {"green": t.proposal["green"], "reasons": list(t.proposal["reasons"])}
     lines = t.blocks[-1]["lines"]
@@ -2857,8 +3090,8 @@ def verdict_of(t: Task) -> dict | None:
 
 
 def pr_of(t: Task) -> dict | None:
-    """The newest address of a pull request in the task's state lines, with its number and its repository;
-    a summary's block gives the one its past named."""
+    """The newest address of a pull request in the task's state lines, with its number
+    and its repository; a summary's block gives the one its past named."""
     for b in reversed(t.blocks):
         if "pr" in b:
             if b["pr"]:
@@ -2895,8 +3128,9 @@ def careful_of(t: Task) -> dict | None:
 
 
 def criteria_size(t: Task) -> str | None:
-    """The size of the task's criteria, which `track_of` says as its track: from its newest criteria or
-    approval, or from its summary (SUMMARY), which keeps the size its events gave."""
+    """The size of the task's criteria, which `track_of` says as its track: from its
+    newest criteria or approval, or from its summary (SUMMARY), which keeps the size its
+    events gave."""
     if t.criteria and t.criteria.get("size"):
         return t.criteria["size"]
     if t.approvals:
@@ -2906,8 +3140,8 @@ def criteria_size(t: Task) -> str | None:
 
 
 def conflicts(t: Task, seen: dict | None) -> bool:
-    """The forge calls the pull request conflicting with the base, on the head Lem proposed last, at the
-    board server's last look (`Model.seen`, by task)."""
+    """The forge calls the pull request conflicting with the base, on the head Lem
+    proposed last, at the board server's last look (`Model.seen`, by task)."""
     entry = (seen or {}).get(t.slug)
     entry = entry if isinstance(entry, dict) else None
     head, tip = (entry or {}).get("head"), (t.proposal or {}).get("tip")
@@ -2919,7 +3153,8 @@ def conflicts(t: Task, seen: dict | None) -> bool:
 
 # ---- what the owner does from the board (serve.py's acts) ----
 
-# Where the owner's word came from, as the `board.act` event keeps it (`via`): never his login.
+# Where the owner's word came from, as the `board.act` event keeps it (`via`): never
+# his login.
 VIA = {"local": "the board, on this Mac", "door": "the board, through the tailnet door"}
 # Each act of the board, in the activity's words.
 ACTED = {
@@ -2932,15 +3167,18 @@ ACTED = {
 
 
 def acts_of(t: Task, seen: dict | None) -> list[str]:
-    """The acts the board offers on a task: `approve` while its criteria wait for the owner's yes and the
-    yes would count (`Task.approvable`), `merge` while it is open, Lem does not land it again after a
-    moved base (`merge_wait` "relands": until the next proposal, a merge of that tip is refused the same
-    way), no merge of his stands (`owner_stands`: a second press adds nothing to the first, which goes
-    through on the merge agent's safe read or that the server is about to run) and the forge does not call it
-    conflicting (Lem brings that one onto the base first), and `park` while a breaker waits for him."""
+    """The acts the board offers on a task: `approve` while its criteria wait for the
+    owner's yes and the yes would count (`Task.approvable`), `merge` while it is open,
+    Lem does not land it again after a moved base (`merge_wait` "relands": until the
+    next proposal, a merge of that tip is refused the same way), no merge of his stands
+    (`owner_stands`: a second press adds nothing to the first, which goes through on the
+    merge agent's safe read or that the server is about to run) and the forge does not
+    call it conflicting (Lem brings that one onto the base first), and `park` while a
+    breaker waits for him."""
     out: list[str] = []
     if t.release_stop and not t.closed:
-        # every act of the board on a task two releases back stops in Lem's guard: the drop is the way on
+        # every act of the board on a task two releases back stops in Lem's guard: the
+        # drop is the way on
         return out
     if t.approvable:
         out.append("approve")
@@ -2957,8 +3195,8 @@ def acts_of(t: Task, seen: dict | None) -> list[str]:
 
 
 def merge_says(t: Task) -> dict:
-    """What the confirm step of a merge says first: green or not green, careful when it is, and the
-    reasons it is not green."""
+    """What the confirm step of a merge says first: green or not green, careful when it
+    is, and the reasons it is not green."""
     v = verdict_of(t)
     careful = careful_of(t)
     return {
@@ -2971,10 +3209,10 @@ def merge_says(t: Task) -> dict:
 
 
 def held_row(t: Task) -> dict | None:
-    """The row of "Waits for you" that a task's held block gives, or None. A breaker that waits is its own
-    row, and the held block it wrote is not said again; a held task is his while its turn is (`turn_of`):
-    not while Lem writes its criteria or the personas read them, nor while Lem settles its need without
-    him (`goes_on_of`)."""
+    """The row of "Waits for you" that a task's held block gives, or None. A breaker
+    that waits is its own row, and the held block it wrote is not said again; a held
+    task is his while its turn is (`turn_of`): not while Lem writes its criteria or the
+    personas read them, nor while Lem settles its need without him (`goes_on_of`)."""
     if t.breaker:
         return {
             "kind": "breaker",
@@ -2995,8 +3233,9 @@ def held_row(t: Task) -> dict | None:
 
 
 def held_back(m: Model) -> set[str]:
-    """The keys of the rows that a working session holds back (`put_sessions`): each would be a row of
-    "Waits for you" once the session's turn ends, so the Inbox keeps what it sent for it (lem_inbox `plan`)."""
+    """The keys of the rows that a working session holds back (`put_sessions`): each
+    would be a row of "Waits for you" once the session's turn ends, so the Inbox keeps
+    what it sent for it (lem_inbox `plan`)."""
     return {
         row["key"]
         for t in m.tasks
@@ -3005,12 +3244,14 @@ def held_back(m: Model) -> set[str]:
 
 
 def waits_of(m: Model) -> list[dict]:
-    """The rows of "Waits for you": one for each thing the owner does, as `lem project waiting` lists
-    them (with the plans he reads), the most pressing first."""
+    """The rows of "Waits for you": one for each thing the owner does, as
+    `lem project waiting` lists them (with the plans he reads), the most
+    pressing first."""
     rows = []
     for t in m.tasks:
         if t.release_stop and not t.closed:
-            # a task two releases back: its one row says the stop's message, and nothing else of it is his until the drop
+            # a task two releases back: its one row says the stop's message, and nothing
+            # else of it is his until the drop
             rows.append(
                 {
                     "kind": "blocked",
@@ -3022,12 +3263,14 @@ def waits_of(m: Model) -> list[dict]:
                 }
             )
             continue
-        # a task stuck for want of its session: the one row of a merged or dropped task whose cleanup did not run
+        # a task stuck for want of its session: the one row of a merged or dropped task
+        # whose cleanup did not run
         need = session_need(t, m)
         stop = stopped_of(t, m)
         if stop is not None:
-            # the guard's stop, whose fresh session also answers a wake-up that waits in the stopped one; `unread`
-            # for a session whose signs of work Lem cannot read, stopped after the status message alone
+            # the guard's stop, whose fresh session also answers a wake-up that waits in
+            # the stopped one; `unread` for a session whose signs of work Lem cannot
+            # read, stopped after the status message alone
             rows.append(
                 {
                     "kind": "stopped",
@@ -3054,11 +3297,13 @@ def waits_of(m: Model) -> list[dict]:
             )
         if t.closed:
             continue
-        # the row of a breaker or of a held task, held back while the task's session works on his answer (`put_sessions`)
+        # the row of a breaker or of a held task, held back while the task's session
+        # works on his answer (`put_sessions`)
         held = held_row(t)
         if held is not None and not t.works:
             rows.append(held)
-        # a task queued after a task that was dropped: no session runs it, and only his word starts it or ends it
+        # a task queued after a task that was dropped: no session runs it, and only his
+        # word starts it or ends it
         if after_dropped(t, m):
             done = m.by_slug[after_of(t)]
             rows.append(
@@ -3071,7 +3316,8 @@ def waits_of(m: Model) -> list[dict]:
                     "after": done.slug,
                 }
             )
-        # a task its session stopped with something it cannot settle alone; not one that waits for the base's repair
+        # a task its session stopped with something it cannot settle alone; not one that
+        # waits for the base's repair
         if t.status == "blocked" and not t.base_red:
             rows.append(
                 {
@@ -3092,8 +3338,8 @@ def waits_of(m: Model) -> list[dict]:
                     "since": t.since,
                 }
             )
-        # an open task is his only when its merge waits for him (`merge_wait`): not while the merge
-        # agent reads it, nor while the server merges it
+        # an open task is his only when its merge waits for him (`merge_wait`): not
+        # while the merge agent reads it, nor while the server merges it
         if t.merge_wait == "owner" and t.merge_review and t.merge_review["calls"]:
             rows.append(
                 {
@@ -3119,10 +3365,11 @@ def waits_of(m: Model) -> list[dict]:
 
 
 def wait_stacks(rows: list[dict]) -> list[dict]:
-    """The rows of "Waits for you" (`waits_of`) grouped by task, as the view and its counts draw them: one
-    group for each task, `{"t": task, "rows": [...]}`, in the place of its first row, its rows in their
-    order. A group of one row is that row; a group of two or more is one stack that opens. The rows stay
-    one for each thing: the pushes and the Inbox read them by their keys."""
+    """The rows of "Waits for you" (`waits_of`) grouped by task, as the view and its
+    counts draw them: one group for each task, `{"t": task, "rows": [...]}`, in the
+    place of its first row, its rows in their order. A group of one row is that row; a
+    group of two or more is one stack that opens. The rows stay one for each thing: the
+    pushes and the Inbox read them by their keys."""
     stacks: list[dict] = []
     by_slug: dict[str, dict] = {}
     for w in rows:
@@ -3135,11 +3382,12 @@ def wait_stacks(rows: list[dict]) -> list[dict]:
 
 
 def answered_in_session(w: dict, m: Model) -> bool:
-    """Whether the owner answers a row of "Waits for you" in the task's own session rather than on the
-    board: a held step with no yes of his on the board (the interview and the others; not criteria that
-    wait for his approval there), a task its session stopped, and a session that does not answer. Every
-    other row (a merge, criteria, a breaker's document, a plan, a merge review, a task queued after a
-    dropped one, a task with no session, a task whose stop the guard of a stopped session logged) he
+    """Whether the owner answers a row of "Waits for you" in the task's own session
+    rather than on the board: a held step with no yes of his on the board (the interview
+    and the others; not criteria that wait for his approval there), a task its session
+    stopped, and a session that does not answer. Every other row (a merge, criteria, a
+    breaker's document, a plan, a merge review, a task queued after a dropped one, a
+    task with no session, a task whose stop the guard of a stopped session logged) he
     answers on the board or in another session."""
     kind = w["kind"]
     if kind == "held":
@@ -3148,8 +3396,9 @@ def answered_in_session(w: dict, m: Model) -> bool:
 
 
 def session_of_wait(w: dict, m: Model) -> str | None:
-    """The session a click on a row's verb goes to: the task's session while it lives, for a row the owner
-    answers there (`answered_in_session`); None otherwise, and the verb opens the task's panel."""
+    """The session a click on a row's verb goes to: the task's session while it lives,
+    for a row the owner answers there (`answered_in_session`); None otherwise, and the
+    verb opens the task's panel."""
     if not answered_in_session(w, m):
         return None
     f = live_of(w["t"], m)
@@ -3157,12 +3406,14 @@ def session_of_wait(w: dict, m: Model) -> str | None:
 
 
 def dropped_head(after: str) -> str:
-    """What a task queued after the dropped task AFTER waits for: the words of its row in "Waits for you" and of its Overview's headline."""
+    """What a task queued after the dropped task AFTER waits for: the words of its row
+    in "Waits for you" and of its Overview's headline."""
     return f"{after} was dropped: your word starts or ends this task"
 
 
 def wait_say(w: dict) -> dict:
-    """What a row of "Waits for you" says the owner does, its icon, the tab where he acts, and how its time reads."""
+    """What a row of "Waits for you" says the owner does, its icon, the tab where he
+    acts, and how its time reads."""
     t, kind = w["t"], w["kind"]
     if kind == "session" and w.get("deaf"):
         return {
@@ -3171,7 +3422,11 @@ def wait_say(w: dict) -> dict:
             "actor": "bad",
             "to": "overview",
             "note": "since its session opened",
-            "where": "A wake-up has waited in the task’s session for 10 minutes or more. Look at the session: its agent may wait for an answer, or run a long turn.",
+            "where": (
+                "A wake-up has waited in the task’s session for 10 minutes or more. "
+                "Look at the session: its agent may wait for an answer, "
+                "or run a long turn."
+            ),
         }
     if kind == "stopped" and w.get("unread"):
         return {
@@ -3180,9 +3435,15 @@ def wait_say(w: dict) -> dict:
             "actor": "bad",
             "to": "overview",
             "note": "since Lem logged the stop",
-            "where": f"Lem cannot read whether the task’s session works. It sent the session the status message after {QUIET_MS // 60000} minutes with no event of the task, "
-            f"and saw no event of the task in the {ANSWER_MS // 60000} minutes after it. Lem opens no second session by itself: open a session here or on the "
-            "task’s header, and a fresh agent reads the task’s state and goes on from there. The old pane stays open in agterm.",
+            "where": (
+                "Lem cannot read whether the task’s session works. It sent the session "
+                f"the status message after {QUIET_MS // 60000} minutes with no event "
+                "of the task, and saw no event of the task in the "
+                f"{ANSWER_MS // 60000} minutes after it. Lem opens no second session "
+                "by itself: open a session here or on the task’s header, and a fresh "
+                "agent reads the task’s state and goes on from there. "
+                "The old pane stays open in agterm."
+            ),
         }
     if kind == "stopped":
         return {
@@ -3191,9 +3452,14 @@ def wait_say(w: dict) -> dict:
             "actor": "bad",
             "to": "overview",
             "note": "since Lem logged the stop",
-            "where": f"The task’s session showed no sign of work for {QUIET_MS // 60000} minutes, nor in the {ANSWER_MS // 60000} minutes after Lem asked it for its status, "
-            "and neither did the fresh session that took its place. Open a session here or on the task’s header: a fresh agent reads the task’s state "
-            "and goes on from there, and the old pane stays open in agterm.",
+            "where": (
+                f"The task’s session showed no sign of work for {QUIET_MS // 60000} "
+                f"minutes, nor in the {ANSWER_MS // 60000} minutes after Lem asked it "
+                "for its status, and neither did the fresh session that took its "
+                "place. Open a session here or on the task’s header: "
+                "a fresh agent reads the task’s state and goes on from there, and the "
+                "old pane stays open in agterm."
+            ),
         }
     if kind == "session" and t.closed and t.status == "dropped":
         return {
@@ -3202,7 +3468,11 @@ def wait_say(w: dict) -> dict:
             "actor": "bad",
             "to": "overview",
             "note": "since it was dropped",
-            "where": "Open a session here or on the task’s header: it gives a ticket what it is still owed, then removes the worktree; the branch keeps its commits.",
+            "where": (
+                "Open a session here or on the task’s header: it gives a ticket what "
+                "it is still owed, then removes the worktree; "
+                "the branch keeps its commits."
+            ),
         }
     if kind == "session" and t.closed:
         return {
@@ -3211,7 +3481,11 @@ def wait_say(w: dict) -> dict:
             "actor": "bad",
             "to": "overview",
             "note": "since it was merged",
-            "where": "Open a session here or on the task’s header: it removes the worktree, and the branch when it holds nothing that was not merged, and updates the ticket.",
+            "where": (
+                "Open a session here or on the task’s header: it removes the worktree, "
+                "and the branch when it holds nothing that was not merged, "
+                "and updates the ticket."
+            ),
         }
     if kind == "session":
         return {
@@ -3220,7 +3494,10 @@ def wait_say(w: dict) -> dict:
             "actor": "bad",
             "to": "overview",
             "note": "since its last session opened" if t.opened else "since it opened",
-            "where": "Open a session here or on the task’s header: a fresh agent reads the task’s state and goes on from there.",
+            "where": (
+                "Open a session here or on the task’s header: a fresh agent reads the "
+                "task’s state and goes on from there."
+            ),
         }
     if kind == "breaker":
         return {
@@ -3244,7 +3521,8 @@ def wait_say(w: dict) -> dict:
             "note": "in this state",
         }
     if kind == "after_dropped":
-        # the two words he types, each with the task's name: no session runs this task, so he types them in another one
+        # the two words he types, each with the task's name: no session runs this task,
+        # so he types them in another one
         after, start, drop = w["after"], f"start {t.slug} now", f"/lem drop {t.slug}"
         return {
             "verb": dropped_head(after),
@@ -3271,8 +3549,11 @@ def wait_say(w: dict) -> dict:
             "actor": "bad",
             "to": "overview",
             "note": "since it stopped",
-            "where": f"The task’s session stopped on something it cannot settle alone: “{t.shown or t.text}”. Tell it what to do in the task’s session, "
-            f"or type /lem drop {t.slug} there to end the task.",
+            "where": (
+                "The task’s session stopped on something it cannot settle alone: "
+                f"“{t.shown or t.text}”. Tell it what to do in the task’s session, or "
+                f"type /lem drop {t.slug} there to end the task."
+            ),
         }
     if kind == "plan":
         return {
@@ -3287,7 +3568,10 @@ def wait_say(w: dict) -> dict:
             "icon": "file",
             "to": "overview",
             "note": "since the merge agent wrote it",
-            "where": f"The merge review is the first card of the task’s Overview. {review_why(w['c'])}",
+            "where": (
+                "The merge review is the first card of the "
+                f"task’s Overview. {review_why(w['c'])}"
+            ),
         }
     if t.refused and t.refused.get("from") == "lem":
         return {
@@ -3296,7 +3580,11 @@ def wait_say(w: dict) -> dict:
             "actor": "bad",
             "to": "overview",
             "note": "since it was proposed",
-            "where": f"Lem said: {t.refused.get('said') or 'nothing'}. The board’s server woke the task’s session: it runs the steps the line names, or waits for you.",
+            "where": (
+                f"Lem said: {t.refused.get('said') or 'nothing'}. The board’s server "
+                "woke the task’s session: it runs the steps the line names, "
+                "or waits for you."
+            ),
         }
     if t.refused:
         return {
@@ -3305,7 +3593,10 @@ def wait_say(w: dict) -> dict:
             "actor": "bad",
             "to": "overview",
             "note": "since it was proposed",
-            "where": f"GitHub said: {t.refused.get('said') or 'nothing'}. Act on GitHub, or ask the task’s session for a change.",
+            "where": (
+                f"GitHub said: {t.refused.get('said') or 'nothing'}. Act on GitHub, or "
+                "ask the task’s session for a change."
+            ),
         }
     if w.get("conflict"):
         return {
@@ -3314,7 +3605,10 @@ def wait_say(w: dict) -> dict:
             "actor": "bad",
             "to": "overview",
             "note": "since it was proposed",
-            "where": "Nothing to do now: the board’s server wakes the task’s session, which brings it onto the base, and then it waits for you again.",
+            "where": (
+                "Nothing to do now: the board’s server wakes the task’s session, which "
+                "brings it onto the base, and then it waits for you again."
+            ),
         }
     pr = pr_of(t)
     number = f" #{pr['n']}" if pr else ""
@@ -3328,8 +3622,9 @@ def wait_say(w: dict) -> dict:
 
 
 def review_why(review: dict) -> str:
-    """The merge agent's one sentence of why it calls the owner, as land.py keeps it (the first line of
-    its review, `Verdict: call.` and all), without the verdict that the row already says, as one sentence."""
+    """The merge agent's one sentence of why it calls the owner, as land.py keeps it
+    (the first line of its review, `Verdict: call.` and all), without the verdict that
+    the row already says, as one sentence."""
     said = re.sub(
         r"^\s*Verdict:\s*(call|merge)\.\s*",
         "",
@@ -3341,7 +3636,8 @@ def review_why(review: dict) -> str:
 
 
 def phase_index(t: Task, lead: str | None = "") -> int:
-    """The step of the flow the task reached; a task that waits for the owner or is blocked stays where it got to."""
+    """The step of the flow the task reached; a task that waits for the owner or is
+    blocked stays where it got to."""
     lead = t.lead if lead == "" else lead
     reached = t.reached
     if reached == "answered":
@@ -3368,7 +3664,8 @@ def phase_index(t: Task, lead: str | None = "") -> int:
 
 
 def phases_of(t: Task) -> dict:
-    """The phases of the task's progress card: their names, the current one (`at`) and how many are past."""
+    """The phases of the task's progress card: their names, the current one (`at`) and
+    how many are past."""
     lead = 1 if t.investigated else 0
     answered = t.status == "answered"
     base = SMALL_PHASES if t.lead == "small" else PHASES
@@ -3404,7 +3701,10 @@ def job_of(e: dict) -> object:
 def gate_end_said(e: dict) -> dict:
     said = say_of(e)
     ran = f"after {span((e.get('seconds') or 0) * 1000)} on {e.get('tip') or '?'}" + (
-        f" · the tests of the criteria taken from the polish pass at {e['taken']}, not run again"
+        (
+            f" · the tests of the criteria taken from the polish pass at {e['taken']}, "
+            "not run again"
+        )
         if e.get("taken")
         else ""
     )
@@ -3427,14 +3727,20 @@ SUMMARY_HEAD = "Its events became one summary"
 
 
 def summary_said(e: dict) -> str:
-    """What a task's summary stands for, in the words of the board: how many events, and why."""
+    """What a task's summary stands for, in the words of the board: how many events,
+    and why."""
     n = e.get("events") if isinstance(e.get("events"), int) else 0
-    return f"{plural(n, 'event')} in one event that keeps the task's status, its end and its pull request: nothing of the task happened for state.keep_days days after its end"
+    return (
+        f"{plural(n, 'event')} in one event that keeps the task's status, its end and "
+        "its pull request: nothing of the task happened for "
+        "state.keep_days days after its end"
+    )
 
 
 def merge_review_said(e: dict) -> dict:
-    """The merge agent's read in the feed: its verdict, and on a moved base its call (`base_call`) on the
-    base it read, with that call's sentence of why (`base_why`) beside the verdict's."""
+    """The merge agent's read in the feed: its verdict, and on a moved base its call
+    (`base_call`) on the base it read, with that call's sentence of why (`base_why`)
+    beside the verdict's."""
     call, calls = e.get("base_call"), e.get("calls")
     verdict = "it calls you" if calls else "it merges"
     sub = " · ".join(str(x) for x in (e.get("why"), e.get("base_why")) if x) or (
@@ -3483,12 +3789,16 @@ def _criterion_head(e: dict) -> str:
     return f"Criterion {e.get('criterion')} {how}"
 
 
-# What each event of the scripts says, in the feed's words; an event not named here is shown as its fields.
+# What each event of the scripts says, in the feed's words; an event not named here is
+# shown as its fields.
 SAYS = {
     "task.criteria": lambda e: {
         "info": {"actor": "lead", "icon": "file"},
         "head": "Acceptance criteria recorded",
-        "text": f"{track_words(e.get('size'))}: {criteria_count(len(e.get('criteria') or []))}",
+        "text": (
+            f"{track_words(e.get('size'))}: "
+            f"{criteria_count(len(e.get('criteria') or []))}"
+        ),
     },
     "task.red": lambda e: {
         "info": {
@@ -3552,7 +3862,8 @@ SAYS = {
         "head": "The plan talk ended",
         "text": f"with {e.get('reviewer')}: {talk_counts(e)}",
     },
-    # a seat's agent gave an error (`lem project seat-failed`): the fallback stood in, or the task waits for your go on
+    # a seat's agent gave an error (`lem project seat-failed`): the fallback stood in,
+    # or the task waits for your go on
     "seat.stand-in": lambda e: {
         "info": {"actor": "lem", "icon": "split"},
         "head": f"The fallback stood in for {SEAT_WORDS.get(e.get('seat'), 'a seat')}",
@@ -3561,7 +3872,10 @@ SAYS = {
     },
     "seat.blocked": lambda e: {
         "info": {"actor": "you", "icon": "alert"},
-        "head": f"The seat of {SEAT_WORDS.get(e.get('seat'), 'a seat')} gave an error, and no fallback stood in",
+        "head": (
+            f"The seat of {SEAT_WORDS.get(e.get('seat'), 'a seat')} gave an error, "
+            "and no fallback stood in"
+        ),
         "text": e.get("say") or e.get("failed") or "",
         "sub": e.get("said") or "",
     },
@@ -3589,7 +3903,11 @@ SAYS = {
     "polish": lambda e: {
         "info": {"actor": "lead", "icon": "code"},
         "head": "The polish pass",
-        "text": f"{plural(e.get('commits') or 0, 'commit')}, {plural(len(e['filed']), 'item') if e.get('filed') else 'no item'} filed in the backlog",
+        "text": (
+            f"{plural(e.get('commits') or 0, 'commit')}, "
+            f"{plural(len(e['filed']), 'item') if e.get('filed') else 'no item'} filed "
+            "in the backlog"
+        ),
         "sub": " · ".join(
             [
                 f"{e.get('before') or '?'} → {e.get('after') or '?'}",
@@ -3674,15 +3992,18 @@ SAYS = {
         + "it reads the base branch first",
     },
     "merge.review": merge_review_said,
-    # land.py logs it after a safe read of the moved base, or a read on the checks' base after a revert (`after`), or at a
-    # proposal that kept the change he merged
+    # land.py logs it after a safe read of the moved base, or a read on the checks' base
+    # after a revert (`after`), or at a proposal that kept the change he merged
     "merge.stands": lambda e: {
         "info": {"actor": "gate", "icon": "play"},
         "head": "Your merge stands",
         "text": (
             "the merge agent read the moved base and said safe"
             if e.get("after") == "a read of the moved base"
-            else "the merge agent read it on the base the checks ran on, which main has again"
+            else (
+                "the merge agent read it on the base the checks ran on, "
+                "which main has again"
+            )
             if e.get("after") == "a read of the base back on the checks' tree"
             else "the new landing kept the change you merged"
         )
@@ -3704,7 +4025,10 @@ SAYS = {
     "review.start": lambda e: {
         "info": {"actor": "gate", "icon": "eye"},
         "head": "The review started",
-        "text": f"attempt {e.get('attempt') or '?'} · {KIND.get(e.get('floor'), e.get('floor'))}",
+        "text": (
+            f"attempt {e.get('attempt') or '?'} · "
+            f"{KIND.get(e.get('floor'), e.get('floor'))}"
+        ),
     },
     "session.open": lambda e: {
         "info": {"actor": "lem", "icon": "split"},
@@ -3742,7 +4066,10 @@ SAYS = {
             "info": {"actor": "lem", "icon": "split"},
             "head": "The board’s server asked the task’s session for its status",
             "text": (
-                f"no event of the task for {QUIET_MS // 60000} minutes, and Lem cannot read its session"
+                (
+                    f"no event of the task for {QUIET_MS // 60000} minutes, and Lem "
+                    "cannot read its session"
+                )
                 if e.get("unread") is True
                 else f"no sign of work for {QUIET_MS // 60000} minutes"
             )
@@ -3751,7 +4078,9 @@ SAYS = {
         if e.get("why") == "status"
         else {
             "info": {"actor": "quiet", "icon": "split"},
-            "head": "The board’s server told the old session that a fresh one replaced it",
+            "head": (
+                "The board’s server told the old session that a fresh one replaced it"
+            ),
             "text": "it closes itself at the end of its turn",
         }
         if e.get("why") == "replaced"
@@ -3760,7 +4089,10 @@ SAYS = {
             "head": "The board’s server woke the task’s session",
             "text": {
                 "merged": "the pull request is merged: the session cleans up",
-                "conflict": "GitHub calls the pull request conflicting: the session brings it onto the base",
+                "conflict": (
+                    "GitHub calls the pull request conflicting: "
+                    "the session brings it onto the base"
+                ),
                 "queue": "the task it waited for ended",
             }.get(e.get("why"), e.get("why") or ""),
         }
@@ -3768,10 +4100,16 @@ SAYS = {
     "session.stopped": lambda e: {
         "info": {"actor": "bad", "icon": "alert"},
         "head": "The task’s session stopped",
-        "text": f"no event of the task in the {ANSWER_MS // 60000} minutes after the status message, and Lem cannot read its session: "
-        "“Open a session” on the board starts a fresh one"
+        "text": (
+            f"no event of the task in the {ANSWER_MS // 60000} minutes after the "
+            "status message, and Lem cannot read its session: “Open a session” on the "
+            "board starts a fresh one"
+        )
         if e.get("unread") is True
-        else "no sign of work after the status message, nor in the fresh session: “Open a session” on the board starts another",
+        else (
+            "no sign of work after the status message, nor in the fresh session: "
+            "“Open a session” on the board starts another"
+        ),
     },
     "decision.taken": lambda e: (
         {
@@ -3783,7 +4121,9 @@ SAYS = {
         if e.get("by") == "owner" and e.get("breaker") is not None
         else {
             "info": {"actor": "done", "icon": "check"},
-            "head": f"Decision {e.get('id')}, by {BY_WHOM.get(e.get('by'), e.get('by'))}",
+            "head": (
+                f"Decision {e.get('id')}, by {BY_WHOM.get(e.get('by'), e.get('by'))}"
+            ),
             "text": f"{e.get('what')} → {e.get('chose')}",
         }
     ),
@@ -3799,7 +4139,10 @@ SAYS = {
                 irreversible=e.get("irreversible"),
             )
         ),
-        "sub": f"breaker {e.get('id')} · {e.get('document') or 'breaker.md'} in the task directory",
+        "sub": (
+            f"breaker {e.get('id')} · {e.get('document') or 'breaker.md'} in the task "
+            "directory"
+        ),
     },
     "board.act": lambda e: {
         "info": {"actor": "you", "icon": "user"},
@@ -3821,16 +4164,21 @@ SAYS = {
 
 
 def stop_over_work_said(_e: dict) -> dict:
-    """The words of a `session.stopped` that never stood (`stop_over_work`), which `describe` gives in place of SAYS's."""
+    """The words of a `session.stopped` that never stood (`stop_over_work`), which
+    `describe` gives in place of SAYS's."""
     return {
         "info": {"actor": "quiet", "icon": "split"},
         "head": "Lem logged a stop of the task’s session, but the task worked",
-        "text": "work of the task came after the status message and before the stop, so the stop does not stand and nothing waits for you",
+        "text": (
+            "work of the task came after the status message and before the stop, so "
+            "the stop does not stand and nothing waits for you"
+        ),
     }
 
 
 def describe(e: dict, m: Model) -> dict:
-    """One event as the activity says it: an icon and its actor, a head, a text and a line under it."""
+    """One event as the activity says it: an icon and its actor, a head, a text and a
+    line under it."""
     title = title_of(e.get("task"))
     if e.get("event") == "task.state":
         info = STATUS.get(e.get("status", ""), UNKNOWN)
@@ -3868,14 +4216,16 @@ def describe(e: dict, m: Model) -> dict:
         and (t := m.by_slug.get(e.get("task")))
         and stop_over_work(t, e)
     ):
-        # the stop of a look that a state block overtook: it never stood, and nothing waited for the owner
+        # the stop of a look that a state block overtook: it never stood, and nothing
+        # waited for the owner
         say = stop_over_work_said
     if say:
         said: dict[str, Any] = {"title": title, "sub": "", **say(e)}
         if e.get("from") and e.get("was_at"):
-            # a dropped task's event that its resumed task carried over (project.py `resume`), at the time of the
-            # resume: it keeps its first time as `was_at`; another event's `from` is its own field (`merge.refused`'s
-            # `lem` or `github`, `merge.stands`'s old tip)
+            # a dropped task's event that its resumed task carried over (project.py
+            # `resume`), at the time of the resume: it keeps its first time as `was_at`;
+            # another event's `from` is its own field (`merge.refused`'s `lem` or
+            # `github`, `merge.stands`'s old tip)
             said["sub"] = " · ".join(
                 x
                 for x in (said["sub"], f"carried over from “{title_of(e['from'])}”")
@@ -3897,7 +4247,8 @@ def describe(e: dict, m: Model) -> dict:
 
 
 def feed(events: list[dict], newest: int = 200) -> list[tuple[int, dict]]:
-    """The newest events, newest first: time sorts, and the order of the log breaks a tie, the later first."""
+    """The newest events, newest first: time sorts, and the order of the log breaks a
+    tie, the later first."""
     timed = [
         (ts, i, e) for i, e in enumerate(events) if (ts := at(e.get("ts"))) is not None
     ]
@@ -3909,8 +4260,9 @@ def feed(events: list[dict], newest: int = 200) -> list[tuple[int, dict]]:
 
 # The tabs of a task, in the order of their keys 1 to 5.
 TASK_TABS = ("overview", "criteria", "checks", "timeline", "artifacts")
-# The levels of the ladder a decision climbed (stages/ladder.md), in their order, as a record's `levels`
-# names them; a level the record names that is not here comes after them, by its own name.
+# The levels of the ladder a decision climbed (stages/ladder.md), in their order, as a
+# record's `levels` names them; a level the record names that is not here comes after
+# them, by its own name.
 LADDER = [
     ("gate", "The question gate"),
     ("lead", "The agent"),
@@ -3918,12 +4270,15 @@ LADDER = [
     ("dialectic", "The dialectic"),
     ("experts", "The experts"),
 ]
-# The levels past the personas: a decision one of them answered, or took, went past the personas.
+# The levels past the personas: a decision one of them answered, or took, went past
+# the personas.
 PAST_PERSONAS = ("dialectic", "experts")
-# The short label before a colon that a lead writes for an option it took ("D: the backlog is patched ...").
+# The short label before a colon that a lead writes for an option it took ("D: the
+# backlog is patched ...").
 OPTION_LABEL = re.compile(r"^([A-Za-z0-9]{1,3}):\s")
-# The rows of "Where the time went" of one task: who held the work. A row's color repeats a hue of
-# lem.css and never stands alone: each row has its name, and each mark its hover.
+# The rows of "Where the time went" of one task: who held the work. A row's color
+# repeats a hue of lem.css and never stands alone: each row has its name, and each mark
+# its hover.
 ROWS = [
     {"key": "you", "label": "You", "fill": "var(--you)"},
     {"key": "lem", "label": "Lem", "fill": "var(--lem)"},
@@ -3964,7 +4319,8 @@ NICE_MINUTES = [
 
 
 def nice_ceil(ms: float) -> int:
-    """A length of an axis that reads well: the next of NICE_MINUTES, or whole days past them."""
+    """A length of an axis that reads well: the next of NICE_MINUTES, or whole days
+    past them."""
     found = next((m for m in NICE_MINUTES if m * 60000 >= ms), None)
     return (found if found is not None else -(-int(ms) // 86400000) * 1440) * 60000
 
@@ -3977,8 +4333,8 @@ def hms(ms: float, now: float) -> str:
 
 
 def tick_label(ms: float, whole: float, now: float) -> str:
-    """The label of a tick of a time axis: to the second when the axis spans under six minutes, where
-    six ticks of whole minutes would repeat one minute."""
+    """The label of a tick of a time axis: to the second when the axis spans under six
+    minutes, where six ticks of whole minutes would repeat one minute."""
     return hms(ms, now) if whole < 6 * 60000 else stamp(ms, now)
 
 
@@ -3993,12 +4349,14 @@ def track_of(t: Task) -> str | None:
 
 
 def waits_for(t: Task, waits: list) -> dict | None:
-    """What the task waits for, in words: each thing the owner does in it, or what its landing waits for,
-    or the task its queue waits for; None when it waits for nothing."""
+    """What the task waits for, in words: each thing the owner does in it, or what its
+    landing waits for, or the task its queue waits for; None when it waits
+    for nothing."""
     mine = [w for w in waits if w["t"] is t]
     if mine:
-        # a task whose only row is "no session" is answered where that row says, never in the session that is
-        # gone; a row of another kind (a breaker) keeps its own words
+        # a task whose only row is "no session" is answered where that row says, never
+        # in the session that is gone; a row of another kind (a breaker) keeps its
+        # own words
         gone = (
             mine[0]
             if len(mine) == 1
@@ -4037,8 +4395,9 @@ def waits_for(t: Task, waits: list) -> dict | None:
 
 
 def starts_landing(t: Task) -> bool:
-    """A landing starts with the rebase onto the base and, for a task that is not on the fast track, the
-    polish pass; no event says which runs until the pass ends. A pass of an earlier landing still counts."""
+    """A landing starts with the rebase onto the base and, for a task that is not on the
+    fast track, the polish pass; no event says which runs until the pass ends. A pass of
+    an earlier landing still counts."""
     return (
         t.status == "landing"
         and not t.gates
@@ -4059,9 +4418,11 @@ def now_head(t: Task) -> str:
     s = t.status
     if s == "queued":
         if t.dropped_after:
-            # the task it waited for was dropped, so it waits for his word: the headline says what its row says
+            # the task it waited for was dropped, so it waits for his word: the headline
+            # says what its row says
             return dropped_head(t.dropped_after)
-        # "another task" holds for both reasons of a wait: the task needs its result, or the owner's words put it after it
+        # "another task" holds for both reasons of a wait: the task needs its result, or
+        # the owner's words put it after it
         return "Waits for another task" if t.waits_after else "Waits to start"
     if s == "building":
         return (
@@ -4083,7 +4444,8 @@ def now_head(t: Task) -> str:
             if t.approved
             else "Helped: its lead has not started yet"
             if t.helped
-            # its session's turn runs on what he said (`put_sessions`): a breaker's held task too
+            # its session's turn runs on what he said (`put_sessions`): a breaker's held
+            # task too
             else "Its session works on your answer"
             if t.works
             else "The build stopped: its breaker waits for you"
@@ -4096,7 +4458,8 @@ def now_head(t: Task) -> str:
             if t.turn == "writes"
             else "Lem asks you whether to skip the personas’ read"
             if t.turn == "skip" and t.need and t.need["need"] == "interview"
-            # after the personas' read of an interview's criteria, or his word to skip it, his yes is what waits
+            # after the personas' read of an interview's criteria, or his word to skip
+            # it, his yes is what waits
             else "The criteria wait for your yes"
             if t.approvable and t.need and t.need["need"] == "interview"
             else "The interview waits for you"
@@ -4109,7 +4472,10 @@ def now_head(t: Task) -> str:
         return "Parked: nobody works on it until you bring it back"
     if s == "blocked":
         return (
-            "It waits for the base: a task of its own repairs the check that fails there"
+            (
+                "It waits for the base: a task of its own repairs the "
+                "check that fails there"
+            )
             if t.base_red
             else "Its session stopped: it waits for your word"
         )
@@ -4121,7 +4487,10 @@ def now_head(t: Task) -> str:
         if waits := waits_now(t):
             return waits_say(waits)
         if starts_landing(t):
-            return "It starts its landing: the rebase onto the base, then the polish pass, before the checks"
+            return (
+                "It starts its landing: the rebase onto the base, then the polish "
+                "pass, before the checks"
+            )
         if t.checks_stop:
             return checks_end(t.checks_stop.get("result"))["head"]
         return (
@@ -4134,7 +4503,9 @@ def now_head(t: Task) -> str:
             return waits_say(waits)
         proposed: dict[str | None, str] = {
             "reads": "Proposed: the merge agent reads it",
-            "merges": "Proposed: the merge agent found nothing for you, and Lem merges it",
+            "merges": (
+                "Proposed: the merge agent found nothing for you, and Lem merges it"
+            ),
             "relands": "Proposed: Lem lands it again on the moved base",
         }
         return proposed.get(t.merge_wait, "Proposed: it waits for your merge")
@@ -4163,9 +4534,10 @@ def who_acts(t: Task) -> str:
 
 
 def whole(criterion: object) -> str:
-    """A criterion as the owner approved it, its sentence and the steps of its case: criteria.py's own
-    `whole`, so that the board's "as they stand" agrees with what the landing calls changed. A recorded
-    change names the same whole in its `was` and `now`."""
+    """A criterion as the owner approved it, its sentence and the steps of its case:
+    criteria.py's own `whole`, so that the board's "as they stand" agrees with what the
+    landing calls changed. A recorded change names the same whole in its `was`
+    and `now`."""
     criterion = criterion if isinstance(criterion, dict) else {}
     return CRITERIA().whole(
         {
@@ -4179,7 +4551,8 @@ _criteria: ModuleType | None = None
 
 
 def CRITERIA() -> ModuleType:  # noqa: N802 - it stands for the module
-    """criteria.py as a module, loaded once (lem_sibling): the board reads a criterion as it does."""
+    """criteria.py as a module, loaded once (lem_sibling): the board reads a criterion
+    as it does."""
     global _criteria  # noqa: PLW0603 - the module loads criteria.py once and keeps it
     if _criteria is None:
         import lem_sibling
@@ -4191,10 +4564,11 @@ def CRITERIA() -> ModuleType:  # noqa: N802 - it stands for the module
 
 
 def standing(t: Task) -> dict | None:
-    """The criteria as they stand: the newest approval's, each as its whole (`whole`: the sentence and the
-    steps of its case), with each change recorded after it applied in order (decisions.py `changes`), and
-    the digest criteria.py gives these texts when an approval holds the same ones (texts compare with each
-    run of spaces as one); None before an approval."""
+    """The criteria as they stand: the newest approval's, each as its whole (`whole`:
+    the sentence and the steps of its case), with each change recorded after it applied
+    in order (decisions.py `changes`), and the digest criteria.py gives these texts when
+    an approval holds the same ones (texts compare with each run of spaces as one); None
+    before an approval."""
     if not t.approvals:
         return None
     a = t.approvals[-1]
@@ -4254,8 +4628,8 @@ def criteria_sum(t: Task) -> str:
 
 
 def plan_criteria_stand(t: Task) -> bool:
-    """Whether the plan's recorded criteria are the contract: criteria approved after the lead recorded
-    the plan's (or before it wrote any) are the contract instead."""
+    """Whether the plan's recorded criteria are the contract: criteria approved after
+    the lead recorded the plan's (or before it wrote any) are the contract instead."""
     current = standing(t)
     return not (
         current
@@ -4264,11 +4638,13 @@ def plan_criteria_stand(t: Task) -> bool:
 
 
 def criterion_checks(t: Task) -> list[dict]:
-    """Each criterion of the plan with the tests that hold it and what the last check of them gave. A
-    result counts only for the criteria and tests it ran on: a criterion or a test that changed since
-    has no check yet. `state` is `done` (held by its tests), `bad` (a test does not hold it) or `quiet`."""
+    """Each criterion of the plan with the tests that hold it and what the last check of
+    them gave. A result counts only for the criteria and tests it ran on: a criterion or
+    a test that changed since has no check yet. `state` is `done` (held by its tests),
+    `bad` (a test does not hold it) or `quiet`."""
     red = t.red or {}
-    # the board of a task draws these only for a task whose plan wrote its criteria (lem_board_task.py)
+    # the board of a task draws these only for a task whose plan wrote its
+    # criteria (lem_board_task.py)
     criteria = cast("dict[str, Any]", t.criteria)
     current = bool(red and red.get("digest")) and red["digest"] == criteria["digest"]
     results = {
@@ -4319,8 +4695,9 @@ def criterion_checks(t: Task) -> list[dict]:
 
 
 def read_stale(t: Task, r: dict) -> str:
-    """As land.py `unread` says it: the criteria as they stand are not the ones the read read, and what
-    changed them, an approval of the owner's with other criteria or a change of the build; "" when they are."""
+    """As land.py `unread` says it: the criteria as they stand are not the ones the read
+    read, and what changed them, an approval of the owner's with other criteria or a
+    change of the build; "" when they are."""
     st = standing(t)
     if not st:
         return ""
@@ -4357,12 +4734,16 @@ def read_stale(t: Task, r: dict) -> str:
         )
         if p
     ]
-    return f"The criteria changed after this read{' and'.join(parts)}, and the change was not read."
+    return (
+        f"The criteria changed after this read{' and'.join(parts)}, "
+        "and the change was not read."
+    )
 
 
 def taken_over(t: Task, c: dict) -> int | float | None:
-    """The number of an approval of the owner's after a change of the build, which made that change his
-    (decisions.py `taken_over_by`): it is no cause of not green. None when there is none."""
+    """The number of an approval of the owner's after a change of the build, which made
+    that change his (decisions.py `taken_over_by`): it is no cause of not green. None
+    when there is none."""
     return next(
         (
             x["number"]
@@ -4377,10 +4758,11 @@ def taken_over(t: Task, c: dict) -> int | float | None:
 
 
 def importance(t: Task, d: Decision) -> str | None:
-    """Why a decision is important, or None: a `decision N ` line of the newest proposal names it (it makes
-    the pull request not green), it went past the personas (the dialectic or the experts took it, or
-    answered at their level), no level of the ladder settled it (the agent's pick stands), or it is the
-    owner's help on a breaker. A breaker is none: it stands on its own row."""
+    """Why a decision is important, or None: a `decision N ` line of the newest proposal
+    names it (it makes the pull request not green), it went past the personas (the
+    dialectic or the experts took it, or answered at their level), no level of the
+    ladder settled it (the agent's pick stands), or it is the owner's help on a breaker.
+    A breaker is none: it stands on its own row."""
     if d.kind != "taken":
         return None
     named = any(
@@ -4416,8 +4798,8 @@ def important_of(t: Task) -> list:
 
 
 def chosen_at(d: Decision) -> int:
-    """The option a decision took, by its place in its options, or -1: the same text, or the same short
-    label before a colon when one option alone has it."""
+    """The option a decision took, by its place in its options, or -1: the same text, or
+    the same short label before a colon when one option alone has it."""
     if d.chose is None:
         return -1
     if d.chose in d.options:
@@ -4438,10 +4820,14 @@ def picked_word(d: Decision) -> str:
 
 
 def decision_says(t: Task, d: Decision) -> dict:
-    """What the opened row of a decision says: how and why it was taken and by whom (the owner's help on a
-    breaker with his own words), each level of the ladder it climbed, and why it is important."""
+    """What the opened row of a decision says: how and why it was taken and by whom (the
+    owner's help on a breaker with his own words), each level of the ladder it climbed,
+    and why it is important."""
     if d.by == "owner" and d.breaker is not None:
-        how = f"your help on breaker {d.breaker}{f': “{d.words}”' if d.words else ''}, because {d.why}"
+        how = (
+            f"your help on breaker {d.breaker}{f': “{d.words}”' if d.words else ''}, "
+            f"because {d.why}"
+        )
         who = f"by you, on breaker {d.breaker}"
     elif d.unsettled:
         how = f"the agent’s pick, which no level of the ladder settled, because {d.why}"
@@ -4474,8 +4860,9 @@ def decision_says(t: Task, d: Decision) -> dict:
 
 
 def breaker_says(t: Task, d: Decision) -> dict:
-    """What the row of a breaker says: why it stopped the build, and where it stands now: it waits for the
-    owner, for nobody while the task is parked, it was helped by a decision of his, or the task ended."""
+    """What the row of a breaker says: why it stopped the build, and where it stands
+    now: it waits for the owner, for nobody while the task is parked, it was helped by a
+    decision of his, or the task ended."""
     if d.state == "helped":
         now, actor = f"helped by your decision {d.help}", "done"
     elif t.closed:
@@ -4497,7 +4884,8 @@ def breaker_says(t: Task, d: Decision) -> dict:
 
 
 def decisions_sum(t: Task) -> str:
-    """The line of the card of the decisions: how many were taken, are important, and the breakers."""
+    """The line of the card of the decisions: how many were taken, are important, and
+    the breakers."""
     if not t.decided:
         return ""
     important = len(important_of(t))
@@ -4532,13 +4920,15 @@ def building_of(t: Task, told: dict | None) -> dict | None:
 
 # ---- the pull requests a text names, and the reasons of not green as rows ----
 
-# A pull request a text of the board names: a forge's address of one, `OWNER/REPO#N`, or a bare `#N`.
+# A pull request a text of the board names: a forge's address of one, `OWNER/REPO#N`, or
+# a bare `#N`.
 PULL_REF = re.compile(
     r"(?P<url>https?://[^\s<>()\"'`]+?/pull/(?P<n1>\d+))(?![\w/])"
     r"|(?<![\w./-])(?P<repo>[A-Za-z0-9][\w.-]*/[\w.-]+)#(?P<n2>\d+)\b"
     r"|(?<![\w&#/])#(?P<n3>\d+)\b"
 )
-# The parts of a markdown text a link is never put into: a fenced block, code, a link or an autolink.
+# The parts of a markdown text a link is never put into: a fenced block, code, a link or
+# an autolink.
 MD_KEEP = re.compile(
     r"```[\s\S]*?(?:```|\Z)|~~~[\s\S]*?(?:~~~|\Z)|`[^`\n]*`|!?\[[^\]\n]*\]\([^)\n]*\)|<[^>\n]*>"
 )
@@ -4546,8 +4936,9 @@ GITHUB = "https://github.com"
 
 
 def forge_of(m: "Model") -> str | None:
-    """The forge's address of the workspace's repository, `https://github.com/OWNER/REPO`, from the newest
-    pull request its tasks name; None while no task names one, and then a bare `#N` stays text."""
+    """The forge's address of the workspace's repository,
+    `https://github.com/OWNER/REPO`, from the newest pull request its tasks name; None
+    while no task names one, and then a bare `#N` stays text."""
     found = max((t for t in m.tasks if pr_of(t)), key=lambda t: t.last_ts, default=None)
     if found is None:
         return None
@@ -4556,10 +4947,11 @@ def forge_of(m: "Model") -> str | None:
 
 
 def pull_refs(text: object, forge: str | None) -> list:
-    """A text in parts: each pull request it names as `{"text", "url"}`, every other part a str. The one
-    rule of what is a link to a pull request on the board: an address of one as it is; `OWNER/REPO#N` on
-    the forge's host (GitHub when none is known); a bare `#N` on the workspace's own repository (`forge`),
-    and as text when that is not known."""
+    """A text in parts: each pull request it names as `{"text", "url"}`, every other
+    part a str. The one rule of what is a link to a pull request on the board: an
+    address of one as it is; `OWNER/REPO#N` on the forge's host (GitHub when none is
+    known); a bare `#N` on the workspace's own repository (`forge`), and as text when
+    that is not known."""
     text = str(text)
     out: list = []
     at = 0
@@ -4580,8 +4972,9 @@ def pull_refs(text: object, forge: str | None) -> list:
 
 
 def pull_links_md(text: str, forge: str | None) -> str:
-    """A markdown text with each pull request it names as a markdown link (`pull_refs`), outside its code,
-    its links and its fenced blocks; an address stays as it is, since the reader makes it a link itself."""
+    """A markdown text with each pull request it names as a markdown link (`pull_refs`),
+    outside its code, its links and its fenced blocks; an address stays as it is, since
+    the reader makes it a link itself."""
     out, at = [], 0
 
     def linked(part: str) -> str:
@@ -4601,13 +4994,14 @@ def pull_links_md(text: str, forge: str | None) -> str:
     return "".join(out)
 
 
-# Where a reason of not green is cut: a separator of land.py's lines (`not_green`), outside quotes,
-# parentheses and code.
+# Where a reason of not green is cut: a separator of land.py's lines (`not_green`),
+# outside quotes, parentheses and code.
 OPENS, CLOSES = '(“"`', ')”"`'
 
 
 def cuts(text: str, seps: tuple[str, ...]) -> list[tuple[int, str]]:
-    """Where each separator stands in the text outside parentheses, quotes and code: its place and itself."""
+    """Where each separator stands in the text outside parentheses, quotes and code: its
+    place and itself."""
     found, depth, quote, i = [], 0, None, 0
     while i < len(text):
         c = text[i]
@@ -4631,7 +5025,8 @@ def cuts(text: str, seps: tuple[str, ...]) -> list[tuple[int, str]]:
 
 
 def split_top(text: str, seps: tuple[str, ...]) -> list[str]:
-    """The text cut at each separator that stands outside parentheses, quotes and code."""
+    """The text cut at each separator that stands outside parentheses, quotes
+    and code."""
     parts, start = [], 0
     for i, sep in cuts(text, seps):
         parts.append(text[start:i])
@@ -4641,11 +5036,12 @@ def split_top(text: str, seps: tuple[str, ...]) -> list[str]:
 
 
 def reason_parts(line: object) -> dict:
-    """One reason of not green as a row: its head, the leading clause of land.py's line up to its first
-    `: ` or `. ` ("Decision 4 was taken without the owner"); `about`, a parenthesis that closes the head
-    (what the decision was about, the bar's change); and `detail`, the rest cut at the line's own
-    separators (`; ` and `. `) outside quotes, parentheses and code, each one sentence. `ref` names the
-    decision or the breaker the line is about, for a link to it."""
+    """One reason of not green as a row: its head, the leading clause of land.py's line
+    up to its first `: ` or `. ` ("Decision 4 was taken without the owner"); `about`, a
+    parenthesis that closes the head (what the decision was about, the bar's change);
+    and `detail`, the rest cut at the line's own separators (`; ` and `. `) outside
+    quotes, parentheses and code, each one sentence. `ref` names the decision or the
+    breaker the line is about, for a link to it."""
     line = str(line).strip()
     first = cuts(line, (": ", ". "))
     head, rest = (
@@ -4673,7 +5069,8 @@ def reason_parts(line: object) -> dict:
 
 
 def reason_rows(reasons: list) -> list[dict]:
-    """The reasons of not green as the board lists them, one row each (`reason_parts`)."""
+    """The reasons of not green as the board lists them, one row each
+    (`reason_parts`)."""
     return [reason_parts(line) for line in reasons]
 
 
@@ -4683,9 +5080,10 @@ def reason_rows(reasons: list) -> list[dict]:
 def forge_due(
     open_prs: list[dict], looked_at: int | None, now: int, every_ms: int, *, forge: bool
 ) -> list[int]:
-    """The pull requests the server asks the forge about now, by their numbers; none when no task is open
-    with one, when the workspace has no forge to ask (`forge` false: a demo, or no GitHub remote), or when
-    the server's last look (`looked_at`) is younger than `every_ms`."""
+    """The pull requests the server asks the forge about now, by their numbers; none
+    when no task is open with one, when the workspace has no forge to ask (`forge`
+    false: a demo, or no GitHub remote), or when the server's last look (`looked_at`) is
+    younger than `every_ms`."""
     if not forge or not open_prs:
         return []
     if looked_at is not None and now - looked_at < every_ms:
@@ -4694,8 +5092,8 @@ def forge_due(
 
 
 def progress_of(t: Task) -> dict:
-    """The progress card of a task: its phases with a line under each, the ring of the plan's tasks
-    (finished, current, total), and the counts its stats say."""
+    """The progress card of a task: its phases with a line under each, the ring of the
+    plan's tasks (finished, current, total), and the counts its stats say."""
     ph = phases_of(t)
     p = t.progress
     done = t.reached in ("landed", "ready", "landing", "open")
@@ -4746,24 +5144,28 @@ def progress_of(t: Task) -> dict:
 
 
 def time_end(t: Task, now: int) -> int:
-    """Where the drawing of a task's time stops: its last event when it is closed, a coarse clock (15 s)
-    while it is open, so that the drawing holds still between two refreshes."""
+    """Where the drawing of a task's time stops: its last event when it is closed, a
+    coarse clock (15 s) while it is open, so that the drawing holds still between
+    two refreshes."""
     if t.closed:
         return max(t.last_ts, at(t.events[-1].get("ts")) or t.last_ts)
     return -(-now // 15000) * 15000
 
 
 def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
-    """The spans of one task, each on the row of who held the work (ROWS), the marks of what logged only
-    its end, and the bands of the stages behind them, up to `end`. A state block starts a span and the next
-    one ends it; a stage whose start is logged (the interview, Lem's writing of the criteria after it, the
-    scout, the personas' read, the investigation, a builder, the polish pass, the checks, the review:
-    SKILL.md) runs from its start to the event that ends it; the criteria wait for the owner from the
-    personas' read to his approval; a breaker holds the task for him in its held block, and a parked task holds nobody; a plan talk runs from its
-    start to its record. A stage whose start is not in the log is a mark where it ended. A dropped task's
-    events that a resumed task carried over (`from`) ran in the dropped task, so its time leaves them out.
-    Nothing here is a guess at a time no event holds.
-    `meta` gives how many commands one run of the checks has (`gates`) and how many are serial."""
+    """The spans of one task, each on the row of who held the work (ROWS), the marks of
+    what logged only its end, and the bands of the stages behind them, up to `end`. A
+    state block starts a span and the next one ends it; a stage whose start is logged
+    (the interview, Lem's writing of the criteria after it, the scout, the personas'
+    read, the investigation, a builder, the polish pass, the checks, the review:
+    SKILL.md) runs from its start to the event that ends it; the criteria wait for the
+    owner from the personas' read to his approval; a breaker holds the task for him in
+    its held block, and a parked task holds nobody; a plan talk runs from its start to
+    its record. A stage whose start is not in the log is a mark where it ended. A
+    dropped task's events that a resumed task carried over (`from`) ran in the dropped
+    task, so its time leaves them out. Nothing here is a guess at a time no event holds.
+    `meta` gives how many commands one run of the checks has (`gates`) and how many
+    are serial."""
     meta = meta or {}
     spans: list[dict] = []
     marks: list[dict] = []
@@ -4787,7 +5189,8 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
                 }
             )
 
-    # each event belongs to the state block it follows in the log, by its place in the log
+    # each event belongs to the state block it follows in the log, by its place in
+    # the log
     block_of: dict[int, int] = {}
     current = -1
     for i, e in enumerate(events):
@@ -4806,7 +5209,8 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
     def read_sub(r: dict) -> str:
         families = r.get("families") or []
         return (
-            f"{r.get('answered')} of {r.get('asked')} answered, {FAMILIES.get(len(families), f'{len(families)} model families')} · "
+            f"{r.get('answered')} of {r.get('asked')} answered, "
+            f"{FAMILIES.get(len(families), f'{len(families)} model families')} · "
             f"{str(r['flagged']) + ' flagged' if r.get('flagged') else 'nobody confused'}{' · the families split' if r.get('split') else ''}"
         )
 
@@ -4933,9 +5337,10 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
         open_: bool,
         coord: str | None = None,
     ) -> None:
-        """A state block's span with the time of the stages above left out. When the block is a builder's
-        work and a builder's start is logged in it, the rest of it is the coordinator's (`coord`: the agent
-        of the task, or Lem): the brief before the builder starts, the report after it ends."""
+        """A state block's span with the time of the stages above left out. When the
+        block is a builder's work and a builder's start is logged in it, the rest of it
+        is the coordinator's (`coord`: the agent of the task, or Lem): the brief before
+        the builder starts, the report after it ends."""
         cover = sorted(
             [max(frm, x["from"]), min(to, x["to"])]
             for x in explicit
@@ -4994,14 +5399,16 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
         )
 
     def landing(k: int, frm: float, to: float, *, open_: bool) -> None:
-        """The landing, cut by the events of its checks and its review: each piece belongs to the event
-        that ends it. A step whose start is logged starts its piece there, and the time before it is
-        Lem's: the rebase onto the base before the first step, and Lem between two steps after it. One
-        run of the gate is its commands on one tip, in order: a repair shows only as a run on another
-        tip after a failed run, a failed check of the criteria or a must-fix, or as a builder's start.
-        A run of the checks ends at its `gate.end`, however it ended. A run that took the polish pass's
-        result of the criteria's tests logs no `task.red`: its `gate.end` names the pass's commit (`taken`),
-        and the span of the criteria's tests is drawn from it."""
+        """The landing, cut by the events of its checks and its review: each piece
+        belongs to the event that ends it. A step whose start is logged starts its piece
+        there, and the time before it is Lem's: the rebase onto the base before the
+        first step, and Lem between two steps after it. One run of the gate is its
+        commands on one tip, in order: a repair shows only as a run on another tip after
+        a failed run, a failed check of the criteria or a must-fix, or as a builder's
+        start. A run of the checks ends at its `gate.end`, however it ended. A run that
+        took the polish pass's result of the criteria's tests logs no `task.red`: its
+        `gate.end` names the pass's commit (`taken`), and the span of the criteria's
+        tests is drawn from it."""
         inside = [
             e
             for i, e in enumerate(events)
@@ -5077,7 +5484,10 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
                     prev,
                     x,
                     "The polish pass",
-                    f"{e.get('before') or '?'} → {e.get('after') or '?'} · {plural(e.get('commits') or 0, 'commit')}",
+                    (
+                        f"{e.get('before') or '?'} → {e.get('after') or '?'} · "
+                        f"{plural(e.get('commits') or 0, 'commit')}"
+                    ),
                 )
                 run, owed, prev, before, opened, polished = None, False, x, e, None, e
                 continue
@@ -5153,21 +5563,29 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
                 )
             elif ev == "gate.end":
                 if e.get("taken"):
-                    # drawn also with no width: it is the one place that says where the criteria's result came from
+                    # drawn also with no width: it is the one place that says where the
+                    # criteria's result came from
                     spans.append(
                         {
                             "row": "checks",
                             "from": prev,
                             "to": max(prev, x),
                             "live": False,
-                            "head": f"The tests of the criteria, taken from the polish pass at {e['taken']}",
-                            "sub": "not run again: the pass ran them on this commit, with the same inputs",
+                            "head": (
+                                "The tests of the criteria, taken from the "
+                                f"polish pass at {e['taken']}"
+                            ),
+                            "sub": (
+                                "not run again: the pass ran them on this commit, "
+                                "with the same inputs"
+                            ),
                         }
                     )
                     prev = max(prev, x)
-                # drawn also with no width: a refusal often shares its second with the event before it,
-                # and its head is the one place that says how the run ended
-                # a run stopped while it waited for the load or its turn logs its `gate.end` and no `gate.start`
+                # drawn also with no width: a refusal often shares its second with the
+                # event before it, and its head is the one place that says how the run
+                # ended a run stopped while it waited for the load or its turn logs its
+                # `gate.end` and no `gate.start`
                 waited = checks is None and e.get("result") == "stopped"
                 sub = [
                     refused_of(e) if e.get("result") == "refused" else "",
@@ -5256,7 +5674,10 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
                 row, head = (
                     (
                         "lem",
-                        "The landing starts: the rebase onto the base, then the polish pass, and no event says which runs yet",
+                        (
+                            "The landing starts: the rebase onto the base, then the "
+                            "polish pass, and no event says which runs yet"
+                        ),
                     )
                     if starts_landing(t)
                     else ("checks", "The checks run")
@@ -5271,7 +5692,10 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
                 elif run["failed"] and gates is None:
                     row, head = (
                         "lem",
-                        "A command of this run failed: the next command, a repair or a stop, and no event says which yet",
+                        (
+                            "A command of this run failed: the next command, a repair "
+                            "or a stop, and no event says which yet"
+                        ),
                     )
                 elif (
                     run["done"]
@@ -5279,17 +5703,25 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
                     and polished.get("commits")
                     and same_tip(polished.get("after"), run["tip"])
                 ):
-                    # the checks take the pass's result when its run's inputs are still the same, and run the tests otherwise
+                    # the checks take the pass's result when its run's inputs are still
+                    # the same, and run the tests otherwise
                     row, head = (
                         "checks",
-                        f"The checks read the criteria again: the polish pass's result at {run['tip']} is taken, or the tests run when an input changed",
+                        (
+                            "The checks read the criteria again: the polish pass's "
+                            f"result at {run['tip']} is taken, or the tests "
+                            "run when an input changed"
+                        ),
                     )
                 elif run["done"]:
                     row, head = "checks", "The tests of the criteria run"
                 else:
                     row, head = (
                         "checks",
-                        f"The checks run: {run['count']} of {gates} commands done{', one failed' if run['failed'] else ''}"
+                        (
+                            f"The checks run: {run['count']} of {gates} commands "
+                            f"done{', one failed' if run['failed'] else ''}"
+                        )
                         if gates
                         else "The checks run",
                     )
@@ -5361,7 +5793,8 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
             return {"key": "checks", "label": "Checks and review", "short": "Checks"}
         if b["status"] == "open":
             return {"key": "pr", "label": "Pull request", "short": "PR"}
-        # a held or blocked task stays in the stage it was in; criteria that wait come before any plan
+        # a held or blocked task stays in the stage it was in; criteria that wait come
+        # before any plan
         return stage or {
             "key": "criteria",
             "label": "Acceptance criteria",
@@ -5436,7 +5869,9 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
             head = (
                 "The plan waits for you"
                 if owner
-                else "The plan talk is done: the plan waits for the agent that builds it"
+                else (
+                    "The plan talk is done: the plan waits for the agent that builds it"
+                )
                 if any(x["ts"] <= b["ts"] for x in t.talks)
                 else "The plan waits for its plan talk"
             )
@@ -5471,8 +5906,9 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
         elif s == "open":
             add_block("you", frm, to, "It waits for your merge", what, open_=open_)
 
-    # the criteria wait for his yes from the personas' read to his approval after it; a yes he gave before
-    # the read was in, and a fast-track criterion Lem approved in his name, cost him no wait
+    # the criteria wait for his yes from the personas' read to his approval after it; a
+    # yes he gave before the read was in, and a fast-track criterion Lem approved in his
+    # name, cost him no wait
     since = float("-inf")
     for a in t.approvals:
         read = [r for r in t.reads if since < r["order"] < a["order"]]
@@ -5504,7 +5940,8 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
                 "sub": sub,
             }
         )
-    # a plan talk is the review's from its start to its record; a record with no start is a dot where it ended
+    # a plan talk is the review's from its start to its record; a record with no start
+    # is a dot where it ended
     for talk in t.talks:
         sub = f"with {talk['reviewer']}: {talk_counts(talk)}"
         if talk["start"] is not None:
@@ -5533,11 +5970,14 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
                 "row": "review",
                 "at": t.talk_start["ts"],
                 "head": "The plan talk started",
-                "sub": f"with {t.talk_start['reviewer']}; no record of its end is logged",
+                "sub": (
+                    f"with {t.talk_start['reviewer']}; no record of its end is logged"
+                ),
             }
         )
     for i, e in enumerate(events):
-        # the check the lead runs before the task is ready; the landing's own is a span above
+        # the check the lead runs before the task is ready; the landing's own is a
+        # span above
         if e.get("event") == "task.red" and block_status(i) != "landing":
             marks.append(
                 {
@@ -5550,7 +5990,8 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
                 }
             )
 
-    # the total of each row is the time it held the work: two spans of one row that overlap count once
+    # the total of each row is the time it held the work: two spans of one row that
+    # overlap count once
     totals = {}
     for row in ROWS:
         parts = sorted(
@@ -5576,7 +6017,8 @@ def time_of(t: Task, end: int, meta: dict | None = None) -> dict:
 
 
 def time_rows(tm: dict) -> list[dict]:
-    """The rows a task's time card draws: "You" always, and every other row that holds a span or a mark."""
+    """The rows a task's time card draws: "You" always, and every other row that holds a
+    span or a mark."""
     return [
         r
         for r in ROWS
@@ -5591,9 +6033,10 @@ PERCENT = 100
 
 
 def time_shares(tm: dict, rows: list[dict]) -> dict:
-    """Each row's total and its share of the task's time, and whether the shares as shown add up past
-    100: two rows can hold the same minutes (a builder's span inside the agent's, the owner's wait for
-    the criteria beside the personas' read), so rows overlap."""
+    """Each row's total and its share of the task's time, and whether the shares as
+    shown add up past 100: two rows can hold the same minutes (a builder's span inside
+    the agent's, the owner's wait for the criteria beside the personas' read), so
+    rows overlap."""
     held = [r for r in rows if tm["totals"].get(r["key"], 0) > 0]
     share = {
         r["key"]: math.floor(PERCENT * tm["totals"][r["key"]] / tm["whole"] + 0.5)
@@ -5611,23 +6054,24 @@ def time_shares(tm: dict, rows: list[dict]) -> dict:
 # ---- the loaders: the files a workspace's model is made from ----
 
 
-# The bad lines of the log that the page's status bar names before "and N more" (`Reader.read_log`).
+# The bad lines of the log that the page's status bar names before "and N
+# more" (`Reader.read_log`).
 BAD_LINES_SHOWN = 3
 
 
 def log_version(inode: int, lines: int) -> str:
-    """The version of the event log a page saw, as the stream's `id:` says it: the log's inode and its
-    count of whole lines, in one id. `lem project prune` puts a new log in place (a new inode), so a page
-    that saw the old one, whatever the count now, is told by the id that it is behind (serve.py
-    `refreshes`)."""
+    """The version of the event log a page saw, as the stream's `id:` says it: the log's
+    inode and its count of whole lines, in one id. `lem project prune` puts a new log in
+    place (a new inode), so a page that saw the old one, whatever the count now, is told
+    by the id that it is behind (serve.py `refreshes`)."""
     return f"{inode}-{lines}"
 
 
 class Reader:
-    """The facts of one workspace, read again only where a file changed: the event log read on from
-    where the last read stopped, the owner's mark, and the settings, the meta
-    facts and the backlog at most once in `settle_seconds` (they ask git). `problems` holds what did
-    not read, in words for the page's status bar."""
+    """The facts of one workspace, read again only where a file changed: the event log
+    read on from where the last read stopped, the owner's mark, and the settings, the
+    meta facts and the backlog at most once in `settle_seconds` (they ask git).
+    `problems` holds what did not read, in words for the page's status bar."""
 
     def __init__(self, root: Path, state: Path, settle_seconds: float = 5.0) -> None:
         self.root, self.state = root, state
@@ -5636,7 +6080,8 @@ class Reader:
         self.events: list[dict] = []
         self.log_at: tuple = (0, 0)
         self.log_bad: list[str] = []
-        # the whole lines of the log read so far, blank and bad ones too: the count of `log_version`
+        # the whole lines of the log read so far, blank and bad ones too: the count
+        # of `log_version`
         self.log_lines = 0
         self.read_at = 0
         self.stamps: dict[str, object] = {}
@@ -5655,10 +6100,11 @@ class Reader:
     # each loader keeps its last good read, and says what failed in `problems`
 
     def read_log(self) -> None:
-        """The log read on from where the last read stopped, or from its start when it is another file
-        (`lem project prune` puts a new one in place, with a new inode) or shrank. The inode and the size
-        are the ones of the file this read holds open (`os.fstat`), so a replace between a look at the name
-        and the open never reads the new file from the old one's offset."""
+        """The log read on from where the last read stopped, or from its start when it
+        is another file (`lem project prune` puts a new one in place, with a new inode)
+        or shrank. The inode and the size are the ones of the file this read holds open
+        (`os.fstat`), so a replace between a look at the name and the open never reads
+        the new file from the old one's offset."""
         file = self.state / "events.jsonl"
         try:
             handle = file.open("rb")
@@ -5713,13 +6159,16 @@ class Reader:
                 else ""
             )
             self.problems["events"] = (
-                f"events.jsonl: {shown} {'is' if len(self.log_bad) == 1 else 'are'} no event with a time, and the board leaves {'it' if len(self.log_bad) == 1 else 'them'} out"
+                f"events.jsonl: {shown} {'is' if len(self.log_bad) == 1 else 'are'} no "
+                "event with a time, and the board leaves "
+                f"{'it' if len(self.log_bad) == 1 else 'them'} out"
             )
         else:
             self.problems.pop("events", None)
 
     def log_id(self) -> str:
-        """The version of the log this reader read (`log_version`), which a page gives its stream."""
+        """The version of the log this reader read (`log_version`), which a page gives
+        its stream."""
         return log_version(self.log_at[0], self.log_lines)
 
     def changed(self, key: str, path: Path) -> bool:
@@ -5768,10 +6217,11 @@ class Reader:
         self.settings_at = time.monotonic()
 
     def read_backlog(self, board: ModuleType, *, fresh: bool = False) -> dict | None:
-        """The backlog's items as `board.backlog` reads them, at most once in `settle_seconds`, or now with
-        `fresh`, when a file of its folder or of the reviewer's folder changed (a name, a size or a
-        time), or when the event log grew, since a task's start, landing or drop changes which
-        reviewer's item a task holds."""
+        """The backlog's items as `board.backlog` reads them, at most once in
+        `settle_seconds`, or now with `fresh`, when a file of its folder or of the
+        reviewer's folder changed (a name, a size or a time), or when the event log
+        grew, since a task's start, landing or drop changes which reviewer's item a
+        task holds."""
         with self.lock:
             self.read_settings(board)
             if self.settings is None:
@@ -5814,9 +6264,9 @@ class Reader:
             return self.backlog
 
     def current(self, board: ModuleType, now: int | None = None) -> Model:
-        """The model as the files stand now, made again only when one of them changed, or once a
-        minute for the times that move with the clock (a coarse clock keeps a page that is refreshed
-        often from making it each time)."""
+        """The model as the files stand now, made again only when one of them changed,
+        or once a minute for the times that move with the clock (a coarse clock keeps a
+        page that is refreshed often from making it each time)."""
         with self.lock:
             self.read_log()
             self.read_owner(board.lem_project)

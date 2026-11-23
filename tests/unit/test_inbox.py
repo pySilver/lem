@@ -1,8 +1,9 @@
-"""lem_inbox.py's rules, each called in this process: which rows of "Waits for you" become things, the form
-and the session each goes as, what a look sends and withdraws by the owner's mark and the Inbox's door,
-the record that keeps a send single across a restart, and the wake of a task's session for a reply in a
-thread whose session is gone. No case runs Plannotator: every call goes to a stand-in in this file,
-which keeps each call and answers as the case sets. The server's thread runs in tests/lem-board-act.sh.
+"""lem_inbox.py's rules, each called in this process: which rows of "Waits for you"
+become things, the form and the session each goes as, what a look sends and withdraws by
+the owner's mark and the Inbox's door, the record that keeps a send single across a
+restart, and the wake of a task's session for a reply in a thread whose session is gone.
+No case runs Plannotator: every call goes to a stand-in in this file, which keeps each
+call and answers as the case sets. The server's thread runs in tests/lem-board-act.sh.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -47,7 +48,8 @@ BACK = {
     "away": False,
     "words": "/lem im-back",
 }
-# whole commits, as landing.json keeps `proposed`; the `proposed` and `merge.review` events keep their first 9 digits (land.py)
+# whole commits, as landing.json keeps `proposed`; the `proposed` and `merge.review`
+# events keep their first 9 digits (land.py)
 FOOTER = "abc1234def567890abc1234def567890abc12345"
 FIRST = "aaa1110000000000000000000000000000000001"
 SECOND = "bbb2220000000000000000000000000000000002"
@@ -124,9 +126,10 @@ def model(
 
 
 class Plannotator:
-    """A stand-in for `plannotator`: keeps each call, answers `inbox status` with STATUS and each `inbox call`
-    with what the case sets, and replays a send of a key it saw, as the Inbox does. A `supersedes` that is no
-    list, or that names a message in ANSWERED, it refuses with the words of Plannotator 0.29.0's store
+    """A stand-in for `plannotator`: keeps each call, answers `inbox status` with STATUS
+    and each `inbox call` with what the case sets, and replays a send of a key it saw,
+    as the Inbox does. A `supersedes` that is no list, or that names a message in
+    ANSWERED, it refuses with the words of Plannotator 0.29.0's store
     (`normalizeSupersedes` and `planSupersede`, read in its binary on 2026-11-22)."""
 
     def __init__(
@@ -184,7 +187,10 @@ class Plannotator:
                 args,
                 1,
                 "",
-                "invalid_supersedes: supersedes: a list of ids, each `<message id>` or `<message id>/<key>`.\n",
+                (
+                    "invalid_supersedes: supersedes: a list of ids, each "
+                    "`<message id>` or `<message id>/<key>`.\n"
+                ),
             )
         for ref in supersedes or []:
             if ref in self.answered:
@@ -192,8 +198,11 @@ class Plannotator:
                     args,
                     1,
                     "",
-                    f"invalid_supersedes: supersedes {ref}: that message has no open question. "
-                    "Nothing was sent. This thread has no open questions.\n",
+                    (
+                        f"invalid_supersedes: supersedes {ref}: that message has no "
+                        "open question. Nothing was sent. This thread "
+                        "has no open questions.\n"
+                    ),
                 )
         key = payload.get("idempotency_key")
         if key in self.keys:
@@ -220,7 +229,8 @@ class Plannotator:
 
 
 class InFolder(unittest.TestCase):
-    """Each case has a state folder of its own and a stand-in Plannotator on the watcher's PATH."""
+    """Each case has a state folder of its own and a stand-in Plannotator on the
+    watcher's PATH."""
 
     def setUp(self) -> None:
         self.folder = tempfile.TemporaryDirectory()
@@ -228,7 +238,10 @@ class InFolder(unittest.TestCase):
         self.state = Path(self.folder.name) / "state"
         (self.state / "tasks" / RD).mkdir(parents=True)
         (self.state / "tasks" / RD / "breaker-1.md").write_text(
-            "# The report has no place that keeps the dates\n\n## The case that broke\n",
+            (
+                "# The report has no place that keeps the dates\n\n"
+                "## The case that broke\n"
+            ),
             encoding="utf-8",
         )
         which = mock.patch.object(
@@ -482,8 +495,10 @@ class Sends(InFolder):
         self.assertIsNone(sent["session"])
         self.assertEqual(
             sent["payload"]["body"],
-            "report-dates has no session; open it on the board: "
-            "[report-dates on the board](https://mac.tail0.ts.net:4537/mac/shop/tasks/report-dates)",
+            (
+                "report-dates has no session; open it on the board: [report-dates on "
+                "the board](https://mac.tail0.ts.net:4537/mac/shop/tasks/report-dates)"
+            ),
         )
         self.assertEqual(self.record()["sent"][0]["form"], "note")
         self.assertEqual(self.woken, [])
@@ -685,14 +700,16 @@ class Withdraws(InFolder):
         w = self.sent_breaker()
         self.m = model(*BREAKER, owner=[AWAY, BACK])
         self.assertEqual(w.look(), [])
-        # the task's session changes after his /lem im-back: the question stays where it is
+        # the task's session changes after his /lem im-back: the question stays where
+        # it is
         self.m = model(
             *BREAKER, *opened(40, session="S-2", claude="c-new"), owner=[AWAY, BACK]
         )
         self.assertEqual(w.look(), [])
         self.assertEqual(len(self.plannotator.sends()), 1)
         self.assertEqual(self.record()["sent"][0]["session"], "c-main")
-        # his reply in the thread of the gone session wakes the task's live session, once
+        # his reply in the thread of the gone session wakes the task's live
+        # session, once
         self.plannotator.thread = {
             "thread": {
                 "messages": [
@@ -727,7 +744,8 @@ class Withdraws(InFolder):
             self.plannotator.sends()[-1]["payload"]["idempotency_key"],
         )
         self.assertNotEqual(first, last)
-        # decision 5: a blocked task that stops again for a new reason keeps its row key and time, and its new block is a new thing
+        # decision 5: a blocked task that stops again for a new reason keeps its row key
+        # and time, and its new block is a new thing
         blocked = [
             state(0, "building", "task 1 of 2"),
             *opened(1),
@@ -859,12 +877,14 @@ class Withdraws(InFolder):
 
 
 class ReviewOne(InFolder):
-    """The findings of the first review of away-questions-reach-phone, each on the input it named."""
+    """The findings of the first review of away-questions-reach-phone, each on the input
+    it named."""
 
     def test_a_failed_send_goes_again_only_while_he_is_away_for_the_same_thing_and_wakes_the_session(
         self,
     ) -> None:
-        # finding 1: after /lem im-back, a send that failed is forgotten, not posted and withdrawn
+        # finding 1: after /lem im-back, a send that failed is forgotten, not posted
+        # and withdrawn
         self.m = model(*BREAKER, owner=[AWAY])
         w = self.watcher()
         self.plannotator.fail = "inbox_unreachable: the Inbox did not answer"
@@ -882,7 +902,8 @@ class ReviewOne(InFolder):
             calls,
             "with nothing in the record and no mark, no look asks the Inbox",
         )
-        # a refusal that never clears is forgotten once the row left, and the row's next thing is sent
+        # a refusal that never clears is forgotten once the row left, and the row's next
+        # thing is sent
         self.m = model(*BREAKER, owner=[AWAY])
         self.plannotator.fail = "invalid_request: the body is too long"
         w.look()
@@ -921,7 +942,8 @@ class ReviewOne(InFolder):
     def test_the_merge_question_names_the_whole_commit_that_lem_land_merge_takes(
         self,
     ) -> None:
-        # finding 2: the `proposed` event keeps 9 digits; the question names the 40 of landing.json
+        # finding 2: the `proposed` event keeps 9 digits; the question names the 40
+        # of landing.json
         footer = [
             *opened(0),
             state(
@@ -947,7 +969,8 @@ class ReviewOne(InFolder):
         named = body.split("at commit ", 1)[1].split("?", 1)[0]
         self.assertIsNone(land.expected_refusal(named, FOOTER, RD))
         self.assertEqual(self.record()["sent"][0]["tip"], FOOTER)
-        # a landing record of another proposal, or none, names no commit: a note, and no merge question
+        # a landing record of another proposal, or none, names no commit: a note, and no
+        # merge question
         for landing in ({"proposed": SECOND}, {}):
             with self.subTest(landing=landing):
                 m = model(*footer, owner=[AWAY])
@@ -960,7 +983,8 @@ class ReviewOne(InFolder):
                 self.assertEqual((thing["form"], thing["asks"]), ("note", False))
 
     def test_after_im_back_a_session_that_ends_leaves_the_open_question(self) -> None:
-        # finding 3: the session's own row stands for the task, and the breaker behind it still waits
+        # finding 3: the session's own row stands for the task, and the breaker behind
+        # it still waits
         w = self.watcher()
         self.m = model(*BREAKER, owner=[AWAY])
         w.look()
@@ -983,7 +1007,8 @@ class ReviewOne(InFolder):
         self.assertEqual(len(self.plannotator.sends()), 1)
 
     def test_a_withdrawal_says_where_the_wait_went_without_naming_the_mac(self) -> None:
-        # finding 4: a row that left says it was settled outside the thread; a changed thing, that a newer message follows
+        # finding 4: a row that left says it was settled outside the thread; a changed
+        # thing, that a newer message follows
         w = self.watcher()
         self.m = model(*BREAKER, owner=[AWAY])
         w.look()
@@ -1007,7 +1032,8 @@ class ReviewOne(InFolder):
     def test_a_session_that_has_not_logged_its_claude_session_yet_gets_nothing_until_it_does(
         self,
     ) -> None:
-        # finding 7: a new session.open with no session.transcript yet, within the board's grace, is no note
+        # finding 7: a new session.open with no session.transcript yet, within the
+        # board's grace, is no note
         fresh = [
             state(0, "building", "task 1 of 2"),
             *opened(1),
@@ -1017,7 +1043,8 @@ class ReviewOne(InFolder):
         self.m = model(*fresh, owner=[AWAY])
         self.assertEqual(self.watcher().look(), [])
         self.assertEqual(self.plannotator.sends(), [])
-        # past the grace, a live session with no Claude Code session on record gets the note
+        # past the grace, a live session with no Claude Code session on record gets
+        # the note
         late = [
             state(0, "building", "task 1 of 2"),
             *opened(1),
@@ -1030,13 +1057,14 @@ class ReviewOne(InFolder):
 
 
 class ReviewTwo(InFolder):
-    """The findings of the second review of away-questions-reach-phone and of its merge review, each on the
-    input it named."""
+    """The findings of the second review of away-questions-reach-phone and of its merge
+    review, each on the input it named."""
 
     def test_a_refusal_of_the_withdrawals_shape_is_a_problem_and_never_his_answer(
         self,
     ) -> None:
-        # finding 1: only a refusal that the message has no open question is "he answered it"
+        # finding 1: only a refusal that the message has no open question is "he
+        # answered it"
         w = self.watcher()
         self.m = model(*BREAKER, owner=[AWAY])
         w.look()
@@ -1045,7 +1073,10 @@ class ReviewTwo(InFolder):
             state(4, "parked", "the owner parked it from the board"),
             owner=[AWAY],
         )
-        self.plannotator.fail = "invalid_supersedes: supersedes msg_1 is in another thread (thr_x): only questions of the thread this message lands in can be superseded."
+        self.plannotator.fail = (
+            "invalid_supersedes: supersedes msg_1 is in another thread (thr_x): "
+            "only questions of the thread this message lands in can be superseded."
+        )
         self.assertEqual(w.look(), [])
         record = self.record()
         self.assertEqual([r["key"] for r in record["sent"]], ["breaker:report-dates:1"])
@@ -1093,7 +1124,8 @@ class ReviewTwo(InFolder):
         self.m = model(*BREAKER, owner=[AWAY], sessions=gone)
         self.assertEqual(w.look(), [])
         self.assertEqual(len(self.plannotator.sends()), 1)
-        # the tailnet address back: the question is replaced by the one of the new session
+        # the tailnet address back: the question is replaced by the one of the
+        # new session
         self.plannotator.status = (
             0,
             {
@@ -1110,7 +1142,8 @@ class ReviewTwo(InFolder):
         self.assertEqual(self.plannotator.sends()[-1]["session"], "claude-code:c-new")
 
     def test_a_task_whose_session_stopped_gets_a_note_that_asks_nothing(self) -> None:
-        # the merge review's finding 3: the row "stopped" of the guard of a stopped session asks nothing, as "session"
+        # the merge review's finding 3: the row "stopped" of the guard of a stopped
+        # session asks nothing, as "session"
         stuck = [
             state(0, "building", "task 1 of 2"),
             *opened(1),
@@ -1123,8 +1156,11 @@ class ReviewTwo(InFolder):
         self.assertIsNone(sent["session"])
         self.assertEqual(
             sent["payload"]["body"],
-            "The session of report-dates stopped, and so did the fresh one that took its place. Open a fresh one on the board: "
-            "[report-dates on the board](https://mac.tail0.ts.net:4537/mac/shop/tasks/report-dates)",
+            (
+                "The session of report-dates stopped, and so did the fresh one that "
+                "took its place. Open a fresh one on the board: [report-dates on the "
+                "board](https://mac.tail0.ts.net:4537/mac/shop/tasks/report-dates)"
+            ),
         )
         self.assertEqual(self.woken, [])
         kept = self.record()
@@ -1150,18 +1186,24 @@ class ReviewTwo(InFolder):
         sent = self.plannotator.sends()[0]
         self.assertEqual(
             sent["payload"]["body"],
-            "The session of report-dates stopped, and Lem cannot read it: no event of the task came after the status message. "
-            "Lem opens no second session by itself. Open a fresh one on the board: "
-            "[report-dates on the board](https://mac.tail0.ts.net:4537/mac/shop/tasks/report-dates)",
+            (
+                "The session of report-dates stopped, and Lem cannot read it: "
+                "no event of the task came after the status message. "
+                "Lem opens no second session by itself. Open a fresh one on the board: "
+                "[report-dates on the "
+                "board](https://mac.tail0.ts.net:4537/mac/shop/tasks/report-dates)"
+            ),
         )
         self.assertEqual(self.woken, [])
 
 
 class HeldBack(InFolder):
-    """A row that the task's working session holds back keeps its sent thing as it stands (decision 5 of
-    waits-for-you-only-when-it-waits): the Inbox's own wake starts the session's turn on the question, and
-    neither that turn nor its end sends, withdraws or forgets anything. The held task is a breaker's: while
-    the owner is away, Lem settles an interview and criteria without him (`goes_on_of`), and they are no row."""
+    """A row that the task's working session holds back keeps its sent thing as it
+    stands (decision 5 of waits-for-you-only-when-it-waits): the Inbox's own wake starts
+    the session's turn on the question, and neither that turn nor its end sends,
+    withdraws or forgets anything. The held task is a breaker's: while the owner is
+    away, Lem settles an interview and criteria without him (`goes_on_of`), and they are
+    no row."""
 
     def turn(
         self, turn: str | None, owner: Iterable[dict] = (AWAY,)
@@ -1194,14 +1236,16 @@ class HeldBack(InFolder):
             [(r["key"], r["form"], r["message_id"]) for r in before],
             [(f"breaker:{RD}:1", "question", "msg_1")],
         )
-        # the wake started the session's turn on his help: no row, and the question stays open as it was sent
+        # the wake started the session's turn on his help: no row, and the question
+        # stays open as it was sent
         self.m = self.turn("runs")
         self.assertEqual(
             (bm.waits_of(self.m), bm.held_back(self.m)), ([], {f"breaker:{RD}:1"})
         )
         self.assertEqual(w.look(), [])
         self.assertEqual(self.record()["sent"], before)
-        # the turn ends with the same block: the row is the same thing, and nothing goes again
+        # the turn ends with the same block: the row is the same thing, and nothing
+        # goes again
         self.m = self.turn("ended")
         self.assertEqual(w.look(), [])
         self.assertEqual(
@@ -1250,7 +1294,8 @@ class HeldBack(InFolder):
                     ),
                     none,
                 )
-        # the same record with no row held back: the question is withdrawn, the note and the unsent one forgotten
+        # the same record with no row held back: the question is withdrawn, the note and
+        # the unsent one forgotten
         steps = inbox.plan({}, [asked, noted, unsent], away=True, door=True)
         self.assertEqual(
             (

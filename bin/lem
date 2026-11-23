@@ -1,37 +1,42 @@
 #!/usr/bin/env python3
-"""lem: Lem's one command. `lem NAME ARGS...` runs the script of Lem that NAME stands for, with
-ARGS as they came; its stdin, stdout, stderr and exit status are the script's own.
+"""lem: Lem's one command. `lem NAME ARGS...` runs the script of Lem that NAME stands
+for, with ARGS as they came; its stdin, stdout, stderr and exit status are the
+script's own.
 
-One command, so that one permission rule (`Bash(lem *)`) holds on every machine and after every
-update of the plugin: the folder of a plugin's files changes with each update, and a rule on a
-script's path stops holding then. The plugin puts this file on the Bash tool's PATH (`bin/`).
+One command, so that one permission rule (`Bash(lem *)`) holds on every machine and
+after every update of the plugin: the folder of a plugin's files changes with each
+update, and a rule on a script's path stops holding then. The plugin puts this file on
+the Bash tool's PATH (`bin/`).
 
     lem                  the names, one line each (also `lem help`, `lem --help`)
     lem version          the plugin's version and the commit of its folder, as JSON
     lem NAME ARGS...     the script NAME stands for; `lem NAME --help` is the script's own help
 
-The two other commands of the plugin, `lem-ask` and `lem-jev`, are links to this file in `bin/`,
-and it runs the script each name stands for (ALIASES) with every argument.
+The two other commands of the plugin, `lem-ask` and `lem-jev`, are links to this file in
+`bin/`, and it runs the script each name stands for (ALIASES) with every argument.
 
-The process becomes the script (exec), so nothing stands between the caller and it. A Python
-script runs with -B, so it writes no bytecode beside itself.
+The process becomes the script (exec), so nothing stands between the caller and it. A
+Python script runs with -B, so it writes no bytecode beside itself.
 
-Before it, `lem NAME` takes a cheap look whether the board server of this machine runs: it reads the
-server's pid from `serve.pid` in Lem's home folder, which the server writes at its start and removes at
-a clean stop, and asks the kernel whether that process lives (signal 0), with no import of Lem's
-modules, no connect and no process started. Only when the file is not there, or its process is gone,
-does it start `lem serve --ensure` as a process of its own, with its output in the server's log, and it
-goes on without a wait. `serve` itself, `board` and `doctor`, which look at the server their own way,
-take no look, and `LEM_SERVE=off` turns it off, which the test suites set. This file loads under any python3, and
-when that python3 is older than Lem's scripts need, it runs the script under the newer Python that
-`lem_python.find()` finds, or says in one line what to install.
+Before it, `lem NAME` takes a cheap look whether the board server of this machine runs:
+it reads the server's pid from `serve.pid` in Lem's home folder, which the server writes
+at its start and removes at a clean stop, and asks the kernel whether that process lives
+(signal 0), with no import of Lem's modules, no connect and no process started. Only
+when the file is not there, or its process is gone, does it start `lem serve --ensure`
+as a process of its own, with its output in the server's log, and it goes on without a
+wait. `serve` itself, `board` and `doctor`, which look at the server their own way, take
+no look, and `LEM_SERVE=off` turns it off, which the test suites set. This file loads
+under any python3, and when that python3 is older than Lem's scripts need, it runs the
+script under the newer Python that `lem_python.find()` finds, or says in one line what
+to install.
 
-In Lem's marketplace clone (`PLUGINS/marketplaces/NAME`, which Claude Code pulls from the head of
-`main`), this file runs no script of its own: it becomes the `bin/lem` of the newest release of
-`lem@NAME` that Claude Code's `PLUGINS/installed_plugins.json` lists, with the same arguments
-(`release()`). A line outside Claude Code names the clone's path, which outlives every update (the
-doctor's keymap line of the task picker, and its start of the board server), and runs a release
-through it, never the head of `main`. With no such release listed, it exits 1 and names the install.
+In Lem's marketplace clone (`PLUGINS/marketplaces/NAME`, which Claude Code pulls from
+the head of `main`), this file runs no script of its own: it becomes the `bin/lem` of
+the newest release of `lem@NAME` that Claude Code's `PLUGINS/installed_plugins.json`
+lists, with the same arguments (`release()`). A line outside Claude Code names the
+clone's path, which outlives every update (the doctor's keymap line of the task picker,
+and its start of the board server), and runs a release through it, never the head of
+`main`. With no such release listed, it exits 1 and names the install.
 """
 
 import json
@@ -41,7 +46,8 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
-# the name of a link to this file in bin/ -> the script it runs, relative to the plugin's folder
+# the name of a link to this file in bin/ -> the script it runs, relative to the
+# plugin's folder
 ALIASES = {
     "lem-ask": "skills/lem-ask/bin/lem-ask",
     "lem-jev": "skills/lem/scripts/jev.py",
@@ -51,11 +57,17 @@ ALIASES = {
 COMMANDS = {
     "project": (
         "skills/lem/scripts/project.py",
-        "a repository's settings, a task's state and directory, the event log, the queue, and what waits for the owner",
+        (
+            "a repository's settings, a task's state and directory, the event log, the "
+            "queue, and what waits for the owner"
+        ),
     ),
     "land": (
         "skills/lem/scripts/land.py",
-        "the landing, one step at a time: checks, review, pull request, the merge agent's read, the merge and the cleanup",
+        (
+            "the landing, one step at a time: checks, review, pull request, the merge "
+            "agent's read, the merge and the cleanup"
+        ),
     ),
     "criteria": (
         "skills/lem/scripts/criteria.py",
@@ -71,15 +83,26 @@ COMMANDS = {
     ),
     "serve": (
         "skills/lem/scripts/serve.py",
-        "the boards of every repository on this machine, and of the machines joined with --join, over HTTP, for a browser on another device: --ensure starts it",
+        (
+            "the boards of every repository on this machine, and of the machines "
+            "joined with --join, over HTTP, for a browser on another device: "
+            "--ensure starts it"
+        ),
     ),
     "picker": (
         "skills/lem/scripts/picker.py",
-        "agterm's picker over the tasks, which goes to the live session of the one picked, else opens its board (--list prints the rows)",
+        (
+            "agterm's picker over the tasks, which goes to the live session of the one "
+            "picked, else opens its board (--list prints the rows)"
+        ),
     ),
     "session": (
         "skills/lem/scripts/session.py",
-        "a task's own session in agterm: open, next, close, wake, wait, list, its handoff and the copy of the talk; and close-job, the end of a scheduled night or retro",
+        (
+            "a task's own session in agterm: open, next, close, wake, wait, list, its "
+            "handoff and the copy of the talk; and close-job, "
+            "the end of a scheduled night or retro"
+        ),
     ),
     "doctor": (
         "skills/lem/scripts/doctor.py",
@@ -99,23 +122,28 @@ COMMANDS = {
     ),
     "issue": (
         "skills/lem-github/scripts/issues.py",
-        "the GitHub tracker: check, read an issue, and a task's start, land, drop and answer on its issue",
+        (
+            "the GitHub tracker: check, read an issue, and a task's start, land, drop "
+            "and answer on its issue"
+        ),
     ),
 }
 
 
-# The commands that take no look at the board server: the server's own, and the two that look at it
-# their own way (`board` starts it and waits for it, and `doctor` only reports it).
+# The commands that take no look at the board server: the server's own, and the two that
+# look at it their own way (`board` starts it and waits for it, and `doctor` only
+# reports it).
 NO_LOOK = ("serve", "board", "doctor")
-# The server's pid file and its log in Lem's home folder (lem_state.SERVE_PID and SERVE_LOG), by name:
-# the look imports none of Lem's modules, since that import was most of its cost (8 to 11 ms a call,
-# medians of the builder of 2026-11-21).
+# The server's pid file and its log in Lem's home folder (lem_state.SERVE_PID and
+# SERVE_LOG), by name: the look imports none of Lem's modules, since that import was
+# most of its cost (8 to 11 ms a call, medians of the builder of 2026-11-21).
 PID_FILE = "serve.pid"
 SERVE_LOG = "serve.log"
 
 
 def home() -> "str | None":
-    """Lem's home folder as lem_state.config() names it, or None where it refuses (a relative XDG_CONFIG_HOME)."""
+    """Lem's home folder as lem_state.config() names it, or None where it refuses (a
+    relative XDG_CONFIG_HOME)."""
     named = os.environ.get("XDG_CONFIG_HOME", "")
     if named and not os.path.isabs(named):
         return None
@@ -125,7 +153,8 @@ def home() -> "str | None":
 
 
 def server_lives(folder: str) -> bool:
-    """Whether the pid in the server's pid file is a process that lives. A file that does not read is no server."""
+    """Whether the pid in the server's pid file is a process that lives. A file that
+    does not read is no server."""
     try:
         with open(os.path.join(folder, PID_FILE), encoding="utf-8") as file:
             pid = int(file.read().split()[0])
@@ -139,16 +168,17 @@ def server_lives(folder: str) -> bool:
     except ProcessLookupError:
         return False
     except PermissionError:
-        # a process of another user holds the pid: it lives, and it is no server to start here
+        # a process of another user holds the pid: it lives, and it is no server to
+        # start here
         return True
     return True
 
 
 def look_for_server(python: str) -> None:
-    """Start the board server detached under PYTHON, the one `run` found, when its pid file names no
-    process that lives. The look itself needs only `os` and `subprocess`, so it runs under any python3.
-    Every failure is silent: the look serves the board, and no command of Lem's waits for it or fails
-    by it."""
+    """Start the board server detached under PYTHON, the one `run` found, when its pid
+    file names no process that lives. The look itself needs only `os` and `subprocess`,
+    so it runs under any python3. Every failure is silent: the look serves the board,
+    and no command of Lem's waits for it or fails by it."""
     if os.environ.get("LEM_SERVE") == "off":
         return
     folder = home()
@@ -178,15 +208,24 @@ def look_for_server(python: str) -> None:
 def names() -> str:
     width = max(len(name) for name in COMMANDS)
     lines = [
-        "lem NAME ARGS... runs one of Lem's scripts; `lem NAME --help` gives its own help.",
+        (
+            "lem NAME ARGS... runs one of Lem's scripts; "
+            "`lem NAME --help` gives its own help."
+        ),
         "",
     ]
     lines += [f"  {name:<{width}}  {about}" for name, (_, about) in COMMANDS.items()]
     lines += [
-        f"  {'version':<{width}}  the plugin's version and the commit of its folder, as JSON",
+        (
+            f"  {'version':<{width}}  the plugin's version and the commit "
+            "of its folder, as JSON"
+        ),
         f"  {'help':<{width}}  this list",
         "",
-        "lem-ask (the question page) and lem-jev (the Jev model) are commands of their own.",
+        (
+            "lem-ask (the question page) and lem-jev (the Jev model) are "
+            "commands of their own."
+        ),
     ]
     return "\n".join(lines) + "\n"
 
@@ -213,8 +252,8 @@ def version() -> dict:
 
 
 def run(script: str, args: list, command: str, *, look: bool = False) -> None:
-    """Become SCRIPT with ARGS, under this Python when it is 3.11 or newer, else under one it finds;
-    with LOOK, after the look at the board server."""
+    """Become SCRIPT with ARGS, under this Python when it is 3.11 or newer, else under
+    one it finds; with LOOK, after the look at the board server."""
     python = sys.executable or "python3"
     if sys.version_info < (3, 11):
         sys.path.insert(0, os.path.join(ROOT, "skills", "lem", "scripts"))
@@ -229,9 +268,10 @@ def run(script: str, args: list, command: str, *, look: bool = False) -> None:
 
 
 def release(called: str) -> "str | None":
-    """The file of the newest installed release that CALLED (`lem`, `lem-ask` or `lem-jev`) stands for,
-    when this file is in a marketplace clone; None elsewhere. The clone holds the head of `main`, which
-    no release holds, so nothing of it runs but this. A clone with no release listed exits 1."""
+    """The file of the newest installed release that CALLED (`lem`, `lem-ask` or
+    `lem-jev`) stands for, when this file is in a marketplace clone; None elsewhere. The
+    clone holds the head of `main`, which no release holds, so nothing of it runs but
+    this. A clone with no release listed exits 1."""
     market = os.path.dirname(ROOT)
     plugins = os.path.dirname(market)
     if (
@@ -249,7 +289,8 @@ def release(called: str) -> "str | None":
             installs = json.load(listed).get("plugins", {}).get(key, [])
     except (OSError, ValueError, AttributeError):
         installs = []
-    # Claude Code's own file: an entry of another shape, or a version that is not numbers, is no release
+    # Claude Code's own file: an entry of another shape, or a version that is not
+    # numbers, is no release
     for entry in installs if isinstance(installs, list) else []:
         try:
             number = tuple(int(part) for part in entry["version"].split("."))
@@ -260,9 +301,10 @@ def release(called: str) -> "str | None":
             newest = (number, target)
     if newest is None:
         sys.exit(
-            f"lem: {ROOT} is the marketplace clone of {key}, which holds the head of main and no release, and "
-            f"{os.path.join(plugins, 'installed_plugins.json')} lists no release of it to run: the owner installs one with "
-            f"`claude plugin install {key}`"
+            f"lem: {ROOT} is the marketplace clone of {key}, which holds the head of "
+            "main and no release, and "
+            f"{os.path.join(plugins, 'installed_plugins.json')} lists no release of it "
+            f"to run: the owner installs one with `claude plugin install {key}`"
         )
     return newest[1]
 
@@ -292,7 +334,8 @@ def main() -> None:
     script = os.path.join(ROOT, COMMANDS[name][0])
     if not os.path.isfile(script):
         sys.exit(
-            f"lem: {script} is not there: the plugin's folder {ROOT} is not whole; install the plugin again"
+            f"lem: {script} is not there: the plugin's folder {ROOT} is not whole; "
+            "install the plugin again"
         )
     run(script, rest, "lem", look=name not in NO_LOOK)
 

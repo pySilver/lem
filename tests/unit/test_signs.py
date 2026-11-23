@@ -1,9 +1,9 @@
-"""The signs of work of a task's Claude Code session (lem_signs.py), and what `lem session list` says of
-them: the rule as a call of `read_signs` over the facts, the read of a transcript from its end, the
-facts read from a Claude Code folder laid out as Claude Code 2.1.330 lays it out (2026-11-22), a
-fork of another task's session logged under the task's own session (6fe214ec, 2026-11-22), and
-whether the main thread's newest turn runs (`turn_of`), over records of the forms the probes of
-2026-11-23 read.
+"""The signs of work of a task's Claude Code session (lem_signs.py), and what
+`lem session list` says of them: the rule as a call of `read_signs` over the facts, the
+read of a transcript from its end, the facts read from a Claude Code folder laid out as
+Claude Code 2.1.330 lays it out (2026-11-22), a fork of another task's session logged
+under the task's own session (6fe214ec, 2026-11-22), and whether the main thread's
+newest turn runs (`turn_of`), over records of the forms the probes of 2026-11-23 read.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -32,10 +32,14 @@ PANE, OLD = (
 FOLDER = "/Users/someone/.claude"
 TRANSCRIPT = f"{FOLDER}/projects/-shop/f0410fb9.jsonl"
 PID = 63868
-SNAPSHOT_LINE = f"/bin/zsh -c source {FOLDER}/shell-snapshots/snapshot-zsh-1795367130285-3ryanb.sh 2>/dev/null || true && eval 'lem land check'"
+SNAPSHOT_LINE = (
+    f"/bin/zsh -c source {FOLDER}/shell-snapshots/snapshot-zsh-1795367130285-3ryanb.sh "
+    "2>/dev/null || true && eval 'lem land check'"
+)
 
 
-# the task whose background host the fork of SLUG's session ran in (6fe214ec, 2026-11-22)
+# the task whose background host the fork of SLUG's session ran in (6fe214ec,
+# 2026-11-22)
 HOST = "board-card-search"
 
 
@@ -78,7 +82,8 @@ FORK_PID = 64001
 
 
 def launch(slug: str) -> str:
-    """The first prompt `lem session open` gives the session of task SLUG (session.py `launch_line`)."""
+    """The first prompt `lem session open` gives the session of task SLUG
+    (session.py `launch_line`)."""
     return f"Read /Users/someone/shop/.lem/state/tasks/{slug}/session.md and follow it."
 
 
@@ -121,7 +126,8 @@ class ReadSigns(unittest.TestCase):
         self.assertEqual(found["sign"], "2026-11-22T10:40:05Z")
 
     def test_a_bash_command_of_the_session_is_a_shell(self) -> None:
-        # a foreground command and a background one (`run_in_background`) have the same form
+        # a foreground command and a background one (`run_in_background`) have the
+        # same form
         self.assertTrue(self.signs(ps=table(SNAPSHOT_LINE))["shell"])
         self.assertTrue(
             self.signs(
@@ -135,7 +141,10 @@ class ReadSigns(unittest.TestCase):
     def test_a_hooks_process_and_caffeinate_are_no_shell(self) -> None:
         found = self.signs(
             ps=table(
-                "/usr/bin/python3 /Users/someone/.local/bin/mailbox-chat.py claude-hook",
+                (
+                    "/usr/bin/python3 /Users/someone/.local/bin/mailbox-chat.py "
+                    "claude-hook"
+                ),
                 "caffeinate -i -t 300",
             )
         )
@@ -153,7 +162,8 @@ class ReadSigns(unittest.TestCase):
         )
 
     def test_the_old_panes_record_counts_for_no_session(self) -> None:
-        # the old pane's `/clear`, or a background host that runs with another pane's environment
+        # the old pane's `/clear`, or a background host that runs with another
+        # pane's environment
         old = record(
             claude="6fe214ec",
             transcript=f"{FOLDER}/projects/-shop/6fe214ec.jsonl",
@@ -197,7 +207,8 @@ class ReadSigns(unittest.TestCase):
                 "turn": None,
             },
         )
-        # the process file of the server's own folder is no file of the transcript's folder
+        # the process file of the server's own folder is no file of the
+        # transcript's folder
         self.assertFalse(
             self.signs(processes={"/Users/someone/.claude-other": PROCESSES[FOLDER]})[
                 "signs"
@@ -217,7 +228,8 @@ class ReadSigns(unittest.TestCase):
     def test_a_transcript_of_another_task_in_the_tasks_session_counts_for_none(
         self,
     ) -> None:
-        # criterion 3: the own transcript's newest turn at 10:00, the fork of SLUG's session at 10:40, both under HOST's pane
+        # criterion 3: the own transcript's newest turn at 10:00, the fork of SLUG's
+        # session at 10:40, both under HOST's pane
         records = [
             record(task=HOST),
             record(claude="6fe214ec", transcript=FORK, task=HOST),
@@ -250,7 +262,8 @@ class ReadSigns(unittest.TestCase):
                 "turn": "ended",
             },
         )
-        # a first prompt that names no task (a `/clear` in the pane) keeps the record's task
+        # a first prompt that names no task (a `/clear` in the pane) keeps the
+        # record's task
         self.assertEqual(
             lem_signs.read_signs(
                 records,
@@ -264,7 +277,8 @@ class ReadSigns(unittest.TestCase):
             )["sign"],
             "2026-11-22T10:40:00Z",
         )
-        # the fork alone is no record of the session: no sign, and its process is no evidence
+        # the fork alone is no record of the session: no sign, and its process is
+        # no evidence
         alone = lem_signs.read_signs(
             records[1:], PANE, turns, processes, ps, HOST, {FORK: SLUG}, mains
         )
@@ -275,7 +289,8 @@ class ReadSigns(unittest.TestCase):
     def test_the_turn_is_the_main_thread_of_the_transcript_with_the_newest_turn(
         self,
     ) -> None:
-        # criteria 1 and 2: a `/clear` in the pane, the old transcript ended at 10:15, the new one runs since 11:42
+        # criteria 1 and 2: a `/clear` in the pane, the old transcript ended at 10:15,
+        # the new one runs since 11:42
         new = record(claude="6fe214ec", transcript=FORK)
         turns = {TRANSCRIPT: ["2026-11-22T10:15:42Z"], FORK: ["2026-11-22T11:42:52Z"]}
         processes = {
@@ -301,7 +316,8 @@ class ReadSigns(unittest.TestCase):
             },
         )
         self.assertEqual(ended["turn"], "ended")
-        # a subagent's newer turn moves the sign, never the transcript the turn is read from
+        # a subagent's newer turn moves the sign, never the transcript the turn is
+        # read from
         sub = self.signs(
             records=[record(), new],
             turns={
@@ -343,7 +359,8 @@ class Transcript(unittest.TestCase):
         {"type": "system", "timestamp": "2026-11-22T10:15:43.321Z"},
         {"type": "attachment", "timestamp": "2026-11-22T10:45:48.831Z"},
         {"type": "continued-in", "timestamp": "2026-11-22T10:45:49.327Z"},
-        # the owner's wake reached the parked pane: a record, and no turn (f0410fb9 of #37)
+        # the owner's wake reached the parked pane: a record, and no turn (f0410fb9
+        # of #37)
         {
             "type": "queue-operation",
             "operation": "enqueue",
@@ -405,16 +422,22 @@ def tool(name: str) -> dict:
     return {"type": "tool_use", "id": "toolu_01", "name": name, "input": {}}
 
 
-# the forms the probes of 2026-11-23 read in the main transcripts on this Mac (probe_tail.py)
+# the forms the probes of 2026-11-23 read in the main transcripts on this
+# Mac (probe_tail.py)
 PROMPT = user("Discuss in chat: criterion 4 says the wrong hour")
 RESULT = user([{"type": "tool_result", "tool_use_id": "toolu_01", "content": "ok"}])
 ENDED = assistant("end_turn")
 CAVEAT = user(
-    "<local-command-caveat>The command below was run directly in Claude Code, not sent to you.</local-command-caveat>",
+    (
+        "<local-command-caveat>The command below was run directly in Claude Code, not "
+        "sent to you.</local-command-caveat>"
+    ),
     isMeta=True,
 )
 RELOAD = user(
-    "<command-name>/reload-plugins</command-name>\n            <command-message>reload-plugins</command-message>\n            <command-args></command-args>"
+    "<command-name>/reload-plugins</command-name>\n"
+    "            <command-message>reload-plugins</command-message>\n"
+    "            <command-args></command-args>"
 )
 LOCAL_SYSTEM = {
     "type": "system",
@@ -424,29 +447,38 @@ LOCAL_SYSTEM = {
 }
 STDOUT = user("<local-command-stdout>Set model to `Opus 5.5`</local-command-stdout>")
 LEM = user(
-    "<command-message>lem:lem</command-message>\n<command-name>/lem:lem</command-name>\n<command-args>status</command-args>"
+    "<command-message>lem:lem</command-message>\n"
+    "<command-name>/lem:lem</command-name>\n<command-args>status</command-args>"
 )
 SKILL = user(
     [
         {
             "type": "text",
-            "text": "Base directory for this skill: /Users/someone/.claude/plugins/lem/skills/lem",
+            "text": (
+                "Base directory for this skill: "
+                "/Users/someone/.claude/plugins/lem/skills/lem"
+            ),
         }
     ],
     isMeta=True,
 )
 SUMMARY = user(
-    "This session is being continued from a previous conversation that ran out of context.",
+    (
+        "This session is being continued from a previous conversation "
+        "that ran out of context."
+    ),
     isCompactSummary=True,
 )
 
 
 class Turn(unittest.TestCase):
-    """`turn_of`: whether the main thread's newest turn runs, from its newest decisive record."""
+    """`turn_of`: whether the main thread's newest turn runs, from its newest
+    decisive record."""
 
     @staticmethod
     def turn(*records: dict) -> str | None:
-        # the records oldest first, as the transcript holds them; turn_of reads them from the end
+        # the records oldest first, as the transcript holds them; turn_of reads them
+        # from the end
         return lem_signs.turn_of([json.dumps(one) for one in reversed(records)])
 
     def test_a_prompt_and_a_tools_result_run(self) -> None:
@@ -590,8 +622,8 @@ def write(path: Path, *lines: dict) -> None:
 
 
 class Folder(unittest.TestCase):
-    """The facts read from a Claude Code folder: `projects/NAME/ID.jsonl`, its `ID/subagents/`, and
-    `sessions/PID.json`."""
+    """The facts read from a Claude Code folder: `projects/NAME/ID.jsonl`, its
+    `ID/subagents/`, and `sessions/PID.json`."""
 
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
@@ -646,7 +678,8 @@ class Folder(unittest.TestCase):
             subagents / "agent-ae51df94.meta.json",
             {"type": "user", "timestamp": "2026-11-22T12:00:00Z"},
         )
-        # the subagent's prompt is newer, and the main thread's turn still ended: a subagent is never read for it
+        # the subagent's prompt is newer, and the main thread's turn still ended: a
+        # subagent is never read for it
         self.assertEqual(
             lem_signs.signs_of(self.records, PANE, table(), SLUG),
             {
@@ -665,15 +698,17 @@ class Folder(unittest.TestCase):
         )
 
 
-# the process table with the fork's process, which runs a shell command: no sign of HOST's session either
+# the process table with the fork's process, which runs a shell command: no sign of
+# HOST's session either
 FORK_PS = table() + f"{FORK_PID} 70000 claude\n50200 {FORK_PID} {SNAPSHOT_LINE}\n"
 
 
 def two_transcripts(folder: Path) -> list[dict]:
-    """In the Claude Code folder FOLDER, HOST's own transcript, its newest turn at 10:00, and a fork of
-    SLUG's session at 10:40 that Claude Code's background host, started from HOST's pane, logged under
-    HOST and HOST's pane: its first prompt is SLUG's launch line, copied from its parent (6fe214ec,
-    2026-11-22). The two records, and a process file for each."""
+    """In the Claude Code folder FOLDER, HOST's own transcript, its newest turn at
+    10:00, and a fork of SLUG's session at 10:40 that Claude Code's background host,
+    started from HOST's pane, logged under HOST and HOST's pane: its first prompt is
+    SLUG's launch line, copied from its parent (6fe214ec, 2026-11-22). The two records,
+    and a process file for each."""
     own, fork = (
         folder / "projects" / "-shop" / "f0410fb9.jsonl",
         folder / "projects" / "-shop" / "6fe214ec.jsonl",
@@ -738,7 +773,8 @@ class Fork(unittest.TestCase):
     def test_the_signs_over_the_two_files_come_from_the_tasks_own_transcript(
         self,
     ) -> None:
-        # the own transcript's assistant record has no stop reason, so its prompt decides: the turn runs
+        # the own transcript's assistant record has no stop reason, so its prompt
+        # decides: the turn runs
         self.assertEqual(
             lem_signs.signs_of(self.records, PANE, self.ps, HOST),
             {
@@ -769,7 +805,8 @@ class Fork(unittest.TestCase):
 
 
 class List(unittest.TestCase):
-    """`lem session list` carries the signs on each entry, read for a live session only."""
+    """`lem session list` carries the signs on each entry, read for a live
+    session only."""
 
     def listed(
         self,
@@ -780,8 +817,8 @@ class List(unittest.TestCase):
         *,
         read: bool = False,
     ) -> dict:
-        """The entry's signs, with the facts of the transcript at TRANSCRIPT, or with READ the facts read from
-        the files the records name."""
+        """The entry's signs, with the facts of the transcript at TRANSCRIPT, or with
+        READ the facts read from the files the records name."""
         opened = {
             "ts": "2026-11-22T10:15:00Z",
             "event": "session.open",

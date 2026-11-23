@@ -1,6 +1,7 @@
-"""lem_board_pages.py's rules, each a page drawn from a model of a few events: what the kanban's Done
-column draws of the ended tasks, its foot row, the page that lists the ended tasks it has no card for, and the
-kanban's mark over its cards, and each view's line of keys in the page's foot.
+"""lem_board_pages.py's rules, each a page drawn from a model of a few events: what the
+kanban's Done column draws of the ended tasks, its foot row, the page that lists the
+ended tasks it has no card for, and the kanban's mark over its cards, and each view's
+line of keys in the page's foot.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -29,7 +30,8 @@ ENDED = ("landed", "dropped", "answered")
 
 
 def matched(found: re.Match[str] | None) -> re.Match[str]:
-    """A match the test reads a part of: the test fails here when the pattern is not in the text."""
+    """A match the test reads a part of: the test fails here when the pattern is not in
+    the text."""
     if found is None:
         raise AssertionError("the pattern is not in the text")
     return found
@@ -47,8 +49,9 @@ def state(minute: float, status: str, text: str, *lines: str, task: str) -> dict
 
 
 def ended(n: int) -> list:
-    """N ended tasks, task-00 the first to end and each next one a minute later, landed, dropped and
-    answered in turn; task-02 landed with its pull request. One task builds beside them."""
+    """N ended tasks, task-00 the first to end and each next one a minute later, landed,
+    dropped and answered in turn; task-02 landed with its pull request. One task builds
+    beside them."""
     events = []
     for i in range(n):
         lines = ("pull request https://github.com/acme/shop/pull/41",) if i == 2 else ()
@@ -213,8 +216,12 @@ class SideFold(unittest.TestCase):
     def fold(self, html: str) -> re.Match:
         return matched(
             re.search(
-                r'<button id="side-fold" class="ibtn" type="button" data-action="fold#side" title="([^"]+)" aria-label="([^"]+)">'
-                r'<svg class="ic" aria-hidden="true"><use href="#i-chevron-left"></use></svg></button>',
+                (
+                    r'<button id="side-fold" class="ibtn" type="button" '
+                    r'data-action="fold#side" title="([^"]+)" '
+                    r'aria-label="([^"]+)"><svg class="ic" aria-hidden="true"><use '
+                    r'href="#i-chevron-left"></use></svg></button>'
+                ),
                 html,
             )
         )
@@ -255,7 +262,10 @@ class SideFold(unittest.TestCase):
         css = (pages.ASSETS / "board.css").read_text(encoding="utf-8")
         hidden = matched(
             re.search(
-                r"\.shell\.railed \.side > :not\(([^)]*)\) \{ display: none !important; \}",
+                (
+                    r"\.shell\.railed \.side > :not\(([^)]*)\) \{ display: "
+                    r"none !important; \}"
+                ),
                 css,
             )
         )
@@ -303,9 +313,11 @@ class Keys(unittest.TestCase):
         self.assertEqual(html.count('class="keys"'), 1)
 
     def test_each_view_has_its_line_of_keys_in_one_foot_under_the_stage(self) -> None:
-        """The task keys-help-in-a-sticky-footer: on Tasks, Waits for you, Backlog and Activity the line of keys is
-        the row of the page between the stage and the status line, in no view's list, and the main column's grid
-        gives it a row of its own under the stage's, so the line stays at the window's foot and the list scrolls above it."""
+        """The task keys-help-in-a-sticky-footer: on Tasks, Waits for you, Backlog and
+        Activity the line of keys is the row of the page between the stage and the
+        status line, in no view's list, and the main column's grid gives it a row of its
+        own under the stage's, so the line stays at the window's foot and the list
+        scrolls above it."""
         events = [
             *ended(3),
             state(61, "held", "the criteria wait for the owner", task="gift-note"),
@@ -350,7 +362,10 @@ class Keys(unittest.TestCase):
                 html = str(draw(ctx))
                 foot = matched(
                     re.search(
-                        r'</main>(<div class="keys" id="([a-z]+)-keys">(.*?)</div>)<footer class="status',
+                        (
+                            r'</main>(<div class="keys" '
+                            r'id="([a-z]+)-keys">(.*?)</div>)<footer class="status'
+                        ),
                         html,
                     )
                 )
@@ -372,8 +387,9 @@ class Keys(unittest.TestCase):
 
 
 class WaitsVerb(unittest.TestCase):
-    """The verb of a row of "Waits for you" goes where the owner acts: on a page for this Mac, for a row he
-    answers in the task's session while it lives, the jump of agterm; elsewhere the task's panel alone."""
+    """The verb of a row of "Waits for you" goes where the owner acts: on a page for
+    this Mac, for a row he answers in the task's session while it lives, the jump of
+    agterm; elsewhere the task's panel alone."""
 
     OPEN = {
         "ts": (START + timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -409,7 +425,10 @@ class WaitsVerb(unittest.TestCase):
             )
         )
         verbs = re.findall(
-            rf'<article class="wrow[^"]*" id="wait-{row}-gift-note"[^>]*>.*?(<a class="wr-verb"[^>]*>)',
+            (
+                rf'<article class="wrow[^"]*" id="wait-{row}-gift-note"[^>]*>.*?(<a '
+                r'class="wr-verb"[^>]*>)'
+            ),
             html,
         )
         self.assertEqual(len(verbs), 1, verbs)
@@ -500,10 +519,11 @@ class WaitsVerb(unittest.TestCase):
 
 
 class WaitStack(unittest.TestCase):
-    """A task with two or more things that wait for the owner is one stack of "Waits for you", and each count
-    counts it once (criteria 1 to 4 of docs/plans/2026-11-23-one-row-for-a-merge-call.md): "Logo eyes signal
-    and favicon" has its merge review that calls him since 4m 22s and its merge since 7m 01s, and "Board
-    answers a card" its interview since 33 minutes."""
+    """A task with two or more things that wait for the owner is one stack of "Waits for
+    you", and each count counts it once (criteria 1 to 4 of
+    docs/plans/2026-11-23-one-row-for-a-merge-call.md): "Logo eyes signal and favicon"
+    has its merge review that calls him since 4m 22s and its merge since 7m 01s, and
+    "Board answers a card" its interview since 33 minutes."""
 
     LOGO, CARD = "logo-eyes-signal-and-favicon", "board-answers-a-card"
 
@@ -511,7 +531,8 @@ class WaitStack(unittest.TestCase):
         def at(minutes: float) -> str:
             return (START + timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-        # NOW is minute 120: the pull request opened at 112:59 (7m 01s), the review came at 115:38 (4m 22s)
+        # NOW is minute 120: the pull request opened at 112:59 (7m 01s), the review came
+        # at 115:38 (4m 22s)
         logo = [
             {
                 "ts": at(112),
@@ -591,14 +612,21 @@ class WaitStack(unittest.TestCase):
         self.assertIsNotNone(summary)
         self.assertEqual(
             self.words(summary[1]),
-            "Logo eyes signal and favicon 2 things Read the merge review · Waits for the merge",
+            (
+                "Logo eyes signal and favicon 2 things Read the merge "
+                "review · Waits for the merge"
+            ),
         )
         self.assertNotIn("<a ", summary[1])
-        # the entries of the list in their order: the interview's row, then the stack where the merge review's row stood
+        # the entries of the list in their order: the interview's row, then the stack
+        # where the merge review's row stood
         listing = html.split('id="waits-list"', 1)[1].split('id="parked"', 1)[0]
         self.assertEqual(
             re.findall(
-                r'<(?:article class="wrow[^"]*"|details class="wstack[^"]*") id="(wait-[a-z0-9-]+)"',
+                (
+                    r'<(?:article class="wrow[^"]*"|details class="wstack[^"]*") '
+                    r'id="(wait-[a-z0-9-]+)"'
+                ),
                 listing,
             ),
             [
@@ -667,7 +695,10 @@ class WaitStack(unittest.TestCase):
         html = self.page()
         row = matched(
             re.search(
-                rf'<article class="wrow[^"]*" id="wait-held-{self.CARD}"[^>]*>(.*?)</article>',
+                (
+                    r'<article class="wrow[^"]*" '
+                    rf'id="wait-held-{self.CARD}"[^>]*>(.*?)</article>'
+                ),
                 html,
                 re.DOTALL,
             )
@@ -706,7 +737,10 @@ class WaitStack(unittest.TestCase):
         )
         side = matched(
             re.search(
-                r'<div id="waits" class="wlist[^"]*"[^>]*>(.*?)</div><div class="side-head">Views',
+                (
+                    r'<div id="waits" class="wlist[^"]*"[^>]*>(.*?)</div><div '
+                    r'class="side-head">Views'
+                ),
                 alone,
                 re.DOTALL,
             )
@@ -717,25 +751,38 @@ class WaitStack(unittest.TestCase):
         html = self.page()
         self.assertRegex(
             html,
-            r'<div class="side-head">Waits for you<em class="you" title="3 things you do, in 2 tasks">2</em></div>',
+            (
+                r'<div class="side-head">Waits for you<em class="you" title="3 things '
+                r'you do, in 2 tasks">2</em></div>'
+            ),
         )
         self.assertRegex(html, r'id="view-waits"[^>]*>.*?<em>2</em></a>')
         self.assertRegex(
             html,
-            r'id="rail-waits" title="2 tasks wait for you"><svg[^>]*>.*?</svg><em class="you">2</em></a>',
+            (
+                r'id="rail-waits" title="2 tasks wait for you"><svg[^>]*>.*?</svg><em '
+                r'class="you">2</em></a>'
+            ),
         )
         self.assertRegex(
             html,
-            r'<a class="m-waits you" href="[^"]+" aria-label="2 tasks wait for you: open the list"><svg[^>]*>.*?</svg><span>2</span></a>',
+            (
+                r'<a class="m-waits you" href="[^"]+" aria-label="2 tasks wait for '
+                r'you: open the list"><svg[^>]*>.*?</svg><span>2</span></a>'
+            ),
         )
         self.assertIn(
             "<title>Waits for you · Lem · w · 0 build · 2 for you</title>", html
         )
         self.assertIn("2 tasks wait for you, the most pressing first", html)
-        # the sidebar: one row for each task, the logo's its first thing's with how many it has
+        # the sidebar: one row for each task, the logo's its first thing's with how many
+        # it has
         side = matched(
             re.search(
-                r'<div id="waits" class="wlist[^"]*"[^>]*>(.*?)</div><div class="side-head">Views',
+                (
+                    r'<div id="waits" class="wlist[^"]*"[^>]*>(.*?)</div><div '
+                    r'class="side-head">Views'
+                ),
                 html,
                 re.DOTALL,
             )
@@ -760,8 +807,9 @@ class WaitStack(unittest.TestCase):
 
 class Search(unittest.TestCase):
     """The search over every card, as the server draws it (criteria 1, 2, 4 and 5 of
-    docs/plans/2026-11-22-board-card-search.md): closed on every page of the workspace, one row for each card
-    with its title, its chip and the link a pick follows, and its button in the bar and in the phone's bar."""
+    docs/plans/2026-11-22-board-card-search.md): closed on every page of the workspace,
+    one row for each card with its title, its chip and the link a pick follows, and its
+    button in the bar and in the phone's bar."""
 
     BACKLOG = {
         "folder": "docs/backlog",
@@ -796,7 +844,10 @@ class Search(unittest.TestCase):
 
     def box(self, html: str) -> str:
         found = re.findall(
-            r'<div class="search" id="search"[^>]*>.*?<div class="keys search-keys" id="search-keys">.*?</div></div></div>',
+            (
+                r'<div class="search" id="search"[^>]*>.*?<div class="keys '
+                r'search-keys" id="search-keys">.*?</div></div></div>'
+            ),
             html,
             re.DOTALL,
         )
@@ -867,13 +918,17 @@ class Search(unittest.TestCase):
         ):
             self.assertIn(attr, held[0])
         self.assertIn(
-            '<span class="sr-title">Board card search</span><span class="pill sr-chip"><i></i><span>Waits for you · held</span></span>',
+            (
+                '<span class="sr-title">Board card search</span><span class="pill '
+                'sr-chip"><i></i><span>Waits for you · held</span></span>'
+            ),
             held[1],
         )
         parked = row("old-export-fix")
         self.assertIn('data-open="1"', parked[0])
         self.assertIn("<span>parked</span>", parked[1])
-        # an ended task Done draws no card for: in the box, with no data-open, and its chip the day it ended
+        # an ended task Done draws no card for: in the box, with no data-open, and its
+        # chip the day it ended
         old = row("task-00")
         self.assertIsNotNone(old)
         self.assertNotIn('id="card-task-00"', str(pages.kanban_page(self.ctx())))
@@ -894,7 +949,8 @@ class Search(unittest.TestCase):
         self.assertNotIn("data-open", item[0])
         self.assertNotIn("data-turbo-frame", item[0])
         self.assertIn("<span>Backlog · worth: yes</span>", item[1])
-        # the order: the columns, the parked task, the ended ones newest first, the backlog
+        # the order: the columns, the parked task, the ended ones newest first,
+        # the backlog
         order = re.findall(r'id="sr-([a-z]+-[a-z0-9-]+)"', box)
         self.assertEqual(
             order[:4],
@@ -935,9 +991,10 @@ class Search(unittest.TestCase):
 
 
 class StandsNote(unittest.TestCase):
-    """The note of the owner's merge that stands (`act_note`, state `stands`): a wait with no "Not done.", drawn
-    only while his merge stands for the note's tip, with the sentence of the span that holds now
-    (guard-sees-unreadable-sessions, 2026-11-23, #60)."""
+    """The note of the owner's merge that stands (`act_note`, state `stands`): a wait
+    with no "Not done.", drawn only while his merge stands for the note's tip, with the
+    sentence of the span that holds now (guard-sees-unreadable-sessions,
+    2026-11-23, #60)."""
 
     TIP = "faac6eb3b" + "0" * 31
     NOTE = {
@@ -945,7 +1002,10 @@ class StandsNote(unittest.TestCase):
         "act": "merge",
         "state": "stands",
         "tip": TIP,
-        "said": "Your merge stands. It goes through when the merge agent’s read of the new base says safe.",
+        "said": (
+            "Your merge stands. It goes through when the merge agent’s read of "
+            "the new base says safe."
+        ),
     }
 
     @staticmethod
@@ -986,7 +1046,10 @@ class StandsNote(unittest.TestCase):
     ) -> None:
         html = self.note(self.refused())
         self.assertIn(
-            "Your merge stands. It goes through when the merge agent’s read of the new base says safe.",
+            (
+                "Your merge stands. It goes through when the merge agent’s read of "
+                "the new base says safe."
+            ),
             html,
         )
         self.assertIn("a-gate", html)
@@ -1026,8 +1089,8 @@ class StandsNote(unittest.TestCase):
             ),
         ]
         self.assertEqual(self.note(merged), "")
-        # the server's merge of it started: the span ended, and a try that ends with no refusal on record
-        # leaves the page as it is, with his Merge
+        # the server's merge of it started: the span ended, and a try that ends with no
+        # refusal on record leaves the page as it is, with his Merge
         safe = self.ev(
             11,
             "merge.review",
@@ -1053,7 +1116,8 @@ class StandsNote(unittest.TestCase):
             ),
         ]
         self.assertEqual(self.note(started), "")
-        # a new proposal carried his merge to another tip: the note of the old tip is not drawn
+        # a new proposal carried his merge to another tip: the note of the old tip is
+        # not drawn
         carried = [
             *self.refused(),
             self.ev(13, "proposed", green=True, not_green=[], tip="def456789"),
@@ -1076,9 +1140,10 @@ class StandsNote(unittest.TestCase):
 
 class ReviewerItems(unittest.TestCase):
     """The reviewer's items on the Backlog view (criteria 6 and 7 of
-    docs/plans/2026-11-23-scheduled-runs-one-branch.md): a group of their own, each undecided one with
-    "Start a task" and "Drop", which post its path; a held one with the task that holds it and no act;
-    an item of the backlog folder with no "Drop"; and the count of the undecided ones on the "Backlog" key."""
+    docs/plans/2026-11-23-scheduled-runs-one-branch.md): a group of their own, each
+    undecided one with "Start a task" and "Drop", which post its path; a held one with
+    the task that holds it and no act; an item of the backlog folder with no "Drop"; and
+    the count of the undecided ones on the "Backlog" key."""
 
     BACKLOG = {
         "folder": "docs/backlog",
@@ -1108,7 +1173,10 @@ class ReviewerItems(unittest.TestCase):
                 "where": "",
                 "added": "",
                 "state": "",
-                "body": "The reviewer passed 1 proposal about the board on 2026-11-23: retro of 2026-11-23 #7.",
+                "body": (
+                    "The reviewer passed 1 proposal about the board on 2026-11-23: "
+                    "retro of 2026-11-23 #7."
+                ),
             },
             {
                 "slug": "tests-flaky-check",
@@ -1192,7 +1260,10 @@ class ReviewerItems(unittest.TestCase):
         )[1]
         self.assertRegex(
             key,
-            r"<em title=\"The reviewer&#x27;s items that wait for your start or drop\">1</em>",
+            (
+                r"<em title=\"The reviewer&#x27;s items that wait for your "
+                r"start or drop\">1</em>"
+            ),
         )
         self.assertRegex(
             matched(
@@ -1214,9 +1285,9 @@ class ReviewerItems(unittest.TestCase):
 
 
 class ItemSlug(unittest.TestCase):
-    """The slug of a task started from a backlog item (`serve.item_slug`): the stem, or the stem with the
-    first free `-2`, `-3` when a task of the stem ended, so that an item whose task was dropped starts
-    again (criterion 9 and the plan's task 2)."""
+    """The slug of a task started from a backlog item (`serve.item_slug`): the stem, or
+    the stem with the first free `-2`, `-3` when a task of the stem ended, so that an
+    item whose task was dropped starts again (criterion 9 and the plan's task 2)."""
 
     def test_the_stem_while_no_task_of_it_ended(self) -> None:
         self.assertEqual(

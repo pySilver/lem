@@ -1,19 +1,22 @@
-"""HTML for the pages the board server renders, built so that text is escaped unless it says otherwise.
+"""HTML for the pages the board server renders, built so that text is escaped unless it
+says otherwise.
 
     h("p", {"class": "ask"}, task.ask)      ->  Markup('<p class="ask">...</p>')
 
-`h(tag, attrs, *kids)` is the one way a page of `lem_board_pages` makes an element: every attribute
-value and every child that is a plain `str` (or a number) is escaped, and only a `Markup` passes as it
-is. `h` returns `Markup`, so elements nest with no second escape, and a task's title, ask, talk or a
-backlog item's text can reach the page only as text. A child may be a list, a tuple or a generator,
-whose items count one by one; None, False and "" are left out, so a part that has nothing to show is
-written `cond and h(...)`. An attribute whose value is None or False is left out, and one whose value
-is True is written bare (`hidden`, `open`).
+`h(tag, attrs, *kids)` is the one way a page of `lem_board_pages` makes an element:
+every attribute value and every child that is a plain `str` (or a number) is escaped,
+and only a `Markup` passes as it is. `h` returns `Markup`, so elements nest with no
+second escape, and a task's title, ask, talk or a backlog item's text can reach the page
+only as text. A child may be a list, a tuple or a generator, whose items count one by
+one; None, False and "" are left out, so a part that has nothing to show is written
+`cond and h(...)`. An attribute whose value is None or False is left out, and one whose
+value is True is written bare (`hidden`, `open`).
 
-`Markup` is a `str` that says "this is HTML already". The pages make one only from `h`, from `join`,
-or from a constant of Lem's own (an SVG file of the plugin): never from what a task, a record or a
-request holds. Markdown is not rendered here: the page renders it in the browser with the kit's
-reader, from the text an element carries escaped (`text` of a `<template>` or a data attribute).
+`Markup` is a `str` that says "this is HTML already". The pages make one only from `h`,
+from `join`, or from a constant of Lem's own (an SVG file of the plugin): never from
+what a task, a record or a request holds. Markdown is not rendered here: the page
+renders it in the browser with the kit's reader, from the text an element carries
+escaped (`text` of a `<template>` or a data attribute).
 """
 
 import html
@@ -55,15 +58,16 @@ class Markup(str):
 
 
 def escape(value: object) -> Markup:
-    """A value as HTML text: a `Markup` as it is, anything else as its `str` with `&`, `<`, `>`, `"`
-    and `'` escaped."""
+    """A value as HTML text: a `Markup` as it is, anything else as its `str` with `&`,
+    `<`, `>`, `"` and `'` escaped."""
     if isinstance(value, Markup):
         return value
     return Markup(html.escape(str(value), quote=True))
 
 
 def flat(kids: Iterable) -> Iterable:
-    """The children in their order, with lists, tuples and generators opened, and the empty ones left out."""
+    """The children in their order, with lists, tuples and generators opened, and the
+    empty ones left out."""
     for kid in kids:
         if kid is None or kid is False or kid == "":
             continue
@@ -99,13 +103,15 @@ def h(tag: str, attrs: dict | None = None, *kids: object) -> Markup:
 
 
 def join(parts: Iterable, between: object = "") -> Markup:
-    """The parts one after another, each escaped unless it is `Markup`, with `between` between them."""
+    """The parts one after another, each escaped unless it is `Markup`, with `between`
+    between them."""
     sep = escape(between)
     return Markup(sep.join(escape(part) for part in flat(parts)))
 
 
 def page(head: Iterable, body: Markup, attrs: dict | None = None) -> Markup:
-    """A whole document: the doctype, `<html lang="en">` with `attrs`, the head's parts and the body."""
+    """A whole document: the doctype, `<html lang="en">` with `attrs`, the head's parts
+    and the body."""
     return Markup("<!doctype html>\n") + h(
         "html", {"lang": "en", **(attrs or {})}, h("head", None, *head), body
     )

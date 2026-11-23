@@ -56,7 +56,8 @@ class Lines(unittest.TestResult):
 
 
 def main() -> int:
-    # the test files set it too, but only after their own import, which would leave their cache
+    # the test files set it too, but only after their own import, which would leave
+    # their cache
     sys.dont_write_bytecode = True
     suite = unittest.defaultTestLoader.discover(str(HERE), top_level_dir=str(HERE))
     collected = suite.countTestCases()

@@ -1,45 +1,52 @@
-"""The board of one task, as HTML: its panel, with its header and its five tabs, from the model.
+"""The board of one task, as HTML: its panel, with its header and its five tabs, from
+the model.
 
     task_page(ctx)     /HOST/WORKSPACE/tasks/SLUG[/TAB][/ARTIFACT/]   the view under the panel, with the panel open
     frame_page(ctx)                                                    the panel alone, for a request of its frame
 
-The panel lies in `<turbo-frame id="task">` beside the kanban or over a list (`lem_board_pages.layout`).
-A link of the panel changes the frame and the address (`data-turbo-action="advance"` on the frame), so
-the address is always the task, its tab and its artifact, and a refresh renders the same panel: Turbo
-morphs it, and each repeated part has a stable `id`, so a morph keeps the tab's scroll, the opened
-decisions (`<details>`, whose `open` the browser keeps) and the artifact.
+The panel lies in `<turbo-frame id="task">` beside the kanban or over a list
+(`lem_board_pages.layout`). A link of the panel changes the frame and the address
+(`data-turbo-action="advance"` on the frame), so the address is always the task, its tab
+and its artifact, and a refresh renders the same panel: Turbo morphs it, and each
+repeated part has a stable `id`, so a morph keeps the tab's scroll, the opened decisions
+(`<details>`, whose `open` the browser keeps) and the artifact.
 
-The header: the status with its time, the title, the ask, the facts as a definition list (the type and
-the track, careful and why, what it waits for, the branch, the pull request, the session that leads it,
-the times), and the chips; on a phone, and in a window too short for them, the ask, the facts and the
-chips fold under "Details" behind one key line, the pull request with green or not green or what the
-task waits for. The tabs: "Overview" (what we are building, the outcome of task.md as markdown with its
-story, its chart and its pictures, a before and an after side by side; green or not green with each
-reason a row; what runs now and where the owner answers; the phases), "Criteria and decisions" (the
-plan's chart, each criterion with its case and its chart, and each decision with its story: the case,
-why it could happen, this or that, who took it, its chart; an important one open at first), "Checks and
-review" (each command with its output, the rounds, the proposal's reasons as rows), "Timeline" (who
-held the work, drawn as lanes of HTML from `lem_board_model.time_of`, and the task's events) and
-"Artifacts" (the task's map, the same seven sections in every project, and the file opened: markdown
-that the browser renders from the escaped text in a `<template>`, a record with the tab that shows it
-readable, JSON lines, a log without its colors, a picture, an HTML page in a sandboxed frame from the
-server's raw route, the whole width, and the panel's height with the header folded). Every pull request
-a line names is a link. The words are the model's.
+The header: the status with its time, the title, the ask, the facts as a definition list
+(the type and the track, careful and why, what it waits for, the branch, the pull
+request, the session that leads it, the times), and the chips; on a phone, and in a
+window too short for them, the ask, the facts and the chips fold under "Details" behind
+one key line, the pull request with green or not green or what the task waits for. The
+tabs: "Overview" (what we are building, the outcome of task.md as markdown with its
+story, its chart and its pictures, a before and an after side by side; green or not
+green with each reason a row; what runs now and where the owner answers; the phases),
+"Criteria and decisions" (the plan's chart, each criterion with its case and its chart,
+and each decision with its story: the case, why it could happen, this or that, who took
+it, its chart; an important one open at first), "Checks and review" (each command with
+its output, the rounds, the proposal's reasons as rows), "Timeline" (who held the work,
+drawn as lanes of HTML from `lem_board_model.time_of`, and the task's events) and
+"Artifacts" (the task's map, the same seven sections in every project, and the file
+opened: markdown that the browser renders from the escaped text in a `<template>`, a
+record with the tab that shows it readable, JSON lines, a log without its colors, a
+picture, an HTML page in a sandboxed frame from the server's raw route, the whole width,
+and the panel's height with the header folded). Every pull request a line names is a
+link. The words are the model's.
 
-A task whose events became one summary (`lem project prune`, past `state.keep_days`) has the same header,
-and its Overview opens with a card that says so, with what the summary keeps and what its folder holds,
-as the folder says it now (`folder_of`): its small record, and that its other files left by the rule of
-`state.keep_days`, with the number as the settings give it now; or, while files beyond the record are
-still there, only how many. "Criteria and decisions", "Checks and review" and "Timeline" each say in
-one line that their detail went with the events (`summary_card`, `files_line`, `went_tab`).
+A task whose events became one summary (`lem project prune`, past `state.keep_days`) has
+the same header, and its Overview opens with a card that says so, with what the summary
+keeps and what its folder holds, as the folder says it now (`folder_of`): its small
+record, and that its other files left by the rule of `state.keep_days`, with the number
+as the settings give it now; or, while files beyond the record are still there, only how
+many. "Criteria and decisions", "Checks and review" and "Timeline" each say in one line
+that their detail went with the events (`summary_card`, `files_line`, `went_tab`).
 
-Each task lives in its own agterm session. The jump to it has its button only on a page for this Mac
-(`Ctx.local`, the agterm controller), and only while the session lives; a task with no live session
-has "Open a session" in its header on every page that may act, which the server answers with `lem
-session open` (serve.py `act_session`). While the owner's mark says away and the board's server sent a
-thing of the task to his Inbox, the line of where he answers names both places, the task's session on
-the Mac and the Inbox, with a link to the task's thread at the Inbox's tailnet address; with no link, it
-says why (`inbox_action`).
+Each task lives in its own agterm session. The jump to it has its button only on a page
+for this Mac (`Ctx.local`, the agterm controller), and only while the session lives; a
+task with no live session has "Open a session" in its header on every page that may act,
+which the server answers with `lem session open` (serve.py `act_session`). While the
+owner's mark says away and the board's server sent a thing of the task to his Inbox, the
+line of where he answers names both places, the task's session on the Mac and the Inbox,
+with a link to the task's thread at the Inbox's tailnet address; with no link, it says
+why (`inbox_action`).
 """
 
 import hashlib
@@ -64,10 +71,12 @@ TABS = [
     ("artifacts", "Artifacts"),
 ]
 TAB = dict(TABS)
-# The steps of the board's acts that ask first, each a page of the panel at /tasks/SLUG/ACT, whose form
-# posts the act (serve.py `board_act`): a merge's confirm step, and a park with its one line of why.
+# The steps of the board's acts that ask first, each a page of the panel at
+# /tasks/SLUG/ACT, whose form posts the act (serve.py `board_act`): a merge's confirm
+# step, and a park with its one line of why.
 ACT_TABS = {"merge": "Merge", "park": "Park"}
-# How a note of an act's result reads (serve.py `NOTES`): its look, its icon and its first word.
+# How a note of an act's result reads (serve.py `NOTES`): its look, its icon and its
+# first word.
 KIND_ICON = {
     "markdown": "file-lines",
     "text": "file",
@@ -88,24 +97,40 @@ KIND_WORD = {
     "binary": "binary",
     "image": "picture",
 }
-# Lem's own words, which a developer meets on the page with no other place that says what they are: an
-# element that holds one gets a hover of one line that says it (the final audit of 2026-11-17).
+# Lem's own words, which a developer meets on the page with no other place that says
+# what they are: an element that holds one gets a hover of one line that says it (the
+# final audit of 2026-11-17).
 TERMS = [
     (
         re.compile(r"\bcompanion\b", re.IGNORECASE),
-        "The companion: a session under the task’s own, for the plan talk of a careful or large plan, with the reviewer in its other pane. It builds nothing.",
+        (
+            "The companion: a session under the task’s own, for the plan talk of a "
+            "careful or large plan, with the reviewer in its other pane. "
+            "It builds nothing."
+        ),
     ),
     (
         re.compile(r"\bbreaker\b", re.IGNORECASE),
-        "The breaker: the one thing that stops a build, when its next step cannot be undone by a later “no” or no option keeps the criteria you approved. Its document says what happened and what Lem recommends.",
+        (
+            "The breaker: the one thing that stops a build, when its next step cannot "
+            "be undone by a later “no” or no option keeps the criteria you approved. "
+            "Its document says what happened and what Lem recommends."
+        ),
     ),
     (
         re.compile(r"\bplan talk\b", re.IGNORECASE),
-        "The plan talk: before a careful or large plan is built, the agent of its companion argues the plan with the reviewer, one question at a time, and repairs it.",
+        (
+            "The plan talk: before a careful or large plan is built, the agent of its "
+            "companion argues the plan with the reviewer, one question at a time, "
+            "and repairs it."
+        ),
     ),
     (
         re.compile(r"\btrust prompt\b", re.IGNORECASE),
-        "A trust prompt: the question an agent asks before it works in a folder that is new to it. Only you answer it, in the pane of that agent.",
+        (
+            "A trust prompt: the question an agent asks before it works in a folder "
+            "that is new to it. Only you answer it, in the pane of that agent."
+        ),
     ),
 ]
 # The bytes of a kilobyte and of a megabyte, as `size_of` writes a file's size.
@@ -119,7 +144,8 @@ JSON_TOKEN = re.compile(
 
 
 class NotFound(Exception):
-    """The address names no task, no tab or no artifact of the workspace: the page says which."""
+    """The address names no task, no tab or no artifact of the workspace: the page
+    says which."""
 
 
 def gloss(*texts: object) -> str | None:
@@ -147,7 +173,8 @@ def size_of(n: int | None) -> str:
 def row(
     ctx: P.Ctx, key: str, actor: str, name: str, text: list, time: object = ""
 ) -> Markup:
-    """One row of a card: an icon in the actor's color, its text, and its time at the right."""
+    """One row of a card: an icon in the actor's color, its text, and its time at
+    the right."""
     return h(
         "div",
         {"class": f"row a-{actor}", "id": key},
@@ -165,7 +192,8 @@ def row(
 
 
 def case_list(ctx: P.Ctx, steps: list) -> Markup | None:
-    """A case as numbered steps, each run of it (Today, After) a list of its own under its label."""
+    """A case as numbered steps, each run of it (Today, After) a list of its own under
+    its label."""
     runs = bm.case_runs(steps)
     if not runs:
         return None
@@ -209,7 +237,8 @@ def card(key: str, title: str, summary: str, rows_: list, cls: str = "") -> Mark
 
 
 def pill(ctx: P.Ctx, t: bm.Task) -> Markup:
-    """The status and how long it has held; for a task that ended, how long ago it ended."""
+    """The status and how long it has held; for a task that ended, how long ago
+    it ended."""
     now = ctx.model.now
     return h(
         "span",
@@ -240,7 +269,8 @@ def jump(ctx: P.Ctx, session: str | None, label: str) -> Markup | None:
 
 
 def tags(ctx: P.Ctx, t: bm.Task) -> list:
-    """The chips of the panel: each says something a developer acts on. The type is a fact of the header."""
+    """The chips of the panel: each says something a developer acts on. The type is a
+    fact of the header."""
     out = []
     b = t.stopped
     if b:
@@ -316,7 +346,10 @@ def tags(ctx: P.Ctx, t: bm.Task) -> list:
                 else f"checks green: {len(t.gates)}",
                 "bad" if t.gate_bad else "ok",
                 "\n".join(
-                    f"{'green' if g['exit'] == 0 else 'exit ' + str(g['exit'])}  {g['command']}  {g['last'] or ''}"
+                    (
+                        f"{'green' if g['exit'] == 0 else 'exit ' + str(g['exit'])}  "
+                        f"{g['command']}  {g['last'] or ''}"
+                    )
                     for g in t.gates
                 ),
             )
@@ -372,7 +405,8 @@ def copy_control(ctx: P.Ctx, text: str, what: str) -> Markup:
 
 
 def facts(ctx: P.Ctx, t: bm.Task, waits: list) -> list:
-    """The facts of the header, each a term and its description; a fact with nothing to say is left out."""
+    """The facts of the header, each a term and its description; a fact with nothing to
+    say is left out."""
     now = ctx.model.now
     careful = bm.careful_of(t)
     pr = bm.pr_of(t)
@@ -531,8 +565,9 @@ def facts(ctx: P.Ctx, t: bm.Task, waits: list) -> list:
 
 
 def key_line(ctx: P.Ctx, t: bm.Task) -> Markup | None:
-    """The one line of the header that matters most when its details are folded (a phone, a short window):
-    the pull request as a link with green or not green, or what the task waits for, or what runs now."""
+    """The one line of the header that matters most when its details are folded (a
+    phone, a short window): the pull request as a link with green or not green, or what
+    the task waits for, or what runs now."""
     pr = bm.pr_of(t)
     if pr:
         v = bm.verdict_of(t)
@@ -575,11 +610,12 @@ def key_line(ctx: P.Ctx, t: bm.Task) -> Markup | None:
 
 
 def head(ctx: P.Ctx, t: bm.Task | None, title: str, said: str | None = None) -> Markup:
-    """The panel's header: the controls, then the task's status, title, ask, facts and chips, or what the
-    address names when it is no task. On a phone, in a window too short for it, and while an HTML page is
-    open among the artifacts (`page-open` on the panel), the ask, the facts and the chips fold under
-    "Details" behind one key line (`key_line`); the cookie keeps the fold (`head`). The title takes the
-    focus when a link outside the panel opened it (the panel controller)."""
+    """The panel's header: the controls, then the task's status, title, ask, facts and
+    chips, or what the address names when it is no task. On a phone, in a window too
+    short for it, and while an HTML page is open among the artifacts (`page-open` on the
+    panel), the ask, the facts and the chips fold under "Details" behind one key line
+    (`key_line`); the cookie keeps the fold (`head`). The title takes the focus when a
+    link outside the panel opened it (the panel controller)."""
     view_href = f"{ctx.href(ctx.view)}"
     back = h(
         "a",
@@ -598,7 +634,9 @@ def head(ctx: P.Ctx, t: bm.Task | None, title: str, said: str | None = None) -> 
                 "class": "ibtn p-expand",
                 "type": "button",
                 "data-action": "panel#expand",
-                "title": "Show the task across the whole width, or dock it at the right",
+                "title": (
+                    "Show the task across the whole width, or dock it at the right"
+                ),
                 "aria-label": "Expand or dock the panel",
             },
             P.icon(ctx, "up-right-and-down-left-from-center", "ic on-docked"),
@@ -685,7 +723,8 @@ def merge_label(ctx: P.Ctx, t: bm.Task) -> str:
 
 
 def open_form(ctx: P.Ctx, t: bm.Task) -> Markup:
-    """The one button that opens a fresh session of the task (serve.py `act_session`, `lem session open`)."""
+    """The one button that opens a fresh session of the task (serve.py
+    `act_session`, `lem session open`)."""
     return P.act_form(
         ctx,
         t.slug,
@@ -699,18 +738,19 @@ def open_form(ctx: P.Ctx, t: bm.Task) -> Markup:
 
 
 def head_acts(ctx: P.Ctx, t: bm.Task) -> Markup | None:
-    """The header's acts: "Open a session" while no session of the task lives or the guard of a stopped
-    session logged its stop (`bm.opens_session`), and the way to the
-    confirm step of a merge while the board offers it (`bm.acts_of`: none while the owner's merge
-    stands; while a merge runs, a line that says so). None on a page that may not act, and on a step of
-    an act itself."""
+    """The header's acts: "Open a session" while no session of the task lives or the
+    guard of a stopped session logged its stop (`bm.opens_session`), and the way to the
+    confirm step of a merge while the board offers it (`bm.acts_of`: none while the
+    owner's merge stands; while a merge runs, a line that says so). None on a page that
+    may not act, and on a step of an act itself."""
     if not ctx.can_act or ctx.tab in ACT_TABS:
         return None
     out = []
     if bm.opens_session(t, ctx.model):
         out.append(open_form(ctx, t))
     offered = "merge" in bm.acts_of(t, ctx.model.seen)
-    # the owner's merge that stands offers no second press, and says "Merging…" while the server runs it
+    # the owner's merge that stands offers no second press, and says "Merging…" while
+    # the server runs it
     if t.slug in ctx.merging and (offered or bm.owner_stands(t)):
         out.append(
             h(
@@ -730,7 +770,8 @@ def head_acts(ctx: P.Ctx, t: bm.Task) -> Markup | None:
 
 
 def tab_nav(ctx: P.Ctx, t: bm.Task) -> Markup:
-    """The five tabs, each a link that changes the frame; the one shown is the address's."""
+    """The five tabs, each a link that changes the frame; the one shown is
+    the address's."""
     files = ctx.artifact_count
     links = []
     for i, (key, name) in enumerate(TABS, 1):
@@ -764,9 +805,9 @@ def tab_nav(ctx: P.Ctx, t: bm.Task) -> Markup:
 
 
 def session_action(ctx: P.Ctx, t: bm.Task) -> Markup | None:
-    """The way from a thing that waits for the owner to the task's session, where he answers it: the jump
-    to it while it lives (a page for this Mac), "Open a session" while none lives (a page that may act),
-    else where it is in words."""
+    """The way from a thing that waits for the owner to the task's session, where he
+    answers it: the jump to it while it lives (a page for this Mac), "Open a session"
+    while none lives (a page that may act), else where it is in words."""
     live = bm.live_of(t, ctx.model)
     if live and live["live"]:
         go = jump(ctx, live["session"], "Go to the task’s session")
@@ -777,7 +818,10 @@ def session_action(ctx: P.Ctx, t: bm.Task) -> Markup | None:
             or h(
                 "span",
                 {"class": "bl-note"},
-                f"The task’s session, “{(t.opened or {}).get('name') or t.slug}”, is in agterm on the Mac.",
+                (
+                    f"The task’s session, “{(t.opened or {}).get('name') or t.slug}”, "
+                    "is in agterm on the Mac."
+                ),
             ),
         )
     if bm.opens_session(t, ctx.model):
@@ -791,15 +835,17 @@ def session_action(ctx: P.Ctx, t: bm.Task) -> Markup | None:
 
 
 def inbox_action(ctx: P.Ctx, t: bm.Task) -> Markup | None:
-    """Where the owner answers while his mark says away and the board's server sent the task's thing to his
-    Inbox (`bm.inbox_of`): a question, in the task's session on the Mac or in the Inbox, its thread a link at
-    the Inbox's tailnet address, in place of `session_action`'s line about the session (its jump stays on a
-    page for this Mac); a note, which no session can take a reply to, that no session runs or answers, or
-    that the task's session stopped, with the link and "Open a session" where the page may act; a note of
-    a row that asks nothing (a refused merge, a merge with no review of its tip), `session_action` as
-    today and a line that the Inbox has a note of it, with the link; and with no link, `session_action` as
-    today and one line that says why. None while it changes nothing of today's lines: the large card and the breaker's card show
-    `row_action` then."""
+    """Where the owner answers while his mark says away and the board's server sent the
+    task's thing to his Inbox (`bm.inbox_of`): a question, in the task's session on the
+    Mac or in the Inbox, its thread a link at the Inbox's tailnet address, in place of
+    `session_action`'s line about the session (its jump stays on a page for this Mac); a
+    note, which no session can take a reply to, that no session runs or answers, or that
+    the task's session stopped, with the link and "Open a session" where the page may
+    act; a note of a row that asks nothing (a refused merge, a merge with no review of
+    its tip), `session_action` as today and a line that the Inbox has a note of it, with
+    the link; and with no link, `session_action` as today and one line that says why.
+    None while it changes nothing of today's lines: the large card and the breaker's
+    card show `row_action` then."""
     said = bm.inbox_of(t, ctx.model)
     if said is None:
         return None
@@ -865,15 +911,17 @@ def inbox_action(ctx: P.Ctx, t: bm.Task) -> Markup | None:
 
 
 def row_action(ctx: P.Ctx, t: bm.Task) -> Markup | None:
-    """The way to the task's session for a thing of the task that waits for the owner: its breaker, or its held block's need."""
+    """The way to the task's session for a thing of the task that waits for the owner:
+    its breaker, or its held block's need."""
     if t.breaker is not None or (t.need and not t.approved and not t.helped):
         return session_action(ctx, t)
     return None
 
 
 def owner_lines(ctx: P.Ctx, t: bm.Task) -> Markup | None:
-    """The owner's two other words to a task a breaker holds, or to a parked one, as lines to type in any
-    session; for a breaker, on a page that may act, the way to park it from the board first."""
+    """The owner's two other words to a task a breaker holds, or to a parked one, as
+    lines to type in any session; for a breaker, on a page that may act, the way to park
+    it from the board first."""
     park = None
     if t.breaker is not None:
         lines = [
@@ -906,7 +954,8 @@ def owner_lines(ctx: P.Ctx, t: bm.Task) -> Markup | None:
 
 # ---- Overview ----
 
-# A picture's name that pairs it with another of the same view: NAME-before.EXT and NAME-after.EXT.
+# A picture's name that pairs it with another of the same view: NAME-before.EXT
+# and NAME-after.EXT.
 PAIR = re.compile(
     r"^media/(?P<name>.+)-(?P<side>before|after)\.(?:png|jpe?g|gif|webp)$",
     re.IGNORECASE,
@@ -914,8 +963,9 @@ PAIR = re.compile(
 
 
 def pairs_of(files: list, shown: str) -> list[dict]:
-    """The before and after pictures of the task's media folder, by the view's name, that the outcome
-    does not show itself (`shown`, its text): the Overview shows each pair side by side."""
+    """The before and after pictures of the task's media folder, by the view's name,
+    that the outcome does not show itself (`shown`, its text): the Overview shows each
+    pair side by side."""
     found: dict[str, dict] = {}
     for f in files:
         m = PAIR.match(f["path"])
@@ -933,8 +983,8 @@ def caption_of(name: str) -> str:
 
 
 def media_pair(ctx: P.Ctx, t: bm.Task, pair: dict) -> Markup:
-    """A before and an after of one view side by side, each opening at its full size; a view that is new
-    has only its after."""
+    """A before and an after of one view side by side, each opening at its full size; a
+    view that is new has only its after."""
 
     def one(side: str) -> Markup | None:
         path = pair.get(side)
@@ -994,7 +1044,10 @@ def building(ctx: P.Ctx, t: bm.Task) -> Markup | None:
                     "title": "Open the tab Criteria and decisions · key 2",
                 },
                 P.icon(ctx, "alert"),
-                f"{bm.plural(b['important'], 'important decision')} {'waits' if b['important'] == 1 else 'wait'} for a look",
+                (
+                    f"{bm.plural(b['important'], 'important decision')} "
+                    f"{'waits' if b['important'] == 1 else 'wait'} for a look"
+                ),
                 " ",
                 P.icon(ctx, "arrow"),
             )
@@ -1049,8 +1102,8 @@ def building(ctx: P.Ctx, t: bm.Task) -> Markup | None:
 
 
 def verdict(ctx: P.Ctx, t: bm.Task) -> Markup | None:
-    """Green or not green, with each reason a row of its own (`lem_board_pages.reason_list`); before a
-    proposal, when the word comes."""
+    """Green or not green, with each reason a row of its own
+    (`lem_board_pages.reason_list`); before a proposal, when the word comes."""
     v = bm.verdict_of(t)
     if not v and t.closed:
         return None
@@ -1077,7 +1130,10 @@ def verdict(ctx: P.Ctx, t: bm.Task) -> Markup | None:
             "quiet",
             "clock",
             h("b", {"class": "v-word"}, "not proposed yet:"),
-            " green or not green comes with the proposal, after the checks and the review",
+            (
+                " green or not green comes with the proposal, "
+                "after the checks and the review"
+            ),
         )
     if v["green"]:
         return line(
@@ -1109,7 +1165,8 @@ def verdict(ctx: P.Ctx, t: bm.Task) -> Markup | None:
 def now_foot(
     ctx: P.Ctx, t: bm.Task, time: Markup, note: str, *, apart: bool = False
 ) -> Markup:
-    """The foot of the large card: the last update, the time in this state and its note, the jump."""
+    """The foot of the large card: the last update, the time in this state and its note,
+    the jump."""
     live = bm.live_of(t, ctx.model) or {}
     return h(
         "div",
@@ -1137,10 +1194,11 @@ def now_foot(
 
 
 def breaker_card(ctx: P.Ctx, t: bm.Task) -> Markup | None:
-    """The breaker's document, first on the Overview while it waits (for the owner, or for nobody while the
-    task is parked): its markdown as the artifacts render it, with its callouts, its stories, its chart, its
-    table and the task's pictures. Once his help is on record it leaves the Overview, and Artifacts and
-    "Criteria and decisions" keep it. None while no breaker waits."""
+    """The breaker's document, first on the Overview while it waits (for the owner, or
+    for nobody while the task is parked): its markdown as the artifacts render it, with
+    its callouts, its stories, its chart, its table and the task's pictures. Once his
+    help is on record it leaves the Overview, and Artifacts and "Criteria and decisions"
+    keep it. None while no breaker waits."""
     b = t.stopped
     if b is None:
         return None
@@ -1184,10 +1242,14 @@ def breaker_card(ctx: P.Ctx, t: bm.Task) -> Markup | None:
         else h(
             "p",
             {"class": "sub"},
-            f"{name} is not in the task directory: the board has nothing to show of it.",
+            (
+                f"{name} is not in the task directory: "
+                "the board has nothing to show of it."
+            ),
         )
     )
-    # while he is away and the breaker went to his Inbox, its line says where he answers, once
+    # while he is away and the breaker went to his Inbox, its line says where he
+    # answers, once
     inbox = inbox_action(ctx, t) if t.breaker else None
     both = (
         inbox is not None
@@ -1217,7 +1279,10 @@ def breaker_card(ctx: P.Ctx, t: bm.Task) -> Markup | None:
             h(
                 "div",
                 {"class": "b-line"},
-                "The task is parked: this breaker waits for nobody until you bring it back.",
+                (
+                    "The task is parked: this breaker waits for nobody "
+                    "until you bring it back."
+                ),
             ),
             owner_lines(ctx, t),
         )
@@ -1242,8 +1307,9 @@ def breaker_card(ctx: P.Ctx, t: bm.Task) -> Markup | None:
 
 
 def merge_review_card(ctx: P.Ctx, t: bm.Task) -> Markup | None:
-    """The merge agent's review, the first card of the Overview while the task is open and the file is
-    in its directory: its markdown as the artifacts render it, under its verdict. None otherwise."""
+    """The merge agent's review, the first card of the Overview while the task is open
+    and the file is in its directory: its markdown as the artifacts render it, under its
+    verdict. None otherwise."""
     if t.status != "open":
         return None
     f = ctx.artifact(t.slug, "merge-review.md")
@@ -1287,14 +1353,15 @@ def merge_review_card(ctx: P.Ctx, t: bm.Task) -> Markup | None:
 
 
 def now_card(ctx: P.Ctx, t: bm.Task) -> Markup:
-    """What runs now, or what waits for the owner, with where he answers, under the task's first line
-    while the block that said it is the task's newest."""
+    """What runs now, or what waits for the owner, with where he answers, under the
+    task's first line while the block that said it is the task's newest."""
     now = ctx.model.now
     x = t.investigation
     found = []
     if x:
         where = bm.investigation_sub(x)
-        # the report's file only while the folder holds it: prune removes it with the other files of an old ended task
+        # the report's file only while the folder holds it: prune removes it with the
+        # other files of an old ended task
         folder = ctx.folder_of(t.slug)
         found = [
             h(
@@ -1313,7 +1380,8 @@ def now_card(ctx: P.Ctx, t: bm.Task) -> Markup:
             ),
         ]
     headline = bm.now_head(t)
-    # Lem's first line of the task, its read of the request, while the block that said it is the newest
+    # Lem's first line of the task, its read of the request, while the block that said
+    # it is the newest
     said = t.opening and h(
         "div",
         {
@@ -1339,13 +1407,17 @@ def now_card(ctx: P.Ctx, t: bm.Task) -> Markup:
             h("b", None, "Where you answer: "),
             P.rich(ctx, bm.answer_of(t)),
         ),
-        # the breaker's call to its document, only while it waits for him: not while the session works on his help
+        # the breaker's call to its document, only while it waits for him: not while the
+        # session works on his help
         t.breaker
         and not t.works
         and h(
             "div",
             {"class": "now-ctx"},
-            "Its document is the first card above: read it, then help, park or drop the task.",
+            (
+                "Its document is the first card above: read it, then help, "
+                "park or drop the task."
+            ),
         ),
         None
         if t.breaker
@@ -1379,7 +1451,8 @@ def now_card(ctx: P.Ctx, t: bm.Task) -> Markup:
 
 
 def ring(done: int, current: int, total: int, big: str, small: str) -> Markup:
-    """The ring of the plan's tasks: the finished ones, the one built now, the ones to come."""
+    """The ring of the plan's tasks: the finished ones, the one built now, the ones
+    to come."""
     r, c = 58, 2 * 3.141592653589793 * 58
     safe = max(1, total)
 
@@ -1387,13 +1460,16 @@ def ring(done: int, current: int, total: int, big: str, small: str) -> Markup:
         if n <= 0:
             return None
         return Markup(
-            f'<circle class="{cls}" cx="68" cy="68" r="{r}" stroke-dasharray="{c * n / safe:.3f} {c:.3f}" stroke-dashoffset="{-c * start / safe:.3f}" transform="rotate(-90 68 68)"></circle>'
+            f'<circle class="{cls}" cx="68" cy="68" r="{r}" '
+            f'stroke-dasharray="{c * n / safe:.3f} {c:.3f}" '
+            f'stroke-dashoffset="{-c * start / safe:.3f}" '
+            'transform="rotate(-90 68 68)"></circle>'
         )
 
     svg = (
         Markup(
-            '<svg class="ring" width="136" height="136" viewBox="0 0 136 136" aria-hidden="true">'
-            f'<circle class="todo" cx="68" cy="68" r="{r}"></circle>'
+            '<svg class="ring" width="136" height="136" viewBox="0 0 136 136" '
+            f'aria-hidden="true"><circle class="todo" cx="68" cy="68" r="{r}"></circle>'
         )
         + join([arc("done", 0, done), arc("cur", done, current)])
         + Markup("</svg>")
@@ -1424,7 +1500,10 @@ def progress(ctx: P.Ctx, t: bm.Task) -> Markup:
         h(
             "div",
             {
-                "class": f"phase {'past' if k < p['past'] else 'cur' if k == p['at'] else ''}".strip()
+                "class": (
+                    "phase "
+                    f"{'past' if k < p['past'] else 'cur' if k == p['at'] else ''}"
+                ).strip()
             },
             h("i"),
             name,
@@ -1515,8 +1594,9 @@ def progress(ctx: P.Ctx, t: bm.Task) -> Markup:
 
 
 def parked_card(ctx: P.Ctx, t: bm.Task) -> Markup | None:
-    """A parked task's first line on the Overview: since when, why in the owner's words, and the command
-    that brings it back, in the quiet look of a line that waits for nobody."""
+    """A parked task's first line on the Overview: since when, why in the owner's words,
+    and the command that brings it back, in the quiet look of a line that waits
+    for nobody."""
     p = bm.parked_of(t)
     if p is None:
         return None
@@ -1556,10 +1636,12 @@ def parked_card(ctx: P.Ctx, t: bm.Task) -> Markup | None:
 
 # ---- a task whose events became one summary ----
 
-# What went with the events of a summarized task, by the tab that showed it: the tab says so in one
-# line, never with an empty section that reads as nothing on record.
+# What went with the events of a summarized task, by the tab that showed it: the tab
+# says so in one line, never with an empty section that reads as nothing on record.
 WENT = {
-    "criteria": "Its acceptance criteria, their approval, the personas’ read and its decisions",
+    "criteria": (
+        "Its acceptance criteria, their approval, the personas’ read and its decisions"
+    ),
     "checks": "Its runs of the checks, its review rounds and the proposal’s reasons",
     "timeline": "Its timeline and its events",
 }
@@ -1580,8 +1662,9 @@ def artifacts_link(ctx: P.Ctx, t: bm.Task) -> Markup:
     )
 
 
-# What each file of a task's small record (`lem_artifacts.SMALL_RECORD`) is to the owner, on the card of a
-# task whose other files prune removed: one name for a part that is more than one file.
+# What each file of a task's small record (`lem_artifacts.SMALL_RECORD`) is to the
+# owner, on the card of a task whose other files prune removed: one name for a part that
+# is more than one file.
 RECORD_WORDS = (
     (("state.md",), "its state"),
     (("ask.txt", "task.md"), "its request"),
@@ -1597,14 +1680,19 @@ def listed(parts: list[str]) -> str:
 
 
 def files_line(ctx: P.Ctx, t: bm.Task) -> str:
-    """What the folder of a summarized task holds, as the folder says it now (`Ctx.folder_of`), never as
-    the summary alone: with no path outside its small record, what stayed and the rule that removed the
-    rest, with the workspace's `state.keep_days` as the settings give it now (no day at which they left,
-    which the page cannot know); with paths outside it, only how many are still there, with no claim of
-    why (a removal that has not ended yet, or one the folder denies run after run)."""
+    """What the folder of a summarized task holds, as the folder says it now
+    (`Ctx.folder_of`), never as the summary alone: with no path outside its small
+    record, what stayed and the rule that removed the rest, with the workspace's
+    `state.keep_days` as the settings give it now (no day at which they left, which the
+    page cannot know); with paths outside it, only how many are still there, with no
+    claim of why (a removal that has not ended yet, or one the folder denies run
+    after run)."""
     folder = ctx.folder_of(t.slug)
     if folder is None:
-        return "Its folder does not read, so the board cannot say which of its files are still there."
+        return (
+            "Its folder does not read, so the board cannot say which of its "
+            "files are still there."
+        )
     kept = [
         words
         for names, words in RECORD_WORDS
@@ -1614,19 +1702,33 @@ def files_line(ctx: P.Ctx, t: bm.Task) -> str:
         f"its small record: {listed(kept)}" if kept else "no file of its small record"
     )
     if folder["left"]:
-        return f"{bm.plural(len(folder['left']), 'file')} of its folder {'is' if len(folder['left']) == 1 else 'are'} still there beside {record}."
+        return (
+            f"{bm.plural(len(folder['left']), 'file')} of its folder "
+            f"{'is' if len(folder['left']) == 1 else 'are'} still "
+            f"there beside {record}."
+        )
     days = (
-        f"after {bm.plural(ctx.keep_days, 'day')} in which nothing of it happened (state.keep_days, as the settings say now)"
+        (
+            f"after {bm.plural(ctx.keep_days, 'day')} in which nothing of it happened "
+            "(state.keep_days, as the settings say now)"
+        )
         if ctx.keep_days
-        else "after state.keep_days days in which nothing of it happened (the settings do not read now, so the board does not say that number)"
+        else (
+            "after state.keep_days days in which nothing of it happened (the settings "
+            "do not read now, so the board does not say that number)"
+        )
     )
-    return f"What stayed of its folder is {record}. Its other files left: Lem keeps only this record of an ended task {days}."
+    return (
+        f"What stayed of its folder is {record}. Its other files left: "
+        f"Lem keeps only this record of an ended task {days}."
+    )
 
 
 def summary_card(ctx: P.Ctx, t: bm.Task) -> Markup | None:
-    """The first card of the Overview of a task whose events became one summary (`t.summary`): that they
-    did, and why; what the summary keeps, with its values; what went with the events; and what its folder
-    holds now (`files_line`), on Artifacts. None for any other task."""
+    """The first card of the Overview of a task whose events became one summary
+    (`t.summary`): that they did, and why; what the summary keeps, with its values; what
+    went with the events; and what its folder holds now (`files_line`), on Artifacts.
+    None for any other task."""
     s = t.summary
     if s is None:
         return None
@@ -1667,7 +1769,10 @@ def summary_card(ctx: P.Ctx, t: bm.Task) -> Markup | None:
                     {"class": "v-word"},
                     f"Its {bm.plural(n, 'event')} became one summary:",
                 ),
-                " nothing of the task happened for state.keep_days days after its end, so lem project prune kept one event in their place.",
+                (
+                    " nothing of the task happened for state.keep_days days after its "
+                    "end, so lem project prune kept one event in their place."
+                ),
                 h(
                     "div",
                     {"class": "sub", "id": "summary-kept"},
@@ -1694,14 +1799,18 @@ def summary_card(ctx: P.Ctx, t: bm.Task) -> Markup | None:
 
 
 def went_tab(ctx: P.Ctx, t: bm.Task, tab: str) -> list:
-    """A tab of a summarized task whose detail went with its events: one line that says so, and where the
-    files of its folder are listed."""
+    """A tab of a summarized task whose detail went with its events: one line that says
+    so, and where the files of its folder are listed."""
     return [
         h(
             "div",
             {"class": "lane-empty panel-empty", "id": f"went-{tab}"},
-            f"{WENT[tab]} went with its events: they became one summary, as nothing of the task happened for state.keep_days days after its end. "
-            "The Overview shows what the summary keeps and what its folder holds, and Artifacts lists the files that are there. ",
+            (
+                f"{WENT[tab]} went with its events: they became one summary, as "
+                "nothing of the task happened for state.keep_days days after its end. "
+                "The Overview shows what the summary keeps and what its folder holds, "
+                "and Artifacts lists the files that are there. "
+            ),
             artifacts_link(ctx, t),
         )
     ]
@@ -1709,7 +1818,8 @@ def went_tab(ctx: P.Ctx, t: bm.Task, tab: str) -> list:
 
 def overview_tab(ctx: P.Ctx, t: bm.Task) -> list:
     if t.summary is not None:
-        # no phases and no stats: their checks, review and decisions went with the events, and would read as none
+        # no phases and no stats: their checks, review and decisions went with the
+        # events, and would read as none
         return [
             summary_card(ctx, t),
             building(ctx, t),
@@ -1731,7 +1841,8 @@ def overview_tab(ctx: P.Ctx, t: bm.Task) -> list:
 
 
 def criteria_head(ctx: P.Ctx, t: bm.Task) -> list:
-    """What happened to the criteria before the build: the personas' read, the approval, and each change of an approved criterion."""
+    """What happened to the criteria before the build: the personas' read, the approval,
+    and each change of an approved criterion."""
     now = ctx.model.now
     rows_ = []
     a = t.approvals[-1] if t.approvals else None
@@ -1747,7 +1858,10 @@ def criteria_head(ctx: P.Ctx, t: bm.Task) -> list:
                 "alert",
                 [
                     h("b", None, "Nobody answered the personas’ read"),
-                    f" (0 of {r['asked']}), run by {run_by(r)}: it found nothing, either way",
+                    (
+                        f" (0 of {r['asked']}), run by {run_by(r)}: it found nothing, "
+                        "either way"
+                    ),
                     [
                         sub(f"no answer from {x.get('name')} ({x.get('why')})")
                         for x in r["silent"]
@@ -1773,11 +1887,18 @@ def criteria_head(ctx: P.Ctx, t: bm.Task) -> list:
                     h(
                         "b",
                         None,
-                        f"{r['flagged']} of {bm.criteria_count(r['criteria'] or 0)} flagged"
+                        (
+                            f"{r['flagged']} of "
+                            f"{bm.criteria_count(r['criteria'] or 0)} flagged"
+                        )
                         if r["flagged"]
                         else "Nobody confused",
                     ),
-                    f" · read by {r['answered']} of {r['asked']} personas, {bm.FAMILIES.get(len(fams), f'{len(fams)} model families')} ({', '.join(map(str, fams))}), run by {run_by(r)}",
+                    (
+                        f" · read by {r['answered']} of {r['asked']} personas, "
+                        f"{bm.FAMILIES.get(len(fams), f'{len(fams)} model families')} "
+                        f"({', '.join(map(str, fams))}), run by {run_by(r)}"
+                    ),
                     [
                         sub(f"no answer from {x.get('name')} ({x.get('why')})")
                         for x in r["silent"]
@@ -1796,7 +1917,10 @@ def criteria_head(ctx: P.Ctx, t: bm.Task) -> list:
                 "quiet",
                 "users",
                 [
-                    "The personas do not read the one criterion of a task on the fast track."
+                    (
+                        "The personas do not read the one criterion of a "
+                        "task on the fast track."
+                    )
                 ],
             )
         )
@@ -1843,11 +1967,14 @@ def criteria_head(ctx: P.Ctx, t: bm.Task) -> list:
                     else "",
                     a["by"] == "lem"
                     and sub(
-                        "You may still say “/lem standard-track”: then the personas read it, and your approval replaces this one."
+                        "You may still say “/lem standard-track”: then the personas "
+                        "read it, and your approval replaces this one."
                     ),
                     a["by"] == "read"
                     and sub(
-                        "The whole request was written, and nobody was confused: the build started, and you can still stop it or change a criterion."
+                        "The whole request was written, and nobody was confused: "
+                        "the build started, and you can still stop it "
+                        "or change a criterion."
                     ),
                     ((a["number"] or 0) > 1 or replaces is not None)
                     and sub(
@@ -1897,7 +2024,10 @@ def criteria_head(ctx: P.Ctx, t: bm.Task) -> list:
                     sub(said),
                     sub(
                         f"{c['why']} · {who} · ",
-                        f"Approved by you afterwards (approval {his}): it is yours, and no cause of not green"
+                        (
+                            f"Approved by you afterwards (approval {his}): "
+                            "it is yours, and no cause of not green"
+                        )
                         if his
                         else "the pull request is not green for it",
                     ),
@@ -1914,9 +2044,15 @@ def criteria_rows(ctx: P.Ctx, t: bm.Task) -> list:
     if current is not None and not bm.plan_criteria_stand(t):
         note = (
             (
-                "approved after the plan’s criteria were recorded, which were not recorded again"
+                (
+                    "approved after the plan’s criteria were recorded, "
+                    "which were not recorded again"
+                )
                 if t.closed
-                else "approved after the plan’s criteria were recorded: the agent records them again, with their tests"
+                else (
+                    "approved after the plan’s criteria were recorded: "
+                    "the agent records them again, with their tests"
+                )
             )
             if t.criteria
             else "no test of it is on record: the plan’s criteria were never recorded"
@@ -1997,14 +2133,15 @@ CASE_WAS: dict[object, str] = {
     "derived": "derived from the code, not run",
 }
 _land = None
-# The longest label of an option that shows as a key, in bold before its text; a longer one is a
-# line of its own.
+# The longest label of an option that shows as a key, in bold before its text; a longer
+# one is a line of its own.
 KEY_LABEL_LONGEST = 3
 
 
 def option_parts(option: object) -> tuple[str, str]:
-    """An option's label and what the person sees after it ("LABEL: what the person sees after it"), cut by
-    land.py's own rule (`label`: never at a colon inside a quote); ("", the option) when it has no label."""
+    """An option's label and what the person sees after it ("LABEL: what the person sees
+    after it"), cut by land.py's own rule (`label`: never at a colon inside a quote);
+    ("", the option) when it has no label."""
     global _land  # noqa: PLW0603 - land.py is loaded once, at the first option
     if _land is None:
         import lem_sibling
@@ -2018,8 +2155,8 @@ def option_parts(option: object) -> tuple[str, str]:
 
 
 def picks_of(d: bm.Decision) -> dict[str, list[str]]:
-    """The experts who took a decision, by the option they picked: each expert that answers on the
-    machine (`advisers`) picked the option taken."""
+    """The experts who took a decision, by the option they picked: each expert that
+    answers on the machine (`advisers`) picked the option taken."""
     if d.by != "experts":
         return {}
     return {str(d.chose): [bm.expert_name(key) for key in bm.advisers_of(d)]}
@@ -2074,9 +2211,9 @@ def options_rows(ctx: P.Ctx, d: bm.Decision, at: int) -> Markup | None:
 def story(
     ctx: P.Ctx, t: bm.Task, d: bm.Decision, at: int, who: str | None = None
 ) -> list:
-    """A decision's story, in the order of its record: the case as numbered steps and how it is
-    known, why it could happen, this or that, who took it, and its chart. A record with no story gives
-    what it has, with no empty heading."""
+    """A decision's story, in the order of its record: the case as numbered steps and
+    how it is known, why it could happen, this or that, who took it, and its chart. A
+    record with no story gives what it has, with no empty heading."""
     out = []
     if d.case:
         out.append(
@@ -2146,9 +2283,10 @@ def story(
 
 
 def decision_row(ctx: P.Ctx, t: bm.Task, d: bm.Decision) -> Markup:
-    """A decision taken, by an agent, a level of the ladder or the owner, as one row that opens: closed,
-    its note, what was chosen and by whom; opened, its story (the case, the cause, this or that, its
-    chart), then who took it and how, the ladder, what undoes it. An important one is open at first."""
+    """A decision taken, by an agent, a level of the ladder or the owner, as one row
+    that opens: closed, its note, what was chosen and by whom; opened, its story (the
+    case, the cause, this or that, its chart), then who took it and how, the ladder,
+    what undoes it. An important one is open at first."""
     now = ctx.model.now
     says = bm.decision_says(t, d)
     why = says["why"]
@@ -2258,10 +2396,11 @@ def decision_row(ctx: P.Ctx, t: bm.Task, d: bm.Decision) -> Markup:
 
 
 def breaker_row(ctx: P.Ctx, t: bm.Task, d: bm.Decision) -> Markup:
-    """A breaker as one row that opens, in the look of a decision: what stopped the build and why, where it
-    stands (it waits for the owner, for nobody while the task is parked, helped by a decision of his, or
-    the task ended), its document and its handoff on Artifacts, and the decision that helped it. One that
-    waits is open at first."""
+    """A breaker as one row that opens, in the look of a decision: what stopped the
+    build and why, where it stands (it waits for the owner, for nobody while the task is
+    parked, helped by a decision of his, or the task ended), its document and its
+    handoff on Artifacts, and the decision that helped it. One that waits is open
+    at first."""
     now = ctx.model.now
     says = bm.breaker_says(t, d)
 
@@ -2358,15 +2497,19 @@ def breaker_row(ctx: P.Ctx, t: bm.Task, d: bm.Decision) -> Markup:
 
 
 def decision_rows(ctx: P.Ctx, t: bm.Task) -> list:
-    """Each decision and each breaker of the build: the breaker that waits first, then the important
-    decisions, then every other one with the breakers that no longer wait, each group in the record's order."""
+    """Each decision and each breaker of the build: the breaker that waits first, then
+    the important decisions, then every other one with the breakers that no longer wait,
+    each group in the record's order."""
     now = ctx.model.now
     if not t.decided and not t.orphans:
         return [
             h(
                 "div",
                 {"class": "empty", "id": "dec-empty"},
-                "Each decision the build takes, and each breaker that stops it, comes here",
+                (
+                    "Each decision the build takes, and each breaker that stops it, "
+                    "comes here"
+                ),
             )
         ]
     first = [d for d in t.decided if t.stopped is d]
@@ -2387,7 +2530,10 @@ def decision_rows(ctx: P.Ctx, t: bm.Task) -> list:
             "bad",
             "alert",
             [
-                f"Your help, decision {o['id']}, names breaker {o['breaker']}, which is not in the log",
+                (
+                    f"Your help, decision {o['id']}, names breaker {o['breaker']}, "
+                    "which is not in the log"
+                ),
                 f": {o['chose']}" if o.get("chose") else "",
             ],
             bm.stamp(o["ts"], now),
@@ -2398,8 +2544,8 @@ def decision_rows(ctx: P.Ctx, t: bm.Task) -> list:
 
 
 def how_card(ctx: P.Ctx, t: bm.Task) -> Markup | None:
-    """The plan's `## How it works`, its sentences and its chart, above the criteria, as criteria.py reads it
-    (`how`); a plan that has none, or no plan, has no card."""
+    """The plan's `## How it works`, its sentences and its chart, above the criteria, as
+    criteria.py reads it (`how`); a plan that has none, or no plan, has no card."""
     how = ctx.how_of(t.slug)
     if not how:
         return None
@@ -2417,8 +2563,9 @@ def how_card(ctx: P.Ctx, t: bm.Task) -> Markup | None:
 
 
 def approve_holds_form(ctx: P.Ctx, t: bm.Task) -> bool:
-    """Whether the approval card of the criteria tab holds the owner's button: the criteria wait for a yes
-    that would count, criteria.md is in the task directory, and the page may act."""
+    """Whether the approval card of the criteria tab holds the owner's button: the
+    criteria wait for a yes that would count, criteria.md is in the task directory, and
+    the page may act."""
     return (
         ctx.can_act
         and "approve" in bm.acts_of(t, ctx.model.seen)
@@ -2427,14 +2574,15 @@ def approve_holds_form(ctx: P.Ctx, t: bm.Task) -> bool:
 
 
 def approve_card(ctx: P.Ctx, t: bm.Task, note: Markup | None = None) -> Markup | None:
-    """The criteria that wait for the owner's yes, as the task's session wrote them (`criteria.md` of the task
-    directory), first on "Criteria and decisions", with the personas' read in one line and his yes as a
-    button on a page that may act. None while they do not wait for a yes that would count.
-    A card that holds the button is an act's step (`confirm_card`): on a phone's screen an overlay whose
-    button comes on when the criteria were read to the end, with "Back" to the Overview, which a desktop
-    does not show. Its body holds the act's NOTE first, which the overlay would cover above the card, and
-    after the markdown block the criteria as plain text for a browser with no script, which draws the
-    markdown block empty."""
+    """The criteria that wait for the owner's yes, as the task's session wrote them
+    (`criteria.md` of the task directory), first on "Criteria and decisions", with the
+    personas' read in one line and his yes as a button on a page that may act. None
+    while they do not wait for a yes that would count. A card that holds the button is
+    an act's step (`confirm_card`): on a phone's screen an overlay whose button comes on
+    when the criteria were read to the end, with "Back" to the Overview, which a desktop
+    does not show. Its body holds the act's NOTE first, which the overlay would cover
+    above the card, and after the markdown block the criteria as plain text for a
+    browser with no script, which draws the markdown block empty."""
     if "approve" not in bm.acts_of(t, ctx.model.seen):
         return None
     waiting = ctx.criteria_waiting(t.slug)
@@ -2478,7 +2626,10 @@ def approve_card(ctx: P.Ctx, t: bm.Task, note: Markup | None = None) -> Markup |
             h(
                 "span",
                 {"class": "act-say"},
-                "Your yes freezes them as they stand here, and the task’s session goes on from it.",
+                (
+                    "Your yes freezes them as they stand here, "
+                    "and the task’s session goes on from it."
+                ),
             ),
         )
         return confirm_card(
@@ -2501,8 +2652,11 @@ def approve_card(ctx: P.Ctx, t: bm.Task, note: Markup | None = None) -> Markup |
             h(
                 "p",
                 {"class": "sub"},
-                "The task’s session writes them to criteria.md in the task directory, and the board shows them here then. "
-                "Until then, approve them in the task’s session.",
+                (
+                    "The task’s session writes them to criteria.md in the task "
+                    "directory, and the board shows them here then. "
+                    "Until then, approve them in the task’s session."
+                ),
             )
         ]
     else:
@@ -2513,7 +2667,10 @@ def approve_card(ctx: P.Ctx, t: bm.Task, note: Markup | None = None) -> Markup |
             h(
                 "p",
                 {"class": "sub"},
-                "Approve them in the task’s session, or on this board on the Mac or through the tailnet door.",
+                (
+                    "Approve them in the task’s session, or on this board on the Mac "
+                    "or through the tailnet door."
+                ),
             ),
         ]
     return h(
@@ -2525,14 +2682,16 @@ def approve_card(ctx: P.Ctx, t: bm.Task, note: Markup | None = None) -> Markup |
 
 
 def criteria_tab(ctx: P.Ctx, t: bm.Task) -> list:
-    """The criteria, the decisions and, while the criteria wait for the owner's yes, the approval first, with
-    the act's note first in the tab, or first in the approval card while that holds the button."""
+    """The criteria, the decisions and, while the criteria wait for the owner's yes, the
+    approval first, with the act's note first in the tab, or first in the approval card
+    while that holds the button."""
     note = note_card(ctx, t.slug)
     if t.summary is not None:
         return [note, *went_tab(ctx, t, "criteria")]
     crit = criteria_rows(ctx, t)
     decs = decision_rows(ctx, t)
-    # a card of a task that ended with nothing in it is not drawn; a tab whose cards are all gone says so
+    # a card of a task that ended with nothing in it is not drawn; a tab whose cards are
+    # all gone says so
     empty = lambda rows_: t.closed and all('class="empty"' in str(x) for x in rows_)  # noqa: E731
     cards = [
         None
@@ -2566,8 +2725,9 @@ def criteria_tab(ctx: P.Ctx, t: bm.Task) -> list:
 
 
 def log_link(ctx: P.Ctx, t: bm.Task, k: int) -> Markup | None:
-    """The link to the output of the k-th command of the last run of the checks (`gate/NN.log`, as land.py
-    numbers them in the order they ran), where the task's folder has it."""
+    """The link to the output of the k-th command of the last run of the checks
+    (`gate/NN.log`, as land.py numbers them in the order they ran), where the task's
+    folder has it."""
     path = f"gate/{k + 1:02d}.log"
     if not any(f["path"] == path for f in ctx.artifact_files):
         return None
@@ -2676,7 +2836,10 @@ def checks_tab(ctx: P.Ctx, t: bm.Task) -> list:
                         None,
                         "Proposed: green"
                         if green
-                        else f"Proposed: not green, for {bm.plural(len(reasons), 'reason')}"
+                        else (
+                            "Proposed: not green, for "
+                            f"{bm.plural(len(reasons), 'reason')}"
+                        )
                         if reasons
                         else "Proposed: not green",
                     ),
@@ -2692,7 +2855,10 @@ def checks_tab(ctx: P.Ctx, t: bm.Task) -> list:
             h(
                 "div",
                 {"class": "empty", "id": "review-empty"},
-                "The review comes after the machine checks, before anything is proposed",
+                (
+                    "The review comes after the machine checks, "
+                    "before anything is proposed"
+                ),
             )
         ]
     gate_sum = (
@@ -2736,7 +2902,8 @@ def pct(ms: float, t0: float, whole: float) -> float:
 
 
 def tip(head_: str, said: str, frm: float, to: float | str, fill: str | None) -> dict:
-    """The attributes the hover reads (the tip controller): what a mark is, and its two times."""
+    """The attributes the hover reads (the tip controller): what a mark is, and its
+    two times."""
     return {
         "data-head": head_,
         "data-sub": said or None,
@@ -2747,8 +2914,9 @@ def tip(head_: str, said: str, frm: float, to: float | str, fill: str | None) ->
 
 
 def time_card(ctx: P.Ctx, t: bm.Task) -> Markup:
-    """Where the time of the task went: one lane for each who held the work, the stages as bands behind
-    them, a mark for what logged only its end, and the shares of each in the legend."""
+    """Where the time of the task went: one lane for each who held the work, the stages
+    as bands behind them, a mark for what logged only its end, and the shares of each in
+    the legend."""
     m = ctx.model
     end = bm.time_end(t, m.now)
     tm = bm.time_of(t, end, m.meta)
@@ -2761,7 +2929,10 @@ def time_card(ctx: P.Ctx, t: bm.Task) -> Markup:
         h(
             "span",
             {
-                "title": f"{r['label']} held the work for {bm.span(tm['totals'][r['key']])} of the task’s {bm.span(tm['whole'])}"
+                "title": (
+                    f"{r['label']} held the work for {bm.span(tm['totals'][r['key']])} "
+                    f"of the task’s {bm.span(tm['whole'])}"
+                )
             },
             h("i", {"style": f"background:{r['fill']}"}),
             r["label"],
@@ -2778,7 +2949,10 @@ def time_card(ctx: P.Ctx, t: bm.Task) -> Markup:
             h(
                 "span",
                 {"class": "over"},
-                f"the shares add up to {shares['over']}%, as two rows can hold the same minutes",
+                (
+                    f"the shares add up to {shares['over']}%, "
+                    "as two rows can hold the same minutes"
+                ),
             )
         )
     bands = []
@@ -2833,7 +3007,10 @@ def time_card(ctx: P.Ctx, t: bm.Task) -> Markup:
                     {
                         "class": f"tt-seg{' live' if g['live'] else ''}",
                         "id": f"{key}-{seen[key]}",
-                        "style": f"left:{x1:.3f}%;width:max(2px, {x2 - x1:.3f}%);background:{r['fill']}",
+                        "style": (
+                            f"left:{x1:.3f}%;width:max(2px, "
+                            f"{x2 - x1:.3f}%);background:{r['fill']}"
+                        ),
                         **tip(
                             f"{r['label']} · {g['head']}",
                             g["sub"],
@@ -2879,7 +3056,8 @@ def time_card(ctx: P.Ctx, t: bm.Task) -> Markup:
                 marks_,
             )
         )
-    # a tick names its date only where the axis passes into another day; the axis's first day stands at its left
+    # a tick names its date only where the axis passes into another day; the axis's
+    # first day stands at its left
     labels = [
         bm.tick_label(t0 + whole * i / 6, whole, t0 + whole * (i - 1) / 6 if i else t0)
         for i in range(7)
@@ -2900,7 +3078,10 @@ def time_card(ctx: P.Ctx, t: bm.Task) -> Markup:
         "div",
         {
             "class": "tt-plot",
-            "style": f"grid-template-rows:22px repeat({len(rows_)}, 25px) {34 if dated else 22}px",
+            "style": (
+                f"grid-template-rows:22px repeat({len(rows_)}, "
+                f"25px) {34 if dated else 22}px"
+            ),
         },
         h(
             "div",
@@ -2925,9 +3106,14 @@ def time_card(ctx: P.Ctx, t: bm.Task) -> Markup:
                 {
                     "class": "legend",
                     "id": "tl-legend",
-                    "title": "Two rows can hold the same minutes, so the shares need not add up to 100. "
-                    "Each stage runs from its logged start to the event that ends it. In a log written before the stages logged their starts, the personas’ read and a plan talk "
-                    "with no start are a dot where they ended, and a polish pass runs from the event before it.",
+                    "title": (
+                        "Two rows can hold the same minutes, so the shares need not "
+                        "add up to 100. Each stage runs from its logged start to the "
+                        "event that ends it. In a log written before the stages logged "
+                        "their starts, the personas’ read and a plan talk with no "
+                        "start are a dot where they ended, and a polish pass runs "
+                        "from the event before it."
+                    ),
                 },
                 legend,
             ),
@@ -2938,7 +3124,9 @@ def time_card(ctx: P.Ctx, t: bm.Task) -> Markup:
                 "class": "tt",
                 "id": "tt",
                 "data-controller": "tip",
-                "data-action": "mousemove->tip#move mouseleave->tip#hide click->tip#move",
+                "data-action": (
+                    "mousemove->tip#move mouseleave->tip#hide click->tip#move"
+                ),
             },
             plot,
             h("div", {"class": "tip", "hidden": True, "data-tip-target": "box"}),
@@ -2946,14 +3134,17 @@ def time_card(ctx: P.Ctx, t: bm.Task) -> Markup:
         h(
             "div",
             {"class": "tl-note"},
-            "Each row is who held the work; a band is a stage. Hover a mark for its times, and the legend for how the shares add up.",
+            (
+                "Each row is who held the work; a band is a stage. Hover a mark for "
+                "its times, and the legend for how the shares add up."
+            ),
         ),
     )
 
 
 def feed_card(ctx: P.Ctx, t: bm.Task) -> Markup:
-    """The task's events, the newest first. The newest block's words are the large card's, so its row
-    names only the status."""
+    """The task's events, the newest first. The newest block's words are the large
+    card's, so its row names only the status."""
     m = ctx.model
     current = max(
         (i for i, e in enumerate(t.events) if e.get("event") == "task.state"),
@@ -3005,7 +3196,8 @@ def timeline_tab(ctx: P.Ctx, t: bm.Task) -> list:
 
 
 def json_marks(text: str) -> Markup:
-    """JSON with its keys, strings, numbers and literals marked; every part is escaped."""
+    """JSON with its keys, strings, numbers and literals marked; every part
+    is escaped."""
     out, at = [], 0
     for found in JSON_TOKEN.finditer(text):
         out.append(text[at : found.start()])
@@ -3023,7 +3215,8 @@ def json_marks(text: str) -> Markup:
 
 
 def art_body(ctx: P.Ctx, f: dict, t: bm.Task) -> Markup:
-    """The opened file, by its kind; a record with one line on top that links to the tab that shows it readable."""
+    """The opened file, by its kind; a record with one line on top that links to the tab
+    that shows it readable."""
     if f["kind"] == "html" and f.get("href"):
         return h(
             "iframe",
@@ -3152,8 +3345,8 @@ def art_body(ctx: P.Ctx, f: dict, t: bm.Task) -> Markup:
 
 
 def empty_reason(t: bm.Task, key: str) -> str:
-    """The gray line of a section of the map that holds no document, by the task's path and where it
-    stands: what is on a tab of the board instead, not yet, or none."""
+    """The gray line of a section of the map that holds no document, by the task's path
+    and where it stands: what is on a tab of the board instead, not yet, or none."""
     small = bm.track_of(t) == "fast track" or t.lead == "small"
     ended = (
         "none: it ended with a report"
@@ -3219,9 +3412,10 @@ def empty_reason(t: bm.Task, key: str) -> str:
 
 
 def art_tree(ctx: P.Ctx, t: bm.Task, chosen: str | None) -> list:
-    """The task's map (`lem_artifacts.arrange`): the seven sections, each a `<details>` the owner folds with
-    its count of documents, each document a row with its records and pictures as small links, an empty
-    section with its gray line; then "Working files", folded, by folder."""
+    """The task's map (`lem_artifacts.arrange`): the seven sections, each a `<details>`
+    the owner folds with its count of documents, each document a row with its records
+    and pictures as small links, an empty section with its gray line; then "Working
+    files", folded, by folder."""
     amap = cast("dict", ctx.artifact_map)  # artifacts_tab sets it first
 
     def fid(path: str) -> str:
@@ -3316,7 +3510,11 @@ def art_tree(ctx: P.Ctx, t: bm.Task, chosen: str | None) -> list:
                 h(
                     "summary",
                     {
-                        "title": "An agent’s scratch, the review tool’s archive of each round, records with no document, and files the map does not know"
+                        "title": (
+                            "An agent’s scratch, the review tool’s archive of each "
+                            "round, records with no document, "
+                            "and files the map does not know"
+                        )
                     },
                     P.icon(ctx, "chevron-right", "ic chev"),
                     h(
@@ -3333,8 +3531,9 @@ def art_tree(ctx: P.Ctx, t: bm.Task, chosen: str | None) -> list:
 
 
 def artifacts_tab(ctx: P.Ctx, t: bm.Task) -> Markup:
-    """The task's map at the left, and the file opened at the right; on a phone, the list, then the file
-    with a way back to the list. An HTML page takes the whole width, with the way back to the list."""
+    """The task's map at the left, and the file opened at the right; on a phone, the
+    list, then the file with a way back to the list. An HTML page takes the whole width,
+    with the way back to the list."""
     now = ctx.model.now
     files = ctx.artifact_files
     amap = ctx.artifact_map or lem_artifacts.arrange(files)
@@ -3404,7 +3603,10 @@ def artifacts_tab(ctx: P.Ctx, t: bm.Task) -> Markup:
                 "href": ctx.raw_href(t.slug, f["path"]),
                 "target": "_blank",
                 "rel": "noopener",
-                "title": "Open the page alone in a tab of its own, at the whole width of the window",
+                "title": (
+                    "Open the page alone in a tab of its own, "
+                    "at the whole width of the window"
+                ),
             },
             "Open alone ",
             P.icon(ctx, "arrow-up-right-from-square"),
@@ -3465,9 +3667,9 @@ def artifacts_tab(ctx: P.Ctx, t: bm.Task) -> Markup:
 
 
 def note_card(ctx: P.Ctx, slug: str) -> Markup | None:
-    """The result of the act the address names (`?note=`) on the task SLUG, first in the tab: running, done
-    with what happens next, not done with the script's own line, or the owner's merge that stands while
-    it stands (`P.act_note`)."""
+    """The result of the act the address names (`?note=`) on the task SLUG, first in the
+    tab: running, done with what happens next, not done with the script's own line, or
+    the owner's merge that stands while it stands (`P.act_note`)."""
     note = ctx.note
     if not note or note.get("task") != slug:
         return None
@@ -3494,9 +3696,10 @@ def not_now(ctx: P.Ctx, t: bm.Task, said: str) -> list:
 
 
 def merge_step(ctx: P.Ctx, t: bm.Task) -> list:
-    """The confirm step of a merge: green or not green first, careful when it is, then the pull request,
-    the commit it merges, the base branch and how it lands, and one button. The form carries the commit
-    it shows, so that a branch proposed again since is not merged on this look."""
+    """The confirm step of a merge: green or not green first, careful when it is, then
+    the pull request, the commit it merges, the base branch and how it lands, and one
+    button. The form carries the commit it shows, so that a branch proposed again since
+    is not merged on this look."""
     if t.slug in ctx.merging:
         return not_now(
             ctx, t, "Lem merges it now. This page shows the result when it ends."
@@ -3510,10 +3713,16 @@ def merge_step(ctx: P.Ctx, t: bm.Task) -> list:
             t,
             f"Nothing to merge now: the task is {t.info['label'].lower()}."
             if t.status != "open"
-            else "Lem lands it again: the base moved after the checks ran, so a merge now is refused the same way. "
-            "The task’s session lands it again, and its new proposal is open for a merge."
+            else (
+                "Lem lands it again: the base moved after the checks ran, so a merge "
+                "now is refused the same way. The task’s session lands it again, and "
+                "its new proposal is open for a merge."
+            )
             if t.merge_wait == "relands"
-            else "The forge calls its pull request conflicting with the base: Lem brings it onto the base first, and then it waits for you again.",
+            else (
+                "The forge calls its pull request conflicting with the base: "
+                "Lem brings it onto the base first, and then it waits for you again."
+            ),
         )
     says = bm.merge_says(t)
     landing = ctx.landing_of(t.slug) or {}
@@ -3625,7 +3834,10 @@ def merge_step(ctx: P.Ctx, t: bm.Task) -> list:
         h(
             "p",
             {"class": "cf-note"},
-            "A merge cannot be undone from the board. Lem’s merge call reads the base branch first, and it can take a minute.",
+            (
+                "A merge cannot be undone from the board. Lem’s merge call reads the "
+                "base branch first, and it can take a minute."
+            ),
         ),
     ]
     if ctx.can_act and tip:
@@ -3648,7 +3860,10 @@ def merge_step(ctx: P.Ctx, t: bm.Task) -> list:
         acts = h(
             "p",
             {"class": "sub"},
-            f"Merge it on this board on the Mac or through the tailnet door, or type /lem land {t.slug} in the task’s session.",
+            (
+                "Merge it on this board on the Mac or through the tailnet door, or "
+                f"type /lem land {t.slug} in the task’s session."
+            ),
         )
     return [
         confirm_card(
@@ -3679,13 +3894,14 @@ def confirm_card(
     card_id: str = "confirm",
     wrap: str | None = None,
 ) -> Markup:
-    """The card of an act's step in its three parts: the head, the body with what the owner reads, and the
-    foot with the button and the way back, the last two in a box of class WRAP where the card has one
-    (the approval's). Outside the overlay the three parts take no box of their own (board.css), so the
-    card shows as one column. A card that has its button (SHEET) gets the `sheet` controller and the key of
-    its read, the digest of the body as rendered here: on a phone's screen the card is then an overlay
-    whose button comes on when the body was scrolled to its end, and any change of what the body says is
-    another key, which the owner reads again from its top."""
+    """The card of an act's step in its three parts: the head, the body with what the
+    owner reads, and the foot with the button and the way back, the last two in a box of
+    class WRAP where the card has one (the approval's). Outside the overlay the three
+    parts take no box of their own (board.css), so the card shows as one column. A card
+    that has its button (SHEET) gets the `sheet` controller and the key of its read, the
+    digest of the body as rendered here: on a phone's screen the card is then an overlay
+    whose button comes on when the body was scrolled to its end, and any change of what
+    the body says is another key, which the owner reads again from its top."""
     text = h(
         "div",
         {"class": "cf-body", "data-sheet-target": "body" if sheet else None},
@@ -3722,14 +3938,17 @@ def confirm_card(
 
 
 def park_step(ctx: P.Ctx, t: bm.Task) -> list:
-    """The park of a task whose breaker waits for the owner: what stopped it, what a park keeps, a field
-    for his one line of why, and one button."""
+    """The park of a task whose breaker waits for the owner: what stopped it, what a
+    park keeps, a field for his one line of why, and one button."""
     b = t.breaker
     if b is None or "park" not in bm.acts_of(t, ctx.model.seen):
         return not_now(
             ctx,
             t,
-            f"Nothing to park: no breaker of this task waits for you. The task is {t.info['label'].lower()}.",
+            (
+                "Nothing to park: no breaker of this task waits for you. "
+                f"The task is {t.info['label'].lower()}."
+            ),
         )
     # permanent, as the new task's field is: a refresh keeps the line he is typing
     field_ = h(
@@ -3768,7 +3987,10 @@ def park_step(ctx: P.Ctx, t: bm.Task) -> list:
         acts = h(
             "p",
             {"class": "sub"},
-            f"Park it on this board on the Mac or through the tailnet door, or type /lem park {t.slug} in any session.",
+            (
+                "Park it on this board on the Mac or through the tailnet door, or type "
+                f"/lem park {t.slug} in any session."
+            ),
         )
     body = [
         h(
@@ -3781,8 +4003,11 @@ def park_step(ctx: P.Ctx, t: bm.Task) -> list:
         h(
             "p",
             {"class": "sub"},
-            f"A parked task keeps its worktree, its branch and its files. Nothing of it waits for you, and nobody works on it, "
-            f"until /lem resume {t.slug} in any session brings it back.",
+            (
+                "A parked task keeps its worktree, its branch and its files. "
+                "Nothing of it waits for you, and nobody works on it, until /lem "
+                f"resume {t.slug} in any session brings it back."
+            ),
         ),
     ]
     return [
@@ -3798,8 +4023,9 @@ def park_step(ctx: P.Ctx, t: bm.Task) -> list:
 
 
 def panel(ctx: P.Ctx) -> Markup:
-    """The panel of the task the address names, with the tab it names; NotFound for a task the log does
-    not hold, a tab that is none, or an artifact the task does not have."""
+    """The panel of the task the address names, with the tab it names; NotFound for a
+    task the log does not hold, a tab that is none, or an artifact the task does
+    not have."""
     m = ctx.model
     slug = ctx.task
     ctx.scope = "task"
@@ -3814,7 +4040,11 @@ def panel(ctx: P.Ctx) -> Markup:
             if early is None:
                 raise NotFound(f"No task “{slug}” is on record in this repository.")
             n = len(early.events)
-            said = f"No state was written yet for the task “{slug}”: its {bm.plural(n, 'event')} {'is' if n == 1 else 'are'} on record, and the rest comes with its first state."
+            said = (
+                f"No state was written yet for the task “{slug}”: "
+                f"its {bm.plural(n, 'event')} {'is' if n == 1 else 'are'} on record, "
+                "and the rest comes with its first state."
+            )
             known = cast("str", slug)  # the log holds a task under it
             inner = [
                 head(ctx, None, bm.title_of(known), said),
@@ -3835,7 +4065,8 @@ def panel(ctx: P.Ctx) -> Markup:
                     "merge": merge_step,
                     "park": park_step,
                 }[ctx.tab](ctx, t)
-                # the criteria tab places the act's note itself: in the approval card while that holds the button
+                # the criteria tab places the act's note itself: in the approval card
+                # while that holds the button
                 tab_body = h(
                     "div",
                     {"class": "tabbody", "id": f"tb-{ctx.tab}"},
@@ -3843,7 +4074,8 @@ def panel(ctx: P.Ctx) -> Markup:
                     parts,
                 )
             inner = [head(ctx, t, t.title), tab_nav(ctx, t), tab_body]
-        # an HTML page opened among the artifacts takes the panel's height: the header folds as on a phone
+        # an HTML page opened among the artifacts takes the panel's height: the header
+        # folds as on a phone
         page_open = (
             t is not None
             and ctx.tab == "artifacts"
@@ -3870,8 +4102,13 @@ def panel(ctx: P.Ctx) -> Markup:
                     "aria-orientation": "vertical",
                     "aria-label": "The panel's width",
                     "data-controller": "splitter",
-                    "data-action": "pointerdown->splitter#start dblclick->splitter#reset",
-                    "title": "Drag to make the panel wider or narrower · double-click for its usual width",
+                    "data-action": (
+                        "pointerdown->splitter#start dblclick->splitter#reset"
+                    ),
+                    "title": (
+                        "Drag to make the panel wider or narrower · "
+                        "double-click for its usual width"
+                    ),
                 },
             ),
             inner,
@@ -3911,15 +4148,17 @@ VIEW_PAGES = {
 
 
 def task_page(ctx: P.Ctx) -> tuple[int, Markup]:
-    """The view under the panel with the task's panel open, and the status of the answer: 404 when the
-    address names no task, tab or artifact, in the board's layout with the panel that says so."""
+    """The view under the panel with the task's panel open, and the status of the
+    answer: 404 when the address names no task, tab or artifact, in the board's layout
+    with the panel that says so."""
     status = 200
     try:
         ctx.panel = panel(ctx)
     except NotFound as missing:
         status, ctx.panel = 404, missing_panel(ctx, str(missing))
     if ctx.native:
-        # the Hotwire Native app shows a task as a page of its own: the panel across the stage
+        # the Hotwire Native app shows a task as a page of its own: the panel across
+        # the stage
         return status, P.layout(
             ctx, "Tasks", "", h("div", {"class": "view"}), stage_cls="native"
         )
@@ -3927,8 +4166,9 @@ def task_page(ctx: P.Ctx) -> tuple[int, Markup]:
 
 
 def frame_page(ctx: P.Ctx) -> tuple[int, Markup]:
-    """The panel alone, in its frame, for a request of the frame (`Turbo-Frame: task`), with the head
-    of every page so that Turbo finds the same assets; an address of a view gives an empty frame."""
+    """The panel alone, in its frame, for a request of the frame (`Turbo-Frame: task`),
+    with the head of every page so that Turbo finds the same assets; an address of a
+    view gives an empty frame."""
     status = 200
     if ctx.task:
         try:
@@ -3955,8 +4195,9 @@ def told_of(
     onto: str,
     backlog: str | None,
 ) -> dict:
-    """What "What we are building" reads of a task: the outcome of its task.md, and the backlog items its
-    branch filed against `onto` (board.py's `outcome` and `filed`; None when git cannot tell)."""
+    """What "What we are building" reads of a task: the outcome of its task.md, and the
+    backlog items its branch filed against `onto` (board.py's `outcome` and `filed`;
+    None when git cannot tell)."""
     request = state / "tasks" / slug / "task.md"
     try:
         text = (
@@ -3983,9 +4224,10 @@ def artifact_files(state: Path, slug: str, plan: tuple[Path, str] | None) -> lis
 
 
 def folder_of(state: Path, slug: str) -> dict | None:
-    """What the task's folder holds beside the model: the files of its small record that are there, in the
-    order of `lem_artifacts.SMALL_RECORD`, and the paths outside it (`lem_artifacts.outside_record`); None
-    when the folder is not there or does not list, so that no page says what a folder it did not read holds."""
+    """What the task's folder holds beside the model: the files of its small record that
+    are there, in the order of `lem_artifacts.SMALL_RECORD`, and the paths outside it
+    (`lem_artifacts.outside_record`); None when the folder is not there or does not
+    list, so that no page says what a folder it did not read holds."""
     directory = state / "tasks" / slug
     try:
         names = {entry.name for entry in directory.iterdir()}
@@ -3998,7 +4240,8 @@ def folder_of(state: Path, slug: str) -> dict | None:
 
 
 def artifact_map(state: Path, slug: str, files: list[dict]) -> dict:
-    """The task's files on the map of every task (`lem_artifacts.arrange`), with the pictures each document shows."""
+    """The task's files on the map of every task (`lem_artifacts.arrange`), with the
+    pictures each document shows."""
     return lem_artifacts.arrange(
         files, lem_artifacts.pictures_named(state / "tasks" / slug, files)
     )

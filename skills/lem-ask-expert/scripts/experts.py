@@ -1,17 +1,20 @@
 """The experts' brief of one question, and the record of their answers.
 
-Two experts of two model families answer one question from the same brief, at the same moment,
-read-only, or one expert alone on a machine with one of their agents. Who they are is the
-settings' `seats.experts`, one or two seats `agent/model:effort` that `lem project show` prints,
-each that is `here` (its agent is on this machine); `--seat`, once for each expert, names them for
-one call instead. An expert's name is the last word of its model that holds a letter (`opus`,
-`sol`), or its place (`fable` for the first seat, `astra` for the second) when a `--seat` names no
-model: a seat of the settings is written whole. Its answer file carries the name. This script writes the brief and
-reads each answer back; starting the agents is the harness's (`ask-experts`).
+Two experts of two model families answer one question from the same brief, at the same
+moment, read-only, or one expert alone on a machine with one of their agents. Who they
+are is the settings' `seats.experts`, one or two seats `agent/model:effort` that
+`lem project show` prints, each that is `here` (its agent is on this machine); `--seat`,
+once for each expert, names them for one call instead. An expert's name is the last word
+of its model that holds a letter (`opus`, `sol`), or its place (`fable` for the first
+seat, `astra` for the second) when a `--seat` names no model: a seat of the settings is
+written whole. Its answer file carries the name. This script writes the brief and reads
+each answer back; starting the agents is the harness's (`ask-experts`).
 
-A question in words, which the owner asks (`/lem ask-expert ...`) and which a lead's ladder asks at
-its last level (`stages/ladder.md`, the experts), has a folder of its own in Lem's state folder, `experts/DATE-TIME-WORDS/`, with the brief, each expert's answer and `record.json`. The folder goes
-`state.keep_days` days after its last write (`lem project prune`):
+A question in words, which the owner asks (`/lem ask-expert ...`) and which a lead's
+ladder asks at its last level (`stages/ladder.md`, the experts), has a folder of its own
+in Lem's state folder, `experts/DATE-TIME-WORDS/`, with the brief, each expert's answer
+and `record.json`. The folder goes `state.keep_days` days after its last
+write (`lem project prune`):
 
     lem experts brief --question TEXT [--context TEXT] [--option TEXT ...] [--file PATH ...]
                      make the folder and write `brief.md` in it: the question, what is being
@@ -26,14 +29,15 @@ its last level (`stages/ladder.md`, the experts), has a folder of its own in Lem
                      record: each answer, whether all who answered share a pick (`agree`), and who
                      is still to answer (`waiting`)
 
-Who the code is for is a part of each brief: the project's profile by its path, and each of
-its personas by its file's path, its first heading and its "Who they are" (WHO_WORDS words at most),
-from what `lem cast` prints, with the sentence that an expert weighs an option by what it does to
-these people and still decides as an engineer. A project with no personas has a setup that is not
-finished, and its brief is refused with what `lem cast` says.
+Who the code is for is a part of each brief: the project's profile by its path, and each
+of its personas by its file's path, its first heading and its "Who they are" (WHO_WORDS
+words at most), from what `lem cast` prints, with the sentence that an expert weighs an
+option by what it does to these people and still decides as an engineer. A project with
+no personas has a setup that is not finished, and its brief is refused with what
+`lem cast` says.
 
-An answer is one of these forms, and nothing else; the last one only for a question with no
-options:
+An answer is one of these forms, and nothing else; the last one only for a question with
+no options:
 
     pick: THE OPTION, WORD FOR WORD
     why: two to four sentences.
@@ -49,7 +53,9 @@ import sys
 
 if sys.version_info < (3, 11):
     sys.exit(
-        f"experts.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it"
+        "experts.py: Lem needs Python 3.11 or newer, and this python3 is "
+        f"{sys.version.split()[0]}; put a newer one first on PATH, "
+        "or run this file with it"
     )
 
 import argparse
@@ -66,25 +72,28 @@ from pathlib import Path
 SCRIPTS = Path(__file__).resolve().parents[2] / "lem" / "scripts"
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
-# the names of the two seats of the settings' seats.experts, the first and the second, whatever model
-# sits there (project.py's EXPERT_PLACES): an expert whose `--seat` names no model is named by its place
+# the names of the two seats of the settings' seats.experts, the first and the second,
+# whatever model sits there (project.py's EXPERT_PLACES): an expert whose `--seat` names
+# no model is named by its place
 PLACES = ("fable", "astra")
 
 # A seat for the error messages, in the form `--seat` takes.
 EXAMPLE_SEAT = "codex/gpt-6.2-astra:high"
 # The agents whose way to start an expert the harness gives.
 AGENTS = ("claude", "codex")
-# A seat as `--seat` takes it: the model and the effort may be left out, and are then that agent's
-# own default.
+# A seat as `--seat` takes it: the model and the effort may be left out, and are then
+# that agent's own default.
 SEAT = re.compile(
     r"\A(?P<agent>[a-z]+)(?:/(?P<model>[A-Za-z0-9][A-Za-z0-9._-]*))?(?::(?P<effort>[a-z]+))?\Z"
 )
 FOLDER = re.compile(r"\A\d{4}-\d{2}-\d{2}-\d{6}-[a-z0-9-]+\Z")
-# The persona panel's script, beside this skill in the same plugin: the one reader of the cast and
-# the profile, which a brief names so that an expert knows who the code is for.
+# The persona panel's script, beside this skill in the same plugin: the one reader of
+# the cast and the profile, which a brief names so that an expert knows who the code
+# is for.
 CAST = Path(__file__).resolve().parents[2] / "lem-panel" / "scripts" / "cast.py"
-# How many words of each persona's "Who they are" a brief carries. A guess, not a measurement: at
-# about 200 words a minute, the part of three or four personas reads in a minute.
+# How many words of each persona's "Who they are" a brief carries. A guess, not a
+# measurement: at about 200 words a minute, the part of three or four personas reads in
+# a minute.
 WHO_WORDS = 60
 WHO_HEADING = re.compile(r"\A#{2,6}\s+who they are\s*\Z", re.IGNORECASE)
 
@@ -104,7 +113,8 @@ def script(name: str, repo: Path, *args: str) -> str:
         raise ExpertError(
             ran.stderr.strip().removeprefix(f"{name}: ") or f"{name} {args[0]} failed"
         )
-    # a line project.py writes on stderr when it succeeds (the settings read from the base branch) is this script's to say too
+    # a line project.py writes on stderr when it succeeds (the settings read from the
+    # base branch) is this script's to say too
     if ran.stderr:
         sys.stderr.write(ran.stderr)
     return ran.stdout
@@ -115,7 +125,8 @@ def state_folder(repo: Path) -> Path:
 
 
 def name_of(model: str) -> str:
-    """An expert's name: the last word of its model that holds a letter (`gpt-6-astra` is astra)."""
+    """An expert's name: the last word of its model that holds a letter (`gpt-6-astra`
+    is astra)."""
     words = [
         word for word in re.split(r"[-_.]", model.lower()) if re.search(r"[a-z]", word)
     ]
@@ -123,24 +134,28 @@ def name_of(model: str) -> str:
 
 
 def parse_seat(given: str, where: str, place: str | None) -> dict:
-    """One `--seat`, as `lem project show` gives a seat of the settings: its parts, each None when
-    the seat leaves it out, and its place among the seats."""
+    """One `--seat`, as `lem project show` gives a seat of the settings: its parts, each
+    None when the seat leaves it out, and its place among the seats."""
     found = SEAT.match(given)
     if found is None:
         raise ExpertError(
-            f"{where} {given!r} is no seat: write it as agent/model:effort, for example {EXAMPLE_SEAT}"
+            f"{where} {given!r} is no seat: write it as agent/model:effort, "
+            f"for example {EXAMPLE_SEAT}"
         )
     if found["agent"] not in AGENTS:
         raise ExpertError(
-            f"{where} {given!r} names the agent {found['agent']!r}: an expert is started by {' or '.join(AGENTS)}, the agents the harness knows"
+            f"{where} {given!r} names the agent {found['agent']!r}: "
+            f"an expert is started by {' or '.join(AGENTS)}, "
+            "the agents the harness knows"
         )
     return {"seat": found.group(0), **found.groupdict(), "place": place}
 
 
 def seats(repo: Path, given: list[str]) -> list[dict]:
-    """The experts, each with its seat's parts and its place: `--seat` when given, in the order
-    given, else the settings' `seats.experts` as `lem project show` resolves them (the project's,
-    this machine's own, or Lem's default). Each is named by its model, or by its place."""
+    """The experts, each with its seat's parts and its place: `--seat` when given, in
+    the order given, else the settings' `seats.experts` as `lem project show` resolves
+    them (the project's, this machine's own, or Lem's default). Each is named by its
+    model, or by its place."""
     if given:
         experts = [
             parse_seat(seat, "--seat", PLACES[number] if number < len(PLACES) else None)
@@ -156,7 +171,8 @@ def seats(repo: Path, given: list[str]) -> list[dict]:
         ]
         if not named:
             raise ExpertError(
-                "no expert of the settings' seats.experts can answer on this machine: name a seat of an agent it has, or give --seat"
+                "no expert of the settings' seats.experts can answer on this machine: "
+                "name a seat of an agent it has, or give --seat"
             )
         experts = [
             {
@@ -175,7 +191,9 @@ def seats(repo: Path, given: list[str]) -> list[dict]:
     twice = sorted({name for name in names if names.count(name) > 1})
     if twice:
         raise ExpertError(
-            f"two experts are named {', '.join(twice)} ({', '.join(e['seat'] for e in experts)}): each answer file carries the name, so give models whose last words differ"
+            f"two experts are named {', '.join(twice)} "
+            f"({', '.join(e['seat'] for e in experts)}): each answer file carries the "
+            "name, so give models whose last words differ"
         )
     return experts
 
@@ -189,7 +207,8 @@ def checkout(repo: Path) -> Path:
     )
     if ran.returncode != 0:
         raise ExpertError(
-            f"{repo} is not inside a git checkout: the experts read a checkout, so give --repo one"
+            f"{repo} is not inside a git checkout: the experts read a checkout, "
+            "so give --repo one"
         )
     return Path(ran.stdout.strip()).resolve()
 
@@ -200,16 +219,18 @@ def named_files(place: Path, names: list[str], where: str) -> list[Path]:
         path = Path(name) if Path(name).is_absolute() else place / name
         if not path.exists():
             raise ExpertError(
-                f"--file {name} is not in {where} ({place}): name a file that matters, relative to it"
+                f"--file {name} is not in {where} ({place}): name a file that matters, "
+                "relative to it"
             )
         files.append(path.resolve())
     return files
 
 
 def who_they_are(text: str, stem: str) -> tuple[str, str]:
-    """A persona's first heading and its "Who they are" part, as one line of WHO_WORDS words at most,
-    cut at the end of a sentence. A file with no such part gives its first paragraph after the
-    heading that is not a quote or a comment; a file with no heading is named by its stem."""
+    """A persona's first heading and its "Who they are" part, as one line of WHO_WORDS
+    words at most, cut at the end of a sentence. A file with no such part gives its
+    first paragraph after the heading that is not a quote or a comment; a file with no
+    heading is named by its stem."""
     text = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
     lines = text.splitlines()
     heading = next((line[2:].strip() for line in lines if line.startswith("# ")), stem)
@@ -244,13 +265,19 @@ def who_they_are(text: str, stem: str) -> tuple[str, str]:
 
 
 def audience_text(found: dict) -> str:
-    """The part of a brief that says who the code is for, from what `lem cast` printed: the
-    profile's path and each persona's file, first heading and "Who they are"."""
+    """The part of a brief that says who the code is for, from what `lem cast` printed:
+    the profile's path and each persona's file, first heading and "Who they are"."""
     profile = found.get("profile")
     read_first = (
-        f"The project's profile, `{profile['path']}`, says what the product is and who uses it: read it first."
+        (
+            f"The project's profile, `{profile['path']}`, says what the product is and "
+            "who uses it: read it first."
+        )
         if profile
-        else "The project has no profile, so the people below are all it says about who uses it."
+        else (
+            "The project has no profile, so the people below are all it "
+            "says about who uses it."
+        )
     )
     people = []
     for persona in found["personas"]:
@@ -259,7 +286,8 @@ def audience_text(found: dict) -> str:
             persona["stem"],
         )
         people.append(
-            f"- **{heading}** (`{persona['path']}`): {who or 'the file says who they are.'}"
+            f"- **{heading}** (`{persona['path']}`): "
+            f"{who or 'the file says who they are.'}"
         )
     listed = "\n".join(people)
     return f"""## Who the code is for
@@ -274,8 +302,9 @@ context, and you answer as none of them.
 
 
 def audience(repo: Path) -> str:
-    """Who the code is for, from the project's cast and profile, which the persona panel's script
-    finds. A project with no personas has a setup that is not finished, and its brief is refused."""
+    """Who the code is for, from the project's cast and profile, which the persona
+    panel's script finds. A project with no personas has a setup that is not finished,
+    and its brief is refused."""
     ran = subprocess.run(
         [sys.executable, "-B", str(CAST), "--repo", str(repo)],
         capture_output=True,
@@ -285,7 +314,8 @@ def audience(repo: Path) -> str:
     if ran.returncode != 0:
         said = ran.stderr.strip().removeprefix("cast: ") or "lem cast failed"
         raise ExpertError(
-            f"the brief says who the code is for, from the project's personas, and `lem cast` says: {said}"
+            "the brief says who the code is for, from the project's personas, and "
+            f"`lem cast` says: {said}"
         )
     try:
         return audience_text(json.loads(ran.stdout))
@@ -308,7 +338,10 @@ def answer_form(options: list[str], pick_from: str) -> str:
 
 # The forms of an answer, with any indent an expert copied from the brief
 ANSWER = re.compile(
-    r"\A(?:pick:[ \t]*(?P<pick>\S[^\n]*?)|(?P<none>none fits))[ \t]*\n\s*why:[ \t]*(?P<why>\S.*)\Z",
+    (
+        r"\A(?:pick:[ \t]*(?P<pick>\S[^\n]*?)|(?P<none>none "
+        r"fits))[ \t]*\n\s*why:[ \t]*(?P<why>\S.*)\Z"
+    ),
     re.DOTALL | re.IGNORECASE,
 )
 FREE = re.compile(
@@ -320,13 +353,15 @@ FREE = re.compile(
 def read_answer(answer: Path, expert: str, *, options: bool, one_left: str) -> dict:
     if not answer.is_file():
         raise ExpertError(
-            f"{answer} is not there: {expert}'s last message goes into it word for word before it is recorded"
+            f"{answer} is not there: {expert}'s last message goes into it word for "
+            "word before it is recorded"
         )
     try:
         written = answer.read_text(encoding="utf-8")
     except UnicodeDecodeError as error:
         raise ExpertError(
-            f"{answer} is not UTF-8 text (byte {error.start} does not read): write {expert}'s last message into it as it came"
+            f"{answer} is not UTF-8 text (byte {error.start} does not read): "
+            f"write {expert}'s last message into it as it came"
         ) from error
     found = (ANSWER if options else FREE).match(written.strip())
     if found is None:
@@ -337,8 +372,8 @@ def read_answer(answer: Path, expert: str, *, options: bool, one_left: str) -> d
         )
         raise ExpertError(
             f"{answer} is not an answer in the brief's form ({form}). "
-            f"Ask {expert} once more with the same brief. When that answer is refused too, record nothing for {expert} and say so "
-            f"in one line: {one_left}",
+            f"Ask {expert} once more with the same brief. When that answer is refused "
+            f"too, record nothing for {expert} and say so in one line: {one_left}",
         )
     why = " ".join(found["why"].split())
     if not options:
@@ -401,9 +436,15 @@ def free_brief_text(
         offered = "\nNo options were given: answer the question itself.\n"
         forms = "this form"
     asks = (
-        f"The owner asks {count} experts of different model families one question, and each answers it from\nthis brief on their own."
+        (
+            f"The owner asks {count} experts of different model families one question, "
+            "and each answers it from\nthis brief on their own."
+        )
         if count > 1
-        else "The owner asks one expert this question, and you answer it from this brief."
+        else (
+            "The owner asks one expert this question, "
+            "and you answer it from this brief."
+        )
     )
     beside = " beside the others'" if count > 1 else ""
     return f"""# A question for the experts
@@ -451,7 +492,10 @@ def summary(folder: Path, record: dict) -> dict:
         expert["name"] for expert in record["experts"] if expert["name"] not in answers
     ]
     if waiting:
-        then = f"wait for {' and '.join(waiting)}; as each ends, `lem experts record --folder {folder.name} --expert NAME`"
+        then = (
+            f"wait for {' and '.join(waiting)}; as each ends, `lem experts record "
+            f"--folder {folder.name} --expert NAME`"
+        )
     elif record["options"]:
         then = (
             "show the owner the answers side by side, "
@@ -459,7 +503,10 @@ def summary(folder: Path, record: dict) -> dict:
             + ", and one line of what you would do with them"
         )
     else:
-        then = "show the owner the answers side by side, where they agree and where they split, and one line of what you would do with them"
+        then = (
+            "show the owner the answers side by side, where they agree and where they "
+            "split, and one line of what you would do with them"
+        )
     return {
         "folder": folder.name,
         "dir": str(folder),
@@ -520,20 +567,26 @@ def cmd_free_brief(
         "experts": record["experts"],
         "answers": {expert["name"]: expert["answer"] for expert in record["experts"]},
         "ask": names_,
-        "next": f"start {' and '.join(names_)} at once, in the background, with this brief (the harness's `ask-experts`); "
-        f"as each ends, `lem experts record --folder {folder.name} --expert NAME`",
+        "next": (
+            f"start {' and '.join(names_)} at once, in the background, with this brief "
+            "(the harness's `ask-experts`); as each ends, `lem experts record --folder "
+            f"{folder.name} --expert NAME`"
+        ),
     }
 
 
 def cmd_free_record(repo: Path, name: str, expert: str) -> dict:
     if not FOLDER.match(name):
         raise ExpertError(
-            f"--folder {name!r} is no question's folder: give the name `lem experts brief --question` printed"
+            f"--folder {name!r} is no question's folder: "
+            "give the name `lem experts brief --question` printed"
         )
     folder = questions(repo) / name
     if not (folder / "record.json").is_file():
         raise ExpertError(
-            f"no question {name} is in {folder.parent}: give the name `lem experts brief --question` printed; a folder goes state.keep_days days after its last write"
+            f"no question {name} is in {folder.parent}: "
+            "give the name `lem experts brief --question` printed; "
+            "a folder goes state.keep_days days after its last write"
         )
     with (folder / ".lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
@@ -541,11 +594,13 @@ def cmd_free_record(repo: Path, name: str, expert: str) -> dict:
         names = [e["name"] for e in record["experts"]]
         if expert not in names:
             raise ExpertError(
-                f"--expert {expert} is none of this question's experts ({', '.join(names)})"
+                f"--expert {expert} is none of this question's experts "
+                f"({', '.join(names)})"
             )
         if expert in record["answers"]:
             raise ExpertError(
-                f"{expert} answered question {name} already: its answer is in {folder / 'record.json'}"
+                f"{expert} answered question {name} already: "
+                f"its answer is in {folder / 'record.json'}"
             )
         got = read_answer(
             folder / f"{expert}.md",
@@ -555,7 +610,8 @@ def cmd_free_record(repo: Path, name: str, expert: str) -> dict:
         )
         if "pick" in got and got["pick"] not in record["options"]:
             raise ExpertError(
-                f"the pick of an expert is one of the options, word for word: {'; '.join(record['options'])}; {got['pick']!r} is none of them"
+                "the pick of an expert is one of the options, word for word: "
+                f"{'; '.join(record['options'])}; {got['pick']!r} is none of them"
             )
         record["answers"][expert] = {
             **got,
@@ -612,7 +668,9 @@ def main() -> None:
             action="append",
             default=[],
             metavar="AGENT/MODEL:EFFORT",
-            help="an expert, once for each, in the place of the settings' seats.experts",
+            help=(
+                "an expert, once for each, in the place of the settings' seats.experts"
+            ),
         )
     args = parser.parse_args()
     for arg in sys.argv[1:]:
@@ -620,7 +678,8 @@ def main() -> None:
             arg.encode("utf-8")
         except UnicodeEncodeError:
             sys.exit(
-                f"experts.py: the argument {os.fsencode(arg)!r} is not UTF-8 text; give it in UTF-8"
+                f"experts.py: the argument {os.fsencode(arg)!r} is not UTF-8 text; "
+                "give it in UTF-8"
             )
     repo = Path(args.repo)
     try:
@@ -631,7 +690,8 @@ def main() -> None:
         else:
             if args.seat:
                 raise ExpertError(
-                    "--seat belongs to brief: a question's experts are the ones its brief named"
+                    "--seat belongs to brief: a question's experts are "
+                    "the ones its brief named"
                 )
             result = cmd_free_record(repo, args.folder, args.expert)
     except ExpertError as error:

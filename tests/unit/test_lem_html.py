@@ -1,5 +1,5 @@
-"""lem_html.py's one rule: text reaches a served page only escaped, in an element's text and in an
-attribute's value, and only `Markup` passes as it is.
+"""lem_html.py's one rule: text reaches a served page only escaped, in an element's text
+and in an attribute's value, and only `Markup` passes as it is.
 
     python3 -B -m unittest discover -s tests/unit
 """

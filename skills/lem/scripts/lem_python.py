@@ -1,22 +1,25 @@
-"""The Python that runs Lem's scripts: 3.11 or newer, found by itself when the first `python3` is older.
+"""The Python that runs Lem's scripts: 3.11 or newer, found by itself when the first
+`python3` is older.
 
-Lem's scripts need Python 3.11 (they read the settings with `tomllib`), and a Mac whose developer
-does not work in Python has only the system's `python3`, 3.9. So whatever starts a script of Lem
-asks `find()` for a newer one when the `python3` it runs under is older, and starts the script with
-that: `bin/lem` (and through it `lem-ask` and `lem-jev`) and the plugin's two hooks, which
-`hooks/hooks.json` starts as
+Lem's scripts need Python 3.11 (they read the settings with `tomllib`), and a Mac whose
+developer does not work in Python has only the system's `python3`, 3.9. So whatever
+starts a script of Lem asks `find()` for a newer one when the `python3` it runs under is
+older, and starts the script with that: `bin/lem` (and through it `lem-ask` and
+`lem-jev`) and the plugin's two hooks, which `hooks/hooks.json` starts as
 
     python3 lem_python.py SCRIPT ARGS...
 
-Under a Python of 3.11 or newer the hook's script runs in this process, so a hook costs no second
-start of Python; under an older one this process becomes the script under the newer Python. When
-the machine has none, the hook does nothing and prints nothing, since Claude Code takes a hook's
-output as context and a hook that fails must not fail the session: `lem doctor`'s row `python3`
-says so, with the fix, and every `lem` command says it in one line (`missing()`).
+Under a Python of 3.11 or newer the hook's script runs in this process, so a hook costs
+no second start of Python; under an older one this process becomes the script under the
+newer Python. When the machine has none, the hook does nothing and prints nothing, since
+Claude Code takes a hook's output as context and a hook that fails must not fail the
+session: `lem doctor`'s row `python3` says so, with the fix, and every `lem` command
+says it in one line (`missing()`).
 """
 
-# This file loads under an old python3 too (the system's 3.9 on a Mac), since it is what finds the
-# newer one: so an annotation that 3.9 cannot evaluate is a string, and it imports nothing of Lem's.
+# This file loads under an old python3 too (the system's 3.9 on a Mac), since it is what
+# finds the newer one: so an annotation that 3.9 cannot evaluate is a string, and it
+# imports nothing of Lem's.
 
 import os
 import re
@@ -24,14 +27,15 @@ import subprocess
 import sys
 
 FLOOR: "tuple[int, int]" = (3, 11)
-# Where Homebrew links its newest Python, on Apple silicon and on Intel: looked at after PATH, for a
-# PATH (a hook's, a keymap's) that leaves Homebrew's folder out.
+# Where Homebrew links its newest Python, on Apple silicon and on Intel: looked at after
+# PATH, for a PATH (a hook's, a keymap's) that leaves Homebrew's folder out.
 FALLBACKS = ("/opt/homebrew/bin/python3", "/usr/local/bin/python3")
 FIX = "`brew install python`, or `uv python install` where uv is the tool"
-# uv, for a developer whose Pythons are uv's own, which stand on no PATH: asked last, and only for a Python
-# that is already there (`--no-python-downloads`), since a command of Lem downloads nothing by itself.
-# `--no-project`, so that the folder's own `.python-version` does not narrow the answer. After PATH, where
-# uv's installer and Homebrew put it.
+# uv, for a developer whose Pythons are uv's own, which stand on no PATH: asked last,
+# and only for a Python that is already there (`--no-python-downloads`), since a command
+# of Lem downloads nothing by itself. `--no-project`, so that the folder's own
+# `.python-version` does not narrow the answer. After PATH, where uv's installer and
+# Homebrew put it.
 UV_FALLBACKS = (
     os.path.expanduser("~/.local/bin/uv"),
     "/opt/homebrew/bin/uv",
@@ -44,9 +48,9 @@ UV_ASKS = (
     "--no-python-downloads",
     f">={FLOOR[0]}.{FLOOR[1]}",
 )
-# `python3.N`, the name every installer (python.org, Homebrew, uv, mise) gives each minor version. No
-# list of N: the folders of PATH are read for every such name, so a version newer than this file is
-# found too.
+# `python3.N`, the name every installer (python.org, Homebrew, uv, mise) gives each
+# minor version. No list of N: the folders of PATH are read for every such name, so a
+# version newer than this file is found too.
 NAMED = re.compile(r"python3\.(\d+)")
 
 
@@ -55,7 +59,8 @@ def runnable(path: str) -> bool:
 
 
 def version(path: str) -> "tuple[int, int] | None":
-    """The (major, minor) of the Python at PATH: from its name when the name has it, else asked of it."""
+    """The (major, minor) of the Python at PATH: from its name when the name has it,
+    else asked of it."""
     named = NAMED.fullmatch(os.path.basename(path))
     if named:
         return 3, int(named.group(1))
@@ -81,7 +86,8 @@ def version(path: str) -> "tuple[int, int] | None":
 
 
 def from_uv(folders: "list[str]", fallbacks: "tuple[str, ...]") -> "str | None":
-    """The Python of FLOOR or newer that uv knows, or None: uv from FOLDERS, else the first of FALLBACKS."""
+    """The Python of FLOOR or newer that uv knows, or None: uv from FOLDERS, else the
+    first of FALLBACKS."""
     uv = next(
         (
             path
@@ -119,11 +125,12 @@ def find(
     fallbacks: "tuple[str, ...]" = FALLBACKS,
     uv: "tuple[str, ...]" = UV_FALLBACKS,
 ) -> "str | None":
-    """The path of a Python of FLOOR or newer, or None. In this order: `python3` on the search path
-    (PATH when SEARCH is None) when it is new enough, which a caller that runs under that python3
-    skips with python3=False; the newest `python3.N` of FLOOR or newer on the search path, the first
-    of its name in the path's order; the first of FALLBACKS that is new enough; the one uv knows
-    (`from_uv`), with uv from the search path or from UV."""
+    """The path of a Python of FLOOR or newer, or None. In this order: `python3` on the
+    search path (PATH when SEARCH is None) when it is new enough, which a caller that
+    runs under that python3 skips with python3=False; the newest `python3.N` of FLOOR or
+    newer on the search path, the first of its name in the path's order; the first of
+    FALLBACKS that is new enough; the one uv knows (`from_uv`), with uv from the search
+    path or from UV."""
     folders = [
         folder
         for folder in (os.environ.get("PATH", "") if search is None else search).split(
@@ -174,13 +181,15 @@ def find(
 def missing(command: str) -> str:
     """The one line a command says when the machine has no Python of FLOOR or newer."""
     return (
-        f"{command}: Lem needs Python 3.11 or newer, and python3 is {sys.version.split()[0]}, with no python3.N of 3.11 "
-        f"or newer on PATH and none from Homebrew or uv; run {FIX}"
+        f"{command}: Lem needs Python 3.11 or newer, and python3 is "
+        f"{sys.version.split()[0]}, with no python3.N of 3.11 or newer on PATH and "
+        f"none from Homebrew or uv; run {FIX}"
     )
 
 
 def hook(argv: "list[str]") -> None:
-    """Start the script ARGV[0] with the rest of ARGV, as a hook: see the module's text."""
+    """Start the script ARGV[0] with the rest of ARGV, as a hook: see the
+    module's text."""
     if not argv:
         return
     script, args = os.path.abspath(argv[0]), argv[1:]

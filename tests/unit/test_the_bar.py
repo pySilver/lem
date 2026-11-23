@@ -1,12 +1,13 @@
 """The bar of a backlog item, written in one place.
 
-Rule 6 of agents/lem-builder.md holds the bar: the sentence that says which defect outside a task
-is worth an item, its limit (Lem's agents only), what makes a defect cheap, and the three outcomes
-of a defect ("Fixed on the way", "Seen, not filed", an item under "Filed in the backlog"). The
-polish pass, the fast track's builder, the review and the reviewer of the night's and the retro's
-proposals are each a lem-builder and read that file whole, so every other file of Lem names the
-bar of rule 6 and copies no part of its sentence: a copy would drift from the rule the agents read.
-The briefs and stages that send an agent to judge a defect outside a task, or a proposal, each
+Rule 6 of agents/lem-builder.md holds the bar: the sentence that says which defect
+outside a task is worth an item, its limit (Lem's agents only), what makes a defect
+cheap, and the three outcomes of a defect ("Fixed on the way", "Seen, not filed", an
+item under "Filed in the backlog"). The polish pass, the fast track's builder, the
+review and the reviewer of the night's and the retro's proposals are each a lem-builder
+and read that file whole, so every other file of Lem names the bar of rule 6 and copies
+no part of its sentence: a copy would drift from the rule the agents read. The briefs
+and stages that send an agent to judge a defect outside a task, or a proposal, each
 name it.
 
 It reads only the repository's own files, so a missing file is a failed case.
@@ -21,13 +22,15 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
 BUILDER = ROOT / "agents/lem-builder.md"
-# The bar, word for word as criterion 1 of docs/plans/2026-11-22-backlog-filing-judged.md gives it.
+# The bar, word for word as criterion 1 of
+# docs/plans/2026-11-22-backlog-filing-judged.md gives it.
 BAR = (
-    "An item is filed only for a defect over the bar: it confuses a user, breaks a contract, damages data or costs "
-    "money, and it happens today; or the owner said it is worth an item."
+    "An item is filed only for a defect over the bar: it confuses a user, breaks a "
+    "contract, damages data or costs money, and it happens today; "
+    "or the owner said it is worth an item."
 )
-# The parts of the bar a copy would carry, each one rare enough in Lem's prose that it is found
-# nowhere else (none was, 2026-11-22).
+# The parts of the bar a copy would carry, each one rare enough in Lem's prose that it
+# is found nowhere else (none was, 2026-11-22).
 PARTS = (
     "confuses a user",
     "breaks a contract",
@@ -36,7 +39,8 @@ PARTS = (
     "happens today",
     "said it is worth an item",
 )
-# The files that send an agent to judge a defect outside a task, or say what that agent does.
+# The files that send an agent to judge a defect outside a task, or say what that
+# agent does.
 NAMERS = (
     "skills/lem/prompts/landing.md",
     "skills/lem/prompts/small.md",
@@ -52,19 +56,22 @@ NAMERS = (
 
 
 def flat(text: str) -> str:
-    """The text as one line, with its bold marks gone, so that a sentence wrapped over two lines is found."""
+    """The text as one line, with its bold marks gone, so that a sentence wrapped over
+    two lines is found."""
     return " ".join(text.replace("**", "").split())
 
 
 def rule_6() -> str:
-    """The text of rule 6 of the builder's standing rules, from its number to rule 7's."""
+    """The text of rule 6 of the builder's standing rules, from its number to
+    rule 7's."""
     text = flat(BUILDER.read_text())
     start = text.index("6. A defect outside your task")
     return text[start : text.index("7. You ask nobody.", start)]
 
 
 class TheBar(unittest.TestCase):
-    """Rule 6 of agents/lem-builder.md holds the bar, and no other file of Lem's agents copies it."""
+    """Rule 6 of agents/lem-builder.md holds the bar, and no other file of Lem's agents
+    copies it."""
 
     def test_the_bar_is_in_rule_6_and_nowhere_else_in_the_builder(self) -> None:
         self.assertEqual(flat(BUILDER.read_text()).count(BAR), 1)
@@ -73,12 +80,18 @@ class TheBar(unittest.TestCase):
     def test_rule_6_says_its_limit_what_is_cheap_and_the_three_outcomes(self) -> None:
         rule = rule_6()
         for words in (
-            "The bar binds Lem's agents only: an item a person writes, or asks an agent to file, is filed whatever the bar.",
+            (
+                "The bar binds Lem's agents only: an item a person writes, or asks an "
+                "agent to file, is filed whatever the bar."
+            ),
             "A defect is cheap when its fix changes no behavior and needs no new test.",
             "A cheap defect alone never starts a builder or a new run of the checks",
             '"Fixed on the way": the file, the commit and what was wrong',
             '"Seen, not filed": its place and why it is under the bar',
-            "Look in the backlog folder of the base for an open item that names the same defect",
+            (
+                "Look in the backlog folder of the base for an open item "
+                "that names the same defect"
+            ),
             '"Filed in the backlog"',
         ):
             with self.subTest(words=words):

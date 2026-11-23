@@ -1,36 +1,41 @@
-"""Pick a task of the repository in agterm's picker, and go to that task's session, or its board.
+"""Pick a task of the repository in agterm's picker, and go to that task's session, or
+its board.
 
     lem picker [--repo DIR]           open agterm's picker over the tasks; a pick selects the task's
                                       live session, else opens its board
     lem picker [--repo DIR] --list    print the rows the picker shows, as JSON, and open nothing
 
-An agterm keymap command starts it with a chord. The keymap is agterm's file and Lem never writes
-it: the row `task picker` of `lem doctor` gives the line for this machine, which the owner adds.
-The repository is the one the session sits in (`AGT_SESSION_PWD`), so the same chord in another
-session lists that session's tasks.
+An agterm keymap command starts it with a chord. The keymap is agterm's file and Lem
+never writes it: the row `task picker` of `lem doctor` gives the line for this machine,
+which the owner adds. The repository is the one the session sits in (`AGT_SESSION_PWD`),
+so the same chord in another session lists that session's tasks.
 
-The rows come in the order a developer reads them: first what waits for the owner (a breaker's
-document, the criteria for his yes, a step of his, a task queued after a dropped one, a task its
-session stopped, a plan to read, a pull request to merge, a task with no session, a task whose
-session the board server's guard logged as stopped), in the groups of
-`lem project waiting`; then the tasks that build (ACTIVE), the newest first, with a parked one after them; then the tasks that ended last,
-the newest first, as many as the board's Done column draws (lem_board_model.DONE_SHOWN), however long ago they ended;
-and last a row for the board of all tasks. A row's label is the task's ask in the owner's words, and its subtitle the
-state in the board's words, the track, the age of the newest state, and the pull request's number with green or not green.
+The rows come in the order a developer reads them: first what waits for the owner (a
+breaker's document, the criteria for his yes, a step of his, a task queued after a
+dropped one, a task its session stopped, a plan to read, a pull request to merge, a task
+with no session, a task whose session the board server's guard logged as stopped), in
+the groups of `lem project waiting`; then the tasks that build (ACTIVE), the newest
+first, with a parked one after them; then the tasks that ended last, the newest first,
+as many as the board's Done column draws (lem_board_model.DONE_SHOWN), however long ago
+they ended; and last a row for the board of all tasks. A row's label is the task's ask
+in the owner's words, and its subtitle the state in the board's words, the track, the
+age of the newest state, and the pull request's number with green or not green.
 
-A pick of a task whose newest session lives in agterm's tree with an agent in it (`lem session`'s
-`live`) selects that session (`agtermctl session select`), where the task's agent is. A task with
-none, and the last row, runs `lem board --task SLUG --follow` (the board of all tasks for the last
-row), which is what `/lem status SLUG` opens: the board server's page of that task, which needs no
-agent. Nothing is typed into a pane. Escape opens nothing. Every failure exits 1 with one line on stderr,
-which agterm shows when the keymap line carries `--error-hud`: no repository of Lem in the session, no
-task yet, no `agtermctl`, or a picker or a board that failed (a board server that does not run among
-them).
+A pick of a task whose newest session lives in agterm's tree with an agent in it
+(`lem session`'s `live`) selects that session (`agtermctl session select`), where the
+task's agent is. A task with none, and the last row, runs
+`lem board --task SLUG --follow` (the board of all tasks for the last row), which is
+what `/lem status SLUG` opens: the board server's page of that task, which needs no
+agent. Nothing is typed into a pane. Escape opens nothing. Every failure exits 1 with
+one line on stderr, which agterm shows when the keymap line carries `--error-hud`: no
+repository of Lem in the session, no task yet, no `agtermctl`, or a picker or a board
+that failed (a board server that does not run among them).
 
-In Lem's marketplace clone (`PLUGINS/marketplaces/NAME`), which holds the head of `main` and no
-release, this file runs nothing of its own: it becomes the clone's `bin/lem picker` with the same
-arguments, which runs the newest installed release. The keymap lines that the doctor printed before
-it gave `bin/lem picker` name this file in that clone, and they stay on the machines that have them.
+In Lem's marketplace clone (`PLUGINS/marketplaces/NAME`), which holds the head of `main`
+and no release, this file runs nothing of its own: it becomes the clone's
+`bin/lem picker` with the same arguments, which runs the newest installed release. The
+keymap lines that the doctor printed before it gave `bin/lem picker` name this file in
+that clone, and they stay on the machines that have them.
 """
 
 import os
@@ -38,7 +43,8 @@ import sys
 from pathlib import Path
 
 if Path(os.path.realpath(__file__)).parts[-7:-5] == ("plugins", "marketplaces"):
-    # this file is PLUGINS/marketplaces/NAME/skills/lem/scripts/picker.py: the clone is the folder four up
+    # this file is PLUGINS/marketplaces/NAME/skills/lem/scripts/picker.py: the clone is
+    # the folder four up
     os.execv(
         sys.executable,
         [
@@ -50,9 +56,11 @@ if Path(os.path.realpath(__file__)).parts[-7:-5] == ("plugins", "marketplaces"):
     )
 
 if sys.version_info < (3, 11):
-    # an old python3 must still load this file, so that it can say what it needs and not a traceback
+    # an old python3 must still load this file, so that it can say what it needs and not
+    # a traceback
     sys.exit(
-        f"picker.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; name a newer one in the keymap line"
+        "picker.py: Lem needs Python 3.11 or newer, and this python3 is "
+        f"{sys.version.split()[0]}; name a newer one in the keymap line"
     )
 
 import argparse
@@ -69,15 +77,19 @@ sys.path.insert(0, str(SCRIPTS))
 import lem_board_model  # noqa: E402
 import project  # noqa: E402
 
-# The id of the row for the board of all tasks: a slug is lower-case words and hyphens, so no task has it.
+# The id of the row for the board of all tasks: a slug is lower-case words and hyphens,
+# so no task has it.
 ALL = ":all"
-# The state of a task in the board's words: the board's own list (lem_board_model.STATUS).
+# The state of a task in the board's words: the board's own list
+# (lem_board_model.STATUS).
 WORDS = {status: facts["label"] for status, facts in lem_board_model.STATUS.items()}
-# the board's word for a task with no state block, and for a builder that investigates before any lead
+# the board's word for a task with no state block, and for a builder that investigates
+# before any lead
 UNKNOWN = lem_board_model.UNKNOWN["label"]
 INVESTIGATING = "Investigating"
 TRACKS = {"fast": "fast track", "standard": "standard track"}
-# The order of the tasks that build: an agent or the checks work on these now, and Lem acts on the rest.
+# The order of the tasks that build: an agent or the checks work on these now, and Lem
+# acts on the rest.
 ACTIVE = ("building", "landing", "ready", "planned", "blocked", "queued")
 # the number of a pull request in its address: GitHub's /pull/N
 NUMBER = re.compile(r"/pull/(\d+)$")
@@ -114,8 +126,8 @@ def age(since: str | None, now: datetime) -> str:
 
 
 def label(task: dict) -> str:
-    """The task's ask in the owner's words, on one line; its slug in words when it has none. agterm
-    refuses a label with a control character, so none stays."""
+    """The task's ask in the owner's words, on one line; its slug in words when it has
+    none. agterm refuses a label with a control character, so none stays."""
     words = (
         " ".join(
             "".join(ch if ch.isprintable() else " " for ch in task["ask"] or "").split()
@@ -144,7 +156,8 @@ def state_words(task: dict, waits: str | None) -> str:
 
 
 def pull_request(task: dict) -> str:
-    """The pull request's number and green or not green; only green or not green where there is no number."""
+    """The pull request's number and green or not green; only green or not green where
+    there is no number."""
     proposal = task["proposal"]
     if not proposal:
         return ""
@@ -202,7 +215,8 @@ def rows(root: Path, now: datetime) -> list[dict]:
     def newest(task: dict) -> str:
         return task["since"] or ""
 
-    # what an agent or the checks work on now, then what waits for Lem, the newest first in each
+    # what an agent or the checks work on now, then what waits for Lem, the newest first
+    # in each
     building = [
         task
         for task in tasks.values()
@@ -215,7 +229,8 @@ def rows(root: Path, now: datetime) -> list[dict]:
         ),
     ):
         add(task["slug"])
-    # the ended tasks Done draws as cards, by the board's own number, so that the two lists cannot drift
+    # the ended tasks Done draws as cards, by the board's own number, so that the two
+    # lists cannot drift
     ended = [task for task in tasks.values() if task["status"] in project.ENDED]
     for task in sorted(ended, key=newest, reverse=True)[: lem_board_model.DONE_SHOWN]:
         add(task["slug"])
@@ -224,7 +239,9 @@ def rows(root: Path, now: datetime) -> list[dict]:
         {
             "id": ALL,
             "label": "All tasks",
-            "subtitle": f"the board of every task · {count} task{'s' if count != 1 else ''}",
+            "subtitle": (
+                f"the board of every task · {count} task{'s' if count != 1 else ''}"
+            ),
         }
     )
     return out
@@ -240,22 +257,26 @@ def lem_root(start: str) -> Path:
         ) from error
     if not (root / project.SETTINGS).is_file():
         raise PickerError(
-            f"{root} is no repository of Lem: it has no {project.SETTINGS}; /lem init sets it up"
+            f"{root} is no repository of Lem: it has no {project.SETTINGS}; "
+            "/lem init sets it up"
         )
     return root
 
 
 def pick(found: list[dict]) -> str | None:
-    """Open agterm's picker over the rows; the id picked, or None when the owner closed it."""
+    """Open agterm's picker over the rows; the id picked, or None when the owner
+    closed it."""
     ctl = shutil.which("agtermctl")
     if not ctl:
         raise PickerError(
-            "agtermctl is not on the PATH of this command: install agterm's command line tool (Help > Install Command Line Tool)"
+            "agtermctl is not on the PATH of this command: install agterm's command "
+            "line tool (Help > Install Command Line Tool)"
         )
     socket = os.environ.get("AGT_SOCKET", "")
     if not (socket and os.environ.get("AGT_SESSION_ID")):
         raise PickerError(
-            "not started from an agterm chord: AGT_SOCKET and AGT_SESSION_ID are not set; `lem picker --list` prints the rows"
+            "not started from an agterm chord: AGT_SOCKET and AGT_SESSION_ID are not "
+            "set; `lem picker --list` prints the rows"
         )
     window = os.environ.get("AGT_WINDOW_ID", "")
     ran = subprocess.run(
@@ -277,7 +298,8 @@ def pick(found: list[dict]) -> str | None:
         return None
     if ran.returncode != 0:
         raise PickerError(
-            f"agtermctl pick failed: {(ran.stderr or ran.stdout).strip() or f'exit {ran.returncode}'}"
+            "agtermctl pick failed: "
+            f"{(ran.stderr or ran.stdout).strip() or f'exit {ran.returncode}'}"
         )
     try:
         answer = json.loads(ran.stdout)
@@ -294,8 +316,9 @@ def pick(found: list[dict]) -> str | None:
 
 
 def live_session(root: Path, slug: str) -> str | None:
-    """The id of the task's newest session when it lives in agterm's tree with an agent in it, else None.
-    agterm's whole tree is read, every window's, since a task's session may sit in any of them."""
+    """The id of the task's newest session when it lives in agterm's tree with an agent
+    in it, else None. agterm's whole tree is read, every window's, since a task's
+    session may sit in any of them."""
     session = importlib.import_module("session")
     newest = session.newest_opens(project.events_named(root, *session.EVENTS)).get(slug)
     if newest is None:
@@ -312,8 +335,8 @@ def live_session(root: Path, slug: str) -> str | None:
 
 
 def chord_place() -> dict:
-    """Where the chord was pressed, as `lem session` takes a place: agterm's socket, and no window, so that
-    the whole tree answers."""
+    """Where the chord was pressed, as `lem session` takes a place: agterm's socket, and
+    no window, so that the whole tree answers."""
     return {
         "session": os.environ.get("AGT_SESSION_ID", ""),
         "socket": os.environ.get("AGT_SOCKET", ""),
@@ -363,7 +386,10 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--repo",
         default=os.environ.get("AGT_SESSION_PWD") or ".",
-        help="a directory inside the checkout (default: the session's, else the current one)",
+        help=(
+            "a directory inside the checkout (default: the session's, "
+            "else the current one)"
+        ),
     )
     parser.add_argument(
         "--list", action="store_true", help="print the rows as JSON and open nothing"

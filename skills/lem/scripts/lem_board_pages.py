@@ -1,4 +1,5 @@
-"""The pages of the served board, as HTML: functions from the model (`lem_board_model`) to `Markup`.
+"""The pages of the served board, as HTML: functions from the model (`lem_board_model`)
+to `Markup`.
 
     kanban_page(ctx)     /HOST/WORKSPACE/            the tasks in four columns, by who acts
     older_page(ctx)      /HOST/WORKSPACE/done        the ended tasks Done has no card for, from its foot row
@@ -8,41 +9,48 @@
     index_page(...)      /                           the workspaces of this machine
     error_page(...)                                  a route that failed, with its reason
 
-Every page of a workspace is one layout (`layout`): the sidebar (the mark and the repository, the
-notices, "Waits for you", the views and the switcher of the workspaces in its foot), the bar above the
-view (its name, what it holds, the base branch and the counts of the pull requests), the view, the
-status bar (when the log was read, when the forge was looked at, and whether the page is live), and the
-search over every card of the workspace, closed until its button or its key opens it (`search_box`). On a
-phone the sidebar is a drawer behind a bar at the top, and the kanban shows one column at a time.
+Every page of a workspace is one layout (`layout`): the sidebar (the mark and the
+repository, the notices, "Waits for you", the views and the switcher of the workspaces
+in its foot), the bar above the view (its name, what it holds, the base branch and the
+counts of the pull requests), the view, the status bar (when the log was read, when the
+forge was looked at, and whether the page is live), and the search over every card of
+the workspace, closed until its button or its key opens it (`search_box`). On a phone
+the sidebar is a drawer behind a bar at the top, and the kanban shows one column at
+a time.
 
-The page is drawn whole by the server for its URL, and Turbo morphs it into its next version when the
-stream says the workspace changed (meta `turbo-refresh-method`): each repeated part has a stable
-`id`, so a morph keeps the nodes that stay, with their scroll and their focus. What is the browser's own
-state comes back in the cookie the fold controller writes (`Ctx.prefs`: the folded columns and the
-folded sidebar), so the first paint and every morph show it. The words are the model's. The icons are Font Awesome's, from the kit's `board-icons.json`, put into each page as
-one `<svg>` of symbols, so that an icon paints at once.
+The page is drawn whole by the server for its URL, and Turbo morphs it into its next
+version when the stream says the workspace changed (meta `turbo-refresh-method`): each
+repeated part has a stable `id`, so a morph keeps the nodes that stay, with their scroll
+and their focus. What is the browser's own state comes back in the cookie the fold
+controller writes (`Ctx.prefs`: the folded columns and the folded sidebar), so the first
+paint and every morph show it. The words are the model's. The icons are Font Awesome's,
+from the kit's `board-icons.json`, put into each page as one `<svg>` of symbols, so that
+an icon paints at once.
 
-A task opens in the panel at the right of the view, inside `<turbo-frame id="task">` (its pages are
-`lem_board_task`'s, which put the panel into `Ctx.panel`): a link to a task carries
-`data-turbo-frame="task"` and `data-turbo-action="advance"`, so the panel changes and the address
-follows it, and the same address loaded whole renders the view under it with the panel open.
-`task_href` is the one place that says where a task opens. The view under the panel is in the address
-(`?in=waits`, `backlog`, `activity`, `done`; the kanban has none), so that a refresh, a reload or a shared link
-shows the same page. For the Hotwire Native app (`Ctx.native`) every link is a whole visit.
+A task opens in the panel at the right of the view, inside `<turbo-frame id="task">`
+(its pages are `lem_board_task`'s, which put the panel into `Ctx.panel`): a link to a
+task carries `data-turbo-frame="task"` and `data-turbo-action="advance"`, so the panel
+changes and the address follows it, and the same address loaded whole renders the view
+under it with the panel open. `task_href` is the one place that says where a task opens.
+The view under the panel is in the address (`?in=waits`, `backlog`, `activity`, `done`;
+the kanban has none), so that a refresh, a reload or a shared link shows the same page.
+For the Hotwire Native app (`Ctx.native`) every link is a whole visit.
 
-The backlog's filter is in the address (`?q=`, `worth=`, `only=`, `backlog_filter`), so a shared link
-and a refresh show the same list. The server draws every item and the chips the address picks; the
-backlog controller holds the one rule of which items the filter shows, and applies it as one types.
-A line of Lem's reaches a page through `rich` (its code as code, each pull request it names a link)
-and a markdown text through `md_block`.
+The backlog's filter is in the address (`?q=`, `worth=`, `only=`, `backlog_filter`), so
+a shared link and a refresh show the same list. The server draws every item and the
+chips the address picks; the backlog controller holds the one rule of which items the
+filter shows, and applies it as one types. A line of Lem's reaches a page through `rich`
+(its code as code, each pull request it names a link) and a markdown text
+through `md_block`.
 
-Each task lives in its own agterm session. The jump to it, which only agterm does, has its button only
-on a page drawn for the main listener and a client on this Mac (`Ctx.local`): it posts to the server,
-which runs `agtermctl session select` (`serve.agterm_act`). A task with no live session is a row of
-"Waits for you" when it is stuck for want of one (`lem_board_model.session_need`), and so is a task
-whose live session the guard logged as stopped (`lem_board_model.stopped_of`). The row and the task's
-header have "Open a session" on every page that may act, which the server answers with `lem session
-open` (`serve.act_session`).
+Each task lives in its own agterm session. The jump to it, which only agterm does, has
+its button only on a page drawn for the main listener and a client on this Mac
+(`Ctx.local`): it posts to the server, which runs `agtermctl session select`
+(`serve.agterm_act`). A task with no live session is a row of "Waits for you" when it is
+stuck for want of one (`lem_board_model.session_need`), and so is a task whose live
+session the guard logged as stopped (`lem_board_model.stopped_of`). The row and the
+task's header have "Open a session" on every page that may act, which the server answers
+with `lem session open` (`serve.act_session`).
 """
 
 import hashlib
@@ -66,7 +74,8 @@ MARKS = (
 )
 ICONS = ASSETS / "vendor" / "board-icons.json"
 
-# Each of Lem's icon names as its Font Awesome icon (tools/board-kit bundles them, icons.mjs).
+# Each of Lem's icon names as its Font Awesome icon (tools/board-kit bundles
+# them, icons.mjs).
 FA = {
     "code": "code",
     "user": "user",
@@ -130,20 +139,24 @@ VIEWS = [
 VIEW = {v["key"]: v for v in VIEWS}
 # What the count on a view's key counts, where its label alone does not say it.
 COUNT_SAYS = {"backlog": "The reviewer's items that wait for your start or drop"}
-# The ended tasks Done has no card for, as a page of the workspace: Done's foot row is its way in, and it is no key
-# of the views.
+# The ended tasks Done has no card for, as a page of the workspace: Done's foot row is
+# its way in, and it is no key of the views.
 OLDER = {"key": "done", "path": "done", "label": "Older ended tasks"}
 # Every page of a workspace a task's panel may lie over (`?in=KEY`), by its key.
 UNDER = {**VIEW, OLDER["key"]: OLDER}
-# The key of the search over every card, as its button names it: the browser's search controller takes either.
+# The key of the search over every card, as its button names it: the browser's search
+# controller takes either.
 SEARCH_KEYS = "Cmd-K, or Ctrl-K off the Mac"
 # How many events a feed shows, the newest (`lem_board_model.feed`, its default).
 FEED_NEWEST = 200
-# How long the board's own look at GitHub counts as fresh: a few of its looks (serve.FORGE_SECONDS), a guess.
+# How long the board's own look at GitHub counts as fresh: a few of its looks
+# (serve.FORGE_SECONDS), a guess.
 BOARD_LOOK_FRESH = 10 * 60 * 1000
-# A path in a line the owner types into a session: anything but plain path characters is refused.
+# A path in a line the owner types into a session: anything but plain path characters
+# is refused.
 SAFE_PATH = re.compile(r"^[A-Za-z0-9._/-]+$")
-# The light and the dark background of lem.css, for the browser's bar and the home-screen app.
+# The light and the dark background of lem.css, for the browser's bar and the
+# home-screen app.
 THEME = {"light": "#fbf9f5", "dark": "#1a1813"}
 
 _icons: dict | None = None
@@ -158,7 +171,8 @@ def icon_set() -> dict:
 
 
 def marks() -> Markup:
-    """Lem's mark, day and night, as lem.css shows one of them by the palette: a file of the plugin's own."""
+    """Lem's mark, day and night, as lem.css shows one of them by the palette: a file of
+    the plugin's own."""
     global _marks  # noqa: PLW0603 - the mark's files are read once, at the first page
     if _marks is None:
         _marks = Markup(
@@ -169,7 +183,8 @@ def marks() -> Markup:
 
 @dataclass
 class Ctx:
-    """What a page of one workspace is drawn from: where it is, the model and the facts beside it."""
+    """What a page of one workspace is drawn from: where it is, the model and the facts
+    beside it."""
 
     host: str
     workspace: str
@@ -180,7 +195,8 @@ class Ctx:
     problems: list = field(default_factory=list)
     read_at: int = 0
     events: int = 0
-    # the version of the event log the page was drawn from (`bm.log_version`), which its stream sends back
+    # the version of the event log the page was drawn from (`bm.log_version`), which its
+    # stream sends back
     log_id: str = ""
     spaces: list = field(default_factory=list)
     view: str = "tasks"
@@ -189,18 +205,21 @@ class Ctx:
     task: str | None = None
     tab: str = "overview"
     file: str | None = None
-    # the panel, which lem_board_task draws, and the icons it uses (a sprite of its own, so that a
-    # panel the frame brings alone has its icons)
+    # the panel, which lem_board_task draws, and the icons it uses (a sprite of its own,
+    # so that a panel the frame brings alone has its icons)
     panel: Markup | None = None
     scope: str = "page"
     used_task: set = field(default_factory=set)
-    # a request of the Hotwire Native app: every link is a whole visit, and a task is a page of its own
+    # a request of the Hotwire Native app: every link is a whole visit, and a task is a
+    # page of its own
     native: bool = False
-    # a page for the main listener and a client on this Mac: the buttons of what only agterm does
+    # a page for the main listener and a client on this Mac: the buttons of what only
+    # agterm does
     local: bool = False
-    # what the task's tabs read beside the model, from the caller: "What we are building" of a task
-    # (`told(slug)`), the task's files (`artifact_files`, with no text) and one of them with its text
-    # (`artifact(slug, path)`), what did not read of them, and the address of an HTML artifact
+    # what the task's tabs read beside the model, from the caller: "What we are
+    # building" of a task (`told(slug)`), the task's files (`artifact_files`, with no
+    # text) and one of them with its text (`artifact(slug, path)`), what did not read of
+    # them, and the address of an HTML artifact
     told: Callable[[str], dict | None] = lambda slug: None
     artifact_files: list = field(default_factory=list)
     artifact: Callable[[str, str], dict | None] = lambda slug, path: None
@@ -208,21 +227,25 @@ class Ctx:
     raw_href: Callable[[str, str], str] = lambda slug, path: ""
     # the address of a task's media folder, from which a document shows its pictures
     media_href: Callable[[str], str] = lambda slug: ""
-    # the artifacts as their map has them (`lem_artifacts.arrange`), and the plan's `## How it works`
+    # the artifacts as their map has them (`lem_artifacts.arrange`), and the
+    # plan's `## How it works`
     artifact_map: dict | None = None
     how_of: Callable[[str], str] = lambda slug: ""
-    # what a task's folder holds beside the model (`lem_board_task.folder_of`): the files of its small record
-    # that are there and the paths outside it, or None when the folder does not list; and the workspace's
-    # `state.keep_days` as its settings give it now, None while they do not read (one of `problems` then)
+    # what a task's folder holds beside the model (`lem_board_task.folder_of`): the
+    # files of its small record that are there and the paths outside it, or None when
+    # the folder does not list; and the workspace's `state.keep_days` as its settings
+    # give it now, None while they do not read (one of `problems` then)
     folder_of: Callable[[str], dict | None] = lambda slug: None
     keep_days: int | None = None
-    # the server's own look at the forge for the workspace: when it last looked, and what stops it
+    # the server's own look at the forge for the workspace: when it last looked, and
+    # what stops it
     forge_look: dict = field(default_factory=dict)
     # the backlog's filter, from the address (`backlog_filter`)
     filters: dict = field(default_factory=dict)
-    # the board's acts on a task (serve.py `board_act`): whether this page may post them (on this Mac, or
-    # through the tailnet door), the criteria that wait for the owner's yes in a task directory, a task's
-    # landing record, the tasks whose merge runs now, and the result of an act the address names
+    # the board's acts on a task (serve.py `board_act`): whether this page may post them
+    # (on this Mac, or through the tailnet door), the criteria that wait for the owner's
+    # yes in a task directory, a task's landing record, the tasks whose merge runs now,
+    # and the result of an act the address names
     can_act: bool = False
     criteria_waiting: Callable[[str], dict | None] = lambda slug: None
     landing_of: Callable[[str], dict] = lambda slug: {}
@@ -240,7 +263,8 @@ class Ctx:
 
     @property
     def forge(self) -> str | None:
-        """The address of the workspace's repository on its forge, for a bare `#N` (`lem_board_model.forge_of`)."""
+        """The address of the workspace's repository on its forge, for a bare
+        `#N` (`lem_board_model.forge_of`)."""
         if self._forge is False:
             self._forge = bm.forge_of(self.model)
         return self._forge
@@ -254,7 +278,8 @@ class Ctx:
 
 
 def under_query(ctx: Ctx, under: str | None = None) -> str:
-    """The view a panel lies over, as the address keeps it: `?in=VIEW`, or nothing for the kanban."""
+    """The view a panel lies over, as the address keeps it: `?in=VIEW`, or nothing for
+    the kanban."""
     under = ctx.view if under is None else under
     return f"?in={quote(under)}" if under in UNDER and under != "tasks" else ""
 
@@ -266,9 +291,10 @@ def task_href(
     file: str | None = None,
     under: str | None = None,
 ) -> str:
-    """Where a task opens: `/HOST/WORKSPACE/tasks/SLUG`, a tab after it, and for an artifact its path,
-    each part encoded, with a slash at its end, so that no address ends in an extension Turbo refuses to
-    visit (`report.md/`); the view under the panel in the query."""
+    """Where a task opens: `/HOST/WORKSPACE/tasks/SLUG`, a tab after it, and for an
+    artifact its path, each part encoded, with a slash at its end, so that no address
+    ends in an extension Turbo refuses to visit (`report.md/`); the view under the panel
+    in the query."""
     path = f"{ctx.base}/tasks/{quote(slug, safe='')}" + (
         "" if tab == "overview" and not file else f"/{quote(tab, safe='')}"
     )
@@ -278,8 +304,8 @@ def task_href(
 
 
 def frame_link(ctx: Ctx, href: str) -> dict:
-    """The attributes of a link that changes the panel: the frame and the address, or, for the native
-    app, a whole visit."""
+    """The attributes of a link that changes the panel: the frame and the address, or,
+    for the native app, a whole visit."""
     return (
         {"href": href}
         if ctx.native
@@ -306,14 +332,16 @@ def icon(ctx: Ctx, name: str, cls: str = "ic") -> Markup:
 
 
 def sprite(ctx: Ctx, scope: str = "page") -> Markup:
-    """The page's icons as one `<svg>` of symbols, or the panel's own (`scope` "task", ids `t-i-NAME`)."""
+    """The page's icons as one `<svg>` of symbols, or the panel's own (`scope` "task",
+    ids `t-i-NAME`)."""
     known = icon_set()
     task = scope == "task"
     used = ctx.used_task if task else ctx.used
     prefix = "t-i-" if task else "i-"
     symbols = (
         Markup(
-            f'<symbol id="{prefix}{name}" viewBox="{known[name]["viewBox"]}">{known[name]["body"]}</symbol>'
+            f'<symbol id="{prefix}{name}" '
+            f'viewBox="{known[name]["viewBox"]}">{known[name]["body"]}</symbol>'
         )
         for name in sorted(used)
     )
@@ -330,15 +358,16 @@ def sprite(ctx: Ctx, scope: str = "page") -> Markup:
 
 # ---- text with its links, its code and its markdown ----
 
-# A name in a line of Lem's that reads as code: a span in backticks, a path with a file's extension.
+# A name in a line of Lem's that reads as code: a span in backticks, a path with a
+# file's extension.
 CODE_SPAN = re.compile(
     r"`([^`\n]+)`|(?<![\w/.-])((?:[\w.-]+/)+[\w.-]+\.[a-z]{1,5}(?::[\w.]+)?)(?![\w/])"
 )
 
 
 def linked(ctx: Ctx, text: object) -> list:
-    """A text with each pull request it names as a link (`lem_board_model.pull_refs`, the one rule of the
-    board); every other part stays text."""
+    """A text with each pull request it names as a link (`lem_board_model.pull_refs`,
+    the one rule of the board); every other part stays text."""
     return [
         part
         if isinstance(part, str)
@@ -358,8 +387,8 @@ def linked(ctx: Ctx, text: object) -> list:
 
 
 def rich(ctx: Ctx, text: object) -> list:
-    """A line of Lem's as the board shows it: its names in backticks and its paths as code, and each
-    pull request it names as a link."""
+    """A line of Lem's as the board shows it: its names in backticks and its paths as
+    code, and each pull request it names as a link."""
     text = str(text if text is not None else "")
     out, at = [], 0
     for found in CODE_SPAN.finditer(text):
@@ -371,8 +400,9 @@ def rich(ctx: Ctx, text: object) -> list:
     return [*out, *linked(ctx, text[at:])]
 
 
-# A fenced `mermaid` block of a markdown text, which the browser draws as a chart, and the icons of the
-# chart's controls (tools/board-kit/controllers/chart.js), which the page's sprite then holds.
+# A fenced `mermaid` block of a markdown text, which the browser draws as a chart, and
+# the icons of the chart's controls (tools/board-kit/controllers/chart.js), which the
+# page's sprite then holds.
 MERMAID_FENCE = re.compile(r"^[ \t>]*(?:`{3,}|~{3,})[ \t]*mermaid\b", re.MULTILINE)
 CHART_ICONS = ("expand", "plus", "minus", "xmark")
 
@@ -386,10 +416,11 @@ def md_block(
     folder: str = "",
     cls: str = "",
 ) -> Markup:
-    """A markdown text the browser renders (the markdown controller), with each pull request it names as
-    a link, its pictures from the task's media folder, and its mermaid blocks as charts; kept through a
-    refresh while its text is the same (`data-keep`). A text with a chart names the diagram library
-    (`data-lem-mermaid`), which the browser loads at the first chart; a page with none never names it."""
+    """A markdown text the browser renders (the markdown controller), with each pull
+    request it names as a link, its pictures from the task's media folder, and its
+    mermaid blocks as charts; kept through a refresh while its text is the same
+    (`data-keep`). A text with a chart names the diagram library (`data-lem-mermaid`),
+    which the browser loads at the first chart; a page with none never names it."""
     text = bm.pull_links_md(str(text), ctx.forge)
     digest = hashlib.sha256(f"{key}|{text}".encode()).hexdigest()[:12]
     charts = bool(MERMAID_FENCE.search(text))
@@ -413,12 +444,14 @@ def md_block(
 
 
 def chart_block(ctx: Ctx, key: str, source: str) -> Markup:
-    """A mermaid chart of a record (a decision's, a criterion's), drawn as a document's fenced block is."""
+    """A mermaid chart of a record (a decision's, a criterion's), drawn as a document's
+    fenced block is."""
     return md_block(ctx, key, f"```mermaid\n{source.strip()}\n```", cls="md-chart")
 
 
 def since(ms: int, now: int) -> Markup:
-    """A length of time that ticks in the browser (the clock controller), written right at the render."""
+    """A length of time that ticks in the browser (the clock controller), written right
+    at the render."""
     return h("span", {"data-since": ms}, bm.span(now - ms))
 
 
@@ -458,7 +491,8 @@ def chip(
 
 
 def act_href(ctx: Ctx, slug: str, act: str, under: str | None = None) -> str:
-    """The address of a task's act: its confirm step for a GET, the act itself for a POST."""
+    """The address of a task's act: its confirm step for a GET, the act itself for
+    a POST."""
     return f"{ctx.base}/tasks/{quote(slug, safe='')}/{act}" + under_query(ctx, under)
 
 
@@ -474,9 +508,10 @@ def act_form(
     *kids: object,
     form_cls: str = "",
 ) -> Markup:
-    """A form that posts one act of a task: hidden fields, what it holds besides (a field of text), and
-    one button. It works with no script; with Turbo the button is disabled and says BUSY while the request
-    runs, and the page that follows is a whole visit (`_top`), so that its address keeps the act's note."""
+    """A form that posts one act of a task: hidden fields, what it holds besides (a
+    field of text), and one button. It works with no script; with Turbo the button is
+    disabled and says BUSY while the request runs, and the page that follows is a whole
+    visit (`_top`), so that its address keeps the act's note."""
     return h(
         "form",
         {
@@ -504,8 +539,9 @@ def act_form(
     )
 
 
-# How the note of an act looks, by its state: the actor's color, the icon and the first word. The owner's
-# merge that stands (`stands`) is a wait, with no first word: its sentence says it all.
+# How the note of an act looks, by its state: the actor's color, the icon and the first
+# word. The owner's merge that stands (`stands`) is a wait, with no first word: its
+# sentence says it all.
 NOTE_LOOK = {
     "running": ("gate", "clock", "Running."),
     "done": ("done", "check", "Done."),
@@ -515,12 +551,13 @@ NOTE_LOOK = {
 
 
 def act_note(ctx: Ctx, note: dict | None) -> Markup | None:
-    """The result of an act (`?note=`): running, done with what happens next, not done with the
-    script's own line, or the owner's merge that stands; first in a task's tab, or at the top of the view the act came from. The note of
-    the owner's merge that stands is drawn only while it stands, for the tip the note is for
-    (`bm.owner_stands` over the page's model) and the forge does not call it conflicting, with the
-    sentence of the span that holds now (`bm.stands_said`); otherwise the page shows the task as it is,
-    with no note."""
+    """The result of an act (`?note=`): running, done with what happens next, not done
+    with the script's own line, or the owner's merge that stands; first in a task's tab,
+    or at the top of the view the act came from. The note of the owner's merge that
+    stands is drawn only while it stands, for the tip the note is for (`bm.owner_stands`
+    over the page's model) and the forge does not call it conflicting, with the sentence
+    of the span that holds now (`bm.stands_said`); otherwise the page shows the task as
+    it is, with no note."""
     if not note:
         return None
     said = note.get("said") or ""
@@ -558,7 +595,8 @@ def act_note(ctx: Ctx, note: dict | None) -> Markup | None:
 
 
 def search_button(ctx: Ctx, cls: str = "") -> Markup:
-    """The button that opens the search over every card (`search_box`), in the bar and in the phone's bar."""
+    """The button that opens the search over every card (`search_box`), in the bar and
+    in the phone's bar."""
     return h(
         "button",
         {
@@ -601,7 +639,8 @@ def act_link(
     *,
     frame: bool = False,
 ) -> Markup:
-    """A link to the confirm step of an act: a button's look, a whole page on a phone."""
+    """A link to the confirm step of an act: a button's look, a whole page on
+    a phone."""
     href = act_href(ctx, slug, act, under)
     return h(
         "a",
@@ -630,9 +669,10 @@ def head(ctx_title: str, asset: Callable[[str], str]) -> list:
         h("title", None, ctx_title),
         h("meta", {"name": "turbo-refresh-method", "content": "morph"}),
         h("meta", {"name": "turbo-refresh-scroll", "content": "preserve"}),
-        # No link prefetch: Turbo 8 gives the next request of a link's address the answer it fetched for
-        # the link, the stream's refresh too, and a task link's answer is the panel alone (`Turbo-Frame:
-        # task`), which the morph would make the whole page of
+        # No link prefetch: Turbo 8 gives the next request of a link's address the
+        # answer it fetched for the link, the stream's refresh too, and a task link's
+        # answer is the panel alone (`Turbo-Frame: task`), which the morph would make
+        # the whole page of
         h("meta", {"name": "turbo-prefetch", "content": "false"}),
         h(
             "meta",
@@ -711,9 +751,9 @@ def head(ctx_title: str, asset: Callable[[str], str]) -> list:
 
 
 def stage_attrs(ctx: Ctx, stage_cls: str = "") -> dict:
-    """The stage of the view and the panel: the view's name for the panel's look over it (beside the
-    kanban, over a list), the panel across the whole stage when the owner expanded it, and the width he
-    dragged it to; the cookie keeps both (`Ctx.prefs`)."""
+    """The stage of the view and the panel: the view's name for the panel's look over it
+    (beside the kanban, over a list), the panel across the whole stage when the owner
+    expanded it, and the width he dragged it to; the cookie keeps both (`Ctx.prefs`)."""
     width = ctx.prefs.get("pw")
     return {
         "class": f"stage v-{ctx.view}{' full' if ctx.prefs.get('full') else ''}{' native' if ctx.native else ''} {stage_cls}".strip(),
@@ -740,12 +780,14 @@ def layout(
     stage_cls: str = "",
     keys: Markup | None = None,
 ) -> Markup:
-    """A page of the workspace: the sidebar, the bar, the view and its panel on the stage, and under the stage
-    the view's line of its keys (`keys_line`), when it has one, and the status line. The line of keys is a row
-    of the page's grid of its own, so it stays at the foot of the window however long the view's list is, and
-    the list scrolls above it."""
+    """A page of the workspace: the sidebar, the bar, the view and its panel on the
+    stage, and under the stage the view's line of its keys (`keys_line`), when it has
+    one, and the status line. The line of keys is a row of the page's grid of its own,
+    so it stays at the foot of the window however long the view's list is, and the list
+    scrolls above it."""
     m = ctx.model
-    # the rows grouped by task: each count of what waits counts a task once, however many things it has
+    # the rows grouped by task: each count of what waits counts a task once, however
+    # many things it has
     waits = bm.wait_stacks(bm.waits_of(m))
     railed = bool(ctx.prefs.get("rail"))
     trouble = ctx.problems
@@ -785,7 +827,8 @@ def layout(
                     },
                     icon(ctx, "bars"),
                 ),
-                # the phone's bar says demo data too: the sidebar's notice is behind the drawer there
+                # the phone's bar says demo data too: the sidebar's notice is behind the
+                # drawer there
                 h(
                     "div",
                     {"class": "m-title"},
@@ -805,7 +848,11 @@ def layout(
                     {
                         "class": f"m-waits{' you' if waits else ''}",
                         "href": ctx.href("waits"),
-                        "aria-label": f"{bm.plural(len(waits), 'task')} {'waits' if len(waits) == 1 else 'wait'} for you: open the list",
+                        "aria-label": (
+                            f"{bm.plural(len(waits), 'task')} "
+                            f"{'waits' if len(waits) == 1 else 'wait'} for you: "
+                            "open the list"
+                        ),
                     },
                     icon(ctx, "inbox"),
                     h("span", None, len(waits)),
@@ -834,21 +881,30 @@ def layout(
     builds = sum(1 for t in m.lane["build"] if t.status == "building")
     open_task = m.by_slug.get(ctx.task) if ctx.task else None
     doc_title = (
-        f"{trouble_mark}{demo_mark}{open_task.title} · {open_task.info['label'] if open_task.blocks else 'no state yet'} · Lem · {repo}"
+        (
+            f"{trouble_mark}{demo_mark}{open_task.title} · "
+            f"{open_task.info['label'] if open_task.blocks else 'no state yet'} · Lem "
+            f"· {repo}"
+        )
         if open_task
-        else f"{trouble_mark}{demo_mark}{title} · Lem · {repo} · {builds} build · {len(waits)} for you"
+        else (
+            f"{trouble_mark}{demo_mark}{title} · Lem · {repo} · {builds} build "
+            f"· {len(waits)} for you"
+        )
     )
     return page(head(doc_title, ctx.asset), body)
 
 
 def search_box(ctx: Ctx) -> Markup:
-    """The search over every card of the workspace, drawn whole and closed on every page: its field and
-    one row for each card (`bm.search_rows`), in the order it lists them with nothing typed. The search
-    controller opens it (`data-js-open`, which a morph keeps), filters and orders the rows by the title in
-    `data-title`, shows only the rows with `data-open` while nothing is typed, and picks a row by its link:
-    a task's opens its panel as its card does, a backlog item's opens the Backlog view on that item. A task's
-    row carries `data-task`, as a task's row of the sidebar does, so the view's mark goes to its card
-    (cursor.js) and Escape after the panel gives the focus to that card."""
+    """The search over every card of the workspace, drawn whole and closed on every
+    page: its field and one row for each card (`bm.search_rows`), in the order it lists
+    them with nothing typed. The search controller opens it (`data-js-open`, which a
+    morph keeps), filters and orders the rows by the title in `data-title`, shows only
+    the rows with `data-open` while nothing is typed, and picks a row by its link: a
+    task's opens its panel as its card does, a backlog item's opens the Backlog view on
+    that item. A task's row carries `data-task`, as a task's row of the sidebar does, so
+    the view's mark goes to its card (cursor.js) and Escape after the panel gives the
+    focus to that card."""
 
     def link(r: dict) -> dict:
         return (
@@ -947,8 +1003,9 @@ def search_box(ctx: Ctx) -> Markup:
 
 
 def sidebar(ctx: Ctx, waits: list, repo: str) -> Markup:
-    """The sidebar: the workspace, its notices, what waits for the owner, one row for each task of WAITS (its
-    rows grouped by task, `wait_stacks`), and the views, each with its count."""
+    """The sidebar: the workspace, its notices, what waits for the owner, one row for
+    each task of WAITS (its rows grouped by task, `wait_stacks`), and the views, each
+    with its count."""
     m = ctx.model
     trouble = ctx.problems
     rows = [wait_row(ctx, s["rows"][0], len(s["rows"])) for s in waits] or [
@@ -960,7 +1017,8 @@ def sidebar(ctx: Ctx, waits: list, repo: str) -> Markup:
         )
     ]
     tasks_open = sum(1 for t in m.tasks if not t.closed)
-    # the Backlog key counts the reviewer's items no task holds: what waits for the owner's start or drop
+    # the Backlog key counts the reviewer's items no task holds: what waits for the
+    # owner's start or drop
     counts = {
         "tasks": tasks_open,
         "waits": len(waits),
@@ -995,7 +1053,10 @@ def sidebar(ctx: Ctx, waits: list, repo: str) -> Markup:
                     "id": "beacon",
                     "title": "; ".join(trouble)
                     if trouble
-                    else "lem serve reads this workspace's files and tells the page each change",
+                    else (
+                        "lem serve reads this workspace's files and "
+                        "tells the page each change"
+                    ),
                 },
             ),
         ),
@@ -1013,7 +1074,10 @@ def sidebar(ctx: Ctx, waits: list, repo: str) -> Markup:
                 "em",
                 {
                     "class": "you" if waits else None,
-                    "title": f"{bm.plural(sum(len(s['rows']) for s in waits), 'thing')} you do, in {bm.plural(len(waits), 'task')}",
+                    "title": (
+                        f"{bm.plural(sum(len(s['rows']) for s in waits), 'thing')} you "
+                        f"do, in {bm.plural(len(waits), 'task')}"
+                    ),
                 },
                 len(waits),
             ),
@@ -1065,8 +1129,9 @@ def sidebar(ctx: Ctx, waits: list, repo: str) -> Markup:
 
 
 def side_fold(ctx: Ctx) -> Markup:
-    """The one control that folds the sidebar to a rail and unfolds it, at the sidebar's foot: an arrow
-    that points left while the sidebar is open, and that board.css turns to the right on the rail."""
+    """The one control that folds the sidebar to a rail and unfolds it, at the sidebar's
+    foot: an arrow that points left while the sidebar is open, and that board.css turns
+    to the right on the rail."""
     say = "Unfold the sidebar" if ctx.prefs.get("rail") else "Fold the sidebar"
     return h(
         "button",
@@ -1083,16 +1148,21 @@ def side_fold(ctx: Ctx) -> Markup:
 
 
 def wait_row(ctx: Ctx, w: dict, things: int = 1) -> Markup:
-    """One row of "Waits for you" in the sidebar, for one task: what, of which task, since when; its hover says
-    where he answers. W is the task's first thing; a task with more THINGS says how many on its row, which
-    opens nothing here: the view's stack and the task's Overview list each."""
+    """One row of "Waits for you" in the sidebar, for one task: what, of which task,
+    since when; its hover says where he answers. W is the task's first thing; a task
+    with more THINGS says how many on its row, which opens nothing here: the view's
+    stack and the task's Overview list each."""
     t, c = w["t"], w["c"]
     say = bm.wait_say(w)
     where = say.get("where") or bm.answer_of(t)
-    # the thing that waits, under the verb: a breaker's what (a merge review's row carries the review's record, which says it in `where`)
+    # the thing that waits, under the verb: a breaker's what (a merge review's row
+    # carries the review's record, which says it in `where`)
     what = f"{c.what}\n" if w["kind"] == "breaker" and c is not None else ""
     more = (
-        f"\n{bm.plural(things, 'thing')} of this task wait for you: Waits for you lists each"
+        (
+            f"\n{bm.plural(things, 'thing')} of this task wait for you: "
+            "Waits for you lists each"
+        )
         if things > 1
         else ""
     )
@@ -1145,7 +1215,10 @@ def notices(ctx: Ctx) -> list:
                     "div",
                     None,
                     h("b", None, "Demo data. "),
-                    "These tasks are examples and not real work. Nothing on this page waits for you.",
+                    (
+                        "These tasks are examples and not real work. "
+                        "Nothing on this page waits for you."
+                    ),
                 ),
             )
         )
@@ -1180,7 +1253,10 @@ def notices(ctx: Ctx) -> list:
             f"unknown-{t.slug}",
             "bad",
             "alert",
-            f"{t.title} has the status “{t.status}”, which no stage writes: nobody acts on it.",
+            (
+                f"{t.title} has the status “{t.status}”, which no stage writes: "
+                "nobody acts on it."
+            ),
         )
         for t in m.unknown
     )
@@ -1188,7 +1264,8 @@ def notices(ctx: Ctx) -> list:
 
 
 def rail(ctx: Ctx, waits: list, counts: dict) -> list:
-    """The sidebar folded: what waits for the owner, the views, a notice as its mark, and the workspaces."""
+    """The sidebar folded: what waits for the owner, the views, a notice as its mark,
+    and the workspaces."""
     m = ctx.model
 
     def em(count: int | None, cls: str | None = None) -> Markup | None:
@@ -1201,7 +1278,10 @@ def rail(ctx: Ctx, waits: list, counts: dict) -> list:
                 "class": f"rbtn{' a-you' if waits else ''}",
                 "href": ctx.href("waits"),
                 "id": "rail-waits",
-                "title": f"{bm.plural(len(waits), 'task')} {'waits' if len(waits) == 1 else 'wait'} for you"
+                "title": (
+                    f"{bm.plural(len(waits), 'task')} "
+                    f"{'waits' if len(waits) == 1 else 'wait'} for you"
+                )
                 if waits
                 else "Nothing waits for you",
             },
@@ -1236,7 +1316,10 @@ def rail(ctx: Ctx, waits: list, counts: dict) -> list:
                     "class": "rbtn demo",
                     "type": "button",
                     "data-action": "fold#side",
-                    "title": "Demo data: these tasks are examples and not real work. Nothing on this page waits for you.",
+                    "title": (
+                        "Demo data: these tasks are examples and not real work. "
+                        "Nothing on this page waits for you."
+                    ),
                 },
                 icon(ctx, "alert"),
             )
@@ -1249,7 +1332,10 @@ def rail(ctx: Ctx, waits: list, counts: dict) -> list:
                     "class": "rbtn a-you",
                     "type": "button",
                     "data-action": "fold#side",
-                    "title": f"You are away since {bm.stamp(m.away['since'], m.now)}. The tasks go on without you until you type /lem im-back.",
+                    "title": (
+                        f"You are away since {bm.stamp(m.away['since'], m.now)}. "
+                        "The tasks go on without you until you type /lem im-back."
+                    ),
                 },
                 icon(ctx, "moon"),
             )
@@ -1263,7 +1349,10 @@ def rail(ctx: Ctx, waits: list, counts: dict) -> list:
                     "class": "rbtn a-bad",
                     "type": "button",
                     "data-action": "fold#side",
-                    "title": f"{bm.plural(bad, 'task')} stopped or with a status no stage writes: unfold the sidebar",
+                    "title": (
+                        f"{bm.plural(bad, 'task')} stopped or with a status no stage "
+                        "writes: unfold the sidebar"
+                    ),
                 },
                 icon(ctx, "alert"),
                 em(bad),
@@ -1291,8 +1380,8 @@ def rail(ctx: Ctx, waits: list, counts: dict) -> list:
 
 
 def runs_say(s: dict) -> str:
-    """What a workspace's tasks do now, in the board's words: "nothing runs", "1 builds",
-    "2 build · 1 in checks and review"."""
+    """What a workspace's tasks do now, in the board's words: "nothing runs", "1
+    builds", "2 build · 1 in checks and review"."""
     building, checks = s.get("building") or 0, s.get("checks") or 0
     parts = [
         building and f"{building} {'builds' if building == 1 else 'build'}",
@@ -1306,7 +1395,8 @@ def runs_say(s: dict) -> str:
 
 def space_says(s: dict, now: int | None = None) -> str:
     if s.get("reachable") is False:
-        # a workspace of a machine that does not answer (lem_peers), with when it last answered
+        # a workspace of a machine that does not answer (lem_peers), with when it
+        # last answered
         last = (
             f" · last answer {bm.ago((now or bm.now_ms()) - s['answered'])}"
             if s.get("answered")
@@ -1330,20 +1420,22 @@ def is_here(ctx: Ctx, s: dict) -> bool:
 
 
 def machines_of(spaces: list) -> list:
-    """The machines of a list of workspaces, in its order (`lem_peers`: each row names its `host`)."""
+    """The machines of a list of workspaces, in its order (`lem_peers`: each row names
+    its `host`)."""
     return list(dict.fromkeys(s["host"] for s in spaces if s.get("host")))
 
 
 def space_name(s: dict, *, many: bool) -> str:
-    """A workspace's name in a list: `HOST/WORKSPACE` when the list holds more than one machine, the
-    machine's name alone for a machine that never answered."""
+    """A workspace's name in a list: `HOST/WORKSPACE` when the list holds more than one
+    machine, the machine's name alone for a machine that never answered."""
     if not many:
         return s["name"]
     return f"{s['host']}/{s['name']}" if s["name"] else s["host"]
 
 
 def space_label(s: dict | None, workspace: str, *, many: bool) -> Markup:
-    """A workspace's name whole, and with more than one machine its machine's name as a second, smaller line."""
+    """A workspace's name whole, and with more than one machine its machine's name as a
+    second, smaller line."""
     if s is None:
         return h(
             "span", {"class": "ws-label"}, h("span", {"class": "ws-name"}, workspace)
@@ -1357,15 +1449,19 @@ def space_label(s: dict | None, workspace: str, *, many: bool) -> Markup:
 
 
 def switcher(ctx: Ctx) -> Markup:
-    """The workspace this board shows, its machine under it when there are more, and a menu of every
-    workspace: with more than one machine in a group for each, this machine's first; in a group, those with
-    a wait first and a machine that does not answer last, grayed."""
+    """The workspace this board shows, its machine under it when there are more, and a
+    menu of every workspace: with more than one machine in a group for each, this
+    machine's first; in a group, those with a wait first and a machine that does not
+    answer last, grayed."""
     spaces = ctx.spaces
     machines = machines_of(spaces)
     many = len(machines) > 1
     here = next((s for s in spaces if is_here(ctx, s)), None)
     title = (
-        f"{space_name(here, many=many)}: {space_says(here, ctx.model.now)}\n{here['path']}"
+        (
+            f"{space_name(here, many=many)}: {space_says(here, ctx.model.now)}\n"
+            f"{here['path']}"
+        )
         if here
         else ctx.workspace
     )
@@ -1445,7 +1541,10 @@ def switcher(ctx: Ctx) -> Markup:
                 "class": "ws-cur",
                 "title": f"{title}\nAnother workspace: click",
                 "aria-haspopup": "menu",
-                "aria-label": f"{space_name(here, many=many) if here else ctx.workspace}: another workspace",
+                "aria-label": (
+                    f"{space_name(here, many=many) if here else ctx.workspace}: "
+                    "another workspace"
+                ),
             },
             icon(ctx, "grid-2"),
             space_label(here, ctx.workspace, many=many),
@@ -1519,7 +1618,11 @@ def topbar(ctx: Ctx, title: str, summary: str) -> Markup:
                     "",
                     "checked ",
                     ago_(looked, m.now),
-                    title=f"The board asks GitHub about {what} a few minutes apart, records a merge or a close there at once, and wakes the task's session",
+                    title=(
+                        f"The board asks GitHub about {what} a few minutes apart, "
+                        "records a merge or a close there at once, "
+                        "and wakes the task's session"
+                    ),
                 )
             )
         else:
@@ -1531,7 +1634,10 @@ def topbar(ctx: Ctx, title: str, summary: str) -> Markup:
                     "nobody looks at ",
                     what,
                     title=ctx.forge_look.get("problem")
-                    or f"The board's server has not asked GitHub about {what} lately: a merge or a close there shows here after its next look",
+                    or (
+                        f"The board's server has not asked GitHub about {what} lately: "
+                        "a merge or a close there shows here after its next look"
+                    ),
                 )
             )
     if m.landed_today:
@@ -1561,7 +1667,11 @@ def statusbar(ctx: Ctx) -> Markup:
     elif looked:
         forge, forge_title = (
             ["the board looked at GitHub ", ago_(looked, m.now)],
-            "The board asks GitHub itself, a few minutes apart, while a pull request is open; a merge or a close there is recorded at once, and the task's session is woken",
+            (
+                "The board asks GitHub itself, a few minutes apart, while a pull "
+                "request is open; a merge or a close there is recorded at once, and "
+                "the task's session is woken"
+            ),
         )
     elif m.meta.get("demo"):
         forge, forge_title = (
@@ -1571,7 +1681,10 @@ def statusbar(ctx: Ctx) -> Markup:
     else:
         forge, forge_title = (
             ["GitHub was not asked yet"],
-            "The board asks GitHub itself, a few minutes apart, while a task is open with a pull request",
+            (
+                "The board asks GitHub itself, a few minutes apart, while a task is "
+                "open with a pull request"
+            ),
         )
     return h(
         "footer",
@@ -1629,7 +1742,10 @@ def summary_of(m: bm.Model) -> str:
         and f"{in_build('building')} build{'s' if in_build('building') == 1 else ''}",
         writing and f"{writing} whose criteria Lem writes",
         reading
-        and f"{reading} with the personas’ read of {'its' if reading == 1 else 'their'} criteria",
+        and (
+            f"{reading} with the personas’ read of "
+            f"{'its' if reading == 1 else 'their'} criteria"
+        ),
         goes_on and f"{goes_on} that Lem shapes without you",
         works and f"{works} whose session works on your answer",
         m.lane["checks"] and f"{len(m.lane['checks'])} in checks and review",
@@ -1654,8 +1770,9 @@ def summary_of(m: bm.Model) -> str:
 
 
 def card_chips(ctx: Ctx, t: bm.Task) -> list:
-    """The chips a developer acts on: the type, who works on it, careful, the breaker that waits, a task stuck
-    for want of its session, red checks, a review that was not clean, green or not green, and the pull request."""
+    """The chips a developer acts on: the type, who works on it, careful, the breaker
+    that waits, a task stuck for want of its session, red checks, a review that was not
+    clean, green or not green, and the pull request."""
     out = []
     if t.type:
         out.append(
@@ -1664,7 +1781,10 @@ def card_chips(ctx: Ctx, t: bm.Task) -> list:
                 "flag",
                 t.type["type"],
                 None,
-                f"The type of the request, as Lem took it from the request: {t.type['type']}, because {t.type['why']}",
+                (
+                    "The type of the request, as Lem took it from the request: "
+                    f"{t.type['type']}, because {t.type['why']}"
+                ),
             )
         )
     lead = bm.LEAD[bm.lead_of(t)] if t.lead else None
@@ -1696,7 +1816,10 @@ def card_chips(ctx: Ctx, t: bm.Task) -> list:
                 "span",
                 {
                     "class": "tag c-you live tc-wait",
-                    "title": f"Breaker {t.breaker.id}: {t.breaker.what}\n{bm.stop_words(t.breaker)}",
+                    "title": (
+                        f"Breaker {t.breaker.id}: {t.breaker.what}\n"
+                        f"{bm.stop_words(t.breaker)}"
+                    ),
                 },
                 icon(ctx, "alert"),
                 h("span", None, f"breaker {t.breaker.id} waits"),
@@ -1712,7 +1835,10 @@ def card_chips(ctx: Ctx, t: bm.Task) -> list:
                 "bad",
                 "A wake-up has waited in the task’s session for 10 minutes or more"
                 if need == "deaf"
-                else "No agent runs the task now: “Open a session” on its page starts a fresh one",
+                else (
+                    "No agent runs the task now: “Open a session” on its "
+                    "page starts a fresh one"
+                ),
             )
         )
     if t.gates and t.gate_bad:
@@ -1723,7 +1849,10 @@ def card_chips(ctx: Ctx, t: bm.Task) -> list:
                 f"checks red: {t.gate_bad} of {len(t.gates)}",
                 "bad",
                 "\n".join(
-                    f"{'green' if g['exit'] == 0 else 'exit ' + str(g['exit'])}  {g['command']}  {g['last'] or ''}"
+                    (
+                        f"{'green' if g['exit'] == 0 else 'exit ' + str(g['exit'])}  "
+                        f"{g['command']}  {g['last'] or ''}"
+                    )
                     for g in t.gates
                 ),
             )
@@ -1856,7 +1985,9 @@ def kanban(ctx: Ctx) -> Markup:
             "aria-label": lane["title"],
             "data-action": "click->fold#column",
             "data-fold-key-param": lane["key"],
-            "title": f"{lane['title']}: {bm.plural(len(tasks), 'task')}. Click to unfold."
+            "title": (
+                f"{lane['title']}: {bm.plural(len(tasks), 'task')}. Click to unfold."
+            )
             if fold
             else None,
         }
@@ -1913,7 +2044,8 @@ def kanban(ctx: Ctx) -> Markup:
                 h("em", None, len(tasks)),
             )
         )
-    # the cursor controller's mark over the cards (cursor.js); its keys are in the page's foot (kanban_page)
+    # the cursor controller's mark over the cards (cursor.js); its keys are in the
+    # page's foot (kanban_page)
     return h(
         "div",
         {"class": "board-wrap", "data-controller": "columns"},
@@ -1938,9 +2070,10 @@ def kanban(ctx: Ctx) -> Markup:
 def keys_line(
     *parts: tuple[str, ...] | str, id_: str | None = None, cls: str = ""
 ) -> Markup:
-    """A view's line of its keys, in the page's foot under the stage (`layout`): the Tasks view's, "Waits for
-    you"'s, the Backlog's and the Activity's; and the search's (`cls` "search-keys"), in its box. Each is hidden
-    on a phone (`.keys`). The parts come in turns, a tuple of keys and the word of what they do."""
+    """A view's line of its keys, in the page's foot under the stage (`layout`): the
+    Tasks view's, "Waits for you"'s, the Backlog's and the Activity's; and the search's
+    (`cls` "search-keys"), in its box. Each is hidden on a phone (`.keys`). The parts
+    come in turns, a tuple of keys and the word of what they do."""
     out = []
     for keys, word in zip(parts[::2], parts[1::2], strict=False):
         if out:
@@ -1952,8 +2085,8 @@ def keys_line(
 
 
 def older_row(ctx: Ctx) -> Markup | None:
-    """Done's foot row under its cards: how many ended tasks have no card there, as the way to the page that
-    lists them; none while Done draws every ended task."""
+    """Done's foot row under its cards: how many ended tasks have no card there, as the
+    way to the page that lists them; none while Done draws every ended task."""
     older = bm.done_older(ctx.model)
     if not older:
         return None
@@ -1963,7 +2096,10 @@ def older_row(ctx: Ctx) -> Markup | None:
             "class": "col-more",
             "id": "done-older",
             "href": ctx.href(OLDER["key"]),
-            "title": f"Done shows the {bm.DONE_SHOWN} tasks that ended last: open the list of the {bm.plural(len(older), 'older one')}",
+            "title": (
+                f"Done shows the {bm.DONE_SHOWN} tasks that ended last: "
+                f"open the list of the {bm.plural(len(older), 'older one')}"
+            ),
         },
         icon(ctx, "clock"),
         h("span", None, f"{len(older)} older"),
@@ -1993,8 +2129,9 @@ def kanban_page(ctx: Ctx) -> Markup:
 
 
 def older_page(ctx: Ctx) -> Markup:
-    """The ended tasks Done draws no card for, the newest first: each with its title, how it ended, when,
-    the way to its board and its pull request when it has one. The board's model is all it reads."""
+    """The ended tasks Done draws no card for, the newest first: each with its title,
+    how it ended, when, the way to its board and its pull request when it has one. The
+    board's model is all it reads."""
     ctx.view = OLDER["key"]
     m = ctx.model
     older = bm.done_older(m)
@@ -2040,7 +2177,10 @@ def older_page(ctx: Ctx) -> Markup:
             h(
                 "div",
                 {"class": "empty"},
-                f"Done shows every ended task: none is older than its {bm.DONE_SHOWN} newest",
+                (
+                    "Done shows every ended task: none is older than "
+                    f"its {bm.DONE_SHOWN} newest"
+                ),
             )
         ]
     shown = len(m.lane["done"]) - len(older)
@@ -2057,14 +2197,20 @@ def older_page(ctx: Ctx) -> Markup:
                 h(
                     "a",
                     {"class": "dim small rlink", "href": ctx.href("tasks")},
-                    f"the {bm.plural(shown, 'newer one')} {'is' if shown == 1 else 'are'} in Done",
+                    (
+                        f"the {bm.plural(shown, 'newer one')} "
+                        f"{'is' if shown == 1 else 'are'} in Done"
+                    ),
                 ),
             ),
             h("div", {"class": "rows"}, rows),
         ),
     )
     summary = (
-        f"The {bm.plural(len(older), 'ended task')} Done has no card for, the newest first"
+        (
+            f"The {bm.plural(len(older), 'ended task')} Done has no card for, "
+            "the newest first"
+        )
         if older
         else "Every ended task has its card in Done"
     )
@@ -2075,9 +2221,10 @@ def older_page(ctx: Ctx) -> Markup:
 
 
 def reason_list(ctx: Ctx, t: bm.Task, reasons: list, key: str) -> Markup:
-    """The reasons a proposal is not green, one row each: the reason in plain words first, what it is
-    about beside it, and its detail folded under it (`lem_board_model.reason_rows`); a reason about a
-    decision or a breaker links to it on "Criteria and decisions"."""
+    """The reasons a proposal is not green, one row each: the reason in plain words
+    first, what it is about beside it, and its detail folded under it
+    (`lem_board_model.reason_rows`); a reason about a decision or a breaker links to it
+    on "Criteria and decisions"."""
     rows = bm.reason_rows(reasons)
     if not rows:
         return h(
@@ -2095,7 +2242,9 @@ def reason_list(ctx: Ctx, t: bm.Task, reasons: list, key: str) -> Markup:
                     "class": "rs-to",
                     **task_link(ctx, t.slug, "criteria"),
                     "data-row": f"dec-{ref['id']}",
-                    "title": f"Open {ref['kind']} {ref['id']} on Criteria and decisions",
+                    "title": (
+                        f"Open {ref['kind']} {ref['id']} on Criteria and decisions"
+                    ),
                 },
                 f"{ref['kind']} {ref['id']}",
                 " ",
@@ -2152,10 +2301,11 @@ def reason_list(ctx: Ctx, t: bm.Task, reasons: list, key: str) -> Markup:
 
 
 def waits_page(ctx: Ctx) -> Markup:
-    """One entry for each task with something the owner does, the most pressing first: a task with one
-    thing is that thing's row, and a task with two or more is one stack (`wait_stack`), closed as the
-    server draws it, that opens on its rows. A row says what he does, in which task, since when, where he
-    answers, and for a merge green or not green with the pull request."""
+    """One entry for each task with something the owner does, the most pressing first: a
+    task with one thing is that thing's row, and a task with two or more is one stack
+    (`wait_stack`), closed as the server draws it, that opens on its rows. A row says
+    what he does, in which task, since when, where he answers, and for a merge green or
+    not green with the pull request."""
     ctx.view = "waits"
     m = ctx.model
     stacks = bm.wait_stacks(bm.waits_of(m))
@@ -2173,21 +2323,29 @@ def waits_page(ctx: Ctx) -> Markup:
                     "div",
                     None,
                     h("b", None, "Nothing waits for you."),
-                    " A breaker, criteria to approve, a plan to read, a pull request to merge or a task with no session shows here when it comes.",
+                    (
+                        " A breaker, criteria to approve, a plan to read, a pull "
+                        "request to merge or a task with no session "
+                        "shows here when it comes."
+                    ),
                 ),
             )
         ]
     n = len(stacks)
     summary = (
-        f"{bm.plural(n, 'task')} {'waits' if n == 1 else 'wait'} for you, the most pressing first"
+        (
+            f"{bm.plural(n, 'task')} {'waits' if n == 1 else 'wait'} for you, "
+            "the most pressing first"
+        )
         if n
         else "Nothing waits for you"
     )
-    # the cursor controller's mark over the entries (cursor.js), one group: a row, whose link is its verb, and
-    # a stack, whose link is its summary, so that Enter on a marked stack is the browser's own, which opens and
-    # closes it; the rows of an open stack are items too, and those of a closed one are hidden, which the
-    # cursor passes over. A click on a verb, a title or a stack's summary marks its entry; the parked tasks
-    # under the entries are no item of it
+    # the cursor controller's mark over the entries (cursor.js), one group: a row, whose
+    # link is its verb, and a stack, whose link is its summary, so that Enter on a
+    # marked stack is the browser's own, which opens and closes it; the rows of an open
+    # stack are items too, and those of a closed one are hidden, which the cursor passes
+    # over. A click on a verb, a title or a stack's summary marks its entry; the parked
+    # tasks under the entries are no item of it
     listing = h(
         "div",
         {
@@ -2229,8 +2387,8 @@ def waits_page(ctx: Ctx) -> Markup:
 
 
 def wait_article(ctx: Ctx, w: dict) -> Markup:
-    """One row of "Waits for you", for one thing the owner does: its verb, its time, its task, its facts,
-    its buttons and where he answers."""
+    """One row of "Waits for you", for one thing the owner does: its verb, its time, its
+    task, its facts, its buttons and where he answers."""
     m = ctx.model
     t, c = w["t"], w["c"]
     say = bm.wait_say(w)
@@ -2320,10 +2478,12 @@ def wait_article(ctx: Ctx, w: dict) -> Markup:
 
 
 def wait_stack(ctx: Ctx, stack: dict) -> Markup:
-    """A task with two or more things the owner does, as one entry of "Waits for you": a <details>, closed as
-    the server draws it, whose summary says the task, its first thing in its words, icon and color, and how
-    many things; it opens on each thing's own row (`wait_article`), with its time and its buttons. A morph
-    keeps it open (app.js), and the summary holds no link, so that a click anywhere on it opens and closes it."""
+    """A task with two or more things the owner does, as one entry of "Waits for you": a
+    <details>, closed as the server draws it, whose summary says the task, its first
+    thing in its words, icon and color, and how many things; it opens on each thing's
+    own row (`wait_article`), with its time and its buttons. A morph keeps it open
+    (app.js), and the summary holds no link, so that a click anywhere on it opens and
+    closes it."""
     t, first = stack["t"], stack["rows"][0]
     say = bm.wait_say(first)
     things = bm.plural(len(stack["rows"]), "thing")
@@ -2364,9 +2524,10 @@ def wait_stack(ctx: Ctx, stack: dict) -> Markup:
 
 
 def verb_link(ctx: Ctx, w: dict, say: dict) -> dict:
-    """The attributes of a row's verb, its main link: the task's panel, and on a page for this Mac, for a row
-    the owner answers in the task's session while it lives (`lem_board_model.session_of_wait`), the jump of
-    agterm to that session too (agterm.js), which takes the click; elsewhere the address opens the panel."""
+    """The attributes of a row's verb, its main link: the task's panel, and on a page
+    for this Mac, for a row the owner answers in the task's session while it lives
+    (`lem_board_model.session_of_wait`), the jump of agterm to that session too
+    (agterm.js), which takes the click; elsewhere the address opens the panel."""
     attrs = {"class": "wr-verb", **task_link(ctx, w["t"].slug, say["to"])}
     session = bm.session_of_wait(w, ctx.model) if ctx.local else None
     if session:
@@ -2381,9 +2542,11 @@ def verb_link(ctx: Ctx, w: dict, say: dict) -> dict:
 
 
 def row_acts(ctx: Ctx, w: dict) -> Markup | None:
-    """The buttons of a row of "Waits for you": the way to criteria that wait for the owner's yes, which he
-    gives under their text, the way to a merge's confirm step, the way to park a task whose breaker waits, and
-    "Open a session" for a task stuck with none or whose session stopped. None on a page that may not act, and for a row with no act."""
+    """The buttons of a row of "Waits for you": the way to criteria that wait for the
+    owner's yes, which he gives under their text, the way to a merge's confirm step, the
+    way to park a task whose breaker waits, and "Open a session" for a task stuck with
+    none or whose session stopped. None on a page that may not act, and for a row with
+    no act."""
     if not ctx.can_act:
         return None
     t = w["t"]
@@ -2392,7 +2555,8 @@ def row_acts(ctx: Ctx, w: dict) -> Markup | None:
     if w["kind"] == "criteria" or (w["kind"] == "held" and "approve" in acts):
         waiting = ctx.criteria_waiting(t.slug) if "approve" in acts else None
         if waiting:
-            # his yes is under the criteria themselves, on the task's tab: no yes to a contract from one tap on a list
+            # his yes is under the criteria themselves, on the task's tab: no yes to a
+            # contract from one tap on a list
             out.append(
                 h(
                     "a",
@@ -2435,9 +2599,10 @@ def row_acts(ctx: Ctx, w: dict) -> Markup | None:
 
 
 def parked_group(ctx: Ctx) -> Markup | None:
-    """The tasks the owner parked, at the foot of "Waits for you" and apart from it: a group in the look of
-    the backlog's recessive one, each task folded, with since when, why in his words, and the command that
-    brings it back. Nothing of them waits, so they are no row above and no count of the sidebar."""
+    """The tasks the owner parked, at the foot of "Waits for you" and apart from it: a
+    group in the look of the backlog's recessive one, each task folded, with since when,
+    why in his words, and the command that brings it back. Nothing of them waits, so
+    they are no row above and no count of the sidebar."""
     m = ctx.model
     if not m.parked:
         return None
@@ -2494,7 +2659,10 @@ def parked_group(ctx: Ctx) -> Markup | None:
                     h(
                         "div",
                         {"class": "wr-sub"},
-                        f"Parked at {bm.stamp(p['since'], m.now)}. Its worktree, its branch and its files stay as they are.",
+                        (
+                            f"Parked at {bm.stamp(p['since'], m.now)}. "
+                            "Its worktree, its branch and its files stay as they are."
+                        ),
                     ),
                     h(
                         "div",
@@ -2536,22 +2704,35 @@ def parked_group(ctx: Ctx) -> Markup | None:
     )
 
 
-# The control of the board's notifications: a sentence for each state the `push` controller can set
-# (data-js-push), and the buttons of each; push.css shows the ones of the state set.
+# The control of the board's notifications: a sentence for each state the `push`
+# controller can set (data-js-push), and the buttons of each; push.css shows the ones of
+# the state set.
 PUSH_SAYS = {
     "busy": ("…", None),
     "insecure": (
         "not on this address",
-        "Notifications need a secure address: the board through the tailnet door (https), or on this Mac at 127.0.0.1. This page has another address over plain http.",
+        (
+            "Notifications need a secure address: the board through the tailnet door "
+            "(https), or on this Mac at 127.0.0.1. This page has another "
+            "address over plain http."
+        ),
     ),
     "home": (
         "Home Screen first",
-        "On an iPhone or an iPad, only the board on the Home Screen gets notifications. Tap Share, then Add to Home Screen, and open Lem from there.",
+        (
+            "On an iPhone or an iPad, only the board on the Home Screen gets "
+            "notifications. Tap Share, then Add to Home Screen, "
+            "and open Lem from there."
+        ),
     ),
     "none": ("not in this browser", "This browser has no web push."),
     "blocked": (
         "blocked",
-        "This browser blocks notifications for the board. Allow them in its settings for this site (on an iPhone: Settings, Notifications, Lem), then load the page again.",
+        (
+            "This browser blocks notifications for the board. Allow them in its "
+            "settings for this site (on an iPhone: Settings, Notifications, Lem), "
+            "then load the page again."
+        ),
     ),
     "off": ("off", "A tap turns them on for this device. The browser asks you once."),
     "on": (
@@ -2562,8 +2743,9 @@ PUSH_SAYS = {
 
 
 def push_row(ctx: Ctx, where: str) -> Markup:
-    """The one row that turns this device's notifications on and off (the `push` controller, lem_push):
-    on "Waits for you", and in the sidebar, where push.css shows it only in a phone's drawer."""
+    """The one row that turns this device's notifications on and off (the `push`
+    controller, lem_push): on "Waits for you", and in the sidebar, where push.css shows
+    it only in a phone's drawer."""
     return h(
         "section",
         {
@@ -2638,8 +2820,8 @@ def days_old(iso: str, now: int) -> int | None:
     return max(0, round((now - noon) / 86400000)) if noon else None
 
 
-# The backlog's filter in the address: words (`q`), one worth (`worth`), and one fact (`only`): a place
-# that no longer resolves, or an item git does not have committed.
+# The backlog's filter in the address: words (`q`), one worth (`worth`), and one fact
+# (`only`): a place that no longer resolves, or an item git does not have committed.
 WORTHS = {"yes", "later", "unset", "no"}
 FACTS = {
     "stale": (
@@ -2651,9 +2833,10 @@ FACTS = {
 
 
 def backlog_filter(query: dict) -> dict:
-    """The backlog's filter from the address's query (`parse_qs`): the words in the field, the chip that
-    is on, and what the links of the chips carry, so that a shared link shows the same list (the backlog
-    controller hides the items it leaves out). A value it does not know is no filter."""
+    """The backlog's filter from the address's query (`parse_qs`): the words in the
+    field, the chip that is on, and what the links of the chips carry, so that a shared
+    link shows the same list (the backlog controller hides the items it leaves out). A
+    value it does not know is no filter."""
     one = lambda key: (query.get(key) or [""])[0].strip()  # noqa: E731
     worth, only = one("worth"), one("only")
     return {
@@ -2664,7 +2847,8 @@ def backlog_filter(query: dict) -> dict:
 
 
 def filter_href(ctx: Ctx, f: dict, **change: str) -> str:
-    """The address of the backlog with the filter F changed: a value given again takes it off."""
+    """The address of the backlog with the filter F changed: a value given again takes
+    it off."""
     want = {**f, **{k: ("" if f.get(k) == v else v) for k, v in change.items()}}
     query = "&".join(f"{k}={quote(v)}" for k, v in want.items() if v)
     return f"{ctx.href('backlog')}{'?' + query if query else ''}"
@@ -2709,7 +2893,10 @@ def backlog_item(ctx: Ctx, it: dict) -> Markup:
             "span",
             {
                 "class": "bl-where stale",
-                "title": "The place this item points at is not there any more. The item may be done, or the code moved.",
+                "title": (
+                    "The place this item points at is not there any more. "
+                    "The item may be done, or the code moved."
+                ),
             },
             icon(ctx, "alert"),
             h("span", None, f"{where} · {it['where_problem']}"),
@@ -2750,8 +2937,11 @@ def backlog_item(ctx: Ctx, it: dict) -> Markup:
                 {"class": "bl-note"},
                 "The task ",
                 who,
-                f" ({held['status'] or 'new'}) builds this item. It leaves the backlog with that task's landing, "
-                "and is undecided again when the task is dropped.",
+                (
+                    f" ({held['status'] or 'new'}) builds this item. "
+                    "It leaves the backlog with that task's landing, and is undecided "
+                    "again when the task is dropped."
+                ),
             ),
         )
     elif ctx.can_act:
@@ -2800,8 +2990,11 @@ def backlog_item(ctx: Ctx, it: dict) -> Markup:
             else None
         )
         note = (
-            "Start a task opens its own session in agterm, which reads this item. Drop removes the file, and the day's record of the proposals "
-            "keeps the drop, so no later reviewer proposes it again."
+            (
+                "Start a task opens its own session in agterm, which reads this item. "
+                "Drop removes the file, and the day's record of the proposals keeps "
+                "the drop, so no later reviewer proposes it again."
+            )
             if it.get("reviewer")
             else "Lem opens the task's own session in agterm, which reads this item."
         )
@@ -2847,12 +3040,17 @@ def backlog_item(ctx: Ctx, it: dict) -> Markup:
             h(
                 "span",
                 {"class": "bl-note bad"},
-                "The name of this file has a character that a line to type would not keep. Start the task yourself in a session, with your own words.",
+                (
+                    "The name of this file has a character that a line to type would "
+                    "not keep. Start the task yourself in a session, "
+                    "with your own words."
+                ),
             ),
         )
     body = it.get("body") or ""
     if it.get("reviewer"):
-        # a proposal's name (`retro of 2026-11-23 #7`) as code, so that its number is not read as a pull request
+        # a proposal's name (`retro of 2026-11-23 #7`) as code, so that its number is
+        # not read as a pull request
         body = lem_project.PROPOSAL_NAME.sub(lambda found: f"`{found[0]}`", body)
     return h(
         "details",
@@ -2893,7 +3091,8 @@ def backlog_page(ctx: Ctx) -> Markup:
     groups = []
     mine = bm.reviewer_items(items)
     if backlog and mine:
-        # the reviewer's items in a group of their own, the undecided ones first: the proposals of the night and the retro that passed its read
+        # the reviewer's items in a group of their own, the undecided ones first: the
+        # proposals of the night and the retro that passed its read
         groups.append(
             h(
                 "div",
@@ -2906,7 +3105,11 @@ def backlog_page(ctx: Ctx) -> Markup:
                     "div",
                     {
                         "class": "lane-head",
-                        "title": f"What the night and the retro proposed and the reviewer passed, in {backlog['reviewer_folder']}: start a task or drop it",
+                        "title": (
+                            "What the night and the retro proposed and the reviewer "
+                            f"passed, in {backlog['reviewer_folder']}: "
+                            "start a task or drop it"
+                        ),
                     },
                     h("i"),
                     "The reviewer's items",
@@ -2948,8 +3151,11 @@ def backlog_page(ctx: Ctx) -> Markup:
         empty = h(
             "div",
             {"class": "lane-empty"},
-            f"No item in {backlog['folder']} or {backlog['reviewer_folder']}. The polish pass of a landing files items, "
-            "/backlog adds one, and the reviewer of the night's and the retro's proposals writes its own.",
+            (
+                f"No item in {backlog['folder']} or {backlog['reviewer_folder']}. "
+                "The polish pass of a landing files items, /backlog adds one, and the "
+                "reviewer of the night's and the retro's proposals writes its own."
+            ),
         )
     else:
         empty = None
@@ -2961,12 +3167,16 @@ def backlog_page(ctx: Ctx) -> Markup:
         read = bm.at(backlog.get("read"))
         theirs = bm.reviewer_items(items)
         reviewer = (
-            f" · {len(theirs)} of the reviewer in {backlog['reviewer_folder']}, {bm.undecided(backlog)} undecided"
+            (
+                f" · {len(theirs)} of the reviewer in {backlog['reviewer_folder']}, "
+                f"{bm.undecided(backlog)} undecided"
+            )
             if theirs
             else ""
         )
         sum_ = (
-            f"{bm.plural(len(items) - len(theirs), 'item')} in {backlog['folder']}{reviewer}"
+            f"{bm.plural(len(items) - len(theirs), 'item')} in "
+            f"{backlog['folder']}{reviewer}"
             f"{f' · {broken} cannot be read' if broken else ''}"
             f"{f' · read {bm.stamp(read, m.now)}' if read else ''}"
         )
@@ -2978,7 +3188,9 @@ def backlog_page(ctx: Ctx) -> Markup:
         return h(
             "a",
             {
-                "class": f"fchip a-{actor}{' on' if on else ''}{' zero' if not n else ''}",
+                "class": (
+                    f"fchip a-{actor}{' on' if on else ''}{' zero' if not n else ''}"
+                ),
                 "id": f"f-{key}-{value}",
                 "href": filter_href(ctx, f, **{key: value}),
                 "data-turbo-action": "replace",
@@ -3055,7 +3267,9 @@ def backlog_page(ctx: Ctx) -> Markup:
                     {
                         "id": f"bl-q-{ctx.workspace}",
                         "type": "search",
-                        "placeholder": "Filter by the words of a title, a text or a place",
+                        "placeholder": (
+                            "Filter by the words of a title, a text or a place"
+                        ),
                         "aria-label": "Filter the items of the backlog",
                         "autocomplete": "off",
                         "spellcheck": "false",
@@ -3132,7 +3346,10 @@ def backlog_page(ctx: Ctx) -> Markup:
     return layout(
         ctx,
         "Backlog",
-        "The reviewer's items, then the items of the backlog by the worth each one gives itself",
+        (
+            "The reviewer's items, then the items of the backlog by the "
+            "worth each one gives itself"
+        ),
         view,
         keys=keys_line(
             ("/",),
@@ -3152,14 +3369,16 @@ def backlog_page(ctx: Ctx) -> Markup:
 
 
 def new_page(ctx: Ctx) -> Markup:
-    """The form of a new task in the owner's words: the board's "+". Lem names the task from its first
-    words and opens its own session in agterm, with no focus; that session reads the type and the track
-    and asks him what it needs. A page another machine passed through, or one that cannot act, says how
-    to start it in a session instead."""
+    """The form of a new task in the owner's words: the board's "+". Lem names the task
+    from its first words and opens its own session in agterm, with no focus; that
+    session reads the type and the track and asks him what it needs. A page another
+    machine passed through, or one that cannot act, says how to start it in a
+    session instead."""
     ctx.view = "new"
     if ctx.can_act:
-        # The field is permanent, as the backlog's filter is: a refresh morphs the page into the server's empty field,
-        # and the words the owner is typing on the phone (where the poll refreshes every 10 s) would go.
+        # The field is permanent, as the backlog's filter is: a refresh morphs the page
+        # into the server's empty field, and the words the owner is typing on the phone
+        # (where the poll refreshes every 10 s) would go.
         form = h(
             "form",
             {
@@ -3212,7 +3431,11 @@ def new_page(ctx: Ctx) -> Markup:
         form = h(
             "p",
             {"class": "sub"},
-            "This page starts nothing here: start a task on the board on the Mac or through the tailnet door, or type /lem and your words in any session.",
+            (
+                "This page starts nothing here: start a task on the board on the Mac "
+                "or through the tailnet door, or type /lem and "
+                "your words in any session."
+            ),
         )
     card = h(
         "section",
@@ -3225,13 +3448,19 @@ def new_page(ctx: Ctx) -> Markup:
         h(
             "p",
             None,
-            "Say it as you would to a colleague, in a sentence or two. Lem names the task from its first words, "
-            "and opens the task's own session in agterm, at the end of its workspace.",
+            (
+                "Say it as you would to a colleague, in a sentence or two. "
+                "Lem names the task from its first words, and opens the task's own "
+                "session in agterm, at the end of its workspace."
+            ),
         ),
         h(
             "p",
             {"class": "sub"},
-            "That session reads your words, tells the type and the track, and asks you what it needs.",
+            (
+                "That session reads your words, tells the type and the track, "
+                "and asks you what it needs."
+            ),
         ),
         form,
     )
@@ -3280,8 +3509,9 @@ def nice_ceil(ms: float) -> int:
 
 
 def timeline(ctx: Ctx) -> Markup:
-    """What each task of today waited on, over time: one row for each task, a bar for each status it
-    held, in the color of who acted then; each bar says its status, who acted and its times in its hover."""
+    """What each task of today waited on, over time: one row for each task, a bar for
+    each status it held, in the color of who acted then; each bar says its status, who
+    acted and its times in its hover."""
     m = ctx.model
     shown = sorted(
         (
@@ -3323,7 +3553,9 @@ def timeline(ctx: Ctx) -> Markup:
                         {
                             "class": f"tl-dot a-{info['actor']}",
                             "style": f"left:{x1:.3f}%",
-                            "title": f"{info['label']} at {bm.stamp(g['start'], m.now)}",
+                            "title": (
+                                f"{info['label']} at {bm.stamp(g['start'], m.now)}"
+                            ),
                         },
                     )
                 )
@@ -3355,7 +3587,8 @@ def timeline(ctx: Ctx) -> Markup:
                 h("div", {"class": "tl-track"}, bars),
             )
         )
-    # a tick names its date only where the axis passes into another day; the axis's first day stands at its left
+    # a tick names its date only where the axis passes into another day; the axis's
+    # first day stands at its left
     labels = [
         bm.tick_label(t0 + whole * i / 6, whole, t0 + whole * (i - 1) / 6 if i else t0)
         for i in range(7)
@@ -3400,8 +3633,9 @@ def timeline(ctx: Ctx) -> Markup:
 
 
 def tick(cls: str, left: float, label: str) -> Markup:
-    """A tick of a time axis: its time, and under it its date where the axis passes into another day
-    (`Nov 21 01:18`), so that a dated tick is no wider than its neighbors."""
+    """A tick of a time axis: its time, and under it its date where the axis passes into
+    another day (`Nov 21 01:18`), so that a dated tick is no wider than
+    its neighbors."""
     date, _, clock = label.rpartition(" ")
     return h(
         "span",
@@ -3525,7 +3759,8 @@ def activity_page(ctx: Ctx) -> Markup:
             h("div", {"class": "feed rows"}, feed_rows(ctx)),
         ),
     )
-    # no key acts on the Activity's rows: its line says the keys of the views, which act on every page
+    # no key acts on the Activity's rows: its line says the keys of the views, which act
+    # on every page
     return layout(
         ctx,
         "Activity",
@@ -3541,7 +3776,8 @@ def activity_page(ctx: Ctx) -> Markup:
 def plain_page(
     title: str, asset: Callable[[str], str], body: list, eyebrow: str
 ) -> Markup:
-    """A page in lem.css's document look, with the mark: the list of workspaces, an error."""
+    """A page in lem.css's document look, with the mark: the list of workspaces,
+    an error."""
     ident = h(
         "div",
         {"class": "top"},
@@ -3565,10 +3801,11 @@ def plain_page(
 
 
 def index_page(host: str, spaces: list, asset: Callable[[str], str]) -> Markup:
-    """The workspaces of this machine, and of each machine joined (`lem_peers`), each with how many tasks
-    wait for the owner and what its tasks do now, the ones that wait for him first; a workspace of a
-    machine that does not answer last, grayed, with when it last answered. With one machine a workspace is
-    its name, with more `HOST/WORKSPACE`."""
+    """The workspaces of this machine, and of each machine joined (`lem_peers`), each
+    with how many tasks wait for the owner and what its tasks do now, the ones that wait
+    for him first; a workspace of a machine that does not answer last, grayed, with when
+    it last answered. With one machine a workspace is its name, with
+    more `HOST/WORKSPACE`."""
     machines = machines_of(spaces)
     many = len(machines) > 1
     now = bm.now_ms()
@@ -3691,7 +3928,8 @@ def error_page(
 
 
 def manifest(asset: Callable[[str], str]) -> str:
-    """The web app manifest: the board added to a phone's home screen opens as an app of its own, at `/`."""
+    """The web app manifest: the board added to a phone's home screen opens as an app of
+    its own, at `/`."""
     return json.dumps(
         {
             "name": "Lem",

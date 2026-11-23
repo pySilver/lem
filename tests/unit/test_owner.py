@@ -1,6 +1,7 @@
-"""The owner's status, the machine's one mark: where `lem_state` puts it, how `project.py` reads it,
-and the spans without him that it gives a task, as calls of the functions with records. The write of
-the mark and its read from two repositories are facts of real checkouts, in tests/lem-state.sh.
+"""The owner's status, the machine's one mark: where `lem_state` puts it, how
+`project.py` reads it, and the spans without him that it gives a task, as calls of the
+functions with records. The write of the mark and its read from two repositories are
+facts of real checkouts, in tests/lem-state.sh.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -46,8 +47,9 @@ def night(ts: str) -> dict:
 
 
 class Mark(unittest.TestCase):
-    """Each case runs with a folder of its own as XDG_CONFIG_HOME, and puts the variable back after:
-    the unit level runs without tests/all.sh, and the home directory's mark is never read here."""
+    """Each case runs with a folder of its own as XDG_CONFIG_HOME, and puts the variable
+    back after: the unit level runs without tests/all.sh, and the home directory's mark
+    is never read here."""
 
     def setUp(self) -> None:
         self.kept = os.environ.get("XDG_CONFIG_HOME")
@@ -110,7 +112,8 @@ class Mark(unittest.TestCase):
         )
 
     def test_his_words_may_hold_a_line_separator(self) -> None:
-        # the record as append_owner writes it: json.dumps with ensure_ascii=False keeps U+2028, U+2029 and U+0085 as they are
+        # the record as append_owner writes it: json.dumps with ensure_ascii=False keeps
+        # U+2028, U+2029 and U+0085 as they are
         folder = Path(self.folder.name) / "lem"
         folder.mkdir()
         words = "away\u2028now\u2029and\x85later"
@@ -143,7 +146,8 @@ class Mark(unittest.TestCase):
 
 
 class Spans(unittest.TestCase):
-    """The spans in which a task ran without the owner, from its marks and the machine's records."""
+    """The spans in which a task ran without the owner, from its marks and the
+    machine's records."""
 
     def test_a_back_ends_his_away_and_never_a_night(self) -> None:
         records = project.merged(

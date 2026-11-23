@@ -1,12 +1,14 @@
-"""A release names one number in three places: the `version` of `.claude-plugin/plugin.json`, and the
-`version` and the `ref` of the `lem` entry of `.claude-plugin/marketplace.json`, whose source is the
-GitHub repository at the tag `vNUMBER`. An install and an update take the plugin from that source, so
-they get the commit of the release tag and never the head of `main`.
+"""A release names one number in three places: the `version` of
+`.claude-plugin/plugin.json`, and the `version` and the `ref` of the `lem` entry of
+`.claude-plugin/marketplace.json`, whose source is the GitHub repository at the tag
+`vNUMBER`. An install and an update take the plugin from that source, so they get the
+commit of the release tag and never the head of `main`.
 
-A task keeps the release it began on (lem_release.py): the rule that a command for a task of this
-release or the one before goes on, and one for a task two releases back stops with the message of
-criterion 4; the mark a task's open writes, from Claude Code's list of installs; and the check each
-command runs, which logs the stop once and lets a command that ends the task go on.
+A task keeps the release it began on (lem_release.py): the rule that a command for a
+task of this release or the one before goes on, and one for a task two releases back
+stops with the message of criterion 4; the mark a task's open writes, from Claude Code's
+list of installs; and the check each command runs, which logs the stop once and lets a
+command that ends the task go on.
 
     python3 -B -m unittest discover -s tests/unit -p test_release.py
 """
@@ -30,14 +32,18 @@ REPO = "pySilver/lem"
 
 
 def release_places(plugin: dict, market: dict) -> list[tuple[str, str]]:
-    """Each place of the two manifests that does not name the release of `plugin.json`, as (the place,
-    what is wrong there and what it expects). Empty when the three places name one release."""
+    """Each place of the two manifests that does not name the release of `plugin.json`,
+    as (the place, what is wrong there and what it expects). Empty when the three places
+    name one release."""
     number = plugin.get("version")
     if not isinstance(number, str) or not re.fullmatch(r"\d+\.\d+\.\d+", number):
         return [
             (
                 "plugin.json version",
-                f'plugin.json\'s version is {number!r}, and a release names three numbers, as "0.4.0"',
+                (
+                    f"plugin.json's version is {number!r}, and a release names "
+                    'three numbers, as "0.4.0"'
+                ),
             )
         ]
     tag = f"v{number}"
@@ -50,7 +56,10 @@ def release_places(plugin: dict, market: dict) -> list[tuple[str, str]]:
         return [
             (
                 "marketplace.json plugins",
-                f"marketplace.json has {len(entries)} entries named lem, and it needs one, at the release {tag}",
+                (
+                    f"marketplace.json has {len(entries)} entries named lem, and it "
+                    f"needs one, at the release {tag}"
+                ),
             )
         ]
     entry = entries[0]
@@ -65,28 +74,40 @@ def release_places(plugin: dict, market: dict) -> list[tuple[str, str]]:
         found.append(
             (
                 "lem entry source",
-                f"the lem entry's source is {json.dumps(source)}, and plugin.json's version {number} expects {json.dumps(want)}",
+                (
+                    f"the lem entry's source is {json.dumps(source)}, and "
+                    f"plugin.json's version {number} expects {json.dumps(want)}"
+                ),
             )
         )
     elif "ref" not in source:
         found.append(
             (
                 "lem entry ref",
-                f'the lem entry\'s source has no ref, and plugin.json\'s version {number} expects "ref": "{tag}"',
+                (
+                    "the lem entry's source has no ref, and plugin.json's version "
+                    f'{number} expects "ref": "{tag}"'
+                ),
             )
         )
     elif source["ref"] != tag:
         found.append(
             (
                 "lem entry ref",
-                f"the lem entry's ref is {json.dumps(source['ref'])}, and plugin.json's version {number} expects \"{tag}\"",
+                (
+                    f"the lem entry's ref is {json.dumps(source['ref'])}, and "
+                    f'plugin.json\'s version {number} expects "{tag}"'
+                ),
             )
         )
     if entry.get("version") != number:
         found.append(
             (
                 "lem entry version",
-                f"the lem entry's version is {json.dumps(entry.get('version'))}, and plugin.json's version {number} expects \"{number}\"",
+                (
+                    f"the lem entry's version is {json.dumps(entry.get('version'))}, "
+                    f'and plugin.json\'s version {number} expects "{number}"'
+                ),
             )
         )
     return found
@@ -98,7 +119,8 @@ def manifests(
     version: str | None = "0.4.0",
     source: object = None,
 ) -> tuple[dict, dict]:
-    """A plugin.json of NUMBER and a marketplace.json whose lem entry has REF and VERSION (left out when None)."""
+    """A plugin.json of NUMBER and a marketplace.json whose lem entry has REF and
+    VERSION (left out when None)."""
     if source is None:
         source = {
             "source": "github",
@@ -126,7 +148,10 @@ class Places(unittest.TestCase):
             [
                 (
                     "lem entry ref",
-                    'the lem entry\'s ref is "v0.3.0", and plugin.json\'s version 0.4.0 expects "v0.4.0"',
+                    (
+                        "the lem entry's ref is \"v0.3.0\", and plugin.json's version "
+                        '0.4.0 expects "v0.4.0"'
+                    ),
                 )
             ],
         )
@@ -137,7 +162,10 @@ class Places(unittest.TestCase):
             [
                 (
                     "lem entry version",
-                    'the lem entry\'s version is "0.3.0", and plugin.json\'s version 0.4.0 expects "0.4.0"',
+                    (
+                        "the lem entry's version is \"0.3.0\", and plugin.json's "
+                        'version 0.4.0 expects "0.4.0"'
+                    ),
                 )
             ],
         )
@@ -152,7 +180,10 @@ class Places(unittest.TestCase):
             [
                 (
                     "lem entry ref",
-                    'the lem entry\'s source has no ref, and plugin.json\'s version 0.4.0 expects "ref": "v0.4.0"',
+                    (
+                        "the lem entry's source has no ref, and plugin.json's "
+                        'version 0.4.0 expects "ref": "v0.4.0"'
+                    ),
                 )
             ],
         )
@@ -167,7 +198,10 @@ class Places(unittest.TestCase):
                 found = release_places(*manifests(source=source))
                 self.assertEqual([place for place, _ in found], ["lem entry source"])
                 self.assertIn(
-                    'expects {"source": "github", "repo": "pySilver/lem", "ref": "v0.4.0"}',
+                    (
+                        'expects {"source": "github", "repo": "pySilver/lem", '
+                        '"ref": "v0.4.0"}'
+                    ),
                     found[0][1],
                 )
 
@@ -200,10 +234,13 @@ class Repository(unittest.TestCase):
         self.assertEqual(release_places(*self.read()), [])
 
 
-# Criterion 4's message, word for word, for invoice-totals begun on 0.2.0 under 0.4.0, whose release before is 0.3.0.
+# Criterion 4's message, word for word, for invoice-totals begun on 0.2.0 under 0.4.0,
+# whose release before is 0.3.0.
 OLD_STOP = (
-    "invoice-totals began on Lem 0.2.0, and Lem 0.4.0 reads only tasks begun on 0.3.0 or 0.4.0. Your branch and its commits stay. "
-    "/lem drop invoice-totals, then /lem resume invoice-totals, starts a new task on 0.4.0 from that branch and from the notes the task left."
+    "invoice-totals began on Lem 0.2.0, and Lem 0.4.0 reads only tasks begun on 0.3.0 "
+    "or 0.4.0. Your branch and its commits stay. /lem drop invoice-totals, then /lem "
+    "resume invoice-totals, starts a new task on 0.4.0 from that branch and from "
+    "the notes the task left."
 )
 
 
@@ -261,7 +298,8 @@ def installs(*entries: dict) -> dict:
 
 
 class Mark(unittest.TestCase):
-    """The mark a task's open writes: the release its project's sessions load, never newer than this Lem."""
+    """The mark a task's open writes: the release its project's sessions load, never
+    newer than this Lem."""
 
     MAIN = "/lem-unit/shop"
 
@@ -374,14 +412,16 @@ class Check(unittest.TestCase):
                     + "\n"
                 )
 
-        # the drop passes and logs the stop, then writes its state; the resume of the dropped task passes too
+        # the drop passes and logs the stop, then writes its state; the resume of the
+        # dropped task passes too
         self.assertIsNone(lem_release.check(self.task, passes=True))
         state("dropped")
         self.assertIsNone(lem_release.check(self.task, passes=True))
         self.assertEqual(
             [e["event"] for e in self.events()], ["release.stop", "task.state"]
         )
-        # a state of work after the stop (written by another Lem) leaves it standing no more
+        # a state of work after the stop (written by another Lem) leaves it standing
+        # no more
         state("building")
         self.assertEqual(lem_release.check(self.task), OLD_STOP)
         self.assertEqual(
@@ -473,7 +513,8 @@ class Check(unittest.TestCase):
             ],
             check=True,
         )
-        # a rebase that stopped on a conflict: the head is detached, and git keeps the branch in head-name
+        # a rebase that stopped on a conflict: the head is detached, and git keeps the
+        # branch in head-name
         subprocess.run(
             ["git", "-C", str(tree), "checkout", "-q", "--detach"], check=True
         )
@@ -503,7 +544,8 @@ class Check(unittest.TestCase):
         @lem_release.one_command
         def ending() -> str | None:
             self.assertIsNone(lem_release.check(self.task, passes=True))
-            # a command it runs in this process for the same task (`lem project log` in `lem land merged`)
+            # a command it runs in this process for the same task (`lem project log`
+            # in `lem land merged`)
             return nested()
 
         @lem_release.one_command

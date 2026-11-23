@@ -1,7 +1,8 @@
-"""Lem's settings rules, as calls of the functions that hold them: what a settings file may say, what
-`lem project show` refuses in one, and what it reads from one. Each rule here takes the tables that
-were read and returns the settings or refuses; which checkout and which commit supply the tables is a
-fact only git shows, and tests/lem-settings.sh checks it in real repositories.
+"""Lem's settings rules, as calls of the functions that hold them: what a settings file
+may say, what `lem project show` refuses in one, and what it reads from one. Each rule
+here takes the tables that were read and returns the settings or refuses; which checkout
+and which commit supply the tables is a fact only git shows, and tests/lem-settings.sh
+checks it in real repositories.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -26,19 +27,21 @@ sys.path.insert(
 )
 import project  # noqa: E402
 
-# A checkout that is not on disk: the rules resolve paths under it and find nothing there.
+# A checkout that is not on disk: the rules resolve paths under it and find
+# nothing there.
 ROOT = Path("/lem-unit/repo")
 FILE = ROOT / project.SETTINGS
 
 
 def read(*lines: str, name: Path = FILE, place: str = "team") -> dict:
-    """The tables of a settings file of these lines, as `load` reads them: the team's file, unless
-    PLACE names the local file or the home folder's."""
+    """The tables of a settings file of these lines, as `load` reads them: the team's
+    file, unless PLACE names the local file or the home folder's."""
     return project.settings_of("\n".join(lines) + "\n", name, place)
 
 
 def settings(*lines: str, local: dict | None = None) -> dict:
-    """The settings of a main checkout on its base branch whose file holds these lines."""
+    """The settings of a main checkout on its base branch whose file holds
+    these lines."""
     raw = read(*lines)
     return project.decide(ROOT, ROOT, raw, local or {}, raw, None)
 
@@ -60,7 +63,8 @@ class Refuses(unittest.TestCase):
 
 
 class UnknownNames(Refuses):
-    """A table or a key that Lem does not know is refused with its name, the file and the names it knows."""
+    """A table or a key that Lem does not know is refused with its name, the file and
+    the names it knows."""
 
     def test_a_key_with_the_nearest_valid_one(self) -> None:
         self.assertNames(
@@ -216,9 +220,10 @@ class Values(Refuses):
 
 
 class TaskWorktree(Refuses):
-    """In a task's worktree the branch's own file is read, but what must never go wrong and the naps are the
-    base branch's: a branch does not lift what guards it. Which checkout and commit supply each table is
-    tests/lem-settings.sh's; this is what the rule does with them."""
+    """In a task's worktree the branch's own file is read, but what must never go wrong
+    and the naps are the base branch's: a branch does not lift what guards it. Which
+    checkout and commit supply each table is tests/lem-settings.sh's; this is what the
+    rule does with them."""
 
     TREE = ROOT / ".lem" / "worktrees" / "lift"
     COMMITTED = {"branch": "main", "commit": "0123456789abcdef"}
@@ -250,7 +255,10 @@ class TaskWorktree(Refuses):
         )
         self.assertEqual(
             found["settings_from"],
-            "this worktree's branch, with [flow], [naps] and [state] from main@012345678",
+            (
+                "this worktree's branch, with [flow], [naps] and "
+                "[state] from main@012345678"
+            ),
         )
 
     def test_the_days_the_state_keeps_come_from_the_base(self) -> None:
@@ -305,8 +313,9 @@ def local(*lines: str) -> dict:
 
 
 class KeepDays(Refuses):
-    """How long the state folder keeps what Lem no longer needs: one whole number of days of the project's
-    file, 30 by default, and one machine's own file may set its own number, which wins on that machine."""
+    """How long the state folder keeps what Lem no longer needs: one whole number of
+    days of the project's file, 30 by default, and one machine's own file may set its
+    own number, which wins on that machine."""
 
     def test_the_default_is_the_owners_thirty(self) -> None:
         self.assertEqual(
@@ -390,13 +399,17 @@ class KeepDays(Refuses):
         self.assertIn("keep_days = 30", project.TEMPLATE)
         words = " ".join(project.TEMPLATE.replace("# ", "").split())
         self.assertIn(
-            "The default, 30, is the owner's word of 2026-11-21, and the two constants it replaces, which were guesses.",
+            (
+                "The default, 30, is the owner's word of 2026-11-21, and the two "
+                "constants it replaces, which were guesses."
+            ),
             words,
         )
 
 
 class Paths(Refuses):
-    """A folder of [paths] stays inside the repository and is no root; a file name is a pattern of Lem's tokens."""
+    """A folder of [paths] stays inside the repository and is no root; a file name is a
+    pattern of Lem's tokens."""
 
     def test_a_folder_that_leaves_the_repository(self) -> None:
         self.assertNames(
@@ -445,7 +458,8 @@ class Paths(Refuses):
 
 
 class Rulings(Refuses):
-    """The rulings are one markdown file, `docs/rulings.md` unless the settings say otherwise; a folder is refused."""
+    """The rulings are one markdown file, `docs/rulings.md` unless the settings say
+    otherwise; a folder is refused."""
 
     def test_the_default_is_one_file_and_no_ruling_file(self) -> None:
         paths = settings()["paths"]
@@ -500,7 +514,8 @@ class Rulings(Refuses):
 
 
 class Tracker(Refuses):
-    """No table is no tracker; a table has one key, its kind, and any other key is unknown."""
+    """No table is no tracker; a table has one key, its kind, and any other key
+    is unknown."""
 
     def tracker(self, *lines: str) -> dict | None:
         return (
@@ -510,7 +525,8 @@ class Tracker(Refuses):
     def test_the_tables_it_takes(self) -> None:
         self.assertIsNone(self.tracker())
         self.assertEqual(self.tracker('kind = "linear"'), {"kind": "linear"})
-        # criterion 1 of github-issues-tracker: GitHub Issues with no other key, the repository being origin's
+        # criterion 1 of github-issues-tracker: GitHub Issues with no other key, the
+        # repository being origin's
         self.assertEqual(self.tracker('kind = "github"'), {"kind": "github"})
 
     def test_the_tables_it_refuses(self) -> None:
@@ -523,7 +539,8 @@ class Tracker(Refuses):
                 self.assertNames(self.refused(settings, "[tracker]", *lines), *names)
 
     def test_a_key_that_went_is_unknown(self) -> None:
-        # Lem keeps no reading of the table's older form: a file that still names a status or a server is refused like any unknown key
+        # Lem keeps no reading of the table's older form: a file that still names a
+        # status or a server is refused like any unknown key
         for key in (
             'server = "linear"',
             'moves = "lem"',
@@ -539,8 +556,8 @@ class Tracker(Refuses):
 
 
 class Home(Refuses):
-    """Each case runs with a folder of its own as XDG_CONFIG_HOME, so the home folder's files are that folder's and
-    the home directory's are never read or written."""
+    """Each case runs with a folder of its own as XDG_CONFIG_HOME, so the home folder's
+    files are that folder's and the home directory's are never read or written."""
 
     def setUp(self) -> None:
         self.kept = os.environ.get("XDG_CONFIG_HOME")
@@ -556,13 +573,15 @@ class Home(Refuses):
 
 
 class Seats(Home):
-    """A seat is one string, agent/model:effort. The reviewer's, the defender's, each expert's and the fallback's
-    is written whole; the merge agent's and a task session's may leave out the effort, or the model and the effort.
-    Each seat comes from the first of four places: this machine's own file for the repository, the team's file,
+    """A seat is one string, agent/model:effort. The reviewer's, the defender's, each
+    expert's and the fallback's is written whole; the merge agent's and a task session's
+    may leave out the effort, or the model and the effort. Each seat comes from the
+    first of four places: this machine's own file for the repository, the team's file,
     the home folder's settings.toml, then Lem's default."""
 
     def home(self, *lines: str) -> dict:
-        """The tables of a home folder's settings.toml of these lines, as `load` reads them; no lines, no file."""
+        """The tables of a home folder's settings.toml of these lines, as `load` reads
+        them; no lines, no file."""
         file = project.lem_state.home_settings_file()
         if lines:
             file.parent.mkdir(parents=True, exist_ok=True)
@@ -577,7 +596,8 @@ class Seats(Home):
         local_lines: tuple[str, ...] = (),
         home: dict | None = None,
     ) -> dict:
-        """The seats of a repository whose two files hold these lines, on a machine whose home folder's settings.toml is `home`."""
+        """The seats of a repository whose two files hold these lines, on a machine
+        whose home folder's settings.toml is `home`."""
         raw = read(*project_lines)
         return project.decide(
             ROOT, ROOT, raw, local(*local_lines), raw, None, home or {}
@@ -622,7 +642,8 @@ class Seats(Home):
         )
 
     def test_each_of_the_three_is_refused_unless_whole(self) -> None:
-        # the owner, 2026-11-18: "I think it should be explicitly `agent/model:effort` in all 3; not simply "claude" or "codex""
+        # the owner, 2026-11-18: "I think it should be explicitly `agent/model:effort`
+        # in all 3; not simply "claude" or "codex""
         for which, given, missing, example in (
             (
                 "reviewer",
@@ -654,7 +675,11 @@ class Seats(Home):
                     )
                     self.assertEqual(
                         message,
-                        f'{name}: seats.{which} = {given!r} names {missing}: it is one string, "agent/model:effort", written whole, as "{example}"',
+                        (
+                            f"{name}: seats.{which} = {given!r} names {missing}: "
+                            'it is one string, "agent/model:effort", written whole, '
+                            f'as "{example}"'
+                        ),
                     )
 
     def test_each_expert_is_refused_unless_whole(self) -> None:
@@ -668,14 +693,22 @@ class Seats(Home):
                 )
                 self.assertEqual(
                     message,
-                    f'{FILE}: seats.experts[{number}] = {given[number]!r} names {missing}: it is one string, "agent/model:effort", written whole, as "{project.EXPERTS[number]}"',
+                    (
+                        f"{FILE}: seats.experts[{number}] = {given[number]!r} names "
+                        f'{missing}: it is one string, "agent/model:effort", written '
+                        f'whole, as "{project.EXPERTS[number]}"'
+                    ),
                 )
 
     def test_set_refuses_a_seat_that_is_not_whole(self) -> None:
         message = self.refused(project.set_value, "local", "reviewer", "claude")
         self.assertEqual(
             message,
-            f'set local reviewer: seats.reviewer = \'claude\' names no model and no effort: it is one string, "agent/model:effort", written whole, as "{project.REVIEWER_SEATS["codex"]}"',
+            (
+                "set local reviewer: seats.reviewer = 'claude' names no model and no "
+                'effort: it is one string, "agent/model:effort", written whole, '
+                f'as "{project.REVIEWER_SEATS["codex"]}"'
+            ),
         )
 
     def test_a_wrong_agent_is_named_before_the_parts_it_leaves_out(self) -> None:
@@ -780,7 +813,8 @@ class Seats(Home):
     def test_a_repository_that_names_no_reviewer_takes_the_machines_then_lems(
         self,
     ) -> None:
-        # criterion 1: the home folder's settings.toml names the reviewer, and notes-app names none in its two files
+        # criterion 1: the home folder's settings.toml names the reviewer, and notes-app
+        # names none in its two files
         notes_app = ("[branch]", 'base = "main"')
         reviewer = self.seats(
             notes_app, home=self.home("[seats]", 'reviewer = "codex/gpt-6.2-sol:high"')
@@ -863,7 +897,8 @@ class Seats(Home):
                 )
 
     def test_the_fallback_from_each_of_the_four_places(self) -> None:
-        # criterion 2: mybaze has no fallback line and the home folder's settings.toml has none, so it is Lem's claude/opus:high
+        # criterion 2: mybaze has no fallback line and the home folder's settings.toml
+        # has none, so it is Lem's claude/opus:high
         mybaze = ("[seats]", 'reviewer = "codex/gpt-6.2-sol:high"')
         found = self.seats(
             mybaze, home=self.home("[seats]", 'merger = "claude/opus:high"')
@@ -1058,8 +1093,9 @@ class Seats(Home):
     def test_the_experts_and_the_session_keep_their_rules_whatever_the_fallback(
         self,
     ) -> None:
-        # criterion 8: the fallback is one key of the reviewer, the planner and the merge agent; the experts keep
-        # their rule that one answers alone where its agent is missing, and the session seat is Claude only
+        # criterion 8: the fallback is one key of the reviewer, the planner and the
+        # merge agent; the experts keep their rule that one answers alone where its
+        # agent is missing, and the session seat is Claude only
         with (
             tempfile.TemporaryDirectory() as folder,
             mock.patch.dict(os.environ, {"PATH": str(Path(folder) / "none")}),
@@ -1202,9 +1238,10 @@ class Seats(Home):
 
 
 class SetSeat(Home):
-    """`lem project set global|local NAME VALUE`: one line of `[seats]` in the home folder's settings.toml or in this
-    machine's own file of the repository, with every other line of the file kept; nothing writes the team's file.
-    Each case has a git repository of its own in a temporary folder, beside its own XDG_CONFIG_HOME."""
+    """`lem project set global|local NAME VALUE`: one line of `[seats]` in the home
+    folder's settings.toml or in this machine's own file of the repository, with every
+    other line of the file kept; nothing writes the team's file. Each case has a git
+    repository of its own in a temporary folder, beside its own XDG_CONFIG_HOME."""
 
     def setUp(self) -> None:
         super().setUp()
@@ -1236,7 +1273,10 @@ class SetSeat(Home):
         said = self.set("global", "reviewer", "codex/gpt-6.2-sol:high")
         self.assertEqual(
             self.home_file.read_text(encoding="utf-8"),
-            '# the Mac in the office\n[seats]\nmerger = "claude/opus:high"\nreviewer = "codex/gpt-6.2-sol:high"\n',
+            (
+                "# the Mac in the office\n[seats]\n"
+                'merger = "claude/opus:high"\nreviewer = "codex/gpt-6.2-sol:high"\n'
+            ),
         )
         self.assertEqual(
             (said["seat"]["seat"], said["seat"]["from"], said["file"]),
@@ -1269,7 +1309,11 @@ class SetSeat(Home):
         said = self.set("local", "reviewer", "claude/opus:high")
         self.assertEqual(
             self.local_file.read_text(encoding="utf-8"),
-            '# mine, not committed\n[state]\nkeep_days = 3\n\n[seats]\nplanner = "claude/opus:max"  # for long plans\nreviewer = "claude/opus:high"\n',
+            (
+                "# mine, not committed\n[state]\nkeep_days = 3\n\n[seats]\n"
+                'planner = "claude/opus:max"  # for long plans\n'
+                'reviewer = "claude/opus:high"\n'
+            ),
         )
         self.assertEqual(
             (said["seat"]["seat"], said["seat"]["from"]),
@@ -1327,7 +1371,8 @@ class SetSeat(Home):
         self.assertFalse((tree / project.LOCAL).exists())
 
     def test_each_seat_has_one_name_in_the_answer_of_set_and_in_a_block(self) -> None:
-        # the planner was "the defender" in set's answer and "the planner" in a block and in the pull request
+        # the planner was "the defender" in set's answer and "the planner" in a block
+        # and in the pull request
         said = self.set("local", "planner", "claude/opus:max")
         self.assertEqual(
             said["said"], f"the planner here is claude/opus:max, from {project.LOCAL}"
@@ -1358,7 +1403,8 @@ class SetSeat(Home):
     def test_a_file_with_a_comment_of_the_owners_stays_and_one_of_lems_lines_goes(
         self,
     ) -> None:
-        # criterion 6: "Each other line and comment of that file stays as it was", with no table left too
+        # criterion 6: "Each other line and comment of that file stays as it was", with
+        # no table left too
         self.write(
             self.home_file,
             "# the Mac in the office",
@@ -1383,7 +1429,10 @@ class SetSeat(Home):
                 self.assertFalse(file.exists())
 
     def test_default_on_the_last_line_of_a_table(self) -> None:
-        text = '[load]\nstart = 6\n\n[seats]\nreviewer = "codex/gpt-6.2-sol:high"\n\n[serve]\nport = 4500\n'
+        text = (
+            '[load]\nstart = 6\n\n[seats]\nreviewer = "codex/gpt-6.2-sol:high"\n\n'
+            "[serve]\nport = 4500\n"
+        )
         self.assertEqual(
             project.lem_state.edited(text, "seats", "reviewer", None, "machine.toml"),
             "[load]\nstart = 6\n\n[serve]\nport = 4500\n",
@@ -1400,7 +1449,8 @@ class SetSeat(Home):
         )
 
     def test_a_table_taken_out_keeps_the_comment_on_its_header(self) -> None:
-        # criterion 6: "Each other line and comment of that file stays as it was", the comment after a header too
+        # criterion 6: "Each other line and comment of that file stays as it was", the
+        # comment after a header too
         text = '[load]\nstart = 4\n\n[seats] # office Mac\nreviewer = "codex/a:high"\n'
         self.assertEqual(
             project.lem_state.edited(text, "seats", "reviewer", None, "machine.toml"),
@@ -1489,7 +1539,8 @@ class SetSeat(Home):
         self.assertEqual(
             self.home_file.read_text(encoding="utf-8"), "[state]\nkeep_days = 3\n"
         )
-        # a repository whose settings do not load is refused before the home folder's file is written for every repository
+        # a repository whose settings do not load is refused before the home folder's
+        # file is written for every repository
         self.home_file.unlink()
         self.settings.write_text(
             '[branch]\nbase = "main"\nland = "x"\n', encoding="utf-8"
@@ -1507,7 +1558,8 @@ class SetSeat(Home):
                     self.refused(project.set_value, "global", name, "false"),
                     f"set global {name}: false is for fallback only",
                 )
-        # the merge agent's and the session's seat may leave out a part in a file, and `set` takes only a whole one
+        # the merge agent's and the session's seat may leave out a part in a file, and
+        # `set` takes only a whole one
         for name, given in (("merger", "claude"), ("session", "claude:high")):
             with self.subTest(name=name):
                 message = self.refused(project.set_value, "local", name, given)

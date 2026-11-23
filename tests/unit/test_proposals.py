@@ -1,7 +1,8 @@
-"""The records of the night's and the retro's proposals, the reviewer's verdicts and items, and the
-owner's drop of an item (`lem project proposals`), as calls of their functions over a state folder in
-a temporary directory. That `waiting` no longer lists or counts the retros is tests/lem-decisions.sh's,
-and that `prune` keeps the records and the items is tests/lem-state.sh's.
+"""The records of the night's and the retro's proposals, the reviewer's verdicts and
+items, and the owner's drop of an item (`lem project proposals`), as calls of their
+functions over a state folder in a temporary directory. That `waiting` no longer lists
+or counts the retros is tests/lem-decisions.sh's, and that `prune` keeps the records and
+the items is tests/lem-state.sh's.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -75,7 +76,8 @@ class Records(unittest.TestCase):
         return str(caught.exception)
 
     def eleven(self) -> None:
-        # criterion 5: of 11 proposals, 9 pass, 5 about lessons, 3 about the board, 1 about the tests
+        # criterion 5: of 11 proposals, 9 pass, 5 about lessons, 3 about the board, 1
+        # about the tests
         self.add(
             "night",
             "2026-11-24",
@@ -112,7 +114,8 @@ class Add(Records):
     def test_a_retro_with_no_proposal_writes_its_days_file_with_what_it_read(
         self,
     ) -> None:
-        # criterion 3: the retro of 2026-11-25 proposes nothing, and its file says what it read
+        # criterion 3: the retro of 2026-11-25 proposes nothing, and its file says what
+        # it read
         added = self.add(
             "retro",
             "2026-11-25",
@@ -137,7 +140,10 @@ class Add(Records):
             [
                 {
                     "at": "2026-11-23T06:55:00Z",
-                    "read": "the tasks gift-note and refund-total since 2026-11-24T06:55:00Z",
+                    "read": (
+                        "the tasks gift-note and refund-total since "
+                        "2026-11-24T06:55:00Z"
+                    ),
                     "proposals": [],
                 }
             ],
@@ -339,18 +345,25 @@ class Verdict(Records):
         tests = (self.main / done["items"][0]["path"]).read_text(encoding="utf-8")
         self.assertTrue(
             tests.startswith(
-                "---\nworth: later\nwhere: tests/lem-serve.sh\nadded: 2026-11-24\nproposals: night of 2026-11-24 #1\n---\n"
+                "---\nworth: later\nwhere: tests/lem-serve.sh\n"
+                "added: 2026-11-24\nproposals: night of 2026-11-24 #1\n---\n"
                 "# The PX check of the board server fails by chance\n"
             ),
             tests,
         )
         self.assertIn(
-            "From the night of 2026-11-24, proposal 1. Its source: the free hour's run of tests/lem-serve.sh.",
+            (
+                "From the night of 2026-11-24, proposal 1. Its source: the free hour's "
+                "run of tests/lem-serve.sh."
+            ),
             tests,
         )
         board = (self.main / done["items"][2]["path"]).read_text(encoding="utf-8")
         self.assertIn(
-            "proposals: retro of 2026-11-24 #7, retro of 2026-11-24 #8, retro of 2026-11-24 #9\n",
+            (
+                "proposals: retro of 2026-11-24 #7, retro of 2026-11-24 #8, "
+                "retro of 2026-11-24 #9\n"
+            ),
             board,
         )
         # criterion 4: the refuted one stays in the retro's file with its reason
@@ -661,14 +674,19 @@ class Drop(Records):
             )
         self.assertEqual(
             said,
-            "the item was dropped: read the backlog again (.lem/state/backlog/the-board-s-colors.md is no longer in the state folder's backlog)",
+            (
+                "the item was dropped: read the backlog again "
+                "(.lem/state/backlog/the-board-s-colors.md is no longer in the "
+                "state folder's backlog)"
+            ),
         )
         self.assertFalse((self.state / "tasks" / "the-board-s-colors").exists())
 
 
 class Refuted(Records):
     def test_the_read_gives_every_refuted_one_of_every_day_with_its_day(self) -> None:
-        # criterion 8: the reviewer of 2026-11-25 meets a proposal a reviewer refuted on 2026-11-23
+        # criterion 8: the reviewer of 2026-11-25 meets a proposal a reviewer refuted
+        # on 2026-11-23
         self.add("retro", "2026-11-23", [proposal("lessons", "Move the rule")])
         project.cmd_proposals_verdict(
             self.state,

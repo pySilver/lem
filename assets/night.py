@@ -1,22 +1,25 @@
-"""Write the night version of the logo: the same drawing, each color replaced by its night color.
+"""Write the night version of the logo: the same drawing, each color replaced by its
+night color.
 
     night.py SOURCE TARGET
 
-`assets/lem-night.svg` and `assets/lem-mark-night.svg` are this script's output from `lem.svg` and
-`lem-mark.svg`, and `tests/lem-settings.sh` fails when one of them is not. So the drawing is changed
-in the day file only, and the night file is written again; a color changes here.
+`assets/lem-night.svg` and `assets/lem-mark-night.svg` are this script's output from
+`lem.svg` and `lem-mark.svg`, and `tests/lem-settings.sh` fails when one of them is not.
+So the drawing is changed in the day file only, and the night file is written again; a
+color changes here.
 
-The scene, `lem.svg`, holds both skies. The day sky is one or more groups of the class `c2-sky-day`,
-the night sky one group of the class `c2-sky-night`, and the day file hides the night sky with the
-rule `HIDE_NIGHT`. The night sky stands in the day file in its night colors, as the owner saw them in
-the sample he chose on 2026-11-21: its aurora uses colors of the day field, which `NIGHT` maps for
-the mark, so one map cannot serve both. This script maps every color outside the night sky through
-`NIGHT`, leaves the colors inside it as written, and swaps the rule so that the night file hides the
-day sky. The mark has no sky, so every color of it goes through `NIGHT`.
+The scene, `lem.svg`, holds both skies. The day sky is one or more groups of the class
+`c2-sky-day`, the night sky one group of the class `c2-sky-night`, and the day file
+hides the night sky with the rule `HIDE_NIGHT`. The night sky stands in the day file in
+its night colors, as the owner saw them in the sample he chose on 2026-11-21: its aurora
+uses colors of the day field, which `NIGHT` maps for the mark, so one map cannot serve
+both. This script maps every color outside the night sky through `NIGHT`, leaves the
+colors inside it as written, and swaps the rule so that the night file hides the day
+sky. The mark has no sky, so every color of it goes through `NIGHT`.
 
-The picture is the owner's pick ("The Line in the Field"), and so is this palette: he approved it
-on 2026-11-14 from a render on a dark page, and the scene with its lights on 2026-11-21. Change
-either only on his word.
+The picture is the owner's pick ("The Line in the Field"), and so is this palette: he
+approved it on 2026-11-14 from a render on a dark page, and the scene with its lights on
+2026-11-21. Change either only on his word.
 """
 
 import re
@@ -69,14 +72,15 @@ NIGHT = {
     "#2c4649": "#b9c4b6",
     "#365350": "#cfd6c4",
     "#213a3e": "#9fb0a8",
-    # the signal, the glow in the hands and down the agents' strands: amber by day, pale gold at night,
-    # as the owner's night sample has the light
+    # the signal, the glow in the hands and down the agents' strands: amber by day, pale
+    # gold at night, as the owner's night sample has the light
     "#cf6a1c": "#d9a24a",
     "#f39a2d": "#f2c66e",
     "#ffe7a0": "#fffbea",
     # the eyes, Lem's and its agents': the same red day and night
     "#ff2a1a": "#ff2a1a",
-    # the day sky's sun, rays and the white of its masks: the night file hides that sky, so they stay
+    # the day sky's sun, rays and the white of its masks: the night file hides that sky,
+    # so they stay
     "#fffbea": "#fffbea",
     "#fff2c8": "#fff2c8",
     "#f3dc9c": "#f3dc9c",
@@ -99,7 +103,8 @@ FINE = re.compile(r"#[0-9a-f]{6}|none|url\(#[\w-]+\)")
 
 
 def refuse(text: str) -> None:
-    """Exit on every color that is not a six-digit lowercase hex, inside the night sky too."""
+    """Exit on every color that is not a six-digit lowercase hex, inside the night
+    sky too."""
     wrong = [
         found.group(0)
         for found in re.finditer(r"#[0-9A-Fa-f]{3,8}\b", text)
@@ -113,7 +118,8 @@ def refuse(text: str) -> None:
             wrong.append(f"{found.group(1)} {value}")
     if wrong:
         sys.exit(
-            f"night.py: {', '.join(sorted(set(wrong)))} is no six-digit lowercase hex; write each color as #rrggbb, in lowercase"
+            f"night.py: {', '.join(sorted(set(wrong)))} is no six-digit lowercase hex; "
+            "write each color as #rrggbb, in lowercase"
         )
 
 
@@ -137,12 +143,14 @@ def main() -> None:
     if days or nights:
         if not days or nights != 1:
             sys.exit(
-                f"night.py: the scene has {days} group(s) of the day sky and {nights} of the night sky; "
-                f"draw at least one <g {DAY_MARK}> and exactly one {NIGHT_MARK}"
+                f"night.py: the scene has {days} group(s) of the day sky and {nights} "
+                f"of the night sky; draw at least one <g {DAY_MARK}> and "
+                f"exactly one {NIGHT_MARK}"
             )
         if text.count(HIDE_NIGHT) != 1 or HIDE_DAY in text:
             sys.exit(
-                f"night.py: the scene's style hides no sky or both; write the rule {HIDE_NIGHT!r} once, and not {HIDE_DAY!r}"
+                "night.py: the scene's style hides no sky or both; "
+                f"write the rule {HIDE_NIGHT!r} once, and not {HIDE_DAY!r}"
             )
         start, end = night_group(text)
         parts = [text[:start], text[start:end], text[end:]]
@@ -160,7 +168,8 @@ def main() -> None:
         return re.sub(r"#[0-9a-f]{6}", lambda found: NIGHT[found.group(0)], part)
 
     text = paint(parts[0]) + parts[1] + paint(parts[2])
-    # The ids get an `n`, so that the day and the night picture can stand inline in one page.
+    # The ids get an `n`, so that the day and the night picture can stand inline in
+    # one page.
     text = re.sub(r"\b(c2m?)-", r"\1n-", text)
     Path(sys.argv[2]).write_text(text)
 

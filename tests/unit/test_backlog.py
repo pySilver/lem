@@ -1,10 +1,10 @@
-"""land.py's rules for the backlog items a review's defects outside the change become, each called in
-this process: which names an item may take, whether an item file is a given defect, whether a
-review still covers a change that only added items after it or removed the task's own, and which
-item a task was started from.
+"""land.py's rules for the backlog items a review's defects outside the change become,
+each called in this process: which names an item may take, whether an item file is a
+given defect, whether a review still covers a change that only added items after it or
+removed the task's own, and which item a task was started from.
 
-What only git can show (the commits `lem land file` makes, an item removed by a commit, a review
-that a later commit asks to run again) stays in tests/lem-land-backlog.sh.
+What only git can show (the commits `lem land file` makes, an item removed by a commit,
+a review that a later commit asks to run again) stays in tests/lem-land-backlog.sh.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -31,34 +31,39 @@ D = {
 E = {
     "where": "src/json.py:parse",
     "title": "An item from before",
-    "what": "parse of a document of one number returns a string, on the base commit too.",
+    "what": (
+        "parse of a document of one number returns a string, on the base commit too."
+    ),
 }
 
-# A repository that is not on disk, with the backlog folder in its one place. `covers_one` reads
-# only the folder of the task it is given.
+# A repository that is not on disk, with the backlog folder in its one place.
+# `covers_one` reads only the folder of the task it is given.
 TASK = SimpleNamespace(
     settings={
         "root": "/lem-unit/repo",
         "places": {"backlog": {"path": "/lem-unit/repo/docs/backlog"}},
     }
 )
-# the folder as `covers` gives it to `covers_one`: from the task's settings, by the script's own function
+# the folder as `covers` gives it to `covers_one`: from the task's settings, by the
+# script's own function
 FOLDER = land.backlog_of(TASK)
 NONE = "0" * 40
 
 
 def item(defect: dict, *, worth: str = "later", reason: str = "") -> str:
-    """An item of a defect in the backlog's item format, as `lem land file` writes it, with the owner's
-    reason as a paragraph of its own when there is one."""
+    """An item of a defect in the backlog's item format, as `lem land file` writes it,
+    with the owner's reason as a paragraph of its own when there is one."""
     said = f"{reason}\n\n" if reason else ""
     return (
-        f"---\nworth: {worth}\nwhere: {defect['where']}\nadded: 2026-11-19\n---\n# {defect['title']}\n\n{defect['what']}\n\n{said}"
-        "Seen outside the change by review round 1 of task same-defect (2026-11-19); the base commit has it.\n"
+        f"---\nworth: {worth}\nwhere: {defect['where']}\nadded: 2026-11-19\n---\n"
+        f"# {defect['title']}\n\n{defect['what']}\n\n{said}Seen outside the change by "
+        "review round 1 of task same-defect (2026-11-19); the base commit has it.\n"
     )
 
 
 def entry(base: str, tip: str) -> dict:
-    """A file of a change as `land.change` lists it: its blob on the base and on the tip."""
+    """A file of a change as `land.change` lists it: its blob on the base and on
+    the tip."""
     return {"base": base, "tip": tip, "modes": ["100644", "100644"]}
 
 
@@ -67,7 +72,8 @@ REVIEWED = {"patch": "reviewed", "contents": {"app.txt": entry("a" * 40, "b" * 4
 
 
 def now(**more: dict) -> dict:
-    """The change as it is after the review: the reviewed change, and the files of `more` beside it."""
+    """The change as it is after the review: the reviewed change, and the files of
+    `more` beside it."""
     return {"patch": "later", "contents": {**REVIEWED["contents"], **more}}
 
 
@@ -146,7 +152,8 @@ class Holds(unittest.TestCase):
 
 
 class Covers(unittest.TestCase):
-    """`land.covers_one` and `land.covers`: whether a review still covers the change after it."""
+    """`land.covers_one` and `land.covers`: whether a review still covers the change
+    after it."""
 
     def test_the_same_change(self) -> None:
         self.assertTrue(land.covers_one(FOLDER, REVIEWED, {**REVIEWED}))
@@ -276,7 +283,8 @@ class Covers(unittest.TestCase):
 
 
 class TaskItem(unittest.TestCase):
-    """`land.item_of_ask`: the backlog item a task was started from, found from its ask and the base."""
+    """`land.item_of_ask`: the backlog item a task was started from, found from its ask
+    and the base."""
 
     ROOTS = ("/lem-unit/repo", "/private/lem-unit/repo")
     # the files of the base commit
@@ -326,12 +334,13 @@ class TaskItem(unittest.TestCase):
 
 
 class StateItem(unittest.TestCase):
-    """`land.state_item_of_ask` and `land.remove_item`: the reviewer's item of the state folder a task
-    was started from, by project.py's one rule (`backlog_item_of`), and the removal of its file when
-    the task lands."""
+    """`land.state_item_of_ask` and `land.remove_item`: the reviewer's item of the state
+    folder a task was started from, by project.py's one rule (`backlog_item_of`), and
+    the removal of its file when the task lands."""
 
     def setUp(self) -> None:
-        # a real folder: on macOS its path and its resolved path differ (/var and /private/var), the two roots a whole path may start with
+        # a real folder: on macOS its path and its resolved path differ (/var and
+        # /private/var), the two roots a whole path may start with
         self.temp = tempfile.TemporaryDirectory()
         self.main = Path(self.temp.name) / "repo"
         self.state = self.main / ".lem" / "state"
@@ -363,7 +372,8 @@ class StateItem(unittest.TestCase):
         self.assertIsNone(self.item("docs/backlog/tests-flaky-check.md"))
         self.assertIsNone(self.item(".lem/state/backlog/old/tests-flaky-check.md"))
         self.assertIsNone(self.item(".lem/state/backlog/notes.txt"))
-        # a file named `.md` alone is no item: the drop and the board's mark refuse it by the same rule
+        # a file named `.md` alone is no item: the drop and the board's mark refuse it
+        # by the same rule
         self.assertIsNone(self.item(".lem/state/backlog/.md"))
         self.assertIsNone(self.item(".lem/state/tasks/tests-flaky-check/ask.txt"))
         self.assertIsNone(self.item("Fix .lem/state/backlog/tests-flaky-check.md"))
@@ -403,11 +413,15 @@ class StateItem(unittest.TestCase):
                     "https://github.com/acme/shop/pull/7",
                 )
             )
-            # a folder in the item's place: the unlink fails with an error that is not "no such file"
+            # a folder in the item's place: the unlink fails with an error that is not
+            # "no such file"
             item.mkdir()
             with self.assertRaisesRegex(
                 land.LandError,
-                r"the task stays open, and `lem land merged tests-flaky-check` tries again",
+                (
+                    r"the task stays open, and `lem land merged tests-flaky-check` "
+                    r"tries again"
+                ),
             ):
                 land.remove_item(
                     state,
@@ -419,7 +433,8 @@ class StateItem(unittest.TestCase):
 
 
 class Unfiled(unittest.TestCase):
-    """`land.to_file`: a defect over the bar waits to be filed until it has an item, whatever the branch holds."""
+    """`land.to_file`: a defect over the bar waits to be filed until it has an item,
+    whatever the branch holds."""
 
     def test_a_defect_with_an_item_or_of_a_review_nobody_answered_waits_for_nothing(
         self,
@@ -450,8 +465,13 @@ class Unfiled(unittest.TestCase):
         )
 
 
-# The notes of a task on the standard track as `tests/lib.sh` writes them, with nothing outside the change.
-NOTES = "## Decisions\n\nnone\n\n## Left open\n\nnone\n\n## Worth a look\n\n- the one line of the file.\n\n## Filed in the backlog\n\nnone\n\n## Not done\n\nnone\n"
+# The notes of a task on the standard track as `tests/lib.sh` writes them, with nothing
+# outside the change.
+NOTES = (
+    "## Decisions\n\nnone\n\n## Left open\n\nnone\n\n## Worth a look\n\n"
+    "- the one line of the file.\n\n## Filed in the backlog\n\n"
+    "none\n\n## Not done\n\nnone\n"
+)
 
 
 def entry_of(defect: dict, call: str, number: str, **more: str) -> dict:
@@ -460,13 +480,15 @@ def entry_of(defect: dict, call: str, number: str, **more: str) -> dict:
 
 
 class TheText(unittest.TestCase):
-    """What the pull request's text says of the defects outside the change: `land.outside_parts`,
-    `land.named_by` and `land.with_outside`."""
+    """What the pull request's text says of the defects outside the change:
+    `land.outside_parts`, `land.named_by` and `land.with_outside`."""
 
     GUARD = {
         "where": "tests/unit/test_board_model.py",
         "title": "two test classes come after the main guard",
-        "what": "python3 -m unittest of the file runs them, a reader does not find them.",
+        "what": (
+            "python3 -m unittest of the file runs them, a reader does not find them."
+        ),
     }
 
     def test_an_under_defect_is_one_line_with_its_place_and_why_and_no_item(
@@ -491,7 +513,10 @@ class TheText(unittest.TestCase):
             (
                 [],
                 [
-                    "- `tests/unit/test_board_model.py`: two test classes come after the main guard; only a reader of the code meets it"
+                    (
+                        "- `tests/unit/test_board_model.py`: two test classes come "
+                        "after the main guard; only a reader of the code meets it"
+                    )
                 ],
             ),
         )
@@ -521,7 +546,10 @@ class TheText(unittest.TestCase):
         self.assertEqual(
             seen,
             [
-                f"- `src/json.py:parse`: An item from before; an open item holds it, `{held}`"
+                (
+                    "- `src/json.py:parse`: An item from before; "
+                    f"an open item holds it, `{held}`"
+                )
             ],
         )
 
@@ -588,7 +616,10 @@ class TheText(unittest.TestCase):
             ],
         )
         self.assertIn(
-            "## Filed in the backlog\n\n- `docs/backlog/x.md`: X\n\n## Seen, not filed\n\n- `a.py`: a; why\n\n## Not done",
+            (
+                "## Filed in the backlog\n\n- `docs/backlog/x.md`: X\n\n"
+                "## Seen, not filed\n\n- `a.py`: a; why\n\n## Not done"
+            ),
             out,
         )
 
@@ -597,13 +628,20 @@ class TheText(unittest.TestCase):
     ) -> None:
         notes = NOTES.replace(
             "## Not done",
-            "## Fixed on the way\n\n- `b.py` (abc1234): a false docstring\n\n## Seen, not filed\n\n- `c.py`: polish saw it; why\n\n## Not done",
+            (
+                "## Fixed on the way\n\n- `b.py` (abc1234): a false docstring\n\n"
+                "## Seen, not filed\n\n- `c.py`: polish saw it; why\n\n## Not done"
+            ),
         )
         out = land.with_outside(
             notes, ["- `docs/backlog/x.md`: X"], ["- `a.py`: a; why"]
         )
         self.assertIn(
-            "## Fixed on the way\n\n- `b.py` (abc1234): a false docstring\n\n## Seen, not filed\n\n- `c.py`: polish saw it; why\n- `a.py`: a; why\n\n## Not done",
+            (
+                "## Fixed on the way\n\n- `b.py` (abc1234): a false docstring\n\n"
+                "## Seen, not filed\n\n- `c.py`: polish saw it; why\n"
+                "- `a.py`: a; why\n\n## Not done"
+            ),
             out,
         )
         # an item the notes list already is not written twice

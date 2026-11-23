@@ -1,9 +1,10 @@
-"""The four files of Lem's settings, as calls of the functions that hold their rules: where each table is
-valid (`lem_state.TABLE_PLACES`), which file wins for a setting more than one may hold (`project.decide`),
-and how `machine.toml` is written (`lem_state.write_machine`). Which checkout supplies a repository's two
-files is a fact only git shows, and tests/lem-settings.sh checks it with `lem project show`. The texts of
-Lem name the files by these names only, and the settings page's table of where each table is valid is
-the map's.
+"""The four files of Lem's settings, as calls of the functions that hold their rules:
+where each table is valid (`lem_state.TABLE_PLACES`), which file wins for a setting more
+than one may hold (`project.decide`), and how `machine.toml` is written
+(`lem_state.write_machine`). Which checkout supplies a repository's two files is a fact
+only git shows, and tests/lem-settings.sh checks it with `lem project show`. The texts
+of Lem name the files by these names only, and the settings page's table of where each
+table is valid is the map's.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -30,16 +31,16 @@ project = importlib.import_module("project")
 
 ROOT = Path("/lem-unit/repo")
 LEM = Path(__file__).resolve().parents[2]
-# The texts of Lem that name a settings file: the skills, the command, the hooks, the README, the
-# agent document, the site and the guides. A plan, a backlog item and the history of the rulings keep
-# the names of their day.
+# The texts of Lem that name a settings file: the skills, the command, the hooks, the
+# README, the agent document, the site and the guides. A plan, a backlog item and the
+# history of the rulings keep the names of their day.
 TEXTS = ("skills/", "bin/", "hooks/", "README.md", "AGENTS.md", "site/", "docs/")
 OLD_TEXTS = ("docs/plans/", "docs/backlog/", "docs/rulings/history.md")
 # A name of the settings file before 2026-11-23, and not `pyproject.toml`.
 OLD_NAME = re.compile(r"(?<![\w-])project(?:\.local)?\.toml")
 PAGE = LEM / "docs/settings.md"
-# The heading of each file in the settings page's table of where each table is valid, as its place in
-# `lem_state.TABLE_PLACES`.
+# The heading of each file in the settings page's table of where each table is valid, as
+# its place in `lem_state.TABLE_PLACES`.
 PAGE_FILES = {
     "~/.config/lem/machine.toml": "machine",
     "~/.config/lem/settings.toml": "home",
@@ -49,7 +50,8 @@ PAGE_FILES = {
 
 
 class Home(unittest.TestCase):
-    """Each case runs with a folder of its own as XDG_CONFIG_HOME: the home directory's files are never read."""
+    """Each case runs with a folder of its own as XDG_CONFIG_HOME: the home directory's
+    files are never read."""
 
     def setUp(self) -> None:
         self.kept = os.environ.get("XDG_CONFIG_HOME")
@@ -80,8 +82,8 @@ def read(place: str, *lines: str) -> dict:
 
 
 class Places(Home):
-    """A table in a file where it is not valid is refused, and the refusal names the file where it is
-    (criteria 3 and 4 of one-home-folder-for-lem)."""
+    """A table in a file where it is not valid is refused, and the refusal names the
+    file where it is (criteria 3 and 4 of one-home-folder-for-lem)."""
 
     def test_what_guards_a_team_is_valid_in_the_teams_file_only(self) -> None:
         for table, line in (
@@ -96,7 +98,10 @@ class Places(Home):
                 with self.subTest(table=table, place=place):
                     message = self.refused(read, place, f"[{table}]", line)
                     self.assertIn(
-                        f"{place}: [{table}] is not valid in this file: its place is .lem/settings.toml; move the table there",
+                        (
+                            f"{place}: [{table}] is not valid in this file: "
+                            "its place is .lem/settings.toml; move the table there"
+                        ),
                         message,
                     )
 
@@ -109,12 +114,16 @@ class Places(Home):
         )
         message = self.refused(read, "home", "[state]", "keep_days = 3")
         self.assertIn(
-            "[state] is not valid in this file: its place is .lem/settings.toml or .lem/settings.local.toml",
+            (
+                "[state] is not valid in this file: its place is "
+                ".lem/settings.toml or .lem/settings.local.toml"
+            ),
             message,
         )
 
     def test_the_home_file_holds_every_seat_and_the_fallback(self) -> None:
-        # the seats of seat-defaults-and-fallback, criteria 1 and 2 under the owner's decision 41
+        # the seats of seat-defaults-and-fallback, criteria 1 and 2 under the owner's
+        # decision 41
         lines = (
             'reviewer = "codex/gpt-6.2-sol:high"',
             'planner = "claude/opus:high"',
@@ -136,7 +145,8 @@ class Places(Home):
                 }
             },
         )
-        # every seat is valid here, and a key that names no seat is still refused, with the nearest
+        # every seat is valid here, and a key that names no seat is still refused, with
+        # the nearest
         message = self.refused(read, "home", "[seats]", 'reviwer = "claude/opus:high"')
         self.assertIn(
             "home: unknown key seats.reviwer; did you mean 'reviewer'?", message
@@ -153,19 +163,26 @@ class Places(Home):
         for place in ("team", "local"):
             with self.subTest(place=place):
                 self.assertIn(
-                    f"[ask] is not valid in this file: its place is {project.home_name()}",
+                    (
+                        "[ask] is not valid in this file: "
+                        f"its place is {project.home_name()}"
+                    ),
                     self.refused(read, place, "[ask]", 'style = "minimal"'),
                 )
         file = self.written('[ask]\nstyle = "minimal"\n')
         self.assertIn(
-            f"{file}: [ask] is not valid in this file: its place is {project.home_name()}",
+            (
+                f"{file}: [ask] is not valid in this file: "
+                f"its place is {project.home_name()}"
+            ),
             self.refused(lem_state.machine_tables),
         )
 
     def test_the_question_page_takes_the_keys_of_ask_that_lem_project_takes(
         self,
     ) -> None:
-        # lem-ask runs alone and imports nothing of Lem's, so its own list of the keys is held to project.py's here
+        # lem-ask runs alone and imports nothing of Lem's, so its own list of the keys
+        # is held to project.py's here
         page = runpy.run_path(
             str(
                 Path(__file__).resolve().parents[2]
@@ -189,7 +206,10 @@ class Places(Home):
             for place in ("home", "team", "local"):
                 with self.subTest(table=table, place=place):
                     self.assertIn(
-                        f"[{table}] is not valid in this file: its place is {lem_state.shown(lem_state.machine_file())}",
+                        (
+                            f"[{table}] is not valid in this file: "
+                            f"its place is {lem_state.shown(lem_state.machine_file())}"
+                        ),
                         self.refused(read, place, f"[{table}]", line),
                     )
 
@@ -207,7 +227,10 @@ class Places(Home):
             with self.subTest(call=call.__name__):
                 message = self.refused(call)
                 self.assertIn(
-                    f"{file}: [seats] is not valid in this file: its place is {lem_state.shown(lem_state.home_settings_file())}",
+                    (
+                        f"{file}: [seats] is not valid in this file: its place is "
+                        f"{lem_state.shown(lem_state.home_settings_file())}"
+                    ),
                     message,
                 )
 
@@ -229,8 +252,8 @@ def tomllike(line: str) -> dict:
 
 
 class Nearest(Home):
-    """For a setting more than one file may hold, the nearest file that holds it wins, and `from` names it
-    (criterion 2 of one-home-folder-for-lem)."""
+    """For a setting more than one file may hold, the nearest file that holds it wins,
+    and `from` names it (criterion 2 of one-home-folder-for-lem)."""
 
     def decided(self, team: tuple = (), local: tuple = (), home: tuple = ()) -> dict:
         raw = read("team", *team)
@@ -321,8 +344,9 @@ class Nearest(Home):
 
 
 class MachineFile(Home):
-    """`write_machine` keeps every table of `machine.toml`, the correction queue's too, writes over nothing
-    it cannot keep, and holds the file's lock from its read to its rename (criterion 3)."""
+    """`write_machine` keeps every table of `machine.toml`, the correction queue's too,
+    writes over nothing it cannot keep, and holds the file's lock from its read to its
+    rename (criterion 3)."""
 
     def test_it_keeps_the_corrections_when_it_writes_another_table(self) -> None:
         self.written("[corrections]\ncollect = false\n\n[serve]\nport = 4500\n")
@@ -344,7 +368,10 @@ class MachineFile(Home):
         file = self.written(text)
         message = self.refused(lem_state.write_machine, "load", {"start": 12})
         self.assertIn(
-            f"{file}: [seats] is not valid in this file: its place is {lem_state.shown(lem_state.home_settings_file())}",
+            (
+                f"{file}: [seats] is not valid in this file: "
+                f"its place is {lem_state.shown(lem_state.home_settings_file())}"
+            ),
             message,
         )
         self.assertEqual(file.read_text(encoding="utf-8"), text)
@@ -383,8 +410,9 @@ class MachineFile(Home):
         with lem_state.machine_lock():
             writer = threading.Thread(target=second)
             writer.start()
-            # time for the second writer to reach its read; with the lock, whatever the timing, it reads only
-            # after this holder wrote, and keeps the table this holder added
+            # time for the second writer to reach its read; with the lock, whatever the
+            # timing, it reads only after this holder wrote, and keeps the table this
+            # holder added
             time.sleep(0.3)
             self.assertFalse(done.is_set())
             lem_state.machine_file().write_text(
@@ -409,7 +437,10 @@ class Texts(unittest.TestCase):
         self.assertEqual(
             listed.returncode,
             0,
-            f"git ls-files failed in {LEM}: {listed.stderr.strip()}; run the test in a clone of Lem",
+            (
+                f"git ls-files failed in {LEM}: {listed.stderr.strip()}; "
+                "run the test in a clone of Lem"
+            ),
         )
         files = [
             name for name in listed.stdout.split() if not name.startswith(OLD_TEXTS)
@@ -424,8 +455,9 @@ class Texts(unittest.TestCase):
                 if found := OLD_NAME.search(line):
                     with self.subTest(file=name, line=number):
                         self.fail(
-                            f"{name}:{number} names {found[0]}: the settings are .lem/settings.toml, "
-                            f".lem/settings.local.toml and ~/.config/lem/settings.toml"
+                            f"{name}:{number} names {found[0]}: the settings are "
+                            ".lem/settings.toml, .lem/settings.local.toml and "
+                            "~/.config/lem/settings.toml"
                         )
 
     def test_the_settings_page_says_where_each_table_is_valid_as_the_map_does(

@@ -1,8 +1,9 @@
-"""The persona panel's rules for a persona's file, as calls of cast.py's functions: the frontmatter
-that names the seats a persona answers on, the seats when the file names none, a seat refused as the
-settings refuse it, a seat whose agent is not on this machine, and the text a persona's agent reads
-as who it is. Where the cast comes from (the checkout or the default branch) is a fact only git
-shows, and tests/test-gate-panel.sh checks it in real repositories.
+"""The persona panel's rules for a persona's file, as calls of cast.py's functions: the
+frontmatter that names the seats a persona answers on, the seats when the file names
+none, a seat refused as the settings refuse it, a seat whose agent is not on this
+machine, and the text a persona's agent reads as who it is. Where the cast comes from
+(the checkout or the default branch) is a fact only git shows, and
+tests/test-gate-panel.sh checks it in real repositories.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -95,7 +96,8 @@ class Frontmatter(Refuses):
 
 
 class Seats(Refuses):
-    """A persona answers once on each seat its file names, or on the panel's own two seats."""
+    """A persona answers once on each seat its file names, or on the panel's own
+    two seats."""
 
     def test_a_file_names_its_seats_each_with_its_parts_and_its_name(self) -> None:
         found = seats('seats: ["claude/opus:high", "codex/gpt-6.2-sol:xhigh"]')
@@ -145,7 +147,8 @@ class Seats(Refuses):
         self.assertEqual(
             [s["name"] for s in cast.seats_of({}, FILE, no_codex)["left_out"]], ["sol"]
         )
-        # a persona of codex seats only has none left on such a machine, and the panel names it
+        # a persona of codex seats only has none left on such a machine, and the panel
+        # names it
         self.assertEqual(
             seats('seats: ["codex/gpt-6.2-sol:high"]', here=no_codex)["seats"], []
         )
@@ -218,7 +221,8 @@ class Person(unittest.TestCase):
             self.assertEqual([s["seat"] for s in found["seats"]], ["claude/opus:high"])
 
     def test_a_copy_read_again_takes_the_time_of_the_read(self) -> None:
-        """`lem project prune` removes a copy by its last write, so a read writes its time on it."""
+        """`lem project prune` removes a copy by its last write, so a read writes its
+        time on it."""
         import os
         import time
 

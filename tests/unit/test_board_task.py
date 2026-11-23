@@ -1,7 +1,8 @@
-"""The rules of the board of one task (lem_board_model.py, lem_board_task.py), each called over a few
-events: where the time went, the criteria as they stand and their checks, which decisions are important
-and what a reason of not green says, what the task waits for, the head of its large card, its progress,
-and the artifacts the panel reads; and that a task's text reaches the page escaped.
+"""The rules of the board of one task (lem_board_model.py, lem_board_task.py), each
+called over a few events: where the time went, the criteria as they stand and their
+checks, which decisions are important and what a reason of not green says, what the task
+waits for, the head of its large card, its progress, and the artifacts the panel reads;
+and that a task's text reaches the page escaped.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -96,7 +97,10 @@ class Time(unittest.TestCase):
                 result="stopped",
                 seconds=240,
                 tip="4c1d2e3",
-                say="gift-note: the checks were stopped; the landing waits for your word",
+                say=(
+                    "gift-note: the checks were stopped; "
+                    "the landing waits for your word"
+                ),
             ),
         )
         checks = spans(t, "checks")
@@ -119,7 +123,10 @@ class Time(unittest.TestCase):
                 result="refused",
                 seconds=60,
                 tip="4c1d2e3",
-                say="gift-note: the checks refused the change: tests/x.py changed; a builder repairs it, nothing for you",
+                say=(
+                    "gift-note: the checks refused the change: tests/x.py changed; "
+                    "a builder repairs it, nothing for you"
+                ),
             ),
         )
         tm = bm.time_of(t, bm.time_end(t, NOW), {"gates": 2})
@@ -273,7 +280,10 @@ class Criteria(unittest.TestCase):
         )
         self.assertEqual(
             bm.read_stale(t, t.reads[-1]),
-            "The criteria changed after this read by your approval 2, and the change was not read.",
+            (
+                "The criteria changed after this read by your approval 2, "
+                "and the change was not read."
+            ),
         )
 
     def test_a_check_counts_only_for_the_criteria_it_ran_on(self) -> None:
@@ -392,7 +402,10 @@ class Decisions(unittest.TestCase):
         )
         self.assertEqual(
             bm.stop_words(t.decisions[5]),
-            "the next step cannot be undone by a later “no”: it sends something to a person",
+            (
+                "the next step cannot be undone by a later “no”: "
+                "it sends something to a person"
+            ),
         )
 
     def test_a_short_label_finds_the_option_only_when_one_option_has_it(self) -> None:
@@ -419,7 +432,8 @@ class Overview(unittest.TestCase):
     def test_a_queued_task_waits_for_another_task_by_a_need_or_by_the_owners_order(
         self,
     ) -> None:
-        # "another task" is true of both: the board reads no line for which of the two it is
+        # "another task" is true of both: the board reads no line for which of the two
+        # it is
         for first in (
             "it needs the export's column",
             'the owner\'s order: "After card-foot: unit cases"',
@@ -484,7 +498,10 @@ class Overview(unittest.TestCase):
         self.assertEqual(bm.now_head(t), "The checks were stopped")
         self.assertEqual(
             bm.now_head(one(state(0, "landing", "the checks start"))),
-            "It starts its landing: the rebase onto the base, then the polish pass, before the checks",
+            (
+                "It starts its landing: the rebase onto the base, then the polish "
+                "pass, before the checks"
+            ),
         )
 
     def test_what_we_are_building_says_nothing_of_filed_items_after_an_end_with_none(
@@ -596,7 +613,8 @@ class Overview(unittest.TestCase):
             ev(0, "proposed", green=True, not_green=[], tip="abc123456"),
             state(1, "open", "pull request https://github.com/acme/shop/pull/41"),
         )
-        # the merge agent's read of the moved base asked for another round, and the refusal it keeps waits for the new landing
+        # the merge agent's read of the moved base asked for another round, and the
+        # refusal it keeps waits for the new landing
         refused = (
             *proposed,
             ev(
@@ -608,7 +626,9 @@ class Overview(unittest.TestCase):
                 tip="abc123456",
                 base="m2m2m2m2m",
                 base_call="another round",
-                base_why="B changed skills/lem/scripts/land.py, which the change edits too",
+                base_why=(
+                    "B changed skills/lem/scripts/land.py, which the change edits too"
+                ),
             ),
             ev(
                 2,
@@ -649,7 +669,8 @@ class Overview(unittest.TestCase):
     def test_while_his_merge_stands_the_page_offers_no_merge_and_its_step_says_it_stands(
         self,
     ) -> None:
-        # guard-sees-unreadable-sessions, 2026-11-23, #60: the moved base refused his merge, and Lem keeps it
+        # guard-sees-unreadable-sessions, 2026-11-23, #60: the moved base refused his
+        # merge, and Lem keeps it
         proposed = (
             ev(0, "proposed", green=True, not_green=[], tip="faac6eb3b"),
             state(1, "open", "pull request https://github.com/acme/shop/pull/60"),
@@ -702,12 +723,16 @@ class Overview(unittest.TestCase):
         self.assertNotIn("/merge", shown)
         step = "".join(str(x) for x in task_pages.merge_step(ctx, t))
         self.assertIn(
-            "Your merge stands. It goes through when the merge agent’s read of the new base says safe.",
+            (
+                "Your merge stands. It goes through when the merge agent’s read of "
+                "the new base says safe."
+            ),
             step,
         )
         self.assertNotIn("conflicting", step)
         self.assertNotIn('name="confirm"', step)
-        # while the forge calls the pull request conflicting, the step says the conflict's text
+        # while the forge calls the pull request conflicting, the step says the
+        # conflict's text
         ctx.model.seen = {
             "gift-note": {"mergeable": "CONFLICTING", "head": "faac6eb3b000"}
         }
@@ -723,14 +748,18 @@ class Overview(unittest.TestCase):
         )
         self.assertIn("Merging…", running)
         self.assertNotIn("/merge", running)
-        # the merge agent's own merge that the moved base refused: his Merge stays (criterion 3)
+        # the merge agent's own merge that the moved base refused: his Merge stays
+        # (criterion 3)
         _, _, his = page(*proposed, refusal("merger"))
         self.assertIn("Merge #60", his)
 
     def test_the_large_card_opens_with_the_tasks_first_line_while_its_block_is_the_newest(
         self,
     ) -> None:
-        line = 'fix: "the footer says Terms and conditions". Fast track: one builder, the checks, one read, then the pull request. Nothing waits for you.'
+        line = (
+            'fix: "the footer says Terms and conditions". Fast track: one builder, the '
+            "checks, one read, then the pull request. Nothing waits for you."
+        )
         first = {
             **state(
                 0, "building", "small change: one builder", "type: fix, because a typo"
@@ -770,7 +799,8 @@ class Overview(unittest.TestCase):
     def test_the_panel_says_no_waits_for_while_the_tasks_session_works_on_his_answer(
         self,
     ) -> None:
-        # waits-for-you-only-when-it-waits, criteria 1 and 2: the header and the large card of a held interview
+        # waits-for-you-only-when-it-waits, criteria 1 and 2: the header and the large
+        # card of a held interview
         m = model(
             state(0, "held", "the interview waits for the owner"),
             ev(1, "interview.start"),
@@ -815,7 +845,8 @@ class Overview(unittest.TestCase):
     def test_a_breakers_large_card_sends_him_to_its_document_only_while_the_breaker_waits_for_him(
         self,
     ) -> None:
-        # waits-for-you-only-when-it-waits, criteria 1 and 2: while the session works on his help, nothing asks him to read it
+        # waits-for-you-only-when-it-waits, criteria 1 and 2: while the session works on
+        # his help, nothing asks him to read it
         m = model(
             state(0, "building", "task 1 of 2"),
             ev(
@@ -843,7 +874,10 @@ class Overview(unittest.TestCase):
             tab="overview",
         )
         t = m.tasks[0]
-        line = "Its document is the first card above: read it, then help, park or drop the task."
+        line = (
+            "Its document is the first card above: read it, then help, "
+            "park or drop the task."
+        )
 
         def card(turn: str) -> str:
             bm.put_sessions(
@@ -868,10 +902,11 @@ class Overview(unittest.TestCase):
 
 
 class InboxLine(unittest.TestCase):
-    """Where the owner answers on the phone's page of a task while his mark says away and the board's server
-    sent the task's thing to his Inbox: both places with a link to the thread (criterion 6 of
-    away-questions-reach-phone), today's line and why with no link (criterion 7), and the line of a note
-    (decision 8). The page here is the phone's: not for this Mac, and it may act through the tailnet door."""
+    """Where the owner answers on the phone's page of a task while his mark says away
+    and the board's server sent the task's thing to his Inbox: both places with a link
+    to the thread (criterion 6 of away-questions-reach-phone), today's line and why with
+    no link (criterion 7), and the line of a note (decision 8). The page here is the
+    phone's: not for this Mac, and it may act through the tailnet door."""
 
     AWAY = [
         {
@@ -1027,7 +1062,10 @@ class InboxLine(unittest.TestCase):
         for door, why in (
             (
                 {"running": False, "tailnet_url": None, "why": "not running"},
-                "A message of this task went to the Inbox, but the Inbox does not run on this Mac now, so the phone cannot open it.",
+                (
+                    "A message of this task went to the Inbox, but the Inbox does not "
+                    "run on this Mac now, so the phone cannot open it."
+                ),
             ),
             (
                 {"tailnet_url": None, "why": "no tailnet address"},
@@ -1056,7 +1094,10 @@ class InboxLine(unittest.TestCase):
         )
         said = self.text(shown)
         self.assertIn(
-            "No session of the task runs now: open one here. The Inbox has a note, not a question.",
+            (
+                "No session of the task runs now: open one here. The Inbox has a note, "
+                "not a question."
+            ),
             said,
         )
         self.assertIn(f'href="{self.TAILNET}#thread=msg_01ABC"', shown)
@@ -1064,7 +1105,8 @@ class InboxLine(unittest.TestCase):
         self.assertNotIn(self.BOTH, said)
 
     def test_a_task_whose_session_stopped_says_so_and_offers_a_fresh_one(self) -> None:
-        # the merge review's finding 3: the row "stopped" asks nothing, as the row of a missing session
+        # the merge review's finding 3: the row "stopped" asks nothing, as the row of a
+        # missing session
         shown = self.overview(
             state(1, "building", "lead: builder"),
             ev(60, "session.stopped", session="S1"),
@@ -1072,7 +1114,10 @@ class InboxLine(unittest.TestCase):
         )
         said = self.text(shown)
         self.assertIn(
-            "The task’s session stopped: open a fresh one here. The Inbox has a note, not a question.",
+            (
+                "The task’s session stopped: open a fresh one here. "
+                "The Inbox has a note, not a question."
+            ),
             said,
         )
         self.assertIn(f'href="{self.TAILNET}#thread=msg_01ABC"', shown)
@@ -1153,7 +1198,10 @@ class Links(unittest.TestCase):
         text = "see #41, `#5`, [x](https://g/pull/3)\n```\n#7\n```\n# Head"
         self.assertEqual(
             bm.pull_links_md(text, "https://github.com/acme/shop"),
-            "see [#41](https://github.com/acme/shop/pull/41), `#5`, [x](https://g/pull/3)\n```\n#7\n```\n# Head",
+            (
+                "see [#41](https://github.com/acme/shop/pull/41), `#5`, "
+                "[x](https://g/pull/3)\n```\n#7\n```\n# Head"
+            ),
         )
 
 
@@ -1162,7 +1210,8 @@ class Reasons(unittest.TestCase):
         self,
     ) -> None:
         r = bm.reason_parts(
-            'decision 4 was taken without the owner (criterion 2: the span): "C: as W; and one line", by the dialectic'
+            'decision 4 was taken without the owner (criterion 2: the span): "C: '
+            'as W; and one line", by the dialectic'
         )
         self.assertEqual(
             (r["head"], r["about"], r["detail"], r["ref"]),
@@ -1174,7 +1223,8 @@ class Reasons(unittest.TestCase):
             ),
         )
         bar = bm.reason_parts(
-            "the bar is lower in `t.py` (one assertion fewer). The builder: a reason. The review: it holds"
+            "the bar is lower in `t.py` (one assertion fewer). The builder: "
+            "a reason. The review: it holds"
         )
         self.assertEqual(
             (bar["head"], bar["about"], bar["detail"]),
@@ -1429,10 +1479,14 @@ class Feed(unittest.TestCase):
 
 
 class MergeStep(unittest.TestCase):
-    """The confirm step of a merge (`merge_step`): its head, its body and its foot, and the key of its read."""
+    """The confirm step of a merge (`merge_step`): its head, its body and its foot, and
+    the key of its read."""
 
     REASONS = [
-        "the owner did not approve the criteria: they were approved while the task ran without the owner",
+        (
+            "the owner did not approve the criteria: they were approved while the "
+            "task ran without the owner"
+        ),
         "two rounds reviewed it: the last one left no must-fix",
     ]
 
@@ -1564,8 +1618,9 @@ class MergeStep(unittest.TestCase):
 
 
 class ParkAndApproveSteps(unittest.TestCase):
-    """The park step (`park_step`) and the approval of the criteria (`approve_card`): the three parts of an act's
-    step, as the merge step has them, the key of their read, and where the approval's note and its plain text go."""
+    """The park step (`park_step`) and the approval of the criteria (`approve_card`):
+    the three parts of an act's step, as the merge step has them, the key of their read,
+    and where the approval's note and its plain text go."""
 
     STOP = ev(
         20,
@@ -1576,11 +1631,17 @@ class ParkAndApproveSteps(unittest.TestCase):
         document="breaker.md",
         handoff="handoff.md",
     )
-    TEXT = '## Acceptance criteria\n\n1. A product with 3 in stock says "3 left" under its price.\n'
+    TEXT = (
+        '## Acceptance criteria\n\n1. A product with 3 in stock says "3 '
+        'left" under its price.\n'
+    )
     REFUSED = {
         "task": "gift-note",
         "state": "refused",
-        "said": "The criteria changed since the page showed them. Read them again, then approve.",
+        "said": (
+            "The criteria changed since the page showed them. Read them again, "
+            "then approve."
+        ),
     }
 
     def key(self, html: str) -> str | None:

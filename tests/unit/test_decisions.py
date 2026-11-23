@@ -1,7 +1,7 @@
-"""decisions.py's checks of a decision's story and chart, and of the circuit breaker, each called in
-this process: which log needs its story, what a chart file may hold, the breaker's two causes and the
-parts its document must have. The breaker's journey, from its stop to a resumed task, is in
-tests/lem-decisions.sh."""
+"""decisions.py's checks of a decision's story and chart, and of the circuit breaker,
+each called in this process: which log needs its story, what a chart file may hold, the
+breaker's two causes and the parts its document must have. The breaker's journey, from
+its stop to a resumed task, is in tests/lem-decisions.sh."""
 
 import argparse
 import importlib
@@ -22,11 +22,15 @@ CASE = {
     "case_was": "derived",
     "cause": "An order has one cell for its note.",
 }
-CHART = 'flowchart TD\n  A["An order with two notes"] --> B{"One cell?"}\n  B -->|"yes"| C["One note is lost"]'
+CHART = (
+    'flowchart TD\n  A["An order with two notes"] --> B{"One cell?"}\n'
+    '  B -->|"yes"| C["One note is lost"]'
+)
 
 
 class Record:
-    """A task's record that keeps the lines `log` writes, without the commands that find a task."""
+    """A task's record that keeps the lines `log` writes, without the commands that find
+    a task."""
 
     repo = Path()
     # what a case sets, as `decisions.Task` has them
@@ -65,7 +69,8 @@ def logged(**given: object) -> dict:
 
 
 class TheStory(unittest.TestCase):
-    """An important log carries its story as a card does; a plain one of the lead may."""
+    """An important log carries its story as a card does; a plain one of the
+    lead may."""
 
     def test_an_important_log_without_its_story_is_refused(self) -> None:
         for given in (
@@ -77,7 +82,10 @@ class TheStory(unittest.TestCase):
                 self.subTest(given=given),
                 self.assertRaisesRegex(
                     decisions.DecisionError,
-                    "is important, and carries its story .* this one has no --case-was, no --cause|this one has no --case",
+                    (
+                        "is important, and carries its story .* this one has no "
+                        "--case-was, no --cause|this one has no --case"
+                    ),
                 ),
             ):
                 logged(**given)
@@ -98,7 +106,8 @@ class TheStory(unittest.TestCase):
 
 
 class TheChart(unittest.TestCase):
-    """A chart comes from a file, with or without its fence, and keeps its line breaks."""
+    """A chart comes from a file, with or without its fence, and keeps its
+    line breaks."""
 
     def file(self, text: str) -> str:
         folder = tempfile.TemporaryDirectory()
@@ -148,7 +157,8 @@ class TheChart(unittest.TestCase):
 
 
 class TheBreaker(unittest.TestCase):
-    """The breaker has two causes and no others, and its document has every part of the template."""
+    """The breaker has two causes and no others, and its document has every part of
+    the template."""
 
     TEMPLATE = (
         Path(__file__).resolve().parents[2]
@@ -201,7 +211,8 @@ class TheBreaker(unittest.TestCase):
         self.addCleanup(folder.cleanup)
         bare = Path(folder.name) / "breaker.md"
         text = self.TEMPLATE.read_text(encoding="utf-8")
-        # a bare question: the title and the options, and no story, cause, chart or assumptions
+        # a bare question: the title and the options, and no story, cause, chart
+        # or assumptions
         bare.write_text(
             text.split("## Today and after")[0]
             + "## The options"
@@ -236,7 +247,8 @@ class TheBreaker(unittest.TestCase):
 
 
 class TheRecord(unittest.TestCase):
-    """A task's `decisions.jsonl`, read back with words that hold the characters str.splitlines breaks at."""
+    """A task's `decisions.jsonl`, read back with words that hold the characters
+    str.splitlines breaks at."""
 
     def test_a_decision_whose_words_hold_a_line_separator(self) -> None:
         import json

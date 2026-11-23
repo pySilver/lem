@@ -1,10 +1,12 @@
-"""The GitHub tracker of Lem: a repository's issues, through GitHub's `gh`, for the `lem-github` skill.
+"""The GitHub tracker of Lem: a repository's issues, through GitHub's `gh`, for the
+`lem-github` skill.
 
-An issue is one more place an ask comes from. This script reads one, and keeps it true while Lem
-works: an assignee when the build starts, one comment and a close when the task lands, one comment
-when it is dropped or answered. The repository is origin's, always: every call of `gh` names it
-with `--repo OWNER/REPO`, read from `remote.origin.url`, so a fork whose `gh` default is its
-upstream still reads and writes its own issues.
+An issue is one more place an ask comes from. This script reads one, and keeps it true
+while Lem works: an assignee when the build starts, one comment and a close when the
+task lands, one comment when it is dropped or answered. The repository is origin's,
+always: every call of `gh` names it with `--repo OWNER/REPO`, read from
+`remote.origin.url`, so a fork whose `gh` default is its upstream still reads and writes
+its own issues.
 
     lem issue check          whether this repository's issues can be Lem's tracker: origin on
                              GitHub, `gh` installed and signed in, the issues on; and whether the
@@ -21,27 +23,31 @@ upstream still reads and writes its own issues.
     lem issue answer SLUG    the task ended with an answer: one comment with it, and the assignee
                              Lem added goes
 
-Each write takes the slug alone and reads its words from the task's record, so any session, or the
-owner, can run a step a task still owes. Before it writes, it reads the task in `lem project tasks`
-and refuses a status the step does not belong to, a task whose issue another task holds now (a
-resume went on from it), and an origin that names another repository than the one the issue was
-read from. What it did is written down through `lem project ticket-step` after `gh` took it, and
-never done twice; the assignee's step is written before the add, with the login, since a removal
-reads the assignees first. Each comment's last line is `lem: SLUG STEP`, which the script adds, and
-before a comment the issue's comments are read for that line: a session cut off after the post
-posts no second one.
+Each write takes the slug alone and reads its words from the task's record, so any
+session, or the owner, can run a step a task still owes. Before it writes, it reads the
+task in `lem project tasks` and refuses a status the step does not belong to, a task
+whose issue another task holds now (a resume went on from it), and an origin that names
+another repository than the one the issue was read from. What it did is written down
+through `lem project ticket-step` after `gh` took it, and never done twice; the
+assignee's step is written before the add, with the login, since a removal reads the
+assignees first. Each comment's last line is `lem: SLUG STEP`, which the script adds,
+and before a comment the issue's comments are read for that line: a session cut off
+after the post posts no second one.
 
-Each command prints one JSON object. The fields of `gh issue view --json` and the flags of `gh
-issue edit`, `gh issue comment`, `gh issue close`, `gh issue list`, `gh repo view`, `gh api` and
-`gh auth status` were read from their `--help` in gh 2.101.0 (2026-09-15), on 2026-11-22; no call
-of this script has run against a real repository yet.
+Each command prints one JSON object. The fields of `gh issue view --json` and the flags
+of `gh issue edit`, `gh issue comment`, `gh issue close`, `gh issue list`,
+`gh repo view`, `gh api` and `gh auth status` were read from their `--help` in gh
+2.101.0 (2026-09-15), on 2026-11-22; no call of this script has run against a real
+repository yet.
 """
 
 import sys
 
 if sys.version_info < (3, 11):
     sys.exit(
-        f"issues.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it"
+        "issues.py: Lem needs Python 3.11 or newer, and this python3 is "
+        f"{sys.version.split()[0]}; put a newer one first on PATH, "
+        "or run this file with it"
     )
 
 import argparse
@@ -62,7 +68,8 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
 # the settings, the tasks and the record of each step
 project = importlib.import_module("project")
-# the release a task began on, and the rule that stops a command for a task two releases back
+# the release a task began on, and the rule that stops a command for a task two
+# releases back
 lem_release = importlib.import_module("lem_release")
 
 # origin on GitHub, in the three forms git takes, as OWNER/REPO
@@ -73,15 +80,20 @@ ORIGIN = re.compile(
 ADDRESS = re.compile(
     r"https://github\.com/(?P<repo>[^/\s]+/[^/\s]+)/issues/(?P<number>[0-9]+)(?:[/?#]\S*)?"
 )
-# the fields of `gh issue view --json` a read gives (gh 2.101.0: assignees, author, body, labels,
-# number, state, stateReason, title and url are among its JSON FIELDS)
+# the fields of `gh issue view --json` a read gives (gh 2.101.0: assignees, author,
+# body, labels, number, state, stateReason, title and url are among its JSON FIELDS)
 VIEW = "number,title,body,state,stateReason,labels,url,author,assignees"
-# the status each step belongs to; `start` belongs to every status but an ended or parked one
+# the status each step belongs to; `start` belongs to every status but an ended or
+# parked one
 STATUS_OF = {"land": "landed", "drop": "dropped", "answer": "answered"}
-# the step of `lem project ticket-step` each comment writes down, and the word of its last line
+# the step of `lem project ticket-step` each comment writes down, and the word of its
+# last line
 COMMENTED = {"land": "commented", "drop": "dropped", "answer": "answered"}
 LAST_WORD = {"land": "landed", "drop": "dropped", "answer": "answered"}
-INSTALL_GH = "install GitHub's command gh (https://cli.github.com), then sign it in with `gh auth login`"
+INSTALL_GH = (
+    "install GitHub's command gh (https://cli.github.com), "
+    "then sign it in with `gh auth login`"
+)
 
 
 class IssueError(Exception):
@@ -89,7 +101,8 @@ class IssueError(Exception):
 
 
 def gh(root: Path, *args: str, stdin: str = "") -> subprocess.CompletedProcess:
-    """One call of `gh`, in the checkout, with no prompt: a call that would ask fails instead."""
+    """One call of `gh`, in the checkout, with no prompt: a call that would ask
+    fails instead."""
     if not shutil.which("gh"):
         raise IssueError(f"gh is not on PATH: {INSTALL_GH}, then run this again")
     return subprocess.run(
@@ -113,7 +126,8 @@ def gh_ok(root: Path, *args: str, stdin: str = "") -> str:
     ran = gh(root, *args, stdin=stdin)
     if ran.returncode != 0:
         raise IssueError(
-            f"gh {' '.join(args[:2])} failed: {why(ran)}; check `gh auth status`, then run this again"
+            f"gh {' '.join(args[:2])} failed: {why(ran)}; check `gh auth status`, "
+            "then run this again"
         )
     return ran.stdout
 
@@ -142,14 +156,16 @@ def origin_repo(root: Path) -> str:
     url = origin_url(root)
     if not url:
         raise IssueError(
-            "this repository has no origin, and Lem reads the issues of origin's repository on GitHub: "
-            "add it (`git remote add origin https://github.com/OWNER/REPO.git`), then run this again"
+            "this repository has no origin, and Lem reads the issues of origin's "
+            "repository on GitHub: add it (`git remote add origin "
+            "https://github.com/OWNER/REPO.git`), then run this again"
         )
     found = ORIGIN.fullmatch(url)
     if not found:
         raise IssueError(
-            f"origin is {url}, which is not a repository on GitHub, and Lem reads the issues of origin: "
-            "point origin at the repository on GitHub (`git remote set-url origin https://github.com/OWNER/REPO.git`), then run this again"
+            f"origin is {url}, which is not a repository on GitHub, and Lem reads the "
+            "issues of origin: point origin at the repository on GitHub (`git remote "
+            "set-url origin https://github.com/OWNER/REPO.git`), then run this again"
         )
     return found["repo"]
 
@@ -173,8 +189,8 @@ def logins(people: list | None) -> list[str]:
 
 
 def comments_of(root: Path, repo: str, number: int) -> list[dict]:
-    """Every comment of an issue, page after page, oldest first: the REST list, which `--paginate`
-    reads to its end and `--slurp` gives as one array of the pages."""
+    """Every comment of an issue, page after page, oldest first: the REST list, which
+    `--paginate` reads to its end and `--slurp` gives as one array of the pages."""
     pages = gh_json(
         root, "api", f"repos/{repo}/issues/{number}/comments", "--paginate", "--slurp"
     )
@@ -204,13 +220,15 @@ def view(root: Path, repo: str, number: int) -> dict:
 
 def foreign(repo: str, origin: str) -> str:
     return (
-        f"the address names an issue of {repo}, and Lem reads the issues of origin, which is {origin}: give the number or the address of an issue "
-        f"of {origin}, or start the task from the owner's own words, with the address in them"
+        f"the address names an issue of {repo}, and Lem reads the issues of origin, "
+        f"which is {origin}: give the number or the address of an issue of {origin}, "
+        "or start the task from the owner's own words, with the address in them"
     )
 
 
 def issue_number(given: str, origin: str) -> int:
-    """The number of an issue of origin from 42, #42 or its address; an address of another repository is refused."""
+    """The number of an issue of origin from 42, #42 or its address; an address of
+    another repository is refused."""
     given = given.strip()
     address = ADDRESS.fullmatch(given)
     if address:
@@ -221,7 +239,8 @@ def issue_number(given: str, origin: str) -> int:
         found = project.ISSUE.fullmatch(given)
         if not found:
             raise IssueError(
-                f"{given!r} is no issue's number or address: give 42, #42 or https://github.com/{origin}/issues/42"
+                f"{given!r} is no issue's number or address: give 42, "
+                f"#42 or https://github.com/{origin}/issues/42"
             )
         number = int(found[1])
     if number == 0:
@@ -234,21 +253,26 @@ def cmd_read(root: Path, given: str) -> dict:
     origin = origin_repo(root)
     number = issue_number(given, origin)
     issue = view(root, origin, number)
-    # the repository comes from the issue's own address: an issue moved to another repository answers with that one
+    # the repository comes from the issue's own address: an issue moved to another
+    # repository answers with that one
     address = ADDRESS.fullmatch(issue.get("url") or "")
     if not address and "/pull/" in (issue.get("url") or ""):
-        # gh issue view answers for a pull request's number too (gh 2.101.0, read on a public repository on 2026-11-22)
+        # gh issue view answers for a pull request's number too (gh 2.101.0, read on a
+        # public repository on 2026-11-22)
         raise IssueError(
-            f"#{number} of {origin} is a pull request ({issue['url']}), not an issue: give the number of an issue"
+            f"#{number} of {origin} is a pull request ({issue['url']}), not an issue: "
+            "give the number of an issue"
         )
     if not address:
         raise IssueError(
-            f"gh issue view gave #{number} of {origin} no address of an issue: {issue.get('url')!r}"
+            f"gh issue view gave #{number} of {origin} no address of "
+            f"an issue: {issue.get('url')!r}"
         )
     if not same(address["repo"], origin):
         raise IssueError(
-            f"issue #{number} of {origin} is now {issue['url']}, an issue of another repository, and Lem reads the issues of origin, "
-            f"which is {origin}: start the task from the owner's own words, with the address in them"
+            f"issue #{number} of {origin} is now {issue['url']}, an issue of another "
+            f"repository, and Lem reads the issues of origin, which is {origin}: "
+            "start the task from the owner's own words, with the address in them"
         )
     text = issue.get("body") or ""
     title = issue.get("title") or ""
@@ -270,7 +294,8 @@ def cmd_read(root: Path, given: str) -> dict:
         "author": (issue.get("author") or {}).get("login"),
         "assignees": logins(issue.get("assignees")),
         "comments": comments_of(root, repo, number),
-        # the text is the ask, as written; the title only when the text is empty; never a comment
+        # the text is the ask, as written; the title only when the text is empty; never
+        # a comment
         "ask": text if text.strip() else title,
         "ask_is": "text" if text.strip() else "title",
         "task_dir": ["--ticket", f"#{number}", "--ticket-repo", repo],
@@ -283,7 +308,10 @@ def tracker(root: Path) -> dict:
     kind = (settings["tracker"] or {}).get("kind")
     if kind != "github":
         raise IssueError(
-            f'the project\'s tracker is {kind or "none"} ({project.SETTINGS}, [tracker]), and lem issue acts for kind = "github" only'
+            (
+                f"the project's tracker is {kind or 'none'} ({project.SETTINGS}, "
+                '[tracker]), and lem issue acts for kind = "github" only'
+            )
             + (
                 ": a Linear ticket's steps are the lem-linear skill's"
                 if kind == "linear"
@@ -294,9 +322,9 @@ def tracker(root: Path) -> dict:
 
 
 def the_task(root: Path, slug: str, step: str) -> tuple[dict, list[dict]]:
-    """The task SLUG as `lem project tasks` gives it, once the guards of STEP passed: a task of an
-    issue, in the status the step belongs to, that holds its issue itself, and whose issue is of
-    origin's repository."""
+    """The task SLUG as `lem project tasks` gives it, once the guards of STEP passed: a
+    task of an issue, in the status the step belongs to, that holds its issue itself,
+    and whose issue is of origin's repository."""
     if not project.SLUG.fullmatch(slug):
         raise IssueError(f"slug {slug!r} must be lower-case words joined by hyphens")
     settings = tracker(root)
@@ -304,9 +332,11 @@ def the_task(root: Path, slug: str, step: str) -> tuple[dict, list[dict]]:
     task = next((task for task in tasks if task["slug"] == slug), None)
     if task is None:
         raise IssueError(
-            f"no task {slug!r}; the tasks are: {', '.join(task['slug'] for task in tasks) or 'none yet'}"
+            f"no task {slug!r}; the tasks are: "
+            f"{', '.join(task['slug'] for task in tasks) or 'none yet'}"
         )
-    # the release rule (lem_release), before any call to GitHub: the writes at a task's end pass
+    # the release rule (lem_release), before any call to GitHub: the writes at a task's
+    # end pass
     stopped = lem_release.check(
         project.state_root(root) / "tasks" / slug,
         passes=step in ("land", "drop", "answer"),
@@ -315,41 +345,50 @@ def the_task(root: Path, slug: str, step: str) -> tuple[dict, list[dict]]:
         raise IssueError(stopped)
     if not task["ticket"]:
         raise IssueError(
-            f"the task {slug!r} came from no issue, so lem issue has nothing to write for it"
+            f"the task {slug!r} came from no issue, so lem issue has "
+            "nothing to write for it"
         )
     if not task["ticket"].startswith("#") or not task["ticket_repo"]:
         raise IssueError(
-            f"the task {slug!r} keeps the ticket {task['ticket']} with no repository of GitHub (ticket-repo.txt): it is no issue lem issue can write to, "
-            "and the owner writes to it by hand"
+            f"the task {slug!r} keeps the ticket {task['ticket']} with no repository "
+            "of GitHub (ticket-repo.txt): it is no issue lem issue can write to, and "
+            "the owner writes to it by hand"
         )
     status = task["status"]
     if step == "start" and (status in project.ENDED or status == project.PARKED):
         raise IssueError(
-            f"the task {slug!r} is {status}: the start belongs to a task whose build starts, so nothing is written to issue {task['ticket']}"
+            f"the task {slug!r} is {status}: the start belongs to a task whose build "
+            f"starts, so nothing is written to issue {task['ticket']}"
         )
     if step in STATUS_OF and status != STATUS_OF[step]:
         raise IssueError(
-            f"the task {slug!r} is {status or 'new'}, and `lem issue {step}` belongs to a task that is {STATUS_OF[step]}: "
-            f"nothing is written to issue {task['ticket']}"
+            f"the task {slug!r} is {status or 'new'}, and `lem issue {step}` belongs "
+            f"to a task that is {STATUS_OF[step]}: nothing is written "
+            f"to issue {task['ticket']}"
         )
     holder = task.get("ticket_held_by")
     if holder:
         raise IssueError(
-            f"issue {task['ticket']} is held by the task {holder!r} now, which went on from {slug!r}: {slug} owes the issue nothing, "
-            f"and what the issue gets is {holder}'s to write (`lem issue STEP {holder}` when that task ends)"
+            f"issue {task['ticket']} is held by the task {holder!r} now, which went on "
+            f"from {slug!r}: {slug} owes the issue nothing, and what the issue gets is "
+            f"{holder}'s to write (`lem issue STEP {holder}` when that task ends)"
         )
     origin = origin_repo(root)
     if not same(origin, task["ticket_repo"]):
         raise IssueError(
-            f"origin names {origin}, and the task {slug!r} came from issue {task['ticket']} of {task['ticket_repo']}: Lem writes to an issue "
-            f"of origin's repository only. Set origin back (`git remote set-url origin https://github.com/{task['ticket_repo']}.git`) and run "
-            f"this again, or the owner writes to issue {task['ticket']} of {task['ticket_repo']} by hand"
+            f"origin names {origin}, and the task {slug!r} came from issue "
+            f"{task['ticket']} of {task['ticket_repo']}: Lem writes to an issue of "
+            "origin's repository only. Set origin back (`git remote set-url origin "
+            f"https://github.com/{task['ticket_repo']}.git`) and run this again, or "
+            f"the owner writes to issue {task['ticket']} of "
+            f"{task['ticket_repo']} by hand"
         )
     return task, tasks
 
 
 def write_step(root: Path, slug: str, step: str, login: str | None = None) -> str:
-    """Write one step down through `lem project ticket-step`; its JSON line is not this command's output."""
+    """Write one step down through `lem project ticket-step`; its JSON line is not this
+    command's output."""
     with contextlib.redirect_stdout(io.StringIO()):
         project.cmd_ticket_step(root, slug, step, login)
     return f"{step} {login}" if login else step
@@ -361,14 +400,16 @@ def signed_in(root: Path) -> str:
     login = ran.stdout.strip()
     if ran.returncode != 0 or not login:
         raise IssueError(
-            f"gh cannot tell who is signed in ({why(ran)}): sign it in with `gh auth login`, then run this again"
+            f"gh cannot tell who is signed in ({why(ran)}): sign it in with "
+            "`gh auth login`, then run this again"
         )
     return login
 
 
 def carried(root: Path, task: dict, tasks: list[dict]) -> str | None:
-    """The assignee Lem added for the dropped task this one went on from, with the same issue, and
-    did not remove: the resumed task takes it over, so that its own end removes it."""
+    """The assignee Lem added for the dropped task this one went on from, with the same
+    issue, and did not remove: the resumed task takes it over, so that its own end
+    removes it."""
     file = project.state_root(root) / "tasks" / task["slug"] / project.RESUMED_FROM
     if not file.is_file():
         return None
@@ -429,10 +470,14 @@ def cmd_start(root: Path, slug: str) -> dict:
             assignees.append(login)
             return
         wrote.append(write_step(root, slug, "unassigned"))
-        says = f"gh could not make {login} the assignee of issue {ticket} of {repo} ({why(ran)}): the build goes on with no assignee there"
+        says = (
+            f"gh could not make {login} the assignee of issue {ticket} of {repo} "
+            f"({why(ran)}): the build goes on with no assignee there"
+        )
 
     if "assigned" in steps:
-        # a start cut off after its record: the add, only while the issue still has nobody
+        # a start cut off after its record: the add, only while the issue still
+        # has nobody
         if "unassigned" not in steps and not assignees:
             add(task["ticket_assignee"])
     else:
@@ -441,14 +486,18 @@ def cmd_start(root: Path, slug: str) -> dict:
             wrote.append(write_step(root, slug, "assigned", before))
         elif not assignees:
             login = signed_in(root)
-            # written before the add: a cut-off between the two leaves a record whose removal reads the assignees first
+            # written before the add: a cut-off between the two leaves a record whose
+            # removal reads the assignees first
             wrote.append(write_step(root, slug, "assigned", login))
             add(login)
         else:
             me = signed_in(root)
             others = [login for login in assignees if not same(login, me)]
             if others:
-                says = f"issue {ticket} of {repo} is assigned to {', '.join(others)}: Lem added nobody, and the build goes on"
+                says = (
+                    f"issue {ticket} of {repo} is assigned to {', '.join(others)}: "
+                    "Lem added nobody, and the build goes on"
+                )
     wrote.append(write_step(root, slug, "started"))
     return result(
         task,
@@ -461,7 +510,8 @@ def cmd_start(root: Path, slug: str) -> dict:
 
 
 def landed_words(root: Path, task: dict) -> str:
-    """The landed comment, from the task's record: its outcome, and the pull request with green or not green."""
+    """The landed comment, from the task's record: its outcome, and the pull request
+    with green or not green."""
     directory = project.state_root(root) / "tasks" / task["slug"]
     text = (
         project.text_of(directory / "task.md")
@@ -473,7 +523,10 @@ def landed_words(root: Path, task: dict) -> str:
     proposal = task["proposal"] or {}
     if proposal.get("pull_request"):
         verdict = "green" if proposal.get("green") else "not green"
-        pull = f"The pull request: {proposal['pull_request']}, {verdict} when it was proposed."
+        pull = (
+            f"The pull request: {proposal['pull_request']}, "
+            f"{verdict} when it was proposed."
+        )
     else:
         pull = (
             f"No pull request is on record; the task's state says: {first_line(task)}."
@@ -496,8 +549,9 @@ def dropped_words(task: dict) -> str:
 
 
 def answered_words(root: Path, task: dict) -> str:
-    """The answer's comment: the investigation's line and where, and where its report is while the task's
-    directory holds it; an answer still owed after `lem project prune` removed the report names none."""
+    """The answer's comment: the investigation's line and where, and where its report is
+    while the task's directory holds it; an answer still owed after `lem project prune`
+    removed the report names none."""
     found = task["investigation"] or {}
     line = found.get("line") or first_line(task)
     where = f" ({found['where']})" if found.get("where") else ""
@@ -505,7 +559,10 @@ def answered_words(root: Path, task: dict) -> str:
     if (
         project.state_root(root) / "tasks" / task["slug"] / "investigation.md"
     ).is_file():
-        said += "\n\nThe report is in the task's directory on the owner's machine, not on this issue."
+        said += (
+            "\n\nThe report is in the task's directory on the owner's machine, "
+            "not on this issue."
+        )
     return said
 
 
@@ -518,7 +575,8 @@ def comment(
     did: list[str],
     wrote: list[str],
 ) -> None:
-    """The one comment of STEP, unless it is written down or on the issue already; its last line is Lem's."""
+    """The one comment of STEP, unless it is written down or on the issue already; its
+    last line is Lem's."""
     if COMMENTED[step] in task["ticket_steps"]:
         return
     marker = f"lem: {task['slug']} {LAST_WORD[step]}"
@@ -526,7 +584,8 @@ def comment(
         last_line(found["text"]) == marker
         for found in comments_of(root, task["ticket_repo"], number)
     ):
-        # a session was cut off after the post: the comment is there, and only its record was missing
+        # a session was cut off after the post: the comment is there, and only its
+        # record was missing
         wrote.append(write_step(root, task["slug"], COMMENTED[step]))
         return
     gh_ok(
@@ -571,7 +630,8 @@ def cmd_land(root: Path, slug: str) -> dict:
 
 
 def cmd_end(root: Path, slug: str, step: str) -> dict:
-    """`drop` and `answer`: the comment, then the assignee Lem added goes; the issue stays open."""
+    """`drop` and `answer`: the comment, then the assignee Lem added goes; the issue
+    stays open."""
     task, _ = the_task(root, slug, step)
     number, repo, ticket = int(task["ticket"][1:]), task["ticket_repo"], task["ticket"]
     did: list[str] = []
@@ -589,7 +649,8 @@ def cmd_end(root: Path, slug: str, step: str) -> dict:
     assignees = logins(issue.get("assignees"))
     login = task["ticket_assignee"]
     if "assigned" in task["ticket_steps"] and "unassigned" not in task["ticket_steps"]:
-        # the login the record names, whoever is signed in to gh now; every other assignee stays
+        # the login the record names, whoever is signed in to gh now; every other
+        # assignee stays
         if any(same(login, found) for found in assignees):
             gh_ok(
                 root,
@@ -608,7 +669,10 @@ def cmd_end(root: Path, slug: str, step: str) -> dict:
     says = (
         f"issue {ticket} of {repo} is closed already, by someone else than Lem"
         if closed
-        else f"issue {ticket} of {repo} stays open: whether it closes is the owner's call"
+        else (
+            f"issue {ticket} of {repo} stays open: "
+            "whether it closes is the owner's call"
+        )
     )
     return result(
         task,
@@ -621,7 +685,8 @@ def cmd_end(root: Path, slug: str, step: str) -> dict:
 
 
 def cmd_check(root: Path) -> tuple[dict, bool]:
-    """The tracker's check: each missing thing with its fix, and the facts the onboarding needs."""
+    """The tracker's check: each missing thing with its fix, and the facts the
+    onboarding needs."""
     missing: list[dict] = []
     found: dict[str, Any] = {
         "repository": None,
@@ -642,7 +707,10 @@ def cmd_check(root: Path) -> tuple[dict, bool]:
         missing.append(
             {
                 "what": f"origin is {url}, which is not a repository on GitHub",
-                "fix": "point origin at the repository on GitHub: git remote set-url origin https://github.com/OWNER/REPO.git",
+                "fix": (
+                    "point origin at the repository on GitHub: git remote "
+                    "set-url origin https://github.com/OWNER/REPO.git"
+                ),
             }
         )
     else:
@@ -672,7 +740,10 @@ def cmd_check(root: Path) -> tuple[dict, bool]:
             missing.append(
                 {
                     "what": f"gh cannot read the repository {repo} ({why(ran)})",
-                    "fix": f"check that the account gh is signed in to can see {repo} (`gh auth status`)",
+                    "fix": (
+                        "check that the account gh is signed in to can see "
+                        f"{repo} (`gh auth status`)"
+                    ),
                 }
             )
         else:
@@ -681,7 +752,10 @@ def cmd_check(root: Path) -> tuple[dict, bool]:
                 missing.append(
                     {
                         "what": f"the issues of {repo} are off in its settings",
-                        "fix": f"turn Issues on under Settings, General, Features of https://github.com/{repo}",
+                        "fix": (
+                            "turn Issues on under Settings, General, "
+                            f"Features of https://github.com/{repo}"
+                        ),
                     }
                 )
             else:
@@ -709,19 +783,22 @@ def cmd_check(root: Path) -> tuple[dict, bool]:
                     missing.append(
                         {
                             "what": f"gh cannot list the issues of {repo} ({why(ran)})",
-                            "fix": f"check that the account gh is signed in to can see the issues of {repo} (`gh auth status`)",
+                            "fix": (
+                                "check that the account gh is signed in to can see the "
+                                f"issues of {repo} (`gh auth status`)"
+                            ),
                         }
                     )
     if missing:
         says = "; ".join(f"{item['what']}: {item['fix']}" for item in missing)
     else:
         says = (
-            f"the issues of {repo} are on, and gh is signed in: Lem can read and write them; "
-            + (
-                "the repository holds at least one issue"
-                if found["has_issues"]
-                else "the repository holds no issue yet"
-            )
+            f"the issues of {repo} are on, and gh is signed in: "
+            "Lem can read and write them; "
+        ) + (
+            "the repository holds at least one issue"
+            if found["has_issues"]
+            else "the repository holds no issue yet"
         )
     return {**found, "missing": missing, "says": says}, not missing
 
@@ -741,22 +818,34 @@ def main(argv: list[str] | None = None) -> None:
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser(
         "check",
-        help="whether origin's issues can be Lem's tracker, each missing thing with its fix; writes nothing",
+        help=(
+            "whether origin's issues can be Lem's tracker, each missing thing with "
+            "its fix; writes nothing"
+        ),
     )
     commands.add_parser(
         "read",
-        help="one issue of origin's repository, by its number or its address; writes nothing",
+        help=(
+            "one issue of origin's repository, by its number or its address; "
+            "writes nothing"
+        ),
     ).add_argument("issue", metavar="ID|URL")
     for name, about in (
         (
             "start",
-            "the build started: the person signed in to gh becomes the assignee of an issue that has none",
+            (
+                "the build started: the person signed in to gh becomes the assignee of "
+                "an issue that has none"
+            ),
         ),
         ("land", "the task landed: one comment, then the issue is closed as completed"),
         ("drop", "the task was dropped: one comment, and the assignee Lem added goes"),
         (
             "answer",
-            "the task ended with an answer: one comment with it, and the assignee Lem added goes",
+            (
+                "the task ended with an answer: one comment with it, "
+                "and the assignee Lem added goes"
+            ),
         ),
     ):
         commands.add_parser(name, help=about).add_argument("slug")

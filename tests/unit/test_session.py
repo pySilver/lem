@@ -1,8 +1,9 @@
-"""A task's own session (session.py) and its two hooks (session_hook.py), as calls of the functions
-that hold the rules: the phase from the state, the handoff's form, the launch line with the seat and
-`[handoff] tokens`, and the hooks with and without `LEM_TASK`; and the first line of `session.md`
-and of every brief a stage text or a script writes, which names its standing text through `lem
-version`. What agterm does with a session is in tests/lem-session.sh, with a stand-in for agtermctl.
+"""A task's own session (session.py) and its two hooks (session_hook.py), as calls of
+the functions that hold the rules: the phase from the state, the handoff's form, the
+launch line with the seat and `[handoff] tokens`, and the hooks with and without
+`LEM_TASK`; and the first line of `session.md` and of every brief a stage text or a
+script writes, which names its standing text through `lem version`. What agterm does
+with a session is in tests/lem-session.sh, with a stand-in for agtermctl.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -64,7 +65,8 @@ The lead plans the export's column.
 
 
 class Machine(unittest.TestCase):
-    """Each case runs with a folder of its own as XDG_CONFIG_HOME: the home directory's file is never read."""
+    """Each case runs with a folder of its own as XDG_CONFIG_HOME: the home directory's
+    file is never read."""
 
     def setUp(self) -> None:
         self.kept = os.environ.get("XDG_CONFIG_HOME")
@@ -129,8 +131,8 @@ class Tokens(Machine):
 
 
 class Load(Machine):
-    """`[load] start`: Lem's 40 on a machine with no number, the developer's own when he set one, and no
-    gate after `--start none`, which a later read keeps."""
+    """`[load] start`: Lem's 40 on a machine with no number, the developer's own when he
+    set one, and no gate after `--start none`, which a later read keeps."""
 
     def test_a_new_machine_gates_at_forty(self) -> None:
         self.assertFalse(lem_state.machine_file().exists())
@@ -208,12 +210,16 @@ class Seat(Machine):
     def test_the_machine_file_refuses_the_seats_and_names_the_home_settings(
         self,
     ) -> None:
-        # criterion 3 of one-home-folder-for-lem: the seats are no fact of the whole machine
+        # criterion 3 of one-home-folder-for-lem: the seats are no fact of the
+        # whole machine
         self.written('[seats]\nsession = "claude:high"\n')
         with self.assertRaises(lem_state.StateError) as raised:
             lem_state.machine_table("load")
         self.assertIn(
-            f"{lem_state.machine_file()}: [seats] is not valid in this file: its place is {lem_state.shown(lem_state.home_settings_file())}",
+            (
+                f"{lem_state.machine_file()}: [seats] is not valid in this file: "
+                f"its place is {lem_state.shown(lem_state.home_settings_file())}"
+            ),
             str(raised.exception),
         )
 
@@ -230,7 +236,10 @@ class Phase(unittest.TestCase):
             (
                 (
                     "held",
-                    "the criteria wait for the owner: the small change is a full change",
+                    (
+                        "the criteria wait for the owner: "
+                        "the small change is a full change"
+                    ),
                     "standard",
                     True,
                 ),
@@ -258,7 +267,11 @@ class Phase(unittest.TestCase):
     def test_a_block_of_the_merge_agents_seat_is_the_landings_and_one_of_the_talk_the_builds(
         self,
     ) -> None:
-        merger = "2026-11-23T10:00Z blocked: the merge agent `codex/gpt-6.2-sol:high` gave an error: no tokens, and this project permits no fallback\nthe seat that failed: merger"
+        merger = (
+            "2026-11-23T10:00Z blocked: the merge agent `codex/gpt-6.2-sol:high` gave "
+            "an error: no tokens, and this project permits no fallback\n"
+            "the seat that failed: merger"
+        )
         reviewer = merger.replace("the merge agent", "the reviewer").replace(
             "failed: merger", "failed: reviewer"
         )
@@ -307,10 +320,13 @@ class Phase(unittest.TestCase):
         )
 
     def test_a_task_queued_in_the_shape_goes_on_in_the_shape(self) -> None:
-        # queued at step 7 of "The request": no lead ran, so its session takes step 8 there
+        # queued at step 7 of "The request": no lead ran, so its session takes step
+        # 8 there
         state = (
-            '2026-11-21T10:01Z queued: the owner\'s order: "After coupon: unit cases"\nafter: coupon\nthen: the interview\n\n'
-            "2026-11-21T10:00Z held: the interview waits for the owner\ntype: test, because w"
+            "2026-11-21T10:01Z queued: the owner's order: \"After coupon: "
+            'unit cases"\nafter: coupon\nthen: the interview\n\n'
+            "2026-11-21T10:00Z held: the interview waits for the "
+            "owner\ntype: test, because w"
         )
         self.assertEqual(
             session.phase_of(
@@ -323,7 +339,10 @@ class Phase(unittest.TestCase):
             ),
             "shape",
         )
-        need = "2026-11-21T10:00Z queued: needs the export's column\nafter: coupon\ninvestigation: bug"
+        need = (
+            "2026-11-21T10:00Z queued: needs the export's column\n"
+            "after: coupon\ninvestigation: bug"
+        )
         self.assertEqual(
             session.phase_of(
                 SLUG,
@@ -343,7 +362,10 @@ class Phase(unittest.TestCase):
             "2026-11-21T10:00Z building: the plan starts\nlead: builder",
         ):
             with self.subTest(older=older):
-                state = f"2026-11-21T10:30Z queued: needs the export's column\nafter: coupon\n\n{older}"
+                state = (
+                    "2026-11-21T10:30Z queued: needs the export's column\n"
+                    f"after: coupon\n\n{older}"
+                )
                 self.assertEqual(
                     session.phase_of(
                         SLUG,
@@ -372,8 +394,9 @@ class Phase(unittest.TestCase):
             self.assertIn(says, str(raised.exception))
 
     def test_a_dropped_task_whose_worktree_stays_gets_its_land_session(self) -> None:
-        # a pull request closed on GitHub while no session ran: the server's wake opens the task's session,
-        # which pays what its ticket is owed and cleans up, as it does for a merged one
+        # a pull request closed on GitHub while no session ran: the server's wake opens
+        # the task's session, which pays what its ticket is owed and cleans up, as it
+        # does for a merged one
         closed = "the pull request was closed on the forge"
         self.assertEqual(
             session.phase_of(
@@ -396,13 +419,15 @@ class Phase(unittest.TestCase):
     ) -> None:
         began = 1_000_000.0
         minute = 60.0
-        # talk-turns.md written at the wait's start: 44 minutes later the wait goes on, at 45 it ends
+        # talk-turns.md written at the wait's start: 44 minutes later the wait goes on,
+        # at 45 it ends
         self.assertFalse(session.quiet_over(began, began, began + 44 * minute))
         self.assertTrue(session.quiet_over(began, began, began + 45 * minute))
         # a file not there yet counts from the wait's start
         self.assertFalse(session.quiet_over(None, began, began + 44 * minute))
         self.assertTrue(session.quiet_over(None, began, began + 45 * minute))
-        # a second wait over the same old file, after a quiet end with no error, waits its own 45 minutes
+        # a second wait over the same old file, after a quiet end with no error, waits
+        # its own 45 minutes
         second = began + 45 * minute
         self.assertFalse(session.quiet_over(began, second, second + 1))
         self.assertFalse(session.quiet_over(began, second, second + 44 * minute))
@@ -442,7 +467,10 @@ class Phase(unittest.TestCase):
         queued = {
             "slug": "export-notes-in-order",
             "status": "queued",
-            "state": "2026-11-22T10:00Z queued: needs the gift note\nafter: gift-note-in-export",
+            "state": (
+                "2026-11-22T10:00Z queued: needs the gift "
+                "note\nafter: gift-note-in-export"
+            ),
         }
         dropped = {"slug": "gift-note-in-export", "status": "dropped"}
         self.assertEqual(
@@ -452,24 +480,35 @@ class Phase(unittest.TestCase):
             "export-notes-in-order", "gift-note-in-export", "dropped"
         )
         self.assertIn(
-            "'gift-note-in-export', which was dropped: it waits for the owner's word, which starts it or drops it",
+            (
+                "'gift-note-in-export', which was dropped: it waits for the owner's "
+                "word, which starts it or drops it"
+            ),
             said,
         )
         self.assertIn("lem project may-start export-notes-in-order", said)
-        # his "start export-notes-in-order now" writes it queued again without the `after:` line
+        # his "start export-notes-in-order now" writes it queued again without the
+        # `after:` line
         started = dict(
             queued,
-            state='2026-11-22T11:00Z queued: the owner\'s order was removed: "start export-notes-in-order now"\n\n'
+            state=(
+                "2026-11-22T11:00Z queued: the owner's order was removed: "
+                '"start export-notes-in-order now"\n\n'
+            )
             + queued["state"],
         )
         self.assertIsNone(session.queued_behind(started, [started, dropped]))
 
     def test_the_after_line_is_read_from_every_line_its_first_too(self) -> None:
-        # as `may-start` and the board read it: a block whose first line is `after: coupon`
+        # as `may-start` and the board read it: a block whose first line
+        # is `after: coupon`
         first = {
             "slug": SLUG,
             "status": "queued",
-            "state": "2026-11-21T10:00Z queued: after: coupon\ntype: fix, because x\nthen: the fast track",
+            "state": (
+                "2026-11-21T10:00Z queued: after: coupon\ntype: fix, "
+                "because x\nthen: the fast track"
+            ),
         }
         self.assertEqual(
             session.queued_behind(
@@ -502,7 +541,8 @@ class Phase(unittest.TestCase):
         def block(status: str, text: str) -> dict:
             return {"status": status, "text": text}
 
-        # a session that opened for the shape and led the task through the build hands off from the build
+        # a session that opened for the shape and led the task through the build hands
+        # off from the build
         led = [
             block("building", "lead: builder"),
             block("building", "task 2 of 2"),
@@ -511,7 +551,8 @@ class Phase(unittest.TestCase):
         self.assertEqual(
             session.phase_left(SLUG, led, "standard", "land", "shape", ""), "build"
         )
-        # a session that wrote the build's first block hands off from the phase it opened in
+        # a session that wrote the build's first block hands off from the phase it
+        # opened in
         self.assertEqual(
             session.phase_left(
                 SLUG,
@@ -523,7 +564,8 @@ class Phase(unittest.TestCase):
             ),
             "shape",
         )
-        # a session that wrote nothing since it opened: its own phase, so `next` refuses while the state gives it
+        # a session that wrote nothing since it opened: its own phase, so `next` refuses
+        # while the state gives it
         self.assertEqual(
             session.phase_left(SLUG, [], "standard", "build", "build", ""), "build"
         )
@@ -539,7 +581,8 @@ class Phase(unittest.TestCase):
             ),
             "build",
         )
-        # a queued block is the shape's when no lead ran for the task, and the build's when one did
+        # a queued block is the shape's when no lead ran for the task, and the build's
+        # when one did
         queued = [block("queued", "needs the column")]
         self.assertEqual(
             session.phase_left(SLUG, queued, "standard", "land", "build", ""), "shape"
@@ -558,8 +601,8 @@ class Phase(unittest.TestCase):
 
 
 class FirstLine(unittest.TestCase):
-    """`wait --first-line`: the task's first line for the session where the owner typed the request,
-    or null with the reason."""
+    """`wait --first-line`: the task's first line for the session where the owner typed
+    the request, or null with the reason."""
 
     def state(self, status: str, text: str, *lines: str, **more: object) -> dict:
         return {
@@ -598,7 +641,8 @@ class FirstLine(unittest.TestCase):
         self.assertIn(
             "has no line", session.first_line_end(SLUG, [typed], night=False)["why"]
         )
-        # the hold of an order that named no task: his answer brings the line, in the task's own session
+        # the hold of an order that named no task: his answer brings the line, in the
+        # task's own session
         held = session.first_line_end(
             SLUG,
             [
@@ -719,7 +763,8 @@ class Close(unittest.TestCase):
         self.assertIn("other-task", str(raised.exception))
         with self.assertRaises(session.SessionError):
             self.close("S-404")
-        # an older session of the same task is its own: a handoff closes its predecessor, in any case of the id
+        # an older session of the same task is its own: a handoff closes its
+        # predecessor, in any case of the id
         done, closed = self.close("s-1")
         self.assertTrue(done["closed"])
         self.assertEqual(
@@ -728,8 +773,9 @@ class Close(unittest.TestCase):
 
 
 class JobLine(unittest.TestCase):
-    # agterm's foreground of an agent the cronn job's script starts: the owner's wrapper execs claude with
-    # its own words first, then the job's JOB_ARGS, then the prompt (the shape of `agtermctl tree --json`, 2026-11-23)
+    # agterm's foreground of an agent the cronn job's script starts: the owner's wrapper
+    # execs claude with its own words first, then the job's JOB_ARGS, then the prompt
+    # (the shape of `agtermctl tree --json`, 2026-11-23)
     AGENT = [
         "/Users/someone/.local/bin/claude",
         "--settings",
@@ -845,7 +891,8 @@ class Wake(unittest.TestCase):
             return session.cmd_wake(ROOT, SLUG, why, None), sent, logged
 
     def test_the_inbox_wakes_a_live_session_and_opens_none(self) -> None:
-        # the board server's word when a thing of the task went to the Inbox, or a reply came for a gone session
+        # the board server's word when a thing of the task went to the Inbox, or a reply
+        # came for a gone session
         self.assertIn("inbox", session.WAKES)
         done, sent, logged = self.wake("inbox", alive=True)
         self.assertEqual((done["woke"], done["opened"]), (True, False))
@@ -877,12 +924,17 @@ class Agent(unittest.TestCase):
         self.assertIsNone(session.agent_runs({"realized": False}))
 
     def test_the_launch_lines_shell_runs_the_agent_in_its_command(self) -> None:
-        # agterm's tree for a live task session that Claude Code held idle (lem-scratch, 2026-11-21)
+        # agterm's tree for a live task session that Claude Code held idle
+        # (lem-scratch, 2026-11-21)
         ground = [
             "/opt/homebrew/bin/fish",
             "-l",
             "-c",
-            'LEM_TASK=profile-names-working-days CLAUDE_CODE_AUTO_COMPACT_WINDOW=600000 claude --model opus --effort high "Read /x/session.md and follow it."',
+            (
+                "LEM_TASK=profile-names-working-days "
+                "CLAUDE_CODE_AUTO_COMPACT_WINDOW=600000 claude --model opus --effort "
+                'high "Read /x/session.md and follow it."'
+            ),
         ]
         self.assertTrue(session.agent_runs({"foreground": ground, "realized": True}))
         now = datetime(2026, 11, 21, 10, 0, 0, tzinfo=UTC)
@@ -909,7 +961,8 @@ class Agent(unittest.TestCase):
         self.assertFalse(
             session.agent_runs({"foreground": ["/bin/sh", "-c", "echo claude"]})
         )
-        # an unclosed quote: a plain word that is an agent's file still counts, and none does not
+        # an unclosed quote: a plain word that is an agent's file still counts, and none
+        # does not
         self.assertTrue(
             session.agent_runs(
                 {"foreground": ["/bin/sh", "-c", 'LEM_TASK=x claude "Read']}
@@ -947,7 +1000,11 @@ class Launch(unittest.TestCase):
         )
         self.assertEqual(
             line,
-            f"/bin/zsh -l -c 'LEM_TASK={SLUG} CLAUDE_CODE_AUTO_COMPACT_WINDOW=600000 claude \"Read {self.BRIEF} and follow it.\"'",
+            (
+                f"/bin/zsh -l -c 'LEM_TASK={SLUG} "
+                'CLAUDE_CODE_AUTO_COMPACT_WINDOW=600000 claude "Read '
+                f"{self.BRIEF} and follow it.\"'"
+            ),
         )
         seated = session.launch_line(
             "/bin/zsh",
@@ -982,8 +1039,9 @@ class Launch(unittest.TestCase):
         )
 
     def test_the_plan_talks_pair_reads_the_same_folder(self) -> None:
-        # the lead writes the pair's launch line itself (harness/claude-code/plan-talk.md), with the
-        # `plugin_dir` this command prints: a clone's folder, or null for the installed plugin
+        # the lead writes the pair's launch line itself
+        # (harness/claude-code/plan-talk.md), with the `plugin_dir` this command prints:
+        # a clone's folder, or null for the installed plugin
         import contextlib
         import io
 
@@ -1006,14 +1064,16 @@ class Launch(unittest.TestCase):
         )
 
     def test_a_path_the_line_cannot_carry_is_refused(self) -> None:
-        # fish reads a backslash inside single quotes as an escape, so no quoting carries one to every shell
+        # fish reads a backslash inside single quotes as an escape, so no quoting
+        # carries one to every shell
         with self.assertRaises(session.SessionError) as raised:
             session.launch_line(
                 "/bin/zsh", SLUG, Path("/tmp/o\\neil/session.md"), None, {}
             )
         self.assertIn("move the checkout to a path without them", str(raised.exception))
 
-    # the shells that may read the line: agterm's outer level, and the owner's login shell inside it
+    # the shells that may read the line: agterm's outer level, and the owner's login
+    # shell inside it
     SHELLS = {
         "bash": ["--norc", "--noprofile", "-c"],
         "zsh": ["-f", "-c"],
@@ -1021,8 +1081,9 @@ class Launch(unittest.TestCase):
     }
 
     def through_each_shell(self, seat: dict, folder: str) -> None:
-        """Run the launch line through each shell this machine has, at both of its levels, with a
-        stand-in for the login shell that says its argv and a stand-in claude that says its own."""
+        """Run the launch line through each shell this machine has, at both of its
+        levels, with a stand-in for the login shell that says its argv and a stand-in
+        claude that says its own."""
         import shutil
 
         root = Path(tempfile.mkdtemp(prefix="lem-launch-"))
@@ -1031,7 +1092,8 @@ class Launch(unittest.TestCase):
         tools.mkdir()
         for name in ("claude", "outer"):
             (tools / name).write_text(
-                f"#!{sys.executable}\nimport json, os, sys\nprint(json.dumps([os.environ.get('LEM_TASK'), *sys.argv[1:]]))\n"
+                f"#!{sys.executable}\nimport json, os, sys\n"
+                "print(json.dumps([os.environ.get('LEM_TASK'), *sys.argv[1:]]))\n"
             )
             (tools / name).chmod(0o755)
         brief = root / folder / ".lem" / "state" / "tasks" / SLUG / "session.md"
@@ -1098,7 +1160,8 @@ class Launch(unittest.TestCase):
     def test_a_model_with_brackets_reaches_the_agent_whole_in_every_login_shell(
         self,
     ) -> None:
-        # zsh, the default login shell of macOS, stops a bare `opus[1m]` with "no matches found"
+        # zsh, the default login shell of macOS, stops a bare `opus[1m]` with "no
+        # matches found"
         self.through_each_shell(
             {"agent": "claude", "model": "opus[1m]", "effort": "high"}, "repo"
         )
@@ -1113,15 +1176,17 @@ class Launch(unittest.TestCase):
 
 # The first line of every brief, as the stage texts and the scripts write it.
 BRIEF_LINE = re.compile(
-    r"Read `skills/lem/prompts/(?P<name>[\w-]+)\.md` in the folder that `lem version` prints as `root`, "
-    r"and (?:follow it|do the job named here); when `lem version` fails, stop and say that `lem` is not on "
-    r"the PATH, with `lem doctor` as the check\."
+    r"Read `skills/lem/prompts/(?P<name>[\w-]+)\.md` in the folder that `lem version` "
+    r"prints as `root`, and (?:follow it|do the job named here); when `lem version` "
+    r"fails, stop and say that `lem` is not on the PATH, "
+    r"with `lem doctor` as the check\."
 )
 
 
 class SessionBrief(unittest.TestCase):
-    """`session.md` sends its session to the texts of the Lem installed when it starts: Lem in
-    `.../lem/0.2.0` writes it, the plugin updates to `.../lem/0.2.1`, and the session reads 0.2.1."""
+    """`session.md` sends its session to the texts of the Lem installed when it starts:
+    Lem in `.../lem/0.2.0` writes it, the plugin updates to `.../lem/0.2.1`, and the
+    session reads 0.2.1."""
 
     def written_by(self, plugin: Path) -> str:
         skill = plugin / "skills" / "lem"
@@ -1158,7 +1223,8 @@ class SessionBrief(unittest.TestCase):
                     f"Lem {version}\n"
                 )
             text = self.written_by(cache / "0.2.0")
-            # the update: the session's PATH holds the bin/ of 0.2.1, the plugin loaded now
+            # the update: the session's PATH holds the bin/ of 0.2.1, the plugin
+            # loaded now
             lem = shutil.which("lem", path=str(cache / "0.2.1/bin"))
             if lem is None:
                 self.fail("no lem in the bin/ of 0.2.1")
@@ -1182,14 +1248,16 @@ class SessionBrief(unittest.TestCase):
 
 
 class EveryBrief(unittest.TestCase):
-    """Every brief a stage tells a session to write or send, and every one a script writes, names its
-    standing text by its place in the plugin through `lem version`, never by a folder of Lem. A line
-    that only tells the reader of a stage to read a prompt (`Read SKILL_DIR/prompts/writing.md
-    first`) is no brief: that reader runs from the installed Lem already."""
+    """Every brief a stage tells a session to write or send, and every one a script
+    writes, names its standing text by its place in the plugin through `lem version`,
+    never by a folder of Lem. A line that only tells the reader of a stage to read a
+    prompt (`Read SKILL_DIR/prompts/writing.md first`) is no brief: that reader runs
+    from the installed Lem already."""
 
     PLACES = ("skills", "agents")
     TEXTS = {".md", ".py", ".sh", ".toml", ".json", ".txt", ""}
-    # a brief's first line by its shape, and what it reads: a Lem text when it names one by a path
+    # a brief's first line by its shape, and what it reads: a Lem text when it names one
+    # by a path
     SHAPE = re.compile(r"Read (?P<what>.+?),? and (?:follow it|do the job named here)")
     LEM_TEXT = re.compile(r"prompts|SKILL|skills/lem|plugins/")
 
@@ -1219,8 +1287,9 @@ class EveryBrief(unittest.TestCase):
                     f"{path.relative_to(root)}: {line}" for line in self.old_lines(text)
                 ]
         self.assertEqual(wrong, [])
-        # the lead's, the fast track's, the talk's, the scout's, the investigator's, the review's, a
-        # landing builder's, session.md's and the merge brief's (merge-brief-TIP-BASE.md)
+        # the lead's, the fast track's, the talk's, the scout's, the investigator's, the
+        # review's, a landing builder's, session.md's and the merge brief's
+        # (merge-brief-TIP-BASE.md)
         self.assertGreaterEqual(briefs, 9)
 
     def test_the_old_forms_are_found_and_a_stage_readers_line_is_not(self) -> None:
@@ -1238,7 +1307,8 @@ class EveryBrief(unittest.TestCase):
         self.assertEqual(
             len(
                 self.old_lines(
-                    "        f\"Read {SKILL / 'prompts' / 'session.md'} and follow it.\", \"\","
+                    "        f\"Read {SKILL / 'prompts' / 'session.md'} "
+                    'and follow it.", "",'
                 )
             ),
             1,
@@ -1246,14 +1316,16 @@ class EveryBrief(unittest.TestCase):
         self.assertEqual(
             len(
                 self.old_lines(
-                    "Read /x/plugins/cache/lem/lem/0.2.0/skills/lem/prompts/merge.md and follow it."
+                    "Read /x/plugins/cache/lem/lem/0.2.0/skills/lem/prompts/merge.md "
+                    "and follow it."
                 )
             ),
             1,
         )
         self.assertEqual(
             self.old_lines(
-                "   `SKILL_DIR/prompts/writing.md` first: the story. Read `brief.md` and follow it."
+                "   `SKILL_DIR/prompts/writing.md` first: the story. "
+                "Read `brief.md` and follow it."
             ),
             [],
         )
@@ -1263,10 +1335,11 @@ class EveryBrief(unittest.TestCase):
 
 
 class NoFocus(unittest.TestCase):
-    """No session that Lem opens takes agterm's focus, also when it asks the owner a question: no text
-    of Lem tells a session to take it, and a script selects a session only on the owner's own act,
-    his pick in the picker (picker.py), `lem board --follow` (board.py) and his click on the board
-    (`agterm_act` in serve.py)."""
+    """No session that Lem opens takes agterm's focus, also when it asks the owner a
+    question: no text of Lem tells a session to take it, and a script selects a session
+    only on the owner's own act, his pick in the picker (picker.py),
+    `lem board --follow` (board.py) and his click on the board (`agterm_act`
+    in serve.py)."""
 
     TEXTS = {".md", ".py", ".sh", ".toml", ".json", ".txt", ""}
     TAKE = re.compile(r"take[-_]focus")
@@ -1379,7 +1452,8 @@ class Handoff(unittest.TestCase):
 
 
 class Hooks(unittest.TestCase):
-    """The hooks as Claude Code starts them, in a throwaway repository: silent with exit 0 outside a task session."""
+    """The hooks as Claude Code starts them, in a throwaway repository: silent with exit
+    0 outside a task session."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -1390,8 +1464,11 @@ class Hooks(unittest.TestCase):
         directory = state / "tasks" / SLUG
         directory.mkdir(parents=True)
         (directory / "state.md").write_text(
-            "2026-11-21T10:06Z building: lead: builder\ntype: feat, because the export gets a column\n\n"
-            "2026-11-21T09:00Z held: the interview waits for the owner\n",
+            (
+                "2026-11-21T10:06Z building: lead: builder\n"
+                "type: feat, because the export gets a column\n\n"
+                "2026-11-21T09:00Z held: the interview waits for the owner\n"
+            ),
             encoding="utf-8",
         )
         (directory / "handoff.md").write_text(HANDOFF, encoding="utf-8")
@@ -1450,7 +1527,10 @@ class Hooks(unittest.TestCase):
         self.assertEqual(ran.returncode, 0)
         self.assertEqual(ran.stdout.strip(), session_hook.instructions(SLUG, "build"))
         self.assertIn(
-            "task gift-note, phase build, under five headings: Settled; Open; Next step; Failed; Changed files",
+            (
+                "task gift-note, phase build, under five headings: Settled; Open; "
+                "Next step; Failed; Changed files"
+            ),
             ran.stdout,
         )
 
@@ -1459,7 +1539,10 @@ class Hooks(unittest.TestCase):
         self.assertEqual(ran.returncode, 0)
         self.assertIn(session_hook.TRUTH, ran.stdout)
         self.assertIn(
-            "2026-11-21T10:06Z building: lead: builder\ntype: feat, because the export gets a column\n",
+            (
+                "2026-11-21T10:06Z building: lead: builder\n"
+                "type: feat, because the export gets a column\n"
+            ),
             ran.stdout,
         )
         self.assertNotIn("the interview waits", ran.stdout)
@@ -1532,7 +1615,8 @@ class Hooks(unittest.TestCase):
         try:
             for _ in range(2):
                 self.hook(event, pane="902B55C6-0001")
-            # the same Claude id in a background host that runs with another pane's environment is another record
+            # the same Claude id in a background host that runs with another pane's
+            # environment is another record
             self.hook({**event, "source": "fork"}, pane="9F9C5C30-0002")
             records = [
                 json.loads(line)
@@ -1552,9 +1636,10 @@ class Hooks(unittest.TestCase):
 
 
 class Guard(unittest.TestCase):
-    """The look once more of the guard of a stopped session (`guard_refusal`, `guard_check`), in the task's
-    lock before each of its acts, and the three acts: the status message, the restart beside the old pane
-    and the stop. The events are those of 2026-11-22 (merge-leaves-board-lock, #37)."""
+    """The look once more of the guard of a stopped session (`guard_refusal`,
+    `guard_check`), in the task's lock before each of its acts, and the three acts: the
+    status message, the restart beside the old pane and the stop. The events are those
+    of 2026-11-22 (merge-leaves-board-lock, #37)."""
 
     SIGNS = {"sign": "2026-11-22T10:15:42Z", "shell": False, "signs": True}
     NODES = [{"id": "S1", "name": SLUG, "workspace": "W1", "foreground": ["claude"]}]
@@ -1678,7 +1763,8 @@ class Guard(unittest.TestCase):
             self.refusal(self.landing(), "status", "11:39", live=False, agent=False),
             "gone",
         )
-        # signs that do not read are facts of the rule, which gives them the message and the stop, never a restart
+        # signs that do not read are facts of the rule, which gives them the message and
+        # the stop, never a restart
         woken = [
             *self.landing(),
             self.ev("11:39", "session.wake", session="S1", why="status", unread=True),
@@ -1702,8 +1788,9 @@ class Guard(unittest.TestCase):
         self.assertEqual(self.refusal([], "status", "11:39"), "status")
 
     def test_the_status_message_is_never_a_wake_nobody_answered(self) -> None:
-        # its line waits in the mailbox 20 minutes later, as an owner's wake's would: only the owner's is `unanswered`,
-        # since the guard ends the status message's wait itself, with the restart or the stop
+        # its line waits in the mailbox 20 minutes later, as an owner's wake's would:
+        # only the owner's is `unanswered`, since the guard ends the status message's
+        # wait itself, with the restart or the stop
         ago = (datetime.now(UTC) - timedelta(minutes=20)).strftime("%Y-%m-%dT%H:%M:%SZ")
         opened = {
             "ts": "2026-11-22T01:33:00Z",
@@ -1746,7 +1833,8 @@ class Guard(unittest.TestCase):
                 ),
             ):
                 entry = session.cmd_list(ROOT)[0]
-            # no transcript record of the session: its signs read nothing, and no turn either
+            # no transcript record of the session: its signs read nothing, and no
+            # turn either
             self.assertEqual(
                 {key: entry[key] for key in ("sign", "shell", "signs", "turn")},
                 self.UNREAD,
@@ -1823,7 +1911,8 @@ class Guard(unittest.TestCase):
     def test_the_owners_open_of_an_unread_stop_acts_and_a_named_restart_over_a_standing_stop_never_does(
         self,
     ) -> None:
-        # his click names no session; a turn's time beside signs that do not read is no sign of work
+        # his click names no session; a turn's time beside signs that do not read is no
+        # sign of work
         self.assertIsNone(
             self.refusal(
                 self.unread_stop(),
@@ -1967,7 +2056,8 @@ class Guard(unittest.TestCase):
         def raced(
             root: Path, slug: str, step: str, named: str | None, where: dict
         ) -> tuple[dict | None, str | None, bool]:
-            # the session appends its state block under the log's lock, between the look and the stop
+            # the session appends its state block under the log's lock, between the look
+            # and the stop
             found = check(root, slug, step, named, where)
             project.append_event(
                 ROOT,
@@ -2191,11 +2281,15 @@ class ProcessTable(unittest.TestCase):
     def test_a_command_line_that_is_not_utf_8_changes_one_character_of_its_line(
         self,
     ) -> None:
-        # one process of the machine, of any owner, had the byte 0xff in its command line (2026-11-23)
+        # one process of the machine, of any owner, had the byte 0xff in its command
+        # line (2026-11-23)
         with tempfile.TemporaryDirectory() as folder:
             ps = Path(folder) / "ps"
             ps.write_text(
-                f"#!{sys.executable}\nimport sys\nsys.stdout.buffer.write(b'  101     1 /usr/bin/claude\\n  202   101 odd-\\xffname --flag\\n')\n",
+                (
+                    f"#!{sys.executable}\nimport sys\nsys.stdout.buffer.write(b'  101  "
+                    "   1 /usr/bin/claude\\n  202   101 odd-\\xffname --flag\\n')\n"
+                ),
                 encoding="utf-8",
             )
             ps.chmod(0o755)

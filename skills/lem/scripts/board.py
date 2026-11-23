@@ -6,40 +6,46 @@
     lem board ... --demo                            mark the state folder's tasks as examples, for good
     lem board --page FILE [--name NAME] [--follow]  open any page of Lem to read, as a companion the same way
 
-Every page of Lem that the owner reads (the board, the hand-over page of the onboarding, the page of
-a task) opens this way, as a companion, and never as an overlay over the session (the owner,
-2026-11-18: "Command like this and possibly others that opens html overlay should be opened in
-companion"). A page that waits for an answer is no such page: a question and a text to mark up
-open over the session, which waits for their result.
+Every page of Lem that the owner reads (the board, the hand-over page of the onboarding,
+the page of a task) opens this way, as a companion, and never as an overlay over the
+session (the owner, 2026-11-18: "Command like this and possibly others that opens html
+overlay should be opened in companion"). A page that waits for an answer is no such
+page: a question and a text to mark up open over the session, which waits for
+their result.
 
-The board is the machine's board server, `lem serve` (serve.py), which draws it from the state
-folder's files at each request and tells an open page each change: this script writes no file of the
-page. A run makes sure the server runs (`lem serve --ensure`, at most SERVE_WAIT), puts the
-repository's main checkout into the machine's list of workspaces (`lem_state.workspaces_file()`,
-which the server shows; a state folder of example tasks, `--demo`, stays out of it), and asks the
-server the address of the repository's board, `http://127.0.0.1:PORT/HOST/WORKSPACE/`, or of one
-task, `.../tasks/SLUG`. A server that does not run is a failure that says why: nothing else draws
-the board. `--no-open` prints the address and opens nothing.
+The board is the machine's board server, `lem serve` (serve.py), which draws it from the
+state folder's files at each request and tells an open page each change: this script
+writes no file of the page. A run makes sure the server runs (`lem serve --ensure`, at
+most SERVE_WAIT), puts the repository's main checkout into the machine's list of
+workspaces (`lem_state.workspaces_file()`, which the server shows; a state folder of
+example tasks, `--demo`, stays out of it), and asks the server the address of the
+repository's board, `http://127.0.0.1:PORT/HOST/WORKSPACE/`, or of one task,
+`.../tasks/SLUG`. A server that does not run is a failure that says why: nothing else
+draws the board. `--no-open` prints the address and opens nothing.
 
-It opens as a page companion of the top session of the asking session's group, as an http page with
-its scripts on and its cookies kept (`--persistent`, so that the folded columns outlive a relaunch of
-agterm): it sits indented under the asking session, or beside it when that session is itself a companion,
-closes with that top session, and covers no pane. A board is known by its address: one companion for
-each workspace under the top session, so the boards of two repositories under one top session stay
-two. A board that is there already is reloaded where it stands, or opened again at the task asked
-for. agterm never saves a page companion, so after a relaunch of agterm the board is gone until this
-runs again.
+It opens as a page companion of the top session of the asking session's group, as an
+http page with its scripts on and its cookies kept (`--persistent`, so that the folded
+columns outlive a relaunch of agterm): it sits indented under the asking session, or
+beside it when that session is itself a companion, closes with that top session, and
+covers no pane. A board is known by its address: one companion for each workspace under
+the top session, so the boards of two repositories under one top session stay two. A
+board that is there already is reloaded where it stands, or opened again at the task
+asked for. agterm never saves a page companion, so after a relaunch of agterm the board
+is gone until this runs again.
 
-It runs from an agent's session, which has the AGTERM_* variables, and from an agterm keymap
-command, which has AGT_* instead.
+It runs from an agent's session, which has the AGTERM_* variables, and from an agterm
+keymap command, which has AGT_* instead.
 """
 
 import sys
 
 if sys.version_info < (3, 11):
-    # an old python3 must still load this file, so that it can say what it needs and not a traceback
+    # an old python3 must still load this file, so that it can say what it needs and not
+    # a traceback
     sys.exit(
-        f"board.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it"
+        "board.py: Lem needs Python 3.11 or newer, and this python3 is "
+        f"{sys.version.split()[0]}; put a newer one first on PATH, "
+        "or run this file with it"
     )
 
 import argparse
@@ -61,7 +67,8 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
 lem_project = importlib.import_module("project")
 lem_state = importlib.import_module("lem_state")
-# the look every page of Lem shares, and the script that picks its palette, which the board links
+# the look every page of Lem shares, and the script that picks its palette, which the
+# board links
 STYLE = SCRIPTS.parent / "assets" / "lem.css"
 PALETTE = SCRIPTS.parent / "assets" / "lem.js"
 # the board's own look
@@ -81,7 +88,8 @@ def env(*names: str) -> str:
 
 
 def project(repo: str, *args: str) -> str:
-    """One command of project.py, so the board reads a repository the way every stage does."""
+    """One command of project.py, so the board reads a repository the way every
+    stage does."""
     ran = subprocess.run(
         [sys.executable, "-B", str(SCRIPTS / "project.py"), "--repo", repo, *args],
         capture_output=True,
@@ -93,14 +101,16 @@ def project(repo: str, *args: str) -> str:
             ran.stderr.strip().removeprefix("project.py: ")
             or f"project.py {args[0]} failed"
         )
-    # a line project.py writes on stderr when it succeeds (the settings read from the base branch) is this script's to say too
+    # a line project.py writes on stderr when it succeeds (the settings read from the
+    # base branch) is this script's to say too
     if ran.returncode == 0 and ran.stderr:
         sys.stderr.write(ran.stderr)
     return ran.stdout.strip()
 
 
 def where_problem(root: Path, where: str) -> str:
-    """What of an item's `where` no longer resolves, or "": the check the backlog skill makes before it reports an item."""
+    """What of an item's `where` no longer resolves, or "": the check the backlog skill
+    makes before it reports an item."""
     path, _, symbol = where.partition(":")
     path, symbol = path.strip(), symbol.strip()
     if not path:
@@ -115,7 +125,8 @@ def where_problem(root: Path, where: str) -> str:
     try:
         text = target.read_text(encoding="utf-8", errors="replace")
     except OSError:
-        # a file nobody may read (mode 000) is a problem of this item, not a reason to stop the board
+        # a file nobody may read (mode 000) is a problem of this item, not a reason to
+        # stop the board
         return "the file cannot be read"
     if target.suffix == ".md":
         return "" if symbol in text else "the heading is not in the file"
@@ -128,9 +139,10 @@ def where_problem(root: Path, where: str) -> str:
 
 
 def parse_item(text: str) -> tuple[dict[str, str], str, str]:
-    """A backlog item in its format (agents/lem-builder.md, rule 6): the fields of its head between two
-    `---` lines that the board reads (`worth`, `where`, `added`), the title of its `# TITLE` line
-    without backticks ("" with none), and its body without the head and the title line."""
+    """A backlog item in its format (agents/lem-builder.md, rule 6): the fields of its
+    head between two `---` lines that the board reads (`worth`, `where`, `added`), the
+    title of its `# TITLE` line without backticks ("" with none), and its body without
+    the head and the title line."""
     fields: dict[str, str] = {}
     body = text
     if text.startswith("---"):
@@ -147,15 +159,17 @@ def parse_item(text: str) -> tuple[dict[str, str], str, str]:
     return fields, (title.group(1).replace("`", "").strip() if title else ""), body
 
 
-# A line of markdown that starts a block of its own: a list item, a heading, a quote, a table row, a fence,
-# a rule; and a label that ends with a colon ("Today:"), after which a line starts anew.
+# A line of markdown that starts a block of its own: a list item, a heading, a quote, a
+# table row, a fence, a rule; and a label that ends with a colon ("Today:"), after which
+# a line starts anew.
 BLOCK = re.compile(r"^\s*([-*+]\s|\d+[.)]\s|#|>|\||```|~~~|---|\*\*\*)")
 
 
 def unwrapped(lines: list[str]) -> list[str]:
-    """Markdown lines with each line that only wraps a sentence joined to the line before it, so that the
-    board's reader, which keeps a line break as one, shows a paragraph as one; a list, a table, a quote,
-    a fence and a label stay as they were written."""
+    """Markdown lines with each line that only wraps a sentence joined to the line
+    before it, so that the board's reader, which keeps a line break as one, shows a
+    paragraph as one; a list, a table, a quote, a fence and a label stay as they
+    were written."""
     out: list[str] = []
     fence = None
     for line in lines:
@@ -186,10 +200,12 @@ def unwrapped(lines: list[str]) -> list[str]:
 
 
 def outcome(text: str) -> str:
-    """What the owner gets, from a task.md: its `## Outcome` section, to the next heading of the same
-    level or above, as the markdown it was written in (a story's lines, a list, a table and a chart read
-    only so), with each line that only wraps a sentence joined to its paragraph (`unwrapped`). "" when the
-    file has no such section, or an empty one. A heading inside a fenced block is no end of the section."""
+    """What the owner gets, from a task.md: its `## Outcome` section, to the next
+    heading of the same level or above, as the markdown it was written in (a story's
+    lines, a list, a table and a chart read only so), with each line that only wraps a
+    sentence joined to its paragraph (`unwrapped`). "" when the file has no such
+    section, or an empty one. A heading inside a fenced block is no end of
+    the section."""
     found = re.search(r"(?m)^##[ \t]+Outcome[ \t]*\n", text)
     if not found:
         return ""
@@ -207,9 +223,10 @@ def outcome(text: str) -> str:
 
 
 def filed(worktree: Path, onto: str, folder: str) -> list[dict] | None:
-    """The backlog items the branch checked out in a task's worktree adds against its merge base with
-    `onto`, each with its path and its title, as git has them in the branch's newest commit; None when
-    the worktree is gone or git cannot tell (no base, no merge base): nothing then says that none was filed."""
+    """The backlog items the branch checked out in a task's worktree adds against its
+    merge base with `onto`, each with its path and its title, as git has them in the
+    branch's newest commit; None when the worktree is gone or git cannot tell (no base,
+    no merge base): nothing then says that none was filed."""
     if not onto or not (worktree / ".git").exists():
         return None
 
@@ -241,7 +258,8 @@ def filed(worktree: Path, onto: str, folder: str) -> list[dict] | None:
     if added is None:
         return None
     items = []
-    # the items of the folder itself, as the board's tab "Backlog" reads them: a file in a folder under it is no item
+    # the items of the folder itself, as the board's tab "Backlog" reads them: a file in
+    # a folder under it is no item
     for path in sorted(
         name
         for name in added.split("\0")
@@ -253,18 +271,20 @@ def filed(worktree: Path, onto: str, folder: str) -> list[dict] | None:
 
 
 def reviewer_folder(settings: dict) -> Path:
-    """The folder of the reviewer's items: `.lem/state/backlog/` of the main checkout, which git never sees."""
+    """The folder of the reviewer's items: `.lem/state/backlog/` of the main checkout,
+    which git never sees."""
     return Path(settings["main"]) / lem_state.STATE / lem_project.STATE_BACKLOG
 
 
 def backlog(settings: dict) -> dict:
-    """The items of the backlog folder, and beside them the reviewer's items of the state folder
-    (`reviewer_folder`), as the board's tab "Backlog" shows them. Each item has its file's stem
-    (`slug`), its path from the root of the main checkout, which "Start a task" posts, and its `key`,
-    which names it on the page: the stem for an item of the backlog folder, `-STEM` for a reviewer's
-    item, so that the two items of one stem stay two. A reviewer's item (`reviewer`) is `held` by the
-    task that builds it, `{"task", "status"}` by project.py's holder rule, or undecided (None). It
-    reads and changes nothing."""
+    """The items of the backlog folder, and beside them the reviewer's items of the
+    state folder (`reviewer_folder`), as the board's tab "Backlog" shows them. Each item
+    has its file's stem (`slug`), its path from the root of the main checkout, which
+    "Start a task" posts, and its `key`, which names it on the page: the stem for an
+    item of the backlog folder, `-STEM` for a reviewer's item, so that the two items of
+    one stem stay two. A reviewer's item (`reviewer`) is `held` by the task that builds
+    it, `{"task", "status"}` by project.py's holder rule, or undecided (None). It reads
+    and changes nothing."""
     main = Path(settings["main"])
     # the main checkout's copy: a task's worktree has the backlog as its branch left it
     folder = main / Path(settings["places"]["backlog"]["path"]).relative_to(
@@ -285,10 +305,12 @@ def backlog(settings: dict) -> dict:
         )
         return ran.stdout if ran.returncode == 0 else ""
 
-    # what git does not have committed yet: an item the closing pass filed a minute ago is `new`
+    # what git does not have committed yet: an item the closing pass filed a minute ago
+    # is `new`
     changed = {}
     if folder.is_dir():
-        # --untracked-files=all: a folder git does not know yet is listed file by file, not as one line
+        # --untracked-files=all: a folder git does not know yet is listed file by file,
+        # not as one line
         for entry in git(
             "status", "--porcelain", "--untracked-files=all", "-z", "--", relative
         ).split("\0"):
@@ -301,7 +323,8 @@ def backlog(settings: dict) -> dict:
         for file in sorted(place.glob("*.md")) if place.is_dir() else ():
             rel = f"{rel_place}/{file.name}"
             if reviewer and lem_project.backlog_item_of(state, rel) is None:
-                # a file named `.md` alone: no item by the rule the drop and the landing read
+                # a file named `.md` alone: no item by the rule the drop and the
+                # landing read
                 continue
             whose = {
                 "slug": file.stem,
@@ -313,8 +336,8 @@ def backlog(settings: dict) -> dict:
             try:
                 text = file.read_text(encoding="utf-8", errors="replace")
             except OSError as error:
-                # A link to a file that moved, or a folder with an item's name: shown, not hidden, and
-                # the other items are still read.
+                # A link to a file that moved, or a folder with an item's name: shown,
+                # not hidden, and the other items are still read.
                 feed["items"].append(
                     {
                         **whose,
@@ -348,19 +371,23 @@ def backlog(settings: dict) -> dict:
 
 
 def meta_of(settings: dict, state: Path, *, demo: bool = False) -> dict:
-    """The repository's facts the board shows beside its tasks: its name, the base branch, how many
-    commands one run of the checks has (`gates`, so that a run is known complete) and how many of
-    them are `checks.serial` (`serial`, which do not run after a red command), and whether the state
-    folder holds example tasks (`demo`). With `demo`, the folder is marked so for good: a board of
-    made-up tasks must say so itself, since a line under "Waits for you" reads as a call to act, and
-    the mark is a file beside the events because it is a fact about the data and not about one open."""
+    """The repository's facts the board shows beside its tasks: its name, the base
+    branch, how many commands one run of the checks has (`gates`, so that a run is known
+    complete) and how many of them are `checks.serial` (`serial`, which do not run after
+    a red command), and whether the state folder holds example tasks (`demo`). With
+    `demo`, the folder is marked so for good: a board of made-up tasks must say so
+    itself, since a line under "Waits for you" reads as a call to act, and the mark is a
+    file beside the events because it is a fact about the data and not about
+    one open."""
     marker = state / "demo"
     if demo:
         marker.write_text(
-            "The tasks in this folder are examples, written by a fixture. board.py --demo made this file.\n"
+            "The tasks in this folder are examples, written by a fixture. "
+            "board.py --demo made this file.\n"
         )
     return {
-        # the main checkout names the repository; a worktree's folder is named after its task
+        # the main checkout names the repository; a worktree's folder is named after
+        # its task
         "repo": Path(settings["main"]).name,
         "base": settings["branch"]["base"],
         "gates": len(settings["checks"]["commands"])
@@ -371,8 +398,8 @@ def meta_of(settings: dict, state: Path, *, demo: bool = False) -> dict:
 
 
 def state_of(repo: str, slug: str | None, *, demo: bool) -> tuple[Path, dict]:
-    """The repository's state folder and settings, with the task checked when one is asked for, and
-    the folder marked as example tasks with `demo`."""
+    """The repository's state folder and settings, with the task checked when one is
+    asked for, and the folder marked as example tasks with `demo`."""
     state = Path(project(repo, "state-dir"))
     settings = json.loads(project(repo, "show"))
     if slug is not None:
@@ -391,8 +418,9 @@ def state_of(repo: str, slug: str | None, *, demo: bool) -> tuple[Path, dict]:
 
 
 def register(state: Path) -> None:
-    """Put the repository of the state folder into the machine's list of workspaces, unless the folder
-    holds example tasks: the server shows only a workspace of the list."""
+    """Put the repository of the state folder into the machine's list of workspaces,
+    unless the folder holds example tasks: the server shows only a workspace of
+    the list."""
     if (state / "demo").is_file():
         return
     main = state
@@ -402,24 +430,26 @@ def register(state: Path) -> None:
         lem_state.register(main)
     except (OSError, lem_state.StateError) as error:
         raise BoardError(
-            f"{main} is not in the list of workspaces `lem serve` shows, so it has no board: {error}"
+            f"{main} is not in the list of workspaces `lem serve` shows, "
+            f"so it has no board: {error}"
         ) from error
 
 
-# How long a run that opens the board waits for `lem serve --ensure`: its longest path, a wait for
-# another start, the stop of an old server and the start of a new one (serve.py's START_WAIT and
-# STOP_WAIT), with a margin.
+# How long a run that opens the board waits for `lem serve --ensure`: its longest path,
+# a wait for another start, the stop of an old server and the start of a new one
+# (serve.py's START_WAIT and STOP_WAIT), with a margin.
 SERVE_WAIT = 35
 
 
-# How long one question to the server (its workspaces) may take. A guess: it answers from memory and
-# counts each workspace's tasks at most once in a few seconds.
+# How long one question to the server (its workspaces) may take. A guess: it answers
+# from memory and counts each workspace's tasks at most once in a few seconds.
 ASK_WAIT = 10
 
 
 def ensure_server() -> dict:
-    """Make sure the board server runs, with `lem serve --ensure`, and return what it printed: the
-    server's address in `url`. A server that does not run is a BoardError that says why."""
+    """Make sure the board server runs, with `lem serve --ensure`, and return what it
+    printed: the server's address in `url`. A server that does not run is a BoardError
+    that says why."""
     try:
         ran = subprocess.run(
             [sys.executable, "-B", str(SCRIPTS / "serve.py"), "--ensure"],
@@ -430,28 +460,33 @@ def ensure_server() -> dict:
         )
     except (OSError, subprocess.TimeoutExpired) as error:
         raise BoardError(
-            f"`lem serve --ensure` did not finish ({error}), and the board is the server's page: run `lem serve --ensure` to see why"
+            f"`lem serve --ensure` did not finish ({error}), and the board is the "
+            "server's page: run `lem serve --ensure` to see why"
         ) from error
     if ran.returncode != 0:
         raise BoardError(
-            f"the board server does not run: {(ran.stderr or ran.stdout).strip().removeprefix('serve.py: ')}"
+            "the board server does not run: "
+            f"{(ran.stderr or ran.stdout).strip().removeprefix('serve.py: ')}"
         )
     try:
         found = json.loads(ran.stdout)
     except ValueError as error:
         raise BoardError(
-            f"`lem serve --ensure` printed no JSON ({error}): {ran.stdout.strip()[:200]}"
+            f"`lem serve --ensure` printed no JSON ({error}): "
+            f"{ran.stdout.strip()[:200]}"
         ) from error
     if not found.get("running") or not found.get("url"):
         raise BoardError(
-            f"the board server does not run: {found.get('said') or 'lem serve --ensure started none'}; `lem serve --ensure` starts it"
+            "the board server does not run: "
+            f"{found.get('said') or 'lem serve --ensure started none'}; "
+            "`lem serve --ensure` starts it"
         )
     return found
 
 
 def address(server: str, main: Path, slug: str | None) -> str:
-    """The address of the repository's board, or of one task, as the server names it: its list of
-    workspaces has the repository's main checkout with the board's path."""
+    """The address of the repository's board, or of one task, as the server names it:
+    its list of workspaces has the repository's main checkout with the board's path."""
     try:
         with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(
             f"{server.rstrip('/')}/api/workspaces", timeout=ASK_WAIT
@@ -459,7 +494,8 @@ def address(server: str, main: Path, slug: str | None) -> str:
             spaces = json.loads(reply.read())
     except (urllib.error.URLError, OSError, ValueError) as error:
         raise BoardError(
-            f"the board server at {server} did not list its workspaces ({error}): `lem serve --ensure` says whether it runs"
+            f"the board server at {server} did not list its workspaces ({error}): "
+            "`lem serve --ensure` says whether it runs"
         ) from error
     found = next(
         (
@@ -472,15 +508,16 @@ def address(server: str, main: Path, slug: str | None) -> str:
     )
     if found is None:
         raise BoardError(
-            f"the board server at {server} does not show {main}: `lem serve --list` names what it shows, and `lem serve --add {main}` adds it"
+            f"the board server at {server} does not show {main}: `lem serve --list` "
+            f"names what it shows, and `lem serve --add {main}` adds it"
         )
     url = server.rstrip("/") + found["url"]
     return url + (f"tasks/{quote(slug)}" if slug else "")
 
 
 def ctl(socket: str, *args: str) -> str:
-    # agtermctl never reads the socket from the environment, and a bare call may reach another
-    # agterm than the one that hosts this session.
+    # agtermctl never reads the socket from the environment, and a bare call may reach
+    # another agterm than the one that hosts this session.
     ran = subprocess.run(
         ["agtermctl", *args, "--socket", socket],
         capture_output=True,
@@ -489,7 +526,8 @@ def ctl(socket: str, *args: str) -> str:
     )
     if ran.returncode != 0:
         raise BoardError(
-            f"agtermctl {' '.join(args[:3])} failed: {(ran.stderr or ran.stdout).strip()}"
+            f"agtermctl {' '.join(args[:3])} failed: "
+            f"{(ran.stderr or ran.stdout).strip()}"
         )
     return ran.stdout
 
@@ -505,9 +543,10 @@ def show(
     follow: bool,
     again: Callable[[dict], bool],
 ) -> dict:
-    """Open a page as a companion of the session's group (`opens`: the flags of `session overlay open`
-    that name the page), or keep the one that is there: `shows(overlay)` says whether a page companion
-    is it, and `again(overlay)` whether it opens anew rather than reloads where it stands."""
+    """Open a page as a companion of the session's group (`opens`: the flags of
+    `session overlay open` that name the page), or keep the one that is there:
+    `shows(overlay)` says whether a page companion is it, and `again(overlay)` whether
+    it opens anew rather than reloads where it stands."""
     in_window = ["--window", window] if window else []
     tree = json.loads(ctl(socket, "tree", "--json", *in_window))["result"]["tree"]
     live = [
@@ -520,7 +559,8 @@ def show(
         raise BoardError(
             f"this session ({session}) is not in the window agterm answered for"
         )
-    # A companion's companion becomes its sibling, so the parent is the top of the group.
+    # A companion's companion becomes its sibling, so the parent is the top of
+    # the group.
     parent = (owner.get("parent") or owner["id"]).upper()
 
     def overlay(node: dict) -> dict | None:
@@ -528,8 +568,9 @@ def show(
             (page for page in node.get("htmlOverlays") or [] if shows(page)), None
         )
 
-    # A page is known by what it shows, under this session's own group. Its name is not enough: two
-    # Lems of two repositories may be companions of one top session, and each has a board.
+    # A page is known by what it shows, under this session's own group. Its name is not
+    # enough: two Lems of two repositories may be companions of one top session, and
+    # each has a board.
     named = [
         s
         for s in live
@@ -574,8 +615,9 @@ def show(
 
 
 def open_page(page: Path, args: argparse.Namespace, session: str, socket: str) -> dict:
-    """One page of Lem to read, opened as the board opens: a page companion of the session's group,
-    known by the file it shows, so the same file shown again reloads its companion."""
+    """One page of Lem to read, opened as the board opens: a page companion of the
+    session's group, known by the file it shows, so the same file shown again reloads
+    its companion."""
     if args.task or args.demo or args.no_open:
         raise BoardError(
             "--page opens one file; --task, --demo and --no-open belong to the board"
@@ -585,7 +627,8 @@ def open_page(page: Path, args: argparse.Namespace, session: str, socket: str) -
         raise BoardError(f"--page {page} is not an HTML file: give the page to open")
     if not (session and socket):
         raise BoardError(
-            "not inside an agterm session, so no companion can open; give the owner the file's path instead"
+            "not inside an agterm session, so no companion can open; "
+            "give the owner the file's path instead"
         )
     name = args.name or page.stem
 
@@ -619,9 +662,9 @@ def open_board(
     socket: str,
     follow: bool,
 ) -> dict:
-    """The board as a page companion of the session's group, known by the address of its workspace
-    (`base`): the one that shows it is reloaded where it stands, or, for a task's board when it shows
-    another page, opened again at the task's address."""
+    """The board as a page companion of the session's group, known by the address of its
+    workspace (`base`): the one that shows it is reloaded where it stands, or, for a
+    task's board when it shows another page, opened again at the task's address."""
 
     def shows(overlay: dict) -> bool:
         return any(
@@ -672,12 +715,18 @@ def main() -> None:
     parser.add_argument(
         "--demo",
         action="store_true",
-        help="the state folder holds example tasks: every board of it says so from now on",
+        help=(
+            "the state folder holds example tasks: "
+            "every board of it says so from now on"
+        ),
     )
     parser.add_argument(
         "--page",
         metavar="FILE",
-        help="open this HTML file as a page companion, as the board opens, or reload the one that shows it",
+        help=(
+            "open this HTML file as a page companion, as the board opens, "
+            "or reload the one that shows it"
+        ),
     )
     parser.add_argument(
         "--name", help="with --page: the companion's name (default: the file's name)"
@@ -695,7 +744,8 @@ def main() -> None:
             raise BoardError("--name goes with --page: the board names itself")
         if not args.no_open and not (session and socket):
             raise BoardError(
-                "not inside an agterm session; --no-open prints the board's address without one"
+                "not inside an agterm session; --no-open prints the "
+                "board's address without one"
             )
         state, settings = state_of(args.repo, args.task, demo=args.demo)
         register(state)
@@ -703,7 +753,8 @@ def main() -> None:
         main_dir = Path(settings["main"])
         url = address(server["url"], main_dir, args.task)
         base = address(server["url"], main_dir, None)
-        # the repository's name is in the board's name, so two boards in one sidebar read apart
+        # the repository's name is in the board's name, so two boards in one sidebar
+        # read apart
         result: dict = {"url": url, "name": f"Lem board · {main_dir.name}"}
         if server.get("tailscale"):
             # the same board through the tailnet door, for the owner's phone

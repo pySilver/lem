@@ -1,10 +1,12 @@
-"""What land.py decides from a task's records at a proposal, and how its lines say it, each called in this process.
+"""What land.py decides from a task's records at a proposal, and how its lines say it,
+each called in this process.
 
-The records are the ones the real writers write: a decision's lines as `lem decisions` appends them,
-folded by decisions.py's own `Task.decisions`; the criteria as criteria.py's `parse` reads a plan and
-decisions.py's `Task.changes` adds the approvals and the changes of a criterion; a review's entry as
-`lem land read` keeps it. The blocks of tests/ keep one real proposal of each family, which reads the
-real `pr.md`, so that the writer and the reader still meet.
+The records are the ones the real writers write: a decision's lines as `lem decisions`
+appends them, folded by decisions.py's own `Task.decisions`; the criteria as
+criteria.py's `parse` reads a plan and decisions.py's `Task.changes` adds the approvals
+and the changes of a criterion; a review's entry as `lem land read` keeps it. The blocks
+of tests/ keep one real proposal of each family, which reads the real `pr.md`, so that
+the writer and the reader still meet.
 """
 
 import importlib
@@ -27,12 +29,15 @@ criteria = importlib.import_module("criteria")
 AT = "2026-11-18T10:00:00Z"
 LATER = "2026-11-18T11:00:00Z"
 PLAN = (
-    "## Acceptance criteria\n\nSize: full, because the ticket names the word and the file.\n\n"
-    "1. The file holds the word y.\n   - test: `sh tests/t.sh` in `tests/t.sh`\n2. The file has one line.\n   - no test: printf ends every line so.\n"
+    "## Acceptance criteria\n\nSize: full, because the ticket names the word and the "
+    "file.\n\n"
+    "1. The file holds the word y.\n   - test: `sh tests/t.sh` in `tests/t.sh`\n"
+    "2. The file has one line.\n   - no test: printf ends every line so.\n"
 )
 
 
-# A decision's lines, each in the form the command of decisions.py that writes it gives it.
+# A decision's lines, each in the form the command of decisions.py that writes it
+# gives it.
 STORY = {
     "case": "1. One step.\n2. Another.",
     "case_was": "derived",
@@ -65,12 +70,14 @@ def picked(
     by: str = "dialectic",
     **more: object,
 ) -> dict:
-    """`lem decisions log --by dialectic|experts`: a pick past the personas, with its options and its story."""
+    """`lem decisions log --by dialectic|experts`: a pick past the personas, with its
+    options and its story."""
     return taken(number, what, chose, why, by, options=list(options), **STORY, **more)
 
 
 def breaker(number: int, cause: str = "criteria", **more: object) -> dict:
-    """`lem decisions breaker`: the stop of the build, with its cause and its document."""
+    """`lem decisions breaker`: the stop of the build, with its cause and
+    its document."""
     return {
         "id": number,
         "at": AT,
@@ -84,7 +91,8 @@ def breaker(number: int, cause: str = "criteria", **more: object) -> dict:
 
 
 def ledger(directory: Path) -> "decisions.Task":
-    """decisions.py's own record of a task in DIRECTORY, without the commands that find it."""
+    """decisions.py's own record of a task in DIRECTORY, without the commands that
+    find it."""
     record = decisions.Task.__new__(decisions.Task)
     record.slug, record.directory, record.file = (
         "t",
@@ -131,7 +139,8 @@ def approval(
 
 
 def change(number: int, how: str, criterion: int, why: str, **more: object) -> dict:
-    """`lem decisions criterion`: one change of an approved criterion (`was`, `now`, and `decision` or `by`)."""
+    """`lem decisions criterion`: one change of an approved criterion (`was`, `now`, and
+    `decision` or `by`)."""
     return {
         "change": number,
         "at": AT,
@@ -147,7 +156,8 @@ def change(number: int, how: str, criterion: int, why: str, **more: object) -> d
 def found_of(
     plan: str = PLAN, approved: dict | None = None, lines: tuple[dict, ...] = ()
 ) -> dict:
-    """What `lem criteria show` gives: the plan's criteria with the approvals and changes of the record."""
+    """What `lem criteria show` gives: the plan's criteria with the approvals and
+    changes of the record."""
     read = criteria.parse(plan, "plan.md")
     digest = criteria.text_digest(
         read["size"], [criterion["text"] for criterion in read["criteria"]]
@@ -230,7 +240,8 @@ CHECKS = {
 
 
 class Proposal(unittest.TestCase):
-    """A land.Task over a task directory of the test's own, with the records each case gives."""
+    """A land.Task over a task directory of the test's own, with the records each
+    case gives."""
 
     def setUp(self) -> None:
         folder = tempfile.TemporaryDirectory()
@@ -292,8 +303,9 @@ class Proposal(unittest.TestCase):
 
 
 class PicksWithoutHim(Proposal):
-    """The ladder decides every choice of the build: a pick past the personas is not green, one line
-    each, and one the gate or the personas settled is no cause. One expert alone is named as one."""
+    """The ladder decides every choice of the build: a pick past the personas is not
+    green, one line each, and one the gate or the personas settled is no cause. One
+    expert alone is named as one."""
 
     WHERE = picked(
         1,
@@ -307,7 +319,10 @@ class PicksWithoutHim(Proposal):
         [line] = self.reasons(self.WHERE)
         self.assertEqual(
             line,
-            'decision 1 was taken without the owner (Where the word goes): "the first line", by the dialectic',
+            (
+                "decision 1 was taken without the owner (Where the word goes): "
+                '"the first line", by the dialectic'
+            ),
         )
         said = land.decided(folded([self.WHERE])[0])
         self.assertIn("by the dialectic. A reader sees it at once.", said)
@@ -369,8 +384,9 @@ class PicksWithoutHim(Proposal):
 
 
 class TheBreaker(Proposal):
-    """A breaker is a line of the pull request with its cause and how it ended; the owner's help on it
-    is no cause of not green, and neither is a criterion change his help led to."""
+    """A breaker is a line of the pull request with its cause and how it ended; the
+    owner's help on it is no cause of not green, and neither is a criterion change his
+    help led to."""
 
     def test_his_help_is_no_cause_and_the_stop_is_a_line(self) -> None:
         lines = [
@@ -390,19 +406,25 @@ class TheBreaker(Proposal):
         decided = text.split("## Decisions of the build\n\n", 1)[1]
         self.assertTrue(
             decided.startswith(
-                "- the build stopped at breaker 1, 2026-11-18 10:00 UTC: The note has no place that keeps criterion 1. "
-                "Why it stopped: the next step could not be reversed by a later no (person); the owner helped, decision 2."
+                "- the build stopped at breaker 1, 2026-11-18 10:00 UTC: "
+                "The note has no place that keeps criterion 1. Why it stopped: "
+                "the next step could not be reversed by a later no (person); "
+                "the owner helped, decision 2."
             )
         )
         self.assertIn(
-            '- Email the merchants: "send nothing", by the owner, his help on breaker 1. They read the export anyway. The owner\'s words: "no email"',
+            (
+                '- Email the merchants: "send nothing", by the owner, his help on '
+                'breaker 1. They read the export anyway. The owner\'s words: "no email"'
+            ),
             decided,
         )
 
     def test_a_breaker_that_waits_says_so(self) -> None:
         self.assertTrue(
             land.breaker_lines(self.task([breaker(1)]))[0].endswith(
-                "no option of the ladder kept the approved criteria; it waits for the owner."
+                "no option of the ladder kept the approved criteria; "
+                "it waits for the owner."
             )
         )
 
@@ -434,14 +456,17 @@ class TheBreaker(Proposal):
         )
         self.assertEqual(land.not_green(task, self.state()), [])
         self.assertIn(
-            'after decision 2 (The one-line rule), the owner\'s help on breaker 1, which took "no such rule"',
+            (
+                "after decision 2 (The one-line rule), the owner's help on breaker 1, "
+                'which took "no such rule"'
+            ),
             land.change_line(task, task.criteria["history"][0]),
         )
 
 
 class CriteriaThatChanged(Proposal):
-    """A criterion the build changed, added or removed is not green, each with its line; a change that
-    an approval of his took over is his, and no cause."""
+    """A criterion the build changed, added or removed is not green, each with its line;
+    a change that an approval of his took over is his, and no cause."""
 
     def test_a_changed_criterion_by_the_personas(self) -> None:
         moved = change(
@@ -462,7 +487,10 @@ class CriteriaThatChanged(Proposal):
         )
         line = land.change_line(task, task.criteria["history"][0])
         self.assertIn(
-            'was "The file holds the word y.", now "The file holds the word the owner asked for."',
+            (
+                'was "The file holds the word y.", now "The file holds the '
+                'word the owner asked for."'
+            ),
             line,
         )
         self.assertTrue(line.endswith("By the personas: Both personas picked x."))
@@ -505,7 +533,10 @@ class CriteriaThatChanged(Proposal):
             removed_line.startswith("criterion 2 was removed during the build")
         )
         self.assertIn(
-            'after decision 1 (The one-line rule), where the dialectic took "no such rule"',
+            (
+                "after decision 1 (The one-line rule), where the "
+                'dialectic took "no such rule"'
+            ),
             removed_line,
         )
         self.assertTrue(
@@ -551,7 +582,8 @@ class CriteriaThatChanged(Proposal):
 
 
 class TheRead(Proposal):
-    """The personas' read of the criteria, from its event, in the pull request's checks."""
+    """The personas' read of the criteria, from its event, in the pull
+    request's checks."""
 
     def read(self, **more: object) -> dict:
         found = found_of()
@@ -581,7 +613,8 @@ class TheRead(Proposal):
         [line] = land.not_green(task, self.state())
         self.assertTrue(
             line.startswith(
-                "the criteria were not read: the personas' read was started twice and nobody answered"
+                "the criteria were not read: the personas' read was started "
+                "twice and nobody answered"
             )
         )
         self.assertIn(
@@ -606,11 +639,17 @@ class TheRead(Proposal):
         )
         said = land.read_line(read, found_of(approved=approval("owner", at=LATER)))
         self.assertIn(
-            "read by 2 of 3 personas asked, two model families (opus, sol); 1 of 2 criteria flagged; the two families split",
+            (
+                "read by 2 of 3 personas asked, two model families (opus, sol); "
+                "1 of 2 criteria flagged; the two families split"
+            ),
             said,
         )
         self.assertIn(
-            "no answer from the accountant, sol (the model was at capacity); the owner approved them on 2026-11-18",
+            (
+                "no answer from the accountant, sol (the model was at capacity); "
+                "the owner approved them on 2026-11-18"
+            ),
             said,
         )
 
@@ -628,13 +667,17 @@ class TheRead(Proposal):
         )
         self.assertEqual(
             said,
-            "- the criteria changed after the personas' read, by the owner's approval 2, and the change was not read",
+            (
+                "- the criteria changed after the personas' read, by the owner's "
+                "approval 2, and the change was not read"
+            ),
         )
 
 
 class TheWait(Proposal):
-    """The criteria that waited for the owner's yes, and the approval that ended the wait, in the line
-    of the read: the events as `lem project state` and `lem criteria approve` log them."""
+    """The criteria that waited for the owner's yes, and the approval that ended the
+    wait, in the line of the read: the events as `lem project state` and
+    `lem criteria approve` log them."""
 
     WAITED = "2026-11-18T09:30:00Z"
     YES = "2026-11-18T10:05:00Z"
@@ -680,7 +723,8 @@ class TheWait(Proposal):
         )
         self.assertTrue(
             said.endswith(
-                "; nobody confused; the criteria waited for the owner's yes from 2026-11-18 09:30 UTC, and the owner gave it on 2026-11-18 10:05 UTC"
+                "; nobody confused; the criteria waited for the owner's yes from "
+                "2026-11-18 09:30 UTC, and the owner gave it on 2026-11-18 10:05 UTC"
             ),
             said,
         )
@@ -709,7 +753,8 @@ class TheWait(Proposal):
         )
         self.assertTrue(
             said.endswith(
-                "and the owner gave it on 2026-11-18 10:05 UTC; the owner approved them again on 2026-11-19"
+                "and the owner gave it on 2026-11-18 10:05 UTC; the owner approved "
+                "them again on 2026-11-19"
             ),
             said,
         )
@@ -731,8 +776,10 @@ class TheWait(Proposal):
         )
         self.assertTrue(
             said.endswith(
-                "the criteria waited for the owner's yes from 2026-11-18 09:30 UTC, and the wait ended without the owner: "
-                "approved on 2026-11-18 10:05 UTC while the task ran without the owner; the owner approved them on 2026-11-19"
+                "the criteria waited for the owner's yes from 2026-11-18 09:30 UTC, "
+                "and the wait ended without the owner: approved on 2026-11-18 10:05 "
+                "UTC while the task ran without the owner; "
+                "the owner approved them on 2026-11-19"
             ),
             said,
         )
@@ -781,13 +828,17 @@ class TheWait(Proposal):
         )
         text = land.pr_text(task, "", self.state())
         self.assertIn(
-            "the criteria waited for the owner's yes from 2026-11-18 09:30 UTC, and the owner gave it on 2026-11-18 10:05 UTC",
+            (
+                "the criteria waited for the owner's yes from 2026-11-18 09:30 UTC, "
+                "and the owner gave it on 2026-11-18 10:05 UTC"
+            ),
             text,
         )
 
 
 class TheText(Proposal):
-    """The whole text of a proposal: green or not first, then the checks and the decisions of the build."""
+    """The whole text of a proposal: green or not first, then the checks and the
+    decisions of the build."""
 
     def test_green_with_no_decision(self) -> None:
         text = land.pr_text(self.task(), "## Not done\n\nnone", self.state())
@@ -823,7 +874,10 @@ class TheText(Proposal):
         self.assertEqual(
             [line for line in checks.splitlines() if "the cause" in line],
             [
-                "- the cause, as the investigation before the build found it: the total adds the refund as a payment (billing/invoice.py:total)"
+                (
+                    "- the cause, as the investigation before the build found it: "
+                    "the total adds the refund as a payment (billing/invoice.py:total)"
+                )
             ],
         )
 
@@ -845,8 +899,9 @@ class TheText(Proposal):
 
 
 class StandIns(Proposal):
-    """Each seat that stood in for another is one line of the pull request's checks, a fact and no reason of
-    not green, on either track; one that gave an error itself says so on its line."""
+    """Each seat that stood in for another is one line of the pull request's checks, a
+    fact and no reason of not green, on either track; one that gave an error itself says
+    so on its line."""
 
     STOOD = {
         "event": "seat.stand-in",
@@ -855,7 +910,10 @@ class StandIns(Proposal):
         "took": "claude/opus:high",
         "error": "tokens",
     }
-    LINE = "- the reviewer was `claude/opus:high` in place of `codex/gpt-6.2-sol:high`: Codex had no tokens"
+    LINE = (
+        "- the reviewer was `claude/opus:high` in place of `codex/gpt-6.2-sol:high`: "
+        "Codex had no tokens"
+    )
 
     def checks(self, text: str) -> list[str]:
         part = text.split("## Checks", 1)[1].split("\n## ", 1)[0]
@@ -898,7 +956,10 @@ class StandIns(Proposal):
             self.checks(land.pr_text(task, "", self.state())),
             [
                 self.LINE,
-                "- the merge agent was `claude/opus:high` in place of `codex/gpt-6.2-sol:high`: Codex is not on this Mac",
+                (
+                    "- the merge agent was `claude/opus:high` in place of "
+                    "`codex/gpt-6.2-sol:high`: Codex is not on this Mac"
+                ),
             ],
         )
 
@@ -920,12 +981,14 @@ class StandIns(Proposal):
             self.checks(land.pr_text(task, "", self.state())),
             [
                 (
-                    "- the reviewer was to be `codex/gpt-6.2-sol:high` in place of `claude/opus:high`: Claude Code did not know the model; "
+                    "- the reviewer was to be `codex/gpt-6.2-sol:high` in place of "
+                    "`claude/opus:high`: Claude Code did not know the model; "
                     "then Codex gave an error too: Codex is not on this Mac"
                 )
             ],
         )
-        # a block after the owner's go on is of the named seat, and no failure of the stand-in
+        # a block after the owner's go on is of the named seat, and no failure of
+        # the stand-in
         again = self.task(
             events=(stood, {"event": "seat.again", "seat": "reviewer"}, failed)
         )
@@ -936,7 +999,11 @@ class StandIns(Proposal):
     def test_the_fast_track_lists_it_too(self) -> None:
         from unittest import mock
 
-        small = "## Acceptance criteria\n\nSize: small, because one word changes.\n\n1. The file holds the word y.\n   - test: `sh tests/t.sh` in `tests/t.sh`\n"
+        small = (
+            "## Acceptance criteria\n\nSize: small, because one word changes.\n\n"
+            "1. The file holds the word y.\n   - test: "
+            "`sh tests/t.sh` in `tests/t.sh`\n"
+        )
         task = self.task(
             found=found_of(small, approved=approval("owner", plan=small)),
             events=(self.STOOD,),
@@ -948,8 +1015,8 @@ class StandIns(Proposal):
 
 
 class TheCriteriasCheck(Proposal):
-    """The line of the check of the criteria among the pull request's checks: run by the checks, or taken
-    from the polish pass at its commit and not run again."""
+    """The line of the check of the criteria among the pull request's checks: run by the
+    checks, or taken from the polish pass at its commit and not run again."""
 
     @staticmethod
     def line(text: str) -> list[str]:
@@ -966,7 +1033,10 @@ class TheCriteriasCheck(Proposal):
         self.assertEqual(
             self.line(text),
             [
-                "- the tests of the criteria: 1 pass on the branch and fail on the base commit; 1 criterion has no test"
+                (
+                    "- the tests of the criteria: 1 pass on the branch and fail on the "
+                    "base commit; 1 criterion has no test"
+                )
             ],
         )
 
@@ -982,7 +1052,11 @@ class TheCriteriasCheck(Proposal):
         self.assertEqual(
             self.line(text),
             [
-                "- the tests of the criteria: 1 pass on the branch and fail on the base commit, taken from the polish pass at a1b2c3d4e, and not run again; 1 criterion has no test"
+                (
+                    "- the tests of the criteria: 1 pass on the branch and fail on the "
+                    "base commit, taken from the polish pass at a1b2c3d4e, and not run "
+                    "again; 1 criterion has no test"
+                )
             ],
         )
         # each test still says what the pass's run gave it
@@ -993,9 +1067,13 @@ class TheCriteriasCheck(Proposal):
 
 
 class WithoutHim(Proposal):
-    """The line of the time a task ran without the owner, under green or not green, on both tracks."""
+    """The line of the time a task ran without the owner, under green or not green, on
+    both tracks."""
 
-    SMALL = "## Acceptance criteria\n\nSize: small, because one word changes.\n\n1. The file holds the word y.\n   - test: `sh tests/t.sh` in `tests/t.sh`\n"
+    SMALL = (
+        "## Acceptance criteria\n\nSize: small, because one word changes.\n\n"
+        "1. The file holds the word y.\n   - test: `sh tests/t.sh` in `tests/t.sh`\n"
+    )
     AWAY = [
         {
             "from": AT,
@@ -1004,13 +1082,17 @@ class WithoutHim(Proposal):
             "ended": {"by": "owner", "words": "/lem im-back"},
         }
     ]
-    LINE = 'It ran without the owner from 2026-11-18 10:00 UTC (the owner: "/lem im-away") to 2026-11-18 11:00 UTC (the owner: "/lem im-back").'
+    LINE = (
+        "It ran without the owner from 2026-11-18 10:00 UTC (the owner: "
+        '"/lem im-away") to 2026-11-18 11:00 UTC (the owner: "/lem im-back").'
+    )
 
     def setUp(self) -> None:
         super().setUp()
         from unittest import mock
 
-        # what the fast track's builder filed is a fact of the branch, which only git shows
+        # what the fast track's builder filed is a fact of the branch, which only
+        # git shows
         patched = mock.patch.object(land, "builder_filed", return_value=[])
         patched.start()
         self.addCleanup(patched.stop)
@@ -1035,11 +1117,18 @@ class WithoutHim(Proposal):
 
 
 class TheDocuments(Proposal):
-    """The pull request's text in the forms of `prompts/writing.md`: an important decision's story
-    folded under it, a label cut at its colon, and no link to a picture the forge does not hold."""
+    """The pull request's text in the forms of `prompts/writing.md`: an important
+    decision's story folded under it, a label cut at its colon, and no link to a picture
+    the forge does not hold."""
 
-    CHART = 'flowchart TD\n  A["The real run ends"] --> B{"GitHub?"}\n  B -->|"no"| C["Waits for the merge"]'
-    LONG = "B. One held line for each criterion: 'Criterion 1: held: the answer came 1 min 9 s after the checks started', the times under each line"
+    CHART = (
+        'flowchart TD\n  A["The real run ends"] --> B{"GitHub?"}\n'
+        '  B -->|"no"| C["Waits for the merge"]'
+    )
+    LONG = (
+        "B. One held line for each criterion: 'Criterion 1: held: the answer came 1 "
+        "min 9 s after the checks started', the times under each line"
+    )
 
     def important(self) -> list[dict]:
         pick = picked(
@@ -1055,7 +1144,10 @@ class TheDocuments(Proposal):
             taken(
                 2,
                 "how a run of the checks is stopped",
-                "by the script, lem land checks SLUG --stop, with the process id its lock file holds",
+                (
+                    "by the script, lem land checks SLUG --stop, "
+                    "with the process id its lock file holds"
+                ),
                 "a new session does not hold the first one's task",
                 "lead",
                 undo="name the tool's own stop again",
@@ -1069,9 +1161,13 @@ class TheDocuments(Proposal):
         )
         self.assertEqual(
             land.label(
-                "it ends as refused, with the say 'the checks refused: a builder repairs it'"
+                "it ends as refused, with the say 'the checks refused: "
+                "a builder repairs it'"
             ),
-            "it ends as refused, with the say 'the checks refused: a builder repairs it'",
+            (
+                "it ends as refused, with the say 'the checks refused: "
+                "a builder repairs it'"
+            ),
         )
 
     def test_the_pull_request_links_no_picture_and_folds_an_important_story(
@@ -1088,12 +1184,19 @@ class TheDocuments(Proposal):
 
 
 class SeenOutside(Proposal):
-    """What the pull request's text says of the defects a review saw outside the change, on both
-    tracks: the items filed, a line under `## Seen, not filed` for each of the others, and a cheap one
-    that a fix line names by its number under `## Fixed on the way` (backlog-filing-judged, criteria 2 and 6)."""
+    """What the pull request's text says of the defects a review saw outside the change,
+    on both tracks: the items filed, a line under `## Seen, not filed` for each of the
+    others, and a cheap one that a fix line names by its number under
+    `## Fixed on the way` (backlog-filing-judged, criteria 2 and 6)."""
 
-    SMALL = "## Acceptance criteria\n\nSize: small, because one word changes.\n\n1. The file holds the word y.\n   - test: `sh tests/t.sh` in `tests/t.sh`\n"
-    NOTES = "## Decisions\n\nnone\n\n## Left open\n\nnone\n\n## Worth a look\n\nnone\n\n## Filed in the backlog\n\nnone\n\n## Not done\n\nnone\n"
+    SMALL = (
+        "## Acceptance criteria\n\nSize: small, because one word changes.\n\n"
+        "1. The file holds the word y.\n   - test: `sh tests/t.sh` in `tests/t.sh`\n"
+    )
+    NOTES = (
+        "## Decisions\n\nnone\n\n## Left open\n\nnone\n\n## Worth a look\n\nnone\n\n"
+        "## Filed in the backlog\n\nnone\n\n## Not done\n\nnone\n"
+    )
     GUARD = {
         "where": "tests/unit/test_board_model.py",
         "title": "two test classes come after the main guard",
@@ -1156,14 +1259,23 @@ class SeenOutside(Proposal):
                 self.assertEqual(
                     out[seen + 2 : seen + 4],
                     [
-                        "- `tests/unit/test_board_model.py`: two test classes come after the main guard; only a reader of the code meets it",
-                        "- `app.py:run`: an outdated lint suppression; a comment of the code, no behavior",
+                        (
+                            "- `tests/unit/test_board_model.py`: two test classes come "
+                            "after the main guard; only a reader of the code meets it"
+                        ),
+                        (
+                            "- `app.py:run`: an outdated lint suppression; "
+                            "a comment of the code, no behavior"
+                        ),
                     ],
                 )
                 filed = out.index("## Filed in the backlog")
                 self.assertEqual(
                     out[filed + 2],
-                    "- `docs/backlog/load-crashes-on-an-empty-file.md`: load crashes on an empty file",
+                    (
+                        "- `docs/backlog/load-crashes-on-an-empty-file.md`: "
+                        "load crashes on an empty file"
+                    ),
                 )
                 self.assertLess(filed, seen)
                 self.assertNotIn("## Fixed on the way", out)
@@ -1172,13 +1284,18 @@ class SeenOutside(Proposal):
                 )
                 self.assertTrue(
                     line.endswith(
-                        "; it saw 3 defects outside the change, filed as `docs/backlog/load-crashes-on-an-empty-file.md`; 2 seen, not filed"
+                        "; it saw 3 defects outside the change, filed as "
+                        "`docs/backlog/load-crashes-on-an-empty-file.md`; "
+                        "2 seen, not filed"
                     ),
                     line,
                 )
 
     def test_a_fix_line_that_names_the_cheap_entry_takes_its_line_out(self) -> None:
-        fix = "## Fixed on the way\n\n- `app.py` (abc1234): r1.2, the suppression named a rule the linter no longer has\n\n"
+        fix = (
+            "## Fixed on the way\n\n- `app.py` (abc1234): r1.2, the suppression named "
+            "a rule the linter no longer has\n\n"
+        )
         for name, plan, notes in (
             ("standard", PLAN, self.NOTES.replace("## Not done", fix + "## Not done")),
             ("fast", self.SMALL, fix),
@@ -1193,11 +1310,17 @@ class SeenOutside(Proposal):
                     out.index("## Fixed on the way"), out.index("## Seen, not filed")
                 )
                 self.assertNotIn(
-                    "- `app.py:run`: an outdated lint suppression; a comment of the code, no behavior",
+                    (
+                        "- `app.py:run`: an outdated lint suppression; "
+                        "a comment of the code, no behavior"
+                    ),
                     out,
                 )
                 self.assertIn(
-                    "- `app.py` (abc1234): r1.2, the suppression named a rule the linter no longer has",
+                    (
+                        "- `app.py` (abc1234): r1.2, the suppression named a rule "
+                        "the linter no longer has"
+                    ),
                     out,
                 )
                 self.assertTrue(
@@ -1214,10 +1337,14 @@ class SeenOutside(Proposal):
 
 
 class TheIssue(Proposal):
-    """A task from a GitHub issue names it in its pull request with `Issue: #42`, which GitHub links
-    both ways, and no word that closes it, on both tracks (github-issues-tracker, criterion 5.1)."""
+    """A task from a GitHub issue names it in its pull request with `Issue: #42`, which
+    GitHub links both ways, and no word that closes it, on both tracks
+    (github-issues-tracker, criterion 5.1)."""
 
-    SMALL = "## Acceptance criteria\n\nSize: small, because one word changes.\n\n1. The file holds the word y.\n   - test: `sh tests/t.sh` in `tests/t.sh`\n"
+    SMALL = (
+        "## Acceptance criteria\n\nSize: small, because one word changes.\n\n"
+        "1. The file holds the word y.\n   - test: `sh tests/t.sh` in `tests/t.sh`\n"
+    )
 
     def setUp(self) -> None:
         super().setUp()
@@ -1262,7 +1389,8 @@ class TheIssue(Proposal):
 
 
 class Due(unittest.TestCase):
-    """`due_of`: which review is due for the change as it is now, from the kept reviews."""
+    """`due_of`: which review is due for the change as it is now, from the
+    kept reviews."""
 
     FOLDER = "docs/backlog"
 

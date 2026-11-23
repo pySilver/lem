@@ -1,5 +1,6 @@
-"""criteria.py's reading of a plan's criteria, each called in this process: a criterion's case and its
-chart, the plan's `## How it works`, which of them the digests mark, and the inputs of a run of `red`."""
+"""criteria.py's reading of a plan's criteria, each called in this process: a
+criterion's case and its chart, the plan's `## How it works`, which of them the digests
+mark, and the inputs of a run of `red`."""
 
 import importlib
 import sys
@@ -46,7 +47,8 @@ flowchart LR
 
 
 class CaseAndChart(unittest.TestCase):
-    """A criterion's steps stay lines of their own and its chart is its own, at any indent."""
+    """A criterion's steps stay lines of their own and its chart is its own, at
+    any indent."""
 
     def test_the_steps_and_a_chart_at_four_spaces(self) -> None:
         first, second = criteria.parse(PLAN, "plan.md")["criteria"]
@@ -63,7 +65,10 @@ class CaseAndChart(unittest.TestCase):
         )
         self.assertEqual(
             first["chart"],
-            'flowchart TD\n  A["A refund comes in"] --> B{"Larger than the total?"}\n    B -->|"yes"| C["The total shows 0"]',
+            (
+                'flowchart TD\n  A["A refund comes in"] --> B{"Larger than the '
+                'total?"}\n    B -->|"yes"| C["The total shows 0"]'
+            ),
         )
         self.assertNotIn("mermaid", first["text"])
         self.assertEqual(
@@ -76,7 +81,8 @@ class CaseAndChart(unittest.TestCase):
         self.assertEqual(len(read["criteria"]), 2)
         self.assertTrue(
             read["how"].startswith(
-                "The refund, from its arrival to the invoice:\n\n```mermaid\nflowchart LR"
+                "The refund, from its arrival to the invoice:\n\n"
+                "```mermaid\nflowchart LR"
             )
         )
 
@@ -92,8 +98,9 @@ class CaseAndChart(unittest.TestCase):
 
 
 class Digests(unittest.TestCase):
-    """The case is a part of what the owner approved, and the chart is not: a change of a step changes
-    the criterion and both digests, a change of the chart changes neither."""
+    """The case is a part of what the owner approved, and the chart is not: a change of
+    a step changes the criterion and both digests, a change of the chart
+    changes neither."""
 
     @staticmethod
     def marks(plan: str) -> tuple[str, str, list[str]]:
@@ -115,7 +122,8 @@ class Digests(unittest.TestCase):
         self.assertEqual(self.marks(PLAN), self.marks(drawn))
 
     def test_steps_read_as_the_text_they_were(self) -> None:
-        """A case written before the steps were lines of their own read as one text: the same digest."""
+        """A case written before the steps were lines of their own read as one text: the
+        same digest."""
         _, text, _ = self.marks(PLAN)
         read = criteria.parse(PLAN, "plan.md")
         joined = [
@@ -130,7 +138,8 @@ if __name__ == "__main__":
 
 
 class ResumedPlan(unittest.TestCase):
-    """A task resumed from a dropped one finds the old task's plan on its branch, and its own once its lead writes one."""
+    """A task resumed from a dropped one finds the old task's plan on its branch, and
+    its own once its lead writes one."""
 
     def test_the_plan_of_the_task_it_came_from(self) -> None:
         import tempfile
@@ -178,11 +187,15 @@ class ResumedPlan(unittest.TestCase):
 
 
 class FastTrackNotHis(unittest.TestCase):
-    """The fast track's one criterion is approved in the owner's name only when the request is his own
-    sentence. A request someone else wrote waits for his own yes while he is there, and is approved
-    without him (`--alone`) only while the task runs without him: a night's task, or his away mark."""
+    """The fast track's one criterion is approved in the owner's name only when the
+    request is his own sentence. A request someone else wrote waits for his own yes
+    while he is there, and is approved without him (`--alone`) only while the task runs
+    without him: a night's task, or his away mark."""
 
-    SMALL = "## Acceptance criteria\n\nSize: small, because the request is one sentence.\n\n1. The footer says 2026.\n"
+    SMALL = (
+        "## Acceptance criteria\n\nSize: small, because the request is one "
+        "sentence.\n\n1. The footer says 2026.\n"
+    )
 
     def task(
         self,
@@ -262,7 +275,10 @@ class FastTrackNotHis(unittest.TestCase):
             with self.assertRaises(criteria.CriteriaError) as refused:
                 criteria.cmd_approve(task, str(task.small_file), "lem")
             self.assertIn(
-                "--alone` approves it without the owner while the task runs without him",
+                (
+                    "--alone` approves it without the owner while "
+                    "the task runs without him"
+                ),
                 str(refused.exception),
             )
             self.assertEqual(
@@ -291,10 +307,14 @@ class FastTrackNotHis(unittest.TestCase):
 
 
 class ApprovalOfWhatWasShown(unittest.TestCase):
-    """`cmd_approve` with the digest of the bytes the owner's page showed (`--shown`): it approves those
-    bytes or nothing, so a file that changed after the page's check is never approved in his name."""
+    """`cmd_approve` with the digest of the bytes the owner's page showed (`--shown`):
+    it approves those bytes or nothing, so a file that changed after the page's check is
+    never approved in his name."""
 
-    FULL = "## Acceptance criteria\n\nSize: full, because the export gets a column.\n\n1. The export holds the gift note.\n"
+    FULL = (
+        "## Acceptance criteria\n\nSize: full, because the export gets a column.\n\n"
+        "1. The export holds the gift note.\n"
+    )
 
     def task(self, folder: Path) -> "criteria.Task":
         task = FastTrackNotHis.task(FastTrackNotHis(), folder)
@@ -332,8 +352,9 @@ class ApprovalOfWhatWasShown(unittest.TestCase):
 
 
 class Unstarted(unittest.TestCase):
-    """`criteria.unstarted`: a test command that starts a shell or Python on a script file the base
-    commit lacks does not start there, whatever its exit; a module, a text and a file that is there do."""
+    """`criteria.unstarted`: a test command that starts a shell or Python on a script
+    file the base commit lacks does not start there, whatever its exit; a module, a text
+    and a file that is there do."""
 
     def test_python_on_a_file_the_base_lacks(self) -> None:
         import tempfile
@@ -376,11 +397,15 @@ class Unstarted(unittest.TestCase):
 
 
 class NightTrackChange(unittest.TestCase):
-    """A night's task on the fast track that turns out to be a full change: its `small` approval by
-    `alone` is replaced by a `full` one by `alone` while it still runs without the owner, and both stay
-    in the history; with the owner there, or after a `full` approval, the second `--alone` is refused."""
+    """A night's task on the fast track that turns out to be a full change: its `small`
+    approval by `alone` is replaced by a `full` one by `alone` while it still runs
+    without the owner, and both stay in the history; with the owner there, or after a
+    `full` approval, the second `--alone` is refused."""
 
-    FULL = "## Acceptance criteria\n\nSize: full, because the footer has two places.\n\n1. The footer says 2026.\n2. The page title says 2026.\n"
+    FULL = (
+        "## Acceptance criteria\n\nSize: full, because the footer has two places.\n\n"
+        "1. The footer says 2026.\n2. The page title says 2026.\n"
+    )
 
     def night(self, folder: Path, mode: str = "alone") -> tuple["criteria.Task", Path]:
         task = FastTrackNotHis.task(
@@ -431,7 +456,8 @@ class NightTrackChange(unittest.TestCase):
 
 
 class ReadsOf(unittest.TestCase):
-    """A read of the criteria whose words hold the characters str.splitlines breaks at, read back whole."""
+    """A read of the criteria whose words hold the characters str.splitlines breaks at,
+    read back whole."""
 
     def test_a_read_whose_words_hold_a_line_separator(self) -> None:
         import json
@@ -458,9 +484,10 @@ class ReadsOf(unittest.TestCase):
 
 
 class Inputs(unittest.TestCase):
-    """`criteria.cmd_inputs`, `lem criteria inputs SLUG`: what a run of `red` depends on now, without the
-    run. The read of the criteria comes first and refuses as `red` does; git answers the tip and the
-    merge-base, here as a stand-in that gives what git gave."""
+    """`criteria.cmd_inputs`, `lem criteria inputs SLUG`: what a run of `red` depends on
+    now, without the run. The read of the criteria comes first and refuses as `red`
+    does; git answers the tip and the merge-base, here as a stand-in that gives what
+    git gave."""
 
     TIP, BASE, PLAN = (
         "a1b2c3d" + "0" * 33,

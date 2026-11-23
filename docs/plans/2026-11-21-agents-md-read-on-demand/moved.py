@@ -1,13 +1,15 @@
-"""moved.py: the check that no word of the rulings and the decisions was lost in the move.
+"""moved.py: the check that no word of the rulings and the decisions was lost in
+the move.
 
     python3 docs/plans/2026-11-21-agents-md-read-on-demand/moved.py --base 479bef6
 
-It takes each paragraph of "The owner's rulings" and "Decisions the maintaining session took" as
-`AGENTS.md` has them at the commit BASE (a list item without its list mark and its indent, or a
-block of running text), and looks for it word for word in each file of `docs/rulings/` and
-`.lem/decisions/`, with each run of spaces and line breaks taken as one space. It prints the count
-compared, the count found and each paragraph it did not find, as JSON, and exits 1 when one is
-missing. A paragraph is found when one file holds it whole.
+It takes each paragraph of "The owner's rulings" and "Decisions the maintaining session
+took" as `AGENTS.md` has them at the commit BASE (a list item without its list mark and
+its indent, or a block of running text), and looks for it word for word in each file of
+`docs/rulings/` and `.lem/decisions/`, with each run of spaces and line breaks taken as
+one space. It prints the count compared, the count found and each paragraph it did not
+find, as JSON, and exits 1 when one is missing. A paragraph is found when one file holds
+it whole.
 """
 
 import json
@@ -27,7 +29,8 @@ def paragraphs(text: str) -> list[tuple[int, str]]:
     lines = text.split("\n")
     if FIRST not in lines or AFTER not in lines:
         sys.exit(
-            f"moved.py: AGENTS.md at that commit has no {FIRST!r} or no {AFTER!r}; name the commit before the move as --base"
+            f"moved.py: AGENTS.md at that commit has no {FIRST!r} or no {AFTER!r}; "
+            "name the commit before the move as --base"
         )
     out: list[tuple[int, list[str]]] = []
     current = None
@@ -53,7 +56,8 @@ def flat(text: str) -> str:
 def main(argv: list[str]) -> int:
     if len(argv) != 2 or argv[0] != "--base":  # noqa: PLR2004 - --base and its commit
         sys.exit(
-            "moved.py: name the commit before the move, as --base COMMIT (479bef6 for this plan)"
+            "moved.py: name the commit before the move, "
+            "as --base COMMIT (479bef6 for this plan)"
         )
     shown = subprocess.run(
         ["git", "-C", str(ROOT), "show", f"{argv[1]}:AGENTS.md"],
@@ -63,12 +67,14 @@ def main(argv: list[str]) -> int:
     )
     if shown.returncode != 0:
         sys.exit(
-            f"moved.py: git show {argv[1]}:AGENTS.md failed: {shown.stderr.strip()}; name a commit git knows as --base"
+            f"moved.py: git show {argv[1]}:AGENTS.md failed: {shown.stderr.strip()}; "
+            "name a commit git knows as --base"
         )
     files = sorted(path for folder in FOLDERS for path in (ROOT / folder).glob("*.md"))
     if not files:
         sys.exit(
-            f"moved.py: no file in {' or '.join(FOLDERS)}; the move has not run in this checkout"
+            f"moved.py: no file in {' or '.join(FOLDERS)}; "
+            "the move has not run in this checkout"
         )
     texts = [flat(path.read_text(encoding="utf-8")) for path in files]
     compared = paragraphs(shown.stdout)

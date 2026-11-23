@@ -1,6 +1,7 @@
-"""doctor.py's rules that take facts: the row for a repository whose installed Lem is other code than
-the board server runs, the task picker's keymap line and which lines of a keymap run it, and the tier
-of each tool, which the table of docs/install.md says in words.
+"""doctor.py's rules that take facts: the row for a repository whose installed Lem is
+other code than the board server runs, the task picker's keymap line and which lines of
+a keymap run it, and the tier of each tool, which the table of docs/install.md says
+in words.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -20,8 +21,8 @@ sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "skills" / "lem" / "scripts"))
 doctor = importlib.import_module("doctor")
-# Each row of the machine check that the table of docs/install.md lists, with the words of the one
-# table row that names it.
+# Each row of the machine check that the table of docs/install.md lists, with the words
+# of the one table row that names it.
 IN_TABLE = {
     "agterm": "[agterm]",
     "agterm skill": "[agterm]",
@@ -40,10 +41,14 @@ IN_TABLE = {
     "plannotator": "[Plannotator]",
     "Jev key": "JEV_API_KEY",
 }
-# A table row whose word and the check's tier do not agree, and why it is not settled here.
+# A table row whose word and the check's tier do not agree, and why it is not
+# settled here.
 UNSETTLED = {
-    "the [GitHub CLI]": "gh: the check's row is optional (a machine may hold repositories that do not land on GitHub), and the "
-    "table lists it with no word, as needed; which is right waits for the maintaining session (2026-11-21)",
+    "the [GitHub CLI]": (
+        "gh: the check's row is optional (a machine may hold repositories that do not "
+        "land on GitHub), and the table lists it with no word, as needed; "
+        "which is right waits for the maintaining session (2026-11-21)"
+    ),
 }
 
 
@@ -80,7 +85,10 @@ class Installs(unittest.TestCase):
             ],
         )
         self.assertIn(
-            "/r/shop has version 0.1.1 of lem@lem installed for the project, and the board server runs version 0.1.2; the install is the older",
+            (
+                "/r/shop has version 0.1.1 of lem@lem installed for the project, and "
+                "the board server runs version 0.1.2; the install is the older"
+            ),
             rows[0]["detail"],
         )
         self.assertEqual((rows[0]["need"], rows[0]["found"]), ("optional", False))
@@ -102,10 +110,11 @@ class Installs(unittest.TestCase):
 
 
 def tiers() -> dict[str, set[str]]:
-    """The tier each row of doctor.py is written with, read from its source: a call of `tool(NAME,
-    NEED, ...)`, a call of `skill(NAME, ..., need=NEED)` (required when not given), and a row written
-    as a dict with a "name" and a "need". A row that changes its tier by a fact of the repository
-    (the Jev key where the correction queue is on) is read in the tier it is written with first."""
+    """The tier each row of doctor.py is written with, read from its source: a call of
+    `tool(NAME, NEED, ...)`, a call of `skill(NAME, ..., need=NEED)` (required when not
+    given), and a row written as a dict with a "name" and a "need". A row that changes
+    its tier by a fact of the repository (the Jev key where the correction queue is on)
+    is read in the tier it is written with first."""
     found: dict[str, set[str]] = {}
     for node in ast.walk(
         ast.parse(
@@ -147,8 +156,8 @@ def tiers() -> dict[str, set[str]]:
 
 
 def table() -> list[tuple[str, str]]:
-    """Each row of the table under "What you need" in docs/install.md: its first cell, and the word
-    for its tier, `required` when the cell has none."""
+    """Each row of the table under "What you need" in docs/install.md: its first cell,
+    and the word for its tier, `required` when the cell has none."""
     text = (ROOT / "docs" / "install.md").read_text(encoding="utf-8")
     rows = re.search(
         r"^\| Tool \| Lem uses it for \|\n\| --- \| --- \|\n((?:\|.*\n)+)",
@@ -175,8 +184,8 @@ def table() -> list[tuple[str, str]]:
 
 
 class Plannotator(unittest.TestCase):
-    """The Inbox of the owner's away (away-questions-reach-phone, criterion 7): a recommended tool, which
-    fails no check where it is absent."""
+    """The Inbox of the owner's away (away-questions-reach-phone, criterion 7): a
+    recommended tool, which fails no check where it is absent."""
 
     def row(self, path: str | None, said: str | None) -> dict:
         with (
@@ -215,8 +224,9 @@ class Plannotator(unittest.TestCase):
 
 
 class Keymap(unittest.TestCase):
-    """The task picker's line names the marketplace clone's `bin/lem picker`, which runs the newest
-    installed release; an older line that names the clone's `picker.py` still counts as there."""
+    """The task picker's line names the marketplace clone's `bin/lem picker`, which runs
+    the newest installed release; an older line that names the clone's `picker.py` still
+    counts as there."""
 
     HOME = Path("/Users/ana")
     CLONE = HOME / ".claude" / "plugins" / "marketplaces" / "lem"
@@ -234,20 +244,26 @@ class Keymap(unittest.TestCase):
         command, script = self.SCRIPTS
         self.assertEqual(
             self.runs(
-                f'command "Lem tasks ›" ctrl+cmd+t --error-hud /opt/homebrew/bin/python3 {command} picker'
+                'command "Lem tasks ›" ctrl+cmd+t --error-hud '
+                f"/opt/homebrew/bin/python3 {command} picker"
             ),
             command,
         )
         self.assertEqual(
             self.runs(
-                'command "Lem tasks ›"  ctrl+cmd+t  --error-hud /opt/homebrew/bin/python3 ~/.claude/plugins/marketplaces/lem/bin/lem picker'
+                'command "Lem tasks ›"  ctrl+cmd+t  --error-hud '
+                "/opt/homebrew/bin/python3 ~/.claude/plugins/marketplaces/lem/bin/lem "
+                "picker"
             ),
             command,
         )
-        # the form of the line the doctor printed before, as a Mac's keymap holds it (2026-11-23)
+        # the form of the line the doctor printed before, as a Mac's keymap holds
+        # it (2026-11-23)
         self.assertEqual(
             self.runs(
-                'command "Lem tasks ›"  ctrl+cmd+t  --error-hud /opt/homebrew/bin/python3 ~/.claude/plugins/marketplaces/lem/skills/lem/scripts/picker.py'
+                'command "Lem tasks ›"  ctrl+cmd+t  --error-hud '
+                "/opt/homebrew/bin/python3 "
+                "~/.claude/plugins/marketplaces/lem/skills/lem/scripts/picker.py"
             ),
             script,
         )
@@ -317,18 +333,23 @@ class Keymap(unittest.TestCase):
             absent["line"],
         )
         current = self.row(
-            "command Lem ctrl+cmd+t /usr/bin/python3 HOME/.claude/plugins/marketplaces/lem/bin/lem picker"
+            "command Lem ctrl+cmd+t /usr/bin/python3 "
+            "HOME/.claude/plugins/marketplaces/lem/bin/lem picker"
         )
         self.assertEqual(
             (current["found"], current["detail"].rsplit(" ", 3)[1:]),
             (True, ["holds", "the", "line"]),
         )
         older = self.row(
-            "command Lem ctrl+cmd+t /usr/bin/python3 ~/.claude/plugins/marketplaces/lem/skills/lem/scripts/picker.py"
+            "command Lem ctrl+cmd+t /usr/bin/python3 "
+            "~/.claude/plugins/marketplaces/lem/skills/lem/scripts/picker.py"
         )
         self.assertTrue(older["found"])
         self.assertIn(
-            "an older form that still works; the line in its current form, to put in its place when the owner likes, is this row's line",
+            (
+                "an older form that still works; the line in its current form, to put "
+                "in its place when the owner likes, is this row's line"
+            ),
             older["detail"],
         )
         self.assertEqual(older["line"], absent["line"])
@@ -349,7 +370,10 @@ class Tiers(unittest.TestCase):
                 self.assertEqual(
                     written.get(name),
                     {named[0][1]},
-                    f"doctor.py writes {name} as {written.get(name)}, and docs/install.md says {named[0][1]}",
+                    (
+                        f"doctor.py writes {name} as {written.get(name)}, and "
+                        f"docs/install.md says {named[0][1]}"
+                    ),
                 )
         for cell, _ in rows:
             with self.subTest(cell=cell[:40]):

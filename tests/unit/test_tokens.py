@@ -1,5 +1,6 @@
-"""lem_tokens.py: the tokens of a task's Claude Code sessions, over small transcripts in the form Claude
-Code writes them (one record a line; a reply's blocks share one `message.id` and its `usage`).
+"""lem_tokens.py: the tokens of a task's Claude Code sessions, over small transcripts in
+the form Claude Code writes them (one record a line; a reply's blocks share one
+`message.id` and its `usage`).
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -49,7 +50,8 @@ def reply(
 
 
 def prompt(text: str, kind: str | None = None) -> dict:
-    """A transcript's user record, in the form 6fe214ec has (2026-11-22): a fork's records carry `sessionKind: bg`."""
+    """A transcript's user record, in the form 6fe214ec has (2026-11-22): a fork's
+    records carry `sessionKind: bg`."""
     return {
         "type": "user",
         "message": {"role": "user", "content": text},
@@ -58,11 +60,13 @@ def prompt(text: str, kind: str | None = None) -> dict:
 
 
 def launch(slug: str) -> str:
-    """The first prompt `lem session open` gives the session of task SLUG (session.py `launch_line`)."""
+    """The first prompt `lem session open` gives the session of task SLUG
+    (session.py `launch_line`)."""
     return f"Read /Users/dev/shop/.lem/state/tasks/{slug}/session.md and follow it."
 
 
-# the records Claude Code writes before a session's first prompt, and a meta prompt, as 6fe214ec has them
+# the records Claude Code writes before a session's first prompt, and a meta prompt, as
+# 6fe214ec has them
 HEAD = (
     {"type": "ai-title"},
     {"type": "permission-mode"},
@@ -130,7 +134,8 @@ class Tokens(unittest.TestCase):
         first, second, other = (
             self.projects / f"{name}.jsonl" for name in ("aaa", "bbb", "ccc")
         )
-        # one reply written as two records (two blocks), a user record, a line that does not read
+        # one reply written as two records (two blocks), a user record, a line that does
+        # not read
         write(
             first,
             {"type": "user", "message": {"content": "go"}},
@@ -183,7 +188,10 @@ class Tokens(unittest.TestCase):
         )
         self.assertIn("(2) and their subagents (1)", found["covers"])
         self.assertIn(
-            "a Codex reviewer, an expert of another provider and a session on another machine are not in it",
+            (
+                "a Codex reviewer, an expert of another provider and a session on "
+                "another machine are not in it"
+            ),
             found["covers"],
         )
 
@@ -203,7 +211,8 @@ class Tokens(unittest.TestCase):
         kept = self.projects / "aaa.jsonl"
         write(kept, reply("m1", 1, 2))
         self.log((SLUG, str(kept)))
-        # a folder's name may hold the characters str.splitlines breaks at, and the log keeps them as they are
+        # a folder's name may hold the characters str.splitlines breaks at, and the log
+        # keeps them as they are
         named = str(
             self.projects / "a\N{LINE SEPARATOR}b\N{PARAGRAPH SEPARATOR}c\x85d.jsonl"
         )
@@ -228,8 +237,9 @@ class Tokens(unittest.TestCase):
 
 
 class FirstPrompt(unittest.TestCase):
-    """Which task a transcript counts for: the task its first prompt names, else the task its record names
-    (criteria 1 and 2 of the task a-forked-transcript-of-claude-code-s-daemon-is-logged-on-the-task-of-another-pane)."""
+    """Which task a transcript counts for: the task its first prompt names, else the
+    task its record names (criteria 1 and 2 of the task
+    a-forked-transcript-of-claude-code-s-daemon-is-logged-on-the-task-of-another-pane)."""
 
     def setUp(self) -> None:
         self.folder = tempfile.TemporaryDirectory()
@@ -274,7 +284,8 @@ class FirstPrompt(unittest.TestCase):
         write(
             merge, *HEAD, prompt(launch("merge-leaves-board-lock")), reply("b1", 1, 200)
         )
-        # the fork copies its parent's first prompt, and the hook in the host of board-card-search's pane logged it there
+        # the fork copies its parent's first prompt, and the hook in the host of
+        # board-card-search's pane logged it there
         write(
             fork,
             *HEAD,
@@ -306,7 +317,8 @@ class FirstPrompt(unittest.TestCase):
             self.projects / "cleared.jsonl",
             self.projects / "pasted.jsonl",
         )
-        # the owner's /clear in the pane of gift-note: the new transcript starts with his own words
+        # the owner's /clear in the pane of gift-note: the new transcript starts with
+        # his own words
         write(cleared, *HEAD, prompt("now make the note shorter"), reply("c1", 1, 7))
         # a launch line's path among other words names no task
         write(
@@ -314,7 +326,8 @@ class FirstPrompt(unittest.TestCase):
             prompt(f"look at {launch('board-card-search')} and tell me"),
             reply("p1", 1, 5),
         )
-        # beside them in the same log, a fork of board-card-search logged under gift-note, which counts for none of gift-note's
+        # beside them in the same log, a fork of board-card-search logged under
+        # gift-note, which counts for none of gift-note's
         fork = self.projects / "fork.jsonl"
         write(fork, prompt(launch("board-card-search"), "bg"), reply("f1", 1, 900))
         self.log(
@@ -349,7 +362,8 @@ class FirstPrompt(unittest.TestCase):
         write(
             fork, prompt(launch("merge-leaves-board-lock"), "bg"), reply("f1", 1, 3000)
         )
-        # lem project prune made board-card-search's events one summary, which keeps their transcripts
+        # lem project prune made board-card-search's events one summary, which keeps
+        # their transcripts
         summary = {
             "ts": "2026-11-22T12:00:00Z",
             "event": "task.summary",
@@ -385,7 +399,8 @@ class FirstPrompt(unittest.TestCase):
         # the launch line of a task that ended names it still: the rule reads no state
         self.assertEqual(
             lem_tokens.task_named(
-                "Read /Users/dev/my shop/.lem/state/tasks/old-task/session.md and follow it."
+                "Read /Users/dev/my shop/.lem/state/tasks/old-task/session.md and "
+                "follow it."
             ),
             "old-task",
         )
