@@ -40,6 +40,25 @@ flowchart TD
    - Tests in `tests/unit/test_signs.py`, each with two records of the same agterm session, the task's own transcript with its newest turn at 10:00 and a transcript whose first prompt is the launch line of another task with its newest turn at 10:40: `read_signs` with those facts gives `sign` 10:00 and `signs` true; `signs_of` over the two files on disk gives the same; and in the class `List`, `cmd_list` over the two records and the two files on disk, with `facts_of` not replaced, gives the entry `sign` 10:00 and `signs` true. Beside them, a record of an old pane whose transcript names another task: its file is not read (the reader of the first prompt is not called for it).
 3. **The hook's docstring says what its record holds** (no criterion). In `skills/lem/scripts/session_hook.py` the module docstring and `transcript_record`'s say that the record's `task` and `session` are the hook's environment's, which Claude Code's background host keeps from the pane that started it, and that the readers take a transcript's task from its first prompt (`lem_tokens`). The hook itself does not change.
 
+## Plan talk
+
+Argued on 2026-11-23 by the reviewer, Codex, GPT 6.2 Sol at high (its pane's status line), and the defender, Claude Code, Opus 5.5 at high (the `defender:` line of the task's state). Two model families. Seven turns, within the bound of 4 × 3 + 2 = 14.
+
+1. **A pruned record loses the fork** (task 1, `transcripts_of`; `project.py` `task_calls`, `summaries`, `summarized_log`). After `lem project prune` made board-card-search's events one `task.summary`, the record of 6fe214ec was gone, and the count of an open merge-leaves-board-lock omitted the fork with no word in `missing`. Settled, by a repair after a refutation that held: the refutation leaned on `keep_days` 30 and Claude Code's `cleanupPeriodDays` 30; the reviewer held it with the owner's own example of 7 days beside `KEEP_DAYS` (`project.py`, 2026-11-21), which `local_keep_days` accepts. The repair (ab8215b7): `summary_of` keeps the ended task's transcript paths as `transcripts`, and `transcripts_of` reads them by the same first-prompt rule. Settled by the two, not checked by the review.
+2. **The test of criterion 3 does not show the 10:00 sign** (task 2, `tests/unit/test_signs.py`; `lem_signs.own_records`). The real 6fe214ec record has no `session`, so `own_records` already drops it, and a test of "no sign from the fork" passes also when the task's own sign is lost. Settled, by a repair (3dd89dcf): two records of one agterm session, the own transcript at 10:00 and another task's at 10:40, through `read_signs`, `signs_of` and `cmd_list` with the real `facts_of`, each giving `sign` 10:00 and `signs` true. Settled by the two, not checked by the review.
+3. **The filter opens the old panes' transcripts** (task 2, `session.py` `cmd_list` and `guard_check`; `serve.py` `forge_loop`). A first-prompt filter before `own_records` reads every old pane's transcript on each pass of the board. Settled, by a repair (3dd89dcf): the filter moved into `lem_signs`, after the match of the agterm session; `facts_of` reads the first prompt only of the records `own_records` keeps, as the fact `named`, and `read_signs` stays pure. Settled by the two, not checked by the review.
+
+Mechanisms a repair added:
+
+- `transcripts` in a `task.summary` (question 1): a layer over the plan's first decision, "the task of a transcript is read when it is counted, from the transcript", whose cite is the SessionStart hook's input, which names no parent session. The reviewer: "closed, layer over" that decision. It reaches `summary_of` and `transcripts_of` only.
+
+No question was raised after the first turn, and no addition was refused as unpriced.
+
+What changed in the plan, by question and by task:
+
+- Task 1, question 1: the summary of an ended task keeps its transcripts, `transcripts_of` reads them, and two tests (`test_tokens.py`, `test_board_model.py`).
+- Task 2, questions 2 and 3: the filter is in `lem_signs` after the session match (`facts_of` with `slug` and the fact `named`, `read_signs` with `slug` and `named`, the two callers pass the slug), and the tests use the case of criterion 3 through `cmd_list`.
+
 ## Decisions of the plan
 
 - **The task of a transcript is read when it is counted, from the transcript, and not when the hook logs it.** At the hook of a fork the hook's input names no parent session (Claude Code's `SessionStart` input: `source`, `agent_type`, `model`, `session_title` and the resume fields, read 2026-11-23 through Context7 from `mods/types/claude-code.d.ts`), and its environment is the host's. The first prompt of a fork is the parent's launch line, which the fork's transcript copies (6fe214ec's first `user` record is merge-leaves-board-lock's launch line, with the time of that session's start, 2026-11-22T01:33:27Z). Whether that copy is in the file when the hook runs was not checked, so the hook does not rely on it.
