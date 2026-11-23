@@ -449,11 +449,14 @@ named: an answer of another tip than the one proposed, or of a base no brief nam
 the read covers BASE, never the base at the time of the record. A reply with no verdict, or with no
 base call on a moved base, is refused, and the agent is asked again; on a moved base the second such
 reply of one brief is recorded as another round, with that reason as its why, so that the checks
-decide and the owner is not asked. It writes the reply as `merge-review.md`, keeps `merge_review` in
-`landing.json` (the proposed tip, the verdict, `calls`, `why`, the seat as `by`, the time as `at`, the
-`base` the read covered, and its `base_call` and `base_why`, null with no move) and logs one
-`merge.review` with the same for each read, so the log keeps the why of every base call. `calls` is
-true for the verdict `call`, and for a `merge` that `owner_merges` overrules: the owner is called, and
+decide and the owner is not asked; on a base that did not move the second reply of one brief with no
+verdict is recorded as a review that calls the owner, with no verdict and a why that names the
+verdict a lower line of it gives, if any (`unread_next`, `unread_why`). It writes the reply as
+`merge-review.md`, keeps `merge_review` in `landing.json` (the proposed tip, the verdict, `calls`,
+`why`, the seat as `by`, the time as `at`, the `base` the read covered, and its `base_call` and
+`base_why`, null with no move) and logs one `merge.review` with the same for each read, so the log
+keeps the why of every base call. `calls` is true for the verdict `call`, for a `merge` that
+`owner_merges` overrules, and for that second reply with no verdict: the owner is called, and
 "Waits for you" shows "Read the merge review". A review of an earlier tip counts for nothing, unless
 `propose` carried it onto the tip after a new landing (below). The facts hold `relands` too, how many
 times the proposal landed again, `pictures`, the PNG, JPEG, GIF and WebP files of the task's `media/`
@@ -4455,6 +4458,41 @@ def base_call_of(text: str) -> tuple[str, str] | None:
     return (found.group(1).lower(), why) if why else None
 
 
+def unread_next(verdict: str | None, moved: bool, base_call: tuple[str, str] | None, tries: int) -> str | None:
+    """What an answer of the merge agent leads to when it cannot be recorded as it is, from its facts: its
+    VERDICT (`verdict_of`), whether its brief's base MOVED since the checks, its BASE_CALL on that move
+    (`base_call_of`), and TRIES, the count of such answers for its tip and base with this one. None when
+    the answer can be recorded; `again` for the first such answer, which a fresh merge agent answers;
+    for the second, `another round` on a moved base, so the checks decide (in doubt, another round), and
+    `owner` on a base that did not move, a review that calls the owner, as no answer twice does."""
+    if verdict is not None and (not moved or base_call is not None):
+        return None
+    if tries < 2:
+        return "again"
+    return "another round" if moved else "owner"
+
+
+def lower_verdict(text: str) -> str | None:
+    """The verdict a line below the first of the merge agent's answer gives, `merge` or `call`, as
+    `verdict_of` reads a first line; None when no such line does."""
+    lines = [line for line in text.splitlines() if line.strip()]
+    for line in lines[1:]:
+        found = VERDICT.match(line.strip().lstrip("#*> ").strip())
+        if found:
+            return found.group(1).lower()
+    return None
+
+
+def unread_why(lower: str | None, refusal: str | None) -> str:
+    """Why a second answer with no verdict on its first line, on a base that did not move, calls the
+    owner: what the two answers are known to hold, the first only as one with no verdict on its first
+    line, the last whole, so the verdict a lower line of it gives (LOWER, `lower_verdict`), which never
+    becomes the verdict; then the reason the merge agent may not merge (REFUSAL, `merger_refusal`), if any."""
+    last = (f"its last answer puts another line above its verdict, `Verdict: {lower}.`" if lower
+            else "its last answer gives no verdict at all")
+    return f"the merge agent twice gave no verdict on its first line; {last}" + (f"; {refusal}" if refusal else "")
+
+
 def moved_of(checks_ran_on: str, base_now: str, log: str, files: list[str], own: list[str]) -> dict | None:
     """What moved on the base since the checks ran, as the merge agent's brief gives it: the base the
     checks ran on, the base now, the range between them, each commit of that range (LOG, git's
@@ -4660,17 +4698,26 @@ def cmd_merge_review(task: Task, record: str | None, read_tip: str | None = None
         problem = (f"the second line of {record} gives no call on the moved base: the base moved after the checks ran, so it is `Base: safe.` or "
                    "`Base: another round.`, then one sentence of why, as `prompts/merge.md` asks")
         short = "its second line gave no call on the moved base"
+    owner = False
     if problem:
-        # The merge agent is asked again once. On a moved base its second answer that cannot be recorded is
-        # recorded as another round, so the checks decide, and the owner is not asked (in doubt, another round).
+        # The merge agent is asked again once (`unread_next`). Its second answer that cannot be recorded is
+        # recorded as another round on a moved base, so the checks decide, and the owner is not asked (in
+        # doubt, another round); on a base that did not move it is a review that calls the owner, with no
+        # verdict, whatever a lower line of it says.
         unread = kept.get("merge_unread") or {}
         tries = int(unread.get("count") or 0) + 1 if unread.get("tip") == tip and unread.get("base") == read_on else 1
         task.keep(merge_unread={"tip": tip, "base": read_on, "count": tries})
-        if not moved or tries < 2:
+        then = unread_next(verdict, moved, call, tries)
+        if then == "again":
             raise LandError(f"{problem}; the merge agent is asked again")
-        call = ("another round", f"the merge agent's answer could not be recorded twice ({short}), and in doubt the checks run again")
-    calls = verdict == "call" or refusal is not None
-    why = refusal if refusal else (next(line for line in text.splitlines() if line.strip()).strip().lstrip("#*> ").strip() if verdict == "call" else None)
+        if then == "another round":
+            call = ("another round", f"the merge agent's answer could not be recorded twice ({short}), and in doubt the checks run again")
+        owner = then == "owner"
+    calls = verdict == "call" or refusal is not None or owner
+    if owner:
+        why = unread_why(lower_verdict(text), refusal)
+    else:
+        why = refusal if refusal else (next(line for line in text.splitlines() if line.strip()).strip().lstrip("#*> ").strip() if verdict == "call" else None)
     write_whole(task.directory / "merge-review.md", text if text.endswith("\n") else text + "\n")
     review = {"tip": tip, "verdict": verdict, "calls": calls, "why": why, "by": seat["seat"], "at": now_utc(), "base": read_on,
               "base_call": call[0] if call else None, "base_why": call[1] if call else None}

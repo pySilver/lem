@@ -13,6 +13,8 @@ Size: full, because the rule is one, but it sits in the step that decides whethe
    4. A fresh merge agent answers in the same form, with the same tip and base.
    5. The same command now writes the answer down as the merge review, which calls the owner and says why in plain words: the merge agent twice put another line above its verdict, and its answer says `Verdict: merge.` lower down.
    6. "Waits for you" shows "Read the merge review" for gift-note, and the board's server does not merge it.
+   - test: `python3 -B -m unittest tests.unit.test_land.MergeReview.test_an_answer_with_no_verdict_on_a_base_that_did_not_move_calls_the_owner_the_second_time tests.unit.test_land.MergeReview.test_the_why_of_a_second_answer_with_no_verdict_says_what_the_two_answers_hold` in `tests/unit/test_land.py`
+   - test: `bash tests/lem-land-shop.sh` in `tests/lem-land-shop.sh`, `tests/lib.sh`, `tests/checks.sh`
 2. On a base that moved, a second answer that cannot be recorded is still recorded as another round of the checks, and the owner is not asked.
    - no test: the change keeps behavior, so a test of it passes on the base too; the unit case of task 1 for a second answer with no verdict on its first line on a moved base holds it, which `mb-mute` in `tests/lem-land-shop.sh` does not (it sends a verdict and no base call)
 3. The landing's step of the merge agent, and the agent's own part of the harness, say what follows a second refused answer on a base that did not move.

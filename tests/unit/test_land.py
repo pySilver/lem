@@ -413,6 +413,28 @@ class MergeReview(unittest.TestCase):
         self.assertEqual(land.verdict_of("**Verdict: call.** The change is careful."), "call")
         self.assertIsNone(land.verdict_of("A fine change.\nVerdict: merge."))
 
+    def test_an_answer_with_no_verdict_on_a_base_that_did_not_move_calls_the_owner_the_second_time(self) -> None:
+        # the first is asked again, the second is a review that calls the owner, as an agent that gives no answer twice
+        self.assertEqual(land.unread_next(None, False, None, 1), "again")
+        self.assertEqual(land.unread_next(None, False, None, 2), "owner")
+        self.assertEqual(land.unread_next(None, False, None, 3), "owner")
+        # an answer with a verdict is recorded as it is
+        self.assertIsNone(land.unread_next("merge", False, None, 1))
+        self.assertIsNone(land.unread_next("call", False, None, 2))
+
+    def test_the_why_of_a_second_answer_with_no_verdict_says_what_the_two_answers_hold(self) -> None:
+        answer = "## Review\n\nVerdict: merge. The change does what its criterion says.\n"
+        self.assertEqual(land.lower_verdict(answer), "merge")
+        self.assertEqual(land.lower_verdict("A careful change.\n**Verdict: call.** It moves money."), "call")
+        self.assertIsNone(land.lower_verdict("## Review\n\nThe change looks fine to me."))
+        self.assertIsNone(land.lower_verdict("Verdict: merge. Fine."))
+        self.assertEqual(land.unread_why(land.lower_verdict(answer), None),
+                         "the merge agent twice gave no verdict on its first line; its last answer puts another line above its verdict, `Verdict: merge.`")
+        self.assertEqual(land.unread_why(None, None), "the merge agent twice gave no verdict on its first line; its last answer gives no verdict at all")
+        careful = "a careful request is merged by the owner, whatever the settings say (its plan says careful: yes); it waits as `open` for his word"
+        self.assertEqual(land.unread_why("call", careful),
+                         f"the merge agent twice gave no verdict on its first line; its last answer puts another line above its verdict, `Verdict: call.`; {careful}")
+
     def test_the_time_against_the_median_of_the_same_track(self) -> None:
         def ev(task: str, event: str, at: str, **more: object) -> dict:
             return {"ts": f"2026-11-20T{at}:00Z", "event": event, "task": task, **more}
@@ -987,6 +1009,18 @@ class ReadOfAMovedBase(unittest.TestCase):
         self.assertIsNone(land.base_call_of("Verdict: merge. Fine.\nIts test proves it.\nBase: safe. Late."))
         self.assertIsNone(land.base_call_of("Verdict: merge. Fine.\nBase: safe."))
         self.assertIsNone(land.base_call_of("Verdict: merge. Fine.\nBase: maybe. Who knows."))
+
+    def test_a_second_answer_that_cannot_be_recorded_on_a_moved_base_is_another_round(self) -> None:
+        safe = ("safe", "B changed only docs/board.md.")
+        # no verdict on its first line, with a base call or none: asked again, then another round, never the owner
+        self.assertEqual(land.unread_next(None, True, safe, 1), "again")
+        self.assertEqual(land.unread_next(None, True, safe, 2), "another round")
+        self.assertEqual(land.unread_next(None, True, None, 2), "another round")
+        # a verdict and no base call: the same
+        self.assertEqual(land.unread_next("merge", True, None, 1), "again")
+        self.assertEqual(land.unread_next("merge", True, None, 2), "another round")
+        # a verdict and a base call is recorded as it is
+        self.assertIsNone(land.unread_next("merge", True, safe, 1))
 
     def test_what_moved_beside_the_change(self) -> None:
         moved = land.moved_of(M1, M2, "abc1234\0docs: the board\ndef5678\0fix: land\n", ["docs/board.md", "land.py"], ["land.py", "tests/t.sh"])

@@ -28,4 +28,7 @@ agent that `BRIEF` and no other: a brief of a later base is another read.
 
 Then `lem land merge-review SLUG --file "ANSWER" --tip TIP --base BASE`, TIP and BASE being the
 `tip` and the `base` the step printed with the brief. A reply the step refuses (no verdict, or no
-call on a moved base) is a new start of the agent on the same `BRIEF` and `ANSWER`.
+call on a moved base) is a new start of the agent on the same `BRIEF` and `ANSWER`. A second
+refused reply of that brief is recorded: on a moved base as `another round`, and on a base that did
+not move as a review that calls the owner, with no verdict, so "Waits for you" shows him "Read the
+merge review"; start no agent again for that tip and base.
