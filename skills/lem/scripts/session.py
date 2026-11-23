@@ -31,6 +31,9 @@
     lem session list             each task's newest session: live, agent, selected, the phase the task is
                                  in now and the one the session opened in, unanswered, and its signs
                                  of work (sign, shell, signs)
+    lem session plugin-dir       the folder that `--plugin-dir` names on a launch line of this Lem, or
+                                 null when this Lem is the installed plugin: the task's session and
+                                 the plan talk's pair run the Lem that opened them
 
 The phase comes from the task's state, never from an argument: no state block, or `held` for the
 interview or the criteria (any hold but a breaker's), is `shape`; a task on the fast track is `fast`
@@ -64,7 +67,9 @@ when `seats.session` names them. `--plugin-dir ROOT` follows when this Lem is no
 plugin, ROOT being the folder of the plugin these scripts are in, so that the task's session runs
 the Lem that opened it: a folder under Claude Code's plugin folders (`plugins/` of
 `CLAUDE_CONFIG_DIR`, else of `~/.claude`) is the installed plugin and gets no flag; any other is a
-clone loaded with `claude --plugin-dir`, or a branch before its release (`plugin_dir`). The workspace is the one the task's newest session was in, else
+clone loaded with `claude --plugin-dir`, or a branch before its release (`plugin_dir`). `plugin-dir`
+prints that folder, or null, for the one launch line Lem does not write itself: the plan talk's pair,
+which the lead opens under its session (`harness/claude-code/plan-talk.md`). The workspace is the one the task's newest session was in, else
 the caller's, else that of the task its `after:` line names, else the repository's newest. It
 logs `session.open` with the session, its name, the phase, why and the workspace.
 
@@ -463,7 +468,8 @@ def handoff_form(text: str, slug: str) -> dict:
 
 
 def plugin_dir(root: Path, environ: dict) -> str | None:
-    """What `--plugin-dir` names on the launch line: None when ROOT, this Lem's plugin folder, is under
+    """What `--plugin-dir` names on the launch line of a task's session and of the plan talk's pair
+    (`lem session plugin-dir`): None when ROOT, this Lem's plugin folder, is under
     Claude Code's plugin folders (`plugins/` of CLAUDE_CONFIG_DIR, else of `~/.claude`), where the new
     session loads it as the installed plugin; else ROOT, so that the session runs this Lem and not the
     one that is installed."""
@@ -1277,7 +1283,12 @@ def main(argv: list[str] | None = None) -> None:
     waiting.add_argument("--every", type=float, default=WAIT_EVERY, help=argparse.SUPPRESS)
     waiting.add_argument("--bound", type=float, default=FIRST_LINE_BOUND, help=argparse.SUPPRESS)
     commands.add_parser("list", help="each task's newest session")
+    commands.add_parser("plugin-dir", help="the folder that --plugin-dir names on a launch line of this Lem, or null when this Lem is the installed plugin")
     args = parser.parse_args(argv)
+    if args.command == "plugin-dir":
+        # no repository: the answer is this Lem's folder alone, which the plan talk's pair takes too
+        print(json.dumps({"plugin_dir": plugin_dir(PLUGIN, os.environ)}, indent=2, ensure_ascii=False))
+        return
     try:
         root = project.repo_root(Path(args.repo))
         if getattr(args, "session", None) and args.command in ("open", "wake") and args.why not in ("stopped", "status"):
