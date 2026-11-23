@@ -465,7 +465,7 @@ pre.code { margin: 0; font: 12.5px/1.6 var(--mono); white-space: pre-wrap; overf
 
 /* ---- a phone ---- */
 /* Under 700 px the sidebar is a drawer behind a bar at the top, whose count opens it on "Waits for
-   you"; the kanban shows one column at a time, which a strip of tabs above it names and a swipe
+   you", and a sidebar folded to its rail is the rail there, with the arrow that unfolds it; the kanban shows one column at a time, which a strip of tabs above it names and a swipe
    changes; a task's panel takes the whole screen with a back control; the artifacts are a list,
    then the file. Nothing here applies to a wider page. */
 .mbar, .ktabs, .scrim, .av-back { display: none; }
@@ -482,7 +482,8 @@ pre.code { margin: 0; font: 12.5px/1.6 var(--mono); white-space: pre-wrap; overf
   .side { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: min(340px, 88vw); transform: translateX(-104%); transition: transform .2s ease; visibility: hidden; }
   .shell.drawer .side { transform: none; visibility: visible; box-shadow: 16px 0 40px -16px rgba(0, 0, 0, .4); }
   .shell.drawer .scrim { display: block; position: fixed; inset: 0; z-index: 35; background: rgba(20, 16, 8, .38); }
-  #side-fold, #beacon { display: none; }
+  /* the drawer folds nothing, but a sidebar folded in a wider window keeps at its foot the arrow that unfolds it */
+  .shell:not(.railed) #side-fold, #beacon { display: none; }
   .brand { grid-template-columns: 32px minmax(0, 1fr); }
   .wlist.many { min-height: 114px; }
   .wi, .vbtn { min-height: 44px; }

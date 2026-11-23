@@ -2,7 +2,7 @@
 // pictures (tests/board-showcase.py), tests/lem-serve.sh's typing into a page, the keys of tests/lem-board-keys.sh and a builder's look at a page. SPEC has a viewport (`width`,
 // `height`, `scale`, `mobile` for a phone's emulation), `dark` for the color scheme, `ua` for another
 // user agent, `noscript` for a page with its scripts off, `posts` to print each POST it sends, and `steps`:
-// {goto, wait}, {wait}, {eval}, {print}, {click} (with `tap`, a finger's touch, as a phone gets it), {sh} (a
+// {goto, wait}, {size} (the window's [width, height] from then on), {wait}, {eval}, {print}, {click} (with `tap`, a finger's touch, as a phone gets it), {sh} (a
 // command, its output printed), {key} (with `code`, `vk`, `text`, `modifiers`), {shot}. Chrome runs
 // with a throwaway profile and the mock keychain, and the profile goes at the end. CHROME names the
 // browser; by default Google Chrome's place on macOS, else the first of google-chrome and chromium.
@@ -52,6 +52,8 @@ try {
   await send('Runtime.enable');
   for (const step of spec.steps) {
     if (step.goto) { await send('Page.navigate', {url: step.goto}); await sleep(step.wait ?? 1500); }
+    // `size`: the window made [width, height] wide, as a person drags its edge, the page and its cookies kept
+    else if (step.size) { await send('Emulation.setDeviceMetricsOverride', {width: step.size[0], height: step.size[1], deviceScaleFactor: spec.scale ?? 1, mobile: Boolean(spec.mobile)}); await sleep(step.after ?? 300); }
     else if (step.sh) { console.log(execSync(step.sh, {encoding: 'utf8'}).trim().slice(0, 300)); await sleep(step.after ?? 0); }
     else if (step.wait) await sleep(step.wait);
     else if (step.eval) { const r = await send('Runtime.evaluate', {expression: step.eval, awaitPromise: true}); if (r.result?.exceptionDetails) console.log('eval error', JSON.stringify(r.result.exceptionDetails).slice(0, 400)); await sleep(step.after ?? 300); }
