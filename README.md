@@ -110,9 +110,9 @@ page, and type "land". Then type your first request.
 
 Plain words that say the same work too. With your yes at setup, a scheduled job runs `/lem retro`
 each morning and `/lem night` each night, and each closes its own session at its end. The retro
-changes no file and asks you nothing. A reviewer agent reads what it proposes, and you see only the
-proposals that pass, as [items of the backlog](docs/board.md#the-reviewers-items) that you start or
-drop.
+changes no file and asks you nothing. A reviewer agent reads what it proposes, and only the
+proposals that pass wait for you, as [items of the backlog](docs/board.md#the-reviewers-items) that
+you start or drop. The proposals that it refutes stay in the backlog as decided against.
 
 ## What you can rely on
 

@@ -217,8 +217,8 @@ Each script's module docstring says what it does and why; this list says where e
   - `board.py` (`lem board`): makes sure the server runs and opens a board, or with `--page FILE`
     any page of Lem, as a companion. `picker.py` (`lem picker`): agterm's picker over the tasks.
   - `doctor.py` (`lem doctor`): the machine check. `corrections.py` (`lem corrections`): the
-    optional queue of the owner's corrections and its hook. `jev.py` (`lem-jev`): the client of the
-    Jev model.
+    optional queue of the owner's corrections and its hook. `jev.py` (`lem-jev`): the Jev client:
+    corrections, panel, landing.
   - `lem_state.py` (the state folder and Lem's home folder), `lem_plans.py` (a plan's file
     name), `lem_sibling.py` (a sibling's command in the same process), `lem_release.py` (a task's
     `release.txt` and its stop two releases back) and `lem_python.py` (a Python of 3.11 or newer for

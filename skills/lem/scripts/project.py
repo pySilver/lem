@@ -677,7 +677,7 @@ TABLES: dict[str, tuple[str, ...]] = {
     "tracker": ("kind",),
     "naps": ("on",),
     "state": ("keep_days",),
-    # whether the landing sends a finding called under the bar to the Jev model (land.py `jev_read`)
+    # whether the landing sends a finding to the Jev model (land.py `jev_read` and `ask_alike`)
     "jev": ("findings",),
     # the question page's defaults, which only that page reads and checks (`lem-ask`)
     "ask": ("style", "size", "review", "browser", "status"),
@@ -866,9 +866,11 @@ on = false
 # Before a pull request, Lem asks the Jev decision model one question about each defect outside a
 # task that an agent calls under the bar: is it over the bar after all? Its score goes on the
 # finding's line of the pull request, and a high one makes `lem land propose` refuse once, so that
-# the agent looks again. Each question sends the finding's place, title and run to the model's
-# provider (OpenRouter unless JEV_API_URL names another), with the key JEV_API_KEY of the machine
-# that lands; with no key, nothing is sent. false sends nothing from this repository.
+# the agent looks again. Before an agent files a defect, Lem also asks which items of the backlog
+# may hold the same one. Each question sends the finding's place, title and run, and that second one
+# each item's title, place and first line, to the model's provider (OpenRouter unless JEV_API_URL
+# names another), with the key JEV_API_KEY of the machine that lands; with no key, nothing is sent.
+# false sends nothing from this repository.
 findings = true
 """
 
@@ -1228,7 +1230,8 @@ def naps_of(raw: dict, name: Path) -> dict:
 def jev_of(raw: dict, name: Path) -> dict:
     """The `[jev]` table of the team's file, checked: its one key, `findings`, whether the landing
     sends the text of each finding an agent calls under the bar to the Jev model (land.py,
-    `jev_read`), with `from`, the team's file when it names it, else DEFAULT_FROM. With no line it
+    `jev_read`), and a finding with the backlog's items for the look at the same defect (land.py,
+    `ask_alike`), with `from`, the team's file when it names it, else DEFAULT_FROM. With no line it
     sends: the key of the model's provider is the machine's own, and with none nothing is sent."""
     given = raw.get("jev", {}).get("findings")
     if given is None:
@@ -1429,7 +1432,7 @@ def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, commit
         "corrections": corrections,
         "tracker": tracker,
         "naps": naps,
-        # whether a landing sends a finding called under the bar to the Jev model; the landing reads the main checkout's
+        # whether a landing sends a finding to the Jev model; the landing reads the main checkout's
         "jev": jev_of(raw, SETTINGS),
         # read from the main checkout's settings, in a task's worktree too, or from this machine's own
         # file; `from` names which, as each seat's does

@@ -78,7 +78,8 @@ the way": one line for each defect you fixed, with the file, the commit and what
 "Seen, not filed": one line for each of the others you did not file, with the path of the open
 item that names it. "Filed in the backlog": each item you filed, by its first line, its file and
 its `worth`. Leave its stories, charts and picture links as they are.
-Lem copies the three lists into the pull request, each under its own heading.
+Lem copies the three lists into the pull request, each under its own heading, and lists each item
+the branch adds under "Filed in the backlog" or "Filed as not worth it", as its `worth` says.
 
 When your agent refuses you the write of a file, do not go around it: put the text in your reply
 and say which file it is for.

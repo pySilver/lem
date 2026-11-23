@@ -157,12 +157,14 @@ personas that nobody used for that number of days. To see what a number removes,
 Before a pull request, Lem asks the Jev decision model one question about each defect outside the
 task that an agent calls under the bar: is this defect over the bar? The line of the defect in the
 pull request shows the score. When the score is high, `lem land propose` stops one time, and the
-agent looks at the defect again. Each question sends the place, the title and the text of the
-defect to the provider of the model. Lem sends nothing when your computer has no `JEV_API_KEY`.
+agent looks at the defect again. Before an agent files a defect, Lem also asks which items of the
+backlog can hold the same defect. Each question sends the place, the title and the text of the
+defect to the provider of the model, and that second question also sends the title, the place
+and the first line of each item. Lem sends nothing when your computer has no `JEV_API_KEY`.
 
 | Setting | Default | Use |
 | --- | --- | --- |
-| `jev.findings` | `true` | `false` sends no defect of this repository to the model. The line of the defect then says "Jev: not asked (off in the settings)" |
+| `jev.findings` | `true` | `false` sends no defect and no item of this repository to the model. The line of the defect then says "Jev: not asked (off in the settings)" |
 
 ### `[tracker]`
 

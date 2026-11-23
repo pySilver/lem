@@ -99,8 +99,8 @@ The time of a thing starts with the step that started its wait. For example, the
 criteria count from the time that they wait for your yes, not from the start of the interview.
 
 What the night and the retro propose is not on the list. A reviewer agent reads each proposal
-first, and you see only the proposals that pass, as items of the board's
-[**Backlog**](board.md#the-reviewers-items) view.
+first, and only the proposals that pass wait for you, as items of the board's
+[**Backlog**](board.md#the-reviewers-items) view. A proposal that it refutes waits for nobody.
 
 The [board](board.md) shows the same list, in the same order, in its view **Waits for you**. A
 task with one thing is one row. A task with two or more things is one stack: its title, its first

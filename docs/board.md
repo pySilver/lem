@@ -24,6 +24,11 @@ The first page lists the repositories that use Lem, each with what waits for you
 Press each key alone, with no Shift. `Cmd-K` (`Ctrl-K` off a Mac), or the **Search** button, finds
 any task or backlog item by its title.
 
+An item of the backlog says who added it and on which day, from the commit that added its file:
+"added by AUTHOR on DAY, in task SLUG". When that commit names no task, the item names its pull
+request, if the commit names one. An item that git does not have yet says "not committed yet". An
+item of the [reviewer](#the-reviewers-items) says the day that the reviewer added it.
+
 On **Tasks**, `J`, `K`, `↑` and `↓` move a mark in a column, and `H`, `L`, `←` and `→` to the next
 column. On **Waits for you**, `J`, `K`, `↑` and `↓` move it. `Enter` opens the marked task, or the
 session in agterm where you answer its row. On a marked stack, `Enter` opens or closes the stack.
@@ -75,11 +80,15 @@ way. The page then shows the result, or why Lem refused.
 
 The night and the retro write what they find as proposals. Each morning, after the retro, a
 reviewer agent reads them and refutes the weak ones. It puts the proposals that pass into backlog
-items, one item for each area. These items are in `.lem/state/backlog/`, which git ignores.
-**Backlog** shows them in a group of their own, before the other items.
+items, one item for each area. It puts each proposal that it refutes into an item with
+`worth: no` and its reason, so that an agent that proposes the same change again finds it
+decided.
+These items are in `.lem/state/backlog/`, which git ignores. **Backlog** shows the items that
+passed in a group of their own, before the other items, and the refuted items in the group
+"Decided against", with no **Drop**.
 
-- An item that no task builds is "undecided". The **Backlog** key shows the number of undecided
-  items.
+- An item that passed and that no task builds is "undecided". The **Backlog** key shows the
+  number of undecided items. It never counts an item with `worth: no`.
 - **Start a task** opens a task for the item. The item then shows the name of that task. The item
   leaves the backlog when the task merges, and it is undecided again when you drop the task.
 - **Drop** removes the item at once. The record of the proposals keeps the drop, so no later
