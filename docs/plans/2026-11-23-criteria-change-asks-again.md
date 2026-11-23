@@ -52,7 +52,8 @@ flowchart TD
 1. **`lem criteria change`: a change of the criteria that waits for his yes.** Serves criteria 1, 4,
    5 and 6.
    - A new action of `criteria.py`, `lem criteria change SLUG --file FILE --words "HIS NOTE"`, for a
-     task on the standard track whose criteria wait for his yes and have no approval yet. It reads
+     task on the standard track whose criteria wait for his yes and have no approval of the
+     standard track yet. It reads
      the text he answered, keeps it as the text before the change (`criteria-before.json` in the
      task directory: that text whole, and the `ts` of the newest state block it was written under,
      written before `criteria.md` moves), writes FILE's section into `criteria.md`, logs an event of
@@ -71,22 +72,37 @@ flowchart TD
      the other starts: a change refuses when an approval of the owner's stands after the newest
      state block (his yes came first, and the session goes on from it), and a Yes whose page showed
      the text before a change is refused by its digest. A unit case for each order. (Talk question 1.)
+   - His typed No counts from the moment the session takes it (logged decision 9, the ladder's pick on
+     talk question 1): a first form of the command, `lem criteria change SLUG --typed --words "HIS
+     NOTE"` (the form is the builder's), records his typed No as the answer of the criteria row of
+     the newest state block (`lem_answers.record` with the row's key, `key_of("criterion", SLUG,
+     BLOCK)`, and `from: session` where the board writes `from: board`), before the session writes
+     the new text. It refuses, and says what took effect, when an answer of that row or an approval
+     after that block is there first. A later Yes or No on the board for that row is refused by the
+     record its act links first (`act_approve` and `act_answer`, as for the fast track's row
+     today), and `lem criteria change --file` then finds his No on record and goes on. A unit case:
+     his typed No recorded, then a board Yes refused. The record keeps every key it has, so the
+     release before reads it (`AGENTS.md`, two releases).
    - It prints JSON: the criteria before and after, paired by their text and not by their number
      (`difflib.SequenceMatcher` over `whole` of each, the sentence and the case): a text that is the
      same is not shown; one criterion replaced by one is a changed pair, with its number before and
      after; a removed criterion with its number before; an added one with its number after; a run
-     of N replaced by M other criteria shows as N removed and M added. So the removal of criterion 2
-     of three shows criterion 2 removed, and criterion 3 kept as the new 2. A unit case for that
-     removal. One way prints the same pairs again while that wait stands, for a session that opened
+     of N replaced by N criteria is N changed pairs, one by one in order (logged decision 6, the ladder's
+     pick on talk question 9); only a run of N replaced by M, with N not M, shows as N removed and M
+     added. So the removal of criterion 2 of three shows criterion 2 removed, and criterion 3 kept as
+     the new 2; criteria 1 and 2 changed in one note show as two changed pairs. A unit case for each. One way prints the same pairs again while that wait stands, for a session that opened
      after the change (for example `lem criteria change SLUG --show`; the form is the builder's).
      (Talk question 9.)
    - Refused with exit 1 and a message that names the fix: no `criteria.md`; no words; FILE's
      criteria the same as the ones that wait (nothing changed); FILE not in the form `lem criteria`
      reads, or with a test line under a criterion (the same check as `cmd_approve`'s for the owner's
      file, so that every text that enters the wait can take his Yes; talk question 8); a task whose
-     criteria have an approval (`lem criteria approved SLUG` is not null: from then on a change is
-     `lem decisions criterion`, and `criteria.py`'s `against` reads the plan against that approval;
-     talk question 2); a task on the fast track (its own step keeps his words, `stages/new.md`, "The
+     newest approval is of the standard track (`size: full` in `lem criteria approved SLUG`: from
+     then on a change is `lem decisions criterion`, and `criteria.py`'s `against` reads the plan
+     against that approval; talk question 2). A `--small` approval of a task that grew from the fast
+     track does not refuse it: that task is on the standard track, and criterion 2 gives its card No
+     with a note (logged decision 4, the ladder's pick on talk question 2). A unit case for a grown task; a
+     task on the fast track (its own step keeps his words, `stages/new.md`, "The
      fast track", step 1).
    - The held line starts with `CRITERIA_WAIT`, so `project.py`'s `track_of` reads it as the
      standard track and the board's `held_need` as `criteria`, which takes no read before his yes
@@ -95,11 +111,15 @@ flowchart TD
    - `land.py`'s `unread` already says "the criteria changed after the personas' read, by the
      owner's approval N, and the change was not read" when his approval holds other criteria than
      the read did. A unit case pins it for an approval after a change.
-   - The pull request's line of the read (`land.py`'s `read_line`) also counts the change events of
-     task 1 after the read, whatever the text he approved at the end: "the criteria changed N
-     times after the personas' read, from the owner's notes". So a change from A to B and back to A,
-     whose approved text is the one the personas read and which `unread` rightly leaves out, still
-     shows in the pull request. A unit case for that A, B, A run. (Talk question 10.)
+   - The pull request's line of the read (`land.py`'s `read_line`) also counts the changes of task 1
+     after the read, whatever the text he approved at the end: "the criteria changed N times after
+     the personas' read, from the owner's notes". It counts the held blocks `the criteria wait for
+     the owner: changed from the owner's note` after the read, the last write of a change, which a
+     retry never writes twice (logged decision 7, the ladder's pick on talk question 10), and not the
+     change events. So a change from A to B and back to A, whose approved text is the one the
+     personas read and which `unread` rightly leaves out, still shows in the pull request. A unit
+     case for that A, B, A run, and one with a retry after a stop between the event and the block.
+     (Talk question 10.)
    - Files: `skills/lem/scripts/criteria.py`, perhaps `skills/lem/scripts/project.py` (an event's
      form, if `log` checks it), `tests/unit/test_criteria*.py` or a new unit file,
      `tests/unit/test_land*.py` for `unread`, and the criteria block of `tests/lem-settings.sh` for
@@ -141,6 +161,11 @@ flowchart TD
      text before the change beside its new text, from `criteria-before.json` and `criteria.md`, read
      through `criteria.py` (`lem_sibling`, as `whole` reads it). On a phone 390 pixels wide the two
      stand one under the other and nothing is cut off.
+   - While `criteria-before.json` names the newest state block, a change of task 1 began and did
+     not end: `Task.approvable` is false and `act_approve` refuses with "Lem writes the changed
+     criteria: the new request comes in a moment", so no Approve takes the new text before the
+     card shows the old text beside it (logged decision 5, the ladder's pick on talk question 4).
+     A unit case with the stop of task 1's case.
    - `tests/board-showcase.py`: a task on the standard track whose criteria changed from his note,
      so that `tests/lem-board-keys.sh` taps No with no note (refused) and Yes on a phone, and
      `tests/lem-board-act.sh` runs a No with a note to the record and the wake. The report of this
@@ -157,7 +182,10 @@ flowchart TD
      on the board, is never his yes. The session writes each changed criterion again in its own
      words from his note, with a concrete example, keeps his rule (the personas' rewrite ruling,
      2026-11-22), runs `lem criteria change`, and puts up the page again with each changed
-     criterion's old text beside its new text (the pairs `lem criteria change` prints). The
+     criterion's old text beside its new text (the pairs `lem criteria change` prints). His typed
+     No is recorded first, with `lem criteria change --typed` (task 1), before the session writes
+     the new text: when that refuses, an answer of the board came first, and the session takes it
+     and says in one line which it took and from where (logged decision 9). The
      personas do not read it again. Only his yes to that page, or Yes on the board, is `lem criteria
      approve`; "again after each change of his" goes.
    - `prompts/session.md`, "His answer on the board": a `criterion` `no` on the standard track is
@@ -208,14 +236,18 @@ The list, numbered as the reviewer gave it:
    wins, while "While the owner is needed" (`prompts/session.md`) gives a board answer after the
    session's read no effect. The plan: that Yes is his own, to the bytes he saw (`act_approve`,
    `--shown`), and the change then refuses and the session says which answer was taken, the form
-   of that same part; the input is not realistic. Goes to the ladder (step 5).
+   of that same part; the input is not realistic. The ladder (step 5): the gate, checkable by
+   `prompts/session.md` and criterion 4 of `board-answers-a-card`, picked the reversed decision,
+   his typed No recorded first (logged decision 9; task 1 and task 3).
 2. **The lead's own wait cannot use the planned change command.** Design choice. Repaired in tasks
    1 and 3: the refusal is "the criteria have an approval" instead of "a `lead:` line", and the lead
    writes `criteria.md` for its wait and copies an approved change into the plan. The reviewer,
    confirmed by the plan: a task that grew from the fast track keeps its `--small` approval
    (`stages/new.md`, "The fast track"), so the new refusal still refuses his No on its full
    criteria. Positions: refuse with any approval, against refuse only with an approval of the
-   standard track or one after the newest held block. Goes to the ladder.
+   standard track or one after the newest held block. The ladder: the gate, checkable by
+   criterion 2, picked the reversed decision, an approval of the standard track (logged decision
+   4; task 1).
 3. **An earlier skip answer can mask the criteria No.** Settled: `answer_of_block` gives the newest
    record of the block (task 2); two criteria waits in one second have no ordinary path
    (`turn_of`). Settled by the two, not checked by the review.
@@ -226,7 +258,8 @@ The list, numbered as the reviewer gave it:
    `criteria_waiting` reads the new text under the old wait, and the board's Approve takes it
    before the session shows old beside new (criterion 4). The plan: a stop inside one process
    between two writes, then his Approve before the session runs again; his yes is to bytes he
-   read. Goes to the ladder.
+   read. The ladder: the gate, checkable by criterion 4, picked the reversed decision, no
+   approval while a change is in the middle (logged decision 5; task 2).
 5. **An away mark can start the build without the requested Yes.** Settled: decision 6, the ruling
    "A task runs with him or alone, and he can let go at any stage", and `stages/away.md`'s
    `--alone`, which is never his yes. Settled by the two, not checked by the review.
@@ -235,7 +268,9 @@ The list, numbered as the reviewer gave it:
    The reviewer: a layer over decision 1, which holds still: by age the guard also hides the rows
    of a task of the release before when that release has the reader, at every later update. The
    plan: that costs one release of answers in the session and loses nothing. Positions: a guard by
-   age, against a guard by the first release that has the reader. Goes to the ladder.
+   age, against a guard by the first release that has the reader. The ladder: the gate, cheap
+   (the next release gives the same rows either way), kept the guard by age (logged decision 8;
+   its undo is a constant of the first release with the reader).
 7. **The Waits for you row can accept Yes without the old text.** Settled: the standard track's
    row keeps "Read and approve…" in `row_acts` (task 2). Settled by the two, not checked by the
    review.
@@ -246,12 +281,15 @@ The list, numbered as the reviewer gave it:
    1: pairs by text through `SequenceMatcher`. The reviewer, confirmed by the plan: two adjacent
    edits give one replace block of two to two, which the plan's rule shows as two removed and two
    added, not as two changed pairs (criterion 4). Positions: the plan's rule, against a replace
-   block of N to N paired one by one. Goes to the ladder.
+   block of N to N paired one by one. The ladder: the gate, checkable by criterion 4, picked the
+   reversed decision, N to N as N changed pairs (logged decision 6; task 1).
 10. **The pull request can lose the history of a change after the read.** Design choice. The plan
    refuted first (`unread` compares the final digest with the read's); the reviewer held it, and
    the plan repaired task 1: `read_line` counts the change events after the read. The reviewer: a
    layer over decision 2, the same decision as question 4: a retry after a stop between the event
-   and the held block logs the change twice, and the count says two. Goes to the ladder.
+   and the held block logs the change twice, and the count says two. The ladder: the gate,
+   checkable by a unit case with a retry, picked the reversed decision, a count of the held
+   blocks (logged decision 7; task 1).
 
 The mechanisms the repairs added, with the reviewer's word:
 
@@ -298,8 +336,10 @@ of "Waits for you" (7); task 3 took the session's retry (4) and the lead's `crit
    By the lead.
 5. **After a No on the board, the session's page and the board's row both ask again, as the first
    request does.** The interview's page in the session and the board's criteria row stand together
-   today; the change keeps that, and the first answer counts: `--shown`, read under `criteria.lock`,
-   and the change under the same lock keep it (task 1, talk question 1). By the lead.
+   today; the change keeps that, and the first answer counts: his typed No is recorded as the
+   row's answer before the session writes the new text, and `--shown`, read under `criteria.lock`,
+   and the change under the same lock keep the rest (task 1, talk question 1, logged decision 9).
+   By the lead, and the ladder for the typed No.
 6. **While the owner is away, the wait after his change goes on as any wait for his yes.** His
    `/lem im-away` lets the task go on without him (the ruling "A task runs with him or alone, and he
    can let go at any stage", 2026-11-17 and 2026-11-18): "When the watch ends" of `stages/away.md`
