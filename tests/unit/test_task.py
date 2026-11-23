@@ -1083,9 +1083,123 @@ class Summarized(unittest.TestCase):
         self.assertEqual(after["night"], "2026-10-01")
 
 
+class SmallRecord(unittest.TestCase):
+    """Criteria 1 to 4 in a state folder of their own: `done-column-shows-newest` landed on 2026-11-22
+    with pull request 20, its newest event a `session.close` at 00:35:10 UTC; `invoice-fix`, from issue
+    7, landed on 2026-12-12 and its comment at the landing was never posted; `gift-note` builds. Each run
+    of prune is at a time of 2026-12-22, and `state.keep_days` is 30."""
+
+    PULL_20 = "https://github.com/acme/shop/pull/20"
+    # what the prune leaves of an ended task: its small record and the lock files at its top
+    KEPT = ["ask.txt", "landing.json", "state.lock", "state.md", "task.md"]
+    # the files of an ended task that a prune past the time takes
+    GONE = ["criteria-page.html", "criteria.json", "criteria.md", "decisions.jsonl", "empty.txt", "media/shown.png", "media/unshown.png",
+            "report.md", "reviews/r/01-initial/agents/a.jsonl", "reviews/r/01-initial/report.md"]
+
+    def setUp(self):
+        from unittest import mock
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.root = Path(folder.name)
+        self.state = self.root / "state"
+        project.STATE_ROOTS[self.root] = self.state
+        self.addCleanup(project.STATE_ROOTS.pop, self.root)
+        settings = {"state": {"keep_days": 30, "from": ".lem/project.toml"}, "tracker": {"kind": "github"}}
+        for patched in (mock.patch.object(project, "load", return_value=settings), mock.patch.object(project, "owner_records", return_value=[])):
+            patched.start()
+            self.addCleanup(patched.stop)
+        self.task("done-column-shows-newest", "2026-11-22T00:20Z landed: main: pull request 20 is merged\n")
+        self.task("invoice-fix", "2026-12-12T09:00Z landed: main: pull request 14 is merged\n")
+        self.task("gift-note", "2026-12-20T09:00Z building: lead: builder\n")
+        fix = self.state / "tasks" / "invoice-fix"
+        (fix / "ticket.txt").write_text("#7\n", encoding="utf-8")
+        (fix / "ticket-repo.txt").write_text("acme/shop\n", encoding="utf-8")
+        (fix / "ticket-steps.txt").write_text("assigned octocat\nstarted\nlanded\n", encoding="utf-8")
+        self.log = self.state / "events.jsonl"
+        self.log.write_text("".join(json.dumps(record) + "\n" for record in [
+            {"ts": "2026-11-21T15:00:00Z", "event": "task.state", "task": "done-column-shows-newest", "status": "building", "text": "lead: builder", "lines": []},
+            {"ts": "2026-11-22T00:20:00Z", "event": "task.state", "task": "done-column-shows-newest", "status": "landed", "text": "main: pull request 20 is merged", "lines": []},
+            {"ts": "2026-11-22T00:35:10Z", "event": "session.close", "task": "done-column-shows-newest"},
+            {"ts": "2026-12-12T09:00:00Z", "event": "task.state", "task": "invoice-fix", "status": "landed", "text": "main: pull request 14 is merged", "lines": []},
+            {"ts": "2026-12-20T09:00:00Z", "event": "task.state", "task": "gift-note", "status": "building", "text": "lead: builder", "lines": []},
+        ]), encoding="utf-8")
+
+    def task(self, slug: str, state: str) -> None:
+        directory = self.state / "tasks" / slug
+        files = {"state.md": state, "ask.txt": f"The ask of {slug}.\n", "task.md": f"# The ask of {slug}\n",
+                 "landing.json": json.dumps({"proposed": "abc1234", "pr": {"url": self.PULL_20}, "not_green": []}), "state.lock": "",
+                 "report.md": "# Report\n\n![it](media/shown.png)\n", "decisions.jsonl": json.dumps({"kind": "taken", "what": "Which name?"}) + "\n",
+                 "criteria.json": "{}", "criteria.md": "# Criteria\n", "criteria-page.html": "<p>the page</p>", "empty.txt": "",
+                 "media/shown.png": "a", "media/unshown.png": "b", "reviews/r/01-initial/report.md": "# Round 1\n", "reviews/r/01-initial/agents/a.jsonl": "{}\n"}
+        for path, text in files.items():
+            (directory / path).parent.mkdir(parents=True, exist_ok=True)
+            (directory / path).write_text(text, encoding="utf-8")
+
+    def listing(self, slug: str) -> list[str]:
+        directory = self.state / "tasks" / slug
+        return sorted(path.relative_to(directory).as_posix() for path in directory.rglob("*") if not path.is_dir())
+
+    def prune(self, at: str) -> dict:
+        """`lem project prune` as it runs at AT, a UTC time."""
+        from unittest import mock
+        moment = project.datetime.strptime(at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=project.timezone.utc)
+
+        class At(project.datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return moment
+        with mock.patch.object(project, "datetime", At):
+            answer, code = project.cmd_prune(self.root, False, None)
+        self.assertEqual((code, answer["failed"]), (0, []))
+        return answer
+
+    def test_a_run_past_the_cutoff_by_its_time_leaves_an_old_ended_task_its_small_record_only(self):
+        # its newest event is at 00:35:10 on 2026-11-22: two minutes before that time, 30 days on, it is still young
+        early = self.prune("2026-12-22T00:33:00Z")
+        self.assertEqual((early["tasks"], early["summarized"]), ([], []))
+        self.assertEqual(self.listing("done-column-shows-newest"), sorted(self.KEPT + self.GONE))
+        answer = self.prune("2026-12-22T00:36:00Z")
+        self.assertEqual(self.listing("done-column-shows-newest"), self.KEPT)
+        self.assertFalse((self.state / "tasks" / "done-column-shows-newest" / "media").exists())
+        self.assertFalse((self.state / "tasks" / "done-column-shows-newest" / "reviews").exists())
+        self.assertEqual([(t["task"], t["files"]) for t in answer["tasks"]], [("done-column-shows-newest", self.GONE)])
+        self.assertEqual((answer["files"], answer["summarized"]), (len(self.GONE), [{"task": "done-column-shows-newest", "status": "landed", "events": 3}]))
+        self.assertIn("so that each keeps only its small record", answer["said"])
+        self.assertNotIn("working files", answer["said"])
+
+    def test_a_young_ended_task_and_an_open_one_keep_every_file(self):
+        self.prune("2026-12-22T00:36:00Z")
+        self.assertEqual(self.listing("done-column-shows-newest"), self.KEPT)
+        ticket = ["ticket-repo.txt", "ticket-steps.txt", "ticket.txt"]
+        self.assertEqual(self.listing("invoice-fix"), sorted(self.KEPT + self.GONE + ticket))
+        self.assertEqual(self.listing("gift-note"), sorted(self.KEPT + self.GONE))
+
+    def test_tasks_reads_a_pruned_task_as_before_and_a_second_prune_changes_nothing(self):
+        before = {t["slug"]: t for t in project.read_tasks(self.root)}["done-column-shows-newest"]
+        self.prune("2026-12-22T00:36:00Z")
+        self.assertEqual(self.listing("done-column-shows-newest"), self.KEPT)
+        after = {t["slug"]: t for t in project.read_tasks(self.root)}["done-column-shows-newest"]
+        self.assertEqual((after["status"], after["ask"], after["proposal"]["pull_request"]), ("landed", "The ask of done-column-shows-newest.", self.PULL_20))
+        self.assertEqual((after["status"], after["since"], after["ask"], after["proposal"]), (before["status"], before["since"], before["ask"], before["proposal"]))
+        log = self.log.read_bytes()
+        again = self.prune("2026-12-22T01:36:00Z")
+        self.assertEqual((again["tasks"], again["summarized"], again["files"], again["skipped"]), ([], [], 0, []))
+        self.assertEqual((self.log.read_bytes(), self.listing("done-column-shows-newest")), (log, self.KEPT))
+
+    def test_a_ticket_step_a_pruned_task_still_owes_stays_shown(self):
+        before = {t["slug"]: t for t in project.read_tasks(self.root)}["invoice-fix"]
+        self.assertEqual(before["ticket_owed"], ["commented"])
+        self.prune("2027-01-12T09:01:00Z")
+        self.assertEqual(self.listing("invoice-fix"), sorted(self.KEPT + ["ticket-repo.txt", "ticket-steps.txt", "ticket.txt"]))
+        after = {t["slug"]: t for t in project.read_tasks(self.root)}["invoice-fix"]
+        self.assertEqual((after["status"], after["ticket"], after["ticket_repo"], after["ticket_steps"], after["ticket_owed"]),
+                         ("landed", "#7", "acme/shop", ["assigned", "started", "landed"], ["commented"]))
+
+
 class ResumeSummarized(unittest.TestCase):
-    """`lem project resume` of a dropped task, `card-foot`, with its breaker that waits and its handoff:
-    refused once its events became its summary, and resumed while they are whole."""
+    """`lem project resume` of a dropped task, `card-foot`, with its breaker that waits, its handoff, its
+    breaker's document and a picture: refused once its events became its summary and its folder its
+    small record, and resumed while they are whole, with every file it read before the log's second read."""
 
     def setUp(self):
         from unittest import mock
@@ -1101,6 +1215,9 @@ class ResumeSummarized(unittest.TestCase):
         (self.directory / "ask.txt").write_text("Put the card's foot under the total\n", encoding="utf-8")
         (self.directory / "handoff.md").write_text("# Handoff\n", encoding="utf-8")
         (self.directory / "decisions.jsonl").write_text(json.dumps({"kind": "breaker", "id": 1, "document": "breaker-1.md"}) + "\n", encoding="utf-8")
+        (self.directory / "breaker-1.md").write_text("# What stopped the build\n", encoding="utf-8")
+        (self.directory / "media").mkdir()
+        (self.directory / "media" / "after.png").write_bytes(b"\x89PNG\r\n\x1a\n")
         self.log = self.state / "events.jsonl"
         self.log.write_text("".join(json.dumps(record) + "\n" for record in [
             {"ts": back(40), "event": "task.state", "task": "card-foot", "status": "building", "text": "lead: builder", "lines": [], "branch": "feat/card-foot"},
@@ -1117,6 +1234,15 @@ class ResumeSummarized(unittest.TestCase):
     def summarize(self) -> None:
         answer, code = project.cmd_prune(self.root, False, None)
         self.assertEqual((code, answer["summarized"]), (0, [{"task": "card-foot", "status": "dropped", "events": 3}]))
+        # the folder keeps its small record only
+        self.assertEqual(sorted(path.name for path in self.directory.iterdir()), ["ask.txt", "state.md"])
+
+    def refused(self, message: str) -> None:
+        """MESSAGE is the refusal of a summarized task, which ends with the line that starts it again, and nothing was made."""
+        self.assertIn("became one summary event past state.keep_days", message)
+        self.assertTrue(message.endswith("\n/lem Put the card's foot under the total"), message)
+        self.assertFalse((self.state / "tasks" / "card-foot-2").exists())
+        self.assertEqual([json.loads(line)["task"] for line in self.log.read_text(encoding="utf-8").splitlines()], ["card-foot"])
 
     def test_a_dropped_task_whose_events_became_a_summary_is_refused_with_its_ask(self):
         from unittest import mock
@@ -1124,6 +1250,7 @@ class ResumeSummarized(unittest.TestCase):
         with mock.patch.object(project, "taken_on_remote") as remote, self.assertRaises(project.SettingsError) as said:
             project.cmd_resume(self.root, "card-foot")
         message = str(said.exception)
+        self.refused(message)
         self.assertIn("the events of 'card-foot' (its approved criteria, the personas' read, its decisions' events) became one summary event past state.keep_days", message)
         self.assertIn("so a resumed task would start with none of them", message)
         self.assertIn("A new task with its ask is the way on", message)
@@ -1141,13 +1268,65 @@ class ResumeSummarized(unittest.TestCase):
 
     def test_a_resume_whose_log_is_summarized_after_its_read_carries_what_it_read(self):
         from unittest import mock
-        # the board server's prune summarizes the task while the resume asks origin for the new branch
+        # the board server's prune summarizes the task and removes its files while the resume asks origin for the new branch
         with mock.patch.object(project, "taken_on_remote", side_effect=lambda *args: self.summarize()):
             said = project.cmd_resume(self.root, "card-foot")
         self.assertEqual(said["task"], "card-foot-2")
         records = [json.loads(line) for line in self.log.read_text(encoding="utf-8").splitlines()]
         self.assertEqual([r["event"] for r in records if r["task"] == "card-foot"], ["task.summary"])
         self.assertEqual([(r["event"], r["from"]) for r in records if r["task"] == "card-foot-2"], [("criteria.approved", "card-foot")])
+        new = self.state / "tasks" / "card-foot-2"
+        self.assertEqual(((new / "handoff.md").read_text(encoding="utf-8"), (new / "breaker-1.md").read_text(encoding="utf-8")),
+                         ("# Handoff\n", "# What stopped the build\n"))
+        self.assertEqual(json.loads((new / "decisions.jsonl").read_text(encoding="utf-8")), {"kind": "breaker", "id": 1, "document": "breaker-1.md"})
+        self.assertEqual((new / "media" / "after.png").read_bytes(), b"\x89PNG\r\n\x1a\n")
+
+    def test_a_prune_between_the_first_read_of_the_log_and_the_files_is_refused_with_its_ask(self):
+        from unittest import mock
+        reads = project.resumed_reads
+
+        def pruned_first(directory):
+            # the prune falls after the log's first read: the files are gone when the resume reads them
+            self.summarize()
+            return reads(directory)
+        with mock.patch.object(project, "resumed_reads", side_effect=pruned_first), mock.patch.object(project, "taken_on_remote") as remote, \
+                self.assertRaises(project.SettingsError) as said:
+            project.cmd_resume(self.root, "card-foot")
+        self.refused(str(said.exception))
+        remote.assert_not_called()
+
+    def test_a_summarized_task_whose_folder_keeps_a_file_it_cannot_read_is_refused_with_its_ask(self):
+        import os
+        from unittest import mock
+        if os.geteuid() == 0:
+            self.skipTest("root reads a file of mode 000")
+        self.summarize()
+        # a picture prune could not remove, which the resume cannot read either
+        (self.directory / "media").mkdir()
+        (self.directory / "media" / "held.png").write_bytes(b"\x89PNG")
+        (self.directory / "media" / "held.png").chmod(0)
+        self.addCleanup((self.directory / "media" / "held.png").chmod, 0o644)
+        for _ in range(2):
+            with mock.patch.object(project, "taken_on_remote") as remote, self.assertRaises(project.SettingsError) as said:
+                project.cmd_resume(self.root, "card-foot")
+            self.refused(str(said.exception))
+            remote.assert_not_called()
+
+    def test_a_resume_that_cannot_read_a_file_it_carries_makes_nothing(self):
+        import os
+        from unittest import mock
+        if os.geteuid() == 0:
+            self.skipTest("root reads a file of mode 000")
+        (self.directory / "breaker-1.md").chmod(0)
+        self.addCleanup((self.directory / "breaker-1.md").chmod, 0o644)
+        before = self.log.read_bytes()
+        with mock.patch.object(project, "taken_on_remote") as remote, self.assertRaises(project.SettingsError) as said:
+            project.cmd_resume(self.root, "card-foot")
+        self.assertIn("breaker-1.md does not read", str(said.exception))
+        self.assertIn("so it made nothing: make it readable, then resume again", str(said.exception))
+        remote.assert_not_called()
+        self.assertFalse((self.state / "tasks" / "card-foot-2").exists())
+        self.assertEqual(self.log.read_bytes(), before)
 
 
 if __name__ == "__main__":

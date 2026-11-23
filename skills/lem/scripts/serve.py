@@ -185,8 +185,8 @@ workspace, one call at a time with the server's other calls into Lem's scripts (
   makes none, and the session lands the task again. After a merge, `wake … merged` above;
 - the keeping of the state folder (`prune_once`): at its first look and each PRUNE_SECONDS after, it runs
   `lem project prune`, which removes what the workspace's state folder no longer needs, older than its
-  settings' `state.keep_days`: the working files of the tasks that ended, and old questions to the
-  experts, panels, naps and copies of the cast. It reaches across tasks, so it is the server's and no
+  settings' `state.keep_days`: every file of a task that ended but its small record, and old questions
+  to the experts, panels, naps and copies of the cast. It reaches across tasks, so it is the server's and no
   task's: a task's own cleanup (`lem land clean`) runs once, at its merge, and a dropped or answered
   task has none. What it removed, skipped or failed is one line in the server's log.
 
@@ -707,6 +707,16 @@ def asset_link(name: str) -> str:
     if key not in DIGESTS:
         DIGESTS[key] = hashlib.sha256(file.read_bytes()).hexdigest()[:12]
     return f"/{HOSTNAME}/assets/{name}?v={DIGESTS[key]}"
+
+
+def keep_days_of(reader) -> int | None:
+    """The workspace's `state.keep_days` as its settings give it now (`lem_project.load`, this machine's own
+    number too), for the page of a task whose files prune removed; None while the settings do not read,
+    which the page shows among its problems, never a number of an older read."""
+    if "settings" in reader.problems or not isinstance(reader.settings, dict):
+        return None
+    days = (reader.settings.get("state") or {}).get("keep_days")
+    return days if isinstance(days, int) and not isinstance(days, bool) else None
 
 
 def prefs_of(header: str | None) -> dict:
@@ -1786,7 +1796,7 @@ class Handler(BaseHTTPRequestHandler):
         backlog = reader.read_backlog(board, fresh=fresh_backlog)
         return pages.Ctx(host=HOSTNAME, workspace=workspace.name, model=model, asset=asset_link, prefs=prefs_of(self.headers.get("Cookie")),
                          backlog=backlog, problems=[*reader.problems.values(), *([workspace.session_problem] if workspace.session_problem else [])],
-                         read_at=model.now, events=len(reader.events), log_id=reader.log_id(),
+                         read_at=model.now, events=len(reader.events), log_id=reader.log_id(), keep_days=keep_days_of(reader),
                          spaces=self.spaces(), native=bool(NATIVE.search(self.headers.get("User-Agent") or "")),
                          local=self.door is None and self.client_address[0] in LOOPBACK and not lem_peers.hopped(self.headers),
                          forge_look=dict(workspace.forge), filters=pages.backlog_filter(parse_qs(query)),
@@ -1843,6 +1853,7 @@ class Handler(BaseHTTPRequestHandler):
                 ctx.artifacts_problem = f"the files of the task do not read: {error.strerror or error}"
             ctx.told = workspace.told_of
             ctx.how_of = workspace.how_of
+            ctx.folder_of = lambda task: task_pages.folder_of(state, task)
             ctx.media_href = lambda task: f"{ctx.base}/tasks/{quote(task)}/media/"
 
             def artifact(task: str, file: str):
@@ -2350,7 +2361,8 @@ PRUNE_SECONDS = 3600
 def prune_once(workspace: Workspace, now: float | None = None) -> dict | None:
     """`lem project prune` for the workspace when it is due: at the server's first look, then each
     PRUNE_SECONDS. None when it did not run: not due, a workspace of example tasks, or settings that do
-    not read (the board says so already). Else its exit, its own line, and what it skipped and failed."""
+    not read (the board says so already). Else its exit, its own line, the files, folders, bytes and events
+    it removed or replaced, and what it skipped and failed."""
     now = time.monotonic() if now is None else now
     if workspace.pruned is not None and now - workspace.pruned < PRUNE_SECONDS:
         return None
@@ -2362,13 +2374,15 @@ def prune_once(workspace: Workspace, now: float | None = None) -> dict | None:
         answer = json.loads(ran.stdout)
     except ValueError:
         return {"exit": ran.returncode or 1, "said": said_of(ran), "skipped": [], "failed": []}
-    return {"exit": ran.returncode, "said": answer.get("said") or said_of(ran), "bytes": answer.get("bytes", 0), "events": answer.get("events", 0),
-            "skipped": answer.get("skipped") or [], "failed": answer.get("failed") or []}
+    return {"exit": ran.returncode, "said": answer.get("said") or said_of(ran), "files": answer.get("files", 0), "folders": len(answer.get("folders") or []),
+            "bytes": answer.get("bytes", 0), "events": answer.get("events", 0), "skipped": answer.get("skipped") or [], "failed": answer.get("failed") or []}
 
 
 def prune_line(name: str, ran: dict) -> str | None:
-    """The server's log line for a run of `prune`: none when it removed, summarized, skipped and failed nothing."""
-    if ran["exit"] == 0 and not ran.get("bytes") and not ran.get("events") and not ran["skipped"] and not ran["failed"]:
+    """The server's log line for a run of `prune`: none when it removed, summarized, skipped and failed
+    nothing. A removed file counts when it was empty too, so a run of 0 bytes may have a line."""
+    if (ran["exit"] == 0 and not ran.get("files") and not ran.get("folders") and not ran.get("bytes") and not ran.get("events")
+            and not ran["skipped"] and not ran["failed"]):
         return None
     parts = [f"serve.py: {name}: `lem project prune` exited {ran['exit']}: {ran['said']}"]
     parts += [f"skipped {one['path']}: {one['why']}" for one in ran["skipped"]]

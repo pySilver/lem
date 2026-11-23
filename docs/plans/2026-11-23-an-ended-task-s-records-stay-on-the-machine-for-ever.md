@@ -1,0 +1,282 @@
+# Past state.keep_days, an ended task keeps only a small record
+
+careful: yes, because it reaches "A task's record is lost or wrong: its state, its decisions and its approved criteria, which nothing rebuilds and the pull request reads": task 1 makes `lem project prune` remove an old ended task's decisions, criteria and report, and every reader of its folder must still read its state.
+
+## Acceptance criteria
+
+Size: full, because `lem project prune`, the board's page of an old task and every reader of an ended task's folder change, and a task's record is in reach.
+
+1. Past `state.keep_days`, `lem project prune` leaves of an ended task only its small record: its state, its request, its pull request, and its ticket's and its resume's files when it has them. Everything else of its folder goes: its pictures, its pages, its report, its decisions, its criteria and its reviews' records.
+   1. The task `done-column-shows-newest` landed on 2026-11-22 with pull request 20, and `state.keep_days` is 30.
+   2. Its folder holds 1,760 KB, and today's prune would keep 32 files of it, 1,087 KB.
+   3. On 2026-12-22 `lem project prune` runs.
+   4. Its folder keeps the small record only, about 12 KB.
+   - test: `python3 -B -m unittest tests.unit.test_task.SmallRecord.test_a_run_past_the_cutoff_by_its_time_leaves_an_old_ended_task_its_small_record_only` in `tests/unit/test_task.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_task.Map.test_a_task_that_ended_long_ago_keeps_only_its_small_record_and_its_lock_files` in `tests/unit/test_board_task.py`
+   - test: `bash tests/lem-state.sh` in `tests/lem-state.sh`
+2. A task that ended less than `state.keep_days` ago, and a task that has not ended, keep every file: a task that landed 10 days ago keeps its pictures, its report and its decisions after a prune.
+   - test: `python3 -B -m unittest tests.unit.test_task.SmallRecord.test_a_young_ended_task_and_an_open_one_keep_every_file` in `tests/unit/test_task.py`
+   - test: `bash tests/lem-state.sh` in `tests/lem-state.sh`
+3. Every part of Lem that reads an ended task reads a pruned one as before:
+   1. `lem project tasks` gives `done-column-shows-newest` as landed, with pull request 20.
+   2. The board's Done column and its list of older tasks show it.
+   3. A task queued after it may start (`lem project may-start`).
+   4. A new task cannot take its name (`lem project task-dir`).
+   5. A second `lem project prune` changes nothing of it.
+   - test: `python3 -B -m unittest tests.unit.test_task.SmallRecord.test_tasks_reads_a_pruned_task_as_before_and_a_second_prune_changes_nothing` in `tests/unit/test_task.py`
+   - test: `bash tests/lem-state.sh` in `tests/lem-state.sh`
+   - test: `bash tests/lem-serve.sh` in `tests/lem-serve.sh`
+4. A ticket step that a pruned task still owes stays shown: a task from issue 7 whose comment at its landing was never posted still shows that comment as owed in `lem project tasks` after the prune.
+   - test: `python3 -B -m unittest tests.unit.test_task.SmallRecord.test_a_ticket_step_a_pruned_task_still_owes_stays_shown` in `tests/unit/test_task.py`
+5. `/lem resume` of a dropped task past the time still refuses, and still ends with `/lem` and the task's ask, so the owner can start it again in one line.
+   - test: `python3 -B -m unittest tests.unit.test_task.ResumeSummarized.test_a_dropped_task_whose_events_became_a_summary_is_refused_with_its_ask tests.unit.test_task.ResumeSummarized.test_a_summarized_task_whose_folder_keeps_a_file_it_cannot_read_is_refused_with_its_ask tests.unit.test_task.ResumeSummarized.test_a_prune_between_the_first_read_of_the_log_and_the_files_is_refused_with_its_ask` in `tests/unit/test_task.py`
+6. The board's page of a pruned task says what stayed and that the rest left after `state.keep_days` days, and no longer says "Its files stay": the page of `done-column-shows-newest` says that its other files left after 30 days.
+   - test: `python3 -B -m unittest tests.unit.test_board_model.SummarizedBoard` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_serve.KeepDays` in `tests/unit/test_serve.py`
+   - test: `python3 -B -m unittest tests.unit.test_issues.DropAndAnswer.test_an_answer_owed_after_prune_removed_the_report_names_no_report` in `tests/unit/test_issues.py`
+   - test: `bash tests/lem-serve.sh` in `tests/lem-serve.sh`
+
+## How it works
+
+What `lem project prune` does with the folder of each task, by its state and the day of its newest event.
+
+```mermaid
+flowchart TD
+  A["prune looks at a task's folder"] --> B{"Has the task ended?"}
+  B -->|"no, or its state does not read"| C["Every file stays"]
+  B -->|"yes"| D{"Any event of it in the last state.keep_days days?"}
+  D -->|"yes"| C
+  D -->|"no"| E["Its events become one summary event"]
+  E --> F["Only the small record stays: state, request, pull request, ticket, resume"]
+  F --> G["Lem reads its status, its pull request and its ticket from the small record"]
+```
+
+## Tasks
+
+1. **The prune keeps the small record and nothing else** (criteria 1, 2, 3.1, 3.3, 3.4, 3.5, 4 and 5).
+   `skills/lem/scripts/lem_artifacts.py` names the small record in one place, beside `RECORDS`:
+   `state.md`, `ask.txt`, `task.md`, `landing.json`, `ticket.txt`, `ticket-repo.txt`,
+   `ticket-steps.txt` and `resumed-from.txt`, each with the reader that needs it (decision 1). One
+   function there gives the paths of a task folder that are not in it: every path at any depth
+   that is no folder, read with no link followed, but the small record and the lock files at the
+   top of the folder (decision 2). A link, to a file or to a folder, and a file that is not plain
+   are among them, so that `Remover` names each one it does not remove in `skipped`, as the
+   `link.txt` check of `tests/lem-state.sh` asks now; an empty file is among them too, and goes.
+   It replaces `working`, which has no other caller (`git grep "\.working("`:
+   `cmd_prune` and its unit test). `cmd_prune` in `skills/lem/scripts/project.py` removes those files
+   of each task that `task_calls` calls `old`, through `Remover` as now, then the folders that are
+   empty; a task that is `open`, `young` or `skip` is not touched, as now. Its answer and its `said`
+   stop calling the files "working files", and say that each such task keeps only its small record.
+   A second prune finds nothing to remove and reports no task. The order stays as now: the log's
+   summary of a task is written (`rewrite_log`) before any file of it is removed, and a run that
+   stops between the two, or a removal that fails, is finished by the next run, since the files of
+   every `old` task are looked at, a summarized one too.
+   `cmd_resume` reads the log first and refuses on the task's summary as now; then it reads every
+   file it carries into the new task (`RESUMED_FILES`, the breaker documents, `brief.md`, `media/`,
+   and the `decisions.jsonl` and `handoff.md` its checks read); then it reads the log once more,
+   refuses on a summary found there with the same message, and writes the new task from what it
+   read. With the order of prune above, a second read that finds no summary comes after copies that
+   no removal had reached; a file that prune could not remove and the resume cannot read meets the
+   first read's refusal on every later resume, and a read that fails in the race stops the resume
+   before any write (decision 5).
+   `prune_once` in `skills/lem/scripts/serve.py` carries how many files the run removed, and
+   `prune_line` logs a run that removed any file, an empty one too, beside the bytes and the
+   events it looks at now. The texts that this makes false, in
+   the same task: the module docstrings of `project.py` (the paragraph about `prune`, near line
+   314) and of `lem_artifacts.py` (the paragraph about `working`), the docstrings of `cmd_prune` and
+   `task_calls`, the `[state]` comment of `TEMPLATE` (near line 688), and the `prune_once` paragraph
+   of the `serve.py` docstring (near line 185). Tests, each of which first checks that the pruned
+   folder holds the small record only, so that it fails on the base, where the report and the
+   decisions stay:
+   - `tests/unit/test_board_task.py`, `test_a_task_loses_only_its_working_files_and_keeps_its_state_and_every_record`,
+     is rewritten to the new rule on the same files (criterion 1). The case of criterion 1 is a run
+     past the cutoff by its time, not by its date: `task_calls` counts `state.keep_days` from the
+     task's newest event (`last <= cutoff`), and for `done-column-shows-newest` that is a
+     `session.close` at 00:35:10 UTC on 2026-11-22, so a run at 00:33 UTC on 2026-12-22 still finds
+     it `young`;
+   - the prune block of `tests/lem-state.sh` (from line 218, the check at line 297): an old landed
+     task with pictures, a report, decisions, criteria and a review round keeps only its small
+     record; a task that landed 10 days ago and an open task keep every file (criteria 1 and 2);
+     then `lem project tasks` gives the old task's status and its pull request, a task queued after
+     it passes `lem project may-start`, `lem project task-dir` refuses its slug, and a second prune
+     removes nothing (criterion 3, items 1, 3, 4 and 5; the summary block from line 339 holds some of
+     these already, and may be the one that grows);
+   - a check that a pruned task from issue 7, whose `ticket-steps.txt` has no `commented` line after
+     its landing, still has that step in `ticket_owed` of `lem project tasks` (criterion 4);
+   - a check that `lem project resume` of a pruned dropped task refuses, and that its message ends
+     with `/lem` and the text of its `ask.txt` (criterion 5; `tests/unit/test_task.py` near line 1108
+     has the summarized case to start from);
+   - `test_a_resume_whose_log_is_summarized_after_its_read_carries_what_it_read` in
+     `tests/unit/test_task.py` runs the new prune, which removes the files, at the point where it
+     runs the summary now, and checks that the new task has the old task's `handoff.md`, its breaker
+     document and its `decisions.jsonl` as well as its events (decision 5);
+   - a resume of a summarized dropped task whose folder still holds one file it cannot read refuses
+     with `/lem` and the ask, and makes nothing (decision 5, criterion 5);
+   - the `prune_line` test of `tests/unit/test_serve.py` (near line 730): a run that removed one empty
+     file, with 0 bytes and no events, gets a line.
+   The prune block of `tests/lem-serve.sh` (from line 122) runs a real prune and reads the old task's
+   documents on Artifacts: it is task 2's, and this task does not run it.
+   Files: `skills/lem/scripts/lem_artifacts.py`, `skills/lem/scripts/project.py`,
+   `skills/lem/scripts/serve.py` (`prune_once`, `prune_line` and its docstring), `tests/unit/test_board_task.py`,
+   `tests/unit/test_task.py`, `tests/unit/test_serve.py`, `tests/lem-state.sh`.
+2. **The board's page of a pruned task says what stayed** (criteria 3.2 and 6). `summary_card` in
+   `skills/lem/scripts/lem_board_task.py` drops "Its files stay: its state, its request, its reports
+   and its documents." and says, in its place, what stayed (its state, its request and its pull
+   request, and its ticket's files when it has them) and that its other files left, with the rule
+   that removed them and its number as the settings give it now: Lem keeps only this record of a
+   task once nothing of it happened for `state.keep_days` days, N now, N being the workspace's
+   `state.keep_days` (decision 3). The card states the rule and today's number, never a day or a
+   number of days at which these files left, which the page cannot know. The card takes that claim
+   from the task's folder, not from the summary event alone: it says that the other files left only
+   when task 1's function of `lem_artifacts.py` gives no path of the folder outside the small record.
+   When it gives some (a removal loop that has not ended yet, or a removal the folder's permissions
+   deny, run after run), the card says only that N files of it are still there, with no claim of why
+   (option C of question 3 of the plan talk, number 5 of `lem decisions list`). `went_tab` and
+   the module docstring (line 30) stop saying that its files stay on Artifacts. Two texts that say a
+   pruned answered task's `investigation.md` is in its directory say it only while the directory
+   holds it: the line "The report is investigation.md in the task directory" of `now_card` in
+   `lem_board_task.py`, and the sentence "The report is in the task's directory on the owner's
+   machine" of `answered_words` in `skills/lem-github/scripts/issues.py`, which an answer still owed
+   past the time would post on the issue. The page gets the
+   number from the server, which reads the workspace's settings; a settings file that does not read
+   is one of the page's problems (`Ctx.problems`, which the board shows), never a number Lem guessed. Tests:
+   the summary card's unit test in `tests/unit/test_board_model.py` (near line 1081), with a
+   summarized task whose folder holds the small record only and one that still holds a file more, and the prune
+   block of `tests/lem-serve.sh` (from line 122), which runs a real prune on the afternoon of
+   `tests/board-showcase.py`: the old task's Done card and its place in the list of older tasks are
+   as before, its Overview says that its other files left and names 30 days, its Artifacts tab lists the
+   small record only, with the plan beside it only when the task's worktree still holds it (a
+   worktree `lem land clean` refused to remove: `Handler.task` passes `Workspace.plan_of`, and the
+   plan is no file of the task folder), and no page says "Its files stay"; the `now_card` and
+   `answered_words` cases in `tests/unit/test_board_model.py` and `tests/unit/test_issues.py`, each
+   with the report there and with it gone. Files: `skills/lem/scripts/lem_board_task.py`,
+   `skills/lem/scripts/lem_board_pages.py` and `skills/lem/scripts/serve.py` as far as the number
+   needs, `skills/lem-github/scripts/issues.py`, `tests/unit/test_board_model.py`,
+   `tests/unit/test_issues.py`, `tests/lem-serve.sh`.
+3. **The documents** (no criterion). Each says the time as `task_calls` counts it: from the
+   task's newest event, after its end, so "nothing of it happened for `state.keep_days` days", as
+   the refusal of `cmd_resume` says it now, never "ended more than N days ago".
+   `docs/settings.md`, `[state]`: the paragraph says that the
+   server removes every file of an ended task that nothing happened in for `state.keep_days` days but its small
+   record (its state, its request, its pull request, and its ticket's and its resume's files), and
+   that a retro or a nap after that time finds no report and no decisions of it; the row of
+   `state.keep_days` says the same in a few words. `docs/install.md` line 66: `.lem/state/` is on this
+   computer only, git does not see it, Lem removes from it what is older than `state.keep_days`, and
+   it touches nothing in the repository (the newcomer's and the teammate's wishes,
+   `criteria-read.md`). `skills/lem/stages/learn.md` (near line 97): past `state.keep_days` an ended
+   task keeps no `report.md` and no `decisions.jsonl`, so a retro more than that apart from the one
+   before reads only the newer tasks. `skills/lem/stages/investigate.md`, step 5: an answered task's
+   report stays in its directory for `state.keep_days` days after its last event, and a task from
+   the report starts within that time, or from the answer's line on the board after it.
+   `AGENTS.md`, the `.lem/` item of "Layout": what `prune`
+   removes. `site/index.html` where it says the same thing as the pages above. Files: those named,
+   and any page that `git grep -n -e "records stay" -e "files stay" -e "working files"` shows to
+   say that an old ended task keeps its documents.
+
+## Plan talk
+
+Who argued the plan: the reviewer, Codex, GPT 6.2 Sol at high effort as its pane's status line
+showed it; the defender, Claude Code, Opus 5.5 at high effort, as the `defender:` line of the
+task's state gives it. Two model families. Six turns, within the bound of 34 (4 × 8 + 2).
+
+The list, numbered as the reviewer gave it:
+
+1. **A resume while prune removes the files it copies** (`cmd_resume`, `taken_on_remote`). A design
+   choice. The repair (decision 5): the resume reads every file it carries before its one read of
+   the log, and prune writes the summary before any removal; the reviewer: "holds, at the cause",
+   a read can still fail before the log read. The defender's refutation: every read and the log
+   read come before the first write of `cmd_resume`, so a failed read changes nothing and the next
+   resume refuses with the ask. The reviewer held again: a picture of `media/` that prune cannot
+   remove and the resume cannot read fails each retry before the summary check, so the owner never
+   gets the refusal with the ask that criterion 5 names. Step 5 of `stages/plan.md` took it: the
+   gate judged it checkable, and option C was taken (number 6 of `lem decisions list`): the resume
+   reads the log and refuses on the summary, then reads its files, then reads the log once more.
+2. **An answered task's `investigation.md`** (`now_card`, `answered_words`, `investigate.md` step 5).
+   Settled: the criterion stays (decision 6), and task 2 makes both texts name the report only while
+   it is there; task 3 corrects step 5. Settled by the two, not checked by the review.
+3. **The page says the files left before or without their removal** (`summary_card`, `cmd_prune`).
+   A design choice. The defender refuted first: the removal loop runs for every `old` task, so the
+   next run finishes it, and a failure is logged. The reviewer held: a folder that denies removal
+   stays so, and the page goes on saying the files left. The repair: the card takes its claim from
+   the folder through task 1's function, and when files remain it says that prune could not remove
+   them and that the server's log says why; the reviewer: "holds, at the cause", a page read between
+   `rewrite_log` and the removal says prune could not remove a file it has not reached yet. Step 5
+   of `stages/plan.md` took it: the gate judged it cheap, and option C was taken (decision 5 of
+   `lem decisions list`): with files left, the card says only that N files of it are still there.
+4. **The case's day and the time prune counts** (`task_calls`, `last <= cutoff`). Settled: the test
+   of criterion 1 puts the run past the cutoff by its time, and task 3 writes the time from the
+   newest event. Settled by the two, not checked by the review.
+5. **The number on the page after the owner changes it** (decision 3, `local_keep_days`). Settled:
+   the card states the rule and today's number, never a number of days at which the files left.
+   Settled by the two, not checked by the review.
+6. **The plan on Artifacts of a task whose worktree stayed** (`Handler.task`, `task_plan`). Settled:
+   task 2's check allows the plan beside the small record when the worktree holds it. Settled by the
+   two, not checked by the review.
+7. **A link the new list skips** (`Remover.inside`, the `link.txt` check). Settled: the list gives
+   every path that is no folder, links and files that are not plain among them, so `Remover` names
+   each in `skipped`. Settled by the two, not checked by the review.
+8. **A removal of empty files that the server does not log** (`prune_once`, `prune_line`). Settled,
+   at the cause: `prune_once` carries the count of removed files, and `prune_line` logs a run that
+   removed any. Settled by the two, not checked by the review.
+
+Mechanisms the repairs added: the read order of `cmd_resume` (decision 5), on the order of
+`cmd_prune` and the summary check of `cmd_resume`, which exist; "at the cause". The card's read of
+the folder (task 2), which changed the card's read of the summary alone; "at the cause". The count
+of removed files in `prune_once` (task 1), on `cmd_prune`'s record of each removed path; "at the
+cause". No layer stayed.
+
+No question was raised after the first turn. No addition was refused as unpriced.
+
+What changed in the plan, by task: task 1, the function's paths (links, files that are not plain,
+empty files), the order of prune written down, the read order of `cmd_resume`, `prune_once` and
+`prune_line`, the time of criterion 1's case, and two tests more; task 2, the card's rule and its
+read of the folder, `now_card`, `answered_words` and the plan on Artifacts, with their tests; task 3,
+the time as `task_calls` counts it and `investigate.md` step 5; decisions 3, 5 and 6.
+
+## Decisions
+
+1. **The small record is eight files, each kept for one reader.** `state.md`: `read_tasks` (the status
+   that `tasks`, `may-start`, `queued_behind` and `task-dir` read) and `task_calls` (a task with no
+   state.md is `open`, so a second prune must find it). `ask.txt`, and `task.md` for a task with no
+   `ask.txt`: `ask_of`, and the last line of `cmd_resume`'s refusal. `landing.json`, whole:
+   `proposal`, the pull request that `tasks` shows; it is 11 KB for `done-column-shows-newest` and at
+   most 197 KB in this repository (`agents-md-read-on-demand`, the dry run of task 1's builder, 2026-11-23), and a trimmed copy would be a
+   second form of a record that only `land.py` writes. `ticket.txt`, `ticket-repo.txt`,
+   `ticket-steps.txt`: `ticket_owed` and `ticket_held_by`. `resumed-from.txt`: `resumed_slug`,
+   `ticket_held_by` and the "goes on in X already" check of `cmd_resume`. What the owner confirmed
+   (`directions.md`): "name, end, day, pull request, and the files a queued task, a new name, a
+   ticket step and /lem resume read".
+2. **The lock files stay.** Each is 0 bytes, today's prune keeps them too, and removing a lock file
+   while another process holds it lets a second writer lock a new file of the same name.
+3. **The page says the workspace's `state.keep_days` as its settings give it now**, not a number kept
+   in the summary event. A new key of the summary would need the summaries that this repository and
+   others already hold corrected by hand (`AGENTS.md`, "Lem is not released"). So the page states
+   the rule with today's number, which stays true after the owner changes the number
+   (`local_keep_days` lets one machine do so), and claims no number of days at which the files left.
+4. **The summary event does not change.** It already keeps the status, the end, the day and the pull
+   request (`summary_of`), and the board reads it; nothing of this task needs a new key there.
+5. **A resume reads the log, then what it carries, then the log again.** Today prune removes no file that a
+   resume copies, so the comment of `cmd_resume` ("a prune that summarizes the task while git runs
+   changes nothing that is copied") holds for the events alone. Once prune removes `handoff.md`, the
+   breaker documents and `decisions.jsonl`, a prune whose first `old` call of a dropped task falls
+   while the resume asks the remote (`taken_on_remote`) leaves a new task `held` with no handoff and
+   no breaker document. The order closes it with no lock: prune writes the summary before it
+   removes a file, and the resume reads its files between two reads of the log, so a second read
+   with no summary proves that the files were read whole, and the first read gives criterion 5's
+   refusal before any file is read (the gate's pick of the talk's question 1, number 6 of
+   `lem decisions list`). It rests on the summary check `cmd_resume` has
+   (`SUMMARY` in its one read of the log) and on the order of `cmd_prune` (`rewrite_log`, then the
+   removals), and it reaches `cmd_resume` alone.
+6. **An answered task's `investigation.md` is not in the small record.** Criterion 1 as the owner
+   approved it keeps the state, the request, the pull request and the ticket's and resume's files,
+   and says "Everything else of its folder goes". The answer stays readable in its one line (the
+   state, and the `investigation` the summary keeps, which `fold_summary` restores); the texts that
+   point at the report's file say so only while it is there (task 2).
+
+## Not verified
+
+- That a retro or a nap more than `state.keep_days` after a task's end does well without its report
+  and its decisions: the owner chose that they go (`interview-notes.md`), so no test reads them.
+- A real `lem project prune` over this repository's state folder: the build runs the new code in
+  throwaway folders, and a `--dry-run --days 0` over this repository, which writes nothing, at the
+  end of task 1.

@@ -107,10 +107,11 @@ team that adopts Lem may have its own.
                                     written down as started
     lem project prune [--dry-run [--days N]]
                                     remove what the state folder no longer needs, older than
-                                    `state.keep_days` days, replace all the events of each task that
-                                    ended before then with one summary event, and say what went, which
-                                    tasks it summarized with the count of their events, and where the
-                                    number came from, as JSON; the board server runs it. --dry-run
+                                    `state.keep_days` days, leave each ended task with no event in
+                                    that time its small record only and its events one summary
+                                    event, and say what went, which tasks it summarized with the
+                                    count of their events, and where the number came from, as JSON;
+                                    the board server runs it. --dry-run
                                     removes nothing, writes nothing and says what would go, and --days
                                     says it for another number than the settings'
 
@@ -319,12 +320,14 @@ otherwise. The project's number is the base branch's, in a task's worktree too, 
 lower it. This machine's own file, `.lem/project.local.toml` of the main checkout, may set its own
 number, lower or higher, which wins on this machine and in each of its worktrees: it removes only
 this machine's files. `show` and `prune` say in `from` which file the number came from. A task that ended (`landed`,
-`dropped`, `answered`) and of which the event log holds nothing newer than that loses its working
-files, the ones its map (`lem_artifacts.working`) calls work: an agent's scratch, the review tool's
-archive of a round, a picture no document shows. Its documents and records stay, so its board, its
-pull request's records, the retro, the nap and `tasks` read it as before. A task that is open is never
-touched, and one whose state.md does not read, or whose state the log does not agree with, is named
-in `skipped` and left as it is. Whole entries go from the other folders (PRUNED): a question to the
+`dropped`, `answered`) and of which the event log holds nothing newer than that has its events
+replaced with one summary event, then loses every file of its folder but its small record
+(`lem_artifacts.SMALL_RECORD`): its state, its request, its pull request, and its ticket's and its
+resume's files, which `tasks`, `may-start`, `task-dir`, the ticket's owed steps and `resume` read. Its
+pictures, its pages, its report, its decisions, its criteria and its reviews' records go, so a retro
+or a nap after that time finds none of them. A task that is open is never touched, and one whose
+state.md does not read, or whose state the log does not agree with, is named in `skipped` and left
+as it is. Whole entries go from the other folders (PRUNED): a question to the
 experts and a panel's folder after their last write, a nap after the time in its name, and a copy of
 the cast after its last write or read. The event log, the night reports, the retros and the
 correction queue stay. Nothing is removed through a link or outside the state folder, and each
@@ -477,7 +480,9 @@ SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 #   parked    put aside on the owner's word (`/lem park`): its worktree, branch and files stay, nothing
 #             waits for him, and `resume` brings back the block it put aside
 STATES = ("queued", "building", "planned", "held", "blocked", "ready", "landing", "open", "landed", "dropped", "answered", "parked")
-# The states a task does not leave: its files stay under its slug, and nothing of it waits.
+# The states a task does not leave: its folder stays under its slug, whole until `prune` finds
+# nothing of the task for `state.keep_days` days and leaves its small record only, and nothing of
+# it waits.
 ENDED = ("landed", "dropped", "answered")
 # The state of a task the owner put aside, and the states it is put aside from: no lead runs in them.
 # A task whose lead builds is parked after the lead stops, and one with its landing is dropped or merged.
@@ -687,11 +692,11 @@ collect = false
 # The state's table and the naps' table, the last of the file.
 TEMPLATE += f"""
 [state]
-# How many days Lem keeps what it no longer needs in .lem/state/, the folder git never sees: the
-# working files of a task that ended that many days ago (an agent's scratch, the review tool's
-# archive of a round, a picture no document shows), and a question to the experts, a persona
-# panel's folder, a nap and a copy of the cast that nobody wrote or read in that time. A task's
-# documents and records stay, and so does the event log. The board server removes them, and
+# How many days Lem keeps what it no longer needs in .lem/state/, the folder git never sees: every
+# file of a task that ended and that nothing happened in for that many days but its small record
+# (its state, its request, its pull request, and its ticket's and its resume's files), and a
+# question to the experts, a persona panel's folder, a nap and a copy of the cast that nobody wrote
+# or read in that time. The event log stays. The board server removes them, and
 # `lem project prune --dry-run --days 7` shows what 7 would remove. The default, {KEEP_DAYS}, is the
 # owner's word of 2026-11-21, and the two constants it replaces, which were guesses. One person with
 # less free disk, or more, sets a number for their machine alone with `keep_days` under [state] in
@@ -1026,8 +1031,8 @@ def naps_of(raw: dict, name: Path) -> dict:
 
 def keep_days_of(value: object, where: str, left_out: str = str(KEEP_DAYS)) -> int:
     """A number of days the state folder keeps what Lem no longer needs, checked: a whole number, 1 or
-    more. 0 would take a task's working files at the first look after it ended, while the owner may
-    still read its board. `left_out` is what the number is without the line."""
+    more. 0 would take all but a task's small record at the first look after it ended, while the owner
+    may still read its board. `left_out` is what the number is without the line."""
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
         raise SettingsError(f"{where} = {value!r} must be a whole number of days, 1 or more, as keep_days = {KEEP_DAYS}; leave the line out for {left_out}")
     return value
@@ -2145,10 +2150,60 @@ def resumed_slug(root: Path, slug: str) -> str:
     return next(f"{first}-{n}" for n in range(2, 1000) if f"{first}-{n}" not in taken)
 
 
+def resumed_reads(directory: Path) -> tuple[dict[str, tuple[bytes, os.stat_result]], list[str], str | None]:
+    """What a resume carries from the dropped task's folder, read whole before anything is written: the
+    bytes and the facts of each file of RESUMED_FILES, RESUMED_GLOBS, brief.md and media/, by its path
+    in the folder; the folders of media/; and the first read that failed, with its error, or None."""
+    read: dict[str, tuple[bytes, os.stat_result]] = {}
+    folders: list[str] = []
+
+    def one(file: Path) -> str | None:
+        path = file.relative_to(directory).as_posix()
+        try:
+            facts = file.stat()
+            if not stat.S_ISREG(facts.st_mode):
+                return f"{file} is not a plain file"
+            read[path] = (file.read_bytes(), facts)
+        except FileNotFoundError:
+            # gone since it was listed: only prune removes a file of a dropped task, and it writes the
+            # task's summary first, which the second read of the log finds
+            return None
+        except OSError as error:
+            return f"{file} does not read: {error}"
+        return None
+    names = [directory / name for name in (*RESUMED_FILES, "brief.md") if (directory / name).is_file()]
+    names += [found for pattern in RESUMED_GLOBS for found in sorted(directory.glob(pattern))]
+    media = directory / "media"
+    unlisted: list[str] = []
+    if media.is_dir():
+        for at, inner, files in os.walk(media, followlinks=True, onerror=lambda error: unlisted.append(f"{error.filename} does not list: {error}")):
+            folders.append(Path(at).relative_to(directory).as_posix())
+            inner.sort()
+            names += [Path(at) / name for name in sorted(files)]
+    if unlisted:
+        return read, folders, unlisted[0]
+    for file in names:
+        failed = one(file)
+        if failed:
+            return read, folders, failed
+    return read, folders, None
+
+
+def summarized_refusal(log: list[dict], slug: str, ask: str) -> None:
+    """The refusal of a resume of SLUG once the log holds its summary: the events it would carry are gone."""
+    if any(event.get("task") == slug and event.get("event") == SUMMARY for event in log):
+        raise SettingsError(
+            f"the events of {slug!r} (its approved criteria, the personas' read, its decisions' events) became one summary event "
+            f"past {KEEP_KEY} (nothing of it was logged for that many days), so a resumed task would start with none of them. "
+            f"A new task with its ask is the way on: type\n/lem {ask}",
+        )
+
+
 def cmd_resume(root: Path, slug: str) -> dict:
     """The owner's word to go on with a task he put aside: a parked one comes back as it was, and a
     dropped one goes on in a new task that starts from its files and its branch. A dropped task whose
-    events became its summary (SUMMARY) is refused: the events a resumed task carries over are gone."""
+    events became its summary (SUMMARY) is refused: the events a resumed task carries over are gone, and
+    so are the files, since prune keeps only its small record."""
     directory = task_directory(root, slug)
     blocks = blocks_of(text_of(directory / "state.md")) if (directory / "state.md").is_file() else []
     now = blocks[0]["status"] if blocks else None
@@ -2165,21 +2220,28 @@ def cmd_resume(root: Path, slug: str) -> dict:
             f"the task {slug!r} is {now or 'new'}: `resume` takes a parked task or a dropped one. "
             + ("An ended task stays ended, and new work for it is a new ask (`/lem new`)" if now in ENDED else "This one goes on as it is"),
         )
-    # The log, read once: the summary's check, the old branch and the events carried over all come from
-    # this one read, so a prune that summarizes the task while git runs changes nothing that is copied.
-    log = log_events(root, "resume reads the task's events from the log, so it made nothing")
+    # The log, then every file the new task takes, then the log again. Prune writes a task's summary
+    # before it removes any file of it, so a second read with no summary comes after reads of files that
+    # no removal had reached; the old branch and the events carried over come from that second read. A
+    # summary in the first read refuses before any file is read, so a file that prune could not remove
+    # and that does not read meets the same refusal; a read that fails stops the resume before any write.
     ask = text_of(directory / "ask.txt").strip() if (directory / "ask.txt").is_file() else (ask_of(directory) or slug)
-    if any(event.get("task") == slug and event.get("event") == SUMMARY for event in log):
-        raise SettingsError(
-            f"the events of {slug!r} (its approved criteria, the personas' read, its decisions' events) became one summary event "
-            f"past {KEEP_KEY} (nothing of it was logged for that many days), so a resumed task would start with none of them. "
-            f"A new task with its ask is the way on: type\n/lem {ask}",
-        )
-    record = directory / "decisions.jsonl"
-    lines = [json.loads(line) for line in lem_state.jsonl_lines(text_of(record)) if line.strip()] if record.is_file() else []
+    summarized_refusal(log_events(root, "resume reads the task's events from the log, so it made nothing"), slug, ask)
+    carried_files, media_folders, failed = resumed_reads(directory)
+    log = log_events(root, "resume reads the task's events from the log, so it made nothing")
+    summarized_refusal(log, slug, ask)
+    if failed:
+        raise SettingsError(f"resume reads every file it carries before it writes, and {failed}, so it made nothing: make it readable, then resume again")
+
+    def carried_text(name: str) -> str:
+        try:
+            return carried_files[name][0].decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise SettingsError(f"{directory / name} is not UTF-8 text (byte {error.start} does not read); save it as UTF-8") from error
+    lines = [json.loads(line) for line in lem_state.jsonl_lines(carried_text("decisions.jsonl")) if line.strip()] if "decisions.jsonl" in carried_files else []
     helped = {line.get("breaker") for line in lines if line.get("kind") == "taken" and "breaker" in line}
     breaker = next((line for line in reversed(lines) if line.get("kind") == "breaker" and line["id"] not in helped), None)
-    if breaker is None or not (directory / "handoff.md").is_file():
+    if breaker is None or "handoff.md" not in carried_files:
         raise SettingsError(
             f"the task {slug!r} was dropped with no breaker that waits and its handoff beside it, so there is no talk to go back to: "
             "new work for it is a new ask (`/lem new`), which may name its branch",
@@ -2202,10 +2264,10 @@ def cmd_resume(root: Path, slug: str) -> dict:
         raise SettingsError(f"{target} exists already: no task is resumed into another task's folder")
     taken_on_remote(root, new, branch)
     claim: contextlib.AbstractContextManager = contextlib.nullcontext()
-    if (directory / "ticket.txt").is_file():
+    if "ticket.txt" in carried_files:
         # the ticket goes on with the work, as for a new task: refused while another task holds it,
         # and the dropped task's mark moves to the new slug, and back to it when git refuses the branch
-        claim = held_ticket(root, new, text_of(directory / "ticket.txt").strip(), read_tasks(root, settings), (settings["tracker"] or {}).get("kind"), succeeds=slug)
+        claim = held_ticket(root, new, carried_text("ticket.txt").strip(), read_tasks(root, settings), (settings["tracker"] or {}).get("kind"), succeeds=slug)
     with claim:
         if exists:
             made = subprocess.run(["git", "-C", str(main), "branch", "--no-track", branch, old], capture_output=True, text=True, check=False)
@@ -2213,21 +2275,22 @@ def cmd_resume(root: Path, slug: str) -> dict:
                 raise SettingsError(f"git could not make {branch} from {old}: {(made.stderr or made.stdout).strip()}")
     (target / "reports").mkdir(parents=True)
     (target / "ask.txt").write_text(ask + "\n", encoding="utf-8")
-    for name in RESUMED_FILES:
-        if (directory / name).is_file():
-            shutil.copy2(directory / name, target / name)
-    for pattern in RESUMED_GLOBS:
-        for found in sorted(directory.glob(pattern)):
-            shutil.copy2(found, target / found.name)
-    if (directory / "media").is_dir():
-        shutil.copytree(directory / "media", target / "media")
+    for folder in media_folders:
+        (target / folder).mkdir(parents=True, exist_ok=True)
+    # each file as it was read, with its mode and its times, as a copy keeps them
+    for path, (data, facts) in carried_files.items():
+        if path == "brief.md":
+            continue
+        (target / path).write_bytes(data)
+        os.chmod(target / path, stat.S_IMODE(facts.st_mode))
+        os.utime(target / path, ns=(facts.st_atime_ns, facts.st_mtime_ns))
     (target / RESUMED_FROM).write_text(slug + "\n", encoding="utf-8")
     worktree = main / Path(settings["places"]["worktrees"]["path"]).relative_to(root.resolve()) / new
-    if (directory / "brief.md").is_file():
+    if "brief.md" in carried_files:
         # the old brief with this task's own lines: a fresh lead reads where it works from it
         own = {"task": new, "branch": branch, "worktree": str(worktree), "task directory": str(target)}
         rows = [f"{row.split(':', 1)[0]}: {own[row.split(':', 1)[0]]}" if row.split(":", 1)[0] in own else row
-                for row in text_of(directory / "brief.md").splitlines()]
+                for row in carried_text("brief.md").splitlines()]
         (target / "brief.md").write_text("\n".join([*rows, f"resumed from: {slug}; read handoff.md and {breaker.get('document') or 'the breaker document'} in the task directory first"]) + "\n", encoding="utf-8")
     # In the log's own order, each with the time it had (`was_at`, the first task's time for a task
     # resumed twice): the landing compares his approval with a read by those times, and finds his
@@ -2318,7 +2381,7 @@ def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
     if event == "task.state":
         raise SettingsError("task.state is written by `lem project state`, which also writes the state block")
     if event == SUMMARY:
-        raise SettingsError(f"{SUMMARY} is written by `lem project prune` only, in place of the events of a task that ended more than {KEEP_KEY} days ago")
+        raise SettingsError(f"{SUMMARY} is written by `lem project prune` only, in place of the events of an ended task that nothing happened in for {KEEP_KEY} days")
     if event in ("task.mode", OWNER):
         raise SettingsError(f"{event} is written by `lem project owner` and `task-dir --night` only: the owner's status is his words, kept in the machine's mark and never in a repository's log, and a night's mark is the night's")
     fields: dict[str, object] = {}
@@ -2585,8 +2648,9 @@ NIGHT_WORDS = re.compile(r"the night of (\d{4}-\d{2}-\d{2})")
 # The `event` of each record of the owner's status, which names no task (`owner`): a record of the
 # machine's mark, never of a repository's log, which `log` refuses it.
 OWNER = "owner"
-# The one event that stands for all the events of a task that ended more than `state.keep_days` ago,
-# which only `prune` writes (`summary_of`): the facts each reader of the log read from those events.
+# The one event that stands for all the events of an ended task that nothing happened in for
+# `state.keep_days` days, which only `prune` writes (`summary_of`): the facts each reader of the log
+# read from those events.
 SUMMARY = "task.summary"
 
 
@@ -3635,7 +3699,7 @@ def task_calls(found: list[dict], events: list[dict], cutoff: datetime) -> list[
     """What `prune` does with each task: `found` gives each task's `slug` and the text of its state.md
     (`state`, None with no such file), `events` the event log, oldest first. Each call is `open` (no
     state yet, or a status that is not ended: never touched), `young` (ended, and its newest event is
-    after `cutoff`), `old` (ended, and nothing of it was logged since `cutoff`: its working files go), or
+    after `cutoff`), `old` (ended, and nothing of it was logged since `cutoff`: all but its small record goes), or
     `skip`, with `why`: a state.md that does not read, or a log that does not agree with it, is never
     guessed at. A task's summary (SUMMARY) is its stated status, and its `ts` the time of its newest
     event, so a task whose events became its summary stays `old`."""
@@ -3966,9 +4030,11 @@ def rewrite_log(state: Path, found: list[dict], cutoff: datetime, now: int) -> t
 
 def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
     """Remove what the state folder no longer needs, older than `state.keep_days` (or, in a dry run,
-    --days): the working files of each task that ended (`lem_artifacts.working`), the events of each
-    such task, which become its one summary event (`rewrite_log`), and the old entries of PRUNED. With
-    `dry`, only say what would go. The answer, and the exit: 1 when a removal failed.
+    --days): the events of each task that ended, which become its one summary event (`rewrite_log`),
+    then every file of that task's folder but its small record (`lem_artifacts.outside_record`) and
+    the folders left empty, and the old entries of PRUNED. The summary is written before any file of
+    the task goes, which `cmd_resume` counts on. With `dry`, only say what would go. The answer, and
+    the exit: 1 when a removal failed. The answer's `files` is the number of the tasks' files removed.
     The answer's `from` says where the number came from: the project's settings, this machine's own
     file, Lem's default, or `--days N`."""
     if days is not None and not dry:
@@ -4029,12 +4095,14 @@ def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
         if call["call"] == "skip":
             remover.skipped.append({"path": f"tasks/{call['task']}", "why": call["why"]})
             continue
+        # every file of it but its small record, of a task whose events became its summary in an earlier
+        # run too: a run that stopped after the summary, or a removal that failed, is finished here
         directory = tasks_folder / call["task"]
         gone, size = [], 0
-        for entry in lem_artifacts.working(directory, call["task"]):
-            removed = remover.file(directory / entry["path"])
+        for path in lem_artifacts.outside_record(directory):
+            removed = remover.file(directory / path)
             if removed is not None:
-                gone.append(entry["path"])
+                gone.append(path)
                 size += removed
         remover.empty_folders(directory)
         kept = 0
@@ -4085,8 +4153,9 @@ def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
     replaced = sum(one["events"] for one in summarized)
     answer = {
         "dry_run": dry, "keep_days": keep, "from": source, "before": stamp_of(cutoff.timestamp()),
-        "state": str(state), "tasks": pruned_tasks, "summarized": summarized, "events": replaced, "folders": folders, "bytes": total,
-        "said": f"{verb} {files} working files of {len(pruned_tasks)} ended tasks with no event since {stamp_of(cutoff.timestamp())[:10]}, "
+        "state": str(state), "tasks": pruned_tasks, "summarized": summarized, "events": replaced, "folders": folders, "files": files, "bytes": total,
+        "said": f"{verb} {files} files of {len(pruned_tasks)} ended tasks with no event since {stamp_of(cutoff.timestamp())[:10]}, "
+                f"so that each keeps only its small record (its state, its request, its pull request, and its ticket's and its resume's files), "
                 f"{'would replace' if dry else 'replaced'} the {replaced} events of {len(summarized)} such tasks with one summary event each, "
                 f"and {verb} {len(folders)} old folders and copies, {total / 1_000_000:.1f} MB",
         "open": counts["open"], "young": counts["young"], "old": counts["old"], "skipped": remover.skipped, "failed": remover.failed,

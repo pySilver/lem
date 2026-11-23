@@ -63,7 +63,10 @@ In git:
 Not in git:
 
 - `.lem/project.local.toml`: the settings of this computer.
-- `.lem/worktrees/`, `.lem/state/`: the worktrees, the tasks and the board.
+- `.lem/worktrees/`: the worktrees of the tasks.
+- `.lem/state/`: the tasks and the board, on this computer only. Lem removes from this folder what
+  is older than [`state.keep_days`](settings.md#state), 30 days when you set no number. It removes
+  nothing outside the folder: no branch, no worktree and no pull request.
 
 For all repositories, in `~/.config/lem/` (or `$XDG_CONFIG_HOME/lem/`):
 

@@ -45,8 +45,9 @@ Answer in one of three ways:
 While you are away, you can also answer in the [Inbox](#answer-from-the-inbox).
 
 `/lem resume <task>` opens the talk again after a park or a drop. After the days of
-[`state.keep_days`](settings.md#state), the events of a dropped task become one summary, and Lem
-cannot resume it. Then type `/lem` and its request to start a new task.
+[`state.keep_days`](settings.md#state), the events of a dropped task become one summary, only a
+small record of its files stays, and Lem cannot resume it. Then type `/lem` and its request to
+start a new task.
 
 ## The merge review
 

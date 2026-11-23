@@ -150,6 +150,11 @@ class Ctx:
     # the artifacts as their map has them (`lem_artifacts.arrange`), and the plan's `## How it works`
     artifact_map: dict | None = None
     how_of: object = lambda slug: ""
+    # what a task's folder holds beside the model (`lem_board_task.folder_of`): the files of its small record
+    # that are there and the paths outside it, or None when the folder does not list; and the workspace's
+    # `state.keep_days` as its settings give it now, None while they do not read (one of `problems` then)
+    folder_of: object = lambda slug: None
+    keep_days: int | None = None
     # the server's own look at the forge for the workspace: when it last looked, and what stops it
     forge_look: dict = field(default_factory=dict)
     # the backlog's filter, from the address (`backlog_filter`)

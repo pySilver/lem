@@ -1,7 +1,8 @@
 """serve.py's rules, each called in this process: who the tailnet door lets in, who may ask the main
 listener for an act, the note of a merge that runs, whether a page's stream gets a refresh as it
 opens, and its ping, the machine's names in an address, which duty
-the server owes the tasks, and when it runs `lem project prune`. The routes, the stream and the start on demand run in tests/lem-serve.sh, with a server.
+the server owes the tasks, when it runs `lem project prune`, and the number of `state.keep_days` a page
+says. The routes, the stream and the start on demand run in tests/lem-serve.sh, with a server.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -834,7 +835,7 @@ class Prune(unittest.TestCase):
         from unittest import mock
         import subprocess
         ran = []
-        said = '{"said": "removed 3 working files", "bytes": 120, "skipped": [], "failed": []}'
+        said = '{"said": "removed 3 files", "files": 3, "bytes": 120, "skipped": [], "failed": []}'
 
         def run(workspace, file, *args):
             ran.append((file, *args))
@@ -846,23 +847,53 @@ class Prune(unittest.TestCase):
             again = serve.prune_once(place, now=1000.0 + serve.PRUNE_SECONDS)
             self.assertIsNone(serve.prune_once(self.Place(demo=True), now=1000.0))
         self.assertEqual(ran, [("project.py", "prune"), ("project.py", "prune")])
-        self.assertEqual((first["exit"], first["said"], again["bytes"]), (0, "removed 3 working files", 120))
+        self.assertEqual((first["exit"], first["said"], first["files"], again["bytes"]), (0, "removed 3 files", 3, 120))
 
     def test_the_log_says_what_it_removed_skipped_and_failed_and_nothing_else(self):
-        quiet = {"exit": 0, "said": "removed 0 working files", "bytes": 0, "skipped": [], "failed": []}
+        quiet = {"exit": 0, "said": "removed 0 files", "files": 0, "folders": 0, "bytes": 0, "events": 0, "skipped": [], "failed": []}
         self.assertIsNone(serve.prune_line("shop", quiet))
         line = serve.prune_line("shop", {**quiet, "exit": 1, "skipped": [{"path": "tasks/x", "why": "its state.md does not read"}],
                                          "failed": [{"path": "tasks/y/a.log", "error": "Permission denied"}]})
-        self.assertEqual(line, "serve.py: shop: `lem project prune` exited 1: removed 0 working files; skipped tasks/x: its state.md does not read; "
+        self.assertEqual(line, "serve.py: shop: `lem project prune` exited 1: removed 0 files; skipped tasks/x: its state.md does not read; "
                                "failed tasks/y/a.log: Permission denied\n")
+
+    def test_the_log_names_a_run_that_removed_only_an_empty_file(self):
+        from unittest import mock
+        import subprocess
+        said = ('{"said": "removed 1 files of 1 ended tasks", "tasks": [{"task": "x", "files": ["empty.txt"], "bytes": 0}], "files": 1, '
+                '"folders": [], "bytes": 0, "events": 0, "skipped": [], "failed": []}')
+        with mock.patch.object(serve, "lem_run", return_value=subprocess.CompletedProcess([], 0, said, "")):
+            ran = serve.prune_once(self.Place(), now=1000.0)
+        self.assertEqual((ran["files"], ran["bytes"], ran["events"]), (1, 0, 0))
+        self.assertEqual(serve.prune_line("shop", ran), "serve.py: shop: `lem project prune` exited 0: removed 1 files of 1 ended tasks\n")
+        empty_folder = {**ran, "files": 0, "folders": 1, "said": "removed 0 files, and removed 1 old folders and copies, 0.0 MB"}
+        self.assertEqual(serve.prune_line("shop", empty_folder), "serve.py: shop: `lem project prune` exited 0: removed 0 files, and removed 1 old folders and copies, 0.0 MB\n")
 
     def test_the_log_names_the_events_a_prune_summarized(self):
         from unittest import mock
         import subprocess
-        said = '{"said": "removed 0 working files, replaced the 60 events of 1 such tasks", "bytes": 0, "events": 60, "skipped": [], "failed": []}'
+        said = '{"said": "removed 0 files, replaced the 60 events of 1 such tasks", "files": 0, "bytes": 0, "events": 60, "skipped": [], "failed": []}'
         with mock.patch.object(serve, "lem_run", return_value=subprocess.CompletedProcess([], 0, said, "")):
             ran = serve.prune_once(self.Place(), now=1000.0)
-        self.assertEqual(serve.prune_line("shop", ran), "serve.py: shop: `lem project prune` exited 0: removed 0 working files, replaced the 60 events of 1 such tasks\n")
+        self.assertEqual(serve.prune_line("shop", ran), "serve.py: shop: `lem project prune` exited 0: removed 0 files, replaced the 60 events of 1 such tasks\n")
+
+
+class KeepDays(unittest.TestCase):
+    """The number of `state.keep_days` the page of a pruned task says: the settings' as they read now, and
+    none while they do not read, even with an older read on hand."""
+
+    @staticmethod
+    def reader(settings, problems=None):
+        return type("Reader", (), {"settings": settings, "problems": problems or {}})()
+
+    def test_the_page_gets_the_settings_number_of_now(self):
+        self.assertEqual(serve.keep_days_of(self.reader({"state": {"keep_days": 30, "from": "default"}})), 30)
+        self.assertEqual(serve.keep_days_of(self.reader({"state": {"keep_days": 7, "from": ".lem/project.local.toml"}})), 7)
+
+    def test_settings_that_do_not_read_give_no_number(self):
+        old = {"state": {"keep_days": 30, "from": "default"}}
+        self.assertIsNone(serve.keep_days_of(self.reader(old, {"settings": "the settings do not read: bad TOML"})))
+        self.assertIsNone(serve.keep_days_of(self.reader(None)))
 
 
 class WorkingSession(unittest.TestCase):

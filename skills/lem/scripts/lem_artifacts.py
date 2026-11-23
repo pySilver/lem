@@ -22,10 +22,11 @@ A review round of the review tool is one document of "Review", its own `report.m
 its archive is a folder of "Working files". A picture of `media/` belongs to the document whose text
 names it (`shows`).
 
-`working` gives the files a task can lose once it ended long ago (`lem project prune`): the working
-files of the map, and of them only those whose role is `work`. A record stays also where the map
-shows it among the working files because its document is not there, and so does a picture a
-document shows: what a person or a reader of Lem opens after the task ended is a document or a record.
+`outside_record` gives what a task loses once it ended long ago (`lem project prune`): every path of
+its folder but its small record (SMALL_RECORD), the few files that a reader of Lem still reads of an
+ended task, and the lock files at the top of the folder. Its documents, its records and its pictures
+go with the rest: the owner's word (2026-11-21, confirmed on 2026-11-23) is that the machine keeps
+no whole history of a task.
 
 The plan is no file of the task directory: it lives in the task's worktree, on its branch. The caller
 finds it (`project.py`'s `task_plan`) and passes it in, so this file imports nothing of Lem's. A task
@@ -90,6 +91,23 @@ RECORDS = {
     # the task a resumed one came from, which a resume and a plan's name follow back
     "resumed-from.txt": ("ask.txt", "resumed from", None),
 }
+# The small record of a task: what stays of its folder once it ended long ago (`outside_record`), each
+# file for the readers that need it after the end.
+SMALL_RECORD = (
+    # its status, which `lem project tasks`, `may-start`, a task queued behind it and `task-dir` read,
+    # and which a second prune reads to find it ended
+    "state.md",
+    # its ask, and the first line of task.md for a task with no ask.txt: `tasks`, and the line of
+    # `/lem` that a refused resume ends with
+    "ask.txt", "task.md",
+    # its pull request, which `lem project tasks` shows (`proposal`)
+    "landing.json",
+    # its ticket, the issue's repository and what Lem did to it: the steps it still owes (`ticket_owed`)
+    # and the task that holds the ticket now (`ticket_held_by`)
+    "ticket.txt", "ticket-repo.txt", "ticket-steps.txt",
+    # the task a resumed one came from, which a resume's new name and the ticket's holder follow back
+    "resumed-from.txt",
+)
 # The tabs, by their key, as a record's line names them.
 TAB_NAMES = {"criteria": "Criteria and decisions", "checks": "Checks and review", "timeline": "Timeline"}
 # The pictures a document may show, and their types; an SVG is no picture here, since it can carry a script.
@@ -315,11 +333,25 @@ def pictures_named(directory: Path, entries: list[dict]) -> dict[str, list[str]]
     return named
 
 
-def working(directory: Path, slug: str) -> list[dict]:
-    """The entries of the task's files that it can lose once it ended long ago: the map's working files
-    (`arrange`) whose role is `work`. A record the map shows there, for want of its document, stays, and
-    so does a picture a document shows, which the map hangs on that document. Each entry is as `files`
-    gives it, with no text; its `path` is relative to the task directory."""
-    entries = files(directory, slug, read=False)
-    found = arrange(entries, pictures_named(directory, entries))
-    return [e for group in found["work"] for e in group["files"] if e.get("role") == "work"]
+def outside_record(directory: Path) -> list[str]:
+    """The paths of a task's folder that are not its small record, from the folder, sorted: each path
+    at any depth that is no folder, but the files of SMALL_RECORD and the lock files at the top of the
+    folder. A lock file stays, since one removed while another process holds it lets a second writer
+    lock a new file of the same name. No link is followed: a link, to a file or to a folder, is a path
+    of its own, and so is a file that is not plain and a folder that does not list, so that the one
+    who removes them names each one it cannot remove. None of them is opened."""
+    found = []
+
+    def unlisted(error: OSError) -> None:
+        if error.filename and Path(error.filename) != directory:
+            found.append(Path(error.filename).relative_to(directory).as_posix())
+    for at, folders, names in os.walk(directory, onerror=unlisted):
+        top = Path(at) == directory
+        for name in folders:
+            if (Path(at) / name).is_symlink():
+                found.append((Path(at) / name).relative_to(directory).as_posix())
+        for name in names:
+            if top and (name in SMALL_RECORD or name.endswith(".lock")):
+                continue
+            found.append((Path(at) / name).relative_to(directory).as_posix())
+    return sorted(found)
