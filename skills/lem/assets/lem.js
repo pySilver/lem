@@ -18,26 +18,26 @@
 // next load. Anything else (a page opened in a browser, a phone) follows the system's setting, and
 // again when it changes.
 (() => {
-  const root = document.documentElement;
-  const mark = dark => { root.dataset.palette = dark ? 'dark' : 'light'; };
-  const chosen = getComputedStyle(root).colorScheme.trim();
-  if (chosen === 'dark' || chosen === 'light') return mark(chosen === 'dark');
+  const root = document.documentElement
+  const mark = dark => { root.dataset.palette = dark ? 'dark' : 'light' }
+  const chosen = getComputedStyle(root).colorScheme.trim()
+  if (chosen === 'dark' || chosen === 'light') return mark(chosen === 'dark')
   // agterm's background as a page served by its address has it, dark or light, or null
   const agterm = () => {
-    const found = getComputedStyle(root).getPropertyValue('--agterm-background').trim().match(/^#([0-9a-f]{6})/i);
-    if (!found) return null;
+    const found = getComputedStyle(root).getPropertyValue('--agterm-background').trim().match(/^#([0-9a-f]{6})/i)
+    if (!found) return null
     const [r, g, b] = [0, 2, 4].map(at => parseInt(found[1].slice(at, at + 2), 16) / 255)
-      .map(c => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.18;
-  };
-  const system = matchMedia('(prefers-color-scheme: dark)');
-  let theme = agterm();
-  if (theme !== null) return mark(theme);
-  mark(system.matches);
-  const follow = ev => { if (theme === null) mark(ev.matches); };
-  system.addEventListener('change', follow);
+      .map(c => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.18
+  }
+  const system = matchMedia('(prefers-color-scheme: dark)')
+  let theme = agterm()
+  if (theme !== null) return mark(theme)
+  mark(system.matches)
+  const follow = ev => { if (theme === null) mark(ev.matches) }
+  system.addEventListener('change', follow)
   // agterm may add its variables after this ran: the first read after the page loaded settles it
   for (const moment of ['DOMContentLoaded', 'load']) {
-    addEventListener(moment, () => { if (theme === null && (theme = agterm()) !== null) mark(theme); }, {once: true});
+    addEventListener(moment, () => { if (theme === null && (theme = agterm()) !== null) mark(theme) }, { once: true })
   }
-})();
+})()

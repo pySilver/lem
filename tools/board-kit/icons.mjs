@@ -56,5 +56,4 @@ export const REGULAR = [
   'user',
   'users',
   'xmark',
-];
-
+]
