@@ -76,6 +76,7 @@ if sys.version_info < (3, 11):
     )
 
 import argparse
+import contextlib
 import hashlib
 import json
 import os
@@ -84,6 +85,7 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
+from typing import Literal, overload
 
 # The one place that says where the state is.
 sys.dont_write_bytecode = True
@@ -103,6 +105,8 @@ WAIT_SECONDS = 2
 # count as one message.
 CLAIM_SECONDS = 20
 JEV = Path(__file__).resolve().with_name("jev.py")
+# jev.py's exit status for a message too long to judge
+JEV_TOO_LONG = 3
 DECISIONS = ("lesson", "not_lesson")
 # accepted, changed, rejected: the owner's answer to a move a session put to him. proposed: the lesson
 # went into a proposal of the retro, for the reviewer and then the owner, so no file holds it yet.
@@ -168,7 +172,11 @@ def git(cwd: str, *args: str) -> str | None:
     return ran.stdout.strip() if ran.returncode == 0 and ran.stdout.strip() else None
 
 
-def folder(cwd: str, quiet: bool = False) -> Path | None:
+@overload
+def folder(cwd: str, *, quiet: Literal[False] = False) -> Path: ...
+@overload
+def folder(cwd: str, *, quiet: bool) -> Path | None: ...
+def folder(cwd: str, *, quiet: bool = False) -> Path | None:
     """Lem's state folder, which every worktree shares; None outside a checkout. It is an error for
     the retro's commands, and no folder at all for a quiet caller (the hook and its detached half)."""
     try:
@@ -319,11 +327,11 @@ def set_aside_if_stale(path: Path) -> bool:
     never removed by a look at the one before it: a fresh claim moved aside goes back."""
     aside = path.with_name(f"{path.name}.aside-{os.getpid()}-{time.monotonic_ns()}")
     try:
-        os.rename(path, aside)
+        path.rename(aside)
     except FileNotFoundError:
         return True
     if time.time() - aside.stat().st_mtime < CLAIM_SECONDS:
-        os.rename(aside, path)
+        aside.rename(path)
         return False
     aside.unlink(missing_ok=True)
     return True
@@ -353,7 +361,6 @@ def claim(where: Path, session: str, prompt: str) -> Path | None:
     for _ in range(3):
         try:
             os.close(os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
-            return path
         except FileExistsError:
             try:
                 fresh = time.time() - path.stat().st_mtime < CLAIM_SECONDS
@@ -361,6 +368,8 @@ def claim(where: Path, session: str, prompt: str) -> Path | None:
                 continue
             if fresh or not set_aside_if_stale(path):
                 return None
+        else:
+            return path
     return None
 
 
@@ -374,7 +383,7 @@ def cmd_hook() -> None:
         event = read_event()
         prompt = (event.get("prompt") or "").strip()
         # the event's directory first: the hook's own may be a worktree that is already removed
-        cwd = event.get("cwd") or os.getcwd()
+        cwd = event.get("cwd") or str(Path.cwd())
         if (
             not prompt
             or prompt.startswith(INJECTED)
@@ -394,8 +403,8 @@ def cmd_hook() -> None:
                 claimed = claim(where, session, prompt)
             except Exception as error:  # noqa: BLE001 - a claim that fails costs a double judgment, never the message
                 if where is not None:
-                    try:
-                        # a note, not an error: the message is judged, so `list` does not count it among the failures
+                    # a note, not an error: the message is judged, so `list` does not count it among the failures
+                    with contextlib.suppress(Exception):
                         append(
                             where / "corrections.log",
                             {
@@ -407,8 +416,6 @@ def cmd_hook() -> None:
                                 ),
                             },
                         )
-                    except Exception:  # noqa: BLE001
-                        pass
             else:
                 if claimed is None:
                     return
@@ -440,8 +447,8 @@ def cmd_hook() -> None:
                 claimed.unlink(missing_ok=True)
             # the log of the repository the message was typed in, which is the one that lost it; a
             # repository that does not use Lem gets no state folder for it
-            if where is None and uses_lem(cwd or os.getcwd()):
-                where = folder(cwd or os.getcwd(), quiet=True)
+            if where is None and uses_lem(cwd or str(Path.cwd())):
+                where = folder(cwd or str(Path.cwd()), quiet=True)
             if where is not None:
                 append(
                     where / "corrections.log",
@@ -450,7 +457,7 @@ def cmd_hook() -> None:
                         "error": f"the hook failed before it could judge a message: {error}",
                     },
                 )
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001, S110 - the hook never fails the owner's prompt, not even for its own log
             pass
 
 
@@ -502,7 +509,7 @@ def cmd_worker(path: str) -> None:
         "owner": payload["prompt"],
         "previous": previous,
     }
-    if ran.returncode == 3:
+    if ran.returncode == JEV_TOO_LONG:
         # too long for Jev to judge well: the retro reads it instead
         append(
             where / "corrections.jsonl",
@@ -533,7 +540,9 @@ def cmd_worker(path: str) -> None:
 
 
 def group_id(owner: str) -> str:
-    return hashlib.sha1(" ".join(owner.split()).encode()).hexdigest()[:8]
+    return hashlib.sha1(
+        " ".join(owner.split()).encode(), usedforsecurity=False
+    ).hexdigest()[:8]
 
 
 def unreviewed(where: Path) -> dict[str, list[dict]]:

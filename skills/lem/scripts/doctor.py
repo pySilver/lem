@@ -41,6 +41,7 @@ if sys.version_info < (3, 11):
     )
 
 import argparse
+import contextlib
 import json
 import os
 import re
@@ -49,6 +50,8 @@ import shutil
 import subprocess
 import urllib.error
 import urllib.request
+from collections.abc import Callable
+from http import HTTPStatus
 from pathlib import Path
 
 # Where each agent keeps a user's skills; the agterm skill is looked for in all of them.
@@ -266,7 +269,7 @@ def hook_entries(file: Path) -> list[dict]:
     ]
 
 
-def removal(hook: dict, file: Path, shared: bool) -> str:
+def removal(hook: dict, file: Path, *, shared: bool) -> str:
     """How one entry of the hook comes out of `file`: by hand, since no command of Lem's writes a
     settings file. The guide names the entry as the file holds it, so that the owner deletes that
     object from the file's `UserPromptSubmit` hooks and nothing else; an entry in the repository's
@@ -289,7 +292,7 @@ def hook_places(home: Path, root: Path | None) -> list[dict]:
             (root / ".claude" / "settings.json", True),
         ]
     places = [
-        {"where": str(file), "remove": removal(hook, file, shared)}
+        {"where": str(file), "remove": removal(hook, file, shared=shared)}
         for file, shared in files
         for hook in hook_entries(file)
     ]
@@ -308,7 +311,7 @@ def correction_hook() -> list[dict]:
     """
     roots = checkout_roots()
     places = hook_places(Path.home(), roots[0] if roots else None)
-    if len(places) < 2:
+    if len(places) <= 1:
         return []
     extra = [place for place in places if place["remove"] is not None]
     if len(extra) < len(places):
@@ -427,7 +430,7 @@ def gh() -> dict:
     )
     row["signed_in"] = False
     if row["found"]:
-        try:
+        with contextlib.suppress(OSError, subprocess.TimeoutExpired):
             row["signed_in"] = (
                 subprocess.run(
                     [shutil.which("gh") or "gh", "auth", "status"],
@@ -438,8 +441,6 @@ def gh() -> dict:
                 ).returncode
                 == 0
             )
-        except (OSError, subprocess.TimeoutExpired):
-            pass
         if not row["signed_in"]:
             row["detail"] = (
                 f"{row['detail']}; not signed in: `gh auth login` signs it in"
@@ -573,7 +574,7 @@ def picker() -> dict:
         }
     root, kept = found
     command, script = root / COMMAND, root / PICKER
-    line = f'command "Lem tasks ›" {CHORD} --error-hud {shlex.quote(interpreter())} {shlex.quote(str(command))} picker'
+    line = f'command "Lem tasks ›" {CHORD} --error-hud {shlex.quote(interpreter())} {shlex.quote(str(command))} picker'  # noqa: RUF001 - the picker's title, as agterm shows it
     try:
         runs = [
             keymap_runs(said, home, (command, script))
@@ -851,7 +852,7 @@ def collects_here() -> bool:
     sys.dont_write_bytecode = True
     import corrections
 
-    return corrections.collects(os.getcwd())
+    return corrections.collects(str(Path.cwd()))
 
 
 def machine_name() -> str:
@@ -1086,7 +1087,10 @@ def version_numbers(identity: str) -> tuple[int, ...] | None:
 
 
 def install_rows(
-    server: str, repositories: list[str], installs: list[dict], identity
+    server: str,
+    repositories: list[str],
+    installs: list[dict],
+    identity: Callable[[dict], str],
 ) -> list[dict]:
     """A row for each repository of the server's list whose installed Lem is other code than the board
     server runs (SERVER, `code_version`'s form): a session there runs one Lem and the server's duties
@@ -1104,14 +1108,15 @@ def install_rows(
         if theirs == server:
             continue
         update = f"cd {shlex.quote(repository)} && claude plugin update {mine['key']} --scope {'user' if mine['scope'] == 'managed' else mine['scope']}"
-        older = version_numbers(theirs), version_numbers(server)
+        theirs_numbers = version_numbers(theirs)
+        server_numbers = version_numbers(server)
         which = (
             (
                 "the install is the older"
-                if older[0] < older[1]
+                if theirs_numbers < server_numbers
                 else "the server is the older"
             )
-            if None not in older
+            if theirs_numbers is not None and server_numbers is not None
             else "which is the newer is not known"
         )
         rows.append(
@@ -1262,7 +1267,7 @@ def cronn() -> dict:
             with urllib.request.urlopen(
                 f"http://127.0.0.1:{port}/api/v1/status", timeout=2
             ) as answer:
-                row["running"] = answer.status == 200
+                row["running"] = answer.status == HTTPStatus.OK
         except (urllib.error.URLError, OSError, ValueError):
             pass
     return row

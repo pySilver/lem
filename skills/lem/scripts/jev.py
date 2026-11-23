@@ -145,7 +145,7 @@ def question_body(name: str, question: object) -> dict:
         choices = question.get("choices")
         if (
             not isinstance(choices, dict)
-            or len(choices) < 2
+            or len(choices) <= 1
             or not all(filled(v) for v in choices.values())
         ):
             raise SpecError(
@@ -236,7 +236,11 @@ def read(reply: object, questions: dict) -> dict:
     """The printed reply from Jev's: each question's answer by its type, the model and the cost.
     QUESTIONS is the request's, which says each question's type."""
     answers = reply.get("answers") if isinstance(reply, dict) else None
-    if not isinstance(answers, dict) or set(answers) != set(questions):
+    if (
+        not isinstance(reply, dict)
+        or not isinstance(answers, dict)
+        or set(answers) != set(questions)
+    ):
         raise RuntimeError(
             f"the reply does not answer every question: {json.dumps(reply)[:400]}"
         )
@@ -280,7 +284,7 @@ def ask(body: dict, timeout: float) -> dict:
         if MACOS_CA_BUNDLE.is_file()
         else ssl.create_default_context()
     )
-    request = urllib.request.Request(
+    request = urllib.request.Request(  # noqa: S310 - address() takes only http and https
         url,
         data=json.dumps(body).encode(),
         method="POST",
@@ -290,7 +294,7 @@ def ask(body: dict, timeout: float) -> dict:
         },
     )
     try:
-        with urllib.request.urlopen(
+        with urllib.request.urlopen(  # noqa: S310 - address() takes only http and https
             request, timeout=timeout, context=context
         ) as response:
             reply = json.load(response)
@@ -332,13 +336,14 @@ def main(argv: list[str]) -> int:
             )
             return 0
         print(json.dumps(ask(body, timeout)))
-        return 0
     except OverflowError as error:
         print(f"lem-jev: {error}", file=sys.stderr)
         return 3
     except (SpecError, OSError, RuntimeError) as error:
         print(f"lem-jev: {error}", file=sys.stderr)
         return 1
+    else:
+        return 0
 
 
 if __name__ == "__main__":
