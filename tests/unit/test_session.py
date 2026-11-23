@@ -908,5 +908,17 @@ class Guard(unittest.TestCase):
         self.assertIn("--session goes with `open --why stopped`", str(raised.exception))
 
 
+class ProcessTable(unittest.TestCase):
+    def test_a_command_line_that_is_not_utf_8_changes_one_character_of_its_line(self):
+        # one process of the machine, of any owner, had the byte 0xff in its command line (2026-11-23)
+        with tempfile.TemporaryDirectory() as folder:
+            ps = Path(folder) / "ps"
+            ps.write_text(f"#!{sys.executable}\nimport sys\nsys.stdout.buffer.write(b'  101     1 /usr/bin/claude\\n  202   101 odd-\\xffname --flag\\n')\n", encoding="utf-8")
+            ps.chmod(0o755)
+            with mock.patch.dict(os.environ, {"PATH": f"{folder}{os.pathsep}{os.environ.get('PATH', '')}"}):
+                table = session.process_table()
+        self.assertEqual(table, "  101     1 /usr/bin/claude\n  202   101 odd-�name --flag\n")
+
+
 if __name__ == "__main__":
     unittest.main()
