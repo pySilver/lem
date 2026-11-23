@@ -2750,7 +2750,7 @@ def progress_of(t: Task) -> dict:
     past = sum(1 for d in t.decided if d.kind == "taken" and d.by in PAST_PERSONAS)
     breakers = sum(1 for d in t.decided if d.kind == "breaker")
     return {**ph, "subs": [sub(k) for k in range(len(ph["names"]))], "finished": finished, "current": current, "total": total,
-            "review": review, "taken": taken, "past": past, "breakers": breakers}
+            "review": review, "taken": taken, "past_personas": past, "breakers": breakers}
 
 
 # ---- where the time of one task went ----
