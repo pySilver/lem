@@ -223,6 +223,104 @@ stateDiagram-v2
    in his own job. Nothing of this repository changes, and the throwaway repository is removed
    after the report. Serves no criterion.
 
+## Plan talk
+
+Who argued the plan: the reviewer, Codex, GPT 6.2 Sol at high effort, as its pane's status line
+showed it; the defender, Claude Code, Opus 5.5 at high effort (the task's `defender:` line). Two
+model families. Seven turns, within the bound of 4 × 10 + 2. The plan before the talk is commit
+`773efe62`; the repairs are commit `73c53456`.
+
+The reviewer's list, as it gave it:
+
+1. **Start and Drop of one item at one moment.** Repair: task 1's drop is one call that reads the
+   holder and removes the file, under the board's `SCRIPT_LOCK`, and `task-dir --ask` refuses a
+   path in `.lem/state/backlog/` whose file is gone. The reviewer held: a start typed in a
+   terminal (`/lem new PATH`, `stages/new.md`) runs `task-dir` outside that lock, and its call to
+   GitHub (`taken_on_remote` in `cmd_task_dir`) comes between the file check and the write of
+   `ask.txt`, so a Drop from the phone can end in that wait. The defender's refutation: a page
+   without acts shows the terminal line, and Drop is an act (`backlog_item` in
+   `lem_board_pages.py`), so the input is two acts of one person on two devices at one moment, not
+   realistic. Held a second time: **a design choice**, for the ladder (`stages/plan.md`, step 5).
+2. **A second retro on the same day.** Repair: task 1's add appends a run's proposals with the next
+   numbers and never rewrites a verdict, a drop or a number; each run keeps its time. The reviewer
+   held: an add and a drop that read the file at one moment lose one write. The defender's
+   refutation: a record of two writers is written under its file lock from the read to the write
+   in `project.py` (`STATE_LOCK`, lines 2066 to 2070, with its comment for this case), and task 1's
+   commands are of that module. **Settled**, settled by the two, not checked by the review.
+3. **Which item and which task Start selects.** Repair: the form posts the item's path, and the
+   slug is the stem, or the stem with the first free `-2`, `-3` when a task of that slug ended.
+   The reviewer held: a stale Start chooses `-3` while `-2` holds the item, since `act_start`
+   checks the slug and not the holder by the item's path; and a tracked item's task of the same
+   stem refuses the reviewer's item. The defender had no refutation of the first. **A design
+   choice**, for the ladder.
+4. **Which step removes the item for every merge.** Repair: the removal is in `forge_done`, the one
+   step every path to `landed` takes, before it writes `landed`; a failed removal leaves the task
+   `open` for the next `lem land merged`. **Settled**, at the cause, settled by the two, not checked
+   by the review.
+5. **Which builder rules hold for the proposals' reviewer.** Repair: a seventh job in
+   `agents/lem-builder.md`, and the items written by task 1's verdict command. The reviewer held:
+   a project's own `.claude/agents/lem-builder.md` comes first. The defender's refutation: that
+   override replaces the whole builder by design (`harness/claude-code.md`, `spawn-builder`), and
+   no repository on this machine has one. **Settled**, at the cause, settled by the two, not
+   checked by the review.
+6. **How a stage knows a scheduled session.** Repair: decision 4 changed, from the first message to
+   the session's `foreground` in agterm's tree, the agent with the job's line as its last argument.
+   The reviewer held: the owner can start `claude "/lem retro"` in a session he keeps for more work,
+   and its arguments match. The defender's refutation: such a session was started for that one run,
+   which the ask wants closed, and the close waits while he looks and is undoable (`cmd_close`,
+   `--undoable`). Held a second time: **a design choice**, for the ladder.
+7. **The retro files of the old form.** Repair: the reader refuses them with the fix, and the
+   maintaining session converts each file of the repositories in `workspaces.json` by hand. The
+   reviewer held: a project outside `workspaces.json` (a retro before its first task) keeps an old
+   file, whose refusal stops its first review. The defender's refutation: the refusal fails loudly
+   with the fix, the repository's rule for an old form (`AGENTS.md`, "Lem is not released"). Held a
+   second time: **a design choice**, for the ladder.
+8. **What a correction record of a proposal means.** Repair: a new verdict, `proposed`, read by the
+   retro as a lesson in no file yet. The reviewer held: once a task lands the lesson in a rule
+   file, the record still says `proposed`, and the retro no longer checks that lesson. The defender
+   had no refutation. **A design choice**, for the ladder.
+9. **Which ruling holds for the new night of Lem's repository.** Repair: task 6 changes the words of
+   the bullet "The lessons, the retro and Jev stay; a night run ends as a pull request; naps are
+   not shown". **Settled**, settled by the two, not checked by the review.
+10. **Where the try of `claude -p` happens.** Repair: decision 3 changed, and task 8 tries a retro
+    under `claude -p` in a throwaway repository. The reviewer held: Lem is installed at user scope
+    here (0.3.0), so the try's `lem` is the installed one (`AGENTS.md`, the lem-scratch case of
+    2026-11-21), and the inherited `AGTERM_SESSION_ID` points the close at the builder's parent.
+    The defender refuted the second (task 4 refuses a task's session) and had no refutation of the
+    first. **A design choice**, for the ladder.
+
+The mechanisms the repairs added, with the decision each sits on and the reviewer's word:
+
+- the drop in one call and the refusal of a gone item by `task-dir` (question 1): a layer over the
+  drop's removal at once, which cites the owner's "k1" and criterion 7; open, a design choice;
+- the add that never rewrites (question 2): closed, a layer over decision 1, which cites
+  criterion 6;
+- the slug with `-N` (question 3): a layer over the item's stem as the slug, the planner's choice;
+  open, a design choice;
+- the removal in `forge_done` (question 4): at the cause;
+- the seventh job and the items through a command (question 5): at the cause;
+- the foreground check (question 6): at the cause, decision 4 changed; open, a design choice;
+- the refusal of the old form and the conversion by hand (question 7): a layer over the new
+  record form, which cites `AGENTS.md`; open, a design choice;
+- the verdict `proposed` (question 8): a layer over decision 2, which cites criterion 4's case
+  and `learn.md` step 4; open, a design choice;
+- task 8 (question 10): at the cause, decision 3 changed; open, a design choice.
+
+Raised, not argued: when task 1's verdict saves `passed` before it makes the item, an interruption
+leaves no item, and the next read of proposals with no verdict skips that proposal (task 1, the
+verdict and the read).
+
+No addition was refused as unpriced.
+
+What changed in the plan, by task: task 1 got the four commands (add, read, verdict, drop), the
+refusal of a gone item by `task-dir` and of the old retro form, and the conversion by hand
+(questions 1, 2, 5, 7); task 2, the start by the item's path and the slug's `-N`, and the drop in
+one call (questions 1, 3); task 3, the removal in `forge_done` (question 4); task 4, the foreground
+check (question 6); task 5, the seventh builder job, the writes through commands only, and the
+verdict `proposed` (questions 5, 8); task 6, the night bullet of the rulings (question 9); task 8 is
+new (question 10); "Decisions of the plan", decisions 3, 4 and 5 and a new one on a day's records
+(questions 2, 5, 6, 10); "Not verified", two lines (questions 6, 10).
+
 ## Decisions of the plan
 
 - The retro takes one path, by hand and scheduled: it never asks the owner and always hands its
