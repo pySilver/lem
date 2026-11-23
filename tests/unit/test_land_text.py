@@ -114,10 +114,17 @@ CHECKS = {
 class Proposal(unittest.TestCase):
     """A land.Task over a task directory of the test's own, with the records each case gives."""
 
+    # each item the branch adds to the backlog folder, with its `worth` at the tip: a fact of the branch, which only git shows
+    ADDED: list[dict] = []
+
     def setUp(self) -> None:
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         self.root = Path(folder.name)
+        from unittest import mock
+        patched = mock.patch.object(land, "builder_filed", side_effect=lambda task: list(self.ADDED))
+        patched.start()
+        self.addCleanup(patched.stop)
 
     def task(self, lines: list[dict] = (), found: dict | None = None, kept: dict | None = None, record: dict | None = None, events: tuple[dict, ...] = ()) -> "land.Task":
         task = land.Task.__new__(land.Task)
@@ -426,14 +433,6 @@ class WithoutHim(Proposal):
     AWAY = [{"from": AT, "to": LATER, "started": {"by": "owner", "words": "/lem im-away"}, "ended": {"by": "owner", "words": "/lem im-back"}}]
     LINE = 'It ran without the owner from 2026-11-18 10:00 UTC (the owner: "/lem im-away") to 2026-11-18 11:00 UTC (the owner: "/lem im-back").'
 
-    def setUp(self) -> None:
-        super().setUp()
-        from unittest import mock
-        # what the fast track's builder filed is a fact of the branch, which only git shows
-        patched = mock.patch.object(land, "builder_filed", return_value=[])
-        patched.start()
-        self.addCleanup(patched.stop)
-
     def test_each_track_names_the_time_without_him(self) -> None:
         for name, plan in (("standard", PLAN), ("fast", self.SMALL)):
             with self.subTest(track=name):
@@ -474,56 +473,72 @@ class TheDocuments(Proposal):
 
 class SeenOutside(Proposal):
     """What the pull request's text says of the defects a review saw outside the change, on both
-    tracks: the items filed, a line under `## Seen, not filed` for each of the others, and a cheap one
-    that a fix line names by its number under `## Fixed on the way` (backlog-filing-judged, criteria 2 and 6)."""
+    tracks: each item the branch adds under the heading its `worth` at the tip gives, a line under
+    `## Seen, not filed` for a cheap one nobody fixed, and a cheap one that a fix line names by its
+    number under `## Fixed on the way` (backlog-filing-judged, criteria 2 and 6;
+    backlog-refuted-items-and-jev, criterion 1)."""
 
     SMALL = "## Acceptance criteria\n\nSize: small, because one word changes.\n\n1. The file holds the word y.\n   - test: `sh tests/t.sh` in `tests/t.sh`\n"
     NOTES = "## Decisions\n\nnone\n\n## Left open\n\nnone\n\n## Worth a look\n\nnone\n\n## Filed in the backlog\n\nnone\n\n## Not done\n\nnone\n"
     GUARD = {"where": "tests/unit/test_board_model.py", "title": "two test classes come after the main guard", "what": "the file runs them after its main guard.",
-             "bar": "under", "why": "only a reader of the code meets it", "number": "r1.1"}
+             "bar": "under", "why": "only a reader of the code meets it", "number": "r1.1", "item": "docs/backlog/two-test-classes-come-after-the-main-guard.md"}
     SUPPRESSION = {"where": "app.py:run", "title": "an outdated lint suppression", "what": "the mark names a rule the linter no longer has.",
                    "bar": "cheap", "why": "a comment of the code, no behavior", "number": "r1.2"}
     FILED = {"where": "app.py:load", "title": "load crashes on an empty file", "what": "load of an empty file raises KeyError.", "bar": "over", "number": "r1.3",
              "item": "docs/backlog/load-crashes-on-an-empty-file.md"}
-
-    def setUp(self) -> None:
-        super().setUp()
-        from unittest import mock
-        patched = mock.patch.object(land, "builder_filed", return_value=[])
-        patched.start()
-        self.addCleanup(patched.stop)
+    # the two items as the tip holds them, in the order git lists them, and the builder's one by hand
+    ADDED = [{"item": "docs/backlog/load-crashes-on-an-empty-file.md", "title": "load crashes on an empty file", "worth": "later"},
+             {"item": "docs/backlog/two-test-classes-come-after-the-main-guard.md", "title": "two test classes come after the main guard", "worth": "no"}]
 
     def text(self, plan: str, notes: str) -> list[str]:
         found = found_of(plan, approved=approval("owner", plan=plan))
         task = self.task(found=found, kept={"reads": [review(1, must_fix=0, outside=[self.GUARD, self.SUPPRESSION, self.FILED])]})
         return land.pr_text(task, notes, self.state()).splitlines()
 
-    def test_a_defect_under_the_bar_and_a_cheap_one_nobody_fixed_are_lines_and_the_item_is_filed(self) -> None:
+    def test_an_item_under_the_bar_is_filed_as_not_worth_it_and_a_cheap_one_nobody_fixed_is_a_line(self) -> None:
         for name, plan, notes in (("standard", PLAN, self.NOTES), ("fast", self.SMALL, "none\n")):
             with self.subTest(track=name):
                 out = self.text(plan, notes)
                 seen = out.index("## Seen, not filed")
-                self.assertEqual(out[seen + 2:seen + 4], ["- `tests/unit/test_board_model.py`: two test classes come after the main guard; only a reader of the code meets it",
-                                                          "- `app.py:run`: an outdated lint suppression; a comment of the code, no behavior"])
+                self.assertEqual(out[seen + 2], "- `app.py:run`: an outdated lint suppression; cheap: a comment of the code, no behavior")
+                self.assertIn(out[seen + 3:seen + 4], ([], [""]))
                 filed = out.index("## Filed in the backlog")
-                self.assertEqual(out[filed + 2], "- `docs/backlog/load-crashes-on-an-empty-file.md`: load crashes on an empty file")
-                self.assertLess(filed, seen)
+                self.assertEqual(out[filed + 2:filed + 4], ["- `docs/backlog/load-crashes-on-an-empty-file.md`: load crashes on an empty file", ""])
+                not_worth = out.index("## Filed as not worth it")
+                self.assertEqual(out[not_worth + 2], "- `docs/backlog/two-test-classes-come-after-the-main-guard.md`: two test classes come after the main guard")
+                self.assertLess(filed, not_worth)
+                self.assertLess(not_worth, seen)
                 self.assertNotIn("## Fixed on the way", out)
                 line = next(line for line in out if line.startswith("- the review, round 1"))
-                self.assertTrue(line.endswith("; it saw 3 defects outside the change, filed as `docs/backlog/load-crashes-on-an-empty-file.md`; 2 seen, not filed"), line)
+                self.assertTrue(line.endswith("; it saw 3 defects outside the change, filed as `docs/backlog/two-test-classes-come-after-the-main-guard.md`, "
+                                              "`docs/backlog/load-crashes-on-an-empty-file.md`; 1 seen, not filed"), line)
+
+    def test_the_heading_of_an_item_is_its_worth_at_the_tip_and_a_notes_line_that_names_it_is_not_written_twice(self) -> None:
+        # the owner made the review's item `worth: no`, and the polish pass's line names it under the other heading
+        self.ADDED = [{**self.ADDED[0], "worth": "no"}, self.ADDED[1], {"item": "docs/backlog/a-css-rule-matches-nothing.md", "title": "a CSS rule matches nothing", "worth": "no"}]
+        notes = self.NOTES.replace("## Filed in the backlog\n\nnone", "## Filed in the backlog\n\n- `docs/backlog/a-css-rule-matches-nothing.md`, worth: no, filed by the polish pass")
+        out = self.text(PLAN, notes)
+        filed, not_worth = out.index("## Filed in the backlog"), out.index("## Filed as not worth it")
+        self.assertEqual(out[filed + 2:filed + 4], ["none", ""])
+        self.assertEqual(out[not_worth + 2:not_worth + 5], ["- `docs/backlog/load-crashes-on-an-empty-file.md`: load crashes on an empty file",
+                                                            "- `docs/backlog/two-test-classes-come-after-the-main-guard.md`: two test classes come after the main guard",
+                                                            "- `docs/backlog/a-css-rule-matches-nothing.md`, worth: no, filed by the polish pass"])
+        self.assertEqual(sum("a-css-rule-matches-nothing" in line for line in out), 1)
 
     def test_a_fix_line_that_names_the_cheap_entry_takes_its_line_out(self) -> None:
         fix = "## Fixed on the way\n\n- `app.py` (abc1234): r1.2, the suppression named a rule the linter no longer has\n\n"
         for name, plan, notes in (("standard", PLAN, self.NOTES.replace("## Not done", fix + "## Not done")), ("fast", self.SMALL, fix)):
             with self.subTest(track=name):
                 out = self.text(plan, notes)
-                self.assertLess(out.index("## Filed in the backlog"), out.index("## Fixed on the way"))
-                self.assertLess(out.index("## Fixed on the way"), out.index("## Seen, not filed"))
-                self.assertNotIn("- `app.py:run`: an outdated lint suppression; a comment of the code, no behavior", out)
+                self.assertLess(out.index("## Filed in the backlog"), out.index("## Filed as not worth it"))
+                self.assertLess(out.index("## Filed as not worth it"), out.index("## Fixed on the way"))
+                # its line was the one line of `## Seen, not filed`, which then has none
+                self.assertNotIn("## Seen, not filed", out)
                 self.assertIn("- `app.py` (abc1234): r1.2, the suppression named a rule the linter no longer has", out)
-                self.assertTrue(next(line for line in out if line.startswith("- the review, round 1")).endswith("; 1 fixed on the way; 1 seen, not filed"))
+                self.assertTrue(next(line for line in out if line.startswith("- the review, round 1")).endswith("; 1 fixed on the way"))
 
     def test_a_review_that_saw_nothing_outside_keeps_the_text_as_it_was(self) -> None:
+        self.ADDED = []
         task = self.task()
         out = land.pr_text(task, self.NOTES, self.state())
         self.assertTrue(out.endswith("\n\n" + self.NOTES))
@@ -535,13 +550,6 @@ class TheIssue(Proposal):
     both ways, and no word that closes it, on both tracks (github-issues-tracker, criterion 5.1)."""
 
     SMALL = "## Acceptance criteria\n\nSize: small, because one word changes.\n\n1. The file holds the word y.\n   - test: `sh tests/t.sh` in `tests/t.sh`\n"
-
-    def setUp(self) -> None:
-        super().setUp()
-        from unittest import mock
-        patched = mock.patch.object(land, "builder_filed", return_value=[])
-        patched.start()
-        self.addCleanup(patched.stop)
 
     def text(self, plan: str, kind: str | None, ticket: str | None) -> str:
         task = self.task(found=found_of(plan, approved=approval("owner", plan=plan)), record={"ticket": ticket})

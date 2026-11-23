@@ -227,7 +227,7 @@ landing up as after a cut-off.
      for no `checks` again, since they hold no code and no test, and `read` still says `none`: new
      files of the backlog folder are no change the review did not see. An item written by hand
      asks for the checks, as any other commit does. Do this after every record that names some,
-     before a fix builder starts too. `propose` refuses while a defect over the bar has no item, and while an
+     before a fix builder starts too. `propose` refuses while a defect over or under the bar has no item, and while an
      item is gone from the tip: then `lem land file SLUG --again` puts it back. An item the owner does not want
      stays, with `worth: no` and his reason in it; it is never deleted.
    - *a must-fix*: `spawn-builder` with the brief below, the job "the fix of a review's
@@ -255,28 +255,38 @@ landing up as after a cut-off.
 6. **`propose`**, with `--title` and `--notes`. The title is the report's commit subject. The
    notes are a file you write in the task directory, `notes.md` (`--notes notes.md`), from
    `report.md` and the last review's file. The fast track's notes are the should findings the review left, one line each
-   with its file, or the one word `none`, `## Fixed on the way` and `## Seen, not filed` from the
+   with its file and its bar call, or the one word `none`, `## Fixed on the way` and `## Seen, not filed` from the
    builder's reply when it gave those lists, and `## Migration` when it is careful. Every other
    request's have these headings, each holding what is true of this task or the one word `none`:
    - `## Decisions`: what the record of the task's decisions does not hold, one line each: what
      came up, what was chosen, and why in a few words. The lead's call on whether the task is
      careful, with its sentence of why, is one of them. Do not copy the record: the step puts
      each of its decisions into the text by itself.
-   - `## Left open`: each should finding the review left, with its file.
+   - `## Left open`: each should finding the review left, with its file and its bar call.
    - `## Worth a look`: up to three places a person's eye is worth, and why each.
    - `## Filed in the backlog`: each item the polish pass filed, by its first line, as
-     `report.md` names them. The step adds the items the reviews' defects were filed as.
+     `report.md` names them. The step lists each item the branch adds by itself, whoever filed it,
+     here or under `## Filed as not worth it` as its `worth` says, and a line here that names an
+     item goes with it.
    - `## Fixed on the way`, when a builder fixed one: each cheap defect the polish pass fixed, as
      `report.md` names it (the file, the commit and what was wrong), and each cheap entry of a
      review that the fix builder's reply names, with its number (`r1.3`). An entry no line here
      names by its number stays under "Seen, not filed".
    - `## Seen, not filed`, when the polish pass saw one: each line of `report.md`'s list, its
-     place and the open item that holds it. The step adds one line for each of the reviews' defects that has no item and
+     place and the open item that holds it, or its bar call. The step adds one line for each of the reviews' defects that has no item and
      that no line under `## Fixed on the way` names, so write none of those here.
    - `## Not done`: what the request asked for and this change does not do, and what was not
      verified.
    - `## Migration`, for a careful request only: whether the change holds a migration, and how
      to revert it.
+
+   A bar call ends the line: `under: REASON` or `cheap: REASON`, by the bar of rule 6 of the
+   builder's standing rules. `propose` refuses each line under `## Left open` and `## Seen, not
+   filed`, and on the fast track each line before the notes' first heading, that has neither a bar
+   call with its reason nor the path of an item of the backlog folder that the tip holds, whoever
+   wrote it, and names it: give it a call and a reason, or have a builder file it, then run the
+   step again. A should finding takes the same calls: a missing test is `under:` with why a test is
+   not worth it now, or an item.
 
    The step writes the text of the pull request (`pr.md` in the task directory): the first line
    says green or not green, and each reason it is not green stands before everything else; then
@@ -428,7 +438,8 @@ landing up as after a cut-off.
      writes it down and wakes this session, as the top of this stage says.
 
    With `branch.history = "squash"` the step wants `--message` with the report's commit subject
-   (the server gives the proposal's title). The step's refusals:
+   (the server gives the proposal's title), and writes the commit's body itself: each line of the
+   pull request's `## Fixed on the way`, and last the line `Lem task: SLUG`. The step's refusals:
    - *GitHub refused the merge* (a required review, a check it waits for, a rule of the base
      branch): the step keeps GitHub's line, and "Waits for you" shows it. Tell the owner that line
      once, as it is; the task waits as `open` for him.

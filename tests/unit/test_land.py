@@ -113,21 +113,120 @@ class DefectsOutside(unittest.TestCase):
             {**DEFECT, "bar": "over", "open": "docs/backlog/the-first-line-skips-a-bold-outcome.md", "number": "r2.3"},
         ])
 
-    def test_only_an_over_defect_with_no_item_and_no_open_item_in_the_tip_waits_to_be_filed(self) -> None:
+    def test_an_over_or_under_defect_with_no_item_and_no_open_item_in_the_tip_waits_to_be_filed(self) -> None:
         held = "docs/backlog/the-first-line-skips-a-bold-outcome.md"
         outside = self.of([
             {**DEFECT, "bar": "over"},
             {**DEFECT, "bar": "under", "why": "only a reader of the code meets it"},
             {**DEFECT, "bar": "cheap", "why": "an outdated suppression"},
             {**DEFECT, "bar": "over", "open": held},
+            {**DEFECT, "bar": "under", "why": "only a reader of the code meets it", "open": held},
         ])
         reads = [{"round": 1, "answered": True, "outside": outside}]
-        self.assertEqual(land.to_file(reads, lambda path: path == held), [{"round": 1, "number": "r2.1", **DEFECT}])
+        # an under defect is an item too, `worth: no`, so the next review does not raise it again; a cheap one is none
+        self.assertEqual(land.to_file(reads, lambda path: path == held), [{"round": 1, "number": "r2.1", **DEFECT}, {"round": 1, "number": "r2.2", **DEFECT}])
         # the base joined the open item after the review, and a rebase kept the review: the defect is filed
-        self.assertEqual([entry["number"] for entry in land.to_file(reads, lambda path: False)], ["r2.1", "r2.4"])
+        self.assertEqual([entry["number"] for entry in land.to_file(reads, lambda path: False)], ["r2.1", "r2.2", "r2.4", "r2.5"])
         # one with its item waits for nothing, nor one of a review nobody answered
         outside[0]["item"] = "docs/backlog/empty-input-crashes-the-parser.md"
+        outside[1]["item"] = "docs/backlog/empty-input-crashes-the-parser-json-parse.md"
         self.assertEqual(land.to_file([*reads, {"round": 2, "answered": False, "outside": outside}], lambda path: path == held), [])
+
+
+class TheItemOfADefect(unittest.TestCase):
+    """`land.item_body`: the item `file` writes for a review's defect, `worth: later` over the bar and
+    `worth: no` under it, the review's why as its last line (backlog-refuted-items-and-jev, criterion 1)."""
+
+    PADS = {"where": "shop/dates.py:format_day", "title": "format_day pads the day with a space", "what": "format_day of 3 May gives \" 3 May\"; the rest of the shop gives \"03 May\".",
+            "why": "no user is confused, no contract breaks"}
+
+    def test_an_under_defect_is_a_worth_no_item_that_ends_with_its_reason(self) -> None:
+        text = land.item_body({**self.PADS, "bar": "under"}, 1, "export-notes", "2026-11-23", "2026-11-23")
+        front, lines = land.item_text(text)
+        self.assertEqual(front, {"worth": "no", "where": "shop/dates.py:format_day", "added": "2026-11-23"})
+        self.assertEqual(lines[0], "# format_day pads the day with a space")
+        self.assertEqual(lines[-1], "Decided against: no user is confused, no contract breaks")
+        self.assertIn("Seen outside the change by review round 1 of task export-notes (2026-11-23); the base commit has it.", lines)
+
+    def test_an_over_defect_is_a_worth_later_item_with_no_reason_line(self) -> None:
+        text = land.item_body({**self.PADS, "bar": "over"}, 2, "export-notes", "2026-11-22", "2026-11-23")
+        self.assertEqual(land.item_text(text)[0]["worth"], "later")
+        self.assertNotIn("Decided against", text)
+        self.assertTrue(text.endswith("Seen outside the change by review round 2 of task export-notes (2026-11-22); the base commit has it.\n"))
+
+    def test_the_file_is_still_the_defect_with_its_reason_in_it(self) -> None:
+        with tempfile.TemporaryDirectory() as scratch:
+            file = Path(scratch) / "item.md"
+            file.write_text(land.item_body({**self.PADS, "bar": "under"}, 1, "export-notes", "2026-11-23", "2026-11-23"), encoding="utf-8")
+            self.assertTrue(land.holds(file, self.PADS))
+
+
+class TheNotesLines(unittest.TestCase):
+    """`land.unfiled_lines`: `propose` refuses a line of the notes that names a finding nobody filed
+    and has no bar call with its reason and no item the tip holds, whoever wrote it
+    (backlog-refuted-items-and-jev, criterion 6)."""
+
+    HELD = {"docs/backlog/a-held-item.md"}
+    NOTES = "## Decisions\n\nnone\n\n## Left open\n\nnone\n\n## Worth a look\n\n- the one line of the file.\n\n## Filed in the backlog\n\nnone\n\n## Not done\n\nnone\n"
+
+    def bare(self, notes: str, small: bool = False) -> list[str]:
+        return land.unfiled_lines(notes, small, "docs/backlog", lambda path: path in self.HELD)
+
+    def test_a_hand_written_line_with_no_call_is_named(self) -> None:
+        line = "- `land.py:cmd_start` writes over `reviews/review-1.*`"
+        notes = self.NOTES.replace("## Not done", f"## Seen, not filed\n\n{line}\n\n## Not done")
+        self.assertEqual(self.bare(notes), [line])
+        # a call with its reason, or an item the tip holds, lets it go on
+        for passes in (f"{line}; under: a second landing is rare, and the review files are kept in git",
+                       f"{line}; cheap: a comment says the opposite",
+                       f"{line}; Under: the owner reads the reviews in the pull request",
+                       f"{line}; filed as `docs/backlog/a-held-item.md`"):
+            with self.subTest(line=passes):
+                self.assertEqual(self.bare(self.NOTES.replace("## Not done", f"## Seen, not filed\n\n{passes}\n\n## Not done")), [])
+
+    def test_a_call_with_no_reason_or_an_item_the_tip_lacks_is_no_call(self) -> None:
+        for bare in ("- `a.py`: one; under:", "- `a.py`: one; under:   ", "- `a.py`: one; underline: the word", "- `a.py`: one; filed as docs/backlog/gone.md",
+                     "- `a.py`: one; over: worth an item"):
+            with self.subTest(line=bare):
+                self.assertEqual(self.bare(self.NOTES.replace("## Left open\n\nnone", f"## Left open\n\n{bare}")), [bare.strip()])
+
+    def test_a_should_finding_left_open_is_checked_and_its_continued_line_is_one_entry(self) -> None:
+        notes = self.NOTES.replace("## Left open\n\nnone", "## Left open\n\n- `land.py:start_locked`: no test holds the carry of `pr`,\n  under: the journey of the moved base holds it\n- `land.py:cmd_base`: a long line")
+        self.assertEqual(self.bare(notes), ["- `land.py:cmd_base`: a long line"])
+
+    def test_the_other_parts_and_a_lone_none_are_not_read(self) -> None:
+        self.assertEqual(self.bare(self.NOTES), [])
+        self.assertEqual(self.bare(self.NOTES.replace("- the one line of the file.", "- a place worth a look, no call")), [])
+
+    def test_the_fast_track_reads_its_lines_before_any_heading_and_a_left_open_it_wrote(self) -> None:
+        self.assertEqual(self.bare("none\n", small=True), [])
+        self.assertEqual(self.bare("- `report.css`: the gap is 3px wide\n", small=True), ["- `report.css`: the gap is 3px wide"])
+        self.assertEqual(self.bare("- `report.css`: the gap; under: nobody sees 1px\n\n## Left open\n\n- `report.py`: no test\n", small=True), ["- `report.py`: no test"])
+        # the standard track does not read the lines before its first heading
+        self.assertEqual(self.bare("- `report.css`: the gap is 3px wide\n" + self.NOTES), [])
+
+    def test_a_line_the_script_writes_passes(self) -> None:
+        for defect in ({**DEFECT, "bar": "cheap", "why": "a comment says the opposite"}, {**DEFECT, "bar": "over", "open": "docs/backlog/a-held-item.md"}):
+            with self.subTest(bar=defect["bar"]):
+                self.assertEqual(self.bare(self.NOTES.replace("## Not done", f"## Seen, not filed\n\n{land.seen_line(defect)}\n\n## Not done")), [])
+
+
+class TheSquashBody(unittest.TestCase):
+    """`land.squash_body`: the body of the one commit of a squash merge names each fix made on the way
+    and ends with the task (backlog-refuted-items-and-jev, criterion 2)."""
+
+    TEXT = ("**Green.**\n\n## Not done\n\nnone\n\n## Fixed on the way\n\n- `skills/lem/scripts/lem_state.py` (abc1234): the docstring said the state folder is in the home folder\n"
+            "- `docs/board.md` (def5678): a sentence named a key the board no longer has\n\n## Seen, not filed\n\n- `a.py`: one; cheap: a comment\n")
+
+    def test_each_fix_on_the_way_then_the_moved_base_then_the_task(self) -> None:
+        moved = "The checks ran on main at 1a2b3c4d5; it merged on main at 6e7f8a9b0, after the merge agent's read of what moved: nothing it rests on."
+        self.assertEqual(land.squash_body(self.TEXT, moved, "export-notes"),
+                         "- `skills/lem/scripts/lem_state.py` (abc1234): the docstring said the state folder is in the home folder\n"
+                         "- `docs/board.md` (def5678): a sentence named a key the board no longer has\n\n" + moved + "\n\nLem task: export-notes")
+
+    def test_with_no_fix_and_no_move_the_task_alone(self) -> None:
+        self.assertEqual(land.squash_body("**Green.**\n\n## Fixed on the way\n\nnone\n", None, "export-notes"), "Lem task: export-notes")
+        self.assertEqual(land.squash_body("", None, "export-notes"), "Lem task: export-notes")
 
 
 class Bar(unittest.TestCase):

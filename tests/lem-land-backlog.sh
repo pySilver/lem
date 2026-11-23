@@ -227,11 +227,13 @@ else
 fi
 project --repo "$BLG" state hook-form dropped "the test is over" >/dev/null
 
-# A review judges each defect outside the change by the bar of rule 6, and only what is over the bar becomes an item:
-# one under the bar is a line of the pull request, one that an open item of the base holds names that item and files
-# nothing, one whose open item the branch removed is filed, and of two cheap defects of one place and title that
-# nobody's fix takes up, the one a fix line names by its number leaves the list and the other stays. No cheap defect
-# runs the checks again. Last in this block: it reads the item that by-hand's landing put on the base.
+# A review judges each defect outside the change by the bar of rule 6: one over the bar is an item with worth: later,
+# one under it an item with worth: no that ends with the review's reason, which the pull request lists under its own
+# heading; one that an open item of the base holds names that item and files nothing, one whose open item the branch
+# removed is filed, and of two cheap defects of one place and title that nobody's fix takes up, the one a fix line
+# names by its number leaves the list and the other stays. No cheap defect runs the checks again. A line the session
+# writes by hand under Seen, not filed with no bar call stops propose, named, and goes on with its call and reason.
+# Last in this block: it reads the item that by-hand's landing put on the base.
 O='{"where": "src/a.py:f", "title": "F crashes on None", "what": "f(None) raises TypeError, on the base commit too.", "bar": "over"}'
 U='{"where": "tests/unit/test_board_model.py", "title": "two test classes come after the main guard", "what": "the two classes stand after the main guard of the file, on the base commit too.", "bar": "under", "why": "only a reader of the code meets it"}'
 P='{"where": "src/json.py:parse", "title": "Empty input crashes the parser", "what": "parse with an empty string raises IndexError, on the base commit too.", "bar": "over", "open": "docs/backlog/empty-input-crashes-the-parser.md"}'
@@ -248,27 +250,44 @@ nowhere=$(land --repo "$BLG" read judged --record "$(record judged 1 "$a_read, $
 judged=$(land --repo "$BLG" read judged --record "$(record judged 1 "$a_read, $(outside "$O" "$U" "$P" "$Q" "$C1" "$C2")")" | field '(d["next"], [f["number"] for f in d["to_file"]], [c["number"] for c in d["cheap"]])')
 filing=$(land --repo "$BLG" file judged | field '([(f["number"], f["item"]) for f in d["filed"]], [(f["number"], f["item"]) for f in d["open"]])')
 numbers=$(land --repo "$BLG" read judged | field '[f["number"] for f in d["reads"][0]["outside"]]')
-printf '%s\n' '## Decisions' '' 'none' '' '## Left open' '' 'none' '' '## Worth a look' '' 'none' '' '## Filed in the backlog' '' 'none' '' \
-  '## Fixed on the way' '' '- src/c.py (abc1234): r1.5, the comment of h said it returns None' '' '## Not done' '' 'none' > "$WORK/judged-notes.md"
+hand="- \`land.py:cmd_start\` writes over \`reviews/review-1.*\`"
+# judged_notes SEEN: the notes of judged, with SEEN the one line under Seen, not filed
+judged_notes() {
+  printf '%s\n' '## Decisions' '' 'none' '' '## Left open' '' 'none' '' '## Worth a look' '' 'none' '' '## Filed in the backlog' '' 'none' '' \
+    '## Fixed on the way' '' '- src/c.py (abc1234): r1.5, the comment of h said it returns None' '' '## Seen, not filed' '' "$1" '' '## Not done' '' 'none' > "$WORK/judged-notes.md"
+}
+judged_notes "$hand"
+bare=$(land --repo "$BLG" propose judged --title "fix: judged" --notes "$WORK/judged-notes.md" 2>&1 || true)
+judged_notes "$hand; under: a second landing is rare, and git keeps each review"
 green=$(land --repo "$BLG" propose judged --title "fix: judged" --notes "$WORK/judged-notes.md" | field 'd["green"]')
 text=$BLG/.lem/state/tasks/judged/pr.md
+under=$tree/docs/backlog/two-test-classes-come-after-the-main-guard.md
 seen=$(sed -n '/^## Seen, not filed$/,/^## Not done$/p' "$text")
 if [ "$told" = "[('docs/backlog/empty-input-crashes-the-parser.md', 'src/json.py:parse', 'Empty input crashes the parser'), ('docs/backlog/existing.md', None, 'an item from before')]" ] \
   && grep -qF "\`open\` of the defect r1.1 outside the change (\"G loses the last row\") is 'docs/backlog/nothing-of-the-base.md', which is no file of the backlog folder docs/backlog at the base" <<<"$nowhere" \
-  && [ "$judged" = "('none', ['r1.1', 'r1.4'], ['r1.5', 'r1.6'])" ] \
-  && [ "$filing" = "([('r1.1', 'docs/backlog/f-crashes-on-none.md'), ('r1.4', 'docs/backlog/g-loses-the-last-row.md')], [('r1.3', 'docs/backlog/empty-input-crashes-the-parser.md')])" ] \
+  && [ "$judged" = "('none', ['r1.1', 'r1.2', 'r1.4'], ['r1.5', 'r1.6'])" ] \
+  && [ "$filing" = "([('r1.1', 'docs/backlog/f-crashes-on-none.md'), ('r1.2', 'docs/backlog/two-test-classes-come-after-the-main-guard.md'), ('r1.4', 'docs/backlog/g-loses-the-last-row.md')], [('r1.3', 'docs/backlog/empty-input-crashes-the-parser.md')])" ] \
   && [ "$numbers" = "['r1.1', 'r1.2', 'r1.3', 'r1.4', 'r1.5', 'r1.6']" ] && [ "$green" = True ] \
-  && [ "$(git -C "$tree" ls-files docs/backlog | tr '\n' ' ')" = "docs/backlog/empty-input-crashes-the-parser.md docs/backlog/f-crashes-on-none.md docs/backlog/g-loses-the-last-row.md " ] \
-  && [ "$(grep '^## ' "$text" | tail -5 | tr '\n' '|')" = "## Worth a look|## Filed in the backlog|## Fixed on the way|## Seen, not filed|## Not done|" ] \
+  && [ "$(git -C "$tree" ls-files docs/backlog | tr '\n' ' ')" = "docs/backlog/empty-input-crashes-the-parser.md docs/backlog/f-crashes-on-none.md docs/backlog/g-loses-the-last-row.md docs/backlog/two-test-classes-come-after-the-main-guard.md " ] \
+  && [ "$(sed -n 2p "$under")" = "worth: no" ] && [ "$(sed -n 6p "$under")" = "# two test classes come after the main guard" ] \
+  && [ "$(tail -n 1 "$under")" = "Decided against: only a reader of the code meets it" ] \
+  && [ "$(grep '^## ' "$text" | tail -6 | tr '\n' '|')" = "## Worth a look|## Filed in the backlog|## Filed as not worth it|## Fixed on the way|## Seen, not filed|## Not done|" ] \
+  && [ "$(sed -n '/^## Filed as not worth it$/,/^## Fixed on the way$/p' "$text" | grep '^- ')" = "- \`docs/backlog/two-test-classes-come-after-the-main-guard.md\`: two test classes come after the main guard" ] \
   && grep -qxF -- "- \`docs/backlog/f-crashes-on-none.md\`: F crashes on None" "$text" && grep -qxF -- "- \`docs/backlog/g-loses-the-last-row.md\`: G loses the last row" "$text" \
-  && grep -qxF -- "- \`tests/unit/test_board_model.py\`: two test classes come after the main guard; only a reader of the code meets it" <<<"$seen" \
   && grep -qxF -- "- \`src/json.py:parse\`: Empty input crashes the parser; an open item holds it, \`docs/backlog/empty-input-crashes-the-parser.md\`" <<<"$seen" \
-  && [ "$(grep -cxF -- "- \`src/c.py:h\`: A comment says the opposite; a comment, no behavior" <<<"$seen")" = 1 ] && [ "$(grep -c '^- ' <<<"$seen")" = 3 ] \
-  && grep -qF "it saw 6 defects outside the change, filed as \`docs/backlog/f-crashes-on-none.md\`, \`docs/backlog/g-loses-the-last-row.md\`; 1 fixed on the way; 3 seen, not filed" "$text" \
+  && [ "$(grep -cxF -- "- \`src/c.py:h\`: A comment says the opposite; cheap: a comment, no behavior" <<<"$seen")" = 1 ] && [ "$(grep -c '^- ' <<<"$seen")" = 3 ] \
+  && grep -qxF -- "$hand; under: a second landing is rare, and git keeps each review" <<<"$seen" \
+  && grep -qF "it saw 6 defects outside the change, filed as \`docs/backlog/f-crashes-on-none.md\`, \`docs/backlog/two-test-classes-come-after-the-main-guard.md\`, \`docs/backlog/g-loses-the-last-row.md\`; 1 fixed on the way; 2 seen, not filed" "$text" \
   && [ "$(grep -c '"event": "gate", "task": "judged"' "$BLG/.lem/state/events.jsonl")" = 1 ] && [ -z "$(git -C "$tree" status --porcelain)" ]; then
-  pass "a review judges each defect outside the change by the bar: only one over it with no open item in the tip is filed, and the pull request opens with each other one on a line under Seen, not filed, a cheap one that a fix line names by its number left out, and no new run of the checks"
+  pass "a review judges each defect outside the change by the bar: one over it is an item with worth: later, one under it an item with worth: no that ends with the review's reason and is listed under Filed as not worth it, each other one is a line under Seen, not filed, a cheap one that a fix line names by its number left out, and no new run of the checks"
 else
-  fail "the defects a review judged: $told / $nowhere / $judged / $filing / $numbers / $green / $(git -C "$tree" ls-files docs/backlog | tr '\n' ' ') / $(cat "$text" 2>/dev/null)"
+  fail "the defects a review judged: $told / $nowhere / $judged / $filing / $numbers / $green / $(git -C "$tree" ls-files docs/backlog | tr '\n' ' ') / $(cat "$under" 2>/dev/null) / $(cat "$text" 2>/dev/null)"
+fi
+if grep -qF "1 line(s) of the notes name a finding with no bar call and no item: \"$hand\". Give it a bar call and a reason, or file it" <<<"$bare" \
+  && grep -qF "\`under: REASON\` or \`cheap: REASON\`" <<<"$bare" && ! grep -q Traceback <<<"$bare" && [ "$green" = True ]; then
+  pass "a line the session wrote by hand under Seen, not filed with no bar call stops propose, which names the line and says to give it a bar call and a reason or to file it; with under and its reason it goes on"
+else
+  fail "a hand-written line with no call: $bare / $green"
 fi
 project --repo "$BLG" state judged dropped "the test is over" >/dev/null
 
