@@ -258,8 +258,9 @@ tip holds, and any task whose pass started and is not done. Every task with a pl
 standard track: `criteria.py` refuses a plan that says `Size: small`, and so does every step here that
 reads the criteria. The commits
 that come after the pass, a repair, a fix of a review's findings, the items `file` writes, are
-on top of it, and a rebase by `base` gives the pass's commits their new names; any other rewrite
-of the branch asks for the pass again. The pass runs once for a task: `start` of a `ready` task that
+on top of it, and a rebase by `base` gives the pass's commits their new names; a rebase in which
+git leaves out one of the branch's commits (`through_rebase`), and any other rewrite of the branch,
+ask for the pass again. The pass runs once for a task: `start` of a `ready` task that
 starts over keeps a pass that is done while the branch holds its last commit, and a `ready` task that
 goes on with its landing keeps the whole record (above).
 
