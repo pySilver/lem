@@ -39,8 +39,10 @@ import functools
 import json
 import os
 import subprocess
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import ParamSpec, TypeVar, cast
 
 import lem_state
 
@@ -66,11 +68,14 @@ UPDATE = "/plugin marketplace update lem"
 CLEARED: contextvars.ContextVar[frozenset | None] = contextvars.ContextVar(
     "lem_release_cleared", default=None
 )
+# The arguments and the result of a script's `main`, which `one_command` keeps.
+Params = ParamSpec("Params")
+Result = TypeVar("Result")
 
 
 def numbers(version: object) -> tuple[int, ...] | None:
     """`0.3.0` as (0, 3, 0); None for anything that is not numbers joined by dots."""
-    parts = str(version).strip().split(".") if isinstance(version, str) else []
+    parts = version.strip().split(".") if isinstance(version, str) else []
     return (
         tuple(int(part) for part in parts)
         if parts and all(part.isdigit() for part in parts)
@@ -126,7 +131,12 @@ def installed(listed: object, main: str) -> str | None:
             elif entry.get("scope") in USER_SCOPES:
                 user.append(entry["version"])
     found = own or user
-    return max(found, key=numbers) if found else None
+    # Each version in FOUND gave numbers above, so the key is never None.
+    return (
+        max(found, key=cast("Callable[[str], tuple[int, ...]]", numbers))
+        if found
+        else None
+    )
 
 
 def chosen(listed: object, main: str, version: str) -> str:
@@ -134,7 +144,11 @@ def chosen(listed: object, main: str, version: str) -> str:
     (`installed`), else VERSION, this Lem's own, and never newer than VERSION."""
     found = installed(listed, main)
     return (
-        found if found is not None and numbers(found) <= numbers(version) else version
+        found
+        if found is not None
+        and cast("tuple[int, ...]", numbers(found))
+        <= cast("tuple[int, ...]", numbers(version))
+        else version
     )
 
 
@@ -154,11 +168,11 @@ def running() -> str:
     return version
 
 
-def installs(environ: dict | None = None) -> object:
+def installs(environ: Mapping[str, str] | None = None) -> object:
     """Claude Code's list of installed plugins (`plugins/installed_plugins.json` of CLAUDE_CONFIG_DIR,
     else of `~/.claude`), as read; None when it is not there or does not read."""
-    environ = os.environ if environ is None else environ
-    home = Path(environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
+    env: Mapping[str, str] = os.environ if environ is None else environ
+    home = Path(env.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
     try:
         return json.loads(
             (home / "plugins" / "installed_plugins.json").read_text(encoding="utf-8")
@@ -234,7 +248,7 @@ def branch_of(main: Path, slug: str) -> str | None:
     for gitdir in sorted(Path(common).glob("worktrees/*/gitdir")) if common else []:
         if os.path.realpath(
             gitdir.read_text(encoding="utf-8", errors="replace").strip()
-        ) != os.path.realpath(os.path.join(path, ".git")):
+        ) != os.path.realpath(Path(path) / ".git"):
             continue
         for folder in ("rebase-merge", "rebase-apply"):
             head = gitdir.parent / folder / "head-name"
@@ -294,7 +308,7 @@ def log_stop(directory: Path, began: str, version: str, say: str) -> None:
             out.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
-def check(directory: Path, passes: bool = False) -> str | None:
+def check(directory: Path, *, passes: bool = False) -> str | None:
     """The rule for one command on the task of DIRECTORY (`.lem/state/tasks/SLUG` of the main
     checkout): None when it goes on, else the message it stops with, for the caller to refuse with.
     PASSES for a command that ends the task. A directory that is not there is no task yet, and the
@@ -319,12 +333,12 @@ def check(directory: Path, passes: bool = False) -> str | None:
     return None
 
 
-def one_command(main):
+def one_command(main: Callable[Params, Result]) -> Callable[Params, Result]:
     """A script's `main` as one command: what it passes (`check`) holds for the commands it runs in
     this process, and for no command after it."""
 
     @functools.wraps(main)
-    def run(*args, **kwargs):
+    def run(*args: Params.args, **kwargs: Params.kwargs) -> Result:
         token = CLEARED.set(CLEARED.get() or frozenset())
         try:
             return main(*args, **kwargs)

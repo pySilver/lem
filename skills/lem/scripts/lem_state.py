@@ -50,7 +50,9 @@ import os
 import re
 import subprocess
 import tomllib
+from collections.abc import Generator
 from pathlib import Path
+from typing import cast
 
 STATE = Path(".lem") / "state"
 # what the folder's own ignore file says: everything in it, and the file itself
@@ -67,7 +69,7 @@ class StateError(Exception):
 
 
 @contextlib.contextmanager
-def events_lock(state: Path):
+def events_lock(state: Path) -> Generator[None, None, None]:
     """Hold the lock of the event log in the state folder STATE, waiting for another holder."""
     with (state / EVENTS_LOCK).open("a") as handle:
         fcntl.flock(handle, fcntl.LOCK_EX)
@@ -99,7 +101,7 @@ def git(start: Path, args: list, timeout: float | None) -> str | None:
 # runs, and a command that calls its siblings in its own process asks for it many times, so git is
 # asked once for each folder. Only the path is kept: the list of worktrees, which a command may
 # change, is asked again each time. A process that runs many commands calls `forget()` between two.
-CHECKOUTS = {}
+CHECKOUTS: dict[str, Path] = {}
 
 
 def forget() -> None:
@@ -108,7 +110,7 @@ def forget() -> None:
 
 def main_checkout(start: Path, timeout: float | None = None) -> Path:
     """The checkout every worktree hangs off: the first entry `git worktree list` gives."""
-    key = os.path.abspath(start)
+    key = os.path.abspath(start)  # noqa: PTH100 - the path as given, made absolute: resolve() would follow its links
     if key in CHECKOUTS:
         return CHECKOUTS[key]
     # -z ends each field with a NUL: a path may hold a line break, and a split on lines would cut it
@@ -135,7 +137,7 @@ def config() -> Path:
     named = os.environ.get("XDG_CONFIG_HOME", "")
     if not named:
         return Path.home() / ".config" / "lem"
-    if not os.path.isabs(named):
+    if not Path(named).is_absolute():
         # a relative path would be read from the folder each command starts in, so two repositories would read two marks
         raise StateError(
             f"XDG_CONFIG_HOME is {named!r}, a relative path: Lem keeps the owner's status under it for every repository, so set it to an absolute path, or unset it for ~/.config"
@@ -174,7 +176,7 @@ SERVE_PID = "serve.pid"
 # The keys of each table of the file, with the type each holds; what `write_machine` writes. The keys of
 # `[peers]` are not fixed: each is a machine's name on the tailnet (PEER_NAME), and its value the port
 # of that machine's tailnet door.
-MACHINE_KEYS = {
+MACHINE_KEYS: dict[str, dict[str, type | tuple[type, ...]] | None] = {
     "load": {"start": (int, float)},
     "serve": {"tailscale": bool, "port": int, "tailscale_port": int},
     "peers": None,
@@ -191,6 +193,8 @@ MACHINE_FIX = {
 }
 # A machine's name on the tailnet, as a key of `[peers]`: one DNS label, in lower case.
 PEER_NAME = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+# The first number past the last port of a machine.
+PORT_END = 65536
 # The developer's own settings for every repository on this machine, in the same folder, and a
 # repository's two, at the root of its checkout: the team's, in git, and the developer's own for that
 # one repository, which git does not track. The nearest file that holds a setting wins (`project.py`).
@@ -262,7 +266,7 @@ def misplaced(table: str, place: str) -> str | None:
 
 
 @contextlib.contextmanager
-def machine_lock():
+def machine_lock() -> Generator[None, None, None]:
     """Hold the lock of the machine's file, waiting for another writer; the folder is made for it."""
     folder = config()
     folder.mkdir(parents=True, exist_ok=True)
@@ -307,21 +311,22 @@ def checked_table(tables: dict, name: str) -> dict:
     if not isinstance(table, dict):
         raise StateError(f"{name} in {file} is no table; {fix}")
     for key, value in table.items():
-        if MACHINE_KEYS[name] is None:
+        kinds = MACHINE_KEYS[name]
+        if kinds is None:
             if (
                 not re.fullmatch(PEER_NAME, key)
                 or isinstance(value, bool)
                 or not isinstance(value, int)
-                or not 0 < value < 65536
+                or not 0 < value < PORT_END
             ):
                 raise StateError(
                     f"{name}.{key} in {file} is no machine's name with a port of its door; delete the line, or {fix}"
                 )
             continue
-        kind = MACHINE_KEYS[name].get(key)
+        kind = kinds.get(key)
         if kind is None:
             raise StateError(
-                f"{name}.{key} in {file} is no setting of Lem's (the keys of [{name}] are {', '.join(MACHINE_KEYS[name])}); delete the line, or {fix}"
+                f"{name}.{key} in {file} is no setting of Lem's (the keys of [{name}] are {', '.join(kinds)}); delete the line, or {fix}"
             )
         if (isinstance(value, bool) and kind is not bool) or not isinstance(
             value, kind
@@ -391,11 +396,16 @@ def write_machine(name: str, values: dict | None) -> None:
         try:
             with os.fdopen(handle, "w", encoding="utf-8") as out:
                 out.write("\n".join(lines) + "\n")
-            os.chmod(temporary, 0o644)
-            os.replace(temporary, file)
+            Path(temporary).chmod(0o644)
+            Path(temporary).replace(file)
         except BaseException:
             Path(temporary).unlink(missing_ok=True)
             raise
+
+
+# The characters a TOML string writes as an escape: those under CONTROL_END, and DELETE.
+CONTROL_END = 0x20
+DELETE = 0x7F
 
 
 def toml_string(value: str) -> str:
@@ -404,7 +414,7 @@ def toml_string(value: str) -> str:
     return (
         '"'
         + "".join(
-            f"\\u{ord(c):04x}" if ord(c) < 0x20 or ord(c) == 0x7F else c
+            f"\\u{ord(c):04x}" if ord(c) < CONTROL_END or ord(c) == DELETE else c
             for c in escaped
         )
         + '"'
@@ -502,13 +512,17 @@ def edited(text: str, table: str, key: str, value: object, name: object) -> str:
             ),
             None,
         )
-    written = f"{key} = {toml_value(value)}" if value is not None else None
+    written = f"{key} = {toml_value(value)}" if value is not None else ""
     if value is None:
-        if found is not None:
+        # a key is found only inside its table, so HEADER is set whenever FOUND is
+        if found is not None and header is not None:
             del lines[found]
             stop -= 1
             if not any(content(line) for line in lines[header + 1 : stop]):
-                said = TABLE_LINE.fullmatch(lines[header].rstrip("\r\n")).group(3)
+                # the header's line matched TABLE_LINE when it was found
+                said = cast(
+                    "re.Match[str]", TABLE_LINE.fullmatch(lines[header].rstrip("\r\n"))
+                ).group(3)
                 if said:
                     # a comment on the header's own line stays, as a line of its own
                     lines[header] = said + "\n"
@@ -598,8 +612,8 @@ def write_edits(
     try:
         with os.fdopen(handle, "w", encoding="utf-8") as out:
             out.write(text)
-        os.chmod(temporary, file.stat().st_mode & 0o777 if file.exists() else 0o644)
-        os.replace(temporary, file)
+        Path(temporary).chmod(file.stat().st_mode & 0o777 if file.exists() else 0o644)
+        Path(temporary).replace(file)
     except BaseException:
         Path(temporary).unlink(missing_ok=True)
         raise
@@ -634,7 +648,7 @@ def workspaces() -> list[str]:
     except ValueError as error:
         raise StateError(f"{file} does not read as JSON ({error}); {fix}") from error
     if not isinstance(listed, list) or not all(
-        isinstance(path, str) and os.path.isabs(path) for path in listed
+        isinstance(path, str) and Path(path).is_absolute() for path in listed
     ):
         raise StateError(f"{file} is not a list of absolute paths; {fix}")
     return listed
@@ -655,8 +669,8 @@ def write_workspaces(paths: list[str]) -> None:
     try:
         with os.fdopen(handle, "w", encoding="utf-8") as out:
             out.write(json.dumps(paths, indent=2) + "\n")
-        os.chmod(temporary, 0o644)
-        os.replace(temporary, file)
+        Path(temporary).chmod(0o644)
+        Path(temporary).replace(file)
     except BaseException:
         Path(temporary).unlink(missing_ok=True)
         raise
@@ -677,7 +691,11 @@ def unregister(checkout: Path) -> bool:
     listed = workspaces()
     path = os.path.realpath(checkout)
     # a path as written, or as it resolves now: a folder that is gone resolves to itself
-    kept = [entry for entry in listed if entry not in (path, os.path.abspath(checkout))]
+    kept = [
+        entry
+        for entry in listed
+        if entry not in (path, os.path.abspath(checkout))  # noqa: PTH100 - the path as given, made absolute: resolve() would follow its links
+    ]
     if len(kept) == len(listed):
         return False
     write_workspaces(kept)
@@ -693,7 +711,7 @@ HANDOFF_TOKENS = 600_000
 HANDOFF_FLOOR = 100_000
 
 
-def handoff_tokens():
+def handoff_tokens() -> int | None:
     """The number Lem gives each session it opens as `CLAUDE_CODE_AUTO_COMPACT_WINDOW`: the machine's
     `[handoff] tokens`, else HANDOFF_TOKENS; None for 0, when Lem sets nothing. A negative number, one
     under HANDOFF_FLOOR, a bool and a float are refused with the line that writes a good one."""
@@ -718,7 +736,7 @@ def handoff_tokens():
 LOAD_START = 40
 
 
-def load_start():
+def load_start() -> float | None:
     """The load average under which the checks of a landing start on this machine: the developer's
     `[load] start`, else LOAD_START; None for 0, when he took the gate away. A file that does not read,
     or a negative number, is refused with the line that writes a good one."""

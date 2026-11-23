@@ -33,6 +33,7 @@ finds it (`project.py`'s `task_plan`) and passes it in, so this file imports not
 with no worktree or no plan has no plan entry.
 """
 
+import contextlib
 import os
 import re
 from datetime import UTC, datetime
@@ -202,7 +203,7 @@ def place(path: str) -> dict:
     (`group`), its title, its role (`doc`, `record` or `work`), and for a record the document it belongs
     to (`of`), its link's word (`label`) and its tab; for a working file its folder (`folder`)."""
     name = path.rpartition("/")[2]
-    stem, _, suffix = name.rpartition(".")
+    _, _, suffix = name.rpartition(".")
     suffix = suffix.lower()
     if path in DOCS:
         group, title = DOCS[path]
@@ -396,7 +397,7 @@ def stamp(seconds: float) -> str:
 
 
 def entry(
-    file: Path, path: str, where: dict, href: str | None, read: bool = True
+    file: Path, path: str, where: dict, href: str | None, *, read: bool = True
 ) -> dict | None:
     """One file's entry; None for an empty file, which shows nothing, and for a link to a file that
     is gone. A file that cannot be read is listed with no text, and the others are still read. With
@@ -424,15 +425,17 @@ def entry(
         if facts.st_size > CAP:
             found["cut"] = True
         else:
-            try:
+            with contextlib.suppress(OSError):
                 found["text"] = file.read_bytes().decode("utf-8", errors="replace")
-            except OSError:
-                pass
     return found
 
 
 def files(
-    directory: Path, slug: str, plan: tuple[Path, str] | None = None, read: bool = True
+    directory: Path,
+    slug: str,
+    plan: tuple[Path, str] | None = None,
+    *,
+    read: bool = True,
 ) -> list[dict]:
     """The entries of a task's files: each file of its directory but a lock, an empty file and a
     hidden one, and its plan when `plan` gives the file and its path from the repository root; with
@@ -445,7 +448,7 @@ def files(
                 continue
             file = Path(at) / name
             path = file.relative_to(directory).as_posix()
-            made = entry(file, path, place(path), path, read)
+            made = entry(file, path, place(path), path, read=read)
             if made:
                 found.append(made)
     if plan is not None:
@@ -454,7 +457,7 @@ def files(
             plan[1],
             {"group": "plan", "title": "The plan", "role": "doc", "first": True},
             None,
-            read,
+            read=read,
         )
         if made:
             found.append(made)
@@ -535,9 +538,11 @@ def outside_record(directory: Path) -> list[str]:
 
     for at, folders, names in os.walk(directory, onerror=unlisted):
         top = Path(at) == directory
-        for name in folders:
-            if (Path(at) / name).is_symlink():
-                found.append((Path(at) / name).relative_to(directory).as_posix())
+        found.extend(
+            (Path(at) / name).relative_to(directory).as_posix()
+            for name in folders
+            if (Path(at) / name).is_symlink()
+        )
         for name in names:
             if top and (name in SMALL_RECORD or name.endswith(".lock")):
                 continue
