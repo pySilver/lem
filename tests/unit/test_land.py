@@ -985,6 +985,19 @@ class ProtectedBranch(unittest.TestCase):
         self.assertIn("main is the base branch", land.protected_refusal("main", self.BRANCH, "deletes"))
 
 
+class FirstDiffer(unittest.TestCase):
+    """`land.first_differ`: the trees of a replay of the merged head's commits and the trees of the
+    branch's own commits, pair by pair: the place of the first pair that differs, or None."""
+
+    def test_the_same_trees_name_no_commit(self) -> None:
+        self.assertIsNone(land.first_differ(["a1", "b2", "c3"], ["a1", "b2", "c3"]))
+
+    def test_the_first_pair_that_differs(self) -> None:
+        # the third commit changed, and the trees after it differ too: the third is named
+        self.assertEqual(land.first_differ(["a1", "b2", "c3", "d4"], ["a1", "b2", "c9", "d9"]), 2)
+        self.assertEqual(land.first_differ(["a1"], ["a9"]), 0)
+
+
 class SameChecks(unittest.TestCase):
     """`land.same_checks`: a green result holds only for the commands that ran, in their order and with
     their serial flags; a command added, removed, moved to `serial` or none at all asks for the checks."""

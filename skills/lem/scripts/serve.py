@@ -1287,7 +1287,7 @@ def merge_in_thread(workspace: Workspace, slug: str, landing: dict, by: str, tip
                 return
             ran = merge_apart(workspace, *args)
             if ran.returncode == 0:
-                NOTES.change(token, state="done", said=f"Merged: {what} is on {base}. Within a minute the board’s server wakes the task’s session, or opens one, which removes its worktree and its branch."
+                NOTES.change(token, state="done", said=f"Merged: {what} is on {base}. Within a minute the board’s server wakes the task’s session, or opens one, which removes its worktree, and its branch when it holds nothing that was not merged."
                              + (after() if after else ""))
             else:
                 if not stands():

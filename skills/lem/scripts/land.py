@@ -53,7 +53,8 @@ may-land` about the settings' base branch, so a protected branch is never reache
                            (the board's server always gives it)
     lem land merged SLUG   the owner merged the pull request on the forge: finish the bookkeeping;
                            or he closed it with no merge: the task is dropped
-    lem land clean SLUG    remove the task's worktree and its branch after the merge
+    lem land clean SLUG    remove the task's worktree after the merge, and its branch when it
+                           holds nothing that was not merged
 
 What each step keeps for the next is in `landing.json` in the task's directory: the task's
 branch, the base it was rebased on, the commit and tree the checks passed on, each review, and
@@ -563,7 +564,10 @@ A step that was cut off is run again; a merge that GitHub already holds only fin
 `clean` knows the branch from `landing.json`, so it finds it after the worktree is gone. It
 takes a landed, a dropped or an answered task. The branch of the last two goes when the base
 holds it whole, and stays when it has commits of its own, with what it holds and how to delete
-it. `landing.json`, `pr.md`, `merge-review.md` and each item of the backlog are written whole, through
+it. A landed task's branch goes when the base holds its tip, when its tip is the head the forge
+merged, or when it holds by content the change of that head, which Lem pushed last and the landing
+rebased after (`rebased` in clean's output); a branch changed after that push stays, the forge's
+copy goes, and `branch_left` names the commit or the files that changed. `landing.json`, `pr.md`, `merge-review.md` and each item of the backlog are written whole, through
 a new file that takes the old one's place, so that a run cut off in the middle leaves no half of one.
 
 After a merge the checkout that holds the base branch is fast-forwarded when it is clean, and left
@@ -4956,10 +4960,81 @@ def merge_locked(task: Task, by: str, message: str | None, via: str, standing: b
     return forge_done(task, view)
 
 
+def first_differ(replayed: list[str], own: list[str]) -> int | None:
+    """The place of the first commit whose tree is not the tree the replay made there, or None when
+    each pair holds the same tree. Both lists are in the order of their commits, one tree each."""
+    return next((place for place, (made, held) in enumerate(zip(replayed, own)) if made != held), None)
+
+
+def after_push(task: Task, branch: str, tip: str, merged: str) -> tuple[bool, str]:
+    """Whether a branch whose tip is not the head the forge merged holds that head's change, rebased
+    after its push, and the sentence that says so or names what changed.
+
+    The change is compared by content: the merged head's whole change, merged onto the tip's own base,
+    must give the tip's tree. Git's patch id is not the proof, as `change` says: it ignores spaces and
+    changes with its context lines, which a base that moved next to the change gives. The commit named
+    is the one a replay of the merged head's commits onto the tip's base, as the rebase made them,
+    first gives another tree than the tip's commit at its place; the files when none can be named.
+
+    The merged head's base is where it meets the tip's base, not where it meets the base branch: a
+    merge commit on the forge puts the merged head itself on the base branch, where a squash or its
+    "Rebase and merge" leaves it off it, and the tip's base is older than any of the three merges."""
+    where = task.main
+    base_tip = git(where, "merge-base", tip, task.onto)
+    base_merged = git(where, "merge-base", merged, base_tip)
+    together = run(["git", "-C", str(where), "merge-tree", "--write-tree", "--merge-base", base_merged, base_tip, merged], check=False)
+    if together.returncode not in (0, 1):
+        raise LandError(f"git merge-tree of {merged[:9]} onto {base_tip[:9]} failed: {(together.stderr or together.stdout).strip()}")
+    tree = together.stdout.split()[0]
+    theirs = git(where, "rev-list", "--reverse", "--no-merges", f"{base_merged}..{merged}").split()
+    ours = git(where, "rev-list", "--reverse", "--no-merges", f"{base_tip}..{tip}").split()
+    if together.returncode == 0 and tree == git(where, "rev-parse", f"{tip}^{{tree}}"):
+        commits = f"the same {len(ours)} commits" if len(ours) == len(theirs) else f"the same change, in {len(theirs)} commits where the branch has {len(ours)}"
+        return True, (f"{branch} was rebased after its push: its tip {tip[:9]} holds the same change as {merged[:9]}, the head Lem pushed, "
+                      f"and the forge merged {commits}")
+    named = None
+    if len(ours) == len(theirs):
+        replayed: list[str] = []
+        made = f"{base_tip}^{{tree}}"
+        for commit in theirs:
+            step = run(["git", "-C", str(where), "merge-tree", "--write-tree", "--merge-base", f"{commit}^", made, commit], check=False)
+            if step.returncode != 0:
+                break
+            made = step.stdout.split()[0]
+            replayed.append(made)
+        else:
+            place = first_differ(replayed, [git(where, "rev-parse", f"{commit}^{{tree}}") for commit in ours])
+            if place is not None:
+                named = f"its commit {ours[place][:9]} \"{git(where, 'log', '-1', '--format=%s', ours[place])}\""
+    if not named:
+        files = [name for name in git(where, "diff", "--name-only", tree, f"{tip}^{{tree}}").splitlines() if name]
+        named = f"the files {', '.join(files)}" if files else "a change one merge of it cannot carry"
+    return False, (f"{branch} was changed after its push: the forge merged {merged[:9]}, the head Lem pushed, and the tip {tip[:9]} differs from it in {named}. "
+                   f"`git range-diff {base_merged[:9]}..{merged[:9]} {base_tip[:9]}..{tip[:9]}` shows the difference, and `git branch -D {branch}` removes the branch")
+
+
+def drop_forge_copy(task: Task, branch: str, removed: dict) -> None:
+    """The forge's copy of a merged task's branch goes, only when it is the commit that was merged:
+    a failure here is said, and the next run finds the local branch and tries again. The ref is looked
+    up by its whole name (a pattern also matches `archive/BRANCH`), and the deletion carries the commit
+    it was checked at, so a push that came in between stops it."""
+    kept = task.kept()
+    if not (kept.get("merged") and task.forge):
+        return
+    ref = f"refs/heads/{branch}"
+    listed = [line.split("\t") for line in run(["git", "-C", str(task.main), "ls-remote", "origin", ref]).stdout.splitlines()]
+    there = next((commit for commit, name in listed if name == ref), None)
+    if there and there != kept.get("merged_head"):
+        removed["remote_left"] = f"origin has {there[:9]} on {branch}, which is not the commit the forge merged; it stays"
+    elif there:
+        git(task.main, "push", f"--force-with-lease={ref}:{there}", "origin", f":{ref}")
+        removed["remote"] = branch
+
+
 def cmd_clean(task: Task) -> dict:
     if task.record["status"] not in ("landed", "dropped", "answered"):
         raise LandError(f"the task is {task.record['status']!r}; only a landed, dropped or answered task loses its worktree")
-    removed: dict = {"worktree": False, "branch": None, "branch_left": None, "remote": None, "remote_left": None}
+    removed: dict = {"worktree": False, "branch": None, "branch_left": None, "remote": None, "remote_left": None, "rebased": None}
     # The worktree names its branch while it is there; after it, what `start` wrote down does.
     branch = task.kept().get("branch")
     if (task.worktree / ".git").exists():
@@ -4998,7 +5073,9 @@ def cmd_clean(task: Task) -> dict:
         removed["branch"] = branch
         return {"task": task.slug, **removed}
     # A pull request that the forge merged as one commit, or as a merge commit, leaves no such
-    # proof in git: there the proof is that the branch's tip is the commit the forge merged.
+    # proof in git: there the proof is that the branch's tip is the commit the forge merged, or, when
+    # the landing rebased the branch after Lem's last push, that its tip holds that head's change
+    # (`after_push`).
     kept = task.kept()
     if not on_base and not (kept.get("merged") and tip == kept.get("merged_head")):
         after = ""
@@ -5016,24 +5093,24 @@ def cmd_clean(task: Task) -> dict:
             elif under(tip, merged):
                 after = (f"; the forge merged {merged[:9]}, which holds the tip of {branch} and a commit made on the forge after it "
                          f"(its \"Update branch\"), so the branch holds nothing that was not merged: `git branch -D {branch}` removes it")
+            elif merged == kept.get("pushed") and run(["git", "-C", str(task.main), "cat-file", "-e", f"{merged}^{{commit}}"], check=False).returncode == 0:
+                # The head Lem pushed last, which this checkout holds: the landing rebased the branch
+                # after that push (a base that moved), and nothing pushed the rebase. The forge's copy
+                # holds only what was merged and goes either way; the local branch goes only when it
+                # holds the same change.
+                same, said = after_push(task, branch, tip, merged)
+                drop_forge_copy(task, branch, removed)
+                if same:
+                    git(task.main, "branch", "-D", branch)
+                    return {"task": task.slug, **removed, "branch": branch, "rebased": said}
+                return {"task": task.slug, **removed, "branch_left": said}
             else:
                 after = (f"; the forge merged {merged[:9]}, which is not the tip of {branch} and which this checkout does not hold: "
                          f"a commit made on the forge after the tip, as its \"Update branch\" makes. `git log {branch}` shows what the branch holds, "
                          f"and `git branch -D {branch}` removes it")
         raise LandError(f"{task.onto} does not hold the tip of {branch}, so the branch stays{after}")
-    if kept.get("merged") and task.forge:
-        # The forge's copy first, and only when it is the commit that was merged: a failure here
-        # is said, and the next run finds the local branch and tries again. The ref is looked up
-        # by its whole name (a pattern also matches `archive/BRANCH`), and the deletion carries
-        # the commit it was checked at, so a push that came in between stops it.
-        ref = f"refs/heads/{branch}"
-        listed = [line.split("\t") for line in run(["git", "-C", str(task.main), "ls-remote", "origin", ref]).stdout.splitlines()]
-        there = next((commit for commit, name in listed if name == ref), None)
-        if there and there != kept.get("merged_head"):
-            removed["remote_left"] = f"origin has {there[:9]} on {branch}, which is not the commit the forge merged; it stays"
-        elif there:
-            git(task.main, "push", f"--force-with-lease={ref}:{there}", "origin", f":{ref}")
-            removed["remote"] = branch
+    else:
+        drop_forge_copy(task, branch, removed)
     git(task.main, "branch", "-D", branch)
     removed["branch"] = branch
     return {"task": task.slug, **removed}
