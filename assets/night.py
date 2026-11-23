@@ -41,10 +41,10 @@ NIGHT = {
     "#b06f3e": "#a56638", "#84522f": "#6e4326", "#c07d48": "#b87644", "#2a1d18": "#120c0a",
     # the word, pale like the line
     "#2c4649": "#b9c4b6", "#365350": "#cfd6c4", "#213a3e": "#9fb0a8",
-    # the pulse on the line, the pegs' flash and the lit tiles: amber by day, pale gold at night,
-    # as the owner's night sample has them
-    "#cf6a1c": "#d9a24a", "#f39a2d": "#f2c66e", "#ffe7a0": "#fffbea", "#ffd36a": "#fff1c6", "#e8862a": "#f0b85a",
-    # the eye: the same red day and night
+    # the signal, the glow in the hands and down the agents' strands: amber by day, pale gold at night,
+    # as the owner's night sample has the light
+    "#cf6a1c": "#d9a24a", "#f39a2d": "#f2c66e", "#ffe7a0": "#fffbea",
+    # the eyes, Lem's and its agents': the same red day and night
     "#ff2a1a": "#ff2a1a",
     # the day sky's sun, rays and the white of its masks: the night file hides that sky, so they stay
     "#fffbea": "#fffbea", "#fff2c8": "#fff2c8", "#f3dc9c": "#f3dc9c", "#fffdf2": "#fffdf2", "#fff6d6": "#fff6d6",

@@ -397,39 +397,168 @@ def inline(attrs, key):
 def hexes(svg):
     return set(re.findall(r"#[0-9a-f]{6}\b", svg))
 
-# criterion 3: the pulse on the wire, the pegs' flash and the tiles, one cycle of 8 seconds with a rest
+# The logo's signal (docs/plans/2026-11-23-logo-eyes-signal-and-favicon.md, its criteria 1 to 5): Lem's hands, the
+# four agents' strands and their red eyes. An agent is a group under a translate and a scale that holds a hood's
+# opening, a path from 4 -47 or -4 -47; the agents' strands are the first path under <!-- strands from the line -->,
+# the word's the second.
+NUMBER = r"-?(?:\d+\.?\d*|\.\d+)"
+SEGMENT = re.compile(r"M(" + NUMBER + r") (" + NUMBER + r")L(" + NUMBER + r") (" + NUMBER + r")")
+ANIMATED = {"stars", "haze", "hazein", "fan", "ray", "heat1", "heat2", "star", "band1", "band2", "breathe1", "breathe2", "eye", "hand", "spark", "wake"}
+GONE = ("pulse", "flash", "drip", "glow", "tile", "flare", "lit")
+LEM_X = 130  # the coat's middle: the two agents whose strands are nearest to it are the inner pair
+def agents(svg):
+    """Each small agent: its translate and scale, the box of its hood's opening, its red dots and its lit eyes."""
+    out = []
+    for tx, ty, scale, body in re.findall(r'(?s)<g transform="translate\((' + NUMBER + r") (" + NUMBER + r")\) scale\((" + NUMBER + r')\)">((?:(?!</?g\b).)*)</g>', svg):
+        hood = re.search(r'<path d="M(-?4 -47C[^"]*)"', body)
+        if not hood:
+            continue
+        nums = [float(n) for n in re.findall(NUMBER, hood.group(1))]
+        circles = [attrs_of(tag) for tag in re.findall(r"<circle\b[^>]*>", body)]
+        out.append({"x": float(tx), "y": float(ty), "scale": float(scale),
+                    "box": (min(nums[0::2]), max(nums[0::2]), min(nums[1::2]), max(nums[1::2])),
+                    "dots": [c for c in circles if c.get("fill") == "#ff2a1a"], "lit": [c for c in circles if c.get("class") == "wake"]})
+    return out
+def strands(svg):
+    """The segments (x1, y1, x2, y2) of the agents' strands and of the word's."""
+    at = svg.find("<!-- strands from the line -->")
+    paths = re.findall(r'<path d="([^"]*)"', svg[at:])[:2] if at >= 0 else []
+    return tuple([tuple(float(n) for n in s) for s in SEGMENT.findall(d)] for d in paths) if len(paths) == 2 else ([], [])
+def delay_of(attrs, rule):
+    own = inline(attrs, "animation-delay")
+    return seconds(own) if own else animation(rule)[2]
+def eye_colors(svg, part):
+    gradient = re.search(r'(?s)<radialGradient id="c2n?-eye">.*?</radialGradient>', svg)
+    return hexes(part) | hexes(gradient.group(0) if gradient else "")
+def red(colors):
+    return bool(colors) and all(int(c[1:3], 16) > 200 and int(c[3:5], 16) < 80 and int(c[5:7], 16) < 80 for c in colors)
+
+# criterion 1 of the signal's plan: a red eye in the hood of each of the four agents: a dot that nothing animates, no
+# smaller than the core of Lem's own eye, and over it a light of its own; the red of Lem's eye, the same day and night
+problems, reds = [], {}
+for theme, svg in scenes.items():
+    found, eye = agents(svg), re.search(r'<g class="eye">(.*?)</g>', svg)
+    cores = [float(c["r"]) for c in map(attrs_of, re.findall(r"<circle\b[^>]*>", eye.group(1) if eye else "")) if c.get("fill") == "#ff2a1a" and "r" in c]
+    frame = re.search(r'</defs>\s*<g transform="translate\([^)]*\) scale\((' + NUMBER + r')\)">', svg)
+    readme = float(frame.group(1)) * 720 / 1600 if frame else 0.0  # px for one unit of the scene in the README, 720 px wide
+    if len(found) != 4 or not cores:
+        problems.append(f"the {theme} scene has {len(found)} agents with a hood, not 4, and {len(cores)} red cores in Lem's eye")
+        continue
+    colors = set()
+    for agent in found:
+        where = f"the {theme} scene's agent at x {agent['x']:g}"
+        if len(agent["dots"]) != 1 or len(agent["lit"]) != 1:
+            problems.append(f"{where} has {len(agent['dots'])} red dots and {len(agent['lit'])} lit eyes in its hood, not one of each")
+            continue
+        dot, lit = agent["dots"][0], agent["lit"][0]
+        cx, cy, r = (float(dot.get(key, "nan")) for key in ("cx", "cy", "r"))
+        left, right, top, bottom = agent["box"]
+        if not (left < cx < right and top < cy < bottom):
+            problems.append(f"{where}: its red dot at {cx:g}, {cy:g} is outside its hood's opening")
+        if "class" in dot or "style" in dot:
+            problems.append(f"{where}: an animation touches its red dot")
+        if not r * agent["scale"] >= max(cores):
+            problems.append(f"{where}: its red dot is {2 * r * agent['scale'] * readme:.2f} px wide in the README, smaller than Lem's eye ({2 * max(cores) * readme:.2f} px)")
+        if (lit.get("cx"), lit.get("cy")) != (dot.get("cx"), dot.get("cy")) or not float(lit.get("r", "0")) > r or not re.fullmatch(r"url\(#c2n?-eye\)", lit.get("fill", "")):
+            problems.append(f"{where}: its light is not the eye's gradient over its red dot")
+        colors |= eye_colors(svg, dot.get("fill", ""))
+    reds[theme] = colors
+    if not red(colors) or colors != eye_colors(svg, eye.group(1)):
+        problems.append(f"the {theme} scene's agents' eyes are {sorted(colors)}, not the red of Lem's eye, {sorted(eye_colors(svg, eye.group(1)))}")
+if reds.get("day") != reds.get("night"):
+    problems.append(f"the agents' eyes are {sorted(reds.get('day', []))} by day and {sorted(reds.get('night', []))} at night")
+verdict["scene_eyes"] = "; ".join(problems)
+
+# criterion 2 of the signal's plan: in one cycle of 8 s both hands glow at one moment; then a glow runs down the
+# strands of the two inner agents from their tops, and later down the two outer ones'. Each agent's eye starts to light
+# when its strand's glow reaches the strand's lower end, computed from the glow's delay, duration and keyframes, within
+# 0.2 s (a guess, not measured: a check of the order alone passes an eye that lights a second late).
 problems = []
 for theme, svg in scenes.items():
-    style = rules(svg)
-    pulses = elements(svg, "pulse")
-    if len(pulses) != 3:
-        problems.append(f"the {theme} scene has {len(pulses)} paths of the pulse, not 3")
-    for pulse in pulses:
-        dash = [float(v) for v in (inline(pulse, "stroke-dasharray") or "0 0").split()]
-        start, name = float(inline(pulse, "stroke-dashoffset") or "nan"), inline(pulse, "animation-name")
-        keys = frames(svg, name or "")
-        offsets = [(at, float(d["stroke-dashoffset"])) for at, d in keys if "stroke-dashoffset" in d]
-        if pulse.get("pathLength") != "1000" or len(dash) != 2 or dash[1] < 1000 + dash[0] or start != dash[0]:
-            problems.append(f"a pulse of the {theme} scene does not rest before the line's start: pathLength {pulse.get('pathLength')}, dash {dash}, offset {start}")
-        elif not offsets or offsets[0] != (0.0, dash[0]) or -offsets[-1][1] < 1000 or min(at for at, off in offsets if -off >= 1000) > 90:
-            problems.append(f"the pulse {name} of the {theme} scene does not run from the left edge past the right one with a rest: {offsets}")
-    flashes, drips, tiles = elements(svg, "flash"), elements(svg, "drip"), elements(svg, "tile")
-    if len(flashes) != 8 or len(drips) != 8:
-        problems.append(f"the {theme} scene flashes {len(flashes)} pegs and runs down {len(drips)} strands, not the 8 of each")
-    if len(tiles) != 42:
-        problems.append(f"the {theme} scene lights {len(tiles)} tiles, not the 41 of the word and its cursor")
-    letters = {"L": [], "e": [], "m": [], "cursor": []}
-    for tile in tiles:
-        x = float(re.match(r"M([\d.]+)", tile.get("d", "M0")).group(1))
-        letters["L" if x < 400 else "e" if x < 490 else "m" if x < 580 else "cursor"].append(seconds(inline(tile, "animation-delay") or "0s"))
-    means = [sum(v) / len(v) if v else None for v in letters.values()]
-    if None in means or means != sorted(means):
-        problems.append(f"the {theme} scene's letters do not light from left to right: mean delays {means}")
-    for cls in ("pulse", "flash", "drip", "glow", "tile"):
-        name, duration, _ = animation(style.get("." + cls))
-        if duration != 8:
-            problems.append(f"the {theme} scene's .{cls} runs {name} in {duration} s, not the cycle of 8 s")
-verdict["scene_wire"] = "; ".join(problems)
+    style, (mine, words) = rules(svg), strands(svg)
+    names = {}
+    for cls in (".hand", ".spark", ".wake"):
+        name, duration, _ = animation(style.get(cls))
+        names[cls] = name or ""
+        if duration != 8 or not frames(svg, name or "") or "linear" not in style.get(cls, {}).get("animation", "").split():
+            problems.append(f"the {theme} scene's {cls} runs {name} in {duration} s, not linear keyframes in the cycle of 8 s")
+    if len(mine) != 4 or len(words) != 4:
+        problems.append(f"the {theme} scene has {len(mine)} strands of the agents and {len(words)} of the word, not 4 of each")
+        continue
+    hands = elements(svg, "hand")
+    left = sorted({delay_of(hand, style.get(".hand")) for hand in hands})
+    if len(hands) != 2 or len(left) != 1:
+        problems.append(f"the {theme} scene glows {len(hands)} hands from {left} s, not 2 at one moment")
+    for hand in hands:
+        cx, cy, r = (float(hand.get(key, "nan")) for key in ("cx", "cy", "r"))
+        if not (cx - r >= 117 and cx + r <= 143 and abs(cy - 105.5) <= 3):
+            problems.append(f"the {theme} scene's glow at {cx:g}, {cy:g}, r {r:g} reaches past the hands (x 118 to 142, y 105.5)")
+    for cls, then in ((".hand", "glow"), (".wake", "light")):
+        keys = frames(svg, names[cls])
+        if len(keys) < 2 or float(keys[0][1].get("opacity", 1)) != 0 or float(keys[1][1].get("opacity", 0)) <= 0 or max(float(d.get("opacity", 0)) for _, d in keys) < .8 or float(keys[-1][1].get("opacity", 1)) != 0:
+            problems.append(f"the {theme} scene's {cls} does not {then} up from unlit and fade: {keys}")
+    dash = float((style.get(".spark", {}).get("stroke-dasharray") or "nan").split()[0])
+    edges = [(at, dash - float(d["stroke-dashoffset"])) for at, d in frames(svg, names[".spark"]) if "stroke-dashoffset" in d]
+    if not edges or edges[0] != (0.0, 0.0) or edges != sorted(edges, key=lambda pair: pair[1]):
+        problems.append(f"the {theme} scene's glow does not start at its strand's top and run down: its front at {edges}")
+    share = next((a0 + (a1 - a0) * (100 - e0) / (e1 - e0) for (a0, e0), (a1, e1) in zip(edges, edges[1:]) if e0 < 100 <= e1), None)
+    starts, arrive = {}, {}
+    for spark in elements(svg, "spark"):
+        seg = SEGMENT.fullmatch(spark.get("d", ""))
+        on = [s for s in mine if seg and all(abs(a - float(b)) <= .2 for a, b in zip(s, seg.groups()))]
+        if not on or spark.get("pathLength") != "100":
+            problems.append(f"the {theme} scene runs a glow on {spark.get('d')}, not down one agent's strand with pathLength 100")
+            continue
+        begin = delay_of(spark, style.get(".spark"))
+        starts.setdefault(on[0], set()).add(begin)
+        arrive.setdefault(on[0], set()).add(None if share is None else round(begin + 8 * share / 100, 3))
+    if sorted(starts) != sorted(mine) or any(len(v) != 1 for v in starts.values()) or None in set().union(*arrive.values()):
+        problems.append(f"the {theme} scene's glows start at {starts} and reach the strands' ends at {arrive}, not once on each of the 4 strands")
+        continue
+    inner = sorted(mine, key=lambda s: abs(s[0] - LEM_X))[:2]
+    if left and left[0] > min(min(starts[s]) for s in inner):
+        problems.append(f"the {theme} scene's hands glow at {left[0]} s, after the glow starts down the inner strands")
+    lights = []
+    for agent in agents(svg):
+        for lit in agent["lit"]:
+            x = agent["x"] + agent["scale"] * float(lit.get("cx", "nan"))
+            strand = min(mine, key=lambda s: abs(s[0] - x))
+            begin, reached = delay_of(lit, style.get(".wake")), min(arrive[strand])
+            lights.append((strand in inner, begin))
+            if abs(begin - reached) > .2:
+                problems.append(f"the {theme} scene's agent at x {x:.1f} lights its eye at {begin} s, but the glow reaches its strand's end at {reached} s")
+    near, far = sorted({b for i, b in lights if i}), sorted({b for i, b in lights if not i})
+    if len(lights) != 4 or len(near) != 1 or len(far) != 1 or not near[0] < far[0]:
+        problems.append(f"the {theme} scene lights the inner eyes at {near} s and the outer ones at {far} s, not the inner pair at one moment and the outer pair at one later")
+verdict["scene_signal"] = "; ".join(problems)
+
+# criterion 3 of the signal's plan: nothing else lights up or moves: the old lights are gone, every animated rule is
+# the sky's, Lem's eye's or the signal's, no element carries an animation of its own, and nothing lies on the wire or
+# on the word's strands
+problems = []
+for theme, svg in scenes.items():
+    style, (mine, words) = rules(svg), strands(svg)
+    left = [f".{cls}" for cls in GONE if elements(svg, cls)] + [f"@keyframes {name}" for name in ("run0", "run1", "run2", "flash", "drip", "glow", "tile", "flare") if frames(svg, name)]
+    if left:
+        problems.append(f"the {theme} scene still holds {left}")
+    stray = sorted(sel for sel, decl in style.items() if any(key.startswith("animation") for key in decl)
+                   and not set(re.findall(r"\.([\w-]+)", sel)) <= ANIMATED)
+    if stray:
+        problems.append(f"the {theme} scene animates {stray}")
+    outside_stars = re.sub(r'(?s)<g class="stars">.*?</g>', "", svg)
+    own = sorted({attrs.get("class", "no class") for attrs in map(attrs_of, re.findall(r"<\w+\b[^>]*>", outside_stars))
+                  if "animation" in attrs.get("style", "") and (attrs.get("class") not in ANIMATED or "animation-name" in attrs["style"])})
+    if own:
+        problems.append(f"the {theme} scene's elements of {own} carry an animation of their own")
+    wire = re.search(r'<!-- the line -->\s*<path d="([^"]*)"', svg)
+    drawn = svg.count(f'd="{wire.group(1)}"') if wire else 0
+    if drawn != 1:
+        problems.append(f"the {theme} scene draws {drawn} paths along the wire, not the wire alone")
+    tops = {round(s[0], 1) for s in words}
+    on_word = [spark.get("d") for spark in elements(svg, "spark") if SEGMENT.match(spark.get("d", "")) and round(float(SEGMENT.match(spark["d"]).group(1)), 1) in tops]
+    if len(words) != 4 or on_word:
+        problems.append(f"the {theme} scene has {len(words)} strands of the word, and a glow runs on {on_word}")
+verdict["scene_quiet"] = "; ".join(problems)
 
 # criterion 4: about a hundred stars, each on its own timing, and the aurora by night; haze, rays and a shimmer by day
 problems = []
@@ -455,7 +584,7 @@ for theme, svg in scenes.items():
         problems.append(f"the {theme} scene draws no shimmer, rays or haze")
 verdict["scene_sky"] = "; ".join(problems)
 
-# criterion 5: one red eye that glows, blinks every 5 to 7 seconds, flares as the pulse passes the figure; one red in both
+# criterion 4 of the signal's plan: Lem's one red eye glows and blinks every 5 to 7 seconds, in one red day and night
 problems, reds = [], {}
 for theme, svg in scenes.items():
     style = rules(svg)
@@ -465,20 +594,16 @@ for theme, svg in scenes.items():
         problems.append(f"the {theme} scene's eye blinks {name} every {blink} s, not every 5 to 7 s")
     elif not any(float(d.get("opacity", 1)) < .5 for _, d in frames(svg, name)) or any(float(d.get("opacity", 1)) < 1 for at, d in frames(svg, name) if at in (0, 100)):
         problems.append(f"the {theme} scene's eye does not glow and dim for a moment: {frames(svg, name)}")
-    name, period, delay = animation(style.get(".flare"))
-    flash_at = sorted((float(f["cx"]), seconds(inline(f, "animation-delay") or "0s")) for f in elements(svg, "flash"))
-    around = [t for x, t in flash_at if x < 130][-1:] + [t for x, t in flash_at if x > 130][:1]
-    if not elements(svg, "flare") or period != 8 or style.get(".flare", {}).get("opacity") != "0" or len(around) != 2 or not around[0] <= delay <= around[1]:
-        problems.append(f"the {theme} scene's eye flares {name} at {delay} s of {period} s, not as the pulse passes the figure between the flashes at {around}")
-    colors = hexes(eye.group(1) if eye else "") | hexes(re.search(r'<radialGradient id="c2n?-eye">.*?</radialGradient>', svg).group(0) if re.search(r'<radialGradient id="c2n?-eye">', svg) else "")
+    colors = eye_colors(svg, eye.group(1) if eye else "")
     reds[theme] = colors
-    if not colors or any(not (int(c[1:3], 16) > 200 and int(c[3:5], 16) < 80 and int(c[5:7], 16) < 80) for c in colors):
+    if not red(colors):
         problems.append(f"the {theme} scene's eye is {sorted(colors)}, not a red")
 if reds.get("day") != reds.get("night"):
     problems.append(f"the eye is {sorted(reds.get('day', []))} by day and {sorted(reds.get('night', []))} at night")
 verdict["scene_eye"] = "; ".join(problems)
 
-# criterion 7: one rule stops every animation, nothing animates past it, and each light rests dark
+# criterion 5 of the signal's plan: one rule stops every animation, nothing animates past it, and each light rests
+# unlit, so the scene under reduce motion shows the agents' red dots and no glow
 problems = []
 for theme, svg in scenes.items():
     style, media = rules(svg), re.findall(r"@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{\s*([^{}]*)\{([^{}]*)\}\s*\}", svg)
@@ -487,12 +612,12 @@ for theme, svg in scenes.items():
     smil = sorted(set(re.findall(r"<(animate\w*|set)\b", svg)))
     if smil:
         problems.append(f"the {theme} scene animates with {smil}, which the rule does not stop")
-    for cls in ("flash", "glow", "tile", "flare"):
+    for cls in ("hand", "wake"):
         if style.get("." + cls, {}).get("opacity") != "0":
             problems.append(f"the {theme} scene's .{cls} does not rest unlit")
-    drip = style.get(".drip", {})
-    if not drip or drip.get("stroke-dashoffset") != (drip.get("stroke-dasharray", "") + " -").split()[0]:
-        problems.append(f"the {theme} scene's .drip does not rest before its strand: {drip}")
+    spark = style.get(".spark", {})
+    if not spark or spark.get("stroke-dashoffset") != (spark.get("stroke-dasharray", "") + " -").split()[0]:
+        problems.append(f"the {theme} scene's .spark does not rest before its strand's top: {spark}")
 verdict["scene_still"] = "; ".join(problems)
 
 # criteria 8 and 9: the files are pictures with nothing to fetch and no script, of the scene's frame, each under 50 KB
@@ -593,7 +718,8 @@ verdict["bound_day"], verdict["bound_night"] = bound(scenes["day"], False), boun
 
 # criterion 2, the file's half: where the figure starts and the word with its cursor ends, in the frame's units,
 # for the drawn check at 390 px. The figure is the paths under <!-- the coat --> and <!-- the cowl ... -->, the word
-# its lit tiles (class tile), each through the translate and scale of every group around it.
+# the paths of its drawn letters and its cursor under <!-- the word ... -->, each through the translate and scale of
+# every group around it.
 def path_xs(d):
     """Every x a path's points and control points reach, in its own units; refuses an arc and a smooth curve,
     whose reach its own numbers do not show."""
@@ -638,7 +764,7 @@ def frame_span(svg):
     for found in re.finditer(r"(?s)<!--(.*?)-->|<(/?)(\w+)\b([^>]*?)(/?)>", svg):
         if found.group(1) is not None:
             note = found.group(1).strip()
-            section = "figure" if note.startswith(("the coat", "the cowl")) else None
+            section = "figure" if note.startswith(("the coat", "the cowl")) else "word" if note.startswith("the word") else None
             continue
         closing, tag, rest, lone = found.group(2), found.group(3), found.group(4), found.group(5)
         if tag != "g" and tag != "path":
@@ -654,7 +780,7 @@ def frame_span(svg):
             if not lone:
                 stack.append(whole)
             continue
-        into = word if attrs.get("class") == "tile" else figure if section == "figure" else None
+        into = figure if section == "figure" else word if section == "word" else None
         if into is None:
             continue
         if whole is None:
@@ -667,7 +793,7 @@ def frame_span(svg):
     if not figure:
         problems.append("no path under <!-- the coat --> or <!-- the cowl -->")
     if not word:
-        problems.append("no lit tile (class tile)")
+        problems.append("no path under <!-- the word -->")
     return problems, (round(min(figure), 1) if figure else None, round(max(word), 1) if word else None)
 problems, span = frame_span(scenes["day"])
 verdict["scene_span"], verdict["span"] = "; ".join(problems), list(span)
@@ -716,10 +842,12 @@ if ok sizes; then pass "each picture of the board says its size as half the pixe
 if ok colors; then pass "style.css has the six hues of lem.css with the same values, and every other color is a grey or a mix of those"; else fail "the colors: $WHY"; fi
 if ok switch; then pass "the page has no control that switches the theme: its one kind of button copies a line"; else fail "a theme switch: $WHY"; fi
 # the scene, assets/lem.svg and assets/lem-night.svg, in the files
-if ok scene_wire; then pass "in both scene files a pulse runs along the wire from before its left end to past its right end in a cycle of 8 s with a rest, each of the 8 pegs flashes, and the 42 tiles light letter by letter"; else fail "the pulse on the wire: $WHY"; fi
+if ok scene_eyes; then pass "in both scene files each of the four small agents has a red dot in its hood, no smaller than the core of Lem's eye and untouched by any animation, with a light of its own over it, in the red of Lem's eye, the same day and night"; else fail "the agents' eyes: $WHY"; fi
+if ok scene_signal; then pass "in both scene files, in a cycle of 8 s, both hands glow at one moment, a glow runs down the two inner agents' strands and later the two outer ones', and each agent's eye starts to light within 0.2 s of the glow reaching its strand's end"; else fail "the signal: $WHY"; fi
+if ok scene_quiet; then pass "in both scene files nothing else lights up or moves: no pulse, flash, lit tile, yellow glow or flare, no animation but the sky's, Lem's eye's and the signal's, and nothing on the wire or the word's strands"; else fail "what else moves: $WHY"; fi
 if ok scene_sky; then pass "the day scene shows its sky with haze, rays and a shimmer, the night scene its sky with about a hundred stars on timings of their own and two drifting aurora bands"; else fail "the sky: $WHY"; fi
-if ok scene_eye; then pass "in both scene files one red eye glows, blinks every 5 to 7 s and flares as the pulse passes the figure, in the same red"; else fail "the eye: $WHY"; fi
-if ok scene_still; then pass "each scene file has one rule for reduce motion that stops every animation, no animation it would not stop, and each light rests unlit"; else fail "reduce motion: $WHY"; fi
+if ok scene_eye; then pass "in both scene files Lem's one red eye glows and blinks every 5 to 7 s, in the same red"; else fail "Lem's eye: $WHY"; fi
+if ok scene_still; then pass "each scene file has one rule for reduce motion that stops every animation, no animation it would not stop, and each light of the signal rests unlit"; else fail "reduce motion: $WHY"; fi
 if ok scene_file; then pass "each scene file is 1600 x 640, under 50,000 bytes, with no script and nothing from another file or host"; else fail "the scene files: $WHY"; fi
 if ok scene_hex; then pass "every color of each scene file is a six-digit lowercase hex"; else fail "the scene's colors: $WHY"; fi
 if ok scene_paint; then ok bound_day || true; bound="day $WHY"; ok bound_night || true; pass "nothing in a scene file paints outside its bound color ($bound, night $WHY), and the rule passes the owner's shimmer filter and refuses a bare feTurbulence"; else fail "the paint of the scene: $WHY"; fi
