@@ -6,13 +6,13 @@ careful: yes, because task 1 changes which agent and model Lem takes for each se
 
 Size: full, because the settings of every seat get two new places and an order, the plan talk and the merge agent get a fallback, and a new command writes the owner's settings in his home.
 
-1. Each seat comes from the first of four places that names it: the repository's `.lem/project.local.toml`, its `.lem/project.toml`, `~/.config/lem/machine.toml`, then Lem's own default, which is `claude/opus:high` for the reviewer too. `lem project show` names the place of each seat:
-   1. `machine.toml` has `reviewer = "codex/gpt-6.2-sol:high"`.
+1. Each seat comes from the first of four places that names it: the repository's `.lem/settings.local.toml`, its `.lem/settings.toml`, `~/.config/lem/settings.toml`, then Lem's own default, which is `claude/opus:high` for the reviewer too. `lem project show` names the place of each seat:
+   1. `~/.config/lem/settings.toml` has `reviewer = "codex/gpt-6.2-sol:high"`.
    2. The repository `notes-app` names no reviewer in its two files.
    3. `lem project show` in `notes-app` gives the reviewer `codex/gpt-6.2-sol:high`, from this machine.
-   4. With no reviewer line in `machine.toml` either, it gives `claude/opus:high`, from Lem's default.
+   4. With no reviewer line in `~/.config/lem/settings.toml` either, it gives `claude/opus:high`, from Lem's default.
    - test: `python3 -B -m unittest tests.unit.test_settings.Seats.test_a_repository_that_names_no_reviewer_takes_the_machines_then_lems tests.unit.test_settings.Seats.test_each_seat_from_each_of_the_four_places` in `tests/unit/test_settings.py`
-2. The fallback is one key, `fallback`, read from the same four places: a whole seat turns it on, `false` turns it off, and with no line in any place it is `claude/opus:high`. `lem project show` gives it and its place: `mybaze` has no `fallback` line, `machine.toml` has none, and `show` gives `claude/opus:high` from Lem's default.
+2. The fallback is one key, `fallback`, read from the same four places: a whole seat turns it on, `false` turns it off, and with no line in any place it is `claude/opus:high`. `lem project show` gives it and its place: `mybaze` has no `fallback` line, `~/.config/lem/settings.toml` has none, and `show` gives `claude/opus:high` from Lem's default.
    - test: `python3 -B -m unittest tests.unit.test_settings.Seats.test_the_fallback_from_each_of_the_four_places tests.unit.test_settings.Seats.test_the_fallbacks_it_refuses` in `tests/unit/test_settings.py`
 3. When the agent of the `reviewer`, the `planner` or the `merger` gives an error, Lem takes the fallback seat in its place and goes on, and asks the owner nothing. An error is a program that is not on the Mac, or the agent's own message of no login, no tokens or an unknown model, before its first answer or later. A slow agent is no error, and Lem waits for it:
    1. `mybaze` names `codex/gpt-6.2-sol:high` as its reviewer, and its fallback is `claude/opus:high`.
@@ -32,10 +32,10 @@ Size: full, because the settings of every seat get two new places and an order, 
    - test: `python3 -B -m unittest tests.unit.test_task_rules.SeatCommands.test_a_project_with_no_fallback_blocks_waits_for_the_owner_and_his_go_on_tries_the_seat_again tests.unit.test_task_rules.SeatCommands.test_a_stand_in_that_fails_too_blocks_and_the_go_on_ends_the_stand_in tests.unit.test_task_rules.SeatCommands.test_a_planner_whose_fallback_is_codex_blocks` in `tests/unit/test_task_rules.py`
    - test: `python3 -B -m unittest tests.unit.test_board_model.SeatThatFailed` in `tests/unit/test_board_model.py`
    - test: `python3 -B -m unittest tests.unit.test_session.Phase.test_a_block_of_the_merge_agents_seat_is_the_landings_and_one_of_the_talk_the_builds` in `tests/unit/test_session.py`
-6. `/lem set global NAME VALUE` writes `~/.config/lem/machine.toml`, and `/lem set local NAME VALUE` writes the repository's `.lem/project.local.toml`. NAME is a seat or `fallback`; VALUE is a whole seat, `default`, which removes the line, or `false` for `fallback`. Each other line and comment of that file stays as it was, and no command writes `.lem/project.toml`:
-   1. `machine.toml` holds `merger = "claude/opus:high"` and the owner's own comment `# the Mac in the office`.
+6. `/lem set global NAME VALUE` writes `~/.config/lem/settings.toml`, and `/lem set local NAME VALUE` writes the repository's `.lem/settings.local.toml`. NAME is a seat or `fallback`; VALUE is a whole seat, `default`, which removes the line, or `false` for `fallback`. Each other line and comment of that file stays as it was, and no command writes `.lem/settings.toml`:
+   1. `~/.config/lem/settings.toml` holds `merger = "claude/opus:high"` and the owner's own comment `# the Mac in the office`.
    2. The owner types `/lem set global reviewer codex/gpt-6.2-sol:high`.
-   3. `machine.toml` holds the new reviewer line, the merger line and the comment.
+   3. `~/.config/lem/settings.toml` holds the new reviewer line, the merger line and the comment.
    4. `/lem set global reviewer default` removes the reviewer line again, and the other two lines stay.
    - test: `python3 -B -m unittest tests.unit.test_settings.SetSeat.test_set_global_keeps_the_owners_comment_and_the_merger tests.unit.test_settings.SetSeat.test_set_local_keeps_its_comment_and_its_state_table tests.unit.test_settings.SetSeat.test_a_file_with_a_comment_of_the_owners_stays_and_one_of_lems_lines_goes tests.unit.test_settings.SetSeat.test_a_key_in_another_form_is_refused_and_the_file_stays tests.unit.test_settings.SetSeat.test_no_path_writes_the_repositorys_settings` in `tests/unit/test_settings.py`
 7. `/lem reviewer` is no command of Lem any more: `/lem set local reviewer` does its work.
