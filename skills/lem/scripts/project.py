@@ -2321,6 +2321,34 @@ def went_on_in(root: Path, slug: str) -> str | None:
     return next((path.parent.name for path in sorted((state_root(root) / "tasks").glob(f"*/{RESUMED_FROM}")) if text_of(path).strip() == slug), None)
 
 
+def has_branch(main: Path, name: str | None) -> bool:
+    """Whether the checkout MAIN has the local branch NAME."""
+    return name is not None and subprocess.run(["git", "-C", str(main), "rev-parse", "--verify", "--quiet", f"refs/heads/{name}"],
+                                               capture_output=True, text=True, check=False).returncode == 0
+
+
+def open_resumed(root: Path, settings: dict, main: Path, slug: str, new: str, branch: str | None, source: str | None, ticket: str | None) -> Path:
+    """The folder of NEW, the task that a resume of the dropped task SLUG opens, made with its `reports/`.
+    It refuses a folder that is there already and a BRANCH that origin has; the TICKET of SLUG, when it
+    has one, goes on with NEW; and BRANCH is cut from SOURCE in the checkout MAIN when SOURCE is given."""
+    target = state_root(root) / "tasks" / new
+    if target.exists():
+        raise SettingsError(f"{target} exists already: no task is resumed into another task's folder")
+    taken_on_remote(root, new, branch)
+    claim: contextlib.AbstractContextManager = contextlib.nullcontext()
+    if ticket is not None:
+        # the ticket goes on with the work, as for a new task: refused while another task holds it,
+        # and the dropped task's mark moves to the new slug, and back to it when git refuses the branch
+        claim = held_ticket(root, new, ticket, read_tasks(root, settings), (settings["tracker"] or {}).get("kind"), succeeds=slug)
+    with claim:
+        if source is not None:
+            made = subprocess.run(["git", "-C", str(main), "branch", "--no-track", str(branch), source], capture_output=True, text=True, check=False)
+            if made.returncode != 0:
+                raise SettingsError(f"git could not make {branch} from {source}: {(made.stderr or made.stdout).strip()}")
+    (target / "reports").mkdir(parents=True)
+    return target
+
+
 def resume_as_request(root: Path, slug: str, directory: Path, ask: str, stops: list[dict],
                       carried: dict[str, tuple[bytes, os.stat_result]], folders: list[str]) -> dict:
     """The resume of a dropped task that the release stop blocked (STOPS, its `release.stop` events,
@@ -2338,26 +2366,13 @@ def resume_as_request(root: Path, slug: str, directory: Path, ask: str, stops: l
     main = main_checkout(root)
     new = resumed_slug(root, slug)
     old = next((stop.get("branch") for stop in reversed(stops) if isinstance(stop.get("branch"), str) and stop.get("branch")), None)
-    exists = old is not None and subprocess.run(["git", "-C", str(main), "rev-parse", "--verify", "--quiet", f"refs/heads/{old}"],
-                                                capture_output=True, text=True, check=False).returncode == 0
+    exists = has_branch(main, old)
     # the type of the old branch's name (`fix/invoice-totals`), since the old state's type line is a
     # record of a release two back; the new session takes the type anew, and keeps this branch
     first = old.split("/", 1)[0] if exists and "/" in old else None
     branch = f"{first if first in TYPES else 'feat'}/{new}" if exists else None
-    target = state_root(root) / "tasks" / new
-    if target.exists():
-        raise SettingsError(f"{target} exists already: no task is resumed into another task's folder")
-    taken_on_remote(root, new, branch)
-    claim: contextlib.AbstractContextManager = contextlib.nullcontext()
-    if (directory / "ticket.txt").is_file():
-        # the ticket goes on with the work, as for any resume
-        claim = held_ticket(root, new, text_of(directory / "ticket.txt").strip(), read_tasks(root, settings), (settings["tracker"] or {}).get("kind"), succeeds=slug)
-    with claim:
-        if branch:
-            made = subprocess.run(["git", "-C", str(main), "branch", "--no-track", branch, str(old)], capture_output=True, text=True, check=False)
-            if made.returncode != 0:
-                raise SettingsError(f"git could not make {branch} from {old}: {(made.stderr or made.stdout).strip()}")
-    (target / "reports").mkdir(parents=True)
+    ticket = text_of(directory / "ticket.txt").strip() if (directory / "ticket.txt").is_file() else None
+    target = open_resumed(root, settings, main, slug, new, branch, old if exists else None, ticket)
     try:
         lem_release.mark(target, main)
     except ValueError as error:
@@ -2443,23 +2458,9 @@ def cmd_resume(root: Path, slug: str) -> dict:
     branch = f"{kind}/{new}"
     # the old branch, as the newest state event that saw the task's worktree named it
     old = next((event.get("branch") for event in reversed(log) if event.get("event") == "task.state" and event.get("task") == slug and event.get("branch")), None)
-    exists = old is not None and subprocess.run(["git", "-C", str(main), "rev-parse", "--verify", "--quiet", f"refs/heads/{old}"],
-                                                capture_output=True, text=True, check=False).returncode == 0
-    target = state_root(root) / "tasks" / new
-    if target.exists():
-        raise SettingsError(f"{target} exists already: no task is resumed into another task's folder")
-    taken_on_remote(root, new, branch)
-    claim: contextlib.AbstractContextManager = contextlib.nullcontext()
-    if "ticket.txt" in carried_files:
-        # the ticket goes on with the work, as for a new task: refused while another task holds it,
-        # and the dropped task's mark moves to the new slug, and back to it when git refuses the branch
-        claim = held_ticket(root, new, carried_text("ticket.txt").strip(), read_tasks(root, settings), (settings["tracker"] or {}).get("kind"), succeeds=slug)
-    with claim:
-        if exists:
-            made = subprocess.run(["git", "-C", str(main), "branch", "--no-track", branch, old], capture_output=True, text=True, check=False)
-            if made.returncode != 0:
-                raise SettingsError(f"git could not make {branch} from {old}: {(made.stderr or made.stdout).strip()}")
-    (target / "reports").mkdir(parents=True)
+    exists = has_branch(main, old)
+    ticket = carried_text("ticket.txt").strip() if "ticket.txt" in carried_files else None
+    target = open_resumed(root, settings, main, slug, new, branch, old if exists else None, ticket)
     (target / "ask.txt").write_text(ask + "\n", encoding="utf-8")
     write_resumed(target, carried_files, media_folders, notes=False)
     (target / RESUMED_FROM).write_text(slug + "\n", encoding="utf-8")
