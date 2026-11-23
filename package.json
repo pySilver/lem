@@ -1,0 +1,12 @@
+{
+  "name": "lem",
+  "private": true,
+  "description": "The maintainer's lint of Lem's JavaScript: ESLint with neostandard, JavaScript Standard Style. Nobody who installs the plugin runs it.",
+  "scripts": {
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "eslint": "10.15.0",
+    "neostandard": "0.14.1"
+  }
+}
