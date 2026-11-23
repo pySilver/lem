@@ -1278,8 +1278,9 @@ class StoppedSession(unittest.TestCase):
                 self.ev("10:22", "gate", command="bash tests/all.sh", exit=0, last="all suites passed", tip="5ccc53d36"),
                 self.ev("10:54", "gate.end", result="passed", seconds=2156, tip="5ccc53d36"))
 
-    def woken(self) -> tuple:
-        return (*self.landing(), self.ev("11:39", "session.wake", session="S1", why="status"))
+    def woken(self, **fields) -> tuple:
+        # `unread=True` is the message `cmd_wake` logs when the signs it read in the task's lock do not read
+        return (*self.landing(), self.ev("11:39", "session.wake", session="S1", why="status", **fields))
 
     def restarted(self) -> tuple:
         return (*self.woken(), self.ev("11:49", "session.open", session="S2", name="gift-note", phase="land", why="stopped"),
@@ -1390,10 +1391,10 @@ class StoppedSession(unittest.TestCase):
         self.assertIsNone(self.due(*self.landing(), at="11:39", sign=None, signs=False, shell=True))
 
     def test_criterion_2_ten_minutes_after_the_message_signs_that_do_not_read_give_the_stop_never_a_restart(self):
-        self.assertIsNone(self.due(*self.woken(), at="11:48:59", **self.unread()))
-        self.assertEqual(self.due(*self.woken(), at="11:49", **self.unread()), ("stopped", "S1", self.ms("11:39")))
-        self.assertEqual(self.due(*self.woken(), at="15:37", **self.unread()), ("stopped", "S1", self.ms("11:39")))
-        stopped = (*self.woken(), self.ev("11:49", "session.stopped", session="S1", unread=True))
+        self.assertIsNone(self.due(*self.woken(unread=True), at="11:48:59", **self.unread()))
+        self.assertEqual(self.due(*self.woken(unread=True), at="11:49", **self.unread()), ("stopped", "S1", self.ms("11:39")))
+        self.assertEqual(self.due(*self.woken(unread=True), at="15:37", **self.unread()), ("stopped", "S1", self.ms("11:39")))
+        stopped = (*self.woken(unread=True), self.ev("11:49", "session.stopped", session="S1", unread=True))
         for at in ("11:49:20", "11:50", "17:00"):
             self.assertIsNone(self.due(*stopped, at=at, **self.unread()), at)
         # at 11:50 the signs read again, with the turn of 10:15: a logged stop waits for the owner, so no restart
@@ -1402,19 +1403,37 @@ class StoppedSession(unittest.TestCase):
 
     def test_criterion_3_a_work_event_ends_the_wait_and_the_guards_own_message_is_none(self):
         block = self.ev("11:42", "task.state", status="landing", text="the pull request waits for its checks", lines=[])
-        self.assertIsNone(self.due(*self.woken(), block, at="11:49", **self.unread()))
-        self.assertIsNone(self.due(*self.woken(), block, at="12:26:59", **self.unread()))
-        self.assertEqual(self.due(*self.woken(), block, at="12:27", **self.unread()), ("status", "S1", self.ms("11:42")))
-        m = self.model(*self.woken(), block, at="11:49", **self.unread())
+        self.assertIsNone(self.due(*self.woken(unread=True), block, at="11:49", **self.unread()))
+        self.assertIsNone(self.due(*self.woken(unread=True), block, at="12:26:59", **self.unread()))
+        self.assertEqual(self.due(*self.woken(unread=True), block, at="12:27", **self.unread()), ("status", "S1", self.ms("11:42")))
+        m = self.model(*self.woken(unread=True), block, at="11:49", **self.unread())
         self.assertEqual([w["kind"] for w in bm.waits_of(m) if w["t"].slug == "gift-note"], [])
         # a state block logged after the look at 11:49 but before the stop's record: the log's order decides
-        raced = (*self.woken(), self.ev("11:49", "task.state", status="landing", text="the pull request waits for its checks", lines=[]),
+        raced = (*self.woken(unread=True), self.ev("11:49", "task.state", status="landing", text="the pull request waits for its checks", lines=[]),
                  self.ev("11:49", "session.stopped", session="S1", unread=True))
         m = self.model(*raced, at="11:50", **self.unread())
         t = m.by_slug["gift-note"]
         self.assertEqual((bm.stop_stands(t), bm.stopped_of(t, m), [w["kind"] for w in bm.waits_of(m) if w["t"] is t]), (None, None, []))
         self.assertIsNone(self.due(*raced, at="12:33:59", **self.unread()))
         self.assertEqual(self.due(*raced, at="12:34", **self.unread()), ("status", "S1", self.ms("11:49")))
+
+    def test_each_clock_counts_only_the_status_message_it_sent(self):
+        # the unread clock's message at 11:39, and at 11:49 the signs read again with a turn at 11:30: the
+        # readable clock counts from that turn, so no fresh session 19 minutes after it, and its own message at 12:15
+        unread = self.woken(unread=True)
+        self.assertIsNone(self.due(*unread, at="11:49", sign="2026-11-22T11:30:00Z"))
+        self.assertEqual(self.due(*unread, at="12:15", sign="2026-11-22T11:30:00Z"), ("status", "S1", self.ms("11:30")))
+        # the readable clock's message at 11:39, turns until 12:30, and at 12:40 the signs do not read: the
+        # unread clock sends its own message, and logs the stop only 10 minutes after it
+        self.assertEqual(self.due(*self.woken(), at="12:40", sign="2026-11-22T12:30:00Z", signs=False), ("status", "S1", self.ms("10:54")))
+        again = (*self.woken(), self.ev("12:40", "session.wake", session="S1", why="status", unread=True))
+        self.assertIsNone(self.due(*again, at="12:49:59", sign="2026-11-22T12:30:00Z", signs=False))
+        self.assertEqual(self.due(*again, at="12:50", sign="2026-11-22T12:30:00Z", signs=False), ("stopped", "S1", self.ms("12:40")))
+        # the message before a stop that stands counts for both clocks: a readable stop and signs that no
+        # longer read give no second message and no second stop
+        stopped = (*self.restarted(), self.ev("12:37", "session.wake", session="S2", why="status"), self.ev("12:47", "session.stopped", session="S2"))
+        for at in ("13:40", "17:00"):
+            self.assertIsNone(self.due(*stopped, at=at, session="S2", sign=None, signs=False), at)
 
     def test_criterion_4_a_readable_stop_and_a_newer_turn_still_give_the_status_message(self):
         stopped = (*self.restarted(), self.ev("12:37", "session.wake", session="S2", why="status"), self.ev("12:47", "session.stopped", session="S2"))

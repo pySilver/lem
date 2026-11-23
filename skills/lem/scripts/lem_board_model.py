@@ -670,7 +670,7 @@ def fold(t: Task, e: dict, ts: int) -> None:
             t.session, t.session_closed = None, ts
         return
     if event == "session.wake":
-        t.wakes.append({"ts": ts, "order": len(t.events), "why": e.get("why"), "session": e.get("session")})
+        t.wakes.append({"ts": ts, "order": len(t.events), "why": e.get("why"), "session": e.get("session"), "unread": e.get("unread") is True})
         return
     if event == "session.stopped":
         # the guard's record of a stop (`stop_stands`), read from `t.events`: no step of the task's own
@@ -1438,10 +1438,12 @@ def stop_due(t: Task, m: Model) -> dict | None:
     `session.open`, so that a fresh session's clock starts at its open, and, when the session's signs
     read (`signs`), the session's own `sign` (its newest turn, or a subagent's). When they do not read,
     `sign` is not used, even when it holds a time: a turn with no live process to back it is no proof
-    that the session works now. Then:
+    that the session works now. Each of the two clocks counts only the status wake (`session.wake
+    why=status`) that it sent, which `cmd_wake` marks `unread` when the signs do not read, so that a wake
+    of one clock never starts the ANSWER_MS of the other; the wake before a stop that stands counts for
+    both, so that a change of the signs gives a logged stop no second message and no second stop. Then:
 
-    - `status`, from that sign, QUIET_MS after it, when no status wake (`session.wake why=status`) came
-      after it;
+    - `status`, from that sign, QUIET_MS after it, when no status wake of its clock came after it;
     - with signs that read, `restart`, from that wake, ANSWER_MS after it, when no `session.open
       why=stopped` came after the task's newest work event and no stop of the task stands (`stop_stands`):
       one restart for one stop, spent until the task's agent logs work again, and a logged stop waits for
@@ -1461,13 +1463,16 @@ def stop_due(t: Task, m: Model) -> dict | None:
     times = [(t.opened or {}).get("ts") or 0, (at(t.events[work].get("ts")) or 0) if work >= 0 else 0]
     since = max(times + ([at(f.get("sign")) or 0] if read else []))
     session = f.get("session") or t.session
-    wake = next((w for w in t.wakes if w.get("why") == "status" and w["ts"] > since), None)
+    stop = stop_stands(t)
+    # the order of the status wake before the standing stop (`wake_before`, an index; an order is index + 1)
+    held = wake_before(t, next(i for i, e in enumerate(t.events) if e is stop)) + 1 if stop is not None else None
+    wake = next((w for w in t.wakes if w.get("why") == "status" and w["ts"] > since and (w["unread"] is not read or w["order"] == held)), None)
     if wake is None:
         return {"step": "status", "session": session, "from": since} if m.now - since >= QUIET_MS else None
     if m.now - wake["ts"] < ANSWER_MS:
         return None
     if read and not any(e.get("event") == "session.open" and e.get("why") == "stopped" for e in t.events[work + 1:]):
-        return None if stop_stands(t) is not None else {"step": "restart", "session": session, "from": wake["ts"]}
+        return None if stop is not None else {"step": "restart", "session": session, "from": wake["ts"]}
     if any(e.get("event") == "session.stopped" for e in t.events[wake["order"]:]):
         return None
     return {"step": "stopped", "session": session, "from": wake["ts"]}
