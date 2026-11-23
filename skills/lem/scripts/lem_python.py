@@ -23,7 +23,7 @@ import re
 import subprocess
 import sys
 
-FLOOR = (3, 11)
+FLOOR: "tuple[int, int]" = (3, 11)
 # Where Homebrew links its newest Python, on Apple silicon and on Intel: looked at after PATH, for a
 # PATH (a hook's, a keymap's) that leaves Homebrew's folder out.
 FALLBACKS = ("/opt/homebrew/bin/python3", "/usr/local/bin/python3")
@@ -73,7 +73,7 @@ def version(path: str) -> "tuple[int, int] | None":
     parts = ran.stdout.split()
     if (
         ran.returncode != 0
-        or len(parts) != 2
+        or len(parts) != 2  # noqa: PLR2004 - a major and a minor number
         or not all(part.isdigit() for part in parts)
     ):
         return None
@@ -114,6 +114,7 @@ def from_uv(folders: "list[str]", fallbacks: "tuple[str, ...]") -> "str | None":
 
 def find(
     search: "str | None" = None,
+    *,
     python3: bool = True,
     fallbacks: "tuple[str, ...]" = FALLBACKS,
     uv: "tuple[str, ...]" = UV_FALLBACKS,
@@ -193,7 +194,7 @@ def hook(argv: "list[str]") -> None:
         return
     python = find(python3=False)
     if python is not None:
-        os.execv(python, [python, "-B", script, *args])
+        os.execv(python, [python, "-B", script, *args])  # noqa: S606 - the hook becomes the script
 
 
 if __name__ == "__main__":

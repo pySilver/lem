@@ -114,7 +114,7 @@ PID_FILE = "serve.pid"
 SERVE_LOG = "serve.log"
 
 
-def home():  # no annotation of `str | None`: this file loads under any python3
+def home() -> "str | None":
     """Lem's home folder as lem_state.config() names it, or None where it refuses (a relative XDG_CONFIG_HOME)."""
     named = os.environ.get("XDG_CONFIG_HOME", "")
     if named and not os.path.isabs(named):
@@ -192,7 +192,7 @@ def names() -> str:
 
 
 def version() -> dict:
-    found = {"root": ROOT, "version": None, "commit": None}
+    found: dict[str, object] = {"root": ROOT, "version": None, "commit": None}
     try:
         with open(
             os.path.join(ROOT, ".claude-plugin", "plugin.json"), encoding="utf-8"
@@ -212,7 +212,7 @@ def version() -> dict:
     return found
 
 
-def run(script: str, args: list, command: str, look: bool = False) -> None:
+def run(script: str, args: list, command: str, *, look: bool = False) -> None:
     """Become SCRIPT with ARGS, under this Python when it is 3.11 or newer, else under one it finds;
     with LOOK, after the look at the board server."""
     python = sys.executable or "python3"
@@ -225,12 +225,10 @@ def run(script: str, args: list, command: str, look: bool = False) -> None:
             sys.exit(lem_python.missing(command))
     if look:
         look_for_server(python)
-    os.execv(python, [python, "-B", script, *args])
+    os.execv(python, [python, "-B", script, *args])  # noqa: S606 - the command becomes the script
 
 
-def release(
-    called: str,
-):  # no annotation of `str | None`: this file loads under any python3
+def release(called: str) -> "str | None":
     """The file of the newest installed release that CALLED (`lem`, `lem-ask` or `lem-jev`) stands for,
     when this file is in a marketplace clone; None elsewhere. The clone holds the head of `main`, which
     no release holds, so nothing of it runs but this. A clone with no release listed exits 1."""
@@ -274,8 +272,8 @@ def main() -> None:
     target = release(called)
     if target is not None:
         if sys.executable:
-            os.execv(sys.executable, [sys.executable, target, *sys.argv[1:]])
-        os.execv(target, [target, *sys.argv[1:]])
+            os.execv(sys.executable, [sys.executable, target, *sys.argv[1:]])  # noqa: S606 - the clone becomes the release
+        os.execv(target, [target, *sys.argv[1:]])  # noqa: S606 - the clone becomes the release
     if called in ALIASES:
         run(os.path.join(ROOT, ALIASES[called]), sys.argv[1:], called)
     args = sys.argv[1:]
