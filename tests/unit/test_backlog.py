@@ -194,6 +194,46 @@ class TaskItem(unittest.TestCase):
         self.assertIsNone(self.item(""))
 
 
+class StateItem(unittest.TestCase):
+    """`land.state_item_of_ask` and `land.remove_item`: the reviewer's item of the state folder a task
+    was started from, and the removal of its file when the task lands."""
+
+    ROOTS = ("/lem-unit/repo", "/private/lem-unit/repo")
+
+    def item(self, ask: str) -> str | None:
+        return land.state_item_of_ask(ask, self.ROOTS)
+
+    def test_the_path_relative_to_the_root_or_whole_under_the_main_checkout(self) -> None:
+        self.assertEqual(self.item(".lem/state/backlog/tests-flaky-check.md\n"), ".lem/state/backlog/tests-flaky-check.md")
+        self.assertEqual(self.item("/lem-unit/repo/.lem/state/backlog/tests-flaky-check.md"), ".lem/state/backlog/tests-flaky-check.md")
+        self.assertEqual(self.item("/private/lem-unit/repo/.lem/state/backlog/tests-flaky-check.md"), ".lem/state/backlog/tests-flaky-check.md")
+
+    def test_an_item_of_the_backlog_folder_or_another_ask_is_none(self) -> None:
+        self.assertIsNone(self.item("docs/backlog/tests-flaky-check.md"))
+        self.assertIsNone(self.item(".lem/state/backlog/old/tests-flaky-check.md"))
+        self.assertIsNone(self.item(".lem/state/backlog/notes.txt"))
+        self.assertIsNone(self.item(".lem/state/tasks/tests-flaky-check/ask.txt"))
+        self.assertIsNone(self.item("Fix .lem/state/backlog/tests-flaky-check.md"))
+        self.assertIsNone(self.item("/elsewhere/repo/.lem/state/backlog/tests-flaky-check.md"))
+        self.assertIsNone(self.item("make the flaky check of tests/lem-serve.sh pass every time"))
+
+    def test_the_removal_of_a_file_there_or_gone_already_and_one_that_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as scratch:
+            state = Path(scratch)
+            (state / "backlog").mkdir()
+            item = state / "backlog" / "tests-flaky-check.md"
+            item.write_text("---\nworth: later\n---\n# A check of the board fails by chance\n", encoding="utf-8")
+            path = ".lem/state/backlog/tests-flaky-check.md"
+            self.assertTrue(land.remove_item(state, path, "tests-flaky-check", "https://github.com/acme/shop/pull/7"))
+            self.assertFalse(item.exists())
+            self.assertFalse(land.remove_item(state, path, "tests-flaky-check", "https://github.com/acme/shop/pull/7"))
+            # a folder in the item's place: the unlink fails with an error that is not "no such file"
+            item.mkdir()
+            with self.assertRaisesRegex(land.LandError, r"the task stays open, and `lem land merged tests-flaky-check` tries again"):
+                land.remove_item(state, path, "tests-flaky-check", "https://github.com/acme/shop/pull/7")
+            self.assertTrue(item.is_dir())
+
+
 class Unfiled(unittest.TestCase):
     """`land.to_file`: a defect over the bar waits to be filed until it has an item, whatever the branch holds."""
 
