@@ -3821,10 +3821,10 @@ def summary_of(slug: str, records: list[dict], now: int) -> dict:
     `derive`, then `settle` for the newest block, `since`, `first` and `last`, `pr_of`, the card's
     `type`, `criteria_size` for the track, `lead_of`, `careful_of`, `proposal` and `investigation`, and whether a plan talk ended
     before the newest block, which `said_of` reads), `read_tasks` for `opened` and `newest` (the first
-    and newest `task.mode` or `task.state`), `nights` for `night`, and `lem_tokens` for `transcripts`,
-    the path of each `session.transcript` of the task, each once in the log's order, which it reads by
-    each transcript's first prompt, so that a fork of an open task's session logged under this one still
-    counts for that task. `ts` is the time of the task's
+    and newest `task.mode` or `task.state`), and `nights` for `night`. `transcripts` is the path of
+    each `session.transcript` of the task, each once in the log's order, after those of an older
+    summary: `lem_tokens` reads them by each transcript's first prompt, so that a fork of an open task's
+    session logged under this one still counts for that task. `ts` is the time of the task's
     newest event, which `prune` dates the task by. A task whose events hold its summary and newer
     events gets one new summary: the old one is the task's past, a newer fact replaces its old one,
     and `events` adds the old count to the newer events."""
