@@ -53,7 +53,7 @@ A step that was cut off (a session that ended, a machine that slept) is run agai
 one finds what the run before it finished.
 While the task is in `landing`, run `lem land checks SLUG --status` at each of your turns. When
 its `overdue` turns true, say its `say` once, with no question. Its `waits` (the checks wait for
-the machine's load) is no news: the board shows it. Checks that a session before you started are
+the machine's load, or behind another landing) is no news: the board shows it. Checks that a session before you started are
 not yours: while they run, start no step of the task, since their end wakes that session and not
 you. Once they ended, say the `resumed` line of `ended` once, never their own `say`, and take the
 landing up as after a cut-off.
