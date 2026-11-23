@@ -281,16 +281,20 @@ def open_form(ctx, t: bm.Task) -> Markup:
 def head_acts(ctx, t: bm.Task) -> Markup | None:
     """The header's acts: "Open a session" while no session of the task lives or the guard of a stopped
     session logged its stop (`bm.opens_session`), and the way to the
-    confirm step of a merge while the task is open (while its merge runs, a line that says so). None on
-    a page that may not act, and on a step of an act itself."""
+    confirm step of a merge while the board offers it (`bm.acts_of`: none while the owner's merge
+    stands; while a merge runs, a line that says so). None on a page that may not act, and on a step of
+    an act itself."""
     if not ctx.can_act or ctx.tab in ACT_TABS:
         return None
     out = []
     if bm.opens_session(t, ctx.model):
         out.append(open_form(ctx, t))
-    if "merge" in bm.acts_of(t, ctx.model.seen):
-        out.append(h("span", {"class": "btn busy", "role": "status"}, P.icon(ctx, "clock"), h("span", None, "Merging…")) if t.slug in ctx.merging
-                   else P.act_link(ctx, t.slug, "merge", merge_label(ctx, t), "pull", "risk", frame=True))
+    offered = "merge" in bm.acts_of(t, ctx.model.seen)
+    # the owner's merge that stands offers no second press, and says "Merging…" while the server runs it
+    if t.slug in ctx.merging and (offered or bm.owner_stands(t)):
+        out.append(h("span", {"class": "btn busy", "role": "status"}, P.icon(ctx, "clock"), h("span", None, "Merging…")))
+    elif offered:
+        out.append(P.act_link(ctx, t.slug, "merge", merge_label(ctx, t), "pull", "risk", frame=True))
     return h("div", {"class": "p-acts", "id": "p-acts"}, out) if out else None
 
 
@@ -1296,7 +1300,8 @@ def artifacts_tab(ctx, t: bm.Task) -> Markup:
 
 def note_card(ctx, slug: str) -> Markup | None:
     """The result of the act the address names (`?note=`) on the task SLUG, first in the tab: running, done
-    with what happens next, or not done with the script's own line."""
+    with what happens next, not done with the script's own line, or the owner's merge that stands while
+    it stands (`P.act_note`)."""
     note = ctx.note
     if not note or note.get("task") != slug:
         return None
@@ -1317,6 +1322,9 @@ def merge_step(ctx, t: bm.Task) -> list:
     it shows, so that a branch proposed again since is not merged on this look."""
     if t.slug in ctx.merging:
         return not_now(ctx, t, "Lem merges it now. This page shows the result when it ends.")
+    stands = bm.stands_said(t)
+    if stands:
+        return not_now(ctx, t, stands)
     if "merge" not in bm.acts_of(t, ctx.model.seen):
         return not_now(ctx, t, f"Nothing to merge now: the task is {t.info['label'].lower()}." if t.status != "open"
                        else "Lem lands it again: the base moved after the checks ran, so a merge now is refused the same way. "

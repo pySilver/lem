@@ -343,5 +343,50 @@ class Search(unittest.TestCase):
         self.assertIn('<symbol id="i-magnifying-glass"', html)
 
 
+
+class StandsNote(unittest.TestCase):
+    """The note of the owner's merge that stands (`act_note`, state `stands`): a wait with no "Not done.", drawn
+    only while his merge stands for the note's tip, with the sentence of the span that holds now
+    (guard-sees-unreadable-sessions, 2026-11-23, #60)."""
+
+    TIP = "faac6eb3b" + "0" * 31
+    NOTE = {"task": "gift-note", "act": "merge", "state": "stands", "tip": TIP,
+            "said": "Your merge stands. It goes through when the merge agent’s read of the new base says safe."}
+
+    @staticmethod
+    def ev(minute: float, event: str, **fields) -> dict:
+        return {"ts": (START + timedelta(minutes=minute)).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": event, "task": "gift-note", **fields}
+
+    def refused(self) -> list:
+        return [self.ev(0, "proposed", green=True, not_green=[], tip=self.TIP[:9]), state(1, "open", "pull request https://github.com/acme/shop/pull/60", task="gift-note"),
+                self.ev(8, "merge.refused", by="owner", via="server", kind="base", said="origin/main moved after the checks ran", tip=self.TIP[:9], **{"from": "lem"})]
+
+    def note(self, events: list) -> str:
+        return str(pages.act_note(ctx_of(events), self.NOTE) or "")
+
+    def test_while_the_read_runs_the_note_says_his_merge_stands_in_the_look_of_a_wait(self):
+        html = self.note(self.refused())
+        self.assertIn("Your merge stands. It goes through when the merge agent’s read of the new base says safe.", html)
+        self.assertIn("a-gate", html)
+        self.assertIn("#i-clock", html)
+        self.assertNotIn("Not done.", html)
+        self.assertNotIn("v-word", html)
+
+    def test_once_the_server_runs_it_the_note_says_the_sentence_of_that_span(self):
+        safe = self.ev(11, "merge.review", verdict="call", calls=True, by="claude", tip=self.TIP[:9], base="d48c6a9bd", base_call="safe", base_why="docs only")
+        stands = self.ev(11, "merge.stands", by="owner", tip=self.TIP[:9], base="d48c6a9bd")
+        html = self.note([*self.refused(), safe, stands])
+        self.assertIn("Your merge stands. Lem merges it now.", html)
+        self.assertNotIn("goes through when", html)
+
+    def test_once_it_ends_the_note_is_not_drawn(self):
+        merged = [*self.refused(), state(20, "landed", "main: pull request https://github.com/acme/shop/pull/60 is merged", task="gift-note")]
+        self.assertEqual(self.note(merged), "")
+        # a new proposal carried his merge to another tip: the note of the old tip is not drawn
+        carried = [*self.refused(), self.ev(13, "proposed", green=True, not_green=[], tip="def456789"), state(14, "open", "pull request https://github.com/acme/shop/pull/60", task="gift-note"),
+                   self.ev(14, "merge.stands", by="owner", tip="def456789", **{"from": self.TIP[:9]})]
+        self.assertEqual(self.note(carried), "")
+
+
 if __name__ == "__main__":
     unittest.main()

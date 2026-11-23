@@ -1182,8 +1182,14 @@ def act_merge(workspace: Workspace, slug: str, form: dict, via: str) -> str:
     MERGE_STEP `--by owner`, with the proposal's title as the one commit's subject where the history is
     squashed. It runs in a thread of its own, so that the page does not wait for the base branch and
     the forge: the answer is the token of its note at once, which says that it runs until the step
-    ends. A task whose merge runs already gets that merge's token."""
+    ends. A task whose merge runs already gets that merge's token. While the owner's merge stands
+    (`bm.owner_stands`), a press starts nothing: its note says that his merge stands, in the state
+    `stands`, with the tip it is for."""
     t = task_of(workspace, slug)
+    if t is not None and bm.owner_stands(t):
+        with NOTES.lock:
+            running = NOTES.merging.get((workspace.name, slug))
+        return running or NOTES.put(task=slug, act="merge", state="stands", tip=(t.proposal or {}).get("tip"), said=bm.stands_said(t))
     if t is None or "merge" not in bm.acts_of(t, workspace.model().seen):
         said = (f"{slug} is not open for a merge now: it is {t.info['label'].lower()}." if t and t.status != "open"
                 else f"Lem lands it again: the base moved after the checks ran, so a merge of {slug} now is refused the same way. "
@@ -1242,24 +1248,44 @@ def merge_in_thread(workspace: Workspace, slug: str, landing: dict, by: str, tip
     runs already gets that merge's token, and no second one starts.
     AFTER gives what the note adds to a merge that went through; FAILED is called with no argument when
     the step did not. STANDING runs the owner's merge that stood through a new landing or a safe read
-    of the moved base (`merge_args`)."""
+    of the moved base (`merge_args`).
+    The owner's merge from the board (BY owner, not STANDING) reads the task again in its thread, on a
+    fresh model: before land.py, so that a press whose request read the model before his first merge's
+    refusal was logged runs none while that merge stands (`bm.owner_stands`), and after land.py's exit
+    1, when the moved base refused it and his merge stands. Either way the note's state is `stands`,
+    with TIP and the sentence of the span that holds (`bm.stands_said`); any other exit 1 is `refused`,
+    with land.py's line."""
     pr = landing.get("pr") if isinstance(landing.get("pr"), dict) else None
     what = f"pull request #{pr['number']}" if pr and pr.get("number") else f"the branch {landing.get('branch') or slug}"
     base = landing.get("base") or "the base branch"
     args = merge_args(landing, slug, by, tip, standing)
-    token, new = NOTES.start_merge((workspace.name, slug), task=slug, act="merge", state="running",
+    token, new = NOTES.start_merge((workspace.name, slug), task=slug, act="merge", state="running", tip=tip,
                                    said=f"Lem merges {what} into {base}. The page shows the result when it ends.")
     if not new:
         return token
+    his = by == "owner" and not standing
+
+    def stands() -> bool:
+        # the task read again, on the log as it is now: whether his merge stands for the tip of this press
+        t = task_of(workspace, slug) if his else None
+        said = bm.stands_said(t, tip) if t is not None else None
+        if said:
+            NOTES.change(token, state="stands", said=said)
+        return bool(said)
 
     def merge() -> None:
         try:
+            if stands():
+                if failed:
+                    failed()
+                return
             ran = merge_apart(workspace, *args)
             if ran.returncode == 0:
                 NOTES.change(token, state="done", said=f"Merged: {what} is on {base}. Within a minute the board’s server wakes the task’s session, or opens one, which removes its worktree and its branch."
                              + (after() if after else ""))
             else:
-                NOTES.change(token, state="refused", said=said_of(ran))
+                if not stands():
+                    NOTES.change(token, state="refused", said=said_of(ran))
                 if failed:
                     failed()
         except Exception as error:  # noqa: BLE001 - a merge that fails says why on its page, and the server goes on

@@ -316,19 +316,30 @@ def act_form(ctx: Ctx, slug: str, act: str, label: str, name: str, cls: str, bus
              h("button", {"class": f"btn {cls}".strip(), "type": "submit", "data-turbo-submits-with": busy}, icon(ctx, name), h("span", None, label)))
 
 
-# How the note of an act looks, by its state: the actor's color, the icon and the first word.
-NOTE_LOOK = {"running": ("gate", "clock", "Running."), "done": ("done", "check", "Done."), "refused": ("bad", "alert", "Not done.")}
+# How the note of an act looks, by its state: the actor's color, the icon and the first word. The owner's
+# merge that stands (`stands`) is a wait, with no first word: its sentence says it all.
+NOTE_LOOK = {"running": ("gate", "clock", "Running."), "done": ("done", "check", "Done."), "refused": ("bad", "alert", "Not done."),
+             "stands": ("gate", "clock", None)}
 
 
 def act_note(ctx: Ctx, note: dict | None) -> Markup | None:
-    """The result of an act (`?note=`): running, done with what happens next, or not done with the
-    script's own line; first in a task's tab, or at the top of the view the act came from."""
+    """The result of an act (`?note=`): running, done with what happens next, not done with the
+    script's own line, or the owner's merge that stands; first in a task's tab, or at the top of the view the act came from. The note of
+    the owner's merge that stands is drawn only while it stands, for the tip the note is for
+    (`bm.owner_stands` over the page's model), with the sentence of the span that holds now
+    (`bm.stands_said`); once it ends, the page shows the task as it is, with no note."""
     if not note:
         return None
+    said = note.get("said") or ""
+    if note.get("state") == "stands":
+        t = ctx.model.by_slug.get(note.get("task"))
+        said = bm.stands_said(t, note.get("tip")) if t is not None else None
+        if not said:
+            return None
     actor, name, word = NOTE_LOOK.get(note.get("state"), NOTE_LOOK["refused"])
     return h("section", {"class": f"card verdict act-note a-{actor}", "id": "act-note", "role": "status", "aria-live": "polite"},
              h("div", {"class": "v-line"}, h("span", {"class": "fi"}, icon(ctx, name)),
-               h("div", {"class": "v-text"}, h("b", {"class": "v-word"}, word), " ", rich(ctx, note.get("said") or ""))))
+               h("div", {"class": "v-text"}, word and h("b", {"class": "v-word"}, word), word and " ", rich(ctx, said))))
 
 
 def search_button(ctx: Ctx, cls: str = "") -> Markup:

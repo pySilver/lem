@@ -227,6 +227,37 @@ class Overview(unittest.TestCase):
         # it is Lem's turn, not the owner's: the large card's head says so
         self.assertEqual((t.merge_wait, bm.now_head(t)), ("relands", "Proposed: Lem lands it again on the moved base"))
 
+    def test_while_his_merge_stands_the_page_offers_no_merge_and_its_step_says_it_stands(self):
+        # guard-sees-unreadable-sessions, 2026-11-23, #60: the moved base refused his merge, and Lem keeps it
+        proposed = (ev(0, "proposed", green=True, not_green=[], tip="faac6eb3b"), state(1, "open", "pull request https://github.com/acme/shop/pull/60"),
+                    ev(2, "merge.review", verdict="call", calls=True, why="a careful request is merged by the owner", by="claude", tip="faac6eb3b", base="ea54c2a2c"))
+
+        def refusal(by):
+            return ev(8, "merge.refused", by=by, via="server", kind="base", said="origin/main moved after the checks ran", tip="faac6eb3b", **{"from": "lem"})
+
+        def page(*events, merging=frozenset()):
+            ctx = pages.Ctx(host="h", workspace="w", model=model(*events), asset=lambda name: name, can_act=True, merging=set(merging))
+            ctx.landing_of = lambda slug: {"proposed": "faac6eb3b" + "0" * 31, "pr": {"number": 60, "url": "https://github.com/acme/shop/pull/60"}}
+            t = ctx.model.tasks[0]
+            return ctx, t, str(task_pages.head_acts(ctx, t) or "")
+
+        _, _, offered = page(*proposed)
+        self.assertIn("Merge #60", offered)
+        ctx, t, shown = page(*proposed, refusal("owner"))
+        self.assertNotIn("Merge #", shown)
+        self.assertNotIn("/merge", shown)
+        step = "".join(str(x) for x in task_pages.merge_step(ctx, t))
+        self.assertIn("Your merge stands. It goes through when the merge agent’s read of the new base says safe.", step)
+        self.assertNotIn("conflicting", step)
+        self.assertNotIn('name="confirm"', step)
+        # while the server runs his merge, the header says so
+        _, _, running = page(*proposed, refusal("owner"), ev(11, "merge.stands", by="owner", tip="faac6eb3b", base="d48c6a9bd"), merging={"gift-note"})
+        self.assertIn("Merging…", running)
+        self.assertNotIn("/merge", running)
+        # the merge agent's own merge that the moved base refused: his Merge stays (criterion 3)
+        _, _, his = page(*proposed, refusal("merger"))
+        self.assertIn("Merge #60", his)
+
     def test_the_large_card_opens_with_the_tasks_first_line_while_its_block_is_the_newest(self):
         line = 'fix: "the footer says Terms and conditions". Fast track: one builder, the checks, one read, then the pull request. Nothing waits for you.'
         first = {**state(0, "building", "small change: one builder", "type: fix, because a typo"), "say": line}
