@@ -1,5 +1,6 @@
 """board.py's rules for what the board of one task reads beside the page, each called in this
-process: what the owner gets, from a task.md's `## Outcome`, and a backlog item's title.
+process: what the owner gets, from a task.md's `## Outcome`, a backlog item's title, the reviewer's
+items, and who added each item of the backlog folder, which `AddedBy` reads from a throwaway repository.
 
 Which items a task's branch adds against its merge base is a fact only git shows: tests/lem-serve.sh
 reads it on the board of a task whose branch filed one.
@@ -8,6 +9,8 @@ reads it on the board of a task whose branch filed one.
 """
 
 import importlib
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -175,6 +178,63 @@ class ReviewerItems(unittest.TestCase):
         self.task("tests-flaky-check", ".lem/state/backlog/tests-flaky-check.md", "landed")
         (self.state / "backlog" / "tests-flaky-check.md").unlink()
         self.assertNotIn("-tests-flaky-check", self.items())
+
+
+class AddedBy(unittest.TestCase):
+    """Who added each item of the backlog folder, from the commit that added its file (criterion 5 of
+    docs/plans/2026-11-23-backlog-refuted-items-and-jev.md): `board.backlog` over a throwaway repository,
+    with one read of git for the whole folder, and no field of the item read for it."""
+
+    STEM = "clean-refuses-a-branch-rebased-after-its-push-and-blames-the-forge"
+
+    def setUp(self) -> None:
+        self.temp = tempfile.TemporaryDirectory()
+        self.main = Path(self.temp.name) / "shop"
+        (self.main / "docs" / "backlog" / "old").mkdir(parents=True)
+        self.git("init", "-q")
+        self.settings = {"main": str(self.main), "root": str(self.main), "places": {"backlog": {"path": str(self.main / "docs" / "backlog")}}}
+
+    def tearDown(self) -> None:
+        self.temp.cleanup()
+
+    def git(self, *args: str, author: str = "t", day: str = "2026-11-20") -> None:
+        env = {**os.environ, "GIT_AUTHOR_DATE": f"{day}T10:00:00+00:00", "GIT_COMMITTER_DATE": f"{day}T10:00:00+00:00"}
+        subprocess.run(["git", "-C", str(self.main), "-c", f"user.name={author}", "-c", "user.email=a@example.com", *args], check=True, env=env, capture_output=True)
+
+    def commit(self, files: dict, *message: str, author: str = "t", day: str = "2026-11-20") -> None:
+        for name, text in files.items():
+            (self.main / name).write_text(text)
+        self.git("add", "--", *files)
+        self.git("commit", "-q", *(part for line in message for part in ("-m", line)), author=author, day=day)
+
+    def added(self) -> dict:
+        return {it["key"]: it.get("added_by", "absent") for it in board.backlog(self.settings)["items"]}
+
+    def test_the_author_the_day_and_the_task_of_the_commit_that_added_each_item(self):
+        item = "---\nworth: later\nwhere: land.py:cmd_clean\nadded: 2026-11-22\n---\n\n# Clean refuses a branch rebased after its push\n"
+        self.commit({f"docs/backlog/{self.STEM}.md": item}, "fix(land): the seat's defaults (#85)", "Lem task: seat-defaults-and-fallback",
+                    author="pySilver", day="2026-11-22")
+        # the subject of `lem land file`'s commit, in a history that keeps the branch's commits
+        self.commit({"docs/backlog/review-round.md": "# One\n"}, "docs(backlog): what review round 2 saw outside export-notes")
+        # a squash by GitHub's button: its pull request alone; a commit that names neither
+        self.commit({"docs/backlog/by-the-button.md": "# Two\n"}, "feat: the export (#88)")
+        self.commit({"docs/backlog/by-hand.md": "# Three\n", "docs/backlog/old/nested.md": "# Not an item\n"}, "docs: an item by hand", author="Ann")
+        # an edit later is not who added it
+        self.commit({f"docs/backlog/{self.STEM}.md": item + "\nMore.\n"}, "docs(backlog): more", author="Bob", day="2026-11-23")
+        (self.main / "docs" / "backlog" / "untracked.md").write_text("# Four\n")
+        added = self.added()
+        self.assertEqual(added[self.STEM], {"author": "pySilver", "day": "2026-11-22", "task": "seat-defaults-and-fallback", "pull": ""})
+        self.assertEqual(added["review-round"], {"author": "t", "day": "2026-11-20", "task": "export-notes", "pull": ""})
+        self.assertEqual(added["by-the-button"], {"author": "t", "day": "2026-11-20", "task": "", "pull": "88"})
+        self.assertEqual(added["by-hand"], {"author": "Ann", "day": "2026-11-20", "task": "", "pull": ""})
+        self.assertIsNone(added["untracked"])
+        # no field of the item is read for it: its head has none
+        self.assertNotIn("author", (self.main / "docs" / "backlog" / f"{self.STEM}.md").read_text())
+
+    def test_with_no_answer_from_git_no_item_says_who_added_it(self):
+        (self.main / "docs" / "backlog" / "loose.md").write_text("# Loose\n")
+        (self.main / ".git" / "HEAD").write_text("not a ref\n")
+        self.assertEqual(self.added(), {"loose": "absent"})
 
 
 if __name__ == "__main__":

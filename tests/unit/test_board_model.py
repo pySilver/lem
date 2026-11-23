@@ -1912,6 +1912,19 @@ class Search(unittest.TestCase):
         self.assertEqual(bm.undecided({"items": self.BACKLOG["items"][:4]}), 0)
         self.assertIsNone(bm.undecided(None))
 
+    def test_criterion_4_a_refuted_item_of_the_reviewer_is_not_counted_and_is_under_decided_against(self):
+        # criterion 4 of docs/plans/2026-11-23-backlog-refuted-items-and-jev.md: 2 reviewer's items that wait
+        # for the owner and 1 refuted give 2 on the key, and the view lists all 3
+        def mine(stem: str, worth: str) -> dict:
+            return {"slug": stem, "key": f"-{stem}", "title": stem, "worth": worth, "reviewer": True, "held": None}
+        backlog = {"items": [mine("the-board-s-colors", "later"), mine("run-make-lint-before-each-commit", "no"), mine("a-flaky-check", "later")]}
+        self.assertEqual(bm.undecided(backlog), 2)
+        self.assertEqual([it["key"] for it in bm.reviewer_items(backlog["items"])], ["-the-board-s-colors", "-a-flaky-check"])
+        self.assertEqual([it["key"] for it in bm.worth_items(backlog["items"], "no")], ["-run-make-lint-before-each-commit"])
+        rows = {r["slug"]: r["chip"] for r in bm.search_rows(bm.derive(self.events(), [], self.NOW), backlog) if r["kind"] == "item"}
+        self.assertEqual(rows, {"-the-board-s-colors": "Backlog · undecided", "-a-flaky-check": "Backlog · undecided",
+                                "-run-make-lint-before-each-commit": "Backlog · worth: no"})
+
 
 class StoppedSession(unittest.TestCase):
     """The guard of a stopped session (`stop_due`), on the events of 2026-11-22 (merge-leaves-board-lock,

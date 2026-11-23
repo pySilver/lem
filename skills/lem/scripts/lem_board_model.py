@@ -1289,7 +1289,8 @@ def done_older(m: Model) -> list:
 
 # ---- the backlog's items and the search over every card ----
 
-# The backlog's groups, from each item's own `worth`.
+# The backlog's groups, from each item's own `worth`: every item of the backlog folder, and the reviewer's
+# items it decided against (`refuted`); its other items have a group of their own (`reviewer_items`).
 BY_WORTH = [
     {"key": "yes", "name": "Worth doing", "actor": "gate"},
     {"key": "later", "name": "Later", "actor": "you"},
@@ -1304,15 +1305,28 @@ def worth_of(it: dict) -> str:
     return it.get("worth") if it.get("worth") in ("yes", "later", "no") else "unset"
 
 
+def refuted(it: dict) -> bool:
+    """A reviewer's item that says `worth: no`: a proposal the reviewer decided against, kept so that no
+    later night or retro raises it again. It waits for nobody, so the Backlog key does not count it."""
+    return bool(it.get("reviewer")) and worth_of(it) == "no"
+
+
+def worth_items(items: list[dict], key: str) -> list[dict]:
+    """The items of a backlog's read in the group of BY_WORTH whose key is KEY, in the order of the read:
+    the backlog folder's, and in "Decided against" the reviewer's refuted ones (`refuted`) too."""
+    return [it for it in items if (not it.get("reviewer") or refuted(it)) and worth_of(it) == key]
+
+
 def search_rows(m: Model, backlog: dict | None) -> list[dict]:
     """One row for each card of the workspace, in the order the search lists them with nothing typed:
     the tasks of the columns that have not ended, each column in the kanban's order; the parked tasks;
     every ended task, the newest first, also those Done draws no card for; then the reviewer's items,
-    the undecided ones first (`reviewer_items`); then the other backlog items by their worth. Each row
+    the undecided ones first (`reviewer_items`); then the other backlog items by their worth, the reviewer's
+    refuted ones among those of "Decided against" (`worth_items`). Each row
     has its title, whether it is a task that has not ended (`open`), the color of its place (`actor`),
     its chip: `COLUMN · STATUS`, `parked`, `STATUS DAY` for an ended task (the day it ended, on this
     machine's clock, as `stamp` reads it), `Backlog · undecided` or `Backlog · held by SLUG` for a
-    reviewer's item, `Backlog · worth: WORTH`; and an item's `slug` is its `key`. Only this model
+    reviewer's item that is not refuted, `Backlog · worth: WORTH` for the others; and an item's `slug` is its `key`. Only this model
     and this backlog come in, so no other workspace and no joined machine does."""
     def task_row(t: Task, open_: bool, actor: str, chip: str) -> dict:
         return {"kind": "task", "slug": t.slug, "title": t.title, "open": open_, "actor": actor, "chip": chip}
@@ -1328,20 +1342,21 @@ def search_rows(m: Model, backlog: dict | None) -> list[dict]:
               "chip": f"Backlog · held by {it['held']['task']}" if it.get("held") else "Backlog · undecided"} for it in reviewer_items(items)]
     for g in BY_WORTH:
         rows += [{"kind": "item", "slug": it["key"], "title": flat(it.get("title") or it["slug"]), "open": False, "actor": g["actor"],
-                  "chip": f"Backlog · worth: {g['key']}"} for it in items if not it.get("reviewer") and worth_of(it) == g["key"]]
+                  "chip": f"Backlog · worth: {g['key']}"} for it in worth_items(items, g["key"])]
     return rows
 
 
 def reviewer_items(items: list[dict]) -> list[dict]:
-    """The reviewer's items of a backlog's read (`board.backlog`), the undecided ones first, each part
-    in the order of the read."""
-    mine = [it for it in items if it.get("reviewer")]
+    """The reviewer's items of a backlog's read (`board.backlog`) that are not refuted (`refuted`), the
+    undecided ones first, each part in the order of the read: a refuted one is in "Decided against"."""
+    mine = [it for it in items if it.get("reviewer") and not refuted(it)]
     return [it for it in mine if not it.get("held")] + [it for it in mine if it.get("held")]
 
 
 def undecided(backlog: dict | None) -> int | None:
-    """How many of the reviewer's items no task holds, the count on the "Backlog" key; None with no read."""
-    return None if backlog is None else sum(1 for it in backlog.get("items") or [] if it.get("reviewer") and not it.get("held"))
+    """How many of the reviewer's items no task holds, the count on the "Backlog" key; None with no read.
+    A refuted item (`worth: no`) waits for nobody and is never counted."""
+    return None if backlog is None else sum(1 for it in reviewer_items(backlog.get("items") or []) if not it.get("held"))
 
 
 # ---- what the views say ----
