@@ -480,8 +480,9 @@ class Task:
     merge_review: dict | None = None
     refused: dict | None = None
     # the tip of Lem's refusal of the owner's own merge because the base moved, once a read answered it
-    # (`answers_refusal`): his merge stands and the server runs it (`owner_stands`), also before the read's
-    # `merge.stands` line is logged; a new proposal clears it with the refusal
+    # (`answers_refusal`): the board treats his merge as standing from that read (`owner_stands`), before
+    # its `merge.stands` line, which the server's run of his merge waits for (`stands_due` in serve.py);
+    # a new proposal clears it with the refusal
     stood: str | None = None
     # set by `derive` once every event is read
     status: str = ""
@@ -1045,9 +1046,12 @@ def stands_span(t: Task) -> str | None:
     reads what moved and his merge goes through on a read that says `safe`; "merges" while no refusal
     stands, the newest review of that tip does not say `another round`, and his merge stands for that
     tip, by `merge.stands` since the proposal (a safe read, or `propose` after a new landing) or by the
-    read that answered his refusal (`Task.stood`, before its `merge.stands` line), so the board's
-    server runs it. A refusal of the merge agent's merge is no word of his, and GitHub's refusal of his
-    standing merge waits for him: neither stands."""
+    read that answered his refusal (`Task.stood`, before its `merge.stands` line), and no merge of it
+    started since (`merge.start`), so the board's server is about to run it. Once a try starts, the
+    server's own merge guards a second press (`NOTES.merging` in serve.py), and a try that ends with no
+    refusal on record offers his Merge again, with land.py's line on a press. A refusal of the merge
+    agent's merge is no word of his, and GitHub's refusal of his standing merge waits for him: neither
+    stands."""
     if t.status != "open" or not t.proposal:
         return None
     tip = t.proposal.get("tip")
@@ -1060,9 +1064,12 @@ def stands_span(t: Task) -> str | None:
     review = t.merge_review
     if review and same_tip(tip, review.get("tip")) and review.get("base_call") == "another round":
         return None
-    if same_tip(tip, t.stood) or any(e.get("event") == "merge.stands" and same_tip(tip, e.get("tip")) for e in since):
-        return "merges"
-    return None
+    if not (same_tip(tip, t.stood) or any(e.get("event") == "merge.stands" and same_tip(tip, e.get("tip")) for e in since)):
+        return None
+    # the span ends at the first try of a merge (`merge.start`) after it began: after the newest
+    # `merge.stands` of that tip, or, before that line, after the refusal the read answered
+    began = max((i for i, e in enumerate(since) if e.get("event") == "merge.refused" or (e.get("event") == "merge.stands" and same_tip(tip, e.get("tip")))), default=-1)
+    return None if any(e.get("event") == "merge.start" for e in since[began + 1:]) else "merges"
 
 
 def owner_stands(t: Task, tip: object = None) -> bool:
@@ -1073,10 +1080,12 @@ def owner_stands(t: Task, tip: object = None) -> bool:
     return span is not None and (tip is None or same_tip(tip, (t.proposal or {}).get("tip")))
 
 
-def stands_said(t: Task, tip: object = None) -> str | None:
+def stands_said(t: Task, tip: object = None, seen: dict | None = None) -> str | None:
     """The sentence of the owner's merge while it stands (`owner_stands`, for TIP when given), in the span
-    that holds now (STANDS_SAID); None while it does not stand."""
-    return STANDS_SAID[stands_span(t)] if owner_stands(t, tip) else None
+    that holds now (STANDS_SAID); None while it does not stand, and while the forge calls the pull
+    request conflicting (`conflicts`, over SEEN, the board server's last look), where the conflict's
+    own text says what comes next."""
+    return STANDS_SAID[stands_span(t)] if owner_stands(t, tip) and not conflicts(t, seen) else None
 
 
 def derive(events: list[dict], owner: list[dict], now: int, *, meta: dict | None = None) -> Model:
@@ -1656,7 +1665,7 @@ def acts_of(t: Task, seen: dict | None) -> list[str]:
     yes would count (`Task.approvable`), `merge` while it is open, Lem does not land it again after a
     moved base (`merge_wait` "relands": until the next proposal, a merge of that tip is refused the same
     way), no merge of his stands (`owner_stands`: a second press adds nothing to the first, which goes
-    through on the merge agent's safe read or runs on the server already) and the forge does not call it
+    through on the merge agent's safe read or that the server is about to run) and the forge does not call it
     conflicting (Lem brings that one onto the base first), and `park` while a breaker waits for him."""
     out = []
     if t.approvable:

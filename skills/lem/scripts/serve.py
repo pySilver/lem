@@ -1184,12 +1184,14 @@ def act_merge(workspace: Workspace, slug: str, form: dict, via: str) -> str:
     the forge: the answer is the token of its note at once, which says that it runs until the step
     ends. A task whose merge runs already gets that merge's token. While the owner's merge stands
     (`bm.owner_stands`), a press starts nothing: its note says that his merge stands, in the state
-    `stands`, with the tip it is for."""
+    `stands`, with the tip it is for; while the forge calls the pull request conflicting, it gets the
+    conflict's text instead."""
     t = task_of(workspace, slug)
-    if t is not None and bm.owner_stands(t):
+    stands = bm.stands_said(t, seen=workspace.model().seen) if t is not None else None
+    if stands:
         with NOTES.lock:
             running = NOTES.merging.get((workspace.name, slug))
-        return running or NOTES.put(task=slug, act="merge", state="stands", tip=(t.proposal or {}).get("tip"), said=bm.stands_said(t))
+        return running or NOTES.put(task=slug, act="merge", state="stands", tip=(t.proposal or {}).get("tip"), said=stands)
     if t is None or "merge" not in bm.acts_of(t, workspace.model().seen):
         said = (f"{slug} is not open for a merge now: it is {t.info['label'].lower()}." if t and t.status != "open"
                 else f"Lem lands it again: the base moved after the checks ran, so a merge of {slug} now is refused the same way. "

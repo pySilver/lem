@@ -250,6 +250,11 @@ class Overview(unittest.TestCase):
         self.assertIn("Your merge stands. It goes through when the merge agent’s read of the new base says safe.", step)
         self.assertNotIn("conflicting", step)
         self.assertNotIn('name="confirm"', step)
+        # while the forge calls the pull request conflicting, the step says the conflict's text
+        ctx.model.seen = {"gift-note": {"mergeable": "CONFLICTING", "head": "faac6eb3b000"}}
+        step = "".join(str(x) for x in task_pages.merge_step(ctx, t))
+        self.assertIn("conflicting with the base", step)
+        self.assertNotIn("Your merge stands", step)
         # while the server runs his merge, the header says so
         _, _, running = page(*proposed, refusal("owner"), ev(11, "merge.stands", by="owner", tip="faac6eb3b", base="d48c6a9bd"), merging={"gift-note"})
         self.assertIn("Merging…", running)

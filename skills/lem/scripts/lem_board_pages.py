@@ -326,14 +326,15 @@ def act_note(ctx: Ctx, note: dict | None) -> Markup | None:
     """The result of an act (`?note=`): running, done with what happens next, not done with the
     script's own line, or the owner's merge that stands; first in a task's tab, or at the top of the view the act came from. The note of
     the owner's merge that stands is drawn only while it stands, for the tip the note is for
-    (`bm.owner_stands` over the page's model), with the sentence of the span that holds now
-    (`bm.stands_said`); once it ends, the page shows the task as it is, with no note."""
+    (`bm.owner_stands` over the page's model) and the forge does not call it conflicting, with the
+    sentence of the span that holds now (`bm.stands_said`); otherwise the page shows the task as it is,
+    with no note."""
     if not note:
         return None
     said = note.get("said") or ""
     if note.get("state") == "stands":
         t = ctx.model.by_slug.get(note.get("task"))
-        said = bm.stands_said(t, note.get("tip")) if t is not None else None
+        said = bm.stands_said(t, note.get("tip"), ctx.model.seen) if t is not None else None
         if not said:
             return None
     actor, name, word = NOTE_LOOK.get(note.get("state"), NOTE_LOOK["refused"])

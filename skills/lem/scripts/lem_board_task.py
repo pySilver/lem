@@ -1322,7 +1322,7 @@ def merge_step(ctx, t: bm.Task) -> list:
     it shows, so that a branch proposed again since is not merged on this look."""
     if t.slug in ctx.merging:
         return not_now(ctx, t, "Lem merges it now. This page shows the result when it ends.")
-    stands = bm.stands_said(t)
+    stands = bm.stands_said(t, seen=ctx.model.seen)
     if stands:
         return not_now(ctx, t, stands)
     if "merge" not in bm.acts_of(t, ctx.model.seen):

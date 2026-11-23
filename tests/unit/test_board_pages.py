@@ -382,6 +382,12 @@ class StandsNote(unittest.TestCase):
     def test_once_it_ends_the_note_is_not_drawn(self):
         merged = [*self.refused(), state(20, "landed", "main: pull request https://github.com/acme/shop/pull/60 is merged", task="gift-note")]
         self.assertEqual(self.note(merged), "")
+        # the server's merge of it started: the span ended, and a try that ends with no refusal on record
+        # leaves the page as it is, with his Merge
+        safe = self.ev(11, "merge.review", verdict="call", calls=True, by="claude", tip=self.TIP[:9], base="d48c6a9bd", base_call="safe", base_why="docs only")
+        started = [*self.refused(), safe, self.ev(11, "merge.stands", by="owner", tip=self.TIP[:9], base="d48c6a9bd"),
+                   self.ev(12, "merge.start", by="owner", via="server", after="a read of the moved base", base="d48c6a9bd")]
+        self.assertEqual(self.note(started), "")
         # a new proposal carried his merge to another tip: the note of the old tip is not drawn
         carried = [*self.refused(), self.ev(13, "proposed", green=True, not_green=[], tip="def456789"), state(14, "open", "pull request https://github.com/acme/shop/pull/60", task="gift-note"),
                    self.ev(14, "merge.stands", by="owner", tip="def456789", **{"from": self.TIP[:9]})]

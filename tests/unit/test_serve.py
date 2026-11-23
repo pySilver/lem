@@ -379,6 +379,13 @@ class Duties(unittest.TestCase):
             serve.NOTES.merging[("shop", "gift-note")] = "t0k3n"
             self.assertEqual(serve.act_merge(space, "gift-note", {"confirm": "yes", "tip": tip}, "local"), "t0k3n")
             serve.NOTES.merging.pop(("shop", "gift-note"), None)
+            # while the forge calls the pull request conflicting, the answer is the conflict's text
+            conflicting = self.model(*self.standing(tip))
+            conflicting.seen = {"gift-note": {"mergeable": "CONFLICTING", "head": tip[:12]}}
+            note = serve.NOTES.get(serve.act_merge(self.space(conflicting, landing), "gift-note", {"confirm": "yes", "tip": tip}, "local"))
+            self.assertEqual(note["state"], "refused")
+            self.assertIn("conflicting", note["said"])
+            self.assertNotIn("stands", note["said"])
         self.assertEqual((ran, threads), ([], []))
 
     def test_a_press_whose_request_read_the_model_before_his_refusal_runs_no_second_merge(self):

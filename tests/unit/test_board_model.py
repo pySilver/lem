@@ -869,6 +869,16 @@ class MovedBase(unittest.TestCase):
         # read's mark holds it, though `merge_wait` says "owner" there
         t = one(*refused, safe)
         self.assertEqual((t.merge_wait, bm.owner_stands(t), bm.acts_of(t, None), bm.stands_said(t)), ("owner", True, [], "Your merge stands. Lem merges it now."))
+        # the server's merge started at 10:41:27: the span ends there, so a try that land.py refuses with no
+        # refusal on record (the pull request's base changed on GitHub) offers his Merge again, and a press
+        # meets land.py's own line
+        started = ev(12, "merge.start", by="owner", via="server", after="a read of the moved base", base="d48c6a9bd")
+        t = one(*refused, safe, stands, started)
+        self.assertEqual((t.merge_wait, bm.owner_stands(t), bm.stands_said(t), bm.acts_of(t, None)), ("merges", False, None, ["merge"]))
+        # while the forge calls the pull request conflicting, the conflict's text says what comes next, not his merge's
+        t = one(*refused, safe, stands)
+        conflicting = {"gift-note": {"mergeable": "CONFLICTING", "head": "faac6eb3b"}}
+        self.assertEqual((bm.owner_stands(t), bm.stands_said(t, seen=conflicting), bm.acts_of(t, conflicting)), (True, None, []))
         # GitHub refused the standing merge: it waits for him, and his Merge is offered again
         github = one(*refused, safe, stands, ev(12, "merge.start", by="owner", via="server", after="a re-check"),
                      ev(12, "merge.refused", by="owner", via="server", **{"from": "github"}, said="Required status check is expected", tip="faac6eb3b"))
