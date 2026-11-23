@@ -67,6 +67,20 @@ team that adopts Lem may have its own.
                                     it that names one prints it, with the hold's type line. It
                                     refuses a type line, the owner's order, a `then:` line and the
                                     line of the one open task that fits in another form
+    lem project seat SLUG SEAT      the seat in use for the task, as `show` parses one: the fallback
+                                    while it stands in for SEAT (`from` is `stand-in`), else the seat
+                                    the settings name, with its `from`; every stage that opens a seat
+                                    takes it here
+    lem project seat-failed SLUG reviewer|planner|merger --seat LINE --error missing|login|tokens|model [--said TEXT]
+                                    the agent on LINE, the seat the stage opened, gave one of the four
+                                    errors: the fallback stands in for SEAT from now on (it prints the
+                                    seat to open, with `say`), or the task is `blocked` with the seat
+                                    and the error and the line `the seat that failed: SEAT` (it prints
+                                    `blocked: true` with `say`): when the fallback is false, when it
+                                    is LINE, or when its agent may not sit in SEAT. The experts and
+                                    the session take no fallback
+    lem project seat-again SLUG     the owner's go on over such a block: the block before it comes
+                                    back, the stand-in ends, and the seat the settings name is tried again
     lem project tasks               every task's ask, status and newest state block, as JSON
     lem project owner away|back --words TEXT
                                     the owner says that he is away, or back again: his words as typed,
@@ -309,7 +323,12 @@ session, and `EXPERTS`). A file's seat replaces the ones after it whole, and the
 defender or the merge agent when its agent gives an error: a whole seat turns it on, `false` turns
 it off, and with no line in any place it is `claude/opus:high` (`FALLBACK`); `show` gives it as a
 seat with `from`, or as `{"seat": false, "from": ...}`. The experts and the session take no
-fallback. `show` marks each expert `here` when its agent is on this
+fallback. When a stage sees one of the four errors of a seat's agent (the program is not on the Mac,
+no login, no tokens, an unknown model; a slow agent is none), `seat-failed` alone decides, under the
+task's lock: the fallback stands in, logged as `seat.stand-in`, and holds that seat for the task until
+it ends or the owner's go on (`seat-again`, which logs `seat.again`); or the task is `blocked`, logged
+as `seat.blocked`, when the fallback is off, is the seat that failed, or has an agent that may not sit
+in that seat. `seat SLUG SEAT` is the seat in use, the one every opener starts. `show` marks each expert `here` when its agent is on this
 machine (Claude Code always, Codex when its command is on PATH): only those answer, so without
 Codex the default's one Claude expert answers alone. The reviewer's, the defender's, each
 expert's and the fallback's seat is written whole, in each of the three files, and `show` and
@@ -444,6 +463,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import threading
 import time
 import tomllib
 from collections.abc import Iterator
@@ -555,6 +575,17 @@ FALLBACK = "claude/opus:high"
 # Where a value came from when no file names it: a seat, an expert, the fallback, `naps.on`,
 # `state.keep_days`.
 DEFAULT_FROM = "Lem's default"
+# What `seat` gives as `from` for a seat in which the fallback stands in for the task (`seat-failed`).
+STAND_IN = "stand-in"
+# The events of a seat whose agent gave an error, which only `seat-failed` and `seat-again` write: the
+# fallback that stands in (`seat=SEAT failed=LINE took=FALLBACK error=KIND`), the block
+# (`seat=SEAT failed=LINE error=KIND`), and the owner's go on (`seat=SEAT`), after which the seat the
+# settings name opens again. A stand-in holds for its seat until the task ends or that go on.
+SEAT_EVENTS = ("seat.stand-in", "seat.blocked", "seat.again")
+# the fixed line of a block that a seat's error wrote, which `state` takes in this form only
+FAILED_LINE = re.compile(re.escape(lem_state.FAILED_SEAT) + r"(?P<seat>" + "|".join(lem_state.SEAT_NAMES) + r")")
+# the first line of the owner's go on over such a block
+GO_ON = "the owner's go on: "
 # A plan's file name: its default, and its tokens; `lem_plans` builds and finds the name.
 PLAN_FILE = lem_plans.PLAN_FILE
 PLAN_TOKENS = lem_plans.TOKENS
@@ -570,7 +601,8 @@ SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 #   held      it waits for the owner: the criteria, one more fact, a step of his, the task his order names
 #             (`the order waits for the owner`, ORDER_WAIT), or a breaker's document (`breaker N waits for
 #             the owner`); no choice of the build waits for him, the ladder decides it
-#   blocked   the task stopped on something its session could not settle: the base is red, or a builder ended two times with no report
+#   blocked   the task stopped on something its session could not settle: the base is red, a builder ended two times with no report,
+#             or a seat's agent gave an error and no fallback could stand in (`seat-failed`, the line `the seat that failed: SEAT`)
 #   ready     the report is written and the branch waits for its checks
 #   landing   the checks and the read run on it, or a builder repairs what they or the base showed
 #   open      it is proposed: its pull request is open, and it waits for the merge agent's read and the merge
@@ -2254,9 +2286,34 @@ def parked_refusal(slug: str, now: str | None, status: str, resumed: bool = Fals
     return None
 
 
-def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: bool = False, resumed: bool = False) -> dict:
+# The task directories whose state lock each thread of this process holds (`state_locked`), so that a
+# command that decides under the lock (`seat-failed`, `seat-again`) writes its block through `cmd_state`
+# without waiting for itself: a second flock of the same file in one process waits for the first. By
+# thread, since another thread of the board's server is another writer.
+LOCKS_HELD: set[tuple[int, Path]] = set()
+
+
+@contextlib.contextmanager
+def state_locked(directory: Path) -> Iterator[None]:
+    """Hold the lock of one task's state.md (STATE_LOCK in its directory), or go on under it when this
+    thread holds it already."""
+    mine = (threading.get_ident(), directory)
+    if mine in LOCKS_HELD:
+        yield
+        return
+    with (directory / STATE_LOCK).open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        LOCKS_HELD.add(mine)
+        try:
+            yield
+        finally:
+            LOCKS_HELD.discard(mine)
+
+
+def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: bool = False, resumed: bool = False, again: bool = False) -> dict:
     """Put a new block at the top of the task's state.md, and the same as an event in the log.
-    `resumed` is `resume`'s own write over a parked task, the one way out of `parked` but a drop."""
+    `resumed` is `resume`'s own write over a parked task, the one way out of `parked` but a drop;
+    `again` is `seat-again`'s, the one way from `blocked` back to `open`."""
     directory = task_directory(root, slug)
     settings = load(root)
     if status not in STATES:
@@ -2272,8 +2329,7 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
     # one writer at a time, from the read of the newest status through the event's append: the lead's
     # `building` and the owner's drop at one moment would else each read the old status, and one block
     # would be lost or land above the drop
-    with (directory / STATE_LOCK).open("a") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+    with state_locked(directory):
         # the status the newest block gives, read from this task's file alone
         written = text_of(directory / "state.md").strip() if (directory / "state.md").is_file() else ""
         first = STATE_LINE.fullmatch(written.split("\n\n")[0].splitlines()[0]) if written else None
@@ -2291,6 +2347,10 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
         refused = parked_refusal(slug, now, status, resumed)
         if refused:
             raise SettingsError(refused)
+        if now == "blocked" and status == "open" and not again:
+            # a merge agent's seat that failed blocks an open task, and only the owner's go on opens it again
+            raise SettingsError(f"the task {slug!r} is blocked, and only the owner's go on gives `open` back: `lem project seat-again {slug}` writes it, "
+                                "when the block names the seat that failed")
         if status == "answered":
             answered_form(root, directory, slug)
         # the time is the clock's, never a writer's estimate
@@ -2345,6 +2405,149 @@ def blocks_of(text: str) -> list[dict]:
         if found:
             out.append({"status": found["status"], "lines": [found["text"], *rows[1:]]})
     return out
+
+
+def failed_seat(lines: list[str]) -> str | None:
+    """The seat a block names as the one that failed (`the seat that failed: SEAT`), or None."""
+    return next((found["seat"] for found in map(FAILED_LINE.fullmatch, (line.strip() for line in lines)) if found), None)
+
+
+def stand_in_of(events: list[dict], which: str) -> dict | None:
+    """The `seat.stand-in` that holds WHICH for a task: its newest, when no `seat.again` of WHICH came
+    after it; else None. EVENTS are the task's seat events in the log's order."""
+    held = None
+    for event in events:
+        if event.get("seat") != which:
+            continue
+        if event.get("event") == "seat.stand-in":
+            held = event
+        elif event.get("event") == "seat.again":
+            held = None
+    return held
+
+
+def seat_events(root: Path, slug: str) -> list[dict]:
+    """The task's seat events (SEAT_EVENTS), oldest first."""
+    return [event for event in events_named(root, *SEAT_EVENTS) if event.get("task") == slug]
+
+
+def seat_name_refusal(which: str, command: str) -> str | None:
+    """Why WHICH is no seat that COMMAND takes; None when it is one of SEATS."""
+    if which in SEATS:
+        return None
+    if which == "experts":
+        return (f"`{command}` takes one seat, and the experts are one or two that take no fallback seat: when one expert's agent gives an error, "
+                "the other answers alone; `lem project show` gives them as seats.experts")
+    return f"{which!r} is no seat{nearest(which, tuple(SEATS))}; a seat is one of {', '.join(SEATS)}"
+
+
+def cmd_seat(root: Path, slug: str, which: str) -> dict:
+    """The seat in use for a task: the fallback that stands in for it (`from` is STAND_IN), or else the
+    seat the settings name, as `show` gives it. Every stage that opens a seat's agent takes it here."""
+    task_directory(root, slug)
+    refused = seat_name_refusal(which, "lem project seat")
+    if refused:
+        raise SettingsError(refused)
+    settings = load(root)
+    held = stand_in_of(seat_events(root, slug), which)
+    if held is None:
+        return {"task": slug, "name": which, **settings["seats"][which]}
+    agents, why, example = SEATS[which]
+    parsed = parse_seat(held.get("took"), f"the stand-in of {which} in the event log", agents, why, example, which in WHOLE_SEATS)
+    return {"task": slug, "name": which, **parsed, "from": STAND_IN, "for": held.get("failed"), "error": held.get("error")}
+
+
+def seat_call(which: str, line: str, kind: str, fallback: dict) -> dict:
+    """What a seat whose agent on LINE gave the error KIND comes to, with FALLBACK as `show` gives it:
+    `{"took": SEAT}`, the fallback's seat parsed, which stands in; or `{"block": LINE}`, the first line of
+    the block, when the fallback is off, when it is the seat that failed (a stand-in that failed too,
+    or a fallback that is the seat the settings name), or when its agent may not sit in WHICH."""
+    name = lem_state.SEAT_NAMES[which]
+    head = call_head(which, line, kind)
+    if fallback["seat"] is False:
+        return {"block": f"{head}, and this project permits no fallback"}
+    if fallback["seat"] == line:
+        return {"block": f"{head}, and it was the fallback"}
+    agents = SEATS[which][0]
+    if fallback["agent"] not in agents:
+        takes = " or ".join(lem_state.AGENT_NAMES.get(agent, agent) for agent in agents)
+        return {"block": f"{head}, and its fallback `{fallback['seat']}` cannot sit in {name}'s seat, which takes {takes} only"}
+    return {"took": {key: fallback[key] for key in ("agent", "model", "effort", "seat")}}
+
+
+def cmd_seat_failed(root: Path, slug: str, which: str, line: str, kind: str, said: str | None) -> dict:
+    """A seat's agent gave one of the four errors: the fallback stands in for WHICH from now on, logged
+    as `seat.stand-in`, or the task is blocked, with the block's line and the fixed line FAILED_LINE,
+    logged as `seat.blocked`. LINE is the seat the stage opened, as `seat` printed it, so the record
+    names the agent that failed and not the settings at a later moment. Decided under the task's lock."""
+    directory = task_directory(root, slug)
+    if which in ("session", "experts"):
+        raise SettingsError(
+            f"the {which} take no fallback seat: " + ("when one expert's agent gives an error, the other expert answers alone"
+                                                      if which == "experts" else "the session seat is the Claude session that runs the task")
+            + "; `seat-failed` takes the reviewer, the planner or the merger")
+    if which not in lem_state.SEAT_NAMES:
+        raise SettingsError(f"{which!r} is no seat{nearest(which, tuple(lem_state.SEAT_NAMES))}; `seat-failed` takes {', '.join(lem_state.SEAT_NAMES)}")
+    if kind not in lem_state.SEAT_ERRORS:
+        raise SettingsError(f"--error {kind!r} is none of the four errors of a seat's agent: {', '.join(lem_state.SEAT_ERRORS)} "
+                            "(the program is not on the Mac, no login, no tokens, an unknown model). A slow agent is no error: wait for it")
+    agents, why, example = SEATS[which]
+    parse_seat(line, "--seat", agents, why, example, which in WHOLE_SEATS)
+    if said is not None and (not said.strip() or "\n" in said):
+        raise SettingsError("--said is the agent's own line of the error, one line of text")
+    settings = load(root)
+    with state_locked(directory):
+        call = seat_call(which, line, kind, settings["seats"]["fallback"])
+        words = {"seat": which, "failed": line, "error": kind, **({"said": said.strip()} if said else {})}
+        if "took" in call:
+            took = call["took"]
+            say = f"{call_head(which, line, kind)}; `{took['seat']}` stands in for it from now on, and the pull request says so"
+            append_event(root, "seat.stand-in", slug, {**words, "took": took["seat"], "say": say})
+            return {"task": slug, "name": which, "blocked": False, **took, "from": STAND_IN, "for": line, "error": kind, "say": say}
+        # the block first: a state `state` refuses (an ended task) leaves no event of a block behind
+        written = cmd_state(root, slug, "blocked", [call["block"], f"{lem_state.FAILED_SEAT}{which}"])
+        append_event(root, "seat.blocked", slug, {**words, "say": call["block"]})
+    return {"task": slug, "name": which, "blocked": True, "status": "blocked", "since": written["since"], "failed": line, "error": kind, "say": call["block"]}
+
+
+def call_head(which: str, line: str, kind: str) -> str:
+    """The words of a seat's error, as both the stand-in's line and the block's begin."""
+    return f"{lem_state.SEAT_NAMES[which]} `{line}` gave an error: {lem_state.SEAT_ERRORS[kind]['block']}"
+
+
+def cmd_seat_again(root: Path, slug: str) -> dict:
+    """The owner's go on over a task that a seat's error blocked: the block before it comes back (the
+    plan talk's `building`, the merge agent's `open`) under one line for each seat it tries again, and
+    `seat.again` ends each stand-in of that seat, so the seat the settings name opens. A run of such
+    blocks at the top is gone over together: each of their seats is tried again."""
+    directory = task_directory(root, slug)
+    settings = load(root)
+    with state_locked(directory):
+        blocks = blocks_of(text_of(directory / "state.md")) if (directory / "state.md").is_file() else []
+        seats: list[str] = []
+        count = 0
+        for block in blocks:
+            named = failed_seat(block["lines"]) if block["status"] == "blocked" else None
+            if named is None:
+                break
+            count += 1
+            if named not in seats:
+                seats.append(named)
+        if not seats:
+            now = f"{blocks[0]['status']}: {blocks[0]['lines'][0]}" if blocks else "with no state"
+            raise SettingsError(f"the task {slug!r} is {now}, and its newest block has no line `{lem_state.FAILED_SEAT}SEAT`: the owner's go on tries again "
+                                "a seat whose agent gave an error, and this task waits for no such seat")
+        before = blocks[count] if count < len(blocks) else None
+        if before is None:
+            raise SettingsError(f"the task {slug!r} has no block before the seat's block to bring back: write its state by hand")
+        tried = [{"name": which, **settings["seats"][which]} for which in seats]
+        lines = [f"{GO_ON}{lem_state.SEAT_NAMES[seat['name']]} {seat['seat']} is tried again" for seat in tried]
+        # the lines of the block before, without the lines of an earlier go on, which this one's replace
+        kept = [line for line in before["lines"] if not line.startswith(GO_ON)]
+        written = cmd_state(root, slug, before["status"], [*lines, *kept], again=True)
+        for which in seats:
+            append_event(root, "seat.again", slug, {"seat": which, "say": lines[seats.index(which)]})
+    return {"task": slug, "status": before["status"], "since": written["since"], **tried[0], "tried": tried, "say": "; ".join(lines)}
 
 
 def resumed_slug(root: Path, slug: str) -> str:
@@ -2674,6 +2877,9 @@ def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
         raise SettingsError("task.state is written by `lem project state`, which also writes the state block")
     if event == SUMMARY:
         raise SettingsError(f"{SUMMARY} is written by `lem project prune` only, in place of the events of an ended task that nothing happened in for {KEEP_KEY} days")
+    if event in SEAT_EVENTS:
+        raise SettingsError(f"{event} is written by `lem project seat-failed` and `lem project seat-again` only, with the block they write: "
+                            f"a stage that saw a seat's agent give an error runs `lem project seat-failed {slug} SEAT --seat LINE --error KIND`")
     if event in ("task.mode", OWNER):
         raise SettingsError(f"{event} is written by `lem project owner` and `task-dir --night` only: the owner's status is his words, kept in the machine's mark and never in a repository's log, and a night's mark is the night's")
     fields: dict[str, object] = {}
@@ -3153,6 +3359,9 @@ def fixed_form(line: str) -> None:
                             f"`then: the fast track` or `then: the lead`")
     if text.startswith("the one open task") and text != FITS_LINE:
         raise SettingsError(f"the line {text!r} is not in its form: write it as `{FITS_LINE}`")
+    if text.startswith(lem_state.FAILED_SEAT.strip()) and not FAILED_LINE.fullmatch(text):
+        raise SettingsError(f"the line {text!r} is not in its form: write it as `{lem_state.FAILED_SEAT}SEAT`, SEAT one of {', '.join(lem_state.SEAT_NAMES)}; "
+                            "`lem project seat-failed` writes it")
 
 
 def correction(fast: bool, task: str | None) -> str:
@@ -4972,6 +5181,17 @@ def main(argv: list[str] | None = None) -> None:
     state.add_argument("status")
     state.add_argument("lines", nargs="+", metavar="LINE")
     state.add_argument("--start-over", action="store_true", help="ready over a task in landing or open: its landing starts over, as land.py's message says")
+    seat_now = commands.add_parser("seat", help="the seat in use for a task: the fallback while it stands in, else the seat the settings name")
+    seat_now.add_argument("slug")
+    seat_now.add_argument("seat", metavar="|".join(SEATS))
+    failed = commands.add_parser("seat-failed", help="a seat's agent gave an error: the fallback stands in for it, or the task is blocked for the owner")
+    failed.add_argument("slug")
+    failed.add_argument("seat", metavar="|".join(lem_state.SEAT_NAMES))
+    failed.add_argument("--seat", dest="line", required=True, metavar="AGENT/MODEL:EFFORT", help="the seat the stage opened, as `lem project seat` printed it")
+    failed.add_argument("--error", required=True, metavar="|".join(lem_state.SEAT_ERRORS),
+                        help="missing: the program is not on the Mac; login, tokens, model: the agent's own message of no login, no tokens or an unknown model")
+    failed.add_argument("--said", metavar="TEXT", help="the agent's own line of the error, kept in the event")
+    commands.add_parser("seat-again", help="the owner's go on over a task a seat's error blocked: the seat the settings name is tried again").add_argument("slug")
     commands.add_parser("tasks")
     commands.add_parser("resume", help="bring a parked task back on the owner's word, or open a new task from a dropped one's handoff or notes and its branch").add_argument("slug")
     owner = commands.add_parser("owner", help="the owner says that he is away, or back again, for every repository on this machine; watch waits for his next word")
@@ -5034,6 +5254,15 @@ def main(argv: list[str] | None = None) -> None:
             return
         if args.command == "resume":
             print(json.dumps(cmd_resume(root, args.slug), indent=2))
+            return
+        if args.command == "seat":
+            print(json.dumps(cmd_seat(root, args.slug, args.seat), indent=2))
+            return
+        if args.command == "seat-failed":
+            print(json.dumps(cmd_seat_failed(root, args.slug, args.seat, args.line, args.error, args.said), indent=2))
+            return
+        if args.command == "seat-again":
+            print(json.dumps(cmd_seat_again(root, args.slug), indent=2))
             return
         if args.command == "tasks":
             print(json.dumps(read_tasks(root), indent=2))

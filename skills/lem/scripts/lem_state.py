@@ -37,6 +37,10 @@ only (`TABLE_PLACES`, the one map), and a table in another file is refused with 
 is valid (`misplaced`). `lem project set` writes one line of `[seats]` in the folder's `settings.toml`
 or in a repository's `.lem/settings.local.toml` (`write_edits`), and keeps every other line of the
 file, the owner's comments too (`edited`).
+
+It also holds the words of a seat whose agent gave an error (`SEAT_ERRORS`, `SEAT_NAMES`), which
+`lem project seat-failed` writes into a block and `land.py` into the pull request's line of a stand-in,
+so that both say one error in one way.
 """
 
 import contextlib
@@ -619,3 +623,30 @@ def folder(start: Path, timeout: float | None = None) -> Path:
     if not ignore.is_file():
         ignore.write_text(IGNORE, encoding="utf-8")
     return new
+
+
+# A seat whose agent gave an error, in a task's records: `lem project seat-failed` decides whether the
+# fallback stands in or the task is blocked, and the pull request lists each stand-in (`land.py`). The words
+# of both come from here, so that the block's line and the pull request's line say one error in one way.
+# The four errors a stand-in takes (`--error KIND`), each as the pull request says it after the agent's
+# name ("Codex had no tokens") and as the block's line says it after "gave an error: ".
+SEAT_ERRORS = {
+    "missing": {"pr": "is not on this Mac", "block": "the program is not on this Mac"},
+    "login": {"pr": "had no login", "block": "no login"},
+    "tokens": {"pr": "had no tokens", "block": "no tokens"},
+    "model": {"pr": "did not know the model", "block": "an unknown model"},
+}
+# The seats a stand-in may take, each by the name the records give it; the experts and a task's own
+# session take none (the owner's criterion 8 of seat-defaults-and-fallback, 2026-11-23).
+SEAT_NAMES = {"reviewer": "the reviewer", "planner": "the planner", "merger": "the merge agent"}
+# An agent of a seat by the name a person knows it by.
+AGENT_NAMES = {"claude": "Claude Code", "codex": "Codex"}
+# The fixed line of a block that a seat's error wrote, `the seat that failed: SEAT`: the owner's go on
+# (`lem project seat-again`) finds the seat to try again by it, and the session its phase.
+FAILED_SEAT = "the seat that failed: "
+
+
+def agent_name(line: str) -> str:
+    """The agent of a seat's line (`agent/model:effort`) by its name, as `AGENT_NAMES` gives it."""
+    agent = line.partition("/")[0].partition(":")[0]
+    return AGENT_NAMES.get(agent, agent)

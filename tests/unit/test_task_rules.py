@@ -9,8 +9,13 @@ real command shows: tests/lem-settings.sh runs one journey for each.
     python3 -B -m unittest discover -s tests/unit
 """
 
+import contextlib
 import importlib
+import io
+import os
+import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -321,6 +326,165 @@ class TalkForm(Refuses):
 
     def test_more_repairs_at_the_cause_and_layers_than_repairs(self):
         self.assertIn("root and layer add up to at most repaired", self.refused(project.talk_form, self.talk(layer=2, shared=0)))
+
+
+
+CODEX = {"agent": "codex", "model": "gpt-6.2-sol", "effort": "high", "seat": "codex/gpt-6.2-sol:high", "from": "Lem's default"}
+CLAUDE = {"agent": "claude", "model": "opus", "effort": "high", "seat": "claude/opus:high", "from": "Lem's default"}
+
+
+class SeatCall(unittest.TestCase):
+    """`seat_call`: what a seat whose agent gave one of the four errors comes to, the fallback's seat that
+    stands in or the first line of the block, from the seat that failed, its error and the fallback."""
+
+    def test_the_fallback_stands_in_for_a_reviewer_with_no_tokens(self):
+        # criterion 3: a Codex reviewer with no tokens, the fallback claude/opus:high
+        self.assertEqual(project.seat_call("reviewer", "codex/gpt-6.2-sol:high", "tokens", CLAUDE),
+                         {"took": {"agent": "claude", "model": "opus", "effort": "high", "seat": "claude/opus:high"}})
+
+    def test_a_project_with_no_fallback_blocks_in_the_words_of_criterion_5(self):
+        self.assertEqual(project.seat_call("reviewer", "codex/gpt-6.2-sol:high", "tokens", {"seat": False, "from": ".lem/project.toml"}),
+                         {"block": "the reviewer `codex/gpt-6.2-sol:high` gave an error: no tokens, and this project permits no fallback"})
+
+    def test_the_stand_in_that_fails_too_and_a_fallback_that_is_the_named_seat_block(self):
+        # one rule for both: the seat that failed is the fallback, a stand-in's or a reviewer the settings name so
+        self.assertEqual(project.seat_call("reviewer", "claude/opus:high", "login", CLAUDE),
+                         {"block": "the reviewer `claude/opus:high` gave an error: no login, and it was the fallback"})
+
+    def test_a_fallback_whose_agent_cannot_sit_in_the_planners_seat_blocks(self):
+        self.assertEqual(project.seat_call("planner", "claude/opus:high", "model", CODEX),
+                         {"block": "the planner `claude/opus:high` gave an error: an unknown model, and its fallback `codex/gpt-6.2-sol:high` "
+                                   "cannot sit in the planner's seat, which takes Claude Code only"})
+
+    def test_the_merge_agent_takes_a_codex_fallback(self):
+        self.assertEqual(project.seat_call("merger", "claude", "missing", CODEX)["took"]["seat"], "codex/gpt-6.2-sol:high")
+
+
+class FailedLine(Refuses):
+    """The fixed line of a block a seat's error wrote, `the seat that failed: SEAT`, which `state` takes in that form only."""
+
+    def test_the_line_of_each_seat_and_its_seat(self):
+        for seat in ("reviewer", "planner", "merger"):
+            project.fixed_form(f"the seat that failed: {seat}")
+            self.assertEqual(project.failed_seat(["the reviewer gave an error", f"the seat that failed: {seat}"]), seat)
+        self.assertIsNone(project.failed_seat(["the base is red"]))
+
+    def test_another_seat_or_form_is_refused(self):
+        for line in ("the seat that failed: experts", "the seat that failed:reviewer", "the seat that failed: the reviewer"):
+            with self.subTest(line=line):
+                self.assertIn("`lem project seat-failed` writes it", self.refused(project.fixed_form, line))
+
+
+class SeatCommands(Refuses):
+    """`lem project seat`, `seat-failed` and `seat-again` over a task of a git repository of its own in a temporary
+    folder, with a temporary XDG_CONFIG_HOME, so that no machine.toml and no state folder of this machine is read."""
+
+    def setUp(self):
+        self.kept = os.environ.get("XDG_CONFIG_HOME")
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        os.environ["XDG_CONFIG_HOME"] = str(Path(folder.name) / "home")
+        self.addCleanup(self.home_back)
+
+    def home_back(self):
+        if self.kept is None:
+            os.environ.pop("XDG_CONFIG_HOME", None)
+        else:
+            os.environ["XDG_CONFIG_HOME"] = self.kept
+
+    def repo(self, name: str, *seats: str) -> Path:
+        """A repository NAME whose settings' [seats] hold SEATS, with the careful task `plan-talk` in its plan talk."""
+        root = Path(os.environ["XDG_CONFIG_HOME"]).parent / name
+        subprocess.run(["git", "init", "-q", "-b", "main", str(root)], check=True)
+        (root / ".lem").mkdir()
+        (root / project.SETTINGS).write_text("\n".join(['[branch]', 'base = "main"', "[seats]", *seats]) + "\n", encoding="utf-8")
+        with contextlib.redirect_stdout(io.StringIO()):
+            project.cmd_task_dir(root, "plan-talk", "the export keeps its dates", None)
+        project.cmd_state(root, "plan-talk", "building", ["the plan talk runs", "lead: session"])
+        return root
+
+    def events(self, root: Path, *names: str) -> list[dict]:
+        return [event for event in project.events_named(root, *names) if event.get("task") == "plan-talk"]
+
+    def test_a_codex_reviewer_with_no_tokens_takes_the_fallback_and_keeps_it(self):
+        # criterion 3: mybaze names Codex as its reviewer, and its fallback is Lem's default
+        root = self.repo("mybaze", 'reviewer = "codex/gpt-6.2-sol:high"')
+        self.assertEqual(project.cmd_seat(root, "plan-talk", "reviewer")["seat"], "codex/gpt-6.2-sol:high")
+        said = project.cmd_seat_failed(root, "plan-talk", "reviewer", "codex/gpt-6.2-sol:high", "tokens", "You have no tokens left")
+        self.assertEqual((said["blocked"], said["seat"], said["from"], said["for"]), (False, "claude/opus:high", "stand-in", "codex/gpt-6.2-sol:high"))
+        self.assertEqual(said["say"], "the reviewer `codex/gpt-6.2-sol:high` gave an error: no tokens; `claude/opus:high` stands in for it from now on, and the pull request says so")
+        [event] = self.events(root, "seat.stand-in")
+        self.assertEqual({key: event[key] for key in ("seat", "failed", "took", "error", "said")},
+                         {"seat": "reviewer", "failed": "codex/gpt-6.2-sol:high", "took": "claude/opus:high", "error": "tokens", "said": "You have no tokens left"})
+        # the task goes on: no block, and every later open of the reviewer takes the stand-in
+        self.assertEqual(project.read_tasks(root)[0]["status"], "building")
+        now = project.cmd_seat(root, "plan-talk", "reviewer")
+        self.assertEqual((now["seat"], now["agent"], now["from"]), ("claude/opus:high", "claude", "stand-in"))
+        # the stand-in is the reviewer's alone
+        self.assertEqual(project.cmd_seat(root, "plan-talk", "planner")["from"], "Lem's default")
+
+    def test_a_project_with_no_fallback_blocks_waits_for_the_owner_and_his_go_on_tries_the_seat_again(self):
+        # criterion 5, its four steps
+        root = self.repo("billing-core", 'reviewer = "codex/gpt-6.2-sol:high"', "fallback = false")
+        said = project.cmd_seat_failed(root, "plan-talk", "reviewer", "codex/gpt-6.2-sol:high", "tokens", None)
+        line = "the reviewer `codex/gpt-6.2-sol:high` gave an error: no tokens, and this project permits no fallback"
+        self.assertEqual((said["blocked"], said["status"], said["say"]), (True, "blocked", line))
+        task = project.read_tasks(root)[0]
+        self.assertEqual((task["status"], task["state"].splitlines()[0].split(" ", 2)[2], task["state"].splitlines()[1]),
+                         ("blocked", line, "the seat that failed: reviewer"))
+        self.assertEqual([event["failed"] for event in self.events(root, "seat.blocked")], ["codex/gpt-6.2-sol:high"])
+        # "Waits for you" shows it, with its first line
+        bm = importlib.import_module("lem_board_model")
+        model, _ = project.waiting_model(root, project.load(root))
+        rows = bm.waits_of(model)
+        self.assertEqual([(row["kind"], row["t"].slug, row["t"].text) for row in rows], [("blocked", "plan-talk", line)])
+        # the afternoon: the owner's go on
+        again = project.cmd_seat_again(root, "plan-talk")
+        self.assertEqual((again["status"], again["name"], again["seat"]), ("building", "reviewer", "codex/gpt-6.2-sol:high"))
+        task = project.read_tasks(root)[0]
+        self.assertEqual(task["status"], "building")
+        self.assertEqual(task["state"].splitlines()[0].split(" ", 2)[2], "the owner's go on: the reviewer codex/gpt-6.2-sol:high is tried again")
+        self.assertIn("lead: session", task["state"].splitlines())
+        self.assertEqual(project.cmd_seat(root, "plan-talk", "reviewer")["seat"], "codex/gpt-6.2-sol:high")
+        self.assertIn("has no line `the seat that failed: SEAT`", self.refused(project.cmd_seat_again, root, "plan-talk"))
+
+    def test_a_stand_in_that_fails_too_blocks_and_the_go_on_ends_the_stand_in(self):
+        root = self.repo("mybaze", 'reviewer = "codex/gpt-6.2-sol:high"')
+        project.cmd_seat_failed(root, "plan-talk", "reviewer", "codex/gpt-6.2-sol:high", "tokens", None)
+        said = project.cmd_seat_failed(root, "plan-talk", "reviewer", "claude/opus:high", "login", None)
+        self.assertEqual(said["say"], "the reviewer `claude/opus:high` gave an error: no login, and it was the fallback")
+        self.assertEqual(project.read_tasks(root)[0]["status"], "blocked")
+        project.cmd_seat_again(root, "plan-talk")
+        self.assertEqual(project.cmd_seat(root, "plan-talk", "reviewer")["seat"], "codex/gpt-6.2-sol:high")
+        self.assertEqual([event["seat"] for event in self.events(root, "seat.again")], ["reviewer"])
+
+    def test_a_planner_whose_fallback_is_codex_blocks(self):
+        root = self.repo("notes-app", 'fallback = "codex/gpt-6.2-sol:high"')
+        said = project.cmd_seat_failed(root, "plan-talk", "planner", "claude/opus:high", "tokens", None)
+        self.assertTrue(said["blocked"])
+        self.assertIn("cannot sit in the planner's seat, which takes Claude Code only", said["say"])
+        self.assertEqual(project.read_tasks(root)[0]["state"].splitlines()[1], "the seat that failed: planner")
+
+    def test_the_experts_and_the_session_take_no_fallback(self):
+        # criterion 8
+        root = self.repo("notes-app")
+        self.assertIn("the other expert answers alone", self.refused(project.cmd_seat_failed, root, "plan-talk", "experts", "claude/fable:high", "tokens", None))
+        self.assertIn("the session seat is the Claude session that runs the task",
+                      self.refused(project.cmd_seat_failed, root, "plan-talk", "session", "claude/opus:high", "tokens", None))
+        self.assertIn("the experts are one or two that take no fallback seat", self.refused(project.cmd_seat, root, "plan-talk", "experts"))
+        self.assertEqual(self.events(root, *project.SEAT_EVENTS), [])
+
+    def test_a_slow_agent_or_a_wrong_line_is_no_seat_that_failed(self):
+        root = self.repo("notes-app")
+        self.assertIn("A slow agent is no error: wait for it", self.refused(project.cmd_seat_failed, root, "plan-talk", "reviewer", "claude/opus:high", "slow", None))
+        self.assertIn("--seat = 'codex'", self.refused(project.cmd_seat_failed, root, "plan-talk", "reviewer", "codex", "tokens", None))
+        self.assertEqual(self.events(root, *project.SEAT_EVENTS), [])
+
+    def test_the_events_and_open_over_a_block_are_the_commands_own(self):
+        root = self.repo("billing-core", "fallback = false")
+        self.assertIn("written by `lem project seat-failed`", self.refused(project.cmd_log, root, "plan-talk", "seat.stand-in", ["seat=reviewer"]))
+        project.cmd_seat_failed(root, "plan-talk", "merger", "claude/opus:high", "tokens", None)
+        self.assertIn("`lem project seat-again plan-talk` writes it", self.refused(project.cmd_state, root, "plan-talk", "open", ["pull request x"]))
 
 
 if __name__ == "__main__":
