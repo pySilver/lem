@@ -112,7 +112,12 @@ landing up as after a cut-off.
    - What the commands wrote that git neither tracks nor ignores (a `__pycache__` in a
      repository with no rule for it) is their output, not the tree they judged: the step removes
      each such file that was not there before the run, and the folders it empties, and names them
-     in `removed_untracked`. That is no failure and no task for an ignore rule. A command that
+     in `removed_untracked`. That is no failure and no task for an ignore rule. Nor is a
+     `__pycache__` that git ignores and that was in the worktree before the run (a builder's run
+     without `-B`) part of that tree: before the first command the step removes each one with no
+     ignored folder above it (the one in `.venv/` stays with `.venv/`) and names it in
+     `removed_bytecode`, in the result only, and that is no failure either; a folder it cannot
+     remove whole refuses the checks with its fix. A command that
      changed a tracked file or made a commit is refused, since its result is about another tree.
    - Each criterion's tests pass on the branch and fail on the base commit. The step reads the
      criteria again (`lem criteria inputs`), and that read refuses as a run of the tests would.

@@ -7,6 +7,7 @@ repositories; here a rule gets the text git gave and is asked for its result.
 import importlib
 import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 
@@ -277,6 +278,94 @@ class ChecksSay(unittest.TestCase):
     def test_another_result_is_refused(self) -> None:
         with self.assertRaises(ValueError):
             land.checks_say(SLUG, "green")
+
+
+class StaleBytecode(unittest.TestCase):
+    """`land.bytecode_of` and its parts: the ignored `__pycache__` folders the checks remove before their
+    first command, from git's list of what it ignores and the folders above that a rule ignores."""
+
+    # git's list in a worktree with the rules `__pycache__/`, `.env`, `.venv/` and `build/`, a force-added
+    # `build/.gitkeep`, and an untracked `shop/` that holds only its cache
+    LISTED = [".env", ".venv/", ":x/__pycache__/", "build/__pycache__/", "shop/", "shop/__pycache__/", "a/b/c/__pycache__/", "__pycache__/",
+              "__pycache__.py", "x__pycache__/", "build/", "lib/__pycache__"]
+
+    def test_a_cache_at_any_depth_goes(self) -> None:
+        self.assertEqual(land.bytecode_of(self.LISTED, set()), [":x/__pycache__/", "__pycache__/", "a/b/c/__pycache__/", "build/__pycache__/", "shop/__pycache__/"])
+
+    def test_a_cache_inside_an_ignored_folder_stays_with_it(self) -> None:
+        self.assertEqual(land.bytecode_of(self.LISTED, {"build"}), [":x/__pycache__/", "__pycache__/", "a/b/c/__pycache__/", "shop/__pycache__/"])
+        self.assertEqual(land.bytecode_of(["a/b/c/__pycache__/"], {"a/b"}), [])
+        self.assertEqual(land.bytecode_of(["a/b/c/__pycache__/"], {"a/bc", "b"}), ["a/b/c/__pycache__/"])
+
+    def test_every_other_ignored_entry_stays(self) -> None:
+        kept = [".venv/", ".env", "build/", "shop/", "__pycache__.py", "x__pycache__/", "lib/__pycache__"]
+        self.assertEqual(land.bytecode_of(kept, set()), [])
+
+    def test_the_folders_above_are_each_proper_folder_once(self) -> None:
+        self.assertEqual(land.folders_above(["a/b/__pycache__/", "a/c/__pycache__/", "__pycache__/", ":x/__pycache__/"]), [":x", "a", "a/b", "a/c"])
+        self.assertEqual(land.folders_above(land.bytecode_candidates(["__pycache__/", ".env"])), [])
+
+    def test_git_paths_reach_the_removal_as_git_named_them(self) -> None:
+        self.assertEqual(land.nul_paths(b"a\rb/__pycache__/\0.env\0"), ["a\rb/__pycache__/", ".env"])
+        self.assertEqual(land.nul_paths(b""), [])
+
+
+class RemoveBytecode(unittest.TestCase):
+    """`land.remove_bytecode`: one folder goes whole; a link or what is no folder stays, and a link inside is not followed."""
+
+    def test_a_folder_goes_and_a_link_inside_it_is_not_followed(self) -> None:
+        with tempfile.TemporaryDirectory() as made:
+            root = Path(made)
+            task = types.SimpleNamespace(worktree=root, slug=SLUG)
+            (root / "keep").mkdir()
+            (root / "keep" / "mine.txt").write_text("mine\n", encoding="utf-8")
+            (root / "shop" / "__pycache__").mkdir(parents=True)
+            (root / "shop" / "__pycache__" / "c.pyc").write_bytes(b"\0")
+            (root / "shop" / "__pycache__" / "out").symlink_to(root / "keep")
+            land.remove_bytecode(task, "shop/__pycache__/")
+            self.assertFalse((root / "shop" / "__pycache__").exists())
+            self.assertTrue((root / "shop").is_dir())
+            self.assertEqual((root / "keep" / "mine.txt").read_text(encoding="utf-8"), "mine\n")
+
+    def test_a_link_or_a_file_of_that_name_stays(self) -> None:
+        with tempfile.TemporaryDirectory() as made:
+            root = Path(made)
+            task = types.SimpleNamespace(worktree=root, slug=SLUG)
+            (root / "keep").mkdir()
+            (root / "keep" / "mine.txt").write_text("mine\n", encoding="utf-8")
+            (root / "a").mkdir()
+            (root / "a" / "__pycache__").symlink_to(root / "keep")
+            (root / "b").mkdir()
+            (root / "b" / "__pycache__").write_text("a file\n", encoding="utf-8")
+            land.remove_bytecode(task, "a/__pycache__/")
+            land.remove_bytecode(task, "b/__pycache__/")
+            land.remove_bytecode(task, "gone/__pycache__/")
+            self.assertTrue((root / "a" / "__pycache__").is_symlink())
+            self.assertEqual((root / "keep" / "mine.txt").read_text(encoding="utf-8"), "mine\n")
+            self.assertEqual((root / "b" / "__pycache__").read_text(encoding="utf-8"), "a file\n")
+
+    def test_a_folder_whose_parent_is_outside_the_worktree_stays(self) -> None:
+        with tempfile.TemporaryDirectory() as made, tempfile.TemporaryDirectory() as outside:
+            root = Path(made)
+            (Path(outside) / "__pycache__").mkdir()
+            (root / "linked").symlink_to(outside)
+            land.remove_bytecode(types.SimpleNamespace(worktree=root, slug=SLUG), "linked/__pycache__/")
+            self.assertTrue((Path(outside) / "__pycache__").is_dir())
+
+    def test_a_folder_that_cannot_go_refuses_with_the_fix(self) -> None:
+        with tempfile.TemporaryDirectory() as made:
+            root = Path(made)
+            cache = root / "shop" / "__pycache__"
+            (cache / "deep").mkdir(parents=True)
+            (cache / "deep" / "c.pyc").write_bytes(b"\0")
+            (cache / "deep").chmod(0o500)
+            try:
+                with self.assertRaises(land.LandError) as refused:
+                    land.remove_bytecode(types.SimpleNamespace(worktree=root, slug=SLUG), "shop/__pycache__/")
+            finally:
+                (cache / "deep").chmod(0o700)
+            self.assertIn(str(root.resolve() / "shop" / "__pycache__"), str(refused.exception))
+            self.assertIn(f"remove it, then run `lem land checks {SLUG}` again", str(refused.exception))
 
 
 class Duration(unittest.TestCase):
