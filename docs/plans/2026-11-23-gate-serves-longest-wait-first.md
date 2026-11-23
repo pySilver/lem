@@ -11,16 +11,24 @@ Size: full, because the gate gets a line of the waiting landings for the whole m
    2. At 12:19 UTC the load falls to 30, with the number at 40.
    3. The plan talk's task looks at the load first, and waits on.
    4. The checks of `fast-track-checks-documents` start.
+   - test: `python3 -B -m unittest tests.unit.test_land.TheLongestWaitStartsFirst` in `tests/unit/test_land.py`
 2. The line is one for all the repositories on the machine: a landing of Lem that waits since 12:01 UTC starts before a landing of mybaze that waits since 12:05 UTC.
+   - test: `python3 -B -m unittest tests.unit.test_land.OneLineForTheMachine` in `tests/unit/test_land.py`
 3. A landing that another open task of its repository waits for, by the `after:` line of a queued task or of a task blocked by a red base, goes before the longest wait, and of two such landings the one that waits longest goes first:
    1. `keys-help-in-a-sticky-footer` waits since 12:00 UTC.
    2. `new-sessions-open-at-tail` is blocked with `after: fix-red-base`, because the base is red.
    3. `fix-red-base` begins to wait at 12:10 UTC, and the load falls below 40.
    4. The checks of `fix-red-base` start first; `keys-help-in-a-sticky-footer` starts after it.
+   - test: `python3 -B -m unittest tests.unit.test_land.WantedGoesFirst` in `tests/unit/test_land.py`
 4. A landing that waits a second time, after a repair, counts its wait from the start of that second wait: `keys-help-in-a-sticky-footer` had its turn at 12:00 UTC, waits again from 12:20 UTC, and goes after `new-sessions-open-at-tail`, which waits since 12:10 UTC.
+   - test: `python3 -B -m unittest tests.unit.test_land.ASecondWaitCountsFromItsStart` in `tests/unit/test_land.py`
 5. The load still decides: while it is above the number, no landing starts, also the first in the line, and the next start comes a minute after the one before, as today.
+   - test: `python3 -B -m unittest tests.unit.test_land.TheLoadStillDecides` in `tests/unit/test_land.py`
 6. A landing whose checks process is gone (it died, or `lem land checks --stop` stopped it) loses its place, and the next landing in the line starts at its own next look; a landing whose task session is gone while its checks process still runs keeps its place.
+   - test: `python3 -B -m unittest tests.unit.test_land.AGoneRunLosesItsPlace tests.unit.test_land.TheWait` in `tests/unit/test_land.py`
 7. The board and `lem land checks --status` say why a landing waits when it waits behind another one: `fast-track-checks-documents` waits for the load, and the plan talk's task "waits behind fast-track-checks-documents, which waits longer".
+   - test: `python3 -B -m unittest tests.unit.test_land.WaitsBehindSays` in `tests/unit/test_land.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_model.WaitsBehind` in `tests/unit/test_board_model.py`
 
 ## How it works
 
