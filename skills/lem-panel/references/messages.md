@@ -281,6 +281,7 @@ instead, never cut.
   "state": "CARD",
   "questions": {
     "framed": {
+      "type": "choice",
       "instructions": "This is a question card for a product owner who must choose between options. Is it framed so the owner can decide from the card alone?",
       "choices": {
         "framed": "The question is in user terms; each option says what the people it affects would see; the recommendation says what it costs a user and what backs it, or the card says 'No clear pick' and what each side rests on; a dissent, a 'wrong if' and the undo cost are present; no internal units such as scores, ticks, priors or levels are needed to understand it.",

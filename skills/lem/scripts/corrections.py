@@ -111,6 +111,7 @@ TRANSCRIPT_TAIL_BYTES = 4_000_000
 OWNER_TRIM = 500
 PREVIOUS_TRIM = 300
 QUESTION = {
+    "type": "choice",
     "instructions": (
         "This is one exchange between a coding agent and the project's owner: the agent's last message, "
         "then the owner's reply. Decide whether an agent should remember a lesson from the owner's reply "
