@@ -28,6 +28,12 @@ import subprocess
 import sys
 import traceback
 from pathlib import Path
+from types import ModuleType
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from importlib.abc import Loader
+    from importlib.machinery import ModuleSpec
 
 # The commands that stay a process of their own, and why.
 APART = {
@@ -61,7 +67,7 @@ def in_form(path: Path) -> bool:
     return FORMS[path]
 
 
-def module(path: Path):
+def module(path: Path) -> ModuleType:
     """The sibling script as a module, imported once and kept. Every script that imports this file
     sets `sys.dont_write_bytecode` first, so the sibling writes no bytecode, as `-B` did."""
     # one module for each file: a copy of the scripts in another folder is a module of its own
@@ -69,11 +75,12 @@ def module(path: Path):
     found = sys.modules.get(name)
     if found is not None:
         return found
-    spec = importlib.util.spec_from_file_location(name, path)
+    # a `.py` file, as each sibling is, always has a spec, and its loader
+    spec = cast("ModuleSpec", importlib.util.spec_from_file_location(name, path))
     found = importlib.util.module_from_spec(spec)
     sys.modules[name] = found
     try:
-        spec.loader.exec_module(found)
+        cast("Loader", spec.loader).exec_module(found)
     except BaseException:
         # a half-loaded module is never kept: the next call loads it again and fails the same way
         del sys.modules[name]

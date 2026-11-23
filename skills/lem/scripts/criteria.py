@@ -175,6 +175,7 @@ import subprocess
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 SCRIPTS = Path(__file__).resolve().parent
 # The one place that builds and finds a plan's name, shared with project.py.
@@ -221,7 +222,7 @@ class CriteriaError(Exception):
 
 
 def run(
-    args: list[str], cwd: Path | None = None, check: bool = True
+    args: list[str], cwd: Path | None = None, *, check: bool = True
 ) -> subprocess.CompletedProcess:
     ran = subprocess.run(args, cwd=cwd, capture_output=True, text=True, check=False)
     if check and ran.returncode != 0:
@@ -467,7 +468,7 @@ def against(read: dict, changes: dict, name: str, slug: str) -> None:
         )
     expected = changes["expected"]
     now = [whole(criterion) for criterion in read["criteria"]]
-    for number, (want, have) in enumerate(zip(expected, now), start=1):
+    for number, (want, have) in enumerate(zip(expected, now, strict=False), start=1):
         if want.split() != have.split():
             raise CriteriaError(
                 f"criterion {number} of {name} says {have!r}, and the expected criterion {number} is {want!r}. {fix}"
@@ -602,7 +603,7 @@ class Task:
                 f"no plan of this task in {self.plans}: its name is {pattern.replace('<slug>', self.slug)} (`lem project plan-file {self.slug}` prints it); "
                 f"only a task on the fast track keeps its criterion in the task directory instead, in {self.small_file}",
             )
-        plan = self.small_file if small else found
+        plan = self.small_file if small or found is None else found
         read = parse(plan.read_text(encoding="utf-8"), plan.name)
         if small and read["size"] != "small":
             raise CriteriaError(
@@ -618,7 +619,7 @@ class Task:
                 f"the fast track's criterion in {plan} has no approval: Lem approves it in the owner's name before its builder starts, `lem criteria approve {self.slug} --file {plan} --small`"
             )
         if changes["approved"] is None:
-            self.no_small_plan(read, plan, small)
+            self.no_small_plan(read, plan, small=small)
             return {
                 "task": self.slug,
                 "plan": str(plan),
@@ -632,7 +633,7 @@ class Task:
             }
         # the approved track first: a plan of another track than the owner approved says that
         against(read, changes, plan.name, self.slug)
-        self.no_small_plan(read, plan, small)
+        self.no_small_plan(read, plan, small=small)
         return {
             "task": self.slug,
             "plan": str(plan),
@@ -645,7 +646,7 @@ class Task:
             },
         }
 
-    def no_small_plan(self, read: dict, plan: Path, small: bool) -> None:
+    def no_small_plan(self, read: dict, plan: Path, *, small: bool) -> None:
         """Refuse a plan file that says `Size: small`: a plan never puts a task on the fast track. One plain change takes the fast track, with its criterion in the
         task directory and no plan; a fast-track task in a plan would land with no approval of the
         owner's, no read and no polish pass."""
@@ -945,7 +946,7 @@ def cmd_red(task: Task) -> dict:
 
         serial = ran["serial"]
 
-        def outcome(command: str, where: Path, test: bool = False) -> int:
+        def outcome(command: str, where: Path, *, test: bool = False) -> int:
             # through a shell, as the commands of the checks run: a test command is a line the project would type;
             # a test of a suite that needs the machine to itself runs under its lock, which project.py holds
             line: str | list[str] = command
@@ -1060,7 +1061,7 @@ def cmd_red(task: Task) -> dict:
                 )
             )
         for (number, test), green, red, lacked in zip(
-            tests, codes["branch"], codes["base"], absent
+            tests, codes["branch"], codes["base"], absent, strict=True
         ):
             problem = None
             if green != 0:
@@ -1174,7 +1175,7 @@ def waits_for_him(task: Task, other: str, source: Path) -> str:
 
 
 def cmd_approve(
-    task: Task, file: str, by: str, plan: bool = False, shown: str | None = None
+    task: Task, file: str, by: str, *, plan: bool = False, shown: str | None = None
 ) -> dict:
     """Keep the criteria that were approved, word for word, with a digest and a number of their own,
     and log the event. Each approval is a new one, also of a text approved before. The check of
@@ -1277,7 +1278,8 @@ def cmd_approve(
                 )
             # a read nobody answered is started once more; after the second in a row the build goes on
             if last["answered"] == 0 and (
-                len(reads) < 2 or reads[-2].get("answered") != 0
+                len(reads) < 2  # noqa: PLR2004 - the newest read and the one before it
+                or reads[-2].get("answered") != 0
             ):
                 raise CriteriaError(
                     f"nobody answered the newest read of {task.slug}'s criteria: it is started once more (`stages/plan.md`, step 1); "
@@ -1376,6 +1378,7 @@ def main(argv: list[str] | None = None) -> None:
         help="with approve --file: the digest of the file's bytes as the owner's page showed them (the board's form gives it); the file changed since is approved by nobody",
     )
     args = parser.parse_args(argv)
+    result: dict[str, Any]
     try:
         if args.file is not None and args.step not in ("approve", "digest"):
             raise CriteriaError("--file goes with `approve` and `digest`")

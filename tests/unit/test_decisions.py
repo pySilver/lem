@@ -8,6 +8,7 @@ import importlib
 import sys
 import tempfile
 import unittest
+from collections.abc import Callable
 from pathlib import Path
 
 sys.dont_write_bytecode = True
@@ -28,11 +29,14 @@ class Record:
     """A task's record that keeps the lines `log` writes, without the commands that find a task."""
 
     repo = Path()
+    # what a case sets, as `decisions.Task` has them
+    status: str
+    slug: str
 
     def __init__(self) -> None:
         self.written: list[dict] = []
 
-    def add(self, make) -> list[dict]:
+    def add(self, make: Callable[[list[dict]], list[dict]]) -> list[dict]:
         self.written += make(self.written)
         return self.written[-1:]
 

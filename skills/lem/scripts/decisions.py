@@ -124,6 +124,7 @@ import json
 import os
 import re
 import subprocess
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -147,6 +148,15 @@ WITH_LANDING = ("landing", "open")
 PARKED = "parked"
 # How the case of a decision is known: the lead ran it, or read it out of the code.
 CASE_WAS = ("reproduced", "derived")
+# The fewest numbered steps of a case: a decision's, and the case and the runs of Today and After
+# in a breaker's document.
+FEWEST_STEPS = 2
+# The fewest votes of the personas that settle a decision, all for the option taken
+# (`stages/ladder.md`, level 2).
+FEWEST_VOTES = 2
+# The fewest lines that start with `|` in the options of a breaker's document: the head of the
+# table, its rule and one option.
+FEWEST_OPTION_ROWS = 3
 # Who took a decision that went past the personas: a log by one of them is important and carries its story.
 PAST_PERSONAS = ("dialectic", "experts")
 # The longest chart a record keeps, in characters: about a dozen nodes is the form's own bound
@@ -383,7 +393,7 @@ class Task:
             )
         return found
 
-    def add(self, make) -> list[dict]:
+    def add(self, make: Callable[[list[dict]], list[dict]]) -> list[dict]:
         """Write the lines `make` gives for the record as it is under the lock, so a state is
         checked and changed in one step and two writers never take one number; then each line
         as an event. `make` refuses by raising, and then nothing is written. A task that ended
@@ -492,7 +502,7 @@ def cmd_log(task: Task, args: argparse.Namespace) -> dict:
     # The one count the script checks (`stages/ladder.md`, level 2).
     if args.by == "personas":
         other = [name for name, option in votes if option != chose]
-        if len(votes) < 2 or other:
+        if len(votes) < FEWEST_VOTES or other:
             raise DecisionError(
                 f"the personas settle a decision with two votes or more, all for the option taken ({chose!r}); "
                 + (
@@ -662,7 +672,7 @@ def steps(value: str | None) -> str:
         line.rstrip() for line in (value or "").strip().splitlines() if line.strip()
     ]
     numbered = [line for line in lines if re.match(r"\s*\d+[.)]\s+\S", line)]
-    if len(numbered) < 2:
+    if len(numbered) < FEWEST_STEPS:
         raise DecisionError(
             '--case is one concrete case that ends badly, in numbered steps, one to a line ("1. ...", "2. ..."), '
             f"with real names and values and where each step was read; this one has {len(numbered)} numbered step{'' if len(numbered) == 1 else 's'}",
@@ -837,7 +847,7 @@ def breaker_document(file: Path) -> str:
         ) from error
     title = next(
         (line[2:].strip() for line in written.splitlines() if line.startswith("# ")),
-        None,
+        "",
     )
     sections: dict[str, list[str]] = {}
     current = None
@@ -861,18 +871,21 @@ def breaker_document(file: Path) -> str:
             or (
                 part == "today and after"
                 and (
-                    numbered < 2
+                    numbered < FEWEST_STEPS
                     or not re.search(r"\btoday\b", body, re.IGNORECASE)
                     or not re.search(r"\bafter\b", body, re.IGNORECASE)
                 )
             )
-            or (part == "the case" and (numbered < 2 or "```mermaid" not in body))
+            or (
+                part == "the case"
+                and (numbered < FEWEST_STEPS or "```mermaid" not in body)
+            )
             or (
                 part == "the options"
                 and len(
                     [row for row in body.splitlines() if row.strip().startswith("|")]
                 )
-                < 3
+                < FEWEST_OPTION_ROWS
             )
             or (
                 part == "the assumptions"
@@ -1000,7 +1013,7 @@ def cmd_pending(repo: Path, slug: str | None) -> dict:
     # Every task, from one read of the tasks and of the state folder: nothing here writes either.
     listed = json.loads(script("project.py", repo, "tasks")) if not slug else None
     state = Path(script("project.py", repo, "state-dir").strip()) if listed else None
-    slugs = [slug] if slug else [task["slug"] for task in listed]
+    slugs = [slug] if slug else [task["slug"] for task in listed or []]
     out: dict[str, list[dict]] = {"waiting": [], "parked": [], "ended": []}
     for task in (Task(repo, name, listed, state) for name in slugs):
         open_ones = [

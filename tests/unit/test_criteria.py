@@ -190,7 +190,7 @@ class FastTrackNotHis(unittest.TestCase):
         night: str | None = None,
         brief: str = "",
         mode: str = "with-owner",
-    ):
+    ) -> "criteria.Task":
         task = criteria.Task.__new__(criteria.Task)
         task.slug, task.night, task.mode = "footer-year", night, mode
         task.directory = folder / "tasks" / "footer-year"
@@ -296,7 +296,7 @@ class ApprovalOfWhatWasShown(unittest.TestCase):
 
     FULL = "## Acceptance criteria\n\nSize: full, because the export gets a column.\n\n1. The export holds the gift note.\n"
 
-    def task(self, folder: Path):
+    def task(self, folder: Path) -> "criteria.Task":
         task = FastTrackNotHis.task(FastTrackNotHis(), folder)
         task.small_file.write_text(self.FULL)
         return task
@@ -382,7 +382,7 @@ class NightTrackChange(unittest.TestCase):
 
     FULL = "## Acceptance criteria\n\nSize: full, because the footer has two places.\n\n1. The footer says 2026.\n2. The page title says 2026.\n"
 
-    def night(self, folder: Path, mode: str = "alone"):
+    def night(self, folder: Path, mode: str = "alone") -> tuple["criteria.Task", Path]:
         task = FastTrackNotHis.task(
             FastTrackNotHis(), folder, night="2026-11-21", mode="alone"
         )
@@ -473,7 +473,7 @@ class Inputs(unittest.TestCase):
         origin: str = "git@github.com:o/r.git",
         setup: tuple[str, ...] = (),
         serial: tuple[str, ...] = (),
-    ):
+    ) -> "criteria.Task":
         task = criteria.Task.__new__(criteria.Task)
         task.slug, task.main, task.worktree = (
             "t",
