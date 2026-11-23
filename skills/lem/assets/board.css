@@ -22,7 +22,8 @@ html, body { height: 100%; overflow: hidden; }
 body { font-size: 14px; line-height: 1.5; }
 .shell { display: grid; grid-template-columns: 252px minmax(0, 1fr); height: 100vh; }
 @media (max-width: 1100px) { .shell { grid-template-columns: 216px minmax(0, 1fr); } }
-.main { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
+/* the main column: the bar, the stage, the view's line of its keys when it has one, and the status line */
+.main { display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; min-width: 0; min-height: 0; }
 .ic { width: auto; height: auto; font-size: 14px; }
 
 /* ---- the sidebar ---- */
@@ -421,6 +422,8 @@ pre.code { margin: 0; font: 12.5px/1.6 var(--mono); white-space: pre-wrap; overf
 .bl-body { border-top: 1px solid var(--line); padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
 .bl-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13.5px; line-height: 1.6; max-width: 90ch; }
 .keys { font-size: 12px; color: var(--dim); }
+/* a view's line of its keys, a row of the page under the stage, so it shows at the foot of the window and the view scrolls above it */
+.main > .keys { padding: 6px 20px; border-top: 1px solid var(--line); background: var(--bg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---- the status line ---- */
 .status { display: flex; align-items: center; gap: 4px 18px; padding: 5px 16px; border-top: 1px solid var(--line); font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; background: var(--side); }
@@ -567,7 +570,6 @@ pre.code { margin: 0; font: 12.5px/1.6 var(--mono); white-space: pre-wrap; overf
 .app .tc[data-js-cur] { box-shadow: 0 0 0 2px var(--accent); }
 .app .tc.sel[data-js-cur] { box-shadow: inset 3px 0 0 var(--actor), 0 0 0 2px var(--accent); }
 .app .tc[data-js-cur]:has(.tc-link:focus-visible) { outline: none; }
-.app .board-wrap > .keys { flex: none; padding: 0 18px 10px; margin-top: -6px; }
 
 /* "Waits for you", the page */
 .app .waits-list { display: flex; flex-direction: column; gap: 10px; max-width: 980px; }
@@ -581,7 +583,6 @@ pre.code { margin: 0; font: 12.5px/1.6 var(--mono); white-space: pre-wrap; overf
 /* the mark the keys move over the rows (cursor.js), the backlog's ring around the row; its ring is the focus's too */
 .app .wrow[data-js-cur] { box-shadow: inset 3px 0 0 var(--actor), 0 0 0 2px var(--accent); }
 .app .wrow[data-js-cur] .wr-verb:focus-visible { outline: none; }
-.app #waits-keys { margin-top: 12px; }
 .app .wr-verb:hover, .app .wr-task:hover { text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
 .app .wr-time { flex: none; font: 12px var(--mono); color: var(--dim); white-space: nowrap; }
 .app .wr-task { font-size: 14px; font-weight: 600; color: var(--fg); overflow-wrap: anywhere; }

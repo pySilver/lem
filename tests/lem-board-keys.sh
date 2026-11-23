@@ -9,7 +9,8 @@
 # field, and the search buttons open it, letters typed filter and order it, Enter, a click and Escape, and the box through
 # a morph. The confirm step of a merge, a park and an approval: on a phone an overlay whose button comes on when its
 # text was read to the end, on a desktop and with no script as before. The start of a task from a backlog item, which
-# ends on the new task's page while the stream refreshes the backlog. A check adds to the demo's log only the state
+# ends on the new task's page while the stream refreshes the backlog. The line of keys of each view at the window's
+# foot, with a backlog longer than the window. A check adds to the demo's log only the state
 # lines it needs, as a lead's `lem project state` and `lem session open` write them. Each check that needs Chrome
 # prints a SKIP line of its own where Node or Chrome is missing.
 # shellcheck source-path=SCRIPTDIR
@@ -271,7 +272,7 @@ tasks_view_checks() {
     fail "the mark through a morph: $(cat "$out")"
   fi
   if [ "$(seen "$out" line)" = "$TASKS_KEYS" ] && [ "$(seen "$WORK/phone.out" phone)" = hidden ]; then
-    pass "the Tasks view's line of keys shows under the columns on a wide screen and is hidden on a phone"
+    pass "the Tasks view's line of keys shows under the columns, at the window's foot, on a wide screen and is hidden on a phone"
   else
     fail "the line of keys in Chrome: $(seen "$out" line) / $(cat "$WORK/phone.out")"
   fi
@@ -829,7 +830,54 @@ PY
   fi
 }
 
+# The line of keys at the foot of the window, last in the block since it adds 24 items to the demo's backlog: on Backlog,
+# with more items than the window holds, the line shows before any scroll, between the view and the status line at the
+# window's foot, and the last item scrolls into view above it; W, then T, show the line of Waits for you and of Tasks at
+# the same place, and Activity's too. Each print step gives a view and "ID TOP BOTTOM STATUS-TOP WINDOW-HEIGHT".
+foot_checks() {
+  local out=$WORK/foot.out i top
+  for i in $(seq -w 1 24); do
+    printf -- '---\nworth: later\nadded: 2026-11-23\n---\n\n# Demo item %s of a long backlog\n\nOne of many, so that the list is longer than the window.\n' "$i" > "$DEMO/docs/backlog/long-$i.md"
+  done
+  "$PY" - "$BASE" > "$WORK/foot.json" <<'PY'
+import json, sys
+base = sys.argv[1]
+FOOT = ("(() => { const n = document.querySelector('.main > .keys'); if (!n) return 'none'; const b = n.getBoundingClientRect();"
+        " return [n.id, Math.round(b.top), Math.round(b.bottom), Math.round(document.getElementById('status').getBoundingClientRect().top), innerHeight].join(' '); })()")
+def until(label, cond):
+    return {"print": f"new Promise(done => {{ const end = Date.now() + 15000; const tick = () => (({cond}) || Date.now() > end) ? done([{json.dumps(label)}, {FOOT}]) : setTimeout(tick, 100); tick(); }})"}
+def key(name, code):
+    return {"key": name, "code": code, "vk": 0, "after": 100}
+VIEW = "document.getElementById('backlog-view')"
+steps = [
+    {"goto": f"{base}/backlog?read=1", "wait": 300},
+    until("backlog", "document.readyState === 'complete' && window.Turbo && document.querySelectorAll('.bl-item').length > 24"),
+    {"print": f"['scroll', [{VIEW}.scrollTop, {VIEW}.scrollHeight > {VIEW}.clientHeight].join(' ')]"},
+    {"eval": f"{VIEW}.scrollTop = {VIEW}.scrollHeight"},
+    {"print": "['last', (() => { const items = document.querySelectorAll('.bl-item'); return [Math.round(items[items.length - 1].getBoundingClientRect().bottom),"
+              " Math.round(document.querySelector('.main > .keys').getBoundingClientRect().top)].join(' '); })()]"},
+    key("w", "KeyW"), until("waits", "location.pathname.endsWith('/waits') && document.getElementById('waits-keys')"),
+    key("t", "KeyT"), until("tasks", "document.getElementById('kanban-keys')"),
+    {"goto": f"{base}/activity", "wait": 300}, until("activity", "document.readyState === 'complete' && document.getElementById('activity-keys')"),
+]
+print(json.dumps({"width": 1440, "height": 900, "steps": steps}))
+PY
+  drive "$WORK/foot.json" "$out"
+  # the line of Backlog sits on the status line, which ends at the window's foot; each other view's at the same place
+  top=$(seen "$out" backlog | "$PY" -c 'import sys; p = sys.stdin.read().split()
+print(p[1] if len(p) == 5 and p[0] == "backlog-keys" and p[2] == p[3] and int(p[3]) < int(p[4]) < int(p[3]) + 60 else "wrong")')
+  if [ "$top" != wrong ] && [ "$(seen "$out" scroll)" = "0 true" ] \
+    && seen "$out" last | "$PY" -c 'import sys; a, b = map(int, sys.stdin.read().split()); sys.exit(0 if a <= b else 1)' \
+    && [ "$(seen "$out" waits | cut -d' ' -f1,2)" = "waits-keys $top" ] && [ "$(seen "$out" tasks | cut -d' ' -f1,2)" = "kanban-keys $top" ] \
+    && [ "$(seen "$out" activity | cut -d' ' -f1,2)" = "activity-keys $top" ]; then
+    pass "with more backlog items than the window holds, Backlog's line of keys shows at the window's foot over the status line before any scroll, the last item scrolls into view above it, and W, T and Activity show their line at the same place"
+  else
+    fail "the line of keys at the window's foot (view: id top bottom status-top window-height): $(cat "$out")"
+  fi
+}
+
 if [ -z "$NODE" ]; then
+  skip_function foot_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function tasks_view_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function waits_view_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function search_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
@@ -837,6 +885,7 @@ if [ -z "$NODE" ]; then
   skip_function step_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function start_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
 elif [ -z "$CHROME_AT" ]; then
+  skip_function foot_checks "no Chrome here (set CHROME to the browser)"
   skip_function tasks_view_checks "no Chrome here (set CHROME to the browser)"
   skip_function waits_view_checks "no Chrome here (set CHROME to the browser)"
   skip_function search_checks "no Chrome here (set CHROME to the browser)"
@@ -850,6 +899,7 @@ else
   confirm_checks
   step_checks
   start_checks
+  foot_checks
 fi
 
 finish

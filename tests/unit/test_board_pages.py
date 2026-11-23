@@ -1,6 +1,6 @@
 """lem_board_pages.py's rules, each a page drawn from a model of a few events: what the kanban's Done
 column draws of the ended tasks, its foot row, the page that lists the ended tasks it has no card for, and the
-kanban's mark over its cards and its line of keys.
+kanban's mark over its cards, and each view's line of keys in the page's foot.
 
     python3 -B -m unittest discover -s tests/unit
 """
@@ -198,6 +198,29 @@ class Keys(unittest.TestCase):
         self.assertEqual(" ".join(re.sub(r"<[^>]+>", " ", line[1]).split()), "J K ↑ ↓ move · H L ← → column · Enter open · Esc close")
         self.assertEqual(re.findall(r"<kbd>([^<]+)</kbd>", line[1]), ["J", "K", "↑", "↓", "H", "L", "←", "→", "Enter", "Esc"])
         self.assertEqual(html.count('class="keys"'), 1)
+
+    def test_each_view_has_its_line_of_keys_in_one_foot_under_the_stage(self):
+        """The task keys-help-in-a-sticky-footer: on Tasks, Waits for you, Backlog and Activity the line of keys is
+        the row of the page between the stage and the status line, in no view's list, and the main column's grid
+        gives it a row of its own under the stage's, so the line stays at the window's foot and the list scrolls above it."""
+        events = [*ended(3), state(61, "held", "the criteria wait for the owner", task="gift-note")]
+        backlog = {"folder": "docs/backlog", "items": [{"slug": f"item-{i}", "path": f"docs/backlog/item-{i}.md", "title": f"Item {i}", "worth": "later"}
+                                                       for i in range(40)]}
+        ctx = pages.Ctx(host="h", workspace="w", model=bm.derive(events, [], NOW), asset=lambda name: name, backlog=backlog)
+        for view, draw, line in (("tasks", pages.kanban_page, "J K ↑ ↓ move · H L ← → column · Enter open · Esc close"),
+                                 ("waits", pages.waits_page, "J K ↑ ↓ move · Enter go"),
+                                 ("backlog", pages.backlog_page, "/ filter · J K move · Enter open or close · R read again"),
+                                 ("activity", pages.activity_page, "T W B A view")):
+            with self.subTest(view=view):
+                html = str(draw(ctx))
+                foot = re.search(r'</main>(<div class="keys" id="([a-z]+)-keys">(.*?)</div>)<footer class="status', html)
+                self.assertIsNotNone(foot, f"no line of keys between the stage and the status line on {view}")
+                self.assertEqual(foot[2], "kanban" if view == "tasks" else view)
+                self.assertEqual(" ".join(re.sub(r"<[^>]+>", " ", foot[3]).split()), line)
+                self.assertEqual(html.count('class="keys"'), 1)
+        css = (pages.ASSETS / "board.css").read_text(encoding="utf-8")
+        self.assertIn(".main { display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto;", css)
+        self.assertIn(".main > .keys {", css)
 
 
 class WaitsVerb(unittest.TestCase):
