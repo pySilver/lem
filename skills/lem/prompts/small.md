@@ -34,7 +34,13 @@ and for a change to what a person sees, "A picture" and "A screenshot" in
    state `held` with the line `the criteria wait for the owner: the small change is a full change`
    (its words are the record's) and a line that says why, and reply with what you found on top and
    that diff at the end. The task's session moves it to the standard track from there.
-6. **Commit** on the task's branch with a semantic message. Never push, merge or land. Then
+6. **Commit** on the task's branch with a semantic message, after one search for a document your
+   change made false, as the polish pass makes on the standard track. List what the change
+   renamed, moved or removed (a symbol, a path, a command, a setting) and each behavior it changed
+   that a document describes; search the repository's durable documents for each (the guides, the
+   README, the agent document, the rules in `.claude/rules`), and correct every sentence the
+   change made false in the same commit. A change whose list is empty has nothing to search for.
+   Never push, merge or land. Then
    `git status --short` is empty: remove what your runs left untracked, such as a `__pycache__`.
    When `ask.txt` in the task directory is the path of one item of the backlog folder and nothing
    else, as the board's "Start a task" and the night write it, the task was started from that item
