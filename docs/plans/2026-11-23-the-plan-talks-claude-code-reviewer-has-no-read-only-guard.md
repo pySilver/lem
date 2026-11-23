@@ -27,7 +27,7 @@ Size: full, because the change is careful and rests on one real talk in agterm b
 
 ```mermaid
 flowchart TD
-  A["The real talk runs with the new launch line"] --> B{"Both writes refused, no question, reads work, three mailbox receipts?"}
+  A["The real talk runs with the new launch line"] --> B{"Every write of criteria 1 and 2 refused (the plan by its file tool and by a shell, the second worktree, the home folder, the agterm socket), no question, the bypass run in its own mode, reads work, three mailbox receipts?"}
   B -->|"yes"| C["second-opinion.md gives the new line, and the backlog item leaves"]
   B -->|"no"| D["second-opinion.md stays, and the backlog item says what the talk showed"]
 ```
@@ -39,11 +39,19 @@ flowchart TD
    candidate guard (decisions 1 to 5): an `Edit` of `plan.md`, a `Write` of a new file there, a
    shell write there (`echo x >> plan.md`), a shell write into a second worktree of that
    repository (`git worktree add`, made before the run), a shell write of a file in the home
-   folder, a shell write of `/tmp/lem-reviewer-probe.txt`, and `git log`. Keep the narrowest guard
-   that refuses the five writes outside `/tmp` and lets the other two through with no question.
-   Run the kept guard once more with `--permission-mode bypassPermissions` and `--allowedTools`
-   for every shell command and every file tool, as a teammate's settings may allow, and record
-   that the same writes are refused (criterion 1, step 6). Then open a pair in agterm whose session and panes start in Lem's main
+   folder, a shell write of `/tmp/lem-reviewer-probe.txt`, `git log`, a plain `agtermctl session
+   new --command "touch FILE"` with FILE in the home folder (decision 4), and a send with another
+   program in front (`AGTERMCTL=/usr/bin/touch mailbox-chat.py say --file F`). Keep the narrowest
+   guard that refuses the five writes outside `/tmp` and both socket probes, and lets the `/tmp`
+   write and `git log` through with no question. Run the kept guard once more as a teammate whose
+   settings allow everything (criterion 1, step 6): the owner's `~/.claude/settings.json` sets
+   `disableBypassPermissionsMode = "disable"`, which keeps `bypassPermissions` from taking, so this
+   run drops his user settings with `--setting-sources project,local`, puts the teammate's allow
+   rules for every shell command and every file tool in the throwaway repository's
+   `.claude/settings.local.json`, and starts with `--permission-mode bypassPermissions` and
+   `--output-format stream-json`. Record the `permissionMode` its `system` `init` line reports,
+   and that the same writes are refused; a mode other than `bypassPermissions` there means step 6
+   is not shown. Then open a pair in agterm whose session and panes start in Lem's main
    checkout, as a real talk's pair does (`plan-talk.md`, step 1, `MAIN`): a Claude Code agent as
    the defender in one pane, and the Claude Code reviewer in the other, started by the
    `second-opinion` steps with the candidate line and `skills/lem/prompts/reviewer.md` as its
@@ -51,8 +59,9 @@ flowchart TD
    real talk names the worktree, and sends a short `plan.md` there with one wrong path. It asks the
    reviewer to read it, run `git log`, fix the path itself with its file tool, then with a shell
    command, write one line into the repository's second worktree and one into a file in the home
-   folder, and to answer with its long text in a file under `/tmp` and a short `say` that names
-   the file. Record each refusal and its words, that no permission question showed in the
+   folder, start a session through `agtermctl session new`, and to answer with its long text in a
+   file under `/tmp` and a short message, itself a file under `/tmp` that names the long one, sent
+   with `mailbox-chat.py say --file` (decision 4). Record each refusal and its words, that no permission question showed in the
    reviewer's pane, the reviewer's screen, `git status` of the throwaway repository and of the main
    checkout, the `/tmp` file, the send's JSON and the defender's receipt, and the model and effort
    the reviewer's status line shows. Close every session and pane the task opened, and remove the
@@ -62,7 +71,8 @@ flowchart TD
    `skills/lem/harness/claude-code/second-opinion.md`, step 2, gives the Claude Code line that ran,
    with one sentence on what the guard refuses and what it lets through, its source and day (the
    talk of this task), and one on what it does not hold, from task 1's record (a command the
-   developer's own settings run outside the sandbox, when there is one). When the guard is a file,
+   developer's own settings run outside the sandbox, a write grant of his outside the folder the
+   guard denies, and `/tmp` with the per-user temp folder). When the guard is a file,
    it goes in `skills/lem/harness/claude-code/` beside the harness part, and the line names it by
    absolute path, as it names `prompts/reviewer.md`. The last note, "Not run yet", loses the Claude
    Code reviewer; `git rm` of
@@ -88,32 +98,53 @@ flowchart TD
    `sandbox.failIfUnavailable` and `sandbox.allowUnsandboxedCommands = false`: the docs' strict
    sandbox mode, in which Claude Code ignores the `dangerouslyDisableSandbox` retry
    (code.claude.com, settings reference, read 2026-11-23 through Context7). The sandbox writes the
-   working directory by default, which is the main checkout here, so the guard denies it
-   (`sandbox.filesystem.denyWrite`) and allows `/tmp` (`allowWrite`). `/tmp` is the whole folder,
-   not one file: the Claude side of the mailbox names "a file under `/tmp`" of any name
-   (`~/.claude/skills/mailbox-chat/SKILL.md`, "Sending"), and no task's worktree or state is there.
-   The exact path forms (`/tmp` or `/private/tmp`, the prefix for the working directory) are task
-   1's finding.
-4. **The send reaches agterm's socket and stays in the sandbox when it can.**
-   `mailbox-chat.py say` talks to agterm over its Unix socket (`$AGTERM_SOCKET`,
-   `~/Library/Application Support/agterm/agterm.sock` on this Mac), and the macOS sandbox blocks
-   every Unix socket unless `sandbox.network.allowUnixSockets` names it (the same reference). The
-   first candidate names the socket; `sandbox.excludedCommands` for `mailbox-chat.py` is the second,
-   taken only when the first fails, and the harness says so.
+   working directory, the per-user temp folder and every `allowWrite`, `additionalDirectories` or
+   `Edit` allow path of each settings scope the session loads (the same reference,
+   `sandbox.filesystem.allowWrite`), and `denyWrite` wins inside a writable folder (its
+   `denyWrite`). So the guard denies the whole home folder (`denyWrite` of `~`), which holds the
+   main checkout, the task worktrees under it (`project.py`, `cmd_worktree`) and every path a
+   developer's own grant opens under home, and allows `/tmp` (`allowWrite`). The writable set is
+   then `/tmp`, the per-user temp folder, and a grant of the developer's outside home; the owner's
+   `~/.claude/settings.json` has none (no `allowWrite`, no `additionalDirectories`, no `Edit`
+   allow rule, read 2026-11-23), and task 2's sentence names that case as outside the guard. A
+   repository under `/tmp` stays writable: criterion 3 lets the write under `/tmp` through, and no
+   task's worktree or state is there. `/tmp` is the whole folder, not one file: the reviewer's
+   message files take any name (decision 4). Whether `~` in `denyWrite` leaves the reads of
+   criterion 1, step 2, working is task 1's finding; when it does not, the working directory is the
+   second candidate, and the harness then names the developer's grants under home as outside the
+   guard. The exact path forms (`/tmp` or `/private/tmp`, `~`) are task 1's finding too.
+4. **The send runs outside the sandbox, and no sandboxed command reaches agterm's socket.**
+   `mailbox-chat.py say` talks to agterm over its Unix socket (`ctl_args` in
+   `~/.local/bin/mailbox-chat.py` passes `$AGTERM_SOCKET`), and that socket also starts a session
+   with any command (`agtermctl session new --command`, `plan-talk.md`, step 1) and types into any
+   pane (`agtermctl session type`), outside the sandbox. So the guard names no socket in
+   `sandbox.network.allowUnixSockets`, and the macOS sandbox blocks every Unix socket then (the same
+   reference). The one send goes through `sandbox.excludedCommands` with the entry
+   `mailbox-chat.py say --file *`, and `permissions.allow` gets `Bash(mailbox-chat.py say --file *)`
+   so that the owner's auto mode asks no classifier and no question (an excluded command "goes
+   through the regular permission flow", the sandboxing page). It is `--file`, not `--stdin`: a
+   call with a `<<EOF` heredoc stays in the sandbox under any entry (the settings reference,
+   `excludedCommands`). This is the Codex guard's shape: there, too, the mailbox's send is the one
+   command that runs outside the sandbox (`second-opinion.md`, step 2). A send with another
+   program set in front (`AGTERMCTL=... mailbox-chat.py say --file F`) and a plain
+   `agtermctl session new` are probes of task 1, and both must stay refused.
 5. **The developer's own settings still load.** No `--setting-sources`, no `--safe-mode`, no
    `--restricted`: the reviewer receives its mail through his mailbox hook, and his login and model
    settings stay his. What his settings add that runs outside the sandbox (an `excludedCommands`
    entry of his) is outside the guard, and task 2's sentence says so when task 1 finds one.
-6. **The line keeps `--model "MODEL" --effort "EFFORT" --append-system-prompt` and the first
-   prompt as they are.** The seat names model and effort, and `second-opinion.md` reads them back
-   from the status line.
+6. **The line keeps `--model "MODEL" --effort "EFFORT"` and `--append-system-prompt`.** The seat
+   names model and effort, and `second-opinion.md` reads them back from the status line. The first
+   prompt gains one sentence of decision 4: each answer is a file under `/tmp`, sent with
+   `mailbox-chat.py say --file PATH`; the Claude side of the mailbox sends with a heredoc by
+   default (`~/.claude/skills/mailbox-chat/SKILL.md`, "Sending"), and that call stays sandboxed
+   with no socket.
 
 ## What it will not verify
 
 - The whole plan talk of Lem (`stages/talk.md`, its events and its record): task 1 runs the launch
   line, the reviewer's brief and the mailbox, which are what the change touches.
-- Another Claude Code version than the installed 2.1.330, and Linux, where the sandbox reads no
-  socket path (the same reference: `allowUnixSockets` is ignored there).
+- Another Claude Code version than the installed 2.1.330, and Linux, whose sandbox has other
+  socket rules (the same reference: `allowUnixSockets` is ignored there).
 - A command the developer's own settings exclude from the sandbox: his word for every Claude Code
   session, which the ruling "Another program's settings stay where that program keeps them" keeps
   Lem out of.
