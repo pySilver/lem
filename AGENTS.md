@@ -34,10 +34,6 @@ works, and this file says how to change it.
   choice that is the owner's (`project.py init` with no base it can tell asks for `--base`).
   Every string a script prints or writes for a person, its `--help` too, says "the owner";
   comments, function docstrings and the stage files keep their voice.
-- **The code has one style, and `bash tests/lint.sh` holds it**: ruff's format and rules and
-  pyrefly's types for Python (`pyproject.toml`, with the reason beside each rule that is off),
-  JavaScript Standard Style for JavaScript (`eslint.config.mjs`). `--fix` applies what the tools
-  can. A suppression names its one rule and says why on its line.
 - **A change is measured by what it costs a developer on a small task** (the touches it asks of
   him, the waits, the agents it starts) as well as by what it guards.
 - **Documentation describes the current state.** No changelog paragraphs, no "previously". A
@@ -97,14 +93,14 @@ place that holds it: read it when a change touches one.
 ```bash
 bash tests/all.sh              # every suite below at the same time, one log each, a line of ok, FAIL and SKIP per suite
 python3 tests/pick.py --base main  # the suites to run for what the branch changed (or name the files)
-python3 -B -m unittest discover -s tests/unit  # the unit level, its rules called in one process; all.sh runs it as the suite unit
+python3 -B -m unittest discover -s tests/unit  # the unit level, in one process; all.sh runs it as the suite unit
 ```
 
 The loop: the unit level after each edit; while a task is in work, only the one block that holds
 the journey it changes; the blocks that `tests/pick.py` names once for a task, at its end;
 `tests/all.sh` once before `main` moves. A block is never run before a change to count it: the
-counts of the last full run are the before. A rule that takes facts and returns a result is a unit
-case, a call of its function; a fact only git can show is a check in a block, in a throwaway
+counts of the last full run are the before. A rule that takes facts and returns a result is a
+unit case, a call of its function; a fact only git can show is a check in a block, in a throwaway
 repository. A journey is run once, not once for each input. A check that makes a dated name or
 reads the time keeps the value it made and checks that value, and it never counts on a step that
 takes under a second, since `tests/all.sh` runs every suite at once.
@@ -142,8 +138,8 @@ bash tests/test-ask.sh         # lem-ask's spec checks and every template; loads
 bash tests/test-ask-expert.sh  # the experts' brief of a question in words, its folder and the record of each answer, one expert alone; no expert runs
 bash tests/test-site.sh        # the page on GitHub Pages, from pages.yml's own copy step; its drawn page in headless Chrome when one is installed
 bash tests/shellcheck.sh       # ShellCheck over tests/*.sh, one check for each file, or over the files named
-bash tests/lint.sh             # ruff and pyrefly over the Python, ESLint over the JavaScript; uv and npm bring the tools
-python3 tests/pick.py --check  # the map of tests/pick.py: every file read by a suite, every suite in all.sh
+bash tests/lint.sh             # ruff, pyrefly and ESLint; --fix fixes first
+python3 tests/pick.py --check  # its map: every file read by a suite, every suite in all.sh
 bash tests/test-lem.sh         # every lem-* block at the same time, with its output in order; all.sh runs each alone
 ```
 
@@ -281,7 +277,7 @@ Each script's module docstring says what it does and why; this list says where e
   suite reads which file. `board-showcase.py` writes the demo afternoon that `lem-serve.sh` serves,
   and makes the board's pictures through headless Chrome (`board-cdp.mjs`, which needs Node), the
   driver that `lem-board-keys.sh` presses the board's keys with.
-  `.github/workflows/ci.yml` runs `all.sh` when someone starts it by hand.
+  `.github/workflows/ci.yml` runs `all.sh`, started by hand.
 - `.claude-plugin/`, `bin/` and `hooks/`: what Claude Code reads to load this repository as the
   plugin `lem`, the one way Lem installs. `bin/lem` is Lem's one command: `lem NAME` runs the script
   NAME stands for, and `lem help` lists them; `lem-ask` and `lem-jev` are links to it.
