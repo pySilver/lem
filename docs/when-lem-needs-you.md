@@ -49,6 +49,14 @@ While you are away, you can also answer in the [Inbox](#answer-from-the-inbox).
 small record of its files stays, and Lem cannot resume it. Then type `/lem` and its request to
 start a new task.
 
+## A task of an older release
+
+Lem reads the tasks begun on its own release and on the release just before it. A task begun two
+releases back or more stops at its first command, and the board shows it blocked. Its message names
+the release it began on, and the way on: `/lem drop <task>`, then `/lem resume <task>`. The resume
+starts a new request on your release, from the branch and its commits and from the notes of the
+task. Its session asks you again for your yes to the acceptance criteria.
+
 ## The merge review
 
 A fresh merge agent reads each pull request, writes `merge-review.md`, and merges a green one that
@@ -69,7 +77,8 @@ order:
 3. the tasks that wait for a step of yours, or for one more fact;
 4. the tasks that wait for a task that you dropped: type "start <task> now" to start the task, or
    `/lem drop <task>` to stop it, in a Lem session of this repository;
-5. the tasks that stopped on a problem that they cannot solve alone;
+5. the tasks that stopped on a problem that they cannot solve alone, and the tasks of an
+   [older release](#a-task-of-an-older-release);
 6. the plans that wait for you to read them;
 7. the merge reviews that call you;
 8. the pull requests that wait for your merge, and each merge that GitHub or Lem refused, each

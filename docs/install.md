@@ -21,7 +21,8 @@
 ## Install
 
 Run these two commands at the root of your repository. `/lem init` commits `.claude/settings.json`
-for your team.
+for your team. That file turns Lem on, but it installs nothing: each person runs the two commands
+in their own clone.
 
 ```bash
 claude plugin marketplace add pySilver/lem --scope project
@@ -109,13 +110,27 @@ turns it on again. A repository file cannot turn the queue on or off.
 
 ## Update
 
-Run these two commands, then start a new session, which also replaces the board server. Update
-each repository: one board server serves them all. `lem doctor` shows each one you missed.
+An update brings the newest release of Lem, never a change that no release holds. Run these two
+commands, then start a new session, which also replaces the board server. Update each repository:
+one board server serves them all. `lem doctor` shows each one you missed.
 
 ```bash
 claude plugin marketplace update lem
 claude plugin update lem@lem --scope project
 ```
+
+- **Auto-update** is off when you install Lem, and it is your choice. To turn it on, type `/plugin`,
+  open **Marketplaces**, select `lem`, and turn on auto-update. Claude Code then installs a new
+  release up to ten minutes after your first message in a session.
+- **A session that runs keeps its Lem until it ends.** The next session loads the new release.
+- **Your release**: `claude plugin list` shows it on the `Version` line of `lem@lem`. In a session,
+  an agent gets it from `lem version`.
+- **A release older than a teammate's**: git does not share `.lem/state/`, so your tasks stay
+  yours. When the teammate's release adds a key to `.lem/settings.toml`, your Lem stops at each
+  command with `unknown key` and the key's name. Update, and Lem goes on.
+- **A task begun two releases back** stops, and its message gives the way on
+  ([When Lem needs you](when-lem-needs-you.md#a-task-of-an-older-release)).
+- **A bad release** is not taken back: a newer release repairs it.
 
 ## Remove
 

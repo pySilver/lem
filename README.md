@@ -155,6 +155,19 @@ After a `/lem` in a session, plain words start a skill too: "let's brainstorm th
 | `/lem ask-expert` | you want two expert models to answer the open question, or your own |
 | `/lem panel docs/backlog/export-drops-custom-columns.md` | you want the personas to read a text |
 
+## Develop Lem
+
+This part is for a person who changes Lem itself. [AGENTS.md](AGENTS.md) gives the rules and the
+steps.
+
+- Load your clone for one session with `claude --plugin-dir /path/to/lem`.
+- A merge to `main` reaches no user. An install and an update take the newest release tag.
+- A release is one commit and its tag, on the owner's word ([A release](AGENTS.md#a-release)).
+- A change to the form of a record, an event or a state takes two releases. Each release reads
+  what the release before it wrote.
+- The owner's computer takes each release first.
+- A release that breaks is not taken back: a newer release repairs it.
+
 ## Guides
 
 - [How a task goes](docs/flow.md)
