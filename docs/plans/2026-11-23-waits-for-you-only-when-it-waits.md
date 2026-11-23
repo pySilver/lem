@@ -84,7 +84,7 @@ the session's turn has ended on its question to the owner.
      back, since 11:39), and criterion 3 (no session facts; a live session with `turn` None).
    - The Inbox: a row that a working session holds back keeps its sent thing as it stands. `lem_inbox`'s
      `plan` gets the keys of those rows, as it gets `behind`, and for each one neither withdraws,
-     forgets nor sends. Unit cases in `tests/unit/test_inbox.py`: the owner away, the criteria's
+     forgets nor sends. Unit cases in `tests/unit/test_inbox.py`: the owner away, a breaker's
      question sent, the server's wake starts a turn: the question stays open and nothing is sent;
      the turn ends with the same block: nothing is sent again.
    Files: `skills/lem/scripts/lem_board_model.py`, `skills/lem/scripts/lem_board_task.py` (only if
@@ -121,8 +121,9 @@ the session's turn has ended on its question to the owner.
    rule of the owner's that asks through the widget. Realistic here: the owner's own rules name the
    widget. Left out: the task sits under Lem's work until he looks at the session.
 5. **The Inbox keeps a held-back row's thing.** The failure it prevents: a loop of messages on the
-   owner's phone. The input: the owner is away, the Inbox sends the criteria's question and wakes the
-   task's session (`lem_inbox`, "After each question it sends ... it wakes the task's session"), the
+   owner's phone. The input: the owner is away, the Inbox sends a held task's question that does not
+   go on without him (a breaker; an interview or criteria wait goes on with Lem's guesses and has no
+   row, `goes_on_of`) and wakes the task's session (`lem_inbox`, "After each question it sends ... it wakes the task's session"), the
    woken turn runs past one look (LOOK_SECONDS), the row leaves and its question is withdrawn, the
    turn ends, the row is back as a new thing, and the Inbox sends and wakes again. Realistic: each
    send while away starts such a turn. Left out: every question while away repeats until he answers.
