@@ -114,7 +114,8 @@ class Ended(unittest.TestCase):
         self,
     ) -> None:
         # the two above are older than every ended task: the order is by place, not by time
-        tasks = ended(3, NOW) + [
+        tasks = [
+            *ended(3, NOW),
             task("his-step", "held", NOW - timedelta(days=40)),
             task("builds", "building", NOW - timedelta(days=50)),
         ]

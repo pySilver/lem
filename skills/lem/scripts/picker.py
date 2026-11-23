@@ -35,14 +35,15 @@ it gave `bin/lem picker` name this file in that clone, and they stay on the mach
 
 import os
 import sys
+from pathlib import Path
 
-if os.path.realpath(__file__).split(os.sep)[-7:-5] == ["plugins", "marketplaces"]:
+if Path(os.path.realpath(__file__)).parts[-7:-5] == ("plugins", "marketplaces"):
     # this file is PLUGINS/marketplaces/NAME/skills/lem/scripts/picker.py: the clone is the folder four up
-    os.execv(
+    os.execv(  # noqa: S606 - the clone's bin/lem takes this process's place, with the same arguments
         sys.executable,
         [
             sys.executable,
-            os.path.join(os.path.realpath(__file__).rsplit(os.sep, 4)[0], "bin", "lem"),
+            str(Path(os.path.realpath(__file__)).parents[3] / "bin" / "lem"),
             "picker",
             *sys.argv[1:],
         ],
@@ -61,7 +62,6 @@ import re
 import shutil
 import subprocess
 from datetime import UTC, datetime
-from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
 sys.dont_write_bytecode = True
@@ -81,6 +81,13 @@ TRACKS = {"fast": "fast track", "standard": "standard track"}
 ACTIVE = ("building", "landing", "ready", "planned", "blocked", "queued")
 # the number of a pull request in its address: GitHub's /pull/N
 NUMBER = re.compile(r"/pull/(\d+)$")
+# the minutes of an hour and of a day, the units of `age`
+HOUR = 60
+DAY = 24 * HOUR
+# the longest label, in characters, before it ends in an ellipsis
+LABEL_WIDTH = 100
+# the exit status of `agtermctl pick` when the owner closes the picker
+CLOSED = 2
 
 
 class PickerError(Exception):
@@ -99,11 +106,11 @@ def age(since: str | None, now: datetime) -> str:
     )
     if minutes < 1:
         return "now"
-    if minutes < 60:
+    if minutes < HOUR:
         return f"{minutes}m"
-    if minutes < 24 * 60:
-        return f"{minutes // 60}h"
-    return f"{minutes // (24 * 60)}d"
+    if minutes < DAY:
+        return f"{minutes // HOUR}h"
+    return f"{minutes // DAY}d"
 
 
 def label(task: dict) -> str:
@@ -115,7 +122,9 @@ def label(task: dict) -> str:
         )
         or task["slug"].replace("-", " ").capitalize()
     )
-    return words if len(words) <= 100 else words[:99].rstrip() + "…"
+    return (
+        words if len(words) <= LABEL_WIDTH else words[: LABEL_WIDTH - 1].rstrip() + "…"
+    )
 
 
 def state_words(task: dict, waits: str | None) -> str:
@@ -264,7 +273,7 @@ def pick(found: list[dict]) -> str | None:
         text=True,
         check=False,
     )
-    if ran.returncode == 2:
+    if ran.returncode == CLOSED:
         return None
     if ran.returncode != 0:
         raise PickerError(

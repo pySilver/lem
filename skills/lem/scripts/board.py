@@ -50,8 +50,10 @@ import re
 import subprocess
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 from urllib.parse import quote
 
 SCRIPTS = Path(__file__).resolve().parent
@@ -196,7 +198,7 @@ def outcome(text: str) -> str:
         mark = re.match(r"^\s*(```|~~~)", line)
         if mark and fence is None:
             fence = mark[1]
-        elif mark and line.strip().startswith(fence):
+        elif mark and fence is not None and line.strip().startswith(fence):
             fence = None
         elif fence is None and re.match(r"^#{1,2}[ \t]", line):
             break
@@ -290,9 +292,9 @@ def backlog(settings: dict) -> dict:
         for entry in git(
             "status", "--porcelain", "--untracked-files=all", "-z", "--", relative
         ).split("\0"):
-            if len(entry) > 3:
-                code = entry[:2]
-                changed[entry[3:]] = "new" if code == "??" or "A" in code else "edited"
+            code, path = entry[:2], entry[3:]
+            if path:
+                changed[path] = "new" if code == "??" or "A" in code else "edited"
     state = main / lem_state.STATE
     for place, reviewer in ((folder, False), (mine, True)):
         rel_place = place.relative_to(main).as_posix()
@@ -345,7 +347,7 @@ def backlog(settings: dict) -> dict:
     return feed
 
 
-def meta_of(settings: dict, state: Path, demo: bool = False) -> dict:
+def meta_of(settings: dict, state: Path, *, demo: bool = False) -> dict:
     """The repository's facts the board shows beside its tasks: its name, the base branch, how many
     commands one run of the checks has (`gates`, so that a run is known complete) and how many of
     them are `checks.serial` (`serial`, which do not run after a red command), and whether the state
@@ -368,7 +370,7 @@ def meta_of(settings: dict, state: Path, demo: bool = False) -> dict:
     }
 
 
-def state_of(repo: str, slug: str | None, demo: bool) -> tuple[Path, dict]:
+def state_of(repo: str, slug: str | None, *, demo: bool) -> tuple[Path, dict]:
     """The repository's state folder and settings, with the task checked when one is asked for, and
     the folder marked as example tasks with `demo`."""
     state = Path(project(repo, "state-dir"))
@@ -384,7 +386,7 @@ def state_of(repo: str, slug: str | None, demo: bool) -> tuple[Path, dict]:
                 or "none yet"
             )
             raise BoardError(f"no task {slug!r}; the tasks are: {known}")
-    meta_of(settings, state, demo)
+    meta_of(settings, state, demo=demo)
     return state, settings
 
 
@@ -494,13 +496,14 @@ def ctl(socket: str, *args: str) -> str:
 
 def show(
     opens: list[str],
-    shows,
+    shows: Callable[[dict], bool],
     name: str,
     session: str,
     socket: str,
     window: str,
+    *,
     follow: bool,
-    again,
+    again: Callable[[dict], bool],
 ) -> dict:
     """Open a page as a companion of the session's group (`opens`: the flags of `session overlay open`
     that name the page), or keep the one that is there: `shows(overlay)` says whether a page companion
@@ -534,7 +537,8 @@ def show(
         and (s.get("parent") or "").upper() == parent
         and overlay(s)
     ]
-    kept = named[0] if named and not again(overlay(named[0])) else None
+    # each of `named` has a page that `overlay` finds
+    kept = named[0] if named and not again(cast("dict", overlay(named[0]))) else None
     stale = [s for s in named if s is not kept]
     if stale:
         ctl(
@@ -599,14 +603,21 @@ def open_page(page: Path, args: argparse.Namespace, session: str, socket: str) -
             session,
             socket,
             env("AGT_WINDOW_ID", "AGTERM_WINDOW_ID"),
-            args.follow,
-            lambda overlay: False,
+            follow=args.follow,
+            again=lambda overlay: False,
         ),
     }
 
 
 def open_board(
-    url: str, base: str, task: bool, name: str, session: str, socket: str, follow: bool
+    url: str,
+    base: str,
+    *,
+    task: bool,
+    name: str,
+    session: str,
+    socket: str,
+    follow: bool,
 ) -> dict:
     """The board as a page companion of the session's group, known by the address of its workspace
     (`base`): the one that shows it is reloaded where it stands, or, for a task's board when it shows
@@ -629,8 +640,8 @@ def open_board(
         session,
         socket,
         env("AGT_WINDOW_ID", "AGTERM_WINDOW_ID"),
-        follow,
-        again,
+        follow=follow,
+        again=again,
     )
 
 
@@ -686,7 +697,7 @@ def main() -> None:
             raise BoardError(
                 "not inside an agterm session; --no-open prints the board's address without one"
             )
-        state, settings = state_of(args.repo, args.task, args.demo)
+        state, settings = state_of(args.repo, args.task, demo=args.demo)
         register(state)
         server = ensure_server()
         main_dir = Path(settings["main"])
@@ -703,11 +714,11 @@ def main() -> None:
             result |= open_board(
                 url,
                 base,
-                args.task is not None,
-                result["name"],
-                session,
-                socket,
-                args.follow,
+                task=args.task is not None,
+                name=result["name"],
+                session=session,
+                socket=socket,
+                follow=args.follow,
             )
     except BoardError as error:
         sys.exit(f"board.py: {error}")
