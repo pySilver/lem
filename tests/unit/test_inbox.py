@@ -13,10 +13,15 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 from unittest import mock
+
+if TYPE_CHECKING:
+    import lem_board_model
 
 sys.dont_write_bytecode = True
 sys.path.insert(
@@ -48,7 +53,7 @@ FIRST = "aaa1110000000000000000000000000000000001"
 SECOND = "bbb2220000000000000000000000000000000002"
 
 
-def ev(minute: float, event: str, task: str = RD, **fields) -> dict:
+def ev(minute: float, event: str, task: str = RD, **fields: object) -> dict:
     return {
         "ts": (START + timedelta(minutes=minute)).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "event": event,
@@ -96,7 +101,9 @@ def breaker(minute: float = 2, number: int = 1, task: str = RD) -> list[dict]:
 BREAKER = [state(0, "building", "task 1 of 2"), *opened(1), *breaker()]
 
 
-def model(*events: dict, owner=(), sessions=None):
+def model(
+    *events: dict, owner: Iterable[dict] = (), sessions: dict | None = None
+) -> "lem_board_model.Model":
     m = bm.derive(list(events), list(owner), NOW)
     slugs = {e["task"] for e in events}
     m.sessions = (
@@ -124,7 +131,7 @@ class Plannotator:
 
     def __init__(
         self,
-        status=(
+        status: tuple[int, dict] = (
             0,
             {
                 "running": True,
@@ -140,7 +147,14 @@ class Plannotator:
         self.answered: set[str] = set()
         self.thread: dict = {"thread": {"messages": []}}
 
-    def __call__(self, args, input=None, env=None, cwd=None, **_):
+    def __call__(
+        self,
+        args: list[str],
+        input: str | None = None,  # noqa: A002 - subprocess.run's own name, which run_cli passes
+        env: dict | None = None,
+        cwd: str | None = None,
+        **_: object,
+    ) -> subprocess.CompletedProcess[str]:
         words = args[1:]
         payload = json.loads(input) if input else None
         session = words[3] if words[:3] == ["inbox", "call", "--session"] else None
@@ -161,6 +175,9 @@ class Plannotator:
         action = words[-2]
         if action == "read_thread":
             return subprocess.CompletedProcess(args, 0, json.dumps(self.thread), "")
+        # every call but `inbox status` has its payload on stdin
+        if payload is None:
+            raise TypeError(f"`{' '.join(words)}` came with nothing on stdin")
         supersedes = payload.get("supersedes")
         if supersedes is not None and not isinstance(supersedes, list):
             return subprocess.CompletedProcess(
@@ -226,7 +243,7 @@ class InFolder(unittest.TestCase):
         self.landings: dict[str, dict] = {}
         self.m = None
 
-    def watcher(self, wakes: bool = True) -> "inbox.Watcher":
+    def watcher(self, *, wakes: bool = True) -> "inbox.Watcher":
         space = SimpleNamespace(
             name="shop",
             path="/repo/shop",
@@ -339,7 +356,7 @@ class Sends(InFolder):
             *opened(0.5, task="footer", claude="c-f"),
             state(0, "building", "task 1 of 3", task="no-session"),
         ]
-        sessions = {
+        sessions: dict[str, dict[str, object]] = {
             slug: {
                 "live": True,
                 "agent": True,
@@ -935,7 +952,10 @@ class ReviewOne(InFolder):
             with self.subTest(landing=landing):
                 m = model(*footer, owner=[AWAY])
                 thing = inbox.things_of(
-                    bm.waits_of(m), m, bm, lambda slug: landing.get("proposed")
+                    bm.waits_of(m),
+                    m,
+                    bm,
+                    lambda slug, landing=landing: landing.get("proposed"),
                 )[f"merge:{RD}"]
                 self.assertEqual((thing["form"], thing["asks"]), ("note", False))
 
@@ -1143,7 +1163,9 @@ class HeldBack(InFolder):
     neither that turn nor its end sends, withdraws or forgets anything. The held task is a breaker's: while
     the owner is away, Lem settles an interview and criteria without him (`goes_on_of`), and they are no row."""
 
-    def turn(self, turn: str | None, owner=(AWAY,)):
+    def turn(
+        self, turn: str | None, owner: Iterable[dict] = (AWAY,)
+    ) -> "lem_board_model.Model":
         m = bm.derive(list(BREAKER), list(owner), NOW)
         bm.put_sessions(
             m,
@@ -1222,14 +1244,14 @@ class HeldBack(InFolder):
                     inbox.plan(
                         {},
                         [asked, noted, unsent],
-                        away,
-                        True,
+                        away=away,
+                        door=True,
                         held={"held:a", "held:b", "held:c"},
                     ),
                     none,
                 )
         # the same record with no row held back: the question is withdrawn, the note and the unsent one forgotten
-        steps = inbox.plan({}, [asked, noted, unsent], True, True)
+        steps = inbox.plan({}, [asked, noted, unsent], away=True, door=True)
         self.assertEqual(
             (
                 [r["key"] for r in steps["withdraw"]],

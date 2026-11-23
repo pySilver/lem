@@ -44,6 +44,7 @@ whole base URL (`http://127.0.0.1:4621`, plain http on loopback) or a host name 
 """
 
 import contextlib
+import email.message
 import http.client
 import http.cookies
 import json
@@ -53,9 +54,15 @@ import socket
 import ssl
 import threading
 import time
+from collections.abc import Callable
+from http import HTTPStatus
+from typing import TYPE_CHECKING
 from urllib.parse import quote, unquote, urlsplit
 
 import lem_state
+
+if TYPE_CHECKING:
+    from serve import Handler
 
 # The header on every request to a peer, and its one value: a server that gets it forwards nothing.
 HOP = "Lem-Hop"
@@ -108,6 +115,8 @@ COOKIE = "lem_board"
 # Over this size the list of workspaces does not go to a peer's page, whose switcher then lists its own.
 # A guess with room: a workspace is about 150 bytes of it, and a server reads a header line of 64 KiB.
 SPACES_CAP = 32_000
+# The highest TCP port.
+MAX_PORT = 65535
 
 
 class PeerError(Exception):
@@ -144,7 +153,7 @@ def peer_name(given: str, suffix: str | None) -> str:
 def parse_join(given: str, suffix: str | None) -> tuple[str, int | None]:
     """`HOST` or `HOST:PORT` of `--join`: the machine's name and its door's port, None when not given."""
     host, colon, port = given.rpartition(":") if ":" in given else (given, "", "")
-    if colon and not (port.isdigit() and 0 < int(port) < 65536):
+    if colon and not (port.isdigit() and 0 < int(port) <= MAX_PORT):
         raise PeerError(
             f"{port!r} in {given} is no port: give one from 1 to 65535, or none for this machine's own door port"
         )
@@ -201,7 +210,7 @@ def base_of(name: str, port: int, suffix: str | None) -> str:
     return f"https://{name}.{suffix}:{port}"
 
 
-def hopped(headers) -> bool:
+def hopped(headers: email.message.Message) -> bool:
     """Whether a request came from another machine's server (HOP): then it is never forwarded."""
     return headers.get(HOP) is not None
 
@@ -219,12 +228,14 @@ def kept_location(location: str, peer: str, base: str) -> str | None:
     if not path.startswith("/"):
         return None
     query = f"?{split.query}" if split.query else ""
-    if path == "/" or path == f"/{peer}" or path.startswith(f"/{peer}/"):
+    if path in ("/", f"/{peer}") or path.startswith(f"/{peer}/"):
         return path + query
     return f"/{peer}{path}{query}"
 
 
-def request_headers(incoming, spaces: list | None = None) -> dict:
+def request_headers(
+    incoming: email.message.Message, spaces: list | None = None
+) -> dict:
     """The headers of a request to a peer: the ones a page needs (FORWARDED), the board's own cookie and
     no other, HOP, and the list of the workspaces (SPACES) when it is given and not too long."""
     out = {
@@ -296,7 +307,7 @@ def row_of(given: dict, host: str) -> dict | None:
         or not given["name"]
     ):
         return None
-    row = {
+    row: dict[str, object] = {
         "host": host,
         "name": given["name"],
         "path": given.get("path") if isinstance(given.get("path"), str) else "",
@@ -463,7 +474,7 @@ def connect(
     return conn, conn.sock
 
 
-def ask_json(base: str, path: str, timeout: float = LIST_TIMEOUT):
+def ask_json(base: str, path: str, timeout: float = LIST_TIMEOUT) -> object:
     """GET a peer's PATH with HOP, read as JSON."""
     conn, _ = connect(base, timeout)
     try:
@@ -476,7 +487,7 @@ def ask_json(base: str, path: str, timeout: float = LIST_TIMEOUT):
         ) from error
     finally:
         conn.close()
-    if reply.status != 200:
+    if reply.status != HTTPStatus.OK:
         line = data.decode("utf-8", "replace").strip().splitlines()
         raise PeerError(
             f"{urlsplit(base).netloc} answered {path} with {reply.status}{f': {line[0][:200]}' if line else ''}"
@@ -518,7 +529,7 @@ class Peer:
         with self.lock:
             self.reachable, self.said, self.looked = False, said, time.monotonic()
 
-    def look(self, base) -> None:
+    def look(self, base: Callable[[], str]) -> None:
         """Ask the peer's list once, and keep its answer or why there was none."""
         try:
             where = base()
@@ -529,7 +540,7 @@ class Peer:
                 )
             other = next(
                 (
-                    str(row.get("url"))
+                    row.get("url")
                     for row in listed
                     if isinstance(row, dict)
                     and isinstance(row.get("url"), str)
@@ -554,7 +565,7 @@ class Peer:
                 time.monotonic(),
             )
 
-    def fresh(self, base) -> bool:
+    def fresh(self, base: Callable[[], str]) -> bool:
         """Ask the list again, in a thread of its own, when it is older than LIST_FRESH and no question is
         out; say whether this call asked."""
         with self.lock:
@@ -577,7 +588,7 @@ class Peer:
 class Peers:
     """The machines of the table `[peers]`, read at each look, each kept while the table names it."""
 
-    def __init__(self, status) -> None:
+    def __init__(self, status: Callable[[], dict]) -> None:
         # status(): `tailscale status --json` as a dict, or an exception that says why not
         self.status = status
         self.lock = threading.Lock()
@@ -654,7 +665,13 @@ def probe(base: str) -> dict:
     }
 
 
-def join(given: str, me: str, reserved: tuple[str, ...], own_port: int, status) -> dict:
+def join(
+    given: str,
+    me: str,
+    reserved: tuple[str, ...],
+    own_port: int,
+    status: Callable[[], dict],
+) -> dict:
     """`--join HOST[:PORT]`: check the name, ask the machine once, and write it into `[peers]`. A machine
     that does not answer is joined all the same, since it may sleep; one that answers under another name
     is refused, since its pages would not pass."""
@@ -719,7 +736,7 @@ def leave(given: str) -> dict:
     return {"left": name, "peers": sorted(rest), "file": str(lem_state.machine_file())}
 
 
-def report(status) -> dict:
+def report(status: Callable[[], dict]) -> dict:
     """`--peers`: each machine joined, where it is reached, and what it says of itself now."""
     peers = Peers(status)
     out = []
@@ -742,12 +759,17 @@ def report(status) -> dict:
 
 
 def forward(
-    handler, peer: Peer, base: str, stopping: threading.Event, spaces: list
+    handler: "Handler",
+    peer: Peer,
+    base: str,
+    stopping: threading.Event,
+    spaces: list,
 ) -> None:
     """Pass one request of the handler to the peer at the same address, and its answer back: a page, a
     file or a stream. PeerError, before anything was sent, says why the peer was not reached."""
     split = urlsplit(handler.path)
     target = (split.path or "/") + (f"?{split.query}" if split.query else "")
+    conn: http.client.HTTPConnection | None = None
     try:
         conn, raw = connect(base, CONNECT_TIMEOUT)
         raw.settimeout(PAGE_TIMEOUT)
@@ -763,8 +785,10 @@ def forward(
     except (OSError, http.client.HTTPException) as error:
         said = f"{peer.name} did not answer {unquote(split.path)} ({error})"
         peer.failed(said)
-        with contextlib.suppress(OSError):
-            conn.close()
+        # connect() raises nothing but PeerError, so the connection is open here
+        if conn is not None:
+            with contextlib.suppress(OSError):
+                conn.close()
         raise PeerError(said) from error
     try:
         handler.send_response(reply.status)
@@ -774,11 +798,10 @@ def forward(
             handler.send_header("Connection", "close")
             handler.close_connection = True
         else:
+            length = reply.getheader("Content-Length")
             handler.send_header(
                 "Content-Length",
-                reply.getheader("Content-Length")
-                if handler.command == "HEAD" and reply.getheader("Content-Length")
-                else str(len(data)),
+                length if handler.command == "HEAD" and length else str(len(data)),
             )
         handler.end_headers()
         if handler.command == "HEAD":
@@ -796,7 +819,12 @@ def forward(
             conn.close()
 
 
-def pipe(handler, reply, raw: socket.socket, stopping: threading.Event) -> None:
+def pipe(
+    handler: "Handler",
+    reply: http.client.HTTPResponse,
+    raw: socket.socket,
+    stopping: threading.Event,
+) -> None:
     """A peer's stream to the client, chunk by chunk as it comes. A watch ends it from beside: when the
     client hung up or the server stops, it shuts the peer's socket, and the read ends."""
     done = threading.Event()

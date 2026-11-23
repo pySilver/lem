@@ -95,8 +95,15 @@ import subprocess
 import sys
 import threading
 import time
+from collections.abc import Callable, Generator, Iterable
 from datetime import UTC, datetime
 from pathlib import Path
+from types import ModuleType
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import lem_board_model
+    import serve
 
 RECORD = "inbox.json"
 # A whole commit, as `lem land merge --tip` takes it (`expected_refusal` in land.py).
@@ -108,6 +115,11 @@ LOOK_SECONDS = 10
 # How long one call of the Inbox may take. A guess: Plannotator's own request limit is 90 s
 # (`REQUEST_TIMEOUT_MS4` of its 0.29.0 binary), and a send holds up only this thread.
 CALL_SECONDS = 60
+# The exit status of `run_cli` for a call over its time limit, and for a program that does not start
+# (the shell's own numbers), and the one of `plannotator inbox status` for an Inbox that does not answer.
+EXIT_TIMEOUT = 124
+EXIT_NOT_STARTED = 127
+EXIT_NOT_ANSWERING = 2
 # The variables Plannotator 0.29.0 reads to name the session of a call (`SESSION_VARIABLES` and
 # `SESSIONLESS_HOSTS` of `inbox-call-command.ts`, `inboxHostSessionFromEnv`, read in its binary on
 # 2026-11-22), and the two that name a session's project. The server inherits the environment of the
@@ -188,7 +200,7 @@ def environment(env: dict | None = None) -> dict:
 # --- the rule: pure functions over the model -------------------------------------------------------
 
 
-def claude_of(t) -> str | None:
+def claude_of(t: "lem_board_model.Task") -> str | None:
     """The task's newest Claude Code session: the `claude` of its newest `session.transcript` after its
     newest `session.open`, whose `source` is not `fork`; None when there is none."""
     events = t.events
@@ -207,13 +219,15 @@ def claude_of(t) -> str | None:
     return None
 
 
-def answers(t, m, bm) -> bool:
+def answers(
+    t: "lem_board_model.Task", m: "lem_board_model.Model", bm: ModuleType
+) -> bool:
     """Whether the task's session can take a reply now: the board knows it lives and answers."""
     f = bm.live_of(t, m)
     return bool(f and f["live"] and not f["unanswered"])
 
 
-def merge_asks(t, bm) -> bool:
+def merge_asks(t: "lem_board_model.Task", bm: ModuleType) -> bool:
     """Whether a merge row asks merge or not now: a proposal, and the merge agent's review of its tip that
     calls the owner, as one read of the model (decision 6). A refused merge, and an open task with no
     proposal or no review of its tip, go as a note."""
@@ -224,7 +238,9 @@ def merge_asks(t, bm) -> bool:
     return bool(of) and (str(tip).startswith(str(of)) or str(of).startswith(str(tip)))
 
 
-def commit_of(t, whole) -> str | None:
+def commit_of(
+    t: "lem_board_model.Task", whole: Callable[[str], object] | None
+) -> str | None:
     """The whole commit of the task's proposal: WHOLE(slug), `proposed` of its `landing.json`, when it is 40
     hex digits and the commit the model's proposal names (its first 9 digits, as the `proposed` event
     keeps them); None otherwise, and the merge then asks nothing."""
@@ -239,7 +255,12 @@ def commit_of(t, whole) -> str | None:
     )
 
 
-def thing_of(row: dict, m, bm, whole=None) -> dict | None:
+def thing_of(
+    row: dict,
+    m: "lem_board_model.Model",
+    bm: ModuleType,
+    whole: Callable[[str], object] | None = None,
+) -> dict | None:
     """The thing a row of "Waits for you" is (see the module's docstring); WHOLE(slug) gives the whole
     commit Lem proposed last (`landing.json`'s `proposed`). None while the task's session opened less than
     GRACE_MS ago and has not logged its Claude Code session: no form can be told yet."""
@@ -275,7 +296,12 @@ def thing_of(row: dict, m, bm, whole=None) -> dict | None:
     }
 
 
-def things_of(rows: list[dict], m, bm, whole=None) -> dict:
+def things_of(
+    rows: list[dict],
+    m: "lem_board_model.Model",
+    bm: ModuleType,
+    whole: Callable[[str], object] | None = None,
+) -> dict:
     """The things of a workspace's rows, by key: none for a merge review (its merge's thing carries it),
     only the session's own note for a task that has a row for its missing, deaf or stopped session, and
     none for a row whose session cannot be told yet (`thing_of`)."""
@@ -305,6 +331,7 @@ def session_side(a: dict, b: dict) -> bool:
 def plan(
     want: dict,
     sent: list[dict],
+    *,
     away: bool,
     door: bool,
     behind: set | frozenset = frozenset(),
@@ -362,11 +389,11 @@ def plan(
 # --- the bodies --------------------------------------------------------------------------------------
 
 
-def task_link(link, name: str, slug: str) -> str:
+def task_link(link: Callable[[str, str], str], name: str, slug: str) -> str:
     return f"[{slug} on the board]({link(name, slug)})"
 
 
-def no_session(t, link_line: str, extra: str = "") -> str:
+def no_session(t: "lem_board_model.Task", link_line: str, extra: str = "") -> str:
     return f"{t.slug} has no session; open it on the board: {link_line}{extra}"
 
 
@@ -379,14 +406,14 @@ def block(
         parts += ["", f"Stopped: {stopped}"]
     if choices:
         parts += [""] + [f"- [ ] {choice}" for choice in choices]
-    return "\n".join(parts + [":::"])
+    return "\n".join([*parts, ":::"])
 
 
 def message_of(
     thing: dict,
     row: dict,
-    m,
-    bm,
+    m: "lem_board_model.Model",
+    bm: ModuleType,
     *,
     task_dir: Path,
     plan_file: Path | None,
@@ -470,8 +497,8 @@ def message_of(
             ("Build", "Drop"),
             f"the build of {slug} waits for your word",
         )
-    elif kind == "held" and ORDER.match(t.text or ""):
-        words = ORDER.match(t.text).group(1)
+    elif kind == "held" and (order := ORDER.match(t.text or "")):
+        words = order.group(1)
         body = block(
             "question-text",
             f"Which task should {slug} wait for?",
@@ -506,7 +533,7 @@ _lock = threading.Lock()
 
 
 @contextlib.contextmanager
-def held(state: Path):
+def held(state: Path) -> Generator[None, None, None]:
     """Hold `inbox.lock` of the state folder: one writer of `inbox.json` at a time."""
     state.mkdir(parents=True, exist_ok=True)
     with _lock, (state / LOCK).open("a") as handle:
@@ -552,13 +579,17 @@ def unlooked(record: dict) -> str:
 
 
 def run_cli(
-    args: list[str], *, cwd: str, stdin: str | None = None, runner=subprocess.run
+    args: list[str],
+    *,
+    cwd: str,
+    stdin: str | None = None,
+    runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> tuple[int, str, str]:
     """One run of `plannotator ARGS`, with the environment less the session's variables; its exit,
     stdout and stderr. A time limit is exit 124, a program that does not start exit 127."""
     program = shutil.which("plannotator")
     if program is None:
-        return 127, "", "plannotator is not on the board server's PATH"
+        return EXIT_NOT_STARTED, "", "plannotator is not on the board server's PATH"
     try:
         ran = runner(
             [program, *args],
@@ -572,20 +603,23 @@ def run_cli(
         )
     except subprocess.TimeoutExpired:
         return (
-            124,
+            EXIT_TIMEOUT,
             "",
             f"`plannotator {' '.join(args[:3])}` took more than {CALL_SECONDS} s",
         )
     except OSError as error:
-        return 127, "", f"plannotator did not start: {error}"
+        return EXIT_NOT_STARTED, "", f"plannotator did not start: {error}"
     return ran.returncode, ran.stdout or "", ran.stderr or ""
 
 
-def door_of(cwd: str, runner=subprocess.run) -> dict:
+def door_of(
+    cwd: str,
+    runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> dict:
     """The door's look: `plannotator inbox status --json`. `running`, `url`, `tailnet_url`, and when it
     is not open for a send, `why` (WHYS) and Plannotator's own words in `said`."""
     code, out, err = run_cli(["inbox", "status", "--json"], cwd=cwd, runner=runner)
-    if code == 127:
+    if code == EXIT_NOT_STARTED:
         return {
             "running": False,
             "url": None,
@@ -612,7 +646,7 @@ def door_of(cwd: str, runner=subprocess.run) -> dict:
         else NO_TAILNET
         if running
         else NOT_ANSWERING
-        if code == 2
+        if code == EXIT_NOT_ANSWERING
         else NOT_RUNNING
         if code == 1
         else FAILED
@@ -634,7 +668,7 @@ def call(
     *,
     cwd: str,
     session: str | None = None,
-    runner=subprocess.run,
+    runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> dict:
     """`plannotator inbox call [--session claude-code:ID] ACTION -` with PAYLOAD on stdin; its JSON
     result. InboxError with Plannotator's line for a failure."""
@@ -688,7 +722,14 @@ class Watcher:
     the word."""
 
     def __init__(
-        self, spaces, link, wake, *, runner=subprocess.run, log=None, now=time.time
+        self,
+        spaces: Callable[[], Iterable["serve.Workspace"]],
+        link: Callable[[str, str], str],
+        wake: Callable[["serve.Workspace", str], bool],
+        *,
+        runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+        log: Callable[[str], object] | None = None,
+        now: Callable[[], float] = time.time,
     ) -> None:
         import lem_board_model as bm  # here: the rule's functions take the model's module as an argument, and only the watcher holds it
 
@@ -716,18 +757,18 @@ class Watcher:
         for space in self.spaces():
             try:
                 done += self.look_at(space)
-            except Exception as error:  # one workspace that fails says why, and the others are still looked at
+            except Exception as error:  # noqa: BLE001 - one workspace that fails says why, and the others are still looked at
                 self.say(space.name, repr(error))
         return done
 
-    def look_at(self, space) -> list[dict]:
+    def look_at(self, space: "serve.Workspace") -> list[dict]:
         bm = self.bm
         m = space.model()
         if m.meta.get("demo") or m.sessions is None:
             # a demo sends nothing; before the server knows which sessions live, no form can be told
             return []
         state = Path(space.state)
-        cwd = str(space.path)
+        cwd = space.path
         with held(state):
             record = read_record(state)
         away = m.away is not None
@@ -750,10 +791,10 @@ class Watcher:
         steps = plan(
             want,
             record["sent"],
-            away,
-            door["tailnet_url"] is not None,
-            {r["key"] for r in rows} - want.keys(),
-            bm.held_back(m),
+            away=away,
+            door=door["tailnet_url"] is not None,
+            behind={r["key"] for r in rows} - want.keys(),
+            held=bm.held_back(m),
         )
         done: list[dict] = []
         problems: list[str] = []
@@ -889,7 +930,12 @@ class Watcher:
         entry.pop("payload", None)
 
     def replies(
-        self, space, m, record: dict, cwd: str, problems: list[str]
+        self,
+        space: "serve.Workspace",
+        m: "lem_board_model.Model",
+        record: dict,
+        cwd: str,
+        problems: list[str],
     ) -> list[dict]:
         """Wake the task's live session once for each reply of the owner's in a thread whose question went
         as a session that no longer runs the task (decision 11 of away-questions-reach-phone)."""
@@ -931,5 +977,5 @@ class Watcher:
         while not stopping.wait(LOOK_SECONDS):
             try:
                 self.look()
-            except Exception as error:  # the watcher never stops the server; it says why and looks again
+            except Exception as error:  # noqa: BLE001 - the watcher never stops the server; it says why and looks again
                 self.say("*", repr(error))

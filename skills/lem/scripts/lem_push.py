@@ -86,12 +86,18 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Callable, Generator, Iterable
 from datetime import UTC, datetime
+from http import HTTPStatus
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import quote, urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lem_state
+
+if TYPE_CHECKING:
+    import lem_board_model as bm
 
 # Where openssl is, by its absolute path: macOS's own first, then Homebrew's.
 OPENSSL_PLACES = (
@@ -140,6 +146,10 @@ MAX_DEVICES = 20
 MAX_BODY = 4096
 # What the worker shows when it learns nothing more (sw.js has the same words).
 FIXED = {"title": "Lem", "body": "Something waits for you in Lem", "url": "/"}
+# The longest endpoint a device's subscription may have, in characters.
+MAX_ENDPOINT = 2048
+# The longest key of a subscription (`p256dh`, `auth`) that is kept, in characters.
+MAX_KEY = 200
 # The push services a browser hands out an endpoint of: exact hosts, and domains whose subdomains are.
 PUSH_HOSTS = ("fcm.googleapis.com", "updates.push.services.mozilla.com")
 PUSH_DOMAINS = (".push.apple.com", ".notify.windows.com")
@@ -150,6 +160,19 @@ class PushError(Exception):
 
 
 # ---- the key and the token ----
+
+# DER's tags of a SEQUENCE and of an INTEGER, and its shortest sequence of two integers: two bytes of
+# head and three bytes for each integer.
+DER_SEQUENCE = 0x30
+DER_INTEGER = 0x02
+DER_SHORTEST = 8
+# A number of P-256 in bytes, and a JWS signature, R||S (RFC 7518, 3.4).
+NUMBER_SIZE = 32
+SIGNATURE_SIZE = 64
+# A P-256 SubjectPublicKeyInfo in DER, in bytes, and its point at its end, uncompressed: 0x04 first.
+PUBLIC_KEY_SIZE = 91
+POINT_SIZE = 65
+UNCOMPRESSED = 0x04
 
 
 def b64url(data: bytes) -> str:
@@ -163,20 +186,20 @@ def unb64url(text: str) -> bytes:
 def der_to_raw(der: bytes) -> bytes:
     """An ECDSA signature on P-256 as openssl writes it (DER: a SEQUENCE of the INTEGERs r and s) as the
     64 bytes R||S a JWS carries (RFC 7518, 3.4), each number as 32 bytes, big-endian, padded on the left."""
-    if len(der) < 8 or der[0] != 0x30 or der[1] != len(der) - 2:
+    if len(der) < DER_SHORTEST or der[0] != DER_SEQUENCE or der[1] != len(der) - 2:
         raise PushError("openssl's signature is no DER sequence of two integers")
     at, parts = 2, []
     for _ in range(2):
-        if at + 2 > len(der) or der[at] != 0x02:
+        if at + 2 > len(der) or der[at] != DER_INTEGER:
             raise PushError("openssl's signature is no DER sequence of two integers")
         size = der[at + 1]
         value = der[at + 2 : at + 2 + size]
         if len(value) != size:
             raise PushError("openssl's signature is cut short")
         value = value.lstrip(b"\0")
-        if len(value) > 32:
+        if len(value) > NUMBER_SIZE:
             raise PushError("openssl's signature has a number longer than P-256's")
-        parts.append(value.rjust(32, b"\0"))
+        parts.append(value.rjust(NUMBER_SIZE, b"\0"))
         at += 2 + size
     if at != len(der):
         raise PushError("openssl's signature has bytes after its two integers")
@@ -185,7 +208,7 @@ def der_to_raw(der: bytes) -> bytes:
 
 def raw_to_der(raw: bytes) -> bytes:
     """The 64 bytes R||S as DER, the form `openssl dgst -verify` reads: the way back of `der_to_raw`."""
-    if len(raw) != 64:
+    if len(raw) != SIGNATURE_SIZE:
         raise PushError("a P-256 signature is 64 bytes")
 
     def integer(value: bytes) -> bytes:
@@ -204,7 +227,8 @@ def openssl() -> str:
         (
             place
             for place in OPENSSL_PLACES
-            if os.path.isfile(place) and os.access(place, os.X_OK)
+            if os.path.isfile(place)  # noqa: PTH113 - False for a folder it may not read, where Path.is_file raises
+            and os.access(place, os.X_OK)
         ),
         None,
     )
@@ -260,8 +284,8 @@ def make_key(path: Path) -> None:
         run_openssl(
             ["ecparam", "-name", "prime256v1", "-genkey", "-noout", "-out", temporary]
         )
-        os.chmod(temporary, 0o600)
-        os.replace(temporary, path)
+        Path(temporary).chmod(0o600)
+        Path(temporary).replace(path)
     except BaseException:
         Path(temporary).unlink(missing_ok=True)
         raise
@@ -271,8 +295,8 @@ def public_key_of(path: Path) -> str:
     """The public key of the key file PATH as the base64url of its uncompressed point (65 bytes, 0x04 first)."""
     der = run_openssl(["ec", "-in", str(path), "-pubout", "-outform", "DER"])
     # a P-256 SubjectPublicKeyInfo is 91 bytes, and its last 65 are the point
-    point = der[-65:]
-    if len(der) != 91 or point[0] != 0x04:
+    point = der[-POINT_SIZE:]
+    if len(der) != PUBLIC_KEY_SIZE or point[0] != UNCOMPRESSED:
         raise PushError(
             f"{path} holds no P-256 key: delete it, and the next turn-on makes a new one (each device then turns notifications on again)"
         )
@@ -335,10 +359,10 @@ def claims_of(jwt: str) -> dict:
 # ---- the endpoint ----
 
 
-def refusal(endpoint) -> str | None:
+def refusal(endpoint: object) -> str | None:
     """Whether a device's endpoint is taken: None when it is, else the line that says why not. Only
     https, on its usual port, at a push service a browser hands out (PUSH_HOSTS, PUSH_DOMAINS)."""
-    if not isinstance(endpoint, str) or not endpoint or len(endpoint) > 2048:
+    if not isinstance(endpoint, str) or not endpoint or len(endpoint) > MAX_ENDPOINT:
         return "The subscription has no endpoint of at most 2048 characters."
     try:
         parts = urlsplit(endpoint)
@@ -406,7 +430,7 @@ _file_lock = threading.Lock()
 
 
 @contextlib.contextmanager
-def held():
+def held() -> Generator[None, None, None]:
     """Hold `push.lock`: one writer of `push.json` at a time, the server's threads and `lem serve --push-test` alike."""
     folder = home()
     folder.mkdir(parents=True, exist_ok=True)
@@ -458,7 +482,7 @@ def write_state(state: dict) -> None:
     try:
         with os.fdopen(handle, "w", encoding="utf-8") as out:
             out.write(json.dumps(state, indent=2) + "\n")
-        os.replace(temporary, file)
+        Path(temporary).replace(file)
     except BaseException:
         Path(temporary).unlink(missing_ok=True)
         raise
@@ -470,7 +494,7 @@ def stamp(seconds: float | None = None) -> str:
     ).isoformat(timespec="seconds")
 
 
-def subscribe(given, agent: str) -> dict:
+def subscribe(given: object, agent: str) -> dict:
     """Keep a device's subscription (the browser's `PushSubscription.toJSON()`, and `workspaces`, a list
     of names, for fewer than all): a new endpoint is added, a known one is replaced."""
     if not isinstance(given, dict):
@@ -485,7 +509,9 @@ def subscribe(given, agent: str) -> dict:
     keys = {
         name: value
         for name, value in keys.items()
-        if name in ("p256dh", "auth") and isinstance(value, str) and len(value) <= 200
+        if name in ("p256dh", "auth")
+        and isinstance(value, str)
+        and len(value) <= MAX_KEY
     }
     wanted = given.get("workspaces")
     if wanted is not None and not (
@@ -513,7 +539,7 @@ def subscribe(given, agent: str) -> dict:
     return {"on": True, "device": entry["device"], "devices": len(state["devices"])}
 
 
-def unsubscribe(endpoint) -> dict:
+def unsubscribe(endpoint: object) -> dict:
     with held():
         state = read_state()
         kept = [d for d in state["devices"] if d.get("endpoint") != endpoint]
@@ -574,9 +600,14 @@ def post(endpoint: str, headers: dict) -> tuple[int | None, str]:
         with (home() / RECORD_FILE).open("a", encoding="utf-8") as out:
             out.write(json.dumps(line) + "\n")
         return 201, "recorded, not sent (LEM_PUSH=record)"
-    request = urllib.request.Request(endpoint, data=b"", method="POST", headers=headers)
+    # refusal() lets only https at a push service reach this request
+    request = urllib.request.Request(  # noqa: S310 - an endpoint passed refusal() first
+        endpoint, data=b"", method="POST", headers=headers
+    )
     try:
-        with urllib.request.urlopen(request, timeout=SEND_TIMEOUT) as reply:
+        with urllib.request.urlopen(  # noqa: S310 - an endpoint passed refusal() first
+            request, timeout=SEND_TIMEOUT
+        ) as reply:
             return reply.status, reply.read(300).decode("utf-8", "replace").strip()
     except urllib.error.HTTPError as error:
         return error.code, error.read(300).decode("utf-8", "replace").strip()
@@ -588,7 +619,11 @@ class Pusher:
     """Sends a push to devices, with a token for each push service used again for TOKEN_REUSE; removes a
     device whose push service says it is gone (404, 410) and records the last push's answers."""
 
-    def __init__(self, send=post, now=time.time) -> None:
+    def __init__(
+        self,
+        send: Callable[[str, dict], tuple[int | None, str]] = post,
+        now: Callable[[], float] = time.time,
+    ) -> None:
         self.send_one = send
         self.now = now
         self.tokens: dict[str, tuple[float, str]] = {}
@@ -617,7 +652,8 @@ class Pusher:
         for device in devices:
             endpoint = device.get("endpoint")
             refused = refusal(endpoint)
-            if refused:
+            # refusal() refuses whatever is not a string
+            if refused or not isinstance(endpoint, str):
                 results.append(
                     {
                         "device": device.get("device"),
@@ -676,7 +712,7 @@ def send_all(pusher: Pusher | None = None) -> list[dict]:
     )
 
 
-def send_test(endpoint, pusher: Pusher | None = None) -> dict:
+def send_test(endpoint: object, pusher: Pusher | None = None) -> dict:
     """One push to the one device that asks for it from the board (`POST /api/push/test`)."""
     device = next(
         (d for d in read_state()["devices"] if d.get("endpoint") == endpoint), None
@@ -740,7 +776,12 @@ class Watcher:
     machine's name in the board's addresses."""
 
     def __init__(
-        self, spaces, host: str, pusher: Pusher | None = None, log=None, now=time.time
+        self,
+        spaces: Callable[[], Iterable[tuple[str, str, Callable[[], "bm.Model"]]]],
+        host: str,
+        pusher: Pusher | None = None,
+        log: Callable[[str], object] | None = None,
+        now: Callable[[], float] = time.time,
     ) -> None:
         self.spaces = spaces
         self.host = host
@@ -778,7 +819,7 @@ class Watcher:
             state = read_state()
             seen = state["seen"]
             changed = False
-            for name, path, model, rows in looked:
+            for name, path, _model, rows in looked:
                 fresh, memory = gained(seen.get(path), [r["key"] for r in rows], now)
                 if memory != seen.get(path):
                     seen[path] = memory
@@ -804,7 +845,7 @@ class Watcher:
         named = {space for space, _ in news}
         to = [d for d in devices if any(wants(d, space) for space in named)]
         sent = self.pusher.send(to, said)
-        bad = [r for r in sent if r["status"] != 201]
+        bad = [r for r in sent if r["status"] != HTTPStatus.CREATED]
         for r in bad:
             self.log(
                 f"a push to {r['device']} got {r['status'] or 'no answer'}: {r['said'][:160]}{' (removed: the push service no longer knows it)' if r['gone'] else ''}"

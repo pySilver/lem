@@ -15,7 +15,11 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 from unittest import mock
+
+if TYPE_CHECKING:
+    import lem_board_model
 
 sys.dont_write_bytecode = True
 sys.path.insert(
@@ -180,7 +184,7 @@ class Sending(InHome):
             )
         sent = []
 
-        def stand_in(endpoint, headers):
+        def stand_in(endpoint: str, headers: dict) -> tuple[int, str]:
             sent.append((endpoint, headers))
             return (410, "gone") if endpoint.endswith("-gone") else (201, "")
 
@@ -294,7 +298,7 @@ class Sending(InHome):
             },
         ]
 
-        def model(events, turn):
+        def model(events: list[dict], turn: str) -> "lem_board_model.Model":
             m = bm.derive(events, [], bm.at("2026-11-23T11:30:00Z"))
             bm.put_sessions(
                 m,
