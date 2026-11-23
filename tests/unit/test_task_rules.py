@@ -486,6 +486,22 @@ class SeatCommands(Refuses):
         project.cmd_seat_failed(root, "plan-talk", "merger", "claude/opus:high", "tokens", None)
         self.assertIn("`lem project seat-again plan-talk` writes it", self.refused(project.cmd_state, root, "plan-talk", "open", ["pull request x"]))
 
+    def test_the_owners_go_on_over_a_merge_agents_block_gives_open_with_its_pull_request(self):
+        # criterion 5, the merge agent's seat: an open task, its merge agent with no tokens and no fallback, then the go on
+        root = self.repo("billing-core", 'merger = "codex/gpt-6.2-sol:high"', "fallback = false")
+        url = "https://github.com/acme/billing-core/pull/85"
+        project.cmd_state(root, "plan-talk", "open", [f"pull request {url}", "green: the checks and the review passed"])
+        said = project.cmd_seat_failed(root, "plan-talk", "merger", "codex/gpt-6.2-sol:high", "tokens", None)
+        self.assertEqual((said["blocked"], said["say"]),
+                         (True, "the merge agent `codex/gpt-6.2-sol:high` gave an error: no tokens, and this project permits no fallback"))
+        again = project.cmd_seat_again(root, "plan-talk")
+        self.assertEqual((again["status"], again["name"], again["seat"]), ("open", "merger", "codex/gpt-6.2-sol:high"))
+        task = project.read_tasks(root)[0]
+        lines = task["state"].splitlines()
+        self.assertEqual((task["status"], lines[0].split(" ", 2)[2]), ("open", "the owner's go on: the merge agent codex/gpt-6.2-sol:high is tried again"))
+        self.assertEqual(lines[1:], [f"pull request {url}", "green: the checks and the review passed"])
+        self.assertEqual([event["seat"] for event in self.events(root, "seat.again")], ["merger"])
+
     def test_a_leads_state_never_comes_over_a_seats_block(self):
         # the defender's seat-failed wrote `blocked` before the lead's `building` of the pair's open: that `building`
         # would take the task out of "Waits for you", seat-again would refuse it, and the lead's wait would loop
