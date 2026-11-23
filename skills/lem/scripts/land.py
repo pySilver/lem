@@ -150,8 +150,14 @@ about another tree. A file its commands wrote that git neither tracks nor ignore
 in a repository with no rule for it) is the run's output, and nothing of it lands: the step notes
 what git does not know before its first command, removes after its last, or after a stop, each such
 file that was not there before and each folder that leaves empty, names them in its output (`removed_untracked`)
-and in one line of the last command's output file, and goes on. What the checks keep is the tip they
-ran on and that tip's tree.
+and in one line of the last command's output file, and goes on. Before that note, and before the first
+command, the step removes each `__pycache__` folder that git ignores by itself, a leftover of someone's
+Python run (a builder's test without `-B`), which Python rebuilds from the source: a `__pycache__`
+inside a folder that git ignores as a whole (`.venv/`) stays with that folder, and every other ignored
+file stays. It names each removed folder in its output only (`removed_bytecode`), each once it is gone,
+and goes on; a folder that cannot go refuses the run with the fix named. A `__pycache__` that a command
+of the checks writes stays, so a check that looks for one still sees it. What the checks keep is the tip
+they ran on and that tip's tree.
 
 An `open` task lands again when its base moved: after a merge, Lem takes each task whose
 pull request the forge calls conflicting through `start --conflicting`, `base`, the checks, the
@@ -2420,6 +2426,14 @@ def checks_body(task: Task, flags: dict, tip: str, found: dict, commands: list[s
     them, `taken_from_polish`) and the bar. It fills `result`
     with what the step prints, its `say` among it, and gives back how the run ends and the refusal to
     exit with, none for a passed run."""
+    # An ignored `__pycache__` that was there before the run is a leftover of someone's Python (a
+    # builder's test run without `-B`), not of these commands, and a suite that looks for bytecode
+    # would go red on it with no defect of the code. Python rebuilds it from the source, so it goes
+    # before the first command; every other ignored file stays. Each folder is named once it is gone.
+    result["removed_bytecode"] = []
+    for folder in stale_bytecode(task):
+        remove_bytecode(task, folder)
+        result["removed_bytecode"].append(folder)
     # What git does not know before the first command. `need_worktree` refused any such file, so
     # this is empty unless something wrote one since; it is taken all the same, so that the
     # removal after the run can never reach a file that was there before it.
@@ -2563,6 +2577,70 @@ def untracked(task: Task) -> list[str]:
     """Each file of the worktree that git neither tracks nor ignores, one by one, a file in a new folder too."""
     listed = run(["git", "-C", str(task.worktree), "status", "--porcelain", "--untracked-files=all", "-z"]).stdout.split("\0")
     return [entry[3:] for entry in listed if entry.startswith("?? ")]
+
+
+def bytecode_candidates(listed: list[str]) -> list[str]:
+    """Each folder named `__pycache__` in git's list of what it ignores (`ls-files --ignored
+    --directory`), which names a folder with its final slash: a file or a link of that name is none."""
+    return sorted(entry for entry in listed if entry.endswith("/") and entry.rstrip("/").rsplit("/", 1)[-1] == "__pycache__")
+
+
+def folders_above(candidates: list[str]) -> list[str]:
+    """Each proper folder above a candidate (`build` for `build/__pycache__/`), the paths whose ignore
+    rules the choice asks git for."""
+    found: set[str] = set()
+    for candidate in candidates:
+        parts = candidate.rstrip("/").split("/")[:-1]
+        found.update("/".join(parts[:depth]) for depth in range(1, len(parts) + 1))
+    return sorted(found)
+
+
+def bytecode_of(listed: list[str], ignored: set[str]) -> list[str]:
+    """The `__pycache__` folders the checks remove before their first command, from git's two lists:
+    the ignored paths of the worktree, and the folders above a candidate that a rule ignores. A
+    `__pycache__` inside an ignored folder is part of that folder and stays, also when git lists it on
+    its own because that folder holds a tracked file."""
+    return [candidate for candidate in bytecode_candidates(listed) if not set(folders_above([candidate])) & ignored]
+
+
+def nul_paths(output: bytes) -> list[str]:
+    """The paths of git's `-z` output, each as the file system names it: never through text mode,
+    which turns a `\\r` in a name into `\\n`."""
+    return [os.fsdecode(entry) for entry in output.split(b"\0") if entry]
+
+
+def stale_bytecode(task: Task) -> list[str]:
+    """Each ignored `__pycache__` folder of the worktree with no ignored folder above it, as git names it."""
+    where = ["git", "-C", str(task.worktree)]
+    listed = subprocess.run([*where, "ls-files", "--others", "--ignored", "--exclude-standard", "--directory", "-z"], capture_output=True, check=False)
+    if listed.returncode != 0:
+        raise LandError(f"git ls-files --ignored failed: {listed.stderr.decode(errors='replace').strip()}")
+    paths = nul_paths(listed.stdout)
+    above = folders_above(bytecode_candidates(paths))
+    if not above:
+        return bytecode_of(paths, set())
+    # `check-ignore` reads each path as a pathspec, so a folder named `:(top)x` would read as `x` at the
+    # top; `./` before it makes git read it as it is, and git prints it back with its `./`. With no
+    # `--no-index`, a folder that holds a tracked file is never printed. Exit 1 is "none of them".
+    asked = b"".join(os.fsencode(f"./{folder}") + b"\0" for folder in above)
+    said = subprocess.run([*where, "check-ignore", "--no-index", "--stdin", "-z"], input=asked, capture_output=True, check=False)
+    if said.returncode not in (0, 1):
+        raise LandError(f"git check-ignore failed: {said.stderr.decode(errors='replace').strip()}")
+    return bytecode_of(paths, {path.removeprefix("./") for path in nul_paths(said.stdout)})
+
+
+def remove_bytecode(task: Task, folder: str) -> None:
+    """Remove one ignored `__pycache__` folder whole. A link, or what is no folder on disk when the
+    removal comes to it, stays, and so does a folder whose parent resolves outside the worktree; a link
+    inside it is removed as a link, never followed. A folder that cannot go refuses the run."""
+    root = task.worktree.resolve()
+    path = root / folder.rstrip("/")
+    if path.is_symlink() or not path.is_dir() or not path.parent.resolve().is_relative_to(root):
+        return
+    try:
+        shutil.rmtree(path)
+    except OSError as error:
+        raise LandError(f"the checks cannot remove the ignored {path} that was there before them ({error}): remove it, then run `lem land checks {task.slug}` again") from None
 
 
 def remove_left(task: Task, path: str) -> None:

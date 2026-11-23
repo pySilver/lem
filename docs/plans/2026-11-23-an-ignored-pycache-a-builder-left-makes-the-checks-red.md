@@ -13,6 +13,8 @@ Size: full, because the change removes files from a task's worktree before the c
    4. `.env` and `.venv/`, with the `__pycache__` inside it, are as they were.
    5. The output of `lem land checks X` names `skills/lem/scripts/__pycache__/` as removed.
    6. A `__pycache__` that a command of the checks writes during the run is still there when the run ends, so a check that looks for one still goes red.
+   - test: `python3 -B -m unittest tests.unit.test_land.StaleBytecode tests.unit.test_land.RemoveBytecode` in `tests/unit/test_land.py`
+   - test: `bash tests/lem-land-guards.sh` in `tests/lem-land-guards.sh`, `tests/lib.sh`, `tests/checks.sh`
 
 ## Tasks
 

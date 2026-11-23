@@ -176,6 +176,36 @@ fi
 rm -f "$tree/mine.txt"
 project --repo "$GRD" state gate-caches dropped "the test is over" >/dev/null
 
+# An ignored `__pycache__` that someone's Python left before the checks (a builder's test without -B) goes before
+# their first command, and is named in the result only; every other ignored path stays: a developer's `.env`, a
+# cache inside an ignored `.venv/`, and one inside an ignored `build/` that holds a tracked file, which git lists on
+# its own. A folder named `:x` is read as it is. A cache a command of the checks writes stays after the run.
+small_task_in "$GRD" gate-bytecode b.txt b
+tree=$(wt gate-bytecode)
+printf '%s\n' '__pycache__/' '.env' '.venv/' 'build/' > "$tree/.gitignore"
+mkdir -p "$tree/:x" "$tree/build" && touch "$tree/:x/keep" "$tree/build/.gitkeep"
+git -C "$tree" add -A && git -C "$tree" add -f build/.gitkeep && git -C "$tree" commit -q -m "chore: ignore rules"
+g start gate-bytecode >/dev/null && g base gate-bytecode >/dev/null
+mkdir -p "$tree/shop/__pycache__" "$tree/.venv/lib/__pycache__" "$tree/build/__pycache__" "$tree/:x/__pycache__"
+touch "$tree/shop/__pycache__/c.pyc" "$tree/.venv/lib/__pycache__/x.pyc" "$tree/build/__pycache__/b.pyc" "$tree/:x/__pycache__/k.pyc"
+echo mine > "$tree/.env"
+grd_settings '"test ! -e shop/__pycache__ && test ! -e :x/__pycache__ && echo no-cache-before", "mkdir -p tests/__pycache__ && touch tests/__pycache__/w.pyc"'
+bytecode=$(g checks gate-bytecode 2>&1 || true)
+grd_settings '"true"'
+first_last=$("$PY" -c 'import json, sys; print([e["last"] for e in map(json.loads, open(sys.argv[1])) if e.get("event") == "gate" and e.get("task") == "gate-bytecode"][0])' "$GRD/.lem/state/events.jsonl")
+end_fields=$(grep '"event": "gate.end", "task": "gate-bytecode"' "$GRD/.lem/state/events.jsonl" || true)
+if [ "$(field '(d["green"], d["removed_bytecode"], d["removed_untracked"])' <<<"$bytecode" 2>/dev/null)" = "(True, [':x/__pycache__/', 'shop/__pycache__/'], [])" ] \
+  && [ "$first_last" = no-cache-before ] && [ "$(cat "$GRD/.lem/state/tasks/gate-bytecode/gate/01.log")" = no-cache-before ] \
+  && [ -n "$end_fields" ] && ! grep -q removed_bytecode <<<"$end_fields" \
+  && [ ! -e "$tree/shop/__pycache__" ] && [ ! -e "$tree/:x/__pycache__" ] && [ -f "$tree/:x/keep" ] && [ "$(cat "$tree/.env")" = mine ] \
+  && [ -f "$tree/.venv/lib/__pycache__/x.pyc" ] && [ -f "$tree/build/__pycache__/b.pyc" ] && [ -f "$tree/tests/__pycache__/w.pyc" ] \
+  && [ "$(kept_in "$GRD" gate-bytecode gated)" = "$(git -C "$tree" rev-parse HEAD)" ]; then
+  pass "an ignored __pycache__ that was there before the checks goes before their first command and is named in the result only; .env, a cache inside an ignored folder and one a command writes stay"
+else
+  fail "an ignored cache before the checks: $bytecode / $first_last / $end_fields / $(find "$tree" -name __pycache__ -not -path '*/.git/*')"
+fi
+project --repo "$GRD" state gate-bytecode dropped "the test is over" >/dev/null
+
 # The gate judges one tree: a command that changes a tracked file or makes a commit changed it, and a
 # criterion's test that passes on the base commit too holds nothing. Each refusal records no green tip.
 small_task_in "$GRD" gate-writes x.txt x
