@@ -12,6 +12,7 @@ The plugin starts it through `lem_python.py` beside this file, which runs it und
 or newer when the first `python3` is older, and leaves the session silent when the machine has none.
 """
 
+import contextlib
 import sys
 
 # How long git may take to name the main checkout. A guess: it answers in milliseconds, and a stuck
@@ -38,7 +39,7 @@ def main() -> None:
         if isinstance(event, dict) and isinstance(event.get("cwd"), str)
         else None
     )
-    folder = folder or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+    folder = folder or os.environ.get("CLAUDE_PROJECT_DIR") or str(Path.cwd())
     try:
         root = lem_state.main_checkout(Path(folder), timeout=GIT_TIMEOUT)
     except lem_state.StateError:
@@ -60,8 +61,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    try:
+    # a hook that fails must not fail the session
+    with contextlib.suppress(BaseException):
         main()
-    except BaseException:  # noqa: BLE001 - a hook that fails must not fail the session
-        pass
     sys.exit(0)
