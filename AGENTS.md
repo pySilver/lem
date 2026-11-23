@@ -39,11 +39,14 @@ works, and this file says how to change it.
 - **Documentation describes the current state.** No changelog paragraphs, no "previously". A
   chart in `README.md` or `docs/` writes each node's and each edge's text in double quotes, and is
   drawn once before it is committed.
-- **A maintainer's session with nobody at the terminal reads `docs/free-hour.md` first.** It works in a
-  worktree of this clone, on a branch, and never pushes: `main` of this repository is what every
-  project's next update of the plugin installs. The scheduled
-  `/lem night` of this repository is such a session too, and it opens no task here: asked on
-  2026-11-21 whether a night here may open pull requests, the owner answered "A3 no".
+- **A maintainer's session with nobody at the terminal reads `docs/free-hour.md` first.** It changes
+  no file that git tracks, makes no branch and no worktree, and never pushes: `main` of this
+  repository is what every project's next update of the plugin installs. A task's own session is
+  not such a session. The scheduled `/lem night` of this repository takes its free hour as a search
+  only, writes what it finds as proposals into the night's file of the day, as
+  `skills/lem/stages/night.md` says, and opens no task here: asked on 2026-11-21 whether a night
+  here may open pull requests, the owner answered "A3 no". The scheduled `/lem retro` of this
+  repository takes no free hour: it is a retro only.
 - **Lem is not released, so a change keeps no reading of the form before it.** A change to the
   settings, a record, an event, a state or a command reads and writes the new form only, and the
   maintaining session corrects the repositories that use Lem by hand. When Lem has users, this

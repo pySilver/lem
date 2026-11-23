@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parents[2]
 AGENTS = ROOT / "AGENTS.md"
 LIST = ROOT / "docs/rulings/rulings.md"
 HISTORY = ROOT / "docs/rulings/history.md"
+FREE_HOUR = ROOT / "docs/free-hour.md"
 PLAN = ROOT / "docs/plans/2026-11-21-rulings-as-one-list.md"
 # AGENTS.md was 6,142 words by wc -w with a sentence and a link for each ruling, and 3,638 with the
 # list in its own file (2026-11-21): the bound is that size with some room, the session's choice,
@@ -271,11 +272,36 @@ class ShortAgents(unittest.TestCase):
     def test_the_names_docs_free_hour_cites_are_headings_of_agents_md_or_bullets_of_the_list(self):
         # docs/free-hour.md sends an unattended session to these by name.
         text = AGENTS.read_text(encoding="utf-8")
+        page = flat(FREE_HOUR.read_text(encoding="utf-8"))
         found = {line.lstrip("#").strip() for line in text.split("\n") if line.startswith("#")}
         found |= {re.match(r"- \*\*([^*]+)\*\*", flat(" ".join(lines)))[1].rstrip(".") for _, lines in parts(LIST)}
-        for name in ("Opinionated and small", "The owner's rulings", "Rules for a change here", "Checks"):
+        for name in ("Opinionated and small", "The owner's rulings", "Rules for a change here", "Checks", "A project that uses Lem gets Lem's improvements only through the agreed paths"):
             with self.subTest(name=name):
+                self.assertIn(f'"{name}"', page, f'docs/free-hour.md no longer cites "{name}": take it out of this list')
                 self.assertIn(name, found, f'"{name}", which docs/free-hour.md cites, is no heading of AGENTS.md and no bullet of the list')
+
+
+class NoScheduledBranch(unittest.TestCase):
+    """Criterion 1 of scheduled-runs-one-branch: no scheduled job makes a branch in Lem's own
+    repository; the night's free hour writes proposals, and the scheduled retro takes no free hour."""
+
+    def maintainer_bullet(self) -> str:
+        found = [flat(" ".join(lines)) for _, lines in parts(AGENTS) if lines[0].startswith("- **A maintainer's session with nobody at the terminal")]
+        self.assertEqual(len(found), 1, "AGENTS.md has one bullet on a maintainer's session with nobody at the terminal")
+        return found[0]
+
+    def test_the_free_hour_page_makes_no_worktree_and_no_free_hour_branch(self):
+        page = FREE_HOUR.read_text(encoding="utf-8")
+        self.assertNotIn("git worktree add", page, "docs/free-hour.md tells the hour to make a worktree; the hour makes none")
+        self.assertNotRegex(page, r'-b\s+"?free-hour/', "docs/free-hour.md tells the hour to make a free-hour/ branch; the hour makes none")
+        self.assertIn("make no branch and no worktree", flat(page))
+
+    def test_the_night_here_writes_proposals_and_the_scheduled_retro_takes_no_free_hour(self):
+        bullet = self.maintainer_bullet()
+        self.assertIn("makes no branch and no worktree", bullet)
+        self.assertIn("writes what it finds as proposals into the night's file of the day", bullet)
+        self.assertIn("The scheduled `/lem retro` of this repository takes no free hour: it is a retro only.", bullet)
+        self.assertNotIn("on a branch", bullet, "the bullet sends an unattended session to a branch")
 
 
 if __name__ == "__main__":

@@ -229,14 +229,19 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
 
 ## The lessons, the correction queue, the naps, the night and the free hour
 
-- **The free hour may edit Lem's skills on a branch of the clone.** It never pushes; the owner or a
-  session merges. (2026-11-14)
+- **The free hour searches and proposes, and makes no branch.** What it finds is a proposal in the
+  night's file, and the scheduled retro takes no free hour: "Those proposals should go through
+  reviewer Agent and eventually my “yes” first". (2026-11-23)
+- **A project that uses Lem gets Lem's improvements only through the agreed paths.** A proposal of
+  the night or the retro, the reviewer's read, a backlog item he starts as a task, and its pull
+  request. (2026-11-23)
 - **Lem naps, and the naps are Lem's look back over its own memory.** An optional part, after his
   own nap brief, and the retro reads its waking note. (2026-11-17, 2026-11-21)
-- **The lessons, the retro and Jev stay; a night run ends as a pull request; naps are not shown.** A
-  night writes the criteria itself, builds, and opens a pull request that says "not green: you did
-  not approve the criteria", which he approved: "Yes this is what I want". (2026-11-17 and
-  2026-11-18)
+- **The lessons, the retro and Jev stay; a night that builds a backlog item ends as a pull request;
+  naps are not shown.** A night writes the criteria itself, builds, and opens a pull request that
+  says "not green: you did not approve the criteria", which he approved: "Yes this is what I want".
+  The night of Lem's own repository makes no branch and writes proposals. (2026-11-17, 2026-11-18
+  and 2026-11-23)
 
 ## Choices of the maintaining session
 
