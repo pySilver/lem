@@ -632,6 +632,15 @@ class SetSeat(Home):
         self.assertTrue(self.local_file.is_file())
         self.assertFalse((tree / project.LOCAL).exists())
 
+    def test_each_seat_has_one_name_in_the_answer_of_set_and_in_a_block(self):
+        # the planner was "the defender" in set's answer and "the planner" in a block and in the pull request
+        said = self.set("local", "planner", "claude/opus:max")
+        self.assertEqual(said["said"], f"the planner here is claude/opus:max, from {project.LOCAL}")
+        for name, words in project.lem_state.SEAT_NAMES.items():
+            with self.subTest(name=name):
+                self.assertEqual(project.SET_WORDS[name], words)
+                self.assertTrue(project.call_head(name, "claude/opus:high", "tokens").startswith(f"{words} `claude/opus:high`"))
+
     def test_a_new_file_and_default_on_its_last_line(self):
         said = self.set("local", "fallback", "false")
         self.assertEqual(said["line"], "fallback = false")

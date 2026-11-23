@@ -1507,10 +1507,10 @@ def cmd_init(root: Path, base: str | None, codex: str) -> None:
     print(file)
 
 
-# What `set` writes: each seat, and the seat that stands in when one fails; with the words it says each by.
+# What `set` writes: each seat, and the seat that stands in when one fails; with the words it says each by,
+# a seat that can fail by the name its block and the pull request give it (`lem_state.SEAT_NAMES`).
 SET_NAMES = (*SEATS, "experts", "fallback")
-SET_WORDS = {"reviewer": "the reviewer", "planner": "the defender", "merger": "the merge agent", "session": "a task's session",
-             "experts": "the experts", "fallback": "the fallback"}
+SET_WORDS = {**lem_state.SEAT_NAMES, "session": "a task's session", "experts": "the experts", "fallback": "the fallback"}
 # Where `set` writes: the developer's file for all his repositories (the home folder's `settings.toml`),
 # or this machine's own file for this one. The team's file is everybody's, edited by hand and committed,
 # and no command writes it.
