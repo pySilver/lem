@@ -79,4 +79,4 @@ with no close (`lem session close` gives up on a session woken after it started)
 session is not closed under its work. Typed in the task's own session, go on at once as
 `prompts/session.md` says for a queued task whose wait ended; the wake's line that comes back
 changes nothing. Typed elsewhere, say the wake's `say`, which names the task's session: it opens
-with no focus, and takes the focus itself when it asks him a question.
+with no focus, and never takes it, also when it asks him a question.

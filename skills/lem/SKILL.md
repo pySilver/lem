@@ -51,8 +51,8 @@ its reason.
 ## One session for each task
 
 **A task's session** is an agterm session of its own, named for the task, which `lem session open`
-starts (`open-task-session`) with no focus: the owner stays where he is, and the session takes the
-focus itself, once, when it has a question only he can answer (`prompts/session.md`). It carries the task from its shape to its merge, and no session holds
+starts (`open-task-session`) with no focus: the owner stays where he is, and the session never
+takes the focus, also when it has a question only he can answer (`prompts/session.md`). It carries the task from its shape to its merge, and no session holds
 two tasks: a session that holds many tasks fills with their code and loses them. Its phases are the
 shape (the request read, an investigation, the interview and the criteria, with the owner), the
 build (the lead and its builders), and the landing (the checks, the review, the pull request, the
@@ -244,7 +244,7 @@ so do the end of a command it runs in the background and a wake-up from the boar
   a planning or debugging skill loaded beside a stage has the session read code and plans by itself,
   which is the work of a lead and its builders (the compatibility audit, 2026-11-17).
 - **Capabilities, not tools.** A stage says `spawn-builder`, `open-task-session`, `mark-waiting`,
-  `take-focus`, `second-opinion`, `ask-owner`, `inbox-reply`, `ask-experts`, `ask-merger`, `fan-out`, `run-in-background`,
+  `second-opinion`, `ask-owner`, `inbox-reply`, `ask-experts`, `ask-merger`, `fan-out`, `run-in-background`,
   `start-nap` (for a nap), `show-page` or `load-skill`, and
   names the question gate, the persona panel and the review tool by role. Read, once per session, the file in this skill's `harness/` folder named
   after the agent you run in (`harness/claude-code.md`): it says what each means there, or names

@@ -561,6 +561,32 @@ class EveryBrief(unittest.TestCase):
         self.assertEqual(self.old_lines("claude \"Read TASK_DIR/session.md and follow it.\""), [])
 
 
+class NoFocus(unittest.TestCase):
+    """No session that Lem opens takes agterm's focus, also when it asks the owner a question: no text
+    of Lem tells a session to take it, and a script selects a session only on the owner's own act,
+    his pick in the picker (picker.py), `lem board --follow` (board.py) and his click on the board
+    (`agterm_act` in serve.py)."""
+
+    TEXTS = {".md", ".py", ".sh", ".toml", ".json", ".txt", ""}
+    TAKE = re.compile(r"take[-_]focus")
+    SELECT = re.compile(r"\"session\",\s*\"select\"")
+
+    def files(self):
+        root = SCRIPTS.parents[2]
+        for place in ("skills", "agents"):
+            for path in sorted((root / place).rglob("*")):
+                if path.is_file() and path.suffix in self.TEXTS and "vendor" not in path.parts:
+                    yield path.relative_to(root).as_posix(), path.read_text(encoding="utf-8", errors="replace")
+
+    def test_no_text_tells_a_session_to_take_the_focus(self):
+        self.assertEqual([f"{name}:{number}" for name, text in self.files()
+                          for number, line in enumerate(text.splitlines(), 1) if self.TAKE.search(line)], [])
+
+    def test_a_script_selects_a_session_only_on_the_owners_act(self):
+        self.assertEqual(sorted(name for name, text in self.files() if name.endswith(".py") and self.SELECT.search(text)),
+                         ["skills/lem/scripts/board.py", "skills/lem/scripts/picker.py", "skills/lem/scripts/serve.py"])
+
+
 class Handoff(unittest.TestCase):
     def test_a_handoff_in_its_form(self):
         found = session.handoff_form(HANDOFF, SLUG)

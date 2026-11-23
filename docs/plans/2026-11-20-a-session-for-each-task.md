@@ -4,7 +4,8 @@
 > Later decisions changed parts of it: the board's server runs the merge agent's merge, and the
 > agent only writes its review; a task's session opens in the main checkout and reaches its
 > worktree by its path; the load gate has one number, with no second one that stops a run; the
-> parity tool went with the old board page; and the cheap look of `bin/lem` at the server was
+> parity tool went with the old board page; a task's session never takes the focus, also for its
+> question; and the cheap look of `bin/lem` at the server was
 > measured at 0.4 ms (the integration builder's medians of 30 runs). `docs/rulings/rulings.md` and
 > `docs/rulings/history.md` hold each. The shapes of
 > tasks 2 to 4 and the plan of task 4 are in the folder of this name; the files they cite

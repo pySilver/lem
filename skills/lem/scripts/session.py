@@ -52,7 +52,7 @@ directory, the new agent's first read, and runs
       "SHELL -l -c 'LEM_TASK=SLUG CLAUDE_CODE_AUTO_COMPACT_WINDOW=N claude \\"Read TASK_DIR/session.md and follow it.\\"'"
 
 then `session move --to top`. It never selects the session: the owner's selection stays where it
-is, and the task's session takes the focus itself when it asks him a question (`take-focus`). DIR is
+is, also when the task's session asks him a question, and only his own act selects it. DIR is
 the main checkout in every phase, and the agent works in the task's worktree by its path
 (`worktree:` of `session.md`): the developer's Claude Code setup belongs to the main checkout's folder (a plugin installed for the
 project, `.claude/settings.local.json`, the folder's trust), and a session started in a worktree has

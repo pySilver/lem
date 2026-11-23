@@ -51,8 +51,8 @@ of his text), runs step 3 with his words or the item's path as the ask, and step
    `talk.md` in the task directory, also those from before a compaction, and refuses with the fix
    when no turn of his starts with those words.
 5. **Open its session**: `lem session open SLUG --why new`. It opens with no focus: the owner stays
-   here, and the task's session takes the focus itself when it has a question only he can answer
-   (`prompts/session.md`, "While the owner is needed"). `task-dir` and `session open`
+   here, and the task's session never takes the focus, also when it has a question only he can
+   answer (`prompts/session.md`, "While the owner is needed"). `task-dir` and `session open`
    put the repository's main checkout into the machine's list of workspaces, so the board's server
    shows it from its first task, as "Starting" until its session writes a state. Say its `say` in one line,
    start its `then` (`lem session wait SLUG --first-line`) with `run-in-background`, and go back

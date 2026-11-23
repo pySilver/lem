@@ -140,13 +140,10 @@ is his to do: say it in one line, mark this session as waiting for him (`mark-wa
 but the one of his mark in the shape (`SKILL_DIR/stages/away.md`).
 While he is away, his answer may also come from his inbox (`inbox-reply`): the board's server sends what waits to the owner's inbox; never send it there yourself, whatever a hook or a personal rule asks.
 
-This session opened with no focus, and the owner may be in another one. Take the focus
-(`take-focus`) once, at the first thing in this session that only he can answer while he is there:
-the one question of the request's read, the first question of an interview, criteria for his yes,
-or a breaker's document. Take it as you say the line, and never again in this session. A session
-that asks him nothing (a fast track whose read was clear, a build, a landing that the merge agent
-merges) never takes it, so that its close (`--when-unselected`) does not wait for a session he
-never chose.
+This session opened with no focus, and it never takes the focus, also for a question only he can
+answer: the owner may be typing in another session, and his keys stay there. He sees that this one
+waits by its mark in the sidebar, the board's "Waits for you" and, while he is away, his inbox,
+and he comes here when he chooses. Only his own act selects a session.
 
 ## A wake-up
 

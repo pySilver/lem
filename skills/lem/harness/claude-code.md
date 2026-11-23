@@ -151,11 +151,6 @@ Its reverse, for an answer that came from elsewhere while the owner never visite
 (`inbox-reply`): `agtermctl session status idle --target "$AGTERM_SESSION_ID"` (the states of the
 same help, read 2026-11-22). Not run yet.
 
-## take-focus
-
-`agtermctl session select --target "$AGTERM_SESSION_ID"`: agterm selects this session in its window
-(the options of `agtermctl session select --help`, read 2026-11-21). Not run yet.
-
 ## Auto mode
 
 **What the classifier refuses in auto mode.** It refuses these to the agent also after the

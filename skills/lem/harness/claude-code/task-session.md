@@ -19,7 +19,7 @@ agtermctl session new --workspace WS --cwd DIR --name SLUG --no-select --command
 ```
 
 then `agtermctl session move --to top`, and never `agtermctl session select`: the task's session
-takes the focus itself (`take-focus` in the core). `DIR` is the
+never takes the focus, and only the owner's own act selects it. `DIR` is the
 main checkout, also for a task with a worktree, which the session reaches by its path
 (`owner-steps.md`, "A folder's trust"). A trial on 2026-11-21 (agterm 0.41.1 serving and 0.43.0
 installed, Claude Code 2.1.330) showed:

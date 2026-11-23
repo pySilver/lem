@@ -157,6 +157,10 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
   session.** `/lem` and an idea in any session, or "+" on the board, opens it; a fresh agent takes
   each phase from `handoff.md`, the first with the talk copied in by `lem session talk`.
   (2026-11-19, 2026-11-20)
+- **A session that Lem opens never takes the focus, also when it asks him a question.** Only his
+  own act selects a session (his pick in the picker, his click on the board, `lem board --follow`);
+  one that waits for him shows it by its mark in the sidebar, "Waits for you" and his Inbox.
+  (2026-11-23)
 
 ## The board and the pages for him
 
