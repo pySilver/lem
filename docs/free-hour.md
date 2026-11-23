@@ -30,7 +30,7 @@ paths"). So the hour writes one thing: its proposals, into the night's file of t
 - **One proposal for each finding, with what showed the need.** A session that went wrong, a
   measurement, a correction that came back, a check that failed by chance: the proposal names its
   place, its reason and its source with the date. A change nobody needed is not proposed
-  (`docs/rulings/rulings.md`, "Opinionated and small").
+  (`docs/rulings/rulings.md`, "Opinionated").
 - **Search with what reads.** The state folder (the tasks' records, the event log, the naps'
   waking notes), the files of the clone, and the checks: `bash tests/all.sh`, the one command under
   "Checks" in `AGENTS.md`, which runs every suite. `git status --short` of the main checkout shows

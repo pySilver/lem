@@ -466,7 +466,7 @@ class ShortAgents(unittest.TestCase):
             for _, lines in parts(LIST)
         }
         for name in (
-            "Opinionated and small",
+            "Opinionated",
             "The owner's rulings",
             "Rules for a change here",
             "Checks",

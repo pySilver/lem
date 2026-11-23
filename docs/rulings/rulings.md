@@ -19,9 +19,9 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
   2026-11-19)
 - **Claude Code and agterm first, and Codex for reviews.** The reviewer may be Codex or a second
   Claude, and the harness file for Codex comes after Claude Code works. (2026-11-14, 2026-11-20)
-- **Opinionated and small.** Out of scope: a peer-planning flow, a skill-activation hook,
-  language-server plugins, output styles, a brainstorm skill, clipboard helpers, a writing-style
-  skill. (2026-11-14)
+- **Opinionated.** Out of scope: a peer-planning flow, a skill-activation hook, language-server
+  plugins, output styles, a brainstorm skill, clipboard helpers, a writing-style skill.
+  (2026-11-14, 2026-11-23)
 - **The rules of an existing project stay where they are.** Lem reads `.claude/rules` and never
   moves or links a file of it; a move of the rules is a new decision of his ("For now").
   (2026-11-15)
@@ -32,8 +32,9 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
   required.** Lem calls `/lem ask` by itself; there is no `/lem annotate` and no `lem-backlog`
   skill: `/webrev` (the way to mark up a plan or a document) and `/backlog` are required recipes,
   none copied into Lem. (2026-11-15, 2026-11-18)
-- **Lem is a plugin, and nothing else.** "It should be always installed as a CC/Codex plugin": no
-  setup script and no link, and the correction hook comes with the plugin. (2026-11-17)
+- **Lem is an app and its skills, and may take two steps to set up.** "(app + skills) so be it".
+  The skills stay a Claude Code or Codex plugin, the correction hook comes with it, and how the app
+  ships is open: "maybe a homebrew with uv?". (2026-11-17, 2026-11-23)
 - **Lem is his one desk for work in a repository, and its core is the path from a request to a
   merged pull request.** A helper stays in the core when a step of the path uses it, and he can then
   call that step by hand. (2026-11-17 and 2026-11-18)
@@ -55,6 +56,12 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
 - **Lem assumes auto mode**, in Claude Code and in Codex. (2026-11-18)
 - **Python 3.11 stays, in the modern form.** No script has `from __future__ import annotations`, and
   `src/lem/python.py` finds a newer Python for `bin/lem` and the hooks. (2026-11-20)
+- **Lem uses the well-known open-source library for a job, and writes no copy of its own.** "I
+  don't want to have our own implementation of things that are well known and available in
+  opensource for ages". (2026-11-23)
+- **Lem's code has a modern style that tools hold.** uv, `pyproject.toml`, ruff and pyrefly for
+  Python, with mybaze and wemake-python-styleguide as the examples, and one popular convention for
+  JavaScript; the app is reshaped "to a pythonic state". (2026-11-23)
 
 ## A request: its type, its track and its commands
 

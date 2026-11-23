@@ -51,5 +51,5 @@ and agterm on the owner's machine (`doctor.py`, 2026-11-16).
 ## Who to compare with
 
 revmux and peer-planning, the owner's own tools that Lem grew out of. Large agent frameworks are
-not a fair comparison: Lem is opinionated and small on purpose ("Opinionated and small",
-`AGENTS.md`).
+not a fair comparison: Lem is opinionated on purpose ("Opinionated",
+`docs/rulings/rulings.md`).
