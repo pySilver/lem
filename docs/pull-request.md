@@ -58,8 +58,9 @@ flowchart TD
     W --> Y["You read the review, then merge or ask for a change"]
 ```
 
-When the merge agent calls you, the board shows "Read the merge review" in "Waits for you", and
-the review is the first card of the task.
+When the merge agent calls you, "Waits for you" on the board shows one stack for the task:
+"Read the merge review" and "2 things". Open the stack, and the review and the merge are its two
+rows. The review is also the first card of the task.
 
 After the verdict merge, the board server merges the pull request. Until then the task stays in
 the column "Checks and review", with no row in "Waits for you" and no notification.
