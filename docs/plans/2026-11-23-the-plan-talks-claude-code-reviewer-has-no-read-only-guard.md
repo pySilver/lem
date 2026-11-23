@@ -80,6 +80,59 @@ flowchart TD
    `second-opinion.md` stays, and the backlog item is rewritten with what the talk showed. Serves
    criterion 3.
 
+## Plan talk
+
+Argued on 2026-11-23 by the reviewer, Codex, GPT 6.2 Sol at high effort (its pane's status line),
+and the defender, Claude Code, Opus 5.5 at high effort (the task's `defender:` state line). Seven
+turns: the list, two answers of each side, and the close. Agreement carries no authority: the
+review before the pull request reads each settled position as a claim.
+
+1. **What limits the reviewer to mailbox operations on the agterm socket?** (decision 4; the agterm
+   socket starts a session with any command, outside the sandbox.) Repaired at the cause: decision
+   4 now names no socket in the sandbox, and the one send runs outside it through
+   `excludedCommands` and an allow rule for `mailbox-chat.py say --file *`; decision 6's first
+   prompt says to send with `--file`; task 1 probes `agtermctl session new` and a send with
+   `AGTERMCTL` set in front. The reviewer: `holds, at the cause`, for a socket grant in the
+   developer's own settings, which `allowUnixSockets` merges into the sandbox. The defender's
+   refutation: no settings key denies a socket another scope allows (the settings reference,
+   `SandboxNetworkConfig`, which has `deniedDomains` but no socket deny, read 2026-11-23), so the
+   grant is the developer's own, as decision 5 puts his additions outside the guard. The reviewer
+   agreed that the `touch` probe shows where the send ran (BSD `touch` takes the later arguments as
+   file names, checked on this Mac), and held on the grant: decision 5 names commands outside the
+   sandbox, and the grant opens the socket inside it. A design choice, decided after the talk by
+   `stages/plan.md`, step 5 (decision 7).
+2. **Which paths can the shell write to under decision 3?** (the per-user temp folder, the
+   developer's grants and a repository under `/tmp` stay writable.) Repaired at the cause: decision
+   3 now denies the whole home folder, names the writable set that is left, and refutes the
+   repository under `/tmp` by criterion 3's own words. The reviewer: `holds, at the cause`, for a
+   main checkout outside the home folder (`/Volumes/Projects/shop`), whose working directory the
+   sandbox writes by default and the `~` deny does not reach (`project.py`, `main_checkout` and
+   `cmd_worktree`). The defender had no refutation. A design choice: the `~` deny against the
+   working directory alone and the deny of both, decided after the talk by `stages/plan.md`, step
+   5 (decision 8).
+3. **What shows that the second probe uses the teammate's permission mode?** (the owner's
+   `disableBypassPermissionsMode = "disable"` keeps `bypassPermissions` from taking.) Repaired: the
+   step-6 run drops his user settings with `--setting-sources project,local`, puts the teammate's
+   allow rules in the throwaway repository, and records the `permissionMode` of the `system`
+   `init` line. The reviewer held on `--verbose`, which print mode needs with `stream-json`; the
+   defender's refutation: the run stops at once with "Error: When using --print,
+   --output-format=stream-json requires --verbose" (run here, 2026-11-23) and reports no mode,
+   which the task already counts as step 6 not shown. Closed. Settled by the two, not checked by
+   the review.
+4. **Which result controls publication in the flowchart?** (its question left out the
+   second-worktree and home-folder writes.) Repaired: the chart's question names every write of
+   criteria 1 and 2, the socket, the bypass run's mode, the reads and the three receipts. Closed.
+   Settled by the two, not checked by the review.
+
+Mechanisms the repairs added: the one excluded command and its allow rule (question 1), on
+decision 4, "the send must reach agterm's socket", which rests on existing code (`ctl_args` in
+`mailbox-chat.py`); the reviewer called it at the cause. No question was raised after the first
+turn, and no addition was refused as unpriced.
+
+What changed in the plan: decisions 3, 4 and 6 and the "What it will not verify" line on Linux
+(questions 1 and 2); task 1's probes, its step-6 run and its send (questions 1 and 3); task 2's
+sentence on what the guard does not hold (question 2); the chart's question (question 4).
+
 ## Decisions
 
 1. **The guard goes on the launch line, as a `--settings` value**, the same place the Codex guard
