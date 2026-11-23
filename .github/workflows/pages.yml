@@ -17,12 +17,12 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
+# Two jobs, as in GitHub's own Pages template. With the upload and the publish in one job, deploy-pages
+# looked for the artifact under a second after the upload, found none, and failed three runs in a row on
+# 2026-11-23 (actions/deploy-pages#451). Once build has ended, its artifact is listed.
 jobs:
-  publish:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/configure-pages@v6
@@ -36,6 +36,14 @@ jobs:
       - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Publish to Pages
         id: deployment
         uses: actions/deploy-pages@v5
