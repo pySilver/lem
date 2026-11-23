@@ -98,7 +98,7 @@ Mechanisms the repairs added, each with the decision it sits on and the reviewer
 
 Raised after the first turn, not argued: none. Refused as unpriced: none.
 
-What changed in the plan, by question and by task: question 1, Task 1 (`cmd_base`'s chain of a resolution, a test of a conflict after a rebase) and decision 3; questions 2 and 5, Task 1 (the order of `start_locked`, two tests of a retry after the gate's refusal) and decision 1; question 3, Task 2 (step 6) and Task 1 (the check goes on to the server's merge); question 4, Task 1 (`merge.ended` in `start` and `carry_merge`, its line in `lem_board_model.py`, a unit case) and decision 4.
+What changed in the plan, by question and by task: question 1, Task 1 (`cmd_base`: the second rebase starts again from the tip before Lem's own first, by decision 6, in place of the chain; tests of a conflict after a rebase, of the probe's case and of a commit after the proposal) and decision 3, and the section "Seen outside the change"; questions 2 and 5, Task 1 (the order of `start_locked`, two tests of a retry after the gate's refusal) and decision 1; question 3, Task 2 (step 6) and Task 1 (the check goes on to the server's merge); question 4, Task 1 (`merge.ended` in `start` and `carry_merge`, its line in `lem_board_model.py`, a unit case) and decision 4.
 
 ## Decisions
 
