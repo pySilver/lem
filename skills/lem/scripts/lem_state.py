@@ -52,7 +52,6 @@ import subprocess
 import tomllib
 from collections.abc import Generator
 from pathlib import Path
-from typing import cast
 
 STATE = Path(".lem") / "state"
 # what the folder's own ignore file says: everything in it, and the file itself
@@ -520,9 +519,7 @@ def edited(text: str, table: str, key: str, value: object, name: object) -> str:
             stop -= 1
             if not any(content(line) for line in lines[header + 1 : stop]):
                 # the header's line matched TABLE_LINE when it was found
-                said = cast(
-                    "re.Match[str]", TABLE_LINE.fullmatch(lines[header].rstrip("\r\n"))
-                ).group(3)
+                said = TABLE_LINE.fullmatch(lines[header].rstrip("\r\n")).group(3)  # pyrefly: ignore[missing-attribute]
                 if said:
                     # a comment on the header's own line stays, as a line of its own
                     lines[header] = said + "\n"

@@ -85,7 +85,6 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
-from typing import Literal, overload
 
 # The one place that says where the state is.
 sys.dont_write_bytecode = True
@@ -172,10 +171,6 @@ def git(cwd: str, *args: str) -> str | None:
     return ran.stdout.strip() if ran.returncode == 0 and ran.stdout.strip() else None
 
 
-@overload
-def folder(cwd: str, *, quiet: Literal[False] = False) -> Path: ...
-@overload
-def folder(cwd: str, *, quiet: bool) -> Path | None: ...
 def folder(cwd: str, *, quiet: bool = False) -> Path | None:
     """Lem's state folder, which every worktree shares; None outside a checkout. It is an error for
     the retro's commands, and no folder at all for a quiet caller (the hook and its detached half)."""
@@ -801,7 +796,8 @@ def main() -> None:
     if args.command == "list" and (refused := settings_refused(args.repo)):
         sys.exit(f"corrections.py: {refused}")
     try:
-        where = folder(args.repo)
+        # a caller that is not quiet gets the folder or the QueueError
+        where: Path = folder(args.repo)  # pyrefly: ignore[bad-assignment]
         if args.command == "list":
             cmd_list(where, args.repo)
         elif args.command == "show":

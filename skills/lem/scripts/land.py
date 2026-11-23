@@ -1515,7 +1515,7 @@ def cmd_base(task: Task) -> dict:
     }
 
 
-def holds_commit(task: Task, commit: str | None, tip: str) -> bool:
+def holds_commit(task: Task, commit: object, tip: str) -> bool:
     """Whether the branch at `tip` holds `commit`."""
     return (
         bool(commit)
@@ -1526,7 +1526,8 @@ def holds_commit(task: Task, commit: str | None, tip: str) -> bool:
                 str(task.worktree),
                 "merge-base",
                 "--is-ancestor",
-                commit,
+                # a record's value: text as Lem writes it, and anything in a file changed by hand
+                str(commit),
                 tip,
             ],
             check=False,

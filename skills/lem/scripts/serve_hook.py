@@ -12,7 +12,6 @@ The plugin starts it through `lem_python.py` beside this file, which runs it und
 or newer when the first `python3` is older, and leaves the session silent when the machine has none.
 """
 
-import contextlib
 import sys
 
 # How long git may take to name the main checkout. A guess: it answers in milliseconds, and a stuck
@@ -61,7 +60,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    # a hook that fails must not fail the session
-    with contextlib.suppress(BaseException):
+    try:  # noqa: SIM105 - contextlib is one more import at the start of every session
         main()
+    except BaseException:  # noqa: BLE001, S110 - a hook that fails must not fail the session
+        pass
     sys.exit(0)
