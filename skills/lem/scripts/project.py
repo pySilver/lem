@@ -83,7 +83,13 @@ team that adopts Lem may have its own.
                                     branch's tip, with `resumed-from.txt` naming the old one; a
                                     dropped task resumes only with a breaker that waits and with its
                                     events whole: after `prune` made them one summary event, the
-                                    refusal ends with `/lem` and its ask, the new task to open
+                                    refusal ends with `/lem` and its ask, the new task to open. A
+                                    dropped task the release stop blocked (a `release.stop` of its
+                                    own in the log) needs no breaker: SLUG-2 opens as a new request
+                                    on this release, with the old notes and no record, no state and
+                                    no worktree, on TYPE/SLUG-2 cut from the branch the stop named,
+                                    or from the base when git has none; `next` names its step,
+                                    `lem session open SLUG-2 --why new`
     lem project may-start SLUG      exit 1 for a task in `landing`, `open`, `parked` or an ended state, which
                                     gets no lead, and for a task `queued` with an `after: OTHER`
                                     line while OTHER has not landed or been answered, whether it needs
@@ -143,7 +149,8 @@ Each command that names one task runs the release rule first (`lem_release`): a 
 releases back or more stops it with exit 1 and a message that names the way on, logged once as
 `release.stop`, and its state stays as it is. `state SLUG` with `dropped`, `landed` or `answered`,
 the three ends of a task, and `resume` of a dropped task pass, and log the same stop once; `resume`
-of a parked task stops. A task begun on a newer release than this Lem stops each command, and
+of a parked task stops. A dropped task with a stop of its own resumes as a new request, from its notes
+and its branch, and reads none of its records. A task begun on a newer release than this Lem stops each command, and
 nothing is written.
 
 Every state block is also an event. `events.jsonl` in the state folder is the record, one JSON
@@ -412,6 +419,7 @@ import argparse
 import contextlib
 import difflib
 import fcntl
+import fnmatch
 import importlib
 import json
 import os
@@ -2202,6 +2210,10 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
 RESUMED_FILES = ("task.md", "talk.md", "directions.md", "interview-notes.md", "scout.md", "investigation.md", "outside.md",
                  "criteria.md", "criteria-read.md", "criteria.json", "decisions.jsonl", "handoff.md", "ticket.txt", "ticket-repo.txt")
 RESUMED_GLOBS = ("breaker-*.md",)
+# What the resume of a task the release stop blocked copies: the documents an agent reads as text and
+# the ticket, and no record (`criteria.json`, `decisions.jsonl`). That task began two releases back or
+# more, and a release reads the records of the release just before it and no older ones (lem_release).
+RESUMED_NOTES = (*(name for name in RESUMED_FILES if name.endswith(".md")), "ticket.txt", "ticket-repo.txt")
 # The events of a dropped task that the new one takes with it, under its own slug and with `from`, in
 # the log's order and each with its own time as `was_at`: what the landing and the board read of its
 # criteria, its decisions, its plan talk and its investigation, each stage's start with its end.
@@ -2281,11 +2293,92 @@ def summarized_refusal(log: list[dict], slug: str, ask: str) -> None:
         )
 
 
+def resumed_files(names: list[str], notes: bool) -> list[str]:
+    """Of NAMES, the files of a dropped task's directory, the ones its resume copies into the new task:
+    RESUMED_FILES and RESUMED_GLOBS, or with NOTES, for a task the release stop blocked, the
+    documents and the ticket alone (RESUMED_NOTES)."""
+    kept = RESUMED_NOTES if notes else RESUMED_FILES
+    return sorted(name for name in set(names) if name in kept or any(fnmatch.fnmatchcase(name, pattern) for pattern in RESUMED_GLOBS))
+
+
+def write_resumed(target: Path, carried: dict[str, tuple[bytes, os.stat_result]], folders: list[str], notes: bool) -> None:
+    """Write into TARGET what `resumed_files` chooses of the files a resume read (`resumed_reads`), and the
+    pictures of `media/` with its folders, each file as it was read, with its mode and its times, as a
+    copy keeps them."""
+    chosen = set(resumed_files([path for path in carried if "/" not in path], notes))
+    for folder in folders:
+        (target / folder).mkdir(parents=True, exist_ok=True)
+    for path, (data, facts) in carried.items():
+        if path not in chosen and not path.startswith("media/"):
+            continue
+        (target / path).write_bytes(data)
+        os.chmod(target / path, stat.S_IMODE(facts.st_mode))
+        os.utime(target / path, ns=(facts.st_atime_ns, facts.st_mtime_ns))
+
+
+def went_on_in(root: Path, slug: str) -> str | None:
+    """The task a dropped task SLUG went on in already (its `resumed-from.txt` names SLUG), or None."""
+    return next((path.parent.name for path in sorted((state_root(root) / "tasks").glob(f"*/{RESUMED_FROM}")) if text_of(path).strip() == slug), None)
+
+
+def resume_as_request(root: Path, slug: str, directory: Path, ask: str, stops: list[dict],
+                      carried: dict[str, tuple[bytes, os.stat_result]], folders: list[str]) -> dict:
+    """The resume of a dropped task that the release stop blocked (STOPS, its `release.stop` events,
+    oldest first), with the files the resume read of it (CARRIED, FOLDERS): a new request on this
+    release, which reads no record of the old one. Its branch is cut from the branch the newest stop
+    named (git's own name for it at the stop, lem_release.branch_of), and with none, or one git no
+    longer has, the new task starts from the base. Its directory gets the
+    notes (RESUMED_NOTES), its ask, its own mark and `resumed-from.txt`, and no state: its session opens
+    as a new task's does (`serve.py:act_start`) and takes the shape anew, with the old criteria.md as
+    the proposal of its criteria."""
+    again = went_on_in(root, slug)
+    if again:
+        raise SettingsError(f"the dropped task {slug!r} goes on in {again!r} already: `lem project resume {again}` when that one is parked or dropped too")
+    settings = load(root)
+    main = main_checkout(root)
+    new = resumed_slug(root, slug)
+    old = next((stop.get("branch") for stop in reversed(stops) if isinstance(stop.get("branch"), str) and stop.get("branch")), None)
+    exists = old is not None and subprocess.run(["git", "-C", str(main), "rev-parse", "--verify", "--quiet", f"refs/heads/{old}"],
+                                                capture_output=True, text=True, check=False).returncode == 0
+    # the type of the old branch's name (`fix/invoice-totals`), since the old state's type line is a
+    # record of a release two back; the new session takes the type anew, and keeps this branch
+    first = old.split("/", 1)[0] if exists and "/" in old else None
+    branch = f"{first if first in TYPES else 'feat'}/{new}" if exists else None
+    target = state_root(root) / "tasks" / new
+    if target.exists():
+        raise SettingsError(f"{target} exists already: no task is resumed into another task's folder")
+    taken_on_remote(root, new, branch)
+    claim: contextlib.AbstractContextManager = contextlib.nullcontext()
+    if (directory / "ticket.txt").is_file():
+        # the ticket goes on with the work, as for any resume
+        claim = held_ticket(root, new, text_of(directory / "ticket.txt").strip(), read_tasks(root, settings), (settings["tracker"] or {}).get("kind"), succeeds=slug)
+    with claim:
+        if branch:
+            made = subprocess.run(["git", "-C", str(main), "branch", "--no-track", branch, str(old)], capture_output=True, text=True, check=False)
+            if made.returncode != 0:
+                raise SettingsError(f"git could not make {branch} from {old}: {(made.stderr or made.stdout).strip()}")
+    (target / "reports").mkdir(parents=True)
+    try:
+        lem_release.mark(target, main)
+    except ValueError as error:
+        raise SettingsError(str(error)) from None
+    (target / "ask.txt").write_text(ask + "\n", encoding="utf-8")
+    write_resumed(target, carried, folders, notes=True)
+    (target / RESUMED_FROM).write_text(slug + "\n", encoding="utf-8")
+    gone = f"the branch {old} is gone" if old else f"git named no branch of {slug} when Lem stopped it"
+    return {"task": new, "resumed": "request", "from": slug, "branch": branch, "from_branch": old if exists else None, "missing": None if exists else old,
+            "status": None, "next": f"lem session open {new} --why new",
+            "says": f"{slug} stays dropped; {new} is a new request on this release, from the notes {slug} left and "
+                    + (f"the commits of {old}, on {branch}" if exists else f"the base branch, since {gone}")
+                    + f": `lem session open {new} --why new` opens its session, which takes its shape anew"}
+
+
 def cmd_resume(root: Path, slug: str) -> dict:
     """The owner's word to go on with a task he put aside: a parked one comes back as it was, and a
     dropped one goes on in a new task that starts from its files and its branch. A dropped task whose
     events became its summary (SUMMARY) is refused: the events a resumed task carries over are gone, and
-    so are the files, since prune keeps only its small record."""
+    so are the files, since prune keeps only its small record. A dropped task the release stop blocked
+    goes on as a new request (`resume_as_request`)."""
     directory = task_directory(root, slug)
     blocks = blocks_of(text_of(directory / "state.md")) if (directory / "state.md").is_file() else []
     now = blocks[0]["status"] if blocks else None
@@ -2321,6 +2414,11 @@ def cmd_resume(root: Path, slug: str) -> dict:
     if failed:
         raise SettingsError(f"resume reads every file it carries before it writes, and {failed}, so it made nothing: make it readable, then resume again")
 
+    # a task the release stop blocked goes on as a new request; it reads no record of the old one
+    stops = [event for event in log if event.get("task") == slug and event.get("event") == lem_release.STOP]
+    if stops:
+        return resume_as_request(root, slug, directory, ask, stops, carried_files, media_folders)
+
     def carried_text(name: str) -> str:
         try:
             return carried_files[name][0].decode("utf-8")
@@ -2334,7 +2432,7 @@ def cmd_resume(root: Path, slug: str) -> dict:
             f"the task {slug!r} was dropped with no breaker that waits and its handoff beside it, so there is no talk to go back to: "
             "new work for it is a new ask (`/lem new`), which may name its branch",
         )
-    again = next((path.parent.name for path in sorted((state_root(root) / "tasks").glob(f"*/{RESUMED_FROM}")) if text_of(path).strip() == slug), None)
+    again = went_on_in(root, slug)
     if again:
         raise SettingsError(f"the dropped task {slug!r} goes on in {again!r} already: `lem project resume {again}` when that one is parked or dropped too")
     settings = load(root)
@@ -2363,15 +2461,7 @@ def cmd_resume(root: Path, slug: str) -> dict:
                 raise SettingsError(f"git could not make {branch} from {old}: {(made.stderr or made.stdout).strip()}")
     (target / "reports").mkdir(parents=True)
     (target / "ask.txt").write_text(ask + "\n", encoding="utf-8")
-    for folder in media_folders:
-        (target / folder).mkdir(parents=True, exist_ok=True)
-    # each file as it was read, with its mode and its times, as a copy keeps them
-    for path, (data, facts) in carried_files.items():
-        if path == "brief.md":
-            continue
-        (target / path).write_bytes(data)
-        os.chmod(target / path, stat.S_IMODE(facts.st_mode))
-        os.utime(target / path, ns=(facts.st_atime_ns, facts.st_mtime_ns))
+    write_resumed(target, carried_files, media_folders, notes=False)
     (target / RESUMED_FROM).write_text(slug + "\n", encoding="utf-8")
     worktree = main / Path(settings["places"]["worktrees"]["path"]).relative_to(root.resolve()) / new
     if "brief.md" in carried_files:
@@ -4759,7 +4849,7 @@ def main(argv: list[str] | None = None) -> None:
     state.add_argument("lines", nargs="+", metavar="LINE")
     state.add_argument("--start-over", action="store_true", help="ready over a task in landing or open: its landing starts over, as land.py's message says")
     commands.add_parser("tasks")
-    commands.add_parser("resume", help="bring a parked task back on the owner's word, or open a new task from a dropped one's handoff and branch").add_argument("slug")
+    commands.add_parser("resume", help="bring a parked task back on the owner's word, or open a new task from a dropped one's handoff or notes and its branch").add_argument("slug")
     owner = commands.add_parser("owner", help="the owner says that he is away, or back again, for every repository on this machine; watch waits for his next word")
     owner.add_argument("status", metavar="away|back|watch")
     owner.add_argument("--words", help="the owner's words as typed (away and back)")

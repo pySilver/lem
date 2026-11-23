@@ -1329,5 +1329,89 @@ class ResumeSummarized(unittest.TestCase):
         self.assertEqual(self.log.read_bytes(), before)
 
 
+class ResumeAsRequest(unittest.TestCase):
+    """`lem project resume` of `card-foot`, dropped after the release stop blocked it: a new request with
+    no breaker and no handoff, which starts from the base when no stop named a branch git still has."""
+
+    def setUp(self):
+        from unittest import mock
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.root = Path(folder.name).resolve()
+        self.state = self.root / "state"
+        project.STATE_ROOTS[self.root] = self.state
+        self.addCleanup(project.STATE_ROOTS.pop, self.root)
+        self.directory = self.state / "tasks" / "card-foot"
+        (self.directory / "reports").mkdir(parents=True)
+        (self.directory / "state.md").write_text(block(35, "dropped", "the owner dropped it"), encoding="utf-8")
+        (self.directory / "ask.txt").write_text("Put the card's foot under the total\n", encoding="utf-8")
+        (self.directory / "release.txt").write_text("0.0.1\n", encoding="utf-8")
+        (self.directory / "task.md").write_text("# Put the card's foot under the total\n", encoding="utf-8")
+        (self.directory / "decisions.jsonl").write_text("not a record of this release\n", encoding="utf-8")
+        self.log = self.state / "events.jsonl"
+        settings = {"places": {"worktrees": {"path": str(self.root / ".lem" / "worktrees")}}, "state": {"keep_days": 30, "from": ".lem/project.toml"}}
+        for patched in (mock.patch.object(project, "load", return_value=settings), mock.patch.object(project, "main_checkout", return_value=self.root),
+                        mock.patch.object(project, "taken_on_remote"), mock.patch.object(project.lem_release, "installs", return_value=None)):
+            patched.start()
+            self.addCleanup(patched.stop)
+
+    def stopped(self, *branches: str | None) -> None:
+        self.log.write_text("".join(json.dumps(record) + "\n" for record in [
+            {"ts": back(40), "event": "task.state", "task": "card-foot", "status": "building", "text": "lead: builder", "lines": [], "branch": "feat/card-foot"},
+            *({"ts": back(38), "event": "release.stop", "task": "card-foot", "began": "0.0.1", "running": project.lem_release.running(),
+               "branch": branch, "say": "card-foot began on Lem 0.0.1"} for branch in branches),
+            {"ts": back(35), "event": "task.state", "task": "card-foot", "status": "dropped", "text": "the owner dropped it", "lines": []},
+        ]), encoding="utf-8")
+
+    def test_a_stop_that_named_no_branch_starts_the_request_from_the_base_and_says_so(self):
+        self.stopped(None)
+        said = project.cmd_resume(self.root, "card-foot")
+        self.assertEqual((said["task"], said["resumed"], said["branch"], said["from_branch"], said["missing"], said["status"], said["next"]),
+                         ("card-foot-2", "request", None, None, None, None, "lem session open card-foot-2 --why new"))
+        self.assertIn("the base branch, since git named no branch of card-foot when Lem stopped it", said["says"])
+        new = self.state / "tasks" / "card-foot-2"
+        self.assertEqual(sorted(path.name for path in new.iterdir()), ["ask.txt", "release.txt", "reports", "resumed-from.txt", "task.md"])
+        self.assertEqual((new / "release.txt").read_text(encoding="utf-8").strip(), project.lem_release.running())
+
+    def test_a_branch_git_no_longer_has_is_named_as_missing_and_the_old_task_branch_of_its_state_is_not_read(self):
+        # the newest stop that named a branch is the one read; the task.state's branch is a record of the old release
+        self.stopped("fix/card-foot", None)
+        said = project.cmd_resume(self.root, "card-foot")
+        self.assertEqual((said["branch"], said["from_branch"], said["missing"]), (None, None, "fix/card-foot"))
+        self.assertIn("the base branch, since the branch fix/card-foot is gone", said["says"])
+
+    def test_a_dropped_task_with_no_stop_keeps_the_rule_of_a_breaker_and_its_handoff(self):
+        (self.directory / "release.txt").write_text(project.lem_release.running() + "\n", encoding="utf-8")
+        (self.directory / "decisions.jsonl").write_text("", encoding="utf-8")
+        self.stopped()
+        with self.assertRaises(project.SettingsError) as said:
+            project.cmd_resume(self.root, "card-foot")
+        self.assertIn("was dropped with no breaker that waits and its handoff beside it", str(said.exception))
+        self.assertFalse((self.state / "tasks" / "card-foot-2").exists())
+
+
+class ResumedFiles(unittest.TestCase):
+    """What `lem project resume` copies of a dropped task's files (`resumed_files`): every document and
+    record for a task with its breaker, and for a task the release stop blocked the notes alone."""
+
+    NAMES = ["task.md", "talk.md", "handoff.md", "criteria.md", "criteria-read.md", "criteria.json", "decisions.jsonl", "brief.md",
+             "breaker-1.md", "breaker-3.md", "ticket.txt", "ticket-repo.txt", "state.md", "landing.json", "pr.md", "release.txt", "ask.txt",
+             "state.lock", "Breaker-2.md", "breaker-4.txt"]
+
+    def test_a_task_with_its_breaker_takes_its_records_too(self):
+        self.assertEqual(project.resumed_files(self.NAMES, notes=False),
+                         ["breaker-1.md", "breaker-3.md", "criteria-read.md", "criteria.json", "criteria.md", "decisions.jsonl", "handoff.md",
+                          "talk.md", "task.md", "ticket-repo.txt", "ticket.txt"])
+
+    def test_a_task_the_release_stop_blocked_takes_its_notes_and_its_ticket_and_no_record(self):
+        self.assertEqual(project.resumed_files(self.NAMES, notes=True),
+                         ["breaker-1.md", "breaker-3.md", "criteria-read.md", "criteria.md", "handoff.md", "talk.md", "task.md",
+                          "ticket-repo.txt", "ticket.txt"])
+
+    def test_the_notes_are_each_markdown_document_of_the_resumed_files_and_the_ticket(self):
+        self.assertEqual(set(project.RESUMED_NOTES), {"task.md", "talk.md", "directions.md", "interview-notes.md", "scout.md", "investigation.md",
+                                                      "outside.md", "criteria.md", "criteria-read.md", "handoff.md", "ticket.txt", "ticket-repo.txt"})
+
+
 if __name__ == "__main__":
     unittest.main()
