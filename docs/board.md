@@ -18,7 +18,7 @@ The first page lists the repositories that use Lem, each with what waits for you
 | --- | --- | --- |
 | **Tasks** | `T` | Who acts next? One column for each actor. |
 | **Waits for you** | `W` | What must I do? The rows of [what waits for you](when-lem-needs-you.md#what-waits-for-you). |
-| **Backlog** | `B` | What waits for later? The backlog, in groups by worth. |
+| **Backlog** | `B` | What waits for later? The [reviewer's items](#the-reviewers-items), then the backlog in groups by worth. |
 | **Activity** | `A` | Where did the time go? A chart of each task, and every event. |
 
 Press each key alone, with no Shift. `Cmd-K` (`Ctrl-K` off a Mac), or the **Search** button, finds
@@ -42,7 +42,7 @@ closes the panel:
 Buttons on "Waits for you" and the task pages do what Lem does on your words:
 
 - **New task** (`+`, or the key `N`): type a request, and Lem opens the session of the new task.
-  A backlog item has **Start a task**, and that task removes the item on its branch.
+  A backlog item has **Start a task**, and the item leaves the backlog when that task merges.
 - **Approve the criteria**: your yes to the criteria.
 - **Merge**: a page shows green or not green, the pull request and the commit first. You cannot
   undo a merge. On a phone, the page opens over the task, and its button becomes active when you
@@ -52,6 +52,21 @@ Buttons on "Waits for you" and the task pages do what Lem does on your words:
 
 On a phone, **Approve the criteria** and **Park it** open over the task in the same way.
 The page then shows the result, or why Lem refused.
+
+## The reviewer's items
+
+The night and the retro write what they find as proposals. Each morning, after the retro, a
+reviewer agent reads them and refutes the weak ones. It puts the proposals that pass into backlog
+items, one item for each area. These items are in `.lem/state/backlog/`, which git ignores.
+**Backlog** shows them in a group of their own, before the other items.
+
+- An item that no task builds is "undecided". The **Backlog** key shows the number of undecided
+  items.
+- **Start a task** opens a task for the item. The item then shows the name of that task. The item
+  leaves the backlog when the task merges, and it is undecided again when you drop the task.
+- **Drop** removes the item at once. The record of the proposals keeps the drop, so no later
+  reviewer passes that proposal again. While a task builds the item, Lem refuses the drop and gives
+  the name of the task.
 
 ## The board on your phone
 

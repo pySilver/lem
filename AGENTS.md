@@ -170,7 +170,8 @@ Each script's module docstring says what it does and why; this list says where e
   plan talk's pair), `scout.md`, `investigator.md`, `small.md` (the fast track's one builder),
   `landing.md` (a builder of a landing), `review.md` (the review before a pull request), `merge.md`
   (the merge agent), `writing.md` (how a document for the owner is written, from the interview to
-  the merge agent) and `nap.md`.
+  the merge agent), `proposals.md` (the reviewer of the night's and the retro's proposals) and
+  `nap.md`.
 - `skills/lem/templates/`: `profile.md` and `persona.md`, which onboarding fills; `handoff.md`, the
   hand-over between two agents of a task; `breaker.md`, the breaker's document.
 - `skills/lem/harness/`: the capability contract, `README.md`, and one file for each agent, a core with
@@ -179,10 +180,12 @@ Each script's module docstring says what it does and why; this list says where e
   - `project.py` (`lem project`): a repository's settings and the one place of each file Lem reads
     beside them (`PLACES`), a task's state and directory, the event log, the owner's status and its
     watch, `waiting` (the one list of what waits for the owner), `prune` (what the state folder
-    keeps, `state.keep_days`, which one machine's `.lem/project.local.toml` may set for itself), and
-    the machine's `load` and `handoff` numbers.
+    keeps, `state.keep_days`, which one machine's `.lem/project.local.toml` may set for itself),
+    `proposals` (the night's and the retro's proposals, the reviewer's verdicts, the owner's drop),
+    and the machine's `load` and `handoff` numbers.
   - `session.py` (`lem session`): a task's own session in agterm, its change of phase, its wake-up,
-    the handoff's check and the copy of the talk; `session_hook.py`: the plugin's `PreCompact` and
+    the handoff's check and the copy of the talk, and `close-job`, the end of a scheduled job's
+    session; `session_hook.py`: the plugin's `PreCompact` and
     `SessionStart` hooks of a task's session (every source: the record of each Claude Code session of
     the task, and after a compaction the task's files); `lem_tokens.py`: the tokens a task's Claude
     Code sessions spent, from their transcripts, for the merge brief; `lem_signs.py`: the signs of
@@ -229,13 +232,15 @@ Each script's module docstring says what it does and why; this list says where e
   and the devices `push.json`.
 - `.lem/`: Lem's own settings, profile, cast and lessons, in the places every repository has them.
   Its `state/`, which git ignores, is the state of a repository's Lem: the tasks, the event log,
-  the night reports, the naps, the experts' folders, a panel's copies, the panels' folders
-  (`panels/`, which `lem cast run-dir` makes), `forge.json`, the board
-  server's last look at GitHub, and `inbox.json`, its record of the owner's Inbox: its last look at
-  the Inbox and each thing it sent there. `lem project prune` removes from it what is older than
-  `state.keep_days`: of a task that ended and that nothing happened in for that many days, every
-  file but its small record (`lem_artifacts.SMALL_RECORD`), and its events become one summary event
-  of the log. `.lem/worktrees/` holds
+  the night reports, the records of the night's and the retro's proposals (`night/` and `retros/`,
+  a file for each day), the reviewer's backlog items (`backlog/`) and `proposals.lock` over both,
+  the naps, the experts' folders, a panel's copies, the panels' folders (`panels/`, which
+  `lem cast run-dir` makes), `forge.json`, the board server's last look at GitHub, and
+  `inbox.json`, its record of the owner's Inbox: its last look at the Inbox and each thing it sent
+  there. `lem project prune` keeps the records and the items, and removes from the rest what is
+  older than `state.keep_days`: of a task that ended and that nothing happened in for that many
+  days, every file but its small record (`lem_artifacts.SMALL_RECORD`), and its events become one
+  summary event of the log. `.lem/worktrees/` holds
   the tasks' worktrees. `.revmux/` is the review tool's configuration for this repository.
 - The naps, an optional part: `prompts/nap.md` is written after the owner's own nap routine and
   keeps its voice (a change is tried with one real nap, and its dream is read: a brief that makes a
@@ -247,7 +252,7 @@ Each script's module docstring says what it does and why; this list says where e
   board, the phone, two machines under one address, the server), `install.md`, `linear.md` and
   `github-issues.md`; and `settings.md`, the reference, one table for each table of the settings,
   one to one with `project.py` (`tests/lem-settings.sh` checks it). How Lem works inside is in this file and the
-  skill. Beside them: `free-hour.md` (how an unattended maintainer's session may change Lem),
+  skill. Beside them: `free-hour.md` (how the night of this repository searches and proposes),
   `rulings/`, with `rulings.md`, the list of the owner's rulings and of the session's choices open
   to him, and `history.md`, what a test or one place holds of them, `backlog/`, Lem's own deferred
   work, and `plans/`, the plans that built Lem, each finished one

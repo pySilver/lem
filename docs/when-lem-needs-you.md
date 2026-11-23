@@ -70,8 +70,7 @@ Type `/lem`. Lem opens the board, and gives one list in this order:
 6. the plans that wait for you to read them;
 7. the merge reviews that call you;
 8. the pull requests that wait for your merge, and each merge that GitHub or Lem refused, each
-   green or with its reasons;
-9. the changes that the morning retro proposes.
+   green or with its reasons.
 
 An interview is on the list only while it asks you a question. While Lem writes the acceptance
 criteria, or the personas read them, it is not there. While the session of a task works on your
@@ -80,6 +79,10 @@ again. When Lem cannot read the session, the task stays on the list.
 
 The time on a row starts with the step that started its wait. For example, the acceptance criteria
 count from the time that they wait for your yes, not from the start of the interview.
+
+What the night and the retro propose is not on the list. A reviewer agent reads each proposal
+first, and you see only the proposals that pass, as items of the board's
+[**Backlog**](board.md#the-reviewers-items) view.
 
 The [board](board.md) shows the same rows, in the same order, in its view **Waits for you**. When
 Lem cannot read the sessions of agterm, the list says so.
