@@ -10,28 +10,39 @@ Size: full, because the board, its server, `lem-ask` and the task's session each
    1. The session of `export-notes` puts up the card "Keep the empty cell? A: yes, B: no, write a dash".
    2. On the owner's phone, the row of `export-notes` in "Waits for you" shows that question.
    3. He taps the row. The same page as in agterm opens, with A, B and the note field.
+   - test: `python3 -B -m unittest tests/unit/test_serve_cards.py tests/unit/test_board_model.py tests/unit/test_board_task.py` in `tests/unit/test_serve_cards.py`, `tests/unit/test_board_model.py`, `tests/unit/test_board_task.py`
 2. A pick on the board answers the card as a pick on the card in the session does:
    1. The owner taps B on his phone, with the note "a dash, as in the invoice export".
    2. The server records B and the note as his answer to that card, and wakes the session of `export-notes`.
    3. The session reads B and the note, closes its own card, logs his decision as the owner's with his note, and goes on.
    4. The row of `export-notes` leaves "Waits for you" on every open board page, on the Mac and on the phone, with no reload.
+   - test: `python3 -B -m unittest tests/unit/test_serve_cards.py tests/unit/test_cards.py` in `tests/unit/test_serve_cards.py`, `tests/unit/test_cards.py`
+   - test: `bash tests/test-ask.sh` in `tests/test-ask.sh`
 3. The board takes an answer with a note, never a conversation: on a question with options, a note with no option picked is refused, and so is the page's wish to talk, and the row stays in "Waits for you":
    1. The owner writes "why not both?" on the card of `export-notes` and picks no option.
    2. The board says that a question goes to the session at the Mac, and records nothing.
    3. The row and the card stay as they were.
+   - test: `python3 -B -m unittest tests/unit/test_serve_cards.py` in `tests/unit/test_serve_cards.py`
 4. Only the first answer counts: an answer to a question that no longer waits is refused, and the board says what took effect; when two answers come before the session reads either, the one recorded first counts, and the session says in one line which it took and from where:
    1. The owner picks A on the card in the session at the Mac.
    2. A minute later his phone, still on the old page, sends B.
    3. The board refuses B, says that A was taken in the session, and records nothing.
+   - test: `python3 -B -m unittest tests/unit/test_cards.py tests/unit/test_serve_cards.py` in `tests/unit/test_cards.py`, `tests/unit/test_serve_cards.py`
 5. Each kind of card that `lem-ask` makes, one for each template in `skills/lem-ask/templates/`, can be read and answered on a phone screen 390 pixels wide: no part of it is cut off, and each option and control can be tapped. The task's report shows a phone-size screenshot of each kind.
+   - test: `bash tests/lem-board-keys.sh` in `tests/lem-board-keys.sh`, `tests/board-cdp.mjs`, `tests/board-showcase.py`
 6. A plan that waits for the owner's read gets Build and Drop, and a breaker gets Help, Park and Drop, with the same buttons and note field; Help sends his note to the lead as his part of the talk, and Drop asks for a confirm first, as Park does:
    1. `export-notes` trips breaker 1. Its row shows Help, Park and Drop.
    2. The owner taps Drop. The board asks "Drop export-notes?".
    3. He confirms. The session drops the task as on `/lem drop export-notes`.
+   - test: `python3 -B -m unittest tests/unit/test_board_answers.py` in `tests/unit/test_board_answers.py`
 7. The two yes/no rows get Yes and No with the same buttons: "Skip the persona read?" of an interview, and "Approve this criterion?" of a small change that someone else asked for. The owner's Yes on "Skip the persona read?" of `export-notes` makes its session skip the read and log his word, as his "y" typed in the session does.
+   - test: `python3 -B -m unittest tests/unit/test_board_answers.py` in `tests/unit/test_board_answers.py`
 8. The board's server never types into a session, closes its card, or decides: it records the answer and wakes the session, and the session closes its own card. The server's code holds no call that answers or closes a session's overlay.
+   - test: `python3 -B -m unittest tests/unit/test_cards.py tests/unit/test_serve_cards.py` in `tests/unit/test_cards.py`, `tests/unit/test_serve_cards.py`
 9. Every answer from the board is in the task's record as the owner's: the question, the option, the note, the time, and whether it came from the Mac or the phone. The decision the session logs from it names that answer, and the pull request lists it.
+   - test: `python3 -B -m unittest tests/unit/test_serve_cards.py tests/unit/test_board_answers.py` in `tests/unit/test_serve_cards.py`, `tests/unit/test_board_answers.py`
 10. `docs/rulings/rulings.md` holds the owner's ruling "The board takes an answer with a note, never a conversation." as a bullet under "The board and the pages for him", with the day 2026-11-23.
+   - no test: the change is one bullet of `docs/rulings/rulings.md`; `tests/unit/test_agents_md.py` checks the list's groups and each bullet's day.
 
 ## How it works
 
