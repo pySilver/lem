@@ -2938,9 +2938,8 @@ def forge_once(workspace: Workspace, now: int | None = None) -> list[dict]:
     if not due:
         return []
     workspace.forge["looked"] = now
-    settings = workspace.settings()
-    if settings is None:
-        return []
+    # has_forge read these settings for `due`, and a look is due only with a forge
+    settings = cast("dict", workspace.settings())
     main = Path(settings["main"])
     if not shutil.which("gh"):
         workspace.forge["problem"] = (
