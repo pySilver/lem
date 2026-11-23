@@ -128,7 +128,20 @@ class Landing(unittest.TestCase):
         waiting = one(state(0, "landing", "the checks start"), ev(1, "gate.wait", load=9.5, start=6))
         self.assertEqual(bm.card_line(waiting, bm.LANE["checks"]), "Waits for the load: 9.5, starts below 6")
         going = one(state(0, "landing", "the checks start"), ev(1, "gate.wait", load=9.5, start=6), ev(2, "gate.start", commands=2))
-        self.assertEqual(bm.card_line(going, bm.LANE["checks"]), "The checks start")
+        self.assertEqual((bm.card_line(going, bm.LANE["checks"]), bm.now_head(going)), ("The checks run", "The checks run"))
+
+    def test_criterion_1_a_landing_card_says_the_step_that_runs_as_its_page_does(self):
+        t = one(state(0, "landing", "the checks start"), ev(1, "builder.start", job="the repair of a conflict with the base"),
+                ev(12, "builder.end"), ev(13, "polish.start", before="1a2b3c4d5"))
+        self.assertEqual(bm.now_head(t), "The polish pass runs")
+        self.assertEqual(bm.card_line(t, bm.LANE["checks"]), "The polish pass runs")
+        builder = one(state(0, "landing", "the checks start"), ev(1, "builder.start", job="the repair of a conflict with the base"))
+        self.assertEqual(bm.card_line(builder, bm.LANE["checks"]), bm.now_head(builder))
+        # a step that ended leaves the state's own words, and so does a status other than landing
+        ended = one(state(0, "landing", "the checks start"), ev(1, "polish.start", before="1a2b3c4d5"), ev(9, "polish", before="1a2b3c4d5", after="2b3c4d5e6"))
+        self.assertEqual(bm.card_line(ended, bm.LANE["checks"]), "The checks start")
+        building = one(state(0, "building", "task 2 of 3"), ev(1, "builder.start", job="task 2"))
+        self.assertEqual(bm.card_line(building, bm.LANE["build"]), "Task 2 of 3")
 
     def test_a_landing_that_waits_with_no_task_ahead_keeps_its_load_and_after_words(self):
         after = one(state(0, "landing", "the checks start"), ev(1, "gate.wait", load=3.0, start=6, after="keys-help"))
