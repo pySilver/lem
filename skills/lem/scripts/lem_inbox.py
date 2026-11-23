@@ -5,8 +5,9 @@ list of what waits for the owner (`lem_board_model.waits_of`) every LOOK_SECONDS
 away (`/lem im-away`, the model's `away`) and the Inbox runs on this Mac with a tailnet address, each
 row of the list goes to the Inbox once, in the thread named by the task's slug. A row that left the
 list has its open question withdrawn, the mark either way, so that the phone shows "No longer
-applies", unless the task's session holds it back while it works on his answer (`plan`); a question he answered in the Inbox gets nothing. At `/lem im-back` nothing is withdrawn,
-and after it nothing new is sent.
+applies", unless the task's session holds it back while it works on his answer (`plan`); a
+question he answered in the Inbox gets nothing. At `/lem im-back` nothing is withdrawn, and after
+it nothing new is sent.
 
 What a row becomes (`things_of`, `thing_of`, pure functions over the model):
 
@@ -35,8 +36,8 @@ The rule (`plan`): a row that the task's working session holds back (`lem_board_
 held task whose session's turn runs on his answer) keeps its recorded thing as it stands, away or not:
 it is neither withdrawn, forgotten nor sent again, so that a turn the Inbox's own wake started sends
 nothing when it ends on the same block. Of every other recorded thing, one that still matches its row
-stays, and one whose row left, or whose thing changed, leaves the record: a question is withdrawn (a message as the same session, with
-`reply_to` its message and `supersedes` a list of its id), a note is only forgotten. While the mark
+stays, and one whose row left, or whose thing changed, leaves the record: a question is withdrawn (a
+message as the same session, with `reply_to` its message and `supersedes` a list of its id), a note is only forgotten. While the mark
 does not say away, or the door is closed, a thing whose session alone changed, or whose form changed
 with it, stays, and so does one whose row still waits behind its task's session row: the question stays
 open after `/lem im-back`, and while he is away it is withdrawn only when a newer message follows it.
