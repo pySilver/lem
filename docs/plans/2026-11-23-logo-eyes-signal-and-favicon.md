@@ -1,0 +1,46 @@
+# The logo's signal: from Lem's hands to the red eyes of its four agents, and a tab icon for each theme
+
+careful: yes, because "A change bends a ruling of the owner" is in reach: task 1 redraws the logo, which the ruling "The logo is the owner's pick" lets change only on his word, and four new eyes and a new glow that drift from what he approved would change his pick without it; the plan of 2026-11-21 for the same scene made the same call.
+
+## Acceptance criteria
+
+Size: full, because the change redraws the animation of both scenes, links a second tab icon and changes the texts and the ruling that describe the logo.
+
+1. Each of the four small agents has a small red eye in its hood, in the day scene and in the night scene. It is the same red as Lem's own eye, so the night scene needs no new color: a visitor in a dark theme sees four red eyes in the same red as in a light theme. Each eye is large enough to see in the README's logo without a zoom.
+2. In each cycle of 8 s, a small glow leaves both of Lem's hands at once and runs down the four strings of the agents, and no other string. The two agents nearest to Lem light up first, then the two outer ones. When the glow reaches an agent, that agent's red eye lights up and then fades:
+   1. A visitor opens the README on GitHub, or https://pysilver.github.io/lem/.
+   2. A small glow leaves Lem's two hands.
+   3. It runs down the strings of the two agents nearest to Lem, and their red eyes light up.
+   4. It runs on down the strings of the two outer agents, and their red eyes light up.
+   5. Each eye fades, and the cycle starts again after 8 s.
+3. Nothing else in the scene lights up or moves along the wire: no pulse runs along the wire, no peg flashes, no agent glows yellow, no light runs down the four strings of the word, and none of the 42 tiles of "Lem" lights up. The letters stay as still as the rest of the drawing. The sky moves as it does today.
+4. Lem's own red eye blinks as it does today, about every 6 s.
+5. A visitor whose browser asks for less motion sees the scene still: no glow moves, and no eye lights up or blinks.
+6. The tab icon follows the visitor's theme: a browser with a light theme shows `assets/lem-mark.svg`, and one with a dark theme shows `assets/lem-mark-night.svg`. A browser that does not choose a tab icon by theme shows `assets/lem-mark.svg`. The published site holds both files: today `assets/lem-mark-night.svg` gives 404 there. The tab icon itself stays as it is, the figure with no red eye.
+7. Each text that describes the logo's animation says what the new scene does: the scene's own description, the alt text in `README.md` and in `site/index.html`, and the logo's bullet in `docs/rulings/rulings.md`. The alt text says first that it is Lem's logo, and stays short. That bullet today says "the current on the wire" and "one red eye"; after the change it names the signal from Lem's hands and the red eyes of its four agents, and it carries the day of the owner's word, 2026-11-23.
+
+## Tasks
+
+1. **The scene.** Criteria 1 to 5, and the scene's own description of criterion 7. In `assets/lem.svg`:
+   - Give each of the four small agents a red eye in its hood (the dark path `M4 -47C8 -46…` of each, `#2a1d18`), drawn with the existing `#ff2a1a` and the gradient `c2-eye`, so `assets/night.py` needs no new color. Each eye is a lit element of its own that rests at `opacity: 0` and an unlit dot or none, as the builder finds reads best at the README's width of 720 px.
+   - Remove the three `.pulse` paths, the eight `.flash` circles, the four `.drip` paths of the word's strands (x 324.5, 445.5, 519.5, 606.5), the four `.glow` groups, the 42 `.tile` paths and Lem's `.flare`, with their rules and keyframes.
+   - Add the signal: in one 8 s cycle a small glow leaves both hands (x about 120 to 140, y 105.5) at once, runs along the short piece of the wire between each hand and the pegs of its two agents, and down the four agents' strands (x 81.5 and 178.5 first, then x 42 and 218); each agent's eye lights as the glow reaches it, then fades. Colors from the existing glow palette (`#ffe7a0`, `#f39a2d`, `#cf6a1c`), which `NIGHT` maps already.
+   - Lem's `.eye` keeps its blink of 6 s. The reduce-motion rule stays the one `@media` of the file.
+   - Rewrite the `<desc>` to say what the new scene does.
+   - Run `python3 assets/night.py` for `assets/lem-night.svg`, and fix the comment in `NIGHT` that names the pulse, the pegs' flash and the tiles.
+   - Rewrite the checks of `tests/test-site.sh` that lock the old animation (its criteria 3, 5 and 7: `scene_wire`, `scene_eye`, `scene_still`) into checks of criteria 1 to 5 of this plan, in both scene files: four agents' eyes in the eye's red, the same red day and night; the glow's elements on the four agents' strands only, inner pair before outer pair, each agent's eye lit after its strand's glow, all in an 8 s cycle; no `.pulse`, `.flash`, `.tile`, `.glow` or `.flare` and nothing animated on the word's strands; the blink of 5 to 7 s; each light at rest unlit, the one reduce-motion rule, no SMIL. Keep `scene_file` (under 50,000 bytes), `scene_sky`, `scene_hex` and `scene_paint` passing.
+   - Files: `assets/lem.svg`, `assets/lem-night.svg`, `assets/night.py`, `tests/test-site.sh`.
+2. **The tab icon.** Criterion 6. In `site/index.html` the icon lines give `assets/lem-mark.svg` to a light theme and to a browser that does not choose by theme, and `assets/lem-mark-night.svg` to a dark theme. Before the markup, the builder finds out from current sources (MDN, the HTML standard, the browsers' bug trackers) which order and which `media` attributes Chrome, Firefox and Safari read on `<link rel="icon">`, and what a browser that ignores `media` takes; the plan's guess is a default line with no `media` and a dark line after it with `media="(prefers-color-scheme: dark)"`, as the board's two lines in `skills/lem/scripts/lem_board_pages.py` take the other form, one `media` on each. `.github/workflows/pages.yml` copies `assets/lem-mark-night.svg` too. `tests/test-site.sh`: the published list (`want`) holds `assets/lem-mark-night.svg`, and a check reads the page's icon lines. The two marks themselves do not change, so `skills/lem/assets/handover.html` and the board's inlined marks stay. Files: `site/index.html`, `.github/workflows/pages.yml`, `tests/test-site.sh`.
+3. **The documents.** Criterion 7, the rest. The alt text of the logo in `README.md` and in `site/index.html`, the same words in both, says first that it is Lem's logo and stays short. The logo's bullet in `docs/rulings/rulings.md` names the signal from Lem's hands and the red eyes of its four agents in place of "the current on the wire" and "one red eye", and gains the day 2026-11-23. The status line of `docs/plans/2026-11-21-hero-logo-animated-background.md` names this plan where it changed that plan's criteria 3, 5 and 7. A sweep of `README.md`, `docs/`, `site/`, `AGENTS.md` and `skills/` for any other text that describes the pulse, the lit tiles or one red eye, each corrected. Files: `README.md`, `site/index.html`, `docs/rulings/rulings.md`, `docs/plans/2026-11-21-hero-logo-animated-background.md`.
+
+## Decisions
+
+- **The glow runs on the wire only between the hands and the agents' pegs.** The strands hang from pegs on the wire (x 42, 81.5, 178.5, 218), and the hands hold the wire at x 118 to 142, so a signal from the hands to the strands has to cross that piece. It stops at the outer pegs and never reaches the left end or the word's pegs. It rests on criterion 2 ("leaves both of Lem's hands … runs down the four strings") and reads criterion 3's "no pulse runs along the wire" as the long pulse of today. The other reading, a glow at the hands and then a glow that starts at the top of each strand, is open to the plan talk.
+- **Lem's flare goes.** It marked the pulse that passed the figure; criterion 3 says nothing else lights up, and criterion 4 keeps only the blink.
+- **No new color.** The eyes take `#ff2a1a`, and the glow the colors `NIGHT` maps today, so the owner's night palette does not change.
+- **The times of the cycle are the builder's**, within criterion 2's order: inner pair, then outer pair, then a rest to 8 s.
+
+## What this plan will not verify
+
+- Which tab icon Safari and Firefox show in each theme: no test here drives a real browser's tab. Task 2 reads the sources, and the report says what they say; the owner's own look in each browser is the check.
+- That an agent's eye is "large enough to see without a zoom": the builder takes a screenshot of the README's width in each theme for the report, and the owner judges it at the merge.
