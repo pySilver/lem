@@ -100,52 +100,99 @@ stateDiagram-v2
    day). One command for the reviewer reads every day's proposals with the earlier refuted and
    dropped ones (`lem project proposals`, or a name the builder finds plainer), and one writes the
    reviewer's verdict on each proposal of the day, so that no agent edits the JSON by hand; a file
-   that does not have the form is refused with the fix. `lem project waiting` no longer lists the
+   that does not have the form is refused with the fix. The commands, so that no agent writes a
+   record or an item by hand:
+   - **add**: the retro and the night add a run's proposals to the day's file, which this command
+     makes when it is not there. A second run on the same day (the owner's retro at 10:00 after
+     the scheduled one) adds its proposals with the next numbers, after those already there, and
+     never rewrites a verdict, a drop or a number. Each run is kept in the file with its time and
+     what it read, also a run of no proposal; the next retro reads what came after the newest
+     run's time.
+   - **read**: every proposal with no verdict, of any day (the file of a morning whose reviewer
+     did not finish is read on the next one), with the refuted and dropped ones of every day.
+   - **verdict**: the reviewer's verdict on each proposal: refuted, with its reason, or passed,
+     with its area. The command writes the passed proposals of one area as one item in
+     `.lem/state/backlog/`, in the backlog's item format, with a front-matter key that names each
+     proposal by its day and number and says where it came from; no item when nothing passed.
+   - **drop**: one call that reads whether a task that has not ended holds the item (its
+     `ask.txt` is the item's path), refuses with that task's slug when one does, and otherwise
+     records the drop of each proposal the item names in its day's file and removes the item's
+     file. The board's server makes it one call under its script lock (`lem_run`, `SCRIPT_LOCK`
+     in `serve.py`), so a Start's `task-dir` comes before it or after it, never between its read
+     and its removal.
+   `lem project task-dir SLUG --ask PATH` refuses a PATH in `.lem/state/backlog/` whose file is
+   not there, with "the item was dropped: read the backlog again". A file of `retros/` in the
+   form of the question page, such as `.lem/state/retros/2026-11-23.json` of this repository, is
+   refused with the fix: the maintaining session converts it by hand into the new form, its
+   proposals with no verdict, in each repository of `workspaces.json` that uses Lem, at the
+   plugin's update that brings this change (`AGENTS.md`, "Lem is not released"), and the next
+   reviewer reads them as proposals with no verdict. `lem project waiting` no longer lists the
    retros and no longer counts their proposals. `lem project prune` keeps `retros/`, `night/` and
    `backlog/` of the state folder. A retro file with no proposal is valid. Unit tests in
    `tests/unit/`, and the checks of `tests/lem-decisions.sh` that read `retros` and `count` change
-   to the new form. Serves criteria 3, 4, 5, 6 and 8 (their records).
+   to the new form. Serves criteria 3, 4, 5, 6, 7 and 8 (their records).
 2. **The reviewer's items on the board.** `board.backlog` reads the items of `.lem/state/backlog/`
    of the main checkout beside those of the backlog folder, each marked as the reviewer's, and as
    held with the slug of the task that holds it, or undecided. The "Backlog" view shows the
    reviewer's items in a group of their own with "Start a task" and "Drop", and the "Backlog" key
    of the board shows the count of undecided items. "Drop" posts to a new route of `serve.py`,
-   through the confirm step the board's other acts use where one fits: it refuses with a message
-   that names the task while a task that has not ended holds the item, else it records the drop of
-   each proposal the item names in its retro's file (task 1's command) and then removes the file.
-   "Start a task" on such an item works as for any item. An item of `docs/backlog` gets no "Drop".
+   through the confirm step the board's other acts use where one fits, and runs task 1's drop as
+   one call: its refusal names the task that holds the item. "Start a task" posts the item's path
+   from the root of the main checkout, never its stem alone, and `act_start` finds the item by that
+   path, so `tests-flaky-check.md` of `docs/backlog` and of `.lem/state/backlog/` are two items.
+   The slug of a start from an item is its stem, or, when a task of that slug has ended, the stem
+   with the first free `-2`, `-3`: an item whose task was dropped is undecided again and starts
+   again (criterion 9), an item of `docs/backlog` too. A task of that slug that has not ended
+   still refuses, as today. An item of `docs/backlog` gets no "Drop".
    Files: `board.py`, `serve.py`, `lem_board_model.py`, `lem_board_pages.py`, the board's assets
    and `tools/board-kit` only where a key needs it, `tests/board-showcase.py`, and checks in
    `tests/lem-serve.sh`, `tests/lem-board-act.sh` and the unit level. Serves criteria 6 and 7.
-3. **The item leaves with the landing.** When `lem land merged` writes `landed` for a task whose
-   `ask.txt` is the path of an item in `.lem/state/backlog/`, it removes that file and says so in
-   its output; a task that is dropped leaves the file where it is, so the item is undecided again.
-   A check in `tests/lem-land-shop.sh` (or the block that holds `merged`) and a unit case. Files:
-   `land.py`. Serves criterion 9.
+3. **The item leaves with the landing.** `forge_done` in `land.py`, the one step every path to
+   `landed` takes (Lem's merge through `merge_locked`, and `lem land merged`), removes the item's
+   file before it writes `landed`, for a task whose `ask.txt` is the path of an item in
+   `.lem/state/backlog/`, and says so in its output. A file that is gone already is no error. A
+   removal that fails raises the landing's error and leaves the task `open`, so the next `lem land
+   merged` tries again, as a failed edit of the pull request's text does (`noted`). A task that is
+   dropped leaves the file where it is, so the item is undecided again. A check in
+   `tests/lem-land-shop.sh` for Lem's merge and for `merged`, and a unit case. Files: `land.py`.
+   Serves criterion 9.
 4. **A job's session closes itself.** A `lem session` command closes the caller's own agterm
    session when no task owns it, once the owner is not looking at it (the `--when-unselected` wait
    of `cmd_close`), and refuses the id of a task's session with the fix (`lem session close SLUG`).
-   It changes no file outside the state folder. A check in `tests/lem-session.sh` with the stand-in
-   for agtermctl: it closes at once while another session is selected, and waits while this one is.
-   Files: `session.py`, the `lem` command's help where it lists the commands. Serves criterion 10.
+   It closes only a session that a job started for that run: the session's `foreground` in
+   `agtermctl tree --json` is the agent's command with the job's line as its last argument,
+   `/lem night`, `/lem night N` or `/lem retro`. Any other session (one where the owner typed
+   `/lem retro` himself, into an agent he started with no prompt) is refused, and stays his. It
+   changes no file outside the state folder. A check in `tests/lem-session.sh` with the stand-in
+   for agtermctl: it closes at once while another session is selected, waits while this one is,
+   closes a session whose foreground ends in `/lem night 2`, and refuses one whose foreground has
+   no such argument. Files: `session.py`, the `lem` command's help where it lists the commands.
+   Serves criterion 10.
 5. **The night, the retro and the reviewer.** `skills/lem/stages/learn.md`, "retro": the retro
-   changes no file and asks the owner nothing, by hand or scheduled; it writes its file for the day
-   also when it proposes nothing, reads the naps since the retro before and the night's proposals
-   file of the days since then, puts a first-time lesson in as a proposal too, then starts a fresh
-   reviewer (`spawn-builder`) with a new brief, `skills/lem/prompts/proposals.md`. That brief: read
-   each proposal of the day against the backlog bar (the ruling of 2026-11-22) and check its facts
-   (the rule is not already in the target file, the cited records exist); refute a proposal that
-   fails, and one the owner dropped or a reviewer refuted on an earlier day, with that day; write
-   what passed as items in `.lem/state/backlog/`, one for each area, in the backlog's item format,
-   each naming its proposals and their sources (a front-matter key that the drop of task 2 reads);
-   no item on a morning where nothing passed; nothing into the repository. `night.md`: a night
-   never takes an item of `.lem/state/backlog/` (it reads only `lem project path backlog`), and a
-   project whose own `AGENTS.md` says its night proposes writes `night/DATE.json` in task 1's form.
-   Both stages end, when the session was started for that run (its first message is the job's
-   `/lem night` or `/lem retro`), with task 4's close. `status.md` loses item 11 and the page of a
-   retro's proposals. `SKILL.md` and `harness/claude-code.md` change where they name these steps.
-   The correction queue's records of a retro say `unasked`, with the proposal they went into.
-   Serves criteria 2, 3, 4, 5, 8 and 10.
+   changes no file and asks the owner nothing, by hand or scheduled; it adds its run to the day's
+   file through task 1's add, also when it proposes nothing, reads the naps since the newest run
+   of the retro and the night's proposals since then, puts a first-time lesson in as a proposal
+   too, then starts a fresh reviewer (`spawn-builder`) with a new brief,
+   `skills/lem/prompts/proposals.md`. That brief: read each proposal with no verdict (task 1's
+   read) against the backlog bar (the ruling of 2026-11-22) and check its facts (the rule is not
+   already in the target file, the cited records exist); refute a proposal that fails, and one the
+   owner dropped or a reviewer refuted on an earlier day, with that day; give each that passed its
+   area; write every verdict, and so every item, through task 1's verdict command, never a file by
+   hand; nothing into the repository. `agents/lem-builder.md` gets a seventh job beside the six it
+   lists: "It names `prompts/proposals.md`: you review the proposals of the night and the retro".
+   It has no worktree and commits nothing, its only writes are the `lem project` commands its file
+   names, rules 1, 3 to 6, 9 and 10 are not its own, and its reply is its report.
+   `night.md`: a night never takes an item of `.lem/state/backlog/` (it reads only `lem project
+   path backlog`), and a project whose own `AGENTS.md` says its night proposes adds its run to
+   `night/DATE.json` through task 1's add. Both stages end with task 4's close, which refuses by
+   itself a session no job started for that run; the stage runs it and reads the refusal as "this
+   session is the owner's". `status.md` loses item 11 and the page of a retro's proposals.
+   `SKILL.md` and `harness/claude-code.md` change where they name these steps. The correction
+   queue: a first-time lesson that became a proposal is recorded with a new verdict, `proposed`
+   (`VERDICTS` in `corrections.py`), `--target` the file the proposal would change, and the
+   proposal's day and number in its `--lesson` line; `lem corrections lessons` gives it with that
+   verdict, and the retro reads a `proposed` lesson as one in no file yet, never as a lesson to
+   remove. A unit case in `tests/unit/` for the new verdict. Serves criteria 2, 3, 4, 5, 8 and 10.
 6. **Lem's own repository.** `AGENTS.md`, the bullet "A maintainer's session with nobody at the
    terminal reads `docs/free-hour.md` first", and `docs/free-hour.md`: the night of this repository
    takes its free hour as a search only, writes what it finds as proposals into
@@ -153,13 +200,28 @@ stateDiagram-v2
    free hour. `docs/rulings/rulings.md`: the bullet "The free hour may edit Lem's skills on a branch
    of the clone" changes to the owner's words of 2026-11-23, and a bullet for "any project that uses
    lem cannot get impovements produced by lem without following our agreed paths" under the naps
-   and night group. `tests/unit/test_agents_md.py` must still pass. Serves criterion 1.
+   and night group. The bullet "The lessons, the retro and Jev stay; a night run ends as a pull
+   request; naps are not shown" changes its words, as a ruling that changes a part of another
+   does: a night that builds a backlog item ends as a pull request, and the night of Lem's own
+   repository makes no branch and writes proposals (the owner's "y", 2026-11-23, in
+   `directions.md`). `tests/unit/test_agents_md.py` must still pass. Serves criterion 1.
 7. **The documents.** `README.md` (the scheduled retro), `docs/when-lem-needs-you.md` (item 9, the
    retro's proposals, becomes the reviewer's items on the "Backlog" view), `docs/board.md` (the
    reviewer's items, "Drop", the count on the "Backlog" key), `docs/flow.md` where it names the
    night or the retro, `site/index.html` in the same commit where it says the same thing, and
    `AGENTS.md`'s layout (`.lem/state/backlog/` in the state folder, `prompts/proposals.md` in the
    prompts). Serves no criterion.
+8. **The try of `claude -p`, the owner's direction.** After task 5, a builder runs one retro under
+   `claude -p "/lem retro"`, with this worktree as `--plugin-dir`, in a throwaway repository it
+   makes in the task directory (onboarded, with a few task records, a nap's waking note and one
+   night file in task 1's form), as `tests/lib.sh` makes its throwaway repositories. Its report
+   says, each with the command and its last line of output: whether the retro ran to its end,
+   whether the day's file holds the run, whether the reviewer it started (a subagent) finished
+   before the process ended and wrote its verdicts and items, and what task 4's close answered.
+   The night is not tried: it waits hours on background `lem session wait` calls (decision 3).
+   No job line changes: the pull request says the result, and with it the line the owner may put
+   in his own job. Nothing of this repository changes, and the throwaway repository is removed
+   after the report. Serves no criterion.
 
 ## Decisions of the plan
 
@@ -171,18 +233,30 @@ stateDiagram-v2
 - The job lines stay the owner's, and no stage needs `claude -p`. A night waits hours on each
   task's session with a background `lem session wait`, whose end wakes an interactive session
   only (harness, `run-in-background`); whether `claude -p` keeps such a wait is untested. Task 4's
-  close ends the session of either kind of run, so the open session that the ask names goes.
-- A run closes its own session when its session was started for that run, its first message the
-  job's `/lem night` or `/lem retro`: the scheduled job's line is the one sign a session has of it,
-  and a session where the owner typed other words before stays his.
+  close ends the session of either kind of run, so the open session that the ask names goes. The
+  owner's direction to try `claude -p` is task 8, a try of the retro, whose result the pull
+  request gives him.
+- A run closes its own session only when a job started that session for that run: the agent's
+  command in agterm's tree ends in the job's line. The cronn skill's job script starts the agent
+  with the prompt as its last argument (`exec ... "$JOB_AGENT" ... "$JOB_PROMPT"` in its
+  `agent-session-job.sh`, read 2026-11-23), and agterm's tree gives each session's `foreground`
+  as its command's words (`agtermctl tree --json`, 2026-11-23). An agent the owner started with no
+  prompt, where he typed `/lem retro`, has no such argument, and its session stays his. Task 4's
+  command checks it, so the stage judges nothing.
+- The records of a day are added to, never written whole: a second retro of the same day keeps the
+  verdicts, the drops and the numbers of the first, since decision 1 lets the owner run one by hand.
 - The reviewer is a builder with a brief of its own, as the scout and the investigator are, started
-  by the retro: no new job, and two agents each morning in place of one.
-- A script writes the proposals' records, so that the form the drop and the next reviewer read is
-  checked.
+  by the retro: no new scheduled job, and two agents each morning in place of one. It is the
+  seventh job of `agents/lem-builder.md`, since the builder's rules give a builder only the jobs
+  that file lists, and a worktree and a commit for each.
+- A script writes the proposals' records and the reviewer's items, so that the form the drop and
+  the next reviewer read is checked, and no agent writes a file in the state folder by hand.
 
 ## Not verified
 
 - A real night and a real retro on the machine's schedule: the checks run the scripts with
   stand-ins for agterm; the first scheduled night and retro after the merge are the test of the
   stage texts, and the commit names this task.
-- `claude -p` for a scheduled job: not tried, as the decision above says.
+- `claude -p` for the night: not tried, as the decision above says; the retro's try is task 8.
+- The job's session's `foreground` as agterm gives it for a session the cronn job opened: read for
+  other sessions on 2026-11-23, and no job's session was open to read then.
