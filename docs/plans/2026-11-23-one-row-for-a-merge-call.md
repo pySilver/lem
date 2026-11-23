@@ -11,15 +11,24 @@ Size: full, because the rows of "Waits for you", its counts, the list of `/lem s
    2. The task now waits for two things: "Read the merge review" and "Merge the pull request #73".
    3. "Waits for you" shows one closed stack: "Logo eyes signal and favicon", "Read the merge review" and "2 things".
    4. The stack stands where "Read the merge review" stood before.
+   - test: `python3 -B -m unittest tests.unit.test_board_pages.WaitStack.test_a_task_of_two_things_is_one_closed_stack_in_the_place_of_its_first_thing` in `tests/unit/test_board_pages.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_model.WaitStacks.test_a_task_of_two_things_is_one_group_in_the_place_of_its_first_and_another_tasks_row_after_it` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_model.WaitStacks.test_two_tasks_of_two_things_are_two_groups_in_the_order_of_their_first_rows` in `tests/unit/test_board_model.py`
 2. A click on a closed stack opens it, and each thing of the task shows under it as its own row, with its own time and its own button; a second click closes it:
    1. The owner clicks the stack of "Logo eyes signal and favicon", on the Mac or on the phone.
    2. Under it are "Read the merge review", 4m 22s, and "Merge the pull request #73", 7m 01s.
    3. The Merge button is on the row "Merge the pull request #73".
    4. He clicks the stack again, and it shows as one closed stack.
+   - test: `python3 -B -m unittest tests.unit.test_board_pages.WaitStack.test_the_stack_holds_each_thing_as_its_own_row_with_its_time_and_the_merge_button_on_the_merge_row` in `tests/unit/test_board_pages.py`
+   - test: `bash tests/lem-board-keys.sh` in `tests/lem-board-keys.sh`: its checks "on a wide screen the stack of refund-line-on-receipt comes closed ..." and "at a phone's width a tap opens the stack of refund-line-on-receipt ..."
 3. A task with one thing that waits for the owner shows one plain row, as today: "Board answers a card", whose interview alone waits for him, shows its one row with the words it has today, with no stack and no "1 thing".
+   - test: `python3 -B -m unittest tests.unit.test_board_model.WaitStacks.test_a_task_of_one_thing_is_a_group_of_its_one_row` in `tests/unit/test_board_model.py`
 4. Each count of "Waits for you" counts a stack once: with "Logo eyes signal and favicon" (two things) and "Board answers a card" (one thing), the view, the sidebar and the phone's icon say 2, where today they say 3.
+   - test: `python3 -B -m unittest tests.unit.test_board_pages.WaitStack.test_each_count_counts_a_stack_once` in `tests/unit/test_board_pages.py`
 5. The bare `/lem` and `/lem status` group the things of one task under that task: "Logo eyes signal and favicon" is one entry, with "read the merge review" and "merge the pull request 73" under it.
+   - test: `python3 -B -m unittest tests.unit.test_board_model.WaitingByTask.test_a_task_whose_merge_review_calls_the_owner_is_one_entry_of_its_two_things_and_counts_once` in `tests/unit/test_board_model.py`
 6. The guides and the page that describe the rows of "Waits for you" (`docs/when-lem-needs-you.md`, `docs/pull-request.md`, `site/index.html`) say that one task is one stack, and the board's pictures in `assets/screens/` show a task's stack.
+   - no test: the sentences of the guides and the page, and what a picture shows, are text and pixels a person reads; `tests/test-site.sh` holds only the page's form and its pictures' names
 
 ## How it works
 
@@ -65,7 +74,7 @@ flowchart TD
      the groups.
    - The sidebar's list: one row for each group. A group of one is today's row. A group of two or
      more is its first thing's row (verb, time, task, link) with "N things" on it; it does not open
-     in the sidebar (decision 2).
+     in the sidebar (decision 5 of the record).
    - The look: `skills/lem/assets/board.css`, the stack's summary in the rows' look, with the
      disclosure mark the parked group's `<details>` uses, on a wide screen and on a phone.
    - Tests: unit cases in `tests/unit/test_board_model.py` for the grouping (the order of criterion
@@ -126,17 +135,19 @@ flowchart TD
 
 ## Decisions
 
-1. **The stack is a layer over the rows, and the rows stay one for each thing.** `waits_of`, its
+Each is the decision of the same number in `lem decisions list one-row-for-a-merge-call`.
+
+4. **The stack is a layer over the rows, and the rows stay one for each thing.** `waits_of`, its
    keys and its order do not change; the view, the counts and `lem project waiting` group them.
    It rests on Lem's decision 1 of the task's record: the pushes and the Inbox stay one for each
    thing, and both read the rows by their keys (`push.json`, `lem_inbox.thing_of`), so a new key
    would read as a new thing to both.
-2. **The sidebar's list shows a stack as one row that does not open.** Its row is its first
+5. **The sidebar's list shows a stack as one row that does not open.** Its row is its first
    thing's, with "N things", and its click goes where that thing's click goes. It rests on the
    criteria, which name the view for the stack that opens and the sidebar for its count only, and
    on the task's panel, whose Overview already lists each thing of the task ("Waits for"). Undo: a
    `<details>` in the sidebar too.
-3. **The stack is a native `<details>`.** A click, a tap, and Enter or Space on its focus open and
+6. **The stack is a native `<details>`.** A click, a tap, and Enter or Space on its focus open and
    close it with no new script, and a morph keeps it open (`app.js`). Each new visit of the view
    draws it closed.
 
