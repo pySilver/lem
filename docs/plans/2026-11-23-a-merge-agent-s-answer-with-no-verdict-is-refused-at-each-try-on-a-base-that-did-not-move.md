@@ -45,7 +45,10 @@ flowchart TD
    its verdict, `Verdict: merge.`"); when no line does, that it gives no verdict at all. It never
    says what the first answer held beyond that. When `merger_refusal` names a reason too (the
    settings, a careful or not green request), that reason follows after a semicolon. That lower
-   line never becomes the verdict: the owner decides. Its `next` is the one of a review that calls the owner. The first such answer is refused as today, and
+   line never becomes the verdict: the owner decides. From there the record goes on as the record of
+   a valid `Verdict: call.` read of the same brief does, through the same branches of
+   `cmd_merge_review` in their order: its `next` is the one of a review that calls the owner, except
+   where the owner's own merge of that tip stands (the decision below). The first such answer is refused as today, and
    the moved base keeps its rule. The choice of what an answer that cannot be recorded leads to
    (asked again, another round, or a review that calls the owner) is a function of its facts (the
    verdict, whether the base moved, the base call, the count of tries for that tip and base), so
@@ -76,6 +79,19 @@ flowchart TD
   "it calls you" for a `merge.review` with `calls` true, and `lem land merge --by merger` is refused
   with no merge review whose verdict is `merge`. Rests on `merge_wait` and `merge_review_said` in
   `skills/lem/scripts/lem_board_model.py` and on step 8 of `skills/lem/stages/land.md`.
+- **Where the owner's own merge of the tip stands, the record answers Lem's refusal as a `call`
+  read does, and his merge goes through.** The case: he pressed merge, Lem refused it because the
+  base moved (`merge_refused` with `kind: base`, `owner_tap` of the tip), a revert gave main the
+  checks' tree again, and the second answer with no verdict is of a brief on the checks' own base.
+  Today a valid `Verdict: call.` read of that brief clears the refusal, logs `merge.stands`, and
+  the board's server runs his merge (`read_answers` takes no verdict; `merge_wait` gives "merges";
+  `stands_due` in `serve.py`). The record of the second answer with no verdict does the same, and
+  its `next` is the one of a merge that stands. Rests on `skills/lem/stages/land.md`, step 7 ("The
+  owner's merge stands: ... a read whose brief named the checks' own base because main has their
+  tree again"; "do not ask him again"), and SKILL.md ("`--by owner` follows only the owner's own
+  words"): the review that calls him asks for a word he already gave for that tip, and his
+  standing merge reads no verdict. The merge agent's own merge stays refused: its verdict is not
+  `merge`.
 - **The answer is still written down word for word as `merge-review.md`**, so the owner reads what
   the merge agent wrote, as for any answer that is recorded.
 - **Out of scope: a merge agent that gives no answer twice on a base that did not move.** It leaves no
