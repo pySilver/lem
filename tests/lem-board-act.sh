@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # The board's acts (serve.py `board_act`, `board_start`): the owner's yes to the criteria, a merge from its confirm step,
 # the park of a task a breaker holds, his Drop of it from its confirm step (`act_answer`), a fresh session of a task with
-# none and a new task, posted as forms to a server of
-# this run. The
-# afternoon of tests/board-showcase.py gives the criteria, the breaker and the task with no session; a throwaway
+# none and a new task, posted as forms to a server of this run, and his answer to a card of a task's session, which the
+# card's page posts as JSON (`card_answer`). The afternoon of tests/board-showcase.py gives the criteria, the breaker,
+# the card and the task with no session; a throwaway
 # repository on the stand-in for GitHub gives a task that is open, which the merge lands with land.py, as `lem land
 # merge SLUG --by owner` does. The tailnet door is a listener of serve.py's own handler in a process of this block,
 # with a name and a login of its own: no check runs the tailscale command. And the server's duties across tasks
