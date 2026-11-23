@@ -589,7 +589,7 @@ def progress(ctx, t: bm.Task) -> Markup:
     lead = bm.LEAD[bm.lead_of(t)] if t.lead else None
     who = (lead["tag"] if lead else "investigator" if t.investigated else "–",
            lead["stat"] if lead else "an investigator examined the bug or the question first" if t.investigated else "no agent was started" if t.closed else "no agent was started yet")
-    taken, past, breakers = p["taken"], p["past"], p["breakers"]
+    taken, past, breakers = p["taken"], p["past_personas"], p["breakers"]
     stats = [
         stat("Who works on it", who[0], who[1]),
         stat("Last commit", t.commit["head"] if t.commit else "–", t.commit["subject"] if t.commit else "no commit of its branch is on record" if t.closed else "no commit on its branch yet"),

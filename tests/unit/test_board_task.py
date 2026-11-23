@@ -282,6 +282,19 @@ class Overview(unittest.TestCase):
         p = bm.progress_of(one(state(0, "building", "plan committed, 3 tasks"), state(9, "building", "task 2 of 3")))
         self.assertEqual((p["finished"], p["current"], p["total"], p["subs"][2]), (1, 1, 3, "task 2 of 3"))
 
+    def test_the_phase_line_is_green_up_to_the_phase_the_task_is_in_whatever_number_of_its_decisions_went_past_the_personas(self):
+        # phase-line-shows-real-progress, criterion 1: a task at Review with one decision past the personas
+        m = model(state(0, "building", "lead: builder"),
+                  ev(5, "decision.taken", id=1, what="w", chose="x", why="y", by="dialectic"),
+                  state(10, "landing", "the checks start"),
+                  ev(20, "review", attempt=1, round=1, kind="round", verdict="clean"))
+        ctx = pages.Ctx(host="h", workspace="w", model=m, asset=lambda name: name)
+        shown = str(task_pages.progress(ctx, m.tasks[0]))
+        phases = re.findall(r'<div class="(phase[^"]*)"><i></i>([^<]+)<', shown)
+        self.assertEqual(phases, [("phase past", "Criteria"), ("phase past", "Plan"), ("phase past", "Build"), ("phase past", "Checks"),
+                                  ("phase cur", "Review"), ("phase", "Proposed"), ("phase", "Landed")])
+        self.assertIn("1 taken, 1 past the personas", shown)
+
     def test_the_panel_says_no_waits_for_while_the_tasks_session_works_on_his_answer(self):
         # waits-for-you-only-when-it-waits, criteria 1 and 2: the header and the large card of a held interview
         m = model(state(0, "held", "the interview waits for the owner"), ev(1, "interview.start"))
