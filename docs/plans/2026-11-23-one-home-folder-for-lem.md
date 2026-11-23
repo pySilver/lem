@@ -149,6 +149,75 @@ of the chart holds among the files as so read, and `show` gives `from` for the c
    `hooks/`, `README.md`, `AGENTS.md`, `site/` and the guides of `docs/` (not `docs/plans/`,
    `docs/backlog/` or `docs/rulings/history.md`). Criterion 10.
 
+## Plan talk
+
+Argued by Codex as the reviewer, GPT 6.2 Sol at high effort as its pane's status line showed them,
+and by Claude Code as the defender, Opus 5.5 at high effort as the task's `defender:` line gives
+them. Two families. Seven turns, within the bound of 4 × 7 + 2. Each of the seven questions got a
+repair in a2e89a52; four were settled, and three closed as a design choice, which `stages/plan.md`,
+step 5, decides after the talk.
+
+1. **Two writers of `machine.toml` lose the owner's no.** `lem_state.write_machine` reads the file
+   and renames a new one over it, and its docstring accepts that two writers at one moment lose one
+   change: `lem project load --start 20` that read before `lem corrections collect no` restores
+   `collect = true`. Repaired: `write_machine` holds an exclusive lock, `machine.lock` in the home
+   folder, from its read to its rename, and every writer goes through it. Settled by the two, not
+   checked by the review.
+2. **A task's branch would win over the base for `[flow]`, `[naps]` and `[state]`.** The chart gave
+   one order for every setting, and a branch with `keep_days = 1` would let `prune` remove other
+   tasks' files early; `load` and `decide` read those tables from the base today. Repaired: "How it
+   works" says that in a task's worktree those three tables are read as the base branch has them,
+   and the chart's order holds among the files as so read. Settled by the two, not checked by the
+   review.
+3. **A writer drops a table it does not know, and writes over a file that does not read.** With
+   `seats` gone from `MACHINE_KEYS`, any write of `machine.toml` drops the developer's `[seats]`, and
+   a file that is no TOML is written again with one table, so `lem corrections collect no` would
+   drop his `[load]`, `[serve]` and `[peers]`. Repaired at the cause: `write_machine` reads the whole
+   file, checks each table by the map, and refuses a file that does not read or holds a table not
+   valid there, with the file and the fix named. The reviewer held twice on the changed decision:
+   `serve.py` `configure` stops the board before `write_machine` refuses, and with a file that does
+   not read `serve_settings` refuses too, so `lem serve --ensure` cannot start the board again until
+   the owner fixes the file, where today's writer writes the file again and the board comes back. A
+   second issue, a traceback from `cmd_load` and `cmd_handoff`, closed on the plan's own words and
+   AGENTS.md. A design choice: the refusal (the topic "Lem writes over something of the developer's:
+   a file in his home") against today's rewrite (the board stays up). Taken up after the talk.
+4. **Nothing proves that the worker stops a send.** A silent hook starts a worker that prints
+   nothing, so the hook's silence shows no send. Repaired: task 2 names the worker check of
+   `tests/lem-machine.sh` with the `LEM_JEV` stand-in for four cases of `machine.toml`. Settled by
+   the two, not checked by the review.
+5. **The history keeps rulings that criterion 5 reverses.** `docs/rulings/history.md` holds "the
+   repository says yes for all" and "nobody is switched on by a file git does not show". Repaired:
+   task 5 makes the owner's answer of 2026-11-23 a bullet of `docs/rulings/rulings.md`, removes the
+   second line, and takes "and the repository says yes for all" out of the first. The reviewer held:
+   the first line keeps "which works only on that yes", whose yes is gone. No refutation: a design
+   choice, taken up after the talk.
+6. **TOML values that JSON never gave break the defaults check.** `defaults_problem` prints a value
+   through `json.dumps`, which raises `TypeError` on `browser = 2026-11-23`. Repaired: task 3 checks
+   each key's type before a value is printed, names the value as TOML writes it, and adds a test.
+   The reviewer held: the repair's words "`style` and `review` strings" refuse `review = true`, which
+   `TOP_TYPES` and `willReview` take, and let `style = "minmal"` through, and `check_spec` runs
+   before `apply_defaults`. No refutation: a design choice, taken up after the talk.
+7. **The cite of decision 1 was wrong.** The installed Lem is 0.3.1, and its `Task.gate` takes the
+   main checkout's commands first. Repaired: decision 1 rests on `land.py` `project_now`, which hands
+   the worktree's own settings to `may_land`, and that refuses a branch with no `branch.base`.
+   Settled by the two, not checked by the review.
+
+Mechanisms the repairs added:
+
+- the lock `machine.lock` of question 1, a layer over decision 5, which rests on criterion 3 (the
+  switch in `machine.toml` beside `[load]`, `[serve]`, `[peers]` and `[handoff]`); the reviewer's
+  word: closed, layer over decision 5.
+- the refusal of question 3, at the cause: it changed the choice of the existing `write_machine` to
+  write over what it cannot read, a choice that rested on its docstring alone.
+
+No question was raised after the first turn, and no addition was refused as unpriced.
+
+What changed in the plan: "How it works", the paragraph on a task's worktree (question 2); task 1,
+the lock and the refusal of `write_machine` (questions 1 and 3); task 2, the worker check (question
+4); task 3, the check of the values of `[ask]` (question 6); task 5, the rulings of the correction
+queue (question 5); decision 1, its cite (question 7); "What this plan will not verify", the worker
+check (question 4).
+
 ## Decisions
 
 1. **This repository keeps `.lem/project.toml` on the branch, unchanged, beside the new
