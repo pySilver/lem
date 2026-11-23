@@ -47,11 +47,12 @@ b { font-weight: 650; }
 /* The hero is the scene's layer, as wide as the window, from the top of the page to the end of the agterm
    note, with the text on top of it. The scene fills the layer's top at the height --scene, cut at its sides
    and never squeezed: a window W px wide shows W x 640 / --scene of the frame's 1600 units, around x 800.
-   --scene is 40vw, the whole frame, from 650 px up; 260 px below that; 75vw where that is less. So a 390 px
-   phone still shows the figure (from x 384) and the word with its cursor (to x 1224.8), 2 x 424.8 units.
+   --scene is 40vw, the whole frame, from 650 px up; 260 px below that; 60vw where that is less, under about
+   433 px. So every window shows at least x 266.7 to 1333.3, and a phone of 390 or 360 px still shows the
+   four small agents (the left outer one from x 268.8), the figure and the word with its cursor (to x 1224.8).
    The text starts low in the scene, under the figures' feet. */
 .hero {
-  --scene: max(40vw, min(260px, 75vw)); --shade: 150px;
+  --scene: max(40vw, min(260px, 60vw)); --shade: 150px;
   position: relative; isolation: isolate; align-self: stretch; display: flex; flex-direction: column; align-items: center;
   padding-top: calc(var(--scene) * .76);
 }

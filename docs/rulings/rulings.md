@@ -206,10 +206,10 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
 
 ## The README, the guides and the logo
 
-- **The logo is the owner's pick** ("The Line in the Field"), the animated scene with the current on
-  the wire, a living sky in each theme and one red eye, the same in the README and the page. Change
-  it only on his word; the night palette of its dark-theme version is his pick too. (2026-11-14,
-  2026-11-21)
+- **The logo is the owner's pick** ("The Line in the Field"), the animated scene with a signal from
+  Lem's hands to its four agents' red eyes, a living sky in each theme, the same in the README and
+  the page. Change it only on his word; the night palette of its dark-theme version is his pick too.
+  (2026-11-14, 2026-11-21, 2026-11-23)
 - **The README is in ASD-STE100 Simplified Technical English**, easy for a reader who is not a
   native speaker: one topic in a sentence, 20 words at most in an instruction and 25 in a
   description, the active voice, no word only Lem uses as a noun ("ask"). (2026-11-14, 2026-11-17)
