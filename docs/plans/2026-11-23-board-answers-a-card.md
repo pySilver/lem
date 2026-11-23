@@ -411,6 +411,12 @@ None.
     7).
 11. **`device` comes from the request's headers, with the User-Agent whole and `via` beside it**
     (decision 5). Plan talk, question 11; the gate: cheap (record 4).
+12. **A bare No on "Approve this criterion?" is refused, and the row stays**: "No needs your words:
+    what should the criterion say?" (tasks 3 and 4). Plan talk, question 12. The gate held it, the
+    two personas split (the teammate for this option, the developer for a hold at the Mac), and the
+    dialectic found no break (record 9), so the pull request is not green for it. Both personas
+    noted that a criterion he did not approve is built when he marks himself away
+    (`stages/away.md`), and that the pull request then says only that he did not approve it.
 
 ## What this plan will not verify
 
