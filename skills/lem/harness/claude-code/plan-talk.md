@@ -61,7 +61,8 @@ A companion session of the lead's, `SLUG · plan talk`, which runs Claude Code w
    `ITS WORDS` the line of the error on its screen. It prints a seat to open, the fallback that
    stands in for the planner from now on: say its `say` in one line and open the pair at step 1
    on that seat. Or it prints `blocked: true`: the task is `blocked` with the seat and the error;
-   say its `say` in one line and stop, as `stages/plan.md`, step 4.3, says for a block.
+   write no state over it, and take the block as `stages/plan.md`, step 4.3, says for one, which
+   marks this session as waiting before its line to the owner.
 3. **Read its two screens** when the lead's wait ends with `"quiet": true` (`stages/plan.md`, step
    4.3): the defender's pane with `agtermctl session text --target ID --pane primary --socket
    "$AGTERM_SOCKET"`, and the reviewer's with `--pane split` in its place. Look on each for one of
