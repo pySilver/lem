@@ -14,9 +14,10 @@ import sys
 import tempfile
 import threading
 import unittest
+from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Never
+from typing import IO, Any, Never, cast
 from unittest import mock
 
 sys.dont_write_bytecode = True
@@ -32,7 +33,7 @@ START = datetime(2026, 11, 20, 9, 0, tzinfo=UTC)
 NOW = int((START + timedelta(hours=2)).timestamp() * 1000)
 
 
-def ev(minute: float, event: str, task: str = "gift-note", **fields) -> dict:
+def ev(minute: float, event: str, task: str = "gift-note", **fields: object) -> dict:
     return {
         "ts": (START + timedelta(minutes=minute)).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "event": event,
@@ -47,14 +48,18 @@ def state(
     return ev(minute, "task.state", task, status=status, text=text, lines=list(lines))
 
 
-def model(*events: dict, owner=(), seen=None):
+def model(
+    *events: dict, owner: Iterable[dict] = (), seen: dict | None = None
+) -> "bm.Model":
     m = bm.derive(list(events), list(owner), NOW)
     m.seen = seen
     return m
 
 
-def one(*events: dict, **kw) -> "bm.Task":
-    return model(*events, **kw).tasks[0]
+def one(
+    *events: dict, owner: Iterable[dict] = (), seen: dict | None = None
+) -> "bm.Task":
+    return model(*events, owner=owner, seen=seen).tasks[0]
 
 
 class Status(unittest.TestCase):
@@ -316,7 +321,7 @@ class WaitsBehind(unittest.TestCase):
     SLUG = "plugin-dir-for-the-plan-talk"
     FIRST = "fast-track-checks-documents"
 
-    def waiting(self, **fields) -> "bm.Task":
+    def waiting(self, **fields: object) -> "bm.Task":
         return one(
             state(0, "landing", "the checks start", task=self.SLUG),
             ev(1, "gate.wait", self.SLUG, load=50.0, start=40, **fields),
@@ -830,7 +835,7 @@ class WaitStacks(unittest.TestCase):
         )
 
     @staticmethod
-    def groups(m) -> list:
+    def groups(m: "bm.Model") -> list:
         return [
             (s["t"].slug, [w["key"] for w in s["rows"]])
             for s in bm.wait_stacks(bm.waits_of(m))
@@ -909,7 +914,7 @@ class WaitingByTask(unittest.TestCase):
 
     SLUGS = ("board-answers-a-card", "logo-eyes", "board-card")
 
-    def waiting(self, m) -> dict:
+    def waiting(self, m: "bm.Model") -> dict:
         project = importlib.import_module("project")
         tasks = [
             {
@@ -1044,17 +1049,17 @@ class WaitingByTask(unittest.TestCase):
 class Acts(unittest.TestCase):
     """What the board offers the owner to do on a task (serve.py's acts)."""
 
-    READ = dict(
-        by="lem",
-        asked=3,
-        answered=3,
-        families=["opus"],
-        silent=[],
-        criteria=2,
-        flagged=0,
-        split=False,
-        digest="d",
-    )
+    READ: dict[str, Any] = {
+        "by": "lem",
+        "asked": 3,
+        "answered": 3,
+        "families": ["opus"],
+        "silent": [],
+        "criteria": 2,
+        "flagged": 0,
+        "split": False,
+        "digest": "d",
+    }
 
     def test_his_yes_is_offered_for_criteria_and_for_an_interview_only_once_its_read_is_in(
         self,
@@ -1154,7 +1159,7 @@ class InterviewRead(unittest.TestCase):
     )
 
     @staticmethod
-    def rows(m) -> list:
+    def rows(m: "bm.Model") -> list:
         return [(w["key"], w["kind"]) for w in bm.waits_of(m)]
 
     def test_the_row_leaves_while_the_personas_read_and_comes_back_when_his_yes_is_what_is_missing(
@@ -1201,7 +1206,7 @@ class InterviewRead(unittest.TestCase):
     def test_a_read_nobody_answered_and_started_once_more_hides_the_row_again(
         self,
     ) -> None:
-        silent = dict(
+        silent: dict[str, Any] = dict(
             self.READ,
             answered=0,
             families=[],
@@ -1255,13 +1260,13 @@ class InterviewTurns(unittest.TestCase):
 
     SLUG = "report-dates-stay-whole"
     READ = Acts.READ
-    SKIP = dict(
-        id=1,
-        by="owner",
-        what=bm.READ_SKIP["what"],
-        chose=bm.READ_SKIP["chose"],
-        why="y",
-    )
+    SKIP: dict[str, Any] = {
+        "id": 1,
+        "by": "owner",
+        "what": bm.READ_SKIP["what"],
+        "chose": bm.READ_SKIP["chose"],
+        "why": "y",
+    }
 
     def interview(self, *events: dict) -> tuple:
         return (
@@ -1277,10 +1282,10 @@ class InterviewTurns(unittest.TestCase):
             *events,
         )
 
-    def at(self, minute: float, event: str, **fields) -> dict:
+    def at(self, minute: float, event: str, **fields: object) -> dict:
         return ev(minute, event, self.SLUG, **fields)
 
-    def rows(self, m) -> list:
+    def rows(self, m: "bm.Model") -> list:
         return [
             (w["key"], w["kind"], bm.wait_say(w)["verb"], bm.wait_say(w)["to"])
             for w in bm.waits_of(m)
@@ -1512,7 +1517,7 @@ class InterviewTurns(unittest.TestCase):
             if g["head"] in ("The interview", "Lem writes the criteria")
         ]
 
-        def ms(minute):
+        def ms(minute: float) -> int:
             return int((START + timedelta(minutes=minute)).timestamp() * 1000)
 
         self.assertEqual(
@@ -1563,10 +1568,10 @@ class HomeFolder:
     NOW = "2026-11-23T11:44:04Z"
     CRITERIA = "2026-11-23T11:39:31Z"
 
-    def at(self, ts: str, event: str, **fields) -> dict:
+    def at(self, ts: str, event: str, **fields: object) -> dict:
         return {"ts": ts, "event": event, "task": self.SLUG, **fields}
 
-    def board(self, *more: dict, now: str = NOW):
+    def board(self, *more: dict, now: str = NOW) -> "bm.Model":
         return bm.derive([*self.events(), *more], [], bm.at(now))
 
     def events(self) -> list[dict]:
@@ -1617,7 +1622,7 @@ class HomeFolder:
             ),
         ]
 
-    def ctx(self, m):
+    def ctx(self, m: "bm.Model") -> "pages.Ctx":
         return pages.Ctx(
             host="h",
             workspace="w",
@@ -1627,7 +1632,7 @@ class HomeFolder:
             tab="overview",
         )
 
-    def clocks(self, m, slug: str | None = None) -> tuple:
+    def clocks(self, m: "bm.Model", slug: str | None = None) -> tuple:
         """The start of a task's wait as the row of Waits for you, the pill and In this state say it: the row's
         `since`, or None with no row, and each `data-since` of the pill and of the facts."""
         t = m.by_slug[slug or self.SLUG]
@@ -1740,7 +1745,14 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
     RUNS = "2026-11-23T11:43:00Z"
     ENDED = "2026-11-23T11:43:33Z"
 
-    def sessions(self, turn, live=True, agent=True, slug=None) -> dict:
+    def sessions(
+        self,
+        turn: str | None,
+        *,
+        live: bool = True,
+        agent: bool = True,
+        slug: str | None = None,
+    ) -> dict:
         entry = {
             "task": slug or self.SLUG,
             "session": "S1",
@@ -1755,10 +1767,10 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
         }
         return bm.sessions_of(bm.session_entries(json.dumps([entry])), set())
 
-    def rows(self, m) -> list:
+    def rows(self, m: "bm.Model") -> list:
         return [(w["kind"], w["key"], w["since"]) for w in bm.waits_of(m)]
 
-    def panel(self, m) -> dict:
+    def panel(self, m: "bm.Model") -> dict:
         ctx, t = self.ctx(m), m.by_slug[self.SLUG]
         return {
             "facts": str(join(task_pages.facts(ctx, t, bm.waits_of(m)))),
@@ -1921,7 +1933,7 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
         inside, go = threading.Event(), threading.Event()
         real = bm.works_of
 
-        def held_up(t, model):
+        def held_up(t: "bm.Task", model: "bm.Model") -> bool:
             if t.slug == self.SLUG and not inside.is_set():
                 inside.set()
                 go.wait(5)
@@ -1932,7 +1944,7 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
         def put() -> None:
             try:
                 bm.put_sessions(m, self.sessions("runs"))
-            except Exception as error:  # the thread's own error, which the test reports
+            except Exception as error:  # noqa: BLE001 - the thread's own error, which the test reports
                 problems.append(error)
 
         with mock.patch.object(bm, "works_of", held_up):
@@ -2000,7 +2012,7 @@ class Sessions(unittest.TestCase):
     when the board offers "Open a session" (plan-task-4.md section 7, item 2)."""
 
     @staticmethod
-    def rows(m) -> list:
+    def rows(m: "bm.Model") -> list:
         return [
             (w["kind"], bm.wait_say(w)["verb"])
             for w in bm.waits_of(m)
@@ -2604,7 +2616,7 @@ class Inbox(unittest.TestCase):
     TAILNET = "https://studio.tail4e2a.ts.net:8443/"
 
     @classmethod
-    def record(cls, *sent, **door) -> dict:
+    def record(cls, *sent: object, **door: object) -> dict:
         return {
             "running": True,
             "url": "http://plannotator.localhost:50026/",
@@ -2618,12 +2630,13 @@ class Inbox(unittest.TestCase):
 
     @staticmethod
     def thing(
-        key="breaker:gift-note:1",
-        kind="breaker",
-        form="question",
-        asks=True,
-        task="gift-note",
-        **more,
+        key: str = "breaker:gift-note:1",
+        kind: str = "breaker",
+        form: str = "question",
+        *,
+        asks: bool = True,
+        task: str = "gift-note",
+        **more: object,
     ) -> dict:
         return {
             "key": key,
@@ -2638,7 +2651,12 @@ class Inbox(unittest.TestCase):
             **more,
         }
 
-    def breaker(self, record, owner=AWAY, sessions=LIVE):
+    def breaker(
+        self,
+        record: dict | None,
+        owner: list[dict] = AWAY,
+        sessions: dict | None = LIVE,
+    ) -> dict | None:
         m = model(
             ev(0, "session.open", session="S1", name="gift-note"),
             state(1, "building", "task 2 of 3"),
@@ -2677,7 +2695,7 @@ class Inbox(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             folder = Path(tmp)
 
-            def load(root) -> Never:
+            def load(root: Path) -> Never:
                 raise ValueError("no settings here")
 
             lem_state = SimpleNamespace(
@@ -2718,11 +2736,14 @@ class Inbox(unittest.TestCase):
             },
         )
         # an address with no slash at its end, and a thread id that needs quoting
-        said = self.breaker(
-            self.record(
-                self.thing(thread_id='m"1 <x>'),
-                tailnet_url="https://studio.tail4e2a.ts.net:8443",
-            )
+        said = cast(
+            "dict",
+            self.breaker(
+                self.record(
+                    self.thing(thread_id='m"1 <x>'),
+                    tailnet_url="https://studio.tail4e2a.ts.net:8443",
+                )
+            ),
         )
         self.assertEqual(
             said["thread"],
@@ -2782,9 +2803,10 @@ class Inbox(unittest.TestCase):
         # a word the model does not know is still said, and no address but http or https is a link
         self.assertIn(
             "“later”",
-            self.breaker(self.record(running=False, tailnet_url=None, why="later"))[
-                "why"
-            ],
+            cast(
+                "dict",
+                self.breaker(self.record(running=False, tailnet_url=None, why="later")),
+            )["why"],
         )
         self.assertIsNone(
             self.breaker(self.record(self.thing(), tailnet_url="javascript:alert(1)"))
@@ -2799,7 +2821,9 @@ class Inbox(unittest.TestCase):
         # the note of a session that came back, which the server forgets at its next look
         self.assertIsNone(
             self.breaker(
-                self.record(self.thing("session:gift-note", "session", "note", False))
+                self.record(
+                    self.thing("session:gift-note", "session", "note", asks=False)
+                )
             )
         )
         # a thing that waits for its send again after a call that failed
@@ -2809,11 +2833,14 @@ class Inbox(unittest.TestCase):
             if k not in ("message_id", "thread_id")
         }
         self.assertEqual(
-            self.breaker(
-                self.record(
-                    unsent,
-                    problem="the send of breaker:gift-note:1: server_error: down",
-                )
+            cast(
+                "dict",
+                self.breaker(
+                    self.record(
+                        unsent,
+                        problem="the send of breaker:gift-note:1: server_error: down",
+                    )
+                ),
             )["why"],
             bm.INBOX_UNSENT,
         )
@@ -2822,9 +2849,14 @@ class Inbox(unittest.TestCase):
     def test_a_note_says_whether_a_session_can_take_a_reply_and_the_merge_review_is_the_merges_thing(
         self,
     ) -> None:
-        gone = self.breaker(
-            self.record(self.thing("session:gift-note", "session", "note", False)),
-            sessions={},
+        gone = cast(
+            "dict",
+            self.breaker(
+                self.record(
+                    self.thing("session:gift-note", "session", "note", asks=False)
+                ),
+                sessions={},
+            ),
         )
         self.assertEqual((gone["asks"], gone["gone"]), (False, True))
         merge = model(
@@ -2842,7 +2874,7 @@ class Inbox(unittest.TestCase):
         )
         merge.sessions, merge.inbox = (
             self.LIVE,
-            self.record(self.thing("merge:gift-note", "merge", "note", False)),
+            self.record(self.thing("merge:gift-note", "merge", "note", asks=False)),
         )
         self.assertEqual(
             [w["key"] for w in bm.waits_of(merge)],
@@ -2904,7 +2936,7 @@ class MovedBase(unittest.TestCase):
         self.assertEqual([w["kind"] for w in bm.waits_of(github)], ["merge"])
 
     def read(
-        self, minute: float, call: str, verdict: str = "merge", calls: bool = False
+        self, minute: float, call: str, verdict: str = "merge", *, calls: bool = False
     ) -> dict:
         return ev(
             minute,
@@ -3805,7 +3837,7 @@ class Summary(unittest.TestCase):
             ["task.summary"],
         )
 
-        def card(m, slug):
+        def card(m: "bm.Model", slug: str) -> str:
             t = m.by_slug[slug]
             return str(
                 pages.task_card(
@@ -3887,7 +3919,7 @@ class Summary(unittest.TestCase):
         # lem_tokens reads them by each transcript's first prompt, so a fork of another task logged here still counts for that task
         project = importlib.import_module("project")
 
-        def logged(minute, name, task="report-dates"):
+        def logged(minute: float, name: str, task: str = "report-dates") -> dict:
             return ev(
                 minute,
                 "session.transcript",
@@ -3924,14 +3956,13 @@ class Summary(unittest.TestCase):
         )
 
     def test_the_reader_reads_a_log_that_prune_replaced_once_and_whole(self) -> None:
-        import os
         from unittest import mock
 
-        def lines(events):
+        def lines(events: list[dict]) -> str:
             return "".join(json.dumps(e) + "\n" for e in events)
 
         log_events = sorted(
-            report_dates() + [state(30, "building", "lead: builder")],
+            [*report_dates(), state(30, "building", "lead: builder")],
             key=lambda e: e["ts"],
         )
         with tempfile.TemporaryDirectory() as tmp:
@@ -3945,13 +3976,13 @@ class Summary(unittest.TestCase):
             ready = state(31, "ready", "the build is done")
             with log.open("a") as out:
                 out.write(json.dumps(ready) + "\n")
-            new.write_text(lines(summarized(log_events, "report-dates") + [ready]))
+            new.write_text(lines([*summarized(log_events, "report-dates"), ready]))
             # the replace lands between the reader's look at the log and its read of it
             real_open = Path.open
 
-            def open_after_replace(path, *args, **kwargs):
+            def open_after_replace(path: Path, *args: Any, **kwargs: Any) -> IO:  # noqa: ANN401 - it stands in for Path.open and passes on what it is given
                 if path == log and new.exists():
-                    os.replace(new, log)
+                    new.replace(log)
                 return real_open(path, *args, **kwargs)
 
             with mock.patch.object(Path, "open", open_after_replace):
@@ -3979,12 +4010,17 @@ class SummarizedBoard(unittest.TestCase):
     an-ended-task-s-records-stay-on-the-machine-for-ever, criterion 6); each other tab says its detail went
     with the events, and no section is drawn empty."""
 
-    def boards(self):
+    def boards(self) -> tuple["bm.Model", "bm.Model"]:
         log = report_dates()
         return model(*log), model(*summarized(log, "report-dates"))
 
     @staticmethod
-    def ctx(m, tab: str = "overview", folder=None, keep_days=30):
+    def ctx(
+        m: "bm.Model",
+        tab: str = "overview",
+        folder: Path | None = None,
+        keep_days: int | None = 30,
+    ) -> "pages.Ctx":
         ctx = pages.Ctx(
             host="h",
             workspace="w",
@@ -4022,7 +4058,7 @@ class SummarizedBoard(unittest.TestCase):
             (directory / name).write_text("x\n", encoding="utf-8")
         return held, state_dir
 
-    def card(self, state_dir: Path, keep_days=30) -> str:
+    def card(self, state_dir: Path, keep_days: int | None = 30) -> str:
         _, after = self.boards()
         folder = task_pages.folder_of(state_dir, "report-dates")
         return str(
@@ -4152,16 +4188,16 @@ class SummarizedBoard(unittest.TestCase):
 
         before, after = self.boards()
 
-        def said(m):
+        def said(m: "bm.Model") -> tuple[str, ...]:
             ctx = self.ctx(m)
             t = m.by_slug["report-dates"]
             facts = str(join(task_pages.facts(ctx, t, [])))
             return (
                 str(task_pages.pill(ctx, t)),
-                re.search(r'<dd id="dd-pr">.*?</dd>', facts)[0],
-                re.search(r'<dd id="dd-time">.*?</dd>', facts)[0],
+                re.findall(r'<dd id="dd-pr">.*?</dd>', facts)[0],
+                re.findall(r'<dd id="dd-time">.*?</dd>', facts)[0],
                 str(task_pages.key_line(ctx, t)),
-                re.search(r'<dd id="dd-type">.*?</dd>', facts)[0],
+                re.findall(r'<dd id="dd-type">.*?</dd>', facts)[0],
             )
 
         self.assertEqual(said(after), said(before))
@@ -4243,7 +4279,9 @@ class AnsweredInSession(unittest.TestCase):
 
     LIVE = {"gift-note": {"live": True, "agent": True, "session": "S1"}}
 
-    def row(self, *events, sessions=None, kind=None) -> tuple:
+    def row(
+        self, *events: dict, sessions: dict | None = None, kind: str | None = None
+    ) -> tuple:
         m = model(ev(0, "session.open", session="S1", name="gift-note"), *events)
         m.sessions = self.LIVE if sessions is None else sessions
         rows = [w for w in bm.waits_of(m) if kind is None or w["kind"] == kind]
@@ -4538,7 +4576,9 @@ class StoppedSession(unittest.TestCase):
     restart at 11:49, and when the fresh session stops too, the stop, once. The row of "Waits for you"
     for a stop, and the timeline's words, are StoppedRow's."""
 
-    def ev(self, hhmm: str, event: str, **fields) -> dict:
+    def ev(
+        self: "StoppedSession | StoppedRow", hhmm: str, event: str, **fields: object
+    ) -> dict:
         return {
             "ts": f"2026-11-22T{hhmm}{'' if hhmm.count(':') == 2 else ':00'}Z",
             "event": event,
@@ -4557,7 +4597,7 @@ class StoppedSession(unittest.TestCase):
         )
 
     def model(
-        self,
+        self: "StoppedSession | StoppedRow",
         *events: dict,
         at: str,
         session: str = "S1",
@@ -4565,7 +4605,7 @@ class StoppedSession(unittest.TestCase):
         shell: bool = False,
         signs: bool = True,
         live: bool = True,
-    ):
+    ) -> "bm.Model":
         m = bm.derive(list(events), [], self.ms(at))
         m.sessions = {
             "gift-note": {
@@ -4581,7 +4621,7 @@ class StoppedSession(unittest.TestCase):
         }
         return m
 
-    def landing(self) -> tuple:
+    def landing(self: "StoppedSession | StoppedRow") -> tuple:
         return (
             self.ev(
                 "01:33",
@@ -4612,14 +4652,14 @@ class StoppedSession(unittest.TestCase):
             ),
         )
 
-    def woken(self, **fields) -> tuple:
+    def woken(self: "StoppedSession | StoppedRow", **fields: object) -> tuple:
         # `unread=True` is the message `cmd_wake` logs when the signs it read in the task's lock do not read
         return (
             *self.landing(),
             self.ev("11:39", "session.wake", session="S1", why="status", **fields),
         )
 
-    def restarted(self) -> tuple:
+    def restarted(self: "StoppedSession | StoppedRow") -> tuple:
         return (
             *self.woken(),
             self.ev(
@@ -4633,7 +4673,7 @@ class StoppedSession(unittest.TestCase):
             self.ev("11:49", "session.wake", session="S1", why="replaced"),
         )
 
-    def due(self, *events: dict, at: str, **given):
+    def due(self, *events: dict, at: str, **given: Any) -> tuple | None:  # noqa: ANN401 - passed on whole to model, whose parameters type them
         m = self.model(*events, at=at, **given)
         found = bm.stop_due(m.by_slug["gift-note"], m)
         return (found["step"], found["session"], found["from"]) if found else None
@@ -4694,10 +4734,13 @@ class StoppedSession(unittest.TestCase):
         )
         # the guard's own records and the owner's click are no work
         self.assertEqual(
-            self.due(
-                *self.woken(),
-                self.ev("11:45", "board.act", act="open", via="board"),
-                at="11:49",
+            cast(
+                "tuple",
+                self.due(
+                    *self.woken(),
+                    self.ev("11:45", "board.act", act="open", via="board"),
+                    at="11:49",
+                ),
             )[0],
             "restart",
         )
@@ -4810,7 +4853,7 @@ class StoppedSession(unittest.TestCase):
             self.ev("12:47", "session.stopped", session="S2"),
         )
 
-        def task(*events):
+        def task(*events: dict) -> "bm.Task":
             return bm.derive(list(events), [], self.ms("13:00")).by_slug["gift-note"]
 
         self.assertEqual(bm.stop_stands(task(*stopped))["session"], "S2")
@@ -5041,7 +5084,7 @@ class StoppedRow(unittest.TestCase):
             self.ev("12:44", "session.stopped", session="S2"),
         )
 
-    def rows(self, *events: dict, at: str = "13:00", **given) -> list:
+    def rows(self, *events: dict, at: str = "13:00", **given: Any) -> list:  # noqa: ANN401 - passed on whole to model, whose parameters type them
         m = self.model(*events, at=at, session="S2", sign=None, **given)
         return [
             (w["key"], w["kind"], bm.wait_say(w)["verb"], w["since"])
@@ -5203,7 +5246,7 @@ class StoppedRow(unittest.TestCase):
             self.assertIn(head, html)
         self.assertEqual(html.count(bm.stamp(self.ms("12:44"), m.now)), 1)
 
-    def unread_model(self, *events: dict, at: str = "11:50"):
+    def unread_model(self, *events: dict, at: str = "11:50") -> "bm.Model":
         return self.model(*events, at=at, session="S1", sign=None, signs=False)
 
     def test_criterion_2_an_unread_stop_is_the_row_stopped_that_says_lem_cannot_read_the_session(
@@ -5379,7 +5422,7 @@ class StoppedRow(unittest.TestCase):
         # a record that is not one of the task's own events is no such stop
         self.assertFalse(bm.stop_over_work(t, dict(stop)))
 
-    def waiting(self, m) -> dict:
+    def waiting(self, m: "bm.Model") -> dict:
         from unittest import mock
 
         project = importlib.import_module("project")
