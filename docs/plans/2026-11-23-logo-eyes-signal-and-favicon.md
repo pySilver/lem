@@ -7,17 +7,24 @@ careful: yes, because "A change bends a ruling of the owner" is in reach: task 1
 Size: full, because the change redraws the animation of both scenes, links a second tab icon and changes the texts and the ruling that describe the logo.
 
 1. Each of the four small agents has a small red eye in its hood, in the day scene and in the night scene. It is the same red as Lem's own eye, so the night scene needs no new color: a visitor in a dark theme sees four red eyes in the same red as in a light theme. Each eye is large enough to see in the README's logo without a zoom.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh` (the check scene_eyes, the four agents' red eyes in the eye's red, day and night)
 2. In each cycle of 8 s, a small glow leaves both of Lem's hands at once and runs down the four strings of the agents, and no other string. The two agents nearest to Lem light up first, then the two outer ones. When the glow reaches an agent, that agent's red eye lights up and then fades:
    1. A visitor opens the README on GitHub, or https://pysilver.github.io/lem/.
    2. A small glow leaves Lem's two hands.
    3. It runs down the strings of the two agents nearest to Lem, and their red eyes light up.
    4. It runs on down the strings of the two outer agents, and their red eyes light up.
    5. Each eye fades, and the cycle starts again after 8 s.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh` (the check scene_signal, the hands, the four strands and each eye's time)
 3. Nothing else in the scene lights up or moves along the wire: no pulse runs along the wire, no peg flashes, no agent glows yellow, no light runs down the four strings of the word, and none of the 42 tiles of "Lem" lights up. The letters stay as still as the rest of the drawing. The sky moves as it does today.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh` (the check scene_quiet, nothing else animated)
 4. Lem's own red eye blinks as it does today, about every 6 s.
+   - no test: the change keeps behavior; the suite holds it (the check scene_eye of `tests/test-site.sh`, which passes on the base too)
 5. A visitor whose browser asks for less motion sees the scene still: no glow moves, and no eye lights up or blinks.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh` (the check scene_still, the one rule for reduce motion and each light at rest unlit)
 6. The tab icon follows the visitor's theme: a browser with a light theme shows `assets/lem-mark.svg`, and one with a dark theme shows `assets/lem-mark-night.svg`. A browser that does not choose a tab icon by theme shows `assets/lem-mark.svg`. The published site holds both files: today `assets/lem-mark-night.svg` gives 404 there. The tab icon itself stays as it is, the figure with no red eye.
+   - test: `bash tests/test-site.sh` in `tests/test-site.sh` (the check icons, the three icon lines in order, and the copy step's published list)
 7. Each text that describes the logo's animation says what the new scene does: the scene's own description, the alt text in `README.md` and in `site/index.html`, and the logo's bullet in `docs/rulings/rulings.md`. The alt text says first that it is Lem's logo, and stays short. That bullet today says "the current on the wire" and "one red eye"; after the change it names the signal from Lem's hands and the red eyes of its four agents, and it carries the day of the owner's word, 2026-11-23.
+   - no test: the change is the words of the scene's description, two alt texts and one ruling bullet
 
 ## Tasks
 
