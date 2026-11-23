@@ -1664,11 +1664,15 @@ class Search(unittest.TestCase):
     NOW = int(datetime(2026, 11, 22, 10, 0, tzinfo=timezone.utc).timestamp() * 1000)
     # noon UTC of 2026-11-21, which is that day on any clock from UTC-11 to UTC+11
     NOON_21 = 27 * 60
+    # as board.backlog reads them: the reviewer's items after the others, a held one before an undecided one
     BACKLOG = {"items": [
-        {"slug": "export-in-one-query", "title": "Read the monthly export in one query", "worth": "later"},
-        {"slug": "odd-item", "title": "An item with no worth"},
-        {"slug": "the-board-s-done-column-has-no-limit", "title": "The board's done column has no limit", "worth": "yes"},
-        {"slug": "a-thing-not-to-do", "title": "A thing not to do", "worth": "no"},
+        {"slug": "export-in-one-query", "key": "export-in-one-query", "title": "Read the monthly export in one query", "worth": "later"},
+        {"slug": "odd-item", "key": "odd-item", "title": "An item with no worth"},
+        {"slug": "the-board-s-done-column-has-no-limit", "key": "the-board-s-done-column-has-no-limit", "title": "The board's done column has no limit", "worth": "yes"},
+        {"slug": "a-thing-not-to-do", "key": "a-thing-not-to-do", "title": "A thing not to do", "worth": "no"},
+        {"slug": "a-flaky-check", "key": "-a-flaky-check", "title": "A check of the export fails by chance", "worth": "later", "reviewer": True,
+         "held": {"task": "flaky-export-check", "status": "building"}},
+        {"slug": "export-in-one-query", "key": "-export-in-one-query", "title": "The lessons of the export", "worth": "later", "reviewer": True, "held": None},
     ]}
 
     def events(self) -> list:
@@ -1692,7 +1696,8 @@ class Search(unittest.TestCase):
         columns = [t.slug for key in ("you", "build", "checks") for t in m.lane[key]]
         self.assertEqual(columns, ["board-card-search", "stock-on-product-page", "clear-a-reported-deadline", "refund-rounding", "coupon-has-a-slug"])
         ended = ["agents-md-read-on-demand", *(f"task-{i:02d}" for i in reversed(range(bm.DONE_SHOWN)))]
-        self.assertEqual(slugs, [*columns, "old-export-fix", *ended,
+        # the reviewer's items before the others, the undecided one first; an item of each folder with one stem is two rows
+        self.assertEqual(slugs, [*columns, "old-export-fix", *ended, "-export-in-one-query", "-a-flaky-check",
                                  "the-board-s-done-column-has-no-limit", "export-in-one-query", "odd-item", "a-thing-not-to-do"])
         # with nothing typed, the search lists the tasks that have not ended: the columns', then the parked one
         self.assertEqual([r["slug"] for r in bm.search_rows(m, self.BACKLOG) if r["open"]], [*columns, "old-export-fix"])
@@ -1718,6 +1723,14 @@ class Search(unittest.TestCase):
         self.assertEqual(rows["The board's done column has no limit"], ("Backlog · worth: yes", "gate"))
         self.assertEqual(rows["Read the monthly export in one query"], ("Backlog · worth: later", "you"))
         self.assertEqual(rows["An item with no worth"], ("Backlog · worth: unset", "quiet"))
+        self.assertEqual(rows["The lessons of the export"], ("Backlog · undecided", "you"))
+        self.assertEqual(rows["A check of the export fails by chance"], ("Backlog · held by flaky-export-check", "lead"))
+
+    def test_the_count_on_the_backlog_key_is_the_reviewer_s_items_no_task_holds(self):
+        # criterion 6 of docs/plans/2026-11-23-scheduled-runs-one-branch.md: an item of the backlog folder is not counted, nor a held one
+        self.assertEqual(bm.undecided(self.BACKLOG), 1)
+        self.assertEqual(bm.undecided({"items": self.BACKLOG["items"][:4]}), 0)
+        self.assertIsNone(bm.undecided(None))
 
 
 class StoppedSession(unittest.TestCase):

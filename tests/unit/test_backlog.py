@@ -196,22 +196,33 @@ class TaskItem(unittest.TestCase):
 
 class StateItem(unittest.TestCase):
     """`land.state_item_of_ask` and `land.remove_item`: the reviewer's item of the state folder a task
-    was started from, and the removal of its file when the task lands."""
+    was started from, by project.py's one rule (`backlog_item_of`), and the removal of its file when
+    the task lands."""
 
-    ROOTS = ("/lem-unit/repo", "/private/lem-unit/repo")
+    def setUp(self) -> None:
+        # a real folder: on macOS its path and its resolved path differ (/var and /private/var), the two roots a whole path may start with
+        self.temp = tempfile.TemporaryDirectory()
+        self.main = Path(self.temp.name) / "repo"
+        self.state = self.main / ".lem" / "state"
+        self.state.mkdir(parents=True)
+
+    def tearDown(self) -> None:
+        self.temp.cleanup()
 
     def item(self, ask: str) -> str | None:
-        return land.state_item_of_ask(ask, self.ROOTS)
+        return land.state_item_of_ask(ask, self.state)
 
     def test_the_path_relative_to_the_root_or_whole_under_the_main_checkout(self) -> None:
         self.assertEqual(self.item(".lem/state/backlog/tests-flaky-check.md\n"), ".lem/state/backlog/tests-flaky-check.md")
-        self.assertEqual(self.item("/lem-unit/repo/.lem/state/backlog/tests-flaky-check.md"), ".lem/state/backlog/tests-flaky-check.md")
-        self.assertEqual(self.item("/private/lem-unit/repo/.lem/state/backlog/tests-flaky-check.md"), ".lem/state/backlog/tests-flaky-check.md")
+        self.assertEqual(self.item(f"{self.main}/.lem/state/backlog/tests-flaky-check.md"), ".lem/state/backlog/tests-flaky-check.md")
+        self.assertEqual(self.item(f"{self.main.resolve()}/.lem/state/backlog/tests-flaky-check.md"), ".lem/state/backlog/tests-flaky-check.md")
 
     def test_an_item_of_the_backlog_folder_or_another_ask_is_none(self) -> None:
         self.assertIsNone(self.item("docs/backlog/tests-flaky-check.md"))
         self.assertIsNone(self.item(".lem/state/backlog/old/tests-flaky-check.md"))
         self.assertIsNone(self.item(".lem/state/backlog/notes.txt"))
+        # a file named `.md` alone is no item: the drop and the board's mark refuse it by the same rule
+        self.assertIsNone(self.item(".lem/state/backlog/.md"))
         self.assertIsNone(self.item(".lem/state/tasks/tests-flaky-check/ask.txt"))
         self.assertIsNone(self.item("Fix .lem/state/backlog/tests-flaky-check.md"))
         self.assertIsNone(self.item("/elsewhere/repo/.lem/state/backlog/tests-flaky-check.md"))

@@ -352,7 +352,8 @@ does, since a command of the project may read the file; it asks for no other rev
 item holds no code (`covers_one`).
 
 A task started from a reviewer's item, a file of `.lem/state/backlog/` that git never holds, has the
-path of that file as its ask, by the same rule with no base to find it at (`state_item_of_ask`). No
+path of that file as its ask, by project.py's rule of the board's mark and the owner's drop, with no
+base to find it at (`state_item_of_ask`, `backlog_item_of` of project.py). No
 commit can remove it, so `forge_done`, which every path to `landed` takes, removes the file from the
 main checkout's state folder before it writes `landed`, and prints `item`, with its path and whether
 it was still there to remove: a file gone already is no error. A removal that fails leaves the task
@@ -1420,17 +1421,15 @@ def item_of_ask(ask: str, folder: str, roots: tuple[str, ...], at_base) -> str |
     return path if at_base(path) else None
 
 
-# The folder of the reviewer's items, relative to the root: in the state folder, which git never sees,
-# so no commit of a task's branch removes one, and the landing removes the file itself (`forge_done`).
-STATE_BACKLOG = (lem_state.STATE / "backlog").as_posix()
-
-
-def state_item_of_ask(ask: str, roots: tuple[str, ...]) -> str | None:
-    """The reviewer's item a task was started from: ASK is the path of a file of `.lem/state/backlog/`
-    and nothing else, relative to the root as the board's "Start a task" writes it, or whole under one
-    of ROOTS (the main checkout). `item_of_ask`'s rule with no base to find it at, since git never
-    holds it, and the file may be gone already. The path relative to the root, or None."""
-    return item_of_ask(ask, STATE_BACKLOG, roots, lambda path: True)
+def state_item_of_ask(ask: str, state: Path) -> str | None:
+    """The reviewer's item a task was started from, a file of `.lem/state/backlog/` that git never
+    holds, so no commit of a task's branch removes it and the landing removes the file itself
+    (`forge_done`): project.py's one rule, `backlog_item_of`, over ASK and the main checkout's state
+    folder STATE. The path relative to the root, whether the file is there or not, or None."""
+    path = SCRIPTS / "project.py"
+    if not lem_sibling.in_form(path):
+        raise LandError(f"{path} has no main(argv), so the landing cannot read by its rule which backlog item of the state folder a task was started from")
+    return lem_sibling.module(path).backlog_item_of(state, ask)
 
 
 def state_item(task: Task) -> str | None:
@@ -1438,7 +1437,7 @@ def state_item(task: Task) -> str | None:
     file = task.directory / "ask.txt"
     if not file.is_file():
         return None
-    return state_item_of_ask(file.read_text(encoding="utf-8", errors="replace"), (str(task.main), str(task.main.resolve())))
+    return state_item_of_ask(file.read_text(encoding="utf-8", errors="replace"), task.state_folder)
 
 
 def remove_item(state: Path, item: str, slug: str, url: str) -> bool:

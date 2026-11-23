@@ -206,15 +206,26 @@ def filed(worktree: Path, onto: str, folder: str) -> list[dict] | None:
     return items
 
 
+def reviewer_folder(settings: dict) -> Path:
+    """The folder of the reviewer's items: `.lem/state/backlog/` of the main checkout, which git never sees."""
+    return Path(settings["main"]) / lem_state.STATE / lem_project.STATE_BACKLOG
+
+
 def backlog(settings: dict) -> dict:
-    """The items of the backlog folder, as the board's tab "Backlog" shows them. It reads and changes nothing."""
+    """The items of the backlog folder, and beside them the reviewer's items of the state folder
+    (`reviewer_folder`), as the board's tab "Backlog" shows them. Each item has its file's stem
+    (`slug`), its path from the root of the main checkout, which "Start a task" posts, and its `key`,
+    which names it on the page: the stem for an item of the backlog folder, `-STEM` for a reviewer's
+    item, so that the two items of one stem stay two. A reviewer's item (`reviewer`) is `held` by the
+    task that builds it, `{"task", "status"}` by project.py's holder rule, or undecided (None). It
+    reads and changes nothing."""
     main = Path(settings["main"])
     # the main checkout's copy: a task's worktree has the backlog as its branch left it
     folder = main / Path(settings["places"]["backlog"]["path"]).relative_to(settings["root"])
     relative = folder.relative_to(main).as_posix()
-    feed: dict = {"folder": relative, "read": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "items": []}
-    if not folder.is_dir():
-        return feed
+    mine = reviewer_folder(settings)
+    feed: dict = {"folder": relative, "reviewer_folder": mine.relative_to(main).as_posix(),
+                  "read": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "items": []}
 
     def git(*args: str) -> str:
         ran = subprocess.run(["git", "-C", str(main), *args], capture_output=True, text=True, check=False)
@@ -222,32 +233,41 @@ def backlog(settings: dict) -> dict:
 
     # what git does not have committed yet: an item the closing pass filed a minute ago is `new`
     changed = {}
-    # --untracked-files=all: a folder git does not know yet is listed file by file, not as one line
-    for entry in git("status", "--porcelain", "--untracked-files=all", "-z", "--", relative).split("\0"):
-        if len(entry) > 3:
-            code = entry[:2]
-            changed[entry[3:]] = "new" if code == "??" or "A" in code else "edited"
-    for file in sorted(folder.glob("*.md")):
-        rel = f"{relative}/{file.name}"
-        try:
-            text = file.read_text(encoding="utf-8", errors="replace")
-        except OSError as error:
-            # A link to a file that moved, or a folder with an item's name: shown, not hidden, and
-            # the other items are still read.
+    if folder.is_dir():
+        # --untracked-files=all: a folder git does not know yet is listed file by file, not as one line
+        for entry in git("status", "--porcelain", "--untracked-files=all", "-z", "--", relative).split("\0"):
+            if len(entry) > 3:
+                code = entry[:2]
+                changed[entry[3:]] = "new" if code == "??" or "A" in code else "edited"
+    state = main / lem_state.STATE
+    for place, reviewer in ((folder, False), (mine, True)):
+        rel_place = place.relative_to(main).as_posix()
+        for file in sorted(place.glob("*.md")) if place.is_dir() else ():
+            rel = f"{rel_place}/{file.name}"
+            if reviewer and lem_project.backlog_item_of(state, rel) is None:
+                # a file named `.md` alone: no item by the rule the drop and the landing read
+                continue
+            whose = {"slug": file.stem, "key": f"-{file.stem}" if reviewer else file.stem, "path": rel, "reviewer": reviewer,
+                     **({"held": lem_project.item_holder(state, rel)} if reviewer else {})}
+            try:
+                text = file.read_text(encoding="utf-8", errors="replace")
+            except OSError as error:
+                # A link to a file that moved, or a folder with an item's name: shown, not hidden, and
+                # the other items are still read.
+                feed["items"].append({
+                    **whose, "title": file.stem, "worth": "unset", "where": "", "where_problem": "", "added": "",
+                    "state": "unreadable", "body": f"This item cannot be read: {error.strerror or error}.",
+                })
+                continue
+            fields, title, body = parse_item(text)
+            where = fields.get("where", "")
             feed["items"].append({
-                "slug": file.stem, "path": rel, "title": file.stem, "worth": "unset", "where": "", "where_problem": "", "added": "",
-                "state": "unreadable", "body": f"This item cannot be read: {error.strerror or error}.",
+                **whose, "title": title or file.stem,
+                "worth": fields.get("worth") if fields.get("worth") in ("yes", "later", "no") else "unset",
+                "where": where, "where_problem": where_problem(main, where) if where else "",
+                "added": fields.get("added", ""), "state": "" if reviewer else changed.get(rel, ""),
+                "body": body.strip(),
             })
-            continue
-        fields, title, body = parse_item(text)
-        where = fields.get("where", "")
-        feed["items"].append({
-            "slug": file.stem, "path": rel, "title": title or file.stem,
-            "worth": fields.get("worth") if fields.get("worth") in ("yes", "later", "no") else "unset",
-            "where": where, "where_problem": where_problem(main, where) if where else "",
-            "added": fields.get("added", ""), "state": changed.get(rel, ""),
-            "body": body.strip(),
-        })
     return feed
 
 

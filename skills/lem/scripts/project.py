@@ -3808,11 +3808,10 @@ def cmd_proposals_verdict(state: Path, spec: dict, today: str) -> dict:
     }
 
 
-def backlog_item_of(state: Path, text: str) -> str | None:
-    """The reviewer's item TEXT names: TEXT is the path of a file of the state folder's backlog and
-    nothing else, relative to the root of the main checkout as the board's "Start a task" writes it
-    (`.lem/state/backlog/NAME.md`), or whole. The path relative to the root, whether the file is there
-    or not, or None. land.py's `state_item_of_ask` reads a task's ask by the same rule."""
+def ask_path(state: Path, text: str) -> str | None:
+    """The one path a task's ask TEXT is, relative to the root of the main checkout (the parent of
+    the state folder STATE's `.lem/`): TEXT stripped, as the board's "Start a task" writes it, or a
+    whole path under the main checkout, as the night may write it. None for a whole path outside it."""
     path = text.strip()
     main = state.parent.parent
     if path.startswith("/"):
@@ -3820,6 +3819,17 @@ def backlog_item_of(state: Path, text: str) -> str | None:
         if root is None:
             return None
         path = path[len(root):]
+    return path
+
+
+def backlog_item_of(state: Path, text: str) -> str | None:
+    """The reviewer's item TEXT names: TEXT is the path of a file of the state folder's backlog and
+    nothing else, relative to the root of the main checkout as the board's "Start a task" writes it
+    (`.lem/state/backlog/NAME.md`), or whole (`ask_path`). The path relative to the root, whether the
+    file is there or not, or None. land.py reads a task's ask by this function."""
+    path = ask_path(state, text)
+    if path is None:
+        return None
     parent, _, name = path.rpartition("/")
     if parent != (lem_state.STATE / STATE_BACKLOG).as_posix() or not name.endswith(".md") or name == ".md":
         return None
@@ -3827,14 +3837,15 @@ def backlog_item_of(state: Path, text: str) -> str | None:
 
 
 def item_holder(state: Path, item: str) -> dict | None:
-    """The task that holds the reviewer's item ITEM (a path as `backlog_item_of` gives it): a task whose
-    ask.txt is the item's path and that has not ended, as `{"task": SLUG, "status": STATUS}`, with
-    STATUS null for a task that has no state yet; None when no task holds it. The drop reads it, and
-    the board's "Start a task" reads the same rule."""
+    """The task that holds the backlog item ITEM, a path relative to the root of the main checkout
+    (a reviewer's item as `backlog_item_of` gives it, or an item of the backlog folder): a task whose
+    ask.txt is the item's path (`ask_path`) and that has not ended, as `{"task": SLUG, "status":
+    STATUS}`, with STATUS null for a task that has no state yet; None when no task holds it. The drop
+    reads it, and the board's "Start a task" and its mark of a reviewer's item read the same rule."""
     tasks = state / "tasks"
     for directory in sorted(d for d in (tasks.iterdir() if tasks.is_dir() else ()) if d.is_dir()):
         ask = directory / "ask.txt"
-        if not ask.is_file() or backlog_item_of(state, text_of(ask)) != item:
+        if not ask.is_file() or ask_path(state, text_of(ask)) != item:
             continue
         written = text_of(directory / "state.md").strip() if (directory / "state.md").is_file() else ""
         first = STATE_LINE.fullmatch(written.splitlines()[0]) if written else None
