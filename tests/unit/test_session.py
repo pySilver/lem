@@ -194,6 +194,16 @@ class Phase(unittest.TestCase):
             with self.subTest(facts=facts):
                 self.assertEqual(session.phase_of(SLUG, *facts, ""), phase)
 
+    def test_a_block_of_the_merge_agents_seat_is_the_landings_and_one_of_the_talk_the_builds(self):
+        merger = "2026-11-23T10:00Z blocked: the merge agent `codex/gpt-6.2-sol:high` gave an error: no tokens, and this project permits no fallback\nthe seat that failed: merger"
+        reviewer = merger.replace("the merge agent", "the reviewer").replace("failed: merger", "failed: reviewer")
+        first = merger.splitlines()[0].split(": ", 1)[1]
+        self.assertEqual(session.phase_of(SLUG, "blocked", first, "standard", True, merger), "land")
+        self.assertEqual(session.phase_of(SLUG, "blocked", first, "standard", True, reviewer), "build")
+        # a block's own lines, as a change of phase reads each block of its run
+        self.assertEqual(session.phase_of(SLUG, "blocked", first, "standard", True, "", ["the seat that failed: merger"]), "land")
+        self.assertEqual(session.phase_left(SLUG, [{"status": "blocked", "text": first, "lines": ["the seat that failed: merger"]}], "standard", "build", "land", ""), "land")
+
     def test_a_task_queued_in_the_shape_goes_on_in_the_shape(self):
         # queued at step 7 of "The request": no lead ran, so its session takes step 8 there
         state = ('2026-11-21T10:01Z queued: the owner\'s order: "After coupon: unit cases"\nafter: coupon\nthen: the interview\n\n'
@@ -226,6 +236,24 @@ class Phase(unittest.TestCase):
         with self.assertRaises(session.SessionError) as raised:
             session.phase_of(SLUG, "dropped", closed, "standard", False, "")
         self.assertIn("is dropped", str(raised.exception))
+
+    def test_a_quiet_talk_ends_the_wait_after_45_minutes_counted_from_the_later_of_the_file_and_the_wait(self):
+        began = 1_000_000.0
+        minute = 60.0
+        # talk-turns.md written at the wait's start: 44 minutes later the wait goes on, at 45 it ends
+        self.assertFalse(session.quiet_over(began, began, began + 44 * minute))
+        self.assertTrue(session.quiet_over(began, began, began + 45 * minute))
+        # a file not there yet counts from the wait's start
+        self.assertFalse(session.quiet_over(None, began, began + 44 * minute))
+        self.assertTrue(session.quiet_over(None, began, began + 45 * minute))
+        # a second wait over the same old file, after a quiet end with no error, waits its own 45 minutes
+        second = began + 45 * minute
+        self.assertFalse(session.quiet_over(began, second, second + 1))
+        self.assertFalse(session.quiet_over(began, second, second + 44 * minute))
+        self.assertTrue(session.quiet_over(began, second, second + 45 * minute))
+        # a turn written during the wait starts the count again
+        self.assertFalse(session.quiet_over(began + 30 * minute, began, began + 60 * minute))
+        self.assertEqual(session.QUIET_SECONDS, 45 * 60)
 
     def test_a_queued_task_waits_for_its_after_task_until_that_one_ended(self):
         queued = {"slug": SLUG, "status": "queued", "state": "2026-11-21T10:00Z queued: needs the column\nafter: coupon"}

@@ -28,11 +28,13 @@
                                  log that the task's session stopped after its status message and
                                  its restart, or after the message alone when Lem cannot read its
                                  signs, so that it waits for the owner
-    lem session wait SLUG --until STATE,... | --event NAME | --first-line [--companion ID]
+    lem session wait SLUG --until STATE,... | --event NAME | --first-line [--companion ID [--quiet FILE]]
                                  end when the task's state is one of these, or a new event is logged,
                                  or the task's first line is written, or when the task's session is
                                  gone (`"gone": true`), or with --companion when that companion of the
-                                 waiting session is gone (`"gone": true, "companion": ID`)
+                                 waiting session is gone (`"gone": true, "companion": ID`), or with
+                                 --quiet when FILE has not changed for 45 minutes since the later of
+                                 its last change and the wait's start (`"quiet": true`)
     lem session list             each task's newest session: live, agent, selected, the phase the task is
                                  in now and the one the session opened in, unanswered, and its signs
                                  of work (sign, shell, signs, turn)
@@ -42,10 +44,11 @@
 
 The phase comes from the task's state, never from an argument: no state block, or `held` for the
 interview or the criteria (any hold but a breaker's), is `shape`; a task on the fast track is `fast`
-from its request to its merge; `queued`, `building`, `planned`, `blocked` and a breaker's `held` are
-`build`, but a `queued` task that no lead started (no block of its state has a `lead:` line), which
-goes on at step 8 of "The request", is `shape`; `ready`, `landing`, `open` and a `landed` task whose
-worktree is not removed yet are `land`.
+from its request to its merge; `queued`, `building`, `planned`, `blocked` (but by the merge agent's
+seat) and a breaker's `held` are `build`, but a `queued` task that no lead started (no block of its state has a `lead:` line), which
+goes on at step 8 of "The request", is `shape`; `ready`, `landing`, `open`, a `blocked` task whose
+block names `the seat that failed: merger` (its pull request waits for the owner's go on) and a
+`landed` task whose worktree is not removed yet are `land`.
 `open` refuses a task that does not exist, one that ended (a landed one only once its worktree is
 gone), a parked one, one queued `after:` a task that has not ended, a call with no agterm, a
 workspace it cannot tell, and a path the launch line cannot carry.
@@ -243,6 +246,11 @@ WAIT_EVERY = 10
 # the real tasks of that day the first block came about a minute after the open; the fast track
 # makes its worktree and runs `checks.setup` before it, and the interview may ask one question first.
 FIRST_LINE_BOUND = 600
+# How long `wait --quiet FILE` waits with no change of FILE (the plan talk's `talk-turns.md`) before it
+# ends with `"quiet": true`, so that the lead reads the pair's screens for an agent that stopped at a limit
+# and stays live in its pane: 45 minutes, the guard's number for a session with no sign of work (the
+# owner's, 2026-11-22), taken as a guess for a talk (plan seat-defaults-and-fallback, decision 10).
+QUIET_SECONDS = 45 * 60
 # After how long a wake whose line still waits in the mailbox is `unanswered`: 10 minutes, a guess
 # (the plan's "no session" row says "does not answer" after it).
 UNANSWERED_AFTER = 600
@@ -284,7 +292,7 @@ def lead_started(state: str) -> bool:
     return False
 
 
-def phase_of(slug: str, status: str | None, line: str | None, track: str | None, worktree: bool, state: str) -> str:
+def phase_of(slug: str, status: str | None, line: str | None, track: str | None, worktree: bool, state: str, lines: list[str] | None = None) -> str:
     """The phase of a task's session from its newest state block (STATUS and its first LINE), its
     track, whether its worktree is still there and its whole STATE; a SessionError with the fix for a
     task that gets no session. A `queued` task that no lead started was queued in the shape, at step 7
@@ -292,7 +300,10 @@ def phase_of(slug: str, status: str | None, line: str | None, track: str | None,
     at the start of the build. A `landed` or `dropped` task whose worktree is still there is in the
     land phase: its session cleans it up and pays what its ticket is still owed, also for a pull
     request closed on GitHub while no session ran, which the board's server wakes as it wakes a merged
-    one (`serve.py`, `duties`)."""
+    one (`serve.py`, `duties`). A `blocked` task whose block names `the seat that failed: merger` is in the
+    land phase too, as an `open` one: its pull request waits for the owner's go on; a block of the
+    reviewer's or the planner's seat stays in the build. LINES are the block's lines under its first,
+    the newest block of STATE when none are given."""
     if status is None:
         return "shape"
     if status == project.PARKED:
@@ -310,7 +321,11 @@ def phase_of(slug: str, status: str | None, line: str | None, track: str | None,
         return "fast"
     if status == "queued" and not lead_started(state):
         return "shape"
-    if status in ("queued", "building", "planned", "blocked"):
+    if status == "blocked":
+        newest = project.blocks_of(state)[:1] if lines is None else []
+        below = lines if lines is not None else (newest[0]["lines"][1:] if newest else [])
+        return "land" if project.failed_seat([line or "", *below]) == "merger" else "build"
+    if status in ("queued", "building", "planned"):
         return "build"
     return "land"
 
@@ -324,7 +339,7 @@ def phase_left(slug: str, blocks: list[dict], track: str | None, now: str, start
     that gives no phase (a park, an ended task's) is passed over."""
     for block in reversed(blocks):
         try:
-            phase = phase_of(slug, block.get("status"), block.get("text"), track, True, state)
+            phase = phase_of(slug, block.get("status"), block.get("text"), track, True, state, block.get("lines") or [])
         except SessionError:
             continue
         if phase != now:
@@ -1016,7 +1031,15 @@ def gone_companion(where: dict, companion: str, since: dict, now: datetime) -> b
     return not live(node, since, now)
 
 
-def cmd_wait(root: Path, slug: str, until: list[str], event: str | None, every: float, companion: str | None = None) -> dict:
+def quiet_over(changed: float | None, began: float, now: float, after: float = QUIET_SECONDS) -> bool:
+    """Whether a wait with `--quiet FILE` ends as quiet at NOW: AFTER seconds passed since the later of
+    FILE's last change (CHANGED, None while it is not there) and the wait's own start (BEGAN), so a wait
+    that follows a quiet end with no error waits the whole time again over the same old file."""
+    return now - max(began if changed is None else changed, began) >= after
+
+
+def cmd_wait(root: Path, slug: str, until: list[str], event: str | None, every: float, companion: str | None = None,
+             quiet: Path | None = None) -> dict:
     project.task_directory(root, slug)
     unknown = [state for state in until if state not in project.STATES]
     if unknown:
@@ -1031,6 +1054,14 @@ def cmd_wait(root: Path, slug: str, until: list[str], event: str | None, every: 
         return next(task for task in project.read_tasks(root) if task["slug"] == slug)
 
     seen = len(mine()) if event else 0
+    started = time.time()
+
+    def changed() -> float | None:
+        try:
+            return quiet.stat().st_mtime if quiet else None
+        except OSError:
+            return None
+
     try:
         while True:
             if event:
@@ -1046,6 +1077,11 @@ def cmd_wait(root: Path, slug: str, until: list[str], event: str | None, every: 
                 return {"task": slug, "status": task["status"], "line": first_line(task), "since": task["since"], "gone": True, "companion": companion,
                         "say": f"the companion {companion} of {slug} is gone before the state came, and the task is {task['status'] or 'with no state yet'}: "
                                f"read the plan's `## Plan talk` and `talk` in `lem project tasks` before anything else"}
+            if quiet and quiet_over(changed(), started, time.time()):
+                task = task_now()
+                return {"task": slug, "status": task["status"], "line": first_line(task), "since": task["since"], "gone": False, "quiet": True, "file": str(quiet),
+                        "say": f"{quiet.name} of {slug} has not changed for {QUIET_SECONDS // 60} minutes and no state came: read the screen of each pane "
+                               "of the pair for one of the four errors of a seat, and run the same wait again when neither shows one"}
             gone = gone_session(root, slug, where)
             if gone is not None:
                 task = task_now()
@@ -1354,6 +1390,8 @@ def main(argv: list[str] | None = None) -> None:
     until.add_argument("--event", metavar="NAME", help="the event that ends the wait, the first one logged for the task after its start")
     until.add_argument("--first-line", action="store_true", help="end with the task's first line, as this session says it")
     waiting.add_argument("--companion", metavar="ID", help="with --until or --event: end too when this companion of the waiting session is gone (the plan talk's pair)")
+    waiting.add_argument("--quiet", metavar="FILE", help=f"with --until and --companion: end too, with \"quiet\": true, when FILE has not changed for {QUIET_SECONDS // 60} minutes "
+                                                        "since the later of its last change and the wait's start (the plan talk's talk-turns.md)")
     waiting.add_argument("--every", type=float, default=WAIT_EVERY, help=argparse.SUPPRESS)
     waiting.add_argument("--bound", type=float, default=FIRST_LINE_BOUND, help=argparse.SUPPRESS)
     commands.add_parser("list", help="each task's newest session")
@@ -1400,7 +1438,9 @@ def main(argv: list[str] | None = None) -> None:
             states = [state.strip() for state in (args.until or "").split(",") if state.strip()]
             if args.until is not None and not states:
                 raise SessionError("--until names one state or more, joined by commas, as --until open,held,landed")
-            result = cmd_wait(root, args.slug, states, args.event, max(0.01, args.every), args.companion)
+            if args.quiet and not (args.until and args.companion):
+                raise SessionError("--quiet goes with --until and --companion: it wakes the lead of a plan talk whose pair stopped writing its turns")
+            result = cmd_wait(root, args.slug, states, args.event, max(0.01, args.every), args.companion, Path(args.quiet).resolve() if args.quiet else None)
         else:
             result = cmd_list(root)
     except (SessionError, project.SettingsError) as error:
