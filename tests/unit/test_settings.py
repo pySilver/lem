@@ -6,8 +6,11 @@ fact only git shows, and tests/lem-settings.sh checks it in real repositories.
     python3 -B -m unittest discover -s tests/unit
 """
 
+import contextlib
+import io
 import os
 import stat
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -296,12 +299,9 @@ class Tracker(Refuses):
                 self.assertNames(self.refused_settings("[tracker]", 'kind = "linear"', key), str(FILE), f"unknown key tracker.{key.split()[0]}")
 
 
-class Seats(Refuses):
-    """A seat is one string, agent/model:effort. The reviewer's, the defender's, each expert's and the fallback's
-    is written whole; the merge agent's and a task session's may leave out the effort, or the model and the effort.
-    Each seat comes from the first of four places: this machine's own file for the repository, the team's file,
-    the home folder's settings.toml, then Lem's default. Each case runs with a folder of its own as
-    XDG_CONFIG_HOME, so the home folder's files are that folder's and the home directory's are never read."""
+class Home(Refuses):
+    """Each case runs with a folder of its own as XDG_CONFIG_HOME, so the home folder's files are that folder's and
+    the home directory's are never read or written."""
 
     def setUp(self):
         self.kept = os.environ.get("XDG_CONFIG_HOME")
@@ -314,6 +314,13 @@ class Seats(Refuses):
         else:
             os.environ["XDG_CONFIG_HOME"] = self.kept
         self.folder.cleanup()
+
+
+class Seats(Home):
+    """A seat is one string, agent/model:effort. The reviewer's, the defender's, each expert's and the fallback's
+    is written whole; the merge agent's and a task session's may leave out the effort, or the model and the effort.
+    Each seat comes from the first of four places: this machine's own file for the repository, the team's file,
+    the home folder's settings.toml, then Lem's default."""
 
     def home(self, *lines: str) -> dict:
         """The tables of a home folder's settings.toml of these lines, as `load` reads them; no lines, no file."""
@@ -358,9 +365,9 @@ class Seats(Refuses):
                 message = self.refused(project.experts_of, {"seats": {"experts": given}}, FILE)
                 self.assertEqual(message, f'{FILE}: seats.experts[{number}] = {given[number]!r} names {missing}: it is one string, "agent/model:effort", written whole, as "{project.EXPERTS[number]}"')
 
-    def test_the_reviewer_command_refuses_a_seat_that_is_not_whole(self):
-        message = self.refused(project.parse_seat, "claude", "the reviewer", project.REVIEWERS, *project.SEATS["reviewer"][1:], True)
-        self.assertEqual(message, f'the reviewer = \'claude\' names no model and no effort: it is one string, "agent/model:effort", written whole, as "{project.REVIEWER_SEATS["codex"]}"')
+    def test_set_refuses_a_seat_that_is_not_whole(self):
+        message = self.refused(project.set_value, "local", "reviewer", "claude")
+        self.assertEqual(message, f'set local reviewer: seats.reviewer = \'claude\' names no model and no effort: it is one string, "agent/model:effort", written whole, as "{project.REVIEWER_SEATS["codex"]}"')
 
     def test_a_wrong_agent_is_named_before_the_parts_it_leaves_out(self):
         message = self.refused(project.seat, {"seats": {"planner": "codex"}}, FILE, "planner")
@@ -552,9 +559,9 @@ class Seats(Refuses):
                 self.assertNames(self.refused(project.seat, {"seats": {which: given}}, name, which), str(name), *names)
 
     def test_a_seat_line_parse_seat_refuses(self):
-        # the reviewer command's own word goes through the same parse
-        message = self.refused(project.parse_seat, "claude/opus:high:max", "the reviewer", project.REVIEWERS, *project.SEATS["reviewer"][1:])
-        self.assertNames(message, "the reviewer = 'claude/opus:high:max' holds 2 `:`")
+        # the word `set` takes goes through the same parse
+        message = self.refused(project.set_value, "global", "reviewer", "claude/opus:high:max")
+        self.assertNames(message, "set global reviewer: seats.reviewer = 'claude/opus:high:max' holds 2 `:`")
 
     def test_the_experts_it_refuses(self):
         name = Path(".lem/settings.toml")
@@ -566,6 +573,142 @@ class Seats(Refuses):
         ):
             with self.subTest(given=given):
                 self.assertNames(self.refused(project.experts_of, {"seats": {"experts": given}}, name), str(name), *names)
+
+
+class SetSeat(Home):
+    """`lem project set global|local NAME VALUE`: one line of `[seats]` in the home folder's settings.toml or in this
+    machine's own file of the repository, with every other line of the file kept; nothing writes the team's file.
+    Each case has a git repository of its own in a temporary folder, beside its own XDG_CONFIG_HOME."""
+
+    def setUp(self):
+        super().setUp()
+        self.repo = Path(self.folder.name) / "notes-app"
+        subprocess.run(["git", "init", "-q", "-b", "main", str(self.repo)], check=True)
+        self.settings = self.repo / project.SETTINGS
+        self.settings.parent.mkdir()
+        self.settings.write_text('# the project\'s own\n[branch]\nbase = "main"\n', encoding="utf-8")
+        self.home_file = project.lem_state.home_settings_file()
+        self.local_file = self.repo / project.LOCAL
+
+    def set(self, scope: str, name: str, value: str) -> dict:
+        return project.cmd_set(self.repo, scope, name, [value])
+
+    def write(self, file: Path, *lines: str) -> None:
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    def test_set_global_keeps_the_owners_comment_and_the_merger(self):
+        # criterion 6, its four steps
+        self.write(self.home_file, "# the Mac in the office", "[seats]", 'merger = "claude/opus:high"')
+        said = self.set("global", "reviewer", "codex/gpt-6.2-sol:high")
+        self.assertEqual(self.home_file.read_text(encoding="utf-8"),
+                         '# the Mac in the office\n[seats]\nmerger = "claude/opus:high"\nreviewer = "codex/gpt-6.2-sol:high"\n')
+        self.assertEqual((said["seat"]["seat"], said["seat"]["from"], said["file"]), ("codex/gpt-6.2-sol:high", project.home_name(), str(self.home_file)))
+        self.assertEqual(said["said"], f"the reviewer here is codex/gpt-6.2-sol:high, from {project.home_name()}")
+        back = self.set("global", "reviewer", "default")
+        self.assertEqual(self.home_file.read_text(encoding="utf-8"), '# the Mac in the office\n[seats]\nmerger = "claude/opus:high"\n')
+        self.assertEqual((back["seat"]["seat"], back["seat"]["from"], back["line"]), ("claude/opus:high", "Lem's default", None))
+
+    def test_set_local_keeps_its_comment_and_its_state_table(self):
+        self.write(self.local_file, "# mine, not committed", "[state]", "keep_days = 3", "", "[seats]", 'planner = "claude/opus:max"  # for long plans')
+        said = self.set("local", "reviewer", "claude/opus:high")
+        self.assertEqual(self.local_file.read_text(encoding="utf-8"),
+                         '# mine, not committed\n[state]\nkeep_days = 3\n\n[seats]\nplanner = "claude/opus:max"  # for long plans\nreviewer = "claude/opus:high"\n')
+        self.assertEqual((said["seat"]["seat"], said["seat"]["from"]), ("claude/opus:high", str(project.LOCAL)))
+        # a line replaced keeps its own comment
+        self.set("local", "planner", "claude/opus:high")
+        self.assertIn('planner = "claude/opus:high"  # for long plans\n', self.local_file.read_text(encoding="utf-8"))
+        self.set("local", "reviewer", "default")
+        self.set("local", "planner", "default")
+        self.assertEqual(self.local_file.read_text(encoding="utf-8"), "# mine, not committed\n[state]\nkeep_days = 3\n")
+
+    def test_set_local_in_a_task_worktree_writes_the_main_checkout(self):
+        subprocess.run(["git", "-C", str(self.repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "start"], check=True)
+        tree = Path(self.folder.name) / "wt"
+        subprocess.run(["git", "-C", str(self.repo), "worktree", "add", "-q", str(tree), "-b", "feat/x"], check=True)
+        said = project.cmd_set(tree, "local", "reviewer", ["codex/gpt-6.2-sol:high"])
+        self.assertEqual(said["file"], str(project.main_checkout(tree) / project.LOCAL))
+        self.assertTrue(self.local_file.is_file())
+        self.assertFalse((tree / project.LOCAL).exists())
+
+    def test_a_new_file_and_default_on_its_last_line(self):
+        said = self.set("local", "fallback", "false")
+        self.assertEqual(said["line"], "fallback = false")
+        self.assertEqual(said["seat"], {"seat": False, "from": str(project.LOCAL)})
+        self.assertEqual(self.local_file.read_text(encoding="utf-8"), f"{project.SET_FIRST['local']}\n\n[seats]\nfallback = false\n")
+        self.assertEqual(said["said"], "the fallback here is off, from .lem/settings.local.toml")
+        self.set("local", "fallback", "default")
+        self.assertFalse(self.local_file.exists())
+
+    def test_default_on_the_last_line_of_a_table(self):
+        text = '[load]\nstart = 6\n\n[seats]\nreviewer = "codex/gpt-6.2-sol:high"\n\n[serve]\nport = 4500\n'
+        self.assertEqual(project.lem_state.edited(text, "seats", "reviewer", None, "machine.toml"), "[load]\nstart = 6\n\n[serve]\nport = 4500\n")
+        self.assertEqual(project.lem_state.edited('[load]\nstart = 6\n\n[seats]\nreviewer = "x/y:z"\n', "seats", "reviewer", None, "machine.toml"), "[load]\nstart = 6\n")
+
+    def test_the_experts_are_written_as_a_list(self):
+        said = self.set("global", "experts", "claude/fable:high,codex/gpt-6.2-astra:high")
+        self.assertIn('experts = ["claude/fable:high", "codex/gpt-6.2-astra:high"]\n', self.home_file.read_text(encoding="utf-8"))
+        self.assertEqual([(e["seat"], e["from"]) for e in said["seat"]], [("claude/fable:high", project.home_name()), ("codex/gpt-6.2-astra:high", project.home_name())])
+        self.assertNames(self.refused(project.set_value, "global", "experts", "claude/a:high,claude/b:high,claude/c:high"), "names 3 seats", "one or two whole seats joined by a comma")
+        self.assertNames(self.refused(project.set_value, "global", "experts", "claude/fable"), "set global experts: seats.experts[0] = 'claude/fable' names no effort")
+
+    def test_a_key_in_another_form_is_refused_and_the_file_stays(self):
+        for lines, name in (
+            (("[seats]", "experts = [", '  "claude/fable:high",', "]"), "experts"),
+            (('seats.reviewer = "codex/gpt-6.2-sol:high"',), "reviewer"),
+            (('seats = {reviewer = "codex/gpt-6.2-sol:high"}',), "reviewer"),
+        ):
+            for value in ("claude/opus:high", "default"):
+                with self.subTest(lines=lines, value=value):
+                    self.write(self.home_file, *lines)
+                    before = self.home_file.read_bytes()
+                    message = self.refused(self.set, "global", name, value)
+                    self.assertNames(message, str(self.home_file), f"write `{name}` on one line under `[seats]`")
+                    self.assertEqual(self.home_file.read_bytes(), before)
+
+    def test_a_wrong_file_is_refused_with_its_fix_and_stays(self):
+        self.write(self.local_file, "[seats]", "planner = 42")
+        self.assertNames(self.refused(self.set, "local", "reviewer", "claude/opus:high"), ".lem/settings.local.toml: seats.planner = 42 must be")
+        self.assertEqual(self.local_file.read_text(encoding="utf-8"), "[seats]\nplanner = 42\n")
+        self.write(self.home_file, "[seats]", 'planner = "codex/gpt-6.2-sol:high"')
+        self.assertNames(self.refused(self.set, "global", "reviewer", "claude/opus:high"), "seats.planner", "the agent 'codex' must be claude")
+        self.assertEqual(self.home_file.read_text(encoding="utf-8"), '[seats]\nplanner = "codex/gpt-6.2-sol:high"\n')
+        self.write(self.home_file, "[state]", "keep_days = 3")
+        self.assertNames(self.refused(self.set, "global", "reviewer", "claude/opus:high"), "[state] is not valid in this file")
+        self.assertEqual(self.home_file.read_text(encoding="utf-8"), "[state]\nkeep_days = 3\n")
+
+    def test_false_is_for_the_fallback_only_and_every_seat_is_whole(self):
+        for name in ("reviewer", "planner", "merger", "session", "experts"):
+            with self.subTest(name=name):
+                self.assertNames(self.refused(project.set_value, "global", name, "false"), f"set global {name}: false is for fallback only")
+        # the merge agent's and the session's seat may leave out a part in a file, and `set` takes only a whole one
+        for name, given in (("merger", "claude"), ("session", "claude:high")):
+            with self.subTest(name=name):
+                self.assertNames(self.refused(project.set_value, "local", name, given), f"seats.{name}", "written whole")
+        self.assertNames(self.refused(project.set_value, "local", "fallback", "true"), "seats.fallback = true is no seat")
+        self.assertNames(self.refused(project.set_value, "local", "helper", "claude/opus:high"), "not 'helper'", "reviewer, planner, merger, session, experts, fallback")
+        self.assertIsNone(project.set_value("local", "merger", "default"))
+
+    def test_no_path_writes_the_repositorys_settings(self):
+        before = self.settings.read_bytes()
+        for scope in project.SCOPES:
+            for name, value in (("reviewer", "codex/gpt-6.2-sol:high"), ("planner", "claude/opus:max"), ("merger", "codex/gpt-6.2-sol:high"),
+                                ("session", "claude/opus:high"), ("experts", "claude/fable:high"), ("fallback", "false"), ("fallback", "default")):
+                with self.subTest(scope=scope, name=name, value=value):
+                    self.set(scope, name, value)
+                    self.assertEqual(self.settings.read_bytes(), before)
+        self.assertNames(self.refused(self.set, "project", "reviewer", "claude/opus:high"), "set takes global", "no command writes it")
+        self.assertEqual(self.settings.read_bytes(), before)
+
+    def test_reviewer_is_no_command(self):
+        # criterion 7: `set local reviewer` does its work, and no alias is left
+        out = io.StringIO()
+        with contextlib.redirect_stderr(out), self.assertRaises(SystemExit) as stopped:
+            project.main(["--repo", str(self.repo), "reviewer", "claude/opus:high"])
+        self.assertEqual(stopped.exception.code, 2)
+        self.assertIn("invalid choice: 'reviewer'", out.getvalue())
+        self.assertFalse(hasattr(project, "cmd_reviewer"))
+        self.assertFalse(self.local_file.exists())
 
 
 if __name__ == "__main__":

@@ -20,9 +20,15 @@ team that adopts Lem may have its own.
                                     three: the reviewer on Codex and two experts, or with
                                     `--codex no` (the machine check found no Codex) the
                                     reviewer on Claude and one expert
-    lem project reviewer AGENT[/MODEL[:EFFORT]]
-                                    who reviews on this machine, until `reviewer default`
-    lem project reviewer default    the project's own reviewer again
+    lem project set global|local NAME VALUE
+                                    write one line of [seats]: global in ~/.config/lem/settings.toml,
+                                    for each repository on this machine that names none, local in
+                                    this repository's .lem/settings.local.toml, for this machine only.
+                                    NAME is reviewer, planner, merger, session, experts or fallback;
+                                    VALUE a whole seat, one or two joined by a comma for experts,
+                                    false for fallback only, or default, which takes the line out.
+                                    Every other line of the file stays; nothing writes
+                                    .lem/settings.toml. It prints the seat show then gives
     lem project load [--start N|none]
                                     the load average under which the checks of a landing start on
                                     this machine (40 when none is set), and the load now; --start
@@ -307,12 +313,15 @@ fallback. `show` marks each expert `here` when its agent is on this
 machine (Claude Code always, Codex when its command is on PATH): only those answer, so without
 Codex the default's one Claude expert answers alone. The reviewer's, the defender's, each
 expert's and the fallback's seat is written whole, in each of the three files, and `show` and
-`reviewer` refuse one that leaves out its model or its effort (the owner, 2026-11-18: "I think it
+`set` refuse one that leaves out its model or its effort (the owner, 2026-11-18: "I think it
 should be explicitly `agent/model:effort` in all 3; not simply "claude" or "codex""); `init` writes
 the three so. The merge agent's and the session's seat may leave out the effort (`claude/opus`), and
 the model too (`claude`, `claude:high`): the part a named seat leaves out is that agent's own
-default, and Lem passes nothing for it. `show` gives each seat parsed, as `agent`, `model`, `effort`
-and the `seat` as written, with its `from`.
+default, and Lem passes nothing for it; `set` still takes only a whole seat for them. `show` gives
+each seat parsed, as `agent`, `model`, `effort` and the `seat` as written, with its `from`. `set
+global` and `set local` write one line of `[seats]` in the home folder's `settings.toml` or in this
+machine's own file for the repository, and keep every other line of it (`lem_state.edited`); no
+command writes the team's file, and none writes a seat into `machine.toml`, which refuses `[seats]`.
 
 A plan's file is named by `paths.plan_file`, a pattern of the tokens `YYYY`, `MM`, `DD` and
 `<slug>`, `YYYY-MM-DD-<slug>.md` unless the settings say otherwise. A task's plan is found by it:
@@ -880,10 +889,8 @@ def unreadable_argument(argv: list[str]) -> str | None:
     return None
 
 
-def toml_string(value: str) -> str:
-    """A string as TOML writes it. JSON's own escapes would turn a character outside the basic plane into two halves TOML refuses."""
-    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
-    return '"' + "".join(f"\\u{ord(c):04x}" if ord(c) < 0x20 or ord(c) == 0x7F else c for c in escaped) + '"'
+# a string as TOML writes it, for the template and the refusals; the line edit of a settings file writes the same
+toml_string = lem_state.toml_string
 
 
 def read_settings(file: Path, name: Path, place: str) -> dict:
@@ -960,17 +967,6 @@ def settings_of(text: str, name: Path | str, place: str) -> dict:
             if key not in TABLES[table]:
                 raise SettingsError(f"{name}: unknown key {table}.{key}{nearest(key, TABLES[table])}")
     return raw
-
-
-def toml_value(value: object) -> str:
-    """A value of a settings file as TOML writes it: a string, a list of strings, true or false, a number."""
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, str):
-        return toml_string(value)
-    if isinstance(value, list):
-        return "[" + ", ".join(toml_value(item) for item in value) + "]"
-    return str(value)
 
 
 def flow_of(raw: dict, name: Path) -> dict:
@@ -1474,42 +1470,103 @@ def cmd_init(root: Path, base: str | None, codex: str) -> None:
     print(file)
 
 
-def cmd_reviewer(root: Path, words: list[str]) -> None:
-    """Write, or with `default` remove, this machine's own reviewer seat."""
-    file = main_checkout(root) / LOCAL
+# What `set` writes: each seat, and the seat that stands in when one fails; with the words it says each by.
+SET_NAMES = (*SEATS, "experts", "fallback")
+SET_WORDS = {"reviewer": "the reviewer", "planner": "the defender", "merger": "the merge agent", "session": "a task's session",
+             "experts": "the experts", "fallback": "the fallback"}
+# Where `set` writes: the developer's file for all his repositories (the home folder's `settings.toml`),
+# or this machine's own file for this one. The team's file is everybody's, edited by hand and committed,
+# and no command writes it.
+SCOPES = ("global", "local")
+# the first line of a file `set` makes
+SET_FIRST = {"global": "# Your own settings for Lem, for every repository on this machine. `lem project set global NAME VALUE` writes a seat.",
+             "local": "# This machine's own settings for Lem, for this repository. Not committed; `lem project set local NAME VALUE` writes a seat."}
+
+
+def set_value(scope: str, name: str, value: str) -> object:
+    """What `set SCOPE NAME VALUE` writes, checked by the rule `show` reads it with: a whole seat for
+    each seat (the merge agent's and the session's too), one or two whole seats joined by a comma for
+    the experts, written as a list, `false` for the fallback only; None for `default`, which takes the
+    line out."""
+    if name not in SET_NAMES:
+        raise SettingsError(f"set takes a seat or fallback as NAME, not {name!r}{nearest(name, SET_NAMES)}")
+    if value == "default":
+        return None
+    where = Path(f"set {scope} {name}")
+    if value == "false":
+        if name != "fallback":
+            raise SettingsError(f"{where}: false is for fallback only, which it turns off; {SET_WORDS[name]} takes a whole seat, \"{SEAT_FORM}\", "
+                                f"or default, which takes the line out")
+        return False
+    if name == "fallback":
+        # `true` is refused as the settings refuse it, with the line to leave out
+        return fallback_of({"seats": {"fallback": True if value == "true" else value}}, where)["seat"]
+    if name == "experts":
+        parts = [part.strip() for part in value.split(",")]
+        if len(parts) > len(EXPERT_PLACES):
+            raise SettingsError(f"{where}: {value!r} names {len(parts)} seats, and the experts are one or two whole seats joined by a comma, "
+                                f"as `set {scope} experts {','.join(EXPERTS)}`")
+        experts_of({"seats": {"experts": parts}}, where)
+        return parts
+    agents, why, example = SEATS[name]
+    return parse_seat(value, f"{where}: seats.{name}", agents, why, example, True)["seat"]
+
+
+def seats_checked(tables: dict, name: Path) -> None:
+    """The seats of one settings file, each by the rule `show` reads it with; it refuses with a SettingsError and the fix."""
+    for which in SEATS:
+        seat(tables, name, which)
+    experts_of(tables, name)
+    fallback_of(tables, name)
+
+
+def local_checked(file: Path) -> None:
+    """This machine's own file for the repository, read and checked whole; it refuses with a SettingsError and the fix."""
     local = read_settings(file, LOCAL, "local")
-    # What the file already holds is checked before any of it is written again: a wrong value is
-    # refused with its fix, and the file stays as the owner left it.
     local_naps_off(local)
     local_keep_days(local)
-    for which in SEATS:
-        seat(local, LOCAL, which)
-    experts_of(local, LOCAL)
-    fallback_of(local, LOCAL)
-    if words == ["default"]:
-        local.get("seats", {}).pop("reviewer", None)
+    seats_checked(local, LOCAL)
+
+
+def cmd_set(root: Path, scope: str, name: str, words: list[str]) -> dict:
+    """Write one line of `[seats]`, or with `default` take it out: `global` in the home folder's
+    `settings.toml`, for each repository on this machine that names none, `local` in this machine's own
+    file of the repository, in the main checkout. The value is checked first, then the file whole: a wrong one is
+    refused with its fix, and the file stays as it was. Every other line of the file stays, its
+    comments too (`lem_state.edited`). It gives the seat as `show` then reads it, with its `from`."""
+    if scope not in SCOPES:
+        raise SettingsError(f"set takes global, which writes {home_name()} for each repository on this machine that names none, "
+                            f"or local, which writes {LOCAL} of this repository for this machine only; not {scope!r}. "
+                            f"{SETTINGS} is the project's, edited by hand and committed: no command writes it")
+    if len(words) != 1:
+        raise SettingsError(f"set {scope} {name} takes one VALUE, a whole seat \"{SEAT_FORM}\", as `set {scope} reviewer {REVIEWER_SEATS['codex']}`, "
+                            f"or default; not {len(words)} words")
+    value = set_value(scope, name, words[0])
+    if scope == "global":
+        file, place = lem_state.home_settings_file(), home_name()
+        seats_checked(read_settings(file, Path(place), "home"), Path(place))
     else:
-        if len(words) != 1:
-            raise SettingsError(
-                f'reviewer takes one seat, "{SEAT_FORM}", as `reviewer {REVIEWER_SEATS["codex"]}`, or the word default; '
-                f"not {len(words)} words",
-            )
-        parse_seat(words[0], "the reviewer", REVIEWERS, SEATS["reviewer"][1], SEATS["reviewer"][2], True)
-        local.setdefault("seats", {})["reviewer"] = words[0]
-    lines = ["# This machine's own settings for Lem. Not committed; `lem project reviewer` writes the seat."]
-    for table in LOCAL_TABLES:
-        body = local.get(table) or {}
-        if body:
-            # a value here is a word in quotes, a list of them, the one `false` the naps table may
-            # hold, or the state table's number of days
-            lines += ["", f"[{table}]", *(f"{key} = {toml_value(value)}" for key, value in body.items())]
-    if len(lines) == 1:
-        file.unlink(missing_ok=True)
+        file = main_checkout(root) / LOCAL
+        local_checked(file)
+        place = str(LOCAL)
+    try:
+        lem_state.write_edits(file, [("seats", name, value)], SET_FIRST[scope])
+    except lem_state.StateError as error:
+        raise SettingsError(str(error)) from error
+    except OSError as error:
+        raise SettingsError(f"{file} was not written ({error.strerror}); make its folder writable, then run this again") from error
+    found = load(root)["seats"][name]
+    if name == "experts":
+        shown, source, verb = ", ".join(expert["seat"] for expert in found), found[0]["from"], "are"
     else:
-        file.parent.mkdir(exist_ok=True)
-        file.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    resolved = load(root)
-    print(json.dumps({"reviewer": resolved["seats"]["reviewer"], "local": resolved["local"]}, indent=2))
+        shown, source, verb = ("off" if found["seat"] is False else found["seat"]), found["from"], "is"
+    said = f"{SET_WORDS[name]} here {verb} {shown}, from {source}"
+    if value is None:
+        said += f"; {place} names none"
+    elif source != place:
+        said += f", which comes before {place}"
+    return {"scope": scope, "file": str(file), "name": name, "line": None if value is None else f"{name} = {lem_state.toml_value(value)}",
+            "seat": found, "said": said}
 
 
 def braces(pattern: str) -> list[str]:
@@ -4204,9 +4261,11 @@ def cmd_load(start: str | None) -> dict:
                 value = -1.0
             if not value > 0:
                 raise SettingsError(f"--start is a load average above 0, or none to take the gate away, not {start!r}")
-        # the file is written whole, with the board server's table kept as it reads
+        # one line of [load], with every other line of the file kept
         try:
             lem_state.write_machine("load", {"start": int(value) if value.is_integer() else value})
+        except lem_state.StateError as error:
+            raise SettingsError(str(error)) from error
         except OSError as error:
             raise SettingsError(f"{file} was not written ({error.strerror}); make its folder writable, then run this again") from error
         except lem_state.StateError as error:
@@ -4237,6 +4296,8 @@ def cmd_handoff(tokens: str | None) -> dict:
                                     f"or default for {lem_state.HANDOFF_TOKENS}, not {tokens!r}: Claude Code refuses a window under {lem_state.HANDOFF_FLOOR}")
         try:
             lem_state.write_machine("handoff", None if value is None else {"tokens": value})
+        except lem_state.StateError as error:
+            raise SettingsError(str(error)) from error
         except OSError as error:
             raise SettingsError(f"{file} was not written ({error.strerror}); make its folder writable, then run this again") from error
         except lem_state.StateError as error:
@@ -4889,7 +4950,10 @@ def main(argv: list[str] | None = None) -> None:
     init = commands.add_parser("init")
     init.add_argument("--base")
     init.add_argument("--codex", choices=("yes", "no"), default="yes", help="whether the machine check found Codex: no writes the reviewer on Claude (default: yes)")
-    commands.add_parser("reviewer").add_argument("words", nargs="+", metavar="AGENT[/MODEL[:EFFORT]]|default")
+    set_seat = commands.add_parser("set", help="write one seat, or the fallback, for every repository on this machine (global) or for this one on this machine (local)")
+    set_seat.add_argument("scope", metavar="global|local")
+    set_seat.add_argument("name", metavar="|".join(SET_NAMES))
+    set_seat.add_argument("words", nargs="+", metavar="AGENT/MODEL:EFFORT|default|false")
     plan_file = commands.add_parser("plan-file", help="the name a task's plan takes, and the plan the plans folder holds")
     plan_file.add_argument("slug")
     plan_file.add_argument("--date", metavar="YYYY-MM-DD", help="the day the plan is written (default: today, in UTC)")
@@ -4959,8 +5023,8 @@ def main(argv: list[str] | None = None) -> None:
         if args.command == "init":
             cmd_init(root, args.base, args.codex)
             return
-        if args.command == "reviewer":
-            cmd_reviewer(root, args.words)
+        if args.command == "set":
+            print(json.dumps(cmd_set(root, args.scope, args.name, args.words), indent=2))
             return
         if args.command == "task-dir":
             cmd_task_dir(root, args.slug, args.ask, args.ticket, args.branch, args.night, args.ticket_repo)
