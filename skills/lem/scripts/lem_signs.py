@@ -9,7 +9,8 @@ Three facts tell whether a task's session still works, beside the task's own eve
 board's model reads): when its main thread or one of its subagents last wrote a turn (`sign`),
 whether a shell command of the session runs now (`shell`), and whether the two could be read at all
 (`signs`). The board server's guard of a stopped session (`serve.py`) sends a message only when
-`signs` is true, `shell` false, and the newest of `sign` and of the task's events is old.
+`shell` is false and the task's newest sign of work is old: with `signs` true the newest of `sign`
+and of the task's events, with `signs` false the task's events alone.
 
 Where each fact is, as read on this Mac with Claude Code 2.1.330 on 2026-11-22:
 

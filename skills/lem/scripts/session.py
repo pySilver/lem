@@ -21,7 +21,8 @@
                                  `--why status` only to a live one
     lem session stopped SLUG [--session ID]
                                  log that the task's session stopped after its status message and
-                                 its restart, so that it waits for the owner
+                                 its restart, or after the message alone when Lem cannot read its
+                                 signs, so that it waits for the owner
     lem session wait SLUG --until STATE,... | --event NAME | --first-line [--companion ID]
                                  end when the task's state is one of these, or a new event is logged,
                                  or the task's first line is written, or when the task's session is
@@ -1262,7 +1263,7 @@ def main(argv: list[str] | None = None) -> None:
     waking.add_argument("--why", required=True, choices=[why for why in WAKES if why != "replaced"])
     waking.add_argument("--head", metavar="SHA", help="the pull request's head the wake is for, kept on its record")
     waking.add_argument("--session", metavar="ID", help="with --why status: the session the line is for, which must still be the task's newest")
-    stopping = commands.add_parser("stopped", help="log that the task's session stopped after the status message and its restart, for the owner")
+    stopping = commands.add_parser("stopped", help="log that the task's session stopped after the status message and its restart, or after the message alone when Lem cannot read its signs, for the owner")
     stopping.add_argument("slug")
     stopping.add_argument("--session", metavar="ID", help="the session the stop is for, which must still be the task's newest")
     waiting = commands.add_parser("wait", help="end when the task's state is one of these, a new event of its own is logged, or its first line is written")
