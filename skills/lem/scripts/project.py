@@ -4490,8 +4490,6 @@ def cmd_load(start: str | None) -> dict:
         # the file is written whole, with the board server's table kept as it reads
         try:
             lem_state.write_machine("load", {"start": int(value) if value.is_integer() else value})
-        except lem_state.StateError as error:
-            raise SettingsError(str(error)) from error
         except OSError as error:
             raise SettingsError(f"{file} was not written ({error.strerror}); make its folder writable, then run this again") from error
         except lem_state.StateError as error:
@@ -4522,8 +4520,6 @@ def cmd_handoff(tokens: str | None) -> dict:
                                     f"or default for {lem_state.HANDOFF_TOKENS}, not {tokens!r}: Claude Code refuses a window under {lem_state.HANDOFF_FLOOR}")
         try:
             lem_state.write_machine("handoff", None if value is None else {"tokens": value})
-        except lem_state.StateError as error:
-            raise SettingsError(str(error)) from error
         except OSError as error:
             raise SettingsError(f"{file} was not written ({error.strerror}); make its folder writable, then run this again") from error
         except lem_state.StateError as error:

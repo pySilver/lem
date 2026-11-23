@@ -333,6 +333,8 @@ def write_machine(name: str, values: dict | None) -> None:
         except BaseException:
             Path(temporary).unlink(missing_ok=True)
             raise
+
+
 def toml_string(value: str) -> str:
     """A string as TOML writes it. JSON's own escapes would turn a character outside the basic plane into two halves TOML refuses."""
     escaped = value.replace("\\", "\\\\").replace('"', '\\"')
