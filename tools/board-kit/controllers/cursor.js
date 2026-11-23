@@ -1,5 +1,5 @@
 // A mark moved by the keys over the items of a view: the cards of the kanban, in their columns, and the
-// rows of "Waits for you", one group whose link is each row's verb (on a page for this Mac it may carry
+// rows and the stacks of "Waits for you", one group whose link is each row's verb (on a page for this Mac it may carry
 // the agterm controller's jump, which then takes the click and Enter alike) or each stack's summary, whose
 // Enter is the browser's own, which opens and closes it. J or
 // the down arrow moves it to the next item of its group, K or the up arrow to the one before; H or the

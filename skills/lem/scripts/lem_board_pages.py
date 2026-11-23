@@ -1420,7 +1420,7 @@ def plain_page(title: str, asset, body: list, eyebrow: str) -> Markup:
 
 
 def index_page(host: str, spaces: list, asset) -> Markup:
-    """The workspaces of this machine, and of each machine joined (`lem_peers`), each with how many things
+    """The workspaces of this machine, and of each machine joined (`lem_peers`), each with how many tasks
     wait for the owner and what its tasks do now, the ones that wait for him first; a workspace of a
     machine that does not answer last, grayed, with when it last answered. With one machine a workspace is
     its name, with more `HOST/WORKSPACE`."""
