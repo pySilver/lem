@@ -20,7 +20,8 @@ session), `/lem build`, and a task he resumed. The investigator of a bug or a qu
    `landing`, `open`, `parked`, `landed`, `answered` or `dropped` gets no lead at all, and the step
    says so: it is no task to queue.
 2. **The worktree.** When the task has one, use it. When it has none, make it at the path in the
-   brief: from the task's branch when that branch exists (a task whose worktree was removed), otherwise from the settings' base branch. Use the project's own worktree script
+   brief: from the task's branch when that branch exists (a task whose worktree was removed, a request a
+   resume made from a task the release stop blocked), otherwise from the settings' base branch. Use the project's own worktree script
    when `AGENTS.md` names one, since it sets up what a plain worktree lacks (a test database, an
    environment), and give it the base as origin has it after `git fetch origin BASE`; otherwise
    `lem project worktree SLUG BRANCH`, which takes a branch that exists as

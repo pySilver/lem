@@ -139,7 +139,7 @@ runs, and follow it. Do not read the others. In a task's session, `be-careful`, 
 | `build [<task> or <plan file>]` | the build of a task whose plan the owner read. With no name it lists those tasks and asks which. His "start SLUG now" for a task queued by his order removes the order, and the task starts | `stages/start.md`, "`/lem build`" |
 | `im-away`, `im-back` | the owner says that he is away, and an interview and criteria that wait for his yes go on without him, or that he is back; a build and a merge are the same either way. His word holds in every repository on this machine | `stages/away.md` |
 | `be-careful`, `standard-track`, `drop` `[<task>]` | the owner corrects a task: careful until its merge, the standard track until its pull request exists, or not wanted | `stages/correct.md` |
-| `park`, `resume` `[<task>]` | the owner puts a task aside, a breaker's answer with his help and `drop`, or goes back to it: a parked task goes on in its own worktree, and a dropped one in a new task from its handoff and its branch | `stages/park.md` |
+| `park`, `resume` `[<task>]` | the owner puts a task aside, a breaker's answer with his help and `drop`, or goes back to it: a parked task goes on in its own worktree, a dropped one in a new task from its handoff and its branch, and a dropped one the release stop blocked in a new request from its notes and its branch | `stages/park.md` |
 | `land [<task>]` | in a task's session, its landing; for a task that is `open`, the owner's word to merge it (`lem land merge --by owner`) | `stages/land.md` |
 | `learn`, `retro` | a correction becomes an edit of the file that owns the step; the retro changes no file and asks nothing: it writes what came back as proposals, a fresh reviewer refutes the weak ones and files the rest as items of the board's "Backlog", and the session closes itself | `stages/learn.md` |
 | `init` | onboarding: checks the machine, examines the project, interviews the owner, writes the settings and the draft profiles | `stages/init.md` |
@@ -314,6 +314,10 @@ shared by every worktree, never committed and not removed with a worktree. It ho
 - `breaker-N.md`: the document a lead that tripped breaker N leaves for the owner, which the lead
   writes as `breaker.md` and the record keeps under its number (`stages/breaker.md`); `resumed-from.txt` names the dropped task a resumed one came from
   (`stages/park.md`).
+- `release.txt`: the release of Lem the task began on, which its open writes (`lem project task-dir`).
+  A command of Lem for a task begun two releases back stops with a message that names the way on,
+  `/lem drop`, then `/lem resume`, and logs `release.stop`, which the board shows as blocked
+  (`scripts/lem_release.py`).
 - `reports/`: one file per builder of a plan's task, which the lead reads.
 - `landing.json`, `polish.json`, `gate/`, `read.json`, `reviews/`, `notes.md`, `pr.md`,
   `merge-brief-TIP-BASE.md`, `merge-answer-TIP-BASE.md` and `merge-review.md`: what the landing

@@ -66,6 +66,15 @@ not ended holds, and names that task.
 
 The task's own session, in the shape, from its first message.
 
+**A request a resume made.** A task directory that holds `resumed-from.txt` and no state is the
+new request `lem project resume` made from a task the release stop blocked (`stages/park.md`). It
+holds the notes of the task it came from: `task.md`, `criteria.md`, `handoff.md` and the others
+the old task had. Read them before the first question, and take the steps below from them: ask
+only what they do not answer, and put the old `criteria.md` to the owner as the proposal of the
+criteria, for his yes. Its branch is the one the resume made, `git branch --list '*/SLUG'`, with
+the old task's commits: step 2 takes it as it is, whatever type step 1 takes. With no such branch
+(the resume found none), step 2 names one as for any request.
+
 1. **The type and the track of the request**, from the ask's words alone, before anything reads
    the code. The type is a Conventional Commits type and the branch's type; the track is the fast
    track or the standard track, and step 4 takes it. The words after each type are hints for your
@@ -153,7 +162,7 @@ The task's own session, in the shape, from its first message.
    tasks` gives it as `type`. When he changes the type later, write a state block with the new
    line.
 2. **The branch** is `<type>/<slug>` with the type of step 1, unless the project's `AGENTS.md`
-   gives its own scheme. For a question, choose the type of the change its answer would most likely
+   gives its own scheme, or a resume made it (above). For a question, choose the type of the change its answer would most likely
    lead to, and say why in one line after the line of step 8; its branch gets a commit only when
    the investigator reproduces a bug. The branch's type binds nobody; each commit carries its own.
    For a ticket, the branch is the name the tracker gives for it, when it gives one: the tracker
