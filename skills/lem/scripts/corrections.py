@@ -13,6 +13,13 @@ should learn a lesson from. The retro, a big model, decides about each.
     lem corrections record ID --decision lesson|not_lesson --verdict VERDICT [--target PATH --lesson TEXT]   (a lesson needs both)
                                         write down what was decided about a group
 
+A retro changes no file and asks the owner nothing: a lesson it finds, the first time or one that
+came back, becomes a proposal of the retro's day, which a fresh reviewer reads before the owner
+(`stages/learn.md`). Its group is recorded with the verdict `proposed`, `--target` the file the
+proposal would change, and the proposal's name (`retro of 2026-11-24 #3`) in its `--lesson` line,
+and `lessons` gives it with that verdict: a lesson in no file yet, which the retro never proposes
+to remove.
+
 It is an optional part, and it is the owner's choice twice. The hook sends the owner's message
 and the agent message it answers to the Jev decision model, through `jev.py` beside this file, so
 it runs only in a repository whose settings say `corrections.collect = true`: the tracked file, so the
@@ -86,9 +93,11 @@ WAIT_SECONDS = 2
 CLAIM_SECONDS = 20
 JEV = Path(__file__).resolve().with_name("jev.py")
 DECISIONS = ("lesson", "not_lesson")
-# accepted, changed, rejected: the owner's answer to a move the retro put to him. missed: the owner
-# said that a "not a lesson" entry was a lesson after all. unasked: nothing was put to the owner.
-VERDICTS = ("accepted", "changed", "rejected", "missed", "unasked")
+# accepted, changed, rejected: the owner's answer to a move a session put to him. proposed: the lesson
+# went into a proposal of the retro, for the reviewer and then the owner, so no file holds it yet.
+# missed: the owner said that a "not a lesson" entry was a lesson after all. unasked: nothing was put
+# to the owner, and no proposal was made.
+VERDICTS = ("accepted", "changed", "rejected", "proposed", "missed", "unasked")
 # Text an agent's own machinery puts into a user turn; none of it is the owner's words.
 INJECTED = (
     "<", "[peer chat]", "[agterm mailbox", "Caveat:", "This session is being continued", "[Request interrupted",
@@ -494,7 +503,7 @@ def cmd_record(where: Path, gid: str, decision: str, verdict: str, target: str |
     # kept: two such rows were recorded before this refusal (corrections-reviews.jsonl, 2026-11-20
     # and 2026-11-21 UTC).
     if decision == "lesson" and not (target or "").strip():
-        raise QueueError("a lesson needs --target: the file the lesson went to, or the one that already holds it")
+        raise QueueError("a lesson needs --target: the file the lesson went to, the one that already holds it, or the file its proposal would change")
     entries = unreviewed(where).get(gid)
     if not entries:
         raise QueueError(f"no unreviewed group {gid}; `lem corrections list` gives the ids")
@@ -506,7 +515,7 @@ def cmd_record(where: Path, gid: str, decision: str, verdict: str, target: str |
     print(json.dumps({"group": gid, "entries": len(entries), "decision": decision, "verdict": verdict}))
 
 
-def main() -> None:
+def arguments() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="lem corrections", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -517,10 +526,16 @@ def main() -> None:
     record = commands.add_parser("record")
     record.add_argument("id")
     record.add_argument("--decision", required=True, choices=DECISIONS)
-    record.add_argument("--verdict", required=True, choices=VERDICTS)
-    record.add_argument("--target", help="the file the lesson went to, or the one that already holds it")
-    record.add_argument("--lesson", help="the lesson in one sentence")
-    args = parser.parse_args()
+    record.add_argument("--verdict", required=True, choices=VERDICTS,
+                        help="the owner's answer to a move put to him (accepted, changed, rejected); proposed, for a lesson that went into "
+                             "a proposal of the retro; missed, for a \"not a lesson\" entry the owner said was one; unasked, for a group nothing was asked about")
+    record.add_argument("--target", help="the file the lesson went to, the one that already holds it, or for proposed the file the proposal would change")
+    record.add_argument("--lesson", help="the lesson in one sentence; for proposed, with the proposal's name (retro of 2026-11-24 #3)")
+    return parser
+
+
+def main() -> None:
+    args = arguments().parse_args()
     if args.command == "hook":
         cmd_hook()
         return

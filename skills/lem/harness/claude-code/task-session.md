@@ -67,6 +67,13 @@ status message), and for a live session its signs of work from Claude Code's own
 whether a shell command of it runs, `signs`, whether the two could be read, and `turn`, whether
 the newest turn of its main thread runs (`runs`), ended (`ended`), or cannot be told (null).
 
+`lem session close-job [--session ID]` closes the session of a scheduled night or retro, which no
+task owns, with the same wait and the same `--undoable`. It refuses the id of a task's session,
+with the `lem session close` line that closes it, and a session whose `foreground` in `agtermctl
+tree --json` is not an agent's command with `/lem night`, `/lem night N` or `/lem retro` as its last
+word: the job's script starts the agent with the prompt as its last argument, so an agent the owner
+started and typed `/lem retro` into keeps its session. Not run yet in a session a real job opened.
+
 ## The context's number
 
 `N` is `[handoff] tokens` of `~/.config/lem/machine.toml`, the owner's number for all his

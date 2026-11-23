@@ -374,10 +374,12 @@ what repo it belongs to" (2026-11-15).
 ## 7. Scheduled work for this repository
 
 Only when step 1 showed cronn running, as an item of the offers of step 6. Two jobs that belong
-to this repository, each a session started in it with nobody at the terminal:
+to this repository, each a session started in it with nobody at the terminal, which closes
+itself at its end (`lem session close-job`) once he is not looking at it:
 
-- a retro each morning (`/lem retro`), so a correction that came back is moved before the next
-  day's work;
+- a retro each morning (`/lem retro`), so a correction that came back is on the board's
+  "Backlog" before the next day's work, as an item the morning's reviewer passed, for him to start
+  or drop;
 - a night run (`/lem night`), which takes the smallest backlog items without the owner and
   leaves their pull requests for the morning.
 

@@ -3,10 +3,11 @@
 Rule 6 of agents/lem-builder.md holds the bar: the sentence that says which defect outside a task
 is worth an item, its limit (Lem's agents only), what makes a defect cheap, and the three outcomes
 of a defect ("Fixed on the way", "Seen, not filed", an item under "Filed in the backlog"). The
-polish pass, the fast track's builder and the review are each a lem-builder and read that file
-whole, so every other file of Lem names the bar of rule 6 and copies no part of its sentence: a
-copy would drift from the rule the agents read. The briefs and stages that send an agent to judge
-a defect outside a task each name it.
+polish pass, the fast track's builder, the review and the reviewer of the night's and the retro's
+proposals are each a lem-builder and read that file whole, so every other file of Lem names the
+bar of rule 6 and copies no part of its sentence: a copy would drift from the rule the agents read.
+The briefs and stages that send an agent to judge a defect outside a task, or a proposal, each
+name it.
 
 It reads only the repository's own files, so a missing file is a failed case.
 
@@ -32,9 +33,11 @@ NAMERS = (
     "skills/lem/prompts/small.md",
     "skills/lem/prompts/review.md",
     "skills/lem/prompts/merge.md",
+    "skills/lem/prompts/proposals.md",
     "skills/lem/stages/polish.md",
     "skills/lem/stages/build.md",
     "skills/lem/stages/interview.md",
+    "skills/lem/stages/learn.md",
     "skills/lem/SKILL.md",
 )
 

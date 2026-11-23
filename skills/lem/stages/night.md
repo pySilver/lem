@@ -6,13 +6,17 @@ it without the owner to its pull request: "night execution is just a fun thing t
 while nobody's looking and its actually got to be a PR to merge, not a plan" (2026-11-18).
 Nothing asks him. This session keeps no watch of the owner's mark and takes no step of
 `stages/away.md` on it: its tasks run without him whatever the mark says. It does no task's work.
+Where the project's own `AGENTS.md` says that its night proposes, the night also does what "A night
+that proposes" below says, and opens a task only where that file lets it.
 
 1. **The brake.** Count the pull requests of earlier nights that wait for the owner's merge: the
    `pull_requests` of `lem project waiting` whose `night` is not null. With two or more, open
    nothing, and write the night report with why: a request nobody reads ages as the base moves.
 2. **The candidates.** The items in `lem project path backlog`: one file each, with `worth`,
    `where` and `added` between two `---` lines, then a title and prose. Never a tracker's
-   ticket: which ticket comes next is a person's call. Leave out an item that is decided against
+   ticket: which ticket comes next is a person's call. Never an item of the state folder's
+   `backlog/` either: those are the reviewer's, and each waits for the owner's start or drop on
+   the board. Leave out an item that is decided against
    (`worth: no`); one that a branch, a worktree, an open plan or a task already holds; one that
    asks for a choice and states no defect or job; and one in reach of a topic (`flow.topics` in
    `lem project show`) or in doubt, read as step 1 of `stages/new.md` reads an ask: a careful
@@ -46,7 +50,35 @@ Nothing asks him. This session keeps no watch of the owner's mark and takes no s
    - each task `held` or `blocked`, with the step it waits on, from its state;
    - each item left out, with why: decided against, held by another branch, a choice, a topic
      in reach (the topic in his words), or past the night's count;
-   - the brake, when it stopped the night.
+   - the brake, when it stopped the night;
+   - for a night that proposes, the names of its proposals, each with its move.
+6. **The end.** `run-in-background` with `lem session close-job`, as the last step, after the last
+   write of the report. It closes the session once the owner is not looking at it. A refusal says
+   that the session is the owner's (no job started its agent for this run) or a task's: say its
+   line, and the session stays open.
 
 In the morning a bare `/lem` lists the night's pull requests among the others, each marked as of
 the night, with this report (`stages/status.md`).
+
+## A night that proposes
+
+Where the project's own `AGENTS.md` says that its night proposes, the night does the search that
+file names, and each thing it finds is a proposal, never a change: no branch, no worktree and no
+commit for it, and no file that git tracks changes. The morning's retro hands the proposals to its
+reviewer (`stages/learn.md`, "retro"), and what passes reaches the owner as an item of the board's
+"Backlog". The night adds its run to the day's file, with the night's date, also when it found
+nothing, on stdin as a quoted heredoc:
+
+```bash
+lem project proposals add --kind night --date 2026-11-24 --file - <<'JSON'
+{"read": "the whole test suite, run twice in the main checkout", "proposals": [
+  {"area": "tests", "move": "The refund check waits for its event, not for one second", "body": "the file, the change, and the run that failed: its output and its time", "source": "the first run of the suite this night", "where": "tests/test_refunds.py:test_refund_event"}
+]}
+JSON
+```
+
+The input has the form of the retro's (`stages/learn.md`, "retro", step 4): `read`, and each
+proposal with exactly `area`, `move`, `body`, `source` and `where`. The command writes
+`night/YYYY-MM-DD.json` in the state folder, or adds after a run already there, and prints each
+proposal's name (`night of 2026-11-24 #1`). Where that file says the night opens no task, steps 1
+to 4 do not run, and the report holds the proposals' names alone.
