@@ -34,7 +34,8 @@ A controller has one job. It is a file in `controllers/`, a Stimulus controller 
 export, and one line in `controllers/index.js` that names it as the pages' `data-controller` says it.
 What the browser alone knows (an open drawer, the backlog's cursor, a row the filter hides) it keeps in
 an attribute named `data-js-*`, which a morph leaves as it is (`app.js`); what the server should
-render too goes into the cookie of `controllers/prefs.js`. Then `npm --prefix tools/board-kit run build`.
+render too goes into the cookie of `controllers/prefs.js`. Then `npm --prefix tools/board-kit run build`. The sources
+are in JavaScript Standard Style: `npx eslint . --fix` at the root of the checkout, after `npm ci` there.
 
 ## The panel of a task
 

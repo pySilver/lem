@@ -19,12 +19,19 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
+      # the lint suite's tools: uv brings ruff and pyrefly from uv.lock, npm brings ESLint from package-lock.json
+      - uses: astral-sh/setup-uv@v10.4.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
       - name: What the suites need
         run: |
           if [ "$RUNNER_OS" = macOS ]; then brew install shellcheck; else sudo apt-get update -q && sudo apt-get install -y -q shellcheck; fi
           python3 --version
           shellcheck --version | sed -n 2p
           git --version
+          uv --version
+          node --version
           # the page checks load pages in headless Chrome; with none each of them prints a SKIP line
           chrome=""
           for c in google-chrome chromium chromium-browser "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"; do

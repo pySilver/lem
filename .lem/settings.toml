@@ -38,7 +38,8 @@ protected = []
 # load gate (`lem project load`), not a lock, keeps a run from starting on a loaded machine.
 commands = ["bash tests/all.sh"]
 # What a new worktree needs before its tests can run ("uv sync", "npm ci"). Lem runs these one
-# time in each worktree it makes for a task. None here: the tests need only Python and git.
+# time in each worktree it makes for a task. None here: the tests need only Python and git, and
+# the lint suite brings its own tools at its first run (tests/lint.sh).
 setup = []
 # The tests that two tasks cannot run at the same time. None here.
 serial = []

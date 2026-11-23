@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Every check of this repository at the same time: the unit level (tests/unit), the blocks of Lem's
-# scripts, the board server among them, the gate and the panel, lem-ask, the experts, the page on GitHub Pages, ShellCheck
-# and the map of tests/pick.py. Each suite writes a log of its own and runs within a time limit
+# scripts, the board server among them, the gate and the panel, lem-ask, the experts, the page on GitHub Pages, ShellCheck,
+# the lint of the Python and the JavaScript and the map of tests/pick.py. Each suite writes a log of its own and runs within a time limit
 # (tests/suites.sh). At the end one line for each suite gives its count of `ok`, `FAIL` and `SKIP`,
 # its exit and its time, and the log of each suite that failed follows. A suite passes only when its
 # ok and SKIP lines add up to the checks it collected. The exit is 0 only when every suite passed.
@@ -23,6 +23,7 @@ suites+=(lem-board-act)
 suites+=(lem-peers)
 suites+=(unit)
 suites+=(test-site)
+suites+=(lint)
 if [ -n "${LEM_TEST_LOGS:-}" ]; then
   LOGS=$LEM_TEST_LOGS
   mkdir -p "$LOGS" || exit 1
