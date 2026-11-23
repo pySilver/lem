@@ -19,6 +19,7 @@ import subprocess
 import sys
 import unittest
 from pathlib import Path
+from typing import cast
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
@@ -206,7 +207,8 @@ class TheList(unittest.TestCase):
                     "a bullet ends with its day in parentheses, (YYYY-MM-DD) or (decided YYYY-MM-DD)",
                 )
                 self.assertEqual(
-                    bool(day["decided"]),
+                    # assertIsNotNone above: a day was found
+                    bool(cast("re.Match[str]", day)["decided"]),
                     heading == LAST,
                     f'a bullet of "{LAST}" says decided before its day, and only there',
                 )
@@ -430,7 +432,10 @@ class ShortAgents(unittest.TestCase):
             if line.startswith("#")
         }
         found |= {
-            re.match(r"- \*\*([^*]+)\*\*", flat(" ".join(lines)))[1].rstrip(".")
+            # each bullet opens with its rule in bold, which TheList holds
+            cast(
+                "re.Match[str]", re.match(r"- \*\*([^*]+)\*\*", flat(" ".join(lines)))
+            )[1].rstrip(".")
             for _, lines in parts(LIST)
         }
         for name in (

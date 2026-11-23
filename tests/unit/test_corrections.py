@@ -275,18 +275,20 @@ class Calls(ast.NodeVisitor):
     """Each name a function calls, as `module.name(...)` or `name(...)`, under the outermost function
     of the file that holds the call."""
 
+    function: str | None
+
     def __init__(self, file: str, found: dict) -> None:
         self.file, self.found, self.function = file, found, None
 
-    def visit_FunctionDef(self, node) -> None:
+    def visit_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         outer = self.function
         self.function = outer or node.name
         self.generic_visit(node)
         self.function = outer
 
-    visit_AsyncFunctionDef = visit_FunctionDef
+    visit_AsyncFunctionDef = visit_FunctionDef  # noqa: N815 - ast.NodeVisitor looks it up by this name
 
-    def visit_Call(self, node) -> None:
+    def visit_Call(self, node: ast.Call) -> None:
         called = (
             node.func.attr
             if isinstance(node.func, ast.Attribute)
@@ -305,8 +307,9 @@ CALLS: dict = {}
 def calls_of(name: str) -> set:
     """Each (file, function) of Lem's scripts, those of every skill and `bin/lem`, that calls `name`."""
     if not CALLS:
-        for file in sorted(SCRIPTS.parent.parent.glob("*/scripts/*.py")) + [
-            SCRIPTS.parent.parent.parent / "bin" / "lem"
+        for file in [
+            *sorted(SCRIPTS.parent.parent.glob("*/scripts/*.py")),
+            SCRIPTS.parent.parent.parent / "bin" / "lem",
         ]:
             Calls(file.name, CALLS).visit(ast.parse(file.read_text(encoding="utf-8")))
     return CALLS.get(name, set())

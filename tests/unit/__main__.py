@@ -10,8 +10,13 @@ subtest failed prints no line of its own, so its count does not add up.
 import sys
 import unittest
 from pathlib import Path
+from types import TracebackType
 
 HERE = Path(__file__).resolve().parent
+# what unittest hands a result for a case that failed: sys.exc_info()'s form
+ExcInfo = (
+    tuple[type[BaseException], BaseException, TracebackType] | tuple[None, None, None]
+)
 
 
 class Lines(unittest.TestResult):
@@ -25,27 +30,27 @@ class Lines(unittest.TestResult):
         print(line, flush=True)
         self.printed += 1
 
-    def addSuccess(self, test: unittest.TestCase) -> None:
+    def addSuccess(self, test: unittest.TestCase) -> None:  # noqa: N802 - unittest's name
         super().addSuccess(test)
         self.say(f"ok   {test.id()}")
 
-    def addFailure(self, test: unittest.TestCase, err: object) -> None:
+    def addFailure(self, test: unittest.TestCase, err: ExcInfo) -> None:  # noqa: N802 - unittest's name
         super().addFailure(test, err)
         self.say(f"FAIL {test.id()}: {self.failures[-1][1].strip().splitlines()[-1]}")
 
-    def addError(self, test: unittest.TestCase, err: object) -> None:
+    def addError(self, test: unittest.TestCase, err: ExcInfo) -> None:  # noqa: N802 - unittest's name
         super().addError(test, err)
         self.say(f"FAIL {test.id()}: {self.errors[-1][1].strip().splitlines()[-1]}")
 
-    def addSkip(self, test: unittest.TestCase, reason: str) -> None:
+    def addSkip(self, test: unittest.TestCase, reason: str) -> None:  # noqa: N802 - unittest's name
         super().addSkip(test, reason)
         self.say(f"SKIP {test.id()}: {reason}")
 
-    def addExpectedFailure(self, test: unittest.TestCase, err: object) -> None:
+    def addExpectedFailure(self, test: unittest.TestCase, err: ExcInfo) -> None:  # noqa: N802 - unittest's name
         super().addExpectedFailure(test, err)
         self.say(f"FAIL {test.id()}: a case marked to fail is no check")
 
-    def addUnexpectedSuccess(self, test: unittest.TestCase) -> None:
+    def addUnexpectedSuccess(self, test: unittest.TestCase) -> None:  # noqa: N802 - unittest's name
         super().addUnexpectedSuccess(test)
         self.say(f"FAIL {test.id()}: a case marked to fail is no check")
 

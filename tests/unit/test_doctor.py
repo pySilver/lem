@@ -137,7 +137,7 @@ def tiers() -> dict[str, set[str]]:
         elif isinstance(node, ast.Dict):
             pairs = {
                 key.value: value.value
-                for key, value in zip(node.keys, node.values)
+                for key, value in zip(node.keys, node.values, strict=True)
                 if isinstance(key, ast.Constant) and isinstance(value, ast.Constant)
             }
             name, need = pairs.get("name"), pairs.get("need")
@@ -179,15 +179,19 @@ class Plannotator(unittest.TestCase):
     fails no check where it is absent."""
 
     def row(self, path: str | None, said: str | None) -> dict:
-        which, version = doctor.shutil.which, doctor.version
-        doctor.shutil.which = lambda binary: path if binary == "plannotator" else None
-        doctor.version = lambda command: (
-            said if command == [path, "--version"] else None
-        )
-        try:
+        with (
+            mock.patch.object(
+                doctor.shutil,
+                "which",
+                lambda binary: path if binary == "plannotator" else None,
+            ),
+            mock.patch.object(
+                doctor,
+                "version",
+                lambda command: said if command == [path, "--version"] else None,
+            ),
+        ):
             return doctor.plannotator()
-        finally:
-            doctor.shutil.which, doctor.version = which, version
 
     def test_the_row_is_recommended_with_its_guide_and_names_the_version_found(
         self,
@@ -230,20 +234,20 @@ class Keymap(unittest.TestCase):
         command, script = self.SCRIPTS
         self.assertEqual(
             self.runs(
-                f'command "Lem tasks ›" ctrl+cmd+t --error-hud /opt/homebrew/bin/python3 {command} picker'
+                f'command "Lem tasks ›" ctrl+cmd+t --error-hud /opt/homebrew/bin/python3 {command} picker'  # noqa: RUF001 - the picker's title, as agterm shows it
             ),
             command,
         )
         self.assertEqual(
             self.runs(
-                'command "Lem tasks ›"  ctrl+cmd+t  --error-hud /opt/homebrew/bin/python3 ~/.claude/plugins/marketplaces/lem/bin/lem picker'
+                'command "Lem tasks ›"  ctrl+cmd+t  --error-hud /opt/homebrew/bin/python3 ~/.claude/plugins/marketplaces/lem/bin/lem picker'  # noqa: RUF001 - the picker's title, as agterm shows it
             ),
             command,
         )
         # the form of the line the doctor printed before, as a Mac's keymap holds it (2026-11-23)
         self.assertEqual(
             self.runs(
-                'command "Lem tasks ›"  ctrl+cmd+t  --error-hud /opt/homebrew/bin/python3 ~/.claude/plugins/marketplaces/lem/skills/lem/scripts/picker.py'
+                'command "Lem tasks ›"  ctrl+cmd+t  --error-hud /opt/homebrew/bin/python3 ~/.claude/plugins/marketplaces/lem/skills/lem/scripts/picker.py'  # noqa: RUF001 - the picker's title, as agterm shows it
             ),
             script,
         )
