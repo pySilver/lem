@@ -12,12 +12,15 @@ Size: full, because clean removes a branch in a new case, and a branch it remove
    3. The owner merges the pull request on GitHub at 7a6cf2cf, as one commit.
    4. `lem land clean T` removes the worktree, the local branch and the forge's copy.
    5. Its output names 955d4716 and 7a6cf2cf, and says that the branch was rebased after its push and that the forge merged the same 12 commits.
+   - test: `bash tests/lem-land-github.sh` in `tests/lem-land-github.sh`, `tests/lib.sh`, `tests/checks.sh` (the check "a branch the landing rebased after its push, whose pushed head the forge merged, goes with the forge's copy")
 2. A branch that holds a change the merged head does not hold stays, and clean names that change, not a commit made on the forge.
    1. The pull request of task T is open at head 7a6cf2cf.
    2. The landing rebases T's branch, and a builder changes the code of its third commit. Nothing pushes it.
    3. The owner merges the pull request on GitHub at 7a6cf2cf.
    4. `lem land clean T` removes the worktree, and the forge's copy while it is still 7a6cf2cf, and keeps the local branch.
    5. Its message names the commit that changed, the command that shows the difference and the command that removes the branch, and says nothing of a commit made on the forge.
+   - test: `bash tests/lem-land-github.sh` in `tests/lem-land-github.sh`, `tests/lib.sh`, `tests/checks.sh` (the check "a branch changed after its push, whose pushed head the forge merged, keeps its local copy and loses the forge's")
+   - test: `python3 -B -m unittest tests.unit.test_land.FirstDiffer` in `tests/unit/test_land.py`
 
 ## How it works
 
