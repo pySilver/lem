@@ -13,7 +13,7 @@ suite (`bash tests/all.sh`). The Chrome suites, test-ask and test-site, run only
 their own files, not for a script they also start. The whole suite runs once before the base branch
 moves: this list is for the turns before that.
 
-The map was read from the suites' text on 2026-11-18, and the row of test-site on 2026-11-19 (the
+The map was read from the suites' text on 2026-11-18, and the row of test-site on 2026-11-19 and 2026-11-23 (the
 scripts each one starts, and the files of this repository it reads), not measured by a trace. A script's change reaches every suite that runs
 a script that calls it: land.py, criteria.py and decisions.py call their siblings in their own
 process (`skills/lem/scripts/lem_sibling.py`).
@@ -82,8 +82,8 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     # (tests/unit/test_session.py).
     (("skills/*/SKILL.md",), ("test-gate-panel",)),
     (("skills/*", "agents/*"), ("lem-command", "unit")),
-    # Lem's page on GitHub Pages, and the workflow whose copy step the suite runs
-    (("site/*", ".github/workflows/pages.yml"), ("test-site",)),
+    # Lem's page on GitHub Pages, the workflow whose copy step the suite runs, and the README, which states the page's facts
+    (("site/*", ".github/workflows/pages.yml", "README.md"), ("test-site",)),
     (("docs/settings.md", "assets/night.py", "assets/lem-mark.svg", "assets/lem-mark-night.svg"), ("lem-settings",)),
     # The scene: lem-settings writes its night file again, and test-site reads its motion and its colors
     (("assets/lem.svg", "assets/lem-night.svg"), ("lem-settings", "test-site")),
@@ -103,14 +103,15 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     # whose table of where each table is valid it checks against lem_state.TABLE_PLACES
     (("README.md", "site/*", "bin/*", "hooks/*", "docs/flow.md", "docs/when-lem-needs-you.md", "docs/pull-request.md", "docs/board.md",
       "docs/linear.md", "docs/github-issues.md", "docs/settings.md", "docs/free-hour.md"), ("unit",)),
-    # What no suite reads, except docs/rulings/, the plan of the list, README.md and the guides, which the rows above give the unit level;
+    # What no suite reads, except docs/rulings/, the plan of the list, README.md and the guides, which the rows above give the unit level
+    # (and README.md test-site too);
     # tests/clock/ is a late clock that a criterion's command puts on PYTHONPATH or PATH, and tools/ is the maintainer's build of the board's kit, whose built files are under skills/lem/assets/.
     (("tools/*", "docs/*", "README.md", "CLAUDE.md", "LICENSE", "NOTICE", ".gitignore", ".lem/*", ".revmux/*", ".github/*",
       "assets/*", "tests/clock/*"), ()),
 ]
 # The files the Chrome suites are run for: each row that names one of them is all of their own.
 CHROME_OWN = {"test-ask": ("skills/lem-ask/*", "bin/lem-ask", "tests/checks.sh"),
-              "test-site": ("site/*", ".github/workflows/pages.yml", "tests/checks.sh", "assets/lem.svg", "assets/lem-night.svg")}
+              "test-site": ("site/*", ".github/workflows/pages.yml", "README.md", "tests/checks.sh", "assets/lem.svg", "assets/lem-night.svg")}
 
 
 def suites() -> list[str]:

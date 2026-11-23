@@ -4,8 +4,8 @@
 # by its name, runs it in a throwaway folder that holds a copy of site/ and assets/, and reads the page
 # there, as Pages would serve it. The checks of the text, the links, the colors and the workflow run
 # everywhere; the checks of a drawn page (the first screen at 1280 px, the scene behind the hero, a phone
-# at 390 and at 360 px, each hero text's contrast, the copy buttons, the light and the dark theme) need headless Chrome,
-# and print SKIP lines where none starts.
+# at 390 and at 360 px, each hero text's contrast, the copy buttons, the light and the dark theme, the dot of
+# each step of the developer) need headless Chrome, and print SKIP lines where none starts.
 # LEM_SITE_SHOTS=DIR also writes pictures of the page there: 1280 x 800 and the whole page, light and dark.
 set -eEuo pipefail
 
@@ -151,9 +151,9 @@ else:
     problems.append("the page has no section")
 verdict["first"] = "; ".join(p for p in problems if p)
 
-# 2: six sections in order, each known by its id, then a footer; the nav at the top links four of them
+# 2: nine sections in order, each known by its id, then a footer; the nav at the top links four of them
 order = [section.attrs.get("id", "") for section in sections]
-want = ["start", "board", "flow", "phone", "parallel", "install"]
+want = ["start", "flow", "rely", "board", "phone", "parallel", "learns", "tickets", "install"]
 footer_last = footer is not None and page.rfind("</section>") < page.find("<footer")
 problems = [] if order == want and footer_last else [f"the sections read as {order}, the footer after them: {footer_last}"]
 nav = [a.attrs.get("href", "") for a in body.find(lambda n: n.tag == "a" and n.parent is not None and "top" in n.parent.classes())]
@@ -161,7 +161,7 @@ missing_nav = [f"#{name}" for name in ("board", "flow", "phone", "install") if f
 if missing_nav:
     problems.append(f"the nav does not link {missing_nav}")
 verdict["sections"] = "; ".join(problems)
-verdict["words"] = "" if 800 <= len(words) <= 1200 else f"{len(words)} words"
+verdict["words"] = "" if 800 <= len(words) <= 1600 else f"{len(words)} words"
 verdict["words_count"] = str(len(words))
 
 # 2: the diagram, one row for each track, the steps of the developer marked with the class you
@@ -179,8 +179,216 @@ else:
         problems.append(f"the fast track's steps for the developer are {fast}")
     if len(standard) != 3 or not ("Interview" in standard[0] and "criteria" in standard[1] and "merge" in standard[2]):
         problems.append(f"the standard track's steps for the developer are {standard}")
+# criterion 9 of the plan 2026-11-23-landing-page-asks-little: the dot "You can act here" on each step of the developer, and on no other step
+dots_in = lambda node: len(node.find(lambda n: "dot" in n.classes()))
+for step in body.find(lambda n: "step" in n.classes()):
+    mine = "you" in step.classes()
+    if dots_in(step) != (1 if mine else 0):
+        problems.append(f"the step {flat(step.text())!r} holds {dots_in(step)} dots, not {1 if mine else 0}")
 verdict["diagram"] = "; ".join(problems)
 verdict["green"] = "" if "Green means you can merge without a read." in flat(visible) else "the sentence is not on the page"
+
+# The page proves one claim, Lem asks little of you (docs/plans/2026-11-23-landing-page-asks-little.md): each
+# new section, and the README, which states each fact the page states that no guide states
+readme_file = root / "README.md"
+readme = readme_file.read_text(encoding="utf-8") if readme_file.is_file() else ""
+readme_flat = flat(readme)
+LEAD = "Type a request in plain words, and get a pull request whose first line says green or not green."
+FOR = "For a developer who works alone, and for a team on Linear or GitHub Issues."
+CAREFUL = "A change that can affect what you said must never go wrong is careful: every reviewer reads it, and you merge it."
+TEAM = ["A team shares the settings in git, the tickets and the pull requests.", "Each developer has their own board, with the tasks on their own computer."]
+def section_of(name):
+    return next((section for section in sections if section.attrs.get("id") == name), None)
+def heading(section):
+    found = section.find(lambda n: n.tag == "h2")
+    return flat(found[0].text()) if found else ""
+def first_of(section, cls):
+    found = section.find(lambda n: cls in n.classes())
+    return flat(found[0].text()) if found else ""
+def place(section, node):
+    return next(i for i, other in enumerate(section.walk()) if other is node)
+def readme_part(title):
+    found = re.search(r"(?ms)^## " + re.escape(title) + r"\n(.*?)(?=^## |\Z)", readme)
+    return found.group(1) if found else ""
+
+# criterion 1: who Lem is for, on the page as the element right after the lead line, and in the README as the paragraph under its lead sentence
+problems = []
+leads = first.find(lambda n: "lead" in n.classes()) if first is not None else []
+if not leads:
+    problems.append("the hero has no .lead")
+else:
+    kin = [kid for kid in leads[0].parent.kids if isinstance(kid, Node)]
+    after = kin[kin.index(leads[0]) + 1] if kin.index(leads[0]) + 1 < len(kin) else None
+    if after is None or after.tag != "p" or "for" not in after.classes() or flat(after.text()) != FOR:
+        said = f"<{after.tag} class={after.attrs.get('class')!r}> {flat(after.text())!r}" if after is not None else "nothing"
+        problems.append(f"after the lead line the hero has {said}, not p.for {FOR!r}")
+paras = [flat(block) for block in re.split(r"\n\s*\n", readme) if flat(block)]
+at = paras.index(LEAD) if LEAD in paras else None
+if at is None or at + 1 >= len(paras) or paras[at + 1] != FOR:
+    problems.append(f"the README has no paragraph {FOR!r} directly under its lead sentence, as a paragraph of its own")
+verdict["for_line"] = "; ".join(problems)
+
+# criterion 2: section 01 shows the three touches as three cards, then the diagram, then the two dialogs
+problems = []
+flow_part = section_of("flow")
+TOUCHES = [("The shape", "you answer the interview, and say yes to the acceptance criteria"), ("A circuit breaker", "leaves a document for you"),
+           ("A pull request that the merge agent calls you for", "You read its review, and merge")]
+if flow_part is None:
+    problems.append("the page has no section flow")
+else:
+    if heading(flow_part) != "A task needs you three times at most":
+        problems.append(f"its heading is {heading(flow_part)!r}")
+    cards = flow_part.find(lambda n: "touches" in n.classes())
+    diagram = flow_part.find(lambda n: n.tag == "div" and "flow" in n.classes())
+    talks = flow_part.find(lambda n: "dialog" in n.classes())
+    items = [flat(li.text()) for li in cards[0].kids if isinstance(li, Node) and li.tag == "li"] if cards else []
+    if len(items) != 3 or not all(item.startswith(title) and words_of in item for item, (title, words_of) in zip(items, TOUCHES)):
+        problems.append(f"its cards of the three touches read {items}")
+    if not cards or not diagram or place(flow_part, cards[0]) > place(flow_part, diagram[0]):
+        problems.append("the three cards do not come before the diagram")
+    if len(talks) != 2 or (diagram and any(place(flow_part, talk) < place(flow_part, diagram[0]) for talk in talks)):
+        problems.append(f"it holds {len(talks)} dialogs after the diagram, not 2")
+verdict["touches"] = "; ".join(problems)
+
+# criterion 9: the dot "You can act here" is the one mark of a step of the developer. Each card of the three touches
+# holds one; a dot stands only in a step of the developer, a card of a touch or the legend, its key; and no rule of
+# the stylesheet gives a step of the developer, or anything in it, a border, a background or a color of its own
+problems = []
+cards = [li for touches in body.find(lambda n: "touches" in n.classes() and n.tag == "ol") for li in touches.kids if isinstance(li, Node) and li.tag == "li"]
+problems += [f"the card {flat(card.text())!r} holds {dots_in(card)} dots, not 1" for card in cards if dots_in(card) != 1]
+if len(cards) != 3:
+    problems.append(f"the page has {len(cards)} cards of the three touches")
+legends = body.find(lambda n: "legend" in n.classes())
+if len(legends) != 1 or dots_in(legends[0]) != 1 or flat(legends[0].text()) != "You can act here.":
+    problems.append("the diagram has no one legend \"You can act here.\" with its dot")
+homes = [node for node in body.walk() if ("step" in node.classes() and "you" in node.classes()) or node in cards or node in legends]
+def home_of(node):
+    while node is not None and node not in homes:
+        node = node.parent
+    return node
+strays = [f"<{dot.parent.tag}> {flat(dot.parent.text())[:40]!r}" for dot in body.find(lambda n: "dot" in n.classes()) if home_of(dot) is None]
+if strays:
+    problems.append(f"a dot stands outside the steps of the developer, the three cards and the legend, in {strays}")
+PAINT = re.compile(r"^(border|background|color|outline|box-shadow)(-|$)")
+def names_you(selector):
+    """True when the selector can reach a step of the developer or something in it: a compound with the class you and
+    no class a step lacks, or a :has() that asks for a dot or for you."""
+    if re.search(r":has\([^)]*\.(dot|you)\b", selector):
+        return True
+    for part in re.split(r"\s*[\s>+~]\s*", re.sub(r"::?[\w-]+(\([^)]*\))?", "", selector).strip()):
+        classes, tag = re.findall(r"\.([\w-]+)", part), re.match(r"[a-z]\w*", part)
+        if "you" in classes and set(classes) <= {"step", "you"} and (tag is None or tag.group(0) == "li"):
+            return True
+    return False
+for selectors, body_of in re.findall(r"([^{}]+)\{([^{}]*)\}", re.sub(r"(?s)/\*.*?\*/", "", css)):
+    paints = [prop for prop in re.findall(r"(?:^|;)\s*([\w-]+)\s*:", body_of) if PAINT.match(prop)]
+    hit = [flat(selector) for selector in selectors.split(",") if names_you(flat(selector))]
+    if hit and paints:
+        problems.append(f"style.css gives {hit} {paints}")
+verdict["dot"] = "; ".join(problems)
+
+# criterion 3: section 02 holds each bullet of the README's "What you can rely on", the sentence of careful, and the green block with its picture
+problems = []
+rely = section_of("rely")
+bullets = [flat(text) for text in re.findall(r"(?ms)^- (.*?)(?=^- |\Z)", readme_part("What you can rely on"))]
+if len(bullets) != 5:
+    problems.append(f"the README's \"What you can rely on\" has {len(bullets)} bullets, not 5")
+if rely is None:
+    problems.append("the page has no section rely")
+else:
+    items = [flat(li.text()) for li in rely.find(lambda n: n.tag == "li")]
+    problems += [f"it has no item {bullet!r}" for bullet in bullets if bullet not in items]
+    if heading(rely) != "What you can rely on":
+        problems.append(f"its heading is {heading(rely)!r}")
+    text = flat(rely.text())
+    for sentence in (CAREFUL, "Green, or not green with each reason", "Green means you can merge without a read."):
+        if sentence not in text:
+            problems.append(f"it does not say {sentence!r}")
+    if not rely.find(lambda n: n.tag == "img" and n.attrs.get("src") == "assets/screens/task-light.png"):
+        problems.append("it does not show the task's picture")
+verdict["rely"] = "; ".join(problems)
+
+# criterion 4: Lem learns your repository: the four files, each in git, and Codex as the second model family
+problems = []
+learns = section_of("learns")
+if learns is None:
+    problems.append("the page has no section learns")
+else:
+    if heading(learns) != "Lem learns your repository":
+        problems.append(f"its heading is {heading(learns)!r}")
+    codes = [flat(code.text()) for code in learns.find(lambda n: n.tag == "code")]
+    problems += [f"it does not name {name}" for name in (".lem/profile.md", ".lem/personas/", ".lem/lessons.md", "docs/rulings.md") if name not in codes]
+    text = flat(learns.text())
+    if "Each is a file in your repository's git." not in text:
+        problems.append("it does not say that each is a file in your repository's git")
+    if "Codex" not in text or "a second model family reviews the larger changes and answers as a second expert" not in text:
+        problems.append("it does not name Codex as the second model family")
+verdict["learns"] = "; ".join(problems)
+
+# criteria 5 and 7: start from a ticket, what a team shares and each developer's own board, on the page and in the README
+problems = []
+tickets = section_of("tickets")
+if tickets is None:
+    problems.append("the page has no section tickets")
+else:
+    if heading(tickets) != "Start from a ticket":
+        problems.append(f"its heading is {heading(tickets)!r}")
+    codes = [code for code in tickets.find(lambda n: n.tag == "code")]
+    for line in ("/lem new ABC-12", "/lem new 42"):
+        found = [code for code in codes if flat(code.text()) == line]
+        if not found:
+            problems.append(f"it does not show {line}")
+        elif any("cmd" in code.parent.classes() for code in found):
+            problems.append(f"{line} is a row to copy into a shell, not a line of text")
+    hrefs = [a.attrs.get("href", "") for a in tickets.find(lambda n: n.tag == "a")]
+    for guide in ("docs/linear.md#start-a-task-from-a-ticket", "docs/github-issues.md#start-a-task-from-an-issue"):
+        if f"{REPO}/blob/main/{guide}" not in hrefs:
+            problems.append(f"it does not link {guide}")
+    problems += [f"it does not say {sentence!r}" for sentence in TEAM if sentence not in flat(tickets.text())]
+problems += [f"the README does not say {sentence!r}" for sentence in TEAM if sentence not in readme_flat]
+verdict["tickets"] = "; ".join(problems)
+
+# criteria 6 and 7: the install says that Lem is MIT, with a link to LICENSE, and the README's last section does too
+problems = []
+install = section_of("install")
+said = [node for node in install.find(lambda n: n.tag == "p") if "MIT License" in flat(node.text())] if install is not None else []
+if not any(a.attrs.get("href") == f"{REPO}/blob/main/LICENSE" for node in said for a in node.find(lambda n: n.tag == "a")):
+    problems.append("the install section has no sentence of the MIT License with a link to LICENSE")
+license_part = readme_part("License")
+if "[MIT License](LICENSE)" not in license_part or not readme.rstrip().endswith(license_part.rstrip()):
+    problems.append("the README's last section is not ## License with a link [MIT License](LICENSE)")
+if not (root / "LICENSE").is_file() or not (root / "LICENSE").read_text(encoding="utf-8").startswith("MIT License"):
+    problems.append("LICENSE is not the MIT License")
+verdict["license"] = "; ".join(problems)
+
+# criterion 8: neither the page nor the README names the Plannotator Inbox
+named = [name for name, text in (("site/index.html", page), ("README.md", readme)) if "plannotator" in text.lower()]
+verdict["no_inbox"] = "" if not named else f"{named} name plannotator"
+
+# criterion 10: the board, the phone and many tasks at once keep their heading and their intro, under their new number
+KEPT = {"board": ("03 · The board", "Every task in one place, on every screen",
+                  "The board puts each task in a column by who acts next, and it updates by itself. The same board opens in agterm, in a browser and on your phone."),
+        "phone": ("04 · On your phone", "Follow the work away from your desk",
+                  "The board opens on your phone through Tailscale, a private network of your own devices. Only your Tailscale login gets access."),
+        "parallel": ("05 · Many tasks at once", "Many tasks build and land at the same time",
+                     "Each task has its own worktree. A task waits for another task only when it needs the result of that task, or when you put that task first.")}
+problems = []
+for name, (eyebrow, title, intro) in KEPT.items():
+    part = section_of(name)
+    if part is None:
+        problems.append(f"the page has no section {name}")
+        continue
+    got = (first_of(part, "eyebrow"), heading(part), first_of(part, "intro"))
+    if got != (eyebrow, title, intro):
+        problems.append(f"{name} reads {got}")
+parallel = section_of("parallel")
+if parallel is not None:
+    titles = [flat(b.text()) for b in parallel.find(lambda n: n.tag == "b" and n.parent is not None and n.parent.tag == "li")]
+    if titles != ["A session for each task", "Checks under your load limit", "One merge at a time"]:
+        problems.append(f"the cards of many tasks at once are {titles}")
+    if parallel.find(lambda n: "verdict" in n.classes()):
+        problems.append("many tasks at once still holds the green block")
+verdict["kept"] = "; ".join(problems)
 
 # 2: the install again, with what Lem keeps and the way to remove it
 last = sections[-1] if sections else None
@@ -364,6 +572,11 @@ guides = [href for href in links if href.startswith(REPO + "/blob/")]
 if not guides:
     problems.append("the page links no guide")
 for href in guides:
+    other = re.fullmatch(re.escape(REPO) + r"/blob/main/([\w.-]+)", href)
+    if other:
+        if not (root / other.group(1)).is_file():
+            problems.append(f"{href} names no file at the root of the checkout")
+        continue
     found = GUIDE.match(href)
     if not found or not (root / found.group(1)).is_file():
         problems.append(f"{href} names no file of docs/ in the checkout")
@@ -836,7 +1049,7 @@ ok() {
 if ok trigger; then pass "pages.yml runs only on Run workflow (workflow_dispatch), never on a push, a pull request or a schedule"; else fail "pages.yml's triggers: $WHY"; fi
 if ok workflow; then pass "pages.yml has the Pages permissions, the github-pages environment, and GitHub's Pages actions"; else fail "pages.yml: $WHY"; fi
 if [ -z "$copy_said" ] && ok copied; then pass "the step \"$STEP_NAME\" of pages.yml makes a folder of index.html, style.css, the logo and its figure alone for the tab, each for each theme, and the six pictures of the board, at the paths the page names"; else fail "the step \"$STEP_NAME\": ${copy_said:-$WHY}"; fi
-if ok guides; then pass "every guide link of the page names a file of docs/ in the checkout, and each # part a heading of that file"; else fail "the guide links: $WHY"; fi
+if ok guides; then pass "every guide link of the page names a file of docs/ in the checkout, and each # part a heading of that file; a link to a file at the root names a file there"; else fail "the guide links: $WHY"; fi
 # criterion 5: what site/ holds
 if ok tracked; then pass "git tracks index.html and style.css under site/, and nothing else"; else fail "site/ in git: $WHY"; fi
 if ok no_image; then pass "no file under site/ is a picture"; else fail "site/: $WHY"; fi
@@ -844,12 +1057,22 @@ if ok local; then pass "the page draws nothing from another host: no script, sty
 # criterion 1, in the markup
 if ok first; then pass "the opening has the logo, the README's line, the two install lines exact with a copy button each, and \"Lem needs agterm.\" with its link and the line to run them"; else fail "the opening: $WHY"; fi
 # criterion 2
-if ok sections; then pass "the page is six sections in order (the opening, the board, the flow, the phone, many tasks at once, the install) and a footer, and the nav links the board, the flow, the phone and the install"; else fail "the sections: $WHY"; fi
-if ok words; then ok words_count || true; pass "the page has 800 to 1200 words of visible text ($WHY)"; else fail "the visible text: $WHY, not 800 to 1200"; fi
-if ok diagram; then pass "the diagram's fast track has one step for the developer, the merge; the standard track three: the interview, the criteria, the merge"; else fail "the diagram: $WHY"; fi
+if ok sections; then pass "the page is nine sections in order (the opening, how a task goes, what you can rely on, the board, the phone, many tasks at once, Lem learns your repository, start from a ticket, the install) and a footer, and the nav links the board, the flow, the phone and the install"; else fail "the sections: $WHY"; fi
+if ok words; then ok words_count || true; pass "the page has 800 to 1600 words of visible text ($WHY)"; else fail "the visible text: $WHY, not 800 to 1600"; fi
+if ok diagram; then pass "the diagram's fast track has one step for the developer, the merge; the standard track three: the interview, the criteria, the merge; each of these holds one dot, and no other step holds one"; else fail "the diagram: $WHY"; fi
 if ok green; then pass "the page says \"Green means you can merge without a read.\""; else fail "the green sentence: $WHY"; fi
 if ok again; then pass "the second install block has the two lines, and a sentence that names .lem/ links the removal steps of docs/install.md"; else fail "the second install block: $WHY"; fi
 if ok footer; then pass "the footer links the seven guides, the settings and the repository"; else fail "the footer: $WHY"; fi
+# the plan 2026-11-23-landing-page-asks-little, by its criteria
+if ok for_line; then pass "the hero says \"For a developer who works alone, and for a team on Linear or GitHub Issues.\" directly after the lead line, and the README says it as the paragraph under its lead sentence"; else fail "who Lem is for: $WHY"; fi
+if ok touches; then pass "section 01, \"A task needs you three times at most\", shows the three touches as three cards, then the diagram, then the two dialogs"; else fail "section 01: $WHY"; fi
+if ok dot; then pass "the dot \"You can act here\" is the one mark of a step of the developer: each card of the three touches holds one, no dot stands outside those steps, those cards and the legend, and style.css gives a step of the developer no border, background or color of its own"; else fail "the dot: $WHY"; fi
+if ok rely; then pass "section 02, \"What you can rely on\", holds each bullet of the README's list, the sentence of careful, and the green block with the task's picture"; else fail "section 02: $WHY"; fi
+if ok learns; then pass "\"Lem learns your repository\" names the profile, the personas, the lessons and the rulings, each a file in git, and Codex as the second model family"; else fail "Lem learns your repository: $WHY"; fi
+if ok tickets; then pass "\"Start from a ticket\" shows /lem new ABC-12 and /lem new 42 as text with the two guides' headings, and the page and the README say what a team shares and that each developer has their own board"; else fail "start from a ticket: $WHY"; fi
+if ok license; then pass "the install section says that Lem has the MIT License with a link to LICENSE, and the README ends with ## License"; else fail "the license: $WHY"; fi
+if ok no_inbox; then pass "neither site/index.html nor README.md names plannotator, in any case"; else fail "the Inbox: $WHY"; fi
+if ok kept; then pass "the board, the phone and many tasks at once keep their heading, their intro and their cards under the numbers 03, 04 and 05, and the green block left many tasks at once"; else fail "the kept sections: $WHY"; fi
 # criterion 3
 if ok sentences; then pass "no sentence of the page has more than 25 words, and no instruction more than 20"; else fail "the sentences: $WHY"; fi
 if ok os; then pass "the page names no operating system"; else fail "an operating system: $WHY"; fi
@@ -918,7 +1141,7 @@ window.addEventListener("load", async () => {
   const first = document.querySelector("section");
   const scene = first.querySelector("picture img");
   const out = { width: innerWidth, client: document.documentElement.clientWidth };
-  const texts = { headline: first.querySelector(".lead"), lead: first.querySelector(".sub"), "agterm note": first.querySelector(".needs") };
+  const texts = { headline: first.querySelector(".lead"), "for line": first.querySelector(".for"), lead: first.querySelector(".sub"), "agterm note": first.querySelector(".needs") };
   first.querySelectorAll(".cmd code").forEach((code, i) => { texts["install line " + (i + 1)] = code; });
   first.querySelectorAll("button.copy").forEach((button, i) => { texts["copy button " + (i + 1)] = button; });
   out.parts = { scene: Math.ceil(box(scene).bottom) };
@@ -948,7 +1171,17 @@ probe theme '
 window.addEventListener("load", () => {
   const img = selector => document.querySelector(selector);
   const logo = img("section picture img"), board = img("img[src*=board]");
+  // the dot "You can act here" as drawn: each place that holds one, the dot box and color in it, and how each step of the diagram looks
+  const edges = el => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; };
+  const marks = [...document.querySelectorAll(".step.you, ol.touches > li, .legend")].map(el => ({
+    name: el.textContent.trim().replace(/\s+/g, " ").slice(0, 30), box: edges(el),
+    dots: [...el.querySelectorAll(".dot")].map(dot => ({ box: edges(dot), color: getComputedStyle(dot).backgroundColor, seen: getComputedStyle(dot).visibility })) }));
+  const steps = [...document.querySelectorAll(".step")].map(el => {
+    const style = getComputedStyle(el), title = getComputedStyle(el.querySelector("b"));
+    return { you: el.classList.contains("you"), look: [style.borderTopColor, style.backgroundColor, style.boxShadow, style.outlineStyle, title.color, title.backgroundColor].join(" | ") };
+  });
   report({
+    marks, steps,
     dark: matchMedia("(prefers-color-scheme: dark)").matches,
     background: getComputedStyle(document.body).backgroundColor,
     logo: logo.currentSrc.replace(/^.*?\/_site\//, ""), logoWidth: logo.naturalWidth,
@@ -979,6 +1212,7 @@ window.addEventListener("load", () => {
     }
   };
   add("the headline", first.querySelector(".lead"));
+  add("the line of who Lem is for", first.querySelector(".for"));
   add("the lead", first.querySelector(".sub"));
   first.querySelectorAll(".cmd code").forEach((code, i) => {
     add("install line " + (i + 1), code);
@@ -1070,8 +1304,8 @@ elif mode == "layer":
         if box["top"] < layer["top"] or box["bottom"] > layer["bottom"]:
             wrong.append(f"{name} (y {box['top']:.0f} to {box['bottom']:.0f}) is outside the layer (y {layer['top']:.0f} to {layer['bottom']:.0f})")
     wrong += [f"{name} is under something else at its middle" for name, top in d["onTop"].items() if not top]
-    if len(d["texts"]) != 7:
-        wrong.append(f"the probe found {sorted(d['texts'])}, not the 7 hero texts")
+    if len(d["texts"]) != 8:
+        wrong.append(f"the probe found {sorted(d['texts'])}, not the 8 hero texts")
 elif mode == "phone":
     # criterion 2: at a phone's width (390 or 360 px) the four small agents, the figure and the word with its cursor
     # are inside the window, and the scene keeps its ratio
@@ -1112,8 +1346,8 @@ elif mode == "contrast":
     if d["dpr"] != 1:
         wrong.append(f"the window draws {d['dpr']} pixels to the px")
     names = {run["name"] for run in d["runs"]}
-    if len(names) != 7:
-        wrong.append(f"the probe found {sorted(names)}, not the 7 hero texts")
+    if len(names) != 8:
+        wrong.append(f"the probe found {sorted(names)}, not the 8 hero texts")
     weakest = (99.0, "")
     for run in d["runs"]:
         ink, cache = color(run["color"]), {}
@@ -1156,6 +1390,32 @@ elif mode == "differ":
     light, dark = (load(path)["background"] for path in files)
     if light == dark:
         wrong.append(f"both draws have the background {light}")
+elif mode == "dots":
+    # criterion 9 of the plan 2026-11-23-landing-page-asks-little, as drawn in each theme: the four steps of the
+    # developer, the three cards and the legend each show one dot of 10 x 10 px on their box, all in one color, and
+    # a step of the developer looks like every other step
+    for theme, path in zip(("light", "dark"), files):
+        d = load(path)
+        if len(d["marks"]) != 8:
+            wrong.append(f"in the {theme} theme {len(d['marks'])} places hold a dot, not 8")
+        colors = set()
+        for mark in d["marks"]:
+            if len(mark["dots"]) != 1:
+                wrong.append(f"in the {theme} theme {mark['name']!r} shows {len(mark['dots'])} dots")
+                continue
+            dot, (left, top, right, bottom) = mark["dots"][0], mark["box"]
+            x0, y0, x1, y1 = dot["box"]
+            if abs(x1 - x0 - 10) > .5 or abs(y1 - y0 - 10) > .5 or dot["seen"] != "visible":
+                wrong.append(f"in the {theme} theme the dot of {mark['name']!r} draws {x1 - x0:.1f} x {y1 - y0:.1f} px, {dot['seen']}")
+            if not (left <= (x0 + x1) / 2 <= right and top <= (y0 + y1) / 2 <= bottom):
+                wrong.append(f"in the {theme} theme the dot of {mark['name']!r} has its middle outside its box")
+            colors.add(dot["color"])
+        rgb = color(next(iter(colors))) if len(colors) == 1 else None
+        if rgb is None or rgb[1] < 1:
+            wrong.append(f"in the {theme} theme the dots are {sorted(colors)}, not one solid color")
+        looks = {step["look"] for step in d["steps"] if step["you"]}, {step["look"] for step in d["steps"] if not step["you"]}
+        if looks[0] != looks[1] or len(looks[1]) != 1:
+            wrong.append(f"in the {theme} theme a step of the developer looks {sorted(looks[0])}, the others {sorted(looks[1])}")
 print("; ".join(wrong) if wrong else said)
 sys.exit(bool(wrong))
 PY
@@ -1195,12 +1455,12 @@ drawn_checks() {
   headless --window-size=1280,800 --virtual-time-budget=5000 --dump-dom "file://$SITE/screen.html" > "$WORK/screen.dom"
   result "$WORK/screen.dom" > "$WORK/screen.json"
   if why=$(drawn screen "$WORK/screen.json"); then
-    pass "at 1280 x 800 the scene, the headline, the lead, both install lines, both copy buttons and the line \"Lem needs agterm.\" are in the first screen"
+    pass "at 1280 x 800 the scene, the headline, the line of who Lem is for, the lead, both install lines, both copy buttons and the line \"Lem needs agterm.\" are in the first screen"
   else
     fail "the first screen at 1280 x 800: $why"
   fi
   if why=$(drawn layer "$WORK/screen.json"); then
-    pass "at 1280 x 800 the scene reaches the window's left and right edge from the top of the page, with no box, and its layer holds the seven hero texts, each on top of it"
+    pass "at 1280 x 800 the scene reaches the window's left and right edge from the top of the page, with no box, and its layer holds the eight hero texts, each on top of it"
   else
     fail "the scene behind the hero at 1280 x 800: $why"
   fi
@@ -1251,6 +1511,11 @@ drawn_checks() {
   else
     fail "the themes: $why"
   fi
+  if why=$(drawn dots "$WORK/light.json" "$WORK/dark.json"); then
+    pass "in the light and the dark theme each step of the developer, each card of the three touches and the legend show one dot of 10 x 10 px on their box, in one color, and a step of the developer looks like every other step"
+  else
+    fail "the dot as drawn: $why"
+  fi
 }
 
 if [ -z "$chrome" ]; then
@@ -1272,7 +1537,7 @@ if [ -n "${LEM_SITE_SHOTS:-}" ] && [ -n "$chrome" ]; then
     scheme=1
     [ "$theme" = dark ] && scheme=0
     headless --window-size=1280,800 --blink-settings=preferredColorScheme=$scheme --virtual-time-budget=4000 --screenshot="$LEM_SITE_SHOTS/page-$theme-1280x800.png" "file://$SITE/index.html"
-    headless --window-size=1280,4400 --blink-settings=preferredColorScheme=$scheme --virtual-time-budget=4000 --screenshot="$LEM_SITE_SHOTS/page-$theme-full.png" "file://$SITE/index.html"
+    headless --window-size=1280,8200 --blink-settings=preferredColorScheme=$scheme --virtual-time-budget=4000 --screenshot="$LEM_SITE_SHOTS/page-$theme-full.png" "file://$SITE/index.html"
   done
 fi
 

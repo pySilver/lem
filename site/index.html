@@ -31,6 +31,7 @@
     </h1>
     <div class="words">
       <p class="lead">Type a request in plain words, and get a pull request whose first line says green or not green.</p>
+      <p class="for">For a developer who works alone, and for a team on Linear or GitHub Issues.</p>
       <p class="sub">Agents plan, build, test and review the change in your repository. Lem is a plugin for Claude Code that works closely with agterm.</p>
       <div class="install" aria-label="Install">
         <div class="cmd"><code>claude plugin marketplace add pySilver/lem --scope project</code><button class="copy" type="button">Copy</button></div>
@@ -58,23 +59,16 @@
   </figure>
 </section>
 
-<section id="board">
-  <p class="eyebrow">01 · The board</p>
-  <h2>Every task in one place, on every screen</h2>
-  <p class="intro">The board puts each task in a column by who acts next, and it updates by itself. The same board opens in agterm, in a browser and on your phone.</p>
-  <ul class="views">
-    <li class="v-tasks"><b>Tasks</b> <span>Each task in the column of who acts next: you, a builder, the checks, or done.</span></li>
-    <li class="v-you"><b>Waits for you</b> <span>One row for each task, with what you do: read a breaker, approve the criteria, read a merge review or merge. A task with two or more things is one stack, which opens on a click.</span></li>
-    <li class="v-backlog"><b>Backlog</b> <span>The work for later, in groups by its worth. The proposals of the morning's retro that a reviewer agent passed come first, for you to start or drop.</span></li>
-    <li class="v-activity"><b>Activity</b> <span>Where the time went, and every event.</span></li>
-  </ul>
-  <p class="tabs-line">A task opens with five tabs: <span class="chip">Overview</span> <span class="chip">Criteria and decisions</span> <span class="chip">Checks and review</span> <span class="chip">Timeline</span> <span class="chip">Artifacts</span></p>
-</section>
-
 <section id="flow">
-  <p class="eyebrow">02 · How a task goes</p>
-  <h2>Two tracks to one pull request</h2>
-  <p class="intro">Lem reads each request, and tells you its type and its track in one line.</p>
+  <p class="eyebrow">01 · How a task goes</p>
+  <h2>A task needs you three times at most</h2>
+  <p class="intro">Lem reads each request, and tells you its type and its track in one line. Then the task needs you at three points at most.</p>
+  <ol class="cards touches">
+    <li><b><i class="dot" aria-hidden="true"></i>The shape</b> <span>On the standard track, you answer the interview, and say yes to the acceptance criteria.</span></li>
+    <li><b><i class="dot" aria-hidden="true"></i>A circuit breaker</b> <span>A task stops, and leaves a document for you.</span></li>
+    <li><b><i class="dot" aria-hidden="true"></i>A pull request that the merge agent calls you for</b> <span>You read its review, and merge.</span></li>
+  </ol>
+  <p class="touches-more">On the fast track, only the third touch can come. <a href="https://github.com/pySilver/lem/blob/main/docs/when-lem-needs-you.md#three-touches">When Lem needs you</a> tells you more.</p>
   <div class="flow">
     <div class="track fast">
       <h3>Fast track</h3>
@@ -83,19 +77,19 @@
         <li class="step"><b>One builder</b> <span>makes the change</span></li>
         <li class="step"><b>Checks and one read</b></li>
         <li class="step"><b>Pull request</b> <span>the merge agent reads it</span></li>
-        <li class="step you"><b>Merge</b> <span>when the merge agent calls you</span></li>
+        <li class="step you"><b><i class="dot" aria-hidden="true"></i>Merge</b> <span>when the merge agent calls you</span></li>
       </ol>
     </div>
     <div class="track standard">
       <h3>Standard track</h3>
       <ol class="steps">
         <li class="step"><b>Your request</b></li>
-        <li class="step you"><b>Interview</b> <span>you answer</span></li>
-        <li class="step you"><b>Acceptance criteria</b> <span>you say yes</span></li>
+        <li class="step you"><b><i class="dot" aria-hidden="true"></i>Interview</b> <span>you answer</span></li>
+        <li class="step you"><b><i class="dot" aria-hidden="true"></i>Acceptance criteria</b> <span>you say yes</span></li>
         <li class="step"><b>Plan and build</b> <span>a builder for each part</span></li>
         <li class="step"><b>Checks and a review</b></li>
         <li class="step"><b>Pull request</b> <span>the merge agent reads it</span></li>
-        <li class="step you"><b>Merge</b> <span>when the merge agent calls you</span></li>
+        <li class="step you"><b><i class="dot" aria-hidden="true"></i>Merge</b> <span>when the merge agent calls you</span></li>
       </ol>
     </div>
     <p class="legend"><i class="dot" aria-hidden="true"></i>You can act here.</p>
@@ -132,40 +126,17 @@
   </div>
 </section>
 
-<section id="phone">
-  <p class="eyebrow">03 · On your phone</p>
-  <h2>Follow the work away from your desk</h2>
-  <div class="columns phone-cols">
-    <div class="text">
-      <p class="intro">The board opens on your phone through Tailscale, a private network of your own devices. Only your Tailscale login gets access.</p>
-      <p>Add the board to the Home Screen. Lem then sends a notification each time something starts to wait for you.</p>
-      <p>While you are away, what waits for you also goes to your <a href="https://github.com/pySilver/lem/blob/main/docs/when-lem-needs-you.md#answer-from-the-inbox">Plannotator Inbox</a>, and you can answer it there from your phone.</p>
-      <p><b>Two computers, one address.</b> <code>/lem serve join HOST</code> shows the repositories of a second computer on the board of the first.</p>
-      <p class="note">The computer must be awake. Lem needs Tailscale only for another device.</p>
-    </div>
-    <div class="setup">
-      <p class="eyebrow">Set it up one time</p>
-      <ol>
-        <li><span>Install Tailscale on the computer and on the phone, with one account.</span></li>
-        <li><span>In the Tailscale admin console, turn on MagicDNS and HTTPS.</span></li>
-        <li><span>Type <code>/lem serve tailscale</code> in Claude Code.</span></li>
-        <li><span>On the phone, open the address that Lem gives, and select "Add to Home Screen".</span></li>
-        <li><span>Open Lem from the Home Screen, and turn on notifications with one tap.</span></li>
-      </ol>
-      <p class="more"><a href="https://github.com/pySilver/lem/blob/main/docs/board.md#the-board-on-your-phone">The board on your phone</a>, step by step</p>
-    </div>
-  </div>
-</section>
-
-<section id="parallel">
-  <p class="eyebrow">04 · Many tasks at once</p>
-  <h2>Many tasks build and land at the same time</h2>
-  <p class="intro">Each task has its own worktree. A task waits for another task only when it needs the result of that task, or when you put that task first.</p>
-  <ul class="cards">
-    <li><b>A session for each task</b> <span>Type your next request in any session. It opens a session of its own, while the other tasks build.</span></li>
-    <li><b>Checks under your load limit</b> <span>The checks start only while the load of your computer is below 40, or below the limit that you set. The task that waits longest starts first. A task that another task waits for starts before it.</span></li>
-    <li><b>One merge at a time</b> <span>Lem merges one task at a time. When the base branch moved, the merge agent reads what moved, and Lem runs the checks again only when the agent asks.</span></li>
+<section id="rely">
+  <p class="eyebrow">02 · Guarantees</p>
+  <h2>What you can rely on</h2>
+  <ul class="guarantees">
+    <li>Nothing merges before your tests pass and an agent that did not build the change reviews it.</li>
+    <li>After an interview, nothing builds before your yes to the acceptance criteria, unless you are away or the task runs at night.</li>
+    <li>Every reviewer reads a change that can affect what you said must never go wrong, and you merge it.</li>
+    <li>A step that nobody can undo stops the task, and waits for you.</li>
+    <li>Lem never pushes over a commit that it did not push.</li>
   </ul>
+  <p class="careful">A change that can affect what you said must never go wrong is <b>careful</b>: every reviewer reads it, and you merge it.</p>
   <div class="columns verdict">
     <div class="text">
       <h3>Green, or not green with each reason</h3>
@@ -190,8 +161,85 @@
   </div>
 </section>
 
+<section id="board">
+  <p class="eyebrow">03 · The board</p>
+  <h2>Every task in one place, on every screen</h2>
+  <p class="intro">The board puts each task in a column by who acts next, and it updates by itself. The same board opens in agterm, in a browser and on your phone.</p>
+  <ul class="views">
+    <li class="v-tasks"><b>Tasks</b> <span>Each task in the column of who acts next: you, a builder, the checks, or done.</span></li>
+    <li class="v-you"><b>Waits for you</b> <span>One row for each task, with what you do: read a breaker, approve the criteria, read a merge review or merge. A task with two or more things is one stack, which opens on a click.</span></li>
+    <li class="v-backlog"><b>Backlog</b> <span>The work for later, in groups by its worth. The proposals of the morning's retro that a reviewer agent passed come first, for you to start or drop.</span></li>
+    <li class="v-activity"><b>Activity</b> <span>Where the time went, and every event.</span></li>
+  </ul>
+  <p class="tabs-line">A task opens with five tabs: <span class="chip">Overview</span> <span class="chip">Criteria and decisions</span> <span class="chip">Checks and review</span> <span class="chip">Timeline</span> <span class="chip">Artifacts</span></p>
+</section>
+
+<section id="phone">
+  <p class="eyebrow">04 · On your phone</p>
+  <h2>Follow the work away from your desk</h2>
+  <div class="columns phone-cols">
+    <div class="text">
+      <p class="intro">The board opens on your phone through Tailscale, a private network of your own devices. Only your Tailscale login gets access.</p>
+      <p>Add the board to the Home Screen. Lem then sends a notification each time something starts to wait for you.</p>
+      <p><b>Two computers, one address.</b> <code>/lem serve join HOST</code> shows the repositories of a second computer on the board of the first.</p>
+      <p class="note">The computer must be awake. Lem needs Tailscale only for another device.</p>
+    </div>
+    <div class="setup">
+      <p class="eyebrow">Set it up one time</p>
+      <ol>
+        <li><span>Install Tailscale on the computer and on the phone, with one account.</span></li>
+        <li><span>In the Tailscale admin console, turn on MagicDNS and HTTPS.</span></li>
+        <li><span>Type <code>/lem serve tailscale</code> in Claude Code.</span></li>
+        <li><span>On the phone, open the address that Lem gives, and select "Add to Home Screen".</span></li>
+        <li><span>Open Lem from the Home Screen, and turn on notifications with one tap.</span></li>
+      </ol>
+      <p class="more"><a href="https://github.com/pySilver/lem/blob/main/docs/board.md#the-board-on-your-phone">The board on your phone</a>, step by step</p>
+    </div>
+  </div>
+</section>
+
+<section id="parallel">
+  <p class="eyebrow">05 · Many tasks at once</p>
+  <h2>Many tasks build and land at the same time</h2>
+  <p class="intro">Each task has its own worktree. A task waits for another task only when it needs the result of that task, or when you put that task first.</p>
+  <ul class="cards">
+    <li><b>A session for each task</b> <span>Type your next request in any session. It opens a session of its own, while the other tasks build.</span></li>
+    <li><b>Checks under your load limit</b> <span>The checks start only while the load of your computer is below 40, or below the limit that you set. The task that waits longest starts first. A task that another task waits for starts before it.</span></li>
+    <li><b>One merge at a time</b> <span>Lem merges one task at a time. When the base branch moved, the merge agent reads what moved, and Lem runs the checks again only when the agent asks.</span></li>
+  </ul>
+</section>
+
+<section id="learns">
+  <p class="eyebrow">06 · Your repository</p>
+  <h2>Lem learns your repository</h2>
+  <p class="intro">Lem keeps what it learns of your repository in four files. Each is a file in your repository's git.</p>
+  <ul class="cards files">
+    <li><b><code>.lem/profile.md</code></b> <span>The product.</span></li>
+    <li><b><code>.lem/personas/</code></b> <span>The people that a change affects.</span></li>
+    <li><b><code>.lem/lessons.md</code></b> <span>Your corrections of how an agent does a step in this repository.</span></li>
+    <li><b><code>docs/rulings.md</code></b> <span>Your decisions about what the product does, which no agent reopens without asking you.</span></li>
+  </ul>
+  <div class="text below">
+    <p><b>A second expert.</b> Codex is optional and highly recommended. With it, a second model family reviews the larger changes and answers as a second expert.</p>
+    <p><a href="https://github.com/pySilver/lem/blob/main/docs/install.md#what-lem-keeps">What Lem keeps</a> lists every file, in git and on your computer.</p>
+  </div>
+</section>
+
+<section id="tickets">
+  <p class="eyebrow">07 · Teams</p>
+  <h2>Start from a ticket</h2>
+  <p class="intro">Connect Linear or GitHub Issues to Lem. Then a ticket is the request of a task.</p>
+  <ul class="cards pair">
+    <li><b>Linear</b> <span>Type <code>/lem new ABC-12</code> in Claude Code. The ticket is the request, and Lem uses the branch name from Linear.</span> <a href="https://github.com/pySilver/lem/blob/main/docs/linear.md#start-a-task-from-a-ticket">Start a task from a ticket</a></li>
+    <li><b>GitHub Issues</b> <span>Type <code>/lem new 42</code> in Claude Code. The text of the issue is the request.</span> <a href="https://github.com/pySilver/lem/blob/main/docs/github-issues.md#start-a-task-from-an-issue">Start a task from an issue</a></li>
+  </ul>
+  <div class="text below">
+    <p>A team shares the settings in git, the tickets and the pull requests. Each developer has their own board, with the tasks on their own computer.</p>
+  </div>
+</section>
+
 <section id="install">
-  <p class="eyebrow">05 · Install</p>
+  <p class="eyebrow">08 · Install</p>
   <h2>Start in your repository</h2>
   <p class="intro">At the root of your repository:</p>
   <div class="install" aria-label="Install">
@@ -207,6 +255,7 @@
     </ul>
     <p class="keeps">Each person installs Lem. Git shares <code>.lem/settings.toml</code>; <code>~/.config/lem/</code> holds yours. Newer settings stop an older Lem. To remove Lem, read <a href="https://github.com/pySilver/lem/blob/main/docs/install.md#remove">Remove</a>.</p>
     <p><a href="https://github.com/pySilver/lem/blob/main/docs/install.md#update">Updates</a> bring the newest release, which repairs a bad one. Auto-update starts off; <code>/plugin</code> turns it on under Marketplaces. <code>claude plugin list</code> shows your release, which a session keeps until it ends.</p>
+    <p>Lem has the <a href="https://github.com/pySilver/lem/blob/main/LICENSE">MIT License</a>.</p>
   </div>
 </section>
 
