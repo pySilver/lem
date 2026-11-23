@@ -545,6 +545,39 @@ class MergeReview(unittest.TestCase):
         self.assertEqual(land.task_time(events, "nobody")["seconds"], None)
 
 
+class MergeSeat(unittest.TestCase):
+    """The seat kept with each brief of the merge agent (`merge_seats` of landing.json), from which the record of
+    its answer takes `by`: the seat that read, never a new read of the settings; and a task its merge agent's
+    seat blocked, whose pull request `lem land merged` still takes."""
+
+    CODEX = {"agent": "codex", "model": "gpt-6.2-sol", "effort": "high", "seat": "codex/gpt-6.2-sol:high", "from": ".lem/project.toml"}
+    STAND_IN = {"agent": "claude", "model": "opus", "effort": "high", "seat": "claude/opus:high", "from": "stand-in"}
+
+    def test_the_record_names_the_seat_kept_with_its_brief(self) -> None:
+        kept = land.seats_kept(None, "aaa", "b1", self.CODEX)
+        # the settings name another merger afterwards: the brief's seat stays
+        self.assertEqual(land.seat_of_brief(kept, "aaa", "b1")["seat"], "codex/gpt-6.2-sol:high")
+        self.assertIsNone(land.seat_of_brief(kept, "aaa", "b2"))
+        self.assertIsNone(land.seat_of_brief(None, "aaa", "b1"))
+
+    def test_a_stand_in_on_the_same_tip_and_base_takes_the_failed_seats_place(self) -> None:
+        # merge-review, seat-failed SLUG merger, merge-review again: the same brief, and the stand-in reads it
+        kept = land.seats_kept(land.seats_kept(None, "aaa", "b1", self.CODEX), "aaa", "b1", self.STAND_IN)
+        self.assertEqual(land.seat_of_brief(kept, "aaa", "b1"), self.STAND_IN)
+
+    def test_a_later_base_keeps_the_earlier_brief_of_the_tip_and_a_new_tip_drops_them(self) -> None:
+        kept = land.seats_kept(land.seats_kept(None, "aaa", "b1", self.CODEX), "aaa", "b2", self.STAND_IN)
+        self.assertEqual((land.seat_of_brief(kept, "aaa", "b1")["seat"], land.seat_of_brief(kept, "aaa", "b2")["seat"]), ("codex/gpt-6.2-sol:high", "claude/opus:high"))
+        self.assertEqual(sorted(land.seats_kept(kept, "ccc", "b2", self.CODEX)), ["ccc-b2"])
+
+    def test_a_task_its_merge_agent_blocked_keeps_its_pull_request(self) -> None:
+        block = "2026-11-23T10:00Z blocked: the merge agent `codex/gpt-6.2-sol:high` gave an error: no tokens, and this project permits no fallback\nthe seat that failed: merger"
+        self.assertTrue(land.merger_blocked({"status": "blocked", "state": block}))
+        self.assertFalse(land.merger_blocked({"status": "blocked", "state": block.replace("merger", "reviewer")}))
+        self.assertFalse(land.merger_blocked({"status": "blocked", "state": "2026-11-23T10:00Z blocked: the base is red"}))
+        self.assertFalse(land.merger_blocked({"status": "open", "state": block}))
+
+
 class MergeBriefPictures(unittest.TestCase):
     """`land.pictures_of`: the pictures of the task's `media/` folder that the merge brief names, each
     a picture the board's media route shows, by its path from the task directory."""
