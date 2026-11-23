@@ -109,9 +109,6 @@ SMALL_RECORD = (
     "ticket.txt", "ticket-repo.txt", "ticket-steps.txt",
     # the task a resumed one came from, which a resume's new name and the ticket's holder follow back
     "resumed-from.txt",
-    # the release it began on, which each command of Lem for it reads first (lem_release), its resume,
-    # `lem land merged` and `lem land clean` among them: with no mark, it would count as UNMARKED
-    "release.txt",
 )
 # The tabs, by their key, as a record's line names them.
 TAB_NAMES = {"criteria": "Criteria and decisions", "checks": "Checks and review", "timeline": "Timeline"}

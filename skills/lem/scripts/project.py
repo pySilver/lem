@@ -771,9 +771,9 @@ TEMPLATE += f"""
 [state]
 # How many days Lem keeps what it no longer needs in .lem/state/, the folder git never sees: every
 # file of a task that ended and that nothing happened in for that many days but its small record
-# (its state, its request, its pull request, its ticket's and its resume's files, and the release it
-# began on), and a question to the experts, a persona panel's folder, a nap and a copy of the cast
-# that nobody wrote or read in that time. The event log stays. The board server removes them, and
+# (its state, its request, its pull request, and its ticket's and its resume's files), and a
+# question to the experts, a persona panel's folder, a nap and a copy of the cast that nobody wrote
+# or read in that time. The event log stays. The board server removes them, and
 # `lem project prune --dry-run --days 7` shows what 7 would remove. The default, {KEEP_DAYS}, is the
 # owner's word of 2026-11-21, and the two constants it replaces, which were guesses. One person with
 # less free disk, or more, sets a number for their machine alone with `keep_days` under [state] in
@@ -4802,7 +4802,7 @@ def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
         "dry_run": dry, "keep_days": keep, "from": source, "before": stamp_of(cutoff.timestamp()),
         "state": str(state), "tasks": pruned_tasks, "summarized": summarized, "events": replaced, "folders": folders, "files": files, "bytes": total,
         "said": f"{verb} {files} files of {len(pruned_tasks)} ended tasks with no event since {stamp_of(cutoff.timestamp())[:10]}, "
-                f"so that each keeps only its small record (its state, its request, its pull request, its ticket's and its resume's files, and the release it began on), "
+                f"so that each keeps only its small record (its state, its request, its pull request, and its ticket's and its resume's files), "
                 f"{'would replace' if dry else 'replaced'} the {replaced} events of {len(summarized)} such tasks with one summary event each, "
                 f"and {verb} {len(folders)} old folders and copies, {total / 1_000_000:.1f} MB",
         "open": counts["open"], "young": counts["young"], "old": counts["old"], "skipped": remover.skipped, "failed": remover.failed,
