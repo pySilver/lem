@@ -100,6 +100,53 @@ A line that a session writes by hand under "Seen, not filed" or "Left open" take
    - `site/index.html`, where it says the same as a changed guide.
    - `AGENTS.md`, "Layout": `jev.py`'s callers, when the list names them.
 
+## Plan talk
+
+Who argued the plan: the reviewer, Codex, GPT 6.2 Sol at high effort (its pane's status line); the defender, Claude Code, Opus 5.5 at high effort (the `defender:` line of the task's state). Two model families. Seven turns, inside the bound of 4 × 13 + 2. The repairs are one commit, a5d226c1.
+
+Agreement carries no authority: the review before the pull request reads each settled position as a claim.
+
+### The list, as the reviewer gave it
+
+1. **Task 3, the agent's second answer to Jev.** Design choice. The repair read the findings called under from the tip (each item the branch adds with `worth: no`, each `under:` line), took the tip's file as the agent's second answer, and keyed Jev's entry by the digest of `where` and title. Its first hold, that an unchanged retry passes, was refuted by criterion 7, step 3 ("The agent keeps 'under' with its reason; propose goes on"), and the reviewer closed that part. Its second hold stands: two findings with the same `where` and title and different runs share one key, while `land.py:holds` tells them apart by the run. Kept position: the key of `where` and title (task 3). Other position: the key the run belongs to as well, as `land.py:holds` compares it. The ladder decides it after the talk (`stages/plan.md`, step 5).
+2. **Task 3, Jev's two meanings.** Design choice. The repair gave the noul both meanings, as `jev.py:question_body` asks: yes is the bar's condition, no is "the finding meets none of these, or not today". Defender: an agent never calls `under` a defect the owner called worth an item (rule 6, "The bar binds Lem's agents only"), so both meanings never apply to a text that reaches Jev. Reviewer: `land.py:defects_of` accepted an `under` call on a finding that says it happened yesterday and that the owner asked for an item, and both meanings apply to it. The ladder decides it.
+3. **Tasks 2 and 3, items a builder files by hand.** Settled, the same decision as 1: both lists of items come from the tip by the file's worth, whoever filed them (task 2, bullet 2; task 3, bullet 2). Settled by the two, not checked by the review.
+4. **Task 2, the scope of the notes check.** Design choice. The repair checks the lines before the first heading and under `## Seen, not filed` on the fast track, and `## Left open` and `## Seen, not filed` on the standard track. Reviewer: a session on the fast track may write a `## Left open` heading, and `small_text` keeps it unchecked, while criterion 6 says "whoever wrote it". No refutation. The ladder decides it.
+5. **Task 4, an over call on a `worth: no` item.** Design choice. The repair changed the decision that `--same` settles a defect: `cmd_file` makes the item `worth: later` with the new run, and `gate_holds` takes that edit. Reviewer: `land.py:covers_one` takes only new files of the backlog folder, so the edit of a base item asks for a new review; `items_added` misses it; and a polish or fast-track builder that files by hand has no way to raise such an item. No refutation. The ladder decides it.
+6. **Task 4, a refusal halfway through `cmd_file`.** Settled: the duplicate check runs for every waiting defect before any file is written, and a refusal writes nothing (task 4, bullet 2). Settled by the two, not checked by the review.
+7. **Task 4, which items Jev reads.** Settled: the items of the backlog folder at the tip, the branch's too, all asked, in as many requests as `jev.py:LIMIT_BYTES` needs (task 4, bullet 1). Its hold, a finding whose state alone passes the limit, was refuted: `jev.py` exits 3 and sends nothing, the plan makes that "not asked" and lists every item for the agent, which criteria 8 and 9 allow. Settled by the two, not checked by the review.
+8. **Task 3, the kept score across a second landing.** Settled: `start_locked` carries `jev` with `pr`, `pushed` and `taken` (task 3, bullet 3). Settled by the two, not checked by the review.
+9. **Task 6, where the card's task comes from.** Design choice. The repair read the task from git alone: the `Lem task: SLUG` line of Lem's squash body, or the subject `docs(backlog): what review round N saw outside SLUG`, else the pull request's number. Reviewer: with `branch.history = "keep"`, the fast track's `docs(backlog): what the builder of SLUG saw outside it` (`prompts/small.md`, step 7) names the task, and task 6 does not read that form. No refutation. The ladder decides it.
+10. **Task 5, a verdict cut off between its two writes.** Settled: `cmd_proposals_verdict` finds the `worth: no` item whose `proposals:` line names the proposal and writes that file again (task 5, bullet 1). Settled by the two, not checked by the review.
+11. **Task 2, a merge by GitHub's button.** Design choice. The repair kept the body in Lem's merge and wrote the button's merge under "What this plan does not verify". Reviewer: `docs/pull-request.md`, "Merge it", and the ruling "GitHub pull requests are the one way to land" make the button a path of Lem's, so criterion 2 is not met there. No refutation. The ladder decides it.
+12. **Task 1, the sentence agents read.** Settled: the bar sentence's subject becomes "An item with `worth: later`", its condition stays, and `BAR` of `test_the_bar.py` follows (task 1). Settled by the two, not checked by the review.
+13. **Task 3, whose bar Jev reads.** Design choice. The repair reads the bar from the file `bar_file` names, and a rule 6 with no sentence of the bar's form gives "Jev: not asked (no bar in FILE)". Reviewer: a project may write its bar in its own words, and criterion 7 still applies there. No refutation. The ladder decides it.
+
+### Mechanisms the repairs added
+
+- Question 5: `cmd_file` raises a `worth: no` item to `worth: later` on an over call, and `gate_holds` takes that edit. At the cause: it changed task 4's decision that `--same` settles a defect.
+- Question 8: `start_locked` carries `jev`. A layer over the decision to keep Jev's entries in `landing.json`, whose cite is existing code, `land.py:start_locked`'s carry of `pr`, `pushed` and `taken`.
+- Question 9: the `Lem task: SLUG` line of Lem's squash body. At the cause: it changed task 6's decision to read the task from a local `landing.json`.
+- Question 10: the look for an item by its `proposals:` line. A layer over the decision to write the items before the records, whose cite is existing code, the docstring of `project.py:cmd_proposals_verdict`.
+
+### Raised, not argued
+
+- A retry that turns an interrupted refute into a pass leaves the refuted `worth: no` item beside the passed item (`project.py:cmd_proposals_read`, `cmd_proposals_verdict`).
+
+### Refused as unpriced
+
+None.
+
+### What changed in the plan
+
+- Task 1 (question 12): the bar sentence's subject, `BAR` with it, and the body line `Decided against: REASON`.
+- Task 2 (questions 1, 3, 4, 9): both lists of items from the tip by the file's worth; the notes check on both tracks; `Lem task: SLUG` at the end of the squash body.
+- Task 3 (questions 1, 2, 8, 13): the findings from the tip; both meanings of the noul; the bar from `bar_file`; the key of `where` and title; `jev` carried by `start_locked`; the agent's second answer read from the tip; "not asked (no bar in FILE)".
+- Task 4 (questions 5, 6, 7): the items of the tip, all asked in split requests; the check before any write; the raise of a `worth: no` item.
+- Task 5 (question 10): the look for an item by its `proposals:` line.
+- Task 6 (question 9): the task from git alone; the example item committed by the test.
+- Decisions of the plan and "What this plan does not verify" (questions 1, 9, 11, 13).
+
 ## Decisions of the plan
 
 - An "under" item goes under its own heading of the pull request, `## Filed as not worth it`, after `## Filed in the backlog`, so the merge agent reads the two apart. It rests on criterion 1's "lists it as filed as not worth it".
