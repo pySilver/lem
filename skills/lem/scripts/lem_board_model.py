@@ -1235,14 +1235,14 @@ def after_dropped(t: Task, m: Model) -> bool:
 def session_entries(text: str) -> dict[str, dict]:
     """What `lem session list` printed, by task: a JSON list of entries, each with its `task` and the
     facts the board reads (`live`, `agent`, `unanswered`, `session`, `name`, and the signs of work
-    `sign`, `shell` and `signs`); a list under `sessions` or `tasks` is taken too. ValueError for
+    `sign`, `shell`, `signs` and `turn`); a list under `sessions` or `tasks` is taken too. ValueError for
     anything else."""
     data = json.loads(text)
     if isinstance(data, dict):
         data = data.get("sessions", data.get("tasks"))
     if not isinstance(data, list):
         raise ValueError("`lem session list` printed no list of the tasks' sessions")
-    return {str(e["task"]): {k: e.get(k) for k in ("live", "agent", "unanswered", "session", "name", "sign", "shell", "signs")} for e in data if isinstance(e, dict) and e.get("task")}
+    return {str(e["task"]): {k: e.get(k) for k in ("live", "agent", "unanswered", "session", "name", "sign", "shell", "signs", "turn")} for e in data if isinstance(e, dict) and e.get("task")}
 
 
 def sessions_of(entries: dict[str, dict], kept: set[str]) -> dict[str, dict]:
