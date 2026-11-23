@@ -87,6 +87,28 @@ class Actions(unittest.TestCase):
         self.assertIn("not the board's own", self.refusal(Host="evil.example.com:4536", Origin="http://evil.example.com:4536"))
 
 
+class StartBehind(unittest.TestCase):
+    """The board starts no task for a project whose sessions load a Lem older than the board's release
+    before (lem_release.BEFORE): its new task's mark would be that release, and every act of the board
+    on it would stop at once. One release behind starts, with that release as its mark."""
+
+    def behind(self, listed: dict) -> str | None:
+        workspace = serve.Workspace.__new__(serve.Workspace)
+        workspace.path = "/lem-unit/shop"
+        with mock.patch.object(serve.lem_release, "running", lambda: "0.3.0"), mock.patch.object(serve.lem_release, "BEFORE", "0.2.0"), \
+             mock.patch.object(serve.lem_release, "installs", lambda: listed):
+            return serve.release_behind(workspace)
+
+    def test_a_project_two_releases_behind_the_board_is_refused_with_the_update(self):
+        said = self.behind({"plugins": {"lem@lem": [{"scope": "project", "projectPath": "/lem-unit/shop", "version": "0.1.6"}]}})
+        self.assertIn("The Lem this project's sessions load is 0.1.6, and this board runs Lem 0.3.0", said)
+        self.assertIn("/plugin marketplace update lem", said)
+
+    def test_a_project_one_release_behind_or_with_none_of_its_own_starts(self):
+        self.assertIsNone(self.behind({"plugins": {"lem@lem": [{"scope": "project", "projectPath": "/lem-unit/shop", "version": "0.2.0"}]}}))
+        self.assertIsNone(self.behind({"plugins": {"lem@lem": [{"scope": "user", "version": "0.3.0"}]}}))
+
+
 class Reads(unittest.TestCase):
     """The main listener reads a request only for a `Host` of its own: a name of another site that points
     at this machine (DNS rebinding) reads nothing."""
@@ -635,6 +657,20 @@ class StoppedSession(unittest.TestCase):
             held = (self.ev("01:33", "session.open", session="S1", name="gift-note", phase="shape", why="new"),
                     self.ev("10:15", "task.state", status=status, text=text, lines=[]))
             self.assertEqual([d for d in self.owed(*held, at="15:37") if d[2] in ("status", "stopped")], [], status)
+
+    def test_a_task_two_releases_back_is_not_woken_and_its_pull_request_is_still_watched(self):
+        say = "gift-note began on Lem 0.1.6, and Lem 0.3.0 reads only tasks begun on 0.2.0 or 0.3.0. ..."
+        stopped = (*self.landing(), self.ev("10:56", "release.stop", began="0.1.6", running="0.3.0", branch="feat/gift-note", say=say))
+        self.assertEqual(self.owed(*self.landing(), at="15:37"), [("wake", "gift-note", "status")])
+        # its session would wake every 45 minutes into the same stop
+        self.assertEqual([d for d in self.owed(*stopped, at="15:37") if d[2] in ("status", "stopped")], [])
+        opened = (self.ev("01:33", "session.open", session="S1", name="gift-note", phase="land", why="handoff"),
+                  self.ev("10:15", "task.state", status="open", text="pull request https://github.com/acme/shop/pull/41", lines=["green"]),
+                  self.ev("10:56", "release.stop", began="0.1.6", running="0.3.0", branch="feat/gift-note", say=say))
+        m = self.model(*opened, at="15:37")
+        self.assertEqual((m.tasks[0].status, m.tasks[0].info["label"]), ("open", "Blocked"))
+        # a merge on GitHub is still recorded: `lem land merged` passes the guard
+        self.assertEqual(serve.open_prs(m), [{"task": "gift-note", "n": 41, "url": "https://github.com/acme/shop/pull/41"}])
 
     def test_a_step_that_acted_on_nothing_says_why_in_the_servers_log(self):
         import subprocess

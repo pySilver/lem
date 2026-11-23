@@ -7,8 +7,13 @@
   "plugins": [
     {
       "name": "lem",
-      "source": "./",
-      "description": "Lem coordinates the agents that write code in one repository."
+      "source": {
+        "source": "github",
+        "repo": "pySilver/lem",
+        "ref": "v0.3.1"
+      },
+      "description": "Lem coordinates the agents that write code in one repository.",
+      "version": "0.3.1"
     }
   ]
 }

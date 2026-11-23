@@ -192,27 +192,35 @@ if [ "$home_only" = "(False, False)" ] && [ "$(field 'd["ok"]' <<<"$out")" = "Tr
 else
   fail "doctor with the required set: $out"
 fi
-# The task picker's row: optional, with the keymap line for this machine. The line names a folder of Lem that an update
-# does not move: the marketplace's clone, else this checkout when it is a clone; a plugin's folder alone gives no line.
-# The row is found when agterm's keymap holds the line; Lem only reads that file.
+# The task picker's row: optional, with the keymap line for this machine. The line runs `bin/lem picker` of a folder of Lem
+# that an update does not move: the marketplace's clone, else this checkout when it is a clone; a plugin's folder alone
+# gives no line. The row is found when agterm's keymap holds the line, or the older line that names the clone's picker.py
+# from `~/`; Lem only reads that file.
 picker_row() { field '(lambda t: (t["need"], t["found"], t["line"]))(next(t for t in d["tools"] if t["name"] == "task picker"))'; }
 from_clone=$(doctor | picker_row || true)
-mkdir -p "$WORK/market/skills/lem/scripts" && touch "$WORK/market/skills/lem/scripts/picker.py"
+mkdir -p "$WORK/market/bin" && touch "$WORK/market/bin/lem"
 printf '%s\n' "{\"lem\": {\"source\": {\"source\": \"github\", \"repo\": \"pySilver/lem\"}, \"installLocation\": \"$WORK/market\"}}" > "$FAKEHOME/.claude/plugins/known_marketplaces.json"
 from_market=$(doctor | picker_row || true)
 mkdir -p "$FAKEHOME/.config/agterm"
-printf '%s\n' "command \"Lem tasks ›\" ctrl+cmd+t --error-hud $PY $WORK/market/skills/lem/scripts/picker.py" > "$FAKEHOME/.config/agterm/keymap.conf"
+printf '%s\n' "command \"Lem tasks ›\" ctrl+cmd+t --error-hud $PY $WORK/market/bin/lem picker" > "$FAKEHOME/.config/agterm/keymap.conf"
 held=$(doctor | picker_row || true)
+# the line the doctor printed before, which names the clone's picker.py from ~/, as a Mac's keymap holds it (2026-11-23)
+printf '%s\n' "{\"lem\": {\"source\": {\"source\": \"github\", \"repo\": \"pySilver/lem\"}, \"installLocation\": \"$FAKEHOME/.claude/plugins/marketplaces/lem\"}}" > "$FAKEHOME/.claude/plugins/known_marketplaces.json"
+mkdir -p "$FAKEHOME/.claude/plugins/marketplaces/lem/bin" && touch "$FAKEHOME/.claude/plugins/marketplaces/lem/bin/lem"
+printf '%s\n' "command \"Lem tasks ›\"  ctrl+cmd+t  --error-hud $PY ~/.claude/plugins/marketplaces/lem/skills/lem/scripts/picker.py" > "$FAKEHOME/.config/agterm/keymap.conf"
+older=$(doctor | field '(lambda t: (t["found"], t["line"], t["detail"]))(next(t for t in d["tools"] if t["name"] == "task picker"))' || true)
+rm -r "$FAKEHOME/.claude/plugins/marketplaces"
 rm -r "$FAKEHOME/.config/agterm" "$FAKEHOME/.claude/plugins/known_marketplaces.json"
 mkdir -p "$WORK/cache/lem/abc123" && cp -R "$PWD/skills" "$WORK/cache/lem/abc123/"
 from_cache=$( (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$WORK/cache/lem/abc123/skills/lem/scripts/doctor.py") | picker_row || true)
-if [ "$from_clone" = "('optional', False, 'command \"Lem tasks ›\" ctrl+cmd+t --error-hud $PY $PWD/skills/lem/scripts/picker.py')" ] \
-  && [ "$from_market" = "('optional', False, 'command \"Lem tasks ›\" ctrl+cmd+t --error-hud $PY $WORK/market/skills/lem/scripts/picker.py')" ] \
-  && [ "$held" = "('optional', True, 'command \"Lem tasks ›\" ctrl+cmd+t --error-hud $PY $WORK/market/skills/lem/scripts/picker.py')" ] \
+if [ "$from_clone" = "('optional', False, 'command \"Lem tasks ›\" ctrl+cmd+t --error-hud $PY $PWD/bin/lem picker')" ] \
+  && [ "$from_market" = "('optional', False, 'command \"Lem tasks ›\" ctrl+cmd+t --error-hud $PY $WORK/market/bin/lem picker')" ] \
+  && [ "$held" = "('optional', True, 'command \"Lem tasks ›\" ctrl+cmd+t --error-hud $PY $WORK/market/bin/lem picker')" ] \
+  && [ "$older" = "(True, 'command \"Lem tasks ›\" ctrl+cmd+t --error-hud $PY $FAKEHOME/.claude/plugins/marketplaces/lem/bin/lem picker', \"$FAKEHOME/.config/agterm/keymap.conf holds a line that runs $FAKEHOME/.claude/plugins/marketplaces/lem/skills/lem/scripts/picker.py, an older form that still works; the line in its current form, to put in its place when the owner likes, is this row's line\")" ] \
   && [ "$from_cache" = "('optional', False, None)" ]; then
-  pass "the task picker's row is optional and gives the keymap line with a python3 and a folder of Lem that an update does not move, the marketplace's clone before this clone; it is found when agterm's keymap holds the line, and a plugin's folder alone gives no line"
+  pass "the task picker's row is optional and gives the keymap line with a python3 and the bin/lem picker of a folder of Lem that an update does not move, the marketplace's clone before this clone; it is found when agterm's keymap holds the line, and when it holds the older line that names the clone's picker.py from ~/, with the current line to put in its place; a plugin's folder alone gives no line"
 else
-  fail "the task picker's row: $from_clone / $from_market / $held / $from_cache"
+  fail "the task picker's row: $from_clone / $from_market / $held / $older / $from_cache"
 fi
 rm "$BIN/cronn"
 out=$(doctor || true)
@@ -718,7 +726,7 @@ root = sys.argv[1]
 manifest = json.load(open(f"{root}/.claude-plugin/plugin.json"))
 market = json.load(open(f"{root}/.claude-plugin/marketplace.json"))
 ok = (manifest["name"] == "lem" and re.fullmatch(r"\d+\.\d+\.\d+", manifest.get("version") or "") is not None
-      and [(p["name"], p["source"]) for p in market["plugins"]] == [("lem", "./")]
+      and [(p["name"], p["source"], p.get("version")) for p in market["plugins"]] == [("lem", {"source": "github", "repo": "pySilver/lem", "ref": "v" + manifest["version"]}, manifest["version"])]
       and [os.readlink(f"{root}/bin/{name}") for name in ("lem-ask", "lem-jev")] == ["lem", "lem"]
       and sorted(os.listdir(f"{root}/bin")) == ["lem", "lem-ask", "lem-jev"] and not os.path.exists(f"{root}/scripts/setup.py")
       and os.path.isfile(f"{root}/bin/lem") and not os.path.islink(f"{root}/bin/lem") and os.access(f"{root}/bin/lem", os.X_OK)
@@ -733,9 +741,28 @@ ok = ok and commands == {"UserPromptSubmit": [launch + "\"${CLAUDE_PLUGIN_ROOT}/
                          "PreCompact": [session]}
 ok = ok and matchers["SessionStart"] == ["startup|resume", "startup|resume|clear|compact|fork"] and matchers["PreCompact"] == ["auto|manual"]
 sys.exit(not ok)' "$PWD"; then
-  pass "the plugin manifest names lem and a version of three numbers, which is the release; the marketplace file lists the one plugin; bin/ holds the command lem, a file of its own, and the two commands lem-ask and lem-jev as links to it, and no plain jev; there is no setup script; and the hooks that come with the plugin are the correction hook, the start of the board server, and a task session's hooks of a compaction and of each session's start, each by the plugin's own path and started through lem_python.py"
+  pass "the plugin manifest names lem and a version of three numbers, which is the release; the marketplace file lists the one plugin, from GitHub at the tag of that release and with its version; bin/ holds the command lem, a file of its own, and the two commands lem-ask and lem-jev as links to it, and no plain jev; there is no setup script; and the hooks that come with the plugin are the correction hook, the start of the board server, and a task session's hooks of a compaction and of each session's start, each by the plugin's own path and started through lem_python.py"
 else
   fail "the plugin files in .claude-plugin and bin"
+fi
+# The release before this one (lem_release.BEFORE), which each release moves: the version plugin.json held before its
+# newest change of version, as git shows it. A release that forgot to move it would stop every task of the release
+# before. A clone too shallow to hold that change cannot tell, and says so.
+before=$(git -C "$PWD" log -p --format=%x00 -- .claude-plugin/plugin.json | "$PY" -c 'import json, re, sys
+for change in sys.stdin.read().split("\0"):
+    was = re.findall(r"^-\s*\"version\":\s*\"([^\"]+)\"", change, re.M)
+    now = re.findall(r"^\+\s*\"version\":\s*\"([^\"]+)\"", change, re.M)
+    if was and now:
+        print(was[0], now[0])
+        break')
+read -r was now <<<"${before:-none none}"
+said=$("$PY" -B -c 'import sys; sys.path.insert(0, "skills/lem/scripts"); import lem_release; print(lem_release.BEFORE, lem_release.running())')
+if [ "$was" = none ]; then
+  skip "lem_release.BEFORE is the version plugin.json held before its newest change of version: this clone holds no change of the version (shallow: $(git -C "$PWD" rev-parse --is-shallow-repository))"
+elif [ "$said" = "$was $now" ]; then
+  pass "lem_release.BEFORE is the version plugin.json held before its newest change of version"
+else
+  fail "lem_release.BEFORE and the running release are $said, and plugin.json's newest change of version went from $was to $now: a release moves BEFORE to the release before it"
 fi
 # A machine with Claude Code and no git still gets its rows, not a traceback.
 mkdir -p "$WORK/nogit" && cp "$BIN/claude" "$WORK/nogit/claude"

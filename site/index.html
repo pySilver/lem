@@ -200,12 +200,13 @@
   </div>
   <div class="text after">
     <p>Then start Claude Code in agterm there, and type <code>/lem init</code>. Answer three questions, read Lem's page, and type "land". Then type your first request.</p>
-    <p><a href="https://github.com/pySilver/lem/blob/main/docs/install.md#what-you-need">Install</a> lists every tool that Lem needs, and <code>/lem init</code> checks each one. The main tools:</p>
+    <p><code>/lem init</code> checks each tool that <a href="https://github.com/pySilver/lem/blob/main/docs/install.md#what-you-need">Install</a> lists. The main tools:</p>
     <ul class="tools" aria-label="The main tools">
       <li>agterm</li><li>Claude Code</li><li>git</li><li>Python 3.11 or newer</li><li>revmux</li><li>cronn</li><li>GitHub CLI</li>
       <li class="optional">Codex, highly recommended</li><li class="optional">Tailscale, for your phone</li>
     </ul>
-    <p class="keeps">Lem keeps the settings of your team in <code>.lem/settings.toml</code> of your repository, in git, and your own settings in <code>~/.config/lem/</code>. To remove Lem, follow the steps in <a href="https://github.com/pySilver/lem/blob/main/docs/install.md#remove">Remove</a>.</p>
+    <p class="keeps">Each person installs Lem. Git shares <code>.lem/settings.toml</code>; <code>~/.config/lem/</code> holds yours. Newer settings stop an older Lem. To remove Lem, read <a href="https://github.com/pySilver/lem/blob/main/docs/install.md#remove">Remove</a>.</p>
+    <p><a href="https://github.com/pySilver/lem/blob/main/docs/install.md#update">Updates</a> bring the newest release, which repairs a bad one. Auto-update starts off; <code>/plugin</code> turns it on under Marketplaces. <code>claude plugin list</code> shows your release, which a session keeps until it ends.</p>
   </div>
 </section>
 

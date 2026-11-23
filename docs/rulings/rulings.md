@@ -40,8 +40,9 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
 - **Release, last-tag and the review of another person's pull request leave the core.** They leave
   the repository, and `docs/backlog/add-ons-after-the-core.md` lists what may come back as an
   add-on. (2026-11-17 and 2026-11-18)
-- **No word and no form of a Lem before is kept.** No older command word, no refusal of a settings
-  key that went and no reading of an older record: "its unreleased code!!". (2026-11-18)
+- **No word of a Lem before is kept; a release reads the records of the release just before it,
+  and no older ones.** No older command word and no refusal of a settings key that went; a task
+  begun two releases back stops, and its message names the way on. (2026-11-18, 2026-11-23)
 - **The shipped skills are for the times he steps in.** (2026-11-16)
 
 ## What Lem needs on the machine

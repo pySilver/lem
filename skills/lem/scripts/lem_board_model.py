@@ -168,6 +168,9 @@ WAITS = ("gate.wait", "merge.wait")
 # `state.keep_days` days, which only `lem project prune` writes (project.py SUMMARY, `summary_of`),
 # in the place of the task's newest event.
 SUMMARY = "task.summary"
+# The stop of a command for a task two releases back (lem_release.STOP): while it is newer than the task's
+# newest state, the task is shown blocked with its message, and its status stays the one of its state.
+RELEASE_STOP = "release.stop"
 # How a run of the checks ended, by the `result` of its `gate.end` (land.py RESULTS).
 CHECKS_END = {
     "passed": {"head": "The checks passed", "label": "Checks passed", "after": "Lem, between two steps of the landing"},
@@ -546,6 +549,8 @@ class Task:
     # the task's summary (SUMMARY) as `lem project prune` wrote it, once its events became that one event;
     # the board of the task says so and shows what it holds (lem_board_task.py)
     summary: dict | None = None
+    # the newest `release.stop` while no state came after it (RELEASE_STOP): `began`, `running`, `branch`, `say`
+    release_stop: dict | None = None
 
 
 @dataclass
@@ -688,6 +693,9 @@ def fold(t: Task, e: dict, ts: int) -> None:
     if event == "session.wake":
         t.wakes.append({"ts": ts, "order": len(t.events), "why": e.get("why"), "session": e.get("session"), "unread": e.get("unread") is True})
         return
+    if event == RELEASE_STOP:
+        t.release_stop = {"ts": ts, "began": e.get("began"), "running": e.get("running"), "branch": e.get("branch"), "say": str(e.get("say") or "")}
+        return
     if event == "session.stopped":
         # the guard's record of a stop (`stop_stands`), read from `t.events`: no step of the task's own
         return
@@ -770,6 +778,8 @@ def fold(t: Task, e: dict, ts: int) -> None:
     if event != "task.state":
         return
     t.landing_step = None
+    # a state written after a release stop is the task's own work again, as a drop is
+    t.release_stop = None
     status = e.get("status")
     if status != "landing":
         t.checks_end = None
@@ -832,7 +842,7 @@ def fold_summary(t: Task, e: dict, ts: int) -> None:
                   if isinstance(p, dict) else None)
     x = e.get("investigation")
     t.investigation = {**x, "ts": at(x.get("ts")) or last} if isinstance(x, dict) else None
-    t.opening, t.landing_step, t.checks_end, t.waits = None, None, None, None
+    t.opening, t.landing_step, t.checks_end, t.waits, t.release_stop = None, None, None, None, None
 
 
 def lead_of(t: Task) -> str:
@@ -977,7 +987,13 @@ def settle(t: Task, now: int, away: bool = False) -> None:
         t.info = {"actor": "lem", "who": "Lem", "label": end["label"], "icon": "x" if stopped else "alert", "live": False}
         said = say_of(ended) or ("the checks were stopped; the landing waits for your word" if stopped else f"{end['head'].lower()}; a builder repairs it, nothing for you")
         t.shown = f"{said}. In the task's session, /lem land starts them again and /lem drop {t.slug} drops the task" if stopped else said
-    rank = "breaker" if t.breaker else t.status
+    if t.release_stop and not t.closed:
+        # a task two releases back: nothing of it goes on until the owner drops it, so it is his, blocked,
+        # with the stop's message; its status stays the one of its state, which open_prs and land.py read
+        t.for_owner, t.approvable, t.checks_stop, t.waits = True, False, None, None
+        t.info = {**STATUS["blocked"], "actor": "you", "who": "You"}
+        t.shown, t.more = t.release_stop["say"], []
+    rank = "blocked" if t.release_stop and not t.closed else "breaker" if t.breaker else t.status
     t.owner_rank = OWNER_ORDER.index(rank) if rank in OWNER_ORDER else -1
     # a parked task stands in no column of who acts: nobody does, and it has a place of its own; an open
     # task whose merge agent reads it, or whose merge the server runs, stands under the checks and review
@@ -1135,7 +1151,8 @@ def derive(events: list[dict], owner: list[dict], now: int, *, meta: dict | None
     today = local(now).date()
     m = Model(
         now=now, tasks=listed, away=away, owners=owners, proposed=by("open"), building=by("building"), queued=by("queued"), ready=by("ready"),
-        landing=by("landing"), blocked=by("blocked"), parked=by(PARKED), for_owner=[],
+        landing=by("landing"), parked=by(PARKED), for_owner=[],
+        blocked=sorted((t for t in listed if t.status == "blocked" or (t.release_stop and not t.closed)), key=lambda t: t.since),
         landed_today=[t for t in listed if t.status == "landed" and local(t.since).date() == today],
         unknown=[t for t in listed if t.status not in STATUS], lane={},
         by_slug=tasks, events=events, meta=meta or {})
@@ -1167,8 +1184,10 @@ def works_of(t: Task, m: Model) -> bool:
     (`live_of`) and that session's newest turn runs (`turn` "runs", lem_signs). A task with no session
     facts, a session that is not live, and a turn that ended or that Lem cannot read stay the owner's. A
     breaker's held task follows the same rule: while its session works on his help, nothing of it waits.
-    A task that is Lem's work already (`t.works`) was the owner's in what `settle` gave it."""
-    if t.status != "held" or not (t.for_owner or t.works) or m.sessions is None:
+    A held task two releases back (RELEASE_STOP) stays the owner's, blocked: every command of its session
+    stops, so no turn of it works on his answer. A task that is Lem's work already (`t.works`) was the
+    owner's in what `settle` gave it."""
+    if t.status != "held" or not (t.for_owner or t.works) or m.sessions is None or (t.release_stop and not t.closed):
         return False
     f = m.sessions.get(t.slug) or {}
     return f.get("live") is True and f.get("agent") is True and f.get("turn") == "runs"
@@ -1591,6 +1610,12 @@ QUIET_MS = 45 * 60 * 1000
 ANSWER_MS = 10 * 60 * 1000
 
 
+def guarded(t: Task) -> bool:
+    """Whether the guard of a stopped session watches the task: its status is in GUARDED, and no release
+    stop holds it (RELEASE_STOP), whose session would wake every QUIET_MS into the same stop."""
+    return t.status in GUARDED and t.release_stop is None
+
+
 def work_event(e: dict) -> bool:
     """Whether an event of a task is work of its agent: any event but the sessions' own (`session.*`, the
     guard's steps and the hook's records among them) and `board.act`, the board's record of the owner's
@@ -1602,7 +1627,7 @@ def work_event(e: dict) -> bool:
 def stop_due(t: Task, m: Model) -> dict | None:
     """The step of the guard of a stopped session that is due for the task now, or None: `{"step", "session",
     "from"}`, the step (`status`, `restart` or `stopped`), the session it is for, and the time in ms it is
-    due from. Only for a task in GUARDED (so not parked, held, queued, planned, blocked, open or ended)
+    due from. Only for a task the guard watches (`guarded`: in GUARDED, so not parked, held, queued, planned, blocked, open or ended, and with no release stop)
     whose session lives with an agent in its pane (`live_of`, `agent`) and in which no shell command runs
     (`shell`); never while the server has not asked (`Model.sessions` None) and never in a demo workspace.
 
@@ -1625,7 +1650,7 @@ def stop_due(t: Task, m: Model) -> dict | None:
       not read at once, since Lem never restarts by itself beside a session it cannot read.
 
     A wake in the same second as a sign counts as before it: the session that answers at once works."""
-    if m.sessions is None or m.meta.get("demo") or t.status not in GUARDED:
+    if m.sessions is None or m.meta.get("demo") or not guarded(t):
         return None
     f = m.sessions.get(t.slug) or {}
     if not (f.get("live") is True and f.get("agent") is True) or f.get("shell") is not False:
@@ -1681,11 +1706,11 @@ def stop_over_work(t: Task, e: dict) -> bool:
 
 
 def stopped_of(t: Task, m: Model) -> dict | None:
-    """The stop that waits for the owner (`stop_stands`), while the task is in GUARDED and its session still
+    """The stop that waits for the owner (`stop_stands`), while the guard watches the task (`guarded`) and its session still
     lives (`live_of`): the row `stopped` of "Waits for you", whose "Open a session" opens a fresh session
     beside it (`lem session open SLUG --why stopped`). None otherwise: a stopped session that is gone from
     agterm is `session_need`'s `gone`, whose open takes no stop, so the two rows never stand together."""
-    if t.status not in GUARDED:
+    if not guarded(t):
         return None
     f = live_of(t, m)
     if f is None or not f["live"]:
@@ -1776,7 +1801,10 @@ def acts_of(t: Task, seen: dict | None) -> list[str]:
     way), no merge of his stands (`owner_stands`: a second press adds nothing to the first, which goes
     through on the merge agent's safe read or that the server is about to run) and the forge does not call it
     conflicting (Lem brings that one onto the base first), and `park` while a breaker waits for him."""
-    out = []
+    out: list[str] = []
+    if t.release_stop and not t.closed:
+        # every act of the board on a task two releases back stops in Lem's guard: the drop is the way on
+        return out
     if t.approvable:
         out.append("approve")
     if t.status == "open" and t.merge_wait != "relands" and not owner_stands(t) and not conflicts(t, seen):
@@ -1818,6 +1846,10 @@ def waits_of(m: Model) -> list[dict]:
     them (with the plans he reads), the most pressing first."""
     rows = []
     for t in m.tasks:
+        if t.release_stop and not t.closed:
+            # a task two releases back: its one row says the stop's message, and nothing else of it is his until the drop
+            rows.append({"kind": "blocked", "key": f"blocked:{t.slug}", "t": t, "c": None, "since": t.release_stop["ts"], "say": t.release_stop["say"]})
+            continue
         # a task stuck for want of its session: the one row of a merged or dropped task whose cleanup did not run
         need = session_need(t, m)
         stop = stopped_of(t, m)
@@ -1932,6 +1964,9 @@ def wait_say(w: dict) -> dict:
         after, start, drop = w["after"], f"start {t.slug} now", f"/lem drop {t.slug}"
         return {"verb": dropped_head(after), "icon": "user", "to": "overview", "note": f"since {after} was dropped",
                 "start": start, "drop": drop, "where": answer_of(t)}
+    if kind == "blocked" and w.get("say"):
+        return {"verb": "It began on an older release of Lem", "icon": "alert", "actor": "bad", "to": "overview", "note": "since Lem stopped it",
+                "where": w["say"]}
     if kind == "blocked":
         return {"verb": "Its session stopped: tell it what to do", "icon": "alert", "actor": "bad", "to": "overview", "note": "since it stopped",
                 "where": f"The task’s session stopped on something it cannot settle alone: “{t.shown or t.text}”. Tell it what to do in the task’s session, "

@@ -90,6 +90,8 @@ RECORDS = {
     "ticket-repo.txt": ("ticket.txt", "ticket repository", None),
     # the task a resumed one came from, which a resume and a plan's name follow back
     "resumed-from.txt": ("ask.txt", "resumed from", None),
+    # the release the task began on, which each command of Lem for the task reads first (lem_release)
+    "release.txt": ("ask.txt", "release", None),
 }
 # The small record of a task: what stays of its folder once it ended long ago (`outside_record`), each
 # file for the readers that need it after the end.

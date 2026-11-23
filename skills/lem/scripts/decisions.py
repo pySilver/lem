@@ -118,6 +118,7 @@ if sys.version_info < (3, 11):
 
 import argparse
 import fcntl
+import importlib
 import json
 import os
 import re
@@ -131,6 +132,8 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
 import lem_sibling  # noqa: E402
 import lem_state  # noqa: E402  (how a JSON-lines file is split into its lines)
+# The release a task began on, and the rule that stops a command for a task two releases back.
+lem_release = importlib.import_module("lem_release")
 
 # Who took a decision: the lead, a level of the ladder (`stages/ladder.md`), the owner, or Lem.
 BY = ("lead", "gate", "personas", "dialectic", "experts", "owner", "lem")
@@ -713,6 +716,7 @@ def cmd_pending(repo: Path, slug: str | None) -> dict:
     return out
 
 
+@lem_release.one_command
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="lem decisions", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")
@@ -763,10 +767,18 @@ def main(argv: list[str] | None = None) -> None:
             sys.exit(f"decisions.py: the argument {os.fsencode(arg)!r} is not UTF-8 text; give it in UTF-8")
     repo = Path(args.repo)
     try:
+        if args.command == "pending" and args.slug:
+            # the release rule (lem_release) for a command that names one task
+            stopped = lem_release.check(Path(script("project.py", repo, "state-dir").strip()) / "tasks" / args.slug)
+            if stopped:
+                raise DecisionError(stopped)
         if args.command == "pending":
             result: object = cmd_pending(repo, args.slug)
         else:
             task = Task(repo, args.slug)
+            stopped = lem_release.check(task.directory)
+            if stopped:
+                raise DecisionError(stopped)
             if args.command == "log":
                 result = cmd_log(task, args)
             elif args.command == "criterion":

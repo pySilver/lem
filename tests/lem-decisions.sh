@@ -102,19 +102,22 @@ nd=$BR/.lem/state/tasks/gift-note-2
 carried=$(git -C "$BR" log -2 --format=%s feat/gift-note-2 | tr '\n' '|')
 # a lock is no copied file: each write of the new task's state takes its state.lock
 copied=$(cd "$nd" && find . -mindepth 1 -maxdepth 1 ! -name '*.lock' | sed 's|^\./||' | sort | tr '\n' ' ')
+# the new task goes on with the old one's records, so it keeps the release the old one began on
+mark=$(cat "$BR/.lem/state/tasks/gift-note/release.txt" 2>/dev/null)/$(cat "$nd/release.txt" 2>/dev/null)
 first=$(br tasks | field 'next((t["status"], t["state"].splitlines()[0].split(": ", 1)[1], t["state"].splitlines()[1:3]) for t in d if t["slug"] == "gift-note-2")')
 old=$(br tasks | field 'next(t["status"] for t in d if t["slug"] == "gift-note")')
 record=$(bdecide "$BR" list gift-note-2 | field '[(c["id"], c["kind"], c["state"]) for c in d]')
 again=$(br resume gift-note 2>&1 || true)
 if [ "$resumed" = "('gift-note-2', 'dropped', 'feat/gift-note-2', 'feat/gift-note', 3, 'held')" ] \
   && [ "$carried" = "feat: the second half of the note|feat: half of the note|" ] \
-  && [ "$copied" = "ask.txt breaker-1.md breaker-3.md decisions.jsonl handoff.md reports resumed-from.txt state.md " ] \
+  && [ "$copied" = "ask.txt breaker-1.md breaker-3.md decisions.jsonl handoff.md release.txt reports resumed-from.txt state.md " ] \
+  && [ "${mark%/*}" != "" ] && [ "${mark%/*}" = "${mark#*/}" ] \
   && [ "$first" = "('held', 'breaker 3 waits for the owner', ['resumed from gift-note, which was dropped', 'type: feat, because the export gets a column'])" ] \
   && [ "$old" = dropped ] && [ "$record" = "[(1, 'breaker', 'helped'), (2, 'taken', 'taken'), (3, 'breaker', 'waits')]" ] \
   && grep -qF "the dropped task 'gift-note' goes on in 'gift-note-2' already" <<<"$again"; then
-  pass "a dropped task stays dropped, and its resume opens a new task on a branch cut from its commits, with its handoff, each breaker's document and its record, held by the breaker that waits; a second resume of it is refused"
+  pass "a dropped task stays dropped, and its resume opens a new task on a branch cut from its commits, with its handoff, each breaker's document, its record and its release, held by the breaker that waits; a second resume of it is refused"
 else
-  fail "the resume of a dropped task: $resumed / $carried / $copied / $first / $old / $record / $again"
+  fail "the resume of a dropped task: $resumed / $carried / $copied / $mark / $first / $old / $record / $again"
 fi
 # A resume whose worktree's checks.setup fails still leaves the new task whole, held by its breaker, and says what is left.
 printf '%s\n' '[branch]' 'base = "main"' '[checks]' 'setup = ["echo half; exit 3"]' > "$BR/.lem/settings.toml"
@@ -126,6 +129,46 @@ if grep -qF "gift-note-2 goes on in gift-note-3, which is held by its breaker 3"
   pass "a resume whose new worktree's setup fails keeps the new task whole, held by the breaker that waits, and says what is left to do"
 else
   fail "a resume with a setup that fails: $unset_up / $whole"
+fi
+# A task two releases back (lem_release): its open marks it with the release its sessions load, here this Lem's own, since
+# Claude Code lists no install in this run (lib.sh). Its first command on a release two later stops with the message of
+# criterion 4 and logs the stop once, with its branch; the list of what waits names it blocked with the message as its
+# line, its status stays the one its work wrote, and its drop passes. Its resume, after its worktree went, is a new
+# request on this release: a branch cut from the branch the stop named, the notes and no record, its own mark, no state.
+project --repo "$DC" task-dir old-release --ask "Keep the old export" >/dev/null
+project --repo "$DC" state old-release building "lead: builder" >/dev/null
+OT=$(project --repo "$DC" worktree old-release fix/old-release | field 'd["worktree"]')
+commit "$OT" "fix: the old export keeps its columns"
+od=$DC/.lem/state/tasks/old-release
+for note in task.md handoff.md criteria.md brief.md; do printf 'of the old release\n' > "$od/$note"; done
+printf '{}\n' > "$od/criteria.json"
+decide log old-release --what "The columns of the old export" --chose "keep them" --why "its readers take columns by place" --by lead >/dev/null
+marked=$(cat "$od/release.txt" 2>/dev/null || true)
+printf '0.0.1\n' > "$od/release.txt"
+version=$("$PY" -c 'import json; print(json.load(open(".claude-plugin/plugin.json"))["version"])')
+prior=$("$PY" -B -c 'import sys; sys.path.insert(0, "skills/lem/scripts"); import lem_release; print(lem_release.BEFORE)' 2>/dev/null || true)
+say="old-release began on Lem 0.0.1, and Lem $version reads only tasks begun on $prior or $version. Your branch and its commits stay. /lem drop old-release, then /lem resume old-release, starts a new task on $version from that branch and from the notes the task left."
+stopped=$("$PY" -B "$CRITERIA" --repo "$DC" approved old-release 2>&1; echo "exit $?")
+again=$(status_of "$PY" -B "$CRITERIA" --repo "$DC" approved old-release)
+waits=$(project --repo "$DC" waiting | field '[(t["task"], t["line"]) for t in d["blocked"]]')
+own=$(project --repo "$DC" tasks | field 'next(t["status"] for t in d if t["slug"] == "old-release")')
+ended=$(status_of project --repo "$DC" state old-release dropped "the owner dropped it: it began two releases back")
+stops=$(grep -c '"event": "release.stop", "task": "old-release", "began": "0.0.1", "running": "'"$version"'", "branch": "fix/old-release"' "$DC/.lem/state/events.jsonl" || true)
+dropped=$(project --repo "$DC" tasks | field 'next(t["status"] for t in d if t["slug"] == "old-release")')
+git -C "$DC" worktree remove --force "$OT"
+resumed=$(project --repo "$DC" resume old-release | field '(d["task"], d["resumed"], d["branch"], d["from_branch"], d["status"], d["next"])')
+nd=$DC/.lem/state/tasks/old-release-2
+carried=$(git -C "$DC" log -1 --format=%s fix/old-release-2 2>&1 || true)
+copied=$(cd "$nd" && find . -mindepth 1 -maxdepth 1 | sed 's|^\./||' | sort | tr '\n' ' ')
+new_events=$(grep -c '"task": "old-release-2"' "$DC/.lem/state/events.jsonl" || true)
+if [ "$marked" = "$version" ] && [ -n "$prior" ] && grep -qxF "criteria.py: $say" <<<"$stopped" && [ "$(tail -n 1 <<<"$stopped")" = "exit 1" ] && [ "$again" = 1 ] \
+  && [ "$waits" = "[('old-release', '$say')]" ] && [ "$own" = building ] && [ "$ended" = 0 ] && [ "$stops" = 1 ] && [ "$dropped" = dropped ] \
+  && [ "$resumed" = "('old-release-2', 'request', 'fix/old-release-2', 'fix/old-release', None, 'lem session open old-release-2 --why new')" ] \
+  && [ "$carried" = "fix: the old export keeps its columns" ] && [ "$(cat "$nd/release.txt")" = "$version" ] \
+  && [ "$copied" = "ask.txt criteria.md handoff.md release.txt reports resumed-from.txt task.md " ] && [ "$new_events" = 0 ]; then
+  pass "a task two releases back stops at its first command with the message that names its release and the way on, logged once with its branch; the list of what waits names it blocked with that message, its status stays its own, and its drop passes; its resume is a new request on this release, on a branch cut from the stop's branch, with the notes, its own mark, no record and no state"
+else
+  fail "a task two releases back: $marked / $stopped / $again / $waits / $own / $ended / $stops / $dropped / $resumed / $carried / $copied / $new_events"
 fi
 # A task that is dropped or landed has nothing that waits: pending leaves its breakers out and says why, and list still shows them.
 for slug in dropped-task landed-task; do breaker_doc "$DC/.lem/state/tasks/$slug" && decide breaker "$slug" --cause irreversible --irreversible person >/dev/null; done

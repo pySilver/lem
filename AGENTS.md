@@ -40,17 +40,16 @@ works, and this file says how to change it.
   chart in `README.md` or `docs/` writes each node's and each edge's text in double quotes, and is
   drawn once before it is committed.
 - **A maintainer's session with nobody at the terminal reads `docs/free-hour.md` first.** It changes
-  no file that git tracks, makes no branch and no worktree, and never pushes: `main` of this
-  repository is what every project's next update of the plugin installs. A task's own session is
-  not such a session. The scheduled `/lem night` of this repository takes its free hour as a search
-  only, writes what it finds as proposals into the night's file of the day, as
-  `skills/lem/stages/night.md` says, and opens no task here: asked on 2026-11-21 whether a night
-  here may open pull requests, the owner answered "A3 no". The scheduled `/lem retro` of this
-  repository takes no free hour: it is a retro only.
-- **Lem is not released, so a change keeps no reading of the form before it.** A change to the
-  settings, a record, an event, a state or a command reads and writes the new form only, and the
-  maintaining session corrects the repositories that use Lem by hand. When Lem has users, this
-  rule changes.
+  no file that git tracks, makes no branch and no worktree, and never pushes ("A release"); a task's
+  own session is not one. The scheduled `/lem night` of this repository takes its free hour as a
+  search only, writes what it finds as proposals into the night's file of the day
+  (`skills/lem/stages/night.md`), and opens no task here: asked on 2026-11-21 whether a night here
+  may open pull requests, the owner answered "A3 no". The scheduled `/lem retro` of this repository
+  takes no free hour: it is a retro only.
+- **A change of the form of a record, an event or a state takes two releases.** It reads the form
+  of `BEFORE` and writes one that `BEFORE` still reads: a new key goes beside the old one, and no
+  key the old reader reads is renamed or removed; the next release may drop it. Its test reads a
+  record of the old form, and finds each old key in one the new code writes.
 - **A new ruling of the owner is one bullet of `docs/rulings/rulings.md`**, under the heading of
   its group: the rule in one sentence, in bold; only where the sentence alone could mislead, at most
   three lines more, with his words in quotes only where they are the rule or its limit; his day in
@@ -67,24 +66,34 @@ works, and this file says how to change it.
   otherwise it is in the message of the commit that made it. The `decided` lines of the history are
   the choices that were files until 2026-11-21 and that a test or one place holds.
 
+## A release
+
+A release is one commit on `main` and its tag, on the owner's word: `version` in
+`.claude-plugin/plugin.json` and in the `lem` entry of `.claude-plugin/marketplace.json` is
+`NUMBER`, the entry's `ref` is `vNUMBER` (`tests/unit/test_release.py`), and `BEFORE` in
+`skills/lem/scripts/lem_release.py` names the release before (`tests/lem-machine.sh`). Commit it
+as `chore(release): Lem NUMBER`, tag it `vNUMBER`, and run `git push --atomic origin main vNUMBER`.
+An update installs that tag, so a merge to `main` reaches no user. A release reads the records of
+`BEFORE` and none older. The owner's Mac takes each release first, and a newer one repairs a bad
+one.
+
 ## The owner's rulings
 
-`docs/rulings/rulings.md` is the list of the owner's rulings in force, one bullet for each under
-the twelve groups, and in its last part the choices of the maintaining session that are open to
-him. Read it whole once in a session, before a change to Lem. A change that adds a part to Lem (a
-skill, a hook, a command, a key of the settings, a tool it needs) reaches each bullet of "What Lem
-is, and who it is for". A ruling is reopened only by asking him.
+`docs/rulings/rulings.md` lists the owner's rulings in force under the twelve groups, and in its
+last part the maintaining session's choices open to him. Read it whole once in a session, before a
+change to Lem. A change that adds a part to Lem (a skill, a hook, a command, a key of the settings,
+a tool it needs) reaches each bullet of "What Lem is, and who it is for". A ruling is reopened only
+by asking him.
 
-`docs/rulings/history.md` holds the rulings and choices that left the list, each still in force:
-each with the test that holds it, or the one place that says it. Read it when a change touches a
-test or a place it names.
+`docs/rulings/history.md` holds what left the list, still in force, each with the test or the one
+place that holds it: read it when a change touches one.
 
 ## Checks
 
 ```bash
 bash tests/all.sh              # every suite below at the same time, one log each, a line of ok, FAIL and SKIP per suite
-python3 tests/pick.py --base main  # the suites to run for what the branch changed (or name the files); all.sh still runs before main moves
-python3 -B -m unittest discover -s tests/unit  # the unit level: one file or more for each script, its rules called in one process; all.sh runs it as the suite unit
+python3 tests/pick.py --base main  # the suites to run for what the branch changed (or name the files)
+python3 -B -m unittest discover -s tests/unit  # the unit level, its rules called in one process; all.sh runs it as the suite unit
 ```
 
 The loop: the unit level after each edit; while a task is in work, only the one block that holds
@@ -99,13 +108,12 @@ takes under a second, since `tests/all.sh` runs every suite at once.
 Each suite says how many checks it holds (`collected N`, `tests/checks.sh`), and a check that
 cannot run here prints a `SKIP` line of its own. A suite whose `ok` and `SKIP` lines do not add up
 to that count fails, and so does one that runs over its time limit (`LEM_TEST_LIMIT`, 30 minutes).
-With `LEM_TEST_TIMES=FILE` each check of a block appends its seconds to FILE, so one run shows
-which checks hold the time.
+With `LEM_TEST_TIMES=FILE` each check of a block appends its seconds to FILE.
 
 One suite alone, in the order of `tests/all.sh`:
 
 ```bash
-bash tests/lem-settings.sh     # the settings and the places of what Lem reads, a task's state and the event log, the rule picker, the criteria and their check on the base (each lem-* block sources tests/lib.sh)
+bash tests/lem-settings.sh     # the settings and the places of what Lem reads, a task's state and the event log, the rule picker, the criteria and their check on the base
 bash tests/lem-machine.sh      # the machine check, the correction queue and its hook, the plugin's files
 bash tests/lem-state.sh        # the state folder git never sees, and the owner's status
 bash tests/lem-decisions.sh    # a task's decisions, each taken by a level of the ladder, and the circuit breaker from its trip to his help, park, drop and resume
@@ -121,8 +129,8 @@ bash tests/lem-naps.sh         # the [naps] settings and lem project may-nap
 bash tests/lem-command.sh      # the command lem: each name, its arguments, stdin and exit status, help, and that no text names a script by its path
 bash tests/lem-picker.sh       # the task picker, with a stand-in for agtermctl
 bash tests/lem-session.sh      # a task's own session (lem session) with a stand-in for agtermctl, and the copy of the talk
-bash tests/lem-serve.sh        # the board server and lem board over HTTP, on the afternoon of tests/board-showcase.py: the routes, each page's words, the stream, the jump to a session, the start on demand
-bash tests/lem-board-keys.sh   # the board's keys on the Tasks view and "Waits for you", pressed in headless Chrome on the same afternoon, the confirm overlay of a merge, a park and an approval on a phone, and the sidebar's fold arrow in a narrow window's drawer; a SKIP line for each check without Node or Chrome
+bash tests/lem-serve.sh        # the board server and lem board over HTTP, on the afternoon of tests/board-showcase.py: its routes, pages, stream, jump and start on demand
+bash tests/lem-board-keys.sh   # the board's keys, a phone's confirm overlay and a narrow window's fold arrow, in headless Chrome on the same afternoon
 bash tests/lem-board-act.sh    # the owner's acts from the board, and the server's duties across tasks, with a stand-in for lem session
 bash tests/lem-peers.sh        # two machines under one address: two board servers on this Mac, a join, the loop guard, a machine that does not answer
 bash tests/test-gate-panel.sh  # the panel's cast, in its one place
@@ -131,17 +139,17 @@ bash tests/test-ask-expert.sh  # the experts' brief of a question in words, its 
 bash tests/test-site.sh        # the page on GitHub Pages, from pages.yml's own copy step; its drawn page in headless Chrome when one is installed
 bash tests/shellcheck.sh       # ShellCheck over tests/*.sh, one check for each file, or over the files named
 python3 tests/pick.py --check  # the map of tests/pick.py: every file read by a suite, every suite in all.sh
-bash tests/test-lem.sh         # every lem-* block at the same time, with its output in order; all.sh runs each as a suite of its own
+bash tests/test-lem.sh         # every lem-* block at the same time, with its output in order; all.sh runs each alone
 ```
 
 A change to a script comes with its test. A change to a stage file has no test: its test is a
 real task, so say in the commit which task showed the need.
 
-To run a clone of Lem in one session, without the plugin's install, load its folder as the plugin
+To run a clone of Lem in one session, load its folder as the plugin
 (Claude Code 2.1.325, 2026-11-17: the session listed every `lem:` skill and `lem:lem-builder`):
 
 ```bash
-claude --plugin-dir /path/to/lem   # the plugin from this folder, for this session only, with its skills, agent, commands and hooks
+claude --plugin-dir /path/to/lem   # for this session only
 ```
 
 A task's session that `lem session open` starts gets `--plugin-dir` with the clone's folder when
@@ -212,8 +220,9 @@ Each script's module docstring says what it does and why; this list says where e
     optional queue of the owner's corrections and its hook. `jev.py` (`lem-jev`): the client of the
     Jev model.
   - `lem_state.py` (the state folder and Lem's home folder), `lem_plans.py` (a plan's file
-    name), `lem_sibling.py` (a sibling's command in the same process) and `lem_python.py` (a
-    Python of 3.11 or newer for `bin/lem` and the hooks).
+    name), `lem_sibling.py` (a sibling's command in the same process), `lem_release.py` (a task's
+    `release.txt` and its stop two releases back) and `lem_python.py` (a Python of 3.11 or newer for
+    `bin/lem` and the hooks).
 - `skills/lem/assets/`: what `lem serve` sends under `/assets/`. `board.css` is the board's look,
   the phone's too; `lem.css` and `lem.js` are the look and the palette every page of Lem shares, and
   a new page for the owner links both and brings no style of its own. `push.css` and `sw.js` are the
@@ -238,7 +247,7 @@ Each script's module docstring says what it does and why; this list says where e
   a file for each day), the reviewer's backlog items (`backlog/`) and `proposals.lock` over both,
   the naps, the experts' folders, a panel's copies, the panels' folders (`panels/`, which
   `lem cast run-dir` makes), `forge.json`, the board server's last look at GitHub, and
-  `inbox.json`, its record of the owner's Inbox: its last look at the Inbox and each thing it sent
+  `inbox.json`, its record of the owner's Inbox: its last look there and each thing it sent
   there. `lem project prune` keeps the records and the items, and removes from the rest what is
   older than `state.keep_days`: of a task that ended and that nothing happened in for that many
   days, every file but its small record (`lem_artifacts.SMALL_RECORD`), and its events become one

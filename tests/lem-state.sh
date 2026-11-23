@@ -303,8 +303,8 @@ if [ "$before_dry" = "$after_dry" ] && [ "$(field '(d["dry_run"], d["keep_days"]
   && [ "$(field '[(t["task"], t["files"]) for t in d["tasks"]]' <<<"$again")" = "[('old-landed', ['locked/held.txt'])]" ] && [ "$(field '(d["folders"], d["failed"])' <<<"$again")" = "([], [])" ] \
   && [ "$(task_files old-landed)" = "ask.txt landing.json link.txt state.md ticket-steps.txt " ] && [ "$(task_files old-dropped)" = "ask.txt state.md " ] \
   && [ ! -e "$OLD/media" ] && [ ! -e "$OLD/reviews" ] && [ ! -e "$OLD/locked" ] && [ -L "$OLD/link.txt" ] && [ "$(cat "$WORK/outside.txt")" = "kept outside" ] \
-  && [ "$(task_files young-landed)" = "ask.txt decisions.jsonl media/shown.png report.md scratch.txt state.md " ] \
-  && [ "$(task_files still-open)" = "ask.txt decisions.jsonl media/shown.png report.md scratch.txt state.md " ] \
+  && [ "$(task_files young-landed)" = "ask.txt decisions.jsonl media/shown.png release.txt report.md scratch.txt state.md " ] \
+  && [ "$(task_files still-open)" = "ask.txt decisions.jsonl media/shown.png release.txt report.md scratch.txt state.md " ] \
   && [ "$(field '(d["tasks"], d["files"], d["summarized"], d["folders"], d["failed"])' <<<"$third")" = "([], 0, [], [], [])" ] && [ "$before_third" = "$after_third" ] \
   && [ "$after_starts" = 0 ] && grep -qF "the task 'old-landed' is landed; a new task takes a slug of its own" <<<"$old_taken" \
   && [ ! -e "$PS/experts/2026-01-02-101010-an-old-question" ] && [ -d "$PS/experts/notes" ] && [ -d "$PS/experts/$new_question" ] \

@@ -37,6 +37,12 @@ read_clean() { land --repo "$SHOP" read "$1" --record "$(clean "$1" "${2:-1}")" 
 propose() { land --repo "$SHOP" propose "$1" --title "fix: $1" --notes "$NOTES" >/dev/null; }
 
 open_task first-change ok.txt yes
+# first-change began on the release before this one (lem_release.BEFORE): its open wrote this Lem's own release as its
+# mark, the one Claude Code's list of this run gives (lib.sh), and the mark now says the release before. It lands below.
+version=$("$PY" -c 'import json; print(json.load(open(".claude-plugin/plugin.json"))["version"])')
+prior=$("$PY" -B -c 'import sys; sys.path.insert(0, "skills/lem/scripts"); import lem_release; print(lem_release.BEFORE)' 2>/dev/null || true)
+began=$(cat "$SHOP/.lem/state/tasks/first-change/release.txt" 2>/dev/null || true)
+printf '%s\n' "$prior" > "$SHOP/.lem/state/tasks/first-change/release.txt"
 open_task second-change app.txt two
 if [ "$(status_of land --repo "$SHOP" checks first-change)" = 1 ] && [ "$(status_of land --repo "$SHOP" base first-change)" = 1 ] \
   && [ "$(status_of land --repo "$SHOP" read first-change)" = 1 ] && [ "$(status_of land --repo "$SHOP" propose first-change --title x --notes "$NOTES")" = 1 ] \
@@ -196,10 +202,12 @@ if grep -q "moved after the checks ran, by files (docs/guide.md)" <<<"$docs_err"
   && [ "$(field '(d["pull_request"]["number"], d["left_behind"])' <<<"$out")" = "(1, None)" ] && [ "$(status first-change)" = landed ] \
   && [ "$(kept first-change merged_by)" = "{'by': 'owner', 'via': 'server', 'after': 'a re-check'}" ] \
   && [ "$(git -C "$ORIGIN" log -1 --format=%s main)" = "fix: first-change" ] && [ "$(git -C "$SHOP" rev-parse main)" = "$(git -C "$ORIGIN" rev-parse main)" ] \
-  && [ -f "$SHOP/ok.txt" ] && [ -f "$SHOP/late.txt" ]; then
-  pass "a base that moved by a document is refused too; landed again, the merge review carries onto the new tip and the owner's merge that the base refused stands, so it merges through GitHub after the re-check: the main checkout fast-forwarded, the state landed"
+  && [ -f "$SHOP/ok.txt" ] && [ -f "$SHOP/late.txt" ] \
+  && [ "$began" = "$version" ] && [ -n "$prior" ] && [ "$(cat "$SHOP/.lem/state/tasks/first-change/release.txt")" = "$prior" ] \
+  && ! grep -q '"event": "release.stop", "task": "first-change"' "$SHOP/.lem/state/events.jsonl"; then
+  pass "a base that moved by a document is refused too; landed again, the merge review carries onto the new tip and the owner's merge that the base refused stands, so it merges through GitHub after the re-check: the main checkout fast-forwarded, the state landed; the task began on the release before this one, as its mark says, and Lem stopped none of its steps"
 else
-  fail "land: $again / $review / $out"
+  fail "land: $again / $review / $out / began on $began, the release before is $prior"
 fi
 # A clean that was cut off after the worktree went: the next run still knows the branch.
 git -C "$SHOP" worktree remove "$SHOP/.lem/worktrees/first-change"
@@ -486,8 +494,10 @@ open_task not-clean nc.txt seven
 checked not-clean
 # A run that is cut off before the review is written down leaves nothing, the next run writes it
 # down once, and the same record sent again is refused: one review never takes two rounds. A copy
-# of the scripts whose project.py refuses the `review` event stands in for the kill.
-CUT=$WORK/cut
+# of the scripts whose project.py refuses the `review` event stands in for the kill. The copy is in a folder of the
+# plugin's shape, whose plugin.json names this Lem's release, which each step reads (lem_release).
+CUT=$WORK/cut/skills/lem/scripts
+mkdir -p "$WORK/cut/skills/lem" "$WORK/cut/.claude-plugin" && cp "$PWD/.claude-plugin/plugin.json" "$WORK/cut/.claude-plugin/"
 cp -R "$PWD/skills/lem/scripts" "$CUT"
 printf '%s\n' 'import runpy, sys' 'if "review" in sys.argv: sys.exit("project.py: cut off")' \
   "sys.argv[0] = '$PWD/skills/lem/scripts/project.py'" "runpy.run_path(sys.argv[0], run_name='__main__')" > "$CUT/project.py"

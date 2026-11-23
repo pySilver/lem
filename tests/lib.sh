@@ -16,6 +16,9 @@ LAND=$PWD/skills/lem/scripts/land.py
 WORK=$(cd "$(mktemp -d)" && pwd -P)
 export XDG_CONFIG_HOME="$WORK/config"  # the owner's status (`lem_state.owner_mark`) of this run, never the home directory's
 export LEM_SERVE=off  # a board that a check opens starts no board server (`serve.py`), which would outlive the run
+# Claude Code's folder of this run, which lists no install: a task's open marks it with this Lem's own release
+# (`lem_release.chosen`), never with the release the developer installed, which may be two releases behind the checkout
+export CLAUDE_CONFIG_DIR="$WORK/claude"
 export LEM_PUSH=record  # the board server's notifications are written to push-record.jsonl in the run's home folder, never sent (`lem_push.py`)
 # shellcheck source=tests/checks.sh
 . tests/checks.sh

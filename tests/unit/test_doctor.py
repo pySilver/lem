@@ -1,15 +1,20 @@
 """doctor.py's rules that take facts: the row for a repository whose installed Lem is other code than
-the board server runs, and the tier of each tool, which the table of docs/install.md says in words.
+the board server runs, the task picker's keymap line and which lines of a keymap run it, and the tier
+of each tool, which the table of docs/install.md says in words.
 
     python3 -B -m unittest discover -s tests/unit
 """
 
 import ast
 import importlib
+import json
+import os
 import re
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
@@ -117,6 +122,60 @@ class Plannotator(unittest.TestCase):
         absent = self.row(None, None)
         self.assertEqual((absent["need"], absent["found"], absent["detail"]), ("recommended", False, None))
         self.assertTrue(absent["without_it"].startswith("nothing goes to the Inbox"))
+
+
+class Keymap(unittest.TestCase):
+    """The task picker's line names the marketplace clone's `bin/lem picker`, which runs the newest
+    installed release; an older line that names the clone's `picker.py` still counts as there."""
+
+    HOME = Path("/Users/ana")
+    CLONE = HOME / ".claude" / "plugins" / "marketplaces" / "lem"
+    SCRIPTS = (CLONE / "bin" / "lem", CLONE / "skills" / "lem" / "scripts" / "picker.py")
+
+    def runs(self, said: str) -> Path | None:
+        return doctor.keymap_runs(said, self.HOME, self.SCRIPTS)
+
+    def test_a_line_names_the_command_or_the_older_script_by_its_path_or_from_home(self):
+        command, script = self.SCRIPTS
+        self.assertEqual(self.runs(f'command "Lem tasks ›" ctrl+cmd+t --error-hud /opt/homebrew/bin/python3 {command} picker'), command)
+        self.assertEqual(self.runs('command "Lem tasks ›"  ctrl+cmd+t  --error-hud /opt/homebrew/bin/python3 ~/.claude/plugins/marketplaces/lem/bin/lem picker'), command)
+        # the form of the line the doctor printed before, as a Mac's keymap holds it (2026-11-23)
+        self.assertEqual(self.runs('command "Lem tasks ›"  ctrl+cmd+t  --error-hud /opt/homebrew/bin/python3 ~/.claude/plugins/marketplaces/lem/skills/lem/scripts/picker.py'), script)
+        self.assertEqual(self.runs(f"command 'Lem tasks' ctrl+cmd+t /usr/bin/python3 {script} --repo /r"), script)
+
+    def test_a_line_that_runs_something_else_is_not_the_pickers(self):
+        command, script = self.SCRIPTS
+        for said in (f"command Board ctrl+cmd+b {command} serve --ensure", f"# command Lem ctrl+cmd+t {script}", f"keybind ctrl+t {script}",
+                     "command Lem ctrl+cmd+t ~/elsewhere/skills/lem/scripts/picker.py", f"command Lem ctrl+cmd+t {command}"):
+            with self.subTest(said=said):
+                self.assertIsNone(self.runs(said))
+
+    def row(self, keymap: str | None) -> dict:
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder)
+            clone = home / ".claude" / "plugins" / "marketplaces" / "lem"
+            (clone / "bin").mkdir(parents=True)
+            (clone / "bin" / "lem").write_text("", encoding="utf-8")
+            (home / ".claude" / "plugins" / "known_marketplaces.json").write_text(json.dumps({"lem": {"installLocation": str(clone)}}), encoding="utf-8")
+            (home / ".claude" / "plugins" / "installed_plugins.json").write_text(
+                json.dumps({"version": 2, "plugins": {"lem@lem": [{"scope": "user", "installPath": str(home / "cache"), "version": "0.3.0"}]}}), encoding="utf-8")
+            if keymap is not None:
+                (home / ".config" / "agterm").mkdir(parents=True)
+                (home / ".config" / "agterm" / "keymap.conf").write_text(keymap.replace("HOME", str(home)) + "\n", encoding="utf-8")
+            with mock.patch.dict(os.environ, {"HOME": str(home)}):
+                found = doctor.picker()
+            return {**found, "line": found["line"].replace(str(home), "HOME")}
+
+    def test_the_row_gives_the_line_of_the_clones_command_and_counts_an_older_line_as_there(self):
+        absent = self.row(None)
+        self.assertFalse(absent["found"])
+        self.assertTrue(absent["line"].endswith(" HOME/.claude/plugins/marketplaces/lem/bin/lem picker"), absent["line"])
+        current = self.row("command Lem ctrl+cmd+t /usr/bin/python3 HOME/.claude/plugins/marketplaces/lem/bin/lem picker")
+        self.assertEqual((current["found"], current["detail"].rsplit(" ", 3)[1:]), (True, ["holds", "the", "line"]))
+        older = self.row("command Lem ctrl+cmd+t /usr/bin/python3 ~/.claude/plugins/marketplaces/lem/skills/lem/scripts/picker.py")
+        self.assertTrue(older["found"])
+        self.assertIn("an older form that still works; the line in its current form, to put in its place when the owner likes, is this row's line", older["detail"])
+        self.assertEqual(older["line"], absent["line"])
 
 
 class Tiers(unittest.TestCase):

@@ -502,6 +502,7 @@ class Map(unittest.TestCase):
                              ["ask.txt", "decisions.lock", "landing.json", "resumed-from.txt", "state.lock", "state.md", "task.md", "ticket-repo.txt",
                               "ticket-steps.txt", "ticket.txt"])
             self.assertEqual(lem_artifacts.outside_record(Path(folder) / "no-such-task"), [])
+            self.assertEqual(lem_artifacts.place("release.txt")["role"], "record")
 
     def test_a_picture_is_one_by_its_name_and_its_first_bytes(self):
         png = b"\x89PNG\r\n\x1a\n" + bytes(8)

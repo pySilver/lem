@@ -13,11 +13,12 @@ landing start on this machine, 40 (Lem's default) with no number set, or that th
 the line that sets one. The optional
 row `handoff tokens` says past how many tokens a task's session compacts itself, `handoff tokens:
 600000 (default)` with no number set, and the line that sets one. On a machine with agterm, the optional row `task picker` gives the keymap line
-that starts `lem picker` with a chord, which the owner adds to agterm's keymap. The optional
+that starts `lem picker` with a chord, which the owner adds to agterm's keymap; a line that names the
+script `picker.py` of the clone, as this check printed before, counts as there and works. The optional
 row `board server` says whether the board server runs, with its addresses and its code against the
 code installed here, and the line that starts it from a terminal with no agent: `lem` by the path of
-Lem's marketplace clone, since the plugin puts `lem` on the PATH of Claude Code's Bash tool only; it
-never starts one. The optional row `board
+Lem's marketplace clone, since the plugin puts `lem` on the PATH of Claude Code's Bash tool only, and
+the clone's `bin/lem` runs the newest installed release; it never starts one. The optional row `board
 notifications` says how many devices get the board's notifications and how the last push went; it
 sends none. The optional row `installed Lem: NAME` comes for each repository of the server's list whose
 installed Lem (Claude Code's `installed_plugins.json`) is other code than the board server runs, with
@@ -335,16 +336,18 @@ def agterm() -> list[dict]:
 # The task picker: an agterm keymap line that starts it with a chord. The keymap is agterm's file, so
 # Lem only reads it, at the place agterm reads it by default.
 KEYMAP = Path(".config") / "agterm" / "keymap.conf"
+# The line runs Lem's command, `bin/lem picker`. The lines this check printed before named the script
+# itself, which still works: in the marketplace clone it hands over to the clone's `bin/lem picker`.
+COMMAND = Path("bin") / "lem"
 PICKER = Path("skills") / "lem" / "scripts" / "picker.py"
 CHORD = "ctrl+cmd+t"
 
 
 def marketplace_lem(home: Path, holds: Path) -> Path | None:
     """The clone of Lem's marketplace when it holds the file `holds` (a path inside Lem), or None.
-    Claude Code pulls that clone before it copies a new folder of the plugin, so it is the newest Lem
-    on the machine, and its path outlives every update. The plugin's own folder is named by its
-    commit and changes with each update, so it is never this. The task picker's keymap line names a
-    script by this path."""
+    Its path outlives every update, and the plugin's own folder, named by its version, changes with
+    each one, so it is never this. The clone holds the head of `main`, which no release holds, so a
+    line names only its `bin/lem`, which runs the newest installed release in its place."""
     try:
         known = json.loads((home / PLUGINS / "known_marketplaces.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -361,11 +364,28 @@ def stable_lem(home: Path) -> tuple[Path, str] | None:
     """A folder of Lem whose path outlives an update of the plugin, with what keeps it new, or None.
     First the clone of Lem's marketplace (`marketplace_lem`). Else this checkout, when it is a clone
     of Lem's repository, as for a contributor who loads it with `claude --plugin-dir`."""
-    clone = marketplace_lem(home, PICKER)
+    clone = marketplace_lem(home, COMMAND)
     if clone is not None:
-        return clone, "Lem's marketplace clone, which each update of the plugin pulls and never moves"
+        return clone, "Lem's marketplace clone, which never moves, and whose bin/lem runs the newest installed release"
     own = Path(__file__).resolve().parents[3]
-    return (own, "this clone of Lem, which stays where it is") if (own / ".git").exists() and (own / PICKER).is_file() else None
+    return (own, "this clone of Lem, which stays where it is") if (own / ".git").exists() and (own / COMMAND).is_file() else None
+
+
+def keymap_runs(said: str, home: Path, scripts: tuple[Path, ...]) -> Path | None:
+    """The one of SCRIPTS that the keymap line SAID runs, or None: a `command` line whose words name
+    it by its absolute path or by the same path from `~/`. `bin/lem` counts only before `picker`."""
+    if not said.lstrip().startswith("command"):
+        return None
+    try:
+        words = shlex.split(said)
+    except ValueError:
+        words = said.split()
+    for at, word in enumerate(words):
+        path = home / word[2:] if word.startswith("~/") else Path(word)
+        for script in scripts:
+            if path == script and (script.name != "lem" or words[at + 1:at + 2] == ["picker"]):
+                return script
+    return None
 
 
 def interpreter() -> str:
@@ -388,13 +408,17 @@ def picker() -> dict:
         return {**row, "without_it": "no chord lists the tasks, and `/lem status SLUG` opens a board. No folder of Lem here keeps its path "
                                      "after an update: Lem's marketplace clone is not there, so a keymap line would name a folder the next update removes"}
     root, kept = found
-    script = root / PICKER
-    line = f'command "Lem tasks ›" {CHORD} --error-hud {shlex.quote(interpreter())} {shlex.quote(str(script))}'
+    command, script = root / COMMAND, root / PICKER
+    line = f'command "Lem tasks ›" {CHORD} --error-hud {shlex.quote(interpreter())} {shlex.quote(str(command))} picker'
     try:
-        held = any(said.lstrip().startswith("command") and str(script) in said for said in keymap.read_text(encoding="utf-8", errors="replace").splitlines())
+        runs = [keymap_runs(said, home, (command, script)) for said in keymap.read_text(encoding="utf-8", errors="replace").splitlines()]
     except OSError:
-        held = False
-    return {**row, "found": held, "line": line, "detail": f"{keymap} holds the line" if held else f"{keymap} has no line that runs {script}",
+        runs = []
+    held = command in runs or script in runs
+    detail = (f"{keymap} holds the line" if command in runs else
+              f"{keymap} holds a line that runs {script}, an older form that still works; the line in its current form, to put in its "
+              "place when the owner likes, is this row's line" if held else f"{keymap} has no line that runs {command} picker")
+    return {**row, "found": held, "line": line, "detail": detail,
             "without_it": f"no chord lists the tasks, and `/lem status SLUG` opens a board. The owner adds the line to {keymap} and runs "
                           f"`agtermctl keymap reload`; {CHORD} is the chord unless he picks another. The line names {root}, {kept}, "
                           "and a python3 of 3.11 or newer, which a keymap command does not find on its own PATH"}
@@ -650,8 +674,9 @@ def board_server() -> list[dict]:
     import serve  # noqa: E402  (beside this file)
 
     # `lem` is on the PATH of Claude Code's Bash tool only; in a terminal with no agent (a remote login)
-    # the owner runs it by the path of Lem's marketplace clone, which no update moves
-    clone = marketplace_lem(Path.home(), Path("bin") / "lem")
+    # the owner runs it by the path of Lem's marketplace clone, which no update moves, and whose bin/lem
+    # runs the newest installed release, never the clone's own head of main
+    clone = marketplace_lem(Path.home(), COMMAND)
     line = f"{shlex.quote(str(clone / 'bin' / 'lem'))} serve --ensure" if clone else "lem serve --ensure"
     row = {"name": "board server", "need": "optional", "found": False, "line": line,
            "used_for": "the boards of every repository on this machine in a browser of another device, the owner's phone through his tailnet "
