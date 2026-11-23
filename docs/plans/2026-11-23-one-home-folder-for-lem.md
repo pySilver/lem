@@ -112,10 +112,13 @@ of the chart holds among the files as so read, and `show` gives `from` for the c
    first) over the skill's own `defaults.json`, and keeps the Mermaid file in `~/.cache/lem/`
    (`XDG_CACHE_HOME` first). `LEM_ASK_CONFIG` goes (decision 4). TOML has values that JSON has not (a
    date, a time), so the check of each value of `[ask]` takes the type of each key before any value
-   is printed or used: `style` and `review` strings, `size` as `size_problem` takes it, `browser` true
-   or false, `status` a table of two lists of words. A message names the file, the key and the value
-   as TOML writes it, never through `json.dumps`, and comes as a `DefaultsError`; a test of
-   `tests/test-ask.sh` writes `browser = 2026-11-23` under `[ask]` and reads that refusal. `lem
+   is printed or used, by the rules of the spec (decision 8 of `lem decisions list`): `style` and
+   `review` as `TOP_TYPES` takes them (`style` one of "refined", "minimal", "bold", "terminal";
+   `review` "auto", "always", "never", true or false), `size` as `size_problem` takes it, `browser`
+   true or false, `status` a table of two lists of words. A message names the file, the key and the
+   value as TOML writes it, never through `json.dumps`, and comes as a `DefaultsError`; tests of
+   `tests/test-ask.sh` write `browser = 2026-11-23` and `style = "minmal"` under `[ask]` and read each
+   refusal. `lem
    project` takes `[ask]` in the home file with its keys (`style`, `size`, `review`, `browser`,
    `status`), checks only the table's place and its keys, and refuses it elsewhere; the values are
    the question page's to check. Criterion 8. Files: `skills/lem-ask/bin/lem-ask`,
@@ -141,8 +144,10 @@ of the chart holds among the files as so read, and `show` gives `from` for the c
    `docs/rulings/history.md`: it becomes a bullet of `docs/rulings/rulings.md` under "The lessons,
    the correction queue, the naps, the night and the free hour", in the form AGENTS.md gives, dated
    2026-11-23. The line "As a plugin, the correction hook comes with the install, and the
-   repository says yes for all" loses "and the repository says yes for all" and keeps its other
-   words; the line "One person can say no to the correction queue, and nobody is switched on by a
+   repository says yes for all; the hook is an optional part, which works only on that yes" keeps
+   only "As a plugin, the correction hook comes with the install", with the plugin manifest test of
+   `tests/lem-machine.sh` as its cite (decision 10 of `lem decisions list`): what the hook works on
+   is the new bullet's; the line "One person can say no to the correction queue, and nobody is switched on by a
    file git does not show" leaves the history, since the new bullet takes its place. Each cite of
    `docs/rulings/history.md` names a test by the name it has after tasks 1 to 3, so that
    `tests/unit/test_agents_md.py` finds each one. A unit test finds no `project.toml` and no `project.local.toml` in `skills/`, `bin/`,
@@ -180,7 +185,11 @@ step 5, decides after the talk.
    the owner fixes the file, where today's writer writes the file again and the board comes back. A
    second issue, a traceback from `cmd_load` and `cmd_handoff`, closed on the plan's own words and
    AGENTS.md. A design choice: the refusal (the topic "Lem writes over something of the developer's:
-   a file in his home") against today's rewrite (the board stays up). Taken up after the talk.
+   a file in his home") against today's rewrite (the board stays up). Decided after the talk by the
+   gate, checkable (decision 9): the refusal stays, on that topic of `flow.topics` and criteria 3
+   and 6, and the board's cost stays with it. The gate's judge named an option the draft left out,
+   that `serve.py` `configure` checks the file before it stops the board: raised, not argued, for
+   the review before the pull request.
 4. **Nothing proves that the worker stops a send.** A silent hook starts a worker that prints
    nothing, so the hook's silence shows no send. Repaired: task 2 names the worker check of
    `tests/lem-machine.sh` with the `LEM_JEV` stand-in for four cases of `machine.toml`. Settled by
@@ -190,13 +199,17 @@ step 5, decides after the talk.
    task 5 makes the owner's answer of 2026-11-23 a bullet of `docs/rulings/rulings.md`, removes the
    second line, and takes "and the repository says yes for all" out of the first. The reviewer held:
    the first line keeps "which works only on that yes", whose yes is gone. No refutation: a design
-   choice, taken up after the talk.
+   choice. Decided after the talk by the gate, checkable (decision 10), on AGENTS.md's rules for a
+   ruling that replaces another: the line keeps only "As a plugin, the correction hook comes with
+   the install", and task 5 says so.
 6. **TOML values that JSON never gave break the defaults check.** `defaults_problem` prints a value
    through `json.dumps`, which raises `TypeError` on `browser = 2026-11-23`. Repaired: task 3 checks
    each key's type before a value is printed, names the value as TOML writes it, and adds a test.
    The reviewer held: the repair's words "`style` and `review` strings" refuse `review = true`, which
    `TOP_TYPES` and `willReview` take, and let `style = "minmal"` through, and `check_spec` runs
-   before `apply_defaults`. No refutation: a design choice, taken up after the talk.
+   before `apply_defaults`. No refutation: a design choice. Decided after the talk by the gate,
+   checkable (decision 8), on `.revmux/profile.md` ("A script that falls back without a word") and
+   `TOP_TYPES`: each value of `[ask]` takes the spec's own rule, and task 3 says so.
 7. **The cite of decision 1 was wrong.** The installed Lem is 0.3.1, and its `Task.gate` takes the
    main checkout's commands first. Repaired: decision 1 rests on `land.py` `project_now`, which hands
    the worktree's own settings to `may_land`, and that refuses a branch with no `branch.base`.
@@ -210,7 +223,8 @@ Mechanisms the repairs added:
 - the refusal of question 3, at the cause: it changed the choice of the existing `write_machine` to
   write over what it cannot read, a choice that rested on its docstring alone.
 
-No question was raised after the first turn, and no addition was refused as unpriced.
+No question was raised after the first turn of the talk, and no addition was refused as unpriced.
+The one line raised, not argued, came from the gate after the talk (question 3).
 
 What changed in the plan: "How it works", the paragraph on a task's worktree (question 2); task 1,
 the lock and the refusal of `write_machine` (questions 1 and 3); task 2, the worker check (question
