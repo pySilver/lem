@@ -52,9 +52,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import quote
 
-from lem_html import Markup, h, page
 import lem_board_model as bm
 import project as lem_project
+from lem_html import Markup, h, page
 
 ASSETS = Path(__file__).resolve().parent.parent / "assets"
 LEM_ROOT = Path(__file__).resolve().parents[3]
@@ -369,7 +369,7 @@ def rich(ctx: Ctx, text: object) -> list:
 
 # A fenced `mermaid` block of a markdown text, which the browser draws as a chart, and the icons of the
 # chart's controls (tools/board-kit/controllers/chart.js), which the page's sprite then holds.
-MERMAID_FENCE = re.compile(r"^[ \t>]*(?:`{3,}|~{3,})[ \t]*mermaid\b", re.M)
+MERMAID_FENCE = re.compile(r"^[ \t>]*(?:`{3,}|~{3,})[ \t]*mermaid\b", re.MULTILINE)
 CHART_ICONS = ("expand", "plus", "minus", "xmark")
 
 
@@ -387,7 +387,7 @@ def md_block(
     refresh while its text is the same (`data-keep`). A text with a chart names the diagram library
     (`data-lem-mermaid`), which the browser loads at the first chart; a page with none never names it."""
     text = bm.pull_links_md(str(text), ctx.forge)
-    digest = hashlib.sha256(f"{key}|{text}".encode("utf-8")).hexdigest()[:12]
+    digest = hashlib.sha256(f"{key}|{text}".encode()).hexdigest()[:12]
     charts = bool(MERMAID_FENCE.search(text))
     if charts:
         for name in CHART_ICONS:

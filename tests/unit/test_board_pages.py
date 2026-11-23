@@ -11,7 +11,7 @@ import re
 import sys
 import types
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 sys.dont_write_bytecode = True
@@ -23,7 +23,7 @@ pages = importlib.import_module("lem_board_pages")
 task_pages = importlib.import_module("lem_board_task")
 serve = importlib.import_module("serve")
 
-START = datetime(2026, 11, 20, 9, 0, tzinfo=timezone.utc)
+START = datetime(2026, 11, 20, 9, 0, tzinfo=UTC)
 NOW = int((START + timedelta(hours=2)).timestamp() * 1000)
 ENDED = ("landed", "dropped", "answered")
 
@@ -70,7 +70,7 @@ def cards(html: str) -> list:
 
 
 class Done(unittest.TestCase):
-    def test_done_draws_the_20_tasks_that_ended_last_the_newest_on_top(self):
+    def test_done_draws_the_20_tasks_that_ended_last_the_newest_on_top(self) -> None:
         html = str(pages.kanban_page(ctx_of(ended(25))))
         self.assertEqual(
             cards(column(html, "done")), [f"task-{i:02d}" for i in range(24, 4, -1)]
@@ -78,7 +78,7 @@ class Done(unittest.TestCase):
         for i in range(5):
             self.assertNotIn(f'id="card-task-{i:02d}"', html)
 
-    def test_dones_head_and_its_phone_tab_count_every_ended_task(self):
+    def test_dones_head_and_its_phone_tab_count_every_ended_task(self) -> None:
         html = str(pages.kanban_page(ctx_of(ended(25))))
         self.assertEqual(len(cards(column(html, "done"))), 20)
         self.assertRegex(
@@ -86,7 +86,9 @@ class Done(unittest.TestCase):
         )
         self.assertRegex(html, r'id="ktab-done"[^>]*><i></i>Done<em>25</em></button>')
 
-    def test_a_row_under_the_20_cards_counts_the_rest_and_leads_to_their_list(self):
+    def test_a_row_under_the_20_cards_counts_the_rest_and_leads_to_their_list(
+        self,
+    ) -> None:
         done = column(str(pages.kanban_page(ctx_of(ended(25)))), "done")
         row = re.search(
             r'<a class="col-more" id="done-older" href="([^"]+)"[^>]*>(.*?)</a>', done
@@ -98,7 +100,7 @@ class Done(unittest.TestCase):
             done.index('id="done-older"'), done.index('id="card-task-05"')
         )
 
-    def test_with_20_ended_tasks_or_fewer_done_draws_each_and_no_row(self):
+    def test_with_20_ended_tasks_or_fewer_done_draws_each_and_no_row(self) -> None:
         for n in (20, 3):
             done = column(str(pages.kanban_page(ctx_of(ended(n)))), "done")
             self.assertEqual(len(cards(done)), n)
@@ -106,7 +108,7 @@ class Done(unittest.TestCase):
 
     def test_the_list_is_a_page_of_the_board_whose_tasks_link_goes_back_to_the_columns(
         self,
-    ):
+    ) -> None:
         self.assertEqual(serve.PAGES["done"], "older_page")
         html = str(getattr(pages, serve.PAGES["done"])(ctx_of(ended(25))))
         self.assertIn('id="side"', html)
@@ -123,7 +125,7 @@ class Older(unittest.TestCase):
 
     def test_it_lists_the_tasks_done_has_no_card_for_newest_first_each_with_how_and_when_it_ended(
         self,
-    ):
+    ) -> None:
         ctx = ctx_of(ended(25))
         html = str(pages.older_page(ctx))
         rows = self.rows(html)
@@ -146,7 +148,7 @@ class Older(unittest.TestCase):
 
     def test_each_row_opens_the_tasks_board_over_the_list_and_its_pull_request_when_it_has_one(
         self,
-    ):
+    ) -> None:
         html = str(pages.older_page(ctx_of(ended(25))))
         rows = dict(self.rows(html))
         self.assertIn('href="/h/w/tasks/task-04?in=done"', rows["task-04"])
@@ -154,7 +156,9 @@ class Older(unittest.TestCase):
         self.assertIn('href="https://github.com/acme/shop/pull/41"', rows["task-02"])
         self.assertNotIn("github.com", rows["task-03"])
 
-    def test_a_task_opened_from_the_list_lies_over_the_list_and_closes_back_to_it(self):
+    def test_a_task_opened_from_the_list_lies_over_the_list_and_closes_back_to_it(
+        self,
+    ) -> None:
         ctx = ctx_of(ended(25))
         ctx.view, ctx.task = "done", "task-04"
         status, html = task_pages.task_page(ctx)
@@ -162,7 +166,7 @@ class Older(unittest.TestCase):
         self.assertIn('id="older-task-04"', str(html))
         self.assertIn('class="ibtn p-close" href="/h/w/done"', str(html))
 
-    def test_with_no_older_task_the_list_says_done_shows_every_one(self):
+    def test_with_no_older_task_the_list_says_done_shows_every_one(self) -> None:
         html = str(pages.older_page(ctx_of(ended(20))))
         self.assertEqual(self.rows(html), [])
         self.assertIn("Done shows every ended task", html)
@@ -171,7 +175,7 @@ class Older(unittest.TestCase):
 class Views(unittest.TestCase):
     def test_each_view_button_shows_its_plain_key_on_the_button_and_takes_that_key(
         self,
-    ):
+    ) -> None:
         html = str(pages.kanban_page(ctx_of(ended(3))))
         for key, label, kbd in (
             ("tasks", "Tasks", "T"),
@@ -203,7 +207,7 @@ class SideFold(unittest.TestCase):
 
     def test_an_open_sidebar_has_an_arrow_that_points_left_at_its_foot_and_the_old_icon_is_gone(
         self,
-    ):
+    ) -> None:
         html = self.page(rail=False)
         self.assertRegex(html, r'<div class="shell" id="shell"')
         found = self.fold(html)
@@ -217,7 +221,9 @@ class SideFold(unittest.TestCase):
         self.assertLess(foot.index('id="ws"'), foot.index('id="side-fold"'))
         self.assertNotIn("i-sidebar", html)
 
-    def test_a_folded_sidebar_keeps_the_arrow_at_its_foot_and_it_unfolds_it(self):
+    def test_a_folded_sidebar_keeps_the_arrow_at_its_foot_and_it_unfolds_it(
+        self,
+    ) -> None:
         html = self.page(rail=True)
         self.assertRegex(html, r'<div class="shell railed" id="shell"')
         found = self.fold(html)
@@ -229,7 +235,9 @@ class SideFold(unittest.TestCase):
             'id="side-fold"', html.split('id="side-foot"', 1)[1].split("</aside>", 1)[0]
         )
 
-    def test_the_rail_shows_the_foot_with_the_arrow_alone_turned_to_the_right(self):
+    def test_the_rail_shows_the_foot_with_the_arrow_alone_turned_to_the_right(
+        self,
+    ) -> None:
         css = (pages.ASSETS / "board.css").read_text(encoding="utf-8")
         hidden = re.search(
             r"\.shell\.railed \.side > :not\(([^)]*)\) \{ display: none !important; \}",
@@ -242,7 +250,7 @@ class SideFold(unittest.TestCase):
         )
         self.assertIn(".shell.railed #side-fold .ic { transform: scaleX(-1); }", css)
 
-    def test_a_click_says_the_next_click_on_the_arrow(self):
+    def test_a_click_says_the_next_click_on_the_arrow(self) -> None:
         script = (pages.ASSETS / "vendor" / "board-app.js").read_text(encoding="utf-8")
         self.assertIn('"Unfold the sidebar":"Fold the sidebar"', script)
         self.assertNotIn("sidebar", json.loads(pages.ICONS.read_text(encoding="utf-8")))
@@ -251,7 +259,7 @@ class SideFold(unittest.TestCase):
 class Keys(unittest.TestCase):
     def test_the_kanban_carries_the_cursor_over_its_cards_and_one_line_of_its_keys(
         self,
-    ):
+    ) -> None:
         html = str(pages.kanban_page(ctx_of(ended(3))))
         kanban = re.search(r'<div class="view kanban" id="kanban"[^>]*>', html)[0]
         for attr in (
@@ -274,7 +282,7 @@ class Keys(unittest.TestCase):
         )
         self.assertEqual(html.count('class="keys"'), 1)
 
-    def test_each_view_has_its_line_of_keys_in_one_foot_under_the_stage(self):
+    def test_each_view_has_its_line_of_keys_in_one_foot_under_the_stage(self) -> None:
         """The task keys-help-in-a-sticky-footer: on Tasks, Waits for you, Backlog and Activity the line of keys is
         the row of the page between the stage and the status line, in no view's list, and the main column's grid
         gives it a row of its own under the stage's, so the line stays at the window's foot and the list scrolls above it."""
@@ -381,7 +389,7 @@ class WaitsVerb(unittest.TestCase):
 
     def test_a_held_row_on_a_page_for_this_mac_with_a_live_session_jumps_to_it_and_keeps_its_address(
         self,
-    ):
+    ) -> None:
         verb = self.verb(
             state(2, "held", "the interview waits for the owner", task="gift-note")
         )
@@ -389,7 +397,9 @@ class WaitsVerb(unittest.TestCase):
         self.assertIn('data-agterm-session-param="S1"', verb)
         self.assertIn('href="/h/w/tasks/gift-note?in=waits"', verb)
 
-    def test_no_jump_on_a_page_that_is_not_for_this_mac_or_with_no_live_session(self):
+    def test_no_jump_on_a_page_that_is_not_for_this_mac_or_with_no_live_session(
+        self,
+    ) -> None:
         held = state(2, "held", "the interview waits for the owner", task="gift-note")
         for verb in (
             self.verb(held, local=False),
@@ -399,7 +409,7 @@ class WaitsVerb(unittest.TestCase):
             self.assertNotIn("data-agterm-session-param", verb)
             self.assertIn('href="/h/w/tasks/gift-note?in=waits"', verb)
 
-    def test_no_jump_for_a_merge_row(self):
+    def test_no_jump_for_a_merge_row(self) -> None:
         verb = self.verb(
             state(
                 2,
@@ -412,7 +422,9 @@ class WaitsVerb(unittest.TestCase):
         self.assertNotIn("agterm#jump", verb)
         self.assertIn('href="/h/w/tasks/gift-note?in=waits"', verb)
 
-    def test_the_list_carries_the_cursor_over_its_rows_and_one_line_of_its_keys(self):
+    def test_the_list_carries_the_cursor_over_its_rows_and_one_line_of_its_keys(
+        self,
+    ) -> None:
         m = bm.derive(
             [
                 self.OPEN,
@@ -447,7 +459,7 @@ class WaitsVerb(unittest.TestCase):
         # the title link of the row opens the panel and carries no jump
         self.assertNotIn("agterm", re.search(r'<a class="wr-task"[^>]*>', html)[0])
 
-    def test_with_nothing_waiting_no_line_of_keys(self):
+    def test_with_nothing_waiting_no_line_of_keys(self) -> None:
         html = str(pages.waits_page(ctx_of(ended(2))))
         self.assertIn("Nothing waits for you.", html)
         self.assertNotIn('id="waits-keys"', html)
@@ -520,7 +532,7 @@ class WaitStack(unittest.TestCase):
         found = re.search(
             rf'<details class="wstack[^"]*" id="wait-stack-{slug}"[^>]*>.*?</details>',
             html,
-            re.S,
+            re.DOTALL,
         )
         return found[0] if found else ""
 
@@ -530,7 +542,7 @@ class WaitStack(unittest.TestCase):
 
     def test_a_task_of_two_things_is_one_closed_stack_in_the_place_of_its_first_thing(
         self,
-    ):
+    ) -> None:
         html = self.page()
         stack = self.stack(html, self.LOGO)
         self.assertTrue(stack, "no stack of the logo's task")
@@ -538,7 +550,7 @@ class WaitStack(unittest.TestCase):
         self.assertNotIn(" open", opening)
         self.assertIn(f'data-task="{self.LOGO}"', opening)
         summary = re.search(
-            r'<summary class="wrow wst-head"[^>]*>(.*?)</summary>', stack, re.S
+            r'<summary class="wrow wst-head"[^>]*>(.*?)</summary>', stack, re.DOTALL
         )
         self.assertIsNotNone(summary)
         self.assertEqual(
@@ -577,7 +589,7 @@ class WaitStack(unittest.TestCase):
 
     def test_the_stack_holds_each_thing_as_its_own_row_with_its_time_and_the_merge_button_on_the_merge_row(
         self,
-    ):
+    ) -> None:
         stack = self.stack(self.page(), self.LOGO)
         rows = dict(
             re.findall(
@@ -585,13 +597,13 @@ class WaitStack(unittest.TestCase):
                 + self.LOGO
                 + r'"[^>]*>(.*?)</article>',
                 stack,
-                re.S,
+                re.DOTALL,
             )
         )
         self.assertEqual(list(rows), ["review", "merge"])
         tops = {
             kind: self.words(
-                re.search(r'<div class="wr-top">(.*?)</div>', row, re.S)[1]
+                re.search(r'<div class="wr-top">(.*?)</div>', row, re.DOTALL)[1]
             )
             for kind, row in rows.items()
         }
@@ -604,19 +616,23 @@ class WaitStack(unittest.TestCase):
         )
         self.assertIn("Merge…", rows["merge"])
         self.assertNotIn("Merge…", rows["review"])
-        self.assertNotIn("Merge…", re.search(r"<summary.*?</summary>", stack, re.S)[0])
+        self.assertNotIn(
+            "Merge…", re.search(r"<summary.*?</summary>", stack, re.DOTALL)[0]
+        )
         self.assertIn("acme/shop#73", rows["merge"])
 
-    def test_a_task_of_one_thing_is_its_plain_row_as_today(self):
+    def test_a_task_of_one_thing_is_its_plain_row_as_today(self) -> None:
         html = self.page()
         row = re.search(
             rf'<article class="wrow[^"]*" id="wait-held-{self.CARD}"[^>]*>(.*?)</article>',
             html,
-            re.S,
+            re.DOTALL,
         )
         self.assertIsNotNone(row)
         self.assertEqual(
-            self.words(re.search(r'<div class="wr-top">(.*?)</div>', row[1], re.S)[1]),
+            self.words(
+                re.search(r'<div class="wr-top">(.*?)</div>', row[1], re.DOTALL)[1]
+            ),
             "The interview waits for you 33m",
         )
         self.assertFalse(self.stack(html, self.CARD))
@@ -643,11 +659,11 @@ class WaitStack(unittest.TestCase):
         side = re.search(
             r'<div id="waits" class="wlist[^"]*"[^>]*>(.*?)</div><div class="side-head">Views',
             alone,
-            re.S,
+            re.DOTALL,
         )[1]
         self.assertNotIn("wi-n", side)
 
-    def test_each_count_counts_a_stack_once(self):
+    def test_each_count_counts_a_stack_once(self) -> None:
         html = self.page()
         self.assertRegex(
             html,
@@ -670,7 +686,7 @@ class WaitStack(unittest.TestCase):
         side = re.search(
             r'<div id="waits" class="wlist[^"]*"[^>]*>(.*?)</div><div class="side-head">Views',
             html,
-            re.S,
+            re.DOTALL,
         )[1]
         self.assertEqual(
             re.findall(r'<a class="wi[^"]*" id="(w-[a-z0-9-]+)"', side),
@@ -730,12 +746,14 @@ class Search(unittest.TestCase):
         found = re.findall(
             r'<div class="search" id="search"[^>]*>.*?<div class="keys search-keys" id="search-keys">.*?</div></div></div>',
             html,
-            re.S,
+            re.DOTALL,
         )
         self.assertEqual(len(found), 1)
         return found[0]
 
-    def test_every_page_of_the_workspace_draws_the_box_once_closed_with_its_field(self):
+    def test_every_page_of_the_workspace_draws_the_box_once_closed_with_its_field(
+        self,
+    ) -> None:
         ctx = self.ctx()
         drawn = {
             "tasks": pages.kanban_page(ctx),
@@ -767,14 +785,16 @@ class Search(unittest.TestCase):
                 len(re.findall(r'<a class="sr ', box)), 22 + 2 + 1 + 1, name
             )
 
-    def test_each_row_has_its_title_its_chip_and_the_link_a_card_has(self):
+    def test_each_row_has_its_title_its_chip_and_the_link_a_card_has(self) -> None:
         ctx = self.ctx()
         html = str(pages.waits_page(ctx))
         box = self.box(html)
 
         def row(slug, kind="task"):
             return re.search(
-                rf'<a class="sr [^"]*" id="sr-{kind}-{slug}"[^>]*>(.*?)</a>', box, re.S
+                rf'<a class="sr [^"]*" id="sr-{kind}-{slug}"[^>]*>(.*?)</a>',
+                box,
+                re.DOTALL,
             )
 
         held = row("board-card-search")
@@ -835,15 +855,19 @@ class Search(unittest.TestCase):
             order[-2:], ["task-task-00", "item-the-board-s-done-column-has-no-limit"]
         )
 
-    def test_the_bar_and_the_phones_bar_have_the_button_that_names_its_key(self):
+    def test_the_bar_and_the_phones_bar_have_the_button_that_names_its_key(
+        self,
+    ) -> None:
         html = str(pages.activity_page(self.ctx()))
         for bar in ("bar", "mbar"):
-            header = re.search(rf'<header class="{bar}">(.*?)</header>', html, re.S)
+            header = re.search(
+                rf'<header class="{bar}">(.*?)</header>', html, re.DOTALL
+            )
             self.assertIsNotNone(header, bar)
             button = re.search(
                 r'<button class="btn search-open [^"]*"[^>]*>(.*?)</button>',
                 header[1],
-                re.S,
+                re.DOTALL,
             )
             self.assertIsNotNone(button, bar)
             self.assertIn("data-search-open", button[0])
@@ -903,7 +927,7 @@ class StandsNote(unittest.TestCase):
 
     def test_while_the_read_runs_the_note_says_his_merge_stands_in_the_look_of_a_wait(
         self,
-    ):
+    ) -> None:
         html = self.note(self.refused())
         self.assertIn(
             "Your merge stands. It goes through when the merge agent’s read of the new base says safe.",
@@ -914,7 +938,9 @@ class StandsNote(unittest.TestCase):
         self.assertNotIn("Not done.", html)
         self.assertNotIn("v-word", html)
 
-    def test_once_the_server_runs_it_the_note_says_the_sentence_of_that_span(self):
+    def test_once_the_server_runs_it_the_note_says_the_sentence_of_that_span(
+        self,
+    ) -> None:
         safe = self.ev(
             11,
             "merge.review",
@@ -933,7 +959,7 @@ class StandsNote(unittest.TestCase):
         self.assertIn("Your merge stands. Lem merges it now.", html)
         self.assertNotIn("goes through when", html)
 
-    def test_once_it_ends_the_note_is_not_drawn(self):
+    def test_once_it_ends_the_note_is_not_drawn(self) -> None:
         merged = [
             *self.refused(),
             state(
@@ -1062,7 +1088,7 @@ class ReviewerItems(unittest.TestCase):
     def item(self, html: str, key: str) -> str:
         return html.split(f'id="item-{key}"', 1)[1].split("</details>", 1)[0]
 
-    def test_the_reviewer_s_group_comes_first_the_undecided_one_first(self):
+    def test_the_reviewer_s_group_comes_first_the_undecided_one_first(self) -> None:
         html = self.page()
         group = html.split('id="group-reviewer"', 1)[1].split('class="bl-group', 1)[0]
         self.assertIn("The reviewer&#x27;s items", group)
@@ -1075,7 +1101,7 @@ class ReviewerItems(unittest.TestCase):
             html.index('id="group-reviewer"'), html.index('id="item-tests-flaky-check"')
         )
 
-    def test_an_undecided_item_has_start_and_drop_each_posting_its_path(self):
+    def test_an_undecided_item_has_start_and_drop_each_posting_its_path(self) -> None:
         undecided = self.item(self.page(), "-the-board-s-colors")
         self.assertIn(">undecided<", undecided)
         self.assertIn('action="/h/w/start"', undecided)
@@ -1090,18 +1116,20 @@ class ReviewerItems(unittest.TestCase):
         # the proposal's name is code, so that its number is no link to a pull request
         self.assertIn("`retro of 2026-11-23 #7`", undecided)
 
-    def test_a_held_item_names_its_task_and_has_no_act(self):
+    def test_a_held_item_names_its_task_and_has_no_act(self) -> None:
         held = self.item(self.page(), "-tests-flaky-check")
         self.assertIn(">held by tests-flaky-check<", held)
         self.assertIn("(building) builds this item", held)
         self.assertNotIn("<form", held)
 
-    def test_an_item_of_the_backlog_folder_has_no_drop_and_starts_by_its_path(self):
+    def test_an_item_of_the_backlog_folder_has_no_drop_and_starts_by_its_path(
+        self,
+    ) -> None:
         mine = self.item(self.page(), "tests-flaky-check")
         self.assertIn('name="item" value="docs/backlog/tests-flaky-check.md"', mine)
         self.assertNotIn("backlog/drop", mine)
 
-    def test_the_backlog_key_counts_the_undecided_items_of_the_reviewer(self):
+    def test_the_backlog_key_counts_the_undecided_items_of_the_reviewer(self) -> None:
         html = self.page()
         key = re.search(r'<a class="vbtn" id="view-backlog"[^>]*>(.*?)</a>', html)[1]
         self.assertRegex(
@@ -1115,7 +1143,7 @@ class ReviewerItems(unittest.TestCase):
             r"<em>1</em>",
         )
 
-    def test_a_page_that_cannot_act_gives_the_line_to_type_and_no_form(self):
+    def test_a_page_that_cannot_act_gives_the_line_to_type_and_no_form(self) -> None:
         undecided = self.item(self.page(can_act=False), "-the-board-s-colors")
         self.assertIn("/lem new .lem/state/backlog/the-board-s-colors.md", undecided)
         self.assertIn(
@@ -1129,7 +1157,7 @@ class ItemSlug(unittest.TestCase):
     first free `-2`, `-3` when a task of the stem ended, so that an item whose task was dropped starts
     again (criterion 9 and the plan's task 2)."""
 
-    def test_the_stem_while_no_task_of_it_ended(self):
+    def test_the_stem_while_no_task_of_it_ended(self) -> None:
         self.assertEqual(
             serve.item_slug(
                 "tests-flaky-check", lambda slug: False, lambda slug: False
@@ -1137,7 +1165,7 @@ class ItemSlug(unittest.TestCase):
             "tests-flaky-check",
         )
 
-    def test_the_first_free_number_after_a_task_of_the_stem_ended(self):
+    def test_the_first_free_number_after_a_task_of_the_stem_ended(self) -> None:
         taken = {"tests-flaky-check", "tests-flaky-check-2"}
         self.assertEqual(
             serve.item_slug(
@@ -1152,7 +1180,7 @@ class ItemSlug(unittest.TestCase):
             "tests-flaky-check-2",
         )
 
-    def test_a_stem_that_is_no_slug_gives_its_plain_words(self):
+    def test_a_stem_that_is_no_slug_gives_its_plain_words(self) -> None:
         self.assertEqual(
             serve.item_slug("Two_Guides", lambda slug: False, lambda slug: False),
             "two-guides",

@@ -709,7 +709,7 @@ def join(given: str, me: str, reserved: tuple[str, ...], own_port: int, status) 
 def leave(given: str) -> dict:
     """`--leave HOST`: take the machine out of `[peers]`."""
     name = given.strip().lower().rstrip(".").split(".")[0]
-    table = Peers(lambda: {}).table()
+    table = Peers(dict).table()
     if name not in table:
         raise PeerError(
             f"{name} is not joined: `lem serve --peers` lists the machines that are"

@@ -57,13 +57,17 @@ def theirs(name: str, waits: int = 0) -> dict:
 
 
 class Names(unittest.TestCase):
-    def test_a_name_is_one_label_and_a_full_name_of_this_tailnet_is_cut_to_it(self):
+    def test_a_name_is_one_label_and_a_full_name_of_this_tailnet_is_cut_to_it(
+        self,
+    ) -> None:
         self.assertEqual(peers.peer_name("Mac-Mini", SUFFIX), "mac-mini")
         self.assertEqual(peers.peer_name(f"mac-mini.{SUFFIX}.", SUFFIX), "mac-mini")
         self.assertEqual(peers.parse_join("mac-mini:4538", SUFFIX), ("mac-mini", 4538))
         self.assertEqual(peers.parse_join("mac-mini", SUFFIX), ("mac-mini", None))
 
-    def test_another_tailnet_a_word_that_is_no_label_and_a_bad_port_are_refused(self):
+    def test_another_tailnet_a_word_that_is_no_label_and_a_bad_port_are_refused(
+        self,
+    ) -> None:
         with self.assertRaisesRegex(peers.PeerError, "no machine of this tailnet"):
             peers.peer_name("mac-mini.other.ts.net", SUFFIX)
         with self.assertRaisesRegex(peers.PeerError, "no machine of this tailnet"):
@@ -78,7 +82,7 @@ class Names(unittest.TestCase):
 class Loop(unittest.TestCase):
     def test_a_request_of_another_server_is_never_forwarded_and_every_request_to_a_peer_says_so(
         self,
-    ):
+    ) -> None:
         self.assertTrue(peers.hopped(headers(("Lem-Hop", "1"))))
         self.assertFalse(peers.hopped(headers(("Accept", "text/html"))))
         self.assertEqual(peers.request_headers(headers())["Lem-Hop"], "1")
@@ -87,7 +91,7 @@ class Loop(unittest.TestCase):
 class List(unittest.TestCase):
     def test_two_machines_each_row_names_its_machine_and_its_address_is_built_here(
         self,
-    ):
+    ) -> None:
         rows = peers.merged(
             [own("lem"), own("shop", 2)],
             "alpha",
@@ -110,7 +114,7 @@ class List(unittest.TestCase):
 
     def test_what_waits_comes_first_across_machines_and_a_machine_that_does_not_answer_last(
         self,
-    ):
+    ) -> None:
         rows = peers.merged(
             [own("lem"), own("shop", 2)],
             "alpha",
@@ -131,7 +135,7 @@ class List(unittest.TestCase):
         self.assertIn("4 repositories on 3 machines", page)
         self.assertIn("not reachable", page)
 
-    def test_one_machine_lists_as_it_does_with_no_peer(self):
+    def test_one_machine_lists_as_it_does_with_no_peer(self) -> None:
         page = pages.index_page(
             "alpha",
             peers.merged([own("lem"), own("shop", 2)], "alpha", []),
@@ -143,7 +147,7 @@ class List(unittest.TestCase):
 
     def test_a_machine_that_does_not_answer_keeps_its_last_rows_grayed_with_its_last_answer(
         self,
-    ):
+    ) -> None:
         rows = peers.merged(
             [],
             "alpha",
@@ -169,7 +173,7 @@ class List(unittest.TestCase):
             [("beta", "", False, "no answer yet")],
         )
 
-    def test_a_peer_of_this_machines_own_name_is_left_out(self):
+    def test_a_peer_of_this_machines_own_name_is_left_out(self) -> None:
         self.assertEqual(
             [
                 r["host"]
@@ -184,7 +188,7 @@ class List(unittest.TestCase):
 
     def test_a_peers_page_gets_the_entrys_list_with_its_own_rows_fresh_in_their_place(
         self,
-    ):
+    ) -> None:
         sent = peers.merged(
             [own("lem")],
             "alpha",
@@ -214,7 +218,7 @@ class List(unittest.TestCase):
 class Passing(unittest.TestCase):
     BASE = "https://beta.tail1234.ts.net:4537"
 
-    def test_a_redirect_stays_inside_the_peers_addresses(self):
+    def test_a_redirect_stays_inside_the_peers_addresses(self) -> None:
         self.assertEqual(
             peers.kept_location("/beta/shop/", "beta", self.BASE), "/beta/shop/"
         )
@@ -234,7 +238,7 @@ class Passing(unittest.TestCase):
         )
         self.assertIsNone(peers.kept_location("//evil.example/x", "beta", self.BASE))
 
-    def test_only_the_boards_own_cookie_and_the_headers_a_page_needs_pass(self):
+    def test_only_the_boards_own_cookie_and_the_headers_a_page_needs_pass(self) -> None:
         sent = peers.request_headers(
             headers(
                 ("Cookie", "lem_board=%7B%22rail%22%3Atrue%7D; session=secret"),
@@ -267,7 +271,7 @@ class Passing(unittest.TestCase):
             ],
         )
 
-    def test_a_test_names_a_peers_address_and_the_server_s_name(self):
+    def test_a_test_names_a_peers_address_and_the_server_s_name(self) -> None:
         with mock.patch.dict(
             os.environ,
             {

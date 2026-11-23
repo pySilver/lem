@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Serve Lem's boards over HTTP, for every repository on this machine that uses Lem, from one server.
 
     lem serve --ensure                 make sure the server runs, from this code, and print it as JSON
@@ -293,11 +292,11 @@ if sys.version_info < (3, 11):
 import argparse
 import contextlib
 import email.header
-import http.cookies
 import errno
 import fcntl
 import gzip
 import hashlib
+import http.cookies
 import importlib
 import json
 import os
@@ -311,7 +310,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -1762,9 +1761,7 @@ def stop_all() -> None:
 def refresh(version: str) -> bytes:
     """One message of a served page's stream: Turbo's `refresh`, the default event, its id the version of
     the event log (`bm.log_version`: its inode and its count of lines)."""
-    return f'id: {version}\ndata: <turbo-stream action="refresh"></turbo-stream>\n\n'.encode(
-        "utf-8"
-    )
+    return f'id: {version}\ndata: <turbo-stream action="refresh"></turbo-stream>\n\n'.encode()
 
 
 def behind(given: str | None, version: str) -> bool:
@@ -1777,7 +1774,7 @@ def behind(given: str | None, version: str) -> bool:
 def ping(version: str) -> bytes:
     """The sign of life of a quiet stream: a `ping` event, which the page hears and Turbo does not render,
     its id the version of the event log."""
-    return f"id: {version}\nevent: ping\ndata: {version}\n\n".encode("utf-8")
+    return f"id: {version}\nevent: ping\ndata: {version}\n\n".encode()
 
 
 def opens_with_refresh(
@@ -1948,11 +1945,11 @@ class Handler(BaseHTTPRequestHandler):
                 f"serve.py: {'door ' if self.door else ''}{self.address_string()} {format % args}\n"
             )
 
-    def do_HEAD(self) -> None:  # noqa: N802 - the base class names it so
+    def do_HEAD(self) -> None:
         if not self.refused(body=False):
             self.answer(body=False)
 
-    def do_GET(self) -> None:  # noqa: N802 - the base class names it so
+    def do_GET(self) -> None:
         if not self.refused(body=True):
             self.answer(body=True)
 
@@ -1962,7 +1959,7 @@ class Handler(BaseHTTPRequestHandler):
         listener only; the board's notifications; and the board's acts on a task (`board_act`), on the
         main listener and through the door."""
         if self.refused(body=True):
-            return
+            return None
         path = urlsplit(self.path).path
         if self.door is None and self.command == "POST" and path == "/api/server/stop":
             said = stop_refusal(self.client_address[0], self.headers)
@@ -1975,7 +1972,7 @@ class Handler(BaseHTTPRequestHandler):
                 True,
             )
             threading.Thread(target=stop_all, daemon=True).start()
-            return
+            return None
         if (
             self.command == "POST"
             and path.startswith("/api/push/")
@@ -2020,9 +2017,7 @@ class Handler(BaseHTTPRequestHandler):
         if not lem_peers.hopped(self.headers) and self.peers.get(parts[0]) is not None:
             return self.send(
                 HTTPStatus.METHOD_NOT_ALLOWED,
-                f"This page is the board of the machine {parts[0]}, which this server only shows: open {parts[0]}'s own board to act on it.\n".encode(
-                    "utf-8"
-                ),
+                f"This page is the board of the machine {parts[0]}, which this server only shows: open {parts[0]}'s own board to act on it.\n".encode(),
                 "text/plain; charset=utf-8",
                 True,
                 {"Allow": "GET, HEAD"},
@@ -3002,9 +2997,7 @@ def keep_forge_look(state: Path, seen: dict, now: int) -> None:
     and a rename, so that the board's model and `lem project waiting` read what the server saw. A write
     that fails is a line in the server's log: the server's own look still holds in memory."""
     file = state / bm.FORGE_LOOK
-    looked = datetime.fromtimestamp(now / 1000, timezone.utc).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+    looked = datetime.fromtimestamp(now / 1000, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     temporary = file.with_name(f".{file.name}.{os.getpid()}.tmp")
     try:
         temporary.write_text(
@@ -3980,9 +3973,7 @@ def start_server(settings: dict) -> dict:
     with log.open("ab") as out:
         offset = out.tell()
         out.write(
-            f"{datetime.now(timezone.utc).isoformat(timespec='seconds')} lem serve --ensure starts a server of {code_version()} from {LEM_ROOT}\n".encode(
-                "utf-8"
-            )
+            f"{datetime.now(UTC).isoformat(timespec='seconds')} lem serve --ensure starts a server of {code_version()} from {LEM_ROOT}\n".encode()
         )
         out.flush()
         child = subprocess.Popen(
@@ -4248,7 +4239,7 @@ def listen(host: str, verbose: bool, settings: dict) -> None:
             "stamp": code_stamp(),
             "root": str(LEM_ROOT),
             "config": str(lem_state.config()),
-            "started": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "started": datetime.now(UTC).isoformat(timespec="seconds"),
             "port": bound,
             "url": said["url"],
             "host": HOSTNAME,

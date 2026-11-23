@@ -90,19 +90,19 @@ KIND_WORD = {
 # element that holds one gets a hover of one line that says it (the final audit of 2026-11-17).
 TERMS = [
     (
-        re.compile(r"\bcompanion\b", re.I),
+        re.compile(r"\bcompanion\b", re.IGNORECASE),
         "The companion: a session under the task’s own, for the plan talk of a careful or large plan, with the reviewer in its other pane. It builds nothing.",
     ),
     (
-        re.compile(r"\bbreaker\b", re.I),
+        re.compile(r"\bbreaker\b", re.IGNORECASE),
         "The breaker: the one thing that stops a build, when its next step cannot be undone by a later “no” or no option keeps the criteria you approved. Its document says what happened and what Lem recommends.",
     ),
     (
-        re.compile(r"\bplan talk\b", re.I),
+        re.compile(r"\bplan talk\b", re.IGNORECASE),
         "The plan talk: before a careful or large plan is built, the agent of its companion argues the plan with the reviewer, one question at a time, and repairs it.",
     ),
     (
-        re.compile(r"\btrust prompt\b", re.I),
+        re.compile(r"\btrust prompt\b", re.IGNORECASE),
         "A trust prompt: the question an agent asks before it works in a folder that is new to it. Only you answer it, in the pane of that agent.",
     ),
 ]
@@ -900,7 +900,8 @@ def owner_lines(ctx, t: bm.Task) -> Markup | None:
 
 # A picture's name that pairs it with another of the same view: NAME-before.EXT and NAME-after.EXT.
 PAIR = re.compile(
-    r"^media/(?P<name>.+)-(?P<side>before|after)\.(?:png|jpe?g|gif|webp)$", re.I
+    r"^media/(?P<name>.+)-(?P<side>before|after)\.(?:png|jpe?g|gif|webp)$",
+    re.IGNORECASE,
 )
 
 
@@ -2615,7 +2616,7 @@ def checks_tab(ctx, t: bm.Task) -> list:
         )
         names = lambda xs: ", ".join(
             str(x.get("name") if isinstance(x, dict) else x) for x in xs
-        )  # noqa: E731
+        )
         reviews.append(
             row(
                 ctx,

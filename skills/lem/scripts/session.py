@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """A task's own session in agterm: one session carries one task, and each phase starts a fresh agent.
 
     lem session open SLUG [--why new|handoff|dead|merged|conflict|refused|queue|night|owner|stopped] [--session ID]
@@ -196,7 +195,7 @@ import shlex
 import shutil
 import subprocess
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
@@ -256,7 +255,7 @@ SHELL_COMMAND = re.compile(r"-[a-zA-Z]*c[a-zA-Z]*|--command")
 # `/lem night N` (`stages/night.md`) and `/lem retro` (`stages/init.md`, step 7).
 JOB_LINE = re.compile(r"/lem (?:night(?: [1-9][0-9]*)?|retro)")
 # A word of a command that sets a variable for it, `NAME=value`.
-ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=.*", re.S)
+ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=.*", re.DOTALL)
 # A session opened this long ago counts as live while its agent starts: the login shell runs first,
 # and a second `open` in that time must not open another. A guess.
 STARTING = 60
@@ -299,7 +298,7 @@ HANDOFF_PARTS = {
 CHANGED = re.compile(
     r"[-*]\s+(?:`(?P<quoted>[^`]+)`|(?P<bare>[^\s:`]+)):\s*(?P<status>\S.*)"
 )
-NONE = re.compile(r"(?:[-*]\s+)?none\.?", re.I)
+NONE = re.compile(r"(?:[-*]\s+)?none\.?", re.IGNORECASE)
 
 
 class SessionError(Exception):
@@ -552,7 +551,7 @@ def live(node: dict | None, opened: dict | None, now: datetime) -> bool:
 
 
 def stamp(text: str) -> datetime:
-    return datetime.strptime(text, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    return datetime.strptime(text, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
 
 
 def newest_opens(events: list[dict]) -> dict[str, dict]:
@@ -567,7 +566,7 @@ def newest_opens(events: list[dict]) -> dict[str, dict]:
 def handoff_form(text: str, slug: str) -> dict:
     """What handoff.md says of itself, after a check of its form (`templates/handoff.md`): its task,
     the phase it is from, its time and its changed files; a SessionError that names each part it lacks."""
-    bare = re.sub(r"<!--.*?-->", "", text, flags=re.S)
+    bare = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
     lines = bare.splitlines()
     head = next((line.strip() for line in lines if line.strip()), "")
     found = HANDOFF_LINE.fullmatch(head)
@@ -716,7 +715,7 @@ def brief_text(
             f"opened because: {why}",
             f"task directory: {directory}",
             f"main checkout: {main}",
-            f"worktree: {worktree if worktree else 'none yet'}",
+            f"worktree: {worktree or 'none yet'}",
             "",
         ]
     )
@@ -960,7 +959,7 @@ def guard_check(
     signs = {"sign": None, "shell": False, "signs": False, "turn": None}
     if session is not None and t is not None and bm.guarded(t):
         node = node_of(tree(where), session)
-        alive = live(node, newest, datetime.now(timezone.utc))
+        alive = live(node, newest, datetime.now(UTC))
         agent = node is not None and agent_runs(node) is True
         records = [
             record
@@ -1102,7 +1101,7 @@ def cmd_open(
         node = node_of(nodes, newest.get("session") if newest else None)
         if (
             newest
-            and live(node, newest, datetime.now(timezone.utc))
+            and live(node, newest, datetime.now(UTC))
             and str(newest["session"]).upper() != str(replacing or "").upper()
         ):
             return {
@@ -1468,7 +1467,7 @@ def cmd_wake(
         }
     newest = newest_opens(project.events_named(root, *EVENTS)).get(slug)
     node = node_of(tree(where), newest.get("session") if newest else None)
-    if newest and live(node, newest, datetime.now(timezone.utc)):
+    if newest and live(node, newest, datetime.now(UTC)):
         session = str(newest["session"])
         ctl(
             where,
@@ -1538,7 +1537,7 @@ def gone_session(root: Path, slug: str, where: dict) -> dict | None:
         node = node_of(tree(where), newest.get("session"))
     except SessionError:
         return None
-    return None if live(node, newest, datetime.now(timezone.utc)) else newest
+    return None if live(node, newest, datetime.now(UTC)) else newest
 
 
 def gone_companion(where: dict, companion: str, since: dict, now: datetime) -> bool:
@@ -1577,7 +1576,7 @@ def cmd_wait(
             f"--until names {', '.join(unknown)}, and a state is one of {', '.join(project.STATES)}"
         )
     where = place()
-    began = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+    began = {"ts": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")}
 
     def mine() -> list[dict]:
         return [
@@ -1614,9 +1613,7 @@ def cmd_wait(
                         "since": task["since"],
                         "gone": False,
                     }
-            if companion and gone_companion(
-                where, companion, began, datetime.now(timezone.utc)
-            ):
+            if companion and gone_companion(where, companion, began, datetime.now(UTC)):
                 task = task_now()
                 return {
                     "task": slug,
@@ -1713,7 +1710,7 @@ def cmd_list(root: Path) -> list[dict]:
     table: list[str | None] = []
     settings = project.load(root)
     tasks = {task["slug"]: task for task in project.read_tasks(root, settings)}
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     out = []
     for slug, opened in newest_opens(events).items():
         session = str(opened["session"])
@@ -1827,8 +1824,8 @@ def process_table() -> str | None:
 
 # ---- the transcript ----
 
-COMMAND_NAME = re.compile(r"<command-name>(.*?)</command-name>", re.S)
-COMMAND_ARGS = re.compile(r"<command-args>(.*?)</command-args>", re.S)
+COMMAND_NAME = re.compile(r"<command-name>(.*?)</command-name>", re.DOTALL)
+COMMAND_ARGS = re.compile(r"<command-args>(.*?)</command-args>", re.DOTALL)
 
 
 def typed_text(content: object) -> tuple[str, str | None]:

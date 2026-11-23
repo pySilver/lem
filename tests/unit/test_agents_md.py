@@ -191,7 +191,7 @@ class TheList(unittest.TestCase):
 
     def test_each_bullet_has_its_sentence_in_bold_its_day_and_three_lines_at_most_after_it(
         self,
-    ):
+    ) -> None:
         for heading, lines in self.bullets():
             text = flat(" ".join(lines))
             with self.subTest(bullet=text[:80]):
@@ -224,7 +224,7 @@ class TheList(unittest.TestCase):
 
     def test_each_heading_is_a_group_in_its_order_and_the_last_part_closes_the_list(
         self,
-    ):
+    ) -> None:
         found = headings(LIST)
         self.assertEqual(
             found[-1:], [LAST], f'the last heading of the list is "{LAST}"'
@@ -249,7 +249,7 @@ class TheList(unittest.TestCase):
             "the last part opens with the line that none of its bullets is his ruling",
         )
 
-    def test_each_path_the_list_names_exists(self):
+    def test_each_path_the_list_names_exists(self) -> None:
         # A path is a name in backticks with a slash between two names, no space, no `:`, `@` or `*`,
         # no placeholder (`<slug>`, SLUG) and no leading `/` (a command), outside his quoted words. It
         # resolves from the root or from the skill's folder skills/lem/.
@@ -282,7 +282,9 @@ class TheHistory(unittest.TestCase):
         self.assertTrue(found, f'the history has no line under "{heading}"')
         return found
 
-    def test_the_history_has_its_two_parts_and_names_where_the_full_text_is(self):
+    def test_the_history_has_its_two_parts_and_names_where_the_full_text_is(
+        self,
+    ) -> None:
         self.assertEqual(headings(HISTORY), [HELD, KEPT])
         opening = HISTORY.read_text(encoding="utf-8").split("\n## ", 1)[0]
         self.assertRegex(
@@ -291,7 +293,7 @@ class TheHistory(unittest.TestCase):
             "the opening names the commit that still holds the files the list took the place of",
         )
 
-    def test_each_rule_a_test_holds_names_a_guard_that_exists(self):
+    def test_each_rule_a_test_holds_names_a_guard_that_exists(self) -> None:
         # His "it will not drift": a test renamed or removed fails here, and its rule goes back to the list.
         for line in self.lines(HELD):
             with self.subTest(line=line[:80]):
@@ -328,7 +330,7 @@ class TheHistory(unittest.TestCase):
                             f"{guard}: no such function",
                         )
 
-    def test_each_rule_kept_in_one_place_names_a_path_that_exists(self):
+    def test_each_rule_kept_in_one_place_names_a_path_that_exists(self) -> None:
         for line in self.lines(KEPT):
             with self.subTest(line=line[:80]):
                 self.assertIsNotNone(DAY.search(line), "a line ends with its day")
@@ -343,7 +345,7 @@ class TheHistory(unittest.TestCase):
 
 
 class TheMove(unittest.TestCase):
-    def test_the_plan_has_a_row_for_each_file_the_list_took_the_place_of(self):
+    def test_the_plan_has_a_row_for_each_file_the_list_took_the_place_of(self) -> None:
         rows = plan_rows()
         self.assertEqual(len(rows), len(set(rows)), "a file has two rows")
         for folder, count in FOLDERS.items():
@@ -359,7 +361,7 @@ class TheMove(unittest.TestCase):
                     "a row names its file by its stem",
                 )
 
-    def test_the_rulings_folder_holds_the_list_and_the_history_only(self):
+    def test_the_rulings_folder_holds_the_list_and_the_history_only(self) -> None:
         self.assertEqual(
             sorted(path.name for path in (ROOT / "docs/rulings").iterdir()),
             ["history.md", "rulings.md"],
@@ -369,7 +371,7 @@ class TheMove(unittest.TestCase):
             ".lem/decisions is gone: its choices are in the list's last part or in the history",
         )
 
-    def test_no_file_names_a_file_the_list_took_the_place_of(self):
+    def test_no_file_names_a_file_the_list_took_the_place_of(self) -> None:
         rulings = {stem for folder, stem in plan_rows() if folder == "docs/rulings"}
         decisions = {stem for folder, stem in plan_rows() if folder == ".lem/decisions"}
         self.assertTrue(rulings and decisions, "the plan's table names no file")
@@ -398,13 +400,15 @@ class TheMove(unittest.TestCase):
 
 
 class ShortAgents(unittest.TestCase):
-    def test_agents_md_is_short(self):
+    def test_agents_md_is_short(self) -> None:
         words = len(AGENTS.read_text(encoding="utf-8").split())
         self.assertLessEqual(
             words, WORDS, f"AGENTS.md has {words} words by wc -w; the bound is {WORDS}"
         )
 
-    def test_agents_md_names_the_list_and_the_history_and_no_ruling_by_link(self):
+    def test_agents_md_names_the_list_and_the_history_and_no_ruling_by_link(
+        self,
+    ) -> None:
         text = AGENTS.read_text(encoding="utf-8")
         for name in ("docs/rulings/rulings.md", "docs/rulings/history.md"):
             self.assertIn(f"`{name}`", text)
@@ -416,7 +420,7 @@ class ShortAgents(unittest.TestCase):
 
     def test_the_names_docs_free_hour_cites_are_headings_of_agents_md_or_bullets_of_the_list(
         self,
-    ):
+    ) -> None:
         # docs/free-hour.md sends an unattended session to these by name.
         text = AGENTS.read_text(encoding="utf-8")
         page = flat(FREE_HOUR.read_text(encoding="utf-8"))
@@ -468,7 +472,7 @@ class NoScheduledBranch(unittest.TestCase):
         )
         return found[0]
 
-    def test_the_free_hour_page_makes_no_worktree_and_no_free_hour_branch(self):
+    def test_the_free_hour_page_makes_no_worktree_and_no_free_hour_branch(self) -> None:
         page = FREE_HOUR.read_text(encoding="utf-8")
         self.assertNotIn(
             "git worktree add",
@@ -484,7 +488,7 @@ class NoScheduledBranch(unittest.TestCase):
 
     def test_the_night_here_writes_proposals_and_the_scheduled_retro_takes_no_free_hour(
         self,
-    ):
+    ) -> None:
         bullet = self.maintainer_bullet()
         self.assertIn("makes no branch and no worktree", bullet)
         self.assertIn(

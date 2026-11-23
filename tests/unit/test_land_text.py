@@ -857,7 +857,7 @@ class StandIns(Proposal):
         part = text.split("## Checks", 1)[1].split("\n## ", 1)[0]
         return [line for line in part.splitlines() if " in place of " in line]
 
-    def test_one_stand_in_is_its_line_and_no_reason_of_not_green(self):
+    def test_one_stand_in_is_its_line_and_no_reason_of_not_green(self) -> None:
         # criterion 4, word for word
         task = self.task(events=(self.STOOD,))
         self.assertEqual(self.checks(land.pr_text(task, "", self.state())), [self.LINE])
@@ -866,7 +866,9 @@ class StandIns(Proposal):
             land.pr_text(task, "", self.state()).splitlines()[0], land.GREEN
         )
 
-    def test_every_stand_in_is_listed_also_one_a_block_of_another_cause_followed(self):
+    def test_every_stand_in_is_listed_also_one_a_block_of_another_cause_followed(
+        self,
+    ) -> None:
         merger = {
             "event": "seat.stand-in",
             "seat": "merger",
@@ -896,7 +898,7 @@ class StandIns(Proposal):
             ],
         )
 
-    def test_a_stand_in_whose_own_start_failed_says_so(self):
+    def test_a_stand_in_whose_own_start_failed_says_so(self) -> None:
         stood = {
             **self.STOOD,
             "failed": "claude/opus:high",
@@ -925,7 +927,7 @@ class StandIns(Proposal):
             land.stand_ins_of(land.events_of(again))[0]["failed_too"], None
         )
 
-    def test_the_fast_track_lists_it_too(self):
+    def test_the_fast_track_lists_it_too(self) -> None:
         from unittest import mock
 
         small = "## Acceptance criteria\n\nSize: small, because one word changes.\n\n1. The file holds the word y.\n   - test: `sh tests/t.sh` in `tests/t.sh`\n"
@@ -1227,7 +1229,7 @@ class TheIssue(Proposal):
         task.settings = {**task.settings, "tracker": {"kind": kind} if kind else None}
         return land.pr_text(task, "", self.state())
 
-    def test_each_track_names_the_issue_under_the_request(self):
+    def test_each_track_names_the_issue_under_the_request(self) -> None:
         for name, plan in (("standard", PLAN), ("fast", self.SMALL)):
             with self.subTest(track=name):
                 out = self.text(plan, "github", "#42").splitlines()
@@ -1247,7 +1249,7 @@ class TheIssue(Proposal):
                 ):
                     self.assertNotIn(word, text)
 
-    def test_a_linear_ticket_or_no_ticket_has_no_such_line(self):
+    def test_a_linear_ticket_or_no_ticket_has_no_such_line(self) -> None:
         for kind, ticket in (("linear", "MBZ-12"), ("github", None), (None, None)):
             with self.subTest(kind=kind, ticket=ticket):
                 self.assertNotIn("Issue:", self.text(PLAN, kind, ticket))

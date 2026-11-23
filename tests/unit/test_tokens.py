@@ -89,7 +89,7 @@ def write(file: Path, *records: object) -> None:
 
 
 class Tokens(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
         root = Path(self.folder.name)
@@ -119,13 +119,13 @@ class Tokens(unittest.TestCase):
         ]
         write(self.state / "events.jsonl", *lines)
 
-    def test_a_task_with_no_transcript_on_record_has_no_number(self):
+    def test_a_task_with_no_transcript_on_record_has_no_number(self) -> None:
         self.log()
         self.assertIsNone(lem_tokens.task_tokens(self.state, SLUG))
 
     def test_each_reply_counts_once_with_its_subagents_and_another_tasks_session_counts_for_none(
         self,
-    ):
+    ) -> None:
         first, second, other = (
             self.projects / f"{name}.jsonl" for name in ("aaa", "bbb", "ccc")
         )
@@ -186,7 +186,7 @@ class Tokens(unittest.TestCase):
             found["covers"],
         )
 
-    def test_a_transcript_that_is_gone_is_counted_and_said(self):
+    def test_a_transcript_that_is_gone_is_counted_and_said(self) -> None:
         kept = self.projects / "aaa.jsonl"
         write(kept, reply("m1", 1, 2))
         self.log((SLUG, str(kept)), (SLUG, str(self.projects / "gone.jsonl")))
@@ -196,7 +196,9 @@ class Tokens(unittest.TestCase):
         )
         self.assertIn("1 transcript the log names is gone", found["covers"])
 
-    def test_a_log_whose_words_hold_a_line_separator_still_names_the_transcript(self):
+    def test_a_log_whose_words_hold_a_line_separator_still_names_the_transcript(
+        self,
+    ) -> None:
         kept = self.projects / "aaa.jsonl"
         write(kept, reply("m1", 1, 2))
         self.log((SLUG, str(kept)))
@@ -228,7 +230,7 @@ class FirstPrompt(unittest.TestCase):
     """Which task a transcript counts for: the task its first prompt names, else the task its record names
     (criteria 1 and 2 of the task a-forked-transcript-of-claude-code-s-daemon-is-logged-on-the-task-of-another-pane)."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
         root = Path(self.folder.name)
@@ -263,7 +265,7 @@ class FirstPrompt(unittest.TestCase):
 
     def test_a_fork_logged_under_another_task_counts_for_the_task_its_first_prompt_names_once(
         self,
-    ):
+    ) -> None:
         search, merge, fork = (
             self.projects / f"{name}.jsonl" for name in ("search", "merge", "6fe214ec")
         )
@@ -298,7 +300,7 @@ class FirstPrompt(unittest.TestCase):
 
     def test_a_transcript_whose_first_prompt_names_no_task_counts_for_its_records_task(
         self,
-    ):
+    ) -> None:
         cleared, pasted = (
             self.projects / "cleared.jsonl",
             self.projects / "pasted.jsonl",
@@ -327,7 +329,9 @@ class FirstPrompt(unittest.TestCase):
         )
         self.assertEqual(lem_tokens.task_tokens(self.state, SLUG)["output"], 12)
 
-    def test_a_transcript_that_is_gone_is_missing_for_its_records_task_only(self):
+    def test_a_transcript_that_is_gone_is_missing_for_its_records_task_only(
+        self,
+    ) -> None:
         self.log(self.logged(SLUG, self.projects / "gone.jsonl"))
         found = lem_tokens.task_tokens(self.state, SLUG)
         self.assertEqual((found["sessions"], found["missing"]), (0, 1))
@@ -335,7 +339,7 @@ class FirstPrompt(unittest.TestCase):
 
     def test_a_fork_named_in_the_summary_of_an_ended_task_counts_for_the_open_task_its_first_prompt_names(
         self,
-    ):
+    ) -> None:
         own, merge, fork = (
             self.projects / f"{name}.jsonl" for name in ("search", "merge", "6fe214ec")
         )
@@ -370,7 +374,9 @@ class FirstPrompt(unittest.TestCase):
             lem_tokens.transcripts_of(self.state, "board-card-search"), [str(own)]
         )
 
-    def test_the_first_prompt_names_a_task_only_when_it_is_a_launch_line_whole(self):
+    def test_the_first_prompt_names_a_task_only_when_it_is_a_launch_line_whole(
+        self,
+    ) -> None:
         self.assertEqual(
             lem_tokens.task_named(launch("merge-leaves-board-lock")),
             "merge-leaves-board-lock",
@@ -393,7 +399,7 @@ class FirstPrompt(unittest.TestCase):
         ):
             self.assertIsNone(lem_tokens.task_named(text), text)
 
-    def test_the_first_prompt_is_the_first_user_record_that_is_not_meta(self):
+    def test_the_first_prompt_is_the_first_user_record_that_is_not_meta(self) -> None:
         file = self.projects / "t.jsonl"
         write(
             file,

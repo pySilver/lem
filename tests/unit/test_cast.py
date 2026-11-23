@@ -50,7 +50,7 @@ class Refuses(unittest.TestCase):
 class Frontmatter(Refuses):
     """The frontmatter is read for the seats, and is not a part of the person."""
 
-    def test_the_seats_are_read_and_the_text_after_it_is_the_person(self):
+    def test_the_seats_are_read_and_the_text_after_it_is_the_person(self) -> None:
         meta, body = cast.frontmatter(
             '---\nseats: ["claude/opus:high", "codex/gpt-6.2-sol:high"]\n---\n\n'
             + BODY,
@@ -62,13 +62,13 @@ class Frontmatter(Refuses):
         self.assertEqual(body, BODY)
         self.assertNotIn("seats", body)
 
-    def test_a_file_with_no_frontmatter_is_the_person_whole(self):
+    def test_a_file_with_no_frontmatter_is_the_person_whole(self) -> None:
         self.assertEqual(cast.frontmatter(BODY, FILE), ({}, BODY))
         # a `---` further down is a rule of markdown, not a frontmatter
         text = BODY + "\n---\n\nMore.\n"
         self.assertEqual(cast.frontmatter(text, FILE), ({}, text))
 
-    def test_a_blank_line_and_a_comment_are_skipped(self):
+    def test_a_blank_line_and_a_comment_are_skipped(self) -> None:
         meta, _ = cast.frontmatter(
             '---\n# chosen by the owner\n\nseats: ["claude/opus:high"]\n---\n' + BODY,
             FILE,
@@ -77,7 +77,7 @@ class Frontmatter(Refuses):
 
     def test_a_frontmatter_never_closed_another_key_and_a_line_twice_are_refused_with_the_file(
         self,
-    ):
+    ) -> None:
         for text, said in (
             ('---\nseats: ["claude/opus:high"]\n' + BODY, "no `---` line closes it"),
             ("---\nmodel: opus\n---\n" + BODY, "knows only `seats`, not 'model'"),
@@ -96,7 +96,7 @@ class Frontmatter(Refuses):
 class Seats(Refuses):
     """A persona answers once on each seat its file names, or on the panel's own two seats."""
 
-    def test_a_file_names_its_seats_each_with_its_parts_and_its_name(self):
+    def test_a_file_names_its_seats_each_with_its_parts_and_its_name(self) -> None:
         found = seats('seats: ["claude/opus:high", "codex/gpt-6.2-sol:xhigh"]')
         self.assertEqual(found["seats_from"], "file")
         self.assertEqual(
@@ -123,7 +123,7 @@ class Seats(Refuses):
             ["fable"],
         )
 
-    def test_a_file_with_no_seats_answers_as_the_panel_always_did(self):
+    def test_a_file_with_no_seats_answers_as_the_panel_always_did(self) -> None:
         found = cast.seats_of({}, FILE, everywhere)
         self.assertEqual(found["seats_from"], "default")
         self.assertEqual(
@@ -132,7 +132,7 @@ class Seats(Refuses):
         )
         self.assertEqual(seats("# no seats chosen yet"), found)
 
-    def test_a_codex_seat_with_no_codex_is_left_out(self):
+    def test_a_codex_seat_with_no_codex_is_left_out(self) -> None:
         found = seats(
             'seats: ["claude/opus:high", "codex/gpt-6.2-sol:high"]', here=no_codex
         )
@@ -151,7 +151,7 @@ class Seats(Refuses):
 
     def test_a_seat_the_settings_would_refuse_is_refused_with_the_file_and_the_line_to_write(
         self,
-    ):
+    ) -> None:
         for line, said in (
             (
                 'seats: ["gemini/pro:high"]',
@@ -177,7 +177,7 @@ class Seats(Refuses):
                 self.assertIn(said, message)
                 self.assertIn(cast.SEATS_LINE, message)
 
-    def test_two_seats_of_one_name_are_refused(self):
+    def test_two_seats_of_one_name_are_refused(self) -> None:
         message = self.refused(seats, 'seats: ["claude/opus:high", "claude/opus:max"]')
         self.assertIn("two seats are named opus", message)
 
@@ -185,7 +185,7 @@ class Seats(Refuses):
 class Person(unittest.TestCase):
     """What a persona's agent reads as who it is."""
 
-    def test_a_file_with_no_frontmatter_is_read_where_it_is(self):
+    def test_a_file_with_no_frontmatter_is_read_where_it_is(self) -> None:
         with tempfile.TemporaryDirectory() as top:
             path = Path(top) / "merchant.md"
             path.write_text(BODY, encoding="utf-8")
@@ -197,7 +197,7 @@ class Person(unittest.TestCase):
                 ("merchant", str(path), str(path), "default"),
             )
 
-    def test_a_file_with_a_frontmatter_is_read_without_it(self):
+    def test_a_file_with_a_frontmatter_is_read_without_it(self) -> None:
         with tempfile.TemporaryDirectory() as top:
             path = Path(top) / "merchant.md"
             path.write_text(
@@ -216,7 +216,7 @@ class Person(unittest.TestCase):
             )
             self.assertEqual([s["seat"] for s in found["seats"]], ["claude/opus:high"])
 
-    def test_a_copy_read_again_takes_the_time_of_the_read(self):
+    def test_a_copy_read_again_takes_the_time_of_the_read(self) -> None:
         """`lem project prune` removes a copy by its last write, so a read writes its time on it."""
         import os
         import time

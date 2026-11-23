@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Write the night version of the logo: the same drawing, each color replaced by its night color.
 
     night.py SOURCE TARGET

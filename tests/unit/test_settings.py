@@ -60,7 +60,7 @@ class Refuses(unittest.TestCase):
 class UnknownNames(Refuses):
     """A table or a key that Lem does not know is refused with its name, the file and the names it knows."""
 
-    def test_a_key_with_the_nearest_valid_one(self):
+    def test_a_key_with_the_nearest_valid_one(self) -> None:
         self.assertNames(
             self.refused(read, "[branch]", 'base = "master"', 'lands = "agent"'),
             str(FILE),
@@ -68,7 +68,7 @@ class UnknownNames(Refuses):
             "did you mean 'land'",
         )
 
-    def test_a_way_to_land_with_no_pull_request(self):
+    def test_a_way_to_land_with_no_pull_request(self) -> None:
         self.assertNames(
             self.refused(read, "[branch]", 'propose = "merge"'),
             str(FILE),
@@ -76,14 +76,14 @@ class UnknownNames(Refuses):
             "valid: base, land, history, protected",
         )
 
-    def test_a_table(self):
+    def test_a_table(self) -> None:
         self.assertNames(
             self.refused(read, "[gate]", 'commands = ["make test"]'),
             str(FILE),
             "unknown table [gate]",
         )
 
-    def test_a_key_of_flow_with_the_keys_it_knows(self):
+    def test_a_key_of_flow_with_the_keys_it_knows(self) -> None:
         self.assertNames(
             self.refused(read, "[flow]", 'careful = ["app/outbox/*"]'),
             str(FILE),
@@ -91,13 +91,15 @@ class UnknownNames(Refuses):
             "valid: topics",
         )
 
-    def test_a_key_of_paths_with_the_keys_it_knows(self):
+    def test_a_key_of_paths_with_the_keys_it_knows(self) -> None:
         message = self.refused(read, "[paths]", 'styleguide = ".lem/styleguide"')
         self.assertNames(
             message, str(FILE), "paths.styleguide", "valid: plans, plan_file, rulings"
         )
 
-    def test_a_ruling_file_line_with_the_nearest_key_and_the_keys_it_knows(self):
+    def test_a_ruling_file_line_with_the_nearest_key_and_the_keys_it_knows(
+        self,
+    ) -> None:
         message = self.refused(
             read, "[paths]", 'rulings = "docs/rulings.md"', 'ruling_file = "<slug>.md"'
         )
@@ -109,10 +111,10 @@ class UnknownNames(Refuses):
             "valid: plans, plan_file, rulings",
         )
 
-    def test_a_file_that_does_not_parse(self):
+    def test_a_file_that_does_not_parse(self) -> None:
         self.assertIn(str(FILE), self.refused(read, "not toml ["))
 
-    def test_a_seat_written_as_a_table_with_the_seat_form(self):
+    def test_a_seat_written_as_a_table_with_the_seat_form(self) -> None:
         message = self.refused_settings(
             "[seats.reviewer]", 'agent = "codex"', 'model = "gpt-6.1-sol"'
         )
@@ -122,28 +124,28 @@ class UnknownNames(Refuses):
 class Values(Refuses):
     """A wrong value of a key is refused with the key and the values it may take."""
 
-    def test_land(self):
+    def test_land(self) -> None:
         self.assertNames(
             self.refused_settings("[branch]", 'land = "robot"'),
             "branch.land",
             "agent, owner",
         )
 
-    def test_history(self):
+    def test_history(self) -> None:
         self.assertNames(
             self.refused_settings("[branch]", 'history = "rewrite"'),
             "branch.history",
             "keep, squash",
         )
 
-    def test_an_empty_base(self):
+    def test_an_empty_base(self) -> None:
         self.assertNames(
             self.refused_settings("[branch]", 'base = ""'),
             "branch.base",
             "names no branch",
         )
 
-    def test_a_protected_base(self):
+    def test_a_protected_base(self) -> None:
         self.assertNames(
             self.refused_settings(
                 "[branch]", 'base = "master"', 'protected = ["master"]'
@@ -152,35 +154,35 @@ class Values(Refuses):
             "branch.protected",
         )
 
-    def test_commands_that_are_no_list(self):
+    def test_commands_that_are_no_list(self) -> None:
         self.assertNames(
             self.refused_settings("[checks]", 'commands = "pytest"'),
             "checks.commands",
             "list of strings",
         )
 
-    def test_an_empty_command(self):
+    def test_an_empty_command(self) -> None:
         self.assertNames(
             self.refused_settings("[checks]", 'commands = ["make test", " "]'),
             "checks.commands",
             "empty command",
         )
 
-    def test_an_empty_setup_command(self):
+    def test_an_empty_setup_command(self) -> None:
         self.assertNames(
             self.refused_settings("[checks]", 'setup = [""]'),
             "checks.setup",
             "empty command",
         )
 
-    def test_topics_that_are_no_list(self):
+    def test_topics_that_are_no_list(self) -> None:
         self.assertNames(
             self.refused_settings("[flow]", 'topics = "money"'),
             "flow.topics",
             "list of strings",
         )
 
-    def test_a_branch_defaults_to_squash_and_the_merge_agent(self):
+    def test_a_branch_defaults_to_squash_and_the_merge_agent(self) -> None:
         found = settings("[branch]", 'base = "master"')
         self.assertEqual(
             (found["branch"]["history"], found["branch"]["land"]), ("squash", "agent")
@@ -192,7 +194,7 @@ class Values(Refuses):
 
     def test_a_branch_keeps_its_commits_and_its_owner_merges_when_the_file_says_so(
         self,
-    ):
+    ) -> None:
         found = settings(
             "[branch]", 'base = "master"', 'history = "keep"', 'land = "owner"'
         )
@@ -200,7 +202,7 @@ class Values(Refuses):
             (found["branch"]["history"], found["branch"]["land"]), ("keep", "owner")
         )
 
-    def test_topics_are_the_owner_sentences(self):
+    def test_topics_are_the_owner_sentences(self) -> None:
         found = settings(
             "[flow]",
             'topics = ["a price a customer pays", "data that cannot be rebuilt"]',
@@ -222,7 +224,7 @@ class TaskWorktree(Refuses):
     def in_tree(self, branch: dict, on_base: dict) -> dict:
         return project.decide(self.TREE, ROOT, branch, {}, on_base, self.COMMITTED)
 
-    def test_the_flow_and_the_naps_come_from_the_base(self):
+    def test_the_flow_and_the_naps_come_from_the_base(self) -> None:
         found = self.in_tree(
             read(
                 "[branch]",
@@ -249,7 +251,7 @@ class TaskWorktree(Refuses):
             "this worktree's branch, with [flow], [naps] and [state] from main@012345678",
         )
 
-    def test_the_days_the_state_keeps_come_from_the_base(self):
+    def test_the_days_the_state_keeps_come_from_the_base(self) -> None:
         found = self.in_tree(
             read("[state]", "keep_days = 1"), read("[state]", "keep_days = 14")
         )
@@ -265,7 +267,7 @@ class TaskWorktree(Refuses):
             "state.keep_days",
         )
 
-    def test_the_machines_own_days_hold_in_a_task_worktree_too(self):
+    def test_the_machines_own_days_hold_in_a_task_worktree_too(self) -> None:
         # the main checkout's local file, as `load` reads it for a worktree as well
         local = read("[state]", "keep_days = 3", name=project.LOCAL, place="local")
         found = project.decide(
@@ -281,13 +283,13 @@ class TaskWorktree(Refuses):
             ({"keep_days": 3, "from": str(project.LOCAL)}, ["state.keep_days"]),
         )
 
-    def test_the_branch_own_flow_is_still_checked(self):
+    def test_the_branch_own_flow_is_still_checked(self) -> None:
         self.assertNames(
             self.refused(self.in_tree, read("[flow]", 'topics = "money"'), {}),
             "flow.topics",
         )
 
-    def test_a_wrong_naps_switch_on_the_base_names_the_base_commit(self):
+    def test_a_wrong_naps_switch_on_the_base_names_the_base_commit(self) -> None:
         self.assertNames(
             self.refused(self.in_tree, {}, read("[naps]", 'on = "yes"')),
             "main:.lem/settings.toml",
@@ -304,7 +306,7 @@ class KeepDays(Refuses):
     """How long the state folder keeps what Lem no longer needs: one whole number of days of the project's
     file, 30 by default, and one machine's own file may set its own number, which wins on that machine."""
 
-    def test_the_default_is_the_owners_thirty(self):
+    def test_the_default_is_the_owners_thirty(self) -> None:
         self.assertEqual(
             (settings()["state"], project.KEEP_DAYS),
             ({"keep_days": 30, "from": "Lem's default"}, 30),
@@ -314,7 +316,9 @@ class KeepDays(Refuses):
             {"keep_days": 7, "from": str(project.SETTINGS)},
         )
 
-    def test_a_number_that_is_no_whole_number_of_days_is_refused_with_the_fix(self):
+    def test_a_number_that_is_no_whole_number_of_days_is_refused_with_the_fix(
+        self,
+    ) -> None:
         for value in ("0", "-3", "7.5", '"7"', "true"):
             self.assertNames(
                 self.refused_settings("[state]", f"keep_days = {value}"),
@@ -324,7 +328,7 @@ class KeepDays(Refuses):
                 "keep_days = 30",
             )
 
-    def test_another_key_is_refused_in_either_file(self):
+    def test_another_key_is_refused_in_either_file(self) -> None:
         self.assertNames(
             self.refused(read, "[state]", "days = 7"),
             "unknown key state.days",
@@ -337,7 +341,7 @@ class KeepDays(Refuses):
             "keep_days",
         )
 
-    def test_the_machines_own_number_wins_lower_or_higher(self):
+    def test_the_machines_own_number_wins_lower_or_higher(self) -> None:
         for project_lines, own, kept in (
             (("[state]", "keep_days = 30"), 7, 7),
             (("[state]", "keep_days = 7"), 60, 60),
@@ -352,7 +356,7 @@ class KeepDays(Refuses):
                 )
                 self.assertEqual(found["local"]["overrides"], ["state.keep_days"])
 
-    def test_the_machines_file_without_the_key_leaves_the_projects_number(self):
+    def test_the_machines_file_without_the_key_leaves_the_projects_number(self) -> None:
         found = settings(
             "[state]", "keep_days = 7", local=local("[naps]", "on = false")
         )
@@ -361,7 +365,7 @@ class KeepDays(Refuses):
             ({"keep_days": 7, "from": str(project.SETTINGS)}, []),
         )
 
-    def test_a_wrong_number_in_the_machines_file_is_refused_by_that_file(self):
+    def test_a_wrong_number_in_the_machines_file_is_refused_by_that_file(self) -> None:
         for value in ("0", "-3", "7.5", '"7"', "true"):
             with self.subTest(value=value):
                 message = self.refused(
@@ -379,7 +383,7 @@ class KeepDays(Refuses):
                     f"leave the line out for the number of {project.SETTINGS}",
                 )
 
-    def test_the_template_writes_the_key_with_its_source(self):
+    def test_the_template_writes_the_key_with_its_source(self) -> None:
         self.assertIn("[state]", project.TEMPLATE)
         self.assertIn("keep_days = 30", project.TEMPLATE)
         words = " ".join(project.TEMPLATE.replace("# ", "").split())
@@ -392,7 +396,7 @@ class KeepDays(Refuses):
 class Paths(Refuses):
     """A folder of [paths] stays inside the repository and is no root; a file name is a pattern of Lem's tokens."""
 
-    def test_a_folder_that_leaves_the_repository(self):
+    def test_a_folder_that_leaves_the_repository(self) -> None:
         self.assertNames(
             self.refused_settings("[paths]", 'plans = "../elsewhere"'),
             "paths.plans",
@@ -405,21 +409,21 @@ class Paths(Refuses):
             "leaves the repository",
         )
 
-    def test_an_absolute_folder(self):
+    def test_an_absolute_folder(self) -> None:
         self.assertNames(
             self.refused_settings("[paths]", 'plans = "/elsewhere"'),
             "paths.plans",
             "relative to the root",
         )
 
-    def test_a_folder_that_is_the_root(self):
+    def test_a_folder_that_is_the_root(self) -> None:
         self.assertNames(
             self.refused_settings("[paths]", 'plans = ""'),
             "paths.plans",
             "names the root of the checkout",
         )
 
-    def test_a_plan_file_pattern_lem_cannot_use(self):
+    def test_a_plan_file_pattern_lem_cannot_use(self) -> None:
         for bad, names in (
             ("YYYY-MM-DD.md", "<slug> once"),
             ("plans/<slug>.md", "no folder in it"),
@@ -441,7 +445,7 @@ class Paths(Refuses):
 class Rulings(Refuses):
     """The rulings are one markdown file, `docs/rulings.md` unless the settings say otherwise; a folder is refused."""
 
-    def test_the_default_is_one_file_and_no_ruling_file(self):
+    def test_the_default_is_one_file_and_no_ruling_file(self) -> None:
         paths = settings()["paths"]
         self.assertEqual(sorted(paths), ["plan_file", "plans", "rulings"])
         self.assertEqual(paths["rulings"]["path"], str(ROOT / "docs/rulings.md"))
@@ -452,7 +456,7 @@ class Rulings(Refuses):
             str(ROOT / "decisions/list.md"),
         )
 
-    def test_the_folder_form_names_the_list_file_and_the_example(self):
+    def test_the_folder_form_names_the_list_file_and_the_example(self) -> None:
         for value in ("docs/rulings", "docs/rulings/", "docs/rulings.txt"):
             with self.subTest(value=value):
                 message = self.refused_settings("[paths]", f'rulings = "{value}"')
@@ -463,7 +467,7 @@ class Rulings(Refuses):
                     'rulings = "docs/rulings.md"',
                 )
 
-    def test_a_folder_with_a_markdown_name(self):
+    def test_a_folder_with_a_markdown_name(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             (root / "docs" / "rulings.md").mkdir(parents=True)
@@ -478,20 +482,12 @@ class Rulings(Refuses):
 
     def test_the_template_writes_the_list_file_with_its_comment_and_no_ruling_file(
         self,
-    ):
+    ) -> None:
         written = project.TEMPLATE.format_map(
             {
-                **{
-                    key: ""
-                    for key in (
-                        "plans",
-                        "plan_file",
-                        "base",
-                        "reviewer",
-                        "planner",
-                        "experts",
-                    )
-                },
+                **dict.fromkeys(
+                    ("plans", "plan_file", "base", "reviewer", "planner", "experts"), ""
+                ),
                 "rulings": project.PATHS["rulings"],
             }
         )
@@ -509,13 +505,13 @@ class Tracker(Refuses):
             settings("[tracker]", *lines)["tracker"] if lines else settings()["tracker"]
         )
 
-    def test_the_tables_it_takes(self):
+    def test_the_tables_it_takes(self) -> None:
         self.assertIsNone(self.tracker())
         self.assertEqual(self.tracker('kind = "linear"'), {"kind": "linear"})
         # criterion 1 of github-issues-tracker: GitHub Issues with no other key, the repository being origin's
         self.assertEqual(self.tracker('kind = "github"'), {"kind": "github"})
 
-    def test_the_tables_it_refuses(self):
+    def test_the_tables_it_refuses(self) -> None:
         for lines, names in (
             (('kind = "jira"',), ("tracker.kind", "'jira'", "linear", "github")),
             (('kind = ""',), ("tracker.kind",)),
@@ -524,7 +520,7 @@ class Tracker(Refuses):
             with self.subTest(lines=lines):
                 self.assertNames(self.refused(settings, "[tracker]", *lines), *names)
 
-    def test_a_key_that_went_is_unknown(self):
+    def test_a_key_that_went_is_unknown(self) -> None:
         # Lem keeps no reading of the table's older form: a file that still names a status or a server is refused like any unknown key
         for key in (
             'server = "linear"',
@@ -544,12 +540,12 @@ class Home(Refuses):
     """Each case runs with a folder of its own as XDG_CONFIG_HOME, so the home folder's files are that folder's and
     the home directory's are never read or written."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.kept = os.environ.get("XDG_CONFIG_HOME")
         self.folder = tempfile.TemporaryDirectory()
         os.environ["XDG_CONFIG_HOME"] = self.folder.name
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         if self.kept is None:
             os.environ.pop("XDG_CONFIG_HOME", None)
         else:
@@ -585,7 +581,7 @@ class Seats(Home):
             ROOT, ROOT, raw, local(*local_lines), raw, None, home or {}
         )["seats"]
 
-    def test_each_seat_parsed(self):
+    def test_each_seat_parsed(self) -> None:
         found = settings(
             "[seats]",
             'reviewer = "codex/gpt-6.1-sol:high"',
@@ -623,7 +619,7 @@ class Seats(Home):
             ],
         )
 
-    def test_each_of_the_three_is_refused_unless_whole(self):
+    def test_each_of_the_three_is_refused_unless_whole(self) -> None:
         # the owner, 2026-11-18: "I think it should be explicitly `agent/model:effort` in all 3; not simply "claude" or "codex""
         for which, given, missing, example in (
             (
@@ -659,7 +655,7 @@ class Seats(Home):
                         f'{name}: seats.{which} = {given!r} names {missing}: it is one string, "agent/model:effort", written whole, as "{example}"',
                     )
 
-    def test_each_expert_is_refused_unless_whole(self):
+    def test_each_expert_is_refused_unless_whole(self) -> None:
         for given, number, missing in (
             (["claude/fable:high", "codex"], 1, "no model and no effort"),
             (["claude/fable"], 0, "no effort"),
@@ -673,20 +669,22 @@ class Seats(Home):
                     f'{FILE}: seats.experts[{number}] = {given[number]!r} names {missing}: it is one string, "agent/model:effort", written whole, as "{project.EXPERTS[number]}"',
                 )
 
-    def test_set_refuses_a_seat_that_is_not_whole(self):
+    def test_set_refuses_a_seat_that_is_not_whole(self) -> None:
         message = self.refused(project.set_value, "local", "reviewer", "claude")
         self.assertEqual(
             message,
             f'set local reviewer: seats.reviewer = \'claude\' names no model and no effort: it is one string, "agent/model:effort", written whole, as "{project.REVIEWER_SEATS["codex"]}"',
         )
 
-    def test_a_wrong_agent_is_named_before_the_parts_it_leaves_out(self):
+    def test_a_wrong_agent_is_named_before_the_parts_it_leaves_out(self) -> None:
         message = self.refused(
             project.seat, {"seats": {"planner": "codex"}}, FILE, "planner"
         )
         self.assertNames(message, "the agent 'codex' must be claude")
 
-    def test_the_merge_agents_seat_from_the_repository_the_home_file_or_the_agent(self):
+    def test_the_merge_agents_seat_from_the_repository_the_home_file_or_the_agent(
+        self,
+    ) -> None:
         home = {"seats": {"merger": "codex/gpt-6.2-sol:high"}}
         raw = read("[seats]", 'merger = "claude/opus:high"')
         own = project.decide(ROOT, ROOT, raw, {}, raw, None, home)["seats"]["merger"]
@@ -707,7 +705,7 @@ class Seats(Home):
             ("claude", "opus", "high", "Lem's default"),
         )
 
-    def test_the_merge_agents_seat_the_home_file_names_is_checked(self):
+    def test_the_merge_agents_seat_the_home_file_names_is_checked(self) -> None:
         raw = read("[branch]", 'base = "master"')
         message = self.refused(
             project.decide,
@@ -725,7 +723,7 @@ class Seats(Home):
             "the agent 'gemini' must be claude or codex",
         )
 
-    def test_the_merge_agents_and_the_sessions_seat_may_leave_out_a_part(self):
+    def test_the_merge_agents_and_the_sessions_seat_may_leave_out_a_part(self) -> None:
         found = settings("[seats]", 'merger = "codex:high"', 'session = "claude"')[
             "seats"
         ]
@@ -746,7 +744,7 @@ class Seats(Home):
             ("claude", None, None),
         )
 
-    def test_lem_defaults_with_no_seat(self):
+    def test_lem_defaults_with_no_seat(self) -> None:
         found = settings("[branch]", 'base = "master"')["seats"]
         self.assertEqual(
             found["reviewer"],
@@ -777,7 +775,9 @@ class Seats(Home):
             },
         )
 
-    def test_a_repository_that_names_no_reviewer_takes_the_machines_then_lems(self):
+    def test_a_repository_that_names_no_reviewer_takes_the_machines_then_lems(
+        self,
+    ) -> None:
         # criterion 1: the home folder's settings.toml names the reviewer, and notes-app names none in its two files
         notes_app = ("[branch]", 'base = "main"')
         reviewer = self.seats(
@@ -793,7 +793,7 @@ class Seats(Home):
             (reviewer["seat"], reviewer["from"]), ("claude/opus:high", "Lem's default")
         )
 
-    def test_each_seat_from_each_of_the_four_places(self):
+    def test_each_seat_from_each_of_the_four_places(self) -> None:
         for which, local_line, project_line, home_value in (
             (
                 "reviewer",
@@ -833,7 +833,7 @@ class Seats(Home):
                     found = self.seats(project_lines, local_lines, given)[which]
                     self.assertEqual((found["seat"], found["from"]), (seat, place))
 
-    def test_the_experts_from_each_of_the_four_places(self):
+    def test_the_experts_from_each_of_the_four_places(self) -> None:
         home = self.home("[seats]", 'experts = ["claude/m:high"]')
         for local_lines, project_lines, given, seats, place in (
             (
@@ -860,7 +860,7 @@ class Seats(Home):
                     [(one, place) for one in seats],
                 )
 
-    def test_the_fallback_from_each_of_the_four_places(self):
+    def test_the_fallback_from_each_of_the_four_places(self) -> None:
         # criterion 2: mybaze has no fallback line and the home folder's settings.toml has none, so it is Lem's claude/opus:high
         mybaze = ("[seats]", 'reviewer = "codex/gpt-6.2-sol:high"')
         found = self.seats(
@@ -911,7 +911,7 @@ class Seats(Home):
                 if seat is False:
                     self.assertEqual(found, {"seat": False, "from": place})
 
-    def test_the_fallbacks_it_refuses(self):
+    def test_the_fallbacks_it_refuses(self) -> None:
         for given, names in (
             (
                 True,
@@ -943,7 +943,7 @@ class Seats(Home):
                         *names,
                     )
 
-    def test_a_wrong_fallback_after_the_first_place_is_still_refused(self):
+    def test_a_wrong_fallback_after_the_first_place_is_still_refused(self) -> None:
         message = self.refused(
             self.seats,
             ("[seats]", "fallback = true"),
@@ -953,7 +953,7 @@ class Seats(Home):
             message, f"{project.SETTINGS}: seats.fallback = true is no seat"
         )
 
-    def test_the_home_file_takes_each_seat_and_the_fallback(self):
+    def test_the_home_file_takes_each_seat_and_the_fallback(self) -> None:
         home = self.home(
             "[seats]",
             'reviewer = "codex/gpt-6.2-sol:high"',
@@ -1003,7 +1003,9 @@ class Seats(Home):
                 )
                 self.assertNames(message, project.home_name(), *names)
 
-    def test_a_seat_in_the_home_file_is_written_whole_as_in_the_repositorys_files(self):
+    def test_a_seat_in_the_home_file_is_written_whole_as_in_the_repositorys_files(
+        self,
+    ) -> None:
         for which, given, names in (
             (
                 "reviewer",
@@ -1051,7 +1053,9 @@ class Seats(Home):
             ("codex", None, "high"),
         )
 
-    def test_the_experts_and_the_session_keep_their_rules_whatever_the_fallback(self):
+    def test_the_experts_and_the_session_keep_their_rules_whatever_the_fallback(
+        self,
+    ) -> None:
         # criterion 8: the fallback is one key of the reviewer, the planner and the merge agent; the experts keep
         # their rule that one answers alone where its agent is missing, and the session seat is Claude only
         with tempfile.TemporaryDirectory() as folder:
@@ -1084,7 +1088,7 @@ class Seats(Home):
             message, "seats.session", "a task's session runs Claude Code only for now"
         )
 
-    def test_the_seats_leave_local_overrides_and_from_says_the_place(self):
+    def test_the_seats_leave_local_overrides_and_from_says_the_place(self) -> None:
         found = project.decide(
             ROOT,
             ROOT,
@@ -1099,7 +1103,7 @@ class Seats(Home):
             (str(project.LOCAL), []),
         )
 
-    def test_one_expert_answers_in_the_first_place(self):
+    def test_one_expert_answers_in_the_first_place(self) -> None:
         found = settings("[seats]", 'experts = ["codex/gpt-6.2-astra:high"]')["seats"][
             "experts"
         ]
@@ -1108,7 +1112,7 @@ class Seats(Home):
             [("codex/gpt-6.2-astra:high", "fable")],
         )
 
-    def test_an_expert_is_here_when_its_agent_is_on_the_machine(self):
+    def test_an_expert_is_here_when_its_agent_is_on_the_machine(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             codex = Path(folder) / "codex"
             codex.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
@@ -1124,7 +1128,7 @@ class Seats(Home):
         self.assertEqual(with_codex, [("fable", True), ("astra", True)])
         self.assertEqual(without, [("fable", True), ("astra", False)])
 
-    def test_the_seats_it_refuses(self):
+    def test_the_seats_it_refuses(self) -> None:
         name = Path(".lem/settings.toml")
         for which, given, names in (
             ("reviewer", "", ("seats.reviewer is empty", project.SEAT_FORM)),
@@ -1156,7 +1160,7 @@ class Seats(Home):
                     *names,
                 )
 
-    def test_a_seat_line_parse_seat_refuses(self):
+    def test_a_seat_line_parse_seat_refuses(self) -> None:
         # the word `set` takes goes through the same parse
         message = self.refused(
             project.set_value, "global", "reviewer", "claude/opus:high:max"
@@ -1166,7 +1170,7 @@ class Seats(Home):
             "set global reviewer: seats.reviewer = 'claude/opus:high:max' holds 2 `:`",
         )
 
-    def test_the_experts_it_refuses(self):
+    def test_the_experts_it_refuses(self) -> None:
         name = Path(".lem/settings.toml")
         for given, names in (
             ([], ("seats.experts = []", "one or two seats")),
@@ -1198,7 +1202,7 @@ class SetSeat(Home):
     machine's own file of the repository, with every other line of the file kept; nothing writes the team's file.
     Each case has a git repository of its own in a temporary folder, beside its own XDG_CONFIG_HOME."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         super().setUp()
         self.repo = Path(self.folder.name) / "notes-app"
         subprocess.run(["git", "init", "-q", "-b", "main", str(self.repo)], check=True)
@@ -1217,7 +1221,7 @@ class SetSeat(Home):
         file.parent.mkdir(parents=True, exist_ok=True)
         file.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    def test_set_global_keeps_the_owners_comment_and_the_merger(self):
+    def test_set_global_keeps_the_owners_comment_and_the_merger(self) -> None:
         # criterion 6, its four steps
         self.write(
             self.home_file,
@@ -1248,7 +1252,7 @@ class SetSeat(Home):
             ("claude/opus:high", "Lem's default", None),
         )
 
-    def test_set_local_keeps_its_comment_and_its_state_table(self):
+    def test_set_local_keeps_its_comment_and_its_state_table(self) -> None:
         self.write(
             self.local_file,
             "# mine, not committed",
@@ -1280,7 +1284,7 @@ class SetSeat(Home):
             "# mine, not committed\n[state]\nkeep_days = 3\n",
         )
 
-    def test_set_local_in_a_task_worktree_writes_the_main_checkout(self):
+    def test_set_local_in_a_task_worktree_writes_the_main_checkout(self) -> None:
         subprocess.run(
             [
                 "git",
@@ -1318,7 +1322,7 @@ class SetSeat(Home):
         self.assertTrue(self.local_file.is_file())
         self.assertFalse((tree / project.LOCAL).exists())
 
-    def test_each_seat_has_one_name_in_the_answer_of_set_and_in_a_block(self):
+    def test_each_seat_has_one_name_in_the_answer_of_set_and_in_a_block(self) -> None:
         # the planner was "the defender" in set's answer and "the planner" in a block and in the pull request
         said = self.set("local", "planner", "claude/opus:max")
         self.assertEqual(
@@ -1333,7 +1337,7 @@ class SetSeat(Home):
                     )
                 )
 
-    def test_a_new_file_and_default_on_its_last_line(self):
+    def test_a_new_file_and_default_on_its_last_line(self) -> None:
         said = self.set("local", "fallback", "false")
         self.assertEqual(said["line"], "fallback = false")
         self.assertEqual(said["seat"], {"seat": False, "from": str(project.LOCAL)})
@@ -1347,7 +1351,9 @@ class SetSeat(Home):
         self.set("local", "fallback", "default")
         self.assertFalse(self.local_file.exists())
 
-    def test_a_file_with_a_comment_of_the_owners_stays_and_one_of_lems_lines_goes(self):
+    def test_a_file_with_a_comment_of_the_owners_stays_and_one_of_lems_lines_goes(
+        self,
+    ) -> None:
         # criterion 6: "Each other line and comment of that file stays as it was", with no table left too
         self.write(
             self.home_file,
@@ -1372,7 +1378,7 @@ class SetSeat(Home):
                 self.set(scope, "reviewer", "default")
                 self.assertFalse(file.exists())
 
-    def test_default_on_the_last_line_of_a_table(self):
+    def test_default_on_the_last_line_of_a_table(self) -> None:
         text = '[load]\nstart = 6\n\n[seats]\nreviewer = "codex/gpt-6.2-sol:high"\n\n[serve]\nport = 4500\n'
         self.assertEqual(
             project.lem_state.edited(text, "seats", "reviewer", None, "machine.toml"),
@@ -1389,7 +1395,7 @@ class SetSeat(Home):
             "[load]\nstart = 6\n",
         )
 
-    def test_a_table_taken_out_keeps_the_comment_on_its_header(self):
+    def test_a_table_taken_out_keeps_the_comment_on_its_header(self) -> None:
         # criterion 6: "Each other line and comment of that file stays as it was", the comment after a header too
         text = '[load]\nstart = 4\n\n[seats] # office Mac\nreviewer = "codex/a:high"\n'
         self.assertEqual(
@@ -1404,7 +1410,7 @@ class SetSeat(Home):
         self.set("global", "reviewer", "default")
         self.assertEqual(self.home_file.read_text(encoding="utf-8"), "# office Mac\n")
 
-    def test_the_experts_are_written_as_a_list(self):
+    def test_the_experts_are_written_as_a_list(self) -> None:
         said = self.set(
             "global", "experts", "claude/fable:high,codex/gpt-6.2-astra:high"
         )
@@ -1434,7 +1440,7 @@ class SetSeat(Home):
             "set global experts: seats.experts[0] = 'claude/fable' names no effort",
         )
 
-    def test_a_key_in_another_form_is_refused_and_the_file_stays(self):
+    def test_a_key_in_another_form_is_refused_and_the_file_stays(self) -> None:
         for lines, name in (
             (("[seats]", "experts = [", '  "claude/fable:high",', "]"), "experts"),
             (('seats.reviewer = "codex/gpt-6.2-sol:high"',), "reviewer"),
@@ -1452,7 +1458,7 @@ class SetSeat(Home):
                     )
                     self.assertEqual(self.home_file.read_bytes(), before)
 
-    def test_a_wrong_file_is_refused_with_its_fix_and_stays(self):
+    def test_a_wrong_file_is_refused_with_its_fix_and_stays(self) -> None:
         self.write(self.local_file, "[seats]", "planner = 42")
         self.assertNames(
             self.refused(self.set, "local", "reviewer", "claude/opus:high"),
@@ -1490,7 +1496,7 @@ class SetSeat(Home):
         )
         self.assertFalse(self.home_file.exists())
 
-    def test_false_is_for_the_fallback_only_and_every_seat_is_whole(self):
+    def test_false_is_for_the_fallback_only_and_every_seat_is_whole(self) -> None:
         for name in ("reviewer", "planner", "merger", "session", "experts"):
             with self.subTest(name=name):
                 self.assertNames(
@@ -1516,7 +1522,7 @@ class SetSeat(Home):
         )
         self.assertIsNone(project.set_value("local", "merger", "default"))
 
-    def test_no_path_writes_the_repositorys_settings(self):
+    def test_no_path_writes_the_repositorys_settings(self) -> None:
         before = self.settings.read_bytes()
         for scope in project.SCOPES:
             for name, value in (
@@ -1538,7 +1544,7 @@ class SetSeat(Home):
         )
         self.assertEqual(self.settings.read_bytes(), before)
 
-    def test_reviewer_is_no_command(self):
+    def test_reviewer_is_no_command(self) -> None:
         # criterion 7: `set local reviewer` does its work, and no alias is left
         out = io.StringIO()
         with contextlib.redirect_stderr(out), self.assertRaises(SystemExit) as stopped:

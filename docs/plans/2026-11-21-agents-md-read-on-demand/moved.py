@@ -38,9 +38,7 @@ def paragraphs(text: str) -> list[tuple[int, str]]:
         elif line.startswith("- "):
             out.append((number + 1, [line[2:]]))
             current = "item"
-        elif line.startswith("  ") and current == "item":
-            out[-1][1].append(line)
-        elif current == "block":
+        elif (line.startswith("  ") and current == "item") or current == "block":
             out[-1][1].append(line)
         else:
             out.append((number + 1, [line]))

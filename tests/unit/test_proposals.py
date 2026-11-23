@@ -13,7 +13,7 @@ import json
 import sys
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.dont_write_bytecode = True
@@ -22,8 +22,8 @@ sys.path.insert(
 )
 project = importlib.import_module("project")
 
-MORNING = datetime(2026, 11, 23, 6, 55, tzinfo=timezone.utc)
-TEN = datetime(2026, 11, 23, 10, 0, tzinfo=timezone.utc)
+MORNING = datetime(2026, 11, 23, 6, 55, tzinfo=UTC)
+TEN = datetime(2026, 11, 23, 10, 0, tzinfo=UTC)
 
 
 def proposal(
@@ -108,7 +108,9 @@ class Records(unittest.TestCase):
 
 
 class Add(Records):
-    def test_a_retro_with_no_proposal_writes_its_days_file_with_what_it_read(self):
+    def test_a_retro_with_no_proposal_writes_its_days_file_with_what_it_read(
+        self,
+    ) -> None:
         # criterion 3: the retro of 2026-11-25 proposes nothing, and its file says what it read
         added = self.add(
             "retro",
@@ -146,7 +148,7 @@ class Add(Records):
 
     def test_a_second_retro_of_the_day_adds_after_the_first_and_keeps_its_verdicts(
         self,
-    ):
+    ) -> None:
         self.add(
             "retro",
             "2026-11-23",
@@ -199,7 +201,7 @@ class Add(Records):
             },
         )
 
-    def test_a_run_that_is_not_in_the_form_is_refused_and_writes_nothing(self):
+    def test_a_run_that_is_not_in_the_form_is_refused_and_writes_nothing(self) -> None:
         self.assertIn(
             "is not an object with area, move, body, source, where",
             self.refused(
@@ -235,7 +237,7 @@ class Add(Records):
 class OldForm(Records):
     def test_a_retro_file_in_the_form_of_the_question_page_is_refused_with_the_fix(
         self,
-    ):
+    ) -> None:
         (self.state / "retros").mkdir()
         (self.state / "retros" / "2026-11-23.json").write_text(
             json.dumps(
@@ -260,7 +262,7 @@ class OldForm(Records):
             "question page", self.refused(self.add, "retro", "2026-11-23", [])
         )
 
-    def test_a_record_that_does_not_read_is_refused_with_the_form(self):
+    def test_a_record_that_does_not_read_is_refused_with_the_form(self) -> None:
         (self.state / "night").mkdir()
         (self.state / "night" / "2026-11-24.json").write_text(
             "not json", encoding="utf-8"
@@ -276,7 +278,7 @@ class OldForm(Records):
 class Verdict(Records):
     def test_the_passed_ones_become_one_item_for_each_area_and_the_refuted_ones_stay_with_their_reason(
         self,
-    ):
+    ) -> None:
         self.eleven()
         verdicts = [{"proposal": "night of 2026-11-24 #1", "passed": "tests"}]
         verdicts += [
@@ -385,7 +387,7 @@ class Verdict(Records):
             (read["undecided"], len(read["refuted"]), len(read["passed"])), ([], 2, 9)
         )
 
-    def test_no_item_on_a_morning_where_nothing_passed(self):
+    def test_no_item_on_a_morning_where_nothing_passed(self) -> None:
         self.add("retro", "2026-11-23", [proposal("lessons", "Move the rule")])
         done = project.cmd_proposals_verdict(
             self.state,
@@ -402,7 +404,7 @@ class Verdict(Records):
         self.assertEqual(done["items"], [])
         self.assertFalse((self.state / "backlog").exists())
 
-    def test_an_item_name_that_is_taken_gets_the_next_number(self):
+    def test_an_item_name_that_is_taken_gets_the_next_number(self) -> None:
         self.add(
             "retro",
             "2026-11-23",
@@ -430,7 +432,7 @@ class Verdict(Records):
 
     def test_a_proposal_judged_once_is_not_judged_again_and_a_wrong_verdict_writes_nothing(
         self,
-    ):
+    ) -> None:
         self.add(
             "retro",
             "2026-11-23",
@@ -522,7 +524,7 @@ class Drop(Records):
 
     def test_a_drop_removes_the_file_at_once_and_keeps_the_drop_in_the_retros_file(
         self,
-    ):
+    ) -> None:
         # criterion 7: the owner drops the item about the board's colors
         board = self.items()["board"]
         done = project.cmd_proposals_drop(self.state, board, "2026-11-25")
@@ -582,7 +584,9 @@ class Drop(Records):
             self.refused(project.cmd_proposals_drop, self.state, board, "2026-11-25"),
         )
 
-    def test_a_drop_is_refused_while_a_task_that_has_not_ended_holds_the_item(self):
+    def test_a_drop_is_refused_while_a_task_that_has_not_ended_holds_the_item(
+        self,
+    ) -> None:
         tests = self.items()["tests"]
         self.task("tests-flaky-check", tests, "building")
         with self.assertRaises(project.ItemRefused) as caught:
@@ -603,7 +607,9 @@ class Drop(Records):
         self.assertTrue((self.main / tests).is_file())
         self.assertEqual(self.record("night", "2026-11-24")["dropped"], [])
 
-    def test_a_task_with_no_state_yet_holds_the_item_and_one_that_ended_does_not(self):
+    def test_a_task_with_no_state_yet_holds_the_item_and_one_that_ended_does_not(
+        self,
+    ) -> None:
         tests = self.items()["tests"]
         self.task("tests-flaky-check", str(self.main / tests), None)
         self.assertEqual(
@@ -619,7 +625,7 @@ class Drop(Records):
             project.cmd_proposals_drop(self.state, tests, "2026-11-25")["dropped"]
         )
 
-    def test_a_path_outside_the_state_folders_backlog_is_refused(self):
+    def test_a_path_outside_the_state_folders_backlog_is_refused(self) -> None:
         self.items()
         self.assertIn(
             "is not the path of an item of .lem/state/backlog/",
@@ -638,7 +644,7 @@ class Drop(Records):
             ".lem/state/backlog/x.md",
         )
 
-    def test_task_dir_refuses_the_path_of_an_item_the_owner_dropped(self):
+    def test_task_dir_refuses_the_path_of_an_item_the_owner_dropped(self) -> None:
         board = self.items()["board"]
         self.assertIsNone(project.dropped_item_refusal(self.state, board))
         self.assertIsNone(
@@ -660,7 +666,7 @@ class Drop(Records):
 
 
 class Refuted(Records):
-    def test_the_read_gives_every_refuted_one_of_every_day_with_its_day(self):
+    def test_the_read_gives_every_refuted_one_of_every_day_with_its_day(self) -> None:
         # criterion 8: the reviewer of 2026-11-25 meets a proposal a reviewer refuted on 2026-11-23
         self.add("retro", "2026-11-23", [proposal("lessons", "Move the rule")])
         project.cmd_proposals_verdict(
@@ -695,7 +701,7 @@ class Refuted(Records):
             [one["name"] for one in read["undecided"]], ["retro of 2026-11-25 #1"]
         )
 
-    def test_a_morning_whose_reviewer_did_not_finish_is_read_on_the_next(self):
+    def test_a_morning_whose_reviewer_did_not_finish_is_read_on_the_next(self) -> None:
         self.add("night", "2026-11-24", [proposal("tests", "Wait for the port")])
         self.add("retro", "2026-11-24", [proposal("board", "Color the key")])
         self.add("retro", "2026-11-25", [])

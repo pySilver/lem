@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """The acceptance criteria of a task: what the owner approved, and the tests that hold each one.
 
 An acceptance criterion is one business rule of a request in plain language with one concrete
@@ -174,7 +173,7 @@ import shutil
 import signal
 import subprocess
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
@@ -969,7 +968,7 @@ def cmd_red(task: Task) -> dict:
                 stderr=subprocess.DEVNULL,
                 stdin=subprocess.DEVNULL,
                 start_new_session=True,
-            )  # noqa: S602
+            )
             child.append(proc)
             if isinstance(line, list):
                 wrappers.add(proc.pid)
@@ -1305,7 +1304,7 @@ def cmd_approve(
         record = {
             "task": task.slug,
             "number": len(history) + 1,
-            "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
             # who approved: the owner; Lem in his name, for a task on the fast track, which does not wait; the
             # lead's read on the standard track from a complete request, which counts for the plan's check and never as his yes;
             # or Lem or the lead while the task runs without the owner (`alone`), which is never his yes either

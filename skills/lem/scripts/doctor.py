@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Say which of the tools Lem uses this machine has.
 
 Onboarding runs it first, so a repository is never set up for a flow its machine cannot run. It
@@ -69,7 +68,7 @@ def python() -> dict:
     """The Python of 3.11 or newer that `lem` and the plugin's hooks start Lem's scripts with, found
     as they find it: the first `python3` on PATH, else the newest `python3.N`, else Homebrew's, else one uv has."""
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    import lem_python  # noqa: E402  (beside this file)
+    import lem_python
 
     def said(path: str) -> str:
         return ".".join(map(str, lem_python.version(path) or ("an unknown version",)))
@@ -909,7 +908,7 @@ def load_gate() -> dict:
     with no number Lem's own (LOAD_START) holds, and the developer sets his (a laptop he keeps cool, a
     desktop he loads hard), or takes the gate away."""
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    import lem_state  # noqa: E402  (beside this file)
+    import lem_state
 
     row = {
         "name": "load gate",
@@ -948,7 +947,7 @@ def handoff_tokens() -> dict:
     """Past how many tokens a task's session compacts itself, for every repository on this machine.
     An optional row: with no number Lem's own holds, and the row says so."""
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    import lem_state  # noqa: E402  (beside this file)
+    import lem_state
 
     row = {
         "name": "handoff tokens",
@@ -978,7 +977,7 @@ def board_server() -> list[dict]:
     on this machine and on the tailnet, and its code against the code installed here. It only asks the
     server and never starts one. An optional row: the board opens in agterm without it."""
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    import serve  # noqa: E402  (beside this file)
+    import serve
 
     # `lem` is on the PATH of Claude Code's Bash tool only; in a terminal with no agent (a remote login)
     # the owner runs it by the path of Lem's marketplace clone, which no update moves, and whose bin/lem
@@ -1136,7 +1135,7 @@ def installed_lem() -> list[dict]:
     repositories of its list (`lem_state.workspaces`), and Claude Code's list of installed plugins.
     Nothing when no server runs or a file does not read: the row `board server` says that."""
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    import serve  # noqa: E402  (beside this file)
+    import serve
 
     try:
         found = serve.ask(serve.serve_settings()["port"])
@@ -1166,7 +1165,7 @@ def board_notifications() -> list[dict]:
     when the last push went with each push service's answer. It reads Lem's home folder and sends
     nothing. An optional row: the board shows what waits without them."""
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    import lem_push  # noqa: E402  (beside this file)
+    import lem_push
 
     row = {
         "name": "board notifications",

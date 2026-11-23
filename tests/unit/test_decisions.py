@@ -27,7 +27,7 @@ CHART = 'flowchart TD\n  A["An order with two notes"] --> B{"One cell?"}\n  B --
 class Record:
     """A task's record that keeps the lines `log` writes, without the commands that find a task."""
 
-    repo = Path(".")
+    repo = Path()
 
     def __init__(self) -> None:
         self.written: list[dict] = []

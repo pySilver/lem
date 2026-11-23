@@ -38,11 +38,11 @@ class Refuses(unittest.TestCase):
 class TypeLine(Refuses):
     """`type: TYPE, because WHY`, which the status and the board read from a state block."""
 
-    def test_a_line_that_names_no_type_is_free(self):
+    def test_a_line_that_names_no_type_is_free(self) -> None:
         self.assertIsNone(project.type_line("lead: builder"))
         self.assertIsNone(project.type_line("the type: fix, because x"))
 
-    def test_a_type_with_its_reason(self):
+    def test_a_type_with_its_reason(self) -> None:
         self.assertEqual(
             project.type_line(
                 "  type: fix, because the ask says the total is wrong today  "
@@ -50,7 +50,7 @@ class TypeLine(Refuses):
             {"type": "fix", "why": "the ask says the total is wrong today"},
         )
 
-    def test_each_of_the_eight_types_is_taken(self):
+    def test_each_of_the_eight_types_is_taken(self) -> None:
         self.assertEqual(
             project.TYPES,
             ("feat", "fix", "docs", "refactor", "perf", "test", "chore", "question"),
@@ -60,20 +60,20 @@ class TypeLine(Refuses):
                 project.type_line(f"type: {kind}, because a reason")["type"], kind
             )
 
-    def test_a_type_that_is_none_of_the_eight_names_them(self):
+    def test_a_type_that_is_none_of_the_eight_names_them(self) -> None:
         message = self.refused(
             project.type_line, "type: defect, because the total is wrong"
         )
         self.assertIn("'defect' is not a type of request", message)
         self.assertIn("feat, fix, docs, refactor, perf, test, chore, question", message)
 
-    def test_a_misspelled_type_names_the_nearest(self):
+    def test_a_misspelled_type_names_the_nearest(self) -> None:
         self.assertIn(
             "did you mean 'fix'?",
             self.refused(project.type_line, "type: fux, because the total is wrong"),
         )
 
-    def test_a_type_without_its_reason(self):
+    def test_a_type_without_its_reason(self) -> None:
         self.assertIn(
             "the line 'type: fix' names the type without its reason: write it as `type: fix, because ...`",
             self.refused(project.type_line, "type: fix"),
@@ -85,14 +85,16 @@ class TicketOwed(unittest.TestCase):
 
     TRACKER = {"kind": "linear"}
 
-    def test_no_tracker_owes_nothing(self):
+    def test_no_tracker_owes_nothing(self) -> None:
         self.assertEqual(project.ticket_owed("landed", [], None), [])
 
-    def test_a_task_that_still_runs_owes_nothing(self):
+    def test_a_task_that_still_runs_owes_nothing(self) -> None:
         self.assertEqual(project.ticket_owed("building", ["started"], self.TRACKER), [])
         self.assertEqual(project.ticket_owed(None, [], self.TRACKER), [])
 
-    def test_a_landed_task_owes_the_comment_and_the_status_not_written_down(self):
+    def test_a_landed_task_owes_the_comment_and_the_status_not_written_down(
+        self,
+    ) -> None:
         self.assertEqual(
             project.ticket_owed("landed", ["started"], self.TRACKER),
             ["commented", "landed"],
@@ -108,14 +110,16 @@ class TicketOwed(unittest.TestCase):
             [],
         )
 
-    def test_a_dropped_task_owes_its_drop_comment(self):
+    def test_a_dropped_task_owes_its_drop_comment(self) -> None:
         self.assertEqual(
             project.ticket_owed("dropped", ["started", "commented"], self.TRACKER),
             ["dropped"],
         )
         self.assertEqual(project.ticket_owed("dropped", ["dropped"], self.TRACKER), [])
 
-    def test_an_answered_task_owes_the_answer_comment_until_it_is_written_down(self):
+    def test_an_answered_task_owes_the_answer_comment_until_it_is_written_down(
+        self,
+    ) -> None:
         self.assertEqual(
             project.ticket_owed("answered", [], self.TRACKER), ["answered"]
         )
@@ -137,7 +141,7 @@ class InvestigationForm(Refuses):
             **changes,
         }
 
-    def test_a_fix_and_a_question_in_their_form(self):
+    def test_a_fix_and_a_question_in_their_form(self) -> None:
         self.assertIsNone(project.investigation_form(self.fix()))
         self.assertIsNone(
             project.investigation_form(
@@ -149,7 +153,7 @@ class InvestigationForm(Refuses):
             )
         )
 
-    def test_a_bug_that_is_none_needs_no_place(self):
+    def test_a_bug_that_is_none_needs_no_place(self) -> None:
         self.assertIsNone(
             project.investigation_form(
                 {
@@ -171,7 +175,7 @@ class InvestigationForm(Refuses):
             )
         )
 
-    def test_a_missing_or_an_unknown_field(self):
+    def test_a_missing_or_an_unknown_field(self) -> None:
         message = self.refused(
             project.investigation_form, {"type": "fix", "call": "full"}
         )
@@ -184,13 +188,13 @@ class InvestigationForm(Refuses):
             self.refused(project.investigation_form, self.fix(cause="x")),
         )
 
-    def test_a_type_that_is_neither_fix_nor_question(self):
+    def test_a_type_that_is_neither_fix_nor_question(self) -> None:
         self.assertIn(
             "type is fix or question, not 'bug'",
             self.refused(project.investigation_form, self.fix(type="bug")),
         )
 
-    def test_a_call_the_type_does_not_have(self):
+    def test_a_call_the_type_does_not_have(self) -> None:
         self.assertIn(
             "call is small, full, not-a-bug or not-reproduced for a fix, and answer for a question; this one is 'maybe' for a fix",
             self.refused(
@@ -203,20 +207,20 @@ class InvestigationForm(Refuses):
             self.refused(project.investigation_form, self.fix(call="answer")),
         )
 
-    def test_a_line_that_is_not_one_line(self):
+    def test_a_line_that_is_not_one_line(self) -> None:
         for line in ("", "  ", "the cause\nand more"):
             self.assertIn(
                 "line is one line of text",
                 self.refused(project.investigation_form, self.fix(line=line)),
             )
 
-    def test_an_empty_place(self):
+    def test_an_empty_place(self) -> None:
         self.assertIn(
             "where is the cause's file and symbol, as path:symbol",
             self.refused(project.investigation_form, self.fix(where=" ")),
         )
 
-    def test_a_question_reproduces_nothing(self):
+    def test_a_question_reproduces_nothing(self) -> None:
         self.assertIn(
             "reproduced is a fix's",
             self.refused(
@@ -230,7 +234,7 @@ class InvestigationForm(Refuses):
             ),
         )
 
-    def test_a_fix_says_whether_the_bug_was_reproduced_as_json(self):
+    def test_a_fix_says_whether_the_bug_was_reproduced_as_json(self) -> None:
         self.assertIn(
             "written with :=",
             self.refused(
@@ -245,7 +249,7 @@ class InvestigationForm(Refuses):
             self.refused(project.investigation_form, fields),
         )
 
-    def test_a_plain_cause_has_a_place(self):
+    def test_a_plain_cause_has_a_place(self) -> None:
         fields = self.fix(call="small", line="the total skips credit notes")
         del fields["where"]
         self.assertIn(
@@ -253,7 +257,7 @@ class InvestigationForm(Refuses):
             self.refused(project.investigation_form, fields),
         )
 
-    def test_not_reproduced_that_says_it_was(self):
+    def test_not_reproduced_that_says_it_was(self) -> None:
         self.assertIn(
             "not-reproduced is a bug that was not reproduced, and this record says it was",
             self.refused(
@@ -285,7 +289,7 @@ class ReadForm(Refuses):
             **changes,
         }
 
-    def test_a_read_in_its_form(self):
+    def test_a_read_in_its_form(self) -> None:
         self.assertIsNone(project.read_form(self.read()))
         self.assertIsNone(
             project.read_form(
@@ -306,12 +310,12 @@ class ReadForm(Refuses):
             )
         )
 
-    def test_a_read_in_which_nobody_answered_in_its_form(self):
+    def test_a_read_in_which_nobody_answered_in_its_form(self) -> None:
         self.assertIsNone(
             project.read_form(self.read(answered=0, families=[], silent=self.QUIET))
         )
 
-    def test_a_missing_or_an_unknown_field(self):
+    def test_a_missing_or_an_unknown_field(self) -> None:
         fields = self.read()
         del fields["silent"]
         message = self.refused(project.read_form, fields)
@@ -321,27 +325,27 @@ class ReadForm(Refuses):
             message,
         )
 
-    def test_by_someone_else(self):
+    def test_by_someone_else(self) -> None:
         self.assertIn(
             "by is lem, when Lem ran the read",
             self.refused(project.read_form, self.read(by="owner")),
         )
 
-    def test_a_count_that_is_no_whole_number(self):
+    def test_a_count_that_is_no_whole_number(self) -> None:
         for value in ("2", -1, True):
             self.assertIn(
                 "each N is a whole number, written with :=",
                 self.refused(project.read_form, self.read(asked=value)),
             )
 
-    def test_families_that_are_no_list_of_names_each_once(self):
+    def test_families_that_are_no_list_of_names_each_once(self) -> None:
         for families in ("opus", ["opus", "opus"], [""], []):
             self.assertIn(
                 "families is the list of the model families that answered",
                 self.refused(project.read_form, self.read(families=families)),
             )
 
-    def test_silent_sources_without_their_name_and_why(self):
+    def test_silent_sources_without_their_name_and_why(self) -> None:
         for silent in (
             {},
             [{"name": "the buyer"}],
@@ -352,25 +356,25 @@ class ReadForm(Refuses):
                 self.refused(project.read_form, self.read(silent=silent)),
             )
 
-    def test_a_split_that_is_no_boolean(self):
+    def test_a_split_that_is_no_boolean(self) -> None:
         self.assertIn(
             "split is true when the two families answered a criterion differently",
             self.refused(project.read_form, self.read(split="false")),
         )
 
-    def test_a_digest_that_is_not_the_twelve_characters(self):
+    def test_a_digest_that_is_not_the_twelve_characters(self) -> None:
         self.assertIn(
             "digest is the twelve characters",
             self.refused(project.read_form, self.read(digest="abc")),
         )
 
-    def test_fewer_than_two_personas_asked(self):
+    def test_fewer_than_two_personas_asked(self) -> None:
         self.assertIn(
             "a read asks two personas at the least",
             self.refused(project.read_form, self.read(asked=1, answered=1)),
         )
 
-    def test_more_answered_than_asked(self):
+    def test_more_answered_than_asked(self) -> None:
         self.assertIn(
             "answered is at most asked",
             self.refused(project.read_form, self.read(answered=3)),
@@ -378,7 +382,7 @@ class ReadForm(Refuses):
 
     def test_a_read_in_which_nobody_answered_with_a_family_a_flag_or_an_unnamed_source(
         self,
-    ):
+    ) -> None:
         said = "a read in which nobody answered has families:='[]'"
         self.assertIn(
             said,
@@ -409,18 +413,18 @@ class ReadForm(Refuses):
             ),
         )
 
-    def test_fewer_answered_than_asked_with_nobody_named(self):
+    def test_fewer_answered_than_asked_with_nobody_named(self) -> None:
         self.assertIn(
             "silent names each source that did not, with why",
             self.refused(project.read_form, self.read(asked=3)),
         )
 
-    def test_no_criterion_or_more_flagged_than_read(self):
+    def test_no_criterion_or_more_flagged_than_read(self) -> None:
         said = "a read has one criterion at the least, and no more criteria flagged than it read"
         self.assertIn(said, self.refused(project.read_form, self.read(flagged=2)))
         self.assertIn(said, self.refused(project.read_form, self.read(criteria=0)))
 
-    def test_a_split_with_one_family(self):
+    def test_a_split_with_one_family(self) -> None:
         self.assertIn(
             "a split is between two model families, and families names one",
             self.refused(project.read_form, self.read(split=True)),
@@ -430,7 +434,7 @@ class ReadForm(Refuses):
 class StartForm(Refuses):
     """The start of each stage, from which the board draws its span."""
 
-    def test_each_start_in_its_form(self):
+    def test_each_start_in_its_form(self) -> None:
         for event, fields in [
             ("interview.start", {}),
             ("scout.start", {}),
@@ -448,19 +452,19 @@ class StartForm(Refuses):
             with self.subTest(event=event, fields=fields):
                 self.assertIsNone(project.start_form(event, fields))
 
-    def test_a_start_that_takes_nothing_with_a_field(self):
+    def test_a_start_that_takes_nothing_with_a_field(self) -> None:
         self.assertIn(
             "interview.start takes nothing; this one has by",
             self.refused(project.start_form, "interview.start", {"by": "lem"}),
         )
 
-    def test_a_start_without_its_field(self):
+    def test_a_start_without_its_field(self) -> None:
         self.assertIn(
             "criteria.read.start takes by=lem|lead, and nothing else; this one has no field",
             self.refused(project.start_form, "criteria.read.start", {}),
         )
 
-    def test_a_value_the_field_does_not_have(self):
+    def test_a_value_the_field_does_not_have(self) -> None:
         self.assertIn(
             "by is 'owner'",
             self.refused(project.start_form, "criteria.read.start", {"by": "owner"}),
@@ -472,7 +476,7 @@ class StartForm(Refuses):
             ),
         )
 
-    def test_another_field_in_place_of_its_own(self):
+    def test_another_field_in_place_of_its_own(self) -> None:
         self.assertIn(
             "investigation.start takes type=fix|question",
             self.refused(
@@ -480,7 +484,7 @@ class StartForm(Refuses):
             ),
         )
 
-    def test_a_job_no_builder_has(self):
+    def test_a_job_no_builder_has(self) -> None:
         message = self.refused(
             project.start_form, "builder.start", {"job": "the polish pass"}
         )
@@ -491,13 +495,13 @@ class StartForm(Refuses):
             self.refused(project.start_form, "builder.start", {"job": "task 0 of 3"}),
         )
 
-    def test_a_script_start_in_another_form(self):
+    def test_a_script_start_in_another_form(self) -> None:
         self.assertIn(
             "gate.start takes tip=TIP commands:=N",
             self.refused(project.start_form, "gate.start", {"tip": "abc123456"}),
         )
 
-    def test_a_tip_that_is_no_commit(self):
+    def test_a_tip_that_is_no_commit(self) -> None:
         self.assertIn(
             "the tip is a commit, as git names it",
             self.refused(
@@ -509,7 +513,7 @@ class StartForm(Refuses):
             self.refused(project.start_form, "polish.start", {"before": "abc"}),
         )
 
-    def test_a_count_below_one_or_no_number(self):
+    def test_a_count_below_one_or_no_number(self) -> None:
         self.assertIn(
             "commands is a whole number, 1 or more, written with :=",
             self.refused(
@@ -527,10 +531,10 @@ class StartForm(Refuses):
 class TalkStartForm(Refuses):
     """The start of a plan talk names its reviewer and nothing else."""
 
-    def test_a_start_that_names_its_reviewer(self):
+    def test_a_start_that_names_its_reviewer(self) -> None:
         self.assertIsNone(project.talk_start_form({"reviewer": "codex"}))
 
-    def test_a_start_with_no_reviewer_another_field_or_a_blank_one(self):
+    def test_a_start_with_no_reviewer_another_field_or_a_blank_one(self) -> None:
         said = "plan.talk.start takes reviewer=AGENT, and nothing else"
         self.assertIn(
             f"{said}; this one has no field", self.refused(project.talk_start_form, {})
@@ -561,10 +565,10 @@ class TalkForm(Refuses):
             **changes,
         }
 
-    def test_a_talk_in_its_form(self):
+    def test_a_talk_in_its_form(self) -> None:
         self.assertIsNone(project.talk_form(self.talk()))
 
-    def test_a_talk_of_no_question_and_two_turns(self):
+    def test_a_talk_of_no_question_and_two_turns(self) -> None:
         self.assertIsNone(
             project.talk_form(
                 self.talk(
@@ -581,7 +585,7 @@ class TalkForm(Refuses):
             )
         )
 
-    def test_what_breaks_a_rule_of_the_talk_and_not_a_count_is_taken(self):
+    def test_what_breaks_a_rule_of_the_talk_and_not_a_count_is_taken(self) -> None:
         # more decisions two questions named than design choices, and more turns than its bound
         self.assertIsNone(project.talk_form(self.talk(shared=2)))
         self.assertIsNone(
@@ -617,7 +621,7 @@ class TalkForm(Refuses):
             )
         )
 
-    def test_a_missing_or_an_unknown_field(self):
+    def test_a_missing_or_an_unknown_field(self) -> None:
         fields = self.talk()
         for key in ("root", "layer", "shared"):
             del fields[key]
@@ -632,20 +636,20 @@ class TalkForm(Refuses):
             self.refused(project.talk_form, self.talk(bound=5)),
         )
 
-    def test_a_blank_reviewer(self):
+    def test_a_blank_reviewer(self) -> None:
         self.assertIn(
             "reviewer names the agent that argued the plan with its defender",
             self.refused(project.talk_form, self.talk(reviewer=" ")),
         )
 
-    def test_a_count_that_is_no_whole_number(self):
+    def test_a_count_that_is_no_whole_number(self) -> None:
         for changes in ({"layer": "1"}, {"turns": "5"}, {"shared": -1}, {"open": True}):
             self.assertIn(
                 "each N is a whole number, written with := so that it stays one",
                 self.refused(project.talk_form, self.talk(**changes)),
             )
 
-    def test_fewer_than_two_turns(self):
+    def test_fewer_than_two_turns(self) -> None:
         self.assertIn(
             "a talk has two turns at the least",
             self.refused(
@@ -666,7 +670,7 @@ class TalkForm(Refuses):
 
     def test_a_talk_of_no_question_and_two_turns_with_a_question_raised_after_the_list(
         self,
-    ):
+    ) -> None:
         self.assertIn(
             "a talk of no question and two turns has no turn after the list, so unargued is 0",
             self.refused(
@@ -686,19 +690,19 @@ class TalkForm(Refuses):
             ),
         )
 
-    def test_settled_and_open_that_do_not_add_up_to_questions(self):
+    def test_settled_and_open_that_do_not_add_up_to_questions(self) -> None:
         self.assertIn(
             "settled and open add up to questions",
             self.refused(project.talk_form, self.talk(settled=1)),
         )
 
-    def test_more_design_choices_than_open_questions(self):
+    def test_more_design_choices_than_open_questions(self) -> None:
         self.assertIn(
             "design is at most open",
             self.refused(project.talk_form, self.talk(design=2)),
         )
 
-    def test_more_repairs_than_questions(self):
+    def test_more_repairs_than_questions(self) -> None:
         self.assertIn(
             "repaired is at most questions",
             self.refused(
@@ -707,7 +711,7 @@ class TalkForm(Refuses):
             ),
         )
 
-    def test_more_repairs_at_the_cause_and_layers_than_repairs(self):
+    def test_more_repairs_at_the_cause_and_layers_than_repairs(self) -> None:
         self.assertIn(
             "root and layer add up to at most repaired",
             self.refused(project.talk_form, self.talk(layer=2, shared=0)),
@@ -734,7 +738,7 @@ class SeatCall(unittest.TestCase):
     """`seat_call`: what a seat whose agent gave one of the four errors comes to, the fallback's seat that
     stands in or the first line of the block, from the seat that failed, its error and the fallback."""
 
-    def test_the_fallback_stands_in_for_a_reviewer_with_no_tokens(self):
+    def test_the_fallback_stands_in_for_a_reviewer_with_no_tokens(self) -> None:
         # criterion 3: a Codex reviewer with no tokens, the fallback claude/opus:high
         self.assertEqual(
             project.seat_call("reviewer", "codex/gpt-6.2-sol:high", "tokens", CLAUDE),
@@ -748,7 +752,9 @@ class SeatCall(unittest.TestCase):
             },
         )
 
-    def test_a_project_with_no_fallback_blocks_in_the_words_of_criterion_5(self):
+    def test_a_project_with_no_fallback_blocks_in_the_words_of_criterion_5(
+        self,
+    ) -> None:
         self.assertEqual(
             project.seat_call(
                 "reviewer",
@@ -763,7 +769,7 @@ class SeatCall(unittest.TestCase):
 
     def test_the_stand_in_that_fails_too_and_a_fallback_that_is_the_named_seat_block(
         self,
-    ):
+    ) -> None:
         # one rule for both: the seat that failed is the fallback, a stand-in's or a reviewer the settings name so
         self.assertEqual(
             project.seat_call("reviewer", "claude/opus:high", "login", CLAUDE),
@@ -772,7 +778,9 @@ class SeatCall(unittest.TestCase):
             },
         )
 
-    def test_a_fallback_whose_agent_cannot_sit_in_the_planners_seat_blocks(self):
+    def test_a_fallback_whose_agent_cannot_sit_in_the_planners_seat_blocks(
+        self,
+    ) -> None:
         self.assertEqual(
             project.seat_call("planner", "claude/opus:high", "model", CODEX),
             {
@@ -781,7 +789,7 @@ class SeatCall(unittest.TestCase):
             },
         )
 
-    def test_the_merge_agent_takes_a_codex_fallback(self):
+    def test_the_merge_agent_takes_a_codex_fallback(self) -> None:
         self.assertEqual(
             project.seat_call("merger", "claude", "missing", CODEX)["took"]["seat"],
             "codex/gpt-6.2-sol:high",
@@ -791,7 +799,7 @@ class SeatCall(unittest.TestCase):
 class FailedLine(Refuses):
     """The fixed line of a block a seat's error wrote, `the seat that failed: SEAT`, which `state` takes in that form only."""
 
-    def test_the_line_of_each_seat_and_its_seat(self):
+    def test_the_line_of_each_seat_and_its_seat(self) -> None:
         for seat in ("reviewer", "planner", "merger"):
             project.fixed_form(f"the seat that failed: {seat}")
             self.assertEqual(
@@ -802,7 +810,7 @@ class FailedLine(Refuses):
             )
         self.assertIsNone(project.failed_seat(["the base is red"]))
 
-    def test_another_seat_or_form_is_refused(self):
+    def test_another_seat_or_form_is_refused(self) -> None:
         for line in (
             "the seat that failed: experts",
             "the seat that failed:reviewer",
@@ -819,14 +827,14 @@ class SeatCommands(Refuses):
     """`lem project seat`, `seat-failed` and `seat-again` over a task of a git repository of its own in a temporary
     folder, with a temporary XDG_CONFIG_HOME, so that no settings file and no state folder of this machine is read."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.kept = os.environ.get("XDG_CONFIG_HOME")
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         os.environ["XDG_CONFIG_HOME"] = str(Path(folder.name) / "home")
         self.addCleanup(self.home_back)
 
-    def home_back(self):
+    def home_back(self) -> None:
         if self.kept is None:
             os.environ.pop("XDG_CONFIG_HOME", None)
         else:
@@ -855,7 +863,9 @@ class SeatCommands(Refuses):
             if event.get("task") == "plan-talk"
         ]
 
-    def test_a_codex_reviewer_with_no_tokens_takes_the_fallback_and_keeps_it(self):
+    def test_a_codex_reviewer_with_no_tokens_takes_the_fallback_and_keeps_it(
+        self,
+    ) -> None:
         # criterion 3: mybaze names Codex as its reviewer, and its fallback is Lem's default
         root = self.repo("mybaze", 'reviewer = "codex/gpt-6.2-sol:high"')
         self.assertEqual(
@@ -903,7 +913,7 @@ class SeatCommands(Refuses):
 
     def test_a_project_with_no_fallback_blocks_waits_for_the_owner_and_his_go_on_tries_the_seat_again(
         self,
-    ):
+    ) -> None:
         # criterion 5, its four steps
         root = self.repo(
             "billing-core", 'reviewer = "codex/gpt-6.2-sol:high"', "fallback = false"
@@ -958,7 +968,9 @@ class SeatCommands(Refuses):
             self.refused(project.cmd_seat_again, root, "plan-talk"),
         )
 
-    def test_a_stand_in_that_fails_too_blocks_and_the_go_on_ends_the_stand_in(self):
+    def test_a_stand_in_that_fails_too_blocks_and_the_go_on_ends_the_stand_in(
+        self,
+    ) -> None:
         root = self.repo("mybaze", 'reviewer = "codex/gpt-6.2-sol:high"')
         project.cmd_seat_failed(
             root, "plan-talk", "reviewer", "codex/gpt-6.2-sol:high", "tokens", None
@@ -980,7 +992,7 @@ class SeatCommands(Refuses):
             [event["seat"] for event in self.events(root, "seat.again")], ["reviewer"]
         )
 
-    def test_a_planner_whose_fallback_is_codex_blocks(self):
+    def test_a_planner_whose_fallback_is_codex_blocks(self) -> None:
         root = self.repo("notes-app", 'fallback = "codex/gpt-6.2-sol:high"')
         said = project.cmd_seat_failed(
             root, "plan-talk", "planner", "claude/opus:high", "tokens", None
@@ -995,7 +1007,7 @@ class SeatCommands(Refuses):
             "the seat that failed: planner",
         )
 
-    def test_the_experts_and_the_session_take_no_fallback(self):
+    def test_the_experts_and_the_session_take_no_fallback(self) -> None:
         # criterion 8
         root = self.repo("notes-app")
         self.assertIn(
@@ -1028,7 +1040,7 @@ class SeatCommands(Refuses):
         )
         self.assertEqual(self.events(root, *project.SEAT_EVENTS), [])
 
-    def test_a_slow_agent_or_a_wrong_line_is_no_seat_that_failed(self):
+    def test_a_slow_agent_or_a_wrong_line_is_no_seat_that_failed(self) -> None:
         root = self.repo("notes-app")
         self.assertIn(
             "A slow agent is no error: wait for it",
@@ -1056,7 +1068,7 @@ class SeatCommands(Refuses):
         )
         self.assertEqual(self.events(root, *project.SEAT_EVENTS), [])
 
-    def test_the_events_and_open_over_a_block_are_the_commands_own(self):
+    def test_the_events_and_open_over_a_block_are_the_commands_own(self) -> None:
         root = self.repo("billing-core", "fallback = false")
         self.assertIn(
             "written by `lem project seat-failed`",
@@ -1076,7 +1088,7 @@ class SeatCommands(Refuses):
 
     def test_the_owners_go_on_over_a_merge_agents_block_gives_open_with_its_pull_request(
         self,
-    ):
+    ) -> None:
         # criterion 5, the merge agent's seat: an open task, its merge agent with no tokens and no fallback, then the go on
         root = self.repo(
             "billing-core", 'merger = "codex/gpt-6.2-sol:high"', "fallback = false"
@@ -1120,7 +1132,7 @@ class SeatCommands(Refuses):
             [event["seat"] for event in self.events(root, "seat.again")], ["merger"]
         )
 
-    def test_a_leads_state_never_comes_over_a_seats_block(self):
+    def test_a_leads_state_never_comes_over_a_seats_block(self) -> None:
         # the defender's seat-failed wrote `blocked` before the lead's `building` of the pair's open: that `building`
         # would take the task out of "Waits for you", seat-again would refuse it, and the lead's wait would loop
         root = self.repo(

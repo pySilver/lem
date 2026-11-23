@@ -8,7 +8,7 @@ agtermctl.
 import importlib
 import sys
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest import mock
 
@@ -19,7 +19,7 @@ picker = importlib.import_module("picker")
 
 
 class StateWords(unittest.TestCase):
-    def test_an_investigation_line_counts_on_any_line_of_the_newest_block(self):
+    def test_an_investigation_line_counts_on_any_line_of_the_newest_block(self) -> None:
         second = {
             "status": "building",
             "state": "2026-11-21T10:00Z building: an investigator reproduces the bug\ninvestigation: bug",
@@ -31,7 +31,7 @@ class StateWords(unittest.TestCase):
         self.assertEqual(picker.state_words(second, None), picker.INVESTIGATING)
         self.assertEqual(picker.state_words(first, None), picker.INVESTIGATING)
 
-    def test_a_lead_that_builds_is_no_investigation(self):
+    def test_a_lead_that_builds_is_no_investigation(self) -> None:
         task = {
             "status": "building",
             "state": "2026-11-21T10:00Z building: lead: builder\ntask 1 of 3",
@@ -43,7 +43,7 @@ class StateWords(unittest.TestCase):
         )
 
 
-NOW = datetime(2026, 11, 22, 12, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 11, 22, 12, 0, tzinfo=UTC)
 
 
 def task(slug: str, status: str, since: datetime) -> dict:
@@ -97,7 +97,7 @@ def picked(tasks: list[dict], held: tuple[str, ...] = ()) -> list[str]:
 class Ended(unittest.TestCase):
     """Criterion 5: the picker lists the tasks that ended last, as many as Done draws, whenever they ended."""
 
-    def test_three_tasks_that_all_ended_a_month_ago_each_have_a_row(self):
+    def test_three_tasks_that_all_ended_a_month_ago_each_have_a_row(self) -> None:
         self.assertEqual(
             picked(ended(3, NOW - timedelta(days=30))),
             ["ended-01", "ended-02", "ended-03", picker.ALL],
@@ -105,12 +105,14 @@ class Ended(unittest.TestCase):
 
     def test_with_25_ended_tasks_the_20_that_ended_last_have_a_row_the_newest_first(
         self,
-    ):
+    ) -> None:
         self.assertEqual(picker.lem_board_model.DONE_SHOWN, 20)
         rows = picked(list(reversed(ended(25, NOW))))
         self.assertEqual(rows, [f"ended-{n:02d}" for n in range(1, 21)] + [picker.ALL])
 
-    def test_what_waits_for_the_owner_and_what_builds_stay_above_the_ended_tasks(self):
+    def test_what_waits_for_the_owner_and_what_builds_stay_above_the_ended_tasks(
+        self,
+    ) -> None:
         # the two above are older than every ended task: the order is by place, not by time
         tasks = ended(3, NOW) + [
             task("his-step", "held", NOW - timedelta(days=40)),

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Say where one repository keeps what Lem reads, and what its flow settings are.
 
 Every project keeps its own settings in its repository: the machine checks of a landing, what must
@@ -465,8 +464,8 @@ import json
 import os
 import re
 import shlex
-import signal
 import shutil
+import signal
 import stat
 import subprocess
 import tempfile
@@ -474,7 +473,7 @@ import threading
 import time
 import tomllib
 from collections.abc import Iterator
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 # The one place that says where the state is, shared with the scripts that cannot import this file.
@@ -1666,7 +1665,7 @@ def cmd_plan_file(settings: dict, slug: str, day: str | None) -> None:
     """The name a task's plan takes, written today or on DAY, and the plan the plans folder holds now."""
     if not SLUG.fullmatch(slug):
         raise SettingsError(f"slug {slug!r} must be lower-case words joined by hyphens")
-    day = day or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    day = day or datetime.now(UTC).strftime("%Y-%m-%d")
     try:
         datetime.strptime(day, "%Y-%m-%d")
     except ValueError as error:
@@ -2925,7 +2924,7 @@ def append_event(root: Path, event: str, slug: str, fields: dict) -> dict:
     """Append one record to the log, under the log's lock: a `prune` that rewrites the log either
     has not read it yet, or has put its new file in place, and the record goes into the file that stays."""
     record = {
-        "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "ts": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "event": event,
         "task": slug,
         **fields,
@@ -3136,7 +3135,7 @@ def cmd_state(
         if status == "answered":
             answered_form(root, directory, slug)
         # the time is the clock's, never a writer's estimate
-        since = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
+        since = datetime.now(UTC).strftime("%Y-%m-%dT%H:%MZ")
         block = "\n".join(
             [
                 f"{since} {status}: {lines[0].strip()}",
@@ -4586,7 +4585,7 @@ def append_owner(root: Path, away: bool, words: str) -> dict:
     is absent. One short line in one write with O_APPEND: two repositories that write at once each
     add their own line whole, so no lock is kept beside it."""
     record = {
-        "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "ts": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "event": OWNER,
         "task": None,
         "away": away,
@@ -4945,18 +4944,12 @@ def opening_line_facts(
         path = "investigation"
     elif then:
         path = THEN_PATHS[then]
-    elif (
-        status in ("building", "queued")
-        and FAST_BUILDER in said
-        or status == "queued"
-        and "prompts/small.md" in brief
+    elif (status in ("building", "queued") and FAST_BUILDER in said) or (
+        status == "queued" and "prompts/small.md" in brief
     ):
         path = "fast"
-    elif (
-        status == "building"
-        and any(LEAD_LINE.match(line) for line in said)
-        or status == "queued"
-        and "prompts/lead.md" in brief
+    elif (status == "building" and any(LEAD_LINE.match(line) for line in said)) or (
+        status == "queued" and "prompts/lead.md" in brief
     ):
         path = "complete"
     else:
@@ -5954,7 +5947,7 @@ def cmd_proposals_add(
                 f"the move of proposal {n} of the run is one line; its body says the rest"
             )
     file = record_file(state, kind, day)
-    at = now.astimezone(timezone.utc).strftime(RUN_TIME)
+    at = now.astimezone(UTC).strftime(RUN_TIME)
     with proposals_lock(state):
         record = read_record(file, kind) or {
             "date": day,
@@ -5997,7 +5990,7 @@ def cmd_proposals_read(state: Path) -> dict:
         "refuted": [],
         "passed": [],
         "dropped": [],
-        "newest": {kind: None for kind in PROPOSAL_KINDS},
+        "newest": dict.fromkeys(PROPOSAL_KINDS),
     }
     for kind, file, record in records_of(state):
         verdicts = {
@@ -6623,7 +6616,7 @@ def cmd_serial(root: Path, words: list[str]) -> int:
         handle.seek(0)
         handle.truncate()
         handle.write(
-            f"pid {os.getpid()}, since {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}, in {os.getcwd()}: {shown}\n"
+            f"pid {os.getpid()}, since {datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%SZ')}, in {os.getcwd()}: {shown}\n"
         )
         handle.flush()
         proc: subprocess.Popen | None = None
@@ -6641,7 +6634,7 @@ def cmd_serial(root: Path, words: list[str]) -> int:
                 words[0] if len(words) == 1 else words,
                 shell=len(words) == 1,
                 start_new_session=True,
-            )  # noqa: S602
+            )
             code = proc.wait()
         except InterruptedError as stop:
             code = 128 + stop.args[0]
@@ -6675,7 +6668,7 @@ def nap_time(name: str) -> datetime | None:
     if not found:
         return None
     try:
-        return datetime.strptime(found["time"], NAP_TIME).replace(tzinfo=timezone.utc)
+        return datetime.strptime(found["time"], NAP_TIME).replace(tzinfo=UTC)
     except ValueError:
         return None
 
@@ -6691,7 +6684,7 @@ def cmd_may_nap(root: Path) -> None:
     naps = settings["naps"]
     folder = state_root(root) / "naps"
     folder.mkdir(exist_ok=True)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     kept = []
     for entry in sorted(folder.iterdir()):
         when = nap_time(entry.name)
@@ -6704,7 +6697,7 @@ def cmd_may_nap(root: Path) -> None:
         try:
             asleep = json.loads(text_of(marker))
             since = datetime.strptime(asleep["since"], "%Y-%m-%dT%H:%M:%SZ").replace(
-                tzinfo=timezone.utc
+                tzinfo=UTC
             )
             started = asleep["time"]
             if not isinstance(started, str) or not NAP_NAME.fullmatch(started):
@@ -6845,7 +6838,7 @@ def task_calls(found: list[dict], events: list[dict], cutoff: datetime) -> list[
             continue
         try:
             last = datetime.strptime(newest[slug], "%Y-%m-%dT%H:%M:%SZ").replace(
-                tzinfo=timezone.utc
+                tzinfo=UTC
             )
         except ValueError:
             calls.append(
@@ -6982,7 +6975,7 @@ def last_write(path: Path) -> float:
 
 
 def stamp_of(seconds: float) -> str:
-    return datetime.fromtimestamp(seconds, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.fromtimestamp(seconds, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 # What a line of the log that does not read stops in `prune`, which dates each ended task by the log.
@@ -7018,9 +7011,7 @@ def log_events(root: Path, why: str = PRUNE_STOPS) -> list[dict]:
 
 def stamp_ms(ms: int) -> str:
     """A time of the board's model, in ms, as the log writes a `ts`."""
-    return datetime.fromtimestamp(ms / 1000, timezone.utc).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+    return datetime.fromtimestamp(ms / 1000, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def summary_of(slug: str, records: list[dict], now: int) -> dict:
@@ -7281,7 +7272,7 @@ def cmd_prune(root: Path, dry: bool, days: int | None) -> tuple[dict, int]:
             f"{state} is a link, and prune removes nothing through a link: make the state folder a folder of the main checkout"
         )
     remover = Remover(state, dry)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cutoff = now - timedelta(days=keep)
     tasks_folder = state / "tasks"
     found, links = [], []
@@ -7867,7 +7858,7 @@ def main(argv: list[str] | None = None) -> None:
 def proposals_command(root: Path, args: argparse.Namespace) -> dict:
     """`lem project proposals ACT`: the day is today in UTC, as the time of a run is."""
     state = state_root(root)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if args.act == "read":
         return cmd_proposals_read(state)
     if args.act == "drop":

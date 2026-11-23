@@ -17,7 +17,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest import mock
 
@@ -61,12 +61,12 @@ The lead plans the export's column.
 class Machine(unittest.TestCase):
     """Each case runs with a folder of its own as XDG_CONFIG_HOME: the home directory's file is never read."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.kept = os.environ.get("XDG_CONFIG_HOME")
         self.folder = tempfile.TemporaryDirectory()
         os.environ["XDG_CONFIG_HOME"] = self.folder.name
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         if self.kept is None:
             os.environ.pop("XDG_CONFIG_HOME", None)
         else:
@@ -80,14 +80,14 @@ class Machine(unittest.TestCase):
 
 
 class Tokens(Machine):
-    def test_absent_is_lems_number_and_zero_sets_nothing(self):
+    def test_absent_is_lems_number_and_zero_sets_nothing(self) -> None:
         self.assertEqual(lem_state.handoff_tokens(), 600_000)
         self.written("[handoff]\ntokens = 0\n")
         self.assertIsNone(lem_state.handoff_tokens())
         self.written("[handoff]\ntokens = 250000\n")
         self.assertEqual(lem_state.handoff_tokens(), 250_000)
 
-    def test_under_the_floor_a_negative_a_bool_and_a_float_are_refused(self):
+    def test_under_the_floor_a_negative_a_bool_and_a_float_are_refused(self) -> None:
         for value, says in (
             ("99999", "100000 or more"),
             ("-1", "100000 or more"),
@@ -103,7 +103,7 @@ class Tokens(Machine):
 
     def test_the_command_writes_the_number_and_default_takes_it_out_keeping_the_other_tables(
         self,
-    ):
+    ) -> None:
         self.written("[load]\nstart = 6\n")
         self.assertEqual(project.cmd_handoff("300000")["tokens"], 300_000)
         self.assertEqual(lem_state.machine_table("load"), {"start": 6})
@@ -127,7 +127,7 @@ class Load(Machine):
     """`[load] start`: Lem's 40 on a machine with no number, the developer's own when he set one, and no
     gate after `--start none`, which a later read keeps."""
 
-    def test_a_new_machine_gates_at_forty(self):
+    def test_a_new_machine_gates_at_forty(self) -> None:
         self.assertFalse(lem_state.machine_file().exists())
         self.assertEqual(lem_state.load_start(), 40.0)
         shown = project.cmd_load(None)
@@ -139,7 +139,7 @@ class Load(Machine):
             else "closed: the checks wait for a load below 40",
         )
 
-    def test_his_number_wins_and_none_stays_none(self):
+    def test_his_number_wins_and_none_stays_none(self) -> None:
         self.written("[serve]\nport = 4500\n")
         mine = project.cmd_load("12")
         self.assertEqual((mine["start"], mine["default"]), (12.0, False))
@@ -156,7 +156,7 @@ class Load(Machine):
             with self.subTest(wrong=wrong), self.assertRaises(project.SettingsError):
                 project.cmd_load(wrong)
 
-    def test_a_negative_number_written_by_hand_is_refused(self):
+    def test_a_negative_number_written_by_hand_is_refused(self) -> None:
         self.written("[load]\nstart = -1\n")
         with self.assertRaises(lem_state.StateError) as raised:
             lem_state.load_start()
@@ -174,7 +174,7 @@ class Seat(Machine):
             "session"
         ]
 
-    def test_the_repository_the_home_file_or_the_agent(self):
+    def test_the_repository_the_home_file_or_the_agent(self) -> None:
         own = self.decided(
             ["[seats]", 'session = "claude/m1:high"'], {"session": "claude/m2"}
         )
@@ -193,14 +193,16 @@ class Seat(Machine):
             ("claude", "opus", "high", "Lem's default"),
         )
 
-    def test_only_claude_sits_there(self):
+    def test_only_claude_sits_there(self) -> None:
         with self.assertRaises(project.SettingsError) as raised:
             self.decided(["[seats]", 'session = "codex:high"'], {})
         self.assertIn(
             "a task's session runs Claude Code only for now", str(raised.exception)
         )
 
-    def test_the_machine_file_refuses_the_seats_and_names_the_home_settings(self):
+    def test_the_machine_file_refuses_the_seats_and_names_the_home_settings(
+        self,
+    ) -> None:
         # criterion 3 of one-home-folder-for-lem: the seats are no fact of the whole machine
         self.written('[seats]\nsession = "claude:high"\n')
         with self.assertRaises(lem_state.StateError) as raised:
@@ -212,7 +214,7 @@ class Seat(Machine):
 
 
 class Phase(unittest.TestCase):
-    def test_the_phase_comes_from_the_state(self):
+    def test_the_phase_comes_from_the_state(self) -> None:
         cases = [
             ((None, None, None, False), "shape"),
             (("held", "the interview waits for the owner", "standard", False), "shape"),
@@ -247,7 +249,7 @@ class Phase(unittest.TestCase):
 
     def test_a_block_of_the_merge_agents_seat_is_the_landings_and_one_of_the_talk_the_builds(
         self,
-    ):
+    ) -> None:
         merger = "2026-11-23T10:00Z blocked: the merge agent `codex/gpt-6.2-sol:high` gave an error: no tokens, and this project permits no fallback\nthe seat that failed: merger"
         reviewer = merger.replace("the merge agent", "the reviewer").replace(
             "failed: merger", "failed: reviewer"
@@ -291,7 +293,7 @@ class Phase(unittest.TestCase):
             "land",
         )
 
-    def test_a_task_queued_in_the_shape_goes_on_in_the_shape(self):
+    def test_a_task_queued_in_the_shape_goes_on_in_the_shape(self) -> None:
         # queued at step 7 of "The request": no lead ran, so its session takes step 8 there
         state = (
             '2026-11-21T10:01Z queued: the owner\'s order: "After coupon: unit cases"\nafter: coupon\nthen: the interview\n\n'
@@ -316,7 +318,7 @@ class Phase(unittest.TestCase):
             "shape",
         )
 
-    def test_a_task_its_lead_queued_goes_on_in_the_build(self):
+    def test_a_task_its_lead_queued_goes_on_in_the_build(self) -> None:
         # a `lead:` line in any block, the first line's text or a line under it
         for older in (
             "2026-11-21T10:00Z building: lead: builder",
@@ -336,7 +338,7 @@ class Phase(unittest.TestCase):
                     "build",
                 )
 
-    def test_a_task_that_gets_no_session(self):
+    def test_a_task_that_gets_no_session(self) -> None:
         for facts, says in (
             (("parked", "put aside", "standard", True), "is parked"),
             (("landed", "merged", "standard", False), "landed and cleaned"),
@@ -351,7 +353,7 @@ class Phase(unittest.TestCase):
                 session.phase_of(SLUG, *facts, "")
             self.assertIn(says, str(raised.exception))
 
-    def test_a_dropped_task_whose_worktree_stays_gets_its_land_session(self):
+    def test_a_dropped_task_whose_worktree_stays_gets_its_land_session(self) -> None:
         # a pull request closed on GitHub while no session ran: the server's wake opens the task's session,
         # which pays what its ticket is owed and cleans up, as it does for a merged one
         closed = "the pull request was closed on the forge"
@@ -367,7 +369,7 @@ class Phase(unittest.TestCase):
 
     def test_a_quiet_talk_ends_the_wait_after_45_minutes_counted_from_the_later_of_the_file_and_the_wait(
         self,
-    ):
+    ) -> None:
         began = 1_000_000.0
         minute = 60.0
         # talk-turns.md written at the wait's start: 44 minutes later the wait goes on, at 45 it ends
@@ -387,7 +389,7 @@ class Phase(unittest.TestCase):
         )
         self.assertEqual(session.QUIET_SECONDS, 45 * 60)
 
-    def test_a_queued_task_waits_for_its_after_task_until_that_one_ended(self):
+    def test_a_queued_task_waits_for_its_after_task_until_that_one_ended(self) -> None:
         queued = {
             "slug": SLUG,
             "status": "queued",
@@ -410,7 +412,9 @@ class Phase(unittest.TestCase):
             )
         )
 
-    def test_a_task_queued_behind_a_dropped_task_waits_for_the_owners_word(self):
+    def test_a_task_queued_behind_a_dropped_task_waits_for_the_owners_word(
+        self,
+    ) -> None:
         queued = {
             "slug": "export-notes-in-order",
             "status": "queued",
@@ -436,7 +440,7 @@ class Phase(unittest.TestCase):
         )
         self.assertIsNone(session.queued_behind(started, [started, dropped]))
 
-    def test_the_after_line_is_read_from_every_line_its_first_too(self):
+    def test_the_after_line_is_read_from_every_line_its_first_too(self) -> None:
         # as `may-start` and the board read it: a block whose first line is `after: coupon`
         first = {
             "slug": SLUG,
@@ -470,7 +474,7 @@ class Phase(unittest.TestCase):
 
     def test_the_phase_that_ends_is_the_states_and_not_the_one_the_session_opened_in(
         self,
-    ):
+    ) -> None:
         def block(status: str, text: str) -> dict:
             return {"status": status, "text": text}
 
@@ -543,7 +547,7 @@ class FirstLine(unittest.TestCase):
             **more,
         }
 
-    def test_the_line_in_the_form_for_another_session(self):
+    def test_the_line_in_the_form_for_another_session(self) -> None:
         said = self.state(
             "building",
             "small change: one builder",
@@ -560,7 +564,7 @@ class FirstLine(unittest.TestCase):
         self.assertIsNone(session.first_line_end(SLUG, [asked], False))
         self.assertIsNone(session.first_line_end(SLUG, [], False))
 
-    def test_a_block_no_line_will_follow(self):
+    def test_a_block_no_line_will_follow(self) -> None:
         typed = self.state(
             "building", "small change: one builder", "type: docs, because a line"
         )
@@ -618,7 +622,7 @@ class FirstLine(unittest.TestCase):
         ):
             return session.cmd_first_line(ROOT, SLUG, 0.01, bound)
 
-    def test_a_gone_session_and_the_bound(self):
+    def test_a_gone_session_and_the_bound(self) -> None:
         gone = self.run_wait([], {"session": "S-9", "name": SLUG}, 60)
         self.assertEqual(
             (gone["say"], gone["gone"], gone["session"]), (None, True, "S-9")
@@ -684,7 +688,7 @@ class Close(unittest.TestCase):
                 ROOT, SLUG, session_id, "handoff", False, 0.01
             ), closed
 
-    def test_a_close_by_id_closes_only_a_session_of_that_task(self):
+    def test_a_close_by_id_closes_only_a_session_of_that_task(self) -> None:
         with self.assertRaises(session.SessionError) as raised:
             self.close("S-7")
         self.assertIn("S-7 is no session of gift-note", str(raised.exception))
@@ -712,7 +716,7 @@ class JobLine(unittest.TestCase):
         "high",
     ]
 
-    def test_an_agent_a_job_started_with_its_line_last(self):
+    def test_an_agent_a_job_started_with_its_line_last(self) -> None:
         for line in ("/lem night", "/lem night 2", "/lem night 12", "/lem retro"):
             self.assertEqual(
                 session.job_line({"foreground": [*self.AGENT, line]}), line
@@ -726,7 +730,7 @@ class JobLine(unittest.TestCase):
             "/lem night 3",
         )
 
-    def test_an_agent_the_owner_started_or_a_line_that_is_no_job(self):
+    def test_an_agent_the_owner_started_or_a_line_that_is_no_job(self) -> None:
         # he started claude with no prompt and typed /lem retro into it
         self.assertIsNone(session.job_line({"foreground": self.AGENT}))
         self.assertIsNone(
@@ -816,7 +820,7 @@ class Wake(unittest.TestCase):
         ):
             return session.cmd_wake(ROOT, SLUG, why, None), sent, logged
 
-    def test_the_inbox_wakes_a_live_session_and_opens_none(self):
+    def test_the_inbox_wakes_a_live_session_and_opens_none(self) -> None:
         # the board server's word when a thing of the task went to the Inbox, or a reply came for a gone session
         self.assertIn("inbox", session.WAKES)
         done, sent, logged = self.wake("inbox", True)
@@ -833,7 +837,7 @@ class Wake(unittest.TestCase):
 
 
 class Agent(unittest.TestCase):
-    def test_an_agent_in_the_left_pane(self):
+    def test_an_agent_in_the_left_pane(self) -> None:
         self.assertTrue(
             session.agent_runs(
                 {"foreground": ["/usr/local/bin/claude", "--resume", "x"]}
@@ -848,7 +852,7 @@ class Agent(unittest.TestCase):
         self.assertFalse(session.agent_runs({"realized": True}))
         self.assertIsNone(session.agent_runs({"realized": False}))
 
-    def test_the_launch_lines_shell_runs_the_agent_in_its_command(self):
+    def test_the_launch_lines_shell_runs_the_agent_in_its_command(self) -> None:
         # agterm's tree for a live task session that Claude Code held idle (lem-scratch, 2026-11-21)
         ground = [
             "/opt/homebrew/bin/fish",
@@ -857,7 +861,7 @@ class Agent(unittest.TestCase):
             'LEM_TASK=profile-names-working-days CLAUDE_CODE_AUTO_COMPACT_WINDOW=600000 claude --model opus --effort high "Read /x/session.md and follow it."',
         ]
         self.assertTrue(session.agent_runs({"foreground": ground, "realized": True}))
-        now = datetime(2026, 11, 21, 10, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 11, 21, 10, 0, 0, tzinfo=UTC)
         self.assertTrue(
             session.live({"foreground": ground}, {"ts": "2026-11-21T08:00:00Z"}, now)
         )
@@ -871,7 +875,7 @@ class Agent(unittest.TestCase):
         )
         self.assertTrue(session.agent_runs({"foreground": shlex.split(line)}))
 
-    def test_a_shell_whose_command_is_no_agent_or_cannot_be_read(self):
+    def test_a_shell_whose_command_is_no_agent_or_cannot_be_read(self) -> None:
         self.assertFalse(
             session.agent_runs({"foreground": ["/bin/zsh", "-l"], "realized": True})
         )
@@ -893,8 +897,8 @@ class Agent(unittest.TestCase):
             )
         )
 
-    def test_a_session_counts_while_its_agent_starts(self):
-        now = datetime(2026, 11, 21, 10, 0, 0, tzinfo=timezone.utc)
+    def test_a_session_counts_while_its_agent_starts(self) -> None:
+        now = datetime(2026, 11, 21, 10, 0, 0, tzinfo=UTC)
         opened = {"ts": (now - timedelta(seconds=20)).strftime("%Y-%m-%dT%H:%M:%SZ")}
         shell = {"foreground": ["/bin/zsh"]}
         self.assertTrue(session.live(shell, opened, now))
@@ -907,7 +911,9 @@ class Agent(unittest.TestCase):
 class Launch(unittest.TestCase):
     BRIEF = Path("/lem-unit/repo/.lem/state/tasks/gift-note/session.md")
 
-    def test_the_line_holds_the_task_the_number_and_the_seat_only_where_named(self):
+    def test_the_line_holds_the_task_the_number_and_the_seat_only_where_named(
+        self,
+    ) -> None:
         line = session.launch_line(
             "/bin/zsh",
             SLUG,
@@ -931,7 +937,7 @@ class Launch(unittest.TestCase):
         )
         self.assertNotIn("CLAUDE_CODE_AUTO_COMPACT_WINDOW", seated)
 
-    def test_a_lem_that_is_not_the_installed_plugin_names_its_folder(self):
+    def test_a_lem_that_is_not_the_installed_plugin_names_its_folder(self) -> None:
         home = {"CLAUDE_CONFIG_DIR": "/lem-unit/claude"}
         self.assertIsNone(
             session.plugin_dir(
@@ -951,7 +957,7 @@ class Launch(unittest.TestCase):
             session.launch_line("/bin/zsh", SLUG, self.BRIEF, None, {}, None),
         )
 
-    def test_the_plan_talks_pair_reads_the_same_folder(self):
+    def test_the_plan_talks_pair_reads_the_same_folder(self) -> None:
         # the lead writes the pair's launch line itself (harness/claude-code/plan-talk.md), with the
         # `plugin_dir` this command prints: a clone's folder, or null for the installed plugin
         import contextlib
@@ -975,7 +981,7 @@ class Launch(unittest.TestCase):
             {"plugin_dir": None},
         )
 
-    def test_a_path_the_line_cannot_carry_is_refused(self):
+    def test_a_path_the_line_cannot_carry_is_refused(self) -> None:
         # fish reads a backslash inside single quotes as an escape, so no quoting carries one to every shell
         with self.assertRaises(session.SessionError) as raised:
             session.launch_line(
@@ -1065,7 +1071,9 @@ class Launch(unittest.TestCase):
             )
         )
 
-    def test_a_model_with_brackets_reaches_the_agent_whole_in_every_login_shell(self):
+    def test_a_model_with_brackets_reaches_the_agent_whole_in_every_login_shell(
+        self,
+    ) -> None:
         # zsh, the default login shell of macOS, stops a bare `opus[1m]` with "no matches found"
         self.through_each_shell(
             {"agent": "claude", "model": "opus[1m]", "effort": "high"}, "repo"
@@ -1073,7 +1081,7 @@ class Launch(unittest.TestCase):
 
     def test_a_checkout_path_with_an_apostrophe_and_a_space_reaches_the_agent_whole(
         self,
-    ):
+    ) -> None:
         self.through_each_shell(
             {"agent": "claude", "model": "opus", "effort": None}, "o'neil's work"
         )
@@ -1100,7 +1108,7 @@ class SessionBrief(unittest.TestCase):
                 SLUG, "shape", "new", ROOT / ".lem/state/tasks" / SLUG, ROOT, None
             )
 
-    def test_the_text_names_no_folder_of_the_lem_that_wrote_it(self):
+    def test_the_text_names_no_folder_of_the_lem_that_wrote_it(self) -> None:
         text = self.written_by(Path("/lem-unit/claude/plugins/cache/lem/lem/0.2.0"))
         self.assertNotIn("0.2.0", text)
         self.assertNotIn("/plugins/", text)
@@ -1108,7 +1116,7 @@ class SessionBrief(unittest.TestCase):
         self.assertRegex(first, BRIEF_LINE)
         self.assertEqual(BRIEF_LINE.fullmatch(first)["name"], "session")
 
-    def test_after_an_update_the_first_line_leads_to_the_new_folder(self):
+    def test_after_an_update_the_first_line_leads_to_the_new_folder(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             cache = Path(tmp).resolve() / "plugins/cache/lem/lem"
             for version in ("0.2.0", "0.2.1"):
@@ -1164,7 +1172,7 @@ class EveryBrief(unittest.TestCase):
             and not BRIEF_LINE.match(line, found.start())
         ]
 
-    def test_no_brief_names_a_lem_text_by_a_folder(self):
+    def test_no_brief_names_a_lem_text_by_a_folder(self) -> None:
         root = SCRIPTS.parents[2]
         wrong, briefs = [], 0
         for place in self.PLACES:
@@ -1185,7 +1193,7 @@ class EveryBrief(unittest.TestCase):
         # landing builder's, session.md's and the merge brief's (merge-brief-TIP-BASE.md)
         self.assertGreaterEqual(briefs, 9)
 
-    def test_the_old_forms_are_found_and_a_stage_readers_line_is_not(self):
+    def test_the_old_forms_are_found_and_a_stage_readers_line_is_not(self) -> None:
         self.assertEqual(
             len(self.old_lines("   Read SKILL_DIR/prompts/lead.md and follow it.")), 1
         )
@@ -1248,7 +1256,7 @@ class NoFocus(unittest.TestCase):
                         path.read_text(encoding="utf-8", errors="replace"),
                     )
 
-    def test_no_text_tells_a_session_to_take_the_focus(self):
+    def test_no_text_tells_a_session_to_take_the_focus(self) -> None:
         self.assertEqual(
             [
                 f"{name}:{number}"
@@ -1259,7 +1267,7 @@ class NoFocus(unittest.TestCase):
             [],
         )
 
-    def test_a_script_selects_a_session_only_on_the_owners_act(self):
+    def test_a_script_selects_a_session_only_on_the_owners_act(self) -> None:
         self.assertEqual(
             sorted(
                 name
@@ -1275,7 +1283,7 @@ class NoFocus(unittest.TestCase):
 
 
 class Handoff(unittest.TestCase):
-    def test_a_handoff_in_its_form(self):
+    def test_a_handoff_in_its_form(self) -> None:
         found = session.handoff_form(HANDOFF, SLUG)
         self.assertEqual(
             (found["from"], found["written"]), ("shape", "2026-11-21T10:05Z")
@@ -1290,10 +1298,13 @@ class Handoff(unittest.TestCase):
                 {"path": "src/export.py", "status": "changed in 1a2b3c4"},
             ],
         )
-        none = HANDOFF.split("## Changed files")[0] + "## Changed files\n\nnone\n"
+        none = (
+            HANDOFF.split("## Changed files", maxsplit=1)[0]
+            + "## Changed files\n\nnone\n"
+        )
         self.assertEqual(session.handoff_form(none, SLUG)["changed"], [])
 
-    def test_the_template_reads_as_a_form_once_filled(self):
+    def test_the_template_reads_as_a_form_once_filled(self) -> None:
         template = (SCRIPTS.parent / "templates" / "handoff.md").read_text(
             encoding="utf-8"
         )
@@ -1307,7 +1318,7 @@ class Handoff(unittest.TestCase):
             [{"path": "PATH/FROM/THE/ROOT", "status": "STATUS"}],
         )
 
-    def test_each_missing_part_is_named(self):
+    def test_each_missing_part_is_named(self) -> None:
         cases = [
             (
                 HANDOFF.replace(
@@ -1341,7 +1352,7 @@ class Hooks(unittest.TestCase):
     """The hooks as Claude Code starts them, in a throwaway repository: silent with exit 0 outside a task session."""
 
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.folder = tempfile.TemporaryDirectory()
         cls.repo = Path(cls.folder.name) / "shop"
         subprocess.run(["git", "init", "-q", str(cls.repo)], check=True)
@@ -1368,7 +1379,7 @@ class Hooks(unittest.TestCase):
         )
 
     @classmethod
-    def tearDownClass(cls):
+    def tearDownClass(cls) -> None:
         cls.folder.cleanup()
 
     def hook(
@@ -1392,7 +1403,7 @@ class Hooks(unittest.TestCase):
             check=False,
         )
 
-    def test_without_a_task_each_hook_is_silent(self):
+    def test_without_a_task_each_hook_is_silent(self) -> None:
         for event in (
             {"hook_event_name": "PreCompact", "trigger": "auto"},
             {"hook_event_name": "SessionStart", "source": "compact"},
@@ -1404,7 +1415,7 @@ class Hooks(unittest.TestCase):
                         (ran.returncode, ran.stdout, ran.stderr), (0, "", "")
                     )
 
-    def test_the_summary_gets_the_handoffs_form(self):
+    def test_the_summary_gets_the_handoffs_form(self) -> None:
         ran = self.hook({"hook_event_name": "PreCompact", "trigger": "auto"})
         self.assertEqual(ran.returncode, 0)
         self.assertEqual(ran.stdout.strip(), session_hook.instructions(SLUG, "build"))
@@ -1413,7 +1424,7 @@ class Hooks(unittest.TestCase):
             ran.stdout,
         )
 
-    def test_after_a_compaction_the_state_and_the_handoff_come_back(self):
+    def test_after_a_compaction_the_state_and_the_handoff_come_back(self) -> None:
         ran = self.hook({"hook_event_name": "SessionStart", "source": "compact"})
         self.assertEqual(ran.returncode, 0)
         self.assertIn(session_hook.TRUTH, ran.stdout)
@@ -1427,7 +1438,7 @@ class Hooks(unittest.TestCase):
         started = self.hook({"hook_event_name": "SessionStart", "source": "startup"})
         self.assertEqual((started.returncode, started.stdout), (0, ""))
 
-    def test_each_claude_session_of_the_task_is_logged_once(self):
+    def test_each_claude_session_of_the_task_is_logged_once(self) -> None:
         log = self.repo / ".lem" / "state" / "events.jsonl"
         before = log.read_text(encoding="utf-8")
         event = {
@@ -1479,7 +1490,7 @@ class Hooks(unittest.TestCase):
 
     def test_the_record_names_the_agterm_session_once_for_each_claude_id_and_session(
         self,
-    ):
+    ) -> None:
         log = self.repo / ".lem" / "state" / "events.jsonl"
         before = log.read_text(encoding="utf-8")
         event = {
@@ -1559,7 +1570,7 @@ class Guard(unittest.TestCase):
         bm = session.board_model()
         now = int(
             datetime.strptime(f"2026-11-22T{at}:00Z", "%Y-%m-%dT%H:%M:%SZ")
-            .replace(tzinfo=timezone.utc)
+            .replace(tzinfo=UTC)
             .timestamp()
             * 1000
         )
@@ -1577,7 +1588,7 @@ class Guard(unittest.TestCase):
         t = m.by_slug.get(SLUG)
         return session.guard_refusal(t if t and t.blocks else None, m, step, named)
 
-    def test_each_step_acts_only_while_the_rule_still_gives_it(self):
+    def test_each_step_acts_only_while_the_rule_still_gives_it(self) -> None:
         woken = [
             *self.landing(),
             self.ev("11:39", "session.wake", session="S1", why="status"),
@@ -1617,7 +1628,7 @@ class Guard(unittest.TestCase):
 
     def test_a_task_out_of_its_phase_a_gone_or_other_session_and_signs_that_do_not_read(
         self,
-    ):
+    ) -> None:
         self.assertEqual(
             self.refusal(self.landing("held"), "status", "11:39"), "status"
         )
@@ -1655,12 +1666,10 @@ class Guard(unittest.TestCase):
         )
         self.assertEqual(self.refusal([], "status", "11:39"), "status")
 
-    def test_the_status_message_is_never_a_wake_nobody_answered(self):
+    def test_the_status_message_is_never_a_wake_nobody_answered(self) -> None:
         # its line waits in the mailbox 20 minutes later, as an owner's wake's would: only the owner's is `unanswered`,
         # since the guard ends the status message's wait itself, with the restart or the stop
-        ago = (datetime.now(timezone.utc) - timedelta(minutes=20)).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+        ago = (datetime.now(UTC) - timedelta(minutes=20)).strftime("%Y-%m-%dT%H:%M:%SZ")
         opened = {
             "ts": "2026-11-22T01:33:00Z",
             "event": "session.open",
@@ -1711,7 +1720,9 @@ class Guard(unittest.TestCase):
 
         self.assertEqual((unanswered("owner"), unanswered("status")), (True, False))
 
-    def test_the_owners_open_of_a_stopped_task_acts_until_its_session_works_again(self):
+    def test_the_owners_open_of_a_stopped_task_acts_until_its_session_works_again(
+        self,
+    ) -> None:
         stopped = [
             *self.landing(),
             self.ev("11:39", "session.wake", session="S1", why="status"),
@@ -1741,7 +1752,7 @@ class Guard(unittest.TestCase):
 
     def test_the_guards_look_at_a_task_out_of_its_phase_reads_no_signs_and_no_turn(
         self,
-    ):
+    ) -> None:
         seen = []
         real = session.guard_refusal
 
@@ -1769,7 +1780,7 @@ class Guard(unittest.TestCase):
 
     def test_the_owners_open_of_an_unread_stop_acts_and_a_named_restart_over_a_standing_stop_never_does(
         self,
-    ):
+    ) -> None:
         # his click names no session; a turn's time beside signs that do not read is no sign of work
         self.assertIsNone(
             self.refusal(
@@ -1819,7 +1830,7 @@ class Guard(unittest.TestCase):
             "unread",
         )
 
-    def test_a_pane_that_agterm_has_not_drawn_is_no_agent_for_any_step(self):
+    def test_a_pane_that_agterm_has_not_drawn_is_no_agent_for_any_step(self) -> None:
         drawn = [{"id": "S1", "name": SLUG, "workspace": "W1", "realized": False}]
         woken = [
             *self.landing(),
@@ -1862,7 +1873,7 @@ class Guard(unittest.TestCase):
 
     def test_the_status_message_and_the_stop_of_a_session_lem_cannot_read_say_so_on_their_records(
         self,
-    ):
+    ) -> None:
         done, sent, logged = self.run_act(
             self.landing(),
             lambda: session.cmd_wake(ROOT, SLUG, "status", None, "S1"),
@@ -1904,7 +1915,7 @@ class Guard(unittest.TestCase):
 
     def test_a_stop_logged_after_a_state_block_of_the_same_moment_says_that_nothing_waits(
         self,
-    ):
+    ) -> None:
         woken = [
             *self.landing(),
             self.ev("11:39", "session.wake", session="S1", why="status", unread=True),
@@ -1951,7 +1962,7 @@ class Guard(unittest.TestCase):
     ) -> tuple[dict, list, list]:
         now = int(
             datetime.strptime(f"2026-11-22T{at}:00Z", "%Y-%m-%dT%H:%M:%SZ")
-            .replace(tzinfo=timezone.utc)
+            .replace(tzinfo=UTC)
             .timestamp()
             * 1000
         )
@@ -2011,7 +2022,9 @@ class Guard(unittest.TestCase):
                 ][len(events) :]
         return result, sent, logged
 
-    def test_the_status_message_goes_to_the_live_session_and_never_opens_one(self):
+    def test_the_status_message_goes_to_the_live_session_and_never_opens_one(
+        self,
+    ) -> None:
         done, sent, logged = self.run_act(
             self.landing(),
             lambda: session.cmd_wake(ROOT, SLUG, "status", None, "S1"),
@@ -2037,7 +2050,7 @@ class Guard(unittest.TestCase):
             (gone["acted"], gone["why"], sent, logged), (False, "gone", [], [])
         )
 
-    def test_a_sign_of_work_since_the_look_makes_the_act_act_on_nothing(self):
+    def test_a_sign_of_work_since_the_look_makes_the_act_act_on_nothing(self) -> None:
         woken = [
             *self.landing(),
             self.ev("11:39", "session.wake", session="S1", why="status"),
@@ -2054,7 +2067,7 @@ class Guard(unittest.TestCase):
         )
         self.assertIn("Lem did nothing for gift-note", done["say"])
 
-    def test_the_restart_opens_beside_the_old_pane_and_tells_it(self):
+    def test_the_restart_opens_beside_the_old_pane_and_tells_it(self) -> None:
         woken = [
             *self.landing(),
             self.ev("11:39", "session.wake", session="S1", why="status"),
@@ -2088,7 +2101,7 @@ class Guard(unittest.TestCase):
             [("session.open", "S2", "stopped"), ("session.wake", "S1", "replaced")],
         )
 
-    def test_the_stop_is_logged_with_its_session(self):
+    def test_the_stop_is_logged_with_its_session(self) -> None:
         fresh = [
             *self.landing(),
             self.ev("11:39", "session.wake", session="S1", why="status"),
@@ -2120,7 +2133,7 @@ class Guard(unittest.TestCase):
         )
         self.assertEqual((again["acted"], logged), (False, []))
 
-    def test_session_goes_only_with_the_guards_steps(self):
+    def test_session_goes_only_with_the_guards_steps(self) -> None:
         with (
             mock.patch.object(sys, "argv", ["session.py"]),
             self.assertRaises(SystemExit) as raised,
@@ -2131,7 +2144,9 @@ class Guard(unittest.TestCase):
 
 
 class ProcessTable(unittest.TestCase):
-    def test_a_command_line_that_is_not_utf_8_changes_one_character_of_its_line(self):
+    def test_a_command_line_that_is_not_utf_8_changes_one_character_of_its_line(
+        self,
+    ) -> None:
         # one process of the machine, of any owner, had the byte 0xff in its command line (2026-11-23)
         with tempfile.TemporaryDirectory() as folder:
             ps = Path(folder) / "ps"

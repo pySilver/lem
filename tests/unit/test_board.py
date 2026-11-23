@@ -61,7 +61,9 @@ After this change lands, the pictures of the landing page show the board of task
 
 
 class Outcome(unittest.TestCase):
-    def test_the_section_with_its_paragraphs_joined_and_its_own_subheading(self):
+    def test_the_section_with_its_paragraphs_joined_and_its_own_subheading(
+        self,
+    ) -> None:
         self.assertEqual(
             board.outcome(TASK),
             (
@@ -72,11 +74,11 @@ class Outcome(unittest.TestCase):
             ),
         )
 
-    def test_it_ends_at_the_next_section_and_takes_no_other(self):
+    def test_it_ends_at_the_next_section_and_takes_no_other(self) -> None:
         self.assertNotIn("Done when", board.outcome(TASK))
         self.assertNotIn("criteria.md", board.outcome(TASK))
 
-    def test_a_task_md_with_no_outcome_or_an_empty_one_gives_nothing(self):
+    def test_a_task_md_with_no_outcome_or_an_empty_one_gives_nothing(self) -> None:
         self.assertEqual(
             board.outcome("# a task\n\n## The ask, verbatim\n\nFix the typo.\n"), ""
         )
@@ -85,7 +87,7 @@ class Outcome(unittest.TestCase):
         )
         self.assertEqual(board.outcome(""), "")
 
-    def test_the_last_section_runs_to_the_end_of_the_file(self):
+    def test_the_last_section_runs_to_the_end_of_the_file(self) -> None:
         self.assertEqual(
             board.outcome("## Outcome\nOne line\nand its end.\n"),
             "One line and its end.",
@@ -93,7 +95,7 @@ class Outcome(unittest.TestCase):
 
 
 class ItemTitle(unittest.TestCase):
-    def test_the_title_line_after_the_head_without_backticks(self):
+    def test_the_title_line_after_the_head_without_backticks(self) -> None:
         fields, title, body = board.parse_item(ITEM)
         self.assertEqual(
             title, "The pictures of the site/ landing page show the new board"
@@ -107,7 +109,7 @@ class ItemTitle(unittest.TestCase):
             "After this change lands, the pictures of the landing page show the board of tasks 5 and 6.",
         )
 
-    def test_an_item_with_no_title_line_has_none(self):
+    def test_an_item_with_no_title_line_has_none(self) -> None:
         self.assertEqual(board.parse_item("---\nworth: no\n---\nJust words.\n")[1], "")
 
 
@@ -115,7 +117,9 @@ class MetaAndTold(unittest.TestCase):
     """What the board reads of a repository beside its events: how many commands one run of the
     checks has, and what "What we are building" says of a task with no worktree."""
 
-    def test_one_run_of_the_checks_counts_the_commands_and_the_serial_ones(self):
+    def test_one_run_of_the_checks_counts_the_commands_and_the_serial_ones(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             settings = {
                 "main": str(Path(tmp) / "shop"),
@@ -128,7 +132,9 @@ class MetaAndTold(unittest.TestCase):
             {"repo": "shop", "base": "main", "gates": 2, "serial": 1, "demo": False},
         )
 
-    def test_a_task_with_no_worktree_has_its_outcome_and_no_list_of_filed_items(self):
+    def test_a_task_with_no_worktree_has_its_outcome_and_no_list_of_filed_items(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             state = Path(tmp)
             (state / "tasks" / "steady-look").mkdir(parents=True)
@@ -201,7 +207,7 @@ class ReviewerItems(unittest.TestCase):
 
     def test_both_folders_with_one_stem_are_two_items_and_only_the_reviewer_s_carry_a_mark(
         self,
-    ):
+    ) -> None:
         items = self.items()
         self.assertEqual(
             sorted(items),
@@ -229,7 +235,7 @@ class ReviewerItems(unittest.TestCase):
 
     def test_a_task_that_has_not_ended_holds_it_by_its_path_and_one_dropped_gives_it_back(
         self,
-    ):
+    ) -> None:
         self.task(
             "tests-flaky-check", ".lem/state/backlog/tests-flaky-check.md", "building"
         )
@@ -255,7 +261,9 @@ class ReviewerItems(unittest.TestCase):
             {"task": "tests-flaky-check-2", "status": None},
         )
 
-    def test_the_holder_rule_reads_an_item_of_the_backlog_folder_by_its_path_too(self):
+    def test_the_holder_rule_reads_an_item_of_the_backlog_folder_by_its_path_too(
+        self,
+    ) -> None:
         self.task(
             "refund-total-zero",
             f"{self.main}/docs/backlog/tests-flaky-check.md",
@@ -273,7 +281,7 @@ class ReviewerItems(unittest.TestCase):
             )
         )
 
-    def test_a_landed_task_s_item_is_gone_with_its_file(self):
+    def test_a_landed_task_s_item_is_gone_with_its_file(self) -> None:
         # the landing removes the file (land.py `forge_done`): the next read has no such item
         self.task(
             "tests-flaky-check", ".lem/state/backlog/tests-flaky-check.md", "landed"

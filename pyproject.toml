@@ -36,8 +36,128 @@ extend-include = ["bin/lem", "skills/lem-ask/bin/lem-ask", "tests/clock/date"]
 # keep their text as it was written.
 extend-exclude = ["*.md"]
 
+# Where a script finds its siblings: each folder that a script or a test puts on `sys.path`.
+src = [
+    "skills/lem/scripts",
+    "skills/lem-panel/scripts",
+    "skills/lem-github/scripts",
+    "skills/lem-ask-expert/scripts",
+    "tests/unit",
+]
+
 [tool.ruff.per-file-target-version]
 # The two files that run under whatever `python3` a machine has, the system's 3.9 on a Mac, and
 # find the newer Python for the rest (skills/lem/scripts/lem_python.py).
 "bin/lem" = "py39"
 "skills/lem/scripts/lem_python.py" = "py39"
+
+[tool.ruff.lint]
+select = [
+    "F", "E", "W", # pyflakes and pycodestyle
+    "C90", # mccabe
+    "I", # isort
+    "N", # pep8-naming
+    "UP", # pyupgrade
+    "YTT",
+    "ANN", # every function says its types
+    "ASYNC",
+    "S", # bandit
+    "BLE",
+    "FBT", # no boolean passed by position
+    "B", # bugbear
+    "A",
+    "COM",
+    "C4",
+    "DTZ",
+    "T10",
+    "EXE",
+    "ISC",
+    "ICN",
+    "LOG",
+    "G",
+    "PIE",
+    "PYI",
+    "Q",
+    "RSE",
+    "RET",
+    "SLF",
+    "SLOT",
+    "SIM",
+    "TID",
+    "TC",
+    "INT",
+    "PTH", # pathlib
+    "PGH",
+    "PL", # pylint
+    "TRY",
+    "FLY",
+    "PERF",
+    "FURB",
+    "RUF",
+]
+# Left out, each for a reason:
+#   D     the docstrings keep their own voice (AGENTS.md), which is not pydocstyle's
+#   PT    the tests are unittest's, so that they need only Python
+#   T20   a script's output is what it prints
+#   INP   the scripts are files that `lem NAME` runs, not packages
+#   EM    with TRY003 below: a refusal's message is written where it is raised
+#   ARG, ERA, FA and the rules of libraries Lem does not use
+ignore = [
+    "COM812", # the formatter sets the trailing commas
+    "TRY003", # a refusal says what is wrong and names the fix, in the `raise` that knows both
+    "TRY004", # a refusal is one exception type whatever was wrong with the input
+    "TRY301", # a refusal raised inside its own `try` is how a command stops with a message
+    "PLC0415", # a script imports a sibling on the path that needs it, after it put the folder on sys.path
+    "S603", # Lem's work is to run git, gh, agtermctl and a project's own checks,
+    "S607", # each named in a list of arguments, found on PATH
+    "UP036", # a script's first lines tell an old python3 what Lem needs, so they must stay
+    "N818", # an exception is named for what happened (Refusal, NotFound)
+]
+
+# The typographic marks of a text for a person: the apostrophe, the en dash and the times sign.
+allowed-confusables = ["’", "–", "×"]
+
+[tool.ruff.lint.per-file-ignores]
+# The two files that every command and every hook starts under any python3: they keep to os.path
+# and to what Python 3.9 has.
+"bin/lem" = ["PTH"]
+"skills/lem/scripts/lem_python.py" = ["PTH"]
+"tests/**" = [
+    "PLR2004", # a test compares with the value it expects
+    "FBT003", # and passes it by position
+    "PLR0913", # a helper that builds a record takes its fields
+    "PLR0917",
+    "RUF012", # a test class holds its fixtures as plain attributes
+    "S108", # a path in /tmp is a text of a test, never a file
+    "S604", # a suite runs the shell line it checks
+]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+# The owner's ruling "Python 3.11 stays, in the modern form" (docs/rulings/rulings.md).
+"__future__.annotations".msg = "No script has `from __future__ import annotations`: Python 3.11 is the floor, and its own annotations are enough."
+
+# ==== pyrefly ====
+[tool.pyrefly]
+# The oldest Python a script runs under: a name the standard library got later is an error here.
+python-version = "3.11"
+project-includes = ["**/*.py", "bin/lem", "skills/lem-ask/bin/lem-ask", "tests/clock/date"]
+# The same folders as ruff's `src`.
+search-path = [
+    "skills/lem/scripts",
+    "skills/lem-panel/scripts",
+    "skills/lem-github/scripts",
+    "skills/lem-ask-expert/scripts",
+    "tests/unit",
+]
+# `project-excludes` is the one list of what is left out. A task's worktree is under `.lem/` and an
+# agent's under `.claude/`, both of which git ignores and both dot-folders: with the ignore files or
+# the dot-folder heuristic, a check run inside a worktree reads no file and passes.
+use-ignore-files = false
+disable-project-excludes-heuristics = true
+project-excludes = ["**/node_modules", "**/__pycache__", "**/.[!/.]*"]
+
+[tool.pyrefly.errors]
+# Both are off by default. On, a `# pyrefly: ignore` or `# type: ignore` that no longer hides an
+# error is one itself, so no ignore outlives its reason.
+unused-ignore = true
+unused-type-ignore = true

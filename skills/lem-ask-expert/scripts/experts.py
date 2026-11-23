@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """The experts' brief of one question, and the record of their answers.
 
 Two experts of two model families answer one question from the same brief, at the same moment,
@@ -60,7 +59,7 @@ import os
 import re
 import subprocess
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 # Lem's own scripts, beside this skill in the same plugin
@@ -492,7 +491,7 @@ def cmd_free_brief(
     files = named_files(place, names, "the checkout")
     who = audience(repo)
     top = questions(repo)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     folder = new_folder(top, question, now)
     (folder / "brief.md").write_text(
         free_brief_text(question, context, options, place, files, len(experts), who),

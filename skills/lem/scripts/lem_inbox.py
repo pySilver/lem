@@ -95,7 +95,7 @@ import subprocess
 import sys
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 RECORD = "inbox.json"
@@ -157,7 +157,7 @@ REPLACED = "This no longer applies as it was asked: the newest message of this t
 # same code, a `supersedes` that is no list among them, are no answer of the owner's.
 ANSWERED = "invalid_supersedes: supersedes {id}: that message has no open question."
 # The held line of an order that names no task (stages/new.md, step 6).
-ORDER = re.compile(r'the order waits for the owner: "(.*)"', re.S)
+ORDER = re.compile(r'the order waits for the owner: "(.*)"', re.DOTALL)
 # The parts of a thing that make it the same thing: a change of any is a new thing.
 SAME = ("form", "asks", "session", "tip", "block")
 
@@ -172,7 +172,7 @@ class InboxError(Exception):
 
 def now_iso(seconds: float | None = None) -> str:
     return datetime.fromtimestamp(
-        time.time() if seconds is None else seconds, timezone.utc
+        time.time() if seconds is None else seconds, UTC
     ).isoformat(timespec="seconds")
 
 

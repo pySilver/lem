@@ -46,7 +46,9 @@ class InHome(unittest.TestCase):
 
 @unittest.skipUnless(HAS_OPENSSL, NO_OPENSSL)
 class Signature(InHome):
-    def test_a_signature_as_raw_r_and_s_verifies_with_openssl_after_the_way_back(self):
+    def test_a_signature_as_raw_r_and_s_verifies_with_openssl_after_the_way_back(
+        self,
+    ) -> None:
         path, public = push.machine_key()
         self.assertEqual(oct(path.stat().st_mode & 0o777), "0o600")
         self.assertEqual(len(push.unb64url(public)), 65)
@@ -86,7 +88,9 @@ class Signature(InHome):
         )
         self.assertIn("Verified OK", checked.stdout)
 
-    def test_the_token_names_the_push_services_origin_and_ends_within_a_day(self):
+    def test_the_token_names_the_push_services_origin_and_ends_within_a_day(
+        self,
+    ) -> None:
         path, _ = push.machine_key()
         jwt = push.token(push.audience(FCM), 1_000_000, path)
         head = json.loads(push.unb64url(jwt.split(".")[0]))
@@ -99,7 +103,7 @@ class Signature(InHome):
 
 
 class Der(unittest.TestCase):
-    def test_short_and_padded_numbers_become_32_bytes_each(self):
+    def test_short_and_padded_numbers_become_32_bytes_each(self) -> None:
         r, s = b"\x00" + b"\x80" + b"\x01" * 31, b"\x05"
         der = (
             b"\x30"
@@ -118,7 +122,7 @@ class Der(unittest.TestCase):
 
 
 class News(unittest.TestCase):
-    def test_the_first_look_sends_nothing_and_a_gained_row_is_news_once(self):
+    def test_the_first_look_sends_nothing_and_a_gained_row_is_news_once(self) -> None:
         news, memory = push.gained(None, ["merge:a"], 0)
         self.assertEqual(news, [])
         news, memory = push.gained(memory, ["merge:a", "breaker:b:1"], 10)
@@ -126,7 +130,9 @@ class News(unittest.TestCase):
         news, memory = push.gained(memory, ["merge:a", "breaker:b:1"], 20)
         self.assertEqual(news, [])
 
-    def test_a_row_that_leaves_and_comes_back_soon_is_not_news_and_later_it_is(self):
+    def test_a_row_that_leaves_and_comes_back_soon_is_not_news_and_later_it_is(
+        self,
+    ) -> None:
         _, memory = push.gained(None, ["held:a"], 0)
         _, memory = push.gained(memory, [], 10)
         news, memory = push.gained(memory, ["held:a"], 10 + push.FLAP_SECONDS - 1)
@@ -137,7 +143,7 @@ class News(unittest.TestCase):
 
 
 class Endpoints(unittest.TestCase):
-    def test_only_https_at_a_push_service_a_browser_uses(self):
+    def test_only_https_at_a_push_service_a_browser_uses(self) -> None:
         for taken in (
             FCM,
             APPLE,
@@ -166,7 +172,7 @@ class Endpoints(unittest.TestCase):
 class Sending(InHome):
     def test_a_device_its_service_no_longer_knows_goes_and_the_token_is_used_again(
         self,
-    ):
+    ) -> None:
         for endpoint in (FCM, APPLE, FCM + "-gone"):
             push.subscribe(
                 {"endpoint": endpoint, "keys": {"p256dh": "k", "auth": "a"}},
@@ -201,7 +207,7 @@ class Sending(InHome):
 
     def test_a_row_gained_while_the_owner_is_away_is_sent_and_a_demo_sends_nothing(
         self,
-    ):
+    ) -> None:
         push.subscribe({"endpoint": FCM}, "")
         sent = []
         pusher = push.Pusher(
@@ -249,7 +255,7 @@ class Sending(InHome):
 
     def test_no_push_goes_for_a_held_task_while_its_session_works_and_one_when_its_turn_ended(
         self,
-    ):
+    ) -> None:
         # waits-for-you-only-when-it-waits, criteria 1 and 2: the push follows the rows of Waits for you
         push.subscribe({"endpoint": FCM}, "")
         sent = []

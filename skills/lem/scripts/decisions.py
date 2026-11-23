@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """The decisions of one task, each taken without the owner, and the breakers that stopped it.
 
 A build meets choices its plan did not see. Most are the lead's own: the acceptance criteria stay
@@ -125,7 +124,7 @@ import json
 import os
 import re
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
@@ -231,7 +230,7 @@ def script(name: str, repo: Path, *args: str) -> str:
 
 
 def now() -> datetime:
-    return datetime.now(timezone.utc).replace(microsecond=0)
+    return datetime.now(UTC).replace(microsecond=0)
 
 
 def stamp(moment: datetime) -> str:
@@ -863,8 +862,8 @@ def breaker_document(file: Path) -> str:
                 part == "today and after"
                 and (
                     numbered < 2
-                    or not re.search(r"\btoday\b", body, re.I)
-                    or not re.search(r"\bafter\b", body, re.I)
+                    or not re.search(r"\btoday\b", body, re.IGNORECASE)
+                    or not re.search(r"\bafter\b", body, re.IGNORECASE)
                 )
             )
             or (part == "the case" and (numbered < 2 or "```mermaid" not in body))

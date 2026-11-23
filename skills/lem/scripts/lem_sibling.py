@@ -51,7 +51,9 @@ def in_form(path: Path) -> bool:
     if path not in FORMS:
         try:
             FORMS[path] = (
-                re.search(r"^def main\(argv\b", path.read_text(encoding="utf-8"), re.M)
+                re.search(
+                    r"^def main\(argv\b", path.read_text(encoding="utf-8"), re.MULTILINE
+                )
                 is not None
             )
         except (OSError, UnicodeDecodeError):

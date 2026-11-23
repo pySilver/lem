@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Open Lem's board in agterm: every task of the repository, or one task.
 
     lem board [--repo DIR] [--follow]               the board of all tasks
@@ -51,7 +50,7 @@ import re
 import subprocess
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import quote
 
@@ -274,7 +273,7 @@ def backlog(settings: dict) -> dict:
     feed: dict = {
         "folder": relative,
         "reviewer_folder": mine.relative_to(main).as_posix(),
-        "read": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "read": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "items": [],
     }
 

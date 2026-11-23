@@ -2577,7 +2577,7 @@ TALK_TASK = "plan-talk-plugin-dir"
 def at(clock: str) -> float:
     """The time of CLOCK, `HH:MM` UTC of the stories' day, as `time.time()` gives it."""
     hours, minutes = map(int, clock.split(":"))
-    return dt.datetime(2026, 11, 23, hours, minutes, tzinfo=dt.timezone.utc).timestamp()
+    return dt.datetime(2026, 11, 23, hours, minutes, tzinfo=dt.UTC).timestamp()
 
 
 def repository(parent: Path, name: str) -> Path:
@@ -3010,9 +3010,9 @@ class TheWait(LineCase):
             mock.patch.object(
                 land, "script", side_effect=lambda *args: logged.append(args)
             ),
+            self.assertRaises(land.LandError) as caught,
         ):
-            with self.assertRaises(land.LandError) as caught:
-                land.checks_run(task, {"stopping": True, "done": False})
+            land.checks_run(task, {"stopping": True, "done": False})
         self.assertIn("stopped before their first command", str(caught.exception))
         self.assertEqual(
             logged,

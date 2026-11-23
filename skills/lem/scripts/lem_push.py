@@ -86,12 +86,12 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import quote, urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import lem_state  # noqa: E402  (beside this file)
+import lem_state
 
 # Where openssl is, by its absolute path: macOS's own first, then Homebrew's.
 OPENSSL_PLACES = (
@@ -466,7 +466,7 @@ def write_state(state: dict) -> None:
 
 def stamp(seconds: float | None = None) -> str:
     return datetime.fromtimestamp(
-        time.time() if seconds is None else seconds, timezone.utc
+        time.time() if seconds is None else seconds, UTC
     ).isoformat(timespec="seconds")
 
 

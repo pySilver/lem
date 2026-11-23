@@ -115,12 +115,12 @@ def manifests(
 
 
 class Places(unittest.TestCase):
-    def test_three_places_that_name_one_release_pass(self):
+    def test_three_places_that_name_one_release_pass(self) -> None:
         self.assertEqual(release_places(*manifests()), [])
 
     def test_a_ref_of_the_release_before_fails_and_names_the_ref_and_the_number_it_expects(
         self,
-    ):
+    ) -> None:
         self.assertEqual(
             release_places(*manifests(ref="v0.3.0")),
             [
@@ -131,7 +131,7 @@ class Places(unittest.TestCase):
             ],
         )
 
-    def test_an_entry_version_of_another_release_fails(self):
+    def test_an_entry_version_of_another_release_fails(self) -> None:
         self.assertEqual(
             release_places(*manifests(version="0.3.0")),
             [
@@ -146,7 +146,7 @@ class Places(unittest.TestCase):
             ["lem entry version"],
         )
 
-    def test_an_entry_with_no_ref_fails(self):
+    def test_an_entry_with_no_ref_fails(self) -> None:
         self.assertEqual(
             release_places(*manifests(ref=None)),
             [
@@ -157,7 +157,7 @@ class Places(unittest.TestCase):
             ],
         )
 
-    def test_a_source_that_is_not_the_github_repository_fails(self):
+    def test_a_source_that_is_not_the_github_repository_fails(self) -> None:
         for source in (
             "./",
             {"source": "github", "repo": "someone/lem", "ref": "v0.4.0"},
@@ -171,7 +171,7 @@ class Places(unittest.TestCase):
                     found[0][1],
                 )
 
-    def test_a_plugin_version_that_is_no_release_fails(self):
+    def test_a_plugin_version_that_is_no_release_fails(self) -> None:
         self.assertEqual(
             [place for place, _ in release_places({"name": "lem"}, manifests()[1])],
             ["plugin.json version"],
@@ -188,7 +188,7 @@ class Repository(unittest.TestCase):
 
     def test_the_lem_entry_takes_the_plugin_from_the_release_tag_and_not_from_main(
         self,
-    ):
+    ) -> None:
         plugin, market = self.read()
         entry = next(entry for entry in market["plugins"] if entry["name"] == "lem")
         self.assertEqual(
@@ -196,7 +196,7 @@ class Repository(unittest.TestCase):
             {"source": "github", "repo": REPO, "ref": f"v{plugin['version']}"},
         )
 
-    def test_the_repository_names_one_release_in_three_places(self):
+    def test_the_repository_names_one_release_in_three_places(self) -> None:
         self.assertEqual(release_places(*self.read()), [])
 
 
@@ -210,7 +210,7 @@ OLD_STOP = (
 class Rule(unittest.TestCase):
     def test_a_task_with_no_mark_counts_as_begun_on_the_release_before_marks_and_goes_on(
         self,
-    ):
+    ) -> None:
         self.assertEqual(lem_release.UNMARKED, "0.3.1")
         self.assertIsNone(
             lem_release.stop("invoice-totals", lem_release.UNMARKED, "0.4.0", "0.3.1")
@@ -218,17 +218,19 @@ class Rule(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             self.assertEqual(lem_release.began_on(Path(folder)), "0.3.1")
 
-    def test_a_task_of_this_release_or_of_the_release_before_goes_on(self):
+    def test_a_task_of_this_release_or_of_the_release_before_goes_on(self) -> None:
         self.assertIsNone(lem_release.stop("invoice-totals", "0.4.0", "0.4.0", "0.3.0"))
         self.assertIsNone(lem_release.stop("invoice-totals", "0.3.0", "0.4.0", "0.3.0"))
 
-    def test_a_task_two_releases_back_stops_with_the_message_of_criterion_4(self):
+    def test_a_task_two_releases_back_stops_with_the_message_of_criterion_4(
+        self,
+    ) -> None:
         self.assertEqual(
             lem_release.stop("invoice-totals", "0.2.0", "0.4.0", "0.3.0"),
             {"kind": "old", "say": OLD_STOP},
         )
 
-    def test_a_task_of_a_newer_release_stops_and_names_the_update(self):
+    def test_a_task_of_a_newer_release_stops_and_names_the_update(self) -> None:
         found = lem_release.stop("invoice-totals", "0.5.0", "0.4.0", "0.3.0")
         self.assertEqual(found["kind"], "new")
         self.assertIn("/plugin marketplace update lem", found["say"])
@@ -238,7 +240,7 @@ class Rule(unittest.TestCase):
             )
         )
 
-    def test_versions_compare_as_numbers_part_by_part(self):
+    def test_versions_compare_as_numbers_part_by_part(self) -> None:
         self.assertEqual(lem_release.stop("t", "0.9.0", "0.10.0", "0.9.0"), None)
         self.assertEqual(
             lem_release.stop("t", "0.8.9", "0.10.0", "0.9.0")["kind"], "old"
@@ -263,7 +265,7 @@ class Mark(unittest.TestCase):
 
     MAIN = "/lem-unit/shop"
 
-    def test_the_projects_own_install_comes_first(self):
+    def test_the_projects_own_install_comes_first(self) -> None:
         listed = installs(
             {"scope": "user", "version": "0.4.0"},
             {"scope": "project", "projectPath": self.MAIN, "version": "0.3.0"},
@@ -271,14 +273,14 @@ class Mark(unittest.TestCase):
         )
         self.assertEqual(lem_release.chosen(listed, self.MAIN, "0.4.0"), "0.3.0")
 
-    def test_else_the_users_install(self):
+    def test_else_the_users_install(self) -> None:
         listed = installs(
             {"scope": "user", "version": "0.3.0"},
             {"scope": "project", "projectPath": "/lem-unit/api", "version": "0.2.0"},
         )
         self.assertEqual(lem_release.chosen(listed, self.MAIN, "0.4.0"), "0.3.0")
 
-    def test_else_the_running_lems_own(self):
+    def test_else_the_running_lems_own(self) -> None:
         for listed in (
             None,
             {},
@@ -292,7 +294,7 @@ class Mark(unittest.TestCase):
                     lem_release.chosen(listed, self.MAIN, "0.4.0"), "0.4.0"
                 )
 
-    def test_never_newer_than_the_running_lem(self):
+    def test_never_newer_than_the_running_lem(self) -> None:
         listed = installs(
             {"scope": "project", "projectPath": self.MAIN, "version": "0.5.0"}
         )
@@ -302,7 +304,7 @@ class Mark(unittest.TestCase):
 class Check(unittest.TestCase):
     """The check each command runs, in a state folder of a throwaway main checkout."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.folder = tempfile.TemporaryDirectory()
         self.main = Path(self.folder.name).resolve() / "shop"
         subprocess.run(["git", "init", "-q", "-b", "main", str(self.main)], check=True)
@@ -314,7 +316,7 @@ class Check(unittest.TestCase):
         self.version.start()
         self.before.start()
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         self.version.stop()
         self.before.stop()
         self.folder.cleanup()
@@ -327,12 +329,12 @@ class Check(unittest.TestCase):
             else []
         )
 
-    def test_a_task_of_the_release_before_goes_on_and_logs_nothing(self):
+    def test_a_task_of_the_release_before_goes_on_and_logs_nothing(self) -> None:
         (self.task / "release.txt").write_text("0.3.0\n", encoding="utf-8")
         self.assertIsNone(lem_release.check(self.task))
         self.assertEqual(self.events(), [])
 
-    def test_a_task_two_releases_back_stops_and_logs_the_stop_once(self):
+    def test_a_task_two_releases_back_stops_and_logs_the_stop_once(self) -> None:
         (self.task / "release.txt").write_text("0.2.0\n", encoding="utf-8")
         self.assertEqual(lem_release.check(self.task), OLD_STOP)
         self.assertEqual(lem_release.check(self.task), OLD_STOP)
@@ -345,7 +347,7 @@ class Check(unittest.TestCase):
             [("release.stop", "invoice-totals", "0.2.0", "0.4.0", None, OLD_STOP)],
         )
 
-    def test_a_command_that_ends_the_task_logs_the_same_stop_and_goes_on(self):
+    def test_a_command_that_ends_the_task_logs_the_same_stop_and_goes_on(self) -> None:
         (self.task / "release.txt").write_text("0.2.0\n", encoding="utf-8")
         self.assertIsNone(lem_release.check(self.task, passes=True))
         self.assertEqual([e["say"] for e in self.events()], [OLD_STOP])
@@ -354,7 +356,7 @@ class Check(unittest.TestCase):
 
     def test_the_resume_after_the_drop_logs_no_second_stop_and_a_state_of_work_after_a_stop_logs_one(
         self,
-    ):
+    ) -> None:
         (self.task / "release.txt").write_text("0.2.0\n", encoding="utf-8")
         log = self.state / "events.jsonl"
 
@@ -387,7 +389,7 @@ class Check(unittest.TestCase):
             ["release.stop", "task.state", "task.state", "release.stop"],
         )
 
-    def test_a_task_of_a_newer_release_stops_and_writes_nothing(self):
+    def test_a_task_of_a_newer_release_stops_and_writes_nothing(self) -> None:
         (self.task / "release.txt").write_text("0.5.0\n", encoding="utf-8")
         for passes in (False, True):
             self.assertIn(
@@ -396,7 +398,7 @@ class Check(unittest.TestCase):
             )
         self.assertEqual(self.events(), [])
 
-    def test_the_stop_names_the_branch_git_keeps_for_the_tasks_worktree(self):
+    def test_the_stop_names_the_branch_git_keeps_for_the_tasks_worktree(self) -> None:
         (self.task / "release.txt").write_text("0.2.0\n", encoding="utf-8")
         subprocess.run(
             [
@@ -435,7 +437,9 @@ class Check(unittest.TestCase):
         lem_release.check(self.task)
         self.assertEqual(self.events()[-1]["branch"], "fix/invoice-totals")
 
-    def test_the_stop_names_the_branch_a_rebase_runs_on_in_the_tasks_worktree(self):
+    def test_the_stop_names_the_branch_a_rebase_runs_on_in_the_tasks_worktree(
+        self,
+    ) -> None:
         (self.task / "release.txt").write_text("0.2.0\n", encoding="utf-8")
         subprocess.run(
             [
@@ -488,12 +492,12 @@ class Check(unittest.TestCase):
         lem_release.check(self.task)
         self.assertEqual(self.events()[-1]["branch"], "fix/invoice-totals")
 
-    def test_a_task_that_is_not_there_yet_is_no_stop(self):
+    def test_a_task_that_is_not_there_yet_is_no_stop(self) -> None:
         self.assertIsNone(lem_release.check(self.state / "tasks" / "new-task"))
 
     def test_a_pass_holds_for_the_commands_of_one_command_and_for_no_command_after_it(
         self,
-    ):
+    ) -> None:
         (self.task / "release.txt").write_text("0.2.0\n", encoding="utf-8")
 
         @lem_release.one_command
@@ -512,7 +516,7 @@ class Check(unittest.TestCase):
 
 
 class Before(unittest.TestCase):
-    def test_the_release_before_is_older_than_plugin_json(self):
+    def test_the_release_before_is_older_than_plugin_json(self) -> None:
         version = json.loads(
             (ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8")
         )["version"]

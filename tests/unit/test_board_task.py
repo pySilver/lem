@@ -11,7 +11,7 @@ import re
 import sys
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 sys.dont_write_bytecode = True
@@ -23,7 +23,7 @@ task_pages = importlib.import_module("lem_board_task")
 lem_artifacts = importlib.import_module("lem_artifacts")
 pages = importlib.import_module("lem_board_pages")
 
-START = datetime(2026, 11, 20, 9, 0, tzinfo=timezone.utc)
+START = datetime(2026, 11, 20, 9, 0, tzinfo=UTC)
 NOW = int((START + timedelta(hours=2)).timestamp() * 1000)
 
 
@@ -68,7 +68,7 @@ def spans(t, row: str | None = None, meta=None, end=None) -> list[tuple]:
 
 
 class Time(unittest.TestCase):
-    def test_a_builders_span_leaves_the_brief_and_the_report_to_the_agent(self):
+    def test_a_builders_span_leaves_the_brief_and_the_report_to_the_agent(self) -> None:
         t = one(
             state(0, "building", "task 1 of 2"),
             ev(5, "builder.start", job="task 1 of 2"),
@@ -79,7 +79,7 @@ class Time(unittest.TestCase):
 
     def test_a_stopped_run_of_the_checks_ends_at_its_end_and_the_time_after_it_is_lems(
         self,
-    ):
+    ) -> None:
         t = one(
             state(0, "landing", "the checks start"),
             ev(1, "gate.start", tip="4c1d2e3f5", commands=2),
@@ -101,7 +101,7 @@ class Time(unittest.TestCase):
             ("The checks were stopped: the landing waits for your word", True),
         )
 
-    def test_a_refused_run_names_what_was_refused_and_keeps_its_commands(self):
+    def test_a_refused_run_names_what_was_refused_and_keeps_its_commands(self) -> None:
         t = one(
             state(0, "landing", "the checks start"),
             ev(1, "gate.start", tip="4c1d2e3f5", commands=2),
@@ -128,7 +128,7 @@ class Time(unittest.TestCase):
 
     def test_a_breaker_holds_the_task_for_the_owner_and_a_carried_over_event_takes_no_time(
         self,
-    ):
+    ) -> None:
         t = one(
             ev(0, "interview.start", **{"from": "old-note"}),
             state(0, "building", "task 1 of 2"),
@@ -147,7 +147,7 @@ class Time(unittest.TestCase):
         )
         self.assertNotIn("The interview", [g[3] for g in spans(t)])
 
-    def test_a_read_whose_start_is_not_logged_is_a_mark_where_it_ended(self):
+    def test_a_read_whose_start_is_not_logged_is_a_mark_where_it_ended(self) -> None:
         t = one(
             state(0, "held", "the criteria wait for the owner"),
             ev(
@@ -166,7 +166,7 @@ class Time(unittest.TestCase):
             [(x["row"], x["at"]) for x in tm["marks"]], [("personas", ms(5))]
         )
 
-    def test_shares_say_when_two_rows_held_the_same_minutes(self):
+    def test_shares_say_when_two_rows_held_the_same_minutes(self) -> None:
         t = one(
             state(0, "building", "lead: builder"),
             ev(0, "plan.talk.start", reviewer="codex"),
@@ -189,7 +189,7 @@ class Time(unittest.TestCase):
             (100, 100, 200),
         )
 
-    def test_a_tick_names_its_date_only_where_the_day_changes(self):
+    def test_a_tick_names_its_date_only_where_the_day_changes(self) -> None:
         late = ms(
             14 * 60 + 50
         )  # 23:50 local time or so: the next tick is another day in any zone east of it
@@ -216,7 +216,9 @@ class Criteria(unittest.TestCase):
             criteria=[{"n": i, "text": x} for i, x in enumerate(texts, 1)],
         )
 
-    def test_the_criteria_stand_as_approved_with_each_change_of_the_build_applied(self):
+    def test_the_criteria_stand_as_approved_with_each_change_of_the_build_applied(
+        self,
+    ) -> None:
         t = one(
             state(0, "building", "lead: builder"),
             self.approval(1, 1, ["one", "two"]),
@@ -236,7 +238,9 @@ class Criteria(unittest.TestCase):
         self.assertEqual(bm.standing(t)["texts"], ["one", "two, said again"])
         self.assertIsNone(bm.standing(t)["digest"])
 
-    def test_a_read_is_stale_when_the_owner_approved_other_criteria_after_it(self):
+    def test_a_read_is_stale_when_the_owner_approved_other_criteria_after_it(
+        self,
+    ) -> None:
         t = one(
             state(0, "held", "the criteria wait for the owner"),
             ev(
@@ -258,7 +262,7 @@ class Criteria(unittest.TestCase):
             "The criteria changed after this read by your approval 2, and the change was not read.",
         )
 
-    def test_a_check_counts_only_for_the_criteria_it_ran_on(self):
+    def test_a_check_counts_only_for_the_criteria_it_ran_on(self) -> None:
         crit = ev(
             1,
             "task.criteria",
@@ -323,7 +327,7 @@ class Criteria(unittest.TestCase):
 class Decisions(unittest.TestCase):
     def test_a_pick_past_the_personas_an_unsettled_pick_a_named_one_and_his_help_are_important_and_a_breaker_is_not(
         self,
-    ):
+    ) -> None:
         t = one(
             state(0, "building", "lead: builder"),
             ev(1, "decision.taken", id=1, what="w", chose="x", why="y", by="dialectic"),
@@ -377,7 +381,7 @@ class Decisions(unittest.TestCase):
             "the next step cannot be undone by a later “no”: it sends something to a person",
         )
 
-    def test_a_short_label_finds_the_option_only_when_one_option_has_it(self):
+    def test_a_short_label_finds_the_option_only_when_one_option_has_it(self) -> None:
         d = bm.Decision(
             id=1,
             kind="taken",
@@ -391,7 +395,7 @@ class Decisions(unittest.TestCase):
 
 
 class Overview(unittest.TestCase):
-    def test_a_queued_task_waits_for_the_task_it_needs(self):
+    def test_a_queued_task_waits_for_the_task_it_needs(self) -> None:
         m = model(state(0, "queued", "it waits", "after: card-foot"))
         self.assertEqual(
             bm.waits_for(m.tasks[0], bm.waits_of(m)),
@@ -400,7 +404,7 @@ class Overview(unittest.TestCase):
 
     def test_a_queued_task_waits_for_another_task_by_a_need_or_by_the_owners_order(
         self,
-    ):
+    ) -> None:
         # "another task" is true of both: the board reads no line for which of the two it is
         for first in (
             "it needs the export's column",
@@ -422,7 +426,7 @@ class Overview(unittest.TestCase):
 
     def test_an_interview_whose_criteria_the_personas_read_waits_for_nothing_of_his(
         self,
-    ):
+    ) -> None:
         m = model(
             state(0, "held", "the interview waits for the owner"),
             ev(1, "interview.start"),
@@ -435,7 +439,7 @@ class Overview(unittest.TestCase):
 
     def test_the_bar_counts_an_interview_whose_criteria_lem_writes_and_one_it_shapes_without_him(
         self,
-    ):
+    ) -> None:
         interview = (
             state(0, "held", "the interview waits for the owner"),
             ev(1, "interview.start"),
@@ -457,7 +461,7 @@ class Overview(unittest.TestCase):
 
     def test_the_large_card_says_how_a_stopped_run_ended_and_never_that_the_checks_run(
         self,
-    ):
+    ) -> None:
         t = one(
             state(0, "landing", "the checks start"),
             ev(1, "gate.start", tip="4c1d2e3f5", commands=2),
@@ -471,7 +475,7 @@ class Overview(unittest.TestCase):
 
     def test_what_we_are_building_says_nothing_of_filed_items_after_an_end_with_none(
         self,
-    ):
+    ) -> None:
         closed = one(state(0, "landed", "merged"))
         self.assertIsNone(bm.building_of(closed, {"outcome": "", "filed": []}))
         self.assertEqual(
@@ -484,7 +488,7 @@ class Overview(unittest.TestCase):
 
     def test_the_breakers_document_is_first_on_the_overview_while_it_waits_and_leaves_after_his_help(
         self,
-    ):
+    ) -> None:
         stop = ev(
             20,
             "decision.breaker",
@@ -539,7 +543,7 @@ class Overview(unittest.TestCase):
         )
         self.assertFalse(any('id="breaker"' in x for x in helped))
 
-    def test_the_merge_review_is_first_on_the_overview_of_an_open_task(self):
+    def test_the_merge_review_is_first_on_the_overview_of_an_open_task(self) -> None:
         ctx = pages.Ctx(
             host="h",
             workspace="w",
@@ -573,7 +577,7 @@ class Overview(unittest.TestCase):
 
     def test_after_a_moved_base_the_page_offers_no_merge_and_its_step_says_lem_lands_it_again(
         self,
-    ):
+    ) -> None:
         proposed = (
             ev(0, "proposed", green=True, not_green=[], tip="abc123456"),
             state(1, "open", "pull request https://github.com/acme/shop/pull/41"),
@@ -630,7 +634,7 @@ class Overview(unittest.TestCase):
 
     def test_while_his_merge_stands_the_page_offers_no_merge_and_its_step_says_it_stands(
         self,
-    ):
+    ) -> None:
         # guard-sees-unreadable-sessions, 2026-11-23, #60: the moved base refused his merge, and Lem keeps it
         proposed = (
             ev(0, "proposed", green=True, not_green=[], tip="faac6eb3b"),
@@ -709,7 +713,7 @@ class Overview(unittest.TestCase):
 
     def test_the_large_card_opens_with_the_tasks_first_line_while_its_block_is_the_newest(
         self,
-    ):
+    ) -> None:
         line = 'fix: "the footer says Terms and conditions". Fast track: one builder, the checks, one read, then the pull request. Nothing waits for you.'
         first = {
             **state(
@@ -733,7 +737,9 @@ class Overview(unittest.TestCase):
         )
         self.assertNotIn("now-said", card(state(0, "building", "lead: builder")))
 
-    def test_the_ring_counts_the_plans_finished_tasks_and_the_one_built_now(self):
+    def test_the_ring_counts_the_plans_finished_tasks_and_the_one_built_now(
+        self,
+    ) -> None:
         p = bm.progress_of(
             one(
                 state(0, "building", "plan committed, 3 tasks"),
@@ -747,7 +753,7 @@ class Overview(unittest.TestCase):
 
     def test_the_panel_says_no_waits_for_while_the_tasks_session_works_on_his_answer(
         self,
-    ):
+    ) -> None:
         # waits-for-you-only-when-it-waits, criteria 1 and 2: the header and the large card of a held interview
         m = model(
             state(0, "held", "the interview waits for the owner"),
@@ -792,7 +798,7 @@ class Overview(unittest.TestCase):
 
     def test_a_breakers_large_card_sends_him_to_its_document_only_while_the_breaker_waits_for_him(
         self,
-    ):
+    ) -> None:
         # waits-for-you-only-when-it-waits, criteria 1 and 2: while the session works on his help, nothing asks him to read it
         m = model(
             state(0, "building", "task 1 of 2"),
@@ -935,7 +941,7 @@ class InboxLine(unittest.TestCase):
 
     def test_criterion_6_a_breaker_sent_to_the_inbox_names_both_places_once_with_the_threads_link(
         self,
-    ):
+    ) -> None:
         shown = self.overview(
             state(1, "building", "task 2 of 3"), *self.BREAKER, record=self.record()
         )
@@ -960,7 +966,7 @@ class InboxLine(unittest.TestCase):
 
     def test_criterion_6_a_merge_and_a_blocked_task_get_the_line_that_row_action_never_gave_them(
         self,
-    ):
+    ) -> None:
         merge = (
             state(1, "open", "pull request https://github.com/acme/shop/pull/41"),
             ev(
@@ -994,7 +1000,7 @@ class InboxLine(unittest.TestCase):
 
     def test_criterion_7_with_no_inbox_or_no_tailnet_address_the_page_says_todays_line_and_why(
         self,
-    ):
+    ) -> None:
         for door, why in (
             (
                 {"running": False, "tailnet_url": None, "why": "not running"},
@@ -1019,7 +1025,7 @@ class InboxLine(unittest.TestCase):
 
     def test_a_task_whose_thing_went_as_a_note_says_no_session_runs_and_offers_one(
         self,
-    ):
+    ) -> None:
         shown = self.overview(
             state(1, "building", "lead: builder"),
             record=self.record("session:gift-note", "session", "note", False),
@@ -1034,7 +1040,7 @@ class InboxLine(unittest.TestCase):
         self.assertIn('action="/h/w/tasks/gift-note/session"', shown)
         self.assertNotIn(self.BOTH, said)
 
-    def test_a_task_whose_session_stopped_says_so_and_offers_a_fresh_one(self):
+    def test_a_task_whose_session_stopped_says_so_and_offers_a_fresh_one(self) -> None:
         # the merge review's finding 3: the row "stopped" asks nothing, as the row of a missing session
         shown = self.overview(
             state(1, "building", "lead: builder"),
@@ -1050,7 +1056,7 @@ class InboxLine(unittest.TestCase):
         self.assertIn('action="/h/w/tasks/gift-note/session"', shown)
         self.assertNotIn(self.BOTH, said)
 
-    def test_the_record_reaches_the_page_escaped(self):
+    def test_the_record_reaches_the_page_escaped(self) -> None:
         record = self.record(
             running=False, tailnet_url=None, why='<img src=x onerror="alert(1)">'
         )
@@ -1069,7 +1075,7 @@ class InboxLine(unittest.TestCase):
 
 
 class Artifacts(unittest.TestCase):
-    def test_one_file_is_read_only_by_a_path_the_task_lists(self):
+    def test_one_file_is_read_only_by_a_path_the_task_lists(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             task = Path(folder) / "tasks" / "gift-note"
             task.mkdir(parents=True)
@@ -1085,7 +1091,7 @@ class Artifacts(unittest.TestCase):
             )
             self.assertIsNone(lem_artifacts.one(task, "gift-note", "../../secret.txt"))
 
-    def test_an_artifacts_text_reaches_the_page_escaped(self):
+    def test_an_artifacts_text_reaches_the_page_escaped(self) -> None:
         f = {
             "path": "report.md",
             "kind": "markdown",
@@ -1103,7 +1109,7 @@ class Artifacts(unittest.TestCase):
 class Links(unittest.TestCase):
     def test_every_form_of_a_pull_request_is_one_link_and_a_bare_number_needs_the_forge(
         self,
-    ):
+    ) -> None:
         forge = "https://github.com/acme/shop"
         parts = bm.pull_refs(
             "merge pull request #41, acme/x#3 or https://github.com/a/b/pull/9.", forge
@@ -1120,7 +1126,7 @@ class Links(unittest.TestCase):
             bm.pull_refs("pull request #41 and #d8", None), ["pull request #41 and #d8"]
         )
 
-    def test_markdown_gets_links_outside_its_code_and_its_links(self):
+    def test_markdown_gets_links_outside_its_code_and_its_links(self) -> None:
         text = "see #41, `#5`, [x](https://g/pull/3)\n```\n#7\n```\n# Head"
         self.assertEqual(
             bm.pull_links_md(text, "https://github.com/acme/shop"),
@@ -1131,7 +1137,7 @@ class Links(unittest.TestCase):
 class Reasons(unittest.TestCase):
     def test_a_reason_is_cut_at_its_own_separators_never_inside_a_quote_or_a_parenthesis(
         self,
-    ):
+    ) -> None:
         r = bm.reason_parts(
             'decision 4 was taken without the owner (criterion 2: the span): "C: as W; and one line", by the dialectic'
         )
@@ -1166,7 +1172,7 @@ class Reasons(unittest.TestCase):
 class Map(unittest.TestCase):
     def test_a_record_hangs_on_its_document_and_what_the_map_does_not_know_is_a_working_file(
         self,
-    ):
+    ) -> None:
         entries = [
             {"path": p, "kind": "markdown", **lem_artifacts.place(p)}
             for p in (
@@ -1218,7 +1224,7 @@ class Map(unittest.TestCase):
 
     def test_the_merge_agents_brief_of_a_tip_on_a_base_is_a_document_of_the_pull_request(
         self,
-    ):
+    ) -> None:
         placed = lem_artifacts.place("merge-brief-abc123456789-def456789012.md")
         self.assertEqual(
             placed,
@@ -1231,7 +1237,7 @@ class Map(unittest.TestCase):
 
     def test_a_task_that_ended_long_ago_keeps_only_its_small_record_and_its_lock_files(
         self,
-    ):
+    ) -> None:
         with tempfile.TemporaryDirectory() as folder:
             task = Path(folder) / "gift-note"
             files = {
@@ -1304,7 +1310,7 @@ class Map(unittest.TestCase):
             )
             self.assertEqual(lem_artifacts.place("release.txt")["role"], "record")
 
-    def test_a_picture_is_one_by_its_name_and_its_first_bytes(self):
+    def test_a_picture_is_one_by_its_name_and_its_first_bytes(self) -> None:
         png = b"\x89PNG\r\n\x1a\n" + bytes(8)
         self.assertEqual(lem_artifacts.image_type("a.png", png), "image/png")
         self.assertIsNone(lem_artifacts.image_type("a.jpg", png))
@@ -1315,7 +1321,7 @@ class Map(unittest.TestCase):
 class Backlog(unittest.TestCase):
     def test_the_filter_comes_from_the_address_and_a_value_it_does_not_know_is_no_filter(
         self,
-    ):
+    ) -> None:
         self.assertEqual(
             pages.backlog_filter(
                 {"q": [" board "], "worth": ["bogus"], "only": ["stale"]}
@@ -1332,7 +1338,7 @@ class Backlog(unittest.TestCase):
 class Forge(unittest.TestCase):
     def test_the_server_asks_only_when_a_pull_request_is_open_and_nobody_looked_lately(
         self,
-    ):
+    ) -> None:
         prs, every = [{"task": "t", "n": 44}, {"task": "u", "n": 41}], 180_000
         self.assertEqual(bm.forge_due(prs, None, NOW, every, True), [41, 44])
         self.assertEqual(
@@ -1350,7 +1356,7 @@ class Forge(unittest.TestCase):
 
 
 class Feed(unittest.TestCase):
-    def test_only_an_event_a_resumed_task_carried_over_says_so(self):
+    def test_only_an_event_a_resumed_task_carried_over_says_so(self) -> None:
         m = model(state(0, "open", "pull request https://github.com/acme/shop/pull/41"))
         refused = ev(
             1,
@@ -1372,7 +1378,7 @@ class Feed(unittest.TestCase):
         )
         self.assertIn("carried over from", bm.describe(carried, m)["sub"])
 
-    def test_the_owners_merge_that_stands_is_said_in_words(self):
+    def test_the_owners_merge_that_stands_is_said_in_words(self) -> None:
         m = model(state(0, "open", "pull request https://github.com/acme/shop/pull/41"))
         read = bm.describe(
             ev(
@@ -1461,7 +1467,7 @@ class MergeStep(unittest.TestCase):
 
     def test_the_step_is_a_head_a_body_with_the_six_items_in_their_order_and_a_foot_with_the_form_and_back(
         self,
-    ):
+    ) -> None:
         html = self.step(self.careful("the total is money"))
         head, body, foot = (
             html.index('class="cf-head"'),
@@ -1496,7 +1502,7 @@ class MergeStep(unittest.TestCase):
 
     def test_only_a_step_with_its_button_has_the_controller_the_overlays_class_and_the_key_of_its_read(
         self,
-    ):
+    ) -> None:
         shown = self.step()
         self.assertIn('data-controller="sheet"', shown)
         self.assertIn("cf-sheet", shown)
@@ -1510,7 +1516,7 @@ class MergeStep(unittest.TestCase):
 
     def test_the_key_of_the_read_is_another_for_another_commit_and_for_another_careful_call_on_the_same_commit(
         self,
-    ):
+    ) -> None:
         first = self.key(self.step(self.careful("the total is money")))
         self.assertEqual(
             first,
@@ -1525,7 +1531,7 @@ class MergeStep(unittest.TestCase):
         )
         self.assertNotEqual(first, self.key(self.step()))
 
-    def test_the_head_names_the_pull_request_when_it_has_a_number(self):
+    def test_the_head_names_the_pull_request_when_it_has_a_number(self) -> None:
         self.assertIn('<div class="eyebrow">Merge #7 · confirm</div>', self.step(pr=7))
         no_pr = self.step(pr=None)
         self.assertIn('<div class="eyebrow">Merge · confirm</div>', no_pr)
@@ -1595,7 +1601,7 @@ class ParkAndApproveSteps(unittest.TestCase):
 
     def test_the_park_step_is_a_head_a_body_with_what_stopped_and_what_a_park_keeps_and_a_foot_with_the_field_the_button_and_back(
         self,
-    ):
+    ) -> None:
         html = self.park()
         head, body, foot = (
             html.index('class="cf-head"'),
@@ -1625,7 +1631,7 @@ class ParkAndApproveSteps(unittest.TestCase):
 
     def test_the_approval_that_holds_the_button_is_a_head_a_body_with_the_criteria_and_their_plain_text_and_a_foot_with_the_form_and_back(
         self,
-    ):
+    ) -> None:
         html = self.approve()
         head, wrap, body, foot = (
             html.index(x)
@@ -1655,7 +1661,7 @@ class ParkAndApproveSteps(unittest.TestCase):
 
     def test_only_an_approval_with_its_button_has_the_controller_and_the_key_of_its_read_follows_the_criteria(
         self,
-    ):
+    ) -> None:
         first = self.key(self.approve())
         self.assertRegex(first or "", r"^[0-9a-f]{12}$")
         self.assertEqual(first, self.key(self.approve()))
@@ -1676,7 +1682,7 @@ class ParkAndApproveSteps(unittest.TestCase):
 
     def test_the_note_of_an_approval_is_first_in_the_card_that_holds_the_button_and_above_a_card_without_it(
         self,
-    ):
+    ) -> None:
         ctx = self.ctx(note=self.REFUSED)
         parts = [str(x) for x in task_pages.criteria_tab(ctx, ctx.model.tasks[0]) if x]
         self.assertIn('id="approve-card"', parts[0])

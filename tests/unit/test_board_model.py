@@ -14,8 +14,9 @@ import sys
 import tempfile
 import threading
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Never
 from unittest import mock
 
 sys.dont_write_bytecode = True
@@ -27,7 +28,7 @@ pages = importlib.import_module("lem_board_pages")
 task_pages = importlib.import_module("lem_board_task")
 join = importlib.import_module("lem_html").join
 
-START = datetime(2026, 11, 20, 9, 0, tzinfo=timezone.utc)
+START = datetime(2026, 11, 20, 9, 0, tzinfo=UTC)
 NOW = int((START + timedelta(hours=2)).timestamp() * 1000)
 
 
@@ -57,7 +58,9 @@ def one(*events: dict, **kw) -> "bm.Task":
 
 
 class Status(unittest.TestCase):
-    def test_criteria_that_wait_put_the_task_in_the_owners_column_in_his_words(self):
+    def test_criteria_that_wait_put_the_task_in_the_owners_column_in_his_words(
+        self,
+    ) -> None:
         m = model(
             state(0, "held", "the interview waits for the owner"),
             state(5, "held", "the criteria wait for the owner"),
@@ -72,7 +75,7 @@ class Status(unittest.TestCase):
         )
         self.assertIn("in the task’s session", bm.answer_of(t))
 
-    def test_criteria_he_approved_with_no_lead_yet_are_lems_to_start(self):
+    def test_criteria_he_approved_with_no_lead_yet_are_lems_to_start(self) -> None:
         t = one(
             state(0, "held", "the criteria wait for the owner"),
             ev(3, "criteria.approved", by="owner", number=1),
@@ -95,7 +98,9 @@ class Status(unittest.TestCase):
             [],
         )
 
-    def test_since_is_when_the_task_entered_its_status_not_its_newest_block(self):
+    def test_since_is_when_the_task_entered_its_status_not_its_newest_block(
+        self,
+    ) -> None:
         t = one(
             state(0, "queued", "it waits"),
             state(10, "building", "lead: builder"),
@@ -127,7 +132,7 @@ class Breakers(unittest.TestCase):
 
     def test_a_breaker_is_one_row_until_his_help_and_its_held_block_is_not_a_second(
         self,
-    ):
+    ) -> None:
         m = model(state(0, "building", "task 2 of 3"), self.STOP, self.HELD)
         rows = bm.waits_of(m)
         self.assertEqual(
@@ -170,7 +175,7 @@ class Breakers(unittest.TestCase):
 
     def test_a_parked_or_ended_task_waits_for_nobody_and_a_parked_one_stands_apart(
         self,
-    ):
+    ) -> None:
         m = model(
             state(0, "building", "task 2 of 3"),
             self.STOP,
@@ -204,7 +209,7 @@ class Breakers(unittest.TestCase):
 class Landing(unittest.TestCase):
     def test_a_stopped_run_of_the_checks_is_lems_wait_for_his_word_and_no_row_of_his(
         self,
-    ):
+    ) -> None:
         m = model(
             state(0, "landing", "the checks start"),
             ev(1, "gate.start", commands=2),
@@ -232,7 +237,7 @@ class Landing(unittest.TestCase):
 
     def test_a_refused_run_says_that_a_builder_repairs_it_and_a_passed_one_says_nothing(
         self,
-    ):
+    ) -> None:
         refused = one(
             state(0, "landing", "the checks start"),
             ev(1, "gate.start", commands=2),
@@ -253,7 +258,7 @@ class Landing(unittest.TestCase):
         self.assertIsNone(passed.checks_stop)
         self.assertEqual(passed.info["label"], "Checks and review")
 
-    def test_a_landing_that_waits_says_what_for_until_its_next_event(self):
+    def test_a_landing_that_waits_says_what_for_until_its_next_event(self) -> None:
         waiting = one(
             state(0, "landing", "the checks start"),
             ev(1, "gate.wait", load=9.5, start=6),
@@ -271,7 +276,7 @@ class Landing(unittest.TestCase):
 
     def test_a_landing_that_waits_with_no_task_ahead_keeps_its_load_and_after_words(
         self,
-    ):
+    ) -> None:
         after = one(
             state(0, "landing", "the checks start"),
             ev(1, "gate.wait", load=3.0, start=6, after="keys-help"),
@@ -293,7 +298,7 @@ class Landing(unittest.TestCase):
             "for the load: 9.5, they start below 6",
         )
 
-    def test_a_result_on_another_tip_starts_a_new_run_of_the_checks(self):
+    def test_a_result_on_another_tip_starts_a_new_run_of_the_checks(self) -> None:
         t = one(
             state(0, "landing", "the checks start"),
             ev(1, "gate", command="make test", exit=1, tip="aaa"),
@@ -319,7 +324,7 @@ class WaitsBehind(unittest.TestCase):
 
     def test_criterion_7_a_landing_behind_one_that_waits_longer_says_so_on_the_card_and_in_the_feed(
         self,
-    ):
+    ) -> None:
         t = self.waiting(behind=self.FIRST, why="longer")
         said = "Its checks wait behind fast-track-checks-documents, which waits longer"
         self.assertEqual(bm.card_line(t, bm.LANE["checks"]), said)
@@ -343,7 +348,7 @@ class WaitsBehind(unittest.TestCase):
             "Waits for the load: 50.0, starts below 40",
         )
 
-    def test_each_why_has_its_words(self):
+    def test_each_why_has_its_words(self) -> None:
         for why, said in (
             ("wanted", "which another task waits for"),
             ("longer", "which waits longer"),
@@ -360,7 +365,7 @@ class WaitsBehind(unittest.TestCase):
                     f"behind fix-red-base, {said}",
                 )
 
-    def test_a_first_of_another_repository_is_named_with_its_folder(self):
+    def test_a_first_of_another_repository_is_named_with_its_folder(self) -> None:
         t = self.waiting(
             behind="new-sessions-open-at-tail",
             behind_repo="/Users/someone/Projects/mybaze",
@@ -375,7 +380,7 @@ class WaitsBehind(unittest.TestCase):
             "behind new-sessions-open-at-tail of mybaze, which another task waits for",
         )
 
-    def test_behind_goes_before_a_minute_after_the_last_start(self):
+    def test_behind_goes_before_a_minute_after_the_last_start(self) -> None:
         t = self.waiting(behind=self.FIRST, why="longer", after="keys-help")
         self.assertEqual(
             bm.card_line(t, bm.LANE["checks"]),
@@ -384,7 +389,7 @@ class WaitsBehind(unittest.TestCase):
 
     def test_a_stop_while_it_waited_ends_the_wait_and_reads_as_the_stopped_checks_with_no_count(
         self,
-    ):
+    ) -> None:
         t = one(
             state(0, "landing", "the checks start", task=self.SLUG),
             ev(
@@ -428,7 +433,7 @@ class WaitsBehind(unittest.TestCase):
             ],
         )
 
-    def test_a_run_stopped_after_its_start_keeps_its_count_of_commands(self):
+    def test_a_run_stopped_after_its_start_keeps_its_count_of_commands(self) -> None:
         t = one(
             state(0, "landing", "the checks start"),
             ev(1, "gate.start", commands=2, tip="abc123456"),
@@ -488,7 +493,7 @@ class TakenFromPolish(unittest.TestCase):
 
     def test_a_taken_result_is_the_span_of_the_criterias_tests_with_the_pass_and_its_commit(
         self,
-    ):
+    ) -> None:
         t = self.landing(
             ev(
                 16,
@@ -514,7 +519,7 @@ class TakenFromPolish(unittest.TestCase):
             bm.SAYS["gate.end"](t.events[-1])["sub"],
         )
 
-    def test_a_run_of_the_tests_says_nothing_of_the_polish_pass(self):
+    def test_a_run_of_the_tests_says_nothing_of_the_polish_pass(self) -> None:
         t = self.landing(
             ev(
                 18,
@@ -544,13 +549,13 @@ class TakenFromPolish(unittest.TestCase):
 
     def test_after_the_last_command_on_the_passs_commit_the_live_line_does_not_say_that_the_tests_run(
         self,
-    ):
+    ) -> None:
         live = [x for x in self.checks(self.landing()) if x[2]]
         self.assertEqual(len(live), 1)
         self.assertNotEqual(live[0][0], "The tests of the criteria run")
         self.assertIn(f"the polish pass's result at {self.TIP} is taken", live[0][0])
 
-    def test_after_a_pass_with_no_commits_the_tests_run(self):
+    def test_after_a_pass_with_no_commits_the_tests_run(self) -> None:
         live = [x for x in self.checks(self.landing(commits=0)) if x[2]]
         self.assertEqual([x[0] for x in live], ["The tests of the criteria run"])
 
@@ -558,7 +563,7 @@ class TakenFromPolish(unittest.TestCase):
 class Merge(unittest.TestCase):
     PR = "pull request https://github.com/acme/shop/pull/41"
 
-    def test_a_proposal_waits_for_his_merge_with_its_number_and_green(self):
+    def test_a_proposal_waits_for_his_merge_with_its_number_and_green(self) -> None:
         m = model(state(0, "open", self.PR, "green"))
         t = m.tasks[0]
         self.assertEqual(
@@ -570,7 +575,7 @@ class Merge(unittest.TestCase):
         self.assertEqual(bm.verdict_of(t), {"green": True, "reasons": []})
         self.assertEqual(bm.pr_of(t)["repo"], "acme/shop")
 
-    def test_not_green_has_the_proposals_reasons(self):
+    def test_not_green_has_the_proposals_reasons(self) -> None:
         t = one(
             ev(
                 0,
@@ -587,7 +592,7 @@ class Merge(unittest.TestCase):
 
     def test_a_pull_request_the_forge_calls_conflicting_is_a_row_with_nothing_to_do(
         self,
-    ):
+    ) -> None:
         events = (
             ev(0, "proposed", green=True, not_green=[], tip="abc123456"),
             state(1, "open", self.PR),
@@ -614,7 +619,7 @@ class Merge(unittest.TestCase):
 
     def test_a_merge_review_that_calls_him_comes_before_the_merge_and_a_new_proposal_forgets_it(
         self,
-    ):
+    ) -> None:
         events = (
             ev(0, "proposed", green=True, not_green=[], tip="abc123456"),
             state(1, "open", self.PR),
@@ -658,7 +663,7 @@ class Merge(unittest.TestCase):
         )
         self.assertEqual(bm.waits_of(again), [])
 
-    def test_an_open_pull_request_waits_for_him_only_when_its_merge_does(self):
+    def test_an_open_pull_request_waits_for_him_only_when_its_merge_does(self) -> None:
         proposed = (
             ev(0, "proposed", green=True, not_green=[], tip="abc123456"),
             state(1, "open", self.PR),
@@ -741,7 +746,9 @@ class Merge(unittest.TestCase):
         for m in (reads, merges, calls, refused, older):
             self.assertEqual(bm.acts_of(m.tasks[0], None), ["merge"])
 
-    def test_an_open_task_needs_its_session_only_while_the_merge_agent_reads_it(self):
+    def test_an_open_task_needs_its_session_only_while_the_merge_agent_reads_it(
+        self,
+    ) -> None:
         proposed = (
             ev(0, "proposed", green=True, not_green=[], tip="abc123456"),
             state(1, "open", self.PR),
@@ -766,7 +773,7 @@ class Merge(unittest.TestCase):
         calls.now += 10 * 60_000
         self.assertIsNone(bm.session_need(calls.tasks[0], calls))
 
-    def test_a_merge_github_refused_says_its_line(self):
+    def test_a_merge_github_refused_says_its_line(self) -> None:
         say = bm.wait_say(
             bm.waits_of(
                 model(
@@ -831,7 +838,7 @@ class WaitStacks(unittest.TestCase):
 
     def test_a_task_of_two_things_is_one_group_in_the_place_of_its_first_and_another_tasks_row_after_it(
         self,
-    ):
+    ) -> None:
         # the merge of board-card waits since minute 5, before the merge of the logo's task (minute 10), and after
         # the logo's merge review, so that the rows are the logo's, board-card's, the logo's
         m = model(
@@ -862,7 +869,7 @@ class WaitStacks(unittest.TestCase):
         )
         self.assertIs(stack["t"], m.by_slug["logo-eyes"])
 
-    def test_a_task_of_one_thing_is_a_group_of_its_one_row(self):
+    def test_a_task_of_one_thing_is_a_group_of_its_one_row(self) -> None:
         m = model(
             state(
                 0,
@@ -877,7 +884,7 @@ class WaitStacks(unittest.TestCase):
 
     def test_two_tasks_of_two_things_are_two_groups_in_the_order_of_their_first_rows(
         self,
-    ):
+    ) -> None:
         m = model(*self.calls("receipt", 20, 44), *self.calls("logo-eyes", 10, 73))
         self.assertEqual(
             [w["key"] for w in bm.waits_of(m)],
@@ -891,7 +898,7 @@ class WaitStacks(unittest.TestCase):
             ],
         )
 
-    def test_nothing_waits_no_group(self):
+    def test_nothing_waits_no_group(self) -> None:
         self.assertEqual(bm.wait_stacks([]), [])
 
 
@@ -937,7 +944,7 @@ class WaitingByTask(unittest.TestCase):
 
     def test_a_task_whose_merge_review_calls_the_owner_is_one_entry_of_its_two_things_and_counts_once(
         self,
-    ):
+    ) -> None:
         # the interview of board-answers-a-card, then the logo's merge review, board-card's merge and the logo's merge
         m = model(
             state(
@@ -1027,7 +1034,7 @@ class WaitingByTask(unittest.TestCase):
             (["logo-eyes"], ["board-card", "logo-eyes"]),
         )
 
-    def test_nothing_waits_no_task_and_a_count_of_0(self):
+    def test_nothing_waits_no_task_and_a_count_of_0(self) -> None:
         found = self.waiting(
             model(state(0, "building", "lead: builder", task="logo-eyes"))
         )
@@ -1051,7 +1058,7 @@ class Acts(unittest.TestCase):
 
     def test_his_yes_is_offered_for_criteria_and_for_an_interview_only_once_its_read_is_in(
         self,
-    ):
+    ) -> None:
         self.assertEqual(
             bm.acts_of(one(state(0, "held", "the criteria wait for the owner")), None),
             ["approve"],
@@ -1070,7 +1077,7 @@ class Acts(unittest.TestCase):
 
     def test_a_merge_is_offered_while_open_and_not_while_the_forge_calls_it_conflicting(
         self,
-    ):
+    ) -> None:
         events = (
             ev(
                 0,
@@ -1097,7 +1104,7 @@ class Acts(unittest.TestCase):
 
     def test_a_park_is_offered_while_a_breaker_waits_and_not_once_the_task_is_parked(
         self,
-    ):
+    ) -> None:
         stop, held = Breakers.STOP, Breakers.HELD
         self.assertEqual(
             bm.acts_of(one(state(0, "building", "task 2 of 3"), stop, held), None),
@@ -1116,7 +1123,7 @@ class Acts(unittest.TestCase):
             [],
         )
 
-    def test_the_activity_says_where_he_asked_from_and_no_login(self):
+    def test_the_activity_says_where_he_asked_from_and_no_login(self) -> None:
         said = bm.describe(
             ev(0, "board.act", act="merge", via=bm.VIA["door"]),
             model(state(0, "open", Merge.PR)),
@@ -1152,7 +1159,7 @@ class InterviewRead(unittest.TestCase):
 
     def test_the_row_leaves_while_the_personas_read_and_comes_back_when_his_yes_is_what_is_missing(
         self,
-    ):
+    ) -> None:
         asking = model(*self.INTERVIEW)
         t = asking.tasks[0]
         self.assertEqual(
@@ -1191,7 +1198,9 @@ class InterviewRead(unittest.TestCase):
         )
         self.assertEqual(bm.acts_of(t, None), ["approve"])
 
-    def test_a_read_nobody_answered_and_started_once_more_hides_the_row_again(self):
+    def test_a_read_nobody_answered_and_started_once_more_hides_the_row_again(
+        self,
+    ) -> None:
         silent = dict(
             self.READ,
             answered=0,
@@ -1206,22 +1215,24 @@ class InterviewRead(unittest.TestCase):
         )
         self.assertEqual((self.rows(again), again.tasks[0].for_owner), ([], False))
 
-    def test_the_scouts_read_keeps_the_row_since_the_interview_may_still_ask_him(self):
+    def test_the_scouts_read_keeps_the_row_since_the_interview_may_still_ask_him(
+        self,
+    ) -> None:
         # the log has no end of the interview: while the scout reads, a question may wait for him
         scouting = model(*self.INTERVIEW[:3])
         self.assertEqual(self.rows(scouting), [("held:gift-note", "held")])
 
-    def test_a_read_that_started_before_the_newest_block_does_not_hide_it(self):
+    def test_a_read_that_started_before_the_newest_block_does_not_hide_it(self) -> None:
         # a start with no end before the held block (one a resumed task carried over) is no read of these criteria
         stale = model(ev(0, "criteria.read.start", by="lem"), *self.INTERVIEW)
         self.assertEqual(self.rows(stale), [("held:gift-note", "held")])
 
-    def test_a_session_gone_in_the_read_is_still_a_row(self):
+    def test_a_session_gone_in_the_read_is_still_a_row(self) -> None:
         reading = model(*self.INTERVIEW, ev(10, "criteria.read.start", by="lem"))
         reading.sessions = {}
         self.assertEqual(self.rows(reading), [("session:gift-note", "session")])
 
-    def test_lem_project_waiting_counts_only_the_interview_that_asks_him(self):
+    def test_lem_project_waiting_counts_only_the_interview_that_asks_him(self) -> None:
         # the case of 2026-11-19: two interviews, the personas read the criteria of the first; `lem project waiting`
         # lists the rows of waits_of and counts them, so it counts one, as the board's Waits for you lists one
         first, second = "landing-in-the-background", "interview-in-a-companion"
@@ -1277,7 +1288,7 @@ class InterviewTurns(unittest.TestCase):
 
     def test_criterion_1_after_the_last_answer_lem_writes_the_criteria_and_nothing_waits_for_him(
         self,
-    ):
+    ) -> None:
         # the scout still reads (no `scout` yet), then its report is in, and Lem writes the criteria
         for scout in ((), (self.at(6, "scout"),)):
             with self.subTest(scout_report=bool(scout)):
@@ -1299,7 +1310,9 @@ class InterviewTurns(unittest.TestCase):
                 self.assertIsNone(bm.waits_for(t, bm.waits_of(m)))
                 self.assertEqual(bm.acts_of(t, None), [])
 
-    def test_criterion_2_the_skip_question_is_his_row_and_his_no_starts_the_read(self):
+    def test_criterion_2_the_skip_question_is_his_row_and_his_no_starts_the_read(
+        self,
+    ) -> None:
         asking = model(*self.interview())
         interview_row = self.rows(asking)
         self.assertEqual(
@@ -1383,7 +1396,7 @@ class InterviewTurns(unittest.TestCase):
 
     def test_criterion_3_while_he_is_away_lem_goes_on_and_only_a_breaker_and_an_order_stay_his(
         self,
-    ):
+    ) -> None:
         away = {
             "ts": "2026-11-20T09:02:00Z",
             "event": "owner",
@@ -1443,7 +1456,7 @@ class InterviewTurns(unittest.TestCase):
 
     def test_criterion_3_a_nights_task_and_the_requests_one_answer_go_on_without_him(
         self,
-    ):
+    ) -> None:
         night = self.at(
             0,
             "task.mode",
@@ -1484,7 +1497,7 @@ class InterviewTurns(unittest.TestCase):
 
     def test_criterion_4_the_interview_ends_with_its_questions_and_lems_writing_runs_to_the_read(
         self,
-    ):
+    ) -> None:
         # the questions ended at 10:05 and the read started at 10:12 (START is 9:00)
         t = one(
             state(59, "held", "the interview waits for the owner", task=self.SLUG),
@@ -1530,7 +1543,7 @@ class InterviewTurns(unittest.TestCase):
                 ]
                 self.assertEqual(writes, [(ms(65), ms(70))])
 
-    def test_the_timeline_says_both_events(self):
+    def test_the_timeline_says_both_events(self) -> None:
         m = model(*self.interview())
         self.assertEqual(
             bm.describe(self.at(5, "interview.end"), m)["head"],
@@ -1624,7 +1637,7 @@ class HomeFolder:
         facts = re.findall(
             r'id="dd-time".*?data-since="(\d+)"',
             str(join(task_pages.facts(ctx, t, bm.waits_of(m)))),
-            re.S,
+            re.DOTALL,
         )
         return row, [int(x) for x in pill], [int(x) for x in facts]
 
@@ -1638,7 +1651,7 @@ class WaitStart(HomeFolder, unittest.TestCase):
 
     def test_the_criteria_wait_counts_from_its_own_block_on_the_row_the_pill_and_in_this_state(
         self,
-    ):
+    ) -> None:
         m = self.board()
         t = m.by_slug[self.SLUG]
         began = bm.at(self.CRITERIA)
@@ -1672,7 +1685,7 @@ class WaitClock(HomeFolder, unittest.TestCase):
 
     def test_the_same_held_line_written_again_by_a_new_session_keeps_the_wait_at_11_39(
         self,
-    ):
+    ) -> None:
         m = self.board(
             self.at(
                 "2026-11-23T12:10:00Z",
@@ -1694,7 +1707,7 @@ class WaitClock(HomeFolder, unittest.TestCase):
         began = bm.at(self.CRITERIA)
         self.assertEqual(self.clocks(m), (began, [began], [began]))
 
-    def test_a_blocked_task_counts_from_the_block_that_named_its_wait(self):
+    def test_a_blocked_task_counts_from_the_block_that_named_its_wait(self) -> None:
         five, thirty = bm.at(ev(5, "x")["ts"]), bm.at(ev(30, "x")["ts"])
         again = (
             state(0, "building", "task 1 of 2"),
@@ -1707,7 +1720,7 @@ class WaitClock(HomeFolder, unittest.TestCase):
         other = model(*again, state(30, "blocked", "the fixture needs a second login"))
         self.assertEqual(self.clocks(other, "gift-note"), (thirty, [thirty], [thirty]))
 
-    def test_a_building_task_counts_from_when_it_started_to_build(self):
+    def test_a_building_task_counts_from_when_it_started_to_build(self) -> None:
         ten = bm.at(ev(10, "x")["ts"])
         m = model(
             state(0, "queued", "it waits"),
@@ -1753,7 +1766,9 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
             "now": str(task_pages.now_card(ctx, t)),
         }
 
-    def test_criterion_1_while_the_turn_runs_the_task_is_lems_work_and_no_row(self):
+    def test_criterion_1_while_the_turn_runs_the_task_is_lems_work_and_no_row(
+        self,
+    ) -> None:
         m = self.board(now=self.RUNS)
         bm.put_sessions(m, self.sessions("runs"))
         t = m.by_slug[self.SLUG]
@@ -1782,7 +1797,7 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
 
     def test_criterion_2_when_the_turn_ends_on_the_same_model_the_row_is_back_since_11_39(
         self,
-    ):
+    ) -> None:
         m = self.board(now=self.RUNS)
         bm.put_sessions(m, self.sessions("runs"))
         # the server keeps the model it derived and sets the sessions again at its next look
@@ -1808,7 +1823,7 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
         self.assertIn("Waits for", self.panel(m)["facts"])
         self.assertIn("Where you answer", self.panel(m)["now"])
 
-    def test_the_sessions_put_again_give_the_same_model(self):
+    def test_the_sessions_put_again_give_the_same_model(self) -> None:
         m = self.board(now=self.RUNS)
         bm.put_sessions(m, self.sessions("runs"))
         t = m.by_slug[self.SLUG]
@@ -1835,7 +1850,9 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
             ended[0], [("criteria", f"held:{self.SLUG}", bm.at(self.CRITERIA))]
         )
 
-    def test_criterion_3_with_no_turn_lem_can_read_the_task_waits_as_today(self):
+    def test_criterion_3_with_no_turn_lem_can_read_the_task_waits_as_today(
+        self,
+    ) -> None:
         cases = {
             "the server has not asked": None,
             "no session of the task": {},
@@ -1862,7 +1879,7 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
 
     def test_a_breakers_held_task_follows_the_turn_and_a_blocked_task_keeps_its_row(
         self,
-    ):
+    ) -> None:
         stop = ev(
             20,
             "decision.breaker",
@@ -1896,7 +1913,7 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
 
     def test_two_threads_that_put_the_same_sessions_at_once_leave_the_task_lems_work(
         self,
-    ):
+    ) -> None:
         # the board server's request threads, its forge thread and its Inbox thread each put the sessions on the one
         # model the Reader keeps: here the first put waits inside the held task while a second one puts the same sessions
         m = self.board(now=self.RUNS)
@@ -1912,7 +1929,7 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
 
         problems: list = []
 
-        def put():
+        def put() -> None:
             try:
                 bm.put_sessions(m, self.sessions("runs"))
             except Exception as error:  # the thread's own error, which the test reports
@@ -1965,13 +1982,13 @@ class SessionAtWork(HomeFolder, unittest.TestCase):
                 found, _ = project.waiting_model(Path("/lem-unit/repo"), {})
         return [w["key"] for w in bm.waits_of(found)]
 
-    def test_lem_project_waiting_lists_the_task_only_once_the_turn_ended(self):
+    def test_lem_project_waiting_lists_the_task_only_once_the_turn_ended(self) -> None:
         self.assertEqual(self.waiting("runs"), [])
         self.assertEqual(self.waiting("ended"), [f"held:{self.SLUG}"])
 
     def test_the_tasks_own_session_finds_its_row_in_lem_project_waiting_while_its_turn_runs(
         self,
-    ):
+    ) -> None:
         # the session asks inside its own turn, which then runs: a breaker's wake reads its row there to put up its card
         self.assertEqual(self.waiting("runs", caller="S1"), [f"held:{self.SLUG}"])
         # another session's ask still reads the task's turn
@@ -1992,7 +2009,7 @@ class Sessions(unittest.TestCase):
 
     def test_a_task_whose_phase_needs_an_agent_and_has_no_live_session_is_a_row_and_gets_the_button(
         self,
-    ):
+    ) -> None:
         events = (
             state(0, "building", "lead: builder"),
             ev(
@@ -2011,7 +2028,9 @@ class Sessions(unittest.TestCase):
         m.sessions = {"gift-note": {"live": True, "agent": True}}
         self.assertEqual((self.rows(m), bm.opens_session(m.tasks[0], m)), ([], False))
 
-    def test_the_where_of_a_task_whose_session_is_gone_says_what_its_row_says(self):
+    def test_the_where_of_a_task_whose_session_is_gone_says_what_its_row_says(
+        self,
+    ) -> None:
         m = model(
             state(0, "building", "lead: builder"), state(30, "building", "task 2 of 3")
         )
@@ -2025,18 +2044,20 @@ class Sessions(unittest.TestCase):
 
     def test_nothing_is_said_while_the_server_has_not_asked_or_the_session_is_young(
         self,
-    ):
+    ) -> None:
         self.assertEqual(self.rows(model(state(0, "building", "lead: builder"))), [])
         young = model(state(119, "held", "the interview waits for the owner"))
         young.sessions = {}
         self.assertEqual(self.rows(young), [])
 
-    def test_a_task_that_waits_only_for_his_merge_has_the_button_and_no_row(self):
+    def test_a_task_that_waits_only_for_his_merge_has_the_button_and_no_row(
+        self,
+    ) -> None:
         m = model(state(0, "open", Merge.PR, "green"))
         m.sessions = {}
         self.assertEqual((self.rows(m), bm.opens_session(m.tasks[0], m)), ([], True))
 
-    def test_a_merged_task_has_a_row_only_while_its_worktree_stays(self):
+    def test_a_merged_task_has_a_row_only_while_its_worktree_stays(self) -> None:
         m = model(
             state(0, "open", Merge.PR),
             state(
@@ -2059,7 +2080,7 @@ class Sessions(unittest.TestCase):
 
     def test_a_task_dropped_by_a_close_on_github_has_a_row_only_while_its_worktree_stays(
         self,
-    ):
+    ) -> None:
         # decision 28 of github-issues-tracker: the wake of such a task failed, and the board says so
         m = model(*self.CLOSED_ON_GITHUB)
         m.sessions = {"gift-note": {"worktree": True}}
@@ -2080,7 +2101,7 @@ class Sessions(unittest.TestCase):
 
     def test_a_task_dropped_by_a_close_on_github_gets_the_button_only_while_its_worktree_stays(
         self,
-    ):
+    ) -> None:
         m = model(*self.CLOSED_ON_GITHUB)
         m.sessions = {"gift-note": {"worktree": True}}
         self.assertTrue(bm.opens_session(m.tasks[0], m))
@@ -2091,7 +2112,7 @@ class Sessions(unittest.TestCase):
 
     def test_the_board_offers_a_session_to_each_ended_task_that_phase_of_gives_one(
         self,
-    ):
+    ) -> None:
         # session.py's `phase_of` is the one that opens it: the board agrees with it on every ended state
         session = importlib.import_module("session")
         for status in bm.ENDED:
@@ -2114,7 +2135,7 @@ class Sessions(unittest.TestCase):
                         (gets, gets),
                     )
 
-    def test_a_wake_nobody_took_is_a_row_of_its_own(self):
+    def test_a_wake_nobody_took_is_a_row_of_its_own(self) -> None:
         m = model(state(0, "open", Merge.PR))
         m.sessions = {"gift-note": {"live": True, "agent": True, "unanswered": True}}
         rows = bm.waits_of(m)
@@ -2127,7 +2148,7 @@ class Sessions(unittest.TestCase):
             [("deaf:gift-note", "Its session does not answer")],
         )
 
-    def test_a_parked_task_and_one_queued_behind_an_open_task_have_none(self):
+    def test_a_parked_task_and_one_queued_behind_an_open_task_have_none(self) -> None:
         parked = model(state(0, "parked", "the owner parked it"))
         parked.sessions = {}
         queued = model(
@@ -2138,7 +2159,7 @@ class Sessions(unittest.TestCase):
         self.assertEqual((self.rows(parked), self.rows(queued)), ([], []))
         self.assertFalse(bm.opens_session(queued.by_slug["gift-note"], queued))
 
-    def test_a_demo_reads_a_session_from_the_log_alone(self):
+    def test_a_demo_reads_a_session_from_the_log_alone(self) -> None:
         demo = bm.derive(
             [
                 state(0, "building", "lead: builder"),
@@ -2167,7 +2188,7 @@ class Blocked(unittest.TestCase):
 
     def test_a_blocked_task_is_a_row_of_his_with_its_own_line_and_the_base_red_is_none(
         self,
-    ):
+    ) -> None:
         m = model(
             state(0, "building", "lead: builder"),
             state(5, "blocked", "a builder ended two times with no report"),
@@ -2215,7 +2236,7 @@ class ReleaseStop(unittest.TestCase):
 
     def test_an_open_task_two_releases_back_is_shown_blocked_with_the_message_and_stays_open(
         self,
-    ):
+    ) -> None:
         m = model(
             ev(0, "proposed", green=True, not_green=[], tip="abc123456"),
             state(1, "open", Merge.PR, "green"),
@@ -2238,7 +2259,9 @@ class ReleaseStop(unittest.TestCase):
         # every act of the board would stop in the guard: the drop is the way on
         self.assertEqual(bm.acts_of(t, None), [])
 
-    def test_a_landing_two_releases_back_is_out_of_the_guard_of_a_stopped_session(self):
+    def test_a_landing_two_releases_back_is_out_of_the_guard_of_a_stopped_session(
+        self,
+    ) -> None:
         t = one(state(0, "landing", "the checks run"), self.stop(5))
         self.assertEqual(t.status, "landing")
         self.assertIn(t.status, bm.GUARDED)
@@ -2247,7 +2270,7 @@ class ReleaseStop(unittest.TestCase):
 
     def test_a_held_task_two_releases_back_stays_blocked_while_its_sessions_turn_runs(
         self,
-    ):
+    ) -> None:
         m = model(state(0, "held", "the criteria wait for the owner"), self.stop(5))
         entry = {
             "task": "gift-note",
@@ -2271,7 +2294,7 @@ class ReleaseStop(unittest.TestCase):
         )
         self.assertEqual([w["key"] for w in bm.waits_of(m)], ["blocked:gift-note"])
 
-    def test_a_state_after_the_stop_is_the_tasks_own_work_again(self):
+    def test_a_state_after_the_stop_is_the_tasks_own_work_again(self) -> None:
         t = one(
             state(0, "open", Merge.PR),
             self.stop(5),
@@ -2300,7 +2323,7 @@ class SeatThatFailed(unittest.TestCase):
     LINE = "the reviewer `codex/gpt-6.2-sol:high` gave an error: no tokens, and this project permits no fallback"
     PR = "pull request https://github.com/acme/shop/pull/41"
 
-    def test_the_block_is_his_row_with_its_line(self):
+    def test_the_block_is_his_row_with_its_line(self) -> None:
         m = model(
             state(0, "building", "the plan talk runs", "lead: session"),
             state(5, "blocked", self.LINE, "the seat that failed: reviewer"),
@@ -2317,7 +2340,7 @@ class SeatThatFailed(unittest.TestCase):
             ).failed_seat
         )
 
-    def test_the_timeline_says_each_seat_event(self):
+    def test_the_timeline_says_each_seat_event(self) -> None:
         m = model(state(0, "building", "the plan talk runs"))
         stood = bm.describe(
             ev(
@@ -2377,7 +2400,7 @@ class SeatThatFailed(unittest.TestCase):
 
     def test_a_block_of_the_merge_agent_keeps_its_pull_request_in_the_look_at_github(
         self,
-    ):
+    ) -> None:
         serve = importlib.import_module("serve")
         merger = self.LINE.replace("the reviewer", "the merge agent")
         m = model(
@@ -2394,7 +2417,7 @@ class SeatThatFailed(unittest.TestCase):
 class NewTask(unittest.TestCase):
     """A task whose session opened and wrote no state block is on the board from its first minute."""
 
-    def test_a_session_open_with_no_block_is_a_task_that_starts(self):
+    def test_a_session_open_with_no_block_is_a_task_that_starts(self) -> None:
         m = model(
             ev(
                 0,
@@ -2422,7 +2445,7 @@ class NewTask(unittest.TestCase):
 
 
 class ForgeLook(unittest.TestCase):
-    def test_the_servers_last_look_is_read_from_the_state_folder(self):
+    def test_the_servers_last_look_is_read_from_the_state_folder(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             folder = Path(tmp)
             self.assertIsNone(bm.forge_look(folder))
@@ -2440,7 +2463,7 @@ class ForgeLook(unittest.TestCase):
             (folder / bm.FORGE_LOOK).write_text("half")
             self.assertIsNone(bm.forge_look(folder))
 
-    def test_sessions_of_adds_the_worktrees_of_ended_tasks(self):
+    def test_sessions_of_adds_the_worktrees_of_ended_tasks(self) -> None:
         found = bm.sessions_of(
             bm.session_entries(
                 '[{"task": "a", "live": true, "agent": true, "turn": "runs"}]'
@@ -2468,7 +2491,7 @@ class ForgeLook(unittest.TestCase):
 
 
 class Workspace(unittest.TestCase):
-    def test_the_owners_newest_record_says_whether_he_is_away(self):
+    def test_the_owners_newest_record_says_whether_he_is_away(self) -> None:
         away = {
             "ts": "2026-11-20T10:00:00Z",
             "event": "owner",
@@ -2481,7 +2504,9 @@ class Workspace(unittest.TestCase):
         )
         self.assertIsNone(model(state(0, "queued", "x"), owner=[away, back]).away)
 
-    def test_done_shows_the_newest_first_and_a_task_with_no_block_has_no_card(self):
+    def test_done_shows_the_newest_first_and_a_task_with_no_block_has_no_card(
+        self,
+    ) -> None:
         m = model(
             state(0, "landed", "merged", task="old-one"),
             state(50, "landed", "merged", task="new-one"),
@@ -2492,7 +2517,7 @@ class Workspace(unittest.TestCase):
 
     def test_done_keeps_every_ended_task_and_the_ones_after_its_newest_20_are_the_older(
         self,
-    ):
+    ) -> None:
         ended = ("landed", "dropped", "answered")
         m = model(
             *(
@@ -2519,7 +2544,7 @@ class Workspace(unittest.TestCase):
             [],
         )
 
-    def test_the_phases_of_the_fast_track_and_of_the_standard_track(self):
+    def test_the_phases_of_the_fast_track_and_of_the_standard_track(self) -> None:
         fast = one(
             state(0, "building", "small change: one builder"),
             state(9, "landing", "the checks start"),
@@ -2535,7 +2560,9 @@ class Workspace(unittest.TestCase):
 
 
 class Reader(unittest.TestCase):
-    def test_the_log_is_read_on_from_where_it_stopped_and_a_bad_line_is_said(self):
+    def test_the_log_is_read_on_from_where_it_stopped_and_a_bad_line_is_said(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             reader = bm.Reader(Path(tmp), Path(tmp))
             log = Path(tmp) / "events.jsonl"
@@ -2622,7 +2649,9 @@ class Inbox(unittest.TestCase):
         m.sessions, m.inbox = sessions, record
         return bm.inbox_of(m.tasks[0], m)
 
-    def test_the_record_is_the_servers_file_read_whole_and_each_why_has_its_words(self):
+    def test_the_record_is_the_servers_file_read_whole_and_each_why_has_its_words(
+        self,
+    ) -> None:
         lem_inbox = importlib.import_module("lem_inbox")
         self.assertEqual(
             (bm.INBOX_LOOK, set(bm.INBOX_WHY)), (lem_inbox.RECORD, set(lem_inbox.WHYS))
@@ -2642,13 +2671,13 @@ class Inbox(unittest.TestCase):
 
     def test_the_reader_puts_the_record_into_the_model_and_reads_it_again_when_it_changes(
         self,
-    ):
+    ) -> None:
         from types import SimpleNamespace
 
         with tempfile.TemporaryDirectory() as tmp:
             folder = Path(tmp)
 
-            def load(root):
+            def load(root) -> Never:
                 raise ValueError("no settings here")
 
             lem_state = SimpleNamespace(
@@ -2678,7 +2707,7 @@ class Inbox(unittest.TestCase):
 
     def test_criterion_6_a_question_sent_while_he_is_away_links_to_its_thread_at_the_tailnet_address(
         self,
-    ):
+    ) -> None:
         self.assertEqual(
             self.breaker(self.record(self.thing())),
             {
@@ -2700,7 +2729,9 @@ class Inbox(unittest.TestCase):
             "https://studio.tail4e2a.ts.net:8443/#thread=m%221%20%3Cx%3E",
         )
 
-    def test_criterion_7_with_the_door_closed_the_page_gets_why_and_no_link(self):
+    def test_criterion_7_with_the_door_closed_the_page_gets_why_and_no_link(
+        self,
+    ) -> None:
         for why, words in (
             (
                 "not running",
@@ -2761,7 +2792,7 @@ class Inbox(unittest.TestCase):
 
     def test_nothing_changes_while_he_is_there_while_nothing_of_the_task_went_and_for_an_old_row(
         self,
-    ):
+    ) -> None:
         self.assertIsNone(self.breaker(self.record(self.thing()), owner=[]))
         self.assertIsNone(self.breaker(None))
         self.assertIsNone(self.breaker(self.record()))
@@ -2790,7 +2821,7 @@ class Inbox(unittest.TestCase):
 
     def test_a_note_says_whether_a_session_can_take_a_reply_and_the_merge_review_is_the_merges_thing(
         self,
-    ):
+    ) -> None:
         gone = self.breaker(
             self.record(self.thing("session:gift-note", "session", "note", False)),
             sessions={},
@@ -2834,7 +2865,7 @@ class MovedBase(unittest.TestCase):
 
     PR = "pull request https://github.com/acme/shop/pull/41"
 
-    def test_a_base_refusal_is_no_row_and_githubs_is_his(self):
+    def test_a_base_refusal_is_no_row_and_githubs_is_his(self) -> None:
         proposed = (
             ev(0, "proposed", green=True, not_green=[], tip="abc123456"),
             state(1, "open", self.PR),
@@ -2887,7 +2918,7 @@ class MovedBase(unittest.TestCase):
             base_why="B changed only docs/board.md, which the change does not read",
         )
 
-    def test_a_safe_read_of_the_moved_base_answers_lems_refusal(self):
+    def test_a_safe_read_of_the_moved_base_answers_lems_refusal(self) -> None:
         proposed = (
             ev(0, "proposed", green=True, not_green=[], tip="abc123456"),
             state(1, "open", self.PR),
@@ -2953,7 +2984,9 @@ class MovedBase(unittest.TestCase):
             (github.refused["from"], github.merge_wait), ("github", "owner")
         )
 
-    def test_a_read_on_the_checks_base_answers_lems_refusal_after_a_revert(self):
+    def test_a_read_on_the_checks_base_answers_lems_refusal_after_a_revert(
+        self,
+    ) -> None:
         # main moved and the merge was refused; a revert gave main the checks' tree again, so the read's brief
         # named the checks' own base and its review has no call on a move: it answers the refusal too
         proposed = (
@@ -3018,7 +3051,7 @@ class MovedBase(unittest.TestCase):
         )
         self.assertEqual(github.merge_wait, "owner")
 
-    def test_another_round_relands_until_the_next_proposal(self):
+    def test_another_round_relands_until_the_next_proposal(self) -> None:
         proposed = (
             ev(0, "proposed", green=True, not_green=[], tip="abc123456"),
             state(1, "open", self.PR),
@@ -3056,7 +3089,7 @@ class MovedBase(unittest.TestCase):
         )
         self.assertEqual(landed.merge_wait, "reads")
 
-    def test_the_feed_shows_the_read_of_a_moved_base_with_its_call(self):
+    def test_the_feed_shows_the_read_of_a_moved_base_with_its_call(self) -> None:
         m = model(
             ev(0, "proposed", green=True, not_green=[], tip="abc123456"),
             state(1, "open", self.PR),
@@ -3096,7 +3129,7 @@ class MovedBase(unittest.TestCase):
 
     def test_a_merge_the_moved_base_refused_is_not_offered_again_until_the_next_proposal(
         self,
-    ):
+    ) -> None:
         # his merge from the board met a moved base: it stands (`owner_tap`), and the server runs it after a
         # read that says safe, so while the merge agent reads, a second press could only meet the same moved
         # base: the page offers no Merge (guard-sees-unreadable-sessions, 2026-11-23, #60). Once a read asks
@@ -3177,7 +3210,7 @@ class MovedBase(unittest.TestCase):
 
     def test_his_merge_stands_from_the_refusal_through_the_servers_merge_and_its_sentence_follows_the_span(
         self,
-    ):
+    ) -> None:
         # guard-sees-unreadable-sessions, 2026-11-23, #60: 10:38:03 the moved base refused his merge; 10:41:22
         # a fresh read said safe on d48c6a9bd and `merge.stands` was logged; 10:41:27 the server ran his merge
         proposed = (
@@ -3378,7 +3411,7 @@ class MovedBase(unittest.TestCase):
             )
         )
 
-    def test_a_merge_of_his_that_stands_is_the_servers(self):
+    def test_a_merge_of_his_that_stands_is_the_servers(self) -> None:
         again = (
             ev(0, "proposed", green=True, not_green=[], tip="def456789"),
             state(1, "open", self.PR),
@@ -3400,7 +3433,7 @@ class MovedBase(unittest.TestCase):
         older = one(*again[:3], ev(3, "merge.stands", by="owner", tip="fff000111"))
         self.assertEqual(older.merge_wait, "owner")
 
-    def test_a_dropped_task_leaves_the_task_behind_it_queued(self):
+    def test_a_dropped_task_leaves_the_task_behind_it_queued(self) -> None:
         queued = state(1, "queued", "it starts after coupon", "after: coupon")
         for status, ended, dropped in (
             ("landed", True, False),
@@ -3451,7 +3484,9 @@ class AfterDropped(unittest.TestCase):
             ),
         )
 
-    def test_a_task_queued_after_a_dropped_task_is_one_row_with_his_two_words(self):
+    def test_a_task_queued_after_a_dropped_task_is_one_row_with_his_two_words(
+        self,
+    ) -> None:
         m = model(*self.gift("dropped"), self.QUEUED)
         m.sessions = {}
         rows = bm.waits_of(m)
@@ -3481,7 +3516,7 @@ class AfterDropped(unittest.TestCase):
             bm.waits_for(m.by_slug[self.ORDER], rows)["where"], say["where"]
         )
 
-    def test_the_task_waits_for_him_on_every_view_of_the_board(self):
+    def test_the_task_waits_for_him_on_every_view_of_the_board(self) -> None:
         m = model(*self.gift("dropped"), self.QUEUED)
         m.sessions = {}
         t = m.by_slug[self.ORDER]
@@ -3501,7 +3536,9 @@ class AfterDropped(unittest.TestCase):
             (False, "build", "Lem acts", "Waits for another task"),
         )
 
-    def test_a_row_of_another_kind_leaves_where_he_answers_to_the_task_state(self):
+    def test_a_row_of_another_kind_leaves_where_he_answers_to_the_task_state(
+        self,
+    ) -> None:
         # a breaker whose task has no session: the session's row does not take the breaker's words away
         m = model(state(0, "building", "task 2 of 3"), Breakers.STOP, Breakers.HELD)
         m.sessions = {}
@@ -3511,7 +3548,7 @@ class AfterDropped(unittest.TestCase):
         self.assertEqual(bm.waits_for(t, rows)["where"], bm.answer_of(t))
         self.assertIn("/lem park gift-note", bm.waits_for(t, rows)["where"])
 
-    def test_a_need_gets_the_same_row(self):
+    def test_a_need_gets_the_same_row(self) -> None:
         need = state(
             5,
             "queued",
@@ -3525,7 +3562,7 @@ class AfterDropped(unittest.TestCase):
             [(f"after_dropped:{self.ORDER}", f"start {self.ORDER} now")],
         )
 
-    def test_no_row_behind_a_task_that_runs_or_ended_with_its_result(self):
+    def test_no_row_behind_a_task_that_runs_or_ended_with_its_result(self) -> None:
         for status in ("building", "landed", "answered"):
             m = model(*self.gift(status), self.QUEUED)
             self.assertEqual(
@@ -3534,7 +3571,7 @@ class AfterDropped(unittest.TestCase):
                 status,
             )
 
-    def test_the_row_is_gone_after_his_word(self):
+    def test_the_row_is_gone_after_his_word(self) -> None:
         # "start it": the queued block again with each line but `after:` (task 2 of the plan writes it), then the start
         started = state(
             40,
@@ -3758,7 +3795,7 @@ class Summary(unittest.TestCase):
 
     def test_an_old_ended_tasks_card_and_its_followers_read_the_same_after_its_events_became_one_summary(
         self,
-    ):
+    ) -> None:
         log = sorted(report_dates() + self.OTHERS, key=lambda e: e["ts"])
         self.assertEqual(sum(1 for e in log if e["task"] == "report-dates"), 60)
         before = model(*log)
@@ -3824,7 +3861,9 @@ class Summary(unittest.TestCase):
             )
         )
 
-    def test_a_summary_with_a_newer_state_dates_since_from_the_run_its_past_began(self):
+    def test_a_summary_with_a_newer_state_dates_since_from_the_run_its_past_began(
+        self,
+    ) -> None:
         log = summarized(
             sorted(report_dates() + self.OTHERS, key=lambda e: e["ts"]), "report-dates"
         )
@@ -3844,7 +3883,7 @@ class Summary(unittest.TestCase):
 
     def test_a_summary_keeps_the_path_of_each_transcript_of_the_task_once_in_the_logs_order(
         self,
-    ):
+    ) -> None:
         # lem_tokens reads them by each transcript's first prompt, so a fork of another task logged here still counts for that task
         project = importlib.import_module("project")
 
@@ -3884,7 +3923,7 @@ class Summary(unittest.TestCase):
             again["transcripts"], ["/t/c1.jsonl", "/t/6fe214ec.jsonl", "/t/c2.jsonl"]
         )
 
-    def test_the_reader_reads_a_log_that_prune_replaced_once_and_whole(self):
+    def test_the_reader_reads_a_log_that_prune_replaced_once_and_whole(self) -> None:
         import os
         from unittest import mock
 
@@ -3995,7 +4034,7 @@ class SummarizedBoard(unittest.TestCase):
 
     def test_a_pruned_task_whose_folder_holds_its_small_record_alone_says_what_stayed_and_that_the_rest_left(
         self,
-    ):
+    ) -> None:
         held, state_dir = self.folder()
         with held:
             drawn = self.card(state_dir)
@@ -4013,7 +4052,7 @@ class SummarizedBoard(unittest.TestCase):
 
     def test_a_pruned_task_with_a_ticket_names_its_files_and_the_number_is_the_settings_of_now(
         self,
-    ):
+    ) -> None:
         held, state_dir = self.folder(
             "ticket.txt", "ticket-repo.txt", "ticket-steps.txt", "resumed-from.txt"
         )
@@ -4025,7 +4064,7 @@ class SummarizedBoard(unittest.TestCase):
         )
         self.assertIn("after 7 days in which nothing of it happened", drawn)
 
-    def test_settings_that_do_not_read_give_no_number_on_the_card(self):
+    def test_settings_that_do_not_read_give_no_number_on_the_card(self) -> None:
         held, state_dir = self.folder()
         with held:
             drawn = self.card(state_dir, keep_days=None)
@@ -4037,7 +4076,7 @@ class SummarizedBoard(unittest.TestCase):
 
     def test_a_pruned_task_whose_folder_still_holds_files_beyond_its_record_says_only_how_many(
         self,
-    ):
+    ) -> None:
         held, state_dir = self.folder(
             "report.md", "media/after.png", "reviews/r/round.lock"
         )
@@ -4050,7 +4089,9 @@ class SummarizedBoard(unittest.TestCase):
         self.assertNotIn("left", drawn.split('id="summary-files"')[1])
         self.assertNotIn("Its files stay", drawn)
 
-    def test_a_pruned_task_whose_folder_does_not_read_claims_nothing_of_its_files(self):
+    def test_a_pruned_task_whose_folder_does_not_read_claims_nothing_of_its_files(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as empty:
             self.assertIsNone(task_pages.folder_of(Path(empty), "report-dates"))
             drawn = self.card(Path(empty))
@@ -4060,7 +4101,9 @@ class SummarizedBoard(unittest.TestCase):
         )
         self.assertNotIn("left", drawn.split('id="summary-files"')[1])
 
-    def test_an_answered_task_names_its_report_only_while_its_folder_holds_it(self):
+    def test_an_answered_task_names_its_report_only_while_its_folder_holds_it(
+        self,
+    ) -> None:
         events = [
             state(
                 4,
@@ -4104,7 +4147,7 @@ class SummarizedBoard(unittest.TestCase):
         self.assertNotIn(line, drawn)
         self.assertIn("the export reads every order twice", drawn)
 
-    def test_the_header_says_the_same_status_end_pull_request_and_track(self):
+    def test_the_header_says_the_same_status_end_pull_request_and_track(self) -> None:
         import re
 
         before, after = self.boards()
@@ -4128,7 +4171,7 @@ class SummarizedBoard(unittest.TestCase):
 
     def test_the_overview_opens_with_the_summary_and_no_tab_draws_an_empty_section(
         self,
-    ):
+    ) -> None:
         _, after = self.boards()
         t = after.by_slug["report-dates"]
         parts = [str(x) for x in task_pages.overview_tab(self.ctx(after), t) if x]
@@ -4186,7 +4229,7 @@ class SummarizedBoard(unittest.TestCase):
             "no document: green or not green is on the Overview",
         )
 
-    def test_a_task_whose_events_are_whole_has_no_summary_card(self):
+    def test_a_task_whose_events_are_whole_has_no_summary_card(self) -> None:
         before, _ = self.boards()
         t = before.by_slug["report-dates"]
         parts = [str(x) for x in task_pages.overview_tab(self.ctx(before), t) if x]
@@ -4208,13 +4251,15 @@ class AnsweredInSession(unittest.TestCase):
         w = rows[0]
         return w["kind"], bm.answered_in_session(w, m), bm.session_of_wait(w, m)
 
-    def test_a_held_step_with_no_yes_on_the_board_goes_to_the_session(self):
+    def test_a_held_step_with_no_yes_on_the_board_goes_to_the_session(self) -> None:
         self.assertEqual(
             self.row(state(1, "held", "the interview waits for the owner")),
             ("held", True, "S1"),
         )
 
-    def test_a_held_step_whose_yes_is_on_the_board_and_criteria_stay_on_the_board(self):
+    def test_a_held_step_whose_yes_is_on_the_board_and_criteria_stay_on_the_board(
+        self,
+    ) -> None:
         interview_read = (
             state(1, "held", "the interview waits for the owner"),
             ev(5, "criteria.read", **Acts.READ),
@@ -4225,7 +4270,7 @@ class AnsweredInSession(unittest.TestCase):
             ("criteria", False, None),
         )
 
-    def test_a_task_its_session_stopped_goes_to_the_session(self):
+    def test_a_task_its_session_stopped_goes_to_the_session(self) -> None:
         self.assertEqual(
             self.row(
                 state(1, "building", "lead: builder"),
@@ -4236,7 +4281,7 @@ class AnsweredInSession(unittest.TestCase):
 
     def test_a_session_that_does_not_answer_goes_to_it_and_a_task_with_no_session_does_not(
         self,
-    ):
+    ) -> None:
         deaf = {
             "gift-note": {
                 "live": True,
@@ -4261,7 +4306,7 @@ class AnsweredInSession(unittest.TestCase):
 
     def test_a_merge_a_breaker_a_plan_and_a_task_after_a_dropped_one_stay_on_the_board(
         self,
-    ):
+    ) -> None:
         self.assertEqual(self.row(state(1, "open", Merge.PR)), ("merge", False, None))
         self.assertEqual(
             self.row(state(1, "building", "task 2 of 3"), Breakers.STOP, Breakers.HELD),
@@ -4276,7 +4321,7 @@ class AnsweredInSession(unittest.TestCase):
             self.row(*dropped, kind="after_dropped"), ("after_dropped", False, None)
         )
 
-    def test_a_session_that_does_not_live_takes_no_jump(self):
+    def test_a_session_that_does_not_live_takes_no_jump(self) -> None:
         self.assertEqual(
             self.row(
                 state(1, "held", "the interview waits for the owner"),
@@ -4310,7 +4355,7 @@ class Search(unittest.TestCase):
     item, in the order the search lists them with nothing typed, each with its chip."""
 
     # 2026-11-22 10:00 UTC; each event's minute counts from START, 2026-11-20 09:00 UTC
-    NOW = int(datetime(2026, 11, 22, 10, 0, tzinfo=timezone.utc).timestamp() * 1000)
+    NOW = int(datetime(2026, 11, 22, 10, 0, tzinfo=UTC).timestamp() * 1000)
     # noon UTC of 2026-11-21, which is that day on any clock from UTC-11 to UTC+11
     NOON_21 = 27 * 60
     # as board.backlog reads them: the reviewer's items after the others, a held one before an undecided one
@@ -4386,7 +4431,7 @@ class Search(unittest.TestCase):
 
     def test_criterion_4_the_order_the_columns_then_the_parked_then_every_ended_task_newest_first_then_the_backlog_by_worth(
         self,
-    ):
+    ) -> None:
         m = bm.derive(self.events(), [], self.NOW)
         slugs = [r["slug"] for r in bm.search_rows(m, self.BACKLOG)]
         columns = [t.slug for key in ("you", "build", "checks") for t in m.lane[key]]
@@ -4427,7 +4472,7 @@ class Search(unittest.TestCase):
 
     def test_criterion_2_every_task_a_parked_one_and_an_ended_one_done_draws_no_card_for_and_every_backlog_item(
         self,
-    ):
+    ) -> None:
         m = bm.derive(self.events(), [], self.NOW)
         rows = {r["title"]: r for r in bm.search_rows(m, self.BACKLOG)}
         self.assertEqual(len(m.lane["done"]), bm.DONE_SHOWN + 1)
@@ -4445,7 +4490,7 @@ class Search(unittest.TestCase):
 
     def test_criterion_5_each_chip_says_its_place_and_its_state_in_the_color_of_its_column(
         self,
-    ):
+    ) -> None:
         rows = {r["title"]: (r["chip"], r["actor"]) for r in self.rows()}
         self.assertEqual(rows["Board card search"], ("Waits for you · held", "you"))
         self.assertEqual(
@@ -4477,7 +4522,9 @@ class Search(unittest.TestCase):
             ("Backlog · held by flaky-export-check", "lead"),
         )
 
-    def test_the_count_on_the_backlog_key_is_the_reviewer_s_items_no_task_holds(self):
+    def test_the_count_on_the_backlog_key_is_the_reviewer_s_items_no_task_holds(
+        self,
+    ) -> None:
         # criterion 6 of docs/plans/2026-11-23-scheduled-runs-one-branch.md: an item of the backlog folder is not counted, nor a held one
         self.assertEqual(bm.undecided(self.BACKLOG), 1)
         self.assertEqual(bm.undecided({"items": self.BACKLOG["items"][:4]}), 0)
@@ -4504,7 +4551,7 @@ class StoppedSession(unittest.TestCase):
         text = f"2026-11-22T{hhmm}{'' if hhmm.count(':') == 2 else ':00'}Z"
         return int(
             datetime.strptime(text, "%Y-%m-%dT%H:%M:%SZ")
-            .replace(tzinfo=timezone.utc)
+            .replace(tzinfo=UTC)
             .timestamp()
             * 1000
         )
@@ -4591,7 +4638,7 @@ class StoppedSession(unittest.TestCase):
         found = bm.stop_due(m.by_slug["gift-note"], m)
         return (found["step"], found["session"], found["from"]) if found else None
 
-    def test_45_minutes_after_the_newest_sign_the_status_message_is_due(self):
+    def test_45_minutes_after_the_newest_sign_the_status_message_is_due(self) -> None:
         self.assertIsNone(self.due(*self.landing(), at="11:38:59"))
         # the newest sign is the end of the checks, newer than the session's own last turn at 10:15
         self.assertEqual(
@@ -4611,7 +4658,7 @@ class StoppedSession(unittest.TestCase):
 
     def test_a_shell_command_that_runs_is_work_and_a_session_that_is_not_live_gets_nothing(
         self,
-    ):
+    ) -> None:
         # the checks of a landing run for 50 minutes with no event: their shell command is the sign
         checks = (*self.landing()[:3],)
         self.assertIsNone(self.due(*checks, at="11:08", shell=True))
@@ -4628,13 +4675,13 @@ class StoppedSession(unittest.TestCase):
         demo.sessions = self.model(*self.landing(), at="15:37").sessions
         self.assertIsNone(bm.stop_due(demo.by_slug["gift-note"], demo))
 
-    def test_the_restart_is_due_10_minutes_after_the_message_with_no_sign(self):
+    def test_the_restart_is_due_10_minutes_after_the_message_with_no_sign(self) -> None:
         self.assertIsNone(self.due(*self.woken(), at="11:48:59"))
         self.assertEqual(
             self.due(*self.woken(), at="11:49"), ("restart", "S1", self.ms("11:39"))
         )
 
-    def test_a_sign_in_the_10_minutes_ends_that_stop(self):
+    def test_a_sign_in_the_10_minutes_ends_that_stop(self) -> None:
         self.assertIsNone(
             self.due(*self.woken(), at="11:49", sign="2026-11-22T11:41:00Z")
         )
@@ -4660,7 +4707,7 @@ class StoppedSession(unittest.TestCase):
             ("status", "S1", self.ms("11:41")),
         )
 
-    def test_the_fresh_sessions_clock_starts_at_its_open(self):
+    def test_the_fresh_sessions_clock_starts_at_its_open(self) -> None:
         # the look 20 seconds after the restart, and one 10 minutes after the old message: nothing
         self.assertIsNone(
             self.due(*self.restarted(), at="11:49:20", session="S2", sign=None)
@@ -4679,7 +4726,9 @@ class StoppedSession(unittest.TestCase):
             ("status", "S2", self.ms("11:52")),
         )
 
-    def test_a_fresh_session_that_stops_too_is_logged_once_and_not_restarted(self):
+    def test_a_fresh_session_that_stops_too_is_logged_once_and_not_restarted(
+        self,
+    ) -> None:
         again = (
             *self.restarted(),
             self.ev("12:37", "session.wake", session="S2", why="status"),
@@ -4697,7 +4746,7 @@ class StoppedSession(unittest.TestCase):
                 self.due(*stopped, at=at, session="S2", sign="2026-11-22T11:52:00Z"), at
             )
 
-    def test_a_work_event_after_the_restart_makes_a_new_restart_possible(self):
+    def test_a_work_event_after_the_restart_makes_a_new_restart_possible(self) -> None:
         worked = (
             *self.restarted(),
             self.ev("11:55", "gate.start", tip="77aa", commands=1),
@@ -4709,7 +4758,7 @@ class StoppedSession(unittest.TestCase):
             ("restart", "S2", self.ms("12:43")),
         )
 
-    def test_a_task_out_of_building_ready_and_landing_gets_nothing(self):
+    def test_a_task_out_of_building_ready_and_landing_gets_nothing(self) -> None:
         opened = self.ev(
             "01:33",
             "session.open",
@@ -4754,7 +4803,7 @@ class StoppedSession(unittest.TestCase):
                 status,
             )
 
-    def test_a_stop_stands_until_a_work_event_or_a_session_opens(self):
+    def test_a_stop_stands_until_a_work_event_or_a_session_opens(self) -> None:
         stopped = (
             *self.restarted(),
             self.ev("12:37", "session.wake", session="S2", why="status"),
@@ -4791,7 +4840,7 @@ class StoppedSession(unittest.TestCase):
         )
         self.assertIsNone(bm.stop_stands(task(*self.restarted())))
 
-    def test_a_quiet_task_whose_signs_do_not_read_is_woken_or_shown(self):
+    def test_a_quiet_task_whose_signs_do_not_read_is_woken_or_shown(self) -> None:
         # #37 as it ran: its session opened at 01:33, before the hook wrote `session` into a transcript
         # record, so `lem session list` read "signs": false for it all day; at 15:37, nearly five hours
         # after the checks ended, the owner's request (2026-11-22) wants the task woken or shown to him
@@ -4809,7 +4858,7 @@ class StoppedSession(unittest.TestCase):
 
     def test_criterion_1_signs_that_do_not_read_get_the_message_45_minutes_after_the_newest_event(
         self,
-    ):
+    ) -> None:
         self.assertIsNone(self.due(*self.landing(), at="11:38:59", **self.unread()))
         self.assertEqual(
             self.due(*self.landing(), at="11:39", **self.unread()),
@@ -4832,7 +4881,7 @@ class StoppedSession(unittest.TestCase):
 
     def test_criterion_2_ten_minutes_after_the_message_signs_that_do_not_read_give_the_stop_never_a_restart(
         self,
-    ):
+    ) -> None:
         self.assertIsNone(
             self.due(*self.woken(unread=True), at="11:48:59", **self.unread())
         )
@@ -4861,7 +4910,7 @@ class StoppedSession(unittest.TestCase):
 
     def test_criterion_3_a_work_event_ends_the_wait_and_the_guards_own_message_is_none(
         self,
-    ):
+    ) -> None:
         block = self.ev(
             "11:42",
             "task.state",
@@ -4911,7 +4960,7 @@ class StoppedSession(unittest.TestCase):
             ("status", "S1", self.ms("11:49")),
         )
 
-    def test_each_clock_counts_only_the_status_message_it_sent(self):
+    def test_each_clock_counts_only_the_status_message_it_sent(self) -> None:
         # the unread clock's message at 11:39, and at 11:49 the signs read again with a turn at 11:30: the
         # readable clock counts from that turn, so no fresh session 19 minutes after it, and its own message at 12:15
         unread = self.woken(unread=True)
@@ -4953,7 +5002,7 @@ class StoppedSession(unittest.TestCase):
 
     def test_criterion_4_a_readable_stop_and_a_newer_turn_still_give_the_status_message(
         self,
-    ):
+    ) -> None:
         stopped = (
             *self.restarted(),
             self.ev("12:37", "session.wake", session="S2", why="status"),
@@ -4967,7 +5016,7 @@ class StoppedSession(unittest.TestCase):
             ("status", "S2", self.ms("13:00")),
         )
 
-    def test_the_numbers_are_the_owners(self):
+    def test_the_numbers_are_the_owners(self) -> None:
         self.assertEqual((bm.QUIET_MS, bm.ANSWER_MS), (45 * 60 * 1000, 10 * 60 * 1000))
 
 
@@ -4999,7 +5048,7 @@ class StoppedRow(unittest.TestCase):
             for w in bm.waits_of(m)
         ]
 
-    def test_a_stop_is_a_row_with_the_button_that_opens_a_fresh_session(self):
+    def test_a_stop_is_a_row_with_the_button_that_opens_a_fresh_session(self) -> None:
         self.assertEqual(
             self.rows(*self.stopped()),
             [
@@ -5039,7 +5088,7 @@ class StoppedRow(unittest.TestCase):
 
     def test_no_row_before_the_stop_is_logged_or_after_a_session_opens_or_the_agent_works(
         self,
-    ):
+    ) -> None:
         before = self.stopped()[:-1]
         self.assertEqual(self.rows(*before, at="12:43"), [])
         opened = (
@@ -5077,7 +5126,7 @@ class StoppedRow(unittest.TestCase):
             1,
         )
 
-    def test_a_stopped_session_that_is_gone_is_the_no_session_row_alone(self):
+    def test_a_stopped_session_that_is_gone_is_the_no_session_row_alone(self) -> None:
         # the old pane closed after the stop: the open of "No session runs this task" takes no stop, so no row `stopped` stands beside it
         self.assertEqual(
             [
@@ -5090,12 +5139,12 @@ class StoppedRow(unittest.TestCase):
         self.assertIsNone(bm.stopped_of(m.by_slug["gift-note"], m))
         self.assertTrue(bm.opens_session(m.by_slug["gift-note"], m))
 
-    def test_a_stop_takes_the_place_of_a_wake_nobody_took(self):
+    def test_a_stop_takes_the_place_of_a_wake_nobody_took(self) -> None:
         m = self.model(*self.stopped(), at="13:00", session="S2", sign=None)
         m.sessions["gift-note"]["unanswered"] = True
         self.assertEqual([w["key"] for w in bm.waits_of(m)], ["stopped:gift-note"])
 
-    def test_a_task_out_of_its_phase_has_no_row_whatever_its_stop(self):
+    def test_a_task_out_of_its_phase_has_no_row_whatever_its_stop(self) -> None:
         parked = (
             *self.stopped(),
             self.ev(
@@ -5108,7 +5157,7 @@ class StoppedRow(unittest.TestCase):
         )
         self.assertEqual(self.rows(*parked), [])
 
-    def test_the_timeline_says_each_act_of_the_guard_with_its_time(self):
+    def test_the_timeline_says_each_act_of_the_guard_with_its_time(self) -> None:
         m = self.model(*self.stopped(), at="13:00", session="S2", sign=None)
         t = m.by_slug["gift-note"]
         said = {
@@ -5159,7 +5208,7 @@ class StoppedRow(unittest.TestCase):
 
     def test_criterion_2_an_unread_stop_is_the_row_stopped_that_says_lem_cannot_read_the_session(
         self,
-    ):
+    ) -> None:
         events = (
             *self.landing(),
             self.ev("11:39", "session.wake", session="S1", why="status", unread=True),
@@ -5233,7 +5282,9 @@ class StoppedRow(unittest.TestCase):
             ["Its session stopped: open a fresh one"],
         )
 
-    def test_the_timeline_says_an_unread_wake_and_stop_in_words_of_their_own(self):
+    def test_the_timeline_says_an_unread_wake_and_stop_in_words_of_their_own(
+        self,
+    ) -> None:
         events = (
             *self.landing(),
             self.ev("11:39", "session.wake", session="S1", why="status", unread=True),
@@ -5276,7 +5327,9 @@ class StoppedRow(unittest.TestCase):
             "no sign of work after the status message, nor in the fresh session: “Open a session” on the board starts another",
         )
 
-    def test_the_timeline_says_that_a_stop_over_new_work_leaves_nothing_waiting(self):
+    def test_the_timeline_says_that_a_stop_over_new_work_leaves_nothing_waiting(
+        self,
+    ) -> None:
         # a state block logged after the look at 11:49 but before the stop's record: the stop never stood
         raced = (
             *self.landing(),
@@ -5352,7 +5405,7 @@ class StoppedRow(unittest.TestCase):
         ):
             return project.cmd_waiting(Path("/lem-unit/repo"))
 
-    def test_lem_project_waiting_lists_the_stop_as_the_board_has_it(self):
+    def test_lem_project_waiting_lists_the_stop_as_the_board_has_it(self) -> None:
         found = self.waiting(
             self.model(*self.stopped(), at="13:00", session="S2", sign=None)
         )
@@ -5369,7 +5422,9 @@ class StoppedRow(unittest.TestCase):
             ),
         )
 
-    def test_lem_project_waiting_says_that_lem_cannot_read_the_stopped_session(self):
+    def test_lem_project_waiting_says_that_lem_cannot_read_the_stopped_session(
+        self,
+    ) -> None:
         events = (
             *self.landing(),
             self.ev("11:39", "session.wake", session="S1", why="status", unread=True),

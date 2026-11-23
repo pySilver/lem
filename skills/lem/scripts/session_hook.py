@@ -36,6 +36,7 @@ The plugin starts it through `lem_python.py` beside this file, as the other hook
 
 import os
 import sys
+from datetime import UTC
 
 # How long git may take to name the main checkout. A guess: it answers in milliseconds, and a stuck
 # git must not hold the hook.
@@ -120,7 +121,7 @@ def keep_transcript(state, slug: str, event: dict, session: str | None = None) -
     """Log the task's Claude Code session, its id and its transcript's path from the hook's input, and
     SESSION, the agterm session the hook runs in, once for each Claude id and agterm session."""
     import json
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     claude, transcript = event.get("session_id"), event.get("transcript_path")
     if not (
@@ -144,7 +145,7 @@ def keep_transcript(state, slug: str, event: dict, session: str | None = None) -
             if transcript_record(lines, slug, claude, session):
                 return
         record = {
-            "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "ts": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "event": "session.transcript",
             "task": slug,
             "claude": claude,
@@ -160,7 +161,7 @@ def main() -> None:
     import json
     import os
     import re
-    from datetime import datetime, timezone
+    from datetime import datetime
     from pathlib import Path
 
     slug = os.environ.get("LEM_TASK", "").strip()
@@ -214,7 +215,7 @@ def main() -> None:
             else None
         )
         when = (
-            datetime.fromtimestamp(handoff.stat().st_mtime, timezone.utc).strftime(
+            datetime.fromtimestamp(handoff.stat().st_mtime, UTC).strftime(
                 "%Y-%m-%dT%H:%MZ"
             )
             if text is not None

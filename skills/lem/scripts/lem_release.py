@@ -39,7 +39,7 @@ import functools
 import json
 import os
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import lem_state
@@ -282,7 +282,7 @@ def log_stop(directory: Path, began: str, version: str, say: str) -> None:
         if stopped_already(log, slug, version):
             return
         record = {
-            "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "ts": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "event": STOP,
             "task": slug,
             "began": began,

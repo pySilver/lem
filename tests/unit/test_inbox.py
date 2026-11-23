@@ -13,7 +13,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
@@ -26,7 +26,7 @@ inbox = importlib.import_module("lem_inbox")
 bm = importlib.import_module("lem_board_model")
 land = importlib.import_module("land")
 
-START = datetime(2026, 11, 22, 9, 0, tzinfo=timezone.utc)
+START = datetime(2026, 11, 22, 9, 0, tzinfo=UTC)
 NOW = int((START + timedelta(hours=2)).timestamp() * 1000)
 RD = "report-dates"
 TAILNET = "https://mac.tail0.ts.net:50026/"
@@ -132,7 +132,7 @@ class Plannotator:
                 "tailnet_url": TAILNET,
             },
         ),
-    ):
+    ) -> None:
         self.status = status
         self.calls: list[dict] = []
         self.keys: dict[str, dict] = {}
@@ -250,7 +250,7 @@ class InFolder(unittest.TestCase):
 class Sends(InFolder):
     def test_criterion_1_a_breaker_while_he_is_away_reaches_the_inbox_once_as_the_tasks_session(
         self,
-    ):
+    ) -> None:
         self.m = model(*BREAKER, owner=[AWAY])
         w = self.watcher()
         self.assertEqual([d["did"] for d in w.look()], ["sent"])
@@ -293,7 +293,7 @@ class Sends(InFolder):
 
     def test_criterion_2_every_row_of_waits_for_you_is_a_thing_and_the_merge_review_and_merge_one(
         self,
-    ):
+    ) -> None:
         events = [
             *BREAKER,
             state(
@@ -407,7 +407,9 @@ class Sends(InFolder):
         self.assertIn("start gift-totals now", after["payload"]["body"])
         self.assertNotIn(":::question", after["payload"]["body"])
 
-    def test_criterion_3_a_thing_that_waits_when_the_mark_comes_is_sent_then(self):
+    def test_criterion_3_a_thing_that_waits_when_the_mark_comes_is_sent_then(
+        self,
+    ) -> None:
         self.m = model(*BREAKER)
         w = self.watcher()
         self.assertEqual(w.look(), [])
@@ -420,13 +422,15 @@ class Sends(InFolder):
 
     def test_criterion_4_with_no_away_mark_nothing_goes_to_the_inbox_and_nothing_is_asked(
         self,
-    ):
+    ) -> None:
         self.m = model(*BREAKER, owner=[AWAY, BACK])
         self.assertEqual(self.watcher().look(), [])
         self.assertEqual(self.plannotator.calls, [])
         self.assertFalse((self.state / inbox.RECORD).exists())
 
-    def test_a_demo_and_a_workspace_whose_sessions_are_not_known_yet_send_nothing(self):
+    def test_a_demo_and_a_workspace_whose_sessions_are_not_known_yet_send_nothing(
+        self,
+    ) -> None:
         self.m = model(*BREAKER, owner=[AWAY])
         self.m.meta["demo"] = True
         self.assertEqual(self.watcher().look(), [])
@@ -437,7 +441,7 @@ class Sends(InFolder):
 
     def test_criterion_8_a_task_with_no_session_gets_a_note_with_no_question_and_the_boards_link(
         self,
-    ):
+    ) -> None:
         events = [state(0, "building", "task 1 of 2"), *breaker()]
         self.m = model(
             *events,
@@ -469,7 +473,7 @@ class Sends(InFolder):
 
     def test_a_fork_is_not_the_tasks_session_and_a_session_that_does_not_answer_gets_a_note(
         self,
-    ):
+    ) -> None:
         events = [
             *BREAKER,
             ev(
@@ -508,7 +512,7 @@ class Sends(InFolder):
 
     def test_the_calls_keep_the_data_folder_and_drop_the_variables_that_name_a_session(
         self,
-    ):
+    ) -> None:
         env = {
             "HOME": "/Users/o",
             "PATH": "/bin",
@@ -551,7 +555,7 @@ class Sends(InFolder):
 class Door(InFolder):
     def test_criterion_7_no_inbox_or_no_tailnet_address_sends_nothing_and_keeps_why(
         self,
-    ):
+    ) -> None:
         self.m = model(*BREAKER, owner=[AWAY])
         for status, why in (
             ((1, {"running": False, "url": None}), inbox.NOT_RUNNING),
@@ -582,7 +586,7 @@ class Door(InFolder):
 
     def test_a_failed_call_is_kept_as_the_problem_and_the_next_look_sends_the_same_key_once(
         self,
-    ):
+    ) -> None:
         self.m = model(*BREAKER, owner=[AWAY])
         lines = []
         w = self.watcher()
@@ -617,7 +621,7 @@ class Withdraws(InFolder):
 
     def test_criterion_5_an_answer_at_the_mac_withdraws_the_question_as_the_same_session(
         self,
-    ):
+    ) -> None:
         w = self.sent_breaker()
         # he answered at the Mac: the breaker is helped, and its row leaves the list
         self.m = model(
@@ -647,7 +651,7 @@ class Withdraws(InFolder):
 
     def test_a_question_he_answered_in_the_inbox_gets_nothing_and_leaves_the_record(
         self,
-    ):
+    ) -> None:
         w = self.sent_breaker()
         self.plannotator.answered.add("msg_1")
         self.m = model(
@@ -660,7 +664,7 @@ class Withdraws(InFolder):
 
     def test_criterion_9_at_im_back_the_open_question_stays_and_a_new_session_gets_nothing_new(
         self,
-    ):
+    ) -> None:
         w = self.sent_breaker()
         self.m = model(*BREAKER, owner=[AWAY, BACK])
         self.assertEqual(w.look(), [])
@@ -691,7 +695,7 @@ class Withdraws(InFolder):
 
     def test_while_away_a_new_session_a_newer_block_and_a_new_tip_each_withdraw_and_send_again(
         self,
-    ):
+    ) -> None:
         w = self.sent_breaker()
         self.m = model(
             *BREAKER, *opened(40, session="S-2", claude="c-new"), owner=[AWAY]
@@ -724,7 +728,9 @@ class Withdraws(InFolder):
         self.assertIn("a second login", self.plannotator.sends()[-1]["payload"]["body"])
         self.assertEqual(len(self.plannotator.sends()), before + 2)
 
-    def test_a_new_proposal_is_a_new_merge_question_and_a_refused_merge_a_note(self):
+    def test_a_new_proposal_is_a_new_merge_question_and_a_refused_merge_a_note(
+        self,
+    ) -> None:
         footer = [
             *opened(0),
             state(
@@ -793,7 +799,7 @@ class Withdraws(InFolder):
 
     def test_after_im_back_a_question_its_row_no_longer_asks_is_withdrawn_and_nothing_new_is_sent(
         self,
-    ):
+    ) -> None:
         footer = [
             *opened(0),
             state(
@@ -840,7 +846,7 @@ class ReviewOne(InFolder):
 
     def test_a_failed_send_goes_again_only_while_he_is_away_for_the_same_thing_and_wakes_the_session(
         self,
-    ):
+    ) -> None:
         # finding 1: after /lem im-back, a send that failed is forgotten, not posted and withdrawn
         self.m = model(*BREAKER, owner=[AWAY])
         w = self.watcher()
@@ -895,7 +901,9 @@ class ReviewOne(InFolder):
         )
         self.assertEqual(self.woken, [RD])
 
-    def test_the_merge_question_names_the_whole_commit_that_lem_land_merge_takes(self):
+    def test_the_merge_question_names_the_whole_commit_that_lem_land_merge_takes(
+        self,
+    ) -> None:
         # finding 2: the `proposed` event keeps 9 digits; the question names the 40 of landing.json
         footer = [
             *opened(0),
@@ -931,7 +939,7 @@ class ReviewOne(InFolder):
                 )[f"merge:{RD}"]
                 self.assertEqual((thing["form"], thing["asks"]), ("note", False))
 
-    def test_after_im_back_a_session_that_ends_leaves_the_open_question(self):
+    def test_after_im_back_a_session_that_ends_leaves_the_open_question(self) -> None:
         # finding 3: the session's own row stands for the task, and the breaker behind it still waits
         w = self.watcher()
         self.m = model(*BREAKER, owner=[AWAY])
@@ -954,7 +962,7 @@ class ReviewOne(InFolder):
         )
         self.assertEqual(len(self.plannotator.sends()), 1)
 
-    def test_a_withdrawal_says_where_the_wait_went_without_naming_the_mac(self):
+    def test_a_withdrawal_says_where_the_wait_went_without_naming_the_mac(self) -> None:
         # finding 4: a row that left says it was settled outside the thread; a changed thing, that a newer message follows
         w = self.watcher()
         self.m = model(*BREAKER, owner=[AWAY])
@@ -978,7 +986,7 @@ class ReviewOne(InFolder):
 
     def test_a_session_that_has_not_logged_its_claude_session_yet_gets_nothing_until_it_does(
         self,
-    ):
+    ) -> None:
         # finding 7: a new session.open with no session.transcript yet, within the board's grace, is no note
         fresh = [
             state(0, "building", "task 1 of 2"),
@@ -1005,7 +1013,9 @@ class ReviewTwo(InFolder):
     """The findings of the second review of away-questions-reach-phone and of its merge review, each on the
     input it named."""
 
-    def test_a_refusal_of_the_withdrawals_shape_is_a_problem_and_never_his_answer(self):
+    def test_a_refusal_of_the_withdrawals_shape_is_a_problem_and_never_his_answer(
+        self,
+    ) -> None:
         # finding 1: only a refusal that the message has no open question is "he answered it"
         w = self.watcher()
         self.m = model(*BREAKER, owner=[AWAY])
@@ -1028,7 +1038,7 @@ class ReviewTwo(InFolder):
 
     def test_while_away_with_no_tailnet_address_a_new_session_keeps_the_question_until_one_can_follow(
         self,
-    ):
+    ) -> None:
         # finding 2: no withdrawal says "settled" of a breaker that still waits
         w = self.watcher()
         self.m = model(*BREAKER, owner=[AWAY])
@@ -1079,7 +1089,7 @@ class ReviewTwo(InFolder):
         self.assertEqual(self.plannotator.sends()[1]["payload"]["body"], inbox.REPLACED)
         self.assertEqual(self.plannotator.sends()[-1]["session"], "claude-code:c-new")
 
-    def test_a_task_whose_session_stopped_gets_a_note_that_asks_nothing(self):
+    def test_a_task_whose_session_stopped_gets_a_note_that_asks_nothing(self) -> None:
         # the merge review's finding 3: the row "stopped" of the guard of a stopped session asks nothing, as "session"
         stuck = [
             state(0, "building", "task 1 of 2"),
@@ -1107,7 +1117,7 @@ class ReviewTwo(InFolder):
 
     def test_the_note_of_a_stop_lem_cannot_read_says_so_and_names_no_fresh_session_that_took_its_place(
         self,
-    ):
+    ) -> None:
         stuck = [
             state(0, "building", "task 1 of 2"),
             *opened(1),
@@ -1152,7 +1162,7 @@ class HeldBack(InFolder):
 
     def test_the_question_stays_open_while_the_woken_turn_runs_and_nothing_is_sent_when_it_ends(
         self,
-    ):
+    ) -> None:
         self.m = self.turn(None)
         w = self.watcher()
         self.assertEqual([d["did"] for d in w.look()], ["sent"])
@@ -1179,7 +1189,7 @@ class HeldBack(InFolder):
 
     def test_a_held_back_thing_is_neither_withdrawn_forgotten_nor_sent_away_or_not(
         self,
-    ):
+    ) -> None:
         asked = {
             "key": "held:a",
             "task": "a",

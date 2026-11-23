@@ -21,14 +21,14 @@ TITLE = '</a><script>alert("x")</script> & "quoted" \'single\''
 
 
 class Escape(unittest.TestCase):
-    def test_a_title_in_the_text_and_in_an_attribute_is_escaped(self):
+    def test_a_title_in_the_text_and_in_an_attribute_is_escaped(self) -> None:
         got = h("a", {"href": "/t", "title": TITLE}, TITLE)
         self.assertNotIn("<script>", got)
         self.assertNotIn('"quoted"', got)
         self.assertEqual(got.count("&lt;script&gt;"), 2)
         self.assertIn("&#x27;single&#x27;", got)
 
-    def test_markup_nests_once_and_a_plain_string_never_passes_as_html(self):
+    def test_markup_nests_once_and_a_plain_string_never_passes_as_html(self) -> None:
         inner = h("b", None, "<i>")
         self.assertEqual(h("p", None, inner, "<i>"), "<p><b>&lt;i&gt;</b>&lt;i&gt;</p>")
         # a str added to Markup is escaped, so a slice or a join cannot let one through
@@ -38,7 +38,9 @@ class Escape(unittest.TestCase):
             lem_html.join(["<i>", Markup("<br>")], " · "), "&lt;i&gt; · <br>"
         )
 
-    def test_empty_children_and_false_attributes_are_left_out_and_true_is_bare(self):
+    def test_empty_children_and_false_attributes_are_left_out_and_true_is_bare(
+        self,
+    ) -> None:
         self.assertEqual(
             h(
                 "div",
@@ -53,7 +55,7 @@ class Escape(unittest.TestCase):
         )
         self.assertEqual(h("input", {"value": '"'}), '<input value="&quot;">')
 
-    def test_a_name_that_would_break_the_tag_is_refused(self):
+    def test_a_name_that_would_break_the_tag_is_refused(self) -> None:
         for tag, attrs in (
             ("a onclick", None),
             ("a", {'x" onload="y': 1}),
@@ -64,7 +66,7 @@ class Escape(unittest.TestCase):
         with self.assertRaises(ValueError):
             h("br", None, "text")
 
-    def test_a_page_is_a_doctype_and_one_html_element(self):
+    def test_a_page_is_a_doctype_and_one_html_element(self) -> None:
         got = lem_html.page([h("title", None, TITLE)], h("body"))
         self.assertTrue(
             got.startswith('<!doctype html>\n<html lang="en"><head><title>&lt;/a&gt;')

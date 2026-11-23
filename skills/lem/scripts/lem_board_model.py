@@ -38,7 +38,7 @@ import re
 import threading
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import quote
 
@@ -426,7 +426,7 @@ def at(ts: object) -> int | None:
     except ValueError:
         return None
     if moment.tzinfo is None:
-        moment = moment.replace(tzinfo=timezone.utc)
+        moment = moment.replace(tzinfo=UTC)
     return int(moment.timestamp() * 1000)
 
 
@@ -3314,7 +3314,7 @@ def review_why(review: dict) -> str:
         r"^\s*Verdict:\s*(call|merge)\.\s*",
         "",
         str(review.get("why") or ""),
-        flags=re.I,
+        flags=re.IGNORECASE,
     ).strip()
     said = cap(said or "the merge agent calls you")
     return said if said.endswith((".", "!", "?")) else f"{said}."

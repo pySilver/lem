@@ -34,7 +34,7 @@ def said(text: str) -> dict:
 class LastAgentText(unittest.TestCase):
     """The newest text an agent wrote, from a Claude Code transcript, one JSON record a line."""
 
-    def test_a_text_that_holds_a_line_separator_is_the_newest_text(self):
+    def test_a_text_that_holds_a_line_separator_is_the_newest_text(self) -> None:
         # Claude Code's JSON keeps U+2028 and U+2029 as they are inside a string
         newest = "first a\N{LINE SEPARATOR}b\N{PARAGRAPH SEPARATOR}c\x85d"
         with tempfile.TemporaryDirectory() as folder:
@@ -57,7 +57,7 @@ class ProposedLesson(unittest.TestCase):
     LESSON = "A night names the item it left out and why (retro of 2026-11-24 #3)."
     TARGET = "skills/lem/stages/night.md"
 
-    def test_record_takes_the_verdict_proposed(self):
+    def test_record_takes_the_verdict_proposed(self) -> None:
         args = corrections.arguments().parse_args(
             [
                 "record",
@@ -77,7 +77,9 @@ class ProposedLesson(unittest.TestCase):
             ("proposed", self.TARGET, self.LESSON),
         )
 
-    def test_lessons_gives_a_proposed_lesson_with_its_verdict_and_its_target(self):
+    def test_lessons_gives_a_proposed_lesson_with_its_verdict_and_its_target(
+        self,
+    ) -> None:
         owner = "you left out the item again and did not say why"
         with tempfile.TemporaryDirectory() as folder:
             where = Path(folder)
@@ -114,7 +116,7 @@ class TheMachinesSwitch(unittest.TestCase):
     with `.lem/settings.toml` (criteria 5 and 6 of one-home-folder-for-lem). Each case has its own home
     folder, as XDG_CONFIG_HOME, and its own repository, whose top git names through `corrections.git`."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.kept = os.environ.get("XDG_CONFIG_HOME")
         self.folder = tempfile.TemporaryDirectory()
         os.environ["XDG_CONFIG_HOME"] = str(Path(self.folder.name) / "config")
@@ -124,7 +126,7 @@ class TheMachinesSwitch(unittest.TestCase):
             '[branch]\nbase = "main"\n', encoding="utf-8"
         )
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         if self.kept is None:
             os.environ.pop("XDG_CONFIG_HOME", None)
         else:
@@ -140,11 +142,13 @@ class TheMachinesSwitch(unittest.TestCase):
         with mock.patch.object(corrections, "git", return_value=str(self.repo)):
             return corrections.collects(str(self.repo))
 
-    def test_the_machines_yes_sends_in_a_repository_that_uses_lem(self):
+    def test_the_machines_yes_sends_in_a_repository_that_uses_lem(self) -> None:
         self.machine(b"[load]\nstart = 4\n\n[corrections]\ncollect = true\n")
         self.assertTrue(self.collects())
 
-    def test_a_machine_with_no_line_or_a_no_sends_nothing_and_asks_git_nothing(self):
+    def test_a_machine_with_no_line_or_a_no_sends_nothing_and_asks_git_nothing(
+        self,
+    ) -> None:
         for data in (
             None,
             b"[load]\nstart = 4\n",
@@ -167,7 +171,7 @@ class TheMachinesSwitch(unittest.TestCase):
 
     def test_a_machine_file_that_does_not_read_or_holds_what_is_not_valid_there_sends_nothing(
         self,
-    ):
+    ) -> None:
         for data in (
             b"not toml [\n",
             b"[corrections]\ncollect = true\n# caf\xe9\n",
@@ -179,12 +183,12 @@ class TheMachinesSwitch(unittest.TestCase):
                 self.machine(data)
                 self.assertFalse(self.collects())
 
-    def test_a_relative_config_home_sends_nothing(self):
+    def test_a_relative_config_home_sends_nothing(self) -> None:
         self.machine(b"[corrections]\ncollect = true\n")
         os.environ["XDG_CONFIG_HOME"] = "config"
         self.assertFalse(self.collects())
 
-    def test_a_repository_that_does_not_use_lem_gets_nothing_sent(self):
+    def test_a_repository_that_does_not_use_lem_gets_nothing_sent(self) -> None:
         self.machine(b"[corrections]\ncollect = true\n")
         (self.repo / lem_state.TEAM_SETTINGS).rename(
             self.repo / ".lem" / "project.toml"
@@ -193,7 +197,7 @@ class TheMachinesSwitch(unittest.TestCase):
         with mock.patch.object(corrections, "git", return_value=None):
             self.assertFalse(corrections.collects(str(self.repo)))
 
-    def test_the_repositorys_own_yes_sends_nothing(self):
+    def test_the_repositorys_own_yes_sends_nothing(self) -> None:
         (self.repo / lem_state.TEAM_SETTINGS).write_text(
             "[corrections]\ncollect = true\n", encoding="utf-8"
         )
@@ -202,7 +206,7 @@ class TheMachinesSwitch(unittest.TestCase):
         )
         self.assertFalse(self.collects())
 
-    def test_show_gives_the_switch_from_the_machines_file_or_lems_default(self):
+    def test_show_gives_the_switch_from_the_machines_file_or_lems_default(self) -> None:
         def corrections_of(machine: dict) -> dict:
             return project.decide(self.repo, self.repo, {}, {}, {}, None, {}, machine)[
                 "corrections"
@@ -225,7 +229,7 @@ class TheMachinesSwitch(unittest.TestCase):
             {"collect": True, "from": shown},
         )
 
-    def test_the_command_writes_the_line_and_keeps_the_other_tables(self):
+    def test_the_command_writes_the_line_and_keeps_the_other_tables(self) -> None:
         self.machine(b"[load]\nstart = 4\n\n[serve]\nport = 4500\n")
         with contextlib.redirect_stdout(io.StringIO()) as said_no:
             corrections.cmd_collect("no")
@@ -246,7 +250,7 @@ class TheMachinesSwitch(unittest.TestCase):
         self.assertEqual(lem_state.machine_table("corrections"), {"collect": True})
         self.assertEqual(lem_state.machine_table("serve"), {"port": 4500})
 
-    def test_the_command_refuses_a_file_it_cannot_keep_and_leaves_it(self):
+    def test_the_command_refuses_a_file_it_cannot_keep_and_leaves_it(self) -> None:
         self.machine(b"not toml [\n")
         with self.assertRaises(corrections.QueueError) as raised:
             corrections.cmd_collect("yes")
@@ -255,7 +259,7 @@ class TheMachinesSwitch(unittest.TestCase):
         )
         self.assertEqual(lem_state.machine_file().read_bytes(), b"not toml [\n")
 
-    def test_a_home_folder_that_cannot_be_written_is_refused_with_its_fix(self):
+    def test_a_home_folder_that_cannot_be_written_is_refused_with_its_fix(self) -> None:
         # a file where the home folder's parent should be: the write fails for root too, which a folder with no write bit does not stop
         Path(os.environ["XDG_CONFIG_HOME"]).write_text("", encoding="utf-8")
         with self.assertRaises(corrections.QueueError) as raised:
@@ -271,10 +275,10 @@ class Calls(ast.NodeVisitor):
     """Each name a function calls, as `module.name(...)` or `name(...)`, under the outermost function
     of the file that holds the call."""
 
-    def __init__(self, file: str, found: dict):
+    def __init__(self, file: str, found: dict) -> None:
         self.file, self.found, self.function = file, found, None
 
-    def visit_FunctionDef(self, node):
+    def visit_FunctionDef(self, node) -> None:
         outer = self.function
         self.function = outer or node.name
         self.generic_visit(node)
@@ -282,7 +286,7 @@ class Calls(ast.NodeVisitor):
 
     visit_AsyncFunctionDef = visit_FunctionDef
 
-    def visit_Call(self, node):
+    def visit_Call(self, node) -> None:
         called = (
             node.func.attr
             if isinstance(node.func, ast.Attribute)
@@ -315,7 +319,7 @@ class TheHomeFoldersWriters(unittest.TestCase):
     writer fails here, and is added on purpose. That the hooks write neither file when they run is
     checked in tests/lem-machine.sh."""
 
-    def test_the_writers_of_the_machines_file_are_the_owners_commands(self):
+    def test_the_writers_of_the_machines_file_are_the_owners_commands(self) -> None:
         self.assertEqual(
             calls_of("write_machine") - {("lem_state.py", "write_machine")},
             {
@@ -328,7 +332,7 @@ class TheHomeFoldersWriters(unittest.TestCase):
             },
         )
 
-    def test_the_home_settings_file_is_written_by_set_global_alone(self):
+    def test_the_home_settings_file_is_written_by_set_global_alone(self) -> None:
         self.assertEqual(
             calls_of("home_settings_file"),
             {
@@ -343,7 +347,7 @@ class TheHomeFoldersWriters(unittest.TestCase):
             {("project.py", "cmd_set")},
         )
 
-    def test_the_hooks_reach_no_writer(self):
+    def test_the_hooks_reach_no_writer(self) -> None:
         # the plugin's hooks are these three scripts; the board server's starts `serve.py --ensure`, which writes no setting
         hooks = json.loads(
             (SCRIPTS.parent.parent.parent / "hooks" / "hooks.json").read_text(

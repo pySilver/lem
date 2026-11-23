@@ -13,7 +13,7 @@ import json
 import subprocess
 import sys
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest import mock
 
@@ -46,11 +46,11 @@ def door(method: str = "GET", **given: str) -> str | None:
 
 
 class Door(unittest.TestCase):
-    def test_the_owners_login_for_the_macs_own_name_is_let_in(self):
+    def test_the_owners_login_for_the_macs_own_name_is_let_in(self) -> None:
         self.assertIsNone(door(Host=f"{SERVED}:{PORT}", Tailscale_User_Login=OWNER))
         self.assertIsNone(door(Host=SERVED.upper(), Tailscale_User_Login=OWNER.upper()))
 
-    def test_another_login_and_no_login_are_refused(self):
+    def test_another_login_and_no_login_are_refused(self) -> None:
         self.assertEqual(
             door(Host=SERVED, Tailscale_User_Login="guest@example.com"),
             serve.NOT_THE_OWNER,
@@ -71,7 +71,7 @@ class Door(unittest.TestCase):
             serve.NOT_THE_OWNER,
         )
 
-    def test_a_request_through_funnel_is_refused_whatever_its_login(self):
+    def test_a_request_through_funnel_is_refused_whatever_its_login(self) -> None:
         self.assertIn(
             "Funnel",
             door(
@@ -79,7 +79,7 @@ class Door(unittest.TestCase):
             ),
         )
 
-    def test_another_host_name_is_refused(self):
+    def test_another_host_name_is_refused(self) -> None:
         self.assertIn(
             "not the board's name",
             door(Host="evil.example.com", Tailscale_User_Login=OWNER),
@@ -89,7 +89,9 @@ class Door(unittest.TestCase):
             door(Host=f"{SERVED}:443", Tailscale_User_Login=OWNER),
         )
 
-    def test_a_post_from_another_site_is_refused_and_one_from_the_board_is_let_in(self):
+    def test_a_post_from_another_site_is_refused_and_one_from_the_board_is_let_in(
+        self,
+    ) -> None:
         own = f"https://{SERVED}:{PORT}"
         self.assertIsNone(
             door(
@@ -127,7 +129,7 @@ class Actions(unittest.TestCase):
     def refusal(self, client: str = "127.0.0.1", **given: str) -> str | None:
         return serve.action_refusal(client, headers(**given), 4536)
 
-    def test_the_boards_own_page_on_this_mac_is_let_in(self):
+    def test_the_boards_own_page_on_this_mac_is_let_in(self) -> None:
         self.assertIsNone(
             self.refusal(
                 Host="127.0.0.1:4536",
@@ -139,7 +141,9 @@ class Actions(unittest.TestCase):
             self.refusal("::1", Host="localhost:4536", Origin="http://localhost:4536")
         )
 
-    def test_another_machine_another_site_and_a_name_that_points_here_are_refused(self):
+    def test_another_machine_another_site_and_a_name_that_points_here_are_refused(
+        self,
+    ) -> None:
         self.assertIn(
             "on this Mac",
             self.refusal(
@@ -191,7 +195,9 @@ class StartBehind(unittest.TestCase):
         ):
             return serve.release_behind(workspace)
 
-    def test_a_project_two_releases_behind_the_board_is_refused_with_the_update(self):
+    def test_a_project_two_releases_behind_the_board_is_refused_with_the_update(
+        self,
+    ) -> None:
         said = self.behind(
             {
                 "plugins": {
@@ -211,7 +217,7 @@ class StartBehind(unittest.TestCase):
         )
         self.assertIn("/plugin marketplace update lem", said)
 
-    def test_a_project_one_release_behind_or_with_none_of_its_own_starts(self):
+    def test_a_project_one_release_behind_or_with_none_of_its_own_starts(self) -> None:
         self.assertIsNone(
             self.behind(
                 {
@@ -238,7 +244,7 @@ class Reads(unittest.TestCase):
     """The main listener reads a request only for a `Host` of its own: a name of another site that points
     at this machine (DNS rebinding) reads nothing."""
 
-    def test_its_own_names_are_read_and_another_is_refused(self):
+    def test_its_own_names_are_read_and_another_is_refused(self) -> None:
         for host in (
             "127.0.0.1:4536",
             "localhost:4536",
@@ -260,7 +266,7 @@ class Reads(unittest.TestCase):
 
 
 class Notes(unittest.TestCase):
-    def test_a_second_press_of_a_merge_that_runs_gets_the_first_ones_note(self):
+    def test_a_second_press_of_a_merge_that_runs_gets_the_first_ones_note(self) -> None:
         notes = serve.Notes()
         first, new = notes.start_merge(
             ("shop", "gift-note"), task="gift-note", state="running", said="merging"
@@ -281,34 +287,38 @@ class Notes(unittest.TestCase):
 class StreamOpen(unittest.TestCase):
     """Whether a page's stream gets a refresh the moment it opens (`opens_with_refresh`)."""
 
-    def test_a_first_open_gets_one_only_when_the_log_is_no_longer_at_its_render(self):
+    def test_a_first_open_gets_one_only_when_the_log_is_no_longer_at_its_render(
+        self,
+    ) -> None:
         self.assertFalse(serve.opens_with_refresh("8812-142", None, None, "8812-142"))
         self.assertTrue(serve.opens_with_refresh("8812-141", None, None, "8812-142"))
         # the same count on a log that `lem project prune` replaced, and a shorter one, are behind too
         self.assertTrue(serve.opens_with_refresh("8812-142", None, None, "9301-142"))
         self.assertTrue(serve.opens_with_refresh("8812-143", None, None, "9301-142"))
 
-    def test_an_open_again_gets_one_whatever_the_log(self):
+    def test_an_open_again_gets_one_whatever_the_log(self) -> None:
         self.assertTrue(serve.opens_with_refresh(None, "8812-142", None, "8812-142"))
         self.assertTrue(serve.opens_with_refresh(None, "8812-150", None, "8812-142"))
 
-    def test_the_browsers_own_reconnect_gets_one_also_on_a_first_opens_address(self):
+    def test_the_browsers_own_reconnect_gets_one_also_on_a_first_opens_address(
+        self,
+    ) -> None:
         self.assertTrue(
             serve.opens_with_refresh("8812-142", None, "8812-142", "8812-142")
         )
 
-    def test_an_open_that_names_no_id_gets_none(self):
+    def test_an_open_that_names_no_id_gets_none(self) -> None:
         self.assertFalse(serve.opens_with_refresh(None, None, None, "8812-142"))
         self.assertFalse(serve.opens_with_refresh("", None, "", "8812-142"))
 
-    def test_the_ping_is_an_event_of_its_own_with_the_logs_id(self):
+    def test_the_ping_is_an_event_of_its_own_with_the_logs_id(self) -> None:
         self.assertEqual(
             serve.ping("8812-142"), b"id: 8812-142\nevent: ping\ndata: 8812-142\n\n"
         )
 
 
 class Names(unittest.TestCase):
-    def test_the_tailnet_name_is_the_address_and_the_host_name_its_alias(self):
+    def test_the_tailnet_name_is_the_address_and_the_host_name_its_alias(self) -> None:
         # A label made from the host's own short name, so that no host's short name is the label.
         tailnet_name = f"Office-{serve.SHORT_NAME}.tail1234.ts.net"
         self.assertEqual(
@@ -316,14 +326,14 @@ class Names(unittest.TestCase):
             (f"office-{serve.SHORT_NAME}", (serve.SHORT_NAME,)),
         )
 
-    def test_with_no_tailnet_the_short_host_name_alone(self):
+    def test_with_no_tailnet_the_short_host_name_alone(self) -> None:
         self.assertEqual(serve.names_of(None), (serve.SHORT_NAME, ()))
         self.assertEqual(
             serve.names_of(f"{serve.SHORT_NAME}.tail1234.ts.net"),
             (serve.SHORT_NAME, ()),
         )
 
-    def test_a_name_is_a_word_of_an_address(self):
+    def test_a_name_is_a_word_of_an_address(self) -> None:
         self.assertEqual(serve.host_word("Mac mini (Office)"), "mac-mini-office")
 
 
@@ -360,7 +370,9 @@ class Duties(unittest.TestCase):
         m.sessions = sessions
         return m
 
-    def test_a_merge_wakes_the_tasks_session_once_while_its_worktree_stays(self):
+    def test_a_merge_wakes_the_tasks_session_once_while_its_worktree_stays(
+        self,
+    ) -> None:
         merged = (
             self.state(0, "open", self.PR),
             self.state(
@@ -395,7 +407,7 @@ class Duties(unittest.TestCase):
         )
         self.assertEqual(serve.duties(self.model(*by_word), {}, {"gift-note"}), [])
 
-    def test_a_conflict_wakes_the_session_once_for_each_head(self):
+    def test_a_conflict_wakes_the_session_once_for_each_head(self) -> None:
         events = (
             self.ev(0, "proposed", green=True, not_green=[], tip="abc123456"),
             self.state(1, "open", self.PR),
@@ -437,7 +449,7 @@ class Duties(unittest.TestCase):
             [("wake", "gift-note", "conflict")],
         )
 
-    def test_a_queued_task_gets_its_session_when_its_task_ended(self):
+    def test_a_queued_task_gets_its_session_when_its_task_ended(self) -> None:
         landed = (
             self.state(0, "landed", "main: pull request ... is merged", task="coupon"),
         )
@@ -458,7 +470,9 @@ class Duties(unittest.TestCase):
         waiting = (self.state(0, "open", self.PR, task="coupon"), *queued)
         self.assertEqual(serve.duties(self.model(*waiting, sessions={}), {}, set()), [])
 
-    def test_a_queued_task_whose_session_lives_is_woken_once_when_its_task_ended(self):
+    def test_a_queued_task_whose_session_lives_is_woken_once_when_its_task_ended(
+        self,
+    ) -> None:
         # the session the ask was typed in, opened before the queue, which the owner keeps selected
         typed = (
             self.ev(0, "session.open", session="S1", why="new"),
@@ -511,7 +525,7 @@ class Duties(unittest.TestCase):
 
     def test_a_task_queued_again_behind_a_second_task_gets_its_turn_when_that_one_ends(
         self,
-    ):
+    ) -> None:
         # its first wait ended, its session read the need again and queued it behind card-foot
         first = (
             self.state(0, "landed", "main: pull request ... is merged", task="coupon"),
@@ -576,7 +590,7 @@ class Duties(unittest.TestCase):
         )
         self.assertEqual(serve.duties(self.model(*same, sessions=live), {}, set()), [])
 
-    def test_the_merge_agents_merge_of_the_proposed_tip_is_the_servers(self):
+    def test_the_merge_agents_merge_of_the_proposed_tip_is_the_servers(self) -> None:
         proposed = (
             self.ev(0, "proposed", green=True, not_green=[], tip="abc123456"),
             self.state(1, "open", self.PR),
@@ -691,7 +705,7 @@ class Duties(unittest.TestCase):
 
     def test_after_a_moved_base_the_session_lands_it_again_and_the_server_merges_the_new_tip(
         self,
-    ):
+    ) -> None:
         proposed = (
             self.ev(0, "proposed", green=True, not_green=[], tip="abc123456"),
             self.state(1, "open", self.PR),
@@ -805,12 +819,12 @@ class Duties(unittest.TestCase):
             ],
         )
 
-    def test_a_press_after_a_moved_base_is_refused_as_lem_lands_it_again(self):
+    def test_a_press_after_a_moved_base_is_refused_as_lem_lands_it_again(self) -> None:
         # the page offers no Merge while Lem lands it again; a press sent anyway is refused for that, not for a conflict
         class Space:
             name = "shop"
 
-            def __init__(self, m):
+            def __init__(self, m) -> None:
                 self.m = m
 
             def model(self):
@@ -858,7 +872,9 @@ class Duties(unittest.TestCase):
         self.assertIn("Lem lands it again", note["said"])
         self.assertNotIn("conflicting", note["said"])
 
-    def test_his_merge_that_a_moved_base_refused_stands_and_its_note_says_so(self):
+    def test_his_merge_that_a_moved_base_refused_stands_and_its_note_says_so(
+        self,
+    ) -> None:
         # guard-sees-unreadable-sessions, 2026-11-23 10:38: his merge of #60 met a moved base; land.py kept it
         # (`owner_tap`), and the server ran it after the merge agent's safe read at 10:41. Meanwhile his note
         # said "Not done." over land.py's line: his merge stood, and nothing of it was refused for good
@@ -933,10 +949,10 @@ class Duties(unittest.TestCase):
             return subprocess.CompletedProcess(args, 1, "", said + "\n")
 
         class Now:
-            def __init__(self, target, name=None, daemon=None):
+            def __init__(self, target, name=None, daemon=None) -> None:
                 self.target = target
 
-            def start(self):
+            def start(self) -> None:
                 self.target()
 
         with (
@@ -994,7 +1010,7 @@ class Duties(unittest.TestCase):
 
     def test_a_second_press_while_his_merge_stands_starts_nothing_and_says_it_stands(
         self,
-    ):
+    ) -> None:
         tip = "faac6eb3b" + "0" * 31
         landing = {"proposed": tip, "pr": {"number": 60}, "base": "main"}
         ran, threads = [], []
@@ -1050,7 +1066,7 @@ class Duties(unittest.TestCase):
 
     def test_a_press_whose_request_read_the_model_before_his_refusal_runs_no_second_merge(
         self,
-    ):
+    ) -> None:
         # the press's request read the model before the first merge's refusal was logged, and reached the
         # worker after it: the worker reads the task again, and land.py does not run
         tip = "faac6eb3b" + "0" * 31
@@ -1059,10 +1075,10 @@ class Duties(unittest.TestCase):
         self.addCleanup(serve.NOTES.merging.pop, ("shop", "gift-note"), None)
 
         class Now:
-            def __init__(self, target, name=None, daemon=None):
+            def __init__(self, target, name=None, daemon=None) -> None:
                 self.target = target
 
-            def start(self):
+            def start(self) -> None:
                 self.target()
 
         with (
@@ -1088,7 +1104,7 @@ class Duties(unittest.TestCase):
         )
         self.assertNotIn(("shop", "gift-note"), serve.NOTES.merging)
 
-    def test_the_servers_merge_takes_the_tip_that_was_read(self):
+    def test_the_servers_merge_takes_the_tip_that_was_read(self) -> None:
         # the merge agent's merge is of the tip its review read, the owner's that stood of the tip he merged
         landing = {
             "proposed": "c" * 40,
@@ -1099,7 +1115,7 @@ class Duties(unittest.TestCase):
         self.assertEqual(serve.merge_tip_of(landing, "owner"), "b" * 40)
         self.assertEqual(serve.merge_tip_of({"proposed": "c" * 40}, "merger"), "")
 
-    def test_a_failed_bookkeeping_of_a_merged_pull_request_is_tried_again(self):
+    def test_a_failed_bookkeeping_of_a_merged_pull_request_is_tried_again(self) -> None:
         key = ("gift-note", 41)
         self.assertTrue(serve.merged_due(key, set(), {}, 1000.0))
         self.assertFalse(serve.merged_due(key, {key}, {}, 1000.0))
@@ -1109,13 +1125,13 @@ class Duties(unittest.TestCase):
         )
         self.assertTrue(serve.merged_due(key, set(), failed, 1000.0 + serve.DUTY_RETRY))
 
-    def test_a_demo_workspace_owes_nothing(self):
+    def test_a_demo_workspace_owes_nothing(self) -> None:
         merged = (self.state(0, "landed", "main: pull request ... is merged"),)
         self.assertEqual(
             serve.duties(self.model(*merged, demo=True), {}, {"gift-note"}), []
         )
 
-    def test_the_list_of_sessions_reads_by_task(self):
+    def test_the_list_of_sessions_reads_by_task(self) -> None:
         listed = serve.session_entries(
             '[{"task": "gift-note", "session": "S1", "live": true, "agent": false, "unanswered": false, "phase": "build", '
             '"sign": "2026-11-22T10:15:42Z", "shell": true, "signs": true, "turn": "runs"}]'
@@ -1203,7 +1219,7 @@ class MovedBaseRead(unittest.TestCase):
     def owed(self, *events: dict) -> list:
         return serve.duties(self.model(*events), {}, set())
 
-    def test_a_safe_read_answers_lems_base_refusal_and_the_server_merges(self):
+    def test_a_safe_read_answers_lems_base_refusal_and_the_server_merges(self) -> None:
         first = (
             *self.proposed(),
             self.ev(
@@ -1232,7 +1248,9 @@ class MovedBaseRead(unittest.TestCase):
             [("merge", "gift-note", "merger")],
         )
 
-    def test_the_owners_merge_a_moved_base_refused_goes_through_on_a_safe_read(self):
+    def test_the_owners_merge_a_moved_base_refused_goes_through_on_a_safe_read(
+        self,
+    ) -> None:
         refused = (
             *self.proposed(),
             self.ev(
@@ -1261,7 +1279,7 @@ class MovedBaseRead(unittest.TestCase):
         self.assertFalse(serve.merge_due(t, {}, set()))
         self.assertEqual(self.owed(*safe), [("merge", "gift-note", "owner")])
 
-    def test_another_round_merges_nothing_and_the_session_lands_it_again(self):
+    def test_another_round_merges_nothing_and_the_session_lands_it_again(self) -> None:
         refused = (
             *self.proposed(),
             self.ev(
@@ -1313,7 +1331,9 @@ class MovedBaseRead(unittest.TestCase):
         )
         self.assertEqual(self.owed(*landed), [("merge", "gift-note", "merger")])
 
-    def test_a_read_on_the_checks_base_after_a_revert_answers_lems_base_refusal(self):
+    def test_a_read_on_the_checks_base_after_a_revert_answers_lems_base_refusal(
+        self,
+    ) -> None:
         # main went back to the checks' tree after the refusal: the brief named the checks' own base, and its
         # read, with no call on a move, answers the refusal, so the server merges, the owner's merge too
         first = (
@@ -1367,7 +1387,7 @@ class MovedBaseRead(unittest.TestCase):
         )
         self.assertEqual(self.owed(*his), [("merge", "gift-note", "owner")])
 
-    def test_another_round_with_no_refusal_before_it_starts_no_merge(self):
+    def test_another_round_with_no_refusal_before_it_starts_no_merge(self) -> None:
         again = (*self.proposed(), self.read(2, "another round"))
         t = self.model(*again).tasks[0]
         self.assertFalse(serve.merge_due(t, {}, set()))
@@ -1380,7 +1400,7 @@ class MovedBaseRead(unittest.TestCase):
         self.assertFalse(serve.stands_due(self.model(*stands).tasks[0], {}, set()))
         self.assertEqual(self.owed(*stands), [])
 
-    def test_no_read_answers_githubs_refusal_or_a_rules(self):
+    def test_no_read_answers_githubs_refusal_or_a_rules(self) -> None:
         merge = (
             *self.proposed(),
             self.ev(
@@ -1415,7 +1435,7 @@ class MovedBaseRead(unittest.TestCase):
         self.assertIsNotNone(self.model(*rule).tasks[0].refused)
         self.assertNotIn(("merge", "gift-note", "merger"), self.owed(*rule))
 
-    def test_a_read_of_m2_does_not_cover_m3(self):
+    def test_a_read_of_m2_does_not_cover_m3(self) -> None:
         safe = (*self.proposed(), self.read(2, "safe", base="m2m2m2m2m"))
         # the merge on m3 is refused for a new read: nothing merges until it says safe
         m3 = (
@@ -1456,7 +1476,7 @@ class StoppedSession(unittest.TestCase):
         text = f"2026-11-22T{hhmm}{'' if hhmm.count(':') == 2 else ':00'}Z"
         return int(
             datetime.strptime(text, "%Y-%m-%dT%H:%M:%SZ")
-            .replace(tzinfo=timezone.utc)
+            .replace(tzinfo=UTC)
             .timestamp()
             * 1000
         )
@@ -1526,7 +1546,7 @@ class StoppedSession(unittest.TestCase):
             if d[1] == "gift-note"
         ]
 
-    def test_a_landing_with_no_event_for_hours_is_woken(self):
+    def test_a_landing_with_no_event_for_hours_is_woken(self) -> None:
         self.assertEqual(self.owed(*self.landing(), at="11:38"), [])
         self.assertEqual(
             self.owed(*self.landing(), at="11:39"), [("wake", "gift-note", "status")]
@@ -1535,7 +1555,7 @@ class StoppedSession(unittest.TestCase):
             self.owed(*self.landing(), at="15:37"), [("wake", "gift-note", "status")]
         )
 
-    def test_a_session_that_still_works_is_not_woken(self):
+    def test_a_session_that_still_works_is_not_woken(self) -> None:
         working = (*self.landing(), self.ev("15:35", "gate.wait", load=48.0, start=40))
         self.assertEqual(self.owed(*working, at="15:37"), [])
         # the checks run for 50 minutes with no event: their shell command is the sign of work
@@ -1546,7 +1566,7 @@ class StoppedSession(unittest.TestCase):
 
     def test_ten_minutes_after_the_message_the_task_is_restarted_then_its_stop_logged(
         self,
-    ):
+    ) -> None:
         woken = (
             *self.landing(),
             self.ev("11:39", "session.wake", session="S1", why="status"),
@@ -1592,7 +1612,7 @@ class StoppedSession(unittest.TestCase):
 
     def test_a_session_whose_signs_do_not_read_gets_the_message_then_its_stop_and_never_a_restart(
         self,
-    ):
+    ) -> None:
         # #37 as `lem session list` gave it all day: "signs": false
         unread = self.live(sign=None, signs=False)
         self.assertEqual(self.owed(*self.landing(), at="11:38", sessions=unread), [])
@@ -1627,7 +1647,9 @@ class StoppedSession(unittest.TestCase):
         # the signs read again at 11:50: the logged stop waits for the owner's click, so no `open … stopped`
         self.assertEqual(self.owed(*logged, at="11:50"), [])
 
-    def test_a_task_that_waits_for_the_owner_or_is_out_of_its_phase_is_not_woken(self):
+    def test_a_task_that_waits_for_the_owner_or_is_out_of_its_phase_is_not_woken(
+        self,
+    ) -> None:
         for status, text in (
             ("held", "the criteria wait for the owner"),
             ("queued", "after: other-task"),
@@ -1662,7 +1684,7 @@ class StoppedSession(unittest.TestCase):
 
     def test_a_task_two_releases_back_is_not_woken_and_its_pull_request_is_still_watched(
         self,
-    ):
+    ) -> None:
         say = "gift-note began on Lem 0.1.6, and Lem 0.3.0 reads only tasks begun on 0.2.0 or 0.3.0. ..."
         stopped = (
             *self.landing(),
@@ -1728,7 +1750,7 @@ class StoppedSession(unittest.TestCase):
             ],
         )
 
-    def test_a_step_that_acted_on_nothing_says_why_in_the_servers_log(self):
+    def test_a_step_that_acted_on_nothing_says_why_in_the_servers_log(self) -> None:
         import subprocess
 
         refused = subprocess.CompletedProcess(
@@ -1755,7 +1777,7 @@ class StoppedSession(unittest.TestCase):
             "",
         )
 
-    def test_the_step_names_the_session_it_is_for(self):
+    def test_the_step_names_the_session_it_is_for(self) -> None:
         m = self.model(*self.landing(), at="15:37")
         self.assertEqual(
             serve.duty_args("wake", "gift-note", "status", {}, m),
@@ -1789,13 +1811,13 @@ class StoppedOpen(unittest.TestCase):
     class Space:
         name = "shop"
 
-        def __init__(self, m):
+        def __init__(self, m) -> None:
             self.m, self.looked = m, 0
 
         def model(self):
             return self.m
 
-        def look_sessions(self):
+        def look_sessions(self) -> None:
             self.looked += 1
 
     def stopped(self, live: bool = True) -> "StoppedOpen.Space":
@@ -1845,7 +1867,7 @@ class StoppedOpen(unittest.TestCase):
             said = serve.act_session(space, "gift-note", {}, "board")
         return said, asked, logged.call_args_list
 
-    def test_the_button_opens_beside_the_stopped_session(self):
+    def test_the_button_opens_beside_the_stopped_session(self) -> None:
         said, asked, logged = self.act(
             self.stopped(),
             {
@@ -1861,7 +1883,7 @@ class StoppedOpen(unittest.TestCase):
         self.assertIn("beside the one that stopped", said["said"])
         self.assertEqual(len(logged), 1)
 
-    def test_an_open_that_finds_work_says_so_and_opens_nothing(self):
+    def test_an_open_that_finds_work_says_so_and_opens_nothing(self) -> None:
         space = self.stopped()
         said, asked, logged = self.act(
             space,
@@ -1887,7 +1909,9 @@ class StoppedOpen(unittest.TestCase):
                 said, {"ok": False, "said": serve.NOT_OPENED[why] + "."}, why
             )
 
-    def test_a_stopped_session_that_is_gone_takes_the_open_of_a_task_with_none(self):
+    def test_a_stopped_session_that_is_gone_takes_the_open_of_a_task_with_none(
+        self,
+    ) -> None:
         _, asked, _ = self.act(
             self.stopped(live=False),
             {
@@ -2045,9 +2069,9 @@ class ForgeLookBesideAMerge(unittest.TestCase):
 
     def test_a_task_whose_merge_runs_gets_no_merged_and_no_problem_line_and_another_still_gets_its_line(
         self,
-    ):
-        from unittest import mock
+    ) -> None:
         import subprocess
+        from unittest import mock
 
         prs = [
             {"task": "gift-note", "n": 1, "url": "https://github.com/acme/shop/pull/1"},
@@ -2102,9 +2126,9 @@ class ForgeLookBesideAMerge(unittest.TestCase):
 
     def test_a_merge_that_ends_during_the_look_at_github_gets_no_merged_and_no_problem_line(
         self,
-    ):
-        from unittest import mock
+    ) -> None:
         import subprocess
+        from unittest import mock
 
         prs = [
             {"task": "gift-note", "n": 1, "url": "https://github.com/acme/shop/pull/1"}
@@ -2173,9 +2197,9 @@ class Prune(unittest.TestCase):
 
     def test_it_runs_at_the_first_look_then_each_period_and_never_for_example_tasks(
         self,
-    ):
-        from unittest import mock
+    ) -> None:
         import subprocess
+        from unittest import mock
 
         ran = []
         said = '{"said": "removed 3 files", "files": 3, "bytes": 120, "skipped": [], "failed": []}'
@@ -2198,7 +2222,9 @@ class Prune(unittest.TestCase):
             (0, "removed 3 files", 3, 120),
         )
 
-    def test_the_log_says_what_it_removed_skipped_and_failed_and_nothing_else(self):
+    def test_the_log_says_what_it_removed_skipped_and_failed_and_nothing_else(
+        self,
+    ) -> None:
         quiet = {
             "exit": 0,
             "said": "removed 0 files",
@@ -2225,9 +2251,9 @@ class Prune(unittest.TestCase):
             "failed tasks/y/a.log: Permission denied\n",
         )
 
-    def test_the_log_names_a_run_that_removed_only_an_empty_file(self):
-        from unittest import mock
+    def test_the_log_names_a_run_that_removed_only_an_empty_file(self) -> None:
         import subprocess
+        from unittest import mock
 
         said = (
             '{"said": "removed 1 files of 1 ended tasks", "tasks": [{"task": "x", "files": ["empty.txt"], "bytes": 0}], "files": 1, '
@@ -2253,9 +2279,9 @@ class Prune(unittest.TestCase):
             "serve.py: shop: `lem project prune` exited 0: removed 0 files, and removed 1 old folders and copies, 0.0 MB\n",
         )
 
-    def test_the_log_names_the_events_a_prune_summarized(self):
-        from unittest import mock
+    def test_the_log_names_the_events_a_prune_summarized(self) -> None:
         import subprocess
+        from unittest import mock
 
         said = '{"said": "removed 0 files, replaced the 60 events of 1 such tasks", "files": 0, "bytes": 0, "events": 60, "skipped": [], "failed": []}'
         with mock.patch.object(
@@ -2276,7 +2302,7 @@ class KeepDays(unittest.TestCase):
     def reader(settings, problems=None):
         return type("Reader", (), {"settings": settings, "problems": problems or {}})()
 
-    def test_the_page_gets_the_settings_number_of_now(self):
+    def test_the_page_gets_the_settings_number_of_now(self) -> None:
         self.assertEqual(
             serve.keep_days_of(
                 self.reader({"state": {"keep_days": 30, "from": "default"}})
@@ -2292,7 +2318,7 @@ class KeepDays(unittest.TestCase):
             7,
         )
 
-    def test_settings_that_do_not_read_give_no_number(self):
+    def test_settings_that_do_not_read_give_no_number(self) -> None:
         old = {"state": {"keep_days": 30, "from": "default"}}
         self.assertIsNone(
             serve.keep_days_of(
@@ -2327,7 +2353,7 @@ class WorkingSession(unittest.TestCase):
         },
     ]
 
-    def test_each_look_at_the_sessions_puts_the_turn_on_the_kept_model(self):
+    def test_each_look_at_the_sessions_puts_the_turn_on_the_kept_model(self) -> None:
         import tempfile
 
         with tempfile.TemporaryDirectory() as folder:
@@ -2366,7 +2392,7 @@ class WorkingSession(unittest.TestCase):
 class Look(unittest.TestCase):
     """`bin/lem`'s look for the server: its pid file, and whether that process lives."""
 
-    def test_a_server_lives_only_where_its_pid_file_names_a_live_process(self):
+    def test_a_server_lives_only_where_its_pid_file_names_a_live_process(self) -> None:
         import importlib.machinery
         import importlib.util
         import os
@@ -2397,7 +2423,7 @@ class Look(unittest.TestCase):
 
     def test_the_look_starts_the_server_under_the_python_it_found_also_when_the_launchers_own_is_older(
         self,
-    ):
+    ) -> None:
         import importlib.machinery
         import importlib.util
         import os
@@ -2441,7 +2467,7 @@ class LogLook(unittest.TestCase):
 
     def test_three_old_events_that_become_one_while_two_new_ones_come_are_a_change(
         self,
-    ):
+    ) -> None:
         import json
         import os
         import tempfile
@@ -2521,7 +2547,7 @@ class LogLook(unittest.TestCase):
 
     def test_a_log_replaced_between_the_look_at_its_name_and_its_open_is_counted_from_its_start(
         self,
-    ):
+    ) -> None:
         import os
         import tempfile
         from unittest import mock
@@ -2553,7 +2579,7 @@ class Configure(unittest.TestCase):
     running board, and it never stops one when the write that follows would be refused. Each case has a
     home folder of its own as XDG_CONFIG_HOME; the server it would stop and the one it starts are stand-ins."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         import os
         import tempfile
 
@@ -2563,7 +2589,7 @@ class Configure(unittest.TestCase):
         self.file = serve.lem_state.machine_file()
         self.file.parent.mkdir(parents=True)
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         self.home.stop()
         self.folder.cleanup()
 
@@ -2585,7 +2611,9 @@ class Configure(unittest.TestCase):
             except serve.lem_state.StateError as error:
                 return error, asked, stopped, started
 
-    def test_another_table_of_the_wrong_type_is_refused_before_the_board_stops(self):
+    def test_another_table_of_the_wrong_type_is_refused_before_the_board_stops(
+        self,
+    ) -> None:
         text = '[load]\nstart = "fast"\n\n[serve]\nport = 8800\n'
         self.file.write_text(text, encoding="utf-8")
         said, _, stopped, started = self.configure(8801)
@@ -2595,7 +2623,9 @@ class Configure(unittest.TestCase):
         started.assert_not_called()
         self.assertEqual(self.file.read_text(encoding="utf-8"), text)
 
-    def test_a_serve_table_its_own_fix_names_is_written_again_from_the_flags(self):
+    def test_a_serve_table_its_own_fix_names_is_written_again_from_the_flags(
+        self,
+    ) -> None:
         for text in ('[serve]\nport = "8800"\n', "[serve]\nport = 8800\nhost = 1\n"):
             with self.subTest(text=text):
                 self.file.write_text("[load]\nstart = 4\n\n" + text, encoding="utf-8")

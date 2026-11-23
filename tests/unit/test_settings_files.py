@@ -50,12 +50,12 @@ PAGE_FILES = {
 class Home(unittest.TestCase):
     """Each case runs with a folder of its own as XDG_CONFIG_HOME: the home directory's files are never read."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.kept = os.environ.get("XDG_CONFIG_HOME")
         self.folder = tempfile.TemporaryDirectory()
         os.environ["XDG_CONFIG_HOME"] = self.folder.name
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         if self.kept is None:
             os.environ.pop("XDG_CONFIG_HOME", None)
         else:
@@ -82,7 +82,7 @@ class Places(Home):
     """A table in a file where it is not valid is refused, and the refusal names the file where it is
     (criteria 3 and 4 of one-home-folder-for-lem)."""
 
-    def test_what_guards_a_team_is_valid_in_the_teams_file_only(self):
+    def test_what_guards_a_team_is_valid_in_the_teams_file_only(self) -> None:
         for table, line in (
             ("flow", "topics = []"),
             ("checks", "commands = []"),
@@ -99,7 +99,7 @@ class Places(Home):
                         message,
                     )
 
-    def test_keep_days_is_a_repositorys_and_refused_in_the_home_file(self):
+    def test_keep_days_is_a_repositorys_and_refused_in_the_home_file(self) -> None:
         self.assertEqual(
             read("team", "[state]", "keep_days = 7"), {"state": {"keep_days": 7}}
         )
@@ -112,7 +112,7 @@ class Places(Home):
             message,
         )
 
-    def test_the_home_file_holds_every_seat_and_the_fallback(self):
+    def test_the_home_file_holds_every_seat_and_the_fallback(self) -> None:
         # the seats of seat-defaults-and-fallback, criteria 1 and 2 under the owner's decision 41
         lines = (
             'reviewer = "codex/gpt-6.2-sol:high"',
@@ -141,7 +141,7 @@ class Places(Home):
             "home: unknown key seats.reviwer; did you mean 'reviewer'?", message
         )
 
-    def test_the_question_pages_defaults_are_the_home_files_only(self):
+    def test_the_question_pages_defaults_are_the_home_files_only(self) -> None:
         self.assertEqual(
             read("home", "[ask]", 'style = "minimal"'), {"ask": {"style": "minimal"}}
         )
@@ -161,7 +161,9 @@ class Places(Home):
             self.refused(lem_state.machine_tables),
         )
 
-    def test_the_question_page_takes_the_keys_of_ask_that_lem_project_takes(self):
+    def test_the_question_page_takes_the_keys_of_ask_that_lem_project_takes(
+        self,
+    ) -> None:
         # lem-ask runs alone and imports nothing of Lem's, so its own list of the keys is held to project.py's here
         page = runpy.run_path(
             str(
@@ -175,7 +177,7 @@ class Places(Home):
         )
         self.assertEqual(tuple(page["ASK_KEYS"]), project.TABLES["ask"])
 
-    def test_what_is_true_for_the_whole_machine_is_its_files_only(self):
+    def test_what_is_true_for_the_whole_machine_is_its_files_only(self) -> None:
         for table, line in (
             ("load", "start = 4"),
             ("serve", "port = 4500"),
@@ -190,7 +192,9 @@ class Places(Home):
                         self.refused(read, place, f"[{table}]", line),
                     )
 
-    def test_the_machines_file_refuses_the_seats_and_names_the_home_settings(self):
+    def test_the_machines_file_refuses_the_seats_and_names_the_home_settings(
+        self,
+    ) -> None:
         file = self.written(
             '[load]\nstart = 4\n\n[seats]\nmerger = "claude/opus:high"\n'
         )
@@ -206,7 +210,7 @@ class Places(Home):
                     message,
                 )
 
-    def test_a_name_of_the_home_folder_is_written_from_the_home_directory(self):
+    def test_a_name_of_the_home_folder_is_written_from_the_home_directory(self) -> None:
         self.assertEqual(
             lem_state.shown(Path.home() / ".config" / "lem" / "settings.toml"),
             "~/.config/lem/settings.toml",
@@ -237,7 +241,7 @@ class Nearest(Home):
         found = self.decided(**files)["seats"]["merger"]
         return found["seat"], found["from"]
 
-    def test_the_merge_agent_from_the_local_the_team_the_home_file_or_lem(self):
+    def test_the_merge_agent_from_the_local_the_team_the_home_file_or_lem(self) -> None:
         home = ("[seats]", 'merger = "claude/opus:high"')
         team = ("[seats]", 'merger = "codex/gpt-6.2-sol:high"')
         local = ("[seats]", 'merger = "claude/fable:high"')
@@ -254,7 +258,7 @@ class Nearest(Home):
         )
         self.assertEqual(self.merger(), ("claude/opus:high", "Lem's default"))
 
-    def test_each_seat_and_each_expert_names_its_file(self):
+    def test_each_seat_and_each_expert_names_its_file(self) -> None:
         found = self.decided(
             team=("[seats]", 'reviewer = "codex/gpt-6.2-sol:high"'),
             local=("[seats]", 'planner = "claude/fable:high"'),
@@ -284,7 +288,7 @@ class Nearest(Home):
             [("claude/fable:high", ".lem/settings.local.toml")],
         )
 
-    def test_the_naps_and_the_days_name_their_file(self):
+    def test_the_naps_and_the_days_name_their_file(self) -> None:
         found = self.decided()
         self.assertEqual(
             (found["naps"], found["state"]),
@@ -319,7 +323,7 @@ class MachineFile(Home):
     """`write_machine` keeps every table of `machine.toml`, the correction queue's too, writes over nothing
     it cannot keep, and holds the file's lock from its read to its rename (criterion 3)."""
 
-    def test_it_keeps_the_corrections_when_it_writes_another_table(self):
+    def test_it_keeps_the_corrections_when_it_writes_another_table(self) -> None:
         self.written("[corrections]\ncollect = false\n\n[serve]\nport = 4500\n")
         lem_state.write_machine("load", {"start": 12})
         self.assertEqual(
@@ -334,7 +338,7 @@ class MachineFile(Home):
 
     def test_a_file_with_the_seats_stays_as_it_is_and_the_refusal_names_their_place(
         self,
-    ):
+    ) -> None:
         text = '[load]\nstart = 4\n\n[seats]\nmerger = "claude/opus:high"\n'
         file = self.written(text)
         message = self.refused(lem_state.write_machine, "load", {"start": 12})
@@ -344,7 +348,9 @@ class MachineFile(Home):
         )
         self.assertEqual(file.read_text(encoding="utf-8"), text)
 
-    def test_a_file_that_does_not_read_stays_as_it_is_and_the_refusal_names_it(self):
+    def test_a_file_that_does_not_read_stays_as_it_is_and_the_refusal_names_it(
+        self,
+    ) -> None:
         for text, says in (
             ("[load\nstart = 4\n", "does not read as TOML"),
             ("[colours]\nmain = 1\n", "[colours] is no table of Lem's"),
@@ -358,16 +364,18 @@ class MachineFile(Home):
                 self.assertIn(says, message)
                 self.assertEqual(file.read_text(encoding="utf-8"), text)
 
-    def test_the_last_table_out_takes_the_file(self):
+    def test_the_last_table_out_takes_the_file(self) -> None:
         self.written("[handoff]\ntokens = 0\n")
         lem_state.write_machine("handoff", None)
         self.assertFalse(lem_state.machine_file().exists())
 
-    def test_a_second_writer_waits_for_the_lock_and_keeps_the_first_ones_table(self):
+    def test_a_second_writer_waits_for_the_lock_and_keeps_the_first_ones_table(
+        self,
+    ) -> None:
         self.written("[serve]\nport = 4500\n")
         done = threading.Event()
 
-        def second():
+        def second() -> None:
             lem_state.write_machine("handoff", {"tokens": 0})
             done.set()
 
@@ -390,7 +398,7 @@ class MachineFile(Home):
 
 
 class Texts(unittest.TestCase):
-    def test_no_text_of_lem_names_project_toml_or_project_local_toml(self):
+    def test_no_text_of_lem_names_project_toml_or_project_local_toml(self) -> None:
         listed = subprocess.run(
             ["git", "-C", str(LEM), "ls-files", "--", *TEXTS],
             capture_output=True,
@@ -419,7 +427,9 @@ class Texts(unittest.TestCase):
                             f".lem/settings.local.toml and ~/.config/lem/settings.toml"
                         )
 
-    def test_the_settings_page_says_where_each_table_is_valid_as_the_map_does(self):
+    def test_the_settings_page_says_where_each_table_is_valid_as_the_map_does(
+        self,
+    ) -> None:
         text = PAGE.read_text(encoding="utf-8").split(
             "\n## Where each table is valid\n", 1
         )

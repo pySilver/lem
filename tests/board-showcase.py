@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """The board of a normal afternoon in one shop, for the README's pictures, for a look at the board, and
 for tests/lem-serve.sh.
 
@@ -47,12 +46,12 @@ import tempfile
 import time
 import urllib.request
 import zlib
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS = ROOT / "skills" / "lem" / "scripts"
-NOW = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+NOW = datetime.now(UTC).replace(second=0, microsecond=0)
 TODAY = NOW.strftime("%Y-%m-%d")
 WIDTH, HEIGHT = 1440, 900
 PHONE = (390, 844)
@@ -85,7 +84,7 @@ def run(*args: str, cwd: Path | None = None) -> str:
 class Shop:
     """A repository with Lem's settings, and the steps of each task with the minute (before NOW) it ran at."""
 
-    def __init__(self, work: Path):
+    def __init__(self, work: Path) -> None:
         self.repo = work / "shop"
         self.work = work
         self.times: dict[str, list[float]] = {}

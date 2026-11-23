@@ -35,7 +35,7 @@ with no worktree or no plan has no plan entry.
 
 import os
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 # A file over this many bytes is listed with no text: the page draws each file it shows, and a
@@ -136,7 +136,7 @@ IMAGES = {
 }
 # A path in a document's text that names a picture of the task's media folder.
 MEDIA_REF = re.compile(
-    r"(?:^|[(\s\"'/])(media/[A-Za-z0-9._/-]+\.(?:png|jpe?g|gif|webp))\b", re.I
+    r"(?:^|[(\s\"'/])(media/[A-Za-z0-9._/-]+\.(?:png|jpe?g|gif|webp))\b", re.IGNORECASE
 )
 
 
@@ -392,7 +392,7 @@ def kind_of(file: Path) -> str:
 
 
 def stamp(seconds: float) -> str:
-    return datetime.fromtimestamp(seconds, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.fromtimestamp(seconds, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def entry(

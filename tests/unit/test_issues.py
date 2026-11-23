@@ -105,7 +105,7 @@ OUTCOME = "# The gift note\n\n## Outcome\n\n**The export keeps the gift note of 
 class Issues(unittest.TestCase):
     """A repository whose origin is acme/shop on GitHub and whose tracker is github, with issue 42."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         self.work = Path(folder.name)
@@ -278,7 +278,7 @@ class Read(Issues):
 
     def test_by_number_and_by_address_it_gives_the_issue_and_the_comments_apart_and_writes_nothing(
         self,
-    ):
+    ) -> None:
         for given in (
             "42",
             "#42",
@@ -327,7 +327,7 @@ class Read(Issues):
 
     def test_an_issue_with_no_text_has_its_title_as_the_ask_and_a_closed_one_says_so(
         self,
-    ):
+    ) -> None:
         self.edit_issue(body="", state="CLOSED", reason="COMPLETED")
         read = self.ok("read", "42")
         self.assertEqual(
@@ -335,7 +335,9 @@ class Read(Issues):
             ("The export drops the gift note", "title", "closed", "completed"),
         )
 
-    def test_the_address_of_another_repository_is_refused_with_origin_named(self):
+    def test_the_address_of_another_repository_is_refused_with_origin_named(
+        self,
+    ) -> None:
         said = self.refused("read", "https://github.com/upstream/shop/issues/42")
         self.assertIn(
             "names an issue of upstream/shop, and Lem reads the issues of origin, which is acme/shop",
@@ -343,14 +345,14 @@ class Read(Issues):
         )
         self.assertEqual(self.gh()["calls"], [])
 
-    def test_an_issue_moved_to_another_repository_is_refused(self):
+    def test_an_issue_moved_to_another_repository_is_refused(self) -> None:
         self.edit_issue(url="https://github.com/other/place/issues/3")
         self.assertIn(
             "an issue of another repository, and Lem reads the issues of origin, which is acme/shop",
             self.refused("read", "42"),
         )
 
-    def test_the_number_of_a_pull_request_is_refused(self):
+    def test_the_number_of_a_pull_request_is_refused(self) -> None:
         self.edit_issue(url="https://github.com/acme/shop/pull/42", state="MERGED")
         self.assertIn(
             "#42 of acme/shop is a pull request (https://github.com/acme/shop/pull/42), not an issue",
@@ -359,7 +361,7 @@ class Read(Issues):
 
     def test_a_word_that_is_no_issue_an_origin_off_github_and_another_tracker_are_refused(
         self,
-    ):
+    ) -> None:
         self.assertIn("is no issue's number or address", self.refused("read", "MBZ-12"))
         self.assertIn("issue 0 is no issue", self.refused("read", "#0"))
         subprocess.run(
@@ -389,7 +391,7 @@ class Start(Issues):
 
     def test_an_issue_with_no_assignee_gets_the_person_signed_in_and_a_second_start_writes_nothing(
         self,
-    ):
+    ) -> None:
         self.task("export-keeps-gift-note", "building")
         out = self.ok("start", "export-keeps-gift-note")
         self.assertEqual(self.issue()["assignees"], ["octo-cat"])
@@ -405,7 +407,9 @@ class Start(Issues):
         self.assertEqual((again["did"], again["wrote"]), ([], []))
         self.assertEqual(len(self.gh()["calls"]), calls)
 
-    def test_an_issue_with_another_assignee_keeps_it_and_the_owner_is_told_who(self):
+    def test_an_issue_with_another_assignee_keeps_it_and_the_owner_is_told_who(
+        self,
+    ) -> None:
         self.edit_issue(assignees=["dana"])
         self.task("export-keeps-gift-note", "planned")
         out = self.ok("start", "export-keeps-gift-note")
@@ -417,7 +421,9 @@ class Start(Issues):
         self.assertEqual(self.steps("export-keeps-gift-note"), ["started"])
         self.assertEqual(self.writes(), [])
 
-    def test_an_issue_the_person_signed_in_holds_already_is_left_with_no_line(self):
+    def test_an_issue_the_person_signed_in_holds_already_is_left_with_no_line(
+        self,
+    ) -> None:
         self.edit_issue(assignees=["octo-cat"])
         self.task("export-keeps-gift-note", "building")
         out = self.ok("start", "export-keeps-gift-note")
@@ -426,7 +432,9 @@ class Start(Issues):
             (None, ["started"], []),
         )
 
-    def test_when_gh_cannot_assign_the_owner_is_told_why_and_the_step_is_undone(self):
+    def test_when_gh_cannot_assign_the_owner_is_told_why_and_the_step_is_undone(
+        self,
+    ) -> None:
         self.gh_set(
             refuse_edit="GraphQL: octo-cat cannot be assigned to this issue (addAssigneesToAssignable)"
         )
@@ -443,7 +451,7 @@ class Start(Issues):
 
     def test_a_start_cut_off_after_its_record_adds_the_login_only_while_the_issue_has_nobody(
         self,
-    ):
+    ) -> None:
         self.task("export-keeps-gift-note", "building", steps=("assigned octo-cat",))
         self.ok("start", "export-keeps-gift-note")
         self.assertEqual(self.issue()["assignees"], ["octo-cat"])
@@ -460,13 +468,15 @@ class Start(Issues):
         self.ok("start", "gift-note-two")
         self.assertEqual(self.issue("43")["assignees"], ["dana"])
 
-    def test_gh_not_signed_in_is_refused_with_the_fix(self):
+    def test_gh_not_signed_in_is_refused_with_the_fix(self) -> None:
         self.gh_set(login=None)
         self.task("export-keeps-gift-note", "building")
         self.assertIn("gh auth login", self.refused("start", "export-keeps-gift-note"))
         self.assertEqual(self.steps("export-keeps-gift-note"), [])
 
-    def test_a_resumed_task_takes_over_the_assignee_its_dropped_task_added(self):
+    def test_a_resumed_task_takes_over_the_assignee_its_dropped_task_added(
+        self,
+    ) -> None:
         self.task(
             "gift-note",
             "dropped",
@@ -486,7 +496,7 @@ class Start(Issues):
 class Refusals(Issues):
     """Each write's guards: the status, the task that holds the issue now, and origin's repository."""
 
-    def test_each_step_refuses_a_status_it_does_not_belong_to(self):
+    def test_each_step_refuses_a_status_it_does_not_belong_to(self) -> None:
         self.task("export-keeps-gift-note", "building")
         for step, wants in (
             ("land", "landed"),
@@ -507,7 +517,9 @@ class Refusals(Issues):
                 )
         self.assertEqual(self.gh()["calls"], [])
 
-    def test_another_repository_in_origin_is_refused_with_both_named_and_the_fix(self):
+    def test_another_repository_in_origin_is_refused_with_both_named_and_the_fix(
+        self,
+    ) -> None:
         self.task(
             "export-keeps-gift-note",
             "dropped",
@@ -539,7 +551,7 @@ class Refusals(Issues):
 
     def test_a_task_a_resume_went_on_from_owes_nothing_and_each_write_names_the_holder(
         self,
-    ):
+    ) -> None:
         # decision 23: the mark moved to the resumed task
         self.task(
             "gift-note",
@@ -565,7 +577,7 @@ class Refusals(Issues):
         )
         self.assertEqual(self.gh()["calls"], [])
 
-    def test_a_task_of_no_issue_and_a_task_that_is_not_there_are_refused(self):
+    def test_a_task_of_no_issue_and_a_task_that_is_not_there_are_refused(self) -> None:
         self.assertIn("no task 'gone'", self.refused("start", "gone"))
         directory = self.task("from-words", "building")
         (directory / "ticket.txt").unlink()
@@ -596,7 +608,7 @@ class Land(Issues):
 
     def test_the_comment_says_what_changed_the_pull_request_and_green_then_the_issue_is_closed(
         self,
-    ):
+    ) -> None:
         self.landed()
         self.edit_issue(assignees=["octo-cat"])
         out = self.ok("land", "export-keeps-gift-note")
@@ -623,7 +635,7 @@ class Land(Issues):
         # the landed task's issue keeps the assignee Lem added
         self.assertEqual(self.issue()["assignees"], ["octo-cat"])
 
-    def test_not_green_is_said_and_a_closed_issue_stays_as_it_is(self):
+    def test_not_green_is_said_and_a_closed_issue_stays_as_it_is(self) -> None:
         self.landed(green=False)
         self.edit_issue(state="CLOSED", reason="NOT_PLANNED")
         self.ok("land", "export-keeps-gift-note")
@@ -638,7 +650,7 @@ class Land(Issues):
 
     def test_a_session_cut_off_after_the_comment_posts_no_second_one_and_goes_on_to_the_close(
         self,
-    ):
+    ) -> None:
         self.landed()
         comments = [
             {"author": "bob", "body": "one"},
@@ -657,7 +669,7 @@ class Land(Issues):
             self.steps("export-keeps-gift-note")[-2:], ["commented", "landed"]
         )
 
-    def test_a_comment_of_another_task_does_not_count(self):
+    def test_a_comment_of_another_task_does_not_count(self) -> None:
         self.landed()
         self.edit_issue(
             comments=[{"author": "octo-cat", "body": "lem: gift-note-old dropped"}]
@@ -671,7 +683,7 @@ class DropAndAnswer(Issues):
 
     def test_a_drop_comments_why_removes_the_assignee_lem_added_and_keeps_the_others(
         self,
-    ):
+    ) -> None:
         self.task(
             "export-keeps-gift-note",
             "dropped",
@@ -704,7 +716,7 @@ class DropAndAnswer(Issues):
         self.assertFalse((self.state / "tickets" / "42").exists())
         self.assertEqual(self.ok("drop", "export-keeps-gift-note")["did"], [])
 
-    def test_the_login_the_record_names_goes_whoever_is_signed_in_now(self):
+    def test_the_login_the_record_names_goes_whoever_is_signed_in_now(self) -> None:
         self.task(
             "export-keeps-gift-note",
             "dropped",
@@ -718,7 +730,7 @@ class DropAndAnswer(Issues):
 
     def test_an_assignee_lem_never_added_stays_and_a_removed_one_is_written_down_all_the_same(
         self,
-    ):
+    ) -> None:
         self.task(
             "export-keeps-gift-note",
             "dropped",
@@ -748,7 +760,9 @@ class DropAndAnswer(Issues):
             any(call[:2] == ["issue", "edit"] for call in self.gh()["calls"])
         )
 
-    def test_an_answer_comments_the_answer_and_where_and_the_report_stays_home(self):
+    def test_an_answer_comments_the_answer_and_where_and_the_report_stays_home(
+        self,
+    ) -> None:
         directory = self.task(
             "export-keeps-gift-note",
             "answered",
@@ -781,7 +795,9 @@ class DropAndAnswer(Issues):
         )
         self.assertIn("stays open", out["says"])
 
-    def test_an_answer_owed_after_prune_removed_the_report_names_no_report(self):
+    def test_an_answer_owed_after_prune_removed_the_report_names_no_report(
+        self,
+    ) -> None:
         # an answered task past state.keep_days: prune left its small record, and its comment was never posted
         directory = self.task(
             "export-keeps-gift-note",
@@ -809,7 +825,9 @@ class DropAndAnswer(Issues):
             "lem: export-keeps-gift-note answered\n",
         )
 
-    def test_a_drop_cut_off_after_the_comment_posts_none_and_removes_the_assignee(self):
+    def test_a_drop_cut_off_after_the_comment_posts_none_and_removes_the_assignee(
+        self,
+    ) -> None:
         self.task(
             "export-keeps-gift-note",
             "dropped",
@@ -835,7 +853,9 @@ class DropAndAnswer(Issues):
 class Check(Issues):
     """Criterion 7: the repository and its issues, or each missing thing with its fix; nothing written."""
 
-    def test_all_there_says_the_repository_and_the_facts_of_the_onboarding(self):
+    def test_all_there_says_the_repository_and_the_facts_of_the_onboarding(
+        self,
+    ) -> None:
         code, out, _ = self.run_issue("check")
         self.assertEqual(code, 0)
         self.assertEqual(
@@ -857,7 +877,7 @@ class Check(Issues):
         self.assertIn("--state", listed)
         self.assertEqual(listed[listed.index("--state") + 1], "all")
 
-    def test_a_repository_with_no_issue_is_said(self):
+    def test_a_repository_with_no_issue_is_said(self) -> None:
         state = self.gh()
         state["repos"]["acme/shop"]["issues"] = {}
         self.gh_save(state)
@@ -870,7 +890,7 @@ class Check(Issues):
         self.assertEqual(code, 1)
         return out["missing"]
 
-    def test_each_missing_thing_with_its_fix(self):
+    def test_each_missing_thing_with_its_fix(self) -> None:
         self.gh_set(login=None)
         self.assertEqual(
             self.missing(),
@@ -902,7 +922,7 @@ class Check(Issues):
             elsewhere["fix"],
         )
 
-    def test_gh_not_installed(self):
+    def test_gh_not_installed(self) -> None:
         # a PATH with git and no gh
         (self.work / "nogh").mkdir()
         (self.work / "nogh" / "git").symlink_to(shutil.which("git"))
@@ -911,7 +931,7 @@ class Check(Issues):
         self.assertEqual(found[0]["what"], "gh is not installed")
         self.assertIn("https://cli.github.com", found[0]["fix"])
 
-    def test_the_check_needs_no_tracker_and_touches_no_settings(self):
+    def test_the_check_needs_no_tracker_and_touches_no_settings(self) -> None:
         settings = self.root / ".lem" / "settings.toml"
         settings.write_text('[branch]\nbase = "main"\n', encoding="utf-8")
         code, _, _ = self.run_issue("check")

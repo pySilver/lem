@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """The GitHub tracker of Lem: a repository's issues, through GitHub's `gh`, for the `lem-github` skill.
 
 An issue is one more place an ask comes from. This script reads one, and keeps it true while Lem

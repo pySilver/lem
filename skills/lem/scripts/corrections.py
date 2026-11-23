@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """A project's queue of the owner's corrections: the hook that fills it, and what the retro reads.
 
 A correction that the owner gave once and that came back is what `/lem retro` looks for. The

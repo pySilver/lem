@@ -64,7 +64,7 @@ def identity(entry: dict) -> str:
 class Installs(unittest.TestCase):
     def test_a_repository_whose_install_is_other_code_gets_a_row_with_the_two_lines(
         self,
-    ):
+    ) -> None:
         rows = doctor.install_rows(
             "version 0.1.2",
             ["/r/shop", "/r/notes", "/r/bare"],
@@ -87,7 +87,7 @@ class Installs(unittest.TestCase):
 
     def test_an_install_for_the_user_counts_where_the_repository_has_none_of_its_own(
         self,
-    ):
+    ) -> None:
         rows = doctor.install_rows(
             "version 0.1.1", ["/r/shop"], [install(None, "0.1.2")], identity
         )
@@ -151,7 +151,9 @@ def table() -> list[tuple[str, str]]:
     for its tier, `required` when the cell has none."""
     text = (ROOT / "docs" / "install.md").read_text(encoding="utf-8")
     rows = re.search(
-        r"^\| Tool \| Lem uses it for \|\n\| --- \| --- \|\n((?:\|.*\n)+)", text, re.M
+        r"^\| Tool \| Lem uses it for \|\n\| --- \| --- \|\n((?:\|.*\n)+)",
+        text,
+        re.MULTILINE,
     )
     if not rows:
         return []
@@ -187,7 +189,9 @@ class Plannotator(unittest.TestCase):
         finally:
             doctor.shutil.which, doctor.version = which, version
 
-    def test_the_row_is_recommended_with_its_guide_and_names_the_version_found(self):
+    def test_the_row_is_recommended_with_its_guide_and_names_the_version_found(
+        self,
+    ) -> None:
         found = self.row("/opt/bin/plannotator", "plannotator 0.29.0")
         self.assertEqual(
             (found["name"], found["need"], found["found"], found["detail"]),
@@ -197,7 +201,7 @@ class Plannotator(unittest.TestCase):
         self.assertIn("while he is away", found["used_for"])
         self.assertEqual(tiers()["plannotator"], {"recommended"})
 
-    def test_without_it_the_row_says_that_nothing_goes_to_the_inbox(self):
+    def test_without_it_the_row_says_that_nothing_goes_to_the_inbox(self) -> None:
         absent = self.row(None, None)
         self.assertEqual(
             (absent["need"], absent["found"], absent["detail"]),
@@ -222,7 +226,7 @@ class Keymap(unittest.TestCase):
 
     def test_a_line_names_the_command_or_the_older_script_by_its_path_or_from_home(
         self,
-    ):
+    ) -> None:
         command, script = self.SCRIPTS
         self.assertEqual(
             self.runs(
@@ -250,7 +254,7 @@ class Keymap(unittest.TestCase):
             script,
         )
 
-    def test_a_line_that_runs_something_else_is_not_the_pickers(self):
+    def test_a_line_that_runs_something_else_is_not_the_pickers(self) -> None:
         command, script = self.SCRIPTS
         for said in (
             f"command Board ctrl+cmd+b {command} serve --ensure",
@@ -299,7 +303,7 @@ class Keymap(unittest.TestCase):
 
     def test_the_row_gives_the_line_of_the_clones_command_and_counts_an_older_line_as_there(
         self,
-    ):
+    ) -> None:
         absent = self.row(None)
         self.assertFalse(absent["found"])
         self.assertTrue(
@@ -327,7 +331,9 @@ class Keymap(unittest.TestCase):
 
 
 class Tiers(unittest.TestCase):
-    def test_the_install_guide_says_each_tools_tier_as_the_machine_check_has_it(self):
+    def test_the_install_guide_says_each_tools_tier_as_the_machine_check_has_it(
+        self,
+    ) -> None:
         rows, written = table(), tiers()
         self.assertTrue(rows, 'docs/install.md has no table under "What you need"')
         for name, words in IN_TABLE.items():

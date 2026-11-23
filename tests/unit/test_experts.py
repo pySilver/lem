@@ -43,7 +43,7 @@ You use this product to get something done. You came for a result.
 
 
 class WhoTheyAre(unittest.TestCase):
-    def test_the_heading_and_the_who_they_are_part(self):
+    def test_the_heading_and_the_who_they_are_part(self) -> None:
         self.assertEqual(
             experts.who_they_are(MERCHANT, "merchant"),
             (
@@ -52,7 +52,9 @@ class WhoTheyAre(unittest.TestCase):
             ),
         )
 
-    def test_a_file_with_no_such_part_gives_its_first_paragraph_and_no_quote(self):
+    def test_a_file_with_no_such_part_gives_its_first_paragraph_and_no_quote(
+        self,
+    ) -> None:
         self.assertEqual(
             experts.who_they_are(USER, "user")[1],
             "You use this product to get something done. You came for a result.",
@@ -62,7 +64,7 @@ class WhoTheyAre(unittest.TestCase):
             ("cook", "A cook at night."),
         )
 
-    def test_a_long_part_is_cut_at_a_sentence_end_to_be_read_in_a_minute(self):
+    def test_a_long_part_is_cut_at_a_sentence_end_to_be_read_in_a_minute(self) -> None:
         long = (
             "# A clerk\n\n## Who they are\n\n"
             + " ".join(f"Sentence {n} has five words." for n in range(40))
@@ -77,7 +79,7 @@ class WhoTheyAre(unittest.TestCase):
 class Audience(unittest.TestCase):
     def test_the_part_names_the_profile_and_each_persona_by_its_path_and_says_how_to_weigh_them(
         self,
-    ):
+    ) -> None:
         with tempfile.TemporaryDirectory() as top:
             merchant, user = Path(top) / "merchant.md", Path(top) / "user.md"
             # the file a persona's agent reads, without its frontmatter, is what the part is taken from
@@ -118,7 +120,7 @@ class Audience(unittest.TestCase):
         self.assertIn("you answer as none of them", text)
         self.assertNotIn("seats", text)
 
-    def test_a_project_with_no_profile_says_so(self):
+    def test_a_project_with_no_profile_says_so(self) -> None:
         with tempfile.TemporaryDirectory() as top:
             user = Path(top) / "user.md"
             user.write_text(USER, encoding="utf-8")
@@ -132,7 +134,7 @@ class Audience(unittest.TestCase):
             )
         self.assertIn("The project has no profile", text)
 
-    def test_the_brief_holds_the_part_before_the_answer(self):
+    def test_the_brief_holds_the_part_before_the_answer(self) -> None:
         part = "## Who the code is for\n\nPEOPLE\n"
         free = experts.free_brief_text(
             "Which store?", "", [], Path("/repo"), [], 2, part

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Pick a task of the repository in agterm's picker, and go to that task's session, or its board.
 
     lem picker [--repo DIR]           open agterm's picker over the tasks; a pick selects the task's
@@ -61,7 +60,7 @@ import json
 import re
 import shutil
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
@@ -94,8 +93,7 @@ def age(since: str | None, now: datetime) -> str:
         return ""
     minutes = int(
         (
-            now
-            - datetime.strptime(since, "%Y-%m-%dT%H:%MZ").replace(tzinfo=timezone.utc)
+            now - datetime.strptime(since, "%Y-%m-%dT%H:%MZ").replace(tzinfo=UTC)
         ).total_seconds()
         // 60
     )
@@ -299,7 +297,7 @@ def live_session(root: Path, slug: str) -> str | None:
         raise PickerError(str(error)) from error
     return (
         str(newest["session"])
-        if session.live(node, newest, datetime.now(timezone.utc))
+        if session.live(node, newest, datetime.now(UTC))
         else None
     )
 
@@ -364,7 +362,7 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
     try:
         root = lem_root(args.repo)
-        found = rows(root, datetime.now(timezone.utc))
+        found = rows(root, datetime.now(UTC))
         if not found:
             raise PickerError(f"no task yet in {root}: `/lem` and a request opens one")
         if args.list:

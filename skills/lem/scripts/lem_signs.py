@@ -73,7 +73,7 @@ and never a fresh session that the owner did not open.
 """
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import lem_tokens  # the task a transcript's first prompt names; the scripts' folder is on the path of every importer
@@ -137,9 +137,7 @@ def when(text: object) -> datetime | None:
         found = datetime.fromisoformat(text)
     except ValueError:
         return None
-    return (found if found.tzinfo else found.replace(tzinfo=timezone.utc)).astimezone(
-        timezone.utc
-    )
+    return (found if found.tzinfo else found.replace(tzinfo=UTC)).astimezone(UTC)
 
 
 def newest_turn(lines) -> str | None:

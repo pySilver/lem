@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Take one task's branch from `ready` to a pull request and to the base branch, one step at a time.
 
 Nothing reaches the base branch without the machine checks and a review by an agent that did not
@@ -633,9 +632,9 @@ import signal
 import statistics
 import subprocess
 import tempfile
-import tomllib
 import time
-from datetime import date, datetime, timezone
+import tomllib
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import TextIO
 
@@ -2247,7 +2246,7 @@ def item_of(file: Path) -> tuple[dict[str, str], list[str]] | None:
 def item_text(text: str) -> tuple[dict[str, str], list[str]] | None:
     """`item_of`, from the text of the file."""
     front: dict[str, str] = {}
-    head = re.match(r"---\n(.*?)\n---\n", text, re.S)
+    head = re.match(r"---\n(.*?)\n---\n", text, re.DOTALL)
     if head:
         for line in head.group(1).splitlines():
             key, _, value = line.partition(":")
@@ -2346,7 +2345,7 @@ def base_items(task: Task, base: str) -> list[dict]:
             else None
         )
         at += size + (1 if len(head) == 3 else 0)
-        front, lines = item if item else ({}, [])
+        front, lines = item or ({}, [])
         found.append(
             {
                 "item": path,
@@ -3093,13 +3092,13 @@ def wait_for_load(task: Task, pid: int | None = None) -> dict | None:
 
 
 def now_utc() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def seconds_since(stamp: str, now: datetime | None = None) -> int:
     """The whole seconds from a stamp of the form `now_utc` writes to now."""
-    then = datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-    return max(0, int(((now or datetime.now(timezone.utc)) - then).total_seconds()))
+    then = datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+    return max(0, int(((now or datetime.now(UTC)) - then).total_seconds()))
 
 
 def duration(seconds: int) -> str:
@@ -3651,7 +3650,7 @@ def checks_body(
                     stderr=subprocess.STDOUT,
                     stdin=subprocess.DEVNULL,
                     start_new_session=True,
-                )  # noqa: S602
+                )
                 running.append(proc)
                 code = proc.wait()
                 end_group(running, grace)
@@ -4738,7 +4737,7 @@ def items_added(task: Task, base: str) -> list[dict]:
         if not path.startswith(folder + "/"):
             continue
         item = item_of(task.worktree / path)
-        front, lines = item if item else ({}, [])
+        front, lines = item or ({}, [])
         found.append(
             {
                 "item": path,
@@ -6484,10 +6483,8 @@ def carry_merge(
             {"verdict": "merge"},
         )
         calls = review.get("verdict") == "call" or refusal is not None
-        why = (
-            refusal
-            if refusal
-            else (review.get("why") if review.get("verdict") == "call" else None)
+        why = refusal or (
+            review.get("why") if review.get("verdict") == "call" else None
         )
         review = carried_review(review, tip, calls, why, old)
         task.keep(merge_review=review)
@@ -7141,9 +7138,7 @@ def start_after(task: Task, standing: bool) -> list[str]:
 def stamp_seconds(stamp: str) -> float:
     """A time of the event log, `YYYY-MM-DDTHH:MM:SSZ`, as seconds since the epoch."""
     return (
-        datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ")
-        .replace(tzinfo=timezone.utc)
-        .timestamp()
+        datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC).timestamp()
     )
 
 
@@ -7693,17 +7688,13 @@ def cmd_merge_review(
     if owner:
         why = unread_why(lower_verdict(text), refusal)
     else:
-        why = (
-            refusal
-            if refusal
-            else (
-                next(line for line in text.splitlines() if line.strip())
-                .strip()
-                .lstrip("#*> ")
-                .strip()
-                if verdict == "call"
-                else None
-            )
+        why = refusal or (
+            next(line for line in text.splitlines() if line.strip())
+            .strip()
+            .lstrip("#*> ")
+            .strip()
+            if verdict == "call"
+            else None
         )
     # the merge agent's stand-ins go into the pull request's text before the read is written down, so a failed edit leaves the read to record again
     merger_noted(
@@ -8399,8 +8390,7 @@ def cmd_clean(task: Task) -> dict:
         raise LandError(
             f"{task.onto} does not hold the tip of {branch}, so the branch stays{after}"
         )
-    else:
-        drop_forge_copy(task, branch, removed)
+    drop_forge_copy(task, branch, removed)
     git(task.main, "branch", "-D", branch)
     removed["branch"] = branch
     return {"task": task.slug, **removed}

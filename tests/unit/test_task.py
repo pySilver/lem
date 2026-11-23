@@ -42,7 +42,7 @@ class MayLand(unittest.TestCase):
             project.may_land(settings(*lines), target)
         return str(caught.exception)
 
-    def test_a_protected_branch(self):
+    def test_a_protected_branch(self) -> None:
         self.assertIn(
             "'release' is protected",
             self.refused(
@@ -50,10 +50,10 @@ class MayLand(unittest.TestCase):
             ),
         )
 
-    def test_settings_that_name_no_base(self):
+    def test_settings_that_name_no_base(self) -> None:
         self.assertIn("names no branch.base", self.refused("main"))
 
-    def test_a_branch_that_is_not_the_base(self):
+    def test_a_branch_that_is_not_the_base(self) -> None:
         self.assertIn(
             "land on 'main', not on 'feature'",
             self.refused("feature", "[branch]", 'base = "main"'),
@@ -63,12 +63,14 @@ class MayLand(unittest.TestCase):
 class TrackOf(unittest.TestCase):
     """The track of a task, from the newest of its state lines that tells it (state.md, newest block first)."""
 
-    def test_an_interview_above_the_fast_tracks_builder_is_the_standard_track(self):
+    def test_an_interview_above_the_fast_tracks_builder_is_the_standard_track(
+        self,
+    ) -> None:
         # `/lem standard-track` of a task whose small change had started: its interview waits now
         state = "2026-11-19T10:00Z held: the interview waits for the owner\ntype: feat, because the export gets a note\n\n2026-11-19T09:50Z building: small change: one builder"
         self.assertEqual(project.track_of(state), "standard")
 
-    def test_the_fast_tracks_builder_and_a_lead(self):
+    def test_the_fast_tracks_builder_and_a_lead(self) -> None:
         self.assertEqual(
             project.track_of("2026-11-19T09:50Z building: small change: one builder"),
             "fast",
@@ -83,7 +85,7 @@ class TrackOf(unittest.TestCase):
             project.track_of("2026-11-19T09:50Z queued: it waits for a free place")
         )
 
-    def test_the_fast_tracks_wait_for_his_yes_and_the_standard_tracks(self):
+    def test_the_fast_tracks_wait_for_his_yes_and_the_standard_tracks(self) -> None:
         self.assertEqual(
             project.track_of(
                 f"2026-11-19T09:50Z held: {project.FAST_WAIT}\ntype: fix, because a word"
@@ -101,7 +103,7 @@ class TrackOf(unittest.TestCase):
 class QueuedRefusal(unittest.TestCase):
     """The refusal of `may-start` for a queued task names the way out of a need and of the owner's order."""
 
-    def test_both_ways_out_and_the_owners_word_first(self):
+    def test_both_ways_out_and_the_owners_word_first(self) -> None:
         said = project.queued_refusal(
             "tests-at-the-unit-level", "one-lem-parallel-landings", "open"
         )
@@ -147,7 +149,7 @@ class DroppedRefusal(unittest.TestCase):
 
     def test_his_order_is_logged_then_the_block_is_written_again_without_its_after_line(
         self,
-    ):
+    ) -> None:
         logged, written = project.start_commands("export-notes-in-order", self.ORDER)
         self.assertEqual(
             self.run_as_printed(logged),
@@ -183,7 +185,7 @@ class DroppedRefusal(unittest.TestCase):
             ],
         )
 
-    def test_a_need_gets_its_block_again_and_no_log(self):
+    def test_a_need_gets_its_block_again_and_no_log(self) -> None:
         need = [
             "it needs the cache that caches-the-list adds",
             "after: caches-the-list",
@@ -204,7 +206,7 @@ class DroppedRefusal(unittest.TestCase):
             ],
         )
 
-    def test_the_after_line_is_read_from_every_line_its_first_too(self):
+    def test_the_after_line_is_read_from_every_line_its_first_too(self) -> None:
         first = [
             "after: gift-note-in-export",
             "type: fix, because the order is lost",
@@ -234,7 +236,7 @@ class DroppedRefusal(unittest.TestCase):
 
     def test_the_refusal_says_his_word_comes_first_and_prints_each_command_on_its_line(
         self,
-    ):
+    ) -> None:
         said = project.dropped_refusal(
             "export-notes-in-order", "gift-note-in-export", self.ORDER
         )
@@ -269,7 +271,7 @@ class FixedForm(unittest.TestCase):
             project.fixed_form(line)
         return str(caught.exception)
 
-    def test_each_of_the_three_in_another_form_names_its_form(self):
+    def test_each_of_the_three_in_another_form_names_its_form(self) -> None:
         self.assertIn(
             '`the owner\'s order: "HIS WORDS"`',
             self.refused("the owner's order: After gift-note-in-export"),
@@ -290,7 +292,7 @@ class FixedForm(unittest.TestCase):
             self.refused("the one open task that fit his words"),
         )
 
-    def test_the_forms_and_every_free_line_pass(self):
+    def test_the_forms_and_every_free_line_pass(self) -> None:
         for line in (
             'the owner\'s order: "After the "gift note" task"',
             'the owner\'s order: "After gift-note-in-export"',
@@ -318,7 +320,7 @@ class Parked(unittest.TestCase):
     """The owner's park: a task no agent works on is put aside, and it leaves `parked` only by a drop
     or by `resume`, which writes the block the park put aside."""
 
-    def test_only_a_task_no_agent_works_on_is_parked(self):
+    def test_only_a_task_no_agent_works_on_is_parked(self) -> None:
         for now in project.PARKABLE:
             self.assertIsNone(project.parked_refusal("t", now, "parked"), now)
         self.assertIn(
@@ -329,7 +331,7 @@ class Parked(unittest.TestCase):
             "its build is done", project.parked_refusal("t", "landing", "parked")
         )
 
-    def test_a_parked_task_takes_a_drop_and_resume_only(self):
+    def test_a_parked_task_takes_a_drop_and_resume_only(self) -> None:
         self.assertIn(
             "`lem project resume t` brings it back",
             project.parked_refusal("t", "parked", "building"),
@@ -338,7 +340,7 @@ class Parked(unittest.TestCase):
         self.assertIsNone(project.parked_refusal("t", "parked", "dropped"))
         self.assertIsNone(project.parked_refusal("t", "parked", "held", resumed=True))
 
-    def test_resume_finds_the_block_before_the_park(self):
+    def test_resume_finds_the_block_before_the_park(self) -> None:
         state = (
             "2026-11-20T02:00Z parked: the owner parked it: wait for the merchants\n\n"
             "2026-11-20T01:00Z held: breaker 2 waits for the owner\nThe note has no place: no option keeps the approved criteria\n\n"
@@ -361,7 +363,7 @@ class FirstLine(unittest.TestCase):
     """The task's first line to the owner (`stages/new.md`, "The request", step 7), which `state` prints
     as `say` for the block that names the task's path, composed from the files of its directory."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.dir = Path(tempfile.mkdtemp(prefix="lem-first-line-"))
         self.addCleanup(shutil.rmtree, self.dir)
         self.main = self.dir / "repo"
@@ -384,7 +386,7 @@ class FirstLine(unittest.TestCase):
             self.task, self.main, status, list(lines), older, branch, night
         )
 
-    def test_the_fast_track_quotes_its_criterion(self):
+    def test_the_fast_track_quotes_its_criterion(self) -> None:
         self.write("ask.txt", "fix the typo recieve in the README\n")
         self.write(
             "criteria.md",
@@ -405,7 +407,7 @@ class FirstLine(unittest.TestCase):
             "Wrong read? /lem standard-track, /lem be-careful.",
         )
 
-    def test_the_fast_track_of_someone_elses_ticket_waits_for_his_yes(self):
+    def test_the_fast_track_of_someone_elses_ticket_waits_for_his_yes(self) -> None:
         self.write("ask.txt", "SHOP-14\n")
         self.write("ticket.txt", "SHOP-14\n")
         self.write(
@@ -455,7 +457,7 @@ class FirstLine(unittest.TestCase):
             queued,
         )
 
-    def test_the_standard_track_with_an_interview_quotes_the_outcome(self):
+    def test_the_standard_track_with_an_interview_quotes_the_outcome(self) -> None:
         self.write("ask.txt", "Add the gift note to the CSV export, Ania asked twice\n")
         self.write(
             "task.md",
@@ -475,7 +477,7 @@ class FirstLine(unittest.TestCase):
             "then acceptance criteria for your yes. After that it runs to the pull request without you. Wrong read? /lem be-careful.",
         )
 
-    def test_a_plan_asked_for_says_so(self):
+    def test_a_plan_asked_for_says_so(self) -> None:
         self.write("ask.txt", "/lem plan the gift note in the export\n")
         self.write("brief.md", "branch: feat/gift-note\nstop after the plan: yes\n")
         said = self.say(
@@ -491,7 +493,7 @@ class FirstLine(unittest.TestCase):
             "After that a lead writes the plan and stops for you to read it.", said
         )
 
-    def test_an_investigation_names_no_track(self):
+    def test_an_investigation_names_no_track(self) -> None:
         self.write(
             "ask.txt",
             "Invoices show 0 after a refund since yesterday. Anna saw it on 1042.\n",
@@ -520,7 +522,7 @@ class FirstLine(unittest.TestCase):
             said,
         )
 
-    def test_a_complete_request_names_what_stands_in_for_the_interview(self):
+    def test_a_complete_request_names_what_stands_in_for_the_interview(self) -> None:
         self.write("ask.txt", "Export the gift note\n")
         self.write("ticket.txt", "SHOP-12\n")
         self.write(
@@ -535,7 +537,7 @@ class FirstLine(unittest.TestCase):
             "After that it runs to the pull request without you. Wrong read? /lem be-careful.",
         )
 
-    def test_careful_comes_first(self):
+    def test_careful_comes_first(self) -> None:
         self.write("ask.txt", "Round the card fee up\n")
         said = self.say(
             "held",
@@ -558,7 +560,7 @@ class FirstLine(unittest.TestCase):
             ).startswith("Careful: the owner says so. fix:")
         )
 
-    def test_a_night_task_gets_none(self):
+    def test_a_night_task_gets_none(self) -> None:
         self.write("ask.txt", "docs/backlog/export-note.md\n")
         self.assertIsNone(
             self.say(
@@ -569,7 +571,7 @@ class FirstLine(unittest.TestCase):
             )
         )
 
-    def test_no_branch_yet_leaves_the_branch_out(self):
+    def test_no_branch_yet_leaves_the_branch_out(self) -> None:
         self.write("ask.txt", "Add the gift note to the export\n")
         said = self.say(
             "held",
@@ -582,7 +584,7 @@ class FirstLine(unittest.TestCase):
             said,
         )
 
-    def test_a_second_block_gets_none(self):
+    def test_a_second_block_gets_none(self) -> None:
         self.write("ask.txt", "Add the gift note\n")
         older = "2026-11-21T10:00Z held: the interview waits for the owner\ntype: feat, because a new column"
         self.assertIsNone(
@@ -602,7 +604,7 @@ class FirstLine(unittest.TestCase):
             )
         )
 
-    def test_a_queued_task_says_what_it_waits_for(self):
+    def test_a_queued_task_says_what_it_waits_for(self) -> None:
         self.write("ask.txt", "Put the gift note on the label too\n")
         self.write(
             "brief.md",
@@ -623,7 +625,9 @@ class FirstLine(unittest.TestCase):
             "Wrong read? /lem standard-track, /lem be-careful.",
         )
 
-    def test_a_task_queued_by_his_order_says_so_and_his_word_that_starts_it(self):
+    def test_a_task_queued_by_his_order_says_so_and_his_word_that_starts_it(
+        self,
+    ) -> None:
         self.write(
             "ask.txt",
             "After one-lem-parallel-landings: unit cases for the functions that are pure today\n",
@@ -685,7 +689,7 @@ class FirstLine(unittest.TestCase):
             named,
         )
 
-    def test_a_task_put_after_the_one_task_that_fits_says_which(self):
+    def test_a_task_put_after_the_one_task_that_fits_says_which(self) -> None:
         self.write(
             "ask.txt", "when the gift note lands, keep the notes in their order\n"
         )
@@ -722,7 +726,9 @@ class FirstLine(unittest.TestCase):
         ]
         return task, "2026-11-21T10:00Z held: " + "\n".join(hold)
 
-    def test_a_task_held_for_his_order_gets_its_first_line_with_his_answer(self):
+    def test_a_task_held_for_his_order_gets_its_first_line_with_his_answer(
+        self,
+    ) -> None:
         task, hold = self.held_for_his_order()
         # the hold names no path: no line while he is away
         self.assertIsNone(
@@ -790,7 +796,7 @@ class FirstLine(unittest.TestCase):
             )
         )
 
-    def test_no_order_gives_the_line_of_a_task_that_starts_at_once(self):
+    def test_no_order_gives_the_line_of_a_task_that_starts_at_once(self) -> None:
         task, hold = self.held_for_his_order()
         said = project.opening_line_of(
             task,
@@ -847,7 +853,7 @@ class FirstLine(unittest.TestCase):
             )
         )
 
-    def test_a_free_order_line_still_says_the_wait(self):
+    def test_a_free_order_line_still_says_the_wait(self) -> None:
         # "the owners order", with no apostrophe, is a free line: the wait follows the `after:` line
         self.write(
             "ask.txt",
@@ -879,7 +885,7 @@ class FirstLine(unittest.TestCase):
             found,
         )
 
-    def test_the_ask_is_quoted_without_the_lem_that_carried_it(self):
+    def test_the_ask_is_quoted_without_the_lem_that_carried_it(self) -> None:
         # no outcome, no criterion, no backlog item: the quote falls back to ask.txt, which keeps the command
         self.write(
             "ask.txt",
@@ -898,7 +904,7 @@ class FirstLine(unittest.TestCase):
         )
         self.assertNotIn("/lem After", said)
 
-    def test_another_session_names_the_task_and_its_commands(self):
+    def test_another_session_names_the_task_and_its_commands(self) -> None:
         self.write("ask.txt", "the footer says Terms, not Terms and Conditions\n")
         self.write(
             "criteria.md",
@@ -980,7 +986,7 @@ class FirstLine(unittest.TestCase):
             )
         )
 
-    def test_an_outcome_in_bold_as_prompts_writing_asks(self):
+    def test_an_outcome_in_bold_as_prompts_writing_asks(self) -> None:
         # github-issues-tracker, 2026-11-22: its first line quoted only the second line of this sentence
         self.assertEqual(
             project.outcome_of(
@@ -1008,7 +1014,7 @@ class FirstLine(unittest.TestCase):
             "The export keeps the gift note of each order",
         )
 
-    def test_the_words_it_quotes(self):
+    def test_the_words_it_quotes(self) -> None:
         self.assertEqual(
             project.first_sentence("The footer says Terms.  It is wrong."),
             "The footer says Terms",
@@ -1056,7 +1062,7 @@ class FirstLine(unittest.TestCase):
             "The invoice shows 70 EUR after the refund",
         )
 
-    def test_a_bold_outcome_is_quoted_whole(self):
+    def test_a_bold_outcome_is_quoted_whole(self) -> None:
         # brief-reads-installed-lem, 2026-11-22: one bold sentence wrapped over two lines
         self.assertEqual(
             project.outcome_of(
@@ -1083,7 +1089,7 @@ class FirstLine(unittest.TestCase):
             project.outcome_of("## Outcome\n\n**Today:** it shows 100.\n\n1. step\n")
         )
 
-    def test_only_the_marks_of_a_bold_run_leave_the_quote(self):
+    def test_only_the_marks_of_a_bold_run_leave_the_quote(self) -> None:
         # bold-outcome-quoted-whole, 2026-11-22: prose that names the marks in code keeps them
         self.assertEqual(
             project.outcome_of(
@@ -1099,7 +1105,7 @@ class FirstLine(unittest.TestCase):
             "The check reads `src/**/*.py` and passes `**kwargs` on",
         )
 
-    def test_a_code_span_among_the_first_words_makes_no_label(self):
+    def test_a_code_span_among_the_first_words_makes_no_label(self) -> None:
         # bold-label-skips-code-spans, 2026-11-22: the label test stopped at the `**` inside the code span
         self.assertEqual(
             project.outcome_of(
@@ -1124,7 +1130,7 @@ class FirstLine(unittest.TestCase):
             project.outcome_of("## Outcome\n\n**Today:** `**` shows 100.\n\n1. step\n")
         )
 
-    def test_a_bold_label_or_a_rule_is_no_quote(self):
+    def test_a_bold_label_or_a_rule_is_no_quote(self) -> None:
         # a bold run that closes on its line and ends in a colon is a label at any length
         self.assertEqual(
             project.outcome_of(
@@ -1154,7 +1160,7 @@ SEPARATED = "a\u2028b\u2029c\x85d"
 class EventLog(unittest.TestCase):
     """The repository's event log, read back with words that hold a line separator."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
         self.root = Path(self.folder.name)
@@ -1162,7 +1168,9 @@ class EventLog(unittest.TestCase):
         self.addCleanup(project.STATE_ROOTS.pop, self.root)
         (self.root / "state").mkdir()
 
-    def test_an_event_whose_words_hold_a_line_separator_reads_as_one_event(self):
+    def test_an_event_whose_words_hold_a_line_separator_reads_as_one_event(
+        self,
+    ) -> None:
         project.append_event(
             self.root, "gate.end", "demo", {"say": SEPARATED, "result": "passed"}
         )
@@ -1175,7 +1183,7 @@ class InterviewEvents(unittest.TestCase):
     take nothing (`STARTS`), so that the board tells who acts on a held interview; `log` refuses either
     with a field, as it refuses `interview.start by=lem`, and writes nothing then."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
         self.root = Path(self.folder.name)
@@ -1187,7 +1195,7 @@ class InterviewEvents(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             project.cmd_log(self.root, "report-dates-stay-whole", event, list(pairs))
 
-    def test_each_takes_nothing_and_a_field_is_refused(self):
+    def test_each_takes_nothing_and_a_field_is_refused(self) -> None:
         for event, said in (
             (
                 "interview.end",
@@ -1224,7 +1232,7 @@ class InterviewEvents(unittest.TestCase):
             {"ts", "event", "task"},
         )
 
-    def test_a_resumed_task_takes_both_with_the_interviews_start(self):
+    def test_a_resumed_task_takes_both_with_the_interviews_start(self) -> None:
         self.assertTrue(
             {"interview.start", "interview.end", "read.skip.asked"}
             <= set(project.RESUMED_EVENTS)
@@ -1234,7 +1242,7 @@ class InterviewEvents(unittest.TestCase):
 class Words(unittest.TestCase):
     """A task's words (ask.txt) are written once: the same words again pass, other words are refused."""
 
-    def test_the_same_words_again_and_other_words(self):
+    def test_the_same_words_again_and_other_words(self) -> None:
         self.assertIsNone(project.ask_refusal("gift-note", None, "Add the gift note"))
         self.assertIsNone(
             project.ask_refusal(
@@ -1252,7 +1260,7 @@ class Words(unittest.TestCase):
 class OneWriter(unittest.TestCase):
     """Two writers of one task's state at one moment: the lead's `building` and the owner's drop."""
 
-    def test_a_drop_that_comes_while_another_write_runs_stays_on_top(self):
+    def test_a_drop_that_comes_while_another_write_runs_stays_on_top(self) -> None:
         import threading
         from unittest import mock
 
@@ -1275,7 +1283,7 @@ class OneWriter(unittest.TestCase):
 
         said = {}
 
-        def write(status, line):
+        def write(status, line) -> None:
             try:
                 said[status] = project.cmd_state(ROOT, "gift-note", status, [line])
             except project.SettingsError as error:
@@ -1321,7 +1329,7 @@ class Prune(unittest.TestCase):
     task is never touched, an ended one goes once nothing of it was logged for the days, and a state that
     does not read or that the log does not agree with is skipped with why, never guessed at."""
 
-    CUTOFF = project.datetime(2026, 11, 1, tzinfo=project.timezone.utc)
+    CUTOFF = project.datetime(2026, 11, 1, tzinfo=project.UTC)
 
     @staticmethod
     def state(status: str) -> str:
@@ -1333,7 +1341,7 @@ class Prune(unittest.TestCase):
             for call in project.task_calls(found, events, self.CUTOFF)
         }
 
-    def test_each_call(self):
+    def test_each_call(self) -> None:
         found = [
             {"slug": slug, "state": text}
             for slug, text in (
@@ -1416,12 +1424,12 @@ class TicketId(unittest.TestCase):
             project.ticket_id(tracker, given)
         return str(caught.exception)
 
-    def test_an_issue_is_its_number_after_a_hash_in_one_saved_form(self):
+    def test_an_issue_is_its_number_after_a_hash_in_one_saved_form(self) -> None:
         for given in ("42", "#42", "#042", "042"):
             with self.subTest(given=given):
                 self.assertEqual(project.ticket_id({"kind": "github"}, given), "#42")
 
-    def test_github_refuses_a_linear_id_and_no_number(self):
+    def test_github_refuses_a_linear_id_and_no_number(self) -> None:
         for given in ("MBZ-12", "0", "#0", "#", "42a", "# 42", "-42"):
             with self.subTest(given=given):
                 self.assertIn(
@@ -1429,7 +1437,7 @@ class TicketId(unittest.TestCase):
                     self.refused({"kind": "github"}, given),
                 )
 
-    def test_linear_refuses_a_number_and_keeps_its_own_form(self):
+    def test_linear_refuses_a_number_and_keeps_its_own_form(self) -> None:
         self.assertEqual(project.ticket_id({"kind": "linear"}, "mbz-12"), "MBZ-12")
         for given in ("42", "#42"):
             with self.subTest(given=given):
@@ -1438,7 +1446,9 @@ class TicketId(unittest.TestCase):
                     self.refused({"kind": "linear"}, given),
                 )
 
-    def test_a_project_with_no_tracker_takes_no_ticket_and_says_how_to_add_one(self):
+    def test_a_project_with_no_tracker_takes_no_ticket_and_says_how_to_add_one(
+        self,
+    ) -> None:
         said = self.refused(None, "MBZ-12")
         self.assertIn("has no [tracker]", said)
         self.assertIn('kind = "linear" or kind = "github"', said)
@@ -1449,7 +1459,9 @@ class TicketOwed(unittest.TestCase):
 
     TRACKER = {"kind": "github"}
 
-    def test_a_drop_or_an_answer_owes_the_removal_of_the_assignee_lem_added(self):
+    def test_a_drop_or_an_answer_owes_the_removal_of_the_assignee_lem_added(
+        self,
+    ) -> None:
         self.assertEqual(
             project.ticket_owed("dropped", ["started", "assigned"], self.TRACKER),
             ["dropped", "unassigned"],
@@ -1471,7 +1483,7 @@ class TicketOwed(unittest.TestCase):
             project.ticket_owed("dropped", ["started"], self.TRACKER), ["dropped"]
         )
 
-    def test_a_landing_keeps_the_assignee_and_a_running_task_owes_nothing(self):
+    def test_a_landing_keeps_the_assignee_and_a_running_task_owes_nothing(self) -> None:
         self.assertEqual(
             project.ticket_owed("landed", ["assigned", "started"], self.TRACKER),
             ["commented", "landed"],
@@ -1480,7 +1492,7 @@ class TicketOwed(unittest.TestCase):
             project.ticket_owed("building", ["assigned", "started"], self.TRACKER), []
         )
 
-    def test_a_task_whose_ticket_another_task_holds_owes_it_nothing(self):
+    def test_a_task_whose_ticket_another_task_holds_owes_it_nothing(self) -> None:
         # decision 23: a resume moved the ticket to the new task, and the dropped one's drop comment would tell the issue's readers the work was dropped
         self.assertEqual(
             project.ticket_owed(
@@ -1492,7 +1504,7 @@ class TicketOwed(unittest.TestCase):
             project.ticket_owed("answered", [], self.TRACKER, held_by="gift-note-2"), []
         )
 
-    def test_the_holder_is_the_mark_and_else_the_task_a_resume_went_on_in(self):
+    def test_the_holder_is_the_mark_and_else_the_task_a_resume_went_on_in(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             project.STATE_ROOTS[ROOT] = Path(folder)
             self.addCleanup(project.STATE_ROOTS.pop, ROOT, None)
@@ -1516,7 +1528,7 @@ class TicketOwed(unittest.TestCase):
                 project.ticket_held_by(ROOT, old, {**new, "ticket": "#43"})
             )
 
-    def test_the_steps_are_read_one_a_line_with_the_login_of_the_assignee(self):
+    def test_the_steps_are_read_one_a_line_with_the_login_of_the_assignee(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             directory = Path(folder)
             self.assertEqual(project.ticket_steps_of(directory), ([], None))
@@ -1533,7 +1545,7 @@ class TicketClaim(unittest.TestCase):
     """The claim of a ticket (decision 17): a mark in the state folder only one task takes, before
     the scan of the tasks; a ticket goes back only once its old task owes it nothing (decision 12)."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         self.state = Path(folder.name)
@@ -1569,7 +1581,7 @@ class TicketClaim(unittest.TestCase):
     def mark(self) -> str:
         return (self.state / "tickets" / "42").read_text(encoding="utf-8").strip()
 
-    def test_two_opens_in_one_moment_one_takes_the_ticket(self):
+    def test_two_opens_in_one_moment_one_takes_the_ticket(self) -> None:
         # both scanned the tasks before either wrote ticket.txt: neither scan sees a holder
         self.assertIsNotNone(
             project.claim_ticket(ROOT, "export-keeps-gift-note", "#42", [], "github")
@@ -1588,7 +1600,7 @@ class TicketClaim(unittest.TestCase):
             sorted(path.name for path in (self.state / "tickets").iterdir()), ["42"]
         )
 
-    def test_a_landed_task_keeps_its_ticket_and_the_refusal_names_it(self):
+    def test_a_landed_task_keeps_its_ticket_and_the_refusal_names_it(self) -> None:
         project.claim_ticket(ROOT, "export-keeps-gift-note", "#42", [], "github")
         landed = self.task("export-keeps-gift-note", "landed")
         said = self.refused("gift-note-again", [landed])
@@ -1597,7 +1609,7 @@ class TicketClaim(unittest.TestCase):
 
     def test_an_ended_task_that_still_owes_holds_the_ticket_and_the_refusal_names_the_step_by_kind(
         self,
-    ):
+    ) -> None:
         project.claim_ticket(ROOT, "export-keeps-gift-note", "#42", [], "github")
         dropped = self.task(
             "export-keeps-gift-note", "dropped", ("dropped", "unassigned")
@@ -1613,7 +1625,7 @@ class TicketClaim(unittest.TestCase):
             self.refused("gift-note-again", [answered], kind="linear"),
         )
 
-    def test_a_ticket_given_back_goes_to_the_new_task(self):
+    def test_a_ticket_given_back_goes_to_the_new_task(self) -> None:
         project.claim_ticket(ROOT, "export-keeps-gift-note", "#42", [], "github")
         paid = self.task("export-keeps-gift-note", "dropped")
         self.assertIsNotNone(
@@ -1623,7 +1635,7 @@ class TicketClaim(unittest.TestCase):
 
     def test_a_resumed_task_takes_the_mark_of_the_task_it_goes_on_from_and_no_other(
         self,
-    ):
+    ) -> None:
         project.claim_ticket(ROOT, "gift-note", "#42", [], "github")
         old = self.task("gift-note", "dropped", ("dropped",))
         project.claim_ticket(
@@ -1654,7 +1666,7 @@ class TicketClaim(unittest.TestCase):
                     seen.append(self.mark())
                 raise project.SettingsError("refused after the claim")
 
-    def test_an_opening_refused_after_its_claim_gives_the_mark_back(self):
+    def test_an_opening_refused_after_its_claim_gives_the_mark_back(self) -> None:
         self.refused_in("gift-note-words", [])
         self.assertFalse((self.state / "tickets" / "42").exists())
         # the ticket then opens under another slug
@@ -1668,7 +1680,7 @@ class TicketClaim(unittest.TestCase):
 
     def test_a_resume_refused_after_its_claim_gives_the_mark_back_to_the_dropped_task(
         self,
-    ):
+    ) -> None:
         project.claim_ticket(ROOT, "gift-note", "#42", [], "github")
         old = self.task("gift-note", "dropped", ("dropped", "unassigned"))
         seen: list[str] = []
@@ -1679,7 +1691,7 @@ class TicketClaim(unittest.TestCase):
         self.refused_in("gift-note-2", [old], succeeds="gift-note")
         self.assertFalse((self.state / "tickets" / "42").exists())
 
-    def test_a_mark_whose_task_folder_is_gone_is_named_with_the_fix(self):
+    def test_a_mark_whose_task_folder_is_gone_is_named_with_the_fix(self) -> None:
         (self.state / "tickets").mkdir()
         (self.state / "tickets" / "42").write_text("gone-task\n", encoding="utf-8")
         said = self.refused("gift-note", [])
@@ -1689,7 +1701,7 @@ class TicketClaim(unittest.TestCase):
 
 
 # The moment the cases below count back from, once for the run: a fixture and its assertions name the same second.
-MOMENT = project.datetime.now(project.timezone.utc)
+MOMENT = project.datetime.now(project.UTC)
 
 
 def back(days: float, seconds: int = 0) -> str:
@@ -1712,7 +1724,7 @@ class Summarized(unittest.TestCase):
     request 12 and 60 events, `invoice-fix` landed 4 days ago, `gift-note` builds, and `old-idea` was
     parked 65 days ago. `state.keep_days` is 30."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         from unittest import mock
 
         folder = tempfile.TemporaryDirectory()
@@ -1903,7 +1915,7 @@ class Summarized(unittest.TestCase):
 
     def test_an_old_ended_task_becomes_one_summary_and_every_other_line_stays_as_it_was(
         self,
-    ):
+    ) -> None:
         bm = importlib.import_module("lem_board_model")
         events = [json.loads(line) for line in self.before.split(b"\n")[:-1]]
         self.assertEqual(sum(1 for e in events if e["task"] == "report-dates"), 60)
@@ -1983,7 +1995,7 @@ class Summarized(unittest.TestCase):
         # a parked task and every task that has not ended stay whole however old
         self.assertEqual(sum(1 for line in new_lines if b'"old-idea"' in line), 2)
 
-    def test_a_second_prune_leaves_the_log_as_it_is(self):
+    def test_a_second_prune_leaves_the_log_as_it_is(self) -> None:
         self.prune()
         after = self.log.read_bytes()
         inode = self.log.stat().st_ino
@@ -2001,7 +2013,7 @@ class Summarized(unittest.TestCase):
             for call in project.task_calls(
                 [{"slug": "report-dates", "state": block(35, "landed", "x")}],
                 project.log_events(self.root),
-                project.datetime.now(project.timezone.utc) - project.timedelta(days=30),
+                project.datetime.now(project.UTC) - project.timedelta(days=30),
             )
         }
         self.assertEqual(
@@ -2011,7 +2023,7 @@ class Summarized(unittest.TestCase):
 
     def test_a_dry_run_names_the_task_with_the_count_of_its_events_and_changes_no_file(
         self,
-    ):
+    ) -> None:
         answer = self.prune(dry=True)
         self.assertEqual(
             answer["summarized"],
@@ -2025,7 +2037,9 @@ class Summarized(unittest.TestCase):
             "a dry run opens no lock file and leaves no new log",
         )
 
-    def test_a_summary_with_a_newer_event_is_summarized_again_over_the_old_one(self):
+    def test_a_summary_with_a_newer_event_is_summarized_again_over_the_old_one(
+        self,
+    ) -> None:
         self.prune()
         # a hook logged a transcript of the task after its summary, and the days passed again
         lines = self.lines()
@@ -2069,12 +2083,12 @@ class Summarized(unittest.TestCase):
             again[0]["size"], "full", "a second summary keeps the criteria's size"
         )
 
-    def test_an_append_waits_for_the_lock_of_the_log(self):
+    def test_an_append_waits_for_the_lock_of_the_log(self) -> None:
         import threading
 
         written = threading.Event()
 
-        def append():
+        def append() -> None:
             project.append_event(
                 self.root, "session.wake", "gift-note", {"why": "a test"}
             )
@@ -2105,7 +2119,7 @@ class Summarized(unittest.TestCase):
             go.wait(10)
             return real(lines, made)
 
-        def run():
+        def run() -> None:
             said["answer"] = project.cmd_prune(self.root, False, None)
 
         with mock.patch.object(project, "summarized_log", side_effect=paused):
@@ -2119,7 +2133,7 @@ class Summarized(unittest.TestCase):
 
     def test_a_state_and_a_transcript_written_from_other_processes_while_prune_writes_are_in_the_new_log(
         self,
-    ):
+    ) -> None:
         import subprocess
 
         scripts = str(Path(project.__file__).resolve().parent)
@@ -2132,7 +2146,7 @@ class Summarized(unittest.TestCase):
         ]
         started = []
 
-        def write_now():
+        def write_now() -> None:
             started.extend(
                 subprocess.Popen([sys.executable, "-B", "-c", code]) for code in writes
             )
@@ -2176,7 +2190,7 @@ class Summarized(unittest.TestCase):
 
     def test_an_append_with_no_lock_between_the_read_and_the_replace_goes_on_in_the_new_log(
         self,
-    ):
+    ) -> None:
         old = {
             "ts": back(0),
             "event": "session.wake",
@@ -2184,7 +2198,7 @@ class Summarized(unittest.TestCase):
             "why": "a writer of an older Lem",
         }
 
-        def unlocked():
+        def unlocked() -> None:
             with self.log.open("a", encoding="utf-8") as out:
                 out.write(json.dumps(old) + "\n")
 
@@ -2193,13 +2207,13 @@ class Summarized(unittest.TestCase):
         self.assertEqual(json.loads(lines[-1]), old)
         self.assertEqual(sum(1 for line in lines if b'"task.summary"' in line), 1)
 
-    def test_the_log_command_refuses_a_summary(self):
+    def test_the_log_command_refuses_a_summary(self) -> None:
         with self.assertRaises(project.SettingsError) as said:
             project.cmd_log(self.root, "gift-note", "task.summary", ["status=landed"])
         self.assertIn("written by `lem project prune` only", str(said.exception))
         self.assertEqual(self.log.read_bytes(), self.before)
 
-    def test_tasks_read_the_same_night_and_times_from_the_summary(self):
+    def test_tasks_read_the_same_night_and_times_from_the_summary(self) -> None:
         before = {t["slug"]: t for t in project.read_tasks(self.root)}["report-dates"]
         self.prune()
         self.assertEqual(
@@ -2241,7 +2255,7 @@ class SmallRecord(unittest.TestCase):
         "reviews/r/01-initial/report.md",
     ]
 
-    def setUp(self):
+    def setUp(self) -> None:
         from unittest import mock
 
         folder = tempfile.TemporaryDirectory()
@@ -2360,7 +2374,7 @@ class SmallRecord(unittest.TestCase):
         from unittest import mock
 
         moment = project.datetime.strptime(at, "%Y-%m-%dT%H:%M:%SZ").replace(
-            tzinfo=project.timezone.utc
+            tzinfo=project.UTC
         )
 
         class At(project.datetime):
@@ -2375,7 +2389,7 @@ class SmallRecord(unittest.TestCase):
 
     def test_a_run_past_the_cutoff_by_its_time_leaves_an_old_ended_task_its_small_record_only(
         self,
-    ):
+    ) -> None:
         # its newest event is at 00:35:10 on 2026-11-22: two minutes before that time, 30 days on, it is still young
         early = self.prune("2026-12-22T00:33:00Z")
         self.assertEqual((early["tasks"], early["summarized"]), ([], []))
@@ -2404,7 +2418,7 @@ class SmallRecord(unittest.TestCase):
         self.assertIn("so that each keeps only its small record", answer["said"])
         self.assertNotIn("working files", answer["said"])
 
-    def test_a_young_ended_task_and_an_open_one_keep_every_file(self):
+    def test_a_young_ended_task_and_an_open_one_keep_every_file(self) -> None:
         self.prune("2026-12-22T00:36:00Z")
         self.assertEqual(self.listing("done-column-shows-newest"), self.KEPT)
         ticket = ["ticket-repo.txt", "ticket-steps.txt", "ticket.txt"]
@@ -2415,7 +2429,7 @@ class SmallRecord(unittest.TestCase):
 
     def test_tasks_reads_a_pruned_task_as_before_and_a_second_prune_changes_nothing(
         self,
-    ):
+    ) -> None:
         before = {t["slug"]: t for t in project.read_tasks(self.root)}[
             "done-column-shows-newest"
         ]
@@ -2443,7 +2457,7 @@ class SmallRecord(unittest.TestCase):
             (log, self.KEPT),
         )
 
-    def test_a_ticket_step_a_pruned_task_still_owes_stays_shown(self):
+    def test_a_ticket_step_a_pruned_task_still_owes_stays_shown(self) -> None:
         before = {t["slug"]: t for t in project.read_tasks(self.root)}["invoice-fix"]
         self.assertEqual(before["ticket_owed"], ["commented"])
         self.prune("2027-01-12T09:01:00Z")
@@ -2475,7 +2489,7 @@ class ResumeSummarized(unittest.TestCase):
     breaker's document and a picture: refused once its events became its summary and its folder its
     small record, and resumed while they are whole, with every file it read before the log's second read."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         from unittest import mock
 
         folder = tempfile.TemporaryDirectory()
@@ -2583,7 +2597,9 @@ class ResumeSummarized(unittest.TestCase):
             ["card-foot"],
         )
 
-    def test_a_dropped_task_whose_events_became_a_summary_is_refused_with_its_ask(self):
+    def test_a_dropped_task_whose_events_became_a_summary_is_refused_with_its_ask(
+        self,
+    ) -> None:
         from unittest import mock
 
         self.summarize()
@@ -2606,7 +2622,7 @@ class ResumeSummarized(unittest.TestCase):
         remote.assert_not_called()
         self.assertFalse((self.state / "tasks" / "card-foot-2").exists())
 
-    def test_a_dropped_task_whose_events_are_whole_resumes_as_before(self):
+    def test_a_dropped_task_whose_events_are_whole_resumes_as_before(self) -> None:
         from unittest import mock
 
         with mock.patch.object(project, "taken_on_remote"):
@@ -2625,7 +2641,7 @@ class ResumeSummarized(unittest.TestCase):
             [("criteria.approved", "card-foot", back(39))],
         )
 
-    def test_the_new_task_keeps_the_release_the_dropped_one_began_on(self):
+    def test_the_new_task_keeps_the_release_the_dropped_one_began_on(self) -> None:
         from unittest import mock
 
         # a task begun on 0.5.0, under Lem 0.5.0 whose release before is 0.4.0: its resume goes on on 0.5.0
@@ -2642,14 +2658,18 @@ class ResumeSummarized(unittest.TestCase):
             )
             self.assertIsNone(project.lem_release.check(new))
 
-    def test_the_new_task_of_a_dropped_one_with_no_mark_has_no_mark_either(self):
+    def test_the_new_task_of_a_dropped_one_with_no_mark_has_no_mark_either(
+        self,
+    ) -> None:
         from unittest import mock
 
         with mock.patch.object(project, "taken_on_remote"):
             said = project.cmd_resume(self.root, "card-foot")
         self.assertFalse((self.state / "tasks" / said["task"] / "release.txt").exists())
 
-    def test_a_resume_whose_log_is_summarized_after_its_read_carries_what_it_read(self):
+    def test_a_resume_whose_log_is_summarized_after_its_read_carries_what_it_read(
+        self,
+    ) -> None:
         from unittest import mock
 
         # the board server's prune summarizes the task and removes its files while the resume asks origin for the new branch
@@ -2687,7 +2707,7 @@ class ResumeSummarized(unittest.TestCase):
 
     def test_a_prune_between_the_first_read_of_the_log_and_the_files_is_refused_with_its_ask(
         self,
-    ):
+    ) -> None:
         from unittest import mock
 
         reads = project.resumed_reads
@@ -2708,7 +2728,7 @@ class ResumeSummarized(unittest.TestCase):
 
     def test_a_summarized_task_whose_folder_keeps_a_file_it_cannot_read_is_refused_with_its_ask(
         self,
-    ):
+    ) -> None:
         import os
         from unittest import mock
 
@@ -2729,7 +2749,7 @@ class ResumeSummarized(unittest.TestCase):
             self.refused(str(said.exception))
             remote.assert_not_called()
 
-    def test_a_resume_that_cannot_read_a_file_it_carries_makes_nothing(self):
+    def test_a_resume_that_cannot_read_a_file_it_carries_makes_nothing(self) -> None:
         import os
         from unittest import mock
 
@@ -2757,7 +2777,7 @@ class ResumeAsRequest(unittest.TestCase):
     """`lem project resume` of `card-foot`, dropped after the release stop blocked it: a new request with
     no breaker and no handoff, which starts from the base when no stop named a branch git still has."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         from unittest import mock
 
         folder = tempfile.TemporaryDirectory()
@@ -2836,7 +2856,7 @@ class ResumeAsRequest(unittest.TestCase):
 
     def test_a_stop_that_named_no_branch_starts_the_request_from_the_base_and_says_so(
         self,
-    ):
+    ) -> None:
         self.stopped(None)
         said = project.cmd_resume(self.root, "card-foot")
         self.assertEqual(
@@ -2875,7 +2895,7 @@ class ResumeAsRequest(unittest.TestCase):
 
     def test_a_branch_git_no_longer_has_is_named_as_missing_and_the_old_task_branch_of_its_state_is_not_read(
         self,
-    ):
+    ) -> None:
         # the newest stop that named a branch is the one read; the task.state's branch is a record of the old release
         self.stopped("fix/card-foot", None)
         said = project.cmd_resume(self.root, "card-foot")
@@ -2889,7 +2909,7 @@ class ResumeAsRequest(unittest.TestCase):
 
     def test_a_dropped_task_with_no_stop_keeps_the_rule_of_a_breaker_and_its_handoff(
         self,
-    ):
+    ) -> None:
         (self.directory / "release.txt").write_text(
             project.lem_release.running() + "\n", encoding="utf-8"
         )
@@ -2931,7 +2951,7 @@ class ResumedFiles(unittest.TestCase):
         "breaker-4.txt",
     ]
 
-    def test_a_task_with_its_breaker_takes_its_records_too(self):
+    def test_a_task_with_its_breaker_takes_its_records_too(self) -> None:
         self.assertEqual(
             project.resumed_files(self.NAMES, notes=False),
             [
@@ -2952,7 +2972,7 @@ class ResumedFiles(unittest.TestCase):
 
     def test_a_task_the_release_stop_blocked_takes_its_notes_and_its_ticket_and_no_record(
         self,
-    ):
+    ) -> None:
         self.assertEqual(
             project.resumed_files(self.NAMES, notes=True),
             [
@@ -2970,7 +2990,7 @@ class ResumedFiles(unittest.TestCase):
 
     def test_the_notes_are_each_markdown_document_of_the_resumed_files_and_the_ticket(
         self,
-    ):
+    ) -> None:
         self.assertEqual(
             set(project.RESUMED_NOTES),
             {
@@ -2995,7 +3015,7 @@ class ReleaseRefusal(unittest.TestCase):
     pass, at `state` and at the tracker's step that a task's end writes (the Linear skill's
     `ticket-step`), and a command of its work stops."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         self.root = Path(folder.name).resolve()
@@ -3016,12 +3036,12 @@ class ReleaseRefusal(unittest.TestCase):
             ),
         )
 
-    def test_the_tracker_steps_of_a_tasks_end_pass(self):
+    def test_the_tracker_steps_of_a_tasks_end_pass(self) -> None:
         for step in ("commented", "landed", "dropped", "answered", "unassigned"):
             self.assertIsNone(self.refusal("ticket-step", step), step)
         self.assertIsNone(self.refusal("state", "dropped", ["not wanted"]))
 
-    def test_a_step_or_a_state_of_work_stops(self):
+    def test_a_step_or_a_state_of_work_stops(self) -> None:
         for argv in (
             ("ticket-step", "started"),
             ("ticket-step", "assigned"),
