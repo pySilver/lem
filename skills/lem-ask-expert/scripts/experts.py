@@ -317,7 +317,7 @@ FREE = re.compile(
 )
 
 
-def read_answer(answer: Path, expert: str, options: bool, one_left: str) -> dict:
+def read_answer(answer: Path, expert: str, *, options: bool, one_left: str) -> dict:
     if not answer.is_file():
         raise ExpertError(
             f"{answer} is not there: {expert}'s last message goes into it word for word before it is recorded"
@@ -366,9 +366,9 @@ def new_folder(top: Path, question: str, at: datetime) -> Path:
         folder = top / (stem if n == 1 else f"{stem}-{n}")
         try:
             folder.mkdir()
-            return folder
         except FileExistsError:
             continue
+        return folder
     raise ExpertError(
         f"99 folders named {stem} are in {top}: remove some, then ask again"
     )
@@ -436,7 +436,7 @@ def write_record(folder: Path, record: dict) -> None:
     staging.write_text(
         json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
-    os.replace(staging, folder / "record.json")
+    staging.replace(folder / "record.json")
 
 
 def summary(folder: Path, record: dict) -> dict:
@@ -535,7 +535,7 @@ def cmd_free_record(repo: Path, name: str, expert: str) -> dict:
         raise ExpertError(
             f"no question {name} is in {folder.parent}: give the name `lem experts brief --question` printed; a folder goes state.keep_days days after its last write"
         )
-    with open(folder / ".lock", "w") as lock:
+    with (folder / ".lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         record = json.loads((folder / "record.json").read_text(encoding="utf-8"))
         names = [e["name"] for e in record["experts"]]

@@ -54,6 +54,7 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
+from typing import Any
 
 # Lem's own scripts, beside this skill in the same plugin
 SCRIPTS = Path(__file__).resolve().parents[2] / "lem" / "scripts"
@@ -117,7 +118,7 @@ def gh_ok(root: Path, *args: str, stdin: str = "") -> str:
     return ran.stdout
 
 
-def gh_json(root: Path, *args: str):
+def gh_json(root: Path, *args: str) -> dict[str, Any] | list[Any]:
     out = gh_ok(root, *args)
     try:
         return json.loads(out)
@@ -163,7 +164,7 @@ def last_line(text: str | None) -> str:
     return lines[-1] if lines else ""
 
 
-def logins(people: list) -> list[str]:
+def logins(people: list | None) -> list[str]:
     return [
         person.get("login")
         for person in people or []
@@ -622,7 +623,7 @@ def cmd_end(root: Path, slug: str, step: str) -> dict:
 def cmd_check(root: Path) -> tuple[dict, bool]:
     """The tracker's check: each missing thing with its fix, and the facts the onboarding needs."""
     missing: list[dict] = []
-    found = {
+    found: dict[str, Any] = {
         "repository": None,
         "gh": shutil.which("gh"),
         "signed_in": None,
@@ -637,7 +638,7 @@ def cmd_check(root: Path) -> tuple[dict, bool]:
                 "fix": "git remote add origin https://github.com/OWNER/REPO.git",
             }
         )
-    elif not ORIGIN.fullmatch(url):
+    elif not (matched := ORIGIN.fullmatch(url)):
         missing.append(
             {
                 "what": f"origin is {url}, which is not a repository on GitHub",
@@ -645,7 +646,7 @@ def cmd_check(root: Path) -> tuple[dict, bool]:
             }
         )
     else:
-        found["repository"] = ORIGIN.fullmatch(url)["repo"]
+        found["repository"] = matched["repo"]
     if not found["gh"]:
         missing.append({"what": "gh is not installed", "fix": INSTALL_GH})
     else:

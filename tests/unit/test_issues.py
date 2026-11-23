@@ -188,13 +188,13 @@ class Issues(unittest.TestCase):
     def gh(self) -> dict:
         return json.loads(self.gh_state.read_text(encoding="utf-8"))
 
-    def gh_set(self, **fields) -> None:
+    def gh_set(self, **fields: object) -> None:
         self.gh_save({**self.gh(), **fields})
 
     def issue(self, number: str = "42") -> dict:
         return self.gh()["repos"]["acme/shop"]["issues"][number]
 
-    def edit_issue(self, number: str = "42", **fields) -> None:
+    def edit_issue(self, number: str = "42", **fields: object) -> None:
         state = self.gh()
         state["repos"]["acme/shop"]["issues"][number].update(fields)
         self.gh_save(state)
@@ -215,6 +215,7 @@ class Issues(unittest.TestCase):
         ticket: str = "#42",
         repo: str = "acme/shop",
         steps: tuple[str, ...] = (),
+        *,
         mark: bool = True,
     ) -> Path:
         directory = self.state / "tasks" / slug
@@ -261,8 +262,14 @@ class Issues(unittest.TestCase):
         text = out.getvalue().strip()
         return code, json.loads(text) if text else None, err.getvalue()
 
-    def ok(self, *args: str) -> dict:
+    def printed(self, *args: str) -> tuple[int, dict, str]:
         code, out, err = self.run_issue(*args)
+        if out is None:
+            self.fail(f"lem issue {' '.join(args)} printed no JSON: {err}")
+        return code, out, err
+
+    def ok(self, *args: str) -> dict:
+        code, out, err = self.printed(*args)
         self.assertEqual(code, 0, err)
         return out
 
@@ -590,6 +597,7 @@ class Land(Issues):
     def landed(
         self,
         steps: tuple[str, ...] = ("assigned octo-cat", "started"),
+        *,
         green: bool = True,
     ) -> None:
         directory = self.task(
@@ -856,7 +864,7 @@ class Check(Issues):
     def test_all_there_says_the_repository_and_the_facts_of_the_onboarding(
         self,
     ) -> None:
-        code, out, _ = self.run_issue("check")
+        code, out, _ = self.printed("check")
         self.assertEqual(code, 0)
         self.assertEqual(
             (
@@ -881,12 +889,12 @@ class Check(Issues):
         state = self.gh()
         state["repos"]["acme/shop"]["issues"] = {}
         self.gh_save(state)
-        code, out, _ = self.run_issue("check")
+        code, out, _ = self.printed("check")
         self.assertEqual((code, out["has_issues"]), (0, False))
         self.assertIn("holds no issue yet", out["says"])
 
     def missing(self) -> list[dict]:
-        code, out, _ = self.run_issue("check")
+        code, out, _ = self.printed("check")
         self.assertEqual(code, 1)
         return out["missing"]
 
@@ -925,7 +933,10 @@ class Check(Issues):
     def test_gh_not_installed(self) -> None:
         # a PATH with git and no gh
         (self.work / "nogh").mkdir()
-        (self.work / "nogh" / "git").symlink_to(shutil.which("git"))
+        git = shutil.which("git")
+        if git is None:
+            self.fail("this test needs git on PATH")
+        (self.work / "nogh" / "git").symlink_to(git)
         os.environ["PATH"] = str(self.work / "nogh")
         found = self.missing()
         self.assertEqual(found[0]["what"], "gh is not installed")
