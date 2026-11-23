@@ -27,9 +27,10 @@ A companion session of the lead's, `SLUG · plan talk`, which runs Claude Code w
    `MAIN` is the main checkout, where the task's session stands too: the pair has the plugin and
    the folder's own Claude Code settings there, and reaches the task's worktree by its path, as
    the session does (`owner-steps.md`, "A folder's trust").
-   `MODEL` and `EFFORT` are the `model` and the `effort` of the settings' `seats.planner`, which
-   `lem project show` gives parsed from its one line, `claude/MODEL:EFFORT`; the settings refuse a
-   defender's seat with no model or no effort. The seat's
+   `MODEL` and `EFFORT` are the `model` and the `effort` that `lem project seat SLUG planner`
+   prints, the seat in use for the task: a stand-in while one holds that seat, else the settings'
+   `seats.planner`, parsed from its one line, `claude/MODEL:EFFORT`. Keep its `seat`, the line you
+   opened: a failure names it. A defender's seat always names its model and its effort. The seat's
    `agent` can only be `claude`, since this agent's file is the only one the contract was checked in.
    `PLUGIN` is the `plugin_dir` that `lem session plugin-dir` prints, so that the defender runs the
    Lem of the session that opens it, as the task's session runs the Lem that opened it
@@ -37,16 +38,34 @@ A companion session of the lead's, `SLUG · plan talk`, which runs Claude Code w
    `~/.claude/plugins/`, or outside `plugins/` of `CLAUDE_CONFIG_DIR`), it is that folder; when it
    is the installed plugin, it is null, and the line leaves out `--plugin-dir \"PLUGIN\"`.
 2. **Confirm it runs**: the command prints the new session's id; keep it, since the lead's wait
-   takes it (`lem session wait SLUG --until planned,held --companion ID`). In `agtermctl tree
-   --json` the node with that id has a `foreground` that ends in the `claude` line, and its
-   `parent` is this session. Only a node that is gone at once means the command failed; then open
-   it again with `--wait` and read its screen with `agtermctl session text --target ID`. Never
-   open a second pair for a task whose first one runs; a lead after a restart finds it in the tree
-   by its name. Then read the model and the effort from the status line on that screen, and write
-   them in the state as `defender: MODEL, EFFORT`, never the ones you asked for: the talk's record
-   names them. A status line of the owner's own may show neither: write `unread` for each value
-   the screen does not show.
-3. **Close it** once the lead's wait ended (`stages/plan.md`, step 4), or when the task is
+   takes it (`lem session wait SLUG --until planned,held,blocked --companion ID --quiet
+   TASK_DIR/talk-turns.md`). In `agtermctl tree --json` the node with that id has a `foreground`
+   that ends in the `claude` line, and its `parent` is this session. Only a node that is gone at
+   once means the command failed; then open it again with `--wait` and read its screen with
+   `agtermctl session text --target ID`. Never open a second pair for a task whose first one
+   runs; a lead after a restart finds it in the tree by its name. Then read the model and the
+   effort from the status line on that screen, and write them in the state as `defender: MODEL,
+   EFFORT`, never the ones you asked for: the talk's record names them. A status line of the
+   owner's own may show neither: write `unread` for each value the screen does not show.
+   A pair whose screen shows one of the four errors of `second-opinion.md` (`command not found:
+   claude`, no login, no tokens or a usage limit, a model it does not know), at once or after the
+   open with `--wait` of a node that was gone at once, is a seat that failed: close what is left
+   of it (step 4), and run
+
+   ```bash
+   lem project seat-failed SLUG planner --seat "LINE" --error KIND --said "ITS WORDS"
+   ```
+
+   `LINE` being the `seat` you opened, `KIND` one of `missing`, `login`, `tokens` and `model`, and
+   `ITS WORDS` the line of the error on its screen. It prints a seat to open, the fallback that
+   stands in for the planner from now on: say its `say` in one line and open the pair at step 1
+   on that seat. Or it prints `blocked: true`: the task is `blocked` with the seat and the error;
+   say its `say` in one line and stop, as `stages/plan.md`, step 4.3, says for a block.
+3. **Read its two screens** when the lead's wait ends with `"quiet": true` (`stages/plan.md`, step
+   4.3): the defender's pane with `agtermctl session text --target ID --pane primary --socket
+   "$AGTERM_SOCKET"`, and the reviewer's with `--pane split` in its place. Look on each for one of
+   the four errors of `second-opinion.md`, in the last lines the agent wrote.
+4. **Close it** once the lead's wait ended (`stages/plan.md`, step 4), or when the task is
    dropped: `agtermctl session close --target ID --socket "$AGTERM_SOCKET"`. Its experts and the
    reviewer's pane end with it.
 

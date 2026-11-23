@@ -89,13 +89,21 @@ and closes itself when it wakes, and it handed nothing over: go on from the stat
 - **The fast track**: a block with `small change: one builder`, or `criteria.md` that says `Size:
   small` with no lead: "The fast track" of `SKILL_DIR/stages/new.md`. It stays one session up to
   the merge: its builder is a subagent, and the landing runs here.
-- **The build**: `building`, `planned` or `blocked`, or `held` by a breaker: read `brief.md` in the
-  task directory and follow it; it names `prompts/lead.md`, and you are the task's lead. A block
+- **The build**: `building`, `planned` or `blocked` (but for a block of the merger's seat, which is
+  the landing's, below), or `held` by a breaker: read `brief.md` in the task directory and follow
+  it; it names `prompts/lead.md`, and you are the task's lead. A block
   with an `investigation:` line is an investigation: `SKILL_DIR/stages/investigate.md`, from its
   step 3 when its report is there. `blocked` with `the base is red`: step 4 of
-  `SKILL_DIR/stages/land.md`, its wait for that task.
+  `SKILL_DIR/stages/land.md`, its wait for that task. `blocked` with the line `the seat that
+  failed: reviewer` or `the seat that failed: planner`: a seat of the plan talk gave an error and
+  no fallback stood in for it; as the lead, take `SKILL_DIR/stages/plan.md`, step 4, at the
+  block of its wait, which waits for the owner's "go on".
 - **The landing**: `ready`, `landing`, `open`, or a task that ended and whose worktree is still
-  there: `SKILL_DIR/stages/land.md`, for this task only.
+  there: `SKILL_DIR/stages/land.md`, for this task only. `blocked` with the line `the seat that
+  failed: merger` is the landing's too: the merge agent's seat gave an error, no fallback stood in
+  for it, and its pull request stays open. Say the block's first line in one line, mark this
+  session as waiting for the owner (`mark-waiting`), and on his "go on" run `lem project
+  seat-again SLUG`, then take step 7 of `SKILL_DIR/stages/land.md`.
 - **Nothing to do**: `parked`, or an ended task with its worktree gone. Say so in one line, and
   close this session (below).
 

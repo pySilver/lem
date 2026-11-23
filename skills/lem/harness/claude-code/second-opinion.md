@@ -5,23 +5,54 @@ A part of `../claude-code.md`, read when a session opens the reviewer's pane.
 ## second-opinion
 
 The reviewer is a second agent in the split pane of the session that asks (the pair of a plan
-talk, for a careful or large plan); the owner reads both panes. The settings hold the seat as one
-line, `reviewer = "AGENT/MODEL:EFFORT"` under `[seats]`, and `lem project show` gives it parsed as
-`seats.reviewer`: its `agent` (`claude` or `codex`), its `model` and its `effort`, and `seat`, the
-line as written. The settings refuse a reviewer's seat with no model or no effort, so a seat that
-is there names all three. The effort is the one of its pane for the plan talk, which is the one
-thing this pane opens for.
-When the settings name no reviewer (each part null), ask the owner once and write the answer into
-`.lem/settings.toml` as that line, whole.
+talk, for a careful or large plan); the owner reads both panes. Its seat is the one that `lem
+project seat SLUG reviewer` prints, and no other: the seat in use for the task, parsed as `lem
+project show` parses one, with its `agent` (`claude` or `codex`), its `model`, its `effort`,
+`seat`, the line as written, and `from`. `from` is `stand-in` while a stand-in holds that seat for
+the task, else the path of the file the seat comes from (the repository's `.lem/settings.local.toml`,
+its `.lem/settings.toml`, or `~/.config/lem/settings.toml`), or `Lem's default`, which is
+`claude/opus:high`. A reviewer's seat always names all three parts. The effort is the one of its pane for the plan
+talk, which is the one thing this pane opens for. Keep the `seat` you opened: a failure names it.
 
-The seat may be this machine's own for a while: the usual reviewer is down, or out of tokens.
-`/lem reviewer AGENT/MODEL:EFFORT` (`/lem reviewer codex/gpt-6.2-sol:high`, or `/lem reviewer
-claude/opus:high`) runs `lem project reviewer` with that seat, which
-writes it into `.lem/settings.local.toml` in the same form, a file git does not track; `/lem
-reviewer default` removes it. Never change the seat by yourself. When the reviewer does not answer, or
-says it is out of tokens, ask the owner once whether the other agent reviews for now, and write
-the seat on his yes. While `lem project show` lists `seats.reviewer` under `local.overrides`,
-every report says that the reviewer is this machine's choice, and "same family" when it is.
+The owner sets the seat with `/lem set local reviewer AGENT/MODEL:EFFORT` for one repository on
+this machine, or `/lem set global ...` for each repository on it that names none. Never change the
+seat by yourself, and never write a file of the settings.
+
+**When the reviewer's agent gives an error**, it is one of four, each a KIND of `lem project
+seat-failed`:
+
+- `missing`: the program is not on this Mac, `command not found: codex` (or `claude`) on the
+  pane's screen;
+- `login`: the agent's own message that it has no login;
+- `tokens`: its message that it has no tokens, or that it reached a usage limit;
+- `model`: its message that it does not know the model.
+
+You see it on the pane's screen, `agtermctl session text --pane right --target
+"$AGTERM_SESSION_ID" --socket "$AGTERM_SOCKET"`, at the open of step 2 and whenever you read the
+pane, or in a reply. The words change with each release of Codex and Claude Code, so the KIND is
+your read of them. A slow reviewer is no error: wait for it, however long its turn takes. An
+agent that ended with words of another kind is none of the four and gets no stand-in: open the
+same seat once more at step 2; after a second such end, say it in one line and mark the session
+as waiting for the owner (`mark-waiting`). On one of the four, run
+
+```bash
+lem project seat-failed SLUG reviewer --seat "LINE" --error KIND --said "ITS WORDS"
+```
+
+`LINE` is the `seat` you opened, as `lem project seat` printed it, and `ITS WORDS` the agent's own
+line of the error. The command alone decides, and you take what it prints:
+
+- a seat to open: close the pane (`agtermctl session split close --target "$AGTERM_SESSION_ID"
+  --socket "$AGTERM_SOCKET"`), say its `say` in one line, and open that seat at step 2. It is the
+  fallback seat, which stands in for the reviewer from now on: the next `lem project seat SLUG
+  reviewer` prints it too.
+- `blocked: true`: the task is `blocked` with the seat and the error, and "Waits for you" shows
+  it. Close the pane, say its `say` in one line, and stop: the talk ends with the block, and the
+  owner's "go on" tries the seat again.
+
+Every report names the seat and its `from`: a `from` that is the path of `.lem/settings.local.toml`
+or of `~/.config/lem/settings.toml` says that the reviewer is this machine's choice, and `stand-in` that it stood in
+for the seat that failed. The report says "same family" when it is.
 
 1. **Is a reviewer there?** `mailbox-chat.py status` names the other pane and what serves it:
    `claude`, `codex` or `none`.
@@ -69,13 +100,15 @@ every report says that the reviewer is this machine's choice, and "same family" 
        Claude Code settings.
      Keep the quotes around each value you put in: a skill's folder with a space splits a bare
      path, and zsh stops a bare model such as `opus[1m]` with "no matches found".
-     `MODEL` and `EFFORT` are the seat's `model` and `effort` from `lem project show`.
+     `MODEL` and `EFFORT` are the `model` and the `effort` that `lem project seat SLUG reviewer`
+     printed.
    - read the model and the effort back from the pane's status line, and name those in the
      report, never the ones you asked for. When the status line shows no model or no effort (a
      status line of the owner's own may hide them), the report says `unread` for each, never the
      seat's value.
    - read `agtermctl tree --json` and confirm the session's `splitForeground` is that agent, then
-     `mailbox-chat.py status` again.
+     `mailbox-chat.py status` again. A pane whose agent is gone, or whose screen shows one of the
+     four errors above, is a seat that failed: run `lem project seat-failed` as above.
    - Codex asks "Trust this folder?" the first time it starts in a repository, and it saves the
      answer in the owner's Codex configuration. That answer is the owner's: tell the owner that
      the reviewer's pane waits for it, and do not type into the pane. `mailbox-chat.py status`
@@ -93,7 +126,9 @@ every report says that the reviewer is this machine's choice, and "same family" 
 5. **A reviewer is fresh for each review.** Before the next one, `agtermctl session split close`
    on this session ends the pane and its agent, and step 2 opens a new one. The dispute of a
    review's points and the check of the fixes it asked for belong to that review and stay in its
-   pane. A plan talk is one review: every turn of it goes to the same pane.
+   pane. A plan talk is one review: every turn of it goes to the same pane, but for a reviewer that
+   failed, whose stand-in opens in that pane again and goes on from the talk's turns so far
+   (`stages/talk.md`).
    A new pane is not always a new Codex. With agterm's cookbook recipe for Codex session resume
    installed, a `codex` typed in a session continues that session's conversation: its wrapper
    keeps the session's Codex thread in `~/.codex/agterm/SESSION-ID` (the id in lower case), and
@@ -105,6 +140,6 @@ every report says that the reviewer is this machine's choice, and "same family" 
 Say in the report which family reviewed. Two agents of one family agree more easily than two of
 different ones; the report says "same family" when that was the case.
 
-Not run yet: either line in a pane whose login shell is not fish. Both ran in fish only, and
-their status lines showed the seat's model and effort (Codex 2026-11-22, Claude Code
-2026-11-23).
+Not run yet: a reviewer that gives one of the four errors in a real talk, and either line in a
+pane whose login shell is not fish. Both lines ran in fish only, and their status lines showed
+the seat's model and effort (Codex 2026-11-22, Claude Code 2026-11-23).

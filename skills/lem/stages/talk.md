@@ -22,8 +22,9 @@ with checkout. So the questions are a closed list, each gets one repair, and a q
 comes back stops, as revmux stops a loop whose finding of the last round arrives again. The
 rules:
 
-- **Open the seat** with `second-opinion`, at the effort of the seat `seats.reviewer`, and log its start, so
-  that the board draws the talk from it:
+- **Open the seat** with `second-opinion`, on the seat that `lem project --repo WORKTREE seat SLUG
+  reviewer` prints, at its effort, and log its start at the talk's first open, so that the board
+  draws the talk from it:
 
   ```bash
   lem project --repo WORKTREE log SLUG plan.talk.start reviewer=AGENT
@@ -38,6 +39,30 @@ rules:
   the list as it came, before you change anything: the next two rules are checked against it.
   The list may be empty: a reviewer that found no question says so in that turn, and you
   close at once. That talk has two turns and no question, and its record says so.
+- **The turns go into `talk-turns.md`** in the task directory as they come, so that a talk that
+  loses an agent goes on from that file: first the reviewer's list word for word, as it came,
+  then one line for each later turn and question, with who wrote the turn, the question's number
+  and how it stands (`closed`, `holds` with its why, the repair's commit, or the refutation's
+  cite). A repair's line goes in before its commit, as `N: repairing`, and gets the commit after
+  it; the commit's message names the question by its number (`question 3`). The lead's wait
+  watches that file: a talk whose file has not changed for 45 minutes wakes the lead, which reads
+  both screens for an error (`stages/plan.md`, step 4).
+- **A talk that goes on.** When `talk-turns.md` is there as you start, an agent of the talk before
+  you stopped: go on from it, never from a new list. Open the reviewer on the seat `lem project
+  seat` prints, and make its first message name the plan and the rest as above, then the list and
+  the turns so far, word for word from the file, and the questions still open. That reviewer's
+  first turn answers the open questions by their numbers; the list stays closed, and a question
+  it raises is "raised, not argued". A line `N: repairing` with no commit: read the branch's log
+  for a commit whose message names question N. One there is the repair: write its commit on the
+  line. None means the repair was never committed, and it is still that question's one repair.
+  A file that holds no list yet is no talk to go on from: the new reviewer's first turn is the
+  list.
+- **A seat that fails.** A reviewer whose agent gives one of the four errors of `second-opinion`,
+  at its open or later in the talk, is replaced the same way, in the same pane: `second-opinion`
+  says what `lem project seat-failed` prints and what you open then, and the new reviewer goes on
+  from `talk-turns.md` as above. A block ends the talk: after `seat-failed` wrote `blocked`, close
+  the reviewer's pane and stop, with no record and no event. The owner's "go on" opens the pair
+  again, and its defender goes on from the file.
 - **One repair per question.** For each question, repair the plan and commit, or refute the
   question with a cite. Check each of its claims in the code before you answer. The reviewer
   answers each question by its number only:
@@ -101,9 +126,10 @@ rules:
 Commit every repair before any code. Then write the record into the plan, as a section
 `## Plan talk` after `## Tasks`, and commit it:
 
-- who argued the plan: the reviewer's agent, and its model and effort as its pane's status
-  line shows them; and you, with the model and effort the `defender:` line of the task's
-  state gives, which the lead read from your pane's status line;
+- who argued the plan: each reviewer that sat, in the order they sat, with its agent, its model
+  and effort as its pane's status line showed them, and for a stand-in the seat it stood in for
+  and why; and you, with the model and effort the `defender:` line of the task's state gives,
+  which the lead read from your pane's status line;
 - the list, numbered as the reviewer gave it, each question with how it ended: settled, with
   its cite and after it the words "settled by the two, not checked by the review"; a design
   choice, with the two positions, each with its cite, and the decision `stages/plan.md`, step 5, logs; or open, with
@@ -122,8 +148,9 @@ and write the one event the landing reads:
 lem project --repo WORKTREE log SLUG plan.talk reviewer=AGENT turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N root:=N layer:=N shared:=N
 ```
 
-`turns` counts each message of either side; `questions`, the questions of the reviewer's first
-list; `settled` and `open`, how many of them ended each way, a design choice counted as open;
+`turns` counts each message of either side, of every reviewer that sat and every defender, as
+`talk-turns.md` holds them; `reviewer` is the agent of the reviewer that sat last; `questions`,
+the questions of the reviewer's first list; `settled` and `open`, how many of them ended each way, a design choice counted as open;
 `design`, the open ones that closed as a design choice; `repaired`, the questions whose answer
 changed the plan; `unargued`, the questions raised after the list; `root`, the repairs that
 changed a decision of the plan; `layer`, the layers over a cited decision that stayed; and

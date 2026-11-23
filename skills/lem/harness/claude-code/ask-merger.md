@@ -19,12 +19,33 @@ agent that `BRIEF` and no other: a brief of a later base is another read.
 - `agent` is `codex`: the `Bash` tool with `run_in_background`, on the `codex exec` line of
   `ask-experts` (`ask-experts.md`), with its quotes, this seat's `-m "MODEL"` only when it names a
   model and `-c "model_reasoning_effort=EFFORT"` only when it names an effort, and this step's
-  `WORKTREE`, `ANSWER` and `BRIEF`. A non-zero exit, or no answer file, is a merge agent that did
-  not answer: start it once more. After a second such end on a base that did not move (`moved` of
-  the brief's facts is null), tell the owner in one line that the task waits for his read. On a
-  moved base, land the task again as `stages/land.md` says for a read that said another round
-  ("the base moved" of step 8), and tell the owner nothing of a read: in doubt, the checks run
-  again.
+  `WORKTREE`, `ANSWER` and `BRIEF`.
+
+**When the merge agent's agent gives an error**, one of the four of `second-opinion.md` (`missing`,
+`login`, `tokens`, `model`): an exit of 127, `command not found` in `ANSWER.log`, or the agent's
+own message of no login, no tokens or a usage limit, or a model it does not know, in `ANSWER.log`
+or in the reply. A slow merge agent is no error: wait for it. Such an end is no review: record
+nothing of it with `--file`, and run
+
+```bash
+lem project seat-failed SLUG merger --seat "LINE" --error KIND --said "ITS WORDS"
+```
+
+`LINE` being the `seat` that `lem land merge-review SLUG` printed, and `ITS WORDS` the agent's
+line of the error. It prints a seat to open, the fallback that stands in for the merger from now
+on: say its `say` in one line, run `lem land merge-review SLUG` again, which writes the brief of
+the same tip and base again and keeps the stand-in's seat with it, and start the agent on the
+`seat`, the `brief` and the `answer` that this second run printed, so that the record names the
+seat that read. Or it prints `blocked: true`: the task is `blocked` with the seat and the error,
+and "Waits for you" shows it; its pull request stays open. Say its `say` in one line, mark this
+session as waiting for the owner (`mark-waiting`), and wait for his "go on": then `lem project
+seat-again SLUG`, `lem land merge-review SLUG` again, and the agent on the seat it prints.
+
+Any other non-zero exit, or no answer file, is a merge agent that did not answer: start it once
+more. After a second such end on a base that did not move (`moved` of the brief's facts is null),
+tell the owner in one line that the task waits for his read. On a moved base, land the task again
+as `stages/land.md` says for a read that said another round ("the base moved" of step 8), and tell
+the owner nothing of a read: in doubt, the checks run again.
 
 Then `lem land merge-review SLUG --file "ANSWER" --tip TIP --base BASE`, TIP and BASE being the
 `tip` and the `base` the step printed with the brief. A reply the step refuses (no verdict, or no

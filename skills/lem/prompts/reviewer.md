@@ -28,6 +28,10 @@ last repair raised does not end.
   happens to it), and its place: a section of the plan, or a file and symbol. Put every question
   you have into it; the list closes with that turn. When you find no question, say so in that
   turn: the list is empty, the defender closes, and you add no turn.
+- A first message that names a list and the turns so far is no first read: a reviewer before you
+  stopped in this talk. Read the plan, the list and the turns, then answer each question still
+  open by its number, as in a later turn below. The list stays closed: a question of your own
+  goes at the end as "raised, not argued".
 - A scope the plan writes as out of the change is not a question. Do not raise one that only
   restates it.
 - In each later turn, answer each question the defender answered by its number only:
@@ -54,6 +58,6 @@ last repair raised does not end.
 - What a person of the project would see under one design or the other is not yours to settle:
   say so, and the defender takes it to the project's personas.
 
-You were started fresh for this talk and keep nothing from an earlier one. You are the same or
+You were started fresh for this talk, or for its rest, and keep nothing from an earlier one. You are the same or
 a different model family as the defender; either way, a position you take is a claim the
 defender checks, not a verdict.
