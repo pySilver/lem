@@ -871,12 +871,12 @@ fi
 # pull request, and a merge on GitHub while it waits still lands it, with the stand-in's line in the text replaced by
 # the one that says it failed too, though no read came after the block.
 mb_task mb-stand stand.txt && mb_land mb-stand
-printf '%s\n' '[seats]' 'merger = "codex/gpt-6.2-sol:high"' > "$MB/.lem/project.local.toml"
+printf '%s\n' '[seats]' 'merger = "codex/gpt-6.2-sol:high"' > "$MB/.lem/settings.local.toml"
 stand_first=$(land --repo "$MB" merge-review mb-stand)
 stood=$(project --repo "$MB" seat-failed mb-stand merger --seat codex/gpt-6.2-sol:high --error tokens --said "You have no tokens left")
 stand_again=$(land --repo "$MB" merge-review mb-stand)
 # the settings name another merger while the stand-in reads: the record names the seat kept with the brief
-printf '%s\n' '[seats]' 'merger = "codex/gpt-6.2-astra:high"' > "$MB/.lem/project.local.toml"
+printf '%s\n' '[seats]' 'merger = "codex/gpt-6.2-astra:high"' > "$MB/.lem/settings.local.toml"
 printf '%s\n' 'Verdict: merge. The change does what its criterion says.' > "$WORK/mb-stand.md"
 stand_tip=$(field 'd["tip"]' <<<"$stand_again")
 stand_base=$(field 'd["base"]' <<<"$stand_again")
@@ -888,13 +888,13 @@ stand_pr=$(mb_kept mb-stand pr 'd["number"]')
 stand_count=$(gh_prs "$MB" "d['prs']['$stand_pr']['body'].splitlines().count(open('$WORK/mb-stand-line.txt').read().strip())" 2>/dev/null || true)
 stand_blocked=$(project --repo "$MB" seat-failed mb-stand merger --seat claude/opus:high --error login)
 stand_status=$(status_in "$MB" mb-stand)
-rm "$MB/.lem/project.local.toml"
+rm "$MB/.lem/settings.local.toml"
 (cd "$MB" && gh pr merge "$stand_pr" --squash --match-head-commit "$(mb_kept mb-stand proposed d)" --subject "fix: mb-stand" >/dev/null)
 stand_merged=$(land --repo "$MB" merged mb-stand)
 stand_too="- the merge agent was to be \`claude/opus:high\` in place of \`codex/gpt-6.2-sol:high\`: Codex had no tokens; then Claude Code gave an error too: Claude Code had no login"
 printf '%s\n' "$stand_too" > "$WORK/mb-stand-too.txt"
 stand_lines=$(gh_prs "$MB" "[d['prs']['$stand_pr']['body'].splitlines().count(open(f).read().strip()) for f in ('$WORK/mb-stand-line.txt', '$WORK/mb-stand-too.txt')]" 2>/dev/null || true)
-if [ "$(field '(d["seat"]["seat"], d["seat"]["from"])' <<<"$stand_first")" = "('codex/gpt-6.2-sol:high', '.lem/project.local.toml')" ] \
+if [ "$(field '(d["seat"]["seat"], d["seat"]["from"])' <<<"$stand_first")" = "('codex/gpt-6.2-sol:high', '.lem/settings.local.toml')" ] \
   && [ "$(field '(d["blocked"], d["seat"], d["from"])' <<<"$stood")" = "(False, 'claude/opus:high', 'stand-in')" ] \
   && [ "$(field '(d["seat"]["seat"], d["seat"]["from"], d["tip"], d["base"], d["brief"])' <<<"$stand_again")" \
     = "$(field '("claude/opus:high", "stand-in", d["tip"], d["base"], d["brief"])' <<<"$stand_first")" ] \
