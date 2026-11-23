@@ -226,7 +226,7 @@ the time as `task_calls` counts it and `investigate.md` step 5; decisions 3, 5 a
    state.md is `open`, so a second prune must find it). `ask.txt`, and `task.md` for a task with no
    `ask.txt`: `ask_of`, and the last line of `cmd_resume`'s refusal. `landing.json`, whole:
    `proposal`, the pull request that `tasks` shows; it is 11 KB for `done-column-shows-newest` and at
-   most 34 KB in this repository (the scout's dry run of 2026-11-23), and a trimmed copy would be a
+   most 197 KB in this repository (`agents-md-read-on-demand`, the dry run of task 1's builder, 2026-11-23), and a trimmed copy would be a
    second form of a record that only `land.py` writes. `ticket.txt`, `ticket-repo.txt`,
    `ticket-steps.txt`: `ticket_owed` and `ticket_held_by`. `resumed-from.txt`: `resumed_slug`,
    `ticket_held_by` and the "goes on in X already" check of `cmd_resume`. What the owner confirmed
