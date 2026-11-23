@@ -8,7 +8,8 @@
 # panel, no button), and the mark through a morph. The search over every card (search.js): Cmd-K and Ctrl-K, also from a
 # field, and the search buttons open it, letters typed filter and order it, Enter, a click and Escape, and the box through
 # a morph. The confirm step of a merge, a park and an approval: on a phone an overlay whose button comes on when its
-# text was read to the end, on a desktop and with no script as before. The start of a task from a backlog item, which
+# text was read to the end, on a desktop and with no script as before. The arrow that folds the sidebar, in a wide
+# window and in the drawer of a narrow one. The start of a task from a backlog item, which
 # ends on the new task's page while the stream refreshes the backlog. The line of keys of each view at the window's
 # foot, with a backlog longer than the window. A check adds to the demo's log only the state
 # lines it needs, as a lead's `lem project state` and `lem session open` write them. Each check that needs Chrome
@@ -799,6 +800,50 @@ PY
   fi
 }
 
+# The arrow that folds the sidebar, in one window whose width changes: at 1200 px a click folds the sidebar to its rail;
+# at 700 px the drawer of that folded sidebar shows the arrow, and a click on it gives the drawer the whole sidebar with
+# its links; back at 1200 px the sidebar is open with the arrow that folds it. Each print step gives a label and the
+# facts: the shell folded, the drawer open, the arrow shown and what it says, and the links of Views shown of all of them.
+side_fold_checks() {
+  local out=$WORK/fold.out
+  "$PY" - "$BASE" > "$WORK/fold.json" <<'PY'
+import json, sys
+base = sys.argv[1]
+FACTS = ("(() => { const shell = document.getElementById('shell'), arrow = document.getElementById('side-fold');"
+         " const shown = n => Boolean(n && n.checkVisibility({checkVisibilityCSS: true})); const links = [...document.querySelectorAll('#views a.vbtn')];"
+         " return {railed: shell.classList.contains('railed'), drawer: shell.hasAttribute('data-js-drawer'), arrow: shown(arrow),"
+         " says: arrow ? arrow.getAttribute('aria-label') : '-', links: links.filter(shown).length, of: links.length}; })()")
+def at(label):
+    return {"print": f"[{json.dumps(label)}, {FACTS}]"}
+steps = [
+    {"goto": f"{base}/", "wait": 300},
+    {"print": "new Promise(done => { const end = Date.now() + 15000; const tick = () => ((document.readyState === 'complete' && window.Turbo"
+              " && document.querySelector('#side-fold')) || Date.now() > end) ? done(['ready', location.pathname]) : setTimeout(tick, 100); tick(); })"},
+    {"wait": 300}, at("wide-open"),
+    {"click": "#side-fold", "after": 400}, at("wide-folded"),
+    {"size": [700, 900]},
+    {"click": ".mbar [data-action='drawer#open']", "after": 500}, at("narrow-drawer"),
+    {"click": "#side-fold", "after": 500}, at("narrow-unfolded"),
+    {"size": [1200, 900]}, at("wide-again"),
+]
+print(json.dumps({"width": 1200, "height": 900, "steps": steps}))
+PY
+  drive "$WORK/fold.json" "$out"
+  if [ "$(fact "$out" wide-folded "(d['railed'], d['arrow'], d['says'], d['links'])")" = "(True, True, 'Unfold the sidebar', 0)" ] \
+    && [ "$(fact "$out" narrow-drawer "(d['railed'], d['drawer'], d['arrow'], d['says'])")" = "(True, True, True, 'Unfold the sidebar')" ] \
+    && [ "$(fact "$out" narrow-unfolded "(d['railed'], d['drawer'], d['links'] == d['of'] > 0)")" = "(False, True, True)" ]; then
+    pass "a sidebar folded in a window 1200 px wide shows in the drawer of a window 700 px wide the arrow that unfolds it, and a click on it gives the drawer the whole sidebar with its links"
+  else
+    fail "the folded sidebar in the drawer of a narrow window: $(cat "$out")"
+  fi
+  if [ "$(fact "$out" wide-open "(d['railed'], d['arrow'], d['says'], d['links'] == d['of'] > 0)")" = "(False, True, 'Fold the sidebar', True)" ] \
+    && [ "$(fact "$out" wide-again "(d['railed'], d['arrow'], d['says'], d['links'] == d['of'] > 0)")" = "(False, True, 'Fold the sidebar', True)" ]; then
+    pass "in a window 1200 px wide the arrow folds the sidebar, and after the unfold in a narrow window's drawer the sidebar is open there with the arrow that folds it"
+  else
+    fail "the fold and the unfold in a wide window: $(cat "$out")"
+  fi
+}
+
 # The start of a task from a backlog item, last in the block since its new task is a card of the Tasks view: a click on
 # "Start a task" of export-in-one-query posts the item, and while the server opens its session the task's lines come
 # into the log, so the stream sends the page a refresh during the post. The page ends on the new task's page, never
@@ -883,6 +928,7 @@ if [ -z "$NODE" ]; then
   skip_function search_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function confirm_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function step_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
+  skip_function side_fold_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function start_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
 elif [ -z "$CHROME_AT" ]; then
   skip_function foot_checks "no Chrome here (set CHROME to the browser)"
@@ -891,6 +937,7 @@ elif [ -z "$CHROME_AT" ]; then
   skip_function search_checks "no Chrome here (set CHROME to the browser)"
   skip_function confirm_checks "no Chrome here (set CHROME to the browser)"
   skip_function step_checks "no Chrome here (set CHROME to the browser)"
+  skip_function side_fold_checks "no Chrome here (set CHROME to the browser)"
   skip_function start_checks "no Chrome here (set CHROME to the browser)"
 else
   tasks_view_checks
@@ -898,6 +945,7 @@ else
   search_checks
   confirm_checks
   step_checks
+  side_fold_checks
   start_checks
   foot_checks
 fi
