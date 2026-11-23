@@ -1061,9 +1061,11 @@ def cmd_list(root: Path) -> list[dict]:
 
 def process_table() -> str | None:
     """The machine's process table, `ps -A -o pid=,ppid=,command=`, or None when ps does not answer
-    (lem_signs: with no table, no session's signs read)."""
+    (lem_signs: with no table, no session's signs read). A byte that is not UTF-8 becomes one
+    replacement character: one process of the machine, of any owner, can hold one in its command line."""
     try:
-        ran = subprocess.run(["ps", "-A", "-o", "pid=,ppid=,command="], capture_output=True, text=True, check=False, timeout=PS_TIMEOUT)
+        ran = subprocess.run(["ps", "-A", "-o", "pid=,ppid=,command="], capture_output=True, encoding="utf-8", errors="replace",
+                             check=False, timeout=PS_TIMEOUT)
     except (OSError, subprocess.TimeoutExpired):
         return None
     return ran.stdout if ran.returncode == 0 else None
