@@ -36,7 +36,8 @@ after this session handed over: say where the task goes on, and do nothing of th
 
 `opened because:` says why the session opened: `new` (a new request), `handoff` (the agent before
 you handed over), `dead` (the one before died, and the owner opened this one), `stopped` (the one
-before showed no sign of work after Lem's status message, and Lem's guard, or the owner's "Open a
+before showed no sign of work, or no event of the task when Lem could not read it, after Lem's
+status message, and Lem's guard, or the owner's "Open a
 session" on the stopped task, opened this one beside it; its pane stays open as `SLUG · replaced`
 and closes itself when it wakes, and it handed nothing over: go on from the state), `merged`,
 `conflict` or `queue` (the board's server opened it for that), `night`, or `owner` (his word).
@@ -158,8 +159,9 @@ a turn runs (read 2026-11-22).
 Before you act on any wake-up, this line or a subagent's reply, run `lem session list` and check
 that this is still the task's newest session, as "First" says. When it is not, say in one line where
 the task goes on, close this session as "First" says, and do no step more. `lem: SLUG replaced` is
-always such a wake-up: Lem's guard opened a fresh session beside this one, after this one showed no
-sign of work, and renamed this one `SLUG · replaced`. A turn that the owner went on with here after
+always such a wake-up: Lem's guard, or the owner's "Open a session" on the stopped task, opened a
+fresh session beside this one, after this one showed no sign of work, and renamed this one `SLUG ·
+replaced`. A turn that the owner went on with here after
 that ran to its end beside the fresh session; now this session closes.
 
 Never act on the line. Read the files (`lem project tasks`, `lem project waiting`) and act on what
@@ -194,10 +196,12 @@ longer runs the task: take `inbox-reply`, which reads `owner` of `lem project wa
 card while he is away, or reads the task's thread after his back. `status` is Lem's guard of a
 stopped session: in `building`, `ready` or `landing`, this session showed no sign of work for 45
 minutes (no event of the task, no turn, no subagent that writes, no shell command that runs; the
-owner's numbers, 2026-11-22). Say in one line where the task stands, by its status and its newest
-block, and go on with the next step that "What comes next" gives. When this session shows no sign
-of work in the 10 minutes after the line, Lem opens a fresh one beside it. A line that the files do
-not bear out changes nothing.
+owner's numbers, 2026-11-22), or, when Lem cannot read this session's signs, the task had no event
+for 45 minutes. Say in one line where the task stands, by its status and its newest block, and go
+on with the next step that "What comes next" gives. When this session shows no sign of work in the
+10 minutes after the line, Lem opens a fresh one beside it; when Lem cannot read it, and the task
+has no event in those 10 minutes, the owner sees the task as stopped and opens the fresh one. A
+line that the files do not bear out changes nothing.
 
 ## The end
 

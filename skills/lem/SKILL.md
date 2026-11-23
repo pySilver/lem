@@ -84,7 +84,12 @@ item), and shows a task whose session is gone as "no session" for the owner. It 
 shell command, no event of the task): after 45 minutes it sends that session `lem: SLUG status`, 10
 minutes later with still no sign it opens a fresh session beside the old pane, once for one stop,
 and when the fresh one stops too it logs the stop, which "Waits for you" shows as "stopped" (the
-owner's numbers, 2026-11-22). It never types into a session, decides, or closes one.
+owner's numbers, 2026-11-22). A live session whose signs it cannot read (its newest turn, a shell
+command that runs) it guards by the task's events alone: after 45 minutes with no event of the task
+it sends the same line, and 10 minutes later with still no event it logs the stop, which "Waits for
+you" shows as "stopped" because Lem cannot read the session; it opens no fresh session for it, and
+the owner's "Open a session" does (his answer, 2026-11-22). While a logged stop stands, it restarts
+nothing. It never types into a session, decides, or closes one.
 
 Every task on the standard track starts with an interview or a complete request, and then a lead,
 also one the owner calls careful in the ask: there is no talk before there is a plan. The plan says
@@ -395,7 +400,7 @@ server runs and opens the board's address, `http://127.0.0.1:PORT/HOST/WORKSPACE
 `.../tasks/SLUG`), as a page beside the session that opened it. It has four views (keys T, W, B and
 A): "Tasks", each task in the column of who acts on it; "Waits for you", one row for each thing the
 owner does, with where he does it, "no session" for a task whose session is gone while it needs
-one, and "stopped" for a task whose live session the server's guard logged as stopped; "Backlog", the items of the backlog path by their own `worth`, each with "start a task", which
+one, and "stopped" for a task whose live session the server's guard logged as stopped, with the reason when Lem cannot read that session; "Backlog", the items of the backlog path by their own `worth`, each with "start a task", which
 opens a task's session through the server; and "Activity". A task opens in a panel beside the view,
 with its tabs "Overview", "Criteria and decisions", "Checks and review", "Timeline" and
 "Artifacts", and a button that opens its session when none runs or its session stopped. With the tailnet door on (`/lem
