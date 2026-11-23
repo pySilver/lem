@@ -11,8 +11,12 @@ Size: full, because two readers of the task's Claude Code sessions, the token co
    2. The session of task merge-leaves-board-lock forks transcript 6fe214ec in that host, and the event log names 6fe214ec as a transcript of board-card-search.
    3. The first prompt of 6fe214ec is "Read .../tasks/merge-leaves-board-lock/session.md and follow it."
    4. The token count of board-card-search does not count 6fe214ec, and the token count of merge-leaves-board-lock counts it once.
+   - test: `python3 -B -m unittest tests.unit.test_tokens.FirstPrompt.test_a_fork_logged_under_another_task_counts_for_the_task_its_first_prompt_names_once tests.unit.test_tokens.FirstPrompt.test_a_fork_named_in_the_summary_of_an_ended_task_counts_for_the_open_task_its_first_prompt_names` in `tests/unit/test_tokens.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_model.Summary.test_a_summary_keeps_the_path_of_each_transcript_of_the_task_once_in_the_logs_order` in `tests/unit/test_board_model.py`
 2. A transcript whose first prompt names no task counts for the task its record names, as today: the owner types `/clear` in the session of task gift-note, the new transcript starts with his own words, and the token count of gift-note counts it.
+   - test: `python3 -B -m unittest tests.unit.test_tokens.FirstPrompt.test_a_transcript_whose_first_prompt_names_no_task_counts_for_its_records_task` in `tests/unit/test_tokens.py`
 3. The signs of work of a task's session come only from that task's transcripts: the transcript of the session of task board-card-search has its newest turn at 10:00, the fork 6fe214ec of merge-leaves-board-lock is logged under the same agterm session and writes a turn at 10:40, and `lem session list` gives board-card-search the sign 10:00.
+   - test: `python3 -B -m unittest tests.unit.test_signs.ReadSigns.test_a_transcript_of_another_task_in_the_tasks_session_counts_for_none tests.unit.test_signs.Fork tests.unit.test_signs.List.test_a_fork_of_another_task_logged_under_the_session_gives_no_sign` in `tests/unit/test_signs.py`
 
 ## How it works
 
