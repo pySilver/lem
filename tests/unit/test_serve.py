@@ -301,6 +301,41 @@ class Duties(unittest.TestCase):
         self.assertIn("Lem lands it again", note["said"])
         self.assertNotIn("conflicting", note["said"])
 
+    def test_his_merge_that_a_moved_base_refused_stands_and_its_note_says_so(self):
+        # guard-sees-unreadable-sessions, 2026-11-23 10:38: his merge of #60 met a moved base; land.py kept it
+        # (`owner_tap`), and the server ran it after the merge agent's safe read at 10:41. Meanwhile his note
+        # said "Not done." over land.py's line: his merge stood, and nothing of it was refused for good
+        tip = "abc123456" + "0" * 31
+        said = ("land.py: origin/main moved after the checks ran, by files (docs/rulings/rulings.md); the read of ea54c2a2c said safe, "
+                "and it covers no later base. A fresh merge agent reads what moved: `lem land merge-review gift-note` writes its brief, "
+                "with the commits and the files that moved since the checks, and the answer names its base (`--base`); the owner's merge "
+                "stands, and goes through after a read that says `Base: safe.`; on `Base: another round.` the task lands again")
+        landing = {"proposed": tip, "pr": {"number": 41, "url": "https://github.com/acme/shop/pull/41"}, "base": "main"}
+
+        class Space:
+            name, acted = "shop", 0
+
+            def landing_of(self, slug):
+                return landing
+
+        def refused(*args):
+            # what land.py's cmd_merge keeps for his merge that the moved base refused
+            landing.update(merge_refused={"tip": tip, "by": "owner", "via": "server", "from": "lem", "kind": "base", "said": said[len("land.py: "):]},
+                           owner_tap={"tip": tip, "not_green": [], "via": "server", "at": "2026-11-23T10:38:03Z"})
+            return subprocess.CompletedProcess(args, 1, "", said + "\n")
+
+        class Now:
+            def __init__(self, target, name=None, daemon=None):
+                self.target = target
+
+            def start(self):
+                self.target()
+
+        with mock.patch.object(serve, "merge_apart", refused), mock.patch.object(serve.threading, "Thread", Now):
+            note = serve.NOTES.get(serve.merge_in_thread(Space(), "gift-note", landing, "owner", tip))
+        self.assertNotEqual(note["state"], "refused", note["said"])
+        self.assertIn("stands", note["said"])
+
     def test_the_servers_merge_takes_the_tip_that_was_read(self):
         # the merge agent's merge is of the tip its review read, the owner's that stood of the tip he merged
         landing = {"proposed": "c" * 40, "merge_review": {"tip": "a" * 40, "verdict": "merge"}, "owner_tap": {"tip": "b" * 40}}
