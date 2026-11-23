@@ -11,25 +11,38 @@ Size: full, because the settings of every seat get two new places and an order, 
    2. The repository `notes-app` names no reviewer in its two files.
    3. `lem project show` in `notes-app` gives the reviewer `codex/gpt-6.2-sol:high`, from this machine.
    4. With no reviewer line in `machine.toml` either, it gives `claude/opus:high`, from Lem's default.
+   - test: `python3 -B -m unittest tests.unit.test_settings.Seats.test_a_repository_that_names_no_reviewer_takes_the_machines_then_lems tests.unit.test_settings.Seats.test_each_seat_from_each_of_the_four_places` in `tests/unit/test_settings.py`
 2. The fallback is one key, `fallback`, read from the same four places: a whole seat turns it on, `false` turns it off, and with no line in any place it is `claude/opus:high`. `lem project show` gives it and its place: `mybaze` has no `fallback` line, `machine.toml` has none, and `show` gives `claude/opus:high` from Lem's default.
+   - test: `python3 -B -m unittest tests.unit.test_settings.Seats.test_the_fallback_from_each_of_the_four_places tests.unit.test_settings.Seats.test_the_fallbacks_it_refuses` in `tests/unit/test_settings.py`
 3. When the agent of the `reviewer`, the `planner` or the `merger` gives an error, Lem takes the fallback seat in its place and goes on, and asks the owner nothing. An error is a program that is not on the Mac, or the agent's own message of no login, no tokens or an unknown model, before its first answer or later. A slow agent is no error, and Lem waits for it:
    1. `mybaze` names `codex/gpt-6.2-sol:high` as its reviewer, and its fallback is `claude/opus:high`.
    2. Codex has no tokens.
    3. A careful task in `mybaze` starts its plan talk, and Codex says that it has no tokens.
    4. Lem closes the Codex pane, opens `claude/opus:high` as the reviewer, and the plan talk runs to its end.
+   - test: `python3 -B -m unittest tests.unit.test_task_rules.SeatCommands.test_a_codex_reviewer_with_no_tokens_takes_the_fallback_and_keeps_it tests.unit.test_task_rules.SeatCall.test_the_fallback_stands_in_for_a_reviewer_with_no_tokens` in `tests/unit/test_task_rules.py`
+   - test: `python3 -B -m unittest tests.unit.test_session.Phase.test_a_quiet_talk_ends_the_wait_after_45_minutes_counted_from_the_later_of_the_file_and_the_wait` in `tests/unit/test_session.py`
 4. The pull request of a task in which a fallback seat stood in says, as a fact, which seat stood in, for which seat, and why: "the reviewer was `claude/opus:high` in place of `codex/gpt-6.2-sol:high`: Codex had no tokens". It does not make the pull request not green, and it does not make the merge agent call the owner. The record of the merge agent's read names the seat that read.
+   - test: `python3 -B -m unittest tests.unit.test_land_text.StandIns` in `tests/unit/test_land_text.py`
+   - test: `python3 -B -m unittest tests.unit.test_land.MergeSeat` in `tests/unit/test_land.py`
 5. When the fallback is `false`, or the fallback seat gives an error too, or it is the seat that failed, the task is `blocked` with a line that names the seat and the error, and "Waits for you" shows it. Nothing tries the seat again by itself; the owner's "go on" in the task's session tries it once more:
    1. The project `billing-core` names `codex/gpt-6.2-sol:high` as its reviewer and has `fallback = false`.
    2. Codex has no tokens, and a careful task starts its plan talk.
    3. The task is `blocked`: "the reviewer `codex/gpt-6.2-sol:high` gave an error: no tokens, and this project permits no fallback".
    4. In the afternoon Codex works again. The owner types "go on" in the task's session, and the plan talk starts with Codex.
+   - test: `python3 -B -m unittest tests.unit.test_task_rules.SeatCommands.test_a_project_with_no_fallback_blocks_waits_for_the_owner_and_his_go_on_tries_the_seat_again tests.unit.test_task_rules.SeatCommands.test_a_stand_in_that_fails_too_blocks_and_the_go_on_ends_the_stand_in tests.unit.test_task_rules.SeatCommands.test_a_planner_whose_fallback_is_codex_blocks` in `tests/unit/test_task_rules.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_model.SeatThatFailed` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_session.Phase.test_a_block_of_the_merge_agents_seat_is_the_landings_and_one_of_the_talk_the_builds` in `tests/unit/test_session.py`
 6. `/lem set global NAME VALUE` writes `~/.config/lem/machine.toml`, and `/lem set local NAME VALUE` writes the repository's `.lem/project.local.toml`. NAME is a seat or `fallback`; VALUE is a whole seat, `default`, which removes the line, or `false` for `fallback`. Each other line and comment of that file stays as it was, and no command writes `.lem/project.toml`:
    1. `machine.toml` holds `merger = "claude/opus:high"` and the owner's own comment `# the Mac in the office`.
    2. The owner types `/lem set global reviewer codex/gpt-6.2-sol:high`.
    3. `machine.toml` holds the new reviewer line, the merger line and the comment.
    4. `/lem set global reviewer default` removes the reviewer line again, and the other two lines stay.
+   - test: `python3 -B -m unittest tests.unit.test_settings.SetSeat.test_set_global_keeps_the_owners_comment_and_the_merger tests.unit.test_settings.SetSeat.test_set_local_keeps_its_comment_and_its_state_table tests.unit.test_settings.SetSeat.test_a_file_with_a_comment_of_the_owners_stays_and_one_of_lems_lines_goes tests.unit.test_settings.SetSeat.test_a_key_in_another_form_is_refused_and_the_file_stays tests.unit.test_settings.SetSeat.test_no_path_writes_the_repositorys_settings` in `tests/unit/test_settings.py`
 7. `/lem reviewer` is no command of Lem any more: `/lem set local reviewer` does its work.
+   - test: `python3 -B -m unittest tests.unit.test_settings.SetSeat.test_reviewer_is_no_command` in `tests/unit/test_settings.py`
 8. The experts and the task's own session take no fallback seat: when one expert's agent gives an error, the other expert answers alone, as today, and the `session` seat is the Claude session that runs the task.
+   - test: `python3 -B -m unittest tests.unit.test_settings.Seats.test_the_experts_and_the_session_keep_their_rules_whatever_the_fallback` in `tests/unit/test_settings.py`
+   - test: `python3 -B -m unittest tests.unit.test_task_rules.SeatCommands.test_the_experts_and_the_session_take_no_fallback` in `tests/unit/test_task_rules.py`
 
 ## How it works
 
