@@ -11,16 +11,30 @@ Size: full, because `lem project prune`, the board's page of an old task and eve
    2. Its folder holds 1,760 KB, and today's prune would keep 32 files of it, 1,087 KB.
    3. On 2026-12-22 `lem project prune` runs.
    4. Its folder keeps the small record only, about 12 KB.
+   - test: `python3 -B -m unittest tests.unit.test_task.SmallRecord.test_a_run_past_the_cutoff_by_its_time_leaves_an_old_ended_task_its_small_record_only` in `tests/unit/test_task.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_task.Map.test_a_task_that_ended_long_ago_keeps_only_its_small_record_and_its_lock_files` in `tests/unit/test_board_task.py`
+   - test: `bash tests/lem-state.sh` in `tests/lem-state.sh`
 2. A task that ended less than `state.keep_days` ago, and a task that has not ended, keep every file: a task that landed 10 days ago keeps its pictures, its report and its decisions after a prune.
+   - test: `python3 -B -m unittest tests.unit.test_task.SmallRecord.test_a_young_ended_task_and_an_open_one_keep_every_file` in `tests/unit/test_task.py`
+   - test: `bash tests/lem-state.sh` in `tests/lem-state.sh`
 3. Every part of Lem that reads an ended task reads a pruned one as before:
    1. `lem project tasks` gives `done-column-shows-newest` as landed, with pull request 20.
    2. The board's Done column and its list of older tasks show it.
    3. A task queued after it may start (`lem project may-start`).
    4. A new task cannot take its name (`lem project task-dir`).
    5. A second `lem project prune` changes nothing of it.
+   - test: `python3 -B -m unittest tests.unit.test_task.SmallRecord.test_tasks_reads_a_pruned_task_as_before_and_a_second_prune_changes_nothing` in `tests/unit/test_task.py`
+   - test: `bash tests/lem-state.sh` in `tests/lem-state.sh`
+   - test: `bash tests/lem-serve.sh` in `tests/lem-serve.sh`
 4. A ticket step that a pruned task still owes stays shown: a task from issue 7 whose comment at its landing was never posted still shows that comment as owed in `lem project tasks` after the prune.
+   - test: `python3 -B -m unittest tests.unit.test_task.SmallRecord.test_a_ticket_step_a_pruned_task_still_owes_stays_shown` in `tests/unit/test_task.py`
 5. `/lem resume` of a dropped task past the time still refuses, and still ends with `/lem` and the task's ask, so the owner can start it again in one line.
+   - test: `python3 -B -m unittest tests.unit.test_task.ResumeSummarized.test_a_dropped_task_whose_events_became_a_summary_is_refused_with_its_ask tests.unit.test_task.ResumeSummarized.test_a_summarized_task_whose_folder_keeps_a_file_it_cannot_read_is_refused_with_its_ask tests.unit.test_task.ResumeSummarized.test_a_prune_between_the_first_read_of_the_log_and_the_files_is_refused_with_its_ask` in `tests/unit/test_task.py`
 6. The board's page of a pruned task says what stayed and that the rest left after `state.keep_days` days, and no longer says "Its files stay": the page of `done-column-shows-newest` says that its other files left after 30 days.
+   - test: `python3 -B -m unittest tests.unit.test_board_model.SummarizedBoard` in `tests/unit/test_board_model.py`
+   - test: `python3 -B -m unittest tests.unit.test_serve.KeepDays` in `tests/unit/test_serve.py`
+   - test: `python3 -B -m unittest tests.unit.test_issues.DropAndAnswer.test_an_answer_owed_after_prune_removed_the_report_names_no_report` in `tests/unit/test_issues.py`
+   - test: `bash tests/lem-serve.sh` in `tests/lem-serve.sh`
 
 ## How it works
 
