@@ -512,7 +512,7 @@ def user_plugin() -> list[dict]:
         "detail": f"{users[0]} is installed for the user, so every repository on this machine loads it",
         "used_for": "Lem's skills, its builder and its correction hook, which belong to the repositories that use Lem",
         "without_it": (
-            "the skills and the hook load in every repository; the hook in a repository with no .lem/project.toml writes nothing and costs "
+            "the skills and the hook load in every repository; the hook in a repository with no .lem/settings.toml writes nothing and costs "
             "about a tenth of a second a message (a median of 99.4 ms over 20 runs, Python 3.15.2, one Mac, 2026-11-17). "
             f"`claude plugin uninstall {users[0]} --scope user` removes that install; then `claude plugin install {users[0]} --scope project` "
             "in each repository that uses Lem"
@@ -532,7 +532,7 @@ def project() -> list[dict]:
     except OSError:
         return []
     root = Path(top.stdout.strip()) if top.returncode == 0 and top.stdout.strip() else None
-    if root is None or not (root / ".lem" / "project.toml").is_file():
+    if root is None or not (root / ".lem" / "settings.toml").is_file():
         return []
     row = {
         "name": "project personas", "need": "project", "found": False, "detail": None,
@@ -557,14 +557,22 @@ def project() -> list[dict]:
 
 
 def collects_here() -> bool:
-    """Whether the correction queue is on in the repository the check runs in: its settings say
-    `corrections.collect = true`, and this computer's `.lem/project.local.toml` does not say false.
-    The hook's own answer, so the row and the hook never disagree."""
+    """Whether the correction queue is on in the repository the check runs in: this machine's
+    `machine.toml` says `collect = true` under `[corrections]`, and the repository uses Lem. The
+    hook's own answer, so the row and the hook never disagree."""
     # no bytecode beside the scripts, also when this file runs without -B
     sys.dont_write_bytecode = True
     import corrections
 
     return corrections.collects(os.getcwd())
+
+
+def machine_name() -> str:
+    """The machine's own settings file, as a person writes it (`~/.config/lem/machine.toml`)."""
+    # beside this file, as `collects_here` finds corrections.py
+    import lem_state
+
+    return lem_state.shown(lem_state.machine_file())
 
 
 # What the row of the Jev key says of where the key and the address come from (jev.py reads them)
@@ -582,10 +590,10 @@ def jev_key() -> dict:
     row = {"name": "Jev key", "need": "optional", "found": given, "detail": detail,
            "used_for": "the Jev decision model, which the correction queue and a card's framing check ask"}
     if collects_here():
-        return {**row, "need": "required", "detail": f"{detail}; the correction queue is on in this repository (corrections.collect = true)",
+        return {**row, "need": "required", "detail": f"{detail}; the correction queue is on here (collect = true under [corrections] in {machine_name()})",
                 "without_it": "the correction hook writes each message of the owner to .lem/state/corrections.log as a failure, the queue stays "
                               f"empty, and the retro reads nothing. Put {JEV_WHERE}, or turn the "
-                              "queue off for this computer with `collect = false` under [corrections] in .lem/project.local.toml"}
+                              "queue off for every repository on this machine with `lem corrections collect no`"}
     return {**row, "without_it": "a card's framing check gets no answer, and the correction queue, which is off here, would stay empty if it "
                                  f"were on; put {JEV_WHERE}"}
 

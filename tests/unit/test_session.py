@@ -144,18 +144,17 @@ class Load(Machine):
 
 
 class Seat(Machine):
-    """`seats.session` takes the three sources of the merge agent's seat."""
+    """`seats.session` takes the four sources of the merge agent's seat."""
 
-    def decided(self, lines: list[str], machine: dict) -> dict:
-        raw = project.settings_of("\n".join(lines) + "\n", ROOT / project.SETTINGS, tuple(project.TABLES))
-        return project.decide(ROOT, ROOT, raw, {}, raw, None, machine)["seats"]["session"]
+    def decided(self, lines: list[str], home: dict) -> dict:
+        raw = project.settings_of("\n".join(lines) + "\n", ROOT / project.SETTINGS, "team")
+        return project.decide(ROOT, ROOT, raw, {}, raw, None, {"seats": home})["seats"]["session"]
 
-    def test_the_repository_the_machine_or_the_agent(self):
+    def test_the_repository_the_home_file_or_the_agent(self):
         own = self.decided(["[seats]", 'session = "claude/m1:high"'], {"session": "claude/m2"})
         self.assertEqual((own["model"], own["effort"], own["from"]), ("m1", "high", str(project.SETTINGS)))
         mine = self.decided(["[branch]", 'base = "main"'], {"session": "claude/m2"})
-        self.assertEqual((mine["model"], mine["effort"]), ("m2", None))
-        self.assertTrue(mine["from"].endswith("machine.toml"))
+        self.assertEqual((mine["model"], mine["effort"], mine["from"]), ("m2", None, project.home_name()))
         bare = self.decided(["[branch]", 'base = "main"'], {})
         self.assertEqual((bare["agent"], bare["model"], bare["effort"], bare["from"]), ("claude", "opus", "high", "Lem's default"))
 
@@ -164,9 +163,12 @@ class Seat(Machine):
             self.decided(["[seats]", 'session = "codex:high"'], {})
         self.assertIn("a task's session runs Claude Code only for now", str(raised.exception))
 
-    def test_the_machine_file_takes_the_key(self):
+    def test_the_machine_file_refuses_the_seats_and_names_the_home_settings(self):
+        # criterion 3 of one-home-folder-for-lem: the seats are no fact of the whole machine
         self.written('[seats]\nsession = "claude:high"\n')
-        self.assertEqual(lem_state.machine_table("seats"), {"session": "claude:high"})
+        with self.assertRaises(lem_state.StateError) as raised:
+            lem_state.machine_table("load")
+        self.assertIn(f"{lem_state.machine_file()}: [seats] is not valid in this file: its place is {lem_state.shown(lem_state.home_settings_file())}", str(raised.exception))
 
 
 class Phase(unittest.TestCase):

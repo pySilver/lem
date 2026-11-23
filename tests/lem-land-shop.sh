@@ -17,7 +17,7 @@ git -C "$SHOP" config remote.origin.url https://github.com/acme/shop.git
 git -C "$SHOP" config "url.$ORIGIN.insteadOf" https://github.com/acme/shop.git
 project --repo "$SHOP" init --base main >/dev/null
 # shop_settings LAND HISTORY: the settings, an edit of the owner's in the main checkout; shop_lines LINE...: any other settings so
-shop_lines() { printf '%s\n' "$@" > "$SHOP/.lem/project.toml"; }
+shop_lines() { printf '%s\n' "$@" > "$SHOP/.lem/settings.toml"; }
 shop_settings() {
   shop_lines '[branch]' 'base = "main"' "land = \"$1\"" "history = \"$2\"" 'protected = ["release"]' \
     '[checks]' 'commands = ["test -f ok.txt", "echo 7 passed"]'
@@ -544,18 +544,18 @@ shop_lines '[branch]' 'base = "release"' 'history = "keep"' 'land = "agent"' 'pr
 err=$(land --repo "$SHOP" start third-change 2>&1) && code=0 || code=$?
 if [ "$code" = 1 ] && grep -qF "protected" <<<"$err" && [ "$(status third-change)" = blocked ]; then pass "no step runs toward a branch the settings refuse"; else fail "land toward a protected base: $code $err"; fi
 # The first task of a new repository sets up the checks: the main checkout's settings have no gate
-# command, and the task's branch adds them to its own .lem/project.toml. That gate gates the task,
+# command, and the task's branch adds them to its own .lem/settings.toml. That gate gates the task,
 # and its pull request is not green for it, so that a person reads the checks once. A branch that
 # changes a gate the main checkout already has is gated by the main checkout's, as before.
 FG=$WORK/first-gate
 git init -q -b main "$FG" && ident "$FG"
 project --repo "$FG" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' > "$FG/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' > "$FG/.lem/settings.toml"
 git -C "$FG" add -A && git -C "$FG" commit -q -m "chore: start" && on_github "$FG"
 task_in "$FG" set-up-checks c.txt checked
 read_in "$FG" set-up-checks
 tree=$(project --repo "$FG" worktree-dir set-up-checks)
-printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[checks]' 'commands = ["echo 3 passed"]' > "$tree/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[checks]' 'commands = ["echo 3 passed"]' > "$tree/.lem/settings.toml"
 git -C "$tree" commit -q -am "chore: the checks"
 brought_start=$(land --repo "$FG" start set-up-checks 2>&1 || true)
 brought_gate=$(land --repo "$FG" base set-up-checks >/dev/null 2>&1 && polish_in "$FG" set-up-checks && land --repo "$FG" checks set-up-checks 2>&1 || true)
@@ -567,22 +567,22 @@ text=$FG/.lem/state/tasks/set-up-checks/pr.md
 FG2=$WORK/kept-gate
 git init -q -b main "$FG2" && ident "$FG2"
 project --repo "$FG2" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[checks]' 'commands = ["echo main passed"]' > "$FG2/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[checks]' 'commands = ["echo main passed"]' > "$FG2/.lem/settings.toml"
 git -C "$FG2" add -A && git -C "$FG2" commit -q -m "chore: start" && on_github "$FG2"
 task_in "$FG2" other-checks k.txt kept
 read_in "$FG2" other-checks
 tree=$(project --repo "$FG2" worktree-dir other-checks)
-printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[checks]' 'commands = ["false"]' > "$tree/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[checks]' 'commands = ["false"]' > "$tree/.lem/settings.toml"
 git -C "$tree" commit -q -am "chore: other checks"
 kept_gate=$(land --repo "$FG2" start other-checks >/dev/null 2>&1 && land --repo "$FG2" base other-checks >/dev/null 2>&1 && polish_in "$FG2" other-checks && land --repo "$FG2" checks other-checks 2>&1 || true)
 kept_floor=$(land --repo "$FG2" read other-checks | field '(d["floor"], d["why"])' 2>&1 || true)
 land --repo "$FG2" read other-checks --record "$(record other-checks 1 '{"kind": "full", "ran": [{"name": "default", "why": "the checks change"}], "answered": ["codex"]}')" >/dev/null 2>&1 || true
 land --repo "$FG2" propose other-checks --title "chore: other checks" --notes "$MIG" >/dev/null 2>&1 || true
-gate_why="the change edits [checks] of .lem/project.toml, Lem's own settings, which say for every later task what is careful, what the checks run, who merges and where a task lands"
+gate_why="the change edits [checks] of .lem/settings.toml, Lem's own settings, which say for every later task what is careful, what the checks run, who merges and where a task lands"
 if [ "$(status_in "$FG" set-up-checks)" = open ] && ! grep -q "no command in its checks" <<<"$brought_start" \
   && [ "$(field '[(c["command"], c["last"]) for c in d["commands"]]' <<<"$brought_gate" 2>/dev/null)" = "[('echo 3 passed', '3 passed')]" ] \
   && [ "$(sed -n 1p "$text" 2>/dev/null)" = '**Not green.**' ] \
-  && [ "$(sed -n 3p "$text")" = "- the checks came with this change: the main checkout's settings name no command of the checks, and the branch's .lem/project.toml brings \`echo 3 passed\`. Read the checks once: every later task is checked by them" ] \
+  && [ "$(sed -n 3p "$text")" = "- the checks came with this change: the main checkout's settings name no command of the checks, and the branch's .lem/settings.toml brings \`echo 3 passed\`. Read the checks once: every later task is checked by them" ] \
   && grep -qF "a careful request is merged by the owner, whatever the settings say ($gate_why)" <<<"$brought_agent" \
   && [ "$brought_floor" = "('full', \"the request is careful: $gate_why\")" ] && [ "$kept_floor" = "('full', \"the request is careful: $gate_why\")" ] \
   && [ "$(field '[(c["command"], c["last"]) for c in d["commands"]]' <<<"$kept_gate" 2>/dev/null)" = "[('echo main passed', 'main passed')]" ] \
@@ -602,7 +602,7 @@ git init -q -b main "$MB" && ident "$MB"
 # the repository has no origin before its first commit, which init says on stderr
 project --repo "$MB" init --base main >/dev/null 2>&1
 # mb_settings LAND HISTORY: the moved-base shop's settings, an edit of the owner's in its main checkout
-mb_settings() { printf '%s\n' '[branch]' 'base = "main"' "land = \"$1\"" "history = \"$2\"" '[checks]' 'commands = ["true"]' > "$MB/.lem/project.toml"; }
+mb_settings() { printf '%s\n' '[branch]' 'base = "main"' "land = \"$1\"" "history = \"$2\"" '[checks]' 'commands = ["true"]' > "$MB/.lem/settings.toml"; }
 mb_settings agent squash
 mkdir -p "$MB/docs" && echo board > "$MB/docs/board.md" && printf '%s\n' 1 2 3 4 5 6 7 8 9 10 > "$MB/shared.txt"
 git -C "$MB" add -A && git -C "$MB" commit -q -m "chore: start" && on_github "$MB"

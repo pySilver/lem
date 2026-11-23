@@ -10,16 +10,16 @@ ST=$WORK/state-repo
 git init -q -b main "$ST" && ident "$ST"
 project --repo "$ST" init --base main >/dev/null
 fresh_ignore=$(cat "$ST/.lem/.gitignore")
-printf 'project.local.toml\n' > "$ST/.lem/.gitignore"
+printf 'settings.local.toml\n' > "$ST/.lem/.gitignore"
 git -C "$ST" add -A && git -C "$ST" commit -q -m "chore: start"
 git -C "$ST" worktree add -q "$WORK/state-wt" -b side
 from_wt=$(project --repo "$WORK/state-wt" state-dir 2>"$WORK/state.err")
 project --repo "$WORK/state-wt" task-dir one-task --ask "Keep the state out of git." >/dev/null
 project --repo "$WORK/state-wt" state one-task held "the interview waits for the owner" >/dev/null
-if [ "$fresh_ignore" = "$(printf 'project.local.toml\nstate/')" ] && [ "$from_wt" = "$ST/.lem/state" ] && [ -f "$ST/.lem/state/tasks/one-task/state.md" ] \
+if [ "$fresh_ignore" = "$(printf 'settings.local.toml\nstate/')" ] && [ "$from_wt" = "$ST/.lem/state" ] && [ -f "$ST/.lem/state/tasks/one-task/state.md" ] \
   && [ ! -s "$WORK/state.err" ] && [ ! -e "$WORK/state-wt/.lem/state" ] \
   && [ -z "$(git -C "$ST" status --porcelain --untracked-files=all --ignored=no)" ] && [ -z "$(git -C "$WORK/state-wt" status --porcelain --untracked-files=all)" ] \
-  && [ "$(cat "$ST/.lem/.gitignore")" = "project.local.toml" ] && [ "$(cat "$ST/.lem/state/.gitignore")" = "*" ]; then
+  && [ "$(cat "$ST/.lem/.gitignore")" = "settings.local.toml" ] && [ "$(cat "$ST/.lem/state/.gitignore")" = "*" ]; then
   pass "the state is in .lem/state of the main checkout, also for a script run in a task's worktree; git sees none of it where .lem/.gitignore does not name it, no tracked file changes for it, and a new project's .lem/.gitignore names it"
 else
   fail "the place of the state: $fresh_ignore / $from_wt / $(cat "$WORK/state.err") / $(git -C "$ST" status --porcelain --untracked-files=all)"
@@ -295,7 +295,7 @@ project --repo "$PR" task-dir after-old --ask "Build on what old-landed added." 
 project --repo "$PR" state after-old queued "it needs what old-landed added" "after: old-landed" >/dev/null
 after_starts=$(status_of project --repo "$PR" may-start after-old)
 old_taken=$(project --repo "$PR" task-dir old-landed --ask "The ask of old-landed, again." 2>&1 || true)
-if [ "$before_dry" = "$after_dry" ] && [ "$(field '(d["dry_run"], d["keep_days"], d["from"], [t["task"] for t in d["tasks"]])' <<<"$dry")" = "(True, 30, '.lem/project.toml', ['old-dropped', 'old-landed'])" ] \
+if [ "$before_dry" = "$after_dry" ] && [ "$(field '(d["dry_run"], d["keep_days"], d["from"], [t["task"] for t in d["tasks"]])' <<<"$dry")" = "(True, 30, '.lem/settings.toml', ['old-dropped', 'old-landed'])" ] \
   && [ "$(field '[t["task"] for t in d["tasks"]]' <<<"$dry_all")" = "['old-dropped', 'old-landed', 'young-landed']" ] && [ "$(field 'd["from"]' <<<"$dry_all")" = "--days 0" ] \
   && grep -qF -- "--days goes with --dry-run only" <<<"$no_days" && [ "$real_code" = 1 ] \
   && [ "$(field '[f["path"] for f in d["failed"]]' <<<"$real")" = "['tasks/old-landed/locked/held.txt']" ] \
@@ -341,16 +341,16 @@ for n, line in enumerate(lines):
 open(sys.argv[1], "w", encoding="utf-8").write("\n".join(lines))' "$PLS/events.jsonl"
 git -C "$PL" worktree add -q "$WORK/prune-local-wt" -b feat/prune-local
 by_project=$(project --repo "$PL" prune --dry-run | field '(d["keep_days"], d["from"], [t["task"] for t in d["tasks"]])')
-printf '%s\n' '[state]' 'keep_days = 50' > "$PL/.lem/project.local.toml"
+printf '%s\n' '[state]' 'keep_days = 50' > "$PL/.lem/settings.local.toml"
 by_higher=$(project --repo "$PL" prune --dry-run | field '(d["keep_days"], d["from"], [t["task"] for t in d["tasks"]])')
 by_days=$(project --repo "$PL" prune --dry-run --days 3 | field '(d["keep_days"], d["from"])')
-printf '%s\n' '[state]' 'keep_days = 7' > "$PL/.lem/project.local.toml"
+printf '%s\n' '[state]' 'keep_days = 7' > "$PL/.lem/settings.local.toml"
 by_lower=$(project --repo "$WORK/prune-local-wt" prune | field '(d["dry_run"], d["keep_days"], d["from"], [t["task"] for t in d["tasks"]])')
 no_days=$(project --repo "$PL" prune --days 3 2>&1 || true)
-if [ "$by_project" = "(30, '.lem/project.toml', ['forty-days'])" ] && [ "$by_higher" = "(50, '.lem/project.local.toml', [])" ] && [ "$by_days" = "(3, '--days 3')" ] \
-  && [ "$by_lower" = "(False, 7, '.lem/project.local.toml', ['forty-days', 'ten-days'])" ] \
+if [ "$by_project" = "(30, '.lem/settings.toml', ['forty-days'])" ] && [ "$by_higher" = "(50, '.lem/settings.local.toml', [])" ] && [ "$by_days" = "(3, '--days 3')" ] \
+  && [ "$by_lower" = "(False, 7, '.lem/settings.local.toml', ['forty-days', 'ten-days'])" ] \
   && [ ! -e "$PLS/tasks/ten-days/scratch.txt" ] && [ ! -e "$PLS/tasks/forty-days/scratch.txt" ] && [ -f "$PLS/tasks/ten-days/state.md" ] \
-  && grep -qF "or in .lem/project.local.toml for this machine alone" <<<"$no_days"; then
+  && grep -qF "or in .lem/settings.local.toml for this machine alone" <<<"$no_days"; then
   pass "lem project prune keeps by this machine's own number of days, higher or lower than the project's, also from a task's worktree, and says which file the number came from, or --days"
 else
   fail "the prune by the machine's own days: $by_project / $by_higher / $by_days / $by_lower / $no_days"

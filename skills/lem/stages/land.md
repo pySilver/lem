@@ -68,7 +68,7 @@ landing up as after a cut-off.
    Once the commands are in the settings, `start` again takes the task it blocked.
    The one exception is the task that sets up the checks (`stages/init.md`): when the main
    checkout's settings have no command in `checks.commands` and the task's own branch adds them to its
-   `.lem/project.toml`, its checks are those commands, and its pull request is not green for that,
+   `.lem/settings.toml`, its checks are those commands, and its pull request is not green for that,
    so that the owner reads the checks once. A branch that changes checks the main checkout has
    is checked by the main checkout's, as every task is.
    `landing` is written when the checks will run and never before a stop.
@@ -282,7 +282,7 @@ landing up as after a cut-off.
    `planned` with `needs a session: careful` (or `large, N tasks`) and hand the task back to the
    build, whose lead holds the talk (`stages/plan.md`, step 3). A request that
    became careful after its plan, by the owner's word, by the review's call or by its edit of
-   `.lem/project.toml`, had no talk due; it gets the full set and a person's merge, and
+   `.lem/settings.toml`, had no talk due; it gets the full set and a person's merge, and
    its text says that it had no talk and why. A careful request says so in the line after green
    or not green, with each reason, and its checks hold the careful call with the review's reason.
    It refuses a request whose newest read of its criteria had no answer and was the first such

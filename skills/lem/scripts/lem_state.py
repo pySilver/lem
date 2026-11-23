@@ -16,17 +16,25 @@ home directory, the one Lem keeps there: whether the owner is there or away (`ow
 average under which the checks of a landing start, which the developer sets with `lem project load
 --start N`, and `[serve]`, how the board server runs, which `lem serve --tailscale`, `--tailscale-off`,
 `--port` and `--tailscale-port` write, `[peers]`, the other machines whose boards it shows beside
-this one's, which `lem serve --join` and `--leave` write, `[seats]`, the developer's own seats of
-the merge agent and of a task's session for every repository whose settings name none, `merger` and
-`session`, each `"agent/model:effort"`, which he writes by hand, and `[handoff]`, the number of tokens
-past which a task's session compacts itself, which `lem project handoff --tokens N` writes), and the
+this one's, which `lem serve --join` and `--leave` write, `[handoff]`, the number of tokens past
+which a task's session compacts itself, which `lem project handoff --tokens N` writes, and
+`[corrections]`, the developer's yes or no to the correction queue, `collect`, which `lem corrections
+collect yes|no` writes), and the
 repositories whose boards `lem serve` shows
 (`workspaces_file()`, `workspaces.json`, which `lem project task-dir`, `lem session open`, `lem board`
-and `lem serve --add` write). A read never
+and `lem serve --add` write). Nothing overrides what `machine.toml` says. A read never
 makes that folder: a write does, of one of the three, of the load gate or of the board server's start.
 Beside them it holds `load.lock`, which spaces the starts of the checks that waited for the load,
 `load.line/`, the machine's one line of the runs of the checks that wait, one locked file for each,
+`machine.lock`, which one writer of `machine.toml` holds from its read to its rename (`write_machine`),
 and the board server's `serve.lock` and `serve.log`.
+
+The developer's own settings for every repository on the machine are the folder's `settings.toml`
+(`home_settings_file()`), which `project.py` reads with a repository's two, `.lem/settings.toml`,
+the team's, in git, and `.lem/settings.local.toml`, the developer's own for that one repository:
+the nearest file that holds a setting wins. Each table of the four files is valid in some of them
+only (`TABLE_PLACES`, the one map), and a table in another file is refused with the file where it
+is valid (`misplaced`).
 """
 
 import contextlib
@@ -120,9 +128,14 @@ def owner_mark() -> Path:
 
 
 # The settings of this machine, one file for every repository on it: `[load] start`, the load average
-# under which the checks of a landing start (`land.py`, LOAD_START without it), and `[serve]`, how the board server runs
-# (`serve.py`). Each writer writes the file whole and keeps the other's table.
+# under which the checks of a landing start (`land.py`, LOAD_START without it), `[serve]`, how the board
+# server runs (`serve.py`), and the rest of MACHINE_KEYS. Each writer goes through `write_machine`, which
+# keeps the other tables.
 MACHINE = "machine.toml"
+# The lock one writer of the machine's file holds from its read of the file to its rename of the new one,
+# in the same folder: two writers in two panes would each write the file whole, and the later one would
+# lose the other's table (the plan talk of one-home-folder-for-lem, 2026-11-23, question 1).
+MACHINE_LOCK = "machine.lock"
 # The lock that spaces two starts of the checks that waited for the load, in the same folder.
 LOAD_LOCK = "load.lock"
 # The machine's one line of the runs of the checks that wait for the load, a folder beside it: one
@@ -136,15 +149,36 @@ SERVE_PID = "serve.pid"
 # The keys of each table of the file, with the type each holds; what `write_machine` writes. The keys of
 # `[peers]` are not fixed: each is a machine's name on the tailnet (PEER_NAME), and its value the port
 # of that machine's tailnet door.
-MACHINE_KEYS = {"load": {"start": (int, float)}, "serve": {"tailscale": bool, "port": int, "tailscale_port": int}, "peers": None, "seats": {"merger": str, "session": str},
-                "handoff": {"tokens": int}}
+MACHINE_KEYS = {"load": {"start": (int, float)}, "serve": {"tailscale": bool, "port": int, "tailscale_port": int}, "peers": None,
+                "handoff": {"tokens": int}, "corrections": {"collect": bool}}
 # The lines that write each table, for a refusal of the file.
 MACHINE_FIX = {"load": "`lem project load --start N` writes it", "serve": "`lem serve --port N` or `lem serve --tailscale` writes it",
                "peers": "`lem serve --join HOST` and `--leave HOST` write it",
-               "seats": 'the developer writes it by hand, as merger = "agent/model:effort" and session = "agent/model:effort"',
-               "handoff": "`lem project handoff --tokens N` writes it, and `--tokens default` takes it out"}
+               "handoff": "`lem project handoff --tokens N` writes it, and `--tokens default` takes it out",
+               "corrections": "`lem corrections collect yes` or `lem corrections collect no` writes it"}
 # A machine's name on the tailnet, as a key of `[peers]`: one DNS label, in lower case.
 PEER_NAME = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+# The developer's own settings for every repository on this machine, in the same folder, and a
+# repository's two, at the root of its checkout: the team's, in git, and the developer's own for that
+# one repository, which git does not track. The nearest file that holds a setting wins (`project.py`).
+HOME_SETTINGS = "settings.toml"
+TEAM_SETTINGS = Path(".lem") / "settings.toml"
+LOCAL_SETTINGS = Path(".lem") / "settings.local.toml"
+# The files where each table of Lem's settings is valid: `machine` (MACHINE), `home` (HOME_SETTINGS),
+# `team` (TEAM_SETTINGS) and `local` (LOCAL_SETTINGS). What is true for the whole machine is in its file
+# alone, and nothing overrides it; what guards a team's repository is in the team's file alone; the
+# question page's defaults are the developer's (the plan of one-home-folder-for-lem, 2026-11-23,
+# "How it works", decisions 2 and 3). Which keys of a table one file may hold is `project.py`'s
+# (`HOME_KEYS`, `local_naps_off`).
+TABLE_PLACES = {
+    "load": ("machine",), "serve": ("machine",), "peers": ("machine",), "handoff": ("machine",), "corrections": ("machine",),
+    "seats": ("home", "team", "local"),
+    "ask": ("home",),
+    "flow": ("team",), "checks": ("team",), "branch": ("team",), "paths": ("team",), "tracker": ("team",),
+    "naps": ("team", "local"),
+    "state": ("team", "local"),
+}
+PLACE_ORDER = ("home", "team", "local", "machine")
 
 
 def machine_file() -> Path:
@@ -152,26 +186,80 @@ def machine_file() -> Path:
     return config() / MACHINE
 
 
+def home_settings_file() -> Path:
+    """The developer's own settings file for every repository on this machine; it may not exist."""
+    return config() / HOME_SETTINGS
+
+
+def shown(path: Path) -> str:
+    """A file of the home directory as a person writes it, `~/.config/lem/settings.toml`; any other
+    path as it is."""
+    try:
+        return "~/" + path.relative_to(Path.home()).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def place_name(place: str) -> str:
+    """The name of one file of TABLE_PLACES, as a refusal gives it."""
+    if place == "machine":
+        return shown(machine_file())
+    if place == "home":
+        return shown(home_settings_file())
+    return (TEAM_SETTINGS if place == "team" else LOCAL_SETTINGS).as_posix()
+
+
+def misplaced(table: str, place: str) -> str | None:
+    """Why the file of PLACE may not hold the table, with the file where it is valid; None when it may,
+    or when Lem knows no such table (the reader names the tables it knows)."""
+    valid = TABLE_PLACES.get(table)
+    if valid is None or place in valid:
+        return None
+    where = [place_name(one) for one in PLACE_ORDER if one in valid]
+    named = where[0] if len(where) == 1 else ", ".join(where[:-1]) + f" or {where[-1]}"
+    return f"[{table}] is not valid in this file: its place is {named}; move the table there"
+
+
+@contextlib.contextmanager
+def machine_lock():
+    """Hold the lock of the machine's file, waiting for another writer; the folder is made for it."""
+    folder = config()
+    folder.mkdir(parents=True, exist_ok=True)
+    with (folder / MACHINE_LOCK).open("a") as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        yield
+
+
 def machine_tables() -> dict:
     """The tables of the machine's file, as it reads; none when there is no file. A file that does not
-    read as TOML is refused with the lines that write it again."""
+    read as TOML, or that holds a table Lem does not know or one whose place is another file, is
+    refused with the file and the fix."""
     file = machine_file()
-    fix = f"{MACHINE_FIX['load']} again, with only its own table, and {MACHINE_FIX['serve']} and {MACHINE_FIX['peers']} again, the same way"
+    fix = f"correct {file} by hand: the tables it may hold are {', '.join(f'[{name}]' for name in MACHINE_KEYS)}"
     try:
         text = file.read_text(encoding="utf-8")
     except FileNotFoundError:
         return {}
     except OSError as error:
         raise StateError(f"{file} cannot be read ({error.strerror}); {fix}") from error
+    except UnicodeDecodeError as error:
+        raise StateError(f"{file} is not UTF-8 text (byte {error.start} does not read); {fix}") from error
     try:
-        return tomllib.loads(text)
+        tables = tomllib.loads(text)
     except tomllib.TOMLDecodeError as error:
         raise StateError(f"{file} does not read as TOML ({error}); {fix}") from error
+    for name in tables:
+        if name not in TABLE_PLACES:
+            raise StateError(f"{file}: [{name}] is no table of Lem's; {fix}")
+        wrong = misplaced(name, "machine")
+        if wrong:
+            raise StateError(f"{file}: {wrong}")
+    return tables
 
 
-def machine_table(name: str) -> dict:
-    """One table of the machine's file, its keys checked; none when the file or the table is absent."""
-    table = machine_tables().get(name, {})
+def checked_table(tables: dict, name: str) -> dict:
+    """One table of the machine's file, of the tables it read, its keys checked; none when absent."""
+    table = tables.get(name, {})
     file, fix = machine_file(), MACHINE_FIX[name]
     if not isinstance(table, dict):
         raise StateError(f"{name} in {file} is no table; {fix}")
@@ -189,46 +277,55 @@ def machine_table(name: str) -> dict:
     return table
 
 
+def machine_table(name: str) -> dict:
+    """One table of the machine's file, its keys checked; none when the file or the table is absent."""
+    return checked_table(machine_tables(), name)
+
+
+def kept_tables(name: str) -> dict:
+    """The tables of the machine's file that a write of table `name` keeps: every other one, its keys
+    checked. A file that does not read, or whose other tables hold a table or a key that is not valid
+    there, is refused with the file and the fix; table `name` itself is not checked, since the write
+    replaces it. A caller that must not act on a write that would be refused (`serve.py` `configure`,
+    before it stops a server) calls this first."""
+    found = machine_tables()
+    return {table: dict(checked_table(found, table)) for table in found if table != name}
+
+
 def write_machine(name: str, values: dict | None) -> None:
     """Write table `name` of the machine's file as `values`, or take it out with None, and keep every
-    other table as it reads. The file is written whole: a temporary file beside it, then a rename over
-    it. A file that does not read is written again with this table only. With no table left, the file
-    goes. Two writers at the same moment may lose one change, which its command writes again."""
+    other table as it reads. It writes over nothing it cannot keep: the whole file is read and each of
+    its other tables checked first (`kept_tables`), and a file that does not read, or whose other tables
+    hold a table or a key that is not valid there, is refused with the file and the fix, and stays as it
+    is; table `name` is written over whatever it held. The file is written whole: a temporary file
+    beside it, then a rename over it, under the lock of MACHINE_LOCK from the read to the rename, so that
+    two writers at one moment each keep the other's table. With no table left, the file goes."""
     import tempfile
-    try:
-        tables = {key: value for key, value in machine_tables().items() if key in MACHINE_KEYS and key != name}
-    except StateError:
-        tables = {}
-    if values is not None:
-        tables[name] = values
     file = machine_file()
-    if not tables:
-        file.unlink(missing_ok=True)
-        return
-    lines = ["# this machine's own settings, for every repository on it"]
-    for table in MACHINE_KEYS:
-        if table not in tables or not isinstance(tables[table], dict):
-            continue
-        lines += ["", f"[{table}]", f"# {MACHINE_FIX[table]}"]
-        for key, value in tables[table].items():
-            if (key in MACHINE_KEYS[table] if MACHINE_KEYS[table] is not None else isinstance(key, str)) and isinstance(value, (bool, int, float, str)):
-                if isinstance(value, str):
-                    # a seat the developer wrote by hand, kept as he wrote it
-                    import json
-                    shown = json.dumps(value)
-                else:
-                    shown = ("true" if value else "false") if isinstance(value, bool) else (str(int(value)) if isinstance(value, float) and value.is_integer() else str(value))
-                lines.append(f"{key} = {shown}")
-    file.parent.mkdir(parents=True, exist_ok=True)
-    handle, temporary = tempfile.mkstemp(dir=file.parent, prefix=f".{file.name}.", suffix=".tmp")
-    try:
-        with os.fdopen(handle, "w", encoding="utf-8") as out:
-            out.write("\n".join(lines) + "\n")
-        os.chmod(temporary, 0o644)
-        os.replace(temporary, file)
-    except BaseException:
-        Path(temporary).unlink(missing_ok=True)
-        raise
+    with machine_lock():
+        tables = kept_tables(name)
+        if values is not None:
+            tables[name] = values
+        if not tables:
+            file.unlink(missing_ok=True)
+            return
+        lines = ["# this machine's own settings, for every repository on it; nothing overrides them"]
+        for table in MACHINE_KEYS:
+            if table not in tables:
+                continue
+            lines += ["", f"[{table}]", f"# {MACHINE_FIX[table]}"]
+            for key, value in tables[table].items():
+                shown_value = ("true" if value else "false") if isinstance(value, bool) else (str(int(value)) if isinstance(value, float) and value.is_integer() else str(value))
+                lines.append(f"{key} = {shown_value}")
+        handle, temporary = tempfile.mkstemp(dir=file.parent, prefix=f".{file.name}.", suffix=".tmp")
+        try:
+            with os.fdopen(handle, "w", encoding="utf-8") as out:
+                out.write("\n".join(lines) + "\n")
+            os.chmod(temporary, 0o644)
+            os.replace(temporary, file)
+        except BaseException:
+            Path(temporary).unlink(missing_ok=True)
+            raise
 
 
 # The repositories whose boards `lem serve` shows: a JSON list of their main checkouts' absolute paths,

@@ -17,11 +17,8 @@ Every project that uses Lem has personas: its onboarding writes them. A project 
 a setup that is not finished, so this command exits 1 and names the step that writes them.
 Generic people do not stand in: a panel of them answers for nobody the project named.
 
-Two more folders hold a cast, and neither ever answers a panel. They are where `init` copies a
-first cast from, for a project that has none yet:
-
-  user      ~/.config/personas/cast/
-  built-in  the cast shipped beside this script
+One more folder holds a cast, and it never answers a panel: the built-in cast shipped beside this
+script, which `init` copies as a first cast for a project that has none yet.
 
 A checkout with no cast of its own may still belong to a project that has one: a worktree branched
 before the cast landed, or moved. A checkout whose cast is an unchanged older copy (the branch never
@@ -38,8 +35,8 @@ wrote or read for `state.keep_days` days.
 The profile, at the settings' profile path (.lem/profile.md unless they say otherwise), says
 what the project is: the product, its scale, its rules and
 the teams it compares itself with. Every persona, the practice scout and the moderator read it first.
-It has one layer, the project's: a profile is about one project, so no user or built-in profile
-stands in for it. A checkout without one reads the default branch's, as for the cast, written in
+It has one layer, the project's: a profile is about one project, so no other profile stands in
+for it. A checkout without one reads the default branch's, as for the cast, written in
 the state folder (personas-profile/<blob id>.md, one file per version of the profile); with
 neither, `profile` is null.
 
@@ -63,9 +60,9 @@ else is in it:
 A seat that the settings would refuse, a key that is not `seats` and a frontmatter that is never
 closed stop the command with the file and the line to write.
 
-`init` copies a starting cast, the user's or else the built-in one, into the project's personas
-folder so the project has its own people to rewrite. It refuses a checkout whose personas folder already holds any file, and one whose default branch
-already has a cast, which a rebase brings in instead.
+`init` copies the built-in cast into the project's personas folder so the project has its own
+people to rewrite. It refuses a checkout whose personas folder already holds any file, and one
+whose default branch already has a cast, which a rebase brings in instead.
 
 `run-dir` makes panels/<YYYY-MM-DD>-<SLUG>/ in Lem's state folder (`.lem/state/panels/` of the main
 checkout) and prints its path. Git never shows the state folder, so a panel's files never show in
@@ -426,11 +423,8 @@ def resolve(root: Path) -> dict[str, object]:
 
 
 def starting(root: Path) -> dict[str, object]:
-    """Where `init` copies a first cast from: the user's own, or the one shipped beside this script."""
-    found = pick(root, [
-        ("user", "~/.config/personas/cast", Path.home() / ".config" / "personas" / "cast"),
-        ("built-in", "panel", BUILT_IN),
-    ])
+    """Where `init` copies a first cast from: the cast shipped beside this script, and nothing else."""
+    found = pick(root, [("built-in", "panel", BUILT_IN)])
     if found is None:
         fail(f"no persona files to start from; the built-in cast at {BUILT_IN} is missing")
         raise AssertionError

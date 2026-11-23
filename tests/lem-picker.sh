@@ -130,7 +130,7 @@ no_lem=$(chord "$WORK/plain" '{}' 2>&1; echo "exit $?")
 no_task=$(chord "$EM" '{}' 2>&1; echo "exit $?")
 no_task_list=$(listed "$EM" 2>&1; echo "exit $?")
 no_ctl=$(env PATH="/usr/bin:/bin" AGT_SESSION_PWD="$PK" AGT_SESSION_ID=S-LEM AGT_SOCKET="$WORK/agterm.sock" "$PY" -B "$PICKER" 2>&1; echo "exit $?")
-if [ "$no_lem" = "lem picker: $WORK/plain is no repository of Lem: it has no .lem/project.toml; /lem init sets it up
+if [ "$no_lem" = "lem picker: $WORK/plain is no repository of Lem: it has no .lem/settings.toml; /lem init sets it up
 exit 1" ] && [ "$no_task" = "lem picker: no task yet in $EM: \`/lem\` and a request opens one
 exit 1" ] && [ "$no_task_list" = "$no_task" ] \
   && [ "$(tail -n 1 <<<"$no_ctl")" = "exit 1" ] && grep -qF "lem picker: agtermctl is not on the PATH of this command" <<<"$no_ctl" && [ ! -e "$CALLS" ]; then

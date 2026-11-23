@@ -1,0 +1,99 @@
+# What Lem reads in this repository: the team's settings, in git. `lem project show` prints them
+# resolved, with the file each seat came from. Your own settings for this repository alone go in
+# .lem/settings.local.toml, which git does not track and which wins here; yours for every
+# repository go in ~/.config/lem/settings.toml.
+
+[paths]
+# The folder of the plans, relative to the root of the checkout. Lem's own files are in .lem/, the
+# rules for the code in .claude/rules, the review tool's folder is .revmux and the backlog is
+# docs/backlog: each has that one place, and no line here.
+plans = "docs/plans"
+# The name of a plan's file in the plans folder: YYYY, MM and DD are the day the plan was
+# written, <slug> is the task's.
+plan_file = "YYYY-MM-DD-<slug>.md"
+# The rulings file: the list of your product decisions, one bullet for each, which outlive a task.
+# A bullet is `- **The rule in one sentence.** (YYYY-MM-DD)` under the `##` heading of its group.
+# Lem's own list has docs/rulings/history.md beside it, for what a test or one place holds.
+rulings = "docs/rulings/rulings.md"
+
+[branch]
+# The branch a task starts from and lands on.
+base = "main"
+# Who merges a task's pull request: "agent", the merge agent, which reads each one and merges a green
+# one that is not careful, or "owner", who merges each one after the merge agent's review.
+land = "agent"
+# What lands: "squash" lands one commit for the whole task, "keep" lands the branch's own commits.
+history = "squash"
+# Branches nothing lands on and nothing is pushed to through this skill, whoever asks.
+protected = []
+
+[checks]
+# During the build, each builder runs only the tests of its own change. Before the pull request,
+# Lem runs these commands one time, at the root of the task's worktree.
+# One command: every suite of the repository at the same time, the unit level among them
+# (tests/all.sh); its last line says whether all passed. The checks run each command of this list
+# whatever the one before gave, so a unit run before it would only run the unit level twice. Two
+# landings run it at the same time too: each suite works in its own throwaway folders, so two runs
+# share no state (a subagent's read and a trial of three runs at once, 2026-11-20). The machine's
+# load gate (`lem project load`), not a lock, keeps a run from starting on a loaded machine.
+commands = ["bash tests/all.sh"]
+# What a new worktree needs before its tests can run ("uv sync", "npm ci"). Lem runs these one
+# time in each worktree it makes for a task. None here: the tests need only Python and git.
+setup = []
+# The tests that two tasks cannot run at the same time. None here.
+serial = []
+
+[flow]
+# What must never go wrong in this project, each as one sentence in the owner's words. No code
+# matches these and no list of paths stands in for them: Lem reads the ask against each, the lead
+# its plan, and the agent that reviews the diff the change itself, and a change in reach of one
+# takes the careful flow: its plan is talked through with the reviewer before any code, the
+# landing gives it the project's full review set, and a person merges it. This table is read from
+# the main checkout, so a branch cannot lift what guards it.
+# The sentences from "The landing lets through" on are the maintaining session's, each for what
+# some files guard: land.py, criteria.py, decisions.py, project.py, the correction hook with
+# corrections.py and jev.py, the plugin's manifest, and the builder's agent file.
+topics = [
+  "A pull request says green when it should not: a check failed, a review found a must-fix, an acceptance criterion changed, or the bar went lower.",
+  "Lem changes a developer's repository without his word: a push, a merge, a removed worktree or branch, a protected branch touched.",
+  "A developer's typed messages leave the machine without his yes: the correction hook sends them to the Jev model's provider.",
+  "Lem writes over something of the developer's: a file in his home or his repository that was there, his settings, his own command or skill of the same name.",
+  "A task's record is lost or wrong: its state, its decisions and its approved criteria, which nothing rebuilds and the pull request reads.",
+  "A change bends a ruling of the owner: a ruling in docs/rulings/rulings.md is reopened only by asking him.",
+  "The landing lets through a change that should not land: one the checks or the review did not pass, one a person should merge, or one aimed at a protected branch.",
+  "A criterion's test is taken as its proof when it is not: it passes on the base commit too, or it holds another criterion than its own.",
+  "A decision that is the owner's is taken without him, or one taken for him is missing from the pull request he reads.",
+  "Lem reads a project's settings wrong: what must never go wrong, the checks or who lands taken from a file the branch changed, or a default nobody chose taken for the owner's word.",
+  "The correction hook breaks the developer's session: it fails, hangs or slows every message he types.",
+  "Lem as a plugin does not load in a developer's Claude Code, or brings a hook or a command he did not install.",
+  "A builder or a lead works outside its brief: it edits the main checkout, another task's worktree or a branch it does not own, or it pushes.",
+]
+
+[seats]
+# Who sits where, each as "agent/model:effort". The reviewer, the planner and each expert are
+# written whole: Lem refuses "codex" or "codex/gpt-6.2-sol" there. A part left out of the merger
+# or the session ("claude", "claude:high") takes that agent's own default.
+# The reviewer, on the agent "claude" or "codex". Lem's builders build; this one talks the plan of
+# a careful or large task through with its defender, in the other pane of the pair the task's lead
+# opens for the talk. The same family twice is allowed.
+reviewer = "codex/gpt-6.2-sol:high"
+# The defender of a careful or large plan in its talk with the reviewer, in the pair the task's
+# lead opens under the task's session for the talk and closes after it. Only the agent "claude" for
+# now.
+planner = "claude/opus:high"
+# The experts, the last level of the ladder of a decision in doubt, at the same moment and read-only: two
+# model families, so that their agreement is worth more than two of one. Where the machine has one
+# of their agents, that expert answers alone.
+experts = ["claude/fable:high", "codex/gpt-6.2-astra:high"]
+
+# The tracker a task's ask may come from. Leave it out when the project has none. Lem reads a
+# ticket into a task, moves it when its work starts and lands, and comments the landing. The
+# team is in the ticket's id (ABC-12), and each status is the team's own of its type.
+# [tracker]
+# kind = "linear"
+
+[naps]
+# Now and then, when a task has ended or Lem waits for the owner, Lem takes a nap: a fresh agent
+# reads the recent tasks, dreams, and writes the dream down in .lem/state/naps/, which the retro
+# reads. On here, on the owner's word (2026-11-19).
+on = true

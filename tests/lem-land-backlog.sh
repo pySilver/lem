@@ -8,7 +8,7 @@
 backlog_repo() {
   local repo=$WORK/$1
   git init -q -b main "$repo" && ident "$repo" && project --repo "$repo" init --base main >/dev/null
-  printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[checks]' 'commands = ["true"]' > "$repo/.lem/project.toml"
+  printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[checks]' 'commands = ["true"]' > "$repo/.lem/settings.toml"
   mkdir -p "$repo/docs/backlog" && echo '# an item from before' > "$repo/docs/backlog/existing.md" && echo one > "$repo/app.txt"
   git -C "$repo" add -A && git -C "$repo" commit -q -m "chore: start" && on_github "$repo"
 }

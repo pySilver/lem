@@ -15,7 +15,7 @@ drafts wait for you` when the hand-over page is shown, and at the end `landed` o
 the three replies below say. The first onboarding in Lem's own repository wrote none, and
 every later status listed a task whose state nobody wrote (2026-11-17).
 
-On a repository that already has `.lem/project.toml`, `/lem init` finishes an onboarding: it
+On a repository that already has `.lem/settings.toml`, `/lem init` finishes an onboarding: it
 changes no setting that is there. Run step 1, skip the command of step 4 (it refuses a settings
 file that exists, and that is right), and do steps 2, 3 and 5 only for what is missing or
 unfinished: a path `lem project show` marks as not existing, and a cast of fewer than two
@@ -36,7 +36,8 @@ lem doctor
 A required tool that is absent stops the onboarding: say which, what it is used for and how it is
 installed, and end. Every other row is no question now: an optional tool that is absent is one
 line of the hand-over page (the row's `without_it`), and a recommended tool that is absent, a cronn
-that does not run, the task picker and the correction queue are offers in the short list at the end of that page (step 6). A
+that does not run and the task picker are offers in the short list at the end of that page, and the correction queue is one
+question of step 6, on the first onboarding of a machine only. A
 `correction hook` row (a settings file that also names the hook) is one line of that page too, with each file and the entry its guide says to delete
 by hand.
 
@@ -132,7 +133,7 @@ for a yes. Stop after the third.
 lem project init --base BRANCH --codex yes
 ```
 
-Then edit `.lem/project.toml` with the three answers and the assumptions of step 6:
+Then edit `.lem/settings.toml` with the three answers and the assumptions of step 6:
 
 - the commands of the checks from `examined.md`. `checks.commands` is the whole suite, which runs one time,
   in the checks before the pull request; no builder runs it. When git hooks run at a commit,
@@ -167,7 +168,7 @@ Then edit `.lem/project.toml` with the three answers and the assumptions of step
   what Lem writes to an issue a task came from (an assignee at the start, one comment at the end,
   the close at a landing), which the repository shows to everyone who can read it. For a
   repository on GitHub whose issues are on and hold no issue, the page says so in one line, and
-  that `[tracker]` with `kind = "github"` in `.lem/project.toml` connects them later;
+  that `[tracker]` with `kind = "github"` in `.lem/settings.toml` connects them later;
 - the seats, each whole, as `agent/model:effort`: the command writes them, with `--codex no` when
   step 1 found no Codex. The reviewer is Codex when step 1 found it, since two model families
   disagree more usefully than one family twice and a reviewer on another provider's quota does not
@@ -241,7 +242,7 @@ persona file that is there is overwritten.
 - **The checks of a new project** do not exist yet. Leave `checks.commands` empty and name "set up
   the checks" (formatter, linter, type checker, a first test) as the task to run first: no task
   lands through this skill before it. That task's branch writes the commands into
-  `checks.commands` of its own `.lem/project.toml`, and the landing checks it with them
+  `checks.commands` of its own `.lem/settings.toml`, and the landing checks it with them
   (`stages/land.md`, step 1); its pull request is not green, so that the owner reads the checks. The onboarding's own branch is not a task: it holds
   settings and drafts, and step 6 lands it.
 - **The review configuration**: the review tool's own starter set, in the review tool's own
@@ -261,6 +262,23 @@ It is not landed yet: the owner's read of the drafts is the review.
 `lem@lem`. With it in git, everyone who clones the repository gets Lem. A file that holds anything
 else, or that git tracks already, is the developer's: leave it out of the commit, and name it on the
 page with the keys it holds beside the plugin's. He commits it himself, and nothing waits for it.
+
+**The correction queue, one time for this machine.** Its switch is the machine's, for every
+repository on it, so only the first onboarding on a machine asks about it. When `lem project show`
+gives `corrections.from` as "Lem's default", ask the owner before the page (`ask-owner`), yes
+recommended, in these words or closer ones: with the queue on, each message he types, in every
+repository on this machine that uses Lem, other than a command that starts with `/`, goes with the
+agent's message before it to the provider of the Jev model, OpenRouter or the one `JEV_API_URL`
+names, under the key of whoever typed it, and the ones that may hold a lesson are kept for the
+retro in a file of that repository that is never committed; without it, a correction is learned in
+the session it was given in and nowhere else. The line `collect = false` under `[corrections]` in
+`~/.config/lem/machine.toml` turns it off, and `lem corrections collect no` writes that line. The
+check's "Jev key" row says whether this session has a key (`JEV_API_KEY`); without one the queue
+stays empty and its log fills, so say that too. Run `lem corrections collect yes` or `lem
+corrections collect no` with his answer, whichever it is, so that no later onboarding asks again.
+When `corrections.from` names the file, ask nothing about the queue and write nothing: one line of
+the page says what the machine's switch says, its file, and the command that changes it. The hook
+comes with the plugin, so nothing is registered and he has nothing to run.
 
 `show-page` one page to the owner, a companion beside the session, built from the pattern `SKILL_DIR/assets/handover.html`: copy
 that file, `SKILL_DIR/assets/lem.css` and `SKILL_DIR/assets/lem.js` into the onboarding's directory, put the facts in the
@@ -310,18 +328,6 @@ as corrections: edit, commit on the same branch, say for each file what changed.
 
 **The offers**, last, as one short list, never a question each; he takes one by its name:
 
-- **the correction queue**, recommended: with it, the project keeps a queue of the owner's
-  corrections for the retro; without it, a correction is learned in the session it was given in
-  and nowhere else. What he agrees to, in these words or closer ones: each message he types in
-  this repository, other than a command that starts with `/`, goes with the agent message it
-  answers to the Jev decision model, at OpenRouter or the provider `JEV_API_URL` names, under the key of whoever typed it, and
-  the ones that may hold a lesson are kept in a file that is never committed. The yes is a line
-  in the tracked settings, so it holds for everybody who works in this repository with the hook,
-  and one person can say no for themselves (the harness file says how). The check's
-  "Jev key" row says whether this session has a key (`JEV_API_KEY`); without one the queue stays empty
-  and its log fills, so say that too. On his yes, set `corrections.collect = true` in the
-  settings draft on the onboarding's branch, which his "land" then approves with the rest. The
-  hook comes with the plugin, so nothing is registered and he has nothing to run;
 - **each recommended tool that is absent**: what it gives and its guide (the row's `guide`). Lem
   brings none of them, and installs one only on his yes; a guide copies a skill into the owner's
   own skills folder, so where your agent refuses you the step, give him the guide's commands;

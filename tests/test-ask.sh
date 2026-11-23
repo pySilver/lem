@@ -15,29 +15,30 @@ trap 'stopped; rm -rf "$WORK"' EXIT
 # Every call below passes -B: importing bin/lem-ask must not leave a __pycache__ in the plugin (and -I
 # ignores PYTHONDONTWRITEBYTECODE).
 PY=$(python3 -I -c 'import sys; print(sys.executable)')
-# The mermaid bundle is fetched once and kept outside the run, in lem-ask's own cache of the real
-# HOME (~/.cache/lem-ask): each run copies it into its private HOME, and a run that downloaded it
-# puts it there. lem-ask checks the bundle's sha256 at every read, so a copy is as good as a download.
-MERMAID_CACHE=$HOME/.cache/lem-ask
+# The mermaid bundle is fetched once and kept outside the run, in Lem's own cache of the real
+# HOME (~/.cache/lem, or $XDG_CACHE_HOME/lem): each run copies it into its private HOME, and a run
+# that downloaded it puts it there. lem-ask checks the bundle's sha256 at every read, so a copy is as
+# good as a download.
+MERMAID_CACHE=${XDG_CACHE_HOME:-$HOME/.cache}/lem
 # A private HOME keeps any personal defaults out of the run; agterm is unset so nothing can reach a
 # real session. The temporary folder is the run's too, also Chrome's, which on macOS reads
 # MAC_CHROMIUM_TMPDIR and not TMPDIR (measured on 2026-11-17): each run of Chrome left a
 # com.google.Chrome.* folder in the user's temporary folder.
 export HOME="$WORK/home" TMPDIR="$WORK/tmp" MAC_CHROMIUM_TMPDIR="$WORK/tmp"
-unset AGTERM_ENABLED AGTERM_SESSION_ID AGTERM_SOCKET CLAUDE_CODE_SESSION_ATTENDED
-mkdir -p "$HOME/.cache/lem-ask" "$TMPDIR"
+unset AGTERM_ENABLED AGTERM_SESSION_ID AGTERM_SOCKET CLAUDE_CODE_SESSION_ATTENDED XDG_CACHE_HOME
+mkdir -p "$HOME/.cache/lem" "$TMPDIR"
 for f in "$MERMAID_CACHE"/mermaid-*.min.js; do
-  if [ -f "$f" ]; then cp "$f" "$HOME/.cache/lem-ask/"; fi
+  if [ -f "$f" ]; then cp "$f" "$HOME/.cache/lem/"; fi
 done
 
 skipped=0
-# The checks of this file: each call of pass in it, but five of them run once for each item, so
+# The checks of this file: each call of pass in it, but six of them run once for each item, so
 # they count each item: every template and demo rendered, every call of expect (and of bad and
-# stub, which call it) and of check below; and before the pages are loaded, each page and each
-# markdown case. A call whose name is a variable is a helper's own, inside its definition.
-helpers=$(grep -cE '^[[:space:]]*(bad|expect|check|stub) "[^$]' "$SUITE_FILE")
+# stub, which call it), of refuses and of check below; and before the pages are loaded, each page
+# and each markdown case. A call whose name is a variable is a helper's own, inside its definition.
+helpers=$(grep -cE '^[[:space:]]*(bad|expect|refuses|check|stub) "[^$]' "$SUITE_FILE")
 specs=("$SKILL"/templates/*.json "$SKILL"/demos/*.json)
-collected "$(($(count_checks "$SUITE_FILE") - 5 + helpers + ${#specs[@]}))"
+collected "$(($(count_checks "$SUITE_FILE") - 6 + helpers + ${#specs[@]}))"
 
 # expect NAME CODE STATUS -- CMD...: CMD exits CODE and prints JSON whose status is STATUS.
 expect() {
@@ -62,7 +63,7 @@ for f in "${specs[@]}"; do
   n=$(basename "$f" .json)
   if "$PY" -I -B "$B" render "$f" -o "$WORK/$n.html" >/dev/null 2>"$WORK/$n.err"; then pass "render $n"; else fail "render $n: $(cat "$WORK/$n.err")"; fi
 done
-for f in "$HOME"/.cache/lem-ask/mermaid-*.min.js; do
+for f in "$HOME"/.cache/lem/mermaid-*.min.js; do
   if [ -f "$f" ] && [ ! -f "$MERMAID_CACHE/${f##*/}" ]; then mkdir -p "$MERMAID_CACHE" && cp "$f" "$MERMAID_CACHE/"; fi
 done
 
@@ -119,12 +120,54 @@ bad "a control type the page does not know" '{"prompt": "p", "controls": [{"id":
 bad "a spec that is not UTF-8" $'{"prompt": "caf\xe9?", "options": ["Yes", "No"]}'
 printf '{"prompt": "p", "options": ["Yes", "No"]}' > "$WORK/plain.json"
 expect "rejects an output in a folder that is not there" 1 error -- "$PY" -I -B "$B" render "$WORK/plain.json" -o "$WORK/no/such/folder/x.html"
-printf '[1]' > "$WORK/defaults-list.json"
-expect "rejects a defaults file that is not an object" 1 error -- env LEM_ASK_CONFIG="$WORK/defaults-list.json" "$PY" -I -B "$B" render "$WORK/plain.json" -o "$WORK/plain.html"
-printf '{"status": {"asking": "blocked"}}' > "$WORK/defaults-status.json"
-expect "rejects a defaults file whose status glyph is not a list" 1 error -- env LEM_ASK_CONFIG="$WORK/defaults-status.json" "$PY" -I -B "$B" render "$WORK/plain.json" -o "$WORK/plain.html"
-printf '{"size": "big"}' > "$WORK/defaults-size.json"
-expect "rejects a defaults file whose size is no percent" 1 error -- env LEM_ASK_CONFIG="$WORK/defaults-size.json" "$PY" -I -B "$B" render "$WORK/plain.json" -o "$WORK/plain.html"
+
+# The personal defaults are the table [ask] of Lem's home settings file, $XDG_CONFIG_HOME/lem/settings.toml.
+# style_of FOLDER: the style of the page rendered with FOLDER as XDG_CONFIG_HOME
+style_of() {
+  XDG_CONFIG_HOME="$1" "$PY" -I -B "$B" render "$WORK/plain.json" -o "$WORK/styled.html" >/dev/null 2>&1 || true
+  "$PY" -I -B -c 'import json,re,sys; print(json.loads(re.search(r"id=\"hd-spec\">(.*?)</script>", open(sys.argv[1]).read()).group(1))["style"])' "$WORK/styled.html" 2>/dev/null || true
+}
+mkdir -p "$WORK/styled/lem" "$HOME/.config/lem-ask"
+printf '[ask]\nstyle = "minimal"\n' > "$WORK/styled/lem/settings.toml"
+got=$(style_of "$WORK/styled")
+if [ "$got" = minimal ]; then pass "a style under [ask] of the home settings file is the style of the next page, in place of refined"
+else fail "a style under [ask] of the home settings file is the style of the next page: the page's style is ${got:-none}"; fi
+# the file of an older lem-ask, which nothing reads any more
+printf '{"style": "bold"}' > "$HOME/.config/lem-ask/defaults.json"
+got=$(style_of "$WORK/config")
+if [ "$got" = refined ]; then pass "with no [ask], the page is refined, and ~/.config/lem-ask/defaults.json is not read"
+else fail "with no [ask], the page is refined, and ~/.config/lem-ask/defaults.json is not read: the page's style is ${got:-none}"; fi
+mkdir -p "$WORK/taken/lem"
+printf '[ask]\nreview = true\nsize = 90\nbrowser = false\n\n[ask.status]\nasking = ["blocked", "--sound", "default"]\nanswered = ["active"]\n' > "$WORK/taken/lem/settings.toml"
+if XDG_CONFIG_HOME="$WORK/taken" "$PY" -I -B "$B" render "$WORK/plain.json" -o "$WORK/taken.html" >/dev/null 2>&1 && grep -q '"review": true' "$WORK/taken.html"; then
+  pass "an [ask] of every key, with review = true, is taken"
+else fail "an [ask] of every key, with review = true, is taken"; fi
+# refuses NAME TOML WANT...: lem-ask refuses a home settings file of TOML as an error that names the file and holds each WANT
+refuses() {
+  local name=$1 out got
+  mkdir -p "$WORK/refused/lem"
+  printf '%s\n' "$2" > "$WORK/refused/lem/settings.toml"
+  shift 2
+  set +e
+  out=$(XDG_CONFIG_HOME="$WORK/refused" "$PY" -I -B "$B" render "$WORK/plain.json" -o "$WORK/plain.html" 2>/dev/null)
+  got=$?
+  set -e
+  if [ "$got" != 1 ]; then fail "$name: exit $got, want 1: $out"; return; fi
+  if ! printf '%s' "$out" | "$PY" -I -B -c 'import json,sys; r=json.load(sys.stdin); sys.exit(r.get("status") != "error" or not all(w in r.get("error", "") for w in sys.argv[1:]))' \
+      "$WORK/refused/lem/settings.toml" "$@"; then
+    fail "$name: the error does not name the file and say $*: $out"; return
+  fi
+  pass "$name"
+}
+refuses "refuses a browser under [ask] that is a date, named as TOML writes it" $'[ask]\nbrowser = 2026-11-23' "\`browser\` is true or false, not 2026-11-23"
+refuses "refuses a style under [ask] the page does not know" $'[ask]\nstyle = "minmal"' "\`style\` is \"refined\" or \"minimal\" or \"bold\" or \"terminal\", not \"minmal\""
+refuses "refuses a review under [ask] the page does not know" $'[ask]\nreview = "sometimes"' "\`review\`" 'not "sometimes"'
+refuses "refuses a size under [ask] that is no percent" $'[ask]\nsize = "big"' "\`size\`" 'not "big"'
+refuses "refuses a status glyph under [ask] that is not a list" $'[ask.status]\nasking = "blocked"' "\`status.asking\`" 'not "blocked"'
+refuses "refuses a misspelled key under [ask]" $'[ask]\nstlye = "bold"' "did you mean \`style\`?"
+refuses "refuses an ask that is not a table" 'ask = 5' 'not 5'
+refuses "refuses a home settings file that does not read as TOML" '[ask' 'does not read as TOML'
+expect "refuses a relative XDG_CONFIG_HOME" 1 error -- env XDG_CONFIG_HOME=config "$PY" -I -B "$B" render "$WORK/plain.json" -o "$WORK/plain.html"
 
 # A counting label is fine once the option carries its text, and a key starting with "_" is the author's own.
 printf '{"prompt": "Approve?", "_data": 1, "options": [{"label": "Criterion 1", "detail": "The operator approves by hand."}, "Yes"]}' > "$WORK/carried.json"
@@ -181,12 +224,14 @@ sys.exit(0 if fence and not none else 1)
 PY
 )
 set +e
-why=$("$PY" -I -B -c "$BUNDLED" "$HOME/.cache/lem-ask" "$WORK/md-mermaid.html" "$WORK/md-tilde.html")
+why=$("$PY" -I -B -c "$BUNDLED" "$HOME/.cache/lem" "$WORK/md-mermaid.html" "$WORK/md-tilde.html")
 got=$?
 set -e
 if [ "$got" = 0 ]; then pass "a mermaid fence in an md block puts the mermaid bundle on the page, and a page with no mermaid gets none"
 elif [ "$got" = 2 ]; then skip "the mermaid bundle of a fence: the mermaid bundle could not be downloaded"
 else fail "the mermaid bundle of a fence: $why"; fi
+if [ ! -e "$HOME/.cache/lem-ask" ]; then pass "every page so far wrote nothing under ~/.cache/lem-ask/"
+else fail "every page so far wrote nothing under ~/.cache/lem-ask/: $(ls -A "$HOME/.cache/lem-ask")"; fi
 
 # A table wider than the window, in a table block, in a key-value block and in markdown, and a grid
 # of options whose preview holds a long path with no space in it (checked in the browser below).

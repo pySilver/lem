@@ -143,7 +143,7 @@ request's line of the talk and the board say that the talk went over. A record t
 refused would leave the pair open and the request unproposed for ever. The landing refuses a request whose plan says `careful: yes` or has more than three
 tasks with no such event, and the pull request's checks show the newest one. A task that becomes
 careful after its plan, by the owner's word, by the review's call or by an edit of
-`.lem/project.toml`, gets no talk afterwards: the landing's full review reads the code that
+`.lem/settings.toml`, gets no talk afterwards: the landing's full review reads the code that
 exists. A one-shot read of a careful
 plan, before this talk replaced it, took nine minutes and found three design failures before any
 code (convertiser-server, 2026-11-14). In another repository a plan round before any code found

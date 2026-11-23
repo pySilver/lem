@@ -282,15 +282,17 @@ shows the rest. ⌘W dismisses. Nothing here needs explaining to the user.
 
 ## Look, size and review
 
-Defaults come from `defaults.json` beside this file, overlaid by the user's own
-`~/.config/lem-ask/defaults.json` (or `$LEM_ASK_CONFIG`) — the user's file is where their preferences live,
-so don't override them unless a question needs it. Per call, a flag or the same key in the spec wins:
+Defaults come from `defaults.json` beside this file, overlaid by the table `[ask]` of the user's own
+`~/.config/lem/settings.toml` (`$XDG_CONFIG_HOME/lem/settings.toml` when that variable is set) — the
+user's file is where their preferences live, so don't override them unless a question needs it. A value
+of the wrong type there (`style = "minmal"`, `browser = 2026-11-23`) is an error that names the file, the
+key and the value. Per call, a flag or the same key in the spec wins:
 
 - `style`: `refined` (soft cards) · `minimal` (hairline rows) · `bold` (big type, filled choice) ·
   `terminal` (monospace). `--style NAME`.
 - `size`: percent of the session pane as a floating panel, `"auto"` (66–90% by content) or `"full"`.
   `--size N`, `--full`.
-- `status`: `{"asking": [...], "answered": [...]}` — the `agtermctl session status` arguments set while
+- `status`: a table of `asking = [...]` and `answered = [...]` — the `agtermctl session status` arguments set while
   the question is open and after it is answered (default `blocked` / `active`; add `--color`, `--shape`,
   or `--sound default` to hear a question arrive while you are in another session).
 - `review`: the answer list shown before sending — each choice, a thumbnail of a visual one, slider
@@ -308,12 +310,13 @@ so don't override them unless a question needs it. Per call, a flag or the same 
   install registered it) re-posts the asking glyph when a turn ends with a question page still open, set to
   clear when the user visits. `--no-status` leaves the glyph alone.
 - `--chromeless` hides the overlay's title strip.
-- Outside agterm it opens nothing (exit 3, `no-agterm`). With `--browser`, or `"browser": true` in the
-  user's defaults, it serves the page on `127.0.0.1` and opens the default browser instead, inside agterm
-  too; the answer comes back the same way, and closing the tab counts as dismissed. That path lives only as
+- Outside agterm it opens nothing (exit 3, `no-agterm`). With `--browser` it serves the page on `127.0.0.1`
+  and opens the default browser instead, inside agterm too; `browser = true` under `[ask]` in the user's
+  defaults does the same outside agterm only. The answer comes back the same way, and closing the tab counts
+  as dismissed. That path lives only as
   long as the command: no `--no-wait`, and a timed-out browser question cannot be resumed.
 - `AGTERMCTL` points at `agtermctl` when it is not on `PATH`.
-- Mermaid is downloaded once to `~/.cache/lem-ask/` on first use and checked against a pinned sha256 on
+- Mermaid is downloaded once to `~/.cache/lem/` (`$XDG_CACHE_HOME/lem`) on first use and checked against a pinned sha256 on
   every use; offline, or on a mismatch, diagrams show as source and stderr says why.
 - Generated pages land in `$TMPDIR/lem-ask/` and are pruned after a day. `lem-ask render spec.json -o out.html`
   builds one without opening it (for checking a spec).

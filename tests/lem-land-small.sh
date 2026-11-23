@@ -10,7 +10,7 @@
 SMALL=$WORK/small
 git init -q -b main "$SMALL" && ident "$SMALL"
 project --repo "$SMALL" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[checks]' 'commands = ["true"]' '[flow]' 'topics = ["a customer is charged the wrong price"]' > "$SMALL/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[checks]' 'commands = ["true"]' '[flow]' 'topics = ["a customer is charged the wrong price"]' > "$SMALL/.lem/settings.toml"
 git -C "$SMALL" add -A && git -C "$SMALL" commit -q -m "chore: start" && on_github "$SMALL"
 s() { land --repo "$SMALL" "$@"; }
 criteria() { "$PY" -B "$CRITERIA" --repo "$SMALL" "$@"; }
@@ -169,7 +169,7 @@ project --repo "$SMALL" state date-feature dropped "the test is over" >/dev/null
 
 # A small change whose diff reaches what guards the project is careful: the full set, not green, and a person merges it.
 tree=$(small_in gate-edit small)
-printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[checks]' 'commands = ["true", "true"]' '[flow]' 'topics = ["a customer is charged the wrong price"]' > "$tree/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[checks]' 'commands = ["true", "true"]' '[flow]' 'topics = ["a customer is charged the wrong price"]' > "$tree/.lem/settings.toml"
 built gate-edit "$tree"
 s start gate-edit >/dev/null && s base gate-edit >/dev/null && { s checks gate-edit > "$WORK/gate-edit.out" 2>&1 || true; }
 floor=$(s read gate-edit 2>&1 | field '(d["floor"], len(d["careful"]))' 2>&1 || true)

@@ -16,19 +16,19 @@ nap() { project --repo "$NP" may-nap; }
 ago() { "$PY" -c 'import sys, datetime as d; print((d.datetime.now(d.timezone.utc) - d.timedelta(hours=float(sys.argv[1]))).strftime("%Y-%m-%d-%H%M"))' "$1"; }
 # woke NAME: a nap's folder as its agent leaves it, with the dream, one made thing and the waking note
 woke() { mkdir -p "$NAPS/$1" && printf '# A dream\n\nA field.\n' > "$NAPS/$1/dream.md" && printf 'x\n' > "$NAPS/$1/thing.txt" && printf '# Waking\n\nNothing.\n' > "$NAPS/$1/waking.md"; }
-naps_on() { "$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^on = false$", "on = true", s, count=1))' "$NP/.lem/project.toml"; }
+naps_on() { "$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^on = false$", "on = true", s, count=1))' "$NP/.lem/settings.toml"; }
 
 # The settings: one switch, off; the 6 hours are fixed, a guess the file says so of, and a nap's folder is kept for
 # state.keep_days; a wrong value or a key it does not know is refused by its key.
 shown=$(project --repo "$NP" show | field 'd["naps"]')
-template=$(sed -n '/^\[naps\]$/,$p' "$NP/.lem/project.toml")
+template=$(sed -n '/^\[naps\]$/,$p' "$NP/.lem/settings.toml")
 bad() {
   local repo=$WORK/naps-bad-$1
   git init -q -b main "$repo"
-  printf '%s\n' '[naps]' "$2" > "$repo/.lem-settings" && mkdir -p "$repo/.lem" && mv "$repo/.lem-settings" "$repo/.lem/project.toml"
+  printf '%s\n' '[naps]' "$2" > "$repo/.lem-settings" && mkdir -p "$repo/.lem" && mv "$repo/.lem-settings" "$repo/.lem/settings.toml"
   { project --repo "$repo" show >/dev/null; } 2>&1 || true
 }
-if [ "$shown" = "{'on': False}" ] \
+if [ "$shown" = "{'on': False, 'from': '.lem/settings.toml'}" ] \
   && grep -qx 'on = false' <<<"$template" \
   && grep -qF '6 hours pass between two naps: a guess' <<<"$template" && grep -qF "A nap's folder is kept for state.keep_days." <<<"$template" && grep -q 'nobody has shown that it helps' <<<"$template" \
   && grep -qF "naps.on = 'yes' must be true or false" <<<"$(bad word 'on = "yes"')" \
@@ -41,7 +41,7 @@ fi
 # The naps' table is the main checkout's, as [flow] is: a task's branch that switches them on changes
 # nothing that its worktree reads, since a nap spends the tokens of whoever works on the machine.
 git -C "$NP" worktree add -q "$WORK/nap-tree" -b feat/naps-on main
-"$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^on = false$", "on = true", s, count=1))' "$WORK/nap-tree/.lem/project.toml"
+"$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^on = false$", "on = true", s, count=1))' "$WORK/nap-tree/.lem/settings.toml"
 git -C "$WORK/nap-tree" -c user.name=t -c user.email=t@t commit -q -am "chore: the naps on"
 from_branch=$(project --repo "$WORK/nap-tree" show | field '(d["naps"]["on"], d["settings_from"].startswith("this worktree'"'"'s branch, with [flow], [naps] and [state] from the main checkout"))')
 git -C "$NP" worktree remove --force "$WORK/nap-tree" && git -C "$NP" branch -q -D feat/naps-on
@@ -123,14 +123,14 @@ rm -f "$NAPS/2026-01-02-0000-a-link"
 
 # One person says no to the naps on their machine, since a nap spends their tokens: Lem's call is refused
 # with that reason; the machine's file can never switch them on.
-printf '%s\n' '[naps]' 'on = false' > "$NP/.lem/project.local.toml"
+printf '%s\n' '[naps]' 'on = false' > "$NP/.lem/settings.local.toml"
 off_here=$(project --repo "$NP" show 2>&1 | field '(d["naps"]["on"], d["local"]["overrides"])' 2>&1 || true)
 own_call=$(nap 2>&1 | field '(d["may"], d["why"])' 2>&1 || true)
 rm -f "$NAPS/.asleep"
-printf '%s\n' '[naps]' 'on = true' > "$NP/.lem/project.local.toml"
+printf '%s\n' '[naps]' 'on = true' > "$NP/.lem/settings.local.toml"
 on_here=$(status_of project --repo "$NP" may-nap)
-rm "$NP/.lem/project.local.toml"
-if grep -qx 'on = true' "$NP/.lem/project.toml" && [ "$off_here" = "(False, ['naps.on'])" ] && [ "$own_call" = "(False, 'the naps are off on this machine (naps.on = false in .lem/project.local.toml)')" ] \
+rm "$NP/.lem/settings.local.toml"
+if grep -qx 'on = true' "$NP/.lem/settings.toml" && [ "$off_here" = "(False, ['naps.on'])" ] && [ "$own_call" = "(False, 'the naps are off on this machine (naps.on = false in .lem/settings.local.toml)')" ] \
   && [ "$on_here" = 1 ]; then
   pass "the machine's own file says no to the naps for its person: Lem's call is refused with that reason, and a yes there is refused"
 else
@@ -138,7 +138,7 @@ else
 fi
 
 # the settings file is the one this block edited by hand
-if git -C "$NP" status --porcelain --untracked-files=all -- . ':!.lem/project.toml' | grep -q .; then
+if git -C "$NP" status --porcelain --untracked-files=all -- . ':!.lem/settings.toml' | grep -q .; then
   fail "a nap changes nothing git sees: $(git -C "$NP" status --porcelain --untracked-files=all)"
 else
   pass "a nap and its record change nothing git sees in the repository"

@@ -2,8 +2,10 @@
 """Say where one repository keeps what Lem reads, and what its flow settings are.
 
 Every project keeps its own settings in its repository: the machine checks of a landing, what must
-never go wrong there, who lands, the seats, the tracker. `.lem/project.toml` at the root of the
-checkout names them. What Lem reads beside them has one place each and no setting (`PLACES`): Lem's
+never go wrong there, who lands, the seats, the tracker. `.lem/settings.toml` at the root of the
+checkout names them, the team's file, in git; `.lem/settings.local.toml` beside it is the developer's
+own for that one repository, and `settings.toml` of Lem's home folder (`lem_state.home_settings_file()`)
+his own for every repository on the machine. The nearest file that holds a setting wins. What Lem reads beside them has one place each and no setting (`PLACES`): Lem's
 own files under `.lem/` (the profile, the personas, the lessons, the worktrees), the rules for the
 code in the harness's folder (`.claude/rules`), the review tool's folder (`.revmux`) and the
 backlog (`docs/backlog`). A project that keeps one of them in another place moves it there. The
@@ -14,7 +16,7 @@ team that adopts Lem may have its own.
     lem project path NAME           one path, absolute: plans, rulings (the file), or a place of PLACES
     lem project may-land BRANCH     exit 1 unless tasks of this project may land on BRANCH
     lem project init [--base NAME] [--codex yes|no]
-                                    write .lem/project.toml, with a whole seat for each of the
+                                    write .lem/settings.toml, with a whole seat for each of the
                                     three: the reviewer on Codex and two experts, or with
                                     `--codex no` (the machine check found no Codex) the
                                     reviewer on Claude and one expert
@@ -199,19 +201,34 @@ A state line that starts with `type:` names the type of the request with its rea
 fix, because the total is wrong today`, one of feat, fix, docs, refactor, perf, test, chore and
 question; `state` refuses any other, and `tasks` gives the newest as `type`.
 
-`.lem/project.local.toml` is one person's or one day's choice on one machine: who sits in the
-reviewer's pane (the usual reviewer is down, or out of tokens) and on which model the defender of
-a plan talk runs, a no to the correction queue for that one person, a no
-to the naps, which spend that person's tokens, and how many days the state folder keeps old files on
-this machine's disk. It
-is not committed (`init` writes `.lem/.gitignore` for it), and it is read from the main checkout,
-because a task's worktree has no copy of a file git does not track. It may hold `[seats]`,
-`[corrections]` with `collect = false`, `[naps]` with `on = false` and `[state]` with `keep_days`, and nothing else: the checks, what must
-never go wrong, the protected branches and who lands are the project's rules, and a file nobody reviews
-must not open them. For the same reason it can switch the correction queue and the naps off
-for its person and never on: nobody's messages are sent, and nobody's tokens spent, because of a
-file that git does not show. `show` names each setting that
-came from it.
+Lem's settings are four files, and each table is valid in some of them only (`lem_state.TABLE_PLACES`,
+the one map): a table in another file is refused, and the refusal names the file where it is valid.
+`machine.toml` of the home folder holds what is true for the whole machine, `[load]`, `[serve]`,
+`[peers]`, `[handoff]` and `[corrections]`, and nothing overrides it (`lem_state`). The three
+`settings.toml` files hold the rest, and for a setting that more than one of them may hold, the
+nearest that holds it wins: `.lem/settings.local.toml`, then `.lem/settings.toml`, then the home
+folder's `settings.toml`, then Lem's default. `show` names in `from` the file each such value came
+from: each seat, each expert, `naps.on` and `state.keep_days`. It gives `corrections.collect`, the
+machine's yes or no to the correction queue, with `from` too: `machine.toml`, which `lem corrections
+collect yes|no` writes, or Lem's default, which is no, and which `/lem init` asks about.
+
+The home folder's `settings.toml` is the developer's own for every repository on the machine: the
+merge agent's and a task session's seats (`[seats]` with `merger` and `session` only, `HOME_KEYS`),
+and the question page's defaults (`[ask]`, which only that page reads; here only its keys are
+checked). What guards a team's repository (`[flow]`, `[checks]`, `[branch]`, `[paths]`,
+`[tracker]`) is valid in the team's file only. `keep_days` is a repository's (the owner,
+2026-11-21), and so is the naps' switch: this file refuses `[state]` and `[naps]` too.
+
+`.lem/settings.local.toml` is one person's or one day's choice on one machine for one repository:
+who sits in the reviewer's pane (the usual reviewer is down, or out of tokens) and on which model
+the defender of a plan talk runs, a no to the naps, which spend that person's tokens, and how many
+days the state folder keeps old files on this machine's disk. It is not committed (`init` writes
+`.lem/.gitignore` for it), and it is read from the main checkout, because a task's worktree has no
+copy of a file git does not track. It may hold `[seats]`, `[naps]` with `on = false` and `[state]`
+with `keep_days`, and nothing else: the checks, what must never go wrong, the protected branches
+and who lands are the project's rules, and a file nobody reviews must not open them. For the same
+reason it can switch the naps off for its person and never on: nobody's tokens are spent because of
+a file that git does not show. `show` names each setting that came from it in `local.overrides`.
 
 The rules for the code are the markdown files of `.claude/rules`, the folder Claude Code loads by
 itself; Lem writes none of them and moves none. A file scopes itself to paths in its frontmatter,
@@ -230,10 +247,10 @@ lead, reviewer and landing reads the table as the main checkout has it. The tabl
 is still checked, so that its error shows before it lands. `[naps]` is read the same way: a nap
 spends the tokens of whoever works on the machine, and a branch does not switch them on.
 
-The main checkout's settings are its working tree's `.lem/project.toml` while it is on the base
+The main checkout's settings are its working tree's `.lem/settings.toml` while it is on the base
 branch: an edit of the owner's there counts at once, committed or not. When another branch is
 checked out there (a colleague's, `gh pr checkout 57`), the file is read as the base branch's
-newest commit holds it (`git show BASE:.lem/project.toml`), with one line on stderr when the two
+newest commit holds it (`git show BASE:.lem/settings.toml`), with one line on stderr when the two
 differ, so that branch does not change who lands and what is careful for every running task. The
 base is the branch the file names: the file of the remote's default branch is read first, then
 the one of the branch the main checkout's own copy names, and a file that names another base is
@@ -261,11 +278,11 @@ A seat is one string, `agent/model:effort`: `seats.reviewer`, the agent in the r
 `seats.planner`, the defender of a plan talk; `seats.merger`, the merge agent, which reads each
 proposed task and merges it or calls the owner; `seats.session`, the agent of each task's own
 session (`lem session open`), only `claude` for now; and `seats.experts`, the one or two experts, the
-last level of the ladder of a decision in doubt. The merge agent's and the session's seats are the
-repository's when its settings name one, else the developer's own for all his repositories (`[seats]
-merger` and `session` in `machine.toml`, `lem_state.machine_file()`), else Lem's default,
-`claude/opus:high` (`MACHINE_SEAT_DEFAULT`). `show` gives each
-with `from`, which of the three it is. `show` marks each expert `here` when its agent is on this
+last level of the ladder of a decision in doubt. Each seat is the local file's when it names one,
+else the team's; the merge agent's and the session's are then the developer's own for all his
+repositories (`[seats] merger` and `session` in the home folder's `settings.toml`), else Lem's
+default, `claude/opus:high` (`SEAT_DEFAULT`). `show` gives each seat and each expert with `from`,
+the file it came from, or "Lem's default". `show` marks each expert `here` when its agent is on this
 machine (Claude Code always, Codex when its command is on PATH): only those answer, so without
 Codex the default's one Claude expert answers alone. The reviewer's, the defender's and each
 expert's seat is written whole, and `show` and `reviewer` refuse one that leaves out its model or its
@@ -355,7 +372,7 @@ yes writes `naps/.asleep` with the start, so a second call finds the nap that ru
 The state folder does not grow without end (`prune`, the owner's word of 2026-11-21). What Lem no
 longer needs goes `state.keep_days` days after it was last needed, 30 unless the settings say
 otherwise. The project's number is the base branch's, in a task's worktree too, so a branch cannot
-lower it. This machine's own file, `.lem/project.local.toml` of the main checkout, may set its own
+lower it. This machine's own file, `.lem/settings.local.toml` of the main checkout, may set its own
 number, lower or higher, which wins on this machine and in each of its worktrees: it removes only
 this machine's files. `show` and `prune` say in `from` which file the number came from. A task that ended (`landed`,
 `dropped`, `answered`) and of which the event log holds nothing newer than that has its events
@@ -410,11 +427,16 @@ import lem_artifacts  # noqa: E402
 import lem_plans  # noqa: E402
 import lem_state  # noqa: E402
 
-SETTINGS = Path(".lem") / "project.toml"
-LOCAL = Path(".lem") / "project.local.toml"
-# the tables one machine may set for itself; of [naps] only `on = false`, of [corrections] only
-# `collect = false`, and of [state] its one key, `keep_days`
-LOCAL_TABLES = ("seats", "corrections", "naps", "state")
+# The team's file, in git, and the developer's own for one repository, beside it (`lem_state`).
+SETTINGS = lem_state.TEAM_SETTINGS
+LOCAL = lem_state.LOCAL_SETTINGS
+# the tables one machine may set for itself in one repository; of [naps] only `on = false`, and of
+# [state] its one key, `keep_days` (`lem_state.TABLE_PLACES`)
+LOCAL_TABLES = tuple(table for table, places in lem_state.TABLE_PLACES.items() if "local" in places)
+# The keys a table of the home folder's `settings.toml` may hold, where it holds fewer than its own:
+# of the seats, the merge agent's and a task session's, which keep their rules of today (decision 3 of
+# the plan of one-home-folder-for-lem, 2026-11-23).
+HOME_KEYS = {"seats": ("merger", "session")}
 # What Lem reads beside its settings, each in one place with no setting (the owner's note of
 # 2026-11-18 on the plan, task 1b of docs/plans/2026-11-18-core-and-two-modes.md): Lem's own files,
 # the rules for the code in the folder Claude Code loads by itself, the review tool's folder, and the
@@ -458,7 +480,7 @@ REVIEWERS = ("claude", "codex")
 # it starts. The three seats of WHOLE_SEATS are written whole (the owner, 2026-11-18: "I think it
 # should be explicitly `agent/model:effort` in all 3; not simply "claude" or "codex""); a part left out
 # of the merge agent's or a task session's seat is the agent's own default, and Lem passes nothing for it;
-# a seat nobody names is MACHINE_SEAT_DEFAULT, written whole.
+# a seat nobody names is SEAT_DEFAULT, written whole.
 SEAT_FORM = "agent/model:effort"
 SEAT_KEYS = ("agent", "model", "effort")
 WHOLE_SEATS = ("reviewer", "planner", "experts")
@@ -487,12 +509,14 @@ SEATS = {
     # only, since the launch line, the two hooks and the compaction were checked there only.
     "session": (("claude",), "a task's session runs Claude Code only for now", "claude:high"),
 }
-# The merge agent's and a task session's seat when neither the repository nor the machine names one
-# (the owner, 2026-11-22: "`seats.merger`, `seats.session` should default to `claude/opus:high`").
-MACHINE_SEAT_DEFAULT = "claude/opus:high"
-# The seats that take the developer's own for all his repositories when the repository names none,
-# and MACHINE_SEAT_DEFAULT when he names none either.
-MACHINE_SEATS = ("merger", "session")
+# The merge agent's and a task session's seat when no file names one (the owner, 2026-11-22:
+# "`seats.merger`, `seats.session` should default to `claude/opus:high`").
+SEAT_DEFAULT = "claude/opus:high"
+# The seats that take the developer's own for all his repositories (the home folder's `settings.toml`)
+# when the repository names none, and SEAT_DEFAULT when he names none either.
+HOME_SEATS = HOME_KEYS["seats"]
+# Where a value came from when no file names it: a seat, an expert, `naps.on`, `state.keep_days`.
+DEFAULT_FROM = "Lem's default"
 # A plan's file name: its default, and its tokens; `lem_plans` builds and finds the name.
 PLAN_FILE = lem_plans.PLAN_FILE
 PLAN_TOKENS = lem_plans.TOKENS
@@ -564,10 +588,11 @@ TABLES: dict[str, tuple[str, ...]] = {
     "checks": ("commands", "setup", "serial"),
     "flow": ("topics",),
     "seats": ("reviewer", "planner", "merger", "session", "experts"),
-    "corrections": ("collect",),
     "tracker": ("kind",),
     "naps": ("on",),
     "state": ("keep_days",),
+    # the question page's defaults, which only that page reads and checks (`lem-ask`)
+    "ask": ("style", "size", "review", "browser", "status"),
 }
 # The trackers Lem has a skill for, `lem-KIND`. The rest is the tracker skill's read, not a setting:
 # for Linear the team is in the ticket's id, the server is the one connected in the agent, and the
@@ -612,13 +637,11 @@ TICKET_MARKS = "tickets"
 # those logs are per project and stored in project .lem dir"). One machine's own file may set its own
 # number, which wins there, lower or higher (the same day: "In that case one developer with a smaller
 # disk free space will suffer while for another dev of that project it will be fine. I think
-# `.lem/project.local.toml` should be acceptable"). 30 is the number of the two guesses it replaces,
+# [this repository's local file] should be acceptable"). 30 is the number of the two guesses it replaces,
 # the experts' folders' and the naps'.
 KEEP_DAYS = 30
 # The settings' key of the number, as the messages and the help name it.
 KEEP_KEY = "state.keep_days"
-# Where the number came from when no file names it.
-KEEP_DEFAULT = "Lem's default"
 # The naps (`may-nap`). A guess, not a measurement: the owner's own nap routine runs three times a day.
 NAPS_GAP_HOURS = 6
 # How long a nap that wrote no `waking.md` counts as running. A guess: the owner's own routine
@@ -630,7 +653,10 @@ NAP_TIME = "%Y-%m-%d-%H%M"
 ASLEEP = ".asleep"
 
 TEMPLATE = """\
-# What Lem reads in this repository. `project.py show` prints it resolved.
+# What Lem reads in this repository: the team's settings, in git. `lem project show` prints them
+# resolved, with the file each seat came from. Your own settings for this repository alone go in
+# .lem/settings.local.toml, which git does not track and which wins here; yours for every
+# repository go in ~/.config/lem/settings.toml.
 
 [paths]
 # The folder of the plans, relative to the root of the checkout. Lem's own files are in .lem/, the
@@ -700,24 +726,16 @@ reviewer = "{reviewer}"
 planner = "{planner}"
 # The merge agent, which reads each proposed task and merges it or calls the owner: "claude" or
 # "codex", read-only. Left out, it is the seat the developer names for all his repositories
-# (`[seats] merger` in ~/.config/lem/machine.toml), else "claude/opus:high".
+# (`[seats] merger` in ~/.config/lem/settings.toml), else "claude/opus:high".
 # merger = "agent/model:effort"
 # The agent of each task's own session in agterm: "claude" only for now. Left out, it is the seat the
-# developer names for all his repositories (`[seats] session` in ~/.config/lem/machine.toml), else
+# developer names for all his repositories (`[seats] session` in ~/.config/lem/settings.toml), else
 # "claude/opus:high".
 # session = "agent/model:effort"
 # The experts, the last level of the ladder of a decision in doubt, at the same moment and read-only: two
 # model families, so that their agreement is worth more than two of one. Where the machine has one
 # of their agents, that expert answers alone.
 experts = [{experts}]
-
-[corrections]
-# Keep a queue of the owner's corrections for the retro. The hook that fills it sends each
-# message the owner types, with the agent message it answers, to the Jev decision model. That
-# is the owner's choice, so it is false until the owner says yes. `true` here, in git, is a yes for
-# everybody who works in this repository: the hook comes with Lem's plugin. One person says
-# no for themselves with `collect = false` under [corrections] in .lem/project.local.toml.
-collect = false
 
 # The tracker a task's ask may come from: "linear" or "github". Leave it out when the project has
 # none. Lem reads a ticket into a task, marks it when its work starts, and comments the landing.
@@ -738,7 +756,7 @@ TEMPLATE += f"""
 # `lem project prune --dry-run --days 7` shows what 7 would remove. The default, {KEEP_DAYS}, is the
 # owner's word of 2026-11-21, and the two constants it replaces, which were guesses. One person with
 # less free disk, or more, sets a number for their machine alone with `keep_days` under [state] in
-# .lem/project.local.toml, which wins there.
+# .lem/settings.local.toml, which wins there.
 keep_days = {KEEP_DAYS}
 
 [naps]
@@ -832,11 +850,12 @@ def toml_string(value: str) -> str:
     return '"' + "".join(f"\\u{ord(c):04x}" if ord(c) < 0x20 or ord(c) == 0x7F else c for c in escaped) + '"'
 
 
-def read_settings(file: Path, name: Path, tables: tuple[str, ...]) -> dict:
-    """One settings file as a dict, with every table and key it may not hold refused."""
+def read_settings(file: Path, name: Path, place: str) -> dict:
+    """One settings file as a dict, with every table and key it may not hold refused. PLACE is the
+    file's word in `lem_state.TABLE_PLACES`: `home`, `team` or `local`."""
     if not file.is_file():
         return {}
-    return settings_of(text_of(file), name, tables)
+    return settings_of(text_of(file), name, place)
 
 
 def committed_settings(main: Path) -> dict | None:
@@ -885,25 +904,31 @@ def committed_settings(main: Path) -> dict | None:
 DIFFERS_SAID: list[bool] = []
 
 
-def settings_of(text: str, name: Path, tables: tuple[str, ...]) -> dict:
-    """The text of one settings file as a dict, checked as `read_settings` says."""
+def settings_of(text: str, name: Path | str, place: str) -> dict:
+    """The text of one settings file as a dict, checked as `read_settings` says: a table Lem does not
+    know, a table whose place is another file (named in the refusal), and a key the table may not
+    hold there are refused."""
     try:
         raw = tomllib.loads(text)
     except tomllib.TOMLDecodeError as error:
         raise SettingsError(f"{name}: {error}") from error
     for table, body in raw.items():
-        if table not in TABLES:
-            raise SettingsError(f"{name}: unknown table [{table}]{nearest(table, tuple(TABLES))}")
-        if table not in tables:
-            raise SettingsError(
-                f"{name}: [{table}] is the project's rule and belongs in {SETTINGS}; "
-                f"this file may hold only {', '.join(f'[{t}]' for t in tables)}",
-            )
+        if table not in lem_state.TABLE_PLACES:
+            raise SettingsError(f"{name}: unknown table [{table}]{nearest(table, tuple(lem_state.TABLE_PLACES))}")
+        wrong = lem_state.misplaced(table, place)
+        if wrong:
+            raise SettingsError(f"{name}: {wrong}")
         if not isinstance(body, dict):
             raise SettingsError(f"{name}: [{table}] must be a table")
         for key in body:
             if key not in TABLES[table]:
                 raise SettingsError(f"{name}: unknown key {table}.{key}{nearest(key, TABLES[table])}")
+            if place == "home" and key not in HOME_KEYS.get(table, TABLES[table]):
+                others = [one for one in ("team", "local") if one in lem_state.TABLE_PLACES[table]]
+                raise SettingsError(
+                    f"{name}: {table}.{key} is not valid in this file, which holds only {' and '.join(HOME_KEYS[table])} of [{table}]: "
+                    f"its place is {' or '.join(lem_state.place_name(one) for one in others)}",
+                )
     return raw
 
 
@@ -972,16 +997,25 @@ def seat(raw: dict, name: Path, which: str = "reviewer") -> dict | None:
     return parse_seat(given, f"{name}: seats.{which}", agents, why, example, which in WHOLE_SEATS)
 
 
-def machine_seat_of(which: str, named: dict, local: bool, machine: dict) -> dict:
-    """A seat of MACHINE_SEATS, the merge agent's or a task session's, with `from`, where it came
-    from: the repository's settings (or this machine's own file for the repository), else the
-    developer's file for all his repositories, else Lem's default, MACHINE_SEAT_DEFAULT."""
-    if named["seat"] is not None:
-        return {**named, "from": str(LOCAL if local else SETTINGS)}
-    given = machine.get(which)
-    if given is not None:
-        return {**parse_seat(given, f"{lem_state.machine_file()}: seats.{which}", *SEATS[which]), "from": str(lem_state.machine_file())}
-    return {**parse_seat(MACHINE_SEAT_DEFAULT, "Lem's default", *SEATS[which]), "from": "Lem's default"}
+def home_name() -> str:
+    """The home folder's `settings.toml`, as a message and `from` name it."""
+    return lem_state.shown(lem_state.home_settings_file())
+
+
+def seat_of(which: str, raw: dict, local: dict, home: dict) -> dict:
+    """One seat, with `from`, the file it came from: the local file's, else the team's, else, for a
+    seat of HOME_SEATS, the home folder's `settings.toml`, else Lem's default (PLANNER, SEAT_DEFAULT,
+    or no reviewer). Each file's seat is checked, the ones a nearer file wins over too."""
+    team, own = seat(raw, SETTINGS, which), seat(local, LOCAL, which)
+    mine = seat(home, Path(home_name()), which) if which in HOME_SEATS else None
+    for found, where in ((own, str(LOCAL)), (team, str(SETTINGS)), (mine, home_name())):
+        if found is not None:
+            return {**found, "from": where}
+    if which == "planner":
+        return {**seat({"seats": {which: PLANNER}}, Path(DEFAULT_FROM), which), "from": DEFAULT_FROM}
+    if which in HOME_SEATS:
+        return {**parse_seat(SEAT_DEFAULT, DEFAULT_FROM, *SEATS[which]), "from": DEFAULT_FROM}
+    return {**{key: None for key in SEAT_KEYS}, "seat": None, "from": DEFAULT_FROM}
 
 
 def agent_here(agent: str) -> bool:
@@ -1030,18 +1064,6 @@ def file_pattern_of(raw: dict, name: Path) -> str:
     return pattern
 
 
-def local_off(local: dict) -> bool:
-    """Whether this machine's own file says no to the correction queue. It can say nothing else about it."""
-    if "collect" not in local.get("corrections", {}):
-        return False
-    if local["corrections"]["collect"] is not False:
-        raise SettingsError(
-            f"{LOCAL}: corrections.collect = {local['corrections']['collect']!r} is not for this file. It may say `collect = false`, "
-            f"which keeps one person's messages out of the queue; only {SETTINGS}, which everybody reads in git, switches the queue on",
-        )
-    return True
-
-
 def local_naps_off(local: dict) -> bool:
     """Whether this machine's own file says no to the naps: a nap spends this person's tokens. It
     can say nothing else about them."""
@@ -1060,11 +1082,14 @@ def local_naps_off(local: dict) -> bool:
 
 
 def naps_of(raw: dict, name: Path) -> dict:
-    """The `[naps]` table of one settings file, checked: its one key, `on`."""
-    on = raw.get("naps", {}).get("on", False)
-    if not isinstance(on, bool):
-        raise SettingsError(f"{name}: naps.on = {on!r} must be true or false")
-    return {"on": on}
+    """The `[naps]` table of one settings file, checked: its one key, `on`, with `from`, the team's
+    file when it names it, else DEFAULT_FROM, as `state_of` gives it."""
+    given = raw.get("naps", {}).get("on")
+    if given is None:
+        return {"on": False, "from": DEFAULT_FROM}
+    if not isinstance(given, bool):
+        raise SettingsError(f"{name}: naps.on = {given!r} must be true or false")
+    return {"on": given, "from": str(SETTINGS)}
 
 
 def keep_days_of(value: object, where: str, left_out: str = str(KEEP_DAYS)) -> int:
@@ -1078,11 +1103,11 @@ def keep_days_of(value: object, where: str, left_out: str = str(KEEP_DAYS)) -> i
 
 def state_of(raw: dict, name: Path) -> dict:
     """The `[state]` table of one settings file, checked: its one key, `keep_days`, with `from`, the
-    file that names it, or KEEP_DEFAULT when the file names none. `from` is the tracked file's name
+    file that names it, or DEFAULT_FROM when the file names none. `from` is the tracked file's name
     in a task's worktree too, where the number is the base branch's (`decide`)."""
     given = raw.get("state", {}).get("keep_days")
     if given is None:
-        return {"keep_days": KEEP_DAYS, "from": KEEP_DEFAULT}
+        return {"keep_days": KEEP_DAYS, "from": DEFAULT_FROM}
     return {"keep_days": keep_days_of(given, f"{name}: {KEEP_KEY}"), "from": str(SETTINGS)}
 
 
@@ -1112,9 +1137,9 @@ def load(root: Path) -> dict:
 
     def base_raw() -> dict:
         if not committed:
-            return read_settings(main / SETTINGS, main / SETTINGS, tuple(TABLES))
+            return read_settings(main / SETTINGS, main / SETTINGS, "team")
         try:
-            return settings_of(committed["text"], base_file, tuple(TABLES))
+            return settings_of(committed["text"], base_file, "team")
         except SettingsError as error:
             # the fix is an edit of the file, and it counts once the base holds it
             raise SettingsError(f"Lem reads {SETTINGS} as {committed['branch']} has it, so a fix counts once it is committed there. {error}") from error
@@ -1131,22 +1156,27 @@ def load(root: Path) -> dict:
             )
     else:
         # in a task's worktree the file is the branch's copy
-        raw = read_settings(file, SETTINGS, tuple(TABLES))
-    local = read_settings(main / LOCAL, LOCAL, LOCAL_TABLES)
+        raw = read_settings(file, SETTINGS, "team")
+    local = read_settings(main / LOCAL, LOCAL, "local")
     on_base = raw if main.resolve() == root.resolve() else base_raw()
     try:
-        machine = lem_state.machine_table("seats")
+        home = read_settings(lem_state.home_settings_file(), Path(home_name()), "home")
+        # read whole, so that a file that does not read, or a table in it whose place is another file, is refused here too
+        machine = lem_state.machine_tables()
+        lem_state.checked_table(machine, "corrections")
     except lem_state.StateError as error:
         raise SettingsError(str(error)) from error
-    return decide(root, main, raw, local, on_base, committed, machine)
+    return decide(root, main, raw, local, on_base, committed, home, machine)
 
 
-def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, committed: dict | None, machine: dict | None = None) -> dict:
-    """The settings from the tables `load` read: the tracked file's (`raw`, the branch's copy in a
-    task's worktree), this machine's own file's, and the base branch's copy (`on_base`, the same
-    table as `raw` in the main checkout), with `committed` the commit of the base it came from, or
-    None for the working tree; and `machine`, the `[seats]` table of the developer's file for all his
-    repositories (`machine.toml`). Every value is checked here; it refuses with a SettingsError."""
+def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, committed: dict | None, home: dict | None = None,
+           machine: dict | None = None) -> dict:
+    """The settings from the tables `load` read: the team's file's (`raw`, the branch's copy in a
+    task's worktree), this machine's own file's for the repository (`local`), and the base branch's
+    copy (`on_base`, the same table as `raw` in the main checkout), with `committed` the commit of the
+    base it came from, or None for the working tree; `home`, the tables of the developer's file for all
+    his repositories (the home folder's `settings.toml`); and `machine`, the tables of `machine.toml`.
+    Every value is checked here; it refuses with a SettingsError."""
     file = root / SETTINGS
     local_file = main / LOCAL
     base_file = Path(f"{committed['branch']}:{SETTINGS}") if committed else main / SETTINGS
@@ -1190,30 +1220,23 @@ def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, commit
     if base in protected:
         raise SettingsError(f"{SETTINGS}: branch.base = {base!r} is in branch.protected, so no task could land")
 
-    # A local seat replaces the project's whole: its model and effort belong to the project's agent.
+    # A nearer seat replaces a farther one whole: its model and effort belong to its own agent.
     seats: dict = {}
     for which in SEATS:
-        seats[which] = seat(raw, SETTINGS, which) or (
-            seat({"seats": {which: PLANNER}}, Path("Lem's default"), which) if which == "planner" else {**{key: None for key in SEAT_KEYS}, "seat": None}
-        )
-        local_seat = seat(local, LOCAL, which)
-        if local_seat is not None:
-            seats[which] = local_seat
+        seats[which] = seat_of(which, raw, local, home or {})
+        if seats[which]["from"] == str(LOCAL):
             overridden.append(f"seats.{which}")
-    for which in MACHINE_SEATS:
-        seats[which] = machine_seat_of(which, seats[which], f"seats.{which}" in overridden, machine or {})
-    seats["experts"] = experts_of(raw, SETTINGS) or experts_of({"seats": {"experts": list(EXPERTS)}}, Path("Lem's default"))
-    local_experts = experts_of(local, LOCAL)
+    team_experts, local_experts = experts_of(raw, SETTINGS), experts_of(local, LOCAL)
+    experts, where = (local_experts, str(LOCAL)) if local_experts is not None else (team_experts, str(SETTINGS)) if team_experts is not None else (
+        experts_of({"seats": {"experts": list(EXPERTS)}}, Path(DEFAULT_FROM)), DEFAULT_FROM)
+    seats["experts"] = [{**expert, "from": where} for expert in experts]
     if local_experts is not None:
-        seats["experts"] = local_experts
         overridden.append("seats.experts")
-    collect = raw.get("corrections", {}).get("collect", False)
-    if not isinstance(collect, bool):
-        raise SettingsError(f"{SETTINGS}: corrections.collect = {collect!r} must be true or false")
-    if local_off(local):
-        if collect:
-            overridden.append("corrections.collect")
-        collect = False
+    # the machine's own switch of the correction queue, which no file of a repository may hold; with no
+    # line it is Lem's default, no, and the hook sends nothing
+    machine_corrections = (machine or {}).get("corrections", {})
+    corrections = ({"collect": machine_corrections["collect"], "from": lem_state.shown(lem_state.machine_file())} if "collect" in machine_corrections
+                   else {"collect": False, "from": DEFAULT_FROM})
     tracker = None
     if "tracker" in raw:
         given = raw["tracker"]
@@ -1233,7 +1256,7 @@ def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, commit
     if local_naps_off(local):
         if naps["on"]:
             overridden.append("naps.on")
-        naps["on"] = False
+        naps = {"on": False, "from": str(LOCAL)}
     # How long the state folder keeps old files is the base branch's too: a task's branch that lowers it
     # would remove files of other tasks before anybody agreed to it. The branch's own table is still checked.
     # This machine's own file, the main checkout's, may set its own number, which wins here, in a
@@ -1264,11 +1287,11 @@ def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, commit
         # read from the main checkout's settings, in a task's worktree too
         "flow": flow,
         "seats": seats,
-        "corrections": {"collect": collect},
+        "corrections": corrections,
         "tracker": tracker,
         "naps": naps,
         # read from the main checkout's settings, in a task's worktree too, or from this machine's own
-        # file; `from` names which, as a seat of MACHINE_SEATS does
+        # file; `from` names which, as each seat's does
         "state": state,
         # what this machine set for itself, so a report can say that the reviewer is not the project's
         "local": {"file": str(local_file) if local_file.is_file() else None, "overrides": overridden},
@@ -1383,10 +1406,9 @@ def cmd_init(root: Path, base: str | None, codex: str) -> None:
 def cmd_reviewer(root: Path, words: list[str]) -> None:
     """Write, or with `default` remove, this machine's own reviewer seat."""
     file = main_checkout(root) / LOCAL
-    local = read_settings(file, LOCAL, LOCAL_TABLES)
+    local = read_settings(file, LOCAL, "local")
     # What the file already holds is checked before any of it is written again: a wrong value is
     # refused with its fix, and the file stays as the owner left it.
-    local_off(local)
     local_naps_off(local)
     local_keep_days(local)
     seat(local, LOCAL, "reviewer")
@@ -1406,8 +1428,8 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
     for table in LOCAL_TABLES:
         body = local.get(table) or {}
         if body:
-            # a value here is a word in quotes, a list of them, the one `false` the corrections and
-            # the naps tables may hold, or the state table's number of days
+            # a value here is a word in quotes, a list of them, the one `false` the naps table may
+            # hold, or the state table's number of days
             lines += ["", f"[{table}]", *(f"{key} = {toml_value(value)}" for key, value in body.items())]
     if len(lines) == 1:
         file.unlink(missing_ok=True)
@@ -4014,6 +4036,9 @@ def cmd_load(start: str | None) -> dict:
             lem_state.write_machine("load", {"start": int(value) if value.is_integer() else value})
         except OSError as error:
             raise SettingsError(f"{file} was not written ({error.strerror}); make its folder writable, then run this again") from error
+        except lem_state.StateError as error:
+            # a file that does not read, or holds a table that is not valid there, stays as it is
+            raise SettingsError(str(error)) from error
     try:
         number = lem_state.load_start()
         written = "start" in lem_state.machine_table("load")
@@ -4041,6 +4066,9 @@ def cmd_handoff(tokens: str | None) -> dict:
             lem_state.write_machine("handoff", None if value is None else {"tokens": value})
         except OSError as error:
             raise SettingsError(f"{file} was not written ({error.strerror}); make its folder writable, then run this again") from error
+        except lem_state.StateError as error:
+            # a file that does not read, or holds a table that is not valid there, stays as it is
+            raise SettingsError(str(error)) from error
     try:
         number = lem_state.handoff_tokens()
         written = "tokens" in lem_state.machine_table("handoff")

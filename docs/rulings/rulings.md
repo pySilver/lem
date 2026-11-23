@@ -142,7 +142,8 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
   (the form is the session's). (2026-11-20, 2026-11-22)
 - **A fresh merge agent reads every proposed task, and merges it or calls him.** The fast track too;
   a pull request that is not green and a careful change call him. `seats.merger` comes from the
-  repository, else from `machine.toml`, and `branch.land` stays the switch. (2026-11-20)
+  repository, else from `~/.config/lem/settings.toml`, and `branch.land` stays the switch.
+  (2026-11-20)
 - **GitHub pull requests are the one way to land.** The button on GitHub and `/lem land` are the
   same merge, a task's branch is never merged by hand, and a merge asks no prompt. (2026-11-17,
   2026-11-18, 2026-11-20)
@@ -196,7 +197,7 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
   night N`. (2026-11-18)
 - **The Done column shows the newest ended tasks, and one setting says how long an ended task's
   files stay.** "keep `last N` done items"; one machine may set its own number in its
-  `.lem/project.local.toml`, not in `machine.toml`. (2026-11-21)
+  `.lem/settings.local.toml`, not in `machine.toml`. (2026-11-21)
 - **`[tracker]` has one key**, `kind`: the team comes from the ticket's id, the agent reads the
   team's statuses by their type, and a connection that fails points to Linear's MCP help page.
   (2026-11-18, 2026-11-19)
@@ -242,6 +243,10 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
   says "not green: you did not approve the criteria", which he approved: "Yes this is what I want".
   The night of Lem's own repository makes no branch and writes proposals. (2026-11-17, 2026-11-18
   and 2026-11-23)
+- **The correction queue's switch is the machine's alone, `collect` under `[corrections]` of
+  `~/.config/lem/machine.toml`, and the hook works only on its yes.** It holds in every repository
+  on that machine, and a repository's file may not hold it: "Looks like this settings `corrections`
+  belongs on a machine level only". (2026-11-23)
 
 ## Choices of the maintaining session
 

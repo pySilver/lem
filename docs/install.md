@@ -51,7 +51,7 @@ A task's worktree has no `.env` file or test database. Put the commands that mak
 
 In git:
 
-- `.lem/project.toml`: the [settings](settings.md).
+- `.lem/settings.toml`: the [settings](settings.md) of your team.
 - `.lem/profile.md`, `.lem/personas/`: the product, and the people that a change affects.
 - `.lem/lessons.md`: your corrections of how an agent does a step in this repository.
 - `docs/rulings.md`: your decisions about what the product does, which no agent reopens without
@@ -62,7 +62,7 @@ In git:
 
 Not in git:
 
-- `.lem/project.local.toml`: the settings of this computer.
+- `.lem/settings.local.toml`: your settings for this repository on this computer.
 - `.lem/worktrees/`: the worktrees of the tasks.
 - `.lem/state/`: the tasks and the board, on this computer only. Lem removes from this folder what
   is older than [`state.keep_days`](settings.md#state), 30 days when you set no number. It removes
@@ -71,15 +71,18 @@ Not in git:
 For all repositories, in `~/.config/lem/` (or `$XDG_CONFIG_HOME/lem/`):
 
 - `owner.jsonl`: your away status.
-- `machine.toml`: the settings of this computer:
+- `settings.toml`: your settings for every repository, which you write by hand:
+  - `[seats]`: the seats `merger` and `session`;
+  - `[ask]`: the look of the question page.
+- `machine.toml`: the settings of this computer, which no other file overrides:
   - `[load]`: the load limit for the checks, 40 when you set none. `lem project load --start N`
     sets it, and `lem project load --start none` removes the limit;
   - `[handoff]`: the number of tokens where a session compacts, which `lem project handoff
     --tokens N` sets;
-  - `[seats]`: the seats `merger` and `session`, which you write by hand;
   - `[serve]`: the board server's port, which `lem serve --port N` sets, and its door for your
     phone;
-  - `[peers]`: the other computers of the board.
+  - `[peers]`: the other computers of the board;
+  - `[corrections]`: [the correction queue](#the-correction-queue), on or off.
 - `workspaces.json`, `serve.log`: the repositories that the board server shows, and its output.
 - `push-key.pem`, `push.json`: the key and the devices of the notifications.
 
@@ -94,10 +97,15 @@ With this optional queue, a retro finds a correction that you gave more than one
 each message that you type, with the agent's message before it, to the Jev decision model.
 Commands that start with `/` stay local.
 
-`corrections.collect = true` turns it on for the repository. Each person then needs `JEV_API_KEY`
-in the environment. The default provider is [OpenRouter](https://openrouter.ai); `JEV_API_URL`
-names another. To say no for yourself, put `collect = false` under `[corrections]` in
-`.lem/project.local.toml`.
+The queue is on or off for your computer, in every repository on it. `/lem init` asks you one
+time for each computer. The line `collect = true` under `[corrections]` in
+`~/.config/lem/machine.toml` turns it on, and with no line the queue is off. When the queue is on,
+it needs `JEV_API_KEY` in the environment. The default provider is [OpenRouter](https://openrouter.ai);
+`JEV_API_URL` names another.
+
+To turn the queue off for your computer, run `lem corrections collect no`. This command writes
+`collect = false` there and keeps the other settings of the file. `lem corrections collect yes`
+turns it on again. A repository file cannot turn the queue on or off.
 
 ## Update
 
@@ -119,5 +127,5 @@ claude plugin update lem@lem --scope project
 6. Remove Lem's allow rules from `.claude/settings.local.json`.
 7. Run `git rm -r .lem`, and commit.
 8. Delete the folder `.lem/`.
-9. If no other repository uses Lem, delete `~/.config/lem/`, `~/.cache/lem-ask/` and
+9. If no other repository uses Lem, delete `~/.config/lem/`, `~/.cache/lem/` and
    `$TMPDIR/lem-ask/`.

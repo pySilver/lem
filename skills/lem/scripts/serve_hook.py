@@ -2,7 +2,7 @@
 starts in a repository that uses Lem.
 
 It reads the hook's event on stdin for the session's folder (`cwd`), finds the main checkout of its
-repository, and when that holds `.lem/project.toml` it starts `serve.py --ensure` as a process of its
+repository, and when that holds `.lem/settings.toml` it starts `serve.py --ensure` as a process of its
 own, in a new session, with its output appended to the server's log in Lem's home folder, and
 returns at once: the session never waits for the server. Anywhere else it does nothing. It prints
 nothing, since Claude Code takes a SessionStart hook's output as context, and it exits 0 whatever
@@ -39,7 +39,7 @@ def main() -> None:
         root = lem_state.main_checkout(Path(folder), timeout=GIT_TIMEOUT)
     except lem_state.StateError:
         return
-    if not (root / ".lem" / "project.toml").is_file():
+    if not (root / lem_state.TEAM_SETTINGS).is_file():
         return
     home = lem_state.config()
     home.mkdir(parents=True, exist_ok=True)

@@ -115,8 +115,8 @@ bullet.
   (2026-11-17, 2026-11-18)
 - **The state of Lem is not in the git directory.** `tests/lem-state.sh: "the state is in .lem/state
   of the main checkout, also for a script run"` (2026-11-17)
-- **Not every section of the settings stays.** `tests/lem-settings.sh: "the settings are 20 keys,
-  the same in show, in the file init writes"`; `tests/lem-machine.sh: "a new settings file has no
+- **Not every section of the settings stays.** `tests/lem-settings.sh: "the team's file holds 19
+  keys, the same in show, in the file init writes"`; `tests/lem-machine.sh: "a new settings file has no
   [tools]: Lem asks with its own page"`;
   `tests/unit/test_settings.py::UnknownNames.test_a_key_of_paths_with_the_keys_it_knows`
   (2026-11-18)
@@ -136,17 +136,10 @@ bullet.
   `tests/lem-settings.sh: "reviewer default gives the project's reviewer back and keeps what else
   the machine set"`; `tests/lem-settings.sh: "the machine's own file may not hold the checks or any
   other rule of the project"` (decided 2026-11-14 and 2026-11-15)
-- **As a plugin, the correction hook comes with the install, and the repository says yes for all**;
-  the hook is an optional part, which works only on that yes. `tests/lem-machine.sh: "without the
-  project's yes neither the hook nor its detached half"`; `tests/lem-machine.sh: "with the project's
-  yes the hook prints nothing, and its detached half queues"`; `tests/lem-machine.sh: "the plugin
+- **As a plugin, the correction hook comes with the install.** `tests/lem-machine.sh: "the plugin
   manifest names lem and a version of three numbers, which is the release"` (2026-11-15)
 - **The Jev model comes through any provider.** `tests/lem-machine.sh: "lem-jev takes its key from
   JEV_API_KEY alone, and with a key under another name"` (2026-11-18)
-- **One person can say no to the correction queue, and nobody is switched on by a file git does not
-  show.** `tests/lem-machine.sh: "one person's no in the machine's own file stops the hook before
-  anything is sent"`; `tests/lem-settings.sh: "the machine's own file may say no to the correction
-  queue"` (decided 2026-11-14 and 2026-11-15)
 - **A correction hook registered twice judges each message once.** `tests/lem-machine.sh: "three
   copies of the hook on one message, started at once as three registrations"` (decided 2026-11-17)
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The persona panel's cast.py, offline: the cast
-# comes from the project alone (none there means no panel; the user's and the built-in cast only start one), a checkout older than its default
+# comes from the project alone (none there means no panel; the built-in cast only starts one), a checkout older than its default
 # branch's cast reads that cast, the project's profile comes from the checkout or the default branch
 # and never from a generic layer, init copies a cast down, and run-dir makes a folder in Lem's state folder.
 set -eEuo pipefail
@@ -46,7 +46,7 @@ profile_of() { cast --repo "$1" | "$PY" -c 'import json, sys; p = json.load(sys.
 mkdir -p "$HOME/.config/personas/cast"
 printf '# Index\n' >"$HOME/.config/personas/cast/README.md"
 printf '# Reader\n' >"$HOME/.config/personas/cast/reader.md"
-if [ "$(status_of cast --repo "$REPO")" = 1 ]; then pass "the user's own cast answers no panel in a project that has no personas"; else fail "the user's cast ran a panel: $(layer_of "$REPO")"; fi
+if [ "$(status_of cast --repo "$REPO")" = 1 ]; then pass "persona files under ~/.config/personas/cast/ answer no panel in a project that has no personas"; else fail "the files under ~/.config/personas/cast/ ran a panel: $(layer_of "$REPO")"; fi
 mkdir -p "$REPO/.lem/personas" && printf '# Index\n' >"$REPO/.lem/personas/README.md"
 if [ "$(status_of cast --repo "$REPO")" = 1 ]; then pass "an index with no persona file is not a cast"; else fail "an index alone counted as a cast"; fi
 rm -r "$REPO/.lem"
@@ -55,7 +55,7 @@ git -C "$REPO" branch old
 mkdir -p "$REPO/.lem/personas"
 printf '# Shopper\n' >"$REPO/.lem/personas/shopper.md"
 printf '# Merchant\n' >"$REPO/.lem/personas/merchant.md"
-if [ "$(layer_of "$REPO")" = "project 2" ]; then pass "the project's own people are the cast, and nobody of the user's cast is beside them"; else fail "project layer: $(layer_of "$REPO")"; fi
+if [ "$(layer_of "$REPO")" = "project 2" ]; then pass "the project's own people are the cast, and nobody from ~/.config/personas/cast/ is beside them"; else fail "project layer: $(layer_of "$REPO")"; fi
 if [ "$(profile_of "$REPO")" = "none" ]; then pass "a project with no profile gets none, never a generic one"; else fail "profile without one: $(profile_of "$REPO")"; fi
 printf '# Profile\n' >"$REPO/.lem/profile.md"
 if [ "$(profile_of "$REPO")" = "checkout" ]; then pass "the checkout's profile is read, beside the project's cast"; else fail "checkout profile: $(profile_of "$REPO")"; fi
@@ -87,7 +87,7 @@ fi
 # their one place, and init there does not start a second cast.
 CUSTOM=$PANEL/custom
 git init -q -b main "$CUSTOM" && commit "$CUSTOM" "start" && git -C "$CUSTOM" branch before-the-cast
-mkdir -p "$CUSTOM/.lem/personas" && printf '%s\n' '[branch]' 'base = "main"' > "$CUSTOM/.lem/project.toml"
+mkdir -p "$CUSTOM/.lem/personas" && printf '%s\n' '[branch]' 'base = "main"' > "$CUSTOM/.lem/settings.toml"
 printf '# Shopper\n' > "$CUSTOM/.lem/personas/shopper.md" && printf '# About\n' > "$CUSTOM/.lem/profile.md"
 git -C "$CUSTOM" add -A && commit "$CUSTOM" "feat: the people of this project"
 git -C "$CUSTOM" worktree add -q "$PANEL/custom-old" before-the-cast
@@ -181,11 +181,13 @@ if [ "$(status_of cast --repo "$PANEL/no-such-dir")" = 1 ]; then pass "a --repo 
 
 FRESH=$PANEL/fresh
 git init -q -b main "$FRESH"
-cast init --repo "$FRESH" >/dev/null
-if [ -f "$FRESH/.lem/personas/reader.md" ] && [ -f "$FRESH/.lem/personas/README.md" ] && [ "$(layer_of "$FRESH")" = "project 1" ]; then
-  pass "init copies a starting cast, the user's before the built-in one, into the project"
+copied=$(cast init --repo "$FRESH")
+built_in=$(ls skills/lem-panel/cast)
+if [ -f "$HOME/.config/personas/cast/reader.md" ] && [ "$(ls "$FRESH/.lem/personas")" = "$built_in" ] && [ "$(layer_of "$FRESH")" = "project 4" ] \
+  && grep -qF "copied the built-in cast from $PWD/skills/lem-panel/cast to $FRESH/.lem/personas" <<<"$copied"; then
+  pass "init copies the built-in cast into a new project, also when ~/.config/personas/cast/ holds persona files"
 else
-  fail "init did not copy the resolved cast"
+  fail "init did not copy the built-in cast: $copied / $(ls "$FRESH/.lem/personas")"
 fi
 if [ "$(status_of cast init --repo "$FRESH")" = 1 ]; then pass "init refuses a project that already has a cast"; else fail "init overwrote a project cast"; fi
 README_ONLY=$PANEL/readme-only
@@ -225,7 +227,7 @@ fi
 LINKED=$PANEL/linked
 git init -q -b main "$LINKED"
 mkdir -p "$LINKED/.lem"
-printf '%s\n' '[paths]' 'persona = "x"' > "$LINKED/.lem/project.toml"
+printf '%s\n' '[paths]' 'persona = "x"' > "$LINKED/.lem/settings.toml"
 if [ "$(status_of cast --repo "$LINKED")" = 1 ]; then pass "a settings file Lem refuses stops the panel too"; else fail "bad settings passed"; fi
 # once without -B: whatever the run says, its imports wrote no bytecode
 env -u PYTHONDONTWRITEBYTECODE "$PY" "$CAST" --repo "$LINKED" >/dev/null 2>&1 || true
