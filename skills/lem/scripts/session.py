@@ -55,7 +55,8 @@ directory, the new agent's first read, and runs
     agtermctl session new --workspace WS --cwd DIR --name SLUG --no-select --command \\
       "SHELL -l -c 'LEM_TASK=SLUG CLAUDE_CODE_AUTO_COMPACT_WINDOW=N claude \\"Read TASK_DIR/session.md and follow it.\\"'"
 
-then `session move --to top`. It never selects the session: the owner's selection stays where it
+then `session move --to bottom`: the new session goes after the last session of its workspace, and
+the one the owner keeps first stays first. It never selects the session: the owner's selection stays where it
 is, also when the task's session asks him a question, and only his own act selects it. DIR is
 the main checkout in every phase, and the agent works in the task's worktree by its path
 (`worktree:` of `session.md`): the developer's Claude Code setup belongs to the main checkout's folder (a plugin installed for the
@@ -777,12 +778,12 @@ def cmd_open(root: Path, slug: str, why: str, replacing: str | None = None, name
             raise SessionError(f"agtermctl session new answered no session id ({error}): {made.strip()[:200]}") from error
         # the record first: the session exists now, whatever the next step does
         project.append_event(root, "session.open", slug, {"session": session, "name": slug, "phase": phase, "why": why, "workspace": workspace})
-        ctl(where, "session", "move", "--to", "top", "--target", session)
+        ctl(where, "session", "move", "--to", "bottom", "--target", session)
     if why == "stopped":
         return {"task": slug, "session": session, "name": slug, "phase": phase, "already": False, "acted": True, **tell_replaced(root, where, slug, str(replacing)),
                 "say": f"{slug} goes on in a fresh session `{slug}`, phase {phase}, beside the old one, which is named `{slug} · replaced`"}
     return {"task": slug, "session": session, "name": slug, "phase": phase, "already": False,
-            "say": f"{slug} is open in its own session `{slug}`, phase {phase}, at the top of the workspace",
+            "say": f"{slug} is open in its own session `{slug}`, phase {phase}, at the end of the workspace",
             # the caller runs it in the background, and says the task's first line when it ends
             **({"then": f"lem session wait {slug} --first-line"} if why == "new" else {})}
 

@@ -13,8 +13,8 @@ CALLS=$WORK/calls
 TREE=$WORK/tree.json
 mkdir -p "$BIN"
 agterm_standin "$BIN"
-# Two workspaces: the caller's session sits in W-MINE, the owner looks at W-OTHER
-printf '%s\n' '[{"id": "S-ASK", "name": "refund-rounding", "workspace": "W-MINE", "foreground": ["claude"]}, {"id": "S-HIS", "name": "notes", "workspace": "W-OTHER", "active": true}]' > "$TREE"
+# Two workspaces: the caller's session sits in W-MINE below the owner's own, he looks at W-OTHER
+printf '%s\n' '[{"id": "S-MAIN", "name": "main", "workspace": "W-MINE"}, {"id": "S-ASK", "name": "refund-rounding", "workspace": "W-MINE", "foreground": ["claude"]}, {"id": "S-HIS", "name": "notes", "workspace": "W-OTHER", "active": true}]' > "$TREE"
 
 R=$WORK/shop
 git init -q -b main "$R" && ident "$R" && project --repo "$R" init --base main >/dev/null 2>&1 && git -C "$R" add -A && git -C "$R" commit -q -m "chore: start"
@@ -26,6 +26,8 @@ sess() {
     "$PY" -B "$SESSION" --repo "$R" "$@"
 }
 pr() { project --repo "$R" "$@"; }
+# order WS: the names of the sessions of workspace WS, in the order agterm's sidebar shows them
+order() { "$PY" -c 'import json, sys; print([n["name"] for n in json.load(open(sys.argv[1])) if n["workspace"] == sys.argv[2]])' "$TREE" "$1"; }
 calls_of() { grep -F "\"$1\"" "$CALLS" | grep -F "\"$2\"" || true; }
 events() { "$PY" -c 'import json, sys; print([(r["event"], r.get("session"), r.get("phase"), r.get("why")) for r in map(json.loads, open(sys.argv[1])) if r["event"].startswith("session.")])' "$STATE/events.jsonl"; }
 
@@ -33,7 +35,7 @@ pr task-dir gift-note --ask "the export holds the gift note" >/dev/null
 pr state gift-note held "the interview waits for the owner" "type: feat, because the export gets a column" >/dev/null
 
 # A new task's session: one `session new` in the caller's workspace, with no focus, the task's two variables and
-# its first read, then at the top of the workspace; a second open while it runs prints the same one.
+# its first read, then at the end of the workspace, below the owner's own; a second open while it runs prints the same one.
 rm -f "$CALLS"
 first=$(sess open gift-note --why new 2>&1 || true)
 second=$(AS="" sess open gift-note --why dead 2>&1 || true)
@@ -53,15 +55,15 @@ print(json.dumps(call))' "$SHELL_LINE" "$PWD" "$STATE/tasks/gift-note/session.md
 brief=$(cat "$STATE/tasks/gift-note/session.md" 2>/dev/null || true)
 if [ "$(field '(d["session"], d["phase"], d["already"])' <<<"$first" 2>&1)" = "('S-1', 'shape', False)" ] \
   && [ "$(field '(d["session"], d["already"])' <<<"$second" 2>&1)" = "('S-1', True)" ] \
-  && [ "$made" = "$want" ] && calls_of move top | grep -qF '"S-1"' && [ -z "$(calls_of session select)" ] \
+  && [ "$made" = "$want" ] && [ "$(order W-MINE)" = "['main', 'refund-rounding', 'gift-note']" ] && [ -z "$(calls_of session select)" ] \
   && grep -qF "unrecognized arguments: --focus" <<<"$focused" && [ "$(tail -n 1 <<<"$focused")" = "exit 2" ] \
   && [ "$(head -n 1 <<<"$brief")" = "Read \`skills/lem/prompts/session.md\` in the folder that \`lem version\` prints as \`root\`, and follow it; when \`lem version\` fails, stop and say that \`lem\` is not on the PATH, with \`lem doctor\` as the check." ] \
   && ! grep -qF "$PWD/skills" <<<"$brief" && grep -qxF "phase: shape" <<<"$brief" \
   && grep -qxF "opened because: new" <<<"$brief" && grep -qxF "worktree: none yet" <<<"$brief" \
   && [ "$(events)" = "[('session.open', 'S-1', 'shape', 'new')]" ] && git -C "$R" check-ignore -q "$STATE/tasks/gift-note/session.md"; then
-  pass "open makes one session of the task in the caller's workspace, with no focus and no flag that gives it, LEM_TASK, the compaction number and Lem's default seat in its launch line and session.md as its first read, which names its standing text through lem version and no folder of the Lem that wrote it, then moves it to the top and logs it; a second open prints the one that runs"
+  pass "open makes one session of the task in the caller's workspace, with no focus and no flag that gives it, LEM_TASK, the compaction number and Lem's default seat in its launch line and session.md as its first read, which names its standing text through lem version and no folder of the Lem that wrote it, then moves it to the end of the workspace, below the owner's own session, and logs it; a second open prints the one that runs"
 else
-  fail "open twice: $first / $second / $focused / $made / $want / $brief / $(events)"
+  fail "open twice: $first / $second / $focused / $made / $want / $(order W-MINE) / $brief / $(events)"
 fi
 
 # The change of phase: the lead's state and handoff.md, then next from the shape session: a fresh session for

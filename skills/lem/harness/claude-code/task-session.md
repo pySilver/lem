@@ -18,14 +18,19 @@ agterm's own words:
 agtermctl session new --workspace WS --cwd DIR --name SLUG --no-select --command "LOGIN_SHELL -l -c 'LEM_TASK=SLUG CLAUDE_CODE_AUTO_COMPACT_WINDOW=N claude \"Read TASK_DIR/session.md and follow it.\"'"
 ```
 
-then `agtermctl session move --to top`, and never `agtermctl session select`: the task's session
+then `agtermctl session move --to bottom`, and never `agtermctl session select`: the task's session
+goes after the last session of its workspace, so the one the owner keeps first stays first, and it
 never takes the focus, and only the owner's own act selects it. `DIR` is the
 main checkout, also for a task with a worktree, which the session reaches by its path
 (`owner-steps.md`, "A folder's trust"). A trial on 2026-11-21 (agterm 0.41.1 serving and 0.43.0
 installed, Claude Code 2.1.330) showed:
 
-- The session opened at the top level of the workspace and was not selected; `move --to top` put
-  it first, and the selection stayed where it was.
+- The session opened at the top level of the workspace and was not selected, and the selection
+  stayed where it was.
+- A probe on 2026-11-23 (agterm 0.41.1 serving) put `move --to bottom` after the workspace's last
+  session and its companions, and `--to top` before the owner's first session. A companion,
+  `session new --parent` or `session overlay open --companion` (`lem board`), went after the last
+  companion of its session with no move.
 - `session new` takes no environment, so the two variables are in the launch line, and `ps eww`
   showed the variable in the Claude process. A builder inherits both.
 - `LOGIN_SHELL` is the owner's login shell by absolute path (`dscl . -read /Users/NAME UserShell`):

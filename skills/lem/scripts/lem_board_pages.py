@@ -1205,7 +1205,7 @@ def new_page(ctx: Ctx) -> Markup:
     card = h("section", {"class": "card confirm a-you nt-card", "id": "new-task", "aria-label": "A new task"},
              h("div", {"class": "eyebrow"}, "New task"),
              h("p", None, "Say it as you would to a colleague, in a sentence or two. Lem names the task from its first words, "
-                          "and opens the task's own session in agterm, at the top of its workspace."),
+                          "and opens the task's own session in agterm, at the end of its workspace."),
              h("p", {"class": "sub"}, "That session reads your words, tells the type and the track, and asks you what it needs."),
              form)
     view = h("div", {"class": "view scroll", "id": "new-view"},
