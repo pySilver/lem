@@ -705,6 +705,16 @@ def asset_link(name: str) -> str:
     return f"/{HOSTNAME}/assets/{name}?v={DIGESTS[key]}"
 
 
+def keep_days_of(reader) -> int | None:
+    """The workspace's `state.keep_days` as its settings give it now (`lem_project.load`, this machine's own
+    number too), for the page of a task whose files prune removed; None while the settings do not read,
+    which the page shows among its problems, never a number of an older read."""
+    if "settings" in reader.problems or not isinstance(reader.settings, dict):
+        return None
+    days = (reader.settings.get("state") or {}).get("keep_days")
+    return days if isinstance(days, int) and not isinstance(days, bool) else None
+
+
 def prefs_of(header: str | None) -> dict:
     """The board's own state from its cookie: the folded columns, the folded sidebar, the panel's width and
     whether it is expanded, and whether a task's header shows its details on a phone (`head`); none when it does not read."""
@@ -1752,7 +1762,7 @@ class Handler(BaseHTTPRequestHandler):
         model = workspace.model()
         reader = workspace.reader
         backlog = reader.read_backlog(board, fresh=fresh_backlog)
-        return pages.Ctx(host=HOSTNAME, workspace=workspace.name, model=model, asset=asset_link, prefs=prefs_of(self.headers.get("Cookie")),
+        return pages.Ctx(keep_days=keep_days_of(reader),host=HOSTNAME, workspace=workspace.name, model=model, asset=asset_link, prefs=prefs_of(self.headers.get("Cookie")),
                          backlog=backlog, problems=[*reader.problems.values(), *([workspace.session_problem] if workspace.session_problem else [])],
                          read_at=model.now, events=len(reader.events), log_id=reader.log_id(),
                          spaces=self.spaces(), native=bool(NATIVE.search(self.headers.get("User-Agent") or "")),
@@ -1811,6 +1821,7 @@ class Handler(BaseHTTPRequestHandler):
                 ctx.artifacts_problem = f"the files of the task do not read: {error.strerror or error}"
             ctx.told = workspace.told_of
             ctx.how_of = workspace.how_of
+            ctx.folder_of = lambda task: task_pages.folder_of(state, task)
             ctx.media_href = lambda task: f"{ctx.base}/tasks/{quote(task)}/media/"
 
             def artifact(task: str, file: str):

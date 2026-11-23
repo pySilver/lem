@@ -1094,18 +1094,97 @@ class Summary(unittest.TestCase):
 class SummarizedBoard(unittest.TestCase):
     """The board of a task whose events became one summary (the task old-task-events-summarized, decision
     2): its header says the same status, end and pull request as before; its Overview opens with one card
-    that says so, what the summary keeps and that its files stay; each other tab says its detail went with
-    the events, and no section is drawn empty."""
+    that says so, what the summary keeps and what its folder holds, from the folder (the task
+    an-ended-task-s-records-stay-on-the-machine-for-ever, criterion 6); each other tab says its detail went
+    with the events, and no section is drawn empty."""
 
     def boards(self):
         log = report_dates()
         return model(*log), model(*summarized(log, "report-dates"))
 
     @staticmethod
-    def ctx(m, tab: str = "overview"):
-        ctx = pages.Ctx(host="h", workspace="w", model=m, asset=lambda name: name, task="report-dates", tab=tab)
+    def ctx(m, tab: str = "overview", folder=None, keep_days=30):
+        ctx = pages.Ctx(host="h", workspace="w", model=m, asset=lambda name: name, task="report-dates", tab=tab, keep_days=keep_days)
         ctx.told = lambda slug: {"outcome": "Each report shows its dates.", "filed": None}
+        ctx.folder_of = lambda slug: folder
         return ctx
+
+    @staticmethod
+    def folder(*extra: str) -> tuple[tempfile.TemporaryDirectory, Path]:
+        """A state folder whose task report-dates holds its small record as prune leaves it (its state, its
+        request, its pull request and its lock files), and EXTRA beside it."""
+        held = tempfile.TemporaryDirectory()
+        state_dir = Path(held.name)
+        directory = state_dir / "tasks" / "report-dates"
+        directory.mkdir(parents=True)
+        for name in ("state.md", "ask.txt", "task.md", "landing.json", "state.lock", "decisions.lock", *extra):
+            (directory / name).parent.mkdir(parents=True, exist_ok=True)
+            (directory / name).write_text("x\n", encoding="utf-8")
+        return held, state_dir
+
+    def card(self, state_dir: Path, keep_days=30) -> str:
+        _, after = self.boards()
+        folder = task_pages.folder_of(state_dir, "report-dates")
+        return str(task_pages.summary_card(self.ctx(after, folder=folder, keep_days=keep_days), after.by_slug["report-dates"]))
+
+    def test_a_pruned_task_whose_folder_holds_its_small_record_alone_says_what_stayed_and_that_the_rest_left(self):
+        held, state_dir = self.folder()
+        with held:
+            drawn = self.card(state_dir)
+        self.assertNotIn("Its files stay", drawn)
+        self.assertIn("What stayed of its folder is its small record: its state, its request and its pull request.", drawn)
+        self.assertIn("Its other files left: Lem keeps only this record of an ended task after 30 days in which nothing of it happened "
+                      "(state.keep_days, as the settings say now).", drawn)
+        self.assertNotIn("ticket", drawn)
+
+    def test_a_pruned_task_with_a_ticket_names_its_files_and_the_number_is_the_settings_of_now(self):
+        held, state_dir = self.folder("ticket.txt", "ticket-repo.txt", "ticket-steps.txt", "resumed-from.txt")
+        with held:
+            drawn = self.card(state_dir, keep_days=7)
+        self.assertIn("its small record: its state, its request, its pull request, its ticket’s files and the name of the task it was resumed from.", drawn)
+        self.assertIn("after 7 days in which nothing of it happened", drawn)
+
+    def test_settings_that_do_not_read_give_no_number_on_the_card(self):
+        held, state_dir = self.folder()
+        with held:
+            drawn = self.card(state_dir, keep_days=None)
+        self.assertIn("after state.keep_days days in which nothing of it happened (the settings do not read now, so the board does not say that number)", drawn)
+        self.assertNotIn("30", drawn.split('id="summary-files"')[1])
+
+    def test_a_pruned_task_whose_folder_still_holds_files_beyond_its_record_says_only_how_many(self):
+        held, state_dir = self.folder("report.md", "media/after.png", "reviews/r/round.lock")
+        with held:
+            drawn = self.card(state_dir)
+        self.assertIn("3 files of its folder are still there beside its small record: its state, its request and its pull request.", drawn)
+        self.assertNotIn("left", drawn.split('id="summary-files"')[1])
+        self.assertNotIn("Its files stay", drawn)
+
+    def test_a_pruned_task_whose_folder_does_not_read_claims_nothing_of_its_files(self):
+        with tempfile.TemporaryDirectory() as empty:
+            self.assertIsNone(task_pages.folder_of(Path(empty), "report-dates"))
+            drawn = self.card(Path(empty))
+        self.assertIn("Its folder does not read, so the board cannot say which of its files are still there.", drawn)
+        self.assertNotIn("left", drawn.split('id="summary-files"')[1])
+
+    def test_an_answered_task_names_its_report_only_while_its_folder_holds_it(self):
+        events = [state(4, "building", "an investigator finds the answer", "investigation: question", task="why-slow"),
+                  ev(8, "investigation", "why-slow", type="question", call="answer", line="the export reads every order twice", where="export.py"),
+                  state(9, "answered", "the report is investigation.md", task="why-slow")]
+        m = model(*events)
+        t = m.by_slug["why-slow"]
+        line = "The report is investigation.md in the task directory"
+        with tempfile.TemporaryDirectory() as held:
+            directory = Path(held) / "tasks" / "why-slow"
+            directory.mkdir(parents=True)
+            (directory / "state.md").write_text("x\n", encoding="utf-8")
+            (directory / "investigation.md").write_text("# Investigation\n", encoding="utf-8")
+            ctx = pages.Ctx(host="h", workspace="w", model=m, asset=lambda name: name, task="why-slow")
+            ctx.folder_of = lambda slug: task_pages.folder_of(Path(held), slug)
+            self.assertIn(line, str(task_pages.now_card(ctx, t)))
+            (directory / "investigation.md").unlink()
+            drawn = str(task_pages.now_card(ctx, t))
+        self.assertNotIn(line, drawn)
+        self.assertIn("the export reads every order twice", drawn)
 
     def test_the_header_says_the_same_status_end_pull_request_and_track(self):
         import re

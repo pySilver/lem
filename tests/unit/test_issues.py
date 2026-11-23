@@ -447,7 +447,8 @@ class DropAndAnswer(Issues):
         self.assertFalse(any(call[:2] == ["issue", "edit"] for call in self.gh()["calls"]))
 
     def test_an_answer_comments_the_answer_and_where_and_the_report_stays_home(self):
-        self.task("export-keeps-gift-note", "answered", line="not a bug: the export keeps the note", steps=("assigned octo-cat", "started"))
+        directory = self.task("export-keeps-gift-note", "answered", line="not a bug: the export keeps the note", steps=("assigned octo-cat", "started"))
+        (directory / "investigation.md").write_text("# Investigation\n", encoding="utf-8")
         project.append_event(self.root, "investigation", "export-keeps-gift-note",
                              {"type": "fix", "call": "not-a-bug", "line": "the export keeps the note in its last column", "where": "export.py:rows"})
         self.edit_issue(assignees=["octo-cat"])
@@ -457,6 +458,18 @@ class DropAndAnswer(Issues):
                          "The report is in the task's directory on the owner's machine, not on this issue.\n\nlem: export-keeps-gift-note answered\n")
         self.assertEqual((self.issue()["assignees"], self.issue()["state"]), ([], "OPEN"))
         self.assertIn("stays open", out["says"])
+
+    def test_an_answer_owed_after_prune_removed_the_report_names_no_report(self):
+        # an answered task past state.keep_days: prune left its small record, and its comment was never posted
+        directory = self.task("export-keeps-gift-note", "answered", line="not a bug: the export keeps the note", steps=("assigned octo-cat", "started"))
+        project.append_event(self.root, "investigation", "export-keeps-gift-note",
+                             {"type": "fix", "call": "not-a-bug", "line": "the export keeps the note in its last column", "where": "export.py:rows"})
+        self.assertFalse((directory / "investigation.md").exists())
+        self.edit_issue(assignees=["octo-cat"])
+        self.ok("answer", "export-keeps-gift-note")
+        self.assertEqual(self.issue()["comments"][-1]["body"],
+                         "Lem's investigation answered this issue: the export keeps the note in its last column (export.py:rows).\n\n"
+                         "lem: export-keeps-gift-note answered\n")
 
     def test_a_drop_cut_off_after_the_comment_posts_none_and_removes_the_assignee(self):
         self.task("export-keeps-gift-note", "dropped", line="the owner dropped it", steps=("assigned octo-cat", "started"))

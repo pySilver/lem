@@ -365,12 +365,16 @@ def dropped_words(task: dict) -> str:
     return f"Lem dropped its task for this issue: {first_line(task)}."
 
 
-def answered_words(task: dict) -> str:
+def answered_words(root: Path, task: dict) -> str:
+    """The answer's comment: the investigation's line and where, and where its report is while the task's
+    directory holds it; an answer still owed after `lem project prune` removed the report names none."""
     found = task["investigation"] or {}
     line = found.get("line") or first_line(task)
     where = f" ({found['where']})" if found.get("where") else ""
-    return (f"Lem's investigation answered this issue: {line}{where}.\n\n"
-            "The report is in the task's directory on the owner's machine, not on this issue.")
+    said = f"Lem's investigation answered this issue: {line}{where}."
+    if (project.state_root(root) / "tasks" / task["slug"] / "investigation.md").is_file():
+        said += "\n\nThe report is in the task's directory on the owner's machine, not on this issue."
+    return said
 
 
 def comment(root: Path, task: dict, step: str, number: int, words: str, did: list[str], wrote: list[str]) -> None:
@@ -410,7 +414,7 @@ def cmd_end(root: Path, slug: str, step: str) -> dict:
     number, repo, ticket = int(task["ticket"][1:]), task["ticket_repo"], task["ticket"]
     did: list[str] = []
     wrote: list[str] = []
-    comment(root, task, step, number, dropped_words(task) if step == "drop" else answered_words(task), did, wrote)
+    comment(root, task, step, number, dropped_words(task) if step == "drop" else answered_words(root, task), did, wrote)
     issue = view(root, repo, number)
     assignees = logins(issue.get("assignees"))
     login = task["ticket_assignee"]

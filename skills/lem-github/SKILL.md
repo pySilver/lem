@@ -162,8 +162,8 @@ lem issue answer SLUG
 ```
 
 1. One comment with the answer as the task's state gives it (the newest `investigation`: its
-   `line`, and its `where` when it has one), and that the report is in the task's directory, not on
-   the issue. Its last line is `lem: SLUG answered`.
+   `line`, and its `where` when it has one), and, while the task's directory holds the report, that
+   it is there, not on the issue. Its last line is `lem: SLUG answered`.
 2. The assignee Lem added goes, as for a drop.
 3. The issue stays open: tell the owner the line `says` gives. Whether an answer closes it is his
    call.

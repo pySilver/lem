@@ -119,10 +119,12 @@ else
   fail "artifacts and what is not served: $outside / $raw_headers / ${art:0:300}"
 fi
 
-# The board of a task that ended long ago, after `lem project prune`: the task loses its working files (an agent's
-# scratch, the review tool's archive of a round, a picture no document shows), and its Overview, its tabs, its
-# documents, its records and the picture its report shows read as before. The server prunes no workspace of
-# example tasks, so the prune runs here by hand, after the task's events were moved 400 days back.
+# The board of a task that ended long ago, after `lem project prune`: the task keeps only its small record (its
+# state, its request), and its documents, its records and its pictures go (criterion 6 of the task
+# an-ended-task-s-records-stay-on-the-machine-for-ever). Its Done card and its place among the older ended tasks
+# are as before, its Overview says what stayed and that the rest left after the settings' 30 days, Artifacts lists
+# the small record and the plan its worktree still holds, and no tab says that its files stay. The server prunes no
+# workspace of example tasks, so the prune runs here by hand, after the task's events were moved 400 days back.
 TD=$STATE/tasks/order-date-on-invoice
 mkdir -p "$TD/media" "$TD/reviews/order-date-on-invoice/01-initial/agents"
 "$PY" -c 'import sys; [open(p, "wb").write(b"\x89PNG\r\n\x1a\n" + bytes(8)) for p in sys.argv[1:]]' "$TD/media/a.png" "$TD/media/b.png"
@@ -141,30 +143,48 @@ for n, line in enumerate(lines):
 open(sys.argv[1] + ".new", "w", encoding="utf-8").write("\n".join(lines))
 os.replace(sys.argv[1] + ".new", sys.argv[1])' "$STATE/events.jsonl"
 art_before=$(got "$T/artifacts" | words)
-# card: the Done card of the task on the kanban on stdin
+# card: the Done card of the task on the kanban on stdin; older: the rows of the list of older ended tasks on stdin
 card() { "$PY" -c 'import re, sys; print(re.search(r"<article[^>]*id=\"card-order-date-on-invoice\".*?</article>", sys.stdin.read(), re.S)[0])'; }
+older() { "$PY" -c 'import re, sys; print(re.findall(r"<div class=\"row [^\"]*\" id=\"older-([a-z0-9-]+)\"", sys.stdin.read()))'; }
+# kept_only WORKTREE: whether each file the Artifacts tab on stdin lists is of the small record, or the task's plan
+# that WORKTREE still holds
+kept_only() { "$PY" -c 'import re, sys
+from pathlib import Path
+record = {"state.md", "ask.txt", "task.md", "landing.json", "ticket.txt", "ticket-repo.txt", "ticket-steps.txt", "resumed-from.txt"}
+listed = set(re.findall(r"/tasks/order-date-on-invoice/artifacts/([^\"?]+?)/\"", sys.stdin.read()))
+ok = "state.md" in listed and all(p in record or (p.startswith("docs/plans/") and (Path(sys.argv[1]) / p).is_file()) for p in listed)
+print(sorted(listed)); sys.exit(0 if ok else 1)' "$1"; }
 card_before=$(got "$BASE/" | card)
+older_before=$(got "$BASE/done" | older)
 version_before=$(log_version "$STATE/events.jsonl")
 pruned_board=$(project --repo "$DEMO" prune)
 ended_tabs=""
 for tab in "" /criteria /checks /timeline /artifacts /artifacts/report.md/ /artifacts/task.md/ /media/a.png /media/b.png /artifacts/scratch.txt/; do ended_tabs="$ended_tabs $(code "$T$tab")"; done
 art_after=$(got "$T/artifacts" | words)
+artifacts_kept=$(got "$T/artifacts" | kept_only "$DEMO/.lem/worktrees/order-date-on-invoice") && kept_ok=yes || kept_ok=no
 card_after=$(got "$BASE/" | card)
+older_after=$(got "$BASE/done" | older)
 summarized=$(got "$T" | words)
 went=$(got "$T/checks" | words)
+every_tab=""
+for tab in "" /criteria /checks /timeline /artifacts; do every_tab="$every_tab $(got "$T$tab" | words)"; done
+left=$(find "$TD" -type f ! -name '*.lock' | sed "s|^$TD/||" | sort | tr '\n' ' ')
 # a page that saw the log before the prune reconnects: the log is another file, so it is told at once
 curl -sN --max-time 2 "$BASE/stream?since=$version_before" > "$WORK/stream-pruned.out" 2>/dev/null || true
-if [ "$(field '[(t["task"], sorted(t["files"])) for t in d["tasks"]]' <<<"$pruned_board")" = "[('order-date-on-invoice', ['media/b.png', 'reviews/order-date-on-invoice/01-initial/agents/a.jsonl', 'scratch.txt'])]" ] \
+if [ "$(field '[(t["task"], sorted(t["files"])) for t in d["tasks"]]' <<<"$pruned_board")" = "[('order-date-on-invoice', ['criteria.json', 'media/a.png', 'media/b.png', 'page.html', 'report.md', 'reviews/order-date-on-invoice/01-initial/agents/a.jsonl', 'reviews/order-date-on-invoice/01-initial/report.md', 'scratch.txt'])]" ] \
   && [ "$(field '[(t["task"], t["status"]) for t in d["summarized"]]' <<<"$pruned_board")" = "[('order-date-on-invoice', 'landed')]" ] \
-  && [ "$ended_tabs" = " 200 200 200 200 200 200 200 200 404 404" ] && grep -qF "scratch.txt" <<<"$art_before" && ! grep -qF "scratch.txt" <<<"$art_after" \
-  && grep -qF "The task" <<<"$art_after" && grep -qF "Review round 01-initial" <<<"$art_after" && grep -qF "Report" <<<"$art_after" \
-  && grep -qF "What we are building" <<<"$summarized" && grep -qF "became one summary: the task ended more than state.keep_days ago" <<<"$summarized" \
+  && [ "$left" = "ask.txt state.md task.md " ] && [ ! -e "$TD/media" ] && [ ! -e "$TD/reviews" ] \
+  && [ "$ended_tabs" = " 200 200 200 200 200 404 200 404 404 404" ] && grep -qF "scratch.txt" <<<"$art_before" && ! grep -qF "scratch.txt" <<<"$art_after" \
+  && [ "$kept_ok" = yes ] \
+  && grep -qF "What we are building" <<<"$summarized" && grep -qF "became one summary: nothing of the task happened for state.keep_days days after its end" <<<"$summarized" \
+  && grep -qF "What stayed of its folder is its small record: its state and its request. Its other files left: Lem keeps only this record of an ended task after 30 days in which nothing of it happened" <<<"$summarized" \
   && grep -qF "Its runs of the checks, its review rounds and the proposal’s reasons went with its events" <<<"$went" \
-  && [ -n "$card_before" ] && [ "$card_before" = "$card_after" ] \
-  && grep -qxF "id: $(log_version "$STATE/events.jsonl")" "$WORK/stream-pruned.out" && [ -f "$TD/state.md" ] && [ -f "$TD/criteria.json" ]; then
-  pass "a task that ended long ago loses its working files to lem project prune and its events become one summary: its Done card is the same, its Overview says so, its tabs, its documents, its records and the picture a document shows still read, and a page that saw the old log is told at once"
+  && ! grep -qF "files stay" <<<"$every_tab" \
+  && [ -n "$card_before" ] && [ "$card_before" = "$card_after" ] && [ "$older_before" = "$older_after" ] \
+  && grep -qxF "id: $(log_version "$STATE/events.jsonl")" "$WORK/stream-pruned.out" && [ -f "$TD/state.md" ]; then
+  pass "a task that ended long ago keeps only its small record after lem project prune and its events become one summary: its Done card and its place among the older tasks are the same, its Overview says what stayed and that the rest left after 30 days, Artifacts lists the record and its plan alone, no tab says its files stay, and a page that saw the old log is told at once"
 else
-  fail "the board of a pruned task: $ended_tabs / $(field '[(t["task"], t["files"]) for t in d["tasks"]]' <<<"$pruned_board" 2>&1) / $(cat "$WORK/stream-pruned.out") / ${card_before:0:400} / ${card_after:0:400} / ${summarized:0:600}"
+  fail "the board of a pruned task: $ended_tabs / $left / $kept_ok $artifacts_kept / $(field '[(t["task"], t["files"]) for t in d["tasks"]]' <<<"$pruned_board" 2>&1) / $(cat "$WORK/stream-pruned.out") / ${card_before:0:400} / ${card_after:0:400} / $older_before $older_after / ${summarized:0:900}"
 fi
 
 # A task's pictures: a picture of its media folder only, by its name and its first bytes, never another file.

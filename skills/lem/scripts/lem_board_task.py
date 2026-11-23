@@ -27,9 +27,11 @@ server's raw route, the whole width, and the panel's height with the header fold
 a line names is a link. The words are the model's.
 
 A task whose events became one summary (`lem project prune`, past `state.keep_days`) has the same header,
-and its Overview opens with a card that says so, with what the summary keeps and that its files stay;
-"Criteria and decisions", "Checks and review" and "Timeline" each say in one line that their detail
-went with the events (`summary_card`, `went_tab`).
+and its Overview opens with a card that says so, with what the summary keeps and what its folder holds,
+as the folder says it now (`folder_of`): its small record, and that its other files left by the rule of
+`state.keep_days`, with the number as the settings give it now; or, while files beyond the record are
+still there, only how many. "Criteria and decisions", "Checks and review" and "Timeline" each say in
+one line that their detail went with the events (`summary_card`, `files_line`, `went_tab`).
 
 Each task lives in its own agterm session. The jump to it has its button only on a page for this Mac
 (`Ctx.local`, the agterm controller), and only while the session lives; a task with no live session
@@ -530,8 +532,10 @@ def now_card(ctx, t: bm.Task) -> Markup:
     found = []
     if x:
         where = bm.investigation_sub(x)
+        # the report's file only while the folder holds it: prune removes it with the other files of an old ended task
+        folder = ctx.folder_of(t.slug)
         found = [h("div", {"class": "now-ctx"}, h("b", None, f"{bm.CALLS.get(x['call'], {}).get('now', x['call'])}: "), x.get("line") or "", f" · {where}" if where else ""),
-                 h("div", {"class": "now-ctx"}, "The report is investigation.md in the task directory")]
+                 folder and "investigation.md" in folder["left"] and h("div", {"class": "now-ctx"}, "The report is investigation.md in the task directory")]
     headline = bm.now_head(t)
     # Lem's first line of the task, its read of the request, while the block that said it is the newest
     said = t.opening and h("div", {"class": "now-said", "title": "Lem's first line of this task: its read of the request"}, P.rich(ctx, t.opening))
@@ -632,10 +636,44 @@ def artifacts_link(ctx, t: bm.Task) -> Markup:
              P.icon(ctx, "folder"), "Artifacts", " ", P.icon(ctx, "arrow"))
 
 
+# What each file of a task's small record (`lem_artifacts.SMALL_RECORD`) is to the owner, on the card of a
+# task whose other files prune removed: one name for a part that is more than one file.
+RECORD_WORDS = (
+    (("state.md",), "its state"),
+    (("ask.txt", "task.md"), "its request"),
+    (("landing.json",), "its pull request"),
+    (("ticket.txt", "ticket-repo.txt", "ticket-steps.txt"), "its ticket’s files"),
+    (("resumed-from.txt",), "the name of the task it was resumed from"),
+)
+
+
+def listed(parts: list[str]) -> str:
+    """Parts of one sentence: "a", "a and b", "a, b and c"."""
+    return parts[0] if len(parts) == 1 else f"{', '.join(parts[:-1])} and {parts[-1]}"
+
+
+def files_line(ctx, t: bm.Task) -> str:
+    """What the folder of a summarized task holds, as the folder says it now (`Ctx.folder_of`), never as
+    the summary alone: with no path outside its small record, what stayed and the rule that removed the
+    rest, with the workspace's `state.keep_days` as the settings give it now (no day at which they left,
+    which the page cannot know); with paths outside it, only how many are still there, with no claim of
+    why (a removal that has not ended yet, or one the folder denies run after run)."""
+    folder = ctx.folder_of(t.slug)
+    if folder is None:
+        return "Its folder does not read, so the board cannot say which of its files are still there."
+    kept = [words for names, words in RECORD_WORDS if any(name in folder["kept"] for name in names)]
+    record = f"its small record: {listed(kept)}" if kept else "no file of its small record"
+    if folder["left"]:
+        return f"{bm.plural(len(folder['left']), 'file')} of its folder {'is' if len(folder['left']) == 1 else 'are'} still there beside {record}."
+    days = (f"after {bm.plural(ctx.keep_days, 'day')} in which nothing of it happened (state.keep_days, as the settings say now)" if ctx.keep_days
+            else "after state.keep_days days in which nothing of it happened (the settings do not read now, so the board does not say that number)")
+    return f"What stayed of its folder is {record}. Its other files left: Lem keeps only this record of an ended task {days}."
+
+
 def summary_card(ctx, t: bm.Task) -> Markup | None:
     """The first card of the Overview of a task whose events became one summary (`t.summary`): that they
-    did, and why; what the summary keeps, with its values; what went with the events; and that the
-    task's files stay, on Artifacts. None for any other task."""
+    did, and why; what the summary keeps, with its values; what went with the events; and what its folder
+    holds now (`files_line`), on Artifacts. None for any other task."""
     s = t.summary
     if s is None:
         return None
@@ -653,19 +691,19 @@ def summary_card(ctx, t: bm.Task) -> Markup | None:
              h("div", {"class": "v-line"}, h("span", {"class": "fi"}, P.icon(ctx, "layers")),
                h("div", {"class": "v-text"},
                  h("b", {"class": "v-word"}, f"Its {bm.plural(n, 'event')} became one summary:"),
-                 " the task ended more than state.keep_days ago, so lem project prune kept one event in their place.",
+                 " nothing of the task happened for state.keep_days days after its end, so lem project prune kept one event in their place.",
                  h("div", {"class": "sub", "id": "summary-kept"}, "It keeps: ", "; ".join(x for x in kept if x), "."),
                  h("div", {"class": "sub", "id": "summary-went"}, "What went with the events: ", "; ".join(x[0].lower() + x[1:] for x in WENT.values()), "."),
-                 h("div", {"class": "sub", "id": "summary-files"}, "Its files stay: its state, its request, its reports and its documents."),
+                 h("div", {"class": "sub", "id": "summary-files"}, files_line(ctx, t)),
                  h("div", {"class": "b-lines"}, h("div", {"class": "b-line"}, artifacts_link(ctx, t))))))
 
 
 def went_tab(ctx, t: bm.Task, tab: str) -> list:
-    """A tab of a summarized task whose detail went with its events: one line that says so, and where its
-    files are."""
+    """A tab of a summarized task whose detail went with its events: one line that says so, and where the
+    files of its folder are listed."""
     return [h("div", {"class": "lane-empty panel-empty", "id": f"went-{tab}"},
-              f"{WENT[tab]} went with its events: they became one summary, as the task ended more than state.keep_days ago. "
-              "The Overview shows what the summary keeps, and its files stay on Artifacts. ", artifacts_link(ctx, t))]
+              f"{WENT[tab]} went with its events: they became one summary, as nothing of the task happened for state.keep_days days after its end. "
+              "The Overview shows what the summary keeps and what its folder holds, and Artifacts lists the files that are there. ", artifacts_link(ctx, t))]
 
 
 def overview_tab(ctx, t: bm.Task) -> list:
@@ -1502,6 +1540,18 @@ def artifact_files(state: Path, slug: str, plan) -> list[dict]:
     if not directory.is_dir():
         return []
     return lem_artifacts.files(directory, slug, plan, read=False)
+
+
+def folder_of(state: Path, slug: str) -> dict | None:
+    """What the task's folder holds beside the model: the files of its small record that are there, in the
+    order of `lem_artifacts.SMALL_RECORD`, and the paths outside it (`lem_artifacts.outside_record`); None
+    when the folder is not there or does not list, so that no page says what a folder it did not read holds."""
+    directory = state / "tasks" / slug
+    try:
+        names = {entry.name for entry in directory.iterdir()}
+    except OSError:
+        return None
+    return {"kept": [name for name in lem_artifacts.SMALL_RECORD if name in names], "left": lem_artifacts.outside_record(directory)}
 
 
 def artifact_map(state: Path, slug: str, files: list[dict]) -> dict:
