@@ -1,0 +1,43 @@
+# The maintainer's tools for Lem's Python: uv installs them, ruff formats and lints, pyrefly checks
+# the types. Nobody who installs the plugin reads this file: Lem's scripts are standard-library
+# Python and need no install (AGENTS.md, "Rules for a change here").
+#
+#     uv sync                      the tools, at the versions of uv.lock, into .venv
+#     uv run ruff format           the one format
+#     uv run ruff check --fix      the lint rules below
+#     uv run pyrefly check         the types
+#     bash tests/lint.sh           all of them, and the JavaScript's, as tests/all.sh runs them
+
+[project]
+name = "lem"
+description = "Lem coordinates the agents that write code in one repository."
+# uv asks for a version, and this one names no release: the release number has its places in
+# .claude-plugin/ (tests/unit/test_release.py), and nothing builds a package from this file.
+version = "0"
+# The oldest Python a script of Lem runs under. ruff takes its target version from this line.
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "ruff>=0.17.6",
+    "pyrefly>=1.2.0",
+]
+
+[tool.uv]
+package = false
+
+# ==== ruff ====
+[tool.ruff]
+# ruff's own format and its line length of 88, with no option of ours.
+# The three Python files with no `.py` in their name.
+extend-include = ["bin/lem", "skills/lem-ask/bin/lem-ask", "tests/clock/date"]
+# ruff also formats the Python blocks of a Markdown file. The stage files, the plans and the guides
+# keep their text as it was written.
+extend-exclude = ["*.md"]
+
+[tool.ruff.per-file-target-version]
+# The two files that run under whatever `python3` a machine has, the system's 3.9 on a Mac, and
+# find the newer Python for the rest (skills/lem/scripts/lem_python.py).
+"bin/lem" = "py39"
+"skills/lem/scripts/lem_python.py" = "py39"
