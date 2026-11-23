@@ -81,7 +81,7 @@ fi
 
 # The checks of a landing: checks.commands first, then each checks.serial command under the lock, each with its output and its result.
 small_task_in "$AL" serial-change a.txt one
-printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' '[checks]' 'commands = ["echo 3 passed"]' "serial = [\"sh e2e.sh\"]" > "$AL/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' '[checks]' 'commands = ["echo 3 passed"]' "serial = [\"sh e2e.sh\"]" > "$AL/.lem/settings.toml"
 git -C "$AL" add -A && git -C "$AL" commit -q -m "chore: an e2e suite that needs the machine"
 tree=$AL/.lem/worktrees/serial-change
 # the e2e suite says whether it ran under the lock, by the holder line project.py writes there
@@ -109,7 +109,7 @@ else
   fail "the gate's serial commands: $gated"
 fi
 # A red checks.commands leaves the serial commands out: they run only after the others passed.
-printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' '[checks]' 'commands = ["echo 1 failed; exit 1"]' "serial = [\"sh e2e.sh\"]" > "$AL/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' '[checks]' 'commands = ["echo 1 failed; exit 1"]' "serial = [\"sh e2e.sh\"]" > "$AL/.lem/settings.toml"
 red=$(land --repo "$AL" checks serial-change 2>/dev/null || true)
 if [ "$(field '[(c["command"], c["exit"]) for c in d["commands"]]' <<<"$red" 2>&1)" = "[('echo 1 failed; exit 1', 1)]" ]; then
   pass "a red gate command leaves the serial commands out: they run only after checks.commands pass"
@@ -118,7 +118,7 @@ else
 fi
 
 # The check of the criteria runs a test of a serial suite under the lock, and any other test bare.
-printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' '[checks]' 'commands = ["true"]' "serial = [\"sh tests/e2e\"]" > "$AL/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' '[checks]' 'commands = ["true"]' "serial = [\"sh tests/e2e\"]" > "$AL/.lem/settings.toml"
 git -C "$AL" add -A && git -C "$AL" commit -q -m "chore: the e2e suite is a folder of tests"
 small_task_in "$AL" serial-criterion b.txt two
 tree=$AL/.lem/worktrees/serial-criterion
@@ -158,7 +158,7 @@ kill -KILL "$(cat "$WORK/crit-serial.pid")" 2>/dev/null || true
 SU=$WORK/setup-repo
 git init -q -b main "$SU" && ident "$SU"
 mkdir -p "$SU/.lem"
-printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' '[checks]' 'commands = ["test -f deps/ok && echo 1 passed"]' 'setup = ["mkdir -p deps && touch deps/ok && echo installed"]' > "$SU/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' '[checks]' 'commands = ["test -f deps/ok && echo 1 passed"]' 'setup = ["mkdir -p deps && touch deps/ok && echo installed"]' > "$SU/.lem/settings.toml"
 printf '%s\n' 'deps/' > "$SU/.gitignore" && echo readme > "$SU/README.md"
 git -C "$SU" add -A && git -C "$SU" commit -q -m "chore: a project whose tests need what the setup installs"
 directory=$(project --repo "$SU" task-dir readme-fix --ask "Fix the README.")
@@ -172,7 +172,7 @@ project --repo "$tree" state readme-fix ready "the small change is built" >/dev/
 land --repo "$SU" start readme-fix >/dev/null && land --repo "$SU" base readme-fix >/dev/null
 setup_checks=$(land --repo "$SU" checks readme-fix 2>&1 | field '(d["green"], [(c["command"], c["exit"]) for c in d["commands"]])' 2>&1 || true)
 again=$(project --repo "$SU" worktree readme-fix docs/readme-fix | field '(d["made"], "setup" in d)' 2>&1 || true)
-printf '%s\n' '[branch]' 'base = "main"' '[checks]' 'setup = ["echo half; exit 4"]' > "$SU/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' '[checks]' 'setup = ["echo half; exit 4"]' > "$SU/.lem/settings.toml"
 project --repo "$SU" task-dir other-fix >/dev/null
 failed=$(project --repo "$SU" worktree other-fix docs/other-fix 2>&1 || true)
 failed_code=$(status_of project --repo "$SU" worktree other-fix docs/other-fix)

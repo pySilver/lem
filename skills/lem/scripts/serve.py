@@ -2010,7 +2010,7 @@ class Handler(BaseHTTPRequestHandler):
         # the Inbox's record too, which the Inbox thread writes only when a look changed it (lem_inbox), so that a
         # task's page shows the link to its thread, or why there is none, within seconds of the send
         files = {"demo": workspace.state / "demo", "inbox": workspace.state / bm.INBOX_LOOK,
-                 "settings": Path(workspace.path) / ".lem" / "project.toml"}
+                 "settings": Path(workspace.path) / lem_state.TEAM_SETTINGS}
         task = (asked.get("task") or [""])[0]
         if TASK_SLUG.fullmatch(task) and (workspace.state / "tasks" / task).is_dir():
             files["task"] = workspace.state / "tasks" / task
@@ -2948,10 +2948,13 @@ def stop() -> dict:
 def configure(args) -> dict:
     """Write the machine's `[serve]` from the flags given, end a server on a port it no longer serves,
     make sure the server runs the new way, and take Lem's tailnet entry out where the door closed."""
+    # A file that does not read, or holds a table that is not valid there, is refused here, before any
+    # server stops: `write_machine` would refuse it after the stop, and the board would stay down.
+    lem_state.machine_tables()
     try:
         before = serve_settings()
-    except (ServeError, lem_state.StateError):
-        # a table that does not read is written again whole from the flags and the defaults
+    except ServeError:
+        # a port that is none is written again whole from the flags and the defaults
         before = {"tailscale": False, "port": PORT, "tailscale_port": TAILNET_PORT}
     after = dict(before)
     if args.port is not None:

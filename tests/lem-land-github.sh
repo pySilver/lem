@@ -13,7 +13,7 @@ git clone -q "$GHO" "$GHS" 2>/dev/null && ident "$GHS"
 git -C "$GHS" config remote.origin.url https://github.com/acme/shop.git
 git -C "$GHS" config "url.$GHO.insteadOf" https://github.com/acme/shop.git
 project --repo "$GHS" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[checks]' 'commands = ["true"]' > "$GHS/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[checks]' 'commands = ["true"]' > "$GHS/.lem/settings.toml"
 git -C "$GHS" add -A && git -C "$GHS" commit -q -m "chore: start" && git -C "$GHS" push -q origin main
 mkdir -p "$WORK/bin"
 cat > "$WORK/gh.py" <<'PY'
@@ -459,8 +459,8 @@ git clone -q "$GLO" "$GLS" 2>/dev/null && ident "$GLS"
 git -C "$GLS" config remote.origin.url git@gitlab.com:acme/shop.git
 git -C "$GLS" config "url.$GLO.insteadOf" git@gitlab.com:acme/shop.git
 refused_init=$(project --repo "$GLS" init --base main 2>&1 || true)
-no_file=$([ -e "$GLS/.lem/project.toml" ] && echo written || echo none)
-mkdir -p "$GLS/.lem" && printf '%s\n' '[branch]' 'base = "main"' '[checks]' 'commands = ["true"]' > "$GLS/.lem/project.toml"
+no_file=$([ -e "$GLS/.lem/settings.toml" ] && echo written || echo none)
+mkdir -p "$GLS/.lem" && printf '%s\n' '[branch]' 'base = "main"' '[checks]' 'commands = ["true"]' > "$GLS/.lem/settings.toml"
 git -C "$GLS" add -A && git -C "$GLS" commit -q -m "chore: start" && git -C "$GLS" push -q origin main
 small_task_in "$GLS" gl-change g.txt one
 land --repo "$GLS" start gl-change >/dev/null && land --repo "$GLS" base gl-change >/dev/null && land --repo "$GLS" checks gl-change >/dev/null && land --repo "$GLS" read gl-change --record "$(clean gl-change 1)" >/dev/null
@@ -484,7 +484,7 @@ git clone -q "$GWO" "$GWS" 2>/dev/null && ident "$GWS"
 git -C "$GWS" config remote.origin.url https://github.com/acme/watch.git
 git -C "$GWS" config "url.$GWO.insteadOf" https://github.com/acme/watch.git
 project --repo "$GWS" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' '[checks]' 'commands = ["true"]' > "$GWS/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' '[checks]' 'commands = ["true"]' > "$GWS/.lem/settings.toml"
 printf 'l%s\n' 1 2 3 4 5 6 7 8 9 > "$GWS/shop.txt"
 git -C "$GWS" add -A && git -C "$GWS" commit -q -m "chore: start" && git -C "$GWS" push -q origin main
 GW=$WORK/gw.json

@@ -389,14 +389,14 @@ def project_now(repo: Path) -> tuple[dict, list[dict], Path]:
         # a stand-in in project.py's place (a test's copy of the scripts) answers each command as a process
         settings = json.loads(script("project.py", repo, "show"))
         if settings["settings"] is None:
-            raise CriteriaError("this repository has no .lem/project.toml; `/lem init` writes it")
+            raise CriteriaError("this repository has no .lem/settings.toml; `/lem init` writes it")
         return settings, json.loads(script("project.py", repo, "tasks")), Path(script("project.py", repo, "state-dir").strip())
     project = lem_sibling.module(path)
     try:
         root = project.repo_root(repo)
         settings = project.load(root)
         if settings["settings"] is None:
-            raise CriteriaError("this repository has no .lem/project.toml; `/lem init` writes it")
+            raise CriteriaError("this repository has no .lem/settings.toml; `/lem init` writes it")
         return settings, project.read_tasks(root, settings), project.state_root(root)
     except project.SettingsError as error:
         raise CriteriaError(str(error)) from error
@@ -749,7 +749,7 @@ def cmd_red(task: Task) -> dict:
                     setup.append({"on": name, "command": command, "exit": code})
                     if code != 0:
                         where = "a fresh worktree of the branch" if name == "branch" else "a fresh worktree of the base commit, with the test files laid over it"
-                        raise CriteriaError(f"`{command}` of checks.setup failed in {where} (exit {code}), so no test could run there; correct that command in .lem/project.toml")
+                        raise CriteriaError(f"`{command}` of checks.setup failed in {where} (exit {code}), so no test could run there; correct that command in .lem/settings.toml")
                 if name == "base":
                     # looked for before any test runs there, which might write the file
                     absent = [unstarted(test["command"], place) for _, test in tests]
@@ -771,7 +771,7 @@ def cmd_red(task: Task) -> dict:
             if green != 0:
                 problem = (
                     f"fails in a fresh worktree of the branch (exit {green}). If it passes in the task's worktree, it needs something a fresh one "
-                    "lacks: put the commands that make it into checks.setup of .lem/project.toml"
+                    "lacks: put the commands that make it into checks.setup of .lem/settings.toml"
                 )
             elif red == 0:
                 problem = "passes on the base commit too, so it does not test the change"

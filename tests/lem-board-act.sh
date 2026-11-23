@@ -59,7 +59,7 @@ ident "$SHOP"
 commit "$SHOP" init
 on_github "$SHOP"
 project --repo "$SHOP" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'land = "owner"' 'history = "squash"' '[checks]' 'commands = ["true"]' > "$SHOP/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'land = "owner"' 'history = "squash"' '[checks]' 'commands = ["true"]' > "$SHOP/.lem/settings.toml"
 echo one > "$SHOP/app.txt" && git -C "$SHOP" add -A && git -C "$SHOP" commit -q -m "chore: start" && git -C "$SHOP" push -q origin main
 task_in "$SHOP" word-in-file ok.txt yes && read_in "$SHOP" word-in-file
 land --repo "$SHOP" start word-in-file >/dev/null && land --repo "$SHOP" base word-in-file >/dev/null && polish_in "$SHOP" word-in-file
@@ -367,7 +367,7 @@ mkdir -p "$XDG_CONFIG_HOME/lem" && printf '[load]\nstart = 0\n' > "$XDG_CONFIG_H
 DUTY=$WORK/duty-shop
 git init -q -b main "$DUTY" && ident "$DUTY" && commit "$DUTY" init && on_github "$DUTY"
 project --repo "$DUTY" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'land = "owner"' 'history = "squash"' '[checks]' 'commands = ["true"]' > "$DUTY/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'land = "owner"' 'history = "squash"' '[checks]' 'commands = ["true"]' > "$DUTY/.lem/settings.toml"
 git -C "$DUTY" add -A && git -C "$DUTY" commit -q -m "chore: start" && git -C "$DUTY" push -q origin main
 for slug in first-word second-word; do
   task_in "$DUTY" "$slug" "$slug.txt" yes && read_in "$DUTY" "$slug"
@@ -415,7 +415,7 @@ fi
 CLOSE=$WORK/close-shop
 git init -q -b main "$CLOSE" && ident "$CLOSE" && commit "$CLOSE" init && on_github "$CLOSE"
 project --repo "$CLOSE" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'land = "owner"' 'history = "squash"' '[checks]' 'commands = ["true"]' > "$CLOSE/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'land = "owner"' 'history = "squash"' '[checks]' 'commands = ["true"]' > "$CLOSE/.lem/settings.toml"
 git -C "$CLOSE" add -A && git -C "$CLOSE" commit -q -m "chore: start" && git -C "$CLOSE" push -q origin main
 task_in "$CLOSE" word-not-wanted word.txt yes && read_in "$CLOSE" word-not-wanted
 land --repo "$CLOSE" start word-not-wanted >/dev/null && land --repo "$CLOSE" base word-not-wanted >/dev/null && polish_in "$CLOSE" word-not-wanted
@@ -457,7 +457,7 @@ fi
 AUTO=$WORK/auto-shop
 git init -q -b main "$AUTO" && ident "$AUTO" && commit "$AUTO" init && on_github "$AUTO"
 project --repo "$AUTO" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' 'history = "squash"' '[checks]' 'commands = ["true"]' > "$AUTO/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' 'history = "squash"' '[checks]' 'commands = ["true"]' > "$AUTO/.lem/settings.toml"
 git -C "$AUTO" add -A && git -C "$AUTO" commit -q -m "chore: start" && git -C "$AUTO" push -q origin main
 task_in "$AUTO" word-by-agent word.txt yes && read_in "$AUTO" word-by-agent
 land --repo "$AUTO" start word-by-agent >/dev/null && land --repo "$AUTO" base word-by-agent >/dev/null && polish_in "$AUTO" word-by-agent
@@ -498,7 +498,7 @@ fi
 MOVE=$WORK/move-shop
 git init -q -b main "$MOVE" && ident "$MOVE" && commit "$MOVE" init && on_github "$MOVE"
 project --repo "$MOVE" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' 'history = "squash"' '[checks]' 'commands = ["true"]' > "$MOVE/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' 'history = "squash"' '[checks]' 'commands = ["true"]' > "$MOVE/.lem/settings.toml"
 git -C "$MOVE" add -A && git -C "$MOVE" commit -q -m "chore: start" && git -C "$MOVE" push -q origin main
 for slug in first-move second-move; do
   task_in "$MOVE" "$slug" "$slug.txt" yes && read_in "$MOVE" "$slug"
@@ -627,7 +627,7 @@ fi
 OPEN=$WORK/open-must-fix-shop
 git init -q -b main "$OPEN" && ident "$OPEN" && commit "$OPEN" init && on_github "$OPEN"
 project --repo "$OPEN" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' 'history = "squash"' '[checks]' 'commands = ["true"]' > "$OPEN/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' 'history = "squash"' '[checks]' 'commands = ["true"]' > "$OPEN/.lem/settings.toml"
 git -C "$OPEN" add -A && git -C "$OPEN" commit -q -m "chore: start" && git -C "$OPEN" push -q origin main
 task_in "$OPEN" open-must-fix open.txt yes && read_in "$OPEN" open-must-fix
 land --repo "$OPEN" start open-must-fix >/dev/null && land --repo "$OPEN" base open-must-fix >/dev/null && polish_in "$OPEN" open-must-fix
@@ -673,7 +673,7 @@ fi
 SAFE=$WORK/safe-shop
 git init -q -b main "$SAFE" && ident "$SAFE" && commit "$SAFE" init && on_github "$SAFE"
 project --repo "$SAFE" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' 'history = "squash"' '[checks]' 'commands = ["true"]' > "$SAFE/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' 'history = "squash"' '[checks]' 'commands = ["true"]' > "$SAFE/.lem/settings.toml"
 git -C "$SAFE" add -A && git -C "$SAFE" commit -q -m "chore: start" && git -C "$SAFE" push -q origin main
 # safe_read SLUG SECOND: the merge agent's read of the proposed task, its brief and then its answer, with SECOND as
 # the answer's second line when it is not empty, recorded with the tip and the base the brief named; prints the record

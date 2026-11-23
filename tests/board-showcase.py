@@ -82,7 +82,7 @@ class Shop:
         self.git("add", "-A")
         self.git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "chore: start")
         self.project("init", "--base", "main")
-        toml = self.repo / ".lem" / "project.toml"
+        toml = self.repo / ".lem" / "settings.toml"
         text, count = re.subn(r"(?m)^commands = \[\]$", 'commands = ["make test", "make lint"]', toml.read_text(), count=1)
         if not count:
             sys.exit("board-showcase: the settings have no empty gate commands to fill")

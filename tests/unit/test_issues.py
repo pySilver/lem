@@ -113,7 +113,7 @@ class Issues(unittest.TestCase):
         subprocess.run(["git", "init", "-q", "-b", "main", str(self.root)], check=True)
         subprocess.run(["git", "-C", str(self.root), "remote", "add", "origin", "git@github.com:acme/shop.git"], check=True)
         (self.root / ".lem").mkdir()
-        (self.root / ".lem" / "project.toml").write_text('[branch]\nbase = "main"\n[tracker]\nkind = "github"\n', encoding="utf-8")
+        (self.root / ".lem" / "settings.toml").write_text('[branch]\nbase = "main"\n[tracker]\nkind = "github"\n', encoding="utf-8")
         self.root = Path(subprocess.run(["git", "-C", str(self.root), "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True).stdout.strip())
         bindir = self.work / "standin"
         bindir.mkdir()
@@ -250,7 +250,7 @@ class Read(Issues):
         self.assertIn("issue 0 is no issue", self.refused("read", "#0"))
         subprocess.run(["git", "-C", str(self.root), "remote", "set-url", "origin", "https://gitlab.com/acme/shop.git"], check=True)
         self.assertIn("origin is https://gitlab.com/acme/shop.git, which is not a repository on GitHub", self.refused("read", "42"))
-        (self.root / ".lem" / "project.toml").write_text('[branch]\nbase = "main"\n[tracker]\nkind = "linear"\n', encoding="utf-8")
+        (self.root / ".lem" / "settings.toml").write_text('[branch]\nbase = "main"\n[tracker]\nkind = "linear"\n', encoding="utf-8")
         self.assertIn("the project's tracker is linear", self.refused("read", "42"))
 
 
@@ -531,7 +531,7 @@ class Check(Issues):
         self.assertIn("https://cli.github.com", found[0]["fix"])
 
     def test_the_check_needs_no_tracker_and_touches_no_settings(self):
-        settings = self.root / ".lem" / "project.toml"
+        settings = self.root / ".lem" / "settings.toml"
         settings.write_text('[branch]\nbase = "main"\n', encoding="utf-8")
         code, _, _ = self.run_issue("check")
         self.assertEqual((code, settings.read_text(encoding="utf-8")), (0, '[branch]\nbase = "main"\n'))

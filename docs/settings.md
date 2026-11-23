@@ -101,13 +101,12 @@ Leave this table out with no tracker. [Connect Linear](linear.md) and
 | --- | --- | --- |
 | `tracker.kind` | required | `"linear"` or `"github"`, the one key of the table. With `"github"`, Lem uses the issues of the repository that origin names |
 
-## `.lem/project.local.toml`
+## `.lem/settings.local.toml`
 
 Git does not track this file. It holds the settings of one computer, and only these.
 
 | Table | What it can say |
 | --- | --- |
 | `[seats]` | a seat for this computer, in the same form. `/lem reviewer codex/gpt-6.2-sol:high` writes the reviewer, and `/lem reviewer default` removes it |
-| `[corrections]` | only `collect = false` |
 | `[naps]` | only `on = false` |
 | `[state]` | only `keep_days`: the days for the old files of this computer. Lem uses this number on this computer, also when it is lower or higher than the number of the project |

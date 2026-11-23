@@ -28,7 +28,7 @@ ROOT = Path("/lem-unit/repo")
 
 def settings(*lines: str) -> dict:
     """The settings of a main checkout on its base branch whose file holds these lines."""
-    raw = project.settings_of("\n".join(lines) + "\n", ROOT / project.SETTINGS, tuple(project.TABLES))
+    raw = project.settings_of("\n".join(lines) + "\n", ROOT / project.SETTINGS, "team")
     return project.decide(ROOT, ROOT, raw, {}, raw, None)
 
 
@@ -851,7 +851,7 @@ class Summarized(unittest.TestCase):
         self.state.mkdir()
         project.STATE_ROOTS[self.root] = self.state
         self.addCleanup(project.STATE_ROOTS.pop, self.root)
-        for patched in (mock.patch.object(project, "load", return_value={"state": {"keep_days": 30, "from": ".lem/project.toml"}}),
+        for patched in (mock.patch.object(project, "load", return_value={"state": {"keep_days": 30, "from": ".lem/settings.toml"}}),
                         mock.patch.object(project, "owner_records", return_value=[])):
             patched.start()
             self.addCleanup(patched.stop)
@@ -1224,7 +1224,7 @@ class ResumeSummarized(unittest.TestCase):
             {"ts": back(39), "event": "criteria.approved", "task": "card-foot", "number": 1, "by": "owner"},
             {"ts": back(35), "event": "task.state", "task": "card-foot", "status": "dropped", "text": "the owner dropped it", "lines": []},
         ]), encoding="utf-8")
-        settings = {"places": {"worktrees": {"path": str(self.root / ".lem" / "worktrees")}}, "state": {"keep_days": 30, "from": ".lem/project.toml"}}
+        settings = {"places": {"worktrees": {"path": str(self.root / ".lem" / "worktrees")}}, "state": {"keep_days": 30, "from": ".lem/settings.toml"}}
         for patched in (mock.patch.object(project, "load", return_value=settings), mock.patch.object(project, "main_checkout", return_value=self.root),
                         mock.patch.object(project, "cmd_worktree", return_value={"worktree": str(self.root / ".lem" / "worktrees" / "card-foot-2")}),
                         mock.patch.object(project, "cmd_state", return_value={"since": "2026-11-05T10:00Z"})):

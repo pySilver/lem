@@ -87,7 +87,7 @@ fi
 # their one place, and init there does not start a second cast.
 CUSTOM=$PANEL/custom
 git init -q -b main "$CUSTOM" && commit "$CUSTOM" "start" && git -C "$CUSTOM" branch before-the-cast
-mkdir -p "$CUSTOM/.lem/personas" && printf '%s\n' '[branch]' 'base = "main"' > "$CUSTOM/.lem/project.toml"
+mkdir -p "$CUSTOM/.lem/personas" && printf '%s\n' '[branch]' 'base = "main"' > "$CUSTOM/.lem/settings.toml"
 printf '# Shopper\n' > "$CUSTOM/.lem/personas/shopper.md" && printf '# About\n' > "$CUSTOM/.lem/profile.md"
 git -C "$CUSTOM" add -A && commit "$CUSTOM" "feat: the people of this project"
 git -C "$CUSTOM" worktree add -q "$PANEL/custom-old" before-the-cast
@@ -225,7 +225,7 @@ fi
 LINKED=$PANEL/linked
 git init -q -b main "$LINKED"
 mkdir -p "$LINKED/.lem"
-printf '%s\n' '[paths]' 'persona = "x"' > "$LINKED/.lem/project.toml"
+printf '%s\n' '[paths]' 'persona = "x"' > "$LINKED/.lem/settings.toml"
 if [ "$(status_of cast --repo "$LINKED")" = 1 ]; then pass "a settings file Lem refuses stops the panel too"; else fail "bad settings passed"; fi
 # once without -B: whatever the run says, its imports wrote no bytecode
 env -u PYTHONDONTWRITEBYTECODE "$PY" "$CAST" --repo "$LINKED" >/dev/null 2>&1 || true

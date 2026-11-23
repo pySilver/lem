@@ -512,7 +512,7 @@ def user_plugin() -> list[dict]:
         "detail": f"{users[0]} is installed for the user, so every repository on this machine loads it",
         "used_for": "Lem's skills, its builder and its correction hook, which belong to the repositories that use Lem",
         "without_it": (
-            "the skills and the hook load in every repository; the hook in a repository with no .lem/project.toml writes nothing and costs "
+            "the skills and the hook load in every repository; the hook in a repository with no .lem/settings.toml writes nothing and costs "
             "about a tenth of a second a message (a median of 99.4 ms over 20 runs, Python 3.15.2, one Mac, 2026-11-17). "
             f"`claude plugin uninstall {users[0]} --scope user` removes that install; then `claude plugin install {users[0]} --scope project` "
             "in each repository that uses Lem"
@@ -532,7 +532,7 @@ def project() -> list[dict]:
     except OSError:
         return []
     root = Path(top.stdout.strip()) if top.returncode == 0 and top.stdout.strip() else None
-    if root is None or not (root / ".lem" / "project.toml").is_file():
+    if root is None or not (root / ".lem" / "settings.toml").is_file():
         return []
     row = {
         "name": "project personas", "need": "project", "found": False, "detail": None,

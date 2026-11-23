@@ -11,7 +11,7 @@ git init -q -b main "$GRD" && ident "$GRD"
 project --repo "$GRD" init --base main >/dev/null
 # grd_settings COMMANDS: the settings with these gate commands, a TOML list's items; HISTORY=squash for one commit, SERIAL for checks.serial,
 # PROTECTED for branch.protected
-grd_settings() { printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' "history = \"${HISTORY:-keep}\"" "protected = [${PROTECTED:-}]" '[checks]' "commands = [$1]" "serial = [${SERIAL:-}]" > "$GRD/.lem/project.toml"; }
+grd_settings() { printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' "history = \"${HISTORY:-keep}\"" "protected = [${PROTECTED:-}]" '[checks]' "commands = [$1]" "serial = [${SERIAL:-}]" > "$GRD/.lem/settings.toml"; }
 grd_settings '"true"'
 mkdir -p "$GRD/tests" && printf '%s\n' 'def test_old():' '    assert 1 + 1 == 2' > "$GRD/tests/test_old.py"
 git -C "$GRD" add -A && git -C "$GRD" commit -q -m "chore: start" && on_github "$GRD"
@@ -51,7 +51,7 @@ was=$(status_in "$GRD" no-gate)
 again=$(g start no-gate 2>&1 || true)
 grd_settings '"true"'
 g start no-gate >/dev/null 2>&1 || true
-if grep -qF "the project has no command in its checks" <<<"$blocked" && grep -qF "Add the commands to checks.commands in .lem/project.toml" <<<"$blocked" \
+if grep -qF "the project has no command in its checks" <<<"$blocked" && grep -qF "Add the commands to checks.commands in .lem/settings.toml" <<<"$blocked" \
   && grep -qF "then run \`lem land start no-gate\` again" <<<"$blocked" && [ "$was" = blocked ] \
   && grep -qF "the project has no command in its checks" <<<"$again" && [ "$(status_in "$GRD" no-gate)" = landing ]; then
   pass "with no command in its checks start blocks the task and says to add the commands and run start again, which then takes the task it blocked"
@@ -98,8 +98,8 @@ remote=$(git -C "$GRD" ls-remote origin refs/heads/fix/kept-name)
 project --repo "$GRD" state kept-name dropped "the test is over" >/dev/null
 cleaned=$(g clean kept-name 2>&1 || true)
 grd_settings '"true"'
-if grep -qF "fix/kept-name is in branch.protected of .lem/project.toml: Lem pushes nothing to it" <<<"$pushed" && grep -qF "nothing was pushed" <<<"$pushed" && [ -z "$remote" ] \
-  && grep -qF "fix/kept-name is in branch.protected of .lem/project.toml: Lem deletes nothing of it" <<<"$cleaned" && [ -d "$(wt kept-name)" ] \
+if grep -qF "fix/kept-name is in branch.protected of .lem/settings.toml: Lem pushes nothing to it" <<<"$pushed" && grep -qF "nothing was pushed" <<<"$pushed" && [ -z "$remote" ] \
+  && grep -qF "fix/kept-name is in branch.protected of .lem/settings.toml: Lem deletes nothing of it" <<<"$cleaned" && [ -d "$(wt kept-name)" ] \
   && git -C "$GRD" rev-parse -q --verify refs/heads/fix/kept-name >/dev/null && [ "$(g clean kept-name | field 'd["worktree"]')" = True ]; then
   pass "a task branch the owner protected after its worktree was made gets no push from propose, and clean removes neither it nor the worktree until the name leaves branch.protected"
 else

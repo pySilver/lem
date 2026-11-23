@@ -117,7 +117,7 @@ else
   fail "the resume of a dropped task: $resumed / $carried / $copied / $first / $old / $record / $again"
 fi
 # A resume whose worktree's checks.setup fails still leaves the new task whole, held by its breaker, and says what is left.
-printf '%s\n' '[branch]' 'base = "main"' '[checks]' 'setup = ["echo half; exit 3"]' > "$BR/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' '[checks]' 'setup = ["echo half; exit 3"]' > "$BR/.lem/settings.toml"
 br state gift-note-2 dropped "the owner dropped it again" >/dev/null
 unset_up=$(br resume gift-note-2 2>&1; echo "exit $?")
 whole=$(br tasks | field 'next((t["status"], t["state"].splitlines()[0].split(": ", 1)[1]) for t in d if t["slug"] == "gift-note-3")' 2>&1 || true)
@@ -421,7 +421,7 @@ fi
 # the breaker of the new task, and the new task is proposed with no second question to him.
 RS=$WORK/resume-repo
 git init -q -b main "$RS" && ident "$RS" && project --repo "$RS" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[checks]' 'commands = ["true"]' > "$RS/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[checks]' 'commands = ["true"]' > "$RS/.lem/settings.toml"
 git -C "$RS" add -A && git -C "$RS" commit -q -m "chore: start" && on_github "$RS"
 rs_criteria() { printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/$1-approved.md"; }
 # rs_resume SLUG: a breaker stops the task, the owner drops it and resumes it, helps the new task's breaker, and the new

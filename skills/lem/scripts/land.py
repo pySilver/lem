@@ -217,7 +217,7 @@ it, waits, and reads the base branch after it takes the lock, so that it meets t
 The commands of `checks.serial` still take the repository's one lock for them; nothing else does.
 
 The checks are the main checkout's. One task may bring its own: when the main checkout's settings
-name no command of the checks and the task's branch adds them to its `.lem/project.toml` (they are not on
+name no command of the checks and the task's branch adds them to its `.lem/settings.toml` (they are not on
 the base commit), `start` and `checks` take those commands, as for the first task of a new
 repository, "set up the checks"; the request is then not green, so that a person reads the
 checks once. The rest of the branch's settings, its `checks.setup` too, are not read. A branch that changes checks the main checkout has is checked by the main
@@ -258,11 +258,11 @@ what must never go wrong, read from the main checkout's settings like every sett
 of paths decides it. A request is careful when the owner says so (that word in the task's brief),
 when the plan says so (its `careful: yes` under its title, in its text now or in any commit of the
 branch: a later commit does not take the yes back), when the newest review that answered says so,
-or when the change edits `.lem/project.toml` at all. The last is the one rule this script matches
+or when the change edits `.lem/settings.toml` at all. The last is the one rule this script matches
 by itself, because the file is Lem's own and a task rarely edits it: its tables say, for every
 later task, what is careful, what the checks run, who merges and where a task lands, and the reason
 names each table whose values the change edits, that only its text changed, or that the file is
-gone. A change that adds, changes or removes `.lem/project.local.toml` is careful by the same rule:
+gone. A change that adds, changes or removes `.lem/settings.local.toml` is careful by the same rule:
 that file is one machine's own and is not to be tracked. The review is the look at the diff itself, by
 an agent that did not build it: its record makes the call, and a careful call takes the full set.
 
@@ -674,12 +674,12 @@ PLAN_CALL = re.compile(r"(?mi)^careful:\s*(yes|no)\b")
 # Any edit of the file is careful by this script, not by a judgment: the file is Lem's, a task
 # rarely edits it, and every table of it guards something for every later task (audit A1,
 # 2026-11-17: a branch that set `branch.land` to "agent" got one read and a green pull request).
-SETTINGS_FILE = ".lem/project.toml"
-# One machine's own settings (`[seats]`, `[corrections]` and `[naps]`, project.py's LOCAL_TABLES),
+SETTINGS_FILE = ".lem/settings.toml"
+# One machine's own settings for the repository (`[seats]`, `[naps]` and `[state]`, project.py's LOCAL_TABLES),
 # untracked by design and read from the main checkout. A branch that commits it, or changes or
 # removes a tracked copy, is careful by this script too: a green request and an agent's merge would
 # make one machine's choices every machine's (audit N5, 2026-11-17: a branch that committed it with `git add -f` got both).
-LOCAL_SETTINGS_FILE = ".lem/project.local.toml"
+LOCAL_SETTINGS_FILE = ".lem/settings.local.toml"
 # What a decision of the build did to its criterion, as a line of the pull request says it.
 CHANGE_HOW = {"changed": "changed", "added": "was added", "removed": "was removed"}
 # The form of the one event that records the personas' read of a task's criteria.
@@ -850,7 +850,7 @@ def project_now(repo: Path) -> tuple[dict, list[dict], Path]:
         if Path(settings["root"]).resolve() != Path(settings["main"]).resolve():
             settings = json.loads(script("project.py", Path(settings["main"]), "show").stdout)
         if settings["settings"] is None:
-            raise LandError("this repository has no .lem/project.toml; `/lem init` writes it")
+            raise LandError("this repository has no .lem/settings.toml; `/lem init` writes it")
         script("project.py", repo, "may-land", str(settings["branch"]["base"]))
         return settings, json.loads(script("project.py", repo, "tasks").stdout), Path(script("project.py", repo, "state-dir").stdout.strip())
     project = lem_sibling.module(path)
@@ -865,7 +865,7 @@ def project_now(repo: Path) -> tuple[dict, list[dict], Path]:
             # and `may-land` and the tasks' tracker read the branch's tables there, as their commands do.
             settings = project.load(Path(here["main"]))
         if settings["settings"] is None:
-            raise LandError("this repository has no .lem/project.toml; `/lem init` writes it")
+            raise LandError("this repository has no .lem/settings.toml; `/lem init` writes it")
         project.may_land(here, str(settings["branch"]["base"]))
         return settings, project.read_tasks(root, here), project.state_root(root)
     except project.SettingsError as error:
@@ -970,7 +970,7 @@ class Task:
 
     def gate(self) -> tuple[list[str], bool]:
         """The commands of this task's checks, and whether its own branch brought them: the main
-        checkout's, unless those are none and the branch adds some to its `.lem/project.toml`."""
+        checkout's, unless those are none and the branch adds some to its `.lem/settings.toml`."""
         own = self.settings["checks"]["commands"]
         if own or not (self.worktree / ".git").exists():
             return own, False
@@ -981,7 +981,7 @@ class Task:
         if not tip:
             return [], False
         base = git(self.worktree, "merge-base", "HEAD", self.onto, check=False)
-        before = git(self.worktree, "show", f"{base}:.lem/project.toml", check=False) if base else ""
+        before = git(self.worktree, "show", f"{base}:.lem/settings.toml", check=False) if base else ""
         try:
             parsed = tomllib.loads(before) if before else {}
             on_base = parsed.get("checks", {}).get("commands", [])
@@ -1055,7 +1055,7 @@ def start_locked(task: Task, conflicting: bool = False) -> dict:
             task.state("blocked", NO_GATE)
         raise LandError(
             f"{NO_GATE}, so nothing would show that the change works; the task is `blocked`. "
-            "Add the commands to checks.commands in .lem/project.toml, or, for the task that sets up the checks, in its own branch's, "
+            "Add the commands to checks.commands in .lem/settings.toml, or, for the task that sets up the checks, in its own branch's, "
             f"then run `lem land start {task.slug}` again",
         )
     task.need_worktree()
@@ -1824,7 +1824,7 @@ def plan_careful(task: Task) -> bool:
 
 
 def settings_edit(task: Task, now: dict) -> str | None:
-    """Why the change is careful by its edit of Lem's own settings: any edit of `.lem/project.toml`,
+    """Why the change is careful by its edit of Lem's own settings: any edit of `.lem/settings.toml`,
     whose tables, once landed, say for every later task what is careful, what the checks run, who
     merges and where a task lands. The reason names each table whose values change, or says that
     only the file's text does. None when the change leaves the file alone."""
@@ -1854,8 +1854,8 @@ def in_commit(task: Task, commit: str, path: str) -> bool:
 
 
 def local_settings_edit(task: Task, now: dict) -> str | None:
-    """Why the change is careful by a commit of one machine's own settings: `.lem/project.local.toml`
-    is untracked by design, and a tracked copy gives every machine that machine's seats, corrections and naps.
+    """Why the change is careful by a commit of one machine's own settings: `.lem/settings.local.toml`
+    is untracked by design, and a tracked copy gives every machine that machine's seats, naps and days the state keeps.
     None when the change leaves the file alone."""
     if LOCAL_SETTINGS_FILE not in now["files"]:
         return None
@@ -1863,7 +1863,7 @@ def local_settings_edit(task: Task, now: dict) -> str | None:
     how = "adds" if after and not before else "removes" if before and not after else "changes"
     return (
         f"the change {how} {LOCAL_SETTINGS_FILE}, one machine's own settings, which git does not track: "
-        "tracked, that machine's seats, corrections and naps become every machine's"
+        "tracked, that machine's seats, naps and days the state keeps become every machine's"
     )
 
 
@@ -2666,7 +2666,7 @@ def checks_ready(task: Task) -> tuple[str, dict, list[str]]:
         # `start` refuses a project with none; the main checkout's settings may lose them after it
         task.keep(gated=None, tree=None)
         raise LandError(
-            f"the checks have no command to run, and checks that ran nothing show nothing: {NO_GATE} in the main checkout's .lem/project.toml, "
+            f"the checks have no command to run, and checks that ran nothing show nothing: {NO_GATE} in the main checkout's .lem/settings.toml, "
             f"and the branch brings none that the base commit lacks. Add the commands to checks.commands there, then run `lem land checks {task.slug}` again",
         )
     return tip, found, commands
@@ -3293,7 +3293,7 @@ def gate_missing(task: Task, tip: str) -> str | None:
         return None
     kept = task.kept()
     if kept.get("gated") and not same_checks((kept.get("checks") or {}).get("commands") or [], task.gate()[0], task.settings["checks"]["serial"]):
-        return "the commands of the checks are not the ones that passed (checks.commands and checks.serial of the main checkout's .lem/project.toml changed since), so their green result is not this one's"
+        return "the commands of the checks are not the ones that passed (checks.commands and checks.serial of the main checkout's .lem/settings.toml changed since), so their green result is not this one's"
     return "no green check is on record for this tip"
 
 
@@ -3622,7 +3622,7 @@ def not_green(task: Task, state: dict) -> list[str]:
     commands, brought = task.gate()
     if brought:
         reasons.append(
-            "the checks came with this change: the main checkout's settings name no command of the checks, and the branch's .lem/project.toml brings "
+            "the checks came with this change: the main checkout's settings name no command of the checks, and the branch's .lem/settings.toml brings "
             + ", ".join(f"`{command}`" for command in commands) + ". Read the checks once: every later task is checked by them",
         )
     if state["due"] != "none":
@@ -4111,9 +4111,9 @@ def protected_refusal(branch: str, settings: dict, does: str) -> str | None:
     owner may add after the task's worktree was made. None for a branch of the task's own."""
     what = "to" if does == "pushes" else "of"
     if branch == settings["base"]:
-        return f"{branch} is the base branch of .lem/project.toml: Lem {does} nothing {what} it outside a merge through its pull request"
+        return f"{branch} is the base branch of .lem/settings.toml: Lem {does} nothing {what} it outside a merge through its pull request"
     if branch in settings["protected"]:
-        return f"{branch} is in branch.protected of .lem/project.toml: Lem {does} nothing {what} it"
+        return f"{branch} is in branch.protected of .lem/settings.toml: Lem {does} nothing {what} it"
     return None
 
 
@@ -4370,7 +4370,7 @@ def merger_refusal(slug: str, land: str, careful: list[str], reasons: list[str],
     of the proposed tip (its `verdict`), or None. The owner's merge asks none of this; a task that ran
     without him is merged as any other."""
     if land != "agent":
-        return 'branch.land is "owner" in .lem/project.toml: the owner merges every task, after the merge review; it waits as `open` for his word'
+        return 'branch.land is "owner" in .lem/settings.toml: the owner merges every task, after the merge review; it waits as `open` for his word'
     if careful:
         return f"a careful request is merged by the owner, whatever the settings say ({careful[0]}); it waits as `open` for his word"
     if reasons:

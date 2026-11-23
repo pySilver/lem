@@ -9,7 +9,7 @@
 LOCAL=$WORK/local
 git init -q -b main "$LOCAL" && ident "$LOCAL"
 project --repo "$LOCAL" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[checks]' 'commands = ["true"]' '[flow]' 'topics = ["a customer is charged the wrong price"]' > "$LOCAL/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[checks]' 'commands = ["true"]' '[flow]' 'topics = ["a customer is charged the wrong price"]' > "$LOCAL/.lem/settings.toml"
 mkdir -p "$LOCAL/tests" "$LOCAL/docs" && printf '%s\n' 'def test_base():' '    assert 1 + 1 == 2' '    assert 2 + 2 == 4' > "$LOCAL/tests/test_base.py" && echo guide > "$LOCAL/docs/guide.md"
 printf '%s\n' 'import plugin # noqa: F401' 'import other  # noqa: E402' > "$LOCAL/plug.py"
 # app_py FIRST SECOND: two functions alike in every line but their names, each longer than the
@@ -430,13 +430,13 @@ else
 fi
 project --repo "$LOCAL" state loud-run dropped "the test is over" >/dev/null
 
-# A branch cannot lift what guards it: one that edits the flow table of its own .lem/project.toml is
+# A branch cannot lift what guards it: one that edits the flow table of its own .lem/settings.toml is
 # careful by the script, which says why, and the landing reads the topics of the main checkout's
 # settings, also when it runs from the task's worktree.
 task_in "$LOCAL" lift-topics nine.txt nine
 read_in "$LOCAL" lift-topics
 tree=$(project --repo "$LOCAL" worktree-dir lift-topics)
-"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("topics = [\"a customer is charged the wrong price\"]", "topics = []"))' "$tree/.lem/project.toml"
+"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("topics = [\"a customer is charged the wrong price\"]", "topics = []"))' "$tree/.lem/settings.toml"
 git -C "$tree" commit -q -am "chore: no topics"
 local_land start lift-topics >/dev/null && local_land base lift-topics >/dev/null && polish_in "$LOCAL" lift-topics && local_land checks lift-topics >/dev/null
 lifted=$(local_land read lift-topics | field '(d["floor"], d["why"], d["inputs"]["topics"])')
@@ -445,7 +445,7 @@ local_land read lift-topics --record "$(record lift-topics 1 '{"kind": "full", "
 local_land propose lift-topics --title "chore: no topics" --notes "$MIG" >/dev/null
 agent=$(local_land merge lift-topics --by merger 2>&1 || true)
 text=$LOCAL/.lem/state/tasks/lift-topics/pr.md
-settings_why="the change edits [flow] of .lem/project.toml, Lem's own settings, which say for every later task what is careful, what the checks run, who merges and where a task lands"
+settings_why="the change edits [flow] of .lem/settings.toml, Lem's own settings, which say for every later task what is careful, what the checks run, who merges and where a task lands"
 # the reason holds an apostrophe, so Python's repr of it is in double quotes
 if [ "$lifted" = "('full', \"the request is careful: $settings_why\", ['a customer is charged the wrong price'])" ] \
   && [ "$from_tree" = "('full', ['a customer is charged the wrong price'])" ] \
@@ -463,7 +463,7 @@ project --repo "$LOCAL" state lift-topics dropped "the test is over" >/dev/null
 task_in "$LOCAL" lands-alone ten.txt ten
 read_in "$LOCAL" lands-alone
 tree=$(project --repo "$LOCAL" worktree-dir lands-alone)
-"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("history = \"keep\"", "history = \"squash\""))' "$tree/.lem/project.toml"
+"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("history = \"keep\"", "history = \"squash\""))' "$tree/.lem/settings.toml"
 git -C "$tree" commit -q -am "chore: one commit for each task"
 local_land start lands-alone >/dev/null && local_land base lands-alone >/dev/null && polish_in "$LOCAL" lands-alone && local_land checks lands-alone >/dev/null
 branch_floor=$(local_land read lands-alone | field '(d["floor"], d["why"])')
@@ -473,13 +473,13 @@ branch_agent=$(local_land merge lands-alone --by merger 2>&1 || true)
 project --repo "$LOCAL" state lands-alone dropped "the test is over" >/dev/null
 task_in "$LOCAL" settings-note eleven.txt eleven
 tree=$(project --repo "$LOCAL" worktree-dir settings-note)
-printf '%s\n' '# the owner keeps the topics short' >> "$tree/.lem/project.toml"
+printf '%s\n' '# the owner keeps the topics short' >> "$tree/.lem/settings.toml"
 git -C "$tree" commit -q -am "docs: a note in the settings"
 local_land start settings-note >/dev/null && local_land base settings-note >/dev/null && polish_in "$LOCAL" settings-note && local_land checks settings-note >/dev/null
 note_floor=$(local_land read settings-note | field '(d["floor"], d["why"])')
 project --repo "$LOCAL" state settings-note dropped "the test is over" >/dev/null
-branch_why="the change edits [branch] of .lem/project.toml, Lem's own settings, which say for every later task what is careful, what the checks run, who merges and where a task lands"
-note_why="the change edits the text of .lem/project.toml, and no value in it, Lem's own settings, which say for every later task what is careful, what the checks run, who merges and where a task lands"
+branch_why="the change edits [branch] of .lem/settings.toml, Lem's own settings, which say for every later task what is careful, what the checks run, who merges and where a task lands"
+note_why="the change edits the text of .lem/settings.toml, and no value in it, Lem's own settings, which say for every later task what is careful, what the checks run, who merges and where a task lands"
 if [ "$branch_floor" = "('full', \"the request is careful: $branch_why\")" ] && grep -qF "a careful request is merged by the owner, whatever the settings say ($branch_why)" <<<"$branch_agent" \
   && grep -qxF -- "- careful: yes, $branch_why; the review says no: $NOT_CAREFUL" "$LOCAL/.lem/state/tasks/lands-alone/pr.md" \
   && [ "$note_floor" = "('full', \"the request is careful: $note_why\")" ]; then
@@ -491,31 +491,31 @@ fi
 # A branch that removes Lem's own settings is careful, and the reason says it removes the file, not which tables it edits.
 task_in "$LOCAL" settings-gone twelve.txt twelve
 tree=$(project --repo "$LOCAL" worktree-dir settings-gone)
-git -C "$tree" rm -q .lem/project.toml && git -C "$tree" commit -q -m "chore: no settings"
+git -C "$tree" rm -q .lem/settings.toml && git -C "$tree" commit -q -m "chore: no settings"
 local_land start settings-gone >/dev/null && local_land base settings-gone >/dev/null && polish_in "$LOCAL" settings-gone && local_land checks settings-gone >/dev/null
 gone_floor=$(local_land read settings-gone | field '(d["floor"], d["why"])')
 project --repo "$LOCAL" state settings-gone dropped "the test is over" >/dev/null
-gone_why="the change removes .lem/project.toml, Lem's own settings, which say for every later task what is careful, what the checks run, who merges and where a task lands"
+gone_why="the change removes .lem/settings.toml, Lem's own settings, which say for every later task what is careful, what the checks run, who merges and where a task lands"
 if [ "$gone_floor" = "('full', \"the request is careful: $gone_why\")" ]; then
   pass "a branch that removes Lem's own settings is careful by the script, and the reason says that it removes the file"
 else
   fail "a branch that removes the settings: $gone_floor"
 fi
 
-# The machine's own settings are untracked by design: a branch that commits .lem/project.local.toml, or changes or
+# The machine's own settings are untracked by design: a branch that commits .lem/settings.local.toml, or changes or
 # removes a tracked one, is careful by the script, with a reason that says the file is one machine's own.
 task_in "$LOCAL" local-tracked thirteen.txt thirteen
 read_in "$LOCAL" local-tracked
 tree=$(project --repo "$LOCAL" worktree-dir local-tracked)
-printf '%s\n' '[seats]' 'reviewer = "claude/opus:high"' > "$tree/.lem/project.local.toml"
-git -C "$tree" add -f .lem/project.local.toml && git -C "$tree" commit -q -m "chore: my asker"
+printf '%s\n' '[seats]' 'reviewer = "claude/opus:high"' > "$tree/.lem/settings.local.toml"
+git -C "$tree" add -f .lem/settings.local.toml && git -C "$tree" commit -q -m "chore: my asker"
 local_land start local-tracked >/dev/null && local_land base local-tracked >/dev/null && polish_in "$LOCAL" local-tracked && local_land checks local-tracked >/dev/null
 local_floor=$(local_land read local-tracked | field '(d["floor"], d["why"])')
 local_land read local-tracked --record "$(record local-tracked 1 '{"kind": "full", "ran": [{"name": "default", "why": "the settings change"}], "answered": ["codex"]}')" >/dev/null
 local_land propose local-tracked --title "chore: my asker" --notes "$MIG" >/dev/null
 local_agent=$(local_land merge local-tracked --by merger 2>&1 || true)
 project --repo "$LOCAL" state local-tracked dropped "the test is over" >/dev/null
-local_why="the change adds .lem/project.local.toml, one machine's own settings, which git does not track: tracked, that machine's seats, corrections and naps become every machine's"
+local_why="the change adds .lem/settings.local.toml, one machine's own settings, which git does not track: tracked, that machine's seats, naps and days the state keeps become every machine's"
 if [ "$local_floor" = "('full', \"the request is careful: $local_why\")" ] && grep -qF "a careful request is merged by the owner, whatever the settings say ($local_why)" <<<"$local_agent" \
   && grep -qxF -- "- careful: yes, $local_why; the review says no: $NOT_CAREFUL" "$LOCAL/.lem/state/tasks/local-tracked/pr.md"; then
   pass "a branch that commits the machine's own settings file is careful by the script: the full set, a line of the pull request that says the file is one machine's own, and a person's merge"

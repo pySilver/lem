@@ -243,24 +243,24 @@ fi
 # empty. The row names both ways out; the queue off, or off for this computer in the local file, leaves it optional.
 KEYED=$WORK/key-repo
 git init -q -b main "$KEYED" && mkdir -p "$KEYED/.lem"
-printf '%s\n' '[corrections]' 'collect = true' > "$KEYED/.lem/project.toml"
+printf '%s\n' '[corrections]' 'collect = true' > "$KEYED/.lem/settings.toml"
 key_doctor() { (cd "$KEYED" && env -i PATH="$BIN" HOME="$FAKEHOME" "$@" "$PY" -B "$DOCTOR"); }
 key_row() { field '(lambda t: (t["need"], t["found"]))(next(t for t in d["tools"] if t["name"] == "Jev key"))'; }
 on_out=$(key_doctor || true)
 on_code=$(status_of key_doctor)
 on_keyed=$(key_doctor JEV_API_KEY=sk-not-a-real-key | key_row)
 on_keyed_code=$(status_of key_doctor JEV_API_KEY=sk-not-a-real-key)
-printf '%s\n' '[corrections]' 'collect = false' > "$KEYED/.lem/project.local.toml"
+printf '%s\n' '[corrections]' 'collect = false' > "$KEYED/.lem/settings.local.toml"
 local_off=$(key_doctor | key_row)
 local_off_code=$(status_of key_doctor)
-rm "$KEYED/.lem/project.local.toml"
-printf '%s\n' '[corrections]' 'collect = false' > "$KEYED/.lem/project.toml"
+rm "$KEYED/.lem/settings.local.toml"
+printf '%s\n' '[corrections]' 'collect = false' > "$KEYED/.lem/settings.toml"
 off=$(key_doctor | key_row)
 off_code=$(status_of key_doctor)
 on_says=$(row 'Jev key' without_it <<<"$on_out")
 if [ "$on_code" = 1 ] && [ "$(key_row <<<"$on_out")" = "('required', False)" ] && [ "$(field 'd["ok"]' <<<"$on_out")" = False ] \
   && grep -qF "the queue stays empty" <<<"$on_says" && grep -qF "Put JEV_API_KEY in the environment the agent starts with" <<<"$on_says" \
-  && grep -qF "\`collect = false\` under [corrections] in .lem/project.local.toml" <<<"$on_says" \
+  && grep -qF "\`collect = false\` under [corrections] in .lem/settings.local.toml" <<<"$on_says" \
   && [ "$on_keyed" = "('required', True)" ] && [ "$on_keyed_code" = 0 ] \
   && [ "$local_off" = "('optional', False)" ] && [ "$local_off_code" = 0 ] && [ "$off" = "('optional', False)" ] && [ "$off_code" = 0 ]; then
   pass "where the correction queue is on the key is required: with none the check fails and names the key and the local collect = false; with the key it passes; the queue off, or off for this computer, leaves it optional"
@@ -295,10 +295,10 @@ CORR=$PWD/skills/lem/scripts/corrections.py
 CQ=$WORK/corr
 git init -q -b main "$CQ" && commit "$CQ" start
 project --repo "$CQ" init --base main >/dev/null
-if ! grep -qE '^\[tools\]|^(annotate|ask) = ' "$CQ/.lem/project.toml" && [ "$(project --repo "$CQ" show | field '"tools" in d')" = False ]; then
+if ! grep -qE '^\[tools\]|^(annotate|ask) = ' "$CQ/.lem/settings.toml" && [ "$(project --repo "$CQ" show | field '"tools" in d')" = False ]; then
   pass "a new settings file has no [tools]: Lem asks with its own page and opens a text with webrev"
 else
-  fail "the tools of a new settings file: $(grep -n -A8 '^\[tools\]' "$CQ/.lem/project.toml")"
+  fail "the tools of a new settings file: $(grep -n -A8 '^\[tools\]' "$CQ/.lem/settings.toml")"
 fi
 mkdir -p "$WORK/jevbin"
 # a stand-in for jev: it answers with the probability in JEV_P, or fails as JEV_EXIT says, and adds
@@ -316,7 +316,7 @@ worker() {
   hook worker "$WORK/payload.json"
 }
 corr() { "$PY" -B "$CORR" --repo "$CQ" "$@"; }
-if [ "$(project --repo "$CQ" show | field 'd["corrections"]["collect"]')" = False ] && grep -q '^collect = false$' "$CQ/.lem/project.toml"; then
+if [ "$(project --repo "$CQ" show | field 'd["corrections"]["collect"]')" = False ] && grep -q '^collect = false$' "$CQ/.lem/settings.toml"; then
   pass "a new project does not collect corrections, and its settings file says where to turn that on"
 else
   fail "corrections.collect default"
@@ -331,7 +331,7 @@ else
   fail "a message was sent without the project's yes"
 fi
 # The hand-over to the detached half fails (no interpreter can be started): no file with the owner's words stays behind.
-sed -i.bak 's/^collect = false$/collect = true/' "$CQ/.lem/project.toml" && rm "$CQ/.lem/project.toml.bak"
+sed -i.bak 's/^collect = false$/collect = true/' "$CQ/.lem/settings.toml" && rm "$CQ/.lem/settings.toml.bak"
 mkdir -p "$WORK/hooktmp"
 out=$(event "the copy cannot start" s0 | env LEM_JEV="$WORK/jevbin/jev" TMPDIR="$WORK/hooktmp" "$PY" -B -c '
 import runpy, sys
@@ -356,7 +356,7 @@ else
   fail "the hook in a removed directory: $out"
 fi
 rm -f "$CQ/.lem/state/corrections.jsonl" "$WORK/jev-called"
-sed -i.bak 's/^collect = true$/collect = false/' "$CQ/.lem/project.toml" && rm "$CQ/.lem/project.toml.bak"
+sed -i.bak 's/^collect = true$/collect = false/' "$CQ/.lem/settings.toml" && rm "$CQ/.lem/settings.toml.bak"
 # An input that stays open, and an old python3: the hook returns, with exit 0 and not a word. The
 # input stays open 15 seconds, and the hook returns in 10 at most, on a loaded machine too.
 started=$SECONDS
@@ -376,7 +376,7 @@ if [ -n "$old" ]; then
   git init -q -b main "$WORK/elsewhere"
   launch=$PWD/skills/lem/scripts/lem_python.py
   lem=$PWD/bin/lem
-  sed -i.bak 's/^collect = false$/collect = true/' "$CQ/.lem/project.toml" && rm "$CQ/.lem/project.toml.bak"
+  sed -i.bak 's/^collect = false$/collect = true/' "$CQ/.lem/settings.toml" && rm "$CQ/.lem/settings.toml.bak"
   out=$(cd "$WORK/elsewhere" && event "under an old python" s0 | env LEM_JEV="$WORK/jevbin/jev" JEV_P=0.9 JEV_CALLED="$WORK/jev-called" \
     "$old" -B "$launch" "$CORR" hook 2>&1; echo "exit=$?")
   soon test -s "$CQ/.lem/state/corrections.jsonl"
@@ -386,7 +386,7 @@ if [ -n "$old" ]; then
     fail "the hook under $old: $out / $(cat "$CQ/.lem/state/corrections.jsonl" "$CQ/.lem/state/corrections.log" 2>&1)"
   fi
   rm -f "$CQ/.lem/state/corrections.jsonl" "$WORK/jev-called"
-  sed -i.bak 's/^collect = true$/collect = false/' "$CQ/.lem/project.toml" && rm "$CQ/.lem/project.toml.bak"
+  sed -i.bak 's/^collect = true$/collect = false/' "$CQ/.lem/settings.toml" && rm "$CQ/.lem/settings.toml.bak"
   # lem under that python3, first on PATH, and a python3.N of 3.11 or newer later on it: the script runs
   # under the newer one, and the machine check's row names both.
   mkdir -p "$WORK/oldbin" && ln -sf "$(command -v "$old")" "$WORK/oldbin/python3"
@@ -403,7 +403,7 @@ else
   skip "the hook under a python3 before 3.11: none found"
   skip "lem under a python3 before 3.11: none found"
 fi
-sed -i.bak 's/^collect = false$/collect = true/' "$CQ/.lem/project.toml" && rm "$CQ/.lem/project.toml.bak"
+sed -i.bak 's/^collect = false$/collect = true/' "$CQ/.lem/settings.toml" && rm "$CQ/.lem/settings.toml.bak"
 out=$(event "never push without asking" s1 | hook hook; echo "exit=$?")
 soon test -s "$CQ/.lem/state/corrections.jsonl"
 if [ "$out" = "exit=0" ] && [ "$("$PY" -c 'import json, sys; e = json.loads(open(sys.argv[1]).readline()); print(e["owner"], "|", e["previous"], "|", e["p_lesson"], "|", e["session"])' "$CQ/.lem/state/corrections.jsonl")" = "never push without asking | I pushed it. | 0.9 | s1" ]; then
@@ -434,25 +434,25 @@ else
 fi
 # One person's no, in the main checkout's untracked file: the hook queues nothing, from a worktree too.
 before=$(wc -l < "$CQ/.lem/state/corrections.jsonl")
-printf '%s\n' '[corrections]' 'collect = false' > "$CQ/.lem/project.local.toml"
+printf '%s\n' '[corrections]' 'collect = false' > "$CQ/.lem/settings.local.toml"
 shown=$(project --repo "$CQ" show | field '(d["corrections"]["collect"], d["local"]["overrides"])')
 rm -f "$WORK/jev-called"
 worker "this one says no for themselves" s10
 git -C "$CQ" add .lem && git -C "$CQ" -c user.name=t -c user.email=t@t commit -q -m "chore: the settings" && git -C "$CQ" worktree add -q "$WORK/corr-wt" -b side
 printf '{"prompt": "from a worktree", "cwd": "%s", "session": "s11", "transcript": ""}' "$WORK/corr-wt" > "$WORK/payload.json"
 hook worker "$WORK/payload.json"
-printf 'not toml [\n' > "$CQ/.lem/project.local.toml"
+printf 'not toml [\n' > "$CQ/.lem/settings.local.toml"
 worker "a local file that does not read" s12
-printf 'corrections = false\n' > "$CQ/.lem/project.local.toml"
+printf 'corrections = false\n' > "$CQ/.lem/settings.local.toml"
 worker "a local file with another shape" s13
-rm "$CQ/.lem/project.local.toml"
+rm "$CQ/.lem/settings.local.toml"
 # A repository whose main directory is a bare one: its worktree's no is read from that directory, as project.py reads it.
 git clone -q --bare "$CQ" "$WORK/corr-bare.git" && git -C "$WORK/corr-bare.git" worktree add -q "$WORK/corr-bare-wt" main
-mkdir -p "$WORK/corr-bare.git/.lem" && printf '%s\n' '[corrections]' 'collect = false' > "$WORK/corr-bare.git/.lem/project.local.toml"
+mkdir -p "$WORK/corr-bare.git/.lem" && printf '%s\n' '[corrections]' 'collect = false' > "$WORK/corr-bare.git/.lem/settings.local.toml"
 printf '{"prompt": "from the worktree of a bare repository", "cwd": "%s", "session": "s14", "transcript": ""}' "$WORK/corr-bare-wt" > "$WORK/payload.json"
 hook worker "$WORK/payload.json"
 bare_log=$( (cat "$WORK/corr-bare.git/.lem/state/corrections.log" "$WORK/corr-bare.git/.lem/state/corrections.jsonl" 2>/dev/null || true) | wc -l | tr -d ' ')
-if [ "$shown" = "(False, ['corrections.collect'])" ] && [ "$(wc -l < "$CQ/.lem/state/corrections.jsonl")" = "$before" ] && [ ! -e "$WORK/jev-called" ] && [ ! -e "$WORK/corr-wt/.lem/project.local.toml" ] && [ "$bare_log" = 0 ]; then
+if [ "$shown" = "(False, ['corrections.collect'])" ] && [ "$(wc -l < "$CQ/.lem/state/corrections.jsonl")" = "$before" ] && [ ! -e "$WORK/jev-called" ] && [ ! -e "$WORK/corr-wt/.lem/settings.local.toml" ] && [ "$bare_log" = 0 ]; then
   pass "one person's no in the machine's own file stops the hook before anything is sent, from a worktree and from the worktree of a bare repository too; a file there that does not read, or has another shape, is a no"
 else
   fail "the hook with a local no: $shown / $(wc -l < "$CQ/.lem/state/corrections.jsonl") lines, before $before"
@@ -493,14 +493,14 @@ cp "$WORK/queue.kept" "$CQ/.lem/state/corrections.jsonl"
 cp "$CQ/.lem/state/corrections-reviews.jsonl" "$WORK/reviews.kept" && printf 'caf\351\n' >> "$CQ/.lem/state/corrections-reviews.jsonl"
 latin_line=$(corr lessons 2>&1 || true)
 cp "$WORK/reviews.kept" "$CQ/.lem/state/corrections-reviews.jsonl"
-cp "$CQ/.lem/project.toml" "$WORK/corr-settings.kept" && printf '# caf\351\n' >> "$CQ/.lem/project.toml"
+cp "$CQ/.lem/settings.toml" "$WORK/corr-settings.kept" && printf '# caf\351\n' >> "$CQ/.lem/settings.toml"
 latin_code=$(status_of corr list)
 latin_settings=$(corr list 2>&1 || true)
 latin_hook=$("$PY" -B -c 'import sys; sys.path.insert(0, sys.argv[1]); import corrections; print(corrections.collects(sys.argv[2]))' "$(dirname "$CORR")" "$CQ")
-cp "$WORK/corr-settings.kept" "$CQ/.lem/project.toml"
+cp "$WORK/corr-settings.kept" "$CQ/.lem/settings.toml"
 lines=$(grep -c '' "$CQ/.lem/state/corrections.jsonl")
 if [ "$cut_code" = 1 ] && grep -qF "corrections.jsonl:$((lines + 1)) does not read as JSON" <<<"$cut_line" && grep -qF "corrections-reviews.jsonl:" <<<"$latin_line" \
-  && grep -qF "is not UTF-8 text" <<<"$latin_line" && [ "$latin_code" = 1 ] && grep -qF "corrections.py: $CQ/.lem/project.toml is not UTF-8 text" <<<"$latin_settings" \
+  && grep -qF "is not UTF-8 text" <<<"$latin_line" && [ "$latin_code" = 1 ] && grep -qF "corrections.py: $CQ/.lem/settings.toml is not UTF-8 text" <<<"$latin_settings" \
   && [ "$latin_hook" = False ] && ! grep -q Traceback <<<"$cut_line$latin_line$latin_settings"; then
   pass "a queue line that was cut off and a line that is not UTF-8 are named with their file and line, and settings that do not read stop list with the fix and are a no for the hook"
 else
@@ -563,7 +563,7 @@ fi
 CL=$WORK/claim
 git init -q -b main "$CL" && commit "$CL" start
 project --repo "$CL" init --base main >/dev/null
-sed -i.bak 's/^collect = false$/collect = true/' "$CL/.lem/project.toml" && rm "$CL/.lem/project.toml.bak"
+sed -i.bak 's/^collect = false$/collect = true/' "$CL/.lem/settings.toml" && rm "$CL/.lem/settings.toml.bak"
 CLAIMS=$CL/.lem/state/corrections-claims
 CALLS=$WORK/claim-calls
 claim_event() { printf '{"prompt": "%s", "cwd": "%s", "session_id": "%s", "transcript_path": ""}' "$1" "$CL" "$2"; }
@@ -620,7 +620,7 @@ else
   fail "a claim that cannot be made: $out / $(queued) entries / $claim_failures failures / $(cat "$CL/.lem/state/corrections.log" 2>&1)"
 fi
 rm "$CLAIMS"
-settings_file=$CQ/.lem/project.toml
+settings_file=$CQ/.lem/settings.toml
 sed -i.bak 's/^collect = true$/collect = "yes"/' "$settings_file" && rm "$settings_file.bak"
 if [ "$(status_of project --repo "$CQ" show)" = 1 ]; then pass "a collect value that is not true or false is refused"; else fail "collect type"; fi
 
