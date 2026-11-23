@@ -57,6 +57,11 @@ def breaker(minute: float = 2, number: int = 1, task: str = RD) -> list[dict]:
 
 BREAKER = [state(0, "building", "task 1 of 2"), *opened(1), *breaker()]
 
+def bkey(number: int = 1, minute: float = 2, task: str = RD) -> str:
+    """The key of the row of breaker NUMBER, whose held block came MINUTE minutes after START (lem_board_model.answer_row)."""
+    return f"breaker:{task}:{number}:" + (START + timedelta(minutes=minute)).strftime("%Y%m%dT%H%M%SZ")
+
+
 
 def model(*events: dict, owner=(), sessions=None):
     m = bm.derive(list(events), list(owner), NOW)
@@ -163,9 +168,9 @@ class Sends(InFolder):
         self.assertEqual(self.woken, [RD])
         kept = self.record()["sent"]
         self.assertEqual([(r["key"], r["form"], r["session"], r["message_id"], r["questions"]) for r in kept],
-                         [("breaker:report-dates:1", "question", "c-main", "msg_1", ["q-1"])])
+                         [(bkey(), "question", "c-main", "msg_1", ["q-1"])])
         self.assertNotIn("payload", kept[0])
-        self.assertTrue(kept[0]["idempotency_key"].startswith("lem-shop-breaker:report-dates:1-"))
+        self.assertTrue(kept[0]["idempotency_key"].startswith(f"lem-shop-{bkey()}-"))
 
     def test_criterion_2_every_row_of_waits_for_you_is_a_thing_and_the_merge_review_and_merge_one(self):
         events = [
@@ -189,7 +194,7 @@ class Sends(InFolder):
         self.landings = {"footer": {"proposed": FOOTER}}
         things = inbox.things_of(rows, m, bm, lambda slug: self.landings.get(slug, {}).get("proposed"))
         self.assertEqual(sorted((t["key"], t["form"]) for t in things.values()), [
-            ("after_dropped:gift-totals", "note"), ("blocked:login-fixture", "question"), ("breaker:report-dates:1", "question"),
+            ("after_dropped:gift-totals", "note"), ("blocked:login-fixture", "question"), (bkey(), "question"),
             ("held:notes-in-order", "question"), ("merge:footer", "question"), ("session:no-session", "note")])
         self.assertEqual(things["merge:footer"]["tip"], FOOTER)
         self.m = m
@@ -214,7 +219,7 @@ class Sends(InFolder):
         self.assertEqual(w.look(), [])
         self.assertEqual(self.plannotator.calls, [])
         self.m = model(*BREAKER, owner=[AWAY])
-        self.assertEqual([(d["did"], d["key"]) for d in w.look()], [("sent", "breaker:report-dates:1")])
+        self.assertEqual([(d["did"], d["key"]) for d in w.look()], [("sent", bkey())])
 
     def test_criterion_4_with_no_away_mark_nothing_goes_to_the_inbox_and_nothing_is_asked(self):
         self.m = model(*BREAKER, owner=[AWAY, BACK])
@@ -248,7 +253,7 @@ class Sends(InFolder):
         events = [*BREAKER, ev(3, "session.transcript", RD, claude="c-fork", transcript="/t/f.jsonl", source="fork")]
         m = model(*events, owner=[AWAY])
         self.assertEqual(inbox.claude_of(m.tasks[0]), "c-main")
-        thing = inbox.things_of(bm.waits_of(m), m, bm)["breaker:report-dates:1"]
+        thing = inbox.things_of(bm.waits_of(m), m, bm)[bkey()]
         self.assertEqual((thing["form"], thing["session"]), ("question", "c-main"))
         deaf = model(*BREAKER, owner=[AWAY], sessions={RD: {"live": True, "agent": True, "unanswered": True, "session": "S-1", "worktree": False}})
         self.assertEqual([(t["key"], t["form"]) for t in inbox.things_of(bm.waits_of(deaf), deaf, bm).values()], [("deaf:report-dates", "note")])
@@ -417,14 +422,14 @@ class ReviewOne(InFolder):
         self.m = model(*BREAKER, ev(4, "decision.taken", id=2, what="Where the dates go", chose="A", why="his word", by="owner", breaker=1),
                        state(4, "building", "task 1 of 2: the build goes on"), *breaker(6, 2), owner=[AWAY])
         self.plannotator.fail = None
-        self.assertEqual([(d["did"], d["key"]) for d in w.look()], [("forgot", "breaker:report-dates:1"), ("sent", "breaker:report-dates:2")])
+        self.assertEqual([(d["did"], d["key"]) for d in w.look()], [("forgot", bkey()), ("sent", bkey(2, 6))])
         # finding 6: a question that a later look sends again wakes the task's session
         self.woken.clear()
         self.m = model(*BREAKER, *breaker(8, 3), owner=[AWAY])
         self.plannotator.fail = "inbox_unreachable: the Inbox did not answer"
         w.look()
         self.plannotator.fail = None
-        self.assertIn(("sent", "breaker:report-dates:3"), [(d["did"], d["key"]) for d in w.look()])
+        self.assertIn(("sent", bkey(3, 8)), [(d["did"], d["key"]) for d in w.look()])
         self.assertEqual(self.woken, [RD])
 
     def test_the_merge_question_names_the_whole_commit_that_lem_land_merge_takes(self):
@@ -452,9 +457,9 @@ class ReviewOne(InFolder):
         w.look()
         gone = {RD: {"live": False, "agent": False, "unanswered": False, "session": None, "worktree": True}}
         self.m = model(*BREAKER, owner=[AWAY, BACK], sessions=gone)
-        self.assertIn("breaker:report-dates:1", [r["key"] for r in bm.waits_of(self.m)])
+        self.assertIn(bkey(), [r["key"] for r in bm.waits_of(self.m)])
         self.assertEqual(w.look(), [])
-        self.assertEqual([(r["key"], r["message_id"]) for r in self.record()["sent"]], [("breaker:report-dates:1", "msg_1")])
+        self.assertEqual([(r["key"], r["message_id"]) for r in self.record()["sent"]], [(bkey(), "msg_1")])
         self.assertEqual(len(self.plannotator.sends()), 1)
 
     def test_a_withdrawal_says_where_the_wait_went_without_naming_the_mac(self):
@@ -496,7 +501,7 @@ class ReviewTwo(InFolder):
         self.plannotator.fail = "invalid_supersedes: supersedes msg_1 is in another thread (thr_x): only questions of the thread this message lands in can be superseded."
         self.assertEqual(w.look(), [])
         record = self.record()
-        self.assertEqual([r["key"] for r in record["sent"]], ["breaker:report-dates:1"])
+        self.assertEqual([r["key"] for r in record["sent"]], [bkey()])
         self.assertIn("invalid_supersedes", record["problem"])
         self.plannotator.fail = None
         self.assertEqual([d["did"] for d in w.look()], ["withdrew"])
@@ -511,7 +516,7 @@ class ReviewTwo(InFolder):
         self.m = model(*BREAKER, *opened(40, session="S-2", claude="c-new"), owner=[AWAY])
         self.assertEqual(w.look(), [])
         self.assertEqual(len(self.plannotator.sends()), 1)
-        self.assertEqual([(r["key"], r["session"]) for r in self.record()["sent"]], [("breaker:report-dates:1", "c-main")])
+        self.assertEqual([(r["key"], r["session"]) for r in self.record()["sent"]], [(bkey(), "c-main")])
         # its session row while the door is closed: the question behind it stays too
         gone = {RD: {"live": False, "agent": False, "unanswered": False, "session": None, "worktree": True}}
         self.m = model(*BREAKER, owner=[AWAY], sessions=gone)
@@ -571,10 +576,10 @@ class HeldBack(InFolder):
         self.assertEqual([d["did"] for d in w.look()], ["sent"])
         self.assertEqual(self.woken, [RD])
         before = self.record()["sent"]
-        self.assertEqual([(r["key"], r["form"], r["message_id"]) for r in before], [(f"breaker:{RD}:1", "question", "msg_1")])
+        self.assertEqual([(r["key"], r["form"], r["message_id"]) for r in before], [(bkey(), "question", "msg_1")])
         # the wake started the session's turn on his help: no row, and the question stays open as it was sent
         self.m = self.turn("runs")
-        self.assertEqual((bm.waits_of(self.m), bm.held_back(self.m)), ([], {f"breaker:{RD}:1"}))
+        self.assertEqual((bm.waits_of(self.m), bm.held_back(self.m)), ([], {bkey()}))
         self.assertEqual(w.look(), [])
         self.assertEqual(self.record()["sent"], before)
         # the turn ends with the same block: the row is the same thing, and nothing goes again

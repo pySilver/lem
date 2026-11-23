@@ -45,7 +45,7 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     # `lem project waiting` builds the board's model, and asks `lem session list` when the log has a session; every
     # command that names one task runs the release rule (lem_release.py) first
     (("skills/lem/scripts/project.py", "skills/lem/scripts/lem_state.py", "skills/lem/scripts/lem_plans.py", "skills/lem/scripts/lem_board_model.py",
-      "skills/lem/scripts/lem_release.py", "skills/lem/scripts/lem_cards.py"),
+      "skills/lem/scripts/lem_release.py", "skills/lem/scripts/lem_cards.py", "skills/lem/scripts/lem_answers.py"),
      ("lem-*", "test-ask-expert", "test-gate-panel")),
     (("skills/lem/scripts/lem_sibling.py", "skills/lem/scripts/decisions.py", "skills/lem/scripts/criteria.py"),
      ("lem-land-*", "lem-decisions", "lem-serial", "lem-settings", "lem-state", "lem-machine", "lem-command", "lem-picker", "test-ask-expert", "lem-board-act")),

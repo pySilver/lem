@@ -336,7 +336,9 @@ class InboxLine(unittest.TestCase):
     BOTH = "Answer in the task’s session on the Mac, or in the Inbox"
 
     @classmethod
-    def record(cls, key="breaker:gift-note:1", kind="breaker", form="question", asks=True, **door) -> dict:
+    def record(cls, key=None, kind="breaker", form="question", asks=True, **door) -> dict:
+        # the breaker's row is named by its held block, 20 minutes after START (`answer_row`)
+        key = key or "breaker:gift-note:1:" + (START + timedelta(minutes=20)).strftime("%Y%m%dT%H%M%SZ")
         sent = {"key": key, "task": "gift-note", "kind": kind, "form": form, "asks": asks, "message_id": "msg_01ABC", "thread_id": "msg_01ABC"}
         return {"running": True, "tailnet_url": cls.TAILNET, "why": None, "problem": None, **door, "sent": [sent]}
 

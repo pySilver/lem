@@ -9,8 +9,9 @@
 # click or a tap opens and closes, on a wide screen and at a phone's width. The search over every card (search.js): Cmd-K and Ctrl-K, also from a
 # field, and the search buttons open it, letters typed filter and order it, Enter, a click and Escape, and the box through
 # a morph. The confirm step of a merge, a park and an approval: on a phone an overlay whose button comes on when its
-# text was read to the end, on a desktop and with no script as before. The arrow that folds the sidebar, in a wide
-# window and in the drawer of a narrow one. The start of a task from a backlog item, which
+# text was read to the end, on a desktop and with no script as before; and the Drop of a breaker's row, which opens its
+# confirm step as that overlay. The arrow that folds the sidebar, in a wide window and in the drawer of a narrow one.
+# The start of a task from a backlog item, which
 # ends on the new task's page while the stream refreshes the backlog. The line of keys of each view at the window's
 # foot, with a backlog longer than the window. A check adds to the demo's log only the state
 # lines it needs, as a lead's `lem project state` and `lem session open` write them. Each check that needs Chrome
@@ -761,6 +762,48 @@ PY
   fi
 }
 
+# Drop on a phone (criterion 6 of board-answers-a-card): on "Waits for you" at 390 x 844 the breaker's row of
+# gift-note-in-export holds its one answer form; the owner writes a note and taps Drop…, and the panel opens the
+# confirm step as the overlay a park's step is, which asks "Drop gift-note-in-export?" with Confirm and the note he
+# wrote, and the row's key in the address. The tap posts nothing: the drop waits for his Confirm. Before step_checks,
+# which park the task.
+drop_checks() {
+  local out=$WORK/drop.out
+  "$PY" - "$BASE" "$PY" "$LOG" > "$WORK/drop.json" <<'PY'
+import json, shlex, sys
+base, py, log = sys.argv[1:]
+row = "article[id^='wait-breaker-gift-note-in-export-1-']"
+facts = ("(() => { const c = document.querySelector('#confirm'); if (!c) return {error: 'no step'}; const b = c.querySelector('.cf-foot button[type=submit]'), f = c.querySelector('.cf-foot form');"
+         " return {where: location.pathname + location.search, sheet: c.hasAttribute('data-js-sheet'), position: getComputedStyle(c).position, head: c.querySelector('.cf-head').textContent.trim(),"
+         " label: b.textContent.trim(), disabled: b.getAttribute('aria-disabled'), action: f.getAttribute('action'), option: f.querySelector('input[name=option]').value,"
+         " confirm: f.querySelector('input[name=confirm]').value, note: f.querySelector('textarea[name=words]').value, key: f.querySelector('input[name=key]').value,"
+         " inScreen: b.getBoundingClientRect().bottom <= innerHeight }; })()")
+acts = {"sh": " ".join(map(shlex.quote, [py, "-c", "import json, sys; print(json.dumps(['acts', sum('\"board.act\"' in line for line in open(sys.argv[1]))]))", log]))}
+steps = [
+    {"goto": f"{base}/waits", "wait": 300},
+    {"print": "new Promise(done => { const end = Date.now() + 15000; const tick = () => ((document.readyState === 'complete' && window.Turbo"
+              f" && document.querySelector(\"{row} form.answer-form\")) || Date.now() > end) ? done(['ready', Boolean(document.querySelector(\"{row} form.answer-form\"))]) : setTimeout(tick, 100); tick(); }})"},
+    {"wait": 800},
+    {"print": f"['row', [...document.querySelectorAll(\"{row} form.answer-form button\")].map(b => b.textContent.trim()).join(' | ')]"},
+    acts, {"eval": f"document.querySelector(\"{row} textarea[name=words]\").value = 'the export goes another way'", "after": 200},
+    {"click": f"{row} button[formaction$='/drop']", "tap": True, "after": 300},
+    {"print": "new Promise(done => { const end = Date.now() + 15000; const tick = () => ((document.querySelector('#confirm[data-js-sheet]')"
+              f" && location.pathname.endsWith('/drop')) || Date.now() > end) ? done(['step', {facts}]) : setTimeout(tick, 100); tick(); }})"},
+    {"wait": 700}, {**acts, "sh": acts["sh"].replace("'acts'", "'acts-after'")},
+]
+print(json.dumps({"width": 390, "height": 844, "mobile": True, "steps": steps}))
+PY
+  drive "$WORK/drop.json" "$out"
+  if [ "$(seen "$out" ready)" = True ] && [ "$(seen "$out" row)" = "Help | Park… | Drop…" ] \
+    && [ "$(fact "$out" step 'd["where"].split("?")[0], d["sheet"], d["position"], d["head"], d["label"], d["disabled"], d["inScreen"]')" = "('/$HOST/shop/tasks/gift-note-in-export/drop', True, 'fixed', 'Drop gift-note-in-export?', 'Confirm', None, True)" ] \
+    && [ "$(fact "$out" step 'd["action"], d["option"], d["confirm"], d["note"], d["key"].startswith("breaker:gift-note-in-export:1:"), "key=breaker" in d["where"]')" = "('/$HOST/shop/tasks/gift-note-in-export/answer', 'drop', 'yes', 'the export goes another way', True, True)" ] \
+    && [ "$(seen "$out" acts)" = "$(seen "$out" acts-after)" ] && [ "$(seen "$out" acts)" != "nothing printed" ]; then
+    pass "on a phone the breaker's row has Help, Park… and Drop…; a tap on Drop… opens the overlay that asks Drop gift-note-in-export? with Confirm and the note the owner wrote in the row, and posts nothing"
+  else
+    fail "Drop's confirm on a phone: $(cat "$out")"
+  fi
+}
+
 # The park step of gift-note-in-export and the approval of the criteria of stock-on-product-page, which on a phone take
 # the confirm step's overlay (lem_board_task.py `confirm_card`, the `sheet` controller, board.css). Each text fits at
 # 390 x 844, so the gate's checks use 390 x 400, where the text of each goes on below the body's end (measured: the park's
@@ -870,8 +913,8 @@ PY
   fi
   if [ "$(fact "$out-noscript.out" approve-off 'd["sheet"], d["fixed"], d["disabled"], d["plain"], d["textEnd"] < d["button"][0]')" = "(False, False, None, '## Acceptance criteria', True)" ] \
     && grep -qF "[\"post\",\"$BASE/tasks/$stock/approve digest=" "$out-noscript.out" && [ "$(fact "$out-noscript.out" park-off 'd["sheet"], d["fixed"], d["disabled"], d["label"], d["button"][0] > d["textEnd"]')" = "(False, False, None, 'Park the task', True)" ] \
-    && grep -qF "[\"post\",\"$BASE/tasks/$park/park in=waits&why=\"]" "$out-noscript.out" && [ "$(grep -c '^\["acted", true\]$' "$out-noscript.out")" = 2 ]; then
-    pass "with no script the approval shows the criteria as plain text above its button and the park step its text above its button, each button is on, and each click posts its form and the act runs: the board.act of the approval and of the park come into the log"
+    && grep -qE "^\[\"post\",\"$BASE/tasks/$park/park in=waits&key=breaker%3A$park%3A1%3A[0-9]{8}T[0-9]{6}Z&why=\"\]$" "$out-noscript.out" && [ "$(grep -c '^\["acted", true\]$' "$out-noscript.out")" = 2 ]; then
+    pass "with no script the approval shows the criteria as plain text above its button and the park step its text above its button, each button is on, and each click posts its form, the park's with the key of the breaker's row, and the act runs: the board.act of the approval and of the park come into the log"
   else
     fail "the park step and the approval with no script: $(cat "$out-noscript.out")"
   fi
@@ -1005,6 +1048,7 @@ if [ -z "$NODE" ]; then
   skip_function stack_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function search_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function confirm_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
+  skip_function drop_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function step_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function side_fold_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
   skip_function start_checks "no Node here to drive Chrome (tests/board-cdp.mjs)"
@@ -1015,6 +1059,7 @@ elif [ -z "$CHROME_AT" ]; then
   skip_function stack_checks "no Chrome here (set CHROME to the browser)"
   skip_function search_checks "no Chrome here (set CHROME to the browser)"
   skip_function confirm_checks "no Chrome here (set CHROME to the browser)"
+  skip_function drop_checks "no Chrome here (set CHROME to the browser)"
   skip_function step_checks "no Chrome here (set CHROME to the browser)"
   skip_function side_fold_checks "no Chrome here (set CHROME to the browser)"
   skip_function start_checks "no Chrome here (set CHROME to the browser)"
@@ -1024,6 +1069,7 @@ else
   stack_checks
   search_checks
   confirm_checks
+  drop_checks
   step_checks
   side_fold_checks
   start_checks

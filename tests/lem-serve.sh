@@ -247,7 +247,7 @@ fi
 waits=$(got "$BASE/waits")
 breaker=$(got "$BASE/tasks/gift-note-in-export")
 first=$("$PY" -c 'import re, sys; t = sys.stdin.read().split("id=\"tb-overview\"", 1)[-1]; print(re.findall(r"<section class=\"card[^\"]*\" id=\"([a-z-]+)\"", t)[:2])' <<<"$breaker")
-if grep -qF 'id="wait-breaker-gift-note-in-export-1"' <<<"$waits" && grep -qF "Read the breaker of gift-note-in-export" <<<"$waits" \
+if grep -qE 'id="wait-breaker-gift-note-in-export-1-[0-9]{8}T[0-9]{6}Z"' <<<"$waits" && grep -qF "Read the breaker of gift-note-in-export" <<<"$waits" \
   && grep -qF 'id="parked"' <<<"$waits" && grep -qF "wait for the merchants&#x27; association to confirm the fee date" <<<"$waits" && grep -qF "/lem resume fee-notice-to-merchants" <<<"$waits" \
   && [ "$first" = "['breaker', 'building']" ] && grep -qF "# The gift note has no place in the export that keeps criterion 1" <<<"$breaker" && grep -qF "/lem park gift-note-in-export" <<<"$breaker"; then
   pass "a breaker is one row of Waits for you, its document is the first card of the task's Overview, and a parked task stands in a group of its own with why and /lem resume"

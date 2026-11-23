@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # The board's acts (serve.py `board_act`, `board_start`): the owner's yes to the criteria, a merge from its confirm step,
-# the park of a task a breaker holds, a fresh session of a task with none and a new task, posted as forms to a server of
+# the park of a task a breaker holds, his Drop of it from its confirm step (`act_answer`), a fresh session of a task with
+# none and a new task, posted as forms to a server of
 # this run. The
 # afternoon of tests/board-showcase.py gives the criteria, the breaker and the task with no session; a throwaway
 # repository on the stand-in for GitHub gives a task that is open, which the merge lands with land.py, as `lem land
@@ -117,7 +118,7 @@ criteria_tab=$(curl -fsS "$BASE/tasks/stock-on-product-page/criteria")
 if grep -qF "Read and approve" <<<"$waits" && ! grep -qF "stock-on-product-page/approve" <<<"$waits" \
   && grep -qF "action=\"/$HOST/shop/tasks/stock-on-product-page/approve\"" <<<"$criteria_tab" && grep -qF "name=\"digest\" value=\"$digest\"" <<<"$criteria_tab" \
   && grep -qF "href=\"/$HOST/shop/tasks/refund-line-on-receipt/merge?in=waits\"" <<<"$waits" \
-  && grep -qF "href=\"/$HOST/shop/tasks/gift-note-in-export/park?in=waits\"" <<<"$waits" && ! grep -qF "fee-notice-to-merchants/park" <<<"$waits"; then
+  && grep -qF "formaction=\"/$HOST/shop/tasks/gift-note-in-export/park\" formmethod=\"get\"" <<<"$waits" && ! grep -qF "fee-notice-to-merchants/park" <<<"$waits"; then
   pass "on this Mac a row of Waits for you has the owner's act: the way to the criteria, with his yes under their text on the task's tab, the way to a merge's confirm step, and the way to park a task a breaker holds"
 else
   fail "the acts of Waits for you: $(grep -o 'wr-acts.\{0,400\}' <<<"$waits" | head -c 1500)"
@@ -193,6 +194,53 @@ if [ "${parked%% *}" = 303 ] && [[ "$state" == "('parked', "*"wait for the expor
   pass "a park from the board writes the state parked with the owner's line of why, tells the task's session, and its page says what happens next"
 else
   fail "the park: $parked / $state / ${parked_page:0:600}"
+fi
+
+# A breaker's Help, Park and Drop from the board (criteria 6 and 9 of board-answers-a-card): the park above linked the
+# record of the breaker's row; `lem project resume` brings the breaker back in a new held block, a new row of its own, whose
+# form has Help, Park… and Drop…; Drop asks "Drop gift-note-in-export?" first, and its Confirm, from the phone, puts the
+# owner's Drop on record with his note and wakes the task's session, which drops the task: the server drops nothing.
+# A second answer to the same row, and a Drop sent to the parked block's row, are refused with what took effect there.
+G=$BASE/tasks/gift-note-in-export
+answers_of() { "$PY" -c 'import os, sys; print(" ".join(sorted(f[:-5] for f in os.listdir(sys.argv[1]) if f.endswith(".json"))))' "$STATE/tasks/gift-note-in-export/answers" 2>/dev/null || true; }
+old_key=$(answers_of)
+project --repo "$DEMO" resume gift-note-in-export >/dev/null
+row=$(curl -fsS "$BASE/waits")
+key=$(grep -o 'name="key" value="breaker:gift-note-in-export:1:[0-9TZ]*"' <<<"$row" | head -1 | sed 's/.*value="//; s/"$//')
+step=$(curl -fsS "$G/drop?in=waits&key=$key&words=another%20way" | words)
+IPHONE='Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1'
+bare=$(curl -s -o /dev/null -w '%{redirect_url}' -H "Origin: $SERVER" --data-urlencode "key=$key" --data-urlencode "option=drop" "$G/answer")
+bare_page=$(curl -fsS "$bare" | words)
+dropped=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -A "$IPHONE" -H "Origin: $SERVER" --data-urlencode "key=$key" --data-urlencode "option=drop" \
+  --data-urlencode "confirm=yes" --data-urlencode "words=the export goes another way" --data-urlencode "in=waits" "$G/answer")
+dropped_page=$(curl -fsS "${dropped#* }" | words)
+# whole pages first: a `curl | grep -q` that stops reading early fails the pipe
+row_after=$(curl -fsS "$BASE/waits")
+overview=$(curl -fsS "$G")
+again=$(curl -s -o /dev/null -w '%{redirect_url}' -H "Origin: $SERVER" --data-urlencode "key=$key" --data-urlencode "option=help" --data-urlencode "words=go on" "$G/answer")
+again_page=$(curl -fsS "$again" | words)
+stale=$(curl -s -o /dev/null -w '%{redirect_url}' -H "Origin: $SERVER" --data-urlencode "key=$old_key" --data-urlencode "option=drop" --data-urlencode "confirm=yes" "$G/answer")
+stale_page=$(curl -fsS "$stale" | words)
+made=$("$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print((d["option"], d["note"], d["from"], d["via"], d["device"], d["question"]))' \
+  "$STATE/tasks/gift-note-in-export/answers/$key.json" 2>/dev/null || true)
+parked_made=$("$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print((d["option"], d["note"]))' "$STATE/tasks/gift-note-in-export/answers/$old_key.json" 2>/dev/null || true)
+if [[ "$old_key" == breaker:gift-note-in-export:1:* ]] && [ "$parked_made" = "('park', \"wait for the export's new reader\")" ] \
+  && [[ "$key" == breaker:gift-note-in-export:1:* ]] && [ "$key" != "$old_key" ] \
+  && grep -qF "name=\"option\" value=\"help\"" <<<"$row" && grep -qF "formaction=\"/$HOST/shop/tasks/gift-note-in-export/park\"" <<<"$row" \
+  && grep -qF "formaction=\"/$HOST/shop/tasks/gift-note-in-export/drop\"" <<<"$row" \
+  && grep -qF "Drop gift-note-in-export?" <<<"$step" && grep -qF "Confirm" <<<"$step" && grep -qF "another way" <<<"$step" \
+  && grep -qF "Not done. Drop asks for a confirm first" <<<"$bare_page" \
+  && [ "${dropped%% *}" = 303 ] && grep -qF "Done. Your answer is on record: the task’s session takes it. The task’s session got word of it, and it drops the task as on /lem drop." <<<"$dropped_page" \
+  && [ "$made" = "('drop', 'the export goes another way', 'board', 'local', 'phone', 'Breaker 1 of gift-note-in-export: help, park or drop the task?')" ] \
+  && [ "$(grep -c '"event": "board.act", "task": "gift-note-in-export", "act": "answer"' "$STATE/events.jsonl")" = 1 ] \
+  && [ "$(grep -c "^wake gift-note-in-export --why owner$" "$LEM_SESSION_CALLS")" -ge 2 ] && [ "$(status_in "$DEMO" gift-note-in-export)" = held ] \
+  && ! grep -qF "wait-breaker-gift-note-in-export" <<<"$row_after" && grep -qF "Your answer is on record: the task’s session takes it." <<<"$overview" \
+  && grep -qE "Not done. You picked Drop for breaker 1 at [0-9]{2}:[0-9]{2}, from the phone: the task’s session takes it." <<<"$again_page" \
+  && grep -qE "Not done. You picked Park for breaker 1 at [0-9]{2}:[0-9]{2}, from the computer: the task’s session takes it." <<<"$stale_page" \
+  && [ "$(answers_of)" = "$(printf '%s\n' "$old_key" "$key" | sort | tr '\n' ' ' | sed 's/ $//')" ]; then
+  pass "a breaker's row has Help, Park and Drop; Drop asks Drop gift-note-in-export? first, its Confirm from the phone is the owner's Drop on record with his note and wakes the task's session, which drops the task, and a second answer or one to an earlier block of the breaker is refused with what took effect"
+else
+  fail "the breaker's Drop: $old_key / $parked_made / $key / $made / ${dropped:-none} / $(grep -o 'Done\.[^·]*' <<<"$dropped_page" | head -c 300) / $(grep -o 'Not done\.[^·]*' <<<"$again_page$bare_page$stale_page" | head -c 900) / step: $(grep -o 'Drop gift.\{0,200\}' <<<"$step" | head -c 300) / $(answers_of) / $(grep -c '"act": "answer"' "$STATE/events.jsonl")"
 fi
 
 # The merge: nothing without the confirm step; the confirm step says green first, then the commit; the merge then
@@ -833,7 +881,9 @@ project --repo "$IN" state report-dates parked "the owner parked it" >/dev/null
 withdrawn=$(look)
 calls=$("$PY" -c 'import json, sys; print([(c["args"][2:4], (c["payload"] or {}).get("thread"), (c["payload"] or {}).get("supersedes"), c["named"], c["cwd"] == sys.argv[2]) for c in map(json.loads, open(sys.argv[1])) if "send_message" in c["args"]])' "$PLANNOTATOR_CALLS" "$IN")
 body=$("$PY" -c 'import json, sys; print(next(json.loads(l)["payload"]["body"] for l in open(sys.argv[1]) if "send_message" in l))' "$PLANNOTATOR_CALLS")
-if [ "$sent" = '[["sent", "breaker:report-dates:1"]]' ] && [ "$twice" = "[]" ] && [ "$withdrawn" = '[["withdrew", "breaker:report-dates:1"]]' ] \
+# the breaker's row is named by its held block (lem_board_model.answer_row): its key is the one the look sent
+held_key=breaker:report-dates:1:$("$PY" -c 'import json, sys; print([e["ts"] for e in map(json.loads, open(sys.argv[1])) if e["event"] == "task.state" and e["status"] == "held"][-1].replace("-", "").replace(":", ""))' "$IN/.lem/state/events.jsonl")
+if [ "$sent" = "[[\"sent\", \"$held_key\"]]" ] && [ "$twice" = "[]" ] && [ "$withdrawn" = "[[\"withdrew\", \"$held_key\"]]" ] \
   && [ "$calls" = "[(['--session', 'claude-code:c-main'], 'report-dates', None, [], True), (['--session', 'claude-code:c-main'], None, ['msg_1'], [], True)]" ] \
   && grep -qF ':::question' <<<"$body" && grep -qF -- '- [ ] Park' <<<"$body" && grep -qF '/inbox-shop/tasks/report-dates' <<<"$body" \
   && [ "$(grep -c '^wake report-dates --why inbox$' "$LEM_SESSION_CALLS")" = 1 ] \

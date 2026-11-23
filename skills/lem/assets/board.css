@@ -1117,6 +1117,14 @@ html:has(.app.plain) { overflow: auto; height: auto; }
 .cf-facts { margin: 2px 0 0; font-size: 14px; }
 .cf-facts .mono { font-size: 13px; }
 .cf-note { font-size: 13px !important; color: var(--dim); }
+/* the one answer form of a row the board answers with its own buttons (lem_board_pages.py `answer_form`), in the
+   row of "Waits for you" and on the task's page: its question, one note field, and the options as buttons */
+.answer-form { display: flex; flex-direction: column; align-items: stretch; gap: 8px; width: 100%; max-width: 640px; }
+.answer-form .ans-q { font-size: 14px; font-weight: 650; color: var(--ink); }
+.answer-form .act-field textarea { min-height: 3.2em; }
+.answer-form .ans-acts { margin-top: 0; }
+.app .wr-answer { flex-direction: column; align-items: stretch; }
+.wr-criterion { padding: 8px 12px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); }
 /* a card of the task's session (lem_board_task.py `card_step`): the card's own page, as lem-ask built it, in a frame */
 .card-frame { display: block; width: 100%; height: min(78vh, 820px); border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
 @media (max-width: 700px) {

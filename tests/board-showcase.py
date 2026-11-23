@@ -438,7 +438,8 @@ def afternoon(shop: Shop) -> None:
     # the board's server sent the breaker to the owner's Inbox as the task's session (lem_inbox.Watcher, which
     # sends nothing for a demo, so the record is written here as it writes it); a page says so only while his
     # mark says away, which this afternoon has not
-    sent = {"key": f"breaker:{t}:1", "task": t, "kind": "breaker", "form": "question", "asks": True, "session": "6f1c2a9e-demo", "tip": None,
+    # the breaker's row is named by its held block, 20 minutes before NOW (lem_board_model.answer_row)
+    sent = {"key": f"breaker:{t}:1:{(NOW - timedelta(minutes=20)).strftime('%Y%m%dT%H%M%SZ')}", "task": t, "kind": "breaker", "form": "question", "asks": True, "session": "6f1c2a9e-demo", "tip": None,
             "message_id": "msg_01DEMOGIFTNOTEBREAKER1", "thread_id": "msg_01DEMOGIFTNOTEBREAKER1",
             "thread_url": "http://plannotator.localhost:50026/#thread=msg_01DEMOGIFTNOTEBREAKER1", "questions": ["q1"], "woke": []}
     (s.dir / "inbox.json").write_text(json.dumps({"running": True, "url": "http://plannotator.localhost:50026/", "tailnet_url": INBOX_TAILNET,
