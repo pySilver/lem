@@ -394,7 +394,11 @@ def task_frame(ctx: Ctx) -> Markup:
     return h("turbo-frame", {"id": "task", "data-turbo-action": None if ctx.native else "advance"}, ctx.panel)
 
 
-def layout(ctx: Ctx, title: str, summary: str, view: Markup, *, stage_cls: str = "") -> Markup:
+def layout(ctx: Ctx, title: str, summary: str, view: Markup, *, stage_cls: str = "", keys: Markup | None = None) -> Markup:
+    """A page of the workspace: the sidebar, the bar, the view and its panel on the stage, and under the stage
+    the view's line of its keys (`keys_line`), when it has one, and the status line. The line of keys is a row
+    of the page's grid of its own, so it stays at the foot of the window however long the view's list is, and
+    the list scrolls above it."""
     m = ctx.model
     waits = bm.waits_of(m)
     railed = bool(ctx.prefs.get("rail"))
@@ -418,6 +422,7 @@ def layout(ctx: Ctx, title: str, summary: str, view: Markup, *, stage_cls: str =
                      icon(ctx, "inbox"), h("span", None, len(waits)))),
                  topbar(ctx, title, summary),
                  h("main", stage_attrs(ctx, stage_cls), view, task_frame(ctx)),
+                 keys,
                  statusbar(ctx)))
     # the icons last, once the page named every one it uses
     body = h("body", {"class": "app", "data-controller": "clock agterm", "data-agterm-url-value": f"{ctx.base}/agterm" if ctx.local else None},
@@ -805,19 +810,18 @@ def kanban(ctx: Ctx) -> Markup:
         tabs.append(h("button", {"class": f"ktab a-{lane['actor']}{' some' if tasks else ''}", "type": "button", "id": f"ktab-{lane['key']}",
                                  "data-columns-target": "tab", "data-action": "columns#show", "data-columns-index-param": i},
                       h("i"), lane["title"], h("em", None, len(tasks))))
-    # the cursor controller's mark over the cards (cursor.js), with its keys in one line under the columns
+    # the cursor controller's mark over the cards (cursor.js); its keys are in the page's foot (kanban_page)
     return h("div", {"class": "board-wrap", "data-controller": "columns"},
              h("nav", {"class": "ktabs", "id": "ktabs", "aria-label": "The columns"}, tabs),
              h("div", {"class": "view kanban", "id": "kanban", "data-columns-target": "board", "data-controller": "cursor",
                        "data-cursor-item-value": "article.tc", "data-cursor-group-value": "section.col", "data-cursor-link-value": ".tc-link",
-                       "data-action": "keydown@window->cursor#key click->cursor#pick"}, columns),
-             keys_line(("J", "K", "↑", "↓"), "move", ("H", "L", "←", "→"), "column", ("Enter",), "open", ("Esc",), "close", id_="kanban-keys"))
+                       "data-action": "keydown@window->cursor#key click->cursor#pick"}, columns))
 
 
 def keys_line(*parts, id_: str | None = None, cls: str = "") -> Markup:
-    """A view's line of its keys, the Tasks view's, "Waits for you"'s and the Backlog's, and the search's
-    (`cls` "search-keys"), each hidden on a phone (`.keys`): the parts in turns, a tuple of keys and the
-    word of what they do."""
+    """A view's line of its keys, in the page's foot under the stage (`layout`): the Tasks view's, "Waits for
+    you"'s, the Backlog's and the Activity's; and the search's (`cls` "search-keys"), in its box. Each is hidden
+    on a phone (`.keys`). The parts come in turns, a tuple of keys and the word of what they do."""
     out = []
     for keys, word in zip(parts[::2], parts[1::2]):
         if out:
@@ -841,7 +845,8 @@ def older_row(ctx: Ctx) -> Markup | None:
 
 def kanban_page(ctx: Ctx) -> Markup:
     ctx.view = "tasks"
-    return layout(ctx, "Tasks", summary_of(ctx.model), kanban(ctx))
+    return layout(ctx, "Tasks", summary_of(ctx.model), kanban(ctx),
+                  keys=keys_line(("J", "K", "↑", "↓"), "move", ("H", "L", "←", "→"), "column", ("Enter",), "open", ("Esc",), "close", id_="kanban-keys"))
 
 
 def older_page(ctx: Ctx) -> Markup:
@@ -952,7 +957,7 @@ def waits_page(ctx: Ctx) -> Markup:
                         "data-cursor-link-value": "a.wr-verb", "data-cursor-pick-value": "a.wr-verb, a.wr-task",
                         "data-action": "keydown@window->cursor#key click->cursor#pick"}, rows, parked_group(ctx))
     keys = keys_line(("J", "K", "↑", "↓"), "move", ("Enter",), "go", id_="waits-keys") if n else None
-    return layout(ctx, "Waits for you", summary, h("div", {"class": "view scroll", "id": "waits-view"}, listing, keys, push_row(ctx, "page")))
+    return layout(ctx, "Waits for you", summary, h("div", {"class": "view scroll", "id": "waits-view"}, listing, push_row(ctx, "page")), keys=keys)
 
 
 def verb_link(ctx: Ctx, w: dict, say: dict) -> dict:
@@ -1172,9 +1177,9 @@ def backlog_page(ctx: Ctx) -> Markup:
                  chips, h("span", {"class": "fsep", "aria-hidden": "true"}), facts_),
                h("div", {"class": "dim small bl-sum"}, h("span", {"data-backlog-target": "count"}), sum_),
                h("div", {"class": "backlog", "id": "bl-groups"}, groups, empty,
-                 h("div", {"class": "lane-empty", "data-backlog-target": "none", "data-js-out": True}, "No item fits the filter.")),
-               keys_line(("/",), "filter", ("J", "K"), "move", ("Enter",), "open or close", ("R",), "read again")))
-    return layout(ctx, "Backlog", "The items of the backlog, by the worth each one gives itself", view)
+                 h("div", {"class": "lane-empty", "data-backlog-target": "none", "data-js-out": True}, "No item fits the filter."))))
+    return layout(ctx, "Backlog", "The items of the backlog, by the worth each one gives itself", view,
+                  keys=keys_line(("/",), "filter", ("J", "K"), "move", ("Enter",), "open or close", ("R",), "read again", id_="backlog-keys"))
 
 
 # ---- a new task ----
@@ -1309,7 +1314,9 @@ def activity_page(ctx: Ctx) -> Markup:
                h("div", {"class": "card-head"}, h("h2", None, "Activity"),
                  h("div", {"class": "dim small"}, bm.plural(count, "event") + (" · the newest 200" if count > 200 else ""))),
                h("div", {"class": "feed rows"}, feed_rows(ctx))))
-    return layout(ctx, "Activity", "What each task waited on today, and every event, the newest first", view)
+    # no key acts on the Activity's rows: its line says the keys of the views, which act on every page
+    return layout(ctx, "Activity", "What each task waited on today, and every event, the newest first", view,
+                  keys=keys_line(tuple(v["kbd"] for v in VIEWS), "view", id_="activity-keys"))
 
 
 # ---- the pages outside a workspace ----
