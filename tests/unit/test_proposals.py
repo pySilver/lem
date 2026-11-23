@@ -7,6 +7,7 @@ and that `prune` keeps the records and the items is tests/lem-state.sh's.
 """
 
 import contextlib
+import importlib
 import io
 import json
 import sys
@@ -17,7 +18,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts"))
-import project  # noqa: E402
+project = importlib.import_module("project")
 
 MORNING = datetime(2026, 11, 23, 6, 55, tzinfo=timezone.utc)
 TEN = datetime(2026, 11, 23, 10, 0, tzinfo=timezone.utc)
