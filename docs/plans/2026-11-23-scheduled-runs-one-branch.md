@@ -11,31 +11,43 @@ Size: full, because the night, the retro, a new reviewer agent, the backlog and 
    2. Its free hour finds a check that fails by chance in `tests/lem-serve.sh`.
    3. `.lem/state/night/2026-11-24.json` holds that finding as a proposal, with its place and its reason.
    4. After the retro of 06:55 UTC, `git branch --list 'free-hour/*'` prints nothing.
+   - test: `python3 -B -m unittest tests.unit.test_agents_md.NoScheduledBranch` in `tests/unit/test_agents_md.py`
 2. In another project the night works as today, and it never takes an item the reviewer wrote that the owner did not start.
    1. The backlog of the project `shop` holds `refund-total-zero.md`, which a developer wrote, and its `.lem/state/backlog/` holds an undecided item of the reviewer.
    2. The night of 2026-11-24 runs in `shop`.
    3. It opens a task for `refund-total-zero.md` only.
+   - no test: the night's choice of items is the text of `skills/lem/stages/night.md`, step 2, which reads only `lem project path backlog`; a real night is its test
 3. Each scheduled night and retro leaves its file for the day in `.lem/state/`, also on a day it found nothing: the retro of 2026-11-25 with no proposal writes `.lem/state/retros/2026-11-25.json`, which says what it read and that it proposes nothing.
+   - test: `python3 -B -m unittest tests.unit.test_proposals.Add` in `tests/unit/test_proposals.py`
 4. After the retro, a fresh reviewer agent reads each proposal of that day's night file and retro file against the backlog bar, and each proposal it refutes stays in the retro's file with its reason.
    1. The retro of 2026-11-23 proposes 10 proposals; one is a first-time lesson with no question in it.
    2. The reviewer refutes it.
    3. `.lem/state/retros/2026-11-23.json` keeps that proposal among the refuted ones, with the reason "a first-time lesson, with no question in it".
+   - test: `python3 -B -m unittest tests.unit.test_proposals.Verdict` in `tests/unit/test_proposals.py`
 5. The reviewer writes the proposals that passed as new backlog items in `.lem/state/backlog/`, which git ignores, one for each area, and each item names every proposal in it and where it came from; it writes nothing into the repository, and adds no item on a morning where nothing passed.
    1. Of 11 proposals, 9 pass: 5 about lessons, 3 about the board, 1 about the tests.
    2. `.lem/state/backlog/` gets 3 new items, one for each of the three areas.
    3. The item about the tests names "night of 2026-11-24" as its source.
+   - test: `python3 -B -m unittest tests.unit.test_proposals.Verdict` in `tests/unit/test_proposals.py`
 6. What the retro and the night propose reaches the owner only as these backlog items: the board's "Backlog" view shows each one as undecided, with "Start a task" and "Drop", the "Backlog" key shows the count of undecided items, and no row of "Waits for you", no line of `/lem status` and no page asks him about the retro's proposals.
+   - test: `python3 -B -m unittest tests.unit.test_board_pages.ReviewerItems` in `tests/unit/test_board_pages.py`
+   - test: `python3 -B -m unittest tests.unit.test_board_model.Search.test_the_count_on_the_backlog_key_is_the_reviewer_s_items_no_task_holds` in `tests/unit/test_board_model.py`
 7. "Drop" on an undecided item removes its file from `.lem/state/backlog/` at once and keeps the drop in the retro's file, and it is refused while a task that has not ended holds the item.
    1. The owner presses "Drop" on the board item about the board's colors.
    2. Its file is gone from `.lem/state/backlog/`, and the retro's file keeps its text with "the owner dropped it" and the day.
    3. He presses "Drop" on the item about the tests, which the task `tests-flaky-check` builds now.
    4. The board refuses, and its message names `tests-flaky-check`.
+   - test: `python3 -B -m unittest tests.unit.test_proposals.Drop` in `tests/unit/test_proposals.py`
 8. A proposal that the owner dropped or the reviewer refuted does not come back: the reviewer of a later morning that meets the same proposal refutes it, with the day of the earlier drop or refute as its reason.
+   - test: `python3 -B -m unittest tests.unit.test_proposals.Refuted` in `tests/unit/test_proposals.py`
 9. A task the owner starts from such an item runs and lands as any task does, and the item leaves the backlog with its landing: after the task `tests-flaky-check` lands, the item about the tests is no longer in the "Backlog" view. When the task started from an item is dropped, the item is undecided again.
+   - test: `python3 -B -m unittest tests.unit.test_backlog.StateItem` in `tests/unit/test_backlog.py`
+   - test: `python3 -B -m unittest tests.unit.test_board.ReviewerItems` in `tests/unit/test_board.py`
 10. Each scheduled night and retro closes its own agterm session as its last step, once the owner is not looking at it, and changes no file of the owner's cronn jobs. The session closes once agterm selects another session; while he stays in it, it stays open.
    1. The retro of 2026-11-24 ends at 07:20 UTC while the owner works in another session.
    2. Its session is gone from agterm at once.
    3. On another day he looks at the retro's session as it ends; it closes when he leaves it.
+   - test: `python3 -B -m unittest tests.unit.test_session.JobLine` in `tests/unit/test_session.py`
 
 ## How it works
 
