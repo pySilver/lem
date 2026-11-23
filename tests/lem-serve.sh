@@ -623,7 +623,7 @@ fresh_calls=$(cat "$AGT_CALLS")
 moved=$(opened LEM --task stock-on-product-page)
 moved_calls=$(cat "$AGT_CALLS")
 if [ "$(field '(d["url"], d["companion"], d["reloaded"], d["name"], "removed" in d)' <<<"$kept")" = "('$BASE/', 'PA', True, 'Lem board · shop', False)" ] \
-  && grep -qxF "session overlay reload --current --target PA --socket $WORK/agterm.sock" <<<"$kept_calls" && ! grep -q "PX\|overlay open\|session close" <<<"$kept_calls" \
+  && grep -qxF "session overlay reload --current --target PA --socket $WORK/agterm.sock" <<<"$kept_calls" && ! grep -qE -e '--target PX( |$)' -e 'overlay open|session close' <<<"$kept_calls" \
   && [ "$(field '(d["companion"], d["parent"], d["reloaded"])' <<<"$fresh")" = "('NEW', 'OTHER', False)" ] && ! grep -qF "session close" <<<"$fresh_calls" \
   && grep -qxF "session overlay open --url $BASE/tasks/stock-on-product-page --persistent --js --companion --target OTHER --json --socket $WORK/agterm.sock" <<<"$fresh_calls" \
   && grep -qxF "session select --target NEW --socket $WORK/agterm.sock" <<<"$fresh_calls" \
